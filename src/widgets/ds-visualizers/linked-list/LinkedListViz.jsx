@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { VizFrame, VizBody, VizControls } from '../VizFrame.jsx'
 
 export default function LinkedListViz({
   initialValues = [],
@@ -61,59 +62,61 @@ export default function LinkedListViz({
   }, [])
 
   return (
-    <div className="not-prose my-6 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 overflow-hidden">
-      <div className="flex items-center gap-3 bg-slate-800/60 px-3 py-1.5 text-xs">
-        <span className="font-mono uppercase tracking-wide text-slate-400">
-          linked list
-        </span>
-        <span className="text-[10px] text-slate-500 font-mono">
-          {nodes.length} / {maxNodes}
-        </span>
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2 min-h-[4.5rem] px-4 py-4 bg-slate-900">
-        <span className="text-xs font-mono text-fuchsia-400 mr-1">head →</span>
-        {nodes.length === 0 && (
-          <span className="text-slate-500 font-mono italic text-sm">NULL</span>
-        )}
-        <AnimatePresence mode="popLayout" initial={false}>
-          {nodes.map((node, i) => (
-            <motion.div
-              key={node.id}
-              layout
-              initial={{ opacity: 0, scale: 0.3, y: -24 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.3, y: 24 }}
-              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-              className="flex items-center gap-2"
-            >
-              <div className="relative flex flex-col items-center">
-                <div className="rounded-md bg-slate-800 border border-slate-700 px-3 py-1.5 font-mono text-slate-100 shadow-md min-w-[2.5rem] text-center">
-                  {node.value}
-                </div>
-                <span className="absolute -bottom-4 text-[9px] text-slate-500 font-mono">
-                  [{i}]
-                </span>
-              </div>
-              <span className="text-slate-600 text-lg">→</span>
-            </motion.div>
-          ))}
-          {nodes.length > 0 && (
-            <motion.span
-              key="null-tail"
-              layout
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="text-slate-500 font-mono text-sm"
-            >
+    <VizFrame
+      label="linked list"
+      count={nodes.length}
+      max={maxNodes}
+      error={error}
+    >
+      <VizBody>
+        <div className="flex flex-wrap items-center gap-2 min-h-[4.5rem]">
+          <span className="text-xs font-mono text-fuchsia-400 mr-1">
+            head →
+          </span>
+          {nodes.length === 0 && (
+            <span className="text-slate-500 font-mono italic text-sm">
               NULL
-            </motion.span>
+            </span>
           )}
-        </AnimatePresence>
-      </div>
+          <AnimatePresence mode="popLayout" initial={false}>
+            {nodes.map((node, i) => (
+              <motion.div
+                key={node.id}
+                layout
+                initial={{ opacity: 0, scale: 0.3, y: -24 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.3, y: 24 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                className="flex items-center gap-2"
+              >
+                <div className="relative flex flex-col items-center">
+                  <div className="rounded-md bg-slate-800 border border-slate-700 px-3 py-1.5 font-mono text-slate-100 shadow-md min-w-[2.5rem] text-center">
+                    {node.value}
+                  </div>
+                  <span className="absolute -bottom-4 text-[9px] text-slate-500 font-mono">
+                    [{i}]
+                  </span>
+                </div>
+                <span className="text-slate-600 text-lg">→</span>
+              </motion.div>
+            ))}
+            {nodes.length > 0 && (
+              <motion.span
+                key="null-tail"
+                layout
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="text-slate-500 font-mono text-sm"
+              >
+                NULL
+              </motion.span>
+            )}
+          </AnimatePresence>
+        </div>
+      </VizBody>
 
-      <div className="flex flex-wrap items-center gap-2 px-4 py-3 bg-slate-950 border-t border-slate-800">
+      <VizControls>
         <input
           type="number"
           value={valueInput}
@@ -165,13 +168,7 @@ export default function LinkedListViz({
         >
           clear
         </button>
-      </div>
-
-      {error && (
-        <p className="bg-amber-500/10 border-t border-amber-500/20 text-amber-300 text-xs px-4 py-1.5">
-          ⚠ {error}
-        </p>
-      )}
-    </div>
+      </VizControls>
+    </VizFrame>
   )
 }

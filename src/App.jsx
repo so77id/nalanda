@@ -1,5 +1,5 @@
 import { CodeRunner, LanguageProvider } from './widgets/code-runner/index.js'
-import { LinkedListViz } from './widgets/ds-visualizers/index.js'
+import { LinkedListViz, StackViz } from './widgets/ds-visualizers/index.js'
 
 const LINKED_LIST = {
   cpp: `#include <iostream>
@@ -191,6 +191,16 @@ export default function App() {
           </p>
 
           <CodeRunner samples={LINKED_LIST} />
+
+          <h2>Stacks — el primo LIFO</h2>
+          <p>
+            Un stack es una lista restringida: solo podés agregar o quitar por{' '}
+            <em>un</em> extremo, el <strong>top</strong>. El último que entró
+            es el primero que sale (LIFO). Sed ut perspiciatis unde omnis iste
+            natus error sit voluptatem accusantium doloremque.
+          </p>
+
+          <StackViz initialValues={[1, 2, 3]} />
 
           <h2>Recursión: Fibonacci</h2>
           <p>
