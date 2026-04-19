@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import CodeMirror from '@uiw/react-codemirror'
+import { Play, Loader, Expand, X } from 'lucide-react'
 import { useRuntime } from './useRuntime.js'
 import { useLanguage } from './LanguageContext.jsx'
 import { runtimeList, getRuntime } from './runtimes/index.js'
@@ -8,12 +9,10 @@ import { runtimeList, getRuntime } from './runtimes/index.js'
 export default function CodeRunner({ samples = {}, initialStdin = '' }) {
   const { languageId, setLanguageId } = useLanguage()
 
-  // Per-language code buffers, initialised lazily from samples or runtime default
   const [codeByLang, setCodeByLang] = useState(() => {
     const init = {}
     for (const r of runtimeList) {
-      init[r.meta.id] =
-        samples[r.meta.id] ?? r.meta.defaultCode ?? ''
+      init[r.meta.id] = samples[r.meta.id] ?? r.meta.defaultCode ?? ''
     }
     return init
   })
@@ -36,8 +35,6 @@ export default function CodeRunner({ samples = {}, initialStdin = '' }) {
     [languageId]
   )
 
-  // When the GLOBAL language changes, clear stale output from the previous run
-  // (belongs to a different language, misleading to show it)
   useEffect(() => {
     setCompileLog('')
     setOutput('')
@@ -52,8 +49,8 @@ export default function CodeRunner({ samples = {}, initialStdin = '' }) {
     setExitCode(null)
     try {
       const r = await run(code, stdin)
-      setCompileLog(r.compileLog || '(no diagnostics)')
-      setOutput(r.output || (r.exitCode == null ? '' : '(no output)'))
+      setCompileLog(r.compileLog || '(sin diagnósticos)')
+      setOutput(r.output || (r.exitCode == null ? '' : '(sin salida)'))
       setExitCode(r.exitCode)
       setTimings({ compile: r.compileMs, run: r.runMs })
     } catch (err) {
@@ -79,7 +76,14 @@ export default function CodeRunner({ samples = {}, initialStdin = '' }) {
 
   const running = phase === 'running'
   const disabled = !warm || running
-  const buttonLabel = !warm ? 'Warming up…' : running ? 'Running…' : '▶ Run'
+  const buttonLabel = !warm ? 'Calentando…' : running ? 'Ejecutando…' : 'Ejecutar'
+  const buttonIcon = !warm ? (
+    <Loader size={14} className="animate-spin" />
+  ) : running ? (
+    <Loader size={14} className="animate-spin" />
+  ) : (
+    <Play size={14} />
+  )
 
   const state = useMemo(
     () => ({
@@ -98,6 +102,7 @@ export default function CodeRunner({ samples = {}, initialStdin = '' }) {
       running,
       disabled,
       buttonLabel,
+      buttonIcon,
       handleRun,
       runtime,
     }),
@@ -116,6 +121,7 @@ export default function CodeRunner({ samples = {}, initialStdin = '' }) {
       running,
       disabled,
       buttonLabel,
+      buttonIcon,
       handleRun,
       runtime,
     ]
@@ -138,9 +144,12 @@ function LanguagePicker({ languageId, onLanguageChange, compact = false }) {
     <select
       value={languageId}
       onChange={(e) => onLanguageChange(e.target.value)}
-      className={`rounded border border-slate-700 bg-slate-900 font-mono text-slate-200 outline-none hover:border-fuchsia-500 focus:border-fuchsia-500 transition ${
-        compact ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'
-      }`}
+      className="input"
+      style={{
+        fontFamily: 'var(--font-mono)',
+        padding: compact ? '2px 8px' : '5px 10px',
+        fontSize: compact ? 'var(--text-xs)' : 'var(--text-sm)',
+      }}
     >
       {runtimeList.map((r) => (
         <option key={r.meta.id} value={r.meta.id}>
@@ -148,6 +157,15 @@ function LanguagePicker({ languageId, onLanguageChange, compact = false }) {
         </option>
       ))}
     </select>
+  )
+}
+
+function WarmChip({ warm }) {
+  return (
+    <span className={`chip chip--${warm ? 'ok' : 'warn'}`}>
+      <span style={{ fontSize: 8 }}>●</span>
+      {warm ? 'listo' : 'calentando'}
+    </span>
   )
 }
 
@@ -164,6 +182,7 @@ function EmbedView({
   running,
   disabled,
   buttonLabel,
+  buttonIcon,
   handleRun,
   runtime,
   onExpand,
@@ -172,80 +191,96 @@ function EmbedView({
   const bodyText = showError ? compileLog : output
 
   return (
-    <div className="not-prose my-6 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 overflow-hidden shadow-lg shadow-slate-950/20">
-      <div className="flex items-center gap-2 bg-slate-800/60 px-3 py-1.5 text-xs">
-        <LanguagePicker
-          languageId={languageId}
-          onLanguageChange={onLanguageChange}
-          compact
-        />
-        <span className="font-mono uppercase tracking-wide text-slate-400">
-          {runtime?.meta.fileName}
-        </span>
-        <span
-          className={`rounded-full px-2 py-0.5 text-[10px] ${
-            warm
-              ? 'bg-emerald-500/20 text-emerald-300'
-              : 'bg-amber-500/20 text-amber-300 animate-pulse'
-          }`}
-        >
-          {warm ? '● warm' : '○ warming'}
-        </span>
-        <button
-          onClick={onExpand}
-          className="ml-auto rounded px-2 py-1 text-slate-400 hover:bg-slate-700 hover:text-slate-100 transition"
-          aria-label="Expand to fullscreen"
-          title="Expand (fullscreen)"
-        >
-          ⤢
-        </button>
-      </div>
-
-      <div className="max-h-56 overflow-auto border-b border-slate-800">
-        <CodeMirror
-          key={languageId}
-          value={code}
-          onChange={setCode}
-          extensions={runtime ? [runtime.meta.codeMirrorLanguage] : []}
-          theme="dark"
-          basicSetup={{ lineNumbers: true, foldGutter: false }}
-        />
-      </div>
-
-      <div className="flex items-center gap-3 bg-slate-900 px-3 py-2">
-        <button
-          onClick={handleRun}
-          disabled={disabled}
-          className="rounded-md bg-fuchsia-500 px-3 py-1 text-sm font-medium text-white hover:bg-fuchsia-400 disabled:opacity-50 transition"
-        >
-          {buttonLabel}
-        </button>
-        {timings && (
-          <span className="text-xs text-slate-400">
-            {timings.compile > 0 ? `compile ${timings.compile}ms · ` : ''}
-            exec {timings.run ?? '—'}ms
-          </span>
-        )}
-        {exitCode !== null && (
-          <span
-            className={`ml-auto text-xs font-mono ${
-              exitCode === 0 ? 'text-emerald-400' : 'text-rose-400'
-            }`}
+    <div className="nalanda not-prose my-6">
+      <div className="card">
+        <div className="card__header" style={{ gap: 10 }}>
+          <LanguagePicker
+            languageId={languageId}
+            onLanguageChange={onLanguageChange}
+            compact
+          />
+          <span className="chrome-label">{runtime?.meta.fileName}</span>
+          <WarmChip warm={warm} />
+          <span style={{ flex: 1 }} />
+          <button
+            type="button"
+            onClick={onExpand}
+            className="btn btn--ghost btn--icon"
+            aria-label="Expandir a pantalla completa"
+            title="Pantalla completa"
           >
-            exit {exitCode}
-          </span>
+            <Expand size={14} />
+          </button>
+        </div>
+
+        <div
+          style={{
+            maxHeight: '14rem',
+            overflow: 'auto',
+            borderBottom: '1px solid var(--border-subtle)',
+          }}
+        >
+          <CodeMirror
+            key={languageId}
+            value={code}
+            onChange={setCode}
+            extensions={runtime ? [runtime.meta.codeMirrorLanguage] : []}
+            theme="dark"
+            basicSetup={{ lineNumbers: true, foldGutter: false }}
+          />
+        </div>
+
+        <div className="card__footer">
+          <button
+            type="button"
+            onClick={handleRun}
+            disabled={disabled}
+            className="btn btn--primary"
+          >
+            {buttonIcon}
+            {buttonLabel}
+          </button>
+          {timings && (
+            <span
+              style={{
+                fontSize: 'var(--text-xs)',
+                color: 'var(--fg-3)',
+                fontFamily: 'var(--font-mono)',
+              }}
+            >
+              {timings.compile > 0 ? `compile ${timings.compile}ms · ` : ''}
+              exec {timings.run ?? '—'}ms
+            </span>
+          )}
+          <span style={{ flex: 1 }} />
+          {exitCode !== null && (
+            <span
+              className={`chip chip--${exitCode === 0 ? 'ok' : 'err'}`}
+            >
+              exit {exitCode}
+            </span>
+          )}
+        </div>
+
+        {(bodyText || running) && (
+          <pre
+            style={{
+              maxHeight: '10rem',
+              overflow: 'auto',
+              background: 'var(--bg-code)',
+              borderTop: '1px solid var(--border-subtle)',
+              margin: 0,
+              padding: '8px 14px',
+              fontFamily: 'var(--font-mono)',
+              fontSize: 'var(--text-xs)',
+              whiteSpace: 'pre-wrap',
+              color: showError ? 'var(--warn-fg)' : 'var(--fg-2)',
+            }}
+          >
+            {bodyText || '…'}
+          </pre>
         )}
       </div>
-
-      {(bodyText || running) && (
-        <pre
-          className={`max-h-40 overflow-auto bg-slate-900/50 px-3 py-2 font-mono text-xs whitespace-pre-wrap ${
-            showError ? 'text-amber-200' : 'text-slate-200'
-          }`}
-        >
-          {bodyText || '…'}
-        </pre>
-      )}
     </div>
   )
 }
@@ -266,14 +301,25 @@ function FullscreenView({
   running,
   disabled,
   buttonLabel,
+  buttonIcon,
   handleRun,
   runtime,
   onClose,
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex flex-col gap-3 bg-slate-950 p-4 text-slate-100">
+    <div
+      className="nalanda fixed inset-0 z-50 flex flex-col gap-3 p-4"
+      style={{ background: 'var(--bg-page)', color: 'var(--fg-1)' }}
+    >
       <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-xl font-semibold text-fuchsia-300">
+        <h1
+          style={{
+            fontSize: 'var(--text-xl)',
+            fontWeight: 600,
+            color: 'var(--accent-fg)',
+            margin: 0,
+          }}
+        >
           Code Runner · Nalanda
         </h1>
 
@@ -282,107 +328,173 @@ function FullscreenView({
           onLanguageChange={onLanguageChange}
         />
 
-        <div className="flex items-center gap-2 text-xs">
+        <WarmChip warm={warm} />
+        {warmStats && runtime?.meta.statsLabel && (
           <span
-            className={`rounded-full px-2 py-0.5 ${
-              warm
-                ? 'bg-emerald-500/20 text-emerald-300'
-                : 'bg-amber-500/20 text-amber-300 animate-pulse'
-            }`}
+            style={{
+              fontSize: 'var(--text-xs)',
+              color: 'var(--fg-3)',
+              fontFamily: 'var(--font-mono)',
+            }}
           >
-            {warm ? '● warm' : '○ warming'}
+            boot {warmStats.totalMs}ms · {runtime.meta.statsLabel(warmStats)}
           </span>
-          {warmStats && runtime?.meta.statsLabel && (
-            <span className="text-slate-400">
-              boot {warmStats.totalMs}ms · {runtime.meta.statsLabel(warmStats)}
-            </span>
-          )}
-        </div>
+        )}
 
         {timings && (
-          <span className="text-xs text-slate-300">
-            · last run →
-            {timings.compile > 0 ? ` compile ${timings.compile}ms ·` : ''}
-            {' '}exec {timings.run ?? '—'}ms
+          <span
+            style={{
+              fontSize: 'var(--text-xs)',
+              color: 'var(--fg-3)',
+              fontFamily: 'var(--font-mono)',
+            }}
+          >
+            · última ejecución →
+            {timings.compile > 0 ? ` compile ${timings.compile}ms ·` : ''} exec{' '}
+            {timings.run ?? '—'}ms
           </span>
         )}
 
         <button
+          type="button"
           onClick={onClose}
-          className="ml-auto rounded-md border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800 transition"
-          title="Close (Esc)"
+          className="btn btn--secondary"
+          style={{ marginLeft: 'auto' }}
+          title="Cerrar (Esc)"
         >
-          ✕ Close
+          <X size={14} /> Cerrar
         </button>
       </div>
 
       <div className="grid flex-1 grid-cols-2 gap-3 min-h-0">
-        <div className="flex flex-col min-h-0 rounded-md overflow-hidden border border-slate-800">
-          <div className="bg-slate-800 px-3 py-1 text-xs uppercase tracking-wide text-slate-400">
-            {runtime?.meta.fileName}
-          </div>
-          <div className="flex-1 overflow-auto">
-            <CodeMirror
-              key={languageId}
-              value={code}
-              onChange={setCode}
-              extensions={runtime ? [runtime.meta.codeMirrorLanguage] : []}
-              theme="dark"
-              height="100%"
-              basicSetup={{ lineNumbers: true, foldGutter: true }}
-            />
-          </div>
-        </div>
+        <PanelFrame label={runtime?.meta.fileName}>
+          <CodeMirror
+            key={languageId}
+            value={code}
+            onChange={setCode}
+            extensions={runtime ? [runtime.meta.codeMirrorLanguage] : []}
+            theme="dark"
+            height="100%"
+            basicSetup={{ lineNumbers: true, foldGutter: true }}
+          />
+        </PanelFrame>
 
         <div className="flex flex-col min-h-0 gap-3">
           <button
+            type="button"
             onClick={handleRun}
             disabled={disabled}
-            className="rounded-md bg-fuchsia-500 px-4 py-2 font-medium text-white hover:bg-fuchsia-400 disabled:opacity-50 transition shadow-lg shadow-fuchsia-500/20"
+            className="btn btn--primary"
+            style={{ padding: '8px 16px', justifyContent: 'center' }}
           >
+            {buttonIcon}
             {buttonLabel}
           </button>
 
-          <div className="flex flex-col rounded-md overflow-hidden border border-slate-800">
-            <div className="bg-slate-800 px-3 py-1 text-xs uppercase tracking-wide text-slate-400">
-              stdin
-            </div>
+          <PanelFrame label="stdin">
             <textarea
               value={stdin}
               onChange={(e) => setStdin(e.target.value)}
-              placeholder="(optional program input)"
-              className="h-16 resize-none bg-slate-900 p-2 font-mono text-sm text-slate-200 outline-none"
+              placeholder="(entrada opcional)"
+              style={{
+                height: '4rem',
+                resize: 'none',
+                background: 'var(--bg-panel)',
+                color: 'var(--fg-1)',
+                padding: 8,
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--text-sm)',
+                outline: 'none',
+                border: 'none',
+              }}
             />
-          </div>
+          </PanelFrame>
 
-          <div className="flex flex-col rounded-md overflow-hidden border border-slate-800 min-h-[6rem]">
-            <div className="bg-slate-800 px-3 py-1 text-xs uppercase tracking-wide text-slate-400">
-              {runtime?.meta.id === 'cpp' ? 'compile diagnostics' : 'errors'}
-            </div>
-            <pre className="flex-1 overflow-auto bg-slate-900 p-2 font-mono text-xs text-amber-200 whitespace-pre-wrap max-h-40">
+          <PanelFrame
+            label={runtime?.meta.id === 'cpp' ? 'diagnósticos' : 'errores'}
+          >
+            <pre
+              style={{
+                flex: 1,
+                overflow: 'auto',
+                background: 'var(--bg-panel)',
+                padding: 8,
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--text-xs)',
+                color: 'var(--warn-fg)',
+                whiteSpace: 'pre-wrap',
+                maxHeight: '10rem',
+                margin: 0,
+              }}
+            >
               {compileLog || '—'}
             </pre>
-          </div>
+          </PanelFrame>
 
-          <div className="flex flex-1 flex-col min-h-0 rounded-md overflow-hidden border border-slate-800">
-            <div className="flex items-center bg-slate-800 px-3 py-1 text-xs uppercase tracking-wide text-slate-400">
-              <span>stdout</span>
-              {exitCode !== null && (
-                <span
-                  className={`ml-auto ${
-                    exitCode === 0 ? 'text-emerald-400' : 'text-rose-400'
-                  }`}
-                >
-                  exit {exitCode}
-                </span>
-              )}
-            </div>
-            <pre className="flex-1 overflow-auto bg-slate-900 p-2 font-mono text-sm text-slate-200 whitespace-pre-wrap">
-              {output || (running ? '…' : '(no output yet — click Run)')}
+          <PanelFrame
+            grow
+            label={
+              <>
+                stdout
+                {exitCode !== null && (
+                  <span
+                    className={`chip chip--${exitCode === 0 ? 'ok' : 'err'}`}
+                    style={{ marginLeft: 'auto' }}
+                  >
+                    exit {exitCode}
+                  </span>
+                )}
+              </>
+            }
+          >
+            <pre
+              style={{
+                flex: 1,
+                overflow: 'auto',
+                background: 'var(--bg-panel)',
+                padding: 8,
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--text-sm)',
+                color: 'var(--fg-1)',
+                whiteSpace: 'pre-wrap',
+                margin: 0,
+              }}
+            >
+              {output || (running ? '…' : '(sin salida — pulsá Ejecutar)')}
             </pre>
-          </div>
+          </PanelFrame>
         </div>
       </div>
+    </div>
+  )
+}
+
+function PanelFrame({ label, grow = false, children }) {
+  return (
+    <div
+      className="flex flex-col min-h-0"
+      style={{
+        flex: grow ? 1 : undefined,
+        borderRadius: 'var(--radius-md)',
+        overflow: 'hidden',
+        border: '1px solid var(--border-default)',
+      }}
+    >
+      <div
+        className="flex items-center"
+        style={{
+          background: 'var(--bg-panel-header)',
+          padding: '4px 12px',
+          fontSize: 'var(--text-xs)',
+          textTransform: 'uppercase',
+          letterSpacing: 'var(--tracking-wide)',
+          color: 'var(--fg-4)',
+          fontFamily: 'var(--font-mono)',
+        }}
+      >
+        {label}
+      </div>
+      <div className="flex-1 overflow-auto flex flex-col">{children}</div>
     </div>
   )
 }

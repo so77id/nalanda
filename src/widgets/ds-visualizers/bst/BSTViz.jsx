@@ -1,6 +1,7 @@
 import { useState, useCallback, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { VizFrame, VizBody, VizControls } from '../VizFrame.jsx'
+import { Plus, Minus, Trash2 } from 'lucide-react'
+import Widget from '../Widget.jsx'
 
 // --- tree ops (pure, immutable) -------------------------------------------
 let __bstId = 0
@@ -22,12 +23,11 @@ function removeNode(node, value) {
   if (!node) return null
   if (value < node.value) return { ...node, left: removeNode(node.left, value) }
   if (value > node.value) return { ...node, right: removeNode(node.right, value) }
-  // found
   if (!node.left && !node.right) return null
   if (!node.left) return node.right
   if (!node.right) return node.left
-  // two children — promote the in-order successor, keep successor's id so the
-  // student sees the successor node physically rise to take the slot
+  // two children — in-order successor takes the slot, keeping its id so
+  // the student sees the successor physically rise to fill the gap.
   const succ = findMin(node.right)
   return {
     ...succ,
@@ -90,7 +90,6 @@ function computeLayout(root) {
   return { nodes: placed, edges, width: x, height: maxDepth + 1 }
 }
 
-// --- component ------------------------------------------------------------
 const NODE_SIZE = 42
 const GAP_X = 18
 const GAP_Y = 60
@@ -106,6 +105,7 @@ function nodeCenter(x, y) {
 export default function BSTViz({
   initialValues = [5, 3, 8, 1, 4, 7, 9],
   maxNodes = 15,
+  title = 'Árbol binario de búsqueda',
 }) {
   const [root, setRoot] = useState(() => {
     let r = null
@@ -169,100 +169,142 @@ export default function BSTViz({
     setError('')
   }, [])
 
+  const countChip = (
+    <span className="chip chip--muted">
+      {size} / {maxNodes}
+    </span>
+  )
+
+  const controls = (
+    <>
+      <input
+        type="number"
+        className="input"
+        style={{ width: 80 }}
+        value={valueInput}
+        onChange={(e) => setValueInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') doInsert()
+        }}
+        placeholder="valor"
+      />
+      <button
+        type="button"
+        className="btn btn--primary"
+        onClick={doInsert}
+      >
+        <Plus size={14} /> insertar
+      </button>
+      <button
+        type="button"
+        className="btn btn--secondary"
+        onClick={doRemove}
+      >
+        <Minus size={14} /> eliminar
+      </button>
+      <span style={{ flex: 1 }} />
+      <button
+        type="button"
+        className="btn btn--ghost"
+        onClick={doClear}
+        disabled={root === null}
+      >
+        <Trash2 size={14} /> limpiar
+      </button>
+    </>
+  )
+
   return (
-    <VizFrame label="bst" count={size} max={maxNodes} error={error}>
-      <VizBody>
-        {root === null ? (
-          <p className="text-slate-500 font-mono italic text-sm text-center py-4">
-            empty — insertá un valor para empezar
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <div
-              className="relative mx-auto"
-              style={{ width: canvasW, height: canvasH }}
-            >
-              <svg
-                className="absolute inset-0 pointer-events-none"
-                width={canvasW}
-                height={canvasH}
-              >
-                {edges.map((e) => {
-                  const from = nodeById.get(e.from)
-                  const to = nodeById.get(e.to)
-                  if (!from || !to) return null
-                  const a = nodeCenter(from.x, from.y)
-                  const b = nodeCenter(to.x, to.y)
-                  return (
-                    <line
-                      key={e.id}
-                      x1={a.cx}
-                      y1={a.cy}
-                      x2={b.cx}
-                      y2={b.cy}
-                      stroke="rgb(71 85 105)"
-                      strokeWidth="2"
-                    />
-                  )
-                })}
-              </svg>
-              <AnimatePresence initial={false} mode="popLayout">
-                {nodes.map((n) => {
-                  const { cx, cy } = nodeCenter(n.x, n.y)
-                  const left = cx - NODE_SIZE / 2
-                  const top = cy - NODE_SIZE / 2
-                  return (
-                    <motion.div
-                      key={n.id}
-                      initial={{ opacity: 0, scale: 0.3, x: left, y: top }}
-                      animate={{ opacity: 1, scale: 1, x: left, y: top }}
-                      exit={{ opacity: 0, scale: 0.3 }}
-                      transition={{ type: 'spring', stiffness: 420, damping: 32 }}
-                      className="absolute flex items-center justify-center rounded-full bg-slate-800 border border-slate-700 font-mono text-sm text-slate-100 shadow-md"
-                      style={{ width: NODE_SIZE, height: NODE_SIZE, top: 0, left: 0 }}
-                    >
-                      {n.value}
-                    </motion.div>
-                  )
-                })}
-              </AnimatePresence>
-            </div>
-          </div>
-        )}
-      </VizBody>
-
-      <VizControls>
-        <input
-          type="number"
-          value={valueInput}
-          onChange={(e) => setValueInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') doInsert()
+    <Widget
+      title={title}
+      subtitle="BST"
+      meta={countChip}
+      controls={controls}
+      error={error}
+      dataViz="bst"
+    >
+      {root === null ? (
+        <p
+          style={{
+            color: 'var(--fg-5)',
+            fontFamily: 'var(--font-mono)',
+            fontStyle: 'italic',
+            fontSize: 'var(--text-sm)',
+            textAlign: 'center',
+            padding: '16px 0',
+            margin: 0,
           }}
-          placeholder="valor"
-          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm outline-none focus:border-fuchsia-500 transition"
-        />
-        <button
-          onClick={doInsert}
-          className="rounded bg-fuchsia-500 px-3 py-1 text-sm font-medium text-white hover:bg-fuchsia-400 transition"
         >
-          insert
-        </button>
-        <button
-          onClick={doRemove}
-          className="rounded bg-slate-700 px-3 py-1 text-sm font-medium text-slate-100 hover:bg-slate-600 transition"
-        >
-          delete
-        </button>
-
-        <button
-          onClick={doClear}
-          disabled={root === null}
-          className="ml-auto rounded border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-transparent transition"
-        >
-          clear
-        </button>
-      </VizControls>
-    </VizFrame>
+          vacío — insertá un valor para empezar
+        </p>
+      ) : (
+        <div style={{ overflowX: 'auto' }}>
+          <div
+            style={{ position: 'relative', margin: '0 auto', width: canvasW, height: canvasH }}
+          >
+            <svg
+              style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+              width={canvasW}
+              height={canvasH}
+            >
+              {edges.map((e) => {
+                const from = nodeById.get(e.from)
+                const to = nodeById.get(e.to)
+                if (!from || !to) return null
+                const a = nodeCenter(from.x, from.y)
+                const b = nodeCenter(to.x, to.y)
+                return (
+                  <line
+                    key={e.id}
+                    x1={a.cx}
+                    y1={a.cy}
+                    x2={b.cx}
+                    y2={b.cy}
+                    stroke="var(--border-default)"
+                    strokeWidth="1.5"
+                  />
+                )
+              })}
+            </svg>
+            <AnimatePresence initial={false} mode="popLayout">
+              {nodes.map((n) => {
+                const { cx, cy } = nodeCenter(n.x, n.y)
+                const left = cx - NODE_SIZE / 2
+                const top = cy - NODE_SIZE / 2
+                return (
+                  <motion.div
+                    key={n.id}
+                    data-cell={n.value}
+                    initial={{ opacity: 0, scale: 0.3, x: left, y: top }}
+                    animate={{ opacity: 1, scale: 1, x: left, y: top }}
+                    exit={{ opacity: 0, scale: 0.3 }}
+                    transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                    style={{
+                      position: 'absolute',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      background: 'var(--bg-elev-1)',
+                      border: '1.5px solid var(--border-default)',
+                      color: 'var(--fg-1)',
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 'var(--text-sm)',
+                      borderRadius: 'var(--radius-full)',
+                      width: NODE_SIZE,
+                      height: NODE_SIZE,
+                      top: 0,
+                      left: 0,
+                      boxShadow: 'var(--shadow-sm)',
+                    }}
+                  >
+                    {n.value}
+                  </motion.div>
+                )
+              })}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
+    </Widget>
   )
 }

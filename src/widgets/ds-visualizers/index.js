@@ -1,5 +1,5 @@
+export { default as Widget } from './Widget.jsx'
 export { default as LinkedListViz } from './linked-list/LinkedListViz.jsx'
 export { default as StackViz } from './stack/StackViz.jsx'
 export { default as QueueViz } from './queue/QueueViz.jsx'
 export { default as BSTViz } from './bst/BSTViz.jsx'
-export { VizFrame, VizBody, VizControls } from './VizFrame.jsx'

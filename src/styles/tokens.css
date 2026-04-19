@@ -1,0 +1,341 @@
+/* =========================================================================
+   Nalanda Design System — Colors & Type tokens
+   Dual theme: dark (default) + light. GitHub Dark / One Dark flavor for
+   dark; GitHub Light for light. Switch with <html data-theme="light|dark">.
+   Ported from nalanda-design-system/project/colors_and_type.css
+   ========================================================================= */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ===========================================================================
+   BASE PALETTE — raw color scales. Never reference these in components;
+   go through the semantic tokens below.
+   =========================================================================== */
+:root {
+  --slate-50:  #f8fafc;
+  --slate-100: #f1f5f9;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+  --slate-900: #0f172a;
+  --slate-950: #020617;
+
+  --fuchsia-300: #f0abfc;
+  --fuchsia-400: #e879f9;
+  --fuchsia-500: #d946ef;
+  --fuchsia-600: #c026d3;
+  --fuchsia-700: #a21caf;
+
+  --emerald-300: #6ee7b7;
+  --emerald-500: #10b981;
+  --emerald-600: #059669;
+  --amber-300:   #fcd34d;
+  --amber-500:   #f59e0b;
+  --rose-400:    #fb7185;
+  --rose-500:    #f43f5e;
+  --sky-400:     #38bdf8;
+  --sky-500:     #0ea5e9;
+  --sky-600:     #0284c7;
+
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, 'Courier New', monospace;
+
+  --text-xs:   12px;
+  --text-sm:   14px;
+  --text-base: 16px;
+  --text-lg:   18px;
+  --text-xl:   20px;
+  --text-2xl:  24px;
+  --text-3xl:  30px;
+  --text-4xl:  36px;
+  --text-5xl:  48px;
+  --text-6xl:  60px;
+
+  --leading-tight:   1.15;
+  --leading-snug:    1.35;
+  --leading-normal:  1.55;
+  --leading-relaxed: 1.7;
+
+  --tracking-wide:   0.025em;
+  --tracking-widest: 0.15em;
+
+  --radius-sm:   4px;
+  --radius-md:   6px;
+  --radius-lg:   8px;
+  --radius-xl:   12px;
+  --radius-full: 9999px;
+
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out:    cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-fast:    150ms;
+  --dur-base:    300ms;
+}
+
+/* ===========================================================================
+   DARK THEME — default.
+   =========================================================================== */
+:root,
+[data-theme="dark"] {
+  --bg-page:         #0d1117;
+  --bg-panel:        #161b22;
+  --bg-panel-header: #1c2128;
+  --bg-panel-footer: #0d1117;
+  --bg-elev-1:       #21262d;
+  --bg-elev-2:       #30363d;
+  --bg-code:         #0d1117;
+  --bg-overlay:      rgb(13 17 23 / 0.75);
+
+  --border-subtle:   #21262d;
+  --border-default:  #30363d;
+  --border-control:  #373e47;
+  --border-focus:    var(--fuchsia-500);
+
+  --fg-1:  #e6edf3;
+  --fg-2:  #c9d1d9;
+  --fg-3:  #8b949e;
+  --fg-4:  #6e7681;
+  --fg-5:  #484f58;
+  --fg-on-accent: #ffffff;
+
+  --accent:         var(--fuchsia-500);
+  --accent-hover:   var(--fuchsia-400);
+  --accent-fg:      var(--fuchsia-400);
+  --accent-glow:    rgb(217 70 239 / 0.22);
+  --accent-soft-bg: rgb(217 70 239 / 0.15);
+
+  --ok-fg:        var(--emerald-300);
+  --ok-bg:        rgb(16 185 129 / 0.18);
+  --warn-fg:      var(--amber-300);
+  --warn-bg:      rgb(245 158 11 / 0.18);
+  --err-fg:       var(--rose-400);
+  --err-bg:       rgb(244 63 94 / 0.15);
+  --info-fg:      var(--sky-400);
+  --info-bg:      rgb(56 189 248 / 0.15);
+
+  --shadow-sm:   0 1px 2px rgb(0 0 0 / 0.4);
+  --shadow-md:   0 4px 6px -1px rgb(0 0 0 / 0.4), 0 2px 4px -2px rgb(0 0 0 / 0.4);
+  --shadow-lg:   0 10px 15px -3px rgb(0 0 0 / 0.5), 0 4px 6px -4px rgb(0 0 0 / 0.4);
+  --shadow-card: 0 0 0 1px rgb(0 0 0 / 0.1), 0 8px 24px rgb(0 0 0 / 0.4);
+
+  --syntax-plain:   #c9d1d9;
+  --syntax-comment: #6e7681;
+  --syntax-keyword: #ff7b72;
+  --syntax-string:  #a5d6ff;
+  --syntax-number:  #79c0ff;
+  --syntax-fn:      #d2a8ff;
+  --syntax-type:    #ffa657;
+  --syntax-var:     #79c0ff;
+  --syntax-punct:   #8b949e;
+  --syntax-tag:     #7ee787;
+}
+
+/* ===========================================================================
+   LIGHT THEME
+   =========================================================================== */
+[data-theme="light"] {
+  --bg-page:         #ffffff;
+  --bg-panel:        #f6f8fa;
+  --bg-panel-header: #eaeef2;
+  --bg-panel-footer: #ffffff;
+  --bg-elev-1:       #eaeef2;
+  --bg-elev-2:       #d0d7de;
+  --bg-code:         #f6f8fa;
+  --bg-overlay:      rgb(255 255 255 / 0.85);
+
+  --border-subtle:   #eaeef2;
+  --border-default:  #d0d7de;
+  --border-control:  #afb8c1;
+  --border-focus:    var(--fuchsia-600);
+
+  --fg-1:  #1f2328;
+  --fg-2:  #32383f;
+  --fg-3:  #656d76;
+  --fg-4:  #848d97;
+  --fg-5:  #afb8c1;
+  --fg-on-accent: #ffffff;
+
+  --accent:         var(--fuchsia-600);
+  --accent-hover:   var(--fuchsia-500);
+  --accent-fg:      var(--fuchsia-700);
+  --accent-glow:    rgb(192 38 211 / 0.18);
+  --accent-soft-bg: rgb(217 70 239 / 0.10);
+
+  --ok-fg:        var(--emerald-600);
+  --ok-bg:        rgb(16 185 129 / 0.12);
+  --warn-fg:      #9a6700;
+  --warn-bg:      rgb(245 158 11 / 0.15);
+  --err-fg:       var(--rose-500);
+  --err-bg:       rgb(244 63 94 / 0.10);
+  --info-fg:      var(--sky-600);
+  --info-bg:      rgb(56 189 248 / 0.12);
+
+  --shadow-sm:   0 1px 2px rgb(31 35 40 / 0.08);
+  --shadow-md:   0 3px 6px rgb(140 149 159 / 0.15), 0 1px 2px rgb(140 149 159 / 0.1);
+  --shadow-lg:   0 8px 24px rgb(140 149 159 / 0.2);
+  --shadow-card: 0 0 0 1px #d0d7de, 0 2px 4px rgb(31 35 40 / 0.06);
+
+  --syntax-plain:   #1f2328;
+  --syntax-comment: #6e7781;
+  --syntax-keyword: #cf222e;
+  --syntax-string:  #0a3069;
+  --syntax-number:  #0550ae;
+  --syntax-fn:      #8250df;
+  --syntax-type:    #953800;
+  --syntax-var:     #0550ae;
+  --syntax-punct:   #656d76;
+  --syntax-tag:     #116329;
+}
+
+/* ===========================================================================
+   SEMANTIC ELEMENT STYLES (opt-in via `.nalanda` class on a container)
+   =========================================================================== */
+.nalanda {
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--fg-2);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Utility classes the vizs and chrome consume. Scoped under .nalanda so
+   they can coexist with Tailwind without polluting global styles. */
+
+.nalanda .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  font-weight: 500;
+  padding: 5px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: background var(--dur-fast) ease, color var(--dur-fast) ease, border-color var(--dur-fast) ease;
+  white-space: nowrap;
+}
+.nalanda .btn--primary   { background: var(--accent); color: var(--fg-on-accent); }
+.nalanda .btn--primary:hover:not(:disabled) { background: var(--accent-hover); }
+.nalanda .btn--secondary { background: var(--bg-elev-1); color: var(--fg-1); border-color: var(--border-default); }
+.nalanda .btn--secondary:hover:not(:disabled) { background: var(--bg-elev-2); }
+.nalanda .btn--ghost     { background: transparent; color: var(--fg-3); border-color: transparent; }
+.nalanda .btn--ghost:hover:not(:disabled) { background: var(--bg-elev-1); color: var(--fg-1); }
+.nalanda .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.nalanda .btn--icon {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  justify-content: center;
+}
+
+.nalanda .input {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  color: var(--fg-1);
+  background: var(--bg-panel);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  padding: 5px 10px;
+  outline: none;
+  transition: border-color var(--dur-fast) ease, box-shadow var(--dur-fast) ease;
+}
+.nalanda .input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px var(--accent-glow);
+}
+.nalanda .input::placeholder { color: var(--fg-5); }
+
+.nalanda .chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+}
+.nalanda .chip--ok    { background: var(--ok-bg);    color: var(--ok-fg); }
+.nalanda .chip--warn  { background: var(--warn-bg);  color: var(--warn-fg); }
+.nalanda .chip--err   { background: var(--err-bg);   color: var(--err-fg); }
+.nalanda .chip--info  { background: var(--info-bg);  color: var(--info-fg); }
+.nalanda .chip--muted { background: var(--bg-elev-1); color: var(--fg-3); }
+
+.nalanda .card {
+  background: var(--bg-page);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.nalanda .card__header {
+  background: var(--bg-panel-header);
+  padding: 8px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: var(--text-xs);
+  border-bottom: 1px solid var(--border-subtle);
+}
+.nalanda .card__body {
+  background: var(--bg-panel);
+  padding: 20px;
+}
+.nalanda .card__footer {
+  background: var(--bg-panel-footer);
+  border-top: 1px solid var(--border-subtle);
+  padding: 10px 14px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.nalanda .chrome-label {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  color: var(--fg-4);
+}
+
+/* Map Tailwind typography (@tailwindcss/typography) variables to our
+   theme tokens, so `.prose` content picks up dark/light automatically.
+   Drop `prose-invert` in consumers — it's redundant once these map. */
+.nalanda .prose {
+  --tw-prose-body:         var(--fg-2);
+  --tw-prose-headings:     var(--fg-1);
+  --tw-prose-lead:         var(--fg-3);
+  --tw-prose-links:        var(--accent-fg);
+  --tw-prose-bold:         var(--fg-1);
+  --tw-prose-counters:     var(--fg-4);
+  --tw-prose-bullets:      var(--fg-5);
+  --tw-prose-hr:           var(--border-default);
+  --tw-prose-quotes:       var(--fg-1);
+  --tw-prose-quote-borders:var(--border-default);
+  --tw-prose-captions:     var(--fg-4);
+  --tw-prose-code:         var(--fg-1);
+  --tw-prose-pre-code:     var(--fg-2);
+  --tw-prose-pre-bg:       var(--bg-code);
+  --tw-prose-th-borders:   var(--border-default);
+  --tw-prose-td-borders:   var(--border-subtle);
+  color: var(--fg-2);
+}
+.nalanda .prose :is(h1, h2, h3, h4, h5, h6) { color: var(--fg-1); }
+.nalanda .prose strong { color: var(--fg-1); }
+.nalanda .prose a { color: var(--accent-fg); }
+.nalanda .prose code {
+  color: var(--fg-1);
+  background: var(--bg-elev-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 0.1em 0.4em;
+  font-weight: 500;
+}
+.nalanda .prose code::before,
+.nalanda .prose code::after { content: none; }

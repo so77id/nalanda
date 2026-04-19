@@ -1,4 +1,11 @@
 import { Children, useEffect, useMemo, useState } from 'react'
+import {
+  Presentation as PresentationIcon,
+  X,
+  ChevronLeft,
+  ChevronRight,
+} from 'lucide-react'
+import ThemeToggle from '../../theme/ThemeToggle.jsx'
 
 export default function Presentation({ subtitle, title, summary, children }) {
   const [presenting, setPresenting] = useState(false)
@@ -16,7 +23,6 @@ export default function Presentation({ subtitle, title, summary, children }) {
       } else if (section) {
         section.content.push(child)
       } else {
-        // pre-h2 content — attach to the cover section so it still renders
         cover.extra = [...(cover.extra ?? []), child]
       }
     }
@@ -26,7 +32,6 @@ export default function Presentation({ subtitle, title, summary, children }) {
 
   useEffect(() => {
     if (!presenting) {
-      // If someone presses "p" from study mode, enter presentation
       const onKeyStudy = (e) => {
         if (e.key === 'p' && !e.metaKey && !e.ctrlKey && !e.altKey) {
           const t = e.target
@@ -64,20 +69,58 @@ export default function Presentation({ subtitle, title, summary, children }) {
 
   return (
     <div
-      className={
-        presenting ? 'fixed inset-0 z-40 bg-slate-950 flex flex-col' : ''
+      className="nalanda"
+      style={
+        presenting
+          ? {
+              position: 'fixed',
+              inset: 0,
+              zIndex: 40,
+              background: 'var(--bg-page)',
+              display: 'flex',
+              flexDirection: 'column',
+            }
+          : undefined
       }
       data-mode={presenting ? 'presentation' : 'study'}
     >
       {!presenting && (
-        <header className="mx-auto max-w-3xl px-6 pt-12 text-slate-200">
-          <p className="text-xs uppercase tracking-widest text-fuchsia-400">
+        <header className="mx-auto max-w-3xl px-6 pt-12">
+          <p
+            style={{
+              fontSize: 'var(--text-xs)',
+              textTransform: 'uppercase',
+              letterSpacing: 'var(--tracking-widest)',
+              color: 'var(--accent-fg)',
+              fontWeight: 600,
+              margin: 0,
+            }}
+          >
             {subtitle}
           </p>
-          <h1 className="mt-2 text-4xl font-semibold text-slate-100">
+          <h1
+            style={{
+              marginTop: 8,
+              fontSize: 'var(--text-4xl)',
+              fontWeight: 600,
+              color: 'var(--fg-1)',
+              letterSpacing: '-0.01em',
+              lineHeight: 'var(--leading-tight)',
+            }}
+          >
             {title}
           </h1>
-          {summary && <p className="mt-3 text-slate-400">{summary}</p>}
+          {summary && (
+            <p
+              style={{
+                marginTop: 12,
+                color: 'var(--fg-3)',
+                lineHeight: 'var(--leading-relaxed)',
+              }}
+            >
+              {summary}
+            </p>
+          )}
         </header>
       )}
 
@@ -85,14 +128,14 @@ export default function Presentation({ subtitle, title, summary, children }) {
         className={
           presenting
             ? 'flex-1 overflow-auto flex items-center justify-center p-8'
-            : 'mx-auto max-w-3xl px-6 py-12 text-slate-200'
+            : 'mx-auto max-w-3xl px-6 py-12'
         }
       >
         <article
           className={
             presenting
-              ? 'prose prose-invert prose-slate prose-lg max-w-5xl w-full prose-h2:text-slate-100 prose-a:text-fuchsia-400'
-              : 'prose prose-invert prose-slate max-w-none prose-h2:text-slate-100 prose-a:text-fuchsia-400'
+              ? 'prose prose-lg max-w-5xl w-full'
+              : 'prose max-w-none'
           }
         >
           {slides.map((slide, i) => {
@@ -105,22 +148,49 @@ export default function Presentation({ subtitle, title, summary, children }) {
               >
                 {slide.kind === 'cover' ? (
                   presenting ? (
-                    <div className="text-center py-12 not-prose">
-                      <p className="text-sm uppercase tracking-widest text-fuchsia-400">
+                    <div
+                      className="not-prose text-center"
+                      style={{ padding: '48px 0' }}
+                    >
+                      <p
+                        style={{
+                          fontSize: 'var(--text-sm)',
+                          textTransform: 'uppercase',
+                          letterSpacing: 'var(--tracking-widest)',
+                          color: 'var(--accent-fg)',
+                          fontWeight: 600,
+                          margin: 0,
+                        }}
+                      >
                         {slide.subtitle}
                       </p>
-                      <h1 className="mt-4 text-5xl md:text-6xl font-semibold text-slate-100">
+                      <h1
+                        style={{
+                          marginTop: 16,
+                          fontSize: 'var(--text-6xl)',
+                          fontWeight: 600,
+                          color: 'var(--fg-1)',
+                          lineHeight: 'var(--leading-tight)',
+                        }}
+                      >
                         {slide.title}
                       </h1>
                       {slide.summary && (
-                        <p className="mt-6 text-slate-400 text-xl max-w-2xl mx-auto">
+                        <p
+                          style={{
+                            marginTop: 24,
+                            fontSize: 'var(--text-xl)',
+                            color: 'var(--fg-3)',
+                            maxWidth: '40rem',
+                            marginLeft: 'auto',
+                            marginRight: 'auto',
+                          }}
+                        >
                           {slide.summary}
                         </p>
                       )}
                     </div>
                   ) : (
-                    // study mode: the <header> above already shows
-                    // subtitle/title/summary; only render extra pre-h2 content
                     slide.extra
                   )
                 ) : (
@@ -136,55 +206,108 @@ export default function Presentation({ subtitle, title, summary, children }) {
       </div>
 
       {!presenting && (
-        <button
-          onClick={() => setPresenting(true)}
-          className="fixed top-4 right-4 z-30 rounded-md bg-fuchsia-500 px-3 py-1.5 text-sm font-medium text-white hover:bg-fuchsia-400 transition shadow-lg"
-          title="Modo presentación (P)"
+        <div
+          style={{
+            position: 'fixed',
+            top: 16,
+            right: 16,
+            zIndex: 30,
+            display: 'flex',
+            gap: 8,
+          }}
         >
-          📽️ Presentar
-        </button>
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => setPresenting(true)}
+            className="btn btn--primary"
+            title="Modo presentación (P)"
+          >
+            <PresentationIcon size={14} /> Presentar
+          </button>
+        </div>
       )}
 
       {presenting && (
         <>
-          <button
-            onClick={() => setPresenting(false)}
-            className="fixed top-4 right-4 z-50 rounded-md border border-slate-700 bg-slate-900/80 backdrop-blur px-3 py-1 text-sm text-slate-300 hover:bg-slate-800 transition"
-            title="Salir (Esc)"
+          <div
+            style={{
+              position: 'fixed',
+              top: 16,
+              right: 16,
+              zIndex: 50,
+              display: 'flex',
+              gap: 8,
+            }}
           >
-            ✕ Cerrar
-          </button>
-          <footer className="bg-slate-900 border-t border-slate-800 px-6 py-3 flex items-center justify-between shrink-0">
+            <ThemeToggle />
             <button
-              onClick={() =>
-                setCurrentSlide((s) => Math.max(s - 1, 0))
-              }
-              disabled={currentSlide === 0}
-              className="rounded-md border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40 transition"
+              type="button"
+              onClick={() => setPresenting(false)}
+              className="btn btn--secondary"
+              title="Salir (Esc)"
             >
-              ← Anterior
+              <X size={14} /> Cerrar
             </button>
-            <div className="flex items-center gap-3 text-sm text-slate-400">
-              <span className="font-mono">
+          </div>
+          <footer
+            className="flex items-center justify-between"
+            style={{
+              background: 'var(--bg-panel)',
+              borderTop: '1px solid var(--border-default)',
+              padding: '12px 24px',
+              flexShrink: 0,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setCurrentSlide((s) => Math.max(s - 1, 0))}
+              disabled={currentSlide === 0}
+              className="btn btn--secondary"
+            >
+              <ChevronLeft size={14} /> Anterior
+            </button>
+            <div
+              className="flex items-center gap-3"
+              style={{
+                fontSize: 'var(--text-sm)',
+                color: 'var(--fg-3)',
+              }}
+            >
+              <span
+                data-role="slide-counter"
+                style={{ fontFamily: 'var(--font-mono)' }}
+              >
                 {currentSlide + 1} / {slides.length}
               </span>
-              <div className="w-40 h-1 rounded-full bg-slate-800 overflow-hidden">
+              <div
+                style={{
+                  width: '10rem',
+                  height: 4,
+                  borderRadius: 'var(--radius-full)',
+                  background: 'var(--bg-elev-1)',
+                  overflow: 'hidden',
+                }}
+              >
                 <div
-                  className="h-full bg-fuchsia-500 transition-all duration-300"
                   style={{
+                    height: '100%',
+                    background: 'var(--accent)',
+                    transition: 'width var(--dur-base) ease',
                     width: `${((currentSlide + 1) / slides.length) * 100}%`,
                   }}
                 />
               </div>
             </div>
             <button
+              type="button"
               onClick={() =>
                 setCurrentSlide((s) => Math.min(s + 1, slides.length - 1))
               }
               disabled={currentSlide === slides.length - 1}
-              className="rounded-md bg-fuchsia-500 px-3 py-1 text-sm font-medium text-white hover:bg-fuchsia-400 disabled:opacity-40 transition"
+              className="btn btn--primary"
             >
-              Siguiente →
+              Siguiente <ChevronRight size={14} />
             </button>
           </footer>
         </>

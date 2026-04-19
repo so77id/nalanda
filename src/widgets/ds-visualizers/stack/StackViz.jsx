@@ -1,8 +1,13 @@
 import { useState, useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import { VizFrame, VizBody, VizControls } from '../VizFrame.jsx'
+import { Plus, Minus, Trash2 } from 'lucide-react'
+import Widget from '../Widget.jsx'
 
-export default function StackViz({ initialValues = [], maxNodes = 10 }) {
+export default function StackViz({
+  initialValues = [],
+  maxNodes = 10,
+  title = 'Pila',
+}) {
   const [stack, setStack] = useState(() =>
     initialValues.map((v, i) => ({ id: i + 1, value: v }))
   )
@@ -17,7 +22,7 @@ export default function StackViz({ initialValues = [], maxNodes = 10 }) {
       return
     }
     if (stack.length >= maxNodes) {
-      setError(`Stack lleno (máx ${maxNodes})`)
+      setError(`Pila llena (máx ${maxNodes})`)
       return
     }
     setStack((prev) => [...prev, { id: nextId, value: v }])
@@ -28,7 +33,7 @@ export default function StackViz({ initialValues = [], maxNodes = 10 }) {
 
   const pop = useCallback(() => {
     if (stack.length === 0) {
-      setError('Stack vacío — nada para hacer pop')
+      setError('Pila vacía')
       return
     }
     setStack((prev) => prev.slice(0, -1))
@@ -40,81 +45,146 @@ export default function StackViz({ initialValues = [], maxNodes = 10 }) {
     setError('')
   }, [])
 
+  const count = (
+    <span className="chip chip--muted">
+      {stack.length} / {maxNodes}
+    </span>
+  )
+
+  const controls = (
+    <>
+      <input
+        type="number"
+        className="input"
+        style={{ width: 80 }}
+        value={valueInput}
+        onChange={(e) => setValueInput(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') push()
+        }}
+        placeholder="valor"
+      />
+      <button
+        type="button"
+        className="btn btn--primary"
+        onClick={push}
+      >
+        <Plus size={14} /> push
+      </button>
+      <button
+        type="button"
+        className="btn btn--secondary"
+        onClick={pop}
+        disabled={stack.length === 0}
+      >
+        <Minus size={14} /> pop
+      </button>
+      <span style={{ flex: 1 }} />
+      <button
+        type="button"
+        className="btn btn--ghost"
+        onClick={clear}
+        disabled={stack.length === 0}
+      >
+        <Trash2 size={14} /> limpiar
+      </button>
+    </>
+  )
+
   return (
-    <VizFrame label="stack" count={stack.length} max={maxNodes} error={error}>
-      <VizBody>
-        <div className="flex gap-4 items-stretch">
-          <div className="flex flex-col justify-between text-xs font-mono text-slate-500 py-1">
-            <span className="text-fuchsia-400">top ↓</span>
-            <span>bottom</span>
-          </div>
-
-          <div className="relative flex flex-col-reverse items-center gap-1 min-w-[5rem] min-h-[12rem]">
-            <div className="absolute bottom-0 left-0 right-0 border-b-2 border-slate-700" />
-            <AnimatePresence mode="popLayout" initial={false}>
-              {stack.map((n, i) => (
-                <motion.div
-                  key={n.id}
-                  layout
-                  initial={{ opacity: 0, y: -30, scale: 0.6 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  exit={{ opacity: 0, y: -30, scale: 0.6 }}
-                  transition={{ type: 'spring', stiffness: 420, damping: 30 }}
-                  className="flex items-center gap-2"
-                >
-                  <div className="rounded-md bg-slate-800 border border-slate-700 px-4 py-1.5 font-mono text-slate-100 shadow-md min-w-[3rem] text-center">
-                    {n.value}
-                  </div>
-                  {i === stack.length - 1 && (
-                    <span className="text-[10px] text-fuchsia-400 font-mono">
-                      ← top
-                    </span>
-                  )}
-                </motion.div>
-              ))}
-            </AnimatePresence>
-            {stack.length === 0 && (
-              <span className="text-slate-500 font-mono text-sm italic self-center mt-auto mb-3">
-                vacío
-              </span>
-            )}
-          </div>
-        </div>
-      </VizBody>
-
-      <VizControls>
-        <input
-          type="number"
-          value={valueInput}
-          onChange={(e) => setValueInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') push()
+    <Widget
+      title={title}
+      subtitle="STACK · LIFO"
+      meta={count}
+      controls={controls}
+      error={error}
+      dataViz="stack"
+    >
+      <div className="flex gap-4 items-stretch">
+        <div
+          className="flex flex-col justify-between"
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: 'var(--text-xs)',
+            color: 'var(--fg-4)',
+            padding: '4px 0',
           }}
-          placeholder="valor"
-          className="w-20 bg-slate-900 border border-slate-700 rounded px-2 py-1 text-sm outline-none focus:border-fuchsia-500 transition"
-        />
-        <button
-          onClick={push}
-          className="rounded bg-fuchsia-500 px-3 py-1 text-sm font-medium text-white hover:bg-fuchsia-400 transition"
         >
-          push
-        </button>
-        <button
-          onClick={pop}
-          disabled={stack.length === 0}
-          className="rounded bg-slate-700 px-3 py-1 text-sm font-medium text-slate-100 hover:bg-slate-600 disabled:opacity-40 transition"
-        >
-          pop
-        </button>
+          <span style={{ color: 'var(--accent-fg)' }}>top ↓</span>
+          <span>bottom</span>
+        </div>
 
-        <button
-          onClick={clear}
-          disabled={stack.length === 0}
-          className="ml-auto rounded border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800 disabled:opacity-40 disabled:hover:bg-transparent transition"
+        <div
+          className="relative flex flex-col-reverse items-center gap-1"
+          style={{ minWidth: '5rem', minHeight: '12rem' }}
         >
-          clear
-        </button>
-      </VizControls>
-    </VizFrame>
+          <div
+            style={{
+              position: 'absolute',
+              left: 0,
+              right: 0,
+              bottom: 0,
+              borderBottom: '2px solid var(--border-default)',
+            }}
+          />
+          <AnimatePresence mode="popLayout" initial={false}>
+            {stack.map((n, i) => (
+              <motion.div
+                key={n.id}
+                layout
+                initial={{ opacity: 0, y: -30, scale: 0.6 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -30, scale: 0.6 }}
+                transition={{ type: 'spring', stiffness: 420, damping: 30 }}
+                className="flex items-center gap-2"
+              >
+                <div
+                  data-cell={n.value}
+                  style={{
+                    background: 'var(--bg-elev-1)',
+                    border: '1.5px solid var(--border-default)',
+                    color: 'var(--fg-1)',
+                    fontFamily: 'var(--font-mono)',
+                    borderRadius: 'var(--radius-md)',
+                    padding: '6px 16px',
+                    minWidth: '3rem',
+                    textAlign: 'center',
+                    boxShadow: 'var(--shadow-sm)',
+                  }}
+                >
+                  {n.value}
+                </div>
+                {i === stack.length - 1 && (
+                  <span
+                    style={{
+                      fontFamily: 'var(--font-mono)',
+                      fontSize: 10,
+                      color: 'var(--accent-fg)',
+                    }}
+                  >
+                    ← top
+                  </span>
+                )}
+              </motion.div>
+            ))}
+          </AnimatePresence>
+          {stack.length === 0 && (
+            <span
+              style={{
+                color: 'var(--fg-5)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: 'var(--text-sm)',
+                fontStyle: 'italic',
+                alignSelf: 'center',
+                marginTop: 'auto',
+                marginBottom: 12,
+              }}
+            >
+              vacía
+            </span>
+          )}
+        </div>
+      </div>
+    </Widget>
   )
 }
