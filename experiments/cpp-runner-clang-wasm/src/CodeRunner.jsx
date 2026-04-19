@@ -1,11 +1,18 @@
 import { useState, useCallback, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import CodeMirror from '@uiw/react-codemirror'
-import { cpp } from '@codemirror/lang-cpp'
-import { useCompiler } from './useCompiler.js'
+import { useRuntime } from './useRuntime.js'
+import { runtimeList, getRuntime } from './runtimes/index.js'
 
-export default function CppRunner({ initialCode = '', initialStdin = '' }) {
-  const [code, setCode] = useState(initialCode)
+export default function CodeRunner({
+  language = 'cpp',
+  initialCode,
+  initialStdin = '',
+}) {
+  const [languageId, setLanguageId] = useState(language)
+  const [code, setCode] = useState(
+    initialCode ?? getRuntime(language)?.meta.defaultCode ?? ''
+  )
   const [stdin, setStdin] = useState(initialStdin)
   const [compileLog, setCompileLog] = useState('')
   const [output, setOutput] = useState('')
@@ -14,7 +21,20 @@ export default function CppRunner({ initialCode = '', initialStdin = '' }) {
   const [phase, setPhase] = useState('idle')
   const [expanded, setExpanded] = useState(false)
 
-  const { run, warm, warmStats } = useCompiler()
+  const { run, warm, warmStats, runtime } = useRuntime(languageId)
+
+  const handleLanguageChange = useCallback(
+    (newId) => {
+      if (newId === languageId) return
+      setLanguageId(newId)
+      setCode(getRuntime(newId)?.meta.defaultCode ?? '')
+      setCompileLog('')
+      setOutput('')
+      setExitCode(null)
+      setTimings(null)
+    },
+    [languageId]
+  )
 
   const handleRun = useCallback(async () => {
     setPhase('running')
@@ -52,7 +72,9 @@ export default function CppRunner({ initialCode = '', initialStdin = '' }) {
   const disabled = !warm || running
   const buttonLabel = !warm ? 'Warming up…' : running ? 'Running…' : '▶ Run'
 
-  const runnerState = {
+  const state = {
+    languageId,
+    onLanguageChange: handleLanguageChange,
     code,
     setCode,
     stdin,
@@ -67,21 +89,42 @@ export default function CppRunner({ initialCode = '', initialStdin = '' }) {
     disabled,
     buttonLabel,
     handleRun,
+    runtime,
   }
 
   return (
     <>
-      <EmbedView {...runnerState} onExpand={() => setExpanded(true)} />
+      <EmbedView {...state} onExpand={() => setExpanded(true)} />
       {expanded &&
         createPortal(
-          <FullscreenView {...runnerState} onClose={() => setExpanded(false)} />,
+          <FullscreenView {...state} onClose={() => setExpanded(false)} />,
           document.body
         )}
     </>
   )
 }
 
+function LanguagePicker({ languageId, onLanguageChange, compact = false }) {
+  return (
+    <select
+      value={languageId}
+      onChange={(e) => onLanguageChange(e.target.value)}
+      className={`rounded border border-slate-700 bg-slate-900 font-mono text-slate-200 outline-none hover:border-fuchsia-500 focus:border-fuchsia-500 transition ${
+        compact ? 'px-2 py-0.5 text-xs' : 'px-3 py-1 text-sm'
+      }`}
+    >
+      {runtimeList.map((r) => (
+        <option key={r.meta.id} value={r.meta.id}>
+          {r.meta.label}
+        </option>
+      ))}
+    </select>
+  )
+}
+
 function EmbedView({
+  languageId,
+  onLanguageChange,
   code,
   setCode,
   output,
@@ -93,6 +136,7 @@ function EmbedView({
   disabled,
   buttonLabel,
   handleRun,
+  runtime,
   onExpand,
 }) {
   const showError = exitCode !== null && exitCode !== 0 && compileLog
@@ -101,8 +145,13 @@ function EmbedView({
   return (
     <div className="not-prose my-6 rounded-lg border border-slate-800 bg-slate-950 text-slate-100 overflow-hidden shadow-lg shadow-slate-950/20">
       <div className="flex items-center gap-2 bg-slate-800/60 px-3 py-1.5 text-xs">
+        <LanguagePicker
+          languageId={languageId}
+          onLanguageChange={onLanguageChange}
+          compact
+        />
         <span className="font-mono uppercase tracking-wide text-slate-400">
-          main.cpp
+          {runtime?.meta.fileName}
         </span>
         <span
           className={`rounded-full px-2 py-0.5 text-[10px] ${
@@ -125,9 +174,10 @@ function EmbedView({
 
       <div className="max-h-56 overflow-auto border-b border-slate-800">
         <CodeMirror
+          key={languageId}
           value={code}
           onChange={setCode}
-          extensions={[cpp()]}
+          extensions={runtime ? [runtime.meta.codeMirrorLanguage] : []}
           theme="dark"
           basicSetup={{ lineNumbers: true, foldGutter: false }}
         />
@@ -143,7 +193,8 @@ function EmbedView({
         </button>
         {timings && (
           <span className="text-xs text-slate-400">
-            compile {timings.compile}ms · exec {timings.run ?? '—'}ms
+            {timings.compile > 0 ? `compile ${timings.compile}ms · ` : ''}
+            exec {timings.run ?? '—'}ms
           </span>
         )}
         {exitCode !== null && (
@@ -171,6 +222,8 @@ function EmbedView({
 }
 
 function FullscreenView({
+  languageId,
+  onLanguageChange,
   code,
   setCode,
   stdin,
@@ -185,14 +238,20 @@ function FullscreenView({
   disabled,
   buttonLabel,
   handleRun,
+  runtime,
   onClose,
 }) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col gap-3 bg-slate-950 p-4 text-slate-100">
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-xl font-semibold text-fuchsia-300">
-          C++ Runner · browsercc (worker + PCH + warm-up)
+          Code Runner · Nalanda
         </h1>
+
+        <LanguagePicker
+          languageId={languageId}
+          onLanguageChange={onLanguageChange}
+        />
 
         <div className="flex items-center gap-2 text-xs">
           <span
@@ -204,17 +263,18 @@ function FullscreenView({
           >
             {warm ? '● warm' : '○ warming'}
           </span>
-          {warmStats && (
+          {warmStats && runtime?.meta.statsLabel && (
             <span className="text-slate-400">
-              boot {warmStats.totalMs}ms · pch {warmStats.pchFetchMs}ms · cold compile{' '}
-              {warmStats.warmCompileMs}ms
+              boot {warmStats.totalMs}ms · {runtime.meta.statsLabel(warmStats)}
             </span>
           )}
         </div>
 
         {timings && (
           <span className="text-xs text-slate-300">
-            · last run → compile {timings.compile}ms · exec {timings.run ?? '—'}ms
+            · last run →
+            {timings.compile > 0 ? ` compile ${timings.compile}ms ·` : ''}
+            {' '}exec {timings.run ?? '—'}ms
           </span>
         )}
 
@@ -230,13 +290,14 @@ function FullscreenView({
       <div className="grid flex-1 grid-cols-2 gap-3 min-h-0">
         <div className="flex flex-col min-h-0 rounded-md overflow-hidden border border-slate-800">
           <div className="bg-slate-800 px-3 py-1 text-xs uppercase tracking-wide text-slate-400">
-            main.cpp
+            {runtime?.meta.fileName}
           </div>
           <div className="flex-1 overflow-auto">
             <CodeMirror
+              key={languageId}
               value={code}
               onChange={setCode}
-              extensions={[cpp()]}
+              extensions={runtime ? [runtime.meta.codeMirrorLanguage] : []}
               theme="dark"
               height="100%"
               basicSetup={{ lineNumbers: true, foldGutter: true }}
@@ -267,7 +328,7 @@ function FullscreenView({
 
           <div className="flex flex-col rounded-md overflow-hidden border border-slate-800 min-h-[6rem]">
             <div className="bg-slate-800 px-3 py-1 text-xs uppercase tracking-wide text-slate-400">
-              compile diagnostics
+              {runtime?.meta.id === 'cpp' ? 'compile diagnostics' : 'errors'}
             </div>
             <pre className="flex-1 overflow-auto bg-slate-900 p-2 font-mono text-xs text-amber-200 whitespace-pre-wrap max-h-40">
               {compileLog || '—'}

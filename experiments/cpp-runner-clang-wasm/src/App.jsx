@@ -1,6 +1,6 @@
-import CppRunner from './CppRunner.jsx'
+import CodeRunner from './CodeRunner.jsx'
 
-const LINKED_LIST_SAMPLE = `#include <iostream>
+const LINKED_LIST_CPP = `#include <iostream>
 #include <vector>
 using namespace std;
 
@@ -45,7 +45,7 @@ int main() {
 }
 `
 
-const STL_SAMPLE = `#include <iostream>
+const STL_CPP = `#include <iostream>
 #include <vector>
 #include <algorithm>
 #include <numeric>
@@ -65,6 +65,18 @@ int main() {
 }
 `
 
+const FIBO_PY = `def fib(n):
+    a, b = 0, 1
+    out = []
+    for _ in range(n):
+        out.append(a)
+        a, b = b, a + b
+    return out
+
+print("fib(10) =", fib(10))
+print("sum =", sum(fib(10)))
+`
+
 export default function App() {
   return (
     <main className="mx-auto max-w-3xl px-6 py-12 text-slate-200">
@@ -77,7 +89,7 @@ export default function App() {
         </h1>
         <p className="mt-3 text-slate-400">
           Una primera mirada a una de las estructuras de datos más fundamentales
-          de la programación.
+          de la programación, con ejemplos ejecutables en C++ y Python.
         </p>
       </header>
 
@@ -94,12 +106,12 @@ export default function App() {
 
         <p>
           Abajo tenés una implementación minimalista de <code>LinkedList</code>{' '}
-          con un método <code>push_front</code>. Léela, modifícala, y dale al
-          botón Run para ver el output. Si querés la vista amplia con stdin y
-          diagnósticos, expandí el widget con el icono <code>⤢</code>.
+          con un método <code>push_front</code>. Podés cambiar el lenguaje con
+          el selector del header para probar el mismo concepto en Python, o
+          expandir el widget con <code>⤢</code> para ver stdin y diagnósticos.
         </p>
 
-        <CppRunner initialCode={LINKED_LIST_SAMPLE} />
+        <CodeRunner language="cpp" initialCode={LINKED_LIST_CPP} />
 
         <h2>¿Por qué importan los punteros?</h2>
         <p>
@@ -109,11 +121,14 @@ export default function App() {
           exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.
         </p>
         <p>
-          Duis aute irure dolor in reprehenderit in voluptate velit esse cillum
-          dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non
-          proident, sunt in culpa qui officia deserunt mollit anim id est
-          laborum.
+          En C++ manejamos la memoria explícitamente. En Python los objetos son
+          referencias, así que el equivalente conceptual no necesita{' '}
+          <code>new</code> ni <code>delete</code>. Probá el widget de abajo
+          cambiándolo a Python para ver una secuencia de Fibonacci — cualquier
+          lenguaje puede vivir en el mismo widget.
         </p>
+
+        <CodeRunner language="python" initialCode={FIBO_PY} />
 
         <h2>STL al rescate</h2>
         <p>
@@ -123,14 +138,7 @@ export default function App() {
           <em>cómo</em> funcionan por dentro es clave para saber cuál elegir.
         </p>
 
-        <CppRunner initialCode={STL_SAMPLE} />
-
-        <p>
-          Sed ut perspiciatis unde omnis iste natus error sit voluptatem
-          accusantium doloremque laudantium, totam rem aperiam, eaque ipsa quae
-          ab illo inventore veritatis et quasi architecto beatae vitae dicta
-          sunt explicabo.
-        </p>
+        <CodeRunner language="cpp" initialCode={STL_CPP} />
       </article>
     </main>
   )

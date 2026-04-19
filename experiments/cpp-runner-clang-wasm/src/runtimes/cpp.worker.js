@@ -24,14 +24,16 @@ async function warmUp() {
       flags: DEFAULT_FLAGS,
     })
   } catch {
-    // swallow warmup errors — they shouldn't happen but we don't want to block the worker
+    // swallow — we don't want the worker to block if warm-up fails
   }
   const coldMs = performance.now() - tCold
 
   postMessage({
     type: 'warm',
-    pchFetchMs: Math.round(pchMs),
-    warmCompileMs: Math.round(coldMs),
+    stats: {
+      pchFetchMs: Math.round(pchMs),
+      warmCompileMs: Math.round(coldMs),
+    },
   })
 }
 
