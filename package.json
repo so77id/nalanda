@@ -1,5 +1,5 @@
 {
-  "name": "cpp-runner-jscpp",
+  "name": "nalanda",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,14 +10,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@bjorn3/browser_wasi_shim": "^0.4.2",
     "@codemirror/lang-cpp": "^6.0.3",
+    "@codemirror/lang-python": "^6.2.1",
     "@uiw/react-codemirror": "^4.25.9",
-    "JSCPP": "^2.0.9",
+    "browsercc": "^0.1.1",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@tailwindcss/typography": "^0.5.19",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^4.7.0",

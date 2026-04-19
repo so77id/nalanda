@@ -1,11 +1,11 @@
-name: Deploy cpp-runner-clang-wasm to GitHub Pages
+name: Deploy to GitHub Pages
 
 on:
   push:
     branches: [main]
-    paths:
-      - 'experiments/cpp-runner-clang-wasm/**'
-      - '.github/workflows/deploy.yml'
+    paths-ignore:
+      - '**.md'
+      - 'smoke-test*.mjs'
   workflow_dispatch:
 
 permissions:
@@ -20,9 +20,6 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: experiments/cpp-runner-clang-wasm
     steps:
       - uses: actions/checkout@v4
 
@@ -30,7 +27,6 @@ jobs:
         with:
           node-version: 22
           cache: npm
-          cache-dependency-path: experiments/cpp-runner-clang-wasm/package-lock.json
 
       - run: npm ci
 
@@ -39,7 +35,7 @@ jobs:
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: experiments/cpp-runner-clang-wasm/dist
+          path: dist
 
   deploy:
     needs: build

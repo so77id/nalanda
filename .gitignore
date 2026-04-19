@@ -30,4 +30,3 @@ Thumbs.db
 
 # test artifacts (regenerated)
 smoke-test*.png
-experiments/*/smoke-test*.png

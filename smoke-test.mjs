@@ -1,7 +1,7 @@
 import puppeteer from 'puppeteer-core'
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
-const URL = 'http://localhost:5174/'
+const URL = 'http://localhost:5173/'
 
 const browser = await puppeteer.launch({
   executablePath: CHROME,

@@ -1,5 +1,4 @@
-import CodeRunner from './CodeRunner.jsx'
-import { LanguageProvider } from './LanguageContext.jsx'
+import { CodeRunner, LanguageProvider } from './widgets/code-runner/index.js'
 
 const LINKED_LIST = {
   cpp: `#include <iostream>
