@@ -2,7 +2,10 @@
 @tailwind components;
 @tailwind utilities;
 
-html, body, #root {
-  height: 100%;
+html, body {
   margin: 0;
+}
+
+body {
+  background: rgb(2 6 23); /* slate-950 — page background behind the content column */
 }
