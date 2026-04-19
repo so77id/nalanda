@@ -1,5 +1,9 @@
 import { CodeRunner, LanguageProvider } from './widgets/code-runner/index.js'
-import { LinkedListViz, StackViz } from './widgets/ds-visualizers/index.js'
+import {
+  LinkedListViz,
+  StackViz,
+  QueueViz,
+} from './widgets/ds-visualizers/index.js'
 
 const LINKED_LIST = {
   cpp: `#include <iostream>
@@ -201,6 +205,17 @@ export default function App() {
           </p>
 
           <StackViz initialValues={[1, 2, 3]} />
+
+          <h2>Queues — FIFO, como la cola del súper</h2>
+          <p>
+            El queue es el primo educado del stack: también restringimos el
+            acceso, pero ahora por <em>dos</em> extremos distintos. Se agrega
+            por atrás (<code>enqueue</code>) y se saca por adelante
+            (<code>dequeue</code>). El primero que entra es el primero que
+            sale — la misma lógica que una cola de supermercado.
+          </p>
+
+          <QueueViz initialValues={[10, 20, 30]} />
 
           <h2>Recursión: Fibonacci</h2>
           <p>
