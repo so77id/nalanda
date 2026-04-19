@@ -11,11 +11,15 @@ pero diferimos.
   queue. Trivial después de los dos.
 - **`ArrayViz`** — fixed-size array con índices visibles. Ops: set/get/
   shift/unshift con costos visibles. Útil para contrastar con linked list.
+  - _Estado actual_: construido con `push` + `arr[i]` (access con
+    highlight). Falta `set(i, v)`, `shift`/`unshift`, costos visibles.
 
 ### Familia árbol
 - **`HeapViz`** — binary heap (min/max). Layout jerárquico igual que BST
   pero con invariante distinta. Primer candidato fuerte para extraer
   `layouts/tree.js`.
+  - _Estado actual_: construido e interactivo (`insertar` +
+    `extraer-min|max` con sift-up/down animados).
 - **`AVLViz`** — self-balancing. Animar rotaciones es el diferencial
   pedagógico — poder mostrar una rotación left/right step-by-step.
 - **`TrieViz`** — árbol con letras. Útil para autocomplete, prefix
@@ -28,12 +32,27 @@ pero diferimos.
 - **`HashTableViz`** — bucket array con chaining (linked list por bucket)
   o open addressing. Layout `grid` nuevo. Ver colisiones es el punto
   fuerte.
+  - _Estado actual_: construido como `HashMapViz` con separate chaining,
+    **modo display estático** — recibe `buckets` ya computados por prop.
+    Falta capa interactiva:
+    - `put(key, value)` con función de hash visible (ej: `hash(k) = sum(chars) % size`).
+    - `get(key)` que anima el camino: bucket → entrada por entrada hasta encontrar/no encontrar.
+    - `delete(key)` con highlight del removido antes del exit.
+    - Resize / rehash al pasar cierto load factor (`size * 2` y redistribuir).
+    - Variante open addressing con linear/quadratic probing.
 - **`Matrix2DViz`** — grid básico para introducir 2D.
 
 ### Familia grafo
 - **`GraphViz`** — layout por fuerza (D3-force). El más complejo.
   Versiones: undirected/directed, weighted. Ops: add_node, add_edge,
   remove_edge.
+  - _Estado actual_: construido con layout circular (≤12 nodos),
+    **modo display estático** — recibe `nodes`/`edges` por prop y los
+    dibuja. Falta capa interactiva:
+    - `add_node(id, label?)` / `remove_node(id)`
+    - `add_edge(from, to, weight?, directed?)` / `remove_edge(i)`
+    - Toggle global `dirigido` en el footer.
+    - Para layout real se sigue dependiendo de force (diferido).
 - **`GridGraphViz`** — grafo con layout de cuadrícula, útil para maze
   solving, A*.
 
