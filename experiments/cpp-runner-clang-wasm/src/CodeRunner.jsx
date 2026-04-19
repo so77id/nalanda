@@ -1,18 +1,23 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { createPortal } from 'react-dom'
 import CodeMirror from '@uiw/react-codemirror'
 import { useRuntime } from './useRuntime.js'
+import { useLanguage } from './LanguageContext.jsx'
 import { runtimeList, getRuntime } from './runtimes/index.js'
 
-export default function CodeRunner({
-  language = 'cpp',
-  initialCode,
-  initialStdin = '',
-}) {
-  const [languageId, setLanguageId] = useState(language)
-  const [code, setCode] = useState(
-    initialCode ?? getRuntime(language)?.meta.defaultCode ?? ''
-  )
+export default function CodeRunner({ samples = {}, initialStdin = '' }) {
+  const { languageId, setLanguageId } = useLanguage()
+
+  // Per-language code buffers, initialised lazily from samples or runtime default
+  const [codeByLang, setCodeByLang] = useState(() => {
+    const init = {}
+    for (const r of runtimeList) {
+      init[r.meta.id] =
+        samples[r.meta.id] ?? r.meta.defaultCode ?? ''
+    }
+    return init
+  })
+
   const [stdin, setStdin] = useState(initialStdin)
   const [compileLog, setCompileLog] = useState('')
   const [output, setOutput] = useState('')
@@ -23,18 +28,22 @@ export default function CodeRunner({
 
   const { run, warm, warmStats, runtime } = useRuntime(languageId)
 
-  const handleLanguageChange = useCallback(
-    (newId) => {
-      if (newId === languageId) return
-      setLanguageId(newId)
-      setCode(getRuntime(newId)?.meta.defaultCode ?? '')
-      setCompileLog('')
-      setOutput('')
-      setExitCode(null)
-      setTimings(null)
+  const code = codeByLang[languageId] ?? ''
+  const setCode = useCallback(
+    (newCode) => {
+      setCodeByLang((prev) => ({ ...prev, [languageId]: newCode }))
     },
     [languageId]
   )
+
+  // When the GLOBAL language changes, clear stale output from the previous run
+  // (belongs to a different language, misleading to show it)
+  useEffect(() => {
+    setCompileLog('')
+    setOutput('')
+    setExitCode(null)
+    setTimings(null)
+  }, [languageId])
 
   const handleRun = useCallback(async () => {
     setPhase('running')
@@ -72,25 +81,45 @@ export default function CodeRunner({
   const disabled = !warm || running
   const buttonLabel = !warm ? 'Warming up…' : running ? 'Running…' : '▶ Run'
 
-  const state = {
-    languageId,
-    onLanguageChange: handleLanguageChange,
-    code,
-    setCode,
-    stdin,
-    setStdin,
-    output,
-    compileLog,
-    exitCode,
-    timings,
-    warm,
-    warmStats,
-    running,
-    disabled,
-    buttonLabel,
-    handleRun,
-    runtime,
-  }
+  const state = useMemo(
+    () => ({
+      languageId,
+      onLanguageChange: setLanguageId,
+      code,
+      setCode,
+      stdin,
+      setStdin,
+      output,
+      compileLog,
+      exitCode,
+      timings,
+      warm,
+      warmStats,
+      running,
+      disabled,
+      buttonLabel,
+      handleRun,
+      runtime,
+    }),
+    [
+      languageId,
+      setLanguageId,
+      code,
+      setCode,
+      stdin,
+      output,
+      compileLog,
+      exitCode,
+      timings,
+      warm,
+      warmStats,
+      running,
+      disabled,
+      buttonLabel,
+      handleRun,
+      runtime,
+    ]
+  )
 
   return (
     <>
