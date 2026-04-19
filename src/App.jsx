@@ -1,4 +1,5 @@
 import { CodeRunner, LanguageProvider } from './widgets/code-runner/index.js'
+import { LinkedListViz } from './widgets/ds-visualizers/index.js'
 
 const LINKED_LIST = {
   cpp: `#include <iostream>
@@ -174,8 +175,17 @@ export default function App() {
           </p>
 
           <p>
-            Abajo tenés una implementación minimalista con{' '}
-            <code>push_front</code>. Podés cambiar el lenguaje en el selector
+            Antes de mirar código, jugá con la idea:{' '}
+            <strong>probá agregar valores al frente y al final</strong>, y
+            observá cómo cambia la cadena de links.
+          </p>
+
+          <LinkedListViz initialValues={[3, 1, 4]} />
+
+          <p>
+            Ahora el código. La implementación es minimalista:{' '}
+            <code>push_front</code> crea un nodo nuevo que apunta al viejo head
+            y pasa a ser el head. Podés cambiar el lenguaje en el selector
             para ver la misma idea en Python (donde los nodos son objetos por
             referencia, sin manejo explícito de memoria).
           </p>
