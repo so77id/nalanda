@@ -3,6 +3,7 @@ import {
   LinkedListViz,
   StackViz,
   QueueViz,
+  BSTViz,
 } from './widgets/ds-visualizers/index.js'
 
 const LINKED_LIST = {
@@ -216,6 +217,20 @@ export default function App() {
           </p>
 
           <QueueViz initialValues={[10, 20, 30]} />
+
+          <h2>Árboles — el salto a dos dimensiones</h2>
+          <p>
+            Hasta ahora todas nuestras estructuras eran <em>lineales</em>: una
+            fila de nodos. El Binary Search Tree cambia la lógica: cada nodo
+            puede tener hasta dos hijos, y la regla{' '}
+            <strong>izquierda &lt; raíz &lt; derecha</strong> permite encontrar
+            un valor en <code>O(log n)</code> si el árbol está balanceado. Probá
+            insertar y borrar valores — fijate cómo se reacomodan los nodos al
+            eliminar uno con dos hijos (el <em>sucesor in-order</em> ocupa su
+            lugar).
+          </p>
+
+          <BSTViz />
 
           <h2>Recursión: Fibonacci</h2>
           <p>
