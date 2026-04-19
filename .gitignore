@@ -29,5 +29,5 @@ Thumbs.db
 *.swp
 
 # test artifacts (regenerated)
-smoke-test.png
-experiments/*/smoke-test.png
+smoke-test*.png
+experiments/*/smoke-test*.png
