@@ -5,6 +5,7 @@ import {
   QueueViz,
   BSTViz,
 } from './widgets/ds-visualizers/index.js'
+import { Presentation } from './widgets/presentation/index.js'
 
 const LINKED_LIST = {
   cpp: `#include <iostream>
@@ -153,22 +154,11 @@ print(f"sum = {sum(v)}, max = {max(v)}")
 export default function App() {
   return (
     <LanguageProvider defaultLanguage="cpp">
-      <main className="mx-auto max-w-3xl px-6 py-12 text-slate-200">
-        <header className="mb-10">
-          <p className="text-xs uppercase tracking-widest text-fuchsia-400">
-            Nalanda · lección 01
-          </p>
-          <h1 className="mt-2 text-4xl font-semibold text-slate-100">
-            Listas enlazadas
-          </h1>
-          <p className="mt-3 text-slate-400">
-            Una primera mirada a una de las estructuras de datos más fundamentales
-            de la programación. El selector de lenguaje arriba de cualquier widget
-            cambia el lenguaje de <em>toda</em> la página a la vez.
-          </p>
-        </header>
-
-        <article className="prose prose-invert prose-slate max-w-none prose-h2:text-slate-100 prose-a:text-fuchsia-400">
+      <Presentation
+        subtitle="Nalanda · lección 01"
+        title="Listas enlazadas"
+        summary="Una primera mirada a una de las estructuras de datos más fundamentales de la programación. El selector de lenguaje arriba de cualquier widget cambia el lenguaje de toda la página a la vez."
+      >
           <h2>¿Qué es una lista enlazada?</h2>
           <p>
             Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do
@@ -250,8 +240,7 @@ export default function App() {
           </p>
 
           <CodeRunner samples={SORT} />
-        </article>
-      </main>
+      </Presentation>
     </LanguageProvider>
   )
 }
