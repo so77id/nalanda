@@ -4,6 +4,10 @@ import {
   StackViz,
   QueueViz,
   BSTViz,
+  ArrayViz,
+  GraphViz,
+  HeapViz,
+  HashMapViz,
 } from './widgets/ds-visualizers/index.js'
 import { Presentation } from './widgets/presentation/index.js'
 
@@ -240,6 +244,87 @@ export default function App() {
           </p>
 
           <CodeRunner samples={SORT} />
+
+          <h2>Arreglos — el índice como dirección</h2>
+          <p>
+            Un arreglo es el caso más directo: memoria contigua, acceso por
+            índice en <code>O(1)</code>. Donde la lista enlazada paga con
+            punteros la flexibilidad de crecer, el arreglo cobra al reubicar
+            elementos cuando insertás en el medio. Probá empujar valores y
+            acceder a un índice para ver cómo se resalta la celda.
+          </p>
+
+          <ArrayViz initialValues={[10, 42, 7, 5, 18]} capacity={10} />
+
+          <h2>Grafos — relaciones entre nodos</h2>
+          <p>
+            Árboles y listas son casos especiales de grafos. Acá los nodos no
+            tienen un orden impuesto: las aristas definen quién conoce a quién.
+            El layout circular alcanza para intuiciones; para grafos grandes
+            conviene un force layout.
+          </p>
+
+          <GraphViz
+            nodes={[
+              { id: 'A' },
+              { id: 'B' },
+              { id: 'C' },
+              { id: 'D' },
+              { id: 'E' },
+              { id: 'F' },
+            ]}
+            edges={[
+              { from: 'A', to: 'B', weight: 4 },
+              { from: 'A', to: 'C', weight: 2 },
+              { from: 'B', to: 'D', weight: 5 },
+              { from: 'C', to: 'D', weight: 1 },
+              { from: 'D', to: 'E', weight: 3 },
+              { from: 'E', to: 'F', weight: 2 },
+              { from: 'C', to: 'F', weight: 8 },
+            ]}
+            highlight={new Set(['A', 'C', 'D'])}
+            directed
+          />
+
+          <h2>Heaps — el mejor siempre en la raíz</h2>
+          <p>
+            Un heap binario es un árbol completo con una invariante: cada nodo
+            domina a sus hijos. En un <em>min-heap</em>, la raíz es el mínimo;
+            en un <em>max-heap</em>, el máximo. Lo que se paga: una estructura
+            parcialmente ordenada, no totalmente — pero eso alcanza para extraer
+            el extremo en <code>O(log n)</code>.
+          </p>
+
+          <HeapViz initialValues={[1, 3, 6, 5, 9, 8, 7, 10, 12]} type="min" />
+
+          <h2>Tablas hash — acceso directo por clave</h2>
+          <p>
+            Una función de hash convierte la clave en un índice. Si dos claves
+            caen en el mismo bucket, resolvemos con <em>separate chaining</em>:
+            cada bucket es una lista de entradas. En promedio, el acceso es
+            <code> O(1)</code>. En el peor caso (todas las claves colisionan),
+            es <code>O(n)</code>.
+          </p>
+
+          <HashMapViz
+            size={7}
+            buckets={[
+              [],
+              [{ key: 'ana', value: 28 }],
+              [
+                { key: 'luis', value: 31 },
+                { key: 'eva', value: 24 },
+              ],
+              [],
+              [{ key: 'pedro', value: 45 }],
+              [],
+              [
+                { key: 'nico', value: 19 },
+                { key: 'sara', value: 33 },
+              ],
+            ]}
+            highlight="luis"
+          />
       </Presentation>
     </LanguageProvider>
   )
