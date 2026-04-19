@@ -17,12 +17,12 @@ const getMode = () =>
   page.evaluate(() => document.querySelector('[data-mode]')?.dataset.mode)
 
 const getCounter = () =>
-  page.evaluate(() => {
-    const m = Array.from(document.querySelectorAll('.font-mono')).find((el) =>
-      /^\s*\d+\s*\/\s*\d+\s*$/.test(el.textContent.trim())
-    )
-    return m?.textContent.trim()
-  })
+  page.evaluate(
+    () =>
+      document
+        .querySelector('[data-role="slide-counter"]')
+        ?.textContent.trim() ?? null
+  )
 
 const getVisibleSlideIndex = () =>
   page.evaluate(() => {
@@ -50,7 +50,7 @@ await page.evaluate(() => {
   setter.call(input, '999')
   input.dispatchEvent(new Event('input', { bubbles: true }))
   const btn = Array.from(bst.querySelectorAll('button')).find(
-    (b) => b.textContent.trim() === 'insert'
+    (b) => b.textContent.trim().toLowerCase() === 'insertar'
   )
   btn.click()
 })

@@ -17,18 +17,15 @@ const readStack = () =>
   page.evaluate(() => {
     const frame = document.querySelector('[data-viz="stack"]')
     if (!frame) return null
-    // node boxes have .font-mono.text-slate-100
-    const cells = Array.from(
-      frame.querySelectorAll('.font-mono.text-slate-100')
-    )
-    return cells.map((c) => c.textContent.trim())
+    const cells = Array.from(frame.querySelectorAll('[data-cell]'))
+    return cells.map((c) => c.getAttribute('data-cell'))
   })
 
 const click = (label) =>
   page.evaluate((label) => {
     const frame = document.querySelector('[data-viz="stack"]')
     const btn = Array.from(frame.querySelectorAll('button')).find(
-      (b) => b.textContent.trim() === label
+      (b) => b.textContent.trim().toLowerCase() === label.toLowerCase()
     )
     btn?.click()
   }, label)

@@ -17,17 +17,15 @@ const readQueue = () =>
   page.evaluate(() => {
     const frame = document.querySelector('[data-viz="queue"]')
     if (!frame) return null
-    const cells = Array.from(
-      frame.querySelectorAll('.font-mono.text-slate-100')
-    )
-    return cells.map((c) => c.textContent.trim())
+    const cells = Array.from(frame.querySelectorAll('[data-cell]'))
+    return cells.map((c) => c.getAttribute('data-cell'))
   })
 
 const click = (label) =>
   page.evaluate((label) => {
     const frame = document.querySelector('[data-viz="queue"]')
     const btn = Array.from(frame.querySelectorAll('button')).find(
-      (b) => b.textContent.trim() === label
+      (b) => b.textContent.trim().toLowerCase() === label.toLowerCase()
     )
     btn?.click()
   }, label)
@@ -69,11 +67,11 @@ await step('dequeue')
 await step('dequeue')
 console.log('after 5 dequeues total:', await readQueue())
 
-// Click clear via explicit path
+// Click clear via explicit path (button label is now "limpiar")
 await page.evaluate(() => {
   const frame = document.querySelector('[data-viz="queue"]')
   const btn = Array.from(frame.querySelectorAll('button')).find(
-    (b) => b.textContent.trim() === 'clear'
+    (b) => b.textContent.trim().toLowerCase() === 'limpiar'
   )
   btn?.click()
 })

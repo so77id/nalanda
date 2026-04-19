@@ -17,12 +17,8 @@ const readBST = () =>
   page.evaluate(() => {
     const frame = document.querySelector('[data-viz="bst"]')
     if (!frame) return null
-    // grab the value texts (inner mono spans on nodes)
-    // each node is a motion.div with "font-mono text-sm text-slate-100"
-    const cells = Array.from(
-      frame.querySelectorAll('.font-mono.text-sm.text-slate-100')
-    )
-    return cells.map((c) => c.textContent.trim())
+    const cells = Array.from(frame.querySelectorAll('[data-cell]'))
+    return cells.map((c) => c.getAttribute('data-cell'))
   })
 
 const readEdgeCount = () =>
@@ -35,7 +31,7 @@ const click = (label) =>
   page.evaluate((label) => {
     const frame = document.querySelector('[data-viz="bst"]')
     const btn = Array.from(frame.querySelectorAll('button')).find(
-      (b) => b.textContent.trim() === label
+      (b) => b.textContent.trim().toLowerCase() === label.toLowerCase()
     )
     btn?.click()
   }, label)
@@ -63,32 +59,32 @@ console.log('initial (in-order):', await readBST())
 console.log('edges:', await readEdgeCount())
 
 // insert 2: in-order should now be 1,2,3,4,5,7,8,9
-await step('insert', 2)
+await step('insertar', 2)
 console.log('after insert 2:', await readBST())
 console.log('edges:', await readEdgeCount())
 
 // insert 6
-await step('insert', 6)
+await step('insertar', 6)
 console.log('after insert 6:', await readBST())
 console.log('edges:', await readEdgeCount())
 
 // delete a leaf (1)
-await step('delete', 1)
+await step('eliminar', 1)
 console.log('after delete 1:', await readBST())
 
-// delete node with one child (if 2 is still there, deleting 3 would have 2 as left only)
-await step('delete', 3)
+// delete node with one child
+await step('eliminar', 3)
 console.log('after delete 3:', await readBST())
 
 // delete root (5) — forces 2-children case
-await step('delete', 5)
+await step('eliminar', 5)
 console.log('after delete 5 (root):', await readBST())
 
 // try to delete something missing
-await step('delete', 99)
+await step('eliminar', 99)
 const err = await page.evaluate(() => {
   const frame = document.querySelector('[data-viz="bst"]')
-  return frame?.querySelector('p.text-amber-300')?.textContent?.trim() ?? null
+  return frame?.querySelector('[data-role="error"]')?.textContent?.trim() ?? null
 })
 console.log('error after delete 99:', JSON.stringify(err))
 
