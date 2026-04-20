@@ -1,4 +1,4 @@
-import { CodeEditor, LanguageProvider } from './widgets/code-runner/index.js'
+import { CodeEditor, LanguageProvider } from './widgets/code-editor/index.js'
 import {
   LinkedListViz,
   StackViz,
