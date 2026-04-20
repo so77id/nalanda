@@ -6,6 +6,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import ThemeToggle from '../../theme/ThemeToggle.jsx'
+import Appbar from '../../chrome/Appbar.jsx'
 
 export default function Presentation({ subtitle, title, summary, children }) {
   const [presenting, setPresenting] = useState(false)
@@ -84,6 +85,20 @@ export default function Presentation({ subtitle, title, summary, children }) {
       }
       data-mode={presenting ? 'presentation' : 'study'}
     >
+      {!presenting && (
+        <Appbar subtitle={subtitle}>
+          <ThemeToggle />
+          <button
+            type="button"
+            onClick={() => setPresenting(true)}
+            className="btn btn--primary"
+            title="Modo presentación (P)"
+          >
+            <PresentationIcon size={14} /> Presentar
+          </button>
+        </Appbar>
+      )}
+
       {!presenting && (
         <header className="mx-auto max-w-3xl px-6 pt-12">
           <p
@@ -204,29 +219,6 @@ export default function Presentation({ subtitle, title, summary, children }) {
           })}
         </article>
       </div>
-
-      {!presenting && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 16,
-            right: 16,
-            zIndex: 30,
-            display: 'flex',
-            gap: 8,
-          }}
-        >
-          <ThemeToggle />
-          <button
-            type="button"
-            onClick={() => setPresenting(true)}
-            className="btn btn--primary"
-            title="Modo presentación (P)"
-          >
-            <PresentationIcon size={14} /> Presentar
-          </button>
-        </div>
-      )}
 
       {presenting && (
         <>

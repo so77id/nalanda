@@ -304,6 +304,60 @@
   color: var(--fg-4);
 }
 
+/* Appbar — sticky top chrome with backdrop blur. The brand mark is the
+   one place in the system where a gradient is allowed (see Nalanda DS). */
+.nalanda .appbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 24px;
+  background: color-mix(in srgb, var(--bg-page) 78%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.nalanda .appbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--fg-1);
+  letter-spacing: -0.01em;
+}
+
+.nalanda .appbar__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, var(--accent) 0%, #863bff 100%);
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+}
+
+.nalanda .appbar__name {
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.nalanda .appbar__subtitle {
+  color: var(--fg-4);
+}
+
+.nalanda .appbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 /* Map Tailwind typography (@tailwindcss/typography) variables to our
    theme tokens, so `.prose` content picks up dark/light automatically.
    Drop `prose-invert` in consumers — it's redundant once these map. */
