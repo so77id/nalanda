@@ -21,7 +21,9 @@ export function ThemeProvider({ children }) {
     document.documentElement.setAttribute('data-theme', theme)
     try {
       localStorage.setItem(STORAGE_KEY, theme)
-    } catch {}
+    } catch {
+      // localStorage unavailable (private mode, disk full, ...) — fine.
+    }
   }, [theme])
 
   return (
@@ -31,6 +33,8 @@ export function ThemeProvider({ children }) {
   )
 }
 
+// Hook colocated with the Provider — HMR false-positive for fast refresh.
+// eslint-disable-next-line react-refresh/only-export-components
 export function useTheme() {
   const ctx = useContext(ThemeContext)
   if (!ctx) {

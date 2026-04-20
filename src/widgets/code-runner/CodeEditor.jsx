@@ -228,13 +228,17 @@ export default function CodeEditor({
     needsRuntime ? activeLang : null
   )
 
-  // Clear stale output when language changes (it was from a different run)
+  // Clear stale output when language changes (it was from a different run).
+  // Resetting synchronously on prop change is the cleanest option here;
+  // deriving from activeLang would need a lastLang ref without clarity gain.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setCompileLog('')
     setOutput('')
     setExitCode(null)
     setTimings(null)
   }, [activeLang])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const doRun = useCallback(async () => {
     if (!flags.runnable) return
@@ -264,7 +268,9 @@ export default function CodeEditor({
       await navigator.clipboard.writeText(code)
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
-    } catch {}
+    } catch {
+      // clipboard API unavailable (http, older browser) — fail silently.
+    }
   }, [code])
 
   // --- keyboard shortcuts ----------------------------------------------
