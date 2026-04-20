@@ -1,4 +1,4 @@
-import { CodeRunner, LanguageProvider } from './widgets/code-runner/index.js'
+import { CodeEditor, LanguageProvider } from './widgets/code-runner/index.js'
 import {
   LinkedListViz,
   StackViz,
@@ -189,7 +189,7 @@ export default function App() {
             referencia, sin manejo explícito de memoria).
           </p>
 
-          <CodeRunner samples={LINKED_LIST} />
+          <CodeEditor samples={LINKED_LIST} variant="exercise" />
 
           <h2>Stacks — el primo LIFO</h2>
           <p>
@@ -233,7 +233,7 @@ export default function App() {
             aliquip ex ea commodo consequat.
           </p>
 
-          <CodeRunner samples={FIBONACCI} />
+          <CodeEditor samples={FIBONACCI} variant="exercise" />
 
           <h2>Ordenar y agregar</h2>
           <p>
@@ -243,7 +243,7 @@ export default function App() {
             voluptate velit esse cillum dolore eu fugiat nulla pariatur.
           </p>
 
-          <CodeRunner samples={SORT} />
+          <CodeEditor samples={SORT} variant="lab" />
 
           <h2>Arreglos — el índice como dirección</h2>
           <p>
