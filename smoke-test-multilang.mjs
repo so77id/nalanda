@@ -23,7 +23,7 @@ await new Promise((r) => setTimeout(r, 1500))
 
 // Count runners
 const runners = await page.evaluate(
-  () => document.querySelectorAll('button[title="Expand (fullscreen)"]').length
+  () => document.querySelectorAll('button[title="Pantalla completa"]').length
 )
 console.log(`→ ${runners} runners on page`)
 
@@ -45,7 +45,7 @@ await page.screenshot({ path: 'smoke-test-multilang-page.png', fullPage: true })
 // Expand the Python runner (2nd one — index 1)
 console.log('\n→ expanding Python runner (index 1)...')
 await page.evaluate(() => {
-  document.querySelectorAll('button[title="Expand (fullscreen)"]')[1].click()
+  document.querySelectorAll('button[title="Pantalla completa"]')[1].click()
 })
 await new Promise((r) => setTimeout(r, 800))
 
@@ -57,7 +57,7 @@ for (let i = 0; i < 60; i++) {
   await new Promise((r) => setTimeout(r, 1000))
   warmPy = await page.evaluate(() =>
     Array.from(document.querySelectorAll('span')).some((s) =>
-      s.textContent.includes('● warm')
+      s.textContent.includes('● listo')
     )
   )
   if (warmPy) break
@@ -72,7 +72,7 @@ console.log('→ running python...')
 await page.evaluate(() => {
   const fs = document.querySelector('.fixed.inset-0.z-50')
   const btn = Array.from(fs.querySelectorAll('button')).find(
-    (b) => b.textContent.trim() === '▶ Run'
+    (b) => b.textContent.trim().toLowerCase().includes('ejecutar')
   )
   btn?.click()
 })
@@ -101,7 +101,7 @@ await new Promise((r) => setTimeout(r, 500))
 // Test C++ runner (first one)
 console.log('\n→ expanding C++ runner (index 0)...')
 await page.evaluate(() => {
-  document.querySelectorAll('button[title="Expand (fullscreen)"]')[0].click()
+  document.querySelectorAll('button[title="Pantalla completa"]')[0].click()
 })
 await new Promise((r) => setTimeout(r, 500))
 
@@ -112,7 +112,7 @@ for (let i = 0; i < 30; i++) {
   await new Promise((r) => setTimeout(r, 500))
   warmCpp = await page.evaluate(() =>
     Array.from(document.querySelectorAll('span')).some((s) =>
-      s.textContent.includes('● warm')
+      s.textContent.includes('● listo')
     )
   )
   if (warmCpp) break
@@ -123,7 +123,7 @@ console.log('→ running cpp...')
 await page.evaluate(() => {
   const fs = document.querySelector('.fixed.inset-0.z-50')
   const btn = Array.from(fs.querySelectorAll('button')).find(
-    (b) => b.textContent.trim() === '▶ Run'
+    (b) => b.textContent.trim().toLowerCase().includes('ejecutar')
   )
   btn?.click()
 })

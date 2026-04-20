@@ -23,7 +23,7 @@ await new Promise((r) => setTimeout(r, 1500))
 
 // Count embeds
 const nEmbeds = await page.evaluate(
-  () => document.querySelectorAll('button[title="Expand (fullscreen)"]').length
+  () => document.querySelectorAll('button[title="Pantalla completa"]').length
 )
 console.log(`→ found ${nEmbeds} embed(s) in the page`)
 
@@ -34,13 +34,13 @@ console.log('→ saved smoke-test-embed-page.png')
 // Click the first embed's expand button
 console.log('→ clicking expand on first runner...')
 await page.evaluate(() => {
-  document.querySelector('button[title="Expand (fullscreen)"]').click()
+  document.querySelector('button[title="Pantalla completa"]').click()
 })
 await new Promise((r) => setTimeout(r, 800))
 
 const fullscreenPresent = await page.evaluate(() =>
   Array.from(document.querySelectorAll('button')).some((b) =>
-    b.textContent.includes('Close')
+    b.textContent.includes('Cerrar')
   )
 )
 console.log(`→ fullscreen open: ${fullscreenPresent}`)
@@ -52,7 +52,7 @@ console.log('→ saved smoke-test-embed-fullscreen.png')
 console.log('→ clicking Run in fullscreen...')
 await page.evaluate(() => {
   const btn = Array.from(document.querySelectorAll('button')).find(
-    (b) => b.textContent.includes('Run') || b.textContent.includes('Warming')
+    (b) => b.textContent.includes('Ejecutar') || b.textContent.includes('Calentando')
   )
   btn?.click()
 })
@@ -81,7 +81,7 @@ await new Promise((r) => setTimeout(r, 500))
 
 const stillOpen = await page.evaluate(() =>
   Array.from(document.querySelectorAll('button')).some((b) =>
-    b.textContent.includes('Close')
+    b.textContent.includes('Cerrar')
   )
 )
 console.log(`→ fullscreen still open after Escape: ${stillOpen}`)

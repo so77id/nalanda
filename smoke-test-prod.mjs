@@ -44,7 +44,7 @@ for (let i = 0; i < 120; i++) {
   await new Promise((r) => setTimeout(r, 500))
   warm = await page.evaluate(() =>
     Array.from(document.querySelectorAll('span')).some((s) =>
-      s.textContent.includes('● warm')
+      s.textContent.includes('● listo')
     )
   )
   if (warm) break
@@ -69,7 +69,7 @@ console.log('\n→ clicking Run (linked list)...')
 const tc = Date.now()
 await page.evaluate(() => {
   Array.from(document.querySelectorAll('button'))
-    .find((b) => b.textContent.includes('Run'))
+    .find((b) => b.textContent.includes('Ejecutar'))
     ?.click()
 })
 for (let i = 0; i < 60; i++) {
@@ -77,13 +77,13 @@ for (let i = 0; i < 60; i++) {
   const label = await page.evaluate(() =>
     Array.from(document.querySelectorAll('button'))[0]?.textContent
   )
-  if (label?.includes('Run') && !label.includes('ing')) break
+  if (label?.includes('Ejecutar') && !label.includes('Ejecutando')) break
 }
 console.log(`  done in ${Date.now() - tc}ms`)
 
 const timings = await page.evaluate(() => {
   const m = Array.from(document.querySelectorAll('span')).find((s) =>
-    s.textContent.includes('last run')
+    s.textContent.includes('última ejecución')
   )
   return m?.textContent.trim() ?? null
 })

@@ -32,7 +32,7 @@ console.log('→ all synced to python?', allPython)
 const fileNames = await page.evaluate(() => {
   // find all text content from "main." badges
   return Array.from(
-    document.querySelectorAll('span.font-mono.uppercase')
+    document.querySelectorAll('.chrome-label')
   ).map((s) => s.textContent)
 })
 console.log('→ filenames in each runner:', fileNames)
