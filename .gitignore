@@ -30,3 +30,6 @@ Thumbs.db
 
 # test artifacts (regenerated)
 smoke-test*.png
+
+# Claude Code local metadata
+.claude/
