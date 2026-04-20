@@ -14,6 +14,7 @@ import {
 import { useRuntime } from './useRuntime.js'
 import { useLanguage } from './LanguageContext.jsx'
 import { runtimeList } from './runtimes/index.js'
+import { useTheme } from '../../theme/ThemeContext.jsx'
 
 /**
  * CodeEditor — one component, fine-grained chrome.
@@ -169,7 +170,8 @@ export default function CodeEditor({
     ]
   )
 
-  // --- language (global via context, overridable per-instance) ----------
+  // --- theme + language (global via contexts) ---------------------------
+  const [themeName] = useTheme()
   const { languageId: ctxLang, setLanguageId } = useLanguage()
   const activeLang = language ?? ctxLang
 
@@ -357,6 +359,7 @@ export default function CodeEditor({
     height,
     onKeyDown: onContainerKeyDown,
     cmExtras: flags.runnable ? [runShortcut] : [],
+    themeName,
   }
 
   if (expanded) {
@@ -402,6 +405,7 @@ function EmbedLayout({
   height,
   onKeyDown,
   cmExtras,
+  themeName,
 }) {
   const hasFooter =
     flags.runnable ||
@@ -439,6 +443,7 @@ function EmbedLayout({
           activeLang={activeLang}
           height={height ?? 'embed'}
           extras={cmExtras}
+          themeName={themeName}
         />
 
         {flags.showStdin && (
@@ -451,7 +456,10 @@ function EmbedLayout({
           <PanelStrip
             label={runtime?.meta.id === 'cpp' ? 'diagnósticos' : 'errores'}
           >
-            <OutputPre text={compileLog || '—'} tone="warn" />
+            <OutputPre
+              text={compileLog || '—'}
+              tone={compileLog ? 'warn' : 'muted'}
+            />
           </PanelStrip>
         )}
 
@@ -542,6 +550,7 @@ function ExpandedLayout({
   onClose,
   onKeyDown,
   cmExtras,
+  themeName,
 }) {
   return (
     <div
@@ -620,6 +629,7 @@ function ExpandedLayout({
             activeLang={activeLang}
             height="100%"
             extras={cmExtras}
+            themeName={themeName}
           />
         </PanelFrame>
 
@@ -649,7 +659,7 @@ function ExpandedLayout({
             >
               <OutputPre
                 text={compileLog || '—'}
-                tone="warn"
+                tone={compileLog ? 'warn' : 'muted'}
                 scroll
                 maxHeight="10rem"
               />
@@ -767,12 +777,16 @@ function CodeArea({
   activeLang,
   height,
   extras = [],
+  themeName = 'dark',
 }) {
   const maxHeight = height === 'embed' ? '14rem' : undefined
   const extensions = [
     ...(runtime ? [runtime.meta.codeMirrorLanguage] : []),
     ...extras,
   ]
+  // CodeMirror accepts 'light' | 'dark' | theme object. We map our two
+  // themes directly — 'light' uses the default CM6 light palette.
+  const cmTheme = themeName === 'light' ? 'light' : 'dark'
   return (
     <div
       style={{
@@ -783,11 +797,11 @@ function CodeArea({
       }}
     >
       <CodeMirror
-        key={activeLang}
+        key={`${activeLang}-${cmTheme}`}
         value={code}
         onChange={setCode}
         extensions={extensions}
-        theme="dark"
+        theme={cmTheme}
         editable={editable}
         readOnly={!editable}
         height={height === '100%' ? '100%' : undefined}
@@ -810,7 +824,7 @@ function StdinBox({ stdin, setStdin, tall = false }) {
         width: '100%',
         height: tall ? '5rem' : '3.5rem',
         resize: 'none',
-        background: 'var(--bg-panel)',
+        background: 'var(--bg-panel-header)',
         color: 'var(--fg-1)',
         padding: 8,
         fontFamily: 'var(--font-mono)',
@@ -823,17 +837,29 @@ function StdinBox({ stdin, setStdin, tall = false }) {
   )
 }
 
-function OutputPre({ text, tone = 'normal', scroll = false, maxHeight }) {
+function OutputPre({
+  text,
+  tone = 'normal',
+  scroll = false,
+  maxHeight,
+  bg,
+}) {
+  const color =
+    tone === 'warn'
+      ? 'var(--warn-fg)'
+      : tone === 'muted'
+      ? 'var(--fg-5)'
+      : 'var(--fg-2)'
   return (
     <pre
       style={{
         margin: 0,
         padding: '8px 14px',
-        background: 'var(--bg-code)',
+        background: bg ?? 'var(--bg-panel-header)',
         fontFamily: 'var(--font-mono)',
         fontSize: 'var(--text-xs)',
         whiteSpace: 'pre-wrap',
-        color: tone === 'warn' ? 'var(--warn-fg)' : 'var(--fg-2)',
+        color,
         flex: scroll ? 1 : undefined,
         overflow: scroll ? 'auto' : undefined,
         maxHeight,

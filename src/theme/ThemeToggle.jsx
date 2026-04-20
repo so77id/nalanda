@@ -1,26 +1,5 @@
-import { useEffect, useState } from 'react'
 import { Sun, Moon } from 'lucide-react'
-
-const STORAGE_KEY = 'nalanda-theme'
-
-function readInitialTheme() {
-  if (typeof document === 'undefined') return 'dark'
-  const attr = document.documentElement.getAttribute('data-theme')
-  return attr === 'light' ? 'light' : 'dark'
-}
-
-export function useTheme() {
-  const [theme, setTheme] = useState(readInitialTheme)
-
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme)
-    try {
-      localStorage.setItem(STORAGE_KEY, theme)
-    } catch {}
-  }, [theme])
-
-  return [theme, setTheme]
-}
+import { useTheme } from './ThemeContext.jsx'
 
 export default function ThemeToggle({ className = '' }) {
   const [theme, setTheme] = useTheme()
