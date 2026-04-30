@@ -88,6 +88,38 @@ Modo paso a paso para algoritmos específicos:
 - Dijkstra (distancias tentativas, nodo actual)
 - Sorting (bubble/merge/quick — swaps resaltados)
 - In-order / pre-order / post-order traversal de árbol
+- Floyd / tortoise-and-hare (detección de ciclos): animar `slow` y
+  `fast` moviéndose sobre un grafo (o linked list) hasta colisión.
+
+### Code-line tracker (sincronización código ↔ viz)
+Inspiración: reel de IG donde se ejecuta Floyd sobre un grafo y la
+línea de código que se está ejecutando se ilumina en sync con el paso
+de la animación (las "tortuga y liebre" se mueven en el grafo mientras
+en paralelo se resalta la línea correspondiente del pseudocódigo).
+
+Patrón pedagógico: para cualquier algoritmo que visualicemos en
+nuestras interfaces (no solo Floyd), poder mostrar el bloque de código
+al lado del viz y resaltar la línea activa en cada step. El student ve
+qué línea produce qué cambio en la estructura — el "puente" entre
+código y comportamiento queda explícito.
+
+Diseño tentativo:
+- El algoritmo se define como una secuencia de steps, cada uno
+  etiquetado con `{ codeLine: N, vizOp: {...} }`.
+- El runner del paso a paso emite ambos: `<CodeEditor>` (en variant
+  `read`, sin runtime) recibe la línea activa y la resalta; el viz
+  recibe la op y anima.
+- Controles compartidos: play / pause / step / tempo. Igual que el
+  "Playback mode" de más abajo, pero con el código sincronizado.
+- Versión avanzada: el código real se anota con marcadores
+  (`// @step:1`) y un transformador genera los steps.
+
+Relacionado pero distinto al "Interop con `<CodeRunner>`" (más abajo):
+acá el código NO se ejecuta, es ilustrativo y guionado — sirve para
+explicar un algoritmo canónico. La interop real es para código del
+student.
+
+Ref: https://www.instagram.com/reel/DXs_zXfj2D9/
 
 ### Interop con `<CodeRunner>`
 El santo grial, de alto riesgo: el student escribe código en el
