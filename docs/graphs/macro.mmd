@@ -1,0 +1,58 @@
+graph TD
+    G1[G1 · Fundamentos]
+    G2[G2 · Estructuras lineales]
+    G3[G3 · Patrones sobre arreglos]
+    G4[G4 · Recursión y análisis formal]
+    G5[G5 · Búsqueda y ordenamiento]
+    G6[G6 · Hashing]
+    G7[G7 · Árboles]
+    G8[G8 · Heaps y prioridad]
+    G9[G9 · Rango y conjuntos disjuntos]
+    G10[G10 · Bit manipulation]
+    G11[G11 · Paradigmas algorítmicos]
+    G12[G12 · Grafos]
+    G13[G13 · Strings]
+    G14[G14 · Cierre · Randomizados / NP]
+
+    G1 --> G2
+    G1 --> G4
+    G2 --> G3
+    G2 --> G4
+    G2 --> G5
+    G4 --> G5
+    G2 --> G6
+    G4 --> G7
+    G2 --> G8
+    G7 --> G8
+    G7 --> G9
+    G2 --> G9
+    G2 --> G10
+    G4 --> G11
+    G5 --> G11
+    G2 --> G12
+    G7 --> G12
+    G8 --> G12
+    G9 --> G12
+    G11 --> G12
+    G6 --> G13
+    G11 --> G14
+    G12 --> G14
+    G6 --> G14
+
+    classDef foundation fill:#fef3c7,stroke:#a16207
+    classDef linear fill:#dbeafe,stroke:#1e40af
+    classDef analysis fill:#ede9fe,stroke:#5b21b6
+    classDef sorting fill:#fce7f3,stroke:#9d174d
+    classDef structures fill:#dcfce7,stroke:#15803d
+    classDef paradigms fill:#ffe4e6,stroke:#9f1239
+    classDef graphs fill:#fed7aa,stroke:#c2410c
+    classDef closing fill:#e5e7eb,stroke:#374151
+
+    class G1 foundation
+    class G2,G3 linear
+    class G4 analysis
+    class G5 sorting
+    class G6,G7,G8,G9,G10 structures
+    class G11 paradigms
+    class G12,G13 graphs
+    class G14 closing

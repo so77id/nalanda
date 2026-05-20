@@ -1,0 +1,166 @@
+graph TD
+    intro[Intro & TDAs]
+    bigO[Complejidad Big O/Ω/Θ]
+    arr[Arreglos estáticos/dinámicos]
+    ll[Listas enlazadas]
+    stack[Pilas]
+    queue[Colas / Deques]
+    twoP[Dos punteros]
+    slide[Sliding window]
+    prefix[Prefix sums]
+    rec[Recursión]
+    recur[Recurrencias / Master Theorem]
+    amort[Análisis amortizado]
+    linSearch[Búsqueda lineal]
+    binSearch[Búsqueda binaria]
+    s2[Sorts O n²: bubble/selection/insertion]
+    dc[Divide y vencerás]
+    mq[Merge sort / Quicksort]
+    sortLin[Sorts lineales: counting/radix/bucket]
+    hash[Tablas hash]
+    hashFn[Funciones hash]
+    bloom[Bloom filters]
+    skip[Skip lists]
+    tree[Árboles binarios + recorridos]
+    bst[BST]
+    avl[AVL]
+    rb[Red-Black]
+    btree[B-trees / B+ trees]
+    trie[Tries]
+    heap[Heap binario]
+    pq[Priority queue]
+    hsort[Heap-sort]
+    seg[Segment trees]
+    fen[Fenwick / BIT]
+    uf[Union-Find]
+    bit[Bit manipulation]
+    bt[Backtracking]
+    greedy[Greedy]
+    dp[Dynamic Programming]
+    gr[Representación de grafos]
+    bfs[BFS]
+    dfs[DFS]
+    topo[Orden topológico]
+    scc[SCC: Tarjan/Kosaraju]
+    dij[Dijkstra]
+    bf[Bellman-Ford]
+    fw[Floyd-Warshall]
+    prim[Prim]
+    krus[Kruskal]
+    flow[Max flow / Min cut]
+    kmp[KMP]
+    rk[Rabin-Karp]
+    za[Z-algorithm]
+    sa[Suffix arrays]
+    rand[Randomizados]
+    np[P, NP, NP-completo]
+
+    intro --> bigO
+    bigO --> arr
+    bigO --> s2
+    bigO --> binSearch
+    bigO --> recur
+
+    arr --> ll
+    arr --> stack
+    arr --> queue
+    arr --> twoP
+    arr --> slide
+    arr --> prefix
+    arr --> linSearch
+    arr --> binSearch
+    arr --> s2
+    arr --> hash
+    arr --> heap
+    arr --> bit
+    arr --> fen
+    arr --> uf
+    arr --> gr
+    arr --> amort
+
+    ll --> stack
+    ll --> queue
+    ll --> hash
+    ll --> skip
+    ll --> gr
+
+    stack --> rec
+    rec --> recur
+    rec --> tree
+    rec --> dc
+    rec --> bt
+    rec --> dp
+    rec --> dfs
+    rec --> seg
+    rec --> za
+
+    recur --> dc
+    recur --> dp
+
+    dc --> mq
+    s2 --> mq
+    mq --> sortLin
+    mq --> krus
+    mq --> sa
+    mq --> rand
+
+    binSearch --> bst
+
+    tree --> bst
+    tree --> heap
+    tree --> trie
+    tree --> seg
+    tree --> uf
+
+    bst --> avl
+    avl --> rb
+    rb --> btree
+
+    heap --> pq
+    heap --> hsort
+    s2 --> hsort
+
+    hash --> hashFn
+    hashFn --> bloom
+    hash --> rk
+    hash --> rand
+
+    stack --> bt
+    queue --> bfs
+
+    s2 --> greedy
+    pq --> greedy
+
+    gr --> bfs
+    gr --> dfs
+    gr --> dij
+    gr --> bf
+    gr --> fw
+    gr --> prim
+    gr --> krus
+    gr --> flow
+
+    dfs --> topo
+    dfs --> scc
+    topo --> scc
+
+    pq --> dij
+    greedy --> dij
+
+    dp --> bf
+    dp --> fw
+
+    pq --> prim
+    greedy --> prim
+
+    uf --> krus
+    greedy --> krus
+
+    bfs --> flow
+
+    trie --> kmp
+    dp --> kmp
+
+    dp --> np
+    greedy --> np
+    flow --> np
