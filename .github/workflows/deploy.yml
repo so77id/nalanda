@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths-ignore:
       - '**.md'
-      - 'smoke-test*.mjs'
+      - 'smoke/**'
   workflow_dispatch:
 
 permissions:

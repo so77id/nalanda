@@ -6,7 +6,7 @@ import {
   ChevronRight,
 } from 'lucide-react'
 import ThemeToggle from '../../theme/ThemeToggle.jsx'
-import Appbar from '../../chrome/Appbar.jsx'
+import Appbar from '../../layout/Appbar.jsx'
 
 export default function Presentation({ subtitle, title, summary, children }) {
   const [presenting, setPresenting] = useState(false)
