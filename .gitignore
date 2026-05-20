@@ -31,5 +31,6 @@ Thumbs.db
 # test artifacts (regenerated)
 smoke-test*.png
 
-# Claude Code local metadata
-.claude/
+# Claude Code local-only metadata (workflow files in .claude/ are tracked)
+.claude/settings.local.json
+.claude/worktrees/

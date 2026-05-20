@@ -1,0 +1,10 @@
+# Node / build artifacts
+node_modules/
+dist/
+
+# Smoke test screenshots (regenerable artifacts)
+smoke-test-*.png
+
+# OS
+.DS_Store
+Thumbs.db
