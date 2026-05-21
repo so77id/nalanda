@@ -63,10 +63,9 @@ Each skill encapsulates the full process. Read `.claude/skills/<name>/SKILL.md` 
 
 - Conventions (kanban columns, labels, branch naming, commits, PR template, worktree+`.env`): `docs/conventions.md`
 - ADRs (architectural decisions, when present): `docs/decisions/`
-- Spec: `SPEC.md`
 
 ## Documentation
-- **README.md / SPEC.md**: Keep updated after architecture/feature changes.
+- **README.md**: Keep updated after architecture/feature changes.
 - **Conventions**: `docs/conventions.md` (workflow conventions referenced by the skills).
 - **Decisions**: `docs/decisions/` (ADRs, numbered sequentially) — created on demand.
 
