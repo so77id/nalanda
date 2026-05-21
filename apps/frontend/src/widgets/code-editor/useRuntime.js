@@ -5,15 +5,21 @@ export function useRuntime(languageId) {
   const workerRef = useRef(null)
   const pendingRef = useRef(new Map())
   const nextIdRef = useRef(0)
+  const [prevLang, setPrevLang] = useState(languageId)
   const [warm, setWarm] = useState(false)
   const [warmStats, setWarmStats] = useState(null)
+
+  // React-recommended pattern: reset derived state when an input changes,
+  // during render rather than inside an effect, to avoid cascading renders.
+  if (prevLang !== languageId) {
+    setPrevLang(languageId)
+    setWarm(false)
+    setWarmStats(null)
+  }
 
   useEffect(() => {
     const runtime = getRuntime(languageId)
     if (!runtime) return
-
-    setWarm(false)
-    setWarmStats(null)
 
     const worker = runtime.createWorker()
     workerRef.current = worker

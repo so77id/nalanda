@@ -12,7 +12,7 @@ import {
   Check,
 } from 'lucide-react'
 import { useRuntime } from './useRuntime.js'
-import { useLanguage } from './LanguageContext.jsx'
+import { useLanguage } from './useLanguage.js'
 import { runtimeList } from './runtimes/index.js'
 import { useTheme } from '../../theme/ThemeContext.jsx'
 

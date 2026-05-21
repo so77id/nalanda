@@ -1,6 +1,5 @@
-import { createContext, useContext, useState } from 'react'
-
-const LanguageContext = createContext(null)
+import { useState } from 'react'
+import { LanguageContext } from './useLanguage.js'
 
 export function LanguageProvider({ children, defaultLanguage = 'cpp' }) {
   const [languageId, setLanguageId] = useState(defaultLanguage)
@@ -9,12 +8,4 @@ export function LanguageProvider({ children, defaultLanguage = 'cpp' }) {
       {children}
     </LanguageContext.Provider>
   )
-}
-
-export function useLanguage() {
-  const ctx = useContext(LanguageContext)
-  if (!ctx) {
-    throw new Error('useLanguage must be used inside <LanguageProvider>')
-  }
-  return ctx
 }
