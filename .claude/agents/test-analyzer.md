@@ -7,7 +7,7 @@ model: sonnet
 
 You are a frontend testing specialist for Nalanda.
 
-Nalanda uses puppeteer-based smoke tests (`smoke-test-*.mjs` at the repo root) instead of a unit-test framework. Treat the smoke tests as the primary safety net and the lint as the secondary one.
+Nalanda uses puppeteer-based smoke tests (`apps/frontend/smoke/smoke-test-*.mjs`) instead of a unit-test framework. Treat the smoke tests as the primary safety net and the lint as the secondary one.
 
 ## Your Analysis Tasks
 

@@ -13,17 +13,21 @@ All code, comments, variable names, commit messages, and documentation must be i
 - **Animations**: framer-motion
 - **Icons**: lucide-react
 - **Lint**: ESLint 9
-- **Smoke tests**: puppeteer-core scripts (`smoke-test-*.mjs`)
+- **Smoke tests**: puppeteer-core scripts in `apps/frontend/smoke/smoke-test-*.mjs`
 - **Deploy**: GitHub Pages (100% static)
 
 ## Development commands
+
+All commands run from `apps/frontend/`:
+
 ```bash
-npm install            # Install dependencies
-npm run dev            # Vite dev server
-npm run build          # Production build to dist/
-npm run preview        # Preview the production build locally
-npm run lint           # ESLint
-node smoke-test-*.mjs  # Run individual smoke tests (puppeteer)
+cd apps/frontend
+npm install                       # Install dependencies
+npm run dev                       # Vite dev server (localhost:5173)
+npm run build                     # Production build to apps/frontend/dist/
+npm run preview                   # Preview the production build locally
+npm run lint                      # ESLint
+node smoke/smoke-test-*.mjs       # Run individual smoke tests (puppeteer)
 ```
 
 ## Logging

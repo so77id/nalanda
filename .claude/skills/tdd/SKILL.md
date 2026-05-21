@@ -9,12 +9,12 @@ argument-hint: "<description of what to implement>"
 
 Implement `$ARGUMENTS` following strict Test-Driven Development. You MUST follow this exact order — no skipping steps.
 
-Nalanda uses puppeteer-based smoke tests at the repo root (`smoke-test-*.mjs`) instead of a unit-test framework. The "test" in each step below refers to one of those scripts.
+Nalanda uses puppeteer-based smoke tests in `apps/frontend/smoke/smoke-test-*.mjs` instead of a unit-test framework. The "test" in each step below refers to one of those scripts.
 
 ## Step 1 — Red (Failing Test)
 1. Understand the requirement from the arguments
-2. Identify (or create) the smallest smoke test that asserts the new behavior. Either add an assertion to an existing `smoke-test-<area>.mjs` or create a new `smoke-test-<feature>.mjs`
-3. Run the smoke test (`node smoke-test-<feature>.mjs`) — confirm it FAILS
+2. Identify (or create) the smallest smoke test that asserts the new behavior. Either add an assertion to an existing `apps/frontend/smoke/smoke-test-<area>.mjs` or create a new `apps/frontend/smoke/smoke-test-<feature>.mjs`
+3. Run the smoke test (`cd apps/frontend && node smoke/smoke-test-<feature>.mjs`) — confirm it FAILS
 4. **STOP.** Do NOT write implementation yet. Show the user the failing test.
 
 ## Step 2 — Green (Minimum Implementation)
