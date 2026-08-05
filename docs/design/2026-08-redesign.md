@@ -31,7 +31,7 @@ Status: `pending` → `in discussion` → `closed`
 5. **Componentes conectados / sesiones en vivo** — sockets, professor↔student sync, shared code, remote presentation advance. — `closed` (fine detail at hito-1 spec)
 6. **Runtime de código (Java)** — execution engine decision. Old ADR-0003 as input. — `closed-deferred`
 7. **Sistema de creación de clases** — authoring pipeline/skill: presentation → Nalanda class. — `closed` (concept level)
-8. **Etapas & roadmap** — cut aspirational design into versions (v0.1 = minimum to start adding content); rewrite ADRs; open new issues. — `in discussion`
+8. **Etapas & roadmap** — cut aspirational design into versions (v0.1 = minimum to start adding content); rewrite ADRs; open new issues. — `closed`
 
 ## Section notes & decisions
 
@@ -183,3 +183,48 @@ details, session lifecycle.
 | # | Decision | Date |
 |---|---|---|
 | D23 | **SQLite first, Postgres when genuinely needed.** SQLite runs inside the production container alongside the app, its file on a persistent disk so restarts survive. The Go repository layer is designed so the swap to Postgres is localized. | 2026-08-05 |
+
+### 8. Etapas & roadmap
+
+| # | Decision | Date |
+|---|---|---|
+| D27 | **Version cut and order** (dependency-driven): v0.1 → v0.2 → v0.3 as below. Sync can wait until after the first class; executable code cannot — so "contenido vivo" precedes "la cátedra". | 2026-08-05 |
+| D28 | **Ten new ADRs** distill the design (list below); one decision per ADR — things go together only if they must. The design doc remains as historical narrative; ADRs are the living decisions. Old ADR series stays archived in `proof-of-concept/decisions/`. | 2026-08-05 |
+| D29 | **Component inventory is emergent** (per P27): no component is mandatory for v0.1 beyond the structural minimum. Components are discussed, added, evolved, and documented as real classes get built — each addition follows the catalog's how-to-add + checklists (D18). | 2026-08-05 |
+
+**The roadmap:**
+
+**v0.1 — "El esqueleto"** *(unlocks M6: content creation can start)*
+1. Foundation: monorepo structure + TS/React/Vite/Tailwind app scaffold, dev
+   standards imported from DocumentBuddy (code style, TDD, documentation practices,
+   integration guides), basic CI. (M9, D11, D13)
+2. Content model: MDX pipeline, documents with stable ids + frontmatter, `[[wiki-links]]`,
+   index file → TOC navigation + `book` mode rendering. (D1, D3, D4, D26)
+3. Presentation mode: same document rendered as slides; first structural components
+   (Slide, SectionBreak). (D15)
+4. Catalog: `/catalog` route with self-governance docs (families, how-to-add,
+   checklists), seeded with whatever components exist. (D18)
+5. Deploy: GitHub Pages.
+
+**v0.2 — "El contenido vivo"**
+6. Java runtime spec — CheerpJ license verification as mandatory first task (D24);
+   port CodeEditor from the quarry. (D10)
+7. Widgets by need: visualizers ported one by one as classes require them. (D10, D29)
+8. `create-class` skill v1 with its evolution guide. (D25)
+
+**v0.3 — "La cátedra"** *(= hito 1 complete)*
+9. Go backend: Google OAuth, SQLite in container, Miguel seeded, professors CRUD,
+   admin section behind login. (D12, D19, D23)
+10. Live sessions: relay with event envelope, location sync, session banner
+    (join code + counter). (D20–D22)
+11. VPS deploy (university or AWS free tier); frontend stays on Pages. (D14)
+
+**New ADR series** (in `docs/decisions/`):
+0001 client-side compute philosophy · 0002 content model (graph + index, stable ids)
+· 0003 MDX as document format · 0004 frontend stack · 0005 dev standards (bounded
+style, TDD, DocumentBuddy imports) · 0006 backend in Go · 0007 SQLite first ·
+0008 session event-envelope relay · 0009 professor-only auth (Google OAuth) ·
+0010 component contract + self-governing catalog.
+
+**Section 8 status: CLOSED. Design phase complete.** Next: create v0.1 issues via
+`refine-idea` and start developing.
