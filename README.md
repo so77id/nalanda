@@ -1,40 +1,34 @@
 # Nalanda
 
-Interactive CS learning platform. Browser-first site where theory, slides, data-structure visualizations, and live code execution coexist. MVP course: *Data Structures in C++*.
+Interactive CS learning platform. Browser-first site where theory, slides,
+data-structure visualizations, and live code execution coexist.
 
-## Monorepo layout
+## Status (August 2026)
+
+The project is in a **from-zero redesign**: the aspirational platform (live classes,
+course creator, client-side code execution) is being designed before any new
+implementation starts. The living design document is
+[`docs/design/2026-08-redesign.md`](docs/design/2026-08-redesign.md).
+
+The original proof of concept (8 DS visualizers, in-browser C++/Python execution,
+presentation mode) and the discarded May 2026 roadmap are packaged under
+[`proof-of-concept/`](proof-of-concept/README.md) — still runnable, kept as reference.
+
+## Repository layout
 
 ```
 nalanda/
-├── apps/
-│   └── frontend/   React 19 + Vite POC (course site, widgets, smoke tests)
-├── packages/       (placeholder) shared libraries — e.g., OpenAPI client (S1.3)
-├── infra/          (placeholder) Terraform modules (S1.4)
-├── scripts/        (placeholder) local dev helpers (S1.6)
-├── docs/           ADRs, conventions, plans
-├── .claude/        agent skills + workflow infra
-└── CLAUDE.md       root project instructions
-```
-
-## Development
-
-The frontend lives in `apps/frontend/`. All commands run from there:
-
-```bash
-cd apps/frontend
-npm install
-npm run dev      # Vite dev server (localhost:5173)
-npm run build    # Production build to apps/frontend/dist/
-npm run preview  # Preview the production build
-npm run lint     # ESLint
-
-node smoke/smoke-test-stack.mjs   # Run any smoke test against npm run dev
+├── proof-of-concept/   Archived POC app + documented issues from the old roadmap
+├── docs/
+│   ├── design/         Living redesign document (source of truth for what's next)
+│   ├── decisions/      ADRs
+│   ├── conventions.md  Workflow conventions (branches, commits, PRs, kanban)
+│   └── course-graph.md Course topology (deferred until platform v0.1)
+├── .claude/            Agent workflow skills (capture-idea, refine-idea, groom-backlog, develop-task)
+└── CLAUDE.md           Root project instructions
 ```
 
 ## Workflow
 
-All changes go through PRs (squash-merged manually). See `docs/conventions.md` for branch naming, commit format, kanban columns, and the WP lifecycle. The agent workflow skills live in `.claude/skills/` (`capture-idea`, `refine-idea`, `groom-backlog`, `develop-task`).
-
-## Architecture
-
-Active architectural decisions are in `docs/decisions/`. The current SPA POC is described in `CLAUDE.md`; the platform plan and ADR-0001 cover the upcoming Go backend, shared OpenAPI contracts, and Terraform infrastructure.
+All changes go through PRs (squash-merged manually). See `docs/conventions.md` for
+branch naming, commit format, kanban columns, and the WP lifecycle.

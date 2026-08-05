@@ -1,7 +1,10 @@
 # CLAUDE.md — Nalanda
 
 ## Description
-Interactive CS learning platform. A single browser-only site where theory, presentation, interactive data-structure visualizations, and live code execution coexist. MVP uses a single course ("Data Structures in C++") as a testbed for the core widgets.
+Interactive CS learning platform. A single browser-only site where theory, presentation, interactive data-structure visualizations, and live code execution coexist.
+
+## Current status (August 2026)
+The project is in a **from-zero redesign**. Read `docs/design/2026-08-redesign.md` before doing any work — it is the source of truth for decisions and the agenda. The original POC (and the discarded May 2026 roadmap issues) are archived under `proof-of-concept/` — reference material, still runnable. The frontend stack/commands below describe that POC.
 
 ## Language
 All code, comments, variable names, commit messages, and documentation must be in English. User-facing content (course materials) may be in Spanish.
@@ -13,18 +16,18 @@ All code, comments, variable names, commit messages, and documentation must be i
 - **Animations**: framer-motion
 - **Icons**: lucide-react
 - **Lint**: ESLint 9
-- **Smoke tests**: puppeteer-core scripts in `apps/frontend/smoke/smoke-test-*.mjs`
+- **Smoke tests**: puppeteer-core scripts in `proof-of-concept/frontend/smoke/smoke-test-*.mjs`
 - **Deploy**: GitHub Pages (100% static)
 
 ## Development commands
 
-All commands run from `apps/frontend/`:
+All commands run from `proof-of-concept/frontend/`:
 
 ```bash
-cd apps/frontend
+cd proof-of-concept/frontend
 npm install                       # Install dependencies
 npm run dev                       # Vite dev server (localhost:5173)
-npm run build                     # Production build to apps/frontend/dist/
+npm run build                     # Production build to proof-of-concept/frontend/dist/
 npm run preview                   # Preview the production build locally
 npm run lint                      # ESLint
 node smoke/smoke-test-*.mjs       # Run individual smoke tests (puppeteer)

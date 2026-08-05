@@ -27,15 +27,18 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: proof-of-concept/frontend/package-lock.json
 
       - run: npm ci
+        working-directory: proof-of-concept/frontend
 
       - name: Build
         run: npm run build -- --base=/nalanda/
+        working-directory: proof-of-concept/frontend
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: proof-of-concept/frontend/dist
 
   deploy:
     needs: build
