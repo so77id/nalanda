@@ -21,7 +21,6 @@ nalanda/
 ├── proof-of-concept/   Archived POC app + documented issues from the old roadmap
 ├── docs/
 │   ├── design/         Living redesign document (source of truth for what's next)
-│   ├── decisions/      ADRs
 │   ├── conventions.md  Workflow conventions (branches, commits, PRs, kanban)
 │   └── course-graph.md Course topology (deferred until platform v0.1)
 ├── .claude/            Agent workflow skills (capture-idea, refine-idea, groom-backlog, develop-task)
