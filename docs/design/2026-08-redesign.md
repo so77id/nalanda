@@ -18,6 +18,7 @@
 | M7 | Design approach: aspirational design first (the full software we want), then cut into staged minimal versions. No rush — no tasks created until design closes. | 2026-08-05 |
 | M8 | POC packaged into `proof-of-concept/` (code + archived issues). All open issues from the May roadmap documented there and closed. Repo clean: nothing open. | 2026-08-05 |
 | M9 | Implementation first steps (when design closes): define folder structure + services as a self-contained monorepo; import the necessary dev standards from DocumentBuddy (clean code, TDD, etc.). | 2026-08-05 |
+| M10 | Old ADRs 0001–0003 archived into `proof-of-concept/decisions/`. New ADRs will be produced by this redesign. | 2026-08-05 |
 
 ## Agenda (sections to design, in order)
 
@@ -84,4 +85,17 @@ types, persistent code in editors (a real work tool), LeetCode-style problem set
 with contests/leaderboards, forums — everything an online course carries.
 **For now**: the student is a spectator; features arrive incrementally.
 
-*(open — under discussion: data model derived from the above)*
+**Decisions closed in this section:**
+
+| # | Decision | Date |
+|---|---|---|
+| D1 | Early versions store content as **folders/files in git — no database**. The logical model, however, is designed DB-first from day one: stable `id` per content node (frontmatter); the folder layout is just the serialization. Moves/renames must not break links or (future) progress data. Detailed design pending. | 2026-08-05 |
+| D2 | **No login at all in the first versions.** Courses are fully public; authoring happens via git + skills. Auth is born together with the first server-backed feature that genuinely needs it. | 2026-08-05 |
+| D3 | A **Document** is the content unit: a complete "sección/presentación". A single source can render as book, as slides, or both — the content decides. | 2026-08-05 |
+| D4 | Course content is a **graph, not just a tree**: wiki-like navigation with cross-references between documents. On top of it lives an **index** — the ordered teaching path (based on how Miguel runs the class, dependency-aware). The system must support both; ideas iterate as the first course gets written. | 2026-08-05 |
+| D5 | **Hito 1 (first milestone)**: presentation synchronized professor→students (live class), plus some real content built with the components. From there, features grow clase a clase, driven by need. | 2026-08-05 |
+
+**Open in this section:**
+- Leaf/document *types* (lección, guía, evaluación…): homogeneous vs typed — how they
+  are administered, and what's in the first implementation vs later (P6, under discussion).
+- Detailed stable-ID + graph/index model design (D1/D4 follow-through).

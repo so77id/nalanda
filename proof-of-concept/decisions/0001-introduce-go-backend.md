@@ -1,6 +1,6 @@
 # ADR-0001: Introduce Go backend; abandon 100%-static principle
 
-**Status:** Accepted
+**Status:** Archived 2026-08-05 — superseded by the from-zero redesign (`docs/design/2026-08-redesign.md`). Kept as reference.
 **Date:** 2026-05-20
 **Decision-makers:** Miguel Rodriguez (project owner)
 

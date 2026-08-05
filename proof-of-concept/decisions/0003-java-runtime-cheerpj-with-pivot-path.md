@@ -1,6 +1,6 @@
 # ADR-0003: Java runtime via CheerpJ in browser only, with documented pivot path to server-side
 
-**Status:** Accepted (pending license verification at E3/S3.1)
+**Status:** Archived 2026-08-05 — superseded by the from-zero redesign (`docs/design/2026-08-redesign.md`). Kept as reference.
 **Date:** 2026-05-20
 **Decision-makers:** Miguel Rodriguez
 
