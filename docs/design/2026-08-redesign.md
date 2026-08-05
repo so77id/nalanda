@@ -26,8 +26,8 @@ Status: `pending` → `in discussion` → `closed`
 
 1. **Visión aspiracional & actores** — what Nalanda is in its final form, who uses it. — `closed`
 2. **Modelo de datos & usuarios** — how courses/users/progress are stored; roles; entities. — `closed` (detailed serialization/ID design lands at spec time)
-3. **Arquitectura de sistema** — frontend/backend split, stack, hosting. Revisits old ADR-0001 from zero. — `in discussion`
-4. **Componentes de contenido** — abstract containers, per-mode behavior (book/presentation/teacher/...), authoring standard, design-system catalog. — `pending`
+3. **Arquitectura de sistema** — frontend/backend split, stack, hosting. Revisits old ADR-0001 from zero. — `closed`
+4. **Componentes de contenido** — abstract containers, per-mode behavior (book/presentation/teacher/...), authoring standard, design-system catalog. — `in discussion`
 5. **Componentes conectados / sesiones en vivo** — sockets, professor↔student sync, shared code, remote presentation advance. — `pending`
 6. **Runtime de código (Java)** — execution engine decision. Old ADR-0003 as input. — `pending`
 7. **Sistema de creación de clases** — authoring pipeline/skill: presentation → Nalanda class. Waits for the clase-a-clase meeting outcome. — `pending`
@@ -111,5 +111,25 @@ hito 1 needs only a tiny event-relay server (no auth, no persistence); content =
 files in git rendered by a public static frontend; self-contained monorepo (M9);
 old ADR-0001 (Go + chi + sqlc + Postgres + OpenAPI) is reference input, re-decided
 from zero.
+
+**Decisions closed in this section:**
+
+| # | Decision | Date |
+|---|---|---|
+| D10 | **POC as quarry**: the new app is built from scratch; POC widgets/runtimes are ported piece by piece as content needs them, refactored to the new standards (and typed) as they enter. | 2026-08-05 |
+| D11 | **TypeScript** for all new frontend code. The style must be tightly defined and bounded — code style, writing format, folder layout — so agents don't improvise. As clean-architecture as practical. | 2026-08-05 |
+| D12 | **Backend in Go**, same rigor: clean code, patterns, and everything demanded of the TS side. Optimize for ease of development. | 2026-08-05 |
+| D13 | **DocumentBuddy-style developer experience** (extends M9): integration guides ("how to add a new X") for frontend AND backend; documentation practices exported from DocumentBuddy when it's re-read; how-to-document is defined here and embedded in the development flow. | 2026-08-05 |
+| D14 | **Hosting**: local-only for now. First deploy: something minimal — a VPS (university-provided or AWS free tier). Frontend stays on GitHub Pages. | 2026-08-05 |
+
+**Deferred to spec time**: sync protocol choice (WebSocket vs SSE) at hito-1 spec;
+monorepo folder structure at implementation start (M9); DB stack when phase B arrives.
+
+**Pending quick confirm**: React + Vite + Tailwind + framer-motion carry over to the
+new app (assumed from POC; Miguel hasn't explicitly confirmed).
+
+**Section 3 status: CLOSED.**
+
+### 4. Componentes de contenido
 
 *(open — under discussion)*
