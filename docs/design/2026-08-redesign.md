@@ -28,7 +28,7 @@ Status: `pending` → `in discussion` → `closed`
 2. **Modelo de datos & usuarios** — how courses/users/progress are stored; roles; entities. — `closed` (detailed serialization/ID design lands at spec time)
 3. **Arquitectura de sistema** — frontend/backend split, stack, hosting. Revisits old ADR-0001 from zero. — `closed`
 4. **Componentes de contenido** — abstract containers, per-mode behavior (book/presentation/teacher/...), authoring standard, design-system catalog. — `closed` (inventory populated at planning time)
-5. **Componentes conectados / sesiones en vivo** — sockets, professor↔student sync, shared code, remote presentation advance. — `in discussion`
+5. **Componentes conectados / sesiones en vivo** — sockets, professor↔student sync, shared code, remote presentation advance. — `closed` (fine detail at hito-1 spec)
 6. **Runtime de código (Java)** — execution engine decision. Old ADR-0003 as input. — `pending`
 7. **Sistema de creación de clases** — authoring pipeline/skill: presentation → Nalanda class. Waits for the clase-a-clase meeting outcome. — `pending`
 8. **Etapas & roadmap** — cut aspirational design into versions (v0.1 = minimum to start adding content); rewrite ADRs; open new issues. — `pending`
@@ -149,4 +149,16 @@ API details.
 
 ### 5. Componentes conectados / sesiones en vivo
 
-*(open — under discussion)*
+**Decisions closed in this section:**
+
+| # | Decision | Date |
+|---|---|---|
+| D19 | **First security requirement (refines D2)**: a basic user system ships with hito 1 — Google OAuth login, basic user database, auth system, and a user administrator. Only *professor* logins exist (no student accounts). Miguel's user arrives via seeds; a professors CRUD manages friends & family (curated by Miguel). Logged-in professors see: the administration section + the "open session" action. Course *reading* stays fully public — D2's principle holds: auth was born with the first server feature that needs it (sessions). | 2026-08-05 |
+| D20 | **Sync v1 = location broadcast only**: `{current document, mode, slide position}`. The student in sync sees what the professor sees, across document jumps (wiki-wide, per D8). Nothing else syncs in v1. | 2026-08-05 |
+| D21 | **Event envelope protocol**: all session events travel as `{session, seq, type, payload}`. v1 implements a single type (`location`), one direction (professor → students). Sockets are opened student↔server and professor↔server and are bidirectional-capable; future needs add new types (component syncs, 1:1 professor→student mirror) without changing the relay — the relay never inspects payloads. | 2026-08-05 |
+| D22 | **Session UI**: a slim persistent banner shows the join code at all times (late arrivals) + a connected-students counter for the professor. That banner later evolves into the professor's toolbar (raised hands, live signals, etc.). | 2026-08-05 |
+
+**Deferred to hito-1 spec**: WebSocket vs SSE, exact message format, reconnection
+details, session lifecycle.
+
+**Section 5 status: CLOSED (design level).**
