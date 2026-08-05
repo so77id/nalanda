@@ -29,9 +29,9 @@ Status: `pending` → `in discussion` → `closed`
 3. **Arquitectura de sistema** — frontend/backend split, stack, hosting. Revisits old ADR-0001 from zero. — `closed`
 4. **Componentes de contenido** — abstract containers, per-mode behavior (book/presentation/teacher/...), authoring standard, design-system catalog. — `closed` (inventory populated at planning time)
 5. **Componentes conectados / sesiones en vivo** — sockets, professor↔student sync, shared code, remote presentation advance. — `closed` (fine detail at hito-1 spec)
-6. **Runtime de código (Java)** — execution engine decision. Old ADR-0003 as input. — `pending`
-7. **Sistema de creación de clases** — authoring pipeline/skill: presentation → Nalanda class. Waits for the clase-a-clase meeting outcome. — `pending`
-8. **Etapas & roadmap** — cut aspirational design into versions (v0.1 = minimum to start adding content); rewrite ADRs; open new issues. — `pending`
+6. **Runtime de código (Java)** — execution engine decision. Old ADR-0003 as input. — `closed-deferred`
+7. **Sistema de creación de clases** — authoring pipeline/skill: presentation → Nalanda class. — `closed` (concept level)
+8. **Etapas & roadmap** — cut aspirational design into versions (v0.1 = minimum to start adding content); rewrite ADRs; open new issues. — `in discussion`
 
 ## Section notes & decisions
 
@@ -125,8 +125,7 @@ from zero.
 **Deferred to spec time**: sync protocol choice (WebSocket vs SSE) at hito-1 spec;
 monorepo folder structure at implementation start (M9); DB stack when phase B arrives.
 
-**Pending quick confirm**: React + Vite + Tailwind + framer-motion carry over to the
-new app (assumed from POC; Miguel hasn't explicitly confirmed).
+| D26 | **Frontend stack sealed** (each piece explained and confirmed): **React** (components), **MDX** (document format — formally adopted; prose + catalog components + `[[wiki-links]]` in one source), **Vite** (build/dev tool), **Tailwind** (styles; design-system tokens defined in the catalog standard), **framer-motion** (THE animation library — no others may be added). | 2026-08-05 |
 
 **Section 3 status: CLOSED.**
 
@@ -162,3 +161,25 @@ API details.
 details, session lifecycle.
 
 **Section 5 status: CLOSED (design level).**
+
+### 6. Runtime de código (Java)
+
+| # | Decision | Date |
+|---|---|---|
+| D24 | **CheerpJ in-browser is the leading candidate** (perfect fit for the client-side compute philosophy: zero server cost for compiling Java). The **educational-license verification is the mandatory first task** of its spec, and the final decision is taken there — with a documented pivot to server-side compilation if the license fails (old ADR-0003 logic, revalidated or iterated at implementation time). | 2026-08-05 |
+
+**Section 6 status: CLOSED-DEFERRED** (final decision at implementation spec).
+
+### 7. Sistema de creación de clases
+
+| # | Decision | Date |
+|---|---|---|
+| D25 | **Authoring phase A = `create-class` skill**: Miguel hands it a class presentation; it produces MDX document(s) using catalog components + stable ids + index update; Miguel reviews. The skill matures clase a clase. It must include a **guide for evolving the skill itself** so it stays easy to maintain. Fine design (input formats, conversion conventions, images/diagrams) happens when v0.1 exists and the first real class is converted. | 2026-08-05 |
+
+**Section 7 status: CLOSED (concept level).**
+
+### Section 3 addendum — persistence
+
+| # | Decision | Date |
+|---|---|---|
+| D23 | **SQLite first, Postgres when genuinely needed.** SQLite runs inside the production container alongside the app, its file on a persistent disk so restarts survive. The Go repository layer is designed so the swap to Postgres is localized. | 2026-08-05 |
