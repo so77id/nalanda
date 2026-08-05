@@ -31,7 +31,7 @@ Status: `pending` → `in discussion` → `closed`
 5. **Componentes conectados / sesiones en vivo** — sockets, professor↔student sync, shared code, remote presentation advance. — `closed` (fine detail at hito-1 spec)
 6. **Runtime de código (Java)** — execution engine decision. Old ADR-0003 as input. — `closed-deferred`
 7. **Sistema de creación de clases** — authoring pipeline/skill: presentation → Nalanda class. — `closed` (concept level)
-8. **Etapas & roadmap** — cut aspirational design into versions (v0.1 = minimum to start adding content); rewrite ADRs; open new issues. — `pending` (one open item in section 3: frontend stack pieces)
+8. **Etapas & roadmap** — cut aspirational design into versions (v0.1 = minimum to start adding content); rewrite ADRs; open new issues. — `in discussion`
 
 ## Section notes & decisions
 
@@ -125,8 +125,7 @@ from zero.
 **Deferred to spec time**: sync protocol choice (WebSocket vs SSE) at hito-1 spec;
 monorepo folder structure at implementation start (M9); DB stack when phase B arrives.
 
-**Pending quick confirm**: React + Vite + Tailwind + framer-motion carry over to the
-new app (assumed from POC; Miguel hasn't explicitly confirmed).
+| D26 | **Frontend stack sealed** (each piece explained and confirmed): **React** (components), **MDX** (document format — formally adopted; prose + catalog components + `[[wiki-links]]` in one source), **Vite** (build/dev tool), **Tailwind** (styles; design-system tokens defined in the catalog standard), **framer-motion** (THE animation library — no others may be added). | 2026-08-05 |
 
 **Section 3 status: CLOSED.**
 
