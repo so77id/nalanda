@@ -27,8 +27,8 @@ Status: `pending` → `in discussion` → `closed`
 1. **Visión aspiracional & actores** — what Nalanda is in its final form, who uses it. — `closed`
 2. **Modelo de datos & usuarios** — how courses/users/progress are stored; roles; entities. — `closed` (detailed serialization/ID design lands at spec time)
 3. **Arquitectura de sistema** — frontend/backend split, stack, hosting. Revisits old ADR-0001 from zero. — `closed`
-4. **Componentes de contenido** — abstract containers, per-mode behavior (book/presentation/teacher/...), authoring standard, design-system catalog. — `in discussion`
-5. **Componentes conectados / sesiones en vivo** — sockets, professor↔student sync, shared code, remote presentation advance. — `pending`
+4. **Componentes de contenido** — abstract containers, per-mode behavior (book/presentation/teacher/...), authoring standard, design-system catalog. — `closed` (inventory populated at planning time)
+5. **Componentes conectados / sesiones en vivo** — sockets, professor↔student sync, shared code, remote presentation advance. — `in discussion`
 6. **Runtime de código (Java)** — execution engine decision. Old ADR-0003 as input. — `pending`
 7. **Sistema de creación de clases** — authoring pipeline/skill: presentation → Nalanda class. Waits for the clase-a-clase meeting outcome. — `pending`
 8. **Etapas & roadmap** — cut aspirational design into versions (v0.1 = minimum to start adding content); rewrite ADRs; open new issues. — `pending`
@@ -131,5 +131,22 @@ new app (assumed from POC; Miguel hasn't explicitly confirmed).
 **Section 3 status: CLOSED.**
 
 ### 4. Componentes de contenido
+
+**Decisions closed in this section:**
+
+| # | Decision | Date |
+|---|---|---|
+| D15 | **Modes v1: `book` and `presentation` only.** `presenter` (old "teacher" mode with private notes) is future. `book` = wiki-like reading. **Each document has its own presentation mode**: a slide-rendering of that same document with more/fewer/same things depending on the page's configuration. Every component must work and look right in both modes. | 2026-08-05 |
+| D16 | **Mode↔sync relationship is defined in section 5**, not here. In principle presentation mode inherently syncs when students join the cátedra; future syncs may cover other components or book mode. | 2026-08-05 |
+| D17 | **Component contract v1**: (1) explicit render per mode — no component may ignore a mode; (2) typed props schema (TS); (3) mandatory catalog entry (usage docs + when-to-use + live examples) — a PR adding a component without its catalog entry fails review; (4) reserved slot for an optional session-sync interface (designed in section 5); (5) client-side compute for any heavy work; (6) **feature-toggle props** — components expose props that enable/disable capabilities (e.g., IDE: editable vs copy-only, show/hide panels; applets likewise); (7) **abstract/composable components** exist — containers that render other components injected into them (e.g., "proyector" rendering structure applets; future: line-by-line code stepper with a synchronized drawing). Composition details at planning time, based on what the POC already implements. | 2026-08-05 |
+| D18 | **Catalog structure**: four families — *estructura*, *semánticos*, *interactivos*, *media* — editable as needed. The catalog is **self-governing**: each family is defined and explained (so it's obvious where a new component belongs); it documents how to add a new component, the documentation checklist, the review checklist verifying all required docs are present, and how to add a new rule to the catalog itself. | 2026-08-05 |
+
+**Deferred to planning time**: the concrete component inventory (extracted from real
+course material as classes get created — clase-a-clase method); composition/injection
+API details.
+
+**Section 4 status: CLOSED (design level).**
+
+### 5. Componentes conectados / sesiones en vivo
 
 *(open — under discussion)*
