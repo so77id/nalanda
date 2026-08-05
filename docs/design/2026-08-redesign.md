@@ -24,9 +24,9 @@
 
 Status: `pending` → `in discussion` → `closed`
 
-1. **Visión aspiracional & actores** — what Nalanda is in its final form, who uses it. — `in discussion`
-2. **Modelo de datos & usuarios** — how courses/users/progress are stored; roles; entities. — `in discussion`
-3. **Arquitectura de sistema** — frontend/backend split, stack, hosting. Revisits old ADR-0001 from zero. — `pending`
+1. **Visión aspiracional & actores** — what Nalanda is in its final form, who uses it. — `closed`
+2. **Modelo de datos & usuarios** — how courses/users/progress are stored; roles; entities. — `closed` (detailed serialization/ID design lands at spec time)
+3. **Arquitectura de sistema** — frontend/backend split, stack, hosting. Revisits old ADR-0001 from zero. — `in discussion`
 4. **Componentes de contenido** — abstract containers, per-mode behavior (book/presentation/teacher/...), authoring standard, design-system catalog. — `pending`
 5. **Componentes conectados / sesiones en vivo** — sockets, professor↔student sync, shared code, remote presentation advance. — `pending`
 6. **Runtime de código (Java)** — execution engine decision. Old ADR-0003 as input. — `pending`
@@ -95,7 +95,21 @@ with contests/leaderboards, forums — everything an online course carries.
 | D4 | Course content is a **graph, not just a tree**: wiki-like navigation with cross-references between documents. On top of it lives an **index** — the ordered teaching path (based on how Miguel runs the class, dependency-aware). The system must support both; ideas iterate as the first course gets written. | 2026-08-05 |
 | D5 | **Hito 1 (first milestone)**: presentation synchronized professor→students (live class), plus some real content built with the components. From there, features grow clase a clase, driven by need. | 2026-08-05 |
 
-**Open in this section:**
-- Leaf/document *types* (lección, guía, evaluación…): homogeneous vs typed — how they
-  are administered, and what's in the first implementation vs later (P6, under discussion).
-- Detailed stable-ID + graph/index model design (D1/D4 follow-through).
+| D6 | **Documents are homogeneous** (no `type` field for now). What a document *is* emerges from its content and components. Typing may be introduced later if a feature needs it — migrate then. Rationale: object dependencies + structure should make a future editor easy; don't design types without real cases. | 2026-08-05 |
+| D7 | **Graph = curso, índice = recorrido.** Multiple recorridos over one graph are plausible futures (per-semester reorder, other professors, inheritance) — the design must make adding them easy, but **first implementations ship exactly one index per course**. | 2026-08-05 |
+| D8 | An index entry is a **topic, not a class session**. The index is the course *timeline* ("el clase a clase"): during a live class Miguel jumps topic → exercise → video → quiz → task → material → back, driving it manually. Timeline may differ per semester as it matures. *Future note*: "material" and "curso" may split — a curso pulling from several materiales. | 2026-08-05 |
+| D9 | **Hito 1 scope confirmed**: professor opens a session and gets a code; students join with the code, no login; server only relays events (professor's current position), no persistence; late joiners snap to current state. A student can **leave sync mode to explore freely** (wiki links + index) and return to sync. | 2026-08-05 |
+
+**Section 1–2 status: CLOSED.** Remaining fine-grained design (stable-ID scheme,
+folder serialization, index file format) happens at spec time for the corresponding
+implementation tasks.
+
+### 3. Arquitectura de sistema
+
+**Inputs/constraints already decided**: client-side compute philosophy (vision);
+hito 1 needs only a tiny event-relay server (no auth, no persistence); content =
+files in git rendered by a public static frontend; self-contained monorepo (M9);
+old ADR-0001 (Go + chi + sqlc + Postgres + OpenAPI) is reference input, re-decided
+from zero.
+
+*(open — under discussion)*
