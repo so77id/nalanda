@@ -1,4 +1,10 @@
 {
+  "extraKnownMarketplaces": {
+    "agentic-workflow": {
+      "source": { "source": "github", "repo": "so77id/agentic-workflow" }
+    }
+  },
+  "enabledPlugins": { "agentic-workflow@agentic-workflow": true },
   "hooks": {
     "PreToolUse": [
       {

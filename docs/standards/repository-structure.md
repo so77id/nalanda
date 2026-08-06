@@ -25,7 +25,7 @@ nalanda/
 ├── infra/                   # running the system around the apps (see below)
 ├── proof-of-concept/        # archived 2025/May-2026 POC — reference only, never active work
 ├── .github/                 # CI/CD workflows
-├── .claude/                 # agent workflow skills
+├── .claude/                 # agent infra: workflow-bindings.md, settings (plugin declarations), hooks, repo-specific agents — workflow skills come from the agentic-workflow plugin
 ├── CLAUDE.md                # monorepo-shared agent instructions (per-app CLAUDE.md in each app)
 └── README.md
 ```

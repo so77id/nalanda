@@ -28,15 +28,20 @@ All code, comments, identifiers, commit messages, and repo documentation in
 
 ## Development Workflow
 
-Four processes manage development. When a task arrives, identify the phase and
-invoke the corresponding skill:
+Four processes manage development, provided by the **`agentic-workflow` plugin**
+(marketplace + plugin declared in `.claude/settings.json`; repo-specific IDs and
+paths in `.claude/workflow-bindings.md`, regenerable via `/init-workflow`):
 
 - **Capture an idea** → `capture-idea` (Discussion in 💡 Ideas)
 - **Refine an idea into a WP** → `refine-idea` (Issue in Backlog, full body)
-- **Develop a WP into a PR** → `develop-task` (worktree + TDD slices + 4-tier review + PR)
+- **Develop a WP into a PR** → `develop-task` (worktree + TDD slices + review pipeline + PR)
 - **Promote Backlog → Ready** → `groom-backlog`
+- **Review any diff** → `review-pipeline` (multi-agent panels + adversarial verifier)
 
-Read `.claude/skills/<name>/SKILL.md` for detail.
+Every plugin skill reads `.claude/workflow-bindings.md` first; global workflow
+rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
+(TDD, spec, incremental implementation, domain reviews) comes from the
+`agent-skills` plugin — both install automatically from the settings declaration.
 
 ### Hard rules
 

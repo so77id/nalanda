@@ -30,7 +30,7 @@ nalanda/
 │   ├── security-notes.md  Security deferrals / accepted-risk records
 │   └── course-graph.md Course topology (planning tool)
 ├── proof-of-concept/   Archived POC + old roadmap issues (reference)
-├── .claude/            Agent workflow skills
+├── .claude/            Agent infra: workflow bindings, settings (plugins), hooks, repo agents
 └── CLAUDE.md           Monorepo-shared agent instructions (per-app CLAUDE.md in each app)
 ```
 

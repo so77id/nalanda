@@ -1,52 +1,12 @@
 # Conventions — Nalanda
 
-This document is the source of truth for development conventions: kanban columns, labels, branch naming, commit format, PR template, and worktree setup. The `.claude/skills/*` workflows reference this file by name.
+This document is the source of truth for development conventions: kanban columns, labels, branch naming, commit format, PR template, and worktree setup. The `agentic-workflow` plugin skills reference this file and `.claude/workflow-bindings.md` (which owns the machine-readable IDs).
 
 ## Project board IDs
 
-**Setup required:** the user must create a GitHub Project for Nalanda with a Status field containing at least the columns below. Once created, fetch the IDs and fill in the placeholders.
-
-```
-Repo:               so77id/nalanda
-Repo node ID:       R_kgDOSGlAqQ
-Project number:     3
-Project ID:         PVT_kwHOAD5lg84BYOfH
-Status field ID:    PVTSSF_lAHOAD5lg84BYOfHzhTVzpo
-  Backlog     → 3876d811
-  Ready       → d471aa12
-  In Progress → 709335dd
-  Review      → 4bbf67b2
-  Done        → 374a7858
-Ideas category ID:  DIC_kwDOSGlAqc4C9bBm  # GitHub Discussions, 💡 Ideas category
-```
-
-How to fetch:
-
-```bash
-# Project + Status field
-gh api graphql -f query='
-query {
-  user(login: "so77id") {
-    projectV2(number: 3) {
-      id
-      field(name: "Status") {
-        ... on ProjectV2SingleSelectField {
-          id
-          options { id name }
-        }
-      }
-    }
-  }
-}'
-
-# Discussions Ideas category (requires Discussions enabled on the repo)
-gh api graphql -f query='
-query {
-  repository(owner: "so77id", name: "nalanda") {
-    discussionCategories(first: 10) { nodes { id name } }
-  }
-}'
-```
+Machine-readable IDs (repo, project, status columns, Discussions category) live
+in **`.claude/workflow-bindings.md`** — the single home the plugin skills read.
+Regenerate or repair them with `/init-workflow`.
 
 ## Kanban columns
 
@@ -133,9 +93,10 @@ Refs #<N>
 - Protocols run: per-commit ✓ · pre-PR ✓
 
 ## Reviews run
-- Tier 2 (review): ...
-- Tier 3: ...
-- Tier 4 (docs): ...
+- Pipeline Round A (code panel): <findings/dispositions>
+- Pipeline Round B (docs panel): <findings/dispositions>
+- Verifier table + per-fix rechecks: <reference>
+- Patterns recorded: <or none>
 
 ## Manual verification
 - ✓ ...
