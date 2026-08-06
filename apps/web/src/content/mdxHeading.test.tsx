@@ -1,11 +1,11 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { headingFor } from './MdxHeading';
+import { headingFor } from './mdxHeading';
 
 const H2 = headingFor(2);
 
-describe('MdxHeading', () => {
+describe('mdxHeading', () => {
   it('gives the heading a slug id derived from its text', () => {
     render(<H2>Búsqueda binaria</H2>);
     const heading = screen.getByRole('heading', { level: 2, name: /Búsqueda binaria/ });
@@ -22,5 +22,15 @@ describe('MdxHeading', () => {
     const H3 = headingFor(3);
     render(<H3>Detalle</H3>);
     expect(screen.getByRole('heading', { level: 3 })).toBeInTheDocument();
+  });
+
+  it('never nests anchors when the heading itself contains a link', () => {
+    const { container } = render(
+      <H2>
+        Intro <a href="/d/doc-a">doc</a>
+      </H2>,
+    );
+    expect(container.querySelector('a a')).toBeNull();
+    expect(screen.getByRole('heading', { level: 2 })).toHaveAttribute('id', 'intro');
   });
 });

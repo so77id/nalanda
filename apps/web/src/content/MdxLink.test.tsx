@@ -28,16 +28,30 @@ describe('MdxLink', () => {
     renderLink('wiki:nope', 'roto');
 
     expect(screen.queryByRole('link')).not.toBeInTheDocument();
-    const broken = screen.getByText('roto');
-    expect(broken).toHaveClass('broken-link');
+    expect(screen.getByText('roto')).toHaveClass('decoration-wavy');
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('[[nope]]'));
   });
 
-  it('passes ordinary hrefs through as plain anchors', () => {
+  it('passes ordinary safe hrefs through as plain anchors', () => {
     renderLink('https://example.com', 'externo');
-    expect(screen.getByRole('link', { name: 'externo' })).toHaveAttribute(
-      'href',
-      'https://example.com',
-    );
+    const link = screen.getByRole('link', { name: 'externo' });
+    expect(link).toHaveAttribute('href', 'https://example.com');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+
+  it('allows relative and fragment hrefs without an external rel', () => {
+    renderLink('#seccion', 'ancla');
+    const link = screen.getByRole('link', { name: 'ancla' });
+    expect(link).toHaveAttribute('href', '#seccion');
+    expect(link).not.toHaveAttribute('rel');
+  });
+
+  it('refuses unsafe URL schemes, rendering them visibly broken', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    renderLink('javascript:alert(1)', 'peligroso');
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByText('peligroso')).toHaveClass('decoration-wavy');
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('unsafe href'));
   });
 });

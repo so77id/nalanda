@@ -1,9 +1,2 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
-
-/* Unresolved [[wiki-link]] — visibly broken by design (issue #63 AC3). */
-.broken-link {
-  color: var(--color-red-400);
-  text-decoration: underline wavy var(--color-red-400);
-  cursor: not-allowed;
-}

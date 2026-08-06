@@ -33,9 +33,14 @@ describe('Toc', () => {
     expect(link).toHaveAttribute('href', '/d/bienvenida');
   });
 
-  it('labels documents with the registry title when the entry has no label', () => {
+  it('labels a label-less entry with the registry title of its document', () => {
     renderToc('/d/bienvenida');
-    // doc-without-label is not in the registry: it must fall back to the raw id.
+    // The bienvenida entry has no label: "Bienvenida" can only come from the registry.
+    expect(screen.getByRole('link', { name: 'Bienvenida' })).toBeInTheDocument();
+  });
+
+  it('falls back to the raw id when the document is not in the registry', () => {
+    renderToc('/d/bienvenida');
     expect(screen.getByRole('link', { name: 'doc-without-label' })).toBeInTheDocument();
   });
 

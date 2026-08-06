@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { courseIndex, parseCourseIndex, prevNext, walkIndex } from './courseIndex';
-import { registry } from './registry';
+import { parseCourseIndex, prevNext, walkIndex } from './courseIndex';
 
 const SOURCE = 'index.yaml';
 
@@ -51,6 +50,19 @@ describe('parseCourseIndex', () => {
     const yaml = ['entries:', '  - docId: 42'].join('\n');
     expect(() => parseCourseIndex(yaml, SOURCE)).toThrowError(/entries\[0\]\.docId.*string/s);
   });
+
+  it('rejects a docId listed twice, naming the second occurrence', () => {
+    const yaml = [
+      'entries:',
+      '  - docId: doc-a',
+      '  - label: Grupo',
+      '    children:',
+      '      - docId: doc-a',
+    ].join('\n');
+    expect(() => parseCourseIndex(yaml, SOURCE)).toThrowError(
+      /entries\[1\]\.children\[0\].*duplicate docId "doc-a"/s,
+    );
+  });
 });
 
 describe('walkIndex / prevNext', () => {
@@ -77,15 +89,5 @@ describe('walkIndex / prevNext', () => {
     expect(prevNext(index, 'two')).toEqual({ prev: 'one', next: 'three' });
     expect(prevNext(index, 'three')).toEqual({ prev: 'two', next: undefined });
     expect(prevNext(index, 'unlisted')).toEqual({ prev: undefined, next: undefined });
-  });
-});
-
-describe('courseIndex (real content/ tree)', () => {
-  it('exists and every referenced docId resolves in the registry', () => {
-    const ids = walkIndex(courseIndex);
-    expect(ids.length).toBeGreaterThan(0);
-    for (const id of ids) {
-      expect(registry.get(id), `index references unknown doc "${id}"`).toBeDefined();
-    }
   });
 });

@@ -81,9 +81,32 @@ export function parseCourseIndex(raw: string, source: string): CourseIndex {
   if (!Array.isArray(record['entries']) || record['entries'].length === 0) {
     fail(source, 'root', 'must have a non-empty "entries" list');
   }
-  return {
+  const index: CourseIndex = {
     entries: record['entries'].map((entry, i) => parseEntry(source, `entries[${i}]`, entry)),
   };
+  checkDuplicateDocIds(source, index.entries, 'entries', new Set());
+  return index;
+}
+
+// A docId listed twice would silently corrupt prev/next (indexOf finds the first hit).
+function checkDuplicateDocIds(
+  source: string,
+  entries: IndexEntry[],
+  path: string,
+  seen: Set<string>,
+): void {
+  entries.forEach((entry, i) => {
+    const entryPath = `${path}[${i}]`;
+    if (entry.docId) {
+      if (seen.has(entry.docId)) {
+        fail(source, entryPath, `duplicate docId "${entry.docId}" (already listed earlier)`);
+      }
+      seen.add(entry.docId);
+    }
+    if (entry.children) {
+      checkDuplicateDocIds(source, entry.children, `${entryPath}.children`, seen);
+    }
+  });
 }
 
 /** Depth-first walk over the index — the linear reading order of the course. */
@@ -106,18 +129,3 @@ export function prevNext(index: CourseIndex, id: string): { prev?: string; next?
   if (at === -1) return { prev: undefined, next: undefined };
   return { prev: ids[at - 1], next: ids[at + 1] };
 }
-
-const rawIndexes = import.meta.glob('@content/courses/*/index.yaml', {
-  eager: true,
-  query: '?raw',
-  import: 'default',
-});
-const found = Object.entries(rawIndexes);
-if (found.length !== 1) {
-  throw new Error(
-    `Course index: expected exactly one content/courses/*/index.yaml (v0.1 is single-course), found ${found.length}`,
-  );
-}
-
-/** The live index of the single v0.1 course. */
-export const courseIndex = parseCourseIndex(found[0]![1] as string, found[0]![0]);

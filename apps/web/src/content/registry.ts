@@ -1,10 +1,9 @@
 import type { ComponentType } from 'react';
 
-/** Frontmatter contract every content document must satisfy (issue #63, ADR-0002). */
-export interface DocumentMeta {
-  id: string;
-  title: string;
-}
+import { parseDocumentMeta } from './documentMeta';
+import type { DocumentMeta } from './documentMeta';
+
+export type { DocumentMeta } from './documentMeta';
 
 export interface RegistryEntry {
   meta: DocumentMeta;
@@ -18,30 +17,10 @@ export interface ContentRegistry {
   get(id: string): RegistryEntry | undefined;
 }
 
-const KEBAB_CASE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
-
-function parseMeta(sourcePath: string, raw: unknown): DocumentMeta {
-  if (typeof raw !== 'object' || raw === null) {
-    throw new Error(`Content registry: no frontmatter found in ${sourcePath}`);
-  }
-  const { id, title } = raw as Record<string, unknown>;
-  if (typeof id !== 'string' || id === '') {
-    throw new Error(`Content registry: missing frontmatter "id" in ${sourcePath}`);
-  }
-  if (!KEBAB_CASE.test(id)) {
-    throw new Error(
-      `Content registry: id "${id}" is not kebab-case (lowercase words separated by "-") in ${sourcePath}`,
-    );
-  }
-  if (typeof title !== 'string' || title === '') {
-    throw new Error(`Content registry: missing frontmatter "title" in ${sourcePath}`);
-  }
-  return { id, title };
-}
-
 /**
- * Builds the id → document index from the glob maps. Throws (failing dev
- * startup and the verification battery) on invalid frontmatter or duplicate ids.
+ * Builds the id → document index from the glob maps. Throws on invalid
+ * frontmatter or duplicate ids — the same contract the contentIntegrity Vite
+ * plugin enforces at build time; this runtime layer covers dev and the battery.
  */
 export function buildRegistry(
   metaModules: Record<string, unknown>,
@@ -49,7 +28,7 @@ export function buildRegistry(
 ): ContentRegistry {
   const byId = new Map<string, RegistryEntry>();
   for (const [sourcePath, raw] of Object.entries(metaModules)) {
-    const meta = parseMeta(sourcePath, raw);
+    const meta = parseDocumentMeta(sourcePath, raw);
     const existing = byId.get(meta.id);
     if (existing) {
       throw new Error(
@@ -71,9 +50,3 @@ export function buildRegistry(
     get: (id) => byId.get(id),
   };
 }
-
-/** The live registry over the real content/ tree. */
-export const registry = buildRegistry(
-  import.meta.glob('@content/courses/**/*.mdx', { eager: true, import: 'frontmatter' }),
-  import.meta.glob('@content/courses/**/*.mdx'),
-);

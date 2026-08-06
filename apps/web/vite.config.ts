@@ -8,6 +8,7 @@ import remarkFrontmatter from 'remark-frontmatter';
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter';
 import { defineConfig } from 'vite';
 
+import { contentIntegrity } from './src/content/contentIntegrity.ts';
 import { remarkWikiLinks } from './src/content/wikiLinks.ts';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
@@ -17,6 +18,7 @@ const contentDir = path.resolve(appDir, '../../content');
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [
+    contentIntegrity(contentDir),
     // MDX must transform before the React plugin sees the file.
     {
       enforce: 'pre',

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildRegistry, registry } from './registry';
+import { buildRegistry } from './registry';
 
 const fakeLoader = () => Promise.resolve({ default: () => null });
 
@@ -47,14 +47,5 @@ describe('buildRegistry', () => {
   it('throws when frontmatter is missing a title', () => {
     const metas = { '/content/courses/c/a.mdx': { id: 'doc-a' } };
     expect(() => buildRegistry(metas, loadersFor(metas))).toThrowError(/missing.*"title".*a\.mdx/s);
-  });
-});
-
-describe('registry (real content/ tree)', () => {
-  it('builds without errors and contains at least one document', () => {
-    expect(registry.entries.length).toBeGreaterThan(0);
-    for (const entry of registry.entries) {
-      expect(registry.get(entry.meta.id)).toBe(entry);
-    }
   });
 });

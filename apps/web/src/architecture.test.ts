@@ -29,7 +29,8 @@ function violations(rule: (fileTop: string, importTop: string) => boolean): stri
   for (const file of walk(SRC)) {
     const fileTop = relative(SRC, file).split('/')[0] ?? '';
     const source = readFileSync(file, 'utf8');
-    for (const match of source.matchAll(/from\s+['"]([^'"]+)['"]/g)) {
+    // Covers `from '...'`, side-effect `import '...'`, and dynamic `import('...')`.
+    for (const match of source.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)) {
       const importTop = topSegmentOfImport(file, match[1] ?? '');
       if (importTop && rule(fileTop, importTop)) {
         found.push(`${relative(SRC, file)} imports from ${importTop}/`);

@@ -1,13 +1,13 @@
 import { MDXProvider } from '@mdx-js/react';
-import { Suspense, lazy, useMemo } from 'react';
+import { Suspense, lazy } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { headingFor } from './MdxHeading';
 import { MdxLink } from './MdxLink';
 import { Toc } from './Toc';
-import { courseIndex, prevNext } from './courseIndex';
-import { registry } from './registry';
+import { prevNext } from './courseIndex';
+import { courseIndex, registry } from './liveContent';
+import { headingFor } from './mdxHeading';
 
 const mdxComponents = { a: MdxLink, h2: headingFor(2), h3: headingFor(3), h4: headingFor(4) };
 
@@ -59,7 +59,7 @@ interface Props {
 export function DocumentPage({ notFound }: Props) {
   const { id = '' } = useParams();
   const entry = registry.get(id);
-  const Doc = useMemo(() => (entry ? componentFor(id, entry.load) : null), [id, entry]);
+  const Doc = entry ? componentFor(id, entry.load) : null;
 
   if (!Doc) return <>{notFound}</>;
   return (

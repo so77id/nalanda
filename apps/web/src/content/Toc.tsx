@@ -1,7 +1,7 @@
 import { NavLink } from 'react-router-dom';
 
 import type { CourseIndex, IndexEntry } from './courseIndex';
-import { registry } from './registry';
+import { registry } from './liveContent';
 
 function docLabel(entry: IndexEntry): string {
   if (entry.label) return entry.label;
@@ -27,7 +27,11 @@ function DocLink({ entry }: { entry: IndexEntry }) {
 
 function EntryItem({ entry }: { entry: IndexEntry }) {
   if (!entry.children) {
-    return <li>{<DocLink entry={entry} />}</li>;
+    return (
+      <li>
+        <DocLink entry={entry} />
+      </li>
+    );
   }
   return (
     <li>
