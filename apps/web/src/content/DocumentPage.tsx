@@ -1,9 +1,11 @@
 import { MDXProvider } from '@mdx-js/react';
 import { Suspense, lazy, useMemo } from 'react';
 import type { ComponentType, ReactNode } from 'react';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 import { MdxLink } from './MdxLink';
+import { Toc } from './Toc';
+import { courseIndex, prevNext } from './courseIndex';
 import { registry } from './registry';
 
 const mdxComponents = { a: MdxLink };
@@ -20,6 +22,33 @@ function componentFor(id: string, load: () => Promise<{ default: ComponentType }
   return cached;
 }
 
+function titleOf(id: string): string {
+  return registry.get(id)?.meta.title ?? id;
+}
+
+function SequenceNav({ id }: { id: string }) {
+  const { prev, next } = prevNext(courseIndex, id);
+  if (!prev && !next) return null;
+  return (
+    <nav aria-label="Document sequence" className="mt-12 flex justify-between gap-4 text-sm">
+      {prev ? (
+        <Link to={`/d/${prev}`} className="text-sky-400 hover:underline">
+          ← {titleOf(prev)}
+        </Link>
+      ) : (
+        <span />
+      )}
+      {next ? (
+        <Link to={`/d/${next}`} className="text-sky-400 hover:underline">
+          {titleOf(next)} →
+        </Link>
+      ) : (
+        <span />
+      )}
+    </nav>
+  );
+}
+
 interface Props {
   /** Rendered when the id is unknown — injected by the shell so the feature never imports app/. */
   notFound: ReactNode;
@@ -33,12 +62,18 @@ export function DocumentPage({ notFound }: Props) {
 
   if (!Doc) return <>{notFound}</>;
   return (
-    <main>
-      <MDXProvider components={mdxComponents}>
-        <Suspense fallback={null}>
-          <Doc />
-        </Suspense>
-      </MDXProvider>
-    </main>
+    <div className="flex min-h-screen bg-slate-950 text-slate-100">
+      <aside className="w-64 shrink-0 border-r border-slate-800 p-4">
+        <Toc index={courseIndex} />
+      </aside>
+      <main className="min-w-0 flex-1 px-8 py-10">
+        <MDXProvider components={mdxComponents}>
+          <Suspense fallback={null}>
+            <Doc />
+          </Suspense>
+        </MDXProvider>
+        <SequenceNav id={id} />
+      </main>
+    </div>
   );
 }
