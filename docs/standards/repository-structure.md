@@ -12,7 +12,7 @@ nalanda/
 │   └── web/                 # platform frontend (React + TS + Vite)
 │                            # server/ arrives in v0.3 (Go) — created when it arrives
 ├── content/                 # course material (Material domain) — created by its first course
-│   └── courses/<slug>/...
+│   └── courses/<slug>/...   # v0.1: exactly ONE course (enforced at app startup)
 ├── packages/                # shared libraries between apps — created with the first one
 ├── docs/
 │   ├── standards/           # bounded dev standards (this document and siblings)

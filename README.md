@@ -22,6 +22,7 @@ piece as the new app needs it.
 nalanda/
 ├── apps/
 │   └── web/            Platform frontend (React 19 + TS + Vite + Tailwind v4)
+├── content/            Course material (Material domain): courses/<slug>/ — MDX + index.yaml
 ├── docs/
 │   ├── standards/      Dev standards: repo structure, code style, testing, docs
 │   ├── design/         Design narratives (2026-08 redesign)
@@ -34,7 +35,7 @@ nalanda/
 └── CLAUDE.md           Monorepo-shared agent instructions (per-app CLAUDE.md in each app)
 ```
 
-Future directories (`content/`, `infra/`, `packages/`, `e2e/`) are defined in
+Future directories (`infra/`, `packages/`, `e2e/`) are defined in
 [`docs/standards/repository-structure.md`](docs/standards/repository-structure.md)
 and created when their first real content arrives.
 
