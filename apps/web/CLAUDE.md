@@ -21,7 +21,7 @@ npm run test:watch   # vitest watch mode
 
 React 19 · TypeScript (strict) · Vite · Tailwind CSS v4 (`@tailwindcss/vite`,
 CSS-based config — no tailwind.config.js) · framer-motion (the ONLY animation
-library) · react-router · oxlint + Prettier · Vitest + Testing Library.
+library) · react-router-dom · oxlint + Prettier · Vitest + Testing Library.
 
 ## Mandatory reading
 
