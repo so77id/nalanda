@@ -5,6 +5,12 @@ description: Develop a GitHub Issue (WP) into a merged PR end-to-end. Setup work
 
 # develop-task — Process C
 
+> **DEPRECATED (2026-08-06)**: superseded by the `agentic-workflow` plugin's
+> `develop-task` (protocol-driven). Parts of this file predate
+> `docs/standards/testing-strategy.md` (puppeteer model, root npm install,
+> SPEC.md routing) — **where they conflict, the standards win.** This file is
+> removed by the plugin-migration PR.
+
 Take an issue from Backlog or Ready, develop it slice by slice via full-auto TDD-style verification, run the pre-PR review pipeline (4 tiers), and open a PR ready for the user's review and squash merge. The user keeps responsibility for manual verification, PR review, and merge.
 
 ## When to invoke

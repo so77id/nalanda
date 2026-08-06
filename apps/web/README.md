@@ -24,13 +24,13 @@ See `docs/standards/frontend-code-style.md` for the authoritative rules.
 
 ```
 src/
-├── app/            # shell: entry, router, providers, global layout
-├── lib/            # pure TS utilities
-└── styles/         # Tailwind entry + design tokens
+├── app/                  # shell: entry, router, providers, global layout
+├── styles/               # Tailwind entry + design tokens
+└── architecture.test.ts  # import-direction invariants
 ```
 
-Feature folders (`components/`, `catalog/`, `content/`, `presentation/`) are
-created by the WPs that populate them.
+Feature folders (`components/`, `catalog/`, `content/`, `presentation/`) and
+`lib/` (pure TS utilities) are created by the WPs that populate them.
 
 ## Testing
 

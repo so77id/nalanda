@@ -7,6 +7,11 @@ context: fork
 
 # Code Review
 
+> **DEPRECATED (2026-08-06)**: superseded by the `agentic-workflow` plugin's
+> `review-pipeline`. Its smoke-test criteria predate
+> `docs/standards/testing-strategy.md` — where they conflict, the standards win.
+> Removed by the plugin-migration PR.
+
 Review all uncommitted changes in this repository. Analyze each changed file for the following:
 
 ## 1. Correctness

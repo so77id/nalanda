@@ -18,7 +18,9 @@ nalanda/
 │   ├── standards/           # bounded dev standards (this document and siblings)
 │   ├── design/              # design narratives (e.g., 2026-08 redesign)
 │   ├── decisions/           # ADRs — living architectural decisions
+│   ├── graphs/              # course topology diagrams (companion to course-graph.md)
 │   ├── conventions.md       # workflow conventions (kanban, branches, commits, PRs)
+│   ├── security-notes.md    # security deferrals / accepted-risk records
 │   └── course-graph.md      # course topology (planning tool)
 ├── infra/                   # running the system around the apps (see below)
 ├── proof-of-concept/        # archived 2025/May-2026 POC — reference only, never active work

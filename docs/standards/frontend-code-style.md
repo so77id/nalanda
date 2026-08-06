@@ -97,5 +97,5 @@ src/
 
 ## References
 
-- ADR-0004 (frontend stack) · ADR-0005 (dev standards) · `repository-structure.md`
+- ADR-0004 (frontend stack) · ADR-0005 (dev standards) · ADR-0011 (dev toolchain + routing) · `repository-structure.md`
 - `testing-strategy.md` — what to test and when (companion document).

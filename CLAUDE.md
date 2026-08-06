@@ -53,7 +53,7 @@ Read `.claude/skills/<name>/SKILL.md` for detail.
 
 - Workflow conventions (kanban, labels, branches, commits, PR template, worktrees):
   `docs/conventions.md`
-- ADR format and when to write one: `docs/conventions.md` + `docs/standards/documentation.md`
+- ADR format and when to write one: `docs/standards/documentation.md` (§Rules 2 + §ADR format)
 
 ## Rules for Claude (repo-wide)
 

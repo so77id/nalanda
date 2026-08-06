@@ -77,5 +77,5 @@ battery (full tests + integration L6), same rigor as `apps/web`.
 
 ## References
 
-- ADR-0005 (dev standards) · `frontend-code-style.md` · `repository-structure.md`
+- ADR-0005 (dev standards) · **ADR-0011 (toolchain decision: oxlint, Vitest, Playwright — the why)** · `frontend-code-style.md` · `repository-structure.md`
 - DocumentBuddy `docs/testing-strategy.md` — source of the layered model, adapted.

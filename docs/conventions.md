@@ -98,7 +98,9 @@ Examples:
 
 ## Commit format
 
-One commit per slice. Every commit must leave lint clean and relevant smoke tests green.
+One commit per slice. Every commit must pass the touched app's **per-commit
+protocol** (see `docs/standards/testing-strategy.md`); every PR passes the
+**pre-PR protocol** before publishing.
 
 ```
 <type>(issue-<N>): S<n> <slice description>
@@ -127,8 +129,8 @@ Refs #<N>
 - [x] AC2 — evidence
 
 ## Tests
-- Added/changed smoke tests: ...
-- All passing: ✓
+- Added/changed tests (per `testing-strategy.md` levels): ...
+- Protocols run: per-commit ✓ · pre-PR ✓
 
 ## Reviews run
 - Tier 2 (review): ...
@@ -151,11 +153,12 @@ Each WP is developed in its own worktree to allow parallel work:
 ```bash
 git fetch origin
 git worktree add -b <type>/issue-<N>-<slug> ../nalanda-issue-<N> main
-cd ../nalanda-issue-<N>
+cd ../nalanda-issue-<N>/apps/<app>   # each app is self-contained; e.g. apps/web
 npm install
 ```
 
-`npm install` is required because `node_modules/` is gitignored and not present in the new worktree.
+`npm install` runs inside the affected app (there is no root `package.json`);
+`node_modules/` is gitignored and not present in the new worktree.
 
 When the PR is merged, remove the worktree from the main directory:
 

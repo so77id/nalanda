@@ -19,7 +19,8 @@ finished until its documentation exists, and review verifies it (ADR-0005).
 | Design narratives | `docs/design/` | 2026-08 redesign |
 | Content-component usage (what authors see) | The **catalog** (`/catalog` in-app) | when to use `<Slide>`, props, examples |
 | Workflow conventions (kanban, branches, PRs) | `docs/conventions.md` | commit format |
-| Course planning material | `docs/course-graph.md` | topic dependencies |
+| Security deferrals / advisory dispositions | `docs/security-notes.md` | accepted-risk records with review triggers |
+| Course planning material | `docs/course-graph.md` + `docs/graphs/` | topic dependencies, topology diagrams |
 
 **One home per fact.** If two documents need the same fact, one states it and the
 other links to it. Duplicated prose drifts.
@@ -39,6 +40,28 @@ other links to it. Duplicated prose drifts.
    (same growth rule as `repository-structure.md`).
 5. **English everywhere** in repo artifacts. Spanish only in user-facing course
    content and real-time conversation.
+6. **Latent gotchas are documented inline where they bite** — dated, naming the
+   exact failure mode and the remediation (e.g., the path-filter note in
+   `ci.yml`, the review triggers in `security-notes.md`).
+7. **Retiring a tool or model obligates a sweep**: in the same PR, grep ALL
+   instruction surfaces (`CLAUDE.md` files, `.claude/skills/`, `.claude/agents/`,
+   `docs/conventions.md`, standards) for the retired terms and update every hit.
+   Partial migrations make instruction consistency depend on which file an agent
+   reads first.
+
+## ADR format
+
+ADRs live in `docs/decisions/<NNNN>-<kebab-title>.md`, numbered sequentially:
+
+```markdown
+# ADR-NNNN: <title>
+**Status:** Proposed | Accepted | Archived | Superseded by ADR-MMMM
+**Date:** YYYY-MM-DD
+**Decision-makers:** <who>
+**Source:** <conversation/issue/PR that produced it>
+
+## Context · ## Decision · ## Alternatives considered · ## Consequences
+```
 
 ## References
 

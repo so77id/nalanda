@@ -27,6 +27,7 @@ nalanda/
 │   ├── design/         Design narratives (2026-08 redesign)
 │   ├── decisions/      ADRs, numbered sequentially
 │   ├── conventions.md  Workflow conventions (kanban, branches, commits, PRs)
+│   ├── security-notes.md  Security deferrals / accepted-risk records
 │   └── course-graph.md Course topology (planning tool)
 ├── proof-of-concept/   Archived POC + old roadmap issues (reference)
 ├── .claude/            Agent workflow skills
