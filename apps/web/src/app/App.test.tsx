@@ -18,6 +18,12 @@ describe('routing', () => {
     expect(await screen.findByRole('heading', { name: 'Hola MDX' })).toBeInTheDocument();
   });
 
+  it('renders wiki-links inside a document as internal links', async () => {
+    renderAt('/d/hello-mdx');
+    const link = await screen.findByRole('link', { name: 'this same document' });
+    expect(link).toHaveAttribute('href', '/d/hello-mdx');
+  });
+
   it('redirects the root route to the first document', async () => {
     renderAt('/');
     expect(await screen.findByRole('heading', { name: 'Hola MDX' })).toBeInTheDocument();

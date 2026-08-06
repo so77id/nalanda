@@ -1,8 +1,12 @@
+import { MDXProvider } from '@mdx-js/react';
 import { Suspense, lazy, useMemo } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 
+import { MdxLink } from './MdxLink';
 import { registry } from './registry';
+
+const mdxComponents = { a: MdxLink };
 
 // lazy() must be called once per document, not per render, or React remounts the tree.
 const lazyCache = new Map<string, ComponentType>();
@@ -30,9 +34,11 @@ export function DocumentPage({ notFound }: Props) {
   if (!Doc) return <>{notFound}</>;
   return (
     <main>
-      <Suspense fallback={null}>
-        <Doc />
-      </Suspense>
+      <MDXProvider components={mdxComponents}>
+        <Suspense fallback={null}>
+          <Doc />
+        </Suspense>
+      </MDXProvider>
     </main>
   );
 }

@@ -8,6 +8,8 @@ import remarkFrontmatter from 'remark-frontmatter';
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter';
 import { defineConfig } from 'vite';
 
+import { remarkWikiLinks } from './src/content/wikiLinks.ts';
+
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 // Course material lives at the repo root (Material domain, outside apps/) — ADR-0002.
 const contentDir = path.resolve(appDir, '../../content');
@@ -19,7 +21,11 @@ export default defineConfig({
     {
       enforce: 'pre',
       ...mdx({
-        remarkPlugins: [remarkFrontmatter, [remarkMdxFrontmatter, { name: 'frontmatter' }]],
+        remarkPlugins: [
+          remarkFrontmatter,
+          [remarkMdxFrontmatter, { name: 'frontmatter' }],
+          remarkWikiLinks,
+        ],
         providerImportSource: '@mdx-js/react',
       }),
     },
