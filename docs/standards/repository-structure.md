@@ -86,6 +86,8 @@ Checklist for any new application under `apps/` (e.g., `apps/server` in v0.3):
       into `docs/standards/` (e.g., `backend-code-style.md` is born with
       `apps/server`, not before) — same rigor as the existing ones: clean code,
       explicit patterns, bounded conventions (ADR-0005).
+- [ ] Its **two testing protocols** (per-commit and pre-PR) registered in
+      `docs/standards/testing-strategy.md` before its first PR merges.
 - [ ] Its extension points registered in `docs/standards/integration-guides.md`.
 - [ ] Self-containment honored: manifest, tests, packaging inside the app.
 
