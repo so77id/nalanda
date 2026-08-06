@@ -35,8 +35,10 @@ src/
   pure, feature-agnostic code goes to `lib/`.
 - **Import direction**: `app → features → lib`. Features may import from other
   features only through deliberate public seams (their root export); `lib` imports
-  from no feature; no cycles ever. (Enforce with an architecture test once Vitest
-  lands — pattern imported from DocumentBuddy's architecture tests.)
+  from no feature; no cycles ever. (Enforced by `src/architecture.test.ts` —
+  pattern imported from DocumentBuddy's architecture tests.)
+- **Route-level pages**: shell-owned pages (e.g., the landing) live in `app/`;
+  feature pages live in their feature folder.
 - Directories are created when their first real file arrives — never empty.
 
 ## Naming
@@ -56,8 +58,10 @@ src/
 - Hooks at top level only (Rules of Hooks); derive state instead of syncing it.
 - Keep components one-concern; extract shared logic into hooks, shared markup into
   components — but only at the second real use, not speculatively.
-- Fail fast at boundaries with clear messages (see `app/main.tsx` root check);
-  user-facing failures render friendly UI, never a blank screen.
+- Fail fast at boundaries with clear messages: prefer explicit checks with
+  descriptive errors over `!` non-null assertions at DOM/external boundaries
+  (see `app/main.tsx` root check); user-facing failures render friendly UI,
+  never a blank screen.
 
 ## Styling
 

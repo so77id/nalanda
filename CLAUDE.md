@@ -16,7 +16,7 @@ This file holds **monorepo-shared** instructions only. Each app has its own
 - `docs/standards/<relevant>-code-style.md` — bounded style; agents follow, don't innovate.
 - `docs/standards/testing-strategy.md` — the two protocols (per-commit, pre-PR).
 - `docs/standards/documentation.md` — where each kind of knowledge lives.
-- `docs/decisions/` — ADRs 0001–0010 (living architectural decisions).
+- `docs/decisions/` — ADRs, numbered sequentially (living architectural decisions).
 - `docs/design/2026-08-redesign.md` — design narrative + roadmap (v0.1 → v0.3).
 
 The original POC is archived in `proof-of-concept/` (runnable, reference only —

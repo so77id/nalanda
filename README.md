@@ -25,7 +25,7 @@ nalanda/
 ├── docs/
 │   ├── standards/      Dev standards: repo structure, code style, testing, docs
 │   ├── design/         Design narratives (2026-08 redesign)
-│   ├── decisions/      ADRs 0001–0010
+│   ├── decisions/      ADRs, numbered sequentially
 │   ├── conventions.md  Workflow conventions (kanban, branches, commits, PRs)
 │   └── course-graph.md Course topology (planning tool)
 ├── proof-of-concept/   Archived POC + old roadmap issues (reference)

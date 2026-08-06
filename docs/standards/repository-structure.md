@@ -76,7 +76,8 @@ Checklist for any new application under `apps/` (e.g., `apps/server` in v0.3):
 
 - [ ] Own `README.md` with install / dev / test / build commands — the app is
       understandable alone.
-- [ ] Own `CLAUDE.md`: commands, stack, pointers to its standards docs. In the
+- [ ] Own `CLAUDE.md`: agent rules + pointers to its standards docs (commands
+      and stack live in the app README — one home per fact). In the
       same change, edit the **root** `CLAUDE.md` so monorepo-shared concerns stay
       at root and app-specific concerns live in the app — no duplication.
 - [ ] Own CI job with **path filters**: changes under `apps/<name>/**` trigger only

@@ -3,25 +3,11 @@
 The Nalanda platform frontend. Read the root `CLAUDE.md` first for monorepo-shared
 rules; this file covers what is specific to this app.
 
-## Commands (run from `apps/web/`)
+## Commands & stack
 
-```bash
-npm install          # dependencies
-npm run dev          # Vite dev server (localhost:5173)
-npm run build        # tsc -b (type gate) + vite build → dist/
-npm run preview      # serve the production build locally
-npm run lint         # oxlint
-npm run format       # prettier --write
-npm run format:check # prettier --check
-npm run test         # vitest run (full suite)
-npm run test:watch   # vitest watch mode
-```
-
-## Stack
-
-React 19 · TypeScript (strict) · Vite · Tailwind CSS v4 (`@tailwindcss/vite`,
-CSS-based config — no tailwind.config.js) · framer-motion (the ONLY animation
-library) · react-router-dom · oxlint + Prettier · Vitest + Testing Library.
+Single home: [`README.md`](./README.md) — read it for the command list and the
+stack summary before working here (one home per fact, per
+`docs/standards/documentation.md`).
 
 ## Mandatory reading
 
@@ -30,8 +16,11 @@ library) · react-router-dom · oxlint + Prettier · Vitest + Testing Library.
 
 ## App-specific rules
 
-- Do not modify `vite.config.ts`, `tsconfig*.json`, or `.prettierrc.json` without
-  user confirmation (dependency changes are governed by the root rule).
+- Do not modify `vite.config.ts`, `tsconfig*.json`, `.prettierrc.json`,
+  `.oxlintrc.json`, or `vitest.setup.ts` without user confirmation (dependency
+  changes are governed by the root rule).
+- **Fix lints rather than disabling rules** — never silence or downgrade a lint
+  rule to go green without user confirmation.
 - Logging: `console.log/info/warn/error` only while debugging — never left in
   committed code; never log secrets or personal data.
 - Tests are colocated (`Thing.test.tsx` beside `Thing.tsx`); component tests

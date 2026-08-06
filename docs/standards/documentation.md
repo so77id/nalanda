@@ -9,7 +9,7 @@ finished until its documentation exists, and review verifies it (ADR-0005).
 | Knowledge | Lives in | Example |
 |---|---|---|
 | How to install/run/test an app | That app's `README.md` | `apps/web/README.md` |
-| Agent operating instructions for an app | That app's `CLAUDE.md` | commands, stack, standard pointers |
+| Agent operating instructions for an app | That app's `CLAUDE.md` | agent rules + standard pointers (commands/stack live in the app README — one home) |
 | Monorepo-shared agent instructions | Root `CLAUDE.md` | methodology, hard rules |
 | Repo layout & placement rules | `docs/standards/repository-structure.md` | where does X go |
 | Code style (per language) | `docs/standards/<lang>-code-style.md` | naming, folder layout |
