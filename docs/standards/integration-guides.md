@@ -10,13 +10,13 @@ guide here** (ADR-0005).
 | Guide | Where | When to read |
 |---|---|---|
 | Add a new app to the monorepo | `repository-structure.md` § "How to add a new app" | Creating `apps/server` or any future app |
+| Add a course document | [`guides/add-a-course-document.md`](guides/add-a-course-document.md) | Writing course material: MDX frontmatter contract, wiki-links, index registration |
 
 ## Pending guides (registered by the WP that creates the extension point)
 
 | Guide | Arrives with | Will cover |
 |---|---|---|
 | Add a content component | WP4 (#65) — catalog | Component contract compliance, catalog entry, families, review checklist |
-| Add a course document | WP2 (#63) — content model | MDX frontmatter contract, stable ids, wiki-links, index registration |
 | Add a session event type | v0.3 — live sessions | Envelope protocol, emit/consume declaration, relay transparency |
 | Add a backend endpoint | v0.3 — `apps/server` | Handler + repository + tests pattern |
 

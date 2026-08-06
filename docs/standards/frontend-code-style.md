@@ -37,13 +37,17 @@ src/
   features only through deliberate public seams (their root export); `lib` imports
   from no feature; no cycles ever. (Enforced by `src/architecture.test.ts` —
   pattern imported from DocumentBuddy's architecture tests.)
-- **Route-level pages**: shell-owned pages (e.g., the landing) live in `app/`;
+- **Route-level pages**: shell-owned pages (e.g., `NotFound`) live in `app/`;
   feature pages live in their feature folder.
+- **Shell UI reaches features by injection**: when a feature needs shell-owned
+  UI (error pages, layout slots), the shell passes it via props/children —
+  features never import from `app/`. Worked case: `AppRoutes` injects
+  `<NotFound />` into `DocumentPage`'s `notFound` prop.
 - Directories are created when their first real file arrives — never empty.
 
 ## Naming
 
-- Component files: `PascalCase.tsx`, named after the component (`Landing.tsx`).
+- Component files: `PascalCase.tsx`, named after the component (`NotFound.tsx`).
 - Hooks: `useThing.ts`, exported as `useThing`.
 - Everything else: `camelCase.ts` (`parser.ts`, `wikiLinks.ts`).
 - One exported component per file; small private subcomponents may live beside it

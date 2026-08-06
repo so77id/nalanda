@@ -2,7 +2,9 @@
 
 The Nalanda platform frontend: course wiki (book mode), presentation mode, and
 the content-component catalog. React 19 + TypeScript (strict) + Vite + Tailwind
-CSS v4 + framer-motion.
+CSS v4 (+ typography plugin) + framer-motion; course documents compile from MDX
+(ADR-0003) via `@mdx-js/rollup` + remark plugins, sourced from the repo-root
+`content/` tree (ADR-0002, ADR-0012).
 
 ## Commands
 
@@ -24,13 +26,17 @@ See `docs/standards/frontend-code-style.md` for the authoritative rules.
 
 ```
 src/
-├── app/                  # shell: entry, router, providers, global layout
+├── app/                  # shell: entry, router (routes /d/:id + 404), providers
+├── content/              # content pipeline: MDX registry, course index, wiki-links,
+│                         # book-mode page, build-time integrity gate
 ├── styles/               # Tailwind entry + design tokens
+├── mdx.d.ts              # module typing for *.mdx imports
 └── architecture.test.ts  # import-direction invariants
 ```
 
-Feature folders (`components/`, `catalog/`, `content/`, `presentation/`) and
-`lib/` (pure TS utilities) are created by the WPs that populate them.
+Remaining feature folders (`components/`, `catalog/`, `presentation/`) and
+`lib/` (pure TS utilities) are created by the WPs that populate them. How to
+author course material: `docs/standards/guides/add-a-course-document.md`.
 
 ## Testing
 

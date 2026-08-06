@@ -44,7 +44,8 @@ it. Numeric gates may be introduced later if drift appears.
 ```bash
 npm run format:check   # prettier
 npm run lint           # oxlint
-npm run build          # tsc -b + vite build (type gate included)
+npm run build          # tsc -b + vite build (type gate + content/ integrity gate:
+                       # frontmatter ids and index.yaml validated by contentIntegrity)
 npm run test           # vitest run — at minimum the touched scope, in green
 ```
 
