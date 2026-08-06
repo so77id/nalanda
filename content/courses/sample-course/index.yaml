@@ -1,2 +1,7 @@
 entries:
-  - docId: hello-mdx
+  - docId: bienvenida
+  - label: Fundamentos
+    levelName: Unidad
+    children:
+      - docId: intro-estructuras
+      - docId: busqueda-binaria

@@ -11,7 +11,7 @@ const index = parseCourseIndex(
     '  - label: Introducción',
     '    levelName: Unidad',
     '    children:',
-    '      - docId: hello-mdx',
+    '      - docId: bienvenida',
     '  - docId: doc-without-label',
   ].join('\n'),
   'index.yaml',
@@ -27,20 +27,23 @@ function renderToc(at: string) {
 
 describe('Toc', () => {
   it('renders groups and document links following the index nesting', () => {
-    renderToc('/d/hello-mdx');
+    renderToc('/d/bienvenida');
     expect(screen.getByText('Introducción')).toBeInTheDocument();
-    const link = screen.getByRole('link', { name: 'Hola MDX' });
-    expect(link).toHaveAttribute('href', '/d/hello-mdx');
+    const link = screen.getByRole('link', { name: 'Bienvenida' });
+    expect(link).toHaveAttribute('href', '/d/bienvenida');
   });
 
   it('labels documents with the registry title when the entry has no label', () => {
-    renderToc('/d/hello-mdx');
+    renderToc('/d/bienvenida');
     // doc-without-label is not in the registry: it must fall back to the raw id.
     expect(screen.getByRole('link', { name: 'doc-without-label' })).toBeInTheDocument();
   });
 
   it('marks the current document link', () => {
-    renderToc('/d/hello-mdx');
-    expect(screen.getByRole('link', { name: 'Hola MDX' })).toHaveAttribute('aria-current', 'page');
+    renderToc('/d/bienvenida');
+    expect(screen.getByRole('link', { name: 'Bienvenida' })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
   });
 });

@@ -14,19 +14,31 @@ function renderAt(path: string) {
 
 describe('routing', () => {
   it('renders a document by id at /d/:id', async () => {
-    renderAt('/d/hello-mdx');
-    expect(await screen.findByRole('heading', { name: 'Hola MDX' })).toBeInTheDocument();
+    renderAt('/d/bienvenida');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Bienvenida' }),
+    ).toBeInTheDocument();
   });
 
   it('renders wiki-links inside a document as internal links', async () => {
-    renderAt('/d/hello-mdx');
-    const link = await screen.findByRole('link', { name: 'this same document' });
-    expect(link).toHaveAttribute('href', '/d/hello-mdx');
+    renderAt('/d/bienvenida');
+    const link = await screen.findByRole('link', { name: 'una búsqueda clásica' });
+    expect(link).toHaveAttribute('href', '/d/busqueda-binaria');
   });
 
-  it('redirects the root route to the first document', async () => {
+  it('redirects the root route to the first index entry (the welcome document)', async () => {
     renderAt('/');
-    expect(await screen.findByRole('heading', { name: 'Hola MDX' })).toBeInTheDocument();
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Bienvenida' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows prev/next navigation following the index order', async () => {
+    renderAt('/d/intro-estructuras');
+    await screen.findByRole('heading', { level: 1, name: '¿Qué es una estructura de datos?' });
+    const sequence = screen.getByRole('navigation', { name: 'Document sequence' });
+    expect(sequence).toHaveTextContent('Bienvenida');
+    expect(sequence).toHaveTextContent('Búsqueda binaria');
   });
 
   it('shows the 404 page for an unknown document id', () => {

@@ -18,9 +18,9 @@ afterEach(() => {
 
 describe('MdxLink', () => {
   it('resolves a wiki: href against the registry into an internal link', () => {
-    renderLink('wiki:hello-mdx', 'el documento');
+    renderLink('wiki:bienvenida', 'el documento');
     const link = screen.getByRole('link', { name: 'el documento' });
-    expect(link).toHaveAttribute('href', '/d/hello-mdx');
+    expect(link).toHaveAttribute('href', '/d/bienvenida');
   });
 
   it('renders an unresolved wiki: href as a visibly broken link and warns', () => {

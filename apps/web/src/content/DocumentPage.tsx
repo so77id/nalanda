@@ -3,12 +3,13 @@ import { Suspense, lazy, useMemo } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
+import { headingFor } from './MdxHeading';
 import { MdxLink } from './MdxLink';
 import { Toc } from './Toc';
 import { courseIndex, prevNext } from './courseIndex';
 import { registry } from './registry';
 
-const mdxComponents = { a: MdxLink };
+const mdxComponents = { a: MdxLink, h2: headingFor(2), h3: headingFor(3), h4: headingFor(4) };
 
 // lazy() must be called once per document, not per render, or React remounts the tree.
 const lazyCache = new Map<string, ComponentType>();
@@ -67,12 +68,14 @@ export function DocumentPage({ notFound }: Props) {
         <Toc index={courseIndex} />
       </aside>
       <main className="min-w-0 flex-1 px-8 py-10">
-        <MDXProvider components={mdxComponents}>
-          <Suspense fallback={null}>
-            <Doc />
-          </Suspense>
-        </MDXProvider>
-        <SequenceNav id={id} />
+        <article className="prose prose-invert prose-slate mx-auto max-w-3xl">
+          <MDXProvider components={mdxComponents}>
+            <Suspense fallback={null}>
+              <Doc />
+            </Suspense>
+          </MDXProvider>
+          <SequenceNav id={id} />
+        </article>
       </main>
     </div>
   );

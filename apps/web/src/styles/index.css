@@ -1,4 +1,5 @@
 @import 'tailwindcss';
+@plugin '@tailwindcss/typography';
 
 /* Unresolved [[wiki-link]] — visibly broken by design (issue #63 AC3). */
 .broken-link {
