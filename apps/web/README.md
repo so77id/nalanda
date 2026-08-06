@@ -1,32 +1,39 @@
-# React + TypeScript + Vite
+# @nalanda/web
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The Nalanda platform frontend: course wiki (book mode), presentation mode, and
+the content-component catalog. React 19 + TypeScript (strict) + Vite + Tailwind
+CSS v4 + framer-motion.
 
-Currently, two official plugins are available:
+## Commands
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
-
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install          # dependencies
+npm run dev          # Vite dev server → http://localhost:5173
+npm run build        # tsc -b (type gate) + vite build → dist/
+npm run preview      # serve the production build locally
+npm run lint         # oxlint
+npm run format       # prettier --write
+npm run format:check # prettier --check
+npm run test         # vitest run (full suite)
+npm run test:watch   # vitest watch mode
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## Source layout
+
+See `docs/standards/frontend-code-style.md` for the authoritative rules.
+
+```
+src/
+├── app/            # shell: entry, router, providers, global layout
+├── lib/            # pure TS utilities
+└── styles/         # Tailwind entry + design tokens
+```
+
+Feature folders (`components/`, `catalog/`, `content/`, `presentation/`) are
+created by the WPs that populate them.
+
+## Testing
+
+Two mandatory protocols (per-commit and pre-PR) are defined in
+`docs/standards/testing-strategy.md`. Tests are colocated (`Thing.test.tsx`
+beside `Thing.tsx`) and run with Vitest + Testing Library.

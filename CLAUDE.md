@@ -1,84 +1,66 @@
 # CLAUDE.md — Nalanda
 
 ## Description
-Interactive CS learning platform. A single browser-only site where theory, presentation, interactive data-structure visualizations, and live code execution coexist.
+Interactive CS learning platform: theory, presentation, interactive visualizations,
+and live code execution in one browser-first site. Currently building **v0.1 "El
+esqueleto"** of the from-zero redesign.
 
-## Current status (August 2026)
-The project is in a **from-zero redesign**. Read `docs/design/2026-08-redesign.md` before doing any work — it is the source of truth for decisions and the agenda. The original POC (and the discarded May 2026 roadmap issues) are archived under `proof-of-concept/` — reference material, still runnable. The frontend stack/commands below describe that POC.
+This file holds **monorepo-shared** instructions only. Each app has its own
+`CLAUDE.md` with its commands, stack, and rules — read it before working there:
+
+- `apps/web/CLAUDE.md` — the platform frontend.
+
+## Mandatory reading (before any code work)
+
+- `docs/standards/repository-structure.md` — layout, placement criteria, how to add an app.
+- `docs/standards/<relevant>-code-style.md` — bounded style; agents follow, don't innovate.
+- `docs/standards/testing-strategy.md` — the two protocols (per-commit, pre-PR).
+- `docs/standards/documentation.md` — where each kind of knowledge lives.
+- `docs/decisions/` — ADRs 0001–0010 (living architectural decisions).
+- `docs/design/2026-08-redesign.md` — design narrative + roadmap (v0.1 → v0.3).
+
+The original POC is archived in `proof-of-concept/` (runnable, reference only —
+port pieces from it as WPs require, refactoring to current standards on entry).
 
 ## Language
-All code, comments, variable names, commit messages, and documentation must be in English. User-facing content (course materials) may be in Spanish.
-
-## Stack
-- **Frontend**: React 19, Vite 7, TailwindCSS 3
-- **Code execution in browser**: WebAssembly via `@bjorn3/browser_wasi_shim` and `browsercc`
-- **Editor**: CodeMirror 6 (`@uiw/react-codemirror`, lang-cpp, lang-python)
-- **Animations**: framer-motion
-- **Icons**: lucide-react
-- **Lint**: ESLint 9
-- **Smoke tests**: puppeteer-core scripts in `proof-of-concept/frontend/smoke/smoke-test-*.mjs`
-- **Deploy**: GitHub Pages (100% static)
-
-## Development commands
-
-All commands run from `proof-of-concept/frontend/`:
-
-```bash
-cd proof-of-concept/frontend
-npm install                       # Install dependencies
-npm run dev                       # Vite dev server (localhost:5173)
-npm run build                     # Production build to proof-of-concept/frontend/dist/
-npm run preview                   # Preview the production build locally
-npm run lint                      # ESLint
-node smoke/smoke-test-*.mjs       # Run individual smoke tests (puppeteer)
-```
-
-## Logging
-- Use `console.log/info/warn/error` in browser code; never leave debug logs in committed code
-- Never log secrets, tokens, or personal data
-- Prefer structured logging (`console.log({ component, event, data })`) when debugging cross-component flows
-
-## JS/React conventions (non-obvious)
-- Functional components only — no class components
-- Hooks must follow Rules of Hooks (top-level, no conditionals)
-- Components in `src/` follow a feature-first folder layout (widgets, course content, layout)
-- ESLint rules are enforced (`react/jsx-uses-vars` is on); fix lints rather than disabling rules
-- Keep components small — one concern per file. Extract shared logic into hooks
-- Tailwind classes inline; avoid creating CSS files unless necessary
-- Animations via framer-motion; do not introduce another animation lib
+All code, comments, identifiers, commit messages, and repo documentation in
+**English**. User-facing course content may be in Spanish.
 
 ## Development Workflow
 
-Four processes manage development. When a task arrives, identify the phase and invoke the corresponding skill:
+Four processes manage development. When a task arrives, identify the phase and
+invoke the corresponding skill:
 
-- **Capture an idea** (no work yet) → `capture-idea` skill (creates a Discussion in the `💡 Ideas` category)
-- **Refine an idea into a WP** → `refine-idea` skill (creates an Issue in Backlog with full body)
-- **Develop a WP into a PR** → `develop-task` skill (worktree + TDD slices + 4-tier review + PR)
-- **Promote items from Backlog to Ready** → `groom-backlog` skill
+- **Capture an idea** → `capture-idea` (Discussion in 💡 Ideas)
+- **Refine an idea into a WP** → `refine-idea` (Issue in Backlog, full body)
+- **Develop a WP into a PR** → `develop-task` (worktree + TDD slices + 4-tier review + PR)
+- **Promote Backlog → Ready** → `groom-backlog`
 
-Each skill encapsulates the full process. Read `.claude/skills/<name>/SKILL.md` for detail.
+Read `.claude/skills/<name>/SKILL.md` for detail.
 
 ### Hard rules
 
 - **All changes go through PRs** — never push directly to `main`.
 - **Squash merge** is mandatory for every PR (manual, by the user).
-- **One commit per slice**; the slice list is in the issue body as checkboxes.
-- **Test before commit**: lint passes AND smoke tests pass AND manual verification when applicable. Never commit untested code.
-- **Trivial fixes** (≤3 lines, no logic, negligible risk) may bypass the system — see `docs/conventions.md` "yolo mode".
+- **One commit per slice**; the slice list lives in the issue body as checkboxes.
+- **Green before commit**: the app's per-commit protocol (see
+  `docs/standards/testing-strategy.md`) passes before every commit. The pre-PR
+  protocol passes before publishing any PR.
+- **Trivial fixes** (≤3 lines, no logic, negligible risk) may bypass the system —
+  see `docs/conventions.md` "yolo mode".
 
 ### References
 
-- Conventions (kanban columns, labels, branch naming, commits, PR template, worktree+`.env`): `docs/conventions.md`
-- ADRs (architectural decisions, when present): `docs/decisions/`
+- Workflow conventions (kanban, labels, branches, commits, PR template, worktrees):
+  `docs/conventions.md`
+- ADR format and when to write one: `docs/conventions.md` + `docs/standards/documentation.md`
 
-## Documentation
-- **README.md**: Keep updated after architecture/feature changes.
-- **Conventions**: `docs/conventions.md` (workflow conventions referenced by the skills).
-- **Decisions**: `docs/decisions/` (ADRs, numbered sequentially) — created on demand.
+## Rules for Claude (repo-wide)
 
-## Rules for Claude
-- Never modify `package.json` dependencies without discussing first
-- Never modify `vite.config.js`, `tailwind.config.js`, `postcss.config.js`, or `eslint.config.js` without user confirmation
-- Never modify `package-lock.json` directly — let `npm install` regenerate it
-- Never commit `node_modules/`, `dist/`, or `.env` files
-- For UI changes, run the dev server and verify in a browser before reporting the task done; smoke tests and lint verify code correctness, not feature correctness
+- Never modify dependency manifests (`package.json`, future `go.mod`) without
+  discussing first; never touch lockfiles by hand.
+- Never commit `node_modules/`, `dist/`, or `.env` files.
+- Documentation ships in the same PR as the change that obligates it
+  (`docs/standards/documentation.md`).
+- For UI changes, verify in a real browser before reporting done — protocols and
+  lint verify code correctness, not feature correctness.
