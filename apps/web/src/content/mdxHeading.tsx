@@ -1,10 +1,7 @@
 import type { ReactNode } from 'react';
 
-function textOf(node: ReactNode): string {
-  if (typeof node === 'string' || typeof node === 'number') return String(node);
-  if (Array.isArray(node)) return node.map(textOf).join('');
-  return '';
-}
+import { withMeta } from '../lib/componentMeta';
+import { textOf } from '../lib/reactText';
 
 function slugify(text: string): string {
   return text
@@ -44,5 +41,5 @@ export function headingFor(level: 2 | 3 | 4) {
       </Tag>
     );
   }
-  return MdxHeading;
+  return withMeta(MdxHeading, { headingLevel: level });
 }
