@@ -1,6 +1,6 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import type { ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { Toc } from './Toc';
 import { prevNext } from './courseIndex';
@@ -42,8 +42,24 @@ interface Props {
 /** Renders the document whose frontmatter id matches the /d/:id route param. */
 export function DocumentPage({ notFound }: Props) {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const entry = registry.get(id);
+  const presentable = entry !== undefined && entry.meta.presentation !== 'none';
   const Doc = entry ? lazyDocumentComponent(entry) : null;
+
+  // POC shortcut: p enters presentation from the book view (never while typing).
+  useEffect(() => {
+    if (!presentable) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'p' || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+        return;
+      void navigate(`/d/${id}/present`);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [id, navigate, presentable]);
 
   if (!Doc) return <>{notFound}</>;
   return (
@@ -52,6 +68,16 @@ export function DocumentPage({ notFound }: Props) {
         <Toc index={courseIndex} />
       </aside>
       <main className="min-w-0 flex-1 px-8 py-10">
+        <div className="mx-auto flex max-w-3xl justify-end">
+          {presentable ? (
+            <Link
+              to={`/d/${id}/present`}
+              className="rounded border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+            >
+              Presentar ▸
+            </Link>
+          ) : null}
+        </div>
         <article className="prose prose-invert prose-slate mx-auto max-w-3xl">
           <Suspense fallback={null}>
             <Doc />

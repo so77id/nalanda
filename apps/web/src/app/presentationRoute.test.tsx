@@ -83,3 +83,25 @@ describe('presentation: none documents', () => {
     expect(await screen.findByRole('article')).toBeInTheDocument();
   });
 });
+
+describe('book-view entry points to presentation', () => {
+  it('shows a Presentar toggle in the document header', async () => {
+    renderAt(`/d/${firstId}`);
+    const toggle = await screen.findByRole('link', { name: /presentar/i });
+    expect(toggle).toHaveAttribute('href', `/d/${firstId}/present`);
+  });
+
+  it('hides the toggle for presentation: none documents', async () => {
+    const noneId = ids.find((id) => registry.get(id)?.meta.presentation === 'none')!;
+    renderAt(`/d/${noneId}`);
+    await screen.findByRole('article');
+    expect(screen.queryByRole('link', { name: /presentar/i })).not.toBeInTheDocument();
+  });
+
+  it('enters presentation with the p key from the book view', async () => {
+    renderAt(`/d/${firstId}`);
+    await screen.findByRole('article');
+    fireEvent.keyDown(window, { key: 'p' });
+    expect(await screen.findByText(/^\d+ \/ \d+$/)).toBeInTheDocument();
+  });
+});
