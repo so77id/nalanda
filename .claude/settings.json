@@ -1,10 +1,12 @@
 {
   "extraKnownMarketplaces": {
     "agentic-workflow": {
-      "source": { "source": "github", "repo": "so77id/agentic-workflow" }
+      "source": { "source": "github", "repo": "so77id/agentic-workflow" },
+      "autoUpdate": true
     },
     "addy-agent-skills": {
-      "source": { "source": "github", "repo": "addyosmani/agent-skills" }
+      "source": { "source": "github", "repo": "addyosmani/agent-skills" },
+      "autoUpdate": true
     }
   },
   "enabledPlugins": {
