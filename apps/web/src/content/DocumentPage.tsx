@@ -1,15 +1,10 @@
-import { MDXProvider } from '@mdx-js/react';
 import { Suspense, lazy } from 'react';
 import type { ComponentType, ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { MdxLink } from './MdxLink';
 import { Toc } from './Toc';
 import { prevNext } from './courseIndex';
 import { courseIndex, registry } from './liveContent';
-import { headingFor } from './mdxHeading';
-
-const mdxComponents = { a: MdxLink, h2: headingFor(2), h3: headingFor(3), h4: headingFor(4) };
 
 // lazy() must be called once per document, not per render, or React remounts the tree.
 const lazyCache = new Map<string, ComponentType>();
@@ -69,11 +64,9 @@ export function DocumentPage({ notFound }: Props) {
       </aside>
       <main className="min-w-0 flex-1 px-8 py-10">
         <article className="prose prose-invert prose-slate mx-auto max-w-3xl">
-          <MDXProvider components={mdxComponents}>
-            <Suspense fallback={null}>
-              <Doc />
-            </Suspense>
-          </MDXProvider>
+          <Suspense fallback={null}>
+            <Doc />
+          </Suspense>
           <SequenceNav id={id} />
         </article>
       </main>
