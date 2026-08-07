@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 
 import { DocumentPage, courseIndex, walkIndex } from '../content';
+import { PresentationPage } from '../presentation';
 import { NotFound } from './NotFound';
 
 // Landing convention (issue #63): "/" goes to the first stop of the recorrido —
@@ -16,6 +17,7 @@ export function AppRoutes() {
         element={firstDocId ? <Navigate to={`/d/${firstDocId}`} replace /> : <NotFound />}
       />
       <Route path="/d/:id" element={<DocumentPage notFound={<NotFound />} />} />
+      <Route path="/d/:id/present" element={<PresentationPage notFound={<NotFound />} />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
