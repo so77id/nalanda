@@ -12,9 +12,9 @@ import type { ReactNode } from 'react';
  * in render — and yields the sibling fragment the slide parser groups.
  *
  * If an MDX upgrade changes this compiled shape, the presentation route tests
- * fail here first; the recorded fallback (issue #64 discussion, option B) is
- * compile-time grouping via a remark plugin — swap this adapter, keep the
- * parser and viewer untouched.
+ * fail here first. The decision and its recorded fallback (compile-time
+ * grouping via a remark plugin — swap this adapter, keep parser and viewer
+ * untouched) live in ADR-0013 (docs/decisions/0013-presentation-pipeline.md).
  */
 export function mdxChildrenOf(children: ReactNode): ReactNode {
   const element = Children.only(children);

@@ -26,17 +26,20 @@ See `docs/standards/frontend-code-style.md` for the authoritative rules.
 
 ```
 src/
-├── app/                  # shell: entry, router (routes /d/:id + 404), providers
+├── app/                  # shell: entry, router (/d/:id, /d/:id/present + 404), MDX map
+├── components/           # catalog content components by family (structure: Slide, SectionBreak)
 ├── content/              # content pipeline: MDX registry, course index, wiki-links,
 │                         # book-mode page, build-time integrity gate
+├── presentation/         # presentation mode: mode context, slide parser, SlideDeck viewer
+├── lib/                  # pure TS utilities (componentMeta, reactText)
 ├── styles/               # Tailwind entry + design tokens
 ├── mdx.d.ts              # module typing for *.mdx imports
 └── architecture.test.ts  # import-direction invariants
 ```
 
-Remaining feature folders (`components/`, `catalog/`, `presentation/`) and
-`lib/` (pure TS utilities) are created by the WPs that populate them. How to
-author course material: `docs/standards/guides/add-a-course-document.md`.
+The remaining feature folder (`catalog/`) is created by the WP that populates
+it. How to author course material (frontmatter, wiki-links, slide markers):
+`docs/standards/guides/add-a-course-document.md`.
 
 ## Testing
 
