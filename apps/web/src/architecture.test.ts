@@ -10,6 +10,7 @@ const FEATURES = ['components', 'catalog', 'content', 'presentation'];
 // The ONLY allowed cross-feature dependencies (frontend-code-style.md).
 // Extending this map is an architectural decision — record it in the style doc.
 const FEATURE_EDGES: Record<string, string[]> = {
+  catalog: ['components'],
   components: ['presentation'],
   presentation: ['content'],
 };

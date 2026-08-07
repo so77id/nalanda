@@ -39,8 +39,10 @@ src/
   pattern imported from DocumentBuddy's architecture tests.)
 - **Cross-feature dependencies are an explicit allowlist**, mirrored by
   `FEATURE_EDGES` in `src/architecture.test.ts`. Current edges:
-  `components → presentation` (mode awareness via `useMode`) and
-  `presentation → content` (registry + lazy document access). Adding an edge is
+  `components → presentation` (mode awareness via `useMode`),
+  `presentation → content` (registry + lazy document access), and
+  `catalog → components` (renders the entries and live examples the components
+  feature exports through its seam). Adding an edge is
   an architectural decision: extend the map AND record the new edge + rationale
   here in the same PR. Test files may cross any feature through its seam (they
   are consumers, like the shell); production code follows the allowlist.

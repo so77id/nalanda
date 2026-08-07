@@ -1,6 +1,7 @@
 import { MDXProvider } from '@mdx-js/react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 
+import { CatalogOverviewPage, FamilyPage } from '../catalog';
 import { DocumentPage, courseIndex, walkIndex } from '../content';
 import { PresentationPage } from '../presentation';
 import { NotFound } from './NotFound';
@@ -21,6 +22,8 @@ export function AppRoutes() {
         />
         <Route path="/d/:id" element={<DocumentPage notFound={<NotFound />} />} />
         <Route path="/d/:id/present" element={<PresentationPage notFound={<NotFound />} />} />
+        <Route path="/catalog" element={<CatalogOverviewPage />} />
+        <Route path="/catalog/:family" element={<FamilyPage notFound={<NotFound />} />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </MDXProvider>
