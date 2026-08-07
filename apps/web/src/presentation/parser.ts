@@ -49,6 +49,8 @@ export function computeSlides(children: ReactNode, { title, mode = 'auto' }: Opt
     // MDX interleaves "\n" text nodes between siblings — never content.
     if (typeof child === 'string' && child.trim() === '') continue;
     if (isValidElement(child)) {
+      // The document h1 never enters a slide: the cover chrome owns the title.
+      if (child.type === 'h1' || metaOf(child.type).headingLevel === 1) continue;
       const boundary = metaOf(child.type).slideBoundary;
       if (boundary === 'slide') {
         closeIfEmpty();

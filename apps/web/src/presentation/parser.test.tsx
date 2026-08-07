@@ -91,6 +91,15 @@ describe('computeSlides — auto mode', () => {
     expect(slides[0]!.content).toHaveLength(0);
   });
 
+  it('excludes the document h1 from slide content (the cover chrome owns the title)', () => {
+    const slides = computeSlides(
+      [<h1 key="1">Mi documento</h1>, <p key="2">intro</p>, <H2 key="3">Tema</H2>],
+      DOC,
+    );
+    expect(slides[0]!.content).toHaveLength(1);
+    expect(titles(slides)).toEqual(['Mi documento', 'Tema']);
+  });
+
   it('drops empty untitled groups (e.g. SectionBreak straight into an h2)', () => {
     const slides = computeSlides(
       [<SectionBreak key="1" />, <H2 key="2">Unica</H2>, <p key="3">x</p>],

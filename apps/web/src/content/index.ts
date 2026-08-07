@@ -4,3 +4,4 @@ export { DocumentPage } from './DocumentPage';
 export { walkIndex } from './courseIndex';
 export { courseIndex, registry } from './liveContent';
 export { contentMdxComponents } from './mdxComponents';
+export { lazyDocumentComponent } from './lazyDoc';

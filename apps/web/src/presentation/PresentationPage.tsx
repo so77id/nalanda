@@ -1,26 +1,44 @@
+import { Suspense, useMemo } from 'react';
 import type { ReactNode } from 'react';
 import { useParams } from 'react-router-dom';
 
-import { registry } from '../content';
+import { lazyDocumentComponent, registry } from '../content';
 import { ModeProvider } from './ModeProvider';
+import { SlideDeck } from './SlideDeck';
 
 interface Props {
   /** Rendered when the id is unknown — injected by the shell so the feature never imports app/. */
   notFound: ReactNode;
 }
 
-/** Presentation route for a document. Placeholder viewer until S4 delivers the real one. */
+/**
+ * Presentation route: renders the document with an MDX wrapper that hands the
+ * rendered children to the SlideDeck instead of painting them as a page.
+ */
 export function PresentationPage({ notFound }: Props) {
   const { id = '' } = useParams();
   const entry = registry.get(id);
 
+  const components = useMemo(() => {
+    if (!entry) return undefined;
+    const { id: docId, title } = entry.meta;
+    function DeckWrapper({ children }: { children?: ReactNode }) {
+      return (
+        <SlideDeck docId={docId} title={title}>
+          {children}
+        </SlideDeck>
+      );
+    }
+    return { wrapper: DeckWrapper };
+  }, [entry]);
+
   if (!entry) return <>{notFound}</>;
+  const Doc = lazyDocumentComponent(entry);
   return (
     <ModeProvider mode="presentation">
-      <div className="fixed inset-0 z-40 flex flex-col items-center justify-center bg-slate-950 text-slate-100">
-        <h1 className="text-5xl font-bold tracking-tight">{entry.meta.title}</h1>
-        <p className="mt-4 text-slate-400">Presentation mode</p>
-      </div>
+      <Suspense fallback={null}>
+        <Doc components={components} />
+      </Suspense>
     </ModeProvider>
   );
 }
