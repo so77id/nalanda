@@ -33,3 +33,24 @@ describe('/catalog/c/:name', () => {
     expect(await screen.findByRole('heading', { name: /not found/i })).toBeInTheDocument();
   });
 });
+
+describe('component entries (AC2)', () => {
+  for (const name of ['Slide', 'SectionBreak']) {
+    it(`renders a complete page for ${name} with live examples`, async () => {
+      renderAt(`/catalog/c/${name}`);
+      expect(await screen.findByRole('heading', { level: 1, name })).toBeInTheDocument();
+      expect(screen.getByText(/when to use/i)).toBeInTheDocument();
+      const propsDocumented =
+        screen.queryByRole('table') !== null || screen.queryByText(/takes no props/i) !== null;
+      expect(propsDocumented).toBe(true);
+      const examples = screen.getAllByRole('heading', { level: 3 });
+      expect(examples.length).toBeGreaterThanOrEqual(2);
+    });
+  }
+
+  it('lists both structural components in the estructura family', async () => {
+    renderAt('/catalog/estructura');
+    expect(await screen.findByRole('link', { name: 'Slide' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'SectionBreak' })).toBeInTheDocument();
+  });
+});
