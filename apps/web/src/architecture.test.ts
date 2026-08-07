@@ -7,6 +7,12 @@ import { describe, expect, it } from 'vitest';
 // imports flow app → features → lib; lib imports nothing from above.
 const SRC = dirname(fileURLToPath(import.meta.url));
 const FEATURES = ['components', 'catalog', 'content', 'presentation'];
+// The ONLY allowed cross-feature dependencies (frontend-code-style.md).
+// Extending this map is an architectural decision — record it in the style doc.
+const FEATURE_EDGES: Record<string, string[]> = {
+  components: ['presentation'],
+  presentation: ['content'],
+};
 
 function walk(dir: string): string[] {
   return readdirSync(dir).flatMap((name) => {
@@ -24,16 +30,21 @@ function topSegmentOfImport(file: string, spec: string): string | null {
   return rel.split('/')[0] ?? null;
 }
 
-function violations(rule: (fileTop: string, importTop: string) => boolean): string[] {
+function violations(
+  rule: (fileTop: string, importTop: string, importRel: string, file: string) => boolean,
+): string[] {
   const found: string[] = [];
   for (const file of walk(SRC)) {
     const fileTop = relative(SRC, file).split('/')[0] ?? '';
     const source = readFileSync(file, 'utf8');
     // Covers `from '...'`, side-effect `import '...'`, and dynamic `import('...')`.
     for (const match of source.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)) {
-      const importTop = topSegmentOfImport(file, match[1] ?? '');
-      if (importTop && rule(fileTop, importTop)) {
-        found.push(`${relative(SRC, file)} imports from ${importTop}/`);
+      const spec = match[1] ?? '';
+      const importTop = topSegmentOfImport(file, spec);
+      if (!importTop) continue;
+      const importRel = relative(SRC, resolve(dirname(file), spec));
+      if (rule(fileTop, importTop, importRel, relative(SRC, file))) {
+        found.push(`${relative(SRC, file)} imports ${importRel}`);
       }
     }
   }
@@ -53,6 +64,35 @@ describe('architecture: import direction (app → features → lib)', () => {
   it('feature folders import nothing from app/', () => {
     expect(
       violations((fileTop, importTop) => FEATURES.includes(fileTop) && importTop === 'app'),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: cross-feature dependencies', () => {
+  it('only the allowed feature edges exist in production code', () => {
+    // Test files may exercise any feature through its seam (they are consumers,
+    // like the shell); the edge allowlist constrains production structure.
+    expect(
+      violations(
+        (fileTop, importTop, _importRel, file) =>
+          !file.includes('.test.') &&
+          FEATURES.includes(fileTop) &&
+          FEATURES.includes(importTop) &&
+          fileTop !== importTop &&
+          !(FEATURE_EDGES[fileTop] ?? []).includes(importTop),
+      ),
+    ).toEqual([]);
+  });
+
+  it('cross-feature imports go through the feature root seam', () => {
+    expect(
+      violations(
+        (fileTop, importTop, importRel) =>
+          FEATURES.includes(importTop) &&
+          fileTop !== importTop &&
+          importRel.includes('/') &&
+          importRel !== `${importTop}/index`,
+      ),
     ).toEqual([]);
   });
 });

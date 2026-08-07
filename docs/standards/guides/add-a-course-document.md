@@ -2,7 +2,8 @@
 
 How to add (or move) a document in a Nalanda course. Registered in
 `docs/standards/integration-guides.md`; born with WP2 (#63). Decisions behind
-this design: ADR-0002 (ids, graph + index), ADR-0003 (MDX), ADR-0012 (pipeline).
+this design: ADR-0002 (ids, graph + index), ADR-0003 (MDX), ADR-0012 (pipeline),
+ADR-0013 (presentation).
 
 ## When to use
 
@@ -15,9 +16,10 @@ The seed course `content/courses/sample-course/` exercises everything:
 
 ```
 content/courses/sample-course/
-├── 01-bienvenida.mdx          # id: bienvenida
-├── 02-intro-estructuras.mdx   # id: intro-estructuras
-├── 03-busqueda-binaria.mdx    # id: busqueda-binaria
+├── 01-bienvenida.mdx          # id: bienvenida        (presentation: auto — h2 slicing)
+├── 02-intro-estructuras.mdx   # id: intro-estructuras (auto, uses <SectionBreak/>)
+├── 03-busqueda-binaria.mdx    # id: busqueda-binaria  (presentation: explicit, uses <Slide>)
+├── 04-apuntes.mdx             # id: apuntes-del-curso (presentation: none — book-only)
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -37,18 +39,32 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    ---
    id: busqueda-binaria # kebab-case, UNIQUE across the whole content/ tree
    title: Búsqueda binaria # shown in the TOC, prev/next, and lookups
+   presentation: explicit # OPTIONAL: auto (default) | explicit | none
    ---
    ```
+
+   `presentation` controls the document's slide form (ADR-0013): `auto`
+   (default when absent) slices the deck on `h2` headings; `explicit` decks
+   ONLY content marked with `<Slide>` / `<SectionBreak/>` (loose prose stays
+   book-only); `none` means book-only — no Presentar toggle, `/present`
+   redirects back.
 
 3. **Write prose in Markdown.** Headings h2–h4 get automatic slug anchors
    (deep-linkable). Code fences render book-style.
 
-4. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
+4. **Mark slides (optional)**: `<Slide title="...">...</Slide>` and
+   `<SectionBreak />` are available WITHOUT imports. In the book view a Slide
+   renders as its heading + flowing prose and a SectionBreak as a subtle
+   divider; in presentation they cut slide boundaries. Worked example:
+   `03-busqueda-binaria.mdx`. Full component docs arrive with the catalog
+   (WP4).
+
+5. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
    link, `[[otro-id|texto visible]]` overrides the label. A target that doesn't
    exist does NOT fail the build: it renders visibly broken (red wavy underline)
    and logs a console warning — forward links to drafts are allowed on purpose.
 
-5. **Register it in the teaching path** (`index.yaml`) if it belongs to the
+6. **Register it in the teaching path** (`index.yaml`) if it belongs to the
    recorrido. Schema (strictly validated; unknown keys fail the build):
 
    ```yaml
@@ -65,15 +81,17 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    on the FIRST entry — by convention the course welcome document). A document
    not listed in the index is still reachable by wiki-link and URL.
 
-6. **Verify**: `npm run build` from `apps/web/`. The contentIntegrity gate fails
+7. **Verify**: `npm run build` from `apps/web/`. The contentIntegrity gate fails
    the build (and CI — `content/**` triggers it) with a file-and-field message
-   on: missing/non-kebab/duplicate `id`, missing `title`, malformed `index.yaml`
-   (unknown key, group without docId nor label, empty children), duplicate or unknown
-   `docId` in the index.
+   on: missing/non-kebab/duplicate `id`, missing `title`, invalid `presentation`
+   value (must be auto, explicit, or none), malformed `index.yaml` (unknown key,
+   group without docId nor label, empty children), duplicate or unknown `docId`
+   in the index.
 
 ## Checklist
 
-- [ ] Frontmatter has kebab-case `id` (unique) + `title`.
+- [ ] Frontmatter has kebab-case `id` (unique) + `title` (+ `presentation` if
+      the default `auto` doesn't fit).
 - [ ] Wiki-links point at real ids (or are intentional forward links).
 - [ ] Listed in `index.yaml` if it belongs to the recorrido.
 - [ ] `npm run build` green from `apps/web/` (content integrity gate).

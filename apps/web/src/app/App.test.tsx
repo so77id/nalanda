@@ -59,6 +59,17 @@ describe('routing', () => {
     expect(sequence).toHaveTextContent(titleOf(ids[2]!));
   });
 
+  it('renders the presentation viewer at /d/:id/present', async () => {
+    renderAt(`/d/${ids[0]}/present`);
+    expect(await screen.findByRole('heading', { name: titleOf(ids[0]!) })).toBeInTheDocument();
+    expect(screen.queryByRole('article')).not.toBeInTheDocument();
+  });
+
+  it('shows the 404 page for an unknown id at /present', () => {
+    renderAt('/d/does-not-exist/present');
+    expect(screen.getByRole('heading', { name: /not found/i })).toBeInTheDocument();
+  });
+
   it('shows the 404 page for an unknown document id', () => {
     renderAt('/d/does-not-exist');
     expect(screen.getByRole('heading', { name: /not found/i })).toBeInTheDocument();

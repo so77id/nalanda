@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseFrontmatterBlock } from './documentMeta';
+import { parseDocumentMeta, parseFrontmatterBlock } from './documentMeta';
 
 describe('parseFrontmatterBlock', () => {
   it('parses the YAML block delimited by --- fences', () => {
@@ -14,5 +14,26 @@ describe('parseFrontmatterBlock', () => {
 
   it('does not treat a --- ruler later in the body as frontmatter', () => {
     expect(parseFrontmatterBlock('# Body\n\n---\nid: nope\n---\n')).toBeNull();
+  });
+});
+
+describe('parseDocumentMeta — presentation config', () => {
+  const base = { id: 'doc-a', title: 'Doc A' };
+
+  it('defaults to auto when absent (every document is presentable for now)', () => {
+    expect(parseDocumentMeta('a.mdx', base).presentation).toBe('auto');
+  });
+
+  it('accepts explicit and none', () => {
+    expect(parseDocumentMeta('a.mdx', { ...base, presentation: 'explicit' }).presentation).toBe(
+      'explicit',
+    );
+    expect(parseDocumentMeta('a.mdx', { ...base, presentation: 'none' }).presentation).toBe('none');
+  });
+
+  it('rejects unknown values naming the field and file', () => {
+    expect(() => parseDocumentMeta('a.mdx', { ...base, presentation: 'slides' })).toThrowError(
+      /presentation.*auto.*explicit.*none.*a\.mdx/s,
+    );
   });
 });

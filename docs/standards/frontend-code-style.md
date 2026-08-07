@@ -37,6 +37,22 @@ src/
   features only through deliberate public seams (their root export); `lib` imports
   from no feature; no cycles ever. (Enforced by `src/architecture.test.ts` —
   pattern imported from DocumentBuddy's architecture tests.)
+- **Cross-feature dependencies are an explicit allowlist**, mirrored by
+  `FEATURE_EDGES` in `src/architecture.test.ts`. Current edges:
+  `components → presentation` (mode awareness via `useMode`) and
+  `presentation → content` (registry + lazy document access). Adding an edge is
+  an architectural decision: extend the map AND record the new edge + rationale
+  here in the same PR. Test files may cross any feature through its seam (they
+  are consumers, like the shell); production code follows the allowlist.
+- **Cross-feature element identity travels as static metadata**, never as
+  component-identity imports: declare with `withMeta` and inspect with `metaOf`
+  (`lib/componentMeta.ts`). Worked case: the slide parser recognizes
+  `slideBoundary`/`headingLevel` without importing `Slide` or the heading
+  factory — which would close a feature cycle.
+- **MDX component maps are shell-composed**: features export partial maps
+  (e.g., `content/mdxComponents.ts`), and `app/mdxComponents.ts` merges them
+  into the provider around the routes. Features never assemble the global map;
+  documents use registered components without imports (ADR-0003/0010).
 - **Route-level pages**: shell-owned pages (e.g., `NotFound`) live in `app/`;
   feature pages live in their feature folder.
 - **Shell UI reaches features by injection**: when a feature needs shell-owned

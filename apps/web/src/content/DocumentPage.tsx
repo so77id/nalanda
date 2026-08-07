@@ -1,27 +1,11 @@
-import { MDXProvider } from '@mdx-js/react';
-import { Suspense, lazy } from 'react';
-import type { ComponentType, ReactNode } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Suspense, useEffect } from 'react';
+import type { ReactNode } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
-import { MdxLink } from './MdxLink';
 import { Toc } from './Toc';
 import { prevNext } from './courseIndex';
+import { lazyDocumentComponent } from './lazyDoc';
 import { courseIndex, registry } from './liveContent';
-import { headingFor } from './mdxHeading';
-
-const mdxComponents = { a: MdxLink, h2: headingFor(2), h3: headingFor(3), h4: headingFor(4) };
-
-// lazy() must be called once per document, not per render, or React remounts the tree.
-const lazyCache = new Map<string, ComponentType>();
-
-function componentFor(id: string, load: () => Promise<{ default: ComponentType }>): ComponentType {
-  let cached = lazyCache.get(id);
-  if (!cached) {
-    cached = lazy(load);
-    lazyCache.set(id, cached);
-  }
-  return cached;
-}
 
 function titleOf(id: string): string {
   return registry.get(id)?.meta.title ?? id;
@@ -58,8 +42,24 @@ interface Props {
 /** Renders the document whose frontmatter id matches the /d/:id route param. */
 export function DocumentPage({ notFound }: Props) {
   const { id = '' } = useParams();
+  const navigate = useNavigate();
   const entry = registry.get(id);
-  const Doc = entry ? componentFor(id, entry.load) : null;
+  const presentable = entry !== undefined && entry.meta.presentation !== 'none';
+  const Doc = entry ? lazyDocumentComponent(entry) : null;
+
+  // POC shortcut: p enters presentation from the book view (never while typing).
+  useEffect(() => {
+    if (!presentable) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== 'p' || event.metaKey || event.ctrlKey || event.altKey) return;
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)
+        return;
+      void navigate(`/d/${id}/present`);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [id, navigate, presentable]);
 
   if (!Doc) return <>{notFound}</>;
   return (
@@ -68,12 +68,20 @@ export function DocumentPage({ notFound }: Props) {
         <Toc index={courseIndex} />
       </aside>
       <main className="min-w-0 flex-1 px-8 py-10">
+        <div className="mx-auto flex max-w-3xl justify-end">
+          {presentable ? (
+            <Link
+              to={`/d/${id}/present`}
+              className="rounded border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+            >
+              Presentar ▸
+            </Link>
+          ) : null}
+        </div>
         <article className="prose prose-invert prose-slate mx-auto max-w-3xl">
-          <MDXProvider components={mdxComponents}>
-            <Suspense fallback={null}>
-              <Doc />
-            </Suspense>
-          </MDXProvider>
+          <Suspense fallback={null}>
+            <Doc />
+          </Suspense>
           <SequenceNav id={id} />
         </article>
       </main>

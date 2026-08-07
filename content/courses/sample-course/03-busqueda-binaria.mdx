@@ -1,21 +1,22 @@
 ---
 id: busqueda-binaria
 title: Búsqueda binaria
+presentation: explicit
 ---
 
 # Búsqueda binaria
 
 Sobre un arreglo **ordenado**, la búsqueda binaria descarta la mitad del
-espacio de búsqueda en cada paso.
+espacio de búsqueda en cada paso. Esta página usa `presentation: explicit`:
+solo el contenido marcado forma parte del deck.
 
-## La idea
+<Slide title="La idea">
+  Comparamos el objetivo con el elemento del medio: si es menor, seguimos en la
+  mitad izquierda; si es mayor, en la derecha. Repetimos hasta encontrarlo o
+  quedarnos sin elementos.
+</Slide>
 
-Comparamos el objetivo con el elemento del medio: si es menor, seguimos en la
-mitad izquierda; si es mayor, en la derecha. Repetimos hasta encontrarlo o
-quedarnos sin elementos.
-
-## Implementación
-
+<Slide title="Implementación">
 ```java
 int busquedaBinaria(int[] a, int objetivo) {
   int lo = 0, hi = a.length - 1;
@@ -28,9 +29,10 @@ int busquedaBinaria(int[] a, int objetivo) {
   return -1;
 }
 ```
+</Slide>
 
 ## Costo
 
 Cada iteración reduce el rango a la mitad: sobre `n` elementos hay a lo más
-`log₂(n) + 1` iteraciones. Contrasta esto con el recorrido lineal que vimos en
-[[intro-estructuras|la introducción]].
+`log₂(n) + 1` iteraciones. Esta sección es prosa de libro: al no estar marcada,
+no aparece en el deck. Contrasta con [[intro-estructuras|la introducción]].
