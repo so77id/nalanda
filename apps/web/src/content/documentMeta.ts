@@ -4,7 +4,12 @@ import { parse } from 'yaml';
 export interface DocumentMeta {
   id: string;
   title: string;
+  /** How the document presents (issue #64): auto = h2 slicing, explicit = only marked slides, none = book-only. */
+  presentation: 'auto' | 'explicit' | 'none';
 }
+
+const PRESENTATION_VALUES = ['auto', 'explicit', 'none'] as const;
+type Presentation = (typeof PRESENTATION_VALUES)[number];
 
 const FRONTMATTER_BLOCK = /^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/;
 const KEBAB_CASE = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -21,7 +26,7 @@ export function parseDocumentMeta(sourcePath: string, raw: unknown): DocumentMet
   if (typeof raw !== 'object' || raw === null) {
     throw new Error(`Content registry: no frontmatter found in ${sourcePath}`);
   }
-  const { id, title } = raw as Record<string, unknown>;
+  const { id, title, presentation } = raw as Record<string, unknown>;
   if (typeof id !== 'string' || id === '') {
     throw new Error(`Content registry: missing frontmatter "id" in ${sourcePath}`);
   }
@@ -33,5 +38,13 @@ export function parseDocumentMeta(sourcePath: string, raw: unknown): DocumentMet
   if (typeof title !== 'string' || title === '') {
     throw new Error(`Content registry: missing frontmatter "title" in ${sourcePath}`);
   }
-  return { id, title };
+  if (
+    presentation !== undefined &&
+    !(PRESENTATION_VALUES as readonly unknown[]).includes(presentation)
+  ) {
+    throw new Error(
+      `Content registry: "presentation" must be one of ${PRESENTATION_VALUES.join(', ')} in ${sourcePath}`,
+    );
+  }
+  return { id, title, presentation: (presentation as Presentation | undefined) ?? 'auto' };
 }

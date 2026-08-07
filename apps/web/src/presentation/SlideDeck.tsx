@@ -17,6 +17,8 @@ function toggleFullscreen(): void {
 interface Props {
   docId: string;
   title: string;
+  /** Parser mode from the document frontmatter (auto | explicit). */
+  configMode?: 'auto' | 'explicit';
   /** The document's rendered MDX children — injected via the MDX wrapper component. */
   children?: ReactNode;
 }
@@ -26,10 +28,13 @@ interface Props {
  * derived from ?slide=N — the URL is the single source of truth, which is
  * also what session sync will drive in v0.3.
  */
-export function SlideDeck({ docId, title, children }: Props) {
+export function SlideDeck({ docId, title, configMode = 'auto', children }: Props) {
   // Unconditional and first: mdxChildrenOf runs a useContext internally (see its docs).
   const siblings = mdxChildrenOf(children);
-  const slides = useMemo(() => computeSlides(siblings, { title }), [siblings, title]);
+  const slides = useMemo(
+    () => computeSlides(siblings, { title, mode: configMode }),
+    [siblings, title, configMode],
+  );
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 

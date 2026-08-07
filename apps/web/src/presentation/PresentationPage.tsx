@@ -1,6 +1,6 @@
 import { Suspense, useMemo } from 'react';
 import type { ReactNode } from 'react';
-import { useParams } from 'react-router-dom';
+import { Navigate, useParams } from 'react-router-dom';
 
 import { lazyDocumentComponent, registry } from '../content';
 import { ModeProvider } from './ModeProvider';
@@ -21,10 +21,14 @@ export function PresentationPage({ notFound }: Props) {
 
   const components = useMemo(() => {
     if (!entry) return undefined;
-    const { id: docId, title } = entry.meta;
+    const { id: docId, title, presentation } = entry.meta;
     function DeckWrapper({ children }: { children?: ReactNode }) {
       return (
-        <SlideDeck docId={docId} title={title}>
+        <SlideDeck
+          docId={docId}
+          title={title}
+          configMode={presentation === 'explicit' ? 'explicit' : 'auto'}
+        >
           {children}
         </SlideDeck>
       );
@@ -33,6 +37,8 @@ export function PresentationPage({ notFound }: Props) {
   }, [entry]);
 
   if (!entry) return <>{notFound}</>;
+  // presentation: none — the document has no slide form; back to the book (AC3).
+  if (entry.meta.presentation === 'none') return <Navigate to={`/d/${id}`} replace />;
   const Doc = lazyDocumentComponent(entry);
   return (
     <ModeProvider mode="presentation">

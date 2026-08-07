@@ -74,3 +74,12 @@ describe('PresentationPage viewer', () => {
     expect(screen.getByRole('button', { name: /fullscreen/i })).toBeInTheDocument();
   });
 });
+
+describe('presentation: none documents', () => {
+  it('redirects /present back to the book view', async () => {
+    const noneId = ids.find((id) => registry.get(id)?.meta.presentation === 'none');
+    expect(noneId, 'seed course needs a presentation:none document').toBeDefined();
+    renderAt(`/d/${noneId}/present`);
+    expect(await screen.findByRole('article')).toBeInTheDocument();
+  });
+});
