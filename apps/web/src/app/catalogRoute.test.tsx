@@ -26,3 +26,10 @@ describe('/catalog', () => {
     expect(await screen.findByRole('heading', { name: 'Estructura' })).toBeInTheDocument();
   });
 });
+
+describe('/catalog/c/:name', () => {
+  it('shows the 404 page for an unknown component', async () => {
+    renderAt('/catalog/c/nope');
+    expect(await screen.findByRole('heading', { name: /not found/i })).toBeInTheDocument();
+  });
+});
