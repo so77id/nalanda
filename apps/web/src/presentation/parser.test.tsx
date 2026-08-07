@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { SectionBreak } from '../components/structure/SectionBreak';
-import { Slide } from '../components/structure/Slide';
-import { headingFor } from '../content/mdxHeading';
+import { SectionBreak, Slide } from '../components';
+import { contentMdxComponents } from '../content';
 
 import { computeSlides } from './parser';
 
-const H2 = headingFor(2);
+const H2 = contentMdxComponents.h2;
 const DOC = { title: 'Mi documento' };
 
 function titles(slides: ReturnType<typeof computeSlides>) {

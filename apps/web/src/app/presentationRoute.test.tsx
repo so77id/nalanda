@@ -48,6 +48,9 @@ describe('PresentationPage viewer', () => {
     fireEvent.keyDown(window, { key: 'End' });
     expect(counter).toHaveTextContent(`${total} / ${total}`);
 
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(counter).toHaveTextContent(`${total} / ${total}`);
+
     fireEvent.keyDown(window, { key: 'Home' });
     expect(counter).toHaveTextContent(/^1 \//);
 
@@ -58,6 +61,11 @@ describe('PresentationPage viewer', () => {
   it('deep-links to a slide via ?slide=N and clamps out-of-range values', async () => {
     renderAt(`/d/${firstId}/present?slide=2`);
     expect(await findCounter()).toHaveTextContent(/^2 \//);
+  });
+
+  it('survives a crafted non-integer ?slide value', async () => {
+    renderAt(`/d/${firstId}/present?slide=1.5`);
+    expect(await findCounter()).toHaveTextContent(/^1 \//);
   });
 
   it('returns to the book view on Escape', async () => {
@@ -103,5 +111,38 @@ describe('book-view entry points to presentation', () => {
     await screen.findByRole('article');
     fireEvent.keyDown(window, { key: 'p' });
     expect(await screen.findByText(/^\d+ \/ \d+$/)).toBeInTheDocument();
+  });
+});
+
+// busqueda-binaria is the DESIGNATED explicit-mode fixture (see its frontmatter):
+// these tests guard the real compiled <Slide> path through the mdxChildrenOf
+// adapter — the alarm the adapter's docs promise.
+describe('explicit-mode documents (real compiled markers)', () => {
+  const explicitId = ids.find((id) => registry.get(id)?.meta.presentation === 'explicit');
+
+  it('the seed course provides an explicit fixture', () => {
+    expect(explicitId).toBeDefined();
+  });
+
+  it('decks only the marked slides, leaving loose prose book-only', async () => {
+    renderAt(`/d/${explicitId}/present`);
+    const counter = await findCounter();
+    expect(counter).toHaveTextContent('1 / 3');
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(await screen.findByRole('heading', { name: 'La idea' })).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: 'End' });
+    expect(screen.queryByText(/prosa de libro/)).not.toBeInTheDocument();
+  });
+
+  it('renders marked slides as heading + prose in the book view, with the loose section present', async () => {
+    renderAt(`/d/${explicitId}`);
+    const article = await screen.findByRole('article');
+    const { within } = await import('@testing-library/react');
+    expect(
+      await within(article).findByRole('heading', { level: 2, name: /La idea/ }),
+    ).toBeInTheDocument();
+    expect(within(article).getByRole('heading', { level: 2, name: /Costo/ })).toBeInTheDocument();
   });
 });

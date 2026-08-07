@@ -38,17 +38,23 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const requested = Number(searchParams.get('slide') ?? '1');
-  const index = Math.min(
-    Math.max(Number.isFinite(requested) ? requested - 1 : 0, 0),
-    slides.length - 1,
-  );
+  // Math.trunc: a crafted non-integer ?slide (e.g. 1.5) must not become a
+  // fractional array index (white-screen crash — review finding, issue #64).
+  const raw = Number(searchParams.get('slide') ?? '1');
+  const requested = Number.isFinite(raw) ? Math.trunc(raw) : 1;
+  const index = Math.min(Math.max(requested - 1, 0), slides.length - 1);
   const slide = slides[index]!;
 
   useEffect(() => {
     const go = (target: number) => {
       const next = Math.min(Math.max(target, 0), slides.length - 1);
-      setSearchParams({ slide: String(next + 1) }, { replace: true });
+      setSearchParams(
+        (prev) => {
+          prev.set('slide', String(next + 1));
+          return prev;
+        },
+        { replace: true },
+      );
     };
     const onKeyDown = (event: KeyboardEvent) => {
       switch (event.key) {

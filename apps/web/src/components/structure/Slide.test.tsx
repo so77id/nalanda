@@ -2,7 +2,7 @@ import { MDXProvider } from '@mdx-js/react';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { headingFor } from '../../content/mdxHeading';
+import { contentMdxComponents } from '../../content';
 import { ModeProvider } from '../../presentation';
 
 import { Slide } from './Slide';
@@ -20,7 +20,7 @@ describe('Slide', () => {
 
   it('uses the MDX-mapped h2 when one is registered (anchor headings)', () => {
     render(
-      <MDXProvider components={{ h2: headingFor(2) }}>
+      <MDXProvider components={{ h2: contentMdxComponents.h2 }}>
         <Slide title="Búsqueda" />
       </MDXProvider>,
     );
