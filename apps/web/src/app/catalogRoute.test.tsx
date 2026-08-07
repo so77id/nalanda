@@ -54,3 +54,15 @@ describe('component entries (AC2)', () => {
     expect(screen.getByRole('link', { name: 'SectionBreak' })).toBeInTheDocument();
   });
 });
+
+describe('/catalog/governance (AC3)', () => {
+  it('renders the how-to-add guide and the three checklists', async () => {
+    renderAt('/catalog/governance');
+    expect(await screen.findByRole('heading', { name: /governance/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /how to add a component/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /component contract/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /documentation checklist/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /review checklist/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /changing these rules/i })).toBeInTheDocument();
+  });
+});

@@ -10,7 +10,10 @@ export function CatalogOverviewPage() {
       <h1 className="text-4xl font-bold tracking-tight">Catalog</h1>
       <p className="mt-3 text-slate-400">
         The components a document can use — the platform&apos;s grammar (ADR-0010). Four editable
-        families; every component ships its entry here.
+        families; every component ships its entry here.{' '}
+        <Link to="/catalog/governance" className="text-sky-400 hover:underline">
+          Governance →
+        </Link>
       </p>
       <ul className="mt-10 space-y-8">
         {families.map((family) => (
