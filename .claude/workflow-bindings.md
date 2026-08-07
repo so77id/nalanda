@@ -80,6 +80,16 @@ Repo-specific tools the review lenses run and fold into findings. Empty is valid
 correctness lens when Go arrives in v0.3)
 ```
 
+## Metrics
+
+```
+enabled: true
+sinks:
+  - pr-comment
+  - github-sink: so77id/agentic-workflow
+anonymize: false
+```
+
 ## Overrides
 
 ```
