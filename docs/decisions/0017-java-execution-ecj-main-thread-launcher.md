@@ -26,12 +26,20 @@ Maven Central during `prebuild`/`predev`, verifies the published SHA-1, and
 writes `public/java-compiler.jar`, which is gitignored: it is a build input, not
 source.
 
-**2. The Java runtime version is 8, and it is pinned by the compiler, not by
-preference.** ECJ releases from 3.33 onward fail under CheerpJ on Java 11 and 17:
-they resolve system libraries through a `jrt` filesystem
-(`JrtFileSystem`, `/lt/11/release`) that the JVM-in-the-browser does not expose.
-3.21.0 is the last line using the classic classpath model. Sources are compiled
-with `-1.8`.
+**2. The Java runtime version is 8, and nothing we control can raise it.**
+CheerpJ's Java 11 and 17 images do not ship `jrt-fs.jar`
+(`java.io.IOException: /lt/11/lib/jrt-fs.jar not exist`). Since Java 9 the
+classic `rt.jar` is gone and every compiler locates `java.lang.*` through that
+module filesystem — so on those runtimes **no compiler can compile at all**,
+regardless of its version: ECJ 3.21 and 3.33+ fail identically, and `javac`
+would too. The JVM itself runs 11 and 17 bytecode fine; what is impossible is
+*producing* bytecode in the browser. Sources are therefore compiled with `-1.8`
+on the Java 8 runtime, where the classic classpath model still applies.
+
+Raising the ceiling needs CheerpJ to ship a complete Java 9+ image — stable
+Java 17 is on their roadmap for CheerpJ 5, end of 2026 — at which point this is
+a constant. Supplying the module images ourselves is not a workaround: they are
+not a jar, and CheerpJ does not expose them through its virtual filesystem.
 
 **3. Java runs on the main thread, behind the `RuntimeWorker` interface.**
 CheerpJ delivers a console program's stdout by writing into a DOM element, and a
@@ -60,8 +68,10 @@ the launcher at warm-up spends that cost before the student presses Run.
   and in every deploy.
 - **Fetch `tools.jar` from JavaFiddle's repo via jsDelivr** — no binary in git,
   proven compiler, but makes our build depend on another project's repository.
-- **Java 11 or 17 with a modern ECJ** — desirable for the language level;
-  does not work (see Decision 2). Revisit when CheerpJ 5 ships stable Java 17.
+- **Java 11 or 17, with any compiler** — desirable for the language level;
+  impossible today, and not for a reason we can route around (see Decision 2).
+  Measured 2026-08-11: CheerpJ 11 and 17 both fail on the missing `jrt-fs.jar`
+  with ECJ 3.21 and with 3.33+ alike. Revisit at CheerpJ 5.
 - **Java in a Web Worker like the other runtimes** — no DOM, so no output. A
   bridge through `cheerpjInit`'s `natives` option could redirect `System.out` to
   JS; more machinery than the main thread needs, and unproven.
@@ -72,9 +82,10 @@ the launcher at warm-up spends that cost before the student presses Run.
 subsequent compile 1.3s · run 0.3–0.9s · compile error surfaces with ECJ's own
 diagnostic and a non-zero exit.
 
-- **Students are limited to Java 8 language features** — no `var`, no records, no
-  switch expressions. Acceptable for a data-structures course; a real ceiling to
-  revisit with CheerpJ 5.
+- **Students are limited to Java 8 language features** — no `var`, no records,
+  no `List.of`, no switch expressions, no text blocks. Acceptable for a
+  data-structures course, and not a choice: it is the ceiling CheerpJ imposes
+  until it ships a complete Java 9+ image.
 - **The first Run of a session is slow unless the editor warms up early.** The
   component decides when to warm; the runtime only offers `warmUp()`.
 - **One JVM per page.** CheerpJ initialises once and cannot be unloaded, so the

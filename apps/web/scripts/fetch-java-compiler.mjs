@@ -3,10 +3,10 @@
 //
 // It is a build input, not source: ~2.9MB of binary that would sit in git
 // forever otherwise. ECJ rather than the JDK's own tools.jar because it is a
-// sixth of the size, and because modern ECJ releases cannot run under CheerpJ
-// at all — they look for a jrt filesystem the JVM-in-the-browser does not
-// expose. 3.21.0 is the last line that uses the classic classpath model
-// (verified in a browser spike, 2026-08-11; see ADR-0016).
+// sixth of the size. The version is pinned to a release that predates the
+// module system's jrt lookup, because compilation only works on CheerpJ's
+// Java 8 runtime at all — its 11 and 17 images ship no jrt-fs.jar (measured
+// 2026-08-11; see ADR-0017).
 
 import { createHash } from 'node:crypto';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';

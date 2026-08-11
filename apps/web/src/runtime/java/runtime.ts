@@ -13,8 +13,9 @@ import { LAUNCHER_CLASS, LAUNCHER_SOURCE, deriveEntryClass, sourceFileName } fro
 const CHEERPJ_LOADER = 'https://cjrtnc.leaningtech.com/4.3/loader.js';
 const ECJ_MAIN = 'org.eclipse.jdt.internal.compiler.batch.Main';
 const STDIN_PATH = '/str/stdin.txt';
-/** Java 8 is the only runtime whose compiler works here: modern ECJ needs a jrt
- *  filesystem that CheerpJ does not expose (spike, 2026-08-11). */
+/** Java 8 is the only runtime that can compile at all: CheerpJ's 11 and 17
+ *  images ship no `jrt-fs.jar`, so no compiler of any version can resolve the
+ *  system modules there (measured 2026-08-11; ADR-0017). */
 const JAVA_VERSION = 8;
 const SOURCE_LEVEL = '-1.8';
 
