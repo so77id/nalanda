@@ -1,2 +1,12 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
+
+/* The typography plugin decorates inline code with literal backticks via
+   ::before/::after, so `System.out.println` renders WITH its markup delimiters
+   showing. Course prose is full of inline identifiers; the code style already
+   sets it apart. The plugin's own selectors use :where(), so a plain class
+   selector overrides them. */
+.prose code::before,
+.prose code::after {
+  content: none;
+}
