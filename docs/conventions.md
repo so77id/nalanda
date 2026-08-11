@@ -144,6 +144,12 @@ For changes that meet ALL of these criteria, the workflow above can be bypassed:
 
 Commit directly to `main` with a clear message. Do not create an issue.
 
+**A yolo commit under `apps/web/**` or `content/**` publishes the live site**
+(`deploy.yml` triggers on those paths). The deploy job runs lint and tests
+first, so a broken commit fails to publish rather than publishing broken — but
+the change goes live unreviewed. Check the live URL right after pushing; the
+rollback is a revert, which redeploys the previous version (README §Deployment).
+
 ## Issue body structure
 
 Every refined issue body must contain, in this order:

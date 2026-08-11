@@ -2,8 +2,9 @@
 
 ## Description
 Interactive CS learning platform: theory, presentation, interactive visualizations,
-and live code execution in one browser-first site. Currently building **v0.1 "El
-esqueleto"** of the from-zero redesign.
+and live code execution in one browser-first site. **v0.1 "El esqueleto" is
+complete and live at <https://so77id.github.io/nalanda/>**; work moves to v0.2
+"El contenido vivo".
 
 This file holds **monorepo-shared** instructions only. Each app has its own
 `CLAUDE.md` with its commands, stack, and rules — read it before working there:
@@ -45,6 +46,11 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
 
 ### Hard rules
 
+- **Merging to `main` publishes the site.** `.github/workflows/deploy.yml`
+  deploys `apps/web` to <https://so77id.github.io/nalanda/> on every push to
+  `main` touching `apps/web/**` or `content/**`. Mechanics (trigger, deep-link
+  fallback, rollback, what gets published): root `README.md` §Deployment;
+  decisions: ADR-0015.
 - **All changes go through PRs** — never push directly to `main`.
 - **Squash merge** is mandatory for every PR (manual, by the user).
 - **One commit per slice**; the slice list lives in the issue body as checkboxes.
@@ -68,4 +74,7 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
 - Documentation ships in the same PR as the change that obligates it
   (`docs/standards/documentation.md`).
 - For UI changes, verify in a real browser before reporting done — protocols and
-  lint verify code correctness, not feature correctness.
+  lint verify code correctness, not feature correctness. Anything touching
+  paths, assets or routing must be checked with `npm run build && npm run
+  preview` (serves under `/nalanda/`, like production), not only `npm run dev`
+  (serves at `/`).

@@ -84,6 +84,11 @@ Checklist for any new application under `apps/` (e.g., `apps/server` in v0.3):
       at root and app-specific concerns live in the app — no duplication.
 - [ ] Own CI job with **path filters**: changes under `apps/<name>/**` trigger only
       that app's pipeline.
+- [ ] If the app is user-facing, its **publication** wired into
+      `.github/workflows/deploy.yml` with the same filters — including any
+      directory outside `apps/` whose content it serves (`content/**` for
+      `apps/web`, ADR-0002/ADR-0015). A filter that misses that directory means
+      editing content never republishes.
 - [ ] Entry in the root `README.md` repository layout.
 - [ ] If it introduces a new language, it brings that language's standards document
       into `docs/standards/` (e.g., `backend-code-style.md` is born with

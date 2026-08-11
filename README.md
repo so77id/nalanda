@@ -5,9 +5,10 @@ data-structure visualizations, and live code execution coexist.
 
 ## Status (August 2026)
 
-Building **v0.1 "El esqueleto"** of the from-zero redesign: monorepo foundation,
-content model (MDX wiki + teaching index), presentation mode, component catalog,
-and static deploy. Roadmap and design narrative:
+**v0.1 "El esqueleto" is complete** — monorepo foundation, content model (MDX
+wiki + teaching index), presentation mode, component catalog and static deploy
+are all in; the site is live (see [Deployment](#deployment)). Next: v0.2 "El
+contenido vivo". Roadmap and design narrative:
 [`docs/design/2026-08-redesign.md`](docs/design/2026-08-redesign.md) · living
 decisions: [`docs/decisions/`](docs/decisions/).
 
@@ -55,13 +56,19 @@ and [`apps/web/README.md`](apps/web/README.md). Before contributing, read
 ## Deployment
 
 The site is live at **<https://so77id.github.io/nalanda/>** (GitHub Pages, free
-project-pages URL — a custom domain would only change the Vite `base`).
+project-pages URL). A custom domain would change the Vite `base` and the
+`/nalanda/` assertions in `apps/web/src/app/deployedApp.test.tsx` — runtime code
+derives everything else from `BASE_URL` — but deep links already shared under the
+prefix may not survive the move, so decide before handing URLs to students
+(ADR-0015).
 
 - **What publishes it**: `.github/workflows/deploy.yml`, on every push to `main`
   that touches `apps/web/**`, `content/**` or the workflow itself. Course
   material lives outside `apps/` (ADR-0002), so writing a class republishes the
-  site; a docs-only commit does not. It can also be run by hand from the Actions
-  tab (`workflow_dispatch`) without committing anything.
+  site; a commit touching only `docs/**` or this README does not (app-local docs
+  under `apps/web/**` do trigger a republish — harmless, just a wasted build). It
+  can also be run by hand from the Actions tab (`workflow_dispatch`) without
+  committing anything.
 - **How deep links survive**: Pages is a static file server, so
   `/nalanda/d/bienvenida` has no file behind it. The build copies `index.html`
   to `404.html` (`apps/web/src/app/spaFallback.ts`), which Pages serves for
@@ -77,6 +84,15 @@ project-pages URL — a custom domain would only change the Vite `base`).
 - **Rollback**: revert the offending commit on `main`. The revert is itself a
   push to `main`, so it redeploys the previous version — there is no separate
   deploy button to press.
+- **When something is broken**, work back from the symptom:
+
+  | Symptom | Cause | Guarded by |
+  |---|---|---|
+  | Blank page, `/assets/*` 404 | wrong `base` in `vite.config.ts` | `deployedApp.test.tsx` |
+  | Deep link 404s live but works in dev | missing `404.html` | `spaFallback.test.ts` |
+  | Deep link renders "Page not found" | router basename | `basename.test.ts`, `deployedApp.test.tsx` |
+  | Workflow green, site unchanged | path filters did not match — rerun from the Actions tab | — |
+  | Deploy job fails on permissions | repo Settings ▸ Pages source must be "GitHub Actions", and the `github-pages` environment must allow `main` | — |
 
 ## Workflow
 

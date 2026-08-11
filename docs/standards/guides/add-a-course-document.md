@@ -80,7 +80,8 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
 
    Depth-first order of `entries` = reading order (TOC, prev/next, and `/` lands
    on the FIRST entry — by convention the course welcome document). A document
-   not listed in the index is still reachable by wiki-link and URL.
+   not listed in the index is still compiled and served at `/d/<id>`: **the index
+   controls navigation, never visibility.**
 
 7. **Verify**: `npm run build` from `apps/web/`. The contentIntegrity gate fails
    the build (and CI — `content/**` triggers it) with a file-and-field message
@@ -88,6 +89,14 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    value (must be auto, explicit, or none), malformed `index.yaml` (unknown key,
    group without docId nor label, empty children), duplicate or unknown `docId`
    in the index.
+
+8. **Publish**: merging to `main` republishes
+   <https://so77id.github.io/nalanda/> automatically — `content/**` is a deploy
+   trigger (ADR-0015). **Everything under `content/courses/` becomes public**,
+   listed or not: material that must not be seen (exam keys, solutions,
+   unreleased classes) does not belong here — omitting it from the index is not
+   a control (`docs/security-notes.md` §Accepted invariants). Check the document
+   on the live URL after the merge.
 
 ## Checklist
 
@@ -97,3 +106,4 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
 - [ ] Listed in `index.yaml` if it belongs to the recorrido.
 - [ ] `npm run build` green from `apps/web/` (content integrity gate).
 - [ ] Content language: Spanish is fine (user-facing course material).
+- [ ] Nothing here must stay private — merging publishes it at `/d/<id>`.
