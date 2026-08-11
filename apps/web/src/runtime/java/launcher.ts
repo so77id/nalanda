@@ -1,9 +1,46 @@
-/** Strips comments and string literals so class detection reads code, not prose. */
+/**
+ * Blanks comments and literals so class detection reads code, not prose.
+ *
+ * A single left-to-right scan, not a chain of replaces: whichever of `//` and
+ * `"` comes first wins, which is the only way to get both `"http://x"` (a URL,
+ * not a comment) and `// don't` (an apostrophe, not a char literal) right.
+ */
 function stripNonCode(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, ' ')
-    .replace(/\/\/[^\n]*/g, ' ')
-    .replace(/"(?:\\.|[^"\\])*"/g, '""');
+  let out = '';
+  let index = 0;
+
+  while (index < source.length) {
+    const pair = source.slice(index, index + 2);
+
+    if (pair === '//') {
+      while (index < source.length && source[index] !== '\n') index += 1;
+      out += ' ';
+      continue;
+    }
+    if (pair === '/*') {
+      index += 2;
+      while (index < source.length && source.slice(index, index + 2) !== '*/') index += 1;
+      index += 2;
+      out += ' ';
+      continue;
+    }
+
+    const character = source[index];
+    if (character === '"' || character === "'") {
+      index += 1;
+      while (index < source.length && source[index] !== character) {
+        index += source[index] === '\\' ? 2 : 1;
+      }
+      index += 1;
+      out += '""';
+      continue;
+    }
+
+    out += character;
+    index += 1;
+  }
+
+  return out;
 }
 
 /**

@@ -35,6 +35,11 @@ interface Host {
 let bootPromise: Promise<Host> | null = null;
 let launcherPromise: Promise<Host> | null = null;
 let queue: Promise<void> = Promise.resolve();
+/** What booting actually cost, kept so later editors report it honestly. */
+let readyMs = 0;
+/** A run was abandoned while the JVM was busy: CheerpJ cannot be interrupted. */
+let wedged = false;
+let running = false;
 
 /** Memoises a promise but never a rejection, so a transient CDN failure is retried. */
 function retryable<T>(
@@ -108,6 +113,7 @@ function drain(host: Host): string {
  * remembered if it fails.
  */
 async function ensureReady(classPath: string): Promise<Host> {
+  const startedAt = performance.now();
   const host = await retryable(
     () => bootPromise,
     (value) => {
@@ -136,6 +142,7 @@ async function ensureReady(classPath: string): Promise<Host> {
       if (exitCode !== 0) {
         throw new Error(`the Java launcher failed to compile: ${log}`);
       }
+      readyMs = Math.round(performance.now() - startedAt);
       return host;
     },
   );
@@ -152,15 +159,22 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
     for (const listener of listeners) listener(event);
   };
 
+  let announced = false;
+
   const warmUp = async (): Promise<Host> => {
-    const startedAt = performance.now();
     const host = await ensureReady(classPath);
-    emit({ type: 'warm', detail: { readyMs: Math.round(performance.now() - startedAt) } });
+    // Once per editor, reporting what booting actually cost — not the ~0ms a
+    // later editor waits for an already-warm JVM.
+    if (!announced) {
+      announced = true;
+      emit({ type: 'warm', detail: { readyMs } });
+    }
     return host;
   };
 
   const execute = async ({ id, source, stdin }: RunRequest): Promise<void> => {
     if (terminated) return;
+    running = true;
     try {
       const host = await warmUp();
 
@@ -203,11 +217,24 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       emit({ id, type: 'result', compileLog, output: drain(host), exitCode, compileMs, runMs });
     } catch (error) {
       emit({ id, type: 'error', message: describe(error) });
+    } finally {
+      running = false;
     }
   };
 
   return {
     postMessage(message: RunRequest): void {
+      if (wedged) {
+        // Say so at once rather than making every later run wait out its own
+        // deadline and blame an innocent program.
+        emit({
+          id: message.id,
+          type: 'error',
+          message:
+            'un programa anterior no terminó y dejó ocupada la máquina de Java — recarga la página para volver a ejecutar',
+        });
+        return;
+      }
       // Onto the PAGE's queue, not this editor's: one JVM, one console element,
       // one `/files/` — concurrent runs cross their output.
       queue = queue.then(() => execute(message));
@@ -219,9 +246,12 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       listeners.delete(listener);
     },
     terminate(): void {
-      // CheerpJ cannot be unloaded, so this detaches rather than tears down:
-      // a later editor reuses the same JVM through `bootPromise`.
+      // CheerpJ cannot be unloaded and offers no interrupt, so this detaches
+      // rather than tears down. If a run was still going, it holds the page's
+      // only JVM forever — record that so later runs fail fast and honestly
+      // instead of queueing behind a program that will never finish.
       terminated = true;
+      if (running) wedged = true;
       listeners.clear();
     },
   };

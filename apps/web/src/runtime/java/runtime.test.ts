@@ -181,6 +181,48 @@ describe('createJavaRuntime', () => {
     expect(attempts).toBe(2);
   });
 
+  it('announces the boot cost once per editor, not on every run', async () => {
+    const worker = createJavaRuntime('/');
+    const seen = listen(worker);
+
+    worker.postMessage({ id: 1, source: 'public class Main {}', stdin: '' });
+    await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+    worker.postMessage({ id: 2, source: 'public class Main {}', stdin: '' });
+    await vi.waitFor(() => expect(results(seen)).toHaveLength(2));
+
+    // Re-announcing would overwrite the real cost with the ~0ms a warm JVM takes.
+    expect(seen.filter((message) => message.type === 'warm')).toHaveLength(1);
+  });
+
+  it('fails fast once a run has been abandoned mid-flight', async () => {
+    // CheerpJ has no interrupt: an abandoned run keeps the page's only JVM, so
+    // every later run must say so instead of waiting out its own deadline.
+    let release: (() => void) | null = null;
+    onRun = async ({ mainClass }) => {
+      if (mainClass !== 'NalandaLauncher') return 0;
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return 0;
+    };
+
+    const stuck = createJavaRuntime('/');
+    listen(stuck);
+    stuck.postMessage({ id: 1, source: 'public class Main {}', stdin: '' });
+    await vi.waitFor(() => expect(release).not.toBeNull());
+
+    stuck.terminate();
+
+    const later = createJavaRuntime('/');
+    const seen = listen(later);
+    later.postMessage({ id: 2, source: 'public class Main {}', stdin: '' });
+
+    await vi.waitFor(() => expect(seen).toHaveLength(1));
+    expect(seen[0]).toMatchObject({ type: 'error' });
+    expect((seen[0] as { message: string }).message).toMatch(/recarga la página/i);
+    release?.();
+  });
+
   it('stops emitting once terminated', async () => {
     const worker = createJavaRuntime('/');
     const seen = listen(worker);

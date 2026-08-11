@@ -34,8 +34,21 @@ describe('deriveEntryClass', () => {
   });
 
   it('is not thrown off by a // inside a string literal', () => {
-    const source =
-      'class Config { static String URL = "http://example.com"; }\npublic class Main {}';
+    // One line on purpose: with the declarations on separate lines a broken
+    // stripper still gets the right answer by accident, which is how the first
+    // version of this test passed while the bug was live.
+    const source = 'class Config { String url = "http://example.com"; } public class Main {}';
+    expect(deriveEntryClass(source)).toBe('Main');
+  });
+
+  it('is not thrown off by a class declaration quoted inside a string', () => {
+    const source = 'public class Main { String s = "class Decoy {"; }';
+    expect(deriveEntryClass(source)).toBe('Main');
+  });
+
+  it('is not thrown off by an apostrophe inside a comment', () => {
+    // Masking char literals before comments would swallow the rest of the file.
+    const source = "// don't be fooled\npublic class Main {}";
     expect(deriveEntryClass(source)).toBe('Main');
   });
 
