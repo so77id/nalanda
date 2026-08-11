@@ -29,7 +29,11 @@ apps/web/src/components/structure/
 1. **Pick the family** — estructura, semánticos, interactivos, media (see
    `/catalog` for definitions). A new family is a governance change (see
    `/catalog/governance` → Changing these rules).
-2. **Implement** in `apps/web/src/components/<family>/<Name>.tsx`, satisfying
+   **Family ids are Spanish; their folders are English**: estructura →
+   `structure/`, semánticos → `semantic/`, interactivos → `interactive/`,
+   media → `media/` (the mapping lives in `catalog/families.ts` and is shown on
+   each family page).
+2. **Implement** in `apps/web/src/components/<folder>/<Name>.tsx`, satisfying
    the seven contract points (`/catalog/governance` → Component contract). If
    the component reacts to the render mode, read it with `useMode()`
    (presentation seam); if a parser must recognize it, declare metadata with
@@ -41,9 +45,11 @@ apps/web/src/components/structure/
    when-to-use, full props table, and ≥2 live examples (both modes when
    behavior differs). Export it from the components seam
    (`apps/web/src/components/index.ts` → `catalogEntries`).
-5. **Test**: per-mode behavior + the component's own logic. The **completeness
-   test** (`src/app/mdxComponents.test.ts`) fails the battery if a registered
-   component lacks its entry.
+5. **Test**: per-mode behavior + the component's own logic. Two L4 invariant
+   tests gate the entry: `src/catalog/architecture.test.tsx` fails if the entry
+   is hollow (missing description/when-to-use, fewer than two examples, an
+   example that renders nothing), and `src/app/mdxComponents.test.ts` fails if
+   the MDX map and the catalog drift apart in either direction.
 6. **Verify**: per-commit protocol green; review the PR against the review
    checklist (`/catalog/governance`).
 

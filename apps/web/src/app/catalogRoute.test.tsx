@@ -1,6 +1,8 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
+
+import { catalog, families } from '../catalog';
 
 import { AppRoutes } from './AppRoutes';
 
@@ -13,17 +15,73 @@ function renderAt(path: string) {
 }
 
 describe('/catalog', () => {
-  it('lists the four families with their definitions', async () => {
+  it('lists every family with its definition', async () => {
     renderAt('/catalog');
-    expect(await screen.findByRole('heading', { name: /catalog/i })).toBeInTheDocument();
-    for (const family of ['Estructura', 'Semánticos', 'Interactivos', 'Media']) {
-      expect(screen.getByRole('heading', { name: family })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: /^catalog$/i })).toBeInTheDocument();
+    for (const family of families) {
+      expect(screen.getByRole('heading', { name: family.name })).toBeInTheDocument();
+      expect(screen.getByText(family.definition)).toBeInTheDocument();
     }
   });
 
-  it('navigates into a family page', async () => {
+  it('points each family link at its route segment, not its display name', async () => {
+    renderAt('/catalog');
+    await screen.findByRole('heading', { name: /^catalog$/i });
+    for (const family of families) {
+      // Guards the accented-name mistake: ids are route segments, names are not.
+      expect(screen.getByRole('link', { name: family.name })).toHaveAttribute(
+        'href',
+        `/catalog/${family.id}`,
+      );
+    }
+    expect(screen.getByRole('link', { name: /governance/i })).toHaveAttribute(
+      'href',
+      '/catalog/governance',
+    );
+  });
+
+  it('navigates from the overview into a family page by clicking its link', async () => {
+    renderAt('/catalog');
+    await screen.findByRole('heading', { name: /^catalog$/i });
+
+    fireEvent.click(screen.getByRole('link', { name: 'Semánticos' }));
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Semánticos' }),
+    ).toBeInTheDocument();
+  });
+
+  it('shows the empty-family copy for families with no components yet', async () => {
+    const empty = families.find((f) => catalog.byFamily(f.id).length === 0)!;
+    renderAt(`/catalog/${empty.id}`);
+    expect(await screen.findByText(/no components in this family yet/i)).toBeInTheDocument();
+  });
+
+  it('shows the 404 page for an unknown family', async () => {
+    renderAt('/catalog/nope');
+    expect(await screen.findByRole('heading', { name: /not found/i })).toBeInTheDocument();
+  });
+});
+
+describe('/catalog/:family', () => {
+  it('lists its components with links to their pages', async () => {
     renderAt('/catalog/estructura');
-    expect(await screen.findByRole('heading', { name: 'Estructura' })).toBeInTheDocument();
+    await screen.findByRole('heading', { level: 1, name: 'Estructura' });
+    const entries = catalog.byFamily('estructura');
+    expect(entries.length).toBeGreaterThan(0);
+    for (const entry of entries) {
+      expect(screen.getByRole('link', { name: entry.name })).toHaveAttribute(
+        'href',
+        `/catalog/c/${entry.name}`,
+      );
+    }
+  });
+
+  it('navigates into a component page by clicking its link', async () => {
+    renderAt('/catalog/estructura');
+    await screen.findByRole('heading', { level: 1, name: 'Estructura' });
+
+    fireEvent.click(screen.getByRole('link', { name: 'Slide' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Slide' })).toBeInTheDocument();
   });
 });
 
@@ -32,37 +90,40 @@ describe('/catalog/c/:name', () => {
     renderAt('/catalog/c/nope');
     expect(await screen.findByRole('heading', { name: /not found/i })).toBeInTheDocument();
   });
-});
 
-describe('component entries (AC2)', () => {
-  for (const name of ['Slide', 'SectionBreak']) {
-    it(`renders a complete page for ${name} with live examples`, async () => {
-      renderAt(`/catalog/c/${name}`);
-      expect(await screen.findByRole('heading', { level: 1, name })).toBeInTheDocument();
-      expect(screen.getByText(/when to use/i)).toBeInTheDocument();
-      const propsDocumented =
-        screen.queryByRole('table') !== null || screen.queryByText(/takes no props/i) !== null;
-      expect(propsDocumented).toBe(true);
-      const examples = screen.getAllByRole('heading', { level: 3 });
-      expect(examples.length).toBeGreaterThanOrEqual(2);
+  for (const entry of catalog.entries) {
+    it(`documents ${entry.name} with its examples and a back link to its family`, async () => {
+      renderAt(`/catalog/c/${entry.name}`);
+      await screen.findByRole('heading', { level: 1, name: entry.name });
+
+      expect(screen.getByText(entry.whenToUse)).toBeInTheDocument();
+      for (const example of entry.examples) {
+        expect(screen.getByRole('heading', { level: 3, name: example.title })).toBeInTheDocument();
+      }
+      expect(screen.getByRole('link', { name: new RegExp(entry.family) })).toHaveAttribute(
+        'href',
+        `/catalog/${entry.family}`,
+      );
     });
   }
 
-  it('lists both structural components in the estructura family', async () => {
-    renderAt('/catalog/estructura');
-    expect(await screen.findByRole('link', { name: 'Slide' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'SectionBreak' })).toBeInTheDocument();
-  });
-});
+  it('renders the real Slide component in both modes (not just page chrome)', async () => {
+    renderAt('/catalog/c/Slide');
+    await screen.findByRole('heading', { level: 1, name: 'Slide' });
 
-describe('/catalog/governance (AC3)', () => {
-  it('renders the how-to-add guide and the three checklists', async () => {
-    renderAt('/catalog/governance');
-    expect(await screen.findByRole('heading', { name: /governance/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /how to add a component/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /component contract/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /documentation checklist/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /review checklist/i })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: /changing these rules/i })).toBeInTheDocument();
+    // Both examples render the same prose (the selector excludes the code
+    // snippets, which quote it); only the book one adds the heading.
+    expect(screen.getAllByText(/Comparamos el objetivo/, { selector: 'p' })).toHaveLength(2);
+    // Name is a regex: the shell MDX map renders h2s through the anchor factory.
+    expect(screen.getByRole('heading', { level: 2, name: /La idea/ })).toBeInTheDocument();
+  });
+
+  it('renders the real SectionBreak component (divider in book, nothing in presentation)', async () => {
+    renderAt('/catalog/c/SectionBreak');
+    const article = await screen.findByRole('main');
+    await screen.findByRole('heading', { level: 1, name: 'SectionBreak' });
+
+    expect(within(article).getAllByRole('separator')).toHaveLength(1);
+    expect(screen.getAllByText('Antes…')).toHaveLength(2);
   });
 });

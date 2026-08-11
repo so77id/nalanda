@@ -3,4 +3,5 @@ export { CatalogOverviewPage } from './CatalogOverviewPage';
 export { ComponentPage } from './ComponentPage';
 export { FamilyPage } from './FamilyPage';
 export { GovernancePage } from './GovernancePage';
+export { families } from './families';
 export { catalog } from './registry';

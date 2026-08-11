@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
+import { CatalogPage } from './CatalogPage';
 import { catalog } from './registry';
 import { families } from './families';
 
@@ -17,15 +18,13 @@ export function FamilyPage({ notFound }: Props) {
   if (!family) return <>{notFound}</>;
   const entries = catalog.byFamily(family.id);
   return (
-    <main className="mx-auto min-h-screen max-w-3xl bg-slate-950 px-8 py-10 text-slate-100">
-      <p className="text-sm">
-        <Link to="/catalog" className="text-sky-400 hover:underline">
-          ← Catalog
-        </Link>
-      </p>
+    <CatalogPage back={{ to: '/catalog', label: 'Catalog' }}>
       <h1 className="mt-4 text-4xl font-bold tracking-tight">{family.name}</h1>
       <p className="mt-3 text-slate-300">{family.definition}</p>
       <p className="mt-1 text-sm text-slate-500">{family.whatBelongs}</p>
+      <p className="mt-1 text-sm text-slate-500">
+        Components live in <code>src/components/{family.folder}/</code>.
+      </p>
       {entries.length === 0 ? (
         <p className="mt-10 text-slate-500">
           No components in this family yet — the inventory is emergent (D29).
@@ -45,6 +44,6 @@ export function FamilyPage({ notFound }: Props) {
           ))}
         </ul>
       )}
-    </main>
+    </CatalogPage>
   );
 }
