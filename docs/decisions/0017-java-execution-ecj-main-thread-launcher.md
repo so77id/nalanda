@@ -46,10 +46,20 @@ not a jar, and CheerpJ does not expose them through its virtual filesystem.
 **3. Java runs on the main thread, behind the `RuntimeWorker` interface.**
 CheerpJ delivers a console program's stdout by writing into a DOM element, and a
 Web Worker has no DOM — so unlike C++ and Python, Java cannot live in a worker.
-Measured: the page stays responsive anyway (timers keep firing while a Java
-program blocks), so the main thread is acceptable. `RuntimeWorker` is our own
-narrow interface rather than `Worker`, which is what lets this sit behind the
-same contract as the other two.
+The main thread is acceptable, but with a limit that must be stated precisely,
+because the first version of this ADR overstated it. A Java program that
+*waits* — blocked on `System.in`, sleeping — yields the event loop, and the page
+stays fully responsive: timers keep firing, measured at 107 fps during a cold
+compile. A Java program that *spins* does not. A `while (true)` holds the main
+thread outright: measured 2026-08-11, a probe issued 30s into such a loop was
+still blocked at 105s, with the renderer pinned at 101% CPU. Nothing recovers
+it — not the run deadline in `useRuntime`, which is a `setTimeout` on the very
+thread being held — so a student who writes an infinite loop in Java must close
+the tab. C++ and Python, being real workers, are bounded normally.
+
+`RuntimeWorker` is our own narrow interface rather than `Worker`, which is what
+lets this sit behind the same contract as the other two — and what would let
+Java move into a worker later, if CheerpJ ever delivers output without the DOM.
 
 **4. A generated launcher class runs the student's `main`.**
 A CheerpJ console program gets neither input nor EOF on `System.in`: anything
@@ -91,8 +101,16 @@ diagnostic and a non-zero exit.
 - **The first Run of a session is slow unless the editor warms up early.** The
   component decides when to warm; the runtime only offers `warmUp()`.
 - **One JVM per page.** CheerpJ initialises once and cannot be unloaded, so the
-  boot is a module-level singleton and runs are serialised — two editors on one
-  document share the machine, and `terminate()` detaches rather than tears down.
+  boot, the launcher and the run queue are module-level state — two editors on
+  one document share the machine, and `terminate()` detaches rather than tears
+  down. Runs are serialised for that reason: concurrent runs would cross their
+  output through the one `#console` element and the one `/files/`.
+- **An infinite loop in Java costs the tab** (see Decision 3). The runtime marks
+  itself wedged when a run is abandoned while the JVM is busy, so later runs say
+  so at once instead of queueing behind a program that will never finish — but a
+  CPU-bound loop never reaches even that, because it holds the thread. This is
+  the sharpest edge of running Java on the main thread, and it goes away only
+  when Java can live in a worker.
 - **The build needs network access** to Maven Central. CI and the deploy workflow
   both run `prebuild`; an outage breaks the build rather than shipping a broken
   runtime, which is the safer failure.
