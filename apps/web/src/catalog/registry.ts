@@ -8,7 +8,7 @@ export interface Catalog {
 }
 
 /** Builds the catalog index; throws on duplicate names (fail-fast, like the content registry). */
-export function buildCatalog(entries: CatalogEntry[]): Catalog {
+export function buildCatalog(entries: readonly CatalogEntry[]): Catalog {
   // Snapshot: later mutation of the caller's array must not desynchronize the
   // name index from the family lists (nor bypass the duplicate check).
   const all: readonly CatalogEntry[] = Object.freeze([...entries]);

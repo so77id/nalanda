@@ -1,4 +1,8 @@
-import { CatalogPage } from './CatalogPage';
+import { CatalogLayout } from './CatalogLayout';
+import { families } from './families';
+
+// Derived, never retyped: a new family updates this page automatically.
+const FAMILY_FOLDERS = families.map((f) => `${f.name} → ${f.folder}/`).join(', ');
 
 const CONTRACT_POINTS = [
   'Explicit render per mode — no component may ignore a mode (even if the answer is "I don\'t appear").',
@@ -12,7 +16,7 @@ const CONTRACT_POINTS = [
 
 const ADD_STEPS = [
   'Pick the family (estructura, semánticos, interactivos, media) — or propose a family change here first.',
-  'Implement the component in the family folder under src/components/ (estructura → structure/, semánticos → semantic/, interactivos → interactive/, media → media/), satisfying the seven contract points below; register it in the shell MDX map (app/mdxComponents.ts) if documents use it directly.',
+  `Implement the component in its family folder under src/components/ (${FAMILY_FOLDERS}), satisfying the seven contract points below; register it in the shell MDX map (app/mdxComponents.ts) if documents use it directly.`,
   'Write its colocated <Component>.catalog.tsx entry (CatalogEntry from lib/) and export it through the components seam — the catalog invariants test enforces this.',
   "Test per-mode behavior (contract point 1 gives the concrete cases) plus the component's own logic.",
   'Run the review flow: the review checklist below is part of the PR review.',
@@ -34,7 +38,7 @@ const REVIEW_CHECKLIST = [
 /** /catalog/governance — the catalog's own rules (self-governing, ADR-0010). */
 export function GovernancePage() {
   return (
-    <CatalogPage back={{ to: '/catalog', label: 'Catalog' }}>
+    <CatalogLayout back={{ to: '/catalog', label: 'Catalog' }}>
       <h1 className="mt-4 text-4xl font-bold tracking-tight">Governance</h1>
       <p className="mt-3 text-slate-400">
         The catalog governs itself (ADR-0010): these pages are the rules, and changing the rules
@@ -75,6 +79,6 @@ export function GovernancePage() {
         architectural (new family, contract point added/removed, catalog mechanics), it also needs
         an ADR extending ADR-0010 — documentation ships in the same PR.
       </p>
-    </CatalogPage>
+    </CatalogLayout>
   );
 }

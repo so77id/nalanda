@@ -7,8 +7,8 @@ interface Props {
   children: ReactNode;
 }
 
-/** The shared page shell of every catalog surface (fourth use — extracted per style rule). */
-export function CatalogPage({ back, children }: Props) {
+/** The shared layout of every catalog surface (not a route — those are the *Page files). */
+export function CatalogLayout({ back, children }: Props) {
   return (
     <main className="mx-auto min-h-screen max-w-3xl bg-slate-950 px-8 py-10 text-slate-100">
       {back ? (

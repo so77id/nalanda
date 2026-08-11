@@ -1,6 +1,6 @@
 import type { CatalogEntry } from '../lib/catalogEntry';
 
-import { CatalogPage } from './CatalogPage';
+import { CatalogLayout } from './CatalogLayout';
 import { ExampleBlock } from './ExampleBlock';
 import { folderOf } from './families';
 
@@ -11,7 +11,7 @@ interface Props {
 /** The component page template: description, when-to-use, props table, live examples. */
 export function ComponentArticle({ entry }: Props) {
   return (
-    <CatalogPage back={{ to: `/catalog/${entry.family}`, label: entry.family }}>
+    <CatalogLayout back={{ to: `/catalog/${entry.family}`, label: entry.family }}>
       <h1 className="mt-4 text-4xl font-bold tracking-tight">{entry.name}</h1>
       <p className="mt-3 text-slate-300">{entry.description}</p>
       <p className="mt-1 text-sm text-slate-500">
@@ -55,6 +55,6 @@ export function ComponentArticle({ entry }: Props) {
           <example.render />
         </ExampleBlock>
       ))}
-    </CatalogPage>
+    </CatalogLayout>
   );
 }

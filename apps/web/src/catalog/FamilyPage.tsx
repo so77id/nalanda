@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { CatalogPage } from './CatalogPage';
+import { CatalogLayout } from './CatalogLayout';
 import { catalog } from './registry';
 import { families } from './families';
 
@@ -18,7 +18,7 @@ export function FamilyPage({ notFound }: Props) {
   if (!family) return <>{notFound}</>;
   const entries = catalog.byFamily(family.id);
   return (
-    <CatalogPage back={{ to: '/catalog', label: 'Catalog' }}>
+    <CatalogLayout back={{ to: '/catalog', label: 'Catalog' }}>
       <h1 className="mt-4 text-4xl font-bold tracking-tight">{family.name}</h1>
       <p className="mt-3 text-slate-300">{family.definition}</p>
       <p className="mt-1 text-sm text-slate-500">{family.whatBelongs}</p>
@@ -44,6 +44,6 @@ export function FamilyPage({ notFound }: Props) {
           ))}
         </ul>
       )}
-    </CatalogPage>
+    </CatalogLayout>
   );
 }

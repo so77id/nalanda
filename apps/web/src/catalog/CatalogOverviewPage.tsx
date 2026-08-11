@@ -1,13 +1,13 @@
 import { Link } from 'react-router-dom';
 
-import { CatalogPage } from './CatalogPage';
+import { CatalogLayout } from './CatalogLayout';
 import { catalog } from './registry';
 import { families } from './families';
 
 /** /catalog — the four families, their definitions, and entry counts. */
 export function CatalogOverviewPage() {
   return (
-    <CatalogPage>
+    <CatalogLayout>
       <h1 className="text-4xl font-bold tracking-tight">Catalog</h1>
       <p className="mt-3 text-slate-400">
         The components a document can use — the platform&apos;s grammar (ADR-0010). Four editable
@@ -34,6 +34,6 @@ export function CatalogOverviewPage() {
           </li>
         ))}
       </ul>
-    </CatalogPage>
+    </CatalogLayout>
   );
 }

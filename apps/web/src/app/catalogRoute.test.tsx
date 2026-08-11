@@ -51,8 +51,12 @@ describe('/catalog', () => {
   });
 
   it('shows the empty-family copy for families with no components yet', async () => {
-    const empty = families.find((f) => catalog.byFamily(f.id).length === 0)!;
-    renderAt(`/catalog/${empty.id}`);
+    const empty = families.find((f) => catalog.byFamily(f.id).length === 0);
+    expect(
+      empty,
+      'every family now has components — cover the empty branch with a direct FamilyPage test',
+    ).toBeDefined();
+    renderAt(`/catalog/${empty!.id}`);
     expect(await screen.findByText(/no components in this family yet/i)).toBeInTheDocument();
   });
 
@@ -125,5 +129,27 @@ describe('/catalog/c/:name', () => {
 
     expect(within(article).getAllByRole('separator')).toHaveLength(1);
     expect(screen.getAllByText('Antes…')).toHaveLength(2);
+  });
+});
+
+describe('/catalog/governance', () => {
+  it('renders the self-governance rules and links back to the catalog', async () => {
+    renderAt('/catalog/governance');
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /governance/i }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /component contract/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /review checklist/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /catalog/i })).toHaveAttribute('href', '/catalog');
+  });
+
+  it('derives the family folder mapping from the taxonomy', async () => {
+    renderAt('/catalog/governance');
+    await screen.findByRole('heading', { level: 1, name: /governance/i });
+    for (const family of families) {
+      expect(
+        screen.getByText(new RegExp(`${family.name} → ${family.folder}/`)),
+      ).toBeInTheDocument();
+    }
   });
 });

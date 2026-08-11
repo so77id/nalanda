@@ -25,6 +25,17 @@ describe('buildCatalog', () => {
     expect(catalog.byFamily('interactivos')).toEqual([]);
   });
 
+  it('snapshots its input: later mutation of the source array changes nothing', () => {
+    const source = [entry('Slide', 'estructura')];
+    const built = buildCatalog(source);
+
+    source.push(entry('Latecomer', 'media'));
+
+    expect(built.entries).toHaveLength(1);
+    expect(built.byName('Latecomer')).toBeUndefined();
+    expect(built.byFamily('media')).toEqual([]);
+  });
+
   it('throws on duplicate entry names', () => {
     expect(() =>
       buildCatalog([entry('Slide', 'estructura'), entry('Slide', 'media')]),

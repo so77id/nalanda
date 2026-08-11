@@ -3,7 +3,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { catalog } from './registry';
-import { families } from './families';
+import { families, folderOf } from './families';
+
+// The catalog publishes each component's source path; this proves it resolves.
+const componentModules = import.meta.glob('../components/*/*.tsx');
 
 // L4 invariants over the live catalog (testing-strategy.md). These enforce the
 // documentation checklist the governance page publishes — without them the
@@ -32,6 +35,12 @@ describe('architecture: catalog entry invariants', () => {
 
       it('belongs to a known family', () => {
         expect(families.map((f) => f.id)).toContain(entry.family);
+      });
+
+      it('the source path the catalog publishes actually exists', () => {
+        expect(Object.keys(componentModules)).toContain(
+          `../components/${folderOf(entry.family)}/${entry.name}.tsx`,
+        );
       });
 
       it('documents every prop fully', () => {
