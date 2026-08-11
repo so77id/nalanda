@@ -86,7 +86,11 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
   };
 
   const drain = (host: Host): string => {
-    const text = host.console.innerText;
+    // `textContent`, not `innerText`: the latter reports *rendered* text, which
+    // collapses the newlines the compiler uses to line its caret up under the
+    // offending token — a diagnostic flattened to one line is useless to a
+    // student learning to read them.
+    const text = host.console.textContent ?? '';
     host.console.innerHTML = '';
     return text.trim();
   };

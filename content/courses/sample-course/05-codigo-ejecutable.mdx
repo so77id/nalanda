@@ -1,0 +1,72 @@
+---
+id: codigo-ejecutable
+title: Código ejecutable
+presentation: explicit
+---
+
+# Código ejecutable
+
+Todo el código de esta página se compila y se ejecuta **en tu navegador**: no hay
+servidor compilando nada. La primera ejecución de cada lenguaje descarga su
+compilador, así que tarda; a partir de ahí es cuestión de segundos.
+
+<Slide title="Java: edítalo y ejecútalo">
+El lenguaje del curso. Cambia el arreglo, agrega un `System.out.println`, vuelve
+a ejecutar. `Ctrl`/`Cmd` + `Enter` también ejecuta.
+
+<CodeEditor
+  language="java"
+  defaultValue={`public class Main {
+    public static void main(String[] args) {
+        int[] nums = {5, 3, 8, 1};
+        int max = nums[0];
+        for (int x : nums) if (x > max) max = x;
+        System.out.println("máximo = " + max);
+    }
+}
+`}
+/>
+</Slide>
+
+<Slide title="Leer sin ejecutar">
+Cuando el código está para leerse y no para correrse, la variante `read` no
+carga ningún compilador — la página no paga nada.
+
+<CodeEditor
+  language="java"
+  variant="read"
+  defaultValue={`public class Nodo {
+    int valor;
+    Nodo siguiente;
+}
+`}
+/>
+</Slide>
+
+<Slide title="Con entrada estándar">
+La variante `lab` agrega el panel de `stdin`, el selector de lenguaje y precalienta
+el runtime al abrir la página. Lo que escribas abajo llega al programa como
+entrada estándar.
+
+<CodeEditor
+  language="python"
+  variant="lab"
+  warmOnMount={false}
+  defaultValue={`n = int(input())
+print("n al cuadrado =", n * n)
+`}
+  defaultStdin={`7
+`}
+/>
+</Slide>
+
+## Otros lenguajes
+
+La plataforma no está casada con Java. El mismo componente ejecuta C++ con un
+Clang compilado a WebAssembly:
+
+<CodeEditor language="cpp" />
+
+Esta sección es prosa de libro: al no estar marcada como slide, no aparece en el
+deck. Compara con [[busqueda-binaria|la búsqueda binaria]], donde el código es
+solo ilustrativo.
