@@ -1,9 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { ModeProvider } from '../../presentation';
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../../runtime';
+import { runtimeDescriptors } from '../../runtime';
 import { CodeEditor } from './CodeEditor';
 
 // CodeMirror's editing surface is not the contract under test here, and its
@@ -169,6 +170,62 @@ describe('CodeEditor', () => {
     worker.reply({ id: worker.posted[0]!.id, type: 'error', message: 'compiler unreachable' });
 
     expect(await screen.findByText(/compiler unreachable/)).toBeInTheDocument();
+  });
+
+  it('keeps a read variant inert', async () => {
+    renderEditor({ variant: 'read' });
+    await waitFor(() => expect(screen.getByTestId('code')).toBeInTheDocument());
+
+    expect(screen.queryByRole('button', { name: /ejecutar/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Lenguaje')).not.toBeInTheDocument();
+    expect(workers).toHaveLength(0);
+  });
+
+  it('boots the runtime up front when the variant asks for it', async () => {
+    // Java costs ~24s to boot (ADR-0017); a lab should spend it before the
+    // student presses anything.
+    renderEditor({ variant: 'lab' });
+    await waitFor(() => expect(workers).toHaveLength(1));
+    expect(workers[0]!.posted).toHaveLength(0);
+  });
+
+  it('copies the source to the clipboard', async () => {
+    const user = userEvent.setup();
+    renderEditor({ variant: 'snippet', defaultValue: 'int x = 1;' });
+    await waitFor(() => expect(screen.getByTestId('code')).toHaveValue('int x = 1;'));
+
+    await user.click(screen.getByRole('button', { name: /copiar/i }));
+
+    expect(await screen.findByText('Copiado')).toBeInTheDocument();
+    expect(await navigator.clipboard.readText()).toBe('int x = 1;');
+  });
+
+  it('expands to fullscreen and closes on Escape', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('code')).toBeInTheDocument());
+
+    await user.click(screen.getByRole('button', { name: /expandir/i }));
+    expect(document.body.style.overflow).toBe('hidden');
+
+    await user.keyboard('{Escape}');
+    await waitFor(() => expect(document.body.style.overflow).not.toBe('hidden'));
+  });
+
+  it('offers every registered runtime in the picker and reseeds on change', async () => {
+    const user = userEvent.setup();
+    renderEditor({ variant: 'lab', defaultValue: 'int x = 1;' });
+    await waitFor(() => expect(screen.getByTestId('code')).toHaveValue('int x = 1;'));
+
+    const picker = screen.getByLabelText('Lenguaje');
+    expect(picker).toHaveValue('cpp');
+    expect(within(picker).getAllByRole('option').length).toBe(runtimeDescriptors.length);
+
+    await user.selectOptions(picker, 'python');
+
+    // The snippet belonged to the language it was written for; the new one gets
+    // its own sample rather than C++ under a Python compiler.
+    await waitFor(() => expect(screen.getByTestId('code')).toHaveValue('int main(){}\n'));
   });
 
   it('gives the slide more room in presentation mode than in book mode', async () => {
