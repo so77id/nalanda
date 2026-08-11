@@ -4,7 +4,9 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
+    "predev": "node scripts/fetch-java-compiler.mjs",
     "dev": "vite",
+    "prebuild": "node scripts/fetch-java-compiler.mjs",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
@@ -16,6 +18,7 @@
   "dependencies": {
     "@bjorn3/browser_wasi_shim": "^0.4.2",
     "@codemirror/lang-cpp": "^6.0.3",
+    "@codemirror/lang-java": "^6.0.2",
     "@codemirror/lang-python": "^6.2.1",
     "@codemirror/state": "^6.7.1",
     "@mdx-js/react": "^3.1.1",
