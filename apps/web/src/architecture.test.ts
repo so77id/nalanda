@@ -11,7 +11,7 @@ const FEATURES = ['components', 'catalog', 'content', 'presentation', 'runtime']
 // Extending this map is an architectural decision — record it in the style doc.
 const FEATURE_EDGES: Record<string, string[]> = {
   catalog: ['components'],
-  components: ['presentation'],
+  components: ['presentation', 'runtime'],
   presentation: ['content'],
 };
 

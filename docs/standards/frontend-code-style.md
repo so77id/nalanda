@@ -43,6 +43,9 @@ src/
   `FEATURE_EDGES` in `src/architecture.test.ts`. Current edges:
   `components → presentation` (mode awareness via `useMode`; `ModeProvider` to
   stage per-mode catalog examples),
+  `components → runtime` (`CodeEditor` loads a language runtime and drives it
+  through `useRuntime`; the runtime feature knows nothing about components, so
+  the edge stays one-way),
   `presentation → content` (registry + lazy document access), and
   `catalog → components` (renders the entries and live examples the components
   feature exports through its seam). Adding an edge is

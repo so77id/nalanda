@@ -1,0 +1,183 @@
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+import { ModeProvider } from '../../presentation';
+import type { RunRequest, RuntimeWorker, WorkerMessage } from '../../runtime';
+import { CodeEditor } from './CodeEditor';
+
+// CodeMirror's editing surface is not the contract under test here, and its
+// contenteditable does not behave in jsdom. The panels, the run flow and the
+// per-mode shape are what the component promises.
+vi.mock('@uiw/react-codemirror', () => ({
+  default: ({ value }: { value: string }) => <textarea readOnly value={value} data-testid="code" />,
+}));
+
+const workers: FakeWorker[] = [];
+
+class FakeWorker implements RuntimeWorker {
+  readonly posted: RunRequest[] = [];
+  private readonly listeners = new Set<(event: MessageEvent<WorkerMessage>) => void>();
+
+  postMessage(message: RunRequest): void {
+    this.posted.push(message);
+  }
+  addEventListener(_type: 'message', listener: (event: MessageEvent<WorkerMessage>) => void): void {
+    this.listeners.add(listener);
+  }
+  removeEventListener(
+    _type: 'message',
+    listener: (event: MessageEvent<WorkerMessage>) => void,
+  ): void {
+    this.listeners.delete(listener);
+  }
+  terminate(): void {}
+
+  reply(message: WorkerMessage): void {
+    for (const listener of this.listeners) {
+      listener({ data: message } as MessageEvent<WorkerMessage>);
+    }
+  }
+}
+
+vi.mock('../../runtime', async (importOriginal) => {
+  const original = await importOriginal<typeof import('../../runtime')>();
+  return {
+    ...original,
+    loadRuntime: vi.fn(async () => ({
+      descriptor: {
+        id: 'cpp' as const,
+        label: 'C++20',
+        fileName: 'main.cpp',
+        defaultCode: 'int main(){}\n',
+      },
+      codeMirrorLanguage: () => [],
+      createWorker: () => {
+        const worker = new FakeWorker();
+        workers.push(worker);
+        return worker;
+      },
+    })),
+  };
+});
+
+function renderEditor(
+  props: Partial<React.ComponentProps<typeof CodeEditor>> = {},
+  mode?: 'book' | 'presentation',
+) {
+  return render(
+    <ModeProvider mode={mode ?? 'book'}>
+      <CodeEditor language="cpp" {...props} />
+    </ModeProvider>,
+  );
+}
+
+beforeEach(() => {
+  workers.length = 0;
+});
+
+describe('CodeEditor', () => {
+  it('seeds the editor with the runtime sample when given no source', async () => {
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('code')).toHaveValue('int main(){}\n'));
+    expect(screen.getByText('main.cpp')).toBeInTheDocument();
+  });
+
+  it('prefers an explicit snippet over the sample', async () => {
+    renderEditor({ defaultValue: 'int x = 1;' });
+    await waitFor(() => expect(screen.getByTestId('code')).toHaveValue('int x = 1;'));
+  });
+
+  it('starts no runtime for a read-only snippet', async () => {
+    renderEditor({ runnable: false, editable: false });
+    await waitFor(() => expect(screen.getByTestId('code')).toBeInTheDocument());
+
+    // AC6: a document full of snippets must not download compilers.
+    expect(screen.queryByRole('button', { name: /ejecutar/i })).not.toBeInTheDocument();
+    expect(workers).toHaveLength(0);
+  });
+
+  it('runs the source and shows the program output', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await waitFor(() => expect(screen.getByRole('button', { name: /ejecutar/i })).toBeEnabled());
+
+    await user.click(screen.getByRole('button', { name: /ejecutar/i }));
+    await waitFor(() => expect(workers).toHaveLength(1));
+    const worker = workers[0]!;
+    await waitFor(() => expect(worker.posted).toHaveLength(1));
+
+    worker.reply({
+      id: worker.posted[0]!.id,
+      type: 'result',
+      compileLog: '',
+      output: 'sum = 15',
+      exitCode: 0,
+      compileMs: 12,
+      runMs: 3,
+    });
+
+    expect(await screen.findByText('sum = 15')).toBeInTheDocument();
+    expect(screen.getByText(/exit 0/)).toBeInTheDocument();
+    expect(screen.getByText(/compila 12ms/)).toBeInTheDocument();
+  });
+
+  it('shows a failed compile as diagnostics, not as a crash', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await waitFor(() => expect(screen.getByRole('button', { name: /ejecutar/i })).toBeEnabled());
+
+    await user.click(screen.getByRole('button', { name: /ejecutar/i }));
+    await waitFor(() => expect(workers[0]?.posted).toHaveLength(1));
+    const worker = workers[0]!;
+
+    worker.reply({
+      id: worker.posted[0]!.id,
+      type: 'result',
+      compileLog: "error: expected ';'",
+      output: '',
+      exitCode: null,
+      compileMs: 8,
+      runMs: null,
+    });
+
+    expect(await screen.findByText(/expected ';'/)).toBeInTheDocument();
+    expect(screen.getByText(/errores de compilación/i)).toBeInTheDocument();
+    expect(screen.queryByText(/exit /)).not.toBeInTheDocument();
+  });
+
+  it('sends the stdin panel content to the program', async () => {
+    const user = userEvent.setup();
+    renderEditor({ showStdin: true, defaultStdin: '7\n' });
+    await waitFor(() => expect(screen.getByRole('button', { name: /ejecutar/i })).toBeEnabled());
+
+    await user.click(screen.getByRole('button', { name: /ejecutar/i }));
+    await waitFor(() => expect(workers[0]?.posted).toHaveLength(1));
+
+    expect(workers[0]!.posted[0]).toMatchObject({ stdin: '7\n' });
+  });
+
+  it('surfaces a broken runtime instead of failing silently', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await waitFor(() => expect(screen.getByRole('button', { name: /ejecutar/i })).toBeEnabled());
+
+    await user.click(screen.getByRole('button', { name: /ejecutar/i }));
+    await waitFor(() => expect(workers[0]?.posted).toHaveLength(1));
+    const worker = workers[0]!;
+
+    worker.reply({ id: worker.posted[0]!.id, type: 'error', message: 'compiler unreachable' });
+
+    expect(await screen.findByText(/compiler unreachable/)).toBeInTheDocument();
+  });
+
+  it('gives the slide more room in presentation mode than in book mode', async () => {
+    const { container: book } = renderEditor({}, 'book');
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+    const { container: slide } = renderEditor({}, 'presentation');
+
+    // ADR-0010: no component may ignore a mode.
+    expect(book.querySelector('.max-h-64')).not.toBeNull();
+    expect(slide.querySelector('[class*="55vh"]')).not.toBeNull();
+  });
+});
