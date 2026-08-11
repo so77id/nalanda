@@ -65,6 +65,10 @@ rest of the platform (authoring skill, catalog, presentation mode) will build on
 
 - Content contract violations surface at build/CI time (CI now triggers on
   `content/**`), before any deploy.
+- **Publication is glob-driven** (recorded with #66/ADR-0015): presence under
+  `content/courses/` publishes a document at `/d/<id>`; `index.yaml` controls
+  navigation only. Material that must not be public lives outside that tree —
+  see `docs/security-notes.md` §Accepted invariants.
 - Authoring is documented in `docs/standards/guides/add-a-course-document.md`;
   the create-class skill (v0.2) targets that contract.
 - v0.1 runtime asserts exactly ONE course directory; multi-course requires

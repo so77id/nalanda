@@ -13,6 +13,12 @@ protocols in this document:**
 2. **Pre-PR protocol** — runs before publishing ANY pull request. The full battery.
    CI mirrors this protocol exactly; a PR is not opened if any step fails locally.
 
+**Gates in CI** (`apps/web`): `ci.yml` mirrors the pre-PR protocol on PRs and on
+pushes to `main`. `deploy.yml` re-runs lint + test + build on the publish path —
+CI runs in parallel on the same push and nothing consumes its result, so the
+publishing job verifies itself (ADR-0015). It omits `format:check` deliberately:
+formatting cannot affect the deployed artifact.
+
 A new app cannot merge its first PR without registering both protocols here (see
 the add-new-app checklist in `repository-structure.md`).
 
@@ -23,7 +29,7 @@ the add-new-app checklist in `repository-structure.md`).
 | L1 Static | Types, lint, format | `tsc` + oxlint + prettier | Every commit |
 | L2 Unit | Pure logic: parsers, registries, index walks | Vitest | Every commit (TDD red→green per slice) |
 | L3 Component | Components honor their contract (e.g., per-mode rendering) | Vitest + Testing Library (jsdom) | Every commit, touched scope |
-| L4 Architecture | System invariants: import direction + feature edges (`src/architecture.test.ts`), content ids (`src/content/architecture.test.ts`), catalog entry shape (`src/catalog/architecture.test.tsx`), MDX map ↔ catalog completeness (`src/app/mdxComponents.test.ts`) | Vitest (pattern imported from DocumentBuddy) | Pre-PR + CI |
+| L4 Architecture | System invariants: import direction + feature edges (`src/architecture.test.ts`), content ids (`src/content/architecture.test.ts`), catalog entry shape (`src/catalog/architecture.test.tsx`), MDX map ↔ catalog completeness (`src/app/mdxComponents.test.ts`), deployed build shape (`src/app/deployedApp.test.tsx`, `src/app/spaFallback.test.ts`) | Vitest (pattern imported from DocumentBuddy) | Pre-PR + CI |
 | L5 Browser smoke | The real app boots; key flows render in a real browser | **Playwright** (decided 2026-08-06; introduced with the first real smoke, WP2+) | Pre-PR + CI |
 | L6 Backend integration | Go handlers against real SQLite + fakes | Go testing | Defined when `apps/server` is born (v0.3) |
 | L7 Cross-app e2e | browser → web → server | Top-level `e2e/` | v0.3+ |
@@ -79,6 +85,16 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   `app/`), so it lives in the shell test that owns the pair and states its L4
   role in a comment — e.g. the MDX map ↔ catalog completeness check in
   `src/app/mdxComponents.test.ts`.
+- **Build-shape invariants**: facts that only exist outside dev — the resolved
+  `base`, emitted artifacts like `404.html` — are invisible to the jsdom suite,
+  where `import.meta.env.BASE_URL` is always `/`. Pin them by asserting the
+  resolved Vite config (import `vite.config.ts` and call it with a `ConfigEnv`)
+  or by driving the plugin's hooks directly, and name the level in a header
+  comment. A green jsdom suite says nothing about the deployed build.
+- **Env-derived values go through a pure helper**: extract the transformation
+  into a colocated, unit-tested module rather than inlining it in a component
+  the suite cannot exercise. Worked case: `app/basename.ts` derives the router
+  basename from `BASE_URL` (#66).
 - **Registry-driven invariants**: when a standard applies to every member of a
   live registry, iterate the registry at module scope and generate one case per
   entry, so a new entry is gated the moment it is registered — never hand-write

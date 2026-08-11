@@ -8,6 +8,7 @@ import remarkFrontmatter from 'remark-frontmatter';
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter';
 import { defineConfig } from 'vite';
 
+import { spaFallback } from './src/app/spaFallback.ts';
 import { contentIntegrity } from './src/content/contentIntegrity.ts';
 import { remarkWikiLinks } from './src/content/wikiLinks.ts';
 
@@ -16,9 +17,15 @@ const appDir = path.dirname(fileURLToPath(import.meta.url));
 const contentDir = path.resolve(appDir, '../../content');
 
 // https://vite.dev/config/
-export default defineConfig({
+export default defineConfig(({ command, isPreview }) => ({
+  // Project Pages serve under /<repo>/ (issue #66); the router derives its
+  // basename from BASE_URL. Preview must use the deployed base too — it serves
+  // the built dist, whose asset URLs already carry the prefix — while dev keeps
+  // the root so local URLs stay short.
+  base: command === 'build' || isPreview ? '/nalanda/' : '/',
   plugins: [
     contentIntegrity(contentDir),
+    spaFallback(),
     // MDX must transform before the React plugin sees the file.
     {
       enforce: 'pre',
@@ -48,4 +55,4 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './vitest.setup.ts',
   },
-});
+}));

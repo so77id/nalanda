@@ -5,9 +5,11 @@ rules; this file covers what is specific to this app.
 
 ## Commands & stack
 
-Single home: [`README.md`](./README.md) — read it for the command list and the
-stack summary before working here (one home per fact, per
-`docs/standards/documentation.md`).
+Single home: [`README.md`](./README.md) — read it before working here for the
+command list, the stack summary, and the **deployed shape** (base path
+`/nalanda/`, router basename from `import.meta.env.BASE_URL`, the `404.html`
+SPA fallback and the `vite preview` gotcha). One home per fact, per
+`docs/standards/documentation.md`.
 
 ## Mandatory reading
 

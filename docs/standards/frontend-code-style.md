@@ -19,7 +19,8 @@ pass before every commit.
 
 ```
 src/
-├── app/            # shell: entry (main.tsx), router (App.tsx), providers, global layout
+├── app/            # shell: entry (main.tsx), router (App.tsx), providers, global layout,
+│                   # and the shell's own build plugin (spaFallback.ts)
 ├── components/     # catalog content components, by family:
 │   ├── structure/  ├── semantic/  ├── interactive/  └── media/
 ├── catalog/        # /catalog feature: registry, catalog pages
@@ -66,6 +67,17 @@ src/
   UI (error pages, layout slots), the shell passes it via props/children —
   features never import from `app/`. Worked case: `AppRoutes` injects
   `<NotFound />` into `DocumentPage`'s `notFound` prop.
+- **Build-time plugins live with the concern they serve**, not in a separate
+  tooling folder: `content/contentIntegrity.ts` (Vite plugin) gates content,
+  `content/wikiLinks.ts` (remark plugin) transforms it, `app/spaFallback.ts`
+  (Vite plugin) serves the shell's router. They are Node-only, never imported by
+  browser code, and wired exclusively from `vite.config.ts` — a
+  confirmation-gated file (see `apps/web/CLAUDE.md`): propose the wiring diff and
+  get confirmation before editing it.
+- **The deployment base path is declared once**, in `vite.config.ts` (`outDir`
+  stays at the Vite default); runtime code derives from `import.meta.env.BASE_URL`
+  and CI never overrides it on the command line — a CI-only flag makes local
+  builds unreproducible (ADR-0015).
 - Directories are created when their first real file arrives — never empty.
 
 ## Naming

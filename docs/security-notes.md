@@ -4,6 +4,23 @@ Durable record of security decisions that are not ADR-scale: accepted-risk
 deferrals, advisory dispositions, and their review dates. Every deferral here
 names its trigger for re-evaluation — nothing is "accepted forever".
 
+## Deferred controls
+
+### No branch protection on `main` (deferred 2026-08-10)
+
+- **What is missing**: `main` has no ruleset. The hard rule "all changes go
+  through PRs, never push to main" (CLAUDE.md) is convention, not enforcement.
+- **Why it matters more since #66**: the deploy workflow triggers on push to
+  `main`, so an accidental direct push publishes to a public URL with no review.
+- **Why deferred**: single-maintainer repo; the owner decides whether to trade
+  the ability to push directly for the guarantee. Not expressible in a diff —
+  it needs repo admin rights.
+- **Review trigger**: a second contributor gains write access, or the first
+  accidental direct push. **When enabling**: require a PR; only make the `web`
+  check *required* after replacing ci.yml's path filters with in-job change
+  detection — the note at the top of ci.yml explains why (a docs-only PR would
+  otherwise wait forever on a check that never runs).
+
 ## Resolved advisories
 
 ### GHSA-qwww-vcr4-c8h2 — react-router RSC-mode CSRF (deferred 2026-08-06, RESOLVED 2026-08-10)
@@ -26,6 +43,19 @@ names its trigger for re-evaluation — nothing is "accepted forever".
   dependency review is what surfaced the amendment.
 
 ## Accepted invariants
+
+### Everything under content/courses/ is published (recorded 2026-08-10)
+
+- **What it means**: the document registry globs `content/courses/**/*.mdx`, so
+  every document is compiled into the bundle and reachable at `/d/<id>` — being
+  absent from `index.yaml` only hides it from the TOC and prev/next, it does NOT
+  keep it off the site. Since #66 the site is public, so "unlisted" reads as
+  "unpublished" and is wrong.
+- **Why it is safe today**: the repo is public anyway, and the tree holds only
+  sample documents.
+- **Review trigger**: the first time material that must not be seen (exam keys,
+  solutions, unreleased classes) needs a home. Park it OUTSIDE
+  `content/courses/` — omitting it from the index is not a control.
 
 ### All bundled MDX is repo-controlled content (recorded 2026-08-07)
 
