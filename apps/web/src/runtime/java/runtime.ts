@@ -27,11 +27,30 @@ interface Host {
   display: HTMLElement;
 }
 
-/**
- * CheerpJ initialises once per page and cannot be unloaded, so the boot is a
- * module-level singleton: two editors on one document share one JVM.
- */
+// One JVM per page, so ALL of its state is module-scoped — including the run
+// queue. Scoping the queue per editor (as this file first did) leaves two
+// editors compiling and running concurrently against one `#console` element and
+// one `/files/`, which silently crosses their output: measured, editor A
+// printed editor B's result.
 let bootPromise: Promise<Host> | null = null;
+let launcherPromise: Promise<Host> | null = null;
+let queue: Promise<void> = Promise.resolve();
+
+/** Memoises a promise but never a rejection, so a transient CDN failure is retried. */
+function retryable<T>(
+  read: () => Promise<T> | null,
+  write: (value: Promise<T> | null) => void,
+  start: () => Promise<T>,
+): Promise<T> {
+  const existing = read();
+  if (existing) return existing;
+  const started = start().catch((error: unknown) => {
+    write(null);
+    throw error;
+  });
+  write(started);
+  return started;
+}
 
 function offscreen(id: string): HTMLElement {
   const existing = document.getElementById(id);
@@ -72,13 +91,60 @@ function describe(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+/** Reads and clears whatever the JVM has printed since the last drain. */
+function drain(host: Host): string {
+  // `textContent`, not `innerText`: the latter reports *rendered* text, which
+  // collapses the newlines the compiler uses to line its caret up under the
+  // offending token — a diagnostic flattened to one line is useless to a
+  // student learning to read them.
+  const text = host.console.textContent ?? '';
+  host.console.innerHTML = '';
+  return text.trim();
+}
+
+/**
+ * Boots the JVM and compiles the launcher — the one-off ~24s the compiler costs
+ * to load. Shared by every editor on the page, and retried rather than
+ * remembered if it fails.
+ */
+async function ensureReady(classPath: string): Promise<Host> {
+  const host = await retryable(
+    () => bootPromise,
+    (value) => {
+      bootPromise = value;
+    },
+    boot,
+  );
+
+  return retryable(
+    () => launcherPromise,
+    (value) => {
+      launcherPromise = value;
+    },
+    async () => {
+      cheerpjAddStringFile(`/str/${LAUNCHER_CLASS}.java`, encoder.encode(LAUNCHER_SOURCE));
+      const exitCode = await cheerpjRunMain(
+        ECJ_MAIN,
+        classPath,
+        `/str/${LAUNCHER_CLASS}.java`,
+        '-d',
+        OUTPUT_DIR,
+        SOURCE_LEVEL,
+        '-nowarn',
+      );
+      const log = drain(host);
+      if (exitCode !== 0) {
+        throw new Error(`the Java launcher failed to compile: ${log}`);
+      }
+      return host;
+    },
+  );
+}
+
 export function createJavaRuntime(baseUrl: string): RuntimeWorker {
   const listeners = new Set<(event: MessageEvent<WorkerMessage>) => void>();
   const classPath = javaClassPath(baseUrl);
   let terminated = false;
-  // The JVM is one shared machine: runs are serialised so two editors never
-  // interleave their output in the console element.
-  let queue: Promise<void> = Promise.resolve();
 
   const emit = (message: WorkerMessage): void => {
     if (terminated) return;
@@ -86,52 +152,17 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
     for (const listener of listeners) listener(event);
   };
 
-  const drain = (host: Host): string => {
-    // `textContent`, not `innerText`: the latter reports *rendered* text, which
-    // collapses the newlines the compiler uses to line its caret up under the
-    // offending token — a diagnostic flattened to one line is useless to a
-    // student learning to read them.
-    const text = host.console.textContent ?? '';
-    host.console.innerHTML = '';
-    return text.trim();
-  };
-
   const warmUp = async (): Promise<Host> => {
     const startedAt = performance.now();
-    bootPromise ??= boot();
-    const host = await bootPromise;
-    const initMs = Math.round(performance.now() - startedAt);
-
-    // Compiling the launcher is the warm-up: it pays the compiler's one-off
-    // load (~27s measured) before the student ever presses Run, and leaves the
-    // launcher class ready for every later run.
-    const compileStartedAt = performance.now();
-    cheerpjAddStringFile(`/str/${LAUNCHER_CLASS}.java`, encoder.encode(LAUNCHER_SOURCE));
-    const exitCode = await cheerpjRunMain(
-      ECJ_MAIN,
-      classPath,
-      `/str/${LAUNCHER_CLASS}.java`,
-      '-d',
-      OUTPUT_DIR,
-      SOURCE_LEVEL,
-      '-nowarn',
-    );
-    const compileMs = Math.round(performance.now() - compileStartedAt);
-    const log = drain(host);
-    if (exitCode !== 0) {
-      throw new Error(`the Java launcher failed to compile: ${log}`);
-    }
-
-    emit({ type: 'warm', detail: { initMs, compileMs } });
+    const host = await ensureReady(classPath);
+    emit({ type: 'warm', detail: { readyMs: Math.round(performance.now() - startedAt) } });
     return host;
   };
 
-  let warmPromise: Promise<Host> | null = null;
-
   const execute = async ({ id, source, stdin }: RunRequest): Promise<void> => {
+    if (terminated) return;
     try {
-      warmPromise ??= warmUp();
-      const host = await warmPromise;
+      const host = await warmUp();
 
       const entryClass = deriveEntryClass(source);
       const sourcePath = `/str/${sourceFileName(entryClass)}`;
@@ -177,6 +208,8 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
 
   return {
     postMessage(message: RunRequest): void {
+      // Onto the PAGE's queue, not this editor's: one JVM, one console element,
+      // one `/files/` — concurrent runs cross their output.
       queue = queue.then(() => execute(message));
     },
     addEventListener(_type, listener): void {

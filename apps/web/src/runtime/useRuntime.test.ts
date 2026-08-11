@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import type { ResultMessage, RunRequest, RuntimeWorker, WorkerMessage } from './contract';
-import { useRuntime } from './useRuntime';
+import { RunAbandonedError, useRuntime } from './useRuntime';
 
 class FakeWorker implements RuntimeWorker {
   readonly posted: RunRequest[] = [];
@@ -181,7 +181,9 @@ describe('useRuntime', () => {
 
     rerender({ runtimeId: 'python' });
 
-    await expect(pending).rejects.toThrow(/runtime changed/i);
+    // Abandoned, not failed: the caller swallows this instead of showing the
+    // student a diagnostic that is really our own plumbing.
+    await expect(pending).rejects.toBeInstanceOf(RunAbandonedError);
     expect(factory.created[0]!.terminated).toBe(true);
     // Warmth belongs to the terminated worker, not to the hook.
     expect(result.current.warm).toBe(false);
@@ -199,6 +201,33 @@ describe('useRuntime', () => {
     unmount();
 
     expect(factory.last().terminated).toBe(true);
+  });
+
+  it('abandons a run that never finishes and frees its toolchain', async () => {
+    const factory = workerFactory();
+    const { result } = renderHook(() =>
+      useRuntime({ runtimeId: 'cpp', createWorker: factory.createWorker, timeoutMs: 20 }),
+    );
+
+    let stuck!: Promise<unknown>;
+    act(() => {
+      // The student's `while (true)`: the worker never replies.
+      stuck = result.current.run('while(true){}', '');
+    });
+    await waitFor(() => expect(factory.created).toHaveLength(1));
+
+    await expect(stuck).rejects.toThrow(/bucle infinito/i);
+    // A stranded worker holds a whole compiler in memory, so it must go.
+    expect(factory.created[0]!.terminated).toBe(true);
+
+    let next!: Promise<unknown>;
+    act(() => {
+      next = result.current.run('int main(){}', '');
+    });
+    await waitFor(() => expect(factory.created).toHaveLength(2));
+    const fresh = factory.last();
+    act(() => fresh.emit(resultFor(fresh.posted[0]!.id, { output: 'ok' })));
+    await expect(next).resolves.toMatchObject({ output: 'ok' });
   });
 
   it('never creates a worker when the runtime is disabled', async () => {

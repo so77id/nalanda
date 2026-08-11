@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { RuntimeId } from './contract';
 import { RUNTIME_IDS } from './contract';
 import { descriptorOf, loadRuntime, runtimeDescriptors } from './registry';
 
@@ -33,11 +34,10 @@ describe('runtime registry', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('fails loudly for a language that has no runtime yet', async () => {
-    const unregistered = RUNTIME_IDS.filter((id) => descriptorOf(id) === null);
-    // Nothing to assert once every language is implemented — that is the goal.
-    for (const id of unregistered) {
-      await expect(loadRuntime(id)).rejects.toThrow(/no runtime/i);
-    }
+  it('fails loudly for a language that has no runtime', async () => {
+    // Cast past the type system on purpose: the branch exists for the window
+    // between adding an id and implementing it (guides/add-a-language-runtime.md
+    // step 1), and only a cast can reach it once every language is registered.
+    await expect(loadRuntime('rust' as RuntimeId)).rejects.toThrow(/no runtime/i);
   });
 });

@@ -13,5 +13,5 @@ export const javaDescriptor: RuntimeDescriptor = {
     }
 }
 `,
-  formatWarmStats: (detail) => `jvm ${detail.initMs}ms · first compile ${detail.compileMs}ms`,
+  formatWarmStats: (detail) => `jvm ${detail.readyMs}ms`,
 };

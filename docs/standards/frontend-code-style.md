@@ -124,6 +124,13 @@ src/
 - **framer-motion is the only animation library** (ADR-0004). CSS transitions are
   fine for trivial hover/focus states; anything choreographed uses framer-motion.
 
+## Icons
+
+- **lucide-react is the only icon library.** Icons are used inline with an
+  explicit `size` (13–14px inside dense chrome, matching the surrounding text),
+  never as background images. Adding a second icon set needs the same discussion
+  a dependency does (root `CLAUDE.md`).
+
 ## State
 
 - Local `useState`/`useReducer` first; React context for genuinely cross-cutting

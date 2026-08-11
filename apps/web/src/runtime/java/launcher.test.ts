@@ -26,6 +26,19 @@ describe('deriveEntryClass', () => {
     expect(deriveEntryClass('public final class Nodo<T> {}')).toBe('Nodo');
   });
 
+  it('prefers the top-level public class over a nested public static one', () => {
+    // A nested class cannot be an entry point, and `static` is only legal on
+    // nested declarations — so it must never win.
+    const source = 'class Lista {\n  public static class Nodo {}\n}\npublic class Main {}';
+    expect(deriveEntryClass(source)).toBe('Main');
+  });
+
+  it('is not thrown off by a // inside a string literal', () => {
+    const source =
+      'class Config { static String URL = "http://example.com"; }\npublic class Main {}';
+    expect(deriveEntryClass(source)).toBe('Main');
+  });
+
   it('fails loudly when there is no class at all', () => {
     expect(() => deriveEntryClass('int x = 1;')).toThrow(/no class/i);
   });

@@ -5,9 +5,9 @@ import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { sectionBreakCatalogEntry } from './structure/SectionBreak.catalog';
 import { slideCatalogEntry } from './structure/Slide.catalog';
 
-export type { CodeEditorProps } from './interactive/CodeEditor';
-// Documents get the lazy wrapper; the catalog imports the real one directly,
-// since its pages are already a route-level chunk.
+// Documents and the catalog both get the lazy wrapper — nothing outside
+// `interactive/lazyCodeEditor.tsx` may name the editor module, or CodeMirror
+// returns to the entry chunk (guarded in src/architecture.test.ts).
 export { LazyCodeEditor } from './interactive/lazyCodeEditor';
 export { SectionBreak } from './structure/SectionBreak';
 export { Slide } from './structure/Slide';

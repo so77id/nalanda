@@ -228,6 +228,57 @@ describe('CodeEditor', () => {
     await waitFor(() => expect(screen.getByTestId('code')).toHaveValue('int main(){}\n'));
   });
 
+  it('clears the previous run when the language changes', async () => {
+    const user = userEvent.setup();
+    renderEditor({ variant: 'lab', warmOnMount: false });
+    await waitFor(() => expect(screen.getByRole('button', { name: /ejecutar/i })).toBeEnabled());
+
+    await user.click(screen.getByRole('button', { name: /ejecutar/i }));
+    await waitFor(() => expect(workers[0]?.posted).toHaveLength(1));
+    const worker = workers[0]!;
+    worker.reply({
+      id: worker.posted[0]!.id,
+      type: 'result',
+      compileLog: 'warning: cpp diagnostic',
+      output: 'CPP OUTPUT',
+      exitCode: 3,
+      compileMs: 12,
+      runMs: 4,
+    });
+    expect(await screen.findByText('CPP OUTPUT')).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByLabelText('Lenguaje'), 'python');
+
+    // Results belong to the language that produced them.
+    await waitFor(() => expect(screen.queryByText('CPP OUTPUT')).not.toBeInTheDocument());
+    expect(screen.queryByText(/exit 3/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/cpp diagnostic/)).not.toBeInTheDocument();
+  });
+
+  it('says nothing when a run is abandoned mid-flight', async () => {
+    const user = userEvent.setup();
+    renderEditor({ variant: 'lab', warmOnMount: false });
+    await waitFor(() => expect(screen.getByRole('button', { name: /ejecutar/i })).toBeEnabled());
+
+    await user.click(screen.getByRole('button', { name: /ejecutar/i }));
+    await waitFor(() => expect(workers[0]?.posted).toHaveLength(1));
+
+    // Switch language without ever replying: the pending run is abandoned.
+    await user.selectOptions(screen.getByLabelText('Lenguaje'), 'python');
+
+    await waitFor(() => expect(screen.getByRole('button', { name: /ejecutar/i })).toBeEnabled());
+    expect(screen.queryByText(/abandoned|runtime changed/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/diagnósticos/i)).not.toBeInTheDocument();
+  });
+
+  it('hides the fullscreen affordance in presentation mode', async () => {
+    renderEditor({}, 'presentation');
+    await waitFor(() => expect(screen.getByTestId('code')).toBeInTheDocument());
+
+    // A slide is already fullscreen (ADR-0010: no component may ignore a mode).
+    expect(screen.queryByRole('button', { name: /expandir/i })).not.toBeInTheDocument();
+  });
+
   it('gives the slide more room in presentation mode than in book mode', async () => {
     const { container: book } = renderEditor({}, 'book');
     await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));

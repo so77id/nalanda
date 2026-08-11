@@ -15,7 +15,10 @@ export function deriveEntryClass(source: string): string {
   const code = stripNonCode(source);
 
   const packageName = /\bpackage\s+([\w.]+)\s*;/.exec(code)?.[1];
-  const modifiers = '(?:final|abstract|strictfp|static)\\s+';
+  // `static` is deliberately absent: a top-level class can never be static, so
+  // leaving it in let a nested `public static class` outrank the real public
+  // class declared after it.
+  const modifiers = '(?:final|abstract|strictfp)\\s+';
   const publicClass = new RegExp(`\\bpublic\\s+(?:${modifiers})*class\\s+(\\w+)`).exec(code)?.[1];
   const anyClass = new RegExp(`\\b(?:${modifiers})*class\\s+(\\w+)`).exec(code)?.[1];
 

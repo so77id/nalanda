@@ -22,7 +22,9 @@ works in a browser.
 **1. The compiler is ECJ 3.21.0, downloaded at build time into `public/`.**
 2.9MB rather than the JDK's 18.3MB `tools.jar` (which is what the vendor's own
 JavaFiddle commits to git). `scripts/fetch-java-compiler.mjs` fetches it from
-Maven Central during `prebuild`/`predev`, verifies the published SHA-1, and
+Maven Central during `prebuild`/`predev`, verifies it against a SHA-256 pinned
+in the script — fetching the digest from the same origin as the artifact would
+detect corruption and nothing else — and
 writes `public/java-compiler.jar`, which is gitignored: it is a build input, not
 source.
 

@@ -1,5 +1,5 @@
 // Public seam of the runtime feature (import direction rule, frontend-code-style.md).
-export { useRuntime } from './useRuntime';
+export { DEFAULT_TIMEOUT_MS, RunAbandonedError, useRuntime } from './useRuntime';
 export type { Runtime, UseRuntimeInput } from './useRuntime';
 export { descriptorOf, loadRuntime, runtimeDescriptors } from './registry';
 export { RUNTIME_IDS } from './contract';
