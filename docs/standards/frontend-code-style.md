@@ -73,7 +73,8 @@ src/
 - Component files: `PascalCase.tsx`, named after the component (`NotFound.tsx`).
 - Colocated catalog entries: `<Component>.catalog.tsx` beside the component,
   exporting `<component>CatalogEntry: CatalogEntry` — a `.tsx` module that
-  exports data, not a component (its examples are JSX).
+  exports data, not a component (its examples are JSX). Full walkthrough:
+  `docs/standards/guides/add-a-content-component.md`.
 - Hooks: `useThing.ts`, exported as `useThing`.
 - Everything else: `camelCase.ts` (`parser.ts`, `wikiLinks.ts`).
 - One exported component per file; small private subcomponents may live beside it

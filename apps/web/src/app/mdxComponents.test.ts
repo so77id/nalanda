@@ -22,7 +22,7 @@ describe('shell MDX components map', () => {
 // The MDX map and the catalog must stay in lockstep in BOTH directions. This
 // pair lives in app/ because features may not import app/; the entry-shape
 // invariants live in catalog/architecture.test.tsx.
-describe('catalog completeness (ADR-0010 / ADR-0013)', () => {
+describe('catalog completeness (ADR-0010 / ADR-0014)', () => {
   const componentNames = Object.keys(map).filter((key) => /^[A-Z]/.test(key));
 
   it('the MDX map registers components (guards against a vacuous check)', () => {

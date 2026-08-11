@@ -12,7 +12,7 @@ export interface CatalogPropDef {
 
 export interface CatalogExample {
   title: string;
-  /** Source snippet shown beside the live render (plain <pre>, decided in #65). */
+  /** Source snippet shown beside the live render; plain <pre>, no highlighter (ADR-0014). */
   code: string;
   /** A component, not a call: each example gets its own React instance (own hooks/state). */
   render: ComponentType;

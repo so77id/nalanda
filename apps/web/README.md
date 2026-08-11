@@ -26,20 +26,25 @@ See `docs/standards/frontend-code-style.md` for the authoritative rules.
 
 ```
 src/
-├── app/                  # shell: entry, router (/d/:id, /d/:id/present + 404), MDX map
-├── components/           # catalog content components by family (structure: Slide, SectionBreak)
+├── app/                  # shell: entry, router (documents, presentation, catalog, 404), MDX map
+├── catalog/              # /catalog surface: registry, family taxonomy, component +
+│                         # governance pages, live-example blocks
+├── components/           # catalog content components by family (structure: Slide,
+│                         # SectionBreak) + their colocated <Component>.catalog.tsx entries
 ├── content/              # content pipeline: MDX registry, course index, wiki-links,
 │                         # book-mode page, build-time integrity gate
 ├── presentation/         # presentation mode: mode context, slide parser, SlideDeck viewer
-├── lib/                  # pure TS utilities (componentMeta, reactText)
+├── lib/                  # pure TS utilities + cross-feature contract types
+│                         # (catalogEntry, componentMeta, reactText)
 ├── styles/               # Tailwind entry + design tokens
 ├── mdx.d.ts              # module typing for *.mdx imports
 └── architecture.test.ts  # import-direction invariants
 ```
 
-The remaining feature folder (`catalog/`) is created by the WP that populates
-it. How to author course material (frontmatter, wiki-links, slide markers):
-`docs/standards/guides/add-a-course-document.md`.
+All feature folders now exist. Guides: authoring course material (frontmatter,
+wiki-links, slide markers) → `docs/standards/guides/add-a-course-document.md`;
+adding a content component → `docs/standards/guides/add-a-content-component.md`
+(its rules are rendered at `/catalog/governance`).
 
 ## Testing
 

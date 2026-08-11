@@ -6,7 +6,7 @@ interface Props {
   children: ReactNode;
 }
 
-/** A live example: the real component running, with its source beside it (plain <pre>, #65). */
+/** A live example: the real component running, with its source beside it (plain <pre>, ADR-0014). */
 export function ExampleBlock({ title, code, children }: Props) {
   return (
     <section className="mt-6">

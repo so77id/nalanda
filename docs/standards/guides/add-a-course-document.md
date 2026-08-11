@@ -56,8 +56,9 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    `<SectionBreak />` are available WITHOUT imports. In the book view a Slide
    renders as its heading + flowing prose and a SectionBreak as a subtle
    divider; in presentation they cut slide boundaries. Worked example:
-   `03-busqueda-binaria.mdx`. Full component docs arrive with the catalog
-   (WP4).
+   `03-busqueda-binaria.mdx`. Full usage docs, props and live examples for every
+   document-facing component live in the catalog: `/catalog/c/Slide`,
+   `/catalog/c/SectionBreak`.
 
 5. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
    link, `[[otro-id|texto visible]]` overrides the label. A target that doesn't

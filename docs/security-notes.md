@@ -4,9 +4,9 @@ Durable record of security decisions that are not ADR-scale: accepted-risk
 deferrals, advisory dispositions, and their review dates. Every deferral here
 names its trigger for re-evaluation — nothing is "accepted forever".
 
-## Deferred advisories
+## Resolved advisories
 
-### GHSA-qwww-vcr4-c8h2 — react-router RSC-mode CSRF (deferred 2026-08-06)
+### GHSA-qwww-vcr4-c8h2 — react-router RSC-mode CSRF (deferred 2026-08-06, RESOLVED 2026-08-10)
 
 - **Affected**: `react-router` >=7.12.0 <8.3.0 (installed 7.18.2, transitive via
   `react-router-dom`).
@@ -15,10 +15,15 @@ names its trigger for re-evaluation — nothing is "accepted forever".
   runtime — premise backed by ADR-0001/0004/0011; static hosting on GitHub Pages
   pending, WP5 #66). Verified independently by the security review lens
   (PR #67 pipeline run).
-- **Patched line**: 8.3.0 — a major bump; not worth forcing for an unreachable path.
-- **Review trigger**: the next react-router upgrade evaluation, or the moment any
-  server runtime/SSR/RSC enters the frontend (v0.3 backend does NOT count — it is
-  a separate Go service). Re-check with `npm audit` at each dependency review.
+- **Resolution (2026-08-10)**: the advisory was later amended upstream — its 7.x
+  range is `>=7.12.0 <7.18.2`, first patched in **7.18.2**, which is the version
+  already installed. `npm audit` in `apps/web` reports 0 vulnerabilities.
+  Nothing was ever exposed and no upgrade is owed; the original note's "patched
+  line 8.3.0 — a major bump" was accurate against the advisory as published on
+  2026-08-06 and is superseded. Kept as a record, not as an open deferral.
+- **Lesson kept**: the deferral rationale (static SPA, RSC path unreachable) was
+  the right call and cost nothing; re-checking with `npm audit` at each
+  dependency review is what surfaced the amendment.
 
 ## Accepted invariants
 

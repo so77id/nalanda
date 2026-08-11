@@ -13,6 +13,7 @@ stack summary before working here (one home per fact, per
 
 - `docs/standards/frontend-code-style.md` — folder layout (`src/app|components|catalog|content|presentation|lib|styles`), naming, component rules, import direction (`app → features → lib`). **Follow, don't innovate.**
 - `docs/standards/testing-strategy.md` — the `apps/web` per-commit and pre-PR protocols. Nothing is committed in red.
+- `docs/standards/integration-guides.md` — index of the extension-point guides; read the matching guide before adding a component, a document, or an app.
 
 ## App-specific rules
 

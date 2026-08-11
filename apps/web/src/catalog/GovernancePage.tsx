@@ -15,16 +15,17 @@ const CONTRACT_POINTS = [
 ];
 
 const ADD_STEPS = [
-  'Pick the family (estructura, semánticos, interactivos, media) — or propose a family change here first.',
-  `Implement the component in its family folder under src/components/ (${FAMILY_FOLDERS}), satisfying the seven contract points below; register it in the shell MDX map (app/mdxComponents.ts) if documents use it directly.`,
-  'Write its colocated <Component>.catalog.tsx entry (CatalogEntry from lib/) and export it through the components seam — the catalog invariants test enforces this.',
+  `Pick the family (${families.map((f) => f.name).join(', ')}) — or propose a family change here first.`,
+  `Implement the component in its family folder under src/components/ (${FAMILY_FOLDERS}), satisfying the seven contract points below.`,
+  'Register it in the shell MDX map (app/mdxComponents.ts). Not optional: the catalog and the MDX map are asserted to be the same set in both directions, so today a component that must not be document-facing does not get an entry either (ADR-0014 reserves an explicit opt-out for the composed-component case).',
+  'Write its colocated <Component>.catalog.tsx entry (CatalogEntry from lib/) and add it to catalogEntries in the components seam. A forgotten export makes the entry invisible to the catalog; app/mdxComponents.test.ts is what catches it ("missing catalog entry for <Name>"), not the entry-shape invariants.',
   "Test per-mode behavior (contract point 1 gives the concrete cases) plus the component's own logic.",
   'Run the review flow: the review checklist below is part of the PR review.',
 ];
 
 const DOC_CHECKLIST = [
-  'Entry complete: description, when-to-use, full props table (name, type, default, description).',
-  'At least two live examples that actually run — covering both modes when the component behaves differently per mode.',
+  'Entry complete: non-empty description and when-to-use, and every prop documented with a type and a description.',
+  'At least two live examples that actually run, with distinct titles — covering both modes when the component behaves differently per mode.',
   'When-to-use says when NOT to use it too (what to prefer instead).',
 ];
 

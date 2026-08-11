@@ -18,12 +18,21 @@ finished until its documentation exists, and review verifies it (ADR-0005).
 | Architectural decisions | `docs/decisions/` (ADRs, numbered) | why Go, why MDX |
 | Design narratives | `docs/design/` | 2026-08 redesign |
 | Content-component usage (what authors see) | The **catalog** (`/catalog` in-app) | when to use `<Slide>`, props, examples |
+| Component governance (contract, how-to-add, doc + review checklists) | The **catalog governance page** (`/catalog/governance`, authored in `apps/web/src/catalog/GovernancePage.tsx`) — the operational home authors and agents read; ADR-0010/0014 hold the decisions and win on disagreement, `guides/add-a-content-component.md` maps them onto repo paths | the seven contract points |
 | Workflow conventions (kanban, branches, PRs) | `docs/conventions.md` | commit format |
 | Security deferrals / advisory dispositions | `docs/security-notes.md` | accepted-risk records with review triggers |
 | Course planning material | `docs/course-graph.md` + `docs/graphs/` | topic dependencies, topology diagrams |
 
 **One home per fact.** If two documents need the same fact, one states it and the
 other links to it. Duplicated prose drifts.
+
+**Documentation that must never drift is written as code and gated by a test.**
+When a doc describes a set that grows (components today; event types, endpoints
+tomorrow), prefer a typed entry colocated with each member over a hand-maintained
+page, expose it as a product surface, and add an L4 invariant that fails on
+hollow entries — empty required prose, missing examples, examples that render
+nothing, published paths that do not resolve. Prose pages stay the default for
+one-off narratives. Worked case: the catalog (#65).
 
 ## Rules
 
