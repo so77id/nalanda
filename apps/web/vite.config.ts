@@ -17,11 +17,12 @@ const appDir = path.dirname(fileURLToPath(import.meta.url));
 const contentDir = path.resolve(appDir, '../../content');
 
 // https://vite.dev/config/
-export default defineConfig(({ command }) => ({
-  // Project Pages serve under /<repo>/ (issue #66). Dev keeps the root so local
-  // URLs stay short; the router derives its basename from BASE_URL. Keyed on
-  // `command` rather than NODE_ENV, which depends on when the config is evaluated.
-  base: command === 'build' ? '/nalanda/' : '/',
+export default defineConfig(({ command, isPreview }) => ({
+  // Project Pages serve under /<repo>/ (issue #66); the router derives its
+  // basename from BASE_URL. Preview must use the deployed base too — it serves
+  // the built dist, whose asset URLs already carry the prefix — while dev keeps
+  // the root so local URLs stay short.
+  base: command === 'build' || isPreview ? '/nalanda/' : '/',
   plugins: [
     contentIntegrity(contentDir),
     spaFallback(),

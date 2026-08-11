@@ -1,8 +1,10 @@
 name: Deploy to GitHub Pages
 
 # Publishes apps/web to https://so77id.github.io/nalanda/ (issue #66).
-# Actions are pinned by commit SHA, like ci.yml: a tag can be repointed at
-# another commit, a SHA cannot.
+# Direct action references are pinned by commit SHA, like ci.yml: a tag can be
+# repointed at another commit, a SHA cannot. Note this holds one level deep —
+# actions that are themselves composite (upload-pages-artifact calls
+# upload-artifact@v4) resolve their own dependencies by tag.
 
 on:
   push:
@@ -15,10 +17,10 @@ on:
       - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
+# Least privilege: the build job runs `npm ci` (third-party install scripts) and
+# only needs to read the repo; publishing rights live in the deploy job.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 concurrency:
   group: pages
@@ -29,6 +31,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          # Nothing here pushes to git; not persisting the token keeps it out of
+          # .git/config while third-party install scripts run.
+          persist-credentials: false
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
@@ -37,6 +43,16 @@ jobs:
           cache-dependency-path: apps/web/package-lock.json
 
       - run: npm ci
+        working-directory: apps/web
+
+      # CI runs in parallel on the same push and nothing consumes its result, so
+      # the publishing path verifies itself rather than trusting a sibling job.
+      - name: Lint
+        run: npm run lint
+        working-directory: apps/web
+
+      - name: Test
+        run: npm run test
         working-directory: apps/web
 
       # base '/nalanda/' and the 404.html SPA fallback come from vite.config.ts,
@@ -52,6 +68,9 @@ jobs:
   deploy:
     needs: build
     runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}

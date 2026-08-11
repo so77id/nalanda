@@ -1,5 +1,5 @@
 import { copyFileSync, existsSync } from 'node:fs';
-import path from 'node:path';
+import { join, resolve } from 'node:path';
 import type { Plugin, ResolvedConfig } from 'vite';
 
 /**
@@ -17,14 +17,16 @@ export function spaFallback(): Plugin {
     name: 'nalanda:spa-fallback',
     apply: 'build',
     configResolved(config: ResolvedConfig) {
-      outDir = path.resolve(config.root, config.build.outDir);
+      outDir = resolve(config.root, config.build.outDir);
     },
-    closeBundle() {
-      const index = path.join(outDir, 'index.html');
+    // writeBundle, not closeBundle: closeBundle also runs when the build FAILS,
+    // and the missing-index error would then replace the real root cause in the log.
+    writeBundle() {
+      const index = join(outDir, 'index.html');
       if (!existsSync(index)) {
         throw new Error(`SPA fallback: ${index} was not produced by the build`);
       }
-      copyFileSync(index, path.join(outDir, '404.html'));
+      copyFileSync(index, join(outDir, '404.html'));
     },
   };
 }

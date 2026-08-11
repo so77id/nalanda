@@ -27,6 +27,19 @@ names its trigger for re-evaluation — nothing is "accepted forever".
 
 ## Accepted invariants
 
+### Everything under content/courses/ is published (recorded 2026-08-10)
+
+- **What it means**: the document registry globs `content/courses/**/*.mdx`, so
+  every document is compiled into the bundle and reachable at `/d/<id>` — being
+  absent from `index.yaml` only hides it from the TOC and prev/next, it does NOT
+  keep it off the site. Since #66 the site is public, so "unlisted" reads as
+  "unpublished" and is wrong.
+- **Why it is safe today**: the repo is public anyway, and the tree holds only
+  sample documents.
+- **Review trigger**: the first time material that must not be seen (exam keys,
+  solutions, unreleased classes) needs a home. Park it OUTSIDE
+  `content/courses/` — omitting it from the index is not a control.
+
 ### All bundled MDX is repo-controlled content (recorded 2026-08-07)
 
 - **What relies on it**: the presentation pipeline executes compiled MDX content
