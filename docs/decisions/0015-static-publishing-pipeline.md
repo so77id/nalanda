@@ -41,8 +41,8 @@ files, and what gates the publish.
    Implemented as a plugin rather than a `cp` in the build script: identical on
    every OS and in CI, and it honors `outDir`.
 
-5. **The publishing path verifies itself**: the deploy job runs lint and tests
-   before building. CI runs in parallel on the same push and nothing consumes
+5. **The publishing path verifies itself**: the publish workflow's `build` job
+   runs lint and tests before building (the `deploy` job only uploads). CI runs in parallel on the same push and nothing consumes
    its result, so gating on a sibling job would be gating on nothing.
    Permissions are least-privilege — the build job (which runs third-party
    install scripts) is read-only; `pages: write` and `id-token: write` live on
@@ -84,6 +84,9 @@ files, and what gates the publish.
   browsers; relevant if analytics or crawlers are ever added.
 - Lint and tests run twice per push to `main` (CI and the deploy job).
 - Merging to `main` publishes. With no branch protection (deferred, recorded in
-  `docs/security-notes.md`), a direct push to `main` also publishes — though the
-  deploy job's own lint/test gate means a broken commit fails to publish rather
-  than publishing broken.
+  `docs/security-notes.md`), a direct push to `main` also publishes. The gate is
+  partial: a commit that fails lint, the tests or the build never reaches the
+  deploy job, but **runtime breakage the suite cannot see still publishes** —
+  there is no browser smoke yet (testing-strategy L5 remains pending), which is
+  exactly how the blank-page regression inside this WP survived until a human
+  looked at the page.
