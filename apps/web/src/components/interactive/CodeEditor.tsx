@@ -24,9 +24,9 @@ export interface CodeEditorProps extends Partial<EditorFlags> {
 }
 
 const PANEL_LABEL =
-  'bg-zinc-800 px-3 py-1 font-mono text-2xs uppercase tracking-wide text-zinc-400';
+  'bg-zinc-800 px-3 py-1 font-mono text-3xs uppercase tracking-wide text-zinc-400';
 const OUTPUT = 'm-0 overflow-auto whitespace-pre-wrap px-3 py-2 font-mono text-xs';
-const CHIP = 'rounded px-1.5 py-0.5 font-mono text-2xs';
+const CHIP = 'rounded px-1.5 py-0.5 font-mono text-3xs';
 
 function Panel({ label, children }: { label: string; children: ReactNode }) {
   return (
@@ -212,7 +212,7 @@ export function CodeEditor({
             aria-label="Lenguaje"
             value={languageId}
             onChange={(event) => changeLanguage(event.target.value as RuntimeId)}
-            className="rounded bg-zinc-700 px-1.5 py-0.5 font-mono text-3xs text-zinc-100"
+            className="rounded bg-zinc-700 px-1.5 py-0.5 font-mono text-2xs text-zinc-100"
           >
             {runtimeDescriptors.map((option) => (
               <option key={option.id} value={option.id}>
@@ -221,7 +221,7 @@ export function CodeEditor({
             ))}
           </select>
         ) : (
-          <span className="font-mono text-2xs text-zinc-500">{descriptor?.label}</span>
+          <span className="font-mono text-3xs text-zinc-500">{descriptor?.label}</span>
         )}
 
         {flags.showWarmStatus && flags.runnable ? (
@@ -238,7 +238,7 @@ export function CodeEditor({
           <button
             type="button"
             onClick={copy}
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-3xs text-zinc-300 hover:bg-zinc-700"
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs text-zinc-300 hover:bg-zinc-700"
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}
             {copied ? 'Copiado' : 'Copiar'}
@@ -314,18 +314,18 @@ export function CodeEditor({
           </button>
 
           {running && !warm ? (
-            <span className="font-mono text-2xs text-zinc-400">preparando el runtime…</span>
+            <span className="font-mono text-3xs text-zinc-400">preparando el runtime…</span>
           ) : null}
 
           {flags.showTimings && result ? (
-            <span className="font-mono text-2xs text-zinc-400">
+            <span className="font-mono text-3xs text-zinc-400">
               {result.compileMs === null ? '' : `compila ${result.compileMs}ms · `}
               ejecuta {result.runMs ?? '—'}ms
             </span>
           ) : null}
 
           {flags.showWarmStatus && warmStats && descriptor?.formatWarmStats ? (
-            <span className="font-mono text-2xs text-zinc-500">
+            <span className="font-mono text-3xs text-zinc-500">
               {descriptor.formatWarmStats(warmStats.detail)}
             </span>
           ) : null}

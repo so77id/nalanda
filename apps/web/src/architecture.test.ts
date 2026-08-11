@@ -81,7 +81,9 @@ describe('architecture: the code editor stays out of the entry chunk', () => {
     expect(
       violations(
         (_fileTop, _importTop, importRel, file) =>
-          importRel === 'components/interactive/CodeEditor' &&
+          // Normalised: `allowImportingTsExtensions` is on, so `./CodeEditor.tsx`
+          // resolves and bundles exactly like `./CodeEditor` and must not slip past.
+          importRel.replace(/\.(ts|tsx)$/, '') === 'components/interactive/CodeEditor' &&
           !file.includes('.test.') &&
           !ALLOWED.includes(file),
       ),

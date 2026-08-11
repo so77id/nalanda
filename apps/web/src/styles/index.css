@@ -4,9 +4,11 @@
 /* Sizes below Tailwind's `text-xs`, for the dense monospace chrome of runnable
    components — panel labels, chips, timings (frontend-code-style.md §Styling:
    sizes beyond the defaults are tokens, never arbitrary values). */
+/* Ordered like the rest of the scale — more x's is smaller — so that reaching
+   for "the smallest label" lands on the smallest one: 3xs < 2xs < xs (0.75). */
 @theme {
-  --text-2xs: 0.65rem;
-  --text-3xs: 0.7rem;
+  --text-2xs: 0.7rem;
+  --text-3xs: 0.65rem;
 }
 
 /* The typography plugin decorates inline code with literal backticks via
