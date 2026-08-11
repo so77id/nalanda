@@ -19,6 +19,10 @@ This file holds **monorepo-shared** instructions only. Each app has its own
 - `docs/standards/documentation.md` — where each kind of knowledge lives.
 - `docs/decisions/` — ADRs, numbered sequentially (living architectural decisions).
 - `docs/design/2026-08-redesign.md` — design narrative + roadmap (v0.1 → v0.3).
+- `docs/standards/guides/add-a-course-document.md` — **read before editing
+  anything under `content/`**: the frontmatter contract, the slide markers, and
+  the fact that everything there is published (the index controls navigation,
+  never visibility).
 
 The original POC is archived in `proof-of-concept/` (runnable, reference only —
 port pieces from it as WPs require, refactoring to current standards on entry).
