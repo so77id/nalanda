@@ -1,8 +1,9 @@
 /// <reference lib="webworker" />
 import { ConsoleStdout, File, OpenFile, WASI } from '@bjorn3/browser_wasi_shim';
-import { compile, getPrecompiledHeader } from 'browsercc';
+import type { compile as Compile, getPrecompiledHeader as GetPrecompiledHeader } from 'browsercc';
 
 import type { RunRequest, WorkerMessage } from '../contract';
+import { BROWSERCC_CDN } from './browserccVersion';
 
 // Clang compiled to WASM (browsercc) plus a WASI shim to give the produced
 // module a stdin/stdout. Both run here so the main thread never blocks on a
@@ -11,7 +12,26 @@ import type { RunRequest, WorkerMessage } from '../contract';
 const DEFAULT_FLAGS = ['-O2', '-std=c++20', '-fno-exceptions'];
 const PCH_PATH = '/include/bits/stdc++.h.pch';
 
+interface Toolchain {
+  compile: typeof Compile;
+  getPrecompiledHeader: typeof GetPrecompiledHeader;
+}
+
+/**
+ * Loads the compiler from the CDN. browsercc addresses its own 113MB of WASM
+ * relative to `import.meta.url`, so where the module is imported from decides
+ * where the toolchain is served from (see browserccVersion.ts).
+ */
+async function loadToolchain(): Promise<Toolchain> {
+  const module = (await import(/* @vite-ignore */ BROWSERCC_CDN)) as Partial<Toolchain>;
+  if (typeof module.compile !== 'function' || typeof module.getPrecompiledHeader !== 'function') {
+    throw new Error(`no C++ toolchain at ${BROWSERCC_CDN}`);
+  }
+  return { compile: module.compile, getPrecompiledHeader: module.getPrecompiledHeader };
+}
+
 let cachedHeader: ArrayBuffer | null = null;
+let toolchain: Toolchain | null = null;
 
 function post(message: WorkerMessage): void {
   postMessage(message);
@@ -38,13 +58,15 @@ function asWasiCommand(instance: WebAssembly.Instance): {
  * up front, so the student's first Run is fast rather than the slowest one.
  */
 async function warmUp(): Promise<void> {
+  toolchain = await loadToolchain();
+
   const headerStart = performance.now();
-  cachedHeader = await getPrecompiledHeader(DEFAULT_FLAGS);
+  cachedHeader = await toolchain.getPrecompiledHeader(DEFAULT_FLAGS);
   const pchFetchMs = Math.round(performance.now() - headerStart);
 
   const compileStart = performance.now();
   try {
-    await compile({
+    await toolchain.compile({
       source: 'int main(){return 0;}',
       fileName: '_warmup.cpp',
       flags: DEFAULT_FLAGS,
@@ -99,6 +121,7 @@ addEventListener('message', async (event: MessageEvent<RunRequest>) => {
   const { id, source, stdin } = event.data;
   try {
     await warmPromise;
+    if (!toolchain) throw new Error('the C++ toolchain failed to load');
 
     const flags = [...DEFAULT_FLAGS];
     const extraFiles: Record<string, string | ArrayBuffer> = {};
@@ -108,7 +131,7 @@ addEventListener('message', async (event: MessageEvent<RunRequest>) => {
     }
 
     const compileStart = performance.now();
-    const result = await compile({ source, fileName: 'main.cpp', flags, extraFiles });
+    const result = await toolchain.compile({ source, fileName: 'main.cpp', flags, extraFiles });
     const compileMs = Math.round(performance.now() - compileStart);
 
     if (!result.module) {
