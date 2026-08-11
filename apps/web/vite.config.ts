@@ -17,10 +17,11 @@ const appDir = path.dirname(fileURLToPath(import.meta.url));
 const contentDir = path.resolve(appDir, '../../content');
 
 // https://vite.dev/config/
-export default defineConfig({
-  // Project Pages serve under /<repo>/ (issue #66). Dev keeps the root so
-  // local URLs stay short; the router derives its basename from BASE_URL.
-  base: process.env['NODE_ENV'] === 'production' ? '/nalanda/' : '/',
+export default defineConfig(({ command }) => ({
+  // Project Pages serve under /<repo>/ (issue #66). Dev keeps the root so local
+  // URLs stay short; the router derives its basename from BASE_URL. Keyed on
+  // `command` rather than NODE_ENV, which depends on when the config is evaluated.
+  base: command === 'build' ? '/nalanda/' : '/',
   plugins: [
     contentIntegrity(contentDir),
     spaFallback(),
@@ -53,4 +54,4 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: './vitest.setup.ts',
   },
-});
+}));
