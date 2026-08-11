@@ -8,6 +8,7 @@ import remarkFrontmatter from 'remark-frontmatter';
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter';
 import { defineConfig } from 'vite';
 
+import { spaFallback } from './src/app/spaFallback.ts';
 import { contentIntegrity } from './src/content/contentIntegrity.ts';
 import { remarkWikiLinks } from './src/content/wikiLinks.ts';
 
@@ -22,6 +23,7 @@ export default defineConfig({
   base: process.env['NODE_ENV'] === 'production' ? '/nalanda/' : '/',
   plugins: [
     contentIntegrity(contentDir),
+    spaFallback(),
     // MDX must transform before the React plugin sees the file.
     {
       enforce: 'pre',
