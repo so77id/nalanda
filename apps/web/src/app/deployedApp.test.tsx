@@ -1,16 +1,25 @@
 import { render, screen } from '@testing-library/react';
+import type { ConfigEnv, UserConfig, UserConfigFnObject } from 'vite';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { courseIndex, registry, walkIndex } from '../content';
 
 import viteConfig from '../../vite.config';
 
-// jsdom always sees BASE_URL='/', and no other test mounts <App/>, so the two
-// things that only exist in the deployed build — the base path and the router
-// basename — would otherwise regress silently and green (issue #66 review).
+// jsdom always sees BASE_URL='/', and no other test mounts <App/>, so the three
+// things that only exist outside dev — the built base, the preview base and the
+// router basename — would otherwise regress silently and green (issue #66).
+// Vite's own ConfigEnv, not a hand-written shape: the partial cast this file
+// first used is what hid `isPreview` from view in the first place.
+const config = viteConfig as UserConfigFnObject;
+const resolve = (env: ConfigEnv): UserConfig => config(env) as UserConfig;
+
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.resetModules();
+  // pushState mutates history for the whole file; without this the next test
+  // starts on a prefixed URL with the basename already restored to ''.
+  window.history.pushState({}, '', '/');
 });
 
 async function renderAppAt(path: string) {
@@ -21,29 +30,24 @@ async function renderAppAt(path: string) {
 
 describe('deployed build shape', () => {
   it('builds under the Pages base path', () => {
-    const config = viteConfig as unknown as (env: { command: string; mode: string }) => {
-      base: string;
-      plugins: unknown[];
-    };
+    expect(resolve({ command: 'build', mode: 'production' }).base).toBe('/nalanda/');
+  });
 
-    expect(config({ command: 'build', mode: 'production' }).base).toBe('/nalanda/');
+  it('previews under the Pages base path too', () => {
+    // preview serves the built dist, whose asset URLs already carry the prefix;
+    // serving it at '/' answers every bundle with index.html (the COR-1 bug).
+    expect(resolve({ command: 'serve', mode: 'production', isPreview: true }).base).toBe(
+      '/nalanda/',
+    );
   });
 
   it('keeps the dev server at the root for short local URLs', () => {
-    const config = viteConfig as unknown as (env: { command: string; mode: string }) => {
-      base: string;
-    };
-
-    expect(config({ command: 'serve', mode: 'development' }).base).toBe('/');
+    expect(resolve({ command: 'serve', mode: 'development' }).base).toBe('/');
   });
 
   it('emits the SPA fallback in the build pipeline', () => {
-    const config = viteConfig as unknown as (env: { command: string; mode: string }) => {
-      plugins: { name?: string }[];
-    };
-    const names = config({ command: 'build', mode: 'production' })
-      .plugins.flat()
-      .map((p) => p?.name);
+    const plugins = resolve({ command: 'build', mode: 'production' }).plugins ?? [];
+    const names = plugins.flat().map((p) => (p as { name?: string } | null)?.name);
 
     expect(names).toContain('nalanda:spa-fallback');
   });
