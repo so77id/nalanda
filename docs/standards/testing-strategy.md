@@ -23,7 +23,7 @@ the add-new-app checklist in `repository-structure.md`).
 | L1 Static | Types, lint, format | `tsc` + oxlint + prettier | Every commit |
 | L2 Unit | Pure logic: parsers, registries, index walks | Vitest | Every commit (TDD red→green per slice) |
 | L3 Component | Components honor their contract (e.g., per-mode rendering) | Vitest + Testing Library (jsdom) | Every commit, touched scope |
-| L4 Architecture | System invariants: import direction, catalog completeness, unique ids | Vitest (pattern imported from DocumentBuddy) | Pre-PR + CI |
+| L4 Architecture | System invariants: import direction + feature edges (`src/architecture.test.ts`), content ids (`src/content/architecture.test.ts`), catalog entry shape (`src/catalog/architecture.test.tsx`), MDX map ↔ catalog completeness (`src/app/mdxComponents.test.ts`) | Vitest (pattern imported from DocumentBuddy) | Pre-PR + CI |
 | L5 Browser smoke | The real app boots; key flows render in a real browser | **Playwright** (decided 2026-08-06; introduced with the first real smoke, WP2+) | Pre-PR + CI |
 | L6 Backend integration | Go handlers against real SQLite + fakes | Go testing | Defined when `apps/server` is born (v0.3) |
 | L7 Cross-app e2e | browser → web → server | Top-level `e2e/` | v0.3+ |
@@ -73,7 +73,19 @@ battery (full tests + integration L6), same rigor as `apps/web`.
 - Component tests assert behavior/contract (what renders per mode/props), not
   implementation details or snapshots.
 - Architecture tests live in `src/` near what they guard and are named
-  `architecture.test.ts` — they encode invariants agreed in standards/ADRs.
+  `architecture.test.ts(x)` (`.tsx` when the invariant must render) — they encode
+  invariants agreed in standards/ADRs. **Exception**: an invariant that binds a
+  feature to the shell cannot live in the feature (features may not import
+  `app/`), so it lives in the shell test that owns the pair and states its L4
+  role in a comment — e.g. the MDX map ↔ catalog completeness check in
+  `src/app/mdxComponents.test.ts`.
+- **Registry-driven invariants**: when a standard applies to every member of a
+  live registry, iterate the registry at module scope and generate one case per
+  entry, so a new entry is gated the moment it is registered — never hand-write
+  one test per member. Every such loop MUST be paired with a non-vacuity
+  assertion (`expect(registry.length).toBeGreaterThan(0)`): a loop over an empty
+  collection is a green suite that verifies nothing. Worked cases:
+  `catalog/architecture.test.tsx`, `app/mdxComponents.test.ts` (#65).
 - Test fakes live next to the tests that use them (see placement criteria in
   `repository-structure.md`).
 

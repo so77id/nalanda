@@ -39,11 +39,18 @@ src/
   pattern imported from DocumentBuddy's architecture tests.)
 - **Cross-feature dependencies are an explicit allowlist**, mirrored by
   `FEATURE_EDGES` in `src/architecture.test.ts`. Current edges:
-  `components → presentation` (mode awareness via `useMode`) and
-  `presentation → content` (registry + lazy document access). Adding an edge is
+  `components → presentation` (mode awareness via `useMode`; `ModeProvider` to
+  stage per-mode catalog examples),
+  `presentation → content` (registry + lazy document access), and
+  `catalog → components` (renders the entries and live examples the components
+  feature exports through its seam). Adding an edge is
   an architectural decision: extend the map AND record the new edge + rationale
   here in the same PR. Test files may cross any feature through its seam (they
   are consumers, like the shell); production code follows the allowlist.
+- **Cross-feature contract types live in `lib/`** (e.g. `lib/catalogEntry.ts`,
+  `lib/componentMeta.ts`) so the producing feature never imports the consuming
+  one. Worked case: a component's colocated catalog entry types itself from
+  `lib/` — importing the catalog feature would close a cycle.
 - **Cross-feature element identity travels as static metadata**, never as
   component-identity imports: declare with `withMeta` and inspect with `metaOf`
   (`lib/componentMeta.ts`). Worked case: the slide parser recognizes
@@ -64,6 +71,10 @@ src/
 ## Naming
 
 - Component files: `PascalCase.tsx`, named after the component (`NotFound.tsx`).
+- Colocated catalog entries: `<Component>.catalog.tsx` beside the component,
+  exporting `<component>CatalogEntry: CatalogEntry` — a `.tsx` module that
+  exports data, not a component (its examples are JSX). Full walkthrough:
+  `docs/standards/guides/add-a-content-component.md`.
 - Hooks: `useThing.ts`, exported as `useThing`.
 - Everything else: `camelCase.ts` (`parser.ts`, `wikiLinks.ts`).
 - One exported component per file; small private subcomponents may live beside it

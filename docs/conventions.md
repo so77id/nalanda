@@ -107,6 +107,10 @@ Refs #<N>
 
 PRs must be **squash-merged** manually by the user.
 
+**Component PRs**: any PR adding or modifying a content component must include
+its catalog entry (ADR-0010; enforced by the completeness test and the review
+checklist at `/catalog/governance`).
+
 ## Worktrees
 
 Each WP is developed in its own worktree to allow parallel work:
