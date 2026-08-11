@@ -26,6 +26,7 @@ src/
 ├── catalog/        # /catalog feature: registry, catalog pages
 ├── content/        # content pipeline: registry, loader, wiki-links plugin
 ├── presentation/   # presentation mode: parser, viewer, mode context
+├── runtime/        # code execution: worker contract, per-language runtimes, useRuntime
 ├── lib/            # pure TS utilities — imports nothing from the folders above
 └── styles/         # global CSS: Tailwind entry + design tokens (@theme)
 ```

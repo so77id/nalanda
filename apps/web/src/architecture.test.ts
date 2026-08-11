@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 // Architecture invariants from docs/standards/frontend-code-style.md:
 // imports flow app → features → lib; lib imports nothing from above.
 const SRC = dirname(fileURLToPath(import.meta.url));
-const FEATURES = ['components', 'catalog', 'content', 'presentation'];
+const FEATURES = ['components', 'catalog', 'content', 'presentation', 'runtime'];
 // The ONLY allowed cross-feature dependencies (frontend-code-style.md).
 // Extending this map is an architectural decision — record it in the style doc.
 const FEATURE_EDGES: Record<string, string[]> = {
