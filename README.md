@@ -52,6 +52,29 @@ and [`apps/web/README.md`](apps/web/README.md). Before contributing, read
 [`docs/standards/`](docs/standards/) — especially the two testing protocols
 (per-commit and pre-PR) in `testing-strategy.md`.
 
+## Deployment
+
+The site is live at **<https://so77id.github.io/nalanda/>** (GitHub Pages, free
+project-pages URL — a custom domain would only change the Vite `base`).
+
+- **What publishes it**: `.github/workflows/deploy.yml`, on every push to `main`
+  that touches `apps/web/**`, `content/**` or the workflow itself. Course
+  material lives outside `apps/` (ADR-0002), so writing a class republishes the
+  site; a docs-only commit does not. It can also be run by hand from the Actions
+  tab (`workflow_dispatch`) without committing anything.
+- **How deep links survive**: Pages is a static file server, so
+  `/nalanda/d/bienvenida` has no file behind it. The build copies `index.html`
+  to `404.html` (`apps/web/src/app/spaFallback.ts`), which Pages serves for
+  unknown paths, handing the URL to the router.
+- **How to verify after a deploy**: open `/nalanda/`, one deep document link
+  (e.g. `/nalanda/d/busqueda-binaria`), and `/nalanda/catalog`. Locally,
+  `npm run build && npm run preview` proves the base path and the router
+  basename — but NOT the fallback, because `vite preview` has its own SPA
+  fallback that masks a missing `404.html`; check `dist/404.html` exists.
+- **Rollback**: revert the offending commit on `main`. The revert is itself a
+  push to `main`, so it redeploys the previous version — there is no separate
+  deploy button to press.
+
 ## Workflow
 
 All changes go through PRs (squash-merged manually). See
