@@ -17,6 +17,9 @@ const contentDir = path.resolve(appDir, '../../content');
 
 // https://vite.dev/config/
 export default defineConfig({
+  // Project Pages serve under /<repo>/ (issue #66). Dev keeps the root so
+  // local URLs stay short; the router derives its basename from BASE_URL.
+  base: process.env['NODE_ENV'] === 'production' ? '/nalanda/' : '/',
   plugins: [
     contentIntegrity(contentDir),
     // MDX must transform before the React plugin sees the file.

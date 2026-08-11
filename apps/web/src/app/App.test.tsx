@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 
 import { courseIndex, registry, walkIndex } from '../content';
 import { AppRoutes } from './AppRoutes';
+import { routerBasename } from './basename';
 
 // Assertions derive from the live index/registry (never hardcoded titles) so
 // editing course material — an authoring act — cannot break shell tests.
@@ -78,5 +79,16 @@ describe('routing', () => {
   it('shows the 404 page for an unknown route', () => {
     renderAt('/nope');
     expect(screen.getByRole('heading', { name: /not found/i })).toBeInTheDocument();
+  });
+});
+
+describe('routerBasename', () => {
+  it('is empty in dev, where the app is served from the domain root', () => {
+    expect(routerBasename('/')).toBe('');
+  });
+
+  it('drops the trailing slash of a deployed base path', () => {
+    // Vite's BASE_URL always ends in '/', react-router's basename must not.
+    expect(routerBasename('/nalanda/')).toBe('/nalanda');
   });
 });
