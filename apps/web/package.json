@@ -14,8 +14,12 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@bjorn3/browser_wasi_shim": "^0.4.2",
+    "@codemirror/lang-cpp": "^6.0.3",
+    "@codemirror/state": "^6.7.1",
     "@mdx-js/react": "^3.1.1",
     "@tailwindcss/vite": "^4.3.3",
+    "browsercc": "^0.1.1",
     "framer-motion": "^13.0.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",

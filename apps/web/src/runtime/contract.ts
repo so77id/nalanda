@@ -1,3 +1,5 @@
+import type { Extension } from '@codemirror/state';
+
 // The contract every language runtime implements. It is deliberately
 // language-agnostic and transport-agnostic: a runtime is "something that turns
 // source + stdin into output", whether it compiles in a worker (ADR-0001) or,
@@ -82,4 +84,15 @@ export interface WarmStats {
   /** Wall-clock from worker creation to the warm message. */
   totalMs: number;
   detail: Record<string, number>;
+}
+
+/**
+ * The expensive half of a runtime, reached only through `loadRuntime`: it drags
+ * in a CodeMirror grammar and a worker entry point, so it must never be reachable
+ * from the entry chunk.
+ */
+export interface RuntimeModule {
+  descriptor: RuntimeDescriptor;
+  createWorker: () => RuntimeWorker;
+  codeMirrorLanguage: () => Extension;
 }
