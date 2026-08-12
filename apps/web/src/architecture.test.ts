@@ -6,12 +6,12 @@ import { describe, expect, it } from 'vitest';
 // Architecture invariants from docs/standards/frontend-code-style.md:
 // imports flow app → features → lib; lib imports nothing from above.
 const SRC = dirname(fileURLToPath(import.meta.url));
-const FEATURES = ['components', 'catalog', 'content', 'presentation'];
+const FEATURES = ['components', 'catalog', 'content', 'presentation', 'runtime'];
 // The ONLY allowed cross-feature dependencies (frontend-code-style.md).
 // Extending this map is an architectural decision — record it in the style doc.
 const FEATURE_EDGES: Record<string, string[]> = {
   catalog: ['components'],
-  components: ['presentation'],
+  components: ['presentation', 'runtime'],
   presentation: ['content'],
 };
 
@@ -65,6 +65,29 @@ describe('architecture: import direction (app → features → lib)', () => {
   it('feature folders import nothing from app/', () => {
     expect(
       violations((fileTop, importTop) => FEATURES.includes(fileTop) && importTop === 'app'),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the code editor stays out of the entry chunk', () => {
+  // The shell builds the MDX map and `catalogEntries` eagerly, so ANY static
+  // import of the editor from a module the shell reaches drags CodeMirror into
+  // the entry chunk — roughly doubling it, measured precisely in ADR-0018 §7.
+  // Only the lazy wrapper may name it, with no per-file exemptions: an
+  // allowlisted file is exactly where the next contributor would add the import
+  // that reopens the hole.
+  const ALLOWED = ['components/interactive/lazyCodeEditor.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          // Normalised: `allowImportingTsExtensions` is on, so `./CodeEditor.tsx`
+          // resolves and bundles exactly like `./CodeEditor` and must not slip past.
+          importRel.replace(/\.(ts|tsx)$/, '') === 'components/interactive/CodeEditor' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
     ).toEqual([]);
   });
 });

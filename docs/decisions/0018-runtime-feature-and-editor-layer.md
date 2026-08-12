@@ -1,0 +1,146 @@
+# ADR-0018: The runtime feature and the editor layer — one contract, and what ships in the entry chunk
+
+**Status:** Accepted
+**Date:** 2026-08-11
+**Decision-makers:** Miguel Rodriguez
+**Covers:** the `RuntimeWorker` contract · lazy per-language runtime modules ·
+CDN-loaded toolchains · CodeMirror 6 + lucide-react · lazy wrappers for heavy components
+**Source:** Issue #74 (WP: in-browser code runtimes + CodeEditor); review pipeline Round B, ADR-hunter lens. Extends ADR-0001, ADR-0004 and ADR-0010/0014; relied on by ADR-0016 and ADR-0017.
+
+## Context
+
+ADR-0001 said expensive compute runs in the student's browser. Issue #74 built
+it, and produced two ADRs about Java specifically — 0016 (may we use CheerpJ)
+and 0017 (how Java executes). Both lean on a design neither of them decides:
+0016 promises that "a later pivot to server-side Java changes one worker
+implementation and nothing else", and 0017 says "`RuntimeWorker` is our own
+narrow interface rather than `Worker`, which is what lets this sit behind the
+same contract as the other two". That property is load-bearing and, until this
+ADR, unrecorded — a future refactor could delete the escape hatch 0016 sells
+without tripping anything.
+
+`src/runtime/` is also the fifth feature folder and the only one without an
+implementation ADR (`content` → 0012, `presentation` → 0013, `catalog` → 0014).
+This is its missing sibling. It covers the execution contract and the editor
+layer together, because they are one story: what ships in the entry chunk and
+what is fetched only when a student asks to run something.
+
+## Decision
+
+**1. `src/runtime/` is a feature, with a one-way edge `components → runtime`.**
+Execution is neither a content component nor a pure `lib/` utility — it owns
+workers and lazy module loading. The runtime knows nothing about components;
+`CodeEditor` reaches it through the feature seam. Recorded in
+`frontend-code-style.md` and enforced by `FEATURE_EDGES` in
+`src/architecture.test.ts`.
+
+**2. The transport is our own narrow `RuntimeWorker` interface, never the DOM
+`Worker` type.** Four methods: `postMessage`, `addEventListener`,
+`removeEventListener`, `terminate`. This is the decision the other two ADRs rely
+on. It buys three things at once: Java runs on the main thread behind the same
+type (ADR-0017 §3); the jsdom suite drives every runtime with a fake, which is
+how a critical output-crossing defect was caught before merge; and a
+remote-backed runtime — the ADR-0016 pivot — implements the same four methods
+and changes nothing else.
+
+**3. The message protocol is `warm` · `started` · `result` · `error`.**
+Two rules carry weight beyond their size:
+
+- **A failed compile is a `result`, not an `error`** — `exitCode: null`, the
+  compiler's own text in `compileLog`. `error` means our machinery broke. A
+  student who writes bad code must see the compiler, never an apology.
+- **`started` marks the boundary between waiting and running**, so the caller's
+  deadline measures the program and not a cold CDN, a JVM boot or (for Java) a
+  queue behind another editor. Two budgets follow from it: 180s to get started,
+  60s to run.
+
+**4. Runtimes are split in two halves: a cheap descriptor and a lazy module.**
+The descriptor (id, label, file name, sample) is plain data and may travel in
+the entry chunk, so a language picker costs nothing. The module (CodeMirror
+grammar + worker factory) sits behind `loadRuntime`, written as a switch of
+static `import()` calls so the bundler emits one chunk per language — a computed
+specifier would collapse them into one.
+
+**5. Toolchains are loaded from a CDN, not bundled; their npm packages stay as
+devDependencies for types.** browsercc and Pyodide address their own assets with
+`new URL(…, import.meta.url)`, so a bundled import makes their WASM a build
+output — measured 2026-08-11: `dist/` went from ~1MB to 113MB, against 109MB of
+`node_modules/browsercc` on disk. Importing the module *from*
+jsDelivr points that URL at the CDN instead. Versions are pinned exactly, with a
+test tying the downloaded build to the typed one. The exception is what must be
+self-hosted: the Java compiler jar, which CheerpJ reads through our own origin
+(ADR-0017 §1).
+
+**6. CodeMirror 6 is the editor, and `lucide-react` the icon set.** Via
+`@uiw/react-codemirror`, one grammar per runtime exposed through
+`RuntimeModule.codeMirrorLanguage()`. It is THE editor and THE highlighter for
+documents, in the sense ADR-0004 makes framer-motion THE animation library; this
+extends ADR-0004's stack enumeration as ADR-0011 did for the router. ADR-0014's seventh decision
+kept catalog examples on plain `<pre>` "until a real need appears" — this is
+that need, and it resolves the deferral for documents while leaving catalog
+example snippets on `<pre>`. `lucide-react` is likewise the only icon library
+(usage rules in `frontend-code-style.md` §Icons).
+
+**7. Heavy components register through a lazy wrapper — extends ADR-0010/0014.**
+The shell builds the MDX map and `catalogEntries` eagerly, so any static import
+of a heavy component from a module the shell reaches pays its full weight in the
+entry chunk: measured 478.41kB → 893.69kB for CodeMirror (2026-08-12,
+vite 8.2.0; the widely-quoted "478 → 891" is the same delta measured a day
+earlier). Such a component ships a
+`lazy<Name>.tsx` wrapper, and **both** the MDX map and the component's own
+catalog entry import the wrapper. This changes catalog mechanics, which
+ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/governance` and
+`guides/add-a-content-component.md` carry the operational form.
+
+## Alternatives considered
+
+- **Type the transport as the DOM `Worker`** and special-case Java — would have
+  made Java a permanent exception instead of an implementation, and left the
+  jsdom suite unable to exercise any runtime.
+- **Bundle the toolchains** — self-contained, offline-capable, no third-party
+  origin. Rejected at 113MB per deploy; the exposure it avoids is recorded as an
+  accepted risk in `docs/security-notes.md` instead.
+- **Monaco** — heavier, worker-based, VS Code fidelity we do not need.
+  **Prism/Shiki + `<textarea>`** — highlighting only, no editing. **Plain
+  `<pre>`** — what ADR-0014's seventh decision chose, and still right for
+  catalog examples.
+- **One shared worker per language per page** instead of one per editor —
+  listed as a non-goal in issue #74; revisit when a document actually ships two
+  runnable editors of the same language (per-worker cost measured in
+  Consequences).
+- **Manual chunking in `vite.config.ts`** instead of the lazy wrapper — moves a
+  component-level concern into a confirmation-gated build file, and does not
+  stop the next contributor from importing the component directly.
+
+## Consequences
+
+- **Adding a language is bounded**: descriptor, module, worker, one `case` —
+  `docs/standards/guides/add-a-language-runtime.md` is the checklist, and the
+  registry's own tests gate every entry the moment it is registered.
+- **The pivot ADR-0016 promises is real**: a server-backed Java runtime
+  implements four methods.
+- **Execution depends on origins we do not control** (accepted risk, with review
+  triggers, in `docs/security-notes.md`).
+- **Every future language owes a CodeMirror grammar** — a real constraint on
+  adding a language whose grammar does not exist.
+- **The entry chunk stays flat**: 483.26kB against 478.41kB on `main`, i.e.
+  **+4.85kB** (measured 2026-08-12, vite 8.2.0). The editor is a 111.58kB chunk;
+  the languages are 44.78kB (python), 45.63kB (java) and 104.12kB (cpp), all
+  lazy. **The case that does not hold**: this number tracks content, not only
+  code — a catalog entry's prose ships in the entry chunk because
+  `catalogEntries` is built eagerly, so writing documentation moves it. The
+  claim to defend is "no CodeMirror, no compiler, no runtime in the entry
+  chunk", which `grep` proves; the kilobytes are a symptom.
+- **One live worker costs a few hundred MB of RSS** — 681MB peak measured for a
+  single C++ worker on Apple Silicon (2026-08-11, Chromium via Playwright),
+  against a 152MB idle baseline. Discarding it reclaims the live heap and all
+  the CPU, not the whole footprint.
+- **A green jsdom suite says nothing about execution**: every runtime is faked
+  there. Browser verification is mandatory for changes under `src/runtime/**` or
+  to `CodeEditor` (`docs/standards/testing-strategy.md`).
+
+## References
+
+- ADR-0001 (client-side compute) · ADR-0004 (frontend stack) · ADR-0010 (component contract) · ADR-0014 (catalog) · ADR-0015 (base path)
+- ADR-0016 and ADR-0017 — both depend on Decision 2
+- Issue #74 · `docs/standards/guides/add-a-language-runtime.md` · `docs/security-notes.md`

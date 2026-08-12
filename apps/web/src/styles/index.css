@@ -1,2 +1,22 @@
 @import 'tailwindcss';
 @plugin '@tailwindcss/typography';
+
+/* Sizes below Tailwind's `text-xs`, for the dense monospace chrome of runnable
+   components — panel labels, chips, timings (frontend-code-style.md §Styling:
+   sizes beyond the defaults are tokens, never arbitrary values). */
+/* Ordered like the rest of the scale — more x's is smaller — so that reaching
+   for "the smallest label" lands on the smallest one: 3xs < 2xs < xs (0.75). */
+@theme {
+  --text-2xs: 0.7rem;
+  --text-3xs: 0.65rem;
+}
+
+/* The typography plugin decorates inline code with literal backticks via
+   ::before/::after, so `System.out.println` renders WITH its markup delimiters
+   showing. Course prose is full of inline identifiers; the code style already
+   sets it apart. The plugin's own selectors use :where(), so a plain class
+   selector overrides them. */
+.prose code::before,
+.prose code::after {
+  content: none;
+}

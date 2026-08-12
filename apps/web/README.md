@@ -6,12 +6,16 @@ CSS v4 (+ typography plugin) + framer-motion; course documents compile from MDX
 (ADR-0003) via `@mdx-js/rollup` + remark plugins, sourced from the repo-root
 `content/` tree (ADR-0002, ADR-0012).
 
+Since #74 it also **executes code in the reader's browser**: CodeMirror 6 editors
+(+ lucide-react icons) driving three runtimes — Java on CheerpJ, C++ on
+browsercc, Python on Pyodide (ADR-0018).
+
 ## Commands
 
 ```bash
 npm install          # dependencies
-npm run dev          # Vite dev server → http://localhost:5173
-npm run build        # tsc -b (type gate) + vite build → dist/
+npm run dev          # Vite dev server → http://localhost:5173  (runs predev first)
+npm run build        # tsc -b (type gate) + vite build → dist/    (runs prebuild first)
 npm run preview      # serve the production build locally, under /nalanda/
 npm run lint         # oxlint
 npm run format       # prettier --write
@@ -20,9 +24,19 @@ npm run test         # vitest run (full suite)
 npm run test:watch   # vitest watch mode
 ```
 
+`predev`/`prebuild` run `scripts/fetch-java-compiler.mjs`, which downloads ECJ
+3.21 (~2.9MB) from Maven Central into `public/java-compiler.jar` — a gitignored
+build input, verified against a SHA-256 pinned in the script and reused on later
+runs. **The first build of a clean checkout needs network access**; offline it
+fails before Vite starts, and on a checksum mismatch nothing is written
+(ADR-0017).
+
 ## Source layout
 
-See `docs/standards/frontend-code-style.md` for the authoritative rules.
+See `docs/standards/frontend-code-style.md` for the authoritative rules — it
+owns _which folders may exist and why_. The tree below is the narrower fact this
+README is the home for: what is in each of them **today**, plus the app-specific
+files the standard does not carry.
 
 ```
 src/
@@ -31,10 +45,13 @@ src/
 ├── catalog/              # /catalog surface: registry, family taxonomy, component +
 │                         # governance pages, live-example blocks
 ├── components/           # catalog content components by family (structure: Slide,
-│                         # SectionBreak) + their colocated <Component>.catalog.tsx entries
+│                         # SectionBreak; interactive: CodeEditor + its lazy wrapper)
+│                         # + their colocated <Component>.catalog.tsx entries
 ├── content/              # content pipeline: MDX registry, course index, wiki-links,
 │                         # book-mode page, build-time integrity gate
 ├── presentation/         # presentation mode: mode context, slide parser, SlideDeck viewer
+├── runtime/              # code execution: worker contract, registry, useRuntime hook,
+│                         # one folder per language (java, cpp, python)
 ├── lib/                  # pure TS utilities + cross-feature contract types
 │                         # (catalogEntry, componentMeta, reactText)
 ├── styles/               # Tailwind entry + design tokens
@@ -45,7 +62,8 @@ src/
 All feature folders now exist. Guides: authoring course material (frontmatter,
 wiki-links, slide markers) → `docs/standards/guides/add-a-course-document.md`;
 adding a content component → `docs/standards/guides/add-a-content-component.md`
-(its rules are rendered at `/catalog/governance`).
+(its rules are rendered at `/catalog/governance`); adding a language runtime →
+`docs/standards/guides/add-a-language-runtime.md`.
 
 ## Deployed shape
 
@@ -61,6 +79,17 @@ repo-level story — trigger, rollback — is in the root README).
 - Gotcha: `vite preview` has its own SPA fallback, so it cannot prove the
   `404.html` exists — `src/app/spaFallback.test.ts` and the build-shape cases in
   `src/app/deployedApp.test.tsx` are what actually guard both mechanisms.
+- `dist/` also ships **`java-compiler.jar`** (2.9MB), fetched at build time and
+  read back by CheerpJ through the deployed base path — `/app/nalanda/…` in
+  production, `/app/…` in dev, derived from `BASE_URL` like everything else
+  (`src/runtime/java/classPath.ts`).
+- The rest of the execution machinery is **not** ours to serve: Pyodide and
+  browsercc come from `cdn.jsdelivr.net`, CheerpJ from `cjrtnc.leaningtech.com`
+  (ADR-0018 §5). Nothing is fetched until an editor asks for a runtime — the
+  first Ejecutar, or page load for a `warmOnMount` editor (the `lab` variant),
+  so a page carrying one pays the CDN cost on open. There is no offline use, and
+  a CDN outage breaks the Run button with no deploy of ours — accepted risk with
+  review triggers in `docs/security-notes.md`.
 
 ## Testing
 

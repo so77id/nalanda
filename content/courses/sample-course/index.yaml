@@ -5,4 +5,5 @@ entries:
     children:
       - docId: intro-estructuras
       - docId: busqueda-binaria
+      - docId: codigo-ejecutable
   - docId: apuntes-del-curso

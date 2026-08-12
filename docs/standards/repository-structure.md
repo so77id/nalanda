@@ -67,6 +67,8 @@ nalanda/
 | Cross-app e2e (browser → web → server) | Top-level `e2e/` (created when it first exists) | Verifies the whole |
 | Course assets (images/video) | `content/`, next to their documents | Material domain |
 | Test mocks needed by a second app | Promote to `packages/` | Shared-code rule |
+| Build script (fetches or generates a build input) | `apps/<app>/scripts/`, wired to an npm lifecycle hook (`prebuild`/`predev`) | Neither source nor runtime code; must run before the bundler, and in CI |
+| Fetched or generated build input (jar, wasm blob) | That app's `public/`, gitignored, digest pinned in the fetching script | Reproducible without carrying binaries in git — worked case `public/java-compiler.jar` (ADR-0017) |
 
 **Growth rule:** when a new case has no row in this table, propose a placement in
 the PR that introduces it and record the outcome here in the same PR. The standard

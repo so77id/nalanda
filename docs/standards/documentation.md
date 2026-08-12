@@ -65,6 +65,19 @@ case: the deployed shape (#66).
    Partial migrations make instruction consistency depend on which file an agent
    reads first.
 
+## Rules for empirical claims in ADRs
+
+A performance, feasibility or platform-capability claim carries **the
+measurement, the date, and the case that does NOT hold**. An unmeasured "it is
+fast enough" or "the platform handles it" is a hypothesis, not a decision, and
+the next reader cannot tell which they are looking at.
+
+Worked case (issue #74): ADR-0017 first said "the page stays responsive anyway
+(timers keep firing while a Java program blocks)" — generalised from the one
+case that had been spiked, a program waiting on `System.in`. A CPU-bound loop
+yields nothing, and the review measured a probe still blocked 45s past its
+deadline. The corrected text names both cases with numbers and dates.
+
 ## ADR format
 
 ADRs live in `docs/decisions/<NNNN>-<kebab-title>.md`, numbered sequentially:

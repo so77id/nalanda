@@ -26,6 +26,7 @@ src/
 ├── catalog/        # /catalog feature: registry, catalog pages
 ├── content/        # content pipeline: registry, loader, wiki-links plugin
 ├── presentation/   # presentation mode: parser, viewer, mode context
+├── runtime/        # code execution: worker contract, per-language runtimes, useRuntime
 ├── lib/            # pure TS utilities — imports nothing from the folders above
 └── styles/         # global CSS: Tailwind entry + design tokens (@theme)
 ```
@@ -42,6 +43,9 @@ src/
   `FEATURE_EDGES` in `src/architecture.test.ts`. Current edges:
   `components → presentation` (mode awareness via `useMode`; `ModeProvider` to
   stage per-mode catalog examples),
+  `components → runtime` (`CodeEditor` loads a language runtime and drives it
+  through `useRuntime`; the runtime feature knows nothing about components, so
+  the edge stays one-way),
   `presentation → content` (registry + lazy document access), and
   `catalog → components` (renders the entries and live examples the components
   feature exports through its seam). Adding an edge is
@@ -87,6 +91,11 @@ src/
   exporting `<component>CatalogEntry: CatalogEntry` — a `.tsx` module that
   exports data, not a component (its examples are JSX). Full walkthrough:
   `docs/standards/guides/add-a-content-component.md`.
+- Lazy wrappers: `lazy<Name>.tsx` beside the component, exporting `Lazy<Name>` —
+  deliberately lower-camel so the wrapper never reads as the component itself at
+  an import site. Required for any component carrying a heavy dependency
+  (`guides/add-a-content-component.md` §Heavy components, ADR-0018 §7); worked
+  case `components/interactive/lazyCodeEditor.tsx`.
 - Hooks: `useThing.ts`, exported as `useThing`.
 - Everything else: `camelCase.ts` (`parser.ts`, `wikiLinks.ts`).
 - One exported component per file; small private subcomponents may live beside it
@@ -119,6 +128,13 @@ src/
 
 - **framer-motion is the only animation library** (ADR-0004). CSS transitions are
   fine for trivial hover/focus states; anything choreographed uses framer-motion.
+
+## Icons
+
+- **lucide-react is the only icon library.** Icons are used inline with an
+  explicit `size` (13–14px inside dense chrome, matching the surrounding text),
+  never as background images. Adding a second icon set needs the same discussion
+  a dependency does (root `CLAUDE.md`).
 
 ## State
 

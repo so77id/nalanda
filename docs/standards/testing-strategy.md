@@ -29,7 +29,7 @@ the add-new-app checklist in `repository-structure.md`).
 | L1 Static | Types, lint, format | `tsc` + oxlint + prettier | Every commit |
 | L2 Unit | Pure logic: parsers, registries, index walks | Vitest | Every commit (TDD red→green per slice) |
 | L3 Component | Components honor their contract (e.g., per-mode rendering) | Vitest + Testing Library (jsdom) | Every commit, touched scope |
-| L4 Architecture | System invariants: import direction + feature edges (`src/architecture.test.ts`), content ids (`src/content/architecture.test.ts`), catalog entry shape (`src/catalog/architecture.test.tsx`), MDX map ↔ catalog completeness (`src/app/mdxComponents.test.ts`), deployed build shape (`src/app/deployedApp.test.tsx`, `src/app/spaFallback.test.ts`) | Vitest (pattern imported from DocumentBuddy) | Pre-PR + CI |
+| L4 Architecture | System invariants: import direction + feature edges (`src/architecture.test.ts`), content ids (`src/content/architecture.test.ts`), catalog entry shape (`src/catalog/architecture.test.tsx`), entry-chunk isolation of lazily-registered heavy components (`src/architecture.test.ts`, one case per component), MDX map ↔ catalog completeness (`src/app/mdxComponents.test.ts`), deployed build shape (`src/app/deployedApp.test.tsx`, `src/app/spaFallback.test.ts`) | Vitest (pattern imported from DocumentBuddy) | Pre-PR + CI |
 | L5 Browser smoke | The real app boots; key flows render in a real browser | **Playwright** (decided 2026-08-06; introduced with the first real smoke, WP2+) | Pre-PR + CI |
 | L6 Backend integration | Go handlers against real SQLite + fakes | Go testing | Defined when `apps/server` is born (v0.3) |
 | L7 Cross-app e2e | browser → web → server | Top-level `e2e/` | v0.3+ |
@@ -91,6 +91,15 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   resolved Vite config (import `vite.config.ts` and call it with a `ConfigEnv`)
   or by driving the plugin's hooks directly, and name the level in a header
   comment. A green jsdom suite says nothing about the deployed build.
+- **Execution is invisible to the suite**: every runtime is faked in jsdom
+  (`CodeEditor.test.tsx` mocks CodeMirror and the worker; `java/runtime.test.ts`
+  stubs the CheerpJ globals), and jsdom has no `Worker`, no CheerpJ DOM loader
+  and no network — so nothing there compiles or runs, whatever WebAssembly Node
+  itself provides. A green
+  suite therefore says nothing about whether code actually compiles or runs. Any
+  change under `src/runtime/**` or to `CodeEditor` MUST also be verified in a
+  real browser against `npm run build && npm run preview` — run, stdin, and a
+  deliberate compile error — per `guides/add-a-language-runtime.md` §7.
 - **Env-derived values go through a pure helper**: extract the transformation
   into a colocated, unit-tested module rather than inlining it in a component
   the suite cannot exercise. Worked case: `app/basename.ts` derives the router

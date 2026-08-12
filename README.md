@@ -74,7 +74,10 @@ prefix may not survive the move, so decide before handing URLs to students
   to `404.html` (`apps/web/src/app/spaFallback.ts`), which Pages serves for
   unknown paths, handing the URL to the router.
 - **How to verify after a deploy**: open `/nalanda/`, one deep document link
-  (e.g. `/nalanda/d/busqueda-binaria`), and `/nalanda/catalog`. Locally,
+  (e.g. `/nalanda/d/busqueda-binaria`), `/nalanda/catalog`, and — since #74 —
+  **run one snippet** on `/nalanda/d/codigo-ejecutable`. A green workflow no
+  longer proves the site works: the code runtimes come from third-party CDNs
+  that can fail without any deploy of ours. Locally,
   `npm run build && npm run preview` serves the real build under `/nalanda/` and
   proves the base path and the router basename — but NOT the fallback, because
   `vite preview` has its own SPA fallback that masks a missing `404.html`. That
@@ -93,6 +96,8 @@ prefix may not survive the move, so decide before handing URLs to students
   | Deep link renders "Page not found" | router basename | `basename.test.ts`, `deployedApp.test.tsx` |
   | Workflow green, site unchanged | path filters did not match — rerun from the Actions tab | — |
   | Deploy job fails on permissions | repo Settings ▸ Pages source must be "GitHub Actions", and the `github-pages` environment must allow `main` | — |
+  | Deploy job fails before Vite starts | `prebuild` could not reach Maven Central, or the ECJ checksum did not match | the script's own error; nothing is written on mismatch (ADR-0017) |
+  | Site fine, but Ejecutar never finishes or never warms | a runtime CDN is down or blocked (`cjrtnc.leaningtech.com`, `cdn.jsdelivr.net`) | nothing — accepted risk, `docs/security-notes.md` |
 
 ## Workflow
 

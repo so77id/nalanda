@@ -67,10 +67,31 @@ apps/web/src/components/structure/
 6. **Verify**: per-commit protocol green; review the PR against the review
    checklist (`/catalog/governance`).
 
+### Heavy components register through a lazy wrapper
+
+The shell builds `mdxComponents` and `catalogEntries` eagerly, so **any** static
+import of a component from a module the shell reaches puts that component — and
+everything it imports — in the entry chunk, paid by every reader of every page.
+`CodeEditor` brings CodeMirror: registering it directly roughly doubled the
+entry chunk (measured in ADR-0018 §7).
+
+When a component carries a heavy dependency, add a `lazy<Name>.tsx` beside it
+that wraps `lazy()` in a `Suspense` with a sized placeholder, export **that**
+through the seam, and register it in the MDX map. Its catalog entry must import
+the wrapper too — the entry is reachable from the shell, so a static import
+there undoes the split just as effectively. Worked case:
+`components/interactive/lazyCodeEditor.tsx`, guarded by an L4 case in
+`src/architecture.test.ts`. **That guard is per-component, not generic**: copy
+its "stays out of the entry chunk" describe block for your component, with your
+own wrapper in `ALLOWED`, or nothing checks you.
+
 ## Checklist
 
 - [ ] Family chosen; seven contract points satisfied.
 - [ ] Registered in `app/mdxComponents.ts` (mandatory for every catalogued component).
 - [ ] Colocated `.catalog.tsx` entry exported via the components seam.
 - [ ] ≥2 live examples; per-mode tests; completeness test green.
+- [ ] If it carries a heavy dependency: lazy wrapper registered instead of the
+      component, catalog entry importing the wrapper, its own L4 case copied in
+      `src/architecture.test.ts`, entry chunk unchanged in `npm run build`.
 - [ ] PR reviewed against the catalog's review checklist.

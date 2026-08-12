@@ -7,6 +7,9 @@ node_modules
 dist
 *.local
 
+# Build input, not source: fetched by scripts/fetch-java-compiler.mjs
+public/java-compiler.jar
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
