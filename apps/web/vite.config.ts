@@ -4,14 +4,11 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import remarkFrontmatter from 'remark-frontmatter';
-import remarkMdxFrontmatter from 'remark-mdx-frontmatter';
 import { defineConfig } from 'vite';
 
 import { spaFallback } from './src/app/spaFallback.ts';
-import { remarkCodeMeta } from './src/content/codeMeta.ts';
 import { contentIntegrity } from './src/content/contentIntegrity.ts';
-import { remarkWikiLinks } from './src/content/wikiLinks.ts';
+import { remarkPlugins } from './src/content/mdxPlugins.ts';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 // Course material lives at the repo root (Material domain, outside apps/) — ADR-0002.
@@ -30,15 +27,10 @@ export default defineConfig(({ command, isPreview }) => ({
     // MDX must transform before the React plugin sees the file.
     {
       enforce: 'pre',
-      ...mdx({
-        remarkPlugins: [
-          remarkFrontmatter,
-          [remarkMdxFrontmatter, { name: 'frontmatter' }],
-          remarkWikiLinks,
-          remarkCodeMeta,
-        ],
-        providerImportSource: '@mdx-js/react',
-      }),
+      // The list lives in src/content/mdxPlugins.ts so the suite can compile MDX
+      // through the same one the build uses, instead of scraping this file for
+      // plugin names.
+      ...mdx({ remarkPlugins, providerImportSource: '@mdx-js/react' }),
     },
     react(),
     tailwindcss(),
