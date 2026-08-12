@@ -1,15 +1,14 @@
-import { Prec } from '@codemirror/state';
-import { keymap } from '@codemirror/view';
 import CodeMirror from '@uiw/react-codemirror';
 import { Check, Copy, Expand, Loader, Play, X } from 'lucide-react';
-import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { draftKey, readDraft, saveDraft } from './draft';
+import { OUTPUT, Panel } from './Panel';
 import { useMode } from '../../presentation';
 import type { RunResult, RuntimeId, RuntimeModule } from '../../runtime';
 import { RunAbandonedError, loadRuntime, runtimeDescriptors, useRuntime } from '../../runtime';
+import { useRunShortcut } from './useRunShortcut';
 import type { EditorFlags, EditorVariant } from './variants';
 import { resolveFlags } from './variants';
 
@@ -24,19 +23,7 @@ export interface CodeEditorProps extends Partial<EditorFlags> {
   defaultStdin?: string;
 }
 
-const PANEL_LABEL =
-  'bg-zinc-800 px-3 py-1 font-mono text-3xs uppercase tracking-wide text-zinc-400';
-const OUTPUT = 'm-0 overflow-auto whitespace-pre-wrap px-3 py-2 font-mono text-xs';
 const CHIP = 'rounded px-1.5 py-0.5 font-mono text-3xs';
-
-function Panel({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <section className="border-t border-zinc-700">
-      <h4 className={PANEL_LABEL}>{label}</h4>
-      {children}
-    </section>
-  );
-}
 
 /**
  * Editable, runnable source embedded in a document — the component that makes a
@@ -168,24 +155,7 @@ export function CodeEditor({
     );
   }, [code]);
 
-  // CodeMirror handles keys on its own DOM node, so a bubbled handler cannot stop
-  // Enter from inserting a newline first. The keymap runs ahead of it.
-  const runShortcut = useMemo(
-    () =>
-      Prec.highest(
-        keymap.of([
-          {
-            key: 'Mod-Enter',
-            preventDefault: true,
-            run: () => {
-              void doRun();
-              return true;
-            },
-          },
-        ]),
-      ),
-    [doRun],
-  );
+  const runShortcut = useRunShortcut(useCallback(() => void doRun(), [doRun]));
 
   useEffect(() => {
     if (!expanded) return;

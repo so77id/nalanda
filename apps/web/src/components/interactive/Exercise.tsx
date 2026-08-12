@@ -1,5 +1,3 @@
-import { Prec } from '@codemirror/state';
-import { keymap } from '@codemirror/view';
 import CodeMirror from '@uiw/react-codemirror';
 import { Check, Loader, Play, RotateCcw, X } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -8,10 +6,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { fencesByMeta, withoutFences } from '../../lib/codeFences';
 import { AuthoringError } from '../AuthoringError';
 import { clearDraft, draftKey, readDraft, saveDraft } from './draft';
+import { OUTPUT, Panel } from './Panel';
 import type { RuntimeId, RuntimeModule } from '../../runtime';
 import { RunAbandonedError, loadRuntime, useRuntime } from '../../runtime';
 import type { RunReading } from './harness';
 import { STARTER_FENCE, TEST_FENCE, buildHarness, readRun } from './harness';
+import { useRunShortcut } from './useRunShortcut';
 
 export interface ExerciseProps {
   /** Shown as the exercise's heading. */
@@ -20,19 +20,6 @@ export interface ExerciseProps {
   language?: RuntimeId;
   /** Statement as prose, plus a ```<lang> starter``` and a ```<lang> test``` fence. */
   children?: ReactNode;
-}
-
-const PANEL_LABEL =
-  'bg-zinc-800 px-3 py-1 font-mono text-3xs uppercase tracking-wide text-zinc-400';
-const OUTPUT = 'm-0 overflow-auto whitespace-pre-wrap px-3 py-2 font-mono text-xs';
-
-function Panel({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <section className="border-t border-zinc-700">
-      <h4 className={PANEL_LABEL}>{label}</h4>
-      {children}
-    </section>
-  );
 }
 
 function Verdict({ reading }: { reading: RunReading }) {
@@ -171,22 +158,7 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
     }
   }, [run, code, cases, key]);
 
-  const checkShortcut = useMemo(
-    () =>
-      Prec.highest(
-        keymap.of([
-          {
-            key: 'Mod-Enter',
-            preventDefault: true,
-            run: () => {
-              void check();
-              return true;
-            },
-          },
-        ]),
-      ),
-    [check],
-  );
+  const checkShortcut = useRunShortcut(useCallback(() => void check(), [check]));
 
   // Both fences, not just the starter. Without `test` the exercise compiled and
   // ran, and told the STUDENT their program reported no cases — the author's
