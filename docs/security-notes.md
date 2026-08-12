@@ -4,6 +4,46 @@ Durable record of security decisions that are not ADR-scale: accepted-risk
 deferrals, advisory dispositions, and their review dates. Every deferral here
 names its trigger for re-evaluation — nothing is "accepted forever".
 
+## Accepted invariants
+
+### Executing student code pulls scripts from three third-party origins (accepted 2026-08-11, #74)
+
+- **What happens**: pressing Ejecutar fetches an entire toolchain from a host we
+  do not control. Java loads `https://cjrtnc.leaningtech.com/4.3/loader.js` as a
+  `<script>` **on the main thread** — full access to our origin and DOM — and
+  the loader then fetches its own ~666kB payload with no integrity attributes.
+  Python and C++ `import()` `https://cdn.jsdelivr.net/...` inside Web Workers.
+- **Why it is this way**: bundling the C++ toolchain put 113MB of WASM into every
+  deploy (ADR-0018); CheerpJ's Community licence forbids self-hosting outright
+  (ADR-0016 F2). Only the Java *compiler* (ECJ, 2.9MB, SHA-256 pinned in
+  `scripts/fetch-java-compiler.mjs`) is served from our own origin.
+- **Why SRI is not the control**: it cannot be applied to a dynamic `import()`
+  at all, and pinning CheerpJ's 7.5kB loader while its 666kB payload stays
+  unpinned buys nothing. What we have instead: Pyodide and browsercc are pinned
+  to **exact immutable versions** (npm cannot republish a version; jsDelivr
+  caches them permanently), each with a test tying the downloaded build to the
+  typed one. CheerpJ's `/4.3/` is a mutable minor channel — the finest pin the
+  vendor offers.
+- **Blast radius**: a compromised CDN is arbitrary script execution on
+  `so77id.github.io/nalanda/` for every visitor. There is no login, no user data
+  and no secrets on the site, so the loss is the integrity of what students see
+  and run, not stolen credentials.
+- **Availability, not just integrity**: a CDN outage breaks the Run button with
+  no deploy and no warning — a class breaking mid-session. ADR-0016 records that
+  the CheerpJ vendor can also disable it deliberately (origin restriction or
+  `licenseKey` enforcement).
+- **A future CSP must allow** `cjrtnc.leaningtech.com` and `cdn.jsdelivr.net`,
+  plus `'unsafe-eval'` and `'wasm-unsafe-eval'`: CheerpJ JITs with
+  `new Function`, so a CSP here is origin-allowlisting, never eval-blocking.
+  That is why one is not shipped yet.
+- **Review triggers**: (a) Leaning Technologies answers on the academic licence
+  (ADR-0016 §3) — self-hosting CheerpJ removes one origin entirely; (b) any bump
+  of `PYODIDE_VERSION` or `BROWSERCC_VERSION`, which re-opens the trust decision
+  and should re-check the publisher, not be treated as routine; (c) the first
+  class-time outage; (d) the platform gaining any non-repo-authored content path
+  (a shared-snippet URL, a student-supplied document), which would change the
+  blast radius from self-inflicted to cross-user.
+
 ## Deferred controls
 
 ### No branch protection on `main` (deferred 2026-08-10)

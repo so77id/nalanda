@@ -20,6 +20,7 @@ content/courses/sample-course/
 ├── 02-intro-estructuras.mdx   # id: intro-estructuras (auto, uses <SectionBreak/>)
 ├── 03-busqueda-binaria.mdx    # id: busqueda-binaria  (presentation: explicit, uses <Slide>)
 ├── 04-apuntes.mdx             # id: apuntes-del-curso (presentation: none — book-only)
+├── 05-codigo-ejecutable.mdx   # id: codigo-ejecutable (explicit, uses <CodeEditor>)
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -56,16 +57,31 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    `<SectionBreak />` are available WITHOUT imports. In the book view a Slide
    renders as its heading + flowing prose and a SectionBreak as a subtle
    divider; in presentation they cut slide boundaries. Worked example:
-   `03-busqueda-binaria.mdx`. Full usage docs, props and live examples for every
-   document-facing component live in the catalog: `/catalog/c/Slide`,
-   `/catalog/c/SectionBreak`.
+   `03-busqueda-binaria.mdx`.
 
-5. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
+5. **Add runnable code (optional)**: `<CodeEditor language="java" />` is
+   likewise available without imports — Java, C++ or Python, compiled and run in
+   the reader's own browser. Worked example: `05-codigo-ejecutable.mdx`.
+
+   > **Java has a sharp edge.** It runs on the page's main thread (ADR-0017), so
+   > a student's `while (true)` freezes the tab and nothing recovers it — they
+   > must close it. C++ and Python run in workers and are cut off cleanly.
+   > Prefer them for anything about loops or termination, and never ship a Java
+   > example whose termination depends on what the student types.
+
+   Use a reading variant (`variant="read"`) for code you only cite: it loads no
+   compiler at all.
+
+Full usage docs, props and live examples for every document-facing component
+live in the catalog — browse `/catalog`, which is generated from the components
+themselves rather than maintained by hand.
+
+6. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
    link, `[[otro-id|texto visible]]` overrides the label. A target that doesn't
    exist does NOT fail the build: it renders visibly broken (red wavy underline)
    and logs a console warning — forward links to drafts are allowed on purpose.
 
-6. **Register it in the teaching path** (`index.yaml`) if it belongs to the
+7. **Register it in the teaching path** (`index.yaml`) if it belongs to the
    recorrido. Schema (strictly validated; unknown keys fail the build):
 
    ```yaml
@@ -83,14 +99,14 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    not listed in the index is still compiled and served at `/d/<id>`: **the index
    controls navigation, never visibility.**
 
-7. **Verify**: `npm run build` from `apps/web/`. The contentIntegrity gate fails
+8. **Verify**: `npm run build` from `apps/web/`. The contentIntegrity gate fails
    the build (and CI — `content/**` triggers it) with a file-and-field message
    on: missing/non-kebab/duplicate `id`, missing `title`, invalid `presentation`
    value (must be auto, explicit, or none), malformed `index.yaml` (unknown key,
    group without docId nor label, empty children), duplicate or unknown `docId`
    in the index.
 
-8. **Publish**: merging to `main` republishes
+9. **Publish**: merging to `main` republishes
    <https://so77id.github.io/nalanda/> automatically — `content/**` is a deploy
    trigger (ADR-0015). **Everything under `content/courses/` becomes public**,
    listed or not: material that must not be seen (exam keys, solutions,

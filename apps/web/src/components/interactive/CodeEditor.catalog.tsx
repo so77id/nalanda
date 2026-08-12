@@ -14,7 +14,9 @@ export const codeEditorCatalogEntry: CatalogEntry = {
   description:
     'Source the student can read, edit and run, compiled and executed in their own browser (ADR-0001). Java, C++ and Python; output, compiler diagnostics, exit code and timings come back in place.',
   whenToUse:
-    'Whenever a page shows code the reader should be able to try. Use a reading variant for code you only cite — a runnable editor that nobody runs still costs a chunk of CodeMirror, and a runnable one that IS run downloads a compiler.',
+    'Whenever a page shows code the reader should be able to try. Use a reading variant for code you only cite — a runnable editor that nobody runs still costs a chunk of CodeMirror, and a runnable one that IS run downloads a compiler. ' +
+    "Java has a sharp edge worth knowing before you teach loops with it: it runs on the page's main thread (ADR-0017), so a student's `while (true)` freezes the tab and no timeout can recover it — they must close it. C++ and Python run in workers and are cut off cleanly. Prefer them for anything about termination, and never leave a runnable Java editor where an unattended student cannot recover. " +
+    'Two Java editors on one page also share one JVM and one queue, so the second student waits behind the first. Runs are cut off at 60s (and 180s to even get started); neither is adjustable per instance today.',
   props: [
     {
       name: 'language',

@@ -91,6 +91,11 @@ src/
   exporting `<component>CatalogEntry: CatalogEntry` — a `.tsx` module that
   exports data, not a component (its examples are JSX). Full walkthrough:
   `docs/standards/guides/add-a-content-component.md`.
+- Lazy wrappers: `lazy<Name>.tsx` beside the component, exporting `Lazy<Name>` —
+  deliberately lower-camel so the wrapper never reads as the component itself at
+  an import site. Required for any component carrying a heavy dependency
+  (`guides/add-a-content-component.md` §Heavy components, ADR-0018 §7); worked
+  case `components/interactive/lazyCodeEditor.tsx`.
 - Hooks: `useThing.ts`, exported as `useThing`.
 - Everything else: `camelCase.ts` (`parser.ts`, `wikiLinks.ts`).
 - One exported component per file; small private subcomponents may live beside it

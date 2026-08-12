@@ -3,10 +3,13 @@
 //
 // It is a build input, not source: ~2.9MB of binary that would sit in git
 // forever otherwise. ECJ rather than the JDK's own tools.jar because it is a
-// sixth of the size. The version is pinned to a release that predates the
-// module system's jrt lookup, because compilation only works on CheerpJ's
-// Java 8 runtime at all — its 11 and 17 images ship no jrt-fs.jar (measured
-// 2026-08-11; see ADR-0017).
+// sixth of the size.
+//
+// 3.21 specifically because its own classes are Java 8 bytecode (major 52), so
+// it RUNS on the only CheerpJ runtime that can compile at all — newer ECJ
+// builds need a newer JVM. It is not that 3.21 predates the module system's
+// jrt lookup: it performs that lookup too, and fails on CheerpJ 11/17 exactly
+// as 3.33+ does, because those images ship no jrt-fs.jar (ADR-0017 §2).
 //
 // The digest is pinned HERE rather than fetched. Maven serves the .sha1 from
 // the same origin as the .jar over the same channel, so fetching it detects

@@ -5,10 +5,11 @@ import { LAUNCHER_CLASS, LAUNCHER_SOURCE, deriveEntryClass, sourceFileName } fro
 // Java is the one runtime that does NOT live in a Web Worker.
 //
 // CheerpJ delivers a console program's stdout by writing into a DOM element,
-// and a worker has no DOM. Measured in a browser spike (2026-08-11): the page
-// stays responsive while Java runs — timers keep firing during a blocked
-// program — so the main thread is a fair place for it. `RuntimeWorker` is our
-// own interface, not `Worker`, precisely so this fits behind the same contract.
+// and a worker has no DOM. A program that WAITS (System.in, sleep) yields the
+// event loop and the page stays responsive; one that SPINS holds the thread
+// outright and nothing recovers it — not even the run deadline, which is a
+// timer on that same thread (ADR-0017 §3, measured). `RuntimeWorker` is our own
+// interface, not `Worker`, precisely so this fits behind the same contract.
 
 const CHEERPJ_LOADER = 'https://cjrtnc.leaningtech.com/4.3/loader.js';
 const ECJ_MAIN = 'org.eclipse.jdt.internal.compiler.batch.Main';
@@ -108,9 +109,9 @@ function drain(host: Host): string {
 }
 
 /**
- * Boots the JVM and compiles the launcher — the one-off ~24s the compiler costs
- * to load. Shared by every editor on the page, and retried rather than
- * remembered if it fails.
+ * Boots the JVM and compiles the launcher — the one-off cost of loading the
+ * compiler, ~12s measured. Shared by every editor on the page, and retried
+ * rather than remembered if it fails.
  */
 async function ensureReady(classPath: string): Promise<Host> {
   const startedAt = performance.now();

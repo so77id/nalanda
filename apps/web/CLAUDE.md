@@ -13,7 +13,7 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
 
 ## Mandatory reading
 
-- `docs/standards/frontend-code-style.md` — folder layout (`src/app|components|catalog|content|presentation|lib|styles`), naming, component rules, import direction (`app → features → lib`). **Follow, don't innovate.**
+- `docs/standards/frontend-code-style.md` — the authoritative `src/` folder layout, naming, component rules and import direction (`app → features → lib`, plus the cross-feature edge allowlist). **Follow, don't innovate.**
 - `docs/standards/testing-strategy.md` — the `apps/web` per-commit and pre-PR protocols. Nothing is committed in red.
 - `docs/standards/integration-guides.md` — index of the extension-point guides; read the matching guide before adding a component, a document, or an app.
 
@@ -28,3 +28,12 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
   committed code; never log secrets or personal data.
 - Tests are colocated (`Thing.test.tsx` beside `Thing.tsx`); component tests
   assert contract/behavior, not implementation details.
+- `npm run dev` and `npm run build` run `scripts/fetch-java-compiler.mjs` first
+  (`predev`/`prebuild`): it downloads ~2.9MB from Maven Central on a clean
+  checkout, so **an offline first build fails before Vite starts**.
+- **The suite cannot execute code.** Every runtime is faked in jsdom, so any
+  change under `src/runtime/**` or to `CodeEditor` needs a real browser too —
+  recipe in `docs/standards/guides/add-a-language-runtime.md` §7.
+- Java deliberately does NOT run in a Web Worker (ADR-0017), and a Java infinite
+  loop freezes the tab with no recovery — relevant whenever you author or verify
+  course content with runnable Java.

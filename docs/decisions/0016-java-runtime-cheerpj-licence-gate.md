@@ -1,6 +1,8 @@
 # ADR-0016: Java in the browser via CheerpJ — licence gate outcome
 
-**Status:** Accepted for development under Community Edition; publication terms pending written confirmation from Leaning Technologies
+**Status:** Accepted
+**Condition:** publication of the Java runtime is a separate decision taken at merge; publication terms pending written confirmation from Leaning Technologies
+**Amended by:** ADR-0017 (findings F6 and the tools.jar consequence — see the notes inline)
 **Date:** 2026-08-11
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #74 S1; design decision D24 (`docs/design/2026-08-redesign.md` §6); archived `proof-of-concept/decisions/0003-java-runtime-cheerpj-with-pivot-path.md`
@@ -54,6 +56,12 @@ cost, not a present blocker, but it must be a known one.
 
 **F6 — Technically, compiling student code in the browser works, with one
 unverified step.**
+
+> **Amended by ADR-0017.** The vendor's claim below did not survive contact: a
+> browser spike found `com.sun.tools.javac.Main` absent from CheerpJ's Java 8,
+> 11 and 17 runtimes alike. The compiler ships as an application asset, and it
+> is ECJ, not `javac`.
+
 - The vendor confirms `javac` itself runs under CheerpJ: "The `javac` compiler is
   itself written in Java and can run with CheerpJ. We showcase this in our
   JavaFiddle playground"
@@ -123,8 +131,9 @@ cheap: one worker implementation changes, nothing else.
 ## Alternatives considered
 
 - **Self-host the CheerpJ runtime under `/nalanda/`** — technically supported,
-  licence-prohibited on Community (F2). Would remove the third-party CDN
-  dependency and enable offline use; requires a commercial licence.
+  licence-prohibited on Community (F2); requires a commercial or academic
+  licence. It would remove the dependency on *this vendor's* CDN, but no longer
+  buys offline use: C++ and Python are served from jsDelivr too (ADR-0018).
 - **Server-side compilation** (`javac` in a container, the online-judge model) —
   licence-free (OpenJDK), but contradicts ADR-0001, adds per-execution cost and
   latency, and requires a backend that does not exist until v0.3.
@@ -150,8 +159,9 @@ cheap: one worker implementation changes, nothing else.
   breaking mid-session, not a lawsuit. Self-hosting is the only mitigation, and
   it requires the academic or a commercial licence (Decision §3). Until then the
   exposure is accepted knowingly.
-- **A JDK `tools.jar` becomes an application asset** (F6), with its own
-  OpenJDK GPLv2+CE redistribution terms to respect.
+- ~~**A JDK `tools.jar` becomes an application asset** (F6), with its own
+  OpenJDK GPLv2+CE redistribution terms to respect.~~ **Amended by ADR-0017**:
+  the shipped compiler is ECJ 3.21 under EPL-2.0, so no OpenJDK terms apply.
 - **The runtime contract stays language-agnostic**, so a later pivot to
   server-side Java changes one worker implementation and nothing else — the
   property archived ADR-0003 asked for, preserved deliberately.

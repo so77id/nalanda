@@ -7,7 +7,7 @@ export const DEFAULT_TIMEOUT_MS = 60_000;
 
 /**
  * How long a run may spend *before* it starts: downloading a toolchain, booting
- * a JVM (~28s cold, ADR-0017), and — for Java — waiting behind another editor
+ * a JVM (~12s cold on a warm CDN, ADR-0017), and — for Java — waiting behind another editor
  * on the page's shared queue (~16s measured). Generous, because none of that is
  * the student's fault and none of it means an infinite loop.
  */

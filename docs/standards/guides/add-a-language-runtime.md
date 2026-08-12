@@ -45,6 +45,11 @@ src/runtime/python/
 3. **Write the worker** (`<lang>/worker.ts`). It receives
    `{ id, source, stdin }` and answers exactly one of:
    - `{ type: 'warm', detail }` — once, unprompted, when booting finishes.
+   - `{ id, type: 'started' }` — once per request, immediately before compiling.
+     It marks the boundary between *waiting* and *running*: before it, the caller
+     allows 180s (CDN download, boot, queue); after it, 60s for the program.
+     **Omit it and a student's infinite loop is reported three minutes later as
+     "el runtime no estuvo listo"** instead of naming the loop.
    - `{ id, type: 'result', compileLog, output, exitCode, compileMs, runMs }`
    - `{ id, type: 'error', message }` — **only** when the runtime itself broke.
 
@@ -59,6 +64,16 @@ src/runtime/python/
 4. **Write the module** (`<lang>/index.ts`): export `descriptor`,
    `codeMirrorLanguage()` and `createWorker()`.
 
+   **If it cannot run in a worker** — implement `RuntimeWorker` by hand and
+   return it from `createWorker()`; it is our interface, not the platform's, so
+   nothing forces a real `Worker` (ADR-0018 §2). Java is the worked case
+   (`src/runtime/java/`): when the engine is a per-page singleton, keep its
+   state — boot promise, run queue — at **module** scope, not inside the
+   factory, or two editors run concurrently against one shared engine and cross
+   their output. Say plainly what `terminate()` can do: for Java it detaches
+   listeners and cannot stop the JVM, so a CPU-bound program on the main thread
+   is unbounded (ADR-0017 §3).
+
 5. **Register it** in `src/runtime/registry.ts`: the descriptor in
    `runtimeDescriptors`, and a `case` in `loadRuntime`. Keep the `case` a static
    `import('./<lang>')` — a computed specifier defeats chunk splitting and pulls
@@ -68,9 +83,22 @@ src/runtime/python/
    against `package.json` (`pyodideVersion.test.ts` is the pattern). Types that
    describe a different build than the one you download are worse than no types.
 
-7. **Verify it in a real browser.** The jsdom suite cannot run WASM, so it says
-   nothing about whether your runtime works. Drive it with an ad-hoc Playwright
-   script and check compile, run, stdin, and a deliberate compile error.
+7. **Verify it in a real browser.** The jsdom suite fakes the worker and
+   CodeMirror, and has neither WASM nor `Worker` — a green suite says nothing
+   about whether your runtime works. Playwright is not a project dependency yet
+   (L5 in `testing-strategy.md` is still pending), so drive it ad hoc from the
+   scratchpad:
+
+   ```bash
+   npm install playwright && npx playwright install chromium   # once, in the scratchpad
+   npm run build && npm run preview -- --port 4174             # NOT `npm run dev`
+   ```
+
+   Point the script at `http://localhost:4174/nalanda/...`, not at the dev
+   server: the deployed base path is part of what you are testing (the Java
+   runtime resolves its compiler jar through `import.meta.env.BASE_URL`, so
+   `/` and `/nalanda/` exercise different paths — ADR-0015). Check compile, run,
+   stdin, and a deliberate compile error.
 
 ## Checklist
 
@@ -78,11 +106,14 @@ src/runtime/python/
       `case` added to `loadRuntime`. The registry tests cover it automatically.
 - [ ] Descriptor imports nothing heavy.
 - [ ] Worker distinguishes a failed compile (`result`) from a broken runtime
-      (`error`), and reports `warm` exactly once.
+      (`error`), reports `warm` exactly once, and sends `started` once per
+      request before compiling.
 - [ ] Toolchain served from a CDN unless it must be self-hosted; npm package a
       `devDependency` in that case, with a version test.
-- [ ] `npm run build` shows no new multi-megabyte asset in `dist/`, and the entry
-      chunk is unchanged.
+- [ ] `npm run build` shows no new multi-megabyte asset in `dist/` — unless it
+      genuinely must be self-hosted, and you say why here as ADR-0017 does for
+      the Java compiler jar — and the entry chunk grows by descriptors only:
+      single-digit kB, no CodeMirror, no toolchain.
 - [ ] Verified in a browser: run, stdin, compile error.
 - [ ] An ADR if the runtime brought a real decision with it (ADR-0017 is the
       example: the compiler, the Java version and the thread it runs on were all

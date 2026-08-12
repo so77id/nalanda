@@ -38,8 +38,9 @@ would too. The JVM itself runs 11 and 17 bytecode fine; what is impossible is
 *producing* bytecode in the browser. Sources are therefore compiled with `-1.8`
 on the Java 8 runtime, where the classic classpath model still applies.
 
-Raising the ceiling needs CheerpJ to ship a complete Java 9+ image — stable
-Java 17 is on their roadmap for CheerpJ 5, end of 2026 — at which point this is
+Raising the ceiling needs CheerpJ to ship a complete Java 9+ image — the vendor
+has signalled Java 17 for a future major version, with no dated commitment
+verifiable from their public pages as of 2026-08-11 — at which point this is
 a constant. Supplying the module images ourselves is not a workaround: they are
 not a jar, and CheerpJ does not expose them through its virtual filesystem.
 
@@ -70,7 +71,8 @@ sees their own error and not our plumbing. It takes the entry class as an
 argument, so it is compiled once during warm-up and reused.
 
 **5. Warm-up compiles the launcher.** The first compilation of a session costs
-~24s (loading and JIT-ing the compiler); every later one costs ~1.3s. Compiling
+~12s (booting the JVM, then loading and JIT-ing the compiler); every later one
+costs ~1.3s. Compiling
 the launcher at warm-up spends that cost before the student presses Run.
 
 ## Alternatives considered
@@ -90,9 +92,12 @@ the launcher at warm-up spends that cost before the student presses Run.
 
 ## Consequences
 
-**Measured, in-browser (2026-08-11):** JVM boot 1.2s · warm-up compile 24s ·
-subsequent compile 1.3s · run 0.3–0.9s · compile error surfaces with ECJ's own
-diagnostic and a non-zero exit.
+**Measured, in-browser (2026-08-11), Apple Silicon on a warm CDN:** JVM boot +
+launcher compile ~12s together (what the warm chip reports as `jvm …ms`; an
+earlier figure of 24s in this ADR was not reproducible) · subsequent compile
+~1.3s · run 0.3–0.9s · a compile error surfaces with ECJ's own diagnostic, no
+output and NO exit code — a failed compile is a result with `exitCode: null`,
+not an error.
 
 - **Students are limited to Java 8 language features** — no `var`, no records,
   no `List.of`, no switch expressions, no text blocks. Acceptable for a

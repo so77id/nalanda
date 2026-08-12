@@ -30,7 +30,7 @@ a ejecutar. `Ctrl`/`Cmd` + `Enter` también ejecuta.
 
 <Slide title="Leer sin ejecutar">
 Cuando el código está para leerse y no para correrse, la variante `read` no
-carga ningún compilador — la página no paga nada.
+carga ningún compilador: no se descarga nada del toolchain hasta que ejecutas.
 
 <CodeEditor
   language="java"
@@ -44,8 +44,9 @@ carga ningún compilador — la página no paga nada.
 </Slide>
 
 <Slide title="Con entrada estándar">
-La variante `lab` agrega el panel de `stdin`, el selector de lenguaje y precalienta
-el runtime al abrir la página. Lo que escribas abajo llega al programa como
+La variante `lab` agrega el panel de `stdin` y el selector de lenguaje, y puede
+precalentar el runtime al abrir la página — acá lo dejamos apagado para no
+descargar nada hasta que lo pidas. Lo que escribas abajo llega al programa como
 entrada estándar.
 
 <CodeEditor
