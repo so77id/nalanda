@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { LAUNCHER_CLASS, LAUNCHER_SOURCE, deriveEntryClass, sourceFileName } from './launcher';
+import {
+  HARNESS_CLASS,
+  LAUNCHER_CLASS,
+  LAUNCHER_SOURCE,
+  RESERVED_CLASSES,
+  TRUNCATED,
+  deriveEntryClass,
+  sourceFileName,
+} from './launcher';
 
 describe('deriveEntryClass', () => {
   it('picks the public class', () => {
@@ -84,5 +92,24 @@ describe('LAUNCHER_SOURCE', () => {
     expect(LAUNCHER_SOURCE).toContain('setStackTrace(studentFrames(');
     expect(LAUNCHER_SOURCE).toContain('sun.reflect');
     expect(LAUNCHER_SOURCE).toContain(`name.equals("${LAUNCHER_CLASS}")`);
+  });
+});
+
+describe('output cap', () => {
+  it('wraps System.out so a program cannot flood the page', () => {
+    // Not a taste question: measured in Chromium, 10k printed lines stall the
+    // main thread ~1.2s and 20k crash the renderer. That is a program that
+    // TERMINATES, which is not the hazard ADR-0020 accepted.
+    expect(LAUNCHER_SOURCE).toContain('System.setOut(');
+    expect(LAUNCHER_SOURCE).toContain('new Capped(System.out');
+  });
+
+  it('says so once instead of truncating silently', () => {
+    expect(LAUNCHER_SOURCE).toContain(TRUNCATED);
+  });
+
+  it('reserves the two class names the platform compiles', () => {
+    expect(RESERVED_CLASSES).toContain(LAUNCHER_CLASS);
+    expect(RESERVED_CLASSES).toContain(HARNESS_CLASS);
   });
 });

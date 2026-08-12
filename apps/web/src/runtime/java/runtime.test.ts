@@ -283,6 +283,36 @@ describe('createJavaRuntime', () => {
       expect(run?.args[0]).toBe('Main');
     });
 
+    it('refuses a student class that would overwrite a platform one', async () => {
+      // Both units compile into one output directory, so `public class
+      // NalandaLauncher` used to replace the launcher built at warm-up — and
+      // since that build is memoised, every editor on the page then ran the
+      // student's main. Untouched exercises reported a full pass.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: 'public class NalandaLauncher { public static void main(String[] a) {} }',
+        stdin: '',
+        harness,
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]).toMatchObject({ exitCode: null });
+      expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
+      // Nothing was compiled or run: the refusal happens before either.
+      expect(invocations.some((one) => one.mainClass === 'NalandaLauncher')).toBe(false);
+    });
+
+    it('refuses a student class named after the harness', async () => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: 'public class NalandaCheck {}', stdin: '', harness });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
+    });
+
     it('reports a harness that fails to compile as a result', async () => {
       // The student renamed their class, so the harness no longer resolves it.
       // That is a compile error to read, not a broken runtime.

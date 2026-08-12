@@ -2,8 +2,12 @@
 // it printed. Kept apart from the component so both halves are testable without
 // a JVM: what runs in the browser is Java, and jsdom has none (ADR-0017).
 
-/** Entry class of the generated harness — must not collide with a student's own. */
-export const HARNESS_CLASS = 'NalandaCheck';
+// Named by the runtime, which refuses a student class that would collide with it
+// (RESERVED_CLASSES in runtime/java/launcher.ts). Re-exported so callers of this
+// module do not have to know that.
+import { HARNESS_CLASS } from '../../runtime';
+
+export { HARNESS_CLASS };
 
 /** Prefix of the lines the harness prints for the component, not for the student. */
 const MARK = '[nalanda] ';
@@ -101,29 +105,36 @@ export function readRun(output: string): RunReading {
   let crash: string | null = null;
 
   for (const line of output.split('\n')) {
-    if (!line.startsWith(MARK)) {
+    // Found anywhere, not only at the start: the harness prints its verdicts
+    // with println, so a student who printed without a trailing newline shares
+    // a line with the verdict that followed. Matching only at position 0 threw
+    // that verdict away — and a swallowed FAIL reads on screen as a pass.
+    const at = line.indexOf(MARK);
+    if (at < 0) {
       rest.push(line);
       continue;
     }
-    const body = line.slice(MARK.length);
+    if (at > 0) rest.push(line.slice(0, at));
+    const body = line.slice(at + MARK.length);
 
     if (body.startsWith('ERROR')) {
-      crash = body.slice(`ERROR${FIELD}`.length);
+      crash = body.slice(`ERROR${FIELD}`.length) || 'sin detalle';
       continue;
     }
     if (body.startsWith('PASS ')) {
-      cases.push({ n: Number(body.slice('PASS '.length)), ok: true });
+      const n = Number(body.slice('PASS '.length));
+      if (Number.isFinite(n)) cases.push({ n, ok: true });
       continue;
     }
     if (body.startsWith('FAIL ')) {
       // Only the first two separators are structural — a value may contain more.
       const [head, expected, ...actual] = body.slice('FAIL '.length).split(FIELD);
-      cases.push({
-        n: Number(head),
-        ok: false,
-        expected: expected ?? '',
-        actual: actual.join(FIELD),
-      });
+      const n = Number(head);
+      // A non-numeric case number is a forgery or a corrupted line; either way
+      // it would render as "caso NaN" and collide with every other one as a key.
+      if (Number.isFinite(n)) {
+        cases.push({ n, ok: false, expected: expected ?? '', actual: actual.join(FIELD) });
+      }
     }
   }
 

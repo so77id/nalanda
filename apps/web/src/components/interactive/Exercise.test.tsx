@@ -241,7 +241,16 @@ describe('Exercise', () => {
       await waitFor(() => expect(screen.getByTestId('code')).toHaveValue(STARTER));
       expect(readDraft(key())).toBeNull();
 
-      await checkWith('[nalanda] PASS 1\n');
+      const button = screen.getByRole('button', { name: /comprobar/i });
+      await waitFor(() => expect(button).toBeEnabled());
+      await userEvent.click(button);
+
+      // Posted and never answered: that IS the frozen tab. Asserting after the
+      // round trip proves nothing, because by then both orderings have saved —
+      // the earlier version of this test passed with the save moved after the
+      // run, which is the one placement that never happens when Java hangs.
+      await waitFor(() => expect(workers).toHaveLength(1));
+      await waitFor(() => expect(workers[0]!.posted).toHaveLength(1));
       expect(readDraft(key())).toBe(STARTER);
     });
 

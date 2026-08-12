@@ -74,6 +74,38 @@ export function sourceFileName(entryClass: string): string {
 export const LAUNCHER_CLASS = 'NalandaLauncher';
 
 /**
+ * How much a program may print before the launcher stops relaying it.
+ *
+ * Measured in Chromium on the shipped document: 10k lines stall the main thread
+ * for ~1.2s and 20k crash the renderer outright. 256KB sits an order of
+ * magnitude below that and above anything a teaching example prints on purpose.
+ */
+const OUTPUT_BUDGET_BYTES = 256 * 1024;
+
+/** Printed once, in place of everything past the budget. */
+export const TRUNCATED = '[nalanda] salida truncada: el programa imprimió demasiado';
+
+/**
+ * Entry class of the exercise harness (`components/interactive/harness.ts`).
+ *
+ * Declared here, with the launcher's own name, because the reserved set has to
+ * be enforced by the runtime and `runtime → components` is not an allowed edge.
+ */
+export const HARNESS_CLASS = 'NalandaCheck';
+
+/**
+ * Class names a student's program may not use.
+ *
+ * Both units compile into one shared output directory, so a student class named
+ * after a platform one overwrites its `.class`. Verified before this guard
+ * existed: a unit declaring `public class NalandaLauncher` replaced the launcher
+ * compiled at warm-up, and since that compile is memoised every editor on the
+ * page then ran the student's `main` — exercises nobody had touched reported a
+ * full pass.
+ */
+export const RESERVED_CLASSES = [LAUNCHER_CLASS, HARNESS_CLASS];
+
+/**
  * Runs the student's program with a real stdin behind it.
  *
  * A console program under CheerpJ gets neither input nor EOF on `System.in`, so
@@ -83,13 +115,60 @@ export const LAUNCHER_CLASS = 'NalandaLauncher';
  * constant, so it is compiled once during warm-up and reused for every run.
  */
 export const LAUNCHER_SOURCE = `import java.io.FileInputStream;
+import java.io.FilterOutputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.Arrays;
 
 public class ${LAUNCHER_CLASS} {
+
+    /**
+     * Stops writing after a budget and says so once.
+     *
+     * A program that prints tens of thousands of lines kills the tab even when
+     * it terminates correctly: measured, 10k lines stall the main thread for
+     * ~1.2s and 20k crash the renderer. That is not the non-termination hazard
+     * ADR-0020 accepted, and the reader has no way to see it coming — changing
+     * the stdin panel from 10 to 100000 is enough.
+     */
+    static final class Capped extends FilterOutputStream {
+        private final int budget;
+        private int written = 0;
+        private boolean announced = false;
+
+        Capped(OutputStream out, int budget) {
+            super(out);
+            this.budget = budget;
+        }
+
+        @Override
+        public void write(int b) throws IOException {
+            if (written < budget) {
+                written++;
+                out.write(b);
+                return;
+            }
+            if (!announced) {
+                announced = true;
+                for (byte c : "\\n${TRUNCATED}\\n".getBytes("UTF-8")) out.write(c);
+                out.flush();
+            }
+        }
+
+        @Override
+        public void write(byte[] b, int off, int len) throws IOException {
+            for (int i = 0; i < len; i++) write(b[off + i]);
+        }
+    }
+
     public static void main(String[] args) throws Exception {
         System.setIn(new FileInputStream("/str/stdin.txt"));
+        // Wraps whatever CheerpJ installed rather than opening a new stream, so
+        // the output still reaches the console element the platform reads back.
+        System.setOut(new PrintStream(new Capped(System.out, ${OUTPUT_BUDGET_BYTES}), true));
         Method entry = Class.forName(args[0]).getMethod("main", String[].class);
         try {
             entry.invoke(null, (Object) new String[0]);

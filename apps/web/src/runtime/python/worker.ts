@@ -2,6 +2,7 @@
 import type { PyodideInterface } from 'pyodide';
 
 import type { RunRequest, WorkerMessage } from '../contract';
+import { rejectHarness } from '../rejectHarness';
 import { PYODIDE_CDN } from './pyodideVersion';
 
 // Pyodide ships as a large WASM bundle served from jsDelivr rather than from
@@ -67,11 +68,9 @@ function captureIO(runtime: PyodideInterface, stdin: string): () => string {
 }
 
 addEventListener('message', async (event: MessageEvent<RunRequest>) => {
-  const { id, source, stdin, harness } = event.data;
+  const { id, source, stdin } = event.data;
   try {
-    // Running `source` alone would report a passing exercise that checked
-    // nothing, so refusing is the safe answer until Python grows a harness.
-    if (harness !== undefined) throw new Error('el runtime de Python no admite ejercicios todavía');
+    rejectHarness(event.data, 'Python');
     await warmPromise;
     if (!pyodide) throw new Error('pyodide failed to initialise');
     // Interpreter up: the deadline should now be measuring the program.

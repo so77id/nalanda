@@ -82,9 +82,14 @@ describe('architecture: the code editor stays out of the entry chunk', () => {
     expect(
       violations(
         (_fileTop, _importTop, importRel, file) =>
-          // Normalised: `allowImportingTsExtensions` is on, so `./CodeEditor.tsx`
-          // resolves and bundles exactly like `./CodeEditor` and must not slip past.
-          importRel.replace(/\.(ts|tsx)$/, '') === 'components/interactive/CodeEditor' &&
+          // Normalised hard, because every one of these resolves to the same
+          // module and bundles the same way: `allowImportingTsExtensions` makes
+          // `./CodeEditor.tsx` legal, `moduleResolution: "bundler"` also accepts
+          // `./CodeEditor.js`, and macOS filesystems accept any casing. Listing
+          // only the TS extensions left a hole wide enough to put CodeMirror
+          // back in the entry chunk with the suite green (+105kB, measured).
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/codeeditor' &&
           !file.includes('.test.') &&
           !ALLOWED.includes(file),
       ),
@@ -102,7 +107,8 @@ describe('architecture: the exercise stays out of the entry chunk', () => {
     expect(
       violations(
         (_fileTop, _importTop, importRel, file) =>
-          importRel.replace(/\.(ts|tsx)$/, '') === 'components/interactive/Exercise' &&
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/exercise' &&
           !file.includes('.test.') &&
           !ALLOWED.includes(file),
       ),

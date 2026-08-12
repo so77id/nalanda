@@ -1,6 +1,12 @@
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../contract';
 import { OUTPUT_DIR, javaClassPath } from './classPath';
-import { LAUNCHER_CLASS, LAUNCHER_SOURCE, deriveEntryClass, sourceFileName } from './launcher';
+import {
+  LAUNCHER_CLASS,
+  LAUNCHER_SOURCE,
+  RESERVED_CLASSES,
+  deriveEntryClass,
+  sourceFileName,
+} from './launcher';
 
 // Java is the one runtime that does NOT live in a Web Worker.
 //
@@ -181,6 +187,23 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       // Out of the page queue and onto a booted JVM: from here the clock is
       // measuring the student's program.
       emit({ id, type: 'started' });
+
+      const studentClass = deriveEntryClass(source);
+      // See RESERVED_CLASSES: a student class named after a platform one
+      // overwrites its .class in the shared output directory and poisons every
+      // editor on the page.
+      if (RESERVED_CLASSES.includes(studentClass.split('.').pop() ?? studentClass)) {
+        emit({
+          id,
+          type: 'result',
+          compileLog: `${studentClass} es un nombre reservado por la plataforma. Ponle otro nombre a tu clase.`,
+          output: '',
+          exitCode: null,
+          compileMs: 0,
+          runMs: null,
+        });
+        return;
+      }
 
       const write = (unit: string): string => {
         const path = `/str/${sourceFileName(deriveEntryClass(unit))}`;

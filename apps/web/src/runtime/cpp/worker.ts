@@ -3,6 +3,7 @@ import { ConsoleStdout, File, OpenFile, WASI } from '@bjorn3/browser_wasi_shim';
 import type { compile as Compile, getPrecompiledHeader as GetPrecompiledHeader } from 'browsercc';
 
 import type { RunRequest, WorkerMessage } from '../contract';
+import { rejectHarness } from '../rejectHarness';
 import { BROWSERCC_CDN } from './browserccVersion';
 
 // Clang compiled to WASM (browsercc) plus a WASI shim to give the produced
@@ -118,11 +119,9 @@ function describe(error: unknown): string {
 }
 
 addEventListener('message', async (event: MessageEvent<RunRequest>) => {
-  const { id, source, stdin, harness } = event.data;
+  const { id, source, stdin } = event.data;
   try {
-    // Running `source` alone would report a passing exercise that checked
-    // nothing, so refusing is the safe answer until C++ grows a harness.
-    if (harness !== undefined) throw new Error('el runtime de C++ no admite ejercicios todavía');
+    rejectHarness(event.data, 'C++');
     await warmPromise;
     if (!toolchain) throw new Error('the C++ toolchain failed to load');
     // The toolchain is downloaded and warm: the caller's deadline should now be

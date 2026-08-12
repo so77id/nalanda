@@ -68,6 +68,29 @@ describe('readRun', () => {
     expect(run.cases[0]).toMatchObject({ ok: false, expected: 'a', actual: 'b :: c' });
   });
 
+  it('finds a verdict that shares a line with the student printing', () => {
+    // The harness prints with println, so a student who used print() without a
+    // newline is on the same line as the verdict that followed. Reading only the
+    // start of the line threw that verdict away — and a swallowed FAIL renders
+    // as a pass, which is the one thing this component must never do.
+    const run = readRun('dbg[nalanda] FAIL 1 :: true :: false\n[nalanda] PASS 2\n');
+    expect(run.cases).toEqual([
+      { n: 1, ok: false, expected: 'true', actual: 'false' },
+      { n: 2, ok: true },
+    ]);
+    expect(run.output).toBe('dbg');
+  });
+
+  it('drops a case whose number is not a number', () => {
+    // Forged or corrupted; either way it rendered as "caso NaN" and every such
+    // case collided on the same React key.
+    expect(readRun('[nalanda] PASS uno\n[nalanda] FAIL x :: a :: b\n').cases).toEqual([]);
+  });
+
+  it('does not report an empty exception message', () => {
+    expect(readRun('[nalanda] ERROR\n').crash).toBe('sin detalle');
+  });
+
   it('returns nothing for output with no verdicts at all', () => {
     const run = readRun('el programa no imprimió veredictos\n');
     expect(run.cases).toEqual([]);

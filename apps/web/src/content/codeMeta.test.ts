@@ -1,3 +1,6 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
 import type { Code, Root } from 'mdast';
 import { describe, expect, it } from 'vitest';
 
@@ -38,5 +41,32 @@ describe('remarkCodeMeta', () => {
     (tree.children[0] as Code).data = { hProperties: { id: 'ya-estaba' } };
     const node = transform(tree);
     expect(node.data?.hProperties).toMatchObject({ id: 'ya-estaba', 'data-meta': 'starter' });
+  });
+});
+
+// A plugin that is not registered transforms nothing. Removing `remarkCodeMeta`
+// from the pipeline left the whole suite green while every exercise in the
+// published document degraded to the author-error banner — the unit tests above
+// drive the function directly and never notice.
+describe('registration in the MDX pipeline', () => {
+  // vitest runs with apps/web as its cwd.
+  const config = readFileSync(join(process.cwd(), 'vite.config.ts'), 'utf8');
+  // Delimited by what follows the array, not by the first ']': the list holds
+  // a nested [plugin, options] pair, and stopping there cut it in half.
+  const remarkList = config.slice(
+    config.indexOf('remarkPlugins:'),
+    config.indexOf('providerImportSource'),
+  );
+
+  it('registers remarkCodeMeta', () => {
+    expect(remarkList).toContain('remarkCodeMeta');
+  });
+
+  it('registers remarkWikiLinks, which was equally unpinned', () => {
+    expect(remarkList).toContain('remarkWikiLinks');
+  });
+
+  it('found a real plugin list (guards against a vacuous check)', () => {
+    expect(remarkList).toContain('remarkFrontmatter');
   });
 });
