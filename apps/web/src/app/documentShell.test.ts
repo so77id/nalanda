@@ -33,6 +33,17 @@ describe('the document shell', () => {
     expect(html).toMatch(/<meta[^>]*name="theme-color"[^>]*content="#020617"/);
   });
 
+  it('gives focus a ring of its own, thick enough to see', () => {
+    // The browser default was a 1px #005FCC hairline at 3.13:1 — technically
+    // above the 3:1 minimum, and a colour used nowhere else in the product.
+    const rule = /:focus-visible\s*\{[^}]*\}/s.exec(css)?.[0] ?? '';
+    expect(rule, 'no :focus-visible rule at all').not.toBe('');
+    expect(rule).toMatch(/outline:\s*(?:[2-9]|\d{2,})px/);
+    // Offset so the ring lands on the surface AROUND a control: sky-400 is
+    // 6.95:1 on a panel and 1.76:1 on the emerald run button.
+    expect(rule).toMatch(/outline-offset:\s*[1-9]/);
+  });
+
   it('found real files (guards against a vacuous check)', () => {
     expect(html).toContain('<div id="root">');
     expect(css).toContain('@import');
