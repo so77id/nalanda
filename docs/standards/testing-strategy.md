@@ -76,6 +76,15 @@ battery (full tests + integration L6), same rigor as `apps/web`.
 ## Conventions (`apps/web`)
 
 - Tests are colocated: `Thing.test.ts(x)` next to `Thing.ts(x)`.
+- **Ordering invariants are asserted with the call still in flight.** When what a
+  slice buys is *when* something happens relative to a blocking call — saved
+  before the run, warmed before the click, discarded before the switch — assert
+  against the intermediate state, never after the round trip: by then both
+  orderings look identical. Worked case (#76): a test named "saves the editor
+  before the run, not after it" stayed green with the save moved after the run,
+  which is the one placement that never happens when the tab freezes. The fake
+  worker already provides the seam — a message posted and deliberately left
+  unanswered is the frozen tab.
 - Component tests assert behavior/contract (what renders per mode/props), not
   implementation details or snapshots.
 - Architecture tests live in `src/` near what they guard and are named

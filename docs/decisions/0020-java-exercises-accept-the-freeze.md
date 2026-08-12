@@ -61,6 +61,15 @@ the editor at the last run: edits made and never run are lost exactly as before.
 Both catalog entries and the authoring guide say this, because a half-true
 promise about not losing work is worse than none.
 
+**6. Output is capped, because a program that TERMINATES could kill the tab too.**
+The freeze this ADR accepts is non-termination. The review found a second way to
+lose the page and it is not covered by that acceptance: measured in Chromium, a
+correct program printing 10k lines stalls the main thread ~1.2s and 20k crashes
+the renderer. It was reachable from a shipped editor by changing the stdin panel
+from `10` to `100000` — which the prose immediately above it invites the reader
+to do. The launcher now caps `System.out` at 256KB and prints one truncation
+marker. Unlike the freeze, this one is fixed rather than accepted.
+
 ## Consequences
 
 - A student who writes an endless loop still loses the tab. This is the accepted
@@ -91,8 +100,8 @@ promise about not losing work is worse than none.
 - **Detect endless loops before running.** Undecidable in general, and the
   approximations that work in practice — bytecode instrumentation with a
   back-edge counter — mean rewriting the student's compiled code, which is far
-  more machinery than this WP can carry and a new class of bug in the one
-  component that must never lie about a verdict.
+  more machinery than this WP can carry and a new class of bug in the component
+  whose whole job is reporting a verdict accurately.
 - **Ship no exercises.** The honest option under the old rule, and the one the
   owner declined: an intro course whose students cannot practise is the problem
   the platform exists to fix.

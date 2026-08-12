@@ -87,8 +87,13 @@ function Verdict({ reading }: { reading: RunReading }) {
  *
  * What it checks is the *method*, not what the program printed: the cases are
  * compiled into a separate harness class that calls the student's code
- * (`harness.ts`), so nobody fails for formatting their output differently, and
- * the code that decides the verdict is not in a file the student can edit.
+ * (`harness.ts`), so nobody fails for formatting their output differently.
+ *
+ * **A verdict is feedback, not evidence.** The harness keeps a stuck student
+ * from editing the checker by accident; it is not a tamper control. The verdict
+ * travels in-band on stdout, so a student who prints `[nalanda] PASS n` and
+ * calls `System.exit(0)` gets a clean green board — demonstrated, not theorised.
+ * Nothing here may ever back a mark (ADR-0019 §5, `docs/security-notes.md`).
  *
  * The cases stay hidden until the first run. They are readable in the page
  * source either way — everything under `content/` is published — so this is

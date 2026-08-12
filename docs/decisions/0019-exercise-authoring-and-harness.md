@@ -58,10 +58,22 @@ check(Solution.esPar(4), true);
 `buildHarness` (`components/interactive/harness.ts`) wraps the author's
 `check(...)` calls in a generated `NalandaCheck` with overloads for `int`,
 `long`, `double`, `boolean`, `char`, `Object` and `int[]`. It owns `main`; the
-student's class becomes a library it calls. Two consequences are the point: the
-verdict is about the method rather than the printing, and the code deciding it
-is not in a file the student can edit — the first thing a stuck student edits is
-whatever says they are wrong.
+student's class becomes a library it calls. The point is that the verdict is
+about the method rather than about what the program printed, and that the checker
+is not sitting in the buffer a stuck student is editing — the first thing they
+change is whatever says they are wrong.
+
+It is **not** a tamper control. An earlier draft of this ADR said the code
+deciding the verdict "is not in a file the student can edit", which the review
+falsified twice; see §7.
+
+**3b. Two class names are reserved.** Both units compile into one output
+directory, so a student class named `NalandaLauncher` or `NalandaCheck`
+overwrites a platform one. Demonstrated before the guard existed: a unit
+declaring `public class NalandaLauncher` replaced the launcher built at warm-up
+and, because that build is memoised, every editor on the page then ran the
+student's `main` — exercises nobody had touched reported a full pass. The runtime
+refuses both names before compiling anything (`RESERVED_CLASSES`).
 
 **4. The runtime contract grew one optional field, and the runtimes that cannot
 honour it refuse.** `RunRequest.harness?: string` is a second compilation unit
@@ -84,6 +96,23 @@ protection.** Everything under `content/` is published
 to anyone who looks. Hiding is pacing. The component, the catalog entry and the
 authoring guide all say so, and all state that an exercise whose cases must stay
 private cannot exist here.
+
+**7. A verdict is feedback, not evidence — stated here because the first draft
+of this ADR claimed the opposite.** The review demonstrated two forgeries in a
+real browser. A student who prints `[nalanda] PASS n` themselves and calls
+`System.exit(0)` before any real case runs gets a clean green board; and, before
+§3b existed, a student class named after the launcher forged a pass for every
+exercise on the page including ones they never opened.
+
+The first is inherent: the JVM, the marker and the parser all live inside the
+student's own page, so there is no control to buy while checking happens there.
+It is accepted because the failure is self-inflicted — same browser, same
+student, nothing submitted, nothing graded, no other user reachable.
+
+What follows is a hard boundary, not a caveat: **nothing produced by `<Exercise>`
+may ever back a mark, a check-off or a record.** The day it needs to, checking
+moves off the student's machine. Recorded with its review trigger in
+`docs/security-notes.md`.
 
 ## Consequences
 

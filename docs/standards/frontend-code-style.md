@@ -61,6 +61,12 @@ src/
   (`lib/componentMeta.ts`). Worked case: the slide parser recognizes
   `slideBoundary`/`headingLevel` without importing `Slide` or the heading
   factory — which would close a feature cycle.
+- **Fence metadata reaches a component through `lib/`, not through `content/`**:
+  a remark plugin in `content/` writes it onto the element (`content/codeMeta.ts`
+  → `data-meta`) and the reader lives in `lib/codeFences.ts`, because
+  `components → content` is not an allowed edge. Worked case: `<Exercise>` tells
+  its `starter` fence from its `test` fence (ADR-0019 §1–2). Same shape as the
+  two rules above — the producing feature never learns who consumes it.
 - **MDX component maps are shell-composed**: features export partial maps
   (e.g., `content/mdxComponents.ts`), and `app/mdxComponents.ts` merges them
   into the provider around the routes. Features never assemble the global map;
