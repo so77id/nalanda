@@ -16,8 +16,12 @@ function Column({ label, children }: { label?: string; children: ReactNode }) {
     <div className="min-w-0 overflow-hidden rounded-lg border border-zinc-700">
       {label === undefined ? null : <h4 className={LABEL}>{label}</h4>}
       {/* Each column scrolls on its own: a long line in one must not widen the
-          page, which is what a two-column layout would otherwise do. */}
-      <div className="overflow-x-auto [&_pre]:my-0 [&_pre]:rounded-none [&_pre]:border-0">
+          page, which is what a two-column layout would otherwise do. The type
+          is a step smaller than a full-width listing because half the width is
+          all a column gets — `public static void main(String[] args)` does not
+          fit otherwise, and a line the reader has to scroll to finish is a line
+          they read twice. */}
+      <div className="overflow-x-auto text-[0.8em] [&_pre]:my-0 [&_pre]:rounded-none [&_pre]:border-0">
         {children}
       </div>
     </div>

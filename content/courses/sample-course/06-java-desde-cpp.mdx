@@ -20,8 +20,6 @@ Deberías editarlo.
 
 <SectionBreak />
 
-## De dónde viene Java
-
 <Slide title="De dónde viene Java">
 En 1991, un equipo de Sun Microsystems trabajaba en un lenguaje para
 electrodomésticos: televisores, decodificadores, cosas con poca memoria y
@@ -44,8 +42,6 @@ Tres decisiones de esa época te van a acompañar todo el curso:
   libera sola, y cuándo exactamente no es asunto tuyo.
 - **Orientado a objetos sin escapatoria.** En C++ puedes escribir un programa
   entero sin declarar una clase. En Java no.
-
-## El mismo programa, en dos idiomas
 
 <Slide title="El mismo programa, en dos idiomas">
 Este es el programa que ya conoces, en los dos idiomas.
@@ -100,8 +96,6 @@ segundos.
 }
 `}
 />
-
-## Por qué `main` tiene tantas palabras
 
 <Slide title="Por qué main tiene tantas palabras">
 `public static void main(String[] args)` son cinco decisiones, no una fórmula
@@ -165,8 +159,6 @@ Sobre `String[] args`: es el equivalente de `int argc, char** argv`. La diferenc
 es que en Java el arreglo **sabe su propio largo**, así que no hace falta pasarlo
 aparte. En este curso casi nunca lo vas a usar.
 
-## Compilar y ejecutar
-
 <Slide title="Compilar y ejecutar">
 En C++ el ciclo termina en un binario para tu máquina:
 
@@ -199,8 +191,6 @@ recompila a lenguaje máquina las partes que más se usan.
 > distinto es dónde: la máquina virtual está compilada a WebAssembly y vive en tu
 > navegador. Por eso la primera ejecución tarda tanto — está descargando un Java
 > completo.
-
-## `import` y paquetes
 
 <Slide title="import y paquetes">
 Las clases de Java se organizan en **paquetes**, y el nombre completo de una clase
@@ -241,8 +231,6 @@ saltarte el `import`. Nadie programa así, pero compila igual.
 Un paquete se importa solo: **`java.lang`**. Por eso `System`, `String`, `Math` e
 `Integer` funcionan sin que hayas escrito nada arriba. Todo lo demás —`Scanner`,
 `ArrayList`, `HashMap`— hay que pedirlo.
-
-## Tipos primitivos
 
 <Slide title="Tipos primitivos">
 | Tipo | Tamaño | Rango |
@@ -296,12 +284,10 @@ que existe. Es el mismo comportamiento que en C++ para enteros con signo, y es u
 fuente clásica de errores — te vas a encontrar con ella otra vez cuando escribas
 comparadores.
 
-## Operadores
-
+<Slide title="Operadores">
 Esta sección es corta a propósito: los operadores de Java son prácticamente los de
 C++.
 
-<Slide title="Operadores">
 | Aritméticos | | Comparación | | Lógicos | |
 |---|---|---|---|---|---|
 | `+` | suma | `==` | igual | `&&` | y |
@@ -343,8 +329,6 @@ Las tres líneas tienen los mismos números y dan resultados distintos. La regla
 que `+` se evalúa **de izquierda a derecha**: en la primera, `"total: " + 1` ya es
 texto, así que el `2` se pega al final en vez de sumarse. En la segunda, `1 + 2` se
 suma antes de encontrarse con el texto.
-
-## Entrada y salida
 
 <Slide title="Entrada y salida">
 Para escribir, `System.out`:
@@ -399,6 +383,12 @@ class Io {
 `}
 />
 
+> **Los decimales se escriben con punto.** `nextDouble()` acepta `3.14` y
+> **rechaza** `3,14` con un `InputMismatchException`, sin importar el idioma de
+> tu sistema o de tu navegador: la máquina virtual de esta página usa el punto
+> siempre. Fuera del navegador, en cambio, `Scanner` sí sigue la configuración
+> regional del sistema, y en un computador en español esperaría la coma.
+
 ### La trampa de `nextInt()` seguido de `nextLine()`
 
 Esta te va a pasar, y cuando pase vas a jurar que el programa se saltó una línea.
@@ -435,8 +425,6 @@ Ana
 
 El nombre sale vacío. La solución es llamar `nextLine()` una vez más después del
 `nextInt()`, solo para consumir el salto de línea que quedó colgando.
-
-## Control de flujo
 
 <Slide title="Control de flujo">
 `if`, `else`, `while` y `for` se escriben exactamente como en C++:
@@ -505,111 +493,114 @@ class Flujo {
 
 ## Ejercicios
 
-Cuatro problemas para escribir tú. En cada uno, completa el método que falta y
-ejecuta para comprobar que hace lo que debe.
+Cuatro problemas para escribir tú. Completa el método que falta y presiona
+**Comprobar**: tu código se compila junto a una batería de casos que lo llaman y
+te dicen cuáles pasaron. Los casos aparecen después de la primera ejecución.
 
-### 1. ¿Es par?
+<Exercise title="1. ¿Es par?">
 
-Escribe `esPar`, que recibe un entero y devuelve `true` si es par y `false` si no.
-Recuerda que `%` da el resto de la división.
+Escribe `esPar`, que recibe un entero y devuelve `true` si es par y `false` si
+no. Recuerda que `%` da el resto de la división.
 
-<CodeEditor
-  language="java"
-  defaultValue={`class Ejercicio1 {
+```java starter
+class Solution {
 
     static boolean esPar(int n) {
         // tu código aquí
         return false;
     }
-
-    public static void main(String[] args) {
-        System.out.println(esPar(4));   // true
-        System.out.println(esPar(7));   // false
-        System.out.println(esPar(0));   // true
-        System.out.println(esPar(-3));  // false
-    }
 }
-`}
-/>
+```
 
-### 2. El mayor de tres
+```java test
+check(Solution.esPar(4), true);
+check(Solution.esPar(7), false);
+check(Solution.esPar(0), true);
+check(Solution.esPar(-3), false);
+```
+
+</Exercise>
+
+<Exercise title="2. El mayor de tres">
 
 Escribe `maximo`, que recibe tres enteros y devuelve el mayor. No uses
 `Math.max`: la gracia está en escribir las comparaciones.
 
-<CodeEditor
-  language="java"
-  defaultValue={`class Ejercicio2 {
+```java starter
+class Solution {
 
     static int maximo(int a, int b, int c) {
         // tu código aquí
         return 0;
     }
-
-    public static void main(String[] args) {
-        System.out.println(maximo(1, 2, 3));      // 3
-        System.out.println(maximo(9, 2, 3));      // 9
-        System.out.println(maximo(1, 8, 3));      // 8
-        System.out.println(maximo(-5, -2, -9));   // -2
-        System.out.println(maximo(4, 4, 4));      // 4
-    }
 }
-`}
-/>
+```
 
-### 3. Suma hasta n
+```java test
+check(Solution.maximo(1, 2, 3), 3);
+check(Solution.maximo(9, 2, 3), 9);
+check(Solution.maximo(1, 8, 3), 8);
+check(Solution.maximo(-5, -2, -9), -2);
+check(Solution.maximo(4, 4, 4), 4);
+```
+
+</Exercise>
+
+<Exercise title="3. Suma hasta n">
 
 Escribe `sumaHasta`, que recibe un entero `n` y devuelve la suma de todos los
 números de 1 hasta `n`. Si `n` es menor que 1, la suma es 0.
 
-<CodeEditor
-  language="java"
-  defaultValue={`class Ejercicio3 {
+```java starter
+class Solution {
 
     static int sumaHasta(int n) {
         // tu código aquí
         return 0;
     }
-
-    public static void main(String[] args) {
-        System.out.println(sumaHasta(5));    // 15
-        System.out.println(sumaHasta(1));    // 1
-        System.out.println(sumaHasta(0));    // 0
-        System.out.println(sumaHasta(100));  // 5050
-    }
 }
-`}
-/>
+```
 
-### 4. Cuántos dígitos
+```java test
+check(Solution.sumaHasta(5), 15);
+check(Solution.sumaHasta(1), 1);
+check(Solution.sumaHasta(0), 0);
+check(Solution.sumaHasta(-4), 0);
+check(Solution.sumaHasta(100), 5050);
+```
 
-Escribe `cuentaDigitos`, que recibe un entero positivo y devuelve cuántos dígitos
-tiene. `1234` tiene 4; `7` tiene 1; `0` tiene 1.
+</Exercise>
+
+<Exercise title="4. Cuántos dígitos">
+
+Escribe `cuentaDigitos`, que recibe un entero positivo y devuelve cuántos
+dígitos tiene. `1234` tiene 4; `7` tiene 1; `0` tiene 1.
 
 La idea: divide por 10 repetidamente hasta llegar a 0, contando las vueltas.
 
-> **Antes de ejecutar, léelo dos veces.** Este es el ejercicio donde es fácil
-> escribir un `while` que nunca termina, y un ciclo infinito congela la pestaña.
-> Asegúrate de que el número se divide **dentro** del ciclo.
+> **Antes de comprobar, léelo dos veces.** Este es el ejercicio donde es fácil
+> escribir un ciclo que nunca termina, y eso congela la pestaña. Asegúrate de
+> que el número se divide **dentro** del ciclo. Tu código se guarda antes de
+> cada ejecución, así que si pasa, lo recuperas al recargar.
 
-<CodeEditor
-  language="java"
-  defaultValue={`class Ejercicio4 {
+```java starter
+class Solution {
 
     static int cuentaDigitos(int n) {
         // tu código aquí
         return 0;
     }
-
-    public static void main(String[] args) {
-        System.out.println(cuentaDigitos(1234));  // 4
-        System.out.println(cuentaDigitos(7));     // 1
-        System.out.println(cuentaDigitos(0));     // 1
-        System.out.println(cuentaDigitos(90));    // 2
-    }
 }
-`}
-/>
+```
+
+```java test
+check(Solution.cuentaDigitos(1234), 4);
+check(Solution.cuentaDigitos(7), 1);
+check(Solution.cuentaDigitos(0), 1);
+check(Solution.cuentaDigitos(90), 2);
+```
+
+</Exercise>
 
 ## Lo que sigue
 
