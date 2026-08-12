@@ -76,11 +76,14 @@ export const LAUNCHER_CLASS = 'NalandaLauncher';
 /**
  * How much a program may print before the launcher stops relaying it.
  *
- * Measured in Chromium on the shipped document: 10k lines stall the main thread
- * for ~1.2s and 20k crash the renderer outright. 256KB sits an order of
- * magnitude below that and above anything a teaching example prints on purpose.
+ * This bounds how far the console element can grow; it does NOT make a
+ * print-heavy program finish. Measured in Chromium after the cap landed, a loop
+ * of 60 000 println still had not returned after 300s — the cost is the JVM
+ * executing the loop under WebAssembly, not the writes the cap removes
+ * (ADR-0020 §6). 48KB is roughly 4k lines, inside the range measured as
+ * survivable and far above anything a teaching example prints on purpose.
  */
-const OUTPUT_BUDGET_BYTES = 256 * 1024;
+const OUTPUT_BUDGET_BYTES = 48 * 1024;
 
 /** Printed once, in place of everything past the budget. */
 export const TRUNCATED = '[nalanda] salida truncada: el programa imprimió demasiado';
@@ -144,6 +147,14 @@ public class ${LAUNCHER_CLASS} {
             this.budget = budget;
         }
 
+        private void announce() throws IOException {
+            if (announced) return;
+            announced = true;
+            byte[] note = "\\n${TRUNCATED}\\n".getBytes("UTF-8");
+            out.write(note, 0, note.length);
+            out.flush();
+        }
+
         @Override
         public void write(int b) throws IOException {
             if (written < budget) {
@@ -151,16 +162,22 @@ public class ${LAUNCHER_CLASS} {
                 out.write(b);
                 return;
             }
-            if (!announced) {
-                announced = true;
-                for (byte c : "\\n${TRUNCATED}\\n".getBytes("UTF-8")) out.write(c);
-                out.flush();
-            }
+            announce();
         }
 
         @Override
         public void write(byte[] b, int off, int len) throws IOException {
-            for (int i = 0; i < len; i++) write(b[off + i]);
+            // In bulk, never byte by byte: FilterOutputStream's inherited
+            // implementation delegates each byte to write(int), which would turn
+            // the whole budget into tens of thousands of writes through CheerpJ.
+            int room = budget - written;
+            if (room > 0) {
+                int take = Math.min(room, len);
+                written += take;
+                out.write(b, off, take);
+                if (take == len) return;
+            }
+            announce();
         }
     }
 

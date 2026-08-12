@@ -61,14 +61,21 @@ the editor at the last run: edits made and never run are lost exactly as before.
 Both catalog entries and the authoring guide say this, because a half-true
 promise about not losing work is worse than none.
 
-**6. Output is capped, because a program that TERMINATES could kill the tab too.**
-The freeze this ADR accepts is non-termination. The review found a second way to
-lose the page and it is not covered by that acceptance: measured in Chromium, a
-correct program printing 10k lines stalls the main thread ~1.2s and 20k crashes
-the renderer. It was reachable from a shipped editor by changing the stdin panel
-from `10` to `100000` — which the prose immediately above it invites the reader
-to do. The launcher now caps `System.out` at 256KB and prints one truncation
-marker. Unlike the freeze, this one is fixed rather than accepted.
+**6. Output is capped, and that bounds the damage without curing it.** The freeze
+this ADR accepts is non-termination. The review found a second way to lose the
+page: a correct program printing 10k lines stalls the main thread ~1.2s and 20k
+crashes the renderer, reachable from a shipped editor by changing its stdin panel
+from `10` to `100000` — which the prose immediately above invites the reader to
+do. The launcher caps `System.out` at 48KB and prints one truncation marker,
+which stops the console element from growing without bound.
+
+It is **not** a fix. Capping the output was tried at 256KB and at 48KB and
+neither made such a program finish: measured after the cap landed, a loop of
+60 000 `println` still had not returned after 300s. The cost is dominated by the
+JVM executing the loop under WebAssembly, not by the DOM writes the cap removes.
+A print-heavy program remains a way to lose the tab, and the honest mitigations
+are the same two ADR-0019 §7 and this ADR already name — the draft saved before
+every run, and eventually moving execution off the student's main thread.
 
 ## Consequences
 
