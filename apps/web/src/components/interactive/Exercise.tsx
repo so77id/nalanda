@@ -6,11 +6,12 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { fencesByMeta, withoutFences } from '../../lib/codeFences';
+import { AuthoringError } from '../AuthoringError';
 import { clearDraft, draftKey, readDraft, saveDraft } from '../../lib/draft';
 import type { RuntimeId, RuntimeModule } from '../../runtime';
 import { RunAbandonedError, loadRuntime, useRuntime } from '../../runtime';
 import type { RunReading } from './harness';
-import { buildHarness, readRun } from './harness';
+import { STARTER_FENCE, TEST_FENCE, buildHarness, readRun } from './harness';
 
 export interface ExerciseProps {
   /** Shown as the exercise's heading. */
@@ -96,8 +97,8 @@ function Verdict({ reading }: { reading: RunReading }) {
 export function Exercise({ title, language = 'java', children }: ExerciseProps) {
   const fences = useMemo(() => fencesByMeta(children), [children]);
   const statement = useMemo(() => withoutFences(children), [children]);
-  const starter = fences['starter'] ?? '';
-  const cases = fences['test'] ?? '';
+  const starter = fences[STARTER_FENCE] ?? '';
+  const cases = fences[TEST_FENCE] ?? '';
 
   const key = useMemo(() => draftKey(globalThis.location?.pathname ?? '', starter), [starter]);
 
@@ -176,13 +177,19 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
     [check],
   );
 
-  if (starter === '') {
-    // An authoring mistake, not a student one: say so where the author will see it.
+  // Both fences, not just the starter. Without `test` the exercise compiled and
+  // ran, and told the STUDENT their program reported no cases — the author's
+  // typo, blamed on the reader, in the one component that must not misreport.
+  const missing = starter === '' ? STARTER_FENCE : cases === '' ? TEST_FENCE : null;
+  if (missing !== null) {
     return (
-      <div className="not-prose my-6 rounded-lg border border-amber-700 bg-amber-950 px-3 py-2 font-mono text-xs text-amber-200">
-        &lt;Exercise&gt; sin bloque <code>starter</code>: agrega una cerca de código marcada
-        <code> ```{language} starter</code>.
-      </div>
+      <AuthoringError component="Exercise">
+        sin bloque <code>{missing}</code>: agrega una cerca de código marcada{' '}
+        <code>
+          ```{language} {missing}
+        </code>
+        .
+      </AuthoringError>
     );
   }
 

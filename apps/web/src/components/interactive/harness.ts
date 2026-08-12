@@ -9,6 +9,14 @@ import { HARNESS_CLASS } from '../../runtime';
 
 export { HARNESS_CLASS };
 
+// The two fence labels an exercise is authored with. Constants because the same
+// two strings are otherwise retyped in the component, the catalog, the tests,
+// the guide and every document — and a typo in any of them is silent.
+/** Seeds the editor. */
+export const STARTER_FENCE = 'starter';
+/** Becomes the body of the generated harness. */
+export const TEST_FENCE = 'test';
+
 /** Prefix of the lines the harness prints for the component, not for the student. */
 const MARK = '[nalanda] ';
 const FIELD = ' :: ';
@@ -44,7 +52,11 @@ public class ${HARNESS_CLASS} {
     }
 
     static void check(double obtuvo, double esperado) {
-        report(obtuvo == esperado, String.valueOf(esperado), String.valueOf(obtuvo));
+        // Never ==: 0.1 + 0.2 is not 0.3, and an exercise that prints
+        // "esperaba 0.3, obtuvo 0.3" is the component lying about a verdict.
+        boolean ok = Math.abs(obtuvo - esperado) < 1e-9
+                || (Double.isNaN(obtuvo) && Double.isNaN(esperado));
+        report(ok, String.valueOf(esperado), String.valueOf(obtuvo));
     }
 
     static void check(boolean obtuvo, boolean esperado) {
@@ -56,12 +68,40 @@ public class ${HARNESS_CLASS} {
     }
 
     static void check(Object obtuvo, Object esperado) {
-        boolean ok = (obtuvo == null) ? (esperado == null) : obtuvo.equals(esperado);
-        report(ok, String.valueOf(esperado), String.valueOf(obtuvo));
+        // Arrays inherit Object.equals, which compares identity, so a correct
+        // answer returning one would always have failed. Routed to
+        // Arrays.deepEquals, which handles both arrays and everything else.
+        boolean ok = (obtuvo == null || esperado == null)
+                ? (obtuvo == esperado)
+                : Arrays.deepEquals(new Object[] { obtuvo }, new Object[] { esperado });
+        report(ok, describe(esperado), describe(obtuvo));
     }
 
     static void check(int[] obtuvo, int[] esperado) {
         report(Arrays.equals(obtuvo, esperado), Arrays.toString(esperado), Arrays.toString(obtuvo));
+    }
+
+    static void check(long[] obtuvo, long[] esperado) {
+        report(Arrays.equals(obtuvo, esperado), Arrays.toString(esperado), Arrays.toString(obtuvo));
+    }
+
+    static void check(char[] obtuvo, char[] esperado) {
+        report(Arrays.equals(obtuvo, esperado), Arrays.toString(esperado), Arrays.toString(obtuvo));
+    }
+
+    static void check(boolean[] obtuvo, boolean[] esperado) {
+        report(Arrays.equals(obtuvo, esperado), Arrays.toString(esperado), Arrays.toString(obtuvo));
+    }
+
+    /** Prints an array as its contents rather than as its identity hash. */
+    static String describe(Object value) {
+        if (value instanceof Object[]) return Arrays.deepToString((Object[]) value);
+        if (value instanceof int[]) return Arrays.toString((int[]) value);
+        if (value instanceof long[]) return Arrays.toString((long[]) value);
+        if (value instanceof double[]) return Arrays.toString((double[]) value);
+        if (value instanceof char[]) return Arrays.toString((char[]) value);
+        if (value instanceof boolean[]) return Arrays.toString((boolean[]) value);
+        return String.valueOf(value);
     }
 
     public static void main(String[] args) {

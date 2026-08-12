@@ -257,6 +257,13 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       emit({ id, type: 'error', message: describe(error) });
     } finally {
       running = false;
+      // Reaching here means the JVM is free, so nothing is wedged — even if the
+      // editor that started this run was unmounted mid-flight and `terminate()`
+      // assumed the worst. A route change unmounts all twelve editors at once,
+      // so clicking Ejecutar, wandering off during the ~12s boot and coming back
+      // used to disable Java for the whole session with nothing actually stuck.
+      // A genuinely hung program never reaches this line, and stays wedged.
+      wedged = false;
     }
   };
 

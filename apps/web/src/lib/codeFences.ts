@@ -1,4 +1,4 @@
-import { Children, Fragment, isValidElement, type ReactNode } from 'react';
+import { Children, Fragment, cloneElement, isValidElement, type ReactNode } from 'react';
 
 import { textOf } from './reactText';
 
@@ -26,8 +26,12 @@ export function fencesByMeta(children: ReactNode): Record<string, string> {
 
     const props = node.props as { 'data-meta'?: unknown; children?: ReactNode };
     const meta = props['data-meta'];
-    if (typeof meta === 'string') {
-      found[meta] ??= textOf(props.children);
+    // A `code` element specifically: `data-meta` on anything else is not a fence,
+    // and an empty one must not claim the label — Exercise reads an empty starter
+    // as a missing one and shows the author-error banner instead of the exercise.
+    if (typeof meta === 'string' && node.type === 'code') {
+      const source = textOf(props.children);
+      if (source !== '') found[meta] ??= source;
       return;
     }
     walk(props.children);
@@ -64,5 +68,30 @@ export function withoutFences(children: ReactNode): ReactNode[] {
   };
   flatten(children);
 
-  return Children.toArray(flat).filter((child) => Object.keys(fencesByMeta(child)).length === 0);
+  /**
+   * Removes the fences in place rather than dropping whatever contains them.
+   *
+   * Filtering top-level children took the surrounding prose with the fence: a
+   * fence written inside a blockquote or a list item — ordinary markdown, and
+   * already the shape of exercise 4 — made the whole warning disappear.
+   */
+  const strip = (node: ReactNode): ReactNode => {
+    if (Array.isArray(node)) {
+      const kept = (node as ReactNode[]).map(strip).filter((one) => one !== null);
+      return kept.length === 0 ? null : kept;
+    }
+    if (!isValidElement(node)) return node;
+
+    const props = node.props as { 'data-meta'?: unknown; children?: ReactNode };
+    if (typeof props['data-meta'] === 'string' && node.type === 'code') return null;
+    if (props.children === undefined || props.children === null) return node;
+
+    const inner = strip(props.children);
+    // Emptied by the removal, so it was the fence's wrapper — the <pre> around a
+    // <code>. Keeping it would render an empty code block in the flow.
+    if (inner === null) return null;
+    return cloneElement(node, undefined, inner);
+  };
+
+  return Children.toArray(flat.map(strip).filter((one) => one !== null));
 }

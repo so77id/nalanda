@@ -313,6 +313,43 @@ describe('createJavaRuntime', () => {
       expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
     });
 
+    it('does not wedge the page when an abandoned run finishes anyway', async () => {
+      // A route change unmounts every editor, which terminates their workers. If
+      // a run was in flight — the ~12s boot is easy to wander off during — that
+      // used to mark the JVM wedged forever, though the run completed fine and
+      // left it free. Every editor on every document then refused to run.
+      const gate: { release: (() => void) | null } = { release: null };
+      onRun = async ({ mainClass }) => {
+        if (mainClass !== 'NalandaLauncher') return 0;
+        await new Promise<void>((resolve) => {
+          gate.release = resolve;
+        });
+        return 0;
+      };
+
+      const abandoned = createJavaRuntime('/');
+      listen(abandoned);
+      abandoned.postMessage({ id: 1, source: 'public class Main {}', stdin: '' });
+      await vi.waitFor(() => expect(gate.release).not.toBeNull());
+      abandoned.terminate();
+
+      // Unlike the wedge case above, this program does finish.
+      gate.release?.();
+      onRun = async () => 0;
+
+      // `wedged` is read when a run is ENQUEUED, so the abandoned one has to
+      // have finished before the next student presses anything.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const later = createJavaRuntime('/');
+      const seen = listen(later);
+      later.postMessage({ id: 2, source: 'public class Otro {}', stdin: '' });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(seen.some((message) => message.type === 'error')).toBe(false);
+    });
+
     it('reports a harness that fails to compile as a result', async () => {
       // The student renamed their class, so the harness no longer resolves it.
       // That is a compile error to read, not a broken runtime.
