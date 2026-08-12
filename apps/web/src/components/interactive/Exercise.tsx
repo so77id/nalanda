@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { fencesByMeta, withoutFences } from '../../lib/codeFences';
+import { clearDraft, draftKey, readDraft, saveDraft } from '../../lib/draft';
 import type { RuntimeId, RuntimeModule } from '../../runtime';
 import { RunAbandonedError, loadRuntime, useRuntime } from '../../runtime';
 import type { RunReading } from './harness';
@@ -98,8 +99,10 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
   const starter = fences['starter'] ?? '';
   const cases = fences['test'] ?? '';
 
+  const key = useMemo(() => draftKey(globalThis.location?.pathname ?? '', starter), [starter]);
+
   const [runtime, setRuntime] = useState<RuntimeModule | null>(null);
-  const [code, setCode] = useState(starter);
+  const [code, setCode] = useState(() => readDraft(key) ?? starter);
   const [running, setRunning] = useState(false);
   const [reading, setReading] = useState<RunReading | null>(null);
   const [compileLog, setCompileLog] = useState('');
@@ -132,6 +135,10 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
   });
 
   const check = useCallback(async () => {
+    // Before the run, not after: a Java loop that never ends freezes this tab
+    // for good (ADR-0017), and this is the last moment we are still alive to
+    // save what the student wrote.
+    saveDraft(key, code);
     setRunning(true);
     setReading(null);
     setFailure(null);
@@ -150,7 +157,7 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
     } finally {
       setRunning(false);
     }
-  }, [run, code, cases]);
+  }, [run, code, cases, key]);
 
   const checkShortcut = useMemo(
     () =>
@@ -240,7 +247,10 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
 
         <button
           type="button"
-          onClick={() => setCode(starter)}
+          onClick={() => {
+            clearDraft(key);
+            setCode(starter);
+          }}
           disabled={running || code === starter}
           className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-2xs text-zinc-300 hover:bg-zinc-700 disabled:opacity-40"
         >

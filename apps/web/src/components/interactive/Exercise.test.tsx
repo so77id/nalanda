@@ -1,8 +1,9 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { draftKey, readDraft, saveDraft } from '../../lib/draft';
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../../runtime';
 import { Exercise } from './Exercise';
 
@@ -116,8 +117,28 @@ async function checkWith(output: string, exitCode: number | null = 0) {
   return worker;
 }
 
+/** This environment has no usable localStorage of its own; drafts need one. */
+function fakeStorage(): Storage {
+  const entries = new Map<string, string>();
+  return {
+    getItem: (key: string) => entries.get(key) ?? null,
+    setItem: (key: string, value: string) => void entries.set(key, value),
+    removeItem: (key: string) => void entries.delete(key),
+    clear: () => entries.clear(),
+    key: (index: number) => [...entries.keys()][index] ?? null,
+    get length() {
+      return entries.size;
+    },
+  };
+}
+
 beforeEach(() => {
   workers.length = 0;
+  vi.stubGlobal('localStorage', fakeStorage());
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('Exercise', () => {
@@ -200,6 +221,39 @@ describe('Exercise', () => {
     renderExercise(<p>enunciado sin código</p>);
     expect(screen.getByText(/sin bloque/i)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /comprobar/i })).not.toBeInTheDocument();
+  });
+
+  // A Java loop that never ends freezes the tab for good (ADR-0017). The freeze
+  // is accepted; losing the student's work to it is not.
+  describe('draft', () => {
+    const key = () => draftKey(globalThis.location?.pathname ?? '', STARTER);
+
+    it('restores what the student had, instead of the starter', async () => {
+      saveDraft(key(), 'class Solution { /* mi intento */ }');
+      renderExercise();
+      await waitFor(() =>
+        expect(screen.getByTestId('code')).toHaveValue('class Solution { /* mi intento */ }'),
+      );
+    });
+
+    it('saves the editor before the run, not after it', async () => {
+      renderExercise();
+      await waitFor(() => expect(screen.getByTestId('code')).toHaveValue(STARTER));
+      expect(readDraft(key())).toBeNull();
+
+      await checkWith('[nalanda] PASS 1\n');
+      expect(readDraft(key())).toBe(STARTER);
+    });
+
+    it('forgets the draft when the student resets', async () => {
+      saveDraft(key(), 'un intento anterior');
+      renderExercise();
+      await waitFor(() => expect(screen.getByTestId('code')).toHaveValue('un intento anterior'));
+
+      await userEvent.click(screen.getByRole('button', { name: /reiniciar/i }));
+      expect(readDraft(key())).toBeNull();
+      expect(screen.getByTestId('code')).toHaveValue(STARTER);
+    });
   });
 
   it('loads no runtime until the student asks for one', async () => {

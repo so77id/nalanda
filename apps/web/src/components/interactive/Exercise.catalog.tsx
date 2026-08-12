@@ -42,7 +42,7 @@ export const exerciseCatalogEntry: CatalogEntry = {
     'When a page asks the student to write code rather than read it. Author the statement as ordinary prose and add two annotated fences: ```java starter``` seeds the editor, ```java test``` becomes the body of the harness. ' +
     'The cases stay hidden until the first run — that is pacing, not secrecy: everything under `content/` is published, so the page source reveals them to anyone who looks. Never author an exercise whose cases must stay private. ' +
     'Only Java validates today; Python and C++ reject a harness rather than pretend to check one. The class name in the starter and the one the cases call must agree — if a student renames their class the harness stops resolving it, which surfaces as a compile error. ' +
-    "And the sharp edge Java brings (ADR-0017): it runs on the page's main thread, so a student's endless loop freezes the tab and nothing recovers it. That is likeliest here, of all places, because here is where students write the loops.",
+    "And the sharp edge Java brings (ADR-0017): it runs on the page's main thread, so a student's endless loop freezes the tab and nothing recovers it. That is likeliest here, of all places, because here is where students write the loops. The editor is saved to localStorage immediately before every run, so a frozen tab costs a reload rather than their work — but only what was there at that run: edits made and never run are not saved. Reiniciar clears the saved draft as well as the editor.",
   props: [
     {
       name: 'title',

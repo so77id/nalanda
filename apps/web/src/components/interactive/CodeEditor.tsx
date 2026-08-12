@@ -6,6 +6,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { draftKey, readDraft, saveDraft } from '../../lib/draft';
 import { useMode } from '../../presentation';
 import type { RunResult, RuntimeId, RuntimeModule } from '../../runtime';
 import { RunAbandonedError, loadRuntime, runtimeDescriptors, useRuntime } from '../../runtime';
@@ -55,6 +56,8 @@ export function CodeEditor({
   const [languageId, setLanguageId] = useState<RuntimeId>(language);
   const [runtimes, setRuntimes] = useState<Partial<Record<RuntimeId, RuntimeModule>>>({});
   const [buffers, setBuffers] = useState<Partial<Record<RuntimeId, string>>>({});
+  // One draft key per language, fixed when that language's seed is known.
+  const [draftKeys, setDraftKeys] = useState<Partial<Record<RuntimeId, string>>>({});
   const [stdin, setStdin] = useState(defaultStdin);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<RunResult | null>(null);
@@ -74,14 +77,15 @@ export function CodeEditor({
       (module) => {
         if (cancelled) return;
         setRuntimes((current) => ({ ...current, [languageId]: module }));
+        const seed =
+          (languageId === language ? defaultValue : undefined) ?? module.descriptor.defaultCode;
+        const key = draftKey(`${globalThis.location?.pathname ?? ''}#${languageId}`, seed);
+        setDraftKeys((current) => ({ ...current, [languageId]: key }));
         setBuffers((current) =>
+          // A draft only exists if the student ran something here before, and it
+          // is what they had when the tab froze.
           current[languageId] === undefined
-            ? {
-                ...current,
-                [languageId]:
-                  (languageId === language ? defaultValue : undefined) ??
-                  module.descriptor.defaultCode,
-              }
+            ? { ...current, [languageId]: readDraft(key) ?? seed }
             : current,
         );
       },
@@ -115,6 +119,11 @@ export function CodeEditor({
   );
 
   const doRun = useCallback(async () => {
+    // Before the run, not after: a Java loop that never ends freezes this tab
+    // for good (ADR-0017), and this is the last moment we are still alive to
+    // save what the student wrote.
+    const key = draftKeys[languageId];
+    if (key !== undefined) saveDraft(key, code);
     setRunning(true);
     setResult(null);
     setFailure(null);
@@ -129,7 +138,7 @@ export function CodeEditor({
     } finally {
       setRunning(false);
     }
-  }, [run, code, stdin]);
+  }, [run, code, stdin, draftKeys, languageId]);
 
   const changeLanguage = useCallback((next: RuntimeId) => {
     setLanguageId(next);
