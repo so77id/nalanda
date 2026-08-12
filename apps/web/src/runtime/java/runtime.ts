@@ -173,7 +173,7 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
     return host;
   };
 
-  const execute = async ({ id, source, stdin }: RunRequest): Promise<void> => {
+  const execute = async ({ id, source, stdin, harness }: RunRequest): Promise<void> => {
     if (terminated) return;
     running = true;
     try {
@@ -182,16 +182,27 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       // measuring the student's program.
       emit({ id, type: 'started' });
 
-      const entryClass = deriveEntryClass(source);
-      const sourcePath = `/str/${sourceFileName(entryClass)}`;
-      cheerpjAddStringFile(sourcePath, encoder.encode(source));
+      const write = (unit: string): string => {
+        const path = `/str/${sourceFileName(deriveEntryClass(unit))}`;
+        cheerpjAddStringFile(path, encoder.encode(unit));
+        return path;
+      };
+
+      const sourcePaths = [write(source)];
+      // With a harness present the student's class is a library, not a program:
+      // the harness owns `main` and decides what to call.
+      let entryClass = deriveEntryClass(source);
+      if (harness !== undefined) {
+        sourcePaths.push(write(harness));
+        entryClass = deriveEntryClass(harness);
+      }
       cheerpjAddStringFile(STDIN_PATH, encoder.encode(stdin));
 
       const compileStartedAt = performance.now();
       const compileExit = await cheerpjRunMain(
         ECJ_MAIN,
         classPath,
-        sourcePath,
+        ...sourcePaths,
         '-d',
         OUTPUT_DIR,
         SOURCE_LEVEL,

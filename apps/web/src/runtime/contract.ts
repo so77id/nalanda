@@ -32,6 +32,17 @@ export interface RunRequest {
   id: number;
   source: string;
   stdin: string;
+  /**
+   * A second compilation unit, compiled beside `source` and used as the entry
+   * point in its place.
+   *
+   * It exists so an exercise can check a *method*: the code that calls the
+   * student's work has to live outside the student's file, or it would be theirs
+   * to edit and to break. A runtime that cannot honour it must say so rather
+   * than run `source` alone — silently ignoring it would report a passing
+   * exercise that verified nothing.
+   */
+  harness?: string;
 }
 
 /** Sent once, unprompted, when the runtime has finished booting. */

@@ -118,8 +118,11 @@ function describe(error: unknown): string {
 }
 
 addEventListener('message', async (event: MessageEvent<RunRequest>) => {
-  const { id, source, stdin } = event.data;
+  const { id, source, stdin, harness } = event.data;
   try {
+    // Running `source` alone would report a passing exercise that checked
+    // nothing, so refusing is the safe answer until C++ grows a harness.
+    if (harness !== undefined) throw new Error('el runtime de C++ no admite ejercicios todavía');
     await warmPromise;
     if (!toolchain) throw new Error('the C++ toolchain failed to load');
     // The toolchain is downloaded and warm: the caller's deadline should now be

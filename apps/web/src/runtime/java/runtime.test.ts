@@ -234,4 +234,74 @@ describe('createJavaRuntime', () => {
 
     expect(seen).toHaveLength(0);
   });
+
+  // An exercise validates a *method*, so the code that calls it cannot live in
+  // the student's file: it must compile beside it and own the entry point.
+  describe('with a harness', () => {
+    const solution = 'class Solution { static int doble(int n) { return n * 2; } }';
+    const harness = 'public class NalandaCheck { public static void main(String[] a) {} }';
+
+    /** The ECJ invocation that compiled the student's code. */
+    const studentCompile = () =>
+      invocations.find(
+        (invocation) =>
+          invocation.mainClass.includes('jdt') &&
+          invocation.args.some((arg) => arg.endsWith('Solution.java')),
+      );
+
+    it('compiles the harness alongside the student source', async () => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: solution, stdin: '', harness });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(studentCompile()?.args).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('Solution.java'),
+          expect.stringContaining('NalandaCheck.java'),
+        ]),
+      );
+    });
+
+    it('runs the harness, not the student class', async () => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: solution, stdin: '', harness });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
+      expect(run?.args[0]).toBe('NalandaCheck');
+    });
+
+    it('still runs the student class when no harness is given', async () => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: 'public class Main {}', stdin: '' });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
+      expect(run?.args[0]).toBe('Main');
+    });
+
+    it('reports a harness that fails to compile as a result', async () => {
+      // The student renamed their class, so the harness no longer resolves it.
+      // That is a compile error to read, not a broken runtime.
+      onRun = async ({ mainClass, args }) => {
+        if (mainClass.includes('jdt') && args.some((arg) => arg.endsWith('NalandaCheck.java'))) {
+          write('ERROR: Solution cannot be resolved');
+          return -1;
+        }
+        return 0;
+      };
+
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: 'class Renombrada {}', stdin: '', harness });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]).toMatchObject({ exitCode: null });
+      expect(results(seen)[0]!.compileLog).toContain('cannot be resolved');
+      expect(seen.some((message) => message.type === 'error')).toBe(false);
+    });
+  });
 });
