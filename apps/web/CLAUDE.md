@@ -32,8 +32,12 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
   (`predev`/`prebuild`): it downloads ~2.9MB from Maven Central on a clean
   checkout, so **an offline first build fails before Vite starts**.
 - **The suite cannot execute code.** Every runtime is faked in jsdom, so any
-  change under `src/runtime/**` or to `CodeEditor` needs a real browser too —
-  recipe in `docs/standards/guides/add-a-language-runtime.md` §7.
+  change under `src/runtime/**`, or to a component that drives a runtime
+  (`CodeEditor`, `Exercise`, `harness.ts`) or the draft store, needs a real
+  browser too — recipe in `docs/standards/guides/add-a-language-runtime.md` §7.
+  Written as a class rather than a list of names because the list was already
+  stale once: `Exercise` arrived with the same shape and the same hazard, and the
+  rule still said `CodeEditor`.
 - Java deliberately does NOT run in a Web Worker (ADR-0017), and a Java infinite
   loop freezes the tab with no recovery — relevant whenever you author or verify
   course content with runnable Java.

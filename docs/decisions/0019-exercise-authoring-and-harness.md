@@ -57,8 +57,12 @@ check(Solution.esPar(4), true);
 **3. The cases are compiled into a separate class, not into the student's file.**
 `buildHarness` (`components/interactive/harness.ts`) wraps the author's
 `check(...)` calls in a generated `NalandaCheck` with overloads for `int`,
-`long`, `double`, `boolean`, `char`, `Object` and `int[]`. It owns `main`; the
-student's class becomes a library it calls. The point is that the verdict is
+`long`, `double`, `boolean`, `char`, `Object` and the primitive arrays (`int[]`,
+`long[]`, `char[]`, `boolean[]`). The authoring surface — argument order, what
+may go in the fence — is documented once, in
+`guides/add-a-course-document.md` §5b; this list is here only to say what shape
+the generated class has. It owns `main`; the author's cases are inlined as its
+body, and the student's class becomes a library it calls. The point is that the verdict is
 about the method rather than about what the program printed, and that the checker
 is not sitting in the buffer a stuck student is editing — the first thing they
 change is whatever says they are wrong.
@@ -69,7 +73,8 @@ falsified twice; see §7.
 
 **3b. Two class names are reserved.** Both units compile into one output
 directory, so a student class named `NalandaLauncher` or `NalandaCheck`
-overwrites a platform one. Demonstrated before the guard existed: a unit
+overwrites a platform one. Demonstrated 2026-08-12 in Chromium, before the guard
+existed: a unit
 declaring `public class NalandaLauncher` replaced the launcher built at warm-up
 and, because that build is memoised, every editor on the page then ran the
 student's `main` — exercises nobody had touched reported a full pass. The runtime
@@ -94,7 +99,7 @@ not erase the verdicts for 1 and 2.
 protection.** Everything under `content/` is published
 (`docs/security-notes.md` §Accepted invariants), so the page source reveals them
 to anyone who looks. Hiding is pacing. The component, the catalog entry and the
-authoring guide all say so, and all state that an exercise whose cases must stay
+authoring guide all say so, and each states that an exercise whose cases must stay
 private cannot exist here.
 
 **7. A verdict is feedback, not evidence — stated here because the first draft

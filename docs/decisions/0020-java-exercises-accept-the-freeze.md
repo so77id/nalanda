@@ -48,10 +48,18 @@ Applied to `CodeEditor` as well as `Exercise`, because document 1 alone has
 seven runnable Java editors and its own prose already promises the reader their
 code is kept.
 
-**3. The draft is keyed on page path plus a hash of the starting source**
-(`src/components/interactive/draft.ts`), not on a position in the document. Adding a paragraph
-above an editor must not hand a student a different draft, and an author must
-never have to invent an id for every editor they write.
+**3. The draft is keyed on the page path, a per-editor discriminator, and a hash
+of the starting source** (`src/components/interactive/draft.ts`) — never on a
+position in the document. Adding a paragraph above an editor must not hand a
+student a different draft, and an author must never have to invent an id for
+every editor they write.
+
+The discriminator is the case the first version got wrong: keyed on path and
+seed alone, two exercises built from the same template shared one entry and the
+last one run won, handing one student's work to whoever reloaded the other.
+`Exercise` now scopes by its title, `CodeEditor` by its language and its own
+`defaultValue` — the parts that actually distinguish one editor on a page from
+another.
 
 **4. Storage failures are swallowed.** Safari private browsing and an exhausted
 quota both throw. Losing a draft is bad; taking the page down over it is worse.
@@ -63,15 +71,16 @@ promise about not losing work is worse than none.
 
 **6. Output is capped, and that bounds the damage without curing it.** The freeze
 this ADR accepts is non-termination. The review found a second way to lose the
-page: a correct program printing 10k lines stalls the main thread ~1.2s and 20k
-crashes the renderer, reachable from a shipped editor by changing its stdin panel
+page (measured 2026-08-12, Chromium): a correct program printing 10k lines
+stalls the main thread ~1.2s and 20k crashes the renderer, reachable from a
+shipped editor by changing its stdin panel
 from `10` to `100000` — which the prose immediately above invites the reader to
 do. The launcher caps `System.out` at 48KB and prints one truncation marker,
 which stops the console element from growing without bound.
 
 It is **not** a fix. Capping the output was tried at 256KB and at 48KB and
-neither made such a program finish: measured after the cap landed, a loop of
-60 000 `println` still had not returned after 300s. The cost is dominated by the
+neither made such a program finish: measured 2026-08-12 in Chromium against
+`npm run preview`, a loop of 60 000 `println` still had not returned after 300s. The cost is dominated by the
 JVM executing the loop under WebAssembly, not by the DOM writes the cap removes.
 A print-heavy program remains a way to lose the tab, and the honest mitigations
 are the same two ADR-0019 §7 and this ADR already name — the draft saved before
@@ -83,6 +92,13 @@ every run, and eventually moving execution off the student's main thread.
   cost, and it will happen to real students.
 - `Reiniciar` clears the draft as well as the editor, or the draft would
   reappear on the next reload and the button would be a lie.
+- **The case §3 does not cover: editing a starter throws the drafts away.** The
+  key hashes the seed, so changing one character of a `starter` fence or a
+  `defaultValue` makes every existing draft for that editor unreachable, and
+  nothing ever collects the orphans. Reordering a document is safe; rewriting a
+  starter after a class has used it discards their work silently. Recorded in
+  the authoring guide §5b, because the person who does it is the author, not the
+  reader.
 - Course authors carry a new obligation, recorded in the guide: warn in the
   prose where a loop is the point, keep runaway inputs out of examples, and
   never leave such an editor where an unattended reader cannot recover.

@@ -7,6 +7,13 @@ para enseñar `B` los estudiantes ya tienen que dominar `A`.
 Este archivo es la **fuente de verdad** del temario. Cuando se mueva o se
 agregue un tópico, se edita aquí.
 
+**Lo que no aparece acá:** la unidad *Java para quien viene de C++*
+(`content/courses/sample-course/`, WPs #76–#81) es un repaso del lenguaje previo
+al temario, no un tópico de EDA. No tiene nodo en el grafo ni fila en la tabla
+porque no es prerrequisito de ninguno de los 51 tópicos: es prerrequisito del
+curso entero. Si algún día una unidad de lenguaje sí condiciona un tópico
+concreto, ahí sí entra al grafo.
+
 ---
 
 ## 1. Grafo macro (14 grupos)

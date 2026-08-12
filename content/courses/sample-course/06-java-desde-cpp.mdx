@@ -15,8 +15,8 @@ páginas. Al terminar vas a poder leer, escribir, compilar y ejecutar un program
 Java que lea datos, calcule algo y los imprima — y vas a saber por qué está cada
 palabra de `public static void main(String[] args)`.
 
-Todo el código de esta página se ejecuta **en tu navegador**. Puedes editarlo.
-Deberías editarlo.
+Los bloques con botón *Ejecutar* compilan y corren **en tu navegador**. Puedes
+editarlos. Deberías editarlos. Los demás son listados para leer y comparar.
 
 <SectionBreak />
 
@@ -151,13 +151,18 @@ uno primero.
 `}
 />
 
-Descomenta la última línea y ejecuta. El error que aparece —*non-static method
-cannot be referenced from a static context*— es de los que más vas a ver este
-semestre, y ahora sabes exactamente qué significa.
+Descomenta la última línea y ejecuta. El error que aparece —*Cannot make a static
+reference to the non-static method informal() from the type Saludo*— es de los
+que más vas a ver este semestre, y ahora sabes exactamente qué significa. En tu
+computador, con el JDK instalado, el mismo error viene redactado distinto:
+*non-static method informal() cannot be referenced from a static context*. Es el
+mismo problema; los compiladores no se ponen de acuerdo en cómo decirlo.
 
-Sobre `String[] args`: es el equivalente de `int argc, char** argv`. La diferencia
-es que en Java el arreglo **sabe su propio largo**, así que no hace falta pasarlo
-aparte. En este curso casi nunca lo vas a usar.
+Sobre `String[] args`: es el equivalente de `int argc, char** argv`, con dos
+diferencias. El arreglo **sabe su propio largo**, así que no hace falta pasarlo
+aparte. Y `args[0]` es el **primer argumento**, no el nombre del programa: en
+C++, `argv[0]` es el nombre y los argumentos empiezan en `argv[1]`. En este curso
+casi nunca lo vas a usar.
 
 <Slide title="Compilar y ejecutar">
 En C++ el ciclo termina en un binario para tu máquina:
@@ -187,8 +192,10 @@ que C++. A cambio, la máquina virtual observa tu programa mientras corre y
 recompila a lenguaje máquina las partes que más se usan.
 
 > **Y en esta página, ¿qué pasa?** Exactamente esos dos pasos. El botón *Ejecutar*
-> corre `javac` sobre lo que escribiste y después `java` sobre el resultado. Lo
-> distinto es dónde: la máquina virtual está compilada a WebAssembly y vive en tu
+> corre un compilador de Java sobre lo que escribiste y después ejecuta el
+> `.class` que salió. No es exactamente `javac`: es ECJ, el compilador de
+> Eclipse, y por eso algunos mensajes de error están redactados distinto de los
+> que verás en tu computador. Lo distinto es dónde: la máquina virtual está compilada a WebAssembly y vive en tu
 > navegador. Por eso la primera ejecución tarda tanto — está descargando un Java
 > completo.
 
@@ -251,7 +258,8 @@ Cuatro diferencias con C++, y la primera es la que más te va a gustar:
   toda máquina donde corra Java, siempre. En C++ el tamaño de `int` depende de la
   implementación, y por eso existe `<cstdint>` con sus `int32_t`. En Java ese
   problema no existe.
-- **No hay `unsigned`.** Todos los enteros tienen signo.
+- **No hay `unsigned`.** Todos los enteros tienen signo, con una excepción:
+  `char`, que es un entero de 16 bits **sin** signo — por eso su rango parte en 0.
 - **`char` son 16 bits**, no 8, porque guarda un carácter Unicode y no un byte.
 - **`boolean` no es un número.** `if (1)` no compila, y `if (x = 5)` tampoco —
   volveremos a esto en el control de flujo.
@@ -280,9 +288,14 @@ existe:
 />
 
 No hay error ni aviso: el `int` da la vuelta y aterriza en el número más negativo
-que existe. Es el mismo comportamiento que en C++ para enteros con signo, y es una
-fuente clásica de errores — te vas a encontrar con ella otra vez cuando escribas
-comparadores.
+que existe. Y acá hay una diferencia con C++ que conviene tener clara, porque se
+parecen mucho y no son lo mismo: en Java el resultado está **especificado** —
+siempre da la vuelta, en cualquier máquina. En C++, el desbordamiento de un
+entero con signo es **comportamiento indefinido**: en la práctica suele dar la
+vuelta igual, pero el estándar no lo garantiza y el compilador tiene permiso para
+optimizar suponiendo que nunca ocurre. (El que sí da la vuelta por definición en
+C++ es el `unsigned`.) De todos modos es una fuente clásica de errores en los dos
+lenguajes — te vas a encontrar con ella otra vez cuando escribas comparadores.
 
 <Slide title="Operadores">
 Esta sección es corta a propósito: los operadores de Java son prácticamente los de
@@ -408,13 +421,13 @@ class Trampa {
         Scanner stdin = new Scanner(System.in);
 
         int edad = stdin.nextInt();
+
+        // stdin.nextLine();   // ← descomenta ESTA línea y ejecuta de nuevo
+
         String nombre = stdin.nextLine();   // ← no lee "Ana"
 
         System.out.println("edad:   [" + edad + "]");
         System.out.println("nombre: [" + nombre + "]");
-
-        // La solución: un nextLine() extra para tragarse el salto de línea.
-        // Descomenta la línea de arriba y prueba de nuevo.
     }
 }
 `}
@@ -424,7 +437,8 @@ Ana
 />
 
 El nombre sale vacío. La solución es llamar `nextLine()` una vez más después del
-`nextInt()`, solo para consumir el salto de línea que quedó colgando.
+`nextInt()`, solo para consumir el salto de línea que quedó colgando: está ahí
+comentada, descoméntala y vuelve a ejecutar.
 
 <Slide title="Control de flujo">
 `if`, `else`, `while` y `for` se escriben exactamente como en C++:
@@ -573,10 +587,11 @@ check(Solution.sumaHasta(100), 5050);
 
 <Exercise title="4. Cuántos dígitos">
 
-Escribe `cuentaDigitos`, que recibe un entero positivo y devuelve cuántos
+Escribe `cuentaDigitos`, que recibe un entero **no negativo** y devuelve cuántos
 dígitos tiene. `1234` tiene 4; `7` tiene 1; `0` tiene 1.
 
-La idea: divide por 10 repetidamente hasta llegar a 0, contando las vueltas.
+La idea: divide por 10 repetidamente hasta llegar a 0, contando las vueltas. Ojo
+con el `0`: ese ciclo no da ninguna vuelta, y la respuesta igual es 1.
 
 > **Antes de comprobar, léelo dos veces.** Este es el ejercicio donde es fácil
 > escribir un ciclo que nunca termina, y eso congela la pestaña. Asegúrate de

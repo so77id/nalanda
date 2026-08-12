@@ -80,11 +80,12 @@ function Verdict({ reading }: { reading: RunReading }) {
  * from editing the checker by accident; it is not a tamper control. The verdict
  * travels in-band on stdout, so a student who prints `[nalanda] PASS n` and
  * calls `System.exit(0)` gets a clean green board — demonstrated, not theorised.
- * Nothing here may ever back a mark (ADR-0019 §5, `docs/security-notes.md`).
+ * Nothing here may ever back a mark (ADR-0019 §7, `docs/security-notes.md`).
  *
  * The cases stay hidden until the first run. They are readable in the page
  * source either way — everything under `content/` is published — so this is
- * about pacing, not secrecy.
+ * about pacing, not secrecy, and an exercise whose cases must stay private
+ * cannot exist here.
  */
 export function Exercise({ title, language = 'java', children }: ExerciseProps) {
   const fences = useMemo(() => fencesByMeta(children), [children]);

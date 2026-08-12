@@ -42,6 +42,25 @@ apps/web/src/components/structure/
    the component reacts to the render mode, read it with `useMode()`
    (presentation seam); if a parser must recognize it, declare metadata with
    `withMeta` (`lib/componentMeta.ts`) — never expect identity imports.
+
+   Three seams worth knowing before writing your own:
+
+   - **Labelled code fences.** A component whose children carry code the author
+     marks — ```` ```java starter ```` — reads them with `fencesByMeta` /
+     `withoutFences` (`lib/codeFences.ts`); the `remarkCodeMeta` plugin has
+     already preserved the label as `data-meta`. Code arrives as children, never
+     through a prop (ADR-0019 §1–2). Worked case: `<Exercise>`.
+   - **Telling the author they got it wrong.** When a component has a contract
+     only visible after MDX evaluation — a missing fence, the wrong number of
+     children — render `<AuthoringError component="Name">` and say what is
+     missing. Render, never throw, and address the *writer*: the reader cannot
+     fix it. The stricter sibling is `content/contentIntegrity.ts`, which fails
+     the build instead — use it when the mistake is detectable without rendering
+     (frontmatter, the index). Worked cases: `<Exercise>`, `<SideBySide>`.
+   - **Inside `interactive/`**, reuse `Panel` (a labelled output strip),
+     `useRunShortcut` (Ctrl/Cmd + Enter) and `draft.ts` — whose `saveDraft` must
+     be called immediately *before* a run, never after, because a Java loop that
+     never ends is the case it exists for (ADR-0020 §2).
 3. **Register it** in the shell MDX map (`apps/web/src/app/mdxComponents.ts`).
    Not optional: the catalog and the MDX map must be the same set, asserted in
    both directions. A component that must NOT be document-facing therefore does

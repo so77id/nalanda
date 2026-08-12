@@ -1,6 +1,7 @@
 # ADR-0017: Java execution — ECJ under CheerpJ 8, on the main thread, behind a generated launcher
 
 **Status:** Accepted
+**Amended by:** ADR-0020 (the freeze is accepted for exercises, reversing a rule shipped here; and a third failure mode measured — see Decision 3)
 **Date:** 2026-08-11
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #74 S5; browser spikes run 2026-08-11; builds on ADR-0016 (licence) and ADR-0001 (client-side compute)
@@ -57,6 +58,16 @@ still blocked at 105s, with the renderer pinned at 101% CPU. Nothing recovers
 it — not the run deadline in `useRuntime`, which is a `setTimeout` on the very
 thread being held — so a student who writes an infinite loop in Java must close
 the tab. C++ and Python, being real workers, are bounded normally.
+
+**A third case, measured 2026-08-12 (#76), which this two-case model missed.** A
+program that neither waits nor spins — one that *terminates, correctly*, and
+prints a great deal — also costs the tab: 10k lines stall the main thread for
+~1.2s, 20k crash the renderer. Reaching it takes no infinite loop, only a
+`for` and a large number, which the stdin panel of a shipped example invites.
+Capping the launcher's `System.out` bounds how far the console element grows but
+does **not** make such a program finish: at 48KB a 60 000-`println` loop had
+still not returned after 300s, because the cost is the JVM executing under
+WebAssembly, not the writes (ADR-0020 §6).
 
 `RuntimeWorker` is our own narrow interface rather than `Worker`, which is what
 lets this sit behind the same contract as the other two — and what would let
@@ -118,7 +129,10 @@ not an error.
   so at once instead of queueing behind a program that will never finish — but a
   CPU-bound loop never reaches even that, because it holds the thread. This is
   the sharpest edge of running Java on the main thread, and it goes away only
-  when Java can live in a worker.
+  when Java can live in a worker. Narrowed by #76: a run that *reaches* the end
+  of `execute` clears the flag, because a finished run proves the JVM is free —
+  before that, navigating away during the 12s boot disabled Java for the whole
+  session with nothing actually stuck.
 - **The build needs network access** to Maven Central. CI and the deploy workflow
   both run `prebuild`; an outage breaks the build rather than shipping a broken
   runtime, which is the safer failure.

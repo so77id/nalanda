@@ -45,15 +45,17 @@ src/
 ├── catalog/              # /catalog surface: registry, family taxonomy, component +
 │                         # governance pages, live-example blocks
 ├── components/           # catalog content components by family (structure: Slide,
-│                         # SectionBreak; interactive: CodeEditor + its lazy wrapper)
-│                         # + their colocated <Component>.catalog.tsx entries
+│                         # SectionBreak, SideBySide; interactive: CodeEditor, Exercise
+│                         # + their lazy wrappers, shared Panel/useRunShortcut/draft)
+│                         # + their colocated <Component>.catalog.tsx entries,
+│                         # + AuthoringError: shared across families, not a content component
 ├── content/              # content pipeline: MDX registry, course index, wiki-links,
-│                         # book-mode page, build-time integrity gate
+│                         # fence-metadata plugin, book-mode page, build-time integrity gate
 ├── presentation/         # presentation mode: mode context, slide parser, SlideDeck viewer
 ├── runtime/              # code execution: worker contract, registry, useRuntime hook,
 │                         # one folder per language (java, cpp, python)
 ├── lib/                  # pure TS utilities + cross-feature contract types
-│                         # (catalogEntry, componentMeta, reactText)
+│                         # (catalogEntry, componentMeta, reactText, codeFences)
 ├── styles/               # Tailwind entry + design tokens
 ├── mdx.d.ts              # module typing for *.mdx imports
 └── architecture.test.ts  # import-direction invariants
