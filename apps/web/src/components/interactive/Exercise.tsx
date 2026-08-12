@@ -7,7 +7,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { fencesByMeta, withoutFences } from '../../lib/codeFences';
 import { AuthoringError } from '../AuthoringError';
-import { clearDraft, draftKey, readDraft, saveDraft } from '../../lib/draft';
+import { clearDraft, draftKey, readDraft, saveDraft } from './draft';
 import type { RuntimeId, RuntimeModule } from '../../runtime';
 import { RunAbandonedError, loadRuntime, useRuntime } from '../../runtime';
 import type { RunReading } from './harness';
@@ -105,7 +105,13 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
   const starter = fences[STARTER_FENCE] ?? '';
   const cases = fences[TEST_FENCE] ?? '';
 
-  const key = useMemo(() => draftKey(globalThis.location?.pathname ?? '', starter), [starter]);
+  // Scoped by title as well as page: keyed on the starting source alone, two
+  // exercises built from the same template shared one draft and the last one run
+  // won, handing the other student's work to whoever reloaded.
+  const key = useMemo(
+    () => draftKey(`${globalThis.location?.pathname ?? ''}#${title ?? ''}`, starter),
+    [title, starter],
+  );
 
   const [runtime, setRuntime] = useState<RuntimeModule | null>(null);
   const [code, setCode] = useState(() => readDraft(key) ?? starter);

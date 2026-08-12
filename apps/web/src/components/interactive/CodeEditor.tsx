@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-import { draftKey, readDraft, saveDraft } from '../../lib/draft';
+import { draftKey, readDraft, saveDraft } from './draft';
 import { useMode } from '../../presentation';
 import type { RunResult, RuntimeId, RuntimeModule } from '../../runtime';
 import { RunAbandonedError, loadRuntime, runtimeDescriptors, useRuntime } from '../../runtime';
@@ -79,7 +79,14 @@ export function CodeEditor({
         setRuntimes((current) => ({ ...current, [languageId]: module }));
         const seed =
           (languageId === language ? defaultValue : undefined) ?? module.descriptor.defaultCode;
-        const key = draftKey(`${globalThis.location?.pathname ?? ''}#${languageId}`, seed);
+        // Seeded with this editor's OWN starting source as well as the language's:
+        // for any language other than the initial one the seed is the runtime's
+        // sample, so two editors switched to the same language shared a draft and
+        // one editor's code loaded into the other.
+        const key = draftKey(
+          `${globalThis.location?.pathname ?? ''}#${languageId}#${defaultValue ?? ''}`,
+          seed,
+        );
         setDraftKeys((current) => ({ ...current, [languageId]: key }));
         setBuffers((current) =>
           // A draft only exists if the student ran something here before, and it

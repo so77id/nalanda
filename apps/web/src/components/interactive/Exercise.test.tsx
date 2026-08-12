@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { draftKey, readDraft, saveDraft } from '../../lib/draft';
+import { draftKey, readDraft, saveDraft } from './draft';
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../../runtime';
 import { Exercise } from './Exercise';
 
@@ -226,7 +226,7 @@ describe('Exercise', () => {
   // A Java loop that never ends freezes the tab for good (ADR-0017). The freeze
   // is accepted; losing the student's work to it is not.
   describe('draft', () => {
-    const key = () => draftKey(globalThis.location?.pathname ?? '', STARTER);
+    const key = () => draftKey(`${globalThis.location?.pathname ?? ''}#¿Es par?`, STARTER);
 
     it('restores what the student had, instead of the starter', async () => {
       saveDraft(key(), 'class Solution { /* mi intento */ }');

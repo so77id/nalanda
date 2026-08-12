@@ -2,7 +2,7 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { draftKey, readDraft, saveDraft } from '../../lib/draft';
+import { draftKey, readDraft, saveDraft } from './draft';
 import { ModeProvider } from '../../presentation';
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../../runtime';
 import { runtimeDescriptors } from '../../runtime';
@@ -315,7 +315,9 @@ describe('CodeEditor', () => {
 // this document ships eight runnable Java editors. Both halves of the mitigation
 // could be deleted with the whole suite green before these existed.
 describe('CodeEditor drafts', () => {
-  const scope = (lang: string) => `${globalThis.location?.pathname ?? ''}#${lang}`;
+  // Mirrors the component: page, language, and this editor's own starting
+  // source — the last part is what keeps two editors on one page apart.
+  const scope = (lang: string) => `${globalThis.location?.pathname ?? ''}#${lang}#`;
   const key = () => draftKey(scope('cpp'), 'int main(){}\n');
 
   it('restores what the reader had instead of the seed', async () => {

@@ -49,7 +49,7 @@ seven runnable Java editors and its own prose already promises the reader their
 code is kept.
 
 **3. The draft is keyed on page path plus a hash of the starting source**
-(`src/lib/draft.ts`), not on a position in the document. Adding a paragraph
+(`src/components/interactive/draft.ts`), not on a position in the document. Adding a paragraph
 above an editor must not hand a student a different draft, and an author must
 never have to invent an id for every editor they write.
 
