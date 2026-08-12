@@ -11,6 +11,24 @@
   --text-3xs: 0.65rem;
 }
 
+/* What the page is, declared on the document rather than assumed by a div.
+
+   `color-scheme` is what makes the browser's OWN widgets dark: the language
+   <select> and its dropdown, the stdin <textarea>, the scrollbars. Without it
+   they arrive in light-mode chrome inside a dark UI.
+
+   The surface colour was painted only by `div.bg-slate-950` inside #root, which
+   is not the canvas: macOS rubber-band overscroll showed white behind the page,
+   and so did any gap the app did not cover. Painting `html` fixes both, and
+   `body` inherits it.
+
+   Kept in step with the `theme-color` meta in index.html by hand — a meta tag
+   cannot read a CSS variable. */
+html {
+  color-scheme: dark;
+  background-color: var(--color-slate-950);
+}
+
 /* The typography plugin decorates inline code with literal backticks via
    ::before/::after, so `System.out.println` renders WITH its markup delimiters
    showing. Course prose is full of inline identifiers; the code style already
