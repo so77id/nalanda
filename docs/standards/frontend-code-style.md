@@ -23,6 +23,7 @@ src/
 │                   # and the shell's own build plugin (spaFallback.ts)
 ├── components/     # catalog content components, by family:
 │   ├── structure/  ├── semantic/  ├── interactive/  └── media/
+│                   # plus shared, non-document-facing components at the root
 ├── catalog/        # /catalog feature: registry, catalog pages
 ├── content/        # content pipeline: registry, loader, wiki-links plugin
 ├── presentation/   # presentation mode: parser, viewer, mode context
@@ -61,6 +62,12 @@ src/
   (`lib/componentMeta.ts`). Worked case: the slide parser recognizes
   `slideBoundary`/`headingLevel` without importing `Slide` or the heading
   factory — which would close a feature cycle.
+- **Fence metadata reaches a component through `lib/`, not through `content/`**:
+  a remark plugin in `content/` writes it onto the element (`content/codeMeta.ts`
+  → `data-meta`) and the reader lives in `lib/codeFences.ts`, because
+  `components → content` is not an allowed edge. Worked case: `<Exercise>` tells
+  its `starter` fence from its `test` fence (ADR-0019 §1–2). Same shape as the
+  two rules above — the producing feature never learns who consumes it.
 - **MDX component maps are shell-composed**: features export partial maps
   (e.g., `content/mdxComponents.ts`), and `app/mdxComponents.ts` merges them
   into the provider around the routes. Features never assemble the global map;
@@ -71,9 +78,19 @@ src/
   UI (error pages, layout slots), the shell passes it via props/children —
   features never import from `app/`. Worked case: `AppRoutes` injects
   `<NotFound />` into `DocumentPage`'s `notFound` prop.
+- **Not everything under `components/` is a catalog component.** Two shapes have
+  no catalog entry and no MDX registration, and neither is an omission:
+  a component **shared across families** lives at the root of `components/`
+  (worked case: `AuthoringError.tsx`, used by `interactive/Exercise` and
+  `structure/SideBySide`), and a helper **private to one family** lives in that
+  family's folder (worked cases: `interactive/Panel.tsx`,
+  `interactive/useRunShortcut.ts`). The catalog invariant tolerates both because
+  it iterates registered entries, not files — which also means neither shape is
+  guarded: if it should be documented, register it.
 - **Build-time plugins live with the concern they serve**, not in a separate
   tooling folder: `content/contentIntegrity.ts` (Vite plugin) gates content,
-  `content/wikiLinks.ts` (remark plugin) transforms it, `app/spaFallback.ts`
+  `content/wikiLinks.ts` (remark plugin) transforms it, `content/codeMeta.ts`
+  (remark plugin) preserves fence metadata, `app/spaFallback.ts`
   (Vite plugin) serves the shell's router. They are Node-only, never imported by
   browser code, and wired exclusively from `vite.config.ts` — a
   confirmation-gated file (see `apps/web/CLAUDE.md`): propose the wiring diff and

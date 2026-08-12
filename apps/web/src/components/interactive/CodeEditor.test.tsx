@@ -1,7 +1,8 @@
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { draftKey, readDraft, saveDraft } from './draft';
 import { ModeProvider } from '../../presentation';
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../../runtime';
 import { runtimeDescriptors } from '../../runtime';
@@ -73,8 +74,28 @@ function renderEditor(
   );
 }
 
+/** This environment has no usable localStorage of its own; drafts need one. */
+function fakeStorage(): Storage {
+  const entries = new Map<string, string>();
+  return {
+    getItem: (k: string) => entries.get(k) ?? null,
+    setItem: (k: string, v: string) => void entries.set(k, v),
+    removeItem: (k: string) => void entries.delete(k),
+    clear: () => entries.clear(),
+    key: (i: number) => [...entries.keys()][i] ?? null,
+    get length() {
+      return entries.size;
+    },
+  };
+}
+
 beforeEach(() => {
   workers.length = 0;
+  vi.stubGlobal('localStorage', fakeStorage());
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe('CodeEditor', () => {
@@ -189,6 +210,24 @@ describe('CodeEditor', () => {
     expect(workers[0]!.posted).toHaveLength(0);
   });
 
+  it('says the run is waiting for another editor rather than standing silent', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await waitFor(() => expect(screen.getByRole('button', { name: /ejecutar/i })).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: /ejecutar/i }));
+    await waitFor(() => expect(workers).toHaveLength(1));
+    const worker = workers[0]!;
+    await waitFor(() => expect(worker.posted).toHaveLength(1));
+
+    // Warm, so "preparando el runtime" would be a lie: nothing is downloading.
+    // The run is queued behind another editor on the page (PER-2).
+    worker.reply({ type: 'warm', detail: {} });
+    expect(await screen.findByText(/esperando/i)).toBeInTheDocument();
+
+    worker.reply({ id: worker.posted[0]!.id, type: 'started' });
+    await waitFor(() => expect(screen.queryByText(/esperando/i)).not.toBeInTheDocument());
+  });
+
   it('copies the source to the clipboard', async () => {
     const user = userEvent.setup();
     renderEditor({ variant: 'snippet', defaultValue: 'int x = 1;' });
@@ -287,5 +326,40 @@ describe('CodeEditor', () => {
     // ADR-0010: no component may ignore a mode.
     expect(book.querySelector('.max-h-64')).not.toBeNull();
     expect(slide.querySelector('[class*="55vh"]')).not.toBeNull();
+  });
+});
+
+// A Java loop that never ends freezes the tab for good (ADR-0017/ADR-0020), and
+// this document ships eight runnable Java editors. Both halves of the mitigation
+// could be deleted with the whole suite green before these existed.
+describe('CodeEditor drafts', () => {
+  // Mirrors the component: page, language, and this editor's own starting
+  // source — the last part is what keeps two editors on one page apart.
+  const scope = (lang: string) => `${globalThis.location?.pathname ?? ''}#${lang}#`;
+  const key = () => draftKey(scope('cpp'), 'int main(){}\n');
+
+  it('restores what the reader had instead of the seed', async () => {
+    saveDraft(key(), 'int main(){ /* mi intento */ }');
+    renderEditor();
+    await waitFor(() =>
+      expect(screen.getByTestId('code')).toHaveValue('int main(){ /* mi intento */ }'),
+    );
+  });
+
+  it('saves the buffer before the run, not after it', async () => {
+    renderEditor();
+    await waitFor(() => expect(screen.getByTestId('code')).toHaveValue('int main(){}\n'));
+    expect(readDraft(key())).toBeNull();
+
+    await userEvent.click(screen.getByRole('button', { name: /ejecutar/i }));
+    // Posted and never answered: that IS the frozen tab. See Exercise's twin.
+    await waitFor(() => expect(workers).toHaveLength(1));
+    await waitFor(() => expect(workers[0]!.posted).toHaveLength(1));
+    expect(readDraft(key())).toBe('int main(){}\n');
+  });
+
+  it('keeps a draft per language, as the buffers are', () => {
+    saveDraft(key(), 'int main(){ /* cpp */ }');
+    expect(readDraft(draftKey(scope('java'), 'int main(){}\n'))).toBeNull();
   });
 });

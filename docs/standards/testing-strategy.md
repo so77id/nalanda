@@ -76,6 +76,15 @@ battery (full tests + integration L6), same rigor as `apps/web`.
 ## Conventions (`apps/web`)
 
 - Tests are colocated: `Thing.test.ts(x)` next to `Thing.ts(x)`.
+- **Ordering invariants are asserted with the call still in flight.** When what a
+  slice buys is *when* something happens relative to a blocking call — saved
+  before the run, warmed before the click, discarded before the switch — assert
+  against the intermediate state, never after the round trip: by then both
+  orderings look identical. Worked case (#76): a test named "saves the editor
+  before the run, not after it" stayed green with the save moved after the run,
+  which is the one placement that never happens when the tab freezes. The fake
+  worker already provides the seam — a message posted and deliberately left
+  unanswered is the frozen tab.
 - Component tests assert behavior/contract (what renders per mode/props), not
   implementation details or snapshots.
 - Architecture tests live in `src/` near what they guard and are named
@@ -97,9 +106,14 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   and no network — so nothing there compiles or runs, whatever WebAssembly Node
   itself provides. A green
   suite therefore says nothing about whether code actually compiles or runs. Any
-  change under `src/runtime/**` or to `CodeEditor` MUST also be verified in a
-  real browser against `npm run build && npm run preview` — run, stdin, and a
-  deliberate compile error — per `guides/add-a-language-runtime.md` §7.
+  change under `src/runtime/**`, or to a component that drives a runtime
+  (`CodeEditor`, `Exercise`, `harness.ts`) or the draft store, MUST also be
+  verified in a real browser against `npm run build && npm run preview` — run,
+  stdin, and a deliberate compile error — per
+  `guides/add-a-language-runtime.md` §7. For `Exercise`, add: a correct solution
+  passes, the untouched starter fails, and a compile error surfaces as a
+  diagnostic. The two verdict forgeries recorded in ADR-0019 §7 were found that
+  way and were invisible to a green suite.
 - **Env-derived values go through a pure helper**: extract the transformation
   into a colocated, unit-tested module rather than inlining it in a component
   the suite cannot exercise. Worked case: `app/basename.ts` derives the router

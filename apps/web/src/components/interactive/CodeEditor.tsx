@@ -1,14 +1,14 @@
-import { Prec } from '@codemirror/state';
-import { keymap } from '@codemirror/view';
 import CodeMirror from '@uiw/react-codemirror';
 import { Check, Copy, Expand, Loader, Play, X } from 'lucide-react';
-import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { draftKey, readDraft, saveDraft } from './draft';
+import { OUTPUT, Panel } from './Panel';
 import { useMode } from '../../presentation';
 import type { RunResult, RuntimeId, RuntimeModule } from '../../runtime';
 import { RunAbandonedError, loadRuntime, runtimeDescriptors, useRuntime } from '../../runtime';
+import { useRunShortcut } from './useRunShortcut';
 import type { EditorFlags, EditorVariant } from './variants';
 import { resolveFlags } from './variants';
 
@@ -23,19 +23,7 @@ export interface CodeEditorProps extends Partial<EditorFlags> {
   defaultStdin?: string;
 }
 
-const PANEL_LABEL =
-  'bg-zinc-800 px-3 py-1 font-mono text-3xs uppercase tracking-wide text-zinc-400';
-const OUTPUT = 'm-0 overflow-auto whitespace-pre-wrap px-3 py-2 font-mono text-xs';
 const CHIP = 'rounded px-1.5 py-0.5 font-mono text-3xs';
-
-function Panel({ label, children }: { label: string; children: ReactNode }) {
-  return (
-    <section className="border-t border-zinc-700">
-      <h4 className={PANEL_LABEL}>{label}</h4>
-      {children}
-    </section>
-  );
-}
 
 /**
  * Editable, runnable source embedded in a document — the component that makes a
@@ -55,6 +43,8 @@ export function CodeEditor({
   const [languageId, setLanguageId] = useState<RuntimeId>(language);
   const [runtimes, setRuntimes] = useState<Partial<Record<RuntimeId, RuntimeModule>>>({});
   const [buffers, setBuffers] = useState<Partial<Record<RuntimeId, string>>>({});
+  // One draft key per language, fixed when that language's seed is known.
+  const [draftKeys, setDraftKeys] = useState<Partial<Record<RuntimeId, string>>>({});
   const [stdin, setStdin] = useState(defaultStdin);
   const [running, setRunning] = useState(false);
   const [result, setResult] = useState<RunResult | null>(null);
@@ -74,14 +64,22 @@ export function CodeEditor({
       (module) => {
         if (cancelled) return;
         setRuntimes((current) => ({ ...current, [languageId]: module }));
+        const seed =
+          (languageId === language ? defaultValue : undefined) ?? module.descriptor.defaultCode;
+        // Seeded with this editor's OWN starting source as well as the language's:
+        // for any language other than the initial one the seed is the runtime's
+        // sample, so two editors switched to the same language shared a draft and
+        // one editor's code loaded into the other.
+        const key = draftKey(
+          `${globalThis.location?.pathname ?? ''}#${languageId}#${defaultValue ?? ''}`,
+          seed,
+        );
+        setDraftKeys((current) => ({ ...current, [languageId]: key }));
         setBuffers((current) =>
+          // A draft only exists if the student ran something here before, and it
+          // is what they had when the tab froze.
           current[languageId] === undefined
-            ? {
-                ...current,
-                [languageId]:
-                  (languageId === language ? defaultValue : undefined) ??
-                  module.descriptor.defaultCode,
-              }
+            ? { ...current, [languageId]: readDraft(key) ?? seed }
             : current,
         );
       },
@@ -94,7 +92,7 @@ export function CodeEditor({
     };
   }, [languageId, language, defaultValue]);
 
-  const { run, warmUp, warm, warmStats } = useRuntime({
+  const { run, warmUp, warm, queued, warmStats } = useRuntime({
     runtimeId: flags.runnable && runtime ? languageId : null,
     createWorker: () => {
       if (!runtime) throw new Error(`the ${languageId} runtime is still loading`);
@@ -115,6 +113,11 @@ export function CodeEditor({
   );
 
   const doRun = useCallback(async () => {
+    // Before the run, not after: a Java loop that never ends freezes this tab
+    // for good (ADR-0017), and this is the last moment we are still alive to
+    // save what the student wrote.
+    const key = draftKeys[languageId];
+    if (key !== undefined) saveDraft(key, code);
     setRunning(true);
     setResult(null);
     setFailure(null);
@@ -129,7 +132,7 @@ export function CodeEditor({
     } finally {
       setRunning(false);
     }
-  }, [run, code, stdin]);
+  }, [run, code, stdin, draftKeys, languageId]);
 
   const changeLanguage = useCallback((next: RuntimeId) => {
     setLanguageId(next);
@@ -152,24 +155,7 @@ export function CodeEditor({
     );
   }, [code]);
 
-  // CodeMirror handles keys on its own DOM node, so a bubbled handler cannot stop
-  // Enter from inserting a newline first. The keymap runs ahead of it.
-  const runShortcut = useMemo(
-    () =>
-      Prec.highest(
-        keymap.of([
-          {
-            key: 'Mod-Enter',
-            preventDefault: true,
-            run: () => {
-              void doRun();
-              return true;
-            },
-          },
-        ]),
-      ),
-    [doRun],
-  );
+  const runShortcut = useRunShortcut(useCallback(() => void doRun(), [doRun]));
 
   useEffect(() => {
     if (!expanded) return;
@@ -314,8 +300,15 @@ export function CodeEditor({
             {running ? 'Ejecutando…' : 'Ejecutar'}
           </button>
 
+          {/* Two silences, two honest explanations: booting the runtime, or
+              waiting for the editor above this one to release the single JVM
+              the page shares (ADR-0017). Both used to look like a spinner. */}
           {running && !warm ? (
             <span className="font-mono text-3xs text-zinc-400">preparando el runtime…</span>
+          ) : running && queued ? (
+            <span className="font-mono text-3xs text-zinc-400">
+              esperando a que termine otro editor…
+            </span>
           ) : null}
 
           {flags.showTimings && result ? (

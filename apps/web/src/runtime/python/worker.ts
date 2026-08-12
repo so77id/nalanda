@@ -2,6 +2,7 @@
 import type { PyodideInterface } from 'pyodide';
 
 import type { RunRequest, WorkerMessage } from '../contract';
+import { rejectHarness } from '../rejectHarness';
 import { PYODIDE_CDN } from './pyodideVersion';
 
 // Pyodide ships as a large WASM bundle served from jsDelivr rather than from
@@ -69,6 +70,7 @@ function captureIO(runtime: PyodideInterface, stdin: string): () => string {
 addEventListener('message', async (event: MessageEvent<RunRequest>) => {
   const { id, source, stdin } = event.data;
   try {
+    rejectHarness(event.data, 'Python');
     await warmPromise;
     if (!pyodide) throw new Error('pyodide failed to initialise');
     // Interpreter up: the deadline should now be measuring the program.

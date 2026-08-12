@@ -9,6 +9,7 @@ import remarkMdxFrontmatter from 'remark-mdx-frontmatter';
 import { defineConfig } from 'vite';
 
 import { spaFallback } from './src/app/spaFallback.ts';
+import { remarkCodeMeta } from './src/content/codeMeta.ts';
 import { contentIntegrity } from './src/content/contentIntegrity.ts';
 import { remarkWikiLinks } from './src/content/wikiLinks.ts';
 
@@ -34,6 +35,7 @@ export default defineConfig(({ command, isPreview }) => ({
           remarkFrontmatter,
           [remarkMdxFrontmatter, { name: 'frontmatter' }],
           remarkWikiLinks,
+          remarkCodeMeta,
         ],
         providerImportSource: '@mdx-js/react',
       }),

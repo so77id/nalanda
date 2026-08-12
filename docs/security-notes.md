@@ -86,6 +86,34 @@ names its trigger for re-evaluation — nothing is "accepted forever".
   blast radius from self-inflicted to cross-user.
 
 
+### An exercise verdict is feedback, not evidence (accepted 2026-08-12, #76)
+
+`<Exercise>` compiles the student's code beside a generated harness and reads the
+verdict back from the program's own stdout. Two consequences, both demonstrated
+in a real browser during the #76 review rather than reasoned about:
+
+- **The verdict channel is forgeable.** A student who prints `[nalanda] PASS n`
+  and calls `System.exit(0)` before any real case runs gets a clean green board.
+  This is inherent to checking inside the student's page: the JVM, the marker and
+  the parser are all theirs.
+- **One page shares one JVM, one `/files/` and one launcher.** Before the reserved
+  names landed, a student class named `NalandaLauncher` overwrote the launcher and
+  forged a pass for every exercise on the page — including ones never opened. The
+  names are now refused (`RESERVED_CLASSES`), but the sharing remains: any future
+  platform class compiled into that directory is exposed the same way.
+
+**Why this is acceptable today**: exercises are practice. Nothing is submitted,
+nothing is graded, no other user is reachable, and the only person a student can
+deceive is themselves.
+
+**Review trigger**: the first time an `<Exercise>` result feeds a mark, a lab
+check-off, attendance or any record — including anything a future backend
+collects. At that point checking has to move off the student's machine; hardening
+the in-band protocol would not be enough. Also revisit if a second platform class
+is ever compiled alongside student code.
+
+Decisions: ADR-0019 §3b/§7, ADR-0020 §6.
+
 ### Everything under content/courses/ is published (recorded 2026-08-10)
 
 - **What it means**: the document registry globs `content/courses/**/*.mdx`, so

@@ -82,9 +82,33 @@ describe('architecture: the code editor stays out of the entry chunk', () => {
     expect(
       violations(
         (_fileTop, _importTop, importRel, file) =>
-          // Normalised: `allowImportingTsExtensions` is on, so `./CodeEditor.tsx`
-          // resolves and bundles exactly like `./CodeEditor` and must not slip past.
-          importRel.replace(/\.(ts|tsx)$/, '') === 'components/interactive/CodeEditor' &&
+          // Normalised hard, because every one of these resolves to the same
+          // module and bundles the same way: `allowImportingTsExtensions` makes
+          // `./CodeEditor.tsx` legal, `moduleResolution: "bundler"` also accepts
+          // `./CodeEditor.js`, and macOS filesystems accept any casing. Listing
+          // only the TS extensions left a hole wide enough to put CodeMirror
+          // back in the entry chunk with the suite green (+105kB, measured).
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/codeeditor' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the exercise stays out of the entry chunk', () => {
+  // Exercise embeds CodeMirror too, so it carries the same hazard as the editor
+  // and gets its own case rather than sharing one — a single case covering both
+  // would go green the moment either wrapper was the only importer.
+  const ALLOWED = ['components/interactive/lazyExercise.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/exercise' &&
           !file.includes('.test.') &&
           !ALLOWED.includes(file),
       ),

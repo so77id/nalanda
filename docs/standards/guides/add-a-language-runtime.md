@@ -44,13 +44,15 @@ src/runtime/python/
    worker reports.
 
 3. **Write the worker** (`<lang>/worker.ts`). It receives
-   `{ id, source, stdin }` and answers exactly one of:
+   `{ id, source, stdin, harness? }` and answers exactly one of:
    - `{ type: 'warm', detail }` — once, unprompted, when booting finishes.
    - `{ id, type: 'started' }` — once per request, immediately before compiling.
      It marks the boundary between *waiting* and *running*: before it, the caller
      allows 180s (CDN download, boot, queue); after it, 60s for the program.
      **Omit it and a student's infinite loop is reported three minutes later as
-     "el runtime no estuvo listo"** instead of naming the loop.
+     "el runtime no estuvo listo"** instead of naming the loop. It also drives
+     the "esperando a que termine otro editor" hint, so without it a queued run
+     looks like a broken one.
    - `{ id, type: 'result', compileLog, output, exitCode, compileMs, runMs }`
    - `{ id, type: 'error', message }` — **only** when the runtime itself broke.
 
@@ -58,6 +60,20 @@ src/runtime/python/
    `exitCode: null` and the compiler's message in `compileLog`. An `error` means
    the machinery is broken, and the student sees an apology instead of a
    diagnostic.
+
+   **`harness` is a second compilation unit that takes over the entry point** —
+   how an `<Exercise>` checks a method instead of a printed line (ADR-0019 §4).
+   Either compile it beside `source` and derive the entry class from *it* (worked
+   case: `java/runtime.ts` + `launcher.ts`), or refuse it as the first thing your
+   handler does:
+
+   ```ts
+   rejectHarness(event.data, 'C++'); // from '../rejectHarness'
+   ```
+
+   There is no third option. Running `source` alone when a harness is present
+   reports a passing exercise that verified nothing — the worst failure this
+   platform can produce, because it is silent and it is addressed to a student.
 
    Do the expensive boot in a `warmUp()` promise at module scope and `await` it
    on every message, so the first Run is fast rather than the slowest.
@@ -104,10 +120,11 @@ src/runtime/python/
    stdin, and a deliberate compile error.
 
 8. **Update what enumerates the languages by hand.** `RuntimeId` widens
-   silently when you add an id, so nothing fails: `CodeEditor.catalog.tsx` (the
-   description and the `language` prop's type string), `apps/web/README.md`'s
-   stack paragraph, `guides/add-a-course-document.md` step 5, and §When to use
-   at the top of this guide.
+   silently when you add an id, so nothing fails: `CodeEditor.catalog.tsx` and
+   `Exercise.catalog.tsx` (the descriptions and both `language` prop type
+   strings), `apps/web/README.md`'s stack paragraph,
+   `guides/add-a-course-document.md` steps 5 and 5b (5b names which languages
+   validate an exercise), and §When to use at the top of this guide.
 
 ## Checklist
 
@@ -117,6 +134,8 @@ src/runtime/python/
 - [ ] Worker distinguishes a failed compile (`result`) from a broken runtime
       (`error`), reports `warm` exactly once, and sends `started` once per
       request before compiling.
+- [ ] Worker handles `harness` — compiled as a second unit with the entry class
+      derived from it, or refused with `rejectHarness`. Never silently dropped.
 - [ ] Toolchain served from a CDN unless it must be self-hosted; npm package a
       `devDependency` in that case, with a version test.
 - [ ] `npm run build` shows no new multi-megabyte asset in `dist/` — unless it

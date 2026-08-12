@@ -78,6 +78,15 @@ case that had been spiked, a program waiting on `System.in`. A CPU-bound loop
 yields nothing, and the review measured a probe still blocked 45s past its
 deadline. The corrected text names both cases with numbers and dates.
 
+**When review falsifies a claim, the correction stays visible.** The accepted ADR
+says what was claimed, what demonstrated otherwise, and what the honest statement
+is — it does not quietly replace the sentence. A silently repaired ADR reads as
+though the decision was always right, which teaches the next reader to trust
+exactly the kind of claim that turned out to be wrong. Worked cases (issue #76):
+ADR-0019 §3/§7, where a draft asserted the checker was beyond the student's reach
+and the review forged a green board twice in a browser; and ADR-0020 §6, where
+capping the output was written up as a fix and measured, twice, not to be one.
+
 ## ADR format
 
 ADRs live in `docs/decisions/<NNNN>-<kebab-title>.md`, numbered sequentially:

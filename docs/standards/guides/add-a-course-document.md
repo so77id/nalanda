@@ -21,6 +21,7 @@ content/courses/sample-course/
 ├── 03-busqueda-binaria.mdx    # id: busqueda-binaria  (presentation: explicit, uses <Slide>)
 ├── 04-apuntes.mdx             # id: apuntes-del-curso (presentation: none — book-only)
 ├── 05-codigo-ejecutable.mdx   # id: codigo-ejecutable (explicit, uses <CodeEditor>)
+├── 06-java-desde-cpp.mdx      # id: java-desde-cpp    (explicit, uses <Exercise> + <SideBySide>)
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -65,12 +66,83 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
 
    > **Java has a sharp edge.** It runs on the page's main thread (ADR-0017), so
    > a student's `while (true)` freezes the tab and nothing recovers it — they
-   > must close it. C++ and Python run in workers and are cut off cleanly.
-   > Prefer them for anything about loops or termination, and never ship a Java
-   > example whose termination depends on what the student types.
+   > must close it. C++ and Python run in workers and are cut off cleanly, so
+   > prefer them whenever the language does not matter to the lesson.
+   >
+   > When it does — a Java course teaching Java loops — ship it anyway, with
+   > eyes open (accepted for #76). The editor is saved to `localStorage`
+   > immediately before every run, so a frozen tab costs the reader a reload
+   > rather than their work — but only what was in the editor **at that run**:
+   > edits made and never run are lost. Warn in the prose where a loop is the point, keep
+   > runaway inputs out of your examples, and never leave such an editor where
+   > an unattended reader has no way to recover.
 
    Use a reading variant (`variant="read"`) for code you only cite: it loads no
    compiler at all.
+
+5b. **Add an exercise (optional)**: `<Exercise>` gives the reader a problem to
+   solve, checked automatically in their browser. The statement is ordinary
+   prose; two annotated fences carry the rest:
+
+   ````mdx
+   <Exercise title="¿Es par?">
+
+   Escribe `esPar`, que devuelve `true` si el número es par.
+
+   ```java starter
+   class Solution {
+       static boolean esPar(int n) {
+           return false;
+       }
+   }
+   ```
+
+   ```java test
+   check(Solution.esPar(4), true);
+   check(Solution.esPar(7), false);
+   ```
+
+   </Exercise>
+   ````
+
+   The `test` fence is inlined as the body of a generated `main` (in class
+   `NalandaCheck`), which is compiled beside the student's class and calls it —
+   so what is checked is the method, not what the program printed. Two
+   consequences worth knowing before you write one:
+
+   - **Statements only.** No method or field declarations: they are legal in a
+     class body and illegal in a method body. Get it wrong and the *student*
+     sees compiler errors for code they never wrote.
+   - **`check(obtenido, esperado)`** — the student's value first, the expected
+     value second. Reversed, it still compiles and the feedback reads backwards.
+     `check` is the only helper available, overloaded for `int`, `long`,
+     `double` (compared with a 1e-9 tolerance, never `==`), `boolean`, `char`,
+     `Object` (arrays compared by contents) and `int[]`, `long[]`, `char[]`,
+     `boolean[]`.
+
+   The class named in `starter` and the one the cases call must agree.
+   **Only Java validates**; C++ and Python refuse an exercise rather than report
+   a pass for something they never checked. Two class names are reserved by the
+   platform — `NalandaLauncher` and `NalandaCheck` — and a Java program using
+   either is refused before it compiles, in an exercise or a plain editor alike.
+
+   Editing a shipped `starter` fence changes the key its drafts are stored
+   under: every student's saved attempt at that exercise becomes unreachable
+   (ADR-0020 §3). Fixing a typo in a starter is cheap; rewriting one after a
+   class has used it is not.
+
+   The cases are hidden until the first run — pacing, not secrecy. Everything
+   under `content/` is published, so the page source reveals them to anyone who
+   looks: never author an exercise whose cases must stay private.
+
+   Worked example: `06-java-desde-cpp.mdx` (four exercises).
+
+5c. **Compare two listings (optional)**: `<SideBySide left="C++" right="Java">`
+   places exactly two blocks next to each other, stacking on a narrow screen.
+   For a course whose students already program, the comparison is often the
+   lesson itself. Half the page is all a column gets: check the longest line of
+   both listings on a slide, not only in the book.
+   Worked example: `06-java-desde-cpp.mdx`.
 
 Full usage docs, props and live examples for every document-facing component
 live in the catalog — browse `/catalog`, which is generated from the components
@@ -106,6 +178,16 @@ themselves rather than maintained by hand.
    group without docId nor label, empty children), duplicate or unknown `docId`
    in the index.
 
+   **A build cannot see inside an exercise.** The fence labels are matched when
+   the component renders, and the cases are Java compiled in the reader's
+   browser — so a mistyped ```` ```java Starter ```` or a `test` fence that does
+   not compile ships with a green build and a green suite. Open the document
+   before the PR (`npm run build && npm run preview`, then
+   `/nalanda/d/<id>`) and run every exercise you added: no amber authoring
+   banner, the cases pass against a correct solution, and they fail against the
+   starter. If a `<SideBySide>` or a `<Slide>` is involved, look at it in
+   presentation mode too — `/d/<id>/present`.
+
 9. **Publish**: merging to `main` republishes
    <https://so77id.github.io/nalanda/> automatically — `content/**` is a deploy
    trigger (ADR-0015). **Everything under `content/courses/` becomes public**,
@@ -121,5 +203,9 @@ themselves rather than maintained by hand.
 - [ ] Wiki-links point at real ids (or are intentional forward links).
 - [ ] Listed in `index.yaml` if it belongs to the recorrido.
 - [ ] `npm run build` green from `apps/web/` (content integrity gate).
+- [ ] Every exercise opened in `npm run preview` and actually run: no authoring
+      banner, cases pass against a correct solution and fail against the starter.
+      Nothing in the build or the suite can check this for you.
+- [ ] Anything on a slide looked at in presentation mode, not only in the book.
 - [ ] Content language: Spanish is fine (user-facing course material).
 - [ ] Nothing here must stay private — merging publishes it at `/d/<id>`.

@@ -1,6 +1,12 @@
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../contract';
 import { OUTPUT_DIR, javaClassPath } from './classPath';
-import { LAUNCHER_CLASS, LAUNCHER_SOURCE, deriveEntryClass, sourceFileName } from './launcher';
+import {
+  LAUNCHER_CLASS,
+  LAUNCHER_SOURCE,
+  RESERVED_CLASSES,
+  deriveEntryClass,
+  sourceFileName,
+} from './launcher';
 
 // Java is the one runtime that does NOT live in a Web Worker.
 //
@@ -173,7 +179,7 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
     return host;
   };
 
-  const execute = async ({ id, source, stdin }: RunRequest): Promise<void> => {
+  const execute = async ({ id, source, stdin, harness }: RunRequest): Promise<void> => {
     if (terminated) return;
     running = true;
     try {
@@ -182,16 +188,44 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       // measuring the student's program.
       emit({ id, type: 'started' });
 
-      const entryClass = deriveEntryClass(source);
-      const sourcePath = `/str/${sourceFileName(entryClass)}`;
-      cheerpjAddStringFile(sourcePath, encoder.encode(source));
+      const studentClass = deriveEntryClass(source);
+      // See RESERVED_CLASSES: a student class named after a platform one
+      // overwrites its .class in the shared output directory and poisons every
+      // editor on the page.
+      if (RESERVED_CLASSES.includes(studentClass.split('.').pop() ?? studentClass)) {
+        emit({
+          id,
+          type: 'result',
+          compileLog: `${studentClass} es un nombre reservado por la plataforma. Ponle otro nombre a tu clase.`,
+          output: '',
+          exitCode: null,
+          compileMs: 0,
+          runMs: null,
+        });
+        return;
+      }
+
+      const write = (unit: string): string => {
+        const path = `/str/${sourceFileName(deriveEntryClass(unit))}`;
+        cheerpjAddStringFile(path, encoder.encode(unit));
+        return path;
+      };
+
+      const sourcePaths = [write(source)];
+      // With a harness present the student's class is a library, not a program:
+      // the harness owns `main` and decides what to call.
+      let entryClass = deriveEntryClass(source);
+      if (harness !== undefined) {
+        sourcePaths.push(write(harness));
+        entryClass = deriveEntryClass(harness);
+      }
       cheerpjAddStringFile(STDIN_PATH, encoder.encode(stdin));
 
       const compileStartedAt = performance.now();
       const compileExit = await cheerpjRunMain(
         ECJ_MAIN,
         classPath,
-        sourcePath,
+        ...sourcePaths,
         '-d',
         OUTPUT_DIR,
         SOURCE_LEVEL,
@@ -223,6 +257,13 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       emit({ id, type: 'error', message: describe(error) });
     } finally {
       running = false;
+      // Reaching here means the JVM is free, so nothing is wedged — even if the
+      // editor that started this run was unmounted mid-flight and `terminate()`
+      // assumed the worst. A route change unmounts all twelve editors at once,
+      // so clicking Ejecutar, wandering off during the ~12s boot and coming back
+      // used to disable Java for the whole session with nothing actually stuck.
+      // A genuinely hung program never reaches this line, and stays wedged.
+      wedged = false;
     }
   };
 

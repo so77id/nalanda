@@ -234,4 +234,141 @@ describe('createJavaRuntime', () => {
 
     expect(seen).toHaveLength(0);
   });
+
+  // An exercise validates a *method*, so the code that calls it cannot live in
+  // the student's file: it must compile beside it and own the entry point.
+  describe('with a harness', () => {
+    const solution = 'class Solution { static int doble(int n) { return n * 2; } }';
+    const harness = 'public class NalandaCheck { public static void main(String[] a) {} }';
+
+    /** The ECJ invocation that compiled the student's code. */
+    const studentCompile = () =>
+      invocations.find(
+        (invocation) =>
+          invocation.mainClass.includes('jdt') &&
+          invocation.args.some((arg) => arg.endsWith('Solution.java')),
+      );
+
+    it('compiles the harness alongside the student source', async () => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: solution, stdin: '', harness });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(studentCompile()?.args).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('Solution.java'),
+          expect.stringContaining('NalandaCheck.java'),
+        ]),
+      );
+    });
+
+    it('runs the harness, not the student class', async () => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: solution, stdin: '', harness });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
+      expect(run?.args[0]).toBe('NalandaCheck');
+    });
+
+    it('still runs the student class when no harness is given', async () => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: 'public class Main {}', stdin: '' });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
+      expect(run?.args[0]).toBe('Main');
+    });
+
+    it('refuses a student class that would overwrite a platform one', async () => {
+      // Both units compile into one output directory, so `public class
+      // NalandaLauncher` used to replace the launcher built at warm-up — and
+      // since that build is memoised, every editor on the page then ran the
+      // student's main. Untouched exercises reported a full pass.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: 'public class NalandaLauncher { public static void main(String[] a) {} }',
+        stdin: '',
+        harness,
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]).toMatchObject({ exitCode: null });
+      expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
+      // Nothing was compiled or run: the refusal happens before either.
+      expect(invocations.some((one) => one.mainClass === 'NalandaLauncher')).toBe(false);
+    });
+
+    it('refuses a student class named after the harness', async () => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: 'public class NalandaCheck {}', stdin: '', harness });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
+    });
+
+    it('does not wedge the page when an abandoned run finishes anyway', async () => {
+      // A route change unmounts every editor, which terminates their workers. If
+      // a run was in flight — the ~12s boot is easy to wander off during — that
+      // used to mark the JVM wedged forever, though the run completed fine and
+      // left it free. Every editor on every document then refused to run.
+      const gate: { release: (() => void) | null } = { release: null };
+      onRun = async ({ mainClass }) => {
+        if (mainClass !== 'NalandaLauncher') return 0;
+        await new Promise<void>((resolve) => {
+          gate.release = resolve;
+        });
+        return 0;
+      };
+
+      const abandoned = createJavaRuntime('/');
+      listen(abandoned);
+      abandoned.postMessage({ id: 1, source: 'public class Main {}', stdin: '' });
+      await vi.waitFor(() => expect(gate.release).not.toBeNull());
+      abandoned.terminate();
+
+      // Unlike the wedge case above, this program does finish.
+      gate.release?.();
+      onRun = async () => 0;
+
+      // `wedged` is read when a run is ENQUEUED, so the abandoned one has to
+      // have finished before the next student presses anything.
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      const later = createJavaRuntime('/');
+      const seen = listen(later);
+      later.postMessage({ id: 2, source: 'public class Otro {}', stdin: '' });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(seen.some((message) => message.type === 'error')).toBe(false);
+    });
+
+    it('reports a harness that fails to compile as a result', async () => {
+      // The student renamed their class, so the harness no longer resolves it.
+      // That is a compile error to read, not a broken runtime.
+      onRun = async ({ mainClass, args }) => {
+        if (mainClass.includes('jdt') && args.some((arg) => arg.endsWith('NalandaCheck.java'))) {
+          write('ERROR: Solution cannot be resolved');
+          return -1;
+        }
+        return 0;
+      };
+
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: 'class Renombrada {}', stdin: '', harness });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]).toMatchObject({ exitCode: null });
+      expect(results(seen)[0]!.compileLog).toContain('cannot be resolved');
+      expect(seen.some((message) => message.type === 'error')).toBe(false);
+    });
+  });
 });

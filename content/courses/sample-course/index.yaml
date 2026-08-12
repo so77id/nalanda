@@ -6,4 +6,8 @@ entries:
       - docId: intro-estructuras
       - docId: busqueda-binaria
       - docId: codigo-ejecutable
+  - label: Java para quien viene de C++
+    levelName: Unidad
+    children:
+      - docId: java-desde-cpp
   - docId: apuntes-del-curso
