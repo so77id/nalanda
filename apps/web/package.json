@@ -30,7 +30,6 @@
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router-dom": "^7.18.2",
-    "remark-gfm": "^4.0.1",
     "tailwindcss": "^4.3.3",
     "yaml": "^2.9.0"
   },
@@ -51,6 +50,7 @@
     "prettier": "^3.9.6",
     "pyodide": "^314.0.3",
     "remark-frontmatter": "^5.0.0",
+    "remark-gfm": "^4.0.1",
     "remark-mdx-frontmatter": "^5.2.0",
     "typescript": "~6.0.2",
     "unist-util-visit": "^5.1.0",
