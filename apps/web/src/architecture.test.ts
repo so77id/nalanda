@@ -92,6 +92,24 @@ describe('architecture: the code editor stays out of the entry chunk', () => {
   });
 });
 
+describe('architecture: the exercise stays out of the entry chunk', () => {
+  // Exercise embeds CodeMirror too, so it carries the same hazard as the editor
+  // and gets its own case rather than sharing one — a single case covering both
+  // would go green the moment either wrapper was the only importer.
+  const ALLOWED = ['components/interactive/lazyExercise.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.replace(/\.(ts|tsx)$/, '') === 'components/interactive/Exercise' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: cross-feature dependencies', () => {
   it('only the allowed feature edges exist in production code', () => {
     // Test files may exercise any feature through its seam (they are consumers,

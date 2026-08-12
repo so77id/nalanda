@@ -27,8 +27,13 @@ export interface UseRuntimeInput {
 }
 
 export interface Runtime {
-  /** Compiles and runs `source`. Spawns the worker on first call. */
-  run: (source: string, stdin: string) => Promise<RunResult>;
+  /**
+   * Compiles and runs `source`. Spawns the worker on first call.
+   *
+   * `harness` is a second compilation unit that takes over the entry point —
+   * how an exercise checks a method instead of a printed line (see RunRequest).
+   */
+  run: (source: string, stdin: string, harness?: string) => Promise<RunResult>;
   /** Starts booting the runtime ahead of the first run. Idempotent. */
   warmUp: () => void;
   /** The runtime has finished booting and a run will not wait on it. */
@@ -149,7 +154,7 @@ export function useRuntime({
   }, [runtimeId, ensureWorker]);
 
   const run = useCallback(
-    (source: string, stdin: string): Promise<RunResult> => {
+    (source: string, stdin: string, harness?: string): Promise<RunResult> => {
       if (runtimeId === null) {
         return Promise.reject(new Error('no runtime selected'));
       }
@@ -190,7 +195,7 @@ export function useRuntime({
             reject(error);
           },
         });
-        worker.postMessage({ id, source, stdin });
+        worker.postMessage({ id, source, stdin, ...(harness === undefined ? {} : { harness }) });
       });
     },
     [runtimeId, ensureWorker, discardWorker, startTimeoutMs],
