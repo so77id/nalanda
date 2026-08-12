@@ -502,6 +502,114 @@ class Flujo {
 > variable de la condición cambie dentro del ciclo. Tu código se guarda solo antes
 > de cada ejecución, así que no lo pierdes.
 
+## Ejercicios
+
+Cuatro problemas para escribir tú. En cada uno, completa el método que falta y
+ejecuta para comprobar que hace lo que debe.
+
+### 1. ¿Es par?
+
+Escribe `esPar`, que recibe un entero y devuelve `true` si es par y `false` si no.
+Recuerda que `%` da el resto de la división.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Ejercicio1 {
+
+    static boolean esPar(int n) {
+        // tu código aquí
+        return false;
+    }
+
+    public static void main(String[] args) {
+        System.out.println(esPar(4));   // true
+        System.out.println(esPar(7));   // false
+        System.out.println(esPar(0));   // true
+        System.out.println(esPar(-3));  // false
+    }
+}
+`}
+/>
+
+### 2. El mayor de tres
+
+Escribe `maximo`, que recibe tres enteros y devuelve el mayor. No uses
+`Math.max`: la gracia está en escribir las comparaciones.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Ejercicio2 {
+
+    static int maximo(int a, int b, int c) {
+        // tu código aquí
+        return 0;
+    }
+
+    public static void main(String[] args) {
+        System.out.println(maximo(1, 2, 3));      // 3
+        System.out.println(maximo(9, 2, 3));      // 9
+        System.out.println(maximo(1, 8, 3));      // 8
+        System.out.println(maximo(-5, -2, -9));   // -2
+        System.out.println(maximo(4, 4, 4));      // 4
+    }
+}
+`}
+/>
+
+### 3. Suma hasta n
+
+Escribe `sumaHasta`, que recibe un entero `n` y devuelve la suma de todos los
+números de 1 hasta `n`. Si `n` es menor que 1, la suma es 0.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Ejercicio3 {
+
+    static int sumaHasta(int n) {
+        // tu código aquí
+        return 0;
+    }
+
+    public static void main(String[] args) {
+        System.out.println(sumaHasta(5));    // 15
+        System.out.println(sumaHasta(1));    // 1
+        System.out.println(sumaHasta(0));    // 0
+        System.out.println(sumaHasta(100));  // 5050
+    }
+}
+`}
+/>
+
+### 4. Cuántos dígitos
+
+Escribe `cuentaDigitos`, que recibe un entero positivo y devuelve cuántos dígitos
+tiene. `1234` tiene 4; `7` tiene 1; `0` tiene 1.
+
+La idea: divide por 10 repetidamente hasta llegar a 0, contando las vueltas.
+
+> **Antes de ejecutar, léelo dos veces.** Este es el ejercicio donde es fácil
+> escribir un `while` que nunca termina, y un ciclo infinito congela la pestaña.
+> Asegúrate de que el número se divide **dentro** del ciclo.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Ejercicio4 {
+
+    static int cuentaDigitos(int n) {
+        // tu código aquí
+        return 0;
+    }
+
+    public static void main(String[] args) {
+        System.out.println(cuentaDigitos(1234));  // 4
+        System.out.println(cuentaDigitos(7));     // 1
+        System.out.println(cuentaDigitos(0));     // 1
+        System.out.println(cuentaDigitos(90));    // 2
+    }
+}
+`}
+/>
+
 ## Lo que sigue
 
 Con esto puedes leer y escribir programas Java que calculan cosas. Lo que todavía
