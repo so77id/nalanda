@@ -265,6 +265,25 @@ describe('Exercise', () => {
     });
   });
 
+  it('says the run is waiting for another editor rather than standing silent', async () => {
+    renderExercise();
+    const button = screen.getByRole('button', { name: /comprobar/i });
+    await waitFor(() => expect(button).toBeEnabled());
+    await userEvent.click(button);
+    await waitFor(() => expect(workers).toHaveLength(1));
+    const worker = workers[0]!;
+    await waitFor(() => expect(worker.posted).toHaveLength(1));
+
+    // Warm: the JVM booted for an editor above this one, so "preparando el
+    // runtime" would be a lie. The run is behind that editor's — 4.8s of
+    // measured silence with a spinner and no explanation (PER-2).
+    worker.reply({ type: 'warm', detail: {} });
+    expect(await screen.findByText(/esperando/i)).toBeInTheDocument();
+
+    worker.reply({ id: worker.posted[0]!.id, type: 'started' });
+    await waitFor(() => expect(screen.queryByText(/esperando/i)).not.toBeInTheDocument());
+  });
+
   it('loads no runtime until the student asks for one', async () => {
     renderExercise();
     await waitFor(() => expect(screen.getByTestId('code')).toBeInTheDocument());

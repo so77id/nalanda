@@ -105,7 +105,7 @@ export function CodeEditor({
     };
   }, [languageId, language, defaultValue]);
 
-  const { run, warmUp, warm, warmStats } = useRuntime({
+  const { run, warmUp, warm, queued, warmStats } = useRuntime({
     runtimeId: flags.runnable && runtime ? languageId : null,
     createWorker: () => {
       if (!runtime) throw new Error(`the ${languageId} runtime is still loading`);
@@ -330,8 +330,15 @@ export function CodeEditor({
             {running ? 'Ejecutando…' : 'Ejecutar'}
           </button>
 
+          {/* Two silences, two honest explanations: booting the runtime, or
+              waiting for the editor above this one to release the single JVM
+              the page shares (ADR-0017). Both used to look like a spinner. */}
           {running && !warm ? (
             <span className="font-mono text-3xs text-zinc-400">preparando el runtime…</span>
+          ) : running && queued ? (
+            <span className="font-mono text-3xs text-zinc-400">
+              esperando a que termine otro editor…
+            </span>
           ) : null}
 
           {flags.showTimings && result ? (

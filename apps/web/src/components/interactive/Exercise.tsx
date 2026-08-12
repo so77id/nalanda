@@ -138,7 +138,7 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
     };
   }, [language]);
 
-  const { run, warm } = useRuntime({
+  const { run, warm, queued } = useRuntime({
     runtimeId: runtime ? language : null,
     createWorker: () => {
       if (!runtime) throw new Error(`the ${language} runtime is still loading`);
@@ -276,8 +276,16 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
           Reiniciar
         </button>
 
+        {/* Two silences, two honest explanations. Booting is the runtime's
+            fault; queueing is the editor above this one holding the single JVM
+            the page shares (ADR-0017). Neither is the student's, and until this
+            existed both looked identical: a spinner and 4.8s of nothing. */}
         {running && !warm ? (
           <span className="font-mono text-3xs text-zinc-400">preparando el runtime…</span>
+        ) : running && queued ? (
+          <span className="font-mono text-3xs text-zinc-400">
+            esperando a que termine otro editor…
+          </span>
         ) : null}
       </footer>
     </div>

@@ -38,6 +38,15 @@ export interface Runtime {
   warmUp: () => void;
   /** The runtime has finished booting and a run will not wait on it. */
   warm: boolean;
+  /**
+   * A run has been sent and the runtime has not picked it up yet.
+   *
+   * Java shares one JVM across every editor on the page (ADR-0017), so a second
+   * Comprobar waits for the first to finish — measured at 4.8s with the runtime
+   * already warm, which is to say 4.8s in which `warm` says "ready" and nothing
+   * on screen explains the stillness. Callers render the difference.
+   */
+  queued: boolean;
   warmStats: WarmStats | null;
 }
 
@@ -74,12 +83,20 @@ export function useRuntime({
 }: UseRuntimeInput): Runtime {
   const workerRef = useRef<RuntimeWorker | null>(null);
   const pendingRef = useRef(new Map<number, Pending>());
+  /** Requests sent and not yet acknowledged with `started`. */
+  const waitingRef = useRef(new Set<number>());
   const nextIdRef = useRef(0);
   const createWorkerRef = useRef(createWorker);
   createWorkerRef.current = createWorker;
 
   const [warm, setWarm] = useState(false);
+  const [queued, setQueued] = useState(false);
   const [warmStats, setWarmStats] = useState<WarmStats | null>(null);
+
+  /** A request stopped waiting — because it started, finished, or died. */
+  const stopWaiting = useCallback((id: number) => {
+    if (waitingRef.current.delete(id)) setQueued(waitingRef.current.size > 0);
+  }, []);
 
   /** Drops the worker so the next run gets a fresh one, rejecting whatever it owed. */
   const discardWorker = useCallback((reason?: Error) => {
@@ -87,6 +104,8 @@ export function useRuntime({
     workerRef.current = null;
     setWarm(false);
     setWarmStats(null);
+    waitingRef.current.clear();
+    setQueued(false);
     const pending = pendingRef.current;
     for (const { reject } of pending.values()) {
       reject(reason ?? new RunAbandonedError());
@@ -128,6 +147,7 @@ export function useRuntime({
         // The wait is over and the program is what is running now, so restart
         // the clock: a cold CDN or a queue behind another editor must not be
         // charged to the student as an infinite loop.
+        stopWaiting(message.id);
         pending.rearm(
           timeoutMs,
           `el programa no terminó en ${seconds(timeoutMs)} — puede tener un bucle infinito`,
@@ -136,6 +156,9 @@ export function useRuntime({
       }
 
       pendingRef.current.delete(message.id);
+      // A runtime that answers without ever saying `started` (or that fails
+      // before it can) still leaves the queue.
+      stopWaiting(message.id);
       if (message.type === 'error') {
         pending.reject(new Error(message.message));
         return;
@@ -146,7 +169,7 @@ export function useRuntime({
 
     workerRef.current = worker;
     return worker;
-  }, [timeoutMs]);
+  }, [timeoutMs, stopWaiting]);
 
   const warmUp = useCallback(() => {
     if (runtimeId === null) return;
@@ -195,6 +218,8 @@ export function useRuntime({
             reject(error);
           },
         });
+        waitingRef.current.add(id);
+        setQueued(true);
         worker.postMessage({ id, source, stdin, ...(harness === undefined ? {} : { harness }) });
       });
     },
@@ -210,5 +235,5 @@ export function useRuntime({
     };
   }, [runtimeId, discardWorker]);
 
-  return { run, warmUp, warm, warmStats };
+  return { run, warmUp, warm, queued, warmStats };
 }

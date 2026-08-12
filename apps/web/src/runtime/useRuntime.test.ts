@@ -1,7 +1,13 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import type { ResultMessage, RunRequest, RuntimeWorker, WorkerMessage } from './contract';
+import type {
+  ResultMessage,
+  RunRequest,
+  RuntimeId,
+  RuntimeWorker,
+  WorkerMessage,
+} from './contract';
 import { RunAbandonedError, useRuntime } from './useRuntime';
 
 class FakeWorker implements RuntimeWorker {
@@ -249,6 +255,56 @@ describe('useRuntime', () => {
 
     await expect(stuck).rejects.toThrow(/bucle infinito/i);
     expect(factory.created[0]!.terminated).toBe(true);
+  });
+
+  it('reports a run as queued until the runtime picks it up', async () => {
+    const factory = workerFactory();
+    const { result } = renderHook(() =>
+      useRuntime({ runtimeId: 'java', createWorker: factory.createWorker }),
+    );
+
+    expect(result.current.queued).toBe(false);
+
+    let pending!: Promise<unknown>;
+    act(() => {
+      pending = result.current.run('class A {}', '');
+    });
+    await waitFor(() => expect(factory.last().posted).toHaveLength(1));
+
+    // Posted and not yet picked up. This is the silence PER-2 measured: 4.8s of
+    // it, on a warm runtime, with nothing on screen saying the run was waiting
+    // behind another editor rather than simply not working.
+    await waitFor(() => expect(result.current.queued).toBe(true));
+
+    const id = factory.last().posted[0]!.id;
+    act(() => factory.last().emit({ id, type: 'started' }));
+    await waitFor(() => expect(result.current.queued).toBe(false));
+
+    act(() => factory.last().emit(resultFor(id)));
+    await pending;
+    expect(result.current.queued).toBe(false);
+  });
+
+  it('stops calling a run queued once it is abandoned', async () => {
+    const factory = workerFactory();
+    const { result, rerender } = renderHook(
+      ({ id }: { id: RuntimeId }) =>
+        useRuntime({ runtimeId: id, createWorker: factory.createWorker }),
+      { initialProps: { id: 'java' as RuntimeId } },
+    );
+
+    let abandoned!: Promise<unknown>;
+    act(() => {
+      abandoned = result.current.run('class A {}', '');
+    });
+    await waitFor(() => expect(result.current.queued).toBe(true));
+
+    // Switching language abandons the run. The hint has to go with it, or the
+    // fresh runtime opens claiming to be waiting for something nobody sent.
+    rerender({ id: 'python' });
+
+    await expect(abandoned).rejects.toBeInstanceOf(RunAbandonedError);
+    expect(result.current.queued).toBe(false);
   });
 
   it('abandons a run that never finishes and frees its toolchain', async () => {

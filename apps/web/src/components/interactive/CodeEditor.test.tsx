@@ -210,6 +210,24 @@ describe('CodeEditor', () => {
     expect(workers[0]!.posted).toHaveLength(0);
   });
 
+  it('says the run is waiting for another editor rather than standing silent', async () => {
+    const user = userEvent.setup();
+    renderEditor();
+    await waitFor(() => expect(screen.getByRole('button', { name: /ejecutar/i })).toBeEnabled());
+    await user.click(screen.getByRole('button', { name: /ejecutar/i }));
+    await waitFor(() => expect(workers).toHaveLength(1));
+    const worker = workers[0]!;
+    await waitFor(() => expect(worker.posted).toHaveLength(1));
+
+    // Warm, so "preparando el runtime" would be a lie: nothing is downloading.
+    // The run is queued behind another editor on the page (PER-2).
+    worker.reply({ type: 'warm', detail: {} });
+    expect(await screen.findByText(/esperando/i)).toBeInTheDocument();
+
+    worker.reply({ id: worker.posted[0]!.id, type: 'started' });
+    await waitFor(() => expect(screen.queryByText(/esperando/i)).not.toBeInTheDocument());
+  });
+
   it('copies the source to the clipboard', async () => {
     const user = userEvent.setup();
     renderEditor({ variant: 'snippet', defaultValue: 'int x = 1;' });
