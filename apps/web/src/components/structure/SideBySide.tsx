@@ -1,6 +1,7 @@
 import { Children, type ReactNode } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
+import { useMode } from '../../presentation';
 
 export interface SideBySideProps {
   /** Label above the first column. */
@@ -13,17 +14,28 @@ export interface SideBySideProps {
 
 const LABEL = 'bg-zinc-800 px-3 py-1 font-mono text-3xs uppercase tracking-wide text-zinc-400';
 
+/**
+ * How much smaller code runs inside a column than in a full-width listing.
+ *
+ * Half the width is all a column gets, and a line the reader has to scroll to
+ * finish is a line they read twice. The slide needs the extra step: measured at
+ * 1440px, presentation mode gives each column 440px and sets code at 16px, where
+ * `System.out.println("Bienvenidos a EDA");` wants 462 — the closing `);` fell
+ * off the edge of the slide whose whole job is teaching that line. The book, at
+ * 12.8px, fits it in 376 of 376.
+ */
+const SCALE = { book: 'text-[0.8em]', presentation: 'text-[0.72em]' } as const;
+
 function Column({ label, children }: { label?: string; children: ReactNode }) {
+  const mode = useMode();
   return (
     <div className="min-w-0 overflow-hidden rounded-lg border border-zinc-700">
       {label === undefined ? null : <h4 className={LABEL}>{label}</h4>}
-      {/* Each column scrolls on its own: a long line in one must not widen the
-          page, which is what a two-column layout would otherwise do. The type
-          is a step smaller than a full-width listing because half the width is
-          all a column gets — `public static void main(String[] args)` does not
-          fit otherwise, and a line the reader has to scroll to finish is a line
-          they read twice. */}
-      <div className="overflow-x-auto text-[0.8em] [&_pre]:my-0 [&_pre]:rounded-none [&_pre]:border-0">
+      {/* Each column still scrolls on its own: a long line in one must not widen
+          the page, which is what a two-column layout would otherwise do. */}
+      <div
+        className={`overflow-x-auto ${SCALE[mode]} [&_pre]:my-0 [&_pre]:rounded-none [&_pre]:border-0`}
+      >
         {children}
       </div>
     </div>

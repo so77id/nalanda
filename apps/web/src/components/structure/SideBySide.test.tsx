@@ -1,9 +1,33 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
+import { ModeProvider } from '../../presentation';
 import { SideBySide } from './SideBySide';
 
 describe('SideBySide', () => {
+  it('sets the code smaller on a slide than in the book', () => {
+    const scale = (mode: 'book' | 'presentation'): string | undefined => {
+      const { container } = render(
+        <ModeProvider mode={mode}>
+          <SideBySide left="C++" right="Java">
+            <pre>uno</pre>
+            <pre>dos</pre>
+          </SideBySide>
+        </ModeProvider>,
+      );
+      return [...container.querySelectorAll('div')]
+        .flatMap((el) => [...el.classList])
+        .find((name) => name.startsWith('text-['));
+    };
+
+    // Measured at 1440px: a slide gives each column 440px and sets code at 16px,
+    // where `System.out.println("Bienvenidos a EDA");` needs 462px — the closing
+    // `);` fell off the slide that exists to teach that exact line. The book, at
+    // 12.8px, fits in 376 of 376.
+    expect(scale('book')).toBe('text-[0.8em]');
+    expect(scale('presentation')).toBe('text-[0.72em]');
+  });
+
   it('renders both blocks with their labels', () => {
     render(
       <SideBySide left="C++" right="Java">
