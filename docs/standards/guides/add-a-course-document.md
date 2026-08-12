@@ -65,12 +65,58 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
 
    > **Java has a sharp edge.** It runs on the page's main thread (ADR-0017), so
    > a student's `while (true)` freezes the tab and nothing recovers it — they
-   > must close it. C++ and Python run in workers and are cut off cleanly.
-   > Prefer them for anything about loops or termination, and never ship a Java
-   > example whose termination depends on what the student types.
+   > must close it. C++ and Python run in workers and are cut off cleanly, so
+   > prefer them whenever the language does not matter to the lesson.
+   >
+   > When it does — a Java course teaching Java loops — ship it anyway, with
+   > eyes open (accepted for #76). The editor is saved to `localStorage`
+   > immediately before every run, so a frozen tab costs the reader a reload
+   > rather than their work. Warn in the prose where a loop is the point, keep
+   > runaway inputs out of your examples, and never leave such an editor where
+   > an unattended reader has no way to recover.
 
    Use a reading variant (`variant="read"`) for code you only cite: it loads no
    compiler at all.
+
+5b. **Add an exercise (optional)**: `<Exercise>` gives the reader a problem to
+   solve, checked automatically in their browser. The statement is ordinary
+   prose; two annotated fences carry the rest:
+
+   ````mdx
+   <Exercise title="¿Es par?">
+
+   Escribe `esPar`, que devuelve `true` si el número es par.
+
+   ```java starter
+   class Solution {
+       static boolean esPar(int n) {
+           return false;
+       }
+   }
+   ```
+
+   ```java test
+   check(Solution.esPar(4), true);
+   check(Solution.esPar(7), false);
+   ```
+
+   </Exercise>
+   ````
+
+   The `test` fence becomes the body of a generated class that calls the
+   student's method, so what is checked is the method and not what the program
+   printed. The class named in `starter` and the one the cases call must agree.
+   **Only Java validates**; C++ and Python refuse an exercise rather than report
+   a pass for something they never checked.
+
+   The cases are hidden until the first run — pacing, not secrecy. Everything
+   under `content/` is published, so the page source reveals them to anyone who
+   looks: never author an exercise whose cases must stay private.
+
+5c. **Compare two listings (optional)**: `<SideBySide left="C++" right="Java">`
+   places exactly two blocks next to each other, stacking on a narrow screen.
+   For a course whose students already program, the comparison is often the
+   lesson itself.
 
 Full usage docs, props and live examples for every document-facing component
 live in the catalog — browse `/catalog`, which is generated from the components
