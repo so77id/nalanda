@@ -86,6 +86,10 @@ entries reach the catalog, and what a machine can check.
 - **Governance in `docs/` only**: rejected — ADR-0010 chose a self-governing
   catalog, and authors read the product, not the repo.
 
+> **Extended by ADR-0018 §7**: a component carrying a heavy dependency
+> registers a `lazy<Name>.tsx` wrapper — in the MDX map *and* in its own catalog
+> entry — because the shell builds both eagerly.
+
 ## Consequences
 
 - Adding a component has a fixed, machine-checked cost: entry + registration +

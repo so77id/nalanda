@@ -182,8 +182,8 @@ describe('CodeEditor', () => {
   });
 
   it('boots the runtime up front when the variant asks for it', async () => {
-    // Java costs ~24s to boot (ADR-0017); a lab should spend it before the
-    // student presses anything.
+    // Java costs ~12s to boot on a warm CDN, ~29s on a cold one (ADR-0017);
+    // a lab should spend that before the student presses anything.
     renderEditor({ variant: 'lab' });
     await waitFor(() => expect(workers).toHaveLength(1));
     expect(workers[0]!.posted).toHaveLength(0);

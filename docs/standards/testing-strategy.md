@@ -93,7 +93,9 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   comment. A green jsdom suite says nothing about the deployed build.
 - **Execution is invisible to the suite**: every runtime is faked in jsdom
   (`CodeEditor.test.tsx` mocks CodeMirror and the worker; `java/runtime.test.ts`
-  stubs the CheerpJ globals), and jsdom has neither WASM nor `Worker`. A green
+  stubs the CheerpJ globals), and jsdom has no `Worker`, no CheerpJ DOM loader
+  and no network — so nothing there compiles or runs, whatever WebAssembly Node
+  itself provides. A green
   suite therefore says nothing about whether code actually compiles or runs. Any
   change under `src/runtime/**` or to `CodeEditor` MUST also be verified in a
   real browser against `npm run build && npm run preview` — run, stdin, and a

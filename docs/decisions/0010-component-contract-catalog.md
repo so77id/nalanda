@@ -50,6 +50,9 @@ as real classes need them, always through the catalog process.
 - **Free-form components** (no contract): the POC's approach; breaks down the moment
   multiple modes and authors exist.
 
+> **Extended by ADR-0018 §7**: heavy components are registered through a lazy
+> wrapper rather than directly, guarded by a per-component L4 case.
+
 ## Consequences
 
 - Adding a component has fixed overhead (docs + checklists) — deliberate: the

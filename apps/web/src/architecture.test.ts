@@ -72,9 +72,10 @@ describe('architecture: import direction (app → features → lib)', () => {
 describe('architecture: the code editor stays out of the entry chunk', () => {
   // The shell builds the MDX map and `catalogEntries` eagerly, so ANY static
   // import of the editor from a module the shell reaches drags CodeMirror into
-  // the entry chunk — measured: 478kB → 891kB. Only the lazy wrapper may name
-  // it, with no per-file exemptions: an allowlisted file is exactly where the
-  // next contributor would add the import that reopens the hole.
+  // the entry chunk — roughly doubling it, measured precisely in ADR-0018 §7.
+  // Only the lazy wrapper may name it, with no per-file exemptions: an
+  // allowlisted file is exactly where the next contributor would add the import
+  // that reopens the hole.
   const ALLOWED = ['components/interactive/lazyCodeEditor.tsx'];
 
   it('is imported only by its lazy wrapper', () => {

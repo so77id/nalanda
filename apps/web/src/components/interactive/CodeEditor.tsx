@@ -102,7 +102,8 @@ export function CodeEditor({
     },
   });
 
-  // Booting Java costs ~24s (ADR-0017). A document that exists to be run should
+  // Booting Java costs ~12s on a warm CDN and ~29s on a cold one (ADR-0017).
+  // A document that exists to be run should
   // spend that while the student is still reading the statement.
   useEffect(() => {
     if (flags.warmOnMount && flags.runnable && runtime) warmUp();

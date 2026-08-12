@@ -33,7 +33,10 @@ fails before Vite starts, and on a checksum mismatch nothing is written
 
 ## Source layout
 
-See `docs/standards/frontend-code-style.md` for the authoritative rules.
+See `docs/standards/frontend-code-style.md` for the authoritative rules — it
+owns _which folders may exist and why_. The tree below is the narrower fact this
+README is the home for: what is in each of them **today**, plus the app-specific
+files the standard does not carry.
 
 ```
 src/
@@ -82,9 +85,11 @@ repo-level story — trigger, rollback — is in the root README).
   (`src/runtime/java/classPath.ts`).
 - The rest of the execution machinery is **not** ours to serve: Pyodide and
   browsercc come from `cdn.jsdelivr.net`, CheerpJ from `cjrtnc.leaningtech.com`
-  (ADR-0018 §5). Nothing is fetched until a student presses Ejecutar, but there
-  is no offline use, and a CDN outage breaks the Run button with no deploy —
-  accepted risk with review triggers in `docs/security-notes.md`.
+  (ADR-0018 §5). Nothing is fetched until an editor asks for a runtime — the
+  first Ejecutar, or page load for a `warmOnMount` editor (the `lab` variant),
+  so a page carrying one pays the CDN cost on open. There is no offline use, and
+  a CDN outage breaks the Run button with no deploy of ours — accepted risk with
+  review triggers in `docs/security-notes.md`.
 
 ## Testing
 

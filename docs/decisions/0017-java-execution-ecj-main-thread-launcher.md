@@ -71,9 +71,9 @@ sees their own error and not our plumbing. It takes the entry class as an
 argument, so it is compiled once during warm-up and reused.
 
 **5. Warm-up compiles the launcher.** The first compilation of a session costs
-~12s (booting the JVM, then loading and JIT-ing the compiler); every later one
-costs ~1.3s. Compiling
-the launcher at warm-up spends that cost before the student presses Run.
+~12s on a warm CDN and ~29s on a cold one (booting the JVM, then loading and
+JIT-ing the compiler); every later one costs ~1.3s. Compiling the launcher at
+warm-up spends that cost before the student presses Run.
 
 ## Alternatives considered
 
@@ -92,9 +92,12 @@ the launcher at warm-up spends that cost before the student presses Run.
 
 ## Consequences
 
-**Measured, in-browser (2026-08-11), Apple Silicon on a warm CDN:** JVM boot +
-launcher compile ~12s together (what the warm chip reports as `jvm …ms`; an
-earlier figure of 24s in this ADR was not reproducible) · subsequent compile
+**Measured, in-browser, Apple Silicon:** JVM boot + launcher compile ~12s
+together on a warm CDN, and **~29s on a genuinely cold one** — 28.7s on a first
+visit with cold DNS, 12.7s and 11.2s on the two after it (2026-08-12, three
+Chromium contexts). That is what the warm chip reports as `jvm …ms`, and it is
+the number a student pays on their first visit of the day. An earlier figure of
+24s in this ADR was not reproducible at either end. Subsequent compile
 ~1.3s · run 0.3–0.9s · a compile error surfaces with ECJ's own diagnostic, no
 output and NO exit code — a failed compile is a result with `exitCode: null`,
 not an error.

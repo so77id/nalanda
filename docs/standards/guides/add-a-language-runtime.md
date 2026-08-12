@@ -5,7 +5,8 @@ How to teach Nalanda to compile and run a new language in the student's browser.
 ## When to use
 
 A class needs code the student can execute in a language the platform does not
-speak yet. Today it speaks Java, C++ and Python (`apps/web/src/runtime/`).
+speak yet. Today it speaks Java, C++ and Python (`apps/web/src/runtime/`) — a
+list maintained by hand, so step 8 exists to update it and its siblings.
 
 **Before you start**, answer two questions, because they decide the whole shape
 of the work:
@@ -84,8 +85,9 @@ src/runtime/python/
    describe a different build than the one you download are worse than no types.
 
 7. **Verify it in a real browser.** The jsdom suite fakes the worker and
-   CodeMirror, and has neither WASM nor `Worker` — a green suite says nothing
-   about whether your runtime works. Playwright is not a project dependency yet
+   CodeMirror, and has no `Worker`, no CheerpJ DOM loader and no network — so
+   nothing there compiles or runs, whatever WebAssembly Node itself provides. A
+   green suite says nothing about whether your runtime works. Playwright is not a project dependency yet
    (L5 in `testing-strategy.md` is still pending), so drive it ad hoc from the
    scratchpad:
 
@@ -94,11 +96,18 @@ src/runtime/python/
    npm run build && npm run preview -- --port 4174             # NOT `npm run dev`
    ```
 
-   Point the script at `http://localhost:4174/nalanda/...`, not at the dev
-   server: the deployed base path is part of what you are testing (the Java
+   Point the script at `/nalanda/d/codigo-ejecutable` (the demo document, one
+   editor per variant) or `/nalanda/catalog/c/CodeEditor` (live examples per
+   language) — and at the preview server, not the dev one: the deployed base path is part of what you are testing (the Java
    runtime resolves its compiler jar through `import.meta.env.BASE_URL`, so
    `/` and `/nalanda/` exercise different paths — ADR-0015). Check compile, run,
    stdin, and a deliberate compile error.
+
+8. **Update what enumerates the languages by hand.** `RuntimeId` widens
+   silently when you add an id, so nothing fails: `CodeEditor.catalog.tsx` (the
+   description and the `language` prop's type string), `apps/web/README.md`'s
+   stack paragraph, `guides/add-a-course-document.md` step 5, and §When to use
+   at the top of this guide.
 
 ## Checklist
 
@@ -115,6 +124,8 @@ src/runtime/python/
       the Java compiler jar — and the entry chunk grows by descriptors only:
       single-digit kB, no CodeMirror, no toolchain.
 - [ ] Verified in a browser: run, stdin, compile error.
+- [ ] Every hand-written list of languages updated (step 8) — the type system
+      will not catch these.
 - [ ] An ADR if the runtime brought a real decision with it (ADR-0017 is the
       example: the compiler, the Java version and the thread it runs on were all
       forced by what the browser actually does).
