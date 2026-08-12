@@ -197,11 +197,11 @@ describe('createJavaRuntime', () => {
   it('fails fast once a run has been abandoned mid-flight', async () => {
     // CheerpJ has no interrupt: an abandoned run keeps the page's only JVM, so
     // every later run must say so instead of waiting out its own deadline.
-    let release: (() => void) | null = null;
+    const gate: { release: (() => void) | null } = { release: null };
     onRun = async ({ mainClass }) => {
       if (mainClass !== 'NalandaLauncher') return 0;
       await new Promise<void>((resolve) => {
-        release = resolve;
+        gate.release = resolve;
       });
       return 0;
     };
@@ -209,7 +209,7 @@ describe('createJavaRuntime', () => {
     const stuck = createJavaRuntime('/');
     listen(stuck);
     stuck.postMessage({ id: 1, source: 'public class Main {}', stdin: '' });
-    await vi.waitFor(() => expect(release).not.toBeNull());
+    await vi.waitFor(() => expect(gate.release).not.toBeNull());
 
     stuck.terminate();
 
@@ -220,7 +220,7 @@ describe('createJavaRuntime', () => {
     await vi.waitFor(() => expect(seen).toHaveLength(1));
     expect(seen[0]).toMatchObject({ type: 'error' });
     expect((seen[0] as { message: string }).message).toMatch(/recarga la página/i);
-    release?.();
+    gate.release?.();
   });
 
   it('stops emitting once terminated', async () => {

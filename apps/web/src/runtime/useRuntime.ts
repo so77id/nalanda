@@ -2,16 +2,28 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { RunResult, RuntimeId, RuntimeWorker, WarmStats, WorkerMessage } from './contract';
 
-/** Generous on purpose: a first Java run legitimately spends ~28s booting (ADR-0017). */
+/** How long the student's program itself may run. */
 export const DEFAULT_TIMEOUT_MS = 60_000;
+
+/**
+ * How long a run may spend *before* it starts: downloading a toolchain, booting
+ * a JVM (~28s cold, ADR-0017), and — for Java — waiting behind another editor
+ * on the page's shared queue (~16s measured). Generous, because none of that is
+ * the student's fault and none of it means an infinite loop.
+ */
+export const DEFAULT_START_TIMEOUT_MS = 180_000;
+
+const seconds = (ms: number): string => `${Math.round(ms / 1000)}s`;
 
 export interface UseRuntimeInput {
   /** `null` disables execution entirely: no worker is ever created. */
   runtimeId: RuntimeId | null;
   /** Spawns the worker for `runtimeId`. Called at most once per runtime. */
   createWorker: () => RuntimeWorker;
-  /** How long a single run may take before it is abandoned. */
+  /** How long the program may run once the runtime reports it has started. */
   timeoutMs?: number;
+  /** How long the runtime may take to get to the program in the first place. */
+  startTimeoutMs?: number;
 }
 
 export interface Runtime {
@@ -27,6 +39,8 @@ export interface Runtime {
 interface Pending {
   resolve: (result: RunResult) => void;
   reject: (error: Error) => void;
+  /** Swaps the waiting budget for the running one when the run actually starts. */
+  rearm: (ms: number, message: string) => void;
 }
 
 /**
@@ -51,6 +65,7 @@ export function useRuntime({
   runtimeId,
   createWorker,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  startTimeoutMs = DEFAULT_START_TIMEOUT_MS,
 }: UseRuntimeInput): Runtime {
   const workerRef = useRef<RuntimeWorker | null>(null);
   const pendingRef = useRef(new Map<number, Pending>());
@@ -103,6 +118,18 @@ export function useRuntime({
 
       const pending = pendingRef.current.get(message.id);
       if (!pending) return;
+
+      if (message.type === 'started') {
+        // The wait is over and the program is what is running now, so restart
+        // the clock: a cold CDN or a queue behind another editor must not be
+        // charged to the student as an infinite loop.
+        pending.rearm(
+          timeoutMs,
+          `el programa no terminó en ${seconds(timeoutMs)} — puede tener un bucle infinito`,
+        );
+        return;
+      }
+
       pendingRef.current.delete(message.id);
       if (message.type === 'error') {
         pending.reject(new Error(message.message));
@@ -114,7 +141,7 @@ export function useRuntime({
 
     workerRef.current = worker;
     return worker;
-  }, []);
+  }, [timeoutMs]);
 
   const warmUp = useCallback(() => {
     if (runtimeId === null) return;
@@ -129,21 +156,31 @@ export function useRuntime({
       const worker = ensureWorker();
       const id = ++nextIdRef.current;
       return new Promise<RunResult>((resolve, reject) => {
-        // A student's `while (true)` is the likeliest event in this feature's
-        // life, and a stranded worker holds a whole toolchain (~330MB measured).
-        // The deadline is generous because a first Java run legitimately spends
-        // ~28s booting a JVM and loading a compiler (ADR-0017).
-        const deadline = setTimeout(() => {
-          pendingRef.current.delete(id);
-          discardWorker();
-          reject(
-            new Error(
-              `el programa no terminó en ${Math.round(timeoutMs / 1000)}s — puede tener un bucle infinito`,
-            ),
-          );
-        }, timeoutMs);
+        let deadline: ReturnType<typeof setTimeout>;
+
+        // Two budgets, because a student's `while (true)` and a cold CDN are
+        // different failures with different honest messages. The first covers
+        // getting to the front of the queue with a booted runtime; the
+        // `started` message swaps it for the second, which measures the
+        // program. A stranded worker holds a whole toolchain (~330MB measured),
+        // so either way the worker goes.
+        const arm = (ms: number, message: string): void => {
+          deadline = setTimeout(() => {
+            pendingRef.current.delete(id);
+            discardWorker();
+            reject(new Error(message));
+          }, ms);
+        };
+
+        const rearm = (ms: number, message: string): void => {
+          clearTimeout(deadline);
+          arm(ms, message);
+        };
+
+        arm(startTimeoutMs, `el runtime no estuvo listo en ${seconds(startTimeoutMs)}`);
 
         pendingRef.current.set(id, {
+          rearm,
           resolve: (result) => {
             clearTimeout(deadline);
             resolve(result);
@@ -156,7 +193,7 @@ export function useRuntime({
         worker.postMessage({ id, source, stdin });
       });
     },
-    [runtimeId, ensureWorker, discardWorker, timeoutMs],
+    [runtimeId, ensureWorker, discardWorker, startTimeoutMs],
   );
 
   // Tear down when the language changes or the editor unmounts. A worker holds

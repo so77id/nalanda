@@ -71,6 +71,8 @@ addEventListener('message', async (event: MessageEvent<RunRequest>) => {
   try {
     await warmPromise;
     if (!pyodide) throw new Error('pyodide failed to initialise');
+    // Interpreter up: the deadline should now be measuring the program.
+    post({ id, type: 'started' });
 
     const readOutput = captureIO(pyodide, stdin);
 

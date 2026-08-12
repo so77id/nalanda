@@ -41,6 +41,18 @@ export interface WarmMessage {
   detail?: Record<string, number>;
 }
 
+/**
+ * The run has left the queue and the runtime is now working on it.
+ *
+ * It is what separates "waiting" from "running": the caller's deadline should
+ * measure the student's program, not a cold CDN or a queue behind another
+ * editor. Runtimes send it once per request, before compiling.
+ */
+export interface StartedMessage {
+  id: number;
+  type: 'started';
+}
+
 /** A completed run. A failed compile is a result, not an error: `exitCode` is null. */
 export interface ResultMessage {
   id: number;
@@ -59,7 +71,7 @@ export interface ErrorMessage {
   message: string;
 }
 
-export type WorkerMessage = WarmMessage | ResultMessage | ErrorMessage;
+export type WorkerMessage = WarmMessage | StartedMessage | ResultMessage | ErrorMessage;
 
 /** What `run()` resolves to: a result message without its transport fields. */
 export type RunResult = Omit<ResultMessage, 'id' | 'type'>;

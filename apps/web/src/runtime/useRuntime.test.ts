@@ -203,10 +203,63 @@ describe('useRuntime', () => {
     expect(factory.last().terminated).toBe(true);
   });
 
+  it('does not blame the program for a slow start', async () => {
+    const factory = workerFactory();
+    const { result } = renderHook(() =>
+      useRuntime({
+        runtimeId: 'cpp',
+        createWorker: factory.createWorker,
+        // The program gets almost no budget; getting started gets plenty.
+        timeoutMs: 10_000,
+        startTimeoutMs: 30,
+      }),
+    );
+
+    let slowStart!: Promise<unknown>;
+    act(() => {
+      slowStart = result.current.run('int main(){}', '');
+    });
+    await waitFor(() => expect(factory.created).toHaveLength(1));
+
+    // Downloading a toolchain, booting a JVM or queueing behind another editor
+    // is not an infinite loop, and must not be reported as one.
+    await expect(slowStart).rejects.toThrow(/runtime no estuvo listo/i);
+  });
+
+  it('starts measuring the program only once the runtime says it has started', async () => {
+    const factory = workerFactory();
+    const { result } = renderHook(() =>
+      useRuntime({
+        runtimeId: 'cpp',
+        createWorker: factory.createWorker,
+        timeoutMs: 30,
+        startTimeoutMs: 10_000,
+      }),
+    );
+
+    let stuck!: Promise<unknown>;
+    act(() => {
+      stuck = result.current.run('while(true){}', '');
+    });
+    await waitFor(() => expect(factory.created).toHaveLength(1));
+    const worker = factory.last();
+    await waitFor(() => expect(worker.posted).toHaveLength(1));
+
+    act(() => worker.emit({ id: worker.posted[0]!.id, type: 'started' }));
+
+    await expect(stuck).rejects.toThrow(/bucle infinito/i);
+    expect(factory.created[0]!.terminated).toBe(true);
+  });
+
   it('abandons a run that never finishes and frees its toolchain', async () => {
     const factory = workerFactory();
     const { result } = renderHook(() =>
-      useRuntime({ runtimeId: 'cpp', createWorker: factory.createWorker, timeoutMs: 20 }),
+      useRuntime({
+        runtimeId: 'cpp',
+        createWorker: factory.createWorker,
+        timeoutMs: 20,
+        startTimeoutMs: 20,
+      }),
     );
 
     let stuck!: Promise<unknown>;
@@ -216,7 +269,7 @@ describe('useRuntime', () => {
     });
     await waitFor(() => expect(factory.created).toHaveLength(1));
 
-    await expect(stuck).rejects.toThrow(/bucle infinito/i);
+    await expect(stuck).rejects.toThrow(/no estuvo listo|bucle infinito/i);
     // A stranded worker holds a whole compiler in memory, so it must go.
     expect(factory.created[0]!.terminated).toBe(true);
 

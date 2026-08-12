@@ -122,6 +122,9 @@ addEventListener('message', async (event: MessageEvent<RunRequest>) => {
   try {
     await warmPromise;
     if (!toolchain) throw new Error('the C++ toolchain failed to load');
+    // The toolchain is downloaded and warm: the caller's deadline should now be
+    // measuring the program, not the CDN.
+    post({ id, type: 'started' });
 
     const flags = [...DEFAULT_FLAGS];
     const extraFiles: Record<string, string | ArrayBuffer> = {};

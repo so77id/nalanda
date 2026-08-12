@@ -177,6 +177,9 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
     running = true;
     try {
       const host = await warmUp();
+      // Out of the page queue and onto a booted JVM: from here the clock is
+      // measuring the student's program.
+      emit({ id, type: 'started' });
 
       const entryClass = deriveEntryClass(source);
       const sourcePath = `/str/${sourceFileName(entryClass)}`;
