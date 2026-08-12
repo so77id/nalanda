@@ -1,0 +1,512 @@
+---
+id: java-desde-cpp
+title: Java desde C++
+presentation: explicit
+---
+
+# Java desde C++
+
+Ya sabes programar. Sabes qué es un ciclo, una función y un tipo de dato, y has
+peleado con un compilador. Nada de eso hay que aprenderlo de nuevo.
+
+Lo que cambia es el idioma, y este documento se ocupa **solo de lo que cambia**.
+Lo que Java hace igual que C++ ocupa un párrafo; lo que hace distinto se gana las
+páginas. Al terminar vas a poder leer, escribir, compilar y ejecutar un programa
+Java que lea datos, calcule algo y los imprima — y vas a saber por qué está cada
+palabra de `public static void main(String[] args)`.
+
+Todo el código de esta página se ejecuta **en tu navegador**. Puedes editarlo.
+Deberías editarlo.
+
+<SectionBreak />
+
+## De dónde viene Java
+
+<Slide title="De dónde viene Java">
+En 1991, un equipo de Sun Microsystems trabajaba en un lenguaje para
+electrodomésticos: televisores, decodificadores, cosas con poca memoria y
+procesadores de marcas distintas. Lo llamaron **OAK**, después **Green**, y
+finalmente **Java**.
+
+Ese origen explica casi todo lo que Java es hoy. Si tu programa tiene que correr
+en aparatos con procesadores distintos, no puedes compilarlo al lenguaje máquina
+de ninguno en particular. La solución fue compilar a un formato intermedio y
+poner en cada aparato un programa que lo interpretara: la **máquina virtual**.
+
+Los electrodomésticos nunca llegaron. La web sí, y después Android.
+</Slide>
+
+Tres decisiones de esa época te van a acompañar todo el curso:
+
+- **Compilar una vez, ejecutar en cualquier parte.** El compilador no produce un
+  binario para tu máquina, sino *bytecode* para la máquina virtual.
+- **Recolección de basura.** Nadie llama `delete`. La memoria que ya no se usa se
+  libera sola, y cuándo exactamente no es asunto tuyo.
+- **Orientado a objetos sin escapatoria.** En C++ puedes escribir un programa
+  entero sin declarar una clase. En Java no.
+
+## El mismo programa, en dos idiomas
+
+<Slide title="El mismo programa, en dos idiomas">
+Este es el programa que ya conoces, en los dos idiomas.
+
+En C++:
+
+```cpp
+#include <iostream>
+
+int main() {
+    std::cout << "Bienvenidos a EDA" << std::endl;
+    return 0;
+}
+```
+
+En Java:
+
+```java
+class HelloWorld {
+    public static void main(String[] args) {
+        System.out.println("Bienvenidos a EDA");
+    }
+}
+```
+
+Cuatro diferencias, y ninguna es cosmética.
+</Slide>
+
+1. **`main` no es una función libre.** Vive dentro de `class HelloWorld`. En Java
+   no existen las funciones fuera de una clase: no es una convención, el
+   compilador no te deja.
+2. **No hay archivo de cabecera.** Una clase Java se declara y se define en el
+   mismo lugar. No hay `.h`, no hay guardas de inclusión, no hay declaración
+   adelantada.
+3. **`System.out.println` en vez de `std::cout <<`.** No es un operador
+   sobrecargado sino una llamada a método corriente — Java no tiene sobrecarga de
+   operadores.
+4. **`main` no retorna nada.** En C++ devuelve `int`. En Java es `void`, y el
+   código de salida se manda con `System.exit(n)` cuando hace falta.
+
+Ejecútalo. La primera vez tarda: el navegador tiene que descargar una máquina
+virtual de Java completa antes de poder correr nada. Después es cuestión de
+segundos.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class HelloWorld {
+    public static void main(String[] args) {
+        System.out.println("Bienvenidos a EDA");
+    }
+}
+`}
+/>
+
+## Por qué `main` tiene tantas palabras
+
+<Slide title="Por qué main tiene tantas palabras">
+`public static void main(String[] args)` son cinco decisiones, no una fórmula
+mágica. Vale la pena desarmarla, porque tres de esas palabras van a aparecer en
+todo lo que escribas de aquí en adelante.
+
+| Palabra | Qué dice |
+|---|---|
+| `public` | Se puede llamar desde fuera de la clase. La máquina virtual está fuera, así que necesita este permiso |
+| `static` | Pertenece a la **clase**, no a un objeto de la clase |
+| `void` | No devuelve nada |
+| `main` | El nombre exacto que la máquina virtual busca para empezar |
+| `String[] args` | Los argumentos de la línea de comandos |
+</Slide>
+
+De las cinco, la que importa entender ahora es **`static`**.
+
+Un método normal en Java pertenece a un *objeto*: para llamarlo necesitas primero
+haber creado uno. Un método `static` pertenece a la clase misma y se llama sin
+crear nada. Por eso `main` tiene que serlo: cuando la máquina virtual arranca tu
+programa todavía no existe ningún objeto, y no tendría cómo saber cuál crear ni
+con qué argumentos.
+
+Es la misma idea que un método estático de C++, y también se llama igual.
+
+Mira lo que pasa cuando un método **no** es `static`: `main` no puede llamarlo
+directamente, porque no hay ningún objeto al que pedirle nada. Hay que fabricar
+uno primero.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Saludo {
+    // static: pertenece a la clase. main lo llama directo.
+    static String formal() {
+        return "Buenas tardes";
+    }
+
+    // sin static: pertenece a un objeto. Hay que crear uno.
+    String informal() {
+        return "hola";
+    }
+
+    public static void main(String[] args) {
+        System.out.println(formal());
+
+        Saludo s = new Saludo();
+        System.out.println(s.informal());
+
+        // Prueba a descomentar esta línea y ejecutar:
+        // System.out.println(informal());
+    }
+}
+`}
+/>
+
+Descomenta la última línea y ejecuta. El error que aparece —*non-static method
+cannot be referenced from a static context*— es de los que más vas a ver este
+semestre, y ahora sabes exactamente qué significa.
+
+Sobre `String[] args`: es el equivalente de `int argc, char** argv`. La diferencia
+es que en Java el arreglo **sabe su propio largo**, así que no hace falta pasarlo
+aparte. En este curso casi nunca lo vas a usar.
+
+## Compilar y ejecutar
+
+<Slide title="Compilar y ejecutar">
+En C++ el ciclo termina en un binario para tu máquina:
+
+```
+programa.cpp  →  [g++]  →  programa      (instrucciones de TU procesador)
+```
+
+En Java hay un paso más, y un intérprete al final:
+
+```
+Hola.java  →  [javac]  →  Hola.class  →  [java]  →  ejecutando
+                          (bytecode)      (la JVM)
+```
+
+`javac Hola.java` produce `Hola.class`. Ese archivo **no es un ejecutable de tu
+sistema**: es bytecode, un lenguaje máquina inventado para una máquina que no
+existe. `java Hola` arranca la máquina virtual, que lo lee y lo ejecuta.
+</Slide>
+
+Ahí está la promesa de 1991: el mismo `Hola.class` corre en Linux, en Windows y en
+un teléfono Android, porque los tres tienen una máquina virtual de Java. En C++,
+cambiar de sistema o de arquitectura significa recompilar.
+
+El precio es que hay un intérprete en el medio, y por eso Java arranca más lento
+que C++. A cambio, la máquina virtual observa tu programa mientras corre y
+recompila a lenguaje máquina las partes que más se usan.
+
+> **Y en esta página, ¿qué pasa?** Exactamente esos dos pasos. El botón *Ejecutar*
+> corre `javac` sobre lo que escribiste y después `java` sobre el resultado. Lo
+> distinto es dónde: la máquina virtual está compilada a WebAssembly y vive en tu
+> navegador. Por eso la primera ejecución tarda tanto — está descargando un Java
+> completo.
+
+## `import` y paquetes
+
+<Slide title="import y paquetes">
+Las clases de Java se organizan en **paquetes**, y el nombre completo de una clase
+incluye el suyo: `java.util.Scanner` es la clase `Scanner` del paquete
+`java.util`.
+
+```java
+import java.util.Scanner;
+```
+
+`import` se parece a `#include`, pero hace algo muy distinto. `#include` **pega el
+contenido** del archivo en el tuyo antes de compilar; por eso existen las guardas
+de inclusión y por eso incluir de más hace lento el compilador.
+
+`import` no copia nada. Solo dice: *cuando escriba `Scanner`, me refiero a
+`java.util.Scanner`*. Es una abreviatura.
+</Slide>
+
+La prueba de que es solo una abreviatura: puedes escribir el nombre completo y
+saltarte el `import`. Nadie programa así, pero compila igual.
+
+<CodeEditor
+  language="java"
+  variant="lab"
+  warmOnMount={false}
+  defaultValue={`class SinImport {
+    public static void main(String[] args) {
+        // El nombre completo, sin ningún import arriba.
+        java.util.Scanner stdin = new java.util.Scanner(System.in);
+        System.out.println("Leí: " + stdin.nextInt());
+    }
+}
+`}
+  defaultStdin={`42
+`}
+/>
+
+Un paquete se importa solo: **`java.lang`**. Por eso `System`, `String`, `Math` e
+`Integer` funcionan sin que hayas escrito nada arriba. Todo lo demás —`Scanner`,
+`ArrayList`, `HashMap`— hay que pedirlo.
+
+## Tipos primitivos
+
+<Slide title="Tipos primitivos">
+| Tipo | Tamaño | Rango |
+|---|---|---|
+| `byte` | 8 bits | −128 … 127 |
+| `short` | 16 bits | −32 768 … 32 767 |
+| `int` | 32 bits | ±2 147 483 647 aprox. |
+| `long` | 64 bits | ±9,2 × 10¹⁸ aprox. |
+| `float` | 32 bits | decimal, precisión simple |
+| `double` | 64 bits | decimal, precisión doble |
+| `char` | 16 bits | un carácter Unicode |
+| `boolean` | — | `true` o `false` |
+</Slide>
+
+Cuatro diferencias con C++, y la primera es la que más te va a gustar:
+
+- **Los tamaños los fija la especificación del lenguaje.** Un `int` son 32 bits en
+  toda máquina donde corra Java, siempre. En C++ el tamaño de `int` depende de la
+  implementación, y por eso existe `<cstdint>` con sus `int32_t`. En Java ese
+  problema no existe.
+- **No hay `unsigned`.** Todos los enteros tienen signo.
+- **`char` son 16 bits**, no 8, porque guarda un carácter Unicode y no un byte.
+- **`boolean` no es un número.** `if (1)` no compila, y `if (x = 5)` tampoco —
+  volveremos a esto en el control de flujo.
+
+Y una ausencia importante: **`String` no está en esta tabla.** Aunque se escriba
+casi como un tipo primitivo, es una clase, y esa diferencia tiene consecuencias
+que arruinan tardes enteras. Es el tema de [[referencias-null-igualdad]].
+
+Los tamaños fijos se pueden comprobar. Este programa suma 1 al mayor `int` que
+existe:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Desborde {
+    public static void main(String[] args) {
+        int maximo = Integer.MAX_VALUE;
+        System.out.println("el mayor int:      " + maximo);
+        System.out.println("y si le sumo 1:    " + (maximo + 1));
+
+        // Con long hay espacio de sobra.
+        long conLong = (long) maximo + 1;
+        System.out.println("lo mismo en long:  " + conLong);
+    }
+}
+`}
+/>
+
+No hay error ni aviso: el `int` da la vuelta y aterriza en el número más negativo
+que existe. Es el mismo comportamiento que en C++ para enteros con signo, y es una
+fuente clásica de errores — te vas a encontrar con ella otra vez cuando escribas
+comparadores.
+
+## Operadores
+
+Esta sección es corta a propósito: los operadores de Java son prácticamente los de
+C++.
+
+<Slide title="Operadores">
+| Aritméticos | | Comparación | | Lógicos | |
+|---|---|---|---|---|---|
+| `+` | suma | `==` | igual | `&&` | y |
+| `-` | resta | `!=` | distinto | `\|\|` | o |
+| `*` | producto | `>` `<` | mayor, menor | `!` | no |
+| `/` | división | `>=` `<=` | mayor o igual, menor o igual | | |
+| `%` | resto | | | | |
+| `++` `--` | incremento, decremento | | | | |
+
+Los de asignación también: `=`, `+=`, `-=`, `*=`, `/=`, `%=`.
+</Slide>
+
+Se comportan como esperas: la división entre enteros trunca (`7 / 2` es `3`), y
+`&&` y `||` cortocircuitan.
+
+Hay dos diferencias reales:
+
+**No existe la sobrecarga de operadores.** En C++ puedes definir qué significa `+`
+para tu clase. En Java no puedes, nunca. Si dos objetos tuyos deben poder
+compararse o combinarse, será con métodos de nombre propio.
+
+**Salvo para `String`, que es privilegio del lenguaje.** `+` concatena texto, y
+eso interactúa con la suma de una forma que confunde a todo el mundo la primera
+vez:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Concatenacion {
+    public static void main(String[] args) {
+        System.out.println("total: " + 1 + 2);
+        System.out.println(1 + 2 + " es el total");
+        System.out.println("total: " + (1 + 2));
+    }
+}
+`}
+/>
+
+Las tres líneas tienen los mismos números y dan resultados distintos. La regla es
+que `+` se evalúa **de izquierda a derecha**: en la primera, `"total: " + 1` ya es
+texto, así que el `2` se pega al final en vez de sumarse. En la segunda, `1 + 2` se
+suma antes de encontrarse con el texto.
+
+## Entrada y salida
+
+<Slide title="Entrada y salida">
+Para escribir, `System.out`:
+
+```java
+System.out.println("con salto de línea al final");
+System.out.print("sin salto");
+System.out.printf("%d elementos, %.2f promedio%n", 10, 3.456);
+```
+
+Para leer, la clase `Scanner`, envuelta alrededor de `System.in`:
+
+```java
+Scanner stdin = new Scanner(System.in);
+int n = stdin.nextInt();
+```
+
+| Método | Lee |
+|---|---|
+| `nextInt()` | el siguiente entero |
+| `nextLong()` | el siguiente entero largo |
+| `nextDouble()` | el siguiente decimal |
+| `next()` | la siguiente palabra |
+| `nextLine()` | el resto de la línea |
+| `hasNext()` | ¿queda algo por leer? |
+</Slide>
+
+En el editor de abajo, el panel **stdin** es lo que el programa va a recibir por
+entrada estándar. Cámbialo y vuelve a ejecutar.
+
+<CodeEditor
+  language="java"
+  variant="lab"
+  warmOnMount={false}
+  defaultValue={`import java.util.Scanner;
+
+class Io {
+    public static void main(String[] args) {
+        Scanner stdin = new Scanner(System.in);
+
+        int a = stdin.nextInt();
+        int b = stdin.nextInt();
+
+        System.out.println("el primero es: " + a);
+        System.out.println("el segundo es: " + b);
+        System.out.println("la suma es: " + (a + b));
+    }
+}
+`}
+  defaultStdin={`3
+4
+`}
+/>
+
+### La trampa de `nextInt()` seguido de `nextLine()`
+
+Esta te va a pasar, y cuando pase vas a jurar que el programa se saltó una línea.
+
+`nextInt()` lee el número y **deja el salto de línea sin consumir**. Si lo
+siguiente que llamas es `nextLine()`, lo que obtienes no es la línea siguiente:
+es el resto vacío de la línea anterior.
+
+<CodeEditor
+  language="java"
+  variant="lab"
+  warmOnMount={false}
+  defaultValue={`import java.util.Scanner;
+
+class Trampa {
+    public static void main(String[] args) {
+        Scanner stdin = new Scanner(System.in);
+
+        int edad = stdin.nextInt();
+        String nombre = stdin.nextLine();   // ← no lee "Ana"
+
+        System.out.println("edad:   [" + edad + "]");
+        System.out.println("nombre: [" + nombre + "]");
+
+        // La solución: un nextLine() extra para tragarse el salto de línea.
+        // Descomenta la línea de arriba y prueba de nuevo.
+    }
+}
+`}
+  defaultStdin={`20
+Ana
+`}
+/>
+
+El nombre sale vacío. La solución es llamar `nextLine()` una vez más después del
+`nextInt()`, solo para consumir el salto de línea que quedó colgando.
+
+## Control de flujo
+
+<Slide title="Control de flujo">
+`if`, `else`, `while` y `for` se escriben exactamente como en C++:
+
+```java
+if (n % 2 == 0) {
+    System.out.println("es par");
+} else {
+    System.out.println("es impar");
+}
+
+while (i < n) { ... }
+
+for (int i = 0; i < n; i++) { ... }
+```
+
+La única diferencia real: **la condición tiene que ser `boolean`**. No un número,
+no una referencia.
+</Slide>
+
+Esa restricción mata dos errores clásicos de C++ de un solo golpe. `if (x = 5)`
+—asignar cuando querías comparar— no compila en Java, porque `x = 5` vale `5` y `5`
+no es un `boolean`. Y `if (puntero)` tampoco: la ausencia de objeto se pregunta
+explícitamente con `!= null`.
+
+<CodeEditor
+  language="java"
+  variant="lab"
+  warmOnMount={false}
+  defaultValue={`import java.util.Scanner;
+
+class Flujo {
+    public static void main(String[] args) {
+        Scanner stdin = new Scanner(System.in);
+        int n = stdin.nextInt();
+
+        if (n % 2 == 0) {
+            System.out.println(n + " es par");
+        } else {
+            System.out.println(n + " es impar");
+        }
+
+        System.out.println("pares hasta " + n + ":");
+        int i = 1;
+        while (i < n) {
+            if (i % 2 == 0) System.out.println("  " + i);
+            i++;
+        }
+
+        System.out.println("divisibles por 3 hasta " + n + ":");
+        for (int j = 1; j < n; j++) {
+            if (j % 3 == 0) System.out.println("  " + j);
+        }
+    }
+}
+`}
+  defaultStdin={`10
+`}
+/>
+
+> **Cuidado con los ciclos infinitos en esta página.** Java se ejecuta en el mismo
+> hilo que la página, así que un `while` que nunca termina **congela la pestaña** y
+> no hay forma de detenerlo: hay que cerrarla. Antes de ejecutar, revisa que la
+> variable de la condición cambie dentro del ciclo. Tu código se guarda solo antes
+> de cada ejecución, así que no lo pierdes.
+
+## Lo que sigue
+
+Con esto puedes leer y escribir programas Java que calculan cosas. Lo que todavía
+no sabes es qué guarda realmente una variable cuando no es un tipo primitivo — y
+esa pregunta, que parece de detalle, es la que separa a quien entiende una lista
+enlazada de quien la copia.
+
+Es lo que viene en [[referencias-null-igualdad]].
