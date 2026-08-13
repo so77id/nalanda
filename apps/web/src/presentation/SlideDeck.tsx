@@ -7,14 +7,22 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mdxChildrenOf } from './mdxChildren';
 import { computeSlides } from './parser';
 import { fitScale } from './fit';
-import { startsInsideScroller, swipeDirection } from './swipe';
+import { startsInsideHorizontalScroller, swipeDirection } from './swipe';
 import type { Point } from './swipe';
 import { RotateNotice } from './RotateNotice';
 import { usePortraitPhone } from './usePortraitPhone';
 
+// Exiting is guarded everywhere it happens: exitFullscreen() REJECTS when
+// nothing is fullscreen, and `void` attaches no catch, so an unguarded call is
+// an unhandled rejection on every ordinary exit (measured in Chromium, #103
+// review). Three call sites had drifted into three spellings of this.
+function leaveFullscreen(): void {
+  if (document.fullscreenElement) void document.exitFullscreen?.();
+}
+
 function toggleFullscreen(): void {
   if (document.fullscreenElement) {
-    void document.exitFullscreen();
+    leaveFullscreen();
   } else {
     void document.documentElement.requestFullscreen?.();
   }
@@ -74,7 +82,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   // them (ADR-0023). Fullscreen goes with it, because the control that exits
   // fullscreen lives in the deck being left.
   const leave = useCallback(() => {
-    if (document.fullscreenElement) void document.exitFullscreen?.();
+    leaveFullscreen();
     void navigate(`/d/${docId}`);
   }, [docId, navigate]);
 
@@ -116,11 +124,17 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   const touchStart = useRef<Point | null>(null);
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     const touch = event.touches.length === 1 ? event.touches[0] : undefined;
-    if (!touch || startsInsideScroller(event.target, event.currentTarget)) {
+    if (!touch || startsInsideHorizontalScroller(event.target, event.currentTarget)) {
       touchStart.current = null;
       return;
     }
     touchStart.current = { x: touch.clientX, y: touch.clientY };
+  };
+  // The system can take a gesture away mid-drag (a notification, an edge
+  // swipe). Without this the start point survived and the NEXT touchend acted
+  // on coordinates the reader never finished — pre-existing from #99.
+  const onTouchCancel = () => {
+    touchStart.current = null;
   };
   const onTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
     const start = touchStart.current;
@@ -171,7 +185,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   // button is the only control that exits it, so leaving it on would strand the
   // panel inside a fullscreen page with no way back out of it.
   useEffect(() => {
-    if (portraitPhone && document.fullscreenElement) void document.exitFullscreen?.();
+    if (portraitPhone) leaveFullscreen();
   }, [portraitPhone]);
 
   // Replaces the deck rather than covering it: no slide is painted, so nothing
@@ -186,6 +200,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
         data-testid="slide-stage"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
         className="flex flex-1 items-center justify-center overflow-hidden px-16"
       >
         <AnimatePresence mode="wait">
@@ -209,12 +224,12 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
         </AnimatePresence>
       </div>
       <footer className="flex items-center justify-between px-[max(1.5rem,env(safe-area-inset-left))] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pr-[max(1.5rem,env(safe-area-inset-right))] text-sm text-slate-500">
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-2">
           <button
             type="button"
             aria-label="Pantalla completa"
             onClick={toggleFullscreen}
-            className="rounded px-2 py-1 hover:bg-slate-800 hover:text-slate-200"
+            className="rounded p-2 hover:bg-slate-800 hover:text-slate-200"
           >
             ⛶
           </button>
@@ -224,7 +239,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
             type="button"
             aria-label="Salir de la presentación"
             onClick={leave}
-            className="rounded px-2 py-1 hover:bg-slate-800 hover:text-slate-200"
+            className="rounded p-2 hover:bg-slate-800 hover:text-slate-200"
           >
             <X size={16} aria-hidden="true" />
           </button>

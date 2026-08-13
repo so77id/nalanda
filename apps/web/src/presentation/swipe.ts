@@ -19,19 +19,36 @@ const MIN_DISTANCE = 50;
 const HORIZONTAL_DOMINANCE = 1.5;
 
 /**
- * Whether the touch landed on something that scrolls sideways on its own, up to
+ * Whether the touch landed on something that really scrolls sideways, up to
  * (and excluding) the stage. A code block wider than the slide is the case that
  * matters: on a phone the reader drags inside it to read the rest of the line,
  * and the deck used to take that drag and change the slide instead (#103,
  * measured on `/d/java-desde-cpp/present?slide=3` with 73px of Java hidden).
  * The reader gets the scroll; the deck keeps every other swipe.
  */
-export function startsInsideScroller(target: EventTarget | null, stage: Element): boolean {
+export function startsInsideHorizontalScroller(
+  target: EventTarget | null,
+  stage: Element,
+): boolean {
   let node = target instanceof Element ? target : null;
   while (node && node !== stage) {
-    // +1 absorbs sub-pixel rounding, which reports a 0.5px "overflow" on boxes
-    // that do not scroll at all.
-    if (node.scrollWidth > node.clientWidth + 1) return true;
+    // Overflowing content is not the same as a scrollable box: a wrapper with
+    // `overflow-x: visible` reports scrollWidth > clientWidth and cannot be
+    // scrolled at all (measured in Chromium — scrollLeft stays 0 through both
+    // an assignment and a real touch drag). Asking only about the numbers made
+    // any slide containing a wide element — an svg, a canvas, a flex row, i.e.
+    // what v0.2's visualisations produce — refuse the swipe across its whole
+    // width. `hidden` is excluded on the same evidence: it clips, it does not
+    // pan (#103 review).
+    const overflowX = getComputedStyle(node).overflowX;
+    if (
+      (overflowX === 'auto' || overflowX === 'scroll') &&
+      // +1 absorbs sub-pixel rounding, which reports a 0.5px "overflow" on
+      // boxes that do not scroll at all.
+      node.scrollWidth > node.clientWidth + 1
+    ) {
+      return true;
+    }
     node = node.parentElement;
   }
   return false;
