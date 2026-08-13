@@ -327,6 +327,35 @@ describe('CodeEditor', () => {
     expect(book.querySelector('.max-h-64')).not.toBeNull();
     expect(slide.querySelector('[class*="55vh"]')).not.toBeNull();
   });
+
+  it('lets a listing take its full height in the book, with no scrollbar of its own', async () => {
+    // A listing that scrolls inside itself while the reader scrolls the page is
+    // the most irritating thing a long document can do — and unlike an editor,
+    // a snippet has no reason to: the page already scrolls.
+    const { container } = renderEditor({ variant: 'snippet' }, 'book');
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    expect(container.querySelector('.max-h-64')).toBeNull();
+    expect(container.querySelector('.overflow-auto')).toBeNull();
+  });
+
+  it('keeps the slide’s internal scroll for a listing, where the screen does not grow', async () => {
+    // On a slide the box scrolling is not a defect: it is the only way through
+    // code that does not fit without shrinking the type past legibility.
+    const { container } = renderEditor({ variant: 'snippet' }, 'presentation');
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    expect(container.querySelector('[class*="55vh"]')).not.toBeNull();
+  });
+
+  it('still caps an editable editor in the book, which is not a listing', async () => {
+    // The cap is what stops a long exercise pushing its own Run button off the
+    // screen; only the read-only case gives it up.
+    const { container } = renderEditor({ variant: 'exercise' }, 'book');
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    expect(container.querySelector('.max-h-64')).not.toBeNull();
+  });
 });
 
 // A Java loop that never ends freezes the tab for good (ADR-0017/ADR-0020), and

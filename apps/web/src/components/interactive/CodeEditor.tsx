@@ -173,11 +173,22 @@ export function CodeEditor({
 
   const diagnostics = failure ?? result?.compileLog ?? '';
   const failedToCompile = result !== null && result.exitCode === null;
+  // A listing is code to read, not a surface to type on — and the two want
+  // opposite things from height. In the book it takes whatever it needs and the
+  // PAGE scrolls: a box that scrolls inside a document that also scrolls is the
+  // most irritating thing a long listing can do. On a slide the screen does not
+  // grow, so the internal scroll is the only way through code that does not fit
+  // without shrinking the type past legibility on a projector. An editable
+  // editor keeps its cap in both, or a long exercise pushes its own Run button
+  // out of view.
+  const listing = !flags.editable && !flags.runnable;
   const codeHeight = expanded
     ? 'flex-1 min-h-0 overflow-auto'
     : mode === 'presentation'
       ? 'max-h-[55vh] overflow-auto'
-      : 'max-h-64 overflow-auto';
+      : listing
+        ? ''
+        : 'max-h-64 overflow-auto';
 
   const shell = (
     <div
