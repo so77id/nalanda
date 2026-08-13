@@ -95,10 +95,20 @@ describe('PresentationPage viewer', () => {
       value: document.documentElement,
     });
     try {
-      fireEvent(document, new Event('fullscreenchange'));
+      // Dispatched where the browser dispatches it: at the element that entered
+      // fullscreen, bubbling — not directly at `document`, which would only
+      // prove the listener's address.
+      fireEvent(document.documentElement, new Event('fullscreenchange', { bubbles: true }));
       expect(
         await screen.findByRole('button', { name: 'Salir de pantalla completa' }),
       ).toBeInTheDocument();
+
+      // …and back. One crossing is satisfied by a latch: an implementation that
+      // never returns the name survived the enter-only assertion across 569
+      // tests (#106 review).
+      Reflect.deleteProperty(document, 'fullscreenElement');
+      fireEvent(document.documentElement, new Event('fullscreenchange', { bubbles: true }));
+      expect(await screen.findByRole('button', { name: 'Pantalla completa' })).toBeInTheDocument();
     } finally {
       Reflect.deleteProperty(document, 'fullscreenElement');
     }

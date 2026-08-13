@@ -251,7 +251,12 @@ src/
   case that forced the floor (#103): at `px-2 py-1` the deck's exit was 32x24
   with 4px of clearance from a control that does the opposite thing, so a
   mis-tap took the reader deeper in instead of out. All three obey it since
-  #106 — measured on a phone profile at 34x34, 32x32 and 32x32. 48px when the icon is the illustration of
+  #106 — measured on a phone profile at 34x34, 32x32 and 32x32, each with at
+  least 12px of clearance from its neighbour (`gap-3`, `gap-4`, `mb-3`), which
+  is the half the retired debt note had named. Known and deliberately not fixed
+  in #106: where `requestFullscreen` is absent the deck's `⛶` is inert while
+  still naming an action, so the control promises what it cannot do — hide or
+  disable it when that surface is next touched. 48px when the icon is the illustration of
   a full-screen panel rather than a control — it carries the message at a
   glance, is `aria-hidden` because the text beside it says the same thing, and
   is not clickable (worked case: `presentation/RotateNotice.tsx`, #91). Adding a
@@ -298,11 +303,13 @@ src/
 - **A toggle's accessible name says what pressing it will DO**, and derives
   that from the state itself rather than from what the component last did.
   `aria-label="Pantalla completa"` on a button that also leaves fullscreen
-  announces the opposite of the truth half the time; the browser changes such
-  state behind the component's back (a key, its own chrome, another rule), so
-  read it through `useSyncExternalStore` and let the name follow. Worked cases:
+  announces the opposite of the truth half the time. Worked cases:
   `CodeEditor`'s expand control (`Expandir a pantalla completa` / `Cerrar
-  pantalla completa`) and the deck's `⛶` (#106).
+  pantalla completa`) and the deck's `⛶` (#106). **When the state belongs to the
+  browser rather than to the component**, read it through
+  `useSyncExternalStore` so the name follows a change made by a key, by the
+  browser's own chrome or by another rule — the deck's `⛶` alone, since
+  `CodeEditor`'s expansion is its own `useState` over a CSS overlay.
 - **A surface that replaces the viewport carries a visible way out.** A keyboard
   escape announces itself nowhere and a phone has no `Escape` key, so a
   full-viewport surface needs an on-screen exit, sized per §Icons, navigating to
