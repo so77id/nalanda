@@ -1,17 +1,21 @@
 import { render, screen } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
-import { DocumentPage } from './DocumentPage';
-import { courseIndex, registry } from './liveContent';
-import { walkIndex } from './courseIndex';
+import { courseIndex, registry, walkIndex } from '../content';
 
+import { AppRoutes } from './AppRoutes';
+
+// Page-level, and therefore here rather than in content/: a document body may
+// use any shell-registered component (<SectionBreak/>, <Exercise>...), and those
+// resolve only through the shell's MDX map. Mounted with a feature-local map,
+// these tests pass or fail depending on whether the lazy document chunk wins the
+// race against the assertion — which is exactly how they were first written, and
+// how they flaked (1 run in 3) before moving here.
 function renderAt(path: string) {
   render(
     <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/d/:id" element={<DocumentPage notFound={<p>not found</p>} />} />
-      </Routes>
+      <AppRoutes />
     </MemoryRouter>,
   );
 }
@@ -21,7 +25,7 @@ const nestedId = walkIndex(courseIndex).find(
   (id) => courseIndex.entries.find((e) => e.children?.some((c) => c.docId === id)) !== undefined,
 )!;
 
-describe('DocumentPage breadcrumb row', () => {
+describe('the breadcrumb row of a document', () => {
   it('the seed course provides a document nested under a group', () => {
     expect(nestedId).toBeDefined();
   });
@@ -37,8 +41,8 @@ describe('DocumentPage breadcrumb row', () => {
     renderAt(`/d/${nestedId}`);
     const nav = await screen.findByRole('navigation', { name: /location/i });
     const presentar = screen.getByRole('link', { name: /presentar/i });
-    // The row is the breadcrumb's parent's parent; sharing it is the whole point
-    // of the slice — a link floating in the corner is what it replaces.
+    // Sharing the row is the whole point of the slice — a link floating in the
+    // corner attached to nothing is what it replaces.
     expect(nav.closest('div')?.parentElement).toContainElement(presentar);
   });
 

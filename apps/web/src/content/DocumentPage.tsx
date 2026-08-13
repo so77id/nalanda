@@ -1,12 +1,13 @@
-import { Presentation } from 'lucide-react';
-import { Suspense, useEffect, useRef } from 'react';
+import { Menu, Presentation } from 'lucide-react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { Breadcrumb } from './Breadcrumb';
+import { Drawer } from './Drawer';
 import { SectionNav } from './SectionNav';
 import { Toc } from './Toc';
-import { hasTrail, prevNext, trailFor } from './courseIndex';
+import { prevNext, trailFor } from './courseIndex';
 import { useSections } from './useSections';
 import { lazyDocumentComponent } from './lazyDoc';
 import { courseIndex, registry } from './liveContent';
@@ -53,6 +54,10 @@ export function DocumentPage({ notFound }: Props) {
   const trail = trailFor(courseIndex, id);
   const article = useRef<HTMLElement>(null);
   const { sections, activeId } = useSections(article);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Navigating inside the drawer must not leave it covering the document.
+  useEffect(() => setDrawerOpen(false), [id]);
 
   // POC shortcut: p enters presentation from the book view (never while typing).
   useEffect(() => {
@@ -71,27 +76,40 @@ export function DocumentPage({ notFound }: Props) {
   if (!Doc) return <>{notFound}</>;
   return (
     <div className="flex min-h-screen bg-slate-950 text-slate-100">
-      <aside className="w-64 shrink-0 border-r border-slate-800 p-4">
+      {/* Below md the column costs more than the whole reading width is worth:
+          at 390px it left the article 70px, about six characters per line. */}
+      <aside className="hidden w-64 shrink-0 border-r border-slate-800 p-4 md:block">
         <Toc index={courseIndex} />
       </aside>
-      <main className="min-w-0 flex-1 px-8 py-10">
-        {hasTrail(trail) || presentable ? (
-          <div className="mx-auto mb-8 flex max-w-3xl items-start justify-between gap-4 border-b border-slate-800 pb-3">
-            {/* Always occupies the left, so Presentar keeps the right edge without a trail. */}
-            <div className="min-w-0 flex-1">
-              <Breadcrumb trail={trail} />
-            </div>
-            {presentable ? (
-              <Link
-                to={`/d/${id}/present`}
-                className="flex shrink-0 items-center gap-1.5 rounded border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800 hover:text-slate-100"
-              >
-                <Presentation size={14} aria-hidden="true" />
-                Presentar
-              </Link>
-            ) : null}
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Índice del curso">
+        <Toc index={courseIndex} />
+      </Drawer>
+      <main className="min-w-0 flex-1 px-4 py-10 md:px-8">
+        {/* Always rendered: below md this row is the only home of the drawer
+            toggle, so a document with nothing to put in the breadcrumb must not
+            take the course navigation down with it. */}
+        <div className="mx-auto mb-8 flex max-w-3xl items-start justify-between gap-4 border-b border-slate-800 pb-3">
+          <div className="flex min-w-0 flex-1 items-start gap-3">
+            <button
+              type="button"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Abrir el índice del curso"
+              className="shrink-0 rounded border border-slate-700 p-1.5 text-slate-300 hover:bg-slate-800 hover:text-slate-100 md:hidden"
+            >
+              <Menu size={16} aria-hidden="true" />
+            </button>
+            <Breadcrumb trail={trail} />
           </div>
-        ) : null}
+          {presentable ? (
+            <Link
+              to={`/d/${id}/present`}
+              className="flex shrink-0 items-center gap-1.5 rounded border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+            >
+              <Presentation size={14} aria-hidden="true" />
+              Presentar
+            </Link>
+          ) : null}
+        </div>
         <article ref={article} className="prose prose-invert prose-slate mx-auto max-w-3xl">
           <Suspense fallback={null}>
             <Doc />
