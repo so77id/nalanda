@@ -14,6 +14,7 @@ vi.mock('./interactive/lazyCodeEditor', () => ({
       data-language={String(props['language'])}
       data-variant={String(props['variant'])}
       data-source={String(props['defaultValue'])}
+      data-filename={String(props['showFileName'])}
     />
   ),
 }));
@@ -42,6 +43,15 @@ describe('MdxPre', () => {
     render(fence('cpp', 'int main() {}\n'));
 
     expect(screen.getByTestId('editor').dataset['variant']).toBe('snippet');
+  });
+
+  it('claims no filename — a fence is not a file', () => {
+    // `snippet` turns the filename on, which headed a three-line fragment
+    // `Main.java`, two screens from where the document teaches
+    // `Hola.java → [javac] → Hola.class`.
+    render(fence('java', 'import java.util.Scanner;\n'));
+
+    expect(screen.getByTestId('editor').dataset['filename']).toBe('false');
   });
 
   it('keeps the blank lines of the listing, dropping only the fence break', () => {

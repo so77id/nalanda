@@ -131,9 +131,12 @@ describe('the pre-not-code rule that keeps Exercise working', () => {
     const container = await renderThroughTheShellMap(source);
 
     await vi.waitFor(() => expect(container.textContent).toContain('Escribe'));
-    // The amber banner is what a broken fence lookup produces.
+    // The amber banner is what a broken fence lookup produces, and its real
+    // wording is "<Exercise> sin bloque starter: …". The first version of this
+    // line looked for "espera", which appears only in SideBySide's message —
+    // it could never fire, and said in a comment that it protected this.
     expect(container.textContent, 'the exercise rendered as an authoring error').not.toContain(
-      'espera',
+      'sin bloque',
     );
     // And the cases stay hidden until the student runs (ADR-0019).
     expect(container.textContent).not.toContain('check(Solution.esPar(4)');

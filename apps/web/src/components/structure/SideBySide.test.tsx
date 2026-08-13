@@ -1,8 +1,22 @@
-import { render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 
+import { CodeEditor } from '../interactive/CodeEditor';
 import { ModeProvider } from '../../presentation';
 import { useEmbedded } from '../embedded';
+
+// CodeMirror's editing surface is not the contract here; the basicSetup it is
+// handed IS, because the gutter is what the #76 fix lives on.
+vi.mock('@uiw/react-codemirror', () => ({
+  default: ({ value, basicSetup }: { value: string; basicSetup?: { lineNumbers?: boolean } }) => (
+    <textarea
+      readOnly
+      value={value}
+      data-testid="code"
+      data-line-numbers={String(basicSetup?.lineNumbers)}
+    />
+  ),
+}));
 import { SideBySide } from './SideBySide';
 
 describe('SideBySide', () => {
@@ -117,5 +131,40 @@ describe('SideBySide as a frame', () => {
   it('says nothing of the sort outside a column', () => {
     render(<Probe />);
     expect(screen.getByTestId('probe')).toHaveTextContent('false');
+  });
+});
+
+describe('SideBySide with real listings inside it', () => {
+  // The joint. The two ends were pinned - the column announces the frame, the
+  // editor reacts to it - but nothing put a real editor inside a real column,
+  // and the 21px clipping regression of #76 lives exactly there.
+  it('gives a column one frame, no repeated label, and no gutter', async () => {
+    const { container } = render(
+      <ModeProvider mode="book">
+        <SideBySide left="C++" right="Java">
+          <CodeEditor language="cpp" variant="snippet" defaultValue="int main() {}" />
+          <CodeEditor language="java" variant="snippet" defaultValue="class A {}" />
+        </SideBySide>
+      </ModeProvider>,
+    );
+    await waitFor(() => expect(screen.getAllByTestId('code')).toHaveLength(2));
+
+    const columns = [...container.querySelectorAll('.grid > *')];
+    expect(columns).toHaveLength(2);
+    for (const column of columns) {
+      // The column keeps its own border; the shell inside it must not draw a
+      // second one, which is the doubled frame the browser showed.
+      const shell = column.querySelector('.not-prose');
+      expect(shell, 'no editor shell inside the column').not.toBeNull();
+      expect(shell?.className).not.toContain('border');
+      expect(shell?.className).not.toContain('rounded');
+      expect(shell?.className).not.toContain('my-6');
+      // The gutter is the ~22px the longest Java line needs (#76).
+      expect(column.querySelector('[data-testid="code"]')?.getAttribute('data-line-numbers')).toBe(
+        'false',
+      );
+    }
+    // The column labels it; the editor must not label it again.
+    expect(screen.queryByText('main.cpp')).not.toBeInTheDocument();
   });
 });

@@ -86,13 +86,19 @@ export function CodeEditor({
           seed,
         );
         setDraftKeys((current) => ({ ...current, [languageId]: key }));
-        setBuffers((current) =>
+        setBuffers((current) => {
           // A draft only exists if the student ran something here before, and it
-          // is what they had when the tab froze.
-          current[languageId] === undefined
-            ? { ...current, [languageId]: readDraft(key) ?? seed }
-            : current,
-        );
+          // is what they had when the tab froze — so only an editor they could
+          // have typed in reads one. Once every markdown fence became an editor
+          // (#85), an unguarded read meant same-origin storage could replace an
+          // authored listing AND what its copy button hands the reader; on a
+          // GitHub Pages user site that origin is shared with every other repo
+          // of the account. A listing has no draft because it cannot be edited.
+          const restored = flags.editable || flags.runnable ? readDraft(key) : null;
+          return current[languageId] === undefined
+            ? { ...current, [languageId]: restored ?? seed }
+            : current;
+        });
       },
       (error: unknown) => {
         if (!cancelled) setFailure(error instanceof Error ? error.message : String(error));
@@ -101,7 +107,7 @@ export function CodeEditor({
     return () => {
       cancelled = true;
     };
-  }, [languageId, language, defaultValue]);
+  }, [languageId, language, defaultValue, flags.editable, flags.runnable]);
 
   const { run, warmUp, warm, queued, warmStats } = useRuntime({
     runtimeId: flags.runnable && runtime ? languageId : null,

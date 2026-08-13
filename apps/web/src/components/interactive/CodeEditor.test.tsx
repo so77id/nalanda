@@ -406,6 +406,48 @@ describe('CodeEditor', () => {
     expect(screen.getByTestId('code').dataset['lineNumbers']).toBe('true');
   });
 
+  it('ignores a stored draft when it is a listing, which nobody could have typed', async () => {
+    // Every markdown fence is an editor now (#85). Reading a draft here let
+    // same-origin storage replace an authored listing - and the copy button
+    // then handed those bytes to the reader.
+    const seeded = fakeStorage();
+    vi.stubGlobal('localStorage', seeded);
+    const key = draftKey(
+      `${globalThis.location?.pathname ?? ''}#cpp#int main() {}`,
+      'int main() {}',
+    );
+    saveDraft(key, 'PLANTADO');
+
+    renderEditor({ variant: 'snippet', defaultValue: 'int main() {}' }, 'book');
+
+    await waitFor(() => expect(screen.getByTestId('code')).toHaveValue('int main() {}'));
+  });
+
+  it('still restores a draft for an editor the student could have typed in', async () => {
+    const seeded = fakeStorage();
+    vi.stubGlobal('localStorage', seeded);
+    const key = draftKey(
+      `${globalThis.location?.pathname ?? ''}#cpp#int main() {}`,
+      'int main() {}',
+    );
+    saveDraft(key, 'lo que escribio el alumno');
+
+    renderEditor({ variant: 'exercise', defaultValue: 'int main() {}' }, 'book');
+
+    await waitFor(() =>
+      expect(screen.getByTestId('code')).toHaveValue('lo que escribio el alumno'),
+    );
+  });
+
+  it('uncaps a read variant too — the rule is about listings, not about a name', async () => {
+    // `variant="read"` ships in 05-codigo-ejecutable.mdx, so this is shipped
+    // behaviour and not a hypothetical: it lost its cap with `snippet`.
+    const { container } = renderEditor({ variant: 'read' }, 'book');
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    expect(container.querySelector('.max-h-64')).toBeNull();
+  });
+
   it('still caps an editable editor in the book, which is not a listing', async () => {
     // The cap is what stops a long exercise pushing its own Run button off the
     // screen; only the read-only case gives it up.

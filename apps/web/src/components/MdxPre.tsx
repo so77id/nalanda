@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 
 import { fenceOf } from '../lib/codeFences';
-import { RUNTIME_IDS } from '../runtime';
-import type { RuntimeId } from '../runtime';
+import { RUNTIME_IDS } from '../lib/runtimeIds';
+import type { RuntimeId } from '../lib/runtimeIds';
 import { LazyCodeEditor } from './interactive/lazyCodeEditor';
 
 interface Props {
@@ -43,5 +43,16 @@ export function MdxPre({ children }: Props) {
   const fence = fenceOf(children);
   if (!fence || !isKnownLanguage(fence.language)) return <pre>{children}</pre>;
 
-  return <LazyCodeEditor language={fence.language} variant="snippet" defaultValue={fence.source} />;
+  return (
+    <LazyCodeEditor
+      language={fence.language}
+      variant="snippet"
+      // A fence is not a file. `snippet` turns the filename on, which headed a
+      // three-line fragment `Main.java` — two screens from where the document
+      // teaches `Hola.java → [javac] → Hola.class`. An authored <CodeEditor>
+      // still gets one; a quoted listing has no name to claim.
+      showFileName={false}
+      defaultValue={fence.source}
+    />
+  );
 }
