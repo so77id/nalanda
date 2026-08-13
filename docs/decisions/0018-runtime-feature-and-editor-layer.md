@@ -164,8 +164,10 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   — 95.6 core + 36.4 wrapper + 17.7 java grammar + 8.6 `@lezer/lr` + 2.9 the
   editor chunk itself. (An earlier draft said ~153 kB from the first three terms
   alone, and even those summed to 149.8; the two it omitted are what makes
-  "roughly doubling" exactly right.) The entry payload it doubles is **160.5 kB
-  gz** — 157.7 entry chunk plus the 3.2 kB `jsx-runtime` it modulepreloads.
+  "roughly doubling" exactly right.) The entry payload it doubles is **162.4 kB
+  gz** across two eagerly loaded chunks — the entry plus the `jsx-runtime` it
+  modulepreloads (measured 2026-08-13 against `main` at #97; it reads 160.5
+  before #100, so treat the figure as a reading of a date, not a constant).
   Accepted in #85 with the numbers in hand; the alternative that would remove
   it is highlighting without an editor, and the record here is thinner than it
   looked: the Alternatives below reject **Prism/Shiki + `<textarea>`** on the
