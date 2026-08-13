@@ -30,7 +30,13 @@ Three things this fixes in place:
   not a phone; telling its user to turn their screen sideways is worse than the
   layout ever was.
 - **The panel replaces the deck, it does not sit over it.** No slide is painted,
-  so nothing is readable behind it and nothing of it is reachable by keyboard.
+  so nothing is readable behind it, and the only control reachable by keyboard is
+  the way out. The deck's own `window` keydown listener is silenced while the
+  panel is up — hooks run above the early return, so it survives the swap
+  otherwise, and the slide keys were moving `?slide` behind a panel that shows
+  no slide (measured in Chromium at 390x844: `?slide=2` became 3, and rotating
+  landed on the wrong slide). `Escape` is the deliberate exception: it is the
+  way out of a modal, and it lands where the panel's own link lands.
 - **The way out is an absolute route** (`/d/<id>`), not `history.back()`: a
   reader who opened `/d/<id>/present` from a message or a bookmark has nothing
   behind them to go back to.
@@ -63,7 +69,27 @@ Three things this fixes in place:
   the way out is a requirement of the rule and not a courtesy.
 - The rule lives in the viewer (`presentation/SlideDeck.tsx` + `RotateNotice`),
   so every entry point to presentation inherits it — the `Presentar` button, the
-  `p` shortcut, and a deep link straight into `/present`.
+  `p` shortcut, and a deep link straight into `/present`. It sits in the viewer
+  rather than in `PresentationPage` because the document is then already loaded:
+  turning the phone shows the deck immediately, with no second fetch.
+- **Any coarse pointer in portrait gets the panel, tablets included.** An iPad
+  held upright has room for a slide and will still be told to turn — accepted,
+  because the WP asked for one mechanism, identical on every device, and a width
+  term would mean choosing a breakpoint nobody has measured. The panel says
+  "Gira el teléfono" there; if that ever grates, the fix is the wording, not a
+  second rule.
+- **Browser baseline: Safari 14+ / iOS 14+.** Older WebKit exposes only
+  `addListener`/`removeListener` on a `MediaQueryList`, so the hook's
+  `addEventListener('change', …)` throws there and takes the `/present` route
+  down with it. No legacy fallback is shipped: it is a decision, not an
+  oversight — the platform already requires a browser that runs the in-browser
+  runtimes (ADR-0016/0017), which is a much higher bar than this one.
+- **Fullscreen is left when the rule takes over.** The `⛶` button is the only
+  control that exits fullscreen and it lives in the deck being removed, so the
+  panel would otherwise sit inside a fullscreen page with no way back. Verified
+  in Chromium: enter fullscreen in landscape, rotate, `document.fullscreenElement`
+  is null and the panel is up. This does not touch the button itself, which the
+  WP put out of scope.
 - The reader's position survives rotation for free: it lives in `?slide=N`, not
   in the component.
 - **jsdom implements no `matchMedia` at all**, so the suite can pin which

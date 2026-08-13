@@ -157,9 +157,28 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   query string plus the behaviour that follows from a faked match (worked case:
   `presentation/usePortraitPhone.test.tsx`, #91 — dropping `pointer: coarse`
   from the query tells a laptop user to rotate their screen, and the string
-  assertion is the only thing in the suite that can catch it). Code that asks
-  must also guard the call: an unguarded `window.matchMedia` throws in jsdom
-  instead of answering `false`.
+  assertion is the only thing in the suite that can catch it). Two riders, both
+  earned in #91's review: **guard the call** — `window.matchMedia` is universal
+  in browsers, so the `typeof` check exists purely so jsdom answers `false`
+  instead of throwing, and `vitest.setup.ts` is confirmation-gated
+  (`apps/web/CLAUDE.md`), which is why the accommodation lives in the code —
+  and **make the fake answer only its own query**: one that returns the same
+  `matches` for every question also answers framer-motion's
+  `(prefers-reduced-motion)`, silently changing the component under test.
+- **A browser-API fake needed by two features is duplicated, not shared.** The
+  seam invariant in `src/architecture.test.ts` has no `.test.` exemption for the
+  "goes through the feature root seam" case, so a shell test cannot import a
+  helper out of a feature folder, and `lib/` is for shipped pure code, not test
+  doubles. Worked case (#91): the `matchMedia` fake exists in
+  `app/presentationRoute.test.tsx` and in `presentation/usePortraitPhone.test.tsx`,
+  and they are not identical — only the second tracks which queries were asked.
+- **Asserting ABSENCE inside a lazy boundary needs a synchronisation point.**
+  `queryBy…` returns nothing while a `Suspense` child is still loading, so the
+  assertion passes before the code under test has run at all. First `await` an
+  element that can only exist on the far side of the boundary, and say so in a
+  comment. Worked case (#91): `app/presentationRoute.test.tsx` awaits the rotate
+  panel — which only the loaded document can render — before asserting that no
+  counter and no slide heading are on the page.
   Three worked cases, all from #84 and all green in jsdom at the time:
   an `IntersectionObserver` active-section rule that left the rail unmarked
   through 70% of a document (an observer fires on crossings; a reader inside a
