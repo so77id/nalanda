@@ -61,7 +61,7 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    at all simply has no section navigation, which is a choice rather than a bug
    (`04-apuntes.mdx` is the worked case).
 
-   Running text is narrowed to ~68 characters inside the 768px column, while
+   Running text is narrowed to ~70 characters inside the 768px column, while
    code, tables and components keep the full width (ADR-0022). You write nothing
    for this; it matters only if you add a component of your own — see
    `add-a-content-component.md`.

@@ -34,7 +34,9 @@ visible UI chrome, and equally the accessible names (`aria-label`, `sr-only`,
 live-region text): the page is served `lang="es"`, so an English accessible name
 is announced with Spanish phonemes, which is the same defect `lang` itself was
 set to avoid (`app/documentShell.test.ts`). English stays inside identifiers,
-props, `data-testid` and test titles.
+props, `data-testid` and test titles — and in `/catalog`, which ships with the
+site but addresses component authors, not students (`documentation.md`
+§Component governance).
 
 ## Development Workflow
 

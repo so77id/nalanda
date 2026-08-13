@@ -83,8 +83,8 @@ html {
 
 /* The measure — narrow the running text, keep the blocks wide.
 
-   The audit measured the reading column at 84 characters per line where
-   comfortable prose is 60–75. The obvious fix, narrowing the container, was
+   The audit measured the reading column at 84 characters per line (excluding
+   spaces; ~102 counting them) where comfortable prose is 60–75. The obvious fix, narrowing the container, was
    rejected: this column is not a column of prose. It also holds editors,
    exercises and `<SideBySide>`, and SideBySide is tight by measurement, not by
    taste — `System.out.println("Bienvenidos a EDA");` needs 376px and each of its
@@ -92,8 +92,9 @@ html {
    and the #76 line-clipping fix breaks.
 
    So the container stays 768px and the TEXT narrows inside it. 39rem is 624px,
-   which at the advance the audit measured (768px ÷ 84 chars ≈ 9.14px) is about
-   68 characters.
+   which measures 70 characters per line excluding spaces — the audit's
+   convention — and 84 counting them (Chromium, 1440px, /d/java-desde-cpp).
+   ADR-0022 records both numbers and why they differ.
 
    The exemption list is not new vocabulary: `.not-prose` is already what
    CodeEditor, Exercise, SideBySide and AuthoringError mark themselves with, and

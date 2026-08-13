@@ -123,12 +123,14 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   `guides/add-a-language-runtime.md` §7. For `Exercise`, add: a correct solution
   passes, the untouched starter fails, and a compile error surfaces as a
   diagnostic. The two verdict forgeries recorded in ADR-0019 §7 were found that
-  way and were invisible to a green suite.
+  way and were invisible to a green suite. (The browser mechanics are the
+  shared ones below; the guide's §7 lists what to check for a runtime.)
 - **Layout and focus are invisible to the suite**, and this is a second class
   alongside execution, not a footnote to it. jsdom lays nothing out — every box
   is 0×0, `getBoundingClientRect` returns zeros, `checkVisibility` does not
-  exist, `offsetParent` is null for everything, and no media query ever matches
-  — and it does not implement the browser's own tab order: it will hand
+  exist, `offsetParent` is null for everything, and `window.matchMedia` is not
+  implemented at all, so a component that asks for a breakpoint throws in the
+  suite rather than getting a `false` — and it does not implement the browser's own tab order: it will hand
   `querySelectorAll` a link inside a **collapsed `<details>`** that a browser
   skips and `focus()` silently refuses. So a test can assert a focus trap, a
   roving tabindex, an active-section rule or a breakpoint and stay green over
@@ -160,10 +162,13 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   cost is one command per fix.
 - **The browser recipe lives here, not in a runtime guide.** Two failure classes
   now share it. Install once (`npm install playwright && npx playwright install
-  chromium`, in a scratch directory — it is not a repo dependency), then drive
-  `npm run build && npm run preview` (which serves under `/nalanda/`, like
-  production). `guides/add-a-language-runtime.md` §7 keeps the runtime-specific
-  checks and points here for the mechanics.
+  chromium`, in a scratch directory — it is not a repo dependency; `grep
+  playwright package.json` finds nothing by design), then drive `npm run build
+  && npm run preview` (which serves under `/nalanda/`, like production — the
+  dev server serves at `/` and exercises different paths, ADR-0015). Add
+  `-- --port <n>` when something already holds 4173.
+  `guides/add-a-language-runtime.md` §7 keeps the runtime-specific checks and
+  points here for the mechanics.
 - **Env-derived values go through a pure helper**: extract the transformation
   into a colocated, unit-tested module rather than inlining it in a component
   the suite cannot exercise. Worked case: `app/basename.ts` derives the router

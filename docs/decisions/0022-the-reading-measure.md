@@ -12,7 +12,10 @@ the `<SideBySide>` measurement recorded in #76.
 ## Context
 
 The UX/UI audit measured the reading column at **84 characters per line**
-against a comfortable range of 60–75. The obvious fix is to narrow the
+against a comfortable range of 60–75. That 84 is a count **excluding spaces**;
+the same column measures ~102 counting them. The convention matters and is
+recorded here because it was not recorded in the audit, and re-deriving it cost
+a review round — see Consequences. The obvious fix is to narrow the
 container, and it is the wrong one here.
 
 This column is not a column of prose. It also holds code editors, exercises and
@@ -38,9 +41,11 @@ re-deriving.
 
 **The container stays 768px. The running text narrows inside it.**
 
-- Running text is capped at **39rem (624px)** and centred: at the advance the
-  audit measured (768 ÷ 84 ≈ 9.14px) that is ~68 characters. Verified in a
-  browser at 1440px: **64 characters**, against 79 for the full column.
+- Running text is capped at **39rem (624px)** and centred. Measured in Chromium
+  at 1440px on `/d/java-desde-cpp`, counting characters on each rendered line
+  and dropping the partial last one: **70 per line excluding spaces** (84
+  counting them), against **84 excluding** (102 counting) for the full 768px
+  column. So on the audit's own convention the column goes from 84 to 70.
 - The rule lives in `styles/index.css` as
   `.measured-prose > :not(.not-prose):not(.measure-full):not(pre)`, applied to
   the document `<article>`. It is **unlayered on purpose**, so a child cannot
@@ -76,6 +81,10 @@ that new ones will need it too.
   declared by writing a paragraph.
 - **Leave the measure at 84 characters.** Rejected by the audit; this is the
   text every student reads every day.
+- **Narrow further, to ~31rem**, which is what 60–75 characters *counting
+  spaces* would need. Not chosen: issue #84 fixed the target at ~68 on the
+  audit's convention, and 39rem meets it. Recorded so the next person to
+  measure does not conclude the WP missed its own target — see Consequences.
 
 ## Consequences
 
@@ -101,3 +110,10 @@ components already comply by accident of being blocks.
   `2xl` the sections live in the drawer instead, so no width loses them.
 - **39rem is a magic number** and stays one. It is written at the value with
   its measurement and with the case that breaks if it changes.
+- **The target is met on one convention and missed on the other, and this is
+  the honest statement of it.** Excluding spaces — the audit's convention —
+  the column went 84 → 70, inside the 60–75 band. Counting spaces, which is how
+  that band is usually quoted, it went 102 → 84 and is still above it. Nobody
+  is wrong; the two numbers describe the same page. If a future reader wants
+  60–75 *with* spaces, the value is ~31rem, and the decision to move is theirs
+  to take with this paragraph in hand.

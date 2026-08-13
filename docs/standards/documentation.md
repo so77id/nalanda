@@ -54,16 +54,19 @@ case: the deployed shape (#66).
 4. **Standards grow by recorded cases**: when reality presents a case no standard
    covers, the PR proposes the rule and records it in the right standard document
    (same growth rule as `repository-structure.md`).
-5. **English everywhere** in repo artifacts. Spanish for everything the reader
+5. **English everywhere** in repo artifacts. Spanish for everything the *reader*
    perceives — course content, UI chrome, and accessible names — plus real-time
-   conversation (root `CLAUDE.md` §Language).
+   conversation (root `CLAUDE.md` §Language). `/catalog` is the exception that
+   proves the rule: it ships with the site but addresses component authors, so
+   it stays English.
 6. **Latent gotchas are documented inline where they bite** — dated, naming the
    exact failure mode and the remediation (e.g., the path-filter note in
    `ci.yml`, the review triggers in `security-notes.md`). **A magic geometric
    value takes the stronger form**: the measurement it came from, the concrete
    case that breaks if it changes, and the cheaper alternative that was
    rejected — written at the value, not only in an ADR. Worked cases (#84): the
-   39rem reading measure in `styles/index.css` (84 characters measured, the
+   39rem reading measure in `styles/index.css` (84 characters measured — and
+   the counting convention, which is half the fact — the
    376px `<SideBySide>` column that breaks at a narrower container, and the
    rejected "narrow the container"), and the rail breakpoint in
    `DocumentPage.tsx` (256 + 64 + 768 + 224 = 1312, so `2xl`; `xl` lands 32px
