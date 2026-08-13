@@ -2,6 +2,40 @@ import { Children, Fragment, cloneElement, isValidElement, type ReactNode } from
 
 import { textOf } from './reactText';
 
+/** A fenced code block as the MDX pipeline delivers it: its language, and its source. */
+export interface Fence {
+  /** From the `language-*` class; null for a fence written without one. */
+  language: string | null;
+  source: string;
+}
+
+/**
+ * Reads the fence inside a `pre`, or null when there is not one.
+ *
+ * The pipeline hands `pre` exactly one intrinsic `code` child carrying
+ * `className="language-<id>"` and the source with the fence's own trailing
+ * newline. Anything else — hand-written markup, several children — is not a
+ * fence and must keep rendering as whatever it already is.
+ *
+ * Deliberately says nothing about which languages exist: `lib/` imports no
+ * feature, and it is the runtime registry that knows what can be highlighted.
+ */
+export function fenceOf(children: ReactNode): Fence | null {
+  const only = Children.toArray(children);
+  if (only.length !== 1) return null;
+
+  const node = only[0];
+  if (!isValidElement(node) || node.type !== 'code') return null;
+
+  const props = node.props as { className?: unknown; children?: ReactNode };
+  const className = typeof props.className === 'string' ? props.className : '';
+  const language = /(?:^|\s)language-([\w+-]+)(?:\s|$)/.exec(className)?.[1] ?? null;
+
+  // Only the break the fence itself adds — blank lines inside the listing are
+  // the author's and survive.
+  return { language, source: textOf(props.children).replace(/\n$/, '') };
+}
+
 /**
  * The source of every fenced code block in `children`, keyed by its info-string
  * meta — the other half of `remarkCodeMeta`.

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { draftKey, readDraft, saveDraft } from './draft';
+import { EmbeddedProvider } from '../embedded';
 import { ModeProvider } from '../../presentation';
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../../runtime';
 import { runtimeDescriptors } from '../../runtime';
@@ -12,7 +13,14 @@ import { CodeEditor } from './CodeEditor';
 // contenteditable does not behave in jsdom. The panels, the run flow and the
 // per-mode shape are what the component promises.
 vi.mock('@uiw/react-codemirror', () => ({
-  default: ({ value }: { value: string }) => <textarea readOnly value={value} data-testid="code" />,
+  default: ({ value, basicSetup }: { value: string; basicSetup?: { lineNumbers?: boolean } }) => (
+    <textarea
+      readOnly
+      value={value}
+      data-testid="code"
+      data-line-numbers={String(basicSetup?.lineNumbers)}
+    />
+  ),
 }));
 
 const workers: FakeWorker[] = [];
@@ -326,6 +334,127 @@ describe('CodeEditor', () => {
     // ADR-0010: no component may ignore a mode.
     expect(book.querySelector('.max-h-64')).not.toBeNull();
     expect(slide.querySelector('[class*="55vh"]')).not.toBeNull();
+  });
+
+  it('lets a listing take its full height in the book, with no scrollbar of its own', async () => {
+    // A listing that scrolls inside itself while the reader scrolls the page is
+    // the most irritating thing a long document can do — and unlike an editor,
+    // a snippet has no reason to: the page already scrolls.
+    const { container } = renderEditor({ variant: 'snippet' }, 'book');
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    expect(container.querySelector('.max-h-64')).toBeNull();
+    expect(container.querySelector('.overflow-auto')).toBeNull();
+  });
+
+  it('keeps the slide’s internal scroll for a listing, where the screen does not grow', async () => {
+    // On a slide the box scrolling is not a defect: it is the only way through
+    // code that does not fit without shrinking the type past legibility.
+    const { container } = renderEditor({ variant: 'snippet' }, 'presentation');
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    expect(container.querySelector('[class*="55vh"]')).not.toBeNull();
+  });
+
+  it('drops its own frame and filename when a container already provides them', async () => {
+    // Inside a SideBySide column the editor used to stack a second header and a
+    // second rounded border inside the column's own — the frame the bare <pre>
+    // never had, because `[&_pre]:border-0` flattened it.
+    const { container } = render(
+      <ModeProvider mode="book">
+        <EmbeddedProvider value={true}>
+          <CodeEditor language="cpp" variant="snippet" defaultValue="int main() {}" />
+        </EmbeddedProvider>
+      </ModeProvider>,
+    );
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    const shell = container.querySelector('.not-prose');
+    expect(shell?.className).not.toContain('border');
+    expect(shell?.className).not.toContain('rounded');
+    expect(shell?.className).not.toContain('my-6');
+    expect(screen.queryByText('main.cpp')).not.toBeInTheDocument();
+    // The column's label already says which language this is; repeating it
+    // under the label is the second half of the doubled header.
+    expect(screen.queryByText('C++20')).not.toBeInTheDocument();
+    // The gutter goes too, and this is the half that is not cosmetic: it costs
+    // ~22px of a ~376px column, which is exactly the margin the #76 fix lives
+    // on. Measured in a browser at 1440px — 21px of clipping, the closing `);`
+    // of the longest Java line gone — not reasoned about.
+    expect(screen.getByTestId('code').dataset['lineNumbers']).toBe('false');
+  });
+
+  it('keeps the copy button when embedded — the reason a listing is quotable', async () => {
+    render(
+      <ModeProvider mode="book">
+        <EmbeddedProvider value={true}>
+          <CodeEditor language="cpp" variant="snippet" defaultValue="int main() {}" />
+        </EmbeddedProvider>
+      </ModeProvider>,
+    );
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    expect(screen.getByRole('button', { name: /copiar/i })).toBeInTheDocument();
+  });
+
+  it('keeps its own frame when nothing contains it', async () => {
+    const { container } = renderEditor({ variant: 'snippet' }, 'book');
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    expect(container.querySelector('.not-prose')?.className).toContain('border');
+    expect(screen.getByText('main.cpp')).toBeInTheDocument();
+    expect(screen.getByTestId('code').dataset['lineNumbers']).toBe('true');
+  });
+
+  it('ignores a stored draft when it is a listing, which nobody could have typed', async () => {
+    // Every markdown fence is an editor now (#85). Reading a draft here let
+    // same-origin storage replace an authored listing - and the copy button
+    // then handed those bytes to the reader.
+    const seeded = fakeStorage();
+    vi.stubGlobal('localStorage', seeded);
+    const key = draftKey(
+      `${globalThis.location?.pathname ?? ''}#cpp#int main() {}`,
+      'int main() {}',
+    );
+    saveDraft(key, 'PLANTADO');
+
+    renderEditor({ variant: 'snippet', defaultValue: 'int main() {}' }, 'book');
+
+    await waitFor(() => expect(screen.getByTestId('code')).toHaveValue('int main() {}'));
+  });
+
+  it('still restores a draft for an editor the student could have typed in', async () => {
+    const seeded = fakeStorage();
+    vi.stubGlobal('localStorage', seeded);
+    const key = draftKey(
+      `${globalThis.location?.pathname ?? ''}#cpp#int main() {}`,
+      'int main() {}',
+    );
+    saveDraft(key, 'lo que escribio el alumno');
+
+    renderEditor({ variant: 'exercise', defaultValue: 'int main() {}' }, 'book');
+
+    await waitFor(() =>
+      expect(screen.getByTestId('code')).toHaveValue('lo que escribio el alumno'),
+    );
+  });
+
+  it('uncaps a read variant too — the rule is about listings, not about a name', async () => {
+    // `variant="read"` ships in 05-codigo-ejecutable.mdx, so this is shipped
+    // behaviour and not a hypothetical: it lost its cap with `snippet`.
+    const { container } = renderEditor({ variant: 'read' }, 'book');
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    expect(container.querySelector('.max-h-64')).toBeNull();
+  });
+
+  it('still caps an editable editor in the book, which is not a listing', async () => {
+    // The cap is what stops a long exercise pushing its own Run button off the
+    // screen; only the read-only case gives it up.
+    const { container } = renderEditor({ variant: 'exercise' }, 'book');
+    await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
+
+    expect(container.querySelector('.max-h-64')).not.toBeNull();
   });
 });
 

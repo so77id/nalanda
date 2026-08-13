@@ -1,4 +1,11 @@
-import { LazyCodeEditor, LazyExercise, SectionBreak, SideBySide, Slide } from '../components';
+import {
+  LazyCodeEditor,
+  LazyExercise,
+  MdxPre,
+  SectionBreak,
+  SideBySide,
+  Slide,
+} from '../components';
 import { contentMdxComponents } from '../content';
 
 /**
@@ -8,6 +15,11 @@ import { contentMdxComponents } from '../content';
  */
 export const mdxComponents = {
   ...contentMdxComponents,
+  // Every fence in a language the platform runs becomes the read-only editor.
+  // Registered HERE and not in `content/`: the mapping needs the editor, and
+  // `content → components` is not an allowed edge — composing the map in the
+  // shell is the seam that already exists for exactly this (ADR-0003/0010).
+  pre: MdxPre,
   Slide,
   SectionBreak,
   SideBySide,

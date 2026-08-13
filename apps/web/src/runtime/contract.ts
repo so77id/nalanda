@@ -1,15 +1,20 @@
 import type { Extension } from '@codemirror/state';
 
+import type { RuntimeId } from '../lib/runtimeIds';
+
 // The contract every language runtime implements. It is deliberately
 // language-agnostic and transport-agnostic: a runtime is "something that turns
 // source + stdin into output", whether it compiles in a worker (ADR-0001) or,
 // should the Java licence ever force the pivot, behind a network call
 // (ADR-0016). Changing language means changing one worker, nothing else.
 
-/** Every language the platform can execute. */
-export const RUNTIME_IDS = ['cpp', 'python', 'java'] as const;
-
-export type RuntimeId = (typeof RUNTIME_IDS)[number];
+// The id set lives in `lib/` so a consumer can ask which languages exist
+// without importing this feature — `components/MdxPre` is reached eagerly by
+// the shell's MDX map, and importing the runtime seam for it put the whole
+// runtime in the entry chunk (ADR-0018). Re-exported here so every existing
+// consumer of the contract keeps one import.
+export { RUNTIME_IDS } from '../lib/runtimeIds';
+export type { RuntimeId } from '../lib/runtimeIds';
 
 /**
  * The cheap, always-loaded half of a runtime: enough to label a language and
