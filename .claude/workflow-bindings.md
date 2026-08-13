@@ -111,9 +111,22 @@ prompt.** In #87 all three lenses were spawned with `isolation: worktree` and th
 prompt said `worktree at /Users/so77id/workspace/nalanda-issue-87`. The
 correctness lens went there and mutated four files of the tree it was reviewing —
 the orchestrator watched its own source change under it mid-review and spent
-twenty minutes accusing two peer sessions before looking at its own agents. Give
-the **branch name** and let each lens use the copy it was given. Isolation
-protects against carelessness, not against an explicit instruction.
+twenty minutes accusing two peer sessions before looking at its own agents.
+Isolation protects against carelessness, not against an explicit instruction.
+
+Give the branch name **and the recipe**, because the obvious command fails in a
+way that hands the lens the forbidden path anyway:
+
+```bash
+git fetch origin && git checkout --detach <branch>   # in the lens's OWN worktree
+git diff main...HEAD
+```
+
+A plain `git checkout <branch>` errors with `fatal: '<branch>' is already checked
+out at '<the live worktree>'` — the WP worktree holds it. That message names the
+one directory the lens must not touch, and a lens that takes the hint does
+exactly the damage this note exists to prevent. Spell the recipe out in the
+prompt; a docs lens in #87 hit this two minutes into its review.
 
 The mutating is the point, not the accident: in #87 every serious finding came
 from a lens that broke the code and ran the suite, and none from reading the

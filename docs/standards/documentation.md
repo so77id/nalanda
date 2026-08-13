@@ -58,7 +58,12 @@ case: the deployed shape (#66).
    perceives — course content, UI chrome, and accessible names — plus real-time
    conversation (root `CLAUDE.md` §Language). `/catalog` is the exception that
    proves the rule: it ships with the site but addresses component authors, so
-   it stays English.
+   it stays English — **except its live examples**. A component page
+   (`/catalog/c/:name`) renders the real component, so its demo snippets and the
+   widgets' own chrome address students and stay Spanish; the page says so in
+   one line, and the guard is split to match: registry data in
+   `catalog/architecture.test.tsx`, rendered pages in `app/catalogRoute.test.tsx`,
+   which skips that route deliberately (#87).
 6. **Latent gotchas are documented inline where they bite** — dated, naming the
    exact failure mode and the remediation (e.g., the path-filter note in
    `ci.yml`, the review triggers in `security-notes.md`). **A magic geometric

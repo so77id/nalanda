@@ -124,6 +124,12 @@ describe('/catalog', () => {
     // src/components/semantic/ and media/ do not exist: the first component
     // added to a family creates it. "Components live in ..." was a claim the
     // repo contradicted.
+    expect(
+      catalog.byFamily('media').length,
+      'media has components now — point this test at a family that is still empty, ' +
+        'and add /catalog/media to the rendered-English path list below',
+    ).toBe(0);
+
     renderAt('/catalog/media');
     await screen.findByRole('heading', { level: 1, name: 'Media' });
     // The path sits in its own <code>; the tense is on the paragraph around it.

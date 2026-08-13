@@ -40,7 +40,7 @@ apps/web/src/components/structure/
    Two of the four families are empty, and deliberately so: a component is built
    when a class needs one. Picking an empty family is normal; creating its folder
    is part of adding the first component to it.
-2. **Implement** in `apps/web/src/components/<folder>/<Name>.tsx`, satisfying
+2. **Implement** in `apps/web/src/components/<family id>/<Name>.tsx`, satisfying
    the contract points (`/catalog/governance` → Component contract). If
    the component reacts to the render mode, read it with `useMode()`
    (presentation seam); if a parser must recognize it, declare metadata with
@@ -95,7 +95,7 @@ apps/web/src/components/structure/
    is hollow (empty description or when-to-use, a prop missing type or
    description, fewer than two examples, two examples sharing a title, an
    example that renders nothing, or a name/family pair that does not resolve to
-   `src/components/<folder>/<name>.tsx`); `src/app/mdxComponents.test.ts` fails
+   `src/components/<family id>/<name>.tsx`); `src/app/mdxComponents.test.ts` fails
    if the MDX map and the catalog drift apart in either direction — that is also
    what catches a forgotten seam export.
 6. **Verify**: per-commit protocol green; review the PR against the review
@@ -123,6 +123,11 @@ own wrapper in `ALLOWED`, or nothing checks you.
 
 - [ ] Family chosen; the contract points satisfied — including the `h2` one if
       the component marks a section, and the measure one if it renders wide.
+- [ ] **If the family was empty before this PR**: you created its folder, and
+      you moved the empty-family cases in `app/catalogRoute.test.tsx` to a family
+      that is still empty (they name `/catalog/media` today and fail with
+      instructions when it stops being empty), plus added the newly populated
+      family's page to the rendered-English `it.each` path list.
 - [ ] Registered in `app/mdxComponents.ts` (mandatory for every catalogued component).
 - [ ] Colocated `.catalog.tsx` entry exported via the components seam.
 - [ ] ≥2 live examples; per-mode tests; completeness test green.

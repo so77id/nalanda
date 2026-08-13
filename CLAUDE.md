@@ -36,7 +36,9 @@ is announced with Spanish phonemes, which is the same defect `lang` itself was
 set to avoid (`app/documentShell.test.ts`). English stays inside identifiers,
 props, `data-testid` and test titles — and in `/catalog`, which ships with the
 site but addresses component authors, not students (`documentation.md`
-§Component governance).
+§Component governance). That exception stops at the live examples: a component
+page runs the real component, so its snippets and the widget's own chrome are
+course content and stay Spanish (`documentation.md` Rule 5).
 
 ## Development Workflow
 
