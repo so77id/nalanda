@@ -28,6 +28,13 @@ describe('RotateNotice', () => {
     expect(panel).toHaveFocus();
   });
 
+  it('names the gesture the deck will answer to, since a phone has no arrow keys', () => {
+    // The panel is the last thing seen before the deck appears, which is why
+    // the hint lives here instead of as dismissible chrome inside the deck.
+    renderNotice();
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(/desliz[aá]/i);
+  });
+
   it('offers a way out, in Spanish, that lands on the document rather than on history', () => {
     // Not history.back(): a reader who opened /d/<id>/present directly — a link
     // in a message, a bookmark — has nothing behind them to go back to.
