@@ -124,7 +124,7 @@ export function DocumentPage({ notFound }: Props) {
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label="Abrir la navegación"
-              className={`shrink-0 rounded border border-slate-700 p-1.5 text-slate-300 hover:bg-slate-800 hover:text-slate-100 ${toggleHiddenAt}`}
+              className={`shrink-0 rounded border border-slate-700 p-2 text-slate-300 hover:bg-slate-800 hover:text-slate-100 ${toggleHiddenAt}`}
             >
               <Menu size={16} aria-hidden="true" />
             </button>
