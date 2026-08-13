@@ -250,10 +250,8 @@ src/
   deck chrome, which would then dominate a 342px-tall landscape stage. Measured
   case that forced the floor (#103): at `px-2 py-1` the deck's exit was 32x24
   with 4px of clearance from a control that does the opposite thing, so a
-  mis-tap took the reader deeper in instead of out. Known debt, deliberately not
-  fixed here: the drawer toggle ships at `p-1.5` (28x28) and its close button at
-  `p-1` (24x24) — above the floor, below the shape — and neither carries
-  `gap-2`; bring them up when that chrome is next touched. 48px when the icon is the illustration of
+  mis-tap took the reader deeper in instead of out. All three obey it since
+  #106 — measured on a phone profile at 34x34, 32x32 and 32x32. 48px when the icon is the illustration of
   a full-screen panel rather than a control — it carries the message at a
   glance, is `aria-hidden` because the text beside it says the same thing, and
   is not clickable (worked case: `presentation/RotateNotice.tsx`, #91). Adding a
@@ -297,6 +295,14 @@ src/
   document.exitFullscreen?.()`, behind one named helper that the surface's other
   exits call. Worked case: `presentation/SlideDeck.tsx`'s `leaveFullscreen()`
   (#103), where three call sites had drifted into three spellings.
+- **A toggle's accessible name says what pressing it will DO**, and derives
+  that from the state itself rather than from what the component last did.
+  `aria-label="Pantalla completa"` on a button that also leaves fullscreen
+  announces the opposite of the truth half the time; the browser changes such
+  state behind the component's back (a key, its own chrome, another rule), so
+  read it through `useSyncExternalStore` and let the name follow. Worked cases:
+  `CodeEditor`'s expand control (`Expandir a pantalla completa` / `Cerrar
+  pantalla completa`) and the deck's `⛶` (#106).
 - **A surface that replaces the viewport carries a visible way out.** A keyboard
   escape announces itself nowhere and a phone has no `Escape` key, so a
   full-viewport surface needs an on-screen exit, sized per §Icons, navigating to
