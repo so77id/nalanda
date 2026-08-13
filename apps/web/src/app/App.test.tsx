@@ -54,7 +54,7 @@ describe('routing', () => {
   it('shows prev/next navigation following the index order', async () => {
     renderAt(`/d/${ids[1]}`);
     await screen.findByRole('heading', { level: 1 });
-    const sequence = screen.getByRole('navigation', { name: 'Document sequence' });
+    const sequence = screen.getByRole('navigation', { name: 'Documento anterior y siguiente' });
     expect(sequence).toHaveTextContent(titleOf(ids[0]!));
     expect(sequence).toHaveTextContent(titleOf(ids[2]!));
   });

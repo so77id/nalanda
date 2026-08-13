@@ -21,7 +21,7 @@ function SequenceNav({ id }: { id: string }) {
   if (!prev && !next) return null;
   return (
     <nav
-      aria-label="Document sequence"
+      aria-label="Documento anterior y siguiente"
       className="measure-full mt-12 flex justify-between gap-4 text-sm"
     >
       {prev ? (

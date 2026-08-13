@@ -45,7 +45,9 @@ describe('the course index drawer', () => {
   it('opens from a labelled button and carries the whole index', async () => {
     await openDrawer();
     const drawer = screen.getByRole('dialog', { name: /navegación/i });
-    expect(within(drawer).getByRole('navigation', { name: /course index/i })).toBeInTheDocument();
+    expect(
+      within(drawer).getByRole('navigation', { name: /índice del curso/i }),
+    ).toBeInTheDocument();
   });
 
   it('closes when a document is opened from inside it', async () => {

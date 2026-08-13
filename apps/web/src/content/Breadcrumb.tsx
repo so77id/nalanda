@@ -15,12 +15,14 @@ export function Breadcrumb({ trail }: Props) {
   if (!hasTrail(trail)) return null;
 
   return (
-    <nav aria-label="Location" className="min-w-0 text-sm text-slate-400">
+    <nav aria-label="Ubicación" className="min-w-0 text-sm text-slate-400">
       <ol className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
         {course ? <li className="text-slate-300">{course}</li> : null}
-        {ancestors.map((crumb) => (
+        {ancestors.map((crumb, i) => (
           <li key={`${crumb.levelName ?? ''}-${crumb.label}`} className="flex items-center gap-1.5">
-            <span aria-hidden="true">›</span>
+            {/* A separator separates. Emitted unconditionally, an index with no
+                course title opened the trail with a dangling "›". */}
+            {course || i > 0 ? <span aria-hidden="true">›</span> : null}
             {crumb.levelName ? (
               <span className="text-xs tracking-wide text-slate-500 uppercase">
                 {crumb.levelName}

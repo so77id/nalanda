@@ -32,14 +32,14 @@ describe('the breadcrumb row of a document', () => {
 
   it('places the document in the course and its unit', async () => {
     renderAt(`/d/${nestedId}`);
-    const nav = await screen.findByRole('navigation', { name: /location/i });
+    const nav = await screen.findByRole('navigation', { name: /ubicaci/i });
     expect(nav).toHaveTextContent(courseIndex.title!);
     expect(nav).toHaveTextContent(/\d+ de \d+/);
   });
 
   it('keeps Presentar in the same row as the breadcrumb, not floating alone', async () => {
     renderAt(`/d/${nestedId}`);
-    const nav = await screen.findByRole('navigation', { name: /location/i });
+    const nav = await screen.findByRole('navigation', { name: /ubicaci/i });
     const presentar = screen.getByRole('link', { name: /presentar/i });
     // Sharing the row is the whole point of the slice — a link floating in the
     // corner attached to nothing is what it replaces.

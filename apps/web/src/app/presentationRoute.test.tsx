@@ -79,7 +79,7 @@ describe('PresentationPage viewer', () => {
   it('offers a fullscreen control', async () => {
     renderAt(`/d/${firstId}/present`);
     await findCounter();
-    expect(screen.getByRole('button', { name: /fullscreen/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /pantalla completa/i })).toBeInTheDocument();
   });
 });
 

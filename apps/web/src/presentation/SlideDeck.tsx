@@ -105,7 +105,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
       <footer className="flex items-center justify-between px-6 py-3 text-sm text-slate-500">
         <button
           type="button"
-          aria-label="Toggle fullscreen"
+          aria-label="Pantalla completa"
           onClick={toggleFullscreen}
           className="rounded px-2 py-1 hover:bg-slate-800 hover:text-slate-200"
         >

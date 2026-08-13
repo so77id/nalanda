@@ -69,12 +69,11 @@ describe('the section rail over real documents', () => {
     const firstHeading = article.querySelector('h2[id]')!;
     const rail = await screen.findByRole('navigation', { name: /en esta página/i });
     // Not the raw textContent: the heading carries a "#" self-anchor sibling.
-    expect(within(rail).getAllByRole('link')[0]?.textContent).toBe(
-      firstHeading
-        .querySelector('a[href^="#"]')
-        ?.getAttribute('aria-label')
-        ?.match(/"(.*)"/)?.[1],
-    );
+    // Read it out of the DOM rather than out of the anchor's accessible name,
+    // which is prose and has been reworded once already.
+    const heading = firstHeading.cloneNode(true) as HTMLElement;
+    heading.querySelector('a[href^="#"]')?.remove();
+    expect(within(rail).getAllByRole('link')[0]?.textContent).toBe(heading.textContent?.trim());
   });
 
   it('shows no rail for a document with no sections at all', async () => {

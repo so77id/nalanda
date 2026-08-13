@@ -120,19 +120,22 @@ describe('Drawer', () => {
     const user = userEvent.setup();
     render(<CollapsedGroupHarness />);
     await user.click(screen.getByRole('button', { name: 'Abrir índice' }));
-    const dialog = screen.getByRole('dialog');
 
-    // jsdom does not implement the <details> tab behaviour, so this asserts the
-    // list the trap computes rather than the tab walk itself. The real evidence
-    // is a browser check (testing-strategy.md).
-    const hidden = screen.getByRole('link', { name: 'Escondido' });
-    hidden.getBoundingClientRect = () => ({ width: 0, height: 0 }) as DOMRect;
-    Object.defineProperty(hidden, 'offsetParent', { value: null, configurable: true });
+    // Focus on open lands on the FIRST element the trap considers reachable, so
+    // it reports the computed list without needing a tab walk jsdom cannot
+    // perform. The link inside the collapsed <details> must not be in it, and
+    // neither the close button nor the summary may be skipped.
+    expect(screen.getByRole('button', { name: /cerrar/i })).toHaveFocus();
 
     await user.tab();
+    expect(screen.getByRole('link', { name: 'Uno' })).toHaveFocus();
     await user.tab();
+    expect(screen.getByText('Grupo cerrado')).toHaveFocus();
+
+    // Wrapping from the last REACHABLE element goes back to the first, rather
+    // than to a link the browser would never have visited.
     await user.tab();
-    expect(dialog.contains(document.activeElement)).toBe(true);
+    expect(screen.getByRole('button', { name: /cerrar/i })).toHaveFocus();
   });
 });
 

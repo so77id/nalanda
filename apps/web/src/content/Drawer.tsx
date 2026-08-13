@@ -14,13 +14,20 @@ const FOCUSABLE =
  * COLLAPSED <details>, which a browser skips and `focus()` silently refuses.
  * Taking those as the trap's first/last means Tab from the last *visible*
  * control matches nothing, nothing is prevented, and focus leaves the modal —
- * observed in Chromium landing on the toggle behind the drawer. jsdom does not
- * implement the <details> tab behaviour, so the suite cannot see this.
+ * observed in Chromium landing on the toggle behind the drawer.
+ *
+ * The fallback is not a formality. jsdom has no layout, so `checkVisibility` is
+ * undefined and `offsetParent` is null for EVERYTHING there: filtering on
+ * `offsetParent` emptied the list, the trap degenerated to "prevent every Tab",
+ * and the suite's trap cases passed without proving anything. The closed
+ * `<details>` is the one hidden-ness jsdom can still be asked about.
  */
 function focusables(root: HTMLElement): HTMLElement[] {
-  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((element) =>
-    element.checkVisibility ? element.checkVisibility() : element.offsetParent !== null,
-  );
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((element) => {
+    if (typeof element.checkVisibility === 'function') return element.checkVisibility();
+    const group = element.closest('details');
+    return !group || group.open || element.tagName === 'SUMMARY';
+  });
 }
 
 interface Props {
