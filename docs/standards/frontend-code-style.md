@@ -195,14 +195,33 @@ src/
   icon-only control inside a component's own dense chrome (`CodeEditor`'s
   expand). 16px for an icon-only control on the PAGE chrome, where the button is
   a touch target rather than part of a text row — the drawer toggle and its
-  close button (#84) are the only two. Adding a second icon set
-  needs the same discussion a dependency does (root `CLAUDE.md`).
+  close button (#84) are the only two. 48px when the icon is the illustration of
+  a full-screen panel rather than a control — it carries the message at a
+  glance, is `aria-hidden` because the text beside it says the same thing, and
+  is not clickable (worked case: `presentation/RotateNotice.tsx`, #91). Adding a
+  second icon set needs the same discussion a dependency does (root `CLAUDE.md`).
 
 ## State
 
 - Local `useState`/`useReducer` first; React context for genuinely cross-cutting
   concerns (e.g., presentation mode). No global state library — introducing one
   requires an ADR.
+- **A browser store is subscribed with `useSyncExternalStore`, not `useState` +
+  an effect.** A `MediaQueryList`, `document.fullscreenElement`, a storage
+  event: React re-reads the snapshot after subscribing, so the gap between the
+  first render and the effect closes by construction. Doing it by hand needs an
+  extra re-read for that gap, and the only test that can prove the re-read
+  asserts render/effect ordering — an implementation detail, which component
+  tests may not assert (`apps/web/CLAUDE.md`). Worked case:
+  `presentation/usePortraitPhone.ts` (#91), where the hand-rolled version
+  shipped in the first slice and was replaced in review, once the review
+  measured that no permitted test could kill its re-read.
+- **Layout breakpoints stay in Tailwind classes; a media query is only asked
+  from JS when device shape decides BEHAVIOUR** — what gets rendered at all,
+  not how wide it is. It belongs in a hook colocated in the feature that owns
+  the behaviour (`presentation/usePortraitPhone.ts`), never in a shared
+  `lib/useMediaQuery`, and the call is guarded with `typeof window.matchMedia`
+  so the suite gets `false` instead of a throw.
 
 ## Imports
 

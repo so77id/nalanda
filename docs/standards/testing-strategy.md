@@ -144,14 +144,16 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   skips and `focus()` silently refuses. So a test can assert a focus trap, a
   roving tabindex, an active-section rule or a breakpoint and stay green over
   code that fails on the page. Any change that enumerates focusable elements,
-  moves focus, depends on a viewport width or a scroll position, or is enforced
-  by a rule in `styles/index.css`, MUST also be verified in a real browser
-  against `npm run build && npm run preview`, at the widths that matter, judged
-  from a screenshot. In the suite these cases are asserted **by construction** —
-  place the headings and dispatch a scroll (`content/useSections.test.tsx`),
-  assert the list a trap computed through where focus lands
-  (`content/Drawer.test.tsx`) — and the construction must be checked against a
-  browser at least once, because it encodes an assumption jsdom cannot refute.
+  moves focus, depends on a viewport width, a scroll position or a device
+  capability asked through `window.matchMedia` (pointer type, orientation), or
+  is enforced by a rule in `styles/index.css`, MUST also be verified in a real
+  browser against `npm run build && npm run preview`, at the widths that matter,
+  judged from a screenshot. In the suite these cases are asserted **by
+  construction** — place the headings and dispatch a scroll
+  (`content/useSections.test.tsx`), assert the list a trap computed through
+  where focus lands (`content/Drawer.test.tsx`) — and the construction must be
+  checked against a browser at least once, because it encodes an assumption
+  jsdom cannot refute.
   Three worked cases, all from #84 and all green in jsdom at the time:
   an `IntersectionObserver` active-section rule that left the rail unmarked
   through 70% of a document (an observer fires on crossings; a reader inside a
@@ -159,6 +161,36 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   the toggle behind the drawer; and the first fix for it, a visibility filter on
   `offsetParent`, which under jsdom matched *nothing*, emptied the trap's list
   and made its own tests pass while proving nothing.
+- **A media query is the sharpest case of it**: the suite can pin **which
+  question is asked** and fake the answer, never evaluate it, so what is
+  asserted is the query string plus the behaviour that follows from a faked
+  match (worked case: `presentation/usePortraitPhone.test.tsx`, #91 — dropping
+  `pointer: coarse` from the query tells a laptop user to rotate their screen,
+  and the string assertion is the only thing in the suite that can catch it).
+  Two riders, both earned in #91's review. **Guard the call**:
+  `window.matchMedia` is universal in browsers, so the `typeof` check exists
+  purely so jsdom answers `false` instead of throwing, and `vitest.setup.ts` is
+  confirmation-gated (`apps/web/CLAUDE.md`), which is why the accommodation
+  lives in the code. **Make the fake answer only its own query**: one that
+  returns the same `matches` for every question also answers framer-motion's
+  `(prefers-reduced-motion)` when the component under test mounts, silently
+  changing it — worked case `app/presentationRoute.test.tsx`, whose fake scopes
+  its answer to `pointer: coarse`, which the hook's own fake does not need
+  because its harness renders no motion component.
+- **A browser-API fake needed by two features is duplicated, not shared.** The
+  seam invariant in `src/architecture.test.ts` has no `.test.` exemption for the
+  "goes through the feature root seam" case, so a shell test cannot import a
+  helper out of a feature folder, and `lib/` is for shipped pure code, not test
+  doubles. Worked case (#91): the `matchMedia` fake exists in
+  `app/presentationRoute.test.tsx` and in `presentation/usePortraitPhone.test.tsx`,
+  and they are not identical — only the second tracks which queries were asked.
+- **Asserting ABSENCE inside a lazy boundary needs a synchronisation point.**
+  `queryBy…` returns nothing while a `Suspense` child is still loading, so the
+  assertion passes before the code under test has run at all. First `await` an
+  element that can only exist on the far side of the boundary, and say so in a
+  comment. Worked case (#91): `app/presentationRoute.test.tsx` awaits the rotate
+  panel — which only the loaded document can render — before asserting that no
+  counter and no slide heading are on the page.
 - **A fix is not done until its test has been seen to fail.** Revert the fix,
   watch the new test go red, restore it — and name the failing test in the
   commit message. Reviewing a test by reading it is how a test that cannot fail
@@ -178,6 +210,23 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   `-- --port <n>` when something already holds 4173.
   `guides/add-a-language-runtime.md` §7 keeps the runtime-specific checks and
   points here for the mechanics.
+  **A device rule needs an emulated device, not a small window.** A desktop
+  context reports `pointer: fine` at any size, so resizing Chromium to 390x844
+  proves nothing about a phone — the check silently passes over code that never
+  ran. Use a touch context (`browser.newContext({ ...devices['iPhone 13'] })`,
+  or `{ viewport, hasTouch: true, isMobile: true }`), rotate by swapping width
+  and height **in the same context** so the page is not remounted, and run the
+  same page once in a default desktop context to prove the rule does NOT fire on
+  a narrow laptop window. Two mechanics worth knowing before they cost an hour
+  (#91): on a **fullscreen** page the driver's resize call rejects
+  (`Browser.setWindowBounds`: "To resize minimized/maximized/fullscreen window,
+  restore it to normal state first") *after* the metrics override has already
+  landed — so the page has rotated, the app has reacted, and the script dies
+  holding a state it thinks it never reached. Rotate a fullscreen page through
+  `Emulation.setDeviceMetricsOverride` on a CDP session instead. And the
+  emulated rotation is what makes `matchMedia` fire, so assert the query's own
+  value in the page (`matchMedia('(pointer: coarse)').matches`) rather than
+  trusting the preset.
 - **Env-derived values go through a pure helper**: extract the transformation
   into a colocated, unit-tested module rather than inlining it in a component
   the suite cannot exercise. Worked case: `app/basename.ts` derives the router

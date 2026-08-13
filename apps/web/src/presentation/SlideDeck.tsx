@@ -5,6 +5,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { mdxChildrenOf } from './mdxChildren';
 import { computeSlides } from './parser';
+import { RotateNotice } from './RotateNotice';
+import { usePortraitPhone } from './usePortraitPhone';
 
 function toggleFullscreen(): void {
   if (document.fullscreenElement) {
@@ -37,6 +39,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   );
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const portraitPhone = usePortraitPhone();
 
   // Math.trunc: a crafted non-integer ?slide (e.g. 1.5) must not become a
   // fractional array index (white-screen crash — review finding, issue #64).
@@ -57,6 +60,13 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
       );
     };
     const onKeyDown = (event: KeyboardEvent) => {
+      // The panel replaces the deck's markup, not this window-level listener:
+      // hooks run above the early return, so behind the panel every slide key
+      // still moved ?slide with nothing painted — measured in Chromium at
+      // 390x844, two ArrowRight took ?slide=2 to 3 and rotating landed on the
+      // wrong slide (#91 review). Escape is deliberately still live: it is the
+      // way out of a modal, and the panel is one.
+      if (portraitPhone && event.key !== 'Escape') return;
       switch (event.key) {
         case 'ArrowRight':
         case ' ':
@@ -79,7 +89,19 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [docId, index, navigate, setSearchParams, slides.length]);
+  }, [docId, index, navigate, portraitPhone, setSearchParams, slides.length]);
+
+  // Fullscreen belongs to the deck, and the deck is about to be gone: the ⛶
+  // button is the only control that exits it, so leaving it on would strand the
+  // panel inside a fullscreen page with no way back out of it.
+  useEffect(() => {
+    if (portraitPhone && document.fullscreenElement) void document.exitFullscreen?.();
+  }, [portraitPhone]);
+
+  // Replaces the deck rather than covering it: no slide is painted, so nothing
+  // of it is readable behind the panel or reachable from it. The reader's
+  // position is safe because it lives in ?slide=N, not in this component.
+  if (portraitPhone) return <RotateNotice docId={docId} />;
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-slate-950 text-slate-100">

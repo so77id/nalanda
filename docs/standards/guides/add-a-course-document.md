@@ -213,7 +213,10 @@ themselves rather than maintained by hand.
    `/nalanda/d/<id>`) and run every exercise you added: no amber authoring
    banner, the cases pass against a correct solution, and they fail against the
    starter. If a `<SideBySide>` or a `<Slide>` is involved, look at it in
-   presentation mode too — `/d/<id>/present`.
+   presentation mode too — `/d/<id>/present`. **Slides are checked in
+   landscape**: on a phone or tablet held upright the viewer deliberately shows
+   a "Gira el teléfono" panel instead of the deck (ADR-0023), so an empty
+   presentation there is the platform working, not a fault in your document.
 
 9. **Publish**: merging to `main` republishes
    <https://so77id.github.io/nalanda/> automatically — `content/**` is a deploy

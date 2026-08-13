@@ -98,6 +98,8 @@ prefix may not survive the move, so decide before handing URLs to students
   | Deploy job fails on permissions | repo Settings ▸ Pages source must be "GitHub Actions", and the `github-pages` environment must allow `main` | — |
   | Deploy job fails before Vite starts | `prebuild` could not reach Maven Central, or the ECJ checksum did not match | the script's own error; nothing is written on mismatch (ADR-0017) |
   | Site fine, but Ejecutar never finishes or never warms | a runtime CDN is down or blocked (`cjrtnc.leaningtech.com`, `cdn.jsdelivr.net`) | nothing — accepted risk, `docs/security-notes.md` |
+  | `/d/<id>/present` blank on an old iPhone | `MediaQueryList.addEventListener` needs Safari/iOS 14 | nothing — accepted baseline, ADR-0023 |
+  | `/d/<id>/present` shows "Gira el teléfono" and no slide | working as designed on a touch device held upright; rotate, or use the book view | `presentationRoute.test.tsx`, ADR-0023 |
 
 ## Workflow
 
