@@ -92,7 +92,18 @@ rejected. The rail is also blind to sections a component renders *without* an
 rather than discovered later: a `<Slide>` that stopped rendering its heading
 would silently empty the rail, with a green suite.
 
-`IntersectionObserver` decides which section is being read. Where it is absent
-(older browsers, jsdom) the list still renders and still navigates; only the
-active mark is missing — the suite therefore cannot verify the mark by
-scrolling, and a browser check is required for it (`testing-strategy.md`, L5/L8).
+**Which section is being read is a question about position, not visibility.**
+The first implementation asked an `IntersectionObserver` whether a heading was
+inside a band at the top of the viewport. It is wrong, and only a browser showed
+it: an observer fires on *crossings*, and a reader sitting inside a long section
+has no heading in the band at all — so nothing crosses, nothing fires, and the
+mark goes out. Measured on `/d/java-desde-cpp` at 1536px, the rail marked
+nothing through 70% of the document, and every jump that skips a crossing (a
+fragment link, a flick, a restored scroll position) landed with no mark.
+
+The rule is instead: **the active section is the last heading that has passed the
+reading line** (a quarter of the way down the viewport), recomputed from a
+`scroll` listener throttled to one frame, plus once on mount so landing on a
+`#fragment` is covered. The jsdom suite lays nothing out, so these cases are
+asserted by placing the headings explicitly and dispatching a scroll; the
+pixels are still verified in a browser (`testing-strategy.md`, L5/L8).

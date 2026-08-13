@@ -7,10 +7,10 @@ export interface Section {
   text: string;
 }
 
-// The band the active section is decided in: the top 25% of the viewport. A
-// heading entering it is what a reader calls "the section I am in"; the rest of
-// the screen is that section's body.
-const READING_BAND = '0px 0px -75% 0px';
+// Where the reading line sits: a quarter of the way down the viewport. A heading
+// above it belongs to the section the reader is in; the rest of the screen is
+// that section's body.
+const BAND_FRACTION = 0.25;
 
 function readSections(container: HTMLElement): Section[] {
   return [...container.querySelectorAll('h2[id]')].map((heading) => {
@@ -64,29 +64,45 @@ export function useSections(container: RefObject<HTMLElement | null>): {
 
   useEffect(() => {
     const element = container.current;
-    // Older browsers and jsdom have no IntersectionObserver: the list still
-    // renders and still navigates, it just never marks a section.
-    if (!element || sections.length === 0 || typeof IntersectionObserver === 'undefined') return;
+    if (!element || sections.length === 0) return;
 
-    const inBand = new Set<string>();
-    const observer = new IntersectionObserver(
-      (entries) => {
-        for (const entry of entries) {
-          if (entry.isIntersecting) inBand.add(entry.target.id);
-          else inBand.delete(entry.target.id);
-        }
-        // Topmost wins when several share the band; when none does, the reader
-        // is inside the last one's body and the mark stays where it was.
-        const topmost = sections.find((section) => inBand.has(section.id));
-        if (topmost) setActiveId(topmost.id);
-      },
-      { rootMargin: READING_BAND, threshold: 0 },
-    );
-    for (const section of sections) {
-      const heading = element.querySelector(`h2[id="${section.id}"]`);
-      if (heading) observer.observe(heading);
-    }
-    return () => observer.disconnect();
+    // The section being read is the LAST heading that has passed the band —
+    // a position, not a visibility. An IntersectionObserver was the first
+    // implementation and it was wrong in a way only a browser showed: it fires
+    // on crossings, and while a reader sits inside a long section no heading is
+    // in the band, so nothing crosses and nothing fires. Measured on
+    // /d/java-desde-cpp: the mark stayed empty through 70% of the document, and
+    // any jump — a fragment link, a flick, restoring a scroll position — landed
+    // with no mark at all.
+    const decide = () => {
+      const bandBottom = window.innerHeight * BAND_FRACTION;
+      let current: string | undefined;
+      for (const section of sections) {
+        const heading = element.querySelector(`h2[id="${CSS.escape(section.id)}"]`);
+        if (!heading) continue;
+        if (heading.getBoundingClientRect().top > bandBottom) break;
+        current = section.id;
+      }
+      setActiveId(current);
+    };
+
+    let frame = 0;
+    const onScroll = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(() => {
+        frame = 0;
+        decide();
+      });
+    };
+
+    decide(); // Also covers landing on a #fragment, where no scroll event follows.
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', onScroll);
+      window.removeEventListener('resize', onScroll);
+    };
   }, [container, sections]);
 
   return { sections, activeId };

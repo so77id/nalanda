@@ -5,34 +5,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useSections } from './useSections';
 
-// jsdom ships no IntersectionObserver. This fake records what was observed and
-// lets a test say "these headings are in the band now" — the only part of
-// scrolling the suite can express (the real thing is verified in a browser).
-class FakeIntersectionObserver {
-  static current: FakeIntersectionObserver | undefined;
-  readonly targets = new Set<Element>();
-  readonly callback: IntersectionObserverCallback;
-  constructor(callback: IntersectionObserverCallback) {
-    this.callback = callback;
-    FakeIntersectionObserver.current = this;
+// jsdom lays nothing out: every rect is zero. Scrolling is therefore expressed
+// the only way it can be — by stating where each heading sits relative to the
+// viewport — and the reading band is derived from window.innerHeight, which jsdom
+// does provide.
+function placeHeadings(tops: Record<string, number>) {
+  for (const [id, top] of Object.entries(tops)) {
+    const heading = document.getElementById(id);
+    if (!heading) throw new Error(`no heading #${id} to place`);
+    heading.getBoundingClientRect = () => ({ top, bottom: top + 30 }) as DOMRect;
   }
-  observe(target: Element) {
-    this.targets.add(target);
-  }
-  unobserve(target: Element) {
-    this.targets.delete(target);
-  }
-  disconnect() {
-    this.targets.clear();
-  }
-  /** Reports the given heading ids as intersecting and the rest as not. */
-  reportVisible(ids: string[]) {
-    const entries = [...this.targets].map((target) => ({
-      target,
-      isIntersecting: ids.includes(target.id),
-    })) as unknown as IntersectionObserverEntry[];
-    this.callback(entries, this as unknown as IntersectionObserver);
-  }
+}
+
+function scroll() {
+  act(() => {
+    window.dispatchEvent(new Event('scroll'));
+    // The handler defers to the next frame, so the frame has to happen.
+    vi.advanceTimersByTime(20);
+  });
 }
 
 function Harness({ children }: { children: ReactNode }) {
@@ -74,12 +64,11 @@ function items() {
 }
 
 beforeEach(() => {
-  vi.stubGlobal('IntersectionObserver', FakeIntersectionObserver);
+  vi.useFakeTimers({ shouldAdvanceTime: true });
 });
 
 afterEach(() => {
-  vi.unstubAllGlobals();
-  FakeIntersectionObserver.current = undefined;
+  vi.useRealTimers();
 });
 
 describe('useSections', () => {
@@ -134,31 +123,51 @@ describe('useSections', () => {
     expect(items().map((li) => li.textContent)).toEqual(['uno:Uno', 'dos:Dos']);
   });
 
-  it('marks the heading that entered the reading band as active', () => {
+  it('marks the section whose heading has passed the reading band', () => {
     render(<Harness>{ARTICLE}</Harness>);
-    act(() => FakeIntersectionObserver.current!.reportVisible(['memoria']));
-    expect(items().map((li) => li.dataset['active'])).toEqual(['no', 'yes']);
-  });
+    placeHeadings({ tipos: -400, memoria: 5000 });
+    scroll();
 
-  it('keeps the topmost of several headings sharing the band', () => {
-    render(<Harness>{ARTICLE}</Harness>);
-    act(() => FakeIntersectionObserver.current!.reportVisible(['tipos', 'memoria']));
     expect(items().map((li) => li.dataset['active'])).toEqual(['yes', 'no']);
   });
 
-  it('keeps the last active heading while scrolling through a long section', () => {
-    // Mid-section nothing is in the band. Clearing the mark there would blink
-    // the rail off for most of the time a reader spends in a section.
+  it('moves the mark on when the next heading passes the band', () => {
     render(<Harness>{ARTICLE}</Harness>);
-    act(() => FakeIntersectionObserver.current!.reportVisible(['memoria']));
-    act(() => FakeIntersectionObserver.current!.reportVisible([]));
+    placeHeadings({ tipos: -900, memoria: -100 });
+    scroll();
+
     expect(items().map((li) => li.dataset['active'])).toEqual(['no', 'yes']);
   });
 
-  it('survives a browser without IntersectionObserver instead of blanking the page', () => {
-    vi.stubGlobal('IntersectionObserver', undefined);
+  it('marks nothing above the first heading', () => {
     render(<Harness>{ARTICLE}</Harness>);
-    expect(items()).toHaveLength(2);
+    placeHeadings({ tipos: 600, memoria: 5000 });
+    scroll();
+
     expect(items().map((li) => li.dataset['active'])).toEqual(['no', 'no']);
+  });
+
+  it('keeps the mark while the reader sits inside a long section', () => {
+    // The defect this replaced: the first implementation asked an
+    // IntersectionObserver "is a heading in the band", which is false for most
+    // of a long section — so it fired on crossings only and the mark went out.
+    // Measured in a browser on /d/java-desde-cpp: empty through 70% of the page.
+    render(<Harness>{ARTICLE}</Harness>);
+    placeHeadings({ tipos: -400, memoria: 5000 });
+    scroll();
+
+    placeHeadings({ tipos: -3000, memoria: 4000 });
+    scroll();
+
+    expect(items().map((li) => li.dataset['active'])).toEqual(['yes', 'no']);
+  });
+
+  it('marks the right section after a jump, with no crossing to observe', () => {
+    // A fragment link lands mid-document without a scroll event per heading.
+    render(<Harness>{ARTICLE}</Harness>);
+    placeHeadings({ tipos: -9000, memoria: -8000 });
+    scroll();
+
+    expect(items().map((li) => li.dataset['active'])).toEqual(['no', 'yes']);
   });
 });
