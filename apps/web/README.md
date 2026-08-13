@@ -79,6 +79,12 @@ adding a content component → `docs/standards/guides/add-a-content-component.md
 The site is published under **`/nalanda/`** (GitHub Pages project URL; the
 repo-level story — trigger, rollback — is in the root README).
 
+**Browser baseline: Safari 14+ / iOS 14+** (`MediaQueryList.addEventListener`),
+and in practice any browser that can run the in-browser runtimes — a much
+heavier bar, imposed by ADR-0016/0017 but never written as a version. No legacy
+fallbacks are shipped; the decision and the case that does not hold are in
+ADR-0023.
+
 - `vite.config.ts` owns the base path: `/nalanda/` for `build` and `preview`,
   `/` for `dev` so local URLs stay short. Runtime code never hardcodes it —
   `App.tsx` derives the router basename from `import.meta.env.BASE_URL`.

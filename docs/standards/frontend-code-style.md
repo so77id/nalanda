@@ -206,6 +206,22 @@ src/
 - Local `useState`/`useReducer` first; React context for genuinely cross-cutting
   concerns (e.g., presentation mode). No global state library — introducing one
   requires an ADR.
+- **A browser store is subscribed with `useSyncExternalStore`, not `useState` +
+  an effect.** A `MediaQueryList`, `document.fullscreenElement`, a storage
+  event: React re-reads the snapshot after subscribing, so the gap between the
+  first render and the effect closes by construction. Doing it by hand needs an
+  extra re-read for that gap, and the only test that can prove the re-read
+  asserts render/effect ordering — an implementation detail, which component
+  tests may not assert (`apps/web/CLAUDE.md`). Worked case:
+  `presentation/usePortraitPhone.ts` (#91), where the hand-rolled version passed
+  review and was replaced after the review measured that no permitted test could
+  kill its re-read.
+- **Layout breakpoints stay in Tailwind classes; a media query is only asked
+  from JS when device shape decides BEHAVIOUR** — what gets rendered at all,
+  not how wide it is. It belongs in a hook colocated in the feature that owns
+  the behaviour (`presentation/usePortraitPhone.ts`), never in a shared
+  `lib/useMediaQuery`, and the call is guarded with `typeof window.matchMedia`
+  so the suite gets `false` instead of a throw.
 
 ## Imports
 

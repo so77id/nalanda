@@ -2,16 +2,30 @@
 
 **Status:** Accepted
 **Date:** 2026-08-13
+**Decision-makers:** Miguel Rodriguez
+**Source:** Issue #91 (require landscape for presentation mode on a phone),
+found verifying #90. Constrains ADR-0013 (presentation pipeline) §2 and §5.
+**Covers:** why the deck refuses portrait on a touch device · why the pointer
+half of the query is load-bearing · what the panel must offer as a way out
 
 ## Context
 
 The slide deck is a landscape form: one idea per screen, a comfortable measure,
-a counter in a corner. Held upright on a phone it stops being that. Measured on
-`/d/java-desde-cpp`, slide 2, at 390x844: the paragraph runs edge to edge, the
-`h2` is pushed off screen, and nothing tells the reader that anything is wrong.
-The same slide at 844x390 reads correctly. A student who taps `Presentar` on
-their phone therefore gets the broken version by default (#91, found verifying
-#90).
+a counter in a corner. Held upright on a phone it stops being that. Measured in
+Chromium on `/d/java-desde-cpp`, slide 2, at 390x844: the paragraph is squeezed
+into a 262px column (the viewer's `px-16` leaves 64px of gutter on each side,
+at any width) and runs so far past the bottom that the `h2` sits 164px above
+the top of the screen — clipped by the viewer's `overflow-hidden`, with nothing
+telling the reader that anything is wrong. A student who taps `Presentar` on
+their phone gets that by default (#91, found verifying #90).
+
+At 844x390 the same paragraph reads in six lines instead of thirty and the
+slide is usable. **It is not, however, whole**: the review of this WP measured
+the heading at `y = -61` there too, so the title is clipped on a 390px-tall
+window as it is on any short one. The issue this ADR comes from said the
+landscape rendering "reads correctly"; that was checked again and is only true
+of the body. The remaining clipping is slide typography, deliberately out of
+scope here and recorded in the last Consequence.
 
 The book view already serves reading on a phone in portrait, by design (#84), so
 the platform is not missing a way to read the material there — only a way to
@@ -29,14 +43,12 @@ Three things this fixes in place:
 - **The pointer half is load-bearing.** A narrow or tall window on a laptop is
   not a phone; telling its user to turn their screen sideways is worse than the
   layout ever was.
-- **The panel replaces the deck, it does not sit over it.** No slide is painted,
-  so nothing is readable behind it, and the only control reachable by keyboard is
-  the way out. The deck's own `window` keydown listener is silenced while the
-  panel is up — hooks run above the early return, so it survives the swap
-  otherwise, and the slide keys were moving `?slide` behind a panel that shows
-  no slide (measured in Chromium at 390x844: `?slide=2` became 3, and rotating
-  landed on the wrong slide). `Escape` is the deliberate exception: it is the
-  way out of a modal, and it lands where the panel's own link lands.
+- **The panel replaces the deck, it does not sit over it, and it is modal.** No
+  slide is painted, the only control reachable by keyboard is the way out, and
+  the deck's slide keys are silenced at the window listener. `Escape` is the
+  deliberate exception — a modal has a way out, and this one lands where the
+  panel's own link lands. (Why the listener needs silencing at all is a
+  React mechanic; it lives in the code comment that guards it.)
 - **The way out is an absolute route** (`/d/<id>`), not `history.back()`: a
   reader who opened `/d/<id>/present` from a message or a bookmark has nothing
   behind them to go back to.
@@ -78,12 +90,24 @@ Three things this fixes in place:
   term would mean choosing a breakpoint nobody has measured. The panel says
   "Gira el teléfono" there; if that ever grates, the fix is the wording, not a
   second rule.
-- **Browser baseline: Safari 14+ / iOS 14+.** Older WebKit exposes only
-  `addListener`/`removeListener` on a `MediaQueryList`, so the hook's
-  `addEventListener('change', …)` throws there and takes the `/present` route
-  down with it. No legacy fallback is shipped: it is a decision, not an
-  oversight — the platform already requires a browser that runs the in-browser
-  runtimes (ADR-0016/0017), which is a much higher bar than this one.
+- **Browser baseline: Safari 14+ / iOS 14+, and no legacy fallback.**
+  `MediaQueryList.addEventListener` landed in Safari 14 (MDN browser-compat-data,
+  checked 2026-08-13; `addListener` goes back to 5.1), so on older WebKit the
+  hook throws and takes the whole `/present` route down — a blank page, worse
+  than the layout this WP fixes, on the device class it targets. Shipping it
+  anyway is the decision, not an oversight, and the case that does NOT hold is
+  named: **a pre-14 iOS phone loses presentation entirely, silently, and no test
+  guards it.** No other ADR states a browser floor — 0016/0017 impose a much
+  heavier one in practice (a browser that runs CheerpJ and WebAssembly) but never
+  wrote it down, so this is the repo's first recorded baseline and the operator
+  surface for it is `apps/web/README.md` §Deployed shape.
+- **Live sessions (ADR-0008) are not exempted, and that is not yet a decision.**
+  ADR-0013 makes `/present` + `?slide=N` the seam a session drives, so a student
+  following the class from a phone held upright will get this panel instead of
+  the slide the professor is on, while `?slide` keeps advancing behind it. The
+  rule is deliberately unconditional today — follower mode does not exist yet —
+  and whether it should stay that way is a question for whoever implements
+  ADR-0008 in v0.3, not one this ADR answers.
 - **Fullscreen is left when the rule takes over.** The `⛶` button is the only
   control that exits fullscreen and it lives in the deck being removed, so the
   panel would otherwise sit inside a fullscreen page with no way back. Verified

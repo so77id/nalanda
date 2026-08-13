@@ -61,6 +61,14 @@ can drive it.
    keyboard `p`/`←`/`→`/`Space`/`Home`/`End`/`Esc`, fullscreen via
    `requestFullscreen`, minimal framer-motion fade).
 
+   **Constrained by ADR-0023** (#91): on a coarse pointer in portrait the deck
+   is replaced by a rotate panel — a second case where `/present` paints no
+   slide, and unlike `presentation: none` it does not redirect. While that panel
+   is up every slide key above is silenced at the window listener (`Esc` alone
+   stays live) and fullscreen is exited. A new deck shortcut wired at window
+   level inherits that gate or it will move `?slide` behind a panel showing no
+   slide.
+
 ## Alternatives considered
 
 - **Compile-time slide splitting** as the primary mechanism (mdx-deck style):
