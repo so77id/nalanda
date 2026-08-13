@@ -62,13 +62,26 @@ describe('/catalog', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Semantic' })).toBeInTheDocument();
   });
 
-  it('counts each family in words that agree with the number', async () => {
+  // Both of these assert INSIDE each family's <li>. Page-wide counting looked
+  // equivalent and was not: with two empty families and two populated ones, the
+  // totals stay identical when the two halves are swapped, so the page-wide
+  // form stayed green while showing every fact on the wrong family (#87 S8).
+  function familyItem(name: string): HTMLElement {
+    const item = screen.getByRole('heading', { name }).closest('li');
+    expect(item, `no <li> around the ${name} heading`).not.toBeNull();
+    return item as HTMLElement;
+  }
+
+  it('counts each family in words that agree with its own number', async () => {
     renderAt('/catalog');
     await screen.findByRole('heading', { name: /^catalog$/i });
     for (const family of families) {
       const n = catalog.byFamily(family.id).length;
       const expected = n === 0 ? 'no components' : `${n} component${n === 1 ? '' : 's'}`;
-      expect(screen.getAllByText(expected).length).toBeGreaterThan(0);
+      expect(
+        within(familyItem(family.name)).getByText(expected),
+        `${family.name} should show "${expected}"`,
+      ).toBeInTheDocument();
     }
     expect(screen.queryByText(/component\(s\)/)).not.toBeInTheDocument();
   });
@@ -81,7 +94,15 @@ describe('/catalog', () => {
 
     const emptyCount = families.filter((f) => catalog.byFamily(f.id).length === 0).length;
     expect(emptyCount, 'no empty family left to describe').toBeGreaterThan(0);
-    expect(screen.getAllByText(/built when a class needs one/i)).toHaveLength(emptyCount);
+
+    for (const family of families) {
+      const isEmpty = catalog.byFamily(family.id).length === 0;
+      const note = within(familyItem(family.name)).queryByText(/built when a class needs one/i);
+      expect(
+        note !== null,
+        `${family.name} ${isEmpty ? 'should' : 'should not'} carry the empty-by-design note`,
+      ).toBe(isEmpty);
+    }
   });
 
   it('explains an empty family on its own page, without citing a decision id as the reason', async () => {
@@ -109,6 +130,18 @@ describe('/catalog', () => {
     expect(screen.getByText(/src\/components\/media\//).parentElement).toHaveTextContent(
       /components will live in/i,
     );
+  });
+
+  it('sites a populated family in the folder its components already occupy', async () => {
+    // The other half of the tense branch. Pinning only the empty side let a
+    // constant 'will live' pass the whole suite, so /catalog/structure could
+    // deny the existence of the folder holding the three components listed
+    // right below it.
+    renderAt('/catalog/structure');
+    await screen.findByRole('heading', { level: 1, name: 'Structure' });
+    const line = screen.getByText(/src\/components\/structure\//).parentElement;
+    expect(line).toHaveTextContent(/components live in/i);
+    expect(line).not.toHaveTextContent(/will live/i);
   });
 
   it('leaves a populated family free of empty-state copy', async () => {
@@ -170,6 +203,12 @@ describe('/catalog/c/:name', () => {
       await screen.findByRole('heading', { level: 1, name: entry.name });
 
       expect(screen.getByText(entry.whenToUse)).toBeInTheDocument();
+      // The glob invariant proves this path exists on disk; this proves the
+      // page publishes THAT path. Without it the page could print any string
+      // and both tests would stay green.
+      expect(
+        screen.getByText(`src/components/${entry.family}/${entry.name}.tsx`),
+      ).toBeInTheDocument();
       for (const example of entry.examples) {
         expect(screen.getByRole('heading', { level: 3, name: example.title })).toBeInTheDocument();
       }
@@ -204,6 +243,30 @@ describe('/catalog/c/:name', () => {
     expect(within(article).getAllByRole('separator')).toHaveLength(1);
     expect(screen.getAllByText('Antes…')).toHaveLength(2);
   });
+});
+
+describe('the catalog writes English', () => {
+  // Counterpart to the registry-data guard in catalog/architecture.test.tsx.
+  // That one reads strings; this one reads what a visitor is shown, which is
+  // where the words the PAGES write live — the empty-family note, the folder
+  // line, the overview copy, the governance steps.
+  const SPANISH_ORTHOGRAPHY = /[áéíóúüñ¿¡]/;
+
+  // /catalog/c/:name is deliberately absent: a component page renders the real
+  // Exercise and CodeEditor, whose chrome addresses students in Spanish, and
+  // the snippets are course content. Root CLAUDE.md §Language exempts exactly
+  // that, so scanning it would flag the one Spanish the WP decided to keep.
+  it.each(['/catalog', '/catalog/structure', '/catalog/media', '/catalog/governance'])(
+    'renders no Spanish orthography at %s',
+    async (path) => {
+      renderAt(path);
+      const main = await screen.findByRole('main');
+      const offenders = (main.textContent ?? '')
+        .split('\n')
+        .filter((line) => SPANISH_ORTHOGRAPHY.test(line));
+      expect(offenders, `Spanish rendered at ${path}`).toEqual([]);
+    },
+  );
 });
 
 describe('/catalog/governance', () => {
