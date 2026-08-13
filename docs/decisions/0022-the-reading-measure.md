@@ -117,6 +117,7 @@ components already comply by accident of being blocks.
   the honest statement of it.** Excluding spaces — the audit's convention —
   the column went 84 → 70, inside the 60–75 band. Counting spaces, which is how
   that band is usually quoted, it went 102 → 84 and is still above it. Nobody
-  is wrong; the two numbers describe the same page. If a future reader wants
-  60–75 *with* spaces, the value is ~31rem, and the decision to move is theirs
-  to take with this paragraph in hand.
+  is wrong; the two numbers describe the same page. **Reviewed with both
+  numbers in hand and left at 39rem** (Miguel, 2026-08-13). If a future reader
+  wants 60–75 *with* spaces, the value is ~31rem — a one-token change, and a
+  fresh decision rather than an unfinished one.
