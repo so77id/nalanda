@@ -38,8 +38,10 @@ export function startsInsideHorizontalScroller(
     // an assignment and a real touch drag). Asking only about the numbers made
     // any slide containing a wide element — an svg, a canvas, a flex row, i.e.
     // what v0.2's visualisations produce — refuse the swipe across its whole
-    // width. `hidden` is excluded on the same evidence: it clips, it does not
-    // pan (#103 review).
+    // width. `hidden` is excluded on the DRAG half of that evidence only: it
+    // does accept a scrollLeft assignment (measured: 30), so a round trip calls
+    // it scrollable, while a real touch drag moves it 0px. It clips; it does
+    // not pan — which is why this asks the computed value, not the numbers.
     const overflowX = getComputedStyle(node).overflowX;
     if (
       (overflowX === 'auto' || overflowX === 'scroll') &&

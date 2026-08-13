@@ -233,7 +233,11 @@ themselves rather than maintained by hand.
    `/nalanda/d/<id>`) and run every exercise you added: no amber authoring
    banner, the cases pass against a correct solution, and they fail against the
    starter. If a `<SideBySide>` or a `<Slide>` is involved, look at it in
-   presentation mode too — `/d/<id>/present`. **Slides are checked in
+   presentation mode too — `/d/<id>/present`. A listing wider than the slide is
+   **panned with a one-finger drag inside it** on a touch device, and that drag
+   no longer advances the deck (#103, ADR-0013 §5.2) — so its tail is reachable,
+   but only from inside the listing; a swipe anywhere else still changes slide.
+   Worth dragging one in landscape when you check. **Slides are checked in
    landscape**: on a phone or tablet held upright the viewer deliberately shows
    a "Gira el teléfono" panel instead of the deck (ADR-0023), so an empty
    presentation there is the platform working, not a fault in your document.

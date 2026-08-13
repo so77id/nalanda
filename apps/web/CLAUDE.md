@@ -41,11 +41,16 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
      implement the browser's tab order, so anything that enumerates focusables,
      moves focus, depends on a viewport width, a scroll position, a device
      capability asked through `window.matchMedia` (pointer type, orientation —
-     jsdom implements no media query at all), measured element geometry (every
-     box is 0×0 there, so anything reading `offsetWidth`/`clientHeight`, or a
-     `ResizeObserver`, is inert in the suite), a touch gesture (jsdom fires the
-     events but lays out and scrolls nothing), or a rule in `styles/index.css`
-     needs a browser too. A device rule also needs an emulated device, not
+     jsdom implements no media query at all), measured element geometry or
+     computed style (every box is 0×0 and `getComputedStyle` only echoes inline
+     styles, so a test must FAKE both — and then the failure is not an inert
+     test but a GREEN one pinning whatever the author assumed: #103 shipped a
+     predicate whose fakes had pinned a false positive as the contract), a
+     touch gesture (jsdom fires the events but lays out and scrolls nothing),
+     or a rule in `styles/index.css` needs a browser too. A guard whose
+     predicate is a DOM measurement is verified in a browser against the
+     property it claims to measure — the recipe is in `testing-strategy.md`
+     §Conventions. A device rule also needs an emulated device, not
      merely a small window: the recipe is in `testing-strategy.md` §Conventions.
 
   Written as classes rather than lists of names because the list was already
