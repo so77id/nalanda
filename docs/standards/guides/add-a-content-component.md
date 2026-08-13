@@ -15,7 +15,7 @@ a semantic wrapper, a visualizer, a media embed, a structural block.
 
 ## Worked example
 
-`Slide` and `SectionBreak` (family *estructura*) are the reference
+`Slide` and `SectionBreak` (family *structure*) are the reference
 implementations: component + colocated entry + seam export + MDX registration
 + per-mode tests.
 
@@ -29,14 +29,17 @@ apps/web/src/components/structure/
 
 ## Step-by-step
 
-1. **Pick the family** — Estructura, Semánticos, Interactivos, Media (see
-   `/catalog` for definitions; these are display names — the ids used in code
-   and URLs are their unaccented forms). A new family is a governance change (see
+1. **Pick the family** — Structure, Semantic, Interactive, Media (see `/catalog`
+   for definitions). A new family is a governance change (see
    `/catalog/governance` → Changing these rules).
-   **Family ids are unaccented Spanish (they double as route segments); their
-   folders are English.** The authoritative mapping is
-   `apps/web/src/catalog/families.ts`, rendered on `/catalog/governance` and on
-   each family page — read it there rather than from this guide.
+   **A family's id is one word doing three jobs**: the route segment, the
+   `src/components/` folder, and the display name lowercased (#87). There is no
+   mapping to look up. The taxonomy itself lives in
+   `apps/web/src/catalog/families.ts` and is rendered on `/catalog/governance`
+   and on each family page — read it there rather than from this guide.
+   Two of the four families are empty, and deliberately so: a component is built
+   when a class needs one. Picking an empty family is normal; creating its folder
+   is part of adding the first component to it.
 2. **Implement** in `apps/web/src/components/<folder>/<Name>.tsx`, satisfying
    the contract points (`/catalog/governance` → Component contract). If
    the component reacts to the render mode, read it with `useMode()`
