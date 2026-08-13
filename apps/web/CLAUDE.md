@@ -37,10 +37,16 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
   1. _Execution_: every runtime is faked in jsdom, so any change under
      `src/runtime/**`, or to a component that drives a runtime (`CodeEditor`,
      `Exercise`, `harness.ts`) or the draft store, needs a browser too.
-  2. _Layout and focus_: jsdom lays nothing out and does not implement the
-     browser's tab order, so anything that enumerates focusables, moves focus,
-     or depends on a viewport width, a scroll position or a rule in
-     `styles/index.css` needs a browser too.
+  2. _Layout, focus and device shape_: jsdom lays nothing out and does not
+     implement the browser's tab order, so anything that enumerates focusables,
+     moves focus, depends on a viewport width, a scroll position, a device
+     capability asked through `window.matchMedia` (pointer type, orientation —
+     jsdom implements no media query at all), measured element geometry (every
+     box is 0×0 there, so anything reading `offsetWidth`/`clientHeight`, or a
+     `ResizeObserver`, is inert in the suite), a touch gesture (jsdom fires the
+     events but lays out and scrolls nothing), or a rule in `styles/index.css`
+     needs a browser too. A device rule also needs an emulated device, not
+     merely a small window: the recipe is in `testing-strategy.md` §Conventions.
 
   Written as classes rather than lists of names because the list was already
   stale once: `Exercise` arrived with the same shape and the same hazard, and
