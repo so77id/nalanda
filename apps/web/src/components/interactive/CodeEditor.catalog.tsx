@@ -30,7 +30,7 @@ export const codeEditorCatalogEntry: CatalogEntry = {
       type: "'minimal' | 'snippet' | 'read' | 'exercise' | 'lab'",
       default: "'exercise'",
       description:
-        'Chrome preset. minimal/snippet/read are inert (no compiler is ever loaded); exercise runs; lab adds stdin, the language picker and warms the runtime on mount.',
+        'Chrome preset. minimal/snippet/read never run anything — no compiler, no worker — though they DO load the language grammar, which is what colours the code; exercise runs; lab adds stdin, the language picker and warms the runtime on mount. A variant that is neither editable nor runnable is a LISTING: in the book it takes its full height (the page scrolls, the box does not) and it never restores a localStorage draft, because nobody could have typed in it (#85).',
     },
     {
       name: 'defaultValue',
@@ -58,7 +58,8 @@ export const codeEditorCatalogEntry: CatalogEntry = {
     {
       name: 'showLineNumbers / showFoldGutter / showCopy',
       type: 'boolean',
-      description: 'Editor chrome: gutters and the copy-to-clipboard button.',
+      description:
+        'Editor chrome: gutters and the copy-to-clipboard button. A container that already frames and labels the block — a SideBySide column — suppresses the gutter, the filename and the language chip whatever you pass; the copy button stays, because the column does not offer one (#85).',
     },
     {
       name: 'showStdin / showDiagnostics / showOutput / showTimings / showExitCode',
@@ -68,7 +69,7 @@ export const codeEditorCatalogEntry: CatalogEntry = {
   ],
   examples: [
     {
-      title: 'Reading a listing — inert, no runtime is ever loaded',
+      title: 'Reading a listing — nothing runs, though the grammar loads to colour it',
       code: '<CodeEditor language="java" variant="read" defaultValue={"…"} />',
       render: () => (
         <CodeEditor

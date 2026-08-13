@@ -78,6 +78,18 @@ src/
   (e.g., `content/mdxComponents.ts`), and `app/mdxComponents.ts` merges them
   into the provider around the routes. Features never assemble the global map;
   documents use registered components without imports (ADR-0003/0010).
+  **An element renderer that needs a component registers in the SHELL's map**,
+  not in the feature's: `content → components` is not an allowed edge, so a
+  mapping that reaches for one goes where the map is composed (worked case:
+  `pre → MdxPre`, #85). It needs no catalog entry — the completeness invariant
+  covers capitalised keys only, because an intrinsic override is not a name an
+  author writes (`a`, `table`, `h2`, `h3`, `h4` are the precedent; ADR-0024 decides it for the fence).
+- **Map the wrapper, never the fence.** `pre` is mapped and `code` is not, and
+  the difference is not stylistic: `lib/codeFences.ts` identifies an exercise's
+  `starter` and `test` fences by the literal `code` intrinsic type, so a
+  component in that position leaves every `<Exercise>` unable to find its own
+  body — silently, with a green suite. Enforced by
+  `app/documentFences.test.tsx`, whose failure message says so.
 - **Route-level pages**: shell-owned pages (e.g., `NotFound`) live in `app/`;
   feature pages live in their feature folder.
 - **Shell UI reaches features by injection**: when a feature needs shell-owned
@@ -85,7 +97,9 @@ src/
   features never import from `app/`. Worked case: `AppRoutes` injects
   `<NotFound />` into `DocumentPage`'s `notFound` prop.
 - **Not everything under `components/` is a catalog component.** Two shapes have
-  no catalog entry and no MDX registration, and neither is an omission:
+  no catalog entry and no MDX registration, and neither is an omission
+  (a third, the intrinsic-element renderer above, has no entry but *is*
+  registered — in the shell's map):
   a component **shared across families** lives at the root of `components/`
   (worked case: `AuthoringError.tsx`, used by `interactive/Exercise` and
   `structure/SideBySide`), and a helper **private to one family** lives in that
@@ -238,8 +252,7 @@ src/
 ## State
 
 - Local `useState`/`useReducer` first; React context for genuinely cross-cutting
-  concerns (e.g., presentation mode). No global state library — introducing one
-  requires an ADR.
+  concerns. No global state library — introducing one requires an ADR.
 - **A browser store is subscribed with `useSyncExternalStore`, not `useState` +
   an effect.** A `MediaQueryList`, `document.fullscreenElement`, a storage
   event: React re-reads the snapshot after subscribing, so the gap between the
@@ -256,11 +269,25 @@ src/
   the behaviour (`presentation/usePortraitPhone.ts`), never in a shared
   `lib/useMediaQuery`, and the call is guarded with `typeof window.matchMedia`
   so the suite gets `false` instead of a throw.
+- Two contexts exist and both state a **situation**, never a command: `useMode`
+  (this is being presented) and `useEmbedded` (something already framed and
+  labelled you — `components/embedded.ts`, #85). The container declares the
+  situation; each component decides what to do about it. Reach for a context
+  when the consumer is authored as markdown, because then there is no prop to
+  pass and no selector that can reach inside it.
 
 ## Imports
 
 - Order: external packages, then internal, separated by a blank line. Within a
   feature use relative imports; importing another feature goes through its root.
+  **A test is a consumer like the shell and may reach a feature module
+  directly** — `architecture.test.ts` exempts `*.test.*` for exactly this. Never
+  widen a feature's seam so a test can reach something: #85 put
+  `export { remarkPlugins }` on `content/`'s browser-facing seam for one test,
+  which dragged the build-time MDX compiler and a TOML parser into the entry
+  chunk — **+27,781 B on every page**, with every architecture test green
+  (ADR-0018 §Consequences). Worked case: `app/documentFences.test.tsx` imports
+  `content/mdxPlugins` directly, and the seam stays narrow.
 
 ## Comments & docs
 

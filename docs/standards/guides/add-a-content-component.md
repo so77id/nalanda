@@ -46,7 +46,7 @@ apps/web/src/components/structure/
    (presentation seam); if a parser must recognize it, declare metadata with
    `withMeta` (`lib/componentMeta.ts`) — never expect identity imports.
 
-   Four seams worth knowing before writing your own:
+   Five seams worth knowing before writing your own:
 
    - **Labelled code fences.** A component whose children carry code the author
      marks — ```` ```java starter ```` — reads them with `fencesByMeta` /
@@ -72,6 +72,15 @@ apps/web/src/components/structure/
      you are likely to check — `/catalog` and presentation mode do not apply the
      measure, and jsdom computes no layout — so verify it in the book view of a
      real document.
+   - **Being inside something that already frames you.** A container that draws
+     a border and writes a label wraps its children in
+     `<EmbeddedProvider value={true}>` (`components/embedded.ts`); a component
+     that draws its own chrome reads `useEmbedded()` and drops the duplicated
+     frame, header and gutter. A CSS descendant selector is not a substitute:
+     `[&_pre]` rules reach a bare fence and stop at a component's boundary,
+     which is exactly why they stopped working the day a fence became one.
+     Worked case: `<SideBySide>` × `CodeEditor` (#85, ADR-0024) — the column supplies the
+     language label, so the editor suppresses its filename and its chip.
    - **Inside `interactive/`**, reuse `Panel` (a labelled output strip),
      `useRunShortcut` (Ctrl/Cmd + Enter) and `draft.ts` — whose `saveDraft` must
      be called immediately *before* a run, never after, because a Java loop that
@@ -110,14 +119,25 @@ everything it imports — in the entry chunk, paid by every reader of every page
 entry chunk (measured in ADR-0018 §7).
 
 When a component carries a heavy dependency, add a `lazy<Name>.tsx` beside it
-that wraps `lazy()` in a `Suspense` with a sized placeholder, export **that**
+that wraps `lazy()` in a `Suspense` with a sized placeholder — which answers
+   `useEmbedded()` too, or the doubled frame is on screen for the whole chunk
+   fetch — export **that**
 through the seam, and register it in the MDX map. Its catalog entry must import
 the wrapper too — the entry is reachable from the shell, so a static import
 there undoes the split just as effectively. Worked case:
 `components/interactive/lazyCodeEditor.tsx`, guarded by an L4 case in
-`src/architecture.test.ts`. **That guard is per-component, not generic**: copy
+`src/architecture.test.ts`. **Two guards now apply.** Yours is per-component: copy
 its "stays out of the entry chunk" describe block for your component, with your
-own wrapper in `ALLOWED`, or nothing checks you.
+own wrapper in `ALLOWED`, or nothing checks you. The
+   second is generic: `architecture: what the shell reaches eagerly` walks the
+   static imports from `app/main.tsx` and fails if the graph reaches `runtime/`
+   or any package outside `SHIPS_EAGERLY`. **Never add a name to that list to go
+   green** — that is weight on the first paint of every page, including the ones
+   with no code; treat it like disabling a lint rule and ask first. And if you
+   only need a CONSTANT from a feature (a list of ids, a union type), put it in
+   `lib/` and import it from there: importing the feature seam for it pulls the
+   whole feature (worked case: `lib/runtimeIds.ts`, #85, which took the eager
+   payload from 1 chunk to 9 with every name-based guard green).
 
 ## Checklist
 

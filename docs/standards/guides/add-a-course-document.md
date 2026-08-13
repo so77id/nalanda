@@ -69,18 +69,33 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    **A fence in a language the platform runs is highlighted and copyable.**
    ```` ```java ````, ```` ```cpp ```` and ```` ```python ```` render through
    the same editor the runnable blocks use — same colours, a copy button, and
-   not editable or runnable (#85). Write the language whenever the fence holds
+   not editable or runnable (#85, ADR-0024). Write the language whenever the fence holds
    code. A fence with **no** language, or one the platform has no runtime for
    (```` ```bash ````), stays plain monospace and loads nothing — which is what
    an ASCII diagram wants.
 
-   Two consequences worth knowing, both measured rather than assumed:
+   **The three ids are matched exactly**, so an alias is silently a different
+   language: ```` ```C++ ````, ```` ```c++ ````, ```` ```py ```` and
+   ```` ```Java ```` all fall through to plain monospace. Nothing warns you —
+   the page renders, it just renders grey. If a fence you expected to be
+   coloured is not, check its tag before anything else.
+
+   Three consequences worth knowing, all measured rather than assumed:
+
+   - The **first** highlighted fence on a page pulls the editor: ~162 kB gzip
+     of CodeMirror, its parser and the language grammar — lazily, never in the
+     entry chunk, and it roughly doubles the JavaScript of a prose page
+     (ADR-0018 §Consequences). Further fences on the same page are free. No
+     runtime is fetched — a listing runs nothing — so this is not the CDN cost
+     the Run button pays.
 
    - In the book a listing is never given a scrollbar of its own; the page
      scrolls. On a slide it keeps one, because the screen does not grow.
    - The reader's own `Ctrl+F` still finds text inside a listing, including
-     lines scrolled out of view on a slide — measured at 1440px and 390px on
-     `06-java-desde-cpp.mdx`. This is worth stating because it is not
+     lines scrolled out of view on a slide. Measured on
+     `06-java-desde-cpp.mdx`: in the book at 1440px and at 390px, and on a slide
+     with the window shortened enough for the 55vh cap to bite — 51px hidden,
+     still found. This is worth stating because it is not
      guaranteed in general: the editor renders by viewport, so a listing of
      hundreds of lines could hide its tail from the browser's search. Nothing in
      a course document is near that size (the longest here is 27 lines), and if

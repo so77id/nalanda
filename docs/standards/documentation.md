@@ -104,6 +104,16 @@ ADR-0019 §3/§7, where a draft asserted the checker was beyond the student's re
 and the review forged a green board twice in a browser; and ADR-0020 §6, where
 capping the output was written up as a fix and measured, twice, not to be one.
 
+**A guard is evidence only if it can fail for the reason you are citing.** An
+invariant written as "X never reaches Y" is proven by walking the graph, not by
+grepping for the names of the X's we have already met — a name-based guard is a
+hypothesis about the violator set. Worked case (issue #85): ADR-0018 §Consequences said
+`grep` proved no runtime code was in the entry chunk. Two green tests, one green
+grep, and the eager payload had gone from 1 chunk / 503,623 B to 9 / 542,194 B,
+because neither regression touched a named module. The ADR now carries the
+correction and the numbers; the invariant walks from `app/main.tsx` and asks an
+allowlist question.
+
 ## ADR format
 
 ADRs live in `docs/decisions/<NNNN>-<kebab-title>.md`, numbered sequentially:

@@ -126,6 +126,20 @@ describe('fenceOf', () => {
     expect(read?.source).toBe('int a;\n\nint b;');
   });
 
+  it('keeps a blank line at the END of the listing too', () => {
+    // The case above cannot tell `replace(/\n$/,'')` from `trimEnd()` — a blank
+    // line in the MIDDLE survives both. Only a listing that ends in one
+    // separates them, and the comment on fenceOf promises the author's blank
+    // lines survive. A test named for a promise it does not check is the exact
+    // shape testing-strategy.md warns about.
+    expect(fenceOf(<code className="language-cpp">{'int a;\n\n'}</code>)?.source).toBe('int a;\n');
+  });
+
+  it('does not mistake a class that merely contains the prefix', () => {
+    // Kills the unanchored regex: `notlanguage-java` is not a language tag.
+    expect(fenceOf(<code className="notlanguage-java">{'x\n'}</code>)?.language).toBeNull();
+  });
+
   it('has no language for a fence written without one', () => {
     // The two ASCII diagrams in 06-java-desde-cpp.mdx are exactly this shape.
     expect(fenceOf(<code>{'programa.cpp -> [g++] -> programa\n'}</code>)?.language).toBeNull();

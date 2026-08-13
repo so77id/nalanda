@@ -47,9 +47,12 @@ src/
 │                         # governance pages, live-example blocks
 ├── components/           # catalog content components by family (structure: Slide,
 │                         # SectionBreak, SideBySide; interactive: CodeEditor, Exercise
-│                         # + their lazy wrappers, shared Panel/useRunShortcut/draft)
+│                         # + their lazy wrappers, shared Panel/useRunShortcut/draft/placeholder)
 │                         # + their colocated <Component>.catalog.tsx entries,
 │                         # + AuthoringError: shared across families, not a content component
+│                         # + MdxPre: the pre→component seam (registered in the SHELL's
+│                         #   map, not a catalog component), embedded.ts: the context by
+│                         #   which a framing container tells its children so
 ├── content/              # content pipeline: MDX registry, course index, remark plugin
 │                         # list (wiki-links, fence metadata, GFM), element renderers
 │                         # (links, tables), build-time integrity gate
@@ -63,7 +66,7 @@ src/
 ├── runtime/              # code execution: worker contract, registry, useRuntime hook,
 │                         # one folder per language (java, cpp, python)
 ├── lib/                  # pure TS utilities + cross-feature contract types
-│                         # (catalogEntry, componentMeta, reactText, codeFences)
+│                         # (catalogEntry, componentMeta, reactText, codeFences, runtimeIds)
 ├── styles/               # Tailwind entry + design tokens
 ├── mdx.d.ts              # module typing for *.mdx imports
 └── architecture.test.ts  # import-direction invariants
@@ -110,7 +113,10 @@ ADR-0023.
   browsercc come from `cdn.jsdelivr.net`, CheerpJ from `cjrtnc.leaningtech.com`
   (ADR-0018 §5). Nothing is fetched until an editor asks for a runtime — the
   first Ejecutar, or page load for a `warmOnMount` editor (the `lab` variant),
-  so a page carrying one pays the CDN cost on open. There is no offline use, and
+  so a page carrying one pays the CDN cost on open. A **fence** in one of those
+  languages is the editor (#85), so any document with one pulls the CodeMirror
+  chunks — lazily, never in the entry chunk, and still no runtime: the price is
+  in ADR-0018 §Consequences. There is no offline use, and
   a CDN outage breaks the Run button with no deploy of ours — accepted risk with
   review triggers in `docs/security-notes.md`.
 

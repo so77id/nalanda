@@ -6,7 +6,7 @@ How to teach Nalanda to compile and run a new language in the student's browser.
 
 A class needs code the student can execute in a language the platform does not
 speak yet. Today it speaks Java, C++ and Python (`apps/web/src/runtime/`) — a
-list maintained by hand, so step 8 exists to update it and its siblings.
+list maintained by hand, so step 9 exists to update it and its siblings.
 
 **Before you start**, answer two questions, because they decide the whole shape
 of the work:
@@ -35,12 +35,18 @@ src/runtime/python/
 
 ## Step by step
 
-1. **Add the id.** `RUNTIME_IDS` in `src/runtime/contract.ts`. It is the
+1. **Add the id.** `RUNTIME_IDS` in `src/lib/runtimeIds.ts` — it lives in
+   `lib/`, not in `runtime/`, so a consumer reached eagerly by the shell can ask
+   which languages exist without pulling the runtime feature into the entry
+   chunk (#85; `runtime/contract.ts` re-exports it, so existing consumers are
+   unaffected). It is the
    taxonomy; the registry decides what is implemented.
 
 2. **Write the descriptor** (`<lang>/descriptor.ts`). Keep it free of compiler
    and CodeMirror imports: descriptors are listed in the language picker and
-   travel in the entry chunk. `formatWarmStats` renders whatever timings your
+   travel in the lazy editor chunk, with the picker that lists them: since #85
+   **nothing under `runtime/` may be reached before first paint**, descriptors
+   included (ADR-0024 §5, amending ADR-0018 §4). `formatWarmStats` renders whatever timings your
    worker reports.
 
 3. **Write the worker** (`<lang>/worker.ts`). It receives
@@ -115,16 +121,26 @@ src/runtime/python/
    `/` and `/nalanda/` exercise different paths — ADR-0015). Check compile, run,
    stdin, and a deliberate compile error.
 
-8. **Update what enumerates the languages by hand.** `RuntimeId` widens
+8. **Adding an id is not additive-only.** `MdxPre` highlights exactly the ids
+   in this set, so every fence in `content/` already tagged with your language —
+   in any document, written before you arrived — becomes a read-only editor, and
+   those pages start downloading CodeMirror plus your grammar (~162 kB gz for a
+   page that had none; ADR-0018 §Consequences). Before adding the id, grep
+   `content/` for fences already tagged with it, and state the page-weight delta
+   in the PR.
+
+9. **Update what enumerates the languages by hand.** `RuntimeId` widens
    silently when you add an id, so nothing fails: `CodeEditor.catalog.tsx` and
    `Exercise.catalog.tsx` (the descriptions and both `language` prop type
    strings), `apps/web/README.md`'s stack paragraph,
-   `guides/add-a-course-document.md` steps 5 and 5b (5b names which languages
+   `guides/add-a-course-document.md` step 3 (the highlighted-fence list and the
+   alias trap) and steps 5 and 5b (5b names which languages
    validate an exercise), and §When to use at the top of this guide.
 
 ## Checklist
 
-- [ ] Id added to `RUNTIME_IDS`; descriptor registered in `runtimeDescriptors`;
+- [ ] Fences already tagged with the new language audited; page-weight delta measured and stated.
+- [ ] Id added to `RUNTIME_IDS` (`src/lib/runtimeIds.ts`); descriptor registered in `runtimeDescriptors`;
       `case` added to `loadRuntime`. The registry tests cover it automatically.
 - [ ] Descriptor imports nothing heavy.
 - [ ] Worker distinguishes a failed compile (`result`) from a broken runtime
@@ -136,10 +152,11 @@ src/runtime/python/
       `devDependency` in that case, with a version test.
 - [ ] `npm run build` shows no new multi-megabyte asset in `dist/` — unless it
       genuinely must be self-hosted, and you say why here as ADR-0017 does for
-      the Java compiler jar — and the entry chunk grows by descriptors only:
+      the Java compiler jar — and the entry chunk does not grow at all, because
+      descriptors are lazy too:
       single-digit kB, no CodeMirror, no toolchain.
 - [ ] Verified in a browser: run, stdin, compile error.
-- [ ] Every hand-written list of languages updated (step 8) — the type system
+- [ ] Every hand-written list of languages updated (step 9) — the type system
       will not catch these.
 - [ ] An ADR if the runtime brought a real decision with it (ADR-0017 is the
       example: the compiler, the Java version and the thread it runs on were all
