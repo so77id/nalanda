@@ -2,7 +2,7 @@ import { CatalogLayout } from './CatalogLayout';
 import { families } from './families';
 
 // Derived, never retyped: a new family updates this page automatically.
-const FAMILY_FOLDERS = families.map((f) => `${f.name} → ${f.folder}/`).join(', ');
+const FAMILY_FOLDERS = families.map((f) => `${f.name} → ${f.id}/`).join(', ');
 
 const CONTRACT_POINTS = [
   'Explicit render per mode — no component may ignore a mode (even if the answer is "I don\'t appear").',

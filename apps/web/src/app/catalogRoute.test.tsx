@@ -170,9 +170,7 @@ describe('/catalog/governance', () => {
     renderAt('/catalog/governance');
     await screen.findByRole('heading', { level: 1, name: /governance/i });
     for (const family of families) {
-      expect(
-        screen.getByText(new RegExp(`${family.name} → ${family.folder}/`)),
-      ).toBeInTheDocument();
+      expect(screen.getByText(new RegExp(`${family.name} → ${family.id}/`))).toBeInTheDocument();
     }
   });
 });

@@ -23,7 +23,7 @@ export function FamilyPage({ notFound }: Props) {
       <p className="mt-3 text-slate-300">{family.definition}</p>
       <p className="mt-1 text-sm text-slate-500">{family.whatBelongs}</p>
       <p className="mt-1 text-sm text-slate-500">
-        Components live in <code>src/components/{family.folder}/</code>.
+        Components live in <code>src/components/{family.id}/</code>.
       </p>
       {entries.length === 0 ? (
         <p className="mt-10 text-slate-500">

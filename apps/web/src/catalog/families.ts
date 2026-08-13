@@ -1,11 +1,14 @@
 import type { CatalogFamily } from '../lib/catalogEntry';
 
 export interface FamilyDef {
+  /**
+   * Route segment AND the src/components/ folder the family's components live
+   * in — one word, not two fields. A stored `folder` was duplicated state that
+   * could drift from the id it must equal (#87).
+   */
   id: CatalogFamily;
-  /** Display name. */
+  /** Display name: the id, capitalized. */
   name: string;
-  /** Folder under src/components/ — the same word as the id (#87). */
-  folder: string;
   definition: string;
   whatBelongs: string;
 }
@@ -15,28 +18,24 @@ export interface FamilyDef {
 const definitions: Record<CatalogFamily, Omit<FamilyDef, 'id'>> = {
   structure: {
     name: 'Structure',
-    folder: 'structure',
     definition: 'Components that shape how a document flows and breaks into slides.',
     whatBelongs:
       'Anything that organizes content without being content itself: slide boundaries, section breaks, future layout blocks.',
   },
   semantic: {
     name: 'Semantic',
-    folder: 'semantic',
     definition: 'Components that mark what a piece of content MEANS.',
     whatBelongs:
       'Definitions, theorems, warnings, key ideas — semantic wrappers that style and index meaning, not behavior.',
   },
   interactive: {
     name: 'Interactive',
-    folder: 'interactive',
     definition: 'Components the student operates: they hold state and respond.',
     whatBelongs:
       'Visualizers, code editors, quizzes, steppers — anything with client-side behavior (ADR-0001).',
   },
   media: {
     name: 'Media',
-    folder: 'media',
     definition: 'Components that embed external or heavy media.',
     whatBelongs: 'Images with behavior, video, audio, embeds — media beyond plain Markdown.',
   },
@@ -47,8 +46,3 @@ export const families: FamilyDef[] = (Object.keys(definitions) as CatalogFamily[
   id,
   ...definitions[id],
 }));
-
-/** The src/components/ folder a family's components live in. */
-export function folderOf(family: CatalogFamily): string {
-  return definitions[family].folder;
-}

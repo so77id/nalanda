@@ -2,7 +2,6 @@ import type { CatalogEntry } from '../lib/catalogEntry';
 
 import { CatalogLayout } from './CatalogLayout';
 import { ExampleBlock } from './ExampleBlock';
-import { folderOf } from './families';
 
 interface Props {
   entry: CatalogEntry;
@@ -15,8 +14,9 @@ export function ComponentArticle({ entry }: Props) {
       <h1 className="mt-4 text-4xl font-bold tracking-tight">{entry.name}</h1>
       <p className="mt-3 text-slate-300">{entry.description}</p>
       <p className="mt-1 text-sm text-slate-500">
+        {/* The family id IS the folder name (#87) — no mapping to keep in sync. */}
         <code>
-          src/components/{folderOf(entry.family)}/{entry.name}.tsx
+          src/components/{entry.family}/{entry.name}.tsx
         </code>
       </p>
 

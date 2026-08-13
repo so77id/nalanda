@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { catalog } from './registry';
-import { families, folderOf } from './families';
+import { families } from './families';
 
 // The catalog publishes each component's source path; this proves it resolves.
 const componentModules = import.meta.glob('../components/*/*.tsx');
@@ -18,21 +18,16 @@ describe('architecture: catalog entry invariants', () => {
     expect(catalog.entries.length).toBeGreaterThan(0);
   });
 
-  it('names its families in English, the same word the folder uses', () => {
-    // The id is a route segment AND the src/components/ folder name. They were
-    // Spanish and English respectively, which is what made folderOf() exist.
+  it('names its families in English — the id is the route segment and the folder', () => {
+    // The id was Spanish and the folder English, which is what made folderOf()
+    // exist. One word now does both jobs, so there is nothing left to keep in
+    // sync; the per-entry glob below is what proves the folder really is there.
     expect(families.map((f) => f.id)).toEqual(['structure', 'semantic', 'interactive', 'media']);
-    for (const family of families) {
-      expect(family.folder, `family ${family.id} must live in a folder of its own name`).toBe(
-        family.id,
-      );
-    }
   });
 
-  it('every family in the taxonomy has a definition and a components folder', () => {
+  it('every family in the taxonomy has a definition', () => {
     for (const family of families) {
       expect(family.name.trim(), `family ${family.id} needs a name`).not.toBe('');
-      expect(family.folder.trim(), `family ${family.id} needs a folder`).not.toBe('');
       expect(family.definition.trim(), `family ${family.id} needs a definition`).not.toBe('');
     }
   });
@@ -50,7 +45,7 @@ describe('architecture: catalog entry invariants', () => {
 
       it('the source path the catalog publishes actually exists', () => {
         expect(Object.keys(componentModules)).toContain(
-          `../components/${folderOf(entry.family)}/${entry.name}.tsx`,
+          `../components/${entry.family}/${entry.name}.tsx`,
         );
       });
 
