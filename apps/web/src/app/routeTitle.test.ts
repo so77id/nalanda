@@ -8,7 +8,7 @@ const TITLES: Record<string, string> = {
 };
 const lookup = (id: string): string | undefined => TITLES[id];
 // A family id is a route slug; its display name is what belongs in a tab.
-const familyName = (id: string): string | undefined => ({ interactivos: 'Interactivos' })[id];
+const familyName = (id: string): string | undefined => ({ interactive: 'Interactive' })[id];
 
 describe('routeTitle', () => {
   it('names the document being read', () => {
@@ -33,8 +33,8 @@ describe('routeTitle', () => {
     expect(routeTitle('/catalog/governance', lookup, familyName)).toBe(
       'Governance · Catalog · Nalanda',
     );
-    expect(routeTitle('/catalog/interactivos', lookup, familyName)).toBe(
-      'Interactivos · Catalog · Nalanda',
+    expect(routeTitle('/catalog/interactive', lookup, familyName)).toBe(
+      'Interactive · Catalog · Nalanda',
     );
     // An unknown family still gets a title rather than a crash.
     expect(routeTitle('/catalog/inventada', lookup, familyName)).toBe(

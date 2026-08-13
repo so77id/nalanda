@@ -35,7 +35,7 @@ check(Solution.esPar(0), true);
 /** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
 export const exerciseCatalogEntry: CatalogEntry = {
   name: 'Exercise',
-  family: 'interactivos',
+  family: 'interactive',
   description:
     "A problem the student solves in place, checked automatically in their own browser. The cases are compiled into a separate harness class that calls the student's method, so what is verified is the method rather than what the program printed — nobody fails for formatting their output differently.",
   whenToUse:

@@ -6,7 +6,7 @@ import { Slide } from './Slide';
 /** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
 export const slideCatalogEntry: CatalogEntry = {
   name: 'Slide',
-  family: 'estructura',
+  family: 'structure',
   description:
     'Explicit slide boundary. In the book it reads as a normal section (heading + flowing prose); in presentation mode it becomes one slide whose title is the viewer chrome.',
   whenToUse:

@@ -18,6 +18,17 @@ describe('architecture: catalog entry invariants', () => {
     expect(catalog.entries.length).toBeGreaterThan(0);
   });
 
+  it('names its families in English, the same word the folder uses', () => {
+    // The id is a route segment AND the src/components/ folder name. They were
+    // Spanish and English respectively, which is what made folderOf() exist.
+    expect(families.map((f) => f.id)).toEqual(['structure', 'semantic', 'interactive', 'media']);
+    for (const family of families) {
+      expect(family.folder, `family ${family.id} must live in a folder of its own name`).toBe(
+        family.id,
+      );
+    }
+  });
+
   it('every family in the taxonomy has a definition and a components folder', () => {
     for (const family of families) {
       expect(family.name.trim(), `family ${family.id} needs a name`).not.toBe('');

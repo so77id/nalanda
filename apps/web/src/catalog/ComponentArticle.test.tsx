@@ -8,7 +8,7 @@ import { ComponentArticle } from './ComponentArticle';
 
 const entry: CatalogEntry = {
   name: 'Demo',
-  family: 'estructura',
+  family: 'structure',
   description: 'A demo component for the template test.',
   whenToUse: 'Only inside this test.',
   props: [

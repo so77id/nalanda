@@ -2,9 +2,9 @@ import type { CatalogFamily } from '../lib/catalogEntry';
 
 export interface FamilyDef {
   id: CatalogFamily;
-  /** Display name (ids stay unaccented because they are route segments). */
+  /** Display name. */
   name: string;
-  /** Folder under src/components/ — English, unlike the Spanish family id. */
+  /** Folder under src/components/ — the same word as the id (#87). */
   folder: string;
   definition: string;
   whatBelongs: string;
@@ -13,22 +13,22 @@ export interface FamilyDef {
 // Record (not an array) so adding a CatalogFamily member without its definition
 // fails to compile — the family taxonomy cannot drift from its presentation.
 const definitions: Record<CatalogFamily, Omit<FamilyDef, 'id'>> = {
-  estructura: {
-    name: 'Estructura',
+  structure: {
+    name: 'Structure',
     folder: 'structure',
     definition: 'Components that shape how a document flows and breaks into slides.',
     whatBelongs:
       'Anything that organizes content without being content itself: slide boundaries, section breaks, future layout blocks.',
   },
-  semanticos: {
-    name: 'Semánticos',
+  semantic: {
+    name: 'Semantic',
     folder: 'semantic',
     definition: 'Components that mark what a piece of content MEANS.',
     whatBelongs:
       'Definitions, theorems, warnings, key ideas — semantic wrappers that style and index meaning, not behavior.',
   },
-  interactivos: {
-    name: 'Interactivos',
+  interactive: {
+    name: 'Interactive',
     folder: 'interactive',
     definition: 'Components the student operates: they hold state and respond.',
     whatBelongs:

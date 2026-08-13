@@ -5,7 +5,7 @@ import { SideBySide } from './SideBySide';
 /** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
 export const sideBySideCatalogEntry: CatalogEntry = {
   name: 'SideBySide',
-  family: 'estructura',
+  family: 'structure',
   description:
     'Two blocks shown next to each other with a label each, stacked on a narrow screen. Each column scrolls on its own, so a long line in one never widens the page.',
   whenToUse:

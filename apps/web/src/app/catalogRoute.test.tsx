@@ -58,10 +58,8 @@ describe('/catalog', () => {
     renderAt('/catalog');
     await screen.findByRole('heading', { name: /^catalog$/i });
 
-    fireEvent.click(screen.getByRole('link', { name: 'Semánticos' }));
-    expect(
-      await screen.findByRole('heading', { level: 1, name: 'Semánticos' }),
-    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('link', { name: 'Semantic' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Semantic' })).toBeInTheDocument();
   });
 
   it('shows the empty-family copy for families with no components yet', async () => {
@@ -82,9 +80,9 @@ describe('/catalog', () => {
 
 describe('/catalog/:family', () => {
   it('lists its components with links to their pages', async () => {
-    renderAt('/catalog/estructura');
-    await screen.findByRole('heading', { level: 1, name: 'Estructura' });
-    const entries = catalog.byFamily('estructura');
+    renderAt('/catalog/structure');
+    await screen.findByRole('heading', { level: 1, name: 'Structure' });
+    const entries = catalog.byFamily('structure');
     expect(entries.length).toBeGreaterThan(0);
     for (const entry of entries) {
       expect(screen.getByRole('link', { name: entry.name })).toHaveAttribute(
@@ -95,12 +93,23 @@ describe('/catalog/:family', () => {
   });
 
   it('navigates into a component page by clicking its link', async () => {
-    renderAt('/catalog/estructura');
-    await screen.findByRole('heading', { level: 1, name: 'Estructura' });
+    renderAt('/catalog/structure');
+    await screen.findByRole('heading', { level: 1, name: 'Structure' });
 
     fireEvent.click(screen.getByRole('link', { name: 'Slide' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Slide' })).toBeInTheDocument();
   });
+
+  // The rename breaks these URLs and no redirect is shipped for them (#87): a
+  // v0.1 documentation surface only this repo links to. Pinned so the break is
+  // a decision the suite states, not something a reader discovers.
+  it.each(['estructura', 'semanticos', 'interactivos'])(
+    'no longer answers the old Spanish segment /catalog/%s',
+    async (old) => {
+      renderAt(`/catalog/${old}`);
+      expect(await screen.findByRole('heading', { name: /not found/i })).toBeInTheDocument();
+    },
+  );
 });
 
 describe('/catalog/c/:name', () => {
