@@ -2,8 +2,26 @@ import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 
+// `summary` is in the list because a <details> disclosure IS tabbable, and the
+// browser's own tab order is what the trap has to match. Matching the selector
+// is not enough on its own — see `focusables()`.
 const FOCUSABLE =
-  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+  'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), summary, [tabindex]:not([tabindex="-1"])';
+
+/**
+ * The elements Tab will actually visit, in order. The visibility filter is the
+ * load-bearing half: `querySelectorAll` happily returns links inside a
+ * COLLAPSED <details>, which a browser skips and `focus()` silently refuses.
+ * Taking those as the trap's first/last means Tab from the last *visible*
+ * control matches nothing, nothing is prevented, and focus leaves the modal —
+ * observed in Chromium landing on the toggle behind the drawer. jsdom does not
+ * implement the <details> tab behaviour, so the suite cannot see this.
+ */
+function focusables(root: HTMLElement): HTMLElement[] {
+  return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((element) =>
+    element.checkVisibility ? element.checkVisibility() : element.offsetParent !== null,
+  );
+}
 
 interface Props {
   open: boolean;
@@ -21,6 +39,16 @@ interface Props {
 export function Drawer({ open, onClose, label, children }: Props) {
   const panel = useRef<HTMLDivElement>(null);
 
+  // The effect below must run ONCE per open, so it cannot depend on `onClose`:
+  // callers pass an inline arrow, a new identity every render, and re-running
+  // meant cleanup refocused the opener and setup refocused the panel — the
+  // reader was thrown out of the filter field they were typing in the moment
+  // anything re-rendered the page (observed when the lazy document landed).
+  const close = useRef(onClose);
+  useEffect(() => {
+    close.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
     const node = panel.current;
@@ -29,18 +57,17 @@ export function Drawer({ open, onClose, label, children }: Props) {
     // Captured before focus moves, so closing puts it back on the toggle
     // without the toggle having to hand us a ref.
     const opener = document.activeElement as HTMLElement | null;
-    const focusablesOf = () => [...node.querySelectorAll<HTMLElement>(FOCUSABLE)];
-    (focusablesOf()[0] ?? node).focus();
+    (focusables(node)[0] ?? node).focus();
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
-        onClose();
+        close.current();
         return;
       }
       if (event.key !== 'Tab') return;
-      const focusables = focusablesOf();
-      const first = focusables[0];
-      const last = focusables[focusables.length - 1];
+      const reachable = focusables(node);
+      const first = reachable[0];
+      const last = reachable[reachable.length - 1];
       if (!first || !last) {
         event.preventDefault();
         return;
@@ -62,12 +89,15 @@ export function Drawer({ open, onClose, label, children }: Props) {
       document.body.style.overflow = scrollLock;
       opener?.focus();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-40 md:hidden">
+    // No breakpoint here: a modal overlay does not get to know at which width
+    // its page stops needing it. The page owns that, in one place — and when it
+    // owned it here too, the two disagreed and 768–1535px got neither.
+    <div className="fixed inset-0 z-40">
       <div
         data-testid="drawer-backdrop"
         onClick={onClose}
@@ -83,7 +113,7 @@ export function Drawer({ open, onClose, label, children }: Props) {
       >
         <button
           type="button"
-          onClick={onClose}
+          onClick={() => close.current()}
           aria-label="Cerrar"
           className="mb-3 self-end rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
         >

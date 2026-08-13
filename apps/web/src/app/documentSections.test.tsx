@@ -81,7 +81,12 @@ describe('the section rail over real documents', () => {
     const flatId = ids.find((id) => registry.get(id)?.meta.presentation === 'none');
     expect(flatId, 'seed course needs a document without sections').toBeDefined();
     renderAt(`/d/${flatId}`);
-    await screen.findByRole('article');
+    const article = await screen.findByRole('article');
+    // Wait for the document itself, not just the element that will hold it.
+    // Asserting straight after findByRole passed for a document that HAS
+    // sections: the article exists long before its lazy chunk arrives, so the
+    // rail was absent because nothing had rendered yet.
+    await waitFor(() => expect(article.textContent?.trim()).not.toBe(''));
     expect(screen.queryByRole('navigation', { name: /en esta página/i })).not.toBeInTheDocument();
   });
 });

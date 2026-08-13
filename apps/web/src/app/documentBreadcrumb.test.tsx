@@ -53,15 +53,14 @@ describe('the breadcrumb row of a document', () => {
     expect(presentar.querySelector('svg')).not.toBeNull();
   });
 
-  it('serves a document the index does not list, with the course crumb alone', async () => {
+  // The unlisted-document case is NOT tested here. It was, with an
+  // `if (!unlisted) return;` guard — and since every seed document is indexed,
+  // the body never ran: a test that reads as coverage and cannot fail. The
+  // contract is owned where it can be exercised without a fixture document:
+  // courseIndex.test.ts (trailFor, two cases) and Breadcrumb.test.tsx
+  // ("shows the course alone for a document the index does not list").
+  it('every seed document is indexed — the premise of the note above', () => {
     const listed = walkIndex(courseIndex);
-    const unlisted = registry.entries.find((e) => !listed.includes(e.meta.id))?.meta.id;
-    // Every seed document is currently indexed; the guard documents the case
-    // rather than silently passing when one appears.
-    if (!unlisted) return;
-    renderAt(`/d/${unlisted}`);
-    const nav = await screen.findByRole('navigation', { name: /location/i });
-    expect(nav).toHaveTextContent(courseIndex.title!);
-    expect(nav).not.toHaveTextContent(/\d+ de \d+/);
+    expect(registry.entries.filter((e) => !listed.includes(e.meta.id))).toEqual([]);
   });
 });

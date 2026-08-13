@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
@@ -48,10 +49,17 @@ const deepIndex = parseCourseIndex(
   'index.yaml',
 );
 
+/**
+ * Labels of the currently open groups. The levelName is dropped by removing its
+ * element, not by stripping a prefix: a regex that ate a leading "Unidad" also
+ * ate it from labels that legitimately start with the word.
+ */
 function openGroups(): string[] {
-  return [...document.querySelectorAll('details[open] > summary')].map((s) =>
-    (s.textContent ?? '').replace(/^Unidad\s*/, '').trim(),
-  );
+  return [...document.querySelectorAll('details[open] > summary')].map((summary) => {
+    const label = summary.querySelector('span')!.cloneNode(true) as HTMLElement;
+    label.querySelector('span')?.remove();
+    return (label.textContent ?? '').trim();
+  });
 }
 
 describe('Toc expand policy', () => {
@@ -93,6 +101,71 @@ describe('Toc expand policy', () => {
 
     await user.click(screen.getByText('Grafos'));
     expect(openGroups()).toContain('Grafos');
+  });
+
+  it('keeps what the reader opened when the parent re-renders for its own reasons', async () => {
+    // The expand model keys manual toggles by value. Keyed by the identity of a
+    // useMemo instead, this passes only as long as React chooses to keep that
+    // cache — which React documents it may not.
+    const user = userEvent.setup();
+    function Parent() {
+      const [tick, setTick] = useState(0);
+      return (
+        <MemoryRouter initialEntries={['/d/portada']}>
+          <button onClick={() => setTick(tick + 1)}>re-render</button>
+          <Toc index={deepIndex} activeId="portada" />
+        </MemoryRouter>
+      );
+    }
+    render(<Parent />);
+
+    await user.click(screen.getByText('Grafos'));
+    expect(openGroups()).toContain('Grafos');
+
+    await user.click(screen.getByRole('button', { name: 're-render' }));
+    expect(openGroups()).toContain('Grafos');
+  });
+
+  it('forgets what the reader opened once they are reading somewhere else', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <MemoryRouter initialEntries={['/d/portada']}>
+        <Toc index={deepIndex} activeId="portada" />
+      </MemoryRouter>,
+    );
+    await user.click(screen.getByText('Grafos'));
+    expect(openGroups()).toContain('Grafos');
+
+    rerender(
+      <MemoryRouter initialEntries={['/d/otra-hoja']}>
+        <Toc index={deepIndex} activeId="otra-hoja" />
+      </MemoryRouter>,
+    );
+
+    // The new document's path opens; the old manual toggle is gone.
+    expect(openGroups()).toEqual(['Estructuras lineales', 'Pilas']);
+  });
+
+  it('opens the group of a document that IS a group, so its mark is visible', () => {
+    // A unit with a cover page: the aria-current link lives inside the group's
+    // own <details>, so leaving it shut hides the only "you are here" there is.
+    const withCover = parseCourseIndex(
+      [
+        'entries:',
+        '  - label: Unidad con portada',
+        '    docId: portada-unidad',
+        '    children:',
+        '      - docId: hijo',
+      ].join('\n'),
+      'index.yaml',
+    );
+    render(
+      <MemoryRouter initialEntries={['/d/portada-unidad']}>
+        <Toc index={withCover} activeId="portada-unidad" />
+      </MemoryRouter>,
+    );
+
+    expect(openGroups()).toEqual(['Unidad con portada']);
   });
 
   it('reaches a document inside a group that starts collapsed', () => {
@@ -171,6 +244,30 @@ describe('Toc filter', () => {
 
     expect(screen.getByRole('status')).toHaveTextContent(/nada|ningún/i);
     expect(screen.queryAllByRole('link')).toHaveLength(0);
+  });
+
+  it('lets the reader shut a group mid-filter, and remembers it', async () => {
+    // Returning early from onToggle while filtering left the controlled
+    // <details> and the DOM disagreeing: React kept rendering open={true} on a
+    // node the browser had shut, so it never reopened.
+    const user = renderDeep();
+    await user.type(filterField(), 'hoja');
+    expect(openGroups()).toContain('Estructuras lineales');
+
+    await user.click(screen.getByText('Estructuras lineales'));
+    expect(openGroups()).not.toContain('Estructuras lineales');
+  });
+
+  it('opens the kept groups again when the query changes', async () => {
+    const user = renderDeep();
+    await user.type(filterField(), 'hoja');
+    await user.click(screen.getByText('Estructuras lineales'));
+    expect(openGroups()).not.toContain('Estructuras lineales');
+
+    // A new query is a new answer; the previous collapse does not carry over,
+    // or the count would keep reporting matches the tree refuses to show.
+    await user.type(filterField(), '-profunda');
+    expect(openGroups()).toContain('Estructuras lineales');
   });
 
   it('restores the collapsed-plus-active-path tree when cleared', async () => {

@@ -162,6 +162,31 @@ describe('useSections', () => {
     expect(items().map((li) => li.dataset['active'])).toEqual(['yes', 'no']);
   });
 
+  it('marks a section on arrival, with no event of any kind dispatched', () => {
+    // The reason `decide()` is called once on mount. Every other case in this
+    // file dispatches a scroll, so deleting that call left all of them green —
+    // and a #fragment deep link produces no scroll event to react to. The
+    // positions are installed on the prototype BEFORE render, because the only
+    // chance the mount-time call gets is the moment the effect runs.
+    const tops: Record<string, number> = { tipos: -400, memoria: -200 };
+    const original = Element.prototype.getBoundingClientRect;
+    Element.prototype.getBoundingClientRect = function () {
+      const top = tops[(this as HTMLElement).id];
+      return (top === undefined ? { top: 0, bottom: 0 } : { top, bottom: top + 30 }) as DOMRect;
+    };
+    try {
+      render(
+        <Harness>
+          <h2 id="tipos">Tipos</h2>
+          <h2 id="memoria">Memoria</h2>
+        </Harness>,
+      );
+      expect(items().map((li) => li.dataset['active'])).toEqual(['no', 'yes']);
+    } finally {
+      Element.prototype.getBoundingClientRect = original;
+    }
+  });
+
   it('marks the right section after a jump, with no crossing to observe', () => {
     // A fragment link lands mid-document without a scroll event per heading.
     render(<Harness>{ARTICLE}</Harness>);

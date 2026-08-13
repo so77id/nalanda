@@ -199,9 +199,40 @@ export function trailFor(index: CourseIndex, id: string): Trail {
   };
 }
 
-/** Whether a trail has anything to say — the emptiness rule, so the renderer and the row agree. */
+/**
+ * Whether a trail has anything to say. A trail with neither a course, an
+ * ancestor nor a position renders nothing rather than an empty bar.
+ */
 export function hasTrail(trail: Trail): boolean {
   return Boolean(trail.course) || trail.ancestors.length > 0 || trail.position !== undefined;
+}
+
+/** Position in the tree — stable across renders, unique per entry, index-shaped. */
+export function keyOf(parent: string, i: number): string {
+  return parent ? `${parent}.${i}` : String(i);
+}
+
+/**
+ * Keys of every group that has to be open for a document to be visible: its
+ * ancestors, plus the group itself when the group carries the document as its
+ * own cover page — otherwise reading a unit's cover leaves the unit shut with
+ * the "you are here" mark hidden inside it.
+ */
+export function ancestorsOf(
+  entries: IndexEntry[],
+  id: string | undefined,
+  parent = '',
+): string[] | null {
+  if (!id) return null;
+  for (const [i, entry] of entries.entries()) {
+    const key = keyOf(parent, i);
+    if (entry.docId === id) return entry.children ? [key] : [];
+    if (entry.children) {
+      const deeper = ancestorsOf(entry.children, id, key);
+      if (deeper) return [key, ...deeper];
+    }
+  }
+  return null;
 }
 
 function locate(
