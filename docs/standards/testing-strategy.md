@@ -231,6 +231,12 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   honoured; the pair is the proof. Worked case (#85): "a listing ignores a
   stored draft" is trustworthy only because "an editor still restores one"
   plants the identical key and gets it back.
+- **A test for a state-derived NAME asserts the round trip**, not one crossing.
+  "A becomes B" passes identically over code that derives the value and over
+  code that latches on the first transition, so one crossing proves nothing
+  about the second. Worked case (#106): the deck's fullscreen `aria-label`,
+  where a latched implementation stayed green across all 569 tests and the
+  return assertion is what killed it.
 - **Nothing — a fix or a guard — is done before its test has been seen to fail,
   at the assertion that encodes it.** Revert the fix (or introduce the defect the
   guard names), watch the test go red, restore it — and name the failing test,

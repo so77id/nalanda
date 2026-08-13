@@ -126,7 +126,7 @@ export function Drawer({ open, onClose, label, children }: Props) {
           type="button"
           onClick={onClose}
           aria-label="Cerrar"
-          className="mb-3 self-end rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+          className="mb-3 self-end rounded p-2 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
         >
           <X size={16} aria-hidden="true" />
         </button>

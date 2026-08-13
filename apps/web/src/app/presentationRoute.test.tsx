@@ -76,10 +76,42 @@ describe('PresentationPage viewer', () => {
     expect(await screen.findByRole('article')).toBeInTheDocument();
   });
 
-  it('offers a fullscreen control', async () => {
+  it('offers a fullscreen control that says what pressing it will do', async () => {
     renderAt(`/d/${firstId}/present`);
     await findCounter();
-    expect(screen.getByRole('button', { name: /pantalla completa/i })).toBeInTheDocument();
+    // Out of fullscreen the button ENTERS it, so the name is the destination.
+    expect(screen.getByRole('button', { name: 'Pantalla completa' })).toBeInTheDocument();
+  });
+
+  it('renames the fullscreen control when fullscreen is entered by any means', async () => {
+    // Not only after a click: Escape and the browser's own chrome change the
+    // state too, so the name is derived from document.fullscreenElement rather
+    // than from what this component last did (#106).
+    renderAt(`/d/${firstId}/present`);
+    await findCounter();
+
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      value: document.documentElement,
+    });
+    try {
+      // Dispatched where the browser dispatches it: at the element that entered
+      // fullscreen, bubbling — not directly at `document`, which would only
+      // prove the listener's address.
+      fireEvent(document.documentElement, new Event('fullscreenchange', { bubbles: true }));
+      expect(
+        await screen.findByRole('button', { name: 'Salir de pantalla completa' }),
+      ).toBeInTheDocument();
+
+      // …and back. One crossing is satisfied by a latch: an implementation that
+      // never returns the name survived the enter-only assertion across 569
+      // tests (#106 review).
+      Reflect.deleteProperty(document, 'fullscreenElement');
+      fireEvent(document.documentElement, new Event('fullscreenchange', { bubbles: true }));
+      expect(await screen.findByRole('button', { name: 'Pantalla completa' })).toBeInTheDocument();
+    } finally {
+      Reflect.deleteProperty(document, 'fullscreenElement');
+    }
   });
 });
 
