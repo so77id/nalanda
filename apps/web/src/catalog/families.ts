@@ -41,6 +41,15 @@ const definitions: Record<CatalogFamily, Omit<FamilyDef, 'id'>> = {
   },
 };
 
+/**
+ * Why a family can be empty. Two of the four are, and that is policy, not a
+ * gap: components are built when a class asks for one (D10/D29). Said on both
+ * surfaces that can show an empty family, so neither reads as broken — and
+ * because this is the page an agent consults before inventing a component,
+ * where silence next to "no components" reads as an invitation.
+ */
+export const EMPTY_FAMILY_REASON = 'components are built when a class needs one, not in advance';
+
 /** The four families in display order (ADR-0010). */
 export const families: FamilyDef[] = (Object.keys(definitions) as CatalogFamily[]).map((id) => ({
   id,

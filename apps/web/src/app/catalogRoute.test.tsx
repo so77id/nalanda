@@ -73,14 +73,37 @@ describe('/catalog', () => {
     expect(screen.queryByText(/component\(s\)/)).not.toBeInTheDocument();
   });
 
-  it('shows the empty-family copy for families with no components yet', async () => {
+  it('says on the overview that an empty family is empty by design, and only there', async () => {
+    // The overview is where the two holes sit beside the populated families and
+    // where, until #87, they were indistinguishable from them.
+    renderAt('/catalog');
+    await screen.findByRole('heading', { name: /^catalog$/i });
+
+    const emptyCount = families.filter((f) => catalog.byFamily(f.id).length === 0).length;
+    expect(emptyCount, 'no empty family left to describe').toBeGreaterThan(0);
+    expect(screen.getAllByText(/built when a class needs one/i)).toHaveLength(emptyCount);
+  });
+
+  it('explains an empty family on its own page, without citing a decision id as the reason', async () => {
     const empty = families.find((f) => catalog.byFamily(f.id).length === 0);
     expect(
       empty,
       'every family now has components — cover the empty branch with a direct FamilyPage test',
     ).toBeDefined();
     renderAt(`/catalog/${empty!.id}`);
-    expect(await screen.findByText(/no components in this family yet/i)).toBeInTheDocument();
+
+    const copy = await screen.findByText(/nothing lives here yet/i);
+    expect(copy).toHaveTextContent(/built when a class needs one/i);
+    // The old copy was "the inventory is emergent (D29)": a pointer to a
+    // decision the reader has not read, standing in for the explanation.
+    expect(copy).not.toHaveTextContent(/inventory is emergent/i);
+  });
+
+  it('leaves a populated family free of empty-state copy', async () => {
+    renderAt('/catalog/structure');
+    await screen.findByRole('heading', { level: 1, name: 'Structure' });
+    expect(screen.queryByText(/nothing lives here yet/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/built when a class needs one/i)).not.toBeInTheDocument();
   });
 
   it('shows the 404 page for an unknown family', async () => {
