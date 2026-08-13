@@ -23,7 +23,7 @@ export const sideBySideCatalogEntry: CatalogEntry = {
   ],
   examples: [
     {
-      title: 'El mismo programa en dos lenguajes',
+      title: 'The same program in two languages',
       code: `<SideBySide left="C++" right="Java">
 
 \`\`\`cpp
@@ -59,7 +59,7 @@ int main() {
       ),
     },
     {
-      title: 'Con un número de bloques que no es dos',
+      title: 'Given any number of blocks that is not two',
       code: `<SideBySide left="C++" right="Java">
 
 \`\`\`cpp

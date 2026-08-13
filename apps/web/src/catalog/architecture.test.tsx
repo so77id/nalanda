@@ -25,6 +25,27 @@ describe('architecture: catalog entry invariants', () => {
     expect(families.map((f) => f.id)).toEqual(['structure', 'semantic', 'interactive', 'media']);
   });
 
+  // #87: the catalog is repo documentation and writes English. What it *quotes*
+  // — example source and the widgets those examples render — is course content
+  // and stays Spanish, so this guard covers only the prose the catalog authors.
+  // It catches Spanish orthography, not Spanish: "Un ejercicio completo" has no
+  // accent and would pass. It is a regression guard, not a language detector.
+  it('writes its own prose without Spanish orthography', () => {
+    const spanish = /[áéíóúüñ¿¡]/i;
+    const prose = [
+      ...families.flatMap((f) => [f.name, f.definition, f.whatBelongs]),
+      ...catalog.entries.flatMap((e) => [
+        e.description,
+        e.whenToUse,
+        ...e.props.map((p) => p.description),
+        ...e.examples.map((x) => x.title),
+      ]),
+    ];
+    for (const text of prose) {
+      expect(text, `Spanish in catalog prose: "${text}"`).not.toMatch(spanish);
+    }
+  });
+
   it('every family in the taxonomy has a definition', () => {
     for (const family of families) {
       expect(family.name.trim(), `family ${family.id} needs a name`).not.toBe('');

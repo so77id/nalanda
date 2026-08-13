@@ -46,6 +46,16 @@ describe('ComponentArticle', () => {
     expect(table).toHaveTextContent('false');
   });
 
+  it('says the Spanish in the examples is the course speaking, not a leftover', () => {
+    // The catalog writes English; the examples embed course content and render
+    // widgets whose own chrome is Spanish (root CLAUDE.md). Without a word from
+    // the page, that mix reads as the half-translated state #87 removed.
+    renderArticle();
+    expect(
+      screen.getByText(/course content.*Spanish|Spanish.*course content/i),
+    ).toBeInTheDocument();
+  });
+
   it('renders every example with its live output and source snippet', () => {
     renderArticle();
     expect(screen.getByRole('heading', { name: 'Basic' })).toBeInTheDocument();

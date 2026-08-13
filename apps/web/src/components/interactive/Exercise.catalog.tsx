@@ -67,7 +67,7 @@ export const exerciseCatalogEntry: CatalogEntry = {
   ],
   examples: [
     {
-      title: 'Un ejercicio completo',
+      title: 'A complete exercise',
       code: `<Exercise title="¿Es par?">
 
 Escribe \`esPar\`, que recibe un entero y devuelve \`true\` si es par.
@@ -99,7 +99,7 @@ check(Solution.esPar(0), true);
       ),
     },
     {
-      title: 'Sin código inicial: el aviso es para quien escribe',
+      title: 'No starter fence: the warning is for the author, not the student',
       code: `<Exercise title="Sin bloque starter">
 
 Un ejercicio al que le falta el código inicial.

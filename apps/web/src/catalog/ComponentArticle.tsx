@@ -50,6 +50,13 @@ export function ComponentArticle({ entry }: Props) {
       )}
 
       <h2 className="mt-8 text-2xl font-semibold">Examples</h2>
+      {/* The catalog writes English; what it renders is the real component with
+          real course content, so the snippets and the widgets' own chrome are
+          Spanish. Stated here so the mix reads as the boundary it is (#87). */}
+      <p className="mt-2 text-sm text-slate-500">
+        These run the real component. The snippets are course content and the widgets speak to
+        students, so both are in Spanish — the catalog around them is not.
+      </p>
       {entry.examples.map((example) => (
         <ExampleBlock key={example.title} title={example.title} code={example.code}>
           <example.render />
