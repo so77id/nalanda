@@ -243,7 +243,17 @@ src/
   icon-only control inside a component's own dense chrome (`CodeEditor`'s
   expand). 16px for an icon-only control on the PAGE chrome, where the button is
   a touch target rather than part of a text row — the drawer toggle and its
-  close button (#84) are the only two. 48px when the icon is the illustration of
+  close button (#84) and the deck's exit control (#103). **The floor is 24x24
+  CSS px with at least 8px of clearance** (WCAG 2.2 §2.5.8, level AA); `p-2`
+  around a 16px icon gives 32x32 and is the shape to copy. 44x44 — the
+  Apple/Material figure and WCAG's AAA target — was considered and rejected for
+  deck chrome, which would then dominate a 342px-tall landscape stage. Measured
+  case that forced the floor (#103): at `px-2 py-1` the deck's exit was 32x24
+  with 4px of clearance from a control that does the opposite thing, so a
+  mis-tap took the reader deeper in instead of out. Known debt, deliberately not
+  fixed here: the drawer toggle ships at `p-1.5` (28x28) and its close button at
+  `p-1` (24x24) — above the floor, below the shape — and neither carries
+  `gap-2`; bring them up when that chrome is next touched. 48px when the icon is the illustration of
   a full-screen panel rather than a control — it carries the message at a
   glance, is `aria-hidden` because the text beside it says the same thing, and
   is not clickable (worked case: `presentation/RotateNotice.tsx`, #91). Adding a
@@ -263,6 +273,36 @@ src/
   `presentation/usePortraitPhone.ts` (#91), where the hand-rolled version
   shipped in the first slice and was replaced in review, once the review
   measured that no permitted test could kill its re-read.
+- **A container-level gesture yields to descendants that scroll on its axis.**
+  Decide eligibility at `touchstart` by walking from `event.target` to
+  `event.currentTarget`, and refuse when a node in between really scrolls on
+  the gesture's axis — `getComputedStyle(node).overflowX` of `auto` or
+  `scroll`, AND `scrollWidth > clientWidth + 1` — these are integer
+  pixels, so a sub-pixel overflow surfaces as a 1px difference, and a scroll of
+  under a pixel is not a reader panning. Overflowing content is
+  not a scrollable box: `visible` overflows and cannot pan, `hidden` clips and
+  cannot pan, and treating either as a scroller kills the gesture across the
+  whole surface. Worked case: `presentation/swipe.ts` + `SlideDeck` (#103) —
+  a code block wider than the slide is dragged to be read, and the deck used to
+  take that drag as navigation, which made a long line unreadable on a phone.
+  A handler that stores a start point clears it on `touchcancel` too, or the
+  next `touchend` acts on a drag the reader never finished (#99 shipped that,
+  #103 fixed it). A second gesture on another axis parameterises
+  `startsInsideHorizontalScroller` rather than copying it: the vertical form
+  reads `overflowY` and `scrollHeight > clientHeight + 1`.
+- **Leaving fullscreen is guarded, and each surface has one way to do it.**
+  `document.exitFullscreen()` REJECTS when nothing is fullscreen and `void`
+  attaches no catch, so an unguarded call is an unhandled rejection on every
+  ordinary exit. Always `if (document.fullscreenElement) void
+  document.exitFullscreen?.()`, behind one named helper that the surface's other
+  exits call. Worked case: `presentation/SlideDeck.tsx`'s `leaveFullscreen()`
+  (#103), where three call sites had drifted into three spellings.
+- **A surface that replaces the viewport carries a visible way out.** A keyboard
+  escape announces itself nowhere and a phone has no `Escape` key, so a
+  full-viewport surface needs an on-screen exit, sized per §Icons, navigating to
+  an ABSOLUTE route rather than `history.back()`. Worked case: the deck's footer
+  exit (#103) — the `⛶` toggle alone left it with no announced way out for two
+  WPs.
 - **Layout breakpoints stay in Tailwind classes; a media query is only asked
   from JS when device shape decides BEHAVIOUR** — what gets rendered at all,
   not how wide it is. It belongs in a hook colocated in the feature that owns

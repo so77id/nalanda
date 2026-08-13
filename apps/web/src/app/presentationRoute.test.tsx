@@ -286,6 +286,47 @@ describe('advancing the deck by touch', () => {
     expect(counter).toHaveTextContent(/^3 \//);
   });
 
+  it('leaves a sideways-scrolling code block to scroll itself', async () => {
+    // A document whose slides really carry <pre>: the first fixture's slide 2
+    // has no code at all, so the earlier version of this test faked the geometry
+    // on the slide wrapper — a box that in a browser has `overflow-x: visible`
+    // and cannot scroll. It pinned the wrong contract and never walked a single
+    // ancestor (#103 review).
+    renderAt('/d/java-desde-cpp/present?slide=5');
+    const counter = await findCounter();
+    const before = counter.textContent;
+
+    const stage = screen.getByTestId('slide-stage');
+    const code = stage.querySelector('pre');
+    expect(code, 'this slide must carry a code block for the case to mean anything').toBeTruthy();
+    Object.defineProperty(code!, 'scrollWidth', { value: 900, configurable: true });
+    Object.defineProperty(code!, 'clientWidth', { value: 800, configurable: true });
+    code!.style.overflowX = 'auto';
+
+    // The touch lands on a DESCENDANT of the scroller, which is what a finger
+    // does, so the ancestor walk is what has to refuse the gesture.
+    const inside = code!.firstElementChild ?? code!;
+    fireEvent.touchStart(inside, { touches: [{ clientX: 600, clientY: 200 }] });
+    fireEvent.touchEnd(inside, { changedTouches: [{ clientX: 200, clientY: 205 }] });
+    expect(counter).toHaveTextContent(before!);
+
+    // …and the same drag on the stage itself still moves the deck.
+    swipe(600, 200);
+    expect(counter).not.toHaveTextContent(before!);
+  });
+
+  it('forgets a gesture the system cancels', async () => {
+    renderAt(`/d/${firstId}/present?slide=2`);
+    const counter = await findCounter();
+    const stage = screen.getByTestId('slide-stage');
+
+    fireEvent.touchStart(stage, { touches: [{ clientX: 600, clientY: 200 }] });
+    fireEvent.touchCancel(stage, { changedTouches: [{ clientX: 600, clientY: 200 }] });
+    fireEvent.touchEnd(stage, { changedTouches: [{ clientX: 200, clientY: 205 }] });
+
+    expect(counter).toHaveTextContent(/^2 \//);
+  });
+
   it('ignores a two-finger gesture — a pinch is not a swipe', async () => {
     renderAt(`/d/${firstId}/present?slide=2`);
     const counter = await findCounter();
@@ -385,6 +426,84 @@ describe('fitting a slide to the stage it is shown on', () => {
     // effect that runs on the index measures the OUTGOING node and leaves the
     // new one unobserved for the rest of the deck.
     expect(observed).toContain(slideBox());
+  });
+});
+
+describe('leaving the presentation from the deck', () => {
+  it('offers a visible exit beside the fullscreen control', async () => {
+    renderAt(`/d/${firstId}/present`);
+    await findCounter();
+
+    // Both halves of the name, asserted: that it is there, and that it sits
+    // after the fullscreen control — which is the tab order a reader meets.
+    const footer = document.querySelector('footer')!;
+    expect([...footer.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(
+      ['Pantalla completa', 'Salir de la presentación'],
+    );
+  });
+
+  it('does not ask to leave fullscreen when it was never entered', async () => {
+    // exitFullscreen() REJECTS outside fullscreen and the call is `void`ed, so
+    // an unguarded exit is an unhandled rejection on every ordinary way out
+    // (#103 review, measured in Chromium).
+    const exitFullscreen = vi.fn(() => Promise.resolve());
+    Object.defineProperty(document, 'exitFullscreen', {
+      configurable: true,
+      value: exitFullscreen,
+    });
+    try {
+      renderAt(`/d/${firstId}/present`);
+      await findCounter();
+      fireEvent.click(screen.getByRole('button', { name: /salir de la presentación/i }));
+      await screen.findByRole('article');
+      expect(exitFullscreen).not.toHaveBeenCalled();
+    } finally {
+      Reflect.deleteProperty(document, 'exitFullscreen');
+    }
+  });
+
+  it('lands on the book view from any slide, including a deep link', async () => {
+    renderAt(`/d/${firstId}/present?slide=3`);
+    await findCounter();
+
+    fireEvent.click(screen.getByRole('button', { name: /salir de la presentación/i }));
+
+    expect(await screen.findByRole('article')).toBeInTheDocument();
+  });
+
+  it('leaves fullscreen on the way out, since the control goes with the deck', async () => {
+    const exitFullscreen = vi.fn(() => Promise.resolve());
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      value: document.documentElement,
+    });
+    Object.defineProperty(document, 'exitFullscreen', {
+      configurable: true,
+      value: exitFullscreen,
+    });
+    try {
+      renderAt(`/d/${firstId}/present`);
+      await findCounter();
+      fireEvent.click(screen.getByRole('button', { name: /salir de la presentación/i }));
+      await screen.findByRole('article');
+      expect(exitFullscreen).toHaveBeenCalled();
+    } finally {
+      Reflect.deleteProperty(document, 'fullscreenElement');
+      Reflect.deleteProperty(document, 'exitFullscreen');
+    }
+  });
+
+  it('is not reachable behind the rotate panel', async () => {
+    coarsePortrait(true);
+    try {
+      renderAt(`/d/${firstId}/present`);
+      await screen.findByRole('alertdialog');
+      expect(
+        screen.queryByRole('button', { name: /salir de la presentación/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      Reflect.deleteProperty(window, 'matchMedia');
+    }
   });
 });
 

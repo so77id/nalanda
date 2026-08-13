@@ -4,7 +4,10 @@
 **Date:** 2026-08-13
 **Decision-makers:** Miguel Rodriguez
 **Covers:** why the deck refuses portrait on a touch device · why the pointer
-half of the query is load-bearing · what the panel must offer as a way out
+half of the query is load-bearing · what the panel must offer as a way out ·
+and, accumulated through #99 and #103, the phone-side consequences of that
+rule: the browser baseline, the viewport measures and what a real mobile
+browser does with its chrome. Deck-wide decisions live in ADR-0013 §5.
 **Source:** Issue #91 (require landscape for presentation mode on a phone),
 found verifying #90. Constrains ADR-0013 (presentation pipeline) §2 and §5.
 
@@ -51,7 +54,9 @@ Three things this fixes in place:
   React mechanic; it lives in the code comment that guards it.)
 - **The way out is an absolute route** (`/d/<id>`), not `history.back()`: a
   reader who opened `/d/<id>/present` from a message or a bookmark has nothing
-  behind them to go back to.
+  behind them to go back to. The deck carries the same way out as a visible
+  control since #103; that decision is deck-wide, so it lives with the viewer's
+  chrome in ADR-0013 §5.3.
 
 ## Alternatives considered
 
@@ -71,6 +76,14 @@ Three things this fixes in place:
 - **A "view it anyway" escape** — the way out is out (the book view), not
   through. Two ways of reading the same document on a phone is the confusion the
   book view exists to prevent.
+- **Hiding the browser chrome by requesting fullscreen on entering `/present`**
+  (considered #103, once a device showed the chrome is not hidden by `dvh` +
+  `viewport-fit=cover`). Rejected for the reasons already above: on iOS no
+  browser has the Fullscreen API for a web page at all, so it cannot work on
+  the device that raised the question, and taking the decision away from the
+  reader was already rejected for the automatic case. Note this rejects
+  fullscreen as an AUTOMATIC answer, not the API: the `⛶` control uses
+  `requestFullscreen` deliberately, where the platform has it.
 - **Doing nothing and documenting it** — the failure is silent, and silence is
   what the WP was opened to fix.
 
@@ -108,12 +121,13 @@ Three things this fixes in place:
   rule is deliberately unconditional today — follower mode does not exist yet —
   and whether it should stay that way is a question for whoever implements
   ADR-0008 in v0.3, not one this ADR answers.
-- **Fullscreen is left when the rule takes over.** The `⛶` button is the only
-  control that exits fullscreen and it lives in the deck being removed, so the
-  panel would otherwise sit inside a fullscreen page with no way back. Verified
-  in Chromium: enter fullscreen in landscape, rotate, `document.fullscreenElement`
-  is null and the panel is up. This does not touch the button itself, which the
-  WP put out of scope.
+- **Fullscreen is left when the rule takes over.** Written when the `⛶` button
+  was the only control that exits fullscreen, which #103 made false: `Escape`
+  and the deck's exit control leave it too, all three paths through one
+  `leaveFullscreen()`. The rule stands and is now one instance of a wider one —
+  no path leaves the deck holding a fullscreen page the reader cannot get out
+  of. Verified in Chromium: enter fullscreen in landscape, rotate,
+  `document.fullscreenElement` is null and the panel is up.
 - **The deck asks for the viewport the browser actually gives, not the one it
   claims (#99).** `fixed inset-0` resolves against the *large* viewport, the one
   a mobile browser overlays with its own chrome, so the deck was drawing under
@@ -123,11 +137,20 @@ Three things this fixes in place:
   stripe of a different colour. Measured 2026-08-13 in Chromium with an iPhone 13
   context: the deck's box is exactly `innerHeight` at 844x390, 390x844 and
   1440x900, with nothing scrollable behind it.
-  **What emulation cannot answer**: whether a given mobile browser hides its
-  chrome, keeps it, or changes on rotation. Headless Chromium has no URL bar, so
-  that is a real-device observation and belongs here as one, with the browser and
-  the date. Fullscreen remains rejected as the answer for the reasons above — this
-  is what can be done without it.
+  **Answered on a device, 2026-08-13: it does not hide the bar.** Brave on an
+  **iPhone** (iOS, therefore WebKit whatever the browser's name) keeps its
+  chrome over the deck with `dvh` and `viewport-fit=cover` in place. The
+  measures are still right — they stop the deck from being *clipped* by the
+  chrome, which was the actual bug — but they do not remove it.
+  **This is the end state, not an open question**, and on iOS it is
+  unconditional: no browser there has the Fullscreen API for a web page (see
+  Alternatives), so the `⛶` control cannot help either and the bar is
+  permanent. The case that may differ, and is NOT measured: Android, where
+  `requestFullscreen` exists, so a reader who taps `⛶` should get the screen —
+  observed nowhere yet, so nobody should assume it.
+  What headless Chromium can and cannot say about this is itself the lesson —
+  it has no bar to hide, so it reported success on a question it could not see
+  (`testing-strategy.md` §the browser recipe).
 - The reader's position survives rotation for free: it lives in `?slide=N`, not
   in the component.
 - **jsdom implements no `matchMedia` at all**, so the suite can pin which

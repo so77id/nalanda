@@ -66,6 +66,16 @@ apps/web/src/components/structure/
      itself **`.not-prose`** (a block, not text — `CodeEditor`, `Exercise`,
      `SideBySide`, `AuthoringError` all do) or **`.measure-full`** (neither
      block nor text: the table scroll box, the prev/next row, `<SectionBreak/>`).
+     **Anything the reader drags sideways must be a REAL scroller.** In
+     presentation the deck owns the horizontal swipe and yields only to a
+     descendant whose computed `overflow-x` is `auto` or `scroll` AND that
+     actually overflows (`presentation/swipe.ts`, ADR-0013 §5.2). A component
+     that pans by transform, by canvas pointer handling, or inside an
+     `overflow-x: visible` wrapper will have that drag taken as a slide change
+     on a phone; conversely a full-bleed scrollable component leaves the reader
+     no swipe target on that slide. Give it `overflow-x-auto`, and check it on
+     a touch context.
+
      **A component that renders anything wide MUST carry one of the two**, or it
      is silently centred at 624px in documents. The rule is unlayered, so a
      `max-w-*` of your own cannot override it. It will look correct everywhere

@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode, TouchEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -6,14 +7,22 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mdxChildrenOf } from './mdxChildren';
 import { computeSlides } from './parser';
 import { fitScale } from './fit';
-import { swipeDirection } from './swipe';
+import { startsInsideHorizontalScroller, swipeDirection } from './swipe';
 import type { Point } from './swipe';
 import { RotateNotice } from './RotateNotice';
 import { usePortraitPhone } from './usePortraitPhone';
 
+// Exiting is guarded everywhere it happens: exitFullscreen() REJECTS when
+// nothing is fullscreen, and `void` attaches no catch, so an unguarded call is
+// an unhandled rejection on every ordinary exit (measured in Chromium, #103
+// review). Three call sites had drifted into three spellings of this.
+function leaveFullscreen(): void {
+  if (document.fullscreenElement) void document.exitFullscreen?.();
+}
+
 function toggleFullscreen(): void {
   if (document.fullscreenElement) {
-    void document.exitFullscreen();
+    leaveFullscreen();
   } else {
     void document.documentElement.requestFullscreen?.();
   }
@@ -68,6 +77,15 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
     [setSearchParams, slides.length],
   );
 
+  // The one way out, used by Escape and by the footer control. Absolute, not
+  // history.back(): a reader who opened /present from a link has nothing behind
+  // them (ADR-0023). Fullscreen goes with it, because the control that exits
+  // fullscreen lives in the deck being left.
+  const leave = useCallback(() => {
+    leaveFullscreen();
+    void navigate(`/d/${docId}`);
+  }, [docId, navigate]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       // The panel replaces the deck's markup, not this window-level listener:
@@ -93,20 +111,30 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
           go(slides.length - 1);
           break;
         case 'Escape':
-          void navigate(`/d/${docId}`);
+          leave();
           break;
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [docId, go, index, navigate, portraitPhone, slides.length]);
+  }, [go, index, leave, portraitPhone, slides.length]);
 
   // The gesture the phone has instead of arrow keys. A single finger only:
   // a second one means a pinch, and zooming is not navigating.
   const touchStart = useRef<Point | null>(null);
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     const touch = event.touches.length === 1 ? event.touches[0] : undefined;
-    touchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+    if (!touch || startsInsideHorizontalScroller(event.target, event.currentTarget)) {
+      touchStart.current = null;
+      return;
+    }
+    touchStart.current = { x: touch.clientX, y: touch.clientY };
+  };
+  // The system can take a gesture away mid-drag (a notification, an edge
+  // swipe). Without this the start point survived and the NEXT touchend acted
+  // on coordinates the reader never finished — pre-existing from #99.
+  const onTouchCancel = () => {
+    touchStart.current = null;
   };
   const onTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
     const start = touchStart.current;
@@ -157,7 +185,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   // button is the only control that exits it, so leaving it on would strand the
   // panel inside a fullscreen page with no way back out of it.
   useEffect(() => {
-    if (portraitPhone && document.fullscreenElement) void document.exitFullscreen?.();
+    if (portraitPhone) leaveFullscreen();
   }, [portraitPhone]);
 
   // Replaces the deck rather than covering it: no slide is painted, so nothing
@@ -172,6 +200,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
         data-testid="slide-stage"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
+        onTouchCancel={onTouchCancel}
         className="flex flex-1 items-center justify-center overflow-hidden px-16"
       >
         <AnimatePresence mode="wait">
@@ -195,14 +224,26 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
         </AnimatePresence>
       </div>
       <footer className="flex items-center justify-between px-[max(1.5rem,env(safe-area-inset-left))] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pr-[max(1.5rem,env(safe-area-inset-right))] text-sm text-slate-500">
-        <button
-          type="button"
-          aria-label="Pantalla completa"
-          onClick={toggleFullscreen}
-          className="rounded px-2 py-1 hover:bg-slate-800 hover:text-slate-200"
-        >
-          ⛶
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            aria-label="Pantalla completa"
+            onClick={toggleFullscreen}
+            className="rounded p-2 hover:bg-slate-800 hover:text-slate-200"
+          >
+            ⛶
+          </button>
+          {/* Escape does this too, and says so nowhere on screen — which is the
+              whole reason this exists. A phone has no Escape at all. */}
+          <button
+            type="button"
+            aria-label="Salir de la presentación"
+            onClick={leave}
+            className="rounded p-2 hover:bg-slate-800 hover:text-slate-200"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
         <span>
           {index + 1} / {slides.length}
         </span>

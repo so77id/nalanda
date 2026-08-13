@@ -200,6 +200,21 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   reader actually takes — rotating into it left the slide at scale 1 overflowing
   its stage 3:1, and pressing an arrow key measured the outgoing slide. One run
   that pressed ArrowRight instead of reloading showed it immediately.
+- **A guard whose predicate is a DOM measurement is verified against the
+  property it claims to measure, not against itself.** The suite can pin which
+  nodes a walk visits; only a browser can say whether those nodes behave the
+  way the predicate assumes. The recipe has two legs, and each proves a different
+  thing: set `el.scrollLeft = 30` and read it back, AND drive a real touch drag.
+  A box that returns 0 to both was never scrollable (`overflow-x: visible`); a
+  box that moves under the assignment but not under the drag clips without
+  panning (`overflow-x: hidden` — measured at 30 and 0). Running only the first
+  leg calls `hidden` scrollable, which is how a predicate about what a READER
+  can drag ends up trusting a number instead of the computed `overflow-x`. Worked case (#103): `scrollWidth > clientWidth` was true
+  for an `overflow-x: visible` wrapper that neither an assignment nor a real
+  touch drag could move, and the jsdom fakes had pinned that false positive as
+  the intended contract. The same run over every slide of every document is
+  what sized the finding — the predicate was wrong and today's content happened
+  not to trigger it.
 - **A measure-and-observe effect is keyed on the identity of the node it
   measures**, never on a scalar that merely correlates with it (an index, a
   length). And this class IS reachable from jsdom, which is what makes it worth
@@ -237,6 +252,12 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   value instead of by identity — both survived a full revert with **449/449
   green**, so the suite would have carried the defect back in silently. The
   cost is one command per fix.
+- **Headless Chromium has no browser chrome.** Any question about the browser's
+  own bar — does it hide on scroll, does it overlay the page — is unanswerable
+  there and comes back a false success; it is a real-device observation,
+  recorded with the browser, the OS and the date. Worked case (#103): `dvh` +
+  `viewport-fit=cover` measured clean in emulation, and the bar was still over
+  the deck on an iPhone (ADR-0023).
 - **The browser recipe lives here, not in a runtime guide.** Two failure classes
   now share it. Install once (`npm install playwright && npx playwright install
   chromium`, in a scratch directory — it is not a repo dependency; `grep
