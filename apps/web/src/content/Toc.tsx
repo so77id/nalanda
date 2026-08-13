@@ -2,6 +2,7 @@ import { ChevronRight } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 
+import { countDocuments, filterIndex } from './courseIndex';
 import type { CourseIndex, IndexEntry } from './courseIndex';
 import { registry } from './liveContent';
 
@@ -135,6 +136,14 @@ interface Props {
  * they navigate somewhere else.
  */
 export function Toc({ index, activeId }: Props) {
+  const [query, setQuery] = useState('');
+  const filtering = query.trim() !== '';
+  const entries = useMemo(
+    () => filterIndex(index.entries, query, docLabel),
+    [index.entries, query],
+  );
+  const matches = countDocuments(entries);
+
   const onPath = useMemo(
     () => new Set(ancestorsOf(index.entries, activeId) ?? []),
     [index, activeId],
@@ -147,9 +156,12 @@ export function Toc({ index, activeId }: Props) {
   });
   const overrides = toggled.for === onPath ? toggled.open : new Map<string, boolean>();
 
-  const isOpen = (key: string) => overrides.get(key) ?? onPath.has(key);
+  // While filtering, everything kept is open: a match behind a closed triangle
+  // is not a result. The manual overrides are ignored, not discarded, so
+  // clearing the field returns the tree exactly as the reader left it.
+  const isOpen = (key: string) => (filtering ? true : (overrides.get(key) ?? onPath.has(key)));
   const onToggle = (key: string, open: boolean) => {
-    if (open === isOpen(key)) return;
+    if (filtering || open === isOpen(key)) return;
     setToggled((prev) => {
       const next = new Map(prev.for === onPath ? prev.open : []);
       next.set(key, open);
@@ -159,7 +171,26 @@ export function Toc({ index, activeId }: Props) {
 
   return (
     <nav aria-label="Course index" className="text-sm">
-      <EntryList entries={index.entries} parentKey="" isOpen={isOpen} onToggle={onToggle} />
+      <label className="mb-3 block">
+        <span className="sr-only">Filtrar el índice</span>
+        <input
+          type="search"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Filtrar…"
+          className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100 placeholder:text-slate-500"
+        />
+      </label>
+      {/* Announced, not just drawn: with 14 groups the reader cannot see at a
+          glance whether a query found one thing or thirty. */}
+      {filtering ? (
+        <p role="status" className="mb-2 text-xs text-slate-400">
+          {matches === 0
+            ? `Nada coincide con «${query.trim()}»`
+            : `${matches} ${matches === 1 ? 'documento' : 'documentos'}`}
+        </p>
+      ) : null}
+      <EntryList entries={entries} parentKey="" isOpen={isOpen} onToggle={onToggle} />
     </nav>
   );
 }

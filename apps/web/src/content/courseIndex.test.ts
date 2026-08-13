@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseCourseIndex, prevNext, trailFor, walkIndex } from './courseIndex';
+import {
+  countDocuments,
+  filterIndex,
+  parseCourseIndex,
+  prevNext,
+  trailFor,
+  walkIndex,
+} from './courseIndex';
 
 const SOURCE = 'index.yaml';
 
@@ -185,5 +192,63 @@ describe('trailFor', () => {
     expect(trailFor(withGroupDoc, 'hijo').ancestors).toEqual([
       { label: 'Unidad con portada', levelName: undefined },
     ]);
+  });
+});
+
+describe('filterIndex', () => {
+  const index = parseCourseIndex(
+    [
+      'entries:',
+      '  - docId: bienvenida',
+      '  - label: Fundamentos',
+      '    levelName: Unidad',
+      '    children:',
+      '      - docId: busqueda-binaria',
+      '      - docId: ordenamiento',
+      '  - label: Java',
+      '    children:',
+      '      - label: Sección avanzada',
+      '        children:',
+      '          - docId: hilos',
+    ].join('\n'),
+    SOURCE,
+  );
+  const labelOf = (entry: { label?: string; docId?: string }) => entry.label ?? entry.docId ?? '';
+
+  it('returns the index untouched for an empty query', () => {
+    expect(filterIndex(index.entries, '   ', labelOf)).toBe(index.entries);
+  });
+
+  it('keeps a matching document and drops its siblings', () => {
+    const kept = filterIndex(index.entries, 'orden', labelOf);
+    expect(countDocuments(kept)).toBe(1);
+    expect(kept[0]?.children?.[0]?.docId).toBe('ordenamiento');
+  });
+
+  it('keeps the ancestors of a match, at every level', () => {
+    const kept = filterIndex(index.entries, 'hilos', labelOf);
+    expect(kept).toHaveLength(1);
+    expect(kept[0]?.label).toBe('Java');
+    expect(kept[0]?.children?.[0]?.label).toBe('Sección avanzada');
+  });
+
+  it('keeps everything inside a group that matches by name', () => {
+    // "Fundamentos" names the unit; a unit with none of its documents is not
+    // what the reader asked for.
+    const kept = filterIndex(index.entries, 'fundamentos', labelOf);
+    expect(countDocuments(kept)).toBe(2);
+  });
+
+  it('ignores case and accents, so "seccion" finds "Sección"', () => {
+    expect(countDocuments(filterIndex(index.entries, 'SECCION', labelOf))).toBe(1);
+  });
+
+  it('returns nothing for a query that matches nothing', () => {
+    expect(filterIndex(index.entries, 'zzz', labelOf)).toEqual([]);
+  });
+
+  it('leaves the original index untouched', () => {
+    filterIndex(index.entries, 'orden', labelOf);
+    expect(countDocuments(index.entries)).toBe(4);
   });
 });

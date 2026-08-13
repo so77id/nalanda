@@ -92,6 +92,19 @@ describe('the sections inside the drawer', () => {
     expect(targetsOf(lists[0]!)).toEqual(targetsOf(lists[1]!));
   });
 
+  it('filters the index from inside the drawer, focus trap and all', async () => {
+    const user = await openDrawer();
+    const drawer = screen.getByRole('dialog');
+    const field = within(drawer).getByRole('searchbox', { name: /filtrar/i });
+
+    await user.type(field, 'zzzz');
+
+    // Typing has to reach the field even though the drawer traps the keyboard,
+    // and the answer has to be an answer rather than an empty panel.
+    expect(field).toHaveValue('zzzz');
+    expect(within(drawer).getByRole('status')).toHaveTextContent(/nada coincide/i);
+  });
+
   it('closes when a section is chosen, so the reader sees where they landed', async () => {
     const user = await openDrawer();
     const drawer = screen.getByRole('dialog');

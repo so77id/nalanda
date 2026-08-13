@@ -114,6 +114,48 @@ function checkDuplicateDocIds(
   });
 }
 
+function normalize(text: string): string {
+  return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+/**
+ * The index pruned to what matches a query: an entry survives if its own label
+ * matches, or if any descendant's does — in which case it is kept as the path
+ * to that descendant. A group that matches by name keeps all of its children,
+ * because "Fundamentos" means the unit, not a unit with nothing in it.
+ *
+ * Labels are resolved by the caller (`labelOf`): a label-less entry displays
+ * its document's registry title, and this module must not reach the registry.
+ */
+export function filterIndex(
+  entries: IndexEntry[],
+  query: string,
+  labelOf: (entry: IndexEntry) => string,
+): IndexEntry[] {
+  const needle = normalize(query.trim());
+  if (!needle) return entries;
+
+  const prune = (list: IndexEntry[]): IndexEntry[] =>
+    list.flatMap((entry) => {
+      const self = normalize(labelOf(entry)).includes(needle);
+      if (!entry.children) return self ? [entry] : [];
+      if (self) return [entry];
+      const children = prune(entry.children);
+      return children.length > 0 ? [{ ...entry, children }] : [];
+    });
+
+  return prune(entries);
+}
+
+/** How many documents a (possibly pruned) list of entries holds. */
+export function countDocuments(entries: IndexEntry[]): number {
+  return entries.reduce(
+    (total, entry) =>
+      total + (entry.docId ? 1 : 0) + (entry.children ? countDocuments(entry.children) : 0),
+    0,
+  );
+}
+
 /** Depth-first walk over the index — the linear reading order of the course. */
 export function walkIndex(index: CourseIndex): string[] {
   const ids: string[] = [];

@@ -107,6 +107,84 @@ describe('Toc expand policy', () => {
   });
 });
 
+describe('Toc filter', () => {
+  function renderDeep() {
+    render(
+      <MemoryRouter initialEntries={['/d/portada']}>
+        <Toc index={deepIndex} activeId="portada" />
+      </MemoryRouter>,
+    );
+    return userEvent.setup();
+  }
+
+  function filterField() {
+    return screen.getByRole('searchbox', { name: /filtrar/i });
+  }
+
+  it('offers a named field a keyboard can reach', async () => {
+    const user = renderDeep();
+    await user.tab();
+    expect(filterField()).toHaveFocus();
+  });
+
+  it('narrows the tree to what matches, dropping the rest', async () => {
+    const user = renderDeep();
+    await user.type(filterField(), 'lejos');
+
+    expect(screen.getByRole('link', { name: 'lejos' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'portada' })).not.toBeInTheDocument();
+  });
+
+  it('keeps the ancestors of a match visible, so the result has a place', async () => {
+    const user = renderDeep();
+    await user.type(filterField(), 'hoja-profunda');
+
+    expect(screen.getByText('Estructuras lineales')).toBeInTheDocument();
+    expect(screen.getByText('Listas')).toBeInTheDocument();
+    expect(screen.queryByText('Grafos')).not.toBeInTheDocument();
+  });
+
+  it('opens the groups it kept — a match behind a closed triangle is not a result', async () => {
+    const user = renderDeep();
+    await user.type(filterField(), 'hoja-profunda');
+
+    expect(openGroups()).toEqual(['Estructuras lineales', 'Listas']);
+  });
+
+  it('says how many documents matched', async () => {
+    const user = renderDeep();
+    await user.type(filterField(), 'profunda');
+
+    expect(screen.getByRole('status')).toHaveTextContent(/^1 documento$/i);
+  });
+
+  it('counts in the plural when more than one matched', async () => {
+    const user = renderDeep();
+    await user.type(filterField(), 'hoja');
+
+    expect(screen.getByRole('status')).toHaveTextContent(/^2 documentos$/i);
+  });
+
+  it('answers instead of showing an empty panel when nothing matches', async () => {
+    const user = renderDeep();
+    await user.type(filterField(), 'zzzz');
+
+    expect(screen.getByRole('status')).toHaveTextContent(/nada|ningún/i);
+    expect(screen.queryAllByRole('link')).toHaveLength(0);
+  });
+
+  it('restores the collapsed-plus-active-path tree when cleared', async () => {
+    const user = renderDeep();
+    await user.type(filterField(), 'hoja-profunda');
+    expect(openGroups()).toHaveLength(2);
+
+    await user.clear(filterField());
+
+    expect(openGroups()).toEqual([]);
+    expect(screen.getByRole('link', { name: 'lejos' })).toBeInTheDocument();
+  });
+});
+
 describe('Toc', () => {
   it('renders groups and document links following the index nesting', () => {
     renderToc('/d/bienvenida');
