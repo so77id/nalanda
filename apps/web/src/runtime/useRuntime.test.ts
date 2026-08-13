@@ -56,6 +56,17 @@ function resultFor(id: number, overrides: Partial<ResultMessage> = {}): ResultMe
 }
 
 /** Spawns fake workers and records every one it made. */
+/**
+ * A pause longer than any short budget a test hands the hook.
+ *
+ * The flake this guards was not a race in the code: it was a test that asked a
+ * loaded machine to answer inside a 20ms real timer. Waiting here on purpose
+ * makes that dependency explicit — a test that survives this survives a busy
+ * CI box, and one that does not fails on every machine instead of one in
+ * however many (#98).
+ */
+const underLoad = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 30));
+
 function workerFactory() {
   const created: FakeWorker[] = [];
   return {
@@ -309,13 +320,20 @@ describe('useRuntime', () => {
 
   it('abandons a run that never finishes and frees its toolchain', async () => {
     const factory = workerFactory();
-    const { result } = renderHook(() =>
-      useRuntime({
-        runtimeId: 'cpp',
-        createWorker: factory.createWorker,
-        timeoutMs: 20,
-        startTimeoutMs: 20,
-      }),
+    // Two budgets, because the two halves of this test want opposite things:
+    // the abandoned run needs a deadline it will actually hit, and the run
+    // after it needs one the machine cannot blow through. Handing both halves
+    // 20ms made the second one a race against whatever else the box was doing
+    // (#98).
+    const { result, rerender } = renderHook(
+      ({ startTimeoutMs }: { startTimeoutMs: number }) =>
+        useRuntime({
+          runtimeId: 'cpp',
+          createWorker: factory.createWorker,
+          timeoutMs: 20,
+          startTimeoutMs,
+        }),
+      { initialProps: { startTimeoutMs: 20 } },
     );
 
     let stuck!: Promise<unknown>;
@@ -329,11 +347,17 @@ describe('useRuntime', () => {
     // A stranded worker holds a whole compiler in memory, so it must go.
     expect(factory.created[0]!.terminated).toBe(true);
 
+    // Nothing is being timed now — the point of what follows is that a fresh
+    // run works after a discard, not how fast it is.
+    rerender({ startTimeoutMs: 10_000 });
+
     let next!: Promise<unknown>;
     act(() => {
       next = result.current.run('int main(){}', '');
     });
     await waitFor(() => expect(factory.created).toHaveLength(2));
+    // The second run must not inherit the first run's impatience.
+    await underLoad();
     const fresh = factory.last();
     act(() => fresh.emit(resultFor(fresh.posted[0]!.id, { output: 'ok' })));
     await expect(next).resolves.toMatchObject({ output: 'ok' });
