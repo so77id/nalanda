@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { fencesByMeta, withoutFences } from './codeFences';
+import { fenceOf, fencesByMeta, withoutFences } from './codeFences';
 
 /** What the MDX pipeline hands a component for ```` ```java <meta> ````. */
 function fence(meta: string | undefined, code: string) {
@@ -108,5 +108,46 @@ describe('withoutFences', () => {
       </>,
     );
     expect(text(nodes)).toBe('enunciado');
+  });
+});
+
+describe('fenceOf', () => {
+  it('reads the language and the source of a fenced block', () => {
+    // Exactly what the MDX pipeline hands `pre`: one intrinsic `code` child
+    // carrying `language-*`, and the source with its trailing newline.
+    const read = fenceOf(<code className="language-java">{'class A {}\n'}</code>);
+
+    expect(read).toEqual({ language: 'java', source: 'class A {}' });
+  });
+
+  it('keeps blank lines inside the source, trimming only the fence break', () => {
+    const read = fenceOf(<code className="language-cpp">{'int a;\n\nint b;\n'}</code>);
+
+    expect(read?.source).toBe('int a;\n\nint b;');
+  });
+
+  it('has no language for a fence written without one', () => {
+    // The two ASCII diagrams in 06-java-desde-cpp.mdx are exactly this shape.
+    expect(fenceOf(<code>{'programa.cpp -> [g++] -> programa\n'}</code>)?.language).toBeNull();
+  });
+
+  it('has no language when the class names something else', () => {
+    expect(fenceOf(<code className="highlight">{'x\n'}</code>)?.language).toBeNull();
+  });
+
+  it('reads the language even beside other classes', () => {
+    expect(fenceOf(<code className="foo language-python bar">{'x\n'}</code>)?.language).toBe(
+      'python',
+    );
+  });
+
+  it('is not a fence when the child is not a code element', () => {
+    // `pre` can hold hand-written markup; only a real fence is a fence.
+    expect(fenceOf(<span className="language-java">{'x'}</span>)).toBeNull();
+  });
+
+  it('is not a fence when there is no single child to read', () => {
+    expect(fenceOf(undefined)).toBeNull();
+    expect(fenceOf([<code key="a">{'x'}</code>, <code key="b">{'y'}</code>])).toBeNull();
   });
 });

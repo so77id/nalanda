@@ -13,6 +13,9 @@ import { slideCatalogEntry } from './structure/Slide.catalog';
 export { LazyCodeEditor } from './interactive/lazyCodeEditor';
 // Same rule, same reason: Exercise embeds CodeMirror too.
 export { LazyExercise } from './interactive/lazyExercise';
+// Not a document-facing component and deliberately not in the catalog: authors
+// never write it, they write a fence. The shell maps it onto `pre`.
+export { MdxPre } from './MdxPre';
 export { SectionBreak } from './structure/SectionBreak';
 export { SideBySide } from './structure/SideBySide';
 export { Slide } from './structure/Slide';
