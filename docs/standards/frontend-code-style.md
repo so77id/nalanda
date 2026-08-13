@@ -83,7 +83,7 @@ src/
   mapping that reaches for one goes where the map is composed (worked case:
   `pre → MdxPre`, #85). It needs no catalog entry — the completeness invariant
   covers capitalised keys only, because an intrinsic override is not a name an
-  author writes (`a`, `table`, `h2`, `h3`, `h4` are the precedent).
+  author writes (`a`, `table`, `h2`, `h3`, `h4` are the precedent; ADR-0024 decides it for the fence).
 - **Map the wrapper, never the fence.** `pre` is mapped and `code` is not, and
   the difference is not stylistic: `lib/codeFences.ts` identifies an exercise's
   `starter` and `test` fences by the literal `code` intrinsic type, so a

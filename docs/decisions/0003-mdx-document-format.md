@@ -44,4 +44,6 @@ Relacionado: [[busqueda-binaria]]
   DB migration (phase B) and editor (phase C).
 - Requires an MDX compile step in the frontend build (Vite plugin, ADR-0004).
 - Components available inside documents are exactly those registered by the catalog
-  (ADR-0010) — the authoring surface is controlled.
+  (ADR-0010) — the authoring surface is controlled. **Amended by ADR-0024**: true
+  of *named* components only. An intrinsic element the shell maps to a component
+  — a code fence since #85 — has no catalog entry, by design and not by omission.

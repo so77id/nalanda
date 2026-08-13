@@ -173,9 +173,10 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   looked: the Alternatives below reject **Prism/Shiki + `<textarea>`** on the
   grounds of "highlighting only, no editing" — which is a reason about an
   *editing* component and says nothing about build time. A build-time Shiki
-  render, which costs zero client JS, was never weighed for a pure listing. If
-  it is ever revisited, that is
-  the thread to pull.
+  render, which costs zero client JS, was never weighed for a pure listing.
+  **That thread is now pulled and tied off in ADR-0024**, which decides for a
+  listing on palette coherence rather than on cost, and writes the price down so
+  a future reader can reopen it with numbers in hand.
 - **One live worker costs a few hundred MB of RSS** — 681MB peak measured for a
   single C++ worker on Apple Silicon (2026-08-11, Chromium via Playwright),
   against a 152MB idle baseline. Discarding it reclaims the live heap and all

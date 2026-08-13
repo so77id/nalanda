@@ -79,7 +79,7 @@ apps/web/src/components/structure/
      frame, header and gutter. A CSS descendant selector is not a substitute:
      `[&_pre]` rules reach a bare fence and stop at a component's boundary,
      which is exactly why they stopped working the day a fence became one.
-     Worked case: `<SideBySide>` × `CodeEditor` (#85) — the column supplies the
+     Worked case: `<SideBySide>` × `CodeEditor` (#85, ADR-0024) — the column supplies the
      language label, so the editor suppresses its filename and its chip.
    - **Inside `interactive/`**, reuse `Panel` (a labelled output strip),
      `useRunShortcut` (Ctrl/Cmd + Enter) and `draft.ts` — whose `saveDraft` must

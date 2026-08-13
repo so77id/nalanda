@@ -69,7 +69,7 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    **A fence in a language the platform runs is highlighted and copyable.**
    ```` ```java ````, ```` ```cpp ```` and ```` ```python ```` render through
    the same editor the runnable blocks use — same colours, a copy button, and
-   not editable or runnable (#85). Write the language whenever the fence holds
+   not editable or runnable (#85, ADR-0024). Write the language whenever the fence holds
    code. A fence with **no** language, or one the platform has no runtime for
    (```` ```bash ````), stays plain monospace and loads nothing — which is what
    an ASCII diagram wants.
