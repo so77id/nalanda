@@ -229,7 +229,10 @@ src/
   icon-only control inside a component's own dense chrome (`CodeEditor`'s
   expand). 16px for an icon-only control on the PAGE chrome, where the button is
   a touch target rather than part of a text row — the drawer toggle and its
-  close button (#84) are the only two. 48px when the icon is the illustration of
+  close button (#84) and the deck's exit control (#103). Give each of them a
+  `p-2` box and `gap-2` from its neighbour: at `px-2 py-1` the deck's exit was
+  32x24 with 4px of clearance from a control that does the opposite thing, and
+  a mis-tap took the reader deeper in instead of out. 48px when the icon is the illustration of
   a full-screen panel rather than a control — it carries the message at a
   glance, is `aria-hidden` because the text beside it says the same thing, and
   is not clickable (worked case: `presentation/RotateNotice.tsx`, #91). Adding a
@@ -250,6 +253,17 @@ src/
   `presentation/usePortraitPhone.ts` (#91), where the hand-rolled version
   shipped in the first slice and was replaced in review, once the review
   measured that no permitted test could kill its re-read.
+- **A container-level gesture yields to descendants that scroll on its axis.**
+  Decide eligibility at `touchstart` by walking from `event.target` to
+  `event.currentTarget`, and refuse when a node in between really scrolls on
+  the gesture's axis — `getComputedStyle(node).overflowX` of `auto` or
+  `scroll`, AND `scrollWidth > clientWidth + 1` for the sub-pixel rounding a
+  browser reports on boxes that do not scroll at all. Overflowing content is
+  not a scrollable box: `visible` overflows and cannot pan, `hidden` clips and
+  cannot pan, and treating either as a scroller kills the gesture across the
+  whole surface. Worked case: `presentation/swipe.ts` + `SlideDeck` (#103) —
+  a code block wider than the slide is dragged to be read, and the deck used to
+  take that drag as navigation, which made a long line unreadable on a phone.
 - **Layout breakpoints stay in Tailwind classes; a media query is only asked
   from JS when device shape decides BEHAVIOUR** — what gets rendered at all,
   not how wide it is. It belongs in a hook colocated in the feature that owns

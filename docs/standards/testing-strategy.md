@@ -200,6 +200,17 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   reader actually takes — rotating into it left the slide at scale 1 overflowing
   its stage 3:1, and pressing an arrow key measured the outgoing slide. One run
   that pressed ArrowRight instead of reloading showed it immediately.
+- **A guard whose predicate is a DOM measurement is verified against the
+  property it claims to measure, not against itself.** The suite can pin which
+  nodes a walk visits; only a browser can say whether those nodes behave the
+  way the predicate assumes. The recipe is a round trip: set `el.scrollLeft =
+  30`, read it back, restore it — a box that reports overflow but returns 0 was
+  never scrollable. Worked case (#103): `scrollWidth > clientWidth` was true
+  for an `overflow-x: visible` wrapper that neither an assignment nor a real
+  touch drag could move, and the jsdom fakes had pinned that false positive as
+  the intended contract. The same run over every slide of every document is
+  what sized the finding — the predicate was wrong and today's content happened
+  not to trigger it.
 - **A measure-and-observe effect is keyed on the identity of the node it
   measures**, never on a scalar that merely correlates with it (an index, a
   length). And this class IS reachable from jsdom, which is what makes it worth
