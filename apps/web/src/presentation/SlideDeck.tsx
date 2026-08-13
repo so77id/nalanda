@@ -87,7 +87,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   // Replaces the deck rather than covering it: no slide is painted, so nothing
   // of it is readable behind the panel or reachable from it. The reader's
   // position is safe because it lives in ?slide=N, not in this component.
-  if (portraitPhone) return <RotateNotice />;
+  if (portraitPhone) return <RotateNotice docId={docId} />;
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-slate-950 text-slate-100">

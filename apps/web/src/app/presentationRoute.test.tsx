@@ -145,6 +145,19 @@ describe('presentation on a phone held in portrait', () => {
     expect(await findCounter()).toHaveTextContent(/^2 \//);
   });
 
+  it('lets the reader leave the presentation for the book view of the document', async () => {
+    coarsePortrait(true);
+    renderAt(`/d/${firstId}/present`);
+    await screen.findByRole('alertdialog');
+
+    fireEvent.click(screen.getByRole('link', { name: /leer|libro|volver/i }));
+
+    // Still a coarse pointer in portrait — and the book view, which was built
+    // for exactly that (#84), is not covered by anything.
+    expect(await screen.findByRole('article')).toBeInTheDocument();
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
+
   it('never covers a fine-pointer window, whatever its shape', async () => {
     coarsePortrait(false);
     renderAt(`/d/${firstId}/present`);
