@@ -9,10 +9,13 @@ export interface IndexEntry {
 }
 
 export interface CourseIndex {
+  /** Course name — the first crumb of the breadcrumb. Optional: absent, the trail starts at the unit. */
+  title?: string;
   entries: IndexEntry[];
 }
 
 const ENTRY_KEYS = ['label', 'levelName', 'docId', 'children'] as const;
+const ROOT_KEYS = ['title', 'entries'] as const;
 
 function fail(source: string, path: string, message: string): never {
   throw new Error(`Course index (${source}): ${path}: ${message}`);
@@ -74,14 +77,16 @@ export function parseCourseIndex(raw: string, source: string): CourseIndex {
   }
   const record = data as Record<string, unknown>;
   for (const key of Object.keys(record)) {
-    if (key !== 'entries') {
-      fail(source, 'root', `unknown key "${key}" (allowed: entries)`);
+    if (!(ROOT_KEYS as readonly string[]).includes(key)) {
+      fail(source, 'root', `unknown key "${key}" (allowed: ${ROOT_KEYS.join(', ')})`);
     }
   }
+  const title = requireString(source, 'root', 'title', record['title']);
   if (!Array.isArray(record['entries']) || record['entries'].length === 0) {
     fail(source, 'root', 'must have a non-empty "entries" list');
   }
   const index: CourseIndex = {
+    title,
     entries: record['entries'].map((entry, i) => parseEntry(source, `entries[${i}]`, entry)),
   };
   checkDuplicateDocIds(source, index.entries, 'entries', new Set());
@@ -109,6 +114,48 @@ function checkDuplicateDocIds(
   });
 }
 
+function normalize(text: string): string {
+  return text.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+}
+
+/**
+ * The index pruned to what matches a query: an entry survives if its own label
+ * matches, or if any descendant's does — in which case it is kept as the path
+ * to that descendant. A group that matches by name keeps all of its children,
+ * because "Fundamentos" means the unit, not a unit with nothing in it.
+ *
+ * Labels are resolved by the caller (`labelOf`): a label-less entry displays
+ * its document's registry title, and this module must not reach the registry.
+ */
+export function filterIndex(
+  entries: IndexEntry[],
+  query: string,
+  labelOf: (entry: IndexEntry) => string,
+): IndexEntry[] {
+  const needle = normalize(query.trim());
+  if (!needle) return entries;
+
+  const prune = (list: IndexEntry[]): IndexEntry[] =>
+    list.flatMap((entry) => {
+      const self = normalize(labelOf(entry)).includes(needle);
+      if (!entry.children) return self ? [entry] : [];
+      if (self) return [entry];
+      const children = prune(entry.children);
+      return children.length > 0 ? [{ ...entry, children }] : [];
+    });
+
+  return prune(entries);
+}
+
+/** How many documents a (possibly pruned) list of entries holds. */
+export function countDocuments(entries: IndexEntry[]): number {
+  return entries.reduce(
+    (total, entry) =>
+      total + (entry.docId ? 1 : 0) + (entry.children ? countDocuments(entry.children) : 0),
+    0,
+  );
+}
+
 /** Depth-first walk over the index — the linear reading order of the course. */
 export function walkIndex(index: CourseIndex): string[] {
   const ids: string[] = [];
@@ -120,6 +167,100 @@ export function walkIndex(index: CourseIndex): string[] {
   };
   visitEntries(index.entries);
   return ids;
+}
+
+/** One ancestor group of a document, as the breadcrumb renders it. */
+export interface TrailCrumb {
+  label: string;
+  levelName?: string;
+}
+
+/** Where a document sits in the course: the groups above it and its rank among its siblings. */
+export interface Trail {
+  /** Course name, from the index root; absent when the index has no title. */
+  course?: string;
+  /** Ancestor groups from the root down; empty for a top-level or unlisted document. */
+  ancestors: TrailCrumb[];
+  /** 1-based rank among the entries of the same list; absent when the document is unlisted. */
+  position?: { at: number; of: number };
+}
+
+/**
+ * The breadcrumb of a document, derived from the index alone. An unlisted
+ * document is not an error — `/d/<id>` serves it, so the trail degrades to the
+ * course name with no ancestors and no position.
+ */
+export function trailFor(
+  index: CourseIndex,
+  id: string,
+  labelOf: (entry: IndexEntry) => string = (entry) => entry.label ?? entry.docId ?? '',
+): Trail {
+  const found = locate(index.entries, id, [], labelOf);
+  return {
+    course: index.title,
+    ancestors: found?.ancestors ?? [],
+    position: found?.position,
+  };
+}
+
+/**
+ * Whether a trail has anything to say. A trail with neither a course, an
+ * ancestor nor a position renders nothing rather than an empty bar.
+ */
+export function hasTrail(trail: Trail): boolean {
+  return Boolean(trail.course) || trail.ancestors.length > 0 || trail.position !== undefined;
+}
+
+/** Position in the tree — stable across renders, unique per entry, index-shaped. */
+export function keyOf(parent: string, i: number): string {
+  return parent ? `${parent}.${i}` : String(i);
+}
+
+/**
+ * Keys of every group that has to be open for a document to be visible: its
+ * ancestors, plus the group itself when the group carries the document as its
+ * own cover page — otherwise reading a unit's cover leaves the unit shut with
+ * the "you are here" mark hidden inside it.
+ */
+export function ancestorsOf(
+  entries: IndexEntry[],
+  id: string | undefined,
+  parent = '',
+): string[] | null {
+  if (!id) return null;
+  for (const [i, entry] of entries.entries()) {
+    const key = keyOf(parent, i);
+    if (entry.docId === id) return entry.children ? [key] : [];
+    if (entry.children) {
+      const deeper = ancestorsOf(entry.children, id, key);
+      if (deeper) return [key, ...deeper];
+    }
+  }
+  return null;
+}
+
+function locate(
+  entries: IndexEntry[],
+  id: string,
+  ancestors: TrailCrumb[],
+  labelOf: (entry: IndexEntry) => string,
+): { ancestors: TrailCrumb[]; position: { at: number; of: number } } | null {
+  for (const [i, entry] of entries.entries()) {
+    // A group may carry a docId of its own: matched here, it is not its own ancestor.
+    if (entry.docId === id) {
+      return { ancestors, position: { at: i + 1, of: entries.length } };
+    }
+    if (entry.children) {
+      const deeper = locate(
+        entry.children,
+        id,
+        [...ancestors, { label: labelOf(entry), levelName: entry.levelName }],
+        labelOf,
+      );
+      if (deeper) return deeper;
+    }
+  }
+  return null;
 }
 
 /** Neighbors of a document along the depth-first walk; empty at the edges or off-index. */

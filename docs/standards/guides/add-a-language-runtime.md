@@ -103,14 +103,10 @@ src/runtime/python/
 7. **Verify it in a real browser.** The jsdom suite fakes the worker and
    CodeMirror, and has no `Worker`, no CheerpJ DOM loader and no network — so
    nothing there compiles or runs, whatever WebAssembly Node itself provides. A
-   green suite says nothing about whether your runtime works. Playwright is not a project dependency yet
-   (L5 in `testing-strategy.md` is still pending), so drive it ad hoc from the
-   scratchpad:
-
-   ```bash
-   npm install playwright && npx playwright install chromium   # once, in the scratchpad
-   npm run build && npm run preview -- --port 4174             # NOT `npm run dev`
-   ```
+   green suite says nothing about whether your runtime works. The mechanics —
+   installing Playwright ad hoc, driving `npm run build && npm run preview`
+   rather than `npm run dev` — live in `testing-strategy.md` §Conventions, which
+   two failure classes now share; what follows is the runtime-specific half.
 
    Point the script at `/nalanda/d/codigo-ejecutable` (the demo document, one
    editor per variant) or `/nalanda/catalog/c/CodeEditor` (live examples per

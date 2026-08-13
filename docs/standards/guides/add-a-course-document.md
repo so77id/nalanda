@@ -54,11 +54,27 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
 3. **Write prose in Markdown.** Headings h2–h4 get automatic slug anchors
    (deep-linkable). Code fences render book-style.
 
+   **`h2` is also the section spine** (ADR-0021): every `h2` the page paints
+   becomes an entry in the "En esta página" list — the rail from `2xl`, the
+   drawer below it. `h3`/`h4` stay deep-linkable but never appear there, so a
+   document you want navigable is structured with `##`. A document with no `h2`
+   at all simply has no section navigation, which is a choice rather than a bug
+   (`04-apuntes.mdx` is the worked case).
+
+   Running text is narrowed to ~70 characters inside the 768px column, while
+   code, tables and components keep the full width (ADR-0022). You write nothing
+   for this; it matters only if you add a component of your own — see
+   `add-a-content-component.md`.
+
 4. **Mark slides (optional)**: `<Slide title="...">...</Slide>` and
    `<SectionBreak />` are available WITHOUT imports. In the book view a Slide
    renders as its heading + flowing prose and a SectionBreak as a subtle
    divider; in presentation they cut slide boundaries. Worked example:
    `03-busqueda-binaria.mdx`.
+
+   A `<Slide title>` renders that same `h2`, so **slide titles appear in the
+   section list** — one more reason to give every Slide a title. An untitled
+   Slide cuts a slide but contributes no section.
 
 5. **Add runnable code (optional)**: `<CodeEditor language="java" />` is
    likewise available without imports — Java, C++ or Python, compiled and run in
@@ -162,7 +178,8 @@ themselves rather than maintained by hand.
    recorrido. Schema (strictly validated; unknown keys fail the build):
 
    ```yaml
-   entries: # root key (the only one allowed)
+   title: Estructuras de Datos # optional course name; the first crumb of the breadcrumb
+   entries: # the list of stops (title and entries are the only root keys)
      - docId: bienvenida # leaf entry: just a document reference
      - label: Fundamentos # group entry: children + label (required unless it has a docId)
        levelName: Unidad # optional display name for the level (D8)
@@ -175,6 +192,11 @@ themselves rather than maintained by hand.
    on the FIRST entry — by convention the course welcome document). A document
    not listed in the index is still compiled and served at `/d/<id>`: **the index
    controls navigation, never visibility.**
+
+   `title` names the course wherever the reader needs to know which one they are
+   in — today the breadcrumb above every document. Omit it and the trail starts
+   at the unit; give it an empty or non-string value and the build fails like any
+   other field.
 
 8. **Verify**: `npm run build` from `apps/web/`. The contentIntegrity gate fails
    the build (and CI — `content/**` triggers it) with a file-and-field message

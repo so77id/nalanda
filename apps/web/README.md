@@ -52,7 +52,11 @@ src/
 │                         # + AuthoringError: shared across families, not a content component
 ├── content/              # content pipeline: MDX registry, course index, remark plugin
 │                         # list (wiki-links, fence metadata, GFM), element renderers
-│                         # (links, tables), book-mode page, build-time integrity gate
+│                         # (links, tables), build-time integrity gate
+│                         # + the reading shell: book-mode page, course-index tree
+│                         #   (collapsed to the active path, filterable), breadcrumb,
+│                         #   section spine hook and its two placements: the rail
+│                         #   at 2xl, the drawer at every width below it
 ├── presentation/         # presentation mode: mode context, slide parser, SlideDeck viewer
 ├── runtime/              # code execution: worker contract, registry, useRuntime hook,
 │                         # one folder per language (java, cpp, python)

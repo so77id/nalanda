@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { parseCourseIndex, prevNext, walkIndex } from './courseIndex';
+import {
+  countDocuments,
+  filterIndex,
+  parseCourseIndex,
+  prevNext,
+  trailFor,
+  walkIndex,
+} from './courseIndex';
 
 const SOURCE = 'index.yaml';
 
@@ -23,6 +30,28 @@ describe('parseCourseIndex', () => {
     expect(index.entries[0]).toMatchObject({ label: 'Introducción', levelName: 'Unidad' });
     expect(index.entries[0]?.children?.[0]).toEqual({ docId: 'doc-a' });
     expect(index.entries[1]).toEqual({ docId: 'doc-c' });
+  });
+
+  it('reads the optional course title from the root', () => {
+    const yaml = ['title: Estructuras de Datos', 'entries:', '  - docId: doc-a'].join('\n');
+    expect(parseCourseIndex(yaml, SOURCE).title).toBe('Estructuras de Datos');
+  });
+
+  it('leaves the course title undefined when the root omits it', () => {
+    const index = parseCourseIndex(['entries:', '  - docId: doc-a'].join('\n'), SOURCE);
+    expect(index.title).toBeUndefined();
+  });
+
+  it('rejects a non-string course title, naming the source and the field', () => {
+    const yaml = ['title: 42', 'entries:', '  - docId: doc-a'].join('\n');
+    expect(() => parseCourseIndex(yaml, SOURCE)).toThrowError(
+      /index\.yaml.*root\.title.*non-empty string/s,
+    );
+  });
+
+  it('rejects an empty course title rather than rendering an empty crumb', () => {
+    const yaml = ['title: ""', 'entries:', '  - docId: doc-a'].join('\n');
+    expect(() => parseCourseIndex(yaml, SOURCE)).toThrowError(/root\.title/s);
   });
 
   it('rejects a root without an entries list', () => {
@@ -89,5 +118,173 @@ describe('walkIndex / prevNext', () => {
     expect(prevNext(index, 'two')).toEqual({ prev: 'one', next: 'three' });
     expect(prevNext(index, 'three')).toEqual({ prev: 'two', next: undefined });
     expect(prevNext(index, 'unlisted')).toEqual({ prev: undefined, next: undefined });
+  });
+});
+
+describe('trailFor', () => {
+  const index = parseCourseIndex(
+    [
+      'title: Estructuras de Datos',
+      'entries:',
+      '  - docId: bienvenida',
+      '  - label: Java para quien viene de C++',
+      '    levelName: Unidad',
+      '    children:',
+      '      - docId: java-desde-cpp',
+      '      - docId: java-avanzado',
+      '      - label: Anexos',
+      '        levelName: Sección',
+      '        children:',
+      '          - docId: tabla-de-equivalencias',
+    ].join('\n'),
+    SOURCE,
+  );
+
+  it('names the course as the first crumb', () => {
+    expect(trailFor(index, 'java-desde-cpp').course).toBe('Estructuras de Datos');
+  });
+
+  it('omits the course crumb when the index has no title', () => {
+    const untitled = parseCourseIndex(['entries:', '  - docId: solo'].join('\n'), SOURCE);
+    expect(trailFor(untitled, 'solo').course).toBeUndefined();
+  });
+
+  it('lists the ancestor groups from the root down, with their level names', () => {
+    expect(trailFor(index, 'tabla-de-equivalencias').ancestors).toEqual([
+      { label: 'Java para quien viene de C++', levelName: 'Unidad' },
+      { label: 'Anexos', levelName: 'Sección' },
+    ]);
+  });
+
+  it('positions a document among its siblings, groups included', () => {
+    // The group "Anexos" is the third child of the unit, so java-avanzado is 2 of 3.
+    expect(trailFor(index, 'java-avanzado').position).toEqual({ at: 2, of: 3 });
+  });
+
+  it('counts a top-level document against the top-level entries', () => {
+    expect(trailFor(index, 'bienvenida').position).toEqual({ at: 1, of: 2 });
+  });
+
+  it('has no ancestors and no position for a document the index does not list', () => {
+    const trail = trailFor(index, 'apuntes-sueltos');
+    expect(trail.ancestors).toEqual([]);
+    expect(trail.position).toBeUndefined();
+  });
+
+  it('still names the course for a document the index does not list', () => {
+    // /d/<id> serves unlisted documents: the index controls navigation, never
+    // visibility — so the breadcrumb degrades to the course name alone.
+    expect(trailFor(index, 'apuntes-sueltos').course).toBe('Estructuras de Datos');
+  });
+
+  it('names a label-less ancestor through the resolver, not by its raw id', () => {
+    // The same defect the tree had: an entry with children and a docId is
+    // index-legal without a label, and the breadcrumb showed "portada-unidad"
+    // where the sidebar showed the document's title.
+    const withCover = parseCourseIndex(
+      [
+        'entries:',
+        '  - docId: portada-unidad',
+        '    levelName: Unidad',
+        '    children:',
+        '      - docId: hijo',
+      ].join('\n'),
+      SOURCE,
+    );
+
+    const titles: Record<string, string> = { 'portada-unidad': 'Estructuras lineales' };
+    const trail = trailFor(
+      withCover,
+      'hijo',
+      (entry) => entry.label ?? (entry.docId ? (titles[entry.docId] ?? entry.docId) : ''),
+    );
+
+    expect(trail.ancestors).toEqual([{ label: 'Estructuras lineales', levelName: 'Unidad' }]);
+  });
+
+  it('falls back to the raw id when no resolver is given', () => {
+    const withCover = parseCourseIndex(
+      ['entries:', '  - docId: portada-unidad', '    children:', '      - docId: hijo'].join('\n'),
+      SOURCE,
+    );
+
+    expect(trailFor(withCover, 'hijo').ancestors).toEqual([
+      { label: 'portada-unidad', levelName: undefined },
+    ]);
+  });
+
+  it('does not treat a group that also carries a docId as its own ancestor', () => {
+    const withGroupDoc = parseCourseIndex(
+      [
+        'entries:',
+        '  - label: Unidad con portada',
+        '    docId: portada',
+        '    children:',
+        '      - docId: hijo',
+      ].join('\n'),
+      SOURCE,
+    );
+    expect(trailFor(withGroupDoc, 'portada').ancestors).toEqual([]);
+    expect(trailFor(withGroupDoc, 'hijo').ancestors).toEqual([
+      { label: 'Unidad con portada', levelName: undefined },
+    ]);
+  });
+});
+
+describe('filterIndex', () => {
+  const index = parseCourseIndex(
+    [
+      'entries:',
+      '  - docId: bienvenida',
+      '  - label: Fundamentos',
+      '    levelName: Unidad',
+      '    children:',
+      '      - docId: busqueda-binaria',
+      '      - docId: ordenamiento',
+      '  - label: Java',
+      '    children:',
+      '      - label: Sección avanzada',
+      '        children:',
+      '          - docId: hilos',
+    ].join('\n'),
+    SOURCE,
+  );
+  const labelOf = (entry: { label?: string; docId?: string }) => entry.label ?? entry.docId ?? '';
+
+  it('returns the index untouched for an empty query', () => {
+    expect(filterIndex(index.entries, '   ', labelOf)).toBe(index.entries);
+  });
+
+  it('keeps a matching document and drops its siblings', () => {
+    const kept = filterIndex(index.entries, 'orden', labelOf);
+    expect(countDocuments(kept)).toBe(1);
+    expect(kept[0]?.children?.[0]?.docId).toBe('ordenamiento');
+  });
+
+  it('keeps the ancestors of a match, at every level', () => {
+    const kept = filterIndex(index.entries, 'hilos', labelOf);
+    expect(kept).toHaveLength(1);
+    expect(kept[0]?.label).toBe('Java');
+    expect(kept[0]?.children?.[0]?.label).toBe('Sección avanzada');
+  });
+
+  it('keeps everything inside a group that matches by name', () => {
+    // "Fundamentos" names the unit; a unit with none of its documents is not
+    // what the reader asked for.
+    const kept = filterIndex(index.entries, 'fundamentos', labelOf);
+    expect(countDocuments(kept)).toBe(2);
+  });
+
+  it('ignores case and accents, so "seccion" finds "Sección"', () => {
+    expect(countDocuments(filterIndex(index.entries, 'SECCION', labelOf))).toBe(1);
+  });
+
+  it('returns nothing for a query that matches nothing', () => {
+    expect(filterIndex(index.entries, 'zzz', labelOf)).toEqual([]);
+  });
+
+  it('leaves the original index untouched', () => {
+    filterIndex(index.entries, 'orden', labelOf);
+    expect(countDocuments(index.entries)).toBe(4);
   });
 });

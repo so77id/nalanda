@@ -10,10 +10,15 @@ interface Props {
 }
 
 /**
- * Explicit slide boundary (ADR-0010 contract). Book: h2 (the MDX-mapped one,
- * so anchors apply) + flowing children. Presentation: children only — the
- * boundary itself is consumed by the slide parser, and the title becomes
- * viewer chrome.
+ * Explicit slide boundary (ADR-0010 contract). Book: h2 (the MDX-mapped one) +
+ * flowing children. Presentation: children only — the boundary itself is
+ * consumed by the slide parser, and the title becomes viewer chrome.
+ *
+ * The h2 must be the MDX-mapped one for TWO reasons, and the second is easy to
+ * lose: anchors apply to it, AND it is the section spine (ADR-0021). A Slide
+ * that stopped rendering this heading — or rendered a plain `<h2>` without the
+ * mapped id — would silently empty the section rail. The only guard is
+ * `app/documentSections.test.tsx`, three folders away from here.
  */
 export function Slide({ title, children }: Props) {
   const mode = useMode();

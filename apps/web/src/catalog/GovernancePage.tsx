@@ -12,11 +12,13 @@ const CONTRACT_POINTS = [
   'Client-side compute (ADR-0001) for any heavy work.',
   'Feature-toggle props — capabilities switch on/off per instance.',
   'Composition — abstract components may receive/render injected components.',
+  'A component that marks a section renders the MDX-mapped h2 in book mode — in-document navigation reads the h2 elements the page PAINTED, not the source (ADR-0021). A <Slide> that stopped rendering its title would silently empty the section rail, with a green suite.',
+  'Anything wider than running text marks itself .not-prose or .measure-full — the book view narrows prose to 39rem inside a 768px column and the rule is unlayered, so a max-w-* of your own cannot opt out (ADR-0022). Neither /catalog nor presentation mode applies the measure, so check it in a real document.',
 ];
 
 const ADD_STEPS = [
   `Pick the family (${families.map((f) => f.name).join(', ')}) — or propose a family change here first.`,
-  `Implement the component in its family folder under src/components/ (${FAMILY_FOLDERS}), satisfying the seven contract points below.`,
+  `Implement the component in its family folder under src/components/ (${FAMILY_FOLDERS}), satisfying the contract points below.`,
   'Register it in the shell MDX map (app/mdxComponents.ts). Not optional: the catalog and the MDX map are asserted to be the same set in both directions, so today a component that must not be document-facing does not get an entry either (ADR-0014 reserves an explicit opt-out for the composed-component case).',
   'Write its colocated <Component>.catalog.tsx entry (CatalogEntry from lib/) and add it to catalogEntries in the components seam. A forgotten export makes the entry invisible to the catalog; app/mdxComponents.test.ts is what catches it ("missing catalog entry for <Name>"), not the entry-shape invariants.',
   'If the component carries a heavy dependency (an editor, a WASM toolchain): register a lazy<Name>.tsx wrapper instead of the component, and import that wrapper from the catalog entry too. The shell builds both the MDX map and catalogEntries eagerly, so ANY static import from either puts the whole dependency in the entry chunk — for CodeMirror that roughly doubles it (measured in ADR-0018 §7). Copy the "stays out of the entry chunk" case in src/architecture.test.ts for your component: that guard is per-component, not generic.',
@@ -31,7 +33,7 @@ const DOC_CHECKLIST = [
 ];
 
 const REVIEW_CHECKLIST = [
-  'All seven contract points verified (see Component contract).',
+  'Every contract point verified (see Component contract).',
   'Catalog entry present and accurate — the catalog invariants test is green.',
   'Per-mode tests exist and pass; lint + build + full suite green.',
   'The integration guide steps were followed (docs/standards/integration-guides.md).',

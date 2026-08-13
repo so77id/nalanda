@@ -38,12 +38,12 @@ apps/web/src/components/structure/
    `apps/web/src/catalog/families.ts`, rendered on `/catalog/governance` and on
    each family page — read it there rather than from this guide.
 2. **Implement** in `apps/web/src/components/<folder>/<Name>.tsx`, satisfying
-   the seven contract points (`/catalog/governance` → Component contract). If
+   the contract points (`/catalog/governance` → Component contract). If
    the component reacts to the render mode, read it with `useMode()`
    (presentation seam); if a parser must recognize it, declare metadata with
    `withMeta` (`lib/componentMeta.ts`) — never expect identity imports.
 
-   Three seams worth knowing before writing your own:
+   Four seams worth knowing before writing your own:
 
    - **Labelled code fences.** A component whose children carry code the author
      marks — ```` ```java starter ```` — reads them with `fencesByMeta` /
@@ -57,6 +57,18 @@ apps/web/src/components/structure/
      fix it. The stricter sibling is `content/contentIntegrity.ts`, which fails
      the build instead — use it when the mistake is detectable without rendering
      (frontmatter, the index). Worked cases: `<Exercise>`, `<SideBySide>`.
+   - **The measure.** The book view narrows *running text* to 39rem inside a
+     768px column (`.measured-prose`, `styles/index.css`, ADR-0022). Every
+     direct child of the article is narrowed unless it is a bare `pre`, marks
+     itself **`.not-prose`** (a block, not text — `CodeEditor`, `Exercise`,
+     `SideBySide`, `AuthoringError` all do) or **`.measure-full`** (neither
+     block nor text: the table scroll box, the prev/next row, `<SectionBreak/>`).
+     **A component that renders anything wide MUST carry one of the two**, or it
+     is silently centred at 624px in documents. The rule is unlayered, so a
+     `max-w-*` of your own cannot override it. It will look correct everywhere
+     you are likely to check — `/catalog` and presentation mode do not apply the
+     measure, and jsdom computes no layout — so verify it in the book view of a
+     real document.
    - **Inside `interactive/`**, reuse `Panel` (a labelled output strip),
      `useRunShortcut` (Ctrl/Cmd + Enter) and `draft.ts` — whose `saveDraft` must
      be called immediately *before* a run, never after, because a Java loop that
@@ -106,10 +118,14 @@ own wrapper in `ALLOWED`, or nothing checks you.
 
 ## Checklist
 
-- [ ] Family chosen; seven contract points satisfied.
+- [ ] Family chosen; the contract points satisfied — including the `h2` one if
+      the component marks a section, and the measure one if it renders wide.
 - [ ] Registered in `app/mdxComponents.ts` (mandatory for every catalogued component).
 - [ ] Colocated `.catalog.tsx` entry exported via the components seam.
 - [ ] ≥2 live examples; per-mode tests; completeness test green.
+- [ ] Wide output carries `.not-prose` or `.measure-full`, checked in the book
+      view of a real document (`npm run build && npm run preview`), not only in
+      `/catalog` — which does not apply the reading measure.
 - [ ] If it carries a heavy dependency: lazy wrapper registered instead of the
       component, catalog entry importing the wrapper, its own L4 case copied in
       `src/architecture.test.ts`, entry chunk unchanged in `npm run build`.

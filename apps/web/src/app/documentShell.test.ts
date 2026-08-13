@@ -62,6 +62,25 @@ describe('the document shell', () => {
     expect(rule).toMatch(/outline-offset:\s*-\d/);
   });
 
+  it('gives running text a measure narrower than the column it sits in', () => {
+    // The audit measured 84 characters per line at 768px — comfortable prose is
+    // 60–75. The container stays 768px because <SideBySide> needs it (#76), so
+    // the narrowing happens to the text, not to the column.
+    const rule = /\.measured-prose[^{]*\{[^}]*\}/s.exec(css)?.[0] ?? '';
+    expect(rule, 'no measure rule at all').not.toBe('');
+    expect(rule).toMatch(/max-width:\s*\d/);
+  });
+
+  it('exempts blocks from the measure, so code and components keep the column', () => {
+    // `not-prose` is already the product's marker for "this is a block, not
+    // text": CodeEditor, Exercise, SideBySide and AuthoringError all carry it.
+    // Narrowing those would re-break the #76 fix, which needs 376px a side.
+    const selector = /\.measured-prose[^{]*(?=\{)/s.exec(css)?.[0] ?? '';
+    expect(selector).toContain('not-prose');
+    expect(selector).toContain('pre');
+    expect(selector).toContain('measure-full');
+  });
+
   it('found real files (guards against a vacuous check)', () => {
     expect(html).toContain('<div id="root">');
     expect(css).toContain('@import');

@@ -33,7 +33,7 @@ export function headingFor(level: 2 | 3 | 4) {
         {children}
         <a
           href={`#${slug}`}
-          aria-label={`Link to section "${text}"`}
+          aria-label={`Enlace a la sección «${text}»`}
           // slate-600 was 2.66:1 against the page, under the 3:1 floor. And it
           // revealed itself only to a pointer: focusable-and-transparent meant a
           // keyboard user landed on it with nothing to see, focus outline included.
