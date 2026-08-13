@@ -46,7 +46,8 @@ interface Props {
 export function Drawer({ open, onClose, label, children }: Props) {
   const panel = useRef<HTMLDivElement>(null);
 
-  // The effect below must run ONCE per open, so it cannot depend on `onClose`:
+  // Read ONLY from inside the effect, where the closure would otherwise be
+  // stale. The effect must run once per open, so it cannot depend on `onClose`:
   // callers pass an inline arrow, a new identity every render, and re-running
   // meant cleanup refocused the opener and setup refocused the panel — the
   // reader was thrown out of the filter field they were typing in the moment
@@ -120,7 +121,7 @@ export function Drawer({ open, onClose, label, children }: Props) {
       >
         <button
           type="button"
-          onClick={() => close.current()}
+          onClick={onClose}
           aria-label="Cerrar"
           className="mb-3 self-end rounded p-1 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
         >
