@@ -1,6 +1,14 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { ReactNode, TouchEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
@@ -18,6 +26,19 @@ import { usePortraitPhone } from './usePortraitPhone';
 // review). Three call sites had drifted into three spellings of this.
 function leaveFullscreen(): void {
   if (document.fullscreenElement) void document.exitFullscreen?.();
+}
+
+// The browser owns this state and changes it behind our back — Escape, the
+// browser's own chrome, the portrait rule. useSyncExternalStore re-reads after
+// subscribing, which is the shape frontend-code-style.md §State fixes for a
+// browser store.
+function subscribeToFullscreen(onChange: () => void): () => void {
+  document.addEventListener('fullscreenchange', onChange);
+  return () => document.removeEventListener('fullscreenchange', onChange);
+}
+
+function isFullscreen(): boolean {
+  return document.fullscreenElement != null;
 }
 
 function toggleFullscreen(): void {
@@ -52,6 +73,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const portraitPhone = usePortraitPhone();
+  const fullscreen = useSyncExternalStore(subscribeToFullscreen, isFullscreen);
 
   // Math.trunc: a crafted non-integer ?slide (e.g. 1.5) must not become a
   // fractional array index (white-screen crash — review finding, issue #64).
@@ -227,7 +249,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
         <div className="flex items-center gap-2">
           <button
             type="button"
-            aria-label="Pantalla completa"
+            aria-label={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
             onClick={toggleFullscreen}
             className="rounded p-2 hover:bg-slate-800 hover:text-slate-200"
           >
