@@ -133,9 +133,16 @@ describe('architecture: cross-feature dependencies', () => {
   });
 
   it('cross-feature imports go through the feature root seam', () => {
+    // Test files are exempt, exactly as the edge rule above exempts them: they
+    // are consumers like the shell. Without this, a test that needs a build-time
+    // module forces the feature to EXPORT it — and #85 briefly put the remark
+    // plugin list on `content/`'s browser-facing seam for one test's sake,
+    // contradicting the rule that those plugins are never imported by browser
+    // code (frontend-code-style.md).
     expect(
       violations(
-        (fileTop, importTop, importRel) =>
+        (fileTop, importTop, importRel, file) =>
+          !file.includes('.test.') &&
           FEATURES.includes(importTop) &&
           fileTop !== importTop &&
           importRel.includes('/') &&
@@ -174,51 +181,101 @@ describe('architecture: what the shell reaches eagerly', () => {
   }
 
   /**
-   * Every module the shell's MDX map pulls in EAGERLY. A `lazy*.tsx` wrapper is
-   * where the graph is cut on purpose (ADR-0018 §7), so the walk stops there —
-   * that is exactly the boundary the invariant is about.
+   * Every module the browser evaluates before the first render, and every bare
+   * package those modules pull in.
+   *
+   * The cut is the DYNAMIC import, not a filename. An earlier version of this
+   * walk stopped at files matching `lazy*.tsx`, which is the same mistake it
+   * was written to replace: adding a static `import { RUNTIME_IDS } from
+   * '../../runtime'` INSIDE `lazyCodeEditor.tsx` passed all of these tests
+   * while the eager payload grew 7.8 kB. `lazy(() => import('./X'))` is a
+   * dynamic import; following static imports and never dynamic ones expresses
+   * the boundary itself, and needs no naming convention to hold.
    */
-  function eagerlyReachable(entry: string): Set<string> {
-    const seen = new Set<string>();
+  function eagerGraph(entry: string): { modules: Set<string>; packages: Set<string> } {
+    const modules = new Set<string>();
+    const packages = new Set<string>();
     const queue = [entry];
     while (queue.length > 0) {
       const file = queue.pop()!;
-      if (seen.has(file)) continue;
-      seen.add(file);
-      if (/\/lazy[A-Z]\w*\.tsx$/.test(file)) continue; // the cut
+      if (modules.has(file)) continue;
+      modules.add(file);
       const source = readFileSync(file, 'utf8');
-      for (const match of source.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)) {
-        const next = moduleOf(file, match[1] ?? '');
+      // Two shapes reach the browser, and two deliberately do not:
+      //   `import x from 'y'` / `export { x } from 'y'` / `import 'y'`  → followed
+      //   `import type … from 'y'` → erased at build time
+      //   `import('y')`            → the lazy cut
+      const specs: string[] = [];
+      for (const m of source.matchAll(
+        /(?:^|[;\n])\s*(?:import|export)\s+(type\s+)?[^;'"]*?from\s*['"]([^'"]+)['"]/g,
+      )) {
+        if (!m[1]) specs.push(m[2] ?? '');
+      }
+      for (const m of source.matchAll(/(?:^|[;\n])\s*import\s*['"]([^'"]+)['"]/g)) {
+        specs.push(m[1] ?? '');
+      }
+      for (const spec of specs) {
+        if (!spec.startsWith('.')) {
+          if (!spec.endsWith('.css'))
+            packages.add(
+              spec
+                .split('/')
+                .slice(0, spec.startsWith('@') ? 2 : 1)
+                .join('/'),
+            );
+          continue;
+        }
+        const next = moduleOf(file, spec);
         if (next) queue.push(next);
       }
     }
-    return seen;
+    return { modules, packages };
   }
 
-  const reachable = eagerlyReachable(join(SRC, 'app/mdxComponents.ts'));
+  // Rooted at the real entry, not at the MDX map: the shell reaches the whole
+  // catalog feature too, and an earlier version of this walk started at
+  // `app/mdxComponents.ts` and covered 47 of 65 modules.
+  const { modules, packages } = eagerGraph(join(SRC, 'app/main.tsx'));
 
   it('reaches something at all (guards against a vacuous check)', () => {
-    expect(reachable.size).toBeGreaterThan(5);
+    expect(modules.size).toBeGreaterThan(20);
+    expect(packages.size).toBeGreaterThan(3);
   });
 
   it('never reaches the runtime feature', () => {
     // Asking WHICH languages exist is fine and lives in lib/runtimeIds.ts;
     // reaching `runtime/` drags useRuntime, the registry, every descriptor and
     // the Java launcher into the payload every reader downloads.
-    const offenders = [...reachable]
-      .filter((file) => relative(SRC, file).startsWith('runtime/'))
-      .map((file) => relative(SRC, file));
-
-    expect(offenders).toEqual([]);
+    expect(
+      [...modules]
+        .filter((f) => relative(SRC, f).startsWith('runtime/'))
+        .map((f) => relative(SRC, f)),
+    ).toEqual([]);
   });
 
-  it('never reaches CodeMirror or a language grammar', () => {
-    const offenders = [...reachable]
-      .filter((file) =>
-        /@uiw\/react-codemirror|@codemirror\/|@lezer\//.test(readFileSync(file, 'utf8')),
-      )
-      .map((file) => relative(SRC, file));
+  /**
+   * The packages that legitimately ship to a reader before first render.
+   *
+   * An ALLOWLIST, deliberately, not a denylist of the two things already known
+   * to have broken. The previous version asserted "no `runtime/`, no
+   * CodeMirror" and walked straight over a build-time markdown compiler:
+   * `export { remarkPlugins }` on the content seam put remark-mdx-frontmatter
+   * and its `toml` parser in the entry chunk — 27,921 B raw — with every
+   * architecture test green. Adding a package here is a deliberate act; it is
+   * weight on the first paint of every page, including the ones with no code.
+   */
+  const SHIPS_EAGERLY = [
+    'react',
+    'react-dom',
+    'react/jsx-runtime',
+    'react-router-dom',
+    '@mdx-js/react',
+    'framer-motion',
+    'lucide-react',
+    'yaml',
+  ];
 
-    expect(offenders).toEqual([]);
+  it('pulls in no package beyond what the first paint needs', () => {
+    expect([...packages].filter((name) => !SHIPS_EAGERLY.includes(name)).sort()).toEqual([]);
   });
 });

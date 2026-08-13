@@ -164,7 +164,9 @@ describe('SideBySide with real listings inside it', () => {
         'false',
       );
     }
-    // The column labels it; the editor must not label it again.
-    expect(screen.queryByText('main.cpp')).not.toBeInTheDocument();
+    // NOT asserted here: that the filename is absent. This file does not mock
+    // the runtime, so the descriptor never resolves and 'main.cpp' could not
+    // appear whatever the code did — a vacuous check. The filename rule is
+    // pinned where the descriptor exists, in CodeEditor.test.tsx.
   });
 });

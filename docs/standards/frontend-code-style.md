@@ -78,6 +78,18 @@ src/
   (e.g., `content/mdxComponents.ts`), and `app/mdxComponents.ts` merges them
   into the provider around the routes. Features never assemble the global map;
   documents use registered components without imports (ADR-0003/0010).
+  **An element renderer that needs a component registers in the SHELL's map**,
+  not in the feature's: `content → components` is not an allowed edge, so a
+  mapping that reaches for one goes where the map is composed (worked case:
+  `pre → MdxPre`, #85). It needs no catalog entry — the completeness invariant
+  covers capitalised keys only, because an intrinsic override is not a name an
+  author writes (`a`, `h2`, `h3`, `h4` are the precedent).
+- **Map the wrapper, never the fence.** `pre` is mapped and `code` is not, and
+  the difference is not stylistic: `lib/codeFences.ts` identifies an exercise's
+  `starter` and `test` fences by the literal `code` intrinsic type, so a
+  component in that position leaves every `<Exercise>` unable to find its own
+  body — silently, with a green suite. Enforced by
+  `app/documentFences.test.tsx`, whose failure message says so.
 - **Route-level pages**: shell-owned pages (e.g., `NotFound`) live in `app/`;
   feature pages live in their feature folder.
 - **Shell UI reaches features by injection**: when a feature needs shell-owned

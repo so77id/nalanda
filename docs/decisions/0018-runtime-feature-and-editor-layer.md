@@ -130,7 +130,27 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   code — a catalog entry's prose ships in the entry chunk because
   `catalogEntries` is built eagerly, so writing documentation moves it. The
   claim to defend is "no CodeMirror, no compiler, no runtime in the entry
-  chunk", which `grep` proves; the kilobytes are a symptom.
+  chunk". **`grep` was said to prove it and does not** — #85 breached it without
+  naming CodeEditor or Exercise: a component reached eagerly by the shell's MDX
+  map imported the runtime seam for a list of language ids, and brought the
+  registry, the descriptors and the Java launcher with it. Both name-based
+  guards stayed green while the eager graph went from 1 chunk / 503,623 B to 9 /
+  542,194 B, and the home page — which has no code at all — lost 236 ms of LCP
+  on slow 4G. The invariant is now a reachability walk from the shell's map
+  (`architecture.test.ts`, "what the shell reaches eagerly"); the kilobytes are
+  still a symptom, and `grep` is still worth running, but it is not the proof.
+- **Who pays the lazy chunks changed with #85** (2026-08-13). This section was
+  written when only a document with an authored `<CodeEditor>` loaded them. Now
+  every document with a fence in a runnable language does, because a fence IS
+  the component — and the grammar is not optional chrome, it is the
+  highlighter. Measured on `03-busqueda-binaria.mdx`, prose plus a single
+  11-line Java listing: from **zero** CodeMirror on `main` to **~153 kB gzip**
+  (95.6 core + 36.4 wrapper + 17.8 grammar), roughly doubling that page's
+  JavaScript against a 163.9 kB gz entry. Accepted in #85 with the numbers in
+  hand; the alternative that would remove it — build-time highlighting, which
+  costs zero client JS — was rejected in this ADR **for an editing component**,
+  and a pure listing is a different premise. If it is ever revisited, that is
+  the thread to pull.
 - **One live worker costs a few hundred MB of RSS** — 681MB peak measured for a
   single C++ worker on Apple Silicon (2026-08-11, Chromium via Playwright),
   against a 152MB idle baseline. Discarding it reclaims the live heap and all

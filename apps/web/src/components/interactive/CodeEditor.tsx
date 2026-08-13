@@ -7,7 +7,8 @@ import { draftKey, readDraft, saveDraft } from './draft';
 import { useEmbedded } from '../embedded';
 import { OUTPUT, Panel } from './Panel';
 import { useMode } from '../../presentation';
-import type { RunResult, RuntimeId, RuntimeModule } from '../../runtime';
+import type { RunResult, RuntimeModule } from '../../runtime';
+import type { RuntimeId } from '../../lib/runtimeIds';
 import { RunAbandonedError, loadRuntime, runtimeDescriptors, useRuntime } from '../../runtime';
 import { useRunShortcut } from './useRunShortcut';
 import type { EditorFlags, EditorVariant } from './variants';
@@ -50,6 +51,12 @@ export function CodeEditor({
   // again — measured at 1440px in the book. Numbers are chrome; a complete line
   // is the lesson.
   const gutter = flags.showLineNumbers && !embedded;
+  // Code to read, not a surface to type on. ONE definition, because two rules
+  // depend on it and they must never drift: how tall it may grow (below), and
+  // whether it consults the draft store (the effect further down). The second
+  // is a security guard — a listing that reads a draft lets same-origin storage
+  // replace what the reader copies.
+  const listing = !flags.editable && !flags.runnable;
 
   const [languageId, setLanguageId] = useState<RuntimeId>(language);
   const [runtimes, setRuntimes] = useState<Partial<Record<RuntimeId, RuntimeModule>>>({});
@@ -94,7 +101,7 @@ export function CodeEditor({
           // authored listing AND what its copy button hands the reader; on a
           // GitHub Pages user site that origin is shared with every other repo
           // of the account. A listing has no draft because it cannot be edited.
-          const restored = flags.editable || flags.runnable ? readDraft(key) : null;
+          const restored = listing ? null : readDraft(key);
           return current[languageId] === undefined
             ? { ...current, [languageId]: restored ?? seed }
             : current;
@@ -107,7 +114,7 @@ export function CodeEditor({
     return () => {
       cancelled = true;
     };
-  }, [languageId, language, defaultValue, flags.editable, flags.runnable]);
+  }, [languageId, language, defaultValue, listing]);
 
   const { run, warmUp, warm, queued, warmStats } = useRuntime({
     runtimeId: flags.runnable && runtime ? languageId : null,
@@ -190,15 +197,13 @@ export function CodeEditor({
 
   const diagnostics = failure ?? result?.compileLog ?? '';
   const failedToCompile = result !== null && result.exitCode === null;
-  // A listing is code to read, not a surface to type on — and the two want
-  // opposite things from height. In the book it takes whatever it needs and the
-  // PAGE scrolls: a box that scrolls inside a document that also scrolls is the
-  // most irritating thing a long listing can do. On a slide the screen does not
+  // Height: in the book a listing takes whatever it needs and the PAGE scrolls;
+  // a box that scrolls inside a document that also scrolls is the most
+  // irritating thing a long listing can do. On a slide the screen does not
   // grow, so the internal scroll is the only way through code that does not fit
   // without shrinking the type past legibility on a projector. An editable
-  // editor keeps its cap in both, or a long exercise pushes its own Run button
-  // out of view.
-  const listing = !flags.editable && !flags.runnable;
+  // editor keeps its cap in both, or a long exercise pushes its Run button out
+  // of view.
   const codeHeight = expanded
     ? 'flex-1 min-h-0 overflow-auto'
     : mode === 'presentation'

@@ -208,10 +208,25 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   jsdom cannot lay out, but it can answer that. Worked case (#99):
   `app/presentationRoute.test.tsx` §"fitting a slide to the stage it is shown
   on", where the rotation case fails against the index-keyed version.
-- **Nothing — a fix or a guard — is done until its test has been seen to fail.**
-  Revert the fix (or introduce the defect the guard names), watch the test go
-  red, restore it — and name the failing test in the commit message. Do this on
-  a **committed** tree and restore with `git checkout --`: that command reverts
+- **A negative test about a KEY needs a positive twin.** When a test asserts
+  that something stored under a computed key is *ignored* — a draft, a cache
+  entry, a query param — it passes identically when the guard works and when the
+  test simply computed the wrong key and planted nothing the code would ever
+  read. Pair it with a test that plants under the SAME key and expects it to be
+  honoured; the pair is the proof. Worked case (#85): "a listing ignores a
+  stored draft" is trustworthy only because "an editor still restores one"
+  plants the identical key and gets it back.
+- **Nothing — a fix or a guard — is done before its test has been seen to fail,
+  at the assertion that encodes it.** Revert the fix (or introduce the defect the
+  guard names), watch the test go red, restore it — and name the failing test,
+  and the line, in the commit message. A suite that reddens proves nothing about
+  WHICH line reddened: an assertion sitting after a `waitFor` whose condition the
+  same mutation also breaks can never fire. Worked case (#85): a guard against an
+  exercise rendering its authoring banner sat behind
+  `await waitFor(… toContain('Escribe'))`, and the banner *replaces* the
+  statement — so the mutation reddened the file at the wait, and the guard was
+  dead through two rounds of review before a recheck named the line. Do this on a
+  **committed** tree and restore with `git checkout --`: that command reverts
   everything uncommitted under the path, so mutating before committing eats the
   test you are trying to prove (#87 lost a slice's tests exactly this way; see
   `docs/conventions.md` §Worktrees). Reviewing a test by reading it is how a test that cannot fail

@@ -30,7 +30,7 @@ export const codeEditorCatalogEntry: CatalogEntry = {
       type: "'minimal' | 'snippet' | 'read' | 'exercise' | 'lab'",
       default: "'exercise'",
       description:
-        'Chrome preset. minimal/snippet/read are inert (no compiler is ever loaded); exercise runs; lab adds stdin, the language picker and warms the runtime on mount.',
+        'Chrome preset. minimal/snippet/read never run anything — no compiler, no worker — though they DO load the language grammar, which is what colours the code; exercise runs; lab adds stdin, the language picker and warms the runtime on mount.',
     },
     {
       name: 'defaultValue',
@@ -68,7 +68,7 @@ export const codeEditorCatalogEntry: CatalogEntry = {
   ],
   examples: [
     {
-      title: 'Reading a listing — inert, no runtime is ever loaded',
+      title: 'Reading a listing — nothing runs, though the grammar loads to colour it',
       code: '<CodeEditor language="java" variant="read" defaultValue={"…"} />',
       render: () => (
         <CodeEditor

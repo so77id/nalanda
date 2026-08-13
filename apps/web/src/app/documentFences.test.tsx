@@ -6,7 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 import * as runtime from 'react/jsx-runtime';
 import { describe, expect, it, vi } from 'vitest';
 
-import { remarkPlugins } from '../content';
+import { remarkPlugins } from '../content/mdxPlugins';
 
 import { mdxComponents } from './mdxComponents';
 
@@ -130,14 +130,18 @@ describe('the pre-not-code rule that keeps Exercise working', () => {
 
     const container = await renderThroughTheShellMap(source);
 
-    await vi.waitFor(() => expect(container.textContent).toContain('Escribe'));
-    // The amber banner is what a broken fence lookup produces, and its real
-    // wording is "<Exercise> sin bloque starter: …". The first version of this
-    // line looked for "espera", which appears only in SideBySide's message —
-    // it could never fire, and said in a comment that it protected this.
+    // Waits for SOMETHING to render, not for the right thing: Exercise early-
+    // returns the banner INSTEAD of the statement, so waiting on 'Escribe'
+    // makes the next assertion unreachable and the guard below dead. The first
+    // version of this test did exactly that, twice — first with a word the
+    // banner never contains, then with the right word behind a wait that
+    // already failed.
+    await vi.waitFor(() => expect(container.textContent?.trim()).not.toBe(''));
+    // THE guard: the amber banner is what a broken fence lookup produces.
     expect(container.textContent, 'the exercise rendered as an authoring error').not.toContain(
       'sin bloque',
     );
+    expect(container.textContent).toContain('Escribe');
     // And the cases stay hidden until the student runs (ADR-0019).
     expect(container.textContent).not.toContain('check(Solution.esPar(4)');
   });

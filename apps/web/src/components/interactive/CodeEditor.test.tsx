@@ -397,6 +397,17 @@ describe('CodeEditor', () => {
     expect(screen.getByRole('button', { name: /copiar/i })).toBeInTheDocument();
   });
 
+  it('renders no filename when asked for none — the rendering end of the chain', async () => {
+    // MdxPre passes showFileName={false} for a fence. That prop was pinned at
+    // the boundary and NOT at the render: `{flags.showFileName && !embedded ?`
+    // could become `{!embedded ?` with the whole suite green, restoring the
+    // three-line fence headed `Main.java` that started this.
+    renderEditor({ variant: 'snippet', showFileName: false }, 'book');
+    await waitFor(() => expect(screen.getByTestId('code')).toBeInTheDocument());
+
+    expect(screen.queryByText('main.cpp')).not.toBeInTheDocument();
+  });
+
   it('keeps its own frame when nothing contains it', async () => {
     const { container } = renderEditor({ variant: 'snippet' }, 'book');
     await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));
