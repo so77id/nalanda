@@ -148,6 +148,16 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   the toggle behind the drawer; and the first fix for it, a visibility filter on
   `offsetParent`, which under jsdom matched *nothing*, emptied the trap's list
   and made its own tests pass while proving nothing.
+- **A fix is not done until its test has been seen to fail.** Revert the fix,
+  watch the new test go red, restore it — and name the failing test in the
+  commit message. Reviewing a test by reading it is how a test that cannot fail
+  gets written: it looks like it asserts the behaviour, and it asserts something
+  the implementation does anyway. Worked case (#84 review round): of eleven
+  review fixes, nine were mutation-checked and held; the two that were not —
+  a group summary rendering the wrong label, and the expand state keyed by
+  value instead of by identity — both survived a full revert with **449/449
+  green**, so the suite would have carried the defect back in silently. The
+  cost is one command per fix.
 - **The browser recipe lives here, not in a runtime guide.** Two failure classes
   now share it. Install once (`npm install playwright && npx playwright install
   chromium`, in a scratch directory — it is not a repo dependency), then drive

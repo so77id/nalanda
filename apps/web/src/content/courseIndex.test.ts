@@ -177,6 +177,42 @@ describe('trailFor', () => {
     expect(trailFor(index, 'apuntes-sueltos').course).toBe('Estructuras de Datos');
   });
 
+  it('names a label-less ancestor through the resolver, not by its raw id', () => {
+    // The same defect the tree had: an entry with children and a docId is
+    // index-legal without a label, and the breadcrumb showed "portada-unidad"
+    // where the sidebar showed the document's title.
+    const withCover = parseCourseIndex(
+      [
+        'entries:',
+        '  - docId: portada-unidad',
+        '    levelName: Unidad',
+        '    children:',
+        '      - docId: hijo',
+      ].join('\n'),
+      SOURCE,
+    );
+
+    const titles: Record<string, string> = { 'portada-unidad': 'Estructuras lineales' };
+    const trail = trailFor(
+      withCover,
+      'hijo',
+      (entry) => entry.label ?? (entry.docId ? (titles[entry.docId] ?? entry.docId) : ''),
+    );
+
+    expect(trail.ancestors).toEqual([{ label: 'Estructuras lineales', levelName: 'Unidad' }]);
+  });
+
+  it('falls back to the raw id when no resolver is given', () => {
+    const withCover = parseCourseIndex(
+      ['entries:', '  - docId: portada-unidad', '    children:', '      - docId: hijo'].join('\n'),
+      SOURCE,
+    );
+
+    expect(trailFor(withCover, 'hijo').ancestors).toEqual([
+      { label: 'portada-unidad', levelName: undefined },
+    ]);
+  });
+
   it('does not treat a group that also carries a docId as its own ancestor', () => {
     const withGroupDoc = parseCourseIndex(
       [

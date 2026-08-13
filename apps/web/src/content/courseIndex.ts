@@ -190,8 +190,12 @@ export interface Trail {
  * document is not an error — `/d/<id>` serves it, so the trail degrades to the
  * course name with no ancestors and no position.
  */
-export function trailFor(index: CourseIndex, id: string): Trail {
-  const found = locate(index.entries, id, []);
+export function trailFor(
+  index: CourseIndex,
+  id: string,
+  labelOf: (entry: IndexEntry) => string = (entry) => entry.label ?? entry.docId ?? '',
+): Trail {
+  const found = locate(index.entries, id, [], labelOf);
   return {
     course: index.title,
     ancestors: found?.ancestors ?? [],
@@ -239,6 +243,7 @@ function locate(
   entries: IndexEntry[],
   id: string,
   ancestors: TrailCrumb[],
+  labelOf: (entry: IndexEntry) => string,
 ): { ancestors: TrailCrumb[]; position: { at: number; of: number } } | null {
   for (const [i, entry] of entries.entries()) {
     // A group may carry a docId of its own: matched here, it is not its own ancestor.
@@ -246,10 +251,12 @@ function locate(
       return { ancestors, position: { at: i + 1, of: entries.length } };
     }
     if (entry.children) {
-      const deeper = locate(entry.children, id, [
-        ...ancestors,
-        { label: entry.label ?? entry.docId ?? '', levelName: entry.levelName },
-      ]);
+      const deeper = locate(
+        entry.children,
+        id,
+        [...ancestors, { label: labelOf(entry), levelName: entry.levelName }],
+        labelOf,
+      );
       if (deeper) return deeper;
     }
   }

@@ -8,12 +8,18 @@ import { Drawer } from './Drawer';
 import { SectionNav } from './SectionNav';
 import { Toc } from './Toc';
 import { prevNext, trailFor } from './courseIndex';
+import type { IndexEntry } from './courseIndex';
 import { useSections } from './useSections';
 import { lazyDocumentComponent } from './lazyDoc';
 import { courseIndex, registry } from './liveContent';
 
 function titleOf(id: string): string {
   return registry.get(id)?.meta.title ?? id;
+}
+
+/** How a crumb is named — the same resolution the tree uses, registry title included. */
+function docLabel(entry: IndexEntry): string {
+  return entry.label ?? (entry.docId ? titleOf(entry.docId) : '');
 }
 
 function SequenceNav({ id }: { id: string }) {
@@ -54,7 +60,7 @@ export function DocumentPage({ notFound }: Props) {
   const entry = registry.get(id);
   const presentable = entry !== undefined && entry.meta.presentation !== 'none';
   const Doc = entry ? lazyDocumentComponent(entry) : null;
-  const trail = trailFor(courseIndex, id);
+  const trail = trailFor(courseIndex, id, docLabel);
   const article = useRef<HTMLElement>(null);
   const { sections, activeId } = useSections(article);
   const [drawerOpen, setDrawerOpen] = useState(false);

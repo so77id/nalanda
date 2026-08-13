@@ -104,16 +104,26 @@ describe('Toc expand policy', () => {
   });
 
   it('keeps what the reader opened when the parent re-renders for its own reasons', async () => {
-    // The expand model keys manual toggles by value. Keyed by the identity of a
-    // useMemo instead, this passes only as long as React chooses to keep that
-    // cache — which React documents it may not.
+    // The index arrives EQUAL BUT NEW on every render — the observable form of
+    // "React dropped a useMemo cache", which is the only thing that made the
+    // old identity-keyed model work. Re-rendering with the same object passes
+    // either way, so it proves nothing; this is the shape that fails when the
+    // key goes back to an identity.
     const user = userEvent.setup();
+    const yaml = [
+      'entries:',
+      '  - docId: portada',
+      '  - label: Grafos',
+      '    children:',
+      '      - docId: lejos',
+    ].join('\n');
     function Parent() {
       const [tick, setTick] = useState(0);
       return (
         <MemoryRouter initialEntries={['/d/portada']}>
           <button onClick={() => setTick(tick + 1)}>re-render</button>
-          <Toc index={deepIndex} activeId="portada" />
+          <span>{tick}</span>
+          <Toc index={parseCourseIndex(yaml, 'index.yaml')} activeId="portada" />
         </MemoryRouter>
       );
     }
@@ -250,11 +260,21 @@ describe('Toc filter', () => {
     // Returning early from onToggle while filtering left the controlled
     // <details> and the DOM disagreeing: React kept rendering open={true} on a
     // node the browser had shut, so it never reopened.
+    //
+    // Asserting the DOM right after the click cannot see that — a component
+    // that recorded nothing renders the same open={true} and leaves the shut
+    // node alone. What distinguishes the two is whether the model AGREES: a
+    // re-render that changes nothing else must not reopen the group.
     const user = renderDeep();
     await user.type(filterField(), 'hoja');
     expect(openGroups()).toContain('Estructuras lineales');
 
     await user.click(screen.getByText('Estructuras lineales'));
+    expect(openGroups()).not.toContain('Estructuras lineales');
+
+    // Re-render with the query unchanged (a character typed and removed).
+    await user.type(filterField(), 'x');
+    await user.keyboard('{Backspace}');
     expect(openGroups()).not.toContain('Estructuras lineales');
   });
 
@@ -294,6 +314,23 @@ describe('Toc', () => {
     renderToc('/d/bienvenida');
     // The bienvenida entry has no label: "Bienvenida" can only come from the registry.
     expect(screen.getByRole('link', { name: 'Bienvenida' })).toBeInTheDocument();
+  });
+
+  it('names a group that has children and a docId but no label of its own', () => {
+    // parseEntry accepts it (the label is only required when there is no
+    // docId), and rendering entry.label raw gave a summary with a chevron and
+    // no name — while the filter still matched it by the registry title.
+    const withCover = parseCourseIndex(
+      ['entries:', '  - docId: bienvenida', '    children:', '      - docId: otro'].join('\n'),
+      'index.yaml',
+    );
+    render(
+      <MemoryRouter initialEntries={['/d/bienvenida']}>
+        <Toc index={withCover} activeId="bienvenida" />
+      </MemoryRouter>,
+    );
+
+    expect(document.querySelector('summary')?.textContent?.trim()).not.toBe('');
   });
 
   it('falls back to the raw id when the document is not in the registry', () => {

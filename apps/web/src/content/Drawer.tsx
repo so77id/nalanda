@@ -25,8 +25,11 @@ const FOCUSABLE =
 function focusables(root: HTMLElement): HTMLElement[] {
   return [...root.querySelectorAll<HTMLElement>(FOCUSABLE)].filter((element) => {
     if (typeof element.checkVisibility === 'function') return element.checkVisibility();
-    const group = element.closest('details');
-    return !group || group.open || element.tagName === 'SUMMARY';
+    // The nearest CLOSED ancestor at any depth, not the nearest <details>:
+    // an open group inside a collapsed one is still hidden, and asking only
+    // about the immediate parent called its contents reachable.
+    const closed = element.closest('details:not([open])');
+    return !closed || (element.tagName === 'SUMMARY' && element.parentElement === closed);
   });
 }
 

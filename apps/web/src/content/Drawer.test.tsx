@@ -133,9 +133,11 @@ describe('Drawer', () => {
     expect(screen.getByText('Grupo cerrado')).toHaveFocus();
 
     // Wrapping from the last REACHABLE element goes back to the first, rather
-    // than to a link the browser would never have visited.
+    // than to a link the browser would never have visited — including the ones
+    // in the OPEN subgroup, which a collapsed ancestor still hides.
     await user.tab();
     expect(screen.getByRole('button', { name: /cerrar/i })).toHaveFocus();
+    expect(screen.getByRole('link', { name: 'Más escondido' })).not.toHaveFocus();
   });
 });
 
@@ -169,6 +171,13 @@ function CollapsedGroupHarness() {
         <details>
           <summary>Grupo cerrado</summary>
           <a href="/d/escondido">Escondido</a>
+          {/* The Toc really produces this: a reader collapses an outer unit
+              while the inner group stays open on the active path. Asking only
+              about the nearest <details> called all of this reachable. */}
+          <details open>
+            <summary>Subgrupo abierto</summary>
+            <a href="/d/mas-escondido">Más escondido</a>
+          </details>
         </details>
       </Drawer>
     </>
