@@ -62,6 +62,17 @@ describe('/catalog', () => {
     expect(await screen.findByRole('heading', { level: 1, name: 'Semantic' })).toBeInTheDocument();
   });
 
+  it('counts each family in words that agree with the number', async () => {
+    renderAt('/catalog');
+    await screen.findByRole('heading', { name: /^catalog$/i });
+    for (const family of families) {
+      const n = catalog.byFamily(family.id).length;
+      const expected = n === 0 ? 'no components' : `${n} component${n === 1 ? '' : 's'}`;
+      expect(screen.getAllByText(expected).length).toBeGreaterThan(0);
+    }
+    expect(screen.queryByText(/component\(s\)/)).not.toBeInTheDocument();
+  });
+
   it('shows the empty-family copy for families with no components yet', async () => {
     const empty = families.find((f) => catalog.byFamily(f.id).length === 0);
     expect(

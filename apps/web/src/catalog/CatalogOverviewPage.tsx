@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 
 import { CatalogLayout } from './CatalogLayout';
+import { componentCount } from './componentCount';
 import { catalog } from './registry';
 import { families } from './families';
 
@@ -30,7 +31,7 @@ export function CatalogOverviewPage() {
                 </Link>
               </h2>
               <span className="text-sm text-slate-500">
-                {catalog.byFamily(family.id).length} component(s)
+                {componentCount(catalog.byFamily(family.id).length)}
               </span>
             </div>
             <p className="mt-1 text-slate-300">{family.definition}</p>
