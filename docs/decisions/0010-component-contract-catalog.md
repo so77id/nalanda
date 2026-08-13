@@ -41,13 +41,24 @@ documentation checklist, the review checklist, and how to change the catalog's o
 rules. It serves humans and authoring agents alike.
 
 > **Amended by #87.** These four were originally named *estructura*, *semánticos*,
-> *interactivos*, *media*, while the folders they map to were already English. The
-> catalog is repo documentation — it sits beside these ADRs and agents read it — so
-> the names are English and the id is now the same word as the folder and the route
-> segment. Labels only: same four families, same meanings, same order. The rename
-> deleted `folderOf()` and the stored `folder` field, which existed solely to bridge
-> the two languages, and broke `/catalog/estructura` and its siblings with no
-> redirect (an internal v0.1 surface; the old segments 404).
+> *interactivos*, *media*, while the folders they map to were already English.
+> Root `CLAUDE.md` §Language settles which way that resolves: everything a reader
+> perceives is Spanish **except `/catalog`, which ships with the site but
+> addresses component authors, not students**. So the names are English, and the
+> id is now the same word as the folder and the route segment. Labels only: same
+> four families, same meanings, same order.
+>
+> The rename deleted `folderOf()` and the stored `folder` field, which existed
+> solely to bridge the two languages — and later the stored `name`, which was the
+> id capitalized and so the same duplication one field lower. It broke
+> `/catalog/estructura` and its siblings with no redirect (an internal v0.1
+> surface; the old segments 404).
+>
+> The exception has an exception: a component page renders its examples live, so
+> the snippets and the widgets' own chrome stay Spanish — they are course
+> content. The page says so in one line, and the language guards are split in
+> two accordingly (registry data in `catalog/architecture.test.tsx`, rendered
+> pages in `app/catalogRoute.test.tsx`, which skips `/catalog/c/:name`).
 
 **Inventory is emergent**: no fixed component list — components are added and evolved
 as real classes need them, always through the catalog process. The catalog states

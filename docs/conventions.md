@@ -132,6 +132,20 @@ cd /Users/so77id/workspace/nalanda
 git worktree remove ../nalanda-issue-<N>
 ```
 
+**Parallel worktrees mean parallel processes: never kill by pattern.** Several
+WPs are usually in flight at once, each with its own dev or preview server, plus
+the review lenses' own worktrees. `pkill -f "vite preview"` kills every one of
+them, including other people's. In #87 two sessions did it to each other within
+the same hour. Kill by PID or by port instead:
+
+```bash
+lsof -ti tcp:<port> | xargs kill        # the server you started, and only that one
+```
+
+The same reasoning applies to `git checkout -- <path>`: it reverts **all**
+uncommitted work under that path, not just the change you were undoing. Commit
+first, then experiment (#87 lost a slice's tests this way).
+
 ## Yolo mode (trivial fixes)
 
 For changes that meet ALL of these criteria, the workflow above can be bypassed:

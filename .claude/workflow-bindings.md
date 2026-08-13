@@ -105,3 +105,18 @@ reported it, and a third measured test counts that shifted under it from 347 to
 355. The orchestrator's own browser checks could not run at all while they
 worked. One worktree each costs a few hundred milliseconds of setup and removes
 the whole class of problem.
+
+**And the flag alone is not enough: never name the live worktree path in a lens
+prompt.** In #87 all three lenses were spawned with `isolation: worktree` and the
+prompt said `worktree at /Users/so77id/workspace/nalanda-issue-87`. The
+correctness lens went there and mutated four files of the tree it was reviewing —
+the orchestrator watched its own source change under it mid-review and spent
+twenty minutes accusing two peer sessions before looking at its own agents. Give
+the **branch name** and let each lens use the copy it was given. Isolation
+protects against carelessness, not against an explicit instruction.
+
+The mutating is the point, not the accident: in #87 every serious finding came
+from a lens that broke the code and ran the suite, and none from reading the
+diff. So "read-only" describes a lens's relationship to the **reviewed tree**,
+never its capabilities — they all hold `Bash`. That is exactly why the isolation
+is a requirement rather than hygiene.

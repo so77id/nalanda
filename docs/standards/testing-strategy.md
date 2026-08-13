@@ -254,7 +254,33 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   one test per member. Every such loop MUST be paired with a non-vacuity
   assertion (`expect(registry.length).toBeGreaterThan(0)`): a loop over an empty
   collection is a green suite that verifies nothing. Worked cases:
-  `catalog/architecture.test.tsx`, `app/mdxComponents.test.ts` (#65).
+  `catalog/architecture.test.tsx`, `app/mdxComponents.test.ts` (#65). A
+  non-vacuity guard carries a **message naming the test to write when it trips**,
+  not a bare check — the day it fires, whoever hits it is not the person who knew
+  why it was there. Worked case (#87): `expect(empty, 'every family now has
+  components — cover the empty branch with a direct FamilyPage test')`.
+- **Assert where the fact belongs, not that it appears somewhere.** A page-wide
+  `getAllByText(...)` proves a string exists on the page; it does not tie the
+  string to the row that must carry it. Scope with `within(...)` on the element
+  that owns the fact, and assert **both directions** — present where it should
+  be, absent where it should not. Worked case (#87): the overview's
+  empty-by-design note was asserted by counting matches page-wide, and with two
+  empty and two populated families the count survives putting the note on
+  exactly the wrong half — 464 tests green while every fact sat on the wrong
+  family. The same shape hid a swapped component count.
+- **A guard is not finished until it has failed.** Write the test, then make the
+  defect it names and watch it go red; a guard never seen red is a guess. Do the
+  mutation on a **committed** tree and restore with `git checkout --`, or the
+  restore eats the uncommitted test you are proving (learned the hard way in
+  #87). Worked case (#87): four tests written for S3–S7 stayed green through the
+  exact defect each was named for, and S8 exists because a review lens mutated
+  them rather than reading them.
+- **Pin a deliberate break.** When a change removes a route, a contract or a
+  compatibility path on purpose and ships no shim, assert the new behavior with
+  a test that carries the reason — so the break is something the suite states
+  rather than something a reader discovers, and so restoring it later is a
+  conscious deletion. Worked case (#87): `it.each(['estructura', …])` asserts
+  the old catalog segments 404, with the no-redirect rationale above it.
 - Test fakes live next to the tests that use them (see placement criteria in
   `repository-structure.md`).
 

@@ -147,7 +147,13 @@ src/
   above the component in the same file.
 - Hooks at top level only (Rules of Hooks); derive state instead of syncing it.
 - Keep components one-concern; extract shared logic into hooks, shared markup into
-  components — but only at the second real use, not speculatively.
+  components — but only at the second real use, not speculatively. **One
+  exception**: a pure helper may be extracted at its FIRST use when the real data
+  cannot exercise all its branches. The extraction exists to make the unreachable
+  case testable, not to anticipate reuse, and it belongs to its feature — not
+  `lib/` — unless it is feature-agnostic. Worked case (#87):
+  `catalog/componentCount.ts`, because no family holds exactly one component, so
+  `1 component` would ship unproven if the logic stayed inline.
 - Fail fast at boundaries with clear messages: prefer explicit checks with
   descriptive errors over `!` non-null assertions at DOM/external boundaries
   (see `app/main.tsx` root check); user-facing failures render friendly UI,
