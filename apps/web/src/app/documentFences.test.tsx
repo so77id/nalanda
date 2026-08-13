@@ -90,3 +90,52 @@ describe('the fences of the shipped Java document', () => {
     expect(container.querySelector('pre')?.textContent).toContain('npm run build');
   });
 });
+
+// The sharp edge of the whole WP. `fencesByMeta` / `withoutFences` identify an
+// exercise's fences by the literal `code` intrinsic type, so mapping `code`
+// instead of `pre` would leave every <Exercise> unable to find its own body — it
+// renders the amber authoring banner where the exercise should be. Nothing else
+// in the suite compiles a document through the shell map, so nothing else can
+// see this.
+describe('the pre-not-code rule that keeps Exercise working', () => {
+  const exercises = DOCUMENT.split('<Exercise').length - 1;
+
+  it('the document really ships exercises (guards against a vacuous check)', () => {
+    expect(exercises).toBeGreaterThan(0);
+  });
+
+  it('maps the wrapper, never the fence itself', () => {
+    const map: Record<string, unknown> = mdxComponents;
+    expect(map['pre'], 'the fence mapping disappeared').toBeDefined();
+    expect(map['code'], 'mapping `code` breaks every Exercise').toBeUndefined();
+  });
+
+  it('lets an exercise find its starter and hide its cases, through the shell map', async () => {
+    const source = [
+      '<Exercise title="¿Es par?">',
+      '',
+      'Escribe `esPar`.',
+      '',
+      '```java starter',
+      'class Solution {}',
+      '```',
+      '',
+      '```java test',
+      'check(Solution.esPar(4), true);',
+      '```',
+      '',
+      '</Exercise>',
+      '',
+    ].join('\n');
+
+    const container = await renderThroughTheShellMap(source);
+
+    await vi.waitFor(() => expect(container.textContent).toContain('Escribe'));
+    // The amber banner is what a broken fence lookup produces.
+    expect(container.textContent, 'the exercise rendered as an authoring error').not.toContain(
+      'espera',
+    );
+    // And the cases stay hidden until the student runs (ADR-0019).
+    expect(container.textContent).not.toContain('check(Solution.esPar(4)');
+  });
+});
