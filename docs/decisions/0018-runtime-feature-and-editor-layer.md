@@ -166,14 +166,20 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   every document with a fence in a runnable language does, because a fence IS
   the component — and the grammar is not optional chrome, it is the
   highlighter. Measured from a network trace of `03-busqueda-binaria.mdx`, prose
-  plus a single 10-line Java listing: **160.7 → 323.2 kB gz, +162.4 kB (+101%)**
-  — 95.6 core + 36.4 wrapper + 17.7 java grammar + 8.6 `@lezer/lr` + 2.9 the
-  editor chunk itself. (An earlier draft said ~153 kB from the first three terms
-  alone, and even those summed to 149.8; the two it omitted are what makes
-  "roughly doubling" exactly right.) The entry payload it doubles is **162.4 kB
+  plus a single 10-line Java listing: **160.7 → 323.7 kB gz, +163.0 kB (+101%)**.
+  Of that, **161.2 is five lazy chunks** — 95.6 core + 36.4 wrapper + 17.7 java
+  grammar + 8.6 `@lezer/lr` + 2.9 the editor chunk itself — and the remaining
+  1.7 is the entry chunk's own growth. (Two earlier drafts got this wrong in the
+  same way and it is worth saying how: the first quoted ~153 kB from three terms
+  that summed to 149.8, the second quoted 162.4 against five that summed to
+  161.2. A breakdown that does not add up to its own headline is the defect this
+  very section was written to correct. The two omitted terms are what makes
+  "roughly doubling" exactly right.) The entry payload it doubles is **162.5 kB
   gz** across two eagerly loaded chunks — the entry plus the `jsx-runtime` it
-  modulepreloads (measured 2026-08-13 against `main` at #97; it reads 160.5
-  before #100, so treat the figure as a reading of a date, not a constant).
+  modulepreloads — measured 2026-08-13 **on this branch**, which is `main` at
+  #97 with #85's fixes applied. `main` itself reads **168.2** at that commit,
+  because it still carries the `remarkPlugins` regression removed here. Treat
+  either as a reading of a date, not a constant.
   Accepted in #85 with the numbers in hand; the alternative that would remove
   it is highlighting without an editor, and the record here is thinner than it
   looked: the Alternatives below reject **Prism/Shiki + `<textarea>`** on the

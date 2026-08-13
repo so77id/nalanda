@@ -260,7 +260,8 @@ describe('architecture: what the shell reaches eagerly', () => {
    * to have broken. The previous version asserted "no `runtime/`, no
    * CodeMirror" and walked straight over a build-time markdown compiler:
    * `export { remarkPlugins }` on the content seam put remark-mdx-frontmatter
-   * and its `toml` parser in the entry chunk — 27,921 B raw — with every
+   * and its `toml` parser in the entry chunk (ADR-0018 §Consequences carries the
+   * measurement) with every
    * architecture test green. Adding a package here is a deliberate act; it is
    * weight on the first paint of every page, including the ones with no code.
    */

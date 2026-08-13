@@ -44,7 +44,9 @@ src/runtime/python/
 
 2. **Write the descriptor** (`<lang>/descriptor.ts`). Keep it free of compiler
    and CodeMirror imports: descriptors are listed in the language picker and
-   travel in the entry chunk. `formatWarmStats` renders whatever timings your
+   travel in the lazy editor chunk, with the picker that lists them: since #85
+   **nothing under `runtime/` may be reached before first paint**, descriptors
+   included (ADR-0024 §5, amending ADR-0018 §4). `formatWarmStats` renders whatever timings your
    worker reports.
 
 3. **Write the worker** (`<lang>/worker.ts`). It receives
@@ -131,7 +133,8 @@ src/runtime/python/
    silently when you add an id, so nothing fails: `CodeEditor.catalog.tsx` and
    `Exercise.catalog.tsx` (the descriptions and both `language` prop type
    strings), `apps/web/README.md`'s stack paragraph,
-   `guides/add-a-course-document.md` steps 5 and 5b (5b names which languages
+   `guides/add-a-course-document.md` step 3 (the highlighted-fence list and the
+   alias trap) and steps 5 and 5b (5b names which languages
    validate an exercise), and §When to use at the top of this guide.
 
 ## Checklist
@@ -149,7 +152,8 @@ src/runtime/python/
       `devDependency` in that case, with a version test.
 - [ ] `npm run build` shows no new multi-megabyte asset in `dist/` — unless it
       genuinely must be self-hosted, and you say why here as ADR-0017 does for
-      the Java compiler jar — and the entry chunk grows by descriptors only:
+      the Java compiler jar — and the entry chunk does not grow at all, because
+      descriptors are lazy too:
       single-digit kB, no CodeMirror, no toolchain.
 - [ ] Verified in a browser: run, stdin, compile error.
 - [ ] Every hand-written list of languages updated (step 9) — the type system

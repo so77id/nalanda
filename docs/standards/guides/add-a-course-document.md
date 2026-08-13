@@ -92,10 +92,10 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    - In the book a listing is never given a scrollbar of its own; the page
      scrolls. On a slide it keeps one, because the screen does not grow.
    - The reader's own `Ctrl+F` still finds text inside a listing, including
-     lines scrolled out of view on a slide — measured in the book at 1440px and
-     390px, and on a slide with the window shortened enough for the 55vh cap to
-     bite (51px hidden, still found); at full height on
-     `06-java-desde-cpp.mdx`. This is worth stating because it is not
+     lines scrolled out of view on a slide. Measured on
+     `06-java-desde-cpp.mdx`: in the book at 1440px and at 390px, and on a slide
+     with the window shortened enough for the 55vh cap to bite — 51px hidden,
+     still found. This is worth stating because it is not
      guaranteed in general: the editor renders by viewport, so a listing of
      hundreds of lines could hide its tail from the browser's search. Nothing in
      a course document is near that size (the longest here is 27 lines), and if
