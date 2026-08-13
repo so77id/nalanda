@@ -3,10 +3,10 @@
 **Status:** Accepted
 **Date:** 2026-08-13
 **Decision-makers:** Miguel Rodriguez
-**Source:** Issue #91 (require landscape for presentation mode on a phone),
-found verifying #90. Constrains ADR-0013 (presentation pipeline) §2 and §5.
 **Covers:** why the deck refuses portrait on a touch device · why the pointer
 half of the query is load-bearing · what the panel must offer as a way out
+**Source:** Issue #91 (require landscape for presentation mode on a phone),
+found verifying #90. Constrains ADR-0013 (presentation pipeline) §2 and §5.
 
 ## Context
 
@@ -19,13 +19,13 @@ the top of the screen — clipped by the viewer's `overflow-hidden`, with nothin
 telling the reader that anything is wrong. A student who taps `Presentar` on
 their phone gets that by default (#91, found verifying #90).
 
-At 844x390 the same paragraph reads in six lines instead of thirty and the
-slide is usable. **It is not, however, whole**: the review of this WP measured
-the heading at `y = -61` there too, so the title is clipped on a 390px-tall
-window as it is on any short one. The issue this ADR comes from said the
-landscape rendering "reads correctly"; that was checked again and is only true
-of the body. The remaining clipping is slide typography, deliberately out of
-scope here and recorded in the last Consequence.
+At 844x390 the same slide reads in nine lines of body instead of twenty-six,
+and it is usable. **It is not, however, whole**: measured again during this
+WP's review, the heading sits at `y = -61` there too and the closing paragraph
+falls below the fold — both clipped by the same `overflow-hidden`. The issue
+this ADR comes from said the landscape rendering "reads correctly"; re-measured,
+that is true only of the paragraphs that fit. The remaining clipping is slide
+typography, deliberately out of scope here and recorded in the last Consequence.
 
 The book view already serves reading on a phone in portrait, by design (#84), so
 the platform is not missing a way to read the material there — only a way to

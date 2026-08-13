@@ -213,9 +213,9 @@ src/
   extra re-read for that gap, and the only test that can prove the re-read
   asserts render/effect ordering — an implementation detail, which component
   tests may not assert (`apps/web/CLAUDE.md`). Worked case:
-  `presentation/usePortraitPhone.ts` (#91), where the hand-rolled version passed
-  review and was replaced after the review measured that no permitted test could
-  kill its re-read.
+  `presentation/usePortraitPhone.ts` (#91), where the hand-rolled version
+  shipped in the first slice and was replaced in review, once the review
+  measured that no permitted test could kill its re-read.
 - **Layout breakpoints stay in Tailwind classes; a media query is only asked
   from JS when device shape decides BEHAVIOUR** — what gets rendered at all,
   not how wide it is. It belongs in a hook colocated in the feature that owns

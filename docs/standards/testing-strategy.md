@@ -218,9 +218,12 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   and height **in the same context** so the page is not remounted, and run the
   same page once in a default desktop context to prove the rule does NOT fire on
   a narrow laptop window. Two mechanics worth knowing before they cost an hour
-  (#91): a fullscreen page cannot be resized by the driver at all
-  (`Browser.setWindowBounds` errors), so rotate it through
-  `Emulation.setDeviceMetricsOverride` over a CDP session instead; and the
+  (#91): on a **fullscreen** page the driver's resize call rejects
+  (`Browser.setWindowBounds`: "To resize minimized/maximized/fullscreen window,
+  restore it to normal state first") *after* the metrics override has already
+  landed — so the page has rotated, the app has reacted, and the script dies
+  holding a state it thinks it never reached. Rotate a fullscreen page through
+  `Emulation.setDeviceMetricsOverride` on a CDP session instead. And the
   emulated rotation is what makes `matchMedia` fire, so assert the query's own
   value in the page (`matchMedia('(pointer: coarse)').matches`) rather than
   trusting the preset.
