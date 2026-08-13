@@ -81,8 +81,19 @@ export function DocumentPage({ notFound }: Props) {
       <aside className="hidden w-64 shrink-0 border-r border-slate-800 p-4 md:block">
         <Toc index={courseIndex} />
       </aside>
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Índice del curso">
-        <Toc index={courseIndex} />
+      {/* The drawer carries BOTH navigations: below 2xl the rail is gone, and
+          without the sections here those widths would lose in-document
+          navigation entirely. Same hook, same list — one spine, two placements
+          (ADR-0021). */}
+      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} label="Navegación">
+        <div className="space-y-6">
+          <SectionNav
+            sections={sections}
+            activeId={activeId}
+            onNavigate={() => setDrawerOpen(false)}
+          />
+          <Toc index={courseIndex} />
+        </div>
       </Drawer>
       <main className="min-w-0 flex-1 px-4 py-10 md:px-8">
         {/* Always rendered: below md this row is the only home of the drawer
@@ -93,7 +104,7 @@ export function DocumentPage({ notFound }: Props) {
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
-              aria-label="Abrir el índice del curso"
+              aria-label="Abrir la navegación"
               className="shrink-0 rounded border border-slate-700 p-1.5 text-slate-300 hover:bg-slate-800 hover:text-slate-100 md:hidden"
             >
               <Menu size={16} aria-hidden="true" />

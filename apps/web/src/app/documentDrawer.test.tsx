@@ -25,8 +25,11 @@ const firstId = ids[0]!;
 async function openDrawer() {
   const user = userEvent.setup();
   renderAt(`/d/${firstId}`);
-  await screen.findByRole('article');
-  await user.click(screen.getByRole('button', { name: /abrir el índice/i }));
+  const article = await screen.findByRole('article');
+  // The article element exists before its lazy document does; without this the
+  // drawer can open over an empty spine and the section assertions race.
+  await waitFor(() => expect(article.querySelectorAll('h2[id]').length).toBeGreaterThan(0));
+  await user.click(screen.getByRole('button', { name: /abrir la navegación/i }));
   return user;
 }
 
@@ -41,7 +44,7 @@ describe('the course index drawer', () => {
 
   it('opens from a labelled button and carries the whole index', async () => {
     await openDrawer();
-    const drawer = screen.getByRole('dialog', { name: /índice del curso/i });
+    const drawer = screen.getByRole('dialog', { name: /navegación/i });
     expect(within(drawer).getByRole('navigation', { name: /course index/i })).toBeInTheDocument();
   });
 
@@ -64,6 +67,40 @@ describe('the course index drawer', () => {
   it('gives focus back to the toggle after closing', async () => {
     const user = await openDrawer();
     await user.keyboard('{Escape}');
-    expect(screen.getByRole('button', { name: /abrir el índice/i })).toHaveFocus();
+    expect(screen.getByRole('button', { name: /abrir la navegación/i })).toHaveFocus();
+  });
+});
+
+describe('the sections inside the drawer', () => {
+  // Below 2xl there is no rail, and below md there is no sidebar either: if the
+  // drawer did not carry the sections, those widths would have no way to
+  // navigate inside a document at all (AC8).
+  function targetsOf(nav: HTMLElement): string[] {
+    return within(nav)
+      .getAllByRole('link')
+      .map((a) => a.getAttribute('href') ?? '');
+  }
+
+  it('lists exactly what the rail lists — one spine, two placements', async () => {
+    await openDrawer();
+    const lists = screen.getAllByRole('navigation', { name: /en esta página/i });
+
+    // Two placements and no more: the rail (hidden by CSS at this width, still
+    // in the DOM) and the drawer's copy.
+    expect(lists).toHaveLength(2);
+    expect(targetsOf(lists[0]!).length, 'the section list is empty').toBeGreaterThan(0);
+    expect(targetsOf(lists[0]!)).toEqual(targetsOf(lists[1]!));
+  });
+
+  it('closes when a section is chosen, so the reader sees where they landed', async () => {
+    const user = await openDrawer();
+    const drawer = screen.getByRole('dialog');
+    const section = within(
+      within(drawer).getByRole('navigation', { name: /en esta página/i }),
+    ).getAllByRole('link')[0]!;
+
+    await user.click(section);
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 });
