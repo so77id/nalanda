@@ -123,11 +123,13 @@ own wrapper in `ALLOWED`, or nothing checks you.
 
 - [ ] Family chosen; the contract points satisfied — including the `h2` one if
       the component marks a section, and the measure one if it renders wide.
-- [ ] **If the family was empty before this PR**: you created its folder, and
-      you moved the empty-family cases in `app/catalogRoute.test.tsx` to a family
-      that is still empty (they name `/catalog/media` today and fail with
-      instructions when it stops being empty), plus added the newly populated
-      family's page to the rendered-English `it.each` path list.
+- [ ] **If the family was empty before this PR**: you created its folder, and you
+      moved the one hardcoded empty-family case in `app/catalogRoute.test.tsx`
+      (it names `/catalog/media` today and fails with instructions when media
+      stops being empty) to a family that is still empty — the other empty-family
+      tests find the empty family themselves and need nothing. Keep the
+      rendered-English `it.each` list covering one populated and one still-empty
+      family page.
 - [ ] Registered in `app/mdxComponents.ts` (mandatory for every catalogued component).
 - [ ] Colocated `.catalog.tsx` entry exported via the components seam.
 - [ ] ≥2 live examples; per-mode tests; completeness test green.

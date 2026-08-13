@@ -72,9 +72,10 @@ entries reach the catalog, and what a machine can check.
    > Spanish … while component folders are English per the code-style rule; the
    > mapping is typed once in `catalog/families.ts`." There is no mapping any
    > more. A family id is one English word doing three jobs — route segment,
-   > `src/components/` folder, and (capitalized) display name — so `folderOf()`,
-   > `FamilyDef.folder` and the stored `FamilyDef.name` were all deleted as
-   > state that could drift from the id it had to equal. See the ADR-0010
+   > `src/components/` folder, and (capitalized) display name — so `folderOf()`
+   > and `FamilyDef.folder` were deleted outright, and `FamilyDef.name` stopped
+   > being stored per family: the field remains, derived by `familyName(id)`.
+   > All three were state that could drift from the id it had to equal. See the ADR-0010
    > amendment for the language reasoning. The old Spanish segments
    > (`/catalog/estructura` and siblings) 404 with no redirect, pinned by
    > `app/catalogRoute.test.tsx` so restoring them has to be a conscious

@@ -48,9 +48,10 @@ rules. It serves humans and authoring agents alike.
 > id is now the same word as the folder and the route segment. Labels only: same
 > four families, same meanings, same order.
 >
-> The rename deleted `folderOf()` and the stored `folder` field, which existed
-> solely to bridge the two languages — and later the stored `name`, which was the
-> id capitalized and so the same duplication one field lower. It broke
+> The rename deleted `folderOf()` and the `folder` field, which existed solely
+> to bridge the two languages — and later stopped storing `name` per family,
+> which was the id capitalized and so the same duplication one field lower (the
+> field remains, derived by `familyName(id)`). It broke
 > `/catalog/estructura` and its siblings with no redirect (an internal v0.1
 > surface; the old segments 404).
 >

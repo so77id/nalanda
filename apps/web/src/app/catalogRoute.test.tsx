@@ -127,7 +127,7 @@ describe('/catalog', () => {
     expect(
       catalog.byFamily('media').length,
       'media has components now — point this test at a family that is still empty, ' +
-        'and add /catalog/media to the rendered-English path list below',
+        "and make sure that family's page is in the rendered-English path list below",
     ).toBe(0);
 
     renderAt('/catalog/media');
