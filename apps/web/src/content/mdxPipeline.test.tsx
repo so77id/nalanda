@@ -40,7 +40,7 @@ describe('the MDX pipeline', () => {
 
     // Without GFM, CommonMark has no table syntax and the whole block arrives as
     // one paragraph of literal pipes — which is what the published Java document
-    // shipped: 0 tables, 4 pipe paragraphs, from 5 tables of reference material.
+    // shipped: 0 tables, 4 pipe paragraphs, from 4 tables of reference material.
     const table = container.querySelector('table');
     expect(table, 'the table rendered as prose, not as a table').not.toBeNull();
     expect(table?.querySelectorAll('th')).toHaveLength(2);
@@ -76,7 +76,9 @@ describe('the MDX pipeline', () => {
 
     const container = await renderMdx(tables);
 
-    expect(container.querySelectorAll('table').length).toBeGreaterThanOrEqual(4);
+    // A count, not a floor: the document has exactly four tables, and a floor
+    // that happens to equal the real number proves nothing about either.
+    expect(container.querySelectorAll('table')).toHaveLength(4);
   });
 
   it('still keeps a fence meta as a data attribute', async () => {

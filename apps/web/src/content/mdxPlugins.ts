@@ -23,7 +23,7 @@ export const remarkPlugins: PluggableList = [
   remarkFrontmatter,
   [remarkMdxFrontmatter, { name: 'frontmatter' }],
   // MDX parses CommonMark, which has no tables. Without this, a markdown table
-  // is one paragraph of literal `|` characters — as five tables of reference
+  // is one paragraph of literal `|` characters — as four tables of reference
   // material in the published Java document were (#83).
   remarkGfm,
   remarkWikiLinks,

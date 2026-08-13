@@ -17,10 +17,26 @@ export const BRAND = 'Nalanda';
  * in the registry, which is a real case — `/d/<id>` serves documents the index
  * never lists.
  */
+/**
+ * `decodeURIComponent` that survives a malformed escape.
+ *
+ * The bare call threw `URIError` on `/d/%`, inside an effect, in an app with no
+ * error boundary — so React unmounted the root and a URL anyone can type
+ * rendered a blank page. React Router itself catches its own decode failure and
+ * falls through to the catch-all; this used to be the one thing that did not.
+ */
+function safeDecode(segment: string): string {
+  try {
+    return decodeURIComponent(segment);
+  } catch {
+    return segment;
+  }
+}
+
 export function routeTitle(
   pathname: string,
   docTitle: (id: string) => string | undefined,
-  familyName: (id: string) => string | undefined = () => undefined,
+  familyName: (id: string) => string | undefined,
 ): string {
   const parts = pathname
     .replace(/^\/+|\/+$/g, '')
@@ -30,7 +46,7 @@ export function routeTitle(
   if (parts.length === 0) return BRAND;
 
   if (parts[0] === 'd' && parts[1] !== undefined) {
-    const title = docTitle(decodeURIComponent(parts[1]));
+    const title = docTitle(safeDecode(parts[1]));
     // The `/present` suffix is deliberately not in the title: it is the same
     // document, and a reader hunting through tabs is looking for the document.
     return title === undefined ? BRAND : `${title} · ${BRAND}`;
@@ -45,11 +61,9 @@ export function routeTitle(
     // a tab reading "interactivos" is a leaked implementation detail.
     if (rest[0] === 'c') {
       const name = rest[1];
-      return name === undefined
-        ? `Catalog · ${BRAND}`
-        : `${decodeURIComponent(name)} · Catalog · ${BRAND}`;
+      return name === undefined ? `Catalog · ${BRAND}` : `${safeDecode(name)} · Catalog · ${BRAND}`;
     }
-    const id = decodeURIComponent(rest[0]);
+    const id = safeDecode(rest[0]);
     return `${familyName(id) ?? id} · Catalog · ${BRAND}`;
   }
 

@@ -29,36 +29,53 @@ html {
   background-color: var(--color-slate-950);
 }
 
-/* One focus ring for the whole product.
+/* One focus outline for the whole product.
 
    The browser default was a 1px `#005FCC` hairline: 3.13:1 against slate-950,
    scraping past the 3:1 minimum, in a blue that appears nowhere else here.
 
    `outline-offset` is load-bearing, not decoration. Measured against sky-400:
    the page is 9.42:1, panels 6.95:1, the sidebar 6.83:1 — but the emerald
-   Ejecutar/Comprobar button is **1.76:1**. Offsetting draws the ring on the
+   Ejecutar/Comprobar button is **1.76:1**. Offsetting draws the outline on the
    surface *around* the control instead of on the control, so the one surface it
    would fail against is never the one it lands on.
 
    `:focus-visible`, not `:focus`: a mouse click on a button should not leave a
-   ring behind, and the browser already knows the difference. */
+   mark behind, and the browser already knows the difference.
+
+   No `border-radius` here. It was added, and it silently overrode every
+   component's own corners: these rules are unlayered, Tailwind v4 emits its
+   utilities inside `@layer`, and unlayered wins regardless of specificity — so a
+   `rounded-lg` button measured 8px idle and 2px while focused. An outline
+   already follows the element's own radius; the declaration bought nothing and
+   cost that. */
 :focus-visible {
   outline: 2px solid var(--color-sky-400);
   outline-offset: 2px;
-  border-radius: 2px;
 }
 
-/* CodeMirror sets `outline: none` on itself, so the rule above never reached the
-   one control a student spends the most time in: tabbing into an editor left no
-   sign of having arrived. The ring goes on `.cm-editor` rather than on the
-   focused `.cm-content` inside it, because what should look focused is the box.
+/* The one place this stylesheet names a third-party class, and it has to.
 
-   The offset is NEGATIVE here, and that is the whole trick. An editor sits
-   inside a scrolling `max-h-*` container inside a shell with `overflow-hidden`,
-   and an ancestor that clips its overflow also clips an outline drawn outside
-   its child. With `+2px` the computed style reported a 2px sky ring that no
-   screenshot ever showed. Drawn inward it is inside the clip, and inside the
-   editor's own dark background, where sky-400 keeps its contrast. */
+   CodeMirror sets `outline: none` on itself, so the rule above never reached the
+   control a student spends the most time in: tabbing into an editor left no sign
+   of having arrived. Review proposed moving this into `CodeEditor.tsx` as a
+   Tailwind `focus-within:` utility, which would keep vendor knowledge with the
+   component that owns the dependency. It cannot work, and the reason is the same
+   cascade rule that made a `border-radius` here override every button:
+   **unlayered declarations beat layered ones regardless of specificity.**
+   Tailwind v4 emits its utilities inside `@layer utilities`; CodeMirror injects
+   its own styles unlayered at runtime. Measured after trying it: the editor
+   computed CodeMirror's `1px dotted rgb(33, 33, 33)`, not ours. An unlayered
+   rule here is the only thing that wins.
+
+   Two details, each of which was measured wrong once — and both times
+   `getComputedStyle` reported an outline no screenshot ever had:
+
+   - The offset is NEGATIVE. Drawn outward it is clipped: the editor sits in a
+     scrolling `max-h-*` box inside a shell with `overflow-hidden`, and an
+     ancestor that clips its overflow clips an outline drawn outside its child.
+   - It goes on `.cm-editor`, never on that scrolling wrapper. On the wrapper an
+     inward outline is painted over by the editor's own opaque background. */
 .cm-editor.cm-focused {
   outline: 2px solid var(--color-sky-400);
   outline-offset: -2px;

@@ -24,7 +24,7 @@ describe('mdxHeading', () => {
 
     // The anchor is transparent while the heading is unhovered. Focusable and
     // invisible is the worst pairing: tabbing lands on it, nothing on screen
-    // moves, and S4's focus ring outlines something nobody can see.
+    // moves, and S4's focus outline surrounds something nobody can see.
     expect(anchor.className).toContain('group-hover:opacity-100');
     expect(anchor.className).toContain('focus-visible:opacity-100');
   });
