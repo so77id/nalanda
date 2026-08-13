@@ -1,7 +1,10 @@
 import type { ComponentType } from 'react';
 
-/** The four editable catalog families (ADR-0010); ids double as route segments. */
-export type CatalogFamily = 'estructura' | 'semanticos' | 'interactivos' | 'media';
+/**
+ * The four editable catalog families (ADR-0010, amended by #87): ids double as
+ * route segments AND as the src/components/ folder each family lives in.
+ */
+export type CatalogFamily = 'structure' | 'semantic' | 'interactive' | 'media';
 
 export interface CatalogPropDef {
   name: string;

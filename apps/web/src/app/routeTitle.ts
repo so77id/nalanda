@@ -57,8 +57,9 @@ export function routeTitle(
     if (rest.length === 0) return `Catalog · ${BRAND}`;
     if (rest[0] === 'governance') return `Governance · Catalog · ${BRAND}`;
     // `/catalog/c/:name` is a component, `/catalog/:family` is a family. A
-    // component's name IS its display name; a family's id is a route slug, and
-    // a tab reading "interactivos" is a leaked implementation detail.
+    // component's name IS its display name; a family's id is a route slug that
+    // only happens to resemble one, and a tab reading "interactive" instead of
+    // "Interactive" is a leaked implementation detail.
     if (rest[0] === 'c') {
       const name = rest[1];
       return name === undefined ? `Catalog · ${BRAND}` : `${safeDecode(name)} · Catalog · ${BRAND}`;

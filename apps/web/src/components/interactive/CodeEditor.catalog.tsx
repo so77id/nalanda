@@ -10,7 +10,7 @@ import { LazyCodeEditor as CodeEditor } from './lazyCodeEditor';
 /** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
 export const codeEditorCatalogEntry: CatalogEntry = {
   name: 'CodeEditor',
-  family: 'interactivos',
+  family: 'interactive',
   description:
     'Source the student can read, edit and run, compiled and executed in their own browser (ADR-0001). Java, C++ and Python; output, compiler diagnostics, exit code and timings come back in place.',
   whenToUse:

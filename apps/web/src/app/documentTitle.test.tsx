@@ -38,9 +38,9 @@ describe('the document title, as the shell actually sets it', () => {
     renderAt('/catalog');
     await waitFor(() => expect(document.title).toBe('Catalog · Nalanda'));
 
-    await user.click(await screen.findByRole('link', { name: 'Interactivos' }));
+    await user.click(await screen.findByRole('link', { name: 'Interactive' }));
 
-    await waitFor(() => expect(document.title).toBe('Interactivos · Catalog · Nalanda'));
+    await waitFor(() => expect(document.title).toBe('Interactive · Catalog · Nalanda'));
   });
 
   it('leaves a blank-page URL rendering the 404 instead of crashing the app', async () => {

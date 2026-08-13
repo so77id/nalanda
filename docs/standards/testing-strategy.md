@@ -208,9 +208,13 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   jsdom cannot lay out, but it can answer that. Worked case (#99):
   `app/presentationRoute.test.tsx` §"fitting a slide to the stage it is shown
   on", where the rotation case fails against the index-keyed version.
-- **A fix is not done until its test has been seen to fail.** Revert the fix,
-  watch the new test go red, restore it — and name the failing test in the
-  commit message. Reviewing a test by reading it is how a test that cannot fail
+- **Nothing — a fix or a guard — is done until its test has been seen to fail.**
+  Revert the fix (or introduce the defect the guard names), watch the test go
+  red, restore it — and name the failing test in the commit message. Do this on
+  a **committed** tree and restore with `git checkout --`: that command reverts
+  everything uncommitted under the path, so mutating before committing eats the
+  test you are trying to prove (#87 lost a slice's tests exactly this way; see
+  `docs/conventions.md` §Worktrees). Reviewing a test by reading it is how a test that cannot fail
   gets written: it looks like it asserts the behaviour, and it asserts something
   the implementation does anyway. Worked case (#84 review round): of eleven
   review fixes, nine were mutation-checked and held; the two that were not —
@@ -225,6 +229,10 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   && npm run preview` (which serves under `/nalanda/`, like production — the
   dev server serves at `/` and exercises different paths, ADR-0015). Add
   `-- --port <n>` when something already holds 4173.
+  **Stop it by port, never by pattern**: `lsof -ti tcp:<n> | xargs kill`. Other
+  WPs and the review lenses run their own preview servers in parallel worktrees,
+  so `pkill -f "vite preview"` takes every one of them down — in #87 two sessions
+  did it to each other inside an hour (`docs/conventions.md` §Worktrees).
   `guides/add-a-language-runtime.md` §7 keeps the runtime-specific checks and
   points here for the mechanics.
   **A device rule needs an emulated device, not a small window.** A desktop
@@ -254,7 +262,40 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   one test per member. Every such loop MUST be paired with a non-vacuity
   assertion (`expect(registry.length).toBeGreaterThan(0)`): a loop over an empty
   collection is a green suite that verifies nothing. Worked cases:
-  `catalog/architecture.test.tsx`, `app/mdxComponents.test.ts` (#65).
+  `catalog/architecture.test.tsx`, `app/mdxComponents.test.ts` (#65). A
+  non-vacuity guard carries a **message naming the test to write when it trips**,
+  not a bare check — the day it fires, whoever hits it is not the person who knew
+  why it was there. Worked case (#87): `expect(empty, 'every family now has
+  components — cover the empty branch with a direct FamilyPage test')`.
+- **Assert where the fact belongs, not that it appears somewhere.** A page-wide
+  `getAllByText(...)` proves a string exists on the page; it does not tie the
+  string to the row that must carry it. Scope with `within(...)` on the element
+  that owns the fact, and assert **both directions** — present where it should
+  be, absent where it should not. Worked case (#87): the overview's
+  empty-by-design note was asserted by counting matches page-wide, and with two
+  empty and two populated families the count survives putting the note on
+  exactly the wrong half — 464 tests green while every fact sat on the wrong
+  family. The same shape hid a swapped component count.
+  Second worked case (#87): four tests written across S3–S7 stayed green through
+  the exact defect each was named for — every one asserted that a string appeared
+  *somewhere* rather than in the place that had to carry it — and the slice that
+  fixed them exists only because a review lens mutated the code instead of
+  reading it.
+- **An invariant with a deliberate exception splits by level.** Put the
+  data-level half with the feature that owns the data, and the render-level half
+  in the shell test that can actually exclude the exception — each naming its
+  counterpart in a comment, because half a guard looks like a whole one. Worked
+  case (#87): the catalog is English, but a component page renders live widgets
+  whose chrome is Spanish on purpose. `catalog/architecture.test.tsx` scans the
+  registry strings; `app/catalogRoute.test.tsx` scans what the pages render and
+  skips `/catalog/c/:name`. One guard covering both would have to choose between
+  missing the pages and flagging the exception.
+- **Pin a deliberate break.** When a change removes a route, a contract or a
+  compatibility path on purpose and ships no shim, assert the new behavior with
+  a test that carries the reason — so the break is something the suite states
+  rather than something a reader discovers, and so restoring it later is a
+  conscious deletion. Worked case (#87): `it.each(['estructura', …])` asserts
+  the old catalog segments 404, with the no-redirect rationale above it.
 - Test fakes live next to the tests that use them (see placement criteria in
   `repository-structure.md`).
 

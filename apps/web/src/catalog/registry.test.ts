@@ -17,16 +17,16 @@ function entry(name: string, family: CatalogEntry['family']): CatalogEntry {
 
 describe('buildCatalog', () => {
   it('indexes entries by name and groups them by family', () => {
-    const catalog = buildCatalog([entry('Slide', 'estructura'), entry('Video', 'media')]);
+    const catalog = buildCatalog([entry('Slide', 'structure'), entry('Video', 'media')]);
 
-    expect(catalog.byName('Slide')?.family).toBe('estructura');
+    expect(catalog.byName('Slide')?.family).toBe('structure');
     expect(catalog.byName('missing')).toBeUndefined();
-    expect(catalog.byFamily('estructura').map((e) => e.name)).toEqual(['Slide']);
-    expect(catalog.byFamily('interactivos')).toEqual([]);
+    expect(catalog.byFamily('structure').map((e) => e.name)).toEqual(['Slide']);
+    expect(catalog.byFamily('interactive')).toEqual([]);
   });
 
   it('snapshots its input: later mutation of the source array changes nothing', () => {
-    const source = [entry('Slide', 'estructura')];
+    const source = [entry('Slide', 'structure')];
     const built = buildCatalog(source);
 
     source.push(entry('Latecomer', 'media'));
@@ -37,8 +37,8 @@ describe('buildCatalog', () => {
   });
 
   it('throws on duplicate entry names', () => {
-    expect(() =>
-      buildCatalog([entry('Slide', 'estructura'), entry('Slide', 'media')]),
-    ).toThrowError(/duplicate catalog entry "Slide"/);
+    expect(() => buildCatalog([entry('Slide', 'structure'), entry('Slide', 'media')])).toThrowError(
+      /duplicate catalog entry "Slide"/,
+    );
   });
 });

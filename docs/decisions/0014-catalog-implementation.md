@@ -6,6 +6,8 @@
 **Source:** Issue #65 (WP4, component catalog). Extends ADR-0010 (component
 contract and self-governing catalog), which decided the catalog exists, named
 the four families, and deferred its shape to v0.1.
+**Amended by:** #87 (§6 — family ids are English and are their own folder; the
+id↔folder mapping this ADR described no longer exists)
 
 ## Context
 
@@ -64,10 +66,28 @@ entries reach the catalog, and what a machine can check.
 
 6. **Routes**: `/catalog`, `/catalog/:family`, `/catalog/c/:name`,
    `/catalog/governance`. The `/c/` segment exists so component names cannot
-   collide with family ids. Family ids are unaccented Spanish (they double as
-   route segments, matching ADR-0010's Spanish family names) while component
-   folders are English per the code-style rule; the mapping is typed once in
-   `catalog/families.ts`.
+   collide with family ids.
+
+   > **Amended by #87.** This clause used to read: "Family ids are unaccented
+   > Spanish … while component folders are English per the code-style rule; the
+   > mapping is typed once in `catalog/families.ts`." There is no mapping any
+   > more. A family id is one English word doing three jobs — route segment,
+   > `src/components/` folder, and (capitalized) display name — so `folderOf()`
+   > and `FamilyDef.folder` were deleted outright, and `FamilyDef.name` stopped
+   > being stored per family: the field remains, derived by `familyName(id)`.
+   > All three were state that could drift from the id it had to equal. See the ADR-0010
+   > amendment for the language reasoning. The old Spanish segments
+   > (`/catalog/estructura` and siblings) 404 with no redirect, pinned by
+   > `app/catalogRoute.test.tsx` so restoring them has to be a conscious
+   > deletion of that test.
+   >
+   > That break is allowed because **catalog URLs carry no stability promise**,
+   > and this is the asymmetry worth stating: `/d/<id>` is protected — ADR-0002
+   > fixes the document id in frontmatter precisely so moves and renames never
+   > break links — while `/catalog/*` is an internal authoring surface only this
+   > repo links to, and may be renamed without a shim. The trigger that would
+   > reverse this: the day `/catalog` is linked from course material or handed
+   > to a cohort, it stops being internal and a redirect becomes required.
 
 7. **Example snippets are plain `<pre>`** — no syntax highlighter. Deferred
    until a real need appears, per the dependency rule.

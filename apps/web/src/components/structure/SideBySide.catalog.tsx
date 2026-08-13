@@ -5,7 +5,7 @@ import { SideBySide } from './SideBySide';
 /** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
 export const sideBySideCatalogEntry: CatalogEntry = {
   name: 'SideBySide',
-  family: 'estructura',
+  family: 'structure',
   description:
     'Two blocks shown next to each other with a label each, stacked on a narrow screen. Each column scrolls on its own, so a long line in one never widens the page.',
   whenToUse:
@@ -23,7 +23,7 @@ export const sideBySideCatalogEntry: CatalogEntry = {
   ],
   examples: [
     {
-      title: 'El mismo programa en dos lenguajes',
+      title: 'The same program in two languages',
       code: `<SideBySide left="C++" right="Java">
 
 \`\`\`cpp
@@ -59,7 +59,7 @@ int main() {
       ),
     },
     {
-      title: 'Con un número de bloques que no es dos',
+      title: 'Given any number of blocks that is not two',
       code: `<SideBySide left="C++" right="Java">
 
 \`\`\`cpp

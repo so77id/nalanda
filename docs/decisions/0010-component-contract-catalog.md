@@ -4,6 +4,7 @@
 **Date:** 2026-08-05
 **Decision-makers:** Miguel Rodriguez
 **Source:** Redesign session (D15, D16, D17, D18, D29)
+**Amended by:** #87 (the four families are named in English — labels only, the taxonomy is unchanged; see the note inline)
 
 ## Context
 
@@ -34,13 +35,37 @@ mode (relationship detailed with ADR-0008 at spec time).
    with synchronized drawing).
 
 **Catalog**: a live route (`/catalog`) organized in four editable families —
-*estructura*, *semánticos*, *interactivos*, *media*. It is **self-governing**: each
+*structure*, *semantic*, *interactive*, *media*. It is **self-governing**: each
 family is defined and explained; the catalog documents how to add a component, the
 documentation checklist, the review checklist, and how to change the catalog's own
 rules. It serves humans and authoring agents alike.
 
+> **Amended by #87.** These four were originally named *estructura*, *semánticos*,
+> *interactivos*, *media*, while the folders they map to were already English.
+> Root `CLAUDE.md` §Language settles which way that resolves: everything a reader
+> perceives is Spanish **except `/catalog`, which ships with the site but
+> addresses component authors, not students**. So the names are English, and the
+> id is now the same word as the folder and the route segment. Labels only: same
+> four families, same meanings, same order.
+>
+> The rename deleted `folderOf()` and the `folder` field, which existed solely
+> to bridge the two languages — and later stopped storing `name` per family,
+> which was the id capitalized and so the same duplication one field lower (the
+> field remains, derived by `familyName(id)`). It broke
+> `/catalog/estructura` and its siblings with no redirect (an internal v0.1
+> surface; the old segments 404).
+>
+> The exception has an exception: a component page renders its examples live, so
+> the snippets and the widgets' own chrome stay Spanish — they are course
+> content. The page says so in one line, and the language guards are split in
+> two accordingly (registry data in `catalog/architecture.test.tsx`, rendered
+> pages in `app/catalogRoute.test.tsx`, which skips `/catalog/c/:name`).
+
 **Inventory is emergent**: no fixed component list — components are added and evolved
-as real classes need them, always through the catalog process.
+as real classes need them, always through the catalog process. The catalog states
+this where it shows: an empty family says nothing lives there yet by design, because
+components are built when a class needs one (#87) — the surface an agent reads
+before deciding whether to invent one.
 
 ## Alternatives considered
 

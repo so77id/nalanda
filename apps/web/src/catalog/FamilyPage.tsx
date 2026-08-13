@@ -3,7 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 
 import { CatalogLayout } from './CatalogLayout';
 import { catalog } from './registry';
-import { families } from './families';
+import { EMPTY_FAMILY_REASON, families } from './families';
 
 interface Props {
   /** Rendered when the family id is unknown — injected by the shell. */
@@ -23,11 +23,15 @@ export function FamilyPage({ notFound }: Props) {
       <p className="mt-3 text-slate-300">{family.definition}</p>
       <p className="mt-1 text-sm text-slate-500">{family.whatBelongs}</p>
       <p className="mt-1 text-sm text-slate-500">
-        Components live in <code>src/components/{family.folder}/</code>.
+        {/* An empty family has no folder yet — the first component added to it
+            creates one. Claiming otherwise pointed readers at a missing path. */}
+        Components {entries.length === 0 ? 'will live' : 'live'} in{' '}
+        <code>src/components/{family.id}/</code>.
       </p>
       {entries.length === 0 ? (
         <p className="mt-10 text-slate-500">
-          No components in this family yet — the inventory is emergent (D29).
+          Nothing lives here yet, and that is the plan: {EMPTY_FAMILY_REASON} (ADR-0010). An empty
+          family is a family nobody has needed, not one waiting to be filled.
         </p>
       ) : (
         <ul className="mt-10 space-y-4">

@@ -1,8 +1,9 @@
 import { Link } from 'react-router-dom';
 
 import { CatalogLayout } from './CatalogLayout';
+import { componentCount } from './componentCount';
 import { catalog } from './registry';
-import { families } from './families';
+import { EMPTY_FAMILY_REASON, families } from './families';
 
 /** /catalog — the four families, their definitions, and entry counts. */
 export function CatalogOverviewPage() {
@@ -17,26 +18,34 @@ export function CatalogOverviewPage() {
         </Link>
       </p>
       <ul className="mt-10 space-y-8">
-        {families.map((family) => (
-          <li key={family.id}>
-            <div className="flex items-baseline gap-3">
-              <h2 className="text-2xl font-semibold">
-                {/* Coloured and underlined-on-hover like every other link here:
-                    with only `hover:text-sky-300` the four family names were
-                    indistinguishable from headings, and a keyboard user reached
-                    them with no sign they led anywhere. */}
-                <Link to={`/catalog/${family.id}`} className="text-sky-400 hover:underline">
-                  {family.name}
-                </Link>
-              </h2>
-              <span className="text-sm text-slate-500">
-                {catalog.byFamily(family.id).length} component(s)
-              </span>
-            </div>
-            <p className="mt-1 text-slate-300">{family.definition}</p>
-            <p className="mt-1 text-sm text-slate-500">{family.whatBelongs}</p>
-          </li>
-        ))}
+        {families.map((family) => {
+          const count = catalog.byFamily(family.id).length;
+          return (
+            <li key={family.id}>
+              <div className="flex items-baseline gap-3">
+                <h2 className="text-2xl font-semibold">
+                  {/* Coloured and underlined-on-hover like every other link here:
+                      with only `hover:text-sky-300` the four family names were
+                      indistinguishable from headings, and a keyboard user reached
+                      them with no sign they led anywhere. */}
+                  <Link to={`/catalog/${family.id}`} className="text-sky-400 hover:underline">
+                    {family.name}
+                  </Link>
+                </h2>
+                <span className="text-sm text-slate-500">{componentCount(count)}</span>
+              </div>
+              <p className="mt-1 text-slate-300">{family.definition}</p>
+              <p className="mt-1 text-sm text-slate-500">{family.whatBelongs}</p>
+              {/* Half the taxonomy is empty. Unexplained, that reads as a hole
+                  in the page rather than as how this project works. */}
+              {count === 0 && (
+                <p className="mt-1 text-sm text-slate-500 italic">
+                  Empty by design — {EMPTY_FAMILY_REASON}.
+                </p>
+              )}
+            </li>
+          );
+        })}
       </ul>
     </CatalogLayout>
   );

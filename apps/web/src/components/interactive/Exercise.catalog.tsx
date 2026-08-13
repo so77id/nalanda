@@ -35,7 +35,7 @@ check(Solution.esPar(0), true);
 /** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
 export const exerciseCatalogEntry: CatalogEntry = {
   name: 'Exercise',
-  family: 'interactivos',
+  family: 'interactive',
   description:
     "A problem the student solves in place, checked automatically in their own browser. The cases are compiled into a separate harness class that calls the student's method, so what is verified is the method rather than what the program printed — nobody fails for formatting their output differently.",
   whenToUse:
@@ -67,7 +67,7 @@ export const exerciseCatalogEntry: CatalogEntry = {
   ],
   examples: [
     {
-      title: 'Un ejercicio completo',
+      title: 'A complete exercise',
       code: `<Exercise title="¿Es par?">
 
 Escribe \`esPar\`, que recibe un entero y devuelve \`true\` si es par.
@@ -99,7 +99,7 @@ check(Solution.esPar(0), true);
       ),
     },
     {
-      title: 'Sin código inicial: el aviso es para quien escribe',
+      title: 'No starter fence: the warning is for the author, not the student',
       code: `<Exercise title="Sin bloque starter">
 
 Un ejercicio al que le falta el código inicial.

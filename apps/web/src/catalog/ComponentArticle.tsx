@@ -2,7 +2,7 @@ import type { CatalogEntry } from '../lib/catalogEntry';
 
 import { CatalogLayout } from './CatalogLayout';
 import { ExampleBlock } from './ExampleBlock';
-import { folderOf } from './families';
+import { familyName } from './families';
 
 interface Props {
   entry: CatalogEntry;
@@ -10,13 +10,16 @@ interface Props {
 
 /** The component page template: description, when-to-use, props table, live examples. */
 export function ComponentArticle({ entry }: Props) {
+  // The id is the route; the name is what a reader is shown. The back link used
+  // to carry the id and so read "structure" beside a page headed "Structure".
   return (
-    <CatalogLayout back={{ to: `/catalog/${entry.family}`, label: entry.family }}>
+    <CatalogLayout back={{ to: `/catalog/${entry.family}`, label: familyName(entry.family) }}>
       <h1 className="mt-4 text-4xl font-bold tracking-tight">{entry.name}</h1>
       <p className="mt-3 text-slate-300">{entry.description}</p>
       <p className="mt-1 text-sm text-slate-500">
+        {/* The family id IS the folder name (#87) — no mapping to keep in sync. */}
         <code>
-          src/components/{folderOf(entry.family)}/{entry.name}.tsx
+          src/components/{entry.family}/{entry.name}.tsx
         </code>
       </p>
 
@@ -50,6 +53,13 @@ export function ComponentArticle({ entry }: Props) {
       )}
 
       <h2 className="mt-8 text-2xl font-semibold">Examples</h2>
+      {/* The catalog writes English; what it renders is the real component with
+          real course content, so the snippets and the widgets' own chrome are
+          Spanish. Stated here so the mix reads as the boundary it is (#87). */}
+      <p className="mt-2 text-sm text-slate-500">
+        These run the real component. The snippets are course content and the widgets speak to
+        students, so both are in Spanish — the catalog around them is not.
+      </p>
       {entry.examples.map((example) => (
         <ExampleBlock key={example.title} title={example.title} code={example.code}>
           <example.render />

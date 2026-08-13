@@ -132,6 +132,38 @@ cd /Users/so77id/workspace/nalanda
 git worktree remove ../nalanda-issue-<N>
 ```
 
+### Name your target, always
+
+Parallel worktrees mean parallel processes, parallel branches and a shared
+remote. A command whose scope is implicit acts on all of them. Three worked
+cases, all from #87, all the same mistake — **a command reaching past what the
+author was looking at**:
+
+```bash
+pkill -f "vite preview"                 # ✗ kills every session's server
+lsof -ti tcp:<port> | xargs kill        # ✓ the one you started
+
+git checkout -- <path>                  # ✗ reverts ALL uncommitted work there
+git stash push -- <file>                # ✓ or just commit first, then experiment
+
+git push --force-with-lease             # ✗ pushes every matching branch
+git push --force-with-lease origin <branch>:<branch>   # ✓ only yours
+```
+
+- `pkill -f` took down two other sessions' preview servers; they were doing the
+  same thing back within the hour.
+- `git checkout -- apps/web/src` erased a slice's tests that were not yet
+  committed, and the mutation run that followed silently proved nothing.
+- **The expensive one:** `git push --force-with-lease` with no refspec also
+  pushed a stale local `main`, rolling the published branch back two commits and
+  dropping two already-merged PRs from its history. `--force-with-lease` did not
+  help — the lease is computed against the stale ref, which was the problem.
+  Recovering it needed a fresh PR (#101), because writing to `main` is blocked —
+  correctly, and by the control that should have stopped the push itself.
+
+Before a destructive or remote-facing command, say the target out loud: this
+port, this file, this branch.
+
 ## Yolo mode (trivial fixes)
 
 For changes that meet ALL of these criteria, the workflow above can be bypassed:

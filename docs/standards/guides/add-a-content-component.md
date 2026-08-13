@@ -15,7 +15,7 @@ a semantic wrapper, a visualizer, a media embed, a structural block.
 
 ## Worked example
 
-`Slide` and `SectionBreak` (family *estructura*) are the reference
+`Slide` and `SectionBreak` (family *structure*) are the reference
 implementations: component + colocated entry + seam export + MDX registration
 + per-mode tests.
 
@@ -29,15 +29,18 @@ apps/web/src/components/structure/
 
 ## Step-by-step
 
-1. **Pick the family** — Estructura, Semánticos, Interactivos, Media (see
-   `/catalog` for definitions; these are display names — the ids used in code
-   and URLs are their unaccented forms). A new family is a governance change (see
+1. **Pick the family** — Structure, Semantic, Interactive, Media (see `/catalog`
+   for definitions). A new family is a governance change (see
    `/catalog/governance` → Changing these rules).
-   **Family ids are unaccented Spanish (they double as route segments); their
-   folders are English.** The authoritative mapping is
-   `apps/web/src/catalog/families.ts`, rendered on `/catalog/governance` and on
-   each family page — read it there rather than from this guide.
-2. **Implement** in `apps/web/src/components/<folder>/<Name>.tsx`, satisfying
+   **A family's id is one word doing three jobs**: the route segment, the
+   `src/components/` folder, and the display name lowercased (#87). There is no
+   mapping to look up. The taxonomy itself lives in
+   `apps/web/src/catalog/families.ts` and is rendered on `/catalog/governance`
+   and on each family page — read it there rather than from this guide.
+   Two of the four families are empty, and deliberately so: a component is built
+   when a class needs one. Picking an empty family is normal; creating its folder
+   is part of adding the first component to it.
+2. **Implement** in `apps/web/src/components/<family id>/<Name>.tsx`, satisfying
    the contract points (`/catalog/governance` → Component contract). If
    the component reacts to the render mode, read it with `useMode()`
    (presentation seam); if a parser must recognize it, declare metadata with
@@ -92,7 +95,7 @@ apps/web/src/components/structure/
    is hollow (empty description or when-to-use, a prop missing type or
    description, fewer than two examples, two examples sharing a title, an
    example that renders nothing, or a name/family pair that does not resolve to
-   `src/components/<folder>/<name>.tsx`); `src/app/mdxComponents.test.ts` fails
+   `src/components/<family id>/<name>.tsx`); `src/app/mdxComponents.test.ts` fails
    if the MDX map and the catalog drift apart in either direction — that is also
    what catches a forgotten seam export.
 6. **Verify**: per-commit protocol green; review the PR against the review
@@ -120,6 +123,13 @@ own wrapper in `ALLOWED`, or nothing checks you.
 
 - [ ] Family chosen; the contract points satisfied — including the `h2` one if
       the component marks a section, and the measure one if it renders wide.
+- [ ] **If the family was empty before this PR**: you created its folder, and you
+      moved the one hardcoded empty-family case in `app/catalogRoute.test.tsx`
+      (it names `/catalog/media` today and fails with instructions when media
+      stops being empty) to a family that is still empty — the other empty-family
+      tests find the empty family themselves and need nothing. Keep the
+      rendered-English `it.each` list covering one populated and one still-empty
+      family page.
 - [ ] Registered in `app/mdxComponents.ts` (mandatory for every catalogued component).
 - [ ] Colocated `.catalog.tsx` entry exported via the components seam.
 - [ ] ≥2 live examples; per-mode tests; completeness test green.
