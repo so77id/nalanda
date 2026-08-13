@@ -264,8 +264,9 @@ src/
   Decide eligibility at `touchstart` by walking from `event.target` to
   `event.currentTarget`, and refuse when a node in between really scrolls on
   the gesture's axis — `getComputedStyle(node).overflowX` of `auto` or
-  `scroll`, AND `scrollWidth > clientWidth + 1` for the sub-pixel rounding a
-  browser reports on boxes that do not scroll at all. Overflowing content is
+  `scroll`, AND `scrollWidth > clientWidth + 1` — these are integer
+  pixels, so a sub-pixel overflow surfaces as a 1px difference, and a scroll of
+  under a pixel is not a reader panning. Overflowing content is
   not a scrollable box: `visible` overflows and cannot pan, `hidden` clips and
   cannot pan, and treating either as a scroller kills the gesture across the
   whole surface. Worked case: `presentation/swipe.ts` + `SlideDeck` (#103) —
