@@ -1,9 +1,11 @@
+import { Presentation } from 'lucide-react';
 import { Suspense, useEffect } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
+import { Breadcrumb } from './Breadcrumb';
 import { Toc } from './Toc';
-import { prevNext } from './courseIndex';
+import { hasTrail, prevNext, trailFor } from './courseIndex';
 import { lazyDocumentComponent } from './lazyDoc';
 import { courseIndex, registry } from './liveContent';
 
@@ -46,6 +48,7 @@ export function DocumentPage({ notFound }: Props) {
   const entry = registry.get(id);
   const presentable = entry !== undefined && entry.meta.presentation !== 'none';
   const Doc = entry ? lazyDocumentComponent(entry) : null;
+  const trail = trailFor(courseIndex, id);
 
   // POC shortcut: p enters presentation from the book view (never while typing).
   useEffect(() => {
@@ -68,16 +71,23 @@ export function DocumentPage({ notFound }: Props) {
         <Toc index={courseIndex} />
       </aside>
       <main className="min-w-0 flex-1 px-8 py-10">
-        <div className="mx-auto flex max-w-3xl justify-end">
-          {presentable ? (
-            <Link
-              to={`/d/${id}/present`}
-              className="rounded border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800 hover:text-slate-100"
-            >
-              Presentar ▸
-            </Link>
-          ) : null}
-        </div>
+        {hasTrail(trail) || presentable ? (
+          <div className="mx-auto mb-8 flex max-w-3xl items-start justify-between gap-4 border-b border-slate-800 pb-3">
+            {/* Always occupies the left, so Presentar keeps the right edge without a trail. */}
+            <div className="min-w-0 flex-1">
+              <Breadcrumb trail={trail} />
+            </div>
+            {presentable ? (
+              <Link
+                to={`/d/${id}/present`}
+                className="flex shrink-0 items-center gap-1.5 rounded border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+              >
+                <Presentation size={14} aria-hidden="true" />
+                Presentar
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
         <article className="prose prose-invert prose-slate mx-auto max-w-3xl">
           <Suspense fallback={null}>
             <Doc />

@@ -157,6 +157,11 @@ export function trailFor(index: CourseIndex, id: string): Trail {
   };
 }
 
+/** Whether a trail has anything to say — the emptiness rule, so the renderer and the row agree. */
+export function hasTrail(trail: Trail): boolean {
+  return Boolean(trail.course) || trail.ancestors.length > 0 || trail.position !== undefined;
+}
+
 function locate(
   entries: IndexEntry[],
   id: string,
