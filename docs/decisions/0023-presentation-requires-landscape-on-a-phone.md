@@ -114,6 +114,20 @@ Three things this fixes in place:
   in Chromium: enter fullscreen in landscape, rotate, `document.fullscreenElement`
   is null and the panel is up. This does not touch the button itself, which the
   WP put out of scope.
+- **The deck asks for the viewport the browser actually gives, not the one it
+  claims (#99).** `fixed inset-0` resolves against the *large* viewport, the one
+  a mobile browser overlays with its own chrome, so the deck was drawing under
+  the URL bar. It now also carries `h-[100dvh]` (dynamic viewport) and the page
+  declares `viewport-fit=cover`; `theme-color` was already `#020617`, the deck's
+  own background, so where a bar cannot be removed it at least stops being a
+  stripe of a different colour. Measured 2026-08-13 in Chromium with an iPhone 13
+  context: the deck's box is exactly `innerHeight` at 844x390, 390x844 and
+  1440x900, with nothing scrollable behind it.
+  **What emulation cannot answer**: whether a given mobile browser hides its
+  chrome, keeps it, or changes on rotation. Headless Chromium has no URL bar, so
+  that is a real-device observation and belongs here as one, with the browser and
+  the date. Fullscreen remains rejected as the answer for the reasons above — this
+  is what can be done without it.
 - The reader's position survives rotation for free: it lives in `?slide=N`, not
   in the component.
 - **jsdom implements no `matchMedia` at all**, so the suite can pin which

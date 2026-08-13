@@ -28,7 +28,7 @@ export function RotateNotice({ docId }: Props) {
       aria-labelledby="rotate-notice-title"
       aria-describedby="rotate-notice-text"
       tabIndex={-1}
-      className="fixed inset-0 z-40 flex flex-col items-center justify-center gap-4 bg-slate-950 px-8 text-center text-slate-100"
+      className="fixed inset-0 h-[100dvh] z-40 flex flex-col items-center justify-center gap-4 bg-slate-950 px-8 text-center text-slate-100"
     >
       <RotateCwSquare size={48} aria-hidden="true" className="text-slate-500" />
       <h1 id="rotate-notice-title" className="text-2xl font-bold tracking-tight">

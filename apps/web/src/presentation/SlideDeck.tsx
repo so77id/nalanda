@@ -160,7 +160,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   if (portraitPhone) return <RotateNotice docId={docId} />;
 
   return (
-    <div className="fixed inset-0 z-40 flex flex-col bg-slate-950 text-slate-100">
+    <div className="fixed inset-0 h-[100dvh] z-40 flex flex-col bg-slate-950 text-slate-100">
       <div
         ref={stage}
         data-testid="slide-stage"
