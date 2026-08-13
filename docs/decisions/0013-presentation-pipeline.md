@@ -77,6 +77,10 @@ can drive it.
    single source of truth. Unlike a key, the swipe needs no portrait gate: it
    hangs off the slide stage, which the rotate panel replaces rather than
    covers. A new input author should know which of those two shapes theirs is.
+   **A gesture that starts inside a descendant which scrolls sideways is not
+   the deck's** (#103): a code block wider than the slide is dragged to be
+   read, and taking that drag as navigation makes a long line unreadable on the
+   device the gesture exists for.
 
    **Constrained by ADR-0023** (#91): on a coarse pointer in portrait the deck
    is replaced by a rotate panel — a second case where `/present` paints no

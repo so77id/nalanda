@@ -51,7 +51,10 @@ Three things this fixes in place:
   React mechanic; it lives in the code comment that guards it.)
 - **The way out is an absolute route** (`/d/<id>`), not `history.back()`: a
   reader who opened `/d/<id>/present` from a message or a bookmark has nothing
-  behind them to go back to.
+  behind them to go back to. Extended by #103: the deck carries the same way out
+  as a visible control, because `Escape` announces itself nowhere and a phone
+  has no `Escape` — the panel had an exit and the deck, where the reader
+  actually is, did not.
 
 ## Alternatives considered
 
@@ -123,11 +126,17 @@ Three things this fixes in place:
   stripe of a different colour. Measured 2026-08-13 in Chromium with an iPhone 13
   context: the deck's box is exactly `innerHeight` at 844x390, 390x844 and
   1440x900, with nothing scrollable behind it.
-  **What emulation cannot answer**: whether a given mobile browser hides its
-  chrome, keeps it, or changes on rotation. Headless Chromium has no URL bar, so
-  that is a real-device observation and belongs here as one, with the browser and
-  the date. Fullscreen remains rejected as the answer for the reasons above — this
-  is what can be done without it.
+  **Answered on a device, 2026-08-13: it does not hide the bar.** Brave on a
+  phone keeps its chrome over the deck with `dvh` and `viewport-fit=cover` in
+  place. The measures are still right — they stop the deck from being *clipped*
+  by the chrome, which was the actual bug — but they do not remove it, and
+  nothing short of the Fullscreen API can. That API is rejected above and the
+  reasons have not changed, so **this is the end state, not an open question**:
+  on a phone the deck shares the screen with the browser's bar. A reader who
+  wants the whole screen has the `⛶` control, where the platform supports it.
+  What headless Chromium can and cannot say about this is itself the lesson —
+  it has no bar to hide, so it reported success on a question it could not see
+  (`testing-strategy.md` §the browser recipe).
 - The reader's position survives rotation for free: it lives in `?slide=N`, not
   in the component.
 - **jsdom implements no `matchMedia` at all**, so the suite can pin which
