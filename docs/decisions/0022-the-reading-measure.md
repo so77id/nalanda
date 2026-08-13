@@ -41,11 +41,14 @@ re-deriving.
 
 **The container stays 768px. The running text narrows inside it.**
 
-- Running text is capped at **39rem (624px)** and centred. Measured in Chromium
-  at 1440px on `/d/java-desde-cpp`, counting characters on each rendered line
-  and dropping the partial last one: **70 per line excluding spaces** (84
-  counting them), against **84 excluding** (102 counting) for the full 768px
-  column. So on the audit's own convention the column goes from 84 to 70.
+- Running text is capped at **39rem (624px)** and centred. Measured twice,
+  independently, in Chromium at 1440px on `/d/java-desde-cpp` — counting the
+  characters on each rendered line and dropping each paragraph's partial last
+  one: **≈70 per line excluding spaces** (≈83 counting them), against **≈84
+  excluding** (≈100 counting) for the full 768px column. The two runs agree
+  within a character or two; the numbers are approximate by nature, since they
+  depend on which paragraphs you sample. On the audit's own convention the
+  column goes from 84 to 70.
 - The rule lives in `styles/index.css` as
   `.measured-prose > :not(.not-prose):not(.measure-full):not(pre)`, applied to
   the document `<article>`. It is **unlayered on purpose**, so a child cannot

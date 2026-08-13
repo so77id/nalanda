@@ -92,9 +92,9 @@ html {
    and the #76 line-clipping fix breaks.
 
    So the container stays 768px and the TEXT narrows inside it. 39rem is 624px,
-   which measures 70 characters per line excluding spaces — the audit's
-   convention — and 84 counting them (Chromium, 1440px, /d/java-desde-cpp).
-   ADR-0022 records both numbers and why they differ.
+   which measures ~70 characters per line excluding spaces — the audit's
+   convention — and ~83 counting them (Chromium, 1440px, /d/java-desde-cpp,
+   two independent runs). ADR-0022 records both numbers and why they differ.
 
    The exemption list is not new vocabulary: `.not-prose` is already what
    CodeEditor, Exercise, SideBySide and AuthoringError mark themselves with, and
