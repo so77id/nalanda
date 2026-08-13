@@ -2,7 +2,7 @@ import type { CatalogEntry } from '../lib/catalogEntry';
 
 import { CatalogLayout } from './CatalogLayout';
 import { ExampleBlock } from './ExampleBlock';
-import { families } from './families';
+import { familyName } from './families';
 
 interface Props {
   entry: CatalogEntry;
@@ -12,9 +12,8 @@ interface Props {
 export function ComponentArticle({ entry }: Props) {
   // The id is the route; the name is what a reader is shown. The back link used
   // to carry the id and so read "structure" beside a page headed "Structure".
-  const family = families.find((f) => f.id === entry.family);
   return (
-    <CatalogLayout back={{ to: `/catalog/${entry.family}`, label: family?.name ?? entry.family }}>
+    <CatalogLayout back={{ to: `/catalog/${entry.family}`, label: familyName(entry.family) }}>
       <h1 className="mt-4 text-4xl font-bold tracking-tight">{entry.name}</h1>
       <p className="mt-3 text-slate-300">{entry.description}</p>
       <p className="mt-1 text-sm text-slate-500">

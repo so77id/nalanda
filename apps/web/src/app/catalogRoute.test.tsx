@@ -280,11 +280,15 @@ describe('/catalog/governance', () => {
     expect(screen.getByRole('link', { name: /catalog/i })).toHaveAttribute('href', '/catalog');
   });
 
-  it('derives the family folder mapping from the taxonomy', async () => {
+  it('names the families an author can choose from', async () => {
+    // It used to assert a "Name → folder/" mapping, which the rename turned
+    // into the identity `Structure → structure/`. What an author still needs is
+    // the list of families; the folder is the id and the page now says so.
     renderAt('/catalog/governance');
     await screen.findByRole('heading', { level: 1, name: /governance/i });
+    const step = screen.getByText(/Pick the family/i);
     for (const family of families) {
-      expect(screen.getByText(new RegExp(`${family.name} → ${family.id}/`))).toBeInTheDocument();
+      expect(step, `governance should name ${family.name}`).toHaveTextContent(family.name);
     }
   });
 });

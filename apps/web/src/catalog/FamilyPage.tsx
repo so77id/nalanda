@@ -30,7 +30,7 @@ export function FamilyPage({ notFound }: Props) {
       </p>
       {entries.length === 0 ? (
         <p className="mt-10 text-slate-500">
-          Nothing lives here yet, and that is the plan: {EMPTY_FAMILY_REASON} (D10/D29). An empty
+          Nothing lives here yet, and that is the plan: {EMPTY_FAMILY_REASON} (ADR-0010). An empty
           family is a family nobody has needed, not one waiting to be filled.
         </p>
       ) : (
