@@ -21,7 +21,11 @@ export function CatalogOverviewPage() {
           <li key={family.id}>
             <div className="flex items-baseline gap-3">
               <h2 className="text-2xl font-semibold">
-                <Link to={`/catalog/${family.id}`} className="hover:text-sky-300">
+                {/* Coloured and underlined-on-hover like every other link here:
+                    with only `hover:text-sky-300` the four family names were
+                    indistinguishable from headings, and a keyboard user reached
+                    them with no sign they led anywhere. */}
+                <Link to={`/catalog/${family.id}`} className="text-sky-400 hover:underline">
                   {family.name}
                 </Link>
               </h2>

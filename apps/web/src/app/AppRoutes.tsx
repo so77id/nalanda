@@ -4,6 +4,7 @@ import { Navigate, Route, Routes } from 'react-router-dom';
 import { CatalogOverviewPage, ComponentPage, FamilyPage, GovernancePage } from '../catalog';
 import { DocumentPage, courseIndex, walkIndex } from '../content';
 import { PresentationPage } from '../presentation';
+import { DocumentTitle } from './DocumentTitle';
 import { NotFound } from './NotFound';
 import { mdxComponents } from './mdxComponents';
 
@@ -15,6 +16,7 @@ const firstDocId = walkIndex(courseIndex)[0];
 export function AppRoutes() {
   return (
     <MDXProvider components={mdxComponents}>
+      <DocumentTitle />
       <Routes>
         <Route
           path="/"

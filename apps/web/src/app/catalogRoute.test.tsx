@@ -40,6 +40,20 @@ describe('/catalog', () => {
     );
   });
 
+  it('makes a family name look like the link it is', async () => {
+    renderAt('/catalog');
+    await screen.findByRole('heading', { name: /^catalog$/i });
+
+    // All four were <a> elements with no colour and no underline: nothing said
+    // they were navigable before the pointer was already on them, and a keyboard
+    // user got no signal at all.
+    for (const family of families) {
+      const link = screen.getByRole('link', { name: family.name });
+      expect(link.className, `${family.name} does not look like a link`).toMatch(/text-sky-\d00/);
+      expect(link.className).toContain('hover:underline');
+    }
+  });
+
   it('navigates from the overview into a family page by clicking its link', async () => {
     renderAt('/catalog');
     await screen.findByRole('heading', { name: /^catalog$/i });

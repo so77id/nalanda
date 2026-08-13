@@ -18,6 +18,28 @@ describe('mdxHeading', () => {
     expect(anchor).toHaveAttribute('href', '#la-idea');
   });
 
+  it('reveals the anchor to a keyboard, not only to a mouse', () => {
+    render(<H2>Una sección</H2>);
+    const anchor = screen.getByRole('link');
+
+    // The anchor is transparent while the heading is unhovered. Focusable and
+    // invisible is the worst pairing: tabbing lands on it, nothing on screen
+    // moves, and S4's focus outline surrounds something nobody can see.
+    expect(anchor.className).toContain('group-hover:opacity-100');
+    expect(anchor.className).toContain('focus-visible:opacity-100');
+  });
+
+  it('renders the anchor in a colour that clears the contrast floor', () => {
+    render(<H2>Una sección</H2>);
+
+    // slate-600 measured 2.66:1 against slate-950, below the 3:1 minimum — and
+    // below 4.5:1 for h3/h4, where the marker is normal-size text rather than
+    // large. slate-400 is 7.87:1, and it only ever appears once revealed.
+    const anchor = screen.getByRole('link');
+    expect(anchor.className).toContain('text-slate-400');
+    expect(anchor.className).not.toContain('text-slate-600');
+  });
+
   it('renders the requested heading level', () => {
     const H3 = headingFor(3);
     render(<H3>Detalle</H3>);

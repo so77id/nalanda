@@ -148,6 +148,11 @@ Full usage docs, props and live examples for every document-facing component
 live in the catalog — browse `/catalog`, which is generated from the components
 themselves rather than maintained by hand.
 
+5d. **External links**: write them as explicit `https://`. Markdown now parses
+   GFM, so a bare URL becomes a link on its own — and a bare `www.host` resolves
+   to **`http://`**, a cleartext link the reader can be downgraded on. Tables,
+   strikethrough (`~~`), task lists and footnotes also work now.
+
 6. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
    link, `[[otro-id|texto visible]]` overrides the label. A target that doesn't
    exist does NOT fail the build: it renders visibly broken (red wavy underline)

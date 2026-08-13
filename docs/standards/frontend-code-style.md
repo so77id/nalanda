@@ -94,7 +94,25 @@ src/
   (Vite plugin) serves the shell's router. They are Node-only, never imported by
   browser code, and wired exclusively from `vite.config.ts` — a
   confirmation-gated file (see `apps/web/CLAUDE.md`): propose the wiring diff and
-  get confirmation before editing it.
+  get confirmation before editing it. The remark list itself lives in
+  `content/mdxPlugins.ts` so the suite can compile MDX through the same array the
+  build uses; its order is an invariant — syntax extensions (`remark-gfm`) before
+  the plugins that walk the tree parsing produced.
+- **The shell titles the document, and owns anything else that is a property of
+  the page rather than of a feature.** A render-nothing component in `app/` with
+  an effect is the shape for it (worked case: `app/DocumentTitle.tsx`). It cannot
+  live in a feature — features may not import `app/`, and only the shell may
+  import every feature — and it must not live in `lib/`, which is for pure code
+  (the rule that moved `draft.ts` out of it in #76).
+- **The global stylesheet may name a third-party class only when nothing else
+  can win**, and the rule says why in place. Worked case: `.cm-editor.cm-focused`
+  in `styles/index.css`. CodeMirror injects `outline: none` **unlayered**, and
+  Tailwind v4 emits its utilities inside `@layer utilities` — unlayered beats
+  layered regardless of specificity, so a `focus-within:` utility on the
+  component loses. The same rule cuts the other way and is worth knowing before
+  writing anything here: an unlayered declaration in this file overrides every
+  Tailwind utility on the page, which is how a `border-radius` in `:focus-visible`
+  silently reshaped every focused button (#83).
 - **The deployment base path is declared once**, in `vite.config.ts` (`outDir`
   stays at the Vite default); runtime code derives from `import.meta.env.BASE_URL`
   and CI never overrides it on the command line — a CI-only flag makes local

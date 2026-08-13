@@ -100,6 +100,16 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   resolved Vite config (import `vite.config.ts` and call it with a `ConfigEnv`)
   or by driving the plugin's hooks directly, and name the level in a header
   comment. A green jsdom suite says nothing about the deployed build.
+- **Extracting a build-time value for testability moves the risk to its wiring**,
+  and the wiring is pinned by resolving the config and running the plugin —
+  never by matching identifier text in `vite.config.ts`. Worked case (#83): the
+  remark plugin list was extracted so a test could compile MDX through it, and
+  the config was guarded with `expect(config).toMatch(/mdx\(\{\s*remarkPlugins\b/)`
+  over its source. Changing the build to `remarkPlugins.filter(...)` — dropping
+  GFM from what is actually compiled — left lint, `tsc`, `vite build` and all 347
+  tests green while the shipped document chunk fell 3.3 kB and its tables turned
+  back into paragraphs of pipes. Reading a config proves a name appears in it;
+  only resolving it proves the value is used (`content/mdxWiring.test.ts`).
 - **Execution is invisible to the suite**: every runtime is faked in jsdom
   (`CodeEditor.test.tsx` mocks CodeMirror and the worker; `java/runtime.test.ts`
   stubs the CheerpJ globals), and jsdom has no `Worker`, no CheerpJ DOM loader

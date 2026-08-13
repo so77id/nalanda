@@ -25,6 +25,15 @@ type Props = AnchorHTMLAttributes<HTMLAnchorElement>;
  * Anchor renderer for MDX documents: resolves wiki: hrefs (emitted by
  * remarkWikiLinks) against the registry; unresolved ids and unsafe URL schemes
  * render visibly broken instead of linking.
+ *
+ * **The guard covers markdown, not literal JSX.** MDX passes markdown-generated
+ * elements through the component map, so `[x](…)`, `[[wiki]]` and — since #83 —
+ * GFM's bare-URL autolinks all arrive here and get the scheme check and the
+ * `rel` hardening. An `<a>` written as literal JSX in a document does not: it
+ * renders as authored, `rel` and all. That is accepted rather than fixed,
+ * because everything under `content/` is reviewed in-repo material and MDX is
+ * executable code regardless — but it means this component is not a sanitiser,
+ * and nothing downstream should treat it as one.
  */
 export function MdxLink({ href = '', children, ...rest }: Props) {
   if (href.startsWith(WIKI_PREFIX)) {

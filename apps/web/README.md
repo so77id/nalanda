@@ -41,7 +41,8 @@ files the standard does not carry.
 ```
 src/
 ├── app/                  # shell: entry, router (documents, presentation, catalog, 404),
-│                         # MDX map, deployed base/basename, SPA-fallback build plugin
+│                         # MDX map, per-route document title, deployed base/basename,
+│                         # SPA-fallback build plugin
 ├── catalog/              # /catalog surface: registry, family taxonomy, component +
 │                         # governance pages, live-example blocks
 ├── components/           # catalog content components by family (structure: Slide,
@@ -49,8 +50,9 @@ src/
 │                         # + their lazy wrappers, shared Panel/useRunShortcut/draft)
 │                         # + their colocated <Component>.catalog.tsx entries,
 │                         # + AuthoringError: shared across families, not a content component
-├── content/              # content pipeline: MDX registry, course index, wiki-links,
-│                         # fence-metadata plugin, book-mode page, build-time integrity gate
+├── content/              # content pipeline: MDX registry, course index, remark plugin
+│                         # list (wiki-links, fence metadata, GFM), element renderers
+│                         # (links, tables), book-mode page, build-time integrity gate
 ├── presentation/         # presentation mode: mode context, slide parser, SlideDeck viewer
 ├── runtime/              # code execution: worker contract, registry, useRuntime hook,
 │                         # one folder per language (java, cpp, python)

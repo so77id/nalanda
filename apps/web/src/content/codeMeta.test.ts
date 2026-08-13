@@ -1,6 +1,3 @@
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-
 import type { Code, Root } from 'mdast';
 import { describe, expect, it } from 'vitest';
 
@@ -44,29 +41,12 @@ describe('remarkCodeMeta', () => {
   });
 });
 
-// A plugin that is not registered transforms nothing. Removing `remarkCodeMeta`
-// from the pipeline left the whole suite green while every exercise in the
-// published document degraded to the author-error banner — the unit tests above
-// drive the function directly and never notice.
-describe('registration in the MDX pipeline', () => {
-  // vitest runs with apps/web as its cwd.
-  const config = readFileSync(join(process.cwd(), 'vite.config.ts'), 'utf8');
-  // Delimited by what follows the array, not by the first ']': the list holds
-  // a nested [plugin, options] pair, and stopping there cut it in half.
-  const remarkList = config.slice(
-    config.indexOf('remarkPlugins:'),
-    config.indexOf('providerImportSource'),
-  );
-
-  it('registers remarkCodeMeta', () => {
-    expect(remarkList).toContain('remarkCodeMeta');
-  });
-
-  it('registers remarkWikiLinks, which was equally unpinned', () => {
-    expect(remarkList).toContain('remarkWikiLinks');
-  });
-
-  it('found a real plugin list (guards against a vacuous check)', () => {
-    expect(remarkList).toContain('remarkFrontmatter');
-  });
-});
+// Registration is pinned in `mdxWiring.test.ts`, which resolves vite.config.ts
+// and runs the MDX plugin on real markdown.
+//
+// It used to be pinned here, by reading the config as text and searching for
+// plugin names. That was replaced because it did not work: changing the build to
+// `remarkPlugins.filter(...)` — dropping GFM from what is actually compiled —
+// left this file 7/7 green, while the shipped document chunk fell 3.3 kB and its
+// tables turned back into paragraphs of pipes. Reading a config can prove a name
+// appears in it; only resolving it proves the value is used.
