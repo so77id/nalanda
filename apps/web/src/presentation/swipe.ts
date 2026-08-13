@@ -19,6 +19,25 @@ const MIN_DISTANCE = 50;
 const HORIZONTAL_DOMINANCE = 1.5;
 
 /**
+ * Whether the touch landed on something that scrolls sideways on its own, up to
+ * (and excluding) the stage. A code block wider than the slide is the case that
+ * matters: on a phone the reader drags inside it to read the rest of the line,
+ * and the deck used to take that drag and change the slide instead (#103,
+ * measured on `/d/java-desde-cpp/present?slide=3` with 73px of Java hidden).
+ * The reader gets the scroll; the deck keeps every other swipe.
+ */
+export function startsInsideScroller(target: EventTarget | null, stage: Element): boolean {
+  let node = target instanceof Element ? target : null;
+  while (node && node !== stage) {
+    // +1 absorbs sub-pixel rounding, which reports a 0.5px "overflow" on boxes
+    // that do not scroll at all.
+    if (node.scrollWidth > node.clientWidth + 1) return true;
+    node = node.parentElement;
+  }
+  return false;
+}
+
+/**
  * Which way a touch drag points, or null when it is not a slide gesture at all.
  * Pure on purpose: this is the half of the interaction the suite can judge.
  */

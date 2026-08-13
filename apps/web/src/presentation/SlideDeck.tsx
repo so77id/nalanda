@@ -1,4 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
+import { X } from 'lucide-react';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode, TouchEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -6,7 +7,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { mdxChildrenOf } from './mdxChildren';
 import { computeSlides } from './parser';
 import { fitScale } from './fit';
-import { swipeDirection } from './swipe';
+import { startsInsideScroller, swipeDirection } from './swipe';
 import type { Point } from './swipe';
 import { RotateNotice } from './RotateNotice';
 import { usePortraitPhone } from './usePortraitPhone';
@@ -68,6 +69,15 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
     [setSearchParams, slides.length],
   );
 
+  // The one way out, used by Escape and by the footer control. Absolute, not
+  // history.back(): a reader who opened /present from a link has nothing behind
+  // them (ADR-0023). Fullscreen goes with it, because the control that exits
+  // fullscreen lives in the deck being left.
+  const leave = useCallback(() => {
+    if (document.fullscreenElement) void document.exitFullscreen?.();
+    void navigate(`/d/${docId}`);
+  }, [docId, navigate]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       // The panel replaces the deck's markup, not this window-level listener:
@@ -93,20 +103,24 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
           go(slides.length - 1);
           break;
         case 'Escape':
-          void navigate(`/d/${docId}`);
+          leave();
           break;
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [docId, go, index, navigate, portraitPhone, slides.length]);
+  }, [go, index, leave, portraitPhone, slides.length]);
 
   // The gesture the phone has instead of arrow keys. A single finger only:
   // a second one means a pinch, and zooming is not navigating.
   const touchStart = useRef<Point | null>(null);
   const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
     const touch = event.touches.length === 1 ? event.touches[0] : undefined;
-    touchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+    if (!touch || startsInsideScroller(event.target, event.currentTarget)) {
+      touchStart.current = null;
+      return;
+    }
+    touchStart.current = { x: touch.clientX, y: touch.clientY };
   };
   const onTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
     const start = touchStart.current;
@@ -195,14 +209,26 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
         </AnimatePresence>
       </div>
       <footer className="flex items-center justify-between px-[max(1.5rem,env(safe-area-inset-left))] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pr-[max(1.5rem,env(safe-area-inset-right))] text-sm text-slate-500">
-        <button
-          type="button"
-          aria-label="Pantalla completa"
-          onClick={toggleFullscreen}
-          className="rounded px-2 py-1 hover:bg-slate-800 hover:text-slate-200"
-        >
-          ⛶
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            aria-label="Pantalla completa"
+            onClick={toggleFullscreen}
+            className="rounded px-2 py-1 hover:bg-slate-800 hover:text-slate-200"
+          >
+            ⛶
+          </button>
+          {/* Escape does this too, and says so nowhere on screen — which is the
+              whole reason this exists. A phone has no Escape at all. */}
+          <button
+            type="button"
+            aria-label="Salir de la presentación"
+            onClick={leave}
+            className="rounded px-2 py-1 hover:bg-slate-800 hover:text-slate-200"
+          >
+            <X size={16} aria-hidden="true" />
+          </button>
+        </div>
         <span>
           {index + 1} / {slides.length}
         </span>

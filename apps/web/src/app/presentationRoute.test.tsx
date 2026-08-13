@@ -286,6 +286,26 @@ describe('advancing the deck by touch', () => {
     expect(counter).toHaveTextContent(/^3 \//);
   });
 
+  it('leaves a sideways-scrolling code block to scroll itself', async () => {
+    renderAt(`/d/${firstId}/present?slide=2`);
+    const counter = await findCounter();
+
+    // A code block wider than the slide: the reader drags inside it to read the
+    // rest of the line, and the deck must not take that drag (#103, measured on
+    // a phone with 73px of Java hidden to the right).
+    const scroller = screen.getByTestId('slide-stage').querySelector('div')!;
+    Object.defineProperty(scroller, 'scrollWidth', { value: 900, configurable: true });
+    Object.defineProperty(scroller, 'clientWidth', { value: 800, configurable: true });
+
+    fireEvent.touchStart(scroller, { touches: [{ clientX: 600, clientY: 200 }] });
+    fireEvent.touchEnd(scroller, { changedTouches: [{ clientX: 200, clientY: 205 }] });
+    expect(counter).toHaveTextContent(/^2 \//);
+
+    // …and the same drag on the stage itself still moves the deck.
+    swipe(600, 200);
+    expect(counter).toHaveTextContent(/^3 \//);
+  });
+
   it('ignores a two-finger gesture — a pinch is not a swipe', async () => {
     renderAt(`/d/${firstId}/present?slide=2`);
     const counter = await findCounter();
@@ -385,6 +405,58 @@ describe('fitting a slide to the stage it is shown on', () => {
     // effect that runs on the index measures the OUTGOING node and leaves the
     // new one unobserved for the rest of the deck.
     expect(observed).toContain(slideBox());
+  });
+});
+
+describe('leaving the presentation from the deck', () => {
+  it('offers a visible exit beside the fullscreen control', async () => {
+    renderAt(`/d/${firstId}/present`);
+    await findCounter();
+    expect(screen.getByRole('button', { name: /salir de la presentación/i })).toBeInTheDocument();
+  });
+
+  it('lands on the book view from any slide, including a deep link', async () => {
+    renderAt(`/d/${firstId}/present?slide=3`);
+    await findCounter();
+
+    fireEvent.click(screen.getByRole('button', { name: /salir de la presentación/i }));
+
+    expect(await screen.findByRole('article')).toBeInTheDocument();
+  });
+
+  it('leaves fullscreen on the way out, since the control goes with the deck', async () => {
+    const exitFullscreen = vi.fn(() => Promise.resolve());
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      value: document.documentElement,
+    });
+    Object.defineProperty(document, 'exitFullscreen', {
+      configurable: true,
+      value: exitFullscreen,
+    });
+    try {
+      renderAt(`/d/${firstId}/present`);
+      await findCounter();
+      fireEvent.click(screen.getByRole('button', { name: /salir de la presentación/i }));
+      await screen.findByRole('article');
+      expect(exitFullscreen).toHaveBeenCalled();
+    } finally {
+      Reflect.deleteProperty(document, 'fullscreenElement');
+      Reflect.deleteProperty(document, 'exitFullscreen');
+    }
+  });
+
+  it('is not reachable behind the rotate panel', async () => {
+    coarsePortrait(true);
+    try {
+      renderAt(`/d/${firstId}/present`);
+      await screen.findByRole('alertdialog');
+      expect(
+        screen.queryByRole('button', { name: /salir de la presentación/i }),
+      ).not.toBeInTheDocument();
+    } finally {
+      Reflect.deleteProperty(window, 'matchMedia');
+    }
   });
 });
 
