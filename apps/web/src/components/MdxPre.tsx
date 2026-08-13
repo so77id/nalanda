@@ -30,6 +30,14 @@ function isKnownLanguage(language: string | null): language is RuntimeId {
  * The lazy wrapper, never the editor itself: the shell builds its MDX map
  * eagerly, so naming `CodeEditor` here would put CodeMirror in the entry chunk
  * for every reader of every page (ADR-0018 §7).
+ *
+ * One property was measured rather than assumed, because the editor renders by
+ * viewport and could in principle keep a listing's tail out of the DOM, where
+ * the browser's own `Ctrl+F` would stop finding it: at the sizes a course
+ * document uses it does not. Every line stays in the DOM — including lines
+ * scrolled out of view inside a slide's capped box — so search keeps working
+ * (#85 AC11, measured at 1440px and 390px; the rule for authors is in
+ * `guides/add-a-course-document.md` step 3).
  */
 export function MdxPre({ children }: Props) {
   const fence = fenceOf(children);

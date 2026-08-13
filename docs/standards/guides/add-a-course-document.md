@@ -66,6 +66,26 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    for this; it matters only if you add a component of your own — see
    `add-a-content-component.md`.
 
+   **A fence in a language the platform runs is highlighted and copyable.**
+   ```` ```java ````, ```` ```cpp ```` and ```` ```python ```` render through
+   the same editor the runnable blocks use — same colours, a copy button, and
+   not editable or runnable (#85). Write the language whenever the fence holds
+   code. A fence with **no** language, or one the platform has no runtime for
+   (```` ```bash ````), stays plain monospace and loads nothing — which is what
+   an ASCII diagram wants.
+
+   Two consequences worth knowing, both measured rather than assumed:
+
+   - In the book a listing is never given a scrollbar of its own; the page
+     scrolls. On a slide it keeps one, because the screen does not grow.
+   - The reader's own `Ctrl+F` still finds text inside a listing, including
+     lines scrolled out of view on a slide — measured at 1440px and 390px on
+     `06-java-desde-cpp.mdx`. This is worth stating because it is not
+     guaranteed in general: the editor renders by viewport, so a listing of
+     hundreds of lines could hide its tail from the browser's search. Nothing in
+     a course document is near that size (the longest here is 27 lines), and if
+     you ever write one that is, split it.
+
 4. **Mark slides (optional)**: `<Slide title="...">...</Slide>` and
    `<SectionBreak />` are available WITHOUT imports. In the book view a Slide
    renders as its heading + flowing prose and a SectionBreak as a subtle
