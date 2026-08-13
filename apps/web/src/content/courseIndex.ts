@@ -127,6 +127,57 @@ export function walkIndex(index: CourseIndex): string[] {
   return ids;
 }
 
+/** One ancestor group of a document, as the breadcrumb renders it. */
+export interface TrailCrumb {
+  label: string;
+  levelName?: string;
+}
+
+/** Where a document sits in the course: the groups above it and its rank among its siblings. */
+export interface Trail {
+  /** Course name, from the index root; absent when the index has no title. */
+  course?: string;
+  /** Ancestor groups from the root down; empty for a top-level or unlisted document. */
+  ancestors: TrailCrumb[];
+  /** 1-based rank among the entries of the same list; absent when the document is unlisted. */
+  position?: { at: number; of: number };
+}
+
+/**
+ * The breadcrumb of a document, derived from the index alone. An unlisted
+ * document is not an error — `/d/<id>` serves it, so the trail degrades to the
+ * course name with no ancestors and no position.
+ */
+export function trailFor(index: CourseIndex, id: string): Trail {
+  const found = locate(index.entries, id, []);
+  return {
+    course: index.title,
+    ancestors: found?.ancestors ?? [],
+    position: found?.position,
+  };
+}
+
+function locate(
+  entries: IndexEntry[],
+  id: string,
+  ancestors: TrailCrumb[],
+): { ancestors: TrailCrumb[]; position: { at: number; of: number } } | null {
+  for (const [i, entry] of entries.entries()) {
+    // A group may carry a docId of its own: matched here, it is not its own ancestor.
+    if (entry.docId === id) {
+      return { ancestors, position: { at: i + 1, of: entries.length } };
+    }
+    if (entry.children) {
+      const deeper = locate(entry.children, id, [
+        ...ancestors,
+        { label: entry.label ?? entry.docId ?? '', levelName: entry.levelName },
+      ]);
+      if (deeper) return deeper;
+    }
+  }
+  return null;
+}
+
 /** Neighbors of a document along the depth-first walk; empty at the edges or off-index. */
 export function prevNext(index: CourseIndex, id: string): { prev?: string; next?: string } {
   const ids = walkIndex(index);
