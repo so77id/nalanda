@@ -45,7 +45,7 @@ export function CodeEditor({
   // goes with it: the column's own label already says which language this is.
   const embedded = useEmbedded();
   const flags = resolveFlags(variant, overrides);
-  // Inside a column the line-number gutter costs ~22px of the ~376px the
+  // Inside a column the line-number gutter costs 20px of the ~376px the
   // listing gets, and that is exactly the margin the #76 fix lives on: with the
   // gutter, `System.out.println("Bienvenidos a EDA");` loses its closing `);`
   // again — measured at 1440px in the book. Numbers are chrome; a complete line

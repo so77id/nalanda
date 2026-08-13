@@ -122,7 +122,7 @@ src/runtime/python/
 8. **Adding an id is not additive-only.** `MdxPre` highlights exactly the ids
    in this set, so every fence in `content/` already tagged with your language —
    in any document, written before you arrived — becomes a read-only editor, and
-   those pages start downloading CodeMirror plus your grammar (~153 kB gz for a
+   those pages start downloading CodeMirror plus your grammar (~162 kB gz for a
    page that had none; ADR-0018 §Consequences). Before adding the id, grep
    `content/` for fences already tagged with it, and state the page-weight delta
    in the PR.

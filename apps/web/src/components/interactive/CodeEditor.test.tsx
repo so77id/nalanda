@@ -378,7 +378,7 @@ describe('CodeEditor', () => {
     // under the label is the second half of the doubled header.
     expect(screen.queryByText('C++20')).not.toBeInTheDocument();
     // The gutter goes too, and this is the half that is not cosmetic: it costs
-    // ~22px of a ~376px column, which is exactly the margin the #76 fix lives
+    // 20px of a ~376px column, which is exactly the margin the #76 fix lives
     // on. Measured in a browser at 1440px — 21px of clipping, the closing `);`
     // of the longest Java line gone — not reasoned about.
     expect(screen.getByTestId('code').dataset['lineNumbers']).toBe('false');

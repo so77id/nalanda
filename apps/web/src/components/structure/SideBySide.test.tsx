@@ -159,7 +159,7 @@ describe('SideBySide with real listings inside it', () => {
       expect(shell?.className).not.toContain('border');
       expect(shell?.className).not.toContain('rounded');
       expect(shell?.className).not.toContain('my-6');
-      // The gutter is the ~22px the longest Java line needs (#76).
+      // The gutter takes 20px, and the longest Java line then overflows by 21 (#76).
       expect(column.querySelector('[data-testid="code"]')?.getAttribute('data-line-numbers')).toBe(
         'false',
       );

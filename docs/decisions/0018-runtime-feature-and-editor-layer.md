@@ -55,8 +55,12 @@ Two rules carry weight beyond their size:
   60s to run.
 
 **4. Runtimes are split in two halves: a cheap descriptor and a lazy module.**
-The descriptor (id, label, file name, sample) is plain data and may travel in
-the entry chunk, so a language picker costs nothing. The module (CodeMirror
+The descriptor (id, label, file name, sample) is plain data and would be cheap
+enough to ship eagerly on its own account — but since #85 **nothing under
+`runtime/` may be reached before first paint** (the invariant in
+`architecture.test.ts`), because importing any of it drags the registry behind
+it. The picker gets its descriptors from the lazy editor chunk. A module the
+shell reaches eagerly that needs only the *ids* asks `lib/runtimeIds.ts`. The module (CodeMirror
 grammar + worker factory) sits behind `loadRuntime`, written as a switch of
 static `import()` calls so the bundler emits one chunk per language — a computed
 specifier would collapse them into one.
@@ -136,20 +140,39 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   registry, the descriptors and the Java launcher with it. Both name-based
   guards stayed green while the eager graph went from 1 chunk / 503,623 B to 9 /
   542,194 B, and the home page — which has no code at all — lost 236 ms of LCP
-  on slow 4G. The invariant is now a reachability walk from the shell's map
-  (`architecture.test.ts`, "what the shell reaches eagerly"); the kilobytes are
-  still a symptom, and `grep` is still worth running, but it is not the proof.
+  on slow 4G.
+
+  **Those totals are two breaches, not one**, and the first draft of this
+  correction charged both to the runtime import — measured afterwards by
+  building each cause in isolation (2026-08-13). The runtime import is what
+  turned 1 chunk into 9, but it cost **+10,790 B and +88 ms**. The other
+  **+27,781 B and +160 ms** came from a single `export { remarkPlugins }` on the
+  content seam, which pulled the build-time MDX compiler and a TOML parser into
+  the browser. That one is the *better* illustration of the claim being made
+  here: `grep` for CodeMirror finds nothing in it, `grep` for `runtime/` finds
+  nothing in it, and it is 72% of the bytes. The invariant is now a
+  reachability walk from `app/main.tsx` (`architecture.test.ts`, "what the shell
+  reaches eagerly") that asks an allowlist question of every bare package, which
+  is what catches the second one; the kilobytes are still a symptom, and `grep`
+  is still worth running, but it is not the proof.
 - **Who pays the lazy chunks changed with #85** (2026-08-13). This section was
   written when only a document with an authored `<CodeEditor>` loaded them. Now
   every document with a fence in a runnable language does, because a fence IS
   the component — and the grammar is not optional chrome, it is the
-  highlighter. Measured on `03-busqueda-binaria.mdx`, prose plus a single
-  11-line Java listing: from **zero** CodeMirror on `main` to **~153 kB gzip**
-  (95.6 core + 36.4 wrapper + 17.8 grammar), roughly doubling that page's
-  JavaScript against a 163.9 kB gz entry. Accepted in #85 with the numbers in
-  hand; the alternative that would remove it — build-time highlighting, which
-  costs zero client JS — was rejected in this ADR **for an editing component**,
-  and a pure listing is a different premise. If it is ever revisited, that is
+  highlighter. Measured from a network trace of `03-busqueda-binaria.mdx`, prose
+  plus a single 10-line Java listing: **160.7 → 323.2 kB gz, +162.4 kB (+101%)**
+  — 95.6 core + 36.4 wrapper + 17.7 java grammar + 8.6 `@lezer/lr` + 2.9 the
+  editor chunk itself. (An earlier draft said ~153 kB from the first three terms
+  alone, and even those summed to 149.8; the two it omitted are what makes
+  "roughly doubling" exactly right.) The entry payload it doubles is **160.5 kB
+  gz** — 157.7 entry chunk plus the 3.2 kB `jsx-runtime` it modulepreloads.
+  Accepted in #85 with the numbers in hand; the alternative that would remove
+  it is highlighting without an editor, and the record here is thinner than it
+  looked: the Alternatives below reject **Prism/Shiki + `<textarea>`** on the
+  grounds of "highlighting only, no editing" — which is a reason about an
+  *editing* component and says nothing about build time. A build-time Shiki
+  render, which costs zero client JS, was never weighed for a pure listing. If
+  it is ever revisited, that is
   the thread to pull.
 - **One live worker costs a few hundred MB of RSS** — 681MB peak measured for a
   single C++ worker on Apple Silicon (2026-08-11, Chromium via Playwright),
