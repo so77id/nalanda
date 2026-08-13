@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { courseIndex, registry, walkIndex } from '../content';
 
@@ -91,19 +91,25 @@ describe('PresentationPage viewer', () => {
 function coarsePortrait(initial: boolean) {
   const listeners = new Set<(event: MediaQueryListEvent) => void>();
   let matches = initial;
-  window.matchMedia = ((query: string) =>
-    ({
+  window.matchMedia = ((query: string) => {
+    // Answers only the question it was written for. framer-motion asks this
+    // same fake about (prefers-reduced-motion) when the deck mounts, so a fake
+    // that returned `matches` for every query would also be telling it that
+    // reduced motion is on, for the rest of the file (#91 review).
+    const phoneRule = query.includes('pointer: coarse');
+    return {
       media: query,
       get matches() {
-        return matches;
+        return phoneRule && matches;
       },
       addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
-        listeners.add(listener);
+        if (phoneRule) listeners.add(listener);
       },
       removeEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
         listeners.delete(listener);
       },
-    }) as unknown as MediaQueryList) as typeof window.matchMedia;
+    } as unknown as MediaQueryList;
+  }) as typeof window.matchMedia;
   return {
     turn(next: boolean) {
       matches = next;
@@ -128,6 +134,65 @@ describe('presentation on a phone held in portrait', () => {
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
     expect(screen.queryByText(/^\d+ \/ \d+$/)).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: firstTitle })).not.toBeInTheDocument();
+  });
+
+  it('leaves nothing but the way out reachable by keyboard', async () => {
+    coarsePortrait(true);
+    renderAt(`/d/${firstId}/present`);
+    await screen.findByRole('alertdialog');
+
+    // The whole route, not the panel's subtree: the claim is that no control of
+    // the deck survives anywhere, which asking the panel about itself cannot
+    // show. Enumerated by construction — jsdom has no tab order of its own —
+    // and cross-checked in Chromium, where five Tab presses reach only this
+    // link (testing-strategy.md §Layout and focus).
+    const reachable = [
+      ...document.querySelectorAll<HTMLElement>('a[href], button, [tabindex]:not([tabindex="-1"])'),
+    ];
+    expect(reachable.map((element) => element.textContent)).toEqual(['Leer en el libro']);
+  });
+
+  it('ignores the slide keys behind the panel, so the position cannot drift', async () => {
+    const media = coarsePortrait(true);
+    renderAt(`/d/${firstId}/present?slide=2`);
+    await screen.findByRole('alertdialog');
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    fireEvent.keyDown(window, { key: 'End' });
+
+    media.turn(false);
+    expect(await findCounter()).toHaveTextContent(/^2 \//);
+  });
+
+  it('still answers Escape behind the panel — a modal has a way out', async () => {
+    coarsePortrait(true);
+    renderAt(`/d/${firstId}/present`);
+    await screen.findByRole('alertdialog');
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    expect(await screen.findByRole('article')).toBeInTheDocument();
+  });
+
+  it('leaves fullscreen when it takes the deck away, since the ⛶ button goes with it', async () => {
+    const exitFullscreen = vi.fn(() => Promise.resolve());
+    Object.defineProperty(document, 'fullscreenElement', {
+      configurable: true,
+      value: document.documentElement,
+    });
+    Object.defineProperty(document, 'exitFullscreen', {
+      configurable: true,
+      value: exitFullscreen,
+    });
+    try {
+      coarsePortrait(true);
+      renderAt(`/d/${firstId}/present`);
+      await screen.findByRole('alertdialog');
+      expect(exitFullscreen).toHaveBeenCalled();
+    } finally {
+      Reflect.deleteProperty(document, 'fullscreenElement');
+      Reflect.deleteProperty(document, 'exitFullscreen');
+    }
   });
 
   it('shows the deck at the reader’s slide when the phone is turned, and back', async () => {
@@ -158,7 +223,12 @@ describe('presentation on a phone held in portrait', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 
-  it('never covers a fine-pointer window, whatever its shape', async () => {
+  // Named for what it proves: the fake answers `false`, so this shows the route
+  // renders the deck when the rule says no. That the RULE excludes a fine
+  // pointer at any shape is pinned by the query-string assertion in
+  // presentation/usePortraitPhone.test.tsx and by the browser run — jsdom
+  // cannot evaluate a media query, so no test here can claim it.
+  it('renders the deck whenever the phone rule does not match', async () => {
     coarsePortrait(false);
     renderAt(`/d/${firstId}/present`);
 

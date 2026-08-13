@@ -36,11 +36,8 @@ describe('RotateNotice', () => {
     expect(out).toHaveAttribute('href', '/d/busqueda-binaria');
   });
 
-  it('keeps the way out reachable by keyboard from the panel', () => {
-    renderNotice();
-    const panel = screen.getByRole('alertdialog');
-    const out = screen.getByRole('link', { name: /leer|libro|volver/i });
-    expect(panel).toContainElement(out);
-    expect(out).not.toHaveAttribute('tabindex', '-1');
-  });
+  // What "nothing else is reachable" means is a claim about the whole route,
+  // not about this component, so it is asserted there — app/presentationRoute
+  // .test.tsx, "leaves nothing but the way out reachable by keyboard". Asking
+  // the panel whether it contains its own link proves only that the JSX says so.
 });

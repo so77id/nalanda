@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useSyncExternalStore } from 'react';
 
 // Coarse pointer AND portrait, in one query. The pointer half is what keeps a
 // narrow or tall window on a laptop out of it: that is not a phone, and telling
@@ -12,20 +12,27 @@ function ask(): MediaQueryList | null {
   return typeof window.matchMedia === 'function' ? window.matchMedia(PHONE_IN_PORTRAIT) : null;
 }
 
-/** True while the reader holds a touch device upright. False anywhere it cannot be asked. */
+function subscribe(onChange: () => void): () => void {
+  const query = ask();
+  if (!query) return () => {};
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+
+function matches(): boolean {
+  return ask()?.matches ?? false;
+}
+
+/**
+ * True while the reader holds a touch device upright. False anywhere it cannot
+ * be asked.
+ *
+ * useSyncExternalStore rather than useState + an effect: React re-reads the
+ * snapshot after subscribing, which closes the render-to-effect gap by
+ * construction. Doing it by hand needs an extra re-read whose only possible
+ * test asserts render/effect ordering — an implementation detail, which
+ * `apps/web/CLAUDE.md` rules out of component tests (#91 review).
+ */
 export function usePortraitPhone(): boolean {
-  const [matches, setMatches] = useState(() => ask()?.matches ?? false);
-
-  useEffect(() => {
-    const query = ask();
-    if (!query) return;
-    // Re-read on mount: the phone can have been turned between the first render
-    // and this effect, and the `change` event for it is already gone.
-    setMatches(query.matches);
-    const onChange = (event: MediaQueryListEvent) => setMatches(event.matches);
-    query.addEventListener('change', onChange);
-    return () => query.removeEventListener('change', onChange);
-  }, []);
-
-  return matches;
+  return useSyncExternalStore(subscribe, matches);
 }

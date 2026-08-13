@@ -60,6 +60,13 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
       );
     };
     const onKeyDown = (event: KeyboardEvent) => {
+      // The panel replaces the deck's markup, not this window-level listener:
+      // hooks run above the early return, so behind the panel every slide key
+      // still moved ?slide with nothing painted — measured in Chromium at
+      // 390x844, two ArrowRight took ?slide=2 to 3 and rotating landed on the
+      // wrong slide (#91 review). Escape is deliberately still live: it is the
+      // way out of a modal, and the panel is one.
+      if (portraitPhone && event.key !== 'Escape') return;
       switch (event.key) {
         case 'ArrowRight':
         case ' ':
@@ -82,7 +89,14 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [docId, index, navigate, setSearchParams, slides.length]);
+  }, [docId, index, navigate, portraitPhone, setSearchParams, slides.length]);
+
+  // Fullscreen belongs to the deck, and the deck is about to be gone: the ⛶
+  // button is the only control that exits it, so leaving it on would strand the
+  // panel inside a fullscreen page with no way back out of it.
+  useEffect(() => {
+    if (portraitPhone && document.fullscreenElement) void document.exitFullscreen?.();
+  }, [portraitPhone]);
 
   // Replaces the deck rather than covering it: no slide is painted, so nothing
   // of it is readable behind the panel or reachable from it. The reader's
