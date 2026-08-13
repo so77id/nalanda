@@ -99,6 +99,18 @@ describe('/catalog', () => {
     expect(copy).not.toHaveTextContent(/inventory is emergent/i);
   });
 
+  it('does not site an empty family in a folder that is not there', async () => {
+    // src/components/semantic/ and media/ do not exist: the first component
+    // added to a family creates it. "Components live in ..." was a claim the
+    // repo contradicted.
+    renderAt('/catalog/media');
+    await screen.findByRole('heading', { level: 1, name: 'Media' });
+    // The path sits in its own <code>; the tense is on the paragraph around it.
+    expect(screen.getByText(/src\/components\/media\//).parentElement).toHaveTextContent(
+      /components will live in/i,
+    );
+  });
+
   it('leaves a populated family free of empty-state copy', async () => {
     renderAt('/catalog/structure');
     await screen.findByRole('heading', { level: 1, name: 'Structure' });
@@ -161,7 +173,12 @@ describe('/catalog/c/:name', () => {
       for (const example of entry.examples) {
         expect(screen.getByRole('heading', { level: 3, name: example.title })).toBeInTheDocument();
       }
-      expect(screen.getByRole('link', { name: new RegExp(entry.family) })).toHaveAttribute(
+      // The back link names the family the way every other surface does. It
+      // used to render the raw id, which read "estructura" beside a page
+      // headed "Estructura" and now would read "structure" beside "Structure".
+      // Regex, not an exact name: the link's accessible name carries the "←".
+      const familyName = families.find((f) => f.id === entry.family)!.name;
+      expect(screen.getByRole('link', { name: new RegExp(`← ${familyName}$`) })).toHaveAttribute(
         'href',
         `/catalog/${entry.family}`,
       );
