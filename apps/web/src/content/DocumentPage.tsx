@@ -1,11 +1,13 @@
 import { Presentation } from 'lucide-react';
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useRef } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { Breadcrumb } from './Breadcrumb';
+import { SectionNav } from './SectionNav';
 import { Toc } from './Toc';
 import { hasTrail, prevNext, trailFor } from './courseIndex';
+import { useSections } from './useSections';
 import { lazyDocumentComponent } from './lazyDoc';
 import { courseIndex, registry } from './liveContent';
 
@@ -49,6 +51,8 @@ export function DocumentPage({ notFound }: Props) {
   const presentable = entry !== undefined && entry.meta.presentation !== 'none';
   const Doc = entry ? lazyDocumentComponent(entry) : null;
   const trail = trailFor(courseIndex, id);
+  const article = useRef<HTMLElement>(null);
+  const { sections, activeId } = useSections(article);
 
   // POC shortcut: p enters presentation from the book view (never while typing).
   useEffect(() => {
@@ -88,13 +92,24 @@ export function DocumentPage({ notFound }: Props) {
             ) : null}
           </div>
         ) : null}
-        <article className="prose prose-invert prose-slate mx-auto max-w-3xl">
+        <article ref={article} className="prose prose-invert prose-slate mx-auto max-w-3xl">
           <Suspense fallback={null}>
             <Doc />
           </Suspense>
           <SequenceNav id={id} />
         </article>
       </main>
+      {/* The rail costs 224px and only appears where nothing else pays for it:
+          256 (sidebar) + 64 (gutters) + 768 (reading column) + 224 (rail) =
+          1312px. Tailwind's 2xl (1536px) is the first breakpoint above that —
+          xl is 1280 and would land 32px short, squeezing the column. The
+          reading column is never narrowed to bring the rail down (issue #84);
+          below this width the sections live in the drawer. */}
+      <aside className="hidden w-56 shrink-0 py-10 pr-8 2xl:block">
+        <div className="sticky top-10">
+          <SectionNav sections={sections} activeId={activeId} />
+        </div>
+      </aside>
     </div>
   );
 }
