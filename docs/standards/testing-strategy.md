@@ -9,7 +9,8 @@ app must define. Decisions recorded here were agreed with Miguel (2026-08-06).
 protocols in this document:**
 
 1. **Per-commit protocol** — runs before EVERY commit (one commit = one slice).
-   Nothing is committed in red. Ever.
+   Nothing is committed in red. Ever. A slice that only pins a defect therefore
+   cannot stand alone — see `docs/conventions.md` §Commit format.
 2. **Pre-PR protocol** — runs before publishing ANY pull request. The full battery.
    CI mirrors this protocol exactly; a PR is not opened if any step fails locally.
 
@@ -55,6 +56,13 @@ npm run build          # tsc -b + vite build (type gate + content/ integrity gat
                        # index.yaml validated by contentIntegrity)
 npm run test           # vitest run — at minimum the touched scope, in green
 ```
+
+**Green means exit status 0, not the summary line.** An unhandled rejection
+makes vitest exit 1 while counting every test as passed; the cause appears only
+in its `Unhandled Errors` block and an `Errors 1 error` line, both of which scroll
+past. Check `echo $?`, or run the protocol under `set -e`. See §Conventions,
+"a promise that can reject". Worked case #98, where the mode was discovered by a
+review rather than by the protocol that is supposed to catch it.
 
 **Pre-PR** (from `apps/web/`):
 
@@ -215,25 +223,37 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   time out gets a small one, the phase that must succeed gets a large one — and
   make the load explicit by waiting longer than the small budget where the gap
   opens. Worked case (#98): one test handed both its runs 20ms, so the second
-  one, the one that had to succeed, failed whenever review agents were building
-  in parallel and passed 10/10 on an idle machine. A flake that only appears
-  under load cannot be chased by re-running the suite; the pause makes it fail
-  everywhere or nowhere — and it is only deterministic while it outlives the
-  budget, so derive it from that constant instead of writing a number that
-  agrees with it by luck. **Fake timers are the other answer**
-  (`vi.useFakeTimers({ shouldAdvanceTime: true })`, as in
-  `content/useSections.test.tsx`) and are preferable when the timers can be
-  advanced directly; #98 kept real ones because the fix had to stay inside one
-  test rather than migrate a file whose two neighbours also arm real budgets.
-- **A promise that can reject is given its handler before the next `await`,
-  not after.** A budget armed inside the call means the rejection can land
-  while the test is parked on a `waitFor`, with nobody listening — vitest then
-  exits 1 while printing every test green, which reads as a false pass and is
-  really a flaky red with a lying summary. Capture
-  `const rejected = expect(p).rejects.toThrow(...)` on the line after the call
-  and `await rejected` at the end. Worked case (#98): three tests in
-  `runtime/useRuntime.test.ts` had this window, two of them older than the WP
-  that found it.
+  one, the one that had to succeed, failed on the two occasions it was seen —
+  both with review agents building in parallel — and passed 10/10 on an idle
+  machine. Synthetic load reproduces it only sometimes (1 run in 10 under a
+  12-way load, measured in review), which is exactly why the pause and not a
+  re-run is the gate. A flake that only appears
+  under load cannot be chased by re-running the suite. Pin the split with a
+  pause that certainly outlives the small budget — `outlasting(BUDGET)`, twice
+  the constant. **The pause does not simulate load**: 40ms is nothing to a busy
+  box. What it does is make the wrong budget fail deterministically, which is
+  also what keeps the guard mutation-detectable. Derive it from the constant:
+  #98 first wrote the two as separate numbers and, with the budget raised to 50,
+  the guard's own mutation went 13/13 green with no signal at all.
+  **For a NEW test, or a file that arms no other real budget, fake timers are
+  the default** — `vi.useFakeTimers({ shouldAdvanceTime: true })`, as in
+  `content/useSections.test.tsx` — and none of the juggling above is needed.
+  Keep real timers only when the file already has real-budget tests you are not
+  converting in this WP (worked case #98, whose two neighbours arm 30ms budgets).
+- **When a call arms its own rejection on a timer, the promise it returns is
+  given its handler before the next `await`.** That is the trigger, and it is
+  narrow: a promise that can only reject because the test itself emits something
+  is not this shape, so this is not a licence to rewrite every assertion. When a
+  budget is armed *inside* the call, the rejection can land while the test is
+  parked on a `waitFor` with nobody listening; vitest then exits 1 with every
+  test counted as passed, and names the cause only in its `Unhandled Errors`
+  block and an `Errors 1 error` line — a red run whose pass counts read green.
+  Capture `const rejected = expect(p).rejects.toThrow(...)` on the line after
+  the call and `await rejected` at the end. Prove it the same way as any fix:
+  move the handler back after the gap and the run must exit 1. Worked case
+  (#98): two tests in `runtime/useRuntime.test.ts` had this window, both older
+  than the WP that found it; a third was aligned prophylactically, its budget
+  being armed 10s wide and unable to fire inside the gap.
 - **A negative test about a KEY needs a positive twin.** When a test asserts
   that something stored under a computed key is *ignored* — a draft, a cache
   entry, a query param — it passes identically when the guard works and when the

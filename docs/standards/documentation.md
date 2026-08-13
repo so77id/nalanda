@@ -19,7 +19,7 @@ finished until its documentation exists, and review verifies it (ADR-0005).
 | Design narratives | `docs/design/` | 2026-08 redesign |
 | Content-component usage (what authors see) | The **catalog** (`/catalog` in-app) | when to use `<Slide>`, props, examples |
 | Component governance (contract, how-to-add, doc + review checklists) | The **catalog governance page** (`/catalog/governance`, authored in `apps/web/src/catalog/GovernancePage.tsx`) — the operational home authors and agents read; ADR-0010/0014 hold the decisions and win on disagreement, `guides/add-a-content-component.md` maps them onto repo paths | the component contract points |
-| Workflow conventions (kanban, branches, PRs) | `docs/conventions.md` | commit format |
+| Workflow conventions (kanban, branches, PRs, slice planning) | `docs/conventions.md` | commit format |
 | How an app is published & operated | Root `README.md` §Deployment (repo-level: URL, trigger, rollback, what to verify) + that app's `README.md` (app-level build shape: base path, emitted artifacts, gotchas) | Pages publication of `apps/web` (#66) |
 | Security deferrals / advisory dispositions | `docs/security-notes.md` | accepted-risk records with review triggers |
 | Course planning material | `docs/course-graph.md` + `docs/graphs/` | topic dependencies, topology diagrams |

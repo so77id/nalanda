@@ -1,6 +1,6 @@
 # Conventions — Nalanda
 
-This document is the source of truth for development conventions: kanban columns, labels, branch naming, commit format, PR template, and worktree setup. The `agentic-workflow` plugin skills reference this file and `.claude/workflow-bindings.md` (which owns the machine-readable IDs).
+This document is the source of truth for development conventions: kanban columns, labels, branch naming, commit format, **slice planning**, PR template, and worktree setup. The `agentic-workflow` plugin skills reference this file and `.claude/workflow-bindings.md` (which owns the machine-readable IDs).
 
 ## Project board IDs
 
@@ -67,7 +67,17 @@ how a WP is planned, not only how it is committed. Such a slice ends red by
 construction — a test written to fail is the whole point of it — so plan the
 pin and the fix as ONE slice; the red step still happens, inside it, and the
 commit lands green. Worked case (#98), where they were refined as S1 and S2 and
-had to be merged mid-development after S1 was committed red and reverted.
+had to be merged mid-development after S1 was committed red and the commit
+dropped with `git reset` — there is no revert commit, and after the mandatory
+squash merge nothing in this repository records it, which is itself the reason
+the rule is written here rather than left as a war story.
+
+**A slice whose product is evidence rather than code has no diff.** Commit it
+with `git commit --allow-empty` and put the runs, the counts and the mutations
+in the message — or fold it into the slice it verifies. Do not manufacture a
+change to carry it. Worked case: #98's S4, twenty consecutive suite runs and a
+load experiment whose control also passed, which is a result worth keeping
+precisely because it proved nothing.
 
 ```
 <type>(issue-<N>): S<n> <slice description>
@@ -195,6 +205,8 @@ Every refined issue body must contain, in this order:
 
 1. **Header:** `**Type:** ...`, `**Area:** ...`, `**Source:** ...`
 2. **Structured summary:** Problem / Goals / Non-goals / Design / Acceptance criteria / Slices / Notes
+   — when writing Slices, note that a slice which only pins a defect cannot be
+   its own commit (§Commit format); plan the pin and its fix as one.
 3. **Full artefacts appended:** `## Original specification`, `## Original plan`, `## Original todo` containing the complete content of any artefact produced during refinement
 
 The issue is the single source of truth for the WP. `develop-task` must have everything it needs in the body — no "see file X" references.
