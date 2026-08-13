@@ -1,6 +1,8 @@
 # ADR-0003: MDX as the document format
 
 **Status:** Accepted
+**Amended by:** ADR-0024 (an intrinsic element the shell maps to a component is
+also available inside documents, without a catalog entry)
 **Date:** 2026-08-05
 **Decision-makers:** Miguel Rodriguez
 **Source:** Redesign session (D26; content requirements from D3/D15)
@@ -44,6 +46,8 @@ Relacionado: [[busqueda-binaria]]
   DB migration (phase B) and editor (phase C).
 - Requires an MDX compile step in the frontend build (Vite plugin, ADR-0004).
 - Components available inside documents are exactly those registered by the catalog
-  (ADR-0010) — the authoring surface is controlled. **Amended by ADR-0024**: true
+  (ADR-0010) — the authoring surface is controlled.
+
+  > **Amended by ADR-0024.** True
   of *named* components only. An intrinsic element the shell maps to a component
   — a code fence since #85 — has no catalog entry, by design and not by omission.

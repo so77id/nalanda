@@ -280,6 +280,14 @@ src/
 
 - Order: external packages, then internal, separated by a blank line. Within a
   feature use relative imports; importing another feature goes through its root.
+  **A test is a consumer like the shell and may reach a feature module
+  directly** — `architecture.test.ts` exempts `*.test.*` for exactly this. Never
+  widen a feature's seam so a test can reach something: #85 put
+  `export { remarkPlugins }` on `content/`'s browser-facing seam for one test,
+  which dragged the build-time MDX compiler and a TOML parser into the entry
+  chunk — **+27,781 B on every page**, with every architecture test green
+  (ADR-0018 §Consequences). Worked case: `app/documentFences.test.tsx` imports
+  `content/mdxPlugins` directly, and the seam stays narrow.
 
 ## Comments & docs
 

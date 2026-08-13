@@ -35,8 +35,12 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
   browser.** Two classes, both needing a real browser, both spelled out in
   `docs/standards/testing-strategy.md` §Conventions with their worked cases:
   1. _Execution_: every runtime is faked in jsdom, so any change under
-     `src/runtime/**`, or to a component that drives a runtime (`CodeEditor`,
-     `Exercise`, `harness.ts`) or the draft store, needs a browser too.
+     `src/runtime/**`, or to anything that MOUNTS `CodeEditor` — the component
+     itself, `Exercise`, `harness.ts`, the draft store, and since #85 `MdxPre`
+     and any fence in `content/` tagged with a runtime id — needs a browser too.
+     Stated as a class and not a list on purpose: the list went stale once
+     already when `Exercise` arrived, and again when a markdown fence became a
+     component.
   2. _Layout, focus and device shape_: jsdom lays nothing out and does not
      implement the browser's tab order, so anything that enumerates focusables,
      moves focus, depends on a viewport width, a scroll position, a device

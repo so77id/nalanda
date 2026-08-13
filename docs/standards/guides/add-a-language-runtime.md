@@ -6,7 +6,7 @@ How to teach Nalanda to compile and run a new language in the student's browser.
 
 A class needs code the student can execute in a language the platform does not
 speak yet. Today it speaks Java, C++ and Python (`apps/web/src/runtime/`) — a
-list maintained by hand, so step 8 exists to update it and its siblings.
+list maintained by hand, so step 9 exists to update it and its siblings.
 
 **Before you start**, answer two questions, because they decide the whole shape
 of the work:
@@ -152,7 +152,7 @@ src/runtime/python/
       the Java compiler jar — and the entry chunk grows by descriptors only:
       single-digit kB, no CodeMirror, no toolchain.
 - [ ] Verified in a browser: run, stdin, compile error.
-- [ ] Every hand-written list of languages updated (step 8) — the type system
+- [ ] Every hand-written list of languages updated (step 9) — the type system
       will not catch these.
 - [ ] An ADR if the runtime brought a real decision with it (ADR-0017 is the
       example: the compiler, the Java version and the thread it runs on were all

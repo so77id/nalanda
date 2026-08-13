@@ -107,7 +107,7 @@ capping the output was written up as a fix and measured, twice, not to be one.
 **A guard is evidence only if it can fail for the reason you are citing.** An
 invariant written as "X never reaches Y" is proven by walking the graph, not by
 grepping for the names of the X's we have already met — a name-based guard is a
-hypothesis about the violator set. Worked case (issue #85): ADR-0018 §7 said
+hypothesis about the violator set. Worked case (issue #85): ADR-0018 §Consequences said
 `grep` proved no runtime code was in the entry chunk. Two green tests, one green
 grep, and the eager payload had gone from 1 chunk / 503,623 B to 9 / 542,194 B,
 because neither regression touched a named module. The ADR now carries the

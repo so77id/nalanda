@@ -59,7 +59,7 @@ export const codeEditorCatalogEntry: CatalogEntry = {
       name: 'showLineNumbers / showFoldGutter / showCopy',
       type: 'boolean',
       description:
-        'Editor chrome: gutters. A container that already frames and labels the block — a SideBySide column — suppresses this, the filename and the language chip whatever you pass (#85). Editor chrome: gutters and the copy-to-clipboard button.',
+        'Editor chrome: gutters and the copy-to-clipboard button. A container that already frames and labels the block — a SideBySide column — suppresses the gutter, the filename and the language chip whatever you pass; the copy button stays, because the column does not offer one (#85).',
     },
     {
       name: 'showStdin / showDiagnostics / showOutput / showTimings / showExitCode',

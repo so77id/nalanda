@@ -1,6 +1,8 @@
 # ADR-0018: The runtime feature and the editor layer — one contract, and what ships in the entry chunk
 
 **Status:** Accepted
+**Amended by:** ADR-0024 (§4: nothing under `runtime/` may be reached before
+first paint, so a descriptor may no longer travel in the entry chunk)
 **Date:** 2026-08-11
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the `RuntimeWorker` contract · lazy per-language runtime modules ·
@@ -55,6 +57,10 @@ Two rules carry weight beyond their size:
   60s to run.
 
 **4. Runtimes are split in two halves: a cheap descriptor and a lazy module.**
+
+> **Amended by ADR-0024.** Nothing under `runtime/` may be reached before first
+> paint, whatever it costs on its own — importing any of it drags the registry.
+
 The descriptor (id, label, file name, sample) is plain data and would be cheap
 enough to ship eagerly on its own account — but since #85 **nothing under
 `runtime/` may be reached before first paint** (the invariant in

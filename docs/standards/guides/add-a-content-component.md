@@ -119,7 +119,9 @@ everything it imports — in the entry chunk, paid by every reader of every page
 entry chunk (measured in ADR-0018 §7).
 
 When a component carries a heavy dependency, add a `lazy<Name>.tsx` beside it
-that wraps `lazy()` in a `Suspense` with a sized placeholder, export **that**
+that wraps `lazy()` in a `Suspense` with a sized placeholder — which answers
+   `useEmbedded()` too, or the doubled frame is on screen for the whole chunk
+   fetch — export **that**
 through the seam, and register it in the MDX map. Its catalog entry must import
 the wrapper too — the entry is reachable from the shell, so a static import
 there undoes the split just as effectively. Worked case:

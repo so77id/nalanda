@@ -47,7 +47,7 @@ src/
 │                         # governance pages, live-example blocks
 ├── components/           # catalog content components by family (structure: Slide,
 │                         # SectionBreak, SideBySide; interactive: CodeEditor, Exercise
-│                         # + their lazy wrappers, shared Panel/useRunShortcut/draft)
+│                         # + their lazy wrappers, shared Panel/useRunShortcut/draft/placeholder)
 │                         # + their colocated <Component>.catalog.tsx entries,
 │                         # + AuthoringError: shared across families, not a content component
 │                         # + MdxPre: the pre→component seam (registered in the SHELL's
