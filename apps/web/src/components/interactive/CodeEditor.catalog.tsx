@@ -30,7 +30,7 @@ export const codeEditorCatalogEntry: CatalogEntry = {
       type: "'minimal' | 'snippet' | 'read' | 'exercise' | 'lab'",
       default: "'exercise'",
       description:
-        'Chrome preset. minimal/snippet/read never run anything — no compiler, no worker — though they DO load the language grammar, which is what colours the code; exercise runs; lab adds stdin, the language picker and warms the runtime on mount.',
+        'Chrome preset. minimal/snippet/read never run anything — no compiler, no worker — though they DO load the language grammar, which is what colours the code; exercise runs; lab adds stdin, the language picker and warms the runtime on mount. A variant that is neither editable nor runnable is a LISTING: in the book it takes its full height (the page scrolls, the box does not) and it never restores a localStorage draft, because nobody could have typed in it (#85).',
     },
     {
       name: 'defaultValue',
@@ -58,7 +58,8 @@ export const codeEditorCatalogEntry: CatalogEntry = {
     {
       name: 'showLineNumbers / showFoldGutter / showCopy',
       type: 'boolean',
-      description: 'Editor chrome: gutters and the copy-to-clipboard button.',
+      description:
+        'Editor chrome: gutters. A container that already frames and labels the block — a SideBySide column — suppresses this, the filename and the language chip whatever you pass (#85). Editor chrome: gutters and the copy-to-clipboard button.',
     },
     {
       name: 'showStdin / showDiagnostics / showOutput / showTimings / showExitCode',

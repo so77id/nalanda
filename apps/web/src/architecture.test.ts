@@ -276,6 +276,12 @@ describe('architecture: what the shell reaches eagerly', () => {
   ];
 
   it('pulls in no package beyond what the first paint needs', () => {
-    expect([...packages].filter((name) => !SHIPS_EAGERLY.includes(name)).sort()).toEqual([]);
+    expect(
+      [...packages].filter((name) => !SHIPS_EAGERLY.includes(name)).sort(),
+      'this package now loads before the first paint of EVERY page, including the ' +
+        'ones with no code. Do not add it to SHIPS_EAGERLY to go green — that is ' +
+        'the same move as disabling a lint rule. Find what imports it eagerly and ' +
+        'cut the graph there instead.',
+    ).toEqual([]);
   });
 });

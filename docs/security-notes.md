@@ -44,6 +44,29 @@ names its trigger for re-evaluation — nothing is "accepted forever".
 
 ## Accepted invariants
 
+### Drafts live on an origin shared with every other repo of the account (accepted 2026-08-13, #85)
+
+`localStorage` keys under `nalanda:draft:*` hold what a student had in an editor
+at their last run — the mitigation for a Java loop that freezes the tab
+(ADR-0017/0020). The site is served from `so77id.github.io`, a **user** Pages
+site, so that origin is shared with every other repo of the account: any other
+project published there, or an XSS in one, can write those keys.
+
+**Fixed in #85**: a read-only listing never restores a draft. Every markdown
+fence became an editor in that WP, and an unguarded read let planted bytes
+replace an authored listing *and* the payload of its copy button — demonstrated
+end to end, then re-verified closed (18 editors, 108 planted keys, 0
+overwritten). The rule lives at the value: `listing = !editable && !runnable` in
+`CodeEditor.tsx`, and in `variants.ts` beside the preset that depends on it.
+
+**Residual, accepted**: an *editable* editor and `<Exercise>` still restore
+drafts from that origin. That is the feature — it is the student's own work, and
+losing it is the failure the draft exists to prevent. The blast radius is one
+student's editor content on one machine, not the course material.
+
+**Review trigger**: a custom domain (which would give the site its own origin and
+close this), or the platform gaining any content path not authored in this repo.
+
 ### Executing student code pulls three toolchains from two third-party origins (accepted 2026-08-11, #74)
 
 - **What happens**: running code fetches an entire toolchain from a host we do

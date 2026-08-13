@@ -35,7 +35,11 @@ src/runtime/python/
 
 ## Step by step
 
-1. **Add the id.** `RUNTIME_IDS` in `src/runtime/contract.ts`. It is the
+1. **Add the id.** `RUNTIME_IDS` in `src/lib/runtimeIds.ts` — it lives in
+   `lib/`, not in `runtime/`, so a consumer reached eagerly by the shell can ask
+   which languages exist without pulling the runtime feature into the entry
+   chunk (#85; `runtime/contract.ts` re-exports it, so existing consumers are
+   unaffected). It is the
    taxonomy; the registry decides what is implemented.
 
 2. **Write the descriptor** (`<lang>/descriptor.ts`). Keep it free of compiler
@@ -115,7 +119,15 @@ src/runtime/python/
    `/` and `/nalanda/` exercise different paths — ADR-0015). Check compile, run,
    stdin, and a deliberate compile error.
 
-8. **Update what enumerates the languages by hand.** `RuntimeId` widens
+8. **Adding an id is not additive-only.** `MdxPre` highlights exactly the ids
+   in this set, so every fence in `content/` already tagged with your language —
+   in any document, written before you arrived — becomes a read-only editor, and
+   those pages start downloading CodeMirror plus your grammar (~153 kB gz for a
+   page that had none; ADR-0018 §Consequences). Before adding the id, grep
+   `content/` for fences already tagged with it, and state the page-weight delta
+   in the PR.
+
+9. **Update what enumerates the languages by hand.** `RuntimeId` widens
    silently when you add an id, so nothing fails: `CodeEditor.catalog.tsx` and
    `Exercise.catalog.tsx` (the descriptions and both `language` prop type
    strings), `apps/web/README.md`'s stack paragraph,
@@ -124,7 +136,8 @@ src/runtime/python/
 
 ## Checklist
 
-- [ ] Id added to `RUNTIME_IDS`; descriptor registered in `runtimeDescriptors`;
+- [ ] Fences already tagged with the new language audited; page-weight delta measured and stated.
+- [ ] Id added to `RUNTIME_IDS` (`src/lib/runtimeIds.ts`); descriptor registered in `runtimeDescriptors`;
       `case` added to `loadRuntime`. The registry tests cover it automatically.
 - [ ] Descriptor imports nothing heavy.
 - [ ] Worker distinguishes a failed compile (`result`) from a broken runtime

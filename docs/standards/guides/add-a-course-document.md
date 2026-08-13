@@ -74,7 +74,19 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    (```` ```bash ````), stays plain monospace and loads nothing — which is what
    an ASCII diagram wants.
 
-   Two consequences worth knowing, both measured rather than assumed:
+   **The three ids are matched exactly**, so an alias is silently a different
+   language: ```` ```C++ ````, ```` ```c++ ````, ```` ```py ```` and
+   ```` ```Java ```` all fall through to plain monospace. Nothing warns you —
+   the page renders, it just renders grey. If a fence you expected to be
+   coloured is not, check its tag before anything else.
+
+   Three consequences worth knowing, all measured rather than assumed:
+
+   - The **first** highlighted fence on a page pulls the editor: ~153 kB gzip
+     of CodeMirror and its grammar, lazily and never in the entry chunk
+     (ADR-0018 §Consequences). Further fences on the same page are free. No
+     runtime is fetched — a listing runs nothing — so this is not the CDN cost
+     the Run button pays.
 
    - In the book a listing is never given a scrollbar of its own; the page
      scrolls. On a slide it keeps one, because the screen does not grow.

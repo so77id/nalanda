@@ -97,7 +97,9 @@ src/
   features never import from `app/`. Worked case: `AppRoutes` injects
   `<NotFound />` into `DocumentPage`'s `notFound` prop.
 - **Not everything under `components/` is a catalog component.** Two shapes have
-  no catalog entry and no MDX registration, and neither is an omission:
+  no catalog entry and no MDX registration, and neither is an omission
+  (a third, the intrinsic-element renderer above, has no entry but *is*
+  registered — in the shell's map):
   a component **shared across families** lives at the root of `components/`
   (worked case: `AuthoringError.tsx`, used by `interactive/Exercise` and
   `structure/SideBySide`), and a helper **private to one family** lives in that
@@ -250,8 +252,7 @@ src/
 ## State
 
 - Local `useState`/`useReducer` first; React context for genuinely cross-cutting
-  concerns (e.g., presentation mode). No global state library — introducing one
-  requires an ADR.
+  concerns. No global state library — introducing one requires an ADR.
 - **A browser store is subscribed with `useSyncExternalStore`, not `useState` +
   an effect.** A `MediaQueryList`, `document.fullscreenElement`, a storage
   event: React re-reads the snapshot after subscribing, so the gap between the
@@ -268,6 +269,12 @@ src/
   the behaviour (`presentation/usePortraitPhone.ts`), never in a shared
   `lib/useMediaQuery`, and the call is guarded with `typeof window.matchMedia`
   so the suite gets `false` instead of a throw.
+- Two contexts exist and both state a **situation**, never a command: `useMode`
+  (this is being presented) and `useEmbedded` (something already framed and
+  labelled you — `components/embedded.ts`, #85). The container declares the
+  situation; each component decides what to do about it. Reach for a context
+  when the consumer is authored as markdown, because then there is no prop to
+  pass and no selector that can reach inside it.
 
 ## Imports
 

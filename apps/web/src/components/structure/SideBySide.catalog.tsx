@@ -1,5 +1,6 @@
 import type { CatalogEntry } from '../../lib/catalogEntry';
 
+import { MdxPre } from '../MdxPre';
 import { SideBySide } from './SideBySide';
 
 /** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
@@ -18,7 +19,7 @@ export const sideBySideCatalogEntry: CatalogEntry = {
       name: 'children',
       type: 'MDX',
       description:
-        'Exactly two blocks, typically two code fences. Authored order is kept: the first is the left column.',
+        'Exactly two blocks, typically two code fences. Authored order is kept: the first is the left column. A fence in a runtime language renders as the read-only editor (#85) and the column suppresses its frame, filename, language chip and line numbers — the column already provides all four.',
     },
   ],
   examples: [
@@ -43,18 +44,29 @@ class Hola {
 \`\`\`
 
 </SideBySide>`,
+      // The shape a document really produces: MDX hands `pre` a `code` child
+      // carrying `language-*`, and since #85 the shell maps that onto the
+      // read-only editor. Rendering bare <pre> here showed authors the one
+      // thing the WP removed — coloured, unframed, no gutter, with a copy
+      // button is what they get.
       render: () => (
         <SideBySide left="C++" right="Java">
-          <pre>{`#include <iostream>
+          <MdxPre>
+            <code className="language-cpp">{`#include <iostream>
 
 int main() {
     std::cout << "Hola" << std::endl;
-}`}</pre>
-          <pre>{`class Hola {
+}
+`}</code>
+          </MdxPre>
+          <MdxPre>
+            <code className="language-java">{`class Hola {
     public static void main(String[] args) {
         System.out.println("Hola");
     }
-}`}</pre>
+}
+`}</code>
+          </MdxPre>
         </SideBySide>
       ),
     },

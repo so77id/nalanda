@@ -44,7 +44,18 @@ export const FLAG_NAMES = [
 const PRESETS: Record<EditorVariant, Partial<EditorFlags>> = {
   /** Just the code. For a figure where the chrome would be noise. */
   minimal: {},
-  /** Quotable code: numbered, copyable, not runnable. */
+  /**
+   * Quotable code: numbered, copyable, not runnable. Every markdown fence in a
+   * language the platform runs is one of these (#85).
+   *
+   * `editable` and `runnable` are both off, and that is load-bearing beyond the
+   * chrome: `CodeEditor` derives `listing` from those two flags, and a listing
+   * does NOT read its localStorage draft. Turning either on here — or adding a
+   * read-only variant that sets one — silently lets same-origin storage replace
+   * an authored listing and what its copy button hands the reader. On a GitHub
+   * Pages user site that origin is shared with every other repo of the account
+   * (`docs/security-notes.md`).
+   */
   snippet: { showFileName: true, showLineNumbers: true, showCopy: true },
   /** Reading a listing in place — the book's default for illustrative code. */
   read: { showFileName: true, showLineNumbers: true },

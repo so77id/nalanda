@@ -75,6 +75,20 @@ describe('MdxPre', () => {
     expect(screen.queryByTestId('editor')).not.toBeInTheDocument();
   });
 
+  // The id is matched exactly, so an alias is a DIFFERENT language and the fence
+  // falls through to grey with nothing to warn the author. Documented as a trap
+  // in guides/add-a-course-document.md §3; pinned here so the documentation
+  // cannot drift from the behaviour.
+  it.each(['C++', 'c++', 'py', 'Java', 'JAVA', 'python3'])(
+    'treats `%s` as a language it does not run — an alias is not the id',
+    (alias) => {
+      const { container } = render(fence(alias, 'x\n'));
+
+      expect(container.querySelector('pre')).not.toBeNull();
+      expect(screen.queryByTestId('editor')).not.toBeInTheDocument();
+    },
+  );
+
   it('keeps a pre that holds something other than a fence', () => {
     const { container } = render(
       <MdxPre>
