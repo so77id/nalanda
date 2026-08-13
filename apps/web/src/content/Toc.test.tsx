@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
@@ -24,6 +25,87 @@ function renderToc(at: string) {
     </MemoryRouter>,
   );
 }
+
+// Deeper than the sample course's two levels: the bug this guards against —
+// "expand the parent" instead of "expand every ancestor" — is invisible at two.
+const deepIndex = parseCourseIndex(
+  [
+    'entries:',
+    '  - docId: portada',
+    '  - label: Estructuras lineales',
+    '    levelName: Unidad',
+    '    children:',
+    '      - label: Listas',
+    '        children:',
+    '          - docId: hoja-profunda',
+    '      - label: Pilas',
+    '        children:',
+    '          - docId: otra-hoja',
+    '  - label: Grafos',
+    '    children:',
+    '      - docId: lejos',
+  ].join('\n'),
+  'index.yaml',
+);
+
+function openGroups(): string[] {
+  return [...document.querySelectorAll('details[open] > summary')].map((s) =>
+    (s.textContent ?? '').replace(/^Unidad\s*/, '').trim(),
+  );
+}
+
+describe('Toc expand policy', () => {
+  it('collapses every group when the reader is not inside one', () => {
+    render(
+      <MemoryRouter initialEntries={['/d/portada']}>
+        <Toc index={deepIndex} activeId="portada" />
+      </MemoryRouter>,
+    );
+    expect(openGroups()).toEqual([]);
+  });
+
+  it('opens every ancestor of the current document, not only its parent', () => {
+    render(
+      <MemoryRouter initialEntries={['/d/hoja-profunda']}>
+        <Toc index={deepIndex} activeId="hoja-profunda" />
+      </MemoryRouter>,
+    );
+    expect(openGroups()).toEqual(['Estructuras lineales', 'Listas']);
+  });
+
+  it('leaves the siblings of the path closed', () => {
+    render(
+      <MemoryRouter initialEntries={['/d/hoja-profunda']}>
+        <Toc index={deepIndex} activeId="hoja-profunda" />
+      </MemoryRouter>,
+    );
+    expect(openGroups()).not.toContain('Pilas');
+    expect(openGroups()).not.toContain('Grafos');
+  });
+
+  it('lets the reader open a group the path did not open', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter initialEntries={['/d/portada']}>
+        <Toc index={deepIndex} activeId="portada" />
+      </MemoryRouter>,
+    );
+
+    await user.click(screen.getByText('Grafos'));
+    expect(openGroups()).toContain('Grafos');
+  });
+
+  it('reaches a document inside a group that starts collapsed', () => {
+    // Collapsed is not hidden: <details> keeps its children in the DOM, so the
+    // links are still there for a filter to surface and for the browser to find.
+    render(
+      <MemoryRouter initialEntries={['/d/portada']}>
+        <Toc index={deepIndex} activeId="portada" />
+      </MemoryRouter>,
+    );
+    expect(screen.getByRole('link', { name: 'lejos' })).toBeInTheDocument();
+  });
+});
 
 describe('Toc', () => {
   it('renders groups and document links following the index nesting', () => {

@@ -82,7 +82,7 @@ export function DocumentPage({ notFound }: Props) {
       {/* Below md the column costs more than the whole reading width is worth:
           at 390px it left the article 70px, about six characters per line. */}
       <aside className="hidden w-64 shrink-0 border-r border-slate-800 p-4 md:block">
-        <Toc index={courseIndex} />
+        <Toc index={courseIndex} activeId={id} />
       </aside>
       {/* The drawer carries BOTH navigations: below 2xl the rail is gone, and
           without the sections here those widths would lose in-document
@@ -95,7 +95,7 @@ export function DocumentPage({ notFound }: Props) {
             activeId={activeId}
             onNavigate={() => setDrawerOpen(false)}
           />
-          <Toc index={courseIndex} />
+          <Toc index={courseIndex} activeId={id} />
         </div>
       </Drawer>
       <main className="min-w-0 flex-1 px-4 py-10 md:px-8">

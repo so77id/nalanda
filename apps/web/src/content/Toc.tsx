@@ -1,4 +1,5 @@
 import { ChevronRight } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { NavLink } from 'react-router-dom';
 
 import type { CourseIndex, IndexEntry } from './courseIndex';
@@ -8,6 +9,32 @@ function docLabel(entry: IndexEntry): string {
   if (entry.label) return entry.label;
   if (entry.docId) return registry.get(entry.docId)?.meta.title ?? entry.docId;
   return '';
+}
+
+/** Position in the tree — stable across renders, unique per entry, index-shaped. */
+function keyOf(parent: string, i: number): string {
+  return parent ? `${parent}.${i}` : String(i);
+}
+
+/** Keys of every group between the root and the given document. */
+function ancestorsOf(entries: IndexEntry[], id: string | undefined, parent = ''): string[] | null {
+  if (!id) return null;
+  for (const [i, entry] of entries.entries()) {
+    const key = keyOf(parent, i);
+    if (entry.docId === id) return [];
+    if (entry.children) {
+      const deeper = ancestorsOf(entry.children, id, key);
+      if (deeper) return [key, ...deeper];
+    }
+  }
+  return null;
+}
+
+interface ItemProps {
+  entry: IndexEntry;
+  entryKey: string;
+  isOpen: (key: string) => boolean;
+  onToggle: (key: string, open: boolean) => void;
 }
 
 function DocLink({ entry }: { entry: IndexEntry }) {
@@ -26,7 +53,7 @@ function DocLink({ entry }: { entry: IndexEntry }) {
   );
 }
 
-function EntryItem({ entry }: { entry: IndexEntry }) {
+function EntryItem({ entry, entryKey, isOpen, onToggle }: ItemProps) {
   if (!entry.children) {
     return (
       <li>
@@ -36,7 +63,11 @@ function EntryItem({ entry }: { entry: IndexEntry }) {
   }
   return (
     <li>
-      <details className="group" open>
+      <details
+        className="group"
+        open={isOpen(entryKey)}
+        onToggle={(event) => onToggle(entryKey, event.currentTarget.open)}
+      >
         {/* The marker gets a column of its own. Inline, it pushed only the
             FIRST line of the label: a wrapped group name ("Java para quien
             viene de C++") started its second line under the triangle, left of
@@ -61,18 +92,31 @@ function EntryItem({ entry }: { entry: IndexEntry }) {
             lands past it. */}
         <div className="ml-2 border-l border-slate-800 pl-4">
           <DocLink entry={entry} />
-          <EntryList entries={entry.children} />
+          <EntryList entries={entry.children} parentKey={entryKey} {...{ isOpen, onToggle }} />
         </div>
       </details>
     </li>
   );
 }
 
-function EntryList({ entries }: { entries: IndexEntry[] }) {
+interface ListProps {
+  entries: IndexEntry[];
+  parentKey: string;
+  isOpen: (key: string) => boolean;
+  onToggle: (key: string, open: boolean) => void;
+}
+
+function EntryList({ entries, parentKey, isOpen, onToggle }: ListProps) {
   return (
     <ul className="space-y-1">
       {entries.map((entry, i) => (
-        <EntryItem key={entry.docId ?? `${entry.label}-${i}`} entry={entry} />
+        <EntryItem
+          key={entry.docId ?? `${entry.label}-${i}`}
+          entry={entry}
+          entryKey={keyOf(parentKey, i)}
+          isOpen={isOpen}
+          onToggle={onToggle}
+        />
       ))}
     </ul>
   );
@@ -80,13 +124,42 @@ function EntryList({ entries }: { entries: IndexEntry[] }) {
 
 interface Props {
   index: CourseIndex;
+  /** The document being read; its ancestors are the groups that open. */
+  activeId?: string;
 }
 
-/** Collapsible table of contents over the course index; the current document is highlighted. */
-export function Toc({ index }: Props) {
+/**
+ * The course index as a tree. Groups start collapsed — the real syllabus is 51
+ * topics across 14 groups, and all-expanded is a wall — except the path down to
+ * the document being read. What the reader opens by hand wins over both, until
+ * they navigate somewhere else.
+ */
+export function Toc({ index, activeId }: Props) {
+  const onPath = useMemo(
+    () => new Set(ancestorsOf(index.entries, activeId) ?? []),
+    [index, activeId],
+  );
+  // Reset on navigation: `onPath` is a fresh Set per document, so keying the
+  // manual overrides to it drops them exactly when the path changes.
+  const [toggled, setToggled] = useState<{ for: Set<string>; open: Map<string, boolean> }>({
+    for: onPath,
+    open: new Map(),
+  });
+  const overrides = toggled.for === onPath ? toggled.open : new Map<string, boolean>();
+
+  const isOpen = (key: string) => overrides.get(key) ?? onPath.has(key);
+  const onToggle = (key: string, open: boolean) => {
+    if (open === isOpen(key)) return;
+    setToggled((prev) => {
+      const next = new Map(prev.for === onPath ? prev.open : []);
+      next.set(key, open);
+      return { for: onPath, open: next };
+    });
+  };
+
   return (
     <nav aria-label="Course index" className="text-sm">
-      <EntryList entries={index.entries} />
+      <EntryList entries={index.entries} parentKey="" isOpen={isOpen} onToggle={onToggle} />
     </nav>
   );
 }
