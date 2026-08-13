@@ -110,6 +110,15 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   tests green while the shipped document chunk fell 3.3 kB and its tables turned
   back into paragraphs of pipes. Reading a config proves a name appears in it;
   only resolving it proves the value is used (`content/mdxWiring.test.ts`).
+- **In the browser, the evidence is the pixels.** `getComputedStyle` reporting a
+  value is not proof it was painted: it answers what the cascade resolved, not
+  what the compositor drew. Anything visual is verified by taking a screenshot
+  and looking at it. Worked case (#83), which cost the lesson twice in one WP:
+  a focus outline on the code editor computed as `2px solid` sky-400 and was
+  invisible both times — first because an ancestor with `overflow-hidden` clips
+  an outline drawn outside its child, then because an opaque child paints over
+  one drawn inward. Both times the DOM agreed with the intention and only the
+  screenshot disagreed.
 - **Execution is invisible to the suite**: every runtime is faked in jsdom
   (`CodeEditor.test.tsx` mocks CodeMirror and the worker; `java/runtime.test.ts`
   stubs the CheerpJ globals), and jsdom has no `Worker`, no CheerpJ DOM loader
