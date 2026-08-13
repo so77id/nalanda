@@ -25,6 +25,28 @@ describe('parseCourseIndex', () => {
     expect(index.entries[1]).toEqual({ docId: 'doc-c' });
   });
 
+  it('reads the optional course title from the root', () => {
+    const yaml = ['title: Estructuras de Datos', 'entries:', '  - docId: doc-a'].join('\n');
+    expect(parseCourseIndex(yaml, SOURCE).title).toBe('Estructuras de Datos');
+  });
+
+  it('leaves the course title undefined when the root omits it', () => {
+    const index = parseCourseIndex(['entries:', '  - docId: doc-a'].join('\n'), SOURCE);
+    expect(index.title).toBeUndefined();
+  });
+
+  it('rejects a non-string course title, naming the source and the field', () => {
+    const yaml = ['title: 42', 'entries:', '  - docId: doc-a'].join('\n');
+    expect(() => parseCourseIndex(yaml, SOURCE)).toThrowError(
+      /index\.yaml.*root\.title.*non-empty string/s,
+    );
+  });
+
+  it('rejects an empty course title rather than rendering an empty crumb', () => {
+    const yaml = ['title: ""', 'entries:', '  - docId: doc-a'].join('\n');
+    expect(() => parseCourseIndex(yaml, SOURCE)).toThrowError(/root\.title/s);
+  });
+
   it('rejects a root without an entries list', () => {
     expect(() => parseCourseIndex('levelName: Unidad', SOURCE)).toThrowError(/entries/);
   });

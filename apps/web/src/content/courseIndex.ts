@@ -9,10 +9,13 @@ export interface IndexEntry {
 }
 
 export interface CourseIndex {
+  /** Course name — the first crumb of the breadcrumb. Optional: absent, the trail starts at the unit. */
+  title?: string;
   entries: IndexEntry[];
 }
 
 const ENTRY_KEYS = ['label', 'levelName', 'docId', 'children'] as const;
+const ROOT_KEYS = ['title', 'entries'] as const;
 
 function fail(source: string, path: string, message: string): never {
   throw new Error(`Course index (${source}): ${path}: ${message}`);
@@ -74,14 +77,16 @@ export function parseCourseIndex(raw: string, source: string): CourseIndex {
   }
   const record = data as Record<string, unknown>;
   for (const key of Object.keys(record)) {
-    if (key !== 'entries') {
-      fail(source, 'root', `unknown key "${key}" (allowed: entries)`);
+    if (!(ROOT_KEYS as readonly string[]).includes(key)) {
+      fail(source, 'root', `unknown key "${key}" (allowed: ${ROOT_KEYS.join(', ')})`);
     }
   }
+  const title = requireString(source, 'root', 'title', record['title']);
   if (!Array.isArray(record['entries']) || record['entries'].length === 0) {
     fail(source, 'root', 'must have a non-empty "entries" list');
   }
   const index: CourseIndex = {
+    title,
     entries: record['entries'].map((entry, i) => parseEntry(source, `entries[${i}]`, entry)),
   };
   checkDuplicateDocIds(source, index.entries, 'entries', new Set());

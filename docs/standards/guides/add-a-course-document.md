@@ -162,7 +162,8 @@ themselves rather than maintained by hand.
    recorrido. Schema (strictly validated; unknown keys fail the build):
 
    ```yaml
-   entries: # root key (the only one allowed)
+   title: Estructuras de Datos # optional course name; the first crumb of the breadcrumb
+   entries: # the list of stops (title and entries are the only root keys)
      - docId: bienvenida # leaf entry: just a document reference
      - label: Fundamentos # group entry: children + label (required unless it has a docId)
        levelName: Unidad # optional display name for the level (D8)
@@ -175,6 +176,11 @@ themselves rather than maintained by hand.
    on the FIRST entry — by convention the course welcome document). A document
    not listed in the index is still compiled and served at `/d/<id>`: **the index
    controls navigation, never visibility.**
+
+   `title` names the course wherever the reader needs to know which one they are
+   in — today the breadcrumb above every document. Omit it and the trail starts
+   at the unit; give it an empty or non-string value and the build fails like any
+   other field.
 
 8. **Verify**: `npm run build` from `apps/web/`. The contentIntegrity gate fails
    the build (and CI — `content/**` triggers it) with a file-and-field message
