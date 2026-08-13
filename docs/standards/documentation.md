@@ -18,7 +18,7 @@ finished until its documentation exists, and review verifies it (ADR-0005).
 | Architectural decisions | `docs/decisions/` (ADRs, numbered) | why Go, why MDX |
 | Design narratives | `docs/design/` | 2026-08 redesign |
 | Content-component usage (what authors see) | The **catalog** (`/catalog` in-app) | when to use `<Slide>`, props, examples |
-| Component governance (contract, how-to-add, doc + review checklists) | The **catalog governance page** (`/catalog/governance`, authored in `apps/web/src/catalog/GovernancePage.tsx`) — the operational home authors and agents read; ADR-0010/0014 hold the decisions and win on disagreement, `guides/add-a-content-component.md` maps them onto repo paths | the seven contract points |
+| Component governance (contract, how-to-add, doc + review checklists) | The **catalog governance page** (`/catalog/governance`, authored in `apps/web/src/catalog/GovernancePage.tsx`) — the operational home authors and agents read; ADR-0010/0014 hold the decisions and win on disagreement, `guides/add-a-content-component.md` maps them onto repo paths | the component contract points |
 | Workflow conventions (kanban, branches, PRs) | `docs/conventions.md` | commit format |
 | How an app is published & operated | Root `README.md` §Deployment (repo-level: URL, trigger, rollback, what to verify) + that app's `README.md` (app-level build shape: base path, emitted artifacts, gotchas) | Pages publication of `apps/web` (#66) |
 | Security deferrals / advisory dispositions | `docs/security-notes.md` | accepted-risk records with review triggers |
@@ -54,11 +54,20 @@ case: the deployed shape (#66).
 4. **Standards grow by recorded cases**: when reality presents a case no standard
    covers, the PR proposes the rule and records it in the right standard document
    (same growth rule as `repository-structure.md`).
-5. **English everywhere** in repo artifacts. Spanish only in user-facing course
-   content and real-time conversation.
+5. **English everywhere** in repo artifacts. Spanish for everything the reader
+   perceives — course content, UI chrome, and accessible names — plus real-time
+   conversation (root `CLAUDE.md` §Language).
 6. **Latent gotchas are documented inline where they bite** — dated, naming the
    exact failure mode and the remediation (e.g., the path-filter note in
-   `ci.yml`, the review triggers in `security-notes.md`).
+   `ci.yml`, the review triggers in `security-notes.md`). **A magic geometric
+   value takes the stronger form**: the measurement it came from, the concrete
+   case that breaks if it changes, and the cheaper alternative that was
+   rejected — written at the value, not only in an ADR. Worked cases (#84): the
+   39rem reading measure in `styles/index.css` (84 characters measured, the
+   376px `<SideBySide>` column that breaks at a narrower container, and the
+   rejected "narrow the container"), and the rail breakpoint in
+   `DocumentPage.tsx` (256 + 64 + 768 + 224 = 1312, so `2xl`; `xl` lands 32px
+   short).
 7. **Retiring a tool or model obligates a sweep**: in the same PR, grep ALL
    instruction surfaces (`CLAUDE.md` files, `.claude/skills/`, `.claude/agents/`,
    `docs/conventions.md`, standards) for the retired terms and update every hit.

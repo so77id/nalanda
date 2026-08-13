@@ -29,7 +29,12 @@ port pieces from it as WPs require, refactoring to current standards on entry).
 
 ## Language
 All code, comments, identifiers, commit messages, and repo documentation in
-**English**. User-facing course content may be in Spanish.
+**English**. **Everything the reader can perceive is Spanish** — course content,
+visible UI chrome, and equally the accessible names (`aria-label`, `sr-only`,
+live-region text): the page is served `lang="es"`, so an English accessible name
+is announced with Spanish phonemes, which is the same defect `lang` itself was
+set to avoid (`app/documentShell.test.ts`). English stays inside identifiers,
+props, `data-testid` and test titles.
 
 ## Development Workflow
 

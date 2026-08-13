@@ -124,6 +124,36 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   passes, the untouched starter fails, and a compile error surfaces as a
   diagnostic. The two verdict forgeries recorded in ADR-0019 §7 were found that
   way and were invisible to a green suite.
+- **Layout and focus are invisible to the suite**, and this is a second class
+  alongside execution, not a footnote to it. jsdom lays nothing out — every box
+  is 0×0, `getBoundingClientRect` returns zeros, `checkVisibility` does not
+  exist, `offsetParent` is null for everything, and no media query ever matches
+  — and it does not implement the browser's own tab order: it will hand
+  `querySelectorAll` a link inside a **collapsed `<details>`** that a browser
+  skips and `focus()` silently refuses. So a test can assert a focus trap, a
+  roving tabindex, an active-section rule or a breakpoint and stay green over
+  code that fails on the page. Any change that enumerates focusable elements,
+  moves focus, depends on a viewport width or a scroll position, or is enforced
+  by a rule in `styles/index.css`, MUST also be verified in a real browser
+  against `npm run build && npm run preview`, at the widths that matter, judged
+  from a screenshot. In the suite these cases are asserted **by construction** —
+  place the headings and dispatch a scroll (`content/useSections.test.tsx`),
+  assert the list a trap computed through where focus lands
+  (`content/Drawer.test.tsx`) — and the construction must be checked against a
+  browser at least once, because it encodes an assumption jsdom cannot refute.
+  Three worked cases, all from #84 and all green in jsdom at the time:
+  an `IntersectionObserver` active-section rule that left the rail unmarked
+  through 70% of a document (an observer fires on crossings; a reader inside a
+  long section crosses nothing); a focus trap that let Tab escape in Chromium to
+  the toggle behind the drawer; and the first fix for it, a visibility filter on
+  `offsetParent`, which under jsdom matched *nothing*, emptied the trap's list
+  and made its own tests pass while proving nothing.
+- **The browser recipe lives here, not in a runtime guide.** Two failure classes
+  now share it. Install once (`npm install playwright && npx playwright install
+  chromium`, in a scratch directory — it is not a repo dependency), then drive
+  `npm run build && npm run preview` (which serves under `/nalanda/`, like
+  production). `guides/add-a-language-runtime.md` §7 keeps the runtime-specific
+  checks and points here for the mechanics.
 - **Env-derived values go through a pure helper**: extract the transformation
   into a colocated, unit-tested module rather than inlining it in a component
   the suite cannot exercise. Worked case: `app/basename.ts` derives the router

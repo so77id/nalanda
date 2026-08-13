@@ -31,13 +31,23 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
 - `npm run dev` and `npm run build` run `scripts/fetch-java-compiler.mjs` first
   (`predev`/`prebuild`): it downloads ~2.9MB from Maven Central on a clean
   checkout, so **an offline first build fails before Vite starts**.
-- **The suite cannot execute code.** Every runtime is faked in jsdom, so any
-  change under `src/runtime/**`, or to a component that drives a runtime
-  (`CodeEditor`, `Exercise`, `harness.ts`) or the draft store, needs a real
-  browser too — recipe in `docs/standards/guides/add-a-language-runtime.md` §7.
-  Written as a class rather than a list of names because the list was already
-  stale once: `Exercise` arrived with the same shape and the same hazard, and the
-  rule still said `CodeEditor`.
+- **The suite cannot execute code, lay out a page, or move focus like a
+  browser.** Two classes, both needing a real browser, both spelled out in
+  `docs/standards/testing-strategy.md` §Conventions with their worked cases:
+  1. _Execution_: every runtime is faked in jsdom, so any change under
+     `src/runtime/**`, or to a component that drives a runtime (`CodeEditor`,
+     `Exercise`, `harness.ts`) or the draft store, needs a browser too.
+  2. _Layout and focus_: jsdom lays nothing out and does not implement the
+     browser's tab order, so anything that enumerates focusables, moves focus,
+     or depends on a viewport width, a scroll position or a rule in
+     `styles/index.css` needs a browser too.
+
+  Written as classes rather than lists of names because the list was already
+  stale once: `Exercise` arrived with the same shape and the same hazard, and
+  the rule still said `CodeEditor`. The class was _also_ stale as a set — it
+  named execution alone until #84 shipped two layout/focus bugs past a green
+  suite.
+
 - Java deliberately does NOT run in a Web Worker (ADR-0017), and a Java infinite
   loop freezes the tab with no recovery — relevant whenever you author or verify
   course content with runnable Java.

@@ -54,11 +54,27 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
 3. **Write prose in Markdown.** Headings h2–h4 get automatic slug anchors
    (deep-linkable). Code fences render book-style.
 
+   **`h2` is also the section spine** (ADR-0021): every `h2` the page paints
+   becomes an entry in the "En esta página" list — the rail from `2xl`, the
+   drawer below it. `h3`/`h4` stay deep-linkable but never appear there, so a
+   document you want navigable is structured with `##`. A document with no `h2`
+   at all simply has no section navigation, which is a choice rather than a bug
+   (`04-apuntes.mdx` is the worked case).
+
+   Running text is narrowed to ~68 characters inside the 768px column, while
+   code, tables and components keep the full width (ADR-0022). You write nothing
+   for this; it matters only if you add a component of your own — see
+   `add-a-content-component.md`.
+
 4. **Mark slides (optional)**: `<Slide title="...">...</Slide>` and
    `<SectionBreak />` are available WITHOUT imports. In the book view a Slide
    renders as its heading + flowing prose and a SectionBreak as a subtle
    divider; in presentation they cut slide boundaries. Worked example:
    `03-busqueda-binaria.mdx`.
+
+   A `<Slide title>` renders that same `h2`, so **slide titles appear in the
+   section list** — one more reason to give every Slide a title. An untitled
+   Slide cuts a slide but contributes no section.
 
 5. **Add runnable code (optional)**: `<CodeEditor language="java" />` is
    likewise available without imports — Java, C++ or Python, compiled and run in

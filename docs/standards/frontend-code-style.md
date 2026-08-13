@@ -25,7 +25,10 @@ src/
 │   ├── structure/  ├── semantic/  ├── interactive/  └── media/
 │                   # plus shared, non-document-facing components at the root
 ├── catalog/        # /catalog feature: registry, catalog pages
-├── content/        # content pipeline: registry, loader, wiki-links plugin
+├── content/        # content pipeline AND the book-reading surface: registry, loader,
+│                   # remark plugins, the document page and its shell (index tree,
+│                   # breadcrumb, section spine + rail/drawer). The per-folder
+│                   # inventory is apps/web/README.md's job; this is responsibility.
 ├── presentation/   # presentation mode: parser, viewer, mode context
 ├── runtime/        # code execution: worker contract, per-language runtimes, useRuntime
 ├── lib/            # pure TS utilities — imports nothing from the folders above
@@ -159,6 +162,26 @@ src/
   values or magic pixel sizes.
 - `style={{ ... }}` only for genuinely dynamic values (computed positions).
 
+- **The reading measure is a global rule, and components opt out of it by name**
+  (ADR-0022). The document `<article>` carries `.measured-prose`, and in
+  `styles/index.css` every DIRECT child of it is capped at 39rem and centred
+  unless it is a bare `pre`, marks itself `.not-prose` (a block, not text —
+  `CodeEditor`, `Exercise`, `SideBySide`, `AuthoringError`), or marks itself
+  `.measure-full` (neither block nor text: the scroll box around a table, the
+  prev/next row, the `<SectionBreak/>` rule). **A component that renders
+  anything wide MUST carry one of the two.** The rule is unlayered on purpose,
+  so a child's own `max-w-*` or `w-full` cannot win — the opt-out is the marker
+  class, deliberately, and this also binds new element renderers registered in
+  `content/mdxComponents.ts` (worked case: `MdxTable`), not only catalog
+  components. Nothing enforces it: the failure is a silently centred 624px
+  block, invisible to jsdom and invisible in `/catalog`, which does not apply
+  the measure. Verify wide output in the book view of a real document.
+- **A shared overlay declares no breakpoint; the page owns the width policy**,
+  in one place. Worked case: `content/Drawer.tsx` carried `md:hidden` while the
+  rail it complements appears at `2xl`, so the two owners disagreed and
+  768–1535px got neither navigation — with both code comments claiming
+  otherwise (#84).
+
 ## Animation
 
 - **framer-motion is the only animation library** (ADR-0004). CSS transitions are
@@ -167,9 +190,11 @@ src/
 ## Icons
 
 - **lucide-react is the only icon library.** Icons are used inline with an
-  explicit `size` (13–14px inside dense chrome, matching the surrounding text),
-  never as background images. Adding a second icon set needs the same discussion
-  a dependency does (root `CLAUDE.md`).
+  explicit `size` (13–14px inside dense chrome, matching the surrounding text;
+  16px for a standalone control whose icon IS the button, where the size is a
+  touch target rather than a text match — worked cases: the drawer toggle and
+  its close button, #84), never as background images. Adding a second icon set
+  needs the same discussion a dependency does (root `CLAUDE.md`).
 
 ## State
 

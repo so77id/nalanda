@@ -49,8 +49,10 @@ the MDX source and not from the slide parser.
 Three consequences are part of the decision:
 
 1. **One spine, any number of presentations.** `useSections()` is the only
-   producer; the desktop rail and the mobile drawer are two renderers of its
-   output. Deleting either leaves the other working.
+   producer; the rail at `2xl` and the drawer at every width below it are two
+   renderers of its output. Deleting either leaves the other working. ("The
+   mobile drawer" would understate it — the drawer carries the sections up to
+   1535px, which is most laptops.)
 2. **A structural component that hides its heading leaves the section
    unnavigable.** Rendering the MDX-mapped `h2` in book mode is part of the
    contract of any component that marks a section — `<Slide>` today.
@@ -102,8 +104,8 @@ nothing through 70% of the document, and every jump that skips a crossing (a
 fragment link, a flick, a restored scroll position) landed with no mark.
 
 The rule is instead: **the active section is the last heading that has passed the
-reading line** (a quarter of the way down the viewport), recomputed from a
-`scroll` listener throttled to one frame, plus once on mount so landing on a
-`#fragment` is covered. The jsdom suite lays nothing out, so these cases are
+reading line** (a quarter of the way down the viewport), recomputed from
+`scroll` and `resize`, throttled to one frame, plus once on mount so landing on
+a `#fragment` is covered. The jsdom suite lays nothing out, so these cases are
 asserted by placing the headings explicitly and dispatching a scroll; the
 pixels are still verified in a browser (`testing-strategy.md`, L5/L8).
