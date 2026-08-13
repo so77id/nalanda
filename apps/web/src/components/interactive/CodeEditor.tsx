@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { draftKey, readDraft, saveDraft } from './draft';
+import { useEmbedded } from '../embedded';
 import { OUTPUT, Panel } from './Panel';
 import { useMode } from '../../presentation';
 import type { RunResult, RuntimeId, RuntimeModule } from '../../runtime';
@@ -38,7 +39,17 @@ export function CodeEditor({
   ...overrides
 }: CodeEditorProps) {
   const mode = useMode();
+  // A container that already frames and labels this listing (a SideBySide
+  // column). The frame is dropped rather than drawn twice, and the filename
+  // goes with it: the column's own label already says which language this is.
+  const embedded = useEmbedded();
   const flags = resolveFlags(variant, overrides);
+  // Inside a column the line-number gutter costs ~22px of the ~376px the
+  // listing gets, and that is exactly the margin the #76 fix lives on: with the
+  // gutter, `System.out.println("Bienvenidos a EDA");` loses its closing `);`
+  // again — measured at 1440px in the book. Numbers are chrome; a complete line
+  // is the lesson.
+  const gutter = flags.showLineNumbers && !embedded;
 
   const [languageId, setLanguageId] = useState<RuntimeId>(language);
   const [runtimes, setRuntimes] = useState<Partial<Record<RuntimeId, RuntimeModule>>>({});
@@ -195,11 +206,13 @@ export function CodeEditor({
       className={
         expanded
           ? 'fixed inset-0 z-50 flex flex-col bg-zinc-900 text-zinc-100'
-          : 'not-prose my-6 flex flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100'
+          : embedded
+            ? 'not-prose flex flex-col overflow-hidden bg-zinc-900 text-zinc-100'
+            : 'not-prose my-6 flex flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100'
       }
     >
       <header className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5">
-        {flags.showFileName ? (
+        {flags.showFileName && !embedded ? (
           <span className="font-mono text-xs text-zinc-400">
             {descriptor?.fileName ?? `${languageId}…`}
           </span>
@@ -218,7 +231,7 @@ export function CodeEditor({
               </option>
             ))}
           </select>
-        ) : (
+        ) : embedded ? null : (
           <span className="font-mono text-3xs text-zinc-500">{descriptor?.label}</span>
         )}
 
@@ -267,7 +280,7 @@ export function CodeEditor({
             ...(runtime ? [runtime.codeMirrorLanguage()] : []),
             ...(flags.runnable ? [runShortcut] : []),
           ]}
-          basicSetup={{ lineNumbers: flags.showLineNumbers, foldGutter: flags.showFoldGutter }}
+          basicSetup={{ lineNumbers: gutter, foldGutter: flags.showFoldGutter }}
         />
       </div>
 

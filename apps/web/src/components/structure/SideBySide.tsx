@@ -1,6 +1,7 @@
 import { Children, type ReactNode } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
+import { EmbeddedProvider } from '../embedded';
 import { useMode } from '../../presentation';
 
 export interface SideBySideProps {
@@ -32,11 +33,15 @@ function Column({ label, children }: { label?: string; children: ReactNode }) {
     <div className="min-w-0 overflow-hidden rounded-lg border border-zinc-700">
       {label === undefined ? null : <h4 className={LABEL}>{label}</h4>}
       {/* Each column still scrolls on its own: a long line in one must not widen
-          the page, which is what a two-column layout would otherwise do. */}
+          the page, which is what a two-column layout would otherwise do.
+          The `[&_pre]` rules flatten a BARE fence — one in a language the
+          platform cannot highlight, which stays a <pre> (#85). A fence that
+          became a component is told instead: a CSS selector cannot reach inside
+          one, and the column would end up with two headers and two borders. */}
       <div
         className={`overflow-x-auto ${SCALE[mode]} [&_pre]:my-0 [&_pre]:rounded-none [&_pre]:border-0`}
       >
-        {children}
+        <EmbeddedProvider value={true}>{children}</EmbeddedProvider>
       </div>
     </div>
   );

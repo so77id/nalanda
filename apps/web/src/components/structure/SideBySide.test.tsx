@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { ModeProvider } from '../../presentation';
+import { useEmbedded } from '../embedded';
 import { SideBySide } from './SideBySide';
 
 describe('SideBySide', () => {
@@ -86,5 +87,35 @@ describe('SideBySide', () => {
       </SideBySide>,
     );
     expect(screen.getByText(/espera exactamente dos bloques; recibió 1/)).toBeInTheDocument();
+  });
+});
+
+/** Reports what a column tells whatever lands inside it. */
+function Probe() {
+  return <span data-testid="probe">{String(useEmbedded())}</span>;
+}
+
+describe('SideBySide as a frame', () => {
+  it('tells its columns that they already have a frame and a label', () => {
+    // A fence in a language the platform highlights becomes a component, and a
+    // component brings its own header and border. `[&_pre]` cannot reach inside
+    // one, so the column would show two stacked headers and two rounded borders
+    // — which is exactly what shipped before this was measured in a browser.
+    render(
+      <ModeProvider mode="book">
+        <SideBySide left="C++" right="Java">
+          <Probe />
+          <Probe />
+        </SideBySide>
+      </ModeProvider>,
+    );
+
+    const said = screen.getAllByTestId('probe').map((el) => el.textContent);
+    expect(said).toEqual(['true', 'true']);
+  });
+
+  it('says nothing of the sort outside a column', () => {
+    render(<Probe />);
+    expect(screen.getByTestId('probe')).toHaveTextContent('false');
   });
 });
