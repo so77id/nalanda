@@ -237,6 +237,60 @@ describe('presentation on a phone held in portrait', () => {
   });
 });
 
+describe('advancing the deck by touch', () => {
+  function swipe(from: number, to: number, y = 200, endY = 205) {
+    const stage = screen.getByTestId('slide-stage');
+    fireEvent.touchStart(stage, { touches: [{ clientX: from, clientY: y }] });
+    fireEvent.touchEnd(stage, { changedTouches: [{ clientX: to, clientY: endY }] });
+  }
+
+  it('advances one slide on a leftward swipe and goes back on a rightward one', async () => {
+    renderAt(`/d/${firstId}/present?slide=2`);
+    const counter = await findCounter();
+
+    swipe(300, 150);
+    expect(counter).toHaveTextContent(/^3 \//);
+
+    swipe(150, 300);
+    expect(counter).toHaveTextContent(/^2 \//);
+  });
+
+  it('clamps at the first slide, as the keyboard does', async () => {
+    renderAt(`/d/${firstId}/present`);
+    const counter = await findCounter();
+
+    swipe(150, 300);
+    expect(counter).toHaveTextContent(/^1 \//);
+  });
+
+  it('leaves the slide alone on a tap and on a vertical drag', async () => {
+    renderAt(`/d/${firstId}/present?slide=2`);
+    const counter = await findCounter();
+
+    swipe(200, 200);
+    expect(counter).toHaveTextContent(/^2 \//);
+
+    swipe(200, 205, 500, 100);
+    expect(counter).toHaveTextContent(/^2 \//);
+  });
+
+  it('ignores a two-finger gesture — a pinch is not a swipe', async () => {
+    renderAt(`/d/${firstId}/present?slide=2`);
+    const counter = await findCounter();
+    const stage = screen.getByTestId('slide-stage');
+
+    fireEvent.touchStart(stage, {
+      touches: [
+        { clientX: 300, clientY: 200 },
+        { clientX: 320, clientY: 260 },
+      ],
+    });
+    fireEvent.touchEnd(stage, { changedTouches: [{ clientX: 150, clientY: 205 }] });
+
+    expect(counter).toHaveTextContent(/^2 \//);
+  });
+});
+
 describe('presentation: none documents', () => {
   it('redirects /present back to the book view', async () => {
     const noneId = ids.find((id) => registry.get(id)?.meta.presentation === 'none');

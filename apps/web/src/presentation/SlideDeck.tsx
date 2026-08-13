@@ -1,10 +1,12 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useEffect, useMemo } from 'react';
-import type { ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import type { ReactNode, TouchEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { mdxChildrenOf } from './mdxChildren';
 import { computeSlides } from './parser';
+import { swipeDirection } from './swipe';
+import type { Point } from './swipe';
 import { RotateNotice } from './RotateNotice';
 import { usePortraitPhone } from './usePortraitPhone';
 
@@ -48,8 +50,11 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   const index = Math.min(Math.max(requested - 1, 0), slides.length - 1);
   const slide = slides[index]!;
 
-  useEffect(() => {
-    const go = (target: number) => {
+  // Out of the keydown effect and shared, so the keyboard and the finger reach
+  // the same clamping and the same ?slide contract (ADR-0013) — two paths to
+  // "go to slide N" is two places for the URL to stop being the truth.
+  const go = useCallback(
+    (target: number) => {
       const next = Math.min(Math.max(target, 0), slides.length - 1);
       setSearchParams(
         (prev) => {
@@ -58,7 +63,11 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
         },
         { replace: true },
       );
-    };
+    },
+    [setSearchParams, slides.length],
+  );
+
+  useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       // The panel replaces the deck's markup, not this window-level listener:
       // hooks run above the early return, so behind the panel every slide key
@@ -89,7 +98,23 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [docId, index, navigate, portraitPhone, setSearchParams, slides.length]);
+  }, [docId, go, index, navigate, portraitPhone, slides.length]);
+
+  // The gesture the phone has instead of arrow keys. A single finger only:
+  // a second one means a pinch, and zooming is not navigating.
+  const touchStart = useRef<Point | null>(null);
+  const onTouchStart = (event: TouchEvent<HTMLDivElement>) => {
+    const touch = event.touches.length === 1 ? event.touches[0] : undefined;
+    touchStart.current = touch ? { x: touch.clientX, y: touch.clientY } : null;
+  };
+  const onTouchEnd = (event: TouchEvent<HTMLDivElement>) => {
+    const start = touchStart.current;
+    touchStart.current = null;
+    const touch = event.changedTouches[0];
+    if (!start || !touch) return;
+    const direction = swipeDirection(start, { x: touch.clientX, y: touch.clientY });
+    if (direction) go(index + (direction === 'next' ? 1 : -1));
+  };
 
   // Fullscreen belongs to the deck, and the deck is about to be gone: the ⛶
   // button is the only control that exits it, so leaving it on would strand the
@@ -105,7 +130,12 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-slate-950 text-slate-100">
-      <div className="flex flex-1 items-center justify-center overflow-hidden px-16">
+      <div
+        data-testid="slide-stage"
+        onTouchStart={onTouchStart}
+        onTouchEnd={onTouchEnd}
+        className="flex flex-1 items-center justify-center overflow-hidden px-16"
+      >
         <AnimatePresence mode="wait">
           <motion.div
             key={index}
