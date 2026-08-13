@@ -208,6 +208,22 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   jsdom cannot lay out, but it can answer that. Worked case (#99):
   `app/presentationRoute.test.tsx` §"fitting a slide to the stage it is shown
   on", where the rotation case fails against the index-keyed version.
+- **A test that hands the code a short real timeout is racing the machine.**
+  A budget the production code arms with `setTimeout` is wall clock, so any
+  assertion that must happen INSIDE it is a bet on how busy the box is. Give
+  each phase of a test the budget its own question needs — the phase that must
+  time out gets a small one, the phase that must succeed gets a large one — and
+  make the load explicit by waiting longer than the small budget where the gap
+  opens. Worked case (#98): one test handed both its runs 20ms, so the second
+  one, the one that had to succeed, failed whenever review agents were building
+  in parallel and passed 10/10 on an idle machine. A flake that only appears
+  under load cannot be chased by re-running the suite; the pause makes it fail
+  everywhere or nowhere.
+- **A slice that pins a defect cannot be its own commit.** Such a slice ends
+  RED by construction, and the per-commit protocol has to pass before every
+  commit (`CLAUDE.md`). Plan the pin and the fix as ONE slice — the red step
+  still happens, inside it. Worked case (#98), where they were planned as S1 and
+  S2 and had to be merged mid-WP.
 - **A negative test about a KEY needs a positive twin.** When a test asserts
   that something stored under a computed key is *ignored* — a draft, a cache
   entry, a query param — it passes identically when the guard works and when the
