@@ -5,6 +5,8 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { mdxChildrenOf } from './mdxChildren';
 import { computeSlides } from './parser';
+import { RotateNotice } from './RotateNotice';
+import { usePortraitPhone } from './usePortraitPhone';
 
 function toggleFullscreen(): void {
   if (document.fullscreenElement) {
@@ -37,6 +39,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   );
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const portraitPhone = usePortraitPhone();
 
   // Math.trunc: a crafted non-integer ?slide (e.g. 1.5) must not become a
   // fractional array index (white-screen crash — review finding, issue #64).
@@ -80,6 +83,11 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [docId, index, navigate, setSearchParams, slides.length]);
+
+  // Replaces the deck rather than covering it: no slide is painted, so nothing
+  // of it is readable behind the panel or reachable from it. The reader's
+  // position is safe because it lives in ?slide=N, not in this component.
+  if (portraitPhone) return <RotateNotice />;
 
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-slate-950 text-slate-100">

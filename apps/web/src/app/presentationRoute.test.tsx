@@ -1,6 +1,6 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import { courseIndex, registry, walkIndex } from '../content';
 
@@ -80,6 +80,77 @@ describe('PresentationPage viewer', () => {
     renderAt(`/d/${firstId}/present`);
     await findCounter();
     expect(screen.getByRole('button', { name: /pantalla completa/i })).toBeInTheDocument();
+  });
+});
+
+// The phone rule end to end, over the real route and a real document: what the
+// reader gets from /d/<id>/present, not what a component does in isolation.
+// The fake is local rather than shared with presentation/usePortraitPhone.test
+// because a cross-feature import may only go through the feature seam
+// (src/architecture.test.ts), and a test fake is not part of one.
+function coarsePortrait(initial: boolean) {
+  const listeners = new Set<(event: MediaQueryListEvent) => void>();
+  let matches = initial;
+  window.matchMedia = ((query: string) =>
+    ({
+      media: query,
+      get matches() {
+        return matches;
+      },
+      addEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+        listeners.add(listener);
+      },
+      removeEventListener: (_type: string, listener: (event: MediaQueryListEvent) => void) => {
+        listeners.delete(listener);
+      },
+    }) as unknown as MediaQueryList) as typeof window.matchMedia;
+  return {
+    turn(next: boolean) {
+      matches = next;
+      act(() => {
+        for (const listener of listeners) listener({ matches: next } as MediaQueryListEvent);
+      });
+    },
+  };
+}
+
+describe('presentation on a phone held in portrait', () => {
+  afterEach(() => {
+    Reflect.deleteProperty(window, 'matchMedia');
+  });
+
+  it('covers the deck: the panel is shown and no slide is painted', async () => {
+    coarsePortrait(true);
+    renderAt(`/d/${firstId}/present`);
+
+    // Waiting for the panel also waits for the lazy document: the deck is what
+    // decides, so by now the slides exist and their absence is a decision.
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
+    expect(screen.queryByText(/^\d+ \/ \d+$/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: firstTitle })).not.toBeInTheDocument();
+  });
+
+  it('shows the deck at the reader’s slide when the phone is turned, and back', async () => {
+    const media = coarsePortrait(true);
+    renderAt(`/d/${firstId}/present?slide=2`);
+    await screen.findByRole('alertdialog');
+
+    media.turn(false);
+    expect(await findCounter()).toHaveTextContent(/^2 \//);
+
+    media.turn(true);
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
+
+    media.turn(false);
+    expect(await findCounter()).toHaveTextContent(/^2 \//);
+  });
+
+  it('never covers a fine-pointer window, whatever its shape', async () => {
+    coarsePortrait(false);
+    renderAt(`/d/${firstId}/present`);
+
+    expect(await findCounter()).toHaveTextContent(/^1 \//);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });
 
