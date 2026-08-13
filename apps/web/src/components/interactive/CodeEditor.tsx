@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
 import { draftKey, readDraft, saveDraft } from './draft';
+import { useEmbedded } from '../embedded';
 import { OUTPUT, Panel } from './Panel';
 import { useMode } from '../../presentation';
 import type { RunResult, RuntimeId, RuntimeModule } from '../../runtime';
@@ -38,7 +39,17 @@ export function CodeEditor({
   ...overrides
 }: CodeEditorProps) {
   const mode = useMode();
+  // A container that already frames and labels this listing (a SideBySide
+  // column). The frame is dropped rather than drawn twice, and the filename
+  // goes with it: the column's own label already says which language this is.
+  const embedded = useEmbedded();
   const flags = resolveFlags(variant, overrides);
+  // Inside a column the line-number gutter costs ~22px of the ~376px the
+  // listing gets, and that is exactly the margin the #76 fix lives on: with the
+  // gutter, `System.out.println("Bienvenidos a EDA");` loses its closing `);`
+  // again — measured at 1440px in the book. Numbers are chrome; a complete line
+  // is the lesson.
+  const gutter = flags.showLineNumbers && !embedded;
 
   const [languageId, setLanguageId] = useState<RuntimeId>(language);
   const [runtimes, setRuntimes] = useState<Partial<Record<RuntimeId, RuntimeModule>>>({});
@@ -75,13 +86,19 @@ export function CodeEditor({
           seed,
         );
         setDraftKeys((current) => ({ ...current, [languageId]: key }));
-        setBuffers((current) =>
+        setBuffers((current) => {
           // A draft only exists if the student ran something here before, and it
-          // is what they had when the tab froze.
-          current[languageId] === undefined
-            ? { ...current, [languageId]: readDraft(key) ?? seed }
-            : current,
-        );
+          // is what they had when the tab froze — so only an editor they could
+          // have typed in reads one. Once every markdown fence became an editor
+          // (#85), an unguarded read meant same-origin storage could replace an
+          // authored listing AND what its copy button hands the reader; on a
+          // GitHub Pages user site that origin is shared with every other repo
+          // of the account. A listing has no draft because it cannot be edited.
+          const restored = flags.editable || flags.runnable ? readDraft(key) : null;
+          return current[languageId] === undefined
+            ? { ...current, [languageId]: restored ?? seed }
+            : current;
+        });
       },
       (error: unknown) => {
         if (!cancelled) setFailure(error instanceof Error ? error.message : String(error));
@@ -90,7 +107,7 @@ export function CodeEditor({
     return () => {
       cancelled = true;
     };
-  }, [languageId, language, defaultValue]);
+  }, [languageId, language, defaultValue, flags.editable, flags.runnable]);
 
   const { run, warmUp, warm, queued, warmStats } = useRuntime({
     runtimeId: flags.runnable && runtime ? languageId : null,
@@ -173,22 +190,35 @@ export function CodeEditor({
 
   const diagnostics = failure ?? result?.compileLog ?? '';
   const failedToCompile = result !== null && result.exitCode === null;
+  // A listing is code to read, not a surface to type on — and the two want
+  // opposite things from height. In the book it takes whatever it needs and the
+  // PAGE scrolls: a box that scrolls inside a document that also scrolls is the
+  // most irritating thing a long listing can do. On a slide the screen does not
+  // grow, so the internal scroll is the only way through code that does not fit
+  // without shrinking the type past legibility on a projector. An editable
+  // editor keeps its cap in both, or a long exercise pushes its own Run button
+  // out of view.
+  const listing = !flags.editable && !flags.runnable;
   const codeHeight = expanded
     ? 'flex-1 min-h-0 overflow-auto'
     : mode === 'presentation'
       ? 'max-h-[55vh] overflow-auto'
-      : 'max-h-64 overflow-auto';
+      : listing
+        ? ''
+        : 'max-h-64 overflow-auto';
 
   const shell = (
     <div
       className={
         expanded
           ? 'fixed inset-0 z-50 flex flex-col bg-zinc-900 text-zinc-100'
-          : 'not-prose my-6 flex flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100'
+          : embedded
+            ? 'not-prose flex flex-col overflow-hidden bg-zinc-900 text-zinc-100'
+            : 'not-prose my-6 flex flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100'
       }
     >
       <header className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5">
-        {flags.showFileName ? (
+        {flags.showFileName && !embedded ? (
           <span className="font-mono text-xs text-zinc-400">
             {descriptor?.fileName ?? `${languageId}…`}
           </span>
@@ -207,7 +237,7 @@ export function CodeEditor({
               </option>
             ))}
           </select>
-        ) : (
+        ) : embedded ? null : (
           <span className="font-mono text-3xs text-zinc-500">{descriptor?.label}</span>
         )}
 
@@ -256,7 +286,7 @@ export function CodeEditor({
             ...(runtime ? [runtime.codeMirrorLanguage()] : []),
             ...(flags.runnable ? [runShortcut] : []),
           ]}
-          basicSetup={{ lineNumbers: flags.showLineNumbers, foldGutter: flags.showFoldGutter }}
+          basicSetup={{ lineNumbers: gutter, foldGutter: flags.showFoldGutter }}
         />
       </div>
 

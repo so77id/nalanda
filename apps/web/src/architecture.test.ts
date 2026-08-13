@@ -144,3 +144,81 @@ describe('architecture: cross-feature dependencies', () => {
     ).toEqual([]);
   });
 });
+
+// The two describes above guard the entry chunk by NAMING the heavy modules.
+// That is per-component, and the invariant is per-graph: ADR-0018's claim is
+// "no CodeMirror, no compiler, no runtime in the entry chunk", and #85 broke it
+// without touching either name — `components/MdxPre` asked the runtime seam
+// which languages exist, and the seam brought the registry, the descriptors and
+// the Java launcher with it. Both allowlist tests stayed green while the eager
+// payload went from 1 chunk / 503kB to 9 / 542kB.
+describe('architecture: what the shell reaches eagerly', () => {
+  /** Resolves an import specifier to a file inside src/, or null. */
+  function moduleOf(fromFile: string, spec: string): string | null {
+    if (!spec.startsWith('.')) return null;
+    const base = resolve(dirname(fromFile), spec);
+    for (const candidate of [
+      base,
+      `${base}.ts`,
+      `${base}.tsx`,
+      join(base, 'index.ts'),
+      join(base, 'index.tsx'),
+    ]) {
+      try {
+        if (statSync(candidate).isFile()) return candidate;
+      } catch {
+        // not this one
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Every module the shell's MDX map pulls in EAGERLY. A `lazy*.tsx` wrapper is
+   * where the graph is cut on purpose (ADR-0018 §7), so the walk stops there —
+   * that is exactly the boundary the invariant is about.
+   */
+  function eagerlyReachable(entry: string): Set<string> {
+    const seen = new Set<string>();
+    const queue = [entry];
+    while (queue.length > 0) {
+      const file = queue.pop()!;
+      if (seen.has(file)) continue;
+      seen.add(file);
+      if (/\/lazy[A-Z]\w*\.tsx$/.test(file)) continue; // the cut
+      const source = readFileSync(file, 'utf8');
+      for (const match of source.matchAll(/(?:from|import)\s*\(?\s*['"]([^'"]+)['"]/g)) {
+        const next = moduleOf(file, match[1] ?? '');
+        if (next) queue.push(next);
+      }
+    }
+    return seen;
+  }
+
+  const reachable = eagerlyReachable(join(SRC, 'app/mdxComponents.ts'));
+
+  it('reaches something at all (guards against a vacuous check)', () => {
+    expect(reachable.size).toBeGreaterThan(5);
+  });
+
+  it('never reaches the runtime feature', () => {
+    // Asking WHICH languages exist is fine and lives in lib/runtimeIds.ts;
+    // reaching `runtime/` drags useRuntime, the registry, every descriptor and
+    // the Java launcher into the payload every reader downloads.
+    const offenders = [...reachable]
+      .filter((file) => relative(SRC, file).startsWith('runtime/'))
+      .map((file) => relative(SRC, file));
+
+    expect(offenders).toEqual([]);
+  });
+
+  it('never reaches CodeMirror or a language grammar', () => {
+    const offenders = [...reachable]
+      .filter((file) =>
+        /@uiw\/react-codemirror|@codemirror\/|@lezer\//.test(readFileSync(file, 'utf8')),
+      )
+      .map((file) => relative(SRC, file));
+
+    expect(offenders).toEqual([]);
+  });
+});
