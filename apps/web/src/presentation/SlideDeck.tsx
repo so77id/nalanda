@@ -1,10 +1,11 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode, TouchEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { mdxChildrenOf } from './mdxChildren';
 import { computeSlides } from './parser';
+import { fitScale } from './fit';
 import { swipeDirection } from './swipe';
 import type { Point } from './swipe';
 import { RotateNotice } from './RotateNotice';
@@ -116,6 +117,36 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
     if (direction) go(index + (direction === 'next' ? 1 : -1));
   };
 
+  // A slide is authored at one size and shown at whatever size the device has.
+  // Rather than reflowing it — which changes where every line breaks, so the
+  // slide the author built is not the slide the reader sees — it is laid out at
+  // its design size and scaled down to fit. Measured with offsetWidth/Height,
+  // which ignore the transform we are about to apply and so stay the natural
+  // size on every pass.
+  const stage = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  const [scale, setScale] = useState(1);
+  useLayoutEffect(() => {
+    const stageNode = stage.current;
+    const contentNode = content.current;
+    if (!stageNode || !contentNode) return;
+    const measure = () =>
+      setScale(
+        fitScale(
+          { width: stageNode.clientWidth, height: stageNode.clientHeight },
+          { width: contentNode.offsetWidth, height: contentNode.offsetHeight },
+        ),
+      );
+    measure();
+    // Rotation, the browser chrome appearing, a font finishing loading: all of
+    // them change the stage without changing the slide.
+    if (typeof ResizeObserver !== 'function') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(stageNode);
+    observer.observe(contentNode);
+    return () => observer.disconnect();
+  }, [index, slides.length]);
+
   // Fullscreen belongs to the deck, and the deck is about to be gone: the ⛶
   // button is the only control that exits it, so leaving it on would strand the
   // panel inside a fullscreen page with no way back out of it.
@@ -131,6 +162,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   return (
     <div className="fixed inset-0 z-40 flex flex-col bg-slate-950 text-slate-100">
       <div
+        ref={stage}
         data-testid="slide-stage"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
@@ -143,6 +175,8 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
+            ref={content}
+            style={{ transform: `scale(${scale})` }}
             className="w-full max-w-4xl"
           >
             {slide.title ? (
