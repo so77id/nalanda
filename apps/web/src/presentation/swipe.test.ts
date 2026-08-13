@@ -24,7 +24,10 @@ describe('swipeDirection', () => {
   });
 
   it('ignores a vertical drag, however long', () => {
-    expect(swipeDirection({ x: 200, y: 500 }, { x: 205, y: 100 })).toBeNull();
+    // dx is deliberately over MIN_DISTANCE: with 5px the distance floor
+    // rejected it first and this case proved nothing about the vertical rule
+    // (#99 review).
+    expect(swipeDirection({ x: 200, y: 500 }, { x: 260, y: 100 })).toBeNull();
   });
 
   it('ignores a diagonal drag where neither axis clearly wins', () => {

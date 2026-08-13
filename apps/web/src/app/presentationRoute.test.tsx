@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { courseIndex, registry, walkIndex } from '../content';
 
@@ -259,6 +259,14 @@ describe('advancing the deck by touch', () => {
     renderAt(`/d/${firstId}/present`);
     const counter = await findCounter();
 
+    // The positive control comes first: without it this case is green over a
+    // deck that has no touch wiring at all (#99 review).
+    swipe(300, 150);
+    expect(counter).toHaveTextContent(/^2 \//);
+
+    swipe(150, 300);
+    expect(counter).toHaveTextContent(/^1 \//);
+
     swipe(150, 300);
     expect(counter).toHaveTextContent(/^1 \//);
   });
@@ -270,8 +278,12 @@ describe('advancing the deck by touch', () => {
     swipe(200, 200);
     expect(counter).toHaveTextContent(/^2 \//);
 
-    swipe(200, 205, 500, 100);
+    swipe(260, 200, 500, 100);
     expect(counter).toHaveTextContent(/^2 \//);
+
+    // Proves the two above were ignored rather than unheard.
+    swipe(300, 150);
+    expect(counter).toHaveTextContent(/^3 \//);
   });
 
   it('ignores a two-finger gesture — a pinch is not a swipe', async () => {
@@ -288,6 +300,91 @@ describe('advancing the deck by touch', () => {
     fireEvent.touchEnd(stage, { changedTouches: [{ clientX: 150, clientY: 205 }] });
 
     expect(counter).toHaveTextContent(/^2 \//);
+  });
+});
+
+describe('fitting a slide to the stage it is shown on', () => {
+  const STAGE = { width: 800, height: 300 };
+  const CONTENT = { width: 896, height: 600 };
+  let observed: Element[] = [];
+  const originals = new Map<string, PropertyDescriptor | undefined>();
+
+  function fakeGeometry() {
+    // Every box is 0x0 in jsdom, so the sizes are stated rather than laid out;
+    // what is real here is which element each getter is asked about.
+    for (const prop of ['clientWidth', 'clientHeight', 'offsetWidth', 'offsetHeight']) {
+      originals.set(prop, Object.getOwnPropertyDescriptor(HTMLElement.prototype, prop));
+      Object.defineProperty(HTMLElement.prototype, prop, {
+        configurable: true,
+        get(this: HTMLElement) {
+          const stage = this.dataset['testid'] === 'slide-stage';
+          const box = stage ? STAGE : CONTENT;
+          return prop.endsWith('Width') ? box.width : box.height;
+        },
+      });
+    }
+  }
+
+  beforeEach(() => {
+    observed = [];
+    fakeGeometry();
+    // jsdom has no ResizeObserver, so the deck's observer branch would never
+    // run in the suite — and it is the branch that re-measures after a rotation.
+    (globalThis as unknown as { ResizeObserver: unknown }).ResizeObserver = class {
+      observe(element: Element) {
+        observed.push(element);
+      }
+      unobserve() {}
+      disconnect() {}
+    };
+  });
+
+  afterEach(() => {
+    for (const [prop, descriptor] of originals) {
+      if (descriptor) Object.defineProperty(HTMLElement.prototype, prop, descriptor);
+      else Reflect.deleteProperty(HTMLElement.prototype, prop);
+    }
+    originals.clear();
+    Reflect.deleteProperty(globalThis, 'ResizeObserver');
+    Reflect.deleteProperty(window, 'matchMedia');
+  });
+
+  function slideBox() {
+    return document.querySelector<HTMLElement>('.max-w-4xl');
+  }
+
+  it('scales the slide by the tighter axis of the stage', async () => {
+    renderAt(`/d/${firstId}/present`);
+    await findCounter();
+    // 300/600 is tighter than 800/896.
+    expect(slideBox()).toHaveStyle({ transform: 'scale(0.5)' });
+  });
+
+  it('measures after a rotation, which mounts the deck without changing the slide', async () => {
+    const media = coarsePortrait(true);
+    renderAt(`/d/${firstId}/present`);
+    await screen.findByRole('alertdialog');
+
+    media.turn(false);
+    await findCounter();
+
+    // The index never changed, so an effect keyed on it never re-ran and the
+    // slide stayed at scale(1), overflowing its stage — measured in Chromium
+    // before this fix (#99 review).
+    expect(slideBox()).toHaveStyle({ transform: 'scale(0.5)' });
+  });
+
+  it('measures the slide that is on screen after a slide change, not the one leaving', async () => {
+    renderAt(`/d/${firstId}/present`);
+    await findCounter();
+
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    await findCounter();
+
+    // AnimatePresence mounts the incoming slide after the index changes, so an
+    // effect that runs on the index measures the OUTGOING node and leaves the
+    // new one unobserved for the rest of the deck.
+    expect(observed).toContain(slideBox());
   });
 });
 

@@ -123,12 +123,18 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   // its design size and scaled down to fit. Measured with offsetWidth/Height,
   // which ignore the transform we are about to apply and so stay the natural
   // size on every pass.
-  const stage = useRef<HTMLDivElement>(null);
-  const content = useRef<HTMLDivElement>(null);
+  // Callback refs in STATE, not useRef, so the effect below can depend on the
+  // identity of the nodes it measures. Keyed on [index] instead, it missed the
+  // two ways this deck actually gets a new content node (#99 review, both
+  // measured in Chromium): rotating out of the rotate panel mounts the whole
+  // deck without changing the index, so nothing was ever measured and the slide
+  // overflowed its stage 3:1; and `AnimatePresence mode="wait"` mounts the
+  // incoming slide AFTER the index changed, so the effect measured the
+  // outgoing node and every slide from the second on kept a stale scale.
+  const [stageNode, setStageNode] = useState<HTMLDivElement | null>(null);
+  const [contentNode, setContentNode] = useState<HTMLDivElement | null>(null);
   const [scale, setScale] = useState(1);
   useLayoutEffect(() => {
-    const stageNode = stage.current;
-    const contentNode = content.current;
     if (!stageNode || !contentNode) return;
     const measure = () =>
       setScale(
@@ -145,7 +151,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
     observer.observe(stageNode);
     observer.observe(contentNode);
     return () => observer.disconnect();
-  }, [index, slides.length]);
+  }, [stageNode, contentNode]);
 
   // Fullscreen belongs to the deck, and the deck is about to be gone: the ⛶
   // button is the only control that exits it, so leaving it on would strand the
@@ -162,7 +168,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   return (
     <div className="fixed inset-0 h-[100dvh] z-40 flex flex-col bg-slate-950 text-slate-100">
       <div
-        ref={stage}
+        ref={setStageNode}
         data-testid="slide-stage"
         onTouchStart={onTouchStart}
         onTouchEnd={onTouchEnd}
@@ -175,7 +181,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            ref={content}
+            ref={setContentNode}
             style={{ transform: `scale(${scale})` }}
             className="w-full max-w-4xl"
           >
@@ -188,7 +194,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
           </motion.div>
         </AnimatePresence>
       </div>
-      <footer className="flex items-center justify-between px-6 py-3 text-sm text-slate-500">
+      <footer className="flex items-center justify-between px-[max(1.5rem,env(safe-area-inset-left))] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pr-[max(1.5rem,env(safe-area-inset-right))] text-sm text-slate-500">
         <button
           type="button"
           aria-label="Pantalla completa"

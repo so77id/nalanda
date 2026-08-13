@@ -32,7 +32,7 @@ describe('RotateNotice', () => {
     // The panel is the last thing seen before the deck appears, which is why
     // the hint lives here instead of as dismissible chrome inside the deck.
     renderNotice();
-    expect(screen.getByRole('alertdialog')).toHaveTextContent(/desliz[aá]/i);
+    expect(screen.getByRole('alertdialog')).toHaveTextContent(/desliza/i);
   });
 
   it('offers a way out, in Spanish, that lands on the document rather than on history', () => {

@@ -35,7 +35,7 @@ export function RotateNotice({ docId }: Props) {
         Gira el teléfono
       </h1>
       <p id="rotate-notice-text" className="text-slate-400">
-        La presentación se ve en horizontal. Deslizá para pasar de diapositiva.
+        La presentación se ve en horizontal. Desliza para pasar de diapositiva.
       </p>
       {/* An absolute route, not history.back(): a reader who opened /present
           from a link or a bookmark has nothing behind them — and a phone with
