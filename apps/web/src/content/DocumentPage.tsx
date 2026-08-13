@@ -20,7 +20,10 @@ function SequenceNav({ id }: { id: string }) {
   const { prev, next } = prevNext(courseIndex, id);
   if (!prev && !next) return null;
   return (
-    <nav aria-label="Document sequence" className="mt-12 flex justify-between gap-4 text-sm">
+    <nav
+      aria-label="Document sequence"
+      className="measure-full mt-12 flex justify-between gap-4 text-sm"
+    >
       {prev ? (
         <Link to={`/d/${prev}`} className="text-sky-400 hover:underline">
           ← {titleOf(prev)}
@@ -121,7 +124,10 @@ export function DocumentPage({ notFound }: Props) {
             </Link>
           ) : null}
         </div>
-        <article ref={article} className="prose prose-invert prose-slate mx-auto max-w-3xl">
+        <article
+          ref={article}
+          className="prose prose-invert prose-slate measured-prose mx-auto max-w-3xl"
+        >
           <Suspense fallback={null}>
             <Doc />
           </Suspense>

@@ -81,6 +81,34 @@ html {
   outline-offset: -2px;
 }
 
+/* The measure — narrow the running text, keep the blocks wide.
+
+   The audit measured the reading column at 84 characters per line where
+   comfortable prose is 60–75. The obvious fix, narrowing the container, was
+   rejected: this column is not a column of prose. It also holds editors,
+   exercises and `<SideBySide>`, and SideBySide is tight by measurement, not by
+   taste — `System.out.println("Bienvenidos a EDA");` needs 376px and each of its
+   two columns is exactly 376px at a 768px container. At 672px they become ~330px
+   and the #76 line-clipping fix breaks.
+
+   So the container stays 768px and the TEXT narrows inside it. 39rem is 624px,
+   which at the advance the audit measured (768px ÷ 84 chars ≈ 9.14px) is about
+   68 characters.
+
+   The exemption list is not new vocabulary: `.not-prose` is already what
+   CodeEditor, Exercise, SideBySide and AuthoringError mark themselves with, and
+   `pre` covers a bare fence. `.measure-full` is for the two wrappers that are
+   neither — the scroll box around a table (a wide table wants the width) and the
+   prev/next row, which spans the column by design.
+
+   Unlayered, like every rule in this file, so it beats Tailwind's utilities —
+   which is why the exemptions are part of the selector rather than something a
+   child could opt out of with a `max-w-*` class of its own. */
+.measured-prose > :not(.not-prose):not(.measure-full):not(pre) {
+  max-width: 39rem;
+  margin-inline: auto;
+}
+
 /* The typography plugin decorates inline code with literal backticks via
    ::before/::after, so `System.out.println` renders WITH its markup delimiters
    showing. Course prose is full of inline identifiers; the code style already

@@ -14,7 +14,7 @@ import type { ComponentPropsWithoutRef } from 'react';
  */
 export function MdxTable(props: ComponentPropsWithoutRef<'table'>) {
   return (
-    <div className="overflow-x-auto">
+    <div className="measure-full overflow-x-auto">
       <table {...props} />
     </div>
   );
