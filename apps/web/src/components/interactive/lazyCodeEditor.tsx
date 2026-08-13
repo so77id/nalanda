@@ -1,5 +1,7 @@
 import { Suspense, lazy } from 'react';
 
+import { useEmbedded } from '../embedded';
+import { placeholderClass } from './placeholder';
 import type { CodeEditorProps } from './CodeEditor';
 
 // The MDX component map is built eagerly in the shell, so registering the real
@@ -9,12 +11,15 @@ const Editor = lazy(async () => ({ default: (await import('./CodeEditor')).CodeE
 
 /** The editor as documents see it: loaded the first time a page actually uses one. */
 export function LazyCodeEditor(props: CodeEditorProps) {
+  // The placeholder answers the same question the editor does — is something
+  // already framing me? Without this, a fence inside a SideBySide column showed
+  // the doubled border for the whole of the chunk fetch: exactly the thing the
+  // context exists to remove, visible for the one moment the reader is looking
+  // at an empty box.
+  const embedded = useEmbedded();
+
   return (
-    <Suspense
-      fallback={
-        <div className="not-prose my-6 h-40 animate-pulse rounded-lg border border-zinc-700 bg-zinc-900" />
-      }
-    >
+    <Suspense fallback={<div className={placeholderClass(embedded)} />}>
       <Editor {...props} />
     </Suspense>
   );
