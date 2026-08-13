@@ -195,8 +195,11 @@ src/
   icon-only control inside a component's own dense chrome (`CodeEditor`'s
   expand). 16px for an icon-only control on the PAGE chrome, where the button is
   a touch target rather than part of a text row — the drawer toggle and its
-  close button (#84) are the only two. Adding a second icon set
-  needs the same discussion a dependency does (root `CLAUDE.md`).
+  close button (#84) are the only two. 48px when the icon is the illustration of
+  a full-screen panel rather than a control — it carries the message at a
+  glance, is `aria-hidden` because the text beside it says the same thing, and
+  is not clickable (worked case: `presentation/RotateNotice.tsx`, #91). Adding a
+  second icon set needs the same discussion a dependency does (root `CLAUDE.md`).
 
 ## State
 

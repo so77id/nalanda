@@ -57,7 +57,8 @@ src/
 │                         #   (collapsed to the active path, filterable), breadcrumb,
 │                         #   section spine hook and its two placements: the rail
 │                         #   at 2xl, the drawer at every width below it
-├── presentation/         # presentation mode: mode context, slide parser, SlideDeck viewer
+├── presentation/         # presentation mode: mode context, slide parser, SlideDeck viewer,
+│                         # and the phone-orientation rule (ADR-0023)
 ├── runtime/              # code execution: worker contract, registry, useRuntime hook,
 │                         # one folder per language (java, cpp, python)
 ├── lib/                  # pure TS utilities + cross-feature contract types

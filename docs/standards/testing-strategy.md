@@ -152,6 +152,14 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   assert the list a trap computed through where focus lands
   (`content/Drawer.test.tsx`) — and the construction must be checked against a
   browser at least once, because it encodes an assumption jsdom cannot refute.
+  A media query is the sharpest case of it: the suite can pin **which question
+  is asked** and fake the answer, never evaluate it, so what is asserted is the
+  query string plus the behaviour that follows from a faked match (worked case:
+  `presentation/usePortraitPhone.test.tsx`, #91 — dropping `pointer: coarse`
+  from the query tells a laptop user to rotate their screen, and the string
+  assertion is the only thing in the suite that can catch it). Code that asks
+  must also guard the call: an unguarded `window.matchMedia` throws in jsdom
+  instead of answering `false`.
   Three worked cases, all from #84 and all green in jsdom at the time:
   an `IntersectionObserver` active-section rule that left the rail unmarked
   through 70% of a document (an observer fires on crossings; a reader inside a
