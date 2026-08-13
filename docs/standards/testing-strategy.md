@@ -218,12 +218,22 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   one, the one that had to succeed, failed whenever review agents were building
   in parallel and passed 10/10 on an idle machine. A flake that only appears
   under load cannot be chased by re-running the suite; the pause makes it fail
-  everywhere or nowhere.
-- **A slice that pins a defect cannot be its own commit.** Such a slice ends
-  RED by construction, and the per-commit protocol has to pass before every
-  commit (`CLAUDE.md`). Plan the pin and the fix as ONE slice — the red step
-  still happens, inside it. Worked case (#98), where they were planned as S1 and
-  S2 and had to be merged mid-WP.
+  everywhere or nowhere — and it is only deterministic while it outlives the
+  budget, so derive it from that constant instead of writing a number that
+  agrees with it by luck. **Fake timers are the other answer**
+  (`vi.useFakeTimers({ shouldAdvanceTime: true })`, as in
+  `content/useSections.test.tsx`) and are preferable when the timers can be
+  advanced directly; #98 kept real ones because the fix had to stay inside one
+  test rather than migrate a file whose two neighbours also arm real budgets.
+- **A promise that can reject is given its handler before the next `await`,
+  not after.** A budget armed inside the call means the rejection can land
+  while the test is parked on a `waitFor`, with nobody listening — vitest then
+  exits 1 while printing every test green, which reads as a false pass and is
+  really a flaky red with a lying summary. Capture
+  `const rejected = expect(p).rejects.toThrow(...)` on the line after the call
+  and `await rejected` at the end. Worked case (#98): three tests in
+  `runtime/useRuntime.test.ts` had this window, two of them older than the WP
+  that found it.
 - **A negative test about a KEY needs a positive twin.** When a test asserts
   that something stored under a computed key is *ignored* — a draft, a cache
   entry, a query param — it passes identically when the guard works and when the

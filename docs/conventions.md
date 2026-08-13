@@ -62,6 +62,13 @@ One commit per slice. Every commit must pass the touched app's **per-commit
 protocol** (see `docs/standards/testing-strategy.md`); every PR passes the
 **pre-PR protocol** before publishing.
 
+**A slice that pins a defect cannot be its own commit**, and this constrains
+how a WP is planned, not only how it is committed. Such a slice ends red by
+construction — a test written to fail is the whole point of it — so plan the
+pin and the fix as ONE slice; the red step still happens, inside it, and the
+commit lands green. Worked case (#98), where they were refined as S1 and S2 and
+had to be merged mid-development after S1 was committed red and reverted.
+
 ```
 <type>(issue-<N>): S<n> <slice description>
 

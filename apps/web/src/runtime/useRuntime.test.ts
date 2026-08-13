@@ -55,18 +55,28 @@ function resultFor(id: number, overrides: Partial<ResultMessage> = {}): ResultMe
   };
 }
 
-/** Spawns fake workers and records every one it made. */
-/**
- * A pause longer than any short budget a test hands the hook.
- *
- * The flake this guards was not a race in the code: it was a test that asked a
- * loaded machine to answer inside a 20ms real timer. Waiting here on purpose
- * makes that dependency explicit — a test that survives this survives a busy
- * CI box, and one that does not fails on every machine instead of one in
- * however many (#98).
- */
-const underLoad = (): Promise<void> => new Promise((resolve) => setTimeout(resolve, 30));
+/** The start budget the abandoned-run test gives its FIRST run, in ms. */
+const SHORT_START_BUDGET_MS = 20;
 
+/**
+ * A pause that certainly outlives `budgetMs`, for the gap right after a run
+ * starts.
+ *
+ * It does not simulate a busy machine — 30ms is nothing to a CI box, and the
+ * second phase survives on a 10s budget, not on this. What it does is turn a
+ * load-dependent flake into a deterministic failure: if the budget in force
+ * during the gap is still the short one, its timer fires inside the pause and
+ * the test reddens on every machine instead of one run in however many (#98).
+ *
+ * Takes the budget rather than hard-coding a number, because the two were
+ * coupled by prose alone and raising the budget past the pause disarmed the
+ * guard in total silence — verified: with the budget at 50 the guard's own
+ * mutation went 13/13 green.
+ */
+const outlasting = (budgetMs: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, budgetMs * 2));
+
+/** Spawns fake workers and records every one it made. */
 function workerFactory() {
   const created: FakeWorker[] = [];
   return {
@@ -236,11 +246,12 @@ describe('useRuntime', () => {
     act(() => {
       slowStart = result.current.run('int main(){}', '');
     });
-    await waitFor(() => expect(factory.created).toHaveLength(1));
-
     // Downloading a toolchain, booting a JVM or queueing behind another editor
     // is not an infinite loop, and must not be reported as one.
-    await expect(slowStart).rejects.toThrow(/runtime no estuvo listo/i);
+    const rejected = expect(slowStart).rejects.toThrow(/runtime no estuvo listo/i);
+    await waitFor(() => expect(factory.created).toHaveLength(1));
+
+    await rejected;
   });
 
   it('starts measuring the program only once the runtime says it has started', async () => {
@@ -258,13 +269,14 @@ describe('useRuntime', () => {
     act(() => {
       stuck = result.current.run('while(true){}', '');
     });
+    const rejected = expect(stuck).rejects.toThrow(/bucle infinito/i);
     await waitFor(() => expect(factory.created).toHaveLength(1));
     const worker = factory.last();
     await waitFor(() => expect(worker.posted).toHaveLength(1));
 
     act(() => worker.emit({ id: worker.posted[0]!.id, type: 'started' }));
 
-    await expect(stuck).rejects.toThrow(/bucle infinito/i);
+    await rejected;
     expect(factory.created[0]!.terminated).toBe(true);
   });
 
@@ -326,14 +338,14 @@ describe('useRuntime', () => {
     // 20ms made the second one a race against whatever else the box was doing
     // (#98).
     const { result, rerender } = renderHook(
-      ({ startTimeoutMs }: { startTimeoutMs: number }) =>
+      ({ timeoutMs, startTimeoutMs }: { timeoutMs: number; startTimeoutMs: number }) =>
         useRuntime({
           runtimeId: 'cpp',
           createWorker: factory.createWorker,
-          timeoutMs: 20,
+          timeoutMs,
           startTimeoutMs,
         }),
-      { initialProps: { startTimeoutMs: 20 } },
+      { initialProps: { timeoutMs: 10_000, startTimeoutMs: SHORT_START_BUDGET_MS } },
     );
 
     let stuck!: Promise<unknown>;
@@ -341,15 +353,20 @@ describe('useRuntime', () => {
       // The student's `while (true)`: the worker never replies.
       stuck = result.current.run('while(true){}', '');
     });
+    // Attached before the gap, not after. The budget is armed inside `run()`,
+    // so a promise left bare across an `await` can reject with nobody
+    // listening — vitest then exits 1 while printing every test green (#98).
+    const abandoned = expect(stuck).rejects.toThrow(/no estuvo listo/i);
+    await outlasting(SHORT_START_BUDGET_MS);
     await waitFor(() => expect(factory.created).toHaveLength(1));
 
-    await expect(stuck).rejects.toThrow(/no estuvo listo|bucle infinito/i);
+    await abandoned;
     // A stranded worker holds a whole compiler in memory, so it must go.
     expect(factory.created[0]!.terminated).toBe(true);
 
     // Nothing is being timed now — the point of what follows is that a fresh
     // run works after a discard, not how fast it is.
-    rerender({ startTimeoutMs: 10_000 });
+    rerender({ timeoutMs: 10_000, startTimeoutMs: 10_000 });
 
     let next!: Promise<unknown>;
     act(() => {
@@ -357,7 +374,7 @@ describe('useRuntime', () => {
     });
     await waitFor(() => expect(factory.created).toHaveLength(2));
     // The second run must not inherit the first run's impatience.
-    await underLoad();
+    await outlasting(SHORT_START_BUDGET_MS);
     const fresh = factory.last();
     act(() => fresh.emit(resultFor(fresh.posted[0]!.id, { output: 'ok' })));
     await expect(next).resolves.toMatchObject({ output: 'ok' });
