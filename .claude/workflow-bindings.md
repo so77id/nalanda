@@ -93,5 +93,15 @@ anonymize: false
 ## Overrides
 
 ```
-(none)
+review-pipeline: spawn every lens with isolation: worktree
 ```
+
+The lenses do not read a diff, they execute it — they run `npm run build`, drive
+Playwright, and mutate source to see what stays green. Run in one shared
+worktree they fight over `dist/` and over each other's probe files: in #83 the
+performance lens had its build clobbered mid-measurement and redid every number
+in two worktrees of its own, another lens saw a sibling's untracked test file and
+reported it, and a third measured test counts that shifted under it from 347 to
+355. The orchestrator's own browser checks could not run at all while they
+worked. One worktree each costs a few hundred milliseconds of setup and removes
+the whole class of problem.
