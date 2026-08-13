@@ -160,7 +160,32 @@ src/
 - Design tokens (colors, spacing, fonts beyond Tailwind defaults) are declared in
   `styles/index.css` via Tailwind v4 `@theme` — components never hardcode hex
   values or magic pixel sizes.
-- `style={{ ... }}` only for genuinely dynamic values (computed positions).
+- `style={{ ... }}` only for genuinely dynamic values (computed positions,
+  and a measured transform — see the fit-to-stage rule below).
+- **Content that must not reflow is laid out at its design size and scaled**,
+  never re-typeset per screen. The scale is computed by a pure, unit-tested
+  helper rather than inline in the component, because jsdom lays nothing out
+  and the arithmetic is the only half a suite can judge. Two invariants make it
+  work: measure with `offsetWidth`/`offsetHeight`, which ignore the transform
+  about to be applied, so a re-measure sees the natural size instead of
+  compounding; and observe BOTH boxes, because a font finishing loading changes
+  the content without changing the stage. Cap the scale at 1 — a big screen
+  shows design size, not a blown-up slide. And **hold the measured nodes in
+  state via callback refs, so the effect can depend on their identity**: keyed
+  on an index instead, it does not re-run when the same index gets a new node —
+  which is what `AnimatePresence mode="wait"` does on every slide change, and
+  what an early return does when the deck replaces another view. Worked case:
+  `presentation/fit.ts` + `SlideDeck` (#99, where both defects shipped past a
+  green suite and a thirty-point browser pass); the decision and its
+  consequences are ADR-0013 §5.1.
+- **A full-viewport overlay carries `h-[100dvh]` beside `fixed inset-0`.**
+  `inset-0` resolves against the LARGE viewport — the one a mobile browser
+  overlays with its own chrome — so the overlay draws under the URL bar. The
+  page-level half is `viewport-fit=cover`, declared once in `index.html`, which
+  is therefore load-bearing for this rule despite sitting outside `src/`.
+  Worked case: `SlideDeck` and `RotateNotice` (#99), a failure invisible to the
+  suite and to any desktop browser. Note the version floor in
+  `apps/web/README.md`: `dvh` degrades silently below it rather than throwing.
 
 - **The reading measure is a global rule, and components opt out of it by name**
   (ADR-0022). The document `<article>` carries `.measured-prose`, and in

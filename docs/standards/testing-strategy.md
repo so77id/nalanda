@@ -191,6 +191,23 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   comment. Worked case (#91): `app/presentationRoute.test.tsx` awaits the rotate
   panel — which only the loaded document can render — before asserting that no
   counter and no slide heading are on the page.
+- **A per-state browser measurement is not a transition measurement.** Loading
+  each state fresh (`?slide=1`, `?slide=2`, …) exercises mount and nothing else;
+  the paths BETWEEN states are different code and have to be driven in the same
+  page — press the key, dispatch the gesture, rotate the context. Worked case
+  (#99): thirty fresh-load measurements across ten slides and three viewports
+  reported "no overflow anywhere" while the deck was broken on every path a
+  reader actually takes — rotating into it left the slide at scale 1 overflowing
+  its stage 3:1, and pressing an arrow key measured the outgoing slide. One run
+  that pressed ArrowRight instead of reloading showed it immediately.
+- **A measure-and-observe effect is keyed on the identity of the node it
+  measures**, never on a scalar that merely correlates with it (an index, a
+  length). And this class IS reachable from jsdom, which is what makes it worth
+  a test: stub `ResizeObserver`, define `clientWidth`/`offsetHeight` getters on
+  `HTMLElement.prototype`, and assert WHICH element was measured and observed —
+  jsdom cannot lay out, but it can answer that. Worked case (#99):
+  `app/presentationRoute.test.tsx` §"fitting a slide to the stage it is shown
+  on", where the rotation case fails against the index-keyed version.
 - **A fix is not done until its test has been seen to fail.** Revert the fix,
   watch the new test go red, restore it — and name the failing test in the
   commit message. Reviewing a test by reading it is how a test that cannot fail

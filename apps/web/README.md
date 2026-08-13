@@ -58,7 +58,8 @@ src/
 │                         #   section spine hook and its two placements: the rail
 │                         #   at 2xl, the drawer at every width below it
 ├── presentation/         # presentation mode: mode context, slide parser, SlideDeck viewer,
-│                         # and the phone-orientation rule (ADR-0023)
+│                         # the phone-orientation rule (ADR-0023), the swipe gesture
+│                         # and the fit-to-stage scaler (ADR-0013 §5.1/§5.2)
 ├── runtime/              # code execution: worker contract, registry, useRuntime hook,
 │                         # one folder per language (java, cpp, python)
 ├── lib/                  # pure TS utilities + cross-feature contract types
@@ -79,7 +80,14 @@ adding a content component → `docs/standards/guides/add-a-content-component.md
 The site is published under **`/nalanda/`** (GitHub Pages project URL; the
 repo-level story — trigger, rollback — is in the root README).
 
-**Browser baseline: Safari 14+ / iOS 14+** (`MediaQueryList.addEventListener`),
+**Browser baseline: Safari 15.4+ / iOS 15.4+** — raised from 14 by `dvh`
+(#99); `MediaQueryList.addEventListener` (Safari 14) was the previous floor.
+The two fail differently and the difference matters when a student reports
+something: below 14 the `/present` route throws and the page is blank, while
+below 15.4 `dvh` is simply ignored, so the deck silently draws under the mobile
+browser's chrome again, with no error and no test to catch it. Also assumed:
+`ResizeObserver` (Safari 13.1), below both floors. Any browser that can run the
+in-browser runtimes clears all of this by a wide margin — a much heavier bar,
 and in practice any browser that can run the in-browser runtimes — a much
 heavier bar, imposed by ADR-0016/0017 but never written as a version. No legacy
 fallbacks are shipped; the decision and the case that does not hold are in

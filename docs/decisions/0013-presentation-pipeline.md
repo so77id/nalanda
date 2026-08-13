@@ -61,6 +61,23 @@ can drive it.
    keyboard `p`/`←`/`→`/`Space`/`Home`/`End`/`Esc`, fullscreen via
    `requestFullscreen`, minimal framer-motion fade).
 
+   **5.1 A slide is fit, not reflowed** (#99). It is laid out at its design
+   size and uniformly scaled down (`presentation/fit.ts`, capped at 1 so a big
+   screen shows design size rather than a blown-up slide) so that it fits its
+   stage. Reflowing was the alternative and is rejected: it moves every line
+   break, so the slide the author built is not the slide the reader sees.
+   Clipping was the status quo and is what this replaces — measured 2026-08-13,
+   slide 9 of `java-desde-cpp` lost 69px at 1440x900 and more on a phone. The
+   consequence an author feels: nothing is cut any more, but a dense slide
+   shrinks, and below roughly half scale it stops being readable on a phone.
+
+   **5.2 Touch is a second input path** (#99): a one-finger horizontal swipe
+   moves one slide (a second finger is a pinch, and zooming is not navigating).
+   Keyboard and finger funnel through one clamped `go()`, so `?slide` stays the
+   single source of truth. Unlike a key, the swipe needs no portrait gate: it
+   hangs off the slide stage, which the rotate panel replaces rather than
+   covers. A new input author should know which of those two shapes theirs is.
+
    **Constrained by ADR-0023** (#91): on a coarse pointer in portrait the deck
    is replaced by a rotate panel — a second case where `/present` paints no
    slide, and unlike `presentation: none` it does not redirect. While that panel

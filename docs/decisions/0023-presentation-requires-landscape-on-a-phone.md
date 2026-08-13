@@ -134,7 +134,14 @@ Three things this fixes in place:
   question is asked and fake the answer, but never evaluate the query. The
   behaviour is verified in a real browser at 390x844 and 844x390, with a coarse
   pointer emulated and again without one (`testing-strategy.md`).
-- The deck's own behaviour on a short landscape phone screen is untouched by this
-  decision: a slide taller than the viewport is still clipped by the viewer's
-  `overflow-hidden`, as it is on any short window. That is slide typography, and
-  it is deliberately out of scope here.
+- **Corrected by #99.** This ADR claimed, as behaviour and as a scope boundary,
+  that a slide taller than the viewport is still clipped by the viewer's
+  `overflow-hidden` — "that is slide typography, and it is deliberately out of
+  scope here". Measuring all ten slides of `java-desde-cpp` while fixing the
+  phone deck falsified the boundary rather than the observation: slide 9
+  overflowed its stage by 69px at **1440x900**, so the clipping was never a
+  phone problem and calling it phone-side typography was wrong. The deck now
+  fits a slide to its stage instead of clipping it (ADR-0013 §5.1), so nothing
+  is silently cut on any screen. The failure mode moved rather than vanishing:
+  a slide too dense to fit is now too small to read, which is visible instead
+  of invisible, and belongs to the author (`guides/add-a-course-document.md`).

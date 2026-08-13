@@ -41,7 +41,10 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
      implement the browser's tab order, so anything that enumerates focusables,
      moves focus, depends on a viewport width, a scroll position, a device
      capability asked through `window.matchMedia` (pointer type, orientation —
-     jsdom implements no media query at all), or a rule in `styles/index.css`
+     jsdom implements no media query at all), measured element geometry (every
+     box is 0×0 there, so anything reading `offsetWidth`/`clientHeight`, or a
+     `ResizeObserver`, is inert in the suite), a touch gesture (jsdom fires the
+     events but lays out and scrolls nothing), or a rule in `styles/index.css`
      needs a browser too. A device rule also needs an emulated device, not
      merely a small window: the recipe is in `testing-strategy.md` §Conventions.
 

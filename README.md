@@ -100,6 +100,7 @@ prefix may not survive the move, so decide before handing URLs to students
   | Site fine, but Ejecutar never finishes or never warms | a runtime CDN is down or blocked (`cjrtnc.leaningtech.com`, `cdn.jsdelivr.net`) | nothing — accepted risk, `docs/security-notes.md` |
   | `/d/<id>/present` blank on an old iPhone | `MediaQueryList.addEventListener` needs Safari/iOS 14 | nothing — accepted baseline, ADR-0023 |
   | `/d/<id>/present` shows "Gira el teléfono" and no slide | working as designed on a touch device held upright; rotate, or use the book view | `presentationRoute.test.tsx`, ADR-0023 |
+  | Slide text renders small, or slide sizes vary across a deck | working as designed — each slide is scaled to fit its stage (ADR-0013 §5.1). If it is unreadable the slide is too dense: split it | `presentation/fit.test.ts` |
 
 ## Workflow
 

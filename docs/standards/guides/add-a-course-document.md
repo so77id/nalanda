@@ -217,6 +217,14 @@ themselves rather than maintained by hand.
    landscape**: on a phone or tablet held upright the viewer deliberately shows
    a "Gira el teléfono" panel instead of the deck (ADR-0023), so an empty
    presentation there is the platform working, not a fault in your document.
+   **What you are checking is legibility, not completeness** (ADR-0013 §5.1):
+   a slide too tall or too wide is no longer clipped, it is scaled down whole,
+   so nothing disappears and instead everything shrinks. Measured on a phone in
+   landscape (2026-08-13, iPhone 13 at 750x342): below roughly half scale the
+   body text stops being readable. If a slide gets there, the fix is yours and
+   not the viewer's — split it at a `<SectionBreak/>`, or shorten the listing.
+   The same applies to width: an over-wide `<SideBySide>` column now shrinks
+   the ENTIRE slide rather than overflowing on its own.
 
 9. **Publish**: merging to `main` republishes
    <https://so77id.github.io/nalanda/> automatically — `content/**` is a deploy
