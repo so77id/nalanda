@@ -198,3 +198,27 @@ Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
   v0.2 authoring-agent output that bypasses PR review, a future in-platform
   editor (vision phase C), or user-submitted material. At that point the MDX
   pipeline and this adapter must be re-reviewed as an injection surface.
+
+### Content images render through `<img src>`, never inlined (accepted 2026-08-14, #119)
+
+Issue #119 gives documents images: SVGs under `content/courses/`, resolved through
+Vite's asset pipeline and rendered by `content/MdxImage.tsx` and
+`components/media/Figure.tsx`. SVG is the one common image format that can carry
+script — a `<script>`, an `onload`, a `foreignObject`, an external `<use>`/`<image>`
+— so how content SVG reaches the page is a security decision, not a rendering
+detail.
+
+- **The rule**: content images are rendered exclusively via `<img src={url}>`. A
+  browser disables scripting for an SVG loaded through `<img>`, so a script or
+  event handler inside a content SVG cannot execute. Inline SVG and
+  `dangerouslySetInnerHTML` on content are forbidden (grepped in the #119 review:
+  zero hits anywhere in `apps/web/src`).
+- **Why it is safe today**: the committed SVGs are plain geometry (no `<script>`,
+  no handlers, no external refs), and the `<img>` path keeps them inert even if
+  one were not. Content ships via git + PR review (see "All bundled MDX is
+  repo-controlled content").
+- **Review trigger**: the first time a content SVG must be inlined — the usual
+  reason is `currentColor` theming, which `<img>` cannot reach. At that point the
+  SVG must be sanitised (strip scripts, handlers and external refs) before it is
+  trusted, and this invariant re-decided. Equally, the first non-repo-authored
+  content path, which changes who can author an SVG at all.
