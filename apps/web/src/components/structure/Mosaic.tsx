@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { Children, type CSSProperties, type ReactNode } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
 import { DescribedProvider } from '../described';
@@ -20,6 +20,19 @@ const GRID = {
   3: { book: 'grid-cols-2 md:grid-cols-3', slide: 'grid-cols-3' },
   4: { book: 'grid-cols-2 md:grid-cols-4', slide: 'grid-cols-4' },
 } as const;
+
+/**
+ * How much of the slide's height the whole grid may take, in vh, before the
+ * title and the deck's own chrome start losing room. Split across the rows.
+ */
+const SLIDE_BUDGET_VH = 64;
+
+/** Cells, ignoring the whitespace MDX contributes between blocks. */
+function cellCount(children: ReactNode): number {
+  return Children.toArray(children).filter(
+    (child) => typeof child !== 'string' || child.trim() !== '',
+  ).length;
+}
 
 /**
  * Several blocks in a grid, described once as a group.
@@ -51,12 +64,37 @@ export function Mosaic({ columns, description, children }: MosaicProps) {
     );
   }
 
+  // The cap is per ROW, so the grid as a whole cannot outgrow the stage: nine
+  // cells at full width overflow a 1024x768 projector, and the deck answers an
+  // oversized slide by scaling ALL of it down (ADR-0013) — the text with it.
+  // Measured: below roughly half scale the body stops being readable.
+  const rows = Math.max(1, Math.ceil(cellCount(children) / columns));
+  const cellHeight = {
+    '--mosaic-cell': `${Math.floor(SLIDE_BUDGET_VH / rows)}vh`,
+  } as CSSProperties;
+
   return (
     // A figure with a label, not a bare div: the group needs one accessible name
     // and this is the element that has one without inventing a role.
     <figure
       aria-label={description}
-      className={`measure-full my-6 grid items-center gap-4 ${GRID[columns][mode === 'presentation' ? 'slide' : 'book']}`}
+      style={mode === 'presentation' ? cellHeight : undefined}
+      // Filling the cell is a SLIDE rule, and both halves of that were measured:
+      // projected at 1024x768 a 160px SVG sits as a smudge in a sea of
+      // background, while in the book at 1440 the same `w-full` blew it up to
+      // 384px and its lettering came out bigger than the document's own
+      // headings. Read off a wall, fill the cell; read from 50cm, keep the size
+      // the file was drawn at.
+      //
+      // `[&_figure]:my-0`: a Figure carries its own vertical rhythm for when it
+      // stands alone in prose, and inside a cell that margin is dead space
+      // fighting the grid's gap. Measured on a 1024x768 stage: 144px of it
+      // across three rows, which took a 3x3 from 54vh to 73vh.
+      className={`measure-full my-6 grid items-center gap-4 [&_figure]:my-0 [&_img]:object-contain ${
+        mode === 'presentation'
+          ? '[&_img]:w-full [&_img]:max-h-[var(--mosaic-cell)]'
+          : '[&_img]:max-w-full'
+      } ${GRID[columns][mode === 'presentation' ? 'slide' : 'book']}`}
     >
       <DescribedProvider value={true}>{children}</DescribedProvider>
     </figure>

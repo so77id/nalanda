@@ -50,7 +50,10 @@ export function Split({ ratio = '50/50', children }: SplitProps) {
     // `measure-full` and not `not-prose` (ADR-0022): the reading measure would
     // narrow the whole layout to 39rem, but a column usually holds running text
     // that must keep its typography.
-    <div className={`measure-full my-6 grid items-center gap-6 ${TEMPLATE[ratio]}`}>
+    // `[&_figure]:my-0` for the same reason a Mosaic does it: a Figure's own
+    // vertical rhythm is for standing alone in prose, and inside a column it is
+    // dead space fighting the layout's gap.
+    <div className={`measure-full my-6 grid items-center gap-6 [&_figure]:my-0 ${TEMPLATE[ratio]}`}>
       <div className="min-w-0">{columns[0]}</div>
       <div className="min-w-0">{columns[1]}</div>
     </div>

@@ -2,6 +2,7 @@ import type { CatalogEntry } from '../../lib/catalogEntry';
 
 import { Figure } from '../media/Figure';
 import { Mosaic } from './Mosaic';
+import { ModeProvider } from '../../presentation';
 
 const COST_CURVE = 'asset:courses/sample-course/costo-busqueda.svg';
 const GROUP = 'Cuatro veces la misma curva de costo, a modo de ejemplo';
@@ -53,6 +54,23 @@ export const mosaicCatalogEntry: CatalogEntry = {
         <Mosaic columns={2} description={GROUP}>
           {cells(4)}
         </Mosaic>
+      ),
+    },
+    {
+      title: 'Nine cells on a slide',
+      code: `<Mosaic columns={3} description="Nueve lenguajes de programación">
+  ... nine figures
+</Mosaic>`,
+      render: () => (
+        // Staged in presentation mode, because the height budget only applies
+        // there: three rows of full-width cells overflow a projector, and the
+        // deck answers an oversized slide by scaling the whole thing — text
+        // included. The cap is per row, so this is the case that sets it.
+        <ModeProvider mode="presentation">
+          <Mosaic columns={3} description="Nueve veces la misma curva, a modo de ejemplo">
+            {cells(9)}
+          </Mosaic>
+        </ModeProvider>
       ),
     },
     {

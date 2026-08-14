@@ -685,7 +685,11 @@ describe('explicit-mode documents (real compiled markers)', () => {
   // because in `auto` there is no way to keep loose prose out of a deck.
   it('keeps the book’s closing navigation sentence out of intro-estructuras’ deck', async () => {
     renderAt('/d/intro-estructuras/present');
-    expect(await findCounter()).toHaveTextContent('1 / 4');
+    // The count is the vehicle, not the subject: what this pins is that `End`
+    // lands on the last MARKED slide and the trailing sentence is not one. It
+    // moves whenever the document gains a slide — 4 → 5 in #119, which added the
+    // mosaic of four structures.
+    expect(await findCounter()).toHaveTextContent('1 / 5');
 
     fireEvent.keyDown(window, { key: 'End' });
     expect(
@@ -697,7 +701,10 @@ describe('explicit-mode documents (real compiled markers)', () => {
   it('decks only the marked slides, leaving loose prose book-only', async () => {
     await renderAt(`/d/${explicitId}/present`);
     const counter = await findCounter();
-    expect(counter).toHaveTextContent('1 / 3');
+    // Same as above: the number tracks the fixture's marked slides — 3 → 4 in
+    // #119, which added the cost-curve slide — while the case is about the loose
+    // prose staying out.
+    expect(counter).toHaveTextContent('1 / 4');
 
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(await screen.findByRole('heading', { name: 'La idea' })).toBeInTheDocument();

@@ -75,6 +75,64 @@ describe('Mosaic', () => {
     expect(gridFor('book')).toContain('md:grid-cols-3');
   });
 
+  it('fills the cell on a slide and keeps the drawn size in the book', () => {
+    const classesFor = (mode: 'book' | 'presentation'): string => {
+      const { container } = render(
+        <ModeProvider mode={mode}>
+          <Mosaic columns={2} description={LOGOS}>
+            {cells(4)}
+          </Mosaic>
+        </ModeProvider>,
+      );
+      return container.querySelector('figure')?.className ?? '';
+    };
+
+    // Both halves measured. Projected at 1024x768, four 160px SVGs sat at their
+    // intrinsic size: four smudges in a sea of background. In the book at 1440,
+    // the same fill blew each one up to 384px and its lettering came out bigger
+    // than the document's own headings.
+    expect(classesFor('presentation')).toContain('[&_img]:w-full');
+    expect(classesFor('book')).not.toContain('[&_img]:w-full');
+    expect(classesFor('book')).toContain('[&_img]:max-w-full');
+    // And it takes the cell's own vertical rhythm away: a Figure carries `my-6`
+    // for standing alone in prose, which inside a cell is dead space fighting
+    // the grid's gap. Measured at 1024x768: 144px of it across three rows, a
+    // 3x3 going from 54vh to 73vh.
+    expect(classesFor('presentation')).toContain('[&_figure]:my-0');
+  });
+
+  it('splits the slide height budget across the rows it actually has', () => {
+    const budget = (count: number, columns: 2 | 3): string | undefined => {
+      const { container } = render(
+        <ModeProvider mode="presentation">
+          <Mosaic columns={columns} description={LOGOS}>
+            {cells(count)}
+          </Mosaic>
+        </ModeProvider>,
+      );
+      return container.querySelector('figure')?.getAttribute('style') ?? undefined;
+    };
+
+    // The reason a cap exists at all: nine full-width cells overflow a
+    // projector, and the deck answers an oversized slide by scaling ALL of it
+    // down (ADR-0013), text included. Three rows get a third of the budget
+    // each; two rows get half. A fixed cap would starve the small case and
+    // still overflow the big one.
+    expect(budget(9, 3)).toContain('21vh');
+    expect(budget(4, 2)).toContain('32vh');
+  });
+
+  it('caps nothing in the book, where the page simply scrolls', () => {
+    const { container } = render(
+      <Mosaic columns={3} description={LOGOS}>
+        {cells(9)}
+      </Mosaic>,
+    );
+
+    expect(container.querySelector('figure')?.getAttribute('style')).toBeNull();
+    expect(container.querySelector('figure')?.className).not.toContain('max-h');
+  });
+
   it('tells the author when there is no description', () => {
     // Without it the mosaic is nine unnamed pictures — the exact outcome the
     // silent cells were chosen to avoid.
