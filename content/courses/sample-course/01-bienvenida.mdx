@@ -10,15 +10,20 @@ presentation: explicit
 
 - Miguel Rodríguez
 - Ingeniero Civil en Informática y Telecomunicaciones, UDP (egreso 2014)
-- Ex Software Engineer & Co-Founder en **Ticketplus** (exit)
 - Msc Computer Science Candidate, **UNICAMP** (Brasil)
-- Ex Data Science en **Globant**
-- Ex CTO & Co-Founder en **TripYeah** (exit a Nezasa en 2022)
-- Ex Director of Engineering Latam en **Nezasa**
-- Ex Senior Software Engineer en **Microsoft** — MSAI, buscador de Microsoft 365
 - **AI/ML Engineer** en **C1DO1.ai**
 
 miguel.rodriguez@mail.udp.cl
+
+</Slide>
+
+<Slide title="Trayectoria">
+
+- Software Engineer & Co-Founder en **Ticketplus** (exit)
+- Data Science en **Globant**
+- CTO & Co-Founder en **TripYeah** (exit a Nezasa en 2022)
+- Director of Engineering Latam en **Nezasa**
+- Senior Software Engineer en **Microsoft** — MSAI, buscador de Microsoft 365
 
 </Slide>
 
@@ -55,12 +60,9 @@ Hay un factor que ningún hardware compra. Medirlo, sin ejecutar nada, se llama
 
 <Slide title="Contémoslas aquí mismo">
 
-Esto corre de verdad, en el navegador. Un millón de elementos en vez de cien
-millones: Java se ejecuta en el hilo de esta página, así que subir `n` a cien
-millones congela la pestaña y obliga a recargarla.
-
-El _cómo_ funciona la búsqueda binaria es [[busqueda-binaria|otro documento]];
-aquí solo importa cuánto cambia.
+Un millón de elementos en vez de cien millones: Java se ejecuta en el hilo de
+esta página, y subir `n` a cien millones congela la pestaña. El _cómo_ de la
+búsqueda binaria es [[busqueda-binaria|otro documento]].
 
 <CodeEditor
   language="java"
@@ -256,46 +258,38 @@ de datos en diversos problemas.
 
 </Slide>
 
-<Slide title="Plan de trabajo — Bloque I">
+<Slide title="Bloque I — el lenguaje, y cómo comparar">
 
-Lo básico: el lenguaje, y la herramienta para comparar soluciones.
-
-| Tema                          | Qué se ve                                          |
-| ----------------------------- | -------------------------------------------------- |
-| Java y su biblioteca estándar | El lenguaje del curso, viniendo de C++             |
-| Análisis de complejidad       | Comparar dos soluciones sin ejecutarlas            |
-| Listas, pilas y colas         | Las tres estructuras que aparecen en todo lo demás |
-| Dividir y conquistar          | Partir el problema hasta que sea trivial           |
-| Algoritmos de ordenamiento    | Y por qué hay más de uno                           |
+| Tema                          | Qué se ve                              |
+| ----------------------------- | -------------------------------------- |
+| Java y su biblioteca estándar | El lenguaje del curso, desde C++       |
+| Análisis de complejidad       | Comparar sin ejecutar                  |
+| Listas, pilas y colas         | Las tres que aparecen en todo lo demás |
+| Dividir y conquistar          | Partir hasta que sea trivial           |
+| Algoritmos de ordenamiento    | Y por qué hay más de uno               |
 
 </Slide>
 
-<Slide title="Plan de trabajo — Bloque II">
+<Slide title="Bloque II — qué ofrece cada estructura, y cuánto cuesta">
 
-Estructuras de datos y tipos de datos abstractos: qué operaciones ofrece cada
-una, y cuánto cuestan.
-
-| Tema                           | Qué se ve                                           |
-| ------------------------------ | --------------------------------------------------- |
-| Colas de prioridad y heaps     | Sacar siempre el mínimo, sin ordenar todo           |
-| Árboles                        | Búsqueda, inserción y borrado en tiempo logarítmico |
-| Tablas de hash                 | El costo constante, y lo que hay que pagar por él   |
-| `Map` y `Set`                  | Los TDAs que se usan sin saber qué hay debajo       |
-| Greedy y programación dinámica | Dos formas de construir la solución por partes      |
+| Tema                           | Qué se ve                               |
+| ------------------------------ | --------------------------------------- |
+| Colas de prioridad y heaps     | El mínimo, sin ordenar todo             |
+| Árboles                        | Buscar e insertar en tiempo logarítmico |
+| Tablas de hash                 | El costo constante, y lo que se paga    |
+| `Map` y `Set`                  | Los TDAs, sin saber qué hay debajo      |
+| Greedy y programación dinámica | Construir la solución por partes        |
 
 </Slide>
 
-<Slide title="Plan de trabajo — Bloque III">
+<Slide title="Bloque III — modelar antes de resolver">
 
-Técnicas de diseño de algoritmos y teoría de grafos: modelar el problema antes
-de resolverlo.
-
-| Tema                  | Qué se ve                                            |
-| --------------------- | ---------------------------------------------------- |
-| Recorridos            | Visitar un grafo entero, en anchura y en profundidad |
-| Orden topológico      | Ordenar tareas que dependen unas de otras            |
-| Camino más corto      | Y por qué "más corto" no siempre significa distancia |
-| Árbol cobertor mínimo | Conectar todo, gastando lo menos posible             |
+| Tema                  | Qué se ve                             |
+| --------------------- | ------------------------------------- |
+| Recorridos            | En anchura y en profundidad           |
+| Orden topológico      | Tareas que dependen unas de otras     |
+| Camino más corto      | Y "más corto" no siempre es distancia |
+| Árbol cobertor mínimo | Conectar todo, gastando lo mínimo     |
 
 </Slide>
 
@@ -377,16 +371,14 @@ Y la construyo con agentes — que es exactamente de lo que hablamos al principi
 
 <Slide title="Bibliografía">
 
-- **El libro del curso** — Sedgewick & Wayne, _Algorithms_, 4ª ed.,
-  Addison-Wesley, 2014 → https://algs4.cs.princeton.edu/home/ (sitio oficial,
-  con todo el código en Java)
+- **El libro del curso** — Sedgewick & Wayne, _Algorithms_, 4ª ed., 2014 —
+  https://algs4.cs.princeton.edu/home/ (con todo el código en Java)
 - **Java (Bloque I)** — Sedgewick & Wayne, _Introduction to Programming in
-  Java_, 2017 → https://introcs.cs.princeton.edu/java/home/
-- **Diseño de algoritmos** — Kleinberg & Tardos, _Algorithm Design_, Pearson,
-  2006 → https://www.cs.princeton.edu/~wayne/kleinberg-tardos/
-- **De consulta** — Cormen, Leiserson, Rivest & Stein, _Introduction to
-  Algorithms_, 4ª ed., MIT Press, 2022 · Skiena & Revilla, _Programming
-  Challenges_, Springer, 2003
+  Java_, 2017 — https://introcs.cs.princeton.edu/java/home/
+- **Diseño de algoritmos** — Kleinberg & Tardos, _Algorithm Design_, 2006 —
+  https://www.cs.princeton.edu/~wayne/kleinberg-tardos/
+- **De consulta** — Cormen et al., _Introduction to Algorithms_, 4ª ed., 2022 ·
+  Skiena & Revilla, _Programming Challenges_, 2003
 
 </Slide>
 
