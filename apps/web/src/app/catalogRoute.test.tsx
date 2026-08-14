@@ -47,9 +47,17 @@ describe('/catalog', () => {
     // All four were <a> elements with no colour and no underline: nothing said
     // they were navigable before the pointer was already on them, and a keyboard
     // user got no signal at all.
+    //
+    // The assertion is the ACCENT token, not a specific hue (#109). It used to
+    // match /text-sky-\d00/, which pinned the product's link colour to a
+    // particular blue — so it went red the day links became the palette's single
+    // accent, over markup that was more correct than before. What has to hold is
+    // "a link is painted in the one colour this product uses for links", and that
+    // is what the token name says; `palette.test.ts` owns whether that colour is
+    // legible on the surfaces it lands on.
     for (const family of families) {
       const link = screen.getByRole('link', { name: family.name });
-      expect(link.className, `${family.name} does not look like a link`).toMatch(/text-sky-\d00/);
+      expect(link.className, `${family.name} does not look like a link`).toContain('text-accent');
       expect(link.className).toContain('hover:underline');
     }
   });
