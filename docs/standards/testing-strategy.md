@@ -199,21 +199,53 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   comment. Worked case (#91): `app/presentationRoute.test.tsx` awaits the rotate
   panel — which only the loaded document can render — before asserting that no
   counter and no slide heading are on the page.
+  The same pre-resolution described below settles the absence case too; reach
+  for the far-side `await` when only one test in a file crosses the boundary,
+  and for the file-wide fix when many do.
 - **Asserting PRESENCE across one has the mirror hazard: the assertion is a
   deadline, and the module is racing it.** `findBy*` waits 1000ms by default,
   which is not a fact about the code but about the machine — on a busy box the
   chunk arrives later and the case reddens for no reason anyone can reproduce.
-  Do not raise the timeout, which hides this case and the next: **resolve the
-  module before rendering** (`await entry.load()`), so the boundary settles on
-  the first commit and there is nothing left to wait for. Do it once for the
-  file rather than inside a render helper — a fix a call site has to remember is
-  a fix the next render will not get. Then assert with **`getBy`, not `findBy`**:
-  a query that cannot wait is the only one that can prove the wait is gone,
-  because with `findBy` the test passes either way and proves nothing. Worked
-  case (#102): the cover-slide case in `app/presentationRoute.test.tsx` failed
-  three times on loaded machines, once at 1402ms, gating the pre-PR protocol and
-  CI with it; 36 renders in that file shared the hazard and one `beforeAll`
-  closed all of them.
+  Do not raise the timeout; it hides this case and the next. Three steps, and
+  **the second is the one everybody drops**:
+
+  1. Resolve the modules once for the file —
+     `beforeAll(() => Promise.all(registry.entries.map((e) => e.load())))`.
+     Once per file, not per call site: a step a call site has to remember is a
+     step the next render will not get.
+  2. Render inside `await act(async () => { render(…) })`. **`React.lazy`
+     suspends even when the module is already cached**, so the boundary does
+     *not* settle on the first commit — it settles on the retry the flush
+     delivers. Skip this and step 1 buys nothing: verified by mutation, with the
+     preload in place and the flush removed, the assertion still fails.
+  3. Keep **one canary assertion per file on `getBy`**. A query that cannot wait
+     is the only one that can prove the wait is gone; with `findBy` the test
+     passes either way and proves nothing. The rest may stay on `findBy` —
+     converting them all is churn, and converting them without step 2 is red.
+
+  **Prove it in both directions rather than asserting it.** Patch each entry so
+  its FIRST resolution is delayed and later calls are served from cache, which
+  is how `import()` really behaves:
+
+  ```ts
+  for (const entry of registry.entries) {
+    const real = entry.load;
+    let cached: ReturnType<typeof real> | undefined;
+    entry.load = () => (cached ??= new Promise((r) => setTimeout(() => r(real()), 1500)));
+  }
+  ```
+
+  That turns "seen three times, never reproducible" into one command, and it
+  also separates the files genuinely at risk from those that merely look
+  similar. Worked case (#102): the cover-slide case in
+  `app/presentationRoute.test.tsx` reddened three times on loaded machines, once
+  at 1402ms, gating the pre-PR protocol and CI with it. Under the simulation the
+  unfixed shape fails with that same message and the fixed one passes; the same
+  probe found `app/App.test.tsx` and `app/documentSections.test.tsx` exposed and
+  cleared `documentBreadcrumb`, `documentTitle` and `documentDrawer`, whose
+  assertions sit outside the boundary. Apply the three steps to a file when a
+  case there has reddened, or when you want a `getBy` canary — not to every file
+  that contains a `findBy`.
 - **A per-state browser measurement is not a transition measurement.** Loading
   each state fresh (`?slide=1`, `?slide=2`, …) exercises mount and nothing else;
   the paths BETWEEN states are different code and have to be driven in the same

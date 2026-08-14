@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
 import { courseIndex, registry, walkIndex } from '../content';
 import { AppRoutes } from './AppRoutes';
@@ -10,6 +10,20 @@ import { AppRoutes } from './AppRoutes';
 // Seed convention: each document's h1 equals its frontmatter title.
 const ids = walkIndex(courseIndex);
 const titleOf = (id: string) => registry.get(id)?.meta.title ?? id;
+
+// Every assertion below lives on the far side of `lazy(entry.load)`
+// (`content/lazyDoc.ts`), so each one raced the document module against the
+// 1000ms window `findBy*` gives an assertion. Resolving the modules once, here,
+// takes the machine out of the verdict (#102). Under a simulated 1500ms first
+// load — the shape a busy box produces — this file failed without it.
+//
+// Duplicated in the three app-level files that need it rather than shared: the
+// repo already records that a test double needed by two places is duplicated,
+// not shared (`docs/standards/testing-strategy.md` §Conventions), and three
+// lines are cheaper to read in place than to go and find.
+beforeAll(async () => {
+  await Promise.all(registry.entries.map((entry) => entry.load()));
+});
 
 function renderAt(path: string) {
   render(

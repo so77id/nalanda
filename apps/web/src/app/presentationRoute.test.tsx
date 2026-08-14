@@ -18,12 +18,25 @@ const ids = walkIndex(courseIndex);
 const firstId = ids.find((id) => registry.get(id)?.meta.presentation !== 'none')!;
 const firstTitle = registry.get(firstId)?.meta.title ?? firstId;
 
-function renderAt(path: string) {
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <AppRoutes />
-    </MemoryRouter>,
-  );
+/**
+ * Renders at `path` with the first commit flushed.
+ *
+ * The flush is not decoration. `React.lazy` suspends once even when the module
+ * is already in the ES module cache, so without it the assertion runs against
+ * the Suspense fallback — verified: keep the preload below, drop the `act`, and
+ * the cover-slide case fails with #102's own message.
+ *
+ * It lives in the helper rather than at the call sites because there are 37 of
+ * them, and a step a call site has to remember is a step the 38th will not get.
+ */
+async function renderAt(path: string): Promise<void> {
+  await act(async () => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <AppRoutes />
+      </MemoryRouter>,
+    );
+  });
 }
 
 /**
@@ -44,13 +57,6 @@ beforeAll(async () => {
   await Promise.all(registry.entries.map((entry) => entry.load()));
 });
 
-/** Renders with the first commit flushed, so nothing after it needs a timer. */
-async function renderPresentation(path: string): Promise<void> {
-  await act(async () => {
-    renderAt(path);
-  });
-}
-
 /**
  * jsdom implements no Fullscreen API, so after #111 the deck hides its
  * fullscreen control there — correctly, but for a reason no test intended.
@@ -69,9 +75,14 @@ async function findCounter() {
   return screen.findByText(/^\d+ \/ \d+$/);
 }
 
+/** The counter without waiting — for the canary; see the cover-slide case. */
+function getCounter() {
+  return screen.getByText(/^\d+ \/ \d+$/);
+}
+
 describe('PresentationPage viewer', () => {
   it('opens on the cover slide with the document title and a counter', async () => {
-    await renderPresentation(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
 
     // `getBy`, deliberately, not `findBy`: once the document is resolved there
     // is nothing left to wait for, and a query that cannot wait is the only
@@ -79,11 +90,11 @@ describe('PresentationPage viewer', () => {
     // again and every other case in this file is one busy machine away from
     // failing (#102).
     expect(screen.getByRole('heading', { name: firstTitle })).toBeInTheDocument();
-    expect(screen.getByText(/^\d+ \/ \d+$/)).toHaveTextContent(/^1 \/ \d+$/);
+    expect(getCounter()).toHaveTextContent(/^1 \/ \d+$/);
   });
 
   it('navigates with ArrowRight/ArrowLeft and clamps at the edges', async () => {
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     const counter = await findCounter();
 
     fireEvent.keyDown(window, { key: 'ArrowLeft' });
@@ -94,7 +105,7 @@ describe('PresentationPage viewer', () => {
   });
 
   it('advances with Space and jumps with Home/End', async () => {
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     const counter = await findCounter();
     const total = Number(counter.textContent!.split('/')[1]);
 
@@ -112,17 +123,17 @@ describe('PresentationPage viewer', () => {
   });
 
   it('deep-links to a slide via ?slide=N and clamps out-of-range values', async () => {
-    renderAt(`/d/${firstId}/present?slide=2`);
+    await renderAt(`/d/${firstId}/present?slide=2`);
     expect(await findCounter()).toHaveTextContent(/^2 \//);
   });
 
   it('survives a crafted non-integer ?slide value', async () => {
-    renderAt(`/d/${firstId}/present?slide=1.5`);
+    await renderAt(`/d/${firstId}/present?slide=1.5`);
     expect(await findCounter()).toHaveTextContent(/^1 \//);
   });
 
   it('returns to the book view on Escape', async () => {
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     await findCounter();
 
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -131,7 +142,7 @@ describe('PresentationPage viewer', () => {
 
   it('offers a fullscreen control that says what pressing it will do', async () => {
     const restore = withFullscreenSupport();
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     await findCounter();
     // Out of fullscreen the button ENTERS it, so the name is the destination.
     expect(screen.getByRole('button', { name: 'Pantalla completa' })).toBeInTheDocument();
@@ -143,7 +154,7 @@ describe('PresentationPage viewer', () => {
     // (ADR-0023), so the control could only ever be a button that does nothing.
     // jsdom is that platform by default, which is exactly why the tests above
     // have to declare the capability rather than inherit it.
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     await findCounter();
 
     const footer = document.querySelector('footer')!;
@@ -159,7 +170,7 @@ describe('PresentationPage viewer', () => {
     // Not only after a click: Escape and the browser's own chrome change the
     // state too, so the name is derived from document.fullscreenElement rather
     // than from what this component last did (#106).
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     await findCounter();
 
     Object.defineProperty(document, 'fullscreenElement', {
@@ -232,7 +243,7 @@ describe('presentation on a phone held in portrait', () => {
 
   it('covers the deck: the panel is shown and no slide is painted', async () => {
     coarsePortrait(true);
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
 
     // Waiting for the panel also waits for the lazy document: the deck is what
     // decides, so by now the slides exist and their absence is a decision.
@@ -243,7 +254,7 @@ describe('presentation on a phone held in portrait', () => {
 
   it('leaves nothing but the way out reachable by keyboard', async () => {
     coarsePortrait(true);
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     await screen.findByRole('alertdialog');
 
     // The whole route, not the panel's subtree: the claim is that no control of
@@ -259,7 +270,7 @@ describe('presentation on a phone held in portrait', () => {
 
   it('ignores the slide keys behind the panel, so the position cannot drift', async () => {
     const media = coarsePortrait(true);
-    renderAt(`/d/${firstId}/present?slide=2`);
+    await renderAt(`/d/${firstId}/present?slide=2`);
     await screen.findByRole('alertdialog');
 
     fireEvent.keyDown(window, { key: 'ArrowRight' });
@@ -272,7 +283,7 @@ describe('presentation on a phone held in portrait', () => {
 
   it('still answers Escape behind the panel — a modal has a way out', async () => {
     coarsePortrait(true);
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     await screen.findByRole('alertdialog');
 
     fireEvent.keyDown(window, { key: 'Escape' });
@@ -291,7 +302,7 @@ describe('presentation on a phone held in portrait', () => {
     });
     try {
       coarsePortrait(true);
-      renderAt(`/d/${firstId}/present`);
+      await renderAt(`/d/${firstId}/present`);
       await screen.findByRole('alertdialog');
       expect(exitFullscreen).toHaveBeenCalled();
     } finally {
@@ -302,7 +313,7 @@ describe('presentation on a phone held in portrait', () => {
 
   it('shows the deck at the reader’s slide when the phone is turned, and back', async () => {
     const media = coarsePortrait(true);
-    renderAt(`/d/${firstId}/present?slide=2`);
+    await renderAt(`/d/${firstId}/present?slide=2`);
     await screen.findByRole('alertdialog');
 
     media.turn(false);
@@ -317,7 +328,7 @@ describe('presentation on a phone held in portrait', () => {
 
   it('lets the reader leave the presentation for the book view of the document', async () => {
     coarsePortrait(true);
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     await screen.findByRole('alertdialog');
 
     fireEvent.click(screen.getByRole('link', { name: /leer|libro|volver/i }));
@@ -335,7 +346,7 @@ describe('presentation on a phone held in portrait', () => {
   // cannot evaluate a media query, so no test here can claim it.
   it('renders the deck whenever the phone rule does not match', async () => {
     coarsePortrait(false);
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
 
     expect(await findCounter()).toHaveTextContent(/^1 \//);
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
@@ -350,7 +361,7 @@ describe('advancing the deck by touch', () => {
   }
 
   it('advances one slide on a leftward swipe and goes back on a rightward one', async () => {
-    renderAt(`/d/${firstId}/present?slide=2`);
+    await renderAt(`/d/${firstId}/present?slide=2`);
     const counter = await findCounter();
 
     swipe(300, 150);
@@ -361,7 +372,7 @@ describe('advancing the deck by touch', () => {
   });
 
   it('clamps at the first slide, as the keyboard does', async () => {
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     const counter = await findCounter();
 
     // The positive control comes first: without it this case is green over a
@@ -377,7 +388,7 @@ describe('advancing the deck by touch', () => {
   });
 
   it('leaves the slide alone on a tap and on a vertical drag', async () => {
-    renderAt(`/d/${firstId}/present?slide=2`);
+    await renderAt(`/d/${firstId}/present?slide=2`);
     const counter = await findCounter();
 
     swipe(200, 200);
@@ -397,7 +408,7 @@ describe('advancing the deck by touch', () => {
     // on the slide wrapper — a box that in a browser has `overflow-x: visible`
     // and cannot scroll. It pinned the wrong contract and never walked a single
     // ancestor (#103 review).
-    renderAt('/d/java-desde-cpp/present?slide=5');
+    await renderAt('/d/java-desde-cpp/present?slide=5');
     const counter = await findCounter();
     const before = counter.textContent;
 
@@ -421,7 +432,7 @@ describe('advancing the deck by touch', () => {
   });
 
   it('forgets a gesture the system cancels', async () => {
-    renderAt(`/d/${firstId}/present?slide=2`);
+    await renderAt(`/d/${firstId}/present?slide=2`);
     const counter = await findCounter();
     const stage = screen.getByTestId('slide-stage');
 
@@ -433,7 +444,7 @@ describe('advancing the deck by touch', () => {
   });
 
   it('ignores a two-finger gesture — a pinch is not a swipe', async () => {
-    renderAt(`/d/${firstId}/present?slide=2`);
+    await renderAt(`/d/${firstId}/present?slide=2`);
     const counter = await findCounter();
     const stage = screen.getByTestId('slide-stage');
 
@@ -500,7 +511,7 @@ describe('fitting a slide to the stage it is shown on', () => {
   }
 
   it('scales the slide by the tighter axis of the stage', async () => {
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     await findCounter();
     // 300/600 is tighter than 800/896.
     expect(slideBox()).toHaveStyle({ transform: 'scale(0.5)' });
@@ -508,7 +519,7 @@ describe('fitting a slide to the stage it is shown on', () => {
 
   it('measures after a rotation, which mounts the deck without changing the slide', async () => {
     const media = coarsePortrait(true);
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     await screen.findByRole('alertdialog');
 
     media.turn(false);
@@ -521,7 +532,7 @@ describe('fitting a slide to the stage it is shown on', () => {
   });
 
   it('measures the slide that is on screen after a slide change, not the one leaving', async () => {
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     await findCounter();
 
     fireEvent.keyDown(window, { key: 'ArrowRight' });
@@ -541,7 +552,7 @@ describe('leaving the presentation from the deck', () => {
     // The capability is declared before the render, because the deck decides
     // whether to paint that neighbour at all (#111).
     const restore = withFullscreenSupport();
-    renderAt(`/d/${firstId}/present`);
+    await renderAt(`/d/${firstId}/present`);
     await findCounter();
     const footer = document.querySelector('footer')!;
     expect([...footer.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(
@@ -560,7 +571,7 @@ describe('leaving the presentation from the deck', () => {
       value: exitFullscreen,
     });
     try {
-      renderAt(`/d/${firstId}/present`);
+      await renderAt(`/d/${firstId}/present`);
       await findCounter();
       fireEvent.click(screen.getByRole('button', { name: /salir de la presentación/i }));
       await screen.findByRole('article');
@@ -571,7 +582,7 @@ describe('leaving the presentation from the deck', () => {
   });
 
   it('lands on the book view from any slide, including a deep link', async () => {
-    renderAt(`/d/${firstId}/present?slide=3`);
+    await renderAt(`/d/${firstId}/present?slide=3`);
     await findCounter();
 
     fireEvent.click(screen.getByRole('button', { name: /salir de la presentación/i }));
@@ -590,7 +601,7 @@ describe('leaving the presentation from the deck', () => {
       value: exitFullscreen,
     });
     try {
-      renderAt(`/d/${firstId}/present`);
+      await renderAt(`/d/${firstId}/present`);
       await findCounter();
       fireEvent.click(screen.getByRole('button', { name: /salir de la presentación/i }));
       await screen.findByRole('article');
@@ -604,7 +615,7 @@ describe('leaving the presentation from the deck', () => {
   it('is not reachable behind the rotate panel', async () => {
     coarsePortrait(true);
     try {
-      renderAt(`/d/${firstId}/present`);
+      await renderAt(`/d/${firstId}/present`);
       await screen.findByRole('alertdialog');
       expect(
         screen.queryByRole('button', { name: /salir de la presentación/i }),
@@ -619,27 +630,27 @@ describe('presentation: none documents', () => {
   it('redirects /present back to the book view', async () => {
     const noneId = ids.find((id) => registry.get(id)?.meta.presentation === 'none');
     expect(noneId, 'seed course needs a presentation:none document').toBeDefined();
-    renderAt(`/d/${noneId}/present`);
+    await renderAt(`/d/${noneId}/present`);
     expect(await screen.findByRole('article')).toBeInTheDocument();
   });
 });
 
 describe('book-view entry points to presentation', () => {
   it('shows a Presentar toggle in the document header', async () => {
-    renderAt(`/d/${firstId}`);
+    await renderAt(`/d/${firstId}`);
     const toggle = await screen.findByRole('link', { name: /presentar/i });
     expect(toggle).toHaveAttribute('href', `/d/${firstId}/present`);
   });
 
   it('hides the toggle for presentation: none documents', async () => {
     const noneId = ids.find((id) => registry.get(id)?.meta.presentation === 'none')!;
-    renderAt(`/d/${noneId}`);
+    await renderAt(`/d/${noneId}`);
     await screen.findByRole('article');
     expect(screen.queryByRole('link', { name: /presentar/i })).not.toBeInTheDocument();
   });
 
   it('enters presentation with the p key from the book view', async () => {
-    renderAt(`/d/${firstId}`);
+    await renderAt(`/d/${firstId}`);
     await screen.findByRole('article');
     fireEvent.keyDown(window, { key: 'p' });
     expect(await screen.findByText(/^\d+ \/ \d+$/)).toBeInTheDocument();
@@ -684,7 +695,7 @@ describe('explicit-mode documents (real compiled markers)', () => {
   });
 
   it('decks only the marked slides, leaving loose prose book-only', async () => {
-    renderAt(`/d/${explicitId}/present`);
+    await renderAt(`/d/${explicitId}/present`);
     const counter = await findCounter();
     expect(counter).toHaveTextContent('1 / 3');
 
@@ -696,7 +707,7 @@ describe('explicit-mode documents (real compiled markers)', () => {
   });
 
   it('renders marked slides as heading + prose in the book view, with the loose section present', async () => {
-    renderAt(`/d/${explicitId}`);
+    await renderAt(`/d/${explicitId}`);
     const article = await screen.findByRole('article');
     const { within } = await import('@testing-library/react');
     expect(
