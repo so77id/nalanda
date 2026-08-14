@@ -199,6 +199,21 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   comment. Worked case (#91): `app/presentationRoute.test.tsx` awaits the rotate
   panel — which only the loaded document can render — before asserting that no
   counter and no slide heading are on the page.
+- **Asserting PRESENCE across one has the mirror hazard: the assertion is a
+  deadline, and the module is racing it.** `findBy*` waits 1000ms by default,
+  which is not a fact about the code but about the machine — on a busy box the
+  chunk arrives later and the case reddens for no reason anyone can reproduce.
+  Do not raise the timeout, which hides this case and the next: **resolve the
+  module before rendering** (`await entry.load()`), so the boundary settles on
+  the first commit and there is nothing left to wait for. Do it once for the
+  file rather than inside a render helper — a fix a call site has to remember is
+  a fix the next render will not get. Then assert with **`getBy`, not `findBy`**:
+  a query that cannot wait is the only one that can prove the wait is gone,
+  because with `findBy` the test passes either way and proves nothing. Worked
+  case (#102): the cover-slide case in `app/presentationRoute.test.tsx` failed
+  three times on loaded machines, once at 1402ms, gating the pre-PR protocol and
+  CI with it; 36 renders in that file shared the hazard and one `beforeAll`
+  closed all of them.
 - **A per-state browser measurement is not a transition measurement.** Loading
   each state fresh (`?slide=1`, `?slide=2`, …) exercises mount and nothing else;
   the paths BETWEEN states are different code and have to be driven in the same
