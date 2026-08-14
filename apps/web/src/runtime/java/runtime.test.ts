@@ -313,6 +313,19 @@ describe('createJavaRuntime', () => {
       expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
     });
 
+    it('refuses a student class named after the tracer', async () => {
+      // Same hazard as the other two, reached through a different door: a memory
+      // diagram compiles NalandaTrace beside the snippet, so a snippet declaring
+      // that name would overwrite the class collecting the trace and the diagram
+      // would draw whatever the student's version emitted.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: 'public class NalandaTrace {}', stdin: '', harness });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
+    });
+
     it('does not wedge the page when an abandoned run finishes anyway', async () => {
       // A route change unmounts every editor, which terminates their workers. If
       // a run was in flight — the ~12s boot is easy to wander off during — that
