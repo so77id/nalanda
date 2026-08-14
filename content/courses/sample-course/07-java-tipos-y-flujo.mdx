@@ -28,7 +28,7 @@ tu navegador.
 | `long` | 64 bits | ±9,2 × 10¹⁸ aprox. |
 | `float` | 32 bits | coma flotante binaria, precisión simple |
 | `double` | 64 bits | coma flotante binaria, precisión doble |
-| `char` | 16 bits | una unidad de código UTF-16 |
+| `char` | 16 bits | 0 … 65 535 |
 | `boolean` | — | `true` o `false` |
 </Slide>
 
@@ -47,8 +47,8 @@ Y un detalle de `float` y `double` que ahorra tardes de depuración: guardan los
 en **binario**, no en base diez. Por eso valores tan inocentes como `0.1` no tienen
 representación exacta, y `0.1 + 0.2` **no** da `0.3`. La consecuencia práctica es que dos
 decimales casi nunca se comparan con `==`: se comparan pidiendo que su diferencia sea
-menor que una tolerancia pequeña. Es exactamente lo que hace el `check` de los ejercicios
-de esta página, que para `double` usa un margen de `1e-9` en lugar de `==`.
+menor que una tolerancia pequeña. Es la misma razón por la que el corrector de esta
+plataforma, cuando compara un `double`, usa un margen de `1e-9` en lugar de `==`.
 
 Y una ausencia importante: **`String` no está en esta tabla.** Aunque se escriba casi
 como un tipo primitivo, es una clase, y esa diferencia tiene consecuencias que arruinan

@@ -39,7 +39,10 @@ async function renderThroughTheShellMap(source: string): Promise<HTMLElement> {
 // vitest runs with apps/web as its cwd. #107 split the Java material in two, so
 // half the runtime-tagged fences now live in the second document; reading only
 // the first would keep this green while covering less than it did (AC10). Both
-// files are read and their fences pooled, so every fence in the unit is checked.
+// files are read and their fences pooled, so the aggregate guards below sweep
+// both documents: a runtime sample shipped untagged in EITHER raises the
+// untagged count past 2 and fails, and `fences.length > 5` reddens the moment
+// this reverts to reading only the first file.
 const JAVA_DOCS = ['06-java-desde-cpp.mdx', '07-java-tipos-y-flujo.mdx'];
 const DOCUMENT = JAVA_DOCS.map((file) =>
   readFileSync(join(process.cwd(), '../../content/courses/sample-course/', file), 'utf8'),
