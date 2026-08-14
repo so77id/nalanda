@@ -57,9 +57,26 @@ const ids = walkIndex(courseIndex);
 // `presentation` is no longer defaulted in either selector either: since #108
 // every document declares it, so `?? 'auto'` could only ever fire for an id the
 // registry does not have — selecting a document that does not exist.
-const AUTO_FIXTURE = 'bienvenida';
+//
+// There is no `auto` fixture any more, and that is a decision rather than an
+// omission (#120). `bienvenida` was the seed course's last `presentation: auto`
+// document; it became the course's opening class, which is cut by hand into ~22
+// slides and therefore declares `explicit`. Rather than declare `auto` on some
+// other document — giving a deck to material whose author did not choose one,
+// the exact defect #108 exists to prevent — the case it fed was retired, because
+// what it covered is covered twice over elsewhere:
+//
+//   - auto SLICING (h2 cuts a slide) — `presentation/parser.test.tsx`,
+//     `computeSlides — auto mode`, over synthetic MDX;
+//   - the rail over a MARKDOWN `##` — the explicit fixture itself. Read the
+//     comment above: busqueda-binaria was chosen precisely because it carries
+//     both heading sources, and its `## Costo` is that path.
+//
+// What is genuinely no longer asserted is "a real document declaring `auto`
+// paints its rail" — and the rail reads the h2s the article painted, which is
+// the same code either way. If a course document ever declares `auto` again,
+// this is the place to bring the case back.
 const EXPLICIT_FIXTURE = 'busqueda-binaria';
-const autoId = ids.find((id) => id === AUTO_FIXTURE);
 const explicitId = ids.find((id) => id === EXPLICIT_FIXTURE);
 
 /**
@@ -79,15 +96,7 @@ async function railLinkTargets(): Promise<string[]> {
 }
 
 describe('the section rail over real documents', () => {
-  it('the seed course still provides the two fixtures these cases describe', () => {
-    expect(
-      autoId,
-      `${AUTO_FIXTURE} left the index. It is the seed course's only \`presentation: auto\` document (see add-a-course-document.md step 2 (Frontmatter)) — declare another document auto and name it here, or these cases stop covering the markdown-h2 rail path.`,
-    ).toBeDefined();
-    expect(
-      registry.get(autoId!)?.meta.presentation,
-      `${AUTO_FIXTURE} no longer declares auto`,
-    ).toBe('auto');
+  it('the seed course still provides the fixture these cases describe', () => {
     expect(
       explicitId,
       `${EXPLICIT_FIXTURE} left the index. Repoint this block at another document carrying BOTH heading sources — a markdown "##" and <Slide title> h2s — not merely at any explicit document, or the equivalence below stops being tested.`,
@@ -98,23 +107,18 @@ describe('the section rail over real documents', () => {
     ).toBe('explicit');
   });
 
-  it('lists every section of an auto document, in order', async () => {
-    await renderAt(`/d/${autoId}`);
-
-    // The canary: `getAllBy` cannot wait, and an `h2` exists only once the lazy
-    // document has rendered — `article` does not, it is the shell's and is on
-    // this side of the boundary. If the preload above is removed this fails on
-    // every machine instead of reddening in CI at random (#102, step 3).
-    expect(screen.getAllByRole('heading', { level: 2 }).length).toBeGreaterThan(0);
-    const headings = await headingIdsOf();
-    expect(headings.length).toBeGreaterThan(0);
-    expect(await railLinkTargets()).toEqual(headings.map((id) => `#${id}`));
-  });
-
-  it('lists the same spine for an explicit document, whose sections are <Slide> markers', async () => {
-    // The equivalence AC4 asks for: two different slide-cutting rules, one
-    // section list, because both render the same MDX-mapped h2 in book mode.
+  it('lists every section of a document, in order', async () => {
+    // The equivalence AC4 asks for: whichever rule cut the slides, one section
+    // list, because every source renders the same MDX-mapped h2 in book mode.
+    // This fixture carries both — `<Slide title>` h2s and a markdown `##`.
     await renderAt(`/d/${explicitId}`);
+
+    // The canary, inherited from the retired auto case (#102, step 3): `getAllBy`
+    // cannot wait, and an `h2` exists only once the lazy document has rendered —
+    // `article` does not, it is the shell's and is on this side of the boundary.
+    // If the preload above is removed this fails on every machine instead of
+    // reddening in CI at random.
+    expect(screen.getAllByRole('heading', { level: 2 }).length).toBeGreaterThan(0);
     const headings = await headingIdsOf();
     expect(headings.length).toBeGreaterThan(0);
     expect(await railLinkTargets()).toEqual(headings.map((id) => `#${id}`));
