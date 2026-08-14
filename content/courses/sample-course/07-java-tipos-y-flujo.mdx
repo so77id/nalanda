@@ -32,19 +32,16 @@ tu navegador.
 | `boolean` | — | `true` o `false` |
 </Slide>
 
-Cuatro diferencias con C++, y la primera es la que más te va a gustar:
-
-- **Los tamaños los fija la especificación del lenguaje.** Un `int` son 32 bits en
-  toda máquina donde corra Java, siempre. En C++ el tamaño de `int` depende de la
-  implementación, y por eso existe `<cstdint>` con sus `int32_t`. En Java ese
-  problema no existe.
-- **No hay `unsigned`.** Todos los enteros tienen signo, con una excepción:
-  `char`, que es un entero de 16 bits **sin** signo — por eso su rango parte en 0.
-- **`char` son 16 bits**, no 8, porque guarda una unidad de código UTF-16 y no un
-  byte. No es exactamente "un carácter": los símbolos fuera del plano básico —muchos
-  emoji, por ejemplo— ocupan dos `char`.
-- **`boolean` no es un número.** `if (1)` no compila, y `if (x = 5)` tampoco —
-  volveremos a esto en el control de flujo.
+<Slide title="Cuatro diferencias con C++">
+- **Los tamaños los fija la especificación.** Un `int` son 32 bits en toda máquina
+  donde corra Java, siempre. En C++ dependen de la implementación, y por eso existe
+  `<cstdint>` con sus `int32_t`.
+- **No hay `unsigned`.** Todos los enteros tienen signo, con una excepción: `char`,
+  que es un entero de 16 bits **sin** signo — por eso su rango parte en 0.
+- **`char` son 16 bits**, no 8: guarda una unidad de código UTF-16, no un byte. Los
+  símbolos fuera del plano básico —muchos emoji— ocupan dos `char`.
+- **`boolean` no es un número.** `if (1)` no compila, y `if (x = 5)` tampoco.
+</Slide>
 
 Y un detalle de `float` y `double` que ahorra tardes de depuración: guardan los números
 en **binario**, no en base diez. Por eso valores tan inocentes como `0.1` no tienen
@@ -53,13 +50,13 @@ decimales casi nunca se comparan con `==`: se comparan pidiendo que su diferenci
 menor que una tolerancia pequeña. Es exactamente lo que hace el `check` de los ejercicios
 de esta página, que para `double` usa un margen de `1e-9` en lugar de `==`.
 
-Y una ausencia importante: **`String` no está en esta tabla.** Aunque se escriba
-casi como un tipo primitivo, es una clase, y esa diferencia tiene consecuencias
-que arruinan tardes enteras. Es el tema del próximo documento, sobre referencias,
-`null` e igualdad.
+Y una ausencia importante: **`String` no está en esta tabla.** Aunque se escriba casi
+como un tipo primitivo, es una clase, y esa diferencia tiene consecuencias que arruinan
+tardes enteras. Es el tema del próximo documento, sobre referencias, `null` e igualdad.
 
-Los tamaños fijos se pueden comprobar. Este programa suma 1 al mayor `int` que
-existe:
+<Slide title="El desborde, en vivo">
+Los tamaños fijos se pueden comprobar. Este programa suma 1 al mayor `int` que existe:
+mira dónde aterriza.
 
 <CodeEditor
   language="java"
@@ -76,20 +73,26 @@ existe:
 }
 `}
 />
+</Slide>
 
-No hay error ni aviso: el `int` da la vuelta y aterriza en el número más negativo
-que existe. Y acá hay una diferencia con C++ que conviene tener clara, porque se
-parecen mucho y no son lo mismo: en Java el resultado está **especificado** —
-siempre da la vuelta, en cualquier máquina. En C++, el desbordamiento de un
-entero con signo es **comportamiento indefinido**: en la práctica suele dar la
-vuelta igual, pero el estándar no lo garantiza y el compilador tiene permiso para
-optimizar suponiendo que nunca ocurre. (El que sí da la vuelta por definición en
-C++ es el `unsigned`.) De todos modos es una fuente clásica de errores en los dos
-lenguajes — te vas a encontrar con ella otra vez cuando escribas comparadores.
+No hay error ni aviso: el `int` da la vuelta y aterriza en el número más negativo que
+existe, ese −2 147 483 648 que la tabla ya anunciaba. Con `long` hay espacio de sobra.
+
+<Slide title="Definido en Java, indefinido en C++">
+El desbordamiento se parece mucho en los dos lenguajes, y no es lo mismo.
+
+- En **Java** está **especificado**: siempre da la vuelta, en cualquier máquina.
+- En **C++**, el de un entero con signo es **comportamiento indefinido**: en la práctica
+  suele dar la vuelta, pero el estándar no lo garantiza y el compilador tiene permiso
+  para optimizar suponiendo que nunca ocurre. (El que sí da la vuelta por definición es
+  el `unsigned`.)
+
+En los dos es una fuente clásica de errores — te la vas a encontrar otra vez cuando
+escribas comparadores.
+</Slide>
 
 <Slide title="Operadores">
-Esta sección es corta a propósito: los operadores de Java son prácticamente los de
-C++.
+Los operadores de Java son prácticamente los de C++.
 
 | Aritméticos | | Comparación | | Lógicos | |
 |---|---|---|---|---|---|
@@ -100,21 +103,36 @@ C++.
 | `%` | resto | | | | |
 | `++` `--` | incremento, decremento | | | | |
 
-Los de asignación también: `=`, `+=`, `-=`, `*=`, `/=`, `%=`.
+Los de asignación también: `=`, `+=`, `-=`, `*=`, `/=`, `%=`. La división entre enteros
+trunca (`7 / 2` es `3`), y `&&` y `||` cortocircuitan.
 </Slide>
 
-Se comportan como esperas: la división entre enteros trunca (`7 / 2` es `3`), y
-`&&` y `||` cortocircuitan.
+<Slide title="Tres diferencias reales">
+1. **No existe la sobrecarga de operadores.** En C++ defines qué significa `+` para tu
+   clase; en Java no puedes, nunca. Combinar dos objetos tuyos será con métodos de
+   nombre propio.
+2. **Salvo para `String`, que es privilegio del lenguaje.** `+` concatena texto, y eso
+   interactúa con la suma de una forma que confunde a todo el mundo la primera vez.
+3. **Aparece `>>>`.** Como ningún entero es `unsigned`, `>>` siempre arrastra el signo.
+   Para el corrimiento que rellena con ceros —gratis en C++ con un tipo `unsigned`— Java
+   da un operador aparte, que no existe en C++ justamente porque allá no hace falta.
+</Slide>
 
-Hay dos diferencias reales:
+El corrimiento con signo y el que rellena con ceros, uno al lado del otro:
 
-**No existe la sobrecarga de operadores.** En C++ puedes definir qué significa `+`
-para tu clase. En Java no puedes, nunca. Si dos objetos tuyos deben poder
-compararse o combinarse, será con métodos de nombre propio.
+```java
+class Corrimientos {
+    public static void main(String[] args) {
+        int n = -8;
+        System.out.println(n >> 1);    // -4          : arrastra el signo
+        System.out.println(n >>> 1);   // 2147483644  : rellena con ceros
+    }
+}
+```
 
-**Salvo para `String`, que es privilegio del lenguaje.** `+` concatena texto, y
-eso interactúa con la suma de una forma que confunde a todo el mundo la primera
-vez:
+<Slide title="¿Qué imprime esto?">
+Las tres líneas tienen los mismos números y dan resultados distintos. Predícelo, después
+ejecútalo.
 
 <CodeEditor
   language="java"
@@ -127,28 +145,11 @@ vez:
 }
 `}
 />
+</Slide>
 
-Las tres líneas tienen los mismos números y dan resultados distintos. La regla es
-que `+` se evalúa **de izquierda a derecha**: en la primera, `"total: " + 1` ya es
-texto, así que el `2` se pega al final en vez de sumarse. En la segunda, `1 + 2` se
+La regla es que `+` se evalúa **de izquierda a derecha**: en la primera, `"total: " + 1`
+ya es texto, así que el `2` se pega al final en vez de sumarse. En la segunda, `1 + 2` se
 suma antes de encontrarse con el texto.
-
-La tabla de arriba dejó fuera una familia entera: los **operadores de bits**. Son también
-los de C++ —`&`, `|`, `^`, `~`, `<<` y `>>`—, con una sola incorporación, y esa sí es puro
-delta con C++. Como en Java **ningún** entero es `unsigned`, `>>` siempre arrastra el signo
-al desplazar. Cuando necesitas el corrimiento que rellena con ceros —el que en C++ obtienes
-gratis usando un tipo `unsigned`— Java te da un operador aparte, `>>>`, que no existe en C++
-justamente porque allá no hace falta.
-
-```java
-class Corrimientos {
-    public static void main(String[] args) {
-        int n = -8;
-        System.out.println(n >> 1);    // -4          : arrastra el signo
-        System.out.println(n >>> 1);   // 2147483644  : rellena con ceros
-    }
-}
-```
 
 <Slide title="Entrada y salida">
 Para escribir, `System.out`:
@@ -165,6 +166,9 @@ Para leer, la clase `Scanner`, envuelta alrededor de `System.in`:
 Scanner stdin = new Scanner(System.in);
 int n = stdin.nextInt();
 ```
+</Slide>
+
+Los métodos de `Scanner` que vas a usar:
 
 | Método | Lee |
 |---|---|
@@ -174,10 +178,10 @@ int n = stdin.nextInt();
 | `next()` | la siguiente palabra |
 | `nextLine()` | el resto de la línea |
 | `hasNext()` | ¿queda algo por leer? |
-</Slide>
 
-En el editor de abajo, el panel **stdin** es lo que el programa va a recibir por
-entrada estándar. Cámbialo y vuelve a ejecutar.
+<Slide title="Lee dos números">
+El panel **stdin** es lo que el programa recibe por entrada estándar. Cámbialo y vuelve a
+ejecutar.
 
 <CodeEditor
   language="java"
@@ -202,20 +206,18 @@ class Io {
 4
 `}
 />
+</Slide>
 
-> **Los decimales se escriben con punto.** `nextDouble()` acepta `3.14` y
-> **rechaza** `3,14` con un `InputMismatchException`, sin importar el idioma de
-> tu sistema o de tu navegador: la máquina virtual de esta página usa el punto
-> siempre. Fuera del navegador, en cambio, `Scanner` sí sigue la configuración
-> regional del sistema, y en un computador en español esperaría la coma.
+> **Los decimales se escriben con punto.** `nextDouble()` acepta `3.14` y **rechaza**
+> `3,14` con un `InputMismatchException`, sin importar el idioma de tu sistema o de tu
+> navegador: la máquina virtual de esta página usa el punto siempre. Fuera del navegador,
+> en cambio, `Scanner` sí sigue la configuración regional del sistema, y en un computador
+> en español esperaría la coma.
 
-### La trampa de `nextInt()` seguido de `nextLine()`
-
-Esta te va a pasar, y cuando pase vas a jurar que el programa se saltó una línea.
-
-`nextInt()` lee el número y **deja el salto de línea sin consumir**. Si lo
-siguiente que llamas es `nextLine()`, lo que obtienes no es la línea siguiente:
-es el resto vacío de la línea anterior.
+<Slide title="La trampa de nextLine">
+`nextInt()` lee el número y **deja el salto de línea sin consumir**. Si lo siguiente que
+llamas es `nextLine()`, no obtienes la línea siguiente: obtienes el resto vacío de la
+anterior. El nombre sale vacío. Descomenta la línea marcada y ejecuta de nuevo.
 
 <CodeEditor
   language="java"
@@ -242,13 +244,14 @@ class Trampa {
 Ana
 `}
 />
+</Slide>
 
-El nombre sale vacío. La solución es llamar `nextLine()` una vez más después del
-`nextInt()`, solo para consumir el salto de línea que quedó colgando: está ahí
-comentada, descoméntala y vuelve a ejecutar.
+La solución es llamar `nextLine()` una vez más después del `nextInt()`, solo para
+consumir el salto de línea que quedó colgando: está ahí comentada.
 
 <Slide title="Control de flujo">
-`if`, `else`, `while` y `for` se escriben exactamente como en C++:
+`if`, `else`, `while` y `for` se escriben exactamente como en C++. La única diferencia
+real: **la condición tiene que ser `boolean`**, no un número ni una referencia.
 
 ```java
 if (n % 2 == 0) {
@@ -261,15 +264,12 @@ while (i < n) { ... }
 
 for (int i = 0; i < n; i++) { ... }
 ```
-
-La única diferencia real: **la condición tiene que ser `boolean`**. No un número,
-no una referencia.
 </Slide>
 
-Esa restricción mata dos errores clásicos de C++ de un solo golpe. `if (x = 5)`
-—asignar cuando querías comparar— no compila en Java, porque `x = 5` vale `5` y `5`
-no es un `boolean`. Y `if (puntero)` tampoco: la ausencia de objeto se pregunta
-explícitamente con `!= null`.
+Esa restricción mata dos errores clásicos de C++ de un solo golpe. `if (x = 5)` —asignar
+cuando querías comparar— no compila en Java, porque `x = 5` vale `5` y `5` no es un
+`boolean`. Y `if (puntero)` tampoco: la ausencia de objeto se pregunta explícitamente con
+`!= null`.
 
 <CodeEditor
   language="java"
@@ -306,11 +306,11 @@ class Flujo {
 `}
 />
 
-> **Cuidado con los ciclos infinitos en esta página.** Java se ejecuta en el mismo
-> hilo que la página, así que un `while` que nunca termina **congela la pestaña** y
-> no hay forma de detenerlo: hay que cerrarla. Antes de ejecutar, revisa que la
-> variable de la condición cambie dentro del ciclo. Tu código se guarda solo antes
-> de cada ejecución, así que no lo pierdes.
+> **Cuidado con los ciclos infinitos en esta página.** Java se ejecuta en el mismo hilo
+> que la página, así que un `while` que nunca termina **congela la pestaña** y no hay
+> forma de detenerlo: hay que cerrarla. Antes de ejecutar, revisa que la variable de la
+> condición cambie dentro del ciclo. Tu código se guarda solo antes de cada ejecución,
+> así que no lo pierdes.
 
 ### Más formas de bifurcar y repetir
 
