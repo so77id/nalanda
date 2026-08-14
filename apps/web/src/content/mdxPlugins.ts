@@ -5,6 +5,7 @@ import remarkMdxFrontmatter from 'remark-mdx-frontmatter';
 import type { PluggableList } from 'unified';
 
 import { remarkCodeMeta } from './codeMeta.ts';
+import { remarkContentImages } from './contentImages.ts';
 import { remarkWikiLinks } from './wikiLinks.ts';
 
 /**
@@ -39,5 +40,9 @@ export const remarkPlugins: PluggableList = [
   // `\$` escape, and what a single-dollar formula does instead: ADR-0027 §2.
   [remarkMath, { singleDollarTextMath: false }],
   remarkWikiLinks,
+  // Reads the document's path off the vfile, so it must run over a tree that
+  // still knows which file it came from — every remark plugin does, but it is
+  // the only one here that depends on it.
+  remarkContentImages,
   remarkCodeMeta,
 ];

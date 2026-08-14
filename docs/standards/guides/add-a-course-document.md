@@ -17,8 +17,11 @@ The seed course `content/courses/sample-course/` exercises everything:
 ```
 content/courses/sample-course/
 ├── 01-bienvenida.mdx          # presentation: auto     — h2 slicing; the suite's `auto` fixture
-├── 02-intro-estructuras.mdx   # presentation: explicit — uses <Slide>
-├── 03-busqueda-binaria.mdx    # presentation: explicit — uses <Slide>, plus a markdown ## (both h2 sources)
+├── 02-intro-estructuras.mdx   # presentation: explicit — uses <Slide> + <Mosaic>
+├── 03-busqueda-binaria.mdx    # presentation: explicit — uses <Slide> + <Split>, plus a markdown ## (both h2 sources)
+├── costo-busqueda.svg         # an asset sits beside the document that uses it
+├── estructuras/               # …in a subfolder once there are several
+│   └── arreglo.svg, lista.svg, cola.svg, pila.svg
 ├── 04-apuntes.mdx             # presentation: none     — book-only
 ├── 05-codigo-ejecutable.mdx   # presentation: explicit — uses <CodeEditor>
 ├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>
@@ -406,12 +409,93 @@ GFM, so a bare URL becomes a link on its own — and a bare `www.host` resolves
 to **`http://`**, a cleartext link the reader can be downgraded on. Tables,
 strikethrough (`~~`), task lists and footnotes also work now.
 
-6. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
+6. **Show a picture (optional)**: the asset lives **beside the `.mdx` that uses
+   it**, addressed relatively, and a subfolder is fine when there are several
+   (`./estructuras/cola.svg`, `./logos/`). Both syntaxes work and get the same
+   pipeline: markdown `![alt](./curva.svg)` for a picture that just needs to be
+   there, and `<Figure>` when it needs a caption or sits inside a layout.
+
+   ```mdx
+   <Figure src="./costo-busqueda.svg" alt="Dos curvas de costo..." caption="El costo de buscar" />
+   ```
+
+   **Never write a path into `src` that is not relative to your document.** The
+   pipeline rewrites a relative reference into an asset the build emits and
+   fingerprints, which is what makes it resolve under `/nalanda/`. A rooted path
+   like `/assets/curva.svg` is left exactly as written and 404s in production
+   while working in `npm run dev` — the failure the base-path rule exists for.
+
+6a. **`alt` is required, in Spanish, and the component enforces it.** A `<Figure>`
+   without one renders an authoring error instead of an image; so does an empty
+   one. The single exception is a `<Mosaic>` cell — see below.
+
+6b. **Beside, not under**: `<Split>` puts two blocks side by side and stacks them
+   on a narrow screen, with `ratio="60/40"` when the picture should not take half
+   the room from the text it illustrates.
+
+   ```mdx
+   <Split ratio="60/40">
+
+   - La búsqueda lineal compara hasta $$n$$ veces.
+   - La binaria descarta la mitad en cada paso.
+
+   <Figure src="./costo-busqueda.svg" alt="Dos curvas de costo..." />
+
+   </Split>
+   ```
+
+   **`<Split>` is not `<SideBySide>`.** SideBySide is the *code comparator*: it
+   draws a border and a language chip and shrinks type, all measured for a `<pre>`
+   (ADR-0022). A picture inside one renders in something that looks like a
+   listing. Two code fences → `SideBySide`. Anything else → `Split`.
+
+6c. **A wall of pictures**: `<Mosaic columns={2|3|4} description="...">` lays its
+   cells out in a grid. It carries **one** accessible description for the whole
+   group and its cells go silent (`alt=""`), because a screen reader announcing
+   nine brand names in a row tells the listener less than one sentence does. The
+   column count is required — six figures are 3×2 or 2×3 depending on what you
+   meant.
+
+   ```mdx
+   <Mosaic columns={3} description="Empresas que usan estructuras de datos a diario">
+     <Figure src="./logos/una.svg" alt="" />
+     ... eight more
+   </Mosaic>
+   ```
+
+6d. **Draw it at the size you want it read in the book.** In the book an image
+   keeps the dimensions of the file, bounded by the column; on a slide a mosaic
+   cell fills its column instead, because a 160px diagram projected on a wall is
+   a smudge. Measured both ways at 1024×768 and at 1440 (#119): forcing the fill
+   in the book blew a 160px diagram up to 384 and its lettering came out bigger
+   than the document's own headings.
+
+6e. **Weight and format.** Prefer **SVG** for anything drawn — diagrams, curves,
+   logos — and a raster format only for photographs, at no more than ~1600px on
+   the long edge. Every image under `content/` is emitted as its own file rather
+   than inlined, so the page costs one small request per picture instead of
+   carrying it in JavaScript: measured, inlining one 1.2KB SVG added 2.4KB to the
+   entry chunk that *every* page loads, and nine logos would have added twenty.
+
+   Two more things a drawn asset must do, because an `<img>` cannot inherit them:
+   **fix its own colours** (it never sees the page's `currentColor`, so pick
+   values that clear 3:1 on both the light and the dark ground) and **never let
+   colour be the only signal** — the cost curves are one solid line and one
+   dashed for exactly that reason (ADR-0026).
+
+6f. **A missing image does not fail the build**, on purpose: writing the slides
+   before drawing the diagrams is a real order of work, and gating the build
+   would take the dev server with it. It renders a visible broken box naming what
+   is missing, and `npm run test` fails until the file exists — so it cannot be
+   published, only drafted. Same shape as a wiki-link (ADR-0002); decided in
+   ADR-0029.
+
+7. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
    link, `[[otro-id|texto visible]]` overrides the label. A target that doesn't
    exist does NOT fail the build: it renders visibly broken (red wavy underline)
    and logs a console warning — forward links to drafts are allowed on purpose.
 
-7. **Register it in the teaching path** (`index.yaml`) if it belongs to the
+8. **Register it in the teaching path** (`index.yaml`) if it belongs to the
    recorrido. Schema (strictly validated; unknown keys fail the build):
 
    ```yaml
@@ -443,7 +527,7 @@ strikethrough (`~~`), task lists and footnotes also work now.
    at the unit; give it an empty or non-string value and the build fails like any
    other field.
 
-8. **Verify**: `npm run build` from `apps/web/`. The contentIntegrity gate fails
+9. **Verify**: `npm run build` from `apps/web/`. The contentIntegrity gate fails
    the build (and CI — `content/**` triggers it) with a file-and-field message
    on: missing/non-kebab/duplicate `id`, missing `title`, invalid `presentation`
    value (must be auto, explicit, or none), malformed `index.yaml` (unknown key,
@@ -475,7 +559,7 @@ strikethrough (`~~`), task lists and footnotes also work now.
    The same applies to width: an over-wide `<SideBySide>` column now shrinks
    the ENTIRE slide rather than overflowing on its own.
 
-9. **Publish**: merging to `main` republishes
+10. **Publish**: merging to `main` republishes
    <https://so77id.github.io/nalanda/> automatically — `content/**` is a deploy
    trigger (ADR-0015). **Everything under `content/courses/` becomes public**,
    listed or not: material that must not be seen (exam keys, solutions,
@@ -505,6 +589,15 @@ strikethrough (`~~`), task lists and footnotes also work now.
       banner, cases pass against a correct solution and fail against the starter.
       Nothing in the build or the suite can check this for you.
 - [ ] Anything on a slide looked at in presentation mode, not only in the book.
+- [ ] Every picture looked at in **both** views and **both** themes. A drawn asset
+      fixes its own colours — an `<img>` cannot inherit the page's — so a diagram
+      that reads on the dark ground can be invisible on the light one, past a
+      green build and a green suite (#109, #119). Sizes differ by view on purpose:
+      the book keeps the drawn dimensions, a mosaic cell fills its column on a
+      slide.
+- [ ] Every image has Spanish `alt` text, and every `<Mosaic>` a `description`.
+      The components refuse to render without them, so this is really a check that
+      you did not paper over the error by emptying the string.
 - [ ] Every formula looked at on the rendered page. A malformed one publishes in
       KaTeX's error colour and an unclosed `$$` swallows the rest of the
       document, both past a green build. Check the page still ends where you

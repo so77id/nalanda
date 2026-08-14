@@ -225,3 +225,38 @@ Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
 - **Review trigger**: anyone setting `trust` to anything but `false`, or adding
   `macros` that reach `\href`, `\url` or the `\html*` family. Decision and the
   attack record: ADR-0027 §6.
+
+### Content images render through `<img src>`, never inlined (accepted 2026-08-14, #119)
+
+Issue #119 gives documents images: SVGs under `content/courses/`, resolved through
+Vite's asset pipeline and rendered by `content/MdxImage.tsx` and
+`components/media/Figure.tsx`. SVG is the one common image format that can carry
+script — a `<script>`, an `onload`, a `foreignObject`, an external `<use>`/`<image>`
+— so how content SVG reaches the page is a security decision, not a rendering
+detail.
+
+- **The rule**: author-supplied content images are rendered exclusively via
+  `<img src={url}>` (`content/MdxImage.tsx`, `components/media/Figure.tsx`). A
+  browser disables scripting for an SVG loaded through `<img>`, so a script or
+  event handler inside a content SVG cannot execute. Inline SVG and
+  `dangerouslySetInnerHTML` on **author** content are forbidden: verified in the
+  #119 review that the content-image path uses neither. (Inline `<svg>` does exist
+  elsewhere — `components/interactive/MemoryState.tsx` draws a diagram from a
+  program's execution trace, ADR-0028 — but that is platform-generated geometry,
+  not author markup, and reaches the page as compiled component code, not as a
+  content asset; `dangerouslySetInnerHTML` appears only in a test fixture. Neither
+  is an author-injection surface.)
+- **This is also why the glob asks for `no-inline`**: ADR-0029 §5 justifies
+  `?url&no-inline` on bundle bytes, but the same lever is load-bearing here — an
+  inlined SVG would render as markup, not through `<img>`, and lose the inertness
+  above. The two records govern one lever; neither may be reversed alone.
+- **Why it is safe today**: the committed SVGs are plain geometry (no `<script>`,
+  no handlers, no external refs), and the `<img>` path keeps them inert even if
+  one were not. Content ships via git + PR review (see "All bundled MDX is
+  repo-controlled content").
+- **Review trigger**: the first time a content SVG must be inlined — the usual
+  reason is `currentColor` theming, which `<img>` cannot reach. At that point the
+  SVG must be sanitised (strip scripts, handlers and external refs) before it is
+  trusted, this invariant re-decided, and ADR-0029 §5 revisited with it. Equally,
+  the first non-repo-authored content path, which changes who can author an SVG at
+  all.

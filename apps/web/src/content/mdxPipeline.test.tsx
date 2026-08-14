@@ -24,8 +24,13 @@ const JAVA_DOCS = ['06-java-desde-cpp.mdx', '07-java-tipos-y-flujo.mdx'];
  * says nothing about what a document turns into. This is the only place that
  * answers "what does an author actually get".
  */
-async function renderMdx(source: string): Promise<HTMLElement> {
-  const { default: Content } = await evaluate(source, { ...runtime, remarkPlugins, rehypePlugins });
+async function renderMdx(source: string, path?: string): Promise<HTMLElement> {
+  // With a path, the compiler is told which file this is — which is the only way
+  // `remarkContentImages` can resolve `./x.svg` against the document's folder.
+  const { default: Content } = await evaluate(
+    path === undefined ? source : { path, value: source },
+    { ...runtime, remarkPlugins, rehypePlugins },
+  );
   // Through the real component map, and inside a router: wiki links render
   // react-router `Link`s, and a document is never rendered outside one.
   return render(
@@ -97,6 +102,30 @@ describe('the MDX pipeline', () => {
 
     // GFM arriving must not disturb what Exercise reads its fences by (ADR-0019).
     expect(container.querySelector('code')?.getAttribute('data-meta')).toBe('starter');
+  });
+
+  it('resolves a document image to a built asset url, not the path the author wrote', async () => {
+    // The named fixture (ADR-0025): `busqueda-binaria` carries the cost curve.
+    const file = join(process.cwd(), '../../content/courses/sample-course/03-busqueda-binaria.mdx');
+    const image = readFileSync(file, 'utf8')
+      .split('\n')
+      .find((line) => line.startsWith('!['));
+    expect(
+      image,
+      'busqueda-binaria no longer carries a markdown image — repoint this fixture at a document that does',
+    ).toBeDefined();
+
+    const container = await renderMdx(image ?? '', file);
+
+    // What main shipped: the authored path survives verbatim, no asset is
+    // emitted, the build stays green, and under /nalanda/ the browser resolves
+    // it against the document's route and 404s.
+    const src = container.querySelector('img')?.getAttribute('src');
+    expect(src).not.toBe('./costo-busqueda.svg');
+    expect(src, 'the image did not resolve to anything a browser can fetch').toMatch(
+      /^(?:data:image\/svg\+xml|\/|https?:)/,
+    );
+    expect(container.querySelector('img')?.getAttribute('alt')).toContain('curvas de costo');
   });
 
   it('still renders a wiki link', async () => {

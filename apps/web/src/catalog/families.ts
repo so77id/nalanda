@@ -32,8 +32,9 @@ const definitions: Record<CatalogFamily, Omit<FamilyDef, 'id' | 'name'>> = {
       'Visualizers, code editors, quizzes, steppers — anything with client-side behavior (ADR-0001).',
   },
   media: {
-    definition: 'Components that embed external or heavy media.',
-    whatBelongs: 'Images with behavior, video, audio, embeds — media beyond plain Markdown.',
+    definition: 'Components that present an image or embed heavier media.',
+    whatBelongs:
+      'Figures and images, video, audio, embeds — visual media, from a captioned content image (Figure, #119) up.',
   },
 };
 
@@ -49,9 +50,9 @@ export function familyName(id: CatalogFamily): string {
 }
 
 /**
- * Why a family can be empty. Two of the four are, and that is policy, not a
- * gap: components are built when a class asks for one (ADR-0010, §Inventory is
- * emergent). Said on both surfaces that can show an empty family, so neither
+ * Why a family can be empty. One of the four is (`semantic`, since #119
+ * populated `media`), and that is policy, not a gap: components are built when a
+ * class asks for one (ADR-0010, §Inventory is emergent). Said on both surfaces that can show an empty family, so neither
  * reads as broken — and because this is the page an agent consults before
  * inventing a component, where silence next to "no components" reads as an
  * invitation.

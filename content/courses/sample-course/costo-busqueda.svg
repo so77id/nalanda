@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 240" width="400" height="240">
+  <!-- Colours are fixed rather than inherited: an <img> cannot see the page's
+       currentColor. Chosen to clear 3:1 against both the light and the dark
+       background, and the two curves also differ in dash pattern so the reading
+       never depends on colour alone. -->
+  <path d="M70 24 L70 200 L380 200" stroke="#6b7280" stroke-width="1.5" fill="none" />
+  <g fill="#6b7280" font-family="system-ui, sans-serif" font-size="12">
+    <text x="64" y="16">comparaciones</text>
+    <text x="70" y="216" text-anchor="middle">0</text>
+    <text x="225" y="232" text-anchor="middle">tamaño del arreglo (n)</text>
+  </g>
+  <path d="M70 200 L380 24" stroke="#ef4444" stroke-width="2.5" fill="none" />
+  <path
+    d="M70 200 L86 148 L101 124 L132 96 L163 78 L210 60 L256 47 L318 34 L380 24"
+    stroke="#3b82f6"
+    stroke-width="2.5"
+    stroke-dasharray="7 4"
+    fill="none"
+  />
+  <g font-family="system-ui, sans-serif" font-size="13">
+    <text x="150" y="45" fill="#3b82f6">binaria: log₂ n</text>
+    <text x="255" y="114" fill="#ef4444">lineal: n</text>
+  </g>
+</svg>

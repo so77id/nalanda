@@ -16,6 +16,21 @@ solo el contenido marcado forma parte del deck.
   quedarnos sin elementos.
 </Slide>
 
+<Slide title="Cuánto cuesta buscar">
+<Split ratio="60/40">
+
+- La búsqueda lineal compara hasta $$n$$ veces: recorre el arreglo entero.
+- La binaria descarta la mitad en cada paso, así que crece como $$\log_2 n$$.
+- Con un millón de elementos son veinte comparaciones, no un millón.
+
+<Figure
+  src="./costo-busqueda.svg"
+  alt="Dos curvas de costo sobre los mismos ejes: la búsqueda lineal sube en línea recta con el tamaño del arreglo, mientras la binaria se aplana casi de inmediato."
+/>
+
+</Split>
+</Slide>
+
 <Slide title="Implementación">
 ```java
 int busquedaBinaria(int[] a, int objetivo) {
@@ -41,3 +56,5 @@ $$
 
 iteraciones. Esta sección es prosa de libro: al no estar marcada, no aparece en
 el deck. Contrasta con [[intro-estructuras|la introducción]].
+
+![Dos curvas de costo sobre los mismos ejes: la búsqueda lineal sube en línea recta con el tamaño del arreglo, mientras la binaria se aplana casi de inmediato.](./costo-busqueda.svg)

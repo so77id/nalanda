@@ -37,16 +37,18 @@ apps/web/src/components/structure/
    mapping to look up. The taxonomy itself lives in
    `apps/web/src/catalog/families.ts` and is rendered on `/catalog/governance`
    and on each family page — read it there rather than from this guide.
-   Two of the four families are empty, and deliberately so: a component is built
-   when a class needs one. Picking an empty family is normal; creating its folder
-   is part of adding the first component to it.
+   One of the four families is still empty (`semantic`, since #119 populated
+   `media`), and deliberately so: a component is built when a class needs one.
+   Picking an empty family is normal; creating its folder is part of adding the
+   first component to it — as is moving the one hardcoded empty-family case in
+   `app/catalogRoute.test.tsx`, whose failure message says where.
 2. **Implement** in `apps/web/src/components/<family id>/<Name>.tsx`, satisfying
    the contract points (`/catalog/governance` → Component contract). If
    the component reacts to the render mode, read it with `useMode()`
    (presentation seam); if a parser must recognize it, declare metadata with
    `withMeta` (`lib/componentMeta.ts`) — never expect identity imports.
 
-   Five seams worth knowing before writing your own:
+   Six seams worth knowing before writing your own:
 
    - **Labelled code fences.** A component whose children carry code the author
      marks — ```` ```java starter ```` — reads them with `fencesByMeta` /
@@ -64,8 +66,11 @@ apps/web/src/components/structure/
      768px column (`.measured-prose`, `styles/index.css`, ADR-0022). Every
      direct child of the article is narrowed unless it is a bare `pre`, marks
      itself **`.not-prose`** (a block, not text — `CodeEditor`, `Exercise`,
-     `SideBySide`, `AuthoringError` all do) or **`.measure-full`** (neither
-     block nor text: the table scroll box, the prev/next row, `<SectionBreak/>`).
+     `SideBySide`, `AuthoringError`, `Figure` all do) or **`.measure-full`**
+     (neither block nor text: the table scroll box, the prev/next row,
+     `<SectionBreak/>`, and the two layout containers `Split` and `Mosaic`, whose
+     columns hold running text that must keep its typography — `not-prose` would
+     strip it from exactly the half that needs it).
      **Anything the reader drags sideways must be a REAL scroller.** In
      presentation the deck owns the horizontal swipe and yields only to a
      descendant whose computed `overflow-x` is `auto` or `scroll` AND that
@@ -91,6 +96,15 @@ apps/web/src/components/structure/
      which is exactly why they stopped working the day a fence became one.
      Worked case: `<SideBySide>` × `CodeEditor` (#85, ADR-0024) — the column supplies the
      language label, so the editor suppresses its filename and its chip.
+   - **Being inside something that has already spoken for you.** A container that
+     carries one accessible name for a whole group wraps its children in
+     `<DescribedProvider value={true}>` (`components/described.ts`), and a
+     component that would otherwise demand its own description reads
+     `useDescribed()` and accepts silence instead. Same shape as `embedded.ts`,
+     one level up: that one is about chrome, this one about voice. Worked case:
+     `<Mosaic>` × `<Figure>` (#119, ADR-0029) — nine logos read as one sentence
+     rather than nine brand names, and `Figure`'s "alt is required" rule keeps its
+     single exception where the description already is.
    - **Inside `interactive/`**, reuse `Panel` (a labelled output strip),
      `useRunShortcut` (Ctrl/Cmd + Enter), `useLoadedRuntime` (loads a runtime
      module and hands back a bound `run`, `warm`, `queued`, `ready` and the
@@ -158,9 +172,10 @@ own wrapper in `ALLOWED`, or nothing checks you. The
       the component marks a section, and the measure one if it renders wide.
 - [ ] **If the family was empty before this PR**: you created its folder, and you
       moved the one hardcoded empty-family case in `app/catalogRoute.test.tsx`
-      (it names `/catalog/media` today and fails with instructions when media
-      stops being empty) to a family that is still empty — the other empty-family
-      tests find the empty family themselves and need nothing. Keep the
+      (it names `/catalog/semantic` today — `media` having been populated in #119 —
+      and fails with instructions when semantic stops being empty) to a family
+      that is still empty — the other empty-family tests find the empty family
+      themselves and need nothing. Keep the
       rendered-English `it.each` list covering one populated and one still-empty
       family page.
 - [ ] Registered in `app/mdxComponents.ts` (mandatory for every catalogued component).

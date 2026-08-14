@@ -23,9 +23,10 @@ src/
 │                   # and the shell's own build plugin (spaFallback.ts)
 ├── components/     # catalog content components, by family:
 │   ├── structure/  ├── semantic/  ├── interactive/  └── media/
-│                   # the family id IS the folder name (#87). semantic/ and media/
-│                   # do not exist yet: an empty family has no folder, and the
-│                   # first component added to one creates it.
+│                   # the family id IS the folder name (#87). semantic/ does not
+│                   # exist yet: an empty family has no folder, and the first
+│                   # component added to one creates it (media/ was created by
+│                   # #119 for Figure).
 │                   # plus shared, non-document-facing components at the root
 ├── catalog/        # /catalog feature: registry, catalog pages
 ├── content/        # content pipeline AND the book-reading surface: registry, loader,
