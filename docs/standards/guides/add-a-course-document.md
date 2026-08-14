@@ -16,8 +16,8 @@ The seed course `content/courses/sample-course/` exercises everything:
 
 ```
 content/courses/sample-course/
-├── 01-bienvenida.mdx          # id: bienvenida        (presentation: auto — h2 slicing)
-├── 02-intro-estructuras.mdx   # id: intro-estructuras (auto, uses <SectionBreak/>)
+├── 01-bienvenida.mdx          # id: bienvenida        (auto — h2 slicing; the suite's `auto` fixture)
+├── 02-intro-estructuras.mdx   # id: intro-estructuras (explicit, uses <Slide>)
 ├── 03-busqueda-binaria.mdx    # id: busqueda-binaria  (presentation: explicit, uses <Slide>)
 ├── 04-apuntes.mdx             # id: apuntes-del-curso (presentation: none — book-only)
 ├── 05-codigo-ejecutable.mdx   # id: codigo-ejecutable (explicit, uses <CodeEditor>)
@@ -41,7 +41,7 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    ---
    id: busqueda-binaria # kebab-case, UNIQUE across the whole content/ tree
    title: Búsqueda binaria # shown in the TOC, prev/next, and lookups
-   presentation: explicit # OPTIONAL: auto (default) | explicit | none
+   presentation: explicit # auto | explicit | none — declare it, always
    ---
    ```
 
@@ -50,6 +50,28 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    ONLY content marked with `<Slide>` / `<SectionBreak/>` (loose prose stays
    book-only); `none` means book-only — no Presentar toggle, `/present`
    redirects back.
+
+   **Optional in the schema, required in practice — declare it even when you
+   want the default** (#108, enforced by `src/content/architecture.test.ts`).
+   The field defaults to `auto`, so a document that omits it still ships a deck;
+   omitting it does not mean "no slides", it means slides nobody chose. Two of
+   the five documents here had exactly that, and one of them projected the book's
+   own navigation sentence — *"Cuando termines, vuelve a la bienvenida"* — alone
+   on a slide.
+
+   Deciding is cheap and takes one walk through `/d/<id>/present`. Note that the
+   walk is the only way to find this: an undeclared deck is never clipped or
+   unreadable, so nothing in the build or the suite can tell you it is wrong —
+   only that it exists.
+
+   > **The seed course is also the suite's fixture set**, and that constrains
+   > what you may declare here. `documentSections.test.tsx` needs one `auto`
+   > document and one `explicit` one; `presentationRoute.test.tsx` needs a
+   > presentable one and names `busqueda-binaria` for its explicit cases. That is
+   > why `01-bienvenida.mdx` declares `auto` rather than the `none` its content
+   > would suggest — it is the only `auto` document left, and the rail's
+   > markdown-`h2` path has no other real content to run over. Change a
+   > declaration here and run the full suite, not just the build (#108).
 
 3. **Write prose in Markdown.** Headings h2–h4 get automatic slug anchors
    (deep-linkable). Code fences render book-style.
@@ -275,8 +297,11 @@ themselves rather than maintained by hand.
 
 ## Checklist
 
-- [ ] Frontmatter has kebab-case `id` (unique) + `title` (+ `presentation` if
-      the default `auto` doesn't fit).
+- [ ] Frontmatter has kebab-case `id` (unique) + `title` + `presentation` —
+      declared even when the value is the default (`architecture.test.ts` fails
+      otherwise).
+- [ ] The deck the chosen value produces was walked once in `/d/<id>/present`,
+      unless the value is `none`.
 - [ ] Wiki-links point at real ids (or are intentional forward links).
 - [ ] Listed in `index.yaml` if it belongs to the recorrido.
 - [ ] `npm run build` green from `apps/web/` (content integrity gate).

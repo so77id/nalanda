@@ -7,7 +7,12 @@ import { courseIndex, registry, walkIndex } from '../content';
 import { AppRoutes } from './AppRoutes';
 
 const ids = walkIndex(courseIndex);
-const firstId = ids[0]!;
+// The first PRESENTABLE document, not simply the first one (#108). These cases
+// need a deck to drive; `ids[0]` only happened to have one, and the day the
+// course's opening document declared `presentation: none` — the right call for a
+// landing page — 33 cases here went red for a reason with nothing to do with the
+// viewer they test.
+const firstId = ids.find((id) => registry.get(id)?.meta.presentation !== 'none')!;
 const firstTitle = registry.get(firstId)?.meta.title ?? firstId;
 
 function renderAt(path: string) {
@@ -574,10 +579,21 @@ describe('book-view entry points to presentation', () => {
 // these tests guard the real compiled <Slide> path through the mdxChildrenOf
 // adapter — the alarm the adapter's docs promise.
 describe('explicit-mode documents (real compiled markers)', () => {
-  const explicitId = ids.find((id) => registry.get(id)?.meta.presentation === 'explicit');
+  // Named, not discovered (#108). The assertions below are this document's own
+  // words — "La idea", "Costo", "prosa de libro" — so "the first explicit
+  // document" was never what these cases meant; it merely resolved to the right
+  // one while `busqueda-binaria` happened to come first in the index. The day
+  // another document ahead of it declared `explicit`, both cases failed against
+  // a fixture whose content they never claimed to know.
+  const EXPLICIT_FIXTURE = 'busqueda-binaria';
+  const explicitId = ids.find((id) => id === EXPLICIT_FIXTURE);
 
-  it('the seed course provides an explicit fixture', () => {
-    expect(explicitId).toBeDefined();
+  it('the seed course still provides the explicit fixture these cases describe', () => {
+    expect(
+      explicitId,
+      `${EXPLICIT_FIXTURE} is gone from the index — repoint this block at a document whose sections are <Slide> markers, and update the headings asserted below to its own`,
+    ).toBeDefined();
+    expect(registry.get(explicitId!)?.meta.presentation).toBe('explicit');
   });
 
   it('decks only the marked slides, leaving loose prose book-only', async () => {

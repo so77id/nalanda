@@ -60,8 +60,15 @@ describe('routing', () => {
   });
 
   it('renders the presentation viewer at /d/:id/present', async () => {
-    renderAt(`/d/${ids[0]}/present`);
-    expect(await screen.findByRole('heading', { name: titleOf(ids[0]!) })).toBeInTheDocument();
+    // A PRESENTABLE document, not simply the first one (#108): `ids[0]` is the
+    // course's opening document, and a landing page declaring
+    // `presentation: none` is a legitimate choice that redirects /present back
+    // to the book — which reads here as "the viewer did not render".
+    const presentableId = ids.find((id) => registry.get(id)?.meta.presentation !== 'none')!;
+    renderAt(`/d/${presentableId}/present`);
+    expect(
+      await screen.findByRole('heading', { name: titleOf(presentableId) }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole('article')).not.toBeInTheDocument();
   });
 
