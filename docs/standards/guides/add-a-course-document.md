@@ -21,7 +21,8 @@ content/courses/sample-course/
 ├── 03-busqueda-binaria.mdx    # presentation: explicit — uses <Slide>, plus a markdown ## (both h2 sources)
 ├── 04-apuntes.mdx             # presentation: none     — book-only
 ├── 05-codigo-ejecutable.mdx   # presentation: explicit — uses <CodeEditor>
-├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <Exercise> + <SideBySide>
+├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>
+├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -55,7 +56,7 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    want the default** (#108, enforced by `src/content/architecture.test.ts`).
    The field defaults to `auto`, so a document that omits it still ships a deck;
    omitting it does not mean "no slides", it means slides nobody chose. Two of
-   the six documents here had exactly that, and one of them projected the book's
+   the documents here had exactly that, and one of them projected the book's
    own navigation sentence — _"Cuando termines, vuelve a la bienvenida"_ — alone
    on a slide.
 
@@ -75,9 +76,9 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    > - `presentationRoute.test.tsx` names `busqueda-binaria` too and drives
    >   `intro-estructuras`.
    > - `presentationRoute.test.tsx` also drives `java-desde-cpp` at a **fixed
-   >   slide index** (`?slide=5`), so that document must stay presentable and
-   >   keep its shape there. Nothing names it as a fixture; it is a bare URL in a
-   >   test.
+   >   slide index** (`?slide=10`, the "Compilar y ejecutar" slide — the only one
+   >   carrying a `<pre>`), so that document must stay presentable and keep its
+   >   shape there. Nothing names it as a fixture; it is a bare URL in a test.
    >
    > That is why `01-bienvenida.mdx` declares `auto` rather than the `none` its
    > content would suggest: it is the only `auto` document left, and the rail's
@@ -319,7 +320,7 @@ The cases are hidden until the first run — pacing, not secrecy. Everything
 under `content/` is published, so the page source reveals them to anyone who
 looks: never author an exercise whose cases must stay private.
 
-Worked example: `06-java-desde-cpp.mdx` (four exercises).
+Worked example: `07-java-tipos-y-flujo.mdx` (six exercises, one of them on a slide).
 
 5c. **Compare two listings (optional)**: `<SideBySide left="C++" right="Java">`
 places exactly two blocks next to each other, stacking on a narrow screen.

@@ -10,6 +10,13 @@ import { contentMdxComponents } from './mdxComponents';
 import { remarkPlugins } from './mdxPlugins';
 import { rehypePlugins } from './rehypePlugins';
 
+// The two documents of the Java unit (#107 split it in two). This list is
+// duplicated in app/documentFences.test.tsx on purpose, NOT shared. A
+// cross-feature test import would be legal (architecture.test.ts:145 exempts
+// `.test.` files from the seam), so this is a deliberate choice, not a
+// constraint: a two-element filename list is not worth a shared test-util module.
+const JAVA_DOCS = ['06-java-desde-cpp.mdx', '07-java-tipos-y-flujo.mdx'];
+
 /**
  * Compiles and renders MDX through the *same* plugin list the build uses.
  *
@@ -60,12 +67,15 @@ describe('the MDX pipeline', () => {
     expect(scroller?.className).toContain('overflow-x-auto');
   });
 
-  it('renders the tables of the shipped Java document', async () => {
-    // The real thing, not a fixture: this file is why the WP exists.
-    const source = readFileSync(
-      join(process.cwd(), '../../content/courses/sample-course/06-java-desde-cpp.mdx'),
-      'utf8',
-    );
+  it('renders the tables of the shipped Java documents', async () => {
+    // The real thing, not a fixture: these files are why the WP exists. #107
+    // split the Java material in two, moving three of the four tables into the
+    // second document; reading only the first would assert against a count the
+    // split invalidated. Both are read so the four tables of the unit are covered
+    // wherever they now live (AC10).
+    const source = JAVA_DOCS.map((file) =>
+      readFileSync(join(process.cwd(), '../../content/courses/sample-course/', file), 'utf8'),
+    ).join('\n');
     // Only the tables are under test here; the document's components are not the
     // pipeline's business. Non-table lines are blanked rather than dropped —
     // dropping them glues consecutive tables into one, which is a bug in the test

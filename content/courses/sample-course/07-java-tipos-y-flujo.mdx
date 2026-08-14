@@ -1,0 +1,525 @@
+---
+id: java-tipos-y-flujo
+title: Tipos, operadores y entrada/salida
+presentation: explicit
+---
+
+# Tipos, operadores y entrada/salida
+
+En [[java-desde-cpp|Java desde C++]] montamos el esqueleto: de dónde viene Java, por qué `main`
+tiene tantas palabras, cómo se compila y qué hace `import`. Con eso ya puedes
+escribir y ejecutar un programa; falta aquello con lo que el programa realmente
+trabaja.
+
+Este documento cubre los tipos primitivos y en qué se diferencian de los de C++,
+los operadores, la entrada y salida con `Scanner`, y el control de flujo — y
+termina con ejercicios para escribir tú. Como antes, se ocupa **solo de lo que
+cambia** respecto de C++, y los bloques con botón *Ejecutar* compilan y corren en
+tu navegador.
+
+<SectionBreak />
+
+<Slide title="Tipos primitivos">
+| Tipo | Tamaño | Rango |
+|---|---|---|
+| `byte` | 8 bits | −128 … 127 |
+| `short` | 16 bits | −32 768 … 32 767 |
+| `int` | 32 bits | −2 147 483 648 … 2 147 483 647 |
+| `long` | 64 bits | ±9,2 × 10¹⁸ aprox. |
+| `float` | 32 bits | coma flotante binaria, precisión simple |
+| `double` | 64 bits | coma flotante binaria, precisión doble |
+| `char` | 16 bits | 0 … 65 535 |
+| `boolean` | — | `true` o `false` |
+</Slide>
+
+<Slide title="Cuatro diferencias con C++">
+- **Los tamaños los fija la especificación.** Un `int` son 32 bits en toda máquina
+  donde corra Java, siempre. En C++ dependen de la implementación, y por eso existe
+  `<cstdint>` con sus `int32_t`.
+- **No hay `unsigned`.** Todos los enteros tienen signo, con una excepción: `char`,
+  que es un entero de 16 bits **sin** signo — por eso su rango parte en 0.
+- **`char` son 16 bits**, no 8: guarda una unidad de código UTF-16, no un byte. Los
+  símbolos fuera del plano básico —muchos emoji— ocupan dos `char`.
+- **`boolean` no es un número.** `if (1)` no compila, y `if (x = 5)` tampoco.
+</Slide>
+
+Y un detalle de `float` y `double` que ahorra tardes de depuración: guardan los números
+en **binario**, no en base diez. Por eso valores tan inocentes como `0.1` no tienen
+representación exacta, y `0.1 + 0.2` **no** da `0.3`. La consecuencia práctica es que dos
+decimales casi nunca se comparan con `==`: se comparan pidiendo que su diferencia sea
+menor que una tolerancia pequeña. Es la misma razón por la que el corrector de esta
+plataforma, cuando compara un `double`, usa un margen de `1e-9` en lugar de `==`.
+
+Y una ausencia importante: **`String` no está en esta tabla.** Aunque se escriba casi
+como un tipo primitivo, es una clase, y esa diferencia tiene consecuencias que arruinan
+tardes enteras. Es el tema del próximo documento, sobre referencias, `null` e igualdad.
+
+<Slide title="El desborde, en vivo">
+Los tamaños fijos se pueden comprobar. Este programa suma 1 al mayor `int` que existe:
+mira dónde aterriza.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Desborde {
+    public static void main(String[] args) {
+        int maximo = Integer.MAX_VALUE;
+        System.out.println("el mayor int:      " + maximo);
+        System.out.println("y si le sumo 1:    " + (maximo + 1));
+
+        // Con long hay espacio de sobra.
+        long conLong = (long) maximo + 1;
+        System.out.println("lo mismo en long:  " + conLong);
+    }
+}
+`}
+/>
+</Slide>
+
+No hay error ni aviso: el `int` da la vuelta y aterriza en el número más negativo que
+existe, ese −2 147 483 648 que la tabla ya anunciaba. Con `long` hay espacio de sobra.
+
+<Slide title="Definido en Java, indefinido en C++">
+El desbordamiento se parece mucho en los dos lenguajes, y no es lo mismo.
+
+- En **Java** está **especificado**: siempre da la vuelta, en cualquier máquina.
+- En **C++**, el de un entero con signo es **comportamiento indefinido**: en la práctica
+  suele dar la vuelta, pero el estándar no lo garantiza y el compilador tiene permiso
+  para optimizar suponiendo que nunca ocurre. (El que sí da la vuelta por definición es
+  el `unsigned`.)
+
+En los dos es una fuente clásica de errores — te la vas a encontrar otra vez cuando
+escribas comparadores.
+</Slide>
+
+<Slide title="Operadores">
+Los operadores de Java son prácticamente los de C++.
+
+| Aritméticos | | Comparación | | Lógicos | |
+|---|---|---|---|---|---|
+| `+` | suma | `==` | igual | `&&` | y |
+| `-` | resta | `!=` | distinto | `\|\|` | o |
+| `*` | producto | `>` `<` | mayor, menor | `!` | no |
+| `/` | división | `>=` `<=` | mayor o igual, menor o igual | | |
+| `%` | resto | | | | |
+| `++` `--` | incremento, decremento | | | | |
+
+Los de asignación también: `=`, `+=`, `-=`, `*=`, `/=`, `%=`. La división entre enteros
+trunca (`7 / 2` es `3`), y `&&` y `||` cortocircuitan.
+</Slide>
+
+<Slide title="Tres diferencias reales">
+1. **No existe la sobrecarga de operadores.** En C++ defines qué significa `+` para tu
+   clase; en Java no puedes, nunca. Combinar dos objetos tuyos será con métodos de
+   nombre propio.
+2. **Salvo para `String`, que es privilegio del lenguaje.** `+` concatena texto, y eso
+   interactúa con la suma de una forma que confunde a todo el mundo la primera vez.
+3. **Aparece `>>>`.** Como ningún entero es `unsigned`, `>>` siempre arrastra el signo.
+   Para el corrimiento que rellena con ceros —gratis en C++ con un tipo `unsigned`— Java
+   da un operador aparte, que no existe en C++ justamente porque allá no hace falta.
+</Slide>
+
+El corrimiento con signo y el que rellena con ceros, uno al lado del otro:
+
+```java
+class Corrimientos {
+    public static void main(String[] args) {
+        int n = -8;
+        System.out.println(n >> 1);    // -4          : arrastra el signo
+        System.out.println(n >>> 1);   // 2147483644  : rellena con ceros
+    }
+}
+```
+
+<Slide title="¿Qué imprime esto?">
+Las tres líneas tienen los mismos números y dan resultados distintos. Predícelo, después
+ejecútalo.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Concatenacion {
+    public static void main(String[] args) {
+        System.out.println("total: " + 1 + 2);
+        System.out.println(1 + 2 + " es el total");
+        System.out.println("total: " + (1 + 2));
+    }
+}
+`}
+/>
+</Slide>
+
+La regla es que `+` se evalúa **de izquierda a derecha**: en la primera, `"total: " + 1`
+ya es texto, así que el `2` se pega al final en vez de sumarse. En la segunda, `1 + 2` se
+suma antes de encontrarse con el texto.
+
+<Slide title="Entrada y salida">
+Para escribir, `System.out`:
+
+```java
+System.out.println("con salto de línea al final");
+System.out.print("sin salto");
+System.out.printf("%d elementos, %.2f promedio%n", 10, 3.456);
+```
+
+Para leer, la clase `Scanner`, envuelta alrededor de `System.in`:
+
+```java
+Scanner stdin = new Scanner(System.in);
+int n = stdin.nextInt();
+```
+</Slide>
+
+Los métodos de `Scanner` que vas a usar:
+
+| Método | Lee |
+|---|---|
+| `nextInt()` | el siguiente entero |
+| `nextLong()` | el siguiente entero largo |
+| `nextDouble()` | el siguiente decimal |
+| `next()` | la siguiente palabra |
+| `nextLine()` | el resto de la línea |
+| `hasNext()` | ¿queda algo por leer? |
+
+<Slide title="Lee dos números">
+El panel **stdin** es lo que el programa recibe por entrada estándar. Cámbialo y vuelve a
+ejecutar.
+
+<CodeEditor
+  language="java"
+  variant="lab"
+  warmOnMount={false}
+  defaultValue={`import java.util.Scanner;
+
+class Io {
+    public static void main(String[] args) {
+        Scanner stdin = new Scanner(System.in);
+
+        int a = stdin.nextInt();
+        int b = stdin.nextInt();
+
+        System.out.println("el primero es: " + a);
+        System.out.println("el segundo es: " + b);
+        System.out.println("la suma es: " + (a + b));
+    }
+}
+`}
+  defaultStdin={`3
+4
+`}
+/>
+</Slide>
+
+> **Los decimales se escriben con punto.** `nextDouble()` acepta `3.14` y **rechaza**
+> `3,14` con un `InputMismatchException`, sin importar el idioma de tu sistema o de tu
+> navegador: la máquina virtual de esta página usa el punto siempre. Fuera del navegador,
+> en cambio, `Scanner` sí sigue la configuración regional del sistema, y en un computador
+> en español esperaría la coma.
+
+<Slide title="La trampa de nextLine">
+`nextInt()` lee el número y **deja el salto de línea sin consumir**. Si lo siguiente que
+llamas es `nextLine()`, no obtienes la línea siguiente: obtienes el resto vacío de la
+anterior. El nombre sale vacío. Descomenta la línea marcada y ejecuta de nuevo.
+
+<CodeEditor
+  language="java"
+  variant="lab"
+  warmOnMount={false}
+  defaultValue={`import java.util.Scanner;
+
+class Trampa {
+    public static void main(String[] args) {
+        Scanner stdin = new Scanner(System.in);
+
+        int edad = stdin.nextInt();
+
+        // stdin.nextLine();   // ← descomenta ESTA línea y ejecuta de nuevo
+
+        String nombre = stdin.nextLine();   // ← no lee "Ana"
+
+        System.out.println("edad:   [" + edad + "]");
+        System.out.println("nombre: [" + nombre + "]");
+    }
+}
+`}
+  defaultStdin={`20
+Ana
+`}
+/>
+</Slide>
+
+La solución es llamar `nextLine()` una vez más después del `nextInt()`, solo para
+consumir el salto de línea que quedó colgando: está ahí comentada.
+
+<Slide title="Control de flujo">
+`if`, `else`, `while` y `for` se escriben exactamente como en C++. La única diferencia
+real: **la condición tiene que ser `boolean`**, no un número ni una referencia.
+
+```java
+if (n % 2 == 0) {
+    System.out.println("es par");
+} else {
+    System.out.println("es impar");
+}
+
+while (i < n) { ... }
+
+for (int i = 0; i < n; i++) { ... }
+```
+</Slide>
+
+Esa restricción mata dos errores clásicos de C++ de un solo golpe. `if (x = 5)` —asignar
+cuando querías comparar— no compila en Java, porque `x = 5` vale `5` y `5` no es un
+`boolean`. Y `if (puntero)` tampoco: la ausencia de objeto se pregunta explícitamente con
+`!= null`.
+
+{/* This Flujo editor is deliberately book-only, not inside the "Control de flujo"
+    slide. Control flow's runnable third beat on the deck is the "Ejercicio en vivo:
+    ¿Es par?" slide below; this editor is an extra book sandbox, so the section still
+    honours the statement→delta→runnable pattern (#107 review, finding A3). */}
+
+<CodeEditor
+  language="java"
+  variant="lab"
+  warmOnMount={false}
+  defaultValue={`import java.util.Scanner;
+
+class Flujo {
+    public static void main(String[] args) {
+        Scanner stdin = new Scanner(System.in);
+        int n = stdin.nextInt();
+
+        if (n % 2 == 0) {
+            System.out.println(n + " es par");
+        } else {
+            System.out.println(n + " es impar");
+        }
+
+        System.out.println("pares hasta " + n + ":");
+        int i = 1;
+        while (i < n) {
+            if (i % 2 == 0) System.out.println("  " + i);
+            i++;
+        }
+
+        System.out.println("divisibles por 3 hasta " + n + ":");
+        for (int j = 1; j < n; j++) {
+            if (j % 3 == 0) System.out.println("  " + j);
+        }
+    }
+}
+`}
+  defaultStdin={`10
+`}
+/>
+
+> **Cuidado con los ciclos infinitos en esta página.** Java se ejecuta en el mismo hilo
+> que la página, así que un `while` que nunca termina **congela la pestaña** y no hay
+> forma de detenerlo: hay que cerrarla. Antes de ejecutar, revisa que la variable de la
+> condición cambie dentro del ciclo. Tu código se guarda solo antes de cada ejecución,
+> así que no lo pierdes.
+
+### Más formas de bifurcar y repetir
+
+Hay cuatro construcciones más, todas iguales que en C++ menos por un detalle, y una de
+ellas ya apareció en un documento anterior sin que la hubiéramos presentado:
+
+- **`switch`** funciona como el de C++: el mismo `default` y la misma trampa del `break`
+  que se olvida y encadena los casos.
+- **`do-while`** ejecuta el cuerpo al menos una vez antes de mirar la condición.
+- **`final`** marca una variable que no se puede reasignar: es el `const` de C++ aplicado
+  al valor de la variable.
+- **El `for-each`** recorre un arreglo o una colección sin llevar un índice a mano. Es la
+  única novedad de la lista, y conviene conocerla porque ya la estás usando: aparece en el
+  documento de código ejecutable, que va antes que este en el recorrido.
+
+```java
+int[] nums = {2, 4, 6};
+int suma = 0;
+for (int x : nums) {   // "para cada x en nums"
+    suma += x;
+}
+
+int dia = 3;
+switch (dia) {
+    case 1: System.out.println("lunes"); break;
+    case 3: System.out.println("miércoles"); break;
+    default: System.out.println("otro día");
+}
+
+final int LIMITE = 100;   // reasignar LIMITE ya no compilaría
+```
+
+<Slide title="Ejercicio en vivo: ¿Es par?">
+
+<Exercise title="¿Es par?">
+
+Escribe `esPar`, que recibe un entero y devuelve `true` si es par y `false` si no.
+Recuerda que `%` da el resto de la división. Presiona **Comprobar**: tu código se
+compila junto a una batería de casos que lo llaman.
+
+```java starter
+class Solution {
+
+    static boolean esPar(int n) {
+        // tu código aquí
+        return false;
+    }
+}
+```
+
+```java test
+check(Solution.esPar(4), true);
+check(Solution.esPar(7), false);
+check(Solution.esPar(0), true);
+check(Solution.esPar(-3), false);
+```
+
+</Exercise>
+</Slide>
+
+## Ejercicios
+
+Cinco problemas más para escribir tú, ahora en el libro. Completa el método que falta
+y presiona **Comprobar**: tu código se compila junto a una batería de casos que lo
+llaman y te dicen cuáles pasaron. Los casos aparecen después de la primera ejecución.
+
+<Exercise title="1. El mayor de tres">
+
+Escribe `maximo`, que recibe tres enteros y devuelve el mayor. No uses
+`Math.max`: la gracia está en escribir las comparaciones.
+
+```java starter
+class Solution {
+
+    static int maximo(int a, int b, int c) {
+        // tu código aquí
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.maximo(1, 2, 3), 3);
+check(Solution.maximo(9, 2, 3), 9);
+check(Solution.maximo(1, 8, 3), 8);
+check(Solution.maximo(-5, -2, -9), -2);
+check(Solution.maximo(4, 4, 4), 4);
+```
+
+</Exercise>
+
+<Exercise title="2. Suma hasta n">
+
+Escribe `sumaHasta`, que recibe un entero `n` y devuelve la suma de todos los
+números de 1 hasta `n`. Si `n` es menor que 1, la suma es 0.
+
+```java starter
+class Solution {
+
+    static int sumaHasta(int n) {
+        // tu código aquí
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.sumaHasta(5), 15);
+check(Solution.sumaHasta(1), 1);
+check(Solution.sumaHasta(0), 0);
+check(Solution.sumaHasta(-4), 0);
+check(Solution.sumaHasta(100), 5050);
+```
+
+</Exercise>
+
+<Exercise title="3. Cuántos dígitos">
+
+Escribe `cuentaDigitos`, que recibe un entero **no negativo** y devuelve cuántos
+dígitos tiene. `1234` tiene 4; `7` tiene 1; `0` tiene 1.
+
+La idea: divide por 10 repetidamente hasta llegar a 0, contando las vueltas. Ojo
+con el `0`: ese ciclo no da ninguna vuelta, y la respuesta igual es 1.
+
+> **Antes de comprobar, léelo dos veces.** Este es el ejercicio donde es fácil
+> escribir un ciclo que nunca termina, y eso congela la pestaña. Asegúrate de
+> que el número se divide **dentro** del ciclo. Tu código se guarda antes de
+> cada ejecución, así que si pasa, lo recuperas al recargar.
+
+```java starter
+class Solution {
+
+    static int cuentaDigitos(int n) {
+        // tu código aquí
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.cuentaDigitos(1234), 4);
+check(Solution.cuentaDigitos(7), 1);
+check(Solution.cuentaDigitos(0), 1);
+check(Solution.cuentaDigitos(90), 2);
+```
+
+</Exercise>
+
+<Exercise title="4. total: 1 + 2">
+
+La concatenación con `+` se evalúa de izquierda a derecha, y eso es exactamente lo que
+arruina este ejercicio si no tienes cuidado. Escribe `resumen`, que recibe dos enteros
+`a` y `b` y devuelve la cadena `"a + b = S"`, donde S es la **suma**. Por ejemplo,
+`resumen(1, 2)` devuelve `"1 + 2 = 3"`, no `"1 + 2 = 12"`.
+
+```java starter
+class Solution {
+
+    static String resumen(int a, int b) {
+        // tu código aquí
+        return "";
+    }
+}
+```
+
+```java test
+check(Solution.resumen(1, 2), "1 + 2 = 3");
+check(Solution.resumen(10, 5), "10 + 5 = 15");
+check(Solution.resumen(0, 0), "0 + 0 = 0");
+check(Solution.resumen(-4, 4), "-4 + 4 = 0");
+```
+
+</Exercise>
+
+<Exercise title="5. Sin desbordar">
+
+`sumaLarga` recibe dos `int` y devuelve su suma en un `long`, **sin desbordar** aunque
+los dos estén cerca del máximo. Ojo: `a + b` se calcula en `int` y da la vuelta antes de
+convertirse en `long`. Tienes que ampliar a `long` **antes** de sumar.
+
+```java starter
+class Solution {
+
+    static long sumaLarga(int a, int b) {
+        // tu código aquí
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.sumaLarga(1, 2), 3L);
+check(Solution.sumaLarga(2000000000, 2000000000), 4000000000L);
+check(Solution.sumaLarga(Integer.MAX_VALUE, 1), 2147483648L);
+check(Solution.sumaLarga(-2000000000, -2000000000), -4000000000L);
+```
+
+</Exercise>
+
+## Lo que sigue
+
+Con esto puedes leer y escribir programas Java que calculan cosas. Lo que todavía
+no sabes es qué guarda realmente una variable cuando no es un tipo primitivo — y
+esa pregunta, que parece de detalle, es la que separa a quien entiende una lista
+enlazada de quien la copia.
+
+Es lo que viene en el próximo documento, sobre referencias, `null` e igualdad.
