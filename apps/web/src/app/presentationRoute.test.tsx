@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { courseIndex, registry, walkIndex } from '../content';
 
@@ -27,20 +27,25 @@ function renderAt(path: string) {
 }
 
 /**
- * Renders and waits for the document module, so nothing after it is on a timer.
- *
  * Every assertion in this file lives on the far side of `lazy(entry.load)`
- * (`content/lazyDoc.ts`), so each one used to race the module against
- * `findBy*`'s 1000ms window. On a loaded machine the module lost: the cover
- * slide case failed three times at ~1400ms, and because CI runs the same
- * protocol, a green run stopped being reproducible (#102).
+ * (`content/lazyDoc.ts`), so each one raced the document module against the
+ * 1000ms window `findBy*` gives an assertion. On a loaded machine the module
+ * lost: the cover-slide case failed three times, once measured at 1402ms, and
+ * because CI runs the same protocol a green run stopped being reproducible
+ * (#102).
  *
- * Resolving the module first makes the boundary settle on the first commit.
- * That is a real fix rather than a bigger number: the wait is over a promise
- * this function holds, not over a deadline the machine can miss.
+ * Resolving the modules once, here, settles every boundary in the file on its
+ * first commit. It is done at file level rather than inside a render helper on
+ * purpose: 36 renders share this hazard, and a fix a call site has to remember
+ * is a fix the 37th will not get. Dynamic imports are cached, so this costs one
+ * resolution, not one per test.
  */
-async function renderPresentation(path: string): Promise<void> {
+beforeAll(async () => {
   await Promise.all(registry.entries.map((entry) => entry.load()));
+});
+
+/** Renders with the first commit flushed, so nothing after it needs a timer. */
+async function renderPresentation(path: string): Promise<void> {
   await act(async () => {
     renderAt(path);
   });
