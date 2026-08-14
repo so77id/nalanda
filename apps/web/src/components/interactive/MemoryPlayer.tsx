@@ -29,12 +29,15 @@ function changedBetween(before: TraceStep | undefined, after: TraceStep): number
  * marked in the source.
  *
  * The listing is rendered here rather than through `CodeEditor`, which every
- * other listing on the site uses. Two reasons, and the trade is deliberate: the
- * editor's line decorations would have to be driven from outside it, and it
- * pulls ~162 kB gzip of CodeMirror (ADR-0018) for a listing nobody can edit. The
- * cost is that this listing is not syntax-coloured — acceptable where the
- * highlight IS the content, and where the reader's attention belongs on the
- * drawing beside it.
+ * other listing on the site uses. The reason that holds is the line highlight:
+ * driving the editor's decorations from outside it is awkward, and the highlight
+ * IS the content here.
+ *
+ * The weight argument is smaller than it looks and is recorded so nobody repeats
+ * it as gospel: ADR-0018's ~162 kB gzip is measured against a page with no
+ * runtime, but a mounted diagram already pulls the CodeMirror core through the
+ * java runtime module, so the editor would add only ~37 kB gzip on top
+ * (ADR-0026 §9). The cost of the trade is a listing with no syntax colour.
  */
 export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerProps) {
   const [index, setIndex] = useState(0);

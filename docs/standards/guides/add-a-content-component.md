@@ -92,9 +92,12 @@ apps/web/src/components/structure/
      Worked case: `<SideBySide>` × `CodeEditor` (#85, ADR-0024) — the column supplies the
      language label, so the editor suppresses its filename and its chip.
    - **Inside `interactive/`**, reuse `Panel` (a labelled output strip),
-     `useRunShortcut` (Ctrl/Cmd + Enter) and `draft.ts` — whose `saveDraft` must
-     be called immediately *before* a run, never after, because a Java loop that
-     never ends is the case it exists for (ADR-0020 §2).
+     `useRunShortcut` (Ctrl/Cmd + Enter), `useLoadedRuntime` (loads a runtime
+     module and hands back a bound `run`, `warm`, `queued`, `ready` and the
+     module itself — do NOT hand-roll the `loadRuntime` effect, both components
+     that did ended up with the same 22 lines) and `draft.ts` — whose `saveDraft`
+     must be called immediately *before* a run, never after, because a Java loop
+     that never ends is the case it exists for (ADR-0020 §2).
 3. **Register it** in the shell MDX map (`apps/web/src/app/mdxComponents.ts`).
    Not optional: the catalog and the MDX map must be the same set, asserted in
    both directions. A component that must NOT be document-facing therefore does

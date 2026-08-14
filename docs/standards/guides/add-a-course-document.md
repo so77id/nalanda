@@ -207,9 +207,11 @@ consequences worth knowing before you write one:
 
 The class named in `starter` and the one the cases call must agree.
 **Only Java validates**; C++ and Python refuse an exercise rather than report
-a pass for something they never checked. Two class names are reserved by the
-platform — `NalandaLauncher` and `NalandaCheck` — and a Java program using
-either is refused before it compiles, in an exercise or a plain editor alike.
+a pass for something they never checked. Three class names are reserved by the
+platform — `NalandaLauncher`, `NalandaCheck` and `NalandaTrace` — and a Java
+program whose MAIN class is one of them is refused before it compiles, in an
+exercise or a plain editor alike. A *secondary* declaration is not caught; that
+hole and why it is tolerated are in `docs/security-notes.md`.
 
 Editing a shipped `starter` fence changes the key its drafts are stored
 under: every student's saved attempt at that exercise becomes unreachable
@@ -269,7 +271,7 @@ themselves rather than maintained by hand.
    The markers are removed from what the reader sees, and every line keeps its
    number, so the highlighted line is the one you marked.
 
-   Six things worth knowing before you write one:
+   Seven things worth knowing before you write one:
 
    - **Java only**, and Java 8 like everything else here. C++ and Python get a
      refusal rather than an empty drawing.
@@ -279,13 +281,13 @@ themselves rather than maintained by hand.
      tracked. That is what makes the `==` trap visible instead of asserted.
    - **A marker inside a branch that never runs produces no photograph.** The
      build cannot see this — the component says so after the run, and only then.
-   - **No sirve para recursión.** Los marcos se identifican por el nombre que tú
-     escribes en la marca, así que tres llamadas anidadas de `fact` dibujan **un
-     solo marco** con los valores de la más interna — profundidad 1 para una pila
-     de 3. Es el único caso en que el dibujo puede enseñar lo contrario de la
-     verdad, y por eso se dice aquí: para la pila de llamadas hará falta otro
-     componente (Discussion #49).
-   - **Caps**: 40 photographs, 24 objects drawn in total, and 32 elements or
+   - **It cannot draw recursion.** Frames are identified by the name you write in
+     the marker, so three nested calls to `fact` draw **one frame** holding the
+     innermost values — depth 1 for a stack of 3. This is the only case where the
+     drawing can teach the opposite of the truth, which is why it is stated here
+     rather than left to be found: the call stack needs a different component
+     (Discussion #49).
+   - **Caps**: 40 photographs, 12 objects drawn in total, and 32 elements or
      fields per box. A `// foto` inside a loop hits the first; a big structure
      hits the others. In every case the component says so rather than showing a
      partial trace as if it were complete — including when the program printed so
@@ -293,8 +295,12 @@ themselves rather than maintained by hand.
    - **`NalandaTrace` is a reserved class name**, like `NalandaLauncher` and
      `NalandaCheck`. A snippet declaring it is refused before compiling.
 
-   Nothing is downloaded until the reader presses *Ejecutar y dibujar*, so a page
-   may carry several. Decisions behind all this: ADR-0026. Worked examples, live:
+   **The compiler** is not downloaded until the reader presses *Ejecutar y
+   dibujar*. Mounting is not free, though: it pulls ~120 kB gzip of Java runtime
+   module and CodeMirror grammar the component never uses (measured; returning it
+   is #122), so do not put many diagrams on one page yet.
+
+   Decisions behind all this: ADR-0026. Worked examples, live:
    `/catalog/c/MemoryDiagram`.
 
 5e. **External links**: write them as explicit `https://`. Markdown now parses
@@ -326,6 +332,14 @@ strikethrough (`~~`), task lists and footnotes also work now.
    not listed in the index is still compiled and served at `/d/<id>`: **the index
    controls navigation, never visibility.**
 
+   > **Unlisted is legal at runtime but not in the suite.**
+   > `app/documentBreadcrumb.test.tsx` asserts that every document in the
+   > registry is indexed, so an unlisted document serves fine and turns the
+   > protocol red. Two consequences: a real document must be listed, and a
+   > scratch document written to check a component in a browser must be **deleted
+   > before you run the suite** (#116 used exactly that trick to verify
+   > presentation mode, and hit this on the way).
+
    `title` names the course wherever the reader needs to know which one they are
    in — today the breadcrumb above every document. Omit it and the trail starts
    at the unit; give it an empty or non-string value and the build fails like any
@@ -338,7 +352,7 @@ strikethrough (`~~`), task lists and footnotes also work now.
    group without docId nor label, empty children), duplicate or unknown `docId`
    in the index.
 
-   **A build cannot see inside an exercise.** The fence labels are matched when
+   **A build cannot see inside an exercise or a diagram.** The fence labels are matched when
    the component renders, and the cases are Java compiled in the reader's
    browser — so a mistyped ` ```java Starter ` or a `test` fence that does
    not compile ships with a green build and a green suite. Open the document
@@ -384,6 +398,11 @@ strikethrough (`~~`), task lists and footnotes also work now.
       runs the content integrity gate; the declaration invariant and the fixture
       guards live in the suite, so the build alone goes green on content CI
       rejects (#108).
+- [ ] Every `<MemoryDiagram>` opened in `npm run preview` and stepped through:
+      photographs appear (no "ninguna foto" notice), the listing shows no `// foto`
+      markers and keeps every line number, and no cap notice unless you meant it.
+      Same reason as the exercises below — nothing in the build or the suite can
+      see any of it.
 - [ ] Every exercise opened in `npm run preview` and actually run: no authoring
       banner, cases pass against a correct solution and fail against the starter.
       Nothing in the build or the suite can check this for you.

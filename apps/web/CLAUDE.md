@@ -34,13 +34,22 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
 - **The suite cannot execute code, lay out a page, or move focus like a
   browser.** Two classes, both needing a real browser, both spelled out in
   `docs/standards/testing-strategy.md` §Conventions with their worked cases:
-  1. _Execution_: every runtime is faked in jsdom, so any change under
-     `src/runtime/**`, or to anything that MOUNTS `CodeEditor` — the component
-     itself, `Exercise`, `harness.ts`, the draft store, and since #85 `MdxPre`
-     and any fence in `content/` tagged with a runtime id — needs a browser too.
-     Stated as a class and not a list on purpose: the list went stale once
-     already when `Exercise` arrived, and again when a markdown fence became a
-     component.
+  1. _Execution_: every runtime is faked in jsdom, so anything that **DRIVES a
+     runtime** needs a browser too — any change under `src/runtime/**`, anything
+     that calls `run()` through `useRuntime`/`useLoadedRuntime`, anything that
+     GENERATES a compilation unit sent to one (`harness.ts`, `trace.ts`), and
+     anything that mounts `CodeEditor`. Today that is `CodeEditor`, `Exercise`,
+     `MemoryDiagram`, the draft store, and since #85 `MdxPre` and any fence in
+     `content/` tagged with a runtime id.
+
+     Stated as a class and not a list on purpose, and **the class itself has now
+     gone stale twice**: once when `Exercise` arrived, again when a markdown
+     fence became a component, and a third time when it was worded as "mounts
+     `CodeEditor`" — which `MemoryDiagram` deliberately does not do (ADR-0026
+     draws its own listing) while driving a real JVM end to end. If you are
+     tempted to narrow it again, narrow it to what the code DOES, never to what
+     it imports.
+
   2. _Layout, focus and device shape_: jsdom lays nothing out and does not
      implement the browser's tab order, so anything that enumerates focusables,
      moves focus, depends on a viewport width, a scroll position, a device
@@ -54,7 +63,16 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
      or a rule in `styles/index.css` needs a browser too. A guard whose
      predicate is a DOM measurement is verified in a browser against the
      property it claims to measure — the recipe is in `testing-strategy.md`
-     §Conventions. A device rule also needs an emulated device, not
+     §Conventions.
+
+     **The way out is to not measure.** Geometry a component _computes_ — a
+     layout, a scale — belongs in a pure module the suite can check exactly,
+     leaving the browser to confirm only that it looks right. Worked case:
+     `components/interactive/memoryLayout.ts` with `memoryLayout.test.ts`, which
+     asserts that frames do not overlap and that the canvas holds what it drew,
+     without faking a single measurement.
+
+     A device rule also needs an emulated device, not
      merely a small window: the recipe is in `testing-strategy.md` §Conventions.
 
   Written as classes rather than lists of names because the list was already

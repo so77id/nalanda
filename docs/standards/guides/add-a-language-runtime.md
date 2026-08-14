@@ -50,7 +50,7 @@ src/runtime/python/
    worker reports.
 
 3. **Write the worker** (`<lang>/worker.ts`). It receives
-   `{ id, source, stdin, harness? }` and answers exactly one of:
+   `{ id, source, stdin, harness?, library? }` and answers exactly one of:
    - `{ type: 'warm', detail }` — once, unprompted, when booting finishes.
    - `{ id, type: 'started' }` — once per request, immediately before compiling.
      It marks the boundary between *waiting* and *running*: before it, the caller
@@ -77,9 +77,26 @@ src/runtime/python/
    rejectHarness(event.data, 'C++'); // from '../rejectHarness'
    ```
 
-   There is no third option. Running `source` alone when a harness is present
-   reports a passing exercise that verified nothing — the worst failure this
-   platform can produce, because it is silent and it is addressed to a student.
+   **`library` is the mirror image: a second unit compiled beside `source` that
+   never runs** — how a `<MemoryDiagram>` compiles its tracer next to the
+   author's program, which keeps `main` (ADR-0026 §6). Same two options: compile
+   it beside `source` without touching the entry class, or refuse it with the
+   same `rejectHarness` call, which guards both fields.
+
+   Note the reserved-name guard does NOT apply to `library`, deliberately: it
+   exists to stop a *student* class shadowing a platform one, and `library` is
+   reachable only from platform constants.
+
+   There is no third option for either. Running `source` alone when a second unit
+   is present reports a passing exercise that verified nothing — the worst
+   failure this platform can produce, because it is silent and it is addressed to
+   a student — or draws a memory diagram from a program that was never traced.
+
+   This is not hypothetical: `library` was added to `RunRequest` in #116 without
+   being added to `rejectHarness`, and for one commit C++ and Python would have
+   accepted a tracer and run the snippet bare. The guard now covers the shape
+   rather than one field name, so the next unit is caught by construction — but
+   only if you read this paragraph before adding one.
 
    Do the expensive boot in a `warmUp()` promise at module scope and `await` it
    on every message, so the first Run is fast rather than the slowest.
@@ -146,8 +163,10 @@ src/runtime/python/
 - [ ] Worker distinguishes a failed compile (`result`) from a broken runtime
       (`error`), reports `warm` exactly once, and sends `started` once per
       request before compiling.
-- [ ] Worker handles `harness` — compiled as a second unit with the entry class
-      derived from it, or refused with `rejectHarness`. Never silently dropped.
+- [ ] Worker handles BOTH extra units — `harness` compiled with the entry class
+      derived from it, `library` compiled beside `source` and never run — or
+      refuses them with `rejectHarness`, which guards the shape rather than one
+      field name. Never silently dropped.
 - [ ] Toolchain served from a CDN unless it must be self-hosted; npm package a
       `devDependency` in that case, with a version test.
 - [ ] `npm run build` shows no new multi-megabyte asset in `dist/` — unless it

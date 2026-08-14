@@ -25,15 +25,19 @@ export const MAX_STEPS = 40;
  * How many objects the drawing may contain, across the whole run.
  *
  * Reachability is transitive: photographing the head of a 500-node list would
- * otherwise draw all 500. What it protects is legibility as much as time, and
- * the number is measured rather than guessed. Boxes stack vertically at ~82px
- * each inside a panel capped at 352px, so the drawing is scaled to fit: at 24
- * boxes it rendered 80px wide, which is not a diagram. Twelve is the point where
- * a linked list is still worth looking at — long enough for the structures
- * documents 3 to 6 teach, short enough to read.
+ * otherwise draw all 500. The cap protects comprehension and main-thread time —
+ * NOT legibility, which the scrollbar handles: boxes are drawn at natural size
+ * and the panel scrolls (`MemoryPlayer`, `max-h-96`), so no number of them makes
+ * any one box smaller.
  *
- * A multi-column layout would raise this honestly; that is a follow-up, and
- * until it exists the cap is what keeps the promise in the sentence above.
+ * Twelve is where a linked list is still worth *following*: they stack in one
+ * column at ~82px each, so twelve is already more than a screen, and past that
+ * the reader is scrolling a picture instead of reading one. (An earlier cap of
+ * 24 was argued from a layout that scaled to fit, which is the thing that got
+ * removed — at 24 boxes it rendered 48px wide with 1px labels. That measurement
+ * is history; this number is not derived from it.)
+ *
+ * #124 flows boxes into columns, which raises this honestly.
  */
 export const MAX_OBJECTS = 12;
 

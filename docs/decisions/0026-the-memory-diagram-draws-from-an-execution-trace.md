@@ -23,10 +23,10 @@ A drawing does fix it. The question was where the drawing's values come from.
 An authored drawing — the author describes variables, objects and arrows, the
 component renders them — is the cheap answer, and it has two defects that are not
 cosmetic. It can be **wrong**, and nothing can tell: no build gate and no test can
-compare a hand-written figure against the snippet beside it, exactly as ADR-0019
-§8 records for exercise fences. And it goes **stale**, because these snippets are
-editable on purpose: the reader is invited to change them and run them again, at
-which point the figure describes a program that no longer exists.
+compare a hand-written figure against the snippet beside it — the same blind spot
+ADR-0019 §Consequences records for exercise fences, where a mistyped fence label
+ships with a green build and a green suite. And it goes **stale**: the figure
+describes whatever the snippet said the last time somebody looked at both.
 
 Before committing to the alternative, the mechanism was measured rather than
 assumed. In Chromium against `vite preview` on 2026-08-13, under CheerpJ:
@@ -41,7 +41,10 @@ piece a tracer needs was already there.
 compiled beside the author's program and photographs named variables at marked
 lines, printing the heap as `[nalanda] T ` lines that the component reads back
 (`components/interactive/trace.ts`). The drawing therefore cannot drift from the
-code, and it follows the reader's own edits when they run it again.
+code. It is not a laboratory: the listing is read-only, because the line
+highlight belongs to the player and driving CodeMirror's decorations from outside
+it costs more than it buys here. A document that wants the reader experimenting
+puts a `<CodeEditor>` with the same program beside the diagram.
 
 **2. The authoring surface is an annotated fence, per ADR-0019 §2.** A
 ` ```java trace ` fence, with markers in comments:
@@ -68,7 +71,7 @@ resolution happens at compile time against the *static* type, so an `int` arrive
 as an `int` and is drawn as a value inside its box, while a `Punto` arrives as an
 `Object` and is drawn as an arrow. A single `Object` parameter would autobox the
 `int` and make every primitive a heap object — erasing the exact distinction
-document 2 §2 exists to teach. This mirrors `check` in `harness.ts`.
+the planned document 2 (#77, "Referencias, null e igualdad") exists to teach. This mirrors `check` in `harness.ts`.
 
 **4. Identity, never equality.** Object ids come from `System.identityHashCode`
 through an `IdentityHashMap`. Two `String`s holding `"hola"` therefore get two
@@ -99,7 +102,7 @@ class — which the runtime guard cannot see, since it inspects only the entry.
 **8. Bounded, and the bound is on what is DRAWN.** Java runs on the page's main
 thread (ADR-0017) and reachability is transitive, so a `// foto` inside a loop
 would otherwise emit a state per iteration through a launcher whose own output
-budget is 48kB. Three caps: 40 photographs, 24 objects in the drawing, 32
+budget is 48kB. Three caps: 40 photographs, 12 objects in the drawing, 32
 elements or fields per box.
 
 The middle one is the one that had to be learnt. It was first written as "24
@@ -110,9 +113,10 @@ in Chromium at 1440px, a 466×3296 viewBox rendered **48px wide with the frame
 label 1px tall**, and no cap fired. The cap now lives in `readTrace`, over the
 accumulated set.
 
-**8b. One signal for "this is not the whole run".** Three different walls
-truncate a trace — the photograph cap, the object cap, and the launcher's 48kB
-output budget — and all three produce the same lie if unreported, because the
+**8b. One signal for "this is not the whole run".** Four walls truncate a trace —
+the photograph cap, the object cap, the per-box element cap, and the launcher's
+48kB output budget — producing three messages, because the element cap borrows
+the object one's wording. Each produces the same lie if unreported, because the
 player says `paso N de N`, which is an active claim of completeness. Measured
 before this was one signal: a 30-node list drew 24 boxes in silence, and a
 40-photograph run cut by the byte budget announced "paso 21 de 21". The bytes
@@ -123,12 +127,48 @@ The steps that survive a cut are always whole — a photograph interrupted
 mid-flight never receives its `FINPASO` and is discarded — so the drawing is
 short, never wrong. Only the count was ever the lie.
 
-**9. Nothing is fetched until the reader asks.** A diagram that ran on mount would
-pull the toolchain from the CDN on page load, once per diagram.
+**9. The CDN toolchain waits for the button.** A diagram that ran on mount would
+pull the compiler on page load, once per diagram.
+
+Mounting is *not* free, and the first version of this ADR said it was. Measured on
+the branch build: mounting pulls the java runtime module and, through its
+`@codemirror/lang-java` import, the CodeMirror core with it — 17.7 kB grammar +
+8.6 kB `@lezer/lr` + 95.4 kB core = **~121.7 kB gzip**, none of which this
+component uses, because it draws its own listing. Returning that is #122.
+
+Recorded twice, because it was got wrong twice: first as "nothing is fetched",
+then as "~16 kB of grammar", which undercounted by the two chunks the grammar
+drags with it.
+
+## Alternatives considered
+
+**An authored drawing** — the author describes variables, objects and arrows in
+props, the component renders them. Cheapest by far, and rejected for the two
+defects in §Context: it can be wrong with nothing able to tell, and it goes
+stale. Everything below assumes that rejection.
+
+**A real stepper: instrument every line automatically.** What Discussion #48 asked
+for. Rejected because it needs a Java parser and a scope table to know what is
+live at each line — more machinery than the whole component — and because it is
+worse pedagogy: it shows every step, including the ones that teach nothing, where
+an author picks the four that do. The marker is the price of not having a parser.
+
+**A per-photograph object cap**, enforced inside the tracer. Shipped, then
+withdrawn: it bounds the wrong thing, because objects accumulate across steps.
+Kept as a second line of defence, with the real cap in `readTrace` (§8).
+
+**Scaling the drawing to fit a fixed box**, the way a slide is scaled to its
+stage. Rejected on measurement: a linked list rendered 48px wide with 1px labels.
+Scaling suits a stage, whose whole content must be visible at once; a document
+scrolls, and so should this.
+
+**Naming frames automatically** rather than in the marker. Would have made
+recursion work — the limitation in §Consequences — but there is nothing to read
+the name from without the parser this ADR declines to build.
 
 ## Consequences
 
-- **Documents 3 to 6 inherit the machinery.** Linked lists, trees and graphs are
+- **The planned documents 3 to 6 (#78-#81) inherit the machinery.** Linked lists, trees and graphs are
   boxes with arrows; the tracer already resolves cycles by identity. Discussion
   #49 (call stack visualiser) reuses this trace rather than growing its own.
 - **Java only.** The tracer is a Java class using Java reflection. C++ and Python
@@ -157,11 +197,21 @@ pull the toolchain from the CDN on page load, once per diagram.
   and a scope table. The compiler catches it, and its message reaches the reader
   through the same diagnostics panel as any other compile error.
 - **The listing is not syntax-coloured.** It is rendered by the player rather than
-  by `CodeEditor`, to drive the line highlight and to avoid pulling ~162 kB gzip
-  of CodeMirror (ADR-0018) for a listing nobody can edit.
-- **Entry chunk cost: +0.98 kB gzip** — the lazy wrapper and the catalog entry's
-  own text. The component itself is a 6.93 kB gzip chunk nobody downloads until a
-  page has one, guarded by its own case in `src/architecture.test.ts`.
+  by `CodeEditor`, primarily to drive the line highlight.
+
+  The weight argument is weaker than it first looked, and is recorded honestly:
+  ADR-0018's ~162 kB gzip is the cost against a page with no runtime at all, but
+  a mounted diagram already loads the CodeMirror core (§9), so the editor would
+  add only ~37 kB gzip on top — `CodeEditor` 2.95 + `useRunShortcut` 21.89 + its
+  vendor chunk 12.32. If #122 splits the grammar out of the runtime module, that
+  number changes again and this trade is worth revisiting.
+- **Entry cost: +0.98 kB gzip of JS and +0.39 kB gzip of CSS.** The lazy wrapper
+  and the catalog entry's own text, plus the Tailwind classes — which are *not*
+  lazy: one stylesheet is emitted eagerly for the whole app, so a lazy
+  component's styles still reach every page. Measured against `main` at the final
+  commit: 161.12 → 162.12 kB gzip JS, 8.55 → 8.94 kB gzip CSS. The component
+  itself is a 7.3 kB gzip chunk nobody downloads until a page has one, guarded by
+  its own case in `src/architecture.test.ts`.
 - **Stacked, not side by side.** Two columns measured wrong: inside a document the
   component gets ~700px, so the drawing scaled to about two thirds and its 11px
   labels landed near 7px. A media query cannot fix that — what is narrow is the

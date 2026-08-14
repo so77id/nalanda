@@ -46,8 +46,11 @@ src/
 ├── catalog/              # /catalog surface: registry, family taxonomy, component +
 │                         # governance pages, live-example blocks
 ├── components/           # catalog content components by family (structure: Slide,
-│                         # SectionBreak, SideBySide; interactive: CodeEditor, Exercise
-│                         # + their lazy wrappers, shared Panel/useRunShortcut/draft/placeholder)
+│                         # SectionBreak, SideBySide; interactive: CodeEditor, Exercise,
+│                         # MemoryDiagram (+ MemoryPlayer/MemoryState, and trace.ts +
+│                         # memoryLayout.ts as its JVM-free halves)
+│                         # + their lazy wrappers, shared Panel/useRunShortcut/
+│                         # useLoadedRuntime/draft/placeholder)
 │                         # + their colocated <Component>.catalog.tsx entries,
 │                         # + AuthoringError: shared across families, not a content component
 │                         # + MdxPre: the pre→component seam (registered in the SHELL's

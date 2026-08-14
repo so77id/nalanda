@@ -133,15 +133,29 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   and no network — so nothing there compiles or runs, whatever WebAssembly Node
   itself provides. A green
   suite therefore says nothing about whether code actually compiles or runs. Any
-  change under `src/runtime/**`, or to a component that drives a runtime
-  (`CodeEditor`, `Exercise`, `harness.ts`) or the draft store, MUST also be
-  verified in a real browser against `npm run build && npm run preview` — run,
-  stdin, and a deliberate compile error — per
-  `guides/add-a-language-runtime.md` §7. For `Exercise`, add: a correct solution
-  passes, the untouched starter fails, and a compile error surfaces as a
-  diagnostic. The two verdict forgeries recorded in ADR-0019 §7 were found that
-  way and were invisible to a green suite. (The browser mechanics are the
-  shared ones below; the guide's §7 lists what to check for a runtime.)
+  change under `src/runtime/**`, or to anything that **drives** a runtime — calls
+  `run()` through `useRuntime`/`useLoadedRuntime`, generates a compilation unit
+  sent to one (`harness.ts`, `trace.ts`), or mounts `CodeEditor` — or to the
+  draft store, MUST also be verified in a real browser against `npm run build &&
+  npm run preview` — run, stdin, and a deliberate compile error — per
+  `guides/add-a-language-runtime.md` §7. Today that set is `CodeEditor`,
+  `Exercise` and `MemoryDiagram`. Define it by what the code DOES: worded as
+  "mounts `CodeEditor`" it silently excluded `MemoryDiagram`, which draws its own
+  listing (ADR-0026) and drives a JVM end to end.
+
+  For `Exercise`, add: a correct solution passes, the untouched starter fails,
+  and a compile error surfaces as a diagnostic. The two verdict forgeries
+  recorded in ADR-0019 §7 were found that way and were invisible to a green
+  suite.
+
+  For `MemoryDiagram`, add: the listing shows no `// foto` markers and keeps
+  every line number, the photographs walk forwards and back with the right line
+  lit, an aliasing example draws two names on one box, and a run that hit any cap
+  says so instead of claiming `paso N de N`. That last one is not paranoia —
+  every one of those failures shipped past a green suite in #116 and was found
+  in a browser.
+  (The browser mechanics are the shared ones below; the guide's §7 lists what to
+  check for a runtime.)
 - **Layout and focus are invisible to the suite**, and this is a second class
   alongside execution, not a footnote to it. jsdom lays nothing out — every box
   is 0×0, `getBoundingClientRect` returns zeros, `checkVisibility` does not

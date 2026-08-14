@@ -148,9 +148,15 @@ src/
   `docs/standards/guides/add-a-content-component.md`.
 - Lazy wrappers: `lazy<Name>.tsx` beside the component, exporting `Lazy<Name>` —
   deliberately lower-camel so the wrapper never reads as the component itself at
-  an import site. Required for any component carrying a heavy dependency
-  (`guides/add-a-content-component.md` §Heavy components, ADR-0018 §7); worked
-  case `components/interactive/lazyCodeEditor.tsx`.
+  an import site. Required for any component carrying a heavy dependency OR whose
+  static import graph reaches a feature seam the shell must not pull eagerly —
+  today `runtime/` (`guides/add-a-content-component.md` §Heavy components,
+  ADR-0018 §7). Two worked cases, because the two triggers look nothing alike:
+  `lazyCodeEditor.tsx` (CodeMirror, a heavy dependency) and
+  `lazyMemoryDiagram.tsx` (no editor at all — it imports the runtime seam, which
+  brings the registry, every descriptor and the Java launcher). Stated as two
+  triggers because #85 broke the invariant through the second one while every
+  name-based guard stayed green.
 - Hooks: `useThing.ts`, exported as `useThing`.
 - Everything else: `camelCase.ts` (`parser.ts`, `wikiLinks.ts`).
 - One exported component per file; small private subcomponents may live beside it
@@ -185,6 +191,13 @@ src/
   values or magic pixel sizes.
 - `style={{ ... }}` only for genuinely dynamic values (computed positions,
   and a measured transform — see the fit-to-stage rule below).
+- **The scale rule below is about the presentation STAGE**, whose whole slide has
+  to be visible at once. **Content inside a document does the opposite**: natural
+  size in a scroller, with a cap on how much is drawn. Scaling a tall drawing
+  into a ~700px column made a linked list render 48px wide with 1px labels
+  (measured, ADR-0026), and a reader scrolls a document anyway. If you are
+  building something that draws, ask which of the two you are in before reaching
+  for the helper.
 - **Content that must not reflow is laid out at its design size and scaled**,
   never re-typeset per screen. The scale is computed by a pure, unit-tested
   helper rather than inline in the component, because jsdom lays nothing out
