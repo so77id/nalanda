@@ -30,10 +30,23 @@ export const remarkPlugins: PluggableList = [
   // is one paragraph of literal `|` characters — as four tables of reference
   // material in the published Java document were (#83).
   remarkGfm,
-  // `$inline$` and `$$display$$` become math nodes rather than literal dollars.
+  // `$$…$$` becomes a math node rather than literal dollars — inline on one
+  // line, display when the delimiters sit on their own lines like a code fence.
   // Parsing only: what turns a math node into something readable is
   // `rehypeKatex`, one file over. Either without the other renders nothing.
-  remarkMath,
+  //
+  // `singleDollarTextMath: false` is the whole point of the option and was
+  // decided, not defaulted. With single dollars enabled — the usual LaTeX
+  // convention — a paragraph of ordinary prose can silently become mathematics:
+  // "Cuesta $200 al mes, el otro $350" reads as a formula delimited by those two
+  // dollars, and renders as one. Measured, not feared. The opening class has
+  // exactly that sentence on its cloud-cost slide.
+  //
+  // The trade is real but asymmetric. Requiring `$$` means a formula copied
+  // from elsewhere with single dollars does not render — but the author was
+  // writing mathematics, sees plain text, and fixes it. The default breaks
+  // documents whose author never opted into mathematics at all.
+  [remarkMath, { singleDollarTextMath: false }],
   remarkWikiLinks,
   remarkCodeMeta,
 ];

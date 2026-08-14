@@ -96,7 +96,7 @@ describe('the MDX pipeline', () => {
   });
 
   it('turns inline mathematics into mathematics', async () => {
-    const container = await renderMdx('Hay a lo más $\\log_2(n) + 1$ iteraciones.\n');
+    const container = await renderMdx('Hay a lo más $$\\log_2(n) + 1$$ iteraciones.\n');
 
     // Without remark-math the dollars are literal text and the subscript is
     // whatever the author could type — which is what the shipped binary-search
@@ -108,8 +108,36 @@ describe('the MDX pipeline', () => {
     expect(container.textContent).not.toContain('$');
   });
 
+  it('gives a display formula its own block, not a line of prose', async () => {
+    const container = await renderMdx('La nota de presentación:\n\n$$\nN_p = 0{,}25\\,S_1\n$$\n');
+
+    // The delimiters go on their OWN lines, like a code fence. `$$formula$$` on
+    // a single line is *inline* math that merely looks like a block in the
+    // source — measured, after this test was first written the wrong way round.
+    // Worth pinning precisely because the mistake produces something that
+    // renders, just not where the author meant.
+    expect(
+      container.querySelector('.katex-display'),
+      'the display formula rendered inline, in the middle of the sentence',
+    ).not.toBeNull();
+  });
+
+  it('leaves a lone dollar sign alone', async () => {
+    const container = await renderMdx('El servidor cuesta $200 al mes, el otro $350.\n');
+
+    // The reason `singleDollarTextMath: false` exists in the plugin list, and
+    // the case that put it there. With single dollars enabled this exact
+    // sentence renders "200 al mes, el otro" as a formula — measured, not
+    // feared — and the opening class has it on the cloud-cost slide. An author
+    // writing prose about prices never opted into mathematics and must not be
+    // able to trip over it.
+    expect(container.querySelector('.katex'), 'prices were parsed as mathematics').toBeNull();
+    expect(container.textContent).toContain('$200');
+    expect(container.textContent).toContain('$350');
+  });
+
   it('gives a formula a MathML tree, not only a visual one', async () => {
-    const container = await renderMdx('Hay a lo más $\\log_2(n) + 1$ iteraciones.\n');
+    const container = await renderMdx('Hay a lo más $$\\log_2(n) + 1$$ iteraciones.\n');
 
     // KaTeX emits both: spans that look right, and MathML that a screen reader
     // can read. Asserted separately because dropping the second is invisible on
