@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { instrument } from './trace';
+import { instrument, stripMarkers } from './trace';
 
 describe('instrument', () => {
   it('replaces a marker with the calls that photograph those variables', () => {
@@ -80,5 +80,19 @@ describe('instrument', () => {
     const { markers } = instrument('int a = 1;    //foto   a ,  b');
 
     expect(markers[0]).toMatchObject({ frame: 'main', variables: ['a', 'b'] });
+  });
+});
+
+describe('stripMarkers', () => {
+  it('removes the marker but keeps the code and the line count', () => {
+    const source = ['int a = 1; // foto a', 'int b = 2;', '// foto-fin swap'].join('\n');
+
+    expect(stripMarkers(source).split('\n')).toEqual(['int a = 1;', 'int b = 2;', '']);
+  });
+
+  it('leaves an ordinary comment where the author put it', () => {
+    const source = 'int a = 1; // cuenta las vueltas';
+
+    expect(stripMarkers(source)).toBe(source);
   });
 });

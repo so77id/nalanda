@@ -179,7 +179,7 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
     return host;
   };
 
-  const execute = async ({ id, source, stdin, harness }: RunRequest): Promise<void> => {
+  const execute = async ({ id, source, stdin, harness, library }: RunRequest): Promise<void> => {
     if (terminated) return;
     running = true;
     try {
@@ -212,6 +212,11 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       };
 
       const sourcePaths = [write(source)];
+      // Compiled beside the source and never run: the snippet keeps `main` and
+      // calls into it. Not subject to the reserved-name guard above — that
+      // guard is about a student shadowing a platform class, and this IS the
+      // platform class.
+      if (library !== undefined) sourcePaths.push(write(library));
       // With a harness present the student's class is a library, not a program:
       // the harness owns `main` and decides what to call.
       let entryClass = deriveEntryClass(source);

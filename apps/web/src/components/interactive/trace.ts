@@ -538,3 +538,24 @@ export function instrument(source: string): Instrumented {
 
   return { code: lines.join('\n'), markers, errors };
 }
+
+/** The fence label a memory diagram is authored with. */
+export const TRACE_FENCE = 'trace';
+
+/**
+ * The snippet as the reader should see it: markers removed, line numbers kept.
+ *
+ * The marker is scaffolding the lesson does not include — a student writing this
+ * program would not write `// foto a, b`. The LINE stays even when the comment
+ * was all it held, because the tracer reports line numbers against the original
+ * and removing a line would shift every highlight after it.
+ */
+export function stripMarkers(source: string): string {
+  return source
+    .split('\n')
+    .map((line) => {
+      const stripped = line.replace(PHOTO_END, '').replace(PHOTO, '');
+      return stripped === line ? line : stripped.trimEnd();
+    })
+    .join('\n');
+}

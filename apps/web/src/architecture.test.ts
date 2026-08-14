@@ -116,6 +116,26 @@ describe('architecture: the exercise stays out of the entry chunk', () => {
   });
 });
 
+describe('architecture: the memory diagram stays out of the entry chunk', () => {
+  // A different route to the same hazard, which is why it gets its own case:
+  // MemoryDiagram embeds no CodeMirror at all, but it imports the runtime seam,
+  // and that brings the registry, every descriptor and the Java launcher with
+  // it — the exact shape #85 broke the invariant with.
+  const ALLOWED = ['components/interactive/lazyMemoryDiagram.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/memorydiagram' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: cross-feature dependencies', () => {
   it('only the allowed feature edges exist in production code', () => {
     // Test files may exercise any feature through its seam (they are consumers,

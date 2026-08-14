@@ -3,6 +3,7 @@ import type { CatalogEntry } from '../lib/catalogEntry';
 
 import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
+import { memoryDiagramCatalogEntry } from './interactive/MemoryDiagram.catalog';
 import { sectionBreakCatalogEntry } from './structure/SectionBreak.catalog';
 import { sideBySideCatalogEntry } from './structure/SideBySide.catalog';
 import { slideCatalogEntry } from './structure/Slide.catalog';
@@ -13,6 +14,8 @@ import { slideCatalogEntry } from './structure/Slide.catalog';
 export { LazyCodeEditor } from './interactive/lazyCodeEditor';
 // Same rule, same reason: Exercise embeds CodeMirror too.
 export { LazyExercise } from './interactive/lazyExercise';
+// Same rule again, reached differently: MemoryDiagram imports the runtime seam.
+export { LazyMemoryDiagram } from './interactive/lazyMemoryDiagram';
 // Not a document-facing component and deliberately not in the catalog: authors
 // never write it, they write a fence. The shell maps it onto `pre`.
 export { MdxPre } from './MdxPre';
@@ -27,4 +30,5 @@ export const catalogEntries: CatalogEntry[] = [
   sideBySideCatalogEntry,
   codeEditorCatalogEntry,
   exerciseCatalogEntry,
+  memoryDiagramCatalogEntry,
 ];

@@ -145,7 +145,7 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
     setFailure(null);
     setCompileLog('');
     try {
-      const result = await run(code, '', buildHarness(cases));
+      const result = await run(code, '', { harness: buildHarness(cases) });
       setCompileLog(result.compileLog);
       // A rejected program has no output to read; the compiler's message is the
       // whole answer.
