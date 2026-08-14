@@ -343,16 +343,13 @@ switch (dia) {
 final int LIMITE = 100;   // reasignar LIMITE ya no compilaría
 ```
 
-## Ejercicios
+<Slide title="Ejercicio en vivo: ¿Es par?">
 
-Cuatro problemas para escribir tú. Completa el método que falta y presiona
-**Comprobar**: tu código se compila junto a una batería de casos que lo llaman y
-te dicen cuáles pasaron. Los casos aparecen después de la primera ejecución.
+<Exercise title="¿Es par?">
 
-<Exercise title="1. ¿Es par?">
-
-Escribe `esPar`, que recibe un entero y devuelve `true` si es par y `false` si
-no. Recuerda que `%` da el resto de la división.
+Escribe `esPar`, que recibe un entero y devuelve `true` si es par y `false` si no.
+Recuerda que `%` da el resto de la división. Presiona **Comprobar**: tu código se
+compila junto a una batería de casos que lo llaman.
 
 ```java starter
 class Solution {
@@ -372,8 +369,15 @@ check(Solution.esPar(-3), false);
 ```
 
 </Exercise>
+</Slide>
 
-<Exercise title="2. El mayor de tres">
+## Ejercicios
+
+Cinco problemas más para escribir tú, ahora en el libro. Completa el método que falta
+y presiona **Comprobar**: tu código se compila junto a una batería de casos que lo
+llaman y te dicen cuáles pasaron. Los casos aparecen después de la primera ejecución.
+
+<Exercise title="1. El mayor de tres">
 
 Escribe `maximo`, que recibe tres enteros y devuelve el mayor. No uses
 `Math.max`: la gracia está en escribir las comparaciones.
@@ -398,7 +402,7 @@ check(Solution.maximo(4, 4, 4), 4);
 
 </Exercise>
 
-<Exercise title="3. Suma hasta n">
+<Exercise title="2. Suma hasta n">
 
 Escribe `sumaHasta`, que recibe un entero `n` y devuelve la suma de todos los
 números de 1 hasta `n`. Si `n` es menor que 1, la suma es 0.
@@ -423,7 +427,7 @@ check(Solution.sumaHasta(100), 5050);
 
 </Exercise>
 
-<Exercise title="4. Cuántos dígitos">
+<Exercise title="3. Cuántos dígitos">
 
 Escribe `cuentaDigitos`, que recibe un entero **no negativo** y devuelve cuántos
 dígitos tiene. `1234` tiene 4; `7` tiene 1; `0` tiene 1.
@@ -451,6 +455,57 @@ check(Solution.cuentaDigitos(1234), 4);
 check(Solution.cuentaDigitos(7), 1);
 check(Solution.cuentaDigitos(0), 1);
 check(Solution.cuentaDigitos(90), 2);
+```
+
+</Exercise>
+
+<Exercise title="4. total: 1 + 2">
+
+La concatenación con `+` se evalúa de izquierda a derecha, y eso es exactamente lo que
+arruina este ejercicio si no tienes cuidado. Escribe `resumen`, que recibe dos enteros
+`a` y `b` y devuelve la cadena `"a + b = S"`, donde S es la **suma**. Por ejemplo,
+`resumen(1, 2)` devuelve `"1 + 2 = 3"`, no `"1 + 2 = 12"`.
+
+```java starter
+class Solution {
+
+    static String resumen(int a, int b) {
+        // tu código aquí
+        return "";
+    }
+}
+```
+
+```java test
+check(Solution.resumen(1, 2), "1 + 2 = 3");
+check(Solution.resumen(10, 5), "10 + 5 = 15");
+check(Solution.resumen(0, 0), "0 + 0 = 0");
+check(Solution.resumen(-4, 4), "-4 + 4 = 0");
+```
+
+</Exercise>
+
+<Exercise title="5. Sin desbordar">
+
+`sumaLarga` recibe dos `int` y devuelve su suma en un `long`, **sin desbordar** aunque
+los dos estén cerca del máximo. Ojo: `a + b` se calcula en `int` y da la vuelta antes de
+convertirse en `long`. Tienes que ampliar a `long` **antes** de sumar.
+
+```java starter
+class Solution {
+
+    static long sumaLarga(int a, int b) {
+        // tu código aquí
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.sumaLarga(1, 2), 3L);
+check(Solution.sumaLarga(2000000000, 2000000000), 4000000000L);
+check(Solution.sumaLarga(Integer.MAX_VALUE, 1), 2147483648L);
+check(Solution.sumaLarga(-2000000000, -2000000000), -4000000000L);
 ```
 
 </Exercise>
