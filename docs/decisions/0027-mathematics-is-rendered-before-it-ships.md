@@ -193,13 +193,18 @@ overstated the document chunk.
 
 | | Before | After |
 |---|---|---|
-| App CSS | 49.37 kB → 8.55 kB gz | 78.71 kB → **16.81 kB gz** |
+| App CSS | 47.98 kB → 8.42 kB gz | 77.29 kB → **16.70 kB gz** |
 | JavaScript shipped | — | **unchanged; zero** |
 | `03-busqueda-binaria` chunk | 2.07 kB → 1.03 kB gz | 5.17 kB → **1.66 kB gz** |
 | Font files in `dist/` | 0 | 59, 1047.8 kB |
 | Fonts a formula requests | — | 2 woff2, 42,712 B |
 | Fonts a math-free page requests | — | **0** |
 | Build time | 3.17–3.95 s | 3.20–3.67 s (within noise) |
+
+The CSS row is measured against the baseline *after* #109's two-theme system
+landed, by building this branch with and without the `@import` — the honest form,
+since a rebase moved the ground under the first reading. The delta is +8.28 kB
+gz, unchanged in substance from the +8.26 measured before the rebase.
 
 The zero-JavaScript claim is hard-verified, not inferred: the entry chunk is
 byte-identical across the change, and `grep` for KaTeX's own runtime strings over
@@ -251,6 +256,22 @@ The fix is to make `textOf` recurse into elements — and that changes existing 
 and would become `la-trampa-de-nextint-seguido-de-nextline`. Breaking a live deep link is
 a decision with its own migration. Write a heading with text in it; the authoring guide
 says so.
+
+**Both themes, for free.** #109 landed its two-theme colour system while this WP was in
+review, which made "is a formula legible in the light theme?" a question that did not
+exist when the work started. It needs no rule of its own: KaTeX draws its glyphs in
+`currentColor`, so a formula inherits `--tw-prose-body` exactly like the prose around it.
+Measured in a browser on both:
+
+| Theme | Formula | Prose | Contrast |
+|---|---|---|---|
+| Dark | `rgb(168, 179, 192)` | identical | **8.90:1** |
+| Light | `rgb(71, 82, 95)` | identical | **7.02:1** |
+
+Both are comfortably past WCAG AA, and the colours are identical to the body text by
+construction rather than by coincidence — so a formula cannot drift from its paragraph
+when the palette changes. The one KaTeX colour that is *not* inherited is the `#cc0000`
+of an error span, which is deliberate: it should look wrong in either theme.
 
 **Accessibility**: KaTeX emits MathML beside the visual spans, so a formula is readable
 by assistive technology rather than being a picture of one. Asserted separately from the
