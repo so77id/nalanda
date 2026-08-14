@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
+import { useDescribed } from '../described';
 import { ASSET_PREFIX } from '../../lib/assetPrefix';
 import { resolveAsset } from '../../lib/contentAssets';
 import { warnOnce } from '../../lib/warnOnce';
@@ -35,12 +36,18 @@ const BROKEN_STYLE = 'rounded border border-dashed border-flag px-3 py-2 text-sm
  * addresses the author (`AuthoringError`) rather than blaming the reader.
  */
 export function Figure({ src, alt, caption }: FigureProps) {
+  // A cell of a `<Mosaic>` is silent by design: the container already carries
+  // the description for the whole group.
+  const described = useDescribed();
+
   if (src === undefined || src === '') {
     return (
       <AuthoringError component="Figure">necesita un src con la ruta de la imagen.</AuthoringError>
     );
   }
-  if (alt === undefined || alt === '') {
+  // `alt=""` stays an error outside a describing container, and `alt` missing is
+  // an error even inside one: silence has to be something the author wrote.
+  if (alt === undefined || (alt === '' && !described)) {
     return (
       <AuthoringError component="Figure">
         necesita un alt que describa la imagen, en español.
