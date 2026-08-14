@@ -199,6 +199,14 @@ recompila a lenguaje máquina las partes que más se usan.
 > navegador. Por eso la primera ejecución tarda tanto — está descargando un Java
 > completo.
 
+Una regla que el navegador te perdona y tu computador no: si una clase es `public`, el
+archivo **tiene que llamarse igual que ella**. `public class Tarea` va en `Tarea.java`, o
+`javac` se niega antes de compilar. En esta página los ejemplos usan clases que **no** son
+`public` —por eso `HelloWorld` corre en un archivo con cualquier nombre—, pero en cuanto le
+pongas `public` a una, el nombre del archivo deja de ser libre. Es el error más común de la
+primera semana, y es también por qué el documento de código ejecutable usa `public class
+Main` dentro de `Main.java`.
+
 <Slide title="import y paquetes">
 Las clases de Java se organizan en **paquetes**, y el nombre completo de una clase
 incluye el suyo: `java.util.Scanner` es la clase `Scanner` del paquete
@@ -244,11 +252,11 @@ Un paquete se importa solo: **`java.lang`**. Por eso `System`, `String`, `Math` 
 |---|---|---|
 | `byte` | 8 bits | −128 … 127 |
 | `short` | 16 bits | −32 768 … 32 767 |
-| `int` | 32 bits | ±2 147 483 647 aprox. |
+| `int` | 32 bits | −2 147 483 648 … 2 147 483 647 |
 | `long` | 64 bits | ±9,2 × 10¹⁸ aprox. |
-| `float` | 32 bits | decimal, precisión simple |
-| `double` | 64 bits | decimal, precisión doble |
-| `char` | 16 bits | un carácter Unicode |
+| `float` | 32 bits | coma flotante binaria, precisión simple |
+| `double` | 64 bits | coma flotante binaria, precisión doble |
+| `char` | 16 bits | una unidad de código UTF-16 |
 | `boolean` | — | `true` o `false` |
 </Slide>
 
@@ -260,13 +268,23 @@ Cuatro diferencias con C++, y la primera es la que más te va a gustar:
   problema no existe.
 - **No hay `unsigned`.** Todos los enteros tienen signo, con una excepción:
   `char`, que es un entero de 16 bits **sin** signo — por eso su rango parte en 0.
-- **`char` son 16 bits**, no 8, porque guarda un carácter Unicode y no un byte.
+- **`char` son 16 bits**, no 8, porque guarda una unidad de código UTF-16 y no un
+  byte. No es exactamente "un carácter": los símbolos fuera del plano básico —muchos
+  emoji, por ejemplo— ocupan dos `char`.
 - **`boolean` no es un número.** `if (1)` no compila, y `if (x = 5)` tampoco —
   volveremos a esto en el control de flujo.
 
+Y un detalle de `float` y `double` que ahorra tardes de depuración: guardan los números
+en **binario**, no en base diez. Por eso valores tan inocentes como `0.1` no tienen
+representación exacta, y `0.1 + 0.2` **no** da `0.3`. La consecuencia práctica es que dos
+decimales casi nunca se comparan con `==`: se comparan pidiendo que su diferencia sea
+menor que una tolerancia pequeña. Es exactamente lo que hace el `check` de los ejercicios
+de esta página, que para `double` usa un margen de `1e-9` en lugar de `==`.
+
 Y una ausencia importante: **`String` no está en esta tabla.** Aunque se escriba
 casi como un tipo primitivo, es una clase, y esa diferencia tiene consecuencias
-que arruinan tardes enteras. Es el tema de [[referencias-null-igualdad]].
+que arruinan tardes enteras. Es el tema del próximo documento, sobre referencias,
+`null` e igualdad.
 
 Los tamaños fijos se pueden comprobar. Este programa suma 1 al mayor `int` que
 existe:
@@ -342,6 +360,23 @@ Las tres líneas tienen los mismos números y dan resultados distintos. La regla
 que `+` se evalúa **de izquierda a derecha**: en la primera, `"total: " + 1` ya es
 texto, así que el `2` se pega al final en vez de sumarse. En la segunda, `1 + 2` se
 suma antes de encontrarse con el texto.
+
+La tabla de arriba dejó fuera una familia entera: los **operadores de bits**. Son también
+los de C++ —`&`, `|`, `^`, `~`, `<<` y `>>`—, con una sola incorporación, y esa sí es puro
+delta con C++. Como en Java **ningún** entero es `unsigned`, `>>` siempre arrastra el signo
+al desplazar. Cuando necesitas el corrimiento que rellena con ceros —el que en C++ obtienes
+gratis usando un tipo `unsigned`— Java te da un operador aparte, `>>>`, que no existe en C++
+justamente porque allá no hace falta.
+
+```java
+class Corrimientos {
+    public static void main(String[] args) {
+        int n = -8;
+        System.out.println(n >> 1);    // -4          : arrastra el signo
+        System.out.println(n >>> 1);   // 2147483644  : rellena con ceros
+    }
+}
+```
 
 <Slide title="Entrada y salida">
 Para escribir, `System.out`:
@@ -505,6 +540,37 @@ class Flujo {
 > variable de la condición cambie dentro del ciclo. Tu código se guarda solo antes
 > de cada ejecución, así que no lo pierdes.
 
+### Más formas de bifurcar y repetir
+
+Hay cuatro construcciones más, todas iguales que en C++ menos por un detalle, y una de
+ellas ya apareció en un documento anterior sin que la hubiéramos presentado:
+
+- **`switch`** funciona como el de C++: el mismo `default` y la misma trampa del `break`
+  que se olvida y encadena los casos.
+- **`do-while`** ejecuta el cuerpo al menos una vez antes de mirar la condición.
+- **`final`** marca una variable que no se puede reasignar: es el `const` de C++ aplicado
+  al valor de la variable.
+- **El `for-each`** recorre un arreglo o una colección sin llevar un índice a mano. Es la
+  única novedad de la lista, y conviene conocerla porque ya la estás usando: aparece en el
+  documento de código ejecutable, que va antes que este en el recorrido.
+
+```java
+int[] nums = {2, 4, 6};
+int suma = 0;
+for (int x : nums) {   // "para cada x en nums"
+    suma += x;
+}
+
+int dia = 3;
+switch (dia) {
+    case 1: System.out.println("lunes"); break;
+    case 3: System.out.println("miércoles"); break;
+    default: System.out.println("otro día");
+}
+
+final int LIMITE = 100;   // reasignar LIMITE ya no compilaría
+```
+
 ## Ejercicios
 
 Cuatro problemas para escribir tú. Completa el método que falta y presiona
@@ -624,4 +690,4 @@ no sabes es qué guarda realmente una variable cuando no es un tipo primitivo �
 esa pregunta, que parece de detalle, es la que separa a quien entiende una lista
 enlazada de quien la copia.
 
-Es lo que viene en [[referencias-null-igualdad]].
+Es lo que viene en el próximo documento, sobre referencias, `null` e igualdad.
