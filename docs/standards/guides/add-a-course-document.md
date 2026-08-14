@@ -152,7 +152,7 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    a block. One line break apart, and the two look nearly identical in a diff.
 
    **Two dollars, not one — and this is the part that will surprise you if you
-   have written LaTeX before** (ADR-0026 §2). With single-dollar math enabled,
+   have written LaTeX before** (ADR-0027 §2). With single-dollar math enabled,
    an ordinary sentence about money becomes a formula:
 
    ```
@@ -160,10 +160,27 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    ```
 
    would render "200 al mes, el otro" as mathematics, with a green build and no
-   warning of any kind. Requiring `$$` costs you a re-typed delimiter when you
-   paste a formula from elsewhere — and you see that immediately, because the
-   formula sits there as plain text. The alternative breaks prose written by
-   someone who never intended to write mathematics at all.
+   warning of any kind. The alternative breaks prose written by someone who
+   never intended to write mathematics at all.
+
+   **If you paste a formula written with single dollars, it does not merely stay
+   as text.** MDX reads braces as expressions, so `$\frac{1}{2}$` renders as
+   `$\frac12$` — the braces silently gone — and `$\sum_{i=1}^{n} i$` **fails the
+   build** with `ReferenceError: i is not defined`. Retype the delimiters; the
+   `$$` form takes its content raw and is immune.
+
+   **An unclosed `$$` eats the rest of the page.** Not one red formula: the
+   prose below it, the headings, everything, swallowed into a single error span
+   — so the section list empties and, in an `auto` document, every slide below
+   the typo vanishes from the deck. The build stays green and the content gate
+   sees nothing, because it checks frontmatter and the index, not body syntax.
+   The symptom to recognise is *"the document ends here"*.
+
+   **A heading wants text in it.** `## $$\log_2 n$$` — a heading that is only a
+   formula — gets no id, no anchor and no entry in the section list, silently.
+   Write `## El costo, $$\log_2 n$$` instead. And a `<Slide title="...">` cannot
+   hold a formula at all: the title is a JSX attribute, so the `$$` ship to the
+   reader as literal characters.
 
    Three things worth knowing, all measured rather than assumed:
 
@@ -374,5 +391,9 @@ strikethrough (`~~`), task lists and footnotes also work now.
       banner, cases pass against a correct solution and fail against the starter.
       Nothing in the build or the suite can check this for you.
 - [ ] Anything on a slide looked at in presentation mode, not only in the book.
+- [ ] Every formula looked at on the rendered page. A malformed one publishes in
+      KaTeX's error colour and an unclosed `$$` swallows the rest of the
+      document, both past a green build. Check the page still ends where you
+      wrote its end, and check any slide carrying a formula in landscape.
 - [ ] Content language: Spanish is fine (user-facing course material).
 - [ ] Nothing here must stay private — merging publishes it at `/d/<id>`.

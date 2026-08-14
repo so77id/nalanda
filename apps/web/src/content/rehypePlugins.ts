@@ -16,7 +16,7 @@ import type { PluggableList } from 'unified';
 export const rehypePlugins: PluggableList = [
   /**
    * Runs in Node during the Vite transform, so no KaTeX JavaScript ever reaches
-   * a browser. Cost and the rejected alternatives: ADR-0026 §1, §3, §5.
+   * a browser. Cost and the rejected alternatives: ADR-0027 §1, §3, §5.
    *
    * `trust: false` is KaTeX's default and is stated here because it is the one
    * option whose flip is a direct injection: with `trust: true`, `\href`,

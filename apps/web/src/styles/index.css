@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 /* KaTeX's own stylesheet and @font-face rules.
 
-   Global, and it is DEBT rather than a design (ADR-0026 §3). Every page pays
+   Global, and it is DEBT rather than a design (ADR-0027 §3). Every page pays
    8.27 kB gzip whether or not it has mathematics. Scoping it per document was
    measured and works — Vite splits it cleanly and the app stylesheet returns to
    its exact pre-math size — so the reason this is global is speed of delivery,
@@ -11,20 +11,6 @@
    something renders, so a document with no formula downloads none of them. */
 @import 'katex/dist/katex.min.css';
 
-/* KaTeX sets `white-space: nowrap` on display mathematics and ships no overflow
-   rule of its own, and the reading measure below caps a direct child at 39rem
-   (ADR-0022) — so a recurrence or a summation wider than that would overflow
-   the page instead of scrolling inside itself. The style standard's rule for
-   anything wide: it carries its own scroll box or it is marked full-measure.
-   jsdom lays nothing out, so nothing in the suite can see this (#118 review).
-
-   Deliberately does not name the measure's selector: documentShell.test.ts
-   finds that rule by the first textual match, and a comment mentioning it
-   upstream is what the regex locks onto. */
-.katex-display {
-  overflow-x: auto;
-  overflow-y: hidden;
-}
 @plugin '@tailwindcss/typography';
 
 /* Sizes below Tailwind's `text-xs`, for the dense monospace chrome of runnable
@@ -306,6 +292,22 @@ html {
 .measured-prose > :not(.not-prose):not(.measure-full):not(pre) {
   max-width: 39rem;
   margin-inline: auto;
+}
+
+/* Display mathematics scrolls inside itself instead of widening the page.
+
+   KaTeX sets `white-space: nowrap` on a display formula and ships no overflow
+   rule of its own, and the rule above caps a direct child of the reading column
+   at 39rem (ADR-0022) — so a recurrence or a summation wider than that would
+   overflow the page rather than scroll. The style standard's requirement for
+   anything wide: it carries its own scroll box, or it is marked full-measure.
+
+   `overflow-y: hidden` because a scroll box that only needs one axis should not
+   offer the other. jsdom lays nothing out, so nothing in the suite can see any
+   of this — found by review, not by the protocol (#118). */
+.katex-display {
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 
 /* The typography plugin decorates inline code with literal backticks via

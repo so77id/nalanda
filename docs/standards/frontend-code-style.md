@@ -114,10 +114,14 @@ src/
   (Vite plugin) serves the shell's router. They are Node-only, never imported by
   browser code, and wired exclusively from `vite.config.ts` — a
   confirmation-gated file (see `apps/web/CLAUDE.md`): propose the wiring diff and
-  get confirmation before editing it. The remark list itself lives in
-  `content/mdxPlugins.ts` so the suite can compile MDX through the same array the
-  build uses; its order is an invariant — syntax extensions (`remark-gfm`) before
-  the plugins that walk the tree parsing produced.
+  get confirmation before editing it. The lists themselves live in
+  `content/mdxPlugins.ts` and `content/rehypePlugins.ts` so the suite can compile
+  MDX through the same arrays the build uses — **two lists because remark and
+  rehype are different trees**: remark sees markdown, rehype sees the HTML it
+  became, and a feature can need one from each (mathematics needs `remark-math`
+  to parse and `rehype-katex` to render — either without the other renders
+  nothing). The remark order is an invariant: syntax extensions (`remark-gfm`,
+  `remark-math`) before the plugins that walk the tree parsing produced.
 - **The shell titles the document, and owns anything else that is a property of
   the page rather than of a feature.** A render-nothing component in `app/` with
   an effect is the shape for it (worked case: `app/DocumentTitle.tsx`). It cannot
@@ -190,6 +194,14 @@ src/
 
 - **Tailwind only**, utility classes inline in JSX. No CSS modules, no CSS-in-JS,
   no new `.css` files beyond `styles/` globals.
+- **A third-party stylesheet is imported once, in `styles/index.css`, and only
+  when the package's own CSS is the sole source of the rules.** Check before
+  importing that it is class-scoped: a vendor rule on a bare element leaks into
+  the whole product. Worked case — `katex.min.css`, whose only unscoped rule is
+  `body{counter-reset:…}`, and whose weight is recorded with the decision that
+  accepted it (ADR-0027 §3). A vendor stylesheet imported globally is paid by
+  every page, including the ones with nothing to do with the feature, so the
+  cost belongs in the PR that adds it.
 - Design tokens (colors, spacing, fonts beyond Tailwind defaults) are declared in
   `styles/index.css` via Tailwind v4 `@theme` — components never hardcode hex
   values or magic pixel sizes.

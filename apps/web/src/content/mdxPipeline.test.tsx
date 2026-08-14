@@ -107,7 +107,7 @@ describe('the MDX pipeline', () => {
     ).not.toBeNull();
     expect(container.textContent).not.toContain('$');
     // Without this the case passes when fed DISPLAY math, because a display
-    // formula also carries `.katex` — so only half the contract ADR-0026 §2
+    // formula also carries `.katex` — so only half the contract ADR-0027 §2
     // claims to pin was pinned (#118 review, found by feeding it `$$` on their
     // own lines and watching it stay green).
     expect(

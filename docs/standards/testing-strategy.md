@@ -127,6 +127,24 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   an outline drawn outside its child, then because an opaque child paints over
   one drawn inward. Both times the DOM agreed with the intention and only the
   screenshot disagreed.
+- **A role query with a `name` matcher throws over mathematics.** jsdom's
+  `getComputedStyle` cannot handle a MathML-namespace node, and Testing Library
+  calls it (via `isInaccessible`) whenever it has to compute an accessible name.
+  So `getByRole('heading', { name: /Costo/ })` over a heading containing a
+  formula fails with `TypeError: Cannot read properties of undefined (reading
+  'length')` — a message that names neither the query nor the formula. Dropping
+  `{ name }` passes; so does `getByText`, and so does every query that never
+  reaches the MathML subtree. Discovered in #118 and worth knowing before #120,
+  which puts formulas on many slides and headings: the fix is to assert on text
+  or on a `data-testid`, not to conclude the component is broken.
+- **A feature spread across several independently-deletable pieces is pinned by
+  deleting each one.** Not by reading the tests: by removing a piece, running the
+  suite, and checking something goes red — a piece whose deletion turns nothing
+  red is not pinned, whatever its test is named. Worked case (#118): mathematics
+  needs a remark plugin, a rehype plugin and an option, and all three deletions
+  were verified to go red at both levels. The same exercise found the hole — an
+  "inline mathematics" case that passed when fed display mathematics, because
+  both carry the same class.
 - **Execution is invisible to the suite**: every runtime is faked in jsdom
   (`CodeEditor.test.tsx` mocks CodeMirror and the worker; `java/runtime.test.ts`
   stubs the CheerpJ globals), and jsdom has no `Worker`, no CheerpJ DOM loader

@@ -36,7 +36,7 @@ export const remarkPlugins: PluggableList = [
   //
   // `singleDollarTextMath: false` prevents prose about prices from parsing as a
   // formula ("Cuesta $200 al mes, el otro $350"). Why that beats documenting a
-  // `\$` escape, and what a single-dollar formula does instead: ADR-0026 §2.
+  // `\$` escape, and what a single-dollar formula does instead: ADR-0027 §2.
   [remarkMath, { singleDollarTextMath: false }],
   remarkWikiLinks,
   remarkCodeMeta,
