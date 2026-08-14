@@ -137,19 +137,20 @@ describe('/catalog', () => {
   });
 
   it('does not site an empty family in a folder that is not there', async () => {
-    // src/components/semantic/ and media/ do not exist: the first component
-    // added to a family creates it. "Components live in ..." was a claim the
-    // repo contradicted.
+    // src/components/semantic/ does not exist: the first component added to a
+    // family creates it. "Components live in ..." was a claim the repo
+    // contradicted. Repointed from media in #119, which gave that family its
+    // first habitant — the message below is what said where to move it.
     expect(
-      catalog.byFamily('media').length,
-      'media has components now — point this test at a family that is still empty, ' +
+      catalog.byFamily('semantic').length,
+      'semantic has components now — point this test at a family that is still empty, ' +
         "and make sure that family's page is in the rendered-English path list below",
     ).toBe(0);
 
-    renderAt('/catalog/media');
-    await screen.findByRole('heading', { level: 1, name: 'Media' });
+    renderAt('/catalog/semantic');
+    await screen.findByRole('heading', { level: 1, name: 'Semantic' });
     // The path sits in its own <code>; the tense is on the paragraph around it.
-    expect(screen.getByText(/src\/components\/media\//).parentElement).toHaveTextContent(
+    expect(screen.getByText(/src\/components\/semantic\//).parentElement).toHaveTextContent(
       /components will live in/i,
     );
   });
@@ -278,17 +279,23 @@ describe('the catalog writes English', () => {
   // Exercise and CodeEditor, whose chrome addresses students in Spanish, and
   // the snippets are course content. Root CLAUDE.md §Language exempts exactly
   // that, so scanning it would flag the one Spanish the WP decided to keep.
-  it.each(['/catalog', '/catalog/structure', '/catalog/media', '/catalog/governance'])(
-    'renders no Spanish orthography at %s',
-    async (path) => {
-      renderAt(path);
-      const main = await screen.findByRole('main');
-      const offenders = (main.textContent ?? '')
-        .split('\n')
-        .filter((line) => SPANISH_ORTHOGRAPHY.test(line));
-      expect(offenders, `Spanish rendered at ${path}`).toEqual([]);
-    },
-  );
+  // Three families and the index: `structure` and `media` are populated (media
+  // since #119), `semantic` is the one still empty — the tense branch and the
+  // component list both get scanned.
+  it.each([
+    '/catalog',
+    '/catalog/structure',
+    '/catalog/media',
+    '/catalog/semantic',
+    '/catalog/governance',
+  ])('renders no Spanish orthography at %s', async (path) => {
+    renderAt(path);
+    const main = await screen.findByRole('main');
+    const offenders = (main.textContent ?? '')
+      .split('\n')
+      .filter((line) => SPANISH_ORTHOGRAPHY.test(line));
+    expect(offenders, `Spanish rendered at ${path}`).toEqual([]);
+  });
 });
 
 describe('/catalog/governance', () => {

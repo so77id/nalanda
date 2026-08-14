@@ -1,11 +1,14 @@
 import {
+  Figure,
   LazyCodeEditor,
   LazyExercise,
   LazyMemoryDiagram,
   MdxPre,
+  Mosaic,
   SectionBreak,
   SideBySide,
   Slide,
+  Split,
 } from '../components';
 import { contentMdxComponents } from '../content';
 
@@ -24,6 +27,9 @@ export const mdxComponents = {
   Slide,
   SectionBreak,
   SideBySide,
+  Split,
+  Mosaic,
+  Figure,
   // The lazy wrapper, not the editor itself: this map is evaluated eagerly, and
   // registering the real component would put CodeMirror in the entry chunk.
   CodeEditor: LazyCodeEditor,
