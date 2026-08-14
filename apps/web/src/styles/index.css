@@ -9,6 +9,93 @@
 @theme {
   --text-2xs: 0.7rem;
   --text-3xs: 0.65rem;
+
+  /* The palette, as Tailwind utilities (#109, ADR-0026). Each maps to a `--nl-*`
+     variable rather than to a literal, and it is those variables the themes
+     swap — so `bg-surface` and `text-ink` are already correct in both themes and
+     a component never writes a `dark:` variant. With 184 colour-class usages in
+     the app, duplicating each one would give 368 and be unmaintainable.
+
+     Semantics and legal pairings: docs/standards/design-system.md, enforced by
+     palette.test.ts, which reads the values below out of this file. */
+  --color-ground: var(--nl-ground);
+  --color-surface: var(--nl-surface);
+  --color-sunk: var(--nl-sunk);
+  --color-deck-ground: var(--nl-deck-ground);
+  --color-ink: var(--nl-ink);
+  --color-ink-soft: var(--nl-ink-soft);
+  --color-ink-faint: var(--nl-ink-faint);
+  --color-rule: var(--nl-rule);
+  --color-rule-strong: var(--nl-rule-strong);
+  --color-accent: var(--nl-accent);
+  --color-flag: var(--nl-flag);
+  --color-keep: var(--nl-keep);
+  --color-focus: var(--nl-focus);
+}
+
+/* The theme, in the three states a reader can actually be in.
+
+   Not two. An explicit choice stamps `data-theme` on the root; the DEFAULT state
+   stamps nothing, and there only `prefers-color-scheme` decides — which is the
+   state most readers arrive in. Each block below owns one:
+
+   1. bare `:root` — the complete light palette, and the fallback for everything.
+   2. the media query — redefines only the tokens, guarded with
+      `:not([data-theme='light'])` so an explicit light choice beats a dark OS.
+   3. the attribute selector — redefines them again, so the switch wins in the
+      other direction too.
+
+   A colour whose ONLY definition lives in 2 or 3 never applies in the unstamped
+   state, which paints one theme's text on the other theme's ground. Every token
+   is therefore declared in full in block 1. */
+:root {
+  --nl-ground: #eef1f4;
+  --nl-surface: #ffffff;
+  --nl-sunk: #e4e9ee;
+  --nl-deck-ground: #eaeef2;
+  --nl-ink: #141a22;
+  --nl-ink-soft: #47525f;
+  --nl-ink-faint: #5a6573;
+  --nl-rule: #cdd5dd;
+  --nl-rule-strong: #7a8592;
+  --nl-accent: #9c3b76;
+  --nl-flag: #b04527;
+  --nl-keep: #2c6a4e;
+  --nl-focus: #0b63c4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --nl-ground: #0c1118;
+    --nl-surface: #141b24;
+    --nl-sunk: #1b232e;
+    --nl-deck-ground: #020617;
+    --nl-ink: #e6eaef;
+    --nl-ink-soft: #a8b3c0;
+    --nl-ink-faint: #8a96a4;
+    --nl-rule: #2c3644;
+    --nl-rule-strong: #66748a;
+    --nl-accent: #dd91bd;
+    --nl-flag: #e08a69;
+    --nl-keep: #7ec2a0;
+    --nl-focus: #38bdf8;
+  }
+}
+
+:root[data-theme='dark'] {
+  --nl-ground: #0c1118;
+  --nl-surface: #141b24;
+  --nl-sunk: #1b232e;
+  --nl-deck-ground: #020617;
+  --nl-ink: #e6eaef;
+  --nl-ink-soft: #a8b3c0;
+  --nl-ink-faint: #8a96a4;
+  --nl-rule: #2c3644;
+  --nl-rule-strong: #66748a;
+  --nl-accent: #dd91bd;
+  --nl-flag: #e08a69;
+  --nl-keep: #7ec2a0;
+  --nl-focus: #38bdf8;
 }
 
 /* What the page is, declared on the document rather than assumed by a div.
