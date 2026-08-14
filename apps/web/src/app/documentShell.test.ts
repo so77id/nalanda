@@ -17,10 +17,26 @@ describe('the document shell', () => {
     expect(html).toMatch(/<html[^>]*\blang="es"/);
   });
 
-  it('declares a dark colour scheme', () => {
-    // Without it the language <select>, the stdin <textarea> and the scrollbars
-    // render with light-mode native chrome inside a dark UI.
-    expect(css).toMatch(/color-scheme:\s*dark/);
+  it('lets the browser chrome follow the theme, and lets a choice force it', () => {
+    // Without a colour-scheme the language <select>, the stdin <textarea> and the
+    // scrollbars render in light native chrome inside a dark UI.
+    //
+    // This used to assert /color-scheme:\s*dark/ and it kept passing after #109
+    // made the scheme follow the theme — the forced `[data-theme='dark']` block
+    // matches that regex too. Green, and no longer checking what its name says.
+    // So both halves are asserted separately now.
+    expect(
+      /\bhtml\s*\{[^}]*color-scheme:\s*light dark/s.test(css),
+      'html does not defer to the reader',
+    ).toBe(true);
+    expect(
+      /\[data-theme='light'\]\s*\{[^}]*color-scheme:\s*light/s.test(css),
+      'an explicit light choice does not force the native chrome, so a reader who picked light gets a dark scrollbar',
+    ).toBe(true);
+    expect(
+      /\[data-theme='dark'\]\s*\{[^}]*color-scheme:\s*dark/s.test(css),
+      'an explicit dark choice does not force the native chrome',
+    ).toBe(true);
   });
 
   it('paints the surface on the document itself, not only on a div', () => {
@@ -78,8 +94,8 @@ describe('the document shell', () => {
     const rule = /:focus-visible\s*\{[^}]*\}/s.exec(css)?.[0] ?? '';
     expect(rule, 'no :focus-visible rule at all').not.toBe('');
     expect(rule).toMatch(/outline:\s*(?:[2-9]|\d{2,})px/);
-    // Offset so the outline lands on the surface AROUND a control: sky-400 is
-    // 6.95:1 on a panel and 1.76:1 on the emerald run button.
+    // Offset so the outline lands on the surface AROUND a control: the focus
+    // token is ~5:1 on page surfaces and 1.10:1 on the filled run button (#109).
     expect(rule).toMatch(/outline-offset:\s*[1-9]/);
   });
 

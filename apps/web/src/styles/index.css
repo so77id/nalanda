@@ -169,17 +169,28 @@
    and so did any gap the app did not cover. Painting `html` fixes both, and
    `body` inherits it.
 
-   Kept in step with the `theme-color` meta in index.html by hand — a meta tag
-   cannot read a CSS variable. That meta is still a single dark value; it follows
-   the theme in S6, together with `color-scheme` below.
+   Kept in step with the `theme-color` metas in index.html, which cannot read a
+   CSS variable — `documentShell.test.ts` compares them against `--nl-ground`
+   rather than trusting a comment.
 
-   `color-scheme` is still pinned to dark while the migration is in flight: it
-   controls the browser's own widgets, and flipping it before the components that
-   sit around those widgets have moved would give a light `<select>` inside a
-   dark editor. It becomes `light dark` in S6. */
+   `color-scheme` follows the theme rather than naming one. `light dark` says
+   "this page is legible either way, use the reader's preference", which is what
+   makes the browser's OWN widgets — the language <select> and its dropdown, the
+   stdin <textarea>, the scrollbars — arrive in matching chrome. The two stamped
+   cases below then force it, because an explicit choice has to beat the OS here
+   exactly as it does for the tokens; leaving this on the media query alone gives
+   a reader who picked light a dark scrollbar on a light page. */
 html {
-  color-scheme: dark;
+  color-scheme: light dark;
   background-color: var(--color-ground);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
 }
 
 /* One focus outline for the whole product.
@@ -187,11 +198,16 @@ html {
    The browser default was a 1px `#005FCC` hairline: 3.13:1 against slate-950,
    scraping past the 3:1 minimum, in a blue that appears nowhere else here.
 
-   `outline-offset` is load-bearing, not decoration. Measured against sky-400:
-   the page is 9.42:1, panels 6.95:1, the sidebar 6.83:1 — but the emerald
-   Ejecutar/Comprobar button is **1.76:1**. Offsetting draws the outline on the
-   surface *around* the control instead of on the control, so the one surface it
-   would fail against is never the one it lands on.
+   `outline-offset` is load-bearing, not decoration, and the palette made that
+   MORE true rather than less. Re-measured for `--color-focus` (#109): against
+   every page surface it clears 3:1 comfortably — light 5.15/5.84/4.78/5.01 and
+   dark 8.84/8.09/7.39/9.42 on ground/surface/sunk/deck — but against the filled
+   run button it is **1.10:1 light, 1.03:1 dark**, worse than the 1.76:1 the
+   emerald button used to give. Offsetting draws the outline on the surface
+   *around* the control instead of on it, so the one surface it fails against is
+   never the one it lands on. Those page ratios are held by `palette.test.ts`,
+   which carries `focus` in its pairing table; the button case is held by this
+   offset, and only by it.
 
    `:focus-visible`, not `:focus`: a mouse click on a button should not leave a
    mark behind, and the browser already knows the difference.
@@ -203,7 +219,7 @@ html {
    already follows the element's own radius; the declaration bought nothing and
    cost that. */
 :focus-visible {
-  outline: 2px solid var(--color-sky-400);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -230,7 +246,7 @@ html {
    - It goes on `.cm-editor`, never on that scrolling wrapper. On the wrapper an
      inward outline is painted over by the editor's own opaque background. */
 .cm-editor.cm-focused {
-  outline: 2px solid var(--color-sky-400);
+  outline: 2px solid var(--color-focus);
   outline-offset: -2px;
 }
 
