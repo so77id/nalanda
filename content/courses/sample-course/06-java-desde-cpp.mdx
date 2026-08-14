@@ -27,22 +27,23 @@ electrodomésticos: televisores, decodificadores, cosas con poca memoria y
 procesadores de marcas distintas. Lo llamaron **OAK**, después **Green**, y
 finalmente **Java**.
 
-Ese origen explica casi todo lo que Java es hoy. Si tu programa tiene que correr
-en aparatos con procesadores distintos, no puedes compilarlo al lenguaje máquina
-de ninguno en particular. La solución fue compilar a un formato intermedio y
-poner en cada aparato un programa que lo interpretara: la **máquina virtual**.
-
-Los electrodomésticos nunca llegaron. La web sí, y después Android.
+Ese origen explica casi todo lo que Java es hoy. Para correr en aparatos con
+procesadores distintos no puedes compilar al lenguaje máquina de ninguno en
+particular: compilas a un formato intermedio y pones en cada aparato una **máquina
+virtual** que lo interprete.
 </Slide>
 
-Tres decisiones de esa época te van a acompañar todo el curso:
+Los electrodomésticos nunca llegaron. La web sí, y después Android. Pero ese diseño
+de 1991 dejó tres decisiones que te van a acompañar todo el curso.
 
+<Slide title="Las tres decisiones que te acompañan">
 - **Compilar una vez, ejecutar en cualquier parte.** El compilador no produce un
   binario para tu máquina, sino *bytecode* para la máquina virtual.
 - **Recolección de basura.** Nadie llama `delete`. La memoria que ya no se usa se
   libera sola, y cuándo exactamente no es asunto tuyo.
-- **Orientado a objetos sin escapatoria.** En C++ puedes escribir un programa
-  entero sin declarar una clase. En Java no.
+- **Orientado a objetos sin escapatoria.** En C++ puedes escribir un programa entero
+  sin declarar una clase. En Java no.
+</Slide>
 
 <Slide title="El mismo programa, en dos idiomas">
 Este es el programa que ya conoces, en los dos idiomas.
@@ -72,21 +73,20 @@ class HelloWorld {
 Cuatro diferencias, y ninguna es cosmética.
 </Slide>
 
-1. **`main` no es una función libre.** Vive dentro de `class HelloWorld`. En Java
-   no existen las funciones fuera de una clase: no es una convención, el
-   compilador no te deja.
-2. **No hay archivo de cabecera.** Una clase Java se declara y se define en el
-   mismo lugar. No hay `.h`, no hay guardas de inclusión, no hay declaración
-   adelantada.
-3. **`System.out.println` en vez de `std::cout <<`.** No es un operador
-   sobrecargado sino una llamada a método corriente — Java no tiene sobrecarga de
-   operadores.
-4. **`main` no retorna nada.** En C++ devuelve `int`. En Java es `void`, y el
-   código de salida se manda con `System.exit(n)` cuando hace falta.
+<Slide title="Cuatro diferencias, una por una">
+1. **`main` no es una función libre.** Vive dentro de `class HelloWorld`: en Java no
+   existen las funciones fuera de una clase, y el compilador no te deja.
+2. **No hay archivo de cabecera.** Una clase se declara y se define en el mismo lugar:
+   no hay `.h`, ni guardas de inclusión, ni declaración adelantada.
+3. **`System.out.println` en vez de `std::cout <<`.** No es un operador sobrecargado
+   sino una llamada a método corriente: Java no tiene sobrecarga de operadores.
+4. **`main` no retorna nada.** En C++ devuelve `int`; en Java es `void`, y el código de
+   salida se manda con `System.exit(n)` cuando hace falta.
+</Slide>
 
-Ejecútalo. La primera vez tarda: el navegador tiene que descargar una máquina
-virtual de Java completa antes de poder correr nada. Después es cuestión de
-segundos.
+<Slide title="Ejecútalo: HelloWorld">
+La primera vez tarda: el navegador descarga una máquina virtual de Java completa antes
+de poder correr nada. Después es cuestión de segundos.
 
 <CodeEditor
   language="java"
@@ -97,11 +97,11 @@ segundos.
 }
 `}
 />
+</Slide>
 
 <Slide title="Por qué main tiene tantas palabras">
-`public static void main(String[] args)` son cinco decisiones, no una fórmula
-mágica. Vale la pena desarmarla, porque tres de esas palabras van a aparecer en
-todo lo que escribas de aquí en adelante.
+`public static void main(String[] args)` son cinco decisiones, no una fórmula mágica.
+Tres de esas palabras van a aparecer en todo lo que escribas de aquí en adelante.
 
 | Palabra | Qué dice |
 |---|---|
@@ -112,19 +112,19 @@ todo lo que escribas de aquí en adelante.
 | `String[] args` | Los argumentos de la línea de comandos |
 </Slide>
 
-De las cinco, la que importa entender ahora es **`static`**.
-
-Un método normal en Java pertenece a un *objeto*: para llamarlo necesitas primero
-haber creado uno. Un método `static` pertenece a la clase misma y se llama sin
-crear nada. Por eso `main` tiene que serlo: cuando la máquina virtual arranca tu
-programa todavía no existe ningún objeto, y no tendría cómo saber cuál crear ni
-con qué argumentos.
+<Slide title="Qué significa static">
+Un método normal pertenece a un *objeto*: para llamarlo necesitas primero haber creado
+uno. Un método `static` pertenece a la clase misma y se llama sin crear nada. Por eso
+`main` tiene que serlo: cuando la máquina virtual arranca tu programa todavía no existe
+ningún objeto, y no tendría cómo saber cuál crear.
 
 Es la misma idea que un método estático de C++, y también se llama igual.
+</Slide>
 
-Mira lo que pasa cuando un método **no** es `static`: `main` no puede llamarlo
-directamente, porque no hay ningún objeto al que pedirle nada. Hay que fabricar
-uno primero.
+<Slide title="Pruébalo: el método sin static">
+`main` no puede llamar directo a un método que **no** es `static`: no hay ningún objeto
+al que pedirle nada, así que hay que fabricar uno primero. Descomenta la última línea y
+ejecuta para ver el error.
 
 <CodeEditor
   language="java"
@@ -151,19 +151,19 @@ uno primero.
 }
 `}
 />
+</Slide>
 
-Descomenta la última línea y ejecuta. El error que aparece —*Cannot make a static
-reference to the non-static method informal() from the type Saludo*— es de los
-que más vas a ver este semestre, y ahora sabes exactamente qué significa. En tu
-computador, con el JDK instalado, el mismo error viene redactado distinto:
-*non-static method informal() cannot be referenced from a static context*. Es el
-mismo problema; los compiladores no se ponen de acuerdo en cómo decirlo.
+El error que aparece —*Cannot make a static reference to the non-static method
+informal() from the type Saludo*— es de los que más vas a ver este semestre, y ahora
+sabes exactamente qué significa. En tu computador, con el JDK instalado, el mismo error
+viene redactado distinto: *non-static method informal() cannot be referenced from a
+static context*. Es el mismo problema; los compiladores no se ponen de acuerdo en cómo
+decirlo.
 
 Sobre `String[] args`: es el equivalente de `int argc, char** argv`, con dos
-diferencias. El arreglo **sabe su propio largo**, así que no hace falta pasarlo
-aparte. Y `args[0]` es el **primer argumento**, no el nombre del programa: en
-C++, `argv[0]` es el nombre y los argumentos empiezan en `argv[1]`. En este curso
-casi nunca lo vas a usar.
+diferencias. El arreglo **sabe su propio largo**, así que no hace falta pasarlo aparte.
+Y `args[0]` es el **primer argumento**, no el nombre del programa: en C++, `argv[0]` es
+el nombre y los argumentos empiezan en `argv[1]`. En este curso casi nunca lo vas a usar.
 
 <Slide title="Compilar y ejecutar">
 En C++ el ciclo termina en un binario para tu máquina:
@@ -180,53 +180,51 @@ Hola.java  →  [javac]  →  Hola.class  →  [java]  →  ejecutando
 ```
 
 `javac Hola.java` produce `Hola.class`. Ese archivo **no es un ejecutable de tu
-sistema**: es bytecode, un lenguaje máquina inventado para una máquina que no
-existe. `java Hola` arranca la máquina virtual, que lo lee y lo ejecuta.
+sistema**: es bytecode, un lenguaje máquina inventado para una máquina que no existe.
+`java Hola` arranca la máquina virtual, que lo lee y lo ejecuta.
 </Slide>
 
-Ahí está la promesa de 1991: el mismo `Hola.class` corre en Linux, en Windows y en
-un teléfono Android, porque los tres tienen una máquina virtual de Java. En C++,
-cambiar de sistema o de arquitectura significa recompilar.
+Ahí está la promesa de 1991: el mismo `Hola.class` corre en Linux, en Windows y en un
+teléfono Android, porque los tres tienen una máquina virtual de Java. En C++, cambiar de
+sistema o de arquitectura significa recompilar. El precio es que hay un intérprete en el
+medio, y por eso Java arranca más lento que C++. A cambio, la máquina virtual observa tu
+programa mientras corre y recompila a lenguaje máquina las partes que más se usan.
 
-El precio es que hay un intérprete en el medio, y por eso Java arranca más lento
-que C++. A cambio, la máquina virtual observa tu programa mientras corre y
-recompila a lenguaje máquina las partes que más se usan.
+> **Y en esta página, ¿qué pasa?** Exactamente esos dos pasos. El botón *Ejecutar* corre
+> un compilador de Java sobre lo que escribiste y después ejecuta el `.class` que salió.
+> No es exactamente `javac`: es ECJ, el compilador de Eclipse, y por eso algunos mensajes
+> de error están redactados distinto de los que verás en tu computador. Lo distinto es
+> dónde: la máquina virtual está compilada a WebAssembly y vive en tu navegador. Por eso
+> la primera ejecución tarda tanto — está descargando un Java completo.
 
-> **Y en esta página, ¿qué pasa?** Exactamente esos dos pasos. El botón *Ejecutar*
-> corre un compilador de Java sobre lo que escribiste y después ejecuta el
-> `.class` que salió. No es exactamente `javac`: es ECJ, el compilador de
-> Eclipse, y por eso algunos mensajes de error están redactados distinto de los
-> que verás en tu computador. Lo distinto es dónde: la máquina virtual está compilada a WebAssembly y vive en tu
-> navegador. Por eso la primera ejecución tarda tanto — está descargando un Java
-> completo.
-
+<Slide title="El archivo se llama como la clase">
 Una regla que el navegador te perdona y tu computador no: si una clase es `public`, el
 archivo **tiene que llamarse igual que ella**. `public class Tarea` va en `Tarea.java`, o
-`javac` se niega antes de compilar. En esta página los ejemplos usan clases que **no** son
-`public` —por eso `HelloWorld` corre en un archivo con cualquier nombre—, pero en cuanto le
-pongas `public` a una, el nombre del archivo deja de ser libre. Es el error más común de la
-primera semana, y es también por qué el documento de código ejecutable usa `public class
-Main` dentro de `Main.java`.
+`javac` se niega antes de compilar.
+
+En esta página los ejemplos usan clases que **no** son `public` —por eso `HelloWorld`
+corre en un archivo con cualquier nombre—, pero en cuanto le pongas `public` a una, el
+nombre del archivo deja de ser libre. Es el error más común de la primera semana, y es
+también por qué el documento de código ejecutable usa `public class Main` dentro de
+`Main.java`.
+</Slide>
 
 <Slide title="import y paquetes">
 Las clases de Java se organizan en **paquetes**, y el nombre completo de una clase
-incluye el suyo: `java.util.Scanner` es la clase `Scanner` del paquete
-`java.util`.
+incluye el suyo: `java.util.Scanner` es la clase `Scanner` del paquete `java.util`.
 
 ```java
 import java.util.Scanner;
 ```
 
 `import` se parece a `#include`, pero hace algo muy distinto. `#include` **pega el
-contenido** del archivo en el tuyo antes de compilar; por eso existen las guardas
-de inclusión y por eso incluir de más hace lento el compilador.
-
-`import` no copia nada. Solo dice: *cuando escriba `Scanner`, me refiero a
-`java.util.Scanner`*. Es una abreviatura.
+contenido** del archivo en el tuyo antes de compilar; `import` no copia nada, solo dice:
+*cuando escriba `Scanner`, me refiero a `java.util.Scanner`*. Es una abreviatura.
 </Slide>
 
-La prueba de que es solo una abreviatura: puedes escribir el nombre completo y
-saltarte el `import`. Nadie programa así, pero compila igual.
+<Slide title="La prueba del nombre completo">
+Que es solo una abreviatura se comprueba: puedes escribir el nombre completo y saltarte
+el `import`. Nadie programa así, pero compila igual.
 
 <CodeEditor
   language="java"
@@ -243,6 +241,7 @@ saltarte el `import`. Nadie programa así, pero compila igual.
   defaultStdin={`42
 `}
 />
+</Slide>
 
 Un paquete se importa solo: **`java.lang`**. Por eso `System`, `String`, `Math` e
 `Integer` funcionan sin que hayas escrito nada arriba. Todo lo demás —`Scanner`,
@@ -251,8 +250,8 @@ Un paquete se importa solo: **`java.lang`**. Por eso `System`, `String`, `Math` 
 ## Lo que sigue
 
 Ya puedes leer, escribir, compilar y ejecutar un programa Java, y sabes por qué está
-cada palabra de `public static void main(String[] args)`. Lo que todavía no viste es
-con qué trabaja ese programa: los tipos primitivos y sus diferencias con C++, los
-operadores, cómo leer datos con `Scanner` y el control de flujo.
+cada palabra de `public static void main(String[] args)`. Lo que todavía no viste es con
+qué trabaja ese programa: los tipos primitivos y sus diferencias con C++, los operadores,
+cómo leer datos con `Scanner` y el control de flujo.
 
 Es el próximo documento: [[java-tipos-y-flujo]].

@@ -408,7 +408,13 @@ describe('advancing the deck by touch', () => {
     // on the slide wrapper — a box that in a browser has `overflow-x: visible`
     // and cannot scroll. It pinned the wrong contract and never walked a single
     // ancestor (#103 review).
-    await renderAt('/d/java-desde-cpp/present?slide=5');
+    //
+    // Slide 10 of `java-desde-cpp` is "Compilar y ejecutar", whose two ASCII
+    // pipeline diagrams are the document's only language-less fences and so its
+    // only real <pre>s. #107 re-cut the deck and moved this slide from index 5
+    // to 10; repoint here if a later re-cut moves it again (the assertion below
+    // fails loudly if this index stops carrying a <pre>).
+    await renderAt('/d/java-desde-cpp/present?slide=10');
     const counter = await findCounter();
     const before = counter.textContent;
 
