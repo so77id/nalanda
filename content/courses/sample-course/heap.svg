@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 250" width="400" height="250">
+  <!-- The same heap drawn twice: as a tree, and as the array it really is. The
+       correspondence is carried by the index printed beside each node and above
+       each cell — an earlier version drew a dotted line from every node to its
+       cell instead, and because the tree's horizontal order is not the array's,
+       the six lines crossed into a tangle that hid the very point they were
+       drawn to make.
+       Colours are fixed rather than inherited (an <img> never sees the page's
+       currentColor) and clear 3:1 on both grounds; the reading rests on the
+       numbers, never on colour. -->
+  <g stroke="#3b82f6" stroke-width="2" fill="none">
+    <path d="M200 40 L128 96 M200 40 L272 96 M128 96 L88 152 M128 96 L168 152 M272 96 L232 152" />
+  </g>
+  <g fill="#3b82f6">
+    <circle cx="200" cy="40" r="18" />
+    <circle cx="128" cy="96" r="18" />
+    <circle cx="272" cy="96" r="18" />
+    <circle cx="88" cy="152" r="18" />
+    <circle cx="168" cy="152" r="18" />
+    <circle cx="232" cy="152" r="18" />
+  </g>
+  <g fill="#ffffff" font-family="system-ui, sans-serif" font-size="15" text-anchor="middle">
+    <text x="200" y="45">3</text>
+    <text x="128" y="101">7</text>
+    <text x="272" y="101">9</text>
+    <text x="88" y="157">12</text>
+    <text x="168" y="157">15</text>
+    <text x="232" y="157">11</text>
+  </g>
+  <g fill="#6b7280" font-family="system-ui, sans-serif" font-size="11" text-anchor="middle">
+    <text x="224" y="28">[0]</text>
+    <text x="152" y="84">[1]</text>
+    <text x="296" y="84">[2]</text>
+    <text x="64" y="140">[3]</text>
+    <text x="192" y="140">[4]</text>
+    <text x="256" y="140">[5]</text>
+  </g>
+
+  <g stroke="#ef4444" stroke-width="2" fill="none">
+    <rect x="58" y="196" width="48" height="34" />
+    <rect x="106" y="196" width="48" height="34" />
+    <rect x="154" y="196" width="48" height="34" />
+    <rect x="202" y="196" width="48" height="34" />
+    <rect x="250" y="196" width="48" height="34" />
+    <rect x="298" y="196" width="48" height="34" />
+  </g>
+  <g fill="#ef4444" font-family="system-ui, sans-serif" font-size="15" text-anchor="middle">
+    <text x="82" y="219">3</text>
+    <text x="130" y="219">7</text>
+    <text x="178" y="219">9</text>
+    <text x="226" y="219">12</text>
+    <text x="274" y="219">15</text>
+    <text x="322" y="219">11</text>
+  </g>
+  <g fill="#6b7280" font-family="system-ui, sans-serif" font-size="11" text-anchor="middle">
+    <text x="82" y="190">[0]</text>
+    <text x="130" y="190">[1]</text>
+    <text x="178" y="190">[2]</text>
+    <text x="226" y="190">[3]</text>
+    <text x="274" y="190">[4]</text>
+    <text x="322" y="190">[5]</text>
+  </g>
+</svg>

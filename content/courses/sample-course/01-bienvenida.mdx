@@ -43,15 +43,20 @@ Cinco preguntas que el agente no responde solo:
 
 <Slide title="¿Cómo sabemos que funciona?">
 
-{/* TODO(#119): la curva de costo, lineal contra logarítmica, junto a estos números */}
+<Split ratio="60/40">
 
-Buscar un dato entre **cien millones** de elementos, uno por uno: unos
-**50.000.000** de comparaciones en promedio.
+- Buscar entre **cien millones** de elementos, uno por uno: unos
+  **50.000.000** de comparaciones.
+- Un servidor cien veces más rápido: **siguen siendo 50.000.000**. Solo las
+  hace más rápido.
+- Ordenados, la búsqueda binaria necesita **27**.
 
-Un servidor cien veces más rápido: **siguen siendo 50.000.000** de
-comparaciones. Solo las hace más rápido.
+<Figure
+  src="./costo-busqueda.svg"
+  alt="Dos curvas de costo sobre los mismos ejes: la búsqueda lineal sube en línea recta con el tamaño del arreglo, mientras la binaria se aplana casi de inmediato."
+/>
 
-Sobre los mismos datos, ordenados, la búsqueda binaria necesita **27**.
+</Split>
 
 Hay un factor que ningún hardware compra. Medirlo, sin ejecutar nada, se llama
 **análisis de complejidad**, y es la primera unidad del curso.
@@ -107,16 +112,21 @@ búsqueda binaria es [[busqueda-binaria|otro documento]].
 
 <Slide title="¿A quién le importa que sea rápido?">
 
-{/* TODO(#119): la misma curva, con el eje Y en dólares al mes — la forma es idéntica */}
-
 A la industria, y lo mide en dinero.
 
-Una máquina mediana en la nube — 4 vCPU — cuesta unos **0,20 dólares por hora**
-en AWS: alrededor de **150 dólares al mes**, precio público de lista.
+<Split ratio="60/40">
 
-Una consulta que hace cien veces más trabajo del necesario necesita cien
-máquinas para atender el mismo tráfico. La misma factura pasa de 150 a
-**15.000 dólares al mes**, por una decisión de diseño.
+- Una máquina mediana en la nube — 4 vCPU — cuesta unos **0,20 dólares por
+  hora** en AWS: alrededor de **150 al mes**.
+- Cien veces más trabajo del necesario son cien máquinas para el mismo
+  tráfico: **15.000 al mes**, por una decisión de diseño.
+
+<Figure
+  src="./costo-en-dolares.svg"
+  alt="La misma curva de la lámina anterior, con el eje vertical medido en dólares al mes en vez de comparaciones: la forma no cambia."
+/>
+
+</Split>
 
 Precios de lista en https://aws.amazon.com/ec2/pricing/on-demand/
 
@@ -124,13 +134,21 @@ Precios de lista en https://aws.amazon.com/ec2/pricing/on-demand/
 
 <Slide title="¿Y si le pedimos directamente la mejor solución?">
 
-{/* TODO(#119): el mapa del viajante, unas quince ciudades y un recorrido trazado */}
+A veces no existe.
 
-A veces no existe. El **problema del viajante** — visitar un conjunto de
-ciudades y volver, recorriendo lo menos posible — no tiene ninguna solución
-exacta conocida que sea rápida.
+<Split ratio="60/40">
 
-Probar todas las posibilidades cuesta del orden de $$2^n$$.
+- El **problema del viajante** — visitar un conjunto de ciudades y volver,
+  recorriendo lo menos posible — no tiene ninguna solución exacta conocida que
+  sea rápida.
+- Probar todas las posibilidades cuesta del orden de $$2^n$$.
+
+<Figure
+  src="./viajante.svg"
+  alt="Catorce ciudades unidas por un recorrido cerrado, con un tramo alternativo dibujado en línea punteada."
+/>
+
+</Split>
 
 </Slide>
 
@@ -149,9 +167,12 @@ De días a milenios. Reconocer uno de estos ahorra semanas de pedirle a alguien
 
 <Slide title="¿Qué hay que saber, exactamente?">
 
-{/* TODO(#119): la caja negra abierta, mostrando lo que hay adentro */}
-
 Más de lo que parece, y ya lo estuvimos usando sin verlo.
+
+<Figure
+  src="./caja-negra.svg"
+  alt="La llamada a std::map abriéndose en las dos estructuras que puede ser por dentro: un árbol balanceado o una tabla de hash."
+/>
 
 En C++ elegimos entre `std::map` y `std::unordered_map` sin que nadie nos dijera
 que estábamos eligiendo entre **un árbol balanceado y una tabla de hash**, con
@@ -179,21 +200,26 @@ Nadie elige eso por casualidad. Java, viniendo de C++, es
 
 <Slide title="Y el vocabulario">
 
-{/* TODO(#119): el heap dibujado como árbol y como arreglo, lado a lado */}
+<Split ratio="40/60">
 
-"Esto es un heap." "Esto es un orden topológico."
+- "Esto es un heap." "Esto es un orden topológico."
+- Dos palabras que transfieren un diseño que alguien resolvió hace cuarenta
+  años, completo, con sus costos ya medidos.
+- Sin ese vocabulario no es que no podamos resolver el problema: lo
+  reinventamos, y peor.
 
-Dos palabras que transfieren un diseño que alguien resolvió hace cuarenta años,
-completo, con sus costos ya medidos.
+<Figure
+  src="./heap.svg"
+  alt="Un heap dibujado dos veces: como árbol, y como el arreglo que en realidad es, con líneas punteadas uniendo cada nodo con su casilla."
+/>
 
-Sin ese vocabulario no es que no podamos resolver el problema: lo reinventamos,
-y peor.
+</Split>
 
 </Slide>
 
 <Slide title="¿De qué nos sirve?">
 
-{/* TODO(#119): mosaico cuadrado de logos de empresas, reemplaza esta lista */}
+{/* TODO(#119): <Mosaic columns={3}> con los nueve logos, reemplaza esta lista. Marcas de terceros: los archivos los aporta el profesor. */}
 
 Las preguntas técnicas de las empresas grandes **son** este contenido. No algo
 parecido: esto.
@@ -204,7 +230,7 @@ Google · Amazon · Meta · Microsoft · Apple · Netflix · Nvidia · Uber · S
 
 <Slide title="Y para entrenar en serio">
 
-{/* TODO(#119): mosaico cuadrado de logos de competitiva, reemplaza esta lista */}
+{/* TODO(#119): <Mosaic columns={3}> con los cinco logos, reemplaza esta lista. Marcas de terceros: los archivos los aporta el profesor. */}
 
 La programación competitiva es el gimnasio: problemas que no se resuelven
 programando más rápido, sino eligiendo mejor.
@@ -227,7 +253,7 @@ lo que vamos a aprender aquí.
 
 <Slide title="¿Y por qué Java, entonces?">
 
-{/* TODO(#119): mosaico cuadrado de logos de lenguajes, reemplaza esta lista */}
+{/* TODO(#119): <Mosaic columns={3}> con los nueve logos, reemplaza esta lista. Marcas de terceros: los archivos los aporta el profesor. */}
 
 Porque no importa.
 

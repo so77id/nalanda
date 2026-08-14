@@ -1,0 +1,80 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="400" height="200">
+  <!-- The library call on the left, the two things it can actually be on the
+       right. An earlier version set both captions on the same baseline and they
+       collided — the second one ran past the viewBox and was clipped mid-word.
+       They now sit under their own drawing, with the width each needs.
+       Colours are fixed rather than inherited (an <img> never sees the page's
+       currentColor) and clear 3:1 on both grounds; the two structures are also
+       told apart by shape, never by colour alone. -->
+  <rect
+    x="8"
+    y="62"
+    width="108"
+    height="46"
+    rx="6"
+    stroke="#6b7280"
+    stroke-width="2"
+    fill="none"
+  />
+  <text
+    x="62"
+    y="91"
+    text-anchor="middle"
+    fill="#6b7280"
+    font-family="ui-monospace, monospace"
+    font-size="13"
+  >std::map
+  </text>
+  <path d="M124 85 L162 85" stroke="#6b7280" stroke-width="2" fill="none" />
+  <path d="M154 79 L162 85 L154 91 Z" fill="#6b7280" />
+
+  <g stroke="#3b82f6" stroke-width="2" fill="none">
+    <path d="M232 40 L200 74 M232 40 L264 74 M200 74 L182 108 M200 74 L218 108" />
+  </g>
+  <g fill="#3b82f6">
+    <circle cx="232" cy="40" r="7" />
+    <circle cx="200" cy="74" r="7" />
+    <circle cx="264" cy="74" r="7" />
+    <circle cx="182" cy="108" r="7" />
+    <circle cx="218" cy="108" r="7" />
+  </g>
+  <text
+    x="212"
+    y="140"
+    text-anchor="middle"
+    fill="#3b82f6"
+    font-family="system-ui, sans-serif"
+    font-size="12"
+  >un árbol balanceado
+  </text>
+
+  <g stroke="#ef4444" stroke-width="2" fill="none">
+    <rect x="322" y="40" width="52" height="18" />
+    <rect x="322" y="58" width="52" height="18" />
+    <rect x="322" y="76" width="52" height="18" />
+    <rect x="322" y="94" width="52" height="18" />
+  </g>
+  <!-- Anchored to the right edge rather than centred under the table: centring
+       put the end of this caption 3px past the viewBox and the browser clipped
+       the last letter. An end anchor cannot overflow on that side whatever the
+       text measures. -->
+  <text
+    x="396"
+    y="140"
+    text-anchor="end"
+    fill="#ef4444"
+    font-family="system-ui, sans-serif"
+    font-size="12"
+  >o una tabla de hash
+  </text>
+
+  <text
+    x="200"
+    y="182"
+    text-anchor="middle"
+    fill="#6b7280"
+    font-family="system-ui, sans-serif"
+    font-size="12"
+  >la misma llamada, dos diseños distintos
+  </text>
+</svg>
