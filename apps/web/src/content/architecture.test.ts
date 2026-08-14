@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -78,5 +78,59 @@ describe('architecture: content invariants', () => {
         `${key} does not declare "presentation". It still ships a deck (the default is 'auto') — one nobody chose. Declare auto, explicit or none.`,
       ).toBe(true);
     });
+  });
+
+  // Issue #119. Where the gate on a missing image goes, and why here.
+  //
+  // Rendering one is deliberately forgiving: an unresolved asset shows a broken
+  // box and warns, exactly as an unresolved wiki-link does (ADR-0002), because
+  // writing twenty-two slides before drawing nine diagrams is a real order of
+  // work. Failing the BUILD would also take the dev server down — the integrity
+  // plugin runs at `buildStart` — so an author could not preview the very
+  // document they are drafting.
+  //
+  // But merging to main publishes the site, and a hole where a diagram belongs
+  // gets projected in front of a class. So the gate sits in the suite: it does
+  // not block writing, and it does block publishing (pre-PR protocol + CI).
+  //
+  // Deliberately a second opinion rather than a re-run of `remarkContentImages`:
+  // this reads the source and touches the filesystem, so a bug in the plugin's
+  // path arithmetic cannot make both agree that a missing file is fine.
+  describe('every image a document references is a file that exists', () => {
+    const MARKDOWN_IMAGE = /!\[[^\]]*\]\(([^)\s]+)\)/g;
+    const JSX_SRC = /\bsrc=(?:"([^"]+)"|'([^']+)')/g;
+    // Anything with a scheme, protocol-relative, or already rooted is not ours.
+    const NOT_RELATIVE = /^(?:[a-z][a-z0-9+.-]*:|\/\/|\/)/i;
+
+    function referencesIn(key: string): string[] {
+      const source = readFileSync(join(APP_ROOT, key), 'utf8');
+      const found = [
+        ...[...source.matchAll(MARKDOWN_IMAGE)].map((m) => m[1]),
+        ...[...source.matchAll(JSX_SRC)].map((m) => m[1] ?? m[2]),
+      ];
+      return found.filter((url) => url !== undefined && !NOT_RELATIVE.test(url));
+    }
+
+    const withImages = documents.flatMap((key) =>
+      referencesIn(key).map((url) => ({ key, url }) as const),
+    );
+
+    it('finds image references to check', () => {
+      expect(
+        withImages.length,
+        'no document references a relative image any more — either the convention changed or this regex stopped matching it; fix this before trusting the cases below',
+      ).toBeGreaterThan(0);
+    });
+
+    it.each(withImages.map(({ key, url }) => [`${key} -> ${url}`, key, url] as const))(
+      '%s',
+      (_label, key, url) => {
+        const file = join(dirname(join(APP_ROOT, key)), url);
+        expect(
+          existsSync(file),
+          `${key} references "${url}", which is not a file. Draw it, or fix the path — it renders as a broken box and would ship that way.`,
+        ).toBe(true);
+      },
+    );
   });
 });
