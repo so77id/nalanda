@@ -209,3 +209,226 @@ public class ${TRACE_CLASS} {
     }
 }
 `;
+
+// ── Reading the trace back ───────────────────────────────────────────────────
+
+/** What a variable, a field or an array element holds. */
+export type TraceValue =
+  | { kind: 'primitive'; type: string; text: string }
+  | { kind: 'ref'; id: number }
+  | { kind: 'null' };
+
+/** A named slot: a variable in a frame, a field of an object, an array index. */
+export interface Slot {
+  name: string;
+  value: TraceValue;
+}
+
+/** A box in the heap half of the drawing. */
+export interface HeapObject {
+  id: number;
+  kind: 'object' | 'string' | 'array';
+  /** Class name; for an array, its component type. */
+  type: string;
+  /** The text a String carries. Absent for everything else. */
+  text?: string;
+  /** Fields, or elements keyed by index. */
+  fields: Slot[];
+}
+
+/** One method's local variables, as of the last photograph that named it. */
+export interface Frame {
+  name: string;
+  variables: Slot[];
+}
+
+/** Which cap the tracer hit, if it hit one. */
+export type TraceCap = 'pasos' | 'objetos';
+
+/** One photograph: every open frame and every object known at that moment. */
+export interface TraceStep {
+  /** Line of the snippet that was marked. */
+  line: number;
+  /** The frame this photograph was taken in — the one that just changed. */
+  frame: string;
+  frames: Frame[];
+  objects: HeapObject[];
+  truncated: TraceCap | null;
+}
+
+/** What a run produced: the photographs, and whatever the program printed. */
+export interface TraceReading {
+  steps: TraceStep[];
+  output: string;
+  truncated: TraceCap | null;
+}
+
+/** Splits into at most `count` parts, the last one keeping every remaining space. */
+function splitN(line: string, count: number): string[] {
+  const parts: string[] = [];
+  let rest = line;
+  while (parts.length < count - 1) {
+    const at = rest.indexOf(' ');
+    if (at < 0) break;
+    parts.push(rest.slice(0, at));
+    rest = rest.slice(at + 1);
+  }
+  parts.push(rest);
+  return parts;
+}
+
+/** Undoes the tracer's `esc`, in one scan so `\\n` stays a backslash and an n. */
+function unescape(text: string): string {
+  let out = '';
+  let index = 0;
+  while (index < text.length) {
+    if (text[index] === '\\' && index + 1 < text.length) {
+      const next = text[index + 1];
+      if (next === 'n') {
+        out += '\n';
+        index += 2;
+        continue;
+      }
+      if (next === 'r') {
+        out += '\r';
+        index += 2;
+        continue;
+      }
+      if (next === '\\') {
+        out += '\\';
+        index += 2;
+        continue;
+      }
+    }
+    out += text[index];
+    index += 1;
+  }
+  return out;
+}
+
+function valueOf(type: string, text: string): TraceValue {
+  if (type === 'null') return { kind: 'null' };
+  if (type === 'ref') return { kind: 'ref', id: Number(text) };
+  return { kind: 'primitive', type, text: unescape(text) };
+}
+
+/**
+ * Turns what the tracer printed into the states the diagram draws.
+ *
+ * Two things it does that are not obvious from the format:
+ *
+ * A step carries **every open frame**, not only the one photographed. `swap`
+ * records its own two variables and says nothing about `main`'s, so carrying the
+ * caller forward is what lets the drawing show four variables and makes the swap
+ * that does not work legible. A frame leaves only when the tracer says so.
+ *
+ * Objects accumulate the same way and are re-described in place, because an
+ * object nobody re-photographed is still on screen — while `b.x = 99` has to
+ * show up in the box the previous step already drew.
+ */
+export function readTrace(output: string): TraceReading {
+  const steps: TraceStep[] = [];
+  const printed: string[] = [];
+  const frames = new Map<string, Frame>();
+  const objects = new Map<number, HeapObject>();
+
+  let current: { line: number; frame: string; truncated: TraceCap | null } | null = null;
+  let truncated: TraceCap | null = null;
+
+  const object = (id: number): HeapObject | undefined => objects.get(id);
+
+  for (const line of output.split('\n')) {
+    // Found anywhere, not only at position 0: a program that printed without a
+    // trailing newline shares its line with the marker that followed, and
+    // matching at the start only would drop that photograph (harness.ts §readRun).
+    const at = line.indexOf(TRACE_MARK);
+    if (at < 0) {
+      printed.push(line);
+      continue;
+    }
+    if (at > 0) printed.push(line.slice(0, at));
+    const body = line.slice(at + TRACE_MARK.length);
+
+    if (body.startsWith('PASO ')) {
+      const [, rawLine, frame] = splitN(body, 3);
+      current = { line: Number(rawLine), frame: frame ?? '', truncated: null };
+      // Re-photographing a frame replaces its variables but keeps its position,
+      // so the caller stays left of the callee however often either is updated.
+      frames.set(current.frame, { name: current.frame, variables: [] });
+      continue;
+    }
+
+    if (body.startsWith('VAR ')) {
+      const [, name, type, text] = splitN(body, 4);
+      frames
+        .get(current?.frame ?? '')
+        ?.variables.push({ name: name ?? '', value: valueOf(type ?? '', text ?? '') });
+      continue;
+    }
+
+    if (body.startsWith('OBJ ')) {
+      const [, id, type] = splitN(body, 3);
+      objects.set(Number(id), { id: Number(id), kind: 'object', type: type ?? '', fields: [] });
+      continue;
+    }
+
+    if (body.startsWith('STR ')) {
+      const [, id, text] = splitN(body, 3);
+      objects.set(Number(id), {
+        id: Number(id),
+        kind: 'string',
+        type: 'String',
+        text: unescape(text ?? ''),
+        fields: [],
+      });
+      continue;
+    }
+
+    if (body.startsWith('ARR ')) {
+      const [, id, type] = splitN(body, 4);
+      objects.set(Number(id), { id: Number(id), kind: 'array', type: type ?? '', fields: [] });
+      continue;
+    }
+
+    if (body.startsWith('FLD ') || body.startsWith('ELM ')) {
+      const [, id, name, type, text] = splitN(body, 5);
+      object(Number(id))?.fields.push({
+        name: name ?? '',
+        value: valueOf(type ?? '', text ?? ''),
+      });
+      continue;
+    }
+
+    if (body.startsWith('TOPE ')) {
+      const [, which] = splitN(body, 2);
+      const cap: TraceCap = which === 'pasos' ? 'pasos' : 'objetos';
+      if (current === null) truncated = cap;
+      else current.truncated = cap;
+      continue;
+    }
+
+    if (body.startsWith('FINMARCO ')) {
+      const [, frame] = splitN(body, 2);
+      frames.delete(frame ?? '');
+      continue;
+    }
+
+    if (body === 'FINPASO' && current !== null) {
+      steps.push({
+        line: current.line,
+        frame: current.frame,
+        truncated: current.truncated,
+        // Copied, not referenced: both maps keep mutating for the next
+        // photograph, and a step has to keep showing what it showed.
+        frames: [...frames.values()].map((one) => ({
+          name: one.name,
+          variables: [...one.variables],
+        })),
+        objects: [...objects.values()].map((one) => ({ ...one, fields: [...one.fields] })),
+      });
+      current = null;
+    }
+  }
+
+  return { steps, output: printed.join('\n').trim(), truncated };
+}
