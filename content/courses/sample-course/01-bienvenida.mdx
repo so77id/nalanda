@@ -35,6 +35,114 @@ Cinco preguntas que el agente no responde por ti:
 
 </Slide>
 
+<Slide title="¿Cómo sabes que funciona?">
+
+{/* TODO(#119): la curva de costo, lineal contra logarítmica, junto a estos números */}
+
+Buscar un dato entre **cien millones** de elementos, uno por uno: unos
+**50.000.000** de comparaciones en promedio.
+
+Un servidor cien veces más rápido: **siguen siendo 50.000.000** de
+comparaciones. Solo las hace más rápido.
+
+Sobre los mismos datos, ordenados, la búsqueda binaria necesita **27**.
+
+Hay un factor que ningún hardware compra. Medirlo, sin ejecutar nada, se llama
+**análisis de complejidad**, y es la primera unidad del curso.
+
+</Slide>
+
+<Slide title="Cuéntalas tú mismo">
+
+Acá corre de verdad, en tu navegador. Un millón de elementos en vez de cien
+millones — Java se ejecuta en el hilo de esta página, así que si subes `n` a cien
+millones la pestaña se congela y hay que recargarla.
+
+El _cómo_ funciona la búsqueda binaria es [[busqueda-binaria|otro documento]];
+acá solo importa cuánto cambia.
+
+<CodeEditor
+  language="java"
+  defaultValue={`public class Main {
+    static int lineal(int[] a, int objetivo) {
+        int comparaciones = 0;
+        for (int i = 0; i < a.length; i++) {
+            comparaciones++;
+            if (a[i] == objetivo) break;
+        }
+        return comparaciones;
+    }
+
+    static int binaria(int[] a, int objetivo) {
+        int comparaciones = 0;
+        int lo = 0, hi = a.length - 1;
+        while (lo <= hi) {
+            comparaciones++;
+            int medio = lo + (hi - lo) / 2;
+            if (a[medio] == objetivo) break;
+            if (a[medio] < objetivo) lo = medio + 1;
+            else hi = medio - 1;
+        }
+        return comparaciones;
+    }
+
+    public static void main(String[] args) {
+        int n = 1_000_000;
+        int[] a = new int[n];
+        for (int i = 0; i < n; i++) a[i] = i;
+
+        int objetivo = n - 1;
+        System.out.println("Lineal:  " + lineal(a, objetivo) + " comparaciones");
+        System.out.println("Binaria: " + binaria(a, objetivo) + " comparaciones");
+    }
+
+}
+`}
+/>
+
+</Slide>
+
+<Slide title="¿A quién le importa que sea rápido?">
+
+{/* TODO(#119): la misma curva, con el eje Y en dólares al mes — la forma es idéntica */}
+
+A la industria, y lo mide en plata.
+
+Una máquina mediana en la nube — 4 vCPU — cuesta **0,2016 dólares por hora** en
+AWS: unos **147 dólares al mes**, precio público de lista.
+
+Si tu consulta hace cien veces más trabajo del necesario, necesitas cien
+máquinas para atender el mismo tráfico. La misma factura pasa de 147 a
+**14.700 dólares al mes**, por una decisión de diseño.
+
+Precios de lista en https://aws.amazon.com/ec2/pricing/on-demand/
+
+</Slide>
+
+<Slide title="¿Y si le pido directamente la mejor solución?">
+
+{/* TODO(#119): el mapa del viajante, unas quince ciudades y un recorrido trazado */}
+
+A veces no existe. El **problema del viajante** — visitar un conjunto de
+ciudades y volver, recorriendo lo menos posible — no tiene ninguna solución
+exacta conocida que sea rápida.
+
+Probar todas las posibilidades cuesta del orden de `2ⁿ`:
+
+{/* TODO(#118): las tres potencias como matemática, no como superíndices Unicode. */}
+
+| Ciudades | Posibilidades | A mil millones por segundo |
+| -------- | ------------- | -------------------------- |
+| 50       | ~1,1 × 10¹⁵   | 13 días                    |
+| 60       | ~1,2 × 10¹⁸   | 37 años                    |
+| 70       | ~1,2 × 10²¹   | 37.000 años                |
+
+Diez ciudades más y el problema pasa de días a milenios. Reconocer que estás
+frente a uno de estos te ahorra semanas de pedirle a alguien —agente o no— algo
+que nadie sabe hacer.
+
+</Slide>
+
 <Slide title="¿Me reemplaza?">
 
 No: te multiplica, si sabes diseñar. Quien no sabe diseñar construye rápido y

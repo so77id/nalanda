@@ -414,6 +414,14 @@ GFM, so a bare URL becomes a link on its own — and a bare `www.host` resolves
 to **`http://`**, a cleartext link the reader can be downgraded on. Tables,
 strikethrough (`~~`), task lists and footnotes also work now.
 
+**An MDX comment — `{/* … */}` — is written on ONE line.** Spread it over two
+and `npm run format` rewrites it to `{/_ … _/}`: prettier parses the file as
+markdown first, does not recognise a multi-line brace expression, and reads the
+asterisks as emphasis. What lands is not a comment, and the build stops on it
+with `SyntaxError: Unterminated regular expression` pointing at acorn rather
+than at your document. Single-line comments survive formatting untouched. Both
+forms hit while writing `01-bienvenida.mdx` (#120).
+
 **An email address is written bare**, never in markdown's `<…>` autolink form.
 This is MDX: `<name@host.cl>` opens a JSX tag, and the compiler stops the
 build on the `@` (`Unexpected character '@' (U+0040) in member name`). GFM
