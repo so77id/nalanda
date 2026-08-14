@@ -37,7 +37,7 @@ function changedBetween(before: TraceStep | undefined, after: TraceStep): number
  * it as gospel: ADR-0018's ~162 kB gzip is measured against a page with no
  * runtime, but a mounted diagram already pulls the CodeMirror core through the
  * java runtime module, so the editor would add only ~37 kB gzip on top
- * (ADR-0026 §9). The cost of the trade is a listing with no syntax colour.
+ * (ADR-0028 §9). The cost of the trade is a listing with no syntax colour.
  */
 export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerProps) {
   const [index, setIndex] = useState(0);
@@ -58,7 +58,7 @@ export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerPr
       tabIndex={0}
       role="group"
       aria-label="Diagrama de memoria: usa las flechas izquierda y derecha para recorrer los pasos"
-      className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-500"
+      className="focus-visible:outline focus-visible:outline-2 focus-visible:outline-focus"
       onKeyDown={(event) => {
         if (event.key === 'ArrowRight' && !last) {
           event.preventDefault();
@@ -79,18 +79,18 @@ export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerPr
         is narrow is the container and not the viewport. Full width each, and
         both are legible.
       */}
-      <div className="flex flex-col gap-px bg-zinc-700">
-        <div className="bg-zinc-900">
-          <pre className={`${OUTPUT} max-h-72 text-zinc-300`}>
+      <div className="flex flex-col gap-px bg-rule">
+        <div className="bg-surface">
+          <pre className={`${OUTPUT} max-h-72 text-ink-soft`}>
             {lines.map((line, number) => {
               const active = number + 1 === current.line;
               return (
                 <div
                   key={number}
                   data-active={active}
-                  className={`flex gap-3 px-1 ${active ? 'bg-emerald-900/40 text-zinc-100' : ''}`}
+                  className={`flex gap-3 px-1 ${active ? 'bg-keep-soft text-ink' : ''}`}
                 >
-                  <span className="w-6 shrink-0 text-right text-zinc-600 select-none">
+                  <span className="w-6 shrink-0 text-right text-ink-faint select-none">
                     {number + 1}
                   </span>
                   <span className="whitespace-pre">{line === '' ? ' ' : line}</span>
@@ -100,7 +100,7 @@ export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerPr
           </pre>
         </div>
 
-        <div className="max-h-96 overflow-auto bg-zinc-900 p-3">
+        <div className="max-h-96 overflow-auto bg-surface p-3">
           <MemoryState step={current} changed={changed} />
         </div>
       </div>
@@ -114,7 +114,7 @@ export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerPr
       */}
       {truncated === null ? null : (
         <Panel label="aviso">
-          <p className="m-0 px-3 py-2 font-mono text-xs text-amber-300">
+          <p className="m-0 px-3 py-2 font-mono text-xs text-flag">
             {truncated === 'pasos'
               ? 'Se alcanzó el máximo de fotos: el diagrama muestra sólo las primeras.'
               : truncated === 'objetos'
@@ -124,7 +124,7 @@ export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerPr
         </Panel>
       )}
 
-      <footer className="flex items-center gap-2 border-t border-zinc-700 bg-zinc-800 px-3 py-2">
+      <footer className="flex items-center gap-2 border-t border-rule bg-sunk px-3 py-2">
         {/*
           `aria-disabled` rather than `disabled`, at both ends. A disabled button
           cannot hold focus, so walking to the last step with the keyboard threw
@@ -139,7 +139,7 @@ export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerPr
           onClick={() => {
             if (!first) setIndex(index - 1);
           }}
-          className={`inline-flex items-center rounded bg-zinc-700 p-1 text-zinc-200 ${
+          className={`inline-flex items-center rounded border border-rule p-1 text-ink-soft hover:bg-surface ${
             first ? 'opacity-40' : ''
           }`}
         >
@@ -152,17 +152,17 @@ export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerPr
           onClick={() => {
             if (!last) setIndex(index + 1);
           }}
-          className={`inline-flex items-center rounded bg-zinc-700 p-1 text-zinc-200 ${
+          className={`inline-flex items-center rounded border border-rule p-1 text-ink-soft hover:bg-surface ${
             last ? 'opacity-40' : ''
           }`}
         >
           <ChevronRight size={15} />
         </button>
 
-        <span className="font-mono text-3xs text-zinc-400">
+        <span className="font-mono text-3xs text-ink-faint">
           paso {index + 1} de {steps.length}
         </span>
-        <span className="font-mono text-3xs text-zinc-500">línea {current.line}</span>
+        <span className="font-mono text-3xs text-ink-faint">línea {current.line}</span>
 
         {/*
           The counter alone would announce that something changed without saying

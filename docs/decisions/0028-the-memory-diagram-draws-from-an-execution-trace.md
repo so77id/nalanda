@@ -1,4 +1,4 @@
-# ADR-0026: The memory diagram draws from an execution trace, not from a description
+# ADR-0028: The memory diagram draws from an execution trace, not from a description
 
 **Status:** Accepted
 **Date:** 2026-08-14

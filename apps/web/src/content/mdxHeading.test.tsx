@@ -29,15 +29,30 @@ describe('mdxHeading', () => {
     expect(anchor.className).toContain('focus-visible:opacity-100');
   });
 
-  it('renders the anchor in a colour that clears the contrast floor', () => {
+  it('renders the anchor in a token whose contrast is guaranteed', () => {
     render(<H2>Una sección</H2>);
 
-    // slate-600 measured 2.66:1 against slate-950, below the 3:1 minimum — and
-    // below 4.5:1 for h3/h4, where the marker is normal-size text rather than
-    // large. slate-400 is 7.87:1, and it only ever appears once revealed.
+    // Originally this asserted `text-slate-400` and the absence of
+    // `text-slate-600`, with the ratios (7.87:1 and 2.66:1 against slate-950) in
+    // a comment. That pinned a specific hex to protect a property, so it went red
+    // on #109's migration even though the property still held.
+    //
+    // The two concerns are separated now: this case owns "the anchor takes its
+    // colour from the palette's quiet text token", and `styles/palette.test.ts`
+    // owns "ink-faint clears 4.5:1 on every surface, in both themes". Neither can
+    // pass while the anchor is unreadable, and the ratio lives with the palette
+    // that sets it rather than in a comment here that nothing re-measures.
+    //
+    // 4.5 and not 3: on h3/h4 the marker is normal-size text, not large.
+    //
+    // Split first, for the same reason as catalogRoute: `toContain` passed over
+    // `text-ink-faint/10`, which Tailwind compiles to a real color-mix at 10%
+    // opacity — an anchor nobody can see, shipped green. `palette.test.ts` cannot
+    // catch that: it reads token DECLARATIONS out of the stylesheet, and the
+    // damage here is done at the call site. Exact tokens are the only form that
+    // holds, and they make the old negative assertion redundant.
     const anchor = screen.getByRole('link');
-    expect(anchor.className).toContain('text-slate-400');
-    expect(anchor.className).not.toContain('text-slate-600');
+    expect(anchor.className.split(/\s+/)).toContain('text-ink-faint');
   });
 
   it('renders the requested heading level', () => {

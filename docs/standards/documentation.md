@@ -54,6 +54,11 @@ case: the deployed shape (#66).
 4. **Standards grow by recorded cases**: when reality presents a case no standard
    covers, the PR proposes the rule and records it in the right standard document
    (same growth rule as `repository-structure.md`).
+   **Visual-design decisions are recorded in `design-system.md`** — colour today,
+   typography and spacing as they arrive. A decision about how the product LOOKS
+   is a decision like any other: undocumented, the next author reads it off
+   whichever neighbouring file they happen to open, which is how the product
+   ended up with two neutral families nobody chose (#109).
 5. **English everywhere** in repo artifacts. Spanish for everything the *reader*
    perceives — course content, UI chrome, and accessible names — plus real-time
    conversation (root `CLAUDE.md` §Language). `/catalog` is the exception that

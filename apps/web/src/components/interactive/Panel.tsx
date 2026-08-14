@@ -9,7 +9,7 @@ import type { ReactNode } from 'react';
  */
 export function Panel({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <section className="border-t border-zinc-700">
+    <section className="border-t border-rule">
       <h4 className={PANEL_LABEL}>{label}</h4>
       {children}
     </section>
@@ -18,7 +18,7 @@ export function Panel({ label, children }: { label: string; children: ReactNode 
 
 /** The panel's own label styling, exported for anything that builds one by hand. */
 export const PANEL_LABEL =
-  'bg-zinc-800 px-3 py-1 font-mono text-3xs uppercase tracking-wide text-zinc-400';
+  'bg-sunk px-3 py-1 font-mono text-3xs uppercase tracking-wide text-ink-faint';
 
 /**
  * Body styling for panels holding machine text — program output, compiler

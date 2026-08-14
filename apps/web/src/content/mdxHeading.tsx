@@ -37,7 +37,7 @@ export function headingFor(level: 2 | 3 | 4) {
           // slate-600 was 2.66:1 against the page, under the 3:1 floor. And it
           // revealed itself only to a pointer: focusable-and-transparent meant a
           // keyboard user landed on it with nothing to see, focus outline included.
-          className="ml-2 text-slate-400 no-underline opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+          className="ml-2 text-ink-faint no-underline opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
         >
           #
         </a>

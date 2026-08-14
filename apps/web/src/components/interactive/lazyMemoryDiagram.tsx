@@ -15,7 +15,7 @@ export function LazyMemoryDiagram(props: MemoryDiagramProps) {
   return (
     <Suspense
       fallback={
-        <div className="not-prose my-6 h-56 animate-pulse rounded-lg border border-zinc-700 bg-zinc-900" />
+        <div className="not-prose my-6 h-56 animate-pulse rounded-lg border border-rule bg-surface" />
       }
     >
       <Real {...props} />

@@ -28,13 +28,13 @@ export function RotateNotice({ docId }: Props) {
       aria-labelledby="rotate-notice-title"
       aria-describedby="rotate-notice-text"
       tabIndex={-1}
-      className="fixed inset-0 h-[100dvh] z-40 flex flex-col items-center justify-center gap-4 bg-slate-950 px-8 text-center text-slate-100"
+      className="fixed inset-0 h-[100dvh] z-40 flex flex-col items-center justify-center gap-4 bg-deck-ground px-8 text-center text-ink"
     >
-      <RotateCwSquare size={48} aria-hidden="true" className="text-slate-500" />
+      <RotateCwSquare size={48} aria-hidden="true" className="text-ink-faint" />
       <h1 id="rotate-notice-title" className="text-2xl font-bold tracking-tight">
         Gira el teléfono
       </h1>
-      <p id="rotate-notice-text" className="text-slate-400">
+      <p id="rotate-notice-text" className="text-ink-faint">
         La presentación se ve en horizontal. Desliza para pasar de diapositiva.
       </p>
       {/* An absolute route, not history.back(): a reader who opened /present
@@ -42,7 +42,7 @@ export function RotateNotice({ docId }: Props) {
           rotation locked in the OS needs this to be a real way out. */}
       <Link
         to={`/d/${docId}`}
-        className="rounded border border-slate-700 px-4 py-2 text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+        className="rounded border border-rule px-4 py-2 text-ink-soft hover:bg-sunk hover:text-ink"
       >
         Leer en el libro
       </Link>

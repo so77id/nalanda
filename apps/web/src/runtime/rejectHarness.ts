@@ -9,9 +9,9 @@ import type { RunRequest } from './contract';
  * program that was never traced. Either way the answer is to throw rather than
  * ignore the field.
  *
- * **Both units, not just the harness.** `library` (ADR-0026) arrived on the same
+ * **Both units, not just the harness.** `library` (ADR-0028) arrived on the same
  * shared `RunRequest` without arriving here, so C++ and Python would have taken
- * a tracer and run the snippet bare — while ADR-0026 already promised they
+ * a tracer and run the snippet bare — while ADR-0028 already promised they
  * refuse. The guard covers the shape, not one field name, so the next unit is
  * caught by construction.
  *

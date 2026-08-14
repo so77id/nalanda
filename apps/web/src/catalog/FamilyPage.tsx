@@ -20,16 +20,16 @@ export function FamilyPage({ notFound }: Props) {
   return (
     <CatalogLayout back={{ to: '/catalog', label: 'Catalog' }}>
       <h1 className="mt-4 text-4xl font-bold tracking-tight">{family.name}</h1>
-      <p className="mt-3 text-slate-300">{family.definition}</p>
-      <p className="mt-1 text-sm text-slate-500">{family.whatBelongs}</p>
-      <p className="mt-1 text-sm text-slate-500">
+      <p className="mt-3 text-ink-soft">{family.definition}</p>
+      <p className="mt-1 text-sm text-ink-faint">{family.whatBelongs}</p>
+      <p className="mt-1 text-sm text-ink-faint">
         {/* An empty family has no folder yet — the first component added to it
             creates one. Claiming otherwise pointed readers at a missing path. */}
         Components {entries.length === 0 ? 'will live' : 'live'} in{' '}
         <code>src/components/{family.id}/</code>.
       </p>
       {entries.length === 0 ? (
-        <p className="mt-10 text-slate-500">
+        <p className="mt-10 text-ink-faint">
           Nothing lives here yet, and that is the plan: {EMPTY_FAMILY_REASON} (ADR-0010). An empty
           family is a family nobody has needed, not one waiting to be filled.
         </p>
@@ -37,13 +37,10 @@ export function FamilyPage({ notFound }: Props) {
         <ul className="mt-10 space-y-4">
           {entries.map((entry) => (
             <li key={entry.name}>
-              <Link
-                to={`/catalog/c/${entry.name}`}
-                className="text-xl text-sky-300 hover:underline"
-              >
+              <Link to={`/catalog/c/${entry.name}`} className="text-xl text-accent hover:underline">
                 {entry.name}
               </Link>
-              <p className="text-slate-400">{entry.description}</p>
+              <p className="text-ink-faint">{entry.description}</p>
             </li>
           ))}
         </ul>

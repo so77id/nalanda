@@ -35,11 +35,10 @@ export interface MemoryDiagramProps {
  * be worse than one that says so.
  *
  * The CDN toolchain is not fetched until the reader asks — `loadCheerpJ` runs on
- * the first `run`, never on mount. What mounting DOES pull is the java runtime
- * module, and with it ~16 kB gzip of CodeMirror grammar this component never
- * uses because it draws its own listing. Measured, and left for a follow-up
- * rather than fixed here: splitting the grammar out touches the editor path this
- * WP does not own.
+ * the first `run`, never on mount. Mounting is not free though: it pulls the java
+ * runtime module and, through its `@codemirror/lang-java` import, the CodeMirror
+ * core with it — ~121.7 kB gzip measured, none of which this component uses
+ * because it draws its own listing. Returning that is #122.
  */
 export function MemoryDiagram({ title, children }: MemoryDiagramProps) {
   const fences = useMemo(() => fencesByMeta(children), [children]);
@@ -98,35 +97,33 @@ export function MemoryDiagram({ title, children }: MemoryDiagramProps) {
   const diagnostics = failure ?? loadFailure ?? compileLog;
 
   return (
-    <div className="not-prose my-6 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100">
-      <header className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5">
-        <span className="rounded bg-violet-900 px-1.5 py-0.5 font-mono text-3xs tracking-wide text-violet-200 uppercase">
+    <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
+      <header className="flex items-center gap-2 bg-sunk px-3 py-1.5">
+        <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs tracking-wide text-accent uppercase">
           memoria
         </span>
-        {title === undefined ? null : (
-          <h4 className="m-0 text-sm font-medium text-zinc-100">{title}</h4>
-        )}
+        {title === undefined ? null : <h4 className="m-0 text-sm font-medium text-ink">{title}</h4>}
       </header>
 
       {prose.length === 0 ? null : (
-        <div className="prose prose-invert prose-sm max-w-none px-3 py-2">{prose}</div>
+        <div className="prose prose-sm max-w-none px-3 py-2">{prose}</div>
       )}
 
       {reading === null ? (
-        <pre className={`${OUTPUT} max-h-80 border-t border-zinc-700 text-zinc-300`}>{shown}</pre>
+        <pre className={`${OUTPUT} max-h-80 border-t border-rule text-ink-soft`}>{shown}</pre>
       ) : (
         <MemoryPlayer steps={reading.steps} source={shown} truncated={reading.truncated} />
       )}
 
       {diagnostics === '' ? null : (
         <Panel label={failure === null ? 'errores de compilación' : 'error'}>
-          <pre className={`${OUTPUT} max-h-40 bg-zinc-800 text-amber-300`}>{diagnostics}</pre>
+          <pre className={`${OUTPUT} max-h-40 bg-sunk text-flag`}>{diagnostics}</pre>
         </Panel>
       )}
 
       {reading !== null && reading.steps.length === 0 && diagnostics === '' ? (
         <Panel label="aviso">
-          <p className="m-0 px-3 py-2 font-mono text-xs text-amber-300">
+          <p className="m-0 px-3 py-2 font-mono text-xs text-flag">
             El programa corrió pero no reportó ninguna foto. ¿Las marcas
             <code> // foto</code> quedaron dentro de un bloque que no se ejecutó?
           </p>
@@ -135,25 +132,25 @@ export function MemoryDiagram({ title, children }: MemoryDiagramProps) {
 
       {reading === null || reading.output === '' ? null : (
         <Panel label="lo que imprimió el programa">
-          <pre className={`${OUTPUT} max-h-40 bg-zinc-800 text-zinc-200`}>{reading.output}</pre>
+          <pre className={`${OUTPUT} max-h-40 bg-sunk text-ink-soft`}>{reading.output}</pre>
         </Panel>
       )}
 
-      <footer className="flex items-center gap-3 border-t border-zinc-700 bg-zinc-800 px-3 py-2">
+      <footer className="flex items-center gap-3 border-t border-rule bg-sunk px-3 py-2">
         <button
           type="button"
           onClick={() => void draw()}
           disabled={running || !ready}
-          className="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded bg-keep px-3 py-1 text-xs font-medium text-on-keep disabled:opacity-50"
         >
           {running ? <Loader size={14} className="animate-spin" /> : <Play size={14} />}
           {running ? 'Dibujando…' : reading === null ? 'Ejecutar y dibujar' : 'Volver a dibujar'}
         </button>
 
         {running && !warm ? (
-          <span className="font-mono text-3xs text-zinc-400">preparando el runtime…</span>
+          <span className="font-mono text-3xs text-ink-faint">preparando el runtime…</span>
         ) : running && queued ? (
-          <span className="font-mono text-3xs text-zinc-400">
+          <span className="font-mono text-3xs text-ink-faint">
             esperando a que termine otro editor…
           </span>
         ) : null}

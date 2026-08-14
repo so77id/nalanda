@@ -306,3 +306,126 @@ describe('architecture: what the shell reaches eagerly', () => {
     ).toEqual([]);
   });
 });
+
+describe('architecture: colour goes through the palette', () => {
+  // #109, ADR-0026. Every colour in the product is a semantic token, so a raw
+  // Tailwind colour class in production code is a component that will be wrong
+  // in one of the two themes — and wrong invisibly, because nothing in a jsdom
+  // suite can see a colour. The light theme shipped broken past a fully green
+  // gate exactly once during this WP; this case is what stops the second time.
+  //
+  // Tests are exempt: several assert the token a component takes, and naming a
+  // colour there is the point rather than the defect.
+  const PALETTE_FAMILIES =
+    'slate|zinc|gray|neutral|stone|sky|blue|emerald|green|teal|amber|yellow|orange|red|rose|violet|purple|indigo|cyan|lime|fuchsia|pink';
+  const PROPS =
+    'bg|text|border|ring|outline|divide|decoration|placeholder|from|via|to|shadow|accent|caret|fill|stroke';
+  // Three shapes, because the codebase can express three and the first version
+  // of this guard only caught one (#109 review):
+  //   1. a numbered family      bg-slate-800
+  //   2. bare white/black       text-white, bg-black/40  ← the class index.css
+  //      names as the whole reason `on-keep` exists
+  //   3. an arbitrary value     border-[#0c1118], text-[rgb(...)]
+  // `text-[0.8em]` and friends must NOT match, so shape 3 requires a colour
+  // opener rather than any bracket.
+  const RAW_COLOUR = new RegExp(
+    String.raw`\b(?:${PROPS})-(?:(?:${PALETTE_FAMILIES})-\d{2,3}|white|black)(?:\/\d{1,3})?\b` +
+      String.raw`|\b(?:${PROPS})-\[\s*(?:#|rgba?\(|hsla?\(|oklch\(|color-mix\()`,
+    'g',
+  );
+
+  // Course documents are JSX and can carry className, so an author can break the
+  // light theme from `content/` without touching `src/` — and the walk above
+  // never reaches them (#109 review). They are published, so this is the same
+  // rule, not a stricter one.
+  const CONTENT = join(SRC, '../../../content/courses');
+
+  function mdxFiles(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory()
+        ? mdxFiles(join(dir, e.name))
+        : e.name.endsWith('.mdx')
+          ? [join(dir, e.name)]
+          : [],
+    );
+  }
+
+  function rawColours(): string[] {
+    const found: string[] = [];
+    const sources = [
+      ...walk(SRC).filter((f) => !relative(SRC, f).includes('.test.')),
+      ...mdxFiles(CONTENT),
+    ];
+    for (const file of sources) {
+      const label = relative(SRC, file).replace(/^(\.\.\/)+/, '');
+      for (const hit of new Set(readFileSync(file, 'utf8').match(RAW_COLOUR) ?? [])) {
+        found.push(`${label}: ${hit}`);
+      }
+    }
+    return found;
+  }
+
+  it('no production file names a raw Tailwind colour', () => {
+    expect(
+      rawColours(),
+      'use a semantic token (docs/standards/design-system.md). A raw colour is right in at most one theme, and no test can see which.',
+    ).toEqual([]);
+  });
+
+  it('finds files to check (guards against a vacuous scan)', () => {
+    // The regex is the whole check; if the walk ever returns nothing, the case
+    // above passes while scanning zero files. Assert the scan reaches the app.
+    expect(walk(SRC).length, 'the source walk found nothing — repoint SRC').toBeGreaterThan(20);
+    expect(
+      mdxFiles(CONTENT).length,
+      'no course documents found — repoint CONTENT, or the ban silently stopped covering them',
+    ).toBeGreaterThan(0);
+  });
+
+  it('the pattern still matches a known-bad sample', () => {
+    // The regex IS the guard, so a regex that silently stops matching is a guard
+    // that silently stops guarding — and the case above would go green over a
+    // codebase full of raw colours. Sample every shape the ban covers.
+    for (const bad of [
+      'bg-slate-800',
+      'text-emerald-400',
+      'text-white',
+      'bg-black/40',
+      'border-[#0c1118]',
+      'text-[rgb(12,17,24)]',
+    ]) {
+      expect(new RegExp(RAW_COLOUR.source).test(bad), `${bad} is no longer caught`).toBe(true);
+    }
+    // …and does not fire on the shapes that are legal.
+    for (const good of ['text-ink-faint', 'bg-keep-soft', 'text-[0.8em]', 'max-w-3xl']) {
+      expect(new RegExp(RAW_COLOUR.source).test(good), `${good} is wrongly flagged`).toBe(false);
+    }
+  });
+
+  // No CodeMirror may pin its own theme. It takes the theme as a prop rather
+  // than reading the cascade, so a literal here is a dark editor inside a light
+  // panel — and neither guard above can see it: a string prop is not a colour
+  // class, and jsdom renders no colour at all. #109 shipped exactly that in
+  // `Exercise.tsx` while `CodeEditor.tsx` was migrated, and the entire suite
+  // stayed green over it. This is the case that would have caught it.
+  it('no component hardcodes a CodeMirror theme', () => {
+    const pinned: string[] = [];
+    for (const file of walk(SRC)) {
+      const rel = relative(SRC, file);
+      if (rel.includes('.test.')) continue;
+      // Comments stripped first: this very rule is DESCRIBED in a comment in
+      // useResolvedTheme.ts, and scanning raw text flags the explanation of the
+      // defect as the defect.
+      const code = readFileSync(file, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .split('\n')
+        .filter((line) => !line.trim().startsWith('//'))
+        .join('\n');
+      if (/theme=(?:"|')(?:light|dark)(?:"|')/.test(code)) pinned.push(rel);
+    }
+    expect(
+      pinned,
+      'pass `theme={useResolvedTheme()}` instead — a pinned theme is correct in one theme and wrong in the other, and nothing else in the suite can see it',
+    ).toEqual([]);
+  });
+});

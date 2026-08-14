@@ -10,6 +10,6 @@
  */
 export function placeholderClass(embedded: boolean): string {
   return embedded
-    ? 'h-40 animate-pulse bg-zinc-900'
-    : 'not-prose my-6 h-40 animate-pulse rounded-lg border border-zinc-700 bg-zinc-900';
+    ? 'h-40 animate-pulse bg-surface'
+    : 'not-prose my-6 h-40 animate-pulse rounded-lg border border-rule bg-surface';
 }

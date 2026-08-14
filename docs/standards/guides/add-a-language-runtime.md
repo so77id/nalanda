@@ -79,7 +79,7 @@ src/runtime/python/
 
    **`library` is the mirror image: a second unit compiled beside `source` that
    never runs** — how a `<MemoryDiagram>` compiles its tracer next to the
-   author's program, which keeps `main` (ADR-0026 §6). Same two options: compile
+   author's program, which keeps `main` (ADR-0028 §6). Same two options: compile
    it beside `source` without touching the entry class, or refuse it with the
    same `rejectHarness` call, which guards both fields.
 

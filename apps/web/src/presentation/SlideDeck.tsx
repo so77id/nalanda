@@ -226,7 +226,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   if (portraitPhone) return <RotateNotice docId={docId} />;
 
   return (
-    <div className="fixed inset-0 h-[100dvh] z-40 flex flex-col bg-slate-950 text-slate-100">
+    <div className="fixed inset-0 h-[100dvh] z-40 flex flex-col bg-deck-ground text-ink">
       <div
         ref={setStageNode}
         data-testid="slide-stage"
@@ -249,20 +249,18 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
             {slide.title ? (
               <h2 className="mb-10 text-5xl font-bold tracking-tight">{slide.title}</h2>
             ) : null}
-            <div className="prose prose-invert prose-slate prose-xl max-w-none">
-              {slide.content}
-            </div>
+            <div className="prose prose-xl max-w-none">{slide.content}</div>
           </motion.div>
         </AnimatePresence>
       </div>
-      <footer className="flex items-center justify-between px-[max(1.5rem,env(safe-area-inset-left))] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pr-[max(1.5rem,env(safe-area-inset-right))] text-sm text-slate-500">
+      <footer className="flex items-center justify-between px-[max(1.5rem,env(safe-area-inset-left))] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pr-[max(1.5rem,env(safe-area-inset-right))] text-sm text-ink-faint">
         <div className="flex items-center gap-2">
           {canGoFullscreen() ? (
             <button
               type="button"
               aria-label={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
               onClick={toggleFullscreen}
-              className="rounded p-2 hover:bg-slate-800 hover:text-slate-200"
+              className="rounded p-2 hover:bg-sunk hover:text-ink-soft"
             >
               ⛶
             </button>
@@ -273,7 +271,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
             type="button"
             aria-label="Salir de la presentación"
             onClick={leave}
-            className="rounded p-2 hover:bg-slate-800 hover:text-slate-200"
+            className="rounded p-2 hover:bg-sunk hover:text-ink-soft"
           >
             <X size={16} aria-hidden="true" />
           </button>

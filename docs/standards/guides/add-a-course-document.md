@@ -135,6 +135,73 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
      a course document is near that size (the longest here is 27 lines), and if
      you ever write one that is, split it.
 
+3b. **Write mathematics (optional)**: delimited by **two** dollar signs, never one.
+
+   ```mdx
+   Sobre $$n$$ elementos hay a lo más
+
+   $$
+   \lfloor \log_2 n \rfloor + 1
+   $$
+
+   iteraciones.
+   ```
+
+   Inline and display differ by **where the delimiters sit**, the way a code
+   fence does: `$$x$$` on one line is inline, `$$` alone on its own lines opens
+   a block. One line break apart, and the two look nearly identical in a diff.
+
+   **Two dollars, not one — and this is the part that will surprise you if you
+   have written LaTeX before** (ADR-0027 §2). With single-dollar math enabled,
+   an ordinary sentence about money becomes a formula:
+
+   ```
+   Cuesta $200 al mes, el otro $350.
+   ```
+
+   would render "200 al mes, el otro" as mathematics, with a green build and no
+   warning of any kind. The alternative breaks prose written by someone who
+   never intended to write mathematics at all.
+
+   **If you paste a formula written with single dollars, it does not merely stay
+   as text.** MDX reads braces as expressions, so `$\frac{1}{2}$` renders as
+   `$\frac12$` — the braces silently gone — and `$\sum_{i=1}^{n} i$` **fails the
+   build** with `ReferenceError: i is not defined`. Retype the delimiters; the
+   `$$` form takes its content raw and is immune.
+
+   **An unclosed `$$` eats the rest of the page.** Not one red formula: the
+   prose below it, the headings, everything, swallowed into a single error span
+   — so the section list empties and, in an `auto` document, every slide below
+   the typo vanishes from the deck. The build stays green and the content gate
+   sees nothing, because it checks frontmatter and the index, not body syntax.
+   The symptom to recognise is *"the document ends here"*.
+
+   **A heading wants text in it.** `## $$\log_2 n$$` — a heading that is only a
+   formula — gets no id, no anchor and no entry in the section list, silently.
+   Write `## El costo, $$\log_2 n$$` instead. And a `<Slide title="...">` cannot
+   hold a formula at all: the title is a JSX attribute, so the `$$` ship to the
+   reader as literal characters.
+
+   Three things worth knowing, all measured rather than assumed:
+
+   - **No JavaScript is shipped.** KaTeX renders during the build, so a formula
+     costs the reader a stylesheet and the font faces its own glyphs use — about
+     42 kB for a typical formula, against ~162 kB gzip of editor for the first
+     highlighted fence on a page (ADR-0018). The 3.6 kB stylesheet is global, so
+     it is the one thing a page without mathematics also pays; it downloads **no
+     fonts at all**.
+   - **A malformed formula does not fail the build.** It renders in KaTeX's
+     error colour, like a broken wiki-link renders visibly broken. Nothing stops
+     you publishing it — look at the page.
+   - **On a slide it is fine but not free.** Measured on the binary-search cost
+     formula: scale 1.00 at 1024×768 and 0.895 on a phone in landscape. A long
+     display equation is wide, and ADR-0013 scales the whole slide down rather
+     than clipping — so a formula that does not fit shrinks the prose beside it.
+     Check any slide carrying one, in landscape.
+
+   Screen readers are covered: KaTeX emits MathML beside the visual rendering,
+   so a formula is read as mathematics rather than skipped as decoration.
+
 4. **Mark slides (optional)**: `<Slide title="...">...</Slide>` and
    `<SectionBreak />` are available WITHOUT imports. In the book view a Slide
    renders as its heading + flowing prose and a SectionBreak as a subtle
@@ -300,7 +367,7 @@ themselves rather than maintained by hand.
    module and CodeMirror grammar the component never uses (measured; returning it
    is #122), so do not put many diagrams on one page yet.
 
-   Decisions behind all this: ADR-0026. Worked examples, live:
+   Decisions behind all this: ADR-0028. Worked examples, live:
    `/catalog/c/MemoryDiagram`.
 
 5e. **External links**: write them as explicit `https://`. Markdown now parses
@@ -407,5 +474,9 @@ strikethrough (`~~`), task lists and footnotes also work now.
       banner, cases pass against a correct solution and fail against the starter.
       Nothing in the build or the suite can check this for you.
 - [ ] Anything on a slide looked at in presentation mode, not only in the book.
+- [ ] Every formula looked at on the rendered page. A malformed one publishes in
+      KaTeX's error colour and an unclosed `$$` swallows the rest of the
+      document, both past a green build. Check the page still ends where you
+      wrote its end, and check any slide carrying a formula in landscape.
 - [ ] Content language: Spanish is fine (user-facing course material).
 - [ ] Nothing here must stay private — merging publishes it at `/d/<id>`.

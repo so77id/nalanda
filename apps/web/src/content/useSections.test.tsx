@@ -25,6 +25,17 @@ function scroll() {
   });
 }
 
+// What `## Costo de $$\log_2 n$$` compiles to, trimmed to the three parts that
+// matter: the MathML tree, the LaTeX annotation inside it, and the aria-hidden
+// visual rendering.
+const KATEX_HEADING =
+  'Costo de <span class="katex">' +
+  '<span class="katex-mathml"><math xmlns="http://www.w3.org/1998/Math/MathML"><semantics>' +
+  '<mrow>log₂n</mrow><annotation encoding="application/x-tex">\\log_2 n</annotation>' +
+  '</semantics></math></span>' +
+  '<span class="katex-html" aria-hidden="true"><span class="base">log2n</span></span>' +
+  '</span>';
+
 function Harness({ children }: { children: ReactNode }) {
   const ref = useRef<HTMLDivElement>(null);
   const { sections, activeId } = useSections(ref);
@@ -194,5 +205,21 @@ describe('useSections', () => {
     scroll();
 
     expect(items().map((li) => li.dataset['active'])).toEqual(['no', 'yes']);
+  });
+
+  it('reads a heading with a formula once, not three times', () => {
+    // Verbatim KaTeX output rather than JSX — MathML has no JSX intrinsics, and
+    // the markup is the thing under test. Three renderings of one formula:
+    // MathML glyphs for assistive technology, an <annotation> carrying the
+    // LaTeX source, and aria-hidden spans that draw it. Plain textContent
+    // concatenates all three, so the rail read "Costo de log⁡2n\log_2 nlog2n"
+    // (#118 review).
+    render(
+      <Harness>
+        <h2 id="costo" dangerouslySetInnerHTML={{ __html: KATEX_HEADING }} />
+      </Harness>,
+    );
+
+    expect(items().map((li) => li.textContent)).toEqual(['costo:Costo de log₂n']);
   });
 });

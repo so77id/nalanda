@@ -54,7 +54,7 @@ export function MemoryState({ step, changed = [] }: MemoryStateProps) {
           refX="6"
           refY="3.5"
           orient="auto"
-          className="fill-emerald-400"
+          className="fill-accent"
         >
           <path d="M0,0 L7,3.5 L0,7 z" />
         </marker>
@@ -68,13 +68,13 @@ export function MemoryState({ step, changed = [] }: MemoryStateProps) {
             width={frame.width}
             height={frame.height}
             rx="6"
-            className="fill-zinc-800/60 stroke-zinc-700"
+            className="fill-sunk stroke-rule"
             strokeWidth="1"
           />
           <text
             x={frame.x + 8}
             y={frame.y + 15}
-            className="fill-zinc-400 font-mono text-[10px] tracking-wide uppercase"
+            className="fill-ink-faint font-mono text-[10px] tracking-wide uppercase"
           >
             {frame.name}
           </text>
@@ -89,13 +89,13 @@ export function MemoryState({ step, changed = [] }: MemoryStateProps) {
             width={variable.width}
             height={variable.height - 4}
             rx="3"
-            className="fill-zinc-900 stroke-zinc-600"
+            className="fill-surface stroke-rule-strong"
             strokeWidth="1"
           />
           <text
             x={variable.x + 8}
             y={variable.y + variable.height / 2 + 4}
-            className="fill-zinc-100 font-mono text-[11px]"
+            className="fill-ink font-mono text-[11px]"
           >
             {variable.name}
           </text>
@@ -103,7 +103,7 @@ export function MemoryState({ step, changed = [] }: MemoryStateProps) {
             x={variable.x + variable.width - 8}
             y={variable.y + variable.height / 2 + 4}
             textAnchor="end"
-            className={`font-mono text-[11px] ${variable.isNull ? 'fill-zinc-500 italic' : 'fill-amber-300'}`}
+            className={`font-mono text-[11px] ${variable.isNull ? 'fill-ink-faint italic' : 'fill-accent'}`}
           >
             {variable.text ?? ''}
           </text>
@@ -118,8 +118,8 @@ export function MemoryState({ step, changed = [] }: MemoryStateProps) {
             width={object.width}
             height={object.height}
             rx="5"
-            className={`fill-zinc-900 ${
-              changed.includes(object.id) ? 'stroke-amber-400' : 'stroke-zinc-600'
+            className={`fill-surface ${
+              changed.includes(object.id) ? 'stroke-accent' : 'stroke-rule-strong'
             }`}
             strokeWidth={changed.includes(object.id) ? '2' : '1'}
           />
@@ -129,12 +129,12 @@ export function MemoryState({ step, changed = [] }: MemoryStateProps) {
             width={object.width}
             height={24}
             rx="5"
-            className="fill-zinc-800"
+            className="fill-sunk"
           />
           <text
             x={object.x + 8}
             y={object.y + 16}
-            className="fill-sky-300 font-mono text-[11px] font-medium"
+            className="fill-accent font-mono text-[11px] font-medium"
           >
             {object.title}
           </text>
@@ -144,7 +144,7 @@ export function MemoryState({ step, changed = [] }: MemoryStateProps) {
               <text
                 x={object.x + 10}
                 y={object.y + 24 + index * 22 + 15}
-                className="fill-zinc-400 font-mono text-[11px]"
+                className="fill-ink-faint font-mono text-[11px]"
               >
                 {row.name}
               </text>
@@ -152,7 +152,7 @@ export function MemoryState({ step, changed = [] }: MemoryStateProps) {
                 x={object.x + object.width - 10}
                 y={object.y + 24 + index * 22 + 15}
                 textAnchor="end"
-                className={`font-mono text-[11px] ${row.isNull ? 'fill-zinc-500 italic' : 'fill-amber-300'}`}
+                className={`font-mono text-[11px] ${row.isNull ? 'fill-ink-faint italic' : 'fill-accent'}`}
               >
                 {row.text ?? ''}
               </text>
@@ -173,7 +173,7 @@ export function MemoryState({ step, changed = [] }: MemoryStateProps) {
               ? `M ${arrow.x1} ${arrow.y1} C ${arrow.x1 + 38} ${arrow.y1}, ${arrow.x2 + 38} ${arrow.y2}, ${arrow.x2 + 2} ${arrow.y2}`
               : `M ${arrow.x1} ${arrow.y1} C ${arrow.x1 + 40} ${arrow.y1}, ${arrow.x2 - 40} ${arrow.y2}, ${arrow.x2 - 2} ${arrow.y2}`
           }
-          className={arrow.fromField ? 'stroke-emerald-400/60' : 'stroke-emerald-400'}
+          className={arrow.fromField ? 'stroke-accent/60' : 'stroke-accent'}
           strokeWidth="1.5"
           fill="none"
           markerEnd={`url(#${head})`}

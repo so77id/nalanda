@@ -74,6 +74,6 @@ describe('MemoryState', () => {
   it('marks a box the step says changed', () => {
     const { container } = render(<MemoryState step={aliased} changed={[1]} />);
 
-    expect(container.querySelector('rect.stroke-amber-400')).not.toBeNull();
+    expect(container.querySelector('rect.stroke-accent')).not.toBeNull();
   });
 });

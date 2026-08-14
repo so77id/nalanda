@@ -98,7 +98,7 @@ src/
   `<NotFound />` into `DocumentPage`'s `notFound` prop.
 - **Not everything under `components/` is a catalog component.** Two shapes have
   no catalog entry and no MDX registration, and neither is an omission
-  (a third, the intrinsic-element renderer above, has no entry but *is*
+  (a third, the intrinsic-element renderer above, has no entry but _is_
   registered — in the shell's map):
   a component **shared across families** lives at the root of `components/`
   (worked case: `AuthoringError.tsx`, used by `interactive/Exercise` and
@@ -114,10 +114,14 @@ src/
   (Vite plugin) serves the shell's router. They are Node-only, never imported by
   browser code, and wired exclusively from `vite.config.ts` — a
   confirmation-gated file (see `apps/web/CLAUDE.md`): propose the wiring diff and
-  get confirmation before editing it. The remark list itself lives in
-  `content/mdxPlugins.ts` so the suite can compile MDX through the same array the
-  build uses; its order is an invariant — syntax extensions (`remark-gfm`) before
-  the plugins that walk the tree parsing produced.
+  get confirmation before editing it. The lists themselves live in
+  `content/mdxPlugins.ts` and `content/rehypePlugins.ts` so the suite can compile
+  MDX through the same arrays the build uses — **two lists because remark and
+  rehype are different trees**: remark sees markdown, rehype sees the HTML it
+  became, and a feature can need one from each (mathematics needs `remark-math`
+  to parse and `rehype-katex` to render — either without the other renders
+  nothing). The remark order is an invariant: syntax extensions (`remark-gfm`,
+  `remark-math`) before the plugins that walk the tree parsing produced.
 - **The shell titles the document, and owns anything else that is a property of
   the page rather than of a feature.** A render-nothing component in `app/` with
   an effect is the shape for it (worked case: `app/DocumentTitle.tsx`). It cannot
@@ -138,6 +142,16 @@ src/
   and CI never overrides it on the command line — a CI-only flag makes local
   builds unreproducible (ADR-0015).
 - Directories are created when their first real file arrives — never empty.
+
+  **Widened by #109**: a module that holds _browser state_ and has no single
+  owning feature does live in `lib/`, because features may not import `app/` and
+  so the shell cannot own it. Worked cases: `lib/useResolvedTheme.ts` and
+  `lib/themePreference.ts`, consumed by `components/interactive/CodeEditor` and
+  by `content/ThemeToggle` — two features, no common ancestor below `app/`.
+  The contrast is `presentation/usePortraitPhone.ts`: device shape HAS an owning
+  feature, so it stays colocated. The test is ownership, not purity: if exactly
+  one feature cares, colocate it there; if two or more do, `lib/` is the only
+  reachable home and the impurity is the price.
 
 ## Naming
 
@@ -186,6 +200,14 @@ src/
 
 - **Tailwind only**, utility classes inline in JSX. No CSS modules, no CSS-in-JS,
   no new `.css` files beyond `styles/` globals.
+- **A third-party stylesheet is imported once, in `styles/index.css`, and only
+  when the package's own CSS is the sole source of the rules.** Check before
+  importing that it is class-scoped: a vendor rule on a bare element leaks into
+  the whole product. Worked case — `katex.min.css`, whose only unscoped rule is
+  `body{counter-reset:…}`, and whose weight is recorded with the decision that
+  accepted it (ADR-0027 §3). A vendor stylesheet imported globally is paid by
+  every page, including the ones with nothing to do with the feature, so the
+  cost belongs in the PR that adds it.
 - Design tokens (colors, spacing, fonts beyond Tailwind defaults) are declared in
   `styles/index.css` via Tailwind v4 `@theme` — components never hardcode hex
   values or magic pixel sizes.
@@ -195,7 +217,7 @@ src/
   to be visible at once. **Content inside a document does the opposite**: natural
   size in a scroller, with a cap on how much is drawn. Scaling a tall drawing
   into a ~700px column made a linked list render 48px wide with 1px labels
-  (measured, ADR-0026), and a reader scrolls a document anyway. If you are
+  (measured, ADR-0028), and a reader scrolls a document anyway. If you are
   building something that draws, ask which of the two you are in before reaching
   for the helper.
 - **Content that must not reflow is laid out at its design size and scaled**,
@@ -310,7 +332,7 @@ src/
   `document.exitFullscreen()` REJECTS when nothing is fullscreen and `void`
   attaches no catch, so an unguarded call is an unhandled rejection on every
   ordinary exit. Always `if (document.fullscreenElement) void
-  document.exitFullscreen?.()`, behind one named helper that the surface's other
+document.exitFullscreen?.()`, behind one named helper that the surface's other
   exits call. Worked case: `presentation/SlideDeck.tsx`'s `leaveFullscreen()`
   (#103), where three call sites had drifted into three spellings.
 - **A toggle's accessible name says what pressing it will DO**, and derives
@@ -318,7 +340,7 @@ src/
   `aria-label="Pantalla completa"` on a button that also leaves fullscreen
   announces the opposite of the truth half the time. Worked cases:
   `CodeEditor`'s expand control (`Expandir a pantalla completa` / `Cerrar
-  pantalla completa`) and the deck's `⛶` (#106). **When the state belongs to the
+pantalla completa`) and the deck's `⛶` (#106). **When the state belongs to the
   browser rather than to the component**, read it through
   `useSyncExternalStore` so the name follows a change made by a key, by the
   browser's own chrome or by another rule — the deck's `⛶` alone, since

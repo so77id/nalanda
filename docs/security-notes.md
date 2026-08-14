@@ -17,7 +17,7 @@ names its trigger for re-evaluation — nothing is "accepted forever".
   it needs repo admin rights.
 - **Review trigger**: a second contributor gains write access, or the first
   accidental direct push. **When enabling**: require a PR; only make the `web`
-  check *required* after replacing ci.yml's path filters with in-job change
+  check _required_ after replacing ci.yml's path filters with in-job change
   detection — the note at the top of ci.yml explains why (a docs-only PR would
   otherwise wait forever on a check that never runs).
 
@@ -54,12 +54,12 @@ project published there, or an XSS in one, can write those keys.
 
 **Fixed in #85**: a read-only listing never restores a draft. Every markdown
 fence became an editor in that WP, and an unguarded read let planted bytes
-replace an authored listing *and* the payload of its copy button — demonstrated
+replace an authored listing _and_ the payload of its copy button — demonstrated
 end to end, then re-verified closed (18 editors, 108 planted keys, 0
 overwritten). The rule lives at the value: `listing = !editable && !runnable` in
 `CodeEditor.tsx`, and in `variants.ts` beside the preset that depends on it.
 
-**Residual, accepted**: an *editable* editor and `<Exercise>` still restore
+**Residual, accepted**: an _editable_ editor and `<Exercise>` still restore
 drafts from that origin. That is the feature — it is the student's own work, and
 losing it is the failure the draft exists to prevent. The blast radius is one
 student's editor content on one machine, not the course material.
@@ -79,7 +79,7 @@ close this), or the platform gaining any content path not authored in this repo.
   `https://cdn.jsdelivr.net/...` inside Web Workers.
 - **Why it is this way**: bundling the C++ toolchain put 113MB of WASM into every
   deploy (ADR-0018); CheerpJ's Community licence forbids self-hosting outright
-  (ADR-0016 F2). Only the Java *compiler* (ECJ, 2.9MB, SHA-256 pinned in
+  (ADR-0016 F2). Only the Java _compiler_ (ECJ, 2.9MB, SHA-256 pinned in
   `scripts/fetch-java-compiler.mjs`) is served from our own origin.
 - **Why SRI is not the control**: it cannot be applied to a dynamic `import()`
   at all, and pinning CheerpJ's 7.5kB loader while the ~16MB it goes on to fetch
@@ -100,6 +100,17 @@ close this), or the platform gaining any content path not authored in this repo.
   plus `'unsafe-eval'` and `'wasm-unsafe-eval'`: CheerpJ JITs with
   `new Function`, so a CSP here is origin-allowlisting, never eval-blocking.
   That is why one is not shipped yet.
+
+  **And, since #109, one inline script.** `index.html` stamps the reader's saved
+  theme before the first paint, so `script-src` needs its `'sha256-…'` hash (or a
+  nonce). It cannot be moved to an external file: an external script loads after
+  the document paints, which is the theme flash the script exists to prevent. A
+  CSP author who overlooks this does not break the site — they break it silently,
+  for the readers who chose a theme, on every load.
+  Nothing is exploitable today: GitHub Pages serves fixed headers and this repo
+  ships no CSP (grepped, zero hits). The note exists so the constraint is found
+  before it is discovered.
+
 - **Review triggers**: (a) Leaning Technologies answers on the academic licence
   (ADR-0016 §3) — self-hosting CheerpJ removes one origin entirely; (b) any bump
   of `PYODIDE_VERSION` or `BROWSERCC_VERSION`, which re-opens the trust decision
@@ -107,7 +118,6 @@ close this), or the platform gaining any content path not authored in this repo.
   class-time outage; (d) the platform gaining any non-repo-authored content path
   (a shared-snippet URL, a student-supplied document), which would change the
   blast radius from self-inflicted to cross-user.
-
 
 ### An exercise verdict is feedback, not evidence (accepted 2026-08-12, #76)
 
@@ -137,7 +147,7 @@ the in-band protocol would not be enough.
 ### The second platform class arrived (#116, 2026-08-14)
 
 The trigger above also said to revisit "if a second platform class is ever
-compiled alongside student code". `NalandaTrace` (ADR-0026) is that class. The
+compiled alongside student code". `NalandaTrace` (ADR-0028) is that class. The
 disposition:
 
 - **It is recompiled on every run**, as the request's `library` unit, so a
@@ -160,7 +170,7 @@ disposition:
   drawing by hand, which is a student lying to themselves in a component whose
   whole point is not needing to.
 
-Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0026 §6/§7.
+Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
 
 ### Everything under content/courses/ is published (recorded 2026-08-10)
 

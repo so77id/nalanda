@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 import { contentMdxComponents } from './mdxComponents';
 import { remarkPlugins } from './mdxPlugins';
+import { rehypePlugins } from './rehypePlugins';
 
 /**
  * Compiles and renders MDX through the *same* plugin list the build uses.
@@ -17,7 +18,7 @@ import { remarkPlugins } from './mdxPlugins';
  * answers "what does an author actually get".
  */
 async function renderMdx(source: string): Promise<HTMLElement> {
-  const { default: Content } = await evaluate(source, { ...runtime, remarkPlugins });
+  const { default: Content } = await evaluate(source, { ...runtime, remarkPlugins, rehypePlugins });
   // Through the real component map, and inside a router: wiki links render
   // react-router `Link`s, and a document is never rendered outside one.
   return render(
@@ -92,5 +93,83 @@ describe('the MDX pipeline', () => {
     const container = await renderMdx('Ver [[busqueda-binaria]].\n');
 
     expect(container.querySelector('a')).not.toBeNull();
+  });
+
+  it('turns inline mathematics into mathematics', async () => {
+    const container = await renderMdx('Hay a lo más $$\\log_2(n) + 1$$ iteraciones.\n');
+
+    // Without remark-math the dollars are literal text and the subscript is
+    // whatever the author could type — which is what the shipped binary-search
+    // document says today, `log₂(n) + 1` in hand-typed Unicode.
+    expect(
+      container.querySelector('.katex'),
+      'the formula stayed literal text instead of becoming mathematics',
+    ).not.toBeNull();
+    expect(container.textContent).not.toContain('$');
+    // Without this the case passes when fed DISPLAY math, because a display
+    // formula also carries `.katex` — so only half the contract ADR-0027 §2
+    // claims to pin was pinned (#118 review, found by feeding it `$$` on their
+    // own lines and watching it stay green).
+    expect(
+      container.querySelector('.katex-display'),
+      'inline math rendered as a display block',
+    ).toBeNull();
+  });
+
+  it('refuses to build a link out of a formula', async () => {
+    const container = await renderMdx('Ver $$\\href{javascript:alert(1)}{esto}$$.\n');
+
+    // `trust: false` is KaTeX's default and is passed explicitly, because it is
+    // the one option whose flip is a direct injection: with `trust: true` this
+    // exact source emits `<a href="javascript:alert(1)">`. Pinned here so the
+    // flip cannot be made quietly.
+    expect(container.querySelector('a'), 'a formula produced a live anchor').toBeNull();
+    // No attribute of any kind carries the URL. Asserted on attributes rather
+    // than on innerHTML: KaTeX always echoes the LaTeX source into an
+    // <annotation>, so the string `javascript:` IS present there as inert text
+    // and a substring check would fail for the wrong reason.
+    expect(container.querySelector('[href], [src]')).toBeNull();
+    // And what a reader gets instead is the refusal, visibly.
+    expect(container.textContent).toContain('\\href');
+  });
+
+  it('gives a display formula its own block, not a line of prose', async () => {
+    const container = await renderMdx('La nota de presentación:\n\n$$\nN_p = 0{,}25\\,S_1\n$$\n');
+
+    // The delimiters go on their OWN lines, like a code fence. `$$formula$$` on
+    // a single line is *inline* math that merely looks like a block in the
+    // source — measured, after this test was first written the wrong way round.
+    // Worth pinning precisely because the mistake produces something that
+    // renders, just not where the author meant.
+    expect(
+      container.querySelector('.katex-display'),
+      'the display formula rendered inline, in the middle of the sentence',
+    ).not.toBeNull();
+  });
+
+  it('leaves a lone dollar sign alone', async () => {
+    const container = await renderMdx('El servidor cuesta $200 al mes, el otro $350.\n');
+
+    // The reason `singleDollarTextMath: false` exists in the plugin list, and
+    // the case that put it there. With single dollars enabled this exact
+    // sentence renders "200 al mes, el otro" as a formula — measured, not
+    // feared — and the opening class has it on the cloud-cost slide. An author
+    // writing prose about prices never opted into mathematics and must not be
+    // able to trip over it.
+    expect(container.querySelector('.katex'), 'prices were parsed as mathematics').toBeNull();
+    expect(container.textContent).toContain('$200');
+    expect(container.textContent).toContain('$350');
+  });
+
+  it('gives a formula a MathML tree, not only a visual one', async () => {
+    const container = await renderMdx('Hay a lo más $$\\log_2(n) + 1$$ iteraciones.\n');
+
+    // KaTeX emits both: spans that look right, and MathML that a screen reader
+    // can read. Asserted separately because dropping the second is invisible on
+    // screen and total for anyone not looking at one — and the page is served
+    // lang="es", so this is the same class of defect documentShell.test.ts
+    // guards for accessible names.
+    expect(container.querySelector('math'), 'no MathML for assistive technology').not.toBeNull();
+    expect(container.querySelector('.katex-html'), 'no visual rendering').not.toBeNull();
   });
 });

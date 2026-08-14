@@ -72,7 +72,7 @@ deciding the verdict "is not in a file the student can edit", which the review
 falsified twice; see §7.
 
 **3b. Two class names are reserved.**
-> **Amended 2026-08-14 (#116, ADR-0026 §7):** three now — `NalandaTrace` joined
+> **Amended 2026-08-14 (#116, ADR-0028 §7):** three now — `NalandaTrace` joined
 > them when the memory diagram started compiling a tracer beside the snippet.
 > The guard also turned out to inspect only the ENTRY class; a secondary
 > declaration still shadows, which `docs/security-notes.md` dispositions and #123

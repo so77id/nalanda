@@ -34,7 +34,7 @@ describe('rejectHarness and the library unit', () => {
   it('refuses a library the runtime cannot compile', () => {
     // `library` arrived on the shared RunRequest without arriving here, so C++
     // and Python would have taken a tracer and run the snippet bare — while
-    // ADR-0026 already promised they refuse.
+    // ADR-0028 already promised they refuse.
     expect(() =>
       rejectHarness({ ...request, library: 'public class NalandaTrace {}' }, 'Python'),
     ).toThrow(/Python/);

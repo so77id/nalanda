@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { THEME_STORAGE_KEY } from '../lib/themePreference';
+
 // What the HTML document declares about itself, before React runs. None of it is
 // reachable from a component test: jsdom builds its own document, so the shipped
 // `index.html` and the global stylesheet are only ever asserted here.
@@ -17,10 +19,26 @@ describe('the document shell', () => {
     expect(html).toMatch(/<html[^>]*\blang="es"/);
   });
 
-  it('declares a dark colour scheme', () => {
-    // Without it the language <select>, the stdin <textarea> and the scrollbars
-    // render with light-mode native chrome inside a dark UI.
-    expect(css).toMatch(/color-scheme:\s*dark/);
+  it('lets the browser chrome follow the theme, and lets a choice force it', () => {
+    // Without a colour-scheme the language <select>, the stdin <textarea> and the
+    // scrollbars render in light native chrome inside a dark UI.
+    //
+    // This used to assert /color-scheme:\s*dark/ and it kept passing after #109
+    // made the scheme follow the theme — the forced `[data-theme='dark']` block
+    // matches that regex too. Green, and no longer checking what its name says.
+    // So both halves are asserted separately now.
+    expect(
+      /\bhtml\s*\{[^}]*color-scheme:\s*light dark/s.test(css),
+      'html does not defer to the reader',
+    ).toBe(true);
+    expect(
+      /\[data-theme='light'\]\s*\{[^}]*color-scheme:\s*light/s.test(css),
+      'an explicit light choice does not force the native chrome, so a reader who picked light gets a dark scrollbar',
+    ).toBe(true);
+    expect(
+      /\[data-theme='dark'\]\s*\{[^}]*color-scheme:\s*dark/s.test(css),
+      'an explicit dark choice does not force the native chrome',
+    ).toBe(true);
   });
 
   it('paints the surface on the document itself, not only on a div', () => {
@@ -29,16 +47,63 @@ describe('the document shell', () => {
     expect(css).toMatch(/\bhtml\b[^{]*\{[^}]*background/s);
   });
 
-  it('tells a mobile browser what colour to paint its own chrome', () => {
-    expect(html).toMatch(/<meta[^>]*name="theme-color"[^>]*content="#020617"/);
+  it('tells a mobile browser what colour to paint its own chrome, per theme', () => {
+    // Two metas since #109, because there are two grounds. A single value paints
+    // the phone's chrome in one theme's colour whichever theme the reader is in.
+    expect(html).toMatch(
+      /<meta[^>]*name="theme-color"[^>]*media="\(prefers-color-scheme: light\)"/,
+    );
+    expect(html).toMatch(/<meta[^>]*name="theme-color"[^>]*media="\(prefers-color-scheme: dark\)"/);
   });
 
-  it('keeps the meta colour and the painted surface the same colour', () => {
+  it('keeps each meta colour and the ground token it stands for the same colour', () => {
     // Both sides carry a comment saying they are kept in step by hand, and both
-    // were asserted in isolation — so moving the CSS to slate-900 shipped green
-    // with the phone chrome no longer matching the page. #020617 IS slate-950.
-    expect(css).toMatch(/html\s*\{[^}]*var\(--color-slate-950\)/s);
-    expect(html).toContain('content="#020617"');
+    // were asserted in isolation — so moving the CSS to slate-900 once shipped
+    // green with the phone chrome no longer matching the page.
+    //
+    // Asserting a literal on each side is what allowed that, and it happened
+    // AGAIN in #109: `html` moved to var(--color-ground) while the meta still
+    // said #020617, and only this case noticed. So neither side is a literal any
+    // more — the metas are compared against the token values read out of the
+    // stylesheet, which is the only version of this check that cannot drift.
+    const themeColour = (scheme: string) =>
+      new RegExp(
+        `<meta[^>]*name="theme-color"[^>]*media="\\(prefers-color-scheme: ${scheme}\\)"[^>]*content="(#[0-9a-fA-F]{6})"|` +
+          `<meta[^>]*name="theme-color"[^>]*content="(#[0-9a-fA-F]{6})"[^>]*media="\\(prefers-color-scheme: ${scheme}\\)"`,
+      )
+        .exec(html)
+        ?.slice(1)
+        .find(Boolean)
+        ?.toLowerCase();
+
+    // The light ground is the bare :root block; the dark one is the explicit
+    // [data-theme='dark'] block, which carries the same values as the media query.
+    const groundIn = (selector: string) =>
+      new RegExp(`${selector}\\s*\\{[^}]*--nl-ground:\\s*(#[0-9a-fA-F]{6})`, 's')
+        .exec(css)?.[1]
+        ?.toLowerCase();
+
+    expect(css).toMatch(/html\s*\{[^}]*var\(--color-ground\)/s);
+    expect(themeColour('light'), 'no light theme-color meta').toBe(groundIn(':root'));
+    expect(themeColour('dark'), 'no dark theme-color meta').toBe(
+      groundIn(":root\\[data-theme='dark'\\]"),
+    );
+  });
+
+  it('ships the pre-paint script, spelling the key the module owns', () => {
+    // The key is spelled twice on purpose — the script must run before any module
+    // does, so it cannot import the module that owns it. Twelve lines above, the
+    // theme-color metas got a cross-check for exactly this shape, because
+    // "asserting each side alone is exactly how they drifted". This is that
+    // cross-check for the key: deleting the script, or drifting either spelling,
+    // costs a reader their saved theme on every load.
+    expect(html, 'no pre-paint theme script in index.html').toMatch(
+      /<script>[\s\S]*dataset\.theme[\s\S]*<\/script>/,
+    );
+    expect(
+      html,
+      'the inline script names a different storage key than themePreference.ts',
+    ).toContain(`getItem('${THEME_STORAGE_KEY}')`);
   });
 
   it('gives focus an outline of its own, thick enough to see', () => {
@@ -47,8 +112,8 @@ describe('the document shell', () => {
     const rule = /:focus-visible\s*\{[^}]*\}/s.exec(css)?.[0] ?? '';
     expect(rule, 'no :focus-visible rule at all').not.toBe('');
     expect(rule).toMatch(/outline:\s*(?:[2-9]|\d{2,})px/);
-    // Offset so the outline lands on the surface AROUND a control: sky-400 is
-    // 6.95:1 on a panel and 1.76:1 on the emerald run button.
+    // Offset so the outline lands on the surface AROUND a control: the focus
+    // token is ~5:1 on page surfaces and 1.10:1 on the filled run button (#109).
     expect(rule).toMatch(/outline-offset:\s*[1-9]/);
   });
 
