@@ -71,7 +71,14 @@ It is **not** a tamper control. An earlier draft of this ADR said the code
 deciding the verdict "is not in a file the student can edit", which the review
 falsified twice; see §7.
 
-**3b. Two class names are reserved.** Both units compile into one output
+**3b. Two class names are reserved.**
+> **Amended 2026-08-14 (#116, ADR-0028 §7):** three now — `NalandaTrace` joined
+> them when the memory diagram started compiling a tracer beside the snippet.
+> The guard also turned out to inspect only the ENTRY class; a secondary
+> declaration still shadows, which `docs/security-notes.md` dispositions and #123
+> tracks.
+
+Both units compile into one output
 directory, so a student class named `NalandaLauncher` or `NalandaCheck`
 overwrites a platform one. Demonstrated 2026-08-12 in Chromium, before the guard
 existed: a unit

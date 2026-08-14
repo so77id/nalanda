@@ -1,6 +1,7 @@
 import {
   LazyCodeEditor,
   LazyExercise,
+  LazyMemoryDiagram,
   MdxPre,
   SectionBreak,
   SideBySide,
@@ -27,4 +28,5 @@ export const mdxComponents = {
   // registering the real component would put CodeMirror in the entry chunk.
   CodeEditor: LazyCodeEditor,
   Exercise: LazyExercise,
+  MemoryDiagram: LazyMemoryDiagram,
 };

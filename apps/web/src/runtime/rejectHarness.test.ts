@@ -27,3 +27,25 @@ describe('rejectHarness', () => {
     expect(() => rejectHarness({ ...request, harness: '' }, 'Python')).toThrow();
   });
 });
+
+describe('rejectHarness and the library unit', () => {
+  const request = { id: 1, source: 'public class Demo {}', stdin: '' };
+
+  it('refuses a library the runtime cannot compile', () => {
+    // `library` arrived on the shared RunRequest without arriving here, so C++
+    // and Python would have taken a tracer and run the snippet bare — while
+    // ADR-0028 already promised they refuse.
+    expect(() =>
+      rejectHarness({ ...request, library: 'public class NalandaTrace {}' }, 'Python'),
+    ).toThrow(/Python/);
+    expect(() => rejectHarness({ ...request, library: 'x' }, 'C++')).toThrow(/C\+\+/);
+  });
+
+  it('names the feature the reader was denied, not the field', () => {
+    expect(() => rejectHarness({ ...request, library: 'x' }, 'Python')).toThrow(/diagram/i);
+  });
+
+  it('still accepts a request carrying neither unit', () => {
+    expect(() => rejectHarness(request, 'Python')).not.toThrow();
+  });
+});

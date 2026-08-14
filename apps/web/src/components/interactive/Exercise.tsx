@@ -1,16 +1,16 @@
 import CodeMirror from '@uiw/react-codemirror';
 import { Check, Loader, Play, RotateCcw, X } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { fencesByMeta, withoutFences } from '../../lib/codeFences';
 import { AuthoringError } from '../AuthoringError';
 import { clearDraft, draftKey, readDraft, saveDraft } from './draft';
 import { OUTPUT, Panel } from './Panel';
-import type { RuntimeModule } from '../../runtime';
 import type { RuntimeId } from '../../lib/runtimeIds';
 import { useResolvedTheme } from '../../lib/useResolvedTheme';
-import { RunAbandonedError, loadRuntime, useRuntime } from '../../runtime';
+import { RunAbandonedError } from '../../runtime';
+import { useLoadedRuntime } from './useLoadedRuntime';
 import type { RunReading } from './harness';
 import { STARTER_FENCE, TEST_FENCE, buildHarness, readRun } from './harness';
 import { useRunShortcut } from './useRunShortcut';
@@ -104,7 +104,6 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
     [title, starter],
   );
 
-  const [runtime, setRuntime] = useState<RuntimeModule | null>(null);
   const [code, setCode] = useState(() => readDraft(key) ?? starter);
   const [running, setRunning] = useState(false);
   const [reading, setReading] = useState<RunReading | null>(null);
@@ -112,30 +111,14 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
   const [failure, setFailure] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
 
-  // The grammar is cheap; the compiler behind `createWorker` is not, and stays
-  // untouched until the student presses Comprobar (issue #74 AC6).
-  useEffect(() => {
-    let cancelled = false;
-    void loadRuntime(language).then(
-      (module) => {
-        if (!cancelled) setRuntime(module);
-      },
-      (error: unknown) => {
-        if (!cancelled) setFailure(error instanceof Error ? error.message : String(error));
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, [language]);
-
-  const { run, warm, queued } = useRuntime({
-    runtimeId: runtime ? language : null,
-    createWorker: () => {
-      if (!runtime) throw new Error(`the ${language} runtime is still loading`);
-      return runtime.createWorker();
-    },
-  });
+  const {
+    run,
+    warm,
+    queued,
+    ready,
+    module: runtime,
+    failure: loadFailure,
+  } = useLoadedRuntime(language);
 
   const check = useCallback(async () => {
     // Before the run, not after: a Java loop that never ends freezes this tab
@@ -147,7 +130,7 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
     setFailure(null);
     setCompileLog('');
     try {
-      const result = await run(code, '', buildHarness(cases));
+      const result = await run(code, '', { harness: buildHarness(cases) });
       setCompileLog(result.compileLog);
       // A rejected program has no output to read; the compiler's message is the
       // whole answer.
@@ -180,7 +163,7 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
     );
   }
 
-  const diagnostics = failure ?? compileLog;
+  const diagnostics = failure ?? loadFailure ?? compileLog;
 
   return (
     <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
@@ -229,7 +212,7 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
         <button
           type="button"
           onClick={() => void check()}
-          disabled={running || !runtime}
+          disabled={running || !ready}
           title="Ctrl/Cmd + Enter"
           className="inline-flex items-center gap-1.5 rounded bg-keep px-3 py-1 text-xs font-medium text-on-keep disabled:opacity-50"
         >

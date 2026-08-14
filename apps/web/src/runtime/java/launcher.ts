@@ -97,6 +97,14 @@ export const TRUNCATED = '[nalanda] salida truncada: el programa imprimió demas
 export const HARNESS_CLASS = 'NalandaCheck';
 
 /**
+ * Entry class of the memory tracer (`components/interactive/trace.ts`).
+ *
+ * Declared here for the same reason as the harness: the reserved set is enforced
+ * by the runtime, and `runtime → components` is not an allowed edge.
+ */
+export const TRACE_CLASS = 'NalandaTrace';
+
+/**
  * Class names a student's program may not use.
  *
  * Both units compile into one shared output directory, so a student class named
@@ -106,7 +114,7 @@ export const HARNESS_CLASS = 'NalandaCheck';
  * page then ran the student's `main` — exercises nobody had touched reported a
  * full pass.
  */
-export const RESERVED_CLASSES = [LAUNCHER_CLASS, HARNESS_CLASS];
+export const RESERVED_CLASSES = [LAUNCHER_CLASS, HARNESS_CLASS, TRACE_CLASS];
 
 /**
  * Runs the student's program with a real stdin behind it.

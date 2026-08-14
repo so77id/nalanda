@@ -272,6 +272,61 @@ describe('createJavaRuntime', () => {
       const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
       expect(run?.args[0]).toBe('NalandaCheck');
     });
+  });
+
+  // A memory diagram needs the opposite arrangement: a platform class compiled
+  // beside the snippet that the snippet CALLS, while the snippet keeps `main`.
+  // Neither existing shape can express it — as `harness` the tracer would be run
+  // instead of the snippet (and it has no `main`), and swapping the two trips the
+  // reserved-name guard on the platform's own class.
+  describe('with a library', () => {
+    const snippet = 'public class Demo { public static void main(String[] a) { } }';
+    const library = 'public class NalandaTrace { static void inicio(int l, String m) {} }';
+
+    it('compiles the library alongside the source', async () => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: snippet, stdin: '', library });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      const compile = invocations.find(
+        (invocation) =>
+          invocation.mainClass.includes('jdt') &&
+          invocation.args.some((arg) => arg.endsWith('Demo.java')),
+      );
+      expect(compile?.args).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('Demo.java'),
+          expect.stringContaining('NalandaTrace.java'),
+        ]),
+      );
+    });
+
+    it('leaves the entry point on the source', async () => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: snippet, stdin: '', library });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
+      expect(run?.args[0]).toBe('Demo');
+    });
+
+    it('does not apply the reserved-name guard to the platform unit', async () => {
+      // The guard exists to stop a STUDENT class shadowing a platform one. The
+      // platform's own class arriving as a library is the intended use, and
+      // refusing it here would refuse every memory diagram.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: snippet, stdin: '', library });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).not.toMatch(/reservado/i);
+    });
+  });
+
+  describe('with a harness, continued', () => {
+    const harness = 'public class NalandaCheck { public static void main(String[] a) {} }';
 
     it('still runs the student class when no harness is given', async () => {
       const worker = createJavaRuntime('/');
@@ -308,6 +363,19 @@ describe('createJavaRuntime', () => {
       const worker = createJavaRuntime('/');
       const seen = listen(worker);
       worker.postMessage({ id: 1, source: 'public class NalandaCheck {}', stdin: '', harness });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
+    });
+
+    it('refuses a student class named after the tracer', async () => {
+      // Same hazard as the other two, reached through a different door: a memory
+      // diagram compiles NalandaTrace beside the snippet, so a snippet declaring
+      // that name would overwrite the class collecting the trace and the diagram
+      // would draw whatever the student's version emitted.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({ id: 1, source: 'public class NalandaTrace {}', stdin: '', harness });
 
       await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
       expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
