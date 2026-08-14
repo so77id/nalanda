@@ -1,6 +1,7 @@
 import type { AnchorHTMLAttributes } from 'react';
 import { Link } from 'react-router-dom';
 
+import { warnOnce } from '../lib/warnOnce';
 import { registry } from './liveContent';
 
 const WIKI_PREFIX = 'wiki:';
@@ -10,14 +11,6 @@ const SAFE_HREF = /^(?:https?:|mailto:|[/.#])/i;
 const EXTERNAL_HREF = /^(?:https?:|mailto:|\/\/)/i;
 
 const BROKEN_STYLE = 'cursor-not-allowed text-flag underline decoration-flag decoration-wavy';
-
-// Render-path warnings repeat every re-render (twice under StrictMode) — warn once per target.
-const warned = new Set<string>();
-function warnOnce(key: string, message: string): void {
-  if (warned.has(key)) return;
-  warned.add(key);
-  console.warn(message);
-}
 
 type Props = AnchorHTMLAttributes<HTMLAnchorElement>;
 
