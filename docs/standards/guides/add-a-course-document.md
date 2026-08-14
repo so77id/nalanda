@@ -16,12 +16,12 @@ The seed course `content/courses/sample-course/` exercises everything:
 
 ```
 content/courses/sample-course/
-├── 01-bienvenida.mdx          # id: bienvenida        (presentation: auto — h2 slicing)
-├── 02-intro-estructuras.mdx   # id: intro-estructuras (auto, uses <SectionBreak/>)
-├── 03-busqueda-binaria.mdx    # id: busqueda-binaria  (presentation: explicit, uses <Slide>)
-├── 04-apuntes.mdx             # id: apuntes-del-curso (presentation: none — book-only)
-├── 05-codigo-ejecutable.mdx   # id: codigo-ejecutable (explicit, uses <CodeEditor>)
-├── 06-java-desde-cpp.mdx      # id: java-desde-cpp    (explicit, uses <Exercise> + <SideBySide>)
+├── 01-bienvenida.mdx          # presentation: auto     — h2 slicing; the suite's `auto` fixture
+├── 02-intro-estructuras.mdx   # presentation: explicit — uses <Slide>
+├── 03-busqueda-binaria.mdx    # presentation: explicit — uses <Slide>, plus a markdown ## (both h2 sources)
+├── 04-apuntes.mdx             # presentation: none     — book-only
+├── 05-codigo-ejecutable.mdx   # presentation: explicit — uses <CodeEditor>
+├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <Exercise> + <SideBySide>
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -41,7 +41,7 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    ---
    id: busqueda-binaria # kebab-case, UNIQUE across the whole content/ tree
    title: Búsqueda binaria # shown in the TOC, prev/next, and lookups
-   presentation: explicit # OPTIONAL: auto (default) | explicit | none
+   presentation: explicit # auto | explicit | none — declare it, always
    ---
    ```
 
@@ -50,6 +50,40 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    ONLY content marked with `<Slide>` / `<SectionBreak/>` (loose prose stays
    book-only); `none` means book-only — no Presentar toggle, `/present`
    redirects back.
+
+   **Optional in the schema, required in practice — declare it even when you
+   want the default** (#108, enforced by `src/content/architecture.test.ts`).
+   The field defaults to `auto`, so a document that omits it still ships a deck;
+   omitting it does not mean "no slides", it means slides nobody chose. Two of
+   the six documents here had exactly that, and one of them projected the book's
+   own navigation sentence — _"Cuando termines, vuelve a la bienvenida"_ — alone
+   on a slide.
+
+   Deciding is cheap and takes one walk through `/d/<id>/present`. Note that the
+   walk is the only way to find this: an undeclared deck is never clipped or
+   unreadable, so nothing in the build or the suite can tell you it is wrong —
+   only that it exists.
+
+   > **The seed course is also the suite's fixture set**, and that constrains
+   > what you may declare here. Several tests bind to real documents; three
+   > constrain the presentation declaration:
+   >
+   > - `documentSections.test.tsx` names `bienvenida` (its `auto` fixture) and
+   >   `busqueda-binaria` (its `explicit` one, chosen because it carries BOTH
+   >   heading sources — `<Slide title>` h2s and a markdown `##` — which is the
+   >   equivalence those cases assert).
+   > - `presentationRoute.test.tsx` names `busqueda-binaria` too and drives
+   >   `intro-estructuras`.
+   > - `presentationRoute.test.tsx` also drives `java-desde-cpp` at a **fixed
+   >   slide index** (`?slide=5`), so that document must stay presentable and
+   >   keep its shape there. Nothing names it as a fixture; it is a bare URL in a
+   >   test.
+   >
+   > That is why `01-bienvenida.mdx` declares `auto` rather than the `none` its
+   > content would suggest: it is the only `auto` document left, and the rail's
+   > markdown-`h2` path has no other real content to run over. Changing a
+   > declaration here can therefore break a test that never mentions your
+   > document — **run the full suite, not just the build** (#108).
 
 3. **Write prose in Markdown.** Headings h2–h4 get automatic slug anchors
    (deep-linkable). Code fences render book-style.
@@ -67,16 +101,16 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    `add-a-content-component.md`.
 
    **A fence in a language the platform runs is highlighted and copyable.**
-   ```` ```java ````, ```` ```cpp ```` and ```` ```python ```` render through
+   ` ```java `, ` ```cpp ` and ` ```python ` render through
    the same editor the runnable blocks use — same colours, a copy button, and
    not editable or runnable (#85, ADR-0024). Write the language whenever the fence holds
    code. A fence with **no** language, or one the platform has no runtime for
-   (```` ```bash ````), stays plain monospace and loads nothing — which is what
+   (` ```bash `), stays plain monospace and loads nothing — which is what
    an ASCII diagram wants.
 
    **The three ids are matched exactly**, so an alias is silently a different
-   language: ```` ```C++ ````, ```` ```c++ ````, ```` ```py ```` and
-   ```` ```Java ```` all fall through to plain monospace. Nothing warns you —
+   language: ` ```C++ `, ` ```c++ `, ` ```py ` and
+   ` ```Java ` all fall through to plain monospace. Nothing warns you —
    the page renders, it just renders grey. If a fence you expected to be
    coloured is not, check its tag before anything else.
 
@@ -132,77 +166,77 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    compiler at all.
 
 5b. **Add an exercise (optional)**: `<Exercise>` gives the reader a problem to
-   solve, checked automatically in their browser. The statement is ordinary
-   prose; two annotated fences carry the rest:
+solve, checked automatically in their browser. The statement is ordinary
+prose; two annotated fences carry the rest:
 
-   ````mdx
-   <Exercise title="¿Es par?">
+````mdx
+<Exercise title="¿Es par?">
 
-   Escribe `esPar`, que devuelve `true` si el número es par.
+Escribe `esPar`, que devuelve `true` si el número es par.
 
-   ```java starter
-   class Solution {
-       static boolean esPar(int n) {
-           return false;
-       }
-   }
-   ```
+```java starter
+class Solution {
+    static boolean esPar(int n) {
+        return false;
+    }
+}
+```
 
-   ```java test
-   check(Solution.esPar(4), true);
-   check(Solution.esPar(7), false);
-   ```
+```java test
+check(Solution.esPar(4), true);
+check(Solution.esPar(7), false);
+```
 
-   </Exercise>
-   ````
+</Exercise>
+````
 
-   The `test` fence is inlined as the body of a generated `main` (in class
-   `NalandaCheck`), which is compiled beside the student's class and calls it —
-   so what is checked is the method, not what the program printed. Two
-   consequences worth knowing before you write one:
+The `test` fence is inlined as the body of a generated `main` (in class
+`NalandaCheck`), which is compiled beside the student's class and calls it —
+so what is checked is the method, not what the program printed. Two
+consequences worth knowing before you write one:
 
-   - **Statements only.** No method or field declarations: they are legal in a
-     class body and illegal in a method body. Get it wrong and the *student*
-     sees compiler errors for code they never wrote.
-   - **`check(obtenido, esperado)`** — the student's value first, the expected
-     value second. Reversed, it still compiles and the feedback reads backwards.
-     `check` is the only helper available, overloaded for `int`, `long`,
-     `double` (compared with a 1e-9 tolerance, never `==`), `boolean`, `char`,
-     `Object` (arrays compared by contents) and `int[]`, `long[]`, `char[]`,
-     `boolean[]`.
+- **Statements only.** No method or field declarations: they are legal in a
+  class body and illegal in a method body. Get it wrong and the _student_
+  sees compiler errors for code they never wrote.
+- **`check(obtenido, esperado)`** — the student's value first, the expected
+  value second. Reversed, it still compiles and the feedback reads backwards.
+  `check` is the only helper available, overloaded for `int`, `long`,
+  `double` (compared with a 1e-9 tolerance, never `==`), `boolean`, `char`,
+  `Object` (arrays compared by contents) and `int[]`, `long[]`, `char[]`,
+  `boolean[]`.
 
-   The class named in `starter` and the one the cases call must agree.
-   **Only Java validates**; C++ and Python refuse an exercise rather than report
-   a pass for something they never checked. Two class names are reserved by the
-   platform — `NalandaLauncher` and `NalandaCheck` — and a Java program using
-   either is refused before it compiles, in an exercise or a plain editor alike.
+The class named in `starter` and the one the cases call must agree.
+**Only Java validates**; C++ and Python refuse an exercise rather than report
+a pass for something they never checked. Two class names are reserved by the
+platform — `NalandaLauncher` and `NalandaCheck` — and a Java program using
+either is refused before it compiles, in an exercise or a plain editor alike.
 
-   Editing a shipped `starter` fence changes the key its drafts are stored
-   under: every student's saved attempt at that exercise becomes unreachable
-   (ADR-0020 §3). Fixing a typo in a starter is cheap; rewriting one after a
-   class has used it is not.
+Editing a shipped `starter` fence changes the key its drafts are stored
+under: every student's saved attempt at that exercise becomes unreachable
+(ADR-0020 §3). Fixing a typo in a starter is cheap; rewriting one after a
+class has used it is not.
 
-   The cases are hidden until the first run — pacing, not secrecy. Everything
-   under `content/` is published, so the page source reveals them to anyone who
-   looks: never author an exercise whose cases must stay private.
+The cases are hidden until the first run — pacing, not secrecy. Everything
+under `content/` is published, so the page source reveals them to anyone who
+looks: never author an exercise whose cases must stay private.
 
-   Worked example: `06-java-desde-cpp.mdx` (four exercises).
+Worked example: `06-java-desde-cpp.mdx` (four exercises).
 
 5c. **Compare two listings (optional)**: `<SideBySide left="C++" right="Java">`
-   places exactly two blocks next to each other, stacking on a narrow screen.
-   For a course whose students already program, the comparison is often the
-   lesson itself. Half the page is all a column gets: check the longest line of
-   both listings on a slide, not only in the book.
-   Worked example: `06-java-desde-cpp.mdx`.
+places exactly two blocks next to each other, stacking on a narrow screen.
+For a course whose students already program, the comparison is often the
+lesson itself. Half the page is all a column gets: check the longest line of
+both listings on a slide, not only in the book.
+Worked example: `06-java-desde-cpp.mdx`.
 
 Full usage docs, props and live examples for every document-facing component
 live in the catalog — browse `/catalog`, which is generated from the components
 themselves rather than maintained by hand.
 
 5d. **External links**: write them as explicit `https://`. Markdown now parses
-   GFM, so a bare URL becomes a link on its own — and a bare `www.host` resolves
-   to **`http://`**, a cleartext link the reader can be downgraded on. Tables,
-   strikethrough (`~~`), task lists and footnotes also work now.
+GFM, so a bare URL becomes a link on its own — and a bare `www.host` resolves
+to **`http://`**, a cleartext link the reader can be downgraded on. Tables,
+strikethrough (`~~`), task lists and footnotes also work now.
 
 6. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
    link, `[[otro-id|texto visible]]` overrides the label. A target that doesn't
@@ -242,7 +276,7 @@ themselves rather than maintained by hand.
 
    **A build cannot see inside an exercise.** The fence labels are matched when
    the component renders, and the cases are Java compiled in the reader's
-   browser — so a mistyped ```` ```java Starter ```` or a `test` fence that does
+   browser — so a mistyped ` ```java Starter ` or a `test` fence that does
    not compile ships with a green build and a green suite. Open the document
    before the PR (`npm run build && npm run preview`, then
    `/nalanda/d/<id>`) and run every exercise you added: no amber authoring
@@ -275,11 +309,17 @@ themselves rather than maintained by hand.
 
 ## Checklist
 
-- [ ] Frontmatter has kebab-case `id` (unique) + `title` (+ `presentation` if
-      the default `auto` doesn't fit).
+- [ ] Frontmatter has kebab-case `id` (unique) + `title` + `presentation` —
+      declared even when the value is the default (`architecture.test.ts` fails
+      otherwise).
+- [ ] The deck the chosen value produces was walked once in `/d/<id>/present`,
+      unless the value is `none`.
 - [ ] Wiki-links point at real ids (or are intentional forward links).
 - [ ] Listed in `index.yaml` if it belongs to the recorrido.
-- [ ] `npm run build` green from `apps/web/` (content integrity gate).
+- [ ] `npm run build` **and** `npm run test` green from `apps/web/`. The build
+      runs the content integrity gate; the declaration invariant and the fixture
+      guards live in the suite, so the build alone goes green on content CI
+      rejects (#108).
 - [ ] Every exercise opened in `npm run preview` and actually run: no authoring
       banner, cases pass against a correct solution and fail against the starter.
       Nothing in the build or the suite can check this for you.

@@ -25,16 +25,16 @@ the add-new-app checklist in `repository-structure.md`).
 
 ## Test levels
 
-| Level | Verifies | Tool | When |
-|---|---|---|---|
-| L1 Static | Types, lint, format | `tsc` + oxlint + prettier | Every commit |
-| L2 Unit | Pure logic: parsers, registries, index walks | Vitest | Every commit (TDD red→green per slice) |
-| L3 Component | Components honor their contract (e.g., per-mode rendering) | Vitest + Testing Library (jsdom) | Every commit, touched scope |
-| L4 Architecture | System invariants: import direction + feature edges (`src/architecture.test.ts`), content ids (`src/content/architecture.test.ts`), catalog entry shape (`src/catalog/architecture.test.tsx`), entry-chunk isolation — a per-component case for each lazily-registered heavy component, **plus** a walk of everything the shell reaches eagerly from `app/main.tsx` (both in `src/architecture.test.ts`): it never reaches `runtime/`, and it pulls in no bare package outside `SHIPS_EAGERLY`, MDX map ↔ catalog completeness (`src/app/mdxComponents.test.ts`), deployed build shape (`src/app/deployedApp.test.tsx`, `src/app/spaFallback.test.ts`) | Vitest (pattern imported from DocumentBuddy) | Pre-PR + CI |
-| L5 Browser smoke | The real app boots; key flows render in a real browser | **Playwright** (decided 2026-08-06; introduced with the first real smoke, WP2+) | Pre-PR + CI |
-| L6 Backend integration | Go handlers against real SQLite + fakes | Go testing | Defined when `apps/server` is born (v0.3) |
-| L7 Cross-app e2e | browser → web → server | Top-level `e2e/` | v0.3+ |
-| L8 Manual | Human visual/functional verification | PR checklist | Pre-PR |
+| Level                  | Verifies                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Tool                                                                            | When                                      |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------- | ----------------------------------------- |
+| L1 Static              | Types, lint, format                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `tsc` + oxlint + prettier                                                       | Every commit                              |
+| L2 Unit                | Pure logic: parsers, registries, index walks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | Vitest                                                                          | Every commit (TDD red→green per slice)    |
+| L3 Component           | Components honor their contract (e.g., per-mode rendering)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Vitest + Testing Library (jsdom)                                                | Every commit, touched scope               |
+| L4 Architecture        | System invariants: import direction + feature edges (`src/architecture.test.ts`), content ids (`src/content/architecture.test.ts`), catalog entry shape (`src/catalog/architecture.test.tsx`), entry-chunk isolation — a per-component case for each lazily-registered heavy component, **plus** a walk of everything the shell reaches eagerly from `app/main.tsx` (both in `src/architecture.test.ts`): it never reaches `runtime/`, and it pulls in no bare package outside `SHIPS_EAGERLY`, MDX map ↔ catalog completeness (`src/app/mdxComponents.test.ts`), deployed build shape (`src/app/deployedApp.test.tsx`, `src/app/spaFallback.test.ts`) | Vitest (pattern imported from DocumentBuddy)                                    | Pre-PR + CI                               |
+| L5 Browser smoke       | The real app boots; key flows render in a real browser                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | **Playwright** (decided 2026-08-06; introduced with the first real smoke, WP2+) | Pre-PR + CI                               |
+| L6 Backend integration | Go handlers against real SQLite + fakes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                | Go testing                                                                      | Defined when `apps/server` is born (v0.3) |
+| L7 Cross-app e2e       | browser → web → server                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Top-level `e2e/`                                                                | v0.3+                                     |
+| L8 Manual              | Human visual/functional verification                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | PR checklist                                                                    | Pre-PR                                    |
 
 **TDD is the default working mode**: for any slice with logic, the test comes
 first (red), then the implementation (green). Internal refactors lean on the
@@ -85,7 +85,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
 
 - Tests are colocated: `Thing.test.ts(x)` next to `Thing.ts(x)`.
 - **Ordering invariants are asserted with the call still in flight.** When what a
-  slice buys is *when* something happens relative to a blocking call — saved
+  slice buys is _when_ something happens relative to a blocking call — saved
   before the run, warmed before the click, discarded before the switch — assert
   against the intermediate state, never after the round trip: by then both
   orderings look identical. Worked case (#76): a test named "saves the editor
@@ -167,7 +167,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   through 70% of a document (an observer fires on crossings; a reader inside a
   long section crosses nothing); a focus trap that let Tab escape in Chromium to
   the toggle behind the drawer; and the first fix for it, a visibility filter on
-  `offsetParent`, which under jsdom matched *nothing*, emptied the trap's list
+  `offsetParent`, which under jsdom matched _nothing_, emptied the trap's list
   and made its own tests pass while proving nothing.
 - **A media query is the sharpest case of it**: the suite can pin **which
   question is asked** and fake the answer, never evaluate it, so what is
@@ -270,7 +270,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   than the WP that found it; a third was aligned prophylactically, its budget
   being armed 10s wide and unable to fire inside the gap.
 - **A negative test about a KEY needs a positive twin.** When a test asserts
-  that something stored under a computed key is *ignored* — a draft, a cache
+  that something stored under a computed key is _ignored_ — a draft, a cache
   entry, a query param — it passes identically when the guard works and when the
   test simply computed the wrong key and planted nothing the code would ever
   read. Pair it with a test that plants under the SAME key and expects it to be
@@ -290,7 +290,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   WHICH line reddened: an assertion sitting after a `waitFor` whose condition the
   same mutation also breaks can never fire. Worked case (#85): a guard against an
   exercise rendering its authoring banner sat behind
-  `await waitFor(… toContain('Escribe'))`, and the banner *replaces* the
+  `await waitFor(… toContain('Escribe'))`, and the banner _replaces_ the
   statement — so the mutation reddened the file at the wait, and the guard was
   dead through two rounds of review before a recheck named the line. Do this on a
   **committed** tree and restore with `git checkout --`: that command reverts
@@ -312,9 +312,9 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   the deck on an iPhone (ADR-0023).
 - **The browser recipe lives here, not in a runtime guide.** Two failure classes
   now share it. Install once (`npm install playwright && npx playwright install
-  chromium`, in a scratch directory — it is not a repo dependency; `grep
-  playwright package.json` finds nothing by design), then drive `npm run build
-  && npm run preview` (which serves under `/nalanda/`, like production — the
+chromium`, in a scratch directory — it is not a repo dependency; `grep
+playwright package.json` finds nothing by design), then drive `npm run build
+&& npm run preview` (which serves under `/nalanda/`, like production — the
   dev server serves at `/` and exercises different paths, ADR-0015). Add
   `-- --port <n>` when something already holds 4173.
   **Stop it by port, never by pattern**: `lsof -ti tcp:<n> | xargs kill`. Other
@@ -333,7 +333,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   a narrow laptop window. Two mechanics worth knowing before they cost an hour
   (#91): on a **fullscreen** page the driver's resize call rejects
   (`Browser.setWindowBounds`: "To resize minimized/maximized/fullscreen window,
-  restore it to normal state first") *after* the metrics override has already
+  restore it to normal state first") _after_ the metrics override has already
   landed — so the page has rotated, the app has reacted, and the script dies
   holding a state it thinks it never reached. Rotate a fullscreen page through
   `Emulation.setDeviceMetricsOverride` on a CDP session instead. And the
@@ -344,6 +344,32 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   into a colocated, unit-tested module rather than inlining it in a component
   the suite cannot exercise. Worked case: `app/basename.ts` derives the router
   basename from `BASE_URL` (#66).
+- **An invariant about what an author DECLARED reads the source.** Every layer
+  that hands you a model has already normalised the distinction away — that is
+  what a normaliser is for — so asking one of them what the author wrote returns
+  what the author _meant after defaults_. Worked case (#108): `presentation` is
+  optional and defaults to `auto`, and the invariant is that every document
+  declares it. Three seams were candidates and two are structurally blind — the
+  registry and the `?frontmatter` virtual module both run `parseDocumentMeta`,
+  which applies the default. The third, an `import.meta.glob` with
+  `query: '?raw'`, is worse than blind: the MDX plugin claims the file first, so
+  the glob returns the compiled `MDXContent` function and a frontmatter regex
+  over it fails EVERY case with "no frontmatter block" — indistinguishable from
+  the invariant working. Read the file. Take the file _list_ from the same glob
+  the app ships from, so the set checked is the set published: a directory walk
+  of your own drifts from it in both directions, following a symlinked directory
+  out of the tree while dropping a symlinked `.mdx` the registry does publish.
+- **A fixture picked positionally silently follows the content.** `ids[0]`, "the
+  first `explicit` document", "the first presentable one" — all read as robust
+  and all mean "whatever the index happens to put first". Name the fixture
+  whenever the assertions know its content, and give the guard a message saying
+  what to repoint. Worked case (#108): declaring `explicit` on a document earlier
+  in the index moved `documentSections.test.tsx` onto one whose `h2`s all come
+  from `<Slide title>`, so the case asserting that BOTH heading sources produce
+  one section list stopped exercising the mixed document it was written for. The
+  suite stayed green at 576 while the case stopped testing what it is named for,
+  and the diff that caused it touched neither that file nor either document it
+  selects.
 - **Registry-driven invariants**: when a standard applies to every member of a
   live registry, iterate the registry at module scope and generate one case per
   entry, so a new entry is gated the moment it is registered — never hand-write
@@ -354,7 +380,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   non-vacuity guard carries a **message naming the test to write when it trips**,
   not a bare check — the day it fires, whoever hits it is not the person who knew
   why it was there. Worked case (#87): `expect(empty, 'every family now has
-  components — cover the empty branch with a direct FamilyPage test')`.
+components — cover the empty branch with a direct FamilyPage test')`.
 - **Assert where the fact belongs, not that it appears somewhere.** A page-wide
   `getAllByText(...)` proves a string exists on the page; it does not tie the
   string to the row that must carry it. Scope with `within(...)` on the element
@@ -366,7 +392,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   family. The same shape hid a swapped component count.
   Second worked case (#87): four tests written across S3–S7 stayed green through
   the exact defect each was named for — every one asserted that a string appeared
-  *somewhere* rather than in the place that had to carry it — and the slice that
+  _somewhere_ rather than in the place that had to carry it — and the slice that
   fixed them exists only because a review lens mutated the code instead of
   reading it.
 - **An invariant with a deliberate exception splits by level.** Put the

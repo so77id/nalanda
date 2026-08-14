@@ -7,7 +7,15 @@ import { courseIndex, registry, walkIndex } from '../content';
 import { AppRoutes } from './AppRoutes';
 
 const ids = walkIndex(courseIndex);
-const firstId = ids[0]!;
+// The first PRESENTABLE document, not simply the first one (#108). These cases
+// need a deck to drive, and `ids[0]` only happens to have one. Today the two
+// resolve to the same document, so this is a no-op — it is here because the
+// course's opening document is a landing page whose content argues for
+// `presentation: none`, and it declares `auto` only to stay the suite's auto
+// fixture (add-a-course-document.md step 2). Were that to change, `ids[0]`
+// would redirect /present back to the book and these cases would go red for a
+// reason with nothing to do with the viewer they test.
+const firstId = ids.find((id) => registry.get(id)?.meta.presentation !== 'none')!;
 const firstTitle = registry.get(firstId)?.meta.title ?? firstId;
 
 function renderAt(path: string) {
@@ -611,10 +619,37 @@ describe('book-view entry points to presentation', () => {
 // these tests guard the real compiled <Slide> path through the mdxChildrenOf
 // adapter — the alarm the adapter's docs promise.
 describe('explicit-mode documents (real compiled markers)', () => {
-  const explicitId = ids.find((id) => registry.get(id)?.meta.presentation === 'explicit');
+  // Named, not discovered (#108). The assertions below are this document's own
+  // words — "La idea", "Costo", "prosa de libro" — so "the first explicit
+  // document" was never what these cases meant; it merely resolved to the right
+  // one while `busqueda-binaria` happened to come first in the index. The day
+  // another document ahead of it declared `explicit`, both cases failed against
+  // a fixture whose content they never claimed to know.
+  const EXPLICIT_FIXTURE = 'busqueda-binaria';
+  const explicitId = ids.find((id) => id === EXPLICIT_FIXTURE);
 
-  it('the seed course provides an explicit fixture', () => {
-    expect(explicitId).toBeDefined();
+  it('the seed course still provides the explicit fixture these cases describe', () => {
+    expect(
+      explicitId,
+      `${EXPLICIT_FIXTURE} is gone from the index — repoint this block at a document whose sections are <Slide> markers, and update the headings asserted below to its own`,
+    ).toBeDefined();
+    expect(registry.get(explicitId!)?.meta.presentation).toBe('explicit');
+  });
+
+  // What #108 actually bought, pinned. Reverting content/ to its pre-#108 state
+  // left the whole suite green except the declaration invariant — nothing was
+  // watching the behaviour the WP exists for. `intro-estructuras` used to end
+  // its deck on the book's own closing navigation sentence, projected alone,
+  // because in `auto` there is no way to keep loose prose out of a deck.
+  it('keeps the book’s closing navigation sentence out of intro-estructuras’ deck', async () => {
+    renderAt('/d/intro-estructuras/present');
+    expect(await findCounter()).toHaveTextContent('1 / 4');
+
+    fireEvent.keyDown(window, { key: 'End' });
+    expect(
+      await screen.findByRole('heading', { name: 'Operaciones y costos' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Cuando termines/)).not.toBeInTheDocument();
   });
 
   it('decks only the marked slides, leaving loose prose book-only', async () => {
