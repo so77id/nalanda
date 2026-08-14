@@ -135,6 +135,56 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
      a course document is near that size (the longest here is 27 lines), and if
      you ever write one that is, split it.
 
+3b. **Write mathematics (optional)**: delimited by **two** dollar signs, never one.
+
+   ```mdx
+   Sobre $$n$$ elementos hay a lo más
+
+   $$
+   \lfloor \log_2 n \rfloor + 1
+   $$
+
+   iteraciones.
+   ```
+
+   Inline and display differ by **where the delimiters sit**, the way a code
+   fence does: `$$x$$` on one line is inline, `$$` alone on its own lines opens
+   a block. One line break apart, and the two look nearly identical in a diff.
+
+   **Two dollars, not one — and this is the part that will surprise you if you
+   have written LaTeX before** (ADR-0026 §2). With single-dollar math enabled,
+   an ordinary sentence about money becomes a formula:
+
+   ```
+   Cuesta $200 al mes, el otro $350.
+   ```
+
+   would render "200 al mes, el otro" as mathematics, with a green build and no
+   warning of any kind. Requiring `$$` costs you a re-typed delimiter when you
+   paste a formula from elsewhere — and you see that immediately, because the
+   formula sits there as plain text. The alternative breaks prose written by
+   someone who never intended to write mathematics at all.
+
+   Three things worth knowing, all measured rather than assumed:
+
+   - **No JavaScript is shipped.** KaTeX renders during the build, so a formula
+     costs the reader a stylesheet and the font faces its own glyphs use — about
+     42 kB for a typical formula, against ~162 kB gzip of editor for the first
+     highlighted fence on a page (ADR-0018). The 3.6 kB stylesheet is global, so
+     it is the one thing a page without mathematics also pays; it downloads **no
+     fonts at all**.
+   - **A malformed formula does not fail the build.** It renders in KaTeX's
+     error colour, like a broken wiki-link renders visibly broken. Nothing stops
+     you publishing it — look at the page.
+   - **On a slide it is fine but not free.** Measured on the binary-search cost
+     formula: scale 1.00 at 1024×768 and 0.895 on a phone in landscape. A long
+     display equation is wide, and ADR-0013 scales the whole slide down rather
+     than clipping — so a formula that does not fit shrinks the prose beside it.
+     Check any slide carrying one, in landscape.
+
+   Screen readers are covered: KaTeX emits MathML beside the visual rendering,
+   so a formula is read as mathematics rather than skipped as decoration.
+
 4. **Mark slides (optional)**: `<Slide title="...">...</Slide>` and
    `<SectionBreak />` are available WITHOUT imports. In the book view a Slide
    renders as its heading + flowing prose and a SectionBreak as a subtle
