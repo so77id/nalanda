@@ -3,8 +3,9 @@
 The Nalanda platform frontend: course wiki (book mode), presentation mode, and
 the content-component catalog. React 19 + TypeScript (strict) + Vite + Tailwind
 CSS v4 (+ typography plugin) + framer-motion; course documents compile from MDX
-(ADR-0003) via `@mdx-js/rollup` + remark plugins, sourced from the repo-root
-`content/` tree (ADR-0002, ADR-0012).
+(ADR-0003) via `@mdx-js/rollup` + a **remark and a rehype** plugin list, sourced from the
+repo-root `content/` tree (ADR-0002, ADR-0012, ADR-0027). Mathematics renders at build
+time through remark-math + rehype-katex, so no KaTeX JavaScript ships.
 
 Since #74 it also **executes code in the reader's browser**: CodeMirror 6 editors
 (+ lucide-react icons) driving three runtimes — Java on CheerpJ, C++ on
@@ -56,8 +57,9 @@ src/
 │                         # + MdxPre: the pre→component seam (registered in the SHELL's
 │                         #   map, not a catalog component), embedded.ts: the context by
 │                         #   which a framing container tells its children so
-├── content/              # content pipeline: MDX registry, course index, remark plugin
-│                         # list (wiki-links, fence metadata, GFM), element renderers
+├── content/              # content pipeline: MDX registry, course index, the two plugin
+│                         # lists (remark: wiki-links, fence metadata, GFM, math;
+│                         # rehype: KaTeX), element renderers
 │                         # (links, tables), build-time integrity gate
 │                         # + the reading shell: book-mode page, course-index tree
 │                         #   (collapsed to the active path, filterable), breadcrumb,
@@ -112,6 +114,19 @@ ADR-0023.
   read back by CheerpJ through the deployed base path — `/app/nalanda/…` in
   production, `/app/…` in dev, derived from `BASE_URL` like everything else
   (`src/runtime/java/classPath.ts`).
+- `dist/` also ships **KaTeX's 60 font files** (1072.9 kB; woff2 + woff + ttf, of which
+  only woff2 is ever requested by a browser able to run this app — accepted, Pages storage
+  is free, ADR-0027 §4). They come from our own origin and are fetched only when a page
+  actually renders a glyph: ~42 kB of woff2 for a typical formula, and **nothing at all**
+  for a page without mathematics. `build.assetsInlineLimit: 0` is what keeps that true —
+  at Vite's default one face was small enough to be inlined into the global stylesheet,
+  which made every page in the site pay for it (ADR-0027 §3).
+- **Bumping KaTeX**: `rehype-katex` resolves its **own** copy (`^0.16.0`), so raising the
+  `katex` line in `package.json` alone ships a stylesheet that does not match the markup
+  it styles. #118 did exactly that: 0.18's CSS over 0.16's class names, which looked
+  almost right — `.strut` computed `display: inline` instead of `inline-block`. After any
+  bump, check `npm ls katex` shows a single deduped version and look at a formula in a
+  browser (ADR-0027 §7).
 - The rest of the execution machinery is **not** ours to serve: Pyodide and
   browsercc come from `cdn.jsdelivr.net`, CheerpJ from `cjrtnc.leaningtech.com`
   (ADR-0018 §5). Nothing is fetched until an editor asks for a runtime — the

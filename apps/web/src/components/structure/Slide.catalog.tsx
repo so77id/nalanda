@@ -15,7 +15,8 @@ export const slideCatalogEntry: CatalogEntry = {
     {
       name: 'title',
       type: 'string',
-      description: 'Section heading in the book; slide title in the presentation.',
+      description:
+        'Section heading in the book; slide title in the presentation. PLAIN TEXT — it is a JSX attribute, so markdown and mathematics are not processed: a `$$…$$` here ships literal dollar signs to the reader, projected, past a green build (#118). Put a formula in the slide body instead.',
     },
     {
       name: 'children',
