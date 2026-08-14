@@ -1,5 +1,6 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 import { describe, expect, it } from 'vitest';
 
@@ -7,26 +8,29 @@ import { walkIndex } from './courseIndex';
 import { parseFrontmatterBlock } from './documentMeta';
 import { courseIndex, registry } from './liveContent';
 
-// Read from disk, not through the registry and not through a `?raw` glob.
+// The document list comes from the same glob `liveContent.ts` uses, so this
+// invariant covers exactly the set the app ships — no more and no less. A
+// directory walk of its own drifts from that set in both directions: it follows
+// a symlinked directory out of the tree, and it drops a symlinked `.mdx` the
+// glob (and therefore the registry) does publish.
 //
-// Two reasons, and each one was measured rather than assumed:
+// The BODY still reads the file, and two measured facts say it has to:
 //   - `parseDocumentMeta` normalises an absent `presentation` to 'auto', so the
 //     parsed meta cannot tell "declared auto" from "never declared" — and that
-//     difference is the entire point of the invariant below.
+//     difference is the entire point of the invariant below. The `?frontmatter`
+//     virtual module goes through the same normaliser, so it is no better.
 //   - `import.meta.glob(..., { query: '?raw' })` does NOT return the source
 //     here: the MDX plugin claims the file first, so the glob hands back the
 //     compiled `MDXContent` function. A frontmatter regex over that finds
 //     nothing and every case fails with "no frontmatter block", which looks
 //     like the invariant working and is not.
-// Resolved from the Vitest root (apps/web), not from import.meta.url: under
-// Vite's SSR transform that is an http: URL, and fileURLToPath rejects it.
-const COURSES = join(process.cwd(), '../../content/courses');
-
-function mdxFilesUnder(dir: string): string[] {
-  return readdirSync(dir, { withFileTypes: true, recursive: true })
-    .filter((e) => e.isFile() && e.name.endsWith('.mdx'))
-    .map((e) => join(e.parentPath, e.name));
-}
+//
+// Glob keys are relative to the Vite root, so they are resolved against this
+// file rather than the cwd. `fileURLToPath(import.meta.url)` is fine on its own
+// — it is the `new URL(x, import.meta.url)` PATTERN that Vite rewrites into an
+// asset URL, and only that pattern throws.
+const APP_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
+const documents = Object.keys(import.meta.glob('@content/courses/**/*.mdx'));
 
 // L4 invariants over the live content/ tree (testing-strategy.md): unique ids
 // and index integrity. Importing liveContent re-runs all fail-fast validation.
@@ -52,29 +56,26 @@ describe('architecture: content invariants', () => {
   // should be presentable wants it); this invariant is about authored intent, and
   // it is the only thing that can tell the two apart.
   //
-  // Registry-driven per testing-strategy.md: one case per document found, so a
-  // new document is gated the moment it lands, with the non-vacuity guard naming
-  // what to do if it ever trips.
+  // Registry-driven per testing-strategy.md: one case per document the glob
+  // finds, so a new document is gated the moment it lands, with the non-vacuity
+  // guard naming what to do if it ever trips.
   describe('every course document declares how it presents', () => {
-    const files = mdxFilesUnder(COURSES);
-
     it('finds documents to check', () => {
       expect(
-        files.length,
-        'no .mdx found under content/courses — the tree moved; repoint COURSES before trusting the cases below',
+        documents.length,
+        'the @content glob matched no .mdx — the content tree moved; repoint it before trusting the cases below',
       ).toBeGreaterThan(0);
     });
 
-    it.each(files)('%s declares `presentation`', (file) => {
-      const where = relative(COURSES, file);
-      const front = parseFrontmatterBlock(readFileSync(file, 'utf8')) as Record<
+    it.each(documents)('%s declares `presentation`', (key) => {
+      const front = parseFrontmatterBlock(readFileSync(join(APP_ROOT, key), 'utf8')) as Record<
         string,
         unknown
       > | null;
-      expect(front, `no frontmatter block in ${where}`).not.toBeNull();
+      expect(front, `no frontmatter block in ${key}`).not.toBeNull();
       expect(
         Object.hasOwn(front!, 'presentation'),
-        `${where} does not declare "presentation". It still ships a deck (the default is 'auto') — one nobody chose. Declare auto, explicit or none.`,
+        `${key} does not declare "presentation". It still ships a deck (the default is 'auto') — one nobody chose. Declare auto, explicit or none.`,
       ).toBe(true);
     });
   });

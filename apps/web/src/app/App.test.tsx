@@ -60,10 +60,12 @@ describe('routing', () => {
   });
 
   it('renders the presentation viewer at /d/:id/present', async () => {
-    // A PRESENTABLE document, not simply the first one (#108): `ids[0]` is the
-    // course's opening document, and a landing page declaring
-    // `presentation: none` is a legitimate choice that redirects /present back
-    // to the book — which reads here as "the viewer did not render".
+    // A PRESENTABLE document, not simply the first one (#108). Today the two
+    // resolve to the same document; this guards the case where they stop doing
+    // so, because a `none` document redirects /present back to the book, which
+    // reads here as "the viewer did not render". Note the opening document is
+    // currently pinned to `auto` as the suite's fixture, not by preference —
+    // add-a-course-document.md §presentation has the reason.
     const presentableId = ids.find((id) => registry.get(id)?.meta.presentation !== 'none')!;
     renderAt(`/d/${presentableId}/present`);
     expect(

@@ -21,8 +21,22 @@ function renderAt(path: string) {
 }
 
 const ids = walkIndex(courseIndex);
-const autoId = ids.find((id) => (registry.get(id)?.meta.presentation ?? 'auto') === 'auto')!;
-const explicitId = ids.find((id) => registry.get(id)?.meta.presentation === 'explicit')!;
+
+// Named, not discovered (#108). Picking "the first auto document" and "the first
+// explicit one" reads as robust and is the opposite: it silently follows the
+// index. When 02-intro-estructuras declared `explicit` it became the first one,
+// and the explicit case moved off busqueda-binaria — the only document here that
+// INTERLEAVES a markdown `##` with `<Slide title>` h2s, which is the whole point
+// of the equivalence asserted below. The suite stayed green while the case
+// stopped testing what it is named for.
+//
+// `presentation` is no longer defaulted in either selector either: since #108
+// every document declares it, so `?? 'auto'` could only ever fire for an id the
+// registry does not have — selecting a document that does not exist.
+const AUTO_FIXTURE = 'bienvenida';
+const EXPLICIT_FIXTURE = 'busqueda-binaria';
+const autoId = ids.find((id) => id === AUTO_FIXTURE);
+const explicitId = ids.find((id) => id === EXPLICIT_FIXTURE);
 
 /**
  * The h2 ids the article actually painted — the answer key for the rail. The
@@ -41,9 +55,23 @@ async function railLinkTargets(): Promise<string[]> {
 }
 
 describe('the section rail over real documents', () => {
-  it('the seed course provides both an auto and an explicit document', () => {
-    expect(autoId, 'no presentation: auto document').toBeDefined();
-    expect(explicitId, 'no presentation: explicit document').toBeDefined();
+  it('the seed course still provides the two fixtures these cases describe', () => {
+    expect(
+      autoId,
+      `${AUTO_FIXTURE} left the index. It is the seed course's only \`presentation: auto\` document (see add-a-course-document.md §presentation) — declare another document auto and name it here, or these cases stop covering the markdown-h2 rail path.`,
+    ).toBeDefined();
+    expect(
+      registry.get(autoId!)?.meta.presentation,
+      `${AUTO_FIXTURE} no longer declares auto`,
+    ).toBe('auto');
+    expect(
+      explicitId,
+      `${EXPLICIT_FIXTURE} left the index. Repoint this block at another document that interleaves a markdown \`##\` with <Slide title> headings — not merely at any explicit document, or the equivalence below stops being tested.`,
+    ).toBeDefined();
+    expect(
+      registry.get(explicitId!)?.meta.presentation,
+      `${EXPLICIT_FIXTURE} no longer declares explicit`,
+    ).toBe('explicit');
   });
 
   it('lists every section of an auto document, in order', async () => {

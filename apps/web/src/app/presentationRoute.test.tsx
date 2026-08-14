@@ -8,10 +8,13 @@ import { AppRoutes } from './AppRoutes';
 
 const ids = walkIndex(courseIndex);
 // The first PRESENTABLE document, not simply the first one (#108). These cases
-// need a deck to drive; `ids[0]` only happened to have one, and the day the
-// course's opening document declared `presentation: none` — the right call for a
-// landing page — 33 cases here went red for a reason with nothing to do with the
-// viewer they test.
+// need a deck to drive, and `ids[0]` only happens to have one. Today the two
+// resolve to the same document, so this is a no-op — it is here because the
+// course's opening document is a landing page whose content argues for
+// `presentation: none`, and it declares `auto` only to stay the suite's auto
+// fixture (add-a-course-document.md §presentation). Were that to change, `ids[0]`
+// would redirect /present back to the book and these cases would go red for a
+// reason with nothing to do with the viewer they test.
 const firstId = ids.find((id) => registry.get(id)?.meta.presentation !== 'none')!;
 const firstTitle = registry.get(firstId)?.meta.title ?? firstId;
 
@@ -594,6 +597,22 @@ describe('explicit-mode documents (real compiled markers)', () => {
       `${EXPLICIT_FIXTURE} is gone from the index — repoint this block at a document whose sections are <Slide> markers, and update the headings asserted below to its own`,
     ).toBeDefined();
     expect(registry.get(explicitId!)?.meta.presentation).toBe('explicit');
+  });
+
+  // What #108 actually bought, pinned. Reverting content/ to its pre-#108 state
+  // left the whole suite green except the declaration invariant — nothing was
+  // watching the behaviour the WP exists for. `intro-estructuras` used to end
+  // its deck on the book's own closing navigation sentence, projected alone,
+  // because in `auto` there is no way to keep loose prose out of a deck.
+  it('keeps the book’s closing navigation sentence out of intro-estructuras’ deck', async () => {
+    renderAt('/d/intro-estructuras/present');
+    expect(await findCounter()).toHaveTextContent('1 / 4');
+
+    fireEvent.keyDown(window, { key: 'End' });
+    expect(
+      await screen.findByRole('heading', { name: 'Operaciones y costos' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Cuando termines/)).not.toBeInTheDocument();
   });
 
   it('decks only the marked slides, leaving loose prose book-only', async () => {
