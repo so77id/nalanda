@@ -63,7 +63,7 @@ document defines the per-commit and pre-PR protocols for `apps/web`
 
 ```
 Documentation standard: docs/standards/documentation.md
-Code style docs:        docs/standards/frontend-code-style.md, docs/standards/repository-structure.md
+Code style docs:        docs/standards/frontend-code-style.md, docs/standards/repository-structure.md, docs/standards/design-system.md
 ADR directory:          docs/decisions/
 ADR criteria:           docs/standards/documentation.md (Rules §2) + plugin defaults
 Agent instructions:     CLAUDE.md, apps/web/CLAUDE.md

@@ -17,7 +17,7 @@ names its trigger for re-evaluation — nothing is "accepted forever".
   it needs repo admin rights.
 - **Review trigger**: a second contributor gains write access, or the first
   accidental direct push. **When enabling**: require a PR; only make the `web`
-  check *required* after replacing ci.yml's path filters with in-job change
+  check _required_ after replacing ci.yml's path filters with in-job change
   detection — the note at the top of ci.yml explains why (a docs-only PR would
   otherwise wait forever on a check that never runs).
 
@@ -54,12 +54,12 @@ project published there, or an XSS in one, can write those keys.
 
 **Fixed in #85**: a read-only listing never restores a draft. Every markdown
 fence became an editor in that WP, and an unguarded read let planted bytes
-replace an authored listing *and* the payload of its copy button — demonstrated
+replace an authored listing _and_ the payload of its copy button — demonstrated
 end to end, then re-verified closed (18 editors, 108 planted keys, 0
 overwritten). The rule lives at the value: `listing = !editable && !runnable` in
 `CodeEditor.tsx`, and in `variants.ts` beside the preset that depends on it.
 
-**Residual, accepted**: an *editable* editor and `<Exercise>` still restore
+**Residual, accepted**: an _editable_ editor and `<Exercise>` still restore
 drafts from that origin. That is the feature — it is the student's own work, and
 losing it is the failure the draft exists to prevent. The blast radius is one
 student's editor content on one machine, not the course material.
@@ -79,7 +79,7 @@ close this), or the platform gaining any content path not authored in this repo.
   `https://cdn.jsdelivr.net/...` inside Web Workers.
 - **Why it is this way**: bundling the C++ toolchain put 113MB of WASM into every
   deploy (ADR-0018); CheerpJ's Community licence forbids self-hosting outright
-  (ADR-0016 F2). Only the Java *compiler* (ECJ, 2.9MB, SHA-256 pinned in
+  (ADR-0016 F2). Only the Java _compiler_ (ECJ, 2.9MB, SHA-256 pinned in
   `scripts/fetch-java-compiler.mjs`) is served from our own origin.
 - **Why SRI is not the control**: it cannot be applied to a dynamic `import()`
   at all, and pinning CheerpJ's 7.5kB loader while the ~16MB it goes on to fetch
@@ -107,7 +107,6 @@ close this), or the platform gaining any content path not authored in this repo.
   class-time outage; (d) the platform gaining any non-repo-authored content path
   (a shared-snippet URL, a student-supplied document), which would change the
   blast radius from self-inflicted to cross-user.
-
 
 ### An exercise verdict is feedback, not evidence (accepted 2026-08-12, #76)
 

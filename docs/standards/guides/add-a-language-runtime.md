@@ -53,7 +53,7 @@ src/runtime/python/
    `{ id, source, stdin, harness? }` and answers exactly one of:
    - `{ type: 'warm', detail }` — once, unprompted, when booting finishes.
    - `{ id, type: 'started' }` — once per request, immediately before compiling.
-     It marks the boundary between *waiting* and *running*: before it, the caller
+     It marks the boundary between _waiting_ and _running_: before it, the caller
      allows 180s (CDN download, boot, queue); after it, 60s for the program.
      **Omit it and a student's infinite loop is reported three minutes later as
      "el runtime no estuvo listo"** instead of naming the loop. It also drives
@@ -69,12 +69,12 @@ src/runtime/python/
 
    **`harness` is a second compilation unit that takes over the entry point** —
    how an `<Exercise>` checks a method instead of a printed line (ADR-0019 §4).
-   Either compile it beside `source` and derive the entry class from *it* (worked
+   Either compile it beside `source` and derive the entry class from _it_ (worked
    case: `java/runtime.ts` + `launcher.ts`), or refuse it as the first thing your
    handler does:
 
    ```ts
-   rejectHarness(event.data, 'C++'); // from '../rejectHarness'
+   rejectHarness(event.data, "C++"); // from '../rejectHarness'
    ```
 
    There is no third option. Running `source` alone when a harness is present

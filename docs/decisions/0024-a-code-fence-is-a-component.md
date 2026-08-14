@@ -75,8 +75,8 @@ entry chunk".
 
 - **Build-time highlighting (Shiki, or Prism at build).** Zero client JS, and it
   is the only alternative that removes the cost entirely. ADR-0018 does reject
-  "Prism/Shiki + `<textarea>`", but on the grounds of *"highlighting only, no
-  editing"* — a reason about an editing component, silent on build time. That
+  "Prism/Shiki + `<textarea>`", but on the grounds of _"highlighting only, no
+  editing"_ — a reason about an editing component, silent on build time. That
   rejection does not cover a pure listing, and the honest record is that
   build-time rendering was never weighed for one before #85. It loses here on
   palette coherence (Decision 2), not on cost. **This is the thread to pull if
@@ -108,7 +108,7 @@ entry chunk".
 - **A listing is not a place anyone typed, so it never restores a draft.** The
   draft store is keyed on the page path and lives on `so77id.github.io`, an
   origin shared with every other repo of the account; an unguarded read let
-  planted bytes replace an authored listing *and* the payload of its copy
+  planted bytes replace an authored listing _and_ the payload of its copy
   button. The rule is `listing = !editable && !runnable`, written once and used
   by both the height and the draft guard. Residual and review triggers:
   `docs/security-notes.md`.
@@ -125,6 +125,6 @@ entry chunk".
   looks. This ADR does not restate them.
 - **ADR-0003's Consequences are amended.** "The components available inside
   documents are exactly those registered by the catalog" is now true of
-  *named* components only. An intrinsic element may also be a component; it is
+  _named_ components only. An intrinsic element may also be a component; it is
   registered by the shell, has no catalog entry, and is invisible to the
   completeness invariant by design.

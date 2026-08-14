@@ -286,3 +286,45 @@ describe('architecture: what the shell reaches eagerly', () => {
     ).toEqual([]);
   });
 });
+
+describe('architecture: colour goes through the palette', () => {
+  // #109, ADR-0026. Every colour in the product is a semantic token, so a raw
+  // Tailwind colour class in production code is a component that will be wrong
+  // in one of the two themes — and wrong invisibly, because nothing in a jsdom
+  // suite can see a colour. The light theme shipped broken past a fully green
+  // gate exactly once during this WP; this case is what stops the second time.
+  //
+  // Tests are exempt: several assert the token a component takes, and naming a
+  // colour there is the point rather than the defect.
+  const PALETTE_FAMILIES =
+    'slate|zinc|gray|neutral|stone|sky|blue|emerald|green|teal|amber|yellow|orange|red|rose|violet|purple|indigo|cyan|lime|fuchsia|pink';
+  const RAW_COLOUR = new RegExp(
+    String.raw`\b(?:bg|text|border|ring|outline|divide|decoration|placeholder|from|via|to|shadow|accent|caret|fill|stroke)-(?:${PALETTE_FAMILIES})-\d{2,3}\b`,
+    'g',
+  );
+
+  function rawColours(): string[] {
+    const found: string[] = [];
+    for (const file of walk(SRC)) {
+      const rel = relative(SRC, file);
+      if (rel.includes('.test.')) continue;
+      for (const hit of new Set(readFileSync(file, 'utf8').match(RAW_COLOUR) ?? [])) {
+        found.push(`${rel}: ${hit}`);
+      }
+    }
+    return found;
+  }
+
+  it('no production file names a raw Tailwind colour', () => {
+    expect(
+      rawColours(),
+      'use a semantic token (docs/standards/design-system.md). A raw colour is right in at most one theme, and no test can see which.',
+    ).toEqual([]);
+  });
+
+  it('finds files to check (guards against a vacuous scan)', () => {
+    // The regex is the whole check; if the walk ever returns nothing, the case
+    // above passes while scanning zero files. Assert the scan reaches the app.
+    expect(walk(SRC).length, 'the source walk found nothing — repoint SRC').toBeGreaterThan(20);
+  });
+});

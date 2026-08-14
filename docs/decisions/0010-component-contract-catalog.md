@@ -20,6 +20,7 @@ notes/controls) is future. Sync is a navigation state layered on top, not a rend
 mode (relationship detailed with ADR-0008 at spec time).
 
 **Every catalog component must satisfy the contract:**
+
 1. **Explicit render per mode** — no component may ignore a mode (even if the answer
    is "I don't appear").
 2. **Typed props schema** (TypeScript) — the public contract.
@@ -35,13 +36,13 @@ mode (relationship detailed with ADR-0008 at spec time).
    with synchronized drawing).
 
 **Catalog**: a live route (`/catalog`) organized in four editable families —
-*structure*, *semantic*, *interactive*, *media*. It is **self-governing**: each
+_structure_, _semantic_, _interactive_, _media_. It is **self-governing**: each
 family is defined and explained; the catalog documents how to add a component, the
 documentation checklist, the review checklist, and how to change the catalog's own
 rules. It serves humans and authoring agents alike.
 
-> **Amended by #87.** These four were originally named *estructura*, *semánticos*,
-> *interactivos*, *media*, while the folders they map to were already English.
+> **Amended by #87.** These four were originally named _estructura_, _semánticos_,
+> _interactivos_, _media_, while the folders they map to were already English.
 > Root `CLAUDE.md` §Language settles which way that resolves: everything a reader
 > perceives is Spanish **except `/catalog`, which ships with the site but
 > addresses component authors, not students**. So the names are English, and the

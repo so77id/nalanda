@@ -98,7 +98,7 @@ src/
   `<NotFound />` into `DocumentPage`'s `notFound` prop.
 - **Not everything under `components/` is a catalog component.** Two shapes have
   no catalog entry and no MDX registration, and neither is an omission
-  (a third, the intrinsic-element renderer above, has no entry but *is*
+  (a third, the intrinsic-element renderer above, has no entry but _is_
   registered — in the shell's map):
   a component **shared across families** lives at the root of `components/`
   (worked case: `AuthoringError.tsx`, used by `interactive/Exercise` and
@@ -297,7 +297,7 @@ src/
   `document.exitFullscreen()` REJECTS when nothing is fullscreen and `void`
   attaches no catch, so an unguarded call is an unhandled rejection on every
   ordinary exit. Always `if (document.fullscreenElement) void
-  document.exitFullscreen?.()`, behind one named helper that the surface's other
+document.exitFullscreen?.()`, behind one named helper that the surface's other
   exits call. Worked case: `presentation/SlideDeck.tsx`'s `leaveFullscreen()`
   (#103), where three call sites had drifted into three spellings.
 - **A toggle's accessible name says what pressing it will DO**, and derives
@@ -305,7 +305,7 @@ src/
   `aria-label="Pantalla completa"` on a button that also leaves fullscreen
   announces the opposite of the truth half the time. Worked cases:
   `CodeEditor`'s expand control (`Expandir a pantalla completa` / `Cerrar
-  pantalla completa`) and the deck's `⛶` (#106). **When the state belongs to the
+pantalla completa`) and the deck's `⛶` (#106). **When the state belongs to the
   browser rather than to the component**, read it through
   `useSyncExternalStore` so the name follows a change made by a key, by the
   browser's own chrome or by another rule — the deck's `⛶` alone, since

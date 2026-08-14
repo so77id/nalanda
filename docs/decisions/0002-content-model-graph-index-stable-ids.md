@@ -16,13 +16,13 @@ the platform gains an editor (vision phases A→B→C).
 
 - **Document**: the content unit — a complete "sección/presentación". One MDX source
   can render as book, as slides, or both. Documents are **homogeneous** (no `type`
-  field); what a document *is* emerges from its content. Typing may be introduced
+  field); what a document _is_ emerges from its content. Typing may be introduced
   later by a real need.
 - **Graph**: documents cross-reference each other with wiki-style links by id
   (`[[some-id]]`). The graph IS the set of documents plus their links; free
   navigation is wiki navigation.
 - **Index**: a separate artifact per course — the ordered, nestable teaching path
-  ("el clase a clase"). Entries reference document ids; entries are *topics*, not
+  ("el clase a clase"). Entries reference document ids; entries are _topics_, not
   class sessions. Level names are configurable, not hardcoded. One index per course
   for now; the design must make multiple recorridos over one graph easy to add
   (future: per-semester reorders, other professors, course inheritance).
