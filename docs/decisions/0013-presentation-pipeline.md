@@ -32,6 +32,35 @@ can drive it.
    contentIntegrity gate. `none` hides the Presentar toggle and `/present`
    redirects to the book view. Extends the ADR-0012 frontmatter contract.
 
+   **2.1 The default stays; omitting it does not** (#108, 2026-08-14). Every
+   document in this repository MUST declare `presentation`, including when the
+   value it wants is the default. The schema is unchanged — `absent = auto`
+   remains the runtime contract — but an omission here is a CI failure.
+
+   The reason is that the default is silent in the one direction that matters:
+   omitting the field does not mean "no slides", it means slides nobody chose,
+   and nothing surfaces them. An undeclared deck is never clipped, never
+   unreadable and never invalid, so neither the build nor the suite could say it
+   was wrong — only that it existed. Two of the six seed documents were in that
+   state, and one projected the book's own closing navigation sentence alone on
+   a slide. Walking the deck was the only way to find it.
+
+   **Enforcement moves off the build gate**, which departs from the sentence
+   above and from ADR-0012 §3. Invalid _values_ still fail `vite build` through
+   contentIntegrity; a _missing_ field does not, because requiring it there
+   would change the schema for every future consumer rather than record a rule
+   for this repository. It is enforced instead by an L4 invariant
+   (`apps/web/src/content/architecture.test.ts`), which reads the frontmatter
+   from source — every seam that returns a parsed model has already applied the
+   default, so none of them can tell "declared auto" from "never declared".
+   Consequence for an author: `npm run build` stays green on a violation and
+   `npm run test` does not, so editing `content/` requires both.
+
+   The parenthetical rationale above — _"every document is presentable for
+   now"_ — no longer describes the tree. After #108 one document of six declares
+   `auto`, and it does so to remain the suite's only `auto` fixture rather than
+   because its content wants a deck. That coupling is ADR-0025.
+
 3. **Boundary identity travels as static metadata** (`lib/componentMeta.ts`:
    `withMeta`/`metaOf` — components declare `slideBoundary` / `headingLevel`).
    The parser dispatches on metadata, never on component-identity imports.
@@ -49,7 +78,7 @@ can drive it.
    a slides metadata export) — swap the adapter; parser and viewer unchanged.
    This departs from ADR-0012's suggestion that the `?frontmatter`
    virtual-module pattern could serve slide metadata: that pattern serves
-   build-time metadata well, but slides need the *rendered element stream*,
+   build-time metadata well, but slides need the _rendered element stream_,
    which only exists at runtime under option A's model.
 
 5. **Mode is set by the route; the URL is the sync seam**: `/d/:id` = book,

@@ -45,22 +45,19 @@ nalanda/
    - `packages/` — code shared by two or more apps. Nothing is "promoted" here
      speculatively; a second consumer is the admission ticket.
    - `content/` — course material (Material domain). Not app code: it has its own
-     lifecycle (authoring), its own future (database, per ADR-0002), and is edited
-     without entering any `src/`.
+     lifecycle (authoring), its own future (database, per ADR-0002), and is
+     **written** without entering any `src/` — but see below: verifying it is
+     another matter.
 
-     **In v0.1 it is also the test suite's fixture set, and that is a real
-     constraint on authoring, not just a note.** Several tests assert over the
-     live registry because there is no other real content to assert over. The
-     cost has already been paid once: since #108, `01-bienvenida.mdx` declares
-     `presentation: auto` rather than the `none` its content argues for, purely
-     because it is the suite's only `auto` document. A declaration chosen for the
-     suite rather than for the reader is the line this crosses — ADR-0013 §4
-     accepts content-as-fixture, but there the fixture role and the content's
-     intent agreed. Editing `content/` therefore requires the full suite, not
-     only the build (`guides/add-a-course-document.md` step 2 (Frontmatter)). The exit
-     is a dedicated fixture course plus registry injection — `buildRegistry` is
-     already parameterised; what blocks it is that the shell reaches
-     `liveContent` at module scope. Its own WP when the cost justifies it.
+     **In v0.1 it is also the test suite's fixture set** (ADR-0025), and that is
+     a constraint on authoring rather than a note. Several tests assert over the
+     live registry because there is no other real content to assert over, so a
+     declaration can be forced by a test instead of by the reader: since #108,
+     `01-bienvenida.mdx` declares `presentation: auto` rather than the `none` its
+     content argues for, purely because it is the suite's only `auto` document.
+     Editing `content/` therefore requires the full suite, not only the build
+     (`guides/add-a-course-document.md` step 2). ADR-0025 carries the
+     alternatives that were rejected and the exit condition.
 
    - `docs/` — knowledge: standards, design, decisions, conventions.
    - `infra/` — running the system around the apps:
