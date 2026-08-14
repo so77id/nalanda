@@ -432,3 +432,109 @@ export function readTrace(output: string): TraceReading {
 
   return { steps, output: printed.join('\n').trim(), truncated };
 }
+
+// ── Instrumenting a snippet ──────────────────────────────────────────────────
+
+/** A `// foto` the author wrote, resolved. */
+export interface Marker {
+  /** 1-based line of the ORIGINAL snippet, which is the one the reader sees. */
+  line: number;
+  frame: string;
+  variables: string[];
+}
+
+/** A snippet rewritten to photograph itself, plus what was wrong with it. */
+export interface Instrumented {
+  code: string;
+  markers: Marker[];
+  errors: string[];
+}
+
+/** Java identifiers, which is all a marker may name. */
+const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
+
+/** `// foto [marco:] a, b` and `// foto-fin marco`, with spacing forgiven. */
+const PHOTO = /\/\/\s*foto\s*(.*)$/;
+const PHOTO_END = /\/\/\s*foto-fin\s+(\S+)\s*$/;
+
+/**
+ * Rewrites a `trace` fence so that running it reports its own state.
+ *
+ * **Every marker is replaced in place, never on a line of its own.** The reader
+ * is shown the original source and the highlight uses the line number the tracer
+ * reports, so an injected line would offset every number after it and point at
+ * the wrong statement.
+ *
+ * What it does NOT do is check that the variables exist. That needs a Java
+ * parser and a scope table; naming one that is not in scope is caught by the
+ * compiler instead, and its message reaches the reader through the same
+ * diagnostics panel as any other compile error.
+ */
+export function instrument(source: string): Instrumented {
+  const markers: Marker[] = [];
+  const errors: string[] = [];
+
+  // The runtime's reserved-name guard only inspects the entry class, so a
+  // secondary class carrying this name would compile and overwrite the one
+  // collecting the trace — and the diagram would draw whatever it emitted.
+  if (new RegExp(`\\bclass\\s+${TRACE_CLASS}\\b`).test(source)) {
+    errors.push(`${TRACE_CLASS} es un nombre reservado por la plataforma: usa otro.`);
+  }
+
+  const lines = source.split('\n').map((line, index) => {
+    const number = index + 1;
+
+    const closing = PHOTO_END.exec(line);
+    if (closing) {
+      const frame = closing[1]!;
+      if (!IDENTIFIER.test(frame)) {
+        errors.push(`línea ${number}: «${frame}» no es un nombre de marco válido.`);
+        return line;
+      }
+      return line.replace(PHOTO_END, `${TRACE_CLASS}.finMarco("${frame}");`).trimEnd();
+    }
+
+    const photo = PHOTO.exec(line);
+    if (!photo) return line;
+
+    // `foto-fin` already returned, so anything left starting with `-` is a typo
+    // of it rather than a frame called `-fin`.
+    const rest = photo[1]!.trim();
+    const colon = rest.indexOf(':');
+    const frame = colon < 0 ? 'main' : rest.slice(0, colon).trim();
+    const names = (colon < 0 ? rest : rest.slice(colon + 1))
+      .split(',')
+      .map((one) => one.trim())
+      .filter((one) => one !== '');
+
+    if (!IDENTIFIER.test(frame)) {
+      errors.push(`línea ${number}: «${frame}» no es un nombre de marco válido.`);
+      return line;
+    }
+    if (names.length === 0) {
+      errors.push(`línea ${number}: marca «// foto» sin variables que fotografiar.`);
+      return line;
+    }
+    const bad = names.find((one) => !IDENTIFIER.test(one));
+    if (bad !== undefined) {
+      errors.push(`línea ${number}: «${bad}» no es un nombre de variable válido.`);
+      return line;
+    }
+
+    markers.push({ line: number, frame, variables: names });
+
+    const calls = [
+      `${TRACE_CLASS}.inicio(${number}, "${frame}");`,
+      ...names.map((one) => `${TRACE_CLASS}.var("${one}", ${one});`),
+      `${TRACE_CLASS}.fin();`,
+    ].join(' ');
+
+    return line.replace(PHOTO, calls).trimEnd();
+  });
+
+  if (markers.length === 0 && errors.length === 0) {
+    errors.push('ninguna línea marcada con «// foto»: el diagrama no tendría nada que dibujar.');
+  }
+
+  return { code: lines.join('\n'), markers, errors };
+}

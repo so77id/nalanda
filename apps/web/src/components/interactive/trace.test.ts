@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import type { Frame } from './trace';
 import { readTrace } from './trace';
 
 /**
@@ -198,5 +199,65 @@ describe('readTrace', () => {
 
     expect(reading.steps).toEqual([]);
     expect(reading.output).toBe('solo salida normal\nsin marcas');
+  });
+
+  describe('the swap that does not work', () => {
+    /**
+     * Also captured from a real run (Chromium, 2026-08-13). This is the case the
+     * whole frame design exists for, and the reason it is asserted end to end
+     * here rather than through hand-written frame fixtures: if the reader gets
+     * this wrong, document 2 §3 teaches the opposite of the truth.
+     */
+    const SWAP = [
+      '[nalanda] T PASO 11 main',
+      '[nalanda] T VAR a ref 1',
+      '[nalanda] T VAR b ref 2',
+      '[nalanda] T OBJ 1 Punto',
+      '[nalanda] T FLD 1 x int 1',
+      '[nalanda] T OBJ 2 Punto',
+      '[nalanda] T FLD 2 x int 3',
+      '[nalanda] T FINPASO',
+      '[nalanda] T PASO 3 swap',
+      '[nalanda] T VAR p ref 1',
+      '[nalanda] T VAR q ref 2',
+      '[nalanda] T FINPASO',
+      '[nalanda] T PASO 5 swap',
+      '[nalanda] T VAR p ref 2',
+      '[nalanda] T VAR q ref 1',
+      '[nalanda] T FINPASO',
+      '[nalanda] T FINMARCO swap',
+      'despues del swap: a.x=1 b.x=3',
+      '[nalanda] T PASO 13 main',
+      '[nalanda] T VAR a ref 1',
+      '[nalanda] T VAR b ref 2',
+      '[nalanda] T FINPASO',
+    ].join('\n');
+
+    const refsOf = (frame: Frame) =>
+      Object.fromEntries(
+        frame.variables.map((one) => [one.name, one.value.kind === 'ref' ? one.value.id : null]),
+      );
+
+    it('shows the caller beside the callee while swap runs', () => {
+      const inside = readTrace(SWAP).steps[1]!;
+
+      expect(inside.frames.map((one) => one.name)).toEqual(['main', 'swap']);
+      expect(refsOf(inside.frames[0]!)).toEqual({ a: 1, b: 2 });
+      expect(refsOf(inside.frames[1]!)).toEqual({ p: 1, q: 2 });
+    });
+
+    it('swaps the copies inside, and leaves the originals alone outside', () => {
+      const { steps } = readTrace(SWAP);
+
+      // Inside the method the two locals really do exchange…
+      expect(refsOf(steps[2]!.frames[1]!)).toEqual({ p: 2, q: 1 });
+      // …and back in main nothing moved. That contrast IS the lesson.
+      expect(steps[3]!.frames.map((one) => one.name)).toEqual(['main']);
+      expect(refsOf(steps[3]!.frames[0]!)).toEqual({ a: 1, b: 2 });
+    });
+
+    it('keeps what the program printed out of the photographs', () => {
+      expect(readTrace(SWAP).output).toBe('despues del swap: a.x=1 b.x=3');
+    });
   });
 });
