@@ -44,9 +44,15 @@ describe('mdxHeading', () => {
     // that sets it rather than in a comment here that nothing re-measures.
     //
     // 4.5 and not 3: on h3/h4 the marker is normal-size text, not large.
+    //
+    // Split first, for the same reason as catalogRoute: `toContain` passed over
+    // `text-ink-faint/10`, which Tailwind compiles to a real color-mix at 10%
+    // opacity — an anchor nobody can see, shipped green. `palette.test.ts` cannot
+    // catch that: it reads token DECLARATIONS out of the stylesheet, and the
+    // damage here is done at the call site. Exact tokens are the only form that
+    // holds, and they make the old negative assertion redundant.
     const anchor = screen.getByRole('link');
-    expect(anchor.className).toContain('text-ink-faint');
-    expect(anchor.className).not.toMatch(/text-(rule|ink-soft)\b/);
+    expect(anchor.className.split(/\s+/)).toContain('text-ink-faint');
   });
 
   it('renders the requested heading level', () => {

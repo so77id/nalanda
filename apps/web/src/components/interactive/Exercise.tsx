@@ -9,6 +9,7 @@ import { clearDraft, draftKey, readDraft, saveDraft } from './draft';
 import { OUTPUT, Panel } from './Panel';
 import type { RuntimeModule } from '../../runtime';
 import type { RuntimeId } from '../../lib/runtimeIds';
+import { useResolvedTheme } from '../../lib/useResolvedTheme';
 import { RunAbandonedError, loadRuntime, useRuntime } from '../../runtime';
 import type { RunReading } from './harness';
 import { STARTER_FENCE, TEST_FENCE, buildHarness, readRun } from './harness';
@@ -89,6 +90,7 @@ function Verdict({ reading }: { reading: RunReading }) {
  * cannot exist here.
  */
 export function Exercise({ title, language = 'java', children }: ExerciseProps) {
+  const theme = useResolvedTheme();
   const fences = useMemo(() => fencesByMeta(children), [children]);
   const statement = useMemo(() => withoutFences(children), [children]);
   const starter = fences[STARTER_FENCE] ?? '';
@@ -190,14 +192,14 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
       </header>
 
       {statement.length === 0 ? null : (
-        <div className="prose prose-themed prose-sm max-w-none px-3 py-2">{statement}</div>
+        <div className="prose prose-sm max-w-none px-3 py-2">{statement}</div>
       )}
 
       <div className="max-h-80 overflow-auto border-t border-rule">
         <CodeMirror
           value={code}
           onChange={setCode}
-          theme="dark"
+          theme={theme}
           extensions={[...(runtime ? [runtime.codeMirrorLanguage()] : []), checkShortcut]}
           basicSetup={{ lineNumbers: true, foldGutter: false }}
         />

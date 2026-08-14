@@ -24,13 +24,15 @@ this work was specified, a fortnight earlier.
 
 **One palette of semantic tokens, two complete themes, and three theme states.**
 
-1. **Tokens, not colours.** Sixteen semantic names — surfaces (`ground`,
-   `surface`, `sunk`, `deck-ground`), text (`ink`, `ink-soft`, `ink-faint`),
-   lines (`rule`, `rule-strong`), meaning (`accent`, `flag`, `keep`, plus their
-   `-soft` grounds and `on-keep`), and `focus`. One neutral. One accent for the
-   whole product. Each is exposed to Tailwind as `--color-*: var(--nl-*)`, so a
-   utility resolves through the theme and **no component writes a `dark:`
-   variant**: 184 duplicated classes would have been 368.
+1. **Tokens, not colours.** One semantic name per role — surfaces, text, lines,
+   meaning, focus. One neutral. One accent for the whole product. The roster and
+   the legal pairings live in `docs/standards/design-system.md`, which is the
+   living document; enumerating them here too would be a second home for a fact
+   that changes (it had already drifted before this line was written: the count
+   said sixteen and the stylesheet declared seventeen). Each token is exposed to
+   Tailwind as `--color-*: var(--nl-*)`, so a utility resolves through the theme
+   and **no component writes a `dark:` variant**: 184 duplicated classes would
+   have been 368.
 
 2. **Three theme states, because a reader can be in three.** An explicit choice
    stamps `data-theme`; the default state stamps nothing and only

@@ -133,13 +133,13 @@
    pointing those at our tokens makes prose theme-aware for free, and the tokens
    already swap per theme.
 
-   A separate class rather than a bare `.prose` override, because a component
-   that has NOT migrated yet still paints its own dark surface and still wants
-   `prose-invert`. Redefining `.prose` globally would hand those components
-   light-theme text on their own dark panels. Each drops `prose-invert` and takes
-   `prose-themed` when its slice lands; when the last one has, this can collapse
-   into `.prose` itself. */
-.prose-themed {
+   This started as a separate `.prose-themed` class while the migration was in
+   flight, because a component that still painted its own dark surface still
+   wanted `prose-invert`. Every consumer has migrated, so it is `.prose` itself —
+   the shim's stated collapse condition, met inside the same PR. The unlayered
+   declaration outranks the plugin's layered one, the same cascade mechanism
+   documented for `.cm-editor.cm-focused` below. */
+.prose {
   --tw-prose-body: var(--color-ink-soft);
   --tw-prose-headings: var(--color-ink);
   --tw-prose-lead: var(--color-ink-soft);

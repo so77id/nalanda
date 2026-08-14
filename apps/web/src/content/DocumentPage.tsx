@@ -144,7 +144,7 @@ export function DocumentPage({ notFound }: Props) {
             <ThemeToggle />
           </div>
         </div>
-        <article ref={article} className="prose prose-themed measured-prose mx-auto max-w-3xl">
+        <article ref={article} className="prose measured-prose mx-auto max-w-3xl">
           <Suspense fallback={null}>
             <Doc />
           </Suspense>

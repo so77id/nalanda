@@ -249,7 +249,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
             {slide.title ? (
               <h2 className="mb-10 text-5xl font-bold tracking-tight">{slide.title}</h2>
             ) : null}
-            <div className="prose prose-themed prose-xl max-w-none">{slide.content}</div>
+            <div className="prose prose-xl max-w-none">{slide.content}</div>
           </motion.div>
         </AnimatePresence>
       </div>

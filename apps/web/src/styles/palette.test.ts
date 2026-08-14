@@ -158,4 +158,24 @@ describe('the palette', () => {
       Object.keys(tokensIn(':root')).sort(),
     );
   });
+
+  // The THIRD block, and the one that serves most readers.
+  //
+  // The dark palette is written twice — inside the media query for the reader
+  // who never chose, and in `[data-theme='dark']` for the reader who did. The
+  // duplication is forced: "dark applies when (the OS is dark AND not stamped
+  // light) OR stamped dark" is not one plain-CSS rule at this project's browser
+  // floor. What is NOT forced is leaving one copy unverified, and it was:
+  // breaking `--nl-ink` to 1.05:1 INSIDE the media query left all 625 tests
+  // green (#109 review). Every case above reads the stamped block, so the
+  // default dark experience had no contrast check, no completeness check and
+  // nothing keeping the two copies in step.
+  it('the media-query dark block is identical to the stamped one', () => {
+    const media = tokensIn(":root:not\\(\\[data-theme='light'\\]\\)");
+    expect(
+      Object.keys(media).length,
+      'no tokens found in the media-query block — its selector changed and this case stopped reading anything',
+    ).toBeGreaterThan(0);
+    expect(media).toEqual(tokensIn(THEMES[1].selector));
+  });
 });

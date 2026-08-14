@@ -3,6 +3,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { THEME_STORAGE_KEY } from '../lib/themePreference';
+
 // What the HTML document declares about itself, before React runs. None of it is
 // reachable from a component test: jsdom builds its own document, so the shipped
 // `index.html` and the global stylesheet are only ever asserted here.
@@ -86,6 +88,22 @@ describe('the document shell', () => {
     expect(themeColour('dark'), 'no dark theme-color meta').toBe(
       groundIn(":root\\[data-theme='dark'\\]"),
     );
+  });
+
+  it('ships the pre-paint script, spelling the key the module owns', () => {
+    // The key is spelled twice on purpose — the script must run before any module
+    // does, so it cannot import the module that owns it. Twelve lines above, the
+    // theme-color metas got a cross-check for exactly this shape, because
+    // "asserting each side alone is exactly how they drifted". This is that
+    // cross-check for the key: deleting the script, or drifting either spelling,
+    // costs a reader their saved theme on every load.
+    expect(html, 'no pre-paint theme script in index.html').toMatch(
+      /<script>[\s\S]*dataset\.theme[\s\S]*<\/script>/,
+    );
+    expect(
+      html,
+      'the inline script names a different storage key than themePreference.ts',
+    ).toContain(`getItem('${THEME_STORAGE_KEY}')`);
   });
 
   it('gives focus an outline of its own, thick enough to see', () => {

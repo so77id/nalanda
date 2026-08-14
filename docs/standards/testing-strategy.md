@@ -217,7 +217,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
      step the next render will not get.
   2. Render inside `await act(async () => { render(…) })`. **`React.lazy`
      suspends even when the module is already cached**, so the boundary does
-     *not* settle on the first commit — it settles on the retry the flush
+     _not_ settle on the first commit — it settles on the retry the flush
      delivers. Skip this and step 3 becomes impossible: with the preload in
      place and the flush removed, a `getBy` finds the fallback and fails
      (verified by mutation). A file that stays entirely on `findBy` is already
@@ -232,6 +232,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
      preload deleted, because the article exists before its lazy document does.
      An `h2` from the document does not. This was got wrong first here, and the
      mutation caught it — which is why step 4 exists.
+
   4. **Delete the preload and watch the canary fail.** Without this the canary
      is decoration: two of the four written for #102 asserted shell markup and
      passed with the preload gone.
@@ -244,7 +245,8 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   for (const entry of registry.entries) {
     const real = entry.load;
     let cached: ReturnType<typeof real> | undefined;
-    entry.load = () => (cached ??= new Promise((r) => setTimeout(() => r(real()), 1500)));
+    entry.load = () =>
+      (cached ??= new Promise((r) => setTimeout(() => r(real()), 1500)));
   }
   ```
 
@@ -263,7 +265,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
 
   The same probe found `app/App.test.tsx`, `app/documentSections.test.tsx` and
   `app/documentDrawer.test.tsx` exposed — the last one waits on `h2[id]`, i.e.
-  *inside* the boundary, on `waitFor`'s same default budget — and cleared
+  _inside_ the boundary, on `waitFor`'s same default budget — and cleared
   `documentBreadcrumb` and `documentTitle`, whose queries hit the shell's nav
   and `document.title`. **Calibrate the delay before trusting a clearance**: at
   1500ms `documentDrawer` looked clear and at 4000ms it failed, so the first
@@ -278,6 +280,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
 
   Apply the steps to a file when a case there has reddened under the probe, or
   when you want a `getBy` canary — not to every file that contains a `findBy`.
+
 - **A per-state browser measurement is not a transition measurement.** Loading
   each state fresh (`?slide=1`, `?slide=2`, …) exercises mount and nothing else;
   the paths BETWEEN states are different code and have to be driven in the same
@@ -338,7 +341,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   given its handler before the next `await`.** That is the trigger, and it is
   narrow: a promise that can only reject because the test itself emits something
   is not this shape, so this is not a licence to rewrite every assertion. When a
-  budget is armed *inside* the call, the rejection can land while the test is
+  budget is armed _inside_ the call, the rejection can land while the test is
   parked on a `waitFor` with nobody listening; vitest then exits 1 with every
   test counted as passed, and names the cause only in its `Unhandled Errors`
   block and an `Errors 1 error` line — a red run whose pass counts read green.
@@ -449,6 +452,23 @@ playwright package.json` finds nothing by design), then drive `npm run build
   suite stayed green at 576 while the case stopped testing what it is named for,
   and the diff that caused it touched neither that file nor either document it
   selects.
+- **A class-name assertion is an exact token, never a substring.** Every Tailwind
+  utility has a variant form (`hover:x`) and an alpha form (`x/10`) that CONTAIN
+  the base token, so `toContain('text-accent')` passes over `hover:text-accent` —
+  a link that only looks like a link once the pointer is on it — and
+  `toContain('text-ink-faint')` passes over `text-ink-faint/10`, which compiles
+  to a real `color-mix` at 10% and is invisible. Both were the exact defect the
+  assertion existed to forbid, both shipped green, and no stylesheet-level test
+  can catch either because the damage is done at the call site. Split first:
+  `expect(el.className.split(/\s+/)).toContain('text-accent')`. Worked cases in
+  `app/catalogRoute.test.tsx` and `content/mdxHeading.test.tsx` (#109 review).
+- **A test that derives its subject by parsing a file asserts the parse found
+  something**, in the same describe, with a message naming the selector or path
+  that drifted. A regex over a source file returns an empty set when the source
+  moves, and an empty set makes every case built on it pass while checking
+  nothing. Worked case: `styles/palette.test.ts` reads token blocks out of
+  `index.css`; renaming a selector turns fourteen silent passes into one named
+  failure only because the guard is there (#109).
 - **Registry-driven invariants**: when a standard applies to every member of a
   live registry, iterate the registry at module scope and generate one case per
   entry, so a new entry is gated the moment it is registered — never hand-write

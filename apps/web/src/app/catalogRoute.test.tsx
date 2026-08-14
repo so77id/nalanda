@@ -55,10 +55,18 @@ describe('/catalog', () => {
     // "a link is painted in the one colour this product uses for links", and that
     // is what the token name says; `palette.test.ts` owns whether that colour is
     // legible on the surfaces it lands on.
+    //
+    // Split first: `toContain` is a SUBSTRING match, so it passed over
+    // `hover:text-accent` — verbatim the regression CatalogOverviewPage's own
+    // comment describes, a name indistinguishable from a heading while the
+    // pointer is elsewhere — and over `text-accent-soft`, a tint the design
+    // system forbids as a foreground and which measures 1.08:1 on ground. Both
+    // shipped green. An exact token match kills both.
     for (const family of families) {
       const link = screen.getByRole('link', { name: family.name });
-      expect(link.className, `${family.name} does not look like a link`).toContain('text-accent');
-      expect(link.className).toContain('hover:underline');
+      const classes = link.className.split(/\s+/);
+      expect(classes, `${family.name} does not look like a link`).toContain('text-accent');
+      expect(classes).toContain('hover:underline');
     }
   });
 
