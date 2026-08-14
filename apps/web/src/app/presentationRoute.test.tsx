@@ -27,6 +27,26 @@ function renderAt(path: string) {
 }
 
 /**
+ * Renders and waits for the document module, so nothing after it is on a timer.
+ *
+ * Every assertion in this file lives on the far side of `lazy(entry.load)`
+ * (`content/lazyDoc.ts`), so each one used to race the module against
+ * `findBy*`'s 1000ms window. On a loaded machine the module lost: the cover
+ * slide case failed three times at ~1400ms, and because CI runs the same
+ * protocol, a green run stopped being reproducible (#102).
+ *
+ * Resolving the module first makes the boundary settle on the first commit.
+ * That is a real fix rather than a bigger number: the wait is over a promise
+ * this function holds, not over a deadline the machine can miss.
+ */
+async function renderPresentation(path: string): Promise<void> {
+  await Promise.all(registry.entries.map((entry) => entry.load()));
+  await act(async () => {
+    renderAt(path);
+  });
+}
+
+/**
  * jsdom implements no Fullscreen API, so after #111 the deck hides its
  * fullscreen control there — correctly, but for a reason no test intended.
  * A test that cares about that control declares the capability first, the way
@@ -46,9 +66,15 @@ async function findCounter() {
 
 describe('PresentationPage viewer', () => {
   it('opens on the cover slide with the document title and a counter', async () => {
-    renderAt(`/d/${firstId}/present`);
-    expect(await screen.findByRole('heading', { name: firstTitle })).toBeInTheDocument();
-    expect(await findCounter()).toHaveTextContent(/^1 \/ \d+$/);
+    await renderPresentation(`/d/${firstId}/present`);
+
+    // `getBy`, deliberately, not `findBy`: once the document is resolved there
+    // is nothing left to wait for, and a query that cannot wait is the only
+    // assertion that can prove it. If this throws, the boundary is being raced
+    // again and every other case in this file is one busy machine away from
+    // failing (#102).
+    expect(screen.getByRole('heading', { name: firstTitle })).toBeInTheDocument();
+    expect(screen.getByText(/^\d+ \/ \d+$/)).toHaveTextContent(/^1 \/ \d+$/);
   });
 
   it('navigates with ArrowRight/ArrowLeft and clamps at the edges', async () => {
