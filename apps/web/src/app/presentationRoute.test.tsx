@@ -673,13 +673,19 @@ describe('explicit-mode documents (real compiled markers)', () => {
   // one while `busqueda-binaria` happened to come first in the index. The day
   // another document ahead of it declared `explicit`, both cases failed against
   // a fixture whose content they never claimed to know.
+  //
+  // Resolved through the REGISTRY, not `walkIndex`. These cases drive
+  // `/d/<id>/present`, and that route answers for any compiled document: the
+  // index decides the teaching path, never existence (ADR-0002). Reading the
+  // index conflated the two, and retiring the Fundamentos unit from the path
+  // reddened three cases here about a document nobody had touched.
   const EXPLICIT_FIXTURE = 'busqueda-binaria';
-  const explicitId = ids.find((id) => id === EXPLICIT_FIXTURE);
+  const explicitId = registry.get(EXPLICIT_FIXTURE)?.meta.id;
 
   it('the seed course still provides the explicit fixture these cases describe', () => {
     expect(
       explicitId,
-      `${EXPLICIT_FIXTURE} is gone from the index — repoint this block at a document whose sections are <Slide> markers, and update the headings asserted below to its own`,
+      `${EXPLICIT_FIXTURE} is gone from content/ — repoint this block at a document whose sections are <Slide> markers, and update the headings asserted below to its own. Leaving the index is not enough to trip this: the registry is what this reads.`,
     ).toBeDefined();
     expect(registry.get(explicitId!)?.meta.presentation).toBe('explicit');
   });

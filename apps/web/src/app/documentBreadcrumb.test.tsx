@@ -53,14 +53,29 @@ describe('the breadcrumb row of a document', () => {
     expect(presentar.querySelector('svg')).not.toBeNull();
   });
 
-  // The unlisted-document case is NOT tested here. It was, with an
-  // `if (!unlisted) return;` guard — and since every seed document is indexed,
-  // the body never ran: a test that reads as coverage and cannot fail. The
-  // contract is owned where it can be exercised without a fixture document:
-  // courseIndex.test.ts (trailFor, two cases) and Breadcrumb.test.tsx
-  // ("shows the course alone for a document the index does not list").
-  it('every seed document is indexed — the premise of the note above', () => {
+  // The unlisted-document case used to be untestable here. It was written with
+  // an `if (!unlisted) return;` guard, and since every seed document was indexed
+  // the body never ran — a test that read as coverage and could not fail. It was
+  // replaced by an assertion that the premise held: every document is listed.
+  //
+  // That premise is now false ON PURPOSE. Retiring the Fundamentos unit from the
+  // teaching path left three documents compiled and served but off the index,
+  // which is exactly the shape the guard could never reach — so the case it was
+  // standing in for is finally exercisable against real content, and the
+  // stand-in is gone.
+  it('shows the course alone for a document the index does not list', async () => {
     const listed = walkIndex(courseIndex);
-    expect(registry.entries.filter((e) => !listed.includes(e.meta.id))).toEqual([]);
+    const unlisted = registry.entries.find((e) => !listed.includes(e.meta.id));
+    expect(
+      unlisted,
+      'every document is on the teaching path again — this case needs one that is not, or the unlisted breadcrumb is unexercised here (its unit cover is courseIndex.test.ts trailFor + Breadcrumb.test.tsx)',
+    ).toBeDefined();
+
+    renderAt(`/d/${unlisted!.meta.id}`);
+    const nav = await screen.findByRole('navigation', { name: /ubicaci/i });
+    // The course still names where the reader is; what an unlisted document has
+    // no claim to is a position in the path.
+    expect(nav).toHaveTextContent(courseIndex.title!);
+    expect(nav).not.toHaveTextContent(/\d+ de \d+/);
   });
 });

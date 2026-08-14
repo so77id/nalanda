@@ -2,7 +2,7 @@ import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeAll, describe, expect, it } from 'vitest';
 
-import { courseIndex, registry, walkIndex } from '../content';
+import { registry } from '../content';
 
 import { AppRoutes } from './AppRoutes';
 
@@ -44,8 +44,6 @@ async function renderAt(path: string): Promise<void> {
   });
 }
 
-const ids = walkIndex(courseIndex);
-
 // Named, not discovered (#108). Picking "the first auto document" and "the first
 // explicit one" reads as robust and is the opposite: it silently follows the
 // index. When 02-intro-estructuras declared `explicit` it became the first one,
@@ -76,8 +74,15 @@ const ids = walkIndex(courseIndex);
 // paints its rail" — and the rail reads the h2s the article painted, which is
 // the same code either way. If a course document ever declares `auto` again,
 // this is the place to bring the case back.
+//
+// Resolved through the REGISTRY, not through `walkIndex`. What these cases need
+// is a document that renders, and the index decides navigation rather than
+// existence (ADR-0002): a document absent from it is still compiled and still
+// served at `/d/<id>`. Selecting from the index conflated the two, so retiring
+// the Fundamentos unit from the teaching path reddened three cases here about a
+// document that had not changed at all.
 const EXPLICIT_FIXTURE = 'busqueda-binaria';
-const explicitId = ids.find((id) => id === EXPLICIT_FIXTURE);
+const explicitId = registry.get(EXPLICIT_FIXTURE)?.meta.id;
 
 /**
  * The h2 ids the article actually painted — the answer key for the rail. The
@@ -99,7 +104,7 @@ describe('the section rail over real documents', () => {
   it('the seed course still provides the fixture these cases describe', () => {
     expect(
       explicitId,
-      `${EXPLICIT_FIXTURE} left the index. Repoint this block at another document carrying BOTH heading sources — a markdown "##" and <Slide title> h2s — not merely at any explicit document, or the equivalence below stops being tested.`,
+      `${EXPLICIT_FIXTURE} left the content tree. Repoint this block at another document carrying BOTH heading sources — a markdown "##" and <Slide title> h2s — not merely at any explicit document, or the equivalence below stops being tested. Leaving the INDEX is not enough to trip this: the registry is what these cases read.`,
     ).toBeDefined();
     expect(
       registry.get(explicitId!)?.meta.presentation,
@@ -139,7 +144,10 @@ describe('the section rail over real documents', () => {
   });
 
   it('shows no rail for a document with no sections at all', async () => {
-    const flatId = ids.find((id) => registry.get(id)?.meta.presentation === 'none');
+    // Registry, not index, for the same reason as the fixture above: what this
+    // case needs is a document that renders without sections, and being on the
+    // teaching path has nothing to do with that.
+    const flatId = registry.entries.find((e) => e.meta.presentation === 'none')?.meta.id;
     expect(flatId, 'seed course needs a document without sections').toBeDefined();
     await renderAt(`/d/${flatId}`);
     const article = await screen.findByRole('article');
