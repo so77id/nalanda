@@ -49,8 +49,8 @@ async function renderAt(path: string): Promise<void> {
  *
  * Resolving the modules once, here, settles every boundary in the file on its
  * first commit. It is done at file level rather than inside a render helper on
- * purpose: 36 renders share this hazard, and a fix a call site has to remember
- * is a fix the 37th will not get. Dynamic imports are cached, so this costs one
+ * purpose: 37 renders share this hazard, and a fix a call site has to remember
+ * is a fix the 38th will not get. Dynamic imports are cached, so this costs one
  * resolution, not one per test.
  */
 beforeAll(async () => {

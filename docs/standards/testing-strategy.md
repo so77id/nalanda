@@ -199,9 +199,11 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   comment. Worked case (#91): `app/presentationRoute.test.tsx` awaits the rotate
   panel — which only the loaded document can render — before asserting that no
   counter and no slide heading are on the page.
-  The same pre-resolution described below settles the absence case too; reach
-  for the far-side `await` when only one test in a file crosses the boundary,
-  and for the file-wide fix when many do.
+  Steps 1 **and** 2 below settle the absence case too — step 1 alone does not:
+  without the flush the first commit is still the fallback, so `queryBy` passes
+  vacuously, which is the false pass this bullet exists to forbid (verified).
+  Reach for the far-side `await` when one test in a file crosses the boundary,
+  and for the file-wide pair when many do.
 - **Asserting PRESENCE across one has the mirror hazard: the assertion is a
   deadline, and the module is racing it.** `findBy*` waits 1000ms by default,
   which is not a fact about the code but about the machine — on a busy box the
@@ -216,12 +218,23 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   2. Render inside `await act(async () => { render(…) })`. **`React.lazy`
      suspends even when the module is already cached**, so the boundary does
      *not* settle on the first commit — it settles on the retry the flush
-     delivers. Skip this and step 1 buys nothing: verified by mutation, with the
-     preload in place and the flush removed, the assertion still fails.
+     delivers. Skip this and step 3 becomes impossible: with the preload in
+     place and the flush removed, a `getBy` finds the fallback and fails
+     (verified by mutation). A file that stays entirely on `findBy` is already
+     fixed by step 1 alone — the flush is what buys you the canary.
   3. Keep **one canary assertion per file on `getBy`**. A query that cannot wait
      is the only one that can prove the wait is gone; with `findBy` the test
      passes either way and proves nothing. The rest may stay on `findBy` —
      converting them all is churn, and converting them without step 2 is red.
+
+     **Assert something only the loaded module renders.** A canary on the
+     shell's own markup proves nothing: `getByRole('article')` passes with the
+     preload deleted, because the article exists before its lazy document does.
+     An `h2` from the document does not. This was got wrong first here, and the
+     mutation caught it — which is why step 4 exists.
+  4. **Delete the preload and watch the canary fail.** Without this the canary
+     is decoration: two of the four written for #102 asserted shell markup and
+     passed with the preload gone.
 
   **Prove it in both directions rather than asserting it.** Patch each entry so
   its FIRST resolution is delayed and later calls are served from cache, which
@@ -235,17 +248,36 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   }
   ```
 
+  It has to run **before the first render** — `content/lazyDoc.ts` captures
+  `entry.load` when it calls `lazy()` — so put it at the top of the test file
+  (no config needed), or in a scratch setup file pointed at by a throwaway
+  config: `test.setupFiles: ['./vitest.setup.ts', './src/slowLoad.ts']`. Vitest 4
+  has no `--setupFiles` flag.
+
   That turns "seen three times, never reproducible" into one command, and it
   also separates the files genuinely at risk from those that merely look
   similar. Worked case (#102): the cover-slide case in
   `app/presentationRoute.test.tsx` reddened three times on loaded machines, once
   at 1402ms, gating the pre-PR protocol and CI with it. Under the simulation the
-  unfixed shape fails with that same message and the fixed one passes; the same
-  probe found `app/App.test.tsx` and `app/documentSections.test.tsx` exposed and
-  cleared `documentBreadcrumb`, `documentTitle` and `documentDrawer`, whose
-  assertions sit outside the boundary. Apply the three steps to a file when a
-  case there has reddened, or when you want a `getBy` canary — not to every file
-  that contains a `findBy`.
+  unfixed shape fails with that same message and the fixed one passes.
+
+  The same probe found `app/App.test.tsx`, `app/documentSections.test.tsx` and
+  `app/documentDrawer.test.tsx` exposed — the last one waits on `h2[id]`, i.e.
+  *inside* the boundary, on `waitFor`'s same default budget — and cleared
+  `documentBreadcrumb` and `documentTitle`, whose queries hit the shell's nav
+  and `document.title`. **Calibrate the delay before trusting a clearance**: at
+  1500ms `documentDrawer` looked clear and at 4000ms it failed, so the first
+  answer was an artefact of the number, not a property of the file. It was
+  written into this standard as "its assertions sit outside the boundary", which
+  was simply false.
+
+  `app/documentFences.test.tsx` is the same hazard over a different module — the
+  fence renderer, not the document — and was flaky on `main` before this WP:
+  2 failures in 4 runs of `src/app/`. Its fix is the same shape,
+  `await import('../components/interactive/CodeEditor')`.
+
+  Apply the steps to a file when a case there has reddened under the probe, or
+  when you want a `getBy` canary — not to every file that contains a `findBy`.
 - **A per-state browser measurement is not a transition measurement.** Loading
   each state fresh (`?slide=1`, `?slide=2`, …) exercises mount and nothing else;
   the paths BETWEEN states are different code and have to be driven in the same

@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeAll, describe, expect, it } from 'vitest';
 
@@ -26,12 +26,22 @@ beforeAll(async () => {
 // because <Slide title> renders the h2 the SHELL's MDX map provides. Mounted
 // without that map, every Slide title would be a plain <h2> with no id and the
 // rail would silently list nothing.
-function renderAt(path: string) {
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <AppRoutes />
-    </MemoryRouter>,
-  );
+/**
+ * Renders at `path` with the first commit flushed.
+ *
+ * `React.lazy` suspends even when the module is already cached, so without the
+ * flush the assertion runs against the Suspense fallback. Step 2 of the
+ * lazy-boundary recipe in `docs/standards/testing-strategy.md` §Conventions
+ * (#102).
+ */
+async function renderAt(path: string): Promise<void> {
+  await act(async () => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <AppRoutes />
+      </MemoryRouter>,
+    );
+  });
 }
 
 const ids = walkIndex(courseIndex);
@@ -89,7 +99,13 @@ describe('the section rail over real documents', () => {
   });
 
   it('lists every section of an auto document, in order', async () => {
-    renderAt(`/d/${autoId}`);
+    await renderAt(`/d/${autoId}`);
+
+    // The canary: `getAllBy` cannot wait, and an `h2` exists only once the lazy
+    // document has rendered — `article` does not, it is the shell's and is on
+    // this side of the boundary. If the preload above is removed this fails on
+    // every machine instead of reddening in CI at random (#102, step 3).
+    expect(screen.getAllByRole('heading', { level: 2 }).length).toBeGreaterThan(0);
     const headings = await headingIdsOf();
     expect(headings.length).toBeGreaterThan(0);
     expect(await railLinkTargets()).toEqual(headings.map((id) => `#${id}`));
@@ -98,14 +114,14 @@ describe('the section rail over real documents', () => {
   it('lists the same spine for an explicit document, whose sections are <Slide> markers', async () => {
     // The equivalence AC4 asks for: two different slide-cutting rules, one
     // section list, because both render the same MDX-mapped h2 in book mode.
-    renderAt(`/d/${explicitId}`);
+    await renderAt(`/d/${explicitId}`);
     const headings = await headingIdsOf();
     expect(headings.length).toBeGreaterThan(0);
     expect(await railLinkTargets()).toEqual(headings.map((id) => `#${id}`));
   });
 
   it('names the sections with the slide titles the reader sees', async () => {
-    renderAt(`/d/${explicitId}`);
+    await renderAt(`/d/${explicitId}`);
     const article = await screen.findByRole('article');
     await waitFor(() => expect(article.querySelector('h2[id]')).not.toBeNull());
     const firstHeading = article.querySelector('h2[id]')!;
@@ -121,7 +137,7 @@ describe('the section rail over real documents', () => {
   it('shows no rail for a document with no sections at all', async () => {
     const flatId = ids.find((id) => registry.get(id)?.meta.presentation === 'none');
     expect(flatId, 'seed course needs a document without sections').toBeDefined();
-    renderAt(`/d/${flatId}`);
+    await renderAt(`/d/${flatId}`);
     const article = await screen.findByRole('article');
     // Wait for the document itself, not just the element that will hold it.
     // Asserting straight after findByRole passed for a document that HAS

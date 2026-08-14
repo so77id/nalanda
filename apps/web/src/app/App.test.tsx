@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeAll, describe, expect, it } from 'vitest';
 
@@ -11,7 +11,7 @@ import { AppRoutes } from './AppRoutes';
 const ids = walkIndex(courseIndex);
 const titleOf = (id: string) => registry.get(id)?.meta.title ?? id;
 
-// Every assertion below lives on the far side of `lazy(entry.load)`
+// Every assertion that reaches document content lives on the far side of `lazy(entry.load)`
 // (`content/lazyDoc.ts`), so each one raced the document module against the
 // 1000ms window `findBy*` gives an assertion. Resolving the modules once, here,
 // takes the machine out of the verdict (#102). Under a simulated 1500ms first
@@ -25,12 +25,22 @@ beforeAll(async () => {
   await Promise.all(registry.entries.map((entry) => entry.load()));
 });
 
-function renderAt(path: string) {
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <AppRoutes />
-    </MemoryRouter>,
-  );
+/**
+ * Renders at `path` with the first commit flushed.
+ *
+ * `React.lazy` suspends even when the module is already cached, so without the
+ * flush the assertion runs against the Suspense fallback. Step 2 of the
+ * lazy-boundary recipe in `docs/standards/testing-strategy.md` §Conventions
+ * (#102).
+ */
+async function renderAt(path: string): Promise<void> {
+  await act(async () => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <AppRoutes />
+      </MemoryRouter>,
+    );
+  });
 }
 
 describe('routing', () => {
@@ -39,14 +49,16 @@ describe('routing', () => {
   });
 
   it('renders a document by id at /d/:id', async () => {
-    renderAt(`/d/${ids[0]}`);
-    expect(
-      await screen.findByRole('heading', { level: 1, name: titleOf(ids[0]!) }),
-    ).toBeInTheDocument();
+    await renderAt(`/d/${ids[0]}`);
+
+    // The canary (step 3 of the lazy-boundary recipe): `getBy`, which cannot
+    // wait. If the preload above is ever removed this fails on every machine,
+    // instead of reddening in CI at random — which is what #102 was.
+    expect(screen.getByRole('heading', { level: 1, name: titleOf(ids[0]!) })).toBeInTheDocument();
   });
 
   it('renders in-document wiki-links as internal links that resolve', async () => {
-    renderAt(`/d/${ids[0]}`);
+    await renderAt(`/d/${ids[0]}`);
     await screen.findByRole('heading', { level: 1 });
     const article = screen.getByRole('article');
     const internal = within(article)
@@ -59,14 +71,14 @@ describe('routing', () => {
   });
 
   it('redirects the root route to the first index entry (the welcome document)', async () => {
-    renderAt('/');
+    await renderAt('/');
     expect(
       await screen.findByRole('heading', { level: 1, name: titleOf(ids[0]!) }),
     ).toBeInTheDocument();
   });
 
   it('shows prev/next navigation following the index order', async () => {
-    renderAt(`/d/${ids[1]}`);
+    await renderAt(`/d/${ids[1]}`);
     await screen.findByRole('heading', { level: 1 });
     const sequence = screen.getByRole('navigation', { name: 'Documento anterior y siguiente' });
     expect(sequence).toHaveTextContent(titleOf(ids[0]!));
@@ -81,25 +93,25 @@ describe('routing', () => {
     // currently pinned to `auto` as the suite's fixture, not by preference —
     // add-a-course-document.md step 2 (Frontmatter) has the reason.
     const presentableId = ids.find((id) => registry.get(id)?.meta.presentation !== 'none')!;
-    renderAt(`/d/${presentableId}/present`);
+    await renderAt(`/d/${presentableId}/present`);
     expect(
       await screen.findByRole('heading', { name: titleOf(presentableId) }),
     ).toBeInTheDocument();
     expect(screen.queryByRole('article')).not.toBeInTheDocument();
   });
 
-  it('shows the 404 page for an unknown id at /present', () => {
-    renderAt('/d/does-not-exist/present');
+  it('shows the 404 page for an unknown id at /present', async () => {
+    await renderAt('/d/does-not-exist/present');
     expect(screen.getByRole('heading', { name: /not found/i })).toBeInTheDocument();
   });
 
-  it('shows the 404 page for an unknown document id', () => {
-    renderAt('/d/does-not-exist');
+  it('shows the 404 page for an unknown document id', async () => {
+    await renderAt('/d/does-not-exist');
     expect(screen.getByRole('heading', { name: /not found/i })).toBeInTheDocument();
   });
 
-  it('shows the 404 page for an unknown route', () => {
-    renderAt('/nope');
+  it('shows the 404 page for an unknown route', async () => {
+    await renderAt('/nope');
     expect(screen.getByRole('heading', { name: /not found/i })).toBeInTheDocument();
   });
 });

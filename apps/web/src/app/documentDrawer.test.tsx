@@ -1,9 +1,9 @@
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 
-import { courseIndex, walkIndex } from '../content';
+import { courseIndex, registry, walkIndex } from '../content';
 
 import { AppRoutes } from './AppRoutes';
 
@@ -11,20 +11,40 @@ import { AppRoutes } from './AppRoutes';
 // content/Drawer.test.tsx. What only the shell can exercise is the flow: real
 // documents, real routing, and the map that lets a second document render at
 // all when the reader picks it from inside the drawer.
-function renderAt(path: string) {
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <AppRoutes />
-    </MemoryRouter>,
-  );
+/**
+ * Renders at `path` with the first commit flushed.
+ *
+ * `React.lazy` suspends even when the module is already cached, so without the
+ * flush the assertion runs against the Suspense fallback. Step 2 of the
+ * lazy-boundary recipe in `docs/standards/testing-strategy.md` §Conventions
+ * (#102).
+ */
+async function renderAt(path: string): Promise<void> {
+  await act(async () => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <AppRoutes />
+      </MemoryRouter>,
+    );
+  });
 }
 
 const ids = walkIndex(courseIndex);
+
+// Every assertion that reaches document content lives on the far side of
+// `lazy(entry.load)` (`content/lazyDoc.ts`) — including the `h2[id]` wait in
+// `openDrawer`, which this file's own comment already explains. Resolving the
+// modules once takes the machine out of the verdict (#102). Review measured
+// this file failing the documented slow-load probe; it was the only one left.
+beforeAll(async () => {
+  await Promise.all(registry.entries.map((entry) => entry.load()));
+});
+
 const firstId = ids[0]!;
 
 async function openDrawer() {
   const user = userEvent.setup();
-  renderAt(`/d/${firstId}`);
+  await renderAt(`/d/${firstId}`);
   const article = await screen.findByRole('article');
   // The article element exists before its lazy document does; without this the
   // drawer can open over an empty spine and the section assertions race.
@@ -35,8 +55,13 @@ async function openDrawer() {
 
 describe('the course index drawer', () => {
   it('is not on the page by default — the reading column gets the width', async () => {
-    renderAt(`/d/${firstId}`);
-    await screen.findByRole('article');
+    await renderAt(`/d/${firstId}`);
+
+    // The canary: `getAllBy` cannot wait, and an `h2` exists only once the lazy
+    // document has rendered — `article` does not, it is the shell's and is on
+    // this side of the boundary. If the preload above is removed this fails on
+    // every machine instead of reddening in CI at random (#102, step 3).
+    expect(screen.getAllByRole('heading', { level: 2 }).length).toBeGreaterThan(0);
     // The desktop sidebar still renders and CSS hides it; what must not exist
     // is a second, already-open copy over the document.
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
