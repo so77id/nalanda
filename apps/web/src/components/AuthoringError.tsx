@@ -21,7 +21,7 @@ export interface AuthoringErrorProps {
  */
 export function AuthoringError({ component, children }: AuthoringErrorProps) {
   return (
-    <div className="not-prose my-6 rounded-lg border border-amber-700 bg-amber-950 px-3 py-2 font-mono text-xs text-amber-200">
+    <div className="not-prose my-6 rounded-lg border border-flag bg-flag-soft px-3 py-2 font-mono text-xs text-flag">
       &lt;{component}&gt; {children}
     </div>
   );

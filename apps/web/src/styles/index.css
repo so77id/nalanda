@@ -31,6 +31,18 @@
   --color-flag: var(--nl-flag);
   --color-keep: var(--nl-keep);
   --color-focus: var(--nl-focus);
+
+  /* Tinted state backgrounds and the label on a filled button. A status chip is
+     `bg-keep-soft text-keep`; the run button is `bg-keep text-on-keep`.
+
+     `on-keep` inverts with the theme rather than following it — the keep ground
+     is dark in the light theme and light in the dark one, so its label has to go
+     the other way. That is the whole reason it is a token and not just
+     `text-white`, which was right in exactly one theme. */
+  --color-keep-soft: var(--nl-keep-soft);
+  --color-flag-soft: var(--nl-flag-soft);
+  --color-accent-soft: var(--nl-accent-soft);
+  --color-on-keep: var(--nl-on-keep);
 }
 
 /* The theme, in the three states a reader can actually be in.
@@ -62,6 +74,10 @@
   --nl-flag: #b04527;
   --nl-keep: #2c6a4e;
   --nl-focus: #0b63c4;
+  --nl-keep-soft: #e0eee7;
+  --nl-flag-soft: #f8e5df;
+  --nl-accent-soft: #f3e4ee;
+  --nl-on-keep: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -79,6 +95,10 @@
     --nl-flag: #e08a69;
     --nl-keep: #7ec2a0;
     --nl-focus: #38bdf8;
+    --nl-keep-soft: #17291f;
+    --nl-flag-soft: #33211a;
+    --nl-accent-soft: #33202c;
+    --nl-on-keep: #0c1118;
   }
 }
 
@@ -96,6 +116,10 @@
   --nl-flag: #e08a69;
   --nl-keep: #7ec2a0;
   --nl-focus: #38bdf8;
+  --nl-keep-soft: #17291f;
+  --nl-flag-soft: #33211a;
+  --nl-accent-soft: #33202c;
+  --nl-on-keep: #0c1118;
 }
 
 /* Prose that follows the theme (#109).

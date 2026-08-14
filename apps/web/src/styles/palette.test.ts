@@ -64,6 +64,23 @@ const TEXT_TOKENS = ['ink', 'ink-soft', 'ink-faint', 'accent', 'flag', 'keep'] a
  *  why `rule-strong` exists as a separate token. */
 const UI_TOKENS = ['rule-strong', 'focus'] as const;
 
+/**
+ * Pairs that are not "text on a surface": a tinted state background with its own
+ * foreground, and the label on a filled button.
+ *
+ * These exist because the interactive components need them (#109 S4) — a status
+ * chip is `bg-<state>-soft text-<state>`, and the run button is a filled `keep`.
+ * They are listed explicitly rather than folded into the surface loop because a
+ * soft background is NOT a general-purpose surface: `ink` on `keep-soft` is not
+ * something to allow, it is something nobody should write.
+ */
+const PAIRS = [
+  ['keep', 'keep-soft'],
+  ['flag', 'flag-soft'],
+  ['accent', 'accent-soft'],
+  ['on-keep', 'keep'],
+] as const;
+
 const THEMES = [
   { name: 'light', selector: ':root' },
   { name: 'dark', selector: ':root\\[data-theme=.dark.\\]' },
@@ -75,7 +92,7 @@ describe('the palette', () => {
       const tokens = tokensIn(theme.selector);
 
       it('declares every token the pairing table names', () => {
-        const required = [...SURFACES, ...TEXT_TOKENS, ...UI_TOKENS, 'rule'];
+        const required = [...SURFACES, ...TEXT_TOKENS, ...UI_TOKENS, ...PAIRS.flat(), 'rule'];
         expect(
           Object.keys(tokens).length,
           `no --nl-* tokens found for the ${theme.name} theme — the selector in this test no longer matches index.css`,
@@ -95,6 +112,14 @@ describe('the palette', () => {
         }
       });
 
+      it.each(PAIRS)('%s on %s reaches AA (4.5)', (fg, bg) => {
+        const ratio = contrast(tokens[fg]!, tokens[bg]!);
+        expect(
+          ratio,
+          `${theme.name}: ${fg} (${tokens[fg]}) on ${bg} (${tokens[bg]}) is ${ratio.toFixed(2)}:1, below AA — a status chip or a filled button is text, and small text at that`,
+        ).toBeGreaterThanOrEqual(4.5);
+      });
+
       it.each(UI_TOKENS)('%s reaches AA for non-text (3.0) on every surface', (fg) => {
         for (const bg of SURFACES) {
           const ratio = contrast(tokens[fg]!, tokens[bg]!);
@@ -112,7 +137,13 @@ describe('the palette', () => {
   // written for rather than the palette that ships.
   it('every declared token appears in the pairing table', () => {
     const declared = Object.keys(tokensIn(':root'));
-    const known = new Set<string>([...SURFACES, ...TEXT_TOKENS, ...UI_TOKENS, 'rule']);
+    const known = new Set<string>([
+      ...SURFACES,
+      ...TEXT_TOKENS,
+      ...UI_TOKENS,
+      ...PAIRS.flat(),
+      'rule',
+    ]);
     const orphans = declared.filter((name) => !known.has(name));
     expect(
       orphans,

@@ -31,7 +31,7 @@ function Verdict({ reading }: { reading: RunReading }) {
   return (
     <Panel label="casos">
       <div className="px-3 py-2">
-        <p className={`m-0 font-mono text-xs ${allPassed ? 'text-emerald-300' : 'text-amber-300'}`}>
+        <p className={`m-0 font-mono text-xs ${allPassed ? 'text-keep' : 'text-flag'}`}>
           {total === 0
             ? 'el programa no reportó ningún caso'
             : `${passed} de ${total} ${total === 1 ? 'caso' : 'casos'}`}
@@ -41,18 +41,18 @@ function Verdict({ reading }: { reading: RunReading }) {
           {reading.cases.map((one) => (
             <li key={one.n} className="flex items-start gap-1.5 font-mono text-xs">
               {one.ok ? (
-                <Check size={13} className="mt-0.5 shrink-0 text-emerald-400" />
+                <Check size={13} className="mt-0.5 shrink-0 text-keep" />
               ) : (
-                <X size={13} className="mt-0.5 shrink-0 text-red-400" />
+                <X size={13} className="mt-0.5 shrink-0 text-flag" />
               )}
-              <span className={one.ok ? 'text-zinc-400' : 'text-zinc-200'}>
+              <span className={one.ok ? 'text-ink-faint' : 'text-ink-soft'}>
                 caso {one.n}
                 {one.ok ? null : (
                   <>
                     {' — esperaba '}
-                    <span className="text-emerald-300">{one.expected}</span>
+                    <span className="text-keep">{one.expected}</span>
                     {', obtuvo '}
-                    <span className="text-red-300">{one.actual}</span>
+                    <span className="text-flag">{one.actual}</span>
                   </>
                 )}
               </span>
@@ -61,7 +61,7 @@ function Verdict({ reading }: { reading: RunReading }) {
         </ul>
 
         {reading.crash === null ? null : (
-          <p className="m-0 mt-2 font-mono text-xs text-red-300">
+          <p className="m-0 mt-2 font-mono text-xs text-flag">
             el programa lanzó una excepción: {reading.crash}
           </p>
         )}
@@ -181,21 +181,19 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
   const diagnostics = failure ?? compileLog;
 
   return (
-    <div className="not-prose my-6 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100">
-      <header className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5">
-        <span className="rounded bg-sky-900 px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-sky-200">
+    <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
+      <header className="flex items-center gap-2 bg-sunk px-3 py-1.5">
+        <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-accent">
           ejercicio
         </span>
-        {title === undefined ? null : (
-          <h4 className="m-0 text-sm font-medium text-zinc-100">{title}</h4>
-        )}
+        {title === undefined ? null : <h4 className="m-0 text-sm font-medium text-ink">{title}</h4>}
       </header>
 
       {statement.length === 0 ? null : (
-        <div className="prose prose-invert prose-sm max-w-none px-3 py-2">{statement}</div>
+        <div className="prose prose-themed prose-sm max-w-none px-3 py-2">{statement}</div>
       )}
 
-      <div className="max-h-80 overflow-auto border-t border-zinc-700">
+      <div className="max-h-80 overflow-auto border-t border-rule">
         <CodeMirror
           value={code}
           onChange={setCode}
@@ -207,7 +205,7 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
 
       {diagnostics === '' ? null : (
         <Panel label={failure === null ? 'errores de compilación' : 'error'}>
-          <pre className={`${OUTPUT} max-h-40 bg-zinc-800 text-amber-300`}>{diagnostics}</pre>
+          <pre className={`${OUTPUT} max-h-40 bg-sunk text-flag`}>{diagnostics}</pre>
         </Panel>
       )}
 
@@ -215,23 +213,23 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
 
       {reading === null || reading.output === '' ? null : (
         <Panel label="lo que imprimiste">
-          <pre className={`${OUTPUT} max-h-40 bg-zinc-800 text-zinc-200`}>{reading.output}</pre>
+          <pre className={`${OUTPUT} max-h-40 bg-sunk text-ink-soft`}>{reading.output}</pre>
         </Panel>
       )}
 
       {revealed && cases !== '' ? (
         <Panel label="los casos que se probaron">
-          <pre className={`${OUTPUT} max-h-40 bg-zinc-800 text-zinc-400`}>{cases.trim()}</pre>
+          <pre className={`${OUTPUT} max-h-40 bg-sunk text-ink-faint`}>{cases.trim()}</pre>
         </Panel>
       ) : null}
 
-      <footer className="flex items-center gap-3 border-t border-zinc-700 bg-zinc-800 px-3 py-2">
+      <footer className="flex items-center gap-3 border-t border-rule bg-sunk px-3 py-2">
         <button
           type="button"
           onClick={() => void check()}
           disabled={running || !runtime}
           title="Ctrl/Cmd + Enter"
-          className="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded bg-keep px-3 py-1 text-xs font-medium text-on-keep disabled:opacity-50"
         >
           {running ? <Loader size={14} className="animate-spin" /> : <Play size={14} />}
           {running ? 'Comprobando…' : 'Comprobar'}
@@ -244,7 +242,7 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
             setCode(starter);
           }}
           disabled={running || code === starter}
-          className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-2xs text-zinc-300 hover:bg-zinc-700 disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-2xs text-ink-soft hover:bg-sunk disabled:opacity-40"
         >
           <RotateCcw size={13} />
           Reiniciar
@@ -255,9 +253,9 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
             the page shares (ADR-0017). Neither is the student's, and until this
             existed both looked identical: a spinner and 4.8s of nothing. */}
         {running && !warm ? (
-          <span className="font-mono text-3xs text-zinc-400">preparando el runtime…</span>
+          <span className="font-mono text-3xs text-ink-faint">preparando el runtime…</span>
         ) : running && queued ? (
-          <span className="font-mono text-3xs text-zinc-400">
+          <span className="font-mono text-3xs text-ink-faint">
             esperando a que termine otro editor…
           </span>
         ) : null}
