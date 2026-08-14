@@ -210,6 +210,60 @@ describe('describeStep', () => {
     expect(text).toMatch(/n vale 7/i);
   });
 
+  it('says which variables of different frames share a box', () => {
+    // Per-frame grouping alone described the swap as four references to
+    // indistinguishable Puntos, and a reader who cannot see the arrows had no
+    // way to tell that `q` and `a` are the same box — the whole lesson.
+    const text = describeStep(
+      step({
+        frames: [
+          {
+            name: 'main',
+            variables: [
+              { name: 'a', value: ref(1) },
+              { name: 'b', value: ref(2) },
+            ],
+          },
+          {
+            name: 'intercambia',
+            variables: [
+              { name: 'p', value: ref(2) },
+              { name: 'q', value: ref(1) },
+            ],
+          },
+        ],
+        objects: [
+          { id: 1, kind: 'object', type: 'Punto', fields: [] },
+          { id: 2, kind: 'object', type: 'Punto', fields: [] },
+        ],
+      }),
+    );
+
+    expect(text).toMatch(/main\.a y intercambia\.q/);
+    expect(text).toMatch(/main\.b y intercambia\.p/);
+  });
+
+  it('stays quiet about sharing when there is only one frame', () => {
+    const text = describeStep(
+      step({
+        frames: [
+          {
+            name: 'main',
+            variables: [
+              { name: 'a', value: ref(1) },
+              { name: 'b', value: ref(1) },
+            ],
+          },
+        ],
+        objects: [{ id: 1, kind: 'object', type: 'Punto', fields: [] }],
+      }),
+    );
+
+    // Already said, and better, by the per-frame sentence.
+    expect(text).not.toMatch(/Apuntan al mismo objeto:/);
+    expect(text).toMatch(/a y b apuntan al mismo objeto/);
+  });
+
   it('says a variable is null rather than omitting it', () => {
     const text = describeStep(
       step({ frames: [{ name: 'main', variables: [{ name: 's', value: { kind: 'null' } }] }] }),

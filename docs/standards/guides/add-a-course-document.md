@@ -233,6 +233,62 @@ Full usage docs, props and live examples for every document-facing component
 live in the catalog — browse `/catalog`, which is generated from the components
 themselves rather than maintained by hand.
 
+5e. **Draw the memory (optional)**: `<MemoryDiagram>` shows variables, stack
+   frames and heap objects — **taken from the snippet actually running**, never
+   from a description you write. You mark where you want a photograph and which
+   variables belong in it:
+
+   ````mdx
+   <MemoryDiagram title="Dos variables, un objeto">
+
+   ```java trace
+   class Punto {
+       int x, y;
+       Punto(int x, int y) { this.x = x; this.y = y; }
+   }
+
+   public class Demo {
+       public static void main(String[] args) {
+           Punto a = new Punto(1, 2);   // foto a
+           Punto b = a;                 // foto a, b
+           b.x = 99;                    // foto a, b
+       }
+   }
+   ```
+
+   </MemoryDiagram>
+   ````
+
+   `// foto a, b` photographs those two variables at that line. `// foto
+   marco: p, q` opens a second frame — needed whenever the lesson is about a
+   method call, because a caller and a callee have to be on screen together —
+   and `// foto-fin marco` closes it. **Name the variables you want drawn and no
+   others**: naming them is what lets this work without a Java parser, and it is
+   also how you keep the picture down to what teaches.
+
+   The markers are removed from what the reader sees, and every line keeps its
+   number, so the highlighted line is the one you marked.
+
+   Six things worth knowing before you write one:
+
+   - **Java only**, and Java 8 like everything else here. C++ and Python get a
+     refusal rather than an empty drawing.
+   - **Primitives are drawn as values, objects as arrows.** That distinction is
+     automatic and is usually the point.
+   - **Two `new String("hola")` draw as two boxes**, because identity is what is
+     tracked. That is what makes the `==` trap visible instead of asserted.
+   - **A marker inside a branch that never runs produces no photograph.** The
+     build cannot see this — the component says so after the run, and only then.
+   - **Caps**: 40 photographs and 24 objects each. A `// foto` inside a loop will
+     hit the first one; the component says so rather than showing a partial trace
+     as if it were complete.
+   - **`NalandaTrace` is a reserved class name**, like `NalandaLauncher` and
+     `NalandaCheck`. A snippet declaring it is refused before compiling.
+
+   Nothing is downloaded until the reader presses *Ejecutar y dibujar*, so a page
+   may carry several. Decisions behind all this: ADR-0026. Worked examples, live:
+   `/catalog/c/MemoryDiagram`.
+
 5d. **External links**: write them as explicit `https://`. Markdown now parses
 GFM, so a bare URL becomes a link on its own — and a bare `www.host` resolves
 to **`http://`**, a cleartext link the reader can be downgraded on. Tables,

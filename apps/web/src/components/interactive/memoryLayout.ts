@@ -275,5 +275,35 @@ export function describeStep(step: TraceStep): string {
   }
 
   if (parts.length === 0) return 'Todavía no hay nada que mostrar.';
+
+  /*
+   * Aliasing ACROSS frames, said explicitly.
+   *
+   * Grouping per frame alone described the swap as "a apunta a un Punto; b
+   * apunta a un Punto. En intercambia: p apunta a un Punto; q apunta a un
+   * Punto" — four references to indistinguishable objects. A reader who cannot
+   * see the arrows had no way to tell that `q` and `a` are the same box, which
+   * is the entire lesson of that example. Measured in Chromium at S7.
+   */
+  if (step.frames.length > 1) {
+    const holders = new Map<number, string[]>();
+    for (const frame of step.frames) {
+      for (const variable of frame.variables) {
+        if (variable.value.kind !== 'ref') continue;
+        const names = holders.get(variable.value.id) ?? [];
+        names.push(`${frame.name}.${variable.name}`);
+        holders.set(variable.value.id, names);
+      }
+    }
+
+    const shared = [...holders.values()]
+      .filter((names) => new Set(names.map((one) => one.split('.')[0])).size > 1)
+      .map((names) => names.join(' y '));
+
+    if (shared.length > 0) {
+      parts.push(`Apuntan al mismo objeto: ${shared.join('; ')}.`);
+    }
+  }
+
   return parts.join(' ');
 }

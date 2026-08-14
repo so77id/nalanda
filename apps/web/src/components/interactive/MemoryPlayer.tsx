@@ -67,9 +67,18 @@ export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerPr
         }
       }}
     >
-      <div className="grid gap-px bg-zinc-700 md:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+      {/*
+        Stacked, not side by side. Two columns looked right and measured wrong:
+        inside a document the component gets around 700px, so each column got
+        ~350 while the drawing's own viewBox is wider than that — it scaled to
+        about two thirds and the 11px labels landed near 7px, which is not
+        readable on a projector. A media query cannot fix it either, since what
+        is narrow is the container and not the viewport. Full width each, and
+        both are legible.
+      */}
+      <div className="flex flex-col gap-px bg-zinc-700">
         <div className="bg-zinc-900">
-          <pre className={`${OUTPUT} max-h-80 text-zinc-300`}>
+          <pre className={`${OUTPUT} max-h-72 text-zinc-300`}>
             {lines.map((line, number) => {
               const active = number + 1 === current.line;
               return (
@@ -88,7 +97,7 @@ export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerPr
           </pre>
         </div>
 
-        <div className="flex items-center bg-zinc-900 p-2">
+        <div className="bg-zinc-900 p-3">
           <MemoryState step={current} changed={changed} />
         </div>
       </div>
