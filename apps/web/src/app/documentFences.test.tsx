@@ -42,7 +42,9 @@ async function renderThroughTheShellMap(source: string): Promise<HTMLElement> {
 // files are read and their fences pooled, so the aggregate guards below sweep
 // both documents: a runtime sample shipped untagged in EITHER raises the
 // untagged count past 2 and fails, and `fences.length > 5` reddens the moment
-// this reverts to reading only the first file.
+// this reverts to reading only the first file. The same list lives in
+// content/mdxPipeline.test.tsx — duplicated, not shared: the seam invariant in
+// src/architecture.test.ts forbids a cross-feature test import (testing-strategy.md).
 const JAVA_DOCS = ['06-java-desde-cpp.mdx', '07-java-tipos-y-flujo.mdx'];
 const DOCUMENT = JAVA_DOCS.map((file) =>
   readFileSync(join(process.cwd(), '../../content/courses/sample-course/', file), 'utf8'),

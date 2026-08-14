@@ -9,6 +9,13 @@ import { describe, expect, it } from 'vitest';
 import { contentMdxComponents } from './mdxComponents';
 import { remarkPlugins } from './mdxPlugins';
 
+// The two documents of the Java unit (#107 split it in two). This list is
+// duplicated in app/documentFences.test.tsx on purpose, NOT shared: the seam
+// invariant in src/architecture.test.ts has no test exemption, so a content
+// test may not import a helper out of app/ and vice versa (testing-strategy.md,
+// "A browser-API fake needed by two features is duplicated, not shared").
+const JAVA_DOCS = ['06-java-desde-cpp.mdx', '07-java-tipos-y-flujo.mdx'];
+
 /**
  * Compiles and renders MDX through the *same* plugin list the build uses.
  *
@@ -65,11 +72,9 @@ describe('the MDX pipeline', () => {
     // second document; reading only the first would assert against a count the
     // split invalidated. Both are read so the four tables of the unit are covered
     // wherever they now live (AC10).
-    const source = ['06-java-desde-cpp.mdx', '07-java-tipos-y-flujo.mdx']
-      .map((file) =>
-        readFileSync(join(process.cwd(), '../../content/courses/sample-course/', file), 'utf8'),
-      )
-      .join('\n');
+    const source = JAVA_DOCS.map((file) =>
+      readFileSync(join(process.cwd(), '../../content/courses/sample-course/', file), 'utf8'),
+    ).join('\n');
     // Only the tables are under test here; the document's components are not the
     // pipeline's business. Non-table lines are blanked rather than dropped —
     // dropping them glues consecutive tables into one, which is a bug in the test
