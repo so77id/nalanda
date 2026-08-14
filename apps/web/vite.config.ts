@@ -9,6 +9,7 @@ import { defineConfig } from 'vite';
 import { spaFallback } from './src/app/spaFallback.ts';
 import { contentIntegrity } from './src/content/contentIntegrity.ts';
 import { remarkPlugins } from './src/content/mdxPlugins.ts';
+import { rehypePlugins } from './src/content/rehypePlugins.ts';
 
 const appDir = path.dirname(fileURLToPath(import.meta.url));
 // Course material lives at the repo root (Material domain, outside apps/) — ADR-0002.
@@ -27,10 +28,11 @@ export default defineConfig(({ command, isPreview }) => ({
     // MDX must transform before the React plugin sees the file.
     {
       enforce: 'pre',
-      // The list lives in src/content/mdxPlugins.ts so the suite can compile MDX
-      // through the same one the build uses, instead of scraping this file for
-      // plugin names.
-      ...mdx({ remarkPlugins, providerImportSource: '@mdx-js/react' }),
+      // Both lists live in src/content/ so the suite can compile MDX through the
+      // same ones the build uses, instead of scraping this file for plugin
+      // names. Math needs one from each tree: remark to parse `$…$`, rehype to
+      // render it.
+      ...mdx({ remarkPlugins, rehypePlugins, providerImportSource: '@mdx-js/react' }),
     },
     react(),
     tailwindcss(),

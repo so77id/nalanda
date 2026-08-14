@@ -50,10 +50,33 @@ describe('what the build actually compiles', () => {
     expect(compiled).toContain('data-meta');
   });
 
+  it('renders mathematics, which needs a plugin from each tree', async () => {
+    const compiled = await transformMdx('Hay a lo más $$\\log_2(n) + 1$$ iteraciones.\n');
+
+    // The failure this guards is asymmetric and worth naming. Dropping
+    // `remarkMath` leaves the dollars as literal text; dropping `rehypeKatex`
+    // leaves a math node nothing renders. Both look like "the formula did not
+    // work" to an author and neither is visible to a config read as text —
+    // which is the exact hole that let GFM fall out of the build.
+    expect(compiled).toContain('katex');
+    expect(compiled).not.toContain('$$\\log_2');
+  });
+
+  it('does not turn two prices in a sentence into a formula', async () => {
+    const compiled = await transformMdx('Cuesta $200 al mes, el otro $350.\n');
+
+    // The `singleDollarTextMath: false` option, pinned at the level that
+    // matters. `mdxPipeline.test.tsx` proves the exported list refuses it; this
+    // proves the build was handed the option at all, which is the half a config
+    // read as text cannot see — and the half that fell out for GFM.
+    expect(compiled).not.toContain('katex');
+  });
+
   it('compiled something real (guards against a vacuous check)', async () => {
     const compiled = await transformMdx('Sólo un párrafo.\n');
 
     expect(compiled).toContain('jsx');
     expect(compiled).not.toContain('thead');
+    expect(compiled).not.toContain('katex');
   });
 });

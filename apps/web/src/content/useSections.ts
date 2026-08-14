@@ -20,7 +20,15 @@ function readSections(container: HTMLElement): Section[] {
     for (const link of clone.querySelectorAll('a')) {
       if (link.getAttribute('href') === `#${heading.id}`) link.remove();
     }
-    return { id: heading.id, text: (clone.textContent ?? '').trim() };
+    // A formula is emitted THREE times over: MathML glyphs for assistive
+    // technology, an <annotation> holding the LaTeX source, and aria-hidden
+    // spans that draw it. textContent concatenates all three, so "Costo de
+    // $$\log_2 n$$" arrives as "Costo de log⁡2n\log_2 nlog2n" (#118 review).
+    // Dropping what a screen reader also drops leaves the readable one.
+    for (const hidden of clone.querySelectorAll('[aria-hidden="true"], annotation')) {
+      hidden.remove();
+    }
+    return { id: heading.id, text: (clone.textContent ?? '').replace(/\s+/g, ' ').trim() };
   });
 }
 
