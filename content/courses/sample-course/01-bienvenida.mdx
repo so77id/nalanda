@@ -26,17 +26,17 @@ miguel.rodriguez@mail.udp.cl
 
 Escribe la implementación, y la escribe bien. Entonces, ¿para qué este curso?
 
-Cinco preguntas que el agente no responde por ti:
+Cinco preguntas que el agente no responde solo:
 
-1. ¿Cómo sabes que funciona?
+1. ¿Cómo sabemos que funciona?
 2. ¿A quién le importa que sea rápido?
-3. ¿Y si le pido directamente la mejor solución?
+3. ¿Y si le pedimos directamente la mejor solución?
 4. ¿Qué hay que saber, exactamente?
-5. ¿Me reemplaza?
+5. ¿Nos reemplaza?
 
 </Slide>
 
-<Slide title="¿Cómo sabes que funciona?">
+<Slide title="¿Cómo sabemos que funciona?">
 
 {/* TODO(#119): la curva de costo, lineal contra logarítmica, junto a estos números */}
 
@@ -53,14 +53,14 @@ Hay un factor que ningún hardware compra. Medirlo, sin ejecutar nada, se llama
 
 </Slide>
 
-<Slide title="Cuéntalas tú mismo">
+<Slide title="Contémoslas aquí mismo">
 
-Acá corre de verdad, en tu navegador. Un millón de elementos en vez de cien
-millones — Java se ejecuta en el hilo de esta página, así que si subes `n` a cien
-millones la pestaña se congela y hay que recargarla.
+Esto corre de verdad, en el navegador. Un millón de elementos en vez de cien
+millones: Java se ejecuta en el hilo de esta página, así que subir `n` a cien
+millones congela la pestaña y obliga a recargarla.
 
 El _cómo_ funciona la búsqueda binaria es [[busqueda-binaria|otro documento]];
-acá solo importa cuánto cambia.
+aquí solo importa cuánto cambia.
 
 <CodeEditor
   language="java"
@@ -107,20 +107,20 @@ acá solo importa cuánto cambia.
 
 {/* TODO(#119): la misma curva, con el eje Y en dólares al mes — la forma es idéntica */}
 
-A la industria, y lo mide en plata.
+A la industria, y lo mide en dinero.
 
-Una máquina mediana en la nube — 4 vCPU — cuesta **0,2016 dólares por hora** en
-AWS: unos **147 dólares al mes**, precio público de lista.
+Una máquina mediana en la nube — 4 vCPU — cuesta unos **0,20 dólares por hora**
+en AWS: alrededor de **150 dólares al mes**, precio público de lista.
 
-Si tu consulta hace cien veces más trabajo del necesario, necesitas cien
-máquinas para atender el mismo tráfico. La misma factura pasa de 147 a
-**14.700 dólares al mes**, por una decisión de diseño.
+Una consulta que hace cien veces más trabajo del necesario necesita cien
+máquinas para atender el mismo tráfico. La misma factura pasa de 150 a
+**15.000 dólares al mes**, por una decisión de diseño.
 
 Precios de lista en https://aws.amazon.com/ec2/pricing/on-demand/
 
 </Slide>
 
-<Slide title="¿Y si le pido directamente la mejor solución?">
+<Slide title="¿Y si le pedimos directamente la mejor solución?">
 
 {/* TODO(#119): el mapa del viajante, unas quince ciudades y un recorrido trazado */}
 
@@ -140,8 +140,8 @@ Probar todas las posibilidades cuesta del orden de $$2^n$$.
 | 60       | $$\approx 1{,}2 \times 10^{18}$$ | 37 años                    |
 | 70       | $$\approx 1{,}2 \times 10^{21}$$ | 37.000 años                |
 
-De días a milenios. Reconocer que estás frente a uno de estos te ahorra semanas
-de pedirle a alguien —agente o no— algo que nadie sabe hacer.
+De días a milenios. Reconocer uno de estos ahorra semanas de pedirle a alguien
+—agente o no— algo que nadie sabe hacer.
 
 </Slide>
 
@@ -149,10 +149,10 @@ de pedirle a alguien —agente o no— algo que nadie sabe hacer.
 
 {/* TODO(#119): la caja negra abierta, mostrando lo que hay adentro */}
 
-Más de lo que parece, y ya lo estuviste usando sin verlo.
+Más de lo que parece, y ya lo estuvimos usando sin verlo.
 
-En C++ elegiste entre `std::map` y `std::unordered_map` sin que nadie te dijera
-que estabas eligiendo entre **un árbol balanceado y una tabla de hash**, con
+En C++ elegimos entre `std::map` y `std::unordered_map` sin que nadie nos dijera
+que estábamos eligiendo entre **un árbol balanceado y una tabla de hash**, con
 costos distintos y garantías distintas.
 
 Y `std::sort` no es quicksort: es **introsort**, que empieza con quicksort y se
@@ -160,7 +160,7 @@ cambia a heapsort cuando la recursión se hace muy profunda.
 
 </Slide>
 
-<Slide title="La caja se abre más de lo que crees">
+<Slide title="La caja se abre más de lo que parece">
 
 En Java, `Arrays.sort` son **dos algoritmos distintos según el tipo**:
 
@@ -168,8 +168,7 @@ En Java, `Arrays.sort` son **dos algoritmos distintos según el tipo**:
 - para objetos, **TimSort**
 
 La razón es la **estabilidad**: dos elementos iguales conservan su orden
-relativo. A un `int` no le importa; a un registro que ordenaste por otro campo,
-sí.
+relativo. A un `int` no le importa; a un registro ordenado por otro campo, sí.
 
 Nadie elige eso por casualidad. Java, viniendo de C++, es
 [[java-desde-cpp|su propio documento]].
@@ -185,12 +184,12 @@ Nadie elige eso por casualidad. Java, viniendo de C++, es
 Dos palabras que transfieren un diseño que alguien resolvió hace cuarenta años,
 completo, con sus costos ya medidos.
 
-Sin ese vocabulario no es que no puedas resolver el problema: lo vas a
-reinventar, y peor.
+Sin ese vocabulario no es que no podamos resolver el problema: lo reinventamos,
+y peor.
 
 </Slide>
 
-<Slide title="¿De qué me sirve a mí?">
+<Slide title="¿De qué nos sirve?">
 
 {/* TODO(#119): mosaico cuadrado de logos de empresas, reemplaza esta lista */}
 
@@ -201,7 +200,7 @@ Google · Amazon · Meta · Microsoft · Apple · Netflix · Nvidia · Uber · S
 
 </Slide>
 
-<Slide title="Y si quieres entrenar en serio">
+<Slide title="Y para entrenar en serio">
 
 {/* TODO(#119): mosaico cuadrado de logos de competitiva, reemplaza esta lista */}
 
@@ -212,15 +211,15 @@ ICPC · Codeforces · AtCoder · LeetCode · Topcoder
 
 </Slide>
 
-<Slide title="¿Me reemplaza?">
+<Slide title="¿Nos reemplaza?">
 
-No: te multiplica, si sabes diseñar. Quien no sabe diseñar construye rápido y
-mal — y un agente **acelera** eso. Hoy puedes generar el mal diseño diez veces
+No: nos multiplica, si sabemos diseñar. Quien no sabe diseñar construye rápido y
+mal — y un agente **acelera** eso. Hoy se puede generar el mal diseño diez veces
 más rápido que antes.
 
-Esta plataforma que estás leyendo fue construida con agentes. Lo que puse yo fue
-decidir qué construir, y decir que no cuando lo que volvía estaba mal. Eso es
-diseñar, y es lo que vamos a aprender acá.
+Esta plataforma fue construida con agentes. Lo que puse yo fue decidir qué
+construir, y decir que no cuando lo que volvía estaba mal. Eso es diseñar, y es
+lo que vamos a aprender aquí.
 
 </Slide>
 
@@ -228,12 +227,12 @@ diseñar, y es lo que vamos a aprender acá.
 
 {/* TODO(#119): mosaico cuadrado de logos de lenguajes, reemplaza esta lista */}
 
-Porque da lo mismo.
+Porque no importa.
 
-Este semestre es Java; el anterior fue C++. Los lenguajes que vas a usar dentro
-de diez años todavía no existen.
+Este semestre es Java; el anterior fue C++. Los lenguajes que vamos a usar
+dentro de diez años todavía no existen.
 
-Un heap va a seguir siendo un heap, y todos te dejan implementarlo.
+Un heap va a seguir siendo un heap, y todos permiten implementarlo.
 
 Java · C++ · Python · Go · Rust · TypeScript · Kotlin · Swift · C#
 
@@ -261,7 +260,7 @@ de datos en diversos problemas.
 
 Lo básico: el lenguaje, y la herramienta para comparar soluciones.
 
-| Tema                          | Qué vas a ver                                      |
+| Tema                          | Qué se ve                                          |
 | ----------------------------- | -------------------------------------------------- |
 | Java y su biblioteca estándar | El lenguaje del curso, viniendo de C++             |
 | Análisis de complejidad       | Comparar dos soluciones sin ejecutarlas            |
@@ -276,12 +275,12 @@ Lo básico: el lenguaje, y la herramienta para comparar soluciones.
 Estructuras de datos y tipos de datos abstractos: qué operaciones ofrece cada
 una, y cuánto cuestan.
 
-| Tema                           | Qué vas a ver                                       |
+| Tema                           | Qué se ve                                           |
 | ------------------------------ | --------------------------------------------------- |
 | Colas de prioridad y heaps     | Sacar siempre el mínimo, sin ordenar todo           |
 | Árboles                        | Búsqueda, inserción y borrado en tiempo logarítmico |
 | Tablas de hash                 | El costo constante, y lo que hay que pagar por él   |
-| `Map` y `Set`                  | Los TDAs que usas sin saber qué hay debajo          |
+| `Map` y `Set`                  | Los TDAs que se usan sin saber qué hay debajo       |
 | Greedy y programación dinámica | Dos formas de construir la solución por partes      |
 
 </Slide>
@@ -291,7 +290,7 @@ una, y cuánto cuestan.
 Técnicas de diseño de algoritmos y teoría de grafos: modelar el problema antes
 de resolverlo.
 
-| Tema                  | Qué vas a ver                                        |
+| Tema                  | Qué se ve                                            |
 | --------------------- | ---------------------------------------------------- |
 | Recorridos            | Visitar un grafo entero, en anchura y en profundidad |
 | Orden topológico      | Ordenar tareas que dependen unas de otras            |
@@ -300,7 +299,7 @@ de resolverlo.
 
 </Slide>
 
-<Slide title="Cómo se calcula tu nota">
+<Slide title="Cómo se calcula la nota">
 
 $$
 N_p = 0{,}25 \cdot S_1 + 0{,}25 \cdot S_2 + 0{,}25 \cdot N_{TC} + 0{,}25 \cdot N_L
@@ -315,7 +314,7 @@ $$
 - $$N_L$$ — laboratorio
 - $$N_{ex}$$ — examen
 
-Te eximes del examen con $$N_p \geq 5{,}0$$. Apruebas el curso con
+Se exime del examen con $$N_p \geq 5{,}0$$. Se aprueba el curso con
 $$N_F \geq 4{,}0$$.
 
 </Slide>
@@ -326,7 +325,7 @@ $$
 N_{TC} = 0{,}8 \cdot \bar{T} + 0{,}2 \cdot \bar{C}
 $$
 
-Las **tareas** se publican acá y las corrigen los ayudantes. Los **controles de
+Las **tareas** se publican aquí y las corrigen los ayudantes. Los **controles de
 entrada** tienen su propia sección.
 
 La nota de **laboratorio** es el promedio de las actividades de laboratorio y
@@ -359,17 +358,18 @@ El día exacto dentro de cada semana se confirma más adelante.
 
 <Slide title="Cómo se trabaja en este curso">
 
-- **Esto que estás leyendo es el curso.** No hay un PDF aparte ni láminas
+- **Esto que estamos leyendo es el curso.** No hay un PDF aparte ni láminas
   aparte: el mismo documento es el libro y es la presentación.
-- **El código se compila y se ejecuta en tu navegador.** No instalas nada.
-- **Va a haber ejercicios**, que se corrigen solos acá mismo.
+- **El código se compila y se ejecuta en el navegador**: no hay que instalar
+  nada.
+- **Va a haber ejercicios**, que se corrigen solos aquí mismo.
 
 </Slide>
 
 <Slide title="La plataforma está viva">
 
-La voy construyendo mientras el curso avanza. Van a aparecer cosas nuevas y te
-las voy a ir contando cuando las usemos.
+La voy construyendo mientras el curso avanza. Van a aparecer cosas nuevas y las
+voy a ir contando cuando las usemos.
 
 Y la construyo con agentes — que es exactamente de lo que hablamos al principio.
 
