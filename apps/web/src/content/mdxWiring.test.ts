@@ -50,10 +50,23 @@ describe('what the build actually compiles', () => {
     expect(compiled).toContain('data-meta');
   });
 
+  it('renders mathematics, which needs a plugin from each tree', async () => {
+    const compiled = await transformMdx('Hay a lo más $\\log_2(n) + 1$ iteraciones.\n');
+
+    // The failure this guards is asymmetric and worth naming. Dropping
+    // `remarkMath` leaves the dollars as literal text; dropping `rehypeKatex`
+    // leaves a math node nothing renders. Both look like "the formula did not
+    // work" to an author and neither is visible to a config read as text —
+    // which is the exact hole that let GFM fall out of the build.
+    expect(compiled).toContain('katex');
+    expect(compiled).not.toContain('$\\log_2');
+  });
+
   it('compiled something real (guards against a vacuous check)', async () => {
     const compiled = await transformMdx('Sólo un párrafo.\n');
 
     expect(compiled).toContain('jsx');
     expect(compiled).not.toContain('thead');
+    expect(compiled).not.toContain('katex');
   });
 });

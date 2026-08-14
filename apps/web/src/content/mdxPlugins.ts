@@ -1,5 +1,6 @@
 import remarkFrontmatter from 'remark-frontmatter';
 import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
 import remarkMdxFrontmatter from 'remark-mdx-frontmatter';
 import type { PluggableList } from 'unified';
 
@@ -15,9 +16,12 @@ import { remarkWikiLinks } from './wikiLinks.ts';
  * catches a deletion but proves nothing about what the pipeline produces.
  *
  * Order matters: frontmatter is stripped and exported before anything else can
- * mistake it for content, and `remarkGfm` comes next because it is a *syntax*
- * extension — it changes what the parser recognises at all — while the two
- * below it walk the tree that parsing produced.
+ * mistake it for content, then come the two *syntax* extensions — they change
+ * what the parser recognises at all — while the two below them walk the tree
+ * that parsing produced.
+ *
+ * This list is only half the pipeline; `rehypePlugins.ts` holds the other half,
+ * and both are handed to `@mdx-js/rollup` together.
  */
 export const remarkPlugins: PluggableList = [
   remarkFrontmatter,
@@ -26,6 +30,10 @@ export const remarkPlugins: PluggableList = [
   // is one paragraph of literal `|` characters — as four tables of reference
   // material in the published Java document were (#83).
   remarkGfm,
+  // `$inline$` and `$$display$$` become math nodes rather than literal dollars.
+  // Parsing only: what turns a math node into something readable is
+  // `rehypeKatex`, one file over. Either without the other renders nothing.
+  remarkMath,
   remarkWikiLinks,
   remarkCodeMeta,
 ];

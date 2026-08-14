@@ -1,4 +1,10 @@
 @import 'tailwindcss';
+/* KaTeX's own stylesheet and @font-face rules. Global on purpose (#118): the
+   expensive half of mathematics is the woff2 faces, and a browser fetches a
+   font only for glyphs something actually renders — so a document without a
+   formula downloads none of them and pays only this, 3.6 kB gzip. Scoping it
+   per document would fight Vite's CSS splitting for that 3.6 kB. */
+@import 'katex/dist/katex.min.css';
 @plugin '@tailwindcss/typography';
 
 /* Sizes below Tailwind's `text-xs`, for the dense monospace chrome of runnable
