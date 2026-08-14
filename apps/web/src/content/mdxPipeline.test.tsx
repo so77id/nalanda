@@ -11,10 +11,9 @@ import { remarkPlugins } from './mdxPlugins';
 
 // The two documents of the Java unit (#107 split it in two). This list is
 // duplicated in app/documentFences.test.tsx on purpose, NOT shared. A
-// cross-feature test import is allowed here (architecture.test.ts exempts
-// `.test.` files from the seam), so this is a convention choice, not a
-// constraint: testing-strategy.md duplicates small test scaffolding rather than
-// grow a shared test-util module, and a two-element list is not worth the coupling.
+// cross-feature test import would be legal (architecture.test.ts:145 exempts
+// `.test.` files from the seam), so this is a deliberate choice, not a
+// constraint: a two-element filename list is not worth a shared test-util module.
 const JAVA_DOCS = ['06-java-desde-cpp.mdx', '07-java-tipos-y-flujo.mdx'];
 
 /**

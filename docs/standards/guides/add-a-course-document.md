@@ -56,7 +56,7 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    want the default** (#108, enforced by `src/content/architecture.test.ts`).
    The field defaults to `auto`, so a document that omits it still ships a deck;
    omitting it does not mean "no slides", it means slides nobody chose. Two of
-   the six documents here had exactly that, and one of them projected the book's
+   the documents here had exactly that, and one of them projected the book's
    own navigation sentence — _"Cuando termines, vuelve a la bienvenida"_ — alone
    on a slide.
 
