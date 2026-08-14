@@ -1,14 +1,17 @@
 @import 'tailwindcss';
 /* KaTeX's own stylesheet and @font-face rules.
 
-   Global, and it is DEBT rather than a design (ADR-0027 §3). Every page pays
-   8.27 kB gzip whether or not it has mathematics. Scoping it per document was
+   Global, and it is DEBT rather than a design (ADR-0027 §3): every page pays
+   3.94 kB gzip whether or not it has mathematics. Scoping it per document was
    measured and works — Vite splits it cleanly and the app stylesheet returns to
    its exact pre-math size — so the reason this is global is speed of delivery,
    not a build limitation. Taken knowingly; the ADR carries the exit.
 
-   The fonts are not part of that debt: a browser fetches a face only for glyphs
-   something renders, so a document with no formula downloads none of them. */
+   The fonts are not part of that debt — a browser fetches a face only for glyphs
+   something renders — but only because `build.assetsInlineLimit: 0` is set in
+   vite.config.ts. At Vite's default, one face was small enough to be inlined
+   here as base64 and cost every page 4.34 kB gz on its own, more than half the
+   total. Do not raise that limit without re-measuring this file. */
 @import 'katex/dist/katex.min.css';
 
 @plugin '@tailwindcss/typography';

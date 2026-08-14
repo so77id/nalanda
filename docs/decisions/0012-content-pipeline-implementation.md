@@ -5,6 +5,10 @@
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #63 (WP2, content model). Extends ADR-0002 (which deferred the
 index format to v0.1) and ADR-0003 (which chose MDX but not the toolchain).
+**Amended by:** ADR-0027 — the pipeline now carries a **second, rehype tree**
+(`src/content/rehypePlugins.ts`), and both lists are handed to `@mdx-js/rollup`
+together. `remark-gfm` (#83) and `remark-math` also joined the remark list, so the
+toolchain enumeration in §2 below is no longer live — the two source files are.
 
 ## Context
 

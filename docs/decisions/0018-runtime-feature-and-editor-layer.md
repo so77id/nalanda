@@ -167,6 +167,11 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   the component — and the grammar is not optional chrome, it is the
   highlighter. Measured from a network trace of `03-busqueda-binaria.mdx`, prose
   plus a single 10-line Java listing: **160.7 → 323.7 kB gz, +163.0 kB (+101%)**.
+  (Superseded as a *page total* by #118 on 2026-08-14: that same document now
+  also carries mathematics, so it pays +3.94 kB gz of unconditional stylesheet —
+  as does every other page in the site — plus ~42 kB of fonts for its own
+  formulas. The fence figures below are unchanged; ADR-0027 §Consequences holds
+  the math side and states the comparison from both directions.)
   Of that, **161.2 is five lazy chunks** — 95.6 core + 36.4 wrapper + 17.7 java
   grammar + 8.6 `@lezer/lr` + 2.9 the editor chunk itself — and the remaining
   1.7 is the entry chunk's own growth. (Two earlier drafts got this wrong in the

@@ -27,6 +27,13 @@ export function headingFor(level: 2 | 3 | 4) {
   function MdxHeading({ children }: HeadingProps) {
     const text = textOf(children);
     const slug = slugify(text);
+    // No text to slug: render the heading, but with no id and no self-anchor.
+    // Since #118 (2026-08-14) this is reachable from ordinary authoring — a
+    // heading that is entirely a formula (`## $$\log_2 n$$`) has no text at all,
+    // because `textOf` sees no strings — and it fails silently: no deep link, no
+    // rail entry, green build, green suite. Contradicts ADR-0021 and ADR-0002
+    // knowingly; the fix moves published slugs, so it needs its own migration
+    // (ADR-0027 §8). The authoring guide tells authors to put text in a heading.
     if (!slug) return <Tag>{children}</Tag>;
     return (
       <Tag id={slug} className="group scroll-mt-8">

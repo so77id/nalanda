@@ -84,59 +84,70 @@ is pinned by a test rather than left to the guide.
 ### 3. The stylesheet is global — and that is debt, taken knowingly
 
 `katex.min.css` is imported once, in `styles/index.css`, so every page carries it:
-**+8.26 kB gzip on every page in the site, whether or not it contains mathematics.**
+**+3.94 kB gzip on every page in the site, whether or not it contains mathematics.**
 
-The fonts are not part of that. They are the expensive half — 20 faces — and a browser
-fetches a face only for glyphs something actually renders. Verified in a browser: a
-document with one formula requests exactly two woff2 files, and a document with no
-mathematics requests **none**.
+The fonts are demand-loaded and are not part of that — a browser fetches a face only for
+glyphs something actually renders. Verified in a browser: a document with one formula
+requests exactly two woff2 files, and a document with no mathematics requests **none**.
 
-**The first draft of this ADR justified the global import by saying that scoping it per
-document "would fight Vite's CSS splitting". That was false, and it was measured false
-during review.** Importing the stylesheet from a document module splits cleanly and
-returns the app stylesheet to its exact pre-math size:
+**That sentence was false when this ADR was first written, and the way it was false is
+the more useful record.** `KaTeX_Size3-Regular.woff2` is 3,624 bytes, under Vite's default
+`assetsInlineLimit` of 4096 — so Vite inlined it as a base64 data URI *inside the global
+stylesheet*. One font for large delimiters was therefore downloaded by every page in the
+site, math or not, at **4,343 bytes gzip: 52% of the entire cost of shipping
+mathematics.** The build emitted 19 woff2 files where KaTeX has 20, and nobody noticed
+the missing one.
 
-    dist/assets/03-busqueda-binaria-*.css   30.20 kB │ gzip: 7.95 kB
-    dist/assets/index-*.css                 49.37 kB │ gzip: 8.55 kB   ← the baseline
+`build.assetsInlineLimit: 0` in `vite.config.ts` fixes it, and the measurement is the
+whole argument:
+
+| | Inlined (as merged) | `assetsInlineLimit: 0` |
+|---|---|---|
+| App CSS | 77.29 kB → 16.70 kB gz | 72.48 kB → **12.36 kB gz** |
+| Cost to every page | 8.28 kB gz | **3.94 kB gz** |
+| woff2 emitted as files | 19 | **20** |
+
+**The remaining 3.94 kB is still debt**, and the exit for it is different and larger:
+scoping the stylesheet per document. That was also measured, after a first draft of this
+ADR claimed — falsely — that it "would fight Vite's CSS splitting". It does not. Importing
+the stylesheet from a document module splits cleanly and returns the app stylesheet to
+its exact pre-math size:
+
+    dist/assets/03-busqueda-binaria-*.css   29.30 kB │ gzip: 7.93 kB
+    dist/assets/index-*.css                 47.98 kB │ gzip: 8.42 kB   ← the baseline
 
 with a browser trace confirming the consequence: the math-free page loads one stylesheet
 and no fonts, the math page loads two and the same two woff2. So "a page without
-mathematics pays nothing" is **literally achievable**, not merely approachable.
+mathematics pays nothing" is **literally achievable**, not merely approachable. It is
+global anyway, for speed of delivery: this WP unblocks #120, and one unconditional
+stylesheet is the shortest path there. Tracked rather than narrated — see the issue
+linked from this ADR's header.
 
-It is global anyway, and the reason is speed of delivery rather than a build constraint:
-this WP unblocks #120, and one unconditional stylesheet is the shortest path there. **The
-debt is recorded here rather than hidden behind a technical claim, and the exit is
-known**: inject the import from a remark plugin when a document contains a math node
-(an alias is needed, because `content/` resolves outside `apps/web`). Worth paying down
-when a second measurement says 8.26 kB matters, or when the catalog of math-free
-documents grows enough that the ratio embarrasses.
-
-Recording the false version of this reasoning is deliberate. This repo has already
-shipped one regression behind unverified build-weight reasoning (#83, and the 5.8 kB gz
-that #104 had to chase), and the failure mode is exactly a plausible sentence nobody
-re-measures.
+Recording both false versions is deliberate. This repo has already shipped one regression
+behind unverified build-weight reasoning (#83, and the 5.8 kB gz that #104 had to chase),
+and the failure mode is exactly this: a plausible sentence nobody re-measures. Here it
+happened twice in one WP, and the second one hid more than half the cost.
 
 ### 4. All three font formats are published
 
-KaTeX declares each face in woff2, woff and ttf; the build emits all 59 files, **1047.8
-kB** (19 woff2 / 250.2 kB, 20 woff / 296.0 kB, 20 ttf / 501.6 kB). A browser picks the
-first format it understands, which for anything able to run this app is woff2, so
-**797.6 kB is published and never requested**. **Accepted knowingly by the repo owner**:
-the host is GitHub Pages, where that storage is free.
+KaTeX declares each face in woff2, woff and ttf; the build emits all 60 files, **1072.9
+kB** (20 woff2 / 256.2 kB, 20 woff / 303.1 kB, 20 ttf / 513.7 kB — decimal kB, matching
+Vite's own output). A browser picks the first format it understands, which for anything
+able to run this app is woff2, so **816.8 kB is published and never requested**.
+**Accepted knowingly by the repo owner**: the host is GitHub Pages, where that storage is
+free, and dropping formats is a compatibility decision rather than an inherited one.
 
-**One exception, and it is not hypothetical for an algorithms course**: `KaTeX_Size3-Regular`
-ships no woff2 at all. A formula using size-3 delimiters — a `\left(` around a tall
-fraction, a display-size `\sum` — fetches its 13.2 kB `.woff`.
+What the dead formats cost every *reader* is **511 bytes gzip** — 6.2% of the CSS delta
+as merged, measured by stripping every `woff`/`truetype` `url()` from the built
+stylesheet: 16,678 B gz → 16,167 B gz. The `@font-face` blocks as a whole are 64% of that
+delta, so even a woff2-only build would carry 4,822 B of them.
 
-What the dead formats cost every reader is **474 bytes gzip**, which is 5.8% of the CSS
-delta. Measured by stripping every `woff`/`truetype` `url()` from the built stylesheet:
-16,613 B gz → 16,139 B gz. The `@font-face` blocks as a whole are 65% of the delta, so
-even a woff2-only build would carry 4,807 B of them.
-
-An earlier draft of this section explained the delta by saying hashed asset paths do not
-compress. Measured, de-hashing every font filename saves 445 B gz — about 5% of the
-delta, so the explanation was directionally right and quantitatively backwards. The
-delta is mostly the stylesheet itself.
+An earlier draft explained the delta by saying hashed asset paths do not compress.
+Measured, de-hashing every font filename saves 445 B gz — about 5%, so the explanation
+was directionally right and quantitatively backwards. And an earlier draft claimed
+`KaTeX_Size3-Regular` "ships no woff2 at all", which was wrong in both direction and
+magnitude: the woff2 exists and was being *inlined into the stylesheet* rather than
+omitted. §3 carries what that cost and how it was fixed.
 
 ### 5. A malformed formula renders wrong; it does not fail the build
 
@@ -158,9 +169,11 @@ syntax. The symptom to recognise is "the document ends here", not "one formula i
 `rehypeKatex` is passed `{ trust: false }`. That is already KaTeX's default, and it is
 stated explicitly because it is the one option whose flip is a direct injection: with
 `trust: true`, `\href`, `\url` and the `\html*` family emit real attributes out of
-author-written LaTeX — verified during review, `\href{javascript:alert(1)}{x}` becomes a
-live anchor. Enabling it, or adding `macros` that reach those commands, needs a security
-review. Pinned by a test so the flip cannot be made quietly.
+author-written LaTeX. Verified during review: with `trust: true`, `\href{javascript:…}{x}`
+emits a real `<a href>` **and** an `href` on the MathML `<mrow>`. React neutralises a
+`javascript:` URL specifically — so that exact payload is defanged — but the attribute
+channel is open and any other scheme rides it, which is why the flip needs a security
+review rather than why it is survivable. Pinned by a test so it cannot be made quietly.
 
 The default was attacked before being trusted: ten hostile documents compiled through the
 real build path produced red error text for every trust-gated command, and never an
@@ -170,19 +183,53 @@ refuses non-`http(s)`/`mailto`/local schemes.
 
 ### 7. Which KaTeX renders
 
-`rehype-katex@7` declares `katex: ^0.16.0`, so it cannot use a 0.18. The direct
-dependency is therefore pinned to **`^0.16.47`**, and npm dedupes to a single copy that
-both renders the formulas and supplies their stylesheet.
+`rehype-katex@7` declares `katex: ^0.16.0`, so it cannot use a 0.18. The direct dependency
+is pinned to **`^0.16.47`** and npm dedupes to a single copy that both renders the
+formulas and supplies their stylesheet. The postmortem of getting this wrong — and the
+symptom that made it nearly invisible — is a dated note in `apps/web/README.md`, where a
+dependency bump actually happens.
 
-This is written down because the first version of this WP got it wrong in a way nothing
-caught: it pinned `katex@^0.18.4`, which supplied the CSS while 0.16.47 — nested under
-`rehype-katex` — did the rendering. The class names differ between them (0.18 defines
-`.katex-base`/`.katex-strut`; the markup emits `.base`/`.strut`), so formulas shipped
-styled by a stylesheet that had no rules for them: measured in a browser, `.strut`
-computed `display: inline` instead of `inline-block` and `.base` `position: static`
-instead of `relative` — the two things KaTeX uses for vertical alignment. It looked
-almost right, which is why only a class-by-class comparison found it. **When bumping
-KaTeX, bump what `rehype-katex` resolves, not just this manifest line.**
+### 8. A published anchor is frozen
+
+Heading slugs come from `lib/reactText.ts`, which contributes nothing for an element. A
+heading that is *entirely* a formula therefore has no text, gets no slug, and ships with
+**no id, no self-anchor and no entry in the section spine** — silently. That contradicts
+ADR-0021 (every `h2` the page paints becomes a section) and ADR-0002 (every `h2`–`h4` is
+deep-linkable), and it is reachable from ordinary authoring only since this WP.
+
+The fix is three lines: make `textOf` recurse into elements. **It is not taken, and the
+reason is the decision.** Recursing changes slugs that already exist:
+`06-java-desde-cpp.mdx` has a heading published at `la-trampa-de-seguido-de` which would
+become `la-trampa-de-nextint-seguido-de-nextline`. The site is live and its documents are
+handed to students as links.
+
+So: **a slug that has been published is frozen.** Changing `slugify` or `textOf` is a
+migration — it needs anchor aliases or redirects, and it needs to be decided as such
+rather than arriving as a side effect of a heading fix. Until then, an author writes a
+heading with text in it, and the guide says so. The same root cause gives a sibling limit:
+a `<Slide title>` is a JSX attribute, so a formula there ships literal `$$`; that one is
+authoring-visible and lives in the guide and the catalog entry.
+
+## Alternatives considered
+
+- **Single-dollar delimiters** (`$…$`), the LaTeX convention — rejected. Prose about
+  prices parses as mathematics, and a pasted formula with braces is silently corrupted or
+  fails the build. §2 carries the measurements.
+- **`\(…\)` / `\[…\]`**, LaTeX's other pair — not adopted: `remark-math` does not offer
+  them, and adopting them would mean a second syntax for the same thing.
+- **Per-document stylesheet scoping** — measured, works, and **deferred rather than
+  rejected**. It is the exit condition for §3's remaining debt, not a road not taken.
+- **`throwOnError: true`**, failing the build on a bad formula — rejected. The content
+  gate refuses documents for structural faults; a typo inside a formula is authoring
+  feedback, and a broken wiki-link already renders visibly wrong on purpose (§5).
+- **MathJax** (`rehype-mathjax`) — not adopted. Its package is 3× the size and its usual
+  deployment renders client-side, which is the property that makes KaTeX-at-build-time
+  cheap here. Not benchmarked; if mathematics ever needs what MathJax has and KaTeX
+  lacks, that is the measurement to run.
+- **KaTeX in the browser** — rejected on the cost that motivated the whole WP: it would
+  ship ~90 kB gzip of JavaScript to do at runtime what the build already did once.
+- **Authoring MathML directly** — rejected. It is unwritable by hand for a professor
+  drafting a class, which is the actual user.
 
 ## Consequences
 
@@ -193,25 +240,26 @@ overstated the document chunk.
 
 | | Before | After |
 |---|---|---|
-| App CSS | 47.98 kB → 8.42 kB gz | 77.29 kB → **16.70 kB gz** |
+| App CSS | 47.98 kB → 8.42 kB gz | 72.48 kB → **12.36 kB gz** |
 | JavaScript shipped | — | **unchanged; zero** |
 | `03-busqueda-binaria` chunk | 2.07 kB → 1.03 kB gz | 5.17 kB → **1.66 kB gz** |
-| Font files in `dist/` | 0 | 59, 1047.8 kB |
+| Font files in `dist/` | 0 | 60, 1072.9 kB |
 | Fonts a formula requests | — | 2 woff2, 42,712 B |
 | Fonts a math-free page requests | — | **0** |
 | Build time | 3.17–3.95 s | 3.20–3.67 s (within noise) |
 
-The CSS row is measured against the baseline *after* #109's two-theme system
-landed, by building this branch with and without the `@import` — the honest form,
-since a rebase moved the ground under the first reading. The delta is +8.28 kB
-gz, unchanged in substance from the +8.26 measured before the rebase.
+The CSS row is measured against the baseline *after* #109's two-theme system landed, by
+building this branch with and without the `@import` — the honest form, since a rebase
+moved the ground under the first reading, and since one number in an earlier version of
+this table was taken from a tree with a stray `dist*` directory that Tailwind scanned.
 
 The zero-JavaScript claim is hard-verified, not inferred: the entry chunk is
 byte-identical across the change, and `grep` for KaTeX's own runtime strings over
 `dist/assets/*.js` returns nothing. The document chunk contains only the class names.
 
-So: **+8.26 kB gz on every page**, and +0.63 kB gz of markup plus ~42 kB of fonts on the
-pages with a formula.
+So: **+3.94 kB gz on every page**, and +0.63 kB gz of markup plus ~42 kB of fonts on the
+pages with a formula. As first merged it was 8.28 kB, of which 4.34 was a font Vite had
+inlined into the stylesheet — §3.
 
 **The comparison with ADR-0018, stated fairly.** #86 asked for it and the first draft
 gave a single flattering ratio. Two numbers is the honest form, because the axis that
@@ -219,17 +267,20 @@ matters is conditionality — and ADR-0018 is precisely the decision that establ
 
 - A page **with** mathematics pays ~51 kB, against ~162 kB gz for a page with a code
   fence. Cheaper, and it runs no script at all.
-- A page **without** mathematics pays 8.26 kB gz. A page without a fence pays **zero**.
+- A page **without** mathematics pays 3.94 kB gz. A page without a fence pays **zero**.
 
 The second line is the one that makes §3's debt visible instead of hiding it inside a
 ratio.
 
-**On a slide**, measured against the production build: scale 1.00 at 1024×768, and 0.895
-on an iPhone 13 in landscape. Both are above the 0.8 floor and far above the ~0.5 point
-where the authoring guide records body text ceasing to be readable. **Caveat**: measured
-on a temporary slide, because no shipped document currently puts a formula in a deck —
-`03-busqueda-binaria.mdx` keeps its cost section book-only. Reproducing these numbers
-means adding one, and #120 is where a deck with mathematics first ships for real.
+**On a slide**: a formula renders and scales like anything else, and the binary-search
+cost formula specifically does not shrink the slide at all — scale 1.00 at both 1024×768
+and iPhone 13 landscape, re-measured during review. Two caveats, because the first
+version of this paragraph carried neither. It cited "the 0.8 floor", **a threshold that
+does not exist anywhere in this repo** — the only recorded one is the guide's "below
+roughly half scale the body text stops being readable". And no shipped document puts a
+formula in a deck, so there is no reproducible example: `03-busqueda-binaria.mdx` keeps
+its cost section book-only, and #120 is where a deck with mathematics first ships. The
+hazard worth checking is a *long* display equation, which this one is not.
 
 **Layout shift.** Mathematics adds none of its own: KaTeX bakes build-time metrics into
 inline styles, so blocking the woff2 files versus loading them leaves every formula box
@@ -238,9 +289,11 @@ because the pre-existing unexplained shifts of #96 scale with document height an
 page got taller. All three shifts fire at ~375 ms, before any font could arrive — a
 datapoint for #96, which is still open.
 
-**DOM weight.** Two trivial formulas add 53 elements to a 251-element page, ~26 elements
-and ~1.5 kB raw each. No measurable cost at this size; recorded so #120 has a baseline
-before a slide carries a dozen.
+**DOM weight.** Two trivial formulas are 55 elements and 1,905 B of markup on a
+235-element page at 1440×900 — ~28 elements and ~950 B each. No measurable cost at this
+size; recorded so #120 has a baseline before a slide carries a dozen. The element count
+of the page itself varies with viewport width, so the per-formula figures are the ones
+that travel.
 
 **Build-time resource use.** KaTeX now runs in Node on author-controlled content.
 Expansion bombs and deep recursion are bounded — `maxExpand` stops `\def` loops, and a

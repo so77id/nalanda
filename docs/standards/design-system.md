@@ -79,6 +79,20 @@ something to allow; it is something nobody should write.
 - **Third-party components that own their colours** take the theme through
   `lib/useResolvedTheme.ts`. That hook exists for CodeMirror and should stay
   rare: anything we style ourselves takes tokens and needs no hook.
+- **A third party that draws in `currentColor` needs no hook at all**, and that
+  is the better shape when you get to choose it. Worked case: KaTeX (#118). A
+  formula inherits `--tw-prose-body` like the paragraph around it, so it is
+  correct in both themes by construction and cannot drift when the palette
+  changes — measured, 8.90:1 on dark and 7.02:1 on light, identical to the prose
+  in each. Check this before reaching for `useResolvedTheme`.
+- **A vendor colour we do not control is exempt from §The one rule only when it
+  is recorded here, with its measured pairs.** One exists: KaTeX paints a
+  malformed formula in its own `#cc0000`, which measures **3.24:1 on the dark
+  `ground`** — above the 3:1 for large text, below the 4.5:1 the tokens hold text
+  to. Accepted: it is an authoring error state that should look wrong in either
+  theme and is never a reading surface. `architecture.test.ts` cannot see it —
+  it greps our class names, not vendor CSS or inline styles — so this note is
+  the only guard.
 
 ## Verifying a colour change
 

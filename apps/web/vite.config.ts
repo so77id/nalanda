@@ -22,6 +22,19 @@ export default defineConfig(({ command, isPreview }) => ({
   // the built dist, whose asset URLs already carry the prefix — while dev keeps
   // the root so local URLs stay short.
   base: command === 'build' || isPreview ? '/nalanda/' : '/',
+  build: {
+    // Never inline an asset into the stylesheet. Vite's default inlines anything
+    // under 4096 bytes, and exactly one asset in this app qualifies: KaTeX's
+    // `Size3-Regular.woff2` at 3,624 bytes. Being in the CSS made it
+    // unconditional — every page in the site downloaded a font for large
+    // delimiters, whether or not it had a formula, at 4,343 bytes gzip: **52% of
+    // the whole cost of shipping mathematics** (#118 review, ADR-0027 §3).
+    //
+    // Zero rather than a smaller threshold because the tradeoff inlining buys —
+    // one fewer request — is worthless for a font the page usually does not
+    // need, and this app has no other asset near the limit.
+    assetsInlineLimit: 0,
+  },
   plugins: [
     contentIntegrity(contentDir),
     spaFallback(),
@@ -30,7 +43,7 @@ export default defineConfig(({ command, isPreview }) => ({
       enforce: 'pre',
       // Both lists live in src/content/ so the suite can compile MDX through the
       // same ones the build uses, instead of scraping this file for plugin
-      // names. Math needs one from each tree: remark to parse `$…$`, rehype to
+      // names. Math needs one from each tree: remark to parse `$$…$$`, rehype to
       // render it.
       ...mdx({ remarkPlugins, rehypePlugins, providerImportSource: '@mdx-js/react' }),
     },

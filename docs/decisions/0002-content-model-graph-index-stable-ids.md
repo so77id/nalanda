@@ -4,6 +4,10 @@
 **Date:** 2026-08-05
 **Decision-makers:** Miguel Rodriguez
 **Source:** Redesign session (D1, D3, D4, D6, D7, D8)
+**Amended by:** ADR-0027 §8 — a *published* slug is frozen. Every `h2`–`h4` is still
+deep-linkable, with one reachable exception: a heading whose content is entirely an
+element (a formula, since #118) produces no text, so no id and no anchor. The fix
+changes slugs that are already live and therefore needs a migration.
 
 ## Context
 
