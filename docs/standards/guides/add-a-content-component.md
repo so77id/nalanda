@@ -172,9 +172,10 @@ own wrapper in `ALLOWED`, or nothing checks you. The
       the component marks a section, and the measure one if it renders wide.
 - [ ] **If the family was empty before this PR**: you created its folder, and you
       moved the one hardcoded empty-family case in `app/catalogRoute.test.tsx`
-      (it names `/catalog/media` today and fails with instructions when media
-      stops being empty) to a family that is still empty — the other empty-family
-      tests find the empty family themselves and need nothing. Keep the
+      (it names `/catalog/semantic` today — `media` having been populated in #119 —
+      and fails with instructions when semantic stops being empty) to a family
+      that is still empty — the other empty-family tests find the empty family
+      themselves and need nothing. Keep the
       rendered-English `it.each` list covering one populated and one still-empty
       family page.
 - [ ] Registered in `app/mdxComponents.ts` (mandatory for every catalogued component).

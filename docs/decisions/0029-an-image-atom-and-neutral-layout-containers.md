@@ -84,6 +84,11 @@ entry chunk (502.60 → 505.02 kB) and would have grown with every logo; as sepa
 files the same asset costs 0.78 kB of map, and the map grows with the **number**
 of assets rather than their bytes (four more images: +0.4 kB).
 
+`no-inline` is also load-bearing for security, not only for bytes: it keeps a
+content SVG rendering through `<img src>` (script-inert) rather than as inline
+markup. See `security-notes.md` §"Content images render through `<img src>`" —
+the two records govern one lever, and neither may be reversed alone.
+
 ### 6. Size is a per-view rule, and both halves were measured
 
 In the book an image keeps the dimensions of its file, bounded by the column. On a
