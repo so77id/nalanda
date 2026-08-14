@@ -9,6 +9,7 @@ import { OUTPUT, Panel } from './Panel';
 import { useMode } from '../../presentation';
 import type { RunResult, RuntimeModule } from '../../runtime';
 import type { RuntimeId } from '../../lib/runtimeIds';
+import { useResolvedTheme } from '../../lib/useResolvedTheme';
 import { RunAbandonedError, loadRuntime, runtimeDescriptors, useRuntime } from '../../runtime';
 import { useRunShortcut } from './useRunShortcut';
 import type { EditorFlags, EditorVariant } from './variants';
@@ -40,6 +41,7 @@ export function CodeEditor({
   ...overrides
 }: CodeEditorProps) {
   const mode = useMode();
+  const theme = useResolvedTheme();
   // A container that already frames and labels this listing (a SideBySide
   // column). The frame is dropped rather than drawn twice, and the filename
   // goes with it: the column's own label already says which language this is.
@@ -216,15 +218,15 @@ export function CodeEditor({
     <div
       className={
         expanded
-          ? 'fixed inset-0 z-50 flex flex-col bg-zinc-900 text-zinc-100'
+          ? 'fixed inset-0 z-50 flex flex-col bg-surface text-ink'
           : embedded
-            ? 'not-prose flex flex-col overflow-hidden bg-zinc-900 text-zinc-100'
-            : 'not-prose my-6 flex flex-col overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100'
+            ? 'not-prose flex flex-col overflow-hidden bg-surface text-ink'
+            : 'not-prose my-6 flex flex-col overflow-hidden rounded-lg border border-rule bg-surface text-ink'
       }
     >
-      <header className="flex items-center gap-2 bg-zinc-800 px-3 py-1.5">
+      <header className="flex items-center gap-2 bg-sunk px-3 py-1.5">
         {flags.showFileName && !embedded ? (
-          <span className="font-mono text-xs text-zinc-400">
+          <span className="font-mono text-xs text-ink-faint">
             {descriptor?.fileName ?? `${languageId}…`}
           </span>
         ) : null}
@@ -234,7 +236,7 @@ export function CodeEditor({
             aria-label="Lenguaje"
             value={languageId}
             onChange={(event) => changeLanguage(event.target.value as RuntimeId)}
-            className="rounded bg-zinc-700 px-1.5 py-0.5 font-mono text-2xs text-zinc-100"
+            className="rounded bg-sunk px-1.5 py-0.5 font-mono text-2xs text-ink"
           >
             {runtimeDescriptors.map((option) => (
               <option key={option.id} value={option.id}>
@@ -243,13 +245,11 @@ export function CodeEditor({
             ))}
           </select>
         ) : embedded ? null : (
-          <span className="font-mono text-3xs text-zinc-500">{descriptor?.label}</span>
+          <span className="font-mono text-3xs text-ink-faint">{descriptor?.label}</span>
         )}
 
         {flags.showWarmStatus && flags.runnable ? (
-          <span
-            className={`${CHIP} ${warm ? 'bg-emerald-900 text-emerald-200' : 'bg-amber-900 text-amber-200'}`}
-          >
+          <span className={`${CHIP} ${warm ? 'bg-keep-soft text-keep' : 'bg-sunk text-ink-faint'}`}>
             {warm ? 'listo' : 'frío'}
           </span>
         ) : null}
@@ -260,7 +260,7 @@ export function CodeEditor({
           <button
             type="button"
             onClick={copy}
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs text-zinc-300 hover:bg-zinc-700"
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-2xs text-ink-soft hover:bg-sunk"
           >
             {copied ? <Check size={13} /> : <Copy size={13} />}
             {copied ? 'Copiado' : 'Copiar'}
@@ -272,7 +272,7 @@ export function CodeEditor({
             type="button"
             onClick={() => setExpanded((current) => !current)}
             aria-label={expanded ? 'Cerrar pantalla completa' : 'Expandir a pantalla completa'}
-            className="rounded p-1 text-zinc-300 hover:bg-zinc-700"
+            className="rounded p-1 text-ink-soft hover:bg-sunk"
           >
             {expanded ? <X size={14} /> : <Expand size={14} />}
           </button>
@@ -283,7 +283,11 @@ export function CodeEditor({
         <CodeMirror
           value={code}
           onChange={setCode}
-          theme="dark"
+          // CodeMirror takes its theme as a prop instead of reading the
+          // cascade, so this is one of the few places that has to ask which
+          // theme is in force. Pinned to "dark" it was a dark editor sitting
+          // inside a light panel (#109).
+          theme={theme}
           editable={flags.editable}
           readOnly={!flags.editable}
           height={expanded ? '100%' : undefined}
@@ -301,35 +305,33 @@ export function CodeEditor({
             aria-label="Entrada estándar"
             value={stdin}
             onChange={(event) => setStdin(event.target.value)}
-            className="block h-14 w-full resize-none bg-zinc-800 px-3 py-2 font-mono text-xs text-zinc-100 outline-none"
+            className="block h-14 w-full resize-none bg-sunk px-3 py-2 font-mono text-xs text-ink outline-none"
           />
         </Panel>
       ) : null}
 
       {flags.showDiagnostics && diagnostics ? (
         <Panel label={failedToCompile ? 'errores de compilación' : 'diagnósticos'}>
-          <pre className={`${OUTPUT} max-h-40 bg-zinc-800 text-amber-300`}>{diagnostics}</pre>
+          <pre className={`${OUTPUT} max-h-40 bg-sunk text-flag`}>{diagnostics}</pre>
         </Panel>
       ) : null}
 
       {flags.showOutput && (result?.output || running) ? (
         <Panel label="salida">
-          <pre
-            className={`${OUTPUT} ${expanded ? 'flex-1' : 'max-h-48'} bg-zinc-800 text-zinc-200`}
-          >
+          <pre className={`${OUTPUT} ${expanded ? 'flex-1' : 'max-h-48'} bg-sunk text-ink-soft`}>
             {result?.output || '…'}
           </pre>
         </Panel>
       ) : null}
 
       {flags.runnable ? (
-        <footer className="flex items-center gap-3 border-t border-zinc-700 bg-zinc-800 px-3 py-2">
+        <footer className="flex items-center gap-3 border-t border-rule bg-sunk px-3 py-2">
           <button
             type="button"
             onClick={() => void doRun()}
             disabled={running || !runtime}
             title="Ctrl/Cmd + Enter"
-            className="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded bg-keep px-3 py-1 text-xs font-medium text-on-keep disabled:opacity-50"
           >
             {running ? <Loader size={14} className="animate-spin" /> : <Play size={14} />}
             {running ? 'Ejecutando…' : 'Ejecutar'}
@@ -339,22 +341,22 @@ export function CodeEditor({
               waiting for the editor above this one to release the single JVM
               the page shares (ADR-0017). Both used to look like a spinner. */}
           {running && !warm ? (
-            <span className="font-mono text-3xs text-zinc-400">preparando el runtime…</span>
+            <span className="font-mono text-3xs text-ink-faint">preparando el runtime…</span>
           ) : running && queued ? (
-            <span className="font-mono text-3xs text-zinc-400">
+            <span className="font-mono text-3xs text-ink-faint">
               esperando a que termine otro editor…
             </span>
           ) : null}
 
           {flags.showTimings && result ? (
-            <span className="font-mono text-3xs text-zinc-400">
+            <span className="font-mono text-3xs text-ink-faint">
               {result.compileMs === null ? '' : `compila ${result.compileMs}ms · `}
               ejecuta {result.runMs ?? '—'}ms
             </span>
           ) : null}
 
           {flags.showWarmStatus && warmStats && descriptor?.formatWarmStats ? (
-            <span className="font-mono text-3xs text-zinc-500">
+            <span className="font-mono text-3xs text-ink-faint">
               {descriptor.formatWarmStats(warmStats.detail)}
             </span>
           ) : null}
@@ -364,9 +366,7 @@ export function CodeEditor({
           {flags.showExitCode && result !== null && result.exitCode !== null ? (
             <span
               className={`${CHIP} ${
-                result.exitCode === 0
-                  ? 'bg-emerald-900 text-emerald-200'
-                  : 'bg-red-900 text-red-200'
+                result.exitCode === 0 ? 'bg-keep-soft text-keep' : 'bg-flag-soft text-flag'
               }`}
             >
               exit {result.exitCode}

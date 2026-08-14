@@ -13,7 +13,7 @@ export interface SideBySideProps {
   children?: ReactNode;
 }
 
-const LABEL = 'bg-zinc-800 px-3 py-1 font-mono text-3xs uppercase tracking-wide text-zinc-400';
+const LABEL = 'bg-sunk px-3 py-1 font-mono text-3xs uppercase tracking-wide text-ink-faint';
 
 /**
  * How much smaller code runs inside a column than in a full-width listing.
@@ -30,7 +30,7 @@ const SCALE = { book: 'text-[0.8em]', presentation: 'text-[0.72em]' } as const;
 function Column({ label, children }: { label?: string; children: ReactNode }) {
   const mode = useMode();
   return (
-    <div className="min-w-0 overflow-hidden rounded-lg border border-zinc-700">
+    <div className="min-w-0 overflow-hidden rounded-lg border border-rule">
       {label === undefined ? null : <h4 className={LABEL}>{label}</h4>}
       {/* Each column still scrolls on its own: a long line in one must not widen
           the page, which is what a two-column layout would otherwise do.

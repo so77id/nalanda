@@ -30,8 +30,8 @@ function DocLink({ entry }: { entry: IndexEntry }) {
       to={`/d/${entry.docId}`}
       className={({ isActive }) =>
         isActive
-          ? 'block rounded bg-slate-800 px-2 py-1 font-medium text-sky-300'
-          : 'block rounded px-2 py-1 text-slate-300 hover:bg-slate-800/60'
+          ? 'block rounded bg-sunk px-2 py-1 font-medium text-accent'
+          : 'block rounded px-2 py-1 text-ink-soft hover:bg-sunk/60'
       }
     >
       {docLabel(entry)}
@@ -58,15 +58,15 @@ function EntryItem({ entry, entryKey, isOpen, onToggle }: ItemProps) {
             FIRST line of the label: a wrapped group name ("Java para quien
             viene de C++") started its second line under the triangle, left of
             the label's own text, and the tree lost its vertical edge. */}
-        <summary className="flex cursor-pointer list-none items-start gap-1.5 rounded px-2 py-1 text-slate-100 hover:bg-slate-800/60 [&::-webkit-details-marker]:hidden">
+        <summary className="flex cursor-pointer list-none items-start gap-1.5 rounded px-2 py-1 text-ink hover:bg-sunk/60 [&::-webkit-details-marker]:hidden">
           <ChevronRight
             size={14}
             aria-hidden="true"
-            className="mt-1 shrink-0 text-slate-500 transition-transform group-open:rotate-90"
+            className="mt-1 shrink-0 text-ink-faint transition-transform group-open:rotate-90"
           />
           <span className="min-w-0 flex-1">
             {entry.levelName ? (
-              <span className="mr-1 text-xs tracking-wide text-slate-400 uppercase">
+              <span className="mr-1 text-xs tracking-wide text-ink-faint uppercase">
                 {entry.levelName}
               </span>
             ) : null}
@@ -79,7 +79,7 @@ function EntryItem({ entry, entryKey, isOpen, onToggle }: ItemProps) {
         {/* 16px (ml-3 + pl-1) was too shallow to read as nesting once labels
             wrap. The guide line runs under the marker column and the child text
             lands past it. */}
-        <div className="ml-2 border-l border-slate-800 pl-4">
+        <div className="ml-2 border-l border-rule pl-4">
           <DocLink entry={entry} />
           <EntryList
             entries={entry.children}
@@ -176,13 +176,13 @@ export function Toc({ index, activeId }: Props) {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Filtrar…"
-          className="w-full rounded border border-slate-700 bg-slate-900 px-2 py-1 text-slate-100 placeholder:text-slate-500"
+          className="w-full rounded border border-rule bg-surface px-2 py-1 text-ink placeholder:text-ink-faint"
         />
       </label>
       {/* Announced, not just drawn: with 14 groups the reader cannot see at a
           glance whether a query found one thing or thirty. */}
       {filtering ? (
-        <p role="status" className="mb-2 text-xs text-slate-400">
+        <p role="status" className="mb-2 text-xs text-ink-faint">
           {matches === 0
             ? `Nada coincide con «${query.trim()}»`
             : `${matches} ${matches === 1 ? 'documento' : 'documentos'}`}

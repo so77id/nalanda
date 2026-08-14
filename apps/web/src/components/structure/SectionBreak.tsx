@@ -12,7 +12,7 @@ import { useMode } from '../../presentation';
 export function SectionBreak() {
   const mode = useMode();
   if (mode === 'presentation') return null;
-  return <hr className="measure-full my-8 border-slate-800" />;
+  return <hr className="measure-full my-8 border-rule" />;
 }
 
 withMeta(SectionBreak, { slideBoundary: 'section-break' });

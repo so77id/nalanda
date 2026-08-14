@@ -9,6 +9,153 @@
 @theme {
   --text-2xs: 0.7rem;
   --text-3xs: 0.65rem;
+
+  /* The palette, as Tailwind utilities (#109, ADR-0026). Each maps to a `--nl-*`
+     variable rather than to a literal, and it is those variables the themes
+     swap — so `bg-surface` and `text-ink` are already correct in both themes and
+     a component never writes a `dark:` variant. With 184 colour-class usages in
+     the app, duplicating each one would give 368 and be unmaintainable.
+
+     Semantics and legal pairings: docs/standards/design-system.md, enforced by
+     palette.test.ts, which reads the values below out of this file. */
+  --color-ground: var(--nl-ground);
+  --color-surface: var(--nl-surface);
+  --color-sunk: var(--nl-sunk);
+  --color-deck-ground: var(--nl-deck-ground);
+  --color-ink: var(--nl-ink);
+  --color-ink-soft: var(--nl-ink-soft);
+  --color-ink-faint: var(--nl-ink-faint);
+  --color-rule: var(--nl-rule);
+  --color-rule-strong: var(--nl-rule-strong);
+  --color-accent: var(--nl-accent);
+  --color-flag: var(--nl-flag);
+  --color-keep: var(--nl-keep);
+  --color-focus: var(--nl-focus);
+
+  /* Tinted state backgrounds and the label on a filled button. A status chip is
+     `bg-keep-soft text-keep`; the run button is `bg-keep text-on-keep`.
+
+     `on-keep` inverts with the theme rather than following it — the keep ground
+     is dark in the light theme and light in the dark one, so its label has to go
+     the other way. That is the whole reason it is a token and not just
+     `text-white`, which was right in exactly one theme. */
+  --color-keep-soft: var(--nl-keep-soft);
+  --color-flag-soft: var(--nl-flag-soft);
+  --color-accent-soft: var(--nl-accent-soft);
+  --color-on-keep: var(--nl-on-keep);
+}
+
+/* The theme, in the three states a reader can actually be in.
+
+   Not two. An explicit choice stamps `data-theme` on the root; the DEFAULT state
+   stamps nothing, and there only `prefers-color-scheme` decides — which is the
+   state most readers arrive in. Each block below owns one:
+
+   1. bare `:root` — the complete light palette, and the fallback for everything.
+   2. the media query — redefines only the tokens, guarded with
+      `:not([data-theme='light'])` so an explicit light choice beats a dark OS.
+   3. the attribute selector — redefines them again, so the switch wins in the
+      other direction too.
+
+   A colour whose ONLY definition lives in 2 or 3 never applies in the unstamped
+   state, which paints one theme's text on the other theme's ground. Every token
+   is therefore declared in full in block 1. */
+:root {
+  --nl-ground: #eef1f4;
+  --nl-surface: #ffffff;
+  --nl-sunk: #e4e9ee;
+  --nl-deck-ground: #eaeef2;
+  --nl-ink: #141a22;
+  --nl-ink-soft: #47525f;
+  --nl-ink-faint: #5a6573;
+  --nl-rule: #cdd5dd;
+  --nl-rule-strong: #7a8592;
+  --nl-accent: #9c3b76;
+  --nl-flag: #b04527;
+  --nl-keep: #2c6a4e;
+  --nl-focus: #0b63c4;
+  --nl-keep-soft: #e0eee7;
+  --nl-flag-soft: #f8e5df;
+  --nl-accent-soft: #f3e4ee;
+  --nl-on-keep: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --nl-ground: #0c1118;
+    --nl-surface: #141b24;
+    --nl-sunk: #1b232e;
+    --nl-deck-ground: #020617;
+    --nl-ink: #e6eaef;
+    --nl-ink-soft: #a8b3c0;
+    --nl-ink-faint: #8a96a4;
+    --nl-rule: #2c3644;
+    --nl-rule-strong: #66748a;
+    --nl-accent: #dd91bd;
+    --nl-flag: #e08a69;
+    --nl-keep: #7ec2a0;
+    --nl-focus: #38bdf8;
+    --nl-keep-soft: #17291f;
+    --nl-flag-soft: #33211a;
+    --nl-accent-soft: #33202c;
+    --nl-on-keep: #0c1118;
+  }
+}
+
+:root[data-theme='dark'] {
+  --nl-ground: #0c1118;
+  --nl-surface: #141b24;
+  --nl-sunk: #1b232e;
+  --nl-deck-ground: #020617;
+  --nl-ink: #e6eaef;
+  --nl-ink-soft: #a8b3c0;
+  --nl-ink-faint: #8a96a4;
+  --nl-rule: #2c3644;
+  --nl-rule-strong: #66748a;
+  --nl-accent: #dd91bd;
+  --nl-flag: #e08a69;
+  --nl-keep: #7ec2a0;
+  --nl-focus: #38bdf8;
+  --nl-keep-soft: #17291f;
+  --nl-flag-soft: #33211a;
+  --nl-accent-soft: #33202c;
+  --nl-on-keep: #0c1118;
+}
+
+/* Prose that follows the theme (#109).
+
+   `prose-invert` hardcodes light-on-dark, which is a theme decision baked into a
+   class name: under a light theme it paints white text on a light ground. Nothing
+   in the suite can see that — 598 tests passed over exactly that page — and it is
+   the worked case behind "the evidence is the pixels" in testing-strategy.md.
+
+   The plugin is built for this: it reads every colour from `--tw-prose-*`, so
+   pointing those at our tokens makes prose theme-aware for free, and the tokens
+   already swap per theme.
+
+   This started as a separate `.prose-themed` class while the migration was in
+   flight, because a component that still painted its own dark surface still
+   wanted `prose-invert`. Every consumer has migrated, so it is `.prose` itself —
+   the shim's stated collapse condition, met inside the same PR. The unlayered
+   declaration outranks the plugin's layered one, the same cascade mechanism
+   documented for `.cm-editor.cm-focused` below. */
+.prose {
+  --tw-prose-body: var(--color-ink-soft);
+  --tw-prose-headings: var(--color-ink);
+  --tw-prose-lead: var(--color-ink-soft);
+  --tw-prose-links: var(--color-accent);
+  --tw-prose-bold: var(--color-ink);
+  --tw-prose-counters: var(--color-ink-faint);
+  --tw-prose-bullets: var(--color-rule-strong);
+  --tw-prose-hr: var(--color-rule);
+  --tw-prose-quotes: var(--color-ink);
+  --tw-prose-quote-borders: var(--color-rule-strong);
+  --tw-prose-captions: var(--color-ink-faint);
+  --tw-prose-code: var(--color-ink);
+  --tw-prose-pre-code: var(--color-ink);
+  --tw-prose-pre-bg: var(--color-sunk);
+  --tw-prose-th-borders: var(--color-rule-strong);
+  --tw-prose-td-borders: var(--color-rule);
 }
 
 /* What the page is, declared on the document rather than assumed by a div.
@@ -22,11 +169,28 @@
    and so did any gap the app did not cover. Painting `html` fixes both, and
    `body` inherits it.
 
-   Kept in step with the `theme-color` meta in index.html by hand — a meta tag
-   cannot read a CSS variable. */
+   Kept in step with the `theme-color` metas in index.html, which cannot read a
+   CSS variable — `documentShell.test.ts` compares them against `--nl-ground`
+   rather than trusting a comment.
+
+   `color-scheme` follows the theme rather than naming one. `light dark` says
+   "this page is legible either way, use the reader's preference", which is what
+   makes the browser's OWN widgets — the language <select> and its dropdown, the
+   stdin <textarea>, the scrollbars — arrive in matching chrome. The two stamped
+   cases below then force it, because an explicit choice has to beat the OS here
+   exactly as it does for the tokens; leaving this on the media query alone gives
+   a reader who picked light a dark scrollbar on a light page. */
 html {
+  color-scheme: light dark;
+  background-color: var(--color-ground);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
   color-scheme: dark;
-  background-color: var(--color-slate-950);
 }
 
 /* One focus outline for the whole product.
@@ -34,11 +198,16 @@ html {
    The browser default was a 1px `#005FCC` hairline: 3.13:1 against slate-950,
    scraping past the 3:1 minimum, in a blue that appears nowhere else here.
 
-   `outline-offset` is load-bearing, not decoration. Measured against sky-400:
-   the page is 9.42:1, panels 6.95:1, the sidebar 6.83:1 — but the emerald
-   Ejecutar/Comprobar button is **1.76:1**. Offsetting draws the outline on the
-   surface *around* the control instead of on the control, so the one surface it
-   would fail against is never the one it lands on.
+   `outline-offset` is load-bearing, not decoration, and the palette made that
+   MORE true rather than less. Re-measured for `--color-focus` (#109): against
+   every page surface it clears 3:1 comfortably — light 5.15/5.84/4.78/5.01 and
+   dark 8.84/8.09/7.39/9.42 on ground/surface/sunk/deck — but against the filled
+   run button it is **1.10:1 light, 1.03:1 dark**, worse than the 1.76:1 the
+   emerald button used to give. Offsetting draws the outline on the surface
+   *around* the control instead of on it, so the one surface it fails against is
+   never the one it lands on. Those page ratios are held by `palette.test.ts`,
+   which carries `focus` in its pairing table; the button case is held by this
+   offset, and only by it.
 
    `:focus-visible`, not `:focus`: a mouse click on a button should not leave a
    mark behind, and the browser already knows the difference.
@@ -50,7 +219,7 @@ html {
    already follows the element's own radius; the declaration bought nothing and
    cost that. */
 :focus-visible {
-  outline: 2px solid var(--color-sky-400);
+  outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
 
@@ -77,7 +246,7 @@ html {
    - It goes on `.cm-editor`, never on that scrolling wrapper. On the wrapper an
      inward outline is painted over by the editor's own opaque background. */
 .cm-editor.cm-focused {
-  outline: 2px solid var(--color-sky-400);
+  outline: 2px solid var(--color-focus);
   outline-offset: -2px;
 }
 

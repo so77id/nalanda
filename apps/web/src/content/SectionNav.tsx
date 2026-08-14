@@ -17,7 +17,7 @@ export function SectionNav({ sections, activeId, onNavigate }: Props) {
 
   return (
     <nav aria-label="En esta página" className="text-sm">
-      <p className="mb-2 text-xs font-medium tracking-wide text-slate-400 uppercase">
+      <p className="mb-2 text-xs font-medium tracking-wide text-ink-faint uppercase">
         En esta página
       </p>
       <ol className="space-y-1">
@@ -31,8 +31,8 @@ export function SectionNav({ sections, activeId, onNavigate }: Props) {
               onClick={onNavigate}
               className={
                 section.id === activeId
-                  ? 'block border-l-2 border-sky-400 py-0.5 pl-3 text-sky-300'
-                  : 'block border-l-2 border-transparent py-0.5 pl-3 text-slate-400 hover:border-slate-600 hover:text-slate-200'
+                  ? 'block border-l-2 border-accent py-0.5 pl-3 text-accent'
+                  : 'block border-l-2 border-transparent py-0.5 pl-3 text-ink-faint hover:border-rule-strong hover:text-ink-soft'
               }
             >
               {section.text}
