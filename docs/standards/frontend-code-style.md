@@ -253,10 +253,10 @@ src/
   mis-tap took the reader deeper in instead of out. All three obey it since
   #106 — measured on a phone profile at 34x34, 32x32 and 32x32, each with at
   least 12px of clearance from its neighbour (`gap-3`, `gap-4`, `mb-3`), which
-  is the half the retired debt note had named. Known and deliberately not fixed
-  in #106: where `requestFullscreen` is absent the deck's `⛶` is inert while
-  still naming an action, so the control promises what it cannot do — hide or
-  disable it when that surface is next touched. 48px when the icon is the illustration of
+  is the half the retired debt note had named. A control the platform cannot honour is
+  not shown at all: where `requestFullscreen` is absent — every browser on iOS —
+  the deck omits its `⛶` rather than painting a button that answers nothing
+  (#111). The check is a capability, never a device. 48px when the icon is the illustration of
   a full-screen panel rather than a control — it carries the message at a
   glance, is `aria-hidden` because the text beside it says the same thing, and
   is not clickable (worked case: `presentation/RotateNotice.tsx`, #91). Adding a

@@ -18,6 +18,20 @@ function renderAt(path: string) {
   );
 }
 
+/**
+ * jsdom implements no Fullscreen API, so after #111 the deck hides its
+ * fullscreen control there — correctly, but for a reason no test intended.
+ * A test that cares about that control declares the capability first, the way
+ * a browser would present it.
+ */
+function withFullscreenSupport() {
+  Object.defineProperty(document.documentElement, 'requestFullscreen', {
+    configurable: true,
+    value: () => Promise.resolve(),
+  });
+  return () => Reflect.deleteProperty(document.documentElement, 'requestFullscreen');
+}
+
 async function findCounter() {
   return screen.findByText(/^\d+ \/ \d+$/);
 }
@@ -77,13 +91,32 @@ describe('PresentationPage viewer', () => {
   });
 
   it('offers a fullscreen control that says what pressing it will do', async () => {
+    const restore = withFullscreenSupport();
     renderAt(`/d/${firstId}/present`);
     await findCounter();
     // Out of fullscreen the button ENTERS it, so the name is the destination.
     expect(screen.getByRole('button', { name: 'Pantalla completa' })).toBeInTheDocument();
+    restore();
+  });
+
+  it('hides the fullscreen control where the platform has no fullscreen', async () => {
+    // An iPhone: no browser there exposes requestFullscreen for a web page
+    // (ADR-0023), so the control could only ever be a button that does nothing.
+    // jsdom is that platform by default, which is exactly why the tests above
+    // have to declare the capability rather than inherit it.
+    renderAt(`/d/${firstId}/present`);
+    await findCounter();
+
+    const footer = document.querySelector('footer')!;
+    expect([...footer.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(
+      ['Salir de la presentación'],
+    );
+    // The way out and the counter stay; only the dead control goes.
+    expect(screen.getByText(/^\d+ \/ \d+$/)).toBeInTheDocument();
   });
 
   it('renames the fullscreen control when fullscreen is entered by any means', async () => {
+    const restoreSupport = withFullscreenSupport();
     // Not only after a click: Escape and the browser's own chrome change the
     // state too, so the name is derived from document.fullscreenElement rather
     // than from what this component last did (#106).
@@ -111,6 +144,7 @@ describe('PresentationPage viewer', () => {
       expect(await screen.findByRole('button', { name: 'Pantalla completa' })).toBeInTheDocument();
     } finally {
       Reflect.deleteProperty(document, 'fullscreenElement');
+      restoreSupport();
     }
   });
 });
@@ -463,15 +497,18 @@ describe('fitting a slide to the stage it is shown on', () => {
 
 describe('leaving the presentation from the deck', () => {
   it('offers a visible exit beside the fullscreen control', async () => {
-    renderAt(`/d/${firstId}/present`);
-    await findCounter();
-
     // Both halves of the name, asserted: that it is there, and that it sits
     // after the fullscreen control — which is the tab order a reader meets.
+    // The capability is declared before the render, because the deck decides
+    // whether to paint that neighbour at all (#111).
+    const restore = withFullscreenSupport();
+    renderAt(`/d/${firstId}/present`);
+    await findCounter();
     const footer = document.querySelector('footer')!;
     expect([...footer.querySelectorAll('button')].map((b) => b.getAttribute('aria-label'))).toEqual(
       ['Pantalla completa', 'Salir de la presentación'],
     );
+    restore();
   });
 
   it('does not ask to leave fullscreen when it was never entered', async () => {

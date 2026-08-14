@@ -41,6 +41,16 @@ function isFullscreen(): boolean {
   return document.fullscreenElement != null;
 }
 
+/**
+ * Whether this browser can put a web page in fullscreen at all. On iOS none
+ * can (ADR-0023 — the same fact that ruled out an orientation lock), so the
+ * control would be a button that answers nothing. Read at render: a browser
+ * does not grow the API mid-session, so there is no store to subscribe to.
+ */
+function canGoFullscreen(): boolean {
+  return typeof document.documentElement.requestFullscreen === 'function';
+}
+
 function toggleFullscreen(): void {
   if (document.fullscreenElement) {
     leaveFullscreen();
@@ -247,14 +257,16 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
       </div>
       <footer className="flex items-center justify-between px-[max(1.5rem,env(safe-area-inset-left))] py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pr-[max(1.5rem,env(safe-area-inset-right))] text-sm text-slate-500">
         <div className="flex items-center gap-2">
-          <button
-            type="button"
-            aria-label={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
-            onClick={toggleFullscreen}
-            className="rounded p-2 hover:bg-slate-800 hover:text-slate-200"
-          >
-            ⛶
-          </button>
+          {canGoFullscreen() ? (
+            <button
+              type="button"
+              aria-label={fullscreen ? 'Salir de pantalla completa' : 'Pantalla completa'}
+              onClick={toggleFullscreen}
+              className="rounded p-2 hover:bg-slate-800 hover:text-slate-200"
+            >
+              ⛶
+            </button>
+          ) : null}
           {/* Escape does this too, and says so nowhere on screen — which is the
               whole reason this exists. A phone has no Escape at all. */}
           <button
