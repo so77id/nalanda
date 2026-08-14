@@ -192,12 +192,39 @@ Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
   MDX itself compiles content into arbitrary components (ADR-0003 by design).
   Both are safe only while every `.mdx` that reaches the build comes from the
   repo-controlled `content/` tree, reviewed like code.
+- **Since #118 (2026-08-14), a third**: KaTeX renders author-written LaTeX in
+  Node during the Vite transform (`src/content/rehypePlugins.ts`, ADR-0027).
+  Injection was attacked and held — ten hostile documents produced red error text
+  for every trust-gated command, never an anchor or an attribute — but **output
+  size is unbounded**: an 80 kB `\begin{matrix}` produced 40 MB of compiled JSX
+  in 29 s. Expansion bombs and deep recursion ARE bounded (`maxExpand`, and a
+  stack overflow is caught and degraded). The realistic worst case today is burnt
+  CI minutes or a wedged local build, not a compromise — CI runs on
+  `pull_request` with `contents: read` and no secrets in the web job.
 - **Why currently safe**: content ships exclusively via git + PR review; there is
   no runtime ingestion, no user-contributed documents, no CMS.
 - **Review trigger**: the moment ANY non-repo-authored content path appears —
   v0.2 authoring-agent output that bypasses PR review, a future in-platform
   editor (vision phase C), or user-submitted material. At that point the MDX
-  pipeline and this adapter must be re-reviewed as an injection surface.
+  pipeline and this adapter must be re-reviewed as an injection surface — and
+  since #118 there is a second reason to re-review at that same moment: the
+  LaTeX renderer above is a resource-exhaustion sink in the build.
+
+### KaTeX runs with `trust: false` (recorded 2026-08-14, #118)
+
+- **What relies on it**: `rehypeKatex` is passed `{ trust: false }` explicitly
+  (`apps/web/src/content/rehypePlugins.ts`). It is KaTeX's own default, stated
+  because flipping it is a direct attribute-injection: verified, `trust: true`
+  makes `\href{javascript:…}{x}` emit a real `<a href>` **and** an `href` on the
+  MathML `<mrow>`. React neutralises `javascript:` specifically, but the
+  attribute channel is open and any other scheme rides it.
+- **Why currently safe**: the default holds, it is pinned by a test
+  (`mdxPipeline.test.tsx`, "refuses to build a link out of a formula"), and
+  KaTeX-emitted elements resolve through the MDX component map where `a` is
+  `MdxLink`, which already refuses non-`http(s)`/`mailto`/local schemes.
+- **Review trigger**: anyone setting `trust` to anything but `false`, or adding
+  `macros` that reach `\href`, `\url` or the `\html*` family. Decision and the
+  attack record: ADR-0027 §6.
 
 ### Content images render through `<img src>`, never inlined (accepted 2026-08-14, #119)
 

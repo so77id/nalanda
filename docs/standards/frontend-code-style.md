@@ -202,7 +202,14 @@ src/
 - **Tailwind only**, utility classes inline in JSX. No CSS modules, no CSS-in-JS,
   no new `.css` files beyond `styles/` globals.
 - **A third-party stylesheet is imported once, in `styles/index.css`, and only
-  when the package's own CSS is the sole source of the rules.** Check before
+  when the package's own CSS is the sole source of the rules** — *unless* it is
+  conditional on a feature only some documents use, in which case scoping the
+  import to the module that needs it is preferred and Vite splits it cleanly
+  (measured: ADR-0027 §3). `katex.min.css` is global today as recorded debt, not
+  as the pattern. Check also what the bundler does with the assets it references:
+  Vite inlines anything under `assetsInlineLimit` into the stylesheet, which
+  turns a conditional asset into an unconditional one (#118 shipped a font that
+  way and it was 52% of the feature's cost). Check before
   importing that it is class-scoped: a vendor rule on a bare element leaks into
   the whole product. Worked case — `katex.min.css`, whose only unscoped rule is
   `body{counter-reset:…}`, and whose weight is recorded with the decision that
@@ -253,7 +260,12 @@ src/
   `CodeEditor`, `Exercise`, `SideBySide`, `AuthoringError`), or marks itself
   `.measure-full` (neither block nor text: the scroll box around a table, the
   prev/next row, the `<SectionBreak/>` rule). **A component that renders
-  anything wide MUST carry one of the two.** The rule is unlayered on purpose,
+  anything wide MUST carry one of the two.** There is a third case, for markup
+  the author cannot mark because a vendor emits it: **keep the cap and give the
+  block its own scroll box** in this stylesheet, beside the rule. Worked case:
+  `.katex-display`, which KaTeX sets `white-space: nowrap` on and ships no
+  overflow rule for, so a long recurrence would widen the page instead of
+  scrolling inside itself (#118, ADR-0027). The rule is unlayered on purpose,
   so a child's own `max-w-*` or `w-full` cannot win — the opt-out is the marker
   class, deliberately, and this also binds new element renderers registered in
   `content/mdxComponents.ts` (worked case: `MdxTable`), not only catalog

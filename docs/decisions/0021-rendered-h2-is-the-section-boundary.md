@@ -6,6 +6,9 @@
 **Covers:** where a document's section spine comes from · why it is read from the DOM
 rather than from the source · what a structural component must render to stay navigable
 **Source:** Issue #84 (WP: the reading shell on a phone and inside a document).
+**Amended by:** ADR-0027 §8 — an `h2` that is entirely a formula paints but contributes
+no section, because it has no text to slug. Accepted knowingly; the fix moves published
+anchors.
 Extends ADR-0013 (presentation pipeline) and ADR-0010 (component contract);
 constrained by the import direction in `frontend-code-style.md`.
 

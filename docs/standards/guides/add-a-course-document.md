@@ -24,7 +24,8 @@ content/courses/sample-course/
 │   └── arreglo.svg, lista.svg, cola.svg, pila.svg
 ├── 04-apuntes.mdx             # presentation: none     — book-only
 ├── 05-codigo-ejecutable.mdx   # presentation: explicit — uses <CodeEditor>
-├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <Exercise> + <SideBySide>
+├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>
+├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -58,7 +59,7 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    want the default** (#108, enforced by `src/content/architecture.test.ts`).
    The field defaults to `auto`, so a document that omits it still ships a deck;
    omitting it does not mean "no slides", it means slides nobody chose. Two of
-   the six documents here had exactly that, and one of them projected the book's
+   the documents here had exactly that, and one of them projected the book's
    own navigation sentence — _"Cuando termines, vuelve a la bienvenida"_ — alone
    on a slide.
 
@@ -78,9 +79,9 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    > - `presentationRoute.test.tsx` names `busqueda-binaria` too and drives
    >   `intro-estructuras`.
    > - `presentationRoute.test.tsx` also drives `java-desde-cpp` at a **fixed
-   >   slide index** (`?slide=5`), so that document must stay presentable and
-   >   keep its shape there. Nothing names it as a fixture; it is a bare URL in a
-   >   test.
+   >   slide index** (`?slide=10`, the "Compilar y ejecutar" slide — the only one
+   >   carrying a `<pre>`), so that document must stay presentable and keep its
+   >   shape there. Nothing names it as a fixture; it is a bare URL in a test.
    >
    > That is why `01-bienvenida.mdx` declares `auto` rather than the `none` its
    > content would suggest: it is the only `auto` document left, and the rail's
@@ -179,28 +180,58 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    sees nothing, because it checks frontmatter and the index, not body syntax.
    The symptom to recognise is *"the document ends here"*.
 
+   **A decimal comma needs braces.** This one will bite a Spanish-language
+   course immediately, and it is silent. In mathematics a comma is *punctuation*,
+   so `0,25` renders as `0, 25` — with a gap — and its MathML comes out as three
+   tokens (number, operator, number) instead of one number, which is what a
+   screen reader reads aloud. Write `0{,}25`:
+
+   ```mdx
+   $$
+   N_p = 0{,}25\,S_1 + 0{,}25\,S_2 + 0{,}25\,N_{TC} + 0{,}25\,N_L
+   $$
+   ```
+
+   The `\,` between the number and the symbol is a thin space, which is how
+   multiplication is conventionally set. Neither is optional if you want the
+   formula to read as mathematics rather than as a list.
+
    **A heading wants text in it.** `## $$\log_2 n$$` — a heading that is only a
    formula — gets no id, no anchor and no entry in the section list, silently.
-   Write `## El costo, $$\log_2 n$$` instead. And a `<Slide title="...">` cannot
-   hold a formula at all: the title is a JSX attribute, so the `$$` ship to the
-   reader as literal characters.
+   Write `## El costo, $$\log_2 n$$` instead.
+
+   **A `<Slide title="...">` cannot hold a formula**: the title is a JSX
+   attribute, so the `$$` ship to the reader as literal characters, projected.
+   Put the formula in the slide **body** instead, with a blank line above and
+   below the `$$` block like any markdown inside JSX, and keep the title plain:
+
+   ```mdx
+   <Slide title="Cómo se calcula tu nota">
+
+   $$
+   N_p = 0{,}25\,S_1 + 0{,}25\,S_2
+   $$
+
+   </Slide>
+   ```
 
    Three things worth knowing, all measured rather than assumed:
 
    - **No JavaScript is shipped.** KaTeX renders during the build, so a formula
      costs the reader a stylesheet and the font faces its own glyphs use — about
      42 kB for a typical formula, against ~162 kB gzip of editor for the first
-     highlighted fence on a page (ADR-0018). The 3.6 kB stylesheet is global, so
-     it is the one thing a page without mathematics also pays; it downloads **no
-     fonts at all**.
+     highlighted fence on a page (ADR-0018). The stylesheet is global — **3.94 kB
+     gzip on every page in the site**, including pages with no mathematics
+     (measured 2026-08-14; ADR-0027 §3 carries the figure and why it is debt). A
+     page without a formula downloads **no fonts at all**.
    - **A malformed formula does not fail the build.** It renders in KaTeX's
      error colour, like a broken wiki-link renders visibly broken. Nothing stops
      you publishing it — look at the page.
-   - **On a slide it is fine but not free.** Measured on the binary-search cost
-     formula: scale 1.00 at 1024×768 and 0.895 on a phone in landscape. A long
-     display equation is wide, and ADR-0013 scales the whole slide down rather
-     than clipping — so a formula that does not fit shrinks the prose beside it.
-     Check any slide carrying one, in landscape.
+   - **On a slide it is fine but not free.** A long display equation is wide, and
+     ADR-0013 scales the whole slide down rather than clipping — so a formula
+     that does not fit shrinks the prose beside it. No shipped document puts a
+     formula in a deck yet, so there is no measured example to copy: check any
+     slide carrying one, in landscape, and judge it yourself.
 
    Screen readers are covered: KaTeX emits MathML beside the visual rendering,
    so a formula is read as mathematics rather than skipped as decoration.
@@ -292,7 +323,7 @@ The cases are hidden until the first run — pacing, not secrecy. Everything
 under `content/` is published, so the page source reveals them to anyone who
 looks: never author an exercise whose cases must stay private.
 
-Worked example: `06-java-desde-cpp.mdx` (four exercises).
+Worked example: `07-java-tipos-y-flujo.mdx` (six exercises, one of them on a slide).
 
 5c. **Compare two listings (optional)**: `<SideBySide left="C++" right="Java">`
 places exactly two blocks next to each other, stacking on a narrow screen.

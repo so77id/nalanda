@@ -36,11 +36,20 @@ async function renderThroughTheShellMap(source: string): Promise<HTMLElement> {
   ).container;
 }
 
-// vitest runs with apps/web as its cwd.
-const DOCUMENT = readFileSync(
-  join(process.cwd(), '../../content/courses/sample-course/06-java-desde-cpp.mdx'),
-  'utf8',
-);
+// vitest runs with apps/web as its cwd. #107 split the Java material in two, so
+// most of the runtime-tagged fences now live in the second document; reading only
+// the first would keep this green while covering less than it did (AC10). Both
+// files are read and their fences pooled, so the aggregate guards below sweep
+// both documents: a runtime sample shipped untagged in EITHER raises the
+// untagged count past 2 and fails, and `fences.length > 5` reddens the moment
+// this reverts to reading only the first file. The same list lives in
+// content/mdxPipeline.test.tsx — duplicated, not shared: sharing would be legal
+// (architecture.test.ts:145 exempts `.test.` files from the cross-feature seam),
+// but a two-element filename list is not worth a shared test-util module.
+const JAVA_DOCS = ['06-java-desde-cpp.mdx', '07-java-tipos-y-flujo.mdx'];
+const DOCUMENT = JAVA_DOCS.map((file) =>
+  readFileSync(join(process.cwd(), '../../content/courses/sample-course/', file), 'utf8'),
+).join('\n');
 
 /** Every fence in the document, as `[info-string, body]`. */
 function fencesOf(markdown: string): { info: string; body: string }[] {
@@ -58,7 +67,7 @@ function fencesOf(markdown: string): { info: string; body: string }[] {
   return found;
 }
 
-describe('the fences of the shipped Java document', () => {
+describe('the fences of the shipped Java documents', () => {
   const fences = fencesOf(DOCUMENT);
   const untagged = fences.filter((f) => f.info === '');
 

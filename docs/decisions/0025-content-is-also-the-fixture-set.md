@@ -41,7 +41,9 @@ documents themselves:
   written for. The suite stayed green at 576 tests while the case stopped testing
   what it is named for.
 - `presentationRoute.test.tsx` drives `java-desde-cpp` at a **fixed slide index**
-  (`?slide=5`). Nothing names it a fixture; it is a bare URL in a test.
+  (`?slide=10`, the "Compilar y ejecutar" slide — the deck's only `<pre>`; it was
+  `?slide=5` before #107 re-cut the deck). Nothing names it a fixture; it is a
+  bare URL in a test.
 
 ## Decision
 
