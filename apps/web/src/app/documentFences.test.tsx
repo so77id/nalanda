@@ -4,11 +4,20 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { MemoryRouter } from 'react-router-dom';
 import * as runtime from 'react/jsx-runtime';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { remarkPlugins } from '../content/mdxPlugins';
 
 import { mdxComponents } from './mdxComponents';
+
+// Same hazard as #102, different module: the fence renderer is `lazy()`, so the
+// wait below raced the editor chunk against `vi.waitFor`'s default budget.
+// Measured on `main` before this WP touched it — 2 failures in 4 runs of
+// `src/app/`, "expected null not to be null" at the wait. Resolving the module
+// once takes the machine out of the verdict.
+beforeAll(async () => {
+  await import('../components/interactive/CodeEditor');
+});
 
 // The editor is not what is under test here — which renderer a fence reaches is.
 vi.mock('@uiw/react-codemirror', () => ({
