@@ -318,11 +318,12 @@ playwright package.json` finds nothing by design), then drive `npm run build
   and all mean "whatever the index happens to put first". Name the fixture
   whenever the assertions know its content, and give the guard a message saying
   what to repoint. Worked case (#108): declaring `explicit` on a document earlier
-  in the index moved `documentSections.test.tsx` off the only document that
-  interleaves a markdown `##` with `<Slide title>` headings — the exact
-  equivalence that case exists to assert. The suite stayed green at 576 while the
-  case stopped testing what it is named for, and the diff that caused it did not
-  touch that file or either document it selects.
+  in the index moved `documentSections.test.tsx` onto one whose `h2`s all come
+  from `<Slide title>`, so the case asserting that BOTH heading sources produce
+  one section list stopped exercising the mixed document it was written for. The
+  suite stayed green at 576 while the case stopped testing what it is named for,
+  and the diff that caused it touched neither that file nor either document it
+  selects.
 - **Registry-driven invariants**: when a standard applies to every member of a
   live registry, iterate the registry at module scope and generate one case per
   entry, so a new entry is gated the moment it is registered — never hand-write

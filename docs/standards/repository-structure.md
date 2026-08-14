@@ -57,7 +57,7 @@ nalanda/
      suite rather than for the reader is the line this crosses — ADR-0013 §4
      accepts content-as-fixture, but there the fixture role and the content's
      intent agreed. Editing `content/` therefore requires the full suite, not
-     only the build (`guides/add-a-course-document.md` §presentation). The exit
+     only the build (`guides/add-a-course-document.md` step 2 (Frontmatter)). The exit
      is a dedicated fixture course plus registry injection — `buildRegistry` is
      already parameterised; what blocks it is that the shell reaches
      `liveContent` at module scope. Its own WP when the cost justifies it.

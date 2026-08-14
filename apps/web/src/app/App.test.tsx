@@ -65,7 +65,7 @@ describe('routing', () => {
     // so, because a `none` document redirects /present back to the book, which
     // reads here as "the viewer did not render". Note the opening document is
     // currently pinned to `auto` as the suite's fixture, not by preference —
-    // add-a-course-document.md §presentation has the reason.
+    // add-a-course-document.md step 2 (Frontmatter) has the reason.
     const presentableId = ids.find((id) => registry.get(id)?.meta.presentation !== 'none')!;
     renderAt(`/d/${presentableId}/present`);
     expect(

@@ -16,12 +16,12 @@ The seed course `content/courses/sample-course/` exercises everything:
 
 ```
 content/courses/sample-course/
-├── 01-bienvenida.mdx          # id: bienvenida        (auto — h2 slicing; the suite's `auto` fixture)
-├── 02-intro-estructuras.mdx   # id: intro-estructuras (explicit, uses <Slide>)
-├── 03-busqueda-binaria.mdx    # id: busqueda-binaria  (presentation: explicit, uses <Slide>)
-├── 04-apuntes.mdx             # id: apuntes-del-curso (presentation: none — book-only)
-├── 05-codigo-ejecutable.mdx   # id: codigo-ejecutable (explicit, uses <CodeEditor>)
-├── 06-java-desde-cpp.mdx      # id: java-desde-cpp    (explicit, uses <Exercise> + <SideBySide>)
+├── 01-bienvenida.mdx          # presentation: auto     — h2 slicing; the suite's `auto` fixture
+├── 02-intro-estructuras.mdx   # presentation: explicit — uses <Slide>
+├── 03-busqueda-binaria.mdx    # presentation: explicit — uses <Slide>, plus a markdown ## (both h2 sources)
+├── 04-apuntes.mdx             # presentation: none     — book-only
+├── 05-codigo-ejecutable.mdx   # presentation: explicit — uses <CodeEditor>
+├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <Exercise> + <SideBySide>
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -55,7 +55,7 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    want the default** (#108, enforced by `src/content/architecture.test.ts`).
    The field defaults to `auto`, so a document that omits it still ships a deck;
    omitting it does not mean "no slides", it means slides nobody chose. Two of
-   the five documents here had exactly that, and one of them projected the book's
+   the six documents here had exactly that, and one of them projected the book's
    own navigation sentence — _"Cuando termines, vuelve a la bienvenida"_ — alone
    on a slide.
 
@@ -65,11 +65,19 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    only that it exists.
 
    > **The seed course is also the suite's fixture set**, and that constrains
-   > what you may declare here. Two tests name the documents they need:
-   > `documentSections.test.tsx` names `bienvenida` (its `auto` fixture) and
-   > `busqueda-binaria` (its `explicit` one, the only document that interleaves a
-   > markdown `##` with `<Slide title>` headings); `presentationRoute.test.tsx`
-   > names `busqueda-binaria` too, and drives `intro-estructuras`.
+   > what you may declare here. Several tests bind to real documents; three
+   > constrain the presentation declaration:
+   >
+   > - `documentSections.test.tsx` names `bienvenida` (its `auto` fixture) and
+   >   `busqueda-binaria` (its `explicit` one, chosen because it carries BOTH
+   >   heading sources — `<Slide title>` h2s and a markdown `##` — which is the
+   >   equivalence those cases assert).
+   > - `presentationRoute.test.tsx` names `busqueda-binaria` too and drives
+   >   `intro-estructuras`.
+   > - `presentationRoute.test.tsx` also drives `java-desde-cpp` at a **fixed
+   >   slide index** (`?slide=5`), so that document must stay presentable and
+   >   keep its shape there. Nothing names it as a fixture; it is a bare URL in a
+   >   test.
    >
    > That is why `01-bienvenida.mdx` declares `auto` rather than the `none` its
    > content would suggest: it is the only `auto` document left, and the rail's

@@ -12,7 +12,7 @@ const ids = walkIndex(courseIndex);
 // resolve to the same document, so this is a no-op — it is here because the
 // course's opening document is a landing page whose content argues for
 // `presentation: none`, and it declares `auto` only to stay the suite's auto
-// fixture (add-a-course-document.md §presentation). Were that to change, `ids[0]`
+// fixture (add-a-course-document.md step 2). Were that to change, `ids[0]`
 // would redirect /present back to the book and these cases would go red for a
 // reason with nothing to do with the viewer they test.
 const firstId = ids.find((id) => registry.get(id)?.meta.presentation !== 'none')!;

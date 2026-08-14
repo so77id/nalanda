@@ -25,10 +25,10 @@ const ids = walkIndex(courseIndex);
 // Named, not discovered (#108). Picking "the first auto document" and "the first
 // explicit one" reads as robust and is the opposite: it silently follows the
 // index. When 02-intro-estructuras declared `explicit` it became the first one,
-// and the explicit case moved off busqueda-binaria — the only document here that
-// INTERLEAVES a markdown `##` with `<Slide title>` h2s, which is the whole point
-// of the equivalence asserted below. The suite stayed green while the case
-// stopped testing what it is named for.
+// and the explicit case moved onto it — a document whose h2s are ALL
+// `<Slide title>`, so the equivalence asserted below (both heading sources, one
+// section list) stopped being exercised. busqueda-binaria carries both. The
+// suite stayed green while the case stopped testing what it is named for.
 //
 // `presentation` is no longer defaulted in either selector either: since #108
 // every document declares it, so `?? 'auto'` could only ever fire for an id the
@@ -58,7 +58,7 @@ describe('the section rail over real documents', () => {
   it('the seed course still provides the two fixtures these cases describe', () => {
     expect(
       autoId,
-      `${AUTO_FIXTURE} left the index. It is the seed course's only \`presentation: auto\` document (see add-a-course-document.md §presentation) — declare another document auto and name it here, or these cases stop covering the markdown-h2 rail path.`,
+      `${AUTO_FIXTURE} left the index. It is the seed course's only \`presentation: auto\` document (see add-a-course-document.md step 2 (Frontmatter)) — declare another document auto and name it here, or these cases stop covering the markdown-h2 rail path.`,
     ).toBeDefined();
     expect(
       registry.get(autoId!)?.meta.presentation,
@@ -66,7 +66,7 @@ describe('the section rail over real documents', () => {
     ).toBe('auto');
     expect(
       explicitId,
-      `${EXPLICIT_FIXTURE} left the index. Repoint this block at another document that interleaves a markdown \`##\` with <Slide title> headings — not merely at any explicit document, or the equivalence below stops being tested.`,
+      `${EXPLICIT_FIXTURE} left the index. Repoint this block at another document carrying BOTH heading sources — a markdown "##" and <Slide title> h2s — not merely at any explicit document, or the equivalence below stops being tested.`,
     ).toBeDefined();
     expect(
       registry.get(explicitId!)?.meta.presentation,
