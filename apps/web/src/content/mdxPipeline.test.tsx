@@ -106,6 +106,31 @@ describe('the MDX pipeline', () => {
       'the formula stayed literal text instead of becoming mathematics',
     ).not.toBeNull();
     expect(container.textContent).not.toContain('$');
+    // Without this the case passes when fed DISPLAY math, because a display
+    // formula also carries `.katex` — so only half the contract ADR-0026 §2
+    // claims to pin was pinned (#118 review, found by feeding it `$$` on their
+    // own lines and watching it stay green).
+    expect(
+      container.querySelector('.katex-display'),
+      'inline math rendered as a display block',
+    ).toBeNull();
+  });
+
+  it('refuses to build a link out of a formula', async () => {
+    const container = await renderMdx('Ver $$\\href{javascript:alert(1)}{esto}$$.\n');
+
+    // `trust: false` is KaTeX's default and is passed explicitly, because it is
+    // the one option whose flip is a direct injection: with `trust: true` this
+    // exact source emits `<a href="javascript:alert(1)">`. Pinned here so the
+    // flip cannot be made quietly.
+    expect(container.querySelector('a'), 'a formula produced a live anchor').toBeNull();
+    // No attribute of any kind carries the URL. Asserted on attributes rather
+    // than on innerHTML: KaTeX always echoes the LaTeX source into an
+    // <annotation>, so the string `javascript:` IS present there as inert text
+    // and a substring check would fail for the wrong reason.
+    expect(container.querySelector('[href], [src]')).toBeNull();
+    // And what a reader gets instead is the refusal, visibly.
+    expect(container.textContent).toContain('\\href');
   });
 
   it('gives a display formula its own block, not a line of prose', async () => {

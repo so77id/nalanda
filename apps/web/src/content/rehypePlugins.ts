@@ -4,34 +4,26 @@ import type { PluggableList } from 'unified';
 /**
  * The rehype plugins every course document is compiled with.
  *
- * A sibling of `mdxPlugins.ts` and extracted for the same reason: a test
- * compiles MDX through the *same* list the build uses, instead of reading
- * `vite.config.ts` as text and searching for a name. That distinction is not
- * theoretical — `mdxWiring.test.ts` exists because a text-matching guard stayed
- * green while the build silently stopped applying GFM (#83).
- *
  * Separate from the remark list because remark and rehype are different trees:
  * remark plugins see markdown, rehype plugins see the HTML it became. Math
- * needs one of each — `remarkMath` to parse `$…$` at all, `rehypeKatex` to turn
- * the node it produced into something a reader can see.
+ * needs one of each — `remarkMath` to parse `$$…$$` at all, `rehypeKatex` to
+ * turn the node it produced into something a reader can see.
+ *
+ * Exported rather than written inline in `vite.config.ts` so `mdxPipeline.test.tsx`
+ * can render through the *same* list the build uses. (`mdxWiring.test.ts` does not
+ * need this — it resolves the config object and calls the real transform.)
  */
 export const rehypePlugins: PluggableList = [
   /**
-   * Renders every math node at BUILD time, in Node, during the Vite transform.
+   * Runs in Node during the Vite transform, so no KaTeX JavaScript ever reaches
+   * a browser. Cost and the rejected alternatives: ADR-0026 §1, §3, §5.
    *
-   * That is the whole cost story of #118 and the reason this is cheap where the
-   * code editor is not: KaTeX is a build input and none of its JavaScript is
-   * ever sent to a browser. A page with mathematics pays 3.6 kB gzip of CSS
-   * plus the woff2 faces its own glyphs reference (~42 kB for a typical
-   * formula), against ~162 kB gzip of CodeMirror for the first highlighted
-   * fence on a page (ADR-0018).
-   *
-   * `throwOnError` stays at its default `false`: a malformed formula renders in
-   * KaTeX's error colour and the document still builds. Failing the build was
-   * considered and rejected — the content gate already refuses documents for
-   * structural faults, and a typo inside a formula is authoring feedback, not a
-   * broken document. It matches how a broken wiki-link behaves, which renders
-   * visibly wrong on purpose (ADR-0002).
+   * `trust: false` is KaTeX's default and is stated here because it is the one
+   * option whose flip is a direct injection: with `trust: true`, `\href`,
+   * `\url` and the `\html*` family emit real attributes from author-controlled
+   * LaTeX — verified, `\href{javascript:…}` becomes a live anchor. Enabling it,
+   * or adding `macros` that reach those commands, needs a security review.
+   * Pinned by a test rather than left to this comment.
    */
-  rehypeKatex,
+  [rehypeKatex, { trust: false }],
 ];

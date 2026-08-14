@@ -47,7 +47,7 @@
     "@vitejs/plugin-react": "^6.0.4",
     "browsercc": "^0.1.1",
     "jsdom": "^30.0.1",
-    "katex": "^0.18.4",
+    "katex": "^0.16.47",
     "oxlint": "^1.75.0",
     "prettier": "^3.9.6",
     "pyodide": "^314.0.3",
