@@ -14,6 +14,26 @@
     <meta name="theme-color" content="#eef1f4" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0c1118" media="(prefers-color-scheme: dark)" />
     <title>Nalanda</title>
+    <!-- Stamps the reader's saved choice BEFORE the first paint. It has to be
+         inline and it has to be here: a module runs after the document is
+         painted, so a reader who chose light on a dark OS would see a dark page
+         flash and then turn light, on every single navigation.
+
+         It cannot import `lib/themePreference.ts` for the same reason, so the
+         storage key is spelled twice — the only duplication of it, and the
+         module names this file as its twin. `system` is deliberately absent:
+         removing the attribute is what lets the stylesheet defer to
+         prefers-color-scheme, so no stamp IS the system choice.
+
+         try/catch because storage throws rather than returning null in Safari's
+         private mode; an unhandled throw here happens before anything is
+         painted, which is a blank page for a theme preference. -->
+    <script>
+      try {
+        var t = localStorage.getItem('nalanda:theme');
+        if (t === 'light' || t === 'dark') document.documentElement.dataset.theme = t;
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

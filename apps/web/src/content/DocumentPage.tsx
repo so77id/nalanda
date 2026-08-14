@@ -4,6 +4,7 @@ import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { Breadcrumb } from './Breadcrumb';
+import { ThemeToggle } from './ThemeToggle';
 import { Drawer } from './Drawer';
 import { SectionNav } from './SectionNav';
 import { Toc } from './Toc';
@@ -130,15 +131,18 @@ export function DocumentPage({ notFound }: Props) {
             </button>
             <Breadcrumb trail={trail} />
           </div>
-          {presentable ? (
-            <Link
-              to={`/d/${id}/present`}
-              className="flex shrink-0 items-center gap-1.5 rounded border border-rule px-3 py-1 text-sm text-ink-soft hover:bg-sunk hover:text-ink"
-            >
-              <Presentation size={14} aria-hidden="true" />
-              Presentar
-            </Link>
-          ) : null}
+          <div className="flex shrink-0 items-center gap-2">
+            {presentable ? (
+              <Link
+                to={`/d/${id}/present`}
+                className="flex shrink-0 items-center gap-1.5 rounded border border-rule px-3 py-1 text-sm text-ink-soft hover:bg-sunk hover:text-ink"
+              >
+                <Presentation size={14} aria-hidden="true" />
+                Presentar
+              </Link>
+            ) : null}
+            <ThemeToggle />
+          </div>
         </div>
         <article ref={article} className="prose prose-themed measured-prose mx-auto max-w-3xl">
           <Suspense fallback={null}>
