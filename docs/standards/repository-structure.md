@@ -47,28 +47,43 @@ nalanda/
    - `content/` — course material (Material domain). Not app code: it has its own
      lifecycle (authoring), its own future (database, per ADR-0002), and is edited
      without entering any `src/`.
+
+     **In v0.1 it is also the test suite's fixture set, and that is a real
+     constraint on authoring, not just a note.** Several tests assert over the
+     live registry because there is no other real content to assert over. The
+     cost has already been paid once: since #108, `01-bienvenida.mdx` declares
+     `presentation: auto` rather than the `none` its content argues for, purely
+     because it is the suite's only `auto` document. A declaration chosen for the
+     suite rather than for the reader is the line this crosses — ADR-0013 §4
+     accepts content-as-fixture, but there the fixture role and the content's
+     intent agreed. Editing `content/` therefore requires the full suite, not
+     only the build (`guides/add-a-course-document.md` §presentation). The exit
+     is a dedicated fixture course plus registry injection — `buildRegistry` is
+     already parameterised; what blocks it is that the shell reaches
+     `liveContent` at module scope. Its own WP when the cost justifies it.
+
    - `docs/` — knowledge: standards, design, decisions, conventions.
    - `infra/` — running the system around the apps:
      - `infra/local/` — local orchestration (docker-compose, multi-app Makefile)
        and runnable dev mocks of external services.
      - `infra/deploy/` — host provisioning, reverse-proxy/systemd config,
-       production compose. Apps package themselves; infra *places* them.
+       production compose. Apps package themselves; infra _places_ them.
 
 ## Placement criteria — "where does X go"
 
-| Thing | Where | Why |
-|---|---|---|
-| Local orchestration (docker-compose / multi-app Makefile) | `infra/local/` | Coordinates apps; belongs to none |
-| Runnable dev mock of an external service (fake university API, fake OAuth server) | `infra/local/mocks/` | Exists to run the system locally, not to test |
-| Test fakes/mocks (in-process, used by tests) | Next to the tests, inside their app | Test code |
-| Dockerfile / packaging of one app | Inside that app | The app packages itself; infra places it |
-| VPS provisioning, systemd/proxy config, production compose | `infra/deploy/` | Belongs to the host, not to an app |
-| One app's integration tests | In that app | They verify ITS behavior |
-| Cross-app e2e (browser → web → server) | Top-level `e2e/` (created when it first exists) | Verifies the whole |
-| Course assets (images/video) | `content/`, next to their documents | Material domain |
-| Test mocks needed by a second app | Promote to `packages/` | Shared-code rule |
-| Build script (fetches or generates a build input) | `apps/<app>/scripts/`, wired to an npm lifecycle hook (`prebuild`/`predev`) | Neither source nor runtime code; must run before the bundler, and in CI |
-| Fetched or generated build input (jar, wasm blob) | That app's `public/`, gitignored, digest pinned in the fetching script | Reproducible without carrying binaries in git — worked case `public/java-compiler.jar` (ADR-0017) |
+| Thing                                                                             | Where                                                                       | Why                                                                                               |
+| --------------------------------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| Local orchestration (docker-compose / multi-app Makefile)                         | `infra/local/`                                                              | Coordinates apps; belongs to none                                                                 |
+| Runnable dev mock of an external service (fake university API, fake OAuth server) | `infra/local/mocks/`                                                        | Exists to run the system locally, not to test                                                     |
+| Test fakes/mocks (in-process, used by tests)                                      | Next to the tests, inside their app                                         | Test code                                                                                         |
+| Dockerfile / packaging of one app                                                 | Inside that app                                                             | The app packages itself; infra places it                                                          |
+| VPS provisioning, systemd/proxy config, production compose                        | `infra/deploy/`                                                             | Belongs to the host, not to an app                                                                |
+| One app's integration tests                                                       | In that app                                                                 | They verify ITS behavior                                                                          |
+| Cross-app e2e (browser → web → server)                                            | Top-level `e2e/` (created when it first exists)                             | Verifies the whole                                                                                |
+| Course assets (images/video)                                                      | `content/`, next to their documents                                         | Material domain                                                                                   |
+| Test mocks needed by a second app                                                 | Promote to `packages/`                                                      | Shared-code rule                                                                                  |
+| Build script (fetches or generates a build input)                                 | `apps/<app>/scripts/`, wired to an npm lifecycle hook (`prebuild`/`predev`) | Neither source nor runtime code; must run before the bundler, and in CI                           |
+| Fetched or generated build input (jar, wasm blob)                                 | That app's `public/`, gitignored, digest pinned in the fetching script      | Reproducible without carrying binaries in git — worked case `public/java-compiler.jar` (ADR-0017) |
 
 **Growth rule:** when a new case has no row in this table, propose a placement in
 the PR that introduces it and record the outcome here in the same PR. The standard
