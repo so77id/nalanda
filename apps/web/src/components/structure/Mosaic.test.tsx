@@ -150,4 +150,20 @@ describe('Mosaic', () => {
     expect(container.textContent).toContain('<Mosaic>');
     expect(container.querySelectorAll('img')).toHaveLength(0);
   });
+
+  it.each([1, 5, 6])('tells the author when columns is out of range (%s)', (columns) => {
+    // MDX is not typechecked, so `columns={5}` compiles and reaches the runtime
+    // (the cast here stands in for that untyped author input). Before the guard
+    // this threw `Cannot read properties of undefined` on GRID[5] and, with no
+    // error boundary, took the whole document down — this asserts it degrades to
+    // an AuthoringError instead, the way the missing-count case above does.
+    const { container } = render(
+      <Mosaic columns={columns as 2 | 3 | 4} description={LOGOS}>
+        {cells(4)}
+      </Mosaic>,
+    );
+
+    expect(container.textContent).toContain('<Mosaic>');
+    expect(container.querySelectorAll('img')).toHaveLength(0);
+  });
 });

@@ -33,7 +33,11 @@ describe('Split', () => {
     );
 
     const grid = container.firstElementChild?.className ?? '';
-    expect(grid).toContain('grid');
+    // Exact token, not a substring: `md:grid-cols-2` also *contains* "grid", so
+    // `toContain('grid')` would survive removing the display:grid class — the
+    // substring hazard testing-strategy.md records (text-accent vs
+    // hover:text-accent). Split on whitespace so only the standalone token counts.
+    expect(grid.split(/\s+/)).toContain('grid');
     expect(grid).toMatch(/md:grid-cols/);
   });
 

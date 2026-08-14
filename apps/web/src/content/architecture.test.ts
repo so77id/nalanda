@@ -133,4 +133,43 @@ describe('architecture: content invariants', () => {
       },
     );
   });
+
+  // Issue #119 (review CT-3). Alt is required and in Spanish (root CLAUDE.md: the
+  // page is lang="es", so an accessible name is announced with Spanish phonemes).
+  // `<Figure>` enforces this at runtime, but a markdown image `![](./x.svg)`
+  // routes through `MdxImage`, which passes alt straight through — so an empty-alt
+  // markdown image would ship an unnamed picture past every gate. The one
+  // documented exception (`alt=""`) lives inside a `<Mosaic>` cell, a JSX-only
+  // affordance; markdown has no Mosaic, so every relative markdown image must
+  // name itself. Reads the source and ships at publish-time weight, like the
+  // file-existence gate above.
+  describe('every relative markdown image names itself', () => {
+    const MARKDOWN_IMAGE = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
+    // Anything with a scheme, protocol-relative, or already rooted is not ours.
+    const NOT_RELATIVE = /^(?:[a-z][a-z0-9+.-]*:|\/\/|\/)/i;
+
+    const markdownImages = documents.flatMap((key) => {
+      const source = readFileSync(join(APP_ROOT, key), 'utf8');
+      return [...source.matchAll(MARKDOWN_IMAGE)]
+        .filter((m) => !NOT_RELATIVE.test(m[2]!))
+        .map((m) => ({ key, alt: m[1]!, url: m[2]! }));
+    });
+
+    it('finds markdown images to check', () => {
+      expect(
+        markdownImages.length,
+        'no document uses relative markdown image syntax any more — if the convention moved to <Figure> only, drop this block; otherwise the regex stopped matching it',
+      ).toBeGreaterThan(0);
+    });
+
+    it.each(markdownImages.map(({ key, alt, url }) => [`${key} -> ${url}`, alt] as const))(
+      '%s',
+      (_label, alt) => {
+        expect(
+          alt.trim(),
+          'a markdown image with empty alt ships an unnamed picture — write its alt in Spanish, or use <Figure> if it belongs on a slide',
+        ).not.toBe('');
+      },
+    );
+  });
 });

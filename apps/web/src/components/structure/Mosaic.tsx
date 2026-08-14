@@ -56,6 +56,19 @@ export function Mosaic({ columns, description, children }: MosaicProps) {
       </AuthoringError>
     );
   }
+  // MDX is not typechecked, so the `2 | 3 | 4` prop type is authoring-time
+  // fiction: an author can write `columns={5}`. Without this guard `GRID[5]` is
+  // undefined and the `[mode]` index below throws, and with no error boundary in
+  // the app (there is none) the throw blanks the WHOLE document, not just this
+  // block — worse than the handled `undefined` case. Same runtime-contract
+  // reasoning as Figure's required `alt`: a bad value degrades to an
+  // AuthoringError. GRID is the single source of truth for which counts are laid
+  // out, so the check reads from it rather than repeating 2/3/4.
+  if (!Object.hasOwn(GRID, columns)) {
+    return (
+      <AuthoringError component="Mosaic">necesita columns con el valor 2, 3 o 4.</AuthoringError>
+    );
+  }
   if (description === undefined || description === '') {
     return (
       <AuthoringError component="Mosaic">

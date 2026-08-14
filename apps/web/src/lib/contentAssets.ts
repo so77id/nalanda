@@ -31,8 +31,3 @@ export function resolveAsset(src: string): string | null {
   if (!src.startsWith(ASSET_PREFIX)) return null;
   return byKey.get(src.slice(ASSET_PREFIX.length)) ?? null;
 }
-
-/** The keys the map holds — for the authoring error that has to say what exists. */
-export function knownAssetKeys(): string[] {
-  return [...byKey.keys()];
-}
