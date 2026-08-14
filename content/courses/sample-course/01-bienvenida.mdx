@@ -128,19 +128,17 @@ A veces no existe. El **problema del viajante** — visitar un conjunto de
 ciudades y volver, recorriendo lo menos posible — no tiene ninguna solución
 exacta conocida que sea rápida.
 
-Probar todas las posibilidades cuesta del orden de `2ⁿ`.
+Probar todas las posibilidades cuesta del orden de $$2^n$$.
 
 </Slide>
 
 <Slide title="Diez ciudades más">
 
-{/* TODO(#118): las tres potencias como matemática, no como superíndices Unicode. */}
-
-| Ciudades | Posibilidades | A mil millones por segundo |
-| -------- | ------------- | -------------------------- |
-| 50       | ~1,1 × 10¹⁵   | 13 días                    |
-| 60       | ~1,2 × 10¹⁸   | 37 años                    |
-| 70       | ~1,2 × 10²¹   | 37.000 años                |
+| Ciudades | Posibilidades                    | A mil millones por segundo |
+| -------- | -------------------------------- | -------------------------- |
+| 50       | $$\approx 1{,}1 \times 10^{15}$$ | 13 días                    |
+| 60       | $$\approx 1{,}2 \times 10^{18}$$ | 37 años                    |
+| 70       | $$\approx 1{,}2 \times 10^{21}$$ | 37.000 años                |
 
 De días a milenios. Reconocer que estás frente a uno de estos te ahorra semanas
 de pedirle a alguien —agente o no— algo que nadie sabe hacer.
@@ -304,30 +302,29 @@ de resolverlo.
 
 <Slide title="Cómo se calcula tu nota">
 
-{/* TODO(#118): las dos fórmulas como matemática, no como bloque monoespaciado */}
+$$
+N_p = 0{,}25 \cdot S_1 + 0{,}25 \cdot S_2 + 0{,}25 \cdot N_{TC} + 0{,}25 \cdot N_L
+$$
 
-```
-Np = 0,25·S1 + 0,25·S2 + 0,25·NTC + 0,25·NL
+$$
+N_F = 0{,}7 \cdot N_p + 0{,}3 \cdot N_{ex}
+$$
 
-NF = 0,7·Np + 0,3·Nex
-```
+- $$S_1$$, $$S_2$$ — las dos solemnes
+- $$N_{TC}$$ — tareas y controles
+- $$N_L$$ — laboratorio
+- $$N_{ex}$$ — examen
 
-- **S1**, **S2** — las dos solemnes
-- **NTC** — tareas y controles
-- **NL** — laboratorio
-- **Nex** — examen
-
-Te eximes del examen con **Np ≥ 5,0**. Apruebas el curso con **NF ≥ 4,0**.
+Te eximes del examen con $$N_p \geq 5{,}0$$. Apruebas el curso con
+$$N_F \geq 4{,}0$$.
 
 </Slide>
 
 <Slide title="De dónde sale ese 25%">
 
-{/* TODO(#118): la fórmula como matemática, no como bloque monoespaciado */}
-
-```
-NTC = 0,8·T̄ + 0,2·C̄
-```
+$$
+N_{TC} = 0{,}8 \cdot \bar{T} + 0{,}2 \cdot \bar{C}
+$$
 
 Las **tareas** se publican acá y las corrigen los ayudantes. Los **controles de
 entrada** tienen su propia sección.
