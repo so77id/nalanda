@@ -10,10 +10,11 @@ import { contentMdxComponents } from './mdxComponents';
 import { remarkPlugins } from './mdxPlugins';
 
 // The two documents of the Java unit (#107 split it in two). This list is
-// duplicated in app/documentFences.test.tsx on purpose, NOT shared: the seam
-// invariant in src/architecture.test.ts has no test exemption, so a content
-// test may not import a helper out of app/ and vice versa (testing-strategy.md,
-// "A browser-API fake needed by two features is duplicated, not shared").
+// duplicated in app/documentFences.test.tsx on purpose, NOT shared. A
+// cross-feature test import is allowed here (architecture.test.ts exempts
+// `.test.` files from the seam), so this is a convention choice, not a
+// constraint: testing-strategy.md duplicates small test scaffolding rather than
+// grow a shared test-util module, and a two-element list is not worth the coupling.
 const JAVA_DOCS = ['06-java-desde-cpp.mdx', '07-java-tipos-y-flujo.mdx'];
 
 /**
