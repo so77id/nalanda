@@ -4,10 +4,15 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <!-- The surface colour, so a phone paints its own chrome to match instead
-         of framing the page in white. Kept in step with `html` in
-         src/styles/index.css by hand: a meta tag cannot read a CSS variable. -->
-    <meta name="theme-color" content="#020617" />
+    <!-- The surface colour, so a phone paints its own chrome to match instead of
+         framing the page in white. One per theme since #109: a meta tag cannot
+         read a CSS variable, so these two are the only literals in the product
+         that restate a token. `documentShell.test.ts` compares them against
+         `--nl-ground` in src/styles/index.css rather than against a hardcoded
+         hex, because asserting each side alone is exactly how they drifted —
+         twice. -->
+    <meta name="theme-color" content="#eef1f4" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0c1118" media="(prefers-color-scheme: dark)" />
     <title>Nalanda</title>
   </head>
   <body>

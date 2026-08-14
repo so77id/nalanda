@@ -9,7 +9,7 @@ const SAFE_HREF = /^(?:https?:|mailto:|[/.#])/i;
 // Protocol-relative //host counts as external so it also gets the rel hardening.
 const EXTERNAL_HREF = /^(?:https?:|mailto:|\/\/)/i;
 
-const BROKEN_STYLE = 'cursor-not-allowed text-red-400 underline decoration-red-400 decoration-wavy';
+const BROKEN_STYLE = 'cursor-not-allowed text-flag underline decoration-flag decoration-wavy';
 
 // Render-path warnings repeat every re-render (twice under StrictMode) — warn once per target.
 const warned = new Set<string>();

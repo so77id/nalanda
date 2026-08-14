@@ -112,7 +112,7 @@ export function Drawer({ open, onClose, label, children }: Props) {
       <div
         data-testid="drawer-backdrop"
         onClick={onClose}
-        className="absolute inset-0 bg-slate-950/70"
+        className="absolute inset-0 bg-ground/70"
       />
       <div
         ref={panel}
@@ -120,13 +120,13 @@ export function Drawer({ open, onClose, label, children }: Props) {
         aria-modal="true"
         aria-label={label}
         tabIndex={-1}
-        className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-slate-800 bg-slate-950 p-4"
+        className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto border-r border-rule bg-ground p-4"
       >
         <button
           type="button"
           onClick={onClose}
           aria-label="Cerrar"
-          className="mb-3 self-end rounded p-2 text-slate-400 hover:bg-slate-800 hover:text-slate-100"
+          className="mb-3 self-end rounded p-2 text-ink-faint hover:bg-sunk hover:text-ink"
         >
           <X size={16} aria-hidden="true" />
         </button>

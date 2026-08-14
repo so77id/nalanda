@@ -31,14 +31,14 @@ function SequenceNav({ id }: { id: string }) {
       className="measure-full mt-12 flex justify-between gap-4 text-sm"
     >
       {prev ? (
-        <Link to={`/d/${prev}`} className="text-sky-400 hover:underline">
+        <Link to={`/d/${prev}`} className="text-accent hover:underline">
           ← {titleOf(prev)}
         </Link>
       ) : (
         <span />
       )}
       {next ? (
-        <Link to={`/d/${next}`} className="text-sky-400 hover:underline">
+        <Link to={`/d/${next}`} className="text-accent hover:underline">
           {titleOf(next)} →
         </Link>
       ) : (
@@ -97,10 +97,10 @@ export function DocumentPage({ notFound }: Props) {
 
   if (!Doc) return <>{notFound}</>;
   return (
-    <div className="flex min-h-screen bg-slate-950 text-slate-100">
+    <div className="flex min-h-screen bg-ground text-ink">
       {/* Below md the column costs more than the whole reading width is worth:
           at 390px it left the article 70px, about six characters per line. */}
-      <aside className="hidden w-64 shrink-0 border-r border-slate-800 p-4 md:block">
+      <aside className="hidden w-64 shrink-0 border-r border-rule p-4 md:block">
         <Toc index={courseIndex} activeId={id} />
       </aside>
       {/* The drawer carries BOTH navigations; `toggleHiddenAt` above states the
@@ -118,13 +118,13 @@ export function DocumentPage({ notFound }: Props) {
         {/* Always rendered: below md this row is the only home of the drawer
             toggle, so a document with nothing to put in the breadcrumb must not
             take the course navigation down with it. */}
-        <div className="mx-auto mb-8 flex max-w-3xl items-start justify-between gap-4 border-b border-slate-800 pb-3">
+        <div className="mx-auto mb-8 flex max-w-3xl items-start justify-between gap-4 border-b border-rule pb-3">
           <div className="flex min-w-0 flex-1 items-start gap-3">
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
               aria-label="Abrir la navegación"
-              className={`shrink-0 rounded border border-slate-700 p-2 text-slate-300 hover:bg-slate-800 hover:text-slate-100 ${toggleHiddenAt}`}
+              className={`shrink-0 rounded border border-rule p-2 text-ink-soft hover:bg-sunk hover:text-ink ${toggleHiddenAt}`}
             >
               <Menu size={16} aria-hidden="true" />
             </button>
@@ -133,17 +133,14 @@ export function DocumentPage({ notFound }: Props) {
           {presentable ? (
             <Link
               to={`/d/${id}/present`}
-              className="flex shrink-0 items-center gap-1.5 rounded border border-slate-700 px-3 py-1 text-sm text-slate-300 hover:bg-slate-800 hover:text-slate-100"
+              className="flex shrink-0 items-center gap-1.5 rounded border border-rule px-3 py-1 text-sm text-ink-soft hover:bg-sunk hover:text-ink"
             >
               <Presentation size={14} aria-hidden="true" />
               Presentar
             </Link>
           ) : null}
         </div>
-        <article
-          ref={article}
-          className="prose prose-invert prose-slate measured-prose mx-auto max-w-3xl"
-        >
+        <article ref={article} className="prose prose-themed measured-prose mx-auto max-w-3xl">
           <Suspense fallback={null}>
             <Doc />
           </Suspense>

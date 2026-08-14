@@ -29,16 +29,47 @@ describe('the document shell', () => {
     expect(css).toMatch(/\bhtml\b[^{]*\{[^}]*background/s);
   });
 
-  it('tells a mobile browser what colour to paint its own chrome', () => {
-    expect(html).toMatch(/<meta[^>]*name="theme-color"[^>]*content="#020617"/);
+  it('tells a mobile browser what colour to paint its own chrome, per theme', () => {
+    // Two metas since #109, because there are two grounds. A single value paints
+    // the phone's chrome in one theme's colour whichever theme the reader is in.
+    expect(html).toMatch(
+      /<meta[^>]*name="theme-color"[^>]*media="\(prefers-color-scheme: light\)"/,
+    );
+    expect(html).toMatch(/<meta[^>]*name="theme-color"[^>]*media="\(prefers-color-scheme: dark\)"/);
   });
 
-  it('keeps the meta colour and the painted surface the same colour', () => {
+  it('keeps each meta colour and the ground token it stands for the same colour', () => {
     // Both sides carry a comment saying they are kept in step by hand, and both
-    // were asserted in isolation — so moving the CSS to slate-900 shipped green
-    // with the phone chrome no longer matching the page. #020617 IS slate-950.
-    expect(css).toMatch(/html\s*\{[^}]*var\(--color-slate-950\)/s);
-    expect(html).toContain('content="#020617"');
+    // were asserted in isolation — so moving the CSS to slate-900 once shipped
+    // green with the phone chrome no longer matching the page.
+    //
+    // Asserting a literal on each side is what allowed that, and it happened
+    // AGAIN in #109: `html` moved to var(--color-ground) while the meta still
+    // said #020617, and only this case noticed. So neither side is a literal any
+    // more — the metas are compared against the token values read out of the
+    // stylesheet, which is the only version of this check that cannot drift.
+    const themeColour = (scheme: string) =>
+      new RegExp(
+        `<meta[^>]*name="theme-color"[^>]*media="\\(prefers-color-scheme: ${scheme}\\)"[^>]*content="(#[0-9a-fA-F]{6})"|` +
+          `<meta[^>]*name="theme-color"[^>]*content="(#[0-9a-fA-F]{6})"[^>]*media="\\(prefers-color-scheme: ${scheme}\\)"`,
+      )
+        .exec(html)
+        ?.slice(1)
+        .find(Boolean)
+        ?.toLowerCase();
+
+    // The light ground is the bare :root block; the dark one is the explicit
+    // [data-theme='dark'] block, which carries the same values as the media query.
+    const groundIn = (selector: string) =>
+      new RegExp(`${selector}\\s*\\{[^}]*--nl-ground:\\s*(#[0-9a-fA-F]{6})`, 's')
+        .exec(css)?.[1]
+        ?.toLowerCase();
+
+    expect(css).toMatch(/html\s*\{[^}]*var\(--color-ground\)/s);
+    expect(themeColour('light'), 'no light theme-color meta').toBe(groundIn(':root'));
+    expect(themeColour('dark'), 'no dark theme-color meta').toBe(
+      groundIn(":root\\[data-theme='dark'\\]"),
+    );
   });
 
   it('gives focus an outline of its own, thick enough to see', () => {

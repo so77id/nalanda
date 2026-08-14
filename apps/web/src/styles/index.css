@@ -98,6 +98,42 @@
   --nl-focus: #38bdf8;
 }
 
+/* Prose that follows the theme (#109).
+
+   `prose-invert` hardcodes light-on-dark, which is a theme decision baked into a
+   class name: under a light theme it paints white text on a light ground. Nothing
+   in the suite can see that — 598 tests passed over exactly that page — and it is
+   the worked case behind "the evidence is the pixels" in testing-strategy.md.
+
+   The plugin is built for this: it reads every colour from `--tw-prose-*`, so
+   pointing those at our tokens makes prose theme-aware for free, and the tokens
+   already swap per theme.
+
+   A separate class rather than a bare `.prose` override, because a component
+   that has NOT migrated yet still paints its own dark surface and still wants
+   `prose-invert`. Redefining `.prose` globally would hand those components
+   light-theme text on their own dark panels. Each drops `prose-invert` and takes
+   `prose-themed` when its slice lands; when the last one has, this can collapse
+   into `.prose` itself. */
+.prose-themed {
+  --tw-prose-body: var(--color-ink-soft);
+  --tw-prose-headings: var(--color-ink);
+  --tw-prose-lead: var(--color-ink-soft);
+  --tw-prose-links: var(--color-accent);
+  --tw-prose-bold: var(--color-ink);
+  --tw-prose-counters: var(--color-ink-faint);
+  --tw-prose-bullets: var(--color-rule-strong);
+  --tw-prose-hr: var(--color-rule);
+  --tw-prose-quotes: var(--color-ink);
+  --tw-prose-quote-borders: var(--color-rule-strong);
+  --tw-prose-captions: var(--color-ink-faint);
+  --tw-prose-code: var(--color-ink);
+  --tw-prose-pre-code: var(--color-ink);
+  --tw-prose-pre-bg: var(--color-sunk);
+  --tw-prose-th-borders: var(--color-rule-strong);
+  --tw-prose-td-borders: var(--color-rule);
+}
+
 /* What the page is, declared on the document rather than assumed by a div.
 
    `color-scheme` is what makes the browser's OWN widgets dark: the language
@@ -110,10 +146,16 @@
    `body` inherits it.
 
    Kept in step with the `theme-color` meta in index.html by hand — a meta tag
-   cannot read a CSS variable. */
+   cannot read a CSS variable. That meta is still a single dark value; it follows
+   the theme in S6, together with `color-scheme` below.
+
+   `color-scheme` is still pinned to dark while the migration is in flight: it
+   controls the browser's own widgets, and flipping it before the components that
+   sit around those widgets have moved would give a light `<select>` inside a
+   dark editor. It becomes `light dark` in S6. */
 html {
   color-scheme: dark;
-  background-color: var(--color-slate-950);
+  background-color: var(--color-ground);
 }
 
 /* One focus outline for the whole product.
