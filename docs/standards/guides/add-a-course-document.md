@@ -16,7 +16,7 @@ The seed course `content/courses/sample-course/` exercises everything:
 
 ```
 content/courses/sample-course/
-├── 01-bienvenida.mdx          # presentation: auto     — h2 slicing; the suite's `auto` fixture
+├── 01-bienvenida.mdx          # presentation: explicit — the course's opening class, cut by hand
 ├── 02-intro-estructuras.mdx   # presentation: explicit — uses <Slide> + <Mosaic>
 ├── 03-busqueda-binaria.mdx    # presentation: explicit — uses <Slide> + <Split>, plus a markdown ## (both h2 sources)
 ├── costo-busqueda.svg         # an asset sits beside the document that uses it
@@ -72,10 +72,9 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    > what you may declare here. Several tests bind to real documents; three
    > constrain the presentation declaration:
    >
-   > - `documentSections.test.tsx` names `bienvenida` (its `auto` fixture) and
-   >   `busqueda-binaria` (its `explicit` one, chosen because it carries BOTH
-   >   heading sources — `<Slide title>` h2s and a markdown `##` — which is the
-   >   equivalence those cases assert).
+   > - `documentSections.test.tsx` names `busqueda-binaria` as its fixture,
+   >   chosen because it carries BOTH heading sources — `<Slide title>` h2s and
+   >   a markdown `##` — which is the equivalence those cases assert.
    > - `presentationRoute.test.tsx` names `busqueda-binaria` too and drives
    >   `intro-estructuras`.
    > - `presentationRoute.test.tsx` also drives `java-desde-cpp` at a **fixed
@@ -83,10 +82,16 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    >   carrying a `<pre>`), so that document must stay presentable and keep its
    >   shape there. Nothing names it as a fixture; it is a bare URL in a test.
    >
-   > That is why `01-bienvenida.mdx` declares `auto` rather than the `none` its
-   > content would suggest: it is the only `auto` document left, and the rail's
-   > markdown-`h2` path has no other real content to run over. Changing a
-   > declaration here can therefore break a test that never mentions your
+   > **No document here declares `auto` any more** (#120): `01-bienvenida.mdx`
+   > was the last one, and it became the course's opening class, cut by hand into
+   > slides. Nothing was re-declared to replace it — giving a deck to material
+   > whose author did not choose one is the defect #108 exists to prevent. Auto
+   > slicing is covered over synthetic MDX in `presentation/parser.test.tsx`, and
+   > the rail over a markdown `##` by the explicit fixture's own `## Costo`. The
+   > value is still supported and still a legitimate choice; if you declare it,
+   > `documentSections.test.tsx` says where the retired case goes back.
+   >
+   > Changing a declaration here can break a test that never mentions your
    > document — **run the full suite, not just the build** (#108).
 
 3. **Write prose in Markdown.** Headings h2–h4 get automatic slug anchors
@@ -408,6 +413,20 @@ themselves rather than maintained by hand.
 GFM, so a bare URL becomes a link on its own — and a bare `www.host` resolves
 to **`http://`**, a cleartext link the reader can be downgraded on. Tables,
 strikethrough (`~~`), task lists and footnotes also work now.
+
+**An MDX comment — `{/* … */}` — is written on ONE line.** Spread it over two
+and `npm run format` rewrites it to `{/_ … _/}`: prettier parses the file as
+markdown first, does not recognise a multi-line brace expression, and reads the
+asterisks as emphasis. What lands is not a comment, and the build stops on it
+with `SyntaxError: Unterminated regular expression` pointing at acorn rather
+than at your document. Single-line comments survive formatting untouched. Both
+forms hit while writing `01-bienvenida.mdx` (#120).
+
+**An email address is written bare**, never in markdown's `<…>` autolink form.
+This is MDX: `<name@host.cl>` opens a JSX tag, and the compiler stops the
+build on the `@` (`Unexpected character '@' (U+0040) in member name`). GFM
+autolinks the bare address anyway, so the angle brackets buy nothing and cost
+a red build — hit while writing `01-bienvenida.mdx` (#120).
 
 6. **Show a picture (optional)**: the asset lives **beside the `.mdx` that uses
    it**, addressed relatively, and a subfolder is fine when there are several

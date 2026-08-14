@@ -1,22 +1,442 @@
 ---
 id: bienvenida
-title: Bienvenida
-presentation: auto
+title: Estructuras de Datos y Algoritmos
+presentation: explicit
 ---
 
-# Bienvenida
+# Estructuras de Datos y Algoritmos
 
-Este es un curso de ejemplo de **Nalanda**: sirve para ejercitar el modelo de
-contenido completo — documentos MDX, ids estables, wiki-links, índice y modo libro.
+<Slide title="Quién dicta el curso">
 
-## Cómo navegar
+- Miguel Rodríguez
+- Ingeniero Civil en Informática y Telecomunicaciones, UDP (egreso 2014)
+- Msc Computer Science Candidate, **UNICAMP** (Brasil)
+- **AI/ML Engineer** en **C1DO1.ai**
 
-Puedes seguir el recorrido con los botones _anterior / siguiente_ al pie de cada
-página, o saltar libremente con la barra lateral y los enlaces internos, como
-este: [[intro-estructuras]].
+miguel.rodriguez@mail.udp.cl
 
-## Qué encontrarás
+</Slide>
 
-- Prosa con tipografía de modo libro.
-- Enlaces wiki entre documentos, por ejemplo [[busqueda-binaria|una búsqueda clásica]].
-- Un índice anidado con niveles configurables.
+<Slide title="Trayectoria">
+
+- Software Engineer & Co-Founder en **Ticketplus** (exit)
+- Data Science en **Globant**
+- CTO & Co-Founder en **TripYeah** (exit a Nezasa en 2022)
+- Director of Engineering Latam en **Nezasa**
+- Senior Software Engineer en **Microsoft** — MSAI, buscador de Microsoft 365
+
+</Slide>
+
+<Slide title="¿Y si la IA escribe el código?">
+
+Escribe la implementación, y la escribe bien. Entonces, ¿para qué este curso?
+
+Cinco preguntas que el agente no responde solo:
+
+1. ¿Cómo sabemos que funciona?
+2. ¿A quién le importa que sea rápido?
+3. ¿Y si le pedimos directamente la mejor solución?
+4. ¿Qué hay que saber, exactamente?
+5. ¿Nos reemplaza?
+
+</Slide>
+
+<Slide title="¿Cómo sabemos que funciona?">
+
+<Split ratio="60/40">
+
+- Buscar entre **cien millones** de elementos, uno por uno: unos
+  **50.000.000** de comparaciones.
+- Un servidor cien veces más rápido: **siguen siendo 50.000.000**. Solo las
+  hace más rápido.
+- Ordenados, la búsqueda binaria necesita **27**.
+
+<Figure
+  src="./costo-busqueda.svg"
+  alt="Dos curvas de costo sobre los mismos ejes: la búsqueda lineal sube en línea recta con el tamaño del arreglo, mientras la binaria se aplana casi de inmediato."
+/>
+
+</Split>
+
+Hay un factor que ningún hardware compra. Medirlo, sin ejecutar nada, se llama
+**análisis de complejidad**, y es la primera unidad del curso.
+
+</Slide>
+
+<Slide title="Contémoslas aquí mismo">
+
+Un millón de elementos en vez de cien millones: Java se ejecuta en el hilo de
+esta página, y subir `n` a cien millones congela la pestaña. El _cómo_ de la
+búsqueda binaria es [[busqueda-binaria|otro documento]].
+
+<CodeEditor
+  language="java"
+  defaultValue={`public class Main {
+    static int lineal(int[] a, int objetivo) {
+        int comparaciones = 0;
+        for (int i = 0; i < a.length; i++) {
+            comparaciones++;
+            if (a[i] == objetivo) break;
+        }
+        return comparaciones;
+    }
+
+    static int binaria(int[] a, int objetivo) {
+        int comparaciones = 0;
+        int lo = 0, hi = a.length - 1;
+        while (lo <= hi) {
+            comparaciones++;
+            int medio = lo + (hi - lo) / 2;
+            if (a[medio] == objetivo) break;
+            if (a[medio] < objetivo) lo = medio + 1;
+            else hi = medio - 1;
+        }
+        return comparaciones;
+    }
+
+    public static void main(String[] args) {
+        int n = 1_000_000;
+        int[] a = new int[n];
+        for (int i = 0; i < n; i++) a[i] = i;
+
+        int objetivo = n - 1;
+        System.out.println("Lineal:  " + lineal(a, objetivo) + " comparaciones");
+        System.out.println("Binaria: " + binaria(a, objetivo) + " comparaciones");
+    }
+
+}
+`}
+/>
+
+</Slide>
+
+<Slide title="¿A quién le importa que sea rápido?">
+
+A la industria, y lo mide en dinero.
+
+<Split ratio="60/40">
+
+- Una máquina mediana en la nube — 4 vCPU — cuesta unos **0,20 dólares por
+  hora** en AWS: alrededor de **150 al mes**.
+- Cien veces más trabajo del necesario son cien máquinas para el mismo
+  tráfico: **15.000 al mes**, por una decisión de diseño.
+
+<Figure
+  src="./costo-en-dolares.svg"
+  alt="La misma curva de la lámina anterior, con el eje vertical medido en dólares al mes en vez de comparaciones: la forma no cambia."
+/>
+
+</Split>
+
+Precios de lista en https://aws.amazon.com/ec2/pricing/on-demand/
+
+</Slide>
+
+<Slide title="¿Y si le pedimos directamente la mejor solución?">
+
+A veces no existe.
+
+<Split ratio="60/40">
+
+- El **problema del viajante** — visitar un conjunto de ciudades y volver,
+  recorriendo lo menos posible — no tiene ninguna solución exacta conocida que
+  sea rápida.
+- Probar todas las posibilidades cuesta del orden de $$2^n$$.
+
+<Figure
+  src="./viajante.svg"
+  alt="Catorce ciudades unidas por un recorrido cerrado, con un tramo alternativo dibujado en línea punteada."
+/>
+
+</Split>
+
+</Slide>
+
+<Slide title="Diez ciudades más">
+
+| Ciudades | Posibilidades                    | A mil millones por segundo |
+| -------- | -------------------------------- | -------------------------- |
+| 50       | $$\approx 1{,}1 \times 10^{15}$$ | 13 días                    |
+| 60       | $$\approx 1{,}2 \times 10^{18}$$ | 37 años                    |
+| 70       | $$\approx 1{,}2 \times 10^{21}$$ | 37.000 años                |
+
+De días a milenios. Reconocer uno de estos ahorra semanas de pedirle a alguien
+—agente o no— algo que nadie sabe hacer.
+
+</Slide>
+
+<Slide title="¿Qué hay que saber, exactamente?">
+
+Más de lo que parece, y ya lo estuvimos usando sin verlo.
+
+<Figure
+  src="./caja-negra.svg"
+  alt="La llamada a std::map abriéndose en las dos estructuras que puede ser por dentro: un árbol balanceado o una tabla de hash."
+/>
+
+En C++ elegimos entre `std::map` y `std::unordered_map` sin que nadie nos dijera
+que estábamos eligiendo entre **un árbol balanceado y una tabla de hash**, con
+costos distintos y garantías distintas.
+
+Y `std::sort` no es quicksort: es **introsort**, que empieza con quicksort y se
+cambia a heapsort cuando la recursión se hace muy profunda.
+
+</Slide>
+
+<Slide title="La caja se abre más de lo que parece">
+
+En Java, `Arrays.sort` son **dos algoritmos distintos según el tipo**:
+
+- para primitivos, **quicksort de doble pivote**
+- para objetos, **TimSort**
+
+La razón es la **estabilidad**: dos elementos iguales conservan su orden
+relativo. A un `int` no le importa; a un registro ordenado por otro campo, sí.
+
+Nadie elige eso por casualidad. Java, viniendo de C++, es
+[[java-desde-cpp|su propio documento]].
+
+</Slide>
+
+<Slide title="Y el vocabulario">
+
+<Split ratio="40/60">
+
+- "Esto es un heap." "Esto es un orden topológico."
+- Dos palabras que transfieren un diseño que alguien resolvió hace cuarenta
+  años, completo, con sus costos ya medidos.
+- Sin ese vocabulario no es que no podamos resolver el problema: lo
+  reinventamos, y peor.
+
+<Figure
+  src="./heap.svg"
+  alt="Un heap dibujado dos veces: como árbol, y como el arreglo que en realidad es, con líneas punteadas uniendo cada nodo con su casilla."
+/>
+
+</Split>
+
+</Slide>
+
+<Slide title="¿De qué nos sirve?">
+
+Las preguntas técnicas de las empresas grandes **son** este contenido. No algo
+parecido: esto.
+
+<Mosaic
+  columns={3}
+  description="Nueve empresas cuyas entrevistas técnicas se hacen sobre estructuras de datos y algoritmos: Google, Amazon, Meta, Microsoft, Apple, Netflix, Nvidia, Uber y Spotify."
+>
+  <Figure src="./logos/google.svg" alt="" />
+  <Figure src="./logos/amazon.svg" alt="" />
+  <Figure src="./logos/meta.svg" alt="" />
+  <Figure src="./logos/microsoft.svg" alt="" />
+  <Figure src="./logos/apple.svg" alt="" />
+  <Figure src="./logos/netflix.svg" alt="" />
+  <Figure src="./logos/nvidia.svg" alt="" />
+  <Figure src="./logos/uber.svg" alt="" />
+  <Figure src="./logos/spotify.svg" alt="" />
+</Mosaic>
+
+</Slide>
+
+<Slide title="Y para entrenar en serio">
+
+La programación competitiva es el gimnasio: problemas que no se resuelven
+programando más rápido, sino eligiendo mejor.
+
+<Mosaic
+  columns={2}
+  description="Cuatro competencias y plataformas de programación competitiva: ICPC, Codeforces, LeetCode e IEEEXtreme."
+>
+  <Figure src="./logos/icpc.svg" alt="" />
+  <Figure src="./logos/codeforces.svg" alt="" />
+  <Figure src="./logos/leetcode.svg" alt="" />
+  <Figure src="./logos/ieeextreme.svg" alt="" />
+</Mosaic>
+
+</Slide>
+
+<Slide title="¿Nos reemplaza?">
+
+No: nos multiplica, si sabemos diseñar. Quien no sabe diseñar construye rápido y
+mal — y un agente **acelera** eso. Hoy se puede generar el mal diseño diez veces
+más rápido que antes.
+
+Esta plataforma fue construida con agentes. Lo que puse yo fue decidir qué
+construir, y decir que no cuando lo que volvía estaba mal. Eso es diseñar, y es
+lo que vamos a aprender aquí.
+
+</Slide>
+
+<Slide title="¿Y por qué Java, entonces?">
+
+Porque no importa.
+
+Este semestre es Java; el anterior fue C++. Los lenguajes que vamos a usar
+dentro de diez años todavía no existen. Un heap va a seguir siendo un heap, y
+todos permiten implementarlo.
+
+<Mosaic
+  columns={3}
+  description="Nueve lenguajes en los que estas mismas estructuras se implementan: Java, C++, C#, Python, Go, Rust, JavaScript, Kotlin y Swift."
+>
+  <Figure src="./logos/java.svg" alt="" />
+  <Figure src="./logos/cpp.svg" alt="" />
+  <Figure src="./logos/csharp.svg" alt="" />
+  <Figure src="./logos/python.svg" alt="" />
+  <Figure src="./logos/go.svg" alt="" />
+  <Figure src="./logos/rust.svg" alt="" />
+  <Figure src="./logos/js.svg" alt="" />
+  <Figure src="./logos/kotlin.svg" alt="" />
+  <Figure src="./logos/swift.svg" alt="" />
+</Mosaic>
+
+</Slide>
+
+<Slide title="Objetivo">
+
+Aprender a diseñar, implementar y utilizar diferentes algoritmos y estructuras
+de datos en diversos problemas.
+
+</Slide>
+
+<Slide title="Unidades temáticas">
+
+- Análisis de complejidad
+- [[intro-estructuras|Estructuras de datos básicas]]
+- Algoritmos de ordenamiento
+- [[busqueda-binaria|Algoritmos de búsqueda]]
+- Estructuras de datos avanzadas
+- Algoritmos de grafos
+
+</Slide>
+
+<Slide title="Bloque I — el lenguaje, y cómo comparar">
+
+| Tema                          | Qué se ve                              |
+| ----------------------------- | -------------------------------------- |
+| Java y su biblioteca estándar | El lenguaje del curso, desde C++       |
+| Análisis de complejidad       | Comparar sin ejecutar                  |
+| Listas, pilas y colas         | Las tres que aparecen en todo lo demás |
+| Dividir y conquistar          | Partir hasta que sea trivial           |
+| Algoritmos de ordenamiento    | Y por qué hay más de uno               |
+
+</Slide>
+
+<Slide title="Bloque II — qué ofrece cada estructura, y cuánto cuesta">
+
+| Tema                           | Qué se ve                               |
+| ------------------------------ | --------------------------------------- |
+| Colas de prioridad y heaps     | El mínimo, sin ordenar todo             |
+| Árboles                        | Buscar e insertar en tiempo logarítmico |
+| Tablas de hash                 | El costo constante, y lo que se paga    |
+| `Map` y `Set`                  | Los TDAs, sin saber qué hay debajo      |
+| Greedy y programación dinámica | Construir la solución por partes        |
+
+</Slide>
+
+<Slide title="Bloque III — modelar antes de resolver">
+
+| Tema                  | Qué se ve                             |
+| --------------------- | ------------------------------------- |
+| Recorridos            | En anchura y en profundidad           |
+| Orden topológico      | Tareas que dependen unas de otras     |
+| Camino más corto      | Y "más corto" no siempre es distancia |
+| Árbol cobertor mínimo | Conectar todo, gastando lo mínimo     |
+
+</Slide>
+
+<Slide title="Cómo se calcula la nota">
+
+$$
+N_p = 0{,}25 \cdot S_1 + 0{,}25 \cdot S_2 + 0{,}25 \cdot N_{TC} + 0{,}25 \cdot N_L
+$$
+
+$$
+N_F = 0{,}7 \cdot N_p + 0{,}3 \cdot N_{ex}
+$$
+
+- $$S_1$$, $$S_2$$ — las dos solemnes
+- $$N_{TC}$$ — tareas y controles
+- $$N_L$$ — laboratorio
+- $$N_{ex}$$ — examen
+
+Se exime del examen con $$N_p \geq 5{,}0$$. Se aprueba el curso con
+$$N_F \geq 4{,}0$$.
+
+</Slide>
+
+<Slide title="De dónde sale ese 25%">
+
+$$
+N_{TC} = 0{,}8 \cdot \bar{T} + 0{,}2 \cdot \bar{C}
+$$
+
+Las **tareas** se publican aquí y las corrigen los ayudantes. Los **controles de
+entrada** tienen su propia sección.
+
+La nota de **laboratorio** es el promedio de las actividades de laboratorio y
+los proyectos.
+
+</Slide>
+
+<Slide title="Los controles de entrada">
+
+- Los **primeros cinco minutos** de una clase.
+- Sobre la materia de la **clase anterior**, para traerla de vuelta fresca.
+- En general de alternativas.
+- **No son en todas las clases**, y se avisan la clase anterior.
+- Se descarta el **peor 10%**, redondeando hacia arriba: con 20 controles, se
+  descartan 2.
+
+El **primero es el martes 18 de agosto de 2026** y es **diagnóstico: no lleva
+nota**.
+
+</Slide>
+
+<Slide title="Semanas de solemne">
+
+- **Solemne 1** — jueves 24 al miércoles 30 de septiembre
+- **Solemne 2** — lunes 23 al viernes 27 de noviembre
+
+El día exacto dentro de cada semana se confirma más adelante.
+
+</Slide>
+
+<Slide title="Cómo se trabaja en este curso">
+
+- **Esto que estamos leyendo es el curso.** No hay un PDF aparte ni láminas
+  aparte: el mismo documento es el libro y es la presentación.
+- **El código se compila y se ejecuta en el navegador**: no hay que instalar
+  nada.
+- **Va a haber ejercicios**, que se corrigen solos aquí mismo.
+
+</Slide>
+
+<Slide title="La plataforma está viva">
+
+La voy construyendo mientras el curso avanza. Van a aparecer cosas nuevas y las
+voy a ir contando cuando las usemos.
+
+Y la construyo con agentes — que es exactamente de lo que hablamos al principio.
+
+</Slide>
+
+<Slide title="Bibliografía">
+
+- **El libro del curso** — Sedgewick & Wayne, _Algorithms_, 4ª ed., 2014 —
+  https://algs4.cs.princeton.edu/home/ (con todo el código en Java)
+- **Java (Bloque I)** — Sedgewick & Wayne, _Introduction to Programming in
+  Java_, 2017 — https://introcs.cs.princeton.edu/java/home/
+- **Diseño de algoritmos** — Kleinberg & Tardos, _Algorithm Design_, 2006 —
+  https://www.cs.princeton.edu/~wayne/kleinberg-tardos/
+- **De consulta** — Cormen et al., _Introduction to Algorithms_, 4ª ed., 2022 ·
+  Skiena & Revilla, _Programming Challenges_, 2003
+
+</Slide>
+
+<Slide title="Primer paso">
+
+Empezamos por el principio: [[intro-estructuras|¿qué es una estructura de datos?]]
+
+</Slide>

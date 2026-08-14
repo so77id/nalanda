@@ -6,6 +6,14 @@ import { describe, expect, it } from 'vitest';
 
 import { Toc } from './Toc';
 import { parseCourseIndex } from './courseIndex';
+import { registry } from './liveContent';
+
+// The cases below use a real document as the label-less entry, so they assert a
+// title that belongs to the course rather than to the test — and course titles
+// move (#120 renamed this one). Named here rather than repeated inline, with the
+// guard case below turning "the title changed" into a message that says so
+// instead of four `getByRole` misses.
+const BIENVENIDA_TITLE = 'Estructuras de Datos y Algoritmos';
 
 const index = parseCourseIndex(
   [
@@ -303,17 +311,24 @@ describe('Toc filter', () => {
 });
 
 describe('Toc', () => {
+  it('still describes the document these cases label themselves with', () => {
+    expect(
+      registry.get('bienvenida')?.meta.title,
+      `bienvenida's title moved. Update BIENVENIDA_TITLE at the top of this file — the cases below look their link up by that name, and without this guard they fail as four unrelated "unable to find a link" errors.`,
+    ).toBe(BIENVENIDA_TITLE);
+  });
+
   it('renders groups and document links following the index nesting', () => {
     renderToc('/d/bienvenida');
     expect(screen.getByText('Introducción')).toBeInTheDocument();
-    const link = screen.getByRole('link', { name: 'Bienvenida' });
+    const link = screen.getByRole('link', { name: BIENVENIDA_TITLE });
     expect(link).toHaveAttribute('href', '/d/bienvenida');
   });
 
   it('labels a label-less entry with the registry title of its document', () => {
     renderToc('/d/bienvenida');
-    // The bienvenida entry has no label: "Bienvenida" can only come from the registry.
-    expect(screen.getByRole('link', { name: 'Bienvenida' })).toBeInTheDocument();
+    // The bienvenida entry has no label: the title can only come from the registry.
+    expect(screen.getByRole('link', { name: BIENVENIDA_TITLE })).toBeInTheDocument();
   });
 
   it('names a group that has children and a docId but no label of its own', () => {
@@ -363,7 +378,7 @@ describe('Toc', () => {
 
   it('indents children behind a guide line, deep enough to read as nesting', () => {
     renderToc('/d/bienvenida');
-    const link = screen.getByRole('link', { name: 'Bienvenida' });
+    const link = screen.getByRole('link', { name: BIENVENIDA_TITLE });
     const indent = link.closest('div')!;
     // 16px (ml-3 + pl-1) was measured too shallow to read as nesting once
     // labels wrap — and these labels wrap.
@@ -373,7 +388,7 @@ describe('Toc', () => {
 
   it('marks the current document link', () => {
     renderToc('/d/bienvenida');
-    expect(screen.getByRole('link', { name: 'Bienvenida' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: BIENVENIDA_TITLE })).toHaveAttribute(
       'aria-current',
       'page',
     );
