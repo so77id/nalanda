@@ -34,8 +34,17 @@ export function MemoryState({ step, changed = [] }: MemoryStateProps) {
       role="img"
       aria-label={description}
       viewBox={`0 0 ${layout.width} ${layout.height}`}
-      className="block h-auto w-full max-w-full"
-      style={{ maxHeight: '22rem' }}
+      /*
+       * Natural size, and the container scrolls — never scaled to fit.
+       * Fitting a tall drawing into a fixed box is what turned a dozen boxes
+       * into confetti: measured at 1440px, twenty-four boxes rendered 80px
+       * wide with 1px labels. A listing solves this by scrolling, and so does
+       * this. Width is capped so a wide drawing shrinks rather than escaping
+       * the column, which costs nothing because drawings are tall, not wide.
+       */
+      width={layout.width}
+      height={layout.height}
+      className="block max-w-full"
     >
       <defs>
         <marker

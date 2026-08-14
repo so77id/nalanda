@@ -233,7 +233,7 @@ Full usage docs, props and live examples for every document-facing component
 live in the catalog — browse `/catalog`, which is generated from the components
 themselves rather than maintained by hand.
 
-5e. **Draw the memory (optional)**: `<MemoryDiagram>` shows variables, stack
+5d. **Draw the memory (optional)**: `<MemoryDiagram>` shows variables, stack
    frames and heap objects — **taken from the snippet actually running**, never
    from a description you write. You mark where you want a photograph and which
    variables belong in it:
@@ -279,9 +279,17 @@ themselves rather than maintained by hand.
      tracked. That is what makes the `==` trap visible instead of asserted.
    - **A marker inside a branch that never runs produces no photograph.** The
      build cannot see this — the component says so after the run, and only then.
-   - **Caps**: 40 photographs and 24 objects each. A `// foto` inside a loop will
-     hit the first one; the component says so rather than showing a partial trace
-     as if it were complete.
+   - **No sirve para recursión.** Los marcos se identifican por el nombre que tú
+     escribes en la marca, así que tres llamadas anidadas de `fact` dibujan **un
+     solo marco** con los valores de la más interna — profundidad 1 para una pila
+     de 3. Es el único caso en que el dibujo puede enseñar lo contrario de la
+     verdad, y por eso se dice aquí: para la pila de llamadas hará falta otro
+     componente (Discussion #49).
+   - **Caps**: 40 photographs, 24 objects drawn in total, and 32 elements or
+     fields per box. A `// foto` inside a loop hits the first; a big structure
+     hits the others. In every case the component says so rather than showing a
+     partial trace as if it were complete — including when the program printed so
+     much that the runtime cut the trace off.
    - **`NalandaTrace` is a reserved class name**, like `NalandaLauncher` and
      `NalandaCheck`. A snippet declaring it is refused before compiling.
 
@@ -289,7 +297,7 @@ themselves rather than maintained by hand.
    may carry several. Decisions behind all this: ADR-0026. Worked examples, live:
    `/catalog/c/MemoryDiagram`.
 
-5d. **External links**: write them as explicit `https://`. Markdown now parses
+5e. **External links**: write them as explicit `https://`. Markdown now parses
 GFM, so a bare URL becomes a link on its own — and a bare `www.host` resolves
 to **`http://`**, a cleartext link the reader can be downgraded on. Tables,
 strikethrough (`~~`), task lists and footnotes also work now.

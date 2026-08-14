@@ -132,10 +132,35 @@ deceive is themselves.
 **Review trigger**: the first time an `<Exercise>` result feeds a mark, a lab
 check-off, attendance or any record — including anything a future backend
 collects. At that point checking has to move off the student's machine; hardening
-the in-band protocol would not be enough. Also revisit if a second platform class
-is ever compiled alongside student code.
+the in-band protocol would not be enough.
 
-Decisions: ADR-0019 §3b/§7, ADR-0020 §6.
+### The second platform class arrived (#116, 2026-08-14)
+
+The trigger above also said to revisit "if a second platform class is ever
+compiled alongside student code". `NalandaTrace` (ADR-0026) is that class. The
+disposition:
+
+- **It is recompiled on every run**, as the request's `library` unit, so a
+  student class shadowing it from another editor on the page does not persist —
+  the next run overwrites the shadow back. That is luck rather than design, and
+  it is why the name joined `RESERVED_CLASSES` anyway.
+- **The `library` field bypasses the reserved-name guard on purpose.** The guard
+  exists to stop a *student* class shadowing a platform one; the platform's own
+  unit arriving there is the intended use. It is reachable only from a module
+  constant, never from author or student content.
+- **The guard still inspects the ENTRY class only.** The sentence above —
+  "the names are now refused" — is true of the class a program is run as, not of
+  a secondary class declared in the same file. `instrument()` closes that hole
+  for `NalandaTrace` in a `trace` fence specifically; `NalandaLauncher` and
+  `NalandaCheck` remain shadowable from a secondary declaration, with the same
+  accepted-invariant reasoning as everything else in this section: the only
+  person deceived is the student doing it.
+- **The diagram makes no claim a verdict would.** It draws what a program did; it
+  does not assert that anything passed. A forged `[nalanda] T ` line authors a
+  drawing by hand, which is a student lying to themselves in a component whose
+  whole point is not needing to.
+
+Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0026 §6/§7.
 
 ### Everything under content/courses/ is published (recorded 2026-08-10)
 

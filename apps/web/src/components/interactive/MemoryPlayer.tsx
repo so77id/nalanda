@@ -97,17 +97,26 @@ export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerPr
           </pre>
         </div>
 
-        <div className="bg-zinc-900 p-3">
+        <div className="max-h-96 overflow-auto bg-zinc-900 p-3">
           <MemoryState step={current} changed={changed} />
         </div>
       </div>
 
+      {/*
+        Three walls, one question: is this everything? Whichever one the run hit,
+        the reader has to be told — the counter below says "paso N de N", and
+        that is an active claim of completeness. Measured in Chromium before this
+        existed: a 30-node list drew 24 boxes in silence, and a 40-photograph run
+        cut by the launcher's byte budget announced "paso 21 de 21".
+      */}
       {truncated === null ? null : (
         <Panel label="aviso">
           <p className="m-0 px-3 py-2 font-mono text-xs text-amber-300">
             {truncated === 'pasos'
               ? 'Se alcanzó el máximo de fotos: el diagrama muestra sólo las primeras.'
-              : 'Se alcanzó el máximo de objetos: el diagrama no los muestra todos.'}
+              : truncated === 'objetos'
+                ? 'Hay más objetos de los que caben en el dibujo: se muestran los primeros, y alguna flecha queda sin destino.'
+                : 'El programa imprimió demasiado y la traza se cortó: faltan fotos al final.'}
           </p>
         </Panel>
       )}

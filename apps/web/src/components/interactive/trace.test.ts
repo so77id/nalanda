@@ -261,3 +261,100 @@ describe('readTrace', () => {
     });
   });
 });
+
+describe('a trace that is not the whole run', () => {
+  const step = (id: number) =>
+    [
+      `[nalanda] T PASO ${id} main`,
+      `[nalanda] T VAR n${id} ref ${id}`,
+      `[nalanda] T OBJ ${id} Nodo`,
+      '[nalanda] T FINPASO',
+    ].join('\n');
+
+  it('caps the DRAWN set, not just each photograph', () => {
+    // MAX_OBJECTS is enforced per photograph inside the tracer, which bounds the
+    // wrong thing: objects accumulate across steps, so a loop allocating one per
+    // iteration passed every per-photograph check and still drew forty boxes.
+    // Measured in Chromium at 1440px before this: 48px wide, labels 1px tall.
+    const reading = readTrace(Array.from({ length: 40 }, (_, index) => step(index + 1)).join('\n'));
+
+    expect(reading.steps.at(-1)!.objects.length).toBeLessThanOrEqual(24);
+    expect(reading.truncated).toBe('objetos');
+  });
+
+  it('reports the tracer object cap on the reading, where the component reads it', () => {
+    // It used to land only on the step, which nothing read — so a 30-node list
+    // drew 24 boxes and said nothing.
+    const reading = readTrace(
+      [
+        '[nalanda] T PASO 3 main',
+        '[nalanda] T VAR a ref 1',
+        '[nalanda] T OBJ 1 Nodo',
+        '[nalanda] T TOPE objetos',
+        '[nalanda] T FINPASO',
+      ].join('\n'),
+    );
+
+    expect(reading.truncated).toBe('objetos');
+    expect(reading.steps[0]!.truncated).toBe('objetos');
+  });
+
+  it("notices the launcher's own output budget", () => {
+    // Its sentinel is not one of ours — it starts `[nalanda] s`, not the trace
+    // mark — so it arrives as ordinary program output. Measured: a 40-photograph
+    // run came back as 21 and the player announced "paso 21 de 21".
+    const reading = readTrace(
+      [step(1), '[nalanda] salida truncada: el programa imprimió demasiado'].join('\n'),
+    );
+
+    expect(reading.truncated).toBe('salida');
+    expect(reading.steps).toHaveLength(1);
+  });
+
+  it('stays null when the run was complete', () => {
+    expect(readTrace(step(1)).truncated).toBeNull();
+  });
+});
+
+describe('objects carried across photographs', () => {
+  it('keeps an object no later photograph re-described', () => {
+    // The counterpart of the frame carry-forward, and what `b.x = 99` rides on.
+    const reading = readTrace(
+      [
+        '[nalanda] T PASO 1 main',
+        '[nalanda] T VAR a ref 1',
+        '[nalanda] T OBJ 1 Punto',
+        '[nalanda] T FLD 1 x int 1',
+        '[nalanda] T FINPASO',
+        '[nalanda] T PASO 2 main',
+        '[nalanda] T VAR a ref 1',
+        '[nalanda] T FINPASO',
+      ].join('\n'),
+    );
+
+    expect(reading.steps[1]!.objects).toHaveLength(1);
+    expect(reading.steps[1]!.objects[0]!.fields[0]!.value).toEqual({
+      kind: 'primitive',
+      type: 'int',
+      text: '1',
+    });
+  });
+
+  it('gives each step its own copy, so one cannot mutate another', () => {
+    const reading = readTrace(
+      [
+        '[nalanda] T PASO 1 main',
+        '[nalanda] T VAR a ref 1',
+        '[nalanda] T OBJ 1 Punto',
+        '[nalanda] T FLD 1 x int 1',
+        '[nalanda] T FINPASO',
+        '[nalanda] T PASO 2 main',
+        '[nalanda] T VAR a ref 1',
+        '[nalanda] T FINPASO',
+      ].join('\n'),
+    );
+
+    reading.steps[0]!.objects[0]!.fields.push({ name: 'intruso', value: { kind: 'null' } });
+    expect(reading.steps[1]!.objects[0]!.fields).toHaveLength(1);
+  });
+});

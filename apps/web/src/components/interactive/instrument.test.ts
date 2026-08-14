@@ -96,3 +96,61 @@ describe('stripMarkers', () => {
     expect(stripMarkers(source)).toBe(source);
   });
 });
+
+describe('markers that are not markers', () => {
+  // A Spanish-language course is full of words starting with "foto". Without a
+  // word boundary these either poisoned the diagram or refused it outright.
+  it.each([
+    'int a = 1; // fotos: a, b',
+    'int a = 1; // fotografía de la memoria',
+    'int a = 1; // fotocopia esto',
+  ])('leaves %s alone', (line) => {
+    const source = [line, 'int b = 2; // foto b'].join('\n');
+    const { errors, markers } = instrument(source);
+
+    expect(errors).toEqual([]);
+    expect(markers).toHaveLength(1);
+    expect(markers[0]!.line).toBe(2);
+    expect(stripMarkers(source).split('\n')[0]).toBe(line);
+  });
+
+  it('still recognises foto-fin, which the boundary sits inside', () => {
+    expect(instrument('x(); // foto-fin swap').code).toBe('x(); NalandaTrace.finMarco("swap");');
+  });
+});
+
+describe('identifiers containing $', () => {
+  it('emits the name the author wrote, not a substitution', () => {
+    // `$1`, `$&` and `$$` are substitution patterns in a replacement STRING, and
+    // Java identifiers may contain `$`: this used to emit var("aa$1", aa$1).
+    const { code } = instrument('int t = a$1 + 1; // foto a$1');
+
+    expect(code).toContain('NalandaTrace.var("a$1", a$1);');
+    expect(code).not.toContain('aa$1');
+  });
+
+  it('does not collapse a doubled $', () => {
+    expect(instrument('f(); // foto a$$b').code).toContain('NalandaTrace.var("a$$b", a$$b);');
+  });
+});
+
+describe('the reserved name in any shape', () => {
+  it.each(['class', 'interface', 'enum'])('refuses %s NalandaTrace', (keyword) => {
+    // All three declare the same binary name as the library unit compiled beside
+    // the snippet, so all three collide the same way.
+    const { errors } = instrument(
+      [`${keyword} NalandaTrace {}`, 'int a = 1; // foto a'].join('\n'),
+    );
+
+    expect(errors[0]).toMatch(/NalandaTrace/);
+    expect(errors[0]).toMatch(/reservado/i);
+  });
+});
+
+describe('stripMarkers and the fence newline', () => {
+  it('drops the trailing newline every real fence carries', () => {
+    // `fencesByMeta` keeps it, unlike `fenceOf`, and the player numbers every
+    // split element — so the listing grew one phantom numbered blank line.
+    expect(stripMarkers('int a = 1; // foto a\n').split('\n')).toEqual(['int a = 1;']);
+  });
+});

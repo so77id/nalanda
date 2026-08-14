@@ -1,13 +1,13 @@
 import { Loader, Play } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import { fencesByMeta, withoutFences } from '../../lib/codeFences';
 import { AuthoringError } from '../AuthoringError';
 import { MemoryPlayer } from './MemoryPlayer';
 import { OUTPUT, Panel } from './Panel';
-import type { RuntimeModule } from '../../runtime';
-import { RunAbandonedError, loadRuntime, useRuntime } from '../../runtime';
+import { RunAbandonedError } from '../../runtime';
+import { useLoadedRuntime } from './useLoadedRuntime';
 import type { TraceReading } from './trace';
 import { TRACE_FENCE, TRACE_SOURCE, instrument, readTrace, stripMarkers } from './trace';
 
@@ -23,16 +23,23 @@ export interface MemoryDiagramProps {
  *
  * The values are never authored. `NalandaTrace` is compiled next to the
  * snippet as a `library` unit and photographs the named variables where the
- * author marked them (`trace.ts`), so the picture cannot drift from the code and
- * follows the reader's own edits when they run it again.
+ * author marked them (`trace.ts`), so the picture cannot drift from the code.
+ *
+ * The listing is read-only: the highlight belongs to the player, and driving
+ * CodeMirror's line decorations from outside it costs more than it buys here. A
+ * document that wants the reader experimenting puts a `<CodeEditor>` with the
+ * same program beside the diagram.
  *
  * **Only Java.** The tracer is a Java class using Java reflection; C++ and
  * Python have no equivalent here, and a diagram that silently drew nothing would
  * be worse than one that says so.
  *
- * Nothing is fetched until the reader asks. A diagram that ran on mount would
- * pull the whole toolchain from the CDN on page load, three times over on a page
- * with three diagrams (ADR-0018 §the runtime is paid when requested).
+ * The CDN toolchain is not fetched until the reader asks — `loadCheerpJ` runs on
+ * the first `run`, never on mount. What mounting DOES pull is the java runtime
+ * module, and with it ~16 kB gzip of CodeMirror grammar this component never
+ * uses because it draws its own listing. Measured, and left for a follow-up
+ * rather than fixed here: splitting the grammar out touches the editor path this
+ * WP does not own.
  */
 export function MemoryDiagram({ title, children }: MemoryDiagramProps) {
   const fences = useMemo(() => fencesByMeta(children), [children]);
@@ -42,34 +49,12 @@ export function MemoryDiagram({ title, children }: MemoryDiagramProps) {
   const prepared = useMemo(() => instrument(authored), [authored]);
   const shown = useMemo(() => stripMarkers(authored), [authored]);
 
-  const [runtime, setRuntime] = useState<RuntimeModule | null>(null);
   const [running, setRunning] = useState(false);
   const [reading, setReading] = useState<TraceReading | null>(null);
   const [compileLog, setCompileLog] = useState('');
   const [failure, setFailure] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
-    void loadRuntime('java').then(
-      (module) => {
-        if (!cancelled) setRuntime(module);
-      },
-      (error: unknown) => {
-        if (!cancelled) setFailure(error instanceof Error ? error.message : String(error));
-      },
-    );
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const { run, warm, queued } = useRuntime({
-    runtimeId: runtime ? 'java' : null,
-    createWorker: () => {
-      if (!runtime) throw new Error('the java runtime is still loading');
-      return runtime.createWorker();
-    },
-  });
+  const { run, warm, queued, ready, failure: loadFailure } = useLoadedRuntime('java');
 
   const draw = useCallback(async () => {
     setRunning(true);
@@ -110,7 +95,7 @@ export function MemoryDiagram({ title, children }: MemoryDiagramProps) {
     );
   }
 
-  const diagnostics = failure ?? compileLog;
+  const diagnostics = failure ?? loadFailure ?? compileLog;
 
   return (
     <div className="not-prose my-6 overflow-hidden rounded-lg border border-zinc-700 bg-zinc-900 text-zinc-100">
@@ -158,7 +143,7 @@ export function MemoryDiagram({ title, children }: MemoryDiagramProps) {
         <button
           type="button"
           onClick={() => void draw()}
-          disabled={running || !runtime}
+          disabled={running || !ready}
           className="inline-flex items-center gap-1.5 rounded bg-emerald-600 px-3 py-1 text-xs font-medium text-white disabled:opacity-50"
         >
           {running ? <Loader size={14} className="animate-spin" /> : <Play size={14} />}

@@ -96,11 +96,32 @@ and `NalandaCheck` (ADR-0019 §3b). The runtime refuses it as an entry class, an
 the instrumenter additionally refuses a snippet that declares it as a *secondary*
 class — which the runtime guard cannot see, since it inspects only the entry.
 
-**8. Bounded: 40 photographs, 24 objects each.** Java runs on the page's main
+**8. Bounded, and the bound is on what is DRAWN.** Java runs on the page's main
 thread (ADR-0017) and reachability is transitive, so a `// foto` inside a loop
 would otherwise emit a state per iteration through a launcher whose own output
-budget is 48kB. Over either cap the component says so rather than presenting a
-partial trace as complete.
+budget is 48kB. Three caps: 40 photographs, 24 objects in the drawing, 32
+elements or fields per box.
+
+The middle one is the one that had to be learnt. It was first written as "24
+objects *per photograph*", enforced inside the tracer — which bounds the wrong
+thing, because objects accumulate across steps. A loop allocating one object per
+iteration passed every per-photograph check and still drew forty boxes: measured
+in Chromium at 1440px, a 466×3296 viewBox rendered **48px wide with the frame
+label 1px tall**, and no cap fired. The cap now lives in `readTrace`, over the
+accumulated set.
+
+**8b. One signal for "this is not the whole run".** Three different walls
+truncate a trace — the photograph cap, the object cap, and the launcher's 48kB
+output budget — and all three produce the same lie if unreported, because the
+player says `paso N de N`, which is an active claim of completeness. Measured
+before this was one signal: a 30-node list drew 24 boxes in silence, and a
+40-photograph run cut by the byte budget announced "paso 21 de 21". The bytes
+case is the subtle one: the launcher's sentinel does not carry the trace mark, so
+it arrives as ordinary program output and has to be recognised deliberately.
+
+The steps that survive a cut are always whole — a photograph interrupted
+mid-flight never receives its `FINPASO` and is discarded — so the drawing is
+short, never wrong. Only the count was ever the lie.
 
 **9. Nothing is fetched until the reader asks.** A diagram that ran on mount would
 pull the toolchain from the CDN on page load, once per diagram.
@@ -111,7 +132,19 @@ pull the toolchain from the CDN on page load, once per diagram.
   boxes with arrows; the tracer already resolves cycles by identity. Discussion
   #49 (call stack visualiser) reuses this trace rather than growing its own.
 - **Java only.** The tracer is a Java class using Java reflection. C++ and Python
-  get a refusal, not an empty drawing.
+  get a refusal, not an empty drawing — enforced in `rejectHarness`, which the
+  two workers already call as their sole gate. That guard covers the *shape* of a
+  second compilation unit rather than one field name, because the first version
+  of this ADR made the promise while only `harness` was checked, and `library`
+  would have sailed through to run the snippet bare.
+
+- **It cannot draw recursion.** Frames are keyed by the name the author writes in
+  the marker, so N nested activations of one method collapse into one frame
+  showing the innermost values — depth 1 for a depth-N stack. This is the single
+  case where the drawing can teach the opposite of the truth, which is why it is
+  stated in the guide rather than left to be discovered. It also means Discussion
+  #49 (call stack visualiser) needs more than this trace, not less: an activation
+  identity the marker cannot express today.
 - **Java 8 only**, like everything else that compiles here
   (`runtime/java/runtime.ts`): no `var`, no `List.of`, no records — in the
   generated class and in every snippet written for it.
@@ -133,6 +166,13 @@ pull the toolchain from the CDN on page load, once per diagram.
   component gets ~700px, so the drawing scaled to about two thirds and its 11px
   labels landed near 7px. A media query cannot fix that — what is narrow is the
   container, not the viewport.
+
+- **Natural size with a scrollbar, never scaled to fit.** Fitting the drawing
+  into a fixed-height box is what turned twelve boxes into confetti: measured at
+  1440px, a linked list rendered 80px wide with 1px labels, and the same list now
+  renders at 450px with 164×56px boxes. A code listing solves this by scrolling
+  and so does this. The cap and the scrollbar do different jobs: the cap keeps
+  the drawing worth looking at, the scrollbar keeps it readable.
 - **The accessible description names cross-frame aliasing explicitly**
   ("Apuntan al mismo objeto: main.a y intercambia.q"). Grouping per frame alone
   described the swap as four references to indistinguishable objects, which is the

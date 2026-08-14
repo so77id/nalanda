@@ -3,7 +3,7 @@
 // runs in the browser is Java, and jsdom has none (ADR-0017), so both halves
 // have to be testable without a JVM.
 
-import { TRACE_CLASS } from '../../runtime';
+import { TRACE_CLASS, TRUNCATED } from '../../runtime';
 
 export { TRACE_CLASS };
 
@@ -22,14 +22,31 @@ export const TRACE_MARK = '[nalanda] T ';
 export const MAX_STEPS = 40;
 
 /**
- * How many objects one photograph may contain.
+ * How many objects the drawing may contain, across the whole run.
  *
  * Reachability is transitive: photographing the head of a 500-node list would
- * otherwise draw all 500. The cap is per step, and what it protects is
- * legibility as much as time — a diagram past a couple of dozen boxes has
- * stopped teaching.
+ * otherwise draw all 500. What it protects is legibility as much as time, and
+ * the number is measured rather than guessed. Boxes stack vertically at ~82px
+ * each inside a panel capped at 352px, so the drawing is scaled to fit: at 24
+ * boxes it rendered 80px wide, which is not a diagram. Twelve is the point where
+ * a linked list is still worth looking at — long enough for the structures
+ * documents 3 to 6 teach, short enough to read.
+ *
+ * A multi-column layout would raise this honestly; that is a follow-up, and
+ * until it exists the cap is what keeps the promise in the sentence above.
  */
-export const MAX_OBJECTS = 24;
+export const MAX_OBJECTS = 12;
+
+/**
+ * How many elements or fields one box may list.
+ *
+ * `MAX_OBJECTS` bounds how many boxes are drawn but not how big one box is, and
+ * the loop that fills it runs on the page's main thread (ADR-0017). A single
+ * `// foto` on an `int[200000]` therefore ran 200 000 reflective reads and
+ * prints: the launcher's byte budget stops the writing, never the looping —
+ * `launcher.ts` records 60 000 println still not returning after 300s.
+ */
+export const MAX_ELEMENTS = 32;
 
 /**
  * The tracer, compiled beside the snippet as the run's extra unit — the same
@@ -168,19 +185,28 @@ public class ${TRACE_CLASS} {
         if (c.isArray()) {
             int n = Array.getLength(o);
             System.out.println(MARK + "ARR " + id + " " + c.getComponentType().getName() + " " + n);
-            for (int i = 0; i < n; i++) {
+            // Bounded like everything else. Without this a single marker on an
+            // int[200000] ran 200k Array.get + println on the page's MAIN thread
+            // (ADR-0017): the launcher's byte budget stops the writes, not the
+            // loop, and launcher.ts records 60k println still running after 300s.
+            int mostrados = n < ${MAX_ELEMENTS} ? n : ${MAX_ELEMENTS};
+            for (int i = 0; i < mostrados; i++) {
                 valor("ELM " + id, String.valueOf(i), c.getComponentType(), Array.get(o, i));
             }
+            if (mostrados < n) System.out.println(MARK + "TOPE objetos");
             return;
         }
 
         System.out.println(MARK + "OBJ " + id + " " + c.getName());
         Field[] fs = c.getDeclaredFields();
+        int emitidos = 0;
         for (int i = 0; i < fs.length; i++) {
+            if (emitidos >= ${MAX_ELEMENTS}) { System.out.println(MARK + "TOPE objetos"); break; }
             Field f = fs[i];
             // Statics belong to the class, not to this box: without this every
             // Integer would drag MIN_VALUE, MAX_VALUE and its cache in with it.
             if (Modifier.isStatic(f.getModifiers())) continue;
+            emitidos++;
             try {
                 f.setAccessible(true);
                 valor("FLD " + id, f.getName(), f.getType(), f.get(o));
@@ -242,8 +268,16 @@ export interface Frame {
   variables: Slot[];
 }
 
-/** Which cap the tracer hit, if it hit one. */
-export type TraceCap = 'pasos' | 'objetos';
+/**
+ * Why a trace is not the whole run.
+ *
+ * Three different walls produce the same lie if they go unreported — a reader
+ * told `paso N de N` about a run that took more. Measured in Chromium: the
+ * object wall drew 24 of 30 nodes with no notice, and the byte wall announced
+ * "paso 21 de 21" for a program that took 40 photographs. They are one signal
+ * because they are one question: is this everything?
+ */
+export type TraceCap = 'pasos' | 'objetos' | 'salida';
 
 /** One photograph: every open frame and every object known at that moment. */
 export interface TraceStep {
@@ -337,12 +371,37 @@ export function readTrace(output: string): TraceReading {
 
   const object = (id: number): HeapObject | undefined => objects.get(id);
 
+  /**
+   * Admits an object only while the DRAWN set is still small enough to read.
+   *
+   * `MAX_OBJECTS` is enforced inside the tracer per photograph, which bounds the
+   * wrong thing: objects accumulate across steps, so a loop allocating one per
+   * iteration passes every per-photograph check and still ends up drawing forty
+   * boxes. Measured in Chromium at 1440px: forty boxes gave a 466×3296 viewBox
+   * that rendered 48px wide, with the frame label 1px tall, and no cap fired.
+   *
+   * Refusing the object rather than dropping the step keeps every photograph
+   * honest — what is drawn is true, there is merely less of it — and the refusal
+   * is what the reader is told about.
+   */
+  const admit = (id: number): boolean => {
+    if (objects.has(id) || objects.size < MAX_OBJECTS) return true;
+    truncated = 'objetos';
+    return false;
+  };
+
   for (const line of output.split('\n')) {
     // Found anywhere, not only at position 0: a program that printed without a
     // trailing newline shares its line with the marker that followed, and
     // matching at the start only would drop that photograph (harness.ts §readRun).
     const at = line.indexOf(TRACE_MARK);
     if (at < 0) {
+      // The launcher's own output budget (48kB) cuts the trace mid-flight, and
+      // its sentinel is not one of ours — it starts `[nalanda] s`, so it lands
+      // here rather than in the branches below. Measured: a 40-photograph run
+      // arrived as 21 complete photographs and the player called it "paso 21 de
+      // 21". The steps that survive are true; the count was the lie.
+      if (line.includes(TRUNCATED)) truncated = 'salida';
       printed.push(line);
       continue;
     }
@@ -368,12 +427,14 @@ export function readTrace(output: string): TraceReading {
 
     if (body.startsWith('OBJ ')) {
       const [, id, type] = splitN(body, 3);
+      if (!admit(Number(id))) continue;
       objects.set(Number(id), { id: Number(id), kind: 'object', type: type ?? '', fields: [] });
       continue;
     }
 
     if (body.startsWith('STR ')) {
       const [, id, text] = splitN(body, 3);
+      if (!admit(Number(id))) continue;
       objects.set(Number(id), {
         id: Number(id),
         kind: 'string',
@@ -386,6 +447,7 @@ export function readTrace(output: string): TraceReading {
 
     if (body.startsWith('ARR ')) {
       const [, id, type] = splitN(body, 4);
+      if (!admit(Number(id))) continue;
       objects.set(Number(id), { id: Number(id), kind: 'array', type: type ?? '', fields: [] });
       continue;
     }
@@ -402,8 +464,13 @@ export function readTrace(output: string): TraceReading {
     if (body.startsWith('TOPE ')) {
       const [, which] = splitN(body, 2);
       const cap: TraceCap = which === 'pasos' ? 'pasos' : 'objetos';
-      if (current === null) truncated = cap;
-      else current.truncated = cap;
+      // Both go to the READING. `TOPE objetos` is printed inside `fin()`, so it
+      // used to land on the step — where nothing read it, which made the amber
+      // "máximo de objetos" panel dead code and left a 30-node list drawn as 24
+      // with no notice. The step keeps its own copy for anyone rendering a
+      // single photograph on its own.
+      truncated = cap;
+      if (current !== null) current.truncated = cap;
       continue;
     }
 
@@ -453,9 +520,19 @@ export interface Instrumented {
 /** Java identifiers, which is all a marker may name. */
 const IDENTIFIER = /^[A-Za-z_$][A-Za-z0-9_$]*$/;
 
-/** `// foto [marco:] a, b` and `// foto-fin marco`, with spacing forgiven. */
-const PHOTO = /\/\/\s*foto\s*(.*)$/;
-const PHOTO_END = /\/\/\s*foto-fin\s+(\S+)\s*$/;
+/**
+ * `// foto [marco:] a, b` and `// foto-fin marco`, with spacing forgiven.
+ *
+ * The `\b` is load-bearing and was missing. Without it any comment whose first
+ * word merely STARTS with "foto" was treated as a marker — and this is a course
+ * written in Spanish, where that is a common word. Measured: `// fotos: a, b`
+ * was silently instrumented into a frame called `s`, and `// fotografía de la
+ * memoria` refused the entire diagram with «grafía de la memoria» no es un
+ * nombre de variable válido. `foto-fin` still matches, because `\b` sits
+ * between `o` and `-`, and PHOTO_END is tested first anyway.
+ */
+const PHOTO = /\/\/\s*foto\b\s*(.*)$/;
+const PHOTO_END = /\/\/\s*foto-fin\b\s+(\S+)\s*$/;
 
 /**
  * Rewrites a `trace` fence so that running it reports its own state.
@@ -477,7 +554,10 @@ export function instrument(source: string): Instrumented {
   // The runtime's reserved-name guard only inspects the entry class, so a
   // secondary class carrying this name would compile and overwrite the one
   // collecting the trace — and the diagram would draw whatever it emitted.
-  if (new RegExp(`\\bclass\\s+${TRACE_CLASS}\\b`).test(source)) {
+  // Not just `class`: an interface or an enum declares the same binary name, so
+  // it collides with the library unit exactly the same way and produced an
+  // obscure ECJ "already defined" instead of this message.
+  if (new RegExp(`\\b(?:class|interface|enum)\\s+${TRACE_CLASS}\\b`).test(source)) {
     errors.push(`${TRACE_CLASS} es un nombre reservado por la plataforma: usa otro.`);
   }
 
@@ -491,7 +571,9 @@ export function instrument(source: string): Instrumented {
         errors.push(`línea ${number}: «${frame}» no es un nombre de marco válido.`);
         return line;
       }
-      return line.replace(PHOTO_END, `${TRACE_CLASS}.finMarco("${frame}");`).trimEnd();
+      // A function replacer, never a string: `$` is a substitution pattern in a
+      // replacement string, and Java identifiers may contain `$`.
+      return line.replace(PHOTO_END, () => `${TRACE_CLASS}.finMarco("${frame}");`).trimEnd();
     }
 
     const photo = PHOTO.exec(line);
@@ -529,7 +611,12 @@ export function instrument(source: string): Instrumented {
       `${TRACE_CLASS}.fin();`,
     ].join(' ');
 
-    return line.replace(PHOTO, calls).trimEnd();
+    // A function replacer, never a string. `IDENTIFIER` allows `$` because Java
+    // does, and as a replacement string `$1`/`$&`/`$$` are substitution
+    // patterns: `// foto a$1` emitted `NalandaTrace.var("aa$1", aa$1)`, which
+    // usually fails to compile and, where a variable of the mangled name
+    // exists, quietly photographs the wrong one.
+    return line.replace(PHOTO, () => calls).trimEnd();
   });
 
   if (markers.length === 0 && errors.length === 0) {
@@ -551,7 +638,12 @@ export const TRACE_FENCE = 'trace';
  * and removing a line would shift every highlight after it.
  */
 export function stripMarkers(source: string): string {
+  // The fence's own trailing newline goes first. `fencesByMeta` keeps it, unlike
+  // `fenceOf` which strips it and documents why, and the player numbers every
+  // element of `split`— so every real fence rendered one phantom numbered blank
+  // line under the listing.
   return source
+    .replace(/\n$/, '')
     .split('\n')
     .map((line) => {
       const stripped = line.replace(PHOTO_END, '').replace(PHOTO, '');
