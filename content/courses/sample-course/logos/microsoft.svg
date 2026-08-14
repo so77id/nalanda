@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img">
+  <!-- White plate in BOTH themes, by the course author's decision: a Simple
+       Icons glyph carries no fill of its own, so through <img> it paints black
+       and disappears on the dark ground. The plate also lets the two raster
+       logos (ICPC, IEEEXtreme), whose own background is white, sit flush. -->
+  <rect width="64" height="64" rx="8" fill="#ffffff"/>
+  <g transform="translate(10 10) scale(1.8333)" fill="#5E5E5E"><path d="M0 0v11.408h11.408V0zm12.594 0v11.408H24V0zM0 12.594V24h11.408V12.594zm12.594 0V24H24V12.594z"/></g>
+</svg>
