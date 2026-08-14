@@ -9,14 +9,14 @@
 
 ## Context
 
-v0.2 "El contenido vivo" needs Java execution: the pilot course is _Estructuras
-de Datos en Java_, and ADR-0001 requires that compilation and execution happen in
+v0.2 "El contenido vivo" needs Java execution: the pilot course is *Estructuras
+de Datos en Java*, and ADR-0001 requires that compilation and execution happen in
 the student's browser. The archived ADR-0003 selected CheerpJ but left an explicit
 acceptance gate — verify that CheerpJ's free tier covers a university course —
 which D24 promoted to the mandatory first task of this WP.
 
 The gate had to answer three questions: (a) does the free licence cover this use;
-(b) may the runtime be self-hosted under `/nalanda/`; (c) is compiling _student_
+(b) may the runtime be self-hosted under `/nalanda/`; (c) is compiling *student*
 source code at runtime actually feasible.
 
 ## Findings
@@ -85,7 +85,7 @@ unverified step.**
   hidden display, as JavaFiddle does.
 
 **F7 — There is no viable alternative for in-browser Java.**
-TeaVM, Bytecoder, J2CL, GWT and GraalVM Native Image all compile _ahead of time_:
+TeaVM, Bytecoder, J2CL, GWT and GraalVM Native Image all compile *ahead of time*:
 they ship a Java program to the browser but cannot compile arbitrary student
 source at runtime. Webswing renders a server-side JVM. DoppioJVM is abandoned.
 For client-side Java, CheerpJ is the only option; the only true alternative is
@@ -96,7 +96,7 @@ server-side compilation, which needs `apps/server` (v0.3).
 **Build all three runtimes now, Java included, under Community Edition. The
 publication question is decided separately, at merge time** (Miguel, 2026-08-11).
 
-The gate fired _ambiguous_, not negative, and the ambiguity is about publishing,
+The gate fired *ambiguous*, not negative, and the ambiguity is about publishing,
 not about building. Community Edition explicitly covers "technical evaluations —
 applications not yet in production or public", which is unambiguously what
 development is. The licence question therefore does not bind implementation; it
@@ -132,7 +132,7 @@ cheap: one worker implementation changes, nothing else.
 
 - **Self-host the CheerpJ runtime under `/nalanda/`** — technically supported,
   licence-prohibited on Community (F2); requires a commercial or academic
-  licence. It would remove the dependency on _this vendor's_ CDN, but no longer
+  licence. It would remove the dependency on *this vendor's* CDN, but no longer
   buys offline use: C++ and Python are served from jsDelivr too (ADR-0018).
 - **Server-side compilation** (`javac` in a container, the online-judge model) —
   licence-free (OpenJDK), but contradicts ADR-0001, adds per-execution cost and

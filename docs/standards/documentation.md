@@ -6,23 +6,23 @@ finished until its documentation exists, and review verifies it (ADR-0005).
 
 ## Where does each kind of knowledge go
 
-| Knowledge                                                            | Lives in                                                                                                                                                                                                                                                                               | Example                                                                            |
-| -------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
-| How to install/run/test an app                                       | That app's `README.md`                                                                                                                                                                                                                                                                 | `apps/web/README.md`                                                               |
-| Agent operating instructions for an app                              | That app's `CLAUDE.md`                                                                                                                                                                                                                                                                 | agent rules + standard pointers (commands/stack live in the app README — one home) |
-| Monorepo-shared agent instructions                                   | Root `CLAUDE.md`                                                                                                                                                                                                                                                                       | methodology, hard rules                                                            |
-| Repo layout & placement rules                                        | `docs/standards/repository-structure.md`                                                                                                                                                                                                                                               | where does X go                                                                    |
-| Code style (per language)                                            | `docs/standards/<lang>-code-style.md`                                                                                                                                                                                                                                                  | naming, folder layout                                                              |
-| Testing levels & protocols                                           | `docs/standards/testing-strategy.md`                                                                                                                                                                                                                                                   | per-commit / pre-PR                                                                |
-| "How to add a new X" walkthroughs                                    | `docs/standards/integration-guides.md` (index) + guide files                                                                                                                                                                                                                           | add an app, add a component                                                        |
-| Architectural decisions                                              | `docs/decisions/` (ADRs, numbered)                                                                                                                                                                                                                                                     | why Go, why MDX                                                                    |
-| Design narratives                                                    | `docs/design/`                                                                                                                                                                                                                                                                         | 2026-08 redesign                                                                   |
-| Content-component usage (what authors see)                           | The **catalog** (`/catalog` in-app)                                                                                                                                                                                                                                                    | when to use `<Slide>`, props, examples                                             |
-| Component governance (contract, how-to-add, doc + review checklists) | The **catalog governance page** (`/catalog/governance`, authored in `apps/web/src/catalog/GovernancePage.tsx`) — the operational home authors and agents read; ADR-0010/0014 hold the decisions and win on disagreement, `guides/add-a-content-component.md` maps them onto repo paths | the component contract points                                                      |
-| Workflow conventions (kanban, branches, PRs, slice planning)         | `docs/conventions.md`                                                                                                                                                                                                                                                                  | commit format                                                                      |
-| How an app is published & operated                                   | Root `README.md` §Deployment (repo-level: URL, trigger, rollback, what to verify) + that app's `README.md` (app-level build shape: base path, emitted artifacts, gotchas)                                                                                                              | Pages publication of `apps/web` (#66)                                              |
-| Security deferrals / advisory dispositions                           | `docs/security-notes.md`                                                                                                                                                                                                                                                               | accepted-risk records with review triggers                                         |
-| Course planning material                                             | `docs/course-graph.md` + `docs/graphs/`                                                                                                                                                                                                                                                | topic dependencies, topology diagrams                                              |
+| Knowledge | Lives in | Example |
+|---|---|---|
+| How to install/run/test an app | That app's `README.md` | `apps/web/README.md` |
+| Agent operating instructions for an app | That app's `CLAUDE.md` | agent rules + standard pointers (commands/stack live in the app README — one home) |
+| Monorepo-shared agent instructions | Root `CLAUDE.md` | methodology, hard rules |
+| Repo layout & placement rules | `docs/standards/repository-structure.md` | where does X go |
+| Code style (per language) | `docs/standards/<lang>-code-style.md` | naming, folder layout |
+| Testing levels & protocols | `docs/standards/testing-strategy.md` | per-commit / pre-PR |
+| "How to add a new X" walkthroughs | `docs/standards/integration-guides.md` (index) + guide files | add an app, add a component |
+| Architectural decisions | `docs/decisions/` (ADRs, numbered) | why Go, why MDX |
+| Design narratives | `docs/design/` | 2026-08 redesign |
+| Content-component usage (what authors see) | The **catalog** (`/catalog` in-app) | when to use `<Slide>`, props, examples |
+| Component governance (contract, how-to-add, doc + review checklists) | The **catalog governance page** (`/catalog/governance`, authored in `apps/web/src/catalog/GovernancePage.tsx`) — the operational home authors and agents read; ADR-0010/0014 hold the decisions and win on disagreement, `guides/add-a-content-component.md` maps them onto repo paths | the component contract points |
+| Workflow conventions (kanban, branches, PRs, slice planning) | `docs/conventions.md` | commit format |
+| How an app is published & operated | Root `README.md` §Deployment (repo-level: URL, trigger, rollback, what to verify) + that app's `README.md` (app-level build shape: base path, emitted artifacts, gotchas) | Pages publication of `apps/web` (#66) |
+| Security deferrals / advisory dispositions | `docs/security-notes.md` | accepted-risk records with review triggers |
+| Course planning material | `docs/course-graph.md` + `docs/graphs/` | topic dependencies, topology diagrams |
 
 **One home per fact.** If two documents need the same fact, one states it and the
 other links to it. Duplicated prose drifts.
@@ -59,7 +59,7 @@ case: the deployed shape (#66).
    is a decision like any other: undocumented, the next author reads it off
    whichever neighbouring file they happen to open, which is how the product
    ended up with two neutral families nobody chose (#109).
-5. **English everywhere** in repo artifacts. Spanish for everything the _reader_
+5. **English everywhere** in repo artifacts. Spanish for everything the *reader*
    perceives — course content, UI chrome, and accessible names — plus real-time
    conversation (root `CLAUDE.md` §Language). `/catalog` is the exception that
    proves the rule: it ships with the site but addresses component authors, so
@@ -125,7 +125,6 @@ ADRs live in `docs/decisions/<NNNN>-<kebab-title>.md`, numbered sequentially:
 
 ```markdown
 # ADR-NNNN: <title>
-
 **Status:** Proposed | Accepted | Archived | Superseded by ADR-MMMM
 **Date:** YYYY-MM-DD
 **Decision-makers:** <who>

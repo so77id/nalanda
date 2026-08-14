@@ -84,8 +84,8 @@ that new ones will need it too.
   declared by writing a paragraph.
 - **Leave the measure at 84 characters.** Rejected by the audit; this is the
   text every student reads every day.
-- **Narrow further, to ~31rem**, which is what 60–75 characters _counting
-  spaces_ would need. Not chosen: issue #84 fixed the target at ~68 on the
+- **Narrow further, to ~31rem**, which is what 60–75 characters *counting
+  spaces* would need. Not chosen: issue #84 fixed the target at ~68 on the
   audit's convention, and 39rem meets it. Recorded so the next person to
   measure does not conclude the WP missed its own target — see Consequences.
 
@@ -119,5 +119,5 @@ components already comply by accident of being blocks.
   that band is usually quoted, it went 102 → 84 and is still above it. Nobody
   is wrong; the two numbers describe the same page. **Reviewed with both
   numbers in hand and left at 39rem** (Miguel, 2026-08-13). If a future reader
-  wants 60–75 _with_ spaces, the value is ~31rem — a one-token change, and a
+  wants 60–75 *with* spaces, the value is ~31rem — a one-token change, and a
   fresh decision rather than an unfinished one.

@@ -47,7 +47,7 @@ the decision record, not only in standards prose.
 ## Consequences
 
 - `frontend-code-style.md` and `testing-strategy.md` reference this ADR as the
-  decision home; they keep the _how_, this file keeps the _why_.
+  decision home; they keep the *how*, this file keeps the *why*.
 - The react-router advisory deferral has an architectural backstop (no server
   runtime) documented here and in ADR-0001/0004.
 - Tooling swaps (e.g., oxlint → ESLint if type-aware rules become necessary)

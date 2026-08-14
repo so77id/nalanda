@@ -19,7 +19,7 @@ an editor with, and cases that must never appear in the editor at all.
 Two problems had no precedent in the repo. Authoring: an author writes hundreds
 of these, so the syntax has to be markdown a professor can type, not JSX with
 Java escaped inside template literals. Checking: what makes an exercise worth
-doing is that the verdict is about the student's _method_, and the obvious
+doing is that the verdict is about the student's *method*, and the obvious
 approach — compare what the program printed — fails anyone who formats their
 output differently, which is a bad lesson to teach in week one.
 
