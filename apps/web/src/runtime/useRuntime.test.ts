@@ -55,6 +55,30 @@ function resultFor(id: number, overrides: Partial<ResultMessage> = {}): ResultMe
   };
 }
 
+/** The start budget the abandoned-run test gives its FIRST run, in ms. */
+const SHORT_START_BUDGET_MS = 20;
+
+/** The start budget `does not blame the program for a slow start` uses, in ms. */
+const SLOW_START_BUDGET_MS = 30;
+
+/**
+ * A pause that certainly outlives `budgetMs`, for the gap right after a run
+ * starts.
+ *
+ * It does not simulate a busy machine — twice a 20ms budget is nothing to a
+ * CI box, and the second phase survives on its 10s budget, not on this. What it does is turn a
+ * load-dependent flake into a deterministic failure: if the budget in force
+ * during the gap is still the short one, its timer fires inside the pause and
+ * the test reddens on every machine instead of one run in however many (#98).
+ *
+ * Takes the budget rather than hard-coding a number, because the two were
+ * coupled by prose alone and raising the budget past the pause disarmed the
+ * guard in total silence — verified: with the budget at 50 the guard's own
+ * mutation went 13/13 green.
+ */
+const outlasting = (budgetMs: number): Promise<void> =>
+  new Promise((resolve) => setTimeout(resolve, budgetMs * 2));
+
 /** Spawns fake workers and records every one it made. */
 function workerFactory() {
   const created: FakeWorker[] = [];
@@ -217,7 +241,7 @@ describe('useRuntime', () => {
         createWorker: factory.createWorker,
         // The program gets almost no budget; getting started gets plenty.
         timeoutMs: 10_000,
-        startTimeoutMs: 30,
+        startTimeoutMs: SLOW_START_BUDGET_MS,
       }),
     );
 
@@ -225,11 +249,15 @@ describe('useRuntime', () => {
     act(() => {
       slowStart = result.current.run('int main(){}', '');
     });
-    await waitFor(() => expect(factory.created).toHaveLength(1));
-
     // Downloading a toolchain, booting a JVM or queueing behind another editor
-    // is not an infinite loop, and must not be reported as one.
-    await expect(slowStart).rejects.toThrow(/runtime no estuvo listo/i);
+    // is not an infinite loop, and must not be reported as one. Handled before
+    // the gap (testing-strategy.md §Conventions), and the pause is what proves
+    // it: move this line after `outlasting` and the run exits 1.
+    const rejected = expect(slowStart).rejects.toThrow(/runtime no estuvo listo/i);
+    expect(factory.created).toHaveLength(1);
+    await outlasting(SLOW_START_BUDGET_MS);
+
+    await rejected;
   });
 
   it('starts measuring the program only once the runtime says it has started', async () => {
@@ -247,13 +275,14 @@ describe('useRuntime', () => {
     act(() => {
       stuck = result.current.run('while(true){}', '');
     });
+    const rejected = expect(stuck).rejects.toThrow(/bucle infinito/i);
     await waitFor(() => expect(factory.created).toHaveLength(1));
     const worker = factory.last();
     await waitFor(() => expect(worker.posted).toHaveLength(1));
 
     act(() => worker.emit({ id: worker.posted[0]!.id, type: 'started' }));
 
-    await expect(stuck).rejects.toThrow(/bucle infinito/i);
+    await rejected;
     expect(factory.created[0]!.terminated).toBe(true);
   });
 
@@ -309,13 +338,23 @@ describe('useRuntime', () => {
 
   it('abandons a run that never finishes and frees its toolchain', async () => {
     const factory = workerFactory();
-    const { result } = renderHook(() =>
-      useRuntime({
-        runtimeId: 'cpp',
-        createWorker: factory.createWorker,
-        timeoutMs: 20,
-        startTimeoutMs: 20,
-      }),
+    // Two START budgets, one per half — not the program-vs-start pair the hook
+    // itself calls "two budgets". The abandoned run needs a deadline it will
+    // actually hit; the run after it needs one the machine cannot blow through.
+    // Handing both halves 20ms made the second a race against whatever else the
+    // box was doing (#98).
+    const { result, rerender } = renderHook(
+      ({ startTimeoutMs }: { startTimeoutMs: number }) =>
+        useRuntime({
+          runtimeId: 'cpp',
+          createWorker: factory.createWorker,
+          // Generous and never varied: the program budget is not what this test
+          // is about, and a short one here is armed by nothing (no run emits
+          // `started`) while still misleading whoever makes this run realistic.
+          timeoutMs: 10_000,
+          startTimeoutMs,
+        }),
+      { initialProps: { startTimeoutMs: SHORT_START_BUDGET_MS } },
     );
 
     let stuck!: Promise<unknown>;
@@ -323,20 +362,39 @@ describe('useRuntime', () => {
       // The student's `while (true)`: the worker never replies.
       stuck = result.current.run('while(true){}', '');
     });
-    await waitFor(() => expect(factory.created).toHaveLength(1));
+    // Attached before the gap, not after. The budget is armed inside `run()`,
+    // so a promise left bare across an `await` can reject with nobody
+    // listening — vitest then exits 1 while printing every test green (#98).
+    const abandoned = expect(stuck).rejects.toThrow(/no estuvo listo/i);
+    // `createWorker` runs synchronously inside `run()`, so this is a fact by
+    // the time the `act` returns — asserted here, before the pause, where it
+    // still means something. After it, the budget has fired and the worker is
+    // already discarded.
+    expect(factory.created).toHaveLength(1);
+    await outlasting(SHORT_START_BUDGET_MS);
 
-    await expect(stuck).rejects.toThrow(/no estuvo listo|bucle infinito/i);
+    await abandoned;
     // A stranded worker holds a whole compiler in memory, so it must go.
     expect(factory.created[0]!.terminated).toBe(true);
+
+    // Nothing is being timed now — the point of what follows is that a fresh
+    // run works after a discard, not how fast it is.
+    rerender({ startTimeoutMs: 10_000 });
 
     let next!: Promise<unknown>;
     act(() => {
       next = result.current.run('int main(){}', '');
     });
-    await waitFor(() => expect(factory.created).toHaveLength(2));
+    // Handled before its own gap, for the same reason as above: inert today
+    // because this phase's budget is 10s, and the next person to shorten it
+    // would get an unhandled rejection rather than a failing assertion.
+    const resolved = expect(next).resolves.toMatchObject({ output: 'ok' });
+    expect(factory.created).toHaveLength(2);
+    // The second run must not inherit the first run's impatience.
+    await outlasting(SHORT_START_BUDGET_MS);
     const fresh = factory.last();
     act(() => fresh.emit(resultFor(fresh.posted[0]!.id, { output: 'ok' })));
-    await expect(next).resolves.toMatchObject({ output: 'ok' });
+    await resolved;
   });
 
   it('never creates a worker when the runtime is disabled', async () => {

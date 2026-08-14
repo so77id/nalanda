@@ -75,7 +75,8 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
 
 ### References
 
-- Workflow conventions (kanban, labels, branches, commits, PR template, worktrees):
+- Workflow conventions (kanban, labels, branches, commits, slice planning, PR
+  template, worktrees):
   `docs/conventions.md`
 - ADR format and when to write one: `docs/standards/documentation.md` (§Rules 2 + §ADR format)
 
