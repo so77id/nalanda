@@ -36,11 +36,14 @@ async function renderThroughTheShellMap(source: string): Promise<HTMLElement> {
   ).container;
 }
 
-// vitest runs with apps/web as its cwd.
-const DOCUMENT = readFileSync(
-  join(process.cwd(), '../../content/courses/sample-course/06-java-desde-cpp.mdx'),
-  'utf8',
-);
+// vitest runs with apps/web as its cwd. #107 split the Java material in two, so
+// half the runtime-tagged fences now live in the second document; reading only
+// the first would keep this green while covering less than it did (AC10). Both
+// files are read and their fences pooled, so every fence in the unit is checked.
+const JAVA_DOCS = ['06-java-desde-cpp.mdx', '07-java-tipos-y-flujo.mdx'];
+const DOCUMENT = JAVA_DOCS.map((file) =>
+  readFileSync(join(process.cwd(), '../../content/courses/sample-course/', file), 'utf8'),
+).join('\n');
 
 /** Every fence in the document, as `[info-string, body]`. */
 function fencesOf(markdown: string): { info: string; body: string }[] {
