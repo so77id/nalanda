@@ -75,6 +75,42 @@ npm run build
 # Manual checklist from the PR template (L8)
 ```
 
+## Protocols — `apps/amc-worker` (container + shell)
+
+**Per-commit** (from `apps/amc-worker/`):
+
+```bash
+make test              # every tests/NN-*.sh against the current image
+```
+
+**Pre-PR** (from `apps/amc-worker/`):
+
+```bash
+make verify            # rebuild the image from scratch, then the full set
+```
+
+**Green means exit status 0.** Each script prints `N checks, M failed` and exits
+non-zero when `M > 0`; the summary line is not the gate.
+
+**The tests are shell scripts, not a framework.** What is under test is a
+container image and a third-party CLI (Auto-Multiple-Choice) — the subject is
+`docker run`, and a framework would only wrap it. One script per acceptance
+criterion of the WP that introduced the behavior, each re-runnable alone.
+
+**A measurement is reported, never asserted.** Image size and batch timings are
+printed with `note` and collected in the ADR; they are not thresholds. A test
+that reddens because a number moved teaches nothing about correctness, and the
+numbers that matter here (does reading 40 sheets take three minutes or forty)
+are decisions for a human, not gates.
+
+**What this level cannot see**: everything about a real sheet. The scripts drive
+synthetically-filled PDFs — boxes drawn at the coordinates AMC's own layout file
+reports — which proves the plumbing and nothing about paper. Whether the reader
+tolerates a real pencil, a real scanner and a page that went in slightly rotated
+is an L8 manual check, and it is the one that decides the engine. Same class as
+"execution is invisible to the suite" above: a green run here is not evidence
+the thing works.
+
 ## Protocols — `apps/server` (Go) — placeholder
 
 Born with the app in v0.3. Its author registers here the Go per-commit protocol
