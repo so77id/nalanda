@@ -69,6 +69,24 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 | `02-generate.sh` | N copies from our own `.tex`, questions and alternatives shuffled per copy, an 8-digit RUT grid, a printed identifier per page, a reproducible draw |
 | `03-read.sh` | A scrambled multi-page PDF batch reads back; ambiguous marks and unreadable identifiers are reported separately |
 | `04-associate.sh` | Clean copies match a roster automatically; damaged identifiers fail closed; an association can be injected from outside without the GUI |
+| `05-annotate.sh` | One annotated PDF per student, carrying their marks, the correct answers and per-question scores |
+
+## Three traps this worker's caller must avoid
+
+All three were measured, all three are silent, and all three are pinned by a
+test so they cannot come back:
+
+**`association --set` without `--copy` does nothing.** It exits 0, prints
+nothing, and writes a row AMC's own listing ignores. A review queue built on
+that call looks like it works and the grade never lands.
+
+**An unassociated copy still gets an annotated PDF**, named with the literal
+placeholder `_ID_`. So counting files is not a completeness check — five copies
+yield five files whether or not anyone knows who two of them belong to.
+
+**`annotate` writes but never cleans.** Re-annotating into a directory that
+already holds a previous run leaves the stale files beside the new ones.
+Annotate into a fresh directory every time.
 
 They are shell scripts rather than a test framework because the subject under
 test is a container image and a third-party CLI — the subject is `docker run`,
