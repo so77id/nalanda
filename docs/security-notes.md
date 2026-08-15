@@ -155,7 +155,7 @@ disposition:
   the next run overwrites the shadow back. That is luck rather than design, and
   it is why the name joined `RESERVED_CLASSES` anyway.
 - **The `library` field bypasses the reserved-name guard on purpose.** The guard
-  exists to stop a *student* class shadowing a platform one; the platform's own
+  exists to stop a _student_ class shadowing a platform one; the platform's own
   unit arriving there is the intended use. It is reachable only from a module
   constant, never from author or student content.
 - **The guard still inspects the ENTRY class only.** The sentence above —
@@ -179,11 +179,38 @@ Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
   absent from `index.yaml` only hides it from the TOC and prev/next, it does NOT
   keep it off the site. Since #66 the site is public, so "unlisted" reads as
   "unpublished" and is wrong.
-- **Why it is safe today**: the repo is public anyway, and the tree holds only
-  sample documents.
+- **Why it is safe today**: the repo is public anyway. **No longer only sample
+  documents** — since #120 the tree holds the real opening class, with the
+  professor'"'"'s institutional address and the term'"'"'s grading rules, and since #136
+  and #137 four documents are deliberately off the teaching path while still
+  served. Nothing there needs hiding, so the invariant holds; what changed is
+  that it is now load-bearing rather than hypothetical.
+- **The address is published on purpose**: `miguel.rodriguez@mail.udp.cl`
+  appears on the opening class as an autolinked `mailto:`, the professor'"'"'s own
+  decision. Harm is harvesting at a university mailbox. Review trigger for this
+  one: any address that is not the author'"'"'s own, and any student address ever
+  appearing under `content/`.
 - **Review trigger**: the first time material that must not be seen (exam keys,
   solutions, unreleased classes) needs a home. Park it OUTSIDE
   `content/courses/` — omitting it from the index is not a control.
+
+### Third-party marks under content/ (recorded 2026-08-15, #120 review)
+
+- **What it is**: the opening class carries 22 brand and organisation marks in
+  `content/courses/sample-course/logos/`. Twenty are Simple Icons files (CC0);
+  the marks themselves stay their owners'. Two are rasters the course author
+  supplied — one re-rendered and cropped, one whose original could not be
+  recovered.
+- **Basis of use**: nominative and educational. They identify the companies whose
+  interviews cover this material, the competitions, and the languages a slide
+  talks about. No endorsement is implied and none is used as this site's own
+  branding.
+- **Why it is accepted**: the repo has no LICENSE, and the review that found this
+  also found the provenance existed only in a PR body. It is now recorded
+  per-file in `content/courses/sample-course/logos/README.md`.
+- **Review triggers**: a mark owner objects; the repo gains a LICENSE (code and
+  content terms then need separating); or a new logo arrives that is neither CC0
+  nor supplied by the author.
 
 ### All bundled MDX is repo-controlled content (recorded 2026-08-07)
 

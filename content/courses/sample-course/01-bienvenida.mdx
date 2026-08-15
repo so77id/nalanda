@@ -45,9 +45,9 @@ Cinco preguntas que el agente no responde solo:
 
 <Split ratio="60/40">
 
-- Buscar entre **cien millones** de elementos, uno por uno: unos
-  **50.000.000** de comparaciones.
-- Un servidor cien veces más rápido: **siguen siendo 50.000.000**. Solo las
+- Buscar entre **cien millones** de elementos, uno por uno: hasta
+  **100.000.000** de comparaciones.
+- Un servidor cien veces más rápido: **siguen siendo 100.000.000**. Solo las
   hace más rápido.
 - Ordenados, la búsqueda binaria necesita **27**.
 
@@ -66,8 +66,10 @@ Hay un factor que ningún hardware compra. Medirlo, sin ejecutar nada, se llama
 <Slide title="Contémoslas aquí mismo">
 
 Un millón de elementos en vez de cien millones: Java se ejecuta en el hilo de
-esta página, y subir `n` a cien millones congela la pestaña. El _cómo_ de la
-búsqueda binaria es [[busqueda-binaria|otro documento]].
+esta página, y subir `n` a cien millones congela la pestaña. Cada contador cuenta
+**casillas miradas**, y las dos búsquedas piden el último elemento: el peor caso
+de cada una. El _cómo_ de la búsqueda binaria es
+[[busqueda-binaria|otro documento]].
 
 <CodeEditor
   language="java"
@@ -141,11 +143,14 @@ A veces no existe.
 - El **problema del viajante** — visitar un conjunto de ciudades y volver,
   recorriendo lo menos posible — no tiene ninguna solución exacta conocida que
   sea rápida.
-- Probar todas las posibilidades cuesta del orden de $$2^n$$.
+- Probar todos los recorridos son $$(n-1)!/2$$: con 50 ciudades, más de
+  $$10^{62}$$.
+- Y el mejor algoritmo exacto que se conoce tampoco alcanza: cuesta del orden
+  de $$2^n$$.
 
 <Figure
   src="./viajante.svg"
-  alt="Catorce ciudades unidas por un recorrido cerrado, con un tramo alternativo dibujado en línea punteada."
+  alt="Doce ciudades unidas por un recorrido cerrado, y dos más en el interior a las que solo llega un tramo alternativo, dibujado en línea punteada: un recorrido posible entre muchos."
 />
 
 </Split>
@@ -154,7 +159,7 @@ A veces no existe.
 
 <Slide title="Diez ciudades más">
 
-| Ciudades | Posibilidades                    | A mil millones por segundo |
+| Ciudades | Con el mejor algoritmo exacto    | A mil millones por segundo |
 | -------- | -------------------------------- | -------------------------- |
 | 50       | $$\approx 1{,}1 \times 10^{15}$$ | 13 días                    |
 | 60       | $$\approx 1{,}2 \times 10^{18}$$ | 37 años                    |
@@ -171,7 +176,7 @@ Más de lo que parece, y ya lo estuvimos usando sin verlo.
 
 <Figure
   src="./caja-negra.svg"
-  alt="La llamada a std::map abriéndose en las dos estructuras que puede ser por dentro: un árbol balanceado o una tabla de hash."
+  alt="Dos llamadas de biblioteca y lo que cada una es por dentro: std::map, un árbol balanceado; std::unordered_map, una tabla de hash."
 />
 
 En C++ elegimos entre `std::map` y `std::unordered_map` sin que nadie nos dijera
@@ -210,7 +215,7 @@ Nadie elige eso por casualidad. Java, viniendo de C++, es
 
 <Figure
   src="./heap.svg"
-  alt="Un heap dibujado dos veces: como árbol, y como el arreglo que en realidad es, con líneas punteadas uniendo cada nodo con su casilla."
+  alt="Un heap dibujado dos veces: como árbol y como el arreglo que en realidad es. Cada nodo y cada casilla llevan escrito su índice, de [0] a [5], y eso es lo que empareja los dos dibujos."
 />
 
 </Split>
@@ -223,6 +228,7 @@ Las preguntas técnicas de las empresas grandes **son** este contenido. No algo
 parecido: esto.
 
 <Mosaic
+  plate
   columns={3}
   description="Nueve empresas cuyas entrevistas técnicas se hacen sobre estructuras de datos y algoritmos: Google, Amazon, Meta, Microsoft, Apple, Netflix, Nvidia, Uber y Spotify."
 >
@@ -245,6 +251,7 @@ La programación competitiva es el gimnasio: problemas que no se resuelven
 programando más rápido, sino eligiendo mejor.
 
 <Mosaic
+  plate
   columns={2}
   description="Cuatro competencias y plataformas de programación competitiva: ICPC, Codeforces, LeetCode e IEEEXtreme."
 >
@@ -277,6 +284,7 @@ dentro de diez años todavía no existen. Un heap va a seguir siendo un heap, y
 todos permiten implementarlo.
 
 <Mosaic
+  plate
   columns={3}
   description="Nueve lenguajes en los que estas mismas estructuras se implementan: Java, C++, C#, Python, Go, Rust, JavaScript, Kotlin y Swift."
 >
@@ -361,8 +369,8 @@ $$
 - $$N_L$$ — laboratorio
 - $$N_{ex}$$ — examen
 
-Se exime del examen con $$N_p \geq 5{,}0$$. Se aprueba el curso con
-$$N_F \geq 4{,}0$$.
+Se exime del examen con $$N_p \geq 5{,}0$$, y en ese caso
+$$N_F = N_p$$. Se aprueba el curso con $$N_F \geq 4{,}0$$.
 
 </Slide>
 
@@ -424,7 +432,7 @@ Y la construyo con agentes — que es exactamente de lo que hablamos al principi
 
 <Slide title="Bibliografía">
 
-- **El libro del curso** — Sedgewick & Wayne, _Algorithms_, 4ª ed., 2014 —
+- **El libro del curso** — Sedgewick & Wayne, _Algorithms_, 4ª ed., 2011 —
   https://algs4.cs.princeton.edu/home/ (con todo el código en Java)
 - **Java (Bloque I)** — Sedgewick & Wayne, _Introduction to Programming in
   Java_, 2017 — https://introcs.cs.princeton.edu/java/home/

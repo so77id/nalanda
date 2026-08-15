@@ -35,6 +35,12 @@ export const mosaicCatalogEntry: CatalogEntry = {
         'What the whole group says, in Spanish. Required — it is the only voice in the mosaic, since every cell is silent.',
     },
     {
+      name: 'plate',
+      type: 'boolean',
+      description:
+        'Put each cell on a white plate. For brand marks, which are drawn to sit on white and are often monochrome: served through <img> they never see the page currentColor, so unplated they paint black and vanish on the dark theme. Opt-in because the other kind of mosaic is the opposite — diagrams drawn for the page, transparent and coloured to clear both grounds, which a plate would box in for nothing.',
+    },
+    {
       name: 'children',
       type: 'MDX',
       description:

@@ -15,9 +15,10 @@ a semantic wrapper, a visualizer, a media embed, a structural block.
 
 ## Worked example
 
-`Slide` and `SectionBreak` (family *structure*) are the reference
+`Slide` and `SectionBreak` (family _structure_) are the reference
 implementations: component + colocated entry + seam export + MDX registration
-+ per-mode tests.
+
+- per-mode tests.
 
 ```
 apps/web/src/components/structure/
@@ -51,18 +52,18 @@ apps/web/src/components/structure/
    Six seams worth knowing before writing your own:
 
    - **Labelled code fences.** A component whose children carry code the author
-     marks — ```` ```java starter ```` — reads them with `fencesByMeta` /
+     marks — ` ```java starter ` — reads them with `fencesByMeta` /
      `withoutFences` (`lib/codeFences.ts`); the `remarkCodeMeta` plugin has
      already preserved the label as `data-meta`. Code arrives as children, never
      through a prop (ADR-0019 §1–2). Worked case: `<Exercise>`.
    - **Telling the author they got it wrong.** When a component has a contract
      only visible after MDX evaluation — a missing fence, the wrong number of
      children — render `<AuthoringError component="Name">` and say what is
-     missing. Render, never throw, and address the *writer*: the reader cannot
+     missing. Render, never throw, and address the _writer_: the reader cannot
      fix it. The stricter sibling is `content/contentIntegrity.ts`, which fails
      the build instead — use it when the mistake is detectable without rendering
      (frontmatter, the index). Worked cases: `<Exercise>`, `<SideBySide>`.
-   - **The measure.** The book view narrows *running text* to 39rem inside a
+   - **The measure.** The book view narrows _running text_ to 39rem inside a
      768px column (`.measured-prose`, `styles/index.css`, ADR-0022). Every
      direct child of the article is narrowed unless it is a bare `pre`, marks
      itself **`.not-prose`** (a block, not text — `CodeEditor`, `Exercise`,
@@ -87,6 +88,7 @@ apps/web/src/components/structure/
      you are likely to check — `/catalog` and presentation mode do not apply the
      measure, and jsdom computes no layout — so verify it in the book view of a
      real document.
+
    - **Being inside something that already frames you.** A container that draws
      a border and writes a label wraps its children in
      `<EmbeddedProvider value={true}>` (`components/embedded.ts`); a component
@@ -110,8 +112,9 @@ apps/web/src/components/structure/
      module and hands back a bound `run`, `warm`, `queued`, `ready` and the
      module itself — do NOT hand-roll the `loadRuntime` effect, both components
      that did ended up with the same 22 lines) and `draft.ts` — whose `saveDraft`
-     must be called immediately *before* a run, never after, because a Java loop
+     must be called immediately _before_ a run, never after, because a Java loop
      that never ends is the case it exists for (ADR-0020 §2).
+
 3. **Register it** in the shell MDX map (`apps/web/src/app/mdxComponents.ts`).
    Not optional: the catalog and the MDX map must be the same set, asserted in
    both directions. A component that must NOT be document-facing therefore does
@@ -147,8 +150,8 @@ entry chunk (measured in ADR-0018 §7).
 
 When a component carries a heavy dependency, add a `lazy<Name>.tsx` beside it
 that wraps `lazy()` in a `Suspense` with a sized placeholder — which answers
-   `useEmbedded()` too, or the doubled frame is on screen for the whole chunk
-   fetch — export **that**
+`useEmbedded()` too, or the doubled frame is on screen for the whole chunk
+fetch — export **that**
 through the seam, and register it in the MDX map. Its catalog entry must import
 the wrapper too — the entry is reachable from the shell, so a static import
 there undoes the split just as effectively. Worked case:
@@ -156,19 +159,25 @@ there undoes the split just as effectively. Worked case:
 `src/architecture.test.ts`. **Two guards now apply.** Yours is per-component: copy
 its "stays out of the entry chunk" describe block for your component, with your
 own wrapper in `ALLOWED`, or nothing checks you. The
-   second is generic: `architecture: what the shell reaches eagerly` walks the
-   static imports from `app/main.tsx` and fails if the graph reaches `runtime/`
-   or any package outside `SHIPS_EAGERLY`. **Never add a name to that list to go
-   green** — that is weight on the first paint of every page, including the ones
-   with no code; treat it like disabling a lint rule and ask first. And if you
-   only need a CONSTANT from a feature (a list of ids, a union type), put it in
-   `lib/` and import it from there: importing the feature seam for it pulls the
-   whole feature (worked case: `lib/runtimeIds.ts`, #85, which took the eager
-   payload from 1 chunk to 9 with every name-based guard green).
+second is generic: `architecture: what the shell reaches eagerly` walks the
+static imports from `app/main.tsx` and fails if the graph reaches `runtime/`
+or any package outside `SHIPS_EAGERLY`. **Never add a name to that list to go
+green** — that is weight on the first paint of every page, including the ones
+with no code; treat it like disabling a lint rule and ask first. And if you
+only need a CONSTANT from a feature (a list of ids, a union type), put it in
+`lib/` and import it from there: importing the feature seam for it pulls the
+whole feature (worked case: `lib/runtimeIds.ts`, #85, which took the eager
+payload from 1 chunk to 9 with every name-based guard green).
 
 ## Checklist
 
 - [ ] Family chosen; the contract points satisfied — including the `h2` one if
+- [ ] If the change adds or alters a prop a COURSE author writes, update
+      that component's section in `guides/add-a-course-document.md` in the
+      same PR. The catalog and the guide are two homes for two audiences,
+      and this line is the only thing keeping them in step — worked case:
+      `<Mosaic plate>` shipped documented for component authors and
+      invisible to course authors (#120 review).
       the component marks a section, and the measure one if it renders wide.
 - [ ] **If the family was empty before this PR**: you created its folder, and you
       moved the one hardcoded empty-family case in `app/catalogRoute.test.tsx`

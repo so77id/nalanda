@@ -156,100 +156,100 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
 
 3b. **Write mathematics (optional)**: delimited by **two** dollar signs, never one.
 
-   ```mdx
-   Sobre $$n$$ elementos hay a lo más
+```mdx
+Sobre $$n$$ elementos hay a lo más
 
-   $$
-   \lfloor \log_2 n \rfloor + 1
-   $$
+$$
+\lfloor \log_2 n \rfloor + 1
+$$
 
-   iteraciones.
-   ```
+iteraciones.
+```
 
-   Inline and display differ by **where the delimiters sit**, the way a code
-   fence does: `$$x$$` on one line is inline, `$$` alone on its own lines opens
-   a block. One line break apart, and the two look nearly identical in a diff.
+Inline and display differ by **where the delimiters sit**, the way a code
+fence does: `$$x$$` on one line is inline, `$$` alone on its own lines opens
+a block. One line break apart, and the two look nearly identical in a diff.
 
-   **Two dollars, not one — and this is the part that will surprise you if you
-   have written LaTeX before** (ADR-0027 §2). With single-dollar math enabled,
-   an ordinary sentence about money becomes a formula:
+**Two dollars, not one — and this is the part that will surprise you if you
+have written LaTeX before** (ADR-0027 §2). With single-dollar math enabled,
+an ordinary sentence about money becomes a formula:
 
-   ```
-   Cuesta $200 al mes, el otro $350.
-   ```
+```
+Cuesta $200 al mes, el otro $350.
+```
 
-   would render "200 al mes, el otro" as mathematics, with a green build and no
-   warning of any kind. The alternative breaks prose written by someone who
-   never intended to write mathematics at all.
+would render "200 al mes, el otro" as mathematics, with a green build and no
+warning of any kind. The alternative breaks prose written by someone who
+never intended to write mathematics at all.
 
-   **If you paste a formula written with single dollars, it does not merely stay
-   as text.** MDX reads braces as expressions, so `$\frac{1}{2}$` renders as
-   `$\frac12$` — the braces silently gone — and `$\sum_{i=1}^{n} i$` **fails the
-   build** with `ReferenceError: i is not defined`. Retype the delimiters; the
-   `$$` form takes its content raw and is immune.
+**If you paste a formula written with single dollars, it does not merely stay
+as text.** MDX reads braces as expressions, so `$\frac{1}{2}$` renders as
+`$\frac12$` — the braces silently gone — and `$\sum_{i=1}^{n} i$` **fails the
+build** with `ReferenceError: i is not defined`. Retype the delimiters; the
+`$$` form takes its content raw and is immune.
 
-   **An unclosed `$$` eats the rest of the page.** Not one red formula: the
-   prose below it, the headings, everything, swallowed into a single error span
-   — so the section list empties and, in an `auto` document, every slide below
-   the typo vanishes from the deck. The build stays green and the content gate
-   sees nothing, because it checks frontmatter and the index, not body syntax.
-   The symptom to recognise is *"the document ends here"*.
+**An unclosed `$$` eats the rest of the page.** Not one red formula: the
+prose below it, the headings, everything, swallowed into a single error span
+— so the section list empties and, in an `auto` document, every slide below
+the typo vanishes from the deck. The build stays green and the content gate
+sees nothing, because it checks frontmatter and the index, not body syntax.
+The symptom to recognise is _"the document ends here"_.
 
-   **A decimal comma needs braces.** This one will bite a Spanish-language
-   course immediately, and it is silent. In mathematics a comma is *punctuation*,
-   so `0,25` renders as `0, 25` — with a gap — and its MathML comes out as three
-   tokens (number, operator, number) instead of one number, which is what a
-   screen reader reads aloud. Write `0{,}25`:
+**A decimal comma needs braces.** This one will bite a Spanish-language
+course immediately, and it is silent. In mathematics a comma is _punctuation_,
+so `0,25` renders as `0, 25` — with a gap — and its MathML comes out as three
+tokens (number, operator, number) instead of one number, which is what a
+screen reader reads aloud. Write `0{,}25`:
 
-   ```mdx
-   $$
-   N_p = 0{,}25\,S_1 + 0{,}25\,S_2 + 0{,}25\,N_{TC} + 0{,}25\,N_L
-   $$
-   ```
+```mdx
+$$
+N_p = 0{,}25\,S_1 + 0{,}25\,S_2 + 0{,}25\,N_{TC} + 0{,}25\,N_L
+$$
+```
 
-   The `\,` between the number and the symbol is a thin space, which is how
-   multiplication is conventionally set. Neither is optional if you want the
-   formula to read as mathematics rather than as a list.
+The `\,` between the number and the symbol is a thin space, which is how
+multiplication is conventionally set. Neither is optional if you want the
+formula to read as mathematics rather than as a list.
 
-   **A heading wants text in it.** `## $$\log_2 n$$` — a heading that is only a
-   formula — gets no id, no anchor and no entry in the section list, silently.
-   Write `## El costo, $$\log_2 n$$` instead.
+**A heading wants text in it.** `## $$\log_2 n$$` — a heading that is only a
+formula — gets no id, no anchor and no entry in the section list, silently.
+Write `## El costo, $$\log_2 n$$` instead.
 
-   **A `<Slide title="...">` cannot hold a formula**: the title is a JSX
-   attribute, so the `$$` ship to the reader as literal characters, projected.
-   Put the formula in the slide **body** instead, with a blank line above and
-   below the `$$` block like any markdown inside JSX, and keep the title plain:
+**A `<Slide title="...">` cannot hold a formula**: the title is a JSX
+attribute, so the `$$` ship to the reader as literal characters, projected.
+Put the formula in the slide **body** instead, with a blank line above and
+below the `$$` block like any markdown inside JSX, and keep the title plain:
 
-   ```mdx
-   <Slide title="Cómo se calcula tu nota">
+```mdx
+<Slide title="Cómo se calcula tu nota">
 
-   $$
-   N_p = 0{,}25\,S_1 + 0{,}25\,S_2
-   $$
+$$
+N_p = 0{,}25\,S_1 + 0{,}25\,S_2
+$$
 
-   </Slide>
-   ```
+</Slide>
+```
 
-   Three things worth knowing, all measured rather than assumed:
+Three things worth knowing, all measured rather than assumed:
 
-   - **No JavaScript is shipped.** KaTeX renders during the build, so a formula
-     costs the reader a stylesheet and the font faces its own glyphs use — about
-     42 kB for a typical formula, against ~162 kB gzip of editor for the first
-     highlighted fence on a page (ADR-0018). The stylesheet is global — **3.94 kB
-     gzip on every page in the site**, including pages with no mathematics
-     (measured 2026-08-14; ADR-0027 §3 carries the figure and why it is debt). A
-     page without a formula downloads **no fonts at all**.
-   - **A malformed formula does not fail the build.** It renders in KaTeX's
-     error colour, like a broken wiki-link renders visibly broken. Nothing stops
-     you publishing it — look at the page.
-   - **On a slide it is fine but not free.** A long display equation is wide, and
-     ADR-0013 scales the whole slide down rather than clipping — so a formula
-     that does not fit shrinks the prose beside it. No shipped document puts a
-     formula in a deck yet, so there is no measured example to copy: check any
-     slide carrying one, in landscape, and judge it yourself.
+- **No JavaScript is shipped.** KaTeX renders during the build, so a formula
+  costs the reader a stylesheet and the font faces its own glyphs use — about
+  42 kB for a typical formula, against ~162 kB gzip of editor for the first
+  highlighted fence on a page (ADR-0018). The stylesheet is global — **3.94 kB
+  gzip on every page in the site**, including pages with no mathematics
+  (measured 2026-08-14; ADR-0027 §3 carries the figure and why it is debt). A
+  page without a formula downloads **no fonts at all**.
+- **A malformed formula does not fail the build.** It renders in KaTeX's
+  error colour, like a broken wiki-link renders visibly broken. Nothing stops
+  you publishing it — look at the page.
+- **On a slide it is fine but not free.** A long display equation is wide, and
+  ADR-0013 scales the whole slide down rather than clipping — so a formula
+  that does not fit shrinks the prose beside it. No shipped document puts a
+  formula in a deck yet, so there is no measured example to copy: check any
+  slide carrying one, in landscape, and judge it yourself.
 
-   Screen readers are covered: KaTeX emits MathML beside the visual rendering,
-   so a formula is read as mathematics rather than skipped as decoration.
+Screen readers are covered: KaTeX emits MathML beside the visual rendering,
+so a formula is read as mathematics rather than skipped as decoration.
 
 4. **Mark slides (optional)**: `<Slide title="...">...</Slide>` and
    `<SectionBreak />` are available WITHOUT imports. In the book view a Slide
@@ -326,7 +326,7 @@ The class named in `starter` and the one the cases call must agree.
 a pass for something they never checked. Three class names are reserved by the
 platform — `NalandaLauncher`, `NalandaCheck` and `NalandaTrace` — and a Java
 program whose MAIN class is one of them is refused before it compiles, in an
-exercise or a plain editor alike. A *secondary* declaration is not caught; that
+exercise or a plain editor alike. A _secondary_ declaration is not caught; that
 hole and why it is tolerated are in `docs/security-notes.md`.
 
 Editing a shipped `starter` fence changes the key its drafts are stored
@@ -352,72 +352,72 @@ live in the catalog — browse `/catalog`, which is generated from the component
 themselves rather than maintained by hand.
 
 5d. **Draw the memory (optional)**: `<MemoryDiagram>` shows variables, stack
-   frames and heap objects — **taken from the snippet actually running**, never
-   from a description you write. You mark where you want a photograph and which
-   variables belong in it:
+frames and heap objects — **taken from the snippet actually running**, never
+from a description you write. You mark where you want a photograph and which
+variables belong in it:
 
-   ````mdx
-   <MemoryDiagram title="Dos variables, un objeto">
+````mdx
+<MemoryDiagram title="Dos variables, un objeto">
 
-   ```java trace
-   class Punto {
-       int x, y;
-       Punto(int x, int y) { this.x = x; this.y = y; }
-   }
+```java trace
+class Punto {
+    int x, y;
+    Punto(int x, int y) { this.x = x; this.y = y; }
+}
 
-   public class Demo {
-       public static void main(String[] args) {
-           Punto a = new Punto(1, 2);   // foto a
-           Punto b = a;                 // foto a, b
-           b.x = 99;                    // foto a, b
-       }
-   }
-   ```
+public class Demo {
+    public static void main(String[] args) {
+        Punto a = new Punto(1, 2);   // foto a
+        Punto b = a;                 // foto a, b
+        b.x = 99;                    // foto a, b
+    }
+}
+```
 
-   </MemoryDiagram>
-   ````
+</MemoryDiagram>
+````
 
-   `// foto a, b` photographs those two variables at that line. `// foto
+`// foto a, b` photographs those two variables at that line. `// foto
    marco: p, q` opens a second frame — needed whenever the lesson is about a
-   method call, because a caller and a callee have to be on screen together —
-   and `// foto-fin marco` closes it. **Name the variables you want drawn and no
-   others**: naming them is what lets this work without a Java parser, and it is
-   also how you keep the picture down to what teaches.
+method call, because a caller and a callee have to be on screen together —
+and `// foto-fin marco` closes it. **Name the variables you want drawn and no
+others**: naming them is what lets this work without a Java parser, and it is
+also how you keep the picture down to what teaches.
 
-   The markers are removed from what the reader sees, and every line keeps its
-   number, so the highlighted line is the one you marked.
+The markers are removed from what the reader sees, and every line keeps its
+number, so the highlighted line is the one you marked.
 
-   Seven things worth knowing before you write one:
+Seven things worth knowing before you write one:
 
-   - **Java only**, and Java 8 like everything else here. C++ and Python get a
-     refusal rather than an empty drawing.
-   - **Primitives are drawn as values, objects as arrows.** That distinction is
-     automatic and is usually the point.
-   - **Two `new String("hola")` draw as two boxes**, because identity is what is
-     tracked. That is what makes the `==` trap visible instead of asserted.
-   - **A marker inside a branch that never runs produces no photograph.** The
-     build cannot see this — the component says so after the run, and only then.
-   - **It cannot draw recursion.** Frames are identified by the name you write in
-     the marker, so three nested calls to `fact` draw **one frame** holding the
-     innermost values — depth 1 for a stack of 3. This is the only case where the
-     drawing can teach the opposite of the truth, which is why it is stated here
-     rather than left to be found: the call stack needs a different component
-     (Discussion #49).
-   - **Caps**: 40 photographs, 12 objects drawn in total, and 32 elements or
-     fields per box. A `// foto` inside a loop hits the first; a big structure
-     hits the others. In every case the component says so rather than showing a
-     partial trace as if it were complete — including when the program printed so
-     much that the runtime cut the trace off.
-   - **`NalandaTrace` is a reserved class name**, like `NalandaLauncher` and
-     `NalandaCheck`. A snippet declaring it is refused before compiling.
+- **Java only**, and Java 8 like everything else here. C++ and Python get a
+  refusal rather than an empty drawing.
+- **Primitives are drawn as values, objects as arrows.** That distinction is
+  automatic and is usually the point.
+- **Two `new String("hola")` draw as two boxes**, because identity is what is
+  tracked. That is what makes the `==` trap visible instead of asserted.
+- **A marker inside a branch that never runs produces no photograph.** The
+  build cannot see this — the component says so after the run, and only then.
+- **It cannot draw recursion.** Frames are identified by the name you write in
+  the marker, so three nested calls to `fact` draw **one frame** holding the
+  innermost values — depth 1 for a stack of 3. This is the only case where the
+  drawing can teach the opposite of the truth, which is why it is stated here
+  rather than left to be found: the call stack needs a different component
+  (Discussion #49).
+- **Caps**: 40 photographs, 12 objects drawn in total, and 32 elements or
+  fields per box. A `// foto` inside a loop hits the first; a big structure
+  hits the others. In every case the component says so rather than showing a
+  partial trace as if it were complete — including when the program printed so
+  much that the runtime cut the trace off.
+- **`NalandaTrace` is a reserved class name**, like `NalandaLauncher` and
+  `NalandaCheck`. A snippet declaring it is refused before compiling.
 
-   **The compiler** is not downloaded until the reader presses *Ejecutar y
-   dibujar*. Mounting is not free, though: it pulls ~120 kB gzip of Java runtime
-   module and CodeMirror grammar the component never uses (measured; returning it
-   is #122), so do not put many diagrams on one page yet.
+**The compiler** is not downloaded until the reader presses _Ejecutar y
+dibujar_. Mounting is not free, though: it pulls ~120 kB gzip of Java runtime
+module and CodeMirror grammar the component never uses (measured; returning it
+is #122), so do not put many diagrams on one page yet.
 
-   Decisions behind all this: ADR-0028. Worked examples, live:
-   `/catalog/c/MemoryDiagram`.
+Decisions behind all this: ADR-0028. Worked examples, live:
+`/catalog/c/MemoryDiagram`.
 
 5e. **External links**: write them as explicit `https://`. Markdown now parses
 GFM, so a bare URL becomes a link on its own — and a bare `www.host` resolves
@@ -425,12 +425,17 @@ to **`http://`**, a cleartext link the reader can be downgraded on. Tables,
 strikethrough (`~~`), task lists and footnotes also work now.
 
 **An MDX comment — `{/* … */}` — is written on ONE line.** Spread it over two
-and `npm run format` rewrites it to `{/_ … _/}`: prettier parses the file as
+and a Prettier run over the file rewrites it to `{/_ … _/}`: prettier parses it as
 markdown first, does not recognise a multi-line brace expression, and reads the
 asterisks as emphasis. What lands is not a comment, and the build stops on it
 with `SyntaxError: Unterminated regular expression` pointing at acorn rather
 than at your document. Single-line comments survive formatting untouched. Both
 forms hit while writing `01-bienvenida.mdx` (#120).
+
+**Note which Prettier.** `npm run format` runs from `apps/web/` and does NOT
+reach `content/`, so the tree is unformatted by convention and the hazard comes
+from an editor's format-on-save or from aiming `prettier --write` at `content/`
+by hand — which also rewrites hundreds of lines nobody asked to change.
 
 **An email address is written bare**, never in markdown's `<…>` autolink form.
 This is MDX: `<name@host.cl>` opens a JSX tag, and the compiler stops the
@@ -445,7 +450,11 @@ a red build — hit while writing `01-bienvenida.mdx` (#120).
    there, and `<Figure>` when it needs a caption or sits inside a layout.
 
    ```mdx
-   <Figure src="./costo-busqueda.svg" alt="Dos curvas de costo..." caption="El costo de buscar" />
+   <Figure
+     src="./costo-busqueda.svg"
+     alt="Dos curvas de costo..."
+     caption="El costo de buscar"
+   />
    ```
 
    **Never write a path into `src` that is not relative to your document.** The
@@ -455,69 +464,87 @@ a red build — hit while writing `01-bienvenida.mdx` (#120).
    while working in `npm run dev` — the failure the base-path rule exists for.
 
 6a. **`alt` is required, in Spanish, and the component enforces it.** A `<Figure>`
-   without one renders an authoring error instead of an image; so does an empty
-   one. The single exception is a `<Mosaic>` cell — see below.
+without one renders an authoring error instead of an image; so does an empty
+one. The single exception is a `<Mosaic>` cell — see below.
 
 6b. **Beside, not under**: `<Split>` puts two blocks side by side and stacks them
-   on a narrow screen, with `ratio="60/40"` when the picture should not take half
-   the room from the text it illustrates.
+on a narrow screen, with `ratio="60/40"` when the picture should not take half
+the room from the text it illustrates.
 
-   ```mdx
-   <Split ratio="60/40">
+```mdx
+<Split ratio="60/40">
 
-   - La búsqueda lineal compara hasta $$n$$ veces.
-   - La binaria descarta la mitad en cada paso.
+- La búsqueda lineal compara hasta $$n$$ veces.
+- La binaria descarta la mitad en cada paso.
 
-   <Figure src="./costo-busqueda.svg" alt="Dos curvas de costo..." />
+<Figure src="./costo-busqueda.svg" alt="Dos curvas de costo..." />
 
-   </Split>
-   ```
+</Split>
+```
 
-   **`<Split>` is not `<SideBySide>`.** SideBySide is the *code comparator*: it
-   draws a border and a language chip and shrinks type, all measured for a `<pre>`
-   (ADR-0022). A picture inside one renders in something that looks like a
-   listing. Two code fences → `SideBySide`. Anything else → `Split`.
+**`<Split>` is not `<SideBySide>`.** SideBySide is the _code comparator_: it
+draws a border and a language chip and shrinks type, all measured for a `<pre>`
+(ADR-0022). A picture inside one renders in something that looks like a
+listing. Two code fences → `SideBySide`. Anything else → `Split`.
 
 6c. **A wall of pictures**: `<Mosaic columns={2|3|4} description="...">` lays its
-   cells out in a grid. It carries **one** accessible description for the whole
-   group and its cells go silent (`alt=""`), because a screen reader announcing
-   nine brand names in a row tells the listener less than one sentence does. The
-   column count is required — six figures are 3×2 or 2×3 depending on what you
-   meant.
+cells out in a grid. It carries **one** accessible description for the whole
+group and its cells go silent (`alt=""`), because a screen reader announcing
+nine brand names in a row tells the listener less than one sentence does. The
+column count is required — six figures are 3×2 or 2×3 depending on what you
+meant.
 
-   ```mdx
-   <Mosaic columns={3} description="Empresas que usan estructuras de datos a diario">
-     <Figure src="./logos/una.svg" alt="" />
-     ... eight more
-   </Mosaic>
-   ```
+**`plate` for brand marks.** A logo is drawn to sit on white and is often
+monochrome; served through `<img>` it never sees the page's `currentColor`, so
+unplated it paints black and vanishes on the dark theme. `plate` gives the
+cell the white the mark was drawn for, in both themes. Leave it off for
+diagrams drawn for the page — those are transparent and coloured to clear both
+grounds, and a plate would box them in for nothing.
+
+```mdx
+<Mosaic
+  plate
+  columns={3}
+  description="Empresas que usan estructuras de datos a diario"
+>
+  <Figure src="./logos/una.svg" alt="" />
+  ... eight more
+</Mosaic>
+```
+
+Provenance for a mark you did not draw goes beside it — see
+`content/courses/sample-course/logos/README.md` for the worked case.
 
 6d. **Draw it at the size you want it read in the book.** In the book an image
-   keeps the dimensions of the file, bounded by the column; on a slide a mosaic
-   cell fills its column instead, because a 160px diagram projected on a wall is
-   a smudge. Measured both ways at 1024×768 and at 1440 (#119): forcing the fill
-   in the book blew a 160px diagram up to 384 and its lettering came out bigger
-   than the document's own headings.
+keeps the dimensions of the file, bounded by the column; on a slide a mosaic
+cell fills its column instead, because a 160px diagram projected on a wall is
+a smudge. Measured both ways at 1024×768 and at 1440 (#119): forcing the fill
+in the book blew a 160px diagram up to 384 and its lettering came out bigger
+than the document's own headings.
 
 6e. **Weight and format.** Prefer **SVG** for anything drawn — diagrams, curves,
-   logos — and a raster format only for photographs, at no more than ~1600px on
-   the long edge. Every image under `content/` is emitted as its own file rather
-   than inlined, so the page costs one small request per picture instead of
-   carrying it in JavaScript: measured, inlining one 1.2KB SVG added 2.4KB to the
-   entry chunk that *every* page loads, and nine logos would have added twenty.
+logos — and a raster format only for photographs, at no more than ~1600px on
+the long edge. Every image under `content/` is emitted as its own file rather
+than inlined, so the page costs one small request per picture instead of
+carrying it in JavaScript: measured, inlining one 1.2KB SVG added 2.4KB to the
+entry chunk that _every_ page loads, and nine logos would have added twenty.
 
-   Two more things a drawn asset must do, because an `<img>` cannot inherit them:
-   **fix its own colours** (it never sees the page's `currentColor`, so pick
-   values that clear 3:1 on both the light and the dark ground) and **never let
-   colour be the only signal** — the cost curves are one solid line and one
-   dashed for exactly that reason (ADR-0026).
+Two more things a drawn asset must do, because an `<img>` cannot inherit them:
+**fix its own colours** (it never sees the page's `currentColor`, so pick
+values that clear 3:1 on both the light and the dark ground — or, in a
+`<Mosaic plate>` cell, against the white plate, which is the ground the
+container supplies) and **never let colour be the only signal** — the cost curves are one solid line and one
+dashed for exactly that reason (ADR-0026).
 
-6f. **A missing image does not fail the build**, on purpose: writing the slides
-   before drawing the diagrams is a real order of work, and gating the build
-   would take the dev server with it. It renders a visible broken box naming what
-   is missing, and `npm run test` fails until the file exists — so it cannot be
-   published, only drafted. Same shape as a wiki-link (ADR-0002); decided in
-   ADR-0029.
+6f. **An authoring error does not fail the build**, on purpose: writing the
+slides before drawing the diagrams is a real order of work, and gating the
+build would take the dev server with it. A missing image, a `<Figure>` with no
+alt, a `<Split>` given other than two blocks, a `<Mosaic>` with no `columns` —
+each renders a visible box naming what is wrong, and **`npm run test` fails
+until none of them survives** (`app/contentRenders.test.tsx` renders every
+document in the registry). So an authoring error cannot be published, only
+drafted. Same shape as a wiki-link (ADR-0002); decided in
+ADR-0029.
 
 7. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
    link, `[[otro-id|texto visible]]` overrides the label. A target that doesn't
@@ -599,12 +626,12 @@ a red build — hit while writing `01-bienvenida.mdx` (#120).
    the ENTIRE slide rather than overflowing on its own.
 
 10. **Publish**: merging to `main` republishes
-   <https://so77id.github.io/nalanda/> automatically — `content/**` is a deploy
-   trigger (ADR-0015). **Everything under `content/courses/` becomes public**,
-   listed or not: material that must not be seen (exam keys, solutions,
-   unreleased classes) does not belong here — omitting it from the index is not
-   a control (`docs/security-notes.md` §Accepted invariants). Check the document
-   on the live URL after the merge.
+    <https://so77id.github.io/nalanda/> automatically — `content/**` is a deploy
+    trigger (ADR-0015). **Everything under `content/courses/` becomes public**,
+    listed or not: material that must not be seen (exam keys, solutions,
+    unreleased classes) does not belong here — omitting it from the index is not
+    a control (`docs/security-notes.md` §Accepted invariants). Check the document
+    on the live URL after the merge.
 
 ## Checklist
 
@@ -631,6 +658,9 @@ a red build — hit while writing `01-bienvenida.mdx` (#120).
       banner, cases pass against a correct solution and fail against the starter.
       Nothing in the build or the suite can check this for you.
 - [ ] Anything on a slide looked at in presentation mode, not only in the book.
+- [ ] `npm run test` green — `app/contentRenders.test.tsx` renders every document
+      and fails on any authoring error the build cannot see (a missing alt, a
+      `<Split>` with the wrong number of blocks, a `<Mosaic>` missing a prop).
 - [ ] Every picture looked at in **both** views and **both** themes. A drawn asset
       fixes its own colours — an `<img>` cannot inherit the page's — so a diagram
       that reads on the dark ground can be invisible on the light one, past a

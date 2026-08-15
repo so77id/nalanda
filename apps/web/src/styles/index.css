@@ -58,6 +58,17 @@
   --color-flag-soft: var(--nl-flag-soft);
   --color-accent-soft: var(--nl-accent-soft);
   --color-on-keep: var(--nl-on-keep);
+
+  /* The one surface that deliberately does NOT follow the theme. A brand mark is
+     drawn for white and served through `<img>`, so it cannot see any of the
+     tokens above: a monochrome logo paints black and disappears on the dark
+     ground. The plate gives it the background it was drawn for, in both themes.
+
+     A token rather than `bg-white` because the ban on raw colours is right and
+     this is the exception it could not express: `white` here is a decision about
+     content the page does not control, not a colour someone reached for. Used by
+     `<Mosaic plate>` (#120 review). */
+  --color-plate: var(--nl-plate);
 }
 
 /* The theme, in the three states a reader can actually be in.
@@ -91,6 +102,7 @@
   --nl-focus: #0b63c4;
   --nl-keep-soft: #e0eee7;
   --nl-flag-soft: #f8e5df;
+  --nl-plate: #ffffff;
   --nl-accent-soft: #f3e4ee;
   --nl-on-keep: #ffffff;
 }
@@ -112,6 +124,8 @@
     --nl-focus: #38bdf8;
     --nl-keep-soft: #17291f;
     --nl-flag-soft: #33211a;
+    /* Identical in every theme, deliberately — see --color-plate. */
+    --nl-plate: #ffffff;
     --nl-accent-soft: #33202c;
     --nl-on-keep: #0c1118;
   }
@@ -133,6 +147,8 @@
   --nl-focus: #38bdf8;
   --nl-keep-soft: #17291f;
   --nl-flag-soft: #33211a;
+  /* Identical in every theme, deliberately — see --color-plate. */
+  --nl-plate: #ffffff;
   --nl-accent-soft: #33202c;
   --nl-on-keep: #0c1118;
 }
