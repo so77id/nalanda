@@ -1,46 +1,60 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="400" height="200">
-  <!-- The library call on the left, the two things it can actually be on the
-       right. An earlier version set both captions on the same baseline and they
-       collided — the second one ran past the viewBox and was clipped mid-word.
-       They now sit under their own drawing, with the width each needs.
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 200" width="400" height="200" role="img">
+  <!-- Two library calls and what each one is inside. An earlier version drew a
+       SINGLE `std::map` box opening into either structure, captioned "la misma
+       llamada, dos diseños distintos" — which teaches something false: std::map
+       is an ordered container by specification (a balanced tree in every
+       implementation) and is never a hash table. The hash one is
+       std::unordered_map, which is exactly what the prose beside the figure
+       says. The drawing now says it too.
        Colours are fixed rather than inherited (an <img> never sees the page's
        currentColor) and clear 3:1 on both grounds; the two structures are also
        told apart by shape, never by colour alone. -->
-  <rect
-    x="8"
-    y="62"
-    width="108"
-    height="46"
-    rx="6"
-    stroke="#6b7280"
-    stroke-width="2"
-    fill="none"
-  />
-  <text
-    x="62"
-    y="91"
-    text-anchor="middle"
-    fill="#6b7280"
-    font-family="ui-monospace, monospace"
-    font-size="13"
-  >std::map
-  </text>
-  <path d="M124 85 L162 85" stroke="#6b7280" stroke-width="2" fill="none" />
-  <path d="M154 79 L162 85 L154 91 Z" fill="#6b7280" />
+  <g font-family="ui-monospace, monospace" font-size="12" fill="#6b7280">
+    <rect
+      x="6"
+      y="26"
+      width="150"
+      height="34"
+      rx="6"
+      stroke="#6b7280"
+      stroke-width="2"
+      fill="none"
+    />
+    <text x="81" y="48" text-anchor="middle">std::map</text>
+    <rect
+      x="6"
+      y="118"
+      width="150"
+      height="34"
+      rx="6"
+      stroke="#6b7280"
+      stroke-width="2"
+      fill="none"
+    />
+    <text x="81" y="140" text-anchor="middle">std::unordered_map</text>
+  </g>
+  <g stroke="#6b7280" stroke-width="2" fill="none">
+    <path d="M164 43 L196 43" />
+    <path d="M164 135 L196 135" />
+  </g>
+  <g fill="#6b7280">
+    <path d="M188 37 L196 43 L188 49 Z" />
+    <path d="M188 129 L196 135 L188 141 Z" />
+  </g>
 
   <g stroke="#3b82f6" stroke-width="2" fill="none">
-    <path d="M232 40 L200 74 M232 40 L264 74 M200 74 L182 108 M200 74 L218 108" />
+    <path d="M252 18 L224 44 M252 18 L280 44 M224 44 L210 70 M224 44 L238 70" />
   </g>
   <g fill="#3b82f6">
-    <circle cx="232" cy="40" r="7" />
-    <circle cx="200" cy="74" r="7" />
-    <circle cx="264" cy="74" r="7" />
-    <circle cx="182" cy="108" r="7" />
-    <circle cx="218" cy="108" r="7" />
+    <circle cx="252" cy="18" r="6" />
+    <circle cx="224" cy="44" r="6" />
+    <circle cx="280" cy="44" r="6" />
+    <circle cx="210" cy="70" r="6" />
+    <circle cx="238" cy="70" r="6" />
   </g>
   <text
-    x="212"
-    y="140"
+    x="246"
+    y="92"
     text-anchor="middle"
     fill="#3b82f6"
     font-family="system-ui, sans-serif"
@@ -49,32 +63,18 @@
   </text>
 
   <g stroke="#ef4444" stroke-width="2" fill="none">
-    <rect x="322" y="40" width="52" height="18" />
-    <rect x="322" y="58" width="52" height="18" />
-    <rect x="322" y="76" width="52" height="18" />
-    <rect x="322" y="94" width="52" height="18" />
+    <rect x="216" y="110" width="60" height="15" />
+    <rect x="216" y="125" width="60" height="15" />
+    <rect x="216" y="140" width="60" height="15" />
+    <rect x="216" y="155" width="60" height="15" />
   </g>
-  <!-- Anchored to the right edge rather than centred under the table: centring
-       put the end of this caption 3px past the viewBox and the browser clipped
-       the last letter. An end anchor cannot overflow on that side whatever the
-       text measures. -->
   <text
-    x="396"
-    y="140"
-    text-anchor="end"
+    x="246"
+    y="186"
+    text-anchor="middle"
     fill="#ef4444"
     font-family="system-ui, sans-serif"
     font-size="12"
-  >o una tabla de hash
-  </text>
-
-  <text
-    x="200"
-    y="182"
-    text-anchor="middle"
-    fill="#6b7280"
-    font-family="system-ui, sans-serif"
-    font-size="12"
-  >la misma llamada, dos diseños distintos
+  >una tabla de hash
   </text>
 </svg>

@@ -21,7 +21,14 @@ export interface AuthoringErrorProps {
  */
 export function AuthoringError({ component, children }: AuthoringErrorProps) {
   return (
-    <div className="not-prose my-6 rounded-lg border border-flag bg-flag-soft px-3 py-2 font-mono text-xs text-flag">
+    // `data-authoring-error` is the handle the suite grabs (#120 review): a
+    // content regression that paints one of these on a published page used to be
+    // invisible to every gate, and matching Tailwind classes would tie that
+    // check to the styling rather than to the contract.
+    <div
+      data-authoring-error={component}
+      className="not-prose my-6 rounded-lg border border-flag bg-flag-soft px-3 py-2 font-mono text-xs text-flag"
+    >
       &lt;{component}&gt; {children}
     </div>
   );

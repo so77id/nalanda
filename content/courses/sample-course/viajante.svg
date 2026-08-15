@@ -1,23 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260" width="400" height="260">
-  <!-- Fifteen cities and one closed tour through them. Colours are fixed rather
-       than inherited (an <img> never sees the page's currentColor) and clear 3:1
-       on both grounds; the tour is also the only closed path in the drawing, so
-       it reads without depending on colour. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 260" width="400" height="260" role="img">
+  <!-- Fourteen cities and one closed tour that visits ALL of them, plus a dashed
+       alternative over the same city set. An earlier version drew a closed path
+       through only twelve, leaving two on a dashed spur — on the slide that
+       defines the problem as visiting every city and coming back, so the picture
+       contradicted the text beside it.
+       Colours are fixed rather than inherited (an <img> never sees the page's
+       currentColor) and clear 3:1 on both grounds; the tour is the only closed
+       path in the drawing, so it reads without depending on colour. -->
   <path
-    d="M52 66 L104 30 L178 44 L246 26 L322 52 L358 112 L330 176 L262 214 L196 232
-       L124 214 L64 182 L38 128 Z"
+    d="M52 66 L104 30 L178 44 L246 26 L322 52 L358 112 L330 176 L262 214 L214 122
+       L150 150 L196 232 L124 214 L64 182 L38 128 Z"
     stroke="#3b82f6"
     stroke-width="2.5"
     fill="none"
     stroke-linejoin="round"
   />
   <path
-    d="M124 214 L150 150 L214 122 L196 232"
+    d="M262 214 L196 232 L150 150 L214 122 L330 176"
     stroke="#3b82f6"
-    stroke-width="2.5"
+    stroke-width="2"
     fill="none"
     stroke-linejoin="round"
-    stroke-dasharray="6 4"
+    stroke-dasharray="6 5"
+    opacity="0.75"
   />
   <g fill="#ef4444">
     <circle cx="52" cy="66" r="6" />
