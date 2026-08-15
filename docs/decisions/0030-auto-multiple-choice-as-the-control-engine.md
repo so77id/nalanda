@@ -234,6 +234,22 @@ sheets badly on purpose, scan, `make read-paper`, compare. Fifteen minutes. Its
 §5 asks five questions; record their verdict here, and the darkness number from
 question 4, which is what calibrates the thresholds ADR-0031 owns.
 
+**When it must happen: before WP-E starts** (decided 2026-08-15). Nothing
+before that depends on it — WP-B is content and frontend and never touches AMC,
+WP-C is Go, auth and SQLite — so the check is not a merge gate for #138. WP-E is
+where it becomes one, and for the reason the spike existed at all: WP-E and WP-F
+would otherwise be specified against an engine that cannot read paper, and
+discovering that afterwards throws both away. The calibration matters as much as
+the verdict — WP-F's review queue is built on the thresholds ADR-0031 owns, and
+their current values (0.30 / 0.10) were set against synthetic fills measuring
+0.63 and 0.159. Nobody yet knows where a student's pencil lands.
+
+**A reduced version buys most of it.** `make paper PAPER_COPIES=2`, one sheet
+marked cleanly and one with a faint pencil, answers the two questions that
+decide the engine — does the printed geometry survive, and does a real pencil
+clear the threshold. The other four sheets exercise the review queue, which can
+wait for WP-F.
+
 **Review trigger.** If the real cycle fails — corner marks not found, codes
 misread, thresholds unusable — reopen this decision and record which criterion
 broke. The fallback is unchanged (our own PDF generation plus OMRChecker) and

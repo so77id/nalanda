@@ -115,7 +115,7 @@ touched.
 | B | [#139](https://github.com/so77id/nalanda/issues/139) | **Question bank in content** — authoring format, anchor resolution and its gate, the rendering component, catalog entry, published JSON | — |
 | C | not refined | **`apps/server` is born** — Go + SQLite + goose, auth domain ported, Google OAuth, seed, professor CRUD, plus the process obligations below. Likely two WPs | — |
 | D | not refined | **Course and roster** — tables and CSV import. Canvas import noted, not assumed | C |
-| E | not refined | **Create a control, generate the PDF** | A, B, C |
+| E | not refined | **Create a control, generate the PDF** | A, B, C, **+ the paper check** |
 | F | not refined | **Read scans, manual review queue** | E |
 | G | not refined | **Publish grades** — spreadsheet, email, Canvas | F |
 
@@ -127,6 +127,11 @@ conversation (see *What WP-C brings with it*).
 The first real control needs **A, B and E**, grading by hand that first time —
 which is worth doing anyway, to see the printed sheet before automating its
 reading.
+
+**WP-E does not start before the paper check runs** (decided 2026-08-15,
+ADR-0030 §Not yet proven). Nothing earlier depends on it, so it is not a gate on
+#138 — but E and F would otherwise be specified against an engine nobody has
+shown can read a pencil, which is the failure the spike existed to prevent.
 
 **B is scheduled early despite not being the first dependency.** Its real work
 is the professor writing questions, which is the long pole and cannot be
