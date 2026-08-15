@@ -117,6 +117,13 @@ container_arch="$(normalise_arch "$(amc_run uname -m | tr -d '\r\n')")"
 check_eq "runs native on the host architecture, not emulated" "$host_arch" "$container_arch"
 note "architecture" "host ${host_arch} / container ${container_arch} (native)"
 
+# The Dockerfile purges texlive-fonts-extra, which AMC declares as a hard
+# dependency and never uses. Pinned so a future edit that drops the purge — or
+# an AMC upgrade that starts needing those fonts — is caught here rather than
+# by someone wondering why the image doubled.
+check "texlive-fonts-extra is purged (1.38 GB AMC declares but never uses)" \
+  test "$(amc_run sh -c 'dpkg -l texlive-fonts-extra 2>/dev/null | grep -c "^ii" || true' | tr -d '\r\n')" = "0"
+
 size_bytes="$(docker image inspect "$IMAGE" --format '{{.Size}}')"
 note "image size" "$(awk -v b="$size_bytes" 'BEGIN { printf "%.2f GB (%d bytes)", b/1024/1024/1024, b }')"
 

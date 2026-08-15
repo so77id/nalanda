@@ -30,13 +30,27 @@ RUN apt-get update \
         poppler-utils \
         ghostscript \
         ca-certificates \
+    # texlive-fonts-extra is 1.38 GB — 56% of the image before this line — and
+    # `auto-multiple-choice-common` declares it as a hard Depends, so apt cannot
+    # be talked out of it. Nothing we compile uses it: the full verification
+    # suite (109 checks across generation, reading, association and annotation,
+    # i.e. every AMC tool this worker drives) passes with it gone. Measured in
+    # #138, after S5 rather than before, so that the annotated PDF — the last
+    # code path to touch fonts — had already been exercised.
+    #
+    # The purge must share this RUN: a later layer that deletes files does not
+    # shrink the image, it only hides them.
+    #
+    # --force-depends leaves the package database knowingly inconsistent. That
+    # is fine for an immutable image and is NOT fine if anything ever runs
+    # apt-get install inside it — which nothing does, and nothing should.
+    && dpkg --purge --force-depends texlive-fonts-extra \
     && rm -rf /var/lib/apt/lists/*
 
 # /work is the volume the caller shares with us: projects in, PDFs and reports
 # out. Nothing large crosses the HTTP boundary — requests name paths under here.
 WORKDIR /work
 
-# No ENTRYPOINT on purpose: for the spike the image is driven by `docker run`
-# with an explicit command, and the HTTP wrapper (S6) becomes the entry point
-# when it exists. An entry point now would only be something to override.
+# No ENTRYPOINT on purpose: the image is driven by `docker run` with an explicit
+# command, and the HTTP wrapper becomes the entry point when it exists.
 CMD ["auto-multiple-choice", "version"]
