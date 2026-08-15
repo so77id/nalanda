@@ -32,7 +32,10 @@ rm -rf "$work"
 mkdir -p "$work/src" "$work/out" "$work/scan" "$work/project/data" "$work/project/cr" "$work/project/scans"
 cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$work/src/"
 cp "${WORKER_DIR}/tests/fixtures/marking-plan.json" "$work/"
-cp "${WORKER_DIR}"/*.py "${WORKER_DIR}"/tests/tools/*.py "$work/"
+# Only the test tool goes on the volume. read_capture.py is production
+# code and is invoked from where the Dockerfile installed it, so `make
+# test` verifies the image rather than the working tree (#138 review, F-10).
+cp "${WORKER_DIR}"/tests/tools/*.py "$work/"
 
 run() { docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" "$@"; }
 
@@ -57,7 +60,7 @@ pipeline() {
 check "the whole pipeline runs headless" pipeline
 
 report="${work}/report.json"
-if ! run python3 /work/read_capture.py --data /work/project/data >"$report" 2>/dev/null; then
+if ! run python3 /opt/amc-worker/read_capture.py --data /work/project/data >"$report" 2>/dev/null; then
   fail "capture is readable as a report" "read_capture.py failed"
   summary
 fi
@@ -69,9 +72,10 @@ jq() { python3 -c "import json,sys; d=json.load(open('$report')); print($1)" 2>/
 check_eq "every page of the batch was captured" "10" "$(jq 'd["pages"]["captured"]')"
 check_eq "no page failed to be read" "0" "$(jq 'd["pages"]["failed"]')"
 
-# The batch was assembled scrambled, so capturing all ten is itself the proof
-# that AMC identifies a page from its printed marker rather than its position.
-pass "pages were identified out of order (batch assembled scrambled)"
+# The batch was assembled scrambled (fill-sheet.py --scramble), so capturing all
+# ten IS the proof that AMC identifies a page from its printed marker rather than
+# its position — no separate assertion is needed, and the bare `pass` that used
+# to sit here was a check no defect could turn red (#138 review).
 
 # --- AC-3: the RUT grid reads back --------------------------------------------
 
@@ -125,5 +129,74 @@ check_eq "exactly the three damaged copies need review" "['3', '4', '5']" \
   "$(jq 'sorted(d["needs_review"])')"
 
 note "report" "$(jq '"%d copies, %d need review" % (len(d["copies"]), len(d["needs_review"]))')"
+
+# --- the two failures a solid synthetic fill can never produce ----------------
+
+# Both shipped green past the first version of this script and were found in
+# review (#138, F-2 and F-3). They get their own batch because reaching them
+# needs marks the main plan cannot make: a pencil faint enough to land between
+# the thresholds, and a sheet that never reached the scanner at all.
+
+dwork="${WORKER_DIR}/tests/work/s3damaged"
+rm -rf "$dwork"
+mkdir -p "$dwork/src" "$dwork/out" "$dwork/scan" "$dwork/project/data" "$dwork/project/cr" "$dwork/project/scans"
+cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$dwork/src/"
+cp "${WORKER_DIR}/tests/fixtures/marking-plan-damaged.json" "$dwork/plan.json"
+cp "${WORKER_DIR}"/tests/tools/*.py "$dwork/"
+
+drun() { docker run --rm --env DISPLAY= -v "${dwork}:/work" -w /work "$IMAGE" "$@"; }
+
+damaged_pipeline() {
+  drun bash -c '
+    set -e
+    D=/work/project/data
+    auto-multiple-choice prepare --mode s --n-copies 2 --with pdflatex --data $D \
+      --prefix /work/project --out-sujet /work/out/sujet.pdf \
+      --out-calage /work/out/calage.xy /work/src/control-demo.tex >/dev/null 2>&1
+    auto-multiple-choice meptex --data $D --src /work/out/calage.xy >/dev/null 2>&1
+    # Copy 2 page 2 is rendered and filled, then left OUT of the batch: a double
+    # feed, or a sheet that stuck to its neighbour.
+    python3 /work/fill-sheet.py --layout $D/layout.sqlite --sujet /work/out/sujet.pdf \
+      --out /work/scan --plan /work/plan.json --pdf /work/scan/lote.pdf --omit 2:2 >/dev/null 2>&1
+    auto-multiple-choice getimages --list /work/project/scans/list.txt \
+      --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1
+    auto-multiple-choice analyse --data $D --projet /work/project \
+      --cr /work/project/cr --multiple --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
+  '
+}
+
+check "a batch with a faint mark and a missing page can be read" damaged_pipeline
+
+drep="${dwork}/report.json"
+drun python3 /opt/amc-worker/read_capture.py --data /work/project/data >"$drep" 2>/dev/null || true
+djq() { python3 -c "import json,sys; d=json.load(open('$drep')); print($1)" 2>/dev/null || echo ""; }
+
+# F-2: a faint mark must NOT be reported as a confident answer. The earlier code
+# appended to the same list in both branches of its if/elif, so a box at 0.15
+# read as `marked: [2], status: "ok"` while AMC's own scoring (`--seuil 0.30`)
+# treated it as blank — the report and the grade disagreed, in silence.
+check_eq "a faint mark is reported as doubtful, not as an answer" "['doubtful']" \
+  "$(djq '[a["status"] for a in d["copies"]["1"]["answers"] if a["doubtful"]]')"
+check_eq "and it is NOT counted as marked" "[]" \
+  "$(djq '[a["marked"] for a in d["copies"]["1"]["answers"] if a["doubtful"]][0]')"
+note "faint mark darkness" \
+  "$(djq '[a["doubtful"][0]["darkness"] for a in d["copies"]["1"]["answers"] if a["doubtful"]][0]') (ticked 0.30, unsure 0.10)"
+check_eq "the copy carrying it needs review" "needs_review" "$(djq 'd["copies"]["1"]["status"]')"
+
+# F-3: a copy whose page never reached the scanner is INCOMPLETE — a third
+# failure kind, and the only one not repairable at a keyboard.
+check_eq "a copy with a missing page is reported incomplete" "incomplete" \
+  "$(djq 'd["copies"]["2"]["status"]')"
+check_eq "and it says which questions it never saw" "True" \
+  "$(djq 'len(d["copies"]["2"]["missing_questions"]) > 0')"
+note "copy 2" \
+  "$(djq '"%d of %d questions seen, missing %s" % (d["copies"]["2"]["seen_questions"], d["copies"]["2"]["expected_questions"], d["copies"]["2"]["missing_questions"])')"
+
+# The batch-wide counter cannot see this: the page was never fed, so nothing
+# failed to be read. That is precisely why the per-copy check had to exist.
+check_eq "while the batch-wide failure counter still reports zero" "0" \
+  "$(djq 'd["pages"]["failed"]')"
+check_contains "and the incomplete copy is queued for review" "'2'" \
+  "$(djq 'sorted(d["needs_review"])')"
 
 summary

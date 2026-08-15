@@ -32,14 +32,19 @@ lands near 0.63 and an empty box at 0.0, so any threshold in between works here
 a pencil mark on paper is nowhere near as clean, and the gap between the two
 thresholds below is where a real sheet lands when a student half-erases.
 
-Two failure kinds are reported SEPARATELY and never merged, because they need
+THREE failure kinds are reported SEPARATELY and never merged, because they need
 different repairs (docs/design/2026-08-controles.md §lectura.estado):
 
-    who is this   — the RUT is incomplete or a column holds two digits
-    what did they mark — a question has no box ticked, or more than one
+    who is this        — the RUT is incomplete, or a column holds two digits
+    what did they mark — a question has no box ticked, more than one, or one
+                         faint enough to doubt
+    what is missing    — the copy printed questions this batch never captured,
+                         which is a page that never reached the scanner
 
 A copy can have the first without the second. When it does, typing the RUT is
-the whole repair and the answers are already final.
+the whole repair and the answers are already final. The third is not repairable
+at a keyboard at all: the sheet has to be found and re-scanned, which is why it
+gets its own status rather than being folded into "needs review".
 """
 
 import argparse
@@ -60,13 +65,24 @@ def read(data_dir, ticked, unsure):
         for r in lay.execute("SELECT student, question, answer, char FROM layout_box")
     }
 
+    # What the layout says each copy PRINTED. Without this, a copy whose page
+    # never reached the scanner is indistinguishable from one that was read in
+    # full: its missing questions simply do not appear in capture_zone, and
+    # every question that *is* present looks fine. A double feed on a duplex
+    # batch is the most likely failure with real paper, and it would otherwise
+    # give a student zero on half the sheet and tell nobody (#138 review, F-3).
+    expected = {}
+    for student, q in lay.execute("SELECT DISTINCT student, question FROM layout_box"):
+        if not names.get(q, "").startswith("rut["):
+            expected.setdefault(student, set()).add(q)
+
     copies = {}
     for student, q, a, black, total in cap.execute(
         "SELECT student, id_a, id_b, black, total FROM capture_zone WHERE type = ?",
         (BOX_ZONE,),
     ):
         ratio = (black / total) if total > 0 else 0.0
-        c = copies.setdefault(student, {"rut": {}, "q": {}})
+        c = copies.setdefault(student, {"rut": {}, "q": {}, "doubt": {}})
         name = names.get(q, "")
         if name.startswith("rut["):
             # rut[8] is the most significant digit and prints leftmost.
@@ -76,13 +92,17 @@ def read(data_dir, ticked, unsure):
                 c["rut"][col].append((chars[(student, q, a)], ratio))
         else:
             c["q"].setdefault(q, [])
+            c["doubt"].setdefault(q, [])
             if ratio >= ticked:
                 c["q"][q].append((a, ratio))
             elif ratio >= unsure:
-                # Dark enough to worry about, not dark enough to count. This is
-                # the half-erased answer, and it is why "no box ticked" is not
-                # automatically "left blank".
-                c["q"][q].append((a, ratio))
+                # Dark enough to worry about, NOT dark enough to count — and the
+                # difference has to survive into the output. An earlier version
+                # appended to the same list in both branches, so a box at 0.15
+                # was reported as a confident answer while AMC's own scoring
+                # (`note --seuil 0.30`) treated it as blank: the report and the
+                # grade disagreed, silently (#138 review, F-2).
+                c["doubt"][q].append((a, round(ratio, 3)))
 
     out = {}
     for student in sorted(copies):
@@ -101,20 +121,46 @@ def read(data_dir, ticked, unsure):
         answers = []
         for q in sorted(c["q"]):
             marked = [a for a, _ in sorted(c["q"][q])]
+            doubtful = [
+                {"answer": a, "darkness": d} for a, d in sorted(c["doubt"].get(q, []))
+            ]
+            if len(marked) > 1:
+                status = "ambiguous"
+            elif len(marked) == 1:
+                # A confident mark with a faint one beside it is still a human
+                # decision: the student may have erased the wrong one.
+                status = "ok" if not doubtful else "doubtful"
+            else:
+                status = "doubtful" if doubtful else "blank"
             answers.append({
                 "question": q,
                 "name": names.get(q, ""),
                 "marked": marked,
-                "status": "ok" if len(marked) == 1 else ("blank" if not marked else "ambiguous"),
+                "doubtful": doubtful,
+                "status": status,
             })
 
+        seen = set(c["q"])
+        missing = sorted(expected.get(student, set()) - seen)
         answers_ok = all(a["status"] == "ok" for a in answers)
+        complete = not missing
+
+        if not complete:
+            status = "incomplete"
+        elif rut_ok and answers_ok:
+            status = "ok"
+        else:
+            status = "needs_review"
+
         out[str(student)] = {
             "rut": "".join(digits),
             "rut_status": "ok" if rut_ok else "unreadable",
             "rut_columns": columns,
             "answers": answers,
-            "status": "ok" if (rut_ok and answers_ok) else "needs_review",
+            "expected_questions": len(expected.get(student, set())),
+            "seen_questions": len(seen),
+            "missing_questions": [names.get(q, str(q)) for q in missing],
+            "status": status,
         }
 
     captured = cap.execute("SELECT COUNT(*) FROM capture_page").fetchone()[0]

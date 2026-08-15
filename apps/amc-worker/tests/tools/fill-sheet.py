@@ -28,9 +28,12 @@ Marking plan (JSON on stdin or --plan):
              which sits leftmost). A digit fills that box; "?" leaves the column
              blank; "!" fills two boxes in the column.
     answers  one entry per real question, in question order.
-             1..N  fill that alternative
-             0     leave blank
-             "both" fill two alternatives (an ambiguous mark)
+             1..N       fill that alternative
+             0          leave blank
+             "both"     fill two alternatives (an ambiguous mark)
+             "faint:N"  a light pencil on alternative N — lands between
+                        read_capture's `unsure` and `ticked` thresholds, the one
+                        region a solid fill can never reach
 """
 
 import argparse
@@ -44,6 +47,12 @@ import sys
 # corner is easier to detect than anything a student draws. Inset the fill so the
 # synthetic mark is a plausible one rather than the easiest possible case.
 INSET = 0.18
+
+# A faint mark: a band across the middle of the box rather than a filled square,
+# landing around 0.15 darkness — between read_capture's `unsure` (0.10) and
+# `ticked` (0.30). This is the half-erased answer, and it exists so a test can
+# reach the band at all; a solid fill measures ~0.63 and can never produce it.
+FAINT_BAND = 0.15
 
 
 def load_layout(db_path):
@@ -79,7 +88,7 @@ def load_layout(db_path):
 
 
 def boxes_for(sheet, spec):
-    """Return the list of boxes this plan says to fill for one copy."""
+    """Return [(page, xmin, xmax, ymin, ymax, faint)] for one copy's plan."""
     out = []
 
     rut = spec.get("rut", "")
@@ -92,11 +101,11 @@ def boxes_for(sheet, spec):
         if ch == "!":
             # Two digits in one column: the student corrected themselves and did
             # not erase. AMC has to report this rather than pick one.
-            out += [column[d] for d in ("0", "1") if d in column]
+            out += [column[d] + (False,) for d in ("0", "1") if d in column]
             continue
         if ch not in column:
             raise SystemExit(f"no box for digit {ch!r} in column {col}")
-        out.append(column[ch])
+        out.append(column[ch] + (False,))
 
     answers = spec.get("answers", [])
     for qi, choice in enumerate(answers):
@@ -104,11 +113,21 @@ def boxes_for(sheet, spec):
             break
         qboxes = sheet["questions"][sheet["order"][qi]]
         if choice == "both":
-            out += qboxes[:2]
+            out += [b + (False,) for b in qboxes[:2]]
+        elif isinstance(choice, str) and choice.startswith("faint:"):
+            # "faint:2" — a light pencil on alternative 2. Lands between
+            # read_capture's unsure and ticked thresholds, which is the one
+            # region a solid fill can never reach.
+            n = int(choice.split(":", 1)[1])
+            out.append(qboxes[n - 1] + (True,))
         elif isinstance(choice, int) and choice > 0:
             if choice > len(qboxes):
                 raise SystemExit(f"question {qi + 1} has no alternative {choice}")
-            out.append(qboxes[choice - 1])
+            out.append(qboxes[choice - 1] + (False,))
+        elif choice != 0:
+            # A typo in a plan used to be skipped in silence, surfacing three
+            # steps later as a confusing assertion failure.
+            raise SystemExit(f"question {qi + 1}: unrecognised choice {choice!r}")
     return out
 
 
@@ -135,10 +154,18 @@ def fill_ppm(path, boxes):
     width, height, _maxval = fields
     start = i + 1  # single whitespace byte after maxval
 
-    for _page, xmin, xmax, ymin, ymax in boxes:
-        dx, dy = (xmax - xmin) * INSET, (ymax - ymin) * INSET
-        x0, x1 = int(xmin + dx), int(xmax - dx)
-        y0, y1 = int(ymin + dy), int(ymax - dy)
+    for _page, xmin, xmax, ymin, ymax, faint in boxes:
+        if faint:
+            # A band across the middle, not a filled square: ~15% of the box.
+            dx = (xmax - xmin) * INSET
+            band = (ymax - ymin) * FAINT_BAND / 2
+            mid = (ymin + ymax) / 2
+            x0, x1 = int(xmin + dx), int(xmax - dx)
+            y0, y1 = int(mid - band), int(mid + band)
+        else:
+            dx, dy = (xmax - xmin) * INSET, (ymax - ymin) * INSET
+            x0, x1 = int(xmin + dx), int(xmax - dx)
+            y0, y1 = int(ymin + dy), int(ymax - dy)
         x0, x1 = max(0, x0), min(width, x1)
         y0, y1 = max(0, y0), min(height, y1)
         for y in range(y0, y1):
@@ -158,11 +185,17 @@ def main():
     ap.add_argument("--pdf", help="also assemble the pages into this single PDF")
     ap.add_argument("--scramble", action="store_true",
                     help="assemble the PDF with its pages deliberately out of order")
+    ap.add_argument("--omit", default="",
+                    help="comma-separated copy:page to leave OUT of the assembled "
+                         "PDF, e.g. '2:2' — a sheet that never reached the scanner")
     args = ap.parse_args()
 
     plan = json.load(open(args.plan) if args.plan else sys.stdin)
     pages, sheets = load_layout(args.layout)
     os.makedirs(args.out, exist_ok=True)
+
+    omitted = {tuple(int(n) for n in pair.split(":"))
+               for pair in args.omit.split(",") if pair.strip()}
 
     written = []
     for student_str, spec in sorted(plan.items(), key=lambda kv: int(kv[0])):
@@ -185,6 +218,13 @@ def main():
                 check=True,
             )
             fill_ppm(out, by_page.get(page, []))
+            if (student, page) in omitted:
+                # Rendered and filled, then left out of the batch: a double feed,
+                # or a sheet that stuck to its neighbour. The copy exists and half
+                # of it was never seen.
+                print(f"omitting copy {student} page {page} from the batch",
+                      file=sys.stderr)
+                continue
             written.append(out)
 
     print(f"filled {len(written)} pages", file=sys.stderr)
@@ -209,7 +249,15 @@ def main():
         for src, dst in zip(written, ps):
             with open(dst, "wb") as fh:
                 subprocess.run(
-                    ["pnmtops", "-equalpixels", "-dpi", "300", "-noturn", src],
+                    # -psfilter -flate because netpbm otherwise emits ASCII-hex
+                    # PostScript: 52 MB per page against 192 KB. pnmtops itself is
+                    # not slow — the cost is writing those megabytes onto the bind
+                    # mount, which is what this suite does 80 times (#138 review,
+                    # F-12; the reading is byte-identical either way, verified by
+                    # diffing capture_zone: 1470 zones, max darkness delta 0.0).
+                    # netpbm rejects -flate without -psfilter.
+                    ["pnmtops", "-equalpixels", "-dpi", "300", "-noturn",
+                     "-psfilter", "-flate", src],
                     stdout=fh, check=True, stderr=subprocess.DEVNULL,
                 )
         subprocess.run(

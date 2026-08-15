@@ -34,12 +34,17 @@ cleanup
 docker run -d --name "$NAME" --env DISPLAY= -p "127.0.0.1:${PORT}:8080" \
   -v "${work}:/work" "$IMAGE" >/dev/null
 
-# The server binds immediately; the container start is what takes a moment. Ask
-# until it answers rather than sleeping a guessed interval.
+# Bound the wait by WALL CLOCK, not by attempt count. An earlier version looped
+# 40 times with no delay, which measured 0.36 s in total against a closed port —
+# it had not avoided guessing an interval, it had guessed a third of a second
+# (#138 review, F-11). CI runs this on a cold runner right after building a 1 GB
+# image, which is the worst case for that.
+deadline=$(($(date +%s) + 30))
 ready=""
-for _ in $(seq 1 40); do
-  if ready="$(curl -sf "http://127.0.0.1:${PORT}/health" 2>/dev/null)"; then break; fi
+while [ "$(date +%s)" -lt "$deadline" ]; do
+  if ready="$(curl -sf --max-time 2 "http://127.0.0.1:${PORT}/health" 2>/dev/null)"; then break; fi
   ready=""
+  sleep 0.25
 done
 
 if [ -z "$ready" ]; then
@@ -134,11 +139,58 @@ check_eq "a missing field is a 400" "400" "$(post_status /generate '{"project":"
 check_eq "a path escaping the volume is refused" "400" \
   "$(post_status /generate '{"project":"../../etc","source":"src/control-demo.tex","copies":1}')"
 
+# A malformed request can never succeed on retry, so it must not answer 500 —
+# that tells a machine caller "my fault, try again" about a request that will
+# fail identically forever (#138 review, F-7).
+check_eq "a non-JSON body is a 400" "400" "$(post_status /generate 'not-json-at-all')"
+check_eq "a non-numeric field is a 400" "400" \
+  "$(post_status /associate/set '{"project":"project","copy":"cuatro","id":"20123456"}')"
+check_eq "a negative Content-Length is refused rather than read to EOF" "400" \
+  "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Length: -1' \
+    "http://127.0.0.1:${PORT}/generate" 2>/dev/null || echo 000)"
+
+# --- one client must not be able to wedge the worker --------------------------
+
+# A bare TCP connect that sends NOTHING used to make every other client hang
+# until the squatter disconnected: the server was serial, HTTP/1.1 keep-alive
+# was on, and the handler had no timeout (#138 review, F-1, reproduced three
+# times independently). The fix is ThreadingHTTPServer plus Handler.timeout; the
+# check is that a second client still gets an answer while a socket sits idle.
+python3 - "$PORT" <<'PY' >"${work}/wedge.txt" 2>&1 || true
+import socket, subprocess, sys
+port = int(sys.argv[1])
+squatter = socket.create_connection(("127.0.0.1", port))
+try:
+    out = subprocess.run(
+        ["curl", "-sf", "--max-time", "8", f"http://127.0.0.1:{port}/health"],
+        capture_output=True, text=True,
+    )
+    print("ANSWERED" if out.returncode == 0 else f"BLOCKED rc={out.returncode}")
+finally:
+    squatter.close()
+PY
+check_contains "an idle connection does not wedge the worker" "ANSWERED" "$(cat "${work}/wedge.txt")"
+
 # The dispatcher hands any unrecognised subcommand to the GTK GUI, which dies on
-# a missing display. The wrapper picks from a fixed set, so no request can reach
-# one — asserted at the source rather than by trying to smuggle one through.
-check "subcommands are a closed set in the wrapper" \
-  grep -q 'refusing unknown subcommand' "${WORKER_DIR}/worker.py"
+# a missing display. Exercised IN THE IMAGE rather than grepped: the previous
+# version searched the host working tree for the error message, so it passed
+# with the guard commented out, and it read a different copy of the file than
+# the one the container runs (#138 review, F-9). ADR-0030 cites this check as
+# proof the trap is neutralised, so it has to be able to fail for that reason.
+guard="$(docker run --rm --env DISPLAY= "$IMAGE" python3 -c "
+import sys; sys.path.insert(0, '/opt/amc-worker')
+import worker
+try:
+    worker.amc('definitely-not-a-subcommand')
+    print('GUARD MISSING')
+except worker.Failed as exc:
+    print('refused:', exc.message)
+" 2>&1 || true)"
+check_contains "an unknown subcommand is refused inside the image" "refused:" "$guard"
+case "$guard" in
+*"cannot open display"* | *"Gtk"*) fail "and never reaches the GUI" "$guard" ;;
+*) pass "and never reaches the GUI" ;;
+esac
 
 note "container" "$(docker ps --filter "name=${NAME}" --format '{{.Image}} {{.Status}}')"
 

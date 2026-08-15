@@ -28,7 +28,10 @@ mkdir -p "$work/src" "$work/out" "$work/scan" "$work/anotado" \
   "$work/project/data" "$work/project/cr" "$work/project/scans"
 cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$work/src/"
 cp "${WORKER_DIR}/tests/fixtures/curso.csv" "$work/"
-cp "${WORKER_DIR}"/*.py "${WORKER_DIR}"/tests/tools/*.py "$work/"
+# Only the test tool goes on the volume. read_capture.py is production
+# code and is invoked from where the Dockerfile installed it, so `make
+# test` verifies the image rather than the working tree (#138 review, F-10).
+cp "${WORKER_DIR}"/tests/tools/*.py "$work/"
 
 run() { docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" "$@"; }
 

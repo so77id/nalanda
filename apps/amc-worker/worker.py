@@ -6,12 +6,11 @@ crosses the SHARED VOLUME, never the wire: every request names paths under
 /work, and every response names paths under /work. A scan batch is forty pages
 of images and putting that through an HTTP body would buy nothing.
 
-    GET  /health                                      → { ok, amc }
-    POST /generate   { project, source, copies }      → { sujet, calage, corrige }
-    POST /analyse    { project, scan_pdf }            → { report }
-    POST /associate  { project, roster, code, key }   → { associated, unassociated }
-    POST /associate/set { project, copy, id }         → { copy, id }
-    POST /annotate   { project, roster, key, out }    → { pdfs }
+**The route table lives in README.md §How it is driven, not here.** It was
+stated in both places and the copy in this docstring had already drifted from
+the handlers below within the PR that wrote it — omitting a required field and
+naming response keys the code does not return (#138 review, F-13). One home per
+fact (docs/standards/documentation.md).
 
 WHY THIS EXISTS AT ALL, given that AMC already has a CLI: three of its
 behaviours are silent traps, each measured in #138, each of which produces a
@@ -35,16 +34,21 @@ display`. Subcommands are therefore chosen from a fixed set rather than
 interpolated, so a typo is a KeyError here and not a Gtk error in a log.
 """
 
+import argparse
 import json
 import os
 import re
 import shutil
+import sqlite3
 import subprocess
 import sys
-from http.server import BaseHTTPRequestHandler, HTTPServer
+import threading
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+import read_capture
 
 WORK = "/work"
-LISTEN = ("0.0.0.0", int(os.environ.get("AMC_WORKER_PORT", "8080")))
+DEFAULT_PORT = 8080
 
 # Every AMC subcommand this worker is allowed to invoke. Anything not here
 # reaches the GUI and dies on a missing display; see the module docstring.
@@ -53,9 +57,27 @@ SUBCOMMANDS = {
     "note", "association-auto", "association", "annotate",
 }
 
+# A JSON body of paths is a few hundred bytes. Anything approaching this is a
+# mistake or a client that lost track of its own request.
+MAX_BODY = 1 << 20  # 1 MiB
+
+# No AMC call should outlive this. A 40-copy batch reads in under a minute
+# measured (ADR-0030 §Measurements); half an hour means something hung, and
+# without a bound it would hold a worker thread forever.
+AMC_TIMEOUT = 1800
+
 # A capture is only trustworthy if we agree with AMC about which boxes are dark.
-# These are the same defaults read-capture.py uses.
+# The same two defaults read_capture.py declares — stated here rather than
+# derived from each other, because they are independent tunables and PAPER-CHECK
+# tells the professor to move one of them alone.
 TICKED = 0.30
+UNSURE = 0.10
+
+# AMC keeps its state in sqlite files inside the project directory, and nothing
+# about `prepare`/`analyse`/`note` is re-entrant over one project. Threading the
+# server (so /health answers during a minutes-long /analyse) must not turn into
+# two AMC runs racing the same database.
+AMC_LOCK = threading.Lock()
 
 
 class Failed(Exception):
@@ -90,10 +112,13 @@ def amc(subcommand, *args):
     if subcommand not in SUBCOMMANDS:
         raise Failed(f"refusing unknown subcommand {subcommand!r}")
     argv = ["auto-multiple-choice", subcommand, *[str(a) for a in args]]
-    proc = subprocess.run(
-        argv, capture_output=True, text=True,
-        env={**os.environ, "DISPLAY": ""},
-    )
+    try:
+        proc = subprocess.run(
+            argv, capture_output=True, text=True,
+            env={**os.environ, "DISPLAY": ""}, timeout=AMC_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        raise Failed(f"auto-multiple-choice {subcommand} timed out after {AMC_TIMEOUT}s")
     if proc.returncode != 0:
         raise Failed(
             f"auto-multiple-choice {subcommand} failed ({proc.returncode})",
@@ -170,10 +195,7 @@ def analyse(body):
         "--data", data, "--prefix", project, source)
     amc("note", "--data", data, "--seuil", str(TICKED))
 
-    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    from importlib import import_module
-    reader = import_module("read_capture")
-    return reader.read(data, TICKED, TICKED / 3)
+    return read_capture.read(data, TICKED, UNSURE)
 
 
 def associate(body):
@@ -249,7 +271,6 @@ def annotate(body):
 
 
 def _associations(data):
-    import sqlite3
     db = os.path.join(data, "association.sqlite")
     if not os.path.exists(db):
         return []
@@ -281,6 +302,14 @@ ROUTES = {
 class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
+    # Without this a connection that goes quiet is never closed. Combined with
+    # a serial server that was enough to wedge the worker for good: a bare TCP
+    # connect that sent nothing at all made every other client time out until
+    # the squatter disconnected (#138 review, F-1). BaseHTTPRequestHandler turns
+    # a read timeout into close_connection, so this is the whole fix on the
+    # handler side; ThreadingHTTPServer below is the other half.
+    timeout = 30
+
     def _respond(self, status, payload):
         body = json.dumps(payload, ensure_ascii=False).encode()
         self.send_response(status)
@@ -289,17 +318,57 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _read_body(self):
+        """Return the parsed JSON body, or raise Failed with a 400-worthy reason."""
+        raw = (self.headers.get("Content-Length") or "0").strip()
+        # `int()` accepts "-1", and `rfile.read(-1)` then reads to EOF — a hang
+        # with no recovery. Validate the digits before trusting the number.
+        if not raw.isdigit():
+            raise Failed(f"Content-Length is not a non-negative integer: {raw!r}")
+        length = int(raw)
+        if length > MAX_BODY:
+            raise Failed(f"body too large: {length} bytes (limit {MAX_BODY})")
+        if not length:
+            return {}
+        try:
+            return json.loads(self.rfile.read(length) or b"{}")
+        except (json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise Failed("body is not valid JSON", str(exc))
+
     def _dispatch(self, method):
         handler = ROUTES.get((method, self.path.rstrip("/") or "/"))
         if handler is None:
+            # Drain the declared body before answering, or the next request on
+            # this keep-alive connection starts mid-JSON and comes back as
+            # "Unsupported method ('{\"junk\":1}GET')".
+            self.close_connection = True
             self._respond(404, {"error": f"no route for {method} {self.path}"})
             return
         try:
-            length = int(self.headers.get("Content-Length") or 0)
-            body = json.loads(self.rfile.read(length) or b"{}") if length else {}
-            self._respond(200, handler(body))
+            body = self._read_body()
+        except Failed as exc:
+            self.close_connection = True
+            self._respond(400, {"error": exc.message, "detail": exc.detail})
+            return
+
+        try:
+            # One AMC run at a time: its state is sqlite files in the project
+            # directory and nothing about prepare/analyse/note is re-entrant.
+            # /health stays outside the lock, which is the point of threading
+            # the server at all — it must answer during a minutes-long analyse.
+            if handler is health:
+                self._respond(200, handler(body))
+            else:
+                with AMC_LOCK:
+                    self._respond(200, handler(body))
         except Failed as exc:
             self._respond(400, {"error": exc.message, "detail": exc.detail})
+        except (ValueError, TypeError) as exc:
+            # A malformed field — `{"copies": "muchas"}` — is the caller's
+            # mistake and can never succeed on retry, so it is a 400. Answering
+            # 500 tells a machine caller "mine, try again" about a request that
+            # will fail identically forever.
+            self._respond(400, {"error": "malformed field", "detail": str(exc)})
         except KeyError as exc:
             self._respond(400, {"error": f"missing field: {exc.args[0]}"})
         except Exception as exc:  # noqa: BLE001 — the wire needs a JSON answer
@@ -315,7 +384,26 @@ class Handler(BaseHTTPRequestHandler):
         sys.stderr.write("amc-worker %s\n" % (fmt % args))
 
 
-if __name__ == "__main__":
+def main():
+    ap = argparse.ArgumentParser(description="The amc-worker HTTP contract.")
+    ap.add_argument("--host", default="0.0.0.0",
+                    help="address to bind (default: every interface, since the "
+                         "container is what limits reachability)")
+    ap.add_argument("--port", type=int,
+                    default=int(os.environ.get("AMC_WORKER_PORT", DEFAULT_PORT)),
+                    help=f"port to listen on (default: {DEFAULT_PORT}, "
+                         "or $AMC_WORKER_PORT)")
+    args = ap.parse_args()
+
     if shutil.which("auto-multiple-choice") is None:
         sys.exit("auto-multiple-choice is not on PATH — wrong image?")
-    HTTPServer(LISTEN, Handler).serve_forever()
+
+    # Threaded, so /health is answerable while an /analyse is running. AMC work
+    # is still serialised by AMC_LOCK — see the comment there.
+    server = ThreadingHTTPServer((args.host, args.port), Handler)
+    sys.stderr.write(f"amc-worker listening on {args.host}:{args.port}\n")
+    server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()
