@@ -65,11 +65,23 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 
 | Script | Proves |
 | ------ | ------ |
-| `01-headless.sh` | AMC runs from the CLI with no display; LaTeX resolves `automultiplechoice.sty` |
+| `01-headless.sh` | AMC runs from the CLI with no display; LaTeX resolves `automultiplechoice.sty`; every CLI tool the pipeline needs is present |
+| `02-generate.sh` | N copies from our own `.tex`, questions and alternatives shuffled per copy, an 8-digit RUT grid, a printed identifier per page, a reproducible draw |
+| `03-read.sh` | A scrambled multi-page PDF batch reads back; ambiguous marks and unreadable identifiers are reported separately |
 
 They are shell scripts rather than a test framework because the subject under
 test is a container image and a third-party CLI — the subject is `docker run`,
 and a framework would only wrap it.
+
+`tests/tools/` holds the two scripts that run inside the image:
+`fill-sheet.py` blackens boxes at the coordinates AMC's layout database
+reports, producing a scan batch without paper; `read-capture.py` turns AMC's
+capture into a JSON reading report.
+
+**A synthetic batch proves the plumbing and nothing about paper.** Whether the
+reader tolerates a real pencil, a real scanner and a page that went in slightly
+rotated is the manual cycle in S7 of #138 — and that is the check that decides
+the engine.
 
 Measurements (image size, batch timings) are **reported**, never asserted: a
 test that fails because a number moved teaches nothing about correctness. They
