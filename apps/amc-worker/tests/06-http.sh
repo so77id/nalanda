@@ -25,7 +25,7 @@ rm -rf "$work"
 mkdir -p "$work/src" "$work/scan" "$work/anotado" "$work/project"
 cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$work/src/"
 cp "${WORKER_DIR}/tests/fixtures/marking-plan.json" "${WORKER_DIR}/tests/fixtures/curso.csv" "$work/"
-cp "${WORKER_DIR}/tests/tools/fill-sheet.py" "$work/"
+cp "${WORKER_DIR}/tests/tools/fill_sheet.py" "$work/"
 
 cleanup() { docker rm -f "$NAME" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
@@ -79,7 +79,7 @@ check "the subject PDF is really there" test -s "${work}/project/out/sujet.pdf"
 # against the same volume.
 check "sheets can be filled for the batch" \
   docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" \
-  python3 /work/fill-sheet.py --layout /work/project/data/layout.sqlite \
+  python3 /work/fill_sheet.py --layout /work/project/data/layout.sqlite \
   --sujet /work/project/out/sujet.pdf --out /work/scan \
   --plan /work/marking-plan.json --pdf /work/scan/lote.pdf --scramble
 

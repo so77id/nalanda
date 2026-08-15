@@ -44,7 +44,7 @@ pipeline() {
       --prefix /work/project --out-sujet /work/out/sujet.pdf \
       --out-calage /work/out/calage.xy /work/src/control-demo.tex >/dev/null 2>&1
     auto-multiple-choice meptex --data $D --src /work/out/calage.xy >/dev/null 2>&1
-    python3 /work/fill-sheet.py --layout $D/layout.sqlite --sujet /work/out/sujet.pdf \
+    python3 /work/fill_sheet.py --layout $D/layout.sqlite --sujet /work/out/sujet.pdf \
       --out /work/scan --plan /work/marking-plan.json --pdf /work/scan/lote.pdf >/dev/null 2>&1
     auto-multiple-choice getimages --list /work/project/scans/list.txt \
       --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1

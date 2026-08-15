@@ -7,8 +7,9 @@
 IMAGE ?= nalanda/amc-worker:dev
 PLATFORM ?= linux/arm64
 COPIES ?= 40
+PAPER_COPIES ?= 6
 
-.PHONY: build test verify shell clean size
+.PHONY: build test verify shell clean size serve measure paper read-paper
 
 ## build — build the image
 build:
@@ -49,3 +50,39 @@ serve:
 ##   make does not export its variables to the recipe's shell.
 measure:
 	COPIES=$(COPIES) AMC_IMAGE=$(IMAGE) tests/measure-batch.sh
+
+## paper — produce the printable control for the manual paper check
+##   The one verification no agent can run. See PAPER-CHECK.md.
+##   Does the setup too: an earlier version of that document told the reader to
+##   run `prepare` against a source directory nothing created, and never ran
+##   `meptex` at all — so `analyse` would later read an EMPTY layout and the
+##   whole print-mark-scan cycle would produce nothing (#138 review, F-8).
+paper:
+	mkdir -p tests/work/paper/src tests/work/paper/out \
+		tests/work/paper/scan tests/work/paper/project/data \
+		tests/work/paper/project/cr tests/work/paper/project/scans
+	cp tests/fixtures/control-demo.tex tests/work/paper/src/
+	cp read_capture.py tests/work/paper/
+	docker run --rm --env DISPLAY= -v "$(PWD)/tests/work/paper:/work" -w /work $(IMAGE) \
+		bash -c 'set -e; \
+		  auto-multiple-choice prepare --mode s --n-copies $(PAPER_COPIES) --with pdflatex \
+		    --data /work/project/data --prefix /work/project \
+		    --out-sujet /work/out/control-para-imprimir.pdf \
+		    --out-calage /work/out/calage.xy /work/src/control-demo.tex >/dev/null; \
+		  auto-multiple-choice meptex --data /work/project/data --src /work/out/calage.xy >/dev/null'
+	@echo
+	@echo "Print this DOUBLE-SIDED at 100% scale (not 'fit to page'):"
+	@echo "  apps/amc-worker/tests/work/paper/out/control-para-imprimir.pdf"
+	@echo "Then follow apps/amc-worker/PAPER-CHECK.md from step 2."
+
+## read-paper — read the scanned batch back (step 4 of PAPER-CHECK.md)
+##   Expects the scan at tests/work/paper/scan/lote.pdf
+read-paper:
+	docker run --rm --env DISPLAY= -v "$(PWD)/tests/work/paper:/work" -w /work $(IMAGE) \
+		bash -c 'set -e; \
+		  auto-multiple-choice getimages --list /work/project/scans/list.txt \
+		    --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null; \
+		  auto-multiple-choice analyse --data /work/project/data --projet /work/project \
+		    --cr /work/project/cr --multiple \
+		    --liste-fichiers /work/project/scans/list.txt >/dev/null; \
+		  python3 /opt/amc-worker/read_capture.py --data /work/project/data'

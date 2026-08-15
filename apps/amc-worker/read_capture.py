@@ -8,10 +8,18 @@ Runs INSIDE the worker image. Emits JSON on stdout:
       "copies": {
         "1": {
           "rut": "20123456",
-          "rut_status": "ok",
+          "rut_status": "ok",                      // ok | unreadable
           "rut_columns": [{"column": 0, "digits": ["2"]}, ...],
-          "answers": [{"question": 9, "name": "requisito", "marked": [1], "status": "ok"}, ...],
-          "status": "ok"
+          "answers": [
+            {"question": 9, "name": "requisito",
+             "marked": [1],                        // confident ticks
+             "doubtful": [],                       // [{answer, darkness}]
+             "status": "ok"}                       // ok|blank|ambiguous|doubtful
+          ],
+          "expected_questions": 4,                 // what the layout says printed
+          "seen_questions": 4,                     // what the capture holds
+          "missing_questions": [],
+          "status": "ok"                           // ok|needs_review|incomplete
         }
       },
       "needs_review": ["4", "5"]

@@ -103,6 +103,25 @@ that reddens because a number moved teaches nothing about correctness, and the
 numbers that matter here (does reading 40 sheets take three minutes or forty)
 are decisions for a human, not gates.
 
+**A wrapper that exists to neutralise a third-party trap is tested by
+PERFORMING the trap, not by reading the wrapper.** `04-associate.sh` is the
+worked case: it makes the wrong call (`association --set` without `--copy`) and
+asserts its wrong outcome in three independent channels — it prints nothing, it
+writes a `copy=0` row, the copy stays unassociated — before asserting the right
+call works. That is what makes the guard falsifiable: if a future upstream
+release fixes the trap, or breaks it differently, the test says which. The
+counter-example is in the same WP and was caught in review: the closed-subcommand
+guard was asserted by `grep`ping the wrapper's source for its error message,
+which passes with the guard commented out and reads a different copy of the file
+than the container runs. Same rule as "reading a config proves a name appears in
+it" above, one level up.
+
+**A test runs against the ARTIFACT, not the working tree.** `make test` does not
+rebuild, so a script that mounts a source file from the host and executes that
+is green against a stale image — which is the per-commit protocol's normal
+state. Production code is invoked from where the image installed it; only test
+tools travel on the volume (#138 review).
+
 **What this level cannot see**: everything about a real sheet. The scripts drive
 synthetically-filled PDFs — boxes drawn at the coordinates AMC's own layout file
 reports — which proves the plumbing and nothing about paper. Whether the reader

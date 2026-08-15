@@ -82,6 +82,17 @@ Python here mostly shells out, so this is the sharp end:
   would surface as an unexplainable Gtk error.
 - Pass the environment explicitly where it matters (`DISPLAY: ""` here), rather
   than inheriting and hoping.
+- **Give every call a `timeout`.** A subprocess with no bound holds its caller
+  forever, and in a server that is a thread that never comes back.
+- **A caller-supplied value goes only in the VALUE SLOT of a flag we control** —
+  never as a positional argument, never as a bare element of `argv`. This is
+  what makes argument injection structurally impossible rather than accidentally
+  absent: `Getopt::Long` (and most parsers) consume the argument after a flag
+  whatever it looks like, so a value beginning with `-` becomes a string, not a
+  flag. A POSITIONAL one becomes a flag. Verified in #138's review, where every
+  caller value happened to sit in a value slot and nothing said so — the first
+  endpoint to add a caller-controlled positional would have silently reopened a
+  path to overriding `--data` and bypassing the path guard entirely.
 
 ## Paths from a request
 

@@ -47,7 +47,7 @@ pipeline() {
       --out-sujet /work/out/sujet.pdf --out-calage /work/out/calage.xy \
       /work/src/control-demo.tex >/dev/null 2>&1
     auto-multiple-choice meptex --data /work/project/data --src /work/out/calage.xy >/dev/null 2>&1
-    python3 /work/fill-sheet.py --layout /work/project/data/layout.sqlite \
+    python3 /work/fill_sheet.py --layout /work/project/data/layout.sqlite \
       --sujet /work/out/sujet.pdf --out /work/scan --plan /work/marking-plan.json \
       --pdf /work/scan/lote.pdf --scramble
     auto-multiple-choice getimages --list /work/project/scans/list.txt \
@@ -72,7 +72,7 @@ jq() { python3 -c "import json,sys; d=json.load(open('$report')); print($1)" 2>/
 check_eq "every page of the batch was captured" "10" "$(jq 'd["pages"]["captured"]')"
 check_eq "no page failed to be read" "0" "$(jq 'd["pages"]["failed"]')"
 
-# The batch was assembled scrambled (fill-sheet.py --scramble), so capturing all
+# The batch was assembled scrambled (fill_sheet.py --scramble), so capturing all
 # ten IS the proof that AMC identifies a page from its printed marker rather than
 # its position — no separate assertion is needed, and the bare `pass` that used
 # to sit here was a check no defect could turn red (#138 review).
@@ -156,7 +156,7 @@ damaged_pipeline() {
     auto-multiple-choice meptex --data $D --src /work/out/calage.xy >/dev/null 2>&1
     # Copy 2 page 2 is rendered and filled, then left OUT of the batch: a double
     # feed, or a sheet that stuck to its neighbour.
-    python3 /work/fill-sheet.py --layout $D/layout.sqlite --sujet /work/out/sujet.pdf \
+    python3 /work/fill_sheet.py --layout $D/layout.sqlite --sujet /work/out/sujet.pdf \
       --out /work/scan --plan /work/plan.json --pdf /work/scan/lote.pdf --omit 2:2 >/dev/null 2>&1
     auto-multiple-choice getimages --list /work/project/scans/list.txt \
       --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1

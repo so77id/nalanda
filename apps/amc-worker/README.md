@@ -82,7 +82,7 @@ They are shell scripts rather than a test framework because the subject under
 test is a container image and a third-party CLI — the subject is `docker run`,
 and a framework would only wrap it.
 
-`tests/tools/fill-sheet.py` blackens boxes at the coordinates AMC's layout
+`tests/tools/fill_sheet.py` blackens boxes at the coordinates AMC's layout
 database reports, producing a scan batch without paper. It is deliberately not
 a worker route: production never fills a sheet, it receives one off a scanner.
 
@@ -97,12 +97,14 @@ Measurements (image size, batch timings) are **reported**, never asserted: a
 test that fails because a number moved teaches nothing about correctness. They
 are collected in the ADR that closes #138.
 
-## Three traps in AMC that this worker exists to neutralise
+## Four traps in AMC that this worker exists to neutralise
 
-All three are silent, all three were measured rather than read about, and each
+All four are silent, all four were measured rather than read about, and each
 yields a system that looks like it works while losing a student's grade. The
-wrapper refuses each; `tests/06-http.sh` asks it to do the wrong thing and
-checks that it does.
+wrapper refuses each; `tests/06-http.sh` asks it to do the wrong thing —
+**inside the image** — and checks that it does. (An earlier version asserted the
+fourth by grepping this file for its error message, which would have passed with
+the guard deleted.)
 
 **`association --set` without `--copy` does nothing.** It exits 0, prints
 nothing, and writes a row AMC's own listing ignores. A review queue built on
@@ -119,10 +121,33 @@ already holds a previous run leaves stale files beside the new ones, and
 anything walking the directory sends both. `/annotate` refuses a directory that
 is not empty.
 
-And a fourth, in the dispatcher itself: `auto-multiple-choice <anything>` hands
-an unrecognised subcommand to the GTK GUI, which then dies on `cannot open
-display`. Subcommands are chosen from a fixed set in `worker.py`, so a typo is
-an error there rather than an unexplainable Gtk message in a log.
+**`auto-multiple-choice <anything>` hands an unrecognised subcommand to the GTK
+GUI**, which then dies on `cannot open display`. Subcommands are chosen from a
+fixed set in `worker.py`, so a typo is an error there rather than an
+unexplainable Gtk message in a log.
+
+## What the reader reports, and what it cannot
+
+`/analyse` returns a per-copy report with **three** failure kinds, kept apart
+because they need different repairs:
+
+| Status | Means | Repair |
+| --- | --- | --- |
+| `rut_status: unreadable` | who is this — a blank or doubled RUT column | type eight digits |
+| answer `blank` / `ambiguous` / `doubtful` | what did they mark | a human looks at the sheet |
+| `status: incomplete` | the copy printed questions this batch never captured | find the sheet and scan it again |
+
+A box above `ticked` (0.30) is marked; above `unsure` (0.10) it is **doubtful**
+and reported separately, never counted as an answer. That band is where a
+half-erased pencil lands, and it is the one region a solid synthetic fill (~0.63)
+can never reach — so it is exercised by its own batch in `03-read.sh`.
+
+**`/analyse` is a minutes-class call** — 53 s for a class of forty, three
+quarters of it in `getimages`, which AMC does not parallelise. `apps/server`
+must drive it as a background job with a status endpoint, never inside a request
+a browser is holding open. The server is threaded so `/health` answers during
+it; AMC work itself is serialised, because its state is sqlite files in the
+project directory and two runs over one project would race them.
 
 ## Code
 

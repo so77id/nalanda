@@ -26,7 +26,7 @@ separate container that speaks a small HTTP contract and exchanges work over a
 volume shared with its caller.
 
 Nine of the ten acceptance criteria are met, each by a committed, re-runnable
-verification script (133 checks across six scripts):
+verification script (145 checks across six scripts, after the review below):
 
 | Criterion | Result |
 |---|---|
@@ -104,7 +104,10 @@ the toolchain *is* the runtime.
 
 Each was measured, each is silent, and each yields a system that looks like it
 works while losing a student's grade. The wrapper neutralises all three and
-`tests/06-http.sh` asks it to do the wrong thing in each case:
+`tests/06-http.sh` asks it to do the wrong thing in each case — **by performing
+the trap inside the image**, not by reading the wrapper's source. An earlier
+version asserted the fourth guard below by grepping for its error message, which
+would have passed with the guard deleted:
 
 1. **`association --set` without `--copy`** exits 0, prints nothing, and writes
    a row AMC's own listing ignores. A review queue built on that call reports
@@ -122,6 +125,26 @@ unrecognised subcommand to the GTK GUI, which dies on `cannot open display`. So
 headless is a property of calling only subcommands that exist, not of the
 binary. `worker.py` picks from a fixed set.
 
+### The worker is threaded; AMC is not re-entrant
+
+`/analyse` is a **minutes-class** call — 53 s for a class of forty, and three
+quarters of that is `getimages`, which AMC does not parallelise, so more CPUs
+buy almost nothing. Two consequences that belong in `apps/server`'s design
+rather than being discovered there:
+
+- **It must be driven as a background job with a status endpoint**, never inside
+  a request a professor's browser is holding open. 53 s exceeds common proxy and
+  browser idle timeouts.
+- **The server is `ThreadingHTTPServer` so `/health` answers during that call**,
+  but threading does NOT make AMC re-entrant: its state is sqlite files inside
+  the project directory, and two runs over one project would race them. AMC work
+  is serialised behind a lock; `/health` is deliberately outside it.
+
+This shape was forced by the review: the original serial server, with HTTP/1.1
+keep-alive and no handler timeout, could be wedged indefinitely by a single
+connection that sent nothing at all. Three lenses found it independently and all
+three reproduced it.
+
 ### What AMC decides and what we decide
 
 AMC finds the page, identifies which copy it is from the printed marker, locates
@@ -129,6 +152,23 @@ every box from the layout, and counts black pixels per box. **It stores darkness
 not a verdict** — deciding "ticked" is our threshold, in `read_capture.py`. That
 is a feature (it can be tuned per batch) and a responsibility (a synthetic fill
 lands at 0.63 against 0.0 for an empty box, so any threshold passes the suite).
+
+**Three verdicts, not two.** A box above `ticked` (0.30) is marked; a box above
+`unsure` (0.10) is *doubtful*, reported separately and never counted as an
+answer; below that it is blank. The distinction is load-bearing and was
+initially written without effect — both branches of its `if/elif` appended to
+the same list — so a half-erased mark read as a confident answer while AMC's own
+scoring treated it as blank, and the report disagreed with the grade in silence.
+It is now pinned by a batch that fills a box to ~0.16, which a solid synthetic
+fill can never reach.
+
+**A copy is also checked against what it PRINTED.** The reader compares the
+questions it captured against `layout_box` and reports `incomplete` when they
+differ. Without that, a sheet whose page never reached the scanner — a double
+feed, the likeliest real-paper failure — was reported clean, giving a student
+zero on half the exam and telling nobody. It is a third failure kind: unlike an
+unreadable RUT it cannot be repaired at a keyboard, only by finding the sheet and
+scanning it again.
 
 ### A damaged identifier fails closed
 
@@ -159,7 +199,12 @@ cheap, and it is a property of our reporting layer rather than of AMC.
   association table is.
 - **The worker has no authentication and never will.** It is reachable only by
   `apps/server` over the compose network. Paths in a request are resolved and
-  refused if they escape `/work`.
+  refused if they escape `/work`. The posture, its residuals (derived paths are
+  not re-resolved; error `detail` carries raw AMC output that names students)
+  and its review triggers are recorded in `docs/security-notes.md`.
+- **It runs as root**, parsing scans with ghostscript, poppler and OpenCV.
+  Accepted because the inputs are the professor's own scanner and this repo's
+  own `.tex`; recorded with its review trigger in `docs/security-notes.md`.
 - **`--force-depends` leaves the package database knowingly inconsistent.** Fine
   for an immutable image, not fine if anything ever runs `apt-get install`
   inside it.

@@ -62,7 +62,7 @@ run bash -c "
 t1="$(stamp)"
 note "generate ${COPIES} copies" "$(elapsed "$t0" "$t1")"
 
-run python3 /work/fill-sheet.py --layout /work/project/data/layout.sqlite \
+run python3 /work/fill_sheet.py --layout /work/project/data/layout.sqlite \
   --sujet /work/out/sujet.pdf --out /work/scan --plan /work/plan.json \
   --pdf /work/scan/lote.pdf >/dev/null 2>&1 || { fail "synthetic fill"; summary; }
 t2="$(stamp)"
