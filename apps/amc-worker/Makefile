@@ -42,3 +42,7 @@ clean:
 serve:
 	docker run --rm -it --env DISPLAY= -p 127.0.0.1:8080:8080 \
 		-v "$(PWD)/tests/work/serve:/work" $(IMAGE)
+
+## measure — time a real-sized batch (AC-8). Not part of `test`: it reports, it does not assert.
+measure:
+	COPIES=$${COPIES:-40} AMC_IMAGE=$(IMAGE) tests/measure-batch.sh

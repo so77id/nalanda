@@ -88,8 +88,10 @@ a worker route: production never fills a sheet, it receives one off a scanner.
 
 **A synthetic batch proves the plumbing and nothing about paper.** Whether the
 reader tolerates a real pencil, a real scanner and a page that went in slightly
-rotated is the manual cycle in S7 of #138 — and that is the check that decides
-the engine. A green run here is not evidence the thing works.
+rotated is the one check no agent can run — and it is the check that decides the
+engine. A green run here is not evidence the thing works. The procedure is
+`PAPER-CHECK.md`: print, mark six sheets badly on purpose, scan, read, compare.
+Fifteen minutes, and its outcome is recorded in ADR-0030 §Not yet proven.
 
 Measurements (image size, batch timings) are **reported**, never asserted: a
 test that fails because a number moved teaches nothing about correctness. They
