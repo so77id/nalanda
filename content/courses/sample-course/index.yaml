@@ -2,9 +2,8 @@ title: Estructuras de Datos y Algoritmos
 entries:
   - docId: bienvenida
     label: Clase inaugural
-  - label: Java para quien viene de C++
+  - label: Java
     levelName: Unidad
     children:
       - docId: java-desde-cpp
       - docId: java-tipos-y-flujo
-  - docId: apuntes-del-curso

@@ -84,8 +84,11 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    > - `apuntes-del-curso` is named three times over (#136): as the book-only
    >   fixture of `presentationRoute.test.tsx` and `documentSections.test.tsx`
    >   (it must keep `presentation: none` and no `h2` at all), and as
-   >   `deployedApp.test.tsx`'s deep-link fixture (it must stay in `content/` and
-   >   must not become the landing page).
+   >   `deployedApp.test.tsx`'s deep-link fixture. It must stay in `content/` and
+   >   must not become the landing page — but it is **off the teaching path**
+   >   since the course was trimmed to its two live units, which is exactly the
+   >   split those three cases now rely on: they resolve it from the registry,
+   >   never from the index.
    > - `documentBreadcrumb.test.tsx` pins the unlisted SET rather than a single
    >   document — see step 8.
    >
