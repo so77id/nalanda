@@ -66,8 +66,10 @@ Hay un factor que ningún hardware compra. Medirlo, sin ejecutar nada, se llama
 <Slide title="Contémoslas aquí mismo">
 
 Un millón de elementos en vez de cien millones: Java se ejecuta en el hilo de
-esta página, y subir `n` a cien millones congela la pestaña. El _cómo_ de la
-búsqueda binaria es [[busqueda-binaria|otro documento]].
+esta página, y subir `n` a cien millones congela la pestaña. Cada contador cuenta
+**casillas miradas**, y las dos búsquedas piden el último elemento: el peor caso
+de cada una. El _cómo_ de la búsqueda binaria es
+[[busqueda-binaria|otro documento]].
 
 <CodeEditor
   language="java"
@@ -226,6 +228,7 @@ Las preguntas técnicas de las empresas grandes **son** este contenido. No algo
 parecido: esto.
 
 <Mosaic
+  plate
   columns={3}
   description="Nueve empresas cuyas entrevistas técnicas se hacen sobre estructuras de datos y algoritmos: Google, Amazon, Meta, Microsoft, Apple, Netflix, Nvidia, Uber y Spotify."
 >
@@ -248,6 +251,7 @@ La programación competitiva es el gimnasio: problemas que no se resuelven
 programando más rápido, sino eligiendo mejor.
 
 <Mosaic
+  plate
   columns={2}
   description="Cuatro competencias y plataformas de programación competitiva: ICPC, Codeforces, LeetCode e IEEEXtreme."
 >
@@ -280,6 +284,7 @@ dentro de diez años todavía no existen. Un heap va a seguir siendo un heap, y
 todos permiten implementarlo.
 
 <Mosaic
+  plate
   columns={3}
   description="Nueve lenguajes en los que estas mismas estructuras se implementan: Java, C++, C#, Python, Go, Rust, JavaScript, Kotlin y Swift."
 >

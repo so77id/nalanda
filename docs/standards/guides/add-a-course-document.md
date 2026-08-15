@@ -425,12 +425,17 @@ to **`http://`**, a cleartext link the reader can be downgraded on. Tables,
 strikethrough (`~~`), task lists and footnotes also work now.
 
 **An MDX comment — `{/* … */}` — is written on ONE line.** Spread it over two
-and `npm run format` rewrites it to `{/_ … _/}`: prettier parses the file as
+and a Prettier run over the file rewrites it to `{/_ … _/}`: prettier parses it as
 markdown first, does not recognise a multi-line brace expression, and reads the
 asterisks as emphasis. What lands is not a comment, and the build stops on it
 with `SyntaxError: Unterminated regular expression` pointing at acorn rather
 than at your document. Single-line comments survive formatting untouched. Both
 forms hit while writing `01-bienvenida.mdx` (#120).
+
+**Note which Prettier.** `npm run format` runs from `apps/web/` and does NOT
+reach `content/`, so the tree is unformatted by convention and the hazard comes
+from an editor's format-on-save or from aiming `prettier --write` at `content/`
+by hand — which also rewrites hundreds of lines nobody asked to change.
 
 **An email address is written bare**, never in markdown's `<…>` autolink form.
 This is MDX: `<name@host.cl>` opens a JSX tag, and the compiler stops the

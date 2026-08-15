@@ -1,8 +1,6 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img">
-  <!-- White plate in BOTH themes, by the course author's decision: a Simple
-       Icons glyph carries no fill of its own, so through <img> it paints black
-       and disappears on the dark ground. The plate also lets the two raster
-       logos (ICPC, IEEEXtreme), whose own background is white, sit flush. -->
-  <rect width="64" height="64" rx="8" fill="#ffffff"/>
-  <g transform="translate(10 10) scale(1.8333)" fill="#7F52FF"><path d="M24 24H0V0h24L12 12Z"/></g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" role="img">
+  <!-- Simple Icons glyph at the brand's own colour. No background: the
+       white plate these are read on is the mosaic cell's, applied by
+       <Mosaic plate> (ADR-0029 §1 — layout lives in containers). -->
+  <g fill="#7F52FF"><path d="M24 24H0V0h24L12 12Z"/></g>
 </svg>

@@ -143,6 +143,12 @@ describe('the palette', () => {
       ...UI_TOKENS,
       ...PAIRS.flat(),
       'rule',
+      // `plate` carries no product text and no product UI — it is the white a
+      // third-party brand mark was drawn for, given to it because an `<img>`
+      // cannot read any of the tokens above (#120 review). Nothing of ours is
+      // painted on it, so there is no pair to check; what it must be is the same
+      // in both themes, which the token-set case above already asserts.
+      'plate',
     ]);
     const orphans = declared.filter((name) => !known.has(name));
     expect(

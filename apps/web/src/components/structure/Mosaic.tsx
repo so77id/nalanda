@@ -9,6 +9,16 @@ export interface MosaicProps {
   columns?: 2 | 3 | 4;
   /** What the whole group says, in Spanish. Required — it is the only voice here. */
   description?: string;
+  /**
+   * Put each cell on a white plate. For marks drawn to sit on white — brand
+   * logos, most of them monochrome — which through `<img>` cannot see the page's
+   * `currentColor` and would paint black, invisible on the dark ground.
+   *
+   * Opt-in because the other kind of mosaic is the opposite: a grid of diagrams
+   * drawn for the page, transparent and coloured to clear both grounds, which a
+   * plate would box in for no reason (`02-intro-estructuras.mdx`).
+   */
+  plate?: boolean;
   /** The cells: figures, usually, but the grid does not care what they are. */
   children?: ReactNode;
 }
@@ -46,7 +56,7 @@ function cellCount(children: ReactNode): number {
  * It holds anything, not only images: the grid does not know what a cell is,
  * which is what keeps `<Figure>` free of props about its neighbours.
  */
-export function Mosaic({ columns, description, children }: MosaicProps) {
+export function Mosaic({ columns, description, plate = false, children }: MosaicProps) {
   const mode = useMode();
 
   if (columns === undefined) {
@@ -103,7 +113,14 @@ export function Mosaic({ columns, description, children }: MosaicProps) {
       // stands alone in prose, and inside a cell that margin is dead space
       // fighting the grid's gap. Measured on a 1024x768 stage: 144px of it
       // across three rows, which took a 3x3 from 54vh to 73vh.
+      // The plate is the CELL's ground, so it belongs here and not in the
+      // asset (ADR-0029 §1: layout lives in containers). Baked into each file
+      // instead, it was 22 copies of the same rect that no gate could see, and
+      // the 23rd logo would have shipped without one — black through `<img>`,
+      // invisible on the dark ground, with the suite green.
       className={`measure-full my-6 grid items-center gap-4 [&_figure]:my-0 [&_img]:object-contain ${
+        plate ? '[&_img]:rounded-lg [&_img]:bg-plate [&_img]:p-[12%]' : ''
+      } ${
         mode === 'presentation'
           ? '[&_img]:w-full [&_img]:max-h-[var(--mosaic-cell)]'
           : '[&_img]:max-w-full'
