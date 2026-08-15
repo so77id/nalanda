@@ -28,7 +28,7 @@ rm -rf "$work"
 mkdir -p "$work/src" "$work/out" "$work/scan" "$work/project/data" "$work/project/cr" "$work/project/scans"
 cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$work/src/"
 cp "${WORKER_DIR}/tests/fixtures/marking-plan.json" "${WORKER_DIR}/tests/fixtures/curso.csv" "$work/"
-cp "${WORKER_DIR}"/tests/tools/*.py "$work/"
+cp "${WORKER_DIR}"/*.py "${WORKER_DIR}"/tests/tools/*.py "$work/"
 
 run() { docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" "$@"; }
 
@@ -106,7 +106,7 @@ check_contains "copy 5 is left unassociated" "5::none" "$after_auto"
 # --- the reading report names exactly the copies that need the queue ---------
 
 report="${work}/report.json"
-run python3 /work/read-capture.py --data /work/project/data >"$report" 2>/dev/null || true
+run python3 /work/read_capture.py --data /work/project/data >"$report" 2>/dev/null || true
 queue="$(python3 -c "import json;print(' '.join(sorted(json.load(open('$report'))['needs_review'])))" 2>/dev/null || echo "")"
 check_eq "the reading report queues exactly the copies AMC could not associate" "3 4 5" "$queue"
 

@@ -22,9 +22,14 @@ services:
       DISPLAY: ""
     volumes:
       - amc-work:/work
-    # The spike drives the image with explicit commands; the HTTP wrapper
-    # becomes the long-running process when it exists.
-    command: ["auto-multiple-choice", "version"]
+    # Bound to loopback on purpose. The worker has no authentication of its own
+    # and never will: it is reachable only by `apps/server`, over the compose
+    # network, and publishing it here is a convenience for driving it by hand.
+    ports:
+      - "127.0.0.1:8080:8080"
+    # The image's default command is the HTTP wrapper; the AMC CLI stays
+    # available underneath for exploring by hand (`docker compose run --rm
+    # amc-worker auto-multiple-choice prepare ...`).
 
 volumes:
   amc-work:

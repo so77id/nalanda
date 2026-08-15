@@ -29,7 +29,7 @@ mkdir -p "$work/src" "$work/out" "$work/scan" "$work/anotado" "$work/single" \
   "$work/project/data" "$work/project/cr" "$work/project/scans"
 cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$work/src/"
 cp "${WORKER_DIR}/tests/fixtures/marking-plan.json" "${WORKER_DIR}/tests/fixtures/curso.csv" "$work/"
-cp "${WORKER_DIR}"/tests/tools/*.py "$work/"
+cp "${WORKER_DIR}"/*.py "${WORKER_DIR}"/tests/tools/*.py "$work/"
 
 run() { docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" "$@"; }
 

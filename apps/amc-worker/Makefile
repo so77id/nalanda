@@ -37,3 +37,8 @@ size:
 ## clean — remove generated work directories, keep the image
 clean:
 	rm -rf tests/work
+
+## serve — run the HTTP wrapper against a local work directory
+serve:
+	docker run --rm -it --env DISPLAY= -p 127.0.0.1:8080:8080 \
+		-v "$(PWD)/tests/work/serve:/work" $(IMAGE)

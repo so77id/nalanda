@@ -32,7 +32,7 @@ rm -rf "$work"
 mkdir -p "$work/src" "$work/out" "$work/scan" "$work/project/data" "$work/project/cr" "$work/project/scans"
 cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$work/src/"
 cp "${WORKER_DIR}/tests/fixtures/marking-plan.json" "$work/"
-cp "${WORKER_DIR}"/tests/tools/*.py "$work/"
+cp "${WORKER_DIR}"/*.py "${WORKER_DIR}"/tests/tools/*.py "$work/"
 
 run() { docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" "$@"; }
 
@@ -57,8 +57,8 @@ pipeline() {
 check "the whole pipeline runs headless" pipeline
 
 report="${work}/report.json"
-if ! run python3 /work/read-capture.py --data /work/project/data >"$report" 2>/dev/null; then
-  fail "capture is readable as a report" "read-capture.py failed"
+if ! run python3 /work/read_capture.py --data /work/project/data >"$report" 2>/dev/null; then
+  fail "capture is readable as a report" "read_capture.py failed"
   summary
 fi
 

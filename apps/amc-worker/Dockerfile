@@ -47,10 +47,19 @@ RUN apt-get update \
     && dpkg --purge --force-depends texlive-fonts-extra \
     && rm -rf /var/lib/apt/lists/*
 
+# The wrapper and the reading report. Python is the choice here because it is
+# already in the image (AMC's dependency tree brings it) and needs no build
+# stage: a Go binary would mean adding a toolchain layer to wrap a Perl program.
+# Standards: docs/standards/python-code-style.md.
+COPY worker.py read_capture.py /opt/amc-worker/
+
 # /work is the volume the caller shares with us: projects in, PDFs and reports
 # out. Nothing large crosses the HTTP boundary — requests name paths under here.
 WORKDIR /work
 
-# No ENTRYPOINT on purpose: the image is driven by `docker run` with an explicit
-# command, and the HTTP wrapper becomes the entry point when it exists.
-CMD ["auto-multiple-choice", "version"]
+EXPOSE 8080
+
+# The default is the server. Every verification script overrides it with an
+# explicit command, which is also how a human explores the image — the CLI is
+# not hidden behind the wrapper, it is what the wrapper drives.
+CMD ["python3", "/opt/amc-worker/worker.py"]
