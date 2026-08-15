@@ -68,6 +68,7 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 | `01-headless.sh` | AMC runs from the CLI with no display; LaTeX resolves `automultiplechoice.sty`; every CLI tool the pipeline needs is present |
 | `02-generate.sh` | N copies from our own `.tex`, questions and alternatives shuffled per copy, an 8-digit RUT grid, a printed identifier per page, a reproducible draw |
 | `03-read.sh` | A scrambled multi-page PDF batch reads back; ambiguous marks and unreadable identifiers are reported separately |
+| `04-associate.sh` | Clean copies match a roster automatically; damaged identifiers fail closed; an association can be injected from outside without the GUI |
 
 They are shell scripts rather than a test framework because the subject under
 test is a container image and a third-party CLI — the subject is `docker run`,
