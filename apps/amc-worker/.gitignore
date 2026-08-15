@@ -1,0 +1,3 @@
+# Scratch: AMC projects, generated PDFs and layout files produced by the
+# verification scripts. Everything here is rebuilt by `make test`.
+tests/work/
