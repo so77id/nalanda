@@ -10,6 +10,8 @@ This file holds **monorepo-shared** instructions only. Each app has its own
 `CLAUDE.md` with its commands, stack, and rules — read it before working there:
 
 - `apps/web/CLAUDE.md` — the platform frontend.
+- `apps/amc-worker/CLAUDE.md` — the control engine (Auto-Multiple-Choice in a
+  container). Nothing there runs on the host; everything goes through Docker.
 
 ## Mandatory reading (before any code work)
 

@@ -1,0 +1,50 @@
+name: amc-worker
+
+# Its own workflow rather than a job inside ci.yml, so the path filters do not
+# cross: a change under apps/web must not build a 1 GB LaTeX image, and a change
+# here must not run the frontend suite. Same reason ci.yml carries its own
+# filters — and the same latent gotcha applies, recorded there: a docs-only
+# change runs no CI, so if this check is ever made REQUIRED under branch
+# protection it needs in-job change detection instead.
+
+on:
+  pull_request:
+    paths:
+      - 'apps/amc-worker/**'
+      - '.github/workflows/amc-worker.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/amc-worker/**'
+      - '.github/workflows/amc-worker.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  amc-worker:
+    name: amc-worker — build, verify
+    runs-on: ubuntu-latest
+    # The image is ~1 GB and the suite drives LaTeX and OpenCV over forty
+    # synthetic pages; the default 360-minute cap is far too generous for a
+    # hang, and 30 minutes is roughly twice the measured local run.
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: apps/amc-worker
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      # The runner is amd64; `auto-multiple-choice` ships for both architectures
+      # in Debian bookworm, so CI verifies the same image a developer builds on
+      # arm64 rather than an emulated one.
+      - name: Verify
+        run: make verify PLATFORM=linux/amd64
+
+      # A measurement, not a gate — `make measure` is deliberately outside the
+      # protocol. Run small here so a regression in the pipeline's cost is
+      # visible in the log without adding minutes to every PR.
+      - name: Measure a small batch
+        run: make measure COPIES=5 PLATFORM=linux/amd64

@@ -6,6 +6,7 @@
 
 IMAGE ?= nalanda/amc-worker:dev
 PLATFORM ?= linux/arm64
+COPIES ?= 40
 
 .PHONY: build test verify shell clean size
 
@@ -44,5 +45,7 @@ serve:
 		-v "$(PWD)/tests/work/serve:/work" $(IMAGE)
 
 ## measure — time a real-sized batch (AC-8). Not part of `test`: it reports, it does not assert.
+##   make measure COPIES=5   — a make variable, so it must be passed through explicitly;
+##   make does not export its variables to the recipe's shell.
 measure:
-	COPIES=$${COPIES:-40} AMC_IMAGE=$(IMAGE) tests/measure-batch.sh
+	COPIES=$(COPIES) AMC_IMAGE=$(IMAGE) tests/measure-batch.sh
