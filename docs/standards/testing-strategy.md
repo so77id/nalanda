@@ -484,6 +484,16 @@ playwright package.json` finds nothing by design), then drive `npm run build
   suite stayed green at 576 while the case stopped testing what it is named for,
   and the diff that caused it touched neither that file nor either document it
   selects.
+- **A fixture is resolved from the registry, not the index — unless the case is
+  about navigation.** The index decides the teaching path, never existence
+  (ADR-0002): `/d/<id>` serves any compiled document, listed or not. So a case
+  whose subject is _rendering_ selects through `registry.get(id)`, and only a
+  case whose subject IS the path — the TOC, prev/next, the breadcrumb position —
+  goes through `walkIndex`. Worked case (#136): taking one unit off the teaching
+  path reddened six cases across two files, about documents nobody had touched,
+  because they were finding their fixture by walking the index. The guard message
+  should say so too — "left the index" is the wrong diagnosis when what the case
+  reads is the registry.
 - **A class-name assertion is an exact token, never a substring.** Every Tailwind
   utility has a variant form (`hover:x`) and an alpha form (`x/10`) that CONTAIN
   the base token, so `toContain('text-accent')` passes over `hover:text-accent` —

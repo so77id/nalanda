@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import type { ConfigEnv, UserConfig, UserConfigFnObject } from 'vite';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import { courseIndex, registry, walkIndex } from '../content';
+import { registry } from '../content';
 
 import viteConfig from '../../vite.config';
 
@@ -54,10 +54,25 @@ describe('deployed build shape', () => {
 });
 
 describe('App under a deployed base path', () => {
+  // Named, not positional (ADR-0025 §2). This read `walkIndex(courseIndex)[1]`,
+  // which meant whatever the index happened to put second — so taking the
+  // Fundamentos unit off the teaching path moved this case from a 1.4 kB
+  // component-free document onto the 10 kB Java one without touching this file,
+  // and it stayed green while testing something else. What the case needs is any
+  // document that is not the landing page; `apuntes-del-curso` is the smallest,
+  // which also keeps it clear of the lazy-boundary hazards heavier documents
+  // bring (#102).
+  const DEEP_LINK_FIXTURE = 'apuntes-del-curso';
+
   it('resolves a deep link that carries the base prefix', async () => {
     vi.stubEnv('BASE_URL', '/nalanda/');
-    const id = walkIndex(courseIndex)[1]!;
-    const title = registry.get(id)!.meta.title;
+    const entry = registry.get(DEEP_LINK_FIXTURE);
+    expect(
+      entry,
+      `${DEEP_LINK_FIXTURE} left content/ — point this at another document that is not the landing page`,
+    ).toBeDefined();
+    const id = entry!.meta.id;
+    const title = entry!.meta.title;
 
     await renderAppAt(`/nalanda/d/${id}`);
 

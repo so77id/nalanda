@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
@@ -53,29 +53,48 @@ describe('the breadcrumb row of a document', () => {
     expect(presentar.querySelector('svg')).not.toBeNull();
   });
 
-  // The unlisted-document case used to be untestable here. It was written with
-  // an `if (!unlisted) return;` guard, and since every seed document was indexed
-  // the body never ran — a test that read as coverage and could not fail. It was
-  // replaced by an assertion that the premise held: every document is listed.
-  //
-  // That premise is now false ON PURPOSE. Retiring the Fundamentos unit from the
-  // teaching path left three documents compiled and served but off the index,
-  // which is exactly the shape the guard could never reach — so the case it was
-  // standing in for is finally exercisable against real content, and the
-  // stand-in is gone.
-  it('shows the course alone for a document the index does not list', async () => {
+  // An unlisted document is served but has no position in the path (ADR-0002).
+  // Two cases share this list, and it is spelled out rather than discovered
+  // because it is also the invariant below: the set of unlisted documents is
+  // closed, and a document that joins it by accident is a mistake nothing else
+  // catches.
+  const RETIRED = ['intro-estructuras', 'busqueda-binaria', 'codigo-ejecutable'];
+
+  // The registry→index direction, which nothing else in the suite covers:
+  // `contentIntegrity.ts` and `content/architecture.test.ts` both walk the index
+  // and check each id resolves, never the reverse. An earlier version of this
+  // case asserted the set was EMPTY, which is what the authoring guide's step 7
+  // still described; retiring the Fundamentos unit made "empty" false, and
+  // deleting the assertion outright would have left a document forgotten out of
+  // index.yaml shipping green and unreachable in navigation. Naming the set
+  // keeps the alarm and states which absences are deliberate.
+  it('lists every document except the ones deliberately retired', () => {
     const listed = walkIndex(courseIndex);
-    const unlisted = registry.entries.find((e) => !listed.includes(e.meta.id));
+    const unlisted = registry.entries
+      .map((e) => e.meta.id)
+      .filter((id) => !listed.includes(id))
+      .sort();
     expect(
       unlisted,
-      'every document is on the teaching path again — this case needs one that is not, or the unlisted breadcrumb is unexercised here (its unit cover is courseIndex.test.ts trailFor + Breadcrumb.test.tsx)',
+      'a document is missing from index.yaml — add it to the teaching path, or to RETIRED above if it is off the path on purpose. If #135 landed and removed the retired documents, empty this list.',
+    ).toEqual([...RETIRED].sort());
+  });
+
+  it('shows the course alone for a document the index does not list', async () => {
+    const unlisted = registry.get(RETIRED[0]!);
+    expect(
+      unlisted,
+      `${RETIRED[0]} left content/ — point this at another unlisted document, or retire this case: its contract is also covered by courseIndex.test.ts (trailFor) and Breadcrumb.test.tsx.`,
     ).toBeDefined();
 
     renderAt(`/d/${unlisted!.meta.id}`);
     const nav = await screen.findByRole('navigation', { name: /ubicaci/i });
     // The course still names where the reader is; what an unlisted document has
-    // no claim to is a position in the path.
+    // no claim to is a position in the path — nor any ancestor above it, which
+    // is the half "alone" claims and an earlier version of this case did not
+    // assert: a leaked phantom ancestor kept it green.
     expect(nav).toHaveTextContent(courseIndex.title!);
     expect(nav).not.toHaveTextContent(/\d+ de \d+/);
+    expect(within(nav).getAllByRole('listitem')).toHaveLength(1);
   });
 });

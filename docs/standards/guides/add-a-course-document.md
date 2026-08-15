@@ -533,13 +533,22 @@ a red build — hit while writing `01-bienvenida.mdx` (#120).
    not listed in the index is still compiled and served at `/d/<id>`: **the index
    controls navigation, never visibility.**
 
-   > **Unlisted is legal at runtime but not in the suite.**
-   > `app/documentBreadcrumb.test.tsx` asserts that every document in the
-   > registry is indexed, so an unlisted document serves fine and turns the
-   > protocol red. Two consequences: a real document must be listed, and a
-   > scratch document written to check a component in a browser must be **deleted
-   > before you run the suite** (#116 used exactly that trick to verify
+   > **Unlisted is legal at runtime, and the suite gates the SET rather than
+   > forbidding it.** `app/documentBreadcrumb.test.tsx` holds a `RETIRED` list of
+   > the ids deliberately off the path, and asserts the unlisted documents are
+   > exactly those. So a document you forget to list still turns the protocol
+   > red — with a message naming the two ways out — while a document taken off
+   > the path on purpose is declared once and stays green.
+   >
+   > Two consequences, unchanged in practice: a real document must be listed, and
+   > a scratch document written to check a component in a browser must be
+   > **deleted before you run the suite** (#116 used exactly that trick to verify
    > presentation mode, and hit this on the way).
+   >
+   > The list was `[]` until #136 took the Fundamentos unit off the path; those
+   > three documents stay served while #135 removes them. Before that change the
+   > assertion was `toEqual([])`, and the first thing to retire a document
+   > deleted it — taking the alarm with it, which is what this shape prevents.
 
    `title` names the course wherever the reader needs to know which one they are
    in — today the breadcrumb above every document. Omit it and the trail starts
