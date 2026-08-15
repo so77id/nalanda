@@ -2,12 +2,6 @@ title: Estructuras de Datos y Algoritmos
 entries:
   - docId: bienvenida
     label: Clase inaugural
-  - label: Fundamentos
-    levelName: Unidad
-    children:
-      - docId: intro-estructuras
-      - docId: busqueda-binaria
-      - docId: codigo-ejecutable
   - label: Java para quien viene de C++
     levelName: Unidad
     children:

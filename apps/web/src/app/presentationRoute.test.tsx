@@ -8,13 +8,12 @@ import { AppRoutes } from './AppRoutes';
 
 const ids = walkIndex(courseIndex);
 // The first PRESENTABLE document, not simply the first one (#108). These cases
-// need a deck to drive, and `ids[0]` only happens to have one. Today the two
-// resolve to the same document, so this is a no-op — it is here because the
-// course's opening document is a landing page whose content argues for
-// `presentation: none`, and it declares `auto` only to stay the suite's auto
-// fixture (add-a-course-document.md step 2). Were that to change, `ids[0]`
-// would redirect /present back to the book and these cases would go red for a
-// reason with nothing to do with the viewer they test.
+// need a deck to drive, and `ids[0]` only happens to have one. This one stays on
+// the index deliberately: what it wants IS the teaching path's opening document.
+// Since #120 that is the course's opening class, which declares `explicit`; if a
+// landing page ever declared `none`, `ids[0]` would redirect /present back to
+// the book and these cases would go red for a reason with nothing to do with the
+// viewer they test.
 const firstId = ids.find((id) => registry.get(id)?.meta.presentation !== 'none')!;
 const firstTitle = registry.get(firstId)?.meta.title ?? firstId;
 
@@ -632,10 +631,24 @@ describe('leaving the presentation from the deck', () => {
   });
 });
 
+// Named and resolved from the registry, like EXPLICIT_FIXTURE below: what these
+// two cases need is a document that declares `none`, which has nothing to do
+// with the teaching path. Discovered by predicate over the index they reddened
+// with "seed course needs a presentation:none document" — the wrong diagnosis —
+// when a document was taken off the path, which is the failure the §Conventions
+// rule this branch adds exists to prevent.
+const NONE_FIXTURE = 'apuntes-del-curso';
+const noneId = registry.get(NONE_FIXTURE)?.meta.id;
+
 describe('presentation: none documents', () => {
+  it('the seed course still provides a book-only document', () => {
+    expect(
+      noneId,
+      `${NONE_FIXTURE} left content/ or stopped declaring \`presentation: none\` — repoint at another book-only document`,
+    ).toBeDefined();
+  });
+
   it('redirects /present back to the book view', async () => {
-    const noneId = ids.find((id) => registry.get(id)?.meta.presentation === 'none');
-    expect(noneId, 'seed course needs a presentation:none document').toBeDefined();
     await renderAt(`/d/${noneId}/present`);
     expect(await screen.findByRole('article')).toBeInTheDocument();
   });
@@ -649,7 +662,6 @@ describe('book-view entry points to presentation', () => {
   });
 
   it('hides the toggle for presentation: none documents', async () => {
-    const noneId = ids.find((id) => registry.get(id)?.meta.presentation === 'none')!;
     await renderAt(`/d/${noneId}`);
     await screen.findByRole('article');
     expect(screen.queryByRole('link', { name: /presentar/i })).not.toBeInTheDocument();
@@ -673,13 +685,19 @@ describe('explicit-mode documents (real compiled markers)', () => {
   // one while `busqueda-binaria` happened to come first in the index. The day
   // another document ahead of it declared `explicit`, both cases failed against
   // a fixture whose content they never claimed to know.
+  //
+  // Resolved through the REGISTRY, not `walkIndex`. These cases drive
+  // `/d/<id>/present`, and that route answers for any compiled document: the
+  // index decides the teaching path, never existence (ADR-0015 §6). Reading the
+  // index conflated the two, and retiring the Fundamentos unit from the path
+  // reddened three cases here about a document nobody had touched.
   const EXPLICIT_FIXTURE = 'busqueda-binaria';
-  const explicitId = ids.find((id) => id === EXPLICIT_FIXTURE);
+  const explicitId = registry.get(EXPLICIT_FIXTURE)?.meta.id;
 
   it('the seed course still provides the explicit fixture these cases describe', () => {
     expect(
       explicitId,
-      `${EXPLICIT_FIXTURE} is gone from the index — repoint this block at a document whose sections are <Slide> markers, and update the headings asserted below to its own`,
+      `${EXPLICIT_FIXTURE} is gone from content/ — repoint this block at a document whose sections are <Slide> markers, and update the headings asserted below to its own. Leaving the index is not enough to trip this: the registry is what this reads.`,
     ).toBeDefined();
     expect(registry.get(explicitId!)?.meta.presentation).toBe('explicit');
   });

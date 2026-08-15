@@ -57,9 +57,13 @@ can drive it.
    `npm run test` does not, so editing `content/` requires both.
 
    The parenthetical rationale above — _"every document is presentable for
-   now"_ — no longer describes the tree. After #108 one document of six declares
-   `auto`, and it does so to remain the suite's only `auto` fixture rather than
-   because its content wants a deck. That coupling is ADR-0025.
+   now"_ — no longer describes the tree. After #108 one document of six declared
+   `auto`, and it did so to remain the suite's only `auto` fixture rather than
+   because its content wanted a deck. That coupling is ADR-0025. **Since #120 no
+   document declares `auto` at all**: that one became the course's opening class
+   and was hand-cut into slides (`explicit`), and the `auto` path moved to
+   synthetic MDX in `presentation/parser.test.tsx` rather than being pinned on
+   another document.
 
 3. **Boundary identity travels as static metadata** (`lib/componentMeta.ts`:
    `withMeta`/`metaOf` — components declare `slideBoundary` / `headingLevel`).

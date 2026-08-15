@@ -74,8 +74,8 @@ prefix may not survive the move, so decide before handing URLs to students
   to `404.html` (`apps/web/src/app/spaFallback.ts`), which Pages serves for
   unknown paths, handing the URL to the router.
 - **How to verify after a deploy**: open `/nalanda/`, one deep document link
-  (e.g. `/nalanda/d/busqueda-binaria`), `/nalanda/catalog`, and — since #74 —
-  **run one snippet** on `/nalanda/d/codigo-ejecutable`. A green workflow no
+  (e.g. `/nalanda/d/java-desde-cpp`), `/nalanda/catalog`, and — since #74 —
+  **run one snippet** on `/nalanda/d/java-tipos-y-flujo`. A green workflow no
   longer proves the site works: the code runtimes come from third-party CDNs
   that can fail without any deploy of ours. Locally,
   `npm run build && npm run preview` serves the real build under `/nalanda/` and
@@ -89,18 +89,18 @@ prefix may not survive the move, so decide before handing URLs to students
   deploy button to press.
 - **When something is broken**, work back from the symptom:
 
-  | Symptom | Cause | Guarded by |
-  |---|---|---|
-  | Blank page, `/assets/*` 404 | wrong `base` in `vite.config.ts` | `deployedApp.test.tsx` |
-  | Deep link 404s live but works in dev | missing `404.html` | `spaFallback.test.ts` |
-  | Deep link renders "Page not found" | router basename | `basename.test.ts`, `deployedApp.test.tsx` |
-  | Workflow green, site unchanged | path filters did not match — rerun from the Actions tab | — |
-  | Deploy job fails on permissions | repo Settings ▸ Pages source must be "GitHub Actions", and the `github-pages` environment must allow `main` | — |
-  | Deploy job fails before Vite starts | `prebuild` could not reach Maven Central, or the ECJ checksum did not match | the script's own error; nothing is written on mismatch (ADR-0017) |
-  | Site fine, but Ejecutar never finishes or never warms | a runtime CDN is down or blocked (`cjrtnc.leaningtech.com`, `cdn.jsdelivr.net`) | nothing — accepted risk, `docs/security-notes.md` |
-  | `/d/<id>/present` blank on an old iPhone | `MediaQueryList.addEventListener` needs Safari/iOS 14 | nothing — accepted baseline, ADR-0023 |
-  | `/d/<id>/present` shows "Gira el teléfono" and no slide | working as designed on a touch device held upright; rotate, or use the book view | `presentationRoute.test.tsx`, ADR-0023 |
-  | Slide text renders small, or slide sizes vary across a deck | working as designed — each slide is scaled to fit its stage (ADR-0013 §5.1). If it is unreadable the slide is too dense: split it | `presentation/fit.test.ts` |
+  | Symptom                                                     | Cause                                                                                                                             | Guarded by                                                        |
+  | ----------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+  | Blank page, `/assets/*` 404                                 | wrong `base` in `vite.config.ts`                                                                                                  | `deployedApp.test.tsx`                                            |
+  | Deep link 404s live but works in dev                        | missing `404.html`                                                                                                                | `spaFallback.test.ts`                                             |
+  | Deep link renders "Page not found"                          | router basename                                                                                                                   | `basename.test.ts`, `deployedApp.test.tsx`                        |
+  | Workflow green, site unchanged                              | path filters did not match — rerun from the Actions tab                                                                           | —                                                                 |
+  | Deploy job fails on permissions                             | repo Settings ▸ Pages source must be "GitHub Actions", and the `github-pages` environment must allow `main`                       | —                                                                 |
+  | Deploy job fails before Vite starts                         | `prebuild` could not reach Maven Central, or the ECJ checksum did not match                                                       | the script's own error; nothing is written on mismatch (ADR-0017) |
+  | Site fine, but Ejecutar never finishes or never warms       | a runtime CDN is down or blocked (`cjrtnc.leaningtech.com`, `cdn.jsdelivr.net`)                                                   | nothing — accepted risk, `docs/security-notes.md`                 |
+  | `/d/<id>/present` blank on an old iPhone                    | `MediaQueryList.addEventListener` needs Safari/iOS 14                                                                             | nothing — accepted baseline, ADR-0023                             |
+  | `/d/<id>/present` shows "Gira el teléfono" and no slide     | working as designed on a touch device held upright; rotate, or use the book view                                                  | `presentationRoute.test.tsx`, ADR-0023                            |
+  | Slide text renders small, or slide sizes vary across a deck | working as designed — each slide is scaled to fit its stage (ADR-0013 §5.1). If it is unreadable the slide is too dense: split it | `presentation/fit.test.ts`                                        |
 
 ## Workflow
 
