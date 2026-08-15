@@ -19,7 +19,7 @@ an editor with, and cases that must never appear in the editor at all.
 Two problems had no precedent in the repo. Authoring: an author writes hundreds
 of these, so the syntax has to be markdown a professor can type, not JSX with
 Java escaped inside template literals. Checking: what makes an exercise worth
-doing is that the verdict is about the student's _method_, and the obvious
+doing is that the verdict is about the student's *method*, and the obvious
 approach — compare what the program printed — fails anyone who formats their
 output differently, which is a bad lesson to teach in week one.
 
@@ -72,7 +72,6 @@ deciding the verdict "is not in a file the student can edit", which the review
 falsified twice; see §7.
 
 **3b. Two class names are reserved.**
-
 > **Amended 2026-08-14 (#116, ADR-0028 §7):** three now — `NalandaTrace` joined
 > them when the memory diagram started compiling a tracer beside the snippet.
 > The guard also turned out to inspect only the ENTRY class; a secondary

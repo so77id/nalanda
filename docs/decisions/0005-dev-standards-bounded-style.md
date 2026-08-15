@@ -10,8 +10,7 @@
 Most code will be written by agents under Miguel's direction. Agents improvise when
 conventions are loose; a platform meant to grow for years needs the codebase to look
 like one person wrote it. DocumentBuddy proved a working formula: strict conventions
-
-- integration guides ("how to add a new X") + documentation embedded in the dev flow.
++ integration guides ("how to add a new X") + documentation embedded in the dev flow.
 
 ## Decision
 

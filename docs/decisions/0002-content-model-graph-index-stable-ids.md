@@ -4,7 +4,7 @@
 **Date:** 2026-08-05
 **Decision-makers:** Miguel Rodriguez
 **Source:** Redesign session (D1, D3, D4, D6, D7, D8)
-**Amended by:** ADR-0027 §8 — a _published_ slug is frozen. Every `h2`–`h4` is still
+**Amended by:** ADR-0027 §8 — a *published* slug is frozen. Every `h2`–`h4` is still
 deep-linkable, with one reachable exception: a heading whose content is entirely an
 element (a formula, since #118) produces no text, so no id and no anchor. The fix
 changes slugs that are already live and therefore needs a migration.
@@ -20,13 +20,13 @@ the platform gains an editor (vision phases A→B→C).
 
 - **Document**: the content unit — a complete "sección/presentación". One MDX source
   can render as book, as slides, or both. Documents are **homogeneous** (no `type`
-  field); what a document _is_ emerges from its content. Typing may be introduced
+  field); what a document *is* emerges from its content. Typing may be introduced
   later by a real need.
 - **Graph**: documents cross-reference each other with wiki-style links by id
   (`[[some-id]]`). The graph IS the set of documents plus their links; free
   navigation is wiki navigation.
 - **Index**: a separate artifact per course — the ordered, nestable teaching path
-  ("el clase a clase"). Entries reference document ids; entries are _topics_, not
+  ("el clase a clase"). Entries reference document ids; entries are *topics*, not
   class sessions. Level names are configurable, not hardcoded. One index per course
   for now; the design must make multiple recorridos over one graph easy to add
   (future: per-semester reorders, other professors, course inheritance).

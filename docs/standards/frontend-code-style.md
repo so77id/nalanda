@@ -202,7 +202,7 @@ src/
 - **Tailwind only**, utility classes inline in JSX. No CSS modules, no CSS-in-JS,
   no new `.css` files beyond `styles/` globals.
 - **A third-party stylesheet is imported once, in `styles/index.css`, and only
-  when the package's own CSS is the sole source of the rules** — _unless_ it is
+  when the package's own CSS is the sole source of the rules** — *unless* it is
   conditional on a feature only some documents use, in which case scoping the
   import to the module that needs it is preferred and Vite splits it cleanly
   (measured: ADR-0027 §3). `katex.min.css` is global today as recorded debt, not

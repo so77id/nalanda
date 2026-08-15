@@ -10,18 +10,17 @@ Regenerate or repair them with `/init-workflow`.
 
 ## Kanban columns
 
-| Column      | Purpose                                                 |
-| ----------- | ------------------------------------------------------- |
-| Backlog     | Refined issues waiting to be promoted to Ready          |
-| Ready       | Promoted issues — agent can pick the next one from here |
-| In Progress | Currently being developed in a worktree                 |
-| Review      | PR open, awaiting user review and squash merge          |
-| Done        | Closed and merged                                       |
+| Column      | Purpose                                                                 |
+|-------------|-------------------------------------------------------------------------|
+| Backlog     | Refined issues waiting to be promoted to Ready                          |
+| Ready       | Promoted issues — agent can pick the next one from here                 |
+| In Progress | Currently being developed in a worktree                                 |
+| Review      | PR open, awaiting user review and squash merge                          |
+| Done        | Closed and merged                                                       |
 
 ## Labels
 
 Every issue gets:
-
 - One `type:*` label — `type:bug`, `type:feature`, `type:refactor`, `type:docs`, `type:chore`
 - One or more `area:*` labels — `area:widgets`, `area:course`, `area:presentation`, `area:runtime`, `area:infra`, `area:docs`
 
@@ -53,7 +52,6 @@ gh label create "area:docs"         --repo so77id/nalanda --color fbca04
 - `<slug>`: kebab-case from the issue title, max ~5 words.
 
 Examples:
-
 - `feature/issue-42-graph-ds-visualizer`
 - `fix/issue-51-codemirror-line-tracker`
 - `refactor/issue-45-extract-visualizer-base`

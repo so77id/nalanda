@@ -19,7 +19,7 @@ so under `/nalanda/` the browser resolved it against the document's route and
 The gap was not only "no image". Of the ~22 slides of the course opening class
 (#120), **nine carry a diagram or a logo mosaic**, and three of those are square
 logo mosaics that no single-image component can build. Several others want the
-figure _beside_ the text rather than under it.
+figure *beside* the text rather than under it.
 
 The one two-column component in the tree does not serve that. `SideBySide` is
 code-shaped by construction: each column draws a border and an uppercase language
@@ -65,7 +65,7 @@ sentence instead of nine brand names in a row. This is the **only** exception to
 "alt is always required", and it lives in the container
 (`components/described.ts`, same shape as `embedded.ts`), so `<Figure>`'s own rule
 stays absolute: an empty alt outside a describing container is an authoring error,
-and a _missing_ alt is an error even inside one — silence has to be something the
+and a *missing* alt is an error even inside one — silence has to be something the
 author wrote.
 
 `columns` is required and never inferred from the child count: six figures are

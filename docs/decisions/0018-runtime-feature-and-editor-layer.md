@@ -66,7 +66,7 @@ enough to ship eagerly on its own account — but since #85 **nothing under
 `runtime/` may be reached before first paint** (the invariant in
 `architecture.test.ts`), because importing any of it drags the registry behind
 it. The picker gets its descriptors from the lazy editor chunk. A module the
-shell reaches eagerly that needs only the _ids_ asks `lib/runtimeIds.ts`. The module (CodeMirror
+shell reaches eagerly that needs only the *ids* asks `lib/runtimeIds.ts`. The module (CodeMirror
 grammar + worker factory) sits behind `loadRuntime`, written as a switch of
 static `import()` calls so the bundler emits one chunk per language — a computed
 specifier would collapse them into one.
@@ -75,7 +75,7 @@ specifier would collapse them into one.
 devDependencies for types.** browsercc and Pyodide address their own assets with
 `new URL(…, import.meta.url)`, so a bundled import makes their WASM a build
 output — measured 2026-08-11: `dist/` went from ~1MB to 113MB, against 109MB of
-`node_modules/browsercc` on disk. Importing the module _from_
+`node_modules/browsercc` on disk. Importing the module *from*
 jsDelivr points that URL at the CDN instead. Versions are pinned exactly, with a
 test tying the downloaded build to the typed one. The exception is what must be
 self-hosted: the Java compiler jar, which CheerpJ reads through our own origin
@@ -154,21 +154,20 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   turned 1 chunk into 9, but it cost **+10,790 B and +88 ms**. The other
   **+27,781 B and +160 ms** came from a single `export { remarkPlugins }` on the
   content seam, which pulled the build-time MDX compiler and a TOML parser into
-  the browser. That one is the _better_ illustration of the claim being made
+  the browser. That one is the *better* illustration of the claim being made
   here: `grep` for CodeMirror finds nothing in it, `grep` for `runtime/` finds
   nothing in it, and it is 72% of the bytes. The invariant is now a
   reachability walk from `app/main.tsx` (`architecture.test.ts`, "what the shell
   reaches eagerly") that asks an allowlist question of every bare package, which
   is what catches the second one; the kilobytes are still a symptom, and `grep`
   is still worth running, but it is not the proof.
-
 - **Who pays the lazy chunks changed with #85** (2026-08-13). This section was
   written when only a document with an authored `<CodeEditor>` loaded them. Now
   every document with a fence in a runnable language does, because a fence IS
   the component — and the grammar is not optional chrome, it is the
   highlighter. Measured from a network trace of `03-busqueda-binaria.mdx`, prose
   plus a single 10-line Java listing: **160.7 → 323.7 kB gz, +163.0 kB (+101%)**.
-  (Superseded as a _page total_ by #118 on 2026-08-14: that same document now
+  (Superseded as a *page total* by #118 on 2026-08-14: that same document now
   also carries mathematics, so it pays +3.94 kB gz of unconditional stylesheet —
   as does every other page in the site — plus ~42 kB of fonts for its own
   formulas. The fence figures below are unchanged; ADR-0027 §Consequences holds
@@ -190,7 +189,7 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   it is highlighting without an editor, and the record here is thinner than it
   looked: the Alternatives below reject **Prism/Shiki + `<textarea>`** on the
   grounds of "highlighting only, no editing" — which is a reason about an
-  _editing_ component and says nothing about build time. A build-time Shiki
+  *editing* component and says nothing about build time. A build-time Shiki
   render, which costs zero client JS, was never weighed for a pure listing.
   **That thread is now pulled and tied off in ADR-0024**, which decides for a
   listing on palette coherence rather than on cost, and writes the price down so

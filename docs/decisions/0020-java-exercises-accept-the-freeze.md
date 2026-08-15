@@ -16,8 +16,8 @@ the tab, no timeout can reach it, and the reader must close the tab. C++ and
 Python run in workers and are cut off cleanly.
 
 The guide shipped alongside it drew the obvious conclusion and wrote a
-prohibition (`add-a-course-document.md`): _"never ship a Java example whose
-termination depends on what the student types."_
+prohibition (`add-a-course-document.md`): *"never ship a Java example whose
+termination depends on what the student types."*
 
 Issue #76 is a Java course teaching Java, and an exercise is by definition an
 example whose termination depends on what the student types. The prohibition
@@ -25,7 +25,7 @@ forbids the WP. Worse, it forbids it in the one case where the language is not
 interchangeable: "use Python for anything about loops" is not advice a Java
 class can take.
 
-This is not a rare edge. _Write a loop and forget to advance the counter_ is the
+This is not a rare edge. *Write a loop and forget to advance the counter* is the
 typical first-week mistake, and document 1's fourth exercise —
 `cuentaDigitos`, whose natural solution is `while (n > 0) { ... n /= 10; }` — is
 precisely where it happens.
@@ -40,8 +40,8 @@ below — and none of them was "this is fine".
 **2. The editor is written to `localStorage` immediately before every run.**
 Not after, and not on a timer: the freeze arrives during the run, so the instant
 before it starts is the last moment the page is alive to save anything. This
-does not fix the freeze. It changes its cost from _the reader loses everything
-they had written_ to _the reader loses a reload_, which is the difference
+does not fix the freeze. It changes its cost from *the reader loses everything
+they had written* to *the reader loses a reload*, which is the difference
 between abandoning the page and continuing.
 
 Applied to `CodeEditor` as well as `Exercise`, because document 1 alone has

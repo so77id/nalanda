@@ -33,7 +33,7 @@ book view is the primary one.
 A build-time table of contents (a remark plugin collecting headings into
 frontmatter) was the other obvious option. It would have meant touching
 `vite.config.ts`, a confirmation-gated file, and it would have produced a
-_third_ notion of "section" — one computed from the source tree, which is not
+*third* notion of "section" — one computed from the source tree, which is not
 necessarily what the page paints.
 
 The observation that resolved it: `<Slide title>` renders its title through the
@@ -92,7 +92,7 @@ covered by one rule, verified against a real `auto` document and a real
 **Costs.** The spine exists only after paint: a server-rendered or
 pre-generated TOC is not available from this seam, and anything wanting sections
 without rendering the document would need the build-time plugin this ADR
-rejected. The rail is also blind to sections a component renders _without_ an
+rejected. The rail is also blind to sections a component renders *without* an
 `h2` — which is exactly consequence 2 above, and why it is written down here
 rather than discovered later: a `<Slide>` that stopped rendering its heading
 would silently empty the rail, with a green suite.
@@ -100,7 +100,7 @@ would silently empty the rail, with a green suite.
 **Which section is being read is a question about position, not visibility.**
 The first implementation asked an `IntersectionObserver` whether a heading was
 inside a band at the top of the viewport. It is wrong, and only a browser showed
-it: an observer fires on _crossings_, and a reader sitting inside a long section
+it: an observer fires on *crossings*, and a reader sitting inside a long section
 has no heading in the band at all — so nothing crosses, nothing fires, and the
 mark goes out. Measured on `/d/java-desde-cpp` at 1536px, the rail marked
 nothing through 70% of the document, and every jump that skips a crossing (a
