@@ -14,7 +14,7 @@ and is constrained by ADR-0018 (what may reach the entry chunk).
 
 Half a data structures course rests on one idea a student cannot see: a variable
 does not hold an object, it holds a reference to one. The audience arrives from a
-C++ course where `Punto a;` *is* the object, so the difference is invisible in the
+C++ course where `Punto a;` _is_ the object, so the difference is invisible in the
 code. Prose does not fix it — the student nods, and still writes `==` where they
 meant `.equals()`.
 
@@ -67,7 +67,7 @@ tracer reports line numbers against the original and an injected line would offs
 every highlight after it.
 
 **3. `var` is overloaded per primitive type, not taken as `Object`.** Overload
-resolution happens at compile time against the *static* type, so an `int` arrives
+resolution happens at compile time against the _static_ type, so an `int` arrives
 as an `int` and is drawn as a value inside its box, while a `Punto` arrives as an
 `Object` and is drawn as an arrow. A single `Object` parameter would autobox the
 `int` and make every primitive a heap object — erasing the exact distinction
@@ -91,12 +91,12 @@ unit and makes it the entry point, which a tracer cannot be: it has no `main`, a
 the snippet must keep it. Swapping the two — tracer as `source` — trips the
 reserved-name guard on the platform's own class. `library` compiles beside
 `source` and is never run. The guard stays on `source` alone, deliberately: it
-exists to stop a *student* shadowing a platform class, and the platform's own unit
+exists to stop a _student_ shadowing a platform class, and the platform's own unit
 arriving as a library is the intended use.
 
 **7. `NalandaTrace` is the third reserved class name**, beside `NalandaLauncher`
 and `NalandaCheck` (ADR-0019 §3b). The runtime refuses it as an entry class, and
-the instrumenter additionally refuses a snippet that declares it as a *secondary*
+the instrumenter additionally refuses a snippet that declares it as a _secondary_
 class — which the runtime guard cannot see, since it inspects only the entry.
 
 **8. Bounded, and the bound is on what is DRAWN.** Java runs on the page's main
@@ -106,7 +106,7 @@ budget is 48kB. Three caps: 40 photographs, 12 objects in the drawing, 32
 elements or fields per box.
 
 The middle one is the one that had to be learnt. It was first written as "24
-objects *per photograph*", enforced inside the tracer — which bounds the wrong
+objects _per photograph_", enforced inside the tracer — which bounds the wrong
 thing, because objects accumulate across steps. A loop allocating one object per
 iteration passed every per-photograph check and still drew forty boxes: measured
 in Chromium at 1440px, a 466×3296 viewBox rendered **48px wide with the frame
@@ -130,7 +130,7 @@ short, never wrong. Only the count was ever the lie.
 **9. The CDN toolchain waits for the button.** A diagram that ran on mount would
 pull the compiler on page load, once per diagram.
 
-Mounting is *not* free, and the first version of this ADR said it was. Measured on
+Mounting is _not_ free, and the first version of this ADR said it was. Measured on
 the branch build: mounting pulls the java runtime module and, through its
 `@codemirror/lang-java` import, the CodeMirror core with it — 17.7 kB grammar +
 8.6 kB `@lezer/lr` + 95.4 kB core = **~121.7 kB gzip**, none of which this
@@ -173,7 +173,7 @@ the name from without the parser this ADR declines to build.
   #49 (call stack visualiser) reuses this trace rather than growing its own.
 - **Java only.** The tracer is a Java class using Java reflection. C++ and Python
   get a refusal, not an empty drawing — enforced in `rejectHarness`, which the
-  two workers already call as their sole gate. That guard covers the *shape* of a
+  two workers already call as their sole gate. That guard covers the _shape_ of a
   second compilation unit rather than one field name, because the first version
   of this ADR made the promise while only `harness` was checked, and `library`
   would have sailed through to run the snippet bare.
@@ -190,7 +190,7 @@ the name from without the parser this ADR declines to build.
   generated class and in every snippet written for it.
 - **A wrong marker is the author's error and is reported as one**: a missing
   fence, a malformed marker, and a snippet with no markers are all caught before
-  running. One failure can only be caught *after* — markers inside a branch that
+  running. One failure can only be caught _after_ — markers inside a branch that
   never executes produce a green run and no photographs, and the component says
   that too.
 - **What it does not verify** is that a named variable exists; that needs a parser
@@ -205,8 +205,9 @@ the name from without the parser this ADR declines to build.
   add only ~37 kB gzip on top — `CodeEditor` 2.95 + `useRunShortcut` 21.89 + its
   vendor chunk 12.32. If #122 splits the grammar out of the runtime module, that
   number changes again and this trade is worth revisiting.
+
 - **Entry cost: +0.98 kB gzip of JS and +0.39 kB gzip of CSS.** The lazy wrapper
-  and the catalog entry's own text, plus the Tailwind classes — which are *not*
+  and the catalog entry's own text, plus the Tailwind classes — which are _not_
   lazy: one stylesheet is emitted eagerly for the whole app, so a lazy
   component's styles still reach every page. Measured against `main` at the final
   commit: 161.12 → 162.12 kB gzip JS, 8.55 → 8.94 kB gzip CSS. The component

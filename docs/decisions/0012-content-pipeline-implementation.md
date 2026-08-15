@@ -61,7 +61,7 @@ rest of the platform (authoring skill, catalog, presentation mode) will build on
   Rejected (was briefly shipped, caught in review).
 - **Build-time wiki-link resolution/failure**: stricter, but couples the remark
   plugin to the content tree and blocks draft workflows. Deferred — a build-time
-  link *report* can tighten this later without changing the format.
+  link _report_ can tighten this later without changing the format.
 - **Custom prose CSS under design tokens**: full control, dozens of rules to
   maintain before any real need. Rejected for v0.1.
 

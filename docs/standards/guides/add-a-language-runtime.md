@@ -53,7 +53,7 @@ src/runtime/python/
    `{ id, source, stdin, harness?, library? }` and answers exactly one of:
    - `{ type: 'warm', detail }` — once, unprompted, when booting finishes.
    - `{ id, type: 'started' }` — once per request, immediately before compiling.
-     It marks the boundary between *waiting* and *running*: before it, the caller
+     It marks the boundary between _waiting_ and _running_: before it, the caller
      allows 180s (CDN download, boot, queue); after it, 60s for the program.
      **Omit it and a student's infinite loop is reported three minutes later as
      "el runtime no estuvo listo"** instead of naming the loop. It also drives
@@ -69,12 +69,12 @@ src/runtime/python/
 
    **`harness` is a second compilation unit that takes over the entry point** —
    how an `<Exercise>` checks a method instead of a printed line (ADR-0019 §4).
-   Either compile it beside `source` and derive the entry class from *it* (worked
+   Either compile it beside `source` and derive the entry class from _it_ (worked
    case: `java/runtime.ts` + `launcher.ts`), or refuse it as the first thing your
    handler does:
 
    ```ts
-   rejectHarness(event.data, 'C++'); // from '../rejectHarness'
+   rejectHarness(event.data, "C++"); // from '../rejectHarness'
    ```
 
    **`library` is the mirror image: a second unit compiled beside `source` that
@@ -84,7 +84,7 @@ src/runtime/python/
    same `rejectHarness` call, which guards both fields.
 
    Note the reserved-name guard does NOT apply to `library`, deliberately: it
-   exists to stop a *student* class shadowing a platform one, and `library` is
+   exists to stop a _student_ class shadowing a platform one, and `library` is
    reachable only from platform constants.
 
    There is no third option for either. Running `source` alone when a second unit
@@ -131,8 +131,8 @@ src/runtime/python/
    rather than `npm run dev` — live in `testing-strategy.md` §Conventions, which
    two failure classes now share; what follows is the runtime-specific half.
 
-   Point the script at `/nalanda/d/codigo-ejecutable` (the demo document, one
-   editor per variant) or `/nalanda/catalog/c/CodeEditor` (live examples per
+   Point the script at `/nalanda/d/java-tipos-y-flujo` (course material carrying
+   editors and exercises) or `/nalanda/catalog/c/CodeEditor` (live examples per
    language) — and at the preview server, not the dev one: the deployed base path is part of what you are testing (the Java
    runtime resolves its compiler jar through `import.meta.env.BASE_URL`, so
    `/` and `/nalanda/` exercise different paths — ADR-0015). Check compile, run,

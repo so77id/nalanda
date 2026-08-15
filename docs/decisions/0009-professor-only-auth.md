@@ -9,7 +9,7 @@
 
 The guiding rule: auth is born with the first server feature that genuinely needs
 it. That feature is opening live sessions (ADR-0008) — without a gate, anyone could
-open "the parallel cátedra". Meanwhile course *reading* must stay public (no student
+open "the parallel cátedra". Meanwhile course _reading_ must stay public (no student
 accounts exist yet; the interim rule keeps content open to everyone).
 
 ## Decision

@@ -8,7 +8,7 @@
 
 ## Context
 
-ADR-0016 settled *whether* we may run CheerpJ. This one settles *how* Java
+ADR-0016 settled _whether_ we may run CheerpJ. This one settles _how_ Java
 actually executes, and it is not the shape the WP assumed.
 
 CheerpJ is a JVM: it runs bytecode. Students write source. Something has to
@@ -36,7 +36,7 @@ classic `rt.jar` is gone and every compiler locates `java.lang.*` through that
 module filesystem — so on those runtimes **no compiler can compile at all**,
 regardless of its version: ECJ 3.21 and 3.33+ fail identically, and `javac`
 would too. The JVM itself runs 11 and 17 bytecode fine; what is impossible is
-*producing* bytecode in the browser. Sources are therefore compiled with `-1.8`
+_producing_ bytecode in the browser. Sources are therefore compiled with `-1.8`
 on the Java 8 runtime, where the classic classpath model still applies.
 
 Raising the ceiling needs CheerpJ to ship a complete Java 9+ image — the vendor
@@ -50,9 +50,9 @@ CheerpJ delivers a console program's stdout by writing into a DOM element, and a
 Web Worker has no DOM — so unlike C++ and Python, Java cannot live in a worker.
 The main thread is acceptable, but with a limit that must be stated precisely,
 because the first version of this ADR overstated it. A Java program that
-*waits* — blocked on `System.in`, sleeping — yields the event loop, and the page
+_waits_ — blocked on `System.in`, sleeping — yields the event loop, and the page
 stays fully responsive: timers keep firing, measured at 107 fps during a cold
-compile. A Java program that *spins* does not. A `while (true)` holds the main
+compile. A Java program that _spins_ does not. A `while (true)` holds the main
 thread outright: measured 2026-08-11, a probe issued 30s into such a loop was
 still blocked at 105s, with the renderer pinned at 101% CPU. Nothing recovers
 it — not the run deadline in `useRuntime`, which is a `setTimeout` on the very
@@ -60,7 +60,7 @@ thread being held — so a student who writes an infinite loop in Java must clos
 the tab. C++ and Python, being real workers, are bounded normally.
 
 **A third case, measured 2026-08-12 (#76), which this two-case model missed.** A
-program that neither waits nor spins — one that *terminates, correctly*, and
+program that neither waits nor spins — one that _terminates, correctly_, and
 prints a great deal — also costs the tab: 10k lines stall the main thread for
 ~1.2s, 20k crash the renderer. Reaching it takes no infinite loop, only a
 `for` and a large number, which the stdin panel of a shipped example invites.
@@ -129,7 +129,7 @@ not an error.
   so at once instead of queueing behind a program that will never finish — but a
   CPU-bound loop never reaches even that, because it holds the thread. This is
   the sharpest edge of running Java on the main thread, and it goes away only
-  when Java can live in a worker. Narrowed by #76: a run that *reaches* the end
+  when Java can live in a worker. Narrowed by #76: a run that _reaches_ the end
   of `execute` clears the flag, because a finished run proves the JVM is free —
   before that, navigating away during the 12s boot disabled Java for the whole
   session with nothing actually stuck.

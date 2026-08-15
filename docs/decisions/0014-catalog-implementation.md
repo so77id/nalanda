@@ -107,7 +107,7 @@ entries reach the catalog, and what a machine can check.
   catalog, and authors read the product, not the repo.
 
 > **Extended by ADR-0018 §7**: a component carrying a heavy dependency
-> registers a `lazy<Name>.tsx` wrapper — in the MDX map *and* in its own catalog
+> registers a `lazy<Name>.tsx` wrapper — in the MDX map _and_ in its own catalog
 > entry — because the shell builds both eagerly.
 
 ## Consequences

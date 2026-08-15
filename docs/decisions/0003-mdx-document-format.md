@@ -25,7 +25,9 @@ and `[[wiki-links]]` for cross-references (resolved by our pipeline).
 id: bst-insercion
 title: Inserción en un BST
 ---
+
 ## La idea
+
 Para insertar comparamos con la raíz...
 
 <Visualizador estructura="bst" operacion="insert" valores={[50, 30, 70]} />
@@ -49,5 +51,5 @@ Relacionado: [[busqueda-binaria]]
   (ADR-0010) — the authoring surface is controlled.
 
   > **Amended by ADR-0024.** True
-  of *named* components only. An intrinsic element the shell maps to a component
-  — a code fence since #85 — has no catalog entry, by design and not by omission.
+  > of _named_ components only. An intrinsic element the shell maps to a component
+  > — a code fence since #85 — has no catalog entry, by design and not by omission.

@@ -155,7 +155,7 @@ disposition:
   the next run overwrites the shadow back. That is luck rather than design, and
   it is why the name joined `RESERVED_CLASSES` anyway.
 - **The `library` field bypasses the reserved-name guard on purpose.** The guard
-  exists to stop a *student* class shadowing a platform one; the platform's own
+  exists to stop a _student_ class shadowing a platform one; the platform's own
   unit arriving there is the intended use. It is reachable only from a module
   constant, never from author or student content.
 - **The guard still inspects the ENTRY class only.** The sentence above —

@@ -77,7 +77,7 @@ async function renderAt(path: string): Promise<void> {
 //
 // Resolved through the REGISTRY, not through `walkIndex`. What these cases need
 // is a document that renders, and the index decides navigation rather than
-// existence (ADR-0002): a document absent from it is still compiled and still
+// existence (ADR-0015 §6): a document absent from it is still compiled and still
 // served at `/d/<id>`. Selecting from the index conflated the two, so retiring
 // the Fundamentos unit from the teaching path reddened three cases here about a
 // document that had not changed at all.
@@ -144,11 +144,15 @@ describe('the section rail over real documents', () => {
   });
 
   it('shows no rail for a document with no sections at all', async () => {
-    // Registry, not index, for the same reason as the fixture above: what this
-    // case needs is a document that renders without sections, and being on the
-    // teaching path has nothing to do with that.
-    const flatId = registry.entries.find((e) => e.meta.presentation === 'none')?.meta.id;
-    expect(flatId, 'seed course needs a document without sections').toBeDefined();
+    // Named, not discovered — the rule this file's header states, and which the
+    // predicate form quietly broke: declaring `none` on a second document would
+    // move this case onto it without a word.
+    const FLAT_FIXTURE = 'apuntes-del-curso';
+    const flatId = registry.get(FLAT_FIXTURE)?.meta.id;
+    expect(
+      flatId,
+      `${FLAT_FIXTURE} left content/ — repoint at another document with no h2 at all`,
+    ).toBeDefined();
     await renderAt(`/d/${flatId}`);
     const article = await screen.findByRole('article');
     // Wait for the document itself, not just the element that will hold it.

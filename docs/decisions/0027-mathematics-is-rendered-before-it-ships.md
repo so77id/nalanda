@@ -33,7 +33,7 @@ What ships is markup that was already rendered, a stylesheet, and font files.
 
 The two lists live in `src/content/mdxPlugins.ts` and `src/content/rehypePlugins.ts`
 rather than inline in `vite.config.ts`, for the reason the first was extracted: a test
-compiles through the *same* list the build uses. Both are asserted twice — through the
+compiles through the _same_ list the build uses. Both are asserted twice — through the
 exported lists and through the resolved config — because a guard that reads a config as
 text can prove a name appears and cannot prove the value is used, which is exactly how
 GFM fell out of the build while every test stayed green (#83).
@@ -60,10 +60,10 @@ of this ADR claimed the cost was mild — "the formula sits there as plain text"
 author fixes it. Measured, that is only true of brace-free bodies like `$n$`. MDX reads
 braces as expressions, so:
 
-| Source | What the reader gets |
-|---|---|
-| `Sea $\frac{1}{2}$ del total.` | `Sea $\frac12$ del total.` — the braces are gone |
-| `Hay $\log_{2}(n)$ pasos.` | `Hay $\log_2(n)$ pasos.` |
+| Source                            | What the reader gets                                    |
+| --------------------------------- | ------------------------------------------------------- |
+| `Sea $\frac{1}{2}$ del total.`    | `Sea $\frac12$ del total.` — the braces are gone        |
+| `Hay $\log_{2}(n)$ pasos.`        | `Hay $\log_2(n)$ pasos.`                                |
 | `Sea $\sum_{i=1}^{n} i$ la suma.` | **the build fails**: `ReferenceError: i is not defined` |
 
 Silent corruption of the source, or a build error naming a LaTeX subscript variable as if
@@ -92,8 +92,8 @@ requests exactly two woff2 files, and a document with no mathematics requests **
 
 **That sentence was false when this ADR was first written, and the way it was false is
 the more useful record.** `KaTeX_Size3-Regular.woff2` is 3,624 bytes, under Vite's default
-`assetsInlineLimit` of 4096 — so Vite inlined it as a base64 data URI *inside the global
-stylesheet*. One font for large delimiters was therefore downloaded by every page in the
+`assetsInlineLimit` of 4096 — so Vite inlined it as a base64 data URI _inside the global
+stylesheet_. One font for large delimiters was therefore downloaded by every page in the
 site, math or not, at **4,343 bytes gzip: 52% of the entire cost of shipping
 mathematics.** The build emitted 19 woff2 files where KaTeX has 20, and nobody noticed
 the missing one.
@@ -101,11 +101,11 @@ the missing one.
 `build.assetsInlineLimit: 0` in `vite.config.ts` fixes it, and the measurement is the
 whole argument:
 
-| | Inlined (as merged) | `assetsInlineLimit: 0` |
-|---|---|---|
-| App CSS | 77.29 kB → 16.70 kB gz | 72.48 kB → **12.36 kB gz** |
-| Cost to every page | 8.28 kB gz | **3.94 kB gz** |
-| woff2 emitted as files | 19 | **20** |
+|                        | Inlined (as merged)    | `assetsInlineLimit: 0`     |
+| ---------------------- | ---------------------- | -------------------------- |
+| App CSS                | 77.29 kB → 16.70 kB gz | 72.48 kB → **12.36 kB gz** |
+| Cost to every page     | 8.28 kB gz             | **3.94 kB gz**             |
+| woff2 emitted as files | 19                     | **20**                     |
 
 **The remaining 3.94 kB is still debt**, and the exit for it is different and larger:
 scoping the stylesheet per document. That was also measured, after a first draft of this
@@ -137,7 +137,7 @@ able to run this app is woff2, so **816.8 kB is published and never requested**.
 **Accepted knowingly by the repo owner**: the host is GitHub Pages, where that storage is
 free, and dropping formats is a compatibility decision rather than an inherited one.
 
-What the dead formats cost every *reader* is **511 bytes gzip** — 6.2% of the CSS delta
+What the dead formats cost every _reader_ is **511 bytes gzip** — 6.2% of the CSS delta
 as merged, measured by stripping every `woff`/`truetype` `url()` from the built
 stylesheet: 16,678 B gz → 16,167 B gz. The `@font-face` blocks as a whole are 64% of that
 delta, so even a woff2-only build would carry 4,822 B of them.
@@ -146,14 +146,14 @@ An earlier draft explained the delta by saying hashed asset paths do not compres
 Measured, de-hashing every font filename saves 445 B gz — about 5%, so the explanation
 was directionally right and quantitatively backwards. And an earlier draft claimed
 `KaTeX_Size3-Regular` "ships no woff2 at all", which was wrong in both direction and
-magnitude: the woff2 exists and was being *inlined into the stylesheet* rather than
+magnitude: the woff2 exists and was being _inlined into the stylesheet_ rather than
 omitted. §3 carries what that cost and how it was fixed.
 
 ### 5. A malformed formula renders wrong; it does not fail the build
 
 `rehype-katex` keeps its default `throwOnError: false`. A broken formula appears in
 KaTeX's error colour and the document still builds. Failing the build was considered and
-rejected: the content gate refuses documents for *structural* faults — a missing id, a
+rejected: the content gate refuses documents for _structural_ faults — a missing id, a
 bad index — while a typo inside a formula is authoring feedback. It matches how a broken
 wiki-link behaves, visibly wrong on purpose (ADR-0002).
 
@@ -192,7 +192,7 @@ dependency bump actually happens.
 ### 8. A published anchor is frozen
 
 Heading slugs come from `lib/reactText.ts`, which contributes nothing for an element. A
-heading that is *entirely* a formula therefore has no text, gets no slug, and ships with
+heading that is _entirely_ a formula therefore has no text, gets no slug, and ships with
 **no id, no self-anchor and no entry in the section spine** — silently. That contradicts
 ADR-0021 (every `h2` the page paints becomes a section) and ADR-0002 (every `h2`–`h4` is
 deep-linkable), and it is reachable from ordinary authoring only since this WP.
@@ -238,17 +238,17 @@ a tree with no stray `dist*` directory: Tailwind scans one, and a previous build
 names inflate the CSS reading by ~1.6 kB gz. That is how the first version of this table
 overstated the document chunk.
 
-| | Before | After |
-|---|---|---|
-| App CSS | 47.98 kB → 8.42 kB gz | 72.48 kB → **12.36 kB gz** |
-| JavaScript shipped | — | **unchanged; zero** |
-| `03-busqueda-binaria` chunk | 2.07 kB → 1.03 kB gz | 5.17 kB → **1.66 kB gz** |
-| Font files in `dist/` | 0 | 60, 1072.9 kB |
-| Fonts a formula requests | — | 2 woff2, 42,712 B |
-| Fonts a math-free page requests | — | **0** |
-| Build time | 3.17–3.95 s | 3.20–3.67 s (within noise) |
+|                                 | Before                | After                      |
+| ------------------------------- | --------------------- | -------------------------- |
+| App CSS                         | 47.98 kB → 8.42 kB gz | 72.48 kB → **12.36 kB gz** |
+| JavaScript shipped              | —                     | **unchanged; zero**        |
+| `03-busqueda-binaria` chunk     | 2.07 kB → 1.03 kB gz  | 5.17 kB → **1.66 kB gz**   |
+| Font files in `dist/`           | 0                     | 60, 1072.9 kB              |
+| Fonts a formula requests        | —                     | 2 woff2, 42,712 B          |
+| Fonts a math-free page requests | —                     | **0**                      |
+| Build time                      | 3.17–3.95 s           | 3.20–3.67 s (within noise) |
 
-The CSS row is measured against the baseline *after* #109's two-theme system landed, by
+The CSS row is measured against the baseline _after_ #109's two-theme system landed, by
 building this branch with and without the `@import` — the honest form, since a rebase
 moved the ground under the first reading, and since one number in an earlier version of
 this table was taken from a tree with a stray `dist*` directory that Tailwind scanned.
@@ -280,7 +280,7 @@ does not exist anywhere in this repo** — the only recorded one is the guide's 
 roughly half scale the body text stops being readable". And no shipped document puts a
 formula in a deck, so there is no reproducible example: `03-busqueda-binaria.mdx` keeps
 its cost section book-only, and #120 is where a deck with mathematics first ships. The
-hazard worth checking is a *long* display equation, which this one is not.
+hazard worth checking is a _long_ display equation, which this one is not.
 
 **Layout shift.** Mathematics adds none of its own: KaTeX bakes build-time metrics into
 inline styles, so blocking the woff2 files versus loading them leaves every formula box
@@ -302,7 +302,7 @@ stack overflow is caught and degraded to an error span — but **output size is 
 is repo-reviewed; it is a second reason to re-review the pipeline at the moment
 `docs/security-notes.md` already names, when a non-repo-authored content path appears.
 
-**Known limit, not fixed here.** An `h2` that is *entirely* a formula gets no id, no
+**Known limit, not fixed here.** An `h2` that is _entirely_ a formula gets no id, no
 self-anchor and no entry in the section spine, which contradicts ADR-0021 and ADR-0002.
 The fix is to make `textOf` recurse into elements — and that changes existing slugs:
 `06-java-desde-cpp.mdx` has a heading whose published anchor is `la-trampa-de-seguido-de`
@@ -316,14 +316,14 @@ exist when the work started. It needs no rule of its own: KaTeX draws its glyphs
 `currentColor`, so a formula inherits `--tw-prose-body` exactly like the prose around it.
 Measured in a browser on both:
 
-| Theme | Formula | Prose | Contrast |
-|---|---|---|---|
-| Dark | `rgb(168, 179, 192)` | identical | **8.90:1** |
-| Light | `rgb(71, 82, 95)` | identical | **7.02:1** |
+| Theme | Formula              | Prose     | Contrast   |
+| ----- | -------------------- | --------- | ---------- |
+| Dark  | `rgb(168, 179, 192)` | identical | **8.90:1** |
+| Light | `rgb(71, 82, 95)`    | identical | **7.02:1** |
 
 Both are comfortably past WCAG AA, and the colours are identical to the body text by
 construction rather than by coincidence — so a formula cannot drift from its paragraph
-when the palette changes. The one KaTeX colour that is *not* inherited is the `#cc0000`
+when the palette changes. The one KaTeX colour that is _not_ inherited is the `#cc0000`
 of an error span, which is deliberate: it should look wrong in either theme.
 
 **Accessibility**: KaTeX emits MathML beside the visual spans, so a formula is readable

@@ -132,7 +132,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   calls it (via `isInaccessible`) whenever it has to compute an accessible name.
   So `getByRole('heading', { name: /Costo/ })` over a heading containing a
   formula fails with `TypeError: Cannot read properties of undefined (reading
-  'length')` — a message that names neither the query nor the formula. Dropping
+'length')` — a message that names neither the query nor the formula. Dropping
   `{ name }` passes; so does `getByText`, and so does every query that never
   reaches the MathML subtree. Discovered in #118 and worth knowing before #120,
   which puts formulas on many slides and headings: the fix is to assert on text
@@ -155,7 +155,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   `run()` through `useRuntime`/`useLoadedRuntime`, generates a compilation unit
   sent to one (`harness.ts`, `trace.ts`), or mounts `CodeEditor` — or to the
   draft store, MUST also be verified in a real browser against `npm run build &&
-  npm run preview` — run, stdin, and a deliberate compile error — per
+npm run preview` — run, stdin, and a deliberate compile error — per
   `guides/add-a-language-runtime.md` §7. Today that set is `CodeEditor`,
   `Exercise` and `MemoryDiagram`. Define it by what the code DOES: worded as
   "mounts `CodeEditor`" it silently excluded `MemoryDiagram`, which draws its own
@@ -174,6 +174,7 @@ battery (full tests + integration L6), same rigor as `apps/web`.
   in a browser.
   (The browser mechanics are the shared ones below; the guide's §7 lists what to
   check for a runtime.)
+
 - **Layout and focus are invisible to the suite**, and this is a second class
   alongside execution, not a footnote to it. jsdom lays nothing out — every box
   is 0×0, `getBoundingClientRect` returns zeros, `checkVisibility` does not
@@ -486,14 +487,28 @@ playwright package.json` finds nothing by design), then drive `npm run build
   selects.
 - **A fixture is resolved from the registry, not the index — unless the case is
   about navigation.** The index decides the teaching path, never existence
-  (ADR-0002): `/d/<id>` serves any compiled document, listed or not. So a case
+  (ADR-0015 §6, over the content model of ADR-0002): `/d/<id>` serves any
+  compiled document, listed or not. So a case
   whose subject is _rendering_ selects through `registry.get(id)`, and only a
   case whose subject IS the path — the TOC, prev/next, the breadcrumb position —
   goes through `walkIndex`. Worked case (#136): taking one unit off the teaching
-  path reddened six cases across two files, about documents nobody had touched,
-  because they were finding their fixture by walking the index. The guard message
+  path reddened seven cases across three files — six of them, in two files, about
+  documents nobody had touched, because they were finding their fixture by
+  walking the index. (The seventh was the index assertion itself, and was the
+  point.) The guard message
   should say so too — "left the index" is the wrong diagnosis when what the case
   reads is the registry.
+- **A whole-set invariant is weakened with a named exception list, never
+  deleted.** When a legitimate change falsifies "this set is empty", the reflex
+  is to drop the assertion — and that drops the alarm for every ILLEGITIMATE
+  member too, silently, because the suite goes green either way. Name the
+  exceptions in a constant, assert the set equals it, and give the message both
+  directions: what to do when a member is missing, and what to do when one is
+  there that should not be. Worked case (#136): `RETIRED` in
+  `documentBreadcrumb.test.tsx`. Before it, `toEqual([])` was the only
+  registry→index check in the suite, and the first change to retire a document
+  on purpose would have taken it away — a document forgotten out of `index.yaml`
+  would then ship green and unreachable in navigation.
 - **A class-name assertion is an exact token, never a substring.** Every Tailwind
   utility has a variant form (`hover:x`) and an alpha form (`x/10`) that CONTAIN
   the base token, so `toContain('text-accent')` passes over `hover:text-accent` —

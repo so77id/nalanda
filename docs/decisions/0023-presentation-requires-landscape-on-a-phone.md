@@ -129,7 +129,7 @@ Three things this fixes in place:
   of. Verified in Chromium: enter fullscreen in landscape, rotate,
   `document.fullscreenElement` is null and the panel is up.
 - **The deck asks for the viewport the browser actually gives, not the one it
-  claims (#99).** `fixed inset-0` resolves against the *large* viewport, the one
+  claims (#99).** `fixed inset-0` resolves against the _large_ viewport, the one
   a mobile browser overlays with its own chrome, so the deck was drawing under
   the URL bar. It now also carries `h-[100dvh]` (dynamic viewport) and the page
   declares `viewport-fit=cover`; `theme-color` was already `#020617`, the deck's
@@ -140,7 +140,7 @@ Three things this fixes in place:
   **Answered on a device, 2026-08-13: it does not hide the bar.** Brave on an
   **iPhone** (iOS, therefore WebKit whatever the browser's name) keeps its
   chrome over the deck with `dvh` and `viewport-fit=cover` in place. The
-  measures are still right — they stop the deck from being *clipped* by the
+  measures are still right — they stop the deck from being _clipped_ by the
   chrome, which was the actual bug — but they do not remove it.
   **This is the end state, not an open question**, and on iOS it is
   unconditional: no browser there has the Fullscreen API for a web page (see

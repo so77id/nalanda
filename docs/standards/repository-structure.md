@@ -46,18 +46,27 @@ nalanda/
      speculatively; a second consumer is the admission ticket.
    - `content/` — course material (Material domain). Not app code: it has its own
      lifecycle (authoring), its own future (database, per ADR-0002), and is
-     **written** without entering any `src/` — but see below: verifying it is
-     another matter.
+     **written** without entering any `src/` — with one exception, and verifying
+     it is another matter again; see below for both.
 
      **In v0.1 it is also the test suite's fixture set** (ADR-0025), and that is
      a constraint on authoring rather than a note. Several tests assert over the
      live registry because there is no other real content to assert over, so a
-     declaration can be forced by a test instead of by the reader: since #108,
-     `01-bienvenida.mdx` declares `presentation: auto` rather than the `none` its
-     content argues for, purely because it is the suite's only `auto` document.
-     Editing `content/` therefore requires the full suite, not only the build
-     (`guides/add-a-course-document.md` step 2). ADR-0025 carries the
+     declaration can be forced by a test instead of by the reader. The worked
+     case was #108, when `01-bienvenida.mdx` was held at `presentation: auto`
+     purely to stay the suite's only `auto` document; #120 turned it into the
+     course's opening class (`explicit`) and the auto case was retired rather
+     than re-homed, so **no document declares `auto` today**. The constraint
+     itself stands: editing `content/` requires the full suite, not only the
+     build (`guides/add-a-course-document.md` step 2). ADR-0025 carries the
      alternatives that were rejected and the exit condition.
+
+     **The exception to "without entering `src/`"** is the SET of listed
+     documents, since #136. Taking a document off the teaching path — or
+     shipping one deliberately unlisted — requires declaring its id in `RETIRED`
+     in `app/documentBreadcrumb.test.tsx`, which asserts the unlisted set
+     exactly, so both an undeclared omission and an undeclared re-listing turn
+     the suite red. Writing a document's PROSE still needs no `src/` at all.
 
    - `docs/` — knowledge: standards, design, decisions, conventions.
    - `infra/` — running the system around the apps:

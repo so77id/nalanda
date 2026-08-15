@@ -25,7 +25,7 @@ page about the platform, whose two sections are "Cómo navegar" and "Qué
 encontrarás". Projected on a wall it is site navigation. Its content argues for
 `presentation: none`.
 
-It cannot have it. After #108 it is the only `auto` document in the tree, and the
+It cannot have it. After #108 it was the only `auto` document in the tree (until #120 — see Decision 1), and the
 markdown-`h2` path of the section rail — the primary path of ADR-0021's
 decision — has no other real content to run over. Declaring `none` on it leaves
 that path untested.
@@ -53,8 +53,15 @@ recorded at the document.**
 
 Concretely:
 
-1. `01-bienvenida.mdx` declares `presentation: auto` although its content argues
-   for `none`, to remain the suite's only `auto` fixture.
+1. ~~`01-bienvenida.mdx` declares `presentation: auto` although its content
+   argues for `none`, to remain the suite's only `auto` fixture.~~ **Discharged
+   by #120**: that document became the course's opening class, hand-cut into
+   slides and declared `explicit`, and nothing was re-declared `auto` — giving a
+   deck to material whose author did not choose one is the defect #108 exists to
+   prevent. The `auto` path is covered over synthetic MDX in
+   `presentation/parser.test.tsx`. The decision's SHAPE stands and is why #136
+   kept three retired documents in the tree rather than deleting them: content is
+   still the fixture set.
 2. **Fixtures are named, never discovered.** A test that knows a document's
    content names that document, with a non-vacuity guard whose message says what
    to repoint and why. Positional selection is banned — recorded as a convention

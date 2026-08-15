@@ -53,7 +53,8 @@ describe('the breadcrumb row of a document', () => {
     expect(presentar.querySelector('svg')).not.toBeNull();
   });
 
-  // An unlisted document is served but has no position in the path (ADR-0002).
+  // An unlisted document is served but has no position in the path (ADR-0015 §6,
+  // over the content model of ADR-0002).
   // Two cases share this list, and it is spelled out rather than discovered
   // because it is also the invariant below: the set of unlisted documents is
   // closed, and a document that joins it by accident is a mistake nothing else
@@ -63,8 +64,10 @@ describe('the breadcrumb row of a document', () => {
   // The registry→index direction, which nothing else in the suite covers:
   // `contentIntegrity.ts` and `content/architecture.test.ts` both walk the index
   // and check each id resolves, never the reverse. An earlier version of this
-  // case asserted the set was EMPTY, which is what the authoring guide's step 7
-  // still described; retiring the Fundamentos unit made "empty" false, and
+  // case asserted the set was EMPTY, which is what the authoring guide described
+  // until it was rewritten alongside this change (add-a-course-document.md,
+  // step 8 — Register it in the teaching path); retiring the Fundamentos unit
+  // made "empty" false, and
   // deleting the assertion outright would have left a document forgotten out of
   // index.yaml shipping green and unreachable in navigation. Naming the set
   // keeps the alarm and states which absences are deliberate.
@@ -76,7 +79,7 @@ describe('the breadcrumb row of a document', () => {
       .sort();
     expect(
       unlisted,
-      'a document is missing from index.yaml — add it to the teaching path, or to RETIRED above if it is off the path on purpose. If #135 landed and removed the retired documents, empty this list.',
+      'the unlisted set does not match RETIRED. A document missing from index.yaml: add it to the teaching path, or to RETIRED above if it is off the path on purpose. A document RETIRED still names but the index now lists: delete it from RETIRED, and repoint the case below, which drives RETIRED[0]. If #135 removed the retired documents: empty this list and retire that case.',
     ).toEqual([...RETIRED].sort());
   });
 

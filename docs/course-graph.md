@@ -7,7 +7,7 @@ para enseñar `B` los estudiantes ya tienen que dominar `A`.
 Este archivo es la **fuente de verdad** del temario. Cuando se mueva o se
 agregue un tópico, se edita aquí.
 
-**Lo que no aparece acá:** la unidad *Java para quien viene de C++*
+**Lo que no aparece acá:** la unidad _Java para quien viene de C++_
 (`content/courses/sample-course/`, WPs #76–#81) es un repaso del lenguaje previo
 al temario, no un tópico de EDA. No tiene nodo en el grafo ni fila en la tabla
 porque no es prerrequisito de ninguno de los 51 tópicos: es prerrequisito del
@@ -292,59 +292,59 @@ graph TD
 Esta es **una** secuencia válida que respeta todas las dependencias del grafo.
 No es la única posible — sirve como punto de partida para el calendario.
 
-| # | Tópico | Grupo | Depende de |
-|---|---|---|---|
-| 1 | Intro & TDAs | G1 | — |
-| 2 | Complejidad Big O / Ω / Θ | G1 | 1 |
-| 3 | Arreglos estáticos y dinámicos | G2 | 2 |
-| 4 | Listas enlazadas | G2 | 3 |
-| 5 | Pilas | G2 | 3, 4 |
-| 6 | Colas / Deques | G2 | 3, 4 |
-| 7 | Dos punteros · sliding window · prefix sums | G3 | 3 |
-| 8 | Búsqueda lineal y binaria | G5 | 3 |
-| 9 | Sorts O(n²) | G5 | 3 |
-| 10 | Recursión | G4 | 5 |
-| 11 | Recurrencias + Master Theorem | G4 | 2, 10 |
-| 12 | Análisis amortizado | G4 | 3 |
-| 13 | Divide y vencerás | G5 | 10, 11 |
-| 14 | Merge sort / Quicksort | G5 | 9, 13 |
-| 15 | Sorts lineales (counting/radix/bucket) | G5 | 14 |
-| 16 | Bit manipulation | G10 | 3 |
-| 17 | Tablas hash + funciones hash | G6 | 3, 4 |
-| 18 | Bloom filters | G6 | 17 |
-| 19 | Skip lists | G6 | 4 |
-| 20 | Árboles binarios + recorridos | G7 | 10 |
-| 21 | BST | G7 | 8, 20 |
-| 22 | AVL | G7 | 21 |
-| 23 | Red-Black trees | G7 | 22 |
-| 24 | B-trees / B+ trees | G7 | 23 |
-| 25 | Tries | G7 | 20 |
-| 26 | Heap binario | G8 | 3, 20 |
-| 27 | Priority queue | G8 | 26 |
-| 28 | Heap-sort | G8 | 9, 26 |
-| 29 | Segment trees | G9 | 10, 20 |
-| 30 | Fenwick / BIT | G9 | 3, 16 |
-| 31 | Union-Find | G9 | 3, 20 |
-| 32 | Backtracking | G11 | 5, 10 |
-| 33 | Greedy | G11 | 9, 27 |
-| 34 | Dynamic programming | G11 | 10, 11 |
-| 35 | Representación de grafos | G12 | 3, 4 |
-| 36 | BFS | G12 | 6, 35 |
-| 37 | DFS | G12 | 5, 10, 35 |
-| 38 | Orden topológico | G12 | 37 |
-| 39 | SCC (Tarjan / Kosaraju) | G12 | 37, 38 |
-| 40 | Dijkstra | G12 | 27, 33, 35 |
-| 41 | Bellman-Ford | G12 | 34, 35 |
-| 42 | Floyd-Warshall | G12 | 34, 35 |
-| 43 | Prim | G12 | 27, 33, 35 |
-| 44 | Kruskal | G12 | 14, 31, 33, 35 |
-| 45 | Max flow / Min cut | G12 | 36 |
-| 46 | KMP | G13 | 25, 34 |
-| 47 | Rabin-Karp | G13 | 17 |
-| 48 | Z-algorithm | G13 | 10 |
-| 49 | Suffix arrays | G13 | 14 |
-| 50 | Algoritmos randomizados | G14 | 14, 17 |
-| 51 | P, NP, NP-completo | G14 | 33, 34, 45 |
+| #   | Tópico                                      | Grupo | Depende de     |
+| --- | ------------------------------------------- | ----- | -------------- |
+| 1   | Intro & TDAs                                | G1    | —              |
+| 2   | Complejidad Big O / Ω / Θ                   | G1    | 1              |
+| 3   | Arreglos estáticos y dinámicos              | G2    | 2              |
+| 4   | Listas enlazadas                            | G2    | 3              |
+| 5   | Pilas                                       | G2    | 3, 4           |
+| 6   | Colas / Deques                              | G2    | 3, 4           |
+| 7   | Dos punteros · sliding window · prefix sums | G3    | 3              |
+| 8   | Búsqueda lineal y binaria                   | G5    | 3              |
+| 9   | Sorts O(n²)                                 | G5    | 3              |
+| 10  | Recursión                                   | G4    | 5              |
+| 11  | Recurrencias + Master Theorem               | G4    | 2, 10          |
+| 12  | Análisis amortizado                         | G4    | 3              |
+| 13  | Divide y vencerás                           | G5    | 10, 11         |
+| 14  | Merge sort / Quicksort                      | G5    | 9, 13          |
+| 15  | Sorts lineales (counting/radix/bucket)      | G5    | 14             |
+| 16  | Bit manipulation                            | G10   | 3              |
+| 17  | Tablas hash + funciones hash                | G6    | 3, 4           |
+| 18  | Bloom filters                               | G6    | 17             |
+| 19  | Skip lists                                  | G6    | 4              |
+| 20  | Árboles binarios + recorridos               | G7    | 10             |
+| 21  | BST                                         | G7    | 8, 20          |
+| 22  | AVL                                         | G7    | 21             |
+| 23  | Red-Black trees                             | G7    | 22             |
+| 24  | B-trees / B+ trees                          | G7    | 23             |
+| 25  | Tries                                       | G7    | 20             |
+| 26  | Heap binario                                | G8    | 3, 20          |
+| 27  | Priority queue                              | G8    | 26             |
+| 28  | Heap-sort                                   | G8    | 9, 26          |
+| 29  | Segment trees                               | G9    | 10, 20         |
+| 30  | Fenwick / BIT                               | G9    | 3, 16          |
+| 31  | Union-Find                                  | G9    | 3, 20          |
+| 32  | Backtracking                                | G11   | 5, 10          |
+| 33  | Greedy                                      | G11   | 9, 27          |
+| 34  | Dynamic programming                         | G11   | 10, 11         |
+| 35  | Representación de grafos                    | G12   | 3, 4           |
+| 36  | BFS                                         | G12   | 6, 35          |
+| 37  | DFS                                         | G12   | 5, 10, 35      |
+| 38  | Orden topológico                            | G12   | 37             |
+| 39  | SCC (Tarjan / Kosaraju)                     | G12   | 37, 38         |
+| 40  | Dijkstra                                    | G12   | 27, 33, 35     |
+| 41  | Bellman-Ford                                | G12   | 34, 35         |
+| 42  | Floyd-Warshall                              | G12   | 34, 35         |
+| 43  | Prim                                        | G12   | 27, 33, 35     |
+| 44  | Kruskal                                     | G12   | 14, 31, 33, 35 |
+| 45  | Max flow / Min cut                          | G12   | 36             |
+| 46  | KMP                                         | G13   | 25, 34         |
+| 47  | Rabin-Karp                                  | G13   | 17             |
+| 48  | Z-algorithm                                 | G13   | 10             |
+| 49  | Suffix arrays                               | G13   | 14             |
+| 50  | Algoritmos randomizados                     | G14   | 14, 17         |
+| 51  | P, NP, NP-completo                          | G14   | 33, 34, 45     |
 
 ---
 
