@@ -86,13 +86,23 @@ something to allow; it is something nobody should write.
   changes — measured, 8.90:1 on dark and 7.02:1 on light, identical to the prose
   in each. Check this before reaching for `useResolvedTheme`.
 - **A vendor colour we do not control is exempt from §The one rule only when it
-  is recorded here, with its measured pairs.** One exists: KaTeX paints a
-  malformed formula in its own `#cc0000`, which measures **3.24:1 on the dark
-  `ground`** — above the 3:1 for large text, below the 4.5:1 the tokens hold text
-  to. Accepted: it is an authoring error state that should look wrong in either
-  theme and is never a reading surface. `architecture.test.ts` cannot see it —
-  it greps our class names, not vendor CSS or inline styles — so this note is
-  the only guard.
+  is recorded here, with its measured pairs.**
+
+**A ground a third-party asset was drawn for is the second exemption** (#120
+review). `plate` is white given to a brand mark because the mark cannot be given
+anything else: served through `<img>` it never sees a CSS variable, so a
+monochrome logo paints black and vanishes on the dark ground. It is the only
+token with the same value under every theme, and it has no pair — nothing of
+ours is ever painted on it. Used by `<Mosaic plate>` and nowhere else. Unlike
+the KaTeX case, this one IS guarded: `palette.test.ts` asserts the value is
+identical in every theme block, because the first version of it rested on a
+comment and a dark value passed all 29 cases. One exists: KaTeX paints a
+malformed formula in its own `#cc0000`, which measures **3.24:1 on the dark
+`ground`** — above the 3:1 for large text, below the 4.5:1 the tokens hold text
+to. Accepted: it is an authoring error state that should look wrong in either
+theme and is never a reading surface. `architecture.test.ts` cannot see it —
+it greps our class names, not vendor CSS or inline styles — so this note is
+the only guard.
 
 ## Verifying a colour change
 

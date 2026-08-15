@@ -146,8 +146,9 @@ describe('the palette', () => {
       // `plate` carries no product text and no product UI — it is the white a
       // third-party brand mark was drawn for, given to it because an `<img>`
       // cannot read any of the tokens above (#120 review). Nothing of ours is
-      // painted on it, so there is no pair to check; what it must be is the same
-      // in both themes, which the token-set case above already asserts.
+      // painted on it, so there is no contrast pair to check — what it must be
+      // is the same VALUE in every theme, and that is asserted by its own case
+      // below rather than by the token-set case, which compares names.
       'plate',
     ]);
     const orphans = declared.filter((name) => !known.has(name));
@@ -163,6 +164,32 @@ describe('the palette', () => {
     expect(Object.keys(tokensIn(THEMES[1].selector)).sort()).toEqual(
       Object.keys(tokensIn(':root')).sort(),
     );
+  });
+
+  /**
+   * The tokens whose whole point is NOT following the theme, and which therefore
+   * must carry the same value everywhere.
+   *
+   * One so far. `plate` is the white a third-party brand mark was drawn for,
+   * handed to it because an `<img>` cannot read a CSS variable: a monochrome
+   * logo paints black and vanishes on the dark ground. Give it a dark value
+   * "to match the theme" and the marks disappear on the theme that motivated it.
+   *
+   * Its own case because the token-set case above compares NAMES. Measured while
+   * reviewing #120: setting `--nl-plate` to the dark ground in both dark blocks
+   * left all 29 cases green, so the invariance was resting on a comment.
+   */
+  const THEME_INVARIANT = ['plate'] as const;
+
+  it.each(THEME_INVARIANT)('%s carries the same value under every theme', (name) => {
+    const light = tokensIn(':root')[name];
+    expect(light, `${name} is not declared in :root`).toBeDefined();
+    for (const theme of THEMES.slice(1)) {
+      expect(
+        tokensIn(theme.selector)[name],
+        `${name} differs under ${theme.selector}. It is theme-invariant on purpose (design-system.md) — if it should now follow the theme, take it out of THEME_INVARIANT and give it a pairing entry.`,
+      ).toBe(light);
+    }
   });
 
   // The THIRD block, and the one that serves most readers.
