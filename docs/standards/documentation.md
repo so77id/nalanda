@@ -120,6 +120,26 @@ because neither regression touched a named module. The ADR now carries the
 correction and the numbers; the invariant walks from `app/main.tsx` and asks an
 allowlist question.
 
+## Two shapes this repo learned the hard way
+
+**When a duplicated fact is removed, the surviving note records the drift that
+justified removing it.** One home per fact is the rule; this is its enforcement,
+and it is the same shape Rule 6 already demands for a magic value. Worked case:
+`apps/amc-worker/worker.py` deleted a route table from its own docstring and
+said why — the copy had already drifted from the handlers below, inside the PR
+that wrote it, omitting a required field and naming response keys the code does
+not return (#138 review, F-13).
+
+**A manual verification procedure states its steps in prose and its SETUP as a
+target the reader runs.** A prose command list for a procedure a human performs
+with paper in hand drifts exactly like duplicated prose, and it fails at the
+worst moment — after the printing and the marking. Where its output carries
+personal data, the procedure also states what may be recorded and where. Worked
+case: `apps/amc-worker/PAPER-CHECK.md` plus `make paper` / `make read-paper`,
+after two rounds of review found its command list wrong twice — the second time
+omitting a step that would have left the reader with an empty layout and no way
+to tell that from an engine failure (#138).
+
 ## ADR format
 
 ADRs live in `docs/decisions/<NNNN>-<kebab-title>.md`, numbered sequentially:
@@ -127,7 +147,8 @@ ADRs live in `docs/decisions/<NNNN>-<kebab-title>.md`, numbered sequentially:
 ```markdown
 # ADR-NNNN: <title>
 
-**Status:** Proposed | Accepted | Archived | Superseded by ADR-MMMM
+**Status:** Proposed | Accepted | Accepted — <verification> outstanding |
+Archived | Superseded by ADR-MMMM
 **Date:** YYYY-MM-DD
 **Decision-makers:** <who>
 **Source:** <conversation/issue/PR that produced it>

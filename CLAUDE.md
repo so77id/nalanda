@@ -10,6 +10,8 @@ This file holds **monorepo-shared** instructions only. Each app has its own
 `CLAUDE.md` with its commands, stack, and rules — read it before working there:
 
 - `apps/web/CLAUDE.md` — the platform frontend.
+- `apps/amc-worker/CLAUDE.md` — the control engine (Auto-Multiple-Choice in a
+  container). Nothing there runs on the host; everything goes through Docker.
 
 ## Mandatory reading (before any code work)
 
@@ -84,8 +86,9 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
 
 ## Rules for Claude (repo-wide)
 
-- Never modify dependency manifests (`package.json`, future `go.mod`) without
-  discussing first; never touch lockfiles by hand.
+- Never modify dependency manifests without discussing first — `package.json`,
+  the apt and TeX Live set in `apps/amc-worker/Dockerfile` (which is that app's
+  manifest), and a future `go.mod`; never touch lockfiles by hand.
 - Never commit `node_modules/`, `dist/`, or `.env` files.
 - Documentation ships in the same PR as the change that obligates it
   (`docs/standards/documentation.md`).

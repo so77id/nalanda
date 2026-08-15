@@ -9,7 +9,8 @@ and humans follow this document; deviations are proposed in PRs and recorded her
 ```
 nalanda/
 ├── apps/                    # deployable applications, each SELF-CONTAINED
-│   └── web/                 # platform frontend (React + TS + Vite)
+│   ├── web/                 # platform frontend (React + TS + Vite)
+│   └── amc-worker/          # control engine: Auto-Multiple-Choice in a container (ADR-0030)
 │                            # server/ arrives in v0.3 (Go) — created when it arrives
 ├── content/                 # course material (Material domain) — created by its first course
 │   └── courses/<slug>/...   # v0.1: exactly ONE course (enforced at app startup)
@@ -23,6 +24,7 @@ nalanda/
 │   ├── security-notes.md    # security deferrals / accepted-risk records
 │   └── course-graph.md      # course topology (planning tool)
 ├── infra/                   # running the system around the apps (see below)
+│   └── local/               # docker-compose — born with apps/amc-worker (#138)
 ├── proof-of-concept/        # archived 2025/May-2026 POC — reference only, never active work
 ├── .github/                 # CI/CD workflows
 ├── .claude/                 # agent infra: workflow-bindings.md, settings (plugin declarations), hooks, repo-specific agents — workflow skills come from the agentic-workflow plugin
@@ -38,7 +40,14 @@ nalanda/
    born when needed.)
 2. **Each app is self-contained.** Own manifest (`package.json` / `go.mod`), own
    README with install/dev/test/build commands, own `CLAUDE.md`, own tests, own
-   packaging (Dockerfile lives in the app). Someone cloning the repo must be able
+   packaging (Dockerfile lives in the app).
+
+   **For a container app whose dependencies are apt packages, the Dockerfile IS
+   the manifest** — there is no second dependency file and adding one is a PR
+   discussion, exactly like editing `package.json` (worked case:
+   `apps/amc-worker`, whose `python-code-style.md` forbids a `requirements.txt`).
+   The rule below still applies to it unchanged: never edit that dependency set
+   without discussing first. Someone cloning the repo must be able
    to work on one app reading only that app + the standards.
 3. **Fixed taxonomy.**
    - `apps/` — deployables.
@@ -82,6 +91,7 @@ nalanda/
 | Local orchestration (docker-compose / multi-app Makefile)                         | `infra/local/`                                                              | Coordinates apps; belongs to none                                                                 |
 | Runnable dev mock of an external service (fake university API, fake OAuth server) | `infra/local/mocks/`                                                        | Exists to run the system locally, not to test                                                     |
 | Test fakes/mocks (in-process, used by tests)                                      | Next to the tests, inside their app                                         | Test code                                                                                         |
+| A third-party tool we run as a service (AMC, a future OCR engine)                 | `apps/<name>/` — a deployable whose source is a Dockerfile                  | It is a service the system runs, not scaffolding around one. Self-containment applies unchanged (#138) |
 | Dockerfile / packaging of one app                                                 | Inside that app                                                             | The app packages itself; infra places it                                                          |
 | VPS provisioning, systemd/proxy config, production compose                        | `infra/deploy/`                                                             | Belongs to the host, not to an app                                                                |
 | One app's integration tests                                                       | In that app                                                                 | They verify ITS behavior                                                                          |
@@ -120,6 +130,11 @@ Checklist for any new application under `apps/` (e.g., `apps/server` in v0.3):
 - [ ] Its **two testing protocols** (per-commit and pre-PR) registered in
       `docs/standards/testing-strategy.md` before its first PR merges.
 - [ ] Its extension points registered in `docs/standards/integration-guides.md`.
+- [ ] Registered in `.claude/workflow-bindings.md`: its `CLAUDE.md` under
+      *Agent instructions*, its code-style document under *Code style docs*, and
+      an `area:` label if it needs one. **Every review lens reads that file
+      first**, so an app missing from it is reviewed against another app's
+      standards (missed for `apps/amc-worker`, caught in #138's own review).
 - [ ] Self-containment honored: manifest, tests, packaging inside the app.
 
 ## References

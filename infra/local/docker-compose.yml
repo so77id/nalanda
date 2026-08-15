@@ -1,0 +1,35 @@
+# Local orchestration for the Nalanda services.
+#
+# Lives here rather than inside an app because it coordinates services and
+# belongs to none of them (docs/standards/repository-structure.md §Placement
+# criteria). Each app still packages itself — the Dockerfile is in the app.
+#
+# Today there is one service. `apps/server` joins it when WP-C is built, and the
+# shared volume below is the seam they meet at: the server writes a project into
+# it and asks the worker to act on it, so nothing large crosses the HTTP
+# boundary (docs/design/2026-08-controles.md §C9).
+
+services:
+  amc-worker:
+    build:
+      context: ../../apps/amc-worker
+      dockerfile: Dockerfile
+    image: nalanda/amc-worker:dev
+    # No display, and no X socket mounted: a code path that reaches the GTK
+    # interface dies here rather than silently working on a developer's machine
+    # and failing on a server.
+    environment:
+      DISPLAY: ""
+    volumes:
+      - amc-work:/work
+    # Bound to loopback on purpose. The worker has no authentication of its own
+    # and never will: it is reachable only by `apps/server`, over the compose
+    # network, and publishing it here is a convenience for driving it by hand.
+    ports:
+      - "127.0.0.1:8080:8080"
+    # The image's default command is the HTTP wrapper; the AMC CLI stays
+    # available underneath for exploring by hand (`docker compose run --rm
+    # amc-worker auto-multiple-choice prepare ...`).
+
+volumes:
+  amc-work:

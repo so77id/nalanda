@@ -14,6 +14,12 @@ protocols in this document:**
 2. **Pre-PR protocol** — runs before publishing ANY pull request. The full battery.
    CI mirrors this protocol exactly; a PR is not opened if any step fails locally.
 
+**Gates in CI** (`apps/amc-worker`): `.github/workflows/amc-worker.yml`, filtered
+on `apps/amc-worker/**`, runs `make verify PLATFORM=linux/amd64` — the runner is
+amd64 and the Makefile defaults to arm64. It also runs `make measure COPIES=5`,
+which is deliberately outside both protocols: a measurement is reported so a
+regression in the pipeline's cost is visible in the log, never gated.
+
 **Gates in CI** (`apps/web`): `ci.yml` mirrors the pre-PR protocol on PRs and on
 pushes to `main`. `deploy.yml` re-runs lint + test + build on the publish path —
 CI runs in parallel on the same push and nothing consumes its result, so the
@@ -74,6 +80,72 @@ npm run build
 # Browser smoke (Playwright) once it exists (WP2+)
 # Manual checklist from the PR template (L8)
 ```
+
+## Protocols — `apps/amc-worker` (container + shell)
+
+**Per-commit** (from `apps/amc-worker/`):
+
+```bash
+make test              # every tests/NN-*.sh against the current image
+```
+
+**`make build && make test` whenever the change touches `worker.py`,
+`read_capture.py` or the `Dockerfile`.** `make test` does not rebuild, so a
+change that was never built goes green — and "green before commit" then
+authorises the commit. This is the operating consequence of the artifact rule
+below; it is stated here too because the rule below is written for whoever
+writes a test, and this is for whoever edits the code.
+
+**Pre-PR** (from `apps/amc-worker/`):
+
+```bash
+make verify            # rebuild the image, then the full set (Docker's layer
+                       # cache applies — add --no-cache by hand when the apt
+                       # layer is what you doubt)
+```
+
+**Green means exit status 0.** Each script prints `N checks, M failed` and exits
+non-zero when `M > 0`; the summary line is not the gate.
+
+**The tests are shell scripts, not a framework.** What is under test is a
+container image and a third-party CLI (Auto-Multiple-Choice) — the subject is
+`docker run`, and a framework would only wrap it. One script per acceptance
+criterion of the WP that introduced the behavior, each re-runnable alone.
+
+**A measurement is reported, never asserted.** Image size and batch timings are
+printed with `note` and collected in the ADR; they are not thresholds. A test
+that reddens because a number moved teaches nothing about correctness, and the
+numbers that matter here (does reading 40 sheets take three minutes or forty)
+are decisions for a human, not gates.
+
+**A wrapper that exists to neutralise a third-party trap is tested by
+PERFORMING the trap, not by reading the wrapper.** `04-associate.sh` is the
+worked case: it makes the wrong call (`association --set` without `--copy`) and
+asserts its wrong outcome in three independent channels — it prints nothing, it
+writes a `copy=0` row, the copy stays unassociated — before asserting the right
+call works. That is what makes the guard falsifiable: if a future upstream
+release fixes the trap, or breaks it differently, the test says which. The
+counter-example is in the same WP and was caught in review: the closed-subcommand
+guard was asserted by `grep`ping the wrapper's source for its error message,
+which passes with the guard commented out and reads a different copy of the file
+than the container runs. Same rule as "reading a config proves a name appears in
+it" above, one level up.
+
+**A test runs against the ARTIFACT, not the working tree.** `make test` does not
+rebuild, so a script that mounts a source file from the host and executes that
+is green against a stale image — which is the per-commit protocol's normal
+state. Production code is invoked from where the image installed it; only test
+tools travel on the volume (#138 review).
+
+**What this level cannot see**: everything about a real sheet. The scripts drive
+synthetically-filled PDFs — boxes drawn at the coordinates AMC's own layout file
+reports — which proves the plumbing and nothing about paper. Whether the reader
+tolerates a real pencil, a real scanner and a page that went in slightly rotated
+is an L8 manual check, and it is the one that decides the engine. The procedure
+is `apps/amc-worker/PAPER-CHECK.md` (`make paper` → print → mark → scan →
+`make read-paper`); its outcome is recorded in ADR-0030 §Not yet proven. Same class as
+"execution is invisible to the suite" above: a green run here is not evidence
+the thing works.
 
 ## Protocols — `apps/server` (Go) — placeholder
 

@@ -287,3 +287,58 @@ detail.
   trusted, this invariant re-decided, and ADR-0029 §5 revisited with it. Equally,
   the first non-repo-authored content path, which changes who can author an SVG at
   all.
+
+### The control worker is unauthenticated and trusts its only caller (accepted 2026-08-15, #138)
+
+`apps/amc-worker` serves JSON on 8080 with no authentication, no rate limiting
+and no audit trail, and it will handle RUTs and grades — personal data under
+Ley 21.719. What holds it closed is **topology, not code**: it is reachable
+only over the compose network by `apps/server`, and `infra/local/docker-compose.yml`
+binds its published port to `127.0.0.1`.
+
+The in-code guard is `under_work()`, which resolves every request-supplied path
+and refuses anything outside `/work`. That is defence against a **bug in the
+caller**, never against the caller itself.
+
+**Residual, accepted**: anything that can reach port 8080 can read, overwrite
+and delete every project on the shared volume, and nothing records who asked
+for what. Two narrower residuals found in the #138 review and accepted with it:
+
+- **Derived paths are not re-resolved.** `under_work()` validates the project
+  root; `project_paths()` then joins `data/`, `cr/`, `scans/` onto it without
+  checking again, so a symlink planted inside a project directs AMC's writes
+  outside `/work` — as root. Reproduced. It is bounded by the same precondition
+  as everything else here: planting the symlink already requires write access
+  to the shared volume, and compose mounts a named volume, so "outside" is the
+  container's own ephemeral filesystem rather than the host.
+- **`detail` in an error response carries up to 4 kB of raw AMC output**, and
+  AMC's association output names student identifiers verbatim. `apps/server`
+  must surface it to a human in the review queue and must not log it.
+
+**Review trigger**: the worker is published on any interface other than
+loopback; a second component gains access to the compose network; the volume
+holds more than one course at a time; or `apps/server` gains any path that
+writes into `/work` on behalf of something other than itself. At that point
+re-resolve the derived paths and reconsider authentication.
+
+### The control worker runs as root and parses scans there (accepted 2026-08-15, #138)
+
+`apps/amc-worker` has no `USER` directive and no `cap_drop`/`no-new-privileges`,
+so AMC — and ghostscript, poppler and OpenCV underneath it — parse scanned pages
+as uid 0. TeX Live's `openin_any = a` in the image also lets a compiled `.tex`
+read any file the process can. (`shell_escape = p` does block `\write18`, so
+there is no path to a shell from a document.)
+
+**Why it is accepted rather than fixed**: the inputs are not untrusted in the
+usual sense. A batch is raster pages off the professor's own scanner, and the
+`.tex` is course material authored in this repo and reviewed in a PR. A `USER`
+is also not free — it needs the shared volume's ownership arranged, and would
+break the bind-mounted verification scripts on Linux CI, which is a real cost
+against a threat that requires the professor to scan a hostile document.
+
+**Review trigger**: the first input that does not come from the professor's own
+scanner or this repository — a student uploading a photograph of their sheet, a
+batch arriving from another system, or any path where `apps/server` accepts a
+PDF it did not produce. At that point take the cheap half first (`cap_drop: [ALL]`
+and `security_opt: ["no-new-privileges:true"]` in compose, `openin_any = p` in a
+`texmf.cnf` override) before deciding on a non-root user.

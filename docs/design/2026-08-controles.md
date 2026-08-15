@@ -5,7 +5,9 @@
 > automatically. Companion to `2026-08-redesign.md`, which this extends — it
 > pulls v0.3's backend forward and gives it its first module.
 >
-> **Status:** design closed, implementation not started (2026-08-15).
+> **Status:** design closed. **WP-A shipped** (#138) — the engine is confirmed
+> by ADR-0030 with one paper check outstanding, and the reading report it
+> returns is owned by ADR-0031. WPs B–G not started.
 > Living decisions distilled from here become ADRs as each WP develops.
 
 ## Problem
@@ -31,8 +33,8 @@ pile afterwards. No student accounts exist and none are planned (ADR-0009).
 | C5 | **Students are identified by the 8-digit RUT body, bubbled, without the verifier digit.** AMC's `\AMCcode` grid is digits-only and a DV can be `K`. With an enrolled-student list the DV adds no information: the body is matched against the roster, and what does not match goes to the manual queue. One less column, and the most common student marking error removed. | 2026-08-15 |
 | C6 | **Each copy draws its questions at random from the pool of the selected range** (worked case: 4 of ~10), with alternatives shuffled. No minimum-pool gate, no difficulty balancing — an entrance control measures whether the student read, and the professor explicitly does not want the evaluation levelled. | 2026-08-15 |
 | C7 | **The grade is fixed 1.0–7.0 with 4.0 at 50% of the score**, platform-wide, no per-course or per-control configuration. Blank and wrong both score zero — no penalty for guessing. Configuration is added the day a course needs another rule, not before. | 2026-08-15 |
-| C8 | **Auto-Multiple-Choice (AMC) is the generation and reading engine**, pending the spike (WP-A). It supplies per-copy shuffling with printed copy identity, the code-grid reader, and the annotated-correction PDF — the three expensive things to build well. Fallback if the spike fails: our own PDF generation plus OMRChecker. | 2026-08-15 |
-| C9 | **AMC runs as a separate worker container sharing a volume with the server.** The Go image is a ~20 MB multi-stage Alpine build; AMC drags Perl, LaTeX and OpenCV at roughly 2 GB. Isolating it keeps the server image small, keeps the Perl/LaTeX toolchain out of the deploy path, and makes the fallback a container swap rather than a rewrite. Mounting the Docker socket was rejected: it grants host control to a process reachable from the internet. | 2026-08-15 |
+| C8 | **Auto-Multiple-Choice (AMC) is the generation and reading engine** — **confirmed by the spike; see ADR-0030**, which is authoritative from here on. Nine of ten acceptance criteria met; the fallback below is now a review trigger rather than a live option, and it fires only if the paper check fails. It supplies per-copy shuffling with printed copy identity, the code-grid reader, and the annotated-correction PDF — the three expensive things to build well. Fallback if the spike fails: our own PDF generation plus OMRChecker. | 2026-08-15 |
+| C9 | **AMC runs as a separate worker container sharing a volume with the server.** The Go image is a ~20 MB multi-stage Alpine build; AMC drags Perl, LaTeX and OpenCV — estimated at roughly 2 GB here, **measured at 1.04 GB** (ADR-0030 §Measurements). Isolating it keeps the server image small, keeps the Perl/LaTeX toolchain out of the deploy path, and makes the fallback a container swap rather than a rewrite. Mounting the Docker socket was rejected: it grants host control to a process reachable from the internet. | 2026-08-15 |
 | C10 | **The controls module is what gives birth to `apps/server`** — Go, SQLite, Google OAuth (ADR-0006, ADR-0007, ADR-0009), pulled forward from v0.3. A concrete module with a real user is a better reason to build the backend than building it in the abstract and looking for a use. | 2026-08-15 |
 | C11 | **One binary, two delivery surfaces, one shared domain.** `internal/app/web` serves the server-rendered backoffice; `internal/app/api` serves the JSON/WS API that `apps/web` and the future live-session relay (ADR-0008) consume. Microservices were rejected: SQLite is a local file and two containers writing it would force Postgres, which ADR-0007 declined; and the shared user system — the stated reason for wanting separation — is precisely what a split makes expensive. The module boundary is drawn now, so a future split is a different `go build`, not a rewrite. | 2026-08-15 |
 | C12 | **The two surfaces do not share an auth gate.** The backoffice serves an authenticated professor; the API serves anonymous students who join with a room code (ADR-0009). Same process, opposite auth models — the professor session middleware never hangs off API routes. The API is also cross-origin by construction (`apps/web` lives on GitHub Pages), so CORS and cross-origin WebSocket are its concern and not the backoffice's. | 2026-08-15 |
@@ -82,7 +84,10 @@ roster later comes from Canvas or the university's system, the students already
 exist and the import becomes an upsert rather than a migration.
 
 **`lectura.estado` is what makes the manual queue work.** Two distinct failures
-live there: *who is this* (RUT unreadable, or not on the roster) and *what did
+were foreseen here; the spike found a **third**, and the contract is now owned by
+ADR-0031 — *what is missing*: the copy printed questions the batch never
+captured, which is a page that never reached the scanner. Unlike the two below,
+that one cannot be repaired at a keyboard. The two foreseen are: *who is this* (RUT unreadable, or not on the roster) and *what did
 they mark* (two bubbles, or one half-filled). A sheet can have the first without
 the second — and in that case, typing the RUT completes it and nothing else is
 touched.
@@ -106,7 +111,7 @@ touched.
 
 | WP | Issue | Scope | Depends on |
 |----|-------|-------|-----------|
-| A | [#138](https://github.com/so77id/nalanda/issues/138) | **AMC worker** — the spike, its acceptance list, the container and its HTTP contract, and the ADR recording engine choice | — |
+| A ✅ | [#138](https://github.com/so77id/nalanda/issues/138) | **AMC worker** — the spike, its acceptance list, the container and its HTTP contract, and the ADR recording engine choice | — |
 | B | [#139](https://github.com/so77id/nalanda/issues/139) | **Question bank in content** — authoring format, anchor resolution and its gate, the rendering component, catalog entry, published JSON | — |
 | C | not refined | **`apps/server` is born** — Go + SQLite + goose, auth domain ported, Google OAuth, seed, professor CRUD, plus the process obligations below. Likely two WPs | — |
 | D | not refined | **Course and roster** — tables and CSV import. Canvas import noted, not assumed | C |
@@ -144,6 +149,11 @@ The spike fails and the engine changes if any of these does not hold:
 It must also **measure**: image size, and wall-clock to read 40 sheets. AMC on
 Apple Silicon will likely run emulated (amd64 under arm64) — tolerable at three
 minutes, disqualifying at forty.
+
+> **Answered, and the premise was wrong.** `auto-multiple-choice` ships for
+> arm64 in Debian bookworm, so the image runs native and there is no emulation.
+> Forty sheets read in **53 s** (ADR-0030 §Measurements), so the timing was
+> never the constraint this paragraph expected it to be.
 
 ### What WP-C brings with it
 

@@ -55,18 +55,18 @@ area:live-session  # future live sessions (v0.3)
 Protocols document: docs/standards/testing-strategy.md
 ```
 
-NOTE: lands on main with PR #67 (WP1); already valid in its worktree. The
-document defines the per-commit and pre-PR protocols for `apps/web`
-(two-protocol rule).
+NOTE: the document defines the per-commit and pre-PR protocols for EVERY app
+under the two-protocol rule — `apps/web` (npm) and `apps/amc-worker` (make,
+against a container image) today.
 
 ## Review answer keys
 
 ```
 Documentation standard: docs/standards/documentation.md
-Code style docs:        docs/standards/frontend-code-style.md, docs/standards/repository-structure.md, docs/standards/design-system.md
+Code style docs:        docs/standards/frontend-code-style.md, docs/standards/python-code-style.md, docs/standards/repository-structure.md, docs/standards/design-system.md
 ADR directory:          docs/decisions/
 ADR criteria:           docs/standards/documentation.md (Rules §2) + plugin defaults
-Agent instructions:     CLAUDE.md, apps/web/CLAUDE.md
+Agent instructions:     CLAUDE.md, apps/web/CLAUDE.md, apps/amc-worker/CLAUDE.md
 ```
 
 NOTE: `docs/standards/*` and `apps/web/` land on main with PR #67.

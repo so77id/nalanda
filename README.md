@@ -22,7 +22,8 @@ piece as the new app needs it.
 ```
 nalanda/
 ├── apps/
-│   └── web/            Platform frontend (React 19 + TS + Vite + Tailwind v4)
+│   ├── web/            Platform frontend (React 19 + TS + Vite + Tailwind v4)
+│   └── amc-worker/     Control engine: Auto-Multiple-Choice in a container (ADR-0030)
 ├── content/            Course material (Material domain): courses/<slug>/ — MDX + index.yaml
 ├── docs/
 │   ├── standards/      Dev standards: repo structure, code style, testing, docs
@@ -31,12 +32,14 @@ nalanda/
 │   ├── conventions.md  Workflow conventions (kanban, branches, commits, PRs)
 │   ├── security-notes.md  Security deferrals / accepted-risk records
 │   └── course-graph.md Course topology (planning tool)
+├── infra/
+│   └── local/          Local orchestration (docker-compose) — belongs to no single app
 ├── proof-of-concept/   Archived POC + old roadmap issues (reference)
 ├── .claude/            Agent infra: workflow bindings, settings (plugins), hooks, repo agents
 └── CLAUDE.md           Monorepo-shared agent instructions (per-app CLAUDE.md in each app)
 ```
 
-Future directories (`infra/`, `packages/`, `e2e/`) are defined in
+Future directories (`packages/`, `e2e/`) are defined in
 [`docs/standards/repository-structure.md`](docs/standards/repository-structure.md)
 and created when their first real content arrives.
 
@@ -47,6 +50,17 @@ cd apps/web
 npm install
 npm run dev      # localhost:5173
 ```
+
+The control engine is a container and runs entirely through Docker:
+
+```bash
+cd apps/amc-worker
+make verify      # build the image, then the full verification suite
+```
+
+Its commands, HTTP contract and the AMC traps a caller must not hit:
+[`apps/amc-worker/README.md`](apps/amc-worker/README.md). The one verification
+no agent can run: [`apps/amc-worker/PAPER-CHECK.md`](apps/amc-worker/PAPER-CHECK.md).
 
 Full command list and app-specific rules: [`apps/web/CLAUDE.md`](apps/web/CLAUDE.md)
 and [`apps/web/README.md`](apps/web/README.md). Before contributing, read

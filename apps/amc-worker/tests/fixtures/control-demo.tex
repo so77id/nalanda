@@ -1,0 +1,194 @@
+% Fixture for #138 — a control sheet shaped like a real one.
+%
+% This is what the generator will emit from the question bank: a pool of ten
+% questions for a section range, of which each copy draws four at random, with
+% the alternatives shuffled too (docs/design/2026-08-controles.md §C6).
+%
+% Content is Spanish because a control sheet is course material and a student
+% reads it (apps/amc-worker/CLAUDE.md §Language). Macro names are AMC's English
+% aliases — the .sty provides both those and the original French ones.
+%
+% The RUT grid is eight digits and carries no verifier digit: `\AMCcode` is
+% digits-only and a DV can be K, and with an enrolled-student list the body
+% alone identifies the student (§C5).
+
+\documentclass[a4paper,11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage{multicol}
+% lang=ES is not cosmetic: without it AMC labels every question "Question 1" in
+% English, on a sheet a Spanish-speaking student reads. Measured in #138 S2 —
+% the first compile shipped English labels past a green run, because nothing
+% about a wrong-language label makes LaTeX fail.
+\usepackage[box,completemulti,lang=ES]{automultiplechoice}
+
+% Fixed seed so a test run is reproducible: the same seed must produce the same
+% four questions in the same order for copy N, every time. Without this, a
+% failure could never be told apart from a different draw.
+\AMCrandomseed{1237}
+
+\begin{document}
+
+% ---------------------------------------------------------------------------
+% The pool. In production these come from the published preguntas.json for the
+% selected section range; here they stand in for it.
+% ---------------------------------------------------------------------------
+
+\element{clase}{
+  \begin{question}{iteraciones}
+    ¿Cuántas iteraciones hace, a lo más, la búsqueda binaria sobre un arreglo
+    ordenado de $n$ elementos?
+    \begin{choices}
+      \correctchoice{Alrededor de $\log_2 n$}
+      \wrongchoice{Alrededor de $n$}
+      \wrongchoice{Alrededor de $n^2$}
+      \wrongchoice{Siempre 2}
+    \end{choices}
+  \end{question}
+}
+
+\element{clase}{
+  \begin{question}{requisito}
+    ¿Qué condición debe cumplir el arreglo para poder aplicar búsqueda binaria?
+    \begin{choices}
+      \correctchoice{Estar ordenado}
+      \wrongchoice{No tener elementos repetidos}
+      \wrongchoice{Tener un número par de elementos}
+      \wrongchoice{Estar lleno}
+    \end{choices}
+  \end{question}
+}
+
+\element{clase}{
+  \begin{question}{lineal}
+    En el peor caso, ¿cuántas comparaciones hace la búsqueda lineal sobre
+    $n$ elementos?
+    \begin{choices}
+      \correctchoice{$n$}
+      \wrongchoice{$\log_2 n$}
+      \wrongchoice{$n/2$}
+      \wrongchoice{1}
+    \end{choices}
+  \end{question}
+}
+
+\element{clase}{
+  \begin{question}{tipo-primitivo}
+    En Java, ¿cuál de estos es un tipo primitivo?
+    \begin{choices}
+      \correctchoice{\texttt{int}}
+      \wrongchoice{\texttt{String}}
+      \wrongchoice{\texttt{Integer}}
+      \wrongchoice{\texttt{Object}}
+    \end{choices}
+  \end{question}
+}
+
+\element{clase}{
+  \begin{question}{igualdad}
+    En Java, ¿qué compara el operador \texttt{==} aplicado a dos objetos?
+    \begin{choices}
+      \correctchoice{Si son el mismo objeto}
+      \wrongchoice{Si tienen el mismo contenido}
+      \wrongchoice{Si son de la misma clase}
+      \wrongchoice{Si ambos son distintos de \texttt{null}}
+    \end{choices}
+  \end{question}
+}
+
+\element{clase}{
+  \begin{question}{arreglo-largo}
+    En Java, ¿cómo se obtiene la cantidad de elementos de un arreglo
+    \texttt{a}?
+    \begin{choices}
+      \correctchoice{\texttt{a.length}}
+      \wrongchoice{\texttt{a.length()}}
+      \wrongchoice{\texttt{a.size()}}
+      \wrongchoice{\texttt{len(a)}}
+    \end{choices}
+  \end{question}
+}
+
+\element{clase}{
+  \begin{question}{indice}
+    ¿Cuál es el índice del primer elemento de un arreglo en Java?
+    \begin{choices}
+      \correctchoice{0}
+      \wrongchoice{1}
+      \wrongchoice{-1}
+      \wrongchoice{Depende del tipo}
+    \end{choices}
+  \end{question}
+}
+
+\element{clase}{
+  \begin{question}{referencia}
+    Si \texttt{b = a} y ambos son referencias al mismo objeto, ¿qué ocurre al
+    modificar un campo a través de \texttt{b}?
+    \begin{choices}
+      \correctchoice{El cambio se ve también a través de \texttt{a}}
+      \wrongchoice{\texttt{a} conserva el valor anterior}
+      \wrongchoice{Se lanza una excepción}
+      \wrongchoice{Se crea una copia del objeto}
+    \end{choices}
+  \end{question}
+}
+
+\element{clase}{
+  \begin{question}{descarte}
+    En cada paso, la búsqueda binaria descarta:
+    \begin{choices}
+      \correctchoice{La mitad de los elementos que quedaban}
+      \wrongchoice{Un elemento}
+      \wrongchoice{Todos los mayores al buscado}
+      \wrongchoice{Nada, solo avanza}
+    \end{choices}
+  \end{question}
+}
+
+\element{clase}{
+  \begin{question}{peor-caso}
+    Sobre 1000 elementos ordenados, ¿cuántas iteraciones hace la búsqueda
+    binaria en el peor caso?
+    \begin{choices}
+      \correctchoice{Alrededor de 10}
+      \wrongchoice{Alrededor de 100}
+      \wrongchoice{Alrededor de 500}
+      \wrongchoice{Alrededor de 1000}
+    \end{choices}
+  \end{question}
+}
+
+% ---------------------------------------------------------------------------
+% The sheet. One per student, each drawing its own four questions.
+% ---------------------------------------------------------------------------
+
+\onecopy{5}{
+
+  \noindent{\large\bf Control de entrada}\hfill
+  \namefield{\fbox{\begin{minipage}{.45\linewidth}
+        Nombre:
+
+        \vspace*{4mm}\dotfill
+        \vspace*{2mm}
+      \end{minipage}}}
+
+  \begin{center}
+    \emph{Marca tu RUT sin el dígito verificador (8 dígitos).}
+
+    \AMCcode{rut}{8}
+  \end{center}
+
+  \vspace{3mm}
+  \noindent\emph{Marca una sola alternativa por pregunta.}
+  \vspace{2mm}
+
+  \shufflegroup{clase}
+  \insertgroup[4]{clase}
+
+  \AMCcleardoublepage
+}
+
+\end{document}
