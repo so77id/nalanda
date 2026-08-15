@@ -33,8 +33,8 @@ RUN apt-get update \
     # texlive-fonts-extra is 1.38 GB — 56% of the image before this line — and
     # `auto-multiple-choice-common` declares it as a hard Depends, so apt cannot
     # be talked out of it. Nothing we compile uses it: the full verification
-    # suite (109 checks across generation, reading, association and annotation,
-    # i.e. every AMC tool this worker drives) passes with it gone. Measured in
+    # suite passes with it gone — generation, reading, association and
+    # annotation, i.e. every AMC tool this worker drives. Measured in
     # #138, after S5 rather than before, so that the annotated PDF — the last
     # code path to touch fonts — had already been exercised.
     #

@@ -21,14 +21,25 @@ Debian bookworm, so Apple Silicon runs it without emulation.
 Everything runs in Docker. Nothing is installed on the host.
 
 ```bash
-make serve      # run the HTTP wrapper on localhost:8080
-make build      # build the image
-make test       # run every verification script (per-commit protocol)
-make verify     # build, then test (pre-PR protocol)
-make shell      # interactive shell in the image, for exploring AMC by hand
-make size       # report image size
-make clean      # remove generated work directories, keep the image
+make build       # build the image
+make test        # every verification script (per-commit protocol)
+make verify      # build, then test (pre-PR protocol)
+make serve       # run the HTTP wrapper on localhost:8080
+make shell       # interactive shell in the image, for exploring AMC by hand
+make measure     # time a real-sized batch — reports, never asserts (COPIES=40)
+make paper       # produce the printable control for the manual paper check
+make read-paper  # read the scanned batch back (see PAPER-CHECK.md)
+make size        # report image size
+make clean       # remove generated work directories, keep the image
 ```
+
+**On an Intel/AMD host, pass `PLATFORM=linux/amd64`.** The default is
+`linux/arm64` — the machine this was built on — so `make build` alone
+cross-builds elsewhere. CI passes the flag explicitly. `IMAGE` overrides the tag.
+
+**After editing `worker.py`, `read_capture.py` or the `Dockerfile`, run
+`make build` before `make test`.** The suite runs the copy baked into the image,
+so code you never built goes green.
 
 Under `infra/local/`, `docker compose up amc-worker` brings it up alongside the
 other services — that file is where `apps/server` will meet it.
@@ -41,13 +52,30 @@ paths. A scan batch is a multi-page PDF of ~40 sheets, and putting that through
 an HTTP body would buy nothing.
 
 ```
-GET  /health                                        → { ok, amc }
-POST /generate      { project, source, copies }     → { sujet, corrige, calage }
-POST /analyse       { project, scan_pdf, source }   → { pages, copies, needs_review }
-POST /associate     { project, roster, code, key }  → { associations, refused_codes }
-POST /associate/set { project, copy, id }           → { copy, id, source }
-POST /annotate      { project, roster, key, out }   → { pdfs, unidentified }
+GET  /health                                          → { ok, amc }
+POST /generate      { project, source, copies }       → { sujet, corrige, calage, copies }
+POST /analyse       { project, scan_pdf, source }     → { pages, copies, needs_review }
+                    ⏱ MINUTES-CLASS — background job only, see below
+POST /associate     { project, roster, code, key }    → { associations, refused_codes }
+POST /associate/set { project, copy, id }             → { copy, id, source }
+POST /annotate      { project, roster, key, out,      → { pdfs, unidentified }
+                      [name_column], [verdict] }
 ```
+
+Every failure answers `{ error, detail }`. **400** is the caller's mistake and
+can never succeed on retry — a missing or malformed field, a path outside
+`/work`, a non-empty annotation directory, or AMC refusing the work. **500** is
+ours. Bodies are capped at 1 MiB and no AMC call outlives 30 minutes.
+
+The full `/analyse` report schema is the module docstring of `read_capture.py`;
+its shape is a contract in its own right (ADR-0031), not an implementation
+detail.
+
+**Two obligations on the caller** are recorded in `docs/security-notes.md`
+§The control worker is unauthenticated: never log an error `detail` — it can
+contain student identifiers — and never hand the worker a project directory
+containing symlinks, because paths derived from the project root are not
+re-resolved.
 
 The worker has **no authentication and never will**. It is reachable only by
 `apps/server` over the compose network, and `infra/local/docker-compose.yml`
@@ -76,7 +104,7 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 | `03-read.sh` | A scrambled multi-page PDF batch reads back; ambiguous marks and unreadable identifiers are reported separately |
 | `04-associate.sh` | Clean copies match a roster automatically; damaged identifiers fail closed; an association can be injected from outside without the GUI |
 | `05-annotate.sh` | One annotated PDF per student, carrying their marks, the correct answers and per-question scores |
-| `06-http.sh` | The whole flow driven over the HTTP contract, and each of the three traps below refused when asked for |
+| `06-http.sh` | The whole flow over the HTTP contract; the annotate and unknown-subcommand guards exercised by performing the trap inside the image (the association trap belongs to `04-associate.sh`) |
 
 They are shell scripts rather than a test framework because the subject under
 test is a container image and a third-party CLI — the subject is `docker run`,
@@ -148,6 +176,38 @@ must drive it as a background job with a status endpoint, never inside a request
 a browser is holding open. The server is threaded so `/health` answers during
 it; AMC work itself is serialised, because its state is sqlite files in the
 project directory and two runs over one project would race them.
+
+## What a control source must contain
+
+`/generate` compiles a `.tex` you supply. WP-E generates that file from the
+published question bank, and these are its load-bearing parts — the worked
+example is `tests/fixtures/control-demo.tex`:
+
+```latex
+\usepackage[box,completemulti,lang=ES]{automultiplechoice}
+\AMCrandomseed{1237}          % fixed seed → a reproducible draw
+...
+\element{clase}{\begin{question}{indice} ... \end{question}}
+\onecopy{5}{
+  \AMCcode{rut}{8}            % the 8-digit RUT grid, no verifier digit
+  \shufflegroup{clase}
+  \insertgroup[4]{clase}      % draw four of the pool
+  \AMCcleardoublepage
+}
+```
+
+- **`lang=ES` is not cosmetic.** Without it AMC labels every question
+  "Question 1" in English, on a sheet a Spanish-speaking student reads — past a
+  green compile, because nothing about a wrong-language label makes LaTeX fail.
+- **The question name is the join key.** `\begin{question}{indice}` is what comes
+  back as `answers[].name` in the reading report, which is what the design's
+  `control_pregunta.pregunta_ref` joins to. Generate it from the bank's question
+  id and nothing else.
+- **`--n-copies` overrides `\onecopy{N}`**, so the number in the source is a
+  default, not a constraint.
+- **Each copy is two PDF pages**, padded to an even count. Printed duplex that
+  is one physical sheet per student; it does mean the scan has a back side for
+  every sheet.
 
 ## Code
 

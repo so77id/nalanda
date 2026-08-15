@@ -138,11 +138,20 @@ def project_paths(body):
 # --- handlers ----------------------------------------------------------------
 
 def health(_body):
-    version = subprocess.run(
-        ["dpkg-query", "-W", "-f=${Version}", "auto-multiple-choice"],
-        capture_output=True, text=True,
-    ).stdout.strip()
-    return {"ok": True, "amc": version}
+    # Bounded and checked, like every other call here. Unbounded it would be the
+    # thread-that-never-returns the style standard describes, and unchecked it
+    # answered `{"ok": true, "amc": ""}` when dpkg-query failed — a health check
+    # reporting health it had not established (#138 review round B).
+    try:
+        proc = subprocess.run(
+            ["dpkg-query", "-W", "-f=${Version}", "auto-multiple-choice"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        raise Failed("dpkg-query timed out")
+    if proc.returncode != 0:
+        raise Failed("cannot determine the installed AMC version", proc.stderr.strip())
+    return {"ok": True, "amc": proc.stdout.strip()}
 
 
 def generate(body):

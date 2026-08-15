@@ -9,6 +9,18 @@ back from scans, for the entrance-controls subsystem
 
 Commands and stack live in `README.md` — one home per fact.
 
+## Mandatory reading
+
+- `docs/standards/python-code-style.md` — stdlib only, no manifest, the
+  subprocess rules (argument lists, a `timeout` on every call, a caller value
+  only ever in a flag's value slot) and how a request-supplied path is resolved.
+- `docs/standards/testing-strategy.md` §`apps/amc-worker` — the two protocols
+  and the **four** rules for writing a verification script here. Read all four;
+  two of them exist because they were violated once.
+- `docs/decisions/0030-…` (the engine and its traps) and `0031-…` (the reading
+  report, which is the contract WP-F and WP-G bind to).
+- `README.md` §Four traps — the AMC behaviours that silently lose a grade.
+
 ## Language
 
 Code, comments, identifiers, scripts and commit messages in **English**, like
@@ -33,24 +45,38 @@ written the way a real one would be.
   exclude it — so nothing prevents a code path from reaching a display except
   the fact that there is none. Adding one would make a broken change pass here
   and fail on a server.
-- **Do not add an `ENTRYPOINT` until the HTTP wrapper exists.** The image is
-  driven with explicit commands; an entry point now is only something to
-  override.
-- **Verification scripts are the tests.** What is under test is a container
-  image and a third-party CLI, so the subject is `docker run` and a test
-  framework would only wrap it. Each `tests/NN-*.sh` answers one acceptance
-  criterion and is re-runnable alone.
-- **A measurement is reported, not asserted.** Image size and batch timings are
-  recorded with `note`, never turned into a threshold nobody agreed. A test that
-  fails because a number moved teaches nothing about correctness.
+- **The image keeps a `CMD` (the HTTP wrapper) and never an `ENTRYPOINT`.**
+  Every verification script, `make shell` and `make paper` override the command
+  with a bare `auto-multiple-choice …` call; an `ENTRYPOINT` would bury the CLI
+  underneath the server and break all of them.
+- **The four rules for verification scripts live in
+  `docs/standards/testing-strategy.md` §`apps/amc-worker`** — they are the tests;
+  a measurement is reported rather than asserted; a trap is tested by performing
+  it rather than by reading the wrapper; and a test runs against the artifact
+  rather than the working tree. Read all four before adding a script. This file
+  used to paraphrase the first two and silently omit the others.
 - **Anything the caller passes crosses the volume, not the wire.** Requests name
   paths under `/work`; PDFs and scans never travel as HTTP bodies.
+- **Never run `apt-get install` inside the image, and never add a package
+  without discussing it.** `texlive-fonts-extra` is purged with
+  `--force-depends`, so the package database is deliberately inconsistent
+  (ADR-0030 §Operational). The Dockerfile's package set is this app's manifest,
+  and the root `CLAUDE.md` rule about manifests applies to it.
 
 ## Testing protocols
 
 Registered in `docs/standards/testing-strategy.md` (the two-protocol rule).
 
 - **Per-commit**: `make test` — every `tests/NN-*.sh` against the current image.
-- **Pre-PR**: `make verify` — rebuild the image from scratch, then the full set.
+  **`make build && make test` whenever the change touches `worker.py`,
+  `read_capture.py` or the `Dockerfile`**: `make test` alone runs the copy baked
+  into the image, so code you never built goes green.
+- **Pre-PR**: `make verify` — rebuilds the image (Docker's layer cache applies;
+  add `--no-cache` by hand when the apt layer is what you doubt), then the full
+  set.
 
 Green means exit status 0.
+
+The paper check — the one verification no agent can run — is `PAPER-CHECK.md`
+(`make paper` → print → mark → scan → `make read-paper`). Its outcome is
+recorded in ADR-0030 §Not yet proven.

@@ -16,9 +16,9 @@ domain model belongs in one of those.
 - **Python 3.11**, the version Debian bookworm ships, matched to the image.
 - **Standard library only.** No `pip install`, no `requirements.txt`, no
   virtualenv. The moment a third-party package looks necessary, that is a
-  design question — the image is 2.4 GB before we add anything, and a Python
-  dependency tree on top of a LaTeX one is a maintenance surface nobody asked
-  for. Bring it to a PR discussion, like any manifest change (root `CLAUDE.md`).
+  design question — the image is already ~1 GB of Perl, LaTeX and OpenCV
+  (measured; ADR-0030 §Measurements owns the number), and a Python dependency
+  tree on top of a LaTeX one is a maintenance surface nobody asked for. Bring it to a PR discussion, like any manifest change (root `CLAUDE.md`).
 - Every script runs **inside its app's container**, never on the host.
 
 ## Formatting
@@ -51,6 +51,13 @@ domain model belongs in one of those.
   diagnostics go to **stderr**. Mixing them makes a tool unpipeable.
 - Errors that a caller can act on raise a **named exception carrying a message
   and a detail**, not a bare `Exception` or a `sys.exit` string.
+
+**No type annotations in a wrapper script.** These modules wrap an untyped
+external CLI and pass its strings around; annotating them documents nothing the
+name does not already say, and a partially annotated file is worse than an
+unannotated one. A module that grows real logic of its own may annotate its
+public functions — and at that point it probably belongs in `apps/web` or
+`apps/server` instead (see the opening of this document).
 
 ## Docstrings and comments
 

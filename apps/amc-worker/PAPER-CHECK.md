@@ -65,7 +65,10 @@ faint pencil lands in the band between the two thresholds, which is where the
 reader had a bug that reported it as a confident answer (#138, F-2).
 
 Mark **crosses or full fills inside the boxes**, not ticks spilling outside
-them. That is what the sheet asks students for and what the reader measures.
+them — that is what the reader measures. (The printed sheet does not currently
+say so; it only says *"Marca una sola alternativa por pregunta"*. If the paper
+check shows students spilling outside the boxes, the fix is a line in the
+source, not in the reader.)
 
 ## 3. Scan
 
@@ -95,8 +98,14 @@ regenerated from the same capture, so no re-scan is needed:
 ```bash
 docker run --rm --env DISPLAY= -v "$PWD/tests/work/paper:/work" \
   nalanda/amc-worker:dev \
-  python3 /opt/amc-worker/read_capture.py --data /work/project/data --ticked 0.20
+  python3 /opt/amc-worker/read_capture.py --data /work/project/data \
+    --ticked 0.20 --unsure 0.05
 ```
+
+Both flags matter and they move different boundaries: `--ticked` is where a mark
+becomes a confident answer, `--unsure` is where it stops being noticed at all. A
+mark that came back `blank` fell below `--unsure`, and lowering `--ticked` alone
+cannot rescue it.
 
 ## 5. What to look for
 
@@ -119,7 +128,7 @@ of how badly a "no" would hurt:
    (0.10) and the sensitivity needs lowering; if it came back a confident
    `marked`, it was above `ticked` (0.30) and your "faint" was not faint. Both
    are useful measurements of where a real pencil actually lands — write the
-   number down.
+   number down. The two flags move different boundaries; see §4.
 5. **Did the corrected mark on sheet 6 read as the corrected value**, or as
    both? Either is acceptable — reported as ambiguous is a correct answer to a
    genuinely ambiguous sheet — but silently reading the *erased* value is not.

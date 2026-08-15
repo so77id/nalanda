@@ -62,11 +62,10 @@ paper:
 		tests/work/paper/scan tests/work/paper/project/data \
 		tests/work/paper/project/cr tests/work/paper/project/scans
 	cp tests/fixtures/control-demo.tex tests/work/paper/src/
-	cp read_capture.py tests/work/paper/
 	docker run --rm --env DISPLAY= -v "$(PWD)/tests/work/paper:/work" -w /work $(IMAGE) \
 		bash -c 'set -e; \
 		  auto-multiple-choice prepare --mode s --n-copies $(PAPER_COPIES) --with pdflatex \
-		    --data /work/project/data --prefix /work/project \
+		    --data /work/project/data --prefix /work/project/ \
 		    --out-sujet /work/out/control-para-imprimir.pdf \
 		    --out-calage /work/out/calage.xy /work/src/control-demo.tex >/dev/null; \
 		  auto-multiple-choice meptex --data /work/project/data --src /work/out/calage.xy >/dev/null'

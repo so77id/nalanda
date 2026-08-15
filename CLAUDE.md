@@ -86,8 +86,9 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
 
 ## Rules for Claude (repo-wide)
 
-- Never modify dependency manifests (`package.json`, future `go.mod`) without
-  discussing first; never touch lockfiles by hand.
+- Never modify dependency manifests without discussing first — `package.json`,
+  the apt and TeX Live set in `apps/amc-worker/Dockerfile` (which is that app's
+  manifest), and a future `go.mod`; never touch lockfiles by hand.
 - Never commit `node_modules/`, `dist/`, or `.env` files.
 - Documentation ships in the same PR as the change that obligates it
   (`docs/standards/documentation.md`).

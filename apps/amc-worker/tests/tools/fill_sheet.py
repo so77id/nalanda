@@ -215,7 +215,7 @@ def main():
             subprocess.run(
                 ["pdftoppm", "-r", str(int(meta["dpi"])), "-f", str(index),
                  "-l", str(index), "-singlefile", args.sujet, out[:-4]],
-                check=True,
+                check=True, timeout=300,
             )
             fill_ppm(out, by_page.get(page, []))
             if (student, page) in omitted:
@@ -258,12 +258,12 @@ def main():
                     # netpbm rejects -flate without -psfilter.
                     ["pnmtops", "-equalpixels", "-dpi", "300", "-noturn",
                      "-psfilter", "-flate", src],
-                    stdout=fh, check=True, stderr=subprocess.DEVNULL,
+                    stdout=fh, check=True, stderr=subprocess.DEVNULL, timeout=300,
                 )
         subprocess.run(
             ["gs", "-dBATCH", "-dNOPAUSE", "-dQUIET", "-sDEVICE=pdfwrite",
              f"-sOutputFile={args.pdf}"] + ps,
-            check=True,
+            check=True, timeout=600,
         )
         print(f"assembled {args.pdf}", file=sys.stderr)
 

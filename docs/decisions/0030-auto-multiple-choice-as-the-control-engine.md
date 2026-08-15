@@ -93,17 +93,20 @@ the toolchain *is* the runtime.
   and a stack we already know, against writing per-copy shuffling, code-grid
   reading and annotated corrections ourselves — the three things AMC gives free
   and the three that are hardest to get right.
-- **AMC inside the Go server's image.** Rejected: ~2 GB of Perl and LaTeX on the
-  deploy path of every backend change, and no seam at which to replace it.
+- **AMC inside the Go server's image.** Rejected: a gigabyte of Perl and LaTeX
+  (1.04 GB measured, §Measurements) on the deploy path of every backend change,
+  and no seam at which to replace it.
 - **Driving AMC through its GTK GUI.** Rejected outright; it is the thing this
   ADR exists to avoid.
 
 ## Consequences
 
-### Three silent traps the caller must never hit
+### Four silent traps the caller must never hit
 
 Each was measured, each is silent, and each yields a system that looks like it
-works while losing a student's grade. The wrapper neutralises all three and
+works while losing a student's grade. `apps/amc-worker/README.md` §Four traps is
+the canonical list for a caller; this section is the same set. The wrapper
+neutralises them and
 `tests/06-http.sh` asks it to do the wrong thing in each case — **by performing
 the trap inside the image**, not by reading the wrapper's source. An earlier
 version asserted the fourth guard below by grepping for its error message, which
@@ -119,6 +122,10 @@ would have passed with the guard deleted:
 3. **`prepare --mode b` must run after `analyse`.** The other order leaves the
    scoring table empty and every association silently matches nothing — which
    looks exactly like a wrong roster. `/analyse` owns the ordering.
+4. **An unassociated copy still gets an annotated PDF**, named with the literal
+   `_ID_` placeholder. So counting files is not a completeness check — five
+   copies yield five files whether or not anyone knows who two of them belong
+   to. `/annotate` reports named and unidentified as separate lists.
 
 And in the dispatcher itself: `auto-multiple-choice <anything>` hands an
 unrecognised subcommand to the GTK GUI, which dies on `cannot open display`. So
@@ -222,6 +229,11 @@ That cycle is the one check that can still disqualify AMC, and it needs the
 professor. Until it runs, this ADR records a decision that is verified in every
 respect that can be verified without paper.
 
+**Procedure**: `apps/amc-worker/PAPER-CHECK.md` — `make paper`, print, mark six
+sheets badly on purpose, scan, `make read-paper`, compare. Fifteen minutes. Its
+§5 asks five questions; record their verdict here, and the darkness number from
+question 4, which is what calibrates the thresholds ADR-0031 owns.
+
 **Review trigger.** If the real cycle fails — corner marks not found, codes
 misread, thresholds unusable — reopen this decision and record which criterion
 broke. The fallback is unchanged (our own PDF generation plus OMRChecker) and
@@ -233,4 +245,12 @@ the container boundary is what makes it a swap rather than a rewrite.
 - `apps/amc-worker/README.md` — the contract, the traps, how to drive it.
 - ADR-0006 (backend in Go), ADR-0007 (SQLite first) — what this worker sits
   beside rather than inside.
+- ADR-0031 — the reading report's shape, split out of this ADR because it
+  survives the reversal of this decision.
+- ADR-0001 — client-side compute philosophy. Its standing clause ("every future
+  feature must justify any server-side compute it introduces") is discharged
+  here: grading printed paper cannot run in a student's browser, and ADR-0001's
+  own alternatives pre-authorise the exception by name ("high-stakes grading
+  integrity"). The near-free-hosting consequence it protects is what C15 defers,
+  informed by the measurements above.
 - `docs/standards/python-code-style.md` — born with this worker.

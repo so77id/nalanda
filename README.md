@@ -51,6 +51,17 @@ npm install
 npm run dev      # localhost:5173
 ```
 
+The control engine is a container and runs entirely through Docker:
+
+```bash
+cd apps/amc-worker
+make verify      # build the image, then the full verification suite
+```
+
+Its commands, HTTP contract and the AMC traps a caller must not hit:
+[`apps/amc-worker/README.md`](apps/amc-worker/README.md). The one verification
+no agent can run: [`apps/amc-worker/PAPER-CHECK.md`](apps/amc-worker/PAPER-CHECK.md).
+
 Full command list and app-specific rules: [`apps/web/CLAUDE.md`](apps/web/CLAUDE.md)
 and [`apps/web/README.md`](apps/web/README.md). Before contributing, read
 [`docs/standards/`](docs/standards/) — especially the two testing protocols
