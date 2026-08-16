@@ -1,12 +1,31 @@
 /**
- * A Google Sheets url, captured as (spreadsheet id). Anchored at the scheme and
- * the host on purpose: this is the value that ends up in an `<iframe src>`, so
- * the host is the whole of what is being trusted, and matching the PATH alone
- * would accept `https://evil.example/spreadsheets/d/…`.
+ * A Google Sheets url, captured as (spreadsheet id). Three parts earn their
+ * keep:
+ *
+ * - **Anchored at the scheme and the host**, because this value ends up in an
+ *   `<iframe src>`: the host is the whole of what is being trusted, and a
+ *   pattern on the path alone accepts `https://evil.example/spreadsheets/d/…`.
+ * - **`(?:u\/\d+\/)?`** accepts the account-scoped form Google puts in the
+ *   address bar when the professor is signed into more than one account
+ *   (`/spreadsheets/u/0/d/…`) — the url you get by copying from the address bar
+ *   instead of the Compartir dialog, which is the likelier of the two.
+ * - **`(?!e\/)` and the 20-character floor** refuse the *published* form,
+ *   `/spreadsheets/d/e/<token>/pubhtml`. Without them it matches, captures the
+ *   literal `"e"` as the id, and builds `/spreadsheets/d/e/preview` — a 404
+ *   that frames Google's own "el archivo que solicitaste no existe" with the
+ *   whole suite green (#146 review). Real ids are 40+ characters.
  */
-const SHEET_URL = /^https:\/\/docs\.google\.com\/spreadsheets\/d\/([\w-]+)/;
+const SHEET_URL = /^https:\/\/docs\.google\.com\/spreadsheets\/(?:u\/\d+\/)?d\/(?!e\/)([\w-]{20,})/;
 
-/** The tab of a multi-sheet document, wherever Google put it in the link. */
+/**
+ * The tab of a multi-sheet document, wherever Google put it in the link.
+ *
+ * **The rewrite from `#gid=` to `?gid=` is unverified**, unlike everything else
+ * in this module: the course's own sheet has one tab, so the probe that
+ * measured the url forms could not tell a working query from an ignored one.
+ * Measure it against a two-tab sheet before relying on it — if `/preview`
+ * honours the fragment instead, this must emit `#gid=`.
+ */
 const GID = /[?#&]gid=(\d+)/;
 
 /**

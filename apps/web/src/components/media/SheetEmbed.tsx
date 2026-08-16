@@ -1,4 +1,5 @@
 import { AuthoringError } from '../AuthoringError';
+import { SLIDE_BUDGET_VH } from '../slideBudget';
 import { useMode } from '../../presentation';
 import { sheetPreviewUrl } from './sheetUrl';
 
@@ -24,14 +25,6 @@ export interface SheetEmbedProps {
  * course plan, which is a screenful without swallowing the page around it.
  */
 const DEFAULT_HEIGHT = 480;
-
-/**
- * How much of the slide's height the frame may take before the title and the
- * deck's own chrome start losing room. Same budget and the same reasoning as
- * `<Mosaic>`: a slide is fit and uniformly scaled (ADR-0013 §5.1), so an
- * oversized frame is not clipped — it shrinks the whole slide, text included.
- */
-const SLIDE_BUDGET_VH = 64;
 
 /**
  * What the frame is allowed to do. Every token was measured in a real browser
@@ -84,46 +77,48 @@ export function SheetEmbed({ src, title, height = DEFAULT_HEIGHT }: SheetEmbedPr
   if (url === null) {
     return (
       <AuthoringError component="SheetEmbed">
-        necesita un enlace de Google Sheets (docs.google.com/spreadsheets/d/…), y este no lo es:{' '}
-        {src}
+        necesita el enlace de <strong>Compartir</strong> de una planilla de Google
+        (docs.google.com/spreadsheets/d/…), no el de Publicar en la web. Este no sirve: {src}
       </AuthoringError>
     );
   }
 
   return (
-    // `not-prose` because a framed sheet is a block, not running text: without
-    // it the reading measure narrows it to 39rem inside the column (ADR-0022).
-    // Measured in the book at 1440: 768px of column, against 624px for the
-    // prose above it.
+    // The wrapper exists for the placeholder, not for layout: an unloaded
+    // iframe is transparent, so a sibling underneath it shows through and is
+    // covered the moment Google paints its own white ground. Measured on a
+    // ~1.6 Mbps connection, that window is about six seconds, during which the
+    // reader would otherwise be looking at an empty bordered box —
+    // indistinguishable from the two failures this component accepts as
+    // undetectable (an unshared sheet, Drive down). `aria-hidden` because the
+    // frame already has an accessible name and the placeholder is not content.
     //
-    // It carries no `overflow-x-auto`, and that is not the oversight it looks
-    // like. ADR-0013 §5.2 makes a component that pans sideways declare itself a
-    // real scroller or have the drag taken as a slide change — but the sheet's
-    // scroller lives inside ANOTHER DOCUMENT, so the deck never sees the touch
-    // at all. Measured on an iPhone 13 in landscape, same slide, same gesture:
-    // dragging inside the frame left `?slide` untouched, dragging on the ground
-    // beside it moved 2 -> 1. Adding the class here would only advertise a
-    // scroller this element does not have.
+    // `not-prose` because a framed sheet is a block, not running text: the
+    // measure would otherwise narrow it to 39rem inside the column (ADR-0022).
     //
-    // The height rides on the wrapper rather than the frame so the cap is one
-    // value in one place, and `min()` lets the slide keep the author's number
-    // whenever it already fits. Measured: at 1024x768 the frame draws at its
-    // full 480px (64vh = 491px, so the author's number wins and the slide is
-    // not scaled at all); on a 750x342 phone the cap bites at 219px and the
-    // deck fits the slide at 0.85, well above the half-scale legibility floor.
+    // No `overflow-x-auto`, and that is not the oversight it looks like:
+    // ADR-0013 §5.2 governs a scroller in THIS document, and the sheet's is in
+    // another one, so the deck's swipe can never see it. Measured; the numbers
+    // are in ADR-0035 §Consequences.
     <div
-      className="not-prose my-6"
+      className="not-prose relative my-6 rounded bg-sunk"
       style={{
         height: mode === 'presentation' ? `min(${height}px, ${SLIDE_BUDGET_VH}vh)` : `${height}px`,
       }}
     >
+      <p
+        aria-hidden="true"
+        className="absolute inset-0 flex items-center justify-center text-sm text-ink-faint"
+      >
+        Cargando la planilla…
+      </p>
       <iframe
         src={url}
         title={title}
         sandbox={SANDBOX}
         referrerPolicy="no-referrer"
         loading="lazy"
-        className="h-full w-full rounded border border-rule"
+        className="relative h-full w-full rounded border border-rule"
       />
     </div>
   );

@@ -42,6 +42,7 @@ describe('SheetEmbed', () => {
     const { container } = render(<SheetEmbed src={SHARE} title="" />);
 
     expect(container.textContent).toContain('<SheetEmbed>');
+    expect(container.textContent).toMatch(/title/);
     expect(frameOf(container)).toBeNull();
   });
 
@@ -49,6 +50,7 @@ describe('SheetEmbed', () => {
     const { container } = render(<SheetEmbed title={TITLE} />);
 
     expect(container.textContent).toContain('<SheetEmbed>');
+    expect(container.textContent).toMatch(/src/);
     expect(frameOf(container)).toBeNull();
   });
 
@@ -59,6 +61,13 @@ describe('SheetEmbed', () => {
     const { container } = render(<SheetEmbed src="https://example.com/plan.xlsx" title={TITLE} />);
 
     expect(container.textContent).toContain('<SheetEmbed>');
+    // The message is the whole product of an AuthoringError, so it is pinned
+    // rather than merely present: the shape it must name, the trap it must warn
+    // about, and the echo of the value that makes the error actionable. All
+    // three were droppable while green.
+    expect(container.textContent).toMatch(/Compartir/);
+    expect(container.textContent).toMatch(/Publicar en la web/);
+    expect(container.textContent).toContain('https://example.com/plan.xlsx');
     expect(frameOf(container)).toBeNull();
   });
 
@@ -68,6 +77,10 @@ describe('SheetEmbed', () => {
     // docs/security-notes.md.
     it('runs the frame in an opaque origin', () => {
       const { container } = render(<SheetEmbed src={SHARE} title={TITLE} />);
+      // Asserted before the negatives below, and not defaulted to '': a frame
+      // with NO sandbox attribute grants everything they claim to deny, and
+      // `?? ''` let all three of them pass in exactly that case.
+      expect(frameOf(container)?.hasAttribute('sandbox')).toBe(true);
       const sandbox = frameOf(container)?.getAttribute('sandbox') ?? '';
 
       // `allow-same-origin` would hand the frame its Google origin back, and
@@ -119,22 +132,56 @@ describe('SheetEmbed', () => {
       // An iframe has no content-driven height: unset, it is 150px of nothing.
       const { container } = render(<SheetEmbed src={SHARE} title={TITLE} />);
 
-      expect(heightOf(container)).toMatch(/^\d+px$/);
+      expect(heightOf(container)).toBe('480px');
     });
 
+    // These assert the WHOLE string rather than parts of it. jsdom cannot
+    // evaluate `min()`, but it stores the declaration verbatim, and that is
+    // enough to pin both halves of the cap. Asserting `toContain('vh')` and
+    // `toContain('900px')` was not: `min` -> `max` (which turns the cap into a
+    // floor, guaranteeing the oversized slide it exists to prevent) and
+    // `64` -> `640` both left the file green. Same shape as Mosaic.test.tsx,
+    // which pins its per-row budget as `21vh` / `32vh` for the same reason.
     it('caps itself against the stage on a slide', () => {
       // A slide is fit and uniformly scaled (ADR-0013 §5.1), so a frame that
       // asks for 900px does not get clipped — it shrinks the whole slide, text
-      // included. The cap is the same shape <Mosaic> uses for the same reason.
+      // included.
       const { container } = render(
         <ModeProvider mode="presentation">
           <SheetEmbed src={SHARE} title={TITLE} height={900} />
         </ModeProvider>,
       );
 
-      expect(heightOf(container)).toContain('vh');
-      expect(heightOf(container)).toContain('900px');
+      expect(heightOf(container)).toBe('min(900px, 64vh)');
     });
+
+    it('keeps the author number on a slide when it already fits', () => {
+      const { container } = render(
+        <ModeProvider mode="presentation">
+          <SheetEmbed src={SHARE} title={TITLE} />
+        </ModeProvider>,
+      );
+
+      expect(heightOf(container)).toBe('min(480px, 64vh)');
+    });
+  });
+
+  it('says something is coming while the frame is still transparent', () => {
+    // Measured at ~1.6 Mbps: about six seconds of empty bordered box, which
+    // reads exactly like the two failures this component cannot detect (an
+    // unshared sheet, Drive down). The placeholder sits UNDER the frame and is
+    // covered when Google paints its own ground.
+    const { container } = render(<SheetEmbed src={SHARE} title={TITLE} />);
+
+    const hint = screen.getByText(/Cargando la planilla/);
+    expect(hint).toBeInTheDocument();
+    // Not content: the frame already carries the accessible name, so a screen
+    // reader must not hear a loading line that never goes away.
+    expect(hint.getAttribute('aria-hidden')).toBe('true');
+    // Under, not over — otherwise it hides the sheet it was announcing.
+    expect(hint.compareDocumentPosition(frameOf(container) as Node)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
+    );
   });
 
   it('marks itself out of the reading measure', () => {

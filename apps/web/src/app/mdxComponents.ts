@@ -33,8 +33,17 @@ export const mdxComponents = {
   Split,
   Mosaic,
   Figure,
-  // Not lazy: it is an iframe and a div. The weight is Google's, fetched by the
-  // browser when the frame scrolls into view, and never in our entry chunk.
+  // Not lazy: it is one iframe. Measured, registering it eagerly costs the
+  // entry chunk 1.15kB of component code (+4.4kB raw with its catalog prose,
+  // which travels eagerly for every component, lazy or not — ADR-0018 §7), and
+  // it pulls in no package the first paint did not already need.
+  //
+  // Do NOT read that as "the sheet is free until someone scrolls to it": the
+  // frame carries `loading="lazy"`, and lazy on an iframe was measured to defer
+  // nothing until roughly 4000px below the fold in Chromium. On both pages that
+  // ship one today the frame is above that, so Google's ~570kB first-visit
+  // weight lands with the page. The attribute stays because it costs nothing
+  // and pays off the day a frame sits at the foot of a long document.
   SheetEmbed,
   // The lazy wrapper, not the editor itself: this map is evaluated eagerly, and
   // registering the real component would put CodeMirror in the entry chunk.

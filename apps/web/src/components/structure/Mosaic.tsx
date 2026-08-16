@@ -2,6 +2,8 @@ import { Children, type CSSProperties, type ReactNode } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
 import { DescribedProvider } from '../described';
+// The grid splits this across its rows; `<SheetEmbed>` clamps a frame to it.
+import { SLIDE_BUDGET_VH } from '../slideBudget';
 import { useMode } from '../../presentation';
 
 export interface MosaicProps {
@@ -32,12 +34,6 @@ const GRID = {
   3: { book: 'grid-cols-2 md:grid-cols-3', slide: 'grid-cols-3' },
   4: { book: 'grid-cols-2 md:grid-cols-4', slide: 'grid-cols-4' },
 } as const;
-
-/**
- * How much of the slide's height the whole grid may take, in vh, before the
- * title and the deck's own chrome start losing room. Split across the rows.
- */
-const SLIDE_BUDGET_VH = 64;
 
 /** Cells, ignoring the whitespace MDX contributes between blocks. */
 function cellCount(children: ReactNode): number {

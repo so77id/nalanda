@@ -33,6 +33,28 @@ describe('sheetPreviewUrl', () => {
     expect(sheetPreviewUrl(`  ${PREVIEW}\n`)).toBe(PREVIEW);
   });
 
+  it('accepts the url Google puts in the address bar for a second account', () => {
+    // `/u/0/` is what a professor signed into more than one Google account
+    // copies from the address bar — likelier than opening the Compartir dialog.
+    expect(sheetPreviewUrl(`https://docs.google.com/spreadsheets/u/0/d/${ID}/edit`)).toBe(PREVIEW);
+  });
+
+  it('refuses the Publicar-en-la-web link rather than framing a 404', () => {
+    // The published form is `/d/e/<token>/pubhtml`. It IS a docs.google.com
+    // spreadsheet url, so the naive pattern accepted it, captured the literal
+    // "e" as the id and built `/spreadsheets/d/e/preview` — a 404 that frames
+    // Google's own "el archivo que solicitaste no existe", with no authoring
+    // error and the whole suite green. Exactly the silent failure this module
+    // exists to prevent (#146 review).
+    expect(
+      sheetPreviewUrl('https://docs.google.com/spreadsheets/d/e/2PACX-1vQx9Zk3example/pubhtml'),
+    ).toBeNull();
+  });
+
+  it('refuses an id too short to be one', () => {
+    expect(sheetPreviewUrl('https://docs.google.com/spreadsheets/d/abc/edit')).toBeNull();
+  });
+
   it('refuses a Google Doc, which is not a spreadsheet', () => {
     expect(sheetPreviewUrl(`https://docs.google.com/document/d/${ID}/edit`)).toBeNull();
   });
