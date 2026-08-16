@@ -64,6 +64,24 @@ note() {
   printf '  note %s: %s\n' "$1" "$2"
 }
 
+# stage_source <src-dir> — put the control fixture and everything it reads into
+# a run's source directory.
+#
+# The fixture is no longer one file: a question carries its code in a separate
+# `.java` that `\lstinputlisting` pulls in at compile time (#147), and a run
+# that copied only the `.tex` fails LaTeX outright. Seven callers stage that
+# directory — every script here, plus `make paper` — so the copying lives in
+# one place rather than seven, and a fixture that grows another asset does not
+# have to remember all of them. `make paper` does not source this file — it is a
+# bash test harness (`set -euo pipefail`, the check counters, `$IMAGE`) and a
+# make recipe has no business pulling that in — so it keeps its own copy of the
+# two lines; it is the one to update by hand.
+stage_source() {
+  mkdir -p "$1/code"
+  cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$1/"
+  cp -R "${WORKER_DIR}"/tests/fixtures/code/. "$1/code/"
+}
+
 image_exists() {
   docker image inspect "$IMAGE" >/dev/null 2>&1
 }

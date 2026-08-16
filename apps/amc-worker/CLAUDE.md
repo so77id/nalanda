@@ -33,6 +33,11 @@ Spanish, English stays inside identifiers. A `.tex` fixture under `tests/` is
 test data and may be either, but anything shaped like a real control sheet is
 written the way a real one would be.
 
+**So is code typeset onto the sheet.** A `.java` under `tests/fixtures/code/`
+is read by a student inside a question, so its identifiers and comments are
+Spanish, like a code sample in `content/`. English stays in the harness around
+it — script names, test titles, the fixture's own comments.
+
 ## Rules for Claude
 
 - **Nothing is installed on the host.** AMC is a Debian package with an OpenCV

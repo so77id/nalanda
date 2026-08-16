@@ -93,7 +93,9 @@ were foreseen here; the spike found a **third**, and the contract is now owned b
 ADR-0031 — *what is missing*: the copy printed questions the batch never
 captured, which is a page that never reached the scanner. Unlike the two below,
 that one cannot be repaired at a keyboard. The two foreseen are: *who is this* (RUT unreadable, or not on the roster) and *what did
-they mark* (two bubbles, or one half-filled). A sheet can have the first without
+they mark* (two bubbles WHERE THE QUESTION ADMITS ONE, or one half-filled — on a
+question that admits several, several bubbles are the answer and nothing is
+flagged; #147). A sheet can have the first without
 the second — and in that case, typing the RUT completes it and nothing else is
 touched.
 

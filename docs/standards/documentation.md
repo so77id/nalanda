@@ -161,6 +161,15 @@ said why — the copy had already drifted from the handlers below, inside the PR
 that wrote it, omitting a required field and naming response keys the code does
 not return (#138 review, F-13).
 
+**When a duplicated fact CANNOT be removed, both copies name each other and say
+which one fails late.** The complement of the rule above. Worked case:
+`apps/amc-worker/tests/lib.sh` stages the control fixture and everything it
+reads, and `make paper` keeps its own copy of those lines because a make recipe
+has no business sourcing a bash test harness. Each says so, each points at the
+other, and the Makefile's says the part that matters — it is the copy whose
+drift is discovered on printed paper, in the middle of a fifteen-minute manual
+check (#147 review).
+
 **A manual verification procedure states its steps in prose and its SETUP as a
 target the reader runs.** A prose command list for a procedure a human performs
 with paper in hand drifts exactly like duplicated prose, and it fails at the
@@ -183,9 +192,15 @@ Archived | Superseded by ADR-MMMM
 **Date:** YYYY-MM-DD
 **Decision-makers:** <who>
 **Source:** <conversation/issue/PR that produced it>
+**Amended by:** <issue/PR> (<date>) — <what it added>   ← only when one has
 
 ## Context · ## Decision · ## Alternatives considered · ## Consequences
 ```
+
+**`Amended by:`** is for an accepted ADR that gains material without being
+superseded — the decision still holds, and something was added to it. Ten ADRs
+already carry it; it is written down here because parallel branches otherwise
+each invent their own spelling from whichever neighbour they open first.
 
 ## References
 

@@ -139,6 +139,34 @@ is green against a stale image — which is the per-commit protocol's normal
 state. Production code is invoked from where the image installed it; only test
 tools travel on the volume (#138 review).
 
+That makes "seen to fail" look expensive, because reddening a check appears to
+need a full `make build`. It does not: a **derived image** keeps the artifact
+rule intact and costs seconds (#147 review).
+
+```bash
+# From apps/amc-worker/. The Dockerfile goes OUTSIDE the tree: written here it
+# would overwrite apps/amc-worker/Dockerfile, which is that app's dependency
+# manifest and which the root CLAUDE.md forbids modifying.
+mkdir -p /tmp/amc-mutant
+printf 'FROM nalanda/amc-worker:dev\nCOPY read_capture.py /opt/amc-worker/read_capture.py\n' \
+  > /tmp/amc-mutant/Dockerfile
+docker build -q -f /tmp/amc-mutant/Dockerfile -t nalanda/amc-worker:mutant .
+AMC_IMAGE=nalanda/amc-worker:mutant tests/03-read.sh
+```
+
+Break the production copy, build one layer, run the script against it. In #147
+this is what found two assertions that could not fail — one that a hardcoded
+denominator satisfied, and one where the reader could emit an empty report on
+exit 0 — neither of which reading the diff had surfaced.
+
+**A fixture added to kill a mutant names that mutant, at the fixture.** When the
+answer to "this assertion cannot fail" is a new fixture rather than a new
+assertion, its header says which mutant survived, that it survived the whole
+suite, and why the case is a separate file instead of folded into the existing
+one. `apps/amc-worker/tests/fixtures/control-tres.tex` is the worked example: it
+exists only because every question in the main pool has four alternatives, so a
+reader hardcoding `4` passed all 53 checks.
+
 **What this level cannot see**: everything about a real sheet. The scripts drive
 synthetically-filled PDFs — boxes drawn at the coordinates AMC's own layout file
 reports — which proves the plumbing and nothing about paper. Whether the reader

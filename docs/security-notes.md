@@ -376,3 +376,23 @@ batch arriving from another system, or any path where `apps/server` accepts a
 PDF it did not produce. At that point take the cheap half first (`cap_drop: [ALL]`
 and `security_opt: ["no-new-privileges:true"]` in compose, `openin_any = p` in a
 `texmf.cnf` override) before deciding on a non-root user.
+
+**Named in advance, because WP-E will pull that trigger** (#147 review): a
+control source now includes code with `\lstinputlisting{<absolute path>}` —
+that is the documented shape, because a path relative to the `.tex` does not
+resolve. With `openin_any = a` this is a file read that lands typeset in the
+printed PDF: demonstrated in the built image, `\lstinputlisting{/etc/hostname}`
+compiled clean and `pdftotext` printed the host's name back. Today the `.tex` is
+authored in this repo, so it is inside the accepted residual. **When WP-E
+generates the `.tex` from the question bank, every listing path must go through
+`under_work()` before it is written into the document** — otherwise a bank field
+becomes arbitrary-file-read-into-a-student's-graded-PDF, as root.
+
+**And the cheap half is not a drop-in here**, measured: `openin_any = p` also
+refuses the LEGITIMATE listing, because the documented shape is an absolute
+path (a path relative to the `.tex` does not resolve — AMC compiles from its own
+working directory). In paranoid mode `pdflatex` answers `Not reading from
+/work/src/code/x.java (openin_any = p)` and produces no PDF at all. So
+`under_work()` on every generated path is the primary control rather than the
+fallback; taking the override as well means changing the listing shape (or
+arranging `TEXMFOUTPUT`) in the same change.

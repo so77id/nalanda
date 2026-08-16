@@ -62,12 +62,23 @@ describe('questionProblems', () => {
     expect(problems({ alternatives: two })).toEqual([]);
   });
 
-  it('refuses "todas las anteriores" and "ninguna de las anteriores"', () => {
-    // They break shuffling: moved out of last position they stop meaning
-    // anything, and every copy shuffles its alternatives.
+  it('refuses "todas las anteriores", which measures nothing', () => {
+    // Not a shuffling problem — pinning would solve that. If every alternative
+    // is correct a multiple already says so by marking them, and whoever knows
+    // nothing marks everything and scores.
     const withAll = [...sound().alternatives];
     withAll[3] = { text: 'Todas las anteriores', correct: false };
     expect(problems({ alternatives: withAll }).join(' ')).toMatch(/anteriores/i);
+  });
+
+  it('ACCEPTS "ninguna de las anteriores", which the sheet prints last', () => {
+    // The ban existed because a shuffled catch-all lands mid-list and says
+    // something false. #147 pins it with AMC's \lastchoices, so the reason is
+    // gone — and a question where every listed option is wrong cannot be
+    // authored any other way (ADR-0033).
+    const withNone = [...sound().alternatives];
+    withNone[3] = { text: 'Ninguna de las anteriores', correct: true };
+    expect(problems({ alternatives: withNone })).toEqual([]);
   });
 
   it('refuses a negated stem', () => {

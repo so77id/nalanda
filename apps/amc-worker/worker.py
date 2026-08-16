@@ -200,7 +200,13 @@ def analyse(body):
     # TRAP 3: scoring AFTER capture. The other order leaves scoring_code empty
     # and every association then matches nothing, indistinguishably from a
     # wrong roster.
+    # --n-copies, or AMC scores only the copies the SOURCE declares in
+    # \onecopy{N} while --mode s printed as many as the caller asked for. The
+    # difference is silent and it grades: the copies above the source's default
+    # are captured, never scored, and every question on them comes back
+    # unscored (#147 review, F3).
     amc("prepare", "--mode", "b", "--with", "pdflatex",
+        "--n-copies", read_capture.printed_copies(data),
         "--data", data, "--prefix", project, source)
     amc("note", "--data", data, "--seuil", str(TICKED))
 

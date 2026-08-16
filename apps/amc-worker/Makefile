@@ -57,11 +57,17 @@ measure:
 ##   run `prepare` against a source directory nothing created, and never ran
 ##   `meptex` at all — so `analyse` would later read an EMPTY layout and the
 ##   whole print-mark-scan cycle would produce nothing (#138 review, F-8).
+##   The two `cp` lines mirror `stage_source` in tests/lib.sh, which this recipe
+##   does not source: that file is a bash test harness (set -euo pipefail, the
+##   check counters) and a make recipe has no business pulling it in. So a
+##   fixture that grows another asset has to be added in BOTH places, and this
+##   is the copy whose drift is found on printed paper.
 paper:
-	mkdir -p tests/work/paper/src tests/work/paper/out \
+	mkdir -p tests/work/paper/src/code tests/work/paper/out \
 		tests/work/paper/scan tests/work/paper/project/data \
 		tests/work/paper/project/cr tests/work/paper/project/scans
 	cp tests/fixtures/control-demo.tex tests/work/paper/src/
+	cp -R tests/fixtures/code/. tests/work/paper/src/code/
 	docker run --rm --env DISPLAY= -v "$(PWD)/tests/work/paper:/work" -w /work $(IMAGE) \
 		bash -c 'set -e; \
 		  auto-multiple-choice prepare --mode s --n-copies $(PAPER_COPIES) --with pdflatex \
@@ -76,6 +82,17 @@ paper:
 
 ## read-paper — read the scanned batch back (step 4 of PAPER-CHECK.md)
 ##   Expects the scan at tests/work/paper/scan/lote.pdf
+##   `prepare --mode b` and `note` are not optional and go AFTER `analyse`
+##   (worker.py TRAP 3): they build the scoring database the reader needs to
+##   tell a multiple-answer question from a simple one and to say what each
+##   question was worth. Without them the reader refuses — which is the point,
+##   but it would refuse in the middle of a paper check, with a marked pile
+##   already scanned.
+##   The copy count is DERIVED from the layout rather than taken from
+##   PAPER_COPIES, because this target is invoked bare (PAPER-CHECK.md step 4)
+##   while `make paper` may have been given a different count. Taking the
+##   variable here would score six copies of a forty-copy pile and then refuse
+##   the batch with a remedy that cannot work (#147 review, COR-8).
 read-paper:
 	docker run --rm --env DISPLAY= -v "$(PWD)/tests/work/paper:/work" -w /work $(IMAGE) \
 		bash -c 'set -e; \
@@ -84,4 +101,11 @@ read-paper:
 		  auto-multiple-choice analyse --data /work/project/data --projet /work/project \
 		    --cr /work/project/cr --multiple \
 		    --liste-fichiers /work/project/scans/list.txt >/dev/null; \
+		  N=$$(python3 -c "import sys; sys.path.insert(0, sys.argv[1]); import read_capture; print(read_capture.printed_copies(sys.argv[2]))" \
+		    /opt/amc-worker /work/project/data); \
+		  auto-multiple-choice prepare --mode b --with pdflatex \
+		    --n-copies "$$N" \
+		    --data /work/project/data --prefix /work/project \
+		    /work/src/control-demo.tex >/dev/null; \
+		  auto-multiple-choice note --data /work/project/data --seuil 0.3 >/dev/null; \
 		  python3 /opt/amc-worker/read_capture.py --data /work/project/data'
