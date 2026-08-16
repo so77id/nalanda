@@ -25,15 +25,34 @@ questions: none
 {/*      to that file (copy it from app/documentSections.test.tsx) or repoint */}
 {/*      DEEP_LINK_FIXTURE at another non-landing document — otherwise the */}
 {/*      flake class those issues closed comes back. */}
-{/* Concretely, for #146: the class-by-class calendar CANNOT be written as */}
-{/* `## Septiembre` without moving that case first. Use `###`, or a table, or */}
-{/* make the fixture synthetic — SectionNav.test.tsx already covers the unit */}
-{/* case with `sections={[]}`. */}
+
+{/* #146 filled this document and kept all three. The calendar arrives as a */}
+{/* framed spreadsheet rather than a table, so it adds one element and no */}
+{/* headings, and the component reaches the page through the shell's MDX map */}
+{/* — this document's own chunk stays as small as it was. */}
+
+{/* The `src` is the ordinary share link; <SheetEmbed> rewrites it into the */}
+{/* embeddable form. To point at a different sheet, replace it and change */}
+{/* nothing else. The sheet must be shared as "cualquiera con el enlace puede */}
+{/* ver" — an unshared one renders Google's request-access page inside the */}
+{/* frame and NOTHING here can detect it. See guides/add-a-course-document.md */}
+{/* §6g. */}
 
 # Planificación
 
-Aquí se publica el calendario clase a clase de este semestre: qué materia toca
-cada semana y qué hay que leer. Se publica durante las primeras semanas, en cuanto
-estén cerradas las fechas de laboratorio.
+El calendario del curso se publica aquí tal como está en la planilla de trabajo:
+qué materia toca cada semana, qué clase cae en qué fecha y qué hay que leer. No
+es una copia. Es la planilla misma, así que cuando una clase se mueve, se mueve
+también en esta página.
+
+<SheetEmbed
+  src="https://docs.google.com/spreadsheets/d/1_cxMUbcF9Tscd3_4Nu71HiXy-MZuaz28IapmvhS7FkM/edit?usp=sharing"
+  title="Planificación clase a clase del curso"
+  height={560}
+/>
+
+La planilla tiene más columnas de las que caben en pantalla: arrástrala hacia el
+lado para ver la bibliografía y el material de cada clase. Los títulos en azul
+son enlaces y se abren en una pestaña nueva.
 
 Las fechas de las dos solemnes están en la [[bienvenida|clase inaugural]].
