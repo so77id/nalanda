@@ -11,6 +11,8 @@ import (
 	"os/signal"
 	"syscall"
 
+	"github.com/so77id/nalanda/apps/server/internal/app/api"
+	"github.com/so77id/nalanda/apps/server/internal/app/web"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpserver"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
@@ -63,9 +65,13 @@ func run(logger *slog.Logger) error {
 	}
 	logger.Info("migrations up to date", "applied", applied, "database", cfg.DatabaseURL)
 
-	// Routing arrives with the surfaces in S4; until then the server answers
-	// 404 to everything, which is enough to prove it starts and drains.
+	// One binary, two delivery surfaces, one shared domain (ADR-0033 §C11).
+	// The root mux is a plain composition: each surface owns its own paths, so
+	// adding a route never requires touching the other one or this file.
+	prober := storage.NewProber(db)
 	handler := http.NewServeMux()
+	handler.Handle("/", web.Router(prober, logger))
+	handler.Handle("/api/", api.Router(prober, logger))
 
 	srv, err := httpserver.New(cfg.Addr, handler)
 	if err != nil {
