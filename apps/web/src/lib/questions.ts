@@ -119,11 +119,22 @@ function deepText(node: ReactNode): string {
   return '';
 }
 
-/** Flattens fragments so a group of questions is walked, not skipped. */
+/**
+ * Flattens fragments AND question groups, so the questions inside a
+ * `<Questions>` block are walked rather than skipped.
+ *
+ * Descending through the group was missing, and the shape of the miss is the
+ * lesson: every case here built its questions inside a bare `<>`, which is not
+ * what a document produces. Against the only shape that ships, this returned
+ * nothing at all — and the suite was green, because no fixture used the real
+ * wrapper. Recognised by meta rather than by importing the component, which is
+ * what keeps `lib/` free of any dependency on `components/`.
+ */
 function flatten(children: ReactNode): ReactNode[] {
   const out: ReactNode[] = [];
   for (const node of Children.toArray(children)) {
-    if (isValidElement(node) && node.type === Fragment) {
+    const group = isValidElement(node) && metaOf(node.type).questionRole === 'group';
+    if (group || (isValidElement(node) && node.type === Fragment)) {
       out.push(...flatten((node.props as { children?: ReactNode }).children));
     } else {
       out.push(node);
@@ -164,9 +175,26 @@ function codeOf(children: ReactNode[]): QuestionCode | null {
   return null;
 }
 
-/** True when a task-list item's checkbox is checked — the correct alternative. */
+/**
+ * The content of a task-list item, with a "loose" list's paragraph unwrapped.
+ *
+ * Blank lines between the alternatives make markdown emit a LOOSE list, and
+ * each `<li>` then wraps its content in a `<p>`. That is ordinary, valid
+ * markdown — and it used to hide the checkbox one level down, so every
+ * alternative read as incorrect and a student marking the right answer was told
+ * they were wrong. The page was the only place it showed, and no gate could see
+ * it (`app/questionReaders.test.tsx` now can).
+ */
+function itemContent(item: ReactNode): ReactNode[] {
+  const children = childrenOf(item);
+  const only = children.filter((child) => typeof child !== 'string' || child.trim() !== '');
+  const wrapper = only.length === 1 ? only[0] : undefined;
+  return isValidElement(wrapper) && wrapper.type === 'p' ? childrenOf(wrapper) : children;
+}
+
+/** True when a task-list item's checkbox is checked — a correct alternative. */
 function isChecked(node: ReactNode): boolean {
-  return childrenOf(node).some(
+  return itemContent(node).some(
     (child) =>
       isValidElement(child) &&
       child.type === 'input' &&
@@ -190,7 +218,7 @@ function alternativesOf(children: ReactNode[]): QuestionAlternative[] {
     if (items.length === 0) continue;
     return items.map((li) => {
       // The checkbox is a child of the item; keep the rest as the alternative.
-      const rest = childrenOf(li).filter(
+      const rest = itemContent(li).filter(
         (child) => !(isValidElement(child) && child.type === 'input'),
       );
       return { text: deepText(rest).trim(), node: rest, correct: isChecked(li) };

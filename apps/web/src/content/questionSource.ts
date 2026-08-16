@@ -74,14 +74,25 @@ function withoutFences(source: string): string[] {
  * slides.
  */
 export function headingSlugs(source: string): string[] {
-  const lines = withoutFences(source);
   const slugs: string[] = [];
-  for (const line of lines) {
+  // ONE pass. Two passes — every `##`, then every `<Slide title>` — put the
+  // slugs in file-type order rather than document order, which is not a
+  // cosmetic difference: this list is what resolves "from section X to section
+  // Y" into a pool of questions, so a wrong order prints the wrong questions on
+  // a graded control. It shipped that way into the published artifact, where
+  // `java-desde-cpp` had its LAST section first, and both tests stayed green
+  // because each of their fixtures used only one kind of heading.
+  for (const line of withoutFences(source)) {
     const heading = H2.exec(line);
-    if (heading?.[1]) slugs.push(slugify(heading[1]));
-  }
-  for (const [, title] of lines.join('\n').matchAll(SLIDE_TITLE)) {
-    if (title !== undefined) slugs.push(slugify(title));
+    if (heading?.[1]) {
+      slugs.push(slugify(heading[1]));
+      continue;
+    }
+    // `matchAll` on the line, not on the file: a slide's opening tag is one
+    // line, and scanning per line is what keeps the order honest.
+    for (const [, title] of line.matchAll(SLIDE_TITLE)) {
+      if (title !== undefined) slugs.push(slugify(title));
+    }
   }
   return slugs;
 }
@@ -102,6 +113,21 @@ export function readQuestions(source: string): SourceQuestion[] {
   let code: SourceQuestion['code'];
   let alternatives: SourceQuestion['alternatives'] = [];
   let fence: { closing: string; language: string; body: string[] } | null = null;
+  // What a bare line continues. Prose here is hard-wrapped near 80 columns and
+  // nothing formats `content/` (it lives outside `apps/web`, so prettier never
+  // visits it), so a wrapped stem or alternative is ordinary authoring — and
+  // reading only its first line truncated it in the artifact while the page,
+  // which reads the rendered `<p>`, showed it whole.
+  let continues: 'statement' | 'alternative' | null = null;
+
+  function append(line: string): void {
+    const text = line.trim();
+    if (continues === 'statement') statement = `${statement} ${text}`;
+    else if (continues === 'alternative') {
+      const last = alternatives[alternatives.length - 1];
+      if (last) last.text = `${last.text} ${text}`;
+    }
+  }
 
   for (const line of lines) {
     if (fence !== null) {
@@ -142,6 +168,7 @@ export function readQuestions(source: string): SourceQuestion[] {
       statement = '';
       code = undefined;
       alternatives = [];
+      continues = null;
       continue;
     }
 
@@ -157,12 +184,27 @@ export function readQuestions(source: string): SourceQuestion[] {
         text: alternative[2] ?? '',
         correct: (alternative[1] ?? ' ').toLowerCase() === 'x',
       });
+      continues = 'alternative';
+      continue;
+    }
+
+    // A blank line ends whatever was being written; markdown says the same.
+    if (line.trim() === '') {
+      continues = null;
+      continue;
+    }
+
+    if (continues !== null) {
+      append(line);
       continue;
     }
 
     // The first prose line is the question as the student reads it. Fence
     // bodies never reach here, so a listing can never become the statement.
-    if (statement === '' && line.trim() !== '') statement = line.trim();
+    if (statement === '') {
+      statement = line.trim();
+      continues = 'statement';
+    }
   }
 
   return out;

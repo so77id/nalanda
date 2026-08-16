@@ -1,8 +1,17 @@
-import type { RuntimeId } from '../../runtime';
+import { RUNTIME_IDS } from '../../lib/runtimeIds';
+import type { RuntimeId } from '../../lib/runtimeIds';
 import { LazyCodeEditor } from './lazyCodeEditor';
 
-/** Languages the platform has a highlighter for; anything else stays plain. */
-const HIGHLIGHTED = new Set<string>(['java', 'cpp', 'python']);
+/**
+ * Whether the platform can highlight this listing — the registry is the
+ * authority, and asking it is also what narrows the string into a `RuntimeId`
+ * without a cast. The same shape `components/MdxPre.tsx` uses for an ordinary
+ * fence: a hand-kept copy of the list would highlight a new runtime in a
+ * document and leave it grey inside a question.
+ */
+function isKnownLanguage(language: string): language is RuntimeId {
+  return (RUNTIME_IDS as readonly string[]).includes(language);
+}
 
 export interface QuestionListingProps {
   language: string;
@@ -22,10 +31,10 @@ export interface QuestionListingProps {
  * what the fast-refresh lint rule asks for.
  */
 export function QuestionListing({ language, source }: QuestionListingProps) {
-  if (HIGHLIGHTED.has(language)) {
+  if (isKnownLanguage(language)) {
     return (
       <LazyCodeEditor
-        language={language as RuntimeId}
+        language={language}
         variant="read"
         defaultValue={source}
         showCopy={false}

@@ -37,6 +37,20 @@ const NEGATED_WORD = /\b(excepto|salvo)\b/i;
  * average down and flag a set that reads evenly.
  */
 const LENGTH_TELL = 1.6;
+/**
+ * Below this, the ratio is noise and the rule is switched off.
+ *
+ * The archetypal Java question answers with `3`, `6`, `123`, `No compila`. Ten
+ * characters against three trips 1.6x, and length carries no signal whatever
+ * among numeric literals — the rule was written for prose alternatives, where
+ * the long one reads as the more complete answer. Without a floor it refuses a
+ * question the repo already ships, and the guide forbids the only workaround
+ * ("the fix is not to pad the distractors").
+ */
+const LENGTH_FLOOR = 15;
+
+/** The shape a document id must have (`documentMeta.ts`), and a question id too. */
+const KEBAB_CASE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 
 function say(question: SourceQuestion, problem: string): string {
   return `<Question id="${question.id}"> ${problem}`;
@@ -47,7 +61,22 @@ export function questionProblems(
   sections: ReadonlySet<string>,
 ): string[] {
   const problems: string[] = [];
-  const { anchor, statement, alternatives } = question;
+  const { id, anchor, statement, alternatives } = question;
+
+  if (!KEBAB_CASE.test(id)) {
+    problems.push(
+      say(
+        question,
+        `tiene un id inválido: "${id}". Debe ser kebab-case, y sobre todo debe existir — el id es la llave que une la hoja impresa, el lector del escáner y la nota del alumno (ADR-0031).`,
+      ),
+    );
+  }
+
+  if (statement.trim() === '') {
+    problems.push(
+      say(question, 'no tiene enunciado: una pregunta en blanco llega impresa y con nota.'),
+    );
+  }
 
   if (anchor !== undefined && !sections.has(anchor)) {
     problems.push(
@@ -108,7 +137,7 @@ export function questionProblems(
   if (
     longest?.correct === true &&
     runnerUp !== undefined &&
-    runnerUp.text.length > 0 &&
+    longest.text.length >= LENGTH_FLOOR &&
     longest.text.length > runnerUp.text.length * LENGTH_TELL
   ) {
     problems.push(

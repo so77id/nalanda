@@ -26,6 +26,12 @@ const Question = withMeta((_props: { id: string; anchor?: string; children?: Rea
   questionRole: 'question',
 });
 
+// The real wrapper. Its meta is what `flatten` must descend through: a document
+// never hands the parser a bare fragment, it hands it a `<Questions>` block.
+const Questions = withMeta((_props: { children?: ReactNode }) => null, {
+  questionRole: 'group',
+});
+
 function alternatives(...items: [string, boolean][]) {
   return (
     <ul className="contains-task-list">
@@ -155,6 +161,50 @@ describe('parseQuestions', () => {
       </Question>,
     );
     expect(defs[0]?.statement).toBe('¿Por qué main tiene que ser static?');
+  });
+
+  it('reads a "loose" task list, where each item is wrapped in a paragraph', () => {
+    // Blank lines between the alternatives make markdown emit a loose list, and
+    // each `<li>` then wraps its content in a `<p>`. Reading only direct
+    // children found no checkbox, so EVERY alternative read as incorrect: the
+    // student marked the right answer and the page said "Incorrecto". Valid
+    // markdown, invisible to every gate, and student-facing.
+    const defs = parseQuestions(
+      <Question id="suelta" anchor="seccion">
+        <p>¿Cuál?</p>
+        <ul className="contains-task-list">
+          <li className="task-list-item">
+            <p>
+              <input type="checkbox" disabled checked readOnly /> Correcta
+            </p>
+          </li>
+          <li className="task-list-item">
+            <p>
+              <input type="checkbox" disabled checked={false} readOnly /> Incorrecta
+            </p>
+          </li>
+        </ul>
+      </Question>,
+    );
+    expect(defs[0]?.alternatives.map(({ text, correct }) => ({ text, correct }))).toEqual([
+      { text: 'Correcta', correct: true },
+      { text: 'Incorrecta', correct: false },
+    ]);
+  });
+
+  it('finds the questions inside a <Questions> block', () => {
+    // The shape a real document produces. An earlier version descended only
+    // into fragments, so against this — the only shape that ships — it returned
+    // nothing at all, and every test passed because they all used a bare <>.
+    const defs = parseQuestions(
+      <Questions>
+        <Question id="dentro-del-bloque" anchor="seccion">
+          <p>¿Sirve?</p>
+          {alternatives(['Sí', true], ['No', false], ['Quizá', false], ['Depende', false])}
+        </Question>
+      </Questions>,
+    );
+    expect(defs.map(({ id }) => id)).toEqual(['dentro-del-bloque']);
   });
 
   it('ignores anything that is not a question', () => {

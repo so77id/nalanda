@@ -6,14 +6,18 @@ describe('headingSlugs', () => {
   it('slugs an h2 and a slide title, which both render as sections', () => {
     // A `<Slide title>` renders an `h2` (ADR-0021), so slide titles are
     // anchorable and are in fact where most anchors point.
+    // The slide is written FIRST on purpose. With the `##` first, a two-pass
+    // implementation (all h2, then all slides) agrees with document order by
+    // accident — which is exactly how the ordering bug shipped into the
+    // published artifact and stayed green here.
     const source = [
-      '## Qué significa static',
-      '',
       '<Slide title="Compilar y ejecutar">',
       'x',
       '</Slide>',
+      '',
+      '## Qué significa static',
     ].join('\n');
-    expect(headingSlugs(source)).toEqual(['que-significa-static', 'compilar-y-ejecutar']);
+    expect(headingSlugs(source)).toEqual(['compilar-y-ejecutar', 'que-significa-static']);
   });
 
   it('ignores headings that are only inside a code fence', () => {
@@ -144,6 +148,33 @@ describe('readQuestions', () => {
     ].join('\n');
 
     expect(readQuestions(source).map(({ id }) => id)).toEqual(['uno', 'dos']);
+  });
+
+  it('keeps a statement that was wrapped onto a second line', () => {
+    // The prose in these documents is hard-wrapped near 80 columns, and nothing
+    // formats `content/` — it sits outside `apps/web`, so prettier never visits
+    // it. Reading only the first line truncated the question in the artifact
+    // while the page showed it whole, which is a half-question on a printed,
+    // graded sheet.
+    const source = [
+      '<Question id="gc" anchor="sec">',
+      '',
+      '¿Cuál de estas afirmaciones sobre el recolector de basura',
+      'es cierta en el caso general?',
+      '',
+      '- [x] Libera la memoria de los objetos que ya no son alcanzables',
+      '      desde ninguna referencia viva',
+      '- [ ] Se ejecuta en un momento predecible',
+      '</Question>',
+    ].join('\n');
+
+    const [q] = readQuestions(source);
+    expect(q?.statement).toBe(
+      '¿Cuál de estas afirmaciones sobre el recolector de basura es cierta en el caso general?',
+    );
+    expect(q?.alternatives[0]?.text).toBe(
+      'Libera la memoria de los objetos que ya no son alcanzables desde ninguna referencia viva',
+    );
   });
 
   it('finds nothing in a document that has no questions', () => {

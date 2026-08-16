@@ -109,6 +109,34 @@ describe('questionProblems', () => {
     expect(problems({ alternatives: tell })).toEqual([]);
   });
 
+  it('refuses an empty statement', () => {
+    // A blank stem passes every other gate and reaches a printed, graded sheet
+    // as a question with nothing written on it.
+    expect(problems({ statement: '' }).join(' ')).toMatch(/enunciado/i);
+  });
+
+  it('refuses an id that is empty or not kebab-case', () => {
+    // The id is the join key from the printed sheet, through the scanner, into
+    // a grade (ADR-0031). An empty one is an empty column in a grade sheet.
+    expect(questionProblems(sound({ id: '' }), SECTIONS).join(' ')).toMatch(/id/i);
+    expect(questionProblems(sound({ id: 'Pregunta 1' }), SECTIONS).join(' ')).toMatch(/id/i);
+    expect(questionProblems(sound({ id: 'indice-cero-2' }), SECTIONS)).toEqual([]);
+  });
+
+  it('accepts short alternatives whose lengths differ by a lot', () => {
+    // The archetypal "what does this print" set, already in the repo. Between
+    // "123" and "No compila" the ratio is 3.3x and it means nothing: length
+    // only carries a signal once an alternative is long enough to read as
+    // more complete than its rivals.
+    const output = [
+      { text: '3', correct: false },
+      { text: '6', correct: false },
+      { text: '123', correct: false },
+      { text: 'No compila', correct: true },
+    ];
+    expect(problems({ alternatives: output })).toEqual([]);
+  });
+
   it('names the question in every problem it reports', () => {
     // The message is read in a failing suite, far from the document.
     for (const problem of problems({ anchor: 'no-existe', statement: '¿Cuál NO es válida?' })) {

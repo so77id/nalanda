@@ -2,6 +2,9 @@ import { describe, expect, it } from 'vitest';
 
 import { buildBank } from './questionBank';
 
+// Interleaves `<Slide title>` and `##` on purpose: that is the shape of every
+// real document on the teaching path, and the shape neither fixture had while
+// the artifact was published with its sections out of order.
 const JAVA = [
   '<Slide title="Qué significa static">',
   'texto',
@@ -10,6 +13,8 @@ const JAVA = [
   '<Slide title="Arreglos">',
   'texto',
   '</Slide>',
+  '',
+  '## Lo que sigue',
   '',
   '<Questions>',
   '',
@@ -74,7 +79,7 @@ describe('buildBank', () => {
         id: 'java-desde-cpp',
         title: 'Java desde C++',
         coverage: 'per-section',
-        sections: ['que-significa-static', 'arreglos'],
+        sections: ['que-significa-static', 'arreglos', 'lo-que-sigue'],
       },
     ]);
   });
