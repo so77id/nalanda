@@ -7,8 +7,10 @@ import { pythonDescriptor } from './python/descriptor';
 
 /**
  * Every implemented runtime, in picker order. Adding a language means adding its
- * descriptor here and its case to `loadRuntime` — the two halves the registry
- * keeps apart so listing a language stays cheap and loading one stays lazy.
+ * descriptor here, a case to `loadRuntime` AND a case to `loadGrammar` — three
+ * parts the registry keeps apart so listing a language stays cheap, loading a
+ * compiler stays lazy, and a consumer that mounts no editor never pays for a
+ * grammar (#122).
  */
 export const runtimeDescriptors: RuntimeDescriptor[] = [
   javaDescriptor,
@@ -48,9 +50,9 @@ export async function loadRuntime(id: RuntimeId): Promise<RuntimeModule> {
  * Two entry points rather than one module with two exports, because two
  * consumers genuinely need one without the other. `<MemoryDiagram>` drives a
  * real JVM and draws its own listing (ADR-0026/0028), so while the grammar sat
- * inside the runtime module it paid 16.14 kB gzip for a highlighter it never
- * rendered; the java chunk went 43.94 kB / 17.76 kB gzip to 3.20 kB / 1.62 kB
- * gzip when they were separated (#122). The mirror case is real too: an editor
+ * inside the runtime module it paid a full grammar for a highlighter it never
+ * rendered; ADR-0018 §4 carries what that cost and what the split bought, per
+ * language (#122). The mirror case is real too: an editor
  * highlights before — and whether or not — anything is ever run.
  *
  * Same switch-of-static-`import()` shape as `loadRuntime`, for the same reason.

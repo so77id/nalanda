@@ -133,7 +133,10 @@ whole slide with its title.
   (main 535,310 → branch 540,879 raw, +1.0%). Only **1,463 bytes** of that is
   component code and registration: dropping just `sheetEmbedCatalogEntry` from
   the seam and rebuilding gives 536,773, so the other 4,106 bytes are catalog
-  prose, which travels eagerly for every component, lazy or not. No new
+  prose, which travelled eagerly for every component, lazy or not — **until #122
+  moved the entries behind a dynamic import**. That term is gone: the eager cost
+  of registering this component is the 1,463 bytes of component code alone, and
+  the conclusion below holds a fortiori. No new
   eagerly-shipped package; `architecture: what the shell reaches eagerly` is
   untouched. A lazy wrapper would defer 1.4 kB while the 570 kB above stayed
   exactly where it is.

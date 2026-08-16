@@ -16,7 +16,7 @@ a semantic wrapper, a visualizer, a media embed, a structural block.
 ## Worked example
 
 `Slide` and `SectionBreak` (family _structure_) are the reference
-implementations: component + colocated entry + seam export + MDX registration
+implementations: component + colocated entry + a line in `components/catalogEntries.ts` + MDX registration
 
 - per-mode tests.
 
@@ -156,7 +156,9 @@ apps/web/src/components/structure/
    array is invisible to the catalog. That module is deliberately NOT the seam:
    the seam reaches it through `loadCatalogEntries()`, behind a dynamic import,
    because the shell reaches the seam eagerly and the entries are documentation
-   for authors, not payload for readers (#122 — 12.86 kB gzip on every course
+   for authors, not payload for readers (#122; the weight is in ADR-0018
+   §Consequences, and it grows with every component, which is why the guard is a
+   test rather than a number on every course
    page). Nothing outside the seam may import it, and `src/architecture.test.ts`
    walks the eager graph to keep it that way.
    `name` is the component's identity in three places at once: it MUST equal the
@@ -170,7 +172,7 @@ apps/web/src/components/structure/
    example that renders nothing, or a name/family pair that does not resolve to
    `src/components/<family id>/<name>.tsx`); `src/app/mdxComponents.test.ts` fails
    if the MDX map and the catalog drift apart in either direction — that is also
-   what catches a forgotten seam export.
+   what catches an entry never added to the `catalogEntries.ts` array.
 6. **Verify**: per-commit protocol green; review the PR against the review
    checklist (`/catalog/governance`).
 
@@ -178,10 +180,12 @@ apps/web/src/components/structure/
 
 The shell builds `mdxComponents` eagerly, so **any** static import of a
 component from a module the shell reaches puts that component — and everything it
-imports — in the entry chunk, paid by every reader of every page. Since #122 the
-catalog entries themselves are behind a dynamic import and no longer a route into
-the entry chunk, but a `*.catalog.tsx` still imports the component it documents,
-so the lazy wrapper is what it must name.
+imports — in the entry chunk, paid by every reader of every page. Since #122 the catalog entries themselves are behind a dynamic import and no
+longer a route into the entry chunk, but a `*.catalog.tsx` still imports the
+component it documents, so the lazy wrapper is what it must name — and what it
+guards is now the CATALOG's chunk: a static import there puts CodeMirror in the
+chunk every `/catalog` page fetches, including `/catalog/governance`, for
+examples the reader may never scroll to.
 `CodeEditor` brings CodeMirror: registering it directly roughly doubled the
 entry chunk (measured in ADR-0018 §7).
 
@@ -197,8 +201,9 @@ there undoes the split just as effectively. Worked case:
 its "stays out of the entry chunk" describe block for your component, with your
 own wrapper in `ALLOWED`, or nothing checks you. The
 second is generic: `architecture: what the shell reaches eagerly` walks the
-static imports from `app/main.tsx` and fails if the graph reaches `runtime/`
-or any package outside `SHIPS_EAGERLY`. **Never add a name to that list to go
+static imports from `app/main.tsx` and fails if the graph reaches `runtime/`,
+reaches `components/catalogEntries.ts` or any `*.catalog.*` file, or pulls a
+package outside `SHIPS_EAGERLY`. **Never add a name to that list to go
 green** — that is weight on the first paint of every page, including the ones
 with no code; treat it like disabling a lint rule and ask first. And if you
 only need a CONSTANT from a feature (a list of ids, a union type), put it in
@@ -225,7 +230,11 @@ payload from 1 chunk to 9 with every name-based guard green).
       rendered-English `it.each` list covering one populated and one still-empty
       family page.
 - [ ] Registered in `app/mdxComponents.ts` (mandatory for every catalogued component).
-- [ ] Colocated `.catalog.tsx` entry exported via the components seam.
+- [ ] Colocated `.catalog.tsx` entry added to the array in
+      `src/components/catalogEntries.ts` — and NOT re-exported from
+      `src/components/index.ts`, which puts every entry's prose back in the eager
+      payload (#122, guarded by `never reaches the catalog entries` in
+      `src/architecture.test.ts`).
 - [ ] ≥2 live examples; per-mode tests; completeness test green.
 - [ ] Wide output carries `.not-prose` or `.measure-full`, checked in the book
       view of a real document (`npm run build && npm run preview`), not only in

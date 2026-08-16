@@ -51,8 +51,10 @@ src/
 │                         # MemoryDiagram (+ MemoryPlayer/MemoryState, and trace.ts +
 │                         # memoryLayout.ts as its JVM-free halves)
 │                         # + their lazy wrappers, shared Panel/useRunShortcut/
-│                         # useLoadedRuntime/draft/placeholder)
+│                         # useLoadedRuntime/useGrammar/draft/placeholder)
 │                         # + their colocated <Component>.catalog.tsx entries,
+│                         #   aggregated in catalogEntries.ts, which the seam reaches
+│                         #   through loadCatalogEntries() — never a static export,
 │                         # + AuthoringError: shared across families, not a content component
 │                         # + MdxPre: the pre→component seam (registered in the SHELL's
 │                         #   map, not a catalog component), embedded.ts: the context by

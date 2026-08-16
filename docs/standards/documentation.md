@@ -121,6 +121,19 @@ case: the deployed shape (#66).
 
 ## Rules for empirical claims in ADRs
 
+**A byte figure carries its compressor, its unit and the commit it was taken at.**
+All three were learned the hard way in #122, whose §Consequences in ADR-0018 is
+the worked case. The compressor: `gzip` alone is ambiguous — vite's reporter and
+`zlib.gzipSync` disagree by up to ~5% on the same file, so a document that does
+not name its tool guarantees the next reader will "disagree" for no reason. The
+unit: for a web payload it is everything the first paint blocks on — the entry
+script, every `modulepreload` and every render-blocking stylesheet — never one
+chunk, because the chunk is what moves when the graph is re-cut. And the commit:
+measure at the TIP of the WP, not mid-way; #122's first table was taken at slice
+one of three and shipped 245 bytes stale. One more trap worth inheriting: a
+filesystem-scanning tool (Tailwind) will move the stylesheet with no source change
+at all if a parked build copy is sitting in the app directory.
+
 A performance, feasibility or platform-capability claim carries **the
 measurement, the date, and the case that does NOT hold**. An unmeasured "it is
 fast enough" or "the platform handles it" is a hypothesis, not a decision, and

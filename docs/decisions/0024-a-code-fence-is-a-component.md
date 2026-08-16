@@ -96,7 +96,10 @@ entry chunk".
   `03-busqueda-binaria.mdx` (prose plus one 10-line Java listing) from a network
   trace: **160.7 → 323.7 kB gz, +163.0 kB (+101%)** — 161.2 of it in five lazy
   chunks (95.6 CodeMirror core, 36.4 the wrapper, 17.7 the java grammar, 8.6
-  `@lezer/lr`, 2.9 the editor chunk), and 1.7 the entry chunk's own growth. It is lazy, never in the entry chunk, and the first fence pays for all
+  `@lezer/lr`, 2.9 the editor chunk), and 1.7 the entry chunk's own growth. (Six
+  chunks since #122 split the grammar out of the language module — the same bytes,
+  one more request. ADR-0018 §Consequences is the home for this breakdown; this
+  copy defers to it.) It is lazy, never in the entry chunk, and the first fence pays for all
   of them: further fences on the same page are free. No runtime is fetched — a
   listing runs nothing — so this is not the CDN cost the Run button pays
   (ADR-0018 §5). A page with no fence pays nothing.

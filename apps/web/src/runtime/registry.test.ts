@@ -30,8 +30,8 @@ describe('runtime registry', () => {
 
   // A separate entry point from `loadRuntime`, and separately gated, because the
   // whole point is that a consumer can have one without the other: <MemoryDiagram>
-  // drives a JVM and draws its own listing, so it paid 16.14 kB gzip of grammar it
-  // never rendered (#122).
+  // drives a JVM and draws its own listing, so it paid for a grammar it never
+  // rendered (#122; the bytes are in ADR-0018 §4).
   it.each(runtimeDescriptors)('$id loads a grammar of its own', async ({ id }) => {
     expect(await loadGrammar(id)).toBeDefined();
   });

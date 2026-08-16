@@ -2,7 +2,10 @@
 
 **Status:** Accepted
 **Amended by:** ADR-0024 (§4: nothing under `runtime/` may be reached before
-first paint, so a descriptor may no longer travel in the entry chunk)
+first paint, so a descriptor may no longer travel in the entry chunk) · #122
+(2026-08-16 — §4/§6: the CodeMirror grammar left `RuntimeModule` for
+`loadGrammar(id)`, and nothing under `runtime/` may statically reach any package
+but `react`)
 **Date:** 2026-08-11
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the `RuntimeWorker` contract · lazy per-language runtime modules ·
@@ -67,8 +70,14 @@ Two rules carry weight beyond their size:
 > the built site — java 43.94 kB / 17.76 kB gzip → 3.20 kB / 1.62 kB gzip, cpp
 > 104.13 / 33.41 → 0.20 / 0.19, python 44.82 / 18.64 → 0.20 / 0.19, with the
 > grammars in three lazy chunks of their own (16.15 / 33.29 / 18.52 kB gzip) that
-> only a consumer mounting an editor asks for. The eager payload is untouched:
-> nothing under `runtime/` was ever in it, and the invariant below is unchanged.
+> only a consumer mounting an editor asks for. The eager payload is untouched —
+> nothing under `runtime/` was ever in it, and the invariant below still holds —
+> but a SECOND invariant now sits beside it: nothing under `runtime/` may
+> statically reach any package but `react`. Grammars, toolchains and parsers go
+> behind a dynamic entry point. An allowlist rather than a denylist, for the same
+> reason the entry-chunk one is (`RUNTIME_MAY_REACH` in
+> `src/architecture.test.ts`) — it replaced a denylist that review evaded three
+> ways while the suite stayed green.
 
 > **Amended by ADR-0024.** Nothing under `runtime/` may be reached before first
 > paint, whatever it costs on its own — importing any of it drags the registry.
@@ -224,10 +233,11 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   **Name the compressor or the next reader will "disagree" for no reason.** These
   figures are `zlib.gzipSync` at its default level, which is what `vite preview`
   actually puts on the wire (verified against `encodedBodySize`, byte for byte).
-  Vite's own printed gzip column is a different setting and reads up to ~4.6%
-  higher; the two are not interchangeable, and one draft of this section mixed
-  them — the table below from real gzip, the grammar figures from vite's reporter.
-  kB is 1000 bytes throughout, as vite reports it.
+  Vite's own printed gzip column is a different setting and reads a few percent
+  off — up to **+4.89%** on the grammar chunks in this very build, and *lower* on
+  sub-kB files, where its two-decimal rounding dominates; the two are not interchangeable, and one draft of this section mixed
+  them. **Every figure in this section is real gzip**, the table and the grammar
+  chunks alike. kB is 1000 bytes throughout, as vite reports it.
 
   The stylesheet is in the unit because it is render-blocking and it is 12.85 kB
   gzip, 7.3% of what the first paint waits on. It is byte-identical on both sides
@@ -239,15 +249,35 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   the first version of this table was taken at slice 1 of 3 and was 245 raw bytes
   stale by the time it shipped:
 
-  |                                   | eager chunks | raw | gzip |
+  |                                   | eager JS chunks | raw | gzip |
   |---|---|---|---|
   | before                            | 2 | 549.31 kB | 174.74 kB |
-  | catalog entries behind `loadCatalogEntries()` | 3 | 512.27 kB | 163.45 kB |
+  | catalog entries behind `loadCatalogEntries()` | 3 | 512.29 kB | 163.44 kB |
 
-  **−37.04 kB raw, −11.29 kB gzip on every page of the site**, including the ones
+  **The table is the JS half of the unit**, listed on its own because the
+  stylesheet is byte-identical on both sides and would only add a constant to
+  every row. With it: 3 files / 624.47 kB / 187.58 kB gzip before, 4 / 587.46 kB /
+  176.29 kB after — the same deltas. A reader who follows the recipe literally and
+  gets the larger numbers has done it right.
+
+  **A last-mile trap, met twice while writing this section.** Some of this repo's
+  own prose is eagerly shipped — `catalog/GovernancePage.tsx` and every catalog
+  entry's `whenToUse` are strings in the bundle — so *editing the documentation
+  moves the number the documentation reports*. Both times the figure above shifted
+  by a few bytes it was because a sentence in this very WP had been reworded. That
+  is one more reason the satellite documents now point here instead of repeating
+  the digits: the fewer places a payload figure is written, the fewer ways writing
+  it can change it.
+
+  **−37.02 kB raw, −11.30 kB gzip on every page of the site**, including the ones
   with no code and no interest in the catalog. The third chunk is lucide's
-  `createLucideIcon` (2.70 kB / 1.43 kB gzip), which the entry and the new
-  catalog chunk now share — one more request, no duplicated bytes.
+  `createLucideIcon` (2.70 kB / 1.43 kB gzip): re-cutting the graph let rolldown
+  hoist it out of the entry chunk, and the entry now shares it with the lazy
+  component chunks (`CodeEditor`, `Exercise`, `MemoryDiagram`, `useRunShortcut`).
+  One more request, no duplicated bytes. **Not** shared with the catalog chunk —
+  no catalog entry imports an icon, and the first version of this sentence said it
+  did. Third time in this section that a right number arrived with a wrong reason
+  attached; if that is not a pattern by now it never will be.
 
   **A lazy `/catalog` route was rejected, and the first version of this paragraph
   rejected it for a reason that was not true.** It is worth writing down in full,
@@ -273,10 +303,13 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   says to pin the chunk count. That is why the routes are not lazy. It is a close
   call decided on requests, not a rout decided on bytes.
 
-  One trap for whoever reopens it: cutting the edge the obvious way — pointing
-  `app/DocumentTitle.tsx` at `../catalog/families` instead of the barrel — fails
-  `src/architecture.test.ts` with five seam violations. The lazy variant has to go
-  through the seam, or `families` has to move to `lib/` first.
+  One trap for whoever reopens it: the obvious cut — four
+  `lazy(() => import('../catalog/<Page>'))` in `AppRoutes.tsx` plus
+  `app/DocumentTitle.tsx` pointing at `../catalog/families` — fails
+  `src/architecture.test.ts` with five seam violations, because that walker counts
+  dynamic imports too. The `DocumentTitle` edge alone accounts for one of them. The
+  lazy variant has to go through the seam, or `families` has to move to `lib/`
+  first.
 
   Also worth keeping: the catalog pages suspend on first render now, so a test
   that mounts one with Testing Library's synchronous `render` must await an `act`

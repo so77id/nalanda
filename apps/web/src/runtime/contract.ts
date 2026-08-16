@@ -133,8 +133,8 @@ export interface WarmStats {
  *
  * The CodeMirror grammar is deliberately NOT a member. It used to be, and that
  * made every runtime consumer a CodeMirror consumer: `<MemoryDiagram>` drives a
- * real JVM and draws its own listing (ADR-0026/0028), so it paid 16.14 kB gzip
- * to render no highlighting at all. A grammar now comes from `loadGrammar(id)`,
+ * real JVM and draws its own listing (ADR-0026/0028), so it paid for a full
+ * grammar to render no highlighting at all (measured in ADR-0018 §4). A grammar now comes from `loadGrammar(id)`,
  * separately and only for whoever mounts an editor (#122).
  */
 export interface RuntimeModule {

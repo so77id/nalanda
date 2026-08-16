@@ -1,6 +1,9 @@
 # ADR-0028: The memory diagram draws from an execution trace, not from a description
 
 **Status:** Accepted
+**Amended by:** #122 (2026-08-16 — §9's mounting cost was re-measured once the
+CodeMirror grammar left the runtime module, and the revisit trigger this ADR set
+in §Consequences is answered below)
 **Date:** 2026-08-14
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the `trace` fence and its `// foto` markers · the generated `NalandaTrace` class ·
@@ -131,14 +134,26 @@ short, never wrong. Only the count was ever the lie.
 pull the compiler on page load, once per diagram.
 
 Mounting is *not* free, and the first version of this ADR said it was. Measured on
-the branch build: mounting pulls the java runtime module and, through its
+the branch build: mounting pulled the java runtime module and, through its
 `@codemirror/lang-java` import, the CodeMirror core with it — 17.7 kB grammar +
 8.6 kB `@lezer/lr` + 95.4 kB core = **~121.7 kB gzip**, none of which this
-component uses, because it draws its own listing. Returning that is #122.
+component uses, because it draws its own listing. Returning that was #122.
 
-Recorded twice, because it was got wrong twice: first as "nothing is fetched",
-then as "~16 kB of grammar", which undercounted by the two chunks the grammar
-drags with it.
+**#122 returned it (2026-08-16).** The grammar left `RuntimeModule` for
+`loadGrammar(id)` (ADR-0018 §4 as amended), so a consumer that mounts no editor
+now asks for no grammar and drags no CodeMirror core behind it. Re-measured on
+the built site: mounting one diagram costs **33.95 kB raw / 13.13 kB gzip across
+four lazy chunks** — the component, the runtime seam, the runtime hook and the
+java module — verified in Chromium against `npm run build && npm run preview`,
+where `/catalog/c/MemoryDiagram` fetches exactly those four and **zero grammar
+chunks**. The ~121.7 kB figure is kept above rather than deleted because the
+correction is the point: this section was wrong three times, and each version
+looked authoritative.
+
+Recorded three times now, because it was got wrong three times: first as "nothing
+is fetched", then as "~16 kB of grammar", which undercounted by the two chunks
+the grammar drags with it, and then as ~121.7 kB, which was true only while the
+grammar was inside the runtime module.
 
 ## Alternatives considered
 
@@ -205,6 +220,13 @@ the name from without the parser this ADR declines to build.
   add only ~37 kB gzip on top — `CodeEditor` 2.95 + `useRunShortcut` 21.89 + its
   vendor chunk 12.32. If #122 splits the grammar out of the runtime module, that
   number changes again and this trade is worth revisiting.
+
+  **#122 did, and the ~37 kB is void (2026-08-16).** It rested on "a mounted
+  diagram already loads the CodeMirror core", which is exactly what stopped being
+  true: the diagram now loads no grammar and no core, so giving it an editor would
+  cost the core as well — the trade is *worse* than this paragraph concluded, not
+  better. Not re-measured here, because nothing depends on it yet; reopen it with
+  a fresh measurement, not with this number.
 - **Entry cost: +0.98 kB gzip of JS and +0.39 kB gzip of CSS.** The lazy wrapper
   and the catalog entry's own text, plus the Tailwind classes — which are *not*
   lazy: one stylesheet is emitted eagerly for the whole app, so a lazy

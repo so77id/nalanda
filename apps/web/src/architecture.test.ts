@@ -70,9 +70,13 @@ describe('architecture: import direction (app → features → lib)', () => {
 });
 
 describe('architecture: the code editor stays out of the entry chunk', () => {
-  // The shell builds the MDX map and `catalogEntries` eagerly, so ANY static
-  // import of the editor from a module the shell reaches drags CodeMirror into
-  // the entry chunk — roughly doubling it, measured precisely in ADR-0018 §7.
+  // The shell builds the MDX map eagerly, so ANY static import of the editor from
+  // a module the shell reaches drags CodeMirror into the entry chunk — roughly
+  // doubling it, measured precisely in ADR-0018 §7. (It built `catalogEntries`
+  // eagerly too when this was written; #122 put those behind a dynamic import —
+  // see `never reaches the catalog entries` below — so a static import from a
+  // `*.catalog.tsx` now costs the catalog's own chunk rather than the entry
+  // chunk, and is forbidden for that reason instead.)
   // Only the lazy wrapper may name it, with no per-file exemptions: an
   // allowlisted file is exactly where the next contributor would add the import
   // that reopens the hole.
@@ -277,11 +281,11 @@ describe('architecture: what the shell reaches eagerly', () => {
     // The entries are documentation ADDRESSED TO COMPONENT AUTHORS — descriptions,
     // when-to-use, prop tables, example snippets — and only /catalog reads them.
     // Reached eagerly they ride in the payload of every course page, including
-    // documents nobody will ever open the catalog from: 38.45 kB raw / 12.86 kB
-    // gzip of the eager payload, measured on #122. Weight is not the reason this
-    // is a guard rather than a number in an ADR, though — the reason is that it
-    // grows with every component the repo adds and nothing else would notice:
-    // 5.45 kB gzip when #116 filed it, 12.86 four WPs later.
+    // documents nobody will ever open the catalog from. ADR-0018 §Consequences
+    // carries the measurement; it is not repeated here, because it MOVES — which
+    // is the whole reason this is a guard rather than a number in a document. It
+    // more than doubled in the four WPs between #116 noticing it and #122 fixing
+    // it, with nothing to notice.
     expect(
       [...modules]
         .map((f) => relative(SRC, f))

@@ -34,10 +34,12 @@ export const mdxComponents = {
   Mosaic,
   Figure,
   // Not lazy: it is one iframe. Measured on the shipped build, registering it
-  // eagerly costs the entry chunk 1,463 bytes of component code (+5.6kB raw
-  // with its catalog prose, which travels eagerly for every component, lazy or
-  // not — ADR-0018 §7), and it pulls in no package the first paint did not
-  // already need.
+  // eagerly costs the entry chunk 1,463 bytes of component code, and it pulls in
+  // no package the first paint did not already need. (That figure used to be
+  // quoted as +5.6kB raw, the rest being its catalog prose, which travelled
+  // eagerly for every component, lazy or not. #122 moved the entries behind a
+  // dynamic import, so the prose no longer ships here — only the component code
+  // does.)
   //
   // Do NOT read that as "the sheet is free until someone scrolls to it": the
   // frame carries `loading="lazy"`, and lazy on an iframe was measured to defer
