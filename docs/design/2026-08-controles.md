@@ -176,9 +176,6 @@ language in the monorepo:
   verified against the real instance, not assumed. Needs an API token. (WP-D)
 - **Grade delivery order.** Spreadsheet, email and Canvas are all wanted; which
   ships first is decided once the core works. (WP-G)
-- **`area:controls` label.** WPs E–G have no matching area in
-  `.claude/workflow-bindings.md`; A is `area:infra`, B is `area:course` +
-  `area:widgets`, C is `area:backend` + `area:auth`.
 - **Retention of scanned sheets.** Scans carry RUTs and grades — personal data
   under Ley 21.719. A retention and deletion policy belongs in
   `docs/security-notes.md` before WP-F ships, not after.
