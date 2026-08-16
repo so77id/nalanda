@@ -120,17 +120,23 @@ whole slide with its title.
   the same page built from `main`: 5 requests / 190 kB becomes 15 requests /
   762 kB. The third-party half is 570 kB across 10 requests, and **490 kB of it
   is one already-gzipped Google stylesheet** — 2.9× the application's entire
-  entry chunk (171 kB gzip). Google serves its static assets with
-  `max-age=31536000`, so a second visit costs 34 kB / 10 requests; at ~1.6 Mbps
-  the last byte lands at 5.9 s against 3.5 s. The method is ADR-0018 §7's, and
-  the number is recorded for the same reason: an author choosing between a frame
-  and a typed table cannot otherwise know the frame is three times the app.
-- **Registering it eagerly is the cheap half**, measured on the same build:
-  the entry chunk goes 535,310 → 539,718 raw bytes (+0.8%), of which only
-  1,151 bytes are component code — the rest is catalog prose, which travels
-  eagerly for every component, lazy or not. No new eagerly-shipped package;
-  `architecture: what the shell reaches eagerly` is untouched. A lazy wrapper
-  would defer 1.15 kB while the 570 kB above stayed exactly where it is.
+  entry chunk (171.5 kB gzip). Google serves its static assets with
+  `max-age=31536000`, so a second visit costs 34 kB / 10 requests. The method is
+  ADR-0018 §7's, and the number is recorded for the same reason: an author
+  choosing between a frame and a typed table cannot otherwise know the frame is
+  three times the app. Measured on the merge commit's build, from a cold
+  profile, counting `request.sizes()` transfer bytes; a throttled figure was
+  taken too and is deliberately **not** recorded, because the throttling profile
+  was not written down with it and a number nobody can re-derive is worse than
+  none.
+- **Registering it eagerly is the cheap half**, measured on the same build
+  (main 535,310 → branch 540,879 raw, +1.0%). Only **1,463 bytes** of that is
+  component code and registration: dropping just `sheetEmbedCatalogEntry` from
+  the seam and rebuilding gives 536,773, so the other 4,106 bytes are catalog
+  prose, which travels eagerly for every component, lazy or not. No new
+  eagerly-shipped package; `architecture: what the shell reaches eagerly` is
+  untouched. A lazy wrapper would defer 1.4 kB while the 570 kB above stayed
+  exactly where it is.
 - **`loading="lazy"` is close to inert here.** Measured in Chromium: a lazy
   iframe defers nothing until roughly **4000px** below the fold, and the frame
   on `/d/planificacion` sits at 325px, the two on `/catalog/c/SheetEmbed` at

@@ -33,8 +33,11 @@ questions: none
 {/* them. The calendar is a framed spreadsheet because a typed table is wrong */}
 {/* the first time a class moves (ADR-0035 §Context) — the editorial reason, */}
 {/* decided before the fixture bindings were looked at. That it also adds one */}
-{/* element and no headings, and leaves the chunk small because the component */}
-{/* arrives through the shell's MDX map, is a consequence and not the motive. */}
+{/* element and no headings, and that the component itself never lands in this */}
+{/* document's chunk because it arrives through the shell's MDX map, is a */}
+{/* consequence and not the motive. The chunk did grow — 971 to 1713 bytes, */}
+{/* all of it the prose above — which is still far inside what invariant 3 */}
+{/* needs. */}
 {/* The distinction is the limit ADR-0025 puts on itself: the suite may */}
 {/* constrain HOW content is written, never WHAT it says. */}
 
