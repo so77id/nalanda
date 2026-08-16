@@ -4,6 +4,8 @@
 **Date:** 2026-08-15
 **Decision-makers:** Miguel Rodriguez
 **Source:** #138 review (round B) — split out of ADR-0030
+**Amended:** 2026-08-16 (#147) — multiple-answer questions, per-question weight,
+and the threshold the scores were computed at
 
 ## Context
 
@@ -45,6 +47,70 @@ comparing the questions captured against the questions the layout says the copy
 scanner (a double feed, the likeliest failure with real paper) reports clean and
 a student gets zero on half the exam with nothing to show for it.
 
+### A question says which kind it is, and several marks are an answer
+
+A question that admits **several correct alternatives** carries
+`type: "multiple"`; one that admits a single alternative carries
+`type: "simple"`. The distinction cannot be recovered from the capture — a box
+is a box — so it comes from the engine's own scoring data, and it is the reason
+the reader now needs a third database (below).
+
+**On a multiple question, several marks are the ANSWER and nothing is flagged.**
+Only a simple question with more than one mark is `ambiguous`. The reader used
+to call every second mark an ambiguity, which sent a student who had answered
+correctly to the manual review queue and told the professor to go and inspect a
+sheet that was right.
+
+The engine's own "none of these" mechanism (AMC's `completemulti`) is **off**,
+and that is part of this contract rather than a fixture detail. It appended an
+extra box to every multiple question, all-or-nothing, and numbered that
+question's alternatives from **0** while simple questions started at 1 — so a
+reader assuming 1-based silently shifted every alternative of every multiple
+question. With the option off, both types number `1…N` (measured), and a
+question that wants that alternative carries it as an ordinary authored choice,
+pinned last so its wording stays true wherever the shuffle puts the rest.
+
+### Every question weighs one point, and the caller does the arithmetic
+
+The engine weighs a simple question 1 and a multiple **one point per
+alternative**, so one multiple would outweigh three simple questions — and
+since every copy draws its own questions, the same mistake would cost different
+students different amounts. The course's rule is that **every question weighs
+one point** (`docs/design/2026-08-controles.md` §C7).
+
+The report therefore carries the engine's own per-question `score` and `max`,
+and the caller normalises:
+
+```
+relative_i = score_i ÷ max_i          the fraction of question i's single point
+grade      = Σ relative_i             over the N questions THIS copy drew
+percentage = grade ÷ N                out of N, because each question is one point
+```
+
+`max_i` is **not a constant** — 1 for a simple question, the alternative count
+for a multiple — which is why it travels with each answer rather than being
+assumed by the caller. Turning a percentage into a 1,0–7,0 mark is
+`apps/server`'s, not this contract's.
+
+Bending the engine's own scoring formula was tried and rejected: measured, its
+all-or-nothing setting fails a student who got half a question right, and its
+partial-credit setting awards **full marks for ticking every box** — the hole
+this design exists to close. Reporting the engine's numbers and owning the
+arithmetic keeps the decision ours and survives an engine swap, which is the
+whole point of this ADR.
+
+### The report says which threshold its scores were computed at
+
+Scoring runs at the engine's own threshold, while `ticked` is ours and
+**tunable per batch** — and the two are independent knobs on the same capture.
+Re-reading a stored capture at a different sensitivity moves the marks and
+leaves the scores where they were, so the report would disagree with the grade
+in silence. That is the same defect as the one below, one level up.
+
+So the report carries `scoring: {seuil, ticked, stale}`: what the engine scored
+at, what this reading used, and `stale: true` when they differ. The caller can
+then re-score, or say so, but it cannot be misled.
+
 ### Three darkness verdicts, not two
 
 The engine reports how dark each box is; deciding what that *means* is ours.
@@ -72,6 +138,16 @@ purpose.
   professor can do at a keyboard with one that requires finding a sheet — and
   because "needs review" on a copy whose page was never scanned tells the
   reviewer nothing about what to review.
+- **Letting the engine do the normalisation**, by configuring its scoring
+  formula so every question came back out of 1. Measured on both obvious
+  settings and rejected: one is all-or-nothing, the other gives full marks for
+  ticking every box. It also puts a decision of ours inside a scoring language
+  whose documentation is not even in the image, to be re-verified on every
+  engine upgrade.
+- **Keeping the engine's appended "none of these" box.** It comes with wrong
+  Spanish we cannot correct per question, cannot be aimed at the questions that
+  want it, and drags 0-based numbering into one question type and not the
+  other. An authored alternative costs one line and behaves like every other.
 - **Two darkness verdicts (marked / blank).** Simpler, and what the code did
   before the review caught it. Rejected: it silently disagrees with the scoring,
   and it throws away the one measurement that tells a professor whether their
@@ -88,9 +164,18 @@ purpose.
 - **The thresholds are a caller-facing tunable**, so `apps/server` must carry
   them through rather than hard-coding them, and `PAPER-CHECK.md` question 4 is
   the procedure that calibrates them against real pencils.
+- **The reader needs the batch to have been SCORED, not only captured.** Three
+  databases, not two: what was printed, what was read off the paper, and what
+  each question is and was worth. The third only exists after the engine's
+  scoring pass has run, and a project without it is **refused loudly** rather
+  than reported with the fields quietly absent — measured, the half-done state
+  is the dangerous one, because the scoring tables exist and are empty, which
+  reads exactly like a batch where nobody scored a point. Every caller that
+  drives the CLI by hand must run that pass; `/analyse` already does.
 - **We depend on the engine's private storage, not only its CLI.** The current
-  reader opens AMC's `layout.sqlite` and `capture.sqlite` directly and knows
-  facts like `capture_zone.type = 4`. That coupling is deliberately confined to
+  reader opens AMC's `layout.sqlite`, `capture.sqlite` and `scoring.sqlite`
+  directly and knows facts like `capture_zone.type = 4` and
+  `scoring_question.type = 2` for a multiple-answer question. That coupling is deliberately confined to
   `read_capture.py` inside the worker image, which is what keeps an engine swap
   a container swap. `tests/01-headless.sh` pins the AMC version, so an upgrade
   reddens CI — treat that assertion as a **schema tripwire**, not a version

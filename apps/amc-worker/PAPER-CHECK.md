@@ -54,7 +54,7 @@ Write down what you did on each sheet — you need it in step 5.
 | 1 | your own, filled cleanly | one per question, filled solidly |
 | 2 | someone else's, filled cleanly | one per question, marked **lightly** — a faint pencil |
 | 3 | filled cleanly | one question **left blank** |
-| 4 | filled cleanly | one question with **two boxes** marked |
+| 4 | filled cleanly | one question with **two boxes** marked — on a question labelled *(una respuesta)* |
 | 5 | one column **left blank** | one per question |
 | 6 | filled, then **one digit erased and corrected** | one answer erased and corrected |
 
@@ -65,10 +65,33 @@ faint pencil lands in the band between the two thresholds, which is where the
 reader had a bug that reported it as a confident answer (#138, F-2).
 
 Mark **crosses or full fills inside the boxes**, not ticks spilling outside
-them — that is what the reader measures. (The printed sheet does not currently
-say so; it only says *"Marca una sola alternativa por pregunta"*. If the paper
-check shows students spilling outside the boxes, the fix is a line in the
-source, not in the reader.)
+them — that is what the reader measures. The printed sheet does not say so: its
+header block covers the instructions and the score, and if the paper check
+shows students spilling outside the boxes, the fix is a line there, in the
+source, not in the reader.
+
+**Sheet 4's double mark has to go on a question the sheet labels *(una
+respuesta)*.** Every question states its type in words, and on one labelled
+*(varias respuestas)* two boxes are simply the right answer — the report would
+say `ok`, correctly, and you would record a failure of the engine that never
+happened.
+
+## 2b. Judge the sheet at the resolution it is read at
+
+If you render a page to look at it rather than printing it, render it at the
+**scanner's resolution — 300 dpi** (220 was enough to settle the case below).
+
+At 100 dpi the rendering **invents defects**. Adjacent `[` `]` blurred into what
+looked like a missing-glyph box and `int[]` was reported as broken typesetting
+that did not exist; at 220 dpi the same page was clean. The repo's rule is that
+the evidence is the pixels, and this is its rider: the pixels have to be at the
+resolution the thing is actually read at, or you are inspecting the renderer.
+
+```bash
+docker run --rm --env DISPLAY= -v "$PWD/tests/work/paper:/work" \
+  nalanda/amc-worker:dev \
+  pdftoppm -r 300 -f 1 -l 1 -singlefile -png /work/out/control-para-imprimir.pdf /work/out/pagina1
+```
 
 ## 3. Scan
 
@@ -107,6 +130,13 @@ becomes a confident answer, `--unsure` is where it stops being noticed at all. A
 mark that came back `blank` fell below `--unsure`, and lowering `--ticked` alone
 cannot rescue it.
 
+**A re-read at another `--ticked` comes back with `scoring.stale: true`**, and
+that is the report telling the truth rather than a fault: the marks moved and
+the per-question scores did not, because AMC scored them at its own threshold
+during `make read-paper`. The marks are what this step calibrates, so read
+them; the scores in a stale report belong to the previous threshold and are
+evidence of nothing before the batch is scored again.
+
 ## 5. What to look for
 
 Compare the report against what you actually marked. Five questions, in order
@@ -119,9 +149,11 @@ of how badly a "no" would hurt:
 2. **Did every RUT read back correctly?** Sheet by sheet, against what you
    wrote. A wrong digit is worse than an unread one.
 3. **Did the deliberate damage land in the right bucket?** Sheet 3's blank
-   answer should be `blank`, sheet 4's double mark `ambiguous`, sheet 5's blank
-   column `rut_status: "unreadable"`. If any reads as a confident single answer
-   instead, the threshold is wrong.
+   answer should be `blank`, sheet 4's double mark `ambiguous` — **provided you
+   made it on a question labelled *(una respuesta)***; on a *(varias
+   respuestas)* one, `ok` is the correct answer and the check proves nothing —
+   and sheet 5's blank column `rut_status: "unreadable"`. If any reads as a
+   confident single answer instead, the threshold is wrong.
 4. **How did the faint pencil on sheet 2 read?** `doubtful` is the right answer
    — the report should carry it under `doubtful` with its measured `darkness`,
    not under `marked`. If it came back `blank`, the mark was below `unsure`

@@ -101,7 +101,7 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 | ------ | ------ |
 | `01-headless.sh` | AMC runs from the CLI with no display; LaTeX resolves `automultiplechoice.sty`; every CLI tool the pipeline needs is present |
 | `02-generate.sh` | N copies from our own `.tex`, questions and alternatives shuffled per copy, an 8-digit RUT grid, a printed identifier per page, a reproducible draw |
-| `03-read.sh` | A scrambled multi-page PDF batch reads back; ambiguous marks and unreadable identifiers are reported separately |
+| `03-read.sh` | A scrambled multi-page PDF batch reads back; ambiguous marks and unreadable identifiers are reported separately; multiple-answer questions score and are not called ambiguous; a project with no scoring database is refused |
 | `04-associate.sh` | Clean copies match a roster automatically; damaged identifiers fail closed; an association can be injected from outside without the GUI |
 | `05-annotate.sh` | One annotated PDF per student, carrying their marks, the correct answers and per-question scores |
 | `06-http.sh` | The whole flow over the HTTP contract; the annotate and unknown-subcommand guards exercised by performing the trap inside the image (the association trap belongs to `04-associate.sh`) |
@@ -170,6 +170,44 @@ and reported separately, never counted as an answer. That band is where a
 half-erased pencil lands, and it is the one region a solid synthetic fill (~0.63)
 can never reach — so it is exercised by its own batch in `03-read.sh`.
 
+**Each answer says which kind of question it is** — `type: "simple"` or
+`type: "multiple"` — and on a multiple one **several marks are the answer**, not
+an ambiguity. Only a simple question with more than one mark is `ambiguous`.
+
+**Each answer also carries `score` and `max`, and the caller does the
+arithmetic**, because every question weighs one point (§C7) and AMC does not
+agree: it weighs a simple question 1 and a multiple one point per alternative.
+
+```
+relative_i = score_i / max_i          the fraction of question i's single point
+grade      = sum(relative_i)          over the N questions THIS copy drew
+percentage = grade / N                out of N, because each question is one point
+```
+
+`max` is **not a constant** — 1 for a simple question, the alternative count for
+a multiple — so a three-alternative multiple divides by 3 and a five-alternative
+one by 5. Nothing in the formula assumes four, which is why `max` travels with
+each answer instead of being assumed by the caller. Turning a percentage into a
+1,0–7,0 mark is `apps/server`'s job, not this report's.
+
+Measured on a four-alternative question with two correct alternatives: both
+correct → 4/4; one correct and nothing wrong → 3/4; only a wrong one → 1/4;
+**every box ticked → 2/4**; blank → 0/4. Ticking everything does not win, and no
+score comes back negative.
+
+**The report says which threshold those scores were computed at.** AMC's `note`
+scores at its own `--seuil` while `--ticked` is ours and tunable, so a re-read of
+a stored capture at another sensitivity moves the marks and leaves the scores
+where they were. `scoring: {seuil, ticked, stale}` carries both and flags the
+disagreement rather than hiding it.
+
+**Reading requires a SCORED batch**, not only a captured one: the reader opens
+`scoring.sqlite` as well, which exists only after `prepare --mode b` and `note`
+have run (in that order, and after `analyse`). `/analyse` does it; a caller
+driving the CLI by hand must too. A project without it is refused with a message
+naming the missing command — measured, the half-done state is the dangerous one,
+because `prepare --mode b` alone leaves the scoring tables present and empty.
+
 **`/analyse` is a minutes-class call** — 53 s for a class of forty, three
 quarters of it in `getimages`, which AMC does not parallelise. `apps/server`
 must drive it as a background job with a status endpoint, never inside a request
@@ -184,10 +222,16 @@ published question bank, and these are its load-bearing parts — the worked
 example is `tests/fixtures/control-demo.tex`:
 
 ```latex
-\usepackage[box,completemulti,lang=ES]{automultiplechoice}
-\AMCrandomseed{1237}          % fixed seed → a reproducible draw
+\usepackage[box,lang=ES]{automultiplechoice}   % NOT completemulti — see below
+\AMCrandomseed{1242}          % fixed seed → a reproducible draw
+\def\unaSymbole{\textsf{\small(una respuesta)}}
+\def\multiSymbole{\textsf{\small(varias respuestas)}}
 ...
-\element{clase}{\begin{question}{indice} ... \end{question}}
+\element{clase}{\begin{question}[\unaSymbole]{indice} ... \end{question}}
+\element{clase}{\begin{questionmult}{comparar-cadenas}
+  ... \lastchoices \wrongchoice{Ninguna de las anteriores} ... \end{questionmult}}
+\element{clase}{\begin{question}[\unaSymbole]{suma-arreglo}
+  \lstinputlisting{/work/src/code/suma-arreglo.java} ... \end{question}}
 \onecopy{5}{
   \AMCcode{rut}{8}            % the 8-digit RUT grid, no verifier digit
   \shufflegroup{clase}
@@ -205,6 +249,27 @@ example is `tests/fixtures/control-demo.tex`:
   id and nothing else.
 - **`--n-copies` overrides `\onecopy{N}`**, so the number in the source is a
   default, not a constraint.
+- **`completemulti` is off, deliberately.** It appended AMC's own "none of
+  these" box to every multiple-answer question — all-or-nothing, with Spanish
+  AMC gets wrong ("Ninguna de estas preguntas son correctas"), and it numbered
+  that question's alternatives from **0** while simple questions started at 1.
+  With it off both types number `1…N`. A question that wants that alternative
+  writes it by hand, and **pins it with `\lastchoices`**: alternatives shuffle,
+  and "ninguna de las anteriores" printed second says something false.
+- **Every question states its type in words**, for both kinds, because a student
+  under a five-minute clock cannot scroll back to learn a convention. It takes
+  two levers: a simple question takes the label as its optional argument, and a
+  `questionmult` cannot — its own definition already passes `\multiSymbole` into
+  that slot, so redefining `\multiSymbole` is the way in.
+- **Code comes from a FILE, by absolute path.** `verbatim` does not compile
+  inside an AMC question, and `\lstinputlisting` with a path relative to the
+  `.tex` does not resolve — AMC compiles from its own working directory, and it
+  fails fatally with no PDF. Everything the worker is handed lives under
+  `/work`, so that is the path. That is also why the bank keeps code as its own
+  field: nothing has to be escaped.
+- **Anything the source reads must be staged beside it.** `tests/lib.sh`'s
+  `stage_source` does that for the suite; `make paper` keeps its own copy of
+  those two lines.
 - **Each copy is two PDF pages**, padded to an even count. Printed duplex that
   is one physical sheet per student; it does mean the scan has a back side for
   every sheet.
