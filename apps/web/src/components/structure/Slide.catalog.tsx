@@ -3,7 +3,7 @@ import { ModeProvider } from '../../presentation';
 
 import { Slide } from './Slide';
 
-/** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
+/** Catalog entry (ADR-0010) — colocated with the component, aggregated in catalogEntries.ts. */
 export const slideCatalogEntry: CatalogEntry = {
   name: 'Slide',
   family: 'structure',

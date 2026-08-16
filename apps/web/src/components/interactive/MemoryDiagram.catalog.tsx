@@ -2,10 +2,11 @@ import type { ReactNode } from 'react';
 
 import type { CatalogEntry } from '../../lib/catalogEntry';
 
-// The wrapper, not the component: this entry is reachable from the shell's eager
-// `catalogEntries`, so a static import would undo the lazy split and put the
-// runtime in the entry chunk. Aliased because the examples render what a
-// document writes.
+// The wrapper, not the component. The entries are no longer eager (#122), so
+// this no longer guards the ENTRY chunk — it guards the catalog's own: a static
+// import here would pull the runtime into the chunk /catalog fetches, for a page whose
+// examples the reader may never scroll to. It is also what a document writes,
+// which is what an example must render. Aliased for exactly that.
 import { LazyMemoryDiagram as MemoryDiagram } from './lazyMemoryDiagram';
 
 /** What the MDX pipeline hands the component for an annotated fence. */
@@ -54,7 +55,7 @@ public class Demo {
 }
 `;
 
-/** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
+/** Catalog entry (ADR-0010) — colocated with the component, aggregated in catalogEntries.ts. */
 export const memoryDiagramCatalogEntry: CatalogEntry = {
   name: 'MemoryDiagram',
   family: 'interactive',

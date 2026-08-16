@@ -5,7 +5,7 @@ import { Split } from './Split';
 
 const COST_CURVE = 'asset:courses/sample-course/costo-busqueda.svg';
 
-/** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
+/** Catalog entry (ADR-0010) — colocated with the component, aggregated in catalogEntries.ts. */
 export const splitCatalogEntry: CatalogEntry = {
   name: 'Split',
   family: 'structure',

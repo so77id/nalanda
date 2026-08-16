@@ -3,7 +3,7 @@ import type { CatalogEntry } from '../../lib/catalogEntry';
 import { MdxPre } from '../MdxPre';
 import { SideBySide } from './SideBySide';
 
-/** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
+/** Catalog entry (ADR-0010) — colocated with the component, aggregated in catalogEntries.ts. */
 export const sideBySideCatalogEntry: CatalogEntry = {
   name: 'SideBySide',
   family: 'structure',

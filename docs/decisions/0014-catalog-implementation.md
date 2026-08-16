@@ -32,11 +32,24 @@ entries reach the catalog, and what a machine can check.
    added when a component needs them, not speculatively (D29).
 
 2. **Entries are colocated and reach the catalog through their feature's seam**:
-   `<Component>.catalog.tsx` beside the component, aggregated in the components
-   seam as `catalogEntries`, consumed by `catalog/registry.ts`. Chosen over
-   `import.meta.glob` auto-discovery: the explicit array is greppable, the
-   registry stays a pure function testable with fixtures, and a forgotten export
-   is caught by the completeness gate anyway.
+   `<Component>.catalog.tsx` beside the component, aggregated in an explicit
+   array, consumed by `catalog/registry.ts`. Chosen over `import.meta.glob`
+   auto-discovery: the explicit array is greppable, the registry stays a pure
+   function testable with fixtures, and a forgotten export is caught by the
+   completeness gate anyway.
+
+   **Amended by #122 (2026-08-16): the array is no longer ON the seam, it is
+   BEHIND it.** It lives in `components/catalogEntries.ts` and the seam exposes
+   `loadCatalogEntries()`, a dynamic import; `catalog/registry.ts` follows with
+   `loadCatalog(): Promise<Catalog>` and the pages read it through `use()` under
+   one Suspense boundary. The reason is that the shell reaches the components
+   seam eagerly to build the MDX map, so a static array there put every entry's
+   prose — author documentation — in the payload of every course page: 38.04 kB
+   raw / 12.15 kB gzip, measured, and growing with each component (5.45 kB gzip
+   when it was first noticed, four WPs earlier). A function rather than a
+   re-export is load-bearing: `export { catalogEntries } from './catalogEntries'`
+   is a static edge and puts it straight back. Nothing about *what* an entry is
+   or *where* it is written changed — only where the aggregation lives.
 
 3. **The catalog set equals the MDX-registered set** — asserted in both
    directions (`app/mdxComponents.test.ts`). A document-facing component must

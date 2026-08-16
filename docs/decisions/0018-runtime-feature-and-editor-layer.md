@@ -58,6 +58,18 @@ Two rules carry weight beyond their size:
 
 **4. Runtimes are split in two halves: a cheap descriptor and a lazy module.**
 
+> **Amended by #122 (2026-08-16): three halves, not two.** The CodeMirror grammar
+> left the lazy module and became its own entry point, `loadGrammar(id)`, with a
+> `<lang>/grammar.ts` per language. `RuntimeModule` is now the compiler half
+> only. The reason is a consumer this decision did not anticipate: `<MemoryDiagram>`
+> drives a real JVM and draws its own listing (ADR-0028), so a grammar inside the
+> module made it pay 16.94 kB gzip to render no highlighting at all. Measured on
+> the built site — java 43.93 kB / 18.57 kB gzip → 3.19 kB / 1.61 kB gzip, cpp
+> 104.13 / 34.88 → 0.20 / 0.18, python 44.81 / 19.45 → 0.20 / 0.18, with the
+> grammars in three lazy chunks of their own (16.94 / 34.75 / 19.33 kB gzip) that
+> only a consumer mounting an editor asks for. The eager payload is untouched:
+> nothing under `runtime/` was ever in it, and the invariant below is unchanged.
+
 > **Amended by ADR-0024.** Nothing under `runtime/` may be reached before first
 > paint, whatever it costs on its own — importing any of it drags the registry.
 
@@ -82,8 +94,9 @@ self-hosted: the Java compiler jar, which CheerpJ reads through our own origin
 (ADR-0017 §1).
 
 **6. CodeMirror 6 is the editor, and `lucide-react` the icon set.** Via
-`@uiw/react-codemirror`, one grammar per runtime exposed through
-`RuntimeModule.codeMirrorLanguage()`. It is THE editor and THE highlighter for
+`@uiw/react-codemirror`, one grammar per runtime — exposed through
+`RuntimeModule.codeMirrorLanguage()` when this was written, and through
+`loadGrammar(id)` since #122 amended Decision 4. It is THE editor and THE highlighter for
 documents, in the sense ADR-0004 makes framer-motion THE animation library; this
 extends ADR-0004's stack enumeration as ADR-0011 did for the router. ADR-0014's seventh decision
 kept catalog examples on plain `<pre>` "until a real need appears" — this is
@@ -92,9 +105,10 @@ example snippets on `<pre>`. `lucide-react` is likewise the only icon library
 (usage rules in `frontend-code-style.md` §Icons).
 
 **7. Heavy components register through a lazy wrapper — extends ADR-0010/0014.**
-The shell builds the MDX map and `catalogEntries` eagerly, so any static import
-of a heavy component from a module the shell reaches pays its full weight in the
-entry chunk: measured 478.41kB → 893.69kB for CodeMirror (2026-08-12,
+The shell builds the MDX map eagerly (it built `catalogEntries` eagerly too when
+this was written; #122 put those behind a dynamic import, amending ADR-0014's
+second decision), so any static import of a heavy component from a module the
+shell reaches pays its full weight in the entry chunk: measured 478.41kB → 893.69kB for CodeMirror (2026-08-12,
 vite 8.2.0; the widely-quoted "478 → 891" is the same delta measured a day
 earlier). Such a component ships a
 `lazy<Name>.tsx` wrapper, and **both** the MDX map and the component's own
@@ -137,10 +151,13 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   **+4.85kB** (measured 2026-08-12, vite 8.2.0). The editor is a 111.58kB chunk;
   the languages are 44.78kB (python), 45.63kB (java) and 104.12kB (cpp), all
   lazy. **The case that does not hold**: this number tracks content, not only
-  code — a catalog entry's prose ships in the entry chunk because
-  `catalogEntries` is built eagerly, so writing documentation moves it. The
-  claim to defend is "no CodeMirror, no compiler, no runtime in the entry
-  chunk". **`grep` was said to prove it and does not** — #85 breached it without
+  code — a catalog entry's prose shipped in the entry chunk because
+  `catalogEntries` was built eagerly, so writing documentation moved it. (**Fixed
+  in #122**, and the paragraph below carries the measurement; the sentence is
+  kept in the past tense because the *lesson* survives the fix — a
+  payload number that moves when nobody touches code is a number measuring the
+  wrong thing.) The claim to defend is "no CodeMirror, no compiler, no runtime in
+  the entry chunk". **`grep` was said to prove it and does not** — #85 breached it without
   naming CodeEditor or Exercise: a component reached eagerly by the shell's MDX
   map imported the runtime seam for a list of language ids, and brought the
   registry, the descriptors and the Java launcher with it. Both name-based
@@ -174,7 +191,10 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   the math side and states the comparison from both directions.)
   Of that, **161.2 is five lazy chunks** — 95.6 core + 36.4 wrapper + 17.7 java
   grammar + 8.6 `@lezer/lr` + 2.9 the editor chunk itself — and the remaining
-  1.7 is the entry chunk's own growth. (Two earlier drafts got this wrong in the
+  1.7 is the entry chunk's own growth. (#122 split the grammar out of the
+  language module, so a fence page now fetches one more chunk for the same
+  bytes — the 17.7 grammar term was already counted separately here, and the
+  page total is unchanged.) (Two earlier drafts got this wrong in the
   same way and it is worth saying how: the first quoted ~153 kB from three terms
   that summed to 149.8, the second quoted 162.4 against five that summed to
   161.2. A breakdown that does not add up to its own headline is the defect this
@@ -194,6 +214,38 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   **That thread is now pulled and tied off in ADR-0024**, which decides for a
   listing on palette coherence rather than on cost, and writes the price down so
   a future reader can reopen it with numbers in hand.
+- **The eager payload is measured as a payload, not as "the entry chunk"**
+  (#122, 2026-08-16, vite 8.2.0). The entry script **plus every `modulepreload`
+  in `dist/index.html`** — because the entry chunk alone lies the moment chunking
+  changes, which is exactly how the 1-chunk/503,623 B → 9/542,194 B regression
+  above went unnoticed. On `main` at 5fa384e:
+
+  |                                   | eager chunks | raw | gzip |
+  |---|---|---|---|
+  | before                            | 2 | 549.31 kB | 174.74 kB |
+  | catalog entries behind `loadCatalogEntries()` | 3 | 512.07 kB | 163.32 kB |
+
+  **−37.24 kB raw, −11.42 kB gzip on every page of the site**, including the ones
+  with no code and no interest in the catalog. The third chunk is lucide's
+  `createLucideIcon` (2.70 kB / 1.43 kB gzip), which the entry and the new
+  catalog chunk now share — one more request, no duplicated bytes.
+
+  **The rejected variant is the useful part of this record.** Making the four
+  `/catalog` routes `React.lazy` *as well* — the obvious design — was built and
+  measured: **11 eager chunks, 514.67 kB raw, 166.74 kB gzip.** Moving *more* code
+  out of the entry chunk shipped **4 kB gzip more**, because eleven small chunks
+  compress worse than one large one, and cost nine extra requests on first paint.
+  A criterion written as "the entry chunk got smaller" grades that variant as a
+  pass. Pin the payload and the chunk count, or do not claim a saving.
+
+  Two facts worth keeping for whoever tries the lazy-route variant again:
+  `app/DocumentTitle.tsx` imports `{ families }` from the catalog seam, so the
+  catalog barrel is statically reachable from the shell and its page chunk stayed
+  `modulepreload`ed even with the routes lazy — that edge has to be cut first.
+  And the catalog pages now suspend on first render, so a test that mounts one
+  with Testing Library's synchronous `render` must await an `act` scope; React
+  discards a tree that suspends inside one that nobody awaits, and the page never
+  commits.
 - **One live worker costs a few hundred MB of RSS** — 681MB peak measured for a
   single C++ worker on Apple Silicon (2026-08-11, Chromium via Playwright),
   against a 152MB idle baseline. Discarding it reclaims the live heap and all

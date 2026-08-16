@@ -135,9 +135,12 @@ apps/web/src/components/structure/
      `min(height, SLIDE_BUDGET_VH vh)`.
    - **Inside `interactive/`**, reuse `Panel` (a labelled output strip),
      `useRunShortcut` (Ctrl/Cmd + Enter), `useLoadedRuntime` (loads a runtime
-     module and hands back a bound `run`, `warm`, `queued`, `ready` and the
-     module itself — do NOT hand-roll the `loadRuntime` effect, both components
-     that did ended up with the same 22 lines) and `draft.ts` — whose `saveDraft`
+     module and hands back a bound `run`, `warm`, `queued` and `ready` — do NOT
+     hand-roll the `loadRuntime` effect, both components that did ended up with
+     the same 22 lines), `useGrammar` (the CodeMirror grammar for a language,
+     asked for SEPARATELY from the runtime: a component that drives a runtime
+     without mounting an editor must not pay for a highlighter, #122) and
+     `draft.ts` — whose `saveDraft`
      must be called immediately _before_ a run, never after, because a Java loop
      that never ends is the case it exists for (ADR-0020 §2).
 
@@ -148,9 +151,14 @@ apps/web/src/components/structure/
 4. **Write the catalog entry**: `<Name>.catalog.tsx` beside the component,
    typed as `CatalogEntry` (`lib/catalogEntry.ts`), with description,
    when-to-use, full props table, and ≥2 live examples (both modes when
-   behavior differs). Export it from the components seam
-   (`apps/web/src/components/index.ts` → `catalogEntries`) — an entry that never
-   reaches that array is invisible to the catalog.
+   behavior differs). Add it to the array in
+   `apps/web/src/components/catalogEntries.ts` — an entry that never reaches that
+   array is invisible to the catalog. That module is deliberately NOT the seam:
+   the seam reaches it through `loadCatalogEntries()`, behind a dynamic import,
+   because the shell reaches the seam eagerly and the entries are documentation
+   for authors, not payload for readers (#122 — 12.15 kB gzip on every course
+   page). Nothing outside the seam may import it, and `src/architecture.test.ts`
+   walks the eager graph to keep it that way.
    `name` is the component's identity in three places at once: it MUST equal the
    component file's basename, the MDX map key, and the `/catalog/c/:name`
    segment. Components live DIRECTLY in the family folder (the invariant test
@@ -168,9 +176,12 @@ apps/web/src/components/structure/
 
 ### Heavy components register through a lazy wrapper
 
-The shell builds `mdxComponents` and `catalogEntries` eagerly, so **any** static
-import of a component from a module the shell reaches puts that component — and
-everything it imports — in the entry chunk, paid by every reader of every page.
+The shell builds `mdxComponents` eagerly, so **any** static import of a
+component from a module the shell reaches puts that component — and everything it
+imports — in the entry chunk, paid by every reader of every page. Since #122 the
+catalog entries themselves are behind a dynamic import and no longer a route into
+the entry chunk, but a `*.catalog.tsx` still imports the component it documents,
+so the lazy wrapper is what it must name.
 `CodeEditor` brings CodeMirror: registering it directly roughly doubled the
 entry chunk (measured in ADR-0018 §7).
 
