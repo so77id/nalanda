@@ -59,9 +59,12 @@ Concretely:
    slides and declared `explicit`, and nothing was re-declared `auto` — giving a
    deck to material whose author did not choose one is the defect #108 exists to
    prevent. The `auto` path is covered over synthetic MDX in
-   `presentation/parser.test.tsx`. The decision's SHAPE stands and is why #136
-   kept three retired documents in the tree rather than deleting them: content is
-   still the fixture set.
+   `presentation/parser.test.tsx`. The decision's SHAPE stands, and is why #136
+   kept three retired documents in the tree rather than deleting them. That
+   clause is itself **discharged by #135**: those documents are deleted, the
+   explicit-marker fixture named in §Context above is now `java-tipos-y-flujo`,
+   and the one case that would have needed an invented fixture to survive was
+   retired rather than fed. Content is still the fixture set.
 2. **Fixtures are named, never discovered.** A test that knows a document's
    content names that document, with a non-vacuity guard whose message says what
    to repoint and why. Positional selection is banned — recorded as a convention

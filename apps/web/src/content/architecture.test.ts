@@ -143,10 +143,38 @@ describe('architecture: content invariants', () => {
   // affordance; markdown has no Mosaic, so every relative markdown image must
   // name itself. Reads the source and ships at publish-time weight, like the
   // file-existence gate above.
-  // The relative-markdown-image block lived here until #135. Its own non-vacuity
-  // guard said what to do if this day came — "no document uses relative markdown
-  // image syntax any more ... if the convention moved to <Figure> only, drop this
-  // block" — and it did: `busqueda-binaria` was the last document written with
-  // `![](…)`, and every surviving one uses `<Figure src>`, whose paths are
-  // checked by the image-existence block below.
+  //
+  // No document uses `![](…)` today: `busqueda-binaria` was the last one and #135
+  // deleted it. That is why this is ONE set assertion rather than the per-image
+  // `it.each` plus non-vacuity floor it was until then. The FLOOR is what could
+  // not survive — it demanded a markdown image exist, so at zero the block could
+  // only be deleted or fed an invented one, and inventing content for the suite
+  // is what ADR-0025 exists to refuse. The alt check itself never needed a
+  // fixture. Asserting the offending SET is empty passes at zero documents and
+  // arms itself the moment someone writes the syntax — which the authoring guide
+  // still teaches and `content/mdxPipeline.test.tsx` still pins as supported
+  // pipeline behaviour.
+  //
+  // #135 first deleted this whole block, on the reasoning that the file-existence
+  // gate above covers it. It does not: that gate checks the PATH and never the
+  // alt, and `MdxImage` passes alt through unvalidated. Two review lenses caught
+  // it, one by appending `![](./costo-busqueda.svg)` to a real document and
+  // watching the suite stay green.
+  it('every relative markdown image names itself', () => {
+    const MARKDOWN_IMAGE = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
+    // Anything with a scheme, protocol-relative, or already rooted is not ours.
+    const NOT_RELATIVE = /^(?:[a-z][a-z0-9+.-]*:|\/\/|\/)/i;
+
+    const unnamed = documents.flatMap((key) => {
+      const source = readFileSync(join(APP_ROOT, key), 'utf8');
+      return [...source.matchAll(MARKDOWN_IMAGE)]
+        .filter((m) => !NOT_RELATIVE.test(m[2]!) && m[1]!.trim() === '')
+        .map((m) => `${key} -> ${m[2]!}`);
+    });
+
+    expect(
+      unnamed,
+      'a markdown image with empty alt ships an unnamed picture — write its alt in Spanish, or use <Figure> if it belongs on a slide',
+    ).toEqual([]);
+  });
 });

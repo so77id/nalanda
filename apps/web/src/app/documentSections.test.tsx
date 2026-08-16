@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { act, render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeAll, describe, expect, it } from 'vitest';
@@ -49,8 +53,9 @@ async function renderAt(path: string): Promise<void> {
 // index. When 02-intro-estructuras declared `explicit` it became the first one,
 // and the explicit case moved onto it — a document whose h2s are ALL
 // `<Slide title>`, so the equivalence asserted below (both heading sources, one
-// section list) stopped being exercised. busqueda-binaria carries both. The
-// suite stayed green while the case stopped testing what it is named for.
+// section list) stopped being exercised. `java-tipos-y-flujo`, the fixture since
+// #135, carries both. The suite stayed green while the case stopped testing what
+// it is named for.
 //
 // `presentation` is no longer defaulted in either selector either: since #108
 // every document declares it, so `?? 'auto'` could only ever fire for an id the
@@ -102,6 +107,18 @@ async function railLinkTargets(): Promise<string[]> {
   return [...within(rail).getAllByRole('link')].map((a) => a.getAttribute('href') ?? '');
 }
 
+// Glob keys are relative to the Vite root, so they resolve against this file
+// rather than the cwd — the same arithmetic `content/architecture.test.ts` uses,
+// and for the same reason: `?raw` does not return MDX source (the MDX plugin
+// claims the file first), so the bytes have to come off disk.
+const APP_ROOT = join(dirname(fileURLToPath(import.meta.url)), '../..');
+const fixtureSource = (() => {
+  const key = Object.keys(import.meta.glob('@content/courses/**/*.mdx')).find((k) =>
+    k.endsWith(`${EXPLICIT_FIXTURE}.mdx`),
+  );
+  return key ? readFileSync(join(APP_ROOT, key), 'utf8') : '';
+})();
+
 describe('the section rail over real documents', () => {
   it('the seed course still provides the fixture these cases describe', () => {
     expect(
@@ -112,6 +129,23 @@ describe('the section rail over real documents', () => {
       registry.get(explicitId!)?.meta.presentation,
       `${EXPLICIT_FIXTURE} no longer declares explicit`,
     ).toBe('explicit');
+
+    // The property the message above actually demands, asserted rather than
+    // asked for. Declaring `explicit` is not what makes a document usable here:
+    // the equivalence these cases exist for needs BOTH heading sources, and a
+    // document whose h2s are all <Slide title> leaves them green and meaningless
+    // — exactly what happened to this block in #108, as the header narrates.
+    // Reads the source: the rendered h2s cannot tell the two sources apart,
+    // which is the whole point of the equivalence.
+    expect(fixtureSource, `${EXPLICIT_FIXTURE} is not readable from disk`).not.toBe('');
+    expect(
+      fixtureSource,
+      `${EXPLICIT_FIXTURE} no longer carries a markdown "##" — repoint this block at a document that carries both sources, or the equivalence below stops being tested`,
+    ).toMatch(/^## /m);
+    expect(
+      fixtureSource,
+      `${EXPLICIT_FIXTURE} no longer carries a <Slide title> — same problem, other source`,
+    ).toMatch(/<Slide title=/);
   });
 
   it('lists every section of a document, in order', async () => {
@@ -162,6 +196,9 @@ describe('the section rail over real documents', () => {
     // sections: the article exists long before its lazy chunk arrives, so the
     // rail was absent because nothing had rendered yet.
     await waitFor(() => expect(article.textContent?.trim()).not.toBe(''));
-    expect(screen.queryByRole('navigation', { name: /en esta página/i })).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('navigation', { name: /en esta página/i }),
+      `${FLAT_FIXTURE} grew an "##" heading, so it is no longer a document with no sections and this case is testing nothing it is named for. Either write that content without an h2 (### or a table), or move this case to another section-less document. There is no other one in content/ today — the document itself carries a note saying so.`,
+    ).not.toBeInTheDocument();
   });
 });

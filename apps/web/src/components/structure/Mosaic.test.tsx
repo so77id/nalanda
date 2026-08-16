@@ -6,7 +6,7 @@ import { Mosaic } from './Mosaic';
 import { ModeProvider } from '../../presentation';
 
 const LOGOS = 'Empresas que usan estructuras de datos a diario';
-// The named fixture (ADR-0025): the cost curve `busqueda-binaria` carries.
+// The named fixture (ADR-0025): the cost curve the opening class carries.
 const REAL_ASSET = 'asset:courses/sample-course/costo-busqueda.svg';
 
 function cells(count: number) {

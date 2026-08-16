@@ -81,23 +81,22 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    >   slide index** (`?slide=10`, the "Compilar y ejecutar" slide — the only one
    >   carrying a `<pre>`), so that document must stay presentable and keep its
    >   shape there. Nothing names it as a fixture; it is a bare URL in a test.
-   > - `planificacion` is named three times over (#136, renamed in #135): as the book-only
-   >   fixture of `presentationRoute.test.tsx` and `documentSections.test.tsx`
-   >   (it must keep `presentation: none` and no `h2` at all), and as
-   >   `deployedApp.test.tsx`'s deep-link fixture. It must stay in `content/` and
-   >   must not become the landing page — but it is **off the teaching path**
-   >   since the course was trimmed to its two live units, which is exactly the
-   >   split those three cases now rely on: they resolve it from the registry,
-   >   never from the index.
-   > - `documentBreadcrumb.test.tsx` pins the unlisted SET rather than a single
-   >   document — see step 8.
+   > - `planificacion` is named by three test files (#136, renamed in #135): as
+   >   the book-only fixture of `presentationRoute.test.tsx` and
+   >   `documentSections.test.tsx`, and as `deployedApp.test.tsx`'s deep-link
+   >   fixture — plus a `SectionNav.test.tsx` comment. It must keep
+   >   `presentation: none` and **no `h2` at all**, must stay in `content/`, and
+   >   must not become the landing page. The document says so itself, under its
+   >   frontmatter — read that before adding a `## Septiembre`.
+   > - `documentBreadcrumb.test.tsx` pins the SET of unlisted documents at empty
+   >   — see step 8.
    >
    > **No document here declares `auto` any more** (#120): `01-bienvenida.mdx`
    > was the last one, and it became the course's opening class, cut by hand into
    > slides. Nothing was re-declared to replace it — giving a deck to material
    > whose author did not choose one is the defect #108 exists to prevent. Auto
    > slicing is covered over synthetic MDX in `presentation/parser.test.tsx`, and
-   > the rail over a markdown `##` by the explicit fixture's own `## Costo`. The
+   > the rail over a markdown `##` by the explicit fixture's own `## Ejercicios`. The
    > value is still supported and still a legitimate choice; if you declare it,
    > `documentSections.test.tsx` says where the retired case goes back.
    >
@@ -446,7 +445,7 @@ a red build — hit while writing `01-bienvenida.mdx` (#120).
 
 6. **Show a picture (optional)**: the asset lives **beside the `.mdx` that uses
    it**, addressed relatively, and a subfolder is fine when there are several
-   (`./estructuras/cola.svg`, `./logos/`). Both syntaxes work and get the same
+   (`./logos/java.svg`). Both syntaxes work and get the same
    pipeline: markdown `![alt](./curva.svg)` for a picture that just needs to be
    there, and `<Figure>` when it needs a caption or sits inside a layout.
 
@@ -572,20 +571,23 @@ ADR-0029.
    not listed in the index is still compiled and served at `/d/<id>`: **the index
    controls navigation, never visibility.**
 
-   > **Unlisted is legal at runtime, and nothing gates it today.** A document
+   > **Unlisted is legal at runtime, and the suite gates it.** A document
    > absent from `index.yaml` is still compiled and still served at `/d/<id>`;
-   > the index decides the teaching path, never existence (ADR-0015 §6).
+   > the index decides the teaching path, never existence (ADR-0015 §6). What
+   > stops one from shipping that way by accident is
+   > `documentBreadcrumb.test.tsx`, which asserts the set of unlisted documents
+   > is EMPTY — the suite's only check in the registry→index direction.
+   > Everything else runs the other way and cannot see a document that is in
+   > `content/` and in no index.
    >
-   > Between #136 and #135 the suite DID gate it: `documentBreadcrumb.test.tsx`
-   > held a `RETIRED` allowlist and asserted the unlisted set matched it exactly,
-   > so a document forgotten out of the index turned the protocol red. #135
-   > emptied that list — every document is on the path again — and retired the
-   > cases rather than leave one unlisted to feed them.
+   > So a scratch document written to check a component in a browser turns the
+   > protocol red until you delete it or list it. That is the point: merging
+   > publishes, and there is no unpublish.
    >
-   > So today a scratch document written to check a component in a browser
-   > **must be deleted before you open a PR**, and nothing will remind you.
-   > If a document is ever deliberately unlisted again, bring the allowlist back:
-   > `documentBreadcrumb.test.tsx` records where it went and why.
+   > If a document ever needs to be deliberately unlisted, do NOT delete the
+   > case — weaken it. #136 did exactly that with a `RETIRED` allowlist naming
+   > the exceptions, so the alarm survived them; #135 emptied the list when the
+   > exceptions went away. The note in the test records where it goes back.
 
    `title` names the course wherever the reader needs to know which one they are
    in — today the breadcrumb above every document. Omit it and the trail starts
@@ -640,9 +642,11 @@ ADR-0029.
 - [ ] The deck the chosen value produces was walked once in `/d/<id>/present`,
       unless the value is `none`.
 - [ ] Wiki-links point at real ids (or are intentional forward links).
-- [ ] Listed in `index.yaml` if it belongs to the recorrido. Since #135 every
-      document is, and nothing checks it any more — see step 7. A document left
-      off the index ships served but unreachable by navigation, green.
+- [ ] Listed in `index.yaml`. Every document is, and
+      `app/documentBreadcrumb.test.tsx` asserts the unlisted set is empty, so
+      forgetting this turns the suite red rather than shipping a document that
+      is served but unreachable in navigation. Deliberately unlisting one means
+      weakening that assertion with a named allowlist — see step 8.
 - [ ] `npm run build` **and** `npm run test` green from `apps/web/`. The build
       runs the content integrity gate; the declaration invariant and the fixture
       guards live in the suite, so the build alone goes green on content CI

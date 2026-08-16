@@ -582,12 +582,15 @@ playwright package.json` finds nothing by design), then drive `npm run build
   on purpose would have taken it away — a document forgotten out of `index.yaml`
   would then ship green and unreachable in navigation.
 
-  That list was emptied by #135, when the retired documents were deleted and the
-  last one rejoined the teaching path, and the cases were retired with it rather
-  than kept alive on an invented fixture. The shape is what this bullet records,
-  not the instance: reach for it the next time a legitimate exception falsifies
-  a whole-set assertion, and `documentBreadcrumb.test.tsx` still carries the note
-  saying where it goes back.
+  #135 emptied that list — the retired documents were deleted and the last one
+  rejoined the teaching path — which returned the assertion to the plain
+  `toEqual([])` it had before #136. The ALLOWLIST is what an exception costs;
+  the assertion itself is free and outlives every exception. Retiring it along
+  with an exception is the error to avoid: #135 nearly did, and two review
+  lenses caught it independently. A companion case that rendered an unlisted
+  document WAS retired there, because it needed a real document kept off the
+  index to serve it — that is the fixture cost this convention's sibling bullet
+  forbids paying.
 
 - **A rendered STATE is located by a semantic `data-*` attribute, never by its
   classes.** Matching Tailwind ties the guard to the styling, so a restyle turns

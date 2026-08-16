@@ -675,12 +675,12 @@ describe('book-view entry points to presentation', () => {
   });
 });
 
-// busqueda-binaria is the DESIGNATED explicit-mode fixture (see its frontmatter):
+// java-tipos-y-flujo is the DESIGNATED explicit-mode fixture (see its frontmatter):
 // these tests guard the real compiled <Slide> path through the mdxChildrenOf
 // adapter — the alarm the adapter's docs promise.
 describe('explicit-mode documents (real compiled markers)', () => {
   // Named, not discovered (#108). The assertions below are this document's own
-  // words — "La idea", "Costo", "prosa de libro" — so "the first explicit
+  // words — "Tipos primitivos", "Ejercicios" — so "the first explicit
   // document" was never what these cases meant; it merely resolved to the right
   // one while `busqueda-binaria` happened to come first in the index. The day
   // another document ahead of it declared `explicit`, both cases failed against
@@ -715,9 +715,9 @@ describe('explicit-mode documents (real compiled markers)', () => {
   it('keeps the book’s closing navigation sentence out of the deck', async () => {
     renderAt(`/d/${CLOSING_FIXTURE}/present`);
     // The count is the vehicle, not the subject: what this pins is that `End`
-    // lands on the last MARKED slide and the trailing sentence is not one. It
-    // moves whenever the document gains a slide — 4 → 5 in #119, which added the
-    // mosaic of four structures.
+    // lands on the last MARKED slide and the trailing sentence is not one. 13 is
+    // this document's twelve `<Slide>` markers plus its one `<SectionBreak>`;
+    // move the number whenever it gains or loses either.
     expect(await findCounter()).toHaveTextContent('1 / 13');
 
     fireEvent.keyDown(window, { key: 'End' });
@@ -730,15 +730,21 @@ describe('explicit-mode documents (real compiled markers)', () => {
   it('decks only the marked slides, leaving loose prose book-only', async () => {
     await renderAt(`/d/${explicitId}/present`);
     const counter = await findCounter();
-    // Same as above: the number tracks the fixture's marked slides — 3 → 4 in
-    // #119, which added the cost-curve slide — while the case is about the loose
-    // prose staying out.
+    // Same as above: the number tracks the fixture's marked slides — twelve
+    // `<Slide>` markers plus one `<SectionBreak>` — while the case is about the
+    // loose prose staying out.
     expect(counter).toHaveTextContent('1 / 13');
 
     fireEvent.keyDown(window, { key: 'ArrowRight' });
     expect(await screen.findByRole('heading', { name: 'Tipos primitivos' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'End' });
+    // Awaited on purpose: `queryByText` cannot wait, and until the last slide has
+    // painted the deck body is not in the DOM at all — so without this the
+    // negative assertion below passes against an empty document and can never
+    // fail. Found by mutation in #135's review: moving the closing prose INSIDE
+    // the last <Slide> left the case green.
+    await screen.findByRole('heading', { name: 'Ejercicio en vivo: ¿Es par?' });
     expect(screen.queryByText(/Es lo que viene en el próximo documento/)).not.toBeInTheDocument();
   });
 

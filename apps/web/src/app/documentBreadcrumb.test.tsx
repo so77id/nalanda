@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
-import { courseIndex, walkIndex } from '../content';
+import { courseIndex, registry, walkIndex } from '../content';
 
 import { AppRoutes } from './AppRoutes';
 
@@ -53,22 +53,37 @@ describe('the breadcrumb row of a document', () => {
     expect(presentar.querySelector('svg')).not.toBeNull();
   });
 
-  // The unlisted-document cases lived here from #136 until #135. They needed a
-  // document that is compiled but off the teaching path, and the `RETIRED`
-  // allowlist named the set so a document forgotten out of `index.yaml` still
-  // reddened the suite.
+  // Every document is on the teaching path, and this is what says so.
   //
-  // #135 emptied that set: the three Fundamentos documents are gone and
-  // `planificacion` joined the path. Keeping the cases alive would mean leaving
-  // some document off the index to serve them, which is inventing content for a
-  // test — the shape ADR-0025 exists to prevent, and the escape hatch the guard
-  // message itself offered.
+  // Two cases lived here from #136 until #135: this set assertion, and a
+  // rendering one that showed an unlisted document gets the course crumb and no
+  // position. The rendering case is retired — it needed a real unlisted document
+  // as its fixture, and keeping one off the index to serve a test is inventing
+  // content for the suite (ADR-0025). Its contract is covered at unit level by
+  // `content/courseIndex.test.ts` (trailFor) and `content/Breadcrumb.test.tsx`,
+  // both over synthetic trails.
   //
-  // What they asserted is still covered where it needs no fixture:
-  // `content/courseIndex.test.ts` (trailFor, two cases) and
-  // `content/Breadcrumb.test.tsx` ("shows the course alone for a document the
-  // index does not list").
+  // This one stays, because it never needed a fixture. #136 added it as a named
+  // allowlist because three documents were deliberately off the path; with that
+  // set empty it is simply `toEqual([])`, which is the shape it had before #136
+  // and the only registry→index check in the suite. Everything else runs the
+  // other way — `contentIntegrity.ts` and `content/architecture.test.ts` both
+  // walk the index and check each id resolves, which cannot see a document that
+  // is in `content/` and in no index.
   //
-  // If a document is ever deliberately unlisted again, this is where the
-  // allowlist and both cases come back.
+  // What it catches: merging publishes (ADR-0015 §6), and there is no unpublish.
+  // A document added to `content/` without an index entry is served at
+  // `/d/<id>`, reachable by anyone told the id, invisible in navigation — and
+  // without this case, green.
+  it('lists every document on the teaching path', () => {
+    const listed = walkIndex(courseIndex);
+    const unlisted = registry.entries
+      .map((e) => e.meta.id)
+      .filter((id) => !listed.includes(id))
+      .sort();
+    expect(
+      unlisted,
+      'a document is missing from index.yaml — add it to the teaching path. If it is deliberately off the path, bring back the RETIRED allowlist #136 used: name the ids here and assert the set equals them, so the alarm survives the exception.',
+    ).toEqual([]);
+  });
 });

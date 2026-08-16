@@ -71,11 +71,12 @@ nalanda/
      alternatives that were rejected and the exit condition.
 
      **The exception to "without entering `src/`"** is the SET of listed
-     documents, since #136. Taking a document off the teaching path — or
-     shipping one deliberately unlisted — requires declaring its id in `RETIRED`
-     in `app/documentBreadcrumb.test.tsx`, which asserts the unlisted set
-     exactly, so both an undeclared omission and an undeclared re-listing turn
-     the suite red. Writing a document's PROSE still needs no `src/` at all.
+     documents: `app/documentBreadcrumb.test.tsx` asserts that every document in
+     `content/` appears in an `index.yaml`, so adding one without listing it
+     turns the suite red. Shipping a document deliberately OFF the teaching path
+     therefore means editing that assertion — weakening it with an allowlist
+     naming the exceptions, the way #136 did and #135 undid. Writing a
+     document's PROSE still needs no `src/` at all.
 
    - `docs/` — knowledge: standards, design, decisions, conventions.
    - `infra/` — running the system around the apps:

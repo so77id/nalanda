@@ -4,6 +4,20 @@ title: Planificación
 presentation: none
 ---
 
+{/* Three test files bind to this document (ADR-0025: the conflict is */}
+{/* recorded at the document). Two invariants, and BOTH are easy to break by */}
+{/* writing ordinary content here: */}
+{/*   1. `presentation: none` — presentationRoute.test.tsx drives it as the */}
+{/*      no-deck document (/present redirects to the book, the control hides), */}
+{/*      and deployedApp.test.tsx uses it as the deep-link fixture. */}
+{/*   2. ZERO `##` headings — this is the only section-less document left, so */}
+{/*      documentSections.test.tsx and SectionNav.test.tsx pin "no rail for a */}
+{/*      document with no sections at all" on it. */}
+{/* Concretely, for #146: the class-by-class calendar CANNOT be written as */}
+{/* `## Septiembre` without moving that case first. Use `###`, or a table, or */}
+{/* make the fixture synthetic — SectionNav.test.tsx already covers the unit */}
+{/* case with `sections={[]}`. */}
+
 # Planificación
 
 Aquí se publica el calendario clase a clase de este semestre: qué materia toca
