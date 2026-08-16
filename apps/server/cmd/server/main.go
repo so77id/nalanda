@@ -5,6 +5,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"log/slog"
 	"net/http"
 	"os"
@@ -15,14 +16,39 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpserver"
+	"github.com/so77id/nalanda/apps/server/internal/infra/selfcheck"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
+
+// healthFlag makes the binary its own healthcheck client. The production image
+// is `scratch` and has no shell, no curl and no wget, so the only executable a
+// container healthcheck can invoke is this one.
+var healthFlag = flag.Bool("health", false,
+	"probe this server's own /health endpoint and exit non-zero unless it answers 200")
 
 func main() {
 	// A bootstrap logger, because the configured level is not known until the
 	// configuration is read — and a configuration error has to be reportable.
 	logger := slog.New(slog.NewTextHandler(os.Stderr, nil))
+
+	flag.Parse()
+
+	// Before anything is opened. The healthcheck runs every few seconds in a
+	// container that is already serving; it must not open the database, and it
+	// must certainly not run migrations against it.
+	if *healthFlag {
+		cfg, err := config.LoadFromEnv()
+		if err != nil {
+			logger.Error("health check", "error", err)
+			os.Exit(1)
+		}
+		if err := selfcheck.Probe(context.Background(), cfg.Addr); err != nil {
+			logger.Error("health check", "error", err)
+			os.Exit(1)
+		}
+		return
+	}
 
 	if err := run(logger); err != nil {
 		logger.Error("server stopped", "error", err)
