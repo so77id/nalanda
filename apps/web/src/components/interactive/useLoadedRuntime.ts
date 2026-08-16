@@ -10,11 +10,6 @@ export interface LoadedRuntime extends Runtime {
   ready: boolean;
   /** Why the module never arrived, for the diagnostics panel. */
   failure: string | null;
-  /**
-   * The module itself, for callers that need more than `run` — an editor asks it
-   * for its CodeMirror grammar. Null until it lands.
-   */
-  module: RuntimeModule | null;
 }
 
 /**
@@ -26,8 +21,13 @@ export interface LoadedRuntime extends Runtime {
  * third: its version juggles several languages at once and seeds drafts, so
  * folding it in here would generalise the hook past what either caller wants.
  *
- * The grammar is cheap; the compiler behind `createWorker` is not, and stays
- * untouched until the reader presses the button (issue #74 AC6).
+ * The module itself is deliberately not handed back. It used to be, for the one
+ * caller that wanted a CodeMirror grammar off it; grammars come from
+ * `useGrammar` now (#122), and returning the module again would re-open the door
+ * to a consumer reaching past `run` into a runtime's internals.
+ *
+ * The compiler behind `createWorker` stays untouched until the reader presses
+ * the button (issue #74 AC6).
  */
 export function useLoadedRuntime(language: RuntimeId): LoadedRuntime {
   const [module, setModule] = useState<RuntimeModule | null>(null);
@@ -56,5 +56,5 @@ export function useLoadedRuntime(language: RuntimeId): LoadedRuntime {
     },
   });
 
-  return { ...runtime, ready: module !== null, failure, module };
+  return { ...runtime, ready: module !== null, failure };
 }

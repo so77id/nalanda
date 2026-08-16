@@ -326,6 +326,72 @@ describe('architecture: what the shell reaches eagerly', () => {
   });
 });
 
+describe('architecture: a runtime carries no grammar', () => {
+  // `loadRuntime(id)` is the compiler half — a worker factory and a descriptor.
+  // `loadGrammar(id)` is the editor half. They are two entry points because two
+  // consumers need one without the other: <MemoryDiagram> drives a real JVM and
+  // draws its own listing (ADR-0026/0028), so a grammar reachable from the
+  // runtime module made it pay 16.94 kB gzip to render nothing (#122 — java went
+  // 43.93 kB / 18.57 kB gzip to 3.24 kB / 1.63 kB gzip once the two were split).
+  //
+  // A source-level walk rather than a size assertion: the kilobytes are the
+  // symptom and only a build can see them, but a static import is the cause and
+  // it is visible here — the same reasoning ADR-0018 §Consequences reaches about
+  // the entry chunk.
+  it('no module reachable from a runtime index statically imports a CodeMirror grammar', () => {
+    const seen = new Set<string>();
+    const offenders: string[] = [];
+
+    function follow(file: string): void {
+      if (seen.has(file)) return;
+      seen.add(file);
+      const source = readFileSync(file, 'utf8');
+      for (const match of source.matchAll(
+        /(?:^|[;\n])\s*(?:import|export)\s+(type\s+)?[^;'"]*?from\s*['"]([^'"]+)['"]/g,
+      )) {
+        if (match[1]) continue; // `import type` is erased at build time
+        const spec = match[2] ?? '';
+        if (spec.startsWith('@codemirror/lang-')) {
+          offenders.push(`${relative(SRC, file)} imports ${spec}`);
+          continue;
+        }
+        if (!spec.startsWith('.')) continue;
+        const base = resolve(dirname(file), spec);
+        for (const candidate of [base, `${base}.ts`, join(base, 'index.ts')]) {
+          try {
+            if (statSync(candidate).isFile()) {
+              follow(candidate);
+              break;
+            }
+          } catch {
+            // not this one
+          }
+        }
+      }
+    }
+
+    const runtimeDir = join(SRC, 'runtime');
+    const indexes = readdirSync(runtimeDir, { withFileTypes: true })
+      .filter((e) => e.isDirectory())
+      .map((e) => join(runtimeDir, e.name, 'index.ts'))
+      .filter((f) => {
+        try {
+          return statSync(f).isFile();
+        } catch {
+          return false;
+        }
+      });
+
+    expect(indexes.length, 'no runtime modules found — repoint the walk').toBeGreaterThan(0);
+    for (const index of indexes) follow(index);
+    expect(
+      offenders.sort(),
+      'a grammar belongs behind `loadGrammar(id)`, not inside the runtime module — ' +
+        'a consumer that drives a runtime without mounting an editor must not pay for one',
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: colour goes through the palette', () => {
   // #109, ADR-0026. Every colour in the product is a semantic token, so a raw
   // Tailwind colour class in production code is a component that will be wrong

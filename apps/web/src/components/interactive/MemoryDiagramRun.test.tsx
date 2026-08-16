@@ -47,9 +47,9 @@ vi.mock('../../runtime', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../runtime')>();
   return {
     ...original,
+    loadGrammar: vi.fn(async () => []),
     loadRuntime: vi.fn(async () => ({
       descriptor: { id: 'java' as const, label: 'Java 8', fileName: 'Main.java', defaultCode: '' },
-      codeMirrorLanguage: () => [],
       createWorker: () => {
         const worker = new FakeWorker();
         workers.push(worker);

@@ -54,6 +54,7 @@ vi.mock('../../runtime', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../runtime')>();
   return {
     ...original,
+    loadGrammar: vi.fn(async () => []),
     loadRuntime: vi.fn(async () => ({
       descriptor: {
         id: 'cpp' as const,
@@ -61,7 +62,6 @@ vi.mock('../../runtime', async (importOriginal) => {
         fileName: 'main.cpp',
         defaultCode: 'int main(){}\n',
       },
-      codeMirrorLanguage: () => [],
       createWorker: () => {
         const worker = new FakeWorker();
         workers.push(worker);

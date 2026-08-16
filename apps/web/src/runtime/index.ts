@@ -6,7 +6,7 @@ export {
   useRuntime,
 } from './useRuntime';
 export type { Runtime, UseRuntimeInput } from './useRuntime';
-export { descriptorOf, loadRuntime, runtimeDescriptors } from './registry';
+export { descriptorOf, loadGrammar, loadRuntime, runtimeDescriptors } from './registry';
 // The harness's and the tracer's entry classes are the runtime's to name: it
 // enforces the reserved set, and `runtime → components` is not an allowed edge.
 export { HARNESS_CLASS, TRACE_CLASS } from './java/launcher';

@@ -11,6 +11,7 @@ import type { RunResult, RuntimeModule } from '../../runtime';
 import type { RuntimeId } from '../../lib/runtimeIds';
 import { useResolvedTheme } from '../../lib/useResolvedTheme';
 import { RunAbandonedError, loadRuntime, runtimeDescriptors, useRuntime } from '../../runtime';
+import { useGrammar } from './useGrammar';
 import { useRunShortcut } from './useRunShortcut';
 import type { EditorFlags, EditorVariant } from './variants';
 import { resolveFlags } from './variants';
@@ -75,9 +76,15 @@ export function CodeEditor({
   const runtime = runtimes[languageId] ?? null;
   const descriptor = runtime?.descriptor;
   const code = buffers[languageId] ?? '';
+  // Asked for separately from the runtime, and earlier: highlighting a listing
+  // does not wait on a compiler it may never use (#122).
+  const grammar = useGrammar(languageId);
 
-  // The grammar is cheap; the compiler behind `createWorker` is not, and is not
-  // touched until the student runs something (issue #74 AC6).
+  // The descriptor is cheap — a label, a file name, a seed — and this effect is
+  // what fetches it. The compiler behind `createWorker` is not, and is not
+  // touched until the student runs something (issue #74 AC6). The grammar used
+  // to arrive here too and no longer does (#122): highlighting a listing is not
+  // a reason to load a toolchain, nor the reverse.
   useEffect(() => {
     let cancelled = false;
     void loadRuntime(languageId).then(
@@ -291,10 +298,7 @@ export function CodeEditor({
           editable={flags.editable}
           readOnly={!flags.editable}
           height={expanded ? '100%' : undefined}
-          extensions={[
-            ...(runtime ? [runtime.codeMirrorLanguage()] : []),
-            ...(flags.runnable ? [runShortcut] : []),
-          ]}
+          extensions={[...(grammar ? [grammar] : []), ...(flags.runnable ? [runShortcut] : [])]}
           basicSetup={{ lineNumbers: gutter, foldGutter: flags.showFoldGutter }}
         />
       </div>
