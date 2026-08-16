@@ -61,7 +61,7 @@ describe('parseQuestions', () => {
       anchor: 'que-significa-static',
       statement: '¿Cuál es el índice del primer elemento?',
     });
-    expect(defs[0]?.alternatives).toEqual([
+    expect(defs[0]?.alternatives.map(({ text, correct }) => ({ text, correct }))).toEqual([
       { text: '0', correct: true },
       { text: '1', correct: false },
       { text: '-1', correct: false },
@@ -109,6 +109,29 @@ describe('parseQuestions', () => {
       </>,
     );
     expect(defs.map((d) => d.id)).toEqual(['uno', 'dos']);
+  });
+
+  // The defect this pins shipped green and was found by looking at the page:
+  // `textOf` deliberately does not recurse into elements (a documented decision
+  // about published anchor slugs), so a statement written as
+  // "¿Por qué `main` tiene que ser `static`?" came out as "¿Por qué tiene que
+  // ser ?" — both inline-code words silently gone, on the page and in the JSON
+  // a printed sheet would be generated from.
+  it('keeps inline elements in the statement and the alternatives', () => {
+    const defs = parseQuestions(
+      <Question id="static-inline" anchor="que-significa-static">
+        <p>
+          ¿Por qué <code>main</code> tiene que ser <code>static</code>?
+        </p>
+        {alternatives(
+          ['Porque la máquina virtual lo llama sin crear un objeto', true],
+          ['Porque solo los métodos static pueden imprimir', false],
+          ['Porque lo exige el archivo .class', false],
+          ['Porque se ejecuta más rápido', false],
+        )}
+      </Question>,
+    );
+    expect(defs[0]?.statement).toBe('¿Por qué main tiene que ser static?');
   });
 
   it('ignores anything that is not a question', () => {

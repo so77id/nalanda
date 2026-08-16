@@ -6,7 +6,10 @@ import { textOf } from './reactText';
 
 /** One alternative of a control question; exactly one is correct (issue #139). */
 export interface QuestionAlternative {
+  /** Plain text, for the JSON the control generator reads. */
   text: string;
+  /** The original nodes, for the page — inline code and mathematics survive. */
+  node: ReactNode;
   correct: boolean;
 }
 
@@ -71,6 +74,27 @@ function textIn(node: ReactNode): string {
   return textOf(childrenOf(node));
 }
 
+/**
+ * Text of a whole subtree, INCLUDING what elements contain.
+ *
+ * `textOf` deliberately stops at elements, and `reactText.ts` explains why it
+ * must keep doing so: recursing would change published anchor slugs. This is a
+ * separate function for a separate job — a question's own text — so that rule
+ * is left exactly where it is.
+ *
+ * Not recursing here was a real defect, and the suite could not see it: a
+ * statement written as "¿Por qué `main` tiene que ser `static`?" rendered as
+ * "¿Por qué tiene que ser ?" with both inline-code words silently gone. Found
+ * by looking at the page (#139 S3).
+ */
+function deepText(node: ReactNode): string {
+  if (node === null || node === undefined || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(deepText).join('');
+  if (isValidElement(node)) return deepText((node.props as { children?: ReactNode }).children);
+  return '';
+}
+
 /** Flattens fragments so a group of questions is walked, not skipped. */
 function flatten(children: ReactNode): ReactNode[] {
   const out: ReactNode[] = [];
@@ -100,14 +124,16 @@ function languageOf(node: ReactNode): string | null {
  * time these children exist the outer element is no longer a `pre` at all. The
  * inner `<code>` and its class survive either way.
  */
-function codeOf(node: ReactNode): QuestionCode | null {
-  for (const child of childrenOf(node)) {
+function codeOf(children: ReactNode[]): QuestionCode | null {
+  for (const child of children) {
     // The class sits on the inner `<code>`, one level below the wrapper, so the
     // wrapper itself is checked too — the shell replaces `pre` with its own
     // component and a future one might carry the class directly.
     for (const candidate of [child, ...childrenOf(child)]) {
       const language = languageOf(candidate);
-      if (language) return { language, source: textIn(candidate) };
+      // Trailing newline trimmed: a fence always ends with one, and it renders
+      // as an empty last line in the listing — line 9 of an 8-line program.
+      if (language) return { language, source: textIn(candidate).replace(/\s+$/, '\n') };
     }
   }
   return null;
@@ -132,22 +158,60 @@ function isChecked(node: ReactNode): boolean {
  * answer. It is also what the AMC source already does with `\correctchoice` —
  * correctness travels with the alternative it belongs to.
  */
-function alternativesOf(node: ReactNode): QuestionAlternative[] {
-  for (const child of childrenOf(node)) {
+function alternativesOf(children: ReactNode[]): QuestionAlternative[] {
+  for (const child of children) {
     if (!isValidElement(child) || child.type !== 'ul') continue;
     const items = childrenOf(child).filter((li) => isValidElement(li) && li.type === 'li');
     if (items.length === 0) continue;
-    return items.map((li) => ({ text: textIn(li).trim(), correct: isChecked(li) }));
+    return items.map((li) => {
+      // The checkbox is a child of the item; keep the rest as the alternative.
+      const rest = childrenOf(li).filter(
+        (child) => !(isValidElement(child) && child.type === 'input'),
+      );
+      return { text: deepText(rest).trim(), node: rest, correct: isChecked(li) };
+    });
   }
   return [];
 }
 
-/** The first paragraph's text: the question as the student reads it. */
-function statementOf(node: ReactNode): string {
-  for (const child of childrenOf(node)) {
-    if (isValidElement(child) && child.type === 'p') return textIn(child).trim();
+/** The first paragraph of a question: the question as the student reads it. */
+function statementOf(children: ReactNode[]): ReactNode {
+  for (const child of children) {
+    if (isValidElement(child) && child.type === 'p') {
+      return (child.props as { children?: ReactNode }).children;
+    }
   }
-  return '';
+  return null;
+}
+
+/** The parts of one question, extracted from its own children. */
+export interface QuestionParts {
+  /** Plain text, for the JSON the control generator reads. */
+  statement: string;
+  /** The original nodes, for the page — inline code and mathematics survive. */
+  statementNode: ReactNode;
+  code?: QuestionCode;
+  alternatives: QuestionAlternative[];
+}
+
+/**
+ * The parts of a single question, for the component that renders it.
+ *
+ * The component renders FROM these rather than passing its children through,
+ * which is what keeps a code fence from becoming a runnable editor: the shell
+ * maps `pre` to one, and a Run button would answer "¿qué imprime este programa?"
+ * before the student did.
+ */
+export function parseQuestionParts(children: ReactNode): QuestionParts {
+  const nodes = Children.toArray(children);
+  const code = codeOf(nodes);
+  const statementNode = statementOf(nodes);
+  return {
+    statement: deepText(statementNode).trim(),
+    statementNode,
+    ...(code ? { code } : {}),
+    alternatives: alternativesOf(nodes),
+  };
 }
 
 /**
@@ -162,13 +226,10 @@ export function parseQuestions(children: ReactNode): QuestionDef[] {
   for (const node of flatten(children)) {
     if (!isQuestion(node)) continue;
     const props = node.props as { id?: unknown; anchor?: unknown };
-    const code = codeOf(node);
     out.push({
       id: typeof props.id === 'string' ? props.id : '',
       ...(typeof props.anchor === 'string' && props.anchor !== '' ? { anchor: props.anchor } : {}),
-      statement: statementOf(node),
-      ...(code ? { code } : {}),
-      alternatives: alternativesOf(node),
+      ...parseQuestionParts((node.props as { children?: ReactNode }).children),
     });
   }
   return out;

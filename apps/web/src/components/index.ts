@@ -4,6 +4,8 @@ import type { CatalogEntry } from '../lib/catalogEntry';
 import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
 import { memoryDiagramCatalogEntry } from './interactive/MemoryDiagram.catalog';
+import { questionCatalogEntry } from './interactive/Question.catalog';
+import { questionsCatalogEntry } from './interactive/Questions.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
 import { mosaicCatalogEntry } from './structure/Mosaic.catalog';
 import { sectionBreakCatalogEntry } from './structure/SectionBreak.catalog';
@@ -23,6 +25,8 @@ export { LazyMemoryDiagram } from './interactive/lazyMemoryDiagram';
 // never write it, they write a fence. The shell maps it onto `pre`.
 export { MdxPre } from './MdxPre';
 export { Figure } from './media/Figure';
+export { Question } from './interactive/Question';
+export { Questions } from './interactive/Questions';
 export { Mosaic } from './structure/Mosaic';
 export { SectionBreak } from './structure/SectionBreak';
 export { SideBySide } from './structure/SideBySide';
@@ -40,4 +44,6 @@ export const catalogEntries: CatalogEntry[] = [
   codeEditorCatalogEntry,
   exerciseCatalogEntry,
   memoryDiagramCatalogEntry,
+  questionsCatalogEntry,
+  questionCatalogEntry,
 ];

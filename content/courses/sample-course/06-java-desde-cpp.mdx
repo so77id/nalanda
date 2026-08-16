@@ -256,3 +256,40 @@ qué trabaja ese programa: los tipos primitivos y sus diferencias con C++, los o
 cómo leer datos con `Scanner` y el control de flujo.
 
 Es el próximo documento: [[java-tipos-y-flujo|Tipos, operadores y entrada/salida]].
+
+<Questions>
+
+<Question id="static-sin-objeto" anchor="que-significa-static">
+
+¿Por qué `main` tiene que ser `static`?
+
+- [x] Porque la máquina virtual lo llama sin haber creado ningún objeto todavía
+- [ ] Porque así el programa se ejecuta más rápido
+- [ ] Porque solo los métodos `static` pueden imprimir en pantalla
+- [ ] Porque lo exige el nombre del archivo `.class`
+
+</Question>
+
+<Question id="que-imprime-arreglo" anchor="por-que-main-tiene-tantas-palabras">
+
+¿Qué imprime este programa?
+
+```java
+public class Demo {
+    public static void main(String[] args) {
+        int[] v = {1, 2, 3};
+        int s = 0;
+        for (int x : v) s += x;
+        System.out.println(s);
+    }
+}
+```
+
+- [ ] 3
+- [x] 6
+- [ ] 123
+- [ ] No compila
+
+</Question>
+
+</Questions>
