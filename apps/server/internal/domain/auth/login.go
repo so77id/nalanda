@@ -37,6 +37,31 @@ type Login struct {
 	BootstrapEmail string
 }
 
+// NewLogin returns a Login, refusing a set it cannot serve with.
+//
+// The same reasoning as the two delivery-surface constructors, applied where the
+// review found the hole they left: a `&auth.Login{}` with no stores compiled and
+// nil-dereferenced inside the callback, and `SessionTTL: 0` panicked nowhere
+// while making every session born expired — a login that silently never works
+// (#150 review, ARQ-3 residual, found by the verifier).
+//
+// Panics, at wiring time in cmd/server, before the listener is open.
+func NewLogin(deps Login) *Login {
+	switch {
+	case deps.Users == nil:
+		panic("auth.NewLogin: no user store")
+	case deps.Identities == nil:
+		panic("auth.NewLogin: no identity store")
+	case deps.Sessions == nil:
+		panic("auth.NewLogin: no session store")
+	case deps.Now == nil:
+		panic("auth.NewLogin: no clock")
+	case deps.SessionTTL <= 0:
+		panic("auth.NewLogin: session TTL must be positive, or every session is born expired")
+	}
+	return &deps
+}
+
 // Authenticate resolves a verified provider identity to a professor.
 //
 // The caller must have verified the identity already — this package believes

@@ -589,10 +589,18 @@ The nonce store is a bounded in-memory map (4096 entries, 10-minute TTL), so a
 flood is a memory ceiling rather than a leak — but the FIRST implementation
 evicted the oldest entry at that ceiling, which is precisely the professor
 standing at Google's account chooser, and 4096 anonymous requests knocked out the
-login in flight. It now refuses the newest attempt instead, so a flood
-inconveniences the flooder and the pending login survives. What remains is that a
-sustained flood makes new logins fail with "try again" while it lasts, and that
-each attempt costs a hash and a map insert under one mutex.
+login in flight. It now refuses the newest attempt instead, so the login already in flight
+survives.
+
+**The availability problem moved rather than died, and got cheaper to sustain.**
+Measured during the review's verification pass: 4096 anonymous requests fill the
+store, and `DefaultMaxSize / DefaultTTL` = **about 7 requests per second from one
+unauthenticated client keeps every NEW login refused indefinitely**. Under the
+old evict-oldest policy the same attacker needed to land 4096 requests inside the
+professor's thirty seconds at Google's account chooser — over 100 req/s, aimed.
+So the trade is deliberate: a professor already signing in can finish, and a
+professor who has not started sees "vuelve a intentarlo" for as long as the flood
+lasts. That is the better half to protect, and it is not a fix.
 
 **Why it is accepted rather than fixed**: the server is not reachable from the
 internet. Hosting is deferred (`2026-08-controles.md` §C15), it binds loopback in
@@ -602,8 +610,31 @@ that survives a restart — and guessing that shape now is how it gets built wro
 
 **Review trigger**: the first deploy of `apps/server` to a host, or anything that
 makes it reachable from outside a laptop. That is the moment `/login/google`,
-`/login/google/callback` and `/logout` need a per-IP throttle, and the moment the
-proxy question below has to be answered too.
+`/login/google/callback` and `/logout` need a per-IP throttle — the cheapest
+shape being a per-source ceiling on live nonces, which needs no dependency — and
+the moment the proxy question below has to be answered too.
+
+### The login's state cookie is a double-submit cookie (accepted 2026-08-16, #150)
+
+The OAuth callback requires the `state` parameter to match a cookie the browser
+holds. That is what stops login CSRF (#150 SEC-1), and it is a double-submit
+cookie, which carries the pattern's one weakness: an attacker who can WRITE a
+cookie on this site can plant their own nonce.
+
+**What is exposed.** Writing a cookie here means controlling a sibling host under
+the same registrable domain, or a MITM over http. Demonstrated in review: with
+two `nalanda_oauth_state` cookies present, the deeper-path one is read first
+(RFC 6265 §5.4) and the victim ends up in the attacker's session. **Now refused**
+— the callback rejects a request carrying more than one such cookie.
+
+**Why it is still recorded**: the `__Host-` prefix would remove the whole class
+by forbidding a sibling host from setting the cookie at all, and it is not used
+because it requires `Secure`, which the documented development URL (http) cannot
+satisfy — and a cookie NAME that differs between development and production is a
+difference that only shows up in production.
+
+**Review trigger**: the first https deployment. There the prefix costs nothing,
+and adding it is a two-line change in `handler.StateCookieName`'s neighbourhood.
 
 ### The session's IP is `RemoteAddr`, with no proxy-trust story (accepted 2026-08-16, #150)
 

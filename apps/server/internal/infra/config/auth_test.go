@@ -238,3 +238,60 @@ func TestAConfigurationErrorDoesNotCarryTheSecret(t *testing.T) {
 		t.Errorf("a malformed duration reported as a missing variable: %v", err)
 	}
 }
+
+// The live defect the verifier found, and the reason SecureFor parses instead of
+// comparing a prefix: url.Parse lowercases the scheme, so an operator who typed
+// HTTPS:// passed Load's validation while the prefix comparison answered false —
+// and the session cookie shipped without Secure over https, seen by nothing
+// (#150 review, COR-4 residual).
+func TestSecureCookieIsDecidedByTheSchemeNotByTheSpelling(t *testing.T) {
+	for _, c := range []struct {
+		publicURL string
+		want      bool
+	}{
+		{"https://nalanda.example.com", true},
+		{"HTTPS://nalanda.example.com", true},
+		{"Https://nalanda.example.com", true},
+		{"http://127.0.0.1:8081", false},
+		{"HTTP://127.0.0.1:8081", false},
+	} {
+		t.Run(c.publicURL, func(t *testing.T) {
+			values := env()
+			values["NALANDA_PUBLIC_URL"] = c.publicURL
+
+			cfg, err := config.Load(lookupFrom(values))
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if got := cfg.SecureCookie(); got != c.want {
+				t.Errorf("SecureCookie() = %v for %q, want %v — a cookie without Secure over https "+
+					"is a session token in clear on any downgrade", got, c.publicURL, c.want)
+			}
+			if got := config.SecureFor(c.publicURL); got != c.want {
+				t.Errorf("SecureFor(%q) = %v, want %v — the surfaces derive the flag through this", c.publicURL, got, c.want)
+			}
+		})
+	}
+}
+
+// The two neighbours of the sub-path bug, which build an equally broken redirect
+// URI and were accepted until the verifier tried them.
+func TestPublicURLRejectsAQueryOrAFragment(t *testing.T) {
+	for _, value := range []string{
+		"https://nalanda.example.com?x=1",
+		"https://nalanda.example.com#seccion",
+	} {
+		t.Run(value, func(t *testing.T) {
+			broken := env()
+			broken["NALANDA_PUBLIC_URL"] = value
+
+			_, err := config.Load(lookupFrom(broken))
+			if err == nil {
+				t.Fatalf("Load with NALANDA_PUBLIC_URL=%q returned no error, want one", value)
+			}
+			if !strings.Contains(err.Error(), "NALANDA_PUBLIC_URL") {
+				t.Errorf("error = %q, want it to name the variable", err)
+			}
+		})
+	}
+}

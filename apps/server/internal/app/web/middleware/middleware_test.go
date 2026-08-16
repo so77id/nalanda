@@ -59,13 +59,14 @@ func newHarness(t *testing.T) *harness {
 		store: authstore.New(db),
 		now:   time.Date(2026, time.August, 16, 12, 0, 0, 0, time.UTC),
 	}
-	h.auth = &middleware.Auth{
-		Sessions:     h.store,
-		Users:        h.store,
-		Now:          func() time.Time { return h.now },
-		SecureCookie: true,
-		Log:          slog.New(slog.NewTextHandler(io.Discard, nil)),
-	}
+	h.auth = middleware.NewAuth(middleware.Auth{
+		Sessions:  h.store,
+		Users:     h.store,
+		Now:       func() time.Time { return h.now },
+		PublicURL: "https://nalanda.test",
+		LoginPath: "/login",
+		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+	})
 	return h
 }
 
@@ -475,17 +476,33 @@ func TestResolveDoesNotDestroyASessionWhenTheProfessorCannotBeRead(t *testing.T)
 	}
 }
 
-// The mirror case, which was equally unexercised: a session whose professor row
-// is genuinely gone IS swept. Deleting a professor must not leave a cookie that
-// resolves to nobody on every request forever.
+// missingUsers answers the professor lookup with the domain's absence sentinel.
+type missingUsers struct {
+	auth.UserStore
+}
+
+func (missingUsers) UserByID(context.Context, int64) (auth.User, error) {
+	return auth.User{}, auth.ErrNotFound
+}
+
+// The mirror case: a session whose professor row is gone IS swept, so a deleted
+// professor's cookie does not resolve to nobody on every request forever.
+//
+// The professor is made to disappear through a STORE, not with a DELETE. The
+// first version of this test deleted the row, and `ON DELETE CASCADE` took the
+// session with it — so the request was answered by the session-not-found branch
+// that another test already covers, and the branch this test is named for stayed
+// uncovered and unkillable. A probe panic before the professor lookup was never
+// reached (#150 review, COR-10). In production this branch is a race: the
+// session is read, the professor is deleted, and UserByID then finds nothing.
+//
+// It asserts the SESSION IS GONE rather than that the cookie was cleared,
+// because the earlier branch clears the cookie too — the rule this WP wrote into
+// backend-code-style.md §Testing, applied to the test that broke it.
 func TestResolveSweepsASessionWhoseProfessorIsGone(t *testing.T) {
 	h := newHarness(t)
-	user, token := h.login(t, "profesora@example.com")
-
-	if _, err := h.db.ExecContext(context.Background(),
-		"DELETE FROM users WHERE user_id = ?", user.ID); err != nil {
-		t.Fatalf("deleting the professor: %v", err)
-	}
+	_, token := h.login(t, "profesora@example.com")
+	h.auth.Users = missingUsers{UserStore: h.store}
 
 	recorder := h.request(h.auth.Resolve(h.next()), token)
 
@@ -494,6 +511,9 @@ func TestResolveSweepsASessionWhoseProfessorIsGone(t *testing.T) {
 	}
 	if !clearedCookie(t, recorder) {
 		t.Error("the cookie of a deleted professor was not cleared")
+	}
+	if _, err := h.store.SessionByTokenHash(context.Background(), auth.HashToken(token)); !errors.Is(err, auth.ErrNotFound) {
+		t.Errorf("the session of a professor who no longer exists survived: %v", err)
 	}
 }
 

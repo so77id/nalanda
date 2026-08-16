@@ -45,11 +45,16 @@ type Deps struct {
 
 // Route is one entry of this surface's table.
 //
-// The routes are DATA rather than a sequence of mux calls, and that is the whole
-// point: `Public` is a decision each route has to state, so adding one without
-// deciding is a compile error rather than an omission, and the guard in
-// router_test.go walks the same table the mux is built from — it cannot drift
-// from what is actually served.
+// The routes are DATA rather than a sequence of mux calls, so `Public` is a
+// decision each route has to state and say why. What enforces it is not this
+// type but Router's outer gate: the table is the only thing that can put a
+// pattern in the public set, and everything else the mux serves is gated
+// whether or not its author remembered.
+//
+// The guards in router_test.go walk this table. That is narrower than it
+// sounds and the comment used to overclaim it: they prove the table's routes
+// behave, not that the mux holds nothing else. The fail-closed default is what
+// covers the rest.
 //
 // It exists because the review found the instruction that produces the opposite.
 // The guide said a GET "needs neither" middleware, which is true of CSRF and
@@ -106,34 +111,81 @@ func routes(deps Deps) []Route {
 // Router returns the surface's routes.
 //
 // Resolve wraps EVERYTHING and gates nothing: it only answers who is asking.
-// What each route then requires is decided by its table entry — a professor
-// unless it says why not, plus a CSRF token whenever the method changes state.
+// The gate is applied ONE LAYER OUT, against what the mux actually matched —
+// not against the table entry — and that difference is the whole design.
+//
+// The first version wrapped each handler as it was registered. It was correct
+// for every route in the table and worthless against the mistake the table
+// exists to prevent: three separate review lenses each added
+// `mux.HandleFunc("GET /professors", …)` beside the loop and served a
+// professor's address to anonymous visitors with the entire suite green
+// (#150 review, SEC-7 / COR-12 / ARQ-11). The guards walked the table; the mux
+// served something else.
+//
+// Now the default is closed. A request is gated unless the pattern the mux
+// matched was declared `Public` in the table, and CSRF is required whenever the
+// METHOD changes state, whatever the route thought. A handler registered
+// directly on the mux is therefore gated by construction — there is no way to
+// be public except to appear in `routes()` and say why.
 func Router(deps Deps) http.Handler {
-	// The gate redirects to the route THIS package registers, rather than to a
-	// constant the middleware holds its own opinion about. Renaming
-	// handler.LoginPath used to leave the suite green and the gate pointing at a
-	// 404 (#150 review, ARQ-1).
-	deps.Gate.LoginPath = handler.LoginPath
+	// Deps is the third struct of dependencies on this path and was the one
+	// without a check: a nil Database panicked inside a request rather than at
+	// boot, and a nil Login built a router that answered every login route with
+	// a crash (#150 review, ARQ-3 residual). Wiring time is where this belongs.
+	switch {
+	case deps.Database == nil:
+		panic("web.Router: no database prober")
+	case deps.Gate == nil:
+		panic("web.Router: no gate")
+	case deps.Login == nil:
+		panic("web.Router: no login handlers")
+	case deps.Log == nil:
+		panic("web.Router: no logger")
+	}
+
+	table := routes(deps)
 
 	mux := http.NewServeMux()
-	for _, route := range routes(deps) {
-		mux.Handle(route.Method+" "+route.Path, wrap(deps.Gate, route))
+	public := map[string]bool{}
+	for _, route := range table {
+		pattern := route.Method + " " + route.Path
+		mux.Handle(pattern, route.Handler)
+		if route.Public {
+			public[pattern] = true
+		}
 	}
-	return deps.Gate.Resolve(mux)
+
+	return deps.Gate.Resolve(gate(deps.Gate, mux, public))
 }
 
-// wrap applies the middleware a route's own declaration asks for.
-func wrap(gate *middleware.Auth, route Route) http.Handler {
-	handler := http.Handler(route.Handler)
-	if !isSafeMethod(route.Method) {
-		// CSRF first from the inside, so the gate refuses an anonymous request
-		// before the token is even looked for.
-		handler = gate.VerifyCSRF(handler)
-	}
-	if !route.Public {
-		handler = gate.RequireProfessor(handler)
-	}
-	return handler
+// gate decides, per request, what the matched route requires.
+//
+// It asks the mux which pattern it matched rather than trusting a table lookup:
+// that is what makes the answer true of the server that is actually running.
+func gate(auth *middleware.Auth, mux *http.ServeMux, public map[string]bool) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, pattern := mux.Handler(r)
+
+		// Nothing matched: let the mux answer its own 404 rather than
+		// redirecting a stranger to the login page, which would turn every typo
+		// into a sign-in prompt and hide which paths exist behind a wall that
+		// is not protecting anything.
+		if pattern == "" {
+			mux.ServeHTTP(w, r)
+			return
+		}
+
+		handler := http.Handler(mux)
+		if !isSafeMethod(r.Method) {
+			// CSRF innermost, so the gate refuses an anonymous request before
+			// the token is even looked for.
+			handler = auth.VerifyCSRF(handler)
+		}
+		if !public[pattern] {
+			handler = auth.RequireProfessor(handler)
+		}
+		handler.ServeHTTP(w, r)
+	})
 }
 
 // isSafeMethod mirrors the middleware's own list. Duplicated deliberately and
@@ -159,11 +211,3 @@ func healthHandler(database health.Prober, logger *slog.Logger) http.Handler {
 		httpjson.Write(w, logger, status, report)
 	})
 }
-
-// RoutesForTest exposes the table to this package's own guards.
-//
-// Exported rather than reached from inside the package because the guard has to
-// drive the router through its public surface — a test that walked an internal
-// list and called handlers directly would pass on a Router that never mounted
-// them (#149 review, F7, one layer down).
-func RoutesForTest(deps Deps) []Route { return routes(deps) }

@@ -145,7 +145,8 @@ Environment variables only, read **once at boot** into a struct, through
 - **Encode a response body BEFORE writing the header** (`httpjson.Write`).
   Encoding into the `ResponseWriter` commits the status line first, so a value
   that fails to marshal arrives as a 200 with a truncated body.
-- **Render a template into a BUFFER before writing the header** (`view.Render`).
+- **Render a template into a BUFFER before writing the header**
+  (`view.RenderLogin`, and every render function added beside it).
   The template half of the `httpjson.Write` rule above, and for the same reason:
   executing straight into the `ResponseWriter` commits a 200 with the first byte,
   so a template that fails halfway arrives as a successful truncated page.

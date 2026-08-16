@@ -45,18 +45,18 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 	return web.Deps{
 		Database: prober,
 		Gate: middleware.NewAuth(middleware.Auth{
-			Sessions: store, Users: store, Now: time.Now, SecureCookie: true, Log: logger,
+			Sessions: store, Users: store, Now: time.Now,
+			PublicURL: "https://nalanda.test", LoginPath: handler.LoginPath, Log: logger,
 		}),
 		Login: handler.NewAuth(handler.Auth{
-			Login: &auth.Login{
+			Login: auth.NewLogin(auth.Login{
 				Users: store, Identities: store, Sessions: store,
 				Now: time.Now, SessionTTL: time.Hour,
-			},
+			}),
 			Provider:     &oidctest.Provider{},
 			ProviderName: "google",
 			State:        oauthstate.New(time.Minute, time.Now),
 			PublicURL:    "https://nalanda.test",
-			SecureCookie: true,
 			Log:          logger,
 		}),
 		Log: logger,

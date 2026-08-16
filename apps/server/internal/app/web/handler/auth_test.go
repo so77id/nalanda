@@ -58,30 +58,30 @@ func newFixture(t *testing.T, bootstrapEmail string) *fixture {
 	}
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	login := &auth.Login{
+	login := auth.NewLogin(auth.Login{
 		Users:          f.store,
 		Identities:     f.store,
 		Sessions:       f.store,
 		Now:            func() time.Time { return f.now },
 		SessionTTL:     24 * time.Hour,
 		BootstrapEmail: bootstrapEmail,
-	}
-	f.auth = &handler.Auth{
+	})
+	f.auth = handler.NewAuth(handler.Auth{
 		Login:        login,
 		Provider:     f.provider,
 		ProviderName: "google",
 		State:        oauthstate.New(time.Minute, func() time.Time { return f.now }),
 		PublicURL:    publicURL,
-		SecureCookie: true,
 		Log:          quiet,
-	}
-	f.mw = &middleware.Auth{
-		Sessions:     f.store,
-		Users:        f.store,
-		Now:          func() time.Time { return f.now },
-		SecureCookie: true,
-		Log:          quiet,
-	}
+	})
+	f.mw = middleware.NewAuth(middleware.Auth{
+		Sessions:  f.store,
+		Users:     f.store,
+		Now:       func() time.Time { return f.now },
+		PublicURL: publicURL,
+		LoginPath: handler.LoginPath,
+		Log:       quiet,
+	})
 	return f
 }
 
@@ -535,13 +535,191 @@ func TestTheRenderedPageCarriesItsSecurityHeaders(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	f.auth.LoginPage(recorder, httptest.NewRequest(http.MethodGet, handler.LoginPath, nil))
 
+	// All five. It asserted three, and the two it left out were the two the
+	// code's own comment argues hardest for — deleting them from view.go left
+	// the whole suite green (#150 review, SEC-8).
 	for header, want := range map[string]string{
-		"Cache-Control":          "no-store",
-		"X-Content-Type-Options": "nosniff",
-		"X-Frame-Options":        "DENY",
+		"Cache-Control":           "no-store",
+		"X-Content-Type-Options":  "nosniff",
+		"X-Frame-Options":         "DENY",
+		"Content-Security-Policy": "frame-ancestors 'none'",
+		"Referrer-Policy":         "same-origin",
 	} {
 		if got := recorder.Header().Get(header); got != want {
 			t.Errorf("%s = %q, want %q", header, got, want)
 		}
+	}
+}
+
+// SEC-5: cookie tossing, the residual the security lens found in the SEC-1 fix.
+//
+// A double-submit cookie has one classic weakness. An attacker who can write on
+// a sibling host of the same registrable domain — plausible on university
+// hosting — plants their own nonce under a deeper Path. RFC 6265 §5.4 orders
+// longer paths first, so `r.Cookie` returns THEIRS, the comparison succeeds
+// against the attacker's state, and the victim ends up in the attacker's
+// session: the original SEC-1 attack, restored through the fix for it.
+//
+// Refusing when more than one cookie of that name arrives is what closes it,
+// and it works over http, which the __Host- prefix does not.
+func TestACallbackCarryingTwoStateCookiesIsRefused(t *testing.T) {
+	f := newFixture(t, "profesora@example.com")
+
+	attackerState, attackerCookie := f.start(t)
+	_, victimCookie := f.start(t)
+
+	target := handler.LoginCallbackPath + "?state=" + url.QueryEscape(attackerState) + "&code=the-code"
+	request := httptest.NewRequest(http.MethodGet, target, nil)
+	// The order a browser produces when the attacker's cookie has the longer
+	// Path: theirs first, the victim's own second.
+	request.AddCookie(attackerCookie)
+	request.AddCookie(victimCookie)
+
+	recorder := httptest.NewRecorder()
+	f.auth.LoginGoogleCallback(recorder, request)
+
+	if sessionCookie(recorder) != nil {
+		t.Error("a callback carrying two state cookies opened a session — cookie tossing works")
+	}
+	if f.provider.Exchanges() != 0 {
+		t.Error("the code was exchanged for a request carrying two state cookies")
+	}
+}
+
+// COR-11: the trailing slash `config.Load` newly accepts must not double up in
+// the redirect URI. Google matches it character for character, so
+// `https://host//login/google/callback` is the same 404-after-callback failure
+// COR-4 was about, through the value the fix for COR-4 blessed.
+func TestTheCallbackURIIsTheSameWhicheverWayThePublicURLIsSpelled(t *testing.T) {
+	for _, base := range []string{"https://nalanda.test", "https://nalanda.test/"} {
+		t.Run(base, func(t *testing.T) {
+			f := newFixture(t, "")
+			f.auth = handler.NewAuth(handler.Auth{
+				Login:        auth.NewLogin(auth.Login{Users: f.store, Identities: f.store, Sessions: f.store, Now: time.Now, SessionTTL: time.Hour}),
+				Provider:     f.provider,
+				ProviderName: "google",
+				State:        oauthstate.New(time.Minute, time.Now),
+				PublicURL:    base,
+				Log:          slog.New(slog.NewTextHandler(io.Discard, nil)),
+			})
+
+			recorder := httptest.NewRecorder()
+			f.auth.LoginGoogle(recorder, httptest.NewRequest(http.MethodGet, handler.LoginGooglePath, nil))
+
+			const want = "https://nalanda.test" + handler.LoginCallbackPath
+			if got := f.provider.LastRedirectURI(); got != want {
+				t.Errorf("redirect URI = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+// ARQ-12: the constructor's refusals had no test, and the fixtures bypassed it.
+// Both are fixed — the fixture above goes through NewAuth — and these pin the
+// refusals themselves.
+func TestNewAuthRefusesAnIncompleteSet(t *testing.T) {
+	f := newFixture(t, "")
+
+	complete := func() handler.Auth {
+		return handler.Auth{
+			Login:        auth.NewLogin(auth.Login{Users: f.store, Identities: f.store, Sessions: f.store, Now: time.Now, SessionTTL: time.Hour}),
+			Provider:     &oidctest.Provider{},
+			ProviderName: "google",
+			State:        oauthstate.New(time.Minute, time.Now),
+			PublicURL:    publicURL,
+			Log:          slog.New(slog.NewTextHandler(io.Discard, nil)),
+		}
+	}
+
+	for name, break_ := range map[string]func(*handler.Auth){
+		"no login service": func(d *handler.Auth) { d.Login = nil },
+		"no provider":      func(d *handler.Auth) { d.Provider = nil },
+		"no provider name": func(d *handler.Auth) { d.ProviderName = "" },
+		"no state store":   func(d *handler.Auth) { d.State = nil },
+		"no public URL":    func(d *handler.Auth) { d.PublicURL = "" },
+		"no logger":        func(d *handler.Auth) { d.Log = nil },
+	} {
+		t.Run(name, func(t *testing.T) {
+			deps := complete()
+			break_(&deps)
+
+			defer func() {
+				if recover() == nil {
+					t.Error("NewAuth accepted the set; a forgotten dependency must fail at wiring time, " +
+						"not as a nil dereference inside a request")
+				}
+			}()
+			_ = handler.NewAuth(deps)
+		})
+	}
+
+	// Non-vacuity: the complete set must NOT panic, or every case above would
+	// pass on a constructor that refuses everything.
+	if got := handler.NewAuth(complete()); got == nil {
+		t.Error("NewAuth returned nil for a complete set")
+	}
+}
+
+// The Secure attribute is DERIVED from the public URL and can no longer be
+// forgotten into false — which is what the review found: deleting both wirings
+// left the suite green while the session cookie shipped without Secure over
+// https (#150 review, ARQ-10).
+func TestTheCookieFlagFollowsThePublicURL(t *testing.T) {
+	for base, wantSecure := range map[string]bool{
+		"https://nalanda.test":  true,
+		"http://127.0.0.1:8081": false,
+	} {
+		t.Run(base, func(t *testing.T) {
+			f := newFixture(t, "")
+			f.auth = handler.NewAuth(handler.Auth{
+				Login:        auth.NewLogin(auth.Login{Users: f.store, Identities: f.store, Sessions: f.store, Now: time.Now, SessionTTL: time.Hour}),
+				Provider:     f.provider,
+				ProviderName: "google",
+				State:        oauthstate.New(time.Minute, time.Now),
+				PublicURL:    base,
+				Log:          slog.New(slog.NewTextHandler(io.Discard, nil)),
+			})
+
+			recorder := httptest.NewRecorder()
+			f.auth.LoginGoogle(recorder, httptest.NewRequest(http.MethodGet, handler.LoginGooglePath, nil))
+
+			if got := stateCookie(t, recorder).Secure; got != wantSecure {
+				t.Errorf("Secure = %v for %q, want %v", got, base, wantSecure)
+			}
+		})
+	}
+}
+
+// SEC-2's fix rests on this branch, and the whole suite stayed green with it
+// deleted — the same unkillable fail-closed branch class COR-1/2/3 were about,
+// inside the fix for a different finding (#150 review, verifier).
+func TestAFullStateStoreTellsTheVisitorToTryAgain(t *testing.T) {
+	f := newFixture(t, "")
+
+	// Fill it. Every call is one anonymous GET /login/google.
+	for range oauthstate.DefaultMaxSize {
+		if _, err := f.auth.State.Issue(); err != nil {
+			t.Fatalf("filling the store: %v", err)
+		}
+	}
+
+	recorder := httptest.NewRecorder()
+	f.auth.LoginGoogle(recorder, httptest.NewRequest(http.MethodGet, handler.LoginGooglePath, nil))
+
+	location := recorder.Header().Get("Location")
+	if !strings.Contains(location, "ocupado") {
+		t.Errorf("Location = %q, want the login page saying to try again — "+
+			"a full store is a flood, not a broken server", location)
+	}
+	if len(recorder.Result().Cookies()) > 0 {
+		t.Error("a refused attempt still set a state cookie")
+	}
+
+	// And the message reaches the page, rather than being a query parameter the
+	// login page ignores.
+	page := httptest.NewRecorder()
+	f.auth.LoginPage(page, httptest.NewRequest(http.MethodGet, location, nil))
+	if !strings.Contains(page.Body.String(), "demasiados intentos") {
+		t.Errorf("the login page does not show the notice:\n%s", page.Body.String())
 	}
 }

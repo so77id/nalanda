@@ -34,5 +34,13 @@ run:
 # Discard the local database. The bootstrap only adopts a server with no
 # professors at all, so a leftover file makes GOOGLE-CHECK step 3 fail for the
 # right reason and look like a bug.
+# It sources .env like `run` does, so the path has ONE home: NALANDA_DATABASE_URL
+# is configuration, and a hardcoded nalanda.db here would leave the real database
+# in place — the exact failure this target exists to prevent (#150 review,
+# ARQ-16).
 reset:
-	rm -f nalanda.db nalanda.db-wal nalanda.db-shm
+	@test -f .env || { \
+		echo "apps/server/.env is missing — copy .env.example and fill in the OAuth client (GOOGLE-CHECK.md §2)"; \
+		exit 1; \
+	}
+	set -a && . ./.env && set +a && rm -f "$${NALANDA_DATABASE_URL}" "$${NALANDA_DATABASE_URL}-wal" "$${NALANDA_DATABASE_URL}-shm"

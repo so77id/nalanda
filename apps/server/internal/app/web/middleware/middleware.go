@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
+	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 )
 
 // SessionCookieName is the cookie the session token travels in. The __Host-
@@ -38,33 +39,30 @@ const SessionCookieName = "nalanda_session"
 // CSRFFieldName is the form field every state-changing request carries.
 const CSRFFieldName = "csrf_token"
 
-// DefaultLoginPath is where an anonymous request to a gated route is sent when
-// Auth.LoginPath is empty.
-//
-// It is a DEFAULT and not the truth: the route belongs to the surface, which
-// registers it, and this package must not hold a second opinion about it. It
-// held one for a slice, and renaming handler.LoginPath left the whole suite
-// green while the gate redirected to a route the mux no longer served — the
-// exact failure this file's HealthPath comment describes for #149, repeated
-// (#150 review, ARQ-1). cmd/server and the router now pass the real value in;
-// this constant is what a zero-value Auth falls back to so the fallback is a
-// working page rather than "".
-const DefaultLoginPath = "/login"
-
 // Auth holds what the middlewares need. Constructed once in cmd/server.
 type Auth struct {
 	Sessions auth.SessionStore
 	Users    auth.UserStore
 	// Now is the clock, injected so a test can move it rather than sleep.
 	Now func() time.Time
-	// SecureCookie comes from config.SecureCookie(), which derives it from the
-	// public URL's scheme.
-	SecureCookie bool
-	// LoginPath is where RequireProfessor sends an anonymous request. Passed in
-	// from the surface that registers the route rather than held here — see
-	// DefaultLoginPath. Empty falls back to it.
+	// PublicURL is what the cookie's Secure attribute is DERIVED from. It was a
+	// SecureCookie bool, and deleting its wiring left the suite green while the
+	// session cookie shipped without Secure over https, because false is a legal
+	// value no constructor check can catch (#150 review, ARQ-10).
+	PublicURL string
+	// LoginPath is where RequireProfessor sends an anonymous request.
+	//
+	// Passed in, with no default and no constant in this package: the route
+	// belongs to the surface that registers it. A default was tried and was
+	// worse than none — it was a third "/login" literal that happened to agree
+	// with the other two, so deleting the wiring left the suite green
+	// (#150 review, ARQ-1 residual). NewAuth refuses an empty one, which turns
+	// the omission into a failure at boot.
 	LoginPath string
 	Log       *slog.Logger
+
+	// secureCookie is derived by NewAuth from PublicURL.
+	secureCookie bool
 }
 
 // NewAuth returns the middlewares, refusing a set of dependencies it cannot
@@ -79,18 +77,15 @@ func NewAuth(deps Auth) *Auth {
 		panic("middleware.NewAuth: no user store")
 	case deps.Now == nil:
 		panic("middleware.NewAuth: no clock")
+	case deps.LoginPath == "":
+		panic("middleware.NewAuth: no login path — the surface that registers the route passes it in")
 	case deps.Log == nil:
 		panic("middleware.NewAuth: no logger")
+	case deps.PublicURL == "":
+		panic("middleware.NewAuth: no public URL — the cookie's Secure attribute is derived from it")
 	}
+	deps.secureCookie = config.SecureFor(deps.PublicURL)
 	return &deps
-}
-
-// loginPath is the configured redirect target, or the default.
-func (a *Auth) loginPath() string {
-	if a.LoginPath == "" {
-		return DefaultLoginPath
-	}
-	return a.LoginPath
 }
 
 // contextKey is unexported so that nothing outside this package can put a
@@ -136,7 +131,7 @@ func (a *Auth) Resolve(next http.Handler) http.Handler {
 			if errors.Is(err, auth.ErrNotFound) {
 				// The cookie names nothing. Clearing it stops the browser
 				// sending it on every subsequent request forever.
-				ClearSessionCookie(w, a.SecureCookie)
+				ClearSessionCookie(w, a.secureCookie)
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -155,7 +150,7 @@ func (a *Auth) Resolve(next http.Handler) http.Handler {
 			// known to be useless, and it costs one DELETE that was already
 			// going to be a round trip.
 			a.deleteSession(ctx, hash)
-			ClearSessionCookie(w, a.SecureCookie)
+			ClearSessionCookie(w, a.secureCookie)
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -164,7 +159,7 @@ func (a *Auth) Resolve(next http.Handler) http.Handler {
 		if err != nil {
 			if errors.Is(err, auth.ErrNotFound) {
 				a.deleteSession(ctx, hash)
-				ClearSessionCookie(w, a.SecureCookie)
+				ClearSessionCookie(w, a.secureCookie)
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -179,7 +174,7 @@ func (a *Auth) Resolve(next http.Handler) http.Handler {
 			// decision does not have to be made again.
 			a.Log.Info("refusing a deactivated professor", "professor", user.ID)
 			a.deleteSession(ctx, hash)
-			ClearSessionCookie(w, a.SecureCookie)
+			ClearSessionCookie(w, a.secureCookie)
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -213,7 +208,7 @@ func (a *Auth) deleteSession(ctx context.Context, hash string) {
 func (a *Auth) RequireProfessor(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := ProfessorFrom(r.Context()); !ok {
-			http.Redirect(w, r, a.loginPath(), http.StatusSeeOther)
+			http.Redirect(w, r, a.LoginPath, http.StatusSeeOther)
 			return
 		}
 		next.ServeHTTP(w, r)

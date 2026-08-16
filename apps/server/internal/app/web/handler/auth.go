@@ -13,6 +13,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/oauthstate"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
+	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 )
 
 // The routes of the login round trip, exported so that the router, the redirect
@@ -36,9 +37,17 @@ type Auth struct {
 	// configuration rather than from the request, because Google matches the
 	// redirect URI against the one registered, character for character — and
 	// because a URI built from the Host header is one a caller chooses.
-	PublicURL    string
-	SecureCookie bool
-	Log          *slog.Logger
+	PublicURL string
+	Log       *slog.Logger
+
+	// secureCookie is DERIVED from PublicURL by NewAuth, never passed in.
+	//
+	// It was a field, and deleting its wiring in cmd/server left the whole suite
+	// green while the session cookie shipped without Secure over https — false
+	// is a legal value, so no constructor check can see the omission
+	// (#150 review, ARQ-10). backend-code-style.md §HTTP already said it is
+	// derived and never set by hand; now it cannot be.
+	secureCookie bool
 }
 
 // NewAuth returns the handlers, refusing a set of dependencies it cannot serve
@@ -69,6 +78,7 @@ func NewAuth(deps Auth) *Auth {
 	case deps.Log == nil:
 		panic("handler.NewAuth: no logger")
 	}
+	deps.secureCookie = config.SecureFor(deps.PublicURL)
 	return &deps
 }
 
@@ -160,7 +170,7 @@ func (a *Auth) LoginGoogle(w http.ResponseWriter, r *http.Request) {
 		Path:     "/",
 		MaxAge:   int(oauthstate.DefaultTTL.Seconds()),
 		HttpOnly: true,
-		Secure:   a.SecureCookie,
+		Secure:   a.secureCookie,
 		SameSite: http.SameSiteLaxMode,
 	})
 
@@ -177,7 +187,7 @@ func (a *Auth) clearStateCookie(w http.ResponseWriter) {
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   a.SecureCookie,
+		Secure:   a.secureCookie,
 		SameSite: http.SameSiteLaxMode,
 	})
 }
@@ -194,10 +204,21 @@ func (a *Auth) LoginGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	// First: does this browser hold the nonce it is presenting? Compared in
 	// constant time through the same helper the CSRF field uses, because that is
 	// exactly what this is — the CSRF defence of the login itself.
-	cookie, err := r.Cookie(StateCookieName)
+	// CookiesNamed, not Cookie, and the count is checked: this is a
+	// double-submit cookie, and its one classic weakness is cookie TOSSING. An
+	// attacker who can write on a sibling host of the same registrable domain
+	// plants their own nonce under a deeper Path; RFC 6265 §5.4 orders longer
+	// paths first, so r.Cookie would return THEIRS and the victim would end up
+	// in the attacker's session after all — the original SEC-1 attack, restored.
+	// Demonstrated against the first version of this fix (#150 review, SEC-5).
+	//
+	// Refusing when there is more than one is what closes it, and it works over
+	// http, which the __Host- prefix does not (development).
+	cookies := r.CookiesNamed(StateCookieName)
 	a.clearStateCookie(w)
-	if err != nil || !auth.VerifyCSRF(cookie.Value, state) {
-		a.Log.Warn("refusing a callback whose state was not issued to this browser")
+	if len(cookies) != 1 || !auth.VerifyCSRF(cookies[0].Value, state) {
+		a.Log.Warn("refusing a callback whose state was not issued to this browser",
+			"cookies", len(cookies))
 		a.redirectToLogin(w, r, "fallo")
 		return
 	}
@@ -248,7 +269,7 @@ func (a *Auth) LoginGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	middleware.SetSessionCookie(w, token, session.ExpiresAt, a.SecureCookie)
+	middleware.SetSessionCookie(w, token, session.ExpiresAt, a.secureCookie)
 	a.Log.Info("professor signed in", "professor", professor.ID)
 	http.Redirect(w, r, LoginPath, http.StatusSeeOther)
 }
@@ -266,7 +287,7 @@ func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	middleware.ClearSessionCookie(w, a.SecureCookie)
+	middleware.ClearSessionCookie(w, a.secureCookie)
 	a.redirectToLogin(w, r, "sesion-cerrada")
 }
 

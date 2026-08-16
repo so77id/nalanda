@@ -61,9 +61,14 @@ reason to trade revocability for statelessness.
 **CSRF is a per-session token, verified in constant time on every
 state-changing route, and the "every" is now walked by a test rather than
 asserted here.** The routes of `internal/app/web` are a table the mux is built
-from; `TestEveryStateChangingRouteVerifiesCSRF` and
-`TestEveryRouteIsGatedUnlessItSaysWhyNot` walk that same table, so a route added
-without deciding fails rather than ships. This sentence originally claimed the
+from, and the gate is applied to what the MUX MATCHED rather than to the table
+entry — so a handler registered straight on the mux is gated too. That last part
+was the second version: the first wrapped each handler as it was registered, and
+three separate rechecking lenses each mounted a bare `GET /professors` beside the
+loop and served a professor's address anonymously with the suite green.
+`TestEveryStateChangingRouteVerifiesCSRF` and
+`TestEveryRouteIsGatedUnlessItSaysWhyNot` walk the table; the fail-closed default
+covers everything the table does not name. This sentence originally claimed the
 invariant with hand-wiring behind it, which ADR-0034 had already rejected as a
 shape for the sibling rule ("Documenting the dependency rule instead of testing
 it. Rejected"). The token itself is stored beside the session, so verification
@@ -80,6 +85,14 @@ redirect, and gets a professor to follow the callback — the professor's browse
 then holds a session for the ATTACKER's account and types into it. That was
 demonstrated against this code during review (#150, SEC-1) and is now refused,
 with the attack itself kept as the test.
+
+That is a double-submit cookie, and it carries the one weakness of the pattern:
+an attacker able to WRITE a cookie on the site — a sibling host under the same
+registrable domain, plausible on university hosting — can plant their own nonce
+under a deeper path and have it read first. The recheck demonstrated exactly
+that. What closes it is refusing a callback that arrives with more than one such
+cookie (`r.CookiesNamed`), which works over http, where the `__Host-` prefix
+does not.
 
 **The OIDC client is ours, and stays in `internal/infra/oidc`.** The port keeps
 DocumentBuddy's stdlib verifier — signature against the published JWKS, then
@@ -173,7 +186,8 @@ directions from the composed handler.
   the spirit of `apps/amc-worker/PAPER-CHECK.md`: the WP does not close until a
   human has logged in with a real OAuth client at least once.
 
-- **Five configuration variables** now exist, three of them required, and the
+- **Five NEW configuration variables**, three of them required (the server needs
+  five in all, counting the two it already had), and the
   four-homes rule of `apps/server/CLAUDE.md` applies to each. A required variable
   missing from the compose file or the CI probe stops the container from
   starting, and compose sits outside CI's path filters.
@@ -196,8 +210,14 @@ directions from the composed handler.
   DENY`, a `frame-ancestors` CSP and `Referrer-Policy: same-origin`** — five, and
   the last one is here because the login URL carries an `aviso` parameter and the
   callback URL an authorization code. The signed-in page carries a professor's
-  address and their CSRF token, and the development public URL is http. WP-C3's
-  screens inherit them, because the headers are set in `view`, not in a handler.
+  address and their CSRF token, and the development public URL is http.
+  **WP-C3's screens do NOT inherit them automatically**: `setSecurityHeaders` is
+  one call inside `RenderLogin`, so a new render function that forgets it ships
+  bare. This bullet claimed the opposite twice — once when it was written, and
+  again in a commit whose message said it had been corrected while the sentence
+  stood unchanged. It is the failure AGR-1 was about, surviving inside the PR
+  that fixed AGR-1, and the guide is what carries the true version to the WP that
+  reads it.
 
 - **Trusting a verified email for path 2 means trusting the provider's
   `email_verified` claim.** That is checked, and the check has its own test. If a

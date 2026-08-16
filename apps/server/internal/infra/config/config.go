@@ -152,6 +152,15 @@ func Load(lookup LookupFunc) (Config, error) {
 		)
 	case parsed.Host == "":
 		return Config{}, fmt.Errorf("%s=%q names no host", KeyPublicURL, cfg.PublicURL)
+	case parsed.RawQuery != "" || parsed.Fragment != "":
+		// Same family as the path below, and just as invisible: a base URL with
+		// a query or a fragment builds
+		// https://host?x=1/login/google/callback, which Google refuses and the
+		// router does not serve (#150 review, COR-4 residual).
+		return Config{}, fmt.Errorf(
+			"%s=%q carries a query or a fragment; it must be scheme, host and optional port only",
+			KeyPublicURL, cfg.PublicURL,
+		)
 	case parsed.Path != "" && parsed.Path != "/":
 		// A sub-path is rejected rather than accommodated, because accommodating
 		// it is a lie the login only tells after Google's redirect: the routes
@@ -188,7 +197,29 @@ func Load(lookup LookupFunc) (Config, error) {
 // travelling in clear the first time anything downgrades. Neither is a choice
 // worth offering an operator.
 func (c Config) SecureCookie() bool {
-	return strings.HasPrefix(c.PublicURL, "https://")
+	return SecureFor(c.PublicURL)
+}
+
+// SecureFor reports whether a base URL means the cookie carries Secure.
+//
+// It PARSES rather than comparing a prefix, and that is a security fix rather
+// than tidiness: `url.Parse` lowercases the scheme, so `HTTPS://host` passed
+// Load's validation while `strings.HasPrefix(raw, "https://")` answered false —
+// a session cookie shipped without Secure over https, and nothing saw it
+// (#150 review, COR-4 residual, found by the verifier).
+//
+// Exported because the two delivery-surface constructors derive the same flag
+// and had each grown their own copy of the prefix comparison, which is how one
+// bug became three.
+func SecureFor(publicURL string) bool {
+	parsed, err := url.Parse(publicURL)
+	if err != nil {
+		// Unreachable for a value Load accepted; false is the safe answer for
+		// anything else, since a Secure cookie that never arrives is a login
+		// nobody can complete and this direction only loses the attribute.
+		return false
+	}
+	return strings.EqualFold(parsed.Scheme, "https")
 }
 
 // LogValue is what slog prints for a Config, and it omits the client secret.

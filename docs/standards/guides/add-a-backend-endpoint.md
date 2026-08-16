@@ -171,9 +171,11 @@ construction (§C12), and `cmd/server/main_test.go` asserts it.
 `cmd/server/main.go`, and nowhere else. Each layer is constructed once, in order,
 and handed to the next.
 
-A new **configuration variable** lands in FOUR places, and only the first has a
-test: `.env.example`, `infra/local/docker-compose.yml`,
-`.github/workflows/server.yml`, and the table in `apps/server/README.md`.
+A new **configuration variable** lands in FOUR places, and all four are gated:
+`.env.example`, `infra/local/docker-compose.yml`, `.github/workflows/server.yml`,
+and the table in `apps/server/README.md`. The guard matches text rather than
+parsing, so the two files an operator EXECUTES must declare the key on a
+non-comment line.
 
 ### 8. The tests
 
@@ -203,7 +205,7 @@ own that way, including two that asserted a redirect the handler produced anyway
 - [ ] A state-changing `web` route sits behind `RequireProfessor` **and**
       `VerifyCSRF`; nothing auth-shaped was mounted on `api`.
 - [ ] Text a person reads is Spanish; identifiers, comments and tests are English.
-- [ ] A new configuration variable is in all four homes.
+- [ ] A new configuration variable is in all four homes (a test says so).
 - [ ] A new dependency was discussed first (root `CLAUDE.md`).
 - [ ] Every guard was seen to fail at its own assertion, named in the commit.
 - [ ] The **per-commit protocol** passes before each commit and the **pre-PR

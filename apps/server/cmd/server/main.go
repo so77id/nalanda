@@ -125,14 +125,14 @@ func run(logger *slog.Logger) error {
 	// database, the domain service over those, the provider beside it, and the
 	// surface over both. Nothing below cmd/server builds any of it.
 	store := authstore.New(db)
-	login := &auth.Login{
+	login := auth.NewLogin(auth.Login{
 		Users:          store,
 		Identities:     store,
 		Sessions:       store,
 		Now:            time.Now,
 		SessionTTL:     cfg.SessionTTL,
 		BootstrapEmail: cfg.BootstrapProfessorEmail,
-	}
+	})
 
 	if err := warnIfNobodyCanLogIn(ctx, store, cfg, logger); err != nil {
 		return err
@@ -141,11 +141,12 @@ func run(logger *slog.Logger) error {
 	backoffice := web.Deps{
 		Database: storage.NewProber(db),
 		Gate: middleware.NewAuth(middleware.Auth{
-			Sessions:     store,
-			Users:        store,
-			Now:          time.Now,
-			SecureCookie: cfg.SecureCookie(),
-			Log:          logger,
+			Sessions:  store,
+			Users:     store,
+			Now:       time.Now,
+			PublicURL: cfg.PublicURL,
+			LoginPath: handler.LoginPath,
+			Log:       logger,
 		}),
 		Login: handler.NewAuth(handler.Auth{
 			Login: login,
@@ -156,7 +157,6 @@ func run(logger *slog.Logger) error {
 			ProviderName: oidc.Provider(),
 			State:        oauthstate.New(oauthstate.DefaultTTL, time.Now),
 			PublicURL:    cfg.PublicURL,
-			SecureCookie: cfg.SecureCookie(),
 			Log:          logger,
 		}),
 		Log: logger,

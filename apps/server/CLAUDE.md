@@ -81,13 +81,17 @@ looking at the same identifiers.
 - **`docker compose` lives in `infra/local/`, never here.** The app packages
   itself (`Dockerfile`); infra places it. Adding a service or a volume is an
   edit to `infra/local/docker-compose.yml`.
-- **A new configuration variable is added in FOUR places and a test catches only
-  the first**: `.env.example` (checked against `config.Keys()`),
-  `infra/local/docker-compose.yml` §server.environment,
-  `.github/workflows/server.yml` §"Run the image and probe it", and the table in
-  `README.md` §Configuration. A REQUIRED variable missing from any of the last
-  three makes the container refuse to start — and compose sits outside CI's path
-  filters, so nothing sees it before a human runs the L8 step.
+- **A new configuration variable is added in FOUR places, and since #150 all four
+  are gated**: `.env.example` (`TestExampleEnvFileDeclaresEveryVariable`, which
+  demands a real declaration), plus `infra/local/docker-compose.yml`,
+  `.github/workflows/server.yml` and the table in `README.md` §Configuration
+  (`TestEveryVariableReachesAllFourHomes`). The guard reads those three as TEXT
+  rather than parsing them: the two that are EXECUTED must declare the key on a
+  non-comment line, the README need only mention it. It was added because the
+  rule drifted inside the PR that restated it, and it found a gap older than that
+  PR on its first run. A REQUIRED variable missing from compose or CI still makes
+  the container refuse to start, and compose sits outside CI's path filters — the
+  guard is why that is now caught before the L8 step rather than by it.
 - **The migration numbering carries a scar worth knowing.** #150 deleted #149's
   empty `00001_init.sql` as planned, and still numbered the auth schema `00002`:
   goose keys applied migrations by VERSION, so a file reusing number 1 counts as

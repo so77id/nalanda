@@ -37,6 +37,25 @@ func TestAnUnknownNonceIsRefused(t *testing.T) {
 	}
 }
 
+// The boundary, closed like the other two in this WP (auth.Session.IsExpired and
+// the ID token's exp). COR-6 made purge the SOLE enforcer of nonce expiry, so
+// the instant it decides on is the whole rule.
+func TestANonceExpiresExactlyAtItsDeadline(t *testing.T) {
+	now := time.Date(2026, time.August, 16, 12, 0, 0, 0, time.UTC)
+	store := oauthstate.New(time.Minute, func() time.Time { return now })
+
+	nonce, err := store.Issue()
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+
+	now = now.Add(time.Minute)
+
+	if store.Consume(nonce) {
+		t.Error("a nonce expiring exactly now was accepted")
+	}
+}
+
 func TestANonceExpires(t *testing.T) {
 	now := time.Date(2026, time.August, 16, 12, 0, 0, 0, time.UTC)
 	store := oauthstate.New(time.Minute, func() time.Time { return now })
