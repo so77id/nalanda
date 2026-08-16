@@ -142,7 +142,7 @@ component uses, because it draws its own listing. Returning that was #122.
 **#122 returned it (2026-08-16).** The grammar left `RuntimeModule` for
 `loadGrammar(id)` (ADR-0018 §4 as amended), so a consumer that mounts no editor
 now asks for no grammar and drags no CodeMirror core behind it. Re-measured on
-the built site: mounting one diagram costs **33.95 kB raw / 13.13 kB gzip across
+the built site: mounting one diagram costs **33.95 kB raw / 13.12 kB gzip across
 four lazy chunks** — the component, the runtime seam, the runtime hook and the
 java module — verified in Chromium against `npm run build && npm run preview`,
 where `/catalog/c/MemoryDiagram` fetches exactly those four and **zero grammar
