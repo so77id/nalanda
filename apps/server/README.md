@@ -68,7 +68,11 @@ curl -s http://127.0.0.1:8081/api/health  # API surface
 # like a gate and is not one.
 test -z "$(gofmt -l .)" && go vet ./... && go build ./... && go test ./...
 
-# Build the production image (10.3 MB, measured 2026-08-16).
+# Build the production image (12.2 MB, measured 2026-08-16 on darwin/arm64:
+# `docker image inspect nalanda/server:dev --format '{{.Size}}'` = 12827991).
+# It was 10.3 MB before #150 added the auth domain, the OIDC client and an
+# embedded template; the figure is reported, never gated — a test that reddens
+# because a number moved teaches nothing (ADR-0034 §Consequences).
 docker build -t nalanda/server:dev .
 ```
 
