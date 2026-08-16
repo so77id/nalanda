@@ -59,6 +59,46 @@ pipeline() {
 
 check "the whole pipeline runs headless" pipeline
 
+# --- the reader refuses a project it cannot score ------------------------------
+#
+# Performed rather than asserted from the wrapper (testing-strategy.md
+# §apps/amc-worker): the batch above stops at `analyse`, which is precisely the
+# state a caller driving the CLI by hand ends up in. Both halves are checked,
+# because the half-done one is the dangerous half — MEASURED, `prepare --mode b`
+# alone leaves every scoring table present and `scoring_score` empty, which a
+# reader that only looked for the file would report as a batch where nobody
+# scored anything.
+
+reader_error() { run python3 /opt/amc-worker/read_capture.py --data /work/project/data 2>&1 >/dev/null || true; }
+
+no_db="$(reader_error)"
+check_contains 'with no scoring database, the reader says so' \
+  'no scoring database' "$no_db"
+check_contains 'and names the command that creates it' \
+  'prepare --mode b' "$no_db"
+
+prepare_scoring() {
+  run bash -c '
+    auto-multiple-choice prepare --mode b --with pdflatex \
+      --data /work/project/data --prefix /work/project \
+      /work/src/control-demo.tex >/dev/null 2>&1
+  '
+}
+# TRAP 3 (worker.py): scoring is prepared AFTER capture. The other order leaves
+# scoring_code empty and every later association matches nothing.
+check "scoring can be prepared once the batch is captured" prepare_scoring
+
+unfilled="$(reader_error)"
+check_contains 'with the database prepared but unfilled, the reader says which table is empty' \
+  'scoring_score is empty' "$unfilled"
+check_contains 'and names the command that fills it' \
+  'but `note` did not' "$unfilled"
+
+note_scoring() {
+  run auto-multiple-choice note --data /work/project/data --seuil 0.3
+}
+check "the batch can be scored" note_scoring
+
 report="${work}/report.json"
 if ! run python3 /opt/amc-worker/read_capture.py --data /work/project/data >"$report" 2>/dev/null; then
   fail "capture is readable as a report" "read_capture.py failed"
@@ -169,6 +209,12 @@ damaged_pipeline() {
       --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1
     auto-multiple-choice analyse --data $D --projet /work/project \
       --cr /work/project/cr --multiple --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
+    # Scoring AFTER capture, always (worker.py TRAP 3). The reader needs it to
+    # know the type of each question and what it was worth, and refuses to
+    # read a project without it.
+    auto-multiple-choice prepare --mode b --with pdflatex --data $D \
+      --prefix /work/project /work/src/control-demo.tex >/dev/null 2>&1
+    auto-multiple-choice note --data $D --seuil 0.3 >/dev/null 2>&1
   '
 }
 

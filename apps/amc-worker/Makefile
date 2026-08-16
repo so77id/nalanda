@@ -77,6 +77,12 @@ paper:
 
 ## read-paper — read the scanned batch back (step 4 of PAPER-CHECK.md)
 ##   Expects the scan at tests/work/paper/scan/lote.pdf
+##   `prepare --mode b` and `note` are not optional and go AFTER `analyse`
+##   (worker.py TRAP 3): they build the scoring database the reader needs to
+##   tell a multiple-answer question from a simple one and to say what each
+##   question was worth. Without them the reader refuses — which is the point,
+##   but it would refuse in the middle of a paper check, with a marked pile
+##   already scanned.
 read-paper:
 	docker run --rm --env DISPLAY= -v "$(PWD)/tests/work/paper:/work" -w /work $(IMAGE) \
 		bash -c 'set -e; \
@@ -85,4 +91,8 @@ read-paper:
 		  auto-multiple-choice analyse --data /work/project/data --projet /work/project \
 		    --cr /work/project/cr --multiple \
 		    --liste-fichiers /work/project/scans/list.txt >/dev/null; \
+		  auto-multiple-choice prepare --mode b --with pdflatex \
+		    --data /work/project/data --prefix /work/project \
+		    /work/src/control-demo.tex >/dev/null; \
+		  auto-multiple-choice note --data /work/project/data --seuil 0.3 >/dev/null; \
 		  python3 /opt/amc-worker/read_capture.py --data /work/project/data'

@@ -25,6 +25,14 @@ Runs INSIDE the worker image. Emits JSON on stdout:
       "needs_review": ["4", "5"]
     }
 
+WHAT THE PROJECT MUST ALREADY HAVE. This reads three of AMC's databases, not
+two: `layout.sqlite` (what was printed), `capture.sqlite` (what was read off the
+paper) and `scoring.sqlite` (what each question is and what it was worth). The
+third only exists after `prepare --mode b` and `note` have run, in that order
+and AFTER `analyse` — `/analyse` in worker.py does exactly that, and a caller
+driving the CLI by hand must too. Reading without it is refused rather than
+worked around; see MissingScoring.
+
 WHAT AMC DECIDES AND WHAT WE DECIDE, because the difference matters when
 something goes wrong on a real sheet:
 
@@ -57,13 +65,72 @@ gets its own status rather than being folded into "needs review".
 
 import argparse
 import json
+import os
 import sqlite3
 import sys
 
 BOX_ZONE = 4  # capture_zone.type: 4 is an answer or code box (3 is the page id)
 
 
+class MissingScoring(Exception):
+    """The project has no usable scoring database.
+
+    Not a detail to shrug off: without it the reader cannot tell a
+    multiple-answer question from a simple one — so it would report a correct
+    answer as an ambiguity — and it cannot say what any question was worth.
+
+    `auto-multiple-choice prepare --mode b` creates the database and `note`
+    fills it, in that order and AFTER `analyse` (worker.py TRAP 3). MEASURED,
+    the half-done state is the dangerous one: `prepare --mode b` alone leaves
+    every scoring table present and `scoring_score` EMPTY, which is
+    indistinguishable, to anything that only checks for the file, from a batch
+    in which nobody scored a single point.
+    """
+
+    def __init__(self, message, detail=""):
+        super().__init__(message)
+        self.message = message
+        self.detail = detail
+
+
+def check_scoring(data_dir):
+    """Refuse to read a project whose scoring database is missing or unfilled.
+
+    Failing here is the whole point: a reader that carried on would produce a
+    perfectly well-formed report that is wrong, and the caller has no way to
+    tell. The two commands are named in the error because they are what the
+    reader needs and the caller can run.
+    """
+    path = os.path.join(data_dir, "scoring.sqlite")
+    if not os.path.exists(path):
+        # NOT sqlite3.connect first: it would CREATE the file, and the next
+        # question would be why an empty database appeared in the project.
+        raise MissingScoring(
+            "no scoring database in this project",
+            f"{path} does not exist — run `auto-multiple-choice prepare "
+            "--mode b` and then `note`, after `analyse`",
+        )
+    con = sqlite3.connect(path)
+    try:
+        scored = con.execute("SELECT COUNT(*) FROM scoring_score").fetchone()[0]
+    except sqlite3.OperationalError as exc:
+        raise MissingScoring(
+            "the scoring database is not one AMC wrote",
+            f"{path}: {exc} — run `auto-multiple-choice prepare --mode b`",
+        ) from exc
+    finally:
+        con.close()
+    if not scored:
+        raise MissingScoring(
+            "the scoring database holds no scores",
+            "scoring_score is empty — `auto-multiple-choice prepare --mode b` "
+            "ran but `note` did not",
+        )
+
+
 def read(data_dir, ticked, unsure):
+    check_scoring(data_dir)
+
     lay = sqlite3.connect(f"{data_dir}/layout.sqlite")
     cap = sqlite3.connect(f"{data_dir}/capture.sqlite")
 
@@ -189,7 +256,14 @@ def main():
     ap.add_argument("--unsure", type=float, default=0.10,
                     help="darkness at or above which a box is reported as doubtful")
     args = ap.parse_args()
-    json.dump(read(args.data, args.ticked, args.unsure), sys.stdout, indent=2, ensure_ascii=False)
+    try:
+        report = read(args.data, args.ticked, args.unsure)
+    except MissingScoring as exc:
+        # Loudly, on stderr, with nothing on stdout: a caller piping this into
+        # a file must not end up with half a report.
+        sys.stderr.write(f"{exc.message}: {exc.detail}\n")
+        raise SystemExit(2)
+    json.dump(report, sys.stdout, indent=2, ensure_ascii=False)
     sys.stdout.write("\n")
 
 
