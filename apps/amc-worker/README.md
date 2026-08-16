@@ -112,7 +112,7 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 | `03-read.sh` | A scrambled multi-page PDF batch reads back; ambiguous marks and unreadable identifiers are reported separately; multiple-answer questions score and are not called ambiguous; a project with no scoring database is refused |
 | `04-associate.sh` | Clean copies match a roster automatically; damaged identifiers fail closed; an association can be injected from outside without the GUI |
 | `05-annotate.sh` | One annotated PDF per student, carrying their marks, the correct answers and per-question scores |
-| `06-http.sh` | The whole flow over the HTTP contract; the annotate and unknown-subcommand guards exercised by performing the trap inside the image (the association trap belongs to `04-associate.sh`) |
+| `06-http.sh` | The whole flow over the HTTP contract; the annotate and unknown-subcommand guards exercised by performing the trap inside the image (the association trap belongs to `04-associate.sh`); and that `/analyse` derives `--n-copies` from the layout, performed with six copies against a source declaring five |
 
 **Changing the fixture's question pool moves the seeded draw.** Adding or
 removing a question — or a `\lastchoices`, which draws from the same random
@@ -213,7 +213,7 @@ can never reach — so it is exercised by its own batch in `03-read.sh`.
 an ambiguity. Only a simple question with more than one mark is `ambiguous`.
 
 **Each answer also carries `score` and `max`, and the caller does the
-arithmetic**, because every question weighs one point (§C7) and AMC does not
+arithmetic**, because every question weighs one point (§C16) and AMC does not
 agree: it weighs a simple question 1 and a multiple one point per alternative.
 
 ```
@@ -247,8 +247,12 @@ naming the missing command — measured, the half-done state is the dangerous on
 because `prepare --mode b` alone leaves the scoring tables present and empty.
 
 **And it must have been scored AFTER the last capture.** A question that was
-captured but never scored is refused too, per copy, because the repair is
-re-running `note` rather than a human looking at the sheet. Pass `--n-copies` to
+captured but never scored is refused, and the refusal **withholds the whole
+report** — nothing on stdout, exit 2 — naming the copy and the question at
+fault. It is a refusal rather than a review-queue entry because the repair is
+re-running `note`, not a human looking at the sheet; and it withholds
+everything rather than the offending copy because a partial report is the same
+half-truth this contract exists to forbid. Pass `--n-copies` to
 `prepare --mode b`: without it AMC scores only the copies the source declares in
 `\onecopy{N}`, so printing a class larger than that default gives copies that
 are captured and never scored. Measured on the paper check itself — six printed

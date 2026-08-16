@@ -34,8 +34,10 @@
 % `completemulti` is deliberately ABSENT (#147). It made AMC append its own
 % "none of these" box to every multiple-answer question: all-or-nothing, in
 % Spanish it got wrong ("Ninguna de estas preguntas son correctas"), and it
-% numbered that question's alternatives from 0 instead of 1 while simple
-% questions kept starting at 1. A question that wants that alternative writes
+% gave that appended box the index 0, so a multiple's boxes ran 0..N while a
+% simple question's ran 1..N — measured, the authored alternatives keep 1..N
+% either way, so a 1-based reader dropped the box rather than shifting anything.
+% A question that wants that alternative writes
 % it by hand, in our Spanish, as one more choice — see `comparar-cadenas`.
 \usepackage[box,lang=ES]{automultiplechoice}
 

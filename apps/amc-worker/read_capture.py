@@ -3,8 +3,9 @@
 
 Runs INSIDE the worker image. Emits JSON on stdout:
 
-    {
-      "pages": {"captured": 10, "failed": 0},
+    {                                              // shape, not a real reading:
+      "pages": {"captured": 10, "failed": 0},       // the fixture's own numbers
+                                                    // are in tests/03-read.sh
       "scoring": {"seuil": 0.3,                      // what AMC's `note` used
                   "ticked": 0.3,                     // what THIS reading used
                   "stale": false},                   // true when they differ
@@ -23,7 +24,7 @@ Runs INSIDE the worker image. Emits JSON on stdout:
           ],
           "expected_questions": 4,                 // what the layout says printed
           "seen_questions": 4,                     // what the capture holds
-          "missing_questions": [],
+          "missing_questions": [],                 // question NAMES, not ids
           "status": "ok"                           // ok|needs_review|incomplete
         }
       },
@@ -43,11 +44,13 @@ And it must have been scored after the LAST capture, for every captured copy.
 the source declares in `\\onecopy{N}`, so a larger class leaves copies captured
 and unscored — measured on the paper check, where one copy came back with
 every score null under `status: "ok"`. A captured question with no score is
-refused per copy, because the repair is re-running `note` rather than a human
-looking at the sheet.
+refused: the message names the copy and the question, and the refusal withholds
+the WHOLE report — nothing on stdout, exit 2 — because a partial one would be
+the same half-truth. It is a refusal and not a review-queue entry because the
+repair is re-running `note`, not a human looking at the sheet.
 
 WHAT THE CALLER DOES WITH `score` AND `max`. Every question weighs ONE POINT
-(docs/design/2026-08-controles.md §C7), and AMC does not agree: it weighs a
+(docs/design/2026-08-controles.md §C16), and AMC does not agree: it weighs a
 simple question 1 and a multiple one point per alternative. So the caller
 normalises, and this is the whole of it:
 

@@ -76,9 +76,10 @@ sheet that was right.
 The engine's own "none of these" mechanism (AMC's `completemulti`) is **off**,
 and that is part of this contract rather than a fixture detail. It appended an
 extra box to every multiple question, all-or-nothing, and numbered that
-question's alternatives from **0** while simple questions started at 1 — so a
-reader assuming 1-based silently shifted every alternative of every multiple
-question. With the option off, both types number `1…N` (measured), and a
+question's alternatives from **0** while simple questions started at 1. Measured,
+the authored alternatives keep `1…N` either way and only the appended box takes
+index 0 — so a reader assuming 1-based did not mis-map anything, it silently
+**dropped** a box that can be ticked and scored. With the option off, both types number `1…N` (measured), and a
 question that wants that alternative carries it as an ordinary authored choice,
 pinned last so its wording stays true wherever the shuffle puts the rest.
 
@@ -88,7 +89,7 @@ The engine weighs a simple question 1 and a multiple **one point per
 alternative**, so one multiple would outweigh three simple questions — and
 since every copy draws its own questions, the same mistake would cost different
 students different amounts. The course's rule is that **every question weighs
-one point** (`docs/design/2026-08-controles.md` §C7).
+one point** (`docs/design/2026-08-controles.md` §C16).
 
 The report therefore carries the engine's own per-question `score` and `max`,
 and the caller normalises:
