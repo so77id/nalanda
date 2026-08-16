@@ -152,13 +152,12 @@ describe('architecture: content invariants', () => {
         'comprueba a mano que import es una abreviatura, que es justo lo que mide la pregunta de "import y paquetes"',
       'lo-que-sigue': 'cierre del documento: anuncia el siguiente, no enseña nada propio',
     },
-    // Only three, against java-desde-cpp's six, and the difference is not
-    // laxity. Its "Ejecútalo" slides carry the editor and nothing else, so a
-    // question about one would be filler. The lab slides here sit inside
-    // sections whose prose and callouts teach something measurable — the
-    // newline nextInt() leaves behind, the decimal point this page's JVM
-    // insists on — and a section boundary runs to the next h2, not to the end
-    // of the slide.
+    // A section boundary runs to the next h2, NOT to the end of the slide. So a
+    // slide that is mostly an editor can still owe a question: what follows it,
+    // up to the next heading, belongs to the same section. That is why the lab
+    // slides here are covered rather than exempt — the newline `nextInt()`
+    // leaves behind, the decimal point this page's JVM insists on — while the
+    // three below teach nothing of their own.
     'java-tipos-y-flujo': {
       'ejercicio-en-vivo-es-par':
         'actividad: el alumno escribe el método y lo comprueba, no hay nada que preguntar',

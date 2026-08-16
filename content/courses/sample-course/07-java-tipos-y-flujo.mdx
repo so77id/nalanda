@@ -546,7 +546,7 @@ check(Solution.sumaLarga(-2000000000, -2000000000), -4000000000L);
 
 - [x] El tamaño de un `int` es el mismo en toda máquina donde corra Java
 - [x] `char` es el único entero sin signo
-- [ ] `if (1)` compila y se comporta como `if (true)`
+- [ ] Un emoji fuera del plano básico ocupa un solo `char`
 - [ ] Existe `unsigned int`, igual que en C++
 
 </Question>
@@ -573,12 +573,12 @@ class Desborde {
 
 <Question id="desborde-especificado" anchor="definido-en-java-indefinido-en-c">
 
-¿Qué dice la especificación de Java sobre el desbordamiento de un `int`?
+¿En qué se diferencian Java y C++ ante el desborde de un entero con signo?
 
-- [x] Que siempre da la vuelta, en cualquier máquina
-- [ ] Que es comportamiento indefinido, como en C++
-- [ ] Que lanza una excepción en tiempo de ejecución
-- [ ] Que el compilador debe rechazar el programa
+- [x] En Java está especificado; en C++ es comportamiento indefinido
+- [ ] En Java lanza una excepción; en C++ da la vuelta
+- [ ] En los dos está especificado que da la vuelta
+- [ ] En Java lo rechaza el compilador; en C++ compila
 
 </Question>
 
@@ -586,10 +586,10 @@ class Desborde {
 
 En Java, ¿cuánto vale `7 / 2`?
 
-- [x] `3`
-- [ ] `3.5`
-- [ ] `4`
-- [ ] `3.0`
+- [x] 3
+- [ ] 3.5
+- [ ] 4
+- [ ] 3.0
 
 </Question>
 
@@ -599,7 +599,7 @@ En Java, ¿cuánto vale `7 / 2`?
 
 - [x] No se puede definir qué significa `+` para una clase propia
 - [x] `+` concatena texto, y eso es un privilegio del lenguaje
-- [ ] `>>` rellena con ceros al correr a la derecha
+- [ ] `>>` rellena siempre con ceros al correr a la derecha
 - [ ] Se puede sobrecargar `==` para comparar objetos
 
 </Question>
@@ -616,9 +616,9 @@ class Concatenacion {
 }
 ```
 
-- [x] `total: 12`
-- [ ] `total: 3`
-- [ ] `total: 1 + 2`
+- [x] total: 12
+- [ ] total: 3
+- [ ] total: 1 + 2
 - [ ] No compila
 
 </Question>
@@ -636,7 +636,8 @@ class Concatenacion {
 
 <Question id="decimales-con-punto" anchor="lee-dos-numeros">
 
-En esta página, ¿qué acepta `nextDouble()` como decimal?
+En el Java que corre en el navegador de este curso, ¿qué acepta `nextDouble()` como
+decimal?
 
 - [x] `3.14`, con punto
 - [ ] `3,14`, con coma
@@ -667,14 +668,14 @@ Después de `nextInt()`, ¿qué devuelve el `nextLine()` que sigue?
 
 </Question>
 
-<Question id="que-hace-el-for-each" anchor="control-de-flujo">
+<Question id="switch-sin-break" anchor="control-de-flujo">
 
-¿Qué recorre `for (int x : nums)`?
+En un `switch`, ¿qué pasa si a un `case` le falta el `break`?
 
-- [x] Cada elemento de `nums`, sin índice a la vista
-- [ ] Los índices de `nums`, de 0 al largo
-- [ ] `nums` al revés, del último al primero
-- [ ] Solo los elementos distintos de cero
+- [x] Sigue ejecutando los casos siguientes
+- [ ] Salta al `default` y termina ahí
+- [ ] El compilador rechaza el programa
+- [ ] Sale del `switch`, igual que con `break`
 
 </Question>
 
