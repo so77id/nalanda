@@ -29,7 +29,7 @@ content/courses/sample-course/
 ├── viajante.svg
 ├── logos/                     # …in a subfolder once there are several
 │   └── google.svg, java.svg, … (22, with a README recording provenance)
-├── 04-planificacion.mdx       # presentation: none     — book-only
+├── 04-planificacion.mdx       # presentation: none     — book-only; <SheetEmbed> around the live plan
 ├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>, plus a markdown ##
 ├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>, plus two markdown ##
 └── index.yaml                 # the ordered teaching path
@@ -571,10 +571,65 @@ values that clear 3:1 on both the light and the dark ground — or, in a
 container supplies) and **never let colour be the only signal** — the cost curves are one solid line and one
 dashed for exactly that reason (ADR-0026).
 
+6g. **Publish a spreadsheet instead of typing it out**: `<SheetEmbed>` frames a
+shared Google Sheet inside the page, read-only. You edit the spreadsheet and the
+page follows — **no commit and no deploy**. Use it for what changes on its own
+schedule and already lives in a sheet: the week-by-week plan, the grades.
+
+```mdx
+<SheetEmbed
+  src="https://docs.google.com/spreadsheets/d/1_cxMU.../edit?usp=sharing"
+  title="Planificación del semestre"
+/>
+```
+
+**Paste the link the Compartir button gives you** — the component rewrites it
+into the embeddable form itself, keeping the `gid` when your link points at one
+tab of several. It refuses anything that is not a `docs.google.com` spreadsheet
+url with an authoring error, which is the failure worth catching: Google's own
+`frame-ancestors` blocks the `/edit` url, so a hand-written one would publish a
+blank rectangle and say nothing.
+
+**Share the sheet as "cualquiera con el enlace puede ver" before you publish the
+document.** A sheet that is not shared renders Google's own request-access page
+inside the rectangle, and that is cross-origin — nothing here can detect it and
+no test will fail. **Look at the page.** Equally: anyone who can read the page
+can read the sheet, so what a sheet carries is a decision you make in the
+spreadsheet, not here (`docs/security-notes.md`).
+
+**`title` is required, in Spanish, and the component enforces it**, the same way
+`<Figure>` enforces `alt`. An iframe has no accessible name of its own, so a
+frame without one is announced as an unnamed region a screen-reader user cannot
+identify or skip past.
+
+**It shows the sheet exactly as Google renders it** — cell colours, merged
+cells, the tab bar. It reads nothing and transforms nothing, so **tidying
+happens in the spreadsheet**, before the document ships: interleaved empty
+columns and a stray block off to the right will be on the page exactly as they
+are in the file.
+
+**Two things about the rectangle**, both accepted rather than worked around:
+
+- **It paints its own white ground**, so in the dark theme it is a white block
+  on the page. The sheet's own cell colours are the information, and they are
+  designed for white.
+- **On a phone it shows a few columns and scrolls.** Dragging inside it pans the
+  sheet and does **not** change the slide — measured — because that scroller
+  lives inside Google's document, where the deck's swipe never reaches.
+
+**`height` is a decision, not a fallback** (default 480px, about nine rows of
+the course plan): an iframe has no content-driven height. Give it more for a
+long sheet in the book. On a slide it is capped at 64vh whatever you write,
+because a slide is _fit and scaled_ rather than clipped (ADR-0013 §5.1) — an
+oversized frame does not get cut off, it shrinks the whole slide, your title
+with it. Measured at 1024×768: the default draws at its full 480px and the slide
+is not scaled at all.
+
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the
 build would take the dev server with it. A missing image, a `<Figure>` with no
-alt, a `<Split>` given other than two blocks, a `<Mosaic>` with no `columns` —
+alt, a `<Split>` given other than two blocks, a `<Mosaic>` with no `columns`, a
+`<SheetEmbed>` with no `title` or pointed at something that is not a sheet —
 each renders a visible box naming what is wrong, and **`npm run test` fails
 until none of them survives** (`app/contentRenders.test.tsx` renders every
 document in the registry). So an authoring error cannot be published, only

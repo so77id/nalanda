@@ -72,6 +72,73 @@ Either one means the bank stops being study material, and neither C1 nor this
 record survives it — park that material outside `content/`, since omitting it
 from the index is not a control.
 
+### The site frames a third party, and the sheet decides what it exposes (accepted 2026-08-16, #146)
+
+`<SheetEmbed>` is **the repo's first `<iframe>`**. It puts a document served by
+`docs.google.com` inside a Nalanda page, so what that frame is allowed to do is
+a decision rather than a default inherited by omission.
+
+**What it is allowed**, each token loaded in a real browser against the course's
+own plan before it was granted:
+
+```
+sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+referrerpolicy="no-referrer"
+```
+
+- **`allow-scripts`** renders the grid; without it the rectangle is empty.
+- **`allow-popups` and `allow-popups-to-escape-sandbox` are one decision, not
+  two.** The plan carries 14 `target="_blank"` links to the class decks. Without
+  the first, the click is swallowed and the only trace is a console error the
+  reader never sees. With the first but not the second, the deck opens and Google
+  Slides then fails with "Se produjo un error" — the new tab inherits this
+  sandbox and loses its own origin. Both halves were reproduced; neither works
+  alone, which is why removing either one later is a regression no test can see.
+- **`allow-same-origin` is deliberately NOT granted.** The sheet renders and
+  scrolls both ways without it, so the frame runs in an opaque origin and cannot
+  reach the Google session of the person reading. Verified rather than assumed:
+  all four sandbox combinations rendered the sheet identically.
+- **`allow-top-navigation` and `allow-forms` are not granted**, and nothing
+  read-only needs them. The frame cannot navigate the page around it.
+- **`referrerpolicy="no-referrer"`** costs nothing measurable and stops Google
+  being told which class page a reader was on.
+
+**Why the frame is not, in itself, a new exposure.** A sheet shared as "anyone
+with the link can view" is readable by anyone holding the link whether or not
+this site frames it; framing changes who is likely to find it, not who is able
+to. The frame is cross-origin, so it cannot read this site's DOM or its
+`localStorage` (where drafts live — see below), and with `allow-same-origin`
+absent it cannot read its own either.
+
+**What is genuinely new**: a third origin the site depends on at render time,
+alongside the two recorded under "Executing student code". Unlike those, this one
+is not integrity-checkable at all — it is a document, not a versioned bundle, and
+its content is whatever the spreadsheet says today. A future CSP must allow
+`docs.google.com` in **`frame-src`**; not in `script-src`, because nothing from
+Google runs in our origin.
+
+**The sheet decides what it exposes, and that decision is not in this
+repository.** Which columns a sheet carries is the professor's call, made in
+Google Drive. Two consequences, stated before the second use rather than after
+it:
+
+- **A sheet that is not shared renders Google's own request-access page inside
+  the rectangle.** That is cross-origin: nothing here can detect it, no test
+  fails, and the document looks merely odd. The authoring guide says to look at
+  the page.
+- **The grades sheet is the case this record exists ahead of.** Publishing one
+  through this component would put student names and marks on a public page
+  behind nothing but an unguessable URL — exactly the material §"Everything under
+  content/courses/ is published" reserves its review trigger for. Nothing about
+  `<SheetEmbed>` decides that; the share setting on the sheet does, and that is
+  outside this repo's review.
+
+**Review trigger**: the first sheet carrying student identifiers or marks — at
+which point the question is not this component but whether the data belongs
+behind the v0.3 auth (ADR-0009) instead of behind a link. Also: the first
+`<SheetEmbed>` pointed at a host other than `docs.google.com`, which the
+component refuses today and which would reopen every line above.
+
 ### Drafts live on an origin shared with every other repo of the account (accepted 2026-08-13, #85)
 
 `localStorage` keys under `nalanda:draft:*` hold what a student had in an editor
