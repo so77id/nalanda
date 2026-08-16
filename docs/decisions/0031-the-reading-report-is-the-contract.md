@@ -172,6 +172,17 @@ purpose.
   is the dangerous one, because the scoring tables exist and are empty, which
   reads exactly like a batch where nobody scored a point. Every caller that
   drives the CLI by hand must run that pass; `/analyse` already does.
+
+  **The refusal is per question, not per batch**, because the half-scored state
+  is reachable and was reached: the engine scores the copies the SOURCE declares
+  and not the ones that were printed, so a class larger than that default yields
+  copies that are captured and never scored. Measured on the paper check as
+  shipped: one copy came back with every score null under `status: "ok"`, absent
+  from the review queue, exit 0 — a well-formed report about a real sheet a real
+  student filled in. A score that is absent is never published as a score, and
+  it is not a review-queue entry either: the repair is re-scoring, not a human
+  looking at the sheet, and mixing the two is what §Three failure kinds exists
+  to prevent.
 - **We depend on the engine's private storage, not only its CLI.** The current
   reader opens AMC's `layout.sqlite`, `capture.sqlite` and `scoring.sqlite`
   directly and knows facts like `capture_zone.type = 4` and

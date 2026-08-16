@@ -139,6 +139,21 @@ is green against a stale image — which is the per-commit protocol's normal
 state. Production code is invoked from where the image installed it; only test
 tools travel on the volume (#138 review).
 
+That makes "seen to fail" look expensive, because reddening a check appears to
+need a full `make build`. It does not: a **derived image** keeps the artifact
+rule intact and costs seconds (#147 review).
+
+```bash
+printf 'FROM nalanda/amc-worker:dev\nCOPY read_capture.py /opt/amc-worker/read_capture.py\n' > Dockerfile
+docker build -q -t nalanda/amc-worker:mutant .
+AMC_IMAGE=nalanda/amc-worker:mutant tests/03-read.sh
+```
+
+Break the production copy, build one layer, run the script against it. In #147
+this is what found two assertions that could not fail — one that a hardcoded
+denominator satisfied, and one where the reader could emit an empty report on
+exit 0 — neither of which reading the diff had surfaced.
+
 **What this level cannot see**: everything about a real sheet. The scripts drive
 synthetically-filled PDFs — boxes drawn at the coordinates AMC's own layout file
 reports — which proves the plumbing and nothing about paper. Whether the reader

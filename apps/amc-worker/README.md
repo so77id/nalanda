@@ -208,6 +208,15 @@ driving the CLI by hand must too. A project without it is refused with a message
 naming the missing command — measured, the half-done state is the dangerous one,
 because `prepare --mode b` alone leaves the scoring tables present and empty.
 
+**And it must have been scored AFTER the last capture.** A question that was
+captured but never scored is refused too, per copy, because the repair is
+re-running `note` rather than a human looking at the sheet. Pass `--n-copies` to
+`prepare --mode b`: without it AMC scores only the copies the source declares in
+`\onecopy{N}`, so printing a class larger than that default gives copies that
+are captured and never scored. Measured on the paper check itself — six printed
+against a source declaring five, and copy 6 came back with every score null,
+`status: "ok"`, absent from `needs_review`, exit 0.
+
 **`/analyse` is a minutes-class call** — 53 s for a class of forty, three
 quarters of it in `getimages`, which AMC does not parallelise. `apps/server`
 must drive it as a background job with a status endpoint, never inside a request
