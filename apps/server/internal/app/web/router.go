@@ -1,16 +1,18 @@
 // Package web is the server-rendered delivery surface: the professor's
 // backoffice.
 //
-// It has no screens yet. Templates, layout and the professor CRUD are WP-C3
-// (#151), and authentication — which everything here will sit behind — is
-// WP-C2 (#150). What exists today is the health endpoint, because a container
-// health check has to have something to call.
+// Since #150 it also holds the login round trip and the session gate. The
+// screens themselves are still WP-C3 (#151); what exists today is /health,
+// because a container healthcheck has to have something to call, and the four
+// routes a professor needs to get in and out.
 package web
 
 import (
 	"log/slog"
 	"net/http"
 
+	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpjson"
 )
@@ -25,11 +27,44 @@ import (
 // compose path in the pre-PR protocol.
 const HealthPath = "/health"
 
+// Deps is what this surface is built from. A struct rather than a growing
+// parameter list: #150 took the constructor from two arguments to four, and the
+// next WP adds screens.
+type Deps struct {
+	Database health.Prober
+	// Auth resolves the session cookie and gates what needs a professor.
+	Auth *middleware.Auth
+	// Login is the login round trip's handlers.
+	Login  *handler.Auth
+	Logger *slog.Logger
+}
+
 // Router returns the surface's routes.
-func Router(database health.Prober, logger *slog.Logger) http.Handler {
+//
+// Resolve wraps EVERYTHING, and gates nothing: it only answers who is asking, so
+// that the login page can greet a professor by name and /health can stay
+// reachable without a cookie. What requires a professor says so route by route.
+//
+// That /health stays open is not an oversight to be tidied up later. The
+// container healthcheck is the binary itself and carries no cookie, and CI
+// probes the same path; putting the gate in front of it would produce a
+// container that builds, starts, and is declared unhealthy forever.
+func Router(deps Deps) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("GET "+HealthPath, healthHandler(database, logger))
-	return mux
+
+	mux.Handle("GET "+HealthPath, healthHandler(deps.Database, deps.Logger))
+
+	mux.HandleFunc("GET "+handler.LoginPath, deps.Login.LoginPage)
+	mux.HandleFunc("GET "+handler.LoginGooglePath, deps.Login.LoginGoogle)
+	mux.HandleFunc("GET "+handler.LoginCallbackPath, deps.Login.LoginGoogleCallback)
+
+	// Logout is the first state-changing route, and the shape every later one
+	// follows: a professor is required, and the request must carry the session's
+	// own CSRF token.
+	mux.Handle("POST "+handler.LogoutPath,
+		deps.Auth.RequireProfessor(deps.Auth.VerifyCSRF(http.HandlerFunc(deps.Login.Logout))))
+
+	return deps.Auth.Resolve(mux)
 }
 
 // healthHandler answers JSON rather than HTML, which is not an oversight: its
