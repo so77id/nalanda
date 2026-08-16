@@ -478,7 +478,8 @@ build on the `@` (`Unexpected character '@' (U+0040) in member name`). GFM
 autolinks the bare address anyway, so the angle brackets buy nothing and cost
 a red build — hit while writing `01-bienvenida.mdx` (#120).
 
-6. **Show a picture (optional)**: the asset lives **beside the `.mdx` that uses
+6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
+   a spreadsheet in **6g**: the asset lives **beside the `.mdx` that uses
    it**, addressed relatively, and a subfolder is fine when there are several
    (`./logos/java.svg`). Both syntaxes work and get the same
    pipeline: markdown `![alt](./curva.svg)` for a picture that just needs to be
@@ -585,7 +586,10 @@ ADR-0029.
 6g. **Publish a spreadsheet instead of typing it out**: `<SheetEmbed>` frames a
 shared Google Sheet inside the page, read-only. You edit the spreadsheet and the
 page follows — **no commit and no deploy**. Use it for what changes on its own
-schedule and already lives in a sheet: the week-by-week plan, the grades.
+schedule and already lives in a sheet — today that is the week-by-week plan.
+**Not the grades**, and not anything else carrying student identifiers: a
+link-shared sheet is public and there is no student login to put in front of it.
+The reasoning is in `docs/security-notes.md` §"The site frames a third party".
 
 ```mdx
 <SheetEmbed
@@ -596,11 +600,17 @@ schedule and already lives in a sheet: the week-by-week plan, the grades.
 
 **Paste the link the Compartir button gives you** — the component rewrites it
 into the embeddable form itself, keeping the `gid` when your link points at one
-tab of several. The url out of the address bar works too, including the
+tab of several — **that last part is unverified** (`sheetUrl.ts`: the course's
+sheet has one tab, so nothing has yet distinguished a working tab selector from
+an ignored one). If you link one tab of several, open the published page and
+check the right tab is showing. The url out of the address bar works too,
+including the
 `/spreadsheets/u/0/d/…` shape you get when you are signed into more than one
 Google account. Anything else is an authoring error, which is the failure worth
-catching: Google's own `frame-ancestors` blocks the `/edit` url, so a
-hand-written one would publish a blank rectangle and say nothing.
+catching: a hand-written `/edit` url is not blocked by Google — it frames
+happily — it just publishes Google's **editor**, whose own requests fail inside
+the frame, so the reader gets the grid behind a "Se ha producido un error"
+dialog. The rewrite is what avoids that.
 
 **Not the "Publicar en la web" link.** That dialog hands out
 `/spreadsheets/d/e/<token>/pubhtml`, which looks close enough to be tempting and
@@ -842,6 +852,14 @@ is not scaled at all.
 - [ ] Every exercise opened in `npm run preview` and actually run: no authoring
       banner, cases pass against a correct solution and fail against the starter.
       Nothing in the build or the suite can check this for you.
+- [ ] Every `<SheetEmbed>` opened at `/nalanda/d/<id>` under
+      `npm run build && npm run preview`, and **looked at**: the grid is on
+      screen — not Google's request-access page, not a rectangle stuck on
+      "Cargando la planilla…", not the wrong tab. Then check in Drive that the
+      sheet is shared as _cualquiera con el enlace puede **ver**_ and not
+      _editar_. All of it is cross-origin: no level of the suite and no part of
+      the build can see any of it, and a wrong share setting in either direction
+      publishes silently.
 - [ ] Anything on a slide looked at in presentation mode, not only in the book.
 - [ ] `npm run test` green — `app/contentRenders.test.tsx` renders every document
       and fails on any authoring error the build cannot see (a missing alt, a

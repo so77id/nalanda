@@ -8,10 +8,11 @@ const PREVIEW = `https://docs.google.com/spreadsheets/d/${ID}/preview`;
 
 describe('sheetPreviewUrl', () => {
   it('turns the share link Google hands out into the embeddable one', () => {
-    // This is the whole reason the function exists. `/edit` is refused by
-    // Google's own `frame-ancestors` (verified in a real iframe, 2026-08-16):
-    // an author who pastes what the Compartir button gave them would otherwise
-    // publish a blank rectangle and never see the console violation.
+    // This is the whole reason the function exists. `/edit` is not blocked —
+    // Google sends no `frame-ancestors` — it is the EDITOR, and framed without
+    // `allow-same-origin` its own requests fail: an author who pastes what the
+    // Compartir button gave them would publish the grid behind a "Se ha
+    // producido un error" dialog (verified 2026-08-16).
     expect(sheetPreviewUrl(`https://docs.google.com/spreadsheets/d/${ID}/edit?usp=sharing`)).toBe(
       PREVIEW,
     );

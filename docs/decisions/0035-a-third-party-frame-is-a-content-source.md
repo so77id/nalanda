@@ -2,6 +2,16 @@
 
 **Status:** Accepted
 **Date:** 2026-08-16
+**Decision-makers:** Miguel Rodriguez
+**Source:** Issue #146. Extends ADR-0010 (component contract) and ADR-0029 (the
+media family); applies ADR-0013 §5.1 (a slide is fit, not reflowed) and ADR-0022
+(the reading measure); measured with ADR-0018 §7's method, whose lazy-wrapper
+rule it does not fire. **Qualifies** the premise in `docs/security-notes.md`
+§"All bundled MDX is repo-controlled content": what a `<SheetEmbed>` shows is
+the first thing a reader sees that this repository never reviewed.
+Numbered 0035 rather than 0033 to clear the unmerged `0033-*` held by the
+branches of #147 and #149, which this branch cannot see — renumber at merge if
+either lands elsewhere.
 
 ## Context
 
@@ -40,12 +50,22 @@ site has no opinion about the data, so it cannot be wrong about it.
 
 **3. `/preview` is the embed url, and the component normalises to it.** Four
 forms were loaded in a real iframe against the course's own sheet on 2026-08-16:
-`/preview` works with nothing but "anyone with the link can view"; `/pubhtml` and
-`/htmlembed` work but first require publishing the sheet to the web; `/edit` is
-refused by Google's own `frame-ancestors`. Since `/edit` is exactly what the
+`/preview` works with nothing but "anyone with the link can view"; `/pubhtml`
+requires publishing the sheet to the web (401 without it); `/htmlembed` works on
+a merely link-shared sheet but shows no tab bar and no chrome; and `/edit` is
+the one to avoid — **not because Google blocks it**, which was the first
+explanation here and is wrong (it sends neither `frame-ancestors` nor
+`X-Frame-Options`, checked with `curl -sI`), but because framed under this
+component's sandbox, without `allow-same-origin`, the editor's own requests fail
+and it paints the grid behind a "Se ha producido un error" dialog with the
+editing chrome visible. Since `/edit` is exactly what the
 Compartir button hands an author, a pure module (`sheetUrl.ts`) rewrites the
-share link and keeps the `gid`, and refuses any other host with an authoring
-error. The failure it replaces is silent — a refused url frames a blank
+share link and keeps the `gid` — that last part **unverified**, since the
+course's own sheet has one tab and nothing has distinguished a working tab
+selector from an ignored one — and refuses any other host with an authoring
+error. It also refuses the *published* form, `/spreadsheets/d/e/<token>/pubhtml`,
+which is a different identifier that the first pattern accepted and turned into
+a framed 404 (#146 review). The failure it replaces is silent — a refused url frames a blank
 rectangle whose only trace is a console violation nobody sees.
 
 **4. The frame's permissions are measured, not inherited.**
@@ -124,11 +144,22 @@ whole slide with its title.
 - **The exception is narrow but real**: `security-notes.md` §"All bundled MDX is
   repo-controlled content" still holds for MDX, and now has a neighbour that does
   not. What a `<SheetEmbed>` shows is outside PR review by construction.
-- **The next use is the grades**, and it is not free. Framing a grades sheet puts
-  student names and marks on a public page behind an unguessable URL. That fires
-  the review trigger already written for student data; the component does not
-  decide it, the share setting does.
+- **The obvious next use is the grades, and it is blocked.** Framing a grades
+  sheet puts student names and marks — personal data under Ley 21.719 — on a
+  public page behind an unguessable URL, and there is no student login to put in
+  front of it: ADR-0009 is professor-only and no student accounts are planned.
+  The disposition until a student-identity decision exists is not to ship that
+  data through this component at all. The component does not enforce it; the
+  guide, the catalog entry and `security-notes.md` all say it.
 - **No `overflow-x-auto` on the wrapper**, which reads as an ADR-0013 §5.2
   oversight and is not: the sheet's scroller is inside another document, so the
   deck never sees the touch. Measured on a phone in landscape — dragging inside
   the frame left `?slide` untouched, dragging beside it moved a slide.
+- **§6's slide cap ships with no real-content user.** The one document that
+  carries a `<SheetEmbed>` is `04-planificacion.mdx`, which is `presentation:
+  none` — it is `presentationRoute.test.tsx`'s no-deck fixture (ADR-0025), so
+  the course calendar cannot be projected at all. The cap was measured on a
+  throwaway document and is exercised today only by unit tests and
+  `/catalog/c/SheetEmbed`. Worth knowing before trusting it in a class: the
+  first deck that wants a sheet moves that fixture first, and should re-measure
+  on the real projector rather than inherit these numbers.

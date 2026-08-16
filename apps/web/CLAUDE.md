@@ -32,9 +32,10 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
 - `npm run dev` and `npm run build` run `scripts/fetch-java-compiler.mjs` first
   (`predev`/`prebuild`): it downloads ~2.9MB from Maven Central on a clean
   checkout, so **an offline first build fails before Vite starts**.
-- **The suite cannot execute code, lay out a page, or move focus like a
-  browser.** Two classes, both needing a real browser, both spelled out in
-  `docs/standards/testing-strategy.md` §Conventions with their worked cases:
+- **The suite cannot execute code, lay out a page, move focus, or load another
+  origin like a browser.** Three classes, all needing a real browser, all spelled
+  out in `docs/standards/testing-strategy.md` §Conventions with their worked
+  cases:
   1. _Execution_: every runtime is faked in jsdom, so anything that **DRIVES a
      runtime** needs a browser too — any change under `src/runtime/**`, anything
      that calls `run()` through `useRuntime`/`useLoadedRuntime`, anything that
@@ -76,11 +77,29 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
      A device rule also needs an emulated device, not
      merely a small window: the recipe is in `testing-strategy.md` §Conventions.
 
+  3. _A document from somewhere else_: jsdom has no network and never loads a
+     frame, so a component that **EMBEDS ANOTHER ORIGIN** is unverifiable here in
+     the only way that counts. The suite can pin the attribute string and
+     nothing about its effect — whether the document renders at all, what a
+     `sandbox` token actually permits, what the frame weighs, whether the
+     reader's gesture even reaches our handlers. All three of those were
+     answered only in Chromium in #146: `sandbox="allow-popups"` without
+     `allow-popups-to-escape-sandbox` opened a link and then broke the page it
+     opened; `loading="lazy"` on an iframe defers nothing until roughly 4000px
+     below the fold, so it bought nothing on either shipping page; and one frame
+     costs ~570kB of third-party payload, three times the whole app. Anything
+     rendering an `<iframe>` is checked in a real browser against the built site:
+     the frame paints, each permission re-measured whenever the string changes,
+     weight from a cold profile, and a sideways drag on a touch context. Worked
+     case: `<SheetEmbed>` (ADR-0035).
+
   Written as classes rather than lists of names because the list was already
   stale once: `Exercise` arrived with the same shape and the same hazard, and
   the rule still said `CodeEditor`. The class was _also_ stale as a set — it
   named execution alone until #84 shipped two layout/focus bugs past a green
-  suite.
+  suite, and named only those two until #146 embedded a third party. State a new
+  class by what the code DOES — loads another origin — never by the tag it
+  happens to use.
 
 - Java deliberately does NOT run in a Web Worker (ADR-0017), and a Java infinite
   loop freezes the tab with no recovery — relevant whenever you author or verify

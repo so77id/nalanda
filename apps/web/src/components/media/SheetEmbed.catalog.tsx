@@ -15,16 +15,17 @@ export const sheetEmbedCatalogEntry: CatalogEntry = {
   description:
     'A shared Google Sheet, framed read-only inside the page. The author edits the spreadsheet and the page follows, with no commit and no deploy.',
   whenToUse:
-    'When what the course needs to publish already lives in a spreadsheet and changes on its own schedule — the week-by-week plan, the grades. A table typed into MDX is wrong the first time a class moves; this one is never re-typed. ' +
+    'When what the course needs to publish already lives in a spreadsheet and changes on its own schedule — today that is the week-by-week plan. NOT grades, and nothing else carrying student identifiers: a link-shared sheet is public, there is no student login to put in front of it, and the disposition until one exists is not to ship that data this way (docs/security-notes.md, ADR-0035). A table typed into MDX is wrong the first time a class moves; this one is never re-typed. ' +
     'It shows the sheet as Google renders it and does nothing else: it does not read the data, does not know the columns, and transforms nothing. Tidying happens in the spreadsheet. ' +
     'The `title` is a runtime contract rather than a type, for the same reason as <Figure>: an iframe carries no accessible name of its own, so a frame without one is announced as an unnamed region the reader cannot identify or skip. ' +
-    'Two things about the frame are worth knowing before you use it. It paints its own white ground, so in the dark theme it is a white rectangle. And a sheet that is not shared renders Google request-access page inside the rectangle — that is cross-origin and nothing here can detect it, so check the share setting yourself.',
+    'Prefer a table typed into MDX for anything genuinely static: this is the most expensive thing the site serves — one frame costs about 10 requests and 570 kB on a first visit, roughly 2.9 times the whole application entry chunk (ADR-0035). It earns that only when the data changes on its own and a typed copy would go stale. ' +
+    'Two more things about the frame are worth knowing before you use it. It paints its own white ground, so in the dark theme it is a white rectangle. And a sheet that is not shared renders Google request-access page inside the rectangle — that is cross-origin and nothing here can detect it, so check the share setting yourself.',
   props: [
     {
       name: 'src',
       type: 'string',
       description:
-        'The share link, exactly as the Compartir button gives it. Required. It is rewritten into the embeddable /preview form, keeping the gid when the link points at one tab of several — the /edit url Google hands you is refused by its own frame-ancestors and would frame a blank rectangle. Anything that is not a docs.google.com spreadsheet url is an authoring error.',
+        'The share link, exactly as the Compartir button gives it — or the /spreadsheets/u/0/d/... url out of the address bar. Required. It is rewritten into the embeddable /preview form, because the /edit url Google hands you frames the EDITOR — not blocked, but its own requests fail inside the sandbox and it paints the grid behind an error dialog. The gid is carried across when the link points at one tab of several, but THAT part is unverified (see sheetUrl.ts): check the published page if you use a multi-tab sheet. The Publicar-en-la-web url is a different identifier entirely and is refused. So is anything that is not a docs.google.com spreadsheet url.',
     },
     {
       name: 'title',

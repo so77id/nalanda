@@ -31,11 +31,18 @@ const GID = /[?#&]gid=(\d+)/;
 /**
  * The embeddable url for a shared Google Sheet, or `null` if this is not one.
  *
- * Authors paste what the Compartir button gives them, which is an `/edit` url —
- * and `/edit` is refused by Google's own `frame-ancestors` (measured in a real
- * iframe on 2026-08-16, alongside `/pubhtml` and `/htmlembed`, which work but
- * first require publishing the sheet to the web). `/preview` needs nothing but
- * "anyone with the link can view", so it is the one form this normalises to.
+ * Authors paste what the Compartir button gives them, which is an `/edit` url.
+ * That url is **not** frame-blocked — Google sends no `frame-ancestors` and no
+ * `X-Frame-Options` on it (checked with `curl -sI`, 2026-08-16) — it is simply
+ * the wrong thing to publish: framed under this component's sandbox, without
+ * `allow-same-origin`, the editor's own requests fail and it paints the grid
+ * behind a "Se ha producido un error" dialog, editing chrome and all.
+ *
+ * The other two forms measured the same day: `/pubhtml` needs the sheet
+ * published to the web (401 without it), and `/htmlembed` works on a merely
+ * link-shared sheet but shows no tab bar. `/preview` needs nothing but "anyone
+ * with the link can view" and renders the sheet as Google draws it, so it is
+ * the one form this normalises to.
  *
  * Pure and separate from the component because the alternative is a silent
  * failure with the suite green: a refused url frames a blank rectangle, and the

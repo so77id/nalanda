@@ -10,9 +10,9 @@ questions: none
 {/* control could ask about. It carried `questions: none` as the demo page it */}
 {/* replaced, and it keeps it. */}
 
-{/* Three test files bind to this document (ADR-0025: the conflict is */}
-{/* recorded at the document). Two invariants, and BOTH are easy to break by */}
-{/* writing ordinary content here: */}
+{/* Four test files bind to this document (ADR-0025: the conflict is */}
+{/* recorded at the document). THREE invariants, and all three are easy to */}
+{/* break by writing ordinary content here: */}
 {/*   1. `presentation: none` — presentationRoute.test.tsx drives it as the */}
 {/*      no-deck document (/present redirects to the book, the control hides), */}
 {/*      and deployedApp.test.tsx uses it as the deep-link fixture. */}
@@ -25,11 +25,23 @@ questions: none
 {/*      to that file (copy it from app/documentSections.test.tsx) or repoint */}
 {/*      DEEP_LINK_FIXTURE at another non-landing document — otherwise the */}
 {/*      flake class those issues closed comes back. */}
+{/*   4. Since #146, the <SheetEmbed> src must stay a valid Google Sheets */}
+{/*      share link: app/contentRenders.test.tsx renders every published */}
+{/*      document and fails on the authoring error a bad one produces. */}
 
-{/* #146 filled this document and kept all three. The calendar arrives as a */}
-{/* framed spreadsheet rather than a table, so it adds one element and no */}
-{/* headings, and the component reaches the page through the shell's MDX map */}
-{/* — this document's own chunk stays as small as it was. */}
+{/* #146 filled this document and kept all three, but NOT by writing around */}
+{/* them. The calendar is a framed spreadsheet because a typed table is wrong */}
+{/* the first time a class moves (ADR-0035 §Context) — the editorial reason, */}
+{/* decided before the fixture bindings were looked at. That it also adds one */}
+{/* element and no headings, and leaves the chunk small because the component */}
+{/* arrives through the shell's MDX map, is a consequence and not the motive. */}
+{/* The distinction is the limit ADR-0025 puts on itself: the suite may */}
+{/* constrain HOW content is written, never WHAT it says. */}
+
+{/* Book-only, and that IS the fixture's doing: presentation stays `none` */}
+{/* because this document is presentationRoute.test.tsx's no-deck fixture. So */}
+{/* the calendar cannot be projected. If it ever should be, move that fixture */}
+{/* first — do not flip the field here. */}
 
 {/* The `src` is the ordinary share link; <SheetEmbed> rewrites it into the */}
 {/* embeddable form. To point at a different sheet, replace it and change */}

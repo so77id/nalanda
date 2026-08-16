@@ -101,9 +101,18 @@ prefix may not survive the move, so decide before handing URLs to students
   the control question bank, including which alternatives are correct. Public on
   purpose, so never author a question whose answer must stay private (see
   `docs/security-notes.md`).
+- **Not everything a reader sees is published by us.** Since #146,
+  `/nalanda/d/planificacion` frames a Google spreadsheet: the calendar is not in
+  this repository, it changes with **no commit and no deploy**, and nothing in
+  the build or the suite can see what it says (ADR-0035). Add it to the
+  after-deploy check and look at the rectangle — a sheet that stops being shared
+  shows Google's own request-access page there, and nothing anywhere will tell
+  you.
 - **Rollback**: revert the offending commit on `main`. The revert is itself a
   push to `main`, so it redeploys the previous version — there is no separate
-  deploy button to press.
+  deploy button to press. **It does not restore the calendar**: reverting can
+  remove the frame, never change what the sheet says. That is Google Drive's
+  version history, not git's.
 - **When something is broken**, work back from the symptom:
 
   | Symptom | Cause | Guarded by |
@@ -115,6 +124,8 @@ prefix may not survive the move, so decide before handing URLs to students
   | Deploy job fails on permissions | repo Settings ▸ Pages source must be "GitHub Actions", and the `github-pages` environment must allow `main` | — |
   | Deploy job fails before Vite starts | `prebuild` could not reach Maven Central, or the ECJ checksum did not match | the script's own error; nothing is written on mismatch (ADR-0017) |
   | Site fine, but Ejecutar never finishes or never warms | a runtime CDN is down or blocked (`cjrtnc.leaningtech.com`, `cdn.jsdelivr.net`) | nothing — accepted risk, `docs/security-notes.md` |
+  | `/d/planificacion` shows "Cargando la planilla…" and never the grid, or shows Google's request-access page | the sheet stopped being shared, or Drive is unreachable | nothing — cross-origin, undetectable; fix the share setting in Drive, `docs/security-notes.md` |
+  | The calendar is wrong and reverting the commit does not fix it | the sheet is not in this repo (ADR-0035) — edit the spreadsheet | nothing, by design: that decoupling is the feature |
   | `/d/<id>/present` blank on an old iPhone | `MediaQueryList.addEventListener` needs Safari/iOS 14 | nothing — accepted baseline, ADR-0023 |
   | `/d/<id>/present` shows "Gira el teléfono" and no slide | working as designed on a touch device held upright; rotate, or use the book view | `presentationRoute.test.tsx`, ADR-0023 |
   | Slide text renders small, or slide sizes vary across a deck | working as designed — each slide is scaled to fit its stage (ADR-0013 §5.1). If it is unreadable the slide is too dense: split it | `presentation/fit.test.ts` |

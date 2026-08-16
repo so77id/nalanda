@@ -93,7 +93,9 @@ referrerpolicy="no-referrer"
   reader never sees. With the first but not the second, the deck opens and Google
   Slides then fails with "Se produjo un error" — the new tab inherits this
   sandbox and loses its own origin. Both halves were reproduced; neither works
-  alone, which is why removing either one later is a regression no test can see.
+  alone. `SheetEmbed.test.tsx` pins both tokens, so removing one goes red — what
+  no test can see is the CONSEQUENCE, which is why any change to this string is
+  re-measured in a real browser against a sheet carrying `target="_blank"` links.
 
   **State the capability, not only the symptom**: what the pair buys the frame is
   an unsandboxed new tab **at a URL the SHEET chooses** — outside `MdxLink`'s
@@ -371,6 +373,15 @@ Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
   `pull_request` with `contents: read` and no secrets in the web job.
 - **Why currently safe**: content ships exclusively via git + PR review; there is
   no runtime ingestion, no user-contributed documents, no CMS.
+- **Since #146, this is a claim about MDX only, and it needs saying.** A
+  `<SheetEmbed>` renders a document this repository never sees — the trigger
+  below was considered and deliberately not fired, because a cross-origin frame
+  is not what that trigger is about: it compiles nothing, reaches no build seam,
+  and cannot inject into the MDX or KaTeX pipelines above. What it does instead
+  is put content on the page that no PR reviewed, which is its own decision with
+  its own record and its own triggers — §"The site frames a third party, and the
+  sheet decides what it exposes", and ADR-0035, which qualifies this section by
+  name. The two must stay reachable from each other.
 - **Review trigger**: the moment ANY non-repo-authored content path appears —
   v0.2 authoring-agent output that bypasses PR review, a future in-platform
   editor (vision phase C), or user-submitted material. At that point the MDX

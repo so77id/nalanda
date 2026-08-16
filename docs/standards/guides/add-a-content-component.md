@@ -49,7 +49,7 @@ apps/web/src/components/structure/
    (presentation seam); if a parser must recognize it, declare metadata with
    `withMeta` (`lib/componentMeta.ts`) — never expect identity imports.
 
-   Seven seams worth knowing before writing your own:
+   Eight seams worth knowing before writing your own:
 
    - **Labelled code fences.** A component whose children carry code the author
      marks — ` ```java starter ` — reads them with `fencesByMeta` /
@@ -81,6 +81,16 @@ apps/web/src/components/structure/
      on a phone; conversely a full-bleed scrollable component leaves the reader
      no swipe target on that slide. Give it `overflow-x-auto`, and check it on
      a touch context.
+
+     **One exception, and it is about ownership rather than styling**: a
+     scroller that lives inside ANOTHER document — a cross-origin `<iframe>` —
+     is unreachable by `swipe.ts`, which walks from the event target up to the
+     stage **within this DOM**. The deck never receives the touch at all, so no
+     `overflow-x-auto` is wanted and adding one would build a scroller of our
+     own around the frame. Measured, not reasoned: on a phone in landscape,
+     same slide and same gesture, dragging inside the frame left `?slide`
+     untouched while dragging beside it moved a slide. Worked case:
+     `<SheetEmbed>` (#146, ADR-0035 §Consequences).
 
      **A component that renders anything wide MUST carry one of the two**, or it
      is silently centred at 624px in documents. The rule is unlayered, so a
@@ -114,6 +124,15 @@ apps/web/src/components/structure/
      `<Mosaic>` × `<Figure>` (#119, ADR-0029) — nine logos read as one sentence
      rather than nine brand names, and `Figure`'s "alt is required" rule keeps its
      single exception where the description already is.
+   - **Drawing something tall on a slide.** A slide is fit and uniformly scaled,
+     never clipped (ADR-0013 §5.1), so a block that asks for more height than
+     the stage has does not get cut off — it shrinks the WHOLE slide, the title
+     with it. Cap against `SLIDE_BUDGET_VH` (`components/slideBudget.ts`), never
+     a private copy of the number: the two current users each declared it
+     privately and each claimed in a comment to be using "the same budget" as
+     the other, which nothing checked (#146 review). Worked cases: `<Mosaic>`
+     splits it across rows, `<SheetEmbed>` clamps its frame to
+     `min(height, SLIDE_BUDGET_VH vh)`.
    - **Inside `interactive/`**, reuse `Panel` (a labelled output strip),
      `useRunShortcut` (Ctrl/Cmd + Enter), `useLoadedRuntime` (loads a runtime
      module and hands back a bound `run`, `warm`, `queued`, `ready` and the
@@ -200,6 +219,12 @@ payload from 1 chunk to 9 with every name-based guard green).
 - [ ] Wide output carries `.not-prose` or `.measure-full`, checked in the book
       view of a real document (`npm run build && npm run preview`), not only in
       `/catalog` — which does not apply the reading measure.
+- [ ] If it draws something tall on a slide: capped against `SLIDE_BUDGET_VH`
+      (`components/slideBudget.ts`), not a number of its own.
+- [ ] If it embeds another origin: verified in a real browser per
+      `testing-strategy.md` §Conventions, third class — the frame paints, each
+      permission re-measured, network weight from a cold profile, and a sideways
+      drag on a touch context. No test at any level can see any of it.
 - [ ] If it carries a heavy dependency: lazy wrapper registered instead of the
       component, catalog entry importing the wrapper, its own L4 case copied in
       `src/architecture.test.ts`, entry chunk unchanged in `npm run build`.
