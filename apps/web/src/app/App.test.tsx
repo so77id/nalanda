@@ -115,25 +115,22 @@ describe('routing', () => {
     expect(screen.getByRole('heading', { name: /not found/i })).toBeInTheDocument();
   });
 
-  // A deliberate break, pinned (testing-strategy.md §Conventions). These four
-  // ids were PUBLISHED — merging to main deploys the site, so each one answered
-  // at https://so77id.github.io/nalanda/d/<id> until #135 deleted the documents
-  // behind them. No redirect ships, and that is the decision rather than an
-  // oversight: the Fundamentos material was retired (#136 took it off the
-  // teaching path first), so there is nowhere honest to send a reader — a
-  // redirect to a document about something else is worse than a 404.
+  // #135 deleted four PUBLISHED documents — merging deploys, so `/d/<id>` had
+  // been answering for `intro-estructuras`, `busqueda-binaria`,
+  // `codigo-ejecutable` and `apuntes-del-curso`. They 404 now, and no redirect
+  // ships: the material was retired rather than moved, so there is nowhere
+  // honest to send a reader.
   //
-  // `apuntes-del-curso` is the one with a successor: the same file became
-  // `planificacion`. It carried no notes, only a placeholder paragraph, so it is
-  // pinned with the rest. If that URL turns out to have been shared, this is the
-  // case to delete and replace with a redirect — consciously, which is the point
-  // of pinning it here.
-  it.each(['intro-estructuras', 'busqueda-binaria', 'codigo-ejecutable', 'apuntes-del-curso'])(
-    'serves 404 for /d/%s, retired in #135 with no redirect',
-    async (retiredId) => {
-      await renderAt(`/d/${retiredId}`);
-      expect(screen.getByRole('heading', { name: /not found/i })).toBeInTheDocument();
-      expect(screen.queryByRole('article')).not.toBeInTheDocument();
-    },
-  );
+  // That break is deliberately NOT pinned by id, and the reason is worth
+  // recording because `testing-strategy.md` §Conventions says to pin one. That
+  // rule protects whoever still holds the old URL — it stops a stale link from
+  // silently resolving to a DIFFERENT document later. Here nobody holds them
+  // (#135: they were demo pages), so there is no one to protect, and the cost
+  // lands on the wrong day: three of those four ids are core topics of this
+  // course — binary search, an introduction to structures, executable code —
+  // and v0.2 exists to write them properly. A pin would fire the day the
+  // material comes BACK, which is the good day, and its only remedy would be
+  // deleting the case. The generic unknown-id cases above already prove the 404
+  // path; what actually matters — that no document ships outside the index —
+  // is asserted in `documentBreadcrumb.test.tsx`.
 });
