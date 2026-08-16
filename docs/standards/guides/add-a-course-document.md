@@ -46,8 +46,22 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    id: busqueda-binaria # kebab-case, UNIQUE across the whole content/ tree
    title: Búsqueda binaria # shown in the TOC, prev/next, and lookups
    presentation: explicit # auto | explicit | none — declare it, always
+   questions: per-section # per-section | pool | none — declare it, always
    ---
    ```
+
+   `questions` declares what this document owes the entrance controls (#139),
+   and like `presentation` it is optional in the schema and required in
+   practice. `per-section` means every section carries at least one question,
+   with deliberate gaps declared in `NO_QUESTION` (`content/architecture.test.ts`)
+   **with their reason**; `pool` means a set of questions and no per-section
+   expectation, and it must not be empty — an empty pool says exactly what
+   `none` says; `none` means deliberately none, and it is the honest value for a
+   document whose questions are not written yet.
+
+   The point is to force a decision, not to force writing. A rule demanding one
+   question per section produces filler for hands-on slides and side-by-side
+   listings, and filler measures noise and then lands in a real control.
 
    `presentation` controls the document's slide form (ADR-0013): `auto`
    (default when absent) slices the deck on `h2` headings; `explicit` decks
@@ -551,6 +565,54 @@ ADR-0029.
    exist does NOT fail the build: it renders visibly broken (red wavy underline)
    and logs a console warning — forward links to drafts are allowed on purpose.
 
+7b. **Write the control questions** — the pool an entrance control draws from.
+   One `<Questions>` block, **after the last section and before the document's
+   closing invitation** where it has one: questions after a goodbye read as an
+   appendix nobody scrolls to.
+
+   ````mdx
+   <Questions>
+
+   <Question id="que-hace-import" anchor="import-y-paquetes">
+
+   ¿Qué hace `import java.util.Scanner`?
+
+   - [x] Abrevia: al escribir `Scanner` te refieres a `java.util.Scanner`
+   - [ ] Pega el contenido de esa clase dentro de tu archivo
+   - [ ] Descarga la clase desde el paquete `java.util`
+   - [ ] Compila esa clase junto con tu programa
+
+   </Question>
+
+   </Questions>
+   ````
+
+   Four things to get right, all enforced:
+
+   - **`id` is written by hand and never changes.** It is the join key all the
+     way to a grade (ADR-0031). Deriving it fails both ways: anchor-plus-ordinal
+     renumbers when questions are reordered, and a hash of the statement changes
+     when a typo is fixed.
+   - **`anchor` is the slug of an `h2`** — and a `<Slide title>` renders an `h2`,
+     so slide titles are anchorable and are where most anchors point. Omit it
+     when the question belongs to the whole chapter. An anchor naming no section
+     paints an authoring error on the page and reddens the suite; the build
+     stays green, because drafting before the section exists is a real order of
+     work.
+   - **The answer is marked in place** with `- [x]`, never named from outside.
+     Naming one by position means reordering the alternatives silently changes
+     the answer.
+   - **Mark more than one and it becomes a multiple** — the type is derived, not
+     declared. Between one and three of the four.
+
+   A fenced block inside a question renders read-only: in a document body a
+   fence is a runnable editor, and a Run button would answer *"¿qué imprime este
+   programa?"* before the student did.
+
+   **Read [`write-control-questions.md`](write-control-questions.md) before
+   drafting any.** This step is how to type them; that is whether they are worth
+   asking, and the difference is most of the value.
+
 8. **Register it in the teaching path** (`index.yaml`) if it belongs to the
    recorrido. Schema (strictly validated; unknown keys fail the build):
 
@@ -641,6 +703,12 @@ ADR-0029.
 - [ ] The deck the chosen value produces was walked once in `/d/<id>/present`,
       unless the value is `none`.
 - [ ] Wiki-links point at real ids (or are intentional forward links).
+- [ ] `questions` declared, and what it promises is true: under `per-section`
+      every section has a question or a declared reason for not having one;
+      under `pool` the pool is not empty. Each question read against its own
+      section, alone, and answered — the one failure no gate can see is a
+      question that is perfectly formed and unanswerable from the section it
+      claims (`write-control-questions.md`).
 - [ ] Listed in `index.yaml` if it belongs to the recorrido — or, if it is
       deliberately off the path, its id declared in `RETIRED` in
       `app/documentBreadcrumb.test.tsx`. The suite asserts the unlisted set
