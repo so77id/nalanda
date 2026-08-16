@@ -91,12 +91,16 @@ check_eq 'writing nothing on stdout, so a caller piping it gets no half report' 
   '' "$(reader_out)"
 
 prepare_scoring() { # prepare_scoring [n-copies] — default 5, the batch's size
-  run bash -c "
+  # The count is passed as an ARGUMENT to bash -c, not interpolated into the
+  # string: this is the suite that drives a worker whose Python side is
+  # forbidden from doing exactly that (python-code-style.md §Subprocess), and
+  # the shell has no business setting a worse example (#147 review, SEC-7).
+  run bash -c '
     auto-multiple-choice prepare --mode b --with pdflatex \
-      --n-copies ${1:-5} \
+      --n-copies "$1" \
       --data /work/project/data --prefix /work/project \
       /work/src/control-demo.tex >/dev/null 2>&1
-  "
+  ' _ "${1:-5}"
 }
 # TRAP 3 (worker.py): scoring is prepared AFTER capture. The other order leaves
 # scoring_code empty and every later association matches nothing.

@@ -38,6 +38,14 @@ and AFTER `analyse` — `/analyse` in worker.py does exactly that, and a caller
 driving the CLI by hand must too. Reading without it is refused rather than
 worked around; see MissingScoring.
 
+And it must have been scored after the LAST capture, for every captured copy.
+`prepare --mode b` needs `--n-copies`: without it AMC scores only the copies
+the source declares in `\\onecopy{N}`, so a larger class leaves copies captured
+and unscored — measured on the paper check, where one copy came back with
+every score null under `status: "ok"`. A captured question with no score is
+refused per copy, because the repair is re-running `note` rather than a human
+looking at the sheet.
+
 WHAT AMC DECIDES AND WHAT WE DECIDE, because the difference matters when
 something goes wrong on a real sheet:
 
@@ -87,7 +95,11 @@ QUESTION_MULTIPLE = 2
 
 
 class MissingScoring(Exception):
-    """The project has no usable scoring database.
+    """The project cannot be scored as read.
+
+    Raised from three places: no scoring database, one that exists and holds no
+    scores, and — per copy — a question that was captured after the batch was
+    scored. The third is the one a healthy-looking project reaches.
 
     Not a detail to shrug off: without it the reader cannot tell a
     multiple-answer question from a simple one — so it would report a correct
@@ -124,8 +136,12 @@ def check_scoring(data_dir):
             f"{path} does not exist — run `auto-multiple-choice prepare "
             "--mode b` and then `note`, after `analyse`",
         )
-    con = sqlite3.connect(path)
+    con = None
     try:
+        # connect inside the try as well: a `scoring.sqlite` that is a
+        # DIRECTORY — how a mis-specified `docker -v` shows up — raises here
+        # rather than on the query, and used to escape as a traceback.
+        con = sqlite3.connect(path)
         scored = con.execute("SELECT COUNT(*) FROM scoring_score").fetchone()[0]
     except sqlite3.Error as exc:
         # sqlite3.Error, not OperationalError: the likeliest corruption is a
@@ -136,7 +152,8 @@ def check_scoring(data_dir):
             f"{path}: {exc} — run `auto-multiple-choice prepare --mode b`",
         ) from exc
     finally:
-        con.close()
+        if con is not None:
+            con.close()
     if not scored:
         raise MissingScoring(
             "the scoring database holds no scores",
@@ -161,11 +178,29 @@ def printed_copies(data_dir):
     It lives here rather than in the wrapper because knowing AMC's private
     schema is this module's job and nobody else's (ADR-0031 §Consequences).
     """
-    con = sqlite3.connect(os.path.join(data_dir, "layout.sqlite"))
+    path = os.path.join(data_dir, "layout.sqlite")
+    if not os.path.exists(path):
+        # Same rule as check_scoring, and it was broken here first: connecting
+        # would CREATE the file, leaving an empty database in the project and
+        # a 500 that blames sqlite (#147 review, SEC-6/ARQ-12).
+        raise MissingScoring(
+            "no layout in this project",
+            f"{path} does not exist — run `auto-multiple-choice meptex` first",
+        )
+    con = sqlite3.connect(path)
     try:
-        return con.execute("SELECT MAX(student) FROM layout_box").fetchone()[0] or 1
+        highest = con.execute("SELECT MAX(student) FROM layout_box").fetchone()[0]
     finally:
         con.close()
+    if highest is None:
+        # Guessing 1 here would score one copy of a whole class, and the
+        # refusal downstream would blame `note` for it.
+        raise MissingScoring(
+            "the layout is empty",
+            f"{path} has no boxes — `auto-multiple-choice meptex` never ran, "
+            "or ran against an empty calage file",
+        )
+    return int(highest)
 
 
 def scoring_facts(data_dir):
@@ -181,9 +216,9 @@ def scoring_facts(data_dir):
     without saying so would disagree with the grade in silence, which is the
     class of defect ADR-0031 exists to forbid.
 
-    A question with no score falls back to `UNSCORED`, whose "simple" is the
-    safe direction: an unexpected second tick then goes to the review queue
-    instead of being accepted as an answer nobody checked.
+    A question with no score falls back to `UNSCORED`, and `read()` REFUSES the
+    batch rather than publishing that row — see the raise there. The fallback
+    exists so the refusal has something to inspect, not so a guess can ship.
 
     `scoring_score` also carries a `copy` column, for a sheet scanned more than
     once, and the two tables are collapsed by DIFFERENT rules: this one keeps

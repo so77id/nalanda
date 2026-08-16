@@ -72,8 +72,10 @@ note() {
 # that copied only the `.tex` fails LaTeX outright. Seven callers stage that
 # directory — every script here, plus `make paper` — so the copying lives in
 # one place rather than seven, and a fixture that grows another asset does not
-# have to remember all of them. `make paper` cannot source this file and keeps
-# its own copy of the two lines; it is the one to update by hand.
+# have to remember all of them. `make paper` does not source this file — it is a
+# bash test harness (`set -euo pipefail`, the check counters, `$IMAGE`) and a
+# make recipe has no business pulling that in — so it keeps its own copy of the
+# two lines; it is the one to update by hand.
 stage_source() {
   mkdir -p "$1/code"
   cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$1/"

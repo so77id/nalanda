@@ -192,6 +192,41 @@ case "$guard" in
 *) pass "and never reaches the GUI" ;;
 esac
 
+# --- the copy count the wrapper has to derive ---------------------------------
+#
+# `prepare --mode b` scores the copies the SOURCE declares in \onecopy{N}, not
+# the ones that were printed, so /analyse derives the count from the layout and
+# passes --n-copies. Deleting that argument used to leave the WHOLE suite green
+# (#147 review, ARQ-9): the only batch reaching /analyse printed exactly as many
+# copies as the fixture declares, which is the one case where the flag is a
+# no-op. So the trap is performed rather than read off the wrapper
+# (testing-strategy.md §apps/amc-worker) — six copies from a source declaring
+# five, over the HTTP contract, where losing the flag makes the sixth copy
+# unscored and /analyse answer 500.
+
+printf '{"6": {"rut": "19876543", "answers": [1, 1, 1, 1]}}\n' >"$work/plan6.json"
+
+gen6="$(post /generate '{"project":"project6","source":"src/control-demo.tex","copies":6}')"
+check_eq "six copies generate from a source that declares five" "6" \
+  "$(echo "$gen6" | field 'd["copies"]')"
+
+check "the sixth sheet can be filled" \
+  docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" \
+  python3 /work/fill_sheet.py --layout /work/project6/data/layout.sqlite \
+  --sujet /work/project6/out/sujet.pdf --out /work/scan6 \
+  --plan /work/plan6.json --pdf /work/scan6/lote.pdf
+
+# `|| true` because this POST is the one expected to FAIL when the guard is
+# gone: without it curl's non-zero exit aborts the script under `set -e` and
+# the run ends with no FAIL line, leaving whoever hit it to work out why.
+rep6="$(post /analyse '{"project":"project6","scan_pdf":"scan6/lote.pdf","source":"src/control-demo.tex"}' || true)"
+check_eq "the sixth copy comes back scored, not null" "False" \
+  "$(echo "$rep6" | field 'any(a["score"] is None for a in d["copies"]["6"]["answers"])')"
+check_eq "and with a real denominator on every question" "False" \
+  "$(echo "$rep6" | field 'any(a["max"] is None for a in d["copies"]["6"]["answers"])')"
+note "copy 6 over HTTP" \
+  "$(echo "$rep6" | field '[(a["name"], a["score"], a["max"]) for a in d["copies"]["6"]["answers"]]')"
+
 note "container" "$(docker ps --filter "name=${NAME}" --format '{{.Image}} {{.Status}}')"
 
 summary
