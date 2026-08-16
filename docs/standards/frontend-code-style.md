@@ -65,7 +65,7 @@ src/
   exports `loadCatalogEntries()` — a dynamic `import()` of
   `components/catalogEntries.ts` — rather than the array, because the shell
   imports the seam to build the MDX map and a static array there travelled with
-  every course page (#122, 12.15 kB gzip). The function is the mechanism, not
+  every course page (#122, 12.86 kB gzip). The function is the mechanism, not
   decoration: `export { catalogEntries } from './catalogEntries'` is a static
   edge and puts it straight back, while importing the inner module from another
   feature would break the one-seam rule above. Same shape as `runtime/`'s

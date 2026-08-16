@@ -323,6 +323,21 @@ page-only, invisible to every other gate.
   which is the one placement that never happens when the tab freezes. The fake
   worker already provides the seam — a message posted and deliberately left
   unanswered is the frozen tab.
+- **A memoised resource is pinned by a NAVIGATION test, not a mount test.** When
+  a module caches a promise so every reader shares one fetch — `loadCatalog()` in
+  `catalog/registry.ts` is the worked case (#122) — a mount case cannot see the
+  memo at all: a fresh promise per call and a shared one are indistinguishable on
+  the first render, and only the *second* reader in the same session misbehaves
+  (with `use()`, by suspending forever). Measured by mutation in that WP's review:
+  making `loadCatalog` return a new promise per call reddened exactly the three
+  cases that navigate between two pages by clicking a link, and no mount case
+  moved. Assert it by visiting one page that reads the resource, navigating to
+  another that reads it too, and requiring the second to render.
+- **A test that mounts a component reading a promise with `use()` must await an
+  `act` scope.** Testing Library's synchronous `render` opens one nobody awaits,
+  and React discards a tree that suspends inside it. A query opening with
+  `findBy*` retries past the problem, so a suite can look fine while any case
+  that reads the DOM straight after `render` sees an empty body (#122).
 - Component tests assert behavior/contract (what renders per mode/props), not
   implementation details or snapshots.
 - Architecture tests live in `src/` near what they guard and are named

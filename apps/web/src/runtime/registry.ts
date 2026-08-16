@@ -48,8 +48,8 @@ export async function loadRuntime(id: RuntimeId): Promise<RuntimeModule> {
  * Two entry points rather than one module with two exports, because two
  * consumers genuinely need one without the other. `<MemoryDiagram>` drives a
  * real JVM and draws its own listing (ADR-0026/0028), so while the grammar sat
- * inside the runtime module it paid 16.94 kB gzip for a highlighter it never
- * rendered; the java chunk went 43.93 kB / 18.57 kB gzip to 3.24 kB / 1.63 kB
+ * inside the runtime module it paid 16.14 kB gzip for a highlighter it never
+ * rendered; the java chunk went 43.94 kB / 17.76 kB gzip to 3.20 kB / 1.62 kB
  * gzip when they were separated (#122). The mirror case is real too: an editor
  * highlights before — and whether or not — anything is ever run.
  *

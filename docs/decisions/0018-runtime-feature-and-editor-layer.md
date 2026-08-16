@@ -63,10 +63,10 @@ Two rules carry weight beyond their size:
 > `<lang>/grammar.ts` per language. `RuntimeModule` is now the compiler half
 > only. The reason is a consumer this decision did not anticipate: `<MemoryDiagram>`
 > drives a real JVM and draws its own listing (ADR-0028), so a grammar inside the
-> module made it pay 16.94 kB gzip to render no highlighting at all. Measured on
-> the built site — java 43.93 kB / 18.57 kB gzip → 3.19 kB / 1.61 kB gzip, cpp
-> 104.13 / 34.88 → 0.20 / 0.18, python 44.81 / 19.45 → 0.20 / 0.18, with the
-> grammars in three lazy chunks of their own (16.94 / 34.75 / 19.33 kB gzip) that
+> module made it pay 16.14 kB gzip to render no highlighting at all. Measured on
+> the built site — java 43.94 kB / 17.76 kB gzip → 3.20 kB / 1.62 kB gzip, cpp
+> 104.13 / 33.41 → 0.20 / 0.19, python 44.82 / 18.64 → 0.20 / 0.19, with the
+> grammars in three lazy chunks of their own (16.15 / 33.29 / 18.52 kB gzip) that
 > only a consumer mounting an editor asks for. The eager payload is untouched:
 > nothing under `runtime/` was ever in it, and the invariant below is unchanged.
 
@@ -215,37 +215,82 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   listing on palette coherence rather than on cost, and writes the price down so
   a future reader can reopen it with numbers in hand.
 - **The eager payload is measured as a payload, not as "the entry chunk"**
-  (#122, 2026-08-16, vite 8.2.0). The entry script **plus every `modulepreload`
-  in `dist/index.html`** — because the entry chunk alone lies the moment chunking
-  changes, which is exactly how the 1-chunk/503,623 B → 9/542,194 B regression
-  above went unnoticed. On `main` at 5fa384e:
+  (#122, 2026-08-16, vite 8.2.0). The unit is the entry script **plus every
+  `modulepreload` plus every stylesheet in `dist/index.html`** — everything the
+  first paint blocks on. The entry chunk alone lies the moment chunking changes,
+  which is exactly how the 1-chunk/503,623 B → 9/542,194 B regression above went
+  unnoticed.
+
+  **Name the compressor or the next reader will "disagree" for no reason.** These
+  figures are `zlib.gzipSync` at its default level, which is what `vite preview`
+  actually puts on the wire (verified against `encodedBodySize`, byte for byte).
+  Vite's own printed gzip column is a different setting and reads up to ~4.6%
+  higher; the two are not interchangeable, and one draft of this section mixed
+  them — the table below from real gzip, the grammar figures from vite's reporter.
+  kB is 1000 bytes throughout, as vite reports it.
+
+  The stylesheet is in the unit because it is render-blocking and it is 12.85 kB
+  gzip, 7.3% of what the first paint waits on. It is byte-identical on both sides
+  here, so it changes no delta below — but Tailwind's scan is filesystem-based, so
+  a stray build copy inside `apps/web/` moves it with no source change at all.
+  (That happened during this review; `dist*` is gitignored now.)
+
+  On `main` at 5fa384e, measured at the tip of the WP rather than mid-flight —
+  the first version of this table was taken at slice 1 of 3 and was 245 raw bytes
+  stale by the time it shipped:
 
   |                                   | eager chunks | raw | gzip |
   |---|---|---|---|
   | before                            | 2 | 549.31 kB | 174.74 kB |
-  | catalog entries behind `loadCatalogEntries()` | 3 | 512.07 kB | 163.32 kB |
+  | catalog entries behind `loadCatalogEntries()` | 3 | 512.27 kB | 163.45 kB |
 
-  **−37.24 kB raw, −11.42 kB gzip on every page of the site**, including the ones
+  **−37.04 kB raw, −11.29 kB gzip on every page of the site**, including the ones
   with no code and no interest in the catalog. The third chunk is lucide's
   `createLucideIcon` (2.70 kB / 1.43 kB gzip), which the entry and the new
   catalog chunk now share — one more request, no duplicated bytes.
 
-  **The rejected variant is the useful part of this record.** Making the four
-  `/catalog` routes `React.lazy` *as well* — the obvious design — was built and
-  measured: **11 eager chunks, 514.67 kB raw, 166.74 kB gzip.** Moving *more* code
-  out of the entry chunk shipped **4 kB gzip more**, because eleven small chunks
-  compress worse than one large one, and cost nine extra requests on first paint.
-  A criterion written as "the entry chunk got smaller" grades that variant as a
-  pass. Pin the payload and the chunk count, or do not claim a saving.
+  **A lazy `/catalog` route was rejected, and the first version of this paragraph
+  rejected it for a reason that was not true.** It is worth writing down in full,
+  because the mistake is subtler than the one this whole section warns about.
 
-  Two facts worth keeping for whoever tries the lazy-route variant again:
-  `app/DocumentTitle.tsx` imports `{ families }` from the catalog seam, so the
-  catalog barrel is statically reachable from the shell and its page chunk stayed
-  `modulepreload`ed even with the routes lazy — that edge has to be cut first.
-  And the catalog pages now suspend on first render, so a test that mounts one
-  with Testing Library's synchronous `render` must await an `act` scope; React
-  discards a tree that suspends inside one that nobody awaits, and the page never
-  commits.
+  The obvious design is to `React.lazy` the four `/catalog` routes as well. Built
+  and measured, it read **11 eager chunks / 514.74 kB / 166.71 kB gzip**, and that
+  was written up as "moving *more* code out of the entry chunk shipped 4 kB gzip
+  more, because eleven small chunks compress worse than one large one". The build
+  had printed `INEFFECTIVE_DYNAMIC_IMPORT` four times and nobody read it: the
+  pages were still statically reachable through `src/catalog/index.ts`, so
+  **nothing moved**. The measurement was real; the causal story attached to it was
+  invented. What it actually measured is re-splitting the *same* eager bytes into
+  eleven chunks, which costs **+3.26 kB gzip** — a genuine lesson about chunk
+  count as a criterion, and no evidence whatsoever about how gzip treats small
+  chunks.
+
+  Measured honestly (the `lazy()` calls moved INSIDE `src/catalog/index.ts`, so
+  the seam is the cut and `src/architecture.test.ts` stays green), a lazy
+  `/catalog` is **9 eager chunks / 502.95 kB / 162.22 kB gzip** — about **1.2 kB
+  gzip better** than what shipped. The real trade is 1.2 kB gzip against **six
+  extra requests on the first paint of every page**, and this ADR's own criterion
+  says to pin the chunk count. That is why the routes are not lazy. It is a close
+  call decided on requests, not a rout decided on bytes.
+
+  One trap for whoever reopens it: cutting the edge the obvious way — pointing
+  `app/DocumentTitle.tsx` at `../catalog/families` instead of the barrel — fails
+  `src/architecture.test.ts` with five seam violations. The lazy variant has to go
+  through the seam, or `families` has to move to `lib/` first.
+
+  Also worth keeping: the catalog pages suspend on first render now, so a test
+  that mounts one with Testing Library's synchronous `render` must await an `act`
+  scope — React discards a tree that suspends inside one nobody awaits, and the
+  page never commits.
+
+  **And a `<Suspense fallback={null}>` around them was measured and removed.** It
+  looked free and was not: first paint on `/catalog` went from ~60 ms to ~375 ms,
+  of which roughly 310 ms is React's fixed `FALLBACK_THROTTLE_MS` holding the
+  reveal once a fallback has committed — the chunk itself lands at ~45 ms. On a
+  client-side navigation it blanked the page the reader was still reading. With no
+  boundary React keeps the outgoing page up and reveals the new one when the data
+  lands: 68–76 ms, measured. A `null` fallback is not "no fallback"; it is a
+  commitment to show nothing, and it is charged at the throttle.
 - **One live worker costs a few hundred MB of RSS** — 681MB peak measured for a
   single C++ worker on Apple Silicon (2026-08-11, Chromium via Playwright),
   against a 152MB idle baseline. Discarding it reclaims the live heap and all

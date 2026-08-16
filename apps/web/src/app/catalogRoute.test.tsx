@@ -13,8 +13,11 @@ const catalog = await loadCatalog();
 // Async because the catalog entries arrive as a promise (#122) and `use()`
 // suspends on the first render. Testing Library's synchronous `render` wraps the
 // mount in an `act` scope nobody awaits, and React discards a tree that suspends
-// inside one — the page never commits and every query below fails on an empty
-// body. Awaiting the act scope is what React's own diagnostic asks for.
+// inside one. Precisely what that costs, measured rather than assumed: a query
+// that opens with `findBy*` retries past it and is fine — 37 of the 38 cases
+// here — and one that reads the DOM straight after `render` sees an empty body.
+// Awaiting the act scope is what React's own diagnostic asks for, and it removes
+// the difference between the two shapes.
 async function renderAt(path: string) {
   await act(async () => {
     render(

@@ -156,7 +156,7 @@ apps/web/src/components/structure/
    array is invisible to the catalog. That module is deliberately NOT the seam:
    the seam reaches it through `loadCatalogEntries()`, behind a dynamic import,
    because the shell reaches the seam eagerly and the entries are documentation
-   for authors, not payload for readers (#122 — 12.15 kB gzip on every course
+   for authors, not payload for readers (#122 — 12.86 kB gzip on every course
    page). Nothing outside the seam may import it, and `src/architecture.test.ts`
    walks the eager graph to keep it that way.
    `name` is the component's identity in three places at once: it MUST equal the

@@ -3,7 +3,7 @@
 // Every entry here is prose written for component authors — descriptions, prop
 // tables, example snippets — and `/catalog` is its only reader. Imported from
 // `index.ts` it rode in the payload of every course page instead, including
-// documents nobody opens the catalog from (12.15 kB gzip, #122). The seam
+// documents nobody opens the catalog from (12.86 kB gzip, #122). The seam
 // reaches it through `loadCatalogEntries()`; nothing else may name this module,
 // and `src/architecture.test.ts` walks the eager graph to keep it that way.
 import type { CatalogEntry } from '../lib/catalogEntry';

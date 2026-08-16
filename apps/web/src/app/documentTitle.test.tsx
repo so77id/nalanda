@@ -17,7 +17,9 @@ import { AppRoutes } from './AppRoutes';
 // Async for the same reason as catalogRoute.test.tsx: /catalog suspends on its
 // first render now (#122), and a tree that suspends inside an unawaited `act`
 // scope is discarded — including the sibling <DocumentTitle /> this file exists
-// to prove is wired.
+// to prove is wired. Here it is load-bearing rather than hygiene: these cases
+// read `document.title` through `waitFor`, so without the awaited scope the
+// effect that sets it never runs at all.
 async function renderAt(path: string) {
   await act(async () => {
     render(

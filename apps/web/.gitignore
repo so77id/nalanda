@@ -4,7 +4,11 @@ logs
 npm-debug.log*
 
 node_modules
-dist
+# `dist*`, not `dist`: a parked copy of a build (dist-main, dist-before) is what
+# a payload measurement is made of, and Tailwind's scan is filesystem-based — one
+# sitting here moved the eager stylesheet by 1.6 kB with no source change at all,
+# which invalidated a whole round of numbers (#122 review).
+dist*
 *.local
 
 # Build input, not source: fetched by scripts/fetch-java-compiler.mjs

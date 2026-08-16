@@ -277,11 +277,11 @@ describe('architecture: what the shell reaches eagerly', () => {
     // The entries are documentation ADDRESSED TO COMPONENT AUTHORS — descriptions,
     // when-to-use, prop tables, example snippets — and only /catalog reads them.
     // Reached eagerly they ride in the payload of every course page, including
-    // documents nobody will ever open the catalog from: 38.04 kB raw / 12.15 kB
+    // documents nobody will ever open the catalog from: 38.45 kB raw / 12.86 kB
     // gzip of the eager payload, measured on #122. Weight is not the reason this
     // is a guard rather than a number in an ADR, though — the reason is that it
     // grows with every component the repo adds and nothing else would notice:
-    // 5.45 kB gzip when #116 filed it, 12.15 four WPs later.
+    // 5.45 kB gzip when #116 filed it, 12.86 four WPs later.
     expect(
       [...modules]
         .map((f) => relative(SRC, f))

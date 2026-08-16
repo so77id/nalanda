@@ -44,8 +44,8 @@ entries reach the catalog, and what a machine can check.
    `loadCatalog(): Promise<Catalog>` and the pages read it through `use()` under
    one Suspense boundary. The reason is that the shell reaches the components
    seam eagerly to build the MDX map, so a static array there put every entry's
-   prose — author documentation — in the payload of every course page: 38.04 kB
-   raw / 12.15 kB gzip, measured, and growing with each component (5.45 kB gzip
+   prose — author documentation — in the payload of every course page: 38.45 kB
+   raw / 12.86 kB gzip, measured, and growing with each component (5.45 kB gzip
    when it was first noticed, four WPs earlier). A function rather than a
    re-export is load-bearing: `export { catalogEntries } from './catalogEntries'`
    is a static edge and puts it straight back. Nothing about *what* an entry is
