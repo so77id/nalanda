@@ -55,9 +55,12 @@ export interface RunRequest {
    * instead of the program (and it has no `main`), and swapping the two trips
    * the reserved-name guard on the platform's own class.
    *
-   * That guard applies to `source` only, deliberately: it exists to stop a
-   * student's class shadowing a platform one, and the platform's own unit
-   * arriving here is the intended use.
+   * That guard reads `source` and `harness` — every top-level declaration in
+   * each, not their entry classes alone (#123) — and skips this field entirely,
+   * deliberately: it exists to stop a student's class shadowing a platform one,
+   * and the platform's own unit arriving here is the intended use. Unlike
+   * `harness`, which carries an author's `test` fence into a compilation unit,
+   * `library` is reachable only from a module constant.
    */
   library?: string;
 }

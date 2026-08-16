@@ -1,10 +1,11 @@
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../contract';
 import { OUTPUT_DIR, javaClassPath } from './classPath';
 import {
+  HARNESS_CLASS,
   LAUNCHER_CLASS,
   LAUNCHER_SOURCE,
-  RESERVED_CLASSES,
   deriveEntryClass,
+  reservedDeclarations,
   sourceFileName,
 } from './launcher';
 
@@ -188,15 +189,29 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       // measuring the student's program.
       emit({ id, type: 'started' });
 
-      const studentClass = deriveEntryClass(source);
-      // See RESERVED_CLASSES: a student class named after a platform one
-      // overwrites its .class in the shared output directory and poisons every
-      // editor on the page.
-      if (RESERVED_CLASSES.includes(studentClass.split('.').pop() ?? studentClass)) {
+      // See RESERVED_CLASSES: a class named after a platform one overwrites its
+      // .class in the shared output directory and poisons every editor on the
+      // page. Every top-level declaration, not the entry class alone — that is
+      // the hole #123 closed, and `reservedDeclarations` documents its edges.
+      //
+      // A unit may not declare a reserved name it does not OWN. `source` owns
+      // none. The harness IS `NalandaCheck` (`buildHarness` generates it), so
+      // that one name is its own and scanning for it would refuse every
+      // exercise on the site; any other reserved name in it shadows the same as
+      // anywhere else. `library` is not scanned at all: platform code by
+      // construction, reachable only from a module constant, and its unit
+      // arriving there is the intended use (ADR-0028 §6).
+      const collision = [
+        ...reservedDeclarations(source),
+        ...(harness === undefined
+          ? []
+          : reservedDeclarations(harness).filter((name) => name !== HARNESS_CLASS)),
+      ][0];
+      if (collision !== undefined) {
         emit({
           id,
           type: 'result',
-          compileLog: `${studentClass} es un nombre reservado por la plataforma. Ponle otro nombre a tu clase.`,
+          compileLog: `${collision} es un nombre reservado por la plataforma. Ponle otro nombre a tu clase.`,
           output: '',
           exitCode: null,
           compileMs: 0,
@@ -213,9 +228,9 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
 
       const sourcePaths = [write(source)];
       // Compiled beside the source and never run: the snippet keeps `main` and
-      // calls into it. Not subject to the reserved-name guard above — that
-      // guard is about a student shadowing a platform class, and this IS the
-      // platform class.
+      // calls into it. The one unit the guard above does not read — that guard
+      // is about a student shadowing a platform class, and this IS the platform
+      // class.
       if (library !== undefined) sourcePaths.push(write(library));
       // With a harness present the student's class is a library, not a program:
       // the harness owns `main` and decides what to call.

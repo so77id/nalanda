@@ -5,8 +5,10 @@ import {
   LAUNCHER_CLASS,
   LAUNCHER_SOURCE,
   RESERVED_CLASSES,
+  TRACE_CLASS,
   TRUNCATED,
   deriveEntryClass,
+  reservedDeclarations,
   sourceFileName,
 } from './launcher';
 
@@ -111,5 +113,75 @@ describe('output cap', () => {
   it('reserves the two class names the platform compiles', () => {
     expect(RESERVED_CLASSES).toContain(LAUNCHER_CLASS);
     expect(RESERVED_CLASSES).toContain(HARNESS_CLASS);
+  });
+});
+
+describe('reservedDeclarations', () => {
+  it('finds a reserved class declared beside the public one', () => {
+    // The hazard the entry-class check could not see: `deriveEntryClass` returns
+    // the PUBLIC class, so the launcher-shaped second declaration compiled
+    // anyway and overwrote the memoised launcher for the whole page.
+    const source = ['public class Solucion { }', `class ${LAUNCHER_CLASS} { }`].join('\n');
+
+    expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS]);
+  });
+
+  it.each([HARNESS_CLASS, TRACE_CLASS, LAUNCHER_CLASS])('finds %s', (reserved) => {
+    expect(reservedDeclarations(`public class Solucion {}\nclass ${reserved} {}`)).toEqual([
+      reserved,
+    ]);
+  });
+
+  it.each(['class', 'interface', 'enum'])('finds the %s form', (keyword) => {
+    // All three declare the same binary name, so all three overwrite the same
+    // .class in the shared output directory.
+    expect(reservedDeclarations(`public class Solucion {}\n${keyword} ${TRACE_CLASS} {}`)).toEqual([
+      TRACE_CLASS,
+    ]);
+  });
+
+  it('finds the entry class itself', () => {
+    expect(reservedDeclarations(`public class ${LAUNCHER_CLASS} { }`)).toEqual([LAUNCHER_CLASS]);
+  });
+
+  it('ignores a reserved name that is only mentioned', () => {
+    // Prose and text are not declarations: a program explaining the rule, or
+    // printing the name, still compiles.
+    const source = [
+      `// no puedes llamar a tu clase ${LAUNCHER_CLASS}`,
+      'public class Solucion {',
+      `  String s = "class ${HARNESS_CLASS} {";`,
+      '}',
+    ].join('\n');
+
+    expect(reservedDeclarations(source)).toEqual([]);
+  });
+
+  it('ignores a nested reserved declaration, which collides with nothing', () => {
+    // A member class compiles to `Solucion$NalandaLauncher.class`, so it cannot
+    // overwrite the platform's. Refusing it would be a false positive.
+    const source = `public class Solucion {\n  static class ${LAUNCHER_CLASS} { }\n}`;
+
+    expect(reservedDeclarations(source)).toEqual([]);
+  });
+
+  it('says nothing about an ordinary program', () => {
+    expect(reservedDeclarations('public class Main { void f() { int[] a = {1, 2}; } }')).toEqual(
+      [],
+    );
+  });
+
+  it('does not match a longer name that merely starts with a reserved one', () => {
+    expect(reservedDeclarations(`public class ${LAUNCHER_CLASS}Mio { }`)).toEqual([]);
+  });
+
+  it('reports every reserved name it finds, in order', () => {
+    const source = [
+      'public class Solucion {}',
+      `class ${LAUNCHER_CLASS} {}`,
+      `interface ${HARNESS_CLASS} {}`,
+    ].join('\n');
+
+    expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS, HARNESS_CLASS]);
   });
 });

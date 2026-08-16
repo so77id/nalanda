@@ -381,6 +381,101 @@ describe('createJavaRuntime', () => {
       expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
     });
 
+    it('refuses a reserved class declared BESIDE the public one', async () => {
+      // The hole this guard had: `deriveEntryClass` returns the public class, so
+      // the second declaration was never looked at — and ECJ compiled it into
+      // the same output directory, overwriting the memoised launcher for every
+      // editor on the page.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: [
+          'public class Solucion { }',
+          'class NalandaLauncher { public static void main(String[] a) {} }',
+        ].join('\n'),
+        stdin: '',
+        harness,
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(/NalandaLauncher.*reservado/i);
+      // Nothing was compiled or run: the refusal happens before either.
+      expect(invocations.some((one) => one.args.some((arg) => arg.endsWith('Solucion.java')))).toBe(
+        false,
+      );
+    });
+
+    it.each(['NalandaCheck', 'NalandaTrace'])('refuses a secondary %s too', async (reserved) => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: ['public class Solucion { }', `class ${reserved} { }`].join('\n'),
+        stdin: '',
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(new RegExp(`${reserved}.*reservado`, 'i'));
+    });
+
+    it.each(['interface', 'enum'])('refuses the %s form as well', async (keyword) => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: ['public class Solucion { }', `${keyword} NalandaTrace { }`].join('\n'),
+        stdin: '',
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
+    });
+
+    it('compiles a program that only MENTIONS a reserved name', async () => {
+      // A comment and a string are not declarations. Refusing them would refuse
+      // a program explaining the rule — the guard reads code, not prose.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: [
+          '// no llames a tu clase NalandaLauncher',
+          'public class Solucion {',
+          '  String s = "class NalandaCheck {";',
+          '  public static void main(String[] a) { }',
+          '}',
+        ].join('\n'),
+        stdin: '',
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).not.toMatch(/reservado/i);
+      const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
+      expect(run?.args[0]).toBe('Solucion');
+    });
+
+    it('refuses a reserved class the HARNESS smuggles in beside its own', async () => {
+      // The harness is generated from an author's `test` fence, and it carries
+      // that text into a compilation unit. Its own NalandaCheck is legitimate —
+      // it IS that class — but a second reserved declaration is the same
+      // overwrite as any other.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: 'class Solution { static int doble(int n) { return n * 2; } }',
+        stdin: '',
+        harness: [
+          'public class NalandaCheck { public static void main(String[] a) {} }',
+          'class NalandaLauncher { }',
+        ].join('\n'),
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(/NalandaLauncher.*reservado/i);
+    });
+
     it('does not wedge the page when an abandoned run finishes anyway', async () => {
       // A route change unmounts every editor, which terminates their workers. If
       // a run was in flight — the ~12s boot is easy to wander off during — that

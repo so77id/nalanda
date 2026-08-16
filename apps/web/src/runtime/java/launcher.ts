@@ -117,6 +117,38 @@ export const TRACE_CLASS = 'NalandaTrace';
 export const RESERVED_CLASSES = [LAUNCHER_CLASS, HARNESS_CLASS, TRACE_CLASS];
 
 /**
+ * The reserved names a compilation unit declares, in the order it declares them.
+ *
+ * Checking the ENTRY class was not enough, which is what this replaces: a unit
+ * declaring `public class Solucion` and `class NalandaLauncher` beside it hands
+ * `deriveEntryClass` the public one and compiles both, so the launcher was
+ * overwritten by a program the guard had just cleared (#123).
+ *
+ * Two things it deliberately does NOT flag:
+ *
+ * - **A nested declaration.** A member class compiles to
+ *   `Solucion$NalandaLauncher.class` and collides with nothing, so brace depth
+ *   is tracked and only depth 0 counts. Everything at depth 0 in a Java file is
+ *   a package, an import or a type declaration, which is also why matching there
+ *   cannot mistake a `Foo.class` literal for one.
+ * - **A mention.** The scan runs over `stripNonCode`, so a comment explaining the
+ *   rule and a string holding `"class NalandaCheck {"` are already blank.
+ */
+export function reservedDeclarations(source: string): string[] {
+  const code = stripNonCode(source);
+  const found: string[] = [];
+  let depth = 0;
+
+  for (const match of code.matchAll(/[{}]|\b(?:class|interface|enum)\s+(\w+)/g)) {
+    if (match[0] === '{') depth += 1;
+    else if (match[0] === '}') depth -= 1;
+    else if (depth === 0 && RESERVED_CLASSES.includes(match[1] ?? '')) found.push(match[1] ?? '');
+  }
+
+  return found;
+}
+
+/**
  * Runs the student's program with a real stdin behind it.
  *
  * A console program under CheerpJ gets neither input nor EOF on `System.in`, so
