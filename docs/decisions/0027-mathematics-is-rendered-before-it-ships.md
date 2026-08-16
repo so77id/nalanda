@@ -278,8 +278,13 @@ and iPhone 13 landscape, re-measured during review. Two caveats, because the fir
 version of this paragraph carried neither. It cited "the 0.8 floor", **a threshold that
 does not exist anywhere in this repo** — the only recorded one is the guide's "below
 roughly half scale the body text stops being readable". And no shipped document puts a
-formula in a deck, so there is no reproducible example: `03-busqueda-binaria.mdx` keeps
-its cost section book-only, and #120 is where a deck with mathematics first ships. The
+formula in a deck at the time this was written, so there was no reproducible
+example — ~~and none since~~ **falsified by #120**, whose opening class projects
+both the tour-count formula and the grade formulas inside `<Slide>`s.
+`03-busqueda-binaria.mdx` kept
+its cost section book-only, and #120 is where a deck with mathematics first ships. That
+document — the one measured throughout this ADR — left the tree in #135, so every figure
+here stands as measured and none can be re-derived against `content/` today. The
 hazard worth checking is a *long* display equation, which this one is not.
 
 **Layout shift.** Mathematics adds none of its own: KaTeX bakes build-time metrics into

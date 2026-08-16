@@ -12,13 +12,21 @@ any content unit. No app code is involved — everything happens under `content/
 
 ## Worked example
 
-The seed course `content/courses/sample-course/` exercises everything:
+The seed course `content/courses/sample-course/` exercises most of the authoring
+surface — but not all of it since #135. Three capabilities have **no worked example
+in `content/` today**: markdown image syntax (`![alt](./x.svg)`), an unplated
+`<Mosaic>`, and `<CodeEditor variant="read">`. All three are still supported and
+still documented below; the `/catalog` page for each is the reference, and a unit
+test is their only guard.
 
 ```
 content/courses/sample-course/
 ├── 01-bienvenida.mdx          # presentation: explicit — the opening class, cut by hand; <Split>, <Mosaic>, <CodeEditor>, maths
 ├── caja-negra.svg             # an asset sits beside the document that uses it
 ├── costo-busqueda.svg
+├── costo-en-dolares.svg
+├── heap.svg
+├── viajante.svg
 ├── logos/                     # …in a subfolder once there are several
 │   └── google.svg, java.svg, … (22, with a README recording provenance)
 ├── 04-planificacion.mdx       # presentation: none     — book-only
@@ -57,9 +65,11 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    want the default** (#108, enforced by `src/content/architecture.test.ts`).
    The field defaults to `auto`, so a document that omits it still ships a deck;
    omitting it does not mean "no slides", it means slides nobody chose. Two of
-   the documents here had exactly that, and one of them projected the book's
-   own navigation sentence — _"Cuando termines, vuelve a la bienvenida"_ — alone
-   on a slide.
+   the documents here had exactly that, and one of them projected the book's own
+   navigation sentence alone on a slide. Both were retired in #135; the surviving
+   worked case is `06-java-desde-cpp.mdx`, which ends the same way — _"Es el
+   próximo documento: …"_ after its last `<Slide>` — and
+   `presentationRoute.test.tsx` pins that the deck leaves it out.
 
    Deciding is cheap and takes one walk through `/d/<id>/present`. Note that the
    walk is the only way to find this: an undeclared deck is never clipped or
@@ -75,12 +85,17 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    >   carries BOTH heading sources — twelve `<Slide title>` h2s and two markdown
    >   ones — which is the equivalence those cases assert. A document with only
    >   one source would leave them green and meaningless.
-   > - `presentationRoute.test.tsx` also names `java-desde-cpp`, whose deck must
-   >   keep its closing navigation sentence OUT — the behaviour #108 bought.
-   > - `presentationRoute.test.tsx` also drives `java-desde-cpp` at a **fixed
-   >   slide index** (`?slide=10`, the "Compilar y ejecutar" slide — the only one
-   >   carrying a `<pre>`), so that document must stay presentable and keep its
-   >   shape there. Nothing names it as a fixture; it is a bare URL in a test.
+   > - `java-desde-cpp` is pinned BOTH ways by `presentationRoute.test.tsx`: it
+   >   is named as `CLOSING_FIXTURE`, whose deck must keep its closing navigation
+   >   sentence OUT (the behaviour #108 bought), and it is driven at a **fixed
+   >   slide index** (`?slide=10`, the "Compilar y ejecutar" slide — the deck's
+   >   only `<pre>`), so re-cutting it must preserve that index. It was a bare
+   >   URL and nothing else until #135 repointed `CLOSING_FIXTURE` onto it.
+   > - **Both decks are pinned at 13 slides.** `1 / 13` is asserted for
+   >   `java-desde-cpp` and for `java-tipos-y-flujo` alike — twelve `<Slide>`
+   >   markers plus one `<SectionBreak>`. Writing a lesson that gains or loses a
+   >   slide reddens `presentationRoute.test.tsx`, which is expected: update the
+   >   count. Each document carries the same warning under its own frontmatter.
    > - `planificacion` is named by three test files (#136, renamed in #135): as
    >   the book-only fixture of `presentationRoute.test.tsx` and
    >   `documentSections.test.tsx`, and as `deployedApp.test.tsx`'s deep-link
@@ -111,7 +126,11 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    drawer below it. `h3`/`h4` stay deep-linkable but never appear there, so a
    document you want navigable is structured with `##`. A document with no `h2`
    at all simply has no section navigation, which is a choice rather than a bug
-   (`04-planificacion.mdx` is the worked case).
+   (`04-planificacion.mdx` is the worked case) — and in that document it is also
+   PINNED: it is the only section-less document left in the tree, so
+   `documentSections.test.tsx` uses it for exactly that, and giving it a `##`
+   reddens the suite. Use `###`, or a table, or move that case first (step 2, and
+   the note in the document itself).
 
    Running text is narrowed to ~70 characters inside the 768px column, while
    code, tables and components keep the full width (ADR-0022). You write nothing
@@ -551,8 +570,8 @@ ADR-0029.
    exist does NOT fail the build: it renders visibly broken (red wavy underline)
    and logs a console warning — forward links to drafts are allowed on purpose.
 
-8. **Register it in the teaching path** (`index.yaml`) if it belongs to the
-   recorrido. Schema (strictly validated; unknown keys fail the build):
+8. **Register it in the teaching path** (`index.yaml`) — every document is
+   listed, and the suite asserts it. Schema (strictly validated; unknown keys fail the build):
 
    ```yaml
    title: Estructuras de Datos y Algoritmos # optional course name; the first crumb of the breadcrumb

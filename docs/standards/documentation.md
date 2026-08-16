@@ -82,11 +82,42 @@ case: the deployed shape (#66).
    rejected "narrow the container"), and the rail breakpoint in
    `DocumentPage.tsx` (256 + 64 + 768 + 224 = 1312, so `2xl`; `xl` lands 32px
    short).
-7. **Retiring a tool or model obligates a sweep**: in the same PR, grep ALL
-   instruction surfaces (`CLAUDE.md` files, `.claude/skills/`, `.claude/agents/`,
-   `docs/conventions.md`, standards) for the retired terms and update every hit.
-   Partial migrations make instruction consistency depend on which file an agent
-   reads first.
+7. **Retiring a tool, a model or a DOCUMENT obligates a sweep**: in the same PR,
+   grep ALL instruction surfaces (`CLAUDE.md` files, `.claude/skills/`,
+   `.claude/agents/`, `docs/conventions.md`, standards) for the retired terms and
+   update every hit. Partial migrations make instruction consistency depend on
+   which file an agent reads first.
+
+   **Retiring a course document has three surfaces, not one**, and the list above
+   is only the first. Grep the retired id AND its filename across:
+
+   - `docs/` — standards, guides, ADRs;
+   - `src/` — comments naming the document as a fixture or as a worked case.
+     These are the ADR-0025 apparatus that tells the next person what to repoint,
+     so a stale one is worse than none;
+   - `content/` — **published course prose**, which is the surface that actually
+     reaches a student. Cross-references written as prose ("el documento
+     anterior", "el próximo documento") are invisible to the build and to the
+     suite: they are not `[[wiki-links]]`, so nothing underlines them and nothing
+     turns red. Grep for the Spanish phrasings, not only for ids.
+
+   Worked case (#135): the sweep was verified with a grep over `docs/` alone and
+   reported as complete. Seven stale comments survived in `src/` — two in
+   production — and three prose cross-references survived in `content/`, one of
+   them telling students that a `for-each` "aparece en el documento de código
+   ejecutable", a document the same PR deleted.
+
+   Retiring a document also changes the RECORRIDO, which falsifies prose about
+   position: appending one entry to `index.yaml` gave another document a "next"
+   it never had, so its closing sentence pointed the reader somewhere new. Prefer
+   naming the material over naming its position.
+
+8. **When a change removes the last real-content use of a shipped capability,
+   say so at the capability** — the issue that removed it, that the capability is
+   still offered, and which guard is now the only one. Otherwise it reads as a
+   prop nothing exercises, and nobody can tell whether that is deliberate.
+   Worked cases (#135): `Mosaic`'s `plate`, `CodeEditor`'s `variant="read"`, and
+   markdown-image `alt` in `content/architecture.test.ts`.
 
 ## Rules for empirical claims in ADRs
 

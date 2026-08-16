@@ -675,7 +675,8 @@ describe('book-view entry points to presentation', () => {
   });
 });
 
-// java-tipos-y-flujo is the DESIGNATED explicit-mode fixture (see its frontmatter):
+// java-tipos-y-flujo is the DESIGNATED explicit-mode fixture (its own MDX carries
+// the note saying so, and what it must keep):
 // these tests guard the real compiled <Slide> path through the mdxChildrenOf
 // adapter — the alarm the adapter's docs promise.
 describe('explicit-mode documents (real compiled markers)', () => {
@@ -745,7 +746,7 @@ describe('explicit-mode documents (real compiled markers)', () => {
     // fail. Found by mutation in #135's review: moving the closing prose INSIDE
     // the last <Slide> left the case green.
     await screen.findByRole('heading', { name: 'Ejercicio en vivo: ¿Es par?' });
-    expect(screen.queryByText(/Es lo que viene en el próximo documento/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Es lo que viene más adelante en el curso/)).not.toBeInTheDocument();
   });
 
   it('renders marked slides as heading + prose in the book view, with the loose section present', async () => {

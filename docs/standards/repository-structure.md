@@ -75,8 +75,15 @@ nalanda/
      `content/` appears in an `index.yaml`, so adding one without listing it
      turns the suite red. Shipping a document deliberately OFF the teaching path
      therefore means editing that assertion — weakening it with an allowlist
-     naming the exceptions, the way #136 did and #135 undid. Writing a
-     document's PROSE still needs no `src/` at all.
+     naming the exceptions, the way #136 did and #135 undid.
+
+     **The other exception is the SHAPE of a document the suite uses as a
+     fixture**, and since #135 that is three of the four: `04-planificacion.mdx`
+     must keep `presentation: none` and zero `h2`, and the two Java documents
+     have their slide counts and several slide titles pinned. Each such document
+     carries a note under its frontmatter saying so (ADR-0025), so the rule an
+     author needs is: **writing prose in a document that carries no note needs no
+     `src/` at all** — and if it carries one, read it first.
 
    - `docs/` — knowledge: standards, design, decisions, conventions.
    - `infra/` — running the system around the apps:

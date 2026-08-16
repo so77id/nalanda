@@ -13,6 +13,12 @@ presentation: none
 {/*   2. ZERO `##` headings — this is the only section-less document left, so */}
 {/*      documentSections.test.tsx and SectionNav.test.tsx pin "no rail for a */}
 {/*      document with no sections at all" on it. */}
+{/*   3. SMALL — deployedApp.test.tsx renders it ACROSS the lazy boundary with */}
+{/*      no module preload, and picked it for its size (#102, #115). If this */}
+{/*      document grows past a couple of screens, add the `beforeAll` preload */}
+{/*      to that file (copy it from app/documentSections.test.tsx) or repoint */}
+{/*      DEEP_LINK_FIXTURE at another non-landing document — otherwise the */}
+{/*      flake class those issues closed comes back. */}
 {/* Concretely, for #146: the class-by-class calendar CANNOT be written as */}
 {/* `## Septiembre` without moving that case first. Use `###`, or a table, or */}
 {/* make the fixture synthetic — SectionNav.test.tsx already covers the unit */}
@@ -21,6 +27,7 @@ presentation: none
 # Planificación
 
 Aquí se publica el calendario clase a clase de este semestre: qué materia toca
-cada semana y qué hay que leer.
+cada semana y qué hay que leer. Se publica durante las primeras semanas, en cuanto
+estén cerradas las fechas de laboratorio.
 
 Las fechas de las dos solemnes están en la [[bienvenida|clase inaugural]].

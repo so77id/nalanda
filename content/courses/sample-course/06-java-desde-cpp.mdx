@@ -4,6 +4,17 @@ title: Java desde C++
 presentation: explicit
 ---
 
+{/* This deck is pinned by app/presentationRoute.test.tsx (ADR-0025: the */}
+{/* conflict is recorded at the document). It asserts the slide COUNT as */}
+{/* `1 / 13` — twelve <Slide> markers plus one <SectionBreak> — and the TITLES */}
+{/* listed below. Adding, removing or retitling a slide reddens that file, and */}
+{/* the fix is to update it, not to undo the edit. */}
+{/* Titles asserted: "La prueba del nombre completo" (last). Two more things */}
+{/* this document must keep: its closing navigation sentence stays OUTSIDE the */}
+{/* last <Slide> (that is the behaviour #108 bought, and the case exists to */}
+{/* prove the deck leaves it out), and slide index 10 — "Compilar y ejecutar", */}
+{/* the deck's only <pre> — is driven directly as `?slide=10`. */}
+
 # Java desde C++
 
 Ya sabes programar. Sabes qué es un ciclo, una función y un tipo de dato, y has
@@ -204,9 +215,9 @@ archivo **tiene que llamarse igual que ella**. `public class Tarea` va en `Tarea
 
 En esta página los ejemplos usan clases que **no** son `public` —por eso `HelloWorld`
 corre en un archivo con cualquier nombre—, pero en cuanto le pongas `public` a una, el
-nombre del archivo deja de ser libre. Es el error más común de la primera semana, y es
-también por qué el documento de código ejecutable usa `public class Main` dentro de
-`Main.java`.
+nombre del archivo deja de ser libre. Es el error más común de la primera semana: si
+escribes `public class Tarea`, el archivo tiene que llamarse `Tarea.java`, sin
+excepciones.
 </Slide>
 
 <Slide title="import y paquetes">

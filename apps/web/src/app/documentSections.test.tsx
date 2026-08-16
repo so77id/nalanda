@@ -62,25 +62,15 @@ async function renderAt(path: string): Promise<void> {
 // registry does not have — selecting a document that does not exist.
 //
 // There is no `auto` fixture any more, and that is a decision rather than an
-// omission (#120). `bienvenida` was the seed course's last `presentation: auto`
-// document; it became the course's opening class, which is cut by hand into ~22
-// slides and therefore declares `explicit`. Rather than declare `auto` on some
-// other document — giving a deck to material whose author did not choose one,
-// the exact defect #108 exists to prevent — the case it fed was retired, because
-// what it covered is covered twice over elsewhere:
-//
-//   - auto SLICING (h2 cuts a slide) — `presentation/parser.test.tsx`,
-//     `computeSlides — auto mode`, over synthetic MDX;
-//   - the rail over a MARKDOWN `##` — the explicit fixture itself, chosen
-//     precisely because it carries both heading sources: twelve
-//     `<Slide title>` h2s and two markdown ones (`## Ejercicios`,
-//     `## Lo que sigue`). #135 moved this off busqueda-binaria, which was
-//     deleted with the Fundamentos unit.
-//
-// What is genuinely no longer asserted is "a real document declaring `auto`
-// paints its rail" — and the rail reads the h2s the article painted, which is
-// the same code either way. If a course document ever declares `auto` again,
-// this is the place to bring the case back.
+// omission — ADR-0025 §Decision 1 carries the reasoning and its discharge by
+// #120. What it costs is recorded here because here is where the case would go
+// back: "a real document declaring `auto` paints its rail" is no longer asserted
+// over real content. Auto SLICING is covered over synthetic MDX
+// (`presentation/parser.test.tsx`, `computeSlides — auto mode`), and the rail
+// over a markdown `##` by the explicit fixture below, which was chosen for
+// carrying both heading sources. The rail itself reads the h2s the article
+// painted, which is the same code either way. If a course document ever declares
+// `auto` again, bring the case back here.
 //
 // Resolved through the REGISTRY, not through `walkIndex`. What these cases need
 // is a document that renders, and the index decides navigation rather than

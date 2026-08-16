@@ -114,4 +114,26 @@ describe('routing', () => {
     await renderAt('/nope');
     expect(screen.getByRole('heading', { name: /not found/i })).toBeInTheDocument();
   });
+
+  // A deliberate break, pinned (testing-strategy.md §Conventions). These four
+  // ids were PUBLISHED — merging to main deploys the site, so each one answered
+  // at https://so77id.github.io/nalanda/d/<id> until #135 deleted the documents
+  // behind them. No redirect ships, and that is the decision rather than an
+  // oversight: the Fundamentos material was retired (#136 took it off the
+  // teaching path first), so there is nowhere honest to send a reader — a
+  // redirect to a document about something else is worse than a 404.
+  //
+  // `apuntes-del-curso` is the one with a successor: the same file became
+  // `planificacion`. It carried no notes, only a placeholder paragraph, so it is
+  // pinned with the rest. If that URL turns out to have been shared, this is the
+  // case to delete and replace with a redirect — consciously, which is the point
+  // of pinning it here.
+  it.each(['intro-estructuras', 'busqueda-binaria', 'codigo-ejecutable', 'apuntes-del-curso'])(
+    'serves 404 for /d/%s, retired in #135 with no redirect',
+    async (retiredId) => {
+      await renderAt(`/d/${retiredId}`);
+      expect(screen.getByRole('heading', { name: /not found/i })).toBeInTheDocument();
+      expect(screen.queryByRole('article')).not.toBeInTheDocument();
+    },
+  );
 });
