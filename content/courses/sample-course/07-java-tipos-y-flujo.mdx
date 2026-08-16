@@ -527,6 +527,104 @@ check(Solution.sumaLarga(-2000000000, -2000000000), -4000000000L);
 
 </Exercise>
 
+<Questions>
+
+<Question id="bits-de-un-char" anchor="tipos-primitivos">
+
+¿Cuántos bits ocupa un `char` en Java?
+
+- [x] 16
+- [ ] 8
+- [ ] 32
+- [ ] Depende de la máquina
+
+</Question>
+
+<Question id="tipos-de-java-ciertas" anchor="cuatro-diferencias-con-c">
+
+¿Cuáles de estas afirmaciones sobre los tipos de Java son ciertas?
+
+- [x] El tamaño de un `int` es el mismo en toda máquina donde corra Java
+- [x] `char` es el único entero sin signo
+- [ ] `if (1)` compila y se comporta como `if (true)`
+- [ ] Existe `unsigned int`, igual que en C++
+
+</Question>
+
+<Question id="desborde-de-un-int" anchor="el-desborde-en-vivo">
+
+¿Qué imprime este programa?
+
+```java
+class Desborde {
+    public static void main(String[] args) {
+        int maximo = Integer.MAX_VALUE;
+        System.out.println(maximo + 1);
+    }
+}
+```
+
+- [x] -2147483648
+- [ ] 2147483648
+- [ ] 0
+- [ ] No compila
+
+</Question>
+
+<Question id="desborde-especificado" anchor="definido-en-java-indefinido-en-c">
+
+¿Qué dice la especificación de Java sobre el desbordamiento de un `int`?
+
+- [x] Que siempre da la vuelta, en cualquier máquina
+- [ ] Que es comportamiento indefinido, como en C++
+- [ ] Que lanza una excepción en tiempo de ejecución
+- [ ] Que el compilador debe rechazar el programa
+
+</Question>
+
+<Question id="division-entre-enteros" anchor="operadores">
+
+En Java, ¿cuánto vale `7 / 2`?
+
+- [x] `3`
+- [ ] `3.5`
+- [ ] `4`
+- [ ] `3.0`
+
+</Question>
+
+<Question id="tres-diferencias-de-operadores" anchor="tres-diferencias-reales">
+
+¿Cuáles de estas afirmaciones sobre los operadores de Java son ciertas?
+
+- [x] No se puede definir qué significa `+` para una clase propia
+- [x] `+` concatena texto, y eso es un privilegio del lenguaje
+- [ ] `>>` rellena con ceros al correr a la derecha
+- [ ] Se puede sobrecargar `==` para comparar objetos
+
+</Question>
+
+<Question id="concatenar-antes-de-sumar" anchor="que-imprime-esto">
+
+¿Qué imprime este programa?
+
+```java
+class Concatenacion {
+    public static void main(String[] args) {
+        System.out.println("total: " + 1 + 2);
+    }
+}
+```
+
+- [x] `total: 12`
+- [ ] `total: 3`
+- [ ] `total: 1 + 2`
+- [ ] No compila
+
+</Question>
+
+</Questions>
+
 ## Lo que sigue
 
 Con esto puedes leer y escribir programas Java que calculan cosas. Lo que todavía
