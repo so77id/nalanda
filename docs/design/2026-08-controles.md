@@ -12,8 +12,11 @@
 > itself under ADR-0032, and #147 landed multiple-answer questions under
 > ADR-0033). **WP-C1 shipped** (#149) — `apps/server`
 > exists, with the layered shape of C11 enforced by a test and every
-> add-a-new-app obligation discharged; ADR-0034 records C10 and C11. WP-C2
-> (#150) and WP-C3 (#151) are filed and not started; WPs D–G not started.
+> add-a-new-app obligation discharged; ADR-0034 records C10 and C11. **WP-C2
+> shipped** (#150) — a professor signs in with Google, sessions are server-side
+> and the C12 seam is asserted rather than promised; ADR-0036 records how, and
+> the port cost no dependency. WP-C3 (#151) is filed and not started; WPs D–G
+> not started.
 > Living decisions distilled from here become ADRs as each WP develops.
 
 ## Problem

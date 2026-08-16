@@ -15,6 +15,7 @@ guide here** (ADR-0005).
 | Add a language runtime | [`guides/add-a-language-runtime.md`](guides/add-a-language-runtime.md) | Teaching the platform a new executable language: worker contract, registry, CDN vs self-hosting, browser verification |
 | Write control questions | [`guides/write-control-questions.md`](guides/write-control-questions.md) | Writing the questions at the end of a course document: the rules the suite enforces, the ones only a human can, and worked examples of both — read before drafting any, with an agent or by hand |
 | Run the backend | [`../../apps/server/README.md`](../../apps/server/README.md) | Working on `apps/server`: configuration contract, the two delivery surfaces, `/health`, the compose path, and what is deliberately not there yet |
+| Add a backend endpoint | [`guides/add-a-backend-endpoint.md`](guides/add-a-backend-endpoint.md) | Adding any route to `apps/server`: which surface it belongs to, the handler → domain → repository chain, the middleware a state-changing route needs, and the four homes of a configuration variable. Worked case: `POST /logout` (#150) |
 | Add a database migration | [`backend-code-style.md` §Adding a migration](backend-code-style.md#adding-a-migration) | Changing `apps/server`'s schema: file naming, the embed root, why the Down block is documentation rather than a tested path, and which placeholder the first real migration deletes |
 | Drive the control engine | [`../../apps/amc-worker/README.md`](../../apps/amc-worker/README.md) | Calling `apps/amc-worker`: the HTTP contract, the shared-volume convention, and the four silent AMC traps a caller must not hit (ADR-0030) |
 | Verify the control engine on paper | [`../../apps/amc-worker/PAPER-CHECK.md`](../../apps/amc-worker/PAPER-CHECK.md) | The one check no agent can run: print, mark, scan, read, compare. Required before trusting a synthetic green run |
@@ -24,7 +25,9 @@ guide here** (ADR-0005).
 | Guide | Arrives with | Will cover |
 |---|---|---|
 | Add a session event type | v0.3 — live sessions | Envelope protocol, emit/consume declaration, relay transparency |
-| Add a backend endpoint | WP-C2 — [#150](https://github.com/so77id/nalanda/issues/150) | Handler + repository + tests pattern. Deferred from #149 deliberately: the skeleton has no repository to show, and a guide written against a worked example that does not exist is fiction |
+
+The one worked case of a legitimate deferral is now closed, and is kept below as
+the example of how a "not yet" is supposed to end.
 
 **A pending row carries two things**, and an entry with neither is an
 unregistered extension point rather than a deferral: (a) the issue that will

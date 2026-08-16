@@ -192,10 +192,14 @@ The extension point born with this app. Registered in `integration-guides.md`.
 4. **Never edit a migration that has been applied anywhere.** goose records the
    version, not the content, so an edit is invisible to a database that already
    ran it.
-5. **The first real migration deletes `00001_init.sql`** in the same PR. That
-   file exists only so `//go:embed` has something to take and so the boot path
-   is provable; it is a `SELECT 1;` and does not belong in permanent schema
-   history.
+5. **Never reuse a version number, even a deleted one.** #150 deleted #149's
+   placeholder `00001_init.sql` and numbered the auth schema `00002`, which
+   looks like a gap and is not one: goose records the VERSION it applied, so a
+   new `00001` counts as already applied on every database that ran the
+   placeholder, and its tables would never be created. The failure is silent at
+   boot and appears later as "no such table". The guard is
+   `TestTheAuthMigrationAppliesOverADatabaseThatRanThePlaceholder`, which is the
+   only case that starts from a database rather than from an empty file.
 6. Run the pre-PR protocol: `sqlite_test.go` applies the embedded set to a fresh
    temp file and asserts a second boot applies nothing.
 

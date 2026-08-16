@@ -5,8 +5,9 @@ professor's server-rendered backoffice and a JSON/WebSocket API for anonymous
 students (ADR-0034). SQLite is its database, embedded migrations are applied at
 boot, and the production image is a static binary on `scratch`.
 
-Today it starts, reaches its database, and answers `/health`. That is all — see
-[What is not here yet](#what-is-not-here-yet).
+Today it starts, reaches its database, answers `/health`, and lets a professor
+sign in with Google (ADR-0009, ADR-0036). The screens they would then use are
+still to come — see [What is not here yet](#what-is-not-here-yet).
 
 ## Stack
 
@@ -45,8 +46,18 @@ Environment variables, read once at boot. A required variable that is absent
 Run from `apps/server/`.
 
 ```bash
-# Run it, against a database in this directory (gitignored).
-NALANDA_ADDR=127.0.0.1:8081 NALANDA_DATABASE_URL=./nalanda.db go run ./cmd/server
+# Run it, against a database in this directory (gitignored). All five below are
+# required: the server refuses to start naming whichever is missing, rather than
+# starting into a login nobody could complete.
+NALANDA_ADDR=127.0.0.1:8081 \
+NALANDA_DATABASE_URL=./nalanda.db \
+NALANDA_PUBLIC_URL=http://127.0.0.1:8081 \
+NALANDA_GOOGLE_CLIENT_ID=placeholder.apps.googleusercontent.com \
+NALANDA_GOOGLE_CLIENT_SECRET=placeholder-secret \
+  go run ./cmd/server
+
+# Placeholders are enough to boot and to serve /health. A real login needs real
+# values: copy .env.example to .env and follow GOOGLE-CHECK.md.
 
 curl -s http://127.0.0.1:8081/health      # backoffice surface
 curl -s http://127.0.0.1:8081/api/health  # API surface
@@ -86,9 +97,16 @@ wget — so the only executable a healthcheck can invoke is the server.
 ```
 cmd/server/        wiring and entry point — the only main package
 internal/domain/   business types and the interfaces they need — PURE
+  auth/            professors, identities, sessions, and who may log in
 internal/app/web/  the professor's backoffice
-internal/app/api/  the JSON/WS surface
+  handler/         the login round trip
+  middleware/      cookie → professor, the gate, CSRF
+  oauthstate/      the single-use state nonces of the OAuth flow
+  view/            html/template, embedded
+internal/app/api/  the JSON/WS surface — anonymous, no middleware (§C12)
 internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
+  oidc/            the Google client — standard library, no OIDC dependency
+  storage/authstore/  the SQLite side of the auth domain
 migrations/        goose SQL migrations, embedded into the binary
 ```
 
@@ -143,18 +161,40 @@ Deliberately, and each with an owner:
 
 | Missing | Arrives with |
 |---|---|
-| Authentication, sessions, OAuth, users | WP-C2 — [#150](https://github.com/so77id/nalanda/issues/150) |
-| The backoffice UI, templates, professor CRUD | WP-C3 — [#151](https://github.com/so77id/nalanda/issues/151) |
+| The backoffice screens, the layout, the professor CRUD | WP-C3 — [#151](https://github.com/so77id/nalanda/issues/151) |
 | Courses, students, enrolment — any domain table | WP-D |
 | JSON contracts, CORS, WebSocket on `/api` | with a consumer (ADR-0008) |
 | Talking to `apps/amc-worker` | WP-E |
 | Deploy, hosting, secrets | deferred (`2026-08-controles.md` §C15) |
 
-`migrations/00001_init.sql` is empty on purpose and says so at length: the WP
-creates no domain tables, and the file exists because `//go:embed *.sql` needs
-one and because it makes the migration path provable. **WP-C2 deletes it** in
-the same PR that adds the first real migration; the non-vacuity guard in
-`internal/infra/storage/sqlite_test.go` keeps the path proven either way.
+`migrations/00001_init.sql` was the deliberately empty placeholder #149 shipped,
+and **#150 deleted it** with the first real migration, as planned. The auth
+schema is numbered `00002` even so: goose keys applied migrations by version, so
+a file reusing number 1 would be considered already applied by every checkout
+that had run the server, and the schema would never arrive.
+
+## Signing in
+
+The backoffice is professor-only (ADR-0009): students read the course anonymously
+and never get accounts. Four routes make up the round trip, all on the backoffice
+surface and none on `/api/` (§C12):
+
+| Route | What |
+|---|---|
+| `GET /login` | The page. Doubles as the signed-in page while there are no screens |
+| `GET /login/google` | Starts the flow: issues a state nonce, redirects to Google |
+| `GET /login/google/callback` | Completes it. Refuses a state it did not issue, before spending the code |
+| `POST /logout` | Ends the session. Requires a professor **and** the session's CSRF token |
+
+There are exactly three ways in, and everything else is refused: an already
+linked Google identity; a professor who exists with that **verified** address,
+whose identity is linked on their first login; or — on a database with no
+professors at all — the address in `NALANDA_BOOTSTRAP_PROFESSOR_EMAIL`. Details
+and the reasoning: [ADR-0036](../../docs/decisions/0036-the-professor-session-is-ours-and-costs-no-dependency.md).
+
+**Nothing here can be verified against Google by any test.** The suite drives a
+mock provider; the real round trip is a human's check, and it is written down:
+[`GOOGLE-CHECK.md`](GOOGLE-CHECK.md).
 
 ## Before you open a PR
 
@@ -177,11 +217,18 @@ from `apps/server/`:
       (`testing-strategy.md` §Conventions (all apps)).
 - [ ] Docs that the change obligated ship in the same PR
       (`docs/standards/documentation.md`).
+- [ ] **If you touched the login path**, [`GOOGLE-CHECK.md`](GOOGLE-CHECK.md) was
+      run against a real Google OAuth client. No test in this repository reaches
+      Google, so a green suite is not evidence that signing in still works.
 
 ## References
 
 - [`docs/decisions/0034-…`](../../docs/decisions/0034-the-backend-is-born-with-the-controls.md)
   — why the backend was pulled forward, and the one-binary/two-surface shape.
-- ADR-0006 (Go) · ADR-0007 (SQLite first) · ADR-0009 (professor-only auth).
+- ADR-0006 (Go) · ADR-0007 (SQLite first) · ADR-0009 (professor-only auth) ·
+  [ADR-0036](../../docs/decisions/0036-the-professor-session-is-ours-and-costs-no-dependency.md)
+  (the session is ours, server-side, and costs no dependency).
+- [`docs/standards/guides/add-a-backend-endpoint.md`](../../docs/standards/guides/add-a-backend-endpoint.md)
+  — the chain to follow when adding a route here.
 - [`docs/design/2026-08-controles.md`](../../docs/design/2026-08-controles.md)
   — the subsystem this server was born to serve.
