@@ -58,10 +58,11 @@ measure:
 ##   `meptex` at all — so `analyse` would later read an EMPTY layout and the
 ##   whole print-mark-scan cycle would produce nothing (#138 review, F-8).
 paper:
-	mkdir -p tests/work/paper/src tests/work/paper/out \
+	mkdir -p tests/work/paper/src/code tests/work/paper/out \
 		tests/work/paper/scan tests/work/paper/project/data \
 		tests/work/paper/project/cr tests/work/paper/project/scans
 	cp tests/fixtures/control-demo.tex tests/work/paper/src/
+	cp tests/fixtures/code/*.java tests/work/paper/src/code/
 	docker run --rm --env DISPLAY= -v "$(PWD)/tests/work/paper:/work" -w /work $(IMAGE) \
 		bash -c 'set -e; \
 		  auto-multiple-choice prepare --mode s --n-copies $(PAPER_COPIES) --with pdflatex \

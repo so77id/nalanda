@@ -23,7 +23,7 @@ NAME="amc-worker-test-${PORT}"
 work="${WORKER_DIR}/tests/work/s6run"
 rm -rf "$work"
 mkdir -p "$work/src" "$work/scan" "$work/anotado" "$work/project"
-cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$work/src/"
+stage_source "$work/src"
 cp "${WORKER_DIR}/tests/fixtures/marking-plan.json" "${WORKER_DIR}/tests/fixtures/curso.csv" "$work/"
 cp "${WORKER_DIR}/tests/tools/fill_sheet.py" "$work/"
 

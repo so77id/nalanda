@@ -30,7 +30,7 @@ require_image
 work="${WORKER_DIR}/tests/work/s3run"
 rm -rf "$work"
 mkdir -p "$work/src" "$work/out" "$work/scan" "$work/project/data" "$work/project/cr" "$work/project/scans"
-cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$work/src/"
+stage_source "$work/src"
 cp "${WORKER_DIR}/tests/fixtures/marking-plan.json" "$work/"
 # Only the test tool goes on the volume. read_capture.py is production
 # code and is invoked from where the Dockerfile installed it, so `make
@@ -147,7 +147,7 @@ note "report" "$(jq '"%d copies, %d need review" % (len(d["copies"]), len(d["nee
 dwork="${WORKER_DIR}/tests/work/s3damaged"
 rm -rf "$dwork"
 mkdir -p "$dwork/src" "$dwork/out" "$dwork/scan" "$dwork/project/data" "$dwork/project/cr" "$dwork/project/scans"
-cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$dwork/src/"
+stage_source "$dwork/src"
 cp "${WORKER_DIR}/tests/fixtures/marking-plan-damaged.json" "$dwork/plan.json"
 cp "${WORKER_DIR}"/tests/tools/*.py "$dwork/"
 

@@ -21,12 +21,12 @@ echo "S2 — generation (image: ${IMAGE})"
 require_image
 
 COPIES=5
-DRAW=4 # \insertgroup[4] — four of the ten authored (design C6)
+DRAW=4 # \insertgroup[4] — four of the twelve authored (design C6)
 
 work="${WORKER_DIR}/tests/work/s2"
 rm -rf "$work"
 mkdir -p "$work/src" "$work/out" "$work/project/data"
-cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$work/src/"
+stage_source "$work/src"
 
 generate() {
   local outdir="$1"
@@ -106,7 +106,7 @@ fi
 
 # Every drawn id must be one we authored — a draw that invented a question, or
 # silently dropped to a default, would otherwise pass the count check above.
-authored="iteraciones requisito lineal tipo-primitivo igualdad arreglo-largo indice referencia descarte peor-caso"
+authored="iteraciones requisito lineal tipo-primitivo igualdad arreglo-largo indice referencia descarte peor-caso comparar-cadenas suma-arreglo"
 unknown=""
 for q in $c1 $c2; do
   case " $authored " in
@@ -114,33 +114,36 @@ for q in $c1 $c2; do
   *) unknown="$unknown $q" ;;
   esac
 done
-check_eq "every drawn question is one of the authored ten" "" "$unknown"
+check_eq "every drawn question is one of the authored twelve" "" "$unknown"
 
 # --- alternatives are shuffled per copy ---------------------------------------
 
-# `indice` is drawn by more than one copy in this fixture. Its four
-# alternatives are short, accent-free and ligature-free ("0", "1", "-1",
-# "Depende del tipo"), which is what makes reading them out of the PDF safe.
-order_of() { # order_of <page> → the alternatives of `indice`, in printed order
+# `igualdad` is drawn by more than one copy in this fixture. Its four
+# alternatives all begin with an accent-free "Si ", which is what makes reading
+# them out of the PDF safe. It replaced `indice` when #147 added two questions
+# to the pool and the draw moved — the check below is written to say so out
+# loud rather than skip, which is how this repointing got noticed at all.
+order_of() { # order_of <page> → the alternatives of `igualdad`, in printed order
   # `|| true` on the pipeline: lib.sh runs under `set -e -o pipefail`, so a grep
   # that matches nothing would abort the whole script inside the command
   # substitution instead of producing the empty string the check below reports.
-  # Anchor on accent-free text: the stem reads "¿Cuál es el índice del primer
-  # elemento…" and pdftotext gives back the accented characters, so matching
-  # "indice" finds nothing. "primer elemento" is safe. Take the six lines that
-  # follow rather than stopping at a blank line — the stem wraps, so the block
-  # is not reliably blank-terminated.
+  # Anchor on accent-free text: the stem reads "¿qué compara el operador…" and
+  # pdftotext gives back the accented characters, so "aplicado a dos objetos"
+  # is what is safe to match. Take the six lines that follow rather than
+  # stopping at a blank line — the stem wraps, so the block is not reliably
+  # blank-terminated.
   in_image pdftotext -layout -f "$1" -l "$1" /work/out/sujet.pdf - 2>/dev/null |
-    sed -n '/primer elemento/,+6p' | grep -E '^ +(-?[01]|Depende)' |
+    sed -n '/aplicado a dos objetos/,+6p' | grep -E '^ +Si ' |
     sed 's/^ *//;s/ *$//' | tr '\n' '|' || true
 }
 
 shared=""
 for q in $c1; do
-  case " $c2 " in *" $q "*) shared="$q" ;; esac
+  case " $c2 " in *" $q "*) shared="$shared $q" ;; esac
 done
 
-if [ "$shared" = "indice" ]; then
+case " $shared " in
+*" igualdad "*)
   o1="$(order_of 1)"
   o3="$(order_of 3)" # copy 2's first page
   note "copy 1 alternative order" "$o1"
@@ -151,12 +154,14 @@ if [ "$shared" = "indice" ]; then
     fail "the same question prints its alternatives in a different order per copy" \
       "copy1='${o1}' copy2='${o3}'"
   fi
-else
+  ;;
+*)
   # Not a failure of the code — the fixture's draw changed. Say so loudly rather
   # than skipping silently, because a skipped check reads as a passing one.
-  fail "fixture still shares 'indice' between copies 1 and 2 (shuffle check needs it)" \
-    "shared question was '${shared:-none}'; repoint order_of() or reseed the fixture"
-fi
+  fail "fixture still shares 'igualdad' between copies 1 and 2 (shuffle check needs it)" \
+    "shared questions were '${shared:- none}'; repoint order_of() or reseed the fixture"
+  ;;
+esac
 
 # --- the sheet is Spanish -----------------------------------------------------
 
@@ -169,6 +174,18 @@ case "$page1" in
 *"Question "*) fail "no English question labels" "found 'Question' on the sheet" ;;
 *) pass "no English question labels" ;;
 esac
+
+# --- a question can carry code, read from its own file ------------------------
+
+# `verbatim` does not compile inside an AMC question, and the first attempt at
+# one passed only because the random draw did not pick that question — in
+# production the control would have broken on the day it drew it (#147). The
+# code arrives through `\lstinputlisting` from a file staged beside the .tex,
+# which is also the shape the question bank is built for: code as its own
+# field, so nothing has to be escaped.
+listing="$(in_image pdftotext -layout /work/out/sujet.pdf - 2>/dev/null)"
+check_contains "a question prints the body of its .java file" \
+  "suma += a[i];" "$listing"
 
 # --- each copy carries a printed identifier -----------------------------------
 

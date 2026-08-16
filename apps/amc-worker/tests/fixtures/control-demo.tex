@@ -1,8 +1,15 @@
-% Fixture for #138 — a control sheet shaped like a real one.
+% Fixture for #138, extended by #147 — a control sheet shaped like a real one.
 %
-% This is what the generator will emit from the question bank: a pool of ten
+% This is what the generator will emit from the question bank: a pool of twelve
 % questions for a section range, of which each copy draws four at random, with
 % the alternatives shuffled too (docs/design/2026-08-controles.md §C6).
+%
+% The pool carries one question of EACH kind the bank can hold — ten with a
+% single correct answer, one with several (`comparar-cadenas`), and one whose
+% statement includes code read from its own file (`suma-arreglo`). That is not
+% decoration: every one of those shapes broke something the first time it was
+% compiled or read, and a shape absent from this file is a shape nothing in
+% the suite exercises.
 %
 % Content is Spanish because a control sheet is course material and a student
 % reads it (apps/amc-worker/CLAUDE.md §Language). Macro names are AMC's English
@@ -18,11 +25,32 @@
 \usepackage[T1]{fontenc}
 \usepackage[spanish]{babel}
 \usepackage{multicol}
+\usepackage{listings}
 % lang=ES is not cosmetic: without it AMC labels every question "Question 1" in
 % English, on a sheet a Spanish-speaking student reads. Measured in #138 S2 —
 % the first compile shipped English labels past a green run, because nothing
 % about a wrong-language label makes LaTeX fail.
-\usepackage[box,completemulti,lang=ES]{automultiplechoice}
+%
+% `completemulti` is deliberately ABSENT (#147). It made AMC append its own
+% "none of these" box to every multiple-answer question: all-or-nothing, in
+% Spanish it got wrong ("Ninguna de estas preguntas son correctas"), and it
+% numbered that question's alternatives from 0 instead of 1 while simple
+% questions kept starting at 1. A question that wants that alternative writes
+% it by hand, in our Spanish, as one more choice — see `comparar-cadenas`.
+\usepackage[box,lang=ES]{automultiplechoice}
+
+% Code inside an AMC question must arrive from a FILE. `verbatim` does not
+% compile inside a question environment, and the way it fails is the trap: the
+% first attempt compiled only because the random draw did not pick that
+% question, so a real control would have broken on the day it drew it (#147).
+% `\lstinputlisting` is also the shape the question bank is built for — code as
+% its own field, so nothing has to be escaped.
+\lstset{
+  basicstyle=\ttfamily\small,
+  columns=fullflexible,
+  keepspaces=true,
+  xleftmargin=1em,
+}
 
 % Fixed seed so a test run is reproducible: the same seed must produce the same
 % four questions in the same order for copy N, every time. Without this, a
@@ -157,6 +185,42 @@
       \wrongchoice{Alrededor de 100}
       \wrongchoice{Alrededor de 500}
       \wrongchoice{Alrededor de 1000}
+    \end{choices}
+  \end{question}
+}
+
+% A question with SEVERAL correct alternatives. Its last choice is the
+% "ninguna de las anteriores" AMC used to append on its own: written by hand
+% here, in our own Spanish, and numbered like any other alternative.
+\element{clase}{
+  \begin{questionmult}{comparar-cadenas}
+    En Java, ¿cuáles de estas expresiones comparan el \emph{contenido} de dos
+    \texttt{String} \texttt{a} y \texttt{b}?
+    \begin{choices}
+      \correctchoice{\texttt{a.equals(b)}}
+      \correctchoice{\texttt{a.compareTo(b) == 0}}
+      \wrongchoice{\texttt{a == b}}
+      \wrongchoice{Ninguna de las anteriores}
+    \end{choices}
+  \end{questionmult}
+}
+
+% A question carrying code, read from its own file.
+\element{clase}{
+  \begin{question}{suma-arreglo}
+    ¿Qué imprime este programa?
+
+    % ABSOLUTE, and measured: a path relative to this file does not resolve.
+    % AMC compiles from its own working directory, so `src/code/…` fails with
+    % "File `src/code/suma-arreglo(.java)' not found" and no PDF is produced.
+    % Everything this worker is handed lives under /work by contract (README
+    % §How it is driven), so that is the path a generated control will use too.
+    \lstinputlisting{/work/src/code/suma-arreglo.java}
+    \begin{choices}
+      \correctchoice{20}
+      \wrongchoice{8}
+      \wrongchoice{4}
+      \wrongchoice{0}
     \end{choices}
   \end{question}
 }
