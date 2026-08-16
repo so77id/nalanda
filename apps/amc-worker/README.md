@@ -54,13 +54,21 @@ an HTTP body would buy nothing.
 ```
 GET  /health                                          → { ok, amc }
 POST /generate      { project, source, copies }       → { sujet, corrige, calage, copies }
-POST /analyse       { project, scan_pdf, source }     → { pages, copies, needs_review }
+POST /analyse       { project, scan_pdf, source }     → { pages, scoring, copies, needs_review }
                     ⏱ MINUTES-CLASS — background job only, see below
 POST /associate     { project, roster, code, key }    → { associations, refused_codes }
 POST /associate/set { project, copy, id }             → { copy, id, source }
 POST /annotate      { project, roster, key, out,      → { pdfs, unidentified }
                       [name_column], [verdict] }
 ```
+
+**A refusal is not a crash.** The reader refuses a project it cannot score —
+no scoring database, scoring tables that are empty, a layout that is missing,
+or a captured question with no score. On the CLI that is **exit 2**, with the
+reason and the command that repairs it on stderr and **nothing on stdout**, so
+a caller piping the report into a file never ends up with half of one; any
+other non-zero status is a crash. Over HTTP it currently surfaces as a **500**
+carrying the reason but not the repair command — see the PR's deferred items.
 
 Every failure answers `{ error, detail }`. **400** is the caller's mistake and
 can never succeed on retry — a missing or malformed field, a path outside
@@ -106,6 +114,25 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 | `05-annotate.sh` | One annotated PDF per student, carrying their marks, the correct answers and per-question scores |
 | `06-http.sh` | The whole flow over the HTTP contract; the annotate and unknown-subcommand guards exercised by performing the trap inside the image (the association trap belongs to `04-associate.sh`) |
 
+**Changing the fixture's question pool moves the seeded draw.** Adding or
+removing a question — or a `\lastchoices`, which draws from the same random
+stream — changes which questions every copy gets, and several checks are pinned
+to that. In order:
+
+1. `tests/02-generate.sh` — the `authored=` list, and the shuffle check, which
+   `fail`s by name when its pair of copies stops sharing the question it reads
+   out of the PDF. That check is written to redden rather than skip precisely
+   so this is noticed.
+2. `tests/03-read.sh` — the per-copy `type` lists, the multiple-answer score
+   pins, and which copy the ambiguous mark lands on.
+3. `tests/fixtures/marking-plan*.json` — entries are positional, by question id
+   order within each copy.
+4. `tests/06-http.sh` — the copy it asserts is scored.
+
+A question shape with a different alternative count belongs in
+`tests/fixtures/control-tres.tex`, not the shared pool: it needs no re-pointing
+and the pool stays a pool.
+
 They are shell scripts rather than a test framework because the subject under
 test is a container image and a third-party CLI — the subject is `docker run`,
 and a framework would only wrap it.
@@ -125,9 +152,9 @@ Measurements (image size, batch timings) are **reported**, never asserted: a
 test that fails because a number moved teaches nothing about correctness. They
 are collected in the ADR that closes #138.
 
-## Four traps in AMC that this worker exists to neutralise
+## Five traps in AMC that this worker exists to neutralise
 
-All four are silent, all four were measured rather than read about, and each
+All five are silent, all five were measured rather than read about, and each
 yields a system that looks like it works while losing a student's grade. The
 wrapper refuses each; `tests/06-http.sh` asks it to do the wrong thing —
 **inside the image** — and checks that it does. (An earlier version asserted the
@@ -153,6 +180,17 @@ is not empty.
 GUI**, which then dies on `cannot open display`. Subcommands are chosen from a
 fixed set in `worker.py`, so a typo is an error there rather than an
 unexplainable Gtk message in a log.
+
+**`prepare --mode b` scores the copies the SOURCE declares, not the ones that
+were printed** — and it must run AFTER `analyse`, or `scoring_code` comes back
+empty and every association silently matches nothing. Without `--n-copies`, a
+class larger than the source's `\onecopy{N}` leaves the copies above it
+captured and never scored; measured on the paper check itself, one such copy
+came back with every score null under `status: "ok"`, absent from
+`needs_review`, exit 0. `/analyse` derives the count from the layout and passes
+it, and the reader refuses a captured question that carries no score. (In
+`worker.py`'s own comments this is TRAP 3 — that numbering is the wrapper's
+internal one and does not match the order of this list.)
 
 ## What the reader reports, and what it cannot
 
@@ -227,10 +265,13 @@ project directory and two runs over one project would race them.
 ## What a control source must contain
 
 `/generate` compiles a `.tex` you supply. WP-E generates that file from the
-published question bank, and these are its load-bearing parts — the worked
+published question bank. **Why a sheet must say these things is ADR-0033** (the
+printed sheet is a contract too); this section is the operational how-to, and
+these are its load-bearing parts — the worked
 example is `tests/fixtures/control-demo.tex`:
 
 ```latex
+\usepackage{listings}                          % \lstinputlisting needs it
 \usepackage[box,lang=ES]{automultiplechoice}   % NOT completemulti — see below
 \AMCrandomseed{1242}          % fixed seed → a reproducible draw
 \def\unaSymbole{\textsf{\small(una respuesta)}}
@@ -274,7 +315,10 @@ example is `tests/fixtures/control-demo.tex`:
   inside an AMC question, and `\lstinputlisting` with a path relative to the
   `.tex` does not resolve — AMC compiles from its own working directory, and it
   fails fatally with no PDF. Everything the worker is handed lives under
-  `/work`, so that is the path. That is also why the bank keeps code as its own
+  `/work`, so that is the path, and the preamble must load `listings` — the
+  fixture's `\lstset` (`\ttfamily`, `columns=fullflexible`, `keepspaces=true`) is
+  what makes the listing come out monospaced with its indentation intact. That
+  is also why the bank keeps code as its own
   field: nothing has to be escaped. **When WP-E generates that path from the
   bank instead of taking it from this repo, it goes through `under_work()`
   first** — with the image's `openin_any = a` an unchecked path reads any file

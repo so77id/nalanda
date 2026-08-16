@@ -24,8 +24,14 @@ Takes about fifteen minutes.
 
 ```bash
 cd apps/amc-worker
+make build      # not optional: steps 1 and 4 run the code baked into the image
 make paper
 ```
+
+**`make build` first.** Both `make paper` and `make read-paper` invoke the copy
+of the reader that the image carries, not the one in your working tree. Against
+a stale image the failure lands at **step 4** — after you have printed, marked
+six sheets by hand and scanned them.
 
 That produces `tests/work/paper/out/control-para-imprimir.pdf` — six copies,
 twelve pages — and loads the layout AMC will read by. `make paper PAPER_COPIES=n`

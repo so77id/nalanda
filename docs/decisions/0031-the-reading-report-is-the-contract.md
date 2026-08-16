@@ -4,8 +4,8 @@
 **Date:** 2026-08-15
 **Decision-makers:** Miguel Rodriguez
 **Source:** #138 review (round B) — split out of ADR-0030
-**Amended:** 2026-08-16 (#147) — multiple-answer questions, per-question weight,
-and the threshold the scores were computed at
+**Amended by:** #147 (2026-08-16) — multiple-answer questions, per-question
+weight, and the threshold the scores were computed at
 
 ## Context
 
@@ -21,7 +21,18 @@ Auto-Multiple-Choice as the engine. That is the wrong home, and the test is the
 reversal: **if the paper check disqualifies AMC and the fallback is taken (our
 own PDF generation plus OMRChecker), this report keeps exactly the same shape.**
 A decision that survives the reversal of the ADR it is filed under is filed
-under the wrong ADR. ADR-0030 §Not yet proven carries a live trigger to reopen
+under the wrong ADR.
+
+**Three fields added in 2026-08 do not survive that reversal, and the test is
+narrower because of them** (#147). `scoring.seuil` is named after the engine's
+own flag and means "the threshold its separate scoring pass used"; `stale` is
+meaningful only because that pass exists and can disagree with our reading; and
+the precondition that such a pass must have run is unsatisfiable for an engine
+that scores in process. Under the fallback the reader would own both thresholds,
+they would be equal by construction, and `stale` could never be true. Everything
+else here — the three failure kinds, the three darkness verdicts, `type`,
+`score`, `max`, and the normalisation that divides by `max` — is engine-independent
+and is what the reversal test still protects. ADR-0030 §Not yet proven carries a live trigger to reopen
 the engine choice; nothing in it should be read as reopening this.
 
 ## Decision
@@ -39,6 +50,7 @@ one without the others:
 | *Who is this* | `rut_status: "unreadable"` | type eight digits into the queue |
 | *What did they mark* | answer `status`: `blank` / `ambiguous` / `doubtful` | a human looks at the sheet |
 | *What is missing* | copy `status: "incomplete"` | find the sheet and scan it again |
+| *What cannot be scored* | no report at all — exit 2, the reason on stderr | re-run the engine's scoring pass after the last capture |
 
 The third is the one that cannot be repaired at a keyboard, which is why it is
 its own status rather than another flavour of "needs review". It is detected by
@@ -91,6 +103,28 @@ percentage = grade ÷ N                out of N, because each question is one po
 for a multiple — which is why it travels with each answer rather than being
 assumed by the caller. Turning a percentage into a 1,0–7,0 mark is
 `apps/server`'s, not this contract's.
+
+**The configuration in force is the engine's DEFAULT per-box scoring, adopted by
+omission** — the source sets no scoring directive — and what it awards was
+measured on a four-alternative question with two correct alternatives
+(2026-08-16):
+
+| What the student did | `score` / `max` | `relative` |
+|---|---|---|
+| ticked both correct | 4 / 4 | 1.00 |
+| ticked one correct, nothing wrong | 3 / 4 | 0.75 |
+| ticked only a wrong one | 1 / 4 | 0.25 |
+| **ticked every box** | **2 / 4** | 0.50 |
+| left it blank | 0 / 4 | 0.00 |
+
+Two cases in that table are worth stating rather than leaving to be
+rediscovered. A wholly wrong answer on a multiple keeps a quarter of the point,
+because the boxes left alone were left alone correctly — which is the design's
+own rule that nothing is ever subtracted (§C7), not an accident. And **ticking
+every box lands on 0.50, which is exactly where §C7 puts the 4,0** — so on that
+question marking everything does not win, but it draws with the pass line.
+Neither is a defect; both are consequences of per-box scoring, and a course that
+wants otherwise is changing §C7 rather than this report.
 
 Bending the engine's own scoring formula was tried and rejected: measured, its
 all-or-nothing setting fails a student who got half a question right, and its
@@ -148,6 +182,13 @@ purpose.
   Spanish we cannot correct per question, cannot be aimed at the questions that
   want it, and drags 0-based numbering into one question type and not the
   other. An authored alternative costs one line and behaves like every other.
+- **Publishing an unscored question as `score: null` under `status: "ok"`, or
+  queuing it for human review.** What the code did before it was measured. The
+  first is the silent-wrong report this ADR exists to prevent; the second sends
+  a human to look at a sheet that is perfectly legible, when the repair is
+  re-running the scoring pass. A failure whose repair is not "a human looks at
+  the sheet" does not belong in the review queue — that is what §Three failure
+  kinds is for.
 - **Two darkness verdicts (marked / blank).** Simpler, and what the code did
   before the review caught it. Rejected: it silently disagrees with the scoring,
   and it throws away the one measurement that tells a professor whether their
@@ -173,8 +214,10 @@ purpose.
   reads exactly like a batch where nobody scored a point. Every caller that
   drives the CLI by hand must run that pass; `/analyse` already does.
 
-  **The refusal is per question, not per batch**, because the half-scored state
-  is reachable and was reached: the engine scores the copies the SOURCE declares
+  **The CHECK is per question — a batch whose scoring tables are merely
+  non-empty is not enough — and one unscored question refuses the WHOLE report**,
+  because a partial report is exactly the silent disagreement this contract
+  exists to forbid. The half-scored state is reachable and was reached: the engine scores the copies the SOURCE declares
   and not the ones that were printed, so a class larger than that default yields
   copies that are captured and never scored. Measured on the paper check as
   shipped: one copy came back with every score null under `status: "ok"`, absent
@@ -195,6 +238,8 @@ purpose.
 ## References
 
 - ADR-0030 — the engine, the container boundary, and the traps it neutralises.
+- ADR-0033 — the printed sheet, which is the other half of this contract: what
+  the student is handed, and what comes back from it.
 - `docs/design/2026-08-controles.md` — §lectura.estado and the data model this
   report joins to.
 - `apps/amc-worker/read_capture.py` — the implementation; its module docstring
