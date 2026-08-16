@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { walkIndex } from './courseIndex';
 import { parseFrontmatterBlock } from './documentMeta';
 import { courseIndex, registry } from './liveContent';
-import { unresolvedAnchors } from './questionAnchors';
+import { questionProblems } from './questionRules';
+import { headingSlugs, readQuestions } from './questionSource';
 
 // The document list comes from the same glob `liveContent.ts` uses, so this
 // invariant covers exactly the set the app ships — no more and no less. A
@@ -104,28 +105,28 @@ describe('architecture: content invariants', () => {
     });
   });
 
-  // Issue #139. A question names the section it belongs to, and that name is a
-  // rendered `h2` slug (ADR-0021). The check lives here, over the source, for
-  // the same reason the coverage one does: the compiled module cannot tell us
-  // what the author typed.
+  // Issue #139. The rules a machine can check — four alternatives, between one
+  // and three marked, no all/none-of-the-above, no negated stem, no correct
+  // alternative that gives itself away by length, and an anchor that names a
+  // real section (ADR-0021). Each exists because it changes what a control
+  // MEASURES; the pedagogical ones live in the guide and nothing enforces them.
+  //
+  // Over the SOURCE, for the same reason the coverage invariant is: the
+  // compiled module cannot tell us what the author typed.
   //
   // The suite refuses it and the BUILD DOES NOT. Drafting a question before its
   // section exists is a real order of work — only publishing one is not — so
   // `npm run build` stays green and this is what stops it shipping. The page
   // says so too: `<Question>` paints an authoring error over an anchor it
   // cannot resolve, which is the half a reader would see.
-  describe('every question anchor names a section of its own document', () => {
-    it.each(documents)('%s has no dangling question anchor', (key) => {
-      const unresolved = unresolvedAnchors(readFileSync(join(APP_ROOT, key), 'utf8'));
-      expect(
-        unresolved,
-        unresolved
-          .map(
-            ({ id, anchor }) =>
-              `${key}: <Question id="${id}"> points at "${anchor}", which is not an h2 or <Slide title> of that document.`,
-          )
-          .join('\n'),
-      ).toEqual([]);
+  describe('every question obeys the mechanical authoring rules', () => {
+    it.each(documents)('%s has no question the rules refuse', (key) => {
+      const source = readFileSync(join(APP_ROOT, key), 'utf8');
+      const sections = new Set(headingSlugs(source));
+      const problems = readQuestions(source).flatMap((question) =>
+        questionProblems(question, sections),
+      );
+      expect(problems, `${key}\n  ${problems.join('\n  ')}`).toEqual([]);
     });
   });
 
