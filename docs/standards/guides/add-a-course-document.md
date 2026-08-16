@@ -377,9 +377,20 @@ The class named in `starter` and the one the cases call must agree.
 **Only Java validates**; C++ and Python refuse an exercise rather than report
 a pass for something they never checked. Three class names are reserved by the
 platform — `NalandaLauncher`, `NalandaCheck` and `NalandaTrace` — and a Java
-program whose MAIN class is one of them is refused before it compiles, in an
-exercise or a plain editor alike. A _secondary_ declaration is not caught; that
-hole and why it is tolerated are in `docs/security-notes.md`.
+program declaring one of them **at top level** is refused before it compiles, in
+an exercise or a plain editor alike: the entry class or any other declaration in
+the file, `class`, `interface` or `enum` (#123 — until then only the entry class
+was checked). A _nested_ declaration is fine, since it compiles to
+`Solucion$NalandaLauncher.class` and overwrites nothing.
+
+**This applies to your `test` fence too, and its failure is addressed to you.**
+The fence is compiled as `NalandaCheck`, so that one name is the harness's own
+and costs you nothing. Your cases land inside its `main`, so a class you declare
+there is local and equally harmless. But a fence whose braces do not balance
+spills into the compilation unit, and if what spills is a reserved name the
+exercise is refused **for every reader**, with a message telling them the fault
+is the document's and not theirs. If a student sends you that screenshot, count
+your braces.
 
 Editing a shipped `starter` fence changes the key its drafts are stored
 under: every student's saved attempt at that exercise becomes unreachable
@@ -460,8 +471,13 @@ Seven things worth knowing before you write one:
   hits the others. In every case the component says so rather than showing a
   partial trace as if it were complete — including when the program printed so
   much that the runtime cut the trace off.
-- **`NalandaTrace` is a reserved class name**, like `NalandaLauncher` and
-  `NalandaCheck`. A snippet declaring it is refused before compiling.
+- **All three platform class names are reserved** — `NalandaTrace`,
+  `NalandaLauncher` and `NalandaCheck`. A snippet declaring any of them at top
+  level is refused as an authoring error, before any JVM boots. Merely naming
+  one in a comment or a string is fine. A _nested_ one is accepted by the guard
+  and is still a mistake here specifically: the tracer's calls are injected into
+  your own class, so a member type called `NalandaTrace` captures them and the
+  diagram draws whatever it printed instead of your program's real state.
 
 **The compiler** is not downloaded until the reader presses _Ejecutar y
 dibujar_. Mounting is not free, though: it pulls four lazy chunks — the

@@ -304,10 +304,32 @@ disposition:
   compiled, both units, into the shared directory. `instrument()` had closed the
   hole for `NalandaTrace` in a `trace` fence specifically; the other two names
   stayed shadowable. The guard now reads every **top-level** declaration —
-  `class`, `interface`, `enum` — in `source` and in `harness`, and the
-  instrumenter shares it rather than restating it. A *nested* declaration is
-  still allowed and is not a hole: it compiles to
-  `Solucion$NalandaLauncher.class` and overwrites nothing.
+  `class`, `interface`, `enum`, and `record` although Java 8 has none, so that
+  raising `SOURCE_LEVEL` is not the quiet way this reopens — in `source` and in
+  `harness`, and the instrumenter shares it rather than restating it. A *nested*
+  declaration is still allowed: it compiles to `Solucion$NalandaLauncher.class`
+  and overwrites nothing.
+- **"Closed" was claimed once before it was true.** The first version of that
+  fix scanned the raw text. Java translates `\uXXXX` BEFORE lexing (JLS §3.3),
+  and a lone CR ends a line comment (§3.4) — so an escaped keyword, an escaped
+  line terminator inside a comment, and a raw carriage return each hid a
+  top-level `NalandaLauncher` from the guard, compiled under the pinned ECJ
+  3.21.0, and hijacked the launcher in real CheerpJ: `[nalanda] PASS 1 --
+  launcher secuestrado`, 2026-08-16, found by the review panel of this same PR.
+  The guard now decodes escapes and stops comments where the compiler does.
+  **The honest claim is not "nothing gets through" but "the scan reads what ECJ
+  3.21.0 reads, on the shapes verified".** It is a MODEL of a compiler's lexer,
+  and any divergence between the two is a bypass with this same page-wide blast
+  radius. **Review triggers**: raising `SOURCE_LEVEL`, changing compiler or
+  CheerpJ version, or adding a fourth platform class.
+- **One nested case is not inert, and is accepted anyway.** `instrument()`
+  injects `NalandaTrace.inicio(…)` into the author's own class, so a member type
+  of that simple name captures the calls and the diagram draws whatever it
+  printed — compiled with the pinned ECJ 3.21.0 and run during the #123 review,
+  2026-08-16, output `TRAZA FALSIFICADA POR EL AUTOR`. Accepted because a `trace`
+  fence is repo-authored content: the only person who can write it is the author,
+  and the only person it misleads is the author. **Review trigger**: the day a
+  `trace` fence can come from anywhere but this repository.
 - **The diagram makes no claim a verdict would.** It draws what a program did; it
   does not assert that anything passed. A forged `[nalanda] T ` line authors a
   drawing by hand, which is a student lying to themselves in a component whose

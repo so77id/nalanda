@@ -5,12 +5,12 @@
 **Decision-makers:** Miguel Rodriguez
 **Covers:** fence info-string meta surviving the MDX pipeline · `<Exercise>` reading its own body ·
 the generated harness class · what the runtime contract had to grow
-**Amended by:** #116/ADR-0028 §7 and #123 (2026-08-16) — §3b: a third reserved name,
-and the guard now reads every top-level declaration rather than the entry class
-(see the notes inline)
 **Source:** Issue #76 (WP: document 1 of the Java unit + the Exercise component).
 Extends ADR-0012 (content pipeline) and ADR-0010/0014 (component contract and catalog);
 relies on ADR-0017 (Java execution) and is constrained by ADR-0020.
+**Amended by:** #116/ADR-0028 §7 (2026-08-14) — §3b: a third reserved name;
+#123 (2026-08-16) — §3b: the guard reads every top-level declaration rather than
+the entry class, after decoding what the compiler decodes (see the notes inline)
 
 ## Context
 
@@ -82,10 +82,24 @@ falsified twice; see §7.
 > tracks.
 >
 > **Amended 2026-08-16 (#123):** closed. The guard reads every **top-level**
-> declaration — `class`, `interface` and `enum` alike — in `source` and in
-> `harness`, so a secondary declaration no longer shadows. A *nested* one is
+> declaration — `class`, `interface`, `enum` and `record` alike — in `source` and
+> in `harness`, so a secondary declaration no longer shadows. A *nested* one is
 > allowed on purpose: it compiles to `Solucion$NalandaLauncher.class` and
-> collides with nothing. `library` is still exempt (ADR-0028 §6).
+> overwrites nothing (with one exception, dispositioned in `security-notes.md`:
+> a nested `NalandaTrace` captures the calls `instrument()` injects into the
+> author's class). `library` is still exempt (ADR-0028 §6).
+>
+> **"Closed" was claimed once before it was true, and the review of #123 is what
+> caught it.** The first version of this fix scanned the raw text; a Java
+> compiler translates `\uXXXX` BEFORE lexing (JLS §3.3), so three one-line shapes
+> — an escaped opening brace, an escaped newline ending a comment, an escaped
+> keyword — walked past the guard, compiled under the pinned ECJ 3.21.0 and
+> hijacked the launcher in real CheerpJ (`[nalanda] PASS 1 -- launcher
+> secuestrado`, 2026-08-16). The honest form of the claim is therefore not "no
+> declaration gets through" but "the scan reads what ECJ 3.21.0 reads, on the
+> shapes verified": it is a MODEL of a compiler's lexer, and any divergence is a
+> bypass with the same page-wide blast radius. `security-notes.md` holds the
+> residual and its review trigger.
 
 Both units compile into one output
 directory, so a student class named `NalandaLauncher` or `NalandaCheck`

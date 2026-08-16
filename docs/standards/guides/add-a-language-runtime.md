@@ -94,6 +94,20 @@ src/runtime/python/
    into a shared output directory needs the same check, and a component that
    GENERATES a unit can call it too rather than writing its own.
 
+   **Scan what the compiler scans, in the compiler's order.** This is the part
+   that cost #123 twice. A guard reading raw source is reading a different
+   program than the compiler: run the language's own pre-lexical transformation
+   FIRST, then blank comments and literals, then look for declarations. Java
+   translates `\uXXXX` before lexing (JLS §3.3) and ends a line comment at LF,
+   CR **or** CRLF (§3.4) — miss either and an escaped keyword, an escaped line
+   terminator or a raw carriage return hides a top-level declaration. All three
+   were compiled with the pinned ECJ and hijacked the launcher in real CheerpJ.
+   C++ has the same class of trap in line splicing and universal-character-names.
+
+   **And verify it against the real compiler.** These guards are pure string
+   functions: their unit tests test the model against itself and stay green
+   through every divergence (`testing-strategy.md` §Conventions).
+
    There is no third option for either. Running `source` alone when a second unit
    is present reports a passing exercise that verified nothing — the worst
    failure this platform can produce, because it is silent and it is addressed to
@@ -181,6 +195,10 @@ src/runtime/python/
       derived from it, `library` compiled beside `source` and never run — or
       refuses them with `rejectHarness`, which guards the shape rather than one
       field name. Never silently dropped.
+- [ ] Reserved-name guard over every top-level declaration in `source` and
+      `harness`, run AFTER the language's pre-lexical source transformations,
+      with at least one bypass shape verified refused against the real compiler
+      in a real browser — not only in the suite (step 3, #123).
 - [ ] Toolchain served from a CDN unless it must be self-hosted; npm package a
       `devDependency` in that case, with a version test.
 - [ ] `npm run build` shows no new multi-megabyte asset in `dist/` — unless it

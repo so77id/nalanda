@@ -173,6 +173,16 @@ because neither regression touched a named module. The ADR now carries the
 correction and the numbers; the invariant walks from `app/main.tsx` and asks an
 allowlist question.
 
+A name-based guard is also a hypothesis about how the name is SPELLED, and that
+half is easier to miss because the guard looks exhaustive. Worked case (issue
+#123): the reserved-class guard matched `NalandaLauncher` literally against the
+source text, and `class NalandaLauncher {}` compiled anyway — Java decodes
+`\uXXXX` before it lexes (JLS §3.3) — hijacking the launcher for every editor on
+the page while the guard reported nothing. The claim that survived is narrower
+than "the names are refused": the scan reads what ECJ 3.21.0 reads, on the shapes
+verified against it. A guard that models another tool's grammar is evidence only
+against that tool.
+
 ## Two shapes this repo learned the hard way
 
 **When a duplicated fact is removed, the surviving note records the drift that

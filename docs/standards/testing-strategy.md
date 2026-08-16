@@ -273,7 +273,8 @@ rather than in `go test`.
 
 These were learned in one app and apply to every one. They sit above the
 per-app sections because a rule filed under `apps/web` is a rule the Go author
-never reads, and two of the three below have Go worked cases.
+never reads — and the reverse: the first three below were learned in Go and the
+last two in the browser, and neither author would have found the other's.
 
 - **A guard reads what it guards through the test runner's own file access,
   never through a subprocess.** A test package that imports nothing from the
@@ -299,6 +300,28 @@ never reads, and two of the three below have Go worked cases.
   start instead, and the AC was closed with the test that covers the situation
   that does occur in operation — a database that goes away after boot — plus
   the mutation showing it red.
+- **When a guard carries an exemption, pin the exemption AND the non-exempt
+  remainder, in the same unit.** A test that only shows the exempt case passing
+  stays green when the exemption widens to swallow the rule — which is how a
+  guard ends up enforcing nothing while its suite is green. Worked case (#123):
+  the reserved-class guard reads the exercise harness but not the one name that
+  harness legitimately owns (`NalandaCheck`, which `buildHarness` generates), so
+  `runtime.test.ts` pins both halves — a generated harness still compiles and
+  runs, and a SECOND reserved name in the same unit is refused. Each mutation
+  kills one half and only one: widening the filter breaks the four tests that
+  prove the exemption is real, dropping the scan breaks exactly the one that
+  proves the remainder is.
+- **A guard that MODELS another tool's semantics is not proven by its own unit
+  tests.** They test the model against itself and stay green through every
+  divergence; the evidence is a shape run through the real tool. Worked case
+  (#123): `reservedDeclarations` is a pure string function with no worker, no
+  CheerpJ and no network — fully green in jsdom, and its 140 lines of tests would
+  have been just as green on the version that was bypassed. Java translates
+  `\uXXXX` before it lexes (JLS §3.3), and three one-line escapes compiled under
+  the pinned ECJ 3.21.0 and hijacked the launcher in real CheerpJ. The tests that
+  now pin them were written after the compiler produced them, not before. Where
+  the model's authority is an external tool, name that tool and its version in
+  the code, and verify against it.
 
 ## Conventions (`apps/web`)
 
