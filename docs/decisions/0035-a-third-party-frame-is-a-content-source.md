@@ -95,6 +95,29 @@ whole slide with its title.
   `security-notes.md` §"Executing student code". Unlike those, it is not
   integrity-checkable: it is a document, not a versioned bundle. A future CSP
   must allow `docs.google.com` in `frame-src`.
+- **It is the heaviest thing this site serves, and the weight is not ours to
+  reduce.** Measured on `/d/planificacion` at 1440×900, cold profile, against
+  the same page built from `main`: 5 requests / 190 kB becomes 15 requests /
+  762 kB. The third-party half is 570 kB across 10 requests, and **490 kB of it
+  is one already-gzipped Google stylesheet** — 2.9× the application's entire
+  entry chunk (171 kB gzip). Google serves its static assets with
+  `max-age=31536000`, so a second visit costs 34 kB / 10 requests; at ~1.6 Mbps
+  the last byte lands at 5.9 s against 3.5 s. The method is ADR-0018 §7's, and
+  the number is recorded for the same reason: an author choosing between a frame
+  and a typed table cannot otherwise know the frame is three times the app.
+- **Registering it eagerly is the cheap half**, measured on the same build:
+  the entry chunk goes 535,310 → 539,718 raw bytes (+0.8%), of which only
+  1,151 bytes are component code — the rest is catalog prose, which travels
+  eagerly for every component, lazy or not. No new eagerly-shipped package;
+  `architecture: what the shell reaches eagerly` is untouched. A lazy wrapper
+  would defer 1.15 kB while the 570 kB above stayed exactly where it is.
+- **`loading="lazy"` is close to inert here.** Measured in Chromium: a lazy
+  iframe defers nothing until roughly **4000px** below the fold, and the frame
+  on `/d/planificacion` sits at 325px, the two on `/catalog/c/SheetEmbed` at
+  1149px and 1883px — all three load with the page, and scrolling produces no
+  further request. The attribute is kept because it costs nothing and pays off
+  the day a frame lands at the foot of a long document, but no page should be
+  designed as though the sheet were deferred.
 - **Availability is Google's.** If Drive is down or the sheet is unshared, the
   rectangle shows Google's own page and nothing here can tell — cross-origin. The
   authoring guide's instruction is to look at the published page.

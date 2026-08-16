@@ -94,10 +94,34 @@ referrerpolicy="no-referrer"
   Slides then fails with "Se produjo un error" — the new tab inherits this
   sandbox and loses its own origin. Both halves were reproduced; neither works
   alone, which is why removing either one later is a regression no test can see.
+
+  **State the capability, not only the symptom**: what the pair buys the frame is
+  an unsandboxed new tab **at a URL the SHEET chooses** — outside `MdxLink`'s
+  scheme allowlist, which every other link in this repo goes through, and outside
+  PR review. It buys nothing against this origin (no `allow-same-origin`, no
+  `allow-top-navigation`, no `allow` attribute, so Permissions-Policy's `self`
+  default denies the frame every powerful feature): it is a link-to-anywhere
+  primitive, not an origin compromise. The narrower option exists and was not
+  taken, and it is editorial rather than attribute-level — **the 14 deck links
+  could live in the MDX**, governed and reviewed, leaving the sheet to carry only
+  the calendar, and then neither popup token is needed. That is a content
+  decision this record owns, not a browser constraint.
 - **`allow-same-origin` is deliberately NOT granted.** The sheet renders and
-  scrolls both ways without it, so the frame runs in an opaque origin and cannot
-  reach the Google session of the person reading. Verified rather than assumed:
-  all four sandbox combinations rendered the sheet identically.
+  scrolls both ways without it, so the frame's document runs in an opaque origin
+  and cannot **script** Google's. Verified rather than assumed: all four sandbox
+  combinations rendered the sheet identically.
+
+  **This is not the same as "no Google session is involved".** The sandbox flag
+  governs the origin of the resulting document, never the cookie jar of the
+  request that fetched it: the frame carries no `credentialless` attribute, so
+  loading `/preview` is an ordinary credentialed cross-site request and a
+  signed-in reader is identified to Google as a viewer of this sheet — which
+  names the course, whatever `referrerpolicy` withholds about the page.
+  Accepted, in the same spirit as the CheerpJ and jsDelivr origins below and for
+  the same reason: the alternative is not publishing the plan. `credentialless`
+  would load the frame in an anonymous store and is worth measuring **before**
+  adopting — a link-shared sheet may or may not still render — but it is not free
+  and was not measured here.
 - **`allow-top-navigation` and `allow-forms` are not granted**, and nothing
   read-only needs them. The frame cannot navigate the page around it.
 - **`referrerpolicy="no-referrer"`** costs nothing measurable and stops Google
@@ -126,16 +150,32 @@ it:
   the rectangle.** That is cross-origin: nothing here can detect it, no test
   fails, and the document looks merely odd. The authoring guide says to look at
   the page.
+- **The opposite mistake has no page to look at.** Everything above, and every
+  instruction in the guide, is phrased in the read direction — "share it as
+  _cualquiera con el enlace puede ver_". One position further down that same
+  dropdown is _puede editar_, which is a plausible slip on a sheet a colleague
+  is meant to fill in, and it publishes an **anonymously writable surface as
+  part of a course page**. It is not passive: `/preview` is a read-only render
+  surface and shows no editing chrome, so a reader has to take the frame's `src`
+  and swap `/preview` for `/edit` — a deliberate act, and a trivial one for a
+  CS student. Nothing here detects it, in either direction.
 - **The grades sheet is the case this record exists ahead of.** Publishing one
-  through this component would put student names and marks on a public page
-  behind nothing but an unguessable URL — exactly the material §"Everything under
+  through this component would put student names and marks — **personal data
+  under Ley 21.719**, the same classification §"The control worker is
+  unauthenticated" gives RUTs and grades — on a public page behind nothing but
+  an unguessable URL. That is exactly the material §"Everything under
   content/courses/ is published" reserves its review trigger for. Nothing about
-  `<SheetEmbed>` decides that; the share setting on the sheet does, and that is
-  outside this repo's review.
+  `<SheetEmbed>` decides it; the share setting on the sheet does, and that is
+  outside this repo's review. A link-shared sheet also has no expiry and no
+  deletion path once the link has travelled.
 
-**Review trigger**: the first sheet carrying student identifiers or marks — at
-which point the question is not this component but whether the data belongs
-behind the v0.3 auth (ADR-0009) instead of behind a link. Also: the first
+**Review trigger**: the first sheet carrying student identifiers or marks. **The
+remedy does not exist yet, and that is the point of the trigger** — do not read
+it as "put it behind the v0.3 auth". ADR-0009 is *professor-only*: "Only
+professor logins exist… students remain anonymous spectators… no accounts", and
+`docs/design/2026-08-controles.md` repeats that none are planned. So there is no
+gate a student could pass, and the disposition until a student-identity decision
+exists is **not to ship grades through this component at all**. Also: the first
 `<SheetEmbed>` pointed at a host other than `docs.google.com`, which the
 component refuses today and which would reopen every line above.
 
