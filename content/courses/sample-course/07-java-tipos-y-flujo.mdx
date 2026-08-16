@@ -15,6 +15,12 @@ questions: per-section
 {/* of documentSections.test.tsx, chosen because it carries both heading */}
 {/* sources — <Slide title> h2s AND markdown `##` — so it must keep at least */}
 {/* one `##` (today `## Ejercicios` and `## Lo que sigue`). */}
+{/* This document declares `questions: per-section` (#144). Adding or */}
+{/* retitling a section therefore means writing a question for it, or */}
+{/* declaring it WITH ITS REASON in NO_QUESTION in */}
+{/* apps/web/src/content/architecture.test.ts — the suite is red until you do. */}
+{/* app/documentFences.test.tsx also pins the untagged fences of the two Java */}
+{/* documents at 2, so any new listing here carries a language tag. */}
 
 # Tipos, operadores y entrada/salida
 

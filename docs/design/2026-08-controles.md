@@ -7,10 +7,13 @@
 >
 > **Status:** design closed. **WP-A shipped** (#138) — the engine is confirmed
 > by ADR-0030 with one paper check outstanding, and the reading report it
-> returns is owned by ADR-0031. **WP-B is in flight** (#139: the question bank,
-> its gates and the published artifact; #144 alongside it, #148 landed the bank
-> itself under ADR-0032, and #147 landed multiple-answer questions under
-> ADR-0033). **WP-C1 shipped** (#149) — `apps/server`
+> returns is owned by ADR-0031. **WP-B shipped for the current teaching path** —
+> #148 landed the bank itself under ADR-0032, #147 landed multiple-answer
+> questions under ADR-0033, and #144 landed the second `per-section` bank
+> (`java-tipos-y-flujo`: twelve questions, three declared exemptions). That
+> leaves `bienvenida` the only `pool` document and no document on the path
+> without questions; B reopens whenever the path grows. **WP-C1 shipped**
+> (#149) — `apps/server`
 > exists, with the layered shape of C11 enforced by a test and every
 > add-a-new-app obligation discharged; ADR-0034 records C10 and C11. WP-C2
 > (#150) and WP-C3 (#151) are filed and not started; WPs D–G not started.
@@ -123,7 +126,7 @@ touched.
 | WP | Issue | Scope | Depends on |
 |----|-------|-------|-----------|
 | A ✅ | [#138](https://github.com/so77id/nalanda/issues/138) | **AMC worker** — the spike, its acceptance list, the container and its HTTP contract, and the ADR recording engine choice | — |
-| B | [#139](https://github.com/so77id/nalanda/issues/139) | **Question bank in content** — authoring format, anchor resolution and its gate, the rendering component, catalog entry, published JSON | — |
+| B ✅ | [#139](https://github.com/so77id/nalanda/issues/139), [#144](https://github.com/so77id/nalanda/issues/144) | **Question bank in content** — authoring format, anchor resolution and its gate, the rendering component, catalog entry, published JSON; and a bank for every document on the teaching path | — |
 | C1 ✅ | [#149](https://github.com/so77id/nalanda/issues/149) | **`apps/server` is born** — Go + SQLite + goose, the layered skeleton with its dependency rule enforced by a test, `/health`, the image and compose, and every process obligation below | — |
 | C2 | [#150](https://github.com/so77id/nalanda/issues/150) | **Auth domain** — ported from DocumentBuddy per ADR-0009, Google OAuth, sessions, seed | C1 |
 | C3 | [#151](https://github.com/so77id/nalanda/issues/151) | **Backoffice** — server-rendered layout and the professor CRUD | C2 |
@@ -152,9 +155,12 @@ ADR-0030 §Not yet proven). Nothing earlier depends on it, so it is not a gate o
 #138 — but E and F would otherwise be specified against an engine nobody has
 shown can read a pencil, which is the failure the spike existed to prevent.
 
-**B is scheduled early despite not being the first dependency.** Its real work
-is the professor writing questions, which is the long pole and cannot be
-parallelised by anyone else. Everything else can be built while the bank fills.
+**B was scheduled early despite not being the first dependency**, because its
+real work is the professor writing questions — the one thing nobody else can
+parallelise. That reasoning held: the bank for the current teaching path is full
+(#139, #144), so questions are no longer the long pole. What now stands between
+here and WP-E is the paper check (ADR-0030 §Not yet proven) and C2/C3. B reopens
+only when the path grows a document.
 
 ### What WP-A must prove
 

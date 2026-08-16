@@ -60,16 +60,33 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    and like `presentation` it is optional in the schema and required in
    practice. `per-section` means every section carries at least one question,
    with deliberate gaps declared in `NO_QUESTION`
-   (`apps/web/src/content/architecture.test.ts` — one of the two places where
-   writing content means editing a file under `src/`)
+   (`apps/web/src/content/architecture.test.ts` — one of the three exceptions
+   listed in `repository-structure.md` §`content/`, where writing content means
+   editing a file under `src/`)
    **with their reason**; `pool` means a set of questions and no per-section
    expectation, and it must not be empty — an empty pool says exactly what
    `none` says; `none` means deliberately none, and it is the honest value for a
    document whose questions are not written yet.
 
    The point is to force a decision, not to force writing. A rule demanding one
-   question per section produces filler for hands-on slides and side-by-side
-   listings, and filler measures noise and then lands in a real control.
+   question per section produces filler for a section that teaches nothing of
+   its own, and filler measures noise and then lands in a real control. Which
+   sections those are is a judgement with its own rules — see
+   [`write-control-questions.md`](write-control-questions.md) §When a section
+   owes nothing, and when one owes two. It is **not** "the slide has an editor":
+   a section runs to the next `h2`, so a hands-on slide usually teaches
+   something in the prose that follows it.
+
+   > **Flip `questions:` in the SAME commit that supplies the questions and the
+   > `NO_QUESTION` entries.** The declaration is a promise the suite checks the
+   > moment it is written, so a commit that declares `per-section` over a
+   > document that is not yet covered is red by construction — and nothing is
+   > committed in red (root `CLAUDE.md`). Questions authored while the document
+   > still says `none` are already checked for shape, so the order that stays
+   > green is: write the questions, then flip the declaration and declare the
+   > exemptions together. Same family as the slice rule in
+   > [`../../conventions.md`](../../conventions.md) §Commit format. Learned in
+   > #144, whose original slice plan could not produce a green commit.
 
    `presentation` controls the document's slide form (ADR-0013): `auto`
    (default when absent) slices the deck on `h2` headings; `explicit` decks
@@ -674,9 +691,12 @@ is not scaled at all.
    and logs a console warning — forward links to drafts are allowed on purpose.
 
 7b. **Write the control questions** — the pool an entrance control draws from.
-   One `<Questions>` block, **after the last section and before the document's
-   closing invitation** where it has one: questions after a goodbye read as an
-   appendix nobody scrolls to.
+   One `<Questions>` block, **after the last section that TEACHES something and
+   before the document's closing section** — `## Lo que sigue` in both Java
+   documents: questions after a goodbye read as an appendix nobody scrolls to.
+   The closing section is then one of the gaps you declare in `NO_QUESTION`.
+   ("After the last section" alone is wrong whenever the goodbye is itself a
+   section, which is every document on the path today.)
 
    ````mdx
    <Questions>
@@ -697,18 +717,33 @@ is not scaled at all.
 
    Four things to get right, all enforced:
 
-   - **`id` is written by hand and never changes**, kebab-case, and **unique
-     across the whole `content/` tree**. It is the join key all the way to a
-     grade (ADR-0031), so a duplicate merges two students' answers into one
-     column — and that one fails `npm run build`, which the suite does not see.
-     Deriving it fails both ways: anchor-plus-ordinal renumbers when questions
-     are reordered, and a hash of the statement changes when a typo is fixed.
+   - **`id` is written by hand**, kebab-case, and **unique across the whole
+     `content/` tree**. It is the join key all the way to a grade (ADR-0031), so
+     a duplicate merges two students' answers into one column — and that one
+     fails `npm run build`, the gate that must stop it publishing (the suite
+     catches it too, in `content/questionBank.test.ts`, which drives the plugin
+     over the real `content/`; the build is the one that matters and ADR-0032
+     §Consequences says not to harmonise it down). Deriving it fails both ways:
+     anchor-plus-ordinal renumbers when questions are reordered, and a hash of
+     the statement changes when a typo is fixed.
+
+     An id may still change while the question is **unmerged** — review can
+     replace a question outright, as #144 did. Once the PR lands the bank is
+     published and the id is frozen: from that point it is the join key from a
+     printed sheet into a grade, and moving it orphans an answer column.
    - **`anchor` is the slug of an `h2`** — and a `<Slide title>` renders an `h2`,
      so slide titles are anchorable and are where most anchors point. Omit it
      when the question belongs to the whole chapter. An anchor naming no section
      paints an authoring error on the page and reddens the suite; the build
      stays green, because drafting before the section exists is a real order of
      work.
+
+     The slug is the title lowercased, accents stripped, every run of
+     non-alphanumerics turned into `-`, and leading/trailing dashes removed
+     (`apps/web/src/lib/slug.ts`). So `Cuatro diferencias con C++` anchors as
+     `cuatro-diferencias-con-c` — the `++` disappears entirely — and
+     `¿Qué imprime esto?` as `que-imprime-esto`. **Do not guess it**: read it off
+     the rendered heading's link, or off `headingSlugs()`.
    - **The answer is marked in place** with `- [x]`, never named from outside.
      Naming one by position means reordering the alternatives silently changes
      the answer.
@@ -719,6 +754,16 @@ is not scaled at all.
    fence is a runnable editor, and a Run button would answer *"¿qué imprime este
    programa?"* before the student did. **One listing per question** — only the
    first becomes the `code` field.
+
+   **Tag the fence with its language** (` ```java `). Without a tag it is not a
+   listing at all: both readers require a non-empty language
+   (`questionSource.ts`, `lib/questions.ts`), so the question ships with **no
+   listing** — missing from the page and missing from `questions.json` — past a
+   green build, and the printed sheet asks *"¿qué imprime este programa?"* with
+   no program. In the two Java documents an untagged fence also reddens
+   `app/documentFences.test.tsx`, which pins THEIR untagged count at 2 (the two
+   ASCII diagrams) and whose failure message mentions neither questions nor your
+   listing. Everywhere else there is no guard: it ships silently. (#144)
 
    **Type the opening tag on ONE line, with double-quoted attributes**, and put
    the question's prose immediately after it. The gates read the `.mdx` source,

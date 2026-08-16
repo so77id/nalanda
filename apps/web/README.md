@@ -108,7 +108,7 @@ ADR-0023.
 - Gotcha: `vite preview` has its own SPA fallback, so it cannot prove the
   `404.html` exists — `src/app/spaFallback.test.ts` and the build-shape cases in
   `src/app/deployedApp.test.tsx` are what actually guard both mechanisms.
-- `dist/` also ships **`questions.json`** (11.4 kB today), emitted by the
+- `dist/` also ships **`questions.json`**, emitted by the
   `nalanda:question-bank` plugin at `generateBundle`: every document
   `index.yaml` lists, in reading order, with its section slugs in document
   order, and every control question with its statement, its listing and the

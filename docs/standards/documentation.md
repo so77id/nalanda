@@ -47,6 +47,15 @@ case: the deployed shape (#66).
 1. **Docs ship in the same PR** as the change that makes them necessary. The
    Tier-4 review step asks "which docs does this diff obligate?" — the table
    above is the answer key.
+   **A commit message is never a fact's only home.** Knowledge discovered while
+   doing the work — a trap seen to fail, a boundary a review fix relied on — is
+   transcribed into its home in the table in the same PR; the commit may then
+   explain WHY the edit was made. The two surfaces read very differently: a
+   commit message is excellent for whoever reviews the change and invisible to
+   whoever writes the next one. Worked case #144, where three measured traps (a
+   question's fence needs a language tag, an id is mutable until it merges,
+   which sections legitimately owe no question) reached only commit messages and
+   the issue body, and a review had to move them.
 2. **ADR when a decision is architectural**: library/tool selection, cross-module
    structure, reversing a prior ADR, accepted operational constraints. Not for
    local changes, bug fixes, or refactors without boundary changes.
