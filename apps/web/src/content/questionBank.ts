@@ -50,6 +50,9 @@ export interface BankInput {
 /**
  * The published question bank.
  *
+ * The shape is a cross-app contract — **ADR-0032**, the upstream half of the
+ * join ADR-0031 owns at the other end.
+ *
  * The server reads THIS rather than `content/`, so it can never generate a
  * control from a question the site does not show (design C14). Mounting the
  * repo beside the server was rejected for exactly that: it ties the deploy to a

@@ -19,6 +19,10 @@ import { mdxComponents } from './mdxComponents';
 /**
  * L4 — the two readers of a question must agree, on every published document.
  *
+ * Why two readers exist at all, and the trigger that would collapse them into
+ * one: **ADR-0032 §Two readers, one gate**. The second spine producer this also
+ * gates is the ADR-0021 amendment.
+ *
  * The design runs two independent readers over the same authored question, on
  * purpose: `lib/questions.ts` walks the RENDERED tree so the page can draw
  * nodes, and `content/questionSource.ts` walks the MDX SOURCE so the gates and
