@@ -1,12 +1,14 @@
+import { use } from 'react';
 import { Link } from 'react-router-dom';
 
 import { CatalogLayout } from './CatalogLayout';
 import { componentCount } from './componentCount';
-import { catalog } from './registry';
+import { loadCatalog } from './registry';
 import { EMPTY_FAMILY_REASON, families } from './families';
 
 /** /catalog — the four families, their definitions, and entry counts. */
 export function CatalogOverviewPage() {
+  const catalog = use(loadCatalog());
   return (
     <CatalogLayout>
       <h1 className="text-4xl font-bold tracking-tight">Catalog</h1>

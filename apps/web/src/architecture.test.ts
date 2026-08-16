@@ -273,6 +273,25 @@ describe('architecture: what the shell reaches eagerly', () => {
     ).toEqual([]);
   });
 
+  it('never reaches the catalog entries', () => {
+    // The entries are documentation ADDRESSED TO COMPONENT AUTHORS — descriptions,
+    // when-to-use, prop tables, example snippets — and only /catalog reads them.
+    // Reached eagerly they ride in the payload of every course page, including
+    // documents nobody will ever open the catalog from: 38.04 kB raw / 12.15 kB
+    // gzip of the eager payload, measured on #122. Weight is not the reason this
+    // is a guard rather than a number in an ADR, though — the reason is that it
+    // grows with every component the repo adds and nothing else would notice:
+    // 5.45 kB gzip when #116 filed it, 12.15 four WPs later.
+    expect(
+      [...modules]
+        .map((f) => relative(SRC, f))
+        .filter((f) => f === 'components/catalogEntries.ts' || f.includes('.catalog.'))
+        .sort(),
+      'the catalog entries are reachable before first paint again — they belong behind ' +
+        '`loadCatalogEntries()` on the components seam, not in a static import',
+    ).toEqual([]);
+  });
+
   /**
    * The packages that legitimately ship to a reader before first render.
    *

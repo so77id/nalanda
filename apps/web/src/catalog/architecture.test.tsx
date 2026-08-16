@@ -2,8 +2,12 @@ import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
-import { catalog } from './registry';
+import { loadCatalog } from './registry';
 import { EMPTY_FAMILY_REASON, families } from './families';
+
+// Collection-time read: the entries are behind a dynamic import now (#122), and
+// these cases enumerate them to generate their own describes.
+const catalog = await loadCatalog();
 
 // Also spelled out in app/catalogRoute.test.tsx, which guards the rendered
 // pages. Two lines, two levels, no production module for a test-only concern.

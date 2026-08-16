@@ -1,5 +1,6 @@
 import { MDXProvider } from '@mdx-js/react';
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Suspense } from 'react';
+import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 
 import { CatalogOverviewPage, ComponentPage, FamilyPage, GovernancePage } from '../catalog';
 import { DocumentPage, courseIndex, walkIndex } from '../content';
@@ -24,10 +25,23 @@ export function AppRoutes() {
         />
         <Route path="/d/:id" element={<DocumentPage notFound={<NotFound />} />} />
         <Route path="/d/:id/present" element={<PresentationPage notFound={<NotFound />} />} />
-        <Route path="/catalog" element={<CatalogOverviewPage />} />
-        <Route path="/catalog/governance" element={<GovernancePage />} />
-        <Route path="/catalog/c/:name" element={<ComponentPage notFound={<NotFound />} />} />
-        <Route path="/catalog/:family" element={<FamilyPage notFound={<NotFound />} />} />
+        {/* One boundary for the whole catalog rather than one per page: the
+            entries arrive as a promise now (#122), and every page under here
+            reads it. `null` while it lands — the chunk is small and local, and a
+            spinner for one frame reads as a fault rather than as progress. */}
+        <Route
+          path="/catalog"
+          element={
+            <Suspense fallback={null}>
+              <Outlet />
+            </Suspense>
+          }
+        >
+          <Route index element={<CatalogOverviewPage />} />
+          <Route path="governance" element={<GovernancePage />} />
+          <Route path="c/:name" element={<ComponentPage notFound={<NotFound />} />} />
+          <Route path=":family" element={<FamilyPage notFound={<NotFound />} />} />
+        </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
     </MDXProvider>

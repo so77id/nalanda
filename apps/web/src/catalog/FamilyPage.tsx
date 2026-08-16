@@ -1,8 +1,8 @@
-import type { ReactNode } from 'react';
+import { type ReactNode, use } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
 import { CatalogLayout } from './CatalogLayout';
-import { catalog } from './registry';
+import { loadCatalog } from './registry';
 import { EMPTY_FAMILY_REASON, families } from './families';
 
 interface Props {
@@ -13,6 +13,7 @@ interface Props {
 /** /catalog/:family — the family definition and its components. */
 export function FamilyPage({ notFound }: Props) {
   const { family: familyId = '' } = useParams();
+  const catalog = use(loadCatalog());
   const family = families.find((f) => f.id === familyId);
 
   if (!family) return <>{notFound}</>;
