@@ -2,7 +2,9 @@ import { useId, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import { withMeta } from '../../lib/componentMeta';
+import { useKnownSections } from '../../lib/knownSections';
 import { parseQuestionParts } from '../../lib/questions';
+import { AuthoringError } from '../AuthoringError';
 import { QuestionListing } from './QuestionListing';
 
 export interface QuestionProps {
@@ -30,8 +32,9 @@ export interface QuestionProps {
  * is what keeps a fence from becoming a runnable editor.
  */
 export const Question = withMeta(
-  function Question({ id, children }: QuestionProps) {
+  function Question({ id, anchor, children }: QuestionProps) {
     const { statementNode, code, alternatives, type } = parseQuestionParts(children);
+    const sections = useKnownSections();
     const multiple = type === 'multiple';
     const [picked, setPicked] = useState<number[]>([]);
     const [answered, setAnswered] = useState(false);
@@ -55,6 +58,20 @@ export const Question = withMeta(
       }
       setPicked((current) =>
         current.includes(index) ? current.filter((i) => i !== index) : [...current, index],
+      );
+    }
+
+    // An anchor naming no section of this document. Painted rather than thrown,
+    // and the build stays green: drafting a question before its section exists
+    // is a real order of work — publishing one is not, which is why the suite
+    // refuses it (`content/architecture.test.ts`). An unmeasured spine is not
+    // evidence of anything, so an empty set never accuses.
+    if (anchor !== undefined && sections.size > 0 && !sections.has(anchor)) {
+      return (
+        <AuthoringError component="Question">
+          <code>{id}</code> apunta a <code>{anchor}</code>, que no es ninguna sección de este
+          documento: corrige el <code>anchor</code> o quítalo si la pregunta es del capítulo entero.
+        </AuthoringError>
       );
     }
 

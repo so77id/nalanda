@@ -2,15 +2,7 @@ import type { ReactNode } from 'react';
 
 import { withMeta } from '../lib/componentMeta';
 import { textOf } from '../lib/reactText';
-
-function slugify(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
+import { slugify } from '../lib/slug';
 
 interface HeadingProps {
   children?: ReactNode;

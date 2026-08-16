@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
+import { KnownSectionsProvider } from '../../lib/knownSections';
 import { Question } from './Question';
 
 /**
@@ -43,6 +44,48 @@ function multiple() {
     </Question>
   );
 }
+
+describe('an anchor that names no section', () => {
+  function anchored(anchor: string) {
+    return (
+      <Question id="anclada" anchor={anchor}>
+        <p>¿Cuál es el índice del primer elemento?</p>
+        {alternatives(['0', true], ['1', false], ['-1', false], ['Depende', false])}
+      </Question>
+    );
+  }
+
+  it('paints an authoring error instead of the question', () => {
+    render(
+      <KnownSectionsProvider value={new Set(['seccion-real'])}>
+        {anchored('seccion-que-no-existe')}
+      </KnownSectionsProvider>,
+    );
+
+    expect(document.querySelector('[data-authoring-error="Question"]')).toBeInTheDocument();
+    expect(screen.getByText(/seccion-que-no-existe/)).toBeInTheDocument();
+  });
+
+  it('renders normally when the anchor resolves', () => {
+    render(
+      <KnownSectionsProvider value={new Set(['seccion-real'])}>
+        {anchored('seccion-real')}
+      </KnownSectionsProvider>,
+    );
+
+    expect(document.querySelector('[data-authoring-error]')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '0' })).toBeInTheDocument();
+  });
+
+  it('says nothing while the spine has not been measured', () => {
+    // The sections are read from the DOM after mount, so the set is empty on
+    // the first render of every document. Treating empty as authority would
+    // flash an error over every correct question on every page load.
+    render(anchored('seccion-que-no-existe'));
+
+    expect(document.querySelector('[data-authoring-error]')).not.toBeInTheDocument();
+  });
+});
 
 describe('Question', () => {
   describe('the type is visible before answering', () => {
