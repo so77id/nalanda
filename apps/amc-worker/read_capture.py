@@ -127,7 +127,10 @@ def check_scoring(data_dir):
     con = sqlite3.connect(path)
     try:
         scored = con.execute("SELECT COUNT(*) FROM scoring_score").fetchone()[0]
-    except sqlite3.OperationalError as exc:
+    except sqlite3.Error as exc:
+        # sqlite3.Error, not OperationalError: the likeliest corruption is a
+        # truncated or half-copied file, which raises DatabaseError and used to
+        # escape as a raw traceback past the branch written for it.
         raise MissingScoring(
             "the scoring database is not one AMC wrote",
             f"{path}: {exc} — run `auto-multiple-choice prepare --mode b`",
@@ -143,6 +146,26 @@ def check_scoring(data_dir):
 
 
 UNSCORED = {"type": "simple", "score": None, "max": None}
+
+
+def printed_copies(data_dir):
+    """How many copies the layout says were PRINTED.
+
+    Needed because `prepare --mode b` scores the copies the SOURCE declares in
+    `\\onecopy{N}` and not the ones `--mode s --n-copies` actually printed, so a
+    caller that prints a class larger than the source's default gets copies that
+    are captured and never scored. Measured on the shipped paper check: with
+    `PAPER_COPIES=6` against a fixture declaring five, copy 6 came back with
+    every score null (#147 review, F3).
+
+    It lives here rather than in the wrapper because knowing AMC's private
+    schema is this module's job and nobody else's (ADR-0031 §Consequences).
+    """
+    con = sqlite3.connect(os.path.join(data_dir, "layout.sqlite"))
+    try:
+        return con.execute("SELECT MAX(student) FROM layout_box").fetchone()[0] or 1
+    finally:
+        con.close()
 
 
 def scoring_facts(data_dir):
@@ -163,8 +186,11 @@ def scoring_facts(data_dir):
     instead of being accepted as an answer nobody checked.
 
     `scoring_score` also carries a `copy` column, for a sheet scanned more than
-    once. It is collapsed here exactly as the capture reading collapses it —
-    duplicate scans are out of scope for both and would have to change together.
+    once, and the two tables are collapsed by DIFFERENT rules: this one keeps
+    the last row per (copy, question), while the capture reading concatenates
+    every scan's marks. Duplicate scans are out of scope for both — and they do
+    not pass silently, because a duplicated scan also duplicates the RUT boxes,
+    so the copy comes back `rut_status: "unreadable"` (measured, #147 review).
     """
     con = sqlite3.connect(os.path.join(data_dir, "scoring.sqlite"))
     try:
@@ -278,6 +304,19 @@ def read(data_dir, ticked, unsure):
                 status = "ok" if not doubtful else "doubtful"
             else:
                 status = "doubtful" if doubtful else "blank"
+            if fact["score"] is None:
+                # Captured but never scored. Publishing it would mean a
+                # well-formed report carrying `score: null` under `status:
+                # "ok"`, which is the same silent disagreement between report
+                # and grade that this whole contract exists to forbid — and the
+                # repair is not a human looking at the sheet, it is re-running
+                # `note`, so it is refused rather than queued for review.
+                raise MissingScoring(
+                    "the batch was scored before it was fully captured",
+                    f"copy {student} question {names.get(q, q)!r} has no score "
+                    "— run `auto-multiple-choice note` again, after the last "
+                    "`analyse`",
+                )
             answers.append({
                 "question": q,
                 "name": names.get(q, ""),

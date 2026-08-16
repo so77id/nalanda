@@ -21,7 +21,7 @@ Marking plan (JSON on stdin or --plan):
     {
       "1": {"rut": "20123456", "answers": [2, 1, 4, 3]},
       "2": {"rut": "1912345?", "answers": [1, 0, 2, 2]},
-      "3": {"rut": "20987654", "answers": [1, "both", 3, 1]}
+      "3": {"rut": "20987654", "answers": [1, [1, 3], "all", 1]}
     }
 
     rut      8 characters, most significant first (that is AMC's rut[8] column,
@@ -126,7 +126,12 @@ def boxes_for(sheet, spec):
             out += [b + (False,) for b in qboxes]
         elif isinstance(choice, list):
             for n in choice:
-                if not isinstance(n, int) or not 1 <= n <= len(qboxes):
+                # `type(n) is not int` rather than isinstance: a JSON `true`
+                # IS an int to isinstance and 1 <= True <= 4 holds, so a plan
+                # containing [true] used to silently mark alternative 1 — the
+                # silent-wrong side of the line, in the tool that manufactures
+                # the ground truth every assertion is compared against.
+                if type(n) is not int or not 1 <= n <= len(qboxes):
                     raise SystemExit(
                         f"question {qi + 1}: alternative {n!r} is not one of "
                         f"1..{len(qboxes)}"

@@ -225,17 +225,25 @@ check_contains "and that answering everything is free" "equivocarse no" "$sheet"
 # could see it; it was found by rendering the page and looking at it. AMC's
 # `\lastchoices` pins it, and this check is what keeps it pinned.
 #
-# Checked on both copies that draw the question: with only one, a shuffle that
-# happened to land it last would read as a pass.
-ninguna_last() { # ninguna_last <page> → "yes" when it prints after the others
-  local page="$1" text n_line other_line
+# Compared against the LAST of the other three alternatives, not against one of
+# them: comparing against a single one passes with the catch-all printed third
+# of four, which is the same defect one position along. Two of the four copies
+# that draw the question are checked — copies 2 and 3, whose pages are 3 and 5 —
+# because a single copy could land it last by shuffle and read as a pass.
+ninguna_last() { # ninguna_last <page> → "yes" when it prints after ALL the others
+  local page="$1" text n_line last_other line
   text="$(in_image pdftotext -layout -f "$page" -l "$page" /work/out/sujet.pdf - 2>/dev/null)"
   n_line="$(printf '%s\n' "$text" | grep -n 'Ninguna de las anteriores' | cut -d: -f1 | head -1)"
-  other_line="$(printf '%s\n' "$text" | grep -n 'a.compareTo(b) == 0' | cut -d: -f1 | head -1)"
-  if [ -n "$n_line" ] && [ -n "$other_line" ] && [ "$n_line" -gt "$other_line" ]; then
+  last_other=0
+  for other in 'a.equals(b)' 'a.compareTo(b) == 0' 'a == b'; do
+    line="$(printf '%s\n' "$text" | grep -nF "$other" | cut -d: -f1 | tail -1)"
+    [ -n "$line" ] || { echo "no (alternative '${other}' not found on the page)"; return; }
+    [ "$line" -le "$last_other" ] || last_other="$line"
+  done
+  if [ -n "$n_line" ] && [ "$n_line" -gt "$last_other" ]; then
     echo yes
   else
-    echo "no (ninguna at line ${n_line:-none}, other at ${other_line:-none})"
+    echo "no (ninguna at line ${n_line:-none}, last other at ${last_other:-none})"
   fi
 }
 check_eq "on copy 2 the catch-all alternative prints last" "yes" "$(ninguna_last 3)"

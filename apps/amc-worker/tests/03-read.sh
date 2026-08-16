@@ -69,20 +69,34 @@ check "the whole pipeline runs headless" pipeline
 # reader that only looked for the file would report as a batch where nobody
 # scored anything.
 
+# Both halves of the refusal are checked: WHAT it says, and that it refuses at
+# all. Asserting only the wording was not enough — a reader that printed the
+# message on stderr and a well-formed EMPTY report on stdout at exit 0 kept this
+# script green (measured with a mutant image, #147 review, F2), and that empty
+# report is exactly what the docstring promises never to produce.
 reader_error() { run python3 /opt/amc-worker/read_capture.py --data /work/project/data 2>&1 >/dev/null || true; }
+reader_out() { run python3 /opt/amc-worker/read_capture.py --data /work/project/data 2>/dev/null || true; }
+reader_status() {
+  run python3 /opt/amc-worker/read_capture.py --data /work/project/data >/dev/null 2>&1
+  echo $?
+}
 
 no_db="$(reader_error)"
 check_contains 'with no scoring database, the reader says so' \
   'no scoring database' "$no_db"
 check_contains 'and names the command that creates it' \
   'prepare --mode b' "$no_db"
+check_eq 'and refuses rather than reporting' '2' "$(reader_status)"
+check_eq 'writing nothing on stdout, so a caller piping it gets no half report' \
+  '' "$(reader_out)"
 
-prepare_scoring() {
-  run bash -c '
+prepare_scoring() { # prepare_scoring [n-copies] — default 5, the batch's size
+  run bash -c "
     auto-multiple-choice prepare --mode b --with pdflatex \
+      --n-copies ${1:-5} \
       --data /work/project/data --prefix /work/project \
       /work/src/control-demo.tex >/dev/null 2>&1
-  '
+  "
 }
 # TRAP 3 (worker.py): scoring is prepared AFTER capture. The other order leaves
 # scoring_code empty and every later association matches nothing.
@@ -93,6 +107,8 @@ check_contains 'with the database prepared but unfilled, the reader says which t
   'scoring_score is empty' "$unfilled"
 check_contains 'and names the command that fills it' \
   'but `note` did not' "$unfilled"
+check_eq 'and refuses here too' '2' "$(reader_status)"
+check_eq 'still writing nothing on stdout' '' "$(reader_out)"
 
 note_scoring() {
   run auto-multiple-choice note --data /work/project/data --seuil 0.3
@@ -257,6 +273,37 @@ check_eq "exactly the three damaged copies need review" "['3', '4', '5']" \
 
 note "report" "$(jq '"%d copies, %d need review" % (len(d["copies"]), len(d["needs_review"]))')"
 
+# --- a batch scored before it was fully captured -------------------------------
+#
+# THE defect this WP's review found, and it is reachable from the shipped paper
+# check: `prepare --mode b` scores the copies the SOURCE declares in
+# \onecopy{N}, not the ones `--mode s --n-copies` printed. With `make paper`'s
+# default of six against a fixture declaring five, copy 6 came back with every
+# score null, `status: "ok"`, absent from `needs_review`, exit 0 — a report that
+# is well formed and wrong, about a real sheet a real student filled in.
+#
+# Both callers now pass --n-copies, and the reader refuses the state outright:
+# the repair is re-running `note`, not a human looking at the sheet, so it is
+# NOT a review-queue entry. Performed here by scoring only part of the batch.
+
+check "the batch can be re-scored for fewer copies than were captured" \
+  prepare_scoring 3
+check "re-scoring leaves those copies unscored" note_scoring
+
+partial="$(reader_error)"
+check_contains 'a copy captured but never scored is refused, not reported' \
+  'scored before it was fully captured' "$partial"
+check_contains 'and the message names the copy' 'copy 4' "$partial"
+check_contains 'and the command that repairs it' 'note' "$partial"
+check_eq 'with the refusal exit status' '2' "$(reader_status)"
+
+# Put the project back the way the rest of this file expects it.
+check "scoring every captured copy again makes the batch readable" prepare_scoring 5
+check "and it scores" note_scoring
+check_eq "the report is whole again" "5" \
+  "$(run python3 /opt/amc-worker/read_capture.py --data /work/project/data 2>/dev/null |
+     python3 -c 'import json,sys; print(len(json.load(sys.stdin)["copies"]))' 2>/dev/null || echo "")"
+
 # --- the two failures a solid synthetic fill can never produce ----------------
 
 # Both shipped green past the first version of this script and were found in
@@ -292,7 +339,7 @@ damaged_pipeline() {
     # Scoring AFTER capture, always (worker.py TRAP 3). The reader needs it to
     # know the type of each question and what it was worth, and refuses to
     # read a project without it.
-    auto-multiple-choice prepare --mode b --with pdflatex --data $D \
+    auto-multiple-choice prepare --mode b --with pdflatex --data $D --n-copies 2 \
       --prefix /work/project /work/src/control-demo.tex >/dev/null 2>&1
     auto-multiple-choice note --data $D --seuil 0.3 >/dev/null 2>&1
   '
@@ -363,7 +410,7 @@ multiple_pipeline() {
       --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1
     auto-multiple-choice analyse --data $D --projet /work/project \
       --cr /work/project/cr --multiple --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
-    auto-multiple-choice prepare --mode b --with pdflatex --data $D \
+    auto-multiple-choice prepare --mode b --with pdflatex --data $D --n-copies 5 \
       --prefix /work/project /work/src/control-demo.tex >/dev/null 2>&1
     auto-multiple-choice note --data $D --seuil 0.3 >/dev/null 2>&1
   '
@@ -389,5 +436,57 @@ check_eq "and it is reported blank, not answered" "blank" \
 # score/max, so a negative score would let one answer eat a different one.
 check_eq "no question scores below zero" "True" \
   "$(mjq 'all(a["score"] >= 0 for c in d["copies"].values() for a in c["answers"])')"
+
+# --- a denominator that is not four -------------------------------------------
+#
+# Every question in the main fixture has four alternatives, so `max` is 4 for
+# the multiple and 1 for the simples — numbers a reader could produce by
+# hardcoding them and never reading AMC's `max` column at all. That mutant was
+# built and it passed all 53 checks (#147 review, F1). The report's promise is
+# that `max` IS the alternative count, so one question proves it with three.
+
+twork="${WORKER_DIR}/tests/work/s3tres"
+rm -rf "$twork"
+mkdir -p "$twork/src" "$twork/out" "$twork/scan" "$twork/project/data" "$twork/project/cr" "$twork/project/scans"
+cp "${WORKER_DIR}/tests/fixtures/control-tres.tex" "$twork/src/"
+cp "${WORKER_DIR}"/tests/tools/*.py "$twork/"
+printf '{"1": {"rut": "20123456", "answers": [[1, 2], 1]}}\n' >"$twork/plan.json"
+
+trun() { docker run --rm --env DISPLAY= -v "${twork}:/work" -w /work "$IMAGE" "$@"; }
+
+tres_pipeline() {
+  trun bash -c '
+    set -e
+    D=/work/project/data
+    auto-multiple-choice prepare --mode s --n-copies 1 --with pdflatex --data $D \
+      --prefix /work/project --out-sujet /work/out/sujet.pdf \
+      --out-calage /work/out/calage.xy /work/src/control-tres.tex >/dev/null 2>&1
+    auto-multiple-choice meptex --data $D --src /work/out/calage.xy >/dev/null 2>&1
+    python3 /work/fill_sheet.py --layout $D/layout.sqlite --sujet /work/out/sujet.pdf \
+      --out /work/scan --plan /work/plan.json --pdf /work/scan/lote.pdf >/dev/null 2>&1
+    auto-multiple-choice getimages --list /work/project/scans/list.txt \
+      --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1
+    auto-multiple-choice analyse --data $D --projet /work/project \
+      --cr /work/project/cr --multiple --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
+    auto-multiple-choice prepare --mode b --with pdflatex --data $D --n-copies 1 \
+      --prefix /work/project /work/src/control-tres.tex >/dev/null 2>&1
+    auto-multiple-choice note --data $D --seuil 0.3 >/dev/null 2>&1
+  '
+}
+
+check "a control whose multiple has three alternatives can be read" tres_pipeline
+
+trep="${twork}/report.json"
+trun python3 /opt/amc-worker/read_capture.py --data /work/project/data >"$trep" 2>/dev/null || true
+tjq() { python3 -c "import json; d=json.load(open('$trep')); print($1)" 2>/dev/null || echo ""; }
+
+check_eq "a three-alternative multiple is worth three, not four" "3.0" \
+  "$(tjq '[a["max"] for a in d["copies"]["1"]["answers"] if a["type"]=="multiple"][0]')"
+check_eq "and its simple question, with three alternatives too, is still worth one" "1.0" \
+  "$(tjq '[a["max"] for a in d["copies"]["1"]["answers"] if a["type"]=="simple"][0]')"
+check_eq "both correct of the two ticked earns the whole three" "3.0" \
+  "$(tjq '[a["score"] for a in d["copies"]["1"]["answers"] if a["type"]=="multiple"][0]')"
+note "three-alternative question" \
+  "$(tjq '[(a["name"], a["score"], a["max"]) for a in d["copies"]["1"]["answers"]]')"
 
 summary

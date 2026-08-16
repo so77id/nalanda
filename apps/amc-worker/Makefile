@@ -57,6 +57,9 @@ measure:
 ##   run `prepare` against a source directory nothing created, and never ran
 ##   `meptex` at all — so `analyse` would later read an EMPTY layout and the
 ##   whole print-mark-scan cycle would produce nothing (#138 review, F-8).
+##   The two `cp` lines mirror `stage_source` in tests/lib.sh — make cannot
+##   source a shell library, so a fixture that grows another asset has to be
+##   added in BOTH places, and this is the copy whose drift is found on paper.
 paper:
 	mkdir -p tests/work/paper/src/code tests/work/paper/out \
 		tests/work/paper/scan tests/work/paper/project/data \
@@ -92,6 +95,7 @@ read-paper:
 		    --cr /work/project/cr --multiple \
 		    --liste-fichiers /work/project/scans/list.txt >/dev/null; \
 		  auto-multiple-choice prepare --mode b --with pdflatex \
+		    --n-copies $(PAPER_COPIES) \
 		    --data /work/project/data --prefix /work/project \
 		    /work/src/control-demo.tex >/dev/null; \
 		  auto-multiple-choice note --data /work/project/data --seuil 0.3 >/dev/null; \
