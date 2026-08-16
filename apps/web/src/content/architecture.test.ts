@@ -80,6 +80,29 @@ describe('architecture: content invariants', () => {
     });
   });
 
+  // Issue #139, same shape and the same reason as `presentation` above: the
+  // schema defaults `questions` to 'none', so the parsed meta cannot tell "the
+  // author decided this document carries no questions" from "nobody thought
+  // about it". Reading the source is the only thing that can.
+  //
+  // Why it matters more here than a missing declaration usually does: a control
+  // draws its pool from a range of sections, and a document nobody declared is
+  // silently absent from every pool it should have been in. That surfaces when
+  // a control is generated — which is the week it is needed, not before.
+  describe('every course document declares its question coverage', () => {
+    it.each(documents)('%s declares `questions`', (key) => {
+      const front = parseFrontmatterBlock(readFileSync(join(APP_ROOT, key), 'utf8')) as Record<
+        string,
+        unknown
+      > | null;
+      expect(front, `no frontmatter block in ${key}`).not.toBeNull();
+      expect(
+        Object.hasOwn(front!, 'questions'),
+        `${key} does not declare "questions". Declare per-section (every section owes one, gaps declared), pool (a set with no per-section expectation), or none.`,
+      ).toBe(true);
+    });
+  });
+
   // Issue #119. Where the gate on a missing image goes, and why here.
   //
   // Rendering one is deliberately forgiving: an unresolved asset shows a broken
