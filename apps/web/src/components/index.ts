@@ -7,6 +7,7 @@ import { memoryDiagramCatalogEntry } from './interactive/MemoryDiagram.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
 import { questionsCatalogEntry } from './interactive/Questions.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
+import { sheetEmbedCatalogEntry } from './media/SheetEmbed.catalog';
 import { mosaicCatalogEntry } from './structure/Mosaic.catalog';
 import { sectionBreakCatalogEntry } from './structure/SectionBreak.catalog';
 import { sideBySideCatalogEntry } from './structure/SideBySide.catalog';
@@ -25,6 +26,7 @@ export { LazyMemoryDiagram } from './interactive/lazyMemoryDiagram';
 // never write it, they write a fence. The shell maps it onto `pre`.
 export { MdxPre } from './MdxPre';
 export { Figure } from './media/Figure';
+export { SheetEmbed } from './media/SheetEmbed';
 export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { Mosaic } from './structure/Mosaic';
@@ -41,6 +43,7 @@ export const catalogEntries: CatalogEntry[] = [
   splitCatalogEntry,
   mosaicCatalogEntry,
   figureCatalogEntry,
+  sheetEmbedCatalogEntry,
   codeEditorCatalogEntry,
   exerciseCatalogEntry,
   memoryDiagramCatalogEntry,

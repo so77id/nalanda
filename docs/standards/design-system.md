@@ -104,6 +104,29 @@ theme and is never a reading surface. `architecture.test.ts` cannot see it —
 it greps our class names, not vendor CSS or inline styles — so this note is
 the only guard.
 
+**A whole document we do not paint is the third exemption** (#146, ADR-0035).
+`<SheetEmbed>` frames a Google spreadsheet, and Google paints it white in every
+theme — there is no token to give it, no `currentColor` to inherit, and no way
+to ask: it is another origin's document, not an asset of ours. So on the dark
+theme a course page carries a white block, and that is accepted rather than
+worked around: the sheet's own cell colours (holidays, recess, the two solemnes)
+are the information, and they are designed for white.
+
+What IS ours around it, and what it pairs with:
+
+- `bg-sunk` on the wrapper — the placeholder's ground, the worst-case surface
+  the tokens are measured against, so `text-ink-faint` on it is already held to
+  4.5:1 by §The one rule. It is visible only until the frame paints.
+- `border-rule` on the frame — decorative, separating a white block from the
+  page rather than carrying information, so it has no contrast floor.
+- Nothing of ours is ever painted **on** the white: the frame's inside belongs
+  entirely to Google.
+
+Unlike `plate`, this one is not guarded by anything at all. `palette.test.ts`
+pins token values and `architecture.test.ts` greps our class names; neither can
+see a cross-origin document, and no test can. This note is the guard, and the
+check is to look at `/d/planificacion` in the dark theme.
+
 ## Verifying a colour change
 
 `getComputedStyle` returning the right value **is not evidence**. It reports what

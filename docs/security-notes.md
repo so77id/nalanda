@@ -72,6 +72,115 @@ Either one means the bank stops being study material, and neither C1 nor this
 record survives it — park that material outside `content/`, since omitting it
 from the index is not a control.
 
+### The site frames a third party, and the sheet decides what it exposes (accepted 2026-08-16, #146)
+
+`<SheetEmbed>` is **the repo's first `<iframe>`**. It puts a document served by
+`docs.google.com` inside a Nalanda page, so what that frame is allowed to do is
+a decision rather than a default inherited by omission.
+
+**What it is allowed**, each token loaded in a real browser against the course's
+own plan before it was granted:
+
+```
+sandbox="allow-scripts allow-popups allow-popups-to-escape-sandbox"
+referrerpolicy="no-referrer"
+```
+
+- **`allow-scripts`** renders the grid; without it the rectangle is empty.
+- **`allow-popups` and `allow-popups-to-escape-sandbox` are one decision, not
+  two.** The plan carries 14 `target="_blank"` links to the class decks. Without
+  the first, the click is swallowed and the only trace is a console error the
+  reader never sees. With the first but not the second, the deck opens and Google
+  Slides then fails with "Se produjo un error" — the new tab inherits this
+  sandbox and loses its own origin. Both halves were reproduced; neither works
+  alone. `SheetEmbed.test.tsx` pins both tokens, so removing one goes red — what
+  no test can see is the CONSEQUENCE, which is why any change to this string is
+  re-measured in a real browser against a sheet carrying `target="_blank"` links.
+
+  **State the capability, not only the symptom**: what the pair buys the frame is
+  an unsandboxed new tab **at a URL the SHEET chooses** — outside `MdxLink`'s
+  scheme allowlist, which every other link in this repo goes through, and outside
+  PR review. It buys nothing against this origin (no `allow-same-origin`, no
+  `allow-top-navigation`, no `allow` attribute, so Permissions-Policy's `self`
+  default denies the frame every powerful feature): it is a link-to-anywhere
+  primitive, not an origin compromise. The narrower option exists and was not
+  taken, and it is editorial rather than attribute-level — **the 14 deck links
+  could live in the MDX**, governed and reviewed, leaving the sheet to carry only
+  the calendar, and then neither popup token is needed. That is a content
+  decision this record owns, not a browser constraint.
+- **`allow-same-origin` is deliberately NOT granted.** The sheet renders and
+  scrolls both ways without it, so the frame's document runs in an opaque origin
+  and cannot **script** Google's. Verified rather than assumed: all four sandbox
+  combinations rendered the sheet identically.
+
+  **This is not the same as "no Google session is involved".** The sandbox flag
+  governs the origin of the resulting document, never the cookie jar of the
+  request that fetched it: the frame carries no `credentialless` attribute, so
+  loading `/preview` is an ordinary credentialed cross-site request and a
+  signed-in reader is identified to Google as a viewer of this sheet — which
+  names the course, whatever `referrerpolicy` withholds about the page.
+  Accepted, in the same spirit as the CheerpJ and jsDelivr origins below and for
+  the same reason: the alternative is not publishing the plan. `credentialless`
+  would load the frame in an anonymous store and is worth measuring **before**
+  adopting — a link-shared sheet may or may not still render — but it is not free
+  and was not measured here.
+- **`allow-top-navigation` and `allow-forms` are not granted**, and nothing
+  read-only needs them. The frame cannot navigate the page around it.
+- **`referrerpolicy="no-referrer"`** costs nothing measurable and stops Google
+  being told which class page a reader was on.
+
+**Why the frame is not, in itself, a new exposure.** A sheet shared as "anyone
+with the link can view" is readable by anyone holding the link whether or not
+this site frames it; framing changes who is likely to find it, not who is able
+to. The frame is cross-origin, so it cannot read this site's DOM or its
+`localStorage` (where drafts live — see below), and with `allow-same-origin`
+absent it cannot read its own either.
+
+**What is genuinely new**: a third origin the site depends on at render time,
+alongside the two recorded under "Executing student code". Unlike those, this one
+is not integrity-checkable at all — it is a document, not a versioned bundle, and
+its content is whatever the spreadsheet says today. A future CSP must allow
+`docs.google.com` in **`frame-src`**; not in `script-src`, because nothing from
+Google runs in our origin.
+
+**The sheet decides what it exposes, and that decision is not in this
+repository.** Which columns a sheet carries is the professor's call, made in
+Google Drive. Two consequences, stated before the second use rather than after
+it:
+
+- **A sheet that is not shared renders Google's own request-access page inside
+  the rectangle.** That is cross-origin: nothing here can detect it, no test
+  fails, and the document looks merely odd. The authoring guide says to look at
+  the page.
+- **The opposite mistake has no page to look at.** Everything above, and every
+  instruction in the guide, is phrased in the read direction — "share it as
+  _cualquiera con el enlace puede ver_". One position further down that same
+  dropdown is _puede editar_, which is a plausible slip on a sheet a colleague
+  is meant to fill in, and it publishes an **anonymously writable surface as
+  part of a course page**. It is not passive: `/preview` is a read-only render
+  surface and shows no editing chrome, so a reader has to take the frame's `src`
+  and swap `/preview` for `/edit` — a deliberate act, and a trivial one for a
+  CS student. Nothing here detects it, in either direction.
+- **The grades sheet is the case this record exists ahead of.** Publishing one
+  through this component would put student names and marks — **personal data
+  under Ley 21.719**, the same classification §"The control worker is
+  unauthenticated" gives RUTs and grades — on a public page behind nothing but
+  an unguessable URL. That is exactly the material §"Everything under
+  content/courses/ is published" reserves its review trigger for. Nothing about
+  `<SheetEmbed>` decides it; the share setting on the sheet does, and that is
+  outside this repo's review. A link-shared sheet also has no expiry and no
+  deletion path once the link has travelled.
+
+**Review trigger**: the first sheet carrying student identifiers or marks. **The
+remedy does not exist yet, and that is the point of the trigger** — do not read
+it as "put it behind the v0.3 auth". ADR-0009 is *professor-only*: "Only
+professor logins exist… students remain anonymous spectators… no accounts", and
+`docs/design/2026-08-controles.md` repeats that none are planned. So there is no
+gate a student could pass, and the disposition until a student-identity decision
+exists is **not to ship grades through this component at all**. Also: the first
+`<SheetEmbed>` pointed at a host other than `docs.google.com`, which the
+component refuses today and which would reopen every line above.
+
 ### Drafts live on an origin shared with every other repo of the account (accepted 2026-08-13, #85)
 
 `localStorage` keys under `nalanda:draft:*` hold what a student had in an editor
@@ -264,6 +373,15 @@ Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
   `pull_request` with `contents: read` and no secrets in the web job.
 - **Why currently safe**: content ships exclusively via git + PR review; there is
   no runtime ingestion, no user-contributed documents, no CMS.
+- **Since #146, this is a claim about MDX only, and it needs saying.** A
+  `<SheetEmbed>` renders a document this repository never sees — the trigger
+  below was considered and deliberately not fired, because a cross-origin frame
+  is not what that trigger is about: it compiles nothing, reaches no build seam,
+  and cannot inject into the MDX or KaTeX pipelines above. What it does instead
+  is put content on the page that no PR reviewed, which is its own decision with
+  its own record and its own triggers — §"The site frames a third party, and the
+  sheet decides what it exposes", and ADR-0035, which qualifies this section by
+  name. The two must stay reachable from each other.
 - **Review trigger**: the moment ANY non-repo-authored content path appears —
   v0.2 authoring-agent output that bypasses PR review, a future in-platform
   editor (vision phase C), or user-submitted material. At that point the MDX

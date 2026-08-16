@@ -432,6 +432,29 @@ npm run preview` — run, stdin, and a deliberate compile error — per
   the toggle behind the drawer; and the first fix for it, a visibility filter on
   `offsetParent`, which under jsdom matched _nothing_, emptied the trap's list
   and made its own tests pass while proving nothing.
+- **A document from a third origin is invisible to everything**, and this is a
+  third class, added in #146 when the repo grew its first `<iframe>`. jsdom has
+  no network and never loads a frame, so the suite can pin the attribute
+  **string** and nothing about its effect; and unlike the two classes above, a
+  browser does not close the gap either, because Playwright cannot query across
+  the origin — it can see that a frame is there, not what it says. So a sheet
+  that stopped being shared, a url the vendor refuses, an outage, and the
+  content itself all pass a fully green suite AND a DOM-level browser check.
+  **The evidence is the pixels and the network log**, which is why the browser
+  pass for this class is a screenshot somebody looks at plus a request/byte
+  count from a cold profile.
+
+  What must be re-measured whenever such a component changes, all four earned in
+  #146 (ADR-0035) and none of them visible to any test: that the frame paints at
+  all; what each `sandbox` token actually permits — `allow-popups` without
+  `allow-popups-to-escape-sandbox` opened a link and broke the page it opened,
+  and both spellings pass every assertion; the network weight, since one frame
+  cost ~570kB against a 190kB page; and whether `loading="lazy"` defers
+  anything, since on an iframe it defers nothing until roughly 4000px below the
+  fold. A fifth, if the component can appear on a slide: a real touch drag
+  inside the frame, because the deck's swipe rule (ADR-0013 §5.2) is written
+  about scrollers in **this** document and a cross-origin one is invisible to it.
+
 - **A media query is the sharpest case of it**: the suite can pin **which
   question is asked** and fake the answer, never evaluate it, so what is
   asserted is the query string plus the behaviour that follows from a faked

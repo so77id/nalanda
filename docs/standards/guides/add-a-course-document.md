@@ -29,7 +29,7 @@ content/courses/sample-course/
 ├── viajante.svg
 ├── logos/                     # …in a subfolder once there are several
 │   └── google.svg, java.svg, … (22, with a README recording provenance)
-├── 04-planificacion.mdx       # presentation: none     — book-only
+├── 04-planificacion.mdx       # presentation: none     — book-only; <SheetEmbed> around the live plan
 ├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>, plus a markdown ##
 ├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>, plus two markdown ##
 └── index.yaml                 # the ordered teaching path
@@ -478,7 +478,8 @@ build on the `@` (`Unexpected character '@' (U+0040) in member name`). GFM
 autolinks the bare address anyway, so the angle brackets buy nothing and cost
 a red build — hit while writing `01-bienvenida.mdx` (#120).
 
-6. **Show a picture (optional)**: the asset lives **beside the `.mdx` that uses
+6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
+   a spreadsheet in **6g**: the asset lives **beside the `.mdx` that uses
    it**, addressed relatively, and a subfolder is fine when there are several
    (`./logos/java.svg`). Both syntaxes work and get the same
    pipeline: markdown `![alt](./curva.svg)` for a picture that just needs to be
@@ -574,12 +575,98 @@ dashed for exactly that reason (ADR-0026).
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the
 build would take the dev server with it. A missing image, a `<Figure>` with no
-alt, a `<Split>` given other than two blocks, a `<Mosaic>` with no `columns` —
+alt, a `<Split>` given other than two blocks, a `<Mosaic>` with no `columns`, a
+`<SheetEmbed>` with no `title` or pointed at something that is not a sheet —
 each renders a visible box naming what is wrong, and **`npm run test` fails
 until none of them survives** (`app/contentRenders.test.tsx` renders every
 document in the registry). So an authoring error cannot be published, only
 drafted. Same shape as a wiki-link (ADR-0002); decided in
 ADR-0029.
+
+6g. **Publish a spreadsheet instead of typing it out**: `<SheetEmbed>` frames a
+shared Google Sheet inside the page, read-only. You edit the spreadsheet and the
+page follows — **no commit and no deploy**. Use it for what changes on its own
+schedule and already lives in a sheet — today that is the week-by-week plan.
+**Not the grades**, and not anything else carrying student identifiers: a
+link-shared sheet is public and there is no student login to put in front of it.
+The reasoning is in `docs/security-notes.md` §"The site frames a third party".
+
+```mdx
+<SheetEmbed
+  src="https://docs.google.com/spreadsheets/d/1_cxMU.../edit?usp=sharing"
+  title="Planificación del semestre"
+/>
+```
+
+**Paste the link the Compartir button gives you** — the component rewrites it
+into the embeddable form itself, keeping the `gid` when your link points at one
+tab of several — **that last part is unverified** (`sheetUrl.ts`: the course's
+sheet has one tab, so nothing has yet distinguished a working tab selector from
+an ignored one). If you link one tab of several, open the published page and
+check the right tab is showing. The url out of the address bar works too,
+including the
+`/spreadsheets/u/0/d/…` shape you get when you are signed into more than one
+Google account. Anything else is an authoring error, which is the failure worth
+catching: a hand-written `/edit` url is not blocked by Google — it frames
+happily — it just publishes Google's **editor**, whose own requests fail inside
+the frame, so the reader gets the grid behind a "Se ha producido un error"
+dialog. The rewrite is what avoids that.
+
+**Not the "Publicar en la web" link.** That dialog hands out
+`/spreadsheets/d/e/<token>/pubhtml`, which looks close enough to be tempting and
+is a different document identifier entirely — it is refused, deliberately and
+loudly. Before it was, it produced a framed Google "el archivo que solicitaste
+no existe" with every test green (#146 review).
+
+**Share the sheet as "cualquiera con el enlace puede ver" before you publish the
+document — _ver_, never _editar_.** A sheet that is not shared renders Google's
+own request-access page inside the rectangle, and that is cross-origin: nothing
+here can detect it and no test will fail, so **look at the page**. The mistake
+in the other direction has no page to look at — an editable share puts a
+surface anyone can write on inside a public course page, and nothing here
+detects that either. Anyone who can read the page can read the sheet, so what a
+sheet carries is a decision you make in the spreadsheet, not here
+(`docs/security-notes.md`). **Grades are not a case for this component today**:
+there is no student login to hide them behind, and the record says why.
+
+**`title` is required, in Spanish, and the component enforces it**, the same way
+`<Figure>` enforces `alt`. An iframe has no accessible name of its own, so a
+frame without one is announced as an unnamed region a screen-reader user cannot
+identify or skip past.
+
+**It shows the sheet exactly as Google renders it** — cell colours, merged
+cells, the tab bar. It reads nothing and transforms nothing, so **tidying
+happens in the spreadsheet**, before the document ships: interleaved empty
+columns and a stray block off to the right will be on the page exactly as they
+are in the file.
+
+**Two things about the rectangle**, both accepted rather than worked around:
+
+- **It paints its own white ground**, so in the dark theme it is a white block
+  on the page. The sheet's own cell colours are the information, and they are
+  designed for white.
+- **On a phone it shows a few columns and scrolls.** Dragging inside it pans the
+  sheet and does **not** change the slide — measured — because that scroller
+  lives inside Google's document, where the deck's swipe never reaches.
+
+**It is the most expensive thing on the page, by a wide margin.** Measured on
+`/d/planificacion` at 1440×900, cold: one frame adds **10 requests and ~570 kB**
+to a page that weighed 190 kB without it — and ~490 kB of that is a single
+Google stylesheet, **2.9× the whole application's entry chunk**. Google caches
+its static assets for a year, so a return visit costs ~34 kB; the price is the
+first visit, and on a slow connection (~1.6 Mbps) the last byte lands at ~6 s
+instead of ~3.5 s. Nothing here is fixable from this repo — it is Google's app.
+Worth knowing when you are choosing between a frame and a table: a calendar
+that is genuinely static is cheaper typed out. This one is not, which is the
+whole reason the component exists.
+
+**`height` is a decision, not a fallback** (default 480px, about nine rows of
+the course plan): an iframe has no content-driven height. Give it more for a
+long sheet in the book. On a slide it is capped at 64vh whatever you write,
+because a slide is _fit and scaled_ rather than clipped (ADR-0013 §5.1) — an
+oversized frame does not get cut off, it shrinks the whole slide, your title
+with it. Measured at 1024×768: the default draws at its full 480px and the slide
+is not scaled at all.
 
 7. **Cross-reference with wiki-links**: `[[otro-id]]` renders that document's
    link, `[[otro-id|texto visible]]` overrides the label. A target that doesn't
@@ -765,6 +852,14 @@ ADR-0029.
 - [ ] Every exercise opened in `npm run preview` and actually run: no authoring
       banner, cases pass against a correct solution and fail against the starter.
       Nothing in the build or the suite can check this for you.
+- [ ] Every `<SheetEmbed>` opened at `/nalanda/d/<id>` under
+      `npm run build && npm run preview`, and **looked at**: the grid is on
+      screen — not Google's request-access page, not a rectangle stuck on
+      "Cargando la planilla…", not the wrong tab. Then check in Drive that the
+      sheet is shared as _cualquiera con el enlace puede **ver**_ and not
+      _editar_. All of it is cross-origin: no level of the suite and no part of
+      the build can see any of it, and a wrong share setting in either direction
+      publishes silently.
 - [ ] Anything on a slide looked at in presentation mode, not only in the book.
 - [ ] `npm run test` green — `app/contentRenders.test.tsx` renders every document
       and fails on any authoring error the build cannot see (a missing alt, a

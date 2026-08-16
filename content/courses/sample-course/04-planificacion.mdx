@@ -10,9 +10,9 @@ questions: none
 {/* control could ask about. It carried `questions: none` as the demo page it */}
 {/* replaced, and it keeps it. */}
 
-{/* Three test files bind to this document (ADR-0025: the conflict is */}
-{/* recorded at the document). Two invariants, and BOTH are easy to break by */}
-{/* writing ordinary content here: */}
+{/* Four test files bind to this document (ADR-0025: the conflict is */}
+{/* recorded at the document). THREE invariants, and all three are easy to */}
+{/* break by writing ordinary content here: */}
 {/*   1. `presentation: none` — presentationRoute.test.tsx drives it as the */}
 {/*      no-deck document (/present redirects to the book, the control hides), */}
 {/*      and deployedApp.test.tsx uses it as the deep-link fixture. */}
@@ -25,15 +25,49 @@ questions: none
 {/*      to that file (copy it from app/documentSections.test.tsx) or repoint */}
 {/*      DEEP_LINK_FIXTURE at another non-landing document — otherwise the */}
 {/*      flake class those issues closed comes back. */}
-{/* Concretely, for #146: the class-by-class calendar CANNOT be written as */}
-{/* `## Septiembre` without moving that case first. Use `###`, or a table, or */}
-{/* make the fixture synthetic — SectionNav.test.tsx already covers the unit */}
-{/* case with `sections={[]}`. */}
+{/*   4. Since #146, the <SheetEmbed> src must stay a valid Google Sheets */}
+{/*      share link: app/contentRenders.test.tsx renders every published */}
+{/*      document and fails on the authoring error a bad one produces. */}
+
+{/* #146 filled this document and kept all three, but NOT by writing around */}
+{/* them. The calendar is a framed spreadsheet because a typed table is wrong */}
+{/* the first time a class moves (ADR-0035 §Context) — the editorial reason, */}
+{/* decided before the fixture bindings were looked at. That it also adds one */}
+{/* element and no headings, and that the component itself never lands in this */}
+{/* document's chunk because it arrives through the shell's MDX map, is a */}
+{/* consequence and not the motive. The chunk did grow — 971 to 1713 bytes, */}
+{/* all of it the prose above — which is still far inside what invariant 3 */}
+{/* needs. */}
+{/* The distinction is the limit ADR-0025 puts on itself: the suite may */}
+{/* constrain HOW content is written, never WHAT it says. */}
+
+{/* Book-only, and that IS the fixture's doing: presentation stays `none` */}
+{/* because this document is presentationRoute.test.tsx's no-deck fixture. So */}
+{/* the calendar cannot be projected. If it ever should be, move that fixture */}
+{/* first — do not flip the field here. */}
+
+{/* The `src` is the ordinary share link; <SheetEmbed> rewrites it into the */}
+{/* embeddable form. To point at a different sheet, replace it and change */}
+{/* nothing else. The sheet must be shared as "cualquiera con el enlace puede */}
+{/* ver" — an unshared one renders Google's request-access page inside the */}
+{/* frame and NOTHING here can detect it. See guides/add-a-course-document.md */}
+{/* §6g. */}
 
 # Planificación
 
-Aquí se publica el calendario clase a clase de este semestre: qué materia toca
-cada semana y qué hay que leer. Se publica durante las primeras semanas, en cuanto
-estén cerradas las fechas de laboratorio.
+El calendario del curso se publica aquí tal como está en la planilla de trabajo:
+qué materia toca cada semana, qué clase cae en qué fecha y qué hay que leer. No
+es una copia. Es la planilla misma, así que cuando una clase se mueve, se mueve
+también en esta página.
+
+<SheetEmbed
+  src="https://docs.google.com/spreadsheets/d/1_cxMUbcF9Tscd3_4Nu71HiXy-MZuaz28IapmvhS7FkM/edit?usp=sharing"
+  title="Planificación clase a clase del curso"
+  height={560}
+/>
+
+La planilla tiene más columnas de las que caben en pantalla: arrástrala hacia el
+lado para ver la bibliografía y el material de cada clase. Los títulos en azul
+son enlaces y se abren en una pestaña nueva.
 
 Las fechas de las dos solemnes están en la [[bienvenida|clase inaugural]].
