@@ -1,0 +1,11 @@
+# The SQLite database and the two sidecar files WAL mode creates next to it.
+# The database is state on a volume, never an artifact in the repository
+# (ADR-0007); .env.example points NALANDA_DATABASE_URL here by default, so
+# without this a developer's first run leaves three files in `git status`.
+*.db
+*.db-wal
+*.db-shm
+
+# A locally built binary. `go build` with no -o writes it named after the
+# package directory.
+/server
