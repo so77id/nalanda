@@ -1,5 +1,4 @@
 import { MDXProvider } from '@mdx-js/react';
-import { Suspense } from 'react';
 import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 
 import { CatalogOverviewPage, ComponentPage, FamilyPage, GovernancePage } from '../catalog';
@@ -25,18 +24,19 @@ export function AppRoutes() {
         />
         <Route path="/d/:id" element={<DocumentPage notFound={<NotFound />} />} />
         <Route path="/d/:id/present" element={<PresentationPage notFound={<NotFound />} />} />
-        {/* One boundary for the whole catalog rather than one per page: the
-            entries arrive as a promise now (#122), and every page under here
-            reads it. `null` while it lands — the chunk is small and local, and a
-            spinner for one frame reads as a fault rather than as progress. */}
-        <Route
-          path="/catalog"
-          element={
-            <Suspense fallback={null}>
-              <Outlet />
-            </Suspense>
-          }
-        >
+        {/* A layout route with NO Suspense boundary of its own, deliberately.
+            The entries arrive as a promise now (#122) and every page under here
+            reads it with `use()`, so the obvious move is a boundary — this WP
+            shipped one with `fallback={null}` and the review measured what it
+            actually bought: /catalog went from 60ms to ~375ms to first paint,
+            and roughly 310ms of that is React's fixed FALLBACK_THROTTLE_MS
+            holding the reveal once a fallback has committed, not the download
+            (the chunk lands at ~45ms). Worse, on a client-side navigation the
+            fallback blanked the page the reader was still looking at. Without
+            it React keeps the outgoing page up and reveals this one when the
+            entries land, which is both faster and what a reader wants. Add a
+            boundary here only with a fallback worth showing, and measure it. */}
+        <Route path="/catalog" element={<Outlet />}>
           <Route index element={<CatalogOverviewPage />} />
           <Route path="governance" element={<GovernancePage />} />
           <Route path="c/:name" element={<ComponentPage notFound={<NotFound />} />} />

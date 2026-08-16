@@ -6,22 +6,41 @@ import { draftKey, readDraft, saveDraft } from './draft';
 import { EmbeddedProvider } from '../embedded';
 import { ModeProvider } from '../../presentation';
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../../runtime';
-import { runtimeDescriptors } from '../../runtime';
+import { loadGrammar, runtimeDescriptors } from '../../runtime';
 import { CodeEditor } from './CodeEditor';
 
 // CodeMirror's editing surface is not the contract under test here, and its
 // contenteditable does not behave in jsdom. The panels, the run flow and the
 // per-mode shape are what the component promises.
 vi.mock('@uiw/react-codemirror', () => ({
-  default: ({ value, basicSetup }: { value: string; basicSetup?: { lineNumbers?: boolean } }) => (
+  default: ({
+    value,
+    basicSetup,
+    extensions,
+  }: {
+    value: string;
+    basicSetup?: { lineNumbers?: boolean };
+    extensions?: unknown[];
+  }) => (
     <textarea
       readOnly
       value={value}
       data-testid="code"
       data-line-numbers={String(basicSetup?.lineNumbers)}
+      // Surfaced so a case can see whether the grammar actually REACHED the
+      // editor. Without this the whole grammar path was invisible to the suite:
+      // #122 could be shipped with the extension deleted from this very prop and
+      // 989 tests stayed green.
+      data-extensions={(extensions ?? [])
+        .flat(9)
+        .filter((e) => typeof e === 'string')
+        .join(',')}
     />
   ),
 }));
+
+/** The grammar `loadGrammar` hands back here — identifiable, so a case can find it. */
+const GRAMMAR_SENTINEL = 'grammar-for-testing';
 
 const workers: FakeWorker[] = [];
 
@@ -54,7 +73,7 @@ vi.mock('../../runtime', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../runtime')>();
   return {
     ...original,
-    loadGrammar: vi.fn(async () => []),
+    loadGrammar: vi.fn(async () => [GRAMMAR_SENTINEL]),
     loadRuntime: vi.fn(async () => ({
       descriptor: {
         id: 'cpp' as const,
@@ -107,6 +126,21 @@ afterEach(() => {
 });
 
 describe('CodeEditor', () => {
+  // The grammar is asked for SEPARATELY from the runtime and arrives from its own
+  // chunk (#122). Nothing asserted it reached CodeMirror, and review measured the
+  // consequence: deleting the extension from the editor's `extensions` prop left
+  // the whole suite green while every listing on the site lost its colour. This
+  // case is the one that reddens.
+  it('feeds the language grammar to the editor', async () => {
+    renderEditor({ language: 'java' });
+    await waitFor(() =>
+      expect(screen.getByTestId('code').getAttribute('data-extensions')).toContain(
+        GRAMMAR_SENTINEL,
+      ),
+    );
+    expect(loadGrammar).toHaveBeenCalledWith('java');
+  });
+
   it('seeds the editor with the runtime sample when given no source', async () => {
     renderEditor();
     await waitFor(() => expect(screen.getByTestId('code')).toHaveValue('int main(){}\n'));

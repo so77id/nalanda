@@ -21,23 +21,24 @@ import { loadGrammar } from '../../runtime';
  * more than the unhighlighted code itself. Whatever the reader came to run is
  * governed by `loadRuntime`, which reports its own failures.
  */
-export function useGrammar(language: RuntimeId | null): Extension | null {
+export function useGrammar(language: RuntimeId): Extension | null {
   const [grammar, setGrammar] = useState<Extension | null>(null);
 
   useEffect(() => {
     // Cleared first, including when the language merely changes: keeping the
     // previous grammar until the next one lands highlights Java as Python for a
-    // frame, which is worse than not highlighting it at all.
+    // frame, which is worse than not highlighting it at all. Setting `null` over
+    // `null` on a first mount is a no-op React bails out of, so this costs no
+    // extra render.
     setGrammar(null);
-    if (language === null) return;
     let cancelled = false;
     void loadGrammar(language).then(
       (extension) => {
         if (!cancelled) setGrammar(extension);
       },
-      () => {
-        if (!cancelled) setGrammar(null);
-      },
+      // Silent, as documented above — and there is nothing to set, because the
+      // line above already left it null.
+      () => {},
     );
     return () => {
       cancelled = true;

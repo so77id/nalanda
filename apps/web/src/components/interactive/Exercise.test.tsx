@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { draftKey, readDraft, saveDraft } from './draft';
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../../runtime';
+import { loadGrammar } from '../../runtime';
 import { Exercise } from './Exercise';
 
 // Same reasoning as CodeEditor's suite: CodeMirror's contenteditable does not
@@ -12,8 +13,23 @@ import { Exercise } from './Exercise';
 // is the verdict — which cases ran, which passed, and what stays hidden until
 // they do.
 vi.mock('@uiw/react-codemirror', () => ({
-  default: ({ value }: { value: string }) => <textarea readOnly value={value} data-testid="code" />,
+  default: ({ value, extensions }: { value: string; extensions?: unknown[] }) => (
+    // `extensions` is surfaced for the same reason as in CodeEditor's suite: it
+    // is the only way a jsdom case can see that the grammar reached the editor.
+    <textarea
+      readOnly
+      value={value}
+      data-testid="code"
+      data-extensions={(extensions ?? [])
+        .flat(9)
+        .filter((e) => typeof e === 'string')
+        .join(',')}
+    />
+  ),
 }));
+
+/** The grammar `loadGrammar` hands back here — identifiable, so a case can find it. */
+const GRAMMAR_SENTINEL = 'grammar-for-testing';
 
 const workers: FakeWorker[] = [];
 
@@ -46,7 +62,7 @@ vi.mock('../../runtime', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../runtime')>();
   return {
     ...original,
-    loadGrammar: vi.fn(async () => []),
+    loadGrammar: vi.fn(async () => [GRAMMAR_SENTINEL]),
     loadRuntime: vi.fn(async () => ({
       descriptor: {
         id: 'java' as const,
@@ -142,6 +158,19 @@ afterEach(() => {
 });
 
 describe('Exercise', () => {
+  // Same reasoning as CodeEditor's suite: an exercise highlights before — and
+  // whether or not — the student ever presses Comprobar, and nothing here could
+  // see that the grammar arrived at all before #122's review.
+  it('feeds the language grammar to the editor', async () => {
+    renderExercise();
+    await waitFor(() =>
+      expect(screen.getByTestId('code').getAttribute('data-extensions')).toContain(
+        GRAMMAR_SENTINEL,
+      ),
+    );
+    expect(loadGrammar).toHaveBeenCalledWith('java');
+  });
+
   it('renders the statement and seeds the editor with the starter', async () => {
     renderExercise();
     await waitFor(() => expect(screen.getByTestId('code')).toHaveValue(STARTER));

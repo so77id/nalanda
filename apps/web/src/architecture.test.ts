@@ -172,6 +172,78 @@ describe('architecture: cross-feature dependencies', () => {
   });
 });
 
+/** Resolves an import specifier to a file inside src/, or null. */
+function moduleOf(fromFile: string, spec: string): string | null {
+  if (!spec.startsWith('.')) return null;
+  const base = resolve(dirname(fromFile), spec);
+  for (const candidate of [
+    base,
+    `${base}.ts`,
+    `${base}.tsx`,
+    join(base, 'index.ts'),
+    join(base, 'index.tsx'),
+  ]) {
+    try {
+      if (statSync(candidate).isFile()) return candidate;
+    } catch {
+      // not this one
+    }
+  }
+  return null;
+}
+
+/**
+ * Every module the browser evaluates before the first render, and every bare
+ * package those modules pull in.
+ *
+ * The cut is the DYNAMIC import, not a filename. An earlier version of this
+ * walk stopped at files matching `lazy*.tsx`, which is the same mistake it
+ * was written to replace: adding a static `import { RUNTIME_IDS } from
+ * '../../runtime'` INSIDE `lazyCodeEditor.tsx` passed all of these tests
+ * while the eager payload grew 7.8 kB. `lazy(() => import('./X'))` is a
+ * dynamic import; following static imports and never dynamic ones expresses
+ * the boundary itself, and needs no naming convention to hold.
+ */
+function eagerGraph(entry: string): { modules: Set<string>; packages: Set<string> } {
+  const modules = new Set<string>();
+  const packages = new Set<string>();
+  const queue = [entry];
+  while (queue.length > 0) {
+    const file = queue.pop()!;
+    if (modules.has(file)) continue;
+    modules.add(file);
+    const source = readFileSync(file, 'utf8');
+    // Two shapes reach the browser, and two deliberately do not:
+    //   `import x from 'y'` / `export { x } from 'y'` / `import 'y'`  → followed
+    //   `import type … from 'y'` → erased at build time
+    //   `import('y')`            → the lazy cut
+    const specs: string[] = [];
+    for (const m of source.matchAll(
+      /(?:^|[;\n])\s*(?:import|export)\s+(type\s+)?[^;'"]*?from\s*['"]([^'"]+)['"]/g,
+    )) {
+      if (!m[1]) specs.push(m[2] ?? '');
+    }
+    for (const m of source.matchAll(/(?:^|[;\n])\s*import\s*['"]([^'"]+)['"]/g)) {
+      specs.push(m[1] ?? '');
+    }
+    for (const spec of specs) {
+      if (!spec.startsWith('.')) {
+        if (!spec.endsWith('.css'))
+          packages.add(
+            spec
+              .split('/')
+              .slice(0, spec.startsWith('@') ? 2 : 1)
+              .join('/'),
+          );
+        continue;
+      }
+      const next = moduleOf(file, spec);
+      if (next) queue.push(next);
+    }
+  }
+  return { modules, packages };
+}
+
 // The two describes above guard the entry chunk by NAMING the heavy modules.
 // That is per-component, and the invariant is per-graph: ADR-0018's claim is
 // "no CodeMirror, no compiler, no runtime in the entry chunk", and #85 broke it
@@ -180,78 +252,6 @@ describe('architecture: cross-feature dependencies', () => {
 // the Java launcher with it. Both allowlist tests stayed green while the eager
 // payload went from 1 chunk / 503kB to 9 / 542kB.
 describe('architecture: what the shell reaches eagerly', () => {
-  /** Resolves an import specifier to a file inside src/, or null. */
-  function moduleOf(fromFile: string, spec: string): string | null {
-    if (!spec.startsWith('.')) return null;
-    const base = resolve(dirname(fromFile), spec);
-    for (const candidate of [
-      base,
-      `${base}.ts`,
-      `${base}.tsx`,
-      join(base, 'index.ts'),
-      join(base, 'index.tsx'),
-    ]) {
-      try {
-        if (statSync(candidate).isFile()) return candidate;
-      } catch {
-        // not this one
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Every module the browser evaluates before the first render, and every bare
-   * package those modules pull in.
-   *
-   * The cut is the DYNAMIC import, not a filename. An earlier version of this
-   * walk stopped at files matching `lazy*.tsx`, which is the same mistake it
-   * was written to replace: adding a static `import { RUNTIME_IDS } from
-   * '../../runtime'` INSIDE `lazyCodeEditor.tsx` passed all of these tests
-   * while the eager payload grew 7.8 kB. `lazy(() => import('./X'))` is a
-   * dynamic import; following static imports and never dynamic ones expresses
-   * the boundary itself, and needs no naming convention to hold.
-   */
-  function eagerGraph(entry: string): { modules: Set<string>; packages: Set<string> } {
-    const modules = new Set<string>();
-    const packages = new Set<string>();
-    const queue = [entry];
-    while (queue.length > 0) {
-      const file = queue.pop()!;
-      if (modules.has(file)) continue;
-      modules.add(file);
-      const source = readFileSync(file, 'utf8');
-      // Two shapes reach the browser, and two deliberately do not:
-      //   `import x from 'y'` / `export { x } from 'y'` / `import 'y'`  → followed
-      //   `import type … from 'y'` → erased at build time
-      //   `import('y')`            → the lazy cut
-      const specs: string[] = [];
-      for (const m of source.matchAll(
-        /(?:^|[;\n])\s*(?:import|export)\s+(type\s+)?[^;'"]*?from\s*['"]([^'"]+)['"]/g,
-      )) {
-        if (!m[1]) specs.push(m[2] ?? '');
-      }
-      for (const m of source.matchAll(/(?:^|[;\n])\s*import\s*['"]([^'"]+)['"]/g)) {
-        specs.push(m[1] ?? '');
-      }
-      for (const spec of specs) {
-        if (!spec.startsWith('.')) {
-          if (!spec.endsWith('.css'))
-            packages.add(
-              spec
-                .split('/')
-                .slice(0, spec.startsWith('@') ? 2 : 1)
-                .join('/'),
-            );
-          continue;
-        }
-        const next = moduleOf(file, spec);
-        if (next) queue.push(next);
-      }
-    }
-    return { modules, packages };
-  }
-
   // Rooted at the real entry, not at the MDX map: the shell reaches the whole
   // catalog feature too, and an earlier version of this walk started at
   // `app/mdxComponents.ts` and covered 47 of 65 modules.
@@ -326,68 +326,79 @@ describe('architecture: what the shell reaches eagerly', () => {
   });
 });
 
-describe('architecture: a runtime carries no grammar', () => {
-  // `loadRuntime(id)` is the compiler half — a worker factory and a descriptor.
-  // `loadGrammar(id)` is the editor half. They are two entry points because two
-  // consumers need one without the other: <MemoryDiagram> drives a real JVM and
-  // draws its own listing (ADR-0026/0028), so a grammar reachable from the
-  // runtime module made it pay 16.94 kB gzip to render nothing (#122 — java went
-  // 43.93 kB / 18.57 kB gzip to 3.24 kB / 1.63 kB gzip once the two were split).
+describe('architecture: a runtime carries no editor', () => {
+  // `loadRuntime(id)` is the compiler half of a language — a worker factory and a
+  // descriptor. `loadGrammar(id)` is the editor half. They are two entry points
+  // because two consumers genuinely need one without the other: <MemoryDiagram>
+  // drives a real JVM and draws its own listing (ADR-0026/0028), so while the
+  // grammar sat inside the runtime module it paid a full highlighter to render
+  // none (#122).
   //
-  // A source-level walk rather than a size assertion: the kilobytes are the
-  // symptom and only a build can see them, but a static import is the cause and
-  // it is visible here — the same reasoning ADR-0018 §Consequences reaches about
-  // the entry chunk.
-  it('no module reachable from a runtime index statically imports a CodeMirror grammar', () => {
-    const seen = new Set<string>();
-    const offenders: string[] = [];
+  // A source walk rather than a size assertion: the kilobytes are the symptom and
+  // only a build can see them, but a static import is the cause and it is visible
+  // here — the same reasoning ADR-0018 §Consequences reaches about the entry chunk.
+  //
+  // **An ALLOWLIST, and the same walker the shell's guard uses**, both learned the
+  // hard way in review. The first version of this case was a second, weaker walker
+  // that denied one hard-coded prefix, and it was evaded three ways while staying
+  // green: a grammar imported from `runtime/registry.ts` (never a root — and the
+  // file `guides/add-a-language-runtime.md` now sends the next author to edit), a
+  // `.tsx` module in a language folder (the resolver tried only `.ts`), and a bare
+  // side-effect `import './x'` (the regex required a `from`). Each of those put a
+  // ~40 kB grammar chunk back into a language chunk. Denying a list of known-bad
+  // names is the move ADR-0018 already records as insufficient for the entry
+  // chunk; the answer there was an allowlist over a shared walk, and it is the
+  // answer here.
+  const RUNTIME_ROOTS = ['index.ts', 'registry.ts'];
 
-    function follow(file: string): void {
-      if (seen.has(file)) return;
-      seen.add(file);
-      const source = readFileSync(file, 'utf8');
-      for (const match of source.matchAll(
-        /(?:^|[;\n])\s*(?:import|export)\s+(type\s+)?[^;'"]*?from\s*['"]([^'"]+)['"]/g,
-      )) {
-        if (match[1]) continue; // `import type` is erased at build time
-        const spec = match[2] ?? '';
-        if (spec.startsWith('@codemirror/lang-')) {
-          offenders.push(`${relative(SRC, file)} imports ${spec}`);
-          continue;
-        }
-        if (!spec.startsWith('.')) continue;
-        const base = resolve(dirname(file), spec);
-        for (const candidate of [base, `${base}.ts`, join(base, 'index.ts')]) {
-          try {
-            if (statSync(candidate).isFile()) {
-              follow(candidate);
-              break;
-            }
-          } catch {
-            // not this one
-          }
-        }
-      }
-    }
+  /**
+   * What the runtime feature's STATIC graph may legitimately reach.
+   *
+   * One package, and that is not an accident worth loosening: a runtime module is
+   * a worker factory and a descriptor, and `useRuntime` is a React hook. Anything
+   * else — a grammar from any vendor, a toolchain, a parser — belongs behind one
+   * of the feature's dynamic entry points. Adding a name here is a deliberate act
+   * that puts weight on every consumer of every language, including the ones that
+   * mount no editor.
+   */
+  const RUNTIME_MAY_REACH = ['react'];
 
-    const runtimeDir = join(SRC, 'runtime');
-    const indexes = readdirSync(runtimeDir, { withFileTypes: true })
+  function runtimeRoots(): string[] {
+    const dir = join(SRC, 'runtime');
+    const inFolders = readdirSync(dir, { withFileTypes: true })
       .filter((e) => e.isDirectory())
-      .map((e) => join(runtimeDir, e.name, 'index.ts'))
-      .filter((f) => {
-        try {
-          return statSync(f).isFile();
-        } catch {
-          return false;
-        }
-      });
+      .flatMap((e) => [join(dir, e.name, 'index.ts'), join(dir, e.name, 'index.tsx')]);
+    return [...RUNTIME_ROOTS.map((f) => join(dir, f)), ...inFolders].filter((f) => {
+      try {
+        return statSync(f).isFile();
+      } catch {
+        return false;
+      }
+    });
+  }
 
-    expect(indexes.length, 'no runtime modules found — repoint the walk').toBeGreaterThan(0);
-    for (const index of indexes) follow(index);
+  it('finds the runtime modules (guards against a vacuous walk)', () => {
+    // Without this the allowlist case below passes over an empty root set, which
+    // is how a guard stops guarding without anyone noticing.
+    const roots = runtimeRoots().map((f) => relative(SRC, f));
+    expect(roots).toContain('runtime/registry.ts');
+    expect(roots).toContain('runtime/index.ts');
+    expect(roots.filter((f) => /^runtime\/[^/]+\/index\.tsx?$/.test(f)).length).toBeGreaterThan(2);
+  });
+
+  it('pulls in no package beyond what driving a runtime needs', () => {
+    const reached = new Set<string>();
+    for (const root of runtimeRoots()) {
+      for (const name of eagerGraph(root).packages) reached.add(name);
+    }
     expect(
-      offenders.sort(),
-      'a grammar belongs behind `loadGrammar(id)`, not inside the runtime module — ' +
-        'a consumer that drives a runtime without mounting an editor must not pay for one',
+      [...reached].filter((name) => !RUNTIME_MAY_REACH.includes(name)).sort(),
+      'this package is now reachable from a runtime module by a STATIC import, so ' +
+        'every consumer of that language pays for it — including <MemoryDiagram>, ' +
+        'which mounts no editor. A CodeMirror grammar goes behind `loadGrammar(id)`. ' +
+        'Do not add it to RUNTIME_MAY_REACH to go green: that is the same move as ' +
+        'widening SHIPS_EAGERLY, and #122 exists because this exact weight was ' +
+        'travelling unnoticed.',
     ).toEqual([]);
   });
 });
