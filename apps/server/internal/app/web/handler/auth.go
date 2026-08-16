@@ -41,12 +41,44 @@ type Auth struct {
 	Log          *slog.Logger
 }
 
+// NewAuth returns the handlers, refusing a set of dependencies it cannot serve
+// with.
+//
+// backend-code-style.md §HTTP asks for "a closure over its dependencies,
+// returned by a small constructor". Four handlers sharing seven dependencies are
+// a struct rather than seven closures over the same values — but the half of the
+// rule that was being lost is the constructor, and with it the moment a wiring
+// mistake is caught. A literal &Auth{} with a field forgotten compiles and
+// panics inside a request, which §Errors forbids outright (#150 review, ARQ-3).
+//
+// It panics, which is the one place this repo allows it: wiring time, in
+// cmd/server, before the listener is open. A server that cannot log anyone in
+// must not start and pretend.
+func NewAuth(deps Auth) *Auth {
+	switch {
+	case deps.Login == nil:
+		panic("handler.NewAuth: no login service")
+	case deps.Provider == nil:
+		panic("handler.NewAuth: no OAuth provider")
+	case deps.ProviderName == "":
+		panic("handler.NewAuth: no provider name")
+	case deps.State == nil:
+		panic("handler.NewAuth: no OAuth state store")
+	case deps.PublicURL == "":
+		panic("handler.NewAuth: no public URL")
+	case deps.Log == nil:
+		panic("handler.NewAuth: no logger")
+	}
+	return &deps
+}
+
 // Messages a person reads. Spanish, like everything on this surface; the
 // identifiers around them stay English (root CLAUDE.md).
 const (
 	avisoNoEsProfesor  = "Esa cuenta de Google no pertenece a ningún profesor de este curso."
 	avisoFalloEntrada  = "No se pudo completar la entrada con Google. Inténtalo de nuevo."
 	avisoSesionCerrada = "Has cerrado la sesión."
+	avisoOcupado       = "Hay demasiados intentos de entrada en curso. Vuelve a intentarlo."
 )
 
 // LoginPage renders the login page, which doubles as the signed-in page.
@@ -64,7 +96,7 @@ func (a *Auth) LoginPage(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := view.RenderLogin(w, http.StatusOK, page); err != nil {
+	if err := view.RenderLogin(w, page); err != nil {
 		a.Log.Error("rendering the login page", "error", err)
 	}
 }
@@ -80,31 +112,99 @@ func avisoFor(key string) string {
 		return avisoFalloEntrada
 	case "sesion-cerrada":
 		return avisoSesionCerrada
+	case "ocupado":
+		return avisoOcupado
 	default:
 		return ""
 	}
 }
 
+// StateCookieName carries the OAuth state nonce back to the browser that
+// started the flow. See LoginGoogle for why the server-side store is not enough
+// on its own.
+const StateCookieName = "nalanda_oauth_state"
+
 // LoginGoogle starts the flow: a fresh nonce, then a redirect to the provider.
+//
+// The nonce goes to TWO places, and the second one is the load-bearing half.
+// The server-side store makes it single-use, which stops a callback being
+// replayed. It does NOT tie the attempt to a browser: the store is one map for
+// the whole process, so a nonce issued to one visitor is a nonce any visitor can
+// present. That is login CSRF, and it was demonstrated against this handler
+// before this cookie existed — an attacker starts a flow, keeps the redirect,
+// and feeds the callback to a professor's browser, which then holds a session
+// for the ATTACKER's account and types into it (#150 review, SEC-1).
+//
+// So the nonce is also written to a cookie, and the callback requires the two to
+// match. That is what makes the attempt this browser's.
 func (a *Auth) LoginGoogle(w http.ResponseWriter, r *http.Request) {
 	nonce, err := a.State.Issue()
 	if err != nil {
+		// A full store is not a broken server: it is a flood of anonymous
+		// attempts, and the honest thing to tell this visitor is to try again.
+		// Distinguished from a real failure so the message is not a lie and the
+		// log line is not an alarm.
+		if errors.Is(err, oauthstate.ErrBusy) {
+			a.Log.Warn("refusing a login attempt: too many in flight")
+			a.redirectToLogin(w, r, "ocupado")
+			return
+		}
 		a.Log.Error("issuing an OAuth state nonce", "error", err)
 		a.redirectToLogin(w, r, "fallo")
 		return
 	}
+
+	http.SetCookie(w, &http.Cookie{
+		Name:     StateCookieName,
+		Value:    nonce,
+		Path:     "/",
+		MaxAge:   int(oauthstate.DefaultTTL.Seconds()),
+		HttpOnly: true,
+		Secure:   a.SecureCookie,
+		SameSite: http.SameSiteLaxMode,
+	})
+
 	http.Redirect(w, r, a.Provider.AuthCodeURL(nonce, a.callbackURI()), http.StatusSeeOther)
+}
+
+// clearStateCookie drops the state cookie. Called on every exit from the
+// callback, successful or not: a nonce that has been presented once is spent
+// whatever the outcome, and leaving it in the browser only invites a replay.
+func (a *Auth) clearStateCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     StateCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   a.SecureCookie,
+		SameSite: http.SameSiteLaxMode,
+	})
 }
 
 // LoginGoogleCallback completes the flow.
 func (a *Auth) LoginGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	query := r.URL.Query()
+	state := query.Get("state")
 
-	// The nonce is checked BEFORE the code is spent. A callback whose state does
-	// not match an attempt this server started is not a login going wrong, it is
-	// a request somebody else sent this browser — and it must not reach the
-	// provider at all.
-	if !a.State.Consume(query.Get("state")) {
+	// Both halves of the state check, before the code is spent. A callback that
+	// fails either is not a login going wrong, it is a request somebody else
+	// sent this browser — and it must not reach the provider at all.
+	//
+	// First: does this browser hold the nonce it is presenting? Compared in
+	// constant time through the same helper the CSRF field uses, because that is
+	// exactly what this is — the CSRF defence of the login itself.
+	cookie, err := r.Cookie(StateCookieName)
+	a.clearStateCookie(w)
+	if err != nil || !auth.VerifyCSRF(cookie.Value, state) {
+		a.Log.Warn("refusing a callback whose state was not issued to this browser")
+		a.redirectToLogin(w, r, "fallo")
+		return
+	}
+
+	// Second: was it issued by this server, and is this the first time it comes
+	// back? The store is what makes it single-use.
+	if !a.State.Consume(state) {
 		a.Log.Warn("refusing a callback whose state matches no login attempt")
 		a.redirectToLogin(w, r, "fallo")
 		return

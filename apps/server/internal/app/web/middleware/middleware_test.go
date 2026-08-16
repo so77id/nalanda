@@ -441,3 +441,103 @@ func TestResolveDoesNotLogAnyoneOutOverADatabaseError(t *testing.T) {
 		t.Error("the cookie was cleared over a database error, which logs everyone out for the duration")
 	}
 }
+
+// failingUsers answers the professor lookup with a transport-shaped failure.
+type failingUsers struct {
+	auth.UserStore
+	err error
+}
+
+func (f failingUsers) UserByID(context.Context, int64) (auth.User, error) {
+	return auth.User{}, f.err
+}
+
+// COR-2. The "a database error is not a logged-out professor" rule was pinned
+// for the SESSION lookup and not for the PROFESSOR lookup right below it, and
+// the untested branch was the worse of the two: it also DELETES the session, so
+// a database blip would log every professor out permanently rather than for the
+// duration of the trouble.
+func TestResolveDoesNotDestroyASessionWhenTheProfessorCannotBeRead(t *testing.T) {
+	h := newHarness(t)
+	_, token := h.login(t, "profesora@example.com")
+	h.auth.Users = failingUsers{UserStore: h.store, err: errors.New("database is locked")}
+
+	recorder := h.request(h.auth.Resolve(h.next()), token)
+
+	if h.seenOK {
+		t.Error("the handler saw a professor although the professor could not be read")
+	}
+	if clearedCookie(t, recorder) {
+		t.Error("the cookie was cleared over a database error")
+	}
+	if _, err := h.store.SessionByTokenHash(context.Background(), auth.HashToken(token)); err != nil {
+		t.Errorf("the session was deleted over a database error, so the professor cannot get back in: %v", err)
+	}
+}
+
+// The mirror case, which was equally unexercised: a session whose professor row
+// is genuinely gone IS swept. Deleting a professor must not leave a cookie that
+// resolves to nobody on every request forever.
+func TestResolveSweepsASessionWhoseProfessorIsGone(t *testing.T) {
+	h := newHarness(t)
+	user, token := h.login(t, "profesora@example.com")
+
+	if _, err := h.db.ExecContext(context.Background(),
+		"DELETE FROM users WHERE user_id = ?", user.ID); err != nil {
+		t.Fatalf("deleting the professor: %v", err)
+	}
+
+	recorder := h.request(h.auth.Resolve(h.next()), token)
+
+	if h.seenOK {
+		t.Error("the handler saw a professor who no longer exists")
+	}
+	if !clearedCookie(t, recorder) {
+		t.Error("the cookie of a deleted professor was not cleared")
+	}
+}
+
+// COR-3. Every other CSRF case composes Resolve → RequireProfessor → VerifyCSRF,
+// and the gate answers a sessionless request before VerifyCSRF is reached — so
+// the 403 those cases assert always comes from the token comparison, never from
+// this branch. WP-C3 composes these middlewares route by route and may well
+// mount VerifyCSRF without the gate.
+func TestVerifyCSRFRefusesAStateChangingRequestWithNoSessionAtAll(t *testing.T) {
+	h := newHarness(t)
+
+	form := url.Values{}
+	form.Set(middleware.CSRFFieldName, "a-token-from-nowhere")
+	req := httptest.NewRequest(http.MethodPost, "/logout", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	recorder := httptest.NewRecorder()
+	h.auth.Resolve(h.auth.VerifyCSRF(h.next())).ServeHTTP(recorder, req)
+
+	if h.handlerRan {
+		t.Error("a state-changing request with no session reached the handler")
+	}
+	if recorder.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want 403", recorder.Code)
+	}
+}
+
+// The other unexercised branch of the same middleware: a body that cannot be
+// parsed carries no token either, and must be refused rather than crash.
+func TestVerifyCSRFRefusesAnUnparseableBody(t *testing.T) {
+	h := newHarness(t)
+	_, token := h.login(t, "profesora@example.com")
+
+	req := httptest.NewRequest(http.MethodPost, "/logout", strings.NewReader("%zz=%"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: token})
+
+	recorder := httptest.NewRecorder()
+	h.auth.Resolve(h.auth.RequireProfessor(h.auth.VerifyCSRF(h.next()))).ServeHTTP(recorder, req)
+
+	if h.handlerRan {
+		t.Error("a request whose body could not be parsed reached the handler")
+	}
+	if recorder.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want 403", recorder.Code)
+	}
+}

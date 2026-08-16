@@ -49,10 +49,10 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 	logger := testLogger()
 	return rootHandler(web.Deps{
 		Database: prober,
-		Auth: &middleware.Auth{
+		Gate: middleware.NewAuth(middleware.Auth{
 			Sessions: store, Users: store, Now: time.Now, SecureCookie: true, Log: logger,
-		},
-		Login: &handler.Auth{
+		}),
+		Login: handler.NewAuth(handler.Auth{
 			Login: &auth.Login{
 				Users: store, Identities: store, Sessions: store,
 				Now: time.Now, SessionTTL: time.Hour,
@@ -63,8 +63,8 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 			PublicURL:    "https://nalanda.test",
 			SecureCookie: true,
 			Log:          logger,
-		},
-		Logger: logger,
+		}),
+		Log: logger,
 	}, prober, logger), store
 }
 
@@ -282,9 +282,9 @@ func TestTheBackofficeGateIsMountedThroughTheComposition(t *testing.T) {
 		// The gate redirects to the bare login path; the handler, if it ran,
 		// would add its own "you have signed out" notice. The difference is what
 		// tells the two apart.
-		if location := rec.Header().Get("Location"); location != middleware.LoginPath {
+		if location := rec.Header().Get("Location"); location != handler.LoginPath {
 			t.Errorf("Location = %q, want %q — the logout handler ran instead of the gate",
-				location, middleware.LoginPath)
+				location, handler.LoginPath)
 		}
 	})
 }

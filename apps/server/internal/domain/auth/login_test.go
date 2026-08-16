@@ -54,7 +54,7 @@ func TestAuthenticateFindsAProfessorByTheirLinkedIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateUser: %v", err)
 	}
-	if _, err := store.LinkIdentity(ctx, created.ID, provider, "sub-1", "profesora@example.com"); err != nil {
+	if err := store.LinkIdentity(ctx, created.ID, provider, "sub-1", "profesora@example.com"); err != nil {
 		t.Fatalf("LinkIdentity: %v", err)
 	}
 
@@ -76,7 +76,7 @@ func TestAuthenticateFollowsTheIdentityWhenTheAddressChanges(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateUser: %v", err)
 	}
-	if _, err := store.LinkIdentity(ctx, created.ID, provider, "sub-1", "antigua@example.com"); err != nil {
+	if err := store.LinkIdentity(ctx, created.ID, provider, "sub-1", "antigua@example.com"); err != nil {
 		t.Fatalf("LinkIdentity: %v", err)
 	}
 
@@ -203,7 +203,7 @@ func TestAuthenticateRefusesADeactivatedProfessor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateUser: %v", err)
 	}
-	if _, err := store.LinkIdentity(ctx, created.ID, provider, "sub-1", "profesora@example.com"); err != nil {
+	if err := store.LinkIdentity(ctx, created.ID, provider, "sub-1", "profesora@example.com"); err != nil {
 		t.Fatalf("LinkIdentity: %v", err)
 	}
 	if _, err := db.ExecContext(ctx, "UPDATE users SET is_active = 0 WHERE user_id = ?", created.ID); err != nil {
@@ -301,5 +301,32 @@ func TestEndSessionRemovesIt(t *testing.T) {
 	// logout button is not an error.
 	if err := service.EndSession(ctx, token); err != nil {
 		t.Errorf("a second EndSession: %v", err)
+	}
+}
+
+// COR-1. Path 2 — a professor added by email, arriving for the first time —
+// also checks MayLogIn, and nothing exercised that. It matters precisely
+// because that path is WP-C3's create-by-email CRUD: a professor deactivated
+// before they ever signed in must not be able to sign in, and must not have an
+// identity linked to them on the way out.
+func TestAuthenticateRefusesADeactivatedProfessorWhoNeverSignedIn(t *testing.T) {
+	ctx, db, store, service, _ := login(t, "")
+
+	created, err := store.CreateUser(ctx, "invitada@example.com", "Invitada")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, "UPDATE users SET is_active = 0 WHERE user_id = ?", created.ID); err != nil {
+		t.Fatalf("deactivating: %v", err)
+	}
+
+	if _, err := service.Authenticate(ctx, provider, "sub-never-seen", "invitada@example.com"); !errors.Is(err, auth.ErrNotAProfessor) {
+		t.Fatalf("Authenticate = %v, want ErrNotAProfessor", err)
+	}
+
+	// And no identity was linked to the account that was refused — otherwise a
+	// refusal would quietly hand the Google account a claim on the professor.
+	if _, err := store.IdentityBySubject(ctx, provider, "sub-never-seen"); !errors.Is(err, auth.ErrNotFound) {
+		t.Errorf("an identity was linked to a refused account: %v", err)
 	}
 }

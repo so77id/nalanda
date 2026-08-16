@@ -111,19 +111,6 @@ func HashToken(token string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// TokenMatchesHash reports whether token is the one hash was made from, in
-// constant time.
-//
-// It needs no empty-input guard, and that is worth stating because VerifyCSRF
-// below has one and the two functions otherwise look alike. Here one side is
-// always a fresh 64-character hash, so an empty argument makes the lengths
-// differ and ConstantTimeCompare returns 0 on its own. A guard was written here
-// first; removing it broke no test, because there is no case in which it can
-// change the answer.
-func TokenMatchesHash(hash, token string) bool {
-	return subtle.ConstantTimeCompare([]byte(hash), []byte(HashToken(token))) == 1
-}
-
 // VerifyCSRF compares the token submitted with a request against the one stored
 // on the session, in constant time.
 //
@@ -161,8 +148,10 @@ type IdentityStore interface {
 	// IdentityBySubject looks up the stable login key, returning ErrNotFound
 	// when this Google account belongs to nobody here.
 	IdentityBySubject(ctx context.Context, provider, subject string) (Identity, error)
-	// LinkIdentity binds a provider account to a professor.
-	LinkIdentity(ctx context.Context, userID int64, provider, subject, email string) (Identity, error)
+	// LinkIdentity binds a provider account to a professor. It returns no
+	// Identity: every caller discarded it, which is a shape kept from the source
+	// project where the invitation flow read it back (#150 review, ARQ-6).
+	LinkIdentity(ctx context.Context, userID int64, provider, subject, email string) error
 }
 
 type SessionStore interface {
@@ -179,10 +168,11 @@ type SessionStore interface {
 	// DeleteSession is logout, and is idempotent: deleting a session that is
 	// already gone is a successful logout, not an error.
 	DeleteSession(ctx context.Context, hash string) error
-	// DeleteUserSessions ends every session a professor holds. WP-C3 calls it
-	// when it deactivates one; it is here because the professor gate is what
-	// gives it meaning.
-	DeleteUserSessions(ctx context.Context, userID int64) error
+	// Ending EVERY session a professor holds is deliberately not here. The
+	// adapter implements it, because deactivating a professor without it is a
+	// half-measure and the SQL is worth banking — but this interface lists what
+	// this package calls, and the caller is WP-C3's deactivation screen. It adds
+	// the line in the commit that first needs it (#150 review, ARQ-5).
 }
 
 // OAuthProvider is the identity provider, declared as this package needs it

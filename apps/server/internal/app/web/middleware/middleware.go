@@ -38,8 +38,18 @@ const SessionCookieName = "nalanda_session"
 // CSRFFieldName is the form field every state-changing request carries.
 const CSRFFieldName = "csrf_token"
 
-// LoginPath is where an anonymous request to a gated route is sent.
-const LoginPath = "/login"
+// DefaultLoginPath is where an anonymous request to a gated route is sent when
+// Auth.LoginPath is empty.
+//
+// It is a DEFAULT and not the truth: the route belongs to the surface, which
+// registers it, and this package must not hold a second opinion about it. It
+// held one for a slice, and renaming handler.LoginPath left the whole suite
+// green while the gate redirected to a route the mux no longer served — the
+// exact failure this file's HealthPath comment describes for #149, repeated
+// (#150 review, ARQ-1). cmd/server and the router now pass the real value in;
+// this constant is what a zero-value Auth falls back to so the fallback is a
+// working page rather than "".
+const DefaultLoginPath = "/login"
 
 // Auth holds what the middlewares need. Constructed once in cmd/server.
 type Auth struct {
@@ -50,7 +60,37 @@ type Auth struct {
 	// SecureCookie comes from config.SecureCookie(), which derives it from the
 	// public URL's scheme.
 	SecureCookie bool
-	Log          *slog.Logger
+	// LoginPath is where RequireProfessor sends an anonymous request. Passed in
+	// from the surface that registers the route rather than held here — see
+	// DefaultLoginPath. Empty falls back to it.
+	LoginPath string
+	Log       *slog.Logger
+}
+
+// NewAuth returns the middlewares, refusing a set of dependencies it cannot
+// serve with. Same reasoning as handler.NewAuth: a literal with a field
+// forgotten compiles and panics inside a request instead of at boot
+// (#150 review, ARQ-3).
+func NewAuth(deps Auth) *Auth {
+	switch {
+	case deps.Sessions == nil:
+		panic("middleware.NewAuth: no session store")
+	case deps.Users == nil:
+		panic("middleware.NewAuth: no user store")
+	case deps.Now == nil:
+		panic("middleware.NewAuth: no clock")
+	case deps.Log == nil:
+		panic("middleware.NewAuth: no logger")
+	}
+	return &deps
+}
+
+// loginPath is the configured redirect target, or the default.
+func (a *Auth) loginPath() string {
+	if a.LoginPath == "" {
+		return DefaultLoginPath
+	}
+	return a.LoginPath
 }
 
 // contextKey is unexported so that nothing outside this package can put a
@@ -173,7 +213,7 @@ func (a *Auth) deleteSession(ctx context.Context, hash string) {
 func (a *Auth) RequireProfessor(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if _, ok := ProfessorFrom(r.Context()); !ok {
-			http.Redirect(w, r, LoginPath, http.StatusSeeOther)
+			http.Redirect(w, r, a.loginPath(), http.StatusSeeOther)
 			return
 		}
 		next.ServeHTTP(w, r)

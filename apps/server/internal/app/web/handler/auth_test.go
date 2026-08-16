@@ -85,9 +85,10 @@ func newFixture(t *testing.T, bootstrapEmail string) *fixture {
 	return f
 }
 
-// start runs GET /login/google and returns the state nonce the provider was
-// handed, which is what a real browser would carry to the callback.
-func (f *fixture) start(t *testing.T) string {
+// start runs GET /login/google and returns what a real browser would then be
+// holding: the state nonce the provider was handed, and the cookie that binds it
+// to this browser.
+func (f *fixture) start(t *testing.T) (string, *http.Cookie) {
 	t.Helper()
 
 	recorder := httptest.NewRecorder()
@@ -96,16 +97,35 @@ func (f *fixture) start(t *testing.T) string {
 	if recorder.Code != http.StatusSeeOther {
 		t.Fatalf("starting the flow answered %d, want 303", recorder.Code)
 	}
-	return f.provider.LastState()
+	return f.provider.LastState(), stateCookie(t, recorder)
 }
 
-// callback runs the callback with the given state and code.
-func (f *fixture) callback(t *testing.T, state, code string) *httptest.ResponseRecorder {
+// stateCookie pulls the state cookie out of a response, failing if it is absent:
+// without it no callback can succeed, so its absence is never incidental.
+func stateCookie(t *testing.T, recorder *httptest.ResponseRecorder) *http.Cookie {
+	t.Helper()
+
+	for _, cookie := range recorder.Result().Cookies() {
+		if cookie.Name == handler.StateCookieName && cookie.Value != "" {
+			return cookie
+		}
+	}
+	t.Fatal("the response carries no state cookie")
+	return nil
+}
+
+// callback runs the callback with the given state and code, carrying the state
+// cookie when one is given — which is what a browser that started the flow does.
+func (f *fixture) callback(t *testing.T, state, code string, cookie *http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
 
 	target := handler.LoginCallbackPath + "?state=" + url.QueryEscape(state) + "&code=" + url.QueryEscape(code)
+	request := httptest.NewRequest(http.MethodGet, target, nil)
+	if cookie != nil {
+		request.AddCookie(cookie)
+	}
 	recorder := httptest.NewRecorder()
-	f.auth.LoginGoogleCallback(recorder, httptest.NewRequest(http.MethodGet, target, nil))
+	f.auth.LoginGoogleCallback(recorder, request)
 	return recorder
 }
 
@@ -190,7 +210,8 @@ func TestLoginGoogleRedirectsWithAStateAndTheConfiguredCallback(t *testing.T) {
 func TestTheCallbackBootstrapsTheFirstProfessorAndOpensASession(t *testing.T) {
 	f := newFixture(t, "profesora@example.com")
 
-	recorder := f.callback(t, f.start(t), "the-code")
+	state, stateCookie := f.start(t)
+	recorder := f.callback(t, state, "the-code", stateCookie)
 
 	if recorder.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303", recorder.Code)
@@ -221,7 +242,8 @@ func TestTheCallbackRefusesAnAccountThatIsNotAProfessor(t *testing.T) {
 	f.provider.Email = "cualquiera@example.com"
 	f.provider.Subject = "sub-stranger"
 
-	recorder := f.callback(t, f.start(t), "the-code")
+	state, cookie := f.start(t)
+	recorder := f.callback(t, state, "the-code", cookie)
 
 	if cookie := sessionCookie(recorder); cookie != nil {
 		t.Error("a refused account was given a session cookie")
@@ -249,9 +271,9 @@ func TestTheCallbackRefusesAStateItNeverIssued(t *testing.T) {
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			f := newFixture(t, "profesora@example.com")
-			f.start(t)
+			_, cookie := f.start(t)
 
-			recorder := f.callback(t, c.state, "the-code")
+			recorder := f.callback(t, c.state, "the-code", cookie)
 
 			if sessionCookie(recorder) != nil {
 				t.Error("a callback with an unknown state opened a session")
@@ -266,13 +288,13 @@ func TestTheCallbackRefusesAStateItNeverIssued(t *testing.T) {
 // A callback replayed with the same state is refused: the nonce is spent.
 func TestTheCallbackRefusesAReplayedState(t *testing.T) {
 	f := newFixture(t, "profesora@example.com")
-	state := f.start(t)
+	state, stateCookie := f.start(t)
 
-	if cookie := sessionCookie(f.callback(t, state, "the-code")); cookie == nil {
+	if cookie := sessionCookie(f.callback(t, state, "the-code", stateCookie)); cookie == nil {
 		t.Fatal("the first callback did not open a session")
 	}
 
-	recorder := f.callback(t, state, "the-code")
+	recorder := f.callback(t, state, "the-code", stateCookie)
 	if sessionCookie(recorder) != nil {
 		t.Error("the same state opened a second session")
 	}
@@ -282,7 +304,8 @@ func TestTheCallbackGivesUpWhenTheProviderRefuses(t *testing.T) {
 	f := newFixture(t, "profesora@example.com")
 	f.provider.Err = errors.New("the token signature does not verify")
 
-	recorder := f.callback(t, f.start(t), "the-code")
+	state, cookie := f.start(t)
+	recorder := f.callback(t, state, "the-code", cookie)
 
 	if sessionCookie(recorder) != nil {
 		t.Error("a session was opened although the provider refused the exchange")
@@ -299,7 +322,8 @@ func TestTheCallbackGivesUpWhenTheProviderRefuses(t *testing.T) {
 func TestSignInThenOutThroughTheMiddleware(t *testing.T) {
 	f := newFixture(t, "profesora@example.com")
 
-	cookie := sessionCookie(f.callback(t, f.start(t), "the-code"))
+	state, stateCookie := f.start(t)
+	cookie := sessionCookie(f.callback(t, state, "the-code", stateCookie))
 	if cookie == nil {
 		t.Fatal("the callback set no session cookie")
 	}
@@ -366,15 +390,158 @@ func TestSignInThenOutThroughTheMiddleware(t *testing.T) {
 func TestAStrangerIsStillRefusedAfterTheBootstrapHasBeenUsed(t *testing.T) {
 	f := newFixture(t, "profesora@example.com")
 
-	if sessionCookie(f.callback(t, f.start(t), "the-code")) == nil {
+	first, firstCookie := f.start(t)
+	if sessionCookie(f.callback(t, first, "the-code", firstCookie)) == nil {
 		t.Fatal("the bootstrap login did not open a session")
 	}
 
 	f.provider.Email = "otra@example.com"
 	f.provider.Subject = "sub-2"
 
-	recorder := f.callback(t, f.start(t), "the-code")
+	state, cookie := f.start(t)
+	recorder := f.callback(t, state, "the-code", cookie)
 	if sessionCookie(recorder) != nil {
 		t.Error("a second account got in through a bootstrap that should have closed")
+	}
+}
+
+// SEC-1, the finding this defence exists for, written as the attack.
+//
+// The server-side nonce store is one map for the whole process, so before the
+// state cookie existed a nonce issued to ONE browser was accepted from ANY
+// browser. The attacker starts a flow, keeps the redirect, and gets a professor
+// to follow the callback: the professor's browser is then holding a session for
+// the ATTACKER's Google account, and everything they type next goes into it.
+//
+// The exploit was demonstrated against this handler during review. This is it,
+// inverted into a guard.
+func TestACallbackFromAnotherBrowserIsRefused(t *testing.T) {
+	f := newFixture(t, "profesora@example.com")
+
+	// The attacker's browser starts a login and keeps both halves.
+	attackerState, attackerCookie := f.start(t)
+
+	// The victim's browser follows the callback link. It never visited
+	// /login/google, so it holds no state cookie of its own.
+	victim := f.callback(t, attackerState, "the-code", nil)
+
+	if sessionCookie(victim) != nil {
+		t.Error("a browser that never started a login was given a session")
+	}
+	if f.provider.Exchanges() != 0 {
+		t.Error("the code was exchanged for a browser that started no login")
+	}
+
+	// And the nonce is still unspent, so the attacker's own browser — the one
+	// that actually started the flow — can still complete it. The defence must
+	// refuse the wrong browser, not break the right one.
+	if sessionCookie(f.callback(t, attackerState, "the-code", attackerCookie)) == nil {
+		t.Error("the browser that started the flow could not complete it")
+	}
+}
+
+// The other half of the same defence: a browser cannot present its own cookie
+// against somebody else's state, or the check would be satisfied by merely
+// holding any cookie at all.
+func TestACallbackWhoseCookieDoesNotMatchTheStateIsRefused(t *testing.T) {
+	f := newFixture(t, "profesora@example.com")
+
+	_, mine := f.start(t)
+	theirState, _ := f.start(t)
+
+	recorder := f.callback(t, theirState, "the-code", mine)
+
+	if sessionCookie(recorder) != nil {
+		t.Error("a callback whose cookie and state disagree opened a session")
+	}
+	if f.provider.Exchanges() != 0 {
+		t.Error("the code was exchanged before the two halves were compared")
+	}
+}
+
+// The state cookie carries the same protections as the session cookie, and is
+// dropped as soon as it has been presented — a spent nonce left in the browser
+// is an invitation to replay it.
+func TestTheStateCookieIsProtectedAndSpentOnce(t *testing.T) {
+	f := newFixture(t, "profesora@example.com")
+
+	recorder := httptest.NewRecorder()
+	f.auth.LoginGoogle(recorder, httptest.NewRequest(http.MethodGet, handler.LoginGooglePath, nil))
+	cookie := stateCookie(t, recorder)
+
+	if !cookie.HttpOnly {
+		t.Error("the state cookie is readable by scripts")
+	}
+	if cookie.SameSite != http.SameSiteLaxMode {
+		t.Errorf("SameSite = %v, want Lax", cookie.SameSite)
+	}
+	if !cookie.Secure {
+		t.Error("the state cookie is not Secure although the fixture is https")
+	}
+
+	state, live := f.start(t)
+	done := f.callback(t, state, "the-code", live)
+
+	var cleared bool
+	for _, c := range done.Result().Cookies() {
+		if c.Name == handler.StateCookieName && c.MaxAge < 0 {
+			cleared = true
+		}
+	}
+	if !cleared {
+		t.Error("the state cookie survived the callback that spent it")
+	}
+}
+
+// SEC-4. The decision "the session's IP comes from RemoteAddr and NOT from
+// X-Forwarded-For" was a comment and nothing else — mutation showed a line
+// honouring the header could be added with the whole suite green. Nothing sits
+// in front of this server, so that header is client-supplied.
+func TestTheSessionIPIgnoresAForgeableHeader(t *testing.T) {
+	f := newFixture(t, "profesora@example.com")
+	state, stateCookie := f.start(t)
+
+	target := handler.LoginCallbackPath + "?state=" + url.QueryEscape(state) + "&code=the-code"
+	request := httptest.NewRequest(http.MethodGet, target, nil)
+	request.AddCookie(stateCookie)
+	request.Header.Set("X-Forwarded-For", "203.0.113.9")
+	request.RemoteAddr = "192.0.2.10:54321"
+
+	recorder := httptest.NewRecorder()
+	f.auth.LoginGoogleCallback(recorder, request)
+
+	cookie := sessionCookie(recorder)
+	if cookie == nil {
+		t.Fatal("the callback set no session cookie")
+	}
+	session, err := f.store.SessionByTokenHash(context.Background(), auth.HashToken(cookie.Value))
+	if err != nil {
+		t.Fatalf("SessionByTokenHash: %v", err)
+	}
+
+	if session.IPAddress == "203.0.113.9" {
+		t.Error("the session recorded the address from X-Forwarded-For, which any caller can choose")
+	}
+	if session.IPAddress != "192.0.2.10" {
+		t.Errorf("IPAddress = %q, want the host of RemoteAddr", session.IPAddress)
+	}
+}
+
+// The page carrying a professor's address and their CSRF token must not be
+// cacheable or framable (SEC-3).
+func TestTheRenderedPageCarriesItsSecurityHeaders(t *testing.T) {
+	f := newFixture(t, "")
+
+	recorder := httptest.NewRecorder()
+	f.auth.LoginPage(recorder, httptest.NewRequest(http.MethodGet, handler.LoginPath, nil))
+
+	for header, want := range map[string]string{
+		"Cache-Control":          "no-store",
+		"X-Content-Type-Options": "nosniff",
+		"X-Frame-Options":        "DENY",
+	} {
+		if got := recorder.Header().Get(header); got != want {
+			t.Errorf("%s = %q, want %q", header, got, want)
+		}
 	}
 }

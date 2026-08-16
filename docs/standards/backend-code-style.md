@@ -255,6 +255,18 @@ for writing a test here:
   the commit message, restore. Reviewing a test by reading it is how a test that
   cannot fail gets written — three such tests were written and caught this way
   in #149 alone.
+- **When two layers can produce the same answer, assert on what only one of them
+  produces.** A status code is usually not it: in #150, `POST /logout` with no
+  session answers 303 from the gate AND 303 from the handler that runs when the
+  gate is absent, so two tests asserting the status stayed green with the gate
+  removed. They now assert the redirect DESTINATION. Reach for the Location
+  header, the body, or a side effect in the database.
+- **When mutation shows a test proves less than its name, rename the test and
+  move the rule to the layer that can express it**, leaving the reason in a
+  comment. #150's `TestTheBootstrapDoesNotAdmitASecondStranger` survived the
+  removal of the check it was named for, because its second account was refused
+  earlier by an unrelated comparison; the narrow rule moved to the domain, where
+  the case can be set up, and the handler test took the name of what it proves.
 - **A guard that shells out to a subprocess is invisible to the build cache.** A
   test package that imports nothing from the module is considered unchanged
   whatever happens to the code, so `go test ./...` replays a cached PASS. Read

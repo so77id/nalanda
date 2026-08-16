@@ -99,8 +99,15 @@ Postgres exit a change in one package.
 
 ### 5. The handler
 
-A closure over its dependencies, returned by a small constructor, or a method on
-a struct built in `cmd/server`. No package-level state.
+A closure over its dependencies, **returned by a small constructor**
+(`backend-code-style.md` §HTTP). No package-level state.
+
+Where several handlers share the same dependencies, the shape in this app is a
+struct of them with the handlers as methods — but the constructor is not
+optional and is the half that matters: `handler.NewAuth` refuses a set of
+dependencies it cannot serve with, so a forgotten field is a panic in
+`cmd/server` before the listener opens rather than a nil dereference inside a
+request, which §Errors forbids.
 
 - The method goes **in the pattern**: `"POST /logout"`, so a wrong verb is a 405
   rather than a 404.
@@ -119,7 +126,7 @@ decision you are making is what else the route needs:
 ```go
 // internal/app/web/router.go
 mux.Handle("POST "+handler.LogoutPath,
-    deps.Auth.RequireProfessor(deps.Auth.VerifyCSRF(http.HandlerFunc(deps.Login.Logout))))
+    deps.Gate.RequireProfessor(deps.Gate.VerifyCSRF(http.HandlerFunc(deps.Login.Logout))))
 ```
 
 **Every state-changing route on `web` gets both.** `VerifyCSRF` exempts the safe

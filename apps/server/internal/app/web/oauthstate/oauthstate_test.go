@@ -1,6 +1,7 @@
 package oauthstate_test
 
 import (
+	"errors"
 	"sync"
 	"testing"
 	"time"
@@ -58,14 +59,61 @@ func TestANonceExpires(t *testing.T) {
 func TestTheStoreDoesNotGrowWithoutBound(t *testing.T) {
 	store := oauthstate.New(time.Hour, nil)
 
+	var refusals int
 	for range oauthstate.DefaultMaxSize + 500 {
 		if _, err := store.Issue(); err != nil {
-			t.Fatalf("Issue: %v", err)
+			refusals++
 		}
 	}
 
 	if got := store.Len(); got > oauthstate.DefaultMaxSize {
 		t.Errorf("the store holds %d nonces, want at most %d", got, oauthstate.DefaultMaxSize)
+	}
+	if refusals == 0 {
+		t.Error("the store never refused, so it bounded itself some other way")
+	}
+}
+
+// A full store refuses the NEWEST attempt; it does not evict the oldest. The
+// direction is the whole finding: the oldest live nonce belongs to the professor
+// currently on Google's account chooser, so evicting it means 4096 anonymous
+// requests can knock out exactly the login in flight, over and over.
+//
+// Measured against the previous implementation, which dropped the oldest:
+// "EXPLOITED: 4096 unauthenticated GETs of /login/google evicted the pending
+// login nonce" (#150 review, SEC-2).
+func TestAFloodCannotDisplaceALoginAlreadyInFlight(t *testing.T) {
+	store := oauthstate.New(time.Hour, nil)
+
+	professor, err := store.Issue()
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+
+	// The flood: every call is one anonymous GET /login/google.
+	for range oauthstate.DefaultMaxSize + 500 {
+		_, _ = store.Issue()
+	}
+
+	if !store.Consume(professor) {
+		t.Error("the pending login was evicted by a flood of anonymous attempts")
+	}
+}
+
+// And the flood's own attempts are refused with a distinguishable error, so the
+// caller can say "try again" rather than "login failed".
+func TestAFullStoreRefusesWithErrBusy(t *testing.T) {
+	store := oauthstate.New(time.Hour, nil)
+
+	for range oauthstate.DefaultMaxSize {
+		if _, err := store.Issue(); err != nil {
+			t.Fatalf("Issue below the ceiling: %v", err)
+		}
+	}
+
+	_, err := store.Issue()
+	if !errors.Is(err, oauthstate.ErrBusy) {
+		t.Errorf("Issue at the ceiling = %v, want ErrBusy", err)
 	}
 }
 

@@ -47,30 +47,6 @@ func TestHashTokenIsDeterministicAndHidesTheToken(t *testing.T) {
 	}
 }
 
-func TestTokenMatchesHash(t *testing.T) {
-	const token = "a-token"
-	hash := auth.HashToken(token)
-
-	for _, c := range []struct {
-		name  string
-		hash  string
-		token string
-		want  bool
-	}{
-		{"the token it was made from", hash, token, true},
-		{"another token", hash, "another-token", false},
-		{"an empty token", hash, "", false},
-		{"an empty hash", "", token, false},
-		{"the token compared against itself", token, token, false},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			if got := auth.TokenMatchesHash(c.hash, c.token); got != c.want {
-				t.Errorf("TokenMatchesHash(%q, %q) = %v, want %v", c.hash, c.token, got, c.want)
-			}
-		})
-	}
-}
-
 // The empty cases are the point. A CSRF check that accepts two empty strings is
 // a check that passes for every request that simply omits the field, which is
 // precisely the request it exists to reject.

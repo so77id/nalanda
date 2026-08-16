@@ -140,14 +140,14 @@ func run(logger *slog.Logger) error {
 
 	backoffice := web.Deps{
 		Database: storage.NewProber(db),
-		Auth: &middleware.Auth{
+		Gate: middleware.NewAuth(middleware.Auth{
 			Sessions:     store,
 			Users:        store,
 			Now:          time.Now,
 			SecureCookie: cfg.SecureCookie(),
 			Log:          logger,
-		},
-		Login: &handler.Auth{
+		}),
+		Login: handler.NewAuth(handler.Auth{
 			Login: login,
 			Provider: oidc.NewGoogle(oidc.GoogleConfig{
 				ClientID:     cfg.GoogleClientID,
@@ -158,8 +158,8 @@ func run(logger *slog.Logger) error {
 			PublicURL:    cfg.PublicURL,
 			SecureCookie: cfg.SecureCookie(),
 			Log:          logger,
-		},
-		Logger: logger,
+		}),
+		Log: logger,
 	}
 
 	srv, err := httpserver.New(cfg.Addr, rootHandler(backoffice, storage.NewProber(db), logger))

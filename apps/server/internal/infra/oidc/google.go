@@ -318,6 +318,14 @@ func (g *Google) publicKey(ctx context.Context, keyID string) (*rsa.PublicKey, e
 
 	keys, err := g.fetchKeySet(ctx)
 	if err != nil {
+		// The provider is unreachable, but the keys it published an hour ago are
+		// almost certainly still the keys it uses: Google rotates on the order of
+		// days. Refusing every login for the duration of somebody else's outage
+		// is the worse failure, so a stale key that still matches the id is used
+		// rather than discarded (#150 review, COR-7).
+		if stale, found := g.jwks.keys[keyID]; found {
+			return stale, nil
+		}
 		return nil, err
 	}
 	g.jwks.keys = keys

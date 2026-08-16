@@ -54,9 +54,11 @@ type fixture struct {
 	// signed by something the JWKS does not publish.
 	signWith *rsa.PrivateKey
 
-	// tokenStatus and tokenBody override the token endpoint's answer.
+	// tokenStatus and tokenBody override the token endpoint's answer;
+	// jwksStatus makes the key set unreachable.
 	tokenStatus int
 	tokenBody   string
+	jwksStatus  int
 
 	jwksRequests  atomic.Int64
 	tokenRequests atomic.Int64
@@ -109,6 +111,10 @@ func newFixture(t *testing.T) *fixture {
 	})
 	mux.HandleFunc("GET /jwks", func(w http.ResponseWriter, r *http.Request) {
 		f.jwksRequests.Add(1)
+		if f.jwksStatus != 0 {
+			w.WriteHeader(f.jwksStatus)
+			return
+		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(f.jwksJSON()))
 	})
@@ -389,5 +395,62 @@ func TestAFailingExchangeDoesNotLeakTheClientSecret(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "client-secret") {
 		t.Errorf("the error carries the client secret: %v", err)
+	}
+}
+
+// COR-7. Once the cache lapses, a provider outage must not become a login
+// outage: Google rotates its keys on the order of days, so the key it published
+// an hour ago is almost certainly still valid, and refusing every professor for
+// the duration of somebody else's incident is the worse failure.
+func TestALapsedCacheSurvivesAProviderOutage(t *testing.T) {
+	f := newFixture(t)
+	now := time.Now()
+	provider := oidc.NewGoogle(oidc.GoogleConfig{
+		ClientID:     testClientID,
+		ClientSecret: "client-secret",
+		Issuer:       "https://accounts.google.com",
+		AuthURL:      f.server.URL + "/auth",
+		TokenURL:     f.server.URL + "/token",
+		JWKSURL:      f.server.URL + "/jwks",
+		HTTPClient:   f.server.Client(),
+		Now:          func() time.Time { return now },
+		JWKSCacheTTL: time.Hour,
+	})
+
+	if _, _, err := provider.Exchange(context.Background(), "the-code", "https://nalanda.test/callback"); err != nil {
+		t.Fatalf("warming the cache: %v", err)
+	}
+
+	// The cache lapses, and the key set stops answering. The token is reissued
+	// with a live exp, so the only thing under test is the unreachable key set.
+	now = now.Add(2 * time.Hour)
+	f.claims["exp"] = now.Add(time.Hour).Unix()
+	f.jwksStatus = http.StatusInternalServerError
+
+	if _, _, err := provider.Exchange(context.Background(), "the-code", "https://nalanda.test/callback"); err != nil {
+		t.Errorf("a login was refused because the key set was unreachable: %v", err)
+	}
+}
+
+// The boundary of the token's own expiry, which the session's IsExpired pins and
+// this did not: a token is expired AT its exp, not one second later.
+func TestATokenExpiringExactlyNowIsRefused(t *testing.T) {
+	f := newFixture(t)
+	now := time.Now().Truncate(time.Second)
+	f.claims["exp"] = now.Unix()
+
+	provider := oidc.NewGoogle(oidc.GoogleConfig{
+		ClientID:     testClientID,
+		ClientSecret: "client-secret",
+		Issuer:       "https://accounts.google.com",
+		AuthURL:      f.server.URL + "/auth",
+		TokenURL:     f.server.URL + "/token",
+		JWKSURL:      f.server.URL + "/jwks",
+		HTTPClient:   f.server.Client(),
+		Now:          func() time.Time { return now },
+	})
+
+	if _, _, err := provider.Exchange(context.Background(), "the-code", "https://nalanda.test/callback"); err == nil {
+		t.Error("a token expiring exactly now was accepted")
 	}
 }

@@ -71,9 +71,15 @@ CREATE TABLE user_sessions (
     user_agent   TEXT    NOT NULL DEFAULT '',
     ip_address   TEXT    NOT NULL DEFAULT ''
 );
-CREATE INDEX idx_user_sessions_user    ON user_sessions(user_id);
--- Sweeping expired sessions is a range scan over this column.
-CREATE INDEX idx_user_sessions_expires ON user_sessions(expires_at);
+CREATE INDEX idx_user_sessions_user ON user_sessions(user_id);
+
+-- There is deliberately NO index on expires_at. One was written here, with a
+-- comment saying "sweeping expired sessions is a range scan over this column",
+-- and no such sweep exists: expired rows are deleted one at a time, by primary
+-- key, when their own cookie is presented again. An index costs every write and
+-- served nothing, and a migration cannot be edited once applied — so the WP that
+-- adds a periodic sweep adds the index in the same migration (#150 review,
+-- COR-8/ARQ-7).
 
 -- +goose Down
 

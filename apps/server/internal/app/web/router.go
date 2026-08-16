@@ -32,11 +32,15 @@ const HealthPath = "/health"
 // next WP adds screens.
 type Deps struct {
 	Database health.Prober
-	// Auth resolves the session cookie and gates what needs a professor.
-	Auth *middleware.Auth
+	// Gate resolves the session cookie and guards what needs a professor. Named
+	// for what it does, because the field that holds a *middleware.Auth sitting
+	// beside the field that holds a *handler.Auth was one re-reading cost too
+	// many (#150 review, ARQ-9).
+	Gate *middleware.Auth
 	// Login is the login round trip's handlers.
-	Login  *handler.Auth
-	Logger *slog.Logger
+	Login *handler.Auth
+	// Log is spelled the same here as in the two structs above.
+	Log *slog.Logger
 }
 
 // Router returns the surface's routes.
@@ -50,9 +54,15 @@ type Deps struct {
 // probes the same path; putting the gate in front of it would produce a
 // container that builds, starts, and is declared unhealthy forever.
 func Router(deps Deps) http.Handler {
+	// The gate redirects to the route THIS package registers, rather than to a
+	// constant the middleware holds its own opinion about. Renaming
+	// handler.LoginPath used to leave the suite green and the gate pointing at a
+	// 404 (#150 review, ARQ-1).
+	deps.Gate.LoginPath = handler.LoginPath
+
 	mux := http.NewServeMux()
 
-	mux.Handle("GET "+HealthPath, healthHandler(deps.Database, deps.Logger))
+	mux.Handle("GET "+HealthPath, healthHandler(deps.Database, deps.Log))
 
 	mux.HandleFunc("GET "+handler.LoginPath, deps.Login.LoginPage)
 	mux.HandleFunc("GET "+handler.LoginGooglePath, deps.Login.LoginGoogle)
@@ -62,9 +72,9 @@ func Router(deps Deps) http.Handler {
 	// follows: a professor is required, and the request must carry the session's
 	// own CSRF token.
 	mux.Handle("POST "+handler.LogoutPath,
-		deps.Auth.RequireProfessor(deps.Auth.VerifyCSRF(http.HandlerFunc(deps.Login.Logout))))
+		deps.Gate.RequireProfessor(deps.Gate.VerifyCSRF(http.HandlerFunc(deps.Login.Logout))))
 
-	return deps.Auth.Resolve(mux)
+	return deps.Gate.Resolve(mux)
 }
 
 // healthHandler answers JSON rather than HTML, which is not an oversight: its

@@ -152,6 +152,20 @@ func Load(lookup LookupFunc) (Config, error) {
 		)
 	case parsed.Host == "":
 		return Config{}, fmt.Errorf("%s=%q names no host", KeyPublicURL, cfg.PublicURL)
+	case parsed.Path != "" && parsed.Path != "/":
+		// A sub-path is rejected rather than accommodated, because accommodating
+		// it is a lie the login only tells after Google's redirect: the routes
+		// are mounted at the origin root and nothing sits in front of this
+		// server, so a base of https://host/backoffice builds the redirect URI
+		// https://host/backoffice/login/google/callback and the router answers
+		// 404 on it. Measured, and a test in this package previously blessed
+		// exactly that value as "what an operator will actually set"
+		// (#150 review, COR-4).
+		return Config{}, fmt.Errorf(
+			"%s=%q carries the path %q; this server's routes are mounted at the root, "+
+				"so a base URL with a path would build a redirect URI it does not serve",
+			KeyPublicURL, cfg.PublicURL, parsed.Path,
+		)
 	}
 
 	ttl, err := time.ParseDuration(l.optional(KeySessionTTL, defaultSessionTTL))

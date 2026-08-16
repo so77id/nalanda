@@ -53,14 +53,43 @@ type LoginPage struct {
 // template that fails halfway produces a truncated page that claims to have
 // succeeded — the same failure httpjson.Write exists to avoid on the other
 // surface.
-func RenderLogin(w http.ResponseWriter, status int, page LoginPage) error {
+//
+// The status is 200 and is not a parameter. It was one, with a single call site
+// passing a single value; the third caller that needs another status is the one
+// that should introduce it (#150 review, ARQ-8).
+func RenderLogin(w http.ResponseWriter, page LoginPage) error {
 	var rendered bytes.Buffer
 	if err := templates.ExecuteTemplate(&rendered, "login.html", page); err != nil {
 		return fmt.Errorf("render the login page: %w", err)
 	}
 
+	setSecurityHeaders(w)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(status)
+	w.WriteHeader(http.StatusOK)
 	_, err := w.Write(rendered.Bytes())
 	return err
+}
+
+// setSecurityHeaders is applied to every page this package renders, which is
+// why it lives here rather than in a handler: WP-C3 adds its screens through
+// this same function and inherits them without having to remember.
+//
+// What each one is for, since none of them is decoration:
+//
+//   - no-store, because the signed-in page carries the professor's address and
+//     the session's CSRF token, and the public URL may be http in development —
+//     where any intermediary is free to keep a copy.
+//   - nosniff, so a rendering bug that emits the wrong bytes cannot be
+//     re-interpreted as script.
+//   - DENY, because the only form here is logout and framing it is
+//     clickjacking with no upside. frame-ancestors says the same thing to
+//     browsers that prefer CSP; both are sent because the set of browsers that
+//     honour one and not the other is not worth tracking.
+func setSecurityHeaders(w http.ResponseWriter) {
+	header := w.Header()
+	header.Set("Cache-Control", "no-store")
+	header.Set("X-Content-Type-Options", "nosniff")
+	header.Set("X-Frame-Options", "DENY")
+	header.Set("Content-Security-Policy", "frame-ancestors 'none'")
+	header.Set("Referrer-Policy", "same-origin")
 }

@@ -76,7 +76,7 @@ func (l *Login) Authenticate(ctx context.Context, provider, subject, email strin
 		if err != nil {
 			return User{}, err
 		}
-		if _, err := l.Identities.LinkIdentity(ctx, admitted.ID, provider, subject, email); err != nil {
+		if err := l.Identities.LinkIdentity(ctx, admitted.ID, provider, subject, email); err != nil {
 			return User{}, fmt.Errorf("link the identity on first login: %w", err)
 		}
 		return admitted, nil
@@ -108,7 +108,7 @@ func (l *Login) bootstrap(ctx context.Context, provider, subject, email string) 
 	if err != nil {
 		return User{}, fmt.Errorf("create the first professor: %w", err)
 	}
-	if _, err := l.Identities.LinkIdentity(ctx, user.ID, provider, subject, email); err != nil {
+	if err := l.Identities.LinkIdentity(ctx, user.ID, provider, subject, email); err != nil {
 		return User{}, fmt.Errorf("link the first professor's identity: %w", err)
 	}
 	return user, nil

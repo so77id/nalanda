@@ -1,10 +1,18 @@
 // Package oauthstate holds the nonces that tie an OAuth callback back to the
 // login attempt that started it.
 //
-// It is the CSRF defence of the callback itself: without it, anyone could send a
-// professor's browser to /login/google/callback with a code of their choosing.
-// The nonce is issued when the flow starts, travels to Google in the state
-// parameter, comes back in the callback, and is consumed exactly once.
+// It is HALF of the CSRF defence of the callback, and the half it is not is
+// worth stating because this comment used to claim the whole of it. The nonce is
+// issued when the flow starts, travels to Google in the state parameter, comes
+// back in the callback, and is consumed exactly once — which stops a REPLAY.
+//
+// It does not, on its own, stop login CSRF: this is one map for the whole
+// process, so a nonce issued to one visitor is a nonce any visitor can present,
+// and an attacker who starts a flow and feeds the callback to a professor's
+// browser puts that professor inside the attacker's session. That was
+// demonstrated against this package (#150 review, SEC-1). What ties the attempt
+// to a browser is the cookie `handler.StateCookieName`, which the callback
+// requires to match the state before it consults this store at all.
 //
 // In memory, deliberately. The alternative — a table — buys durability across a
 // restart for a value whose whole life is the twenty seconds a person spends on
@@ -16,6 +24,7 @@
 package oauthstate
 
 import (
+	"errors"
 	"sync"
 	"time"
 
@@ -38,9 +47,20 @@ type Store struct {
 
 // DefaultMaxSize bounds the map. The login page is public, so issuing a nonce is
 // something a stranger can ask for as fast as they like; without a ceiling that
-// is a memory leak with a URL. At the ceiling the oldest are dropped, which
-// costs an abandoned attempt a retry and costs an attacker nothing they wanted.
+// is a memory leak with a URL.
+//
+// **At the ceiling the NEWEST entry is refused, not the oldest evicted**, and
+// that direction is the whole point. Dropping the oldest sounds like a cache and
+// is a denial of service: the oldest live nonce is the professor currently on
+// Google's account chooser, so 4096 anonymous requests would evict exactly the
+// login in flight, and a loop would keep the backoffice permanently unenterable.
+// Measured against this store before the fix (#150 review, SEC-2).
 const DefaultMaxSize = 4096
+
+// ErrBusy is returned when the store is full. The caller shows "try again",
+// which is the honest thing to tell the one visitor a flood inconveniences —
+// as opposed to logging out the one it was aimed at.
+var ErrBusy = errors.New("oauthstate: too many login attempts in flight")
 
 // New returns a Store. A zero ttl means DefaultTTL; a nil clock means time.Now.
 func New(ttl time.Duration, now func() time.Time) *Store {
@@ -70,7 +90,7 @@ func (s *Store) Issue() (string, error) {
 
 	s.purge()
 	if len(s.issued) >= s.maxSize {
-		s.dropOldest()
+		return "", ErrBusy
 	}
 	s.issued[nonce] = s.now().Add(s.ttl)
 	return nonce, nil
@@ -89,13 +109,16 @@ func (s *Store) Consume(nonce string) bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
+	// purge has already dropped everything expired, so anything still here is
+	// live and no second comparison against the clock is needed. Saying that
+	// rather than keeping a check that can never fire: a guard nothing can kill
+	// reads like protection and is decoration (#150 review, COR-6).
 	s.purge()
-	expiry, found := s.issued[nonce]
-	if !found {
+	if _, found := s.issued[nonce]; !found {
 		return false
 	}
 	delete(s.issued, nonce)
-	return expiry.After(s.now())
+	return true
 }
 
 // Len reports how many nonces are live. Exported for the test that proves the
@@ -120,18 +143,4 @@ func (s *Store) purge() {
 			delete(s.issued, nonce)
 		}
 	}
-}
-
-// dropOldest removes the entry closest to expiring. The caller holds the lock.
-func (s *Store) dropOldest() {
-	var (
-		oldest       string
-		oldestExpiry time.Time
-	)
-	for nonce, expiry := range s.issued {
-		if oldest == "" || expiry.Before(oldestExpiry) {
-			oldest, oldestExpiry = nonce, expiry
-		}
-	}
-	delete(s.issued, oldest)
 }

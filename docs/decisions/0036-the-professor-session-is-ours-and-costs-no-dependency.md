@@ -47,6 +47,18 @@ reason to trade revocability for statelessness.
 state-changing request.** It is stored beside the session, so verification needs
 no second store and no server-side state of its own.
 
+**The login itself has its own CSRF defence, and it takes two halves.** The
+state nonce is held server-side, which makes it single-use and stops a callback
+being replayed. It is ALSO written to a short-lived cookie, and the callback
+requires the two to match before it spends the authorization code. The second
+half is the load-bearing one and this ADR originally claimed the first was
+enough: the store is one map for the whole process, so a nonce issued to one
+visitor is a nonce any visitor can present. An attacker starts a flow, keeps the
+redirect, and gets a professor to follow the callback — the professor's browser
+then holds a session for the ATTACKER's account and types into it. That was
+demonstrated against this code during review (#150, SEC-1) and is now refused,
+with the attack itself kept as the test.
+
 **The OIDC client is ours, and stays in `internal/infra/oidc`.** The port keeps
 DocumentBuddy's stdlib verifier — signature against the published JWKS, then
 `aud`, issuer, `exp`, `email_verified` — and each of those checks has a test that
@@ -105,9 +117,11 @@ directions from the composed handler.
   to decide is the repo's own: a dependency is a PR discussion, and the argument
   for this one is "everybody does it".
 
-- **A `nonce` claim in the ID token.** Not implemented. The callback is tied to
-  the attempt by a single-use state nonce held server-side, which is also its
-  CSRF defence. Revisit if the flow ever spans more than one instance.
+- **A `nonce` claim in the ID token.** Not implemented. What the callback needs
+  is to be tied to the browser that started it, and that is what the state cookie
+  below does; the OIDC `nonce` claim additionally ties the ID TOKEN to the
+  attempt, which matters against a provider that could be induced to mint one for
+  a different flow. Revisit if a second provider is ever added.
 
 - **Porting invitations and impersonation.** Rejected (#150 §Non-goals): ADR-0009
   asks for neither, and path 2 above covers what an invitation would have been
@@ -145,6 +159,21 @@ directions from the composed handler.
 - **The state nonce store is in memory.** A restart mid-login costs a click. It
   is also the first thing that has to move the day there is a second instance —
   recorded in the package comment, since nothing else would say so.
+
+- **A full nonce store refuses the newest attempt rather than evicting the
+  oldest**, and the direction is a security property rather than a cache policy.
+  `/login/google` is public and unrate-limited, so evicting the oldest let 4096
+  anonymous requests knock out precisely the login in flight — the professor
+  standing at Google's account chooser — and a loop kept the backoffice
+  permanently unenterable. Measured during review (#150, SEC-2). **There is still
+  no rate limiting anywhere on this server**, which is acceptable while it is
+  unreachable from the internet (§C15) and is the first thing to add when that
+  changes.
+
+- **The login page sends `Cache-Control: no-store`, `nosniff`, `X-Frame-Options:
+  DENY` and a `frame-ancestors` CSP.** The signed-in page carries a professor's
+  address and their CSRF token, and the development public URL is http. WP-C3's
+  screens inherit them, because the headers are set in `view`, not in a handler.
 
 - **Trusting a verified email for path 2 means trusting the provider's
   `email_verified` claim.** That is checked, and the check has its own test. If a

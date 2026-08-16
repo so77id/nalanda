@@ -44,10 +44,10 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 	logger := testLogger()
 	return web.Deps{
 		Database: prober,
-		Auth: &middleware.Auth{
+		Gate: middleware.NewAuth(middleware.Auth{
 			Sessions: store, Users: store, Now: time.Now, SecureCookie: true, Log: logger,
-		},
-		Login: &handler.Auth{
+		}),
+		Login: handler.NewAuth(handler.Auth{
 			Login: &auth.Login{
 				Users: store, Identities: store, Sessions: store,
 				Now: time.Now, SessionTTL: time.Hour,
@@ -58,8 +58,8 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			PublicURL:    "https://nalanda.test",
 			SecureCookie: true,
 			Log:          logger,
-		},
-		Logger: logger,
+		}),
+		Log: logger,
 	}
 }
 
@@ -172,9 +172,9 @@ func TestLogoutIsGated(t *testing.T) {
 	// answers an anonymous request with a 303, so a status check alone stays
 	// green with the gate removed; only the gate redirects to the bare login
 	// path, without the handler's own "you have signed out" notice.
-	if location := rec.Header().Get("Location"); location != middleware.LoginPath {
+	if location := rec.Header().Get("Location"); location != handler.LoginPath {
 		t.Errorf("POST %s with no session redirected to %q, want %q — the gate is not mounted",
-			handler.LogoutPath, location, middleware.LoginPath)
+			handler.LogoutPath, location, handler.LoginPath)
 	}
 
 	// A GET is not a way around it either: the route is registered for POST.
@@ -201,5 +201,31 @@ func TestHealthKeepsTheCauseOnTheBackofficeSurface(t *testing.T) {
 
 	if body := rec.Body.String(); !strings.Contains(body, "no such file or directory") {
 		t.Errorf("body = %q, want it to carry the prober's own message", body)
+	}
+}
+
+// ARQ-1. The gate redirects somewhere, and nothing used to check that the
+// somewhere is a route this router registers: the middleware held its own
+// constant, so renaming handler.LoginPath left the suite green while every
+// gated request landed on a 404.
+//
+// This is the reconciliation, in the one package that imports both — the same
+// shape #149 needed for HealthPath and for the "/api/" mount.
+func TestTheGateRedirectsToARouteThisRouterServes(t *testing.T) {
+	router := web.Router(deps(t, reachable))
+
+	gated := httptest.NewRecorder()
+	router.ServeHTTP(gated, httptest.NewRequest(http.MethodPost, handler.LogoutPath, nil))
+
+	target := gated.Header().Get("Location")
+	if target == "" {
+		t.Fatal("the gate issued no redirect")
+	}
+
+	landing := httptest.NewRecorder()
+	router.ServeHTTP(landing, httptest.NewRequest(http.MethodGet, target, nil))
+
+	if landing.Code == http.StatusNotFound {
+		t.Errorf("the gate sends an anonymous request to %q, which this router answers with 404", target)
 	}
 }

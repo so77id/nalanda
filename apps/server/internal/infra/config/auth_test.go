@@ -50,6 +50,12 @@ func TestPublicURLMustBeAnAbsoluteHTTPURL(t *testing.T) {
 		{"another scheme", "ftp://nalanda.example.com"},
 		{"a URL with no host", "https://"},
 		{"something that is not a URL at all", "://"},
+		// A sub-path used to be in the ACCEPTED set below, blessed as "what an
+		// operator will actually set", until a probe showed the login it
+		// produces ends in a 404: the redirect URI would be
+		// https://host/backoffice/login/google/callback and the router serves
+		// /login/google/callback (#150 review, COR-4).
+		{"a base URL carrying a path", "https://nalanda.example.com/backoffice"},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			broken := env()
@@ -71,7 +77,9 @@ func TestPublicURLAcceptsWhatAnOperatorWillActuallySet(t *testing.T) {
 		"https://nalanda.example.com",
 		"http://127.0.0.1:8081",
 		"http://localhost:8081",
-		"https://nalanda.example.com/backoffice",
+		// A bare trailing slash is the same origin rather than a sub-path, and
+		// an operator copying a URL out of a browser bar will produce it.
+		"https://nalanda.example.com/",
 	} {
 		t.Run(value, func(t *testing.T) {
 			accepted := env()

@@ -165,17 +165,15 @@ func (s *Store) IdentityBySubject(ctx context.Context, provider, subject string)
 }
 
 // LinkIdentity binds a provider account to a professor.
-func (s *Store) LinkIdentity(ctx context.Context, userID int64, provider, subject, email string) (auth.Identity, error) {
-	row := s.db.QueryRowContext(ctx,
-		"INSERT INTO oauth_identities (user_id, provider, subject, email) VALUES (?, ?, ?, ?) RETURNING "+identityColumns,
+func (s *Store) LinkIdentity(ctx context.Context, userID int64, provider, subject, email string) error {
+	_, err := s.db.ExecContext(ctx,
+		"INSERT INTO oauth_identities (user_id, provider, subject, email) VALUES (?, ?, ?, ?)",
 		userID, provider, subject, email)
-
-	identity, err := scanIdentity(row)
 	if err != nil {
-		return auth.Identity{}, fmt.Errorf("link the %s identity %s to the professor %d: %w",
+		return fmt.Errorf("link the %s identity %s to the professor %d: %w",
 			provider, subject, userID, err)
 	}
-	return identity, nil
+	return nil
 }
 
 // CreateSession stores a session exactly as given. The token itself never

@@ -186,20 +186,19 @@ func TestLinkIdentityRoundTrips(t *testing.T) {
 		t.Fatalf("CreateUser: %v", err)
 	}
 
-	linked, err := s.LinkIdentity(ctx, user.ID, "google", "sub-1", "profesora@example.com")
-	if err != nil {
+	if err := s.LinkIdentity(ctx, user.ID, "google", "sub-1", "profesora@example.com"); err != nil {
 		t.Fatalf("LinkIdentity: %v", err)
-	}
-	if linked.ID == 0 || linked.LinkedAt.IsZero() {
-		t.Errorf("LinkIdentity returned %+v, want an id and a link time", linked)
 	}
 
 	found, err := s.IdentityBySubject(ctx, "google", "sub-1")
 	if err != nil {
 		t.Fatalf("IdentityBySubject: %v", err)
 	}
-	if found != linked {
-		t.Errorf("IdentityBySubject = %+v, want %+v", found, linked)
+	if found.UserID != user.ID || found.Provider != "google" || found.Subject != "sub-1" {
+		t.Errorf("IdentityBySubject = %+v, want the identity that was just linked", found)
+	}
+	if found.ID == 0 || found.LinkedAt.IsZero() {
+		t.Errorf("the stored identity has no id or no link time: %+v", found)
 	}
 }
 
@@ -213,7 +212,7 @@ func TestIdentityBySubjectMatchesTheSubjectNotTheEmail(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateUser: %v", err)
 	}
-	if _, err := s.LinkIdentity(ctx, user.ID, "google", "sub-1", "profesora@example.com"); err != nil {
+	if err := s.LinkIdentity(ctx, user.ID, "google", "sub-1", "profesora@example.com"); err != nil {
 		t.Fatalf("LinkIdentity: %v", err)
 	}
 
