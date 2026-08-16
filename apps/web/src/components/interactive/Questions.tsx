@@ -26,9 +26,6 @@ export const Questions = withMeta(
     return (
       <section className="mt-10 border-t border-rule pt-6">
         <h2 className="m-0 text-lg font-semibold text-ink">Preguntas</h2>
-        <p className="m-0 mt-1 text-xs text-ink-faint">
-          Responde y comprueba. Estas son las preguntas de las que sale el control de entrada.
-        </p>
         {children}
       </section>
     );

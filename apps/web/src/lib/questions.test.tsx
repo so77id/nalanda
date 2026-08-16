@@ -91,7 +91,9 @@ describe('parseQuestions', () => {
     // Its own field, never folded into the statement: the generator writes it to
     // a separate file so `listings` can read it verbatim, which is what saves
     // every brace and backslash from being escaped into a .tex.
-    expect(defs[0]?.code).toEqual({ language: 'java', source });
+    // The trailing newline every fence carries is trimmed: the editor renders
+    // it as an empty last line, which reads as a mistake in the listing.
+    expect(defs[0]?.code).toEqual({ language: 'java', source: source.trimEnd() });
     expect(defs[0]?.statement).toBe('¿Qué imprime?');
   });
 

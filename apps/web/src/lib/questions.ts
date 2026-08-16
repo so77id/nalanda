@@ -131,9 +131,10 @@ function codeOf(children: ReactNode[]): QuestionCode | null {
     // component and a future one might carry the class directly.
     for (const candidate of [child, ...childrenOf(child)]) {
       const language = languageOf(candidate);
-      // Trailing newline trimmed: a fence always ends with one, and it renders
-      // as an empty last line in the listing — line 9 of an 8-line program.
-      if (language) return { language, source: textIn(candidate).replace(/\s+$/, '\n') };
+      // Trailing whitespace trimmed: a fence always ends with a newline, and
+      // the editor renders it as an empty last line — line 9 of an eight-line
+      // program, which reads as a mistake in the listing rather than as syntax.
+      if (language) return { language, source: textIn(candidate).replace(/\s+$/, '') };
     }
   }
   return null;

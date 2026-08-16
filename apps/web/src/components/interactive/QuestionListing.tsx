@@ -29,6 +29,7 @@ export function QuestionListing({ language, source }: QuestionListingProps) {
         variant="read"
         defaultValue={source}
         showCopy={false}
+        showFileName={false}
       />
     );
   }
