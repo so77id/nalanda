@@ -59,12 +59,7 @@ describe('the breadcrumb row of a document', () => {
   // because it is also the invariant below: the set of unlisted documents is
   // closed, and a document that joins it by accident is a mistake nothing else
   // catches.
-  const RETIRED = [
-    'intro-estructuras',
-    'busqueda-binaria',
-    'codigo-ejecutable',
-    'planificacion',
-  ];
+  const RETIRED = ['intro-estructuras', 'busqueda-binaria', 'codigo-ejecutable', 'planificacion'];
 
   // The registry→index direction, which nothing else in the suite covers:
   // `contentIntegrity.ts` and `content/architecture.test.ts` both walk the index

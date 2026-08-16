@@ -66,9 +66,11 @@ async function renderAt(path: string): Promise<void> {
 //
 //   - auto SLICING (h2 cuts a slide) — `presentation/parser.test.tsx`,
 //     `computeSlides — auto mode`, over synthetic MDX;
-//   - the rail over a MARKDOWN `##` — the explicit fixture itself. Read the
-//     comment above: busqueda-binaria was chosen precisely because it carries
-//     both heading sources, and its `## Costo` is that path.
+//   - the rail over a MARKDOWN `##` — the explicit fixture itself, chosen
+//     precisely because it carries both heading sources: twelve
+//     `<Slide title>` h2s and two markdown ones (`## Ejercicios`,
+//     `## Lo que sigue`). #135 moved this off busqueda-binaria, which was
+//     deleted with the Fundamentos unit.
 //
 // What is genuinely no longer asserted is "a real document declaring `auto`
 // paints its rail" — and the rail reads the h2s the article painted, which is
@@ -81,7 +83,7 @@ async function renderAt(path: string): Promise<void> {
 // served at `/d/<id>`. Selecting from the index conflated the two, so retiring
 // the Fundamentos unit from the teaching path reddened three cases here about a
 // document that had not changed at all.
-const EXPLICIT_FIXTURE = 'busqueda-binaria';
+const EXPLICIT_FIXTURE = 'java-tipos-y-flujo';
 const explicitId = registry.get(EXPLICIT_FIXTURE)?.meta.id;
 
 /**
