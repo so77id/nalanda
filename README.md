@@ -63,12 +63,20 @@ Its commands, HTTP contract and the AMC traps a caller must not hit:
 [`apps/amc-worker/README.md`](apps/amc-worker/README.md). The one verification
 no agent can run: [`apps/amc-worker/PAPER-CHECK.md`](apps/amc-worker/PAPER-CHECK.md).
 
-The backend is a Go binary with SQLite underneath. It starts, migrates and
-answers `/health`; everything else is WP-C2 and WP-C3:
+The backend is a Go binary with SQLite underneath. It starts, migrates, answers
+`/health`, and lets a professor sign in with Google (ADR-0009, ADR-0036); the
+screens they would then use are WP-C3.
 
 ```bash
 cd apps/server
-NALANDA_ADDR=127.0.0.1:8081 NALANDA_DATABASE_URL=./nalanda.db go run ./cmd/server
+# Five variables, all required. Placeholders are enough to boot and serve
+# /health; a real login needs a real OAuth client — see GOOGLE-CHECK.md.
+NALANDA_ADDR=127.0.0.1:8081 \
+NALANDA_DATABASE_URL=./nalanda.db \
+NALANDA_PUBLIC_URL=http://127.0.0.1:8081 \
+NALANDA_GOOGLE_CLIENT_ID=placeholder.apps.googleusercontent.com \
+NALANDA_GOOGLE_CLIENT_SECRET=placeholder-secret \
+  go run ./cmd/server
 
 # or through Docker, which is also how the two services meet:
 cd infra/local && docker compose up -d --wait server
@@ -76,7 +84,9 @@ cd infra/local && docker compose up -d --wait server
 
 Its configuration contract, the two delivery surfaces and what is deliberately
 not there yet: [`apps/server/README.md`](apps/server/README.md) and
-[`apps/server/CLAUDE.md`](apps/server/CLAUDE.md).
+[`apps/server/CLAUDE.md`](apps/server/CLAUDE.md). The login has a verification no
+test can perform either — no suite reaches Google:
+[`apps/server/GOOGLE-CHECK.md`](apps/server/GOOGLE-CHECK.md).
 
 Full command list and app-specific rules: [`apps/web/CLAUDE.md`](apps/web/CLAUDE.md)
 and [`apps/web/README.md`](apps/web/README.md). Before contributing, read

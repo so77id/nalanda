@@ -577,3 +577,87 @@ handler unbounded again.
 
 The rule itself lives where it bites, not here: the constant's own comment in
 `internal/infra/httpserver/server.go` and `backend-code-style.md` §HTTP.
+
+### The professor login is public, unrate-limited and remembered in memory (accepted 2026-08-16, #150)
+
+`GET /login/google` is reachable by anyone and issues a fresh OAuth state nonce
+per request. There is **no rate limiting anywhere on this server** — not on the
+login, not on the callback, not on the API surface.
+
+**What is exposed.** Two things, one of them measured during review (#150 SEC-2).
+The nonce store is a bounded in-memory map (4096 entries, 10-minute TTL), so a
+flood is a memory ceiling rather than a leak — but the FIRST implementation
+evicted the oldest entry at that ceiling, which is precisely the professor
+standing at Google's account chooser, and 4096 anonymous requests knocked out the
+login in flight. It now refuses the newest attempt instead, so a flood
+inconveniences the flooder and the pending login survives. What remains is that a
+sustained flood makes new logins fail with "try again" while it lasts, and that
+each attempt costs a hash and a map insert under one mutex.
+
+**Why it is accepted rather than fixed**: the server is not reachable from the
+internet. Hosting is deferred (`2026-08-controles.md` §C15), it binds loopback in
+development and the compose file publishes it on 127.0.0.1. Rate limiting also
+wants a shape this server does not have yet — a trusted proxy header, or a store
+that survives a restart — and guessing that shape now is how it gets built wrong.
+
+**Review trigger**: the first deploy of `apps/server` to a host, or anything that
+makes it reachable from outside a laptop. That is the moment `/login/google`,
+`/login/google/callback` and `/logout` need a per-IP throttle, and the moment the
+proxy question below has to be answered too.
+
+### The session's IP is `RemoteAddr`, with no proxy-trust story (accepted 2026-08-16, #150)
+
+`user_sessions.ip_address` records the peer address of the connection, and
+deliberately ignores `X-Forwarded-For`.
+
+**Why it is accepted**: nothing sits in front of this server today, so that header
+is client-supplied — honouring it would put an attacker's chosen string in the
+column an operator reads. `TestTheSessionIPIgnoresAForgeableHeader` pins it,
+because before that test a line honouring the header could be added with the
+whole suite green.
+
+**Review trigger**: the first reverse proxy (§C15). Whoever adds it must decide
+WHICH hop to trust, in `handler.clientIP`, rather than trusting the header.
+
+### The login keeps no audit trail (accepted 2026-08-16, #150)
+
+Every sign-in, refusal and sign-out is a `log/slog` line and nothing else: there
+is no table, so there is no queryable history of who entered and when.
+
+**Why it is accepted**: at friends-and-family scale (ADR-0009) the log is the
+record, and a table nobody reads is a schema to maintain. ADR-0036 §Alternatives
+records the reasoning.
+
+**Review trigger**: the screen that would read it — or the first time a question
+about who did something cannot be answered from the logs on the box.
+
+### A verified provider email adopts an existing professor (accepted 2026-08-16, #150)
+
+A Google account with no linked identity signs in as an existing professor when
+the address matches, and the identity is linked on the way through. This is what
+makes WP-C3's create-by-email CRUD usable, and it replaces the invitation flow
+that was not ported.
+
+**What it trusts**: Google's `email_verified` claim, checked in
+`internal/infra/oidc` with a test that fails when the check is removed. Anyone who
+can obtain a verified Google address matching a professor's row becomes that
+professor.
+
+**Review trigger**: a second identity provider. The claim means different things
+across providers, and this is the first assumption to re-examine — see ADR-0036
+§Consequences.
+
+### The session cookie has no `Secure` flag in development (accepted 2026-08-16, #150)
+
+`config.SecureCookie()` derives the flag from `NALANDA_PUBLIC_URL`'s scheme, and
+the documented development value is `http://127.0.0.1:8081`.
+
+**Why it is accepted**: the alternative is a Secure cookie the browser never sends
+over http, i.e. a login that cannot work locally. The `__Host-` prefix was
+rejected for the same reason, plus a worse one: a cookie NAME that differs between
+development and production is a difference that only ever shows up in production
+(`middleware.SessionCookieName`).
+
+**Review trigger**: the first deploy. `GOOGLE-CHECK.md` §"What this check has NOT
+verified" says the https run is the one that verifies the flag, and that run is
+what closes this entry.

@@ -99,6 +99,8 @@ jobs:
             -e NALANDA_PUBLIC_URL=http://127.0.0.1:8081 \
             -e NALANDA_GOOGLE_CLIENT_ID=placeholder.apps.googleusercontent.com \
             -e NALANDA_GOOGLE_CLIENT_SECRET=placeholder-secret \
+            -e NALANDA_SESSION_TTL=720h \
+            -e NALANDA_BOOTSTRAP_PROFESSOR_EMAIL= \
             -p 127.0.0.1:8081:8081 \
             nalanda/server:ci
           for attempt in $(seq 1 20); do

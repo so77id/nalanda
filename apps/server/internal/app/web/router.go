@@ -43,16 +43,71 @@ type Deps struct {
 	Log *slog.Logger
 }
 
+// Route is one entry of this surface's table.
+//
+// The routes are DATA rather than a sequence of mux calls, and that is the whole
+// point: `Public` is a decision each route has to state, so adding one without
+// deciding is a compile error rather than an omission, and the guard in
+// router_test.go walks the same table the mux is built from — it cannot drift
+// from what is actually served.
+//
+// It exists because the review found the instruction that produces the opposite.
+// The guide said a GET "needs neither" middleware, which is true of CSRF and
+// false of the gate; followed literally by WP-C3, whose screens are all GETs,
+// it would have published a list of professors' addresses to anonymous visitors
+// (#150 review, AGR-1 and ADR-6).
+type Route struct {
+	Method  string
+	Path    string
+	Handler http.HandlerFunc
+
+	// Public means "no professor required", and every route that sets it needs
+	// the Why beside it. There are exactly three, and each is public for a
+	// reason that would survive being asked about.
+	Public bool
+	Why    string
+}
+
+// routes is what the surface serves. WP-C3 appends to it.
+func routes(deps Deps) []Route {
+	return []Route{
+		{
+			Method: http.MethodGet, Path: HealthPath,
+			Handler: healthHandler(deps.Database, deps.Log).ServeHTTP,
+			Public:  true,
+			Why: "the container healthcheck is the binary itself and carries no cookie, " +
+				"and CI probes the same path; behind the gate it would build, start and be unhealthy forever",
+		},
+		{
+			Method: http.MethodGet, Path: handler.LoginPath,
+			Handler: deps.Login.LoginPage,
+			Public:  true,
+			Why:     "it is the way in; gating the login page is a door locked from the inside",
+		},
+		{
+			Method: http.MethodGet, Path: handler.LoginGooglePath,
+			Handler: deps.Login.LoginGoogle,
+			Public:  true,
+			Why:     "same: it starts the flow that produces the session",
+		},
+		{
+			Method: http.MethodGet, Path: handler.LoginCallbackPath,
+			Handler: deps.Login.LoginGoogleCallback,
+			Public:  true,
+			Why:     "Google redirects the browser here before any session exists",
+		},
+		{
+			Method: http.MethodPost, Path: handler.LogoutPath,
+			Handler: deps.Login.Logout,
+		},
+	}
+}
+
 // Router returns the surface's routes.
 //
-// Resolve wraps EVERYTHING, and gates nothing: it only answers who is asking, so
-// that the login page can greet a professor by name and /health can stay
-// reachable without a cookie. What requires a professor says so route by route.
-//
-// That /health stays open is not an oversight to be tidied up later. The
-// container healthcheck is the binary itself and carries no cookie, and CI
-// probes the same path; putting the gate in front of it would produce a
-// container that builds, starts, and is declared unhealthy forever.
+// Resolve wraps EVERYTHING and gates nothing: it only answers who is asking.
+// What each route then requires is decided by its table entry — a professor
+// unless it says why not, plus a CSRF token whenever the method changes state.
 func Router(deps Deps) http.Handler {
 	// The gate redirects to the route THIS package registers, rather than to a
 	// constant the middleware holds its own opinion about. Renaming
@@ -61,20 +116,31 @@ func Router(deps Deps) http.Handler {
 	deps.Gate.LoginPath = handler.LoginPath
 
 	mux := http.NewServeMux()
-
-	mux.Handle("GET "+HealthPath, healthHandler(deps.Database, deps.Log))
-
-	mux.HandleFunc("GET "+handler.LoginPath, deps.Login.LoginPage)
-	mux.HandleFunc("GET "+handler.LoginGooglePath, deps.Login.LoginGoogle)
-	mux.HandleFunc("GET "+handler.LoginCallbackPath, deps.Login.LoginGoogleCallback)
-
-	// Logout is the first state-changing route, and the shape every later one
-	// follows: a professor is required, and the request must carry the session's
-	// own CSRF token.
-	mux.Handle("POST "+handler.LogoutPath,
-		deps.Gate.RequireProfessor(deps.Gate.VerifyCSRF(http.HandlerFunc(deps.Login.Logout))))
-
+	for _, route := range routes(deps) {
+		mux.Handle(route.Method+" "+route.Path, wrap(deps.Gate, route))
+	}
 	return deps.Gate.Resolve(mux)
+}
+
+// wrap applies the middleware a route's own declaration asks for.
+func wrap(gate *middleware.Auth, route Route) http.Handler {
+	handler := http.Handler(route.Handler)
+	if !isSafeMethod(route.Method) {
+		// CSRF first from the inside, so the gate refuses an anonymous request
+		// before the token is even looked for.
+		handler = gate.VerifyCSRF(handler)
+	}
+	if !route.Public {
+		handler = gate.RequireProfessor(handler)
+	}
+	return handler
+}
+
+// isSafeMethod mirrors the middleware's own list. Duplicated deliberately and
+// narrowly: this package decides which routes to WRAP, and importing a decision
+// about HTTP semantics is cheaper than exporting one.
+func isSafeMethod(method string) bool {
+	return method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
 }
 
 // healthHandler answers JSON rather than HTML, which is not an oversight: its
@@ -93,3 +159,11 @@ func healthHandler(database health.Prober, logger *slog.Logger) http.Handler {
 		httpjson.Write(w, logger, status, report)
 	})
 }
+
+// RoutesForTest exposes the table to this package's own guards.
+//
+// Exported rather than reached from inside the package because the guard has to
+// drive the router through its public surface — a test that walked an internal
+// list and called handlers directly would pass on a Router that never mounted
+// them (#149 review, F7, one layer down).
+func RoutesForTest(deps Deps) []Route { return routes(deps) }

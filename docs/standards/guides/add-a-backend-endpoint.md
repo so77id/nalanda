@@ -112,8 +112,17 @@ request, which §Errors forbids.
 - The method goes **in the pattern**: `"POST /logout"`, so a wrong verb is a 405
   rather than a 404.
 - On `web`: render with `view`, which buffers before writing — a template that
-  fails halfway must not arrive as a 200 with half a page. Text a person reads is
-  **Spanish**; identifiers stay English (root `CLAUDE.md`).
+  fails halfway must not arrive as a 200 with half a page. **Every render
+  function in `view` calls `setSecurityHeaders` as its first write**; the guard
+  covers the login page only, so a new one that forgets ships headerless. Text a
+  person reads is **Spanish**; identifiers stay English (root `CLAUDE.md`).
+- A gated handler reads its caller from the context `Resolve` filled:
+  `professor, ok := middleware.ProfessorFrom(r.Context())` and
+  `session, ok := middleware.SessionFrom(r.Context())`. Any form it renders
+  carries `<input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">` —
+  the literal field name is `middleware.CSRFFieldName`, and the value is
+  `session.CSRFToken`. Get either wrong and the request is a 403 whose message
+  names nothing. Worked case: `templates/login.html` + `handler.Auth.LoginPage`.
 - On `api`: `httpjson.Write`, which encodes before writing the header for the
   same reason.
 - Never `panic` in a request path.
@@ -124,14 +133,35 @@ In the surface's `router.go`. On `web`, `Resolve` already wraps everything; the
 decision you are making is what else the route needs:
 
 ```go
-// internal/app/web/router.go
-mux.Handle("POST "+handler.LogoutPath,
-    deps.Gate.RequireProfessor(deps.Gate.VerifyCSRF(http.HandlerFunc(deps.Login.Logout))))
+// internal/app/web/router.go — add an entry; the mux is built from this table.
+{
+    Method: http.MethodGet, Path: "/professors",
+    Handler: deps.Professors.List,
+    // no Public: it needs a professor, and the guard proves it does
+},
+{
+    Method: http.MethodPost, Path: "/professors",
+    Handler: deps.Professors.Create,
+    // a professor AND a CSRF token, both applied by the table
+},
 ```
 
-**Every state-changing route on `web` gets both.** `VerifyCSRF` exempts the safe
-methods, so a `GET` needs neither — and a state-changing endpoint reachable by
-`GET` is one any image tag on any page can trigger.
+**Two independent questions, and the method answers only one of them.**
+
+1. *Does this route show or touch professor data?* Then it needs a professor —
+   **whatever its method**. Every backoffice route does, except `/login*` and
+   `/health`, which say why in their table entry.
+2. *Does it change state?* Then it ALSO needs CSRF. The safe methods are exempt
+   from that one, and a state-changing endpoint reachable by `GET` is one any
+   image tag on any page can trigger.
+
+Getting this wrong in the direction "a GET needs neither" is how a list of
+professors' addresses ends up served to anonymous visitors — which is what an
+earlier draft of this very guide told the next WP to do (#150 review, AGR-1).
+Both axes are now enforced: the routes are a table, `Public` has to be stated
+with a reason, and `TestEveryRouteIsGatedUnlessItSaysWhyNot` and
+`TestEveryStateChangingRouteVerifiesCSRF` walk the same table the mux is built
+from.
 
 **Never mount either on `internal/app/api`.** That surface is anonymous by
 construction (§C12), and `cmd/server/main_test.go` asserts it.

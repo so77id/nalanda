@@ -1,6 +1,6 @@
 # ADR-0036: The professor session is ours, server-side, and costs no dependency
 
-**Status:** Accepted
+**Status:** Accepted — `apps/server/GOOGLE-CHECK.md` outstanding
 **Date:** 2026-08-16
 **Decision-makers:** Miguel Rodriguez
 **Source:** #150 (WP-C2), ADR-0009, design `docs/design/2026-08-controles.md` §C12, §C13
@@ -36,6 +36,21 @@ permanent schema history.
 
 ## Decision
 
+**A session lasts 30 days, absolutely rather than sliding.** The professor using
+this backoffice works in bursts weeks apart, so a short window buys nothing that
+logging out does not buy sooner, and a sliding window was rejected because
+renewing a session on every request makes the expiry unpredictable to the person
+holding it. `NALANDA_SESSION_TTL` moves it; zero or negative is a startup error.
+The compromise-response lever is revocation — a `DELETE` — not a shorter clock.
+
+**Session policy is split across the boundary on purpose.** `auth.Session.
+IsExpired` is the single rule, but the code that applies it — read the cookie,
+resolve, sweep, clear — lives in `internal/app/web/middleware`, because it is the
+only layer holding a `ResponseWriter` to clear a cookie with. The cost is two
+clocks wired separately in `cmd/server`, which nothing reconciles; that is
+accepted while there is one caller and is the first thing to revisit if the API
+surface ever needs to resolve a session too (#150 review, ARQ-4/ADR-4).
+
 **Sessions are ours: opaque, server-side, and stored as a hash.** The cookie
 carries 32 bytes of randomness, hex-encoded; `user_sessions` holds its SHA-256
 and never the token. Expiry is the row's, so a restart logs nobody out and
@@ -44,8 +59,15 @@ this server has one instance (§C15), a database it already talks to, and no
 reason to trade revocability for statelessness.
 
 **CSRF is a per-session token, verified in constant time on every
-state-changing request.** It is stored beside the session, so verification needs
-no second store and no server-side state of its own.
+state-changing route, and the "every" is now walked by a test rather than
+asserted here.** The routes of `internal/app/web` are a table the mux is built
+from; `TestEveryStateChangingRouteVerifiesCSRF` and
+`TestEveryRouteIsGatedUnlessItSaysWhyNot` walk that same table, so a route added
+without deciding fails rather than ships. This sentence originally claimed the
+invariant with hand-wiring behind it, which ADR-0034 had already rejected as a
+shape for the sibling rule ("Documenting the dependency rule instead of testing
+it. Rejected"). The token itself is stored beside the session, so verification
+needs no second store and no server-side state of its own.
 
 **The login itself has its own CSRF defence, and it takes two halves.** The
 state nonce is held server-side, which makes it single-use and stops a callback

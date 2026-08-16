@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-08-16
 **Decision-makers:** Miguel Rodriguez
+**Amended by:** #150 (2026-08-16) — the empty `00001_init.sql` was deleted and the auth schema numbered `00002`; the image measured 12.2 MB after the port
 **Source:** #149 (WP-C1), design `docs/design/2026-08-controles.md` §C10, §C11
 
 ## Context
@@ -168,7 +169,10 @@ rule the repo already applies to `proof-of-concept/`.
   service; there is no VPS, no Tailscale, no deploy workflow and no secrets
   management. The first deployment will be its own decision.
 
-- **`migrations/00001_init.sql` is deliberately empty.** The WP creates no
+- **`migrations/00001_init.sql` was deliberately empty**, and #150 deleted it as
+  planned — numbering the auth schema `00002` rather than reusing `00001`,
+  because goose keys applied migrations by version
+  (`backend-code-style.md` §Adding a migration). The WP creates no
   domain tables, but `//go:embed *.sql` will not compile over a directory
   without one, and an applied migration is what makes the boot path provable.
   WP-C2's users table replaces it.

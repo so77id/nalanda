@@ -18,6 +18,7 @@ guide here** (ADR-0005).
 | Add a backend endpoint | [`guides/add-a-backend-endpoint.md`](guides/add-a-backend-endpoint.md) | Adding any route to `apps/server`: which surface it belongs to, the handler → domain → repository chain, the middleware a state-changing route needs, and the four homes of a configuration variable. Worked case: `POST /logout` (#150) |
 | Add a database migration | [`backend-code-style.md` §Adding a migration](backend-code-style.md#adding-a-migration) | Changing `apps/server`'s schema: file naming, the embed root, why the Down block is documentation rather than a tested path, and which placeholder the first real migration deletes |
 | Drive the control engine | [`../../apps/amc-worker/README.md`](../../apps/amc-worker/README.md) | Calling `apps/amc-worker`: the HTTP contract, the shared-volume convention, and the four silent AMC traps a caller must not hit (ADR-0030) |
+| Verify the Google login by hand | [`../../apps/server/GOOGLE-CHECK.md`](../../apps/server/GOOGLE-CHECK.md) | The other check no agent can run: a real OAuth client, a real sign-in, a second account refused, a sign-out that sticks. Required whenever the login path changes, because no test in this repository reaches Google |
 | Verify the control engine on paper | [`../../apps/amc-worker/PAPER-CHECK.md`](../../apps/amc-worker/PAPER-CHECK.md) | The one check no agent can run: print, mark, scan, read, compare. Required before trusting a synthetic green run |
 
 ## Pending guides (registered by the WP that creates the extension point)

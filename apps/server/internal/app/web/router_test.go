@@ -204,6 +204,36 @@ func TestHealthKeepsTheCauseOnTheBackofficeSurface(t *testing.T) {
 	}
 }
 
+// signInAgainst creates a professor with a live session in the database the deps
+// were built over, and returns the cookie a browser would hold.
+func signInAgainst(t *testing.T, d web.Deps) *http.Cookie {
+	t.Helper()
+
+	ctx := context.Background()
+	store := d.Gate.Users.(*authstore.Store)
+
+	user, err := store.CreateUser(ctx, "profesora@example.com", "Profesora")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	token, err := auth.NewToken()
+	if err != nil {
+		t.Fatalf("NewToken: %v", err)
+	}
+	csrf, err := auth.NewToken()
+	if err != nil {
+		t.Fatalf("NewToken: %v", err)
+	}
+	now := time.Now()
+	if err := store.CreateSession(ctx, auth.Session{
+		TokenHash: auth.HashToken(token), UserID: user.ID, CSRFToken: csrf,
+		CreatedAt: now, ExpiresAt: now.Add(time.Hour), LastSeenAt: now,
+	}); err != nil {
+		t.Fatalf("CreateSession: %v", err)
+	}
+	return &http.Cookie{Name: middleware.SessionCookieName, Value: token}
+}
+
 // ARQ-1. The gate redirects somewhere, and nothing used to check that the
 // somewhere is a route this router registers: the middleware held its own
 // constant, so renaming handler.LoginPath left the suite green while every
@@ -227,5 +257,84 @@ func TestTheGateRedirectsToARouteThisRouterServes(t *testing.T) {
 
 	if landing.Code == http.StatusNotFound {
 		t.Errorf("the gate sends an anonymous request to %q, which this router answers with 404", target)
+	}
+}
+
+// AGR-1 / ADR-6, the guard both lenses asked for. It walks the table the mux is
+// actually built from, so it cannot describe a different server than the one
+// that runs.
+//
+// The failure it exists to prevent: WP-C3's screens are all GETs, and the
+// guide's rule for GETs was "needs neither middleware" — which is right about
+// CSRF and wrong about the gate. A `GET /professors` mounted bare would have
+// served a list of professors' addresses to anonymous visitors, and no test in
+// this module could have seen it.
+func TestEveryRouteIsGatedUnlessItSaysWhyNot(t *testing.T) {
+	d := deps(t, reachable)
+	router := web.Router(d)
+
+	var checked, public int
+	for _, route := range web.RoutesForTest(d) {
+		checked++
+		if route.Public {
+			public++
+			// A public route states its reason, and a human reads it at review
+			// time — so the test insists there is one rather than judging it.
+			if route.Why == "" {
+				t.Errorf("%s %s is public and says nothing about why", route.Method, route.Path)
+			}
+			continue
+		}
+
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, httptest.NewRequest(route.Method, route.Path, nil))
+
+		if recorder.Code != http.StatusSeeOther {
+			t.Errorf("%s %s answered %d without a session, want a redirect to the login page — "+
+				"a route that is not Public must sit behind the gate",
+				route.Method, route.Path, recorder.Code)
+		}
+		if location := recorder.Header().Get("Location"); location != handler.LoginPath {
+			t.Errorf("%s %s redirected to %q, want %q", route.Method, route.Path, location, handler.LoginPath)
+		}
+	}
+
+	if checked == 0 {
+		t.Fatal("the table is empty, so this test verified nothing")
+	}
+	if public == checked {
+		t.Fatal("every route is public, so the gated half of this test verified nothing")
+	}
+}
+
+// And the other axis: a state-changing route carries CSRF, whatever else it
+// carries. Asserted with a real session, because without one the gate answers
+// first and the 403 never comes from the check under test.
+func TestEveryStateChangingRouteVerifiesCSRF(t *testing.T) {
+	d := deps(t, reachable)
+	router := web.Router(d)
+	cookie := signInAgainst(t, d)
+
+	var checked int
+	for _, route := range web.RoutesForTest(d) {
+		switch route.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			continue
+		}
+		checked++
+
+		request := httptest.NewRequest(route.Method, route.Path, nil)
+		request.AddCookie(cookie)
+		recorder := httptest.NewRecorder()
+		router.ServeHTTP(recorder, request)
+
+		if recorder.Code != http.StatusForbidden {
+			t.Errorf("%s %s answered %d for a signed-in professor with no CSRF token, want 403",
+				route.Method, route.Path, recorder.Code)
+		}
+	}
+
+	if checked == 0 {
+		t.Fatal("no state-changing route in the table, so this test verified nothing")
 	}
 }

@@ -38,6 +38,10 @@ services:
       NALANDA_GOOGLE_CLIENT_ID: "${NALANDA_GOOGLE_CLIENT_ID:-placeholder.apps.googleusercontent.com}"
       NALANDA_GOOGLE_CLIENT_SECRET: "${NALANDA_GOOGLE_CLIENT_SECRET:-placeholder-secret}"
       NALANDA_BOOTSTRAP_PROFESSOR_EMAIL: "${NALANDA_BOOTSTRAP_PROFESSOR_EMAIL:-}"
+      # Optional, and present anyway: the four-homes rule is about the contract
+      # being visible where an operator edits it, not about which variables the
+      # loader would survive without.
+      NALANDA_SESSION_TTL: "${NALANDA_SESSION_TTL:-720h}"
     volumes:
       - server-data:/data
     ports:
