@@ -79,7 +79,7 @@ note() {
 stage_source() {
   mkdir -p "$1/code"
   cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$1/"
-  cp "${WORKER_DIR}"/tests/fixtures/code/*.java "$1/code/"
+  cp -R "${WORKER_DIR}"/tests/fixtures/code/. "$1/code/"
 }
 
 image_exists() {

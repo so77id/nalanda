@@ -67,7 +67,7 @@ paper:
 		tests/work/paper/scan tests/work/paper/project/data \
 		tests/work/paper/project/cr tests/work/paper/project/scans
 	cp tests/fixtures/control-demo.tex tests/work/paper/src/
-	cp tests/fixtures/code/*.java tests/work/paper/src/code/
+	cp -R tests/fixtures/code/. tests/work/paper/src/code/
 	docker run --rm --env DISPLAY= -v "$(PWD)/tests/work/paper:/work" -w /work $(IMAGE) \
 		bash -c 'set -e; \
 		  auto-multiple-choice prepare --mode s --n-copies $(PAPER_COPIES) --with pdflatex \

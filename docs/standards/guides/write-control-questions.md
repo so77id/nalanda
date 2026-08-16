@@ -34,9 +34,9 @@ because they are checkable — not because they matter more than the ones below.
 
 | Rule | Why |
 |---|---|
-| Exactly four alternatives | The generator splits one point across them. Another number weighs differently from every other question. |
-| Between one and three marked correct | None is unanswerable. All four is "mark everything", which measures nothing and collides with the *ninguna de estas* box the sheet adds to every multiple. |
-| No *todas / ninguna de las anteriores* | Every copy shuffles. Out of last position they stop meaning anything. |
+| Exactly four alternatives | Uniformity, so a sheet reads the same from question to question — NOT weighting: the reading report carries each question's `max` and the caller divides by it, so a question with three alternatives weighs exactly one point like every other (ADR-0031). |
+| Between one and three marked correct | None is unanswerable. All four is "mark everything", which measures nothing: whoever knows nothing marks everything and scores. |
+| No *todas las anteriores* | If every alternative is correct, mark them — that is what a multiple is. Pinning does not save this one. |
 | No negated stem (`NO`, *excepto*, *salvo*) | Under a clock with shuffled alternatives, a negation measures hurried reading. Lowercase *no* is fine — *"¿Por qué no compila?"* is a real question, not a negated stem. The uppercase form is caught after a space or after `¿`. |
 | The correct alternative is not far longer than the rest | The most exploitable tell there is: pick the longest, be right, never study. Compared against the SECOND longest, and switched off below 15 characters — between `123` and `No compila` the ratio means nothing, and `{3, 6, 123, No compila}` is correct authoring. |
 | `id` present, kebab-case, unique across the whole `content/` tree | It is the join key from the printed sheet, through the scanner, into a grade (ADR-0031). A duplicate merges two students' answers into one column — and that one fails `npm run build`, not the suite. |
@@ -124,6 +124,24 @@ student might believe.
 
 Shuffled, *todas las anteriores* lands second and means nothing. It is also
 marked correct alongside a contradiction. The suite refuses this one.
+
+***Ninguna* de las anteriores is different, and allowed.** It says something
+false out of last position for the same reason — but the printed sheet pins it
+there with AMC's `\lastchoices` (ADR-0033), and it is the only way to author
+the question where every option listed is wrong:
+
+```mdx
+En Java, ¿cuáles de estas expresiones dan el largo de un arreglo `a`?
+
+- [ ] `a.size()`
+- [ ] `a.length()`
+- [ ] `len(a)`
+- [x] Ninguna de las anteriores
+```
+
+Whoever arrives from C++ or Python marks one of the first three by reflex.
+Without the catch-all the student who knows has no way to say so: leaving the
+question blank is indistinguishable from not reaching it.
 
 ### Bad because the answer is the long one
 
