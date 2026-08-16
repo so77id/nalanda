@@ -17,7 +17,7 @@ export function FamilyPage({ notFound }: Props) {
 
   // Answered BEFORE the entries are asked for: `families` is eager, so an
   // unknown family is a 404 this page can serve immediately instead of
-  // suspending on 38 kB of catalog prose it is never going to show. `use()` may
+  // suspending on catalog prose it is never going to show. `use()` may
   // sit after an early return — that is the difference between it and a hook.
   if (!family) return <>{notFound}</>;
   const entries = use(loadCatalog()).byFamily(family.id);

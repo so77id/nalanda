@@ -32,8 +32,14 @@ describe('runtime registry', () => {
   // whole point is that a consumer can have one without the other: <MemoryDiagram>
   // drives a JVM and draws its own listing, so it paid for a grammar it never
   // rendered (#122; the bytes are in ADR-0018 §4).
+  // "Of its OWN" is the assertion, not "a grammar". `toBeDefined()` alone let a
+  // review recheck swap the java and python arms of the switch with all 997 cases
+  // green — every Java listing on the site highlighted as Python, silently and
+  // site-wide. A grammar knows its own name; ask it.
   it.each(runtimeDescriptors)('$id loads a grammar of its own', async ({ id }) => {
-    expect(await loadGrammar(id)).toBeDefined();
+    const extension = (await loadGrammar(id)) as { language?: { name?: string } };
+    expect(extension).toBeDefined();
+    expect(extension.language?.name).toBe(id === 'cpp' ? 'cpp' : id);
   });
 
   it('fails loudly for a language that has no grammar', async () => {

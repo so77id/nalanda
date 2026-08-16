@@ -7,9 +7,9 @@
 contract and self-governing catalog), which decided the catalog exists, named
 the four families, and deferred its shape to v0.1.
 **Amended by:** #87 (§6 — family ids are English and are their own folder; the
-id↔folder mapping this ADR described no longer exists) · #122 (2026-08-16 — §2:
+id↔folder mapping this ADR described no longer exists) · #122 (2026-08-16) — §2:
 the entry array moved off the components seam and behind `loadCatalogEntries()`,
-and the catalog's data became asynchronous)
+and the catalog's data became asynchronous
 
 ## Context
 

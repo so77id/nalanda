@@ -3,9 +3,9 @@
 **Status:** Accepted
 **Amended by:** ADR-0024 (§4: nothing under `runtime/` may be reached before
 first paint, so a descriptor may no longer travel in the entry chunk) · #122
-(2026-08-16 — §4/§6: the CodeMirror grammar left `RuntimeModule` for
+(2026-08-16) — §4/§6: the CodeMirror grammar left `RuntimeModule` for
 `loadGrammar(id)`, and nothing under `runtime/` may statically reach any package
-but `react`)
+but `react`
 **Date:** 2026-08-11
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the `RuntimeWorker` contract · lazy per-language runtime modules ·
@@ -252,12 +252,12 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   |                                   | eager JS chunks | raw | gzip |
   |---|---|---|---|
   | before                            | 2 | 549.31 kB | 174.74 kB |
-  | catalog entries behind `loadCatalogEntries()` | 3 | 512.29 kB | 163.44 kB |
+  | catalog entries behind `loadCatalogEntries()` | 3 | 512.48 kB | 163.51 kB |
 
   **The table is the JS half of the unit**, listed on its own because the
   stylesheet is byte-identical on both sides and would only add a constant to
-  every row. With it: 3 files / 624.47 kB / 187.58 kB gzip before, 4 / 587.46 kB /
-  176.29 kB after — the same deltas. A reader who follows the recipe literally and
+  every row. With it: 3 files / 624.47 kB / 187.58 kB gzip before, 4 / 587.65 kB /
+  176.35 kB after — the same deltas. A reader who follows the recipe literally and
   gets the larger numbers has done it right.
 
   **A last-mile trap, met twice while writing this section.** Some of this repo's
@@ -269,11 +269,12 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   the digits: the fewer places a payload figure is written, the fewer ways writing
   it can change it.
 
-  **−37.02 kB raw, −11.30 kB gzip on every page of the site**, including the ones
+  **−36.83 kB raw, −11.23 kB gzip on every page of the site**, including the ones
   with no code and no interest in the catalog. The third chunk is lucide's
   `createLucideIcon` (2.70 kB / 1.43 kB gzip): re-cutting the graph let rolldown
   hoist it out of the entry chunk, and the entry now shares it with the lazy
-  component chunks (`CodeEditor`, `Exercise`, `MemoryDiagram`, `useRunShortcut`).
+  component chunks (`CodeEditor`, `Exercise`, `MemoryDiagram`, `useRunShortcut`
+  and the shared runtime chunk, which carries a Loader icon).
   One more request, no duplicated bytes. **Not** shared with the catalog chunk —
   no catalog entry imports an icon, and the first version of this sentence said it
   did. Third time in this section that a right number arrived with a wrong reason

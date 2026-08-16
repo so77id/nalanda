@@ -176,10 +176,25 @@ describe('architecture: cross-feature dependencies', () => {
   });
 });
 
-/** Resolves an import specifier to a file inside src/, or null. */
+/**
+ * Resolves an import specifier to a file inside src/, or null.
+ *
+ * The `.js` stripping is not cosmetic, and it is the second time this repo has
+ * paid for it. `moduleResolution: "bundler"` accepts `./grammar.js` for a file
+ * that is `grammar.ts` on disk, so a specifier written that way resolved to
+ * nothing here — and a walk that cannot resolve a module silently stops there,
+ * taking every package behind it with it. Found by a review recheck (#122) with
+ * `import { grammar } from './grammar.js'` in a runtime module: `tsc` green, all
+ * 17 architecture cases green, and the built java chunk statically importing a
+ * 40.7 kB grammar. It truncated BOTH walks — the runtime allowlist and the
+ * shell's `SHIPS_EAGERLY` case. The `CodeEditor` guard 100 lines above already
+ * normalises for exactly this ("`moduleResolution: "bundler"` also accepts
+ * `./CodeEditor.js`"); the lesson was written down and not applied one function
+ * over.
+ */
 function moduleOf(fromFile: string, spec: string): string | null {
   if (!spec.startsWith('.')) return null;
-  const base = resolve(dirname(fromFile), spec);
+  const base = resolve(dirname(fromFile), spec).replace(/\.(js|jsx|mjs|cjs)$/, '');
   for (const candidate of [
     base,
     `${base}.ts`,
@@ -380,6 +395,19 @@ describe('architecture: a runtime carries no editor', () => {
       }
     });
   }
+
+  it('resolves a `.js` specifier, which the compiler accepts for a .ts file', () => {
+    // The resolver IS the walk: an unresolvable specifier is a silent stop, and
+    // everything behind it disappears from both allowlists. `bundler` resolution
+    // makes `./grammar.js` legal for `grammar.ts`, and a review recheck put a
+    // 40.7 kB grammar back into the java chunk through exactly that spelling with
+    // every case green. Asserted directly rather than through a fixture, because
+    // the defect is in one line of one function.
+    const from = join(SRC, 'runtime/java/index.ts');
+    expect(moduleOf(from, './grammar.js')).toBe(join(SRC, 'runtime/java/grammar.ts'));
+    expect(moduleOf(from, './grammar')).toBe(join(SRC, 'runtime/java/grammar.ts'));
+    expect(moduleOf(from, '../registry.js')).toBe(join(SRC, 'runtime/registry.ts'));
+  });
 
   it('finds the runtime modules (guards against a vacuous walk)', () => {
     // Without this the allowlist case below passes over an empty root set, which

@@ -16,7 +16,8 @@ a semantic wrapper, a visualizer, a media embed, a structural block.
 ## Worked example
 
 `Slide` and `SectionBreak` (family _structure_) are the reference
-implementations: component + colocated entry + a line in `components/catalogEntries.ts` + MDX registration
+implementations: component + seam export in `components/index.ts` + colocated entry + a line in
+`components/catalogEntries.ts` + MDX registration
 
 - per-mode tests.
 
@@ -230,6 +231,9 @@ payload from 1 chunk to 9 with every name-based guard green).
       rendered-English `it.each` list covering one populated and one still-empty
       family page.
 - [ ] Registered in `app/mdxComponents.ts` (mandatory for every catalogued component).
+- [ ] Component exported from `src/components/index.ts` — the shell imports the
+      seam, not the file. The ENTRY is not exported there; the two go to different
+      places and that is the whole point of #122.
 - [ ] Colocated `.catalog.tsx` entry added to the array in
       `src/components/catalogEntries.ts` — and NOT re-exported from
       `src/components/index.ts`, which puts every entry's prose back in the eager

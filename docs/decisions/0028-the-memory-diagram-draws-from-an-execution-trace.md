@@ -1,9 +1,6 @@
 # ADR-0028: The memory diagram draws from an execution trace, not from a description
 
 **Status:** Accepted
-**Amended by:** #122 (2026-08-16 — §9's mounting cost was re-measured once the
-CodeMirror grammar left the runtime module, and the revisit trigger this ADR set
-in §Consequences is answered below)
 **Date:** 2026-08-14
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the `trace` fence and its `// foto` markers · the generated `NalandaTrace` class ·
@@ -12,6 +9,9 @@ the `library` compilation unit the runtime contract grew · what the drawing sho
 Extends ADR-0019 (annotated fences as an authoring surface) and ADR-0010/0014
 (component contract and catalog); relies on ADR-0016/0017 (Java in the browser)
 and is constrained by ADR-0018 (what may reach the entry chunk).
+**Amended by:** #122 (2026-08-16) — §9's mounting cost re-measured once the
+CodeMirror grammar left the runtime module, and the revisit trigger §Consequences
+set is answered there
 
 ## Context
 

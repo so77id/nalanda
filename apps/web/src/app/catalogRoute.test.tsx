@@ -11,13 +11,19 @@ import { AppRoutes } from './AppRoutes';
 const catalog = await loadCatalog();
 
 // Async because the catalog entries arrive as a promise (#122) and `use()`
-// suspends on the first render. Testing Library's synchronous `render` wraps the
-// mount in an `act` scope nobody awaits, and React discards a tree that suspends
-// inside one. Precisely what that costs, measured rather than assumed: a query
-// that opens with `findBy*` retries past it and is fine — 37 of the 38 cases
-// here — and one that reads the DOM straight after `render` sees an empty body.
-// Awaiting the act scope is what React's own diagnostic asks for, and it removes
-// the difference between the two shapes.
+// suspends. Testing Library's synchronous `render` wraps the mount in an `act`
+// scope nobody awaits, and React discards a tree that suspends inside one — for
+// good. A `findBy*` does NOT rescue it; that was this comment's second wrong
+// explanation, and re-running the experiment is what killed it.
+//
+// What actually happens: only the FIRST `use()` on a given promise suspends,
+// because React tags the promise with its result the moment it settles, so every
+// later mount reads it synchronously. With a plain `render`, exactly one case in
+// this file fails — whichever one runs first — and the other 37 pass because the
+// first one already paid. Which case that is, is an ordering accident.
+//
+// So the awaited `act` scope is not hygiene for one case: it is what stops the
+// suite's verdict depending on test order.
 async function renderAt(path: string) {
   await act(async () => {
     render(
