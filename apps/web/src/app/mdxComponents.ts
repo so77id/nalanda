@@ -8,6 +8,7 @@ import {
   Question,
   Questions,
   SectionBreak,
+  SheetEmbed,
   SideBySide,
   Slide,
   Split,
@@ -32,6 +33,9 @@ export const mdxComponents = {
   Split,
   Mosaic,
   Figure,
+  // Not lazy: it is an iframe and a div. The weight is Google's, fetched by the
+  // browser when the frame scrolls into view, and never in our entry chunk.
+  SheetEmbed,
   // The lazy wrapper, not the editor itself: this map is evaluated eagerly, and
   // registering the real component would put CodeMirror in the entry chunk.
   CodeEditor: LazyCodeEditor,

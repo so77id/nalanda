@@ -93,9 +93,24 @@ export function SheetEmbed({ src, title, height = DEFAULT_HEIGHT }: SheetEmbedPr
   return (
     // `not-prose` because a framed sheet is a block, not running text: without
     // it the reading measure narrows it to 39rem inside the column (ADR-0022).
+    // Measured in the book at 1440: 768px of column, against 624px for the
+    // prose above it.
+    //
+    // It carries no `overflow-x-auto`, and that is not the oversight it looks
+    // like. ADR-0013 §5.2 makes a component that pans sideways declare itself a
+    // real scroller or have the drag taken as a slide change — but the sheet's
+    // scroller lives inside ANOTHER DOCUMENT, so the deck never sees the touch
+    // at all. Measured on an iPhone 13 in landscape, same slide, same gesture:
+    // dragging inside the frame left `?slide` untouched, dragging on the ground
+    // beside it moved 2 -> 1. Adding the class here would only advertise a
+    // scroller this element does not have.
+    //
     // The height rides on the wrapper rather than the frame so the cap is one
     // value in one place, and `min()` lets the slide keep the author's number
-    // whenever it already fits.
+    // whenever it already fits. Measured: at 1024x768 the frame draws at its
+    // full 480px (64vh = 491px, so the author's number wins and the slide is
+    // not scaled at all); on a 750x342 phone the cap bites at 219px and the
+    // deck fits the slide at 0.85, well above the half-scale legibility floor.
     <div
       className="not-prose my-6"
       style={{
