@@ -46,6 +46,21 @@ every score null under `status: "ok"`. A captured question with no score is
 refused per copy, because the repair is re-running `note` rather than a human
 looking at the sheet.
 
+WHAT THE CALLER DOES WITH `score` AND `max`. Every question weighs ONE POINT
+(docs/design/2026-08-controles.md §C7), and AMC does not agree: it weighs a
+simple question 1 and a multiple one point per alternative. So the caller
+normalises, and this is the whole of it:
+
+    relative_i = score_i / max_i      the fraction of question i's single point
+    grade      = sum(relative_i)      over the N questions THIS copy drew
+    percentage = grade / N            out of N, because each question is one point
+
+`max` is NOT a constant — 1 for a simple question, the alternative count for a
+multiple — so a three-alternative multiple divides by 3 and a five-alternative
+one by 5. Nothing here assumes four, which is why `max` travels with each answer
+instead of being assumed by the caller. Turning a percentage into a 1,0-7,0 mark
+is `apps/server`'s job, not this report's (ADR-0031).
+
 WHAT AMC DECIDES AND WHAT WE DECIDE, because the difference matters when
 something goes wrong on a real sheet:
 
