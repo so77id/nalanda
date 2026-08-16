@@ -9,6 +9,12 @@ rather than from the source · what a structural component must render to stay n
 **Amended by:** ADR-0027 §8 — an `h2` that is entirely a formula paints but contributes
 no section, because it has no text to slug. Accepted knowingly; the fix moves published
 anchors.
+**Amended by:** ADR-0032 / #139 — a SECOND spine producer exists, derived from the source,
+scoped to build-time emission and to the gates. The rendered `h2` remains the boundary for
+everything a reader navigates. See §"A second producer, and why". Also: the `<Questions>`
+block renders a bare `h2` with no id, so it paints without contributing a section —
+deliberate, or a document declaring `per-section` would owe a question about its own
+questions block.
 Extends ADR-0013 (presentation pipeline) and ADR-0010 (component contract);
 constrained by the import direction in `frontend-code-style.md`.
 
@@ -112,3 +118,46 @@ reading line** (a quarter of the way down the viewport), recomputed from
 a `#fragment` is covered. The jsdom suite lays nothing out, so these cases are
 asserted by placing the headings explicitly and dispatching a scroll; the
 pixels are still verified in a browser (`testing-strategy.md`, L5/L8).
+
+## A second producer, and why (amended 2026-08-16, #139)
+
+§Alternatives considered rejected a source-derived spine by name: *"a remark
+plugin emitting a TOC into frontmatter … introduces a third definition of
+'section' derived from source rather than from what rendered. It would also have
+to re-implement `<Slide title>` handling."*
+
+`content/questionSource.ts` now does exactly that re-implementation, and it
+ships. The rejection was right about the cost and wrong about the necessity:
+
+- A **Vite plugin** emits the question bank at `generateBundle`, and it cannot
+  render — there is no React, no DOM, no `useSections`.
+- The **gates** run in node over the `.mdx` source, for the reason
+  `architecture.test.ts` already records: `import.meta.glob` with `?raw` hands
+  back the COMPILED module here, because the MDX plugin claims the file first.
+
+So the decision is narrowed rather than reversed: **the rendered `h2` is the
+section boundary for everything a reader navigates** — the rail, the drawer, the
+deep link, the slide parser — and `useSections()` remains its only producer. The
+source-derived spine exists for build-time emission and for gating, and it is
+NOT authoritative: where the two disagree, the rendered one is right, because it
+is the one a link resolves against.
+
+**They can disagree, and the shape is known.** The rendered path slugs
+`textOf(children)`, which deliberately contributes nothing for an element
+(ADR-0027 §8, and `lib/reactText.ts` explains why recursing is forbidden: it
+would move published anchors). The source reader sees the raw markdown. So
+``## La trampa de `nextInt` `` publishes `la-trampa-de-seguido-de` while the
+source produces `la-trampa-de-nextint-seguido-de-nextline`. No heading in
+`content/` carries inline code or a formula today; the day one does, a correct
+anchor would be rejected as dangling and the artifact would publish a slug that
+is not a link target.
+
+**That is why the agreement is gated, not assumed.**
+`app/questionReaders.test.tsx` compares the two spines on every published
+document. Sharing `lib/slug.ts` closes drift in the slug FUNCTION and not in the
+heading SET, which is where the divergence actually lives.
+
+**Consequence.** A change to how a heading renders — anything touching `textOf`,
+`mdxHeading`, or `<Slide>` — now has a second consumer, and the gate is what
+says so. Neither producer may be "fixed" toward the other without deciding what
+happens to the published anchors ADR-0027 froze.

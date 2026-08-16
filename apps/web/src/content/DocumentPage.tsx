@@ -1,7 +1,9 @@
 import { Menu, Presentation } from 'lucide-react';
-import { Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
+
+import { KnownSectionsProvider } from '../lib/knownSections';
 
 import { Breadcrumb } from './Breadcrumb';
 import { ThemeToggle } from './ThemeToggle';
@@ -64,6 +66,12 @@ export function DocumentPage({ notFound }: Props) {
   const trail = trailFor(courseIndex, id, docLabel);
   const article = useRef<HTMLElement>(null);
   const { sections, activeId } = useSections(article);
+  // Keyed on the spine so the context value keeps its identity when `activeId`
+  // changes, which it does on every scroll past a heading. It does NOT save the
+  // questions a re-render: `<Doc />` is a fresh element each time and nothing
+  // between is memoised, so the subtree renders either way. Measured — the
+  // whole document scrolls with zero long tasks.
+  const sectionIds = useMemo(() => new Set(sections.map((section) => section.id)), [sections]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   // One handler for the two things that close the drawer (the drawer itself,
   // and following a section link inside it). Not a correctness requirement:
@@ -145,9 +153,15 @@ export function DocumentPage({ notFound }: Props) {
           </div>
         </div>
         <article ref={article} className="prose measured-prose mx-auto max-w-3xl">
-          <Suspense fallback={null}>
-            <Doc />
-          </Suspense>
+          {/* The same spine the rail and the drawer draw from, handed down so a
+              question can check the section it claims to belong to (#139). One
+              measurement, three consumers — a second reading of the DOM could
+              disagree with the navigation about what a section is. */}
+          <KnownSectionsProvider value={sectionIds}>
+            <Suspense fallback={null}>
+              <Doc />
+            </Suspense>
+          </KnownSectionsProvider>
           <SequenceNav id={id} />
         </article>
       </main>

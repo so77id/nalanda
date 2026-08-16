@@ -1,20 +1,11 @@
 import type { ReactNode } from 'react';
 
 import { fenceOf } from '../lib/codeFences';
-import { RUNTIME_IDS } from '../lib/runtimeIds';
-import type { RuntimeId } from '../lib/runtimeIds';
+import { isRuntimeId } from '../lib/runtimeIds';
 import { LazyCodeEditor } from './interactive/lazyCodeEditor';
 
 interface Props {
   children?: ReactNode;
-}
-
-/**
- * Whether the platform can highlight this fence — the registry is the authority,
- * and asking it is also what narrows the string into a `RuntimeId` without a cast.
- */
-function isKnownLanguage(language: string | null): language is RuntimeId {
-  return language !== null && (RUNTIME_IDS as readonly string[]).includes(language);
 }
 
 /**
@@ -41,7 +32,7 @@ function isKnownLanguage(language: string | null): language is RuntimeId {
  */
 export function MdxPre({ children }: Props) {
   const fence = fenceOf(children);
-  if (!fence || !isKnownLanguage(fence.language)) return <pre>{children}</pre>;
+  if (!fence || !isRuntimeId(fence.language)) return <pre>{children}</pre>;
 
   return (
     <LazyCodeEditor

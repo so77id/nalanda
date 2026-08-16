@@ -2,6 +2,7 @@
 id: java-desde-cpp
 title: Java desde C++
 presentation: explicit
+questions: per-section
 ---
 
 # Java desde C++
@@ -247,6 +248,98 @@ Un paquete se importa solo: **`java.lang`**. Por eso `System`, `String`, `Math` 
 `Integer` funcionan sin que hayas escrito nada arriba. Todo lo demás —`Scanner`,
 `ArrayList`, `HashMap`— hay que pedirlo.
 
+<Questions>
+
+<Question id="static-sin-objeto" anchor="que-significa-static">
+
+¿Por qué `main` tiene que ser `static`?
+
+- [x] Porque la máquina virtual lo llama sin haber creado ningún objeto todavía
+- [ ] Porque así el programa se ejecuta más rápido
+- [ ] Porque solo los métodos `static` pueden imprimir en pantalla
+- [ ] Porque lo exige el nombre del archivo `.class`
+
+</Question>
+
+<Question id="que-imprime-arreglo" anchor="por-que-main-tiene-tantas-palabras">
+
+¿Qué imprime este programa?
+
+```java
+public class Demo {
+    public static void main(String[] args) {
+        int[] v = {1, 2, 3};
+        int s = 0;
+        for (int x : v) s += x;
+        System.out.println(s);
+    }
+}
+```
+
+- [ ] 3
+- [x] 6
+- [ ] 123
+- [ ] No compila
+
+</Question>
+
+<Question id="diferencias-con-cpp" anchor="cuatro-diferencias-una-por-una">
+
+¿Cuáles de estas afirmaciones sobre Java son ciertas?
+
+- [x] Una clase se declara y se define en el mismo lugar
+- [x] `main` no devuelve nada y el código de salida va aparte
+- [ ] `System.out.println` es un operador sobrecargado como `<<`
+- [ ] Una función puede existir fuera de cualquier clase
+
+</Question>
+
+<Question id="que-produce-javac" anchor="las-tres-decisiones-que-te-acompanan">
+
+¿Qué produce el compilador de Java?
+
+- [x] Bytecode para la máquina virtual
+- [ ] Un binario para tu procesador
+- [ ] Código fuente ya optimizado
+- [ ] Un ejecutable propio de tu sistema operativo
+
+</Question>
+
+<Question id="que-hace-el-comando-java" anchor="compilar-y-ejecutar">
+
+¿Qué hace el comando `java Hola`?
+
+- [x] Arranca la máquina virtual, que lee y ejecuta el bytecode
+- [ ] Compila `Hola.java` y deja el archivo `Hola.class`
+- [ ] Traduce el bytecode a un ejecutable del sistema
+- [ ] Ejecuta instrucciones de tu procesador directamente
+
+</Question>
+
+<Question id="nombre-del-archivo-publico" anchor="el-archivo-se-llama-como-la-clase">
+
+Si una clase es `public`, ¿cómo tiene que llamarse su archivo?
+
+- [x] Igual que la clase, con extensión `.java`
+- [ ] Como quieras, el compilador no lo revisa
+- [ ] Igual que el paquete al que pertenece
+- [ ] Siempre `Main.java`, sea cual sea la clase
+
+</Question>
+
+<Question id="que-hace-import" anchor="import-y-paquetes">
+
+¿Qué hace `import java.util.Scanner`?
+
+- [x] Abrevia: al escribir `Scanner` te refieres a `java.util.Scanner`
+- [ ] Pega el contenido de esa clase dentro de tu archivo
+- [ ] Descarga la clase desde el paquete `java.util`
+- [ ] Compila esa clase junto con tu programa
+
+</Question>
+
+</Questions>
+
 ## Lo que sigue
 
 Ya puedes leer, escribir, compilar y ejecutar un programa Java, y sabes por qué está
@@ -255,3 +348,5 @@ qué trabaja ese programa: los tipos primitivos y sus diferencias con C++, los o
 cómo leer datos con `Scanner` y el control de flujo.
 
 Es el próximo documento: [[java-tipos-y-flujo|Tipos, operadores y entrada/salida]].
+
+

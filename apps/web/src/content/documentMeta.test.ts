@@ -37,3 +37,27 @@ describe('parseDocumentMeta — presentation config', () => {
     );
   });
 });
+
+describe('parseDocumentMeta — questions coverage (issue #139)', () => {
+  const base = { id: 'doc-a', title: 'Doc A' };
+
+  // Same shape as `presentation` above: optional in the schema so a document
+  // mid-edit still parses, and required in practice by the suite — a document
+  // that never declares it is one whose author never decided (#108).
+  it('defaults to none when absent', () => {
+    expect(parseDocumentMeta('a.mdx', base).questions).toBe('none');
+  });
+
+  it('accepts per-section and pool', () => {
+    expect(parseDocumentMeta('a.mdx', { ...base, questions: 'per-section' }).questions).toBe(
+      'per-section',
+    );
+    expect(parseDocumentMeta('a.mdx', { ...base, questions: 'pool' }).questions).toBe('pool');
+  });
+
+  it('rejects unknown values naming the field and file', () => {
+    expect(() => parseDocumentMeta('a.mdx', { ...base, questions: 'todas' })).toThrowError(
+      /questions.*per-section.*pool.*none.*a\.mdx/s,
+    );
+  });
+});

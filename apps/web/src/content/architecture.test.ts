@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { walkIndex } from './courseIndex';
 import { parseFrontmatterBlock } from './documentMeta';
 import { courseIndex, registry } from './liveContent';
+import { questionProblems } from './questionRules';
+import { headingSlugs, readQuestions } from './questionSource';
 
 // The document list comes from the same glob `liveContent.ts` uses, so this
 // invariant covers exactly the set the app ships — no more and no less. A
@@ -78,6 +80,133 @@ describe('architecture: content invariants', () => {
         `${key} does not declare "presentation". It still ships a deck (the default is 'auto') — one nobody chose. Declare auto, explicit or none.`,
       ).toBe(true);
     });
+  });
+
+  // Issue #139, same shape and the same reason as `presentation` above: the
+  // schema defaults `questions` to 'none', so the parsed meta cannot tell "the
+  // author decided this document carries no questions" from "nobody thought
+  // about it". Reading the source is the only thing that can.
+  //
+  // Why it matters more here than a missing declaration usually does: a control
+  // draws its pool from a range of sections, and a document nobody declared is
+  // silently absent from every pool it should have been in. That surfaces when
+  // a control is generated — which is the week it is needed, not before.
+  describe('every course document declares its question coverage', () => {
+    it.each(documents)('%s declares `questions`', (key) => {
+      const front = parseFrontmatterBlock(readFileSync(join(APP_ROOT, key), 'utf8')) as Record<
+        string,
+        unknown
+      > | null;
+      expect(front, `no frontmatter block in ${key}`).not.toBeNull();
+      expect(
+        Object.hasOwn(front!, 'questions'),
+        `${key} does not declare "questions". Declare per-section (every section owes one, gaps declared), pool (a set with no per-section expectation), or none.`,
+      ).toBe(true);
+    });
+  });
+
+  // Issue #139. The rules a machine can check — four alternatives, between one
+  // and three marked, no all/none-of-the-above, no negated stem, no correct
+  // alternative that gives itself away by length, and an anchor that names a
+  // real section (ADR-0021). Each exists because it changes what a control
+  // MEASURES; the pedagogical ones live in the guide and nothing enforces them.
+  //
+  // Over the SOURCE, for the same reason the coverage invariant is: the
+  // compiled module cannot tell us what the author typed.
+  //
+  // The suite refuses it and the BUILD DOES NOT. Drafting a question before its
+  // section exists is a real order of work — only publishing one is not — so
+  // `npm run build` stays green and this is what stops it shipping. The page
+  // says so too: `<Question>` paints an authoring error over an anchor it
+  // cannot resolve, which is the half a reader would see.
+  describe('every question obeys the mechanical authoring rules', () => {
+    it.each(documents)('%s has no question the rules refuse', (key) => {
+      const source = readFileSync(join(APP_ROOT, key), 'utf8');
+      const sections = new Set(headingSlugs(source));
+      const problems = readQuestions(source).flatMap((question) =>
+        questionProblems(question, sections),
+      );
+      expect(problems, `${key}\n  ${problems.join('\n  ')}`).toEqual([]);
+    });
+  });
+
+  // Issue #139. What `questions: per-section` and `questions: pool` promise.
+  //
+  // A section deliberately without a question is DECLARED, with its reason —
+  // the same shape as RETIRED in `app/documentBreadcrumb.test.tsx` (#136), and
+  // for the same reason: the set is closed in both directions. Forget a section
+  // and it goes red; cover one that used to be exempt and it goes red too, so a
+  // stale exemption cannot outlive the gap it described.
+  //
+  // The alternative — demanding one question per section, no exceptions —
+  // produces filler for hands-on slides and side-by-side listings, and filler
+  // measures noise and then lands in a real control.
+  const NO_QUESTION: Record<string, Record<string, string>> = {
+    'java-desde-cpp': {
+      'de-donde-viene-java': 'contexto histórico; el control mide Java, no de dónde salió',
+      'el-mismo-programa-en-dos-idiomas':
+        'muestra los dos listados lado a lado; lo que enseña se mide en "Cuatro diferencias"',
+      'ejecutalo-helloworld': 'actividad: el alumno corre el programa, no hay nada que preguntar',
+      'pruebalo-el-metodo-sin-static': 'actividad, igual que la anterior',
+      'la-prueba-del-nombre-completo':
+        'comprueba a mano que import es una abreviatura, que es justo lo que mide la pregunta de "import y paquetes"',
+      'lo-que-sigue': 'cierre del documento: anuncia el siguiente, no enseña nada propio',
+    },
+  };
+
+  function sourceOf(key: string): string {
+    return readFileSync(join(APP_ROOT, key), 'utf8');
+  }
+
+  function frontOf(key: string): Record<string, unknown> {
+    return (parseFrontmatterBlock(sourceOf(key)) ?? {}) as Record<string, unknown>;
+  }
+
+  const perSection = documents.filter((key) => frontOf(key).questions === 'per-section');
+  const pooled = documents.filter((key) => frontOf(key).questions === 'pool');
+
+  describe('a per-section document carries a question for every section it did not exempt', () => {
+    it('finds per-section documents to check', () => {
+      expect(
+        perSection.length,
+        'no document declares questions: per-section, so the cases below prove nothing. If the teaching path really moved off per-section, retire this block.',
+      ).toBeGreaterThan(0);
+    });
+
+    it.each(perSection)('%s covers its sections', (key) => {
+      const source = sourceOf(key);
+      const covered = new Set(
+        readQuestions(source)
+          .map(({ anchor }) => anchor)
+          .filter((anchor): anchor is string => anchor !== undefined),
+      );
+      const gaps = headingSlugs(source)
+        .filter((slug) => !covered.has(slug))
+        .sort();
+      const exempt = Object.keys(NO_QUESTION[String(frontOf(key).id)] ?? {}).sort();
+
+      expect(
+        gaps,
+        `${key}: the sections without a question do not match NO_QUESTION.\n  sin pregunta: ${gaps.join(', ') || '(ninguna)'}\n  declaradas:   ${exempt.join(', ') || '(ninguna)'}\nWrite a question for the section, or add it to NO_QUESTION above WITH ITS REASON. A section that now has one must leave that list.`,
+      ).toEqual(exempt);
+    });
+  });
+
+  // `pool` says "a set of questions, with no per-section expectation". With no
+  // questions at all it says exactly what `none` says, and a document could
+  // ship an empty pool that nothing notices — until a control is generated from
+  // a range that includes it and comes up short.
+  // One case that walks the list, rather than `it.each` over it: no document
+  // declares `pool` today (bienvenida will, once its questions are written), and
+  // `it.each([])` makes vitest fail the whole suite with "No test found" — which
+  // exits 1 while reporting every test passed, the exact trap
+  // `testing-strategy.md` §Conventions warns about.
+  it('every pool document carries at least one question', () => {
+    const empty = pooled.filter((key) => readQuestions(sourceOf(key)).length === 0);
+    expect(
+      empty,
+      `${empty.join(', ')} declares questions: pool and carries none, which is what "none" already means. Write them, or declare none — the honest word for a document that has none yet.`,
+    ).toEqual([]);
   });
 
   // Issue #119. Where the gate on a missing image goes, and why here.

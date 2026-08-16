@@ -17,3 +17,16 @@
 export const RUNTIME_IDS = ['cpp', 'python', 'java'] as const;
 
 export type RuntimeId = (typeof RUNTIME_IDS)[number];
+
+/**
+ * Whether the platform can highlight this language.
+ *
+ * Lives beside the list rather than at each call site: asking the registry is
+ * also what narrows the string into a `RuntimeId` without a cast, and two
+ * consumers had already written the same predicate — `components/MdxPre.tsx`
+ * for a document fence and `components/interactive/QuestionListing.tsx` for a
+ * question's listing.
+ */
+export function isRuntimeId(language: string | null): language is RuntimeId {
+  return language !== null && (RUNTIME_IDS as readonly string[]).includes(language);
+}

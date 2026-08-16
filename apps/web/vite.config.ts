@@ -8,6 +8,7 @@ import { defineConfig } from 'vite';
 
 import { spaFallback } from './src/app/spaFallback.ts';
 import { contentIntegrity } from './src/content/contentIntegrity.ts';
+import { questionBank } from './src/content/questionBank.ts';
 import { remarkPlugins } from './src/content/mdxPlugins.ts';
 import { rehypePlugins } from './src/content/rehypePlugins.ts';
 
@@ -37,6 +38,7 @@ export default defineConfig(({ command, isPreview }) => ({
   },
   plugins: [
     contentIntegrity(contentDir),
+    questionBank(contentDir),
     spaFallback(),
     // MDX must transform before the React plugin sees the file.
     {
