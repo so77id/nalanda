@@ -1,0 +1,100 @@
+name: server
+
+# Its own workflow rather than a job inside ci.yml, for the same reason
+# amc-worker.yml is: so the path filters do not cross. A change under apps/web
+# must not install a Go toolchain, and a change here must not run the frontend
+# suite. The same latent gotcha applies and is recorded in ci.yml — a docs-only
+# change runs no CI at all, so if this check is ever made REQUIRED under branch
+# protection it needs in-job change detection instead.
+#
+# infra/local/docker-compose.yml is deliberately NOT in the filters. It is
+# shared with apps/amc-worker, and this job does not run it: the compose path is
+# the manual check in the PR template (L8), which is where a human can tell
+# whether the thing actually came up.
+
+on:
+  pull_request:
+    paths:
+      - 'apps/server/**'
+      - '.github/workflows/server.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'apps/server/**'
+      - '.github/workflows/server.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  server:
+    name: server — format, vet, test, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: apps/server
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5.6.0
+        with:
+          # From go.mod rather than a literal, so the version this job runs is
+          # the version the module declares and the two cannot drift.
+          go-version-file: apps/server/go.mod
+          cache-dependency-path: apps/server/go.sum
+
+      # gofmt reports by printing filenames and exits 0 either way, so the exit
+      # status is not the gate — the output is. Without this test the step is
+      # green over an unformatted tree.
+      - name: Format check
+        run: |
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
+            echo "These files are not gofmt'd:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: Vet
+        run: go vet ./...
+
+      # -count=1 defeats the build cache. The architecture test reads the source
+      # tree, and on a fresh runner the cache is empty anyway — but the flag is
+      # what makes this step mean the same thing locally, where it is not
+      # (#149 S5: a cached PASS hid four real violations).
+      - name: Test
+        run: go test -race -count=1 ./...
+
+      - name: Build
+        run: go build ./...
+
+      # The image is part of the app's deliverable and its constraints are easy
+      # to break invisibly: a dependency that needs CGO makes the scratch stage
+      # produce a binary that cannot start, and nothing else in this job would
+      # notice.
+      - name: Build the image
+        run: docker build -t nalanda/server:ci .
+
+      # Proof the built image actually runs. `-health` against a server that is
+      # not up must fail, which is what makes the success below meaningful.
+      - name: Run the image and probe it
+        run: |
+          docker run -d --name server-ci \
+            -e NALANDA_ADDR=0.0.0.0:8081 \
+            -e NALANDA_DATABASE_URL=/data/nalanda.db \
+            -p 127.0.0.1:8081:8081 \
+            nalanda/server:ci
+          for attempt in $(seq 1 20); do
+            if curl -fsS http://127.0.0.1:8081/health; then
+              echo
+              echo "healthy after ${attempt} attempt(s)"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the server never became healthy; logs follow:"
+          docker logs server-ci
+          exit 1
