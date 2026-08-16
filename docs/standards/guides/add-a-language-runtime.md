@@ -86,7 +86,13 @@ src/runtime/python/
 
    Note the reserved-name guard does NOT apply to `library`, deliberately: it
    exists to stop a _student_ class shadowing a platform one, and `library` is
-   reachable only from platform constants.
+   reachable only from platform constants. It DOES apply to `source` and to
+   `harness`, and to every **top-level** declaration in them rather than to their
+   entry classes — a unit may not declare a reserved name it does not own, and
+   the harness owns exactly the one it is (`NalandaCheck`). Java's is
+   `reservedDeclarations` in `java/launcher.ts` (#123); a runtime that compiles
+   into a shared output directory needs the same check, and a component that
+   GENERATES a unit can call it too rather than writing its own.
 
    There is no third option for either. Running `source` alone when a second unit
    is present reports a passing exercise that verified nothing — the worst

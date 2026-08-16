@@ -5,6 +5,9 @@
 **Decision-makers:** Miguel Rodriguez
 **Covers:** fence info-string meta surviving the MDX pipeline · `<Exercise>` reading its own body ·
 the generated harness class · what the runtime contract had to grow
+**Amended by:** #116/ADR-0028 §7 and #123 (2026-08-16) — §3b: a third reserved name,
+and the guard now reads every top-level declaration rather than the entry class
+(see the notes inline)
 **Source:** Issue #76 (WP: document 1 of the Java unit + the Exercise component).
 Extends ADR-0012 (content pipeline) and ADR-0010/0014 (component contract and catalog);
 relies on ADR-0017 (Java execution) and is constrained by ADR-0020.
@@ -77,6 +80,12 @@ falsified twice; see §7.
 > The guard also turned out to inspect only the ENTRY class; a secondary
 > declaration still shadows, which `docs/security-notes.md` dispositions and #123
 > tracks.
+>
+> **Amended 2026-08-16 (#123):** closed. The guard reads every **top-level**
+> declaration — `class`, `interface` and `enum` alike — in `source` and in
+> `harness`, so a secondary declaration no longer shadows. A *nested* one is
+> allowed on purpose: it compiles to `Solucion$NalandaLauncher.class` and
+> collides with nothing. `library` is still exempt (ADR-0028 §6).
 
 Both units compile into one output
 directory, so a student class named `NalandaLauncher` or `NalandaCheck`

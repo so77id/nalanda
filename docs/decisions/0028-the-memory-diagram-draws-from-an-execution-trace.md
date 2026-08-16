@@ -5,6 +5,9 @@
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the `trace` fence and its `// foto` markers · the generated `NalandaTrace` class ·
 the `library` compilation unit the runtime contract grew · what the drawing shows and why
+**Amended by:** #123 (2026-08-16) — the guard's reach in §6 and §7 was stated wrong;
+it now reads every top-level declaration in `source` and `harness`, and the
+instrumenter shares it instead of restating it (see the notes inline)
 **Source:** Issue #116, promoted from Discussion #48 ("Ejecución Paso a Paso").
 Extends ADR-0019 (annotated fences as an authoring surface) and ADR-0010/0014
 (component contract and catalog); relies on ADR-0016/0017 (Java in the browser)
@@ -97,10 +100,29 @@ reserved-name guard on the platform's own class. `library` compiles beside
 exists to stop a *student* shadowing a platform class, and the platform's own unit
 arriving as a library is the intended use.
 
+> **Amended by #123 (2026-08-16).** "On `source` alone" was the wrong half of the
+> rule to write down. What is deliberate is the **`library` exemption**, and it
+> stands unchanged. The guard now also reads `harness`, which carries an author's
+> `test` fence into a compilation unit — every reserved name except the one that
+> unit owns, since `buildHarness` generates `public class NalandaCheck` and
+> scanning for that name would refuse every exercise on the site. `library` is
+> still not read at all: it is reachable only from a module constant.
+
 **7. `NalandaTrace` is the third reserved class name**, beside `NalandaLauncher`
 and `NalandaCheck` (ADR-0019 §3b). The runtime refuses it as an entry class, and
 the instrumenter additionally refuses a snippet that declares it as a *secondary*
 class — which the runtime guard cannot see, since it inspects only the entry.
+
+> **Amended by #123 (2026-08-16).** The runtime guard sees it now: it reads every
+> top-level declaration, so the secondary case was never the instrumenter's to
+> catch. The instrumenter keeps refusing it — a `trace` fence is authored content
+> and `<MemoryDiagram>` reports the mistake as an `<AuthoringError>` without
+> booting a JVM — but it now calls the runtime's `reservedDeclarations` instead
+> of carrying a regex of its own. That regex was worse than the rule it copied in
+> three ways: it knew one of the three names, it read raw source so a comment
+> naming the rule refused the diagram explaining it, and it flagged a *nested*
+> declaration, which compiles to `Demo$NalandaTrace.class` and collides with
+> nothing.
 
 **8. Bounded, and the bound is on what is DRAWN.** Java runs on the page's main
 thread (ADR-0017) and reachability is transitive, so a `// foto` inside a loop

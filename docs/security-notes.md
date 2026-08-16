@@ -269,8 +269,10 @@ in a real browser during the #76 review rather than reasoned about:
 - **One page shares one JVM, one `/files/` and one launcher.** Before the reserved
   names landed, a student class named `NalandaLauncher` overwrote the launcher and
   forged a pass for every exercise on the page — including ones never opened. The
-  names are now refused (`RESERVED_CLASSES`), but the sharing remains: any future
-  platform class compiled into that directory is exposed the same way.
+  names are now refused wherever a unit declares them at top level
+  (`RESERVED_CLASSES`, `reservedDeclarations`; entry class only until #123), but
+  the sharing remains: any future platform class compiled into that directory is
+  exposed the same way.
 
 **Why this is acceptable today**: exercises are practice. Nothing is submitted,
 nothing is graded, no other user is reachable, and the only person a student can
@@ -295,13 +297,17 @@ disposition:
   exists to stop a _student_ class shadowing a platform one; the platform's own
   unit arriving there is the intended use. It is reachable only from a module
   constant, never from author or student content.
-- **The guard still inspects the ENTRY class only.** The sentence above —
-  "the names are now refused" — is true of the class a program is run as, not of
-  a secondary class declared in the same file. `instrument()` closes that hole
-  for `NalandaTrace` in a `trace` fence specifically; `NalandaLauncher` and
-  `NalandaCheck` remain shadowable from a secondary declaration, with the same
-  accepted-invariant reasoning as everything else in this section: the only
-  person deceived is the student doing it.
+- **The guard inspected the ENTRY class only** — closed by #123, 2026-08-16.
+  Until then, "the names are now refused" was true of the class a program is run
+  as and not of a secondary class declared in the same file: `public class
+  Solucion { … } class NalandaLauncher { … }` was cleared by the guard and then
+  compiled, both units, into the shared directory. `instrument()` had closed the
+  hole for `NalandaTrace` in a `trace` fence specifically; the other two names
+  stayed shadowable. The guard now reads every **top-level** declaration —
+  `class`, `interface`, `enum` — in `source` and in `harness`, and the
+  instrumenter shares it rather than restating it. A *nested* declaration is
+  still allowed and is not a hole: it compiles to
+  `Solucion$NalandaLauncher.class` and overwrites nothing.
 - **The diagram makes no claim a verdict would.** It draws what a program did; it
   does not assert that anything passed. A forged `[nalanda] T ` line authors a
   drawing by hand, which is a student lying to themselves in a component whose
