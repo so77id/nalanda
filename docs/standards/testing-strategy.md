@@ -722,6 +722,30 @@ components — cover the empty branch with a direct FamilyPage test')`.
   rather than something a reader discovers, and so restoring it later is a
   conscious deletion. Worked case (#87): `it.each(['estructura', …])` asserts
   the old catalog segments 404, with the no-redirect rationale above it.
+- **A guard reads what it guards through the test runner's own file access,
+  never through a subprocess.** A test package that imports nothing from the
+  code it checks is considered UNCHANGED by the build cache whatever happens to
+  that code, and a subprocess is invisible to the cache's input tracking — so
+  the runner replays a cached PASS. Worked case (#149): an architecture guard
+  built on `go list` replayed a green result through four real dependency-rule
+  violations; rewritten to read the files with `go/parser`, the same mutations
+  go red without even needing `-count=1`. The rule is language-neutral: it
+  applies to any check that shells out to learn what it is asserting about.
+- **When a comment claims a property the suite does not pin, the comment says so
+  — and says why the distinguishing case is unreachable.** A comment that
+  promises a guarantee the tests do not hold is worse than no comment, because
+  the next reader treats it as verified. Worked case (#149):
+  `storage.Prober` explains why it runs a `SELECT` rather than `Ping`, and then
+  states plainly that swapping the two leaves every test green, because telling
+  them apart needs a database gone from under a live connection and SQLite's
+  open file descriptor makes that unreachable from a test.
+- **An acceptance criterion discharged by DIFFERENT behaviour than it specifies
+  is closed by naming the substitute test and the mutation that kills it.** Not
+  by arguing the substitute is equivalent. Worked case (#149): AC-3 asked for a
+  non-200 from `/health` on an unwritable database path; the server refuses to
+  start instead, and the AC was closed with the test that covers the situation
+  that does occur in operation — a database that goes away after boot — plus
+  the mutation showing it red.
 - Test fakes live next to the tests that use them (see placement criteria in
   `repository-structure.md`).
 

@@ -16,9 +16,13 @@ covers only what `gofmt` and `go vet` cannot.
 
 ## Version and dependencies
 
-- **Go as declared in `apps/server/go.mod`**, currently 1.25.7. The version is
-  read from that file by CI (`go-version-file`), so the toolchain a job uses and
-  the one the module declares cannot drift.
+- **Go as declared in `apps/server/go.mod`**, currently 1.25.13. CI reads the
+  version from that file (`go-version-file`), so the toolchain a job uses and
+  the one the module declares cannot drift. **Keep it at or above the patch the
+  Dockerfile's pinned builder ships**: the two were 1.25.7 and 1.25.13 for one
+  WP, so CI tested on a toolchain older than the one that built the image, and
+  the gap contained GO-2026-6089 — a `net/http` fix to how `ReadHeaderTimeout`
+  is applied, i.e. the very defence this server relies on (#149 review).
 - **Dependencies are a PR discussion**, like every manifest in this repo (root
   `CLAUDE.md`). The direct set is deliberately tiny and an addition needs a
   reason recorded in the issue that adds it:
@@ -55,10 +59,21 @@ apps/server/
 
 ### The dependency rule
 
-**`internal/domain` imports neither `internal/app` nor `internal/infra`, and no
-third-party package at all.** The two delivery surfaces are siblings: neither
-imports the other; what they share lives in the domain, or in `internal/infra`
-when it is transport machinery.
+Three edges, all enforced:
+
+1. **`internal/domain` imports neither `internal/app` nor `internal/infra`, and
+   no third-party package at all.**
+2. **`internal/infra` does not import `internal/app`.** Infra holds adapters and
+   sits beneath the surfaces, not beside them. If an adapter genuinely needs a
+   value a surface owns, it is passed in from `cmd/server`.
+3. **Neither delivery surface imports the other.** They are siblings; what they
+   share lives in the domain, or in `internal/infra` when it is transport
+   machinery.
+
+Edge 2 was missing from both this document and the guard for the length of one
+WP, and `internal/infra/storage` could import `internal/app/web` in full green
+(#149 review). It is written down here because a rule a test enforces and no
+document states is a rule the next reader will treat as an accident.
 
 This is not advice. `internal/architecture_test.go` walks the package graph and
 fails on a violation, including a transitive one. It is the rule DocumentBuddy's
@@ -129,9 +144,18 @@ Environment variables only, read **once at boot** into a struct, through
 - **Encode a response body BEFORE writing the header** (`httpjson.Write`).
   Encoding into the `ResponseWriter` commits the status line first, so a value
   that fails to marshal arrives as a 200 with a truncated body.
-- **Every server-side timeout is set explicitly.** `ReadHeaderTimeout` at
-  minimum; a connection that opens and says nothing otherwise holds a goroutine
-  forever.
+- **Every server-side timeout is set explicitly — all five.** `ReadTimeout`,
+  `ReadHeaderTimeout`, `WriteTimeout`, `IdleTimeout` and `MaxHeaderBytes`. Each
+  defaults to zero and zero means *no limit*, so what they prevent is a slow
+  leak rather than a visible failure. Measured: with only `ReadHeaderTimeout`
+  set, 50 idle keep-alive sockets against the real container were all still
+  usable after 45 seconds, because that setting bounds the header read once
+  bytes arrive and says nothing about the wait BETWEEN requests (#149 review).
+  This document previously said "`ReadHeaderTimeout` at minimum", and the code
+  that satisfied it was the code being measured.
+  **`WriteTimeout` has a known expiry**: ADR-0008 puts a WebSocket relay on the
+  api surface, and a global write deadline kills a long-lived connection. It
+  moves onto the routes that want it when that arrives — it is not deleted.
 
 ## Database
 
