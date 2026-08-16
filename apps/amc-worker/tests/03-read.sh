@@ -109,6 +109,13 @@ check_eq "and it names BOTH alternatives rather than picking one" "[1, 2]" "$bot
 blank="$(jq '[a["status"] for a in d["copies"]["5"]["answers"]].count("blank")')"
 check_eq "copy 5's unanswered question is reported as blank" "1" "$blank"
 
+# A plan can name a SET of alternatives (`[1, 2]` above) or all of them. Both
+# forms exist for the multiple-answer cases — partial credit, one wrong, every
+# box ticked — which the old plan language could not express at all: it had `n`,
+# `0`, `"both"` (the first two boxes, in layout order) and `"faint:n"`.
+check_eq "a plan can tick every alternative of a question" "[1, 2, 3, 4]" \
+  "$(jq 'd["copies"]["5"]["answers"][0]["marked"]')"
+
 # --- AC-5: an unreadable identifier is a DIFFERENT failure --------------------
 
 check_eq "copy 4's blank RUT column makes the identifier unreadable" "unreadable" \

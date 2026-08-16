@@ -30,10 +30,20 @@ Marking plan (JSON on stdin or --plan):
     answers  one entry per real question, in question order.
              1..N       fill that alternative
              0          leave blank
-             "both"     fill two alternatives (an ambiguous mark)
+             [1, 3]     fill that SET of alternatives — several correct ones on a
+                        multiple-answer question, or a deliberately ambiguous
+                        mark on a simple one
+             "all"      fill every alternative, which on a multiple-answer
+                        question is the case that must NOT earn full marks
              "faint:N"  a light pencil on alternative N — lands between
                         read_capture's `unsure` and `ticked` thresholds, the one
                         region a solid fill can never reach
+
+The set form replaced a `"both"` shorthand that filled `qboxes[:2]` — the first
+two boxes in layout order rather than two the plan chose. It could not express
+partial credit on a multiple-answer question (#147), and "the first two boxes"
+is exactly the assumption that misleads once a question's numbering is not what
+the plan's author pictured.
 """
 
 import argparse
@@ -112,8 +122,16 @@ def boxes_for(sheet, spec):
         if qi >= len(sheet["order"]):
             break
         qboxes = sheet["questions"][sheet["order"][qi]]
-        if choice == "both":
-            out += [b + (False,) for b in qboxes[:2]]
+        if choice == "all":
+            out += [b + (False,) for b in qboxes]
+        elif isinstance(choice, list):
+            for n in choice:
+                if not isinstance(n, int) or not 1 <= n <= len(qboxes):
+                    raise SystemExit(
+                        f"question {qi + 1}: alternative {n!r} is not one of "
+                        f"1..{len(qboxes)}"
+                    )
+                out.append(qboxes[n - 1] + (False,))
         elif isinstance(choice, str) and choice.startswith("faint:"):
             # "faint:2" — a light pencil on alternative 2. Lands between
             # read_capture's unsure and ticked thresholds, which is the one
