@@ -26,6 +26,18 @@ services:
       # that must survive a rebuild (ADR-0007).
       NALANDA_DATABASE_URL: "/data/nalanda.db"
       NALANDA_LOG_LEVEL: "info"
+      # Where the server is reached from OUTSIDE the container — the published
+      # port below, not the bind address above. The OAuth redirect URI is built
+      # from this and Google matches it character for character, so it has to be
+      # the URL the browser actually visits.
+      NALANDA_PUBLIC_URL: "http://127.0.0.1:8081"
+      # Placeholders. The three required variables have to be present or the
+      # container refuses to start, and `compose up --wait` proves the binary
+      # boots — which is the whole reason this file names them. A real login
+      # needs real values: put them in apps/server/.env and see GOOGLE-CHECK.md.
+      NALANDA_GOOGLE_CLIENT_ID: "${NALANDA_GOOGLE_CLIENT_ID:-placeholder.apps.googleusercontent.com}"
+      NALANDA_GOOGLE_CLIENT_SECRET: "${NALANDA_GOOGLE_CLIENT_SECRET:-placeholder-secret}"
+      NALANDA_BOOTSTRAP_PROFESSOR_EMAIL: "${NALANDA_BOOTSTRAP_PROFESSOR_EMAIL:-}"
     volumes:
       - server-data:/data
     ports:

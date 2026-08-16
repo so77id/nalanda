@@ -86,11 +86,19 @@ jobs:
 
       # Proof the built image actually runs. `-health` against a server that is
       # not up must fail, which is what makes the success below meaningful.
+      #
+      # The Google variables are placeholders and that is enough: they are
+      # required, so their absence would stop the container from starting, and
+      # this step never completes a login. A real exchange is the human's check
+      # (apps/server/GOOGLE-CHECK.md).
       - name: Run the image and probe it
         run: |
           docker run -d --name server-ci \
             -e NALANDA_ADDR=0.0.0.0:8081 \
             -e NALANDA_DATABASE_URL=/data/nalanda.db \
+            -e NALANDA_PUBLIC_URL=http://127.0.0.1:8081 \
+            -e NALANDA_GOOGLE_CLIENT_ID=placeholder.apps.googleusercontent.com \
+            -e NALANDA_GOOGLE_CLIENT_SECRET=placeholder-secret \
             -p 127.0.0.1:8081:8081 \
             nalanda/server:ci
           for attempt in $(seq 1 20); do

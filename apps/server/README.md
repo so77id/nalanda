@@ -34,6 +34,11 @@ Environment variables, read once at boot. A required variable that is absent
 | `NALANDA_ADDR` | yes | Bind address, `host:port` |
 | `NALANDA_DATABASE_URL` | yes | Path to the SQLite file |
 | `NALANDA_LOG_LEVEL` | no (`info`) | `debug`, `info`, `warn` or `error` |
+| `NALANDA_PUBLIC_URL` | yes | Base URL the server is reached at. The OAuth redirect URI is built from it, and its scheme decides the session cookie's `Secure` flag |
+| `NALANDA_GOOGLE_CLIENT_ID` | yes | The Google OAuth client (ADR-0009) |
+| `NALANDA_GOOGLE_CLIENT_SECRET` | yes | Its secret. Never printed: `config.Config` redacts it for both `fmt` and `slog` |
+| `NALANDA_SESSION_TTL` | no (`720h`) | Session lifetime, as a Go duration. Zero or negative is a startup error |
+| `NALANDA_BOOTSTRAP_PROFESSOR_EMAIL` | no | On a database with **no** professors, the first Google login by this address creates one. Inert as soon as any professor exists |
 
 ## Commands
 

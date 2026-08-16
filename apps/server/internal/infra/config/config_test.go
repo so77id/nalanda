@@ -14,9 +14,14 @@ import (
 // also wrong.
 func env() map[string]string {
 	return map[string]string{
-		"NALANDA_ADDR":         "127.0.0.1:8081",
-		"NALANDA_DATABASE_URL": "/var/lib/nalanda/nalanda.db",
-		"NALANDA_LOG_LEVEL":    "info",
+		"NALANDA_ADDR":                      "127.0.0.1:8081",
+		"NALANDA_DATABASE_URL":              "/var/lib/nalanda/nalanda.db",
+		"NALANDA_LOG_LEVEL":                 "info",
+		"NALANDA_PUBLIC_URL":                "https://nalanda.example.com",
+		"NALANDA_GOOGLE_CLIENT_ID":          "client-id.apps.googleusercontent.com",
+		"NALANDA_GOOGLE_CLIENT_SECRET":      "the-client-secret",
+		"NALANDA_SESSION_TTL":               "168h",
+		"NALANDA_BOOTSTRAP_PROFESSOR_EMAIL": "profesora@example.com",
 	}
 }
 
@@ -48,7 +53,13 @@ func TestLoadReadsEveryValue(t *testing.T) {
 // zero value silently taken as a default. Table-driven so that adding a
 // variable to Config without adding it to the required set fails here.
 func TestLoadFailsByNameOnAMissingVariable(t *testing.T) {
-	for _, key := range []string{"NALANDA_ADDR", "NALANDA_DATABASE_URL"} {
+	for _, key := range []string{
+		"NALANDA_ADDR",
+		"NALANDA_DATABASE_URL",
+		"NALANDA_PUBLIC_URL",
+		"NALANDA_GOOGLE_CLIENT_ID",
+		"NALANDA_GOOGLE_CLIENT_SECRET",
+	} {
 		t.Run(key, func(t *testing.T) {
 			broken := env()
 			delete(broken, key)
@@ -94,7 +105,13 @@ func TestLoadReportsEveryMissingVariableAtOnce(t *testing.T) {
 	if err == nil {
 		t.Fatal("Load with an empty environment returned no error, want one")
 	}
-	for _, key := range []string{"NALANDA_ADDR", "NALANDA_DATABASE_URL"} {
+	for _, key := range []string{
+		"NALANDA_ADDR",
+		"NALANDA_DATABASE_URL",
+		"NALANDA_PUBLIC_URL",
+		"NALANDA_GOOGLE_CLIENT_ID",
+		"NALANDA_GOOGLE_CLIENT_SECRET",
+	} {
 		if !strings.Contains(err.Error(), key) {
 			t.Errorf("error = %q, want it to name %q", err, key)
 		}
