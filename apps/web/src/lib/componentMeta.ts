@@ -8,6 +8,8 @@ export interface ComponentMeta {
   headingLevel?: 1 | 2 | 3 | 4;
   /** This component marks a slide boundary in presentation mode. */
   slideBoundary?: 'slide' | 'section-break';
+  /** This component is a control question, or the group that holds them (#139). */
+  questionRole?: 'group' | 'question';
 }
 
 /** Attaches meta to a component and returns it (typed passthrough). */

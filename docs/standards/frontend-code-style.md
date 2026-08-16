@@ -75,6 +75,18 @@ src/
   `components → content` is not an allowed edge. Worked case: `<Exercise>` tells
   its `starter` fence from its `test` fence (ADR-0019 §1–2). Same shape as the
   two rules above — the producing feature never learns who consumes it.
+- **Document-level STATE reaches a component through a context declared in
+  `lib/`**: the producing feature provides it, the consuming feature reads it,
+  and the declaration sits in `lib/` for the same reason as the rule above —
+  `components → content` is not an allowed edge, and adding one to pass a set of
+  strings buys nothing. Worked case: `lib/knownSections.ts`, provided by
+  `content/DocumentPage.tsx` from the same spine the rail and the drawer draw
+  from, read by `<Question>` to check the section it claims (#139). **Part of
+  that contract is that an empty value means NOT MEASURED, never authority** —
+  the spine is read from the DOM after mount, so it is empty on the first render
+  of every document, and a consumer that trusted it would paint an authoring
+  error over every correct question on every page load. Whatever the context
+  cannot see belongs to a source-level gate instead.
 - **MDX component maps are shell-composed**: features export partial maps
   (e.g., `content/mdxComponents.ts`), and `app/mdxComponents.ts` merges them
   into the provider around the routes. Features never assemble the global map;
@@ -370,7 +382,7 @@ pantalla completa`) and the deck's `⛶` (#106). **When the state belongs to the
   the behaviour (`presentation/usePortraitPhone.ts`), never in a shared
   `lib/useMediaQuery`, and the call is guarded with `typeof window.matchMedia`
   so the suite gets `false` instead of a throw.
-- Two contexts exist and both state a **situation**, never a command: `useMode`
+- A context states a **situation**, never a command: `useMode`
   (this is being presented) and `useEmbedded` (something already framed and
   labelled you — `components/embedded.ts`, #85). The container declares the
   situation; each component decides what to do about it. Reach for a context

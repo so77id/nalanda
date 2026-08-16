@@ -44,6 +44,7 @@ area:presentation  # presentation mode, slides
 area:runtime       # in-browser execution (WASM, future Java)
 area:infra         # monorepo, CI, deploy, scaffolding
 area:docs          # standards, ADRs, guides
+area:controls      # entrance controls subsystem: bank, generation, reading, grades
 area:backend       # future apps/server (v0.3)
 area:auth          # future auth system (v0.3)
 area:live-session  # future live sessions (v0.3)

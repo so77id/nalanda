@@ -44,6 +44,34 @@ names its trigger for re-evaluation — nothing is "accepted forever".
 
 ## Accepted invariants
 
+### The control question bank is published, answers included (accepted 2026-08-16, #139)
+
+**What.** Entrance-control questions live under `content/` beside the class they
+belong to, with the correct alternatives marked in place, and the build emits
+`questions.json` at the site root — every question with the index set of its
+correct alternatives, in one file, at a stable public URL.
+
+**Why it is accepted.** The bank is study material by design (`2026-08-controles.md`
+C1): the repo and everything under `content/` are public either way, so a hidden
+bank was never available without encryption or a second repo, and the page
+reveals the answer to any reader who answers (C4). What the control measures is
+whether the student read the class — not whether they can be prevented from
+looking. The control that actually exists is the room: five minutes, on paper,
+invigilated, no devices.
+
+**What changed, and why it is recorded here anyway.** This fires the review
+trigger written into §"Everything under `content/courses/` is published" — the
+first time material that must not be seen needs a home. The disposition is that
+this material MAY be seen, but the exposure is materially different from before:
+an answer used to be revealed one question at a time, in the page, after the
+student answered. It is now one GET.
+
+**Review trigger.** The first control whose grade is meant to hold against a
+device in the room, or the first course wanting a pool that is not published.
+Either one means the bank stops being study material, and neither C1 nor this
+record survives it — park that material outside `content/`, since omitting it
+from the index is not a control.
+
 ### Drafts live on an origin shared with every other repo of the account (accepted 2026-08-13, #85)
 
 `localStorage` keys under `nalanda:draft:*` hold what a student had in an editor

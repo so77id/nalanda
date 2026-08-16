@@ -97,7 +97,10 @@ prefix may not survive the move, so decide before handing URLs to students
   `vite preview` has its own SPA fallback that masks a missing `404.html`. That
   mechanism is guarded by tests instead (`apps/web/src/app/spaFallback.test.ts`).
 - **What gets published**: every `.mdx` under `content/courses/**` — the index
-  only controls navigation (see `docs/security-notes.md`).
+  only controls navigation — and, since #139, `questions.json` at the site root:
+  the control question bank, including which alternatives are correct. Public on
+  purpose, so never author a question whose answer must stay private (see
+  `docs/security-notes.md`).
 - **Rollback**: revert the offending commit on `main`. The revert is itself a
   push to `main`, so it redeploys the previous version — there is no separate
   deploy button to press.

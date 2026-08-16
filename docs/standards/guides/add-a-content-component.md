@@ -49,7 +49,7 @@ apps/web/src/components/structure/
    (presentation seam); if a parser must recognize it, declare metadata with
    `withMeta` (`lib/componentMeta.ts`) — never expect identity imports.
 
-   Six seams worth knowing before writing your own:
+   Seven seams worth knowing before writing your own:
 
    - **Labelled code fences.** A component whose children carry code the author
      marks — ` ```java starter ` — reads them with `fencesByMeta` /
@@ -98,6 +98,13 @@ apps/web/src/components/structure/
      which is exactly why they stopped working the day a fence became one.
      Worked case: `<SideBySide>` × `CodeEditor` (#85, ADR-0024) — the column supplies the
      language label, so the editor suppresses its filename and its chip.
+   - **Knowing something about the document around you.** A component that
+     must check itself against the surrounding document reads
+     `useKnownSections()` (`lib/knownSections.ts`); `DocumentPage` publishes the
+     same section spine the rail and the drawer draw from. Empty means NOT
+     MEASURED — the spine is read from the DOM after mount — so never treat it
+     as authority. Worked case: `<Question>` verifying the `anchor` it claims
+     (#139).
    - **Being inside something that has already spoken for you.** A container that
      carries one accessible name for a whole group wraps its children in
      `<DescribedProvider value={true}>` (`components/described.ts`), and a

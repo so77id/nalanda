@@ -5,6 +5,8 @@ import {
   LazyMemoryDiagram,
   MdxPre,
   Mosaic,
+  Question,
+  Questions,
   SectionBreak,
   SideBySide,
   Slide,
@@ -35,4 +37,8 @@ export const mdxComponents = {
   CodeEditor: LazyCodeEditor,
   Exercise: LazyExercise,
   MemoryDiagram: LazyMemoryDiagram,
+  // Not lazy: a question renders text and buttons. The editor it may embed is
+  // itself lazy, so a document with no code question pulls no CodeMirror.
+  Questions,
+  Question,
 };

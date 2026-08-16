@@ -13,6 +13,7 @@ guide here** (ADR-0005).
 | Add a course document | [`guides/add-a-course-document.md`](guides/add-a-course-document.md) | Writing course material: MDX frontmatter contract, wiki-links, index registration |
 | Add a content component | [`guides/add-a-content-component.md`](guides/add-a-content-component.md) | New document-facing component: contract, catalog entry, families, review checklist |
 | Add a language runtime | [`guides/add-a-language-runtime.md`](guides/add-a-language-runtime.md) | Teaching the platform a new executable language: worker contract, registry, CDN vs self-hosting, browser verification |
+| Write control questions | [`guides/write-control-questions.md`](guides/write-control-questions.md) | Writing the questions at the end of a course document: the rules the suite enforces, the ones only a human can, and worked examples of both — read before drafting any, with an agent or by hand |
 | Drive the control engine | [`../../apps/amc-worker/README.md`](../../apps/amc-worker/README.md) | Calling `apps/amc-worker`: the HTTP contract, the shared-volume convention, and the four silent AMC traps a caller must not hit (ADR-0030) |
 | Verify the control engine on paper | [`../../apps/amc-worker/PAPER-CHECK.md`](../../apps/amc-worker/PAPER-CHECK.md) | The one check no agent can run: print, mark, scan, read, compare. Required before trusting a synthetic green run |
 

@@ -70,20 +70,30 @@ nalanda/
      build (`guides/add-a-course-document.md` step 2). ADR-0025 carries the
      alternatives that were rejected and the exit condition.
 
-     **The exception to "without entering `src/`"** is the SET of listed
-     documents: `app/documentBreadcrumb.test.tsx` asserts that every document in
-     `content/` appears in an `index.yaml`, so adding one without listing it
-     turns the suite red. Shipping a document deliberately OFF the teaching path
-     therefore means editing that assertion — weakening it with an allowlist
-     naming the exceptions, the way #136 did and #135 undid.
+     **The exceptions to "without entering `src/`"** are three.
 
-     **The other exception is the SHAPE of a document the suite uses as a
-     fixture**, and since #135 that is three of the four: `04-planificacion.mdx`
-     must keep `presentation: none` and zero `h2`, and the two Java documents
-     have their slide counts and several slide titles pinned. Each such document
-     carries a note under its frontmatter saying so (ADR-0025), so the rule an
-     author needs is: **writing prose in a document that carries no note needs no
-     `src/` at all** — and if it carries one, read it first.
+     Writing a document's QUESTIONS is one, since #139: a `per-section` document
+     declares its deliberately question-less sections in `NO_QUESTION`
+     (`apps/web/src/content/architecture.test.ts`), with a reason each, and the
+     gate asserts that set exactly — so the suite is red until that file is
+     edited.
+
+     The SET of listed documents is the second:
+     `app/documentBreadcrumb.test.tsx` asserts that every document in `content/`
+     appears in an `index.yaml`, so adding one without listing it turns the suite
+     red. Shipping a document deliberately OFF the teaching path therefore means
+     editing that assertion — weakening it with an allowlist naming the
+     exceptions, the way #136 did and #135 undid.
+
+     The third is the SHAPE of a document the suite uses as a fixture, and since
+     #135 that is three of the four: `04-planificacion.mdx` must keep
+     `presentation: none` and zero `h2`, and the two Java documents have their
+     slide counts and several slide titles pinned.
+
+     Each document constrained this way carries a note under its frontmatter
+     saying so (ADR-0025), so the rule an author needs is: **writing prose in a
+     document that carries no note needs no `src/` at all** — and if it carries
+     one, read it first.
 
    - `docs/` — knowledge: standards, design, decisions, conventions.
    - `infra/` — running the system around the apps:
