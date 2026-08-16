@@ -1,0 +1,18 @@
+# An allow-list, not a deny-list.
+#
+# `COPY . .` in the build stage otherwise pulls in whatever a developer has in
+# apps/server — verified: a local `.env` reached /src in the build image and
+# `cat /src/.env` printed its contents (#149 review, F5). The final image is
+# unaffected (it contains three entries and none of them is this), but the
+# build-stage image and the BuildKit cache are readable by anyone with the
+# daemon, and WP-C2 puts a Google OAuth client secret in exactly that file.
+#
+# Inverted deliberately: a deny-list has to be edited every time a new dotfile
+# appears, and the failure of forgetting is silent.
+*
+
+!go.mod
+!go.sum
+!cmd/
+!internal/
+!migrations/

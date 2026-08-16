@@ -396,3 +396,66 @@ working directory). In paranoid mode `pdflatex` answers `Not reading from
 `under_work()` on every generated path is the primary control rather than the
 fallback; taking the override as well means changing the listing shape (or
 arranging `TEXMFOUTPUT`) in the same change.
+
+### `apps/server` joins the worker's compose network (accepted 2026-08-16, #149)
+
+WP-C1 adds a second service to `infra/local/docker-compose.yml`, which trips the
+review trigger recorded above for the worker: *"a second component gains access
+to the compose network"*. Re-resolved here rather than left implicit.
+
+**What is true today.** Nothing crosses. `apps/server` has no HTTP client for
+the worker, does not mount `amc-work`, and has no code path that names it — the
+seam is WP-E's (§C9). Compose gives both services the project default bridge, so
+the server *could* reach `amc-worker:8080` unauthenticated, but only code nobody
+has written would do it. The server itself publishes on `127.0.0.1:8081` only,
+runs as UID 65532 from a `scratch` image whose entire filesystem is three
+entries, and its database is a named volume seeded from the image.
+
+**Why it is accepted rather than fixed**: separating the networks now would have
+to be undone by WP-E, which exists precisely to connect them, and the worker's
+own accepted residual already says its caller is trusted. The exposure is one
+container reaching another on a developer's laptop.
+
+**Review trigger**: the first deploy of either service to a host (§C15 defers
+hosting entirely, and this note assumes it stays deferred); or `apps/server`
+gaining any code that calls the worker — at which point WP-E owns the seam and
+should decide whether the worker still needs no authentication of its own.
+
+### The health endpoint is anonymous and reports a cause (accepted 2026-08-16, #149)
+
+`/health` and `/api/health` answer without authentication — a container
+healthcheck and a future reverse proxy have to be able to call them.
+
+**What is exposed.** The backoffice surface (`/health`) carries the probe's own
+error string. Measured against the real driver, that string is one of
+`sql: database is closed`, `file is not a database (26)` or
+`unable to open database file (14)`: no path, no host, no credential. The
+anonymous surface (`/api/health`) withholds it entirely and reports only which
+component is down (`health.Report.Public`), because its callers are students'
+browsers.
+
+**Why it is accepted rather than fixed**: there is nothing to disclose today,
+and an operator reading a 503 on the backoffice should not have to open the logs
+to learn why.
+
+**Review trigger**: the Postgres swap of ADR-0007. `NALANDA_DATABASE_URL` becomes
+a DSN, and pgx renders a connection failure as `failed to connect to host=…
+user=… database=…` — at which point the backoffice surface needs the same
+treatment the anonymous one already has. `config.SafeDatabaseURL` already
+redacts the DSN for logs; the response body is the half still to do.
+
+### The server's write deadline will collide with ADR-0008 (noted 2026-08-16, #149)
+
+**Not an accepted risk — a scheduled collision**, recorded here only because
+this is the file whose review triggers get read. Nothing is deferred: all five
+bounds are set (`ReadTimeout`, `ReadHeaderTimeout`, `WriteTimeout`,
+`IdleTimeout`, `MaxHeaderBytes`), after a measurement showed 50 idle keep-alive
+sockets surviving 45 seconds with only `ReadHeaderTimeout` set.
+
+**Review trigger**: the session relay of ADR-0008. A global `WriteTimeout` kills
+a long-lived WebSocket at 30 seconds, so whoever adds the relay must MOVE that
+one bound onto the routes that want it — not delete it and leave every ordinary
+handler unbounded again.
+
+The rule itself lives where it bites, not here: the constant's own comment in
+`internal/infra/httpserver/server.go` and `backend-code-style.md` §HTTP.

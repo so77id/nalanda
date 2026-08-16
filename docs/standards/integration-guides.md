@@ -9,11 +9,13 @@ guide here** (ADR-0005).
 
 | Guide | Where | When to read |
 |---|---|---|
-| Add a new app to the monorepo | `repository-structure.md` § "How to add a new app" | Creating `apps/server` or any future app |
+| Add a new app to the monorepo | `repository-structure.md` § "How to add a new app" | Creating any future app. Worked cases: `apps/amc-worker` (#138), `apps/server` (#149) |
 | Add a course document | [`guides/add-a-course-document.md`](guides/add-a-course-document.md) | Writing course material: MDX frontmatter contract, wiki-links, index registration |
 | Add a content component | [`guides/add-a-content-component.md`](guides/add-a-content-component.md) | New document-facing component: contract, catalog entry, families, review checklist |
 | Add a language runtime | [`guides/add-a-language-runtime.md`](guides/add-a-language-runtime.md) | Teaching the platform a new executable language: worker contract, registry, CDN vs self-hosting, browser verification |
 | Write control questions | [`guides/write-control-questions.md`](guides/write-control-questions.md) | Writing the questions at the end of a course document: the rules the suite enforces, the ones only a human can, and worked examples of both — read before drafting any, with an agent or by hand |
+| Run the backend | [`../../apps/server/README.md`](../../apps/server/README.md) | Working on `apps/server`: configuration contract, the two delivery surfaces, `/health`, the compose path, and what is deliberately not there yet |
+| Add a database migration | [`backend-code-style.md` §Adding a migration](backend-code-style.md#adding-a-migration) | Changing `apps/server`'s schema: file naming, the embed root, why the Down block is documentation rather than a tested path, and which placeholder the first real migration deletes |
 | Drive the control engine | [`../../apps/amc-worker/README.md`](../../apps/amc-worker/README.md) | Calling `apps/amc-worker`: the HTTP contract, the shared-volume convention, and the four silent AMC traps a caller must not hit (ADR-0030) |
 | Verify the control engine on paper | [`../../apps/amc-worker/PAPER-CHECK.md`](../../apps/amc-worker/PAPER-CHECK.md) | The one check no agent can run: print, mark, scan, read, compare. Required before trusting a synthetic green run |
 
@@ -22,7 +24,16 @@ guide here** (ADR-0005).
 | Guide | Arrives with | Will cover |
 |---|---|---|
 | Add a session event type | v0.3 — live sessions | Envelope protocol, emit/consume declaration, relay transparency |
-| Add a backend endpoint | v0.3 — `apps/server` | Handler + repository + tests pattern |
+| Add a backend endpoint | WP-C2 — [#150](https://github.com/so77id/nalanda/issues/150) | Handler + repository + tests pattern. Deferred from #149 deliberately: the skeleton has no repository to show, and a guide written against a worked example that does not exist is fiction |
+
+**A pending row carries two things**, and an entry with neither is an
+unregistered extension point rather than a deferral: (a) the issue that will
+write the guide, and (b) the concrete artifact missing today that makes the
+worked example impossible. §Guide format requires "a real, complete case with
+actual file paths", which is what makes "not yet" legitimate instead of merely
+convenient. Worked case: *Add a backend endpoint* was deferred from #149 because
+the skeleton has no repository to show, and a guide written against a worked
+example that does not exist is fiction.
 
 ## Guide format
 

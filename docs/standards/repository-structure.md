@@ -10,8 +10,8 @@ and humans follow this document; deviations are proposed in PRs and recorded her
 nalanda/
 ├── apps/                    # deployable applications, each SELF-CONTAINED
 │   ├── web/                 # platform frontend (React + TS + Vite)
-│   └── amc-worker/          # control engine: Auto-Multiple-Choice in a container (ADR-0030)
-│                            # server/ arrives in v0.3 (Go) — created when it arrives
+│   ├── amc-worker/          # control engine: Auto-Multiple-Choice in a container (ADR-0030)
+│   └── server/              # backend: Go + SQLite, two delivery surfaces (ADR-0034) — born with #149
 ├── content/                 # course material (Material domain) — created by its first course
 │   └── courses/<slug>/...   # v0.1: exactly ONE course (enforced at app startup)
 ├── packages/                # shared libraries between apps — created with the first one
@@ -116,6 +116,7 @@ nalanda/
 | Cross-app e2e (browser → web → server)                                            | Top-level `e2e/` (created when it first exists)                             | Verifies the whole                                                                                |
 | Course assets (images/video)                                                      | `content/`, next to their documents                                         | Material domain                                                                                   |
 | Test mocks needed by a second app                                                 | Promote to `packages/`                                                      | Shared-code rule                                                                                  |
+| An app's architecture guard (L4 layer invariants)                                 | At the ROOT of the tree it guards, inside the app                           | The invariant is about the relationship BETWEEN directories, so it cannot live inside one of them. Worked cases: `apps/web/src/architecture.test.ts`, `apps/server/internal/architecture_test.go` (#149) |
 | Build script (fetches or generates a build input)                                 | `apps/<app>/scripts/`, wired to an npm lifecycle hook (`prebuild`/`predev`) | Neither source nor runtime code; must run before the bundler, and in CI                           |
 | Fetched or generated build input (jar, wasm blob)                                 | That app's `public/`, gitignored, digest pinned in the fetching script      | Reproducible without carrying binaries in git — worked case `public/java-compiler.jar` (ADR-0017) |
 
@@ -125,7 +126,8 @@ grows case by case — it is self-governing, like the component catalog.
 
 ## How to add a new app
 
-Checklist for any new application under `apps/` (e.g., `apps/server` in v0.3):
+Checklist for any new application under `apps/`. Both `apps/amc-worker` (#138)
+and `apps/server` (#149) were admitted through it:
 
 - [ ] Own `README.md` with install / dev / test / build commands — the app is
       understandable alone.
