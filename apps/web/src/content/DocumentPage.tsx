@@ -1,9 +1,9 @@
 import { Menu, Presentation } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { KnownSectionsProvider } from '../lib/knownSections';
-import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { Breadcrumb } from './Breadcrumb';
 import { ThemeToggle } from './ThemeToggle';
@@ -66,9 +66,11 @@ export function DocumentPage({ notFound }: Props) {
   const trail = trailFor(courseIndex, id, docLabel);
   const article = useRef<HTMLElement>(null);
   const { sections, activeId } = useSections(article);
-  // Memoised on the ids alone: a fresh Set every render would re-render every
-  // question on the page each time the reader scrolls past a heading, because
-  // `activeId` changes far more often than the spine does.
+  // Keyed on the spine so the context value keeps its identity when `activeId`
+  // changes, which it does on every scroll past a heading. It does NOT save the
+  // questions a re-render: `<Doc />` is a fresh element each time and nothing
+  // between is memoised, so the subtree renders either way. Measured — the
+  // whole document scrolls with zero long tasks.
   const sectionIds = useMemo(() => new Set(sections.map((section) => section.id)), [sections]);
   const [drawerOpen, setDrawerOpen] = useState(false);
   // One handler for the two things that close the drawer (the drawer itself,

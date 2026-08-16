@@ -70,7 +70,12 @@ nalanda/
      build (`guides/add-a-course-document.md` step 2). ADR-0025 carries the
      alternatives that were rejected and the exit condition.
 
-     **The exception to "without entering `src/`"** is the SET of listed
+     **The exceptions to "without entering `src/`"** are two, and since #139
+     writing a document's QUESTIONS is one of them: a `per-section` document
+     declares its deliberately question-less sections in `NO_QUESTION`
+     (`apps/web/src/content/architecture.test.ts`), with a reason each, and the
+     gate asserts that set exactly — so the suite is red until that file is
+     edited. The other is the SET of listed
      documents, since #136. Taking a document off the teaching path — or
      shipping one deliberately unlisted — requires declaring its id in `RETIRED`
      in `app/documentBreadcrumb.test.tsx`, which asserts the unlisted set

@@ -177,6 +177,39 @@ describe('readQuestions', () => {
     );
   });
 
+  it('does not glue prose after a listing onto the statement', () => {
+    // A fence may interrupt a paragraph (CommonMark), so the text after one is
+    // a NEW paragraph — the page renders two. Letting the continuation
+    // accumulator survive the fence concatenated them in the artifact only,
+    // which is a divergence introduced by the fix for wrapped lines.
+    const source = [
+      '<Question id="corte" anchor="sec">',
+      '¿Qué imprime?',
+      '```java',
+      'System.out.println(1);',
+      '```',
+      'Considera que x vale 2.',
+      '- [x] uno',
+      '</Question>',
+    ].join('\n');
+    expect(readQuestions(source)[0]?.statement).toBe('¿Qué imprime?');
+  });
+
+  it('finds a slide whose title sits on a continuation line', () => {
+    // Scanning per line — which is what put the sections back in document
+    // order — stopped seeing a wrapped opening tag entirely. Losing the slug
+    // costs twice: the section vanishes from the published spine, AND the
+    // coverage gate stops demanding a question for it.
+    const source = [
+      '<Slide',
+      '  title="Compilar y ejecutar"',
+      '  variant="x">',
+      'x',
+      '</Slide>',
+    ].join('\n');
+    expect(headingSlugs(source)).toEqual(['compilar-y-ejecutar']);
+  });
+
   it('finds nothing in a document that has no questions', () => {
     expect(readQuestions('## Sección\n\nProsa cualquiera.')).toEqual([]);
   });

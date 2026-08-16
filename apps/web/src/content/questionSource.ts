@@ -32,6 +32,7 @@ export interface SourceQuestion {
 const FENCE = /^ {0,3}(`{3,}|~{3,})[^\n]*$/;
 const H2 = /^ {0,3}## +(.+?)\s*$/;
 const SLIDE_TITLE = /<Slide\b[^>]*?\btitle="([^"]*)"/g;
+const OPEN_SLIDE = /<Slide\b/;
 const OPEN = /<Question\b([^>]*)>/;
 const CLOSE = /<\/Question>/;
 const ALTERNATIVE = /^\s*[-*] \[([ xX])\]\s+(.*?)\s*$/;
@@ -75,6 +76,7 @@ function withoutFences(source: string): string[] {
  */
 export function headingSlugs(source: string): string[] {
   const slugs: string[] = [];
+  let tag: string | null = null;
   // ONE pass. Two passes — every `##`, then every `<Slide title>` — put the
   // slugs in file-type order rather than document order, which is not a
   // cosmetic difference: this list is what resolves "from section X to section
@@ -88,11 +90,19 @@ export function headingSlugs(source: string): string[] {
       slugs.push(slugify(heading[1]));
       continue;
     }
-    // `matchAll` on the line, not on the file: a slide's opening tag is one
-    // line, and scanning per line is what keeps the order honest.
-    for (const [, title] of line.matchAll(SLIDE_TITLE)) {
+    // An opening tag may wrap over several lines, so it is buffered to the `>`
+    // that closes it. Matching the whole file at once would find it too — that
+    // is what the two-pass version did — but only at the cost of the ordering
+    // this scan exists to preserve. Losing a slug costs twice: the section
+    // vanishes from the published spine, AND the coverage gate stops demanding
+    // a question for it.
+    tag = tag === null ? (OPEN_SLIDE.test(line) ? line : null) : `${tag}\n${line}`;
+    if (tag === null) continue;
+    if (!tag.includes('>')) continue;
+    for (const [, title] of tag.matchAll(SLIDE_TITLE)) {
       if (title !== undefined) slugs.push(slugify(title));
     }
+    tag = null;
   }
   return slugs;
 }
@@ -146,6 +156,8 @@ export function readQuestions(source: string): SourceQuestion[] {
 
     const opened = FENCE.exec(line);
     if (opened) {
+      // A fence may interrupt a paragraph, so what follows it is a NEW one.
+      continues = null;
       fence = {
         closing: opened[1] ?? '```',
         language:

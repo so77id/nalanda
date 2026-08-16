@@ -28,7 +28,7 @@ const ALL_OR_NONE = /\b(todas|ninguna|ambas)\b[^.]*\banteriores\b/i;
  * typographic convention for the negated stem, which is the form that actually
  * appears.
  */
-const NEGATED_CAPS = /(?:^|\s)NO(?:\s|[?.,;:!]|$)/;
+const NEGATED_CAPS = /(?:^|[\s¿¡("'])NO(?:\s|[?!.,;:)]|$)/;
 const NEGATED_WORD = /\b(excepto|salvo)\b/i;
 /**
  * How much longer the correct alternative may be than its nearest rival before
@@ -110,6 +110,10 @@ export function questionProblems(
     );
   }
 
+  if (alternatives.some(({ text }) => text.trim() === '')) {
+    problems.push(say(question, 'tiene una alternativa vacía: escríbela o quítala del listado.'));
+  }
+
   for (const { text } of alternatives) {
     if (ALL_OR_NONE.test(text)) {
       problems.push(
@@ -137,6 +141,7 @@ export function questionProblems(
   if (
     longest?.correct === true &&
     runnerUp !== undefined &&
+    runnerUp.text.length > 0 &&
     longest.text.length >= LENGTH_FLOOR &&
     longest.text.length > runnerUp.text.length * LENGTH_TELL
   ) {

@@ -77,11 +77,9 @@ src/
 └── architecture.test.ts  # import-direction invariants
 ```
 
-All feature folders now exist. Guides: authoring course material (frontmatter,
-wiki-links, slide markers) → `docs/standards/guides/add-a-course-document.md`;
-adding a content component → `docs/standards/guides/add-a-content-component.md`
-(its rules are rendered at `/catalog/governance`); adding a language runtime →
-`docs/standards/guides/add-a-language-runtime.md`.
+All feature folders now exist. The guides are indexed in
+`docs/standards/integration-guides.md` — listed here too they drifted, three of
+six, stale since the amc-worker and control-question guides landed.
 
 ## Deployed shape
 
@@ -110,6 +108,18 @@ ADR-0023.
 - Gotcha: `vite preview` has its own SPA fallback, so it cannot prove the
   `404.html` exists — `src/app/spaFallback.test.ts` and the build-shape cases in
   `src/app/deployedApp.test.tsx` are what actually guard both mechanisms.
+- `dist/` also ships **`questions.json`** (11.4 kB today), emitted by the
+  `nalanda:question-bank` plugin at `generateBundle`: every document
+  `index.yaml` lists, in reading order, with its section slugs in document
+  order, and every control question with its statement, its listing and the
+  index SET of its correct alternatives. Served at `/nalanda/questions.json`,
+  and the future `apps/server` reads it from there rather than from a checkout
+  (design C14) — so the name and the shape are a cross-app contract, not an
+  internal detail. **It carries the answers on purpose**
+  (`docs/security-notes.md`). Documents off the teaching path are skipped: a
+  control covers a range of the reading order, so their questions could never be
+  drawn. A duplicate question id fails the BUILD, because it is the join key
+  into a grade.
 - `dist/` also ships **`java-compiler.jar`** (2.9MB), fetched at build time and
   read back by CheerpJ through the deployed base path — `/app/nalanda/…` in
   production, `/app/…` in dev, derived from `BASE_URL` like everything else

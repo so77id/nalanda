@@ -3,8 +3,8 @@
 ## When to read this
 
 You are writing the questions at the end of a course document — the pool an
-entrance control draws from. `add-a-course-document.md` §5e says how to type the
-block; this says whether what you typed is a good question.
+entrance control draws from. `add-a-course-document.md` step *Write the control
+questions* says how to type the block; this says whether what you typed is a good question.
 
 Read it also before drafting questions with an agent. Every rule below carries
 its reason, and that is not decoration: a rule without its reason cannot be
@@ -37,8 +37,10 @@ because they are checkable — not because they matter more than the ones below.
 | Exactly four alternatives | The generator splits one point across them. Another number weighs differently from every other question. |
 | Between one and three marked correct | None is unanswerable. All four is "mark everything", which measures nothing and collides with the *ninguna de estas* box the sheet adds to every multiple. |
 | No *todas / ninguna de las anteriores* | Every copy shuffles. Out of last position they stop meaning anything. |
-| No negated stem (`NO`, *excepto*, *salvo*) | Under a clock with shuffled alternatives, a negation measures hurried reading. Lowercase *no* is fine — *"¿Por qué no compila?"* is a real question, not a negated stem. |
-| The correct alternative is not far longer than the rest | The most exploitable tell there is: pick the longest, be right, never study. |
+| No negated stem (`NO`, *excepto*, *salvo*) | Under a clock with shuffled alternatives, a negation measures hurried reading. Lowercase *no* is fine — *"¿Por qué no compila?"* is a real question, not a negated stem. The uppercase form is caught after a space or after `¿`. |
+| The correct alternative is not far longer than the rest | The most exploitable tell there is: pick the longest, be right, never study. Compared against the SECOND longest, and switched off below 15 characters — between `123` and `No compila` the ratio means nothing, and `{3, 6, 123, No compila}` is correct authoring. |
+| `id` present, kebab-case, unique across the whole `content/` tree | It is the join key from the printed sheet, through the scanner, into a grade (ADR-0031). A duplicate merges two students' answers into one column — and that one fails `npm run build`, not the suite. |
+| A statement, and no empty alternative | A blank stem or a blank option reaches a printed, graded sheet as a question with nothing on it. |
 | `anchor` names a real section of the document | Otherwise the question belongs to nothing and enters no control. |
 
 ## The rules nothing can check
@@ -160,6 +162,14 @@ gets it wrong, which is the exact opposite of what an entrance control is for.
 **This is the failure mode to watch**, and only a human reading the section can
 see it.
 
+## Only what is on the teaching path reaches a control
+
+A control covers a RANGE of the reading order, so a document with no position in
+it — one `index.yaml` does not list — has no range to belong to, and the build
+skips it when it emits the bank. Its questions would be unreachable by
+definition. Write questions for a document only once it is on the path, and
+declare `questions: none` on one that is deliberately off it.
+
 ## How many, and how balanced
 
 No maximum. A control draws four from whatever the range offers, so a bigger
@@ -179,7 +189,7 @@ teaching judgement before it is a fact. Nothing here changes that.
 ## Checklist
 
 - [ ] `questions:` declared in the frontmatter (`per-section`, `pool` or `none`).
-- [ ] Every question has a hand-written `id`, stable across edits.
+- [ ] Every question has a hand-written `id`, kebab-case, stable across edits, and not used by any other question in `content/`.
 - [ ] Anchored to the section it is answerable from, or unanchored on purpose.
 - [ ] Read each question against its own section, alone, and answered it.
 - [ ] Each distractor is something a real student might believe.

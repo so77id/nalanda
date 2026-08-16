@@ -39,13 +39,14 @@ export const questionCatalogEntry: CatalogEntry = {
     'The answer is revealed only once the reader answers: pacing, not secrecy. Everything under `content/` is published, so the page source holds it either way, and a question a student cannot self-check is worth less as study material. ' +
     'A code listing is shown read-only. In a document body a fence is a runnable editor, and inside a question a Run button would answer a what-does-this-print question before the student did. ' +
     'Check more than one alternative and it becomes a multiple: the type is derived from the marks, never declared. It is badged on the page and commits as a set — right only when the set is exactly the correct one. ' +
-    'Every question weighs one point whatever its type, so mixing them is safe; use a multiple because the material has several true statements, not to make a control harder.',
+    'Every question weighs one point whatever its type, so mixing them is safe; use a multiple because the material has several true statements, not to make a control harder. ' +
+    'NOT for a reasoning problem, or anything needing more than its own section — an entrance control measures whether the student read the class, so prefer <Exercise>, where there is time to think and a compiler to argue with. `guides/write-control-questions.md` carries the judgement no gate can make.',
   props: [
     {
       name: 'id',
       type: 'string',
       description:
-        'Stable identifier, written by hand and never derived. It is the join key all the way to a grade: into the generated sheet, back from the reader, into the grade record (ADR-0031). Deriving it fails both ways — anchor-plus-ordinal renumbers when questions are reordered, and a hash of the statement changes when a typo is fixed.',
+        'Stable identifier, written by hand and never derived — kebab-case, and unique across the whole content tree. It is the join key all the way to a grade: into the generated sheet, back from the reader, into the grade record (ADR-0031). Deriving it fails both ways — anchor-plus-ordinal renumbers when questions are reordered, and a hash of the statement changes when a typo is fixed.',
     },
     {
       name: 'anchor',

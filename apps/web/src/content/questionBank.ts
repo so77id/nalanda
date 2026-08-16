@@ -137,13 +137,12 @@ export function questionBank(contentDir: string): Plugin {
 
       for (const file of files.filter((f) => f.endsWith('.mdx'))) {
         const source = readFileSync(file, 'utf8');
-        const front = parseFrontmatterBlock(source);
-        const meta = parseDocumentMeta(file, front);
-        byId.set(meta.id, {
-          title: meta.title,
-          coverage: String((front as Record<string, unknown> | null)?.questions ?? 'none'),
-          source,
-        });
+        // `meta.questions` and not a second read of the raw frontmatter: the
+        // parser has already validated the value against the schema and applied
+        // the default, so re-reading it here would be a second source of truth
+        // for one field — and it threw the union type away.
+        const meta = parseDocumentMeta(file, parseFrontmatterBlock(source));
+        byId.set(meta.id, { title: meta.title, coverage: meta.questions, source });
       }
 
       const ordered = files

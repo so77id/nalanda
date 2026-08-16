@@ -1,10 +1,16 @@
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { describe, expect, it } from 'vitest';
 
-import { buildBank } from './questionBank';
+import { BANK_FILE, buildBank, questionBank } from './questionBank';
 
 // Interleaves `<Slide title>` and `##` on purpose: that is the shape of every
 // real document on the teaching path, and the shape neither fixture had while
 // the artifact was published with its sections out of order.
+// The live tree, so the pin covers the real emission rather than a fixture.
+const CONTENT_DIR = join(dirname(fileURLToPath(import.meta.url)), '../../../..', 'content');
+
 const JAVA = [
   '<Slide title="Qué significa static">',
   'texto',
@@ -130,5 +136,27 @@ describe('buildBank', () => {
         { id: 'b', title: 'B', coverage: 'pool', source: WELCOME },
       ]),
     ).toThrow(/con-cuanto-se-aprueba/);
+  });
+});
+
+describe('the emitted artifact', () => {
+  it('is published under the name the READMEs promise', async () => {
+    // `apps/web/README.md` §deployed shape and the root README both name this
+    // file, and design C14 makes a future `apps/server` fetch it from that
+    // path — so the name is a cross-app contract. Documented prose is pinned by
+    // driving the plugin's own hook (testing-strategy.md §Build-shape
+    // invariants), because nothing else in the suite runs `generateBundle`.
+    const plugin = questionBank(CONTENT_DIR);
+    const emitted: { fileName?: string; source?: unknown }[] = [];
+    const hook = plugin.generateBundle as unknown as (this: {
+      emitFile: (file: { fileName?: string; source?: unknown }) => void;
+    }) => void;
+
+    hook.call({ emitFile: (file) => emitted.push(file) });
+
+    expect(emitted.map((file) => file.fileName)).toEqual([BANK_FILE]);
+    expect(BANK_FILE).toBe('questions.json');
+    const bank = JSON.parse(String(emitted[0]?.source)) as { documents: unknown[] };
+    expect(bank.documents.length).toBeGreaterThan(0);
   });
 });

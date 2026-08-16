@@ -42,6 +42,20 @@ export interface QuestionCode {
   source: string;
 }
 
+/**
+ * NOTE — this module has a SIBLING that reads the same question from the MDX
+ * source (`content/questionSource.ts`), and the two are gated against each
+ * other over the real content by `app/questionReaders.test.tsx`. Change how a
+ * statement or an alternative is located here and that gate is what tells you
+ * the page and the printed control have stopped agreeing.
+ *
+ * The assumption that broke, and why the gate exists: alternatives used to be
+ * located by looking at an `<li>`'s DIRECT children. Blank lines between them
+ * make markdown emit a LOOSE list, wrapping each item in a `<p>`, so every
+ * alternative read as incorrect and a student marking the right answer was told
+ * they were wrong. Valid markdown, page-only, invisible to every other gate.
+ */
+
 /** One control question, as authored at the end of a course document. */
 export interface QuestionDef {
   /**
@@ -133,8 +147,10 @@ function deepText(node: ReactNode): string {
 function flatten(children: ReactNode): ReactNode[] {
   const out: ReactNode[] = [];
   for (const node of Children.toArray(children)) {
-    const group = isValidElement(node) && metaOf(node.type).questionRole === 'group';
-    if (group || (isValidElement(node) && node.type === Fragment)) {
+    if (
+      isValidElement(node) &&
+      (node.type === Fragment || metaOf(node.type).questionRole === 'group')
+    ) {
       out.push(...flatten((node.props as { children?: ReactNode }).children));
     } else {
       out.push(node);

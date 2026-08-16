@@ -22,7 +22,7 @@ export const questionsCatalogEntry: CatalogEntry = {
   description:
     'The block of control questions at the end of a course document. Holds the <Question>s and nothing else.',
   whenToUse:
-    'Once per document that carries questions, as the last thing in the file. The document declares how it is covered in its frontmatter: `questions: per-section` (every section owes one, gaps declared with a reason), `pool` (a set with no per-section expectation, which is what an opening class wants), or `none`. ' +
+    'Once per document that carries questions, after the last section and before the closing invitation of the document where it has one — questions after a goodbye read as an appendix nobody scrolls to. At the very end when there is no closing section. The document declares how it is covered in its frontmatter: `questions: per-section` (every section owes one, gaps declared with a reason), `pool` (a set with no per-section expectation, which is what an opening class wants), or `none`. ' +
     'Its heading is a bare `h2` with no id, deliberately: a section is an `h2` the platform gave a slug to (ADR-0021), and if this one became a section then a document declaring `per-section` would owe a question about its own questions block — a rule eating its own tail.',
   props: [
     {

@@ -1,17 +1,5 @@
-import { RUNTIME_IDS } from '../../lib/runtimeIds';
-import type { RuntimeId } from '../../lib/runtimeIds';
+import { isRuntimeId } from '../../lib/runtimeIds';
 import { LazyCodeEditor } from './lazyCodeEditor';
-
-/**
- * Whether the platform can highlight this listing — the registry is the
- * authority, and asking it is also what narrows the string into a `RuntimeId`
- * without a cast. The same shape `components/MdxPre.tsx` uses for an ordinary
- * fence: a hand-kept copy of the list would highlight a new runtime in a
- * document and leave it grey inside a question.
- */
-function isKnownLanguage(language: string): language is RuntimeId {
-  return (RUNTIME_IDS as readonly string[]).includes(language);
-}
 
 export interface QuestionListingProps {
   language: string;
@@ -31,7 +19,7 @@ export interface QuestionListingProps {
  * what the fast-refresh lint rule asks for.
  */
 export function QuestionListing({ language, source }: QuestionListingProps) {
-  if (isKnownLanguage(language)) {
+  if (isRuntimeId(language)) {
     return (
       <LazyCodeEditor
         language={language}

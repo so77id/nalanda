@@ -82,6 +82,21 @@ describe('questionProblems', () => {
     );
   });
 
+  it('refuses a negated stem that opens with the Spanish inverted mark', () => {
+    // `¿` is neither whitespace nor start-of-string, so the rule written for
+    // Spanish missed the one punctuation Spanish actually uses.
+    expect(problems({ statement: '¿NO compila este programa?' }).join(' ')).toMatch(/negad/i);
+  });
+
+  it('reports an empty alternative as empty, not as a length problem', () => {
+    // Restoring a guard dropped while adding the length floor: with an empty
+    // rival the ratio always trips, and the author is handed the wrong
+    // diagnosis for a real defect.
+    const gap = [...sound().alternatives];
+    gap[1] = { text: '', correct: false };
+    expect(problems({ alternatives: gap }).join(' ')).toMatch(/vac/i);
+  });
+
   it('leaves a lowercase "no" alone, because it is usually the question itself', () => {
     // "¿Por qué no compila?" is one of the best questions this course can ask.
     expect(problems({ statement: '¿Por qué no compila este programa?' })).toEqual([]);

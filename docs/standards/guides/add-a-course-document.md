@@ -53,7 +53,9 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    `questions` declares what this document owes the entrance controls (#139),
    and like `presentation` it is optional in the schema and required in
    practice. `per-section` means every section carries at least one question,
-   with deliberate gaps declared in `NO_QUESTION` (`content/architecture.test.ts`)
+   with deliberate gaps declared in `NO_QUESTION`
+   (`apps/web/src/content/architecture.test.ts` — one of the two places where
+   writing content means editing a file under `src/`)
    **with their reason**; `pool` means a set of questions and no per-section
    expectation, and it must not be empty — an empty pool says exactly what
    `none` says; `none` means deliberately none, and it is the honest value for a
@@ -589,10 +591,12 @@ ADR-0029.
 
    Four things to get right, all enforced:
 
-   - **`id` is written by hand and never changes.** It is the join key all the
-     way to a grade (ADR-0031). Deriving it fails both ways: anchor-plus-ordinal
-     renumbers when questions are reordered, and a hash of the statement changes
-     when a typo is fixed.
+   - **`id` is written by hand and never changes**, kebab-case, and **unique
+     across the whole `content/` tree**. It is the join key all the way to a
+     grade (ADR-0031), so a duplicate merges two students' answers into one
+     column — and that one fails `npm run build`, which the suite does not see.
+     Deriving it fails both ways: anchor-plus-ordinal renumbers when questions
+     are reordered, and a hash of the statement changes when a typo is fixed.
    - **`anchor` is the slug of an `h2`** — and a `<Slide title>` renders an `h2`,
      so slide titles are anchorable and are where most anchors point. Omit it
      when the question belongs to the whole chapter. An anchor naming no section
@@ -607,7 +611,21 @@ ADR-0029.
 
    A fenced block inside a question renders read-only: in a document body a
    fence is a runnable editor, and a Run button would answer *"¿qué imprime este
-   programa?"* before the student did.
+   programa?"* before the student did. **One listing per question** — only the
+   first becomes the `code` field.
+
+   **Type the opening tag on ONE line, with double-quoted attributes**, and put
+   the question's prose immediately after it. The gates read the `.mdx` source,
+   and a tag wrapped over two lines or written with single quotes is not
+   recognised — the page still renders the question, which is what makes it
+   worth stating here. `content/` is not formatted by Prettier (it sits outside
+   `apps/web`), so nothing will normalise it for you. `app/questionReaders.test.tsx`
+   catches the divergence, but reading this first is cheaper than reading that.
+
+   **Only a document listed in `index.yaml` reaches the published bank.** A
+   control covers a range of the reading order, so questions in an unlisted
+   document enter no control — every gate stays green and the work is
+   unreachable.
 
    **Read [`write-control-questions.md`](write-control-questions.md) before
    drafting any.** This step is how to type them; that is whether they are worth
