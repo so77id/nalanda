@@ -19,9 +19,37 @@ import (
 // requests are cut anyway — later and less predictably.
 const shutdownGrace = 10 * time.Second
 
-// readHeaderTimeout bounds how long a client may take to send its headers. Left
-// unset, a connection that opens and says nothing holds a goroutine forever.
-const readHeaderTimeout = 10 * time.Second
+// The four bounds an http.Server needs and does not have by default. Every one
+// of them is zero unless set, and zero means "no limit" — so an anonymous
+// client can hold a goroutine and a file descriptor for as long as it likes.
+//
+// This was measured, not assumed: with only ReadHeaderTimeout set, 50 raw
+// keep-alive sockets against the real container were still usable after 45s
+// idle, 50 of 50, because ReadHeaderTimeout bounds the header read once bytes
+// arrive and says nothing about the wait BETWEEN requests (#149 review, F4).
+// There is no connection cap and no reverse proxy in front of this yet.
+const (
+	// readHeaderTimeout bounds how long a client may take to send its headers.
+	readHeaderTimeout = 10 * time.Second
+	// readTimeout bounds headers plus body.
+	readTimeout = 15 * time.Second
+	// writeTimeout bounds how long a handler may take to write its response.
+	//
+	// THIS ONE HAS A KNOWN EXPIRY. ADR-0008 puts a WebSocket session relay on
+	// the api surface, and a global write deadline kills a long-lived
+	// connection at 30s no matter what the handler is doing. Whoever adds that
+	// relay must move this off the server and onto the routes that want it
+	// (http.ResponseController, or a second Server for the relay) rather than
+	// deleting it here and leaving every ordinary handler unbounded. Flagged by
+	// the review verifier, #149.
+	writeTimeout = 30 * time.Second
+	// idleTimeout is the one the measurement above was about: how long a
+	// keep-alive connection may sit between requests.
+	idleTimeout = 60 * time.Second
+	// maxHeaderBytes caps a request's header block. The default is 1 MB, which
+	// is a lot of memory to hand an unauthenticated caller per connection.
+	maxHeaderBytes = 1 << 16
+)
 
 // Server serves one handler over one listener.
 type Server struct {
@@ -44,6 +72,10 @@ func New(addr string, handler http.Handler) (*Server, error) {
 		http: &http.Server{
 			Handler:           handler,
 			ReadHeaderTimeout: readHeaderTimeout,
+			ReadTimeout:       readTimeout,
+			WriteTimeout:      writeTimeout,
+			IdleTimeout:       idleTimeout,
+			MaxHeaderBytes:    maxHeaderBytes,
 		},
 	}, nil
 }
@@ -83,4 +115,19 @@ func (s *Server) Serve(ctx context.Context) error {
 		return fmt.Errorf("serve on %s: %w", s.Addr(), err)
 	}
 	return nil
+}
+
+// Close releases the listener without serving.
+//
+// New binds at construction, so a Server that is constructed and never served
+// holds a socket with no way to release it — verified: after dropping the
+// reference to such a Server, rebinding its address failed with "address
+// already in use" (#149 review, COR-7). Nothing in this WP hits that path,
+// because run() always reaches Serve; WP-C2 adds fallible wiring between the
+// two, and this is what makes an early return safe.
+//
+// Calling it after Serve is harmless: http.Server.Shutdown has already closed
+// the listener, and a second Close returns an error the caller may ignore.
+func (s *Server) Close() error {
+	return s.listener.Close()
 }

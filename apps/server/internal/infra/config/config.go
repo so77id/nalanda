@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -94,6 +95,24 @@ func Load(lookup LookupFunc) (Config, error) {
 // LoadFromEnv is what main calls: Load against the real process environment.
 func LoadFromEnv() (Config, error) {
 	return Load(os.LookupEnv)
+}
+
+// SafeDatabaseURL is the value to put in a log line or an error message.
+//
+// Today DatabaseURL is a filesystem path and there is nothing to hide. But the
+// field is named URL because ADR-0007 expects a Postgres DSN here one day, and
+// a libpq DSN carries the password inline (`postgres://user:pass@host/db`) —
+// at which point every boot would write it to stderr, into whatever collects
+// container logs (#149 review, S5). Three lines now; an audit of every log sink
+// that ever held the DSN later.
+func (c Config) SafeDatabaseURL() string {
+	parsed, err := url.Parse(c.DatabaseURL)
+	// A bare path parses without error and has no Userinfo, so Redacted returns
+	// it unchanged — which is why this is safe to apply unconditionally.
+	if err != nil || parsed.User == nil {
+		return c.DatabaseURL
+	}
+	return parsed.Redacted()
 }
 
 // SlogLevel maps the validated level onto slog's. Load has already rejected

@@ -168,3 +168,23 @@ func TestNewReportsAnAddressAlreadyInUse(t *testing.T) {
 		t.Errorf("New error = %q, want it to name the address %q", err, addr)
 	}
 }
+
+// A Server that is constructed and never served must be releasable, or it
+// leaks the socket for the life of the process.
+func TestCloseReleasesAnUnservedListener(t *testing.T) {
+	first, err := httpserver.New("127.0.0.1:0", http.NotFoundHandler())
+	if err != nil {
+		t.Fatalf("New: %v", err)
+	}
+	addr := first.Addr()
+
+	if err := first.Close(); err != nil {
+		t.Fatalf("Close: %v", err)
+	}
+
+	second, err := httpserver.New(addr, http.NotFoundHandler())
+	if err != nil {
+		t.Fatalf("rebinding %s after Close failed: %v — the listener was not released", addr, err)
+	}
+	_ = second.Close()
+}

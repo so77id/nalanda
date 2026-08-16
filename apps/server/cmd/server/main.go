@@ -14,6 +14,7 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/app/api"
 	"github.com/so77id/nalanda/apps/server/internal/app/web"
+	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpserver"
 	"github.com/so77id/nalanda/apps/server/internal/infra/selfcheck"
@@ -43,7 +44,7 @@ func main() {
 			logger.Error("health check", "error", err)
 			os.Exit(1)
 		}
-		if err := selfcheck.Probe(context.Background(), cfg.Addr); err != nil {
+		if err := selfcheck.Probe(context.Background(), cfg.Addr, web.HealthPath); err != nil {
 			logger.Error("health check", "error", err)
 			os.Exit(1)
 		}
@@ -55,6 +56,24 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("server stopped cleanly")
+}
+
+// rootHandler composes the two delivery surfaces into the handler the server
+// serves (ADR-0033 §C11: one binary, two surfaces, one shared domain).
+//
+// It is a function rather than four lines inside run() so that the composition
+// can be tested. It was inline first, and deleting the /api/ mount left the
+// whole suite green while the built binary answered 404 on /api/health — the
+// WP's headline deliverable, uncovered (#149 review, F7).
+//
+// The mount prefixes are asserted by main_test.go against the routes the
+// surfaces actually register, because this file and each router both hold an
+// opinion about the "/api/" prefix and nothing else reconciles them.
+func rootHandler(prober health.Prober, logger *slog.Logger) http.Handler {
+	mux := http.NewServeMux()
+	mux.Handle("/", web.Router(prober, logger))
+	mux.Handle("/api/", api.Router(prober, logger))
+	return mux
 }
 
 // run holds everything main would otherwise do, so the only thing outside it is
@@ -89,17 +108,9 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("migrations up to date", "applied", applied, "database", cfg.DatabaseURL)
+	logger.Info("migrations up to date", "applied", applied, "database", cfg.SafeDatabaseURL())
 
-	// One binary, two delivery surfaces, one shared domain (ADR-0033 §C11).
-	// The root mux is a plain composition: each surface owns its own paths, so
-	// adding a route never requires touching the other one or this file.
-	prober := storage.NewProber(db)
-	handler := http.NewServeMux()
-	handler.Handle("/", web.Router(prober, logger))
-	handler.Handle("/api/", api.Router(prober, logger))
-
-	srv, err := httpserver.New(cfg.Addr, handler)
+	srv, err := httpserver.New(cfg.Addr, rootHandler(storage.NewProber(db), logger))
 	if err != nil {
 		return err
 	}

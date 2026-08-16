@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/api"
@@ -61,8 +62,32 @@ func TestHealthIs503WhenTheDatabaseIsUnreachable(t *testing.T) {
 	if report.Database != health.StatusDown {
 		t.Errorf("Database = %q, want %q", report.Database, health.StatusDown)
 	}
-	if report.Error == "" {
-		t.Error("Error is empty, want the reason the database is down")
+}
+
+// The anonymous surface must NOT carry the diagnostic. Its callers are
+// students' browsers, and the field will hold a Postgres DSN once ADR-0007's
+// swap happens — `failed to connect to host=… user=…` (#149 review, F2).
+// The backoffice surface keeps it; that asymmetry is what `internal/app/api`
+// exists to express, and web/router_test.go asserts the other half.
+func TestHealthDoesNotLeakTheCauseToAnonymousCallers(t *testing.T) {
+	rec := httptest.NewRecorder()
+	api.Router(unreachable, testLogger()).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/health", nil))
+
+	body := rec.Body.String()
+	if strings.Contains(body, "no such file or directory") {
+		t.Errorf("body = %q, want the prober's message withheld from this surface", body)
+	}
+
+	var report health.Report
+	if err := json.NewDecoder(strings.NewReader(body)).Decode(&report); err != nil {
+		t.Fatalf("decoding the body: %v", err)
+	}
+	if report.Error != "" {
+		t.Errorf("Error = %q on the anonymous surface, want it empty", report.Error)
+	}
+	// Still useful: the caller learns WHICH component is down, just not why.
+	if report.Database != health.StatusDown {
+		t.Errorf("Database = %q, want %q — withholding the cause must not withhold the verdict", report.Database, health.StatusDown)
 	}
 }
 

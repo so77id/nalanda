@@ -50,6 +50,9 @@ func (r Report) Healthy() bool {
 }
 
 // Check probes the database and reports what it found.
+//
+// The returned Report carries the raw cause in Error. Whether that reaches a
+// caller is the SURFACE's decision, not this package's — see Report.Public.
 func Check(ctx context.Context, database Prober) Report {
 	report := Report{Process: StatusUp, Database: StatusUp}
 
@@ -58,4 +61,19 @@ func Check(ctx context.Context, database Prober) Report {
 		report.Error = err.Error()
 	}
 	return report
+}
+
+// Public is the same report with the diagnostic removed, for a surface whose
+// callers are not operators.
+//
+// Today Error holds a SQLite message ("sql: database is closed") and there is
+// nothing to leak. But `config.DatabaseURL` is documented as a future Postgres
+// DSN, and pgx renders a connection failure as `failed to connect to host=…
+// user=… database=…` — which the anonymous surface would then publish to any
+// student's browser (#149 review, F2). The audiences differ here, so the
+// surfaces differ here; that difference is also the first concrete thing
+// `internal/app/api` exists to express.
+func (r Report) Public() Report {
+	r.Error = ""
+	return r
 }

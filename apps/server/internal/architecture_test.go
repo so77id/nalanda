@@ -164,6 +164,76 @@ func inLayer(pkg, prefix string) bool {
 	return pkg == prefix || strings.HasPrefix(pkg, prefix+"/")
 }
 
+// packageDirs lists the import path of every directory under the module root
+// holding at least one non-test .go file, found by walking directories rather
+// than by parsing them.
+//
+// It exists to be a SECOND, independent opinion about what the module contains:
+// readPackages parses files, this counts directories, and the walk guard below
+// asserts the two agree. A single mechanism cannot notice that it stopped
+// seeing something.
+func packageDirs(t *testing.T) []string {
+	t.Helper()
+
+	dirs := map[string]bool{}
+	err := filepath.WalkDir(moduleRoot, func(path string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			if path == moduleRoot {
+				return nil
+			}
+			if name := entry.Name(); name == "testdata" || strings.HasPrefix(name, ".") {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if strings.HasSuffix(path, ".go") && !strings.HasSuffix(path, "_test.go") {
+			dirs[importPathOf(t, path)] = true
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walking %s for package directories: %v", moduleRoot, err)
+	}
+
+	paths := make([]string, 0, len(dirs))
+	for dir := range dirs {
+		paths = append(paths, dir)
+	}
+	sort.Strings(paths)
+
+	if len(paths) == 0 {
+		t.Fatalf("no package directories found under %s", moduleRoot)
+	}
+	return paths
+}
+
+// surfaceDirs lists the delivery surfaces: the immediate subdirectories of
+// internal/app. Derived rather than listed, so a third surface is guarded the
+// day it is created — WP-C3 grows this tree.
+func surfaceDirs(t *testing.T) []string {
+	t.Helper()
+
+	entries, err := os.ReadDir(filepath.Join(moduleRoot, "internal", "app"))
+	if err != nil {
+		t.Fatalf("reading internal/app: %v", err)
+	}
+
+	var surfaces []string
+	for _, entry := range entries {
+		if entry.IsDir() && !strings.HasPrefix(entry.Name(), ".") {
+			surfaces = append(surfaces, appPrefix+"/"+entry.Name())
+		}
+	}
+	if len(surfaces) < 2 {
+		t.Fatalf("found %d delivery surfaces under internal/app, want at least the two of ADR-0033 — "+
+			"with fewer, the sibling-import guard verifies nothing", len(surfaces))
+	}
+	return surfaces
+}
+
 // TestTheDomainDependsOnNothingAboveIt is the rule DocumentBuddy's own ADR-005
 // records as violated in 13 files, and the reason issue #149 chose to correct on
 // entry rather than port the debt. A domain that imports its delivery surface or
@@ -246,13 +316,49 @@ func TestTheDomainDependsOnNoThirdPartyLibrary(t *testing.T) {
 	}
 }
 
+// Infra is beneath the surfaces, not beside them: it holds adapters, and an
+// adapter that reaches up into a delivery surface has inverted the layering
+// ADR-0033 draws. This edge went unguarded in the first version of this file —
+// the domain edge and the sibling edge were covered and this one was not, so
+// `internal/infra/storage` could import `internal/app/web` in full green
+// (#149 review, F1). WP-C2 puts OIDC and session storage in infra, which is
+// exactly where the pull towards the backoffice starts.
+func TestInfraDependsOnNothingAboveIt(t *testing.T) {
+	packages := readPackages(t)
+
+	var checked int
+	for pkg, deps := range packages {
+		if !inLayer(pkg, infraPrefix) {
+			continue
+		}
+		checked++
+
+		for _, dep := range deps {
+			if inLayer(dep, appPrefix) {
+				t.Errorf(
+					"%s depends on %s.\nInfra is beneath the surfaces, not beside them. "+
+						"A handler's needs belong to the surface; if the adapter genuinely "+
+						"needs a value the surface owns, pass it in from cmd/server.",
+					pkg, dep,
+				)
+			}
+		}
+	}
+	if checked == 0 {
+		t.Fatalf("no packages found under %s, so this test verified nothing", infraPrefix)
+	}
+}
+
 // The two delivery surfaces are siblings, not a stack. One that imports the
 // other stops being separately deployable and, more immediately, makes the
 // backoffice's authentication decisions reachable from the anonymous API — the
 // exact seam WP-C2 will be defending.
 func TestNeitherSurfaceImportsTheOther(t *testing.T) {
 	packages := readPackages(t)
-	surfaces := []string{appPrefix + "/web", appPrefix + "/api"}
+	// Derived from the tree, not listed. A literal pair stopped being the whole
+	// truth the moment internal/app grew a third directory, and WP-C3 grows it
+	// (#149 review, COR-6).
+	surfaces := surfaceDirs(t)
 
 	var checked int
 	for pkg, deps := range packages {
@@ -289,23 +395,26 @@ func TestNeitherSurfaceImportsTheOther(t *testing.T) {
 // A guard that reads the tree is only as good as its reading. If the walk finds
 // nothing, or misses a package that certainly exists, every assertion above
 // passes vacuously — so the walk itself is asserted.
+//
+// The expected set is DERIVED, not listed. It was a hand-written list of nine
+// import paths for exactly one slice, and it had already drifted by the time it
+// was reviewed: internal/infra/selfcheck was added in S6 and never reached the
+// list, so the walk could have stopped seeing that package in silence (#149
+// review, A4/COR-5). A list that must be edited when a package is added is a
+// list that will drift again.
 func TestTheWalkSeesTheWholeModule(t *testing.T) {
 	packages := readPackages(t)
 
-	for _, expected := range []string{
-		modulePath + "/cmd/server",
-		modulePath + "/internal/domain/health",
-		modulePath + "/internal/app/web",
-		modulePath + "/internal/app/api",
-		modulePath + "/internal/infra/storage",
-		modulePath + "/internal/infra/config",
-		modulePath + "/internal/infra/httpserver",
-		modulePath + "/internal/infra/httpjson",
-		modulePath + "/migrations",
-	} {
+	for _, expected := range packageDirs(t) {
 		if _, found := packages[expected]; !found {
 			t.Errorf("the walk did not find %s — the layer guards above cannot see it either", expected)
 		}
+	}
+
+	// A directory walk and a parse walk can only disagree by one being wrong.
+	if len(packages) != len(packageDirs(t)) {
+		t.Errorf("the parse found %d packages and the directory walk found %d — they must agree",
+			len(packages), len(packageDirs(t)))
 	}
 
 	// And the closure has to be transitive, not merely direct: cmd/server

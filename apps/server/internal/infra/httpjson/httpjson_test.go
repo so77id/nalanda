@@ -1,6 +1,7 @@
 package httpjson_test
 
 import (
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -43,5 +44,16 @@ func TestWriteReportsAnUnencodableValueAsAServerError(t *testing.T) {
 
 	if rec.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want %d — the requested status must not be committed before the value encodes", rec.Code, http.StatusInternalServerError)
+	}
+	// One content type, on every path out of this function. http.Error would
+	// send text/plain plus nosniff with a JSON body (#149 review, A5).
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Content-Type on the failure path = %q, want %q", ct, "application/json")
+	}
+	if sniff := rec.Header().Get("X-Content-Type-Options"); sniff != "" {
+		t.Errorf("X-Content-Type-Options = %q, want it unset — it is http.Error leaking through", sniff)
+	}
+	if body := rec.Body.String(); !json.Valid([]byte(body)) {
+		t.Errorf("failure body = %q, want valid JSON", body)
 	}
 }

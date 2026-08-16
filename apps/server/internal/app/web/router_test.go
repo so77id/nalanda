@@ -76,3 +76,15 @@ func TestTheBackofficeHasNoScreensYet(t *testing.T) {
 func testLogger() *slog.Logger {
 	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
+
+// The other half of the asymmetry api/router_test.go asserts: the backoffice
+// surface KEEPS the diagnostic, because its reader is an operator and the
+// alternative is making them open the logs to learn what a 503 meant.
+func TestHealthKeepsTheCauseOnTheBackofficeSurface(t *testing.T) {
+	rec := httptest.NewRecorder()
+	web.Router(unreachable, testLogger()).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/health", nil))
+
+	if body := rec.Body.String(); !strings.Contains(body, "no such file or directory") {
+		t.Errorf("body = %q, want it to carry the prober's own message", body)
+	}
+}

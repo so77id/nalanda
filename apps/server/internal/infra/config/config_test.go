@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"errors"
+	"log/slog"
 	"strings"
 	"testing"
 
@@ -134,14 +135,118 @@ func TestLogLevel(t *testing.T) {
 // The example file is the operator's copy of the contract, so it drifts the
 // moment a variable is added to Config and not to it. Reading the real file is
 // the point: a fixture would agree with the code by construction.
+//
+// Line by line, not `strings.Contains`. The first version searched the whole
+// file for "KEY=", which cannot tell a declaration from a comment — commenting
+// out NALANDA_DATABASE_URL left the guard green while an operator copying the
+// file got "required environment variable is not set" at boot, which is exactly
+// what this test exists to prevent (#149 review, COR-4).
 func TestExampleEnvFileDeclaresEveryVariable(t *testing.T) {
-	example := readExampleEnv(t)
+	declared := declaredInExampleEnv(t)
+
 	for _, key := range config.Keys() {
-		if !strings.Contains(example, key+"=") {
-			t.Errorf(".env.example does not declare %s — add it, with a comment saying what it is for", key)
+		if !declared[key] {
+			t.Errorf(".env.example does not DECLARE %s (a commented-out line does not count) — "+
+				"add it, with a comment saying what it is for", key)
 		}
 	}
 	if len(config.Keys()) == 0 {
 		t.Fatal("config.Keys() is empty, so this test verified nothing")
+	}
+}
+
+// The converse: a variable in the example that the loader never reads is an
+// instruction to set something with no effect, which is worse than silence.
+func TestExampleEnvFileDeclaresNothingTheLoaderIgnores(t *testing.T) {
+	known := map[string]bool{}
+	for _, key := range config.Keys() {
+		known[key] = true
+	}
+
+	declared := declaredInExampleEnv(t)
+	if len(declared) == 0 {
+		t.Fatal("no declarations parsed out of .env.example, so both directions verified nothing")
+	}
+
+	for key := range declared {
+		if !known[key] {
+			t.Errorf(".env.example declares %s, which config.Keys() does not list — "+
+				"either the loader stopped reading it, or it was never read", key)
+		}
+	}
+}
+
+// declaredInExampleEnv returns the keys the example file actually declares: a
+// line whose first non-space characters are KEY=.
+func declaredInExampleEnv(t *testing.T) map[string]bool {
+	t.Helper()
+
+	declared := map[string]bool{}
+	for _, line := range strings.Split(readExampleEnv(t), "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		key, _, found := strings.Cut(trimmed, "=")
+		if found {
+			declared[strings.TrimSpace(key)] = true
+		}
+	}
+	return declared
+}
+
+// COR-3: the level was validated but nothing proved it had any effect —
+// replacing the whole switch with `return slog.LevelInfo` left the suite green,
+// so debug/warn/error could all have meant info.
+func TestSlogLevelMapsEveryAcceptedLevel(t *testing.T) {
+	for name, want := range map[string]slog.Level{
+		"debug": slog.LevelDebug,
+		"info":  slog.LevelInfo,
+		"warn":  slog.LevelWarn,
+		"error": slog.LevelError,
+	} {
+		t.Run(name, func(t *testing.T) {
+			e := env()
+			e["NALANDA_LOG_LEVEL"] = name
+
+			cfg, err := config.Load(lookupFrom(e))
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if got := cfg.SlogLevel(); got != want {
+				t.Errorf("SlogLevel() for %q = %v, want %v", name, got, want)
+			}
+		})
+	}
+}
+
+// The redaction that matters only after the Postgres swap of ADR-0007, written
+// now because doing it later means auditing every log sink that held the DSN.
+func TestSafeDatabaseURL(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		url  string
+		want string
+	}{
+		{"a filesystem path is unchanged", "/data/nalanda.db", "/data/nalanda.db"},
+		{"a relative path is unchanged", "./nalanda.db", "./nalanda.db"},
+		{"a DSN without credentials is unchanged", "postgres://host/db", "postgres://host/db"},
+		{"a DSN password is redacted", "postgres://user:hunter2@host/db", "postgres://user:xxxxx@host/db"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e := env()
+			e["NALANDA_DATABASE_URL"] = c.url
+
+			cfg, err := config.Load(lookupFrom(e))
+			if err != nil {
+				t.Fatalf("Load: %v", err)
+			}
+			if got := cfg.SafeDatabaseURL(); got != c.want {
+				t.Errorf("SafeDatabaseURL() = %q, want %q", got, c.want)
+			}
+			if c.url != c.want && strings.Contains(cfg.SafeDatabaseURL(), "hunter2") {
+				t.Error("the password survived redaction")
+			}
+		})
 	}
 }

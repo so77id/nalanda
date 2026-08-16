@@ -15,10 +15,20 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpjson"
 )
 
+// HealthPath is the route the container healthcheck calls.
+//
+// Exported so the literal exists once. It was written out in four places —
+// this router, selfcheck's URL builder, the compose healthcheck and the CI
+// probe — with nothing tying them together, so renaming the route here would
+// have left the suite green and broken only the container (#149 review, A6).
+// The two that are still strings live outside Go and are covered by the
+// compose path in the pre-PR protocol.
+const HealthPath = "/health"
+
 // Router returns the surface's routes.
 func Router(database health.Prober, logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("GET /health", healthHandler(database, logger))
+	mux.Handle("GET "+HealthPath, healthHandler(database, logger))
 	return mux
 }
 

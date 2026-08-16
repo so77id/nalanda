@@ -36,7 +36,11 @@ func healthHandler(database health.Prober, logger *slog.Logger) http.Handler {
 		status := http.StatusOK
 		if !report.Healthy() {
 			status = http.StatusServiceUnavailable
+			// The cause goes to the operator's log, not to the anonymous
+			// caller's browser. This is where the two surfaces first differ,
+			// and the difference is the point of there being two.
+			logger.Error("health probe failed", "surface", "api", "cause", report.Error)
 		}
-		httpjson.Write(w, logger, status, report)
+		httpjson.Write(w, logger, status, report.Public())
 	})
 }

@@ -22,8 +22,12 @@ func Write(w http.ResponseWriter, logger *slog.Logger, status int, value any) {
 	body, err := json.Marshal(value)
 	if err != nil {
 		logger.Error("encoding a JSON response", "error", err)
-		http.Error(w, `{"error":"internal error"}`, http.StatusInternalServerError)
-		return
+		// Not http.Error: it sets text/plain plus nosniff, so the JSON body
+		// below would go out under a content type the client is explicitly
+		// told not to sniff — from the package whose whole purpose is that the
+		// surfaces cannot drift on exactly this (#149 review, A5).
+		status = http.StatusInternalServerError
+		body = []byte(`{"error":"internal error"}`)
 	}
 
 	w.Header().Set("Content-Type", "application/json")

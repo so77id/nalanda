@@ -18,16 +18,21 @@ import (
 // in infra/local/docker-compose.yml so a hung check fails rather than piling up.
 const timeout = 4 * time.Second
 
-// Probe issues GET /health against addr and returns nil only on a 200.
+// Probe issues GET path against addr and returns nil only on a 200.
+//
+// The path is a parameter rather than a literal because the route belongs to
+// internal/app/web, and an infra package may not import a surface — the layer
+// guard forbids it. main passes web.HealthPath through, which keeps the
+// constant flowing app -> main -> infra.
 //
 // A non-200 is a failure with the status in the message: 503 means the process
 // is up and its database is not, which is precisely the state a container
 // healthcheck exists to notice and a plain liveness ping would miss.
-func Probe(ctx context.Context, addr string) error {
+func Probe(ctx context.Context, addr, path string) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	url := "http://" + dialable(addr) + "/health"
+	url := "http://" + dialable(addr) + path
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return fmt.Errorf("building the health request for %s: %w", url, err)
@@ -60,7 +65,9 @@ func dialable(addr string) string {
 		return addr
 	}
 	switch host {
-	case "", "0.0.0.0", "::", "[::]":
+	// No "[::]" arm: SplitHostPort strips the brackets, so that form never
+	// reaches here. Pinned by TestSplitHostPortStripsIPv6Brackets.
+	case "", "0.0.0.0", "::":
 		host = "127.0.0.1"
 	}
 	return net.JoinHostPort(host, port)

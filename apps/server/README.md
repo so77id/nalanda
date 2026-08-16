@@ -47,8 +47,10 @@ curl -s http://127.0.0.1:8081/health      # backoffice surface
 curl -s http://127.0.0.1:8081/api/health  # API surface
 
 # Verify. The two protocols are defined in docs/standards/testing-strategy.md;
-# this is the per-commit one.
-gofmt -l . && go vet ./... && go build ./... && go test ./...
+# this is the per-commit one. Note the `test -z`: `gofmt -l` PRINTS the files it
+# objects to and exits 0 either way, so a bare `gofmt -l . && …` chain reads
+# like a gate and is not one.
+test -z "$(gofmt -l .)" && go vet ./... && go build ./... && go test ./...
 
 # Build the production image (~10 MB).
 docker build -t nalanda/server:dev .

@@ -71,10 +71,16 @@ jobs:
       - name: Build
         run: go build ./...
 
+      # A gate rather than something a reviewer runs by hand. It covers the
+      # dependency tree AND the stdlib of the toolchain go.mod declares, which
+      # is the pair that drifted in this app's first WP (#149 review).
+      - name: Vulnerability check
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
       # The image is part of the app's deliverable and its constraints are easy
       # to break invisibly: a dependency that needs CGO makes the scratch stage
       # produce a binary that cannot start, and nothing else in this job would
-      # notice.
+      # notice. The probe below covers BOTH surfaces — see its comment.
       - name: Build the image
         run: docker build -t nalanda/server:ci .
 
@@ -88,9 +94,10 @@ jobs:
             -p 127.0.0.1:8081:8081 \
             nalanda/server:ci
           for attempt in $(seq 1 20); do
-            if curl -fsS http://127.0.0.1:8081/health; then
+            if curl -fsS http://127.0.0.1:8081/health \
+              && curl -fsS http://127.0.0.1:8081/api/health; then
               echo
-              echo "healthy after ${attempt} attempt(s)"
+              echo "both surfaces healthy after ${attempt} attempt(s)"
               exit 0
             fi
             sleep 1

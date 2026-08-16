@@ -19,7 +19,7 @@ func TestProbeSucceedsOn200(t *testing.T) {
 	}))
 	defer server.Close()
 
-	if err := selfcheck.Probe(context.Background(), strings.TrimPrefix(server.URL, "http://")); err != nil {
+	if err := selfcheck.Probe(context.Background(), strings.TrimPrefix(server.URL, "http://"), "/health"); err != nil {
 		t.Errorf("Probe against a healthy server = %v, want nil", err)
 	}
 }
@@ -32,7 +32,7 @@ func TestProbeFailsOnANon200(t *testing.T) {
 	}))
 	defer server.Close()
 
-	err := selfcheck.Probe(context.Background(), strings.TrimPrefix(server.URL, "http://"))
+	err := selfcheck.Probe(context.Background(), strings.TrimPrefix(server.URL, "http://"), "/health")
 	if err == nil {
 		t.Fatal("Probe against a 503 = nil, want an error")
 	}
@@ -43,7 +43,7 @@ func TestProbeFailsOnANon200(t *testing.T) {
 
 func TestProbeFailsWhenNothingIsListening(t *testing.T) {
 	// Port 1 on loopback: reserved, and nothing in a container binds it.
-	if err := selfcheck.Probe(context.Background(), "127.0.0.1:1"); err == nil {
+	if err := selfcheck.Probe(context.Background(), "127.0.0.1:1", "/health"); err == nil {
 		t.Error("Probe against a dead address = nil, want an error")
 	}
 }
@@ -62,7 +62,7 @@ func TestProbeDialsLoopbackForAWildcardBindAddress(t *testing.T) {
 
 	for _, bind := range []string{"0.0.0.0:" + port, ":" + port, "[::]:" + port} {
 		t.Run(bind, func(t *testing.T) {
-			if err := selfcheck.Probe(context.Background(), bind); err != nil {
+			if err := selfcheck.Probe(context.Background(), bind, "/health"); err != nil {
 				t.Errorf("Probe(%q) = %v, want it to reach the loopback listener", bind, err)
 			}
 		})
