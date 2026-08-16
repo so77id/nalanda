@@ -4,7 +4,19 @@ import type { ReactElement, ReactNode } from 'react';
 import { metaOf } from './componentMeta';
 import { textOf } from './reactText';
 
-/** One alternative of a control question; exactly one is correct (issue #139). */
+/**
+ * How many alternatives a question admits.
+ *
+ * Derived from the marks, never declared: a `type` prop would be a second
+ * source of truth able to disagree with the checkboxes, and the checkboxes are
+ * what the reader sees.
+ */
+export type QuestionType = 'simple' | 'multiple';
+
+/**
+ * One alternative of a control question. At least one is correct and, for a
+ * multiple, more than one — see `QuestionType`.
+ */
 export interface QuestionAlternative {
   /** Plain text, for the JSON the control generator reads. */
   text: string;
@@ -51,9 +63,21 @@ export interface QuestionDef {
   statement: string;
   code?: QuestionCode;
   alternatives: QuestionAlternative[];
+  type: QuestionType;
 }
 
 const LANGUAGE_CLASS = /(?:^|\s)language-([\w+-]+)(?:\s|$)/;
+
+/**
+ * A question is multiple when more than one alternative is marked.
+ *
+ * Everything downstream hangs off this one count: the page badges it, the JSON
+ * carries it, the sheet prints `questionmult` instead of `question`, and the
+ * reader maps its boxes from a 0-based index instead of a 1-based one (#147).
+ */
+function typeOf(alternatives: QuestionAlternative[]): QuestionType {
+  return alternatives.filter(({ correct }) => correct).length > 1 ? 'multiple' : 'simple';
+}
 
 function isQuestion(node: ReactNode): node is ReactElement {
   return isValidElement(node) && metaOf(node.type).questionRole === 'question';
@@ -193,6 +217,7 @@ export interface QuestionParts {
   statementNode: ReactNode;
   code?: QuestionCode;
   alternatives: QuestionAlternative[];
+  type: QuestionType;
 }
 
 /**
@@ -207,11 +232,13 @@ export function parseQuestionParts(children: ReactNode): QuestionParts {
   const nodes = Children.toArray(children);
   const code = codeOf(nodes);
   const statementNode = statementOf(nodes);
+  const alternatives = alternativesOf(nodes);
   return {
     statement: deepText(statementNode).trim(),
     statementNode,
     ...(code ? { code } : {}),
-    alternatives: alternativesOf(nodes),
+    alternatives,
+    type: typeOf(alternatives),
   };
 }
 

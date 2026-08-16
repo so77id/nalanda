@@ -69,6 +69,27 @@ describe('parseQuestions', () => {
     ]);
   });
 
+  it('derives the type from how many alternatives are marked correct', () => {
+    // Derived, never declared. A `type` prop would be a second source of truth
+    // that can disagree with the checkboxes, and the checkboxes are what the
+    // reader sees — so the marks decide and nothing else can contradict them.
+    const [simple] = parseQuestions(
+      <Question id="una">
+        <p>¿Cuál compila?</p>
+        {alternatives(['a', true], ['b', false], ['c', false], ['d', false])}
+      </Question>,
+    );
+    const [multiple] = parseQuestions(
+      <Question id="varias">
+        <p>¿Cuáles compilan?</p>
+        {alternatives(['a', true], ['b', true], ['c', false], ['d', false])}
+      </Question>,
+    );
+
+    expect(simple?.type).toBe('simple');
+    expect(multiple?.type).toBe('multiple');
+  });
+
   it('leaves anchor undefined when the question belongs to the whole document', () => {
     const defs = parseQuestions(
       <Question id="nota-final">
