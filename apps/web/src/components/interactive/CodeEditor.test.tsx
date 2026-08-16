@@ -451,7 +451,11 @@ describe('CodeEditor', () => {
   });
 
   it('uncaps a read variant too — the rule is about listings, not about a name', async () => {
-    // `variant="read"` ships in 05-codigo-ejecutable.mdx, so this is shipped
+    // `variant="read"` no longer ships in any course document — the last one
+    // went with 05-codigo-ejecutable.mdx in #135. It is still offered to authors
+    // (the catalog documents it, and the guide names it for code you only cite),
+    // so the contract is still owed even though nothing in content/ exercises it.
+    // That is what makes this unit case the only guard, and this is shipped
     // behaviour and not a hypothetical: it lost its cap with `snippet`.
     const { container } = renderEditor({ variant: 'read' }, 'book');
     await waitFor(() => expect(screen.getAllByTestId('code').length).toBeGreaterThan(0));

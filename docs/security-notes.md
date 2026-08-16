@@ -209,10 +209,16 @@ Decisions: ADR-0019 §3b/§7, ADR-0020 §6, ADR-0028 §6/§7.
   "unpublished" and is wrong.
 - **Why it is safe today**: the repo is public anyway. **No longer only sample
   documents** — since #120 the tree holds the real opening class, with the
-  professor's institutional address and the term's grading rules, and since #136
-  and #137 four documents are deliberately off the teaching path while still
-  served. Nothing there needs hiding, so the invariant holds; what changed is
-  that it is now load-bearing rather than hypothetical.
+  professor's institutional address and the term's grading rules. Nothing there
+  needs hiding, so the invariant holds; what changed is that it is now
+  load-bearing rather than hypothetical.
+- **Every document is on the teaching path again** as of #135, which deleted the
+  three that were off it and put the fourth back. `documentBreadcrumb.test.tsx`
+  asserts that set is empty — the suite's only registry→index check, and the
+  thing that makes the trigger below enforceable rather than advisory. Everything
+  else runs the other way (`contentIntegrity.ts` and
+  `content/architecture.test.ts` walk the index and check each id resolves),
+  which cannot see a document that is in `content/` and in no index.
 - **The address is published on purpose**: `miguel.rodriguez@mail.udp.cl`
   appears on the opening class as an autolinked `mailto:`, the professor's own
   decision. Harm is harvesting at a university mailbox. Review trigger for this
@@ -370,6 +376,26 @@ batch arriving from another system, or any path where `apps/server` accepts a
 PDF it did not produce. At that point take the cheap half first (`cap_drop: [ALL]`
 and `security_opt: ["no-new-privileges:true"]` in compose, `openin_any = p` in a
 `texmf.cnf` override) before deciding on a non-root user.
+
+**Named in advance, because WP-E will pull that trigger** (#147 review): a
+control source now includes code with `\lstinputlisting{<absolute path>}` —
+that is the documented shape, because a path relative to the `.tex` does not
+resolve. With `openin_any = a` this is a file read that lands typeset in the
+printed PDF: demonstrated in the built image, `\lstinputlisting{/etc/hostname}`
+compiled clean and `pdftotext` printed the host's name back. Today the `.tex` is
+authored in this repo, so it is inside the accepted residual. **When WP-E
+generates the `.tex` from the question bank, every listing path must go through
+`under_work()` before it is written into the document** — otherwise a bank field
+becomes arbitrary-file-read-into-a-student's-graded-PDF, as root.
+
+**And the cheap half is not a drop-in here**, measured: `openin_any = p` also
+refuses the LEGITIMATE listing, because the documented shape is an absolute
+path (a path relative to the `.tex` does not resolve — AMC compiles from its own
+working directory). In paranoid mode `pdflatex` answers `Not reading from
+/work/src/code/x.java (openin_any = p)` and produces no PDF at all. So
+`under_work()` on every generated path is the primary control rather than the
+fallback; taking the override as well means changing the listing shape (or
+arranging `TEXMFOUTPUT`) in the same change.
 
 ### `apps/server` joins the worker's compose network (accepted 2026-08-16, #149)
 

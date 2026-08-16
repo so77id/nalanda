@@ -59,10 +59,10 @@ describe('App under a deployed base path', () => {
   // Fundamentos unit off the teaching path moved this case from a 1.4 kB
   // component-free document onto the 10 kB Java one without touching this file,
   // and it stayed green while testing something else. What the case needs is any
-  // document that is not the landing page; `apuntes-del-curso` is the smallest,
+  // document that is not the landing page; `planificacion` is the smallest,
   // which also keeps it clear of the lazy-boundary hazards heavier documents
   // bring (#102).
-  const DEEP_LINK_FIXTURE = 'apuntes-del-curso';
+  const DEEP_LINK_FIXTURE = 'planificacion';
 
   it('resolves a deep link that carries the base prefix', async () => {
     vi.stubEnv('BASE_URL', '/nalanda/');

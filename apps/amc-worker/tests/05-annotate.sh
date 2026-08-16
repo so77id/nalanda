@@ -27,7 +27,7 @@ work="${WORKER_DIR}/tests/work/s5run"
 rm -rf "$work"
 mkdir -p "$work/src" "$work/out" "$work/scan" "$work/anotado" "$work/single" \
   "$work/project/data" "$work/project/cr" "$work/project/scans"
-cp "${WORKER_DIR}/tests/fixtures/control-demo.tex" "$work/src/"
+stage_source "$work/src"
 cp "${WORKER_DIR}/tests/fixtures/marking-plan.json" "${WORKER_DIR}/tests/fixtures/curso.csv" "$work/"
 # Only the test tool goes on the volume. read_capture.py is production
 # code and is invoked from where the Dockerfile installed it, so `make

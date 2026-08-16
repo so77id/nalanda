@@ -42,14 +42,31 @@ documents themselves:
   what it is named for.
 - `presentationRoute.test.tsx` drives `java-desde-cpp` at a **fixed slide index**
   (`?slide=10`, the "Compilar y ejecutar" slide — the deck's only `<pre>`; it was
-  `?slide=5` before #107 re-cut the deck). Nothing names it a fixture; it is a
-  bare URL in a test.
+  `?slide=5` before #107 re-cut the deck). ~~Nothing names it a fixture; it is a
+  bare URL in a test.~~ **No longer true as of #135**: with `intro-estructuras`
+  deleted, `java-desde-cpp` is also named as `CLOSING_FIXTURE`, so it is pinned
+  both by name and by slide index.
 
 ## Decision
 
 **In v0.1, `content/` serves two masters — published course material and the test
 suite's fixture set — and where they conflict, the suite wins and the conflict is
 recorded at the document.**
+
+**The limit, established by #135.** "The suite wins" governs how a document is
+MARKED UP — what it declares in frontmatter, whether a section is cut as a slide.
+It has never governed whether a document exists, what it is about, or where it
+sits in the course. Content is not invented, kept off the teaching path, or given
+syntax it does not want in order to feed a case. A case whose fixture could only
+survive that way is retired, made synthetic, or weakened with a named allowlist
+(`testing-strategy.md` §Conventions) — and which of the three was chosen is
+recorded where the case was.
+
+The distinction matters because the two halves fail in opposite directions.
+Ignoring the first half gives you #108's defect: a document silently reshaped to
+keep a test green. Ignoring the second gives you a course that exists to be
+tested. #135 hit the second half three times and needed this sentence to point
+at; it was not there.
 
 Concretely:
 
@@ -59,9 +76,18 @@ Concretely:
    slides and declared `explicit`, and nothing was re-declared `auto` — giving a
    deck to material whose author did not choose one is the defect #108 exists to
    prevent. The `auto` path is covered over synthetic MDX in
-   `presentation/parser.test.tsx`. The decision's SHAPE stands and is why #136
-   kept three retired documents in the tree rather than deleting them: content is
-   still the fixture set.
+   `presentation/parser.test.tsx`. The decision's SHAPE stands, and is why #136
+   kept three retired documents in the tree rather than deleting them. That
+   clause is itself **discharged by #135**: those documents are deleted, the
+   explicit-marker fixture named in §Context above is now `java-tipos-y-flujo`,
+   and ~~the one case~~ **three** cases that would have needed an invented
+   fixture to survive were resolved without one: the unlisted-document rendering
+   case retired (`app/documentBreadcrumb.test.tsx`), the markdown-image
+   non-vacuity floor dropped so its alt assertion could stay
+   (`content/architecture.test.ts`), and the image-resolution fixture made
+   synthetic (`content/mdxPipeline.test.tsx`). The count was corrected in
+   review; the limit stated above is what all three were actually applying.
+   Content is still the fixture set.
 2. **Fixtures are named, never discovered.** A test that knows a document's
    content names that document, with a non-vacuity guard whose message says what
    to repoint and why. Positional selection is banned — recorded as a convention

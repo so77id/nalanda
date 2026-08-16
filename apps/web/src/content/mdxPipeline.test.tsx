@@ -105,17 +105,23 @@ describe('the MDX pipeline', () => {
   });
 
   it('resolves a document image to a built asset url, not the path the author wrote', async () => {
-    // The named fixture (ADR-0025): `busqueda-binaria` carries the cost curve.
-    const file = join(process.cwd(), '../../content/courses/sample-course/03-busqueda-binaria.mdx');
-    const image = readFileSync(file, 'utf8')
-      .split('\n')
-      .find((line) => line.startsWith('!['));
-    expect(
-      image,
-      'busqueda-binaria no longer carries a markdown image — repoint this fixture at a document that does',
-    ).toBeDefined();
+    // Synthetic MDX, and that is a change #135 forced rather than a preference.
+    // This read the markdown image out of `busqueda-binaria`, the only document
+    // that ever used the `![](…)` syntax; every other one writes `<Figure src>`.
+    // With that document deleted there is no real content to read from, and
+    // giving some surviving document a markdown image purely to feed a test is
+    // the shape ADR-0025 exists to avoid.
+    //
+    // What is lost is small and worth naming: this no longer proves that a
+    // SHIPPED document resolves its image. What it still proves is the pipeline
+    // rule — an author-relative path becomes an emitted asset — which is what
+    // the case is named for. `costo-busqueda.svg` survives the deletion (the
+    // opening class uses it), so the path below resolves against real bytes.
+    const file = join(process.cwd(), '../../content/courses/sample-course/01-bienvenida.mdx');
+    const image =
+      '![Dos curvas de costo sobre los mismos ejes: la búsqueda lineal sube en línea recta con el tamaño del arreglo, mientras la binaria se aplana casi de inmediato.](./costo-busqueda.svg)';
 
-    const container = await renderMdx(image ?? '', file);
+    const container = await renderMdx(image, file);
 
     // What main shipped: the authored path survives verbatim, no asset is
     // emitted, the build stays green, and under /nalanda/ the browser resolves
@@ -129,7 +135,7 @@ describe('the MDX pipeline', () => {
   });
 
   it('still renders a wiki link', async () => {
-    const container = await renderMdx('Ver [[busqueda-binaria]].\n');
+    const container = await renderMdx('Ver [[java-desde-cpp]].\n');
 
     expect(container.querySelector('a')).not.toBeNull();
   });

@@ -21,7 +21,7 @@ Marking plan (JSON on stdin or --plan):
     {
       "1": {"rut": "20123456", "answers": [2, 1, 4, 3]},
       "2": {"rut": "1912345?", "answers": [1, 0, 2, 2]},
-      "3": {"rut": "20987654", "answers": [1, "both", 3, 1]}
+      "3": {"rut": "20987654", "answers": [1, [1, 3], "all", 1]}
     }
 
     rut      8 characters, most significant first (that is AMC's rut[8] column,
@@ -30,10 +30,20 @@ Marking plan (JSON on stdin or --plan):
     answers  one entry per real question, in question order.
              1..N       fill that alternative
              0          leave blank
-             "both"     fill two alternatives (an ambiguous mark)
+             [1, 3]     fill that SET of alternatives — several correct ones on a
+                        multiple-answer question, or a deliberately ambiguous
+                        mark on a simple one
+             "all"      fill every alternative, which on a multiple-answer
+                        question is the case that must NOT earn full marks
              "faint:N"  a light pencil on alternative N — lands between
                         read_capture's `unsure` and `ticked` thresholds, the one
                         region a solid fill can never reach
+
+The set form replaced a `"both"` shorthand that filled `qboxes[:2]` — the first
+two boxes in layout order rather than two the plan chose. It could not express
+partial credit on a multiple-answer question (#147), and "the first two boxes"
+is exactly the assumption that misleads once a question's numbering is not what
+the plan's author pictured.
 """
 
 import argparse
@@ -87,6 +97,25 @@ def load_layout(db_path):
     return pages, sheets
 
 
+def alternative(qi, n, qboxes):
+    """The box for alternative `n` of question `qi`, or a loud refusal.
+
+    One function for every plan form, because the range check used to live in
+    two branches with two messages and the guard below was added to only one of
+    them (#147 review, ARQ-5/ARQ-10).
+
+    `type(n) is not int` rather than isinstance: a JSON `true` IS an int to
+    isinstance and `1 <= True <= 4` holds, so a plan containing `true` silently
+    marked alternative 1 — the silent-wrong side of the line, in the tool that
+    manufactures the ground truth every assertion is compared against.
+    """
+    if type(n) is not int or not 1 <= n <= len(qboxes):
+        raise SystemExit(
+            f"question {qi + 1}: alternative {n!r} is not one of 1..{len(qboxes)}"
+        )
+    return qboxes[n - 1]
+
+
 def boxes_for(sheet, spec):
     """Return [(page, xmin, xmax, ymin, ymax, faint)] for one copy's plan."""
     out = []
@@ -112,18 +141,17 @@ def boxes_for(sheet, spec):
         if qi >= len(sheet["order"]):
             break
         qboxes = sheet["questions"][sheet["order"][qi]]
-        if choice == "both":
-            out += [b + (False,) for b in qboxes[:2]]
+        if choice == "all":
+            out += [b + (False,) for b in qboxes]
+        elif isinstance(choice, list):
+            out += [alternative(qi, n, qboxes) + (False,) for n in choice]
         elif isinstance(choice, str) and choice.startswith("faint:"):
             # "faint:2" — a light pencil on alternative 2. Lands between
             # read_capture's unsure and ticked thresholds, which is the one
             # region a solid fill can never reach.
-            n = int(choice.split(":", 1)[1])
-            out.append(qboxes[n - 1] + (True,))
-        elif isinstance(choice, int) and choice > 0:
-            if choice > len(qboxes):
-                raise SystemExit(f"question {qi + 1} has no alternative {choice}")
-            out.append(qboxes[choice - 1] + (False,))
+            out.append(alternative(qi, int(choice.split(":", 1)[1]), qboxes) + (True,))
+        elif type(choice) is int and choice > 0:
+            out.append(alternative(qi, choice, qboxes) + (False,))
         elif choice != 0:
             # A typo in a plan used to be skipped in silence, surfacing three
             # steps later as a confusing assertion failure.

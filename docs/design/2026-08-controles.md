@@ -8,8 +8,9 @@
 > **Status:** design closed. **WP-A shipped** (#138) — the engine is confirmed
 > by ADR-0030 with one paper check outstanding, and the reading report it
 > returns is owned by ADR-0031. **WP-B is in flight** (#139: the question bank,
-> its gates and the published artifact; #144 and #147 alongside it, #148 landed
-> the bank itself under ADR-0032). **WP-C1 shipped** (#149) — `apps/server`
+> its gates and the published artifact; #144 alongside it, #148 landed the bank
+> itself under ADR-0032, and #147 landed multiple-answer questions under
+> ADR-0033). **WP-C1 shipped** (#149) — `apps/server`
 > exists, with the layered shape of C11 enforced by a test and every
 > add-a-new-app obligation discharged; ADR-0034 records C10 and C11. WP-C2
 > (#150) and WP-C3 (#151) are filed and not started; WPs D–G not started.
@@ -96,7 +97,9 @@ were foreseen here; the spike found a **third**, and the contract is now owned b
 ADR-0031 — *what is missing*: the copy printed questions the batch never
 captured, which is a page that never reached the scanner. Unlike the two below,
 that one cannot be repaired at a keyboard. The two foreseen are: *who is this* (RUT unreadable, or not on the roster) and *what did
-they mark* (two bubbles, or one half-filled). A sheet can have the first without
+they mark* (two bubbles WHERE THE QUESTION ADMITS ONE, or one half-filled — on a
+question that admits several, several bubbles are the answer and nothing is
+flagged; #147). A sheet can have the first without
 the second — and in that case, typing the RUT completes it and nothing else is
 touched.
 

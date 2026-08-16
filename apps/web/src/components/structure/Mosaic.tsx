@@ -16,7 +16,9 @@ export interface MosaicProps {
    *
    * Opt-in because the other kind of mosaic is the opposite: a grid of diagrams
    * drawn for the page, transparent and coloured to clear both grounds, which a
-   * plate would box in for no reason (`02-intro-estructuras.mdx`).
+   * plate would box in for no reason. No document ships an unplated mosaic
+   * today — the one that did left in #135 — so this is a capability the
+   * component keeps rather than a case content exercises.
    */
   plate?: boolean;
   /** The cells: figures, usually, but the grid does not care what they are. */

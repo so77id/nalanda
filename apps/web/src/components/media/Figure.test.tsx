@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { Figure } from './Figure';
 
-// The named fixture (ADR-0025): the cost curve `busqueda-binaria` carries.
+// The named fixture (ADR-0025): the cost curve the opening class carries.
 const REAL_ASSET = 'asset:courses/sample-course/costo-busqueda.svg';
 
 describe('Figure', () => {

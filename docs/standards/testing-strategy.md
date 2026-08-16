@@ -139,6 +139,34 @@ is green against a stale image — which is the per-commit protocol's normal
 state. Production code is invoked from where the image installed it; only test
 tools travel on the volume (#138 review).
 
+That makes "seen to fail" look expensive, because reddening a check appears to
+need a full `make build`. It does not: a **derived image** keeps the artifact
+rule intact and costs seconds (#147 review).
+
+```bash
+# From apps/amc-worker/. The Dockerfile goes OUTSIDE the tree: written here it
+# would overwrite apps/amc-worker/Dockerfile, which is that app's dependency
+# manifest and which the root CLAUDE.md forbids modifying.
+mkdir -p /tmp/amc-mutant
+printf 'FROM nalanda/amc-worker:dev\nCOPY read_capture.py /opt/amc-worker/read_capture.py\n' \
+  > /tmp/amc-mutant/Dockerfile
+docker build -q -f /tmp/amc-mutant/Dockerfile -t nalanda/amc-worker:mutant .
+AMC_IMAGE=nalanda/amc-worker:mutant tests/03-read.sh
+```
+
+Break the production copy, build one layer, run the script against it. In #147
+this is what found two assertions that could not fail — one that a hardcoded
+denominator satisfied, and one where the reader could emit an empty report on
+exit 0 — neither of which reading the diff had surfaced.
+
+**A fixture added to kill a mutant names that mutant, at the fixture.** When the
+answer to "this assertion cannot fail" is a new fixture rather than a new
+assertion, its header says which mutant survived, that it survived the whole
+suite, and why the case is a separate file instead of folded into the existing
+one. `apps/amc-worker/tests/fixtures/control-tres.tex` is the worked example: it
+exists only because every question in the main pool has four alternatives, so a
+reader hardcoding `4` passed all 53 checks.
+
 **What this level cannot see**: everything about a real sheet. The scripts drive
 synthetically-filled PDFs — boxes drawn at the coordinates AMC's own layout file
 reports — which proves the plumbing and nothing about paper. Whether the reader
@@ -427,9 +455,14 @@ npm run preview` — run, stdin, and a deliberate compile error — per
   doubles. Worked case (#91): the `matchMedia` fake exists in
   `app/presentationRoute.test.tsx` and in `presentation/usePortraitPhone.test.tsx`,
   and they are not identical — only the second tracks which queries were asked.
-- **Asserting ABSENCE inside a lazy boundary needs a synchronisation point.**
+- **Asserting ABSENCE across ANY async boundary needs a synchronisation point**
+  — a lazy chunk, or simply a state transition the assertion does not wait for.
   `queryBy…` returns nothing while a `Suspense` child is still loading, so the
-  assertion passes before the code under test has run at all. First `await` an
+  assertion passes before the code under test has run at all. Second worked case
+  (#135): after `End` in a deck, `queryByText` ran before the last slide painted,
+  so the negative assertion could not fail whatever the slide contained — found
+  by moving the closing prose INSIDE the last `<Slide>` and watching it stay
+  green. First `await` an
   element that can only exist on the far side of the boundary, and say so in a
   comment. Worked case (#91): `app/presentationRoute.test.tsx` awaits the rotate
   panel — which only the loaded document can render — before asserting that no
@@ -687,6 +720,26 @@ playwright package.json` finds nothing by design), then drive `npm run build
   suite stayed green at 576 while the case stopped testing what it is named for,
   and the diff that caused it touched neither that file nor either document it
   selects.
+- **The guard asserts the PROPERTY, not just the name.** "This document still
+  exists and still declares `explicit`" is not what makes it usable: the case
+  needs whatever made it the fixture. Where the rendered DOM cannot tell the
+  difference — a `<Slide title>` h2 and a markdown `##` produce identical
+  headings — the guard reads the source, taking the file list from the same glob
+  the app ships from (the arithmetic lives in `content/architecture.test.ts` and,
+  since #135, in `app/documentSections.test.tsx`). Worked case (#135): that file
+  was repointed at `java-tipos-y-flujo` BECAUSE it carries both heading sources,
+  and its guard asserted neither — demoting both markdown `##` to `###` left the
+  equivalence untested and four cases green.
+- **A repointed fixture is a new test.** A case mutation-proven against document
+  A proves nothing against document B: the new document may satisfy the assertion
+  for reasons the case never claimed. When you repoint, mutate the NEW fixture —
+  add the `##`, empty the `alt`, move the closing prose inside the last `<Slide>`
+  — and watch the case go red before committing, then name the mutation in the
+  commit message. This extends the rule above ("nothing is done before its test
+  has been seen to fail") to a change that is neither a fix nor a guard, which is
+  why it needs saying: the suite is already green, so nothing prompts you. Worked
+  case (#135): two repointed cases stayed green under the very defect they exist
+  to catch, and one of them had been unable to fail at all.
 - **A fixture is resolved from the registry, not the index — unless the case is
   about navigation.** The index decides the teaching path, never existence
   (ADR-0015 §6, over the content model of ADR-0002): `/d/<id>` serves any
@@ -711,6 +764,19 @@ playwright package.json` finds nothing by design), then drive `npm run build
   registry→index check in the suite, and the first change to retire a document
   on purpose would have taken it away — a document forgotten out of `index.yaml`
   would then ship green and unreachable in navigation.
+
+  #135 emptied that list — the retired documents were deleted and the last one
+  rejoined the teaching path — which returned the assertion to the plain
+  `toEqual([])` it had before #136. The ALLOWLIST is what an exception costs;
+  the assertion itself is free and outlives every exception. Retiring it along
+  with an exception is the error to avoid: #135 nearly did, and two review
+  lenses caught it independently. A companion case that rendered an unlisted
+  document WAS retired there, because it needed a real document kept off the
+  index to serve it — that is the fixture cost ADR-0025 §Decision forbids paying
+  ("content is not invented, kept off the teaching path, or given syntax it does
+  not want in order to feed a case"). Weakening and retiring are the two moves
+  that rule leaves open; deleting the assertion is not one of them.
+
 - **A rendered STATE is located by a semantic `data-*` attribute, never by its
   classes.** Matching Tailwind ties the guard to the styling, so a restyle turns
   it green while the state still ships — and the classes of an error box are the
@@ -745,6 +811,19 @@ playwright package.json` finds nothing by design), then drive `npm run build
   not a bare check — the day it fires, whoever hits it is not the person who knew
   why it was there. Worked case (#87): `expect(empty, 'every family now has
 components — cover the empty branch with a direct FamilyPage test')`.
+- **When the population legitimately reaches zero, the floor cannot survive — the
+  assertion under it can.** A non-vacuity guard demands at least one member, so
+  the day a real change empties the set it fires correctly and offers two wrong
+  answers: delete the block, which drops the alarm for every future member
+  silently, or invent content to feed it, which ADR-0025 §Decision refuses. The
+  right answer is to drop the FLOOR and assert the OFFENDING set is empty — it
+  passes at zero and arms itself at one, with no fixture. Worked case (#135):
+  `content/architecture.test.ts` required every markdown image to carry `alt`,
+  and deleting the last document that used `![](…)` emptied it. The block was
+  first deleted outright, on the reasoning that the surviving file-existence gate
+  covered it — it does not, it checks the path and never the alt — and two review
+  lenses caught the hole by writing `![](./costo-busqueda.svg)` into a real
+  document and watching the suite stay green.
 - **Assert where the fact belongs, not that it appears somewhere.** A page-wide
   `getAllByText(...)` proves a string exists on the page; it does not tie the
   string to the row that must carry it. Scope with `within(...)` on the element

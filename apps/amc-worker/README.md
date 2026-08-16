@@ -54,13 +54,21 @@ an HTTP body would buy nothing.
 ```
 GET  /health                                          → { ok, amc }
 POST /generate      { project, source, copies }       → { sujet, corrige, calage, copies }
-POST /analyse       { project, scan_pdf, source }     → { pages, copies, needs_review }
+POST /analyse       { project, scan_pdf, source }     → { pages, scoring, copies, needs_review }
                     ⏱ MINUTES-CLASS — background job only, see below
 POST /associate     { project, roster, code, key }    → { associations, refused_codes }
 POST /associate/set { project, copy, id }             → { copy, id, source }
 POST /annotate      { project, roster, key, out,      → { pdfs, unidentified }
                       [name_column], [verdict] }
 ```
+
+**A refusal is not a crash.** The reader refuses a project it cannot score —
+no scoring database, scoring tables that are empty, a layout that is missing,
+or a captured question with no score. On the CLI that is **exit 2**, with the
+reason and the command that repairs it on stderr and **nothing on stdout**, so
+a caller piping the report into a file never ends up with half of one; any
+other non-zero status is a crash. Over HTTP it currently surfaces as a **500**
+carrying the reason but not the repair command — see the PR's deferred items.
 
 Every failure answers `{ error, detail }`. **400** is the caller's mistake and
 can never succeed on retry — a missing or malformed field, a path outside
@@ -101,10 +109,29 @@ not "no GUI exists" — it is "no display exists, and the CLI does not need one"
 | ------ | ------ |
 | `01-headless.sh` | AMC runs from the CLI with no display; LaTeX resolves `automultiplechoice.sty`; every CLI tool the pipeline needs is present |
 | `02-generate.sh` | N copies from our own `.tex`, questions and alternatives shuffled per copy, an 8-digit RUT grid, a printed identifier per page, a reproducible draw |
-| `03-read.sh` | A scrambled multi-page PDF batch reads back; ambiguous marks and unreadable identifiers are reported separately |
+| `03-read.sh` | A scrambled multi-page PDF batch reads back; ambiguous marks and unreadable identifiers are reported separately; multiple-answer questions score and are not called ambiguous; a project with no scoring database is refused |
 | `04-associate.sh` | Clean copies match a roster automatically; damaged identifiers fail closed; an association can be injected from outside without the GUI |
 | `05-annotate.sh` | One annotated PDF per student, carrying their marks, the correct answers and per-question scores |
-| `06-http.sh` | The whole flow over the HTTP contract; the annotate and unknown-subcommand guards exercised by performing the trap inside the image (the association trap belongs to `04-associate.sh`) |
+| `06-http.sh` | The whole flow over the HTTP contract; the annotate and unknown-subcommand guards exercised by performing the trap inside the image (the association trap belongs to `04-associate.sh`); and that `/analyse` derives `--n-copies` from the layout, performed with six copies against a source declaring five |
+
+**Changing the fixture's question pool moves the seeded draw.** Adding or
+removing a question — or a `\lastchoices`, which draws from the same random
+stream — changes which questions every copy gets, and several checks are pinned
+to that. In order:
+
+1. `tests/02-generate.sh` — the `authored=` list, and the shuffle check, which
+   `fail`s by name when its pair of copies stops sharing the question it reads
+   out of the PDF. That check is written to redden rather than skip precisely
+   so this is noticed.
+2. `tests/03-read.sh` — the per-copy `type` lists, the multiple-answer score
+   pins, and which copy the ambiguous mark lands on.
+3. `tests/fixtures/marking-plan*.json` — entries are positional, by question id
+   order within each copy.
+4. `tests/06-http.sh` — the copy it asserts is scored.
+
+A question shape with a different alternative count belongs in
+`tests/fixtures/control-tres.tex`, not the shared pool: it needs no re-pointing
+and the pool stays a pool.
 
 They are shell scripts rather than a test framework because the subject under
 test is a container image and a third-party CLI — the subject is `docker run`,
@@ -125,9 +152,9 @@ Measurements (image size, batch timings) are **reported**, never asserted: a
 test that fails because a number moved teaches nothing about correctness. They
 are collected in the ADR that closes #138.
 
-## Four traps in AMC that this worker exists to neutralise
+## Five traps in AMC that this worker exists to neutralise
 
-All four are silent, all four were measured rather than read about, and each
+All five are silent, all five were measured rather than read about, and each
 yields a system that looks like it works while losing a student's grade. The
 wrapper refuses each; `tests/06-http.sh` asks it to do the wrong thing —
 **inside the image** — and checks that it does. (An earlier version asserted the
@@ -154,6 +181,17 @@ GUI**, which then dies on `cannot open display`. Subcommands are chosen from a
 fixed set in `worker.py`, so a typo is an error there rather than an
 unexplainable Gtk message in a log.
 
+**`prepare --mode b` scores the copies the SOURCE declares, not the ones that
+were printed** — and it must run AFTER `analyse`, or `scoring_code` comes back
+empty and every association silently matches nothing. Without `--n-copies`, a
+class larger than the source's `\onecopy{N}` leaves the copies above it
+captured and never scored; measured on the paper check itself, one such copy
+came back with every score null under `status: "ok"`, absent from
+`needs_review`, exit 0. `/analyse` derives the count from the layout and passes
+it, and the reader refuses a captured question that carries no score. (In
+`worker.py`'s own comments this is TRAP 3 — that numbering is the wrapper's
+internal one and does not match the order of this list.)
+
 ## What the reader reports, and what it cannot
 
 `/analyse` returns a per-copy report with **three** failure kinds, kept apart
@@ -170,6 +208,57 @@ and reported separately, never counted as an answer. That band is where a
 half-erased pencil lands, and it is the one region a solid synthetic fill (~0.63)
 can never reach — so it is exercised by its own batch in `03-read.sh`.
 
+**Each answer says which kind of question it is** — `type: "simple"` or
+`type: "multiple"` — and on a multiple one **several marks are the answer**, not
+an ambiguity. Only a simple question with more than one mark is `ambiguous`.
+
+**Each answer also carries `score` and `max`, and the caller does the
+arithmetic**, because every question weighs one point (§C16) and AMC does not
+agree: it weighs a simple question 1 and a multiple one point per alternative.
+
+```
+relative_i = score_i / max_i          the fraction of question i's single point
+grade      = sum(relative_i)          over the N questions THIS copy drew
+percentage = grade / N                out of N, because each question is one point
+```
+
+`max` is **not a constant** — 1 for a simple question, the alternative count for
+a multiple — so a three-alternative multiple divides by 3 and a five-alternative
+one by 5. Nothing in the formula assumes four, which is why `max` travels with
+each answer instead of being assumed by the caller. Turning a percentage into a
+1,0–7,0 mark is `apps/server`'s job, not this report's.
+
+Measured on a four-alternative question with two correct alternatives: both
+correct → 4/4; one correct and nothing wrong → 3/4; only a wrong one → 1/4;
+**every box ticked → 2/4**; blank → 0/4. Ticking everything does not win, and no
+score comes back negative.
+
+**The report says which threshold those scores were computed at.** AMC's `note`
+scores at its own `--seuil` while `--ticked` is ours and tunable, so a re-read of
+a stored capture at another sensitivity moves the marks and leaves the scores
+where they were. `scoring: {seuil, ticked, stale}` carries both and flags the
+disagreement rather than hiding it.
+
+**Reading requires a SCORED batch**, not only a captured one: the reader opens
+`scoring.sqlite` as well, which exists only after `prepare --mode b` and `note`
+have run (in that order, and after `analyse`). `/analyse` does it; a caller
+driving the CLI by hand must too. A project without it is refused with a message
+naming the missing command — measured, the half-done state is the dangerous one,
+because `prepare --mode b` alone leaves the scoring tables present and empty.
+
+**And it must have been scored AFTER the last capture.** A question that was
+captured but never scored is refused, and the refusal **withholds the whole
+report** — nothing on stdout, exit 2 — naming the copy and the question at
+fault. It is a refusal rather than a review-queue entry because the repair is
+re-running `note`, not a human looking at the sheet; and it withholds
+everything rather than the offending copy because a partial report is the same
+half-truth this contract exists to forbid. Pass `--n-copies` to
+`prepare --mode b`: without it AMC scores only the copies the source declares in
+`\onecopy{N}`, so printing a class larger than that default gives copies that
+are captured and never scored. Measured on the paper check itself — six printed
+against a source declaring five, and copy 6 came back with every score null,
+`status: "ok"`, absent from `needs_review`, exit 0.
+
 **`/analyse` is a minutes-class call** — 53 s for a class of forty, three
 quarters of it in `getimages`, which AMC does not parallelise. `apps/server`
 must drive it as a background job with a status endpoint, never inside a request
@@ -180,14 +269,23 @@ project directory and two runs over one project would race them.
 ## What a control source must contain
 
 `/generate` compiles a `.tex` you supply. WP-E generates that file from the
-published question bank, and these are its load-bearing parts — the worked
+published question bank. **Why a sheet must say these things is ADR-0033** (the
+printed sheet is a contract too); this section is the operational how-to, and
+these are its load-bearing parts — the worked
 example is `tests/fixtures/control-demo.tex`:
 
 ```latex
-\usepackage[box,completemulti,lang=ES]{automultiplechoice}
-\AMCrandomseed{1237}          % fixed seed → a reproducible draw
+\usepackage{listings}                          % \lstinputlisting needs it
+\usepackage[box,lang=ES]{automultiplechoice}   % NOT completemulti — see below
+\AMCrandomseed{1242}          % fixed seed → a reproducible draw
+\def\unaSymbole{\textsf{\small(una respuesta)}}
+\def\multiSymbole{\textsf{\small(varias respuestas)}}
 ...
-\element{clase}{\begin{question}{indice} ... \end{question}}
+\element{clase}{\begin{question}[\unaSymbole]{indice} ... \end{question}}
+\element{clase}{\begin{questionmult}{comparar-cadenas}
+  ... \lastchoices \wrongchoice{Ninguna de las anteriores} ... \end{questionmult}}
+\element{clase}{\begin{question}[\unaSymbole]{suma-arreglo}
+  \lstinputlisting{/work/src/code/suma-arreglo.java} ... \end{question}}
 \onecopy{5}{
   \AMCcode{rut}{8}            % the 8-digit RUT grid, no verifier digit
   \shufflegroup{clase}
@@ -205,6 +303,34 @@ example is `tests/fixtures/control-demo.tex`:
   id and nothing else.
 - **`--n-copies` overrides `\onecopy{N}`**, so the number in the source is a
   default, not a constraint.
+- **`completemulti` is off, deliberately.** It appended AMC's own "none of
+  these" box to every multiple-answer question — all-or-nothing, with Spanish
+  AMC gets wrong ("Ninguna de estas preguntas son correctas"), and it numbered
+  that question's alternatives from **0** while simple questions started at 1.
+  With it off both types number `1…N`. A question that wants that alternative
+  writes it by hand, and **pins it with `\lastchoices`**: alternatives shuffle,
+  and "ninguna de las anteriores" printed second says something false.
+- **Every question states its type in words**, for both kinds, because a student
+  under a five-minute clock cannot scroll back to learn a convention. It takes
+  two levers: a simple question takes the label as its optional argument, and a
+  `questionmult` cannot — its own definition already passes `\multiSymbole` into
+  that slot, so redefining `\multiSymbole` is the way in.
+- **Code comes from a FILE, by absolute path.** `verbatim` does not compile
+  inside an AMC question, and `\lstinputlisting` with a path relative to the
+  `.tex` does not resolve — AMC compiles from its own working directory, and it
+  fails fatally with no PDF. Everything the worker is handed lives under
+  `/work`, so that is the path, and the preamble must load `listings` — the
+  fixture's `\lstset` (`\ttfamily`, `columns=fullflexible`, `keepspaces=true`) is
+  what makes the listing come out monospaced with its indentation intact. That
+  is also why the bank keeps code as its own
+  field: nothing has to be escaped. **When WP-E generates that path from the
+  bank instead of taking it from this repo, it goes through `under_work()`
+  first** — with the image's `openin_any = a` an unchecked path reads any file
+  in the container into the printed PDF, as root (`docs/security-notes.md`
+  §The control worker runs as root).
+- **Anything the source reads must be staged beside it.** `tests/lib.sh`'s
+  `stage_source` does that for the suite; `make paper` keeps its own copy of
+  those two lines.
 - **Each copy is two PDF pages**, padded to an even count. Printed duplex that
   is one physical sheet per student; it does mean the scan has a back side for
   every sheet.

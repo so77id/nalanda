@@ -18,7 +18,20 @@ const ALTERNATIVES = 4;
 /** At most three of four: "mark everything" measures nothing. */
 const MOST_CORRECT = 3;
 
-const ALL_OR_NONE = /\b(todas|ninguna|ambas)\b[^.]*\banteriores\b/i;
+/**
+ * "Todas las anteriores" and its cousins — but NOT "ninguna de las anteriores".
+ *
+ * The rule used to ban all of them for one reason: every copy shuffles, so out
+ * of last position they stop meaning anything. #147 measured that reason away
+ * for the catch-all — the sheet pins it with AMC's `\lastchoices`, the same
+ * mechanism AMC used for the box it appended itself — and a question where
+ * every listed option is wrong cannot be authored without it.
+ *
+ * "Todas" stays banned because pinning does not save it: if every alternative
+ * is correct, a multiple already says so by marking them, and the guide's own
+ * worked example is one marked correct alongside a contradiction.
+ */
+const ALL_OF_THE_ABOVE = /\b(todas|ambas)\b[^.]*\banteriores\b/i;
 /**
  * Uppercase `NO` only, plus the words that smuggle a negation in.
  *
@@ -105,7 +118,7 @@ export function questionProblems(
     problems.push(
       say(
         question,
-        `marca ${correct} alternativas correctas de ${alternatives.length}; el máximo son tres. Marcarlas todas no mide nada y choca con la casilla de "ninguna de estas" que el control agrega a cada pregunta múltiple.`,
+        `marca ${correct} alternativas correctas de ${alternatives.length}; el máximo son tres. Marcarlas todas no mide nada: quien no sabe marca todo y acierta.`,
       ),
     );
   }
@@ -115,11 +128,11 @@ export function questionProblems(
   }
 
   for (const { text } of alternatives) {
-    if (ALL_OR_NONE.test(text)) {
+    if (ALL_OF_THE_ABOVE.test(text)) {
       problems.push(
         say(
           question,
-          `usa "${text}": cada copia baraja sus alternativas, así que fuera del último lugar deja de significar algo.`,
+          `usa "${text}": si todas son correctas, márcalas y ya está. Para "ninguna de las anteriores" no hay problema: el control la imprime siempre al final.`,
         ),
       );
       break;
