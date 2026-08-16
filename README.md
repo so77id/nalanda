@@ -24,7 +24,7 @@ nalanda/
 ├── apps/
 │   ├── web/            Platform frontend (React 19 + TS + Vite + Tailwind v4)
 │   ├── amc-worker/     Control engine: Auto-Multiple-Choice in a container (ADR-0030)
-│   └── server/         Backend: Go + SQLite, two delivery surfaces (ADR-0033)
+│   └── server/         Backend: Go + SQLite, two delivery surfaces (ADR-0034)
 ├── content/            Course material (Material domain): courses/<slug>/ — MDX + index.yaml
 ├── docs/
 │   ├── standards/      Dev standards: repo structure, code style, testing, docs
@@ -62,6 +62,21 @@ make verify      # build the image, then the full verification suite
 Its commands, HTTP contract and the AMC traps a caller must not hit:
 [`apps/amc-worker/README.md`](apps/amc-worker/README.md). The one verification
 no agent can run: [`apps/amc-worker/PAPER-CHECK.md`](apps/amc-worker/PAPER-CHECK.md).
+
+The backend is a Go binary with SQLite underneath. It starts, migrates and
+answers `/health`; everything else is WP-C2 and WP-C3:
+
+```bash
+cd apps/server
+NALANDA_ADDR=127.0.0.1:8081 NALANDA_DATABASE_URL=./nalanda.db go run ./cmd/server
+
+# or through Docker, which is also how the two services meet:
+cd infra/local && docker compose up -d --wait server
+```
+
+Its configuration contract, the two delivery surfaces and what is deliberately
+not there yet: [`apps/server/README.md`](apps/server/README.md) and
+[`apps/server/CLAUDE.md`](apps/server/CLAUDE.md).
 
 Full command list and app-specific rules: [`apps/web/CLAUDE.md`](apps/web/CLAUDE.md)
 and [`apps/web/README.md`](apps/web/README.md). Before contributing, read

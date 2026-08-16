@@ -11,7 +11,7 @@ nalanda/
 ├── apps/                    # deployable applications, each SELF-CONTAINED
 │   ├── web/                 # platform frontend (React + TS + Vite)
 │   ├── amc-worker/          # control engine: Auto-Multiple-Choice in a container (ADR-0030)
-│   └── server/              # backend: Go + SQLite, two delivery surfaces (ADR-0033) — born with #149
+│   └── server/              # backend: Go + SQLite, two delivery surfaces (ADR-0034) — born with #149
 ├── content/                 # course material (Material domain) — created by its first course
 │   └── courses/<slug>/...   # v0.1: exactly ONE course (enforced at app startup)
 ├── packages/                # shared libraries between apps — created with the first one

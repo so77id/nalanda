@@ -418,14 +418,18 @@ user=… database=…` — at which point the backoffice surface needs the same
 treatment the anonymous one already has. `config.SafeDatabaseURL` already
 redacts the DSN for logs; the response body is the half still to do.
 
-### The server's write deadline expires with ADR-0008 (accepted 2026-08-16, #149)
+### The server's write deadline will collide with ADR-0008 (noted 2026-08-16, #149)
 
-`internal/infra/httpserver` sets all five bounds — `ReadTimeout`,
-`ReadHeaderTimeout`, `WriteTimeout`, `IdleTimeout`, `MaxHeaderBytes` — after a
-measurement showed 50 idle keep-alive sockets surviving 45 seconds with only
-`ReadHeaderTimeout` set.
+**Not an accepted risk — a scheduled collision**, recorded here only because
+this is the file whose review triggers get read. Nothing is deferred: all five
+bounds are set (`ReadTimeout`, `ReadHeaderTimeout`, `WriteTimeout`,
+`IdleTimeout`, `MaxHeaderBytes`), after a measurement showed 50 idle keep-alive
+sockets surviving 45 seconds with only `ReadHeaderTimeout` set.
 
 **Review trigger**: the session relay of ADR-0008. A global `WriteTimeout` kills
-a long-lived WebSocket at 30 seconds, so whoever adds the relay must move that
+a long-lived WebSocket at 30 seconds, so whoever adds the relay must MOVE that
 one bound onto the routes that want it — not delete it and leave every ordinary
-handler unbounded again. The constant carries the same warning in its comment.
+handler unbounded again.
+
+The rule itself lives where it bites, not here: the constant's own comment in
+`internal/infra/httpserver/server.go` and `backend-code-style.md` §HTTP.

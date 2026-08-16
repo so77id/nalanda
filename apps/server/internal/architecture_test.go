@@ -29,7 +29,7 @@ import (
 
 const modulePath = "github.com/so77id/nalanda/apps/server"
 
-// The layers of ADR-0033 §C11, innermost first.
+// The layers of ADR-0034 §C11, innermost first.
 const (
 	domainPrefix = modulePath + "/internal/domain"
 	appPrefix    = modulePath + "/internal/app"
@@ -228,7 +228,7 @@ func surfaceDirs(t *testing.T) []string {
 		}
 	}
 	if len(surfaces) < 2 {
-		t.Fatalf("found %d delivery surfaces under internal/app, want at least the two of ADR-0033 — "+
+		t.Fatalf("found %d delivery surfaces under internal/app, want at least the two of ADR-0034 — "+
 			"with fewer, the sibling-import guard verifies nothing", len(surfaces))
 	}
 	return surfaces
@@ -318,7 +318,7 @@ func TestTheDomainDependsOnNoThirdPartyLibrary(t *testing.T) {
 
 // Infra is beneath the surfaces, not beside them: it holds adapters, and an
 // adapter that reaches up into a delivery surface has inverted the layering
-// ADR-0033 draws. This edge went unguarded in the first version of this file —
+// ADR-0034 draws. This edge went unguarded in the first version of this file —
 // the domain edge and the sibling edge were covered and this one was not, so
 // `internal/infra/storage` could import `internal/app/web` in full green
 // (#149 review, F1). WP-C2 puts OIDC and session storage in infra, which is

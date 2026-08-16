@@ -1,6 +1,6 @@
 // Command server is the Nalanda backend: one binary serving two delivery
 // surfaces (the professor's backoffice and the students' JSON/WS API) over one
-// shared domain. See docs/decisions/0033-the-backend-is-born-with-the-controls.md.
+// shared domain. See docs/decisions/0034-the-backend-is-born-with-the-controls.md.
 package main
 
 import (
@@ -59,7 +59,7 @@ func main() {
 }
 
 // rootHandler composes the two delivery surfaces into the handler the server
-// serves (ADR-0033 §C11: one binary, two surfaces, one shared domain).
+// serves (ADR-0034 §C11: one binary, two surfaces, one shared domain).
 //
 // It is a function rather than four lines inside run() so that the composition
 // can be tested. It was inline first, and deleting the /api/ mount left the

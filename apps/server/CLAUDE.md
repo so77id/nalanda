@@ -17,7 +17,7 @@ fact.
   follow it; they do not innovate on it.
 - `docs/standards/testing-strategy.md` §`apps/server` — the two protocols, and
   §"What this level cannot see", which is why the pre-PR one ends in Docker.
-- `docs/decisions/0033-the-backend-is-born-with-the-controls.md` — the layered
+- `docs/decisions/0034-the-backend-is-born-with-the-controls.md` — the layered
   layout and why microservices were rejected. Also ADR-0006 (Go), ADR-0007
   (SQLite first, and the Postgres exit), ADR-0009 (professor-only auth).
 - `README.md` §"What is not here yet" — before adding anything, check whether it
@@ -36,11 +36,20 @@ looking at the same identifiers.
 
 ## Rules for Claude
 
-- **`internal/domain` imports neither `internal/app` nor `internal/infra`, and
-  no third-party package.** When the domain needs something from outside, it
-  declares the interface and infra implements it — `health.Prober`, implemented
-  by `storage.Prober`, is the shape to copy. `internal/architecture_test.go`
-  enforces this and sees transitive violations too.
+- **The dependency rule has THREE edges**, all enforced by
+  `internal/architecture_test.go`, transitively:
+  1. `internal/domain` imports neither `internal/app` nor `internal/infra`, nor
+     any third-party package.
+  2. **`internal/infra` does not import `internal/app`.** Adapters sit beneath
+     the surfaces, not beside them. This edge was missing from the guard for a
+     whole WP, and it is the one WP-C2 will push on: OIDC and session storage
+     live in infra.
+  3. Neither delivery surface imports the other.
+
+  When the domain needs something from outside, it declares the interface and
+  infra implements it — `health.Prober`, implemented by `storage.Prober`, is the
+  shape to copy. Full statement and the inversion recipe:
+  `docs/standards/backend-code-style.md` §The dependency rule.
 - **Never add a dependency without discussing it.** `go.mod` is a manifest and
   the root `CLAUDE.md` rule applies to it unchanged. The direct set is exactly
   `modernc.org/sqlite` and `github.com/pressly/goose/v3`; there is deliberately
@@ -61,6 +70,16 @@ looking at the same identifiers.
 - **`docker compose` lives in `infra/local/`, never here.** The app packages
   itself (`Dockerfile`); infra places it. Adding a service or a volume is an
   edit to `infra/local/docker-compose.yml`.
+- **A new configuration variable is added in FOUR places and a test catches only
+  the first**: `.env.example` (checked against `config.Keys()`),
+  `infra/local/docker-compose.yml` §server.environment,
+  `.github/workflows/server.yml` §"Run the image and probe it", and the table in
+  `README.md` §Configuration. A REQUIRED variable missing from any of the last
+  three makes the container refuse to start — and compose sits outside CI's path
+  filters, so nothing sees it before a human runs the L8 step.
+- **`migrations/00001_init.sql` is WP-C2's to delete**, in the same PR that adds
+  the first real migration (the users table). It is a deliberately empty
+  placeholder; leaving it turns a `SELECT 1;` into permanent schema history.
 - The database file, its `-wal`/`-shm` siblings and a locally built binary are
   gitignored. Never commit `.env`.
 

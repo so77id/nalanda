@@ -11,7 +11,7 @@
 > its gates and the published artifact; #144 and #147 alongside it, #148 landed
 > the bank itself under ADR-0032). **WP-C1 shipped** (#149) — `apps/server`
 > exists, with the layered shape of C11 enforced by a test and every
-> add-a-new-app obligation discharged; ADR-0033 records C10 and C11. WP-C2
+> add-a-new-app obligation discharged; ADR-0034 records C10 and C11. WP-C2
 > (#150) and WP-C3 (#151) are filed and not started; WPs D–G not started.
 > Living decisions distilled from here become ADRs as each WP develops.
 
@@ -39,7 +39,7 @@ pile afterwards. No student accounts exist and none are planned (ADR-0009).
 | C6 | **Each copy draws its questions at random from the pool of the selected range** (worked case: 4 of ~10), with alternatives shuffled. No minimum-pool gate, no difficulty balancing — an entrance control measures whether the student read, and the professor explicitly does not want the evaluation levelled. | 2026-08-15 |
 | C7 | **The grade is fixed 1.0–7.0 with 4.0 at 50% of the score**, platform-wide, no per-course or per-control configuration. **Nothing is ever subtracted**: a wrong mark costs the credit of that box and no more, so guessing is never punished and a student should answer everything. (Rewritten 2026-08-16. It read *"blank and wrong both score zero"*, which was true when every question had exactly one answer and is false once a question can have several — there a wrong mark costs its box, not the question.) Configuration is added the day a course needs another rule, not before. | 2026-08-15 |
 | C8 | **Auto-Multiple-Choice (AMC) is the generation and reading engine** — **confirmed by the spike; see ADR-0030**, which is authoritative from here on. Nine of ten acceptance criteria met; the fallback below is now a review trigger rather than a live option, and it fires only if the paper check fails. It supplies per-copy shuffling with printed copy identity, the code-grid reader, and the annotated-correction PDF — the three expensive things to build well. Fallback if the spike fails: our own PDF generation plus OMRChecker. | 2026-08-15 |
-| C9 | **AMC runs as a separate worker container sharing a volume with the server.** The Go image is a ~20 MB multi-stage Alpine build; AMC drags Perl, LaTeX and OpenCV — estimated at roughly 2 GB here, **measured at 1.04 GB** (ADR-0030 §Measurements). Isolating it keeps the server image small, keeps the Perl/LaTeX toolchain out of the deploy path, and makes the fallback a container swap rather than a rewrite. Mounting the Docker socket was rejected: it grants host control to a process reachable from the internet. | 2026-08-15 |
+| C9 | **AMC runs as a separate worker container sharing a volume with the server.** The Go image is a multi-stage build onto `scratch` — **measured at 10.3 MB** (ADR-0034 §Consequences), where this line first estimated ~20 MB on Alpine; the pure-Go SQLite driver is what removes the libc dependency and with it the base image; AMC drags Perl, LaTeX and OpenCV — estimated at roughly 2 GB here, **measured at 1.04 GB** (ADR-0030 §Measurements). Isolating it keeps the server image small, keeps the Perl/LaTeX toolchain out of the deploy path, and makes the fallback a container swap rather than a rewrite. Mounting the Docker socket was rejected: it grants host control to a process reachable from the internet. | 2026-08-15 |
 | C10 | **The controls module is what gives birth to `apps/server`** — Go, SQLite, Google OAuth (ADR-0006, ADR-0007, ADR-0009), pulled forward from v0.3. A concrete module with a real user is a better reason to build the backend than building it in the abstract and looking for a use. | 2026-08-15 |
 | C11 | **One binary, two delivery surfaces, one shared domain.** `internal/app/web` serves the server-rendered backoffice; `internal/app/api` serves the JSON/WS API that `apps/web` and the future live-session relay (ADR-0008) consume. Microservices were rejected: SQLite is a local file and two containers writing it would force Postgres, which ADR-0007 declined; and the shared user system — the stated reason for wanting separation — is precisely what a split makes expensive. The module boundary is drawn now, so a future split is a different `go build`, not a rewrite. | 2026-08-15 |
 | C12 | **The two surfaces do not share an auth gate.** The backoffice serves an authenticated professor; the API serves anonymous students who join with a room code (ADR-0009). Same process, opposite auth models — the professor session middleware never hangs off API routes. The API is also cross-origin by construction (`apps/web` lives on GitHub Pages), so CORS and cross-origin WebSocket are its concern and not the backoffice's. | 2026-08-15 |
@@ -189,7 +189,7 @@ new language in the monorepo. All of it landed with C1:
 - Extension points registered in `integration-guides.md`. ✅ — with one
   deliberate deferral: *Add a backend endpoint* needs a repository to show, and
   C1 has none, so it arrives with C2.
-- An ADR for C10/C11 — ADR-0033. ✅
+- An ADR for C10/C11 — ADR-0034. ✅
 
 The one thing C1 did NOT bring is hosting, still deferred by C15: there is a
 Dockerfile and a dev compose service, and no VPS, no Jetson, no Tailscale, no

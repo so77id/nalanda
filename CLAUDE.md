@@ -6,6 +6,11 @@ and live code execution in one browser-first site. **v0.1 "El esqueleto" is
 complete and live at <https://so77id.github.io/nalanda/>**; work moves to v0.2
 "El contenido vivo".
 
+**The backend was pulled forward out of v0.3** (ADR-0034): the entrance-controls
+subsystem needs server work that cannot happen in a browser, so `apps/server`
+exists now. The site is still browser-first and still deploys as a static build —
+nothing in `apps/web` talks to the server yet.
+
 This file holds **monorepo-shared** instructions only. Each app has its own
 `CLAUDE.md` with its commands, stack, and rules — read it before working there:
 
@@ -89,8 +94,9 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
 ## Rules for Claude (repo-wide)
 
 - Never modify dependency manifests without discussing first — `package.json`,
-  the apt and TeX Live set in `apps/amc-worker/Dockerfile` (which is that app's
-  manifest), and a future `go.mod`; never touch lockfiles by hand.
+  `apps/server/go.mod` (with `go.sum` as its lockfile), and the apt and TeX Live
+  set in `apps/amc-worker/Dockerfile` (which is that app's manifest); never touch
+  lockfiles by hand.
 - Never commit `node_modules/`, `dist/`, or `.env` files.
 - Documentation ships in the same PR as the change that obligates it
   (`docs/standards/documentation.md`).

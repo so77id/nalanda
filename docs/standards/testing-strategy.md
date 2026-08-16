@@ -33,12 +33,12 @@ the add-new-app checklist in `repository-structure.md`).
 
 | Level                  | Verifies                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Tool                                                                            | When                                      |
 | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- | ----------------------------------------- |
-| L1 Static              | Types, lint, format                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `tsc` + oxlint + prettier                                                       | Every commit                              |
+| L1 Static              | Types, lint, format                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           | `tsc` + oxlint + prettier (`apps/web`) · `gofmt -l` + `go vet` (`apps/server`)   | Every commit                              |
 | L2 Unit                | Pure logic: parsers, registries, index walks                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Vitest                                                                          | Every commit (TDD red→green per slice)    |
 | L3 Component           | Components honor their contract (e.g., per-mode rendering)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Vitest + Testing Library (jsdom)                                                | Every commit, touched scope               |
-| L4 Architecture        | System invariants: import direction + feature edges (`src/architecture.test.ts`), content ids, declared question coverage and the mechanical question rules (`src/content/architecture.test.ts`), catalog entry shape (`src/catalog/architecture.test.tsx`), entry-chunk isolation — a per-component case for each lazily-registered heavy component, **plus** a walk of everything the shell reaches eagerly from `app/main.tsx` (both in `src/architecture.test.ts`): it never reaches `runtime/`, and it pulls in no bare package outside `SHIPS_EAGERLY`, MDX map ↔ catalog completeness (`src/app/mdxComponents.test.ts`), deployed build shape (`src/app/deployedApp.test.tsx`, `src/app/spaFallback.test.ts`), every published document renders with no authoring error (`src/app/contentRenders.test.tsx`) — it mounts `AppRoutes`, because a document body may use any shell-registered component and a feature-local MDX map would pass vacuously, the two readers of a question agree on every published document and the section spine is the same on both sides (`src/app/questionReaders.test.tsx`) — same reason for living in the shell, and it must go through the MDX **provider**, since `<Slide>` reads its `h2` from that context and would otherwise render a bare heading with no id | Vitest (pattern imported from DocumentBuddy)                                    | Pre-PR + CI                               |
+| L4 Architecture        | System invariants. **`apps/server`**: the three dependency edges of ADR-0034, walked over the real package graph and transitive, with both a non-vacuity guard and a second independent directory walk that must agree with it (`internal/architecture_test.go`). **`apps/web`**: import direction + feature edges (`src/architecture.test.ts`), content ids, declared question coverage and the mechanical question rules (`src/content/architecture.test.ts`), catalog entry shape (`src/catalog/architecture.test.tsx`), entry-chunk isolation — a per-component case for each lazily-registered heavy component, **plus** a walk of everything the shell reaches eagerly from `app/main.tsx` (both in `src/architecture.test.ts`): it never reaches `runtime/`, and it pulls in no bare package outside `SHIPS_EAGERLY`, MDX map ↔ catalog completeness (`src/app/mdxComponents.test.ts`), deployed build shape (`src/app/deployedApp.test.tsx`, `src/app/spaFallback.test.ts`), every published document renders with no authoring error (`src/app/contentRenders.test.tsx`) — it mounts `AppRoutes`, because a document body may use any shell-registered component and a feature-local MDX map would pass vacuously, the two readers of a question agree on every published document and the section spine is the same on both sides (`src/app/questionReaders.test.tsx`) — same reason for living in the shell, and it must go through the MDX **provider**, since `<Slide>` reads its `h2` from that context and would otherwise render a bare heading with no id | Vitest (pattern imported from DocumentBuddy)                                    | Pre-PR + CI                               |
 | L5 Browser smoke       | The real app boots; key flows render in a real browser                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | **Playwright** (decided 2026-08-06; introduced with the first real smoke, WP2+) | Pre-PR + CI                               |
-| L6 Backend integration | Go handlers against real SQLite + fakes                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Go testing                                                                      | Defined when `apps/server` is born (v0.3) |
+| L6 Backend integration | Go handlers against real SQLite: the composed root mux over both surfaces (`cmd/server/main_test.go`), `/health` through the real prober and a database that goes away (`internal/app/web/health_integration_test.go`), migrations applied and re-applied over a temp file (`internal/infra/storage/sqlite_test.go`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Go testing                                                                      | Every commit + pre-PR (`-race -count=1`)  |
 | L7 Cross-app e2e       | browser → web → server                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Top-level `e2e/`                                                                | v0.3+                                     |
 | L8 Manual              | Human visual/functional verification                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | PR checklist                                                                    | Pre-PR                                    |
 
@@ -157,10 +157,10 @@ Born with the app in #149. Style rules for the tests themselves live in
 **Per-commit** (from `apps/server/`):
 
 ```bash
-gofmt -l .             # MUST print nothing — see below
+test -z "$(gofmt -l .)"   # MUST print nothing — see below
 go vet ./...
 go build ./...
-go test ./...          # at minimum the touched scope, in green
+go test ./...             # at minimum the touched scope, in green
 ```
 
 **`gofmt -l` exits 0 whether or not it found anything.** It reports by printing
@@ -172,14 +172,35 @@ nothing.
 **Pre-PR** (from `apps/server/`):
 
 ```bash
-gofmt -l .
+test -z "$(gofmt -l .)"        # see below: `gofmt -l` alone is not a gate
 go vet ./...
 go test -race -count=1 ./...   # FULL suite: unit + L4 architecture + L6
 go build ./...
+go run golang.org/x/vuln/cmd/govulncheck@latest ./...   # same gate as CI; needs network
 docker build -t nalanda/server:dev .
 # then the compose path (L8), from infra/local/:
-#   docker compose up -d --wait server && curl -fsS http://127.0.0.1:8081/health
+#   docker compose up -d --wait server \
+#     && curl -fsS http://127.0.0.1:8081/health \
+#     && curl -fsS http://127.0.0.1:8081/api/health
 ```
+
+**`govulncheck` is in the protocol, not only in CI.** It covers the dependency
+tree AND the standard library of the toolchain `go.mod` declares — the pair that
+drifted in this app's first WP, where `go.mod` said 1.25.7 while the pinned
+builder shipped 1.25.13 and the gap contained a `net/http` fix to how
+`ReadHeaderTimeout` is applied. A hit is resolved by raising the toolchain or the
+dependency (`backend-code-style.md` §Version), never by suppressing it. It is
+listed here because a contributor who ran the documented battery green must not
+then fail CI on a gate no document mentions.
+
+**When the Dockerfile's builder digest changes, check it against `go.mod`:**
+
+```bash
+docker run --rm golang:1.25-alpine@<digest> go version   # must be >= go.mod's
+```
+
+The digest names no version and `1.25-alpine` is a moving tag, so nothing else
+surfaces a mismatch: `docker build` succeeds either way.
 
 **`-count=1` is not optional in the pre-PR run, and the reason is specific.**
 `internal/architecture_test.go` reads the source tree rather than importing it.
@@ -216,6 +237,37 @@ the healthcheck the compose file names exists in the image at all. That last one
 did not exist when the compose file first referenced it (#149 S6), and only
 running the thing said so — which is why the pre-PR protocol ends in Docker
 rather than in `go test`.
+
+## Conventions (all apps)
+
+These were learned in one app and apply to every one. They sit above the
+per-app sections because a rule filed under `apps/web` is a rule the Go author
+never reads, and two of the three below have Go worked cases.
+
+- **A guard reads what it guards through the test runner's own file access,
+  never through a subprocess.** A test package that imports nothing from the
+  code it checks is considered UNCHANGED by the build cache whatever happens to
+  that code, and a subprocess is invisible to the cache's input tracking — so
+  the runner replays a cached PASS. Worked case (#149): an architecture guard
+  built on `go list` replayed a green result through four real dependency-rule
+  violations; rewritten to read the files with `go/parser`, the same mutations
+  go red without even needing `-count=1`. The rule is language-neutral: it
+  applies to any check that shells out to learn what it is asserting about.
+- **When a comment claims a property the suite does not pin, the comment says so
+  — and says why the distinguishing case is unreachable.** A comment that
+  promises a guarantee the tests do not hold is worse than no comment, because
+  the next reader treats it as verified. Worked case (#149):
+  `storage.Prober` explains why it runs a `SELECT` rather than `Ping`, and then
+  states plainly that swapping the two leaves every test green, because telling
+  them apart needs a database gone from under a live connection and SQLite's
+  open file descriptor makes that unreachable from a test.
+- **An acceptance criterion discharged by DIFFERENT behaviour than it specifies
+  is closed by naming the substitute test and the mutation that kills it.** Not
+  by arguing the substitute is equivalent. Worked case (#149): AC-3 asked for a
+  non-200 from `/health` on an unwritable database path; the server refuses to
+  start instead, and the AC was closed with the test that covers the situation
+  that does occur in operation — a database that goes away after boot — plus
+  the mutation showing it red.
 
 ## Conventions (`apps/web`)
 
@@ -722,30 +774,6 @@ components — cover the empty branch with a direct FamilyPage test')`.
   rather than something a reader discovers, and so restoring it later is a
   conscious deletion. Worked case (#87): `it.each(['estructura', …])` asserts
   the old catalog segments 404, with the no-redirect rationale above it.
-- **A guard reads what it guards through the test runner's own file access,
-  never through a subprocess.** A test package that imports nothing from the
-  code it checks is considered UNCHANGED by the build cache whatever happens to
-  that code, and a subprocess is invisible to the cache's input tracking — so
-  the runner replays a cached PASS. Worked case (#149): an architecture guard
-  built on `go list` replayed a green result through four real dependency-rule
-  violations; rewritten to read the files with `go/parser`, the same mutations
-  go red without even needing `-count=1`. The rule is language-neutral: it
-  applies to any check that shells out to learn what it is asserting about.
-- **When a comment claims a property the suite does not pin, the comment says so
-  — and says why the distinguishing case is unreachable.** A comment that
-  promises a guarantee the tests do not hold is worse than no comment, because
-  the next reader treats it as verified. Worked case (#149):
-  `storage.Prober` explains why it runs a `SELECT` rather than `Ping`, and then
-  states plainly that swapping the two leaves every test green, because telling
-  them apart needs a database gone from under a live connection and SQLite's
-  open file descriptor makes that unreachable from a test.
-- **An acceptance criterion discharged by DIFFERENT behaviour than it specifies
-  is closed by naming the substitute test and the mutation that kills it.** Not
-  by arguing the substitute is equivalent. Worked case (#149): AC-3 asked for a
-  non-200 from `/health` on an unwritable database path; the server refuses to
-  start instead, and the AC was closed with the test that covers the situation
-  that does occur in operation — a database that goes away after boot — plus
-  the mutation showing it red.
 - Test fakes live next to the tests that use them (see placement criteria in
   `repository-structure.md`).
 

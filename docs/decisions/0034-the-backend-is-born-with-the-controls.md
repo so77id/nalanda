@@ -1,4 +1,4 @@
-# ADR-0033: The backend is born with the controls, as one binary with two surfaces
+# ADR-0034: The backend is born with the controls, as one binary with two surfaces
 
 **Status:** Accepted
 **Date:** 2026-08-16
@@ -53,16 +53,18 @@ cmd/server/        wiring — the only main package
 internal/domain/   business types and the interfaces they need — PURE
 internal/app/web/  the professor's backoffice (server-rendered)
 internal/app/api/  the JSON/WS surface for anonymous students
-internal/infra/    adapters: storage, config, http transport, clock
+internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
 migrations/        goose SQL migrations, embedded
 ```
 
 Both surfaces are drawn now, before there is traffic across either, so the
 boundary is a starting condition rather than a refactor.
 
-**The dependency rule is enforced by a test, not by good intentions.**
-`internal/domain` imports neither `internal/app` nor `internal/infra` nor any
-third-party package; the two surfaces do not import each other. When the domain
+**The dependency rule is enforced by a test, not by good intentions.** Three
+edges: `internal/domain` imports neither `internal/app` nor `internal/infra` nor
+any third-party package; `internal/infra` does not import `internal/app`, since
+adapters sit beneath the surfaces rather than beside them; and the two surfaces
+do not import each other. When the domain
 needs something outside itself it declares the interface and infra implements it
 — `health.Prober`, implemented by `storage.Prober`, is the worked example.
 `internal/architecture_test.go` walks the package graph and fails on violations,
@@ -123,7 +125,13 @@ rule the repo already applies to `proof-of-concept/`.
   not cross the other apps, both testing protocols registered, and registration
   in `.claude/workflow-bindings.md` — which every review lens reads first.
 
-- **The production image is ~10 MB on `scratch`, running as UID 65532.**
+- **The production image is 10.3 MB on `scratch`, running as UID 65532.**
+  Measured 2026-08-16 with `docker image inspect nalanda/server:dev --format
+  '{{.Size}}'` on darwin/arm64: 10796375 bytes. This replaces
+  the "~20 MB multi-stage Alpine build" that §C9 of the design assumed; the
+  design doc is corrected in the same PR. The figure is reported, never gated —
+  a test that reddens because a number moved teaches nothing (the rule
+  `testing-strategy.md` states for `apps/amc-worker`).
   `CGO_ENABLED=0` is load-bearing: a future dependency needing CGO produces a
   build that succeeds and a container that cannot start. The suite cannot see
   this, so the pre-PR protocol ends in Docker.
@@ -135,6 +143,17 @@ rule the repo already applies to `proof-of-concept/`.
 
 - **A missing configuration variable is a startup error naming it.** No zero
   value is ever taken as a default.
+
+- **Migrating at boot is an accepted operational constraint, not only a
+  convenience.** It buys "the binary and the schema it expects ship together",
+  and it costs three things that are true from this WP onwards and are recorded
+  here because no code path reveals them: exactly ONE instance may start at a
+  time (two would apply migrations concurrently to the same file), the `+goose
+  Down` blocks are never executed by anything and so are untested, and rolling
+  a binary BACK over an applied migration is not supported. None of that binds
+  today — hosting is deferred and there is one instance — which is what makes it
+  an accepted constraint rather than a defect. Review trigger: the first deploy
+  (§C15), or the first second replica.
 
 - **The Postgres exit of ADR-0007 stays cheap**: only `internal/infra/storage`
   names a driver, and the dependency test keeps it that way.

@@ -7,7 +7,7 @@
 #
 # The whole reason `scratch` is reachable here is modernc.org/sqlite: a pure-Go
 # SQLite with no CGO, so the binary needs no libc, no dynamic loader and no
-# base distribution at all (ADR-0007, ADR-0033).
+# base distribution at all (ADR-0007, ADR-0034).
 
 # --- build -------------------------------------------------------------------
 # Pinned by digest, not only by tag: a tag is a moving pointer, and "the build

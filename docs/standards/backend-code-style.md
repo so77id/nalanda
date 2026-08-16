@@ -43,7 +43,7 @@ covers only what `gofmt` and `go vet` cannot.
 
 ## Layout
 
-The layered layout of ADR-0033 (§C11). Each directory is created by the slice
+The layered layout of ADR-0034 (§C11). Each directory is created by the slice
 that gives it content — `repository-structure.md` §Principles forbids creating
 the tree empty and filling it later.
 
@@ -53,7 +53,7 @@ apps/server/
   internal/domain/   business types and the interfaces they need — PURE
   internal/app/web/  the professor's backoffice (server-rendered)
   internal/app/api/  the JSON/WS surface for anonymous students
-  internal/infra/    adapters: storage, config, http transport, clock
+  internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
   migrations/        goose SQL migrations, embedded
 ```
 
@@ -174,6 +174,31 @@ Environment variables only, read **once at boot** into a struct, through
 - **Migrations are embedded and applied at boot**, so the binary and the schema
   it expects ship together.
 
+### Adding a migration
+
+The extension point born with this app. Registered in `integration-guides.md`.
+
+1. **One file per change, in `apps/server/migrations/`**, named
+   `NNNNN_snake_case.sql` with a zero-padded sequential number. `//go:embed
+   *.sql` takes the package ROOT only — a file in a subdirectory compiles and
+   silently does not ship.
+2. **Both directions.** `-- +goose Up` and `-- +goose Down`. The Down block is
+   never executed by anything (see ADR-0034 §Consequences: rolling back over an
+   applied migration is not supported), so write it as documentation of the
+   inverse rather than as a tested path.
+3. **`-- +goose StatementBegin`/`StatementEnd` around anything containing a
+   semicolon that is not a statement separator** — a trigger body, a function.
+   goose splits on semicolons otherwise and hands SQLite half a statement.
+4. **Never edit a migration that has been applied anywhere.** goose records the
+   version, not the content, so an edit is invisible to a database that already
+   ran it.
+5. **The first real migration deletes `00001_init.sql`** in the same PR. That
+   file exists only so `//go:embed` has something to take and so the boot path
+   is provable; it is a `SELECT 1;` and does not belong in permanent schema
+   history.
+6. Run the pre-PR protocol: `sqlite_test.go` applies the embedded set to a fresh
+   temp file and asserts a second boot applies nothing.
+
 ## Naming
 
 - Package names are short, lower-case, single words, and never `util`, `common`
@@ -231,7 +256,7 @@ for writing a test here:
 ## References
 
 - ADR-0005 — development standards (bounded style, guides, docs-in-flow).
-- ADR-0006 — the backend is Go · ADR-0007 — SQLite first · ADR-0033 — the
+- ADR-0006 — the backend is Go · ADR-0007 — SQLite first · ADR-0034 — the
   backend is born with the controls (the layered layout and its rationale).
 - `repository-structure.md` — the rule that a new language brings its standards
   document with the app that introduces it.

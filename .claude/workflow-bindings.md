@@ -45,8 +45,8 @@ area:runtime       # in-browser execution (WASM, future Java)
 area:infra         # monorepo, CI, deploy, scaffolding
 area:docs          # standards, ADRs, guides
 area:controls      # entrance controls subsystem: bank, generation, reading, grades
-area:backend       # future apps/server (v0.3)
-area:auth          # future auth system (v0.3)
+area:backend       # apps/server — the Go backend (born #149)
+area:auth          # OIDC/session auth on apps/server (WP-C2, #150)
 area:live-session  # future live sessions (v0.3)
 ```
 
@@ -57,8 +57,9 @@ Protocols document: docs/standards/testing-strategy.md
 ```
 
 NOTE: the document defines the per-commit and pre-PR protocols for EVERY app
-under the two-protocol rule — `apps/web` (npm) and `apps/amc-worker` (make,
-against a container image) today.
+under the two-protocol rule — `apps/web` (npm), `apps/amc-worker` (make, against
+a container image) and `apps/server` (go, plus docker for the pre-PR battery)
+today.
 
 ## Review answer keys
 
@@ -77,8 +78,25 @@ NOTE: `docs/standards/*` and `apps/web/` land on main with PR #67.
 Repo-specific tools the review lenses run and fold into findings. Empty is valid.
 
 ```
-(empty — tools added per lens as needs appear; e.g., a race detector for the
-correctness lens when Go arrives in v0.3)
+apps/server (Go, added #149):
+  gofmt -l .        — L1. CAVEAT: it reports by PRINTING filenames and exits 0
+                      either way, so a lens must test its OUTPUT, never its
+                      status. A step written as `gofmt -l . && …` is green over
+                      an unformatted tree.
+  go vet ./...      — L1.
+  go test -race -count=1 ./...
+                    — the race detector the previous note anticipated. `-count=1`
+                      is NOT optional: internal/architecture_test.go reads the
+                      source tree rather than importing it, and Go's build cache
+                      replayed a PASS through four real violations without it.
+  go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+                    — security lens. Covers the dependency tree AND the stdlib of
+                      the toolchain go.mod declares.
+  docker build + docker compose up -d --wait server
+                    — the only way to see whether the binary starts on `scratch`
+                      at all; the suite cannot.
+
+apps/web, apps/amc-worker: none beyond their own protocols.
 ```
 
 ## Metrics
