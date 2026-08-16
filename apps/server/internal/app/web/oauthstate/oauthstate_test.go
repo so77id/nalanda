@@ -1,0 +1,115 @@
+package oauthstate_test
+
+import (
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/so77id/nalanda/apps/server/internal/app/web/oauthstate"
+)
+
+func TestAnIssuedNonceIsConsumedOnce(t *testing.T) {
+	store := oauthstate.New(time.Minute, nil)
+
+	nonce, err := store.Issue()
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+
+	if !store.Consume(nonce) {
+		t.Fatal("a freshly issued nonce was not accepted")
+	}
+	// The second time is a replay of the callback, and is what single-use
+	// consumption exists to refuse.
+	if store.Consume(nonce) {
+		t.Error("the same nonce was accepted twice")
+	}
+}
+
+func TestAnUnknownNonceIsRefused(t *testing.T) {
+	store := oauthstate.New(time.Minute, nil)
+
+	for _, nonce := range []string{"", "a-nonce-nobody-issued"} {
+		if store.Consume(nonce) {
+			t.Errorf("Consume(%q) accepted it", nonce)
+		}
+	}
+}
+
+func TestANonceExpires(t *testing.T) {
+	now := time.Date(2026, time.August, 16, 12, 0, 0, 0, time.UTC)
+	store := oauthstate.New(time.Minute, func() time.Time { return now })
+
+	nonce, err := store.Issue()
+	if err != nil {
+		t.Fatalf("Issue: %v", err)
+	}
+
+	now = now.Add(2 * time.Minute)
+
+	if store.Consume(nonce) {
+		t.Error("an expired nonce was accepted")
+	}
+}
+
+// Issuing is something a stranger can ask for as fast as they like — the login
+// page is public — so the map has to be bounded. Without this it is a memory
+// leak with a URL.
+func TestTheStoreDoesNotGrowWithoutBound(t *testing.T) {
+	store := oauthstate.New(time.Hour, nil)
+
+	for range oauthstate.DefaultMaxSize + 500 {
+		if _, err := store.Issue(); err != nil {
+			t.Fatalf("Issue: %v", err)
+		}
+	}
+
+	if got := store.Len(); got > oauthstate.DefaultMaxSize {
+		t.Errorf("the store holds %d nonces, want at most %d", got, oauthstate.DefaultMaxSize)
+	}
+}
+
+// Expired nonces are dropped rather than merely refused, or a server nobody
+// finishes logging in to accumulates them until it restarts.
+func TestExpiredNoncesAreForgotten(t *testing.T) {
+	now := time.Date(2026, time.August, 16, 12, 0, 0, 0, time.UTC)
+	store := oauthstate.New(time.Minute, func() time.Time { return now })
+
+	for range 10 {
+		if _, err := store.Issue(); err != nil {
+			t.Fatalf("Issue: %v", err)
+		}
+	}
+	if store.Len() != 10 {
+		t.Fatalf("Len = %d before expiry, want 10", store.Len())
+	}
+
+	now = now.Add(2 * time.Minute)
+
+	if got := store.Len(); got != 0 {
+		t.Errorf("Len = %d after expiry, want 0", got)
+	}
+}
+
+// The store is reached from every request goroutine at once, so the race
+// detector in the pre-PR protocol has something to look at.
+func TestConcurrentUse(t *testing.T) {
+	store := oauthstate.New(time.Minute, nil)
+
+	var wait sync.WaitGroup
+	for range 50 {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			nonce, err := store.Issue()
+			if err != nil {
+				t.Errorf("Issue: %v", err)
+				return
+			}
+			if !store.Consume(nonce) {
+				t.Error("a nonce issued by this goroutine was refused")
+			}
+		}()
+	}
+	wait.Wait()
+}
