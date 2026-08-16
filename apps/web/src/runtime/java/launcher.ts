@@ -8,12 +8,16 @@
  * Writing the escapes as `\-u007b` etc. so this comment is about them rather
  * than made of them:
  *
- * - `\-u007b` in place of a class's opening brace. The depth count never sees
- *   it, goes negative at the closing one, and every later declaration is
- *   skipped.
- * - `// \-u000a class NalandaLauncher {}`. The escape IS the newline that ends
- *   the comment, so what the stripper blanked is what the compiler compiles.
+ * - `// \-u000a class NalandaLauncher {}`, and the same with `\-u000d`: the
+ *   escape IS the line terminator that ends the comment (JLS §3.4 counts LF, CR
+ *   and CRLF), so what the stripper blanked is what the compiler compiles.
  * - `\-u0063lass NalandaLauncher {}`. The keyword itself is escaped.
+ * - `\-u007b` in place of a class's opening brace. This one is stopped by the
+ *   depth rule rather than by the decoder — `reservedDeclarations` keeps
+ *   checking once the count goes negative, precisely because a hidden brace is
+ *   what negative means. It is listed because it is what made the mismatch
+ *   between our scanner and the compiler visible, and because it DID get
+ *   through the first version of this fix, which tested `depth === 0`.
  *
  * Two rules from §3.3 that a naive four-hex-digit replace gets wrong, both
  * measured against that compiler:
@@ -21,8 +25,9 @@
  * - **A run of `u` is legal**: `\-uuuu0063lass` compiles just as well.
  * - **Only an eligible backslash counts** — one preceded by an even number of
  *   backslashes, i.e. the last of an odd-length run. In `"\\-u0063"` the
- *   compiler prints a backslash and a `u`; decoding it would corrupt the very
- *   string the program was printing.
+ *   compiler prints `\-u0063` verbatim — the `\\` yields one backslash and
+ *   `u0063` are then ordinary characters, not the letter `c`. Decoding it would
+ *   corrupt the very string the program was printing.
  */
 function decodeUnicodeEscapes(source: string): string {
   let out = '';
@@ -72,7 +77,14 @@ function stripNonCode(source: string): string {
     const pair = source.slice(index, index + 2);
 
     if (pair === '//') {
-      while (index < source.length && source[index] !== '\n') index += 1;
+      // A LINE TERMINATOR ends it, and JLS §3.4 makes that LF, CR or CRLF —
+      // `InputCharacter` is explicitly "not CR or LF". Stopping at LF alone left
+      // everything after a lone CR inside the comment for us and outside it for
+      // the compiler, which is a top-level declaration the guard cannot see:
+      // measured, `// \-u000d class NalandaLauncher {}` and the same line with a
+      // raw CR both hijacked the launcher. The raw form needs no escape at all —
+      // a file with classic-Mac line endings is enough.
+      while (index < source.length && source[index] !== '\n' && source[index] !== '\r') index += 1;
       out += ' ';
       continue;
     }
@@ -108,7 +120,9 @@ function stripNonCode(source: string): string {
  * because that is how `Class.forName` wants it.
  */
 export function deriveEntryClass(source: string): string {
-  const code = stripNonCode(source);
+  // Decoded first, like `reservedDeclarations`: the two must read the same
+  // program or the guard clears one file and the compiler is handed another.
+  const code = stripNonCode(decodeUnicodeEscapes(source));
 
   const packageName = /\bpackage\s+([\w.]+)\s*;/.exec(code)?.[1];
   // `static` is deliberately absent: a top-level class can never be static, so

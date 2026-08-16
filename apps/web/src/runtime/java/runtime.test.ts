@@ -481,6 +481,40 @@ describe('createJavaRuntime', () => {
       expect(results(seen)[0]!.compileLog).not.toMatch(/Ponle otro nombre a tu clase/i);
     });
 
+    it('lets a REAL generated harness through, reserved name in the fence and all', async () => {
+      // The shape the platform actually produces, not one hand-written to trip
+      // the guard: `buildHarness` splices the author's `test` fence into the
+      // body of `NalandaCheck.main`, so a reserved name written there is a LOCAL
+      // class — `NalandaCheck$1NalandaLauncher.class` — which shadows nothing and
+      // must not be refused. The scan above is a backstop for the one fence that
+      // unbalances braces and escapes the method, which is the case the
+      // author-facing message exists for.
+      const harnessFromAuthor = [
+        'public class NalandaCheck {',
+        '    public static void main(String[] a) {',
+        '        try {',
+        '            class NalandaLauncher { int x = 1; }',
+        '            check(Solution.doble(2), 4);',
+        '        } catch (Throwable e) { }',
+        '    }',
+        '}',
+      ].join('\n');
+
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: 'class Solution { static int doble(int n) { return n * 2; } }',
+        stdin: '',
+        harness: harnessFromAuthor,
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).not.toMatch(/reservado/i);
+      const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
+      expect(run?.args[0]).toBe('NalandaCheck');
+    });
+
     it('compiles a NESTED reserved declaration, which overwrites nothing', async () => {
       // `Solucion$NalandaLauncher.class` collides with no platform class, so
       // over-refusing here would block a legitimate program. Covered at this

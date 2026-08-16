@@ -197,10 +197,17 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       // A unit may not declare a reserved name it does not OWN. `source` owns
       // none. The harness IS `NalandaCheck` (`buildHarness` generates it), so
       // that one name is its own and scanning for it would refuse every
-      // exercise on the site; any other reserved name in it shadows the same as
-      // anywhere else. `library` is not scanned at all: platform code by
+      // exercise on the site. `library` is not scanned at all: platform code by
       // construction, reachable only from a module constant, and its unit
       // arriving there is the intended use (ADR-0028 §6).
+      //
+      // The harness scan is narrower in practice than it reads, and measured to
+      // be: `buildHarness` splices the author's `test` fence into the body of
+      // `NalandaCheck.main`, so a reserved name written there is a LOCAL class
+      // (`NalandaCheck$1NalandaLauncher.class`) that shadows nothing and is
+      // correctly not flagged. What this catches is the one fence that
+      // unbalances braces and escapes the method into the compilation unit —
+      // which is exactly the case worth an author-facing message.
       const inSource = reservedDeclarations(source)[0];
       const inHarness = reservedDeclarations(harness ?? '').filter(
         (name) => name !== HARNESS_CLASS,

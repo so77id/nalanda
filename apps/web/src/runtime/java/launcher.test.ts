@@ -218,6 +218,26 @@ describe('reservedDeclarations', () => {
       expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS]);
     });
 
+    it('sees a declaration hidden behind an escaped CARRIAGE RETURN', () => {
+      // JLS §3.4 makes a lone CR a line terminator too, and §3.7 excludes it
+      // from `InputCharacter`. Stopping the comment at LF alone left this shape
+      // alive after the LF one was closed — the same hijack, two characters
+      // apart.
+      const source = [
+        'public class Solucion { public static void main(String[] a) { } }',
+        `// \\u000d class ${LAUNCHER_CLASS} { public static void main(String[] a) { } }`,
+      ].join('\n');
+
+      expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS]);
+    });
+
+    it('sees one behind a RAW carriage return, which needs no escape at all', () => {
+      // A file with classic-Mac line endings is enough; nothing here is exotic.
+      const source = `public class Solucion { }\n// \r class ${LAUNCHER_CLASS} { }`;
+
+      expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS]);
+    });
+
     it('sees an escaped keyword', () => {
       // c is `c`, so this reads `class` to the compiler and nothing to us.
       expect(reservedDeclarations(`\\u0063lass ${LAUNCHER_CLASS} {}`)).toEqual([LAUNCHER_CLASS]);
