@@ -19,7 +19,7 @@ import (
 // requests are cut anyway — later and less predictably.
 const shutdownGrace = 10 * time.Second
 
-// The four bounds an http.Server needs and does not have by default. Every one
+// The five bounds an http.Server needs and does not have by default. Every one
 // of them is zero unless set, and zero means "no limit" — so an anonymous
 // client can hold a goroutine and a file descriptor for as long as it likes.
 //

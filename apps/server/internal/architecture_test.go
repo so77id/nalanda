@@ -392,6 +392,53 @@ func TestNeitherSurfaceImportsTheOther(t *testing.T) {
 	}
 }
 
+// ADR-0034 §Consequences promises that "the Postgres exit of ADR-0007 stays
+// cheap: only internal/infra/storage names a driver, and the dependency test
+// keeps it that way". That second clause was good intentions rather than a
+// test: a delivery surface could import modernc.org/sqlite in full green
+// (#149 review, DA3). This is the test that makes the sentence true.
+//
+// The rule is narrower than the layer rules above and independent of them: a
+// package may legitimately live in infra and still have no business knowing
+// which engine is underneath.
+func TestOnlyTheStoragePackageNamesADatabaseDriver(t *testing.T) {
+	packages := readPackages(t)
+	const storagePkg = infraPrefix + "/storage"
+
+	// Import paths of database drivers. Extend when one is added — the Postgres
+	// swap of ADR-0007 adds its driver here and to storage, nowhere else.
+	drivers := []string{"modernc.org/sqlite", "github.com/jackc/pgx", "github.com/lib/pq", "github.com/mattn/go-sqlite3"}
+
+	var found int
+	for pkg, deps := range packages {
+		for _, dep := range deps {
+			for _, driver := range drivers {
+				if dep != driver && !strings.HasPrefix(dep, driver+"/") {
+					continue
+				}
+				found++
+				// cmd/server is allowed: it is the composition root, and it
+				// reaches the driver TRANSITIVELY through storage, which is the
+				// whole point of the arrangement.
+				if inLayer(pkg, storagePkg) || strings.HasPrefix(pkg, modulePath+"/cmd/") {
+					continue
+				}
+				t.Errorf(
+					"%s depends on the database driver %s.\nOnly %s may name an engine — "+
+						"that is what keeps the Postgres swap of ADR-0007 a localized change. "+
+						"Take a *sql.DB or a repository interface instead.",
+					pkg, dep, storagePkg,
+				)
+			}
+		}
+	}
+
+	if found == 0 {
+		t.Fatalf("no package depends on any of %v, so this test verified nothing — "+
+			"if the driver changed, add it to the list", drivers)
+	}
+}
+
 // A guard that reads the tree is only as good as its reading. If the walk finds
 // nothing, or misses a package that certainly exists, every assertion above
 // passes vacuously — so the walk itself is asserted.

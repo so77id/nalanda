@@ -156,7 +156,10 @@ rule the repo already applies to `proof-of-concept/`.
   (§C15), or the first second replica.
 
 - **The Postgres exit of ADR-0007 stays cheap**: only `internal/infra/storage`
-  names a driver, and the dependency test keeps it that way.
+  names a driver, and `TestOnlyTheStoragePackageNamesADatabaseDriver` keeps it
+  that way. That guard exists because this WP's own review found the sentence
+  true and unenforced — a delivery surface could import the SQLite driver in
+  full green, which is the difference between a decision and a hope.
 
 - **WP-C2 (#150) and WP-C3 (#151) now have a floor to build on**, and WP-D and
   WP-E are unblocked as far as C is concerned.

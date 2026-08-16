@@ -15,7 +15,9 @@ import "context"
 type Status string
 
 const (
-	StatusUp   Status = "up"
+	// StatusUp means the component answered.
+	StatusUp Status = "up"
+	// StatusDown means it did not.
 	StatusDown Status = "down"
 )
 

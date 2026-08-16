@@ -208,6 +208,9 @@ The extension point born with this app. Registered in `integration-guides.md`.
   not `health.CheckHealth`; `storage.Open`, not `storage.OpenDatabase`.
 - Receivers are one or two letters, consistent across a type's methods.
 - Exported identifiers carry a doc comment starting with the identifier's name.
+  A `const` or `var` block may share one group comment INSTEAD of per-identifier
+  ones when the members are variations of a single idea (`config.KeyAddr` and
+  its siblings); a block whose members mean different things does not qualify.
 - English identifiers, like everywhere else. Spanish appears only in strings a
   person reads — and on this surface that means the backoffice's rendered text,
   which is course-facing UI (root `CLAUDE.md`).
