@@ -5,6 +5,17 @@ presentation: explicit
 questions: none
 ---
 
+{/* This deck is pinned by app/presentationRoute.test.tsx (ADR-0025: the */}
+{/* conflict is recorded at the document). It asserts the slide COUNT as */}
+{/* `1 / 13` — twelve <Slide> markers plus one <SectionBreak> — and the TITLES */}
+{/* listed below. Adding, removing or retitling a slide reddens that file, and */}
+{/* the fix is to update it, not to undo the edit. */}
+{/* Titles asserted: "Tipos primitivos" (second slide) and */}
+{/* "Ejercicio en vivo: ¿Es par?" (last). It is also the EXPLICIT-MODE fixture */}
+{/* of documentSections.test.tsx, chosen because it carries both heading */}
+{/* sources — <Slide title> h2s AND markdown `##` — so it must keep at least */}
+{/* one `##` (today `## Ejercicios` and `## Lo que sigue`). */}
+
 # Tipos, operadores y entrada/salida
 
 En [[java-desde-cpp|Java desde C++]] montamos el esqueleto: de dónde viene Java, por qué `main`
@@ -53,7 +64,8 @@ plataforma, cuando compara un `double`, usa un margen de `1e-9` en lugar de `==`
 
 Y una ausencia importante: **`String` no está en esta tabla.** Aunque se escriba casi
 como un tipo primitivo, es una clase, y esa diferencia tiene consecuencias que arruinan
-tardes enteras. Es el tema del próximo documento, sobre referencias, `null` e igualdad.
+tardes enteras. Es el tema que viene más adelante en el curso, sobre referencias, `null`
+e igualdad.
 
 <Slide title="El desborde, en vivo">
 Los tamaños fijos se pueden comprobar. Este programa suma 1 al mayor `int` que existe:
@@ -320,8 +332,7 @@ class Flujo {
 
 ### Más formas de bifurcar y repetir
 
-Hay cuatro construcciones más, todas iguales que en C++ menos por un detalle, y una de
-ellas ya apareció en un documento anterior sin que la hubiéramos presentado:
+Hay cuatro construcciones más, todas iguales que en C++ menos por un detalle:
 
 - **`switch`** funciona como el de C++: el mismo `default` y la misma trampa del `break`
   que se olvida y encadena los casos.
@@ -329,8 +340,8 @@ ellas ya apareció en un documento anterior sin que la hubiéramos presentado:
 - **`final`** marca una variable que no se puede reasignar: es el `const` de C++ aplicado
   al valor de la variable.
 - **El `for-each`** recorre un arreglo o una colección sin llevar un índice a mano. Es la
-  única novedad de la lista, y conviene conocerla porque ya la estás usando: aparece en el
-  documento de código ejecutable, que va antes que este en el recorrido.
+  única novedad de la lista, y conviene conocerla porque la vas a usar en cuanto recorras
+  un arreglo.
 
 ```java
 int[] nums = {2, 4, 6};
@@ -523,4 +534,4 @@ no sabes es qué guarda realmente una variable cuando no es un tipo primitivo �
 esa pregunta, que parece de detalle, es la que separa a quien entiende una lista
 enlazada de quien la copia.
 
-Es lo que viene en el próximo documento, sobre referencias, `null` e igualdad.
+Es lo que viene más adelante en el curso, sobre referencias, `null` e igualdad.

@@ -70,17 +70,30 @@ nalanda/
      build (`guides/add-a-course-document.md` step 2). ADR-0025 carries the
      alternatives that were rejected and the exit condition.
 
-     **The exceptions to "without entering `src/`"** are two, and since #139
-     writing a document's QUESTIONS is one of them: a `per-section` document
+     **The exceptions to "without entering `src/`"** are three.
+
+     Writing a document's QUESTIONS is one, since #139: a `per-section` document
      declares its deliberately question-less sections in `NO_QUESTION`
      (`apps/web/src/content/architecture.test.ts`), with a reason each, and the
      gate asserts that set exactly — so the suite is red until that file is
-     edited. The other is the SET of listed
-     documents, since #136. Taking a document off the teaching path — or
-     shipping one deliberately unlisted — requires declaring its id in `RETIRED`
-     in `app/documentBreadcrumb.test.tsx`, which asserts the unlisted set
-     exactly, so both an undeclared omission and an undeclared re-listing turn
-     the suite red. Writing a document's PROSE still needs no `src/` at all.
+     edited.
+
+     The SET of listed documents is the second:
+     `app/documentBreadcrumb.test.tsx` asserts that every document in `content/`
+     appears in an `index.yaml`, so adding one without listing it turns the suite
+     red. Shipping a document deliberately OFF the teaching path therefore means
+     editing that assertion — weakening it with an allowlist naming the
+     exceptions, the way #136 did and #135 undid.
+
+     The third is the SHAPE of a document the suite uses as a fixture, and since
+     #135 that is three of the four: `04-planificacion.mdx` must keep
+     `presentation: none` and zero `h2`, and the two Java documents have their
+     slide counts and several slide titles pinned.
+
+     Each document constrained this way carries a note under its frontmatter
+     saying so (ADR-0025), so the rule an author needs is: **writing prose in a
+     document that carries no note needs no `src/` at all** — and if it carries
+     one, read it first.
 
    - `docs/` — knowledge: standards, design, decisions, conventions.
    - `infra/` — running the system around the apps:

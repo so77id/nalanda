@@ -84,7 +84,7 @@ export function DocumentPage({ notFound }: Props) {
   // there; between md and 2xl the sidebar is back and the toggle stays for the
   // sections alone — which is why the <Toc> inside the drawer is md:hidden, and
   // why a document with no sections hides the toggle instead of opening an
-  // empty panel (04-apuntes.mdx ships with zero h2). At 2xl the rail takes over.
+  // empty panel (04-planificacion.mdx ships with zero h2). At 2xl the rail takes over.
   const toggleHiddenAt = sections.length > 0 ? '2xl:hidden' : 'md:hidden';
 
   // Navigating inside the drawer must not leave it covering the document.

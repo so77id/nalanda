@@ -2,6 +2,7 @@ title: Estructuras de Datos y Algoritmos
 entries:
   - docId: bienvenida
     label: Clase inaugural
+  - docId: planificacion
   - label: Java
     levelName: Unidad
     children:

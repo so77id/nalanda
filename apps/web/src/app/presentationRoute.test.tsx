@@ -637,7 +637,7 @@ describe('leaving the presentation from the deck', () => {
 // with "seed course needs a presentation:none document" — the wrong diagnosis —
 // when a document was taken off the path, which is the failure the §Conventions
 // rule this branch adds exists to prevent.
-const NONE_FIXTURE = 'apuntes-del-curso';
+const NONE_FIXTURE = 'planificacion';
 const noneId = registry.get(NONE_FIXTURE)?.meta.id;
 
 describe('presentation: none documents', () => {
@@ -675,12 +675,13 @@ describe('book-view entry points to presentation', () => {
   });
 });
 
-// busqueda-binaria is the DESIGNATED explicit-mode fixture (see its frontmatter):
+// java-tipos-y-flujo is the DESIGNATED explicit-mode fixture (its own MDX carries
+// the note saying so, and what it must keep):
 // these tests guard the real compiled <Slide> path through the mdxChildrenOf
 // adapter — the alarm the adapter's docs promise.
 describe('explicit-mode documents (real compiled markers)', () => {
   // Named, not discovered (#108). The assertions below are this document's own
-  // words — "La idea", "Costo", "prosa de libro" — so "the first explicit
+  // words — "Tipos primitivos", "Ejercicios" — so "the first explicit
   // document" was never what these cases meant; it merely resolved to the right
   // one while `busqueda-binaria` happened to come first in the index. The day
   // another document ahead of it declared `explicit`, both cases failed against
@@ -691,7 +692,7 @@ describe('explicit-mode documents (real compiled markers)', () => {
   // index decides the teaching path, never existence (ADR-0015 §6). Reading the
   // index conflated the two, and retiring the Fundamentos unit from the path
   // reddened three cases here about a document nobody had touched.
-  const EXPLICIT_FIXTURE = 'busqueda-binaria';
+  const EXPLICIT_FIXTURE = 'java-tipos-y-flujo';
   const explicitId = registry.get(EXPLICIT_FIXTURE)?.meta.id;
 
   it('the seed course still provides the explicit fixture these cases describe', () => {
@@ -702,39 +703,50 @@ describe('explicit-mode documents (real compiled markers)', () => {
     expect(registry.get(explicitId!)?.meta.presentation).toBe('explicit');
   });
 
+  // Named, not a bare URL (ADR-0025 §2). This drove `intro-estructuras` until
+  // #135 deleted it; `java-desde-cpp` ends the same way — a navigation sentence
+  // after the last <Slide> — so the case keeps exactly what it was written for.
+  const CLOSING_FIXTURE = 'java-desde-cpp';
+
   // What #108 actually bought, pinned. Reverting content/ to its pre-#108 state
   // left the whole suite green except the declaration invariant — nothing was
   // watching the behaviour the WP exists for. `intro-estructuras` used to end
   // its deck on the book's own closing navigation sentence, projected alone,
   // because in `auto` there is no way to keep loose prose out of a deck.
-  it('keeps the book’s closing navigation sentence out of intro-estructuras’ deck', async () => {
-    renderAt('/d/intro-estructuras/present');
+  it('keeps the book’s closing navigation sentence out of the deck', async () => {
+    renderAt(`/d/${CLOSING_FIXTURE}/present`);
     // The count is the vehicle, not the subject: what this pins is that `End`
-    // lands on the last MARKED slide and the trailing sentence is not one. It
-    // moves whenever the document gains a slide — 4 → 5 in #119, which added the
-    // mosaic of four structures.
-    expect(await findCounter()).toHaveTextContent('1 / 5');
+    // lands on the last MARKED slide and the trailing sentence is not one. 13 is
+    // this document's twelve `<Slide>` markers plus its one `<SectionBreak>`;
+    // move the number whenever it gains or loses either.
+    expect(await findCounter()).toHaveTextContent('1 / 13');
 
     fireEvent.keyDown(window, { key: 'End' });
     expect(
-      await screen.findByRole('heading', { name: 'Operaciones y costos' }),
+      await screen.findByRole('heading', { name: 'La prueba del nombre completo' }),
     ).toBeInTheDocument();
-    expect(screen.queryByText(/Cuando termines/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Es el próximo documento/)).not.toBeInTheDocument();
   });
 
   it('decks only the marked slides, leaving loose prose book-only', async () => {
     await renderAt(`/d/${explicitId}/present`);
     const counter = await findCounter();
-    // Same as above: the number tracks the fixture's marked slides — 3 → 4 in
-    // #119, which added the cost-curve slide — while the case is about the loose
-    // prose staying out.
-    expect(counter).toHaveTextContent('1 / 4');
+    // Same as above: the number tracks the fixture's marked slides — twelve
+    // `<Slide>` markers plus one `<SectionBreak>` — while the case is about the
+    // loose prose staying out.
+    expect(counter).toHaveTextContent('1 / 13');
 
     fireEvent.keyDown(window, { key: 'ArrowRight' });
-    expect(await screen.findByRole('heading', { name: 'La idea' })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Tipos primitivos' })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: 'End' });
-    expect(screen.queryByText(/prosa de libro/)).not.toBeInTheDocument();
+    // Awaited on purpose: `queryByText` cannot wait, and until the last slide has
+    // painted the deck body is not in the DOM at all — so without this the
+    // negative assertion below passes against an empty document and can never
+    // fail. Found by mutation in #135's review: moving the closing prose INSIDE
+    // the last <Slide> left the case green.
+    await screen.findByRole('heading', { name: 'Ejercicio en vivo: ¿Es par?' });
+    expect(screen.queryByText(/Es lo que viene más adelante en el curso/)).not.toBeInTheDocument();
   });
 
   it('renders marked slides as heading + prose in the book view, with the loose section present', async () => {
@@ -742,8 +754,12 @@ describe('explicit-mode documents (real compiled markers)', () => {
     const article = await screen.findByRole('article');
     const { within } = await import('@testing-library/react');
     expect(
-      await within(article).findByRole('heading', { level: 2, name: /La idea/ }),
+      await within(article).findByRole('heading', { level: 2, name: /Tipos primitivos/ }),
     ).toBeInTheDocument();
-    expect(within(article).getByRole('heading', { level: 2, name: /Costo/ })).toBeInTheDocument();
+    // A markdown `##`, not a <Slide title> — the loose section the case is named
+    // for, and the second heading source this fixture was chosen to carry.
+    expect(
+      within(article).getByRole('heading', { level: 2, name: /Ejercicios/ }),
+    ).toBeInTheDocument();
   });
 });

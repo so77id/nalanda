@@ -12,20 +12,26 @@ any content unit. No app code is involved — everything happens under `content/
 
 ## Worked example
 
-The seed course `content/courses/sample-course/` exercises everything:
+The seed course `content/courses/sample-course/` exercises most of the authoring
+surface — but not all of it since #135. Three capabilities have **no worked example
+in `content/` today**: markdown image syntax (`![alt](./x.svg)`), an unplated
+`<Mosaic>`, and `<CodeEditor variant="read">`. All three are still supported and
+still documented below; the `/catalog` page for each is the reference, and a unit
+test is their only guard.
 
 ```
 content/courses/sample-course/
-├── 01-bienvenida.mdx          # presentation: explicit — the course's opening class, cut by hand
-├── 02-intro-estructuras.mdx   # presentation: explicit — uses <Slide> + <Mosaic>
-├── 03-busqueda-binaria.mdx    # presentation: explicit — uses <Slide> + <Split>, plus a markdown ## (both h2 sources)
-├── costo-busqueda.svg         # an asset sits beside the document that uses it
-├── estructuras/               # …in a subfolder once there are several
-│   └── arreglo.svg, lista.svg, cola.svg, pila.svg
-├── 04-apuntes.mdx             # presentation: none     — book-only
-├── 05-codigo-ejecutable.mdx   # presentation: explicit — uses <CodeEditor>
-├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>
-├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>
+├── 01-bienvenida.mdx          # presentation: explicit — the opening class, cut by hand; <Split>, <Mosaic>, <CodeEditor>, maths
+├── caja-negra.svg             # an asset sits beside the document that uses it
+├── costo-busqueda.svg
+├── costo-en-dolares.svg
+├── heap.svg
+├── viajante.svg
+├── logos/                     # …in a subfolder once there are several
+│   └── google.svg, java.svg, … (22, with a README recording provenance)
+├── 04-planificacion.mdx       # presentation: none     — book-only
+├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>, plus a markdown ##
+├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>, plus two markdown ##
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -43,8 +49,8 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
 
    ```mdx
    ---
-   id: busqueda-binaria # kebab-case, UNIQUE across the whole content/ tree
-   title: Búsqueda binaria # shown in the TOC, prev/next, and lookups
+   id: java-desde-cpp # kebab-case, UNIQUE across the whole content/ tree
+   title: Java desde C++ # shown in the TOC, prev/next, and lookups
    presentation: explicit # auto | explicit | none — declare it, always
    questions: per-section # per-section | pool | none — declare it, always
    ---
@@ -75,9 +81,11 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    want the default** (#108, enforced by `src/content/architecture.test.ts`).
    The field defaults to `auto`, so a document that omits it still ships a deck;
    omitting it does not mean "no slides", it means slides nobody chose. Two of
-   the documents here had exactly that, and one of them projected the book's
-   own navigation sentence — _"Cuando termines, vuelve a la bienvenida"_ — alone
-   on a slide.
+   the documents here had exactly that, and one of them projected the book's own
+   navigation sentence alone on a slide. Both were retired in #135; the surviving
+   worked case is `06-java-desde-cpp.mdx`, which ends the same way — _"Es el
+   próximo documento: …"_ after its last `<Slide>` — and
+   `presentationRoute.test.tsx` pins that the deck leaves it out.
 
    Deciding is cheap and takes one walk through `/d/<id>/present`. Note that the
    walk is the only way to find this: an undeclared deck is never clipped or
@@ -88,32 +96,38 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    > what you may declare here. Several tests bind to real documents; three
    > constrain the presentation declaration:
    >
-   > - `documentSections.test.tsx` names `busqueda-binaria` as its fixture,
-   >   chosen because it carries BOTH heading sources — `<Slide title>` h2s and
-   >   a markdown `##` — which is the equivalence those cases assert.
-   > - `presentationRoute.test.tsx` names `busqueda-binaria` too and drives
-   >   `intro-estructuras`.
-   > - `presentationRoute.test.tsx` also drives `java-desde-cpp` at a **fixed
-   >   slide index** (`?slide=10`, the "Compilar y ejecutar" slide — the only one
-   >   carrying a `<pre>`), so that document must stay presentable and keep its
-   >   shape there. Nothing names it as a fixture; it is a bare URL in a test.
-   > - `apuntes-del-curso` is named three times over (#136): as the book-only
-   >   fixture of `presentationRoute.test.tsx` and `documentSections.test.tsx`
-   >   (it must keep `presentation: none` and no `h2` at all), and as
-   >   `deployedApp.test.tsx`'s deep-link fixture. It must stay in `content/` and
-   >   must not become the landing page — but it is **off the teaching path**
-   >   since the course was trimmed to its two live units, which is exactly the
-   >   split those three cases now rely on: they resolve it from the registry,
-   >   never from the index.
-   > - `documentBreadcrumb.test.tsx` pins the unlisted SET rather than a single
-   >   document — see step 8.
+   > - `documentSections.test.tsx` and `presentationRoute.test.tsx` both name
+   >   `java-tipos-y-flujo` as their explicit-mode fixture, chosen because it
+   >   carries BOTH heading sources — twelve `<Slide title>` h2s and two markdown
+   >   ones — which is the equivalence those cases assert. A document with only
+   >   one source would leave them green and meaningless.
+   > - `java-desde-cpp` is pinned BOTH ways by `presentationRoute.test.tsx`: it
+   >   is named as `CLOSING_FIXTURE`, whose deck must keep its closing navigation
+   >   sentence OUT (the behaviour #108 bought), and it is driven at a **fixed
+   >   slide index** (`?slide=10`, the "Compilar y ejecutar" slide — the deck's
+   >   only `<pre>`), so re-cutting it must preserve that index. It was a bare
+   >   URL and nothing else until #135 repointed `CLOSING_FIXTURE` onto it.
+   > - **Both decks are pinned at 13 slides.** `1 / 13` is asserted for
+   >   `java-desde-cpp` and for `java-tipos-y-flujo` alike — twelve `<Slide>`
+   >   markers plus one `<SectionBreak>`. Writing a lesson that gains or loses a
+   >   slide reddens `presentationRoute.test.tsx`, which is expected: update the
+   >   count. Each document carries the same warning under its own frontmatter.
+   > - `planificacion` is named by three test files (#136, renamed in #135): as
+   >   the book-only fixture of `presentationRoute.test.tsx` and
+   >   `documentSections.test.tsx`, and as `deployedApp.test.tsx`'s deep-link
+   >   fixture — plus a `SectionNav.test.tsx` comment. It must keep
+   >   `presentation: none` and **no `h2` at all**, must stay in `content/`, and
+   >   must not become the landing page. The document says so itself, under its
+   >   frontmatter — read that before adding a `## Septiembre`.
+   > - `documentBreadcrumb.test.tsx` pins the SET of unlisted documents at empty
+   >   — see step 8.
    >
    > **No document here declares `auto` any more** (#120): `01-bienvenida.mdx`
    > was the last one, and it became the course's opening class, cut by hand into
    > slides. Nothing was re-declared to replace it — giving a deck to material
    > whose author did not choose one is the defect #108 exists to prevent. Auto
    > slicing is covered over synthetic MDX in `presentation/parser.test.tsx`, and
-   > the rail over a markdown `##` by the explicit fixture's own `## Costo`. The
+   > the rail over a markdown `##` by the explicit fixture's own `## Ejercicios`. The
    > value is still supported and still a legitimate choice; if you declare it,
    > `documentSections.test.tsx` says where the retired case goes back.
    >
@@ -128,7 +142,11 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    drawer below it. `h3`/`h4` stay deep-linkable but never appear there, so a
    document you want navigable is structured with `##`. A document with no `h2`
    at all simply has no section navigation, which is a choice rather than a bug
-   (`04-apuntes.mdx` is the worked case).
+   (`04-planificacion.mdx` is the worked case) — and in that document it is also
+   PINNED: it is the only section-less document left in the tree, so
+   `documentSections.test.tsx` uses it for exactly that, and giving it a `##`
+   reddens the suite. Use `###`, or a table, or move that case first (step 2, and
+   the note in the document itself).
 
    Running text is narrowed to ~70 characters inside the 768px column, while
    code, tables and components keep the full width (ADR-0022). You write nothing
@@ -271,7 +289,7 @@ so a formula is read as mathematics rather than skipped as decoration.
    `<SectionBreak />` are available WITHOUT imports. In the book view a Slide
    renders as its heading + flowing prose and a SectionBreak as a subtle
    divider; in presentation they cut slide boundaries. Worked example:
-   `03-busqueda-binaria.mdx`.
+   `06-java-desde-cpp.mdx`.
 
    A `<Slide title>` renders that same `h2`, so **slide titles appear in the
    section list** — one more reason to give every Slide a title. An untitled
@@ -279,7 +297,8 @@ so a formula is read as mathematics rather than skipped as decoration.
 
 5. **Add runnable code (optional)**: `<CodeEditor language="java" />` is
    likewise available without imports — Java, C++ or Python, compiled and run in
-   the reader's own browser. Worked example: `05-codigo-ejecutable.mdx`.
+   the reader's own browser. Worked example: `07-java-tipos-y-flujo.mdx`, which
+   ships five of them.
 
    > **Java has a sharp edge.** It runs on the page's main thread (ADR-0017), so
    > a student's `while (true)` freezes the tab and nothing recovers it — they
@@ -461,7 +480,7 @@ a red build — hit while writing `01-bienvenida.mdx` (#120).
 
 6. **Show a picture (optional)**: the asset lives **beside the `.mdx` that uses
    it**, addressed relatively, and a subfolder is fine when there are several
-   (`./estructuras/cola.svg`, `./logos/`). Both syntaxes work and get the same
+   (`./logos/java.svg`). Both syntaxes work and get the same
    pipeline: markdown `![alt](./curva.svg)` for a picture that just needs to be
    there, and `<Figure>` when it needs a caption or sits inside a layout.
 
@@ -631,8 +650,9 @@ ADR-0029.
    drafting any.** This step is how to type them; that is whether they are worth
    asking, and the difference is most of the value.
 
-8. **Register it in the teaching path** (`index.yaml`) if it belongs to the
-   recorrido. Schema (strictly validated; unknown keys fail the build):
+8. **Register it in the teaching path** (`index.yaml`) — every document is
+   listed, and the suite asserts it. Schema (strictly validated; unknown keys
+   fail the build):
 
    ```yaml
    title: Estructuras de Datos y Algoritmos # optional course name; the first crumb of the breadcrumb
@@ -651,22 +671,23 @@ ADR-0029.
    not listed in the index is still compiled and served at `/d/<id>`: **the index
    controls navigation, never visibility.**
 
-   > **Unlisted is legal at runtime, and the suite gates the SET rather than
-   > forbidding it.** `app/documentBreadcrumb.test.tsx` holds a `RETIRED` list of
-   > the ids deliberately off the path, and asserts the unlisted documents are
-   > exactly those. So a document you forget to list still turns the protocol
-   > red — with a message naming both ways out — while a document taken off the
-   > path on purpose is declared once and stays green.
+   > **Unlisted is legal at runtime, and the suite gates it.** A document
+   > absent from `index.yaml` is still compiled and still served at `/d/<id>`;
+   > the index decides the teaching path, never existence (ADR-0015 §6). What
+   > stops one from shipping that way by accident is
+   > `documentBreadcrumb.test.tsx`, which asserts the set of unlisted documents
+   > is EMPTY — the suite's only check in the registry→index direction.
+   > Everything else runs the other way and cannot see a document that is in
+   > `content/` and in no index.
    >
-   > Two consequences, unchanged in practice: a real document must be listed, and
-   > a scratch document written to check a component in a browser must be
-   > **deleted before you run the suite** (#116 used exactly that trick to verify
-   > presentation mode, and hit this on the way).
+   > So a scratch document written to check a component in a browser turns the
+   > protocol red until you delete it or list it. That is the point: merging
+   > publishes, and there is no unpublish.
    >
-   > The list was `[]` until #136 took the Fundamentos unit off the path; those
-   > three documents stay served while #135 removes them. Before that change the
-   > assertion was `toEqual([])`, and the first thing to retire a document
-   > deleted it — taking the alarm with it, which is what this shape prevents.
+   > If a document ever needs to be deliberately unlisted, do NOT delete the
+   > case — weaken it. #136 did exactly that with a `RETIRED` allowlist naming
+   > the exceptions, so the alarm survived them; #135 emptied the list when the
+   > exceptions went away. The note in the test records where it goes back.
 
    `title` names the course wherever the reader needs to know which one they are
    in — today the breadcrumb above every document. Omit it and the trail starts
@@ -727,10 +748,11 @@ ADR-0029.
       section, alone, and answered — the one failure no gate can see is a
       question that is perfectly formed and unanswerable from the section it
       claims (`write-control-questions.md`).
-- [ ] Listed in `index.yaml` if it belongs to the recorrido — or, if it is
-      deliberately off the path, its id declared in `RETIRED` in
-      `app/documentBreadcrumb.test.tsx`. The suite asserts the unlisted set
-      exactly, so an undeclared omission and an undeclared re-listing both fail.
+- [ ] Listed in `index.yaml`. Every document is, and
+      `app/documentBreadcrumb.test.tsx` asserts the unlisted set is empty, so
+      forgetting this turns the suite red rather than shipping a document that
+      is served but unreachable in navigation. Deliberately unlisting one means
+      weakening that assertion with a named allowlist — see step 8.
 - [ ] `npm run build` **and** `npm run test` green from `apps/web/`. The build
       runs the content integrity gate; the declaration invariant and the fixture
       guards live in the suite, so the build alone goes green on content CI

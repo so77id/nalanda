@@ -114,4 +114,23 @@ describe('routing', () => {
     await renderAt('/nope');
     expect(screen.getByRole('heading', { name: /not found/i })).toBeInTheDocument();
   });
+
+  // #135 deleted four PUBLISHED documents — merging deploys, so `/d/<id>` had
+  // been answering for `intro-estructuras`, `busqueda-binaria`,
+  // `codigo-ejecutable` and `apuntes-del-curso`. They 404 now, and no redirect
+  // ships: the material was retired rather than moved, so there is nowhere
+  // honest to send a reader.
+  //
+  // That break is deliberately NOT pinned by id, and the reason is worth
+  // recording because `testing-strategy.md` §Conventions says to pin one. That
+  // rule protects whoever still holds the old URL — it stops a stale link from
+  // silently resolving to a DIFFERENT document later. Here nobody holds them
+  // (#135: they were demo pages), so there is no one to protect, and the cost
+  // lands on the wrong day: three of those four ids are core topics of this
+  // course — binary search, an introduction to structures, executable code —
+  // and v0.2 exists to write them properly. A pin would fire the day the
+  // material comes BACK, which is the good day, and its only remedy would be
+  // deleting the case. The generic unknown-id cases above already prove the 404
+  // path; what actually matters — that no document ships outside the index —
+  // is asserted in `documentBreadcrumb.test.tsx`.
 });
