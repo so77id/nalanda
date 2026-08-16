@@ -37,7 +37,9 @@ export const questionCatalogEntry: CatalogEntry = {
     'At the end of a course document, inside <Questions>. Write the question where the class ends rather than beside the section it asks about: writing prose and writing questions are different mental modes, and `anchor` is what keeps the question tied to its section anyway. ' +
     'The correct alternative is marked in place with a checked task-list item, never named from outside — naming one by position means reordering the alternatives silently changes the answer. ' +
     'The answer is revealed only once the reader answers: pacing, not secrecy. Everything under `content/` is published, so the page source holds it either way, and a question a student cannot self-check is worth less as study material. ' +
-    'A code listing is shown read-only. In a document body a fence is a runnable editor, and inside a question a Run button would answer a what-does-this-print question before the student did.',
+    'A code listing is shown read-only. In a document body a fence is a runnable editor, and inside a question a Run button would answer a what-does-this-print question before the student did. ' +
+    'Check more than one alternative and it becomes a multiple: the type is derived from the marks, never declared. It is badged on the page and commits as a set — right only when the set is exactly the correct one. ' +
+    'Every question weighs one point whatever its type, so mixing them is safe; use a multiple because the material has several true statements, not to make a control harder.',
   props: [
     {
       name: 'id',
@@ -55,7 +57,7 @@ export const questionCatalogEntry: CatalogEntry = {
       name: 'children',
       type: 'MDX',
       description:
-        'A paragraph (the question), optionally a fenced code block, and a task list of exactly four alternatives with the correct one checked.',
+        'A paragraph (the question), optionally a fenced code block, and a task list of exactly four alternatives with the correct ones checked. Between one and three may be checked: none is unanswerable, and all four is "mark everything", which measures nothing.',
     },
   ],
   examples: [
@@ -113,6 +115,30 @@ public class Demo {
             <code className="language-java">{SUMA}</code>
           </pre>
           {alternatives(['3', false], ['6', true], ['123', false], ['No compila', false])}
+        </Question>
+      ),
+    },
+    {
+      title: 'A question with several correct answers',
+      code: `<Question id="diferencias-con-cpp" anchor="cuatro-diferencias-una-por-una">
+
+¿Cuáles de estas afirmaciones sobre Java son ciertas?
+
+- [x] Una clase se declara y se define en el mismo lugar
+- [x] \`main\` no devuelve nada y el código de salida va aparte
+- [ ] \`System.out.println\` es un operador sobrecargado como \`<<\`
+- [ ] Una función puede existir fuera de cualquier clase
+
+</Question>`,
+      render: () => (
+        <Question id="diferencias-con-cpp" anchor="cuatro-diferencias-una-por-una">
+          <p>¿Cuáles de estas afirmaciones sobre Java son ciertas?</p>
+          {alternatives(
+            ['Una clase se declara y se define en el mismo lugar', true],
+            ['main no devuelve nada y el código de salida va aparte', true],
+            ['System.out.println es un operador sobrecargado como <<', false],
+            ['Una función puede existir fuera de cualquier clase', false],
+          )}
         </Question>
       ),
     },
