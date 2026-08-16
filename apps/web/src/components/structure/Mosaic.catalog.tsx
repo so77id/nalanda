@@ -38,7 +38,7 @@ export const mosaicCatalogEntry: CatalogEntry = {
       name: 'plate',
       type: 'boolean',
       description:
-        'Put each cell on a white plate. For brand marks, which are drawn to sit on white and are often monochrome: served through <img> they never see the page currentColor, so unplated they paint black and vanish on the dark theme. Opt-in because the other kind of mosaic is the opposite — diagrams drawn for the page, transparent and coloured to clear both grounds, which a plate would box in for nothing.',
+        'Puts each cell IMAGE on a white plate — rounded, with 12% padding — so it is the img that is plated, not the cell: a Figure caption stays off it, and a cell holding no image gets nothing. For brand marks, which are drawn to sit on white and are often monochrome: served through <img> they never see the page currentColor, so unplated they paint black and vanish on the dark theme. Opt-in because the other kind of mosaic is the opposite — diagrams drawn for the page, transparent and coloured to clear both grounds, which a plate would box in for nothing.',
     },
     {
       name: 'children',

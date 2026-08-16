@@ -16,13 +16,19 @@ the review of #120 found the provenance existed only in a PR body.
 `python` · `rust` · `spotify` · `swift` · `uber`
 
 - **Source**: [Simple Icons](https://simpleicons.org), fetched 2026-08-14 from
-  `cdn.jsdelivr.net/npm/simple-icons@latest/icons/<slug>.svg` (v16.28.0).
+  `cdn.jsdelivr.net/npm/simple-icons@latest/icons/<slug>.svg`. Eighteen came from
+  **v16.28.0**, the version `@latest` resolved to.
+- **Two came from older releases, because Simple Icons has removed them**:
+  `amazon` last shipped in **v14.13.0** and `microsoft` in **v12.4.0** — the CDN
+  quietly served those majors when `@latest` had no such file, which is worth
+  knowing precisely because these are the two marks whose owners are most
+  likely to care. Both were CC0 at the release they came from.
 - **File licence**: **CC0-1.0** — the SVG files are public domain. The marks
   themselves remain their owners' property.
-- **Modified**: each glyph carries an explicit `fill` at the brand's own colour
-  (Simple Icons ships them unfilled, and an `<img>` never inherits the page's
-  `currentColor`, so unfilled they paint black and vanish on the dark theme).
-  Geometry is untouched.
+- **Modified**: each glyph carries an explicit `fill` at the brand's own colour.
+  Simple Icons ships them unfilled, and an `<img>` inherits nothing, so an
+  unfilled mark would default to black rather than to anything chosen. Geometry
+  is untouched.
 - Four slugs differ from the file name: `java` is `openjdk`, `cpp` is
   `cplusplus`, `csharp` is `dotnet`, `js` is `javascript`.
 
@@ -44,6 +50,12 @@ the review of #120 found the provenance existed only in a PR body.
 ## Replacing one
 
 The white plate they are read on belongs to `<Mosaic plate>`, not to these
-files — so a new logo needs no background of its own. A monochrome mark needs an
-explicit `fill` that clears 3:1 against white; a mark that is black by design is
-fine as it is, because the plate is what it sits on.
+files — so a new logo needs no background of its own, and its `fill` is simply
+the brand's own colour reproduced faithfully.
+
+Note what is NOT required: a logotype is exempt from the contrast minimum
+(WCAG 1.4.11), and several of these do not clear 3:1 against the plate —
+JavaScript's yellow is 1.35. That is the mark as its owner draws it, and the
+group's meaning is carried by the mosaic's `description`, not by any one cell.
+What a mark does need is an explicit `fill`, so it never inherits black by
+accident.
