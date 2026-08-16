@@ -143,33 +143,10 @@ describe('architecture: content invariants', () => {
   // affordance; markdown has no Mosaic, so every relative markdown image must
   // name itself. Reads the source and ships at publish-time weight, like the
   // file-existence gate above.
-  describe('every relative markdown image names itself', () => {
-    const MARKDOWN_IMAGE = /!\[([^\]]*)\]\(([^)\s]+)\)/g;
-    // Anything with a scheme, protocol-relative, or already rooted is not ours.
-    const NOT_RELATIVE = /^(?:[a-z][a-z0-9+.-]*:|\/\/|\/)/i;
-
-    const markdownImages = documents.flatMap((key) => {
-      const source = readFileSync(join(APP_ROOT, key), 'utf8');
-      return [...source.matchAll(MARKDOWN_IMAGE)]
-        .filter((m) => !NOT_RELATIVE.test(m[2]!))
-        .map((m) => ({ key, alt: m[1]!, url: m[2]! }));
-    });
-
-    it('finds markdown images to check', () => {
-      expect(
-        markdownImages.length,
-        'no document uses relative markdown image syntax any more — if the convention moved to <Figure> only, drop this block; otherwise the regex stopped matching it',
-      ).toBeGreaterThan(0);
-    });
-
-    it.each(markdownImages.map(({ key, alt, url }) => [`${key} -> ${url}`, alt] as const))(
-      '%s',
-      (_label, alt) => {
-        expect(
-          alt.trim(),
-          'a markdown image with empty alt ships an unnamed picture — write its alt in Spanish, or use <Figure> if it belongs on a slide',
-        ).not.toBe('');
-      },
-    );
-  });
+  // The relative-markdown-image block lived here until #135. Its own non-vacuity
+  // guard said what to do if this day came — "no document uses relative markdown
+  // image syntax any more ... if the convention moved to <Figure> only, drop this
+  // block" — and it did: `busqueda-binaria` was the last document written with
+  // `![](…)`, and every surviving one uses `<Figure src>`, whose paths are
+  // checked by the image-existence block below.
 });

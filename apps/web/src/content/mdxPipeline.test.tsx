@@ -135,7 +135,7 @@ describe('the MDX pipeline', () => {
   });
 
   it('still renders a wiki link', async () => {
-    const container = await renderMdx('Ver [[busqueda-binaria]].\n');
+    const container = await renderMdx('Ver [[java-desde-cpp]].\n');
 
     expect(container.querySelector('a')).not.toBeNull();
   });
