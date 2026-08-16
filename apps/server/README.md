@@ -13,7 +13,7 @@ still to come — see [What is not here yet](#what-is-not-here-yet).
 
 | | |
 |---|---|
-| Language | Go — the version lives in [`go.mod`](go.mod) and is stated nowhere else, this table included (`backend-code-style.md` §Version) |
+| Language | Go — the authoritative version is [`go.mod`](go.mod), and this table deliberately does not repeat it. Two places are kept in step with it on purpose: `backend-code-style.md` §Version, which quotes the current patch and says why, and the Dockerfile's pinned builder |
 | Database | SQLite via `modernc.org/sqlite` — pure Go, no CGO (ADR-0007) |
 | Migrations | `github.com/pressly/goose/v3`, embedded, applied at boot |
 | Routing | `net/http.ServeMux` — no router dependency |
@@ -35,7 +35,7 @@ Environment variables, read once at boot. A required variable that is absent
 | `NALANDA_ADDR` | yes | Bind address, `host:port` |
 | `NALANDA_DATABASE_URL` | yes | Path to the SQLite file |
 | `NALANDA_LOG_LEVEL` | no (`info`) | `debug`, `info`, `warn` or `error` |
-| `NALANDA_PUBLIC_URL` | yes | Base URL the server is reached at. The OAuth redirect URI is built from it, and its scheme decides the session cookie's `Secure` flag |
+| `NALANDA_PUBLIC_URL` | yes | Base URL the server is reached at — scheme, host, optional port, and **no path**. The OAuth redirect URI is built from it and its scheme decides the cookie's `Secure` flag; a base carrying a path would build a redirect URI these routes do not serve, so it is refused at boot |
 | `NALANDA_GOOGLE_CLIENT_ID` | yes | The Google OAuth client (ADR-0009) |
 | `NALANDA_GOOGLE_CLIENT_SECRET` | yes | Its secret. Never printed: `config.Config` redacts it for both `fmt` and `slog` |
 | `NALANDA_SESSION_TTL` | no (`720h`) | Session lifetime, as a Go duration. Zero or negative is a startup error |
@@ -187,7 +187,7 @@ surface and none on `/api/` (§C12):
 |---|---|
 | `GET /login` | The page. Doubles as the signed-in page while there are no screens |
 | `GET /login/google` | Starts the flow: issues a state nonce, redirects to Google |
-| `GET /login/google/callback` | Completes it. Refuses a state it did not issue, before spending the code |
+| `GET /login/google/callback` | Completes it. Refuses a state that is not in this browser's own cookie, and then one this server never issued — both before spending the code (ADR-0036; the cookie half is what closes login CSRF) |
 | `POST /logout` | Ends the session. Requires a professor **and** the session's CSRF token |
 
 There are exactly three ways in, and everything else is refused: an already

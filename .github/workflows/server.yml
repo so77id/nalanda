@@ -96,6 +96,7 @@ jobs:
           docker run -d --name server-ci \
             -e NALANDA_ADDR=0.0.0.0:8081 \
             -e NALANDA_DATABASE_URL=/data/nalanda.db \
+            -e NALANDA_LOG_LEVEL=info \
             -e NALANDA_PUBLIC_URL=http://127.0.0.1:8081 \
             -e NALANDA_GOOGLE_CLIENT_ID=placeholder.apps.googleusercontent.com \
             -e NALANDA_GOOGLE_CLIENT_SECRET=placeholder-secret \

@@ -85,6 +85,9 @@ func RenderLogin(w http.ResponseWriter, page LoginPage) error {
 //     clickjacking with no upside. frame-ancestors says the same thing to
 //     browsers that prefer CSP; both are sent because the set of browsers that
 //     honour one and not the other is not worth tracking.
+//   - same-origin referrers, because the login URL carries an `aviso` parameter
+//     and the callback URL carries an authorization code, and neither belongs in
+//     a third party's logs because a professor followed a link.
 func setSecurityHeaders(w http.ResponseWriter) {
 	header := w.Header()
 	header.Set("Cache-Control", "no-store")

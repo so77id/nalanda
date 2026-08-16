@@ -65,14 +65,18 @@ NALANDA_BOOTSTRAP_PROFESSOR_EMAIL=<your own Google address>
 `.env` is never committed (root `CLAUDE.md`). `nalanda.db` and its `-wal`/`-shm`
 siblings are gitignored.
 
-**Start from an empty database** — the bootstrap only adopts a server with no
-professors at all, so a leftover file from an earlier run makes step 3 fail for
-the right reason and look like a bug:
+Then start it. **The setup is a target, not a command list** — a prose copy of
+these three lines is what drifts and fails after you have already created the
+OAuth client:
 
 ```bash
-rm -f nalanda.db nalanda.db-wal nalanda.db-shm
-set -a && . ./.env && set +a && go run ./cmd/server
+make login-check
 ```
+
+`login-check` is `reset` then `run`: it discards the local database first,
+deliberately, because the bootstrap only adopts a server with no professors at
+all and a leftover file from an earlier run makes step 3 fail for the right
+reason and look like a bug.
 
 ## 3. Sign in — the professor gets in
 
@@ -93,7 +97,9 @@ The server log carries one line: `professor signed in`.
 Sessions are server-side (ADR-0036), so restarting the process must not log you
 out:
 
-1. Stop the server (Ctrl-C) and start it again with the same command.
+1. Stop the server (Ctrl-C) and start it again with **`make run`** — not
+   `make login-check`, which would discard the database and with it the session
+   this step exists to find still alive.
 2. Reload `/login` **without** signing in again.
 3. It still says *Sesión iniciada como …*.
 
@@ -123,6 +129,22 @@ the bootstrap did not close, or the address matched something it should not have
 3. Reload `/login`. It offers the Google button again, not the signed-in state.
 
 - [ ] The old cookie no longer signs anyone in.
+
+---
+
+## What may be recorded, and where
+
+This procedure handles a real Google account and a real client secret, so what
+leaves your machine matters — the repo is public and
+`docs/security-notes.md` classifies this material under Ley 21.719.
+
+**In the PR, the issue or a commit**: the outcome only — which steps passed, on
+what date, and anything that behaved unexpectedly, described without the values.
+
+**Never**: the client secret, the `.env` file, the address you signed in with,
+the raw log lines (they carry the professor id and, on a refusal, the email), the
+database file, or a screenshot of the signed-in page. `nalanda.db*` and `.env`
+are gitignored; that stops a commit, not a paste.
 
 ---
 

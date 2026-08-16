@@ -29,7 +29,8 @@ fact.
   route here: which surface it belongs to, the handler → domain → repository
   chain, and the middleware a state-changing route needs.
 - `README.md` §"What is not here yet" — before adding anything, check whether it
-  belongs to WP-C2 (#150), WP-C3 (#151), WP-D or WP-E.
+  belongs to WP-C3 (#151), WP-D or WP-E. **WP-C2 (#150) is closed**: the login
+  round trip and the session gate are here.
 
 ## Language
 
@@ -114,9 +115,12 @@ Registered in `docs/standards/testing-strategy.md` (the two-protocol rule).
 - **Per-commit**: `gofmt -l .` (must print NOTHING — it exits 0 either way, so
   the status is not the gate), then `go vet ./...`, `go build ./...`,
   `go test ./...`.
-- **Pre-PR**: the above plus `go test -race -count=1 ./...`, `docker build`, and
-  the compose path from `infra/local/` (`up -d --wait server`, then
-  `curl -fsS /health`).
+- **Pre-PR**: NOT restated here. Run it line by line from
+  `docs/standards/testing-strategy.md` §`apps/server`, which is its one home —
+  this bullet used to be a copy and had already lost `govulncheck` and the
+  `/api/health` probe, so an agent following the file it was told to read failed
+  CI on a gate no document it read mentioned (#150 review, AGR-4). It is longer
+  than the per-commit one and ends in Docker.
 
 **`-count=1` is not decoration** — see the cache note above. **And the image is
 RUN, not only built**: the suite cannot see whether the binary starts on

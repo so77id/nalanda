@@ -193,7 +193,9 @@ directions from the composed handler.
   changes.
 
 - **The login page sends `Cache-Control: no-store`, `nosniff`, `X-Frame-Options:
-  DENY` and a `frame-ancestors` CSP.** The signed-in page carries a professor's
+  DENY`, a `frame-ancestors` CSP and `Referrer-Policy: same-origin`** — five, and
+  the last one is here because the login URL carries an `aviso` parameter and the
+  callback URL an authorization code. The signed-in page carries a professor's
   address and their CSRF token, and the development public URL is http. WP-C3's
   screens inherit them, because the headers are set in `view`, not in a handler.
 

@@ -53,7 +53,8 @@ apps/server/
   internal/domain/   business types and the interfaces they need — PURE
   internal/app/web/  the professor's backoffice (server-rendered)
   internal/app/api/  the JSON/WS surface for anonymous students
-  internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
+  internal/infra/    adapters: config, storage (+ authstore), httpserver,
+                     httpjson, selfcheck, oidc
   migrations/        goose SQL migrations, embedded
 ```
 
@@ -144,6 +145,22 @@ Environment variables only, read **once at boot** into a struct, through
 - **Encode a response body BEFORE writing the header** (`httpjson.Write`).
   Encoding into the `ResponseWriter` commits the status line first, so a value
   that fails to marshal arrives as a 200 with a truncated body.
+- **Render a template into a BUFFER before writing the header** (`view.Render`).
+  The template half of the `httpjson.Write` rule above, and for the same reason:
+  executing straight into the `ResponseWriter` commits a 200 with the first byte,
+  so a template that fails halfway arrives as a successful truncated page.
+- **Templates are parsed once, at package initialisation, and a parse error is a
+  panic at boot.** That is the deliberate exception to §Errors: a typo becomes a
+  failure an operator sees immediately instead of a 500 on the one page nobody
+  visits.
+- **Every page sets the same security headers** (`view.setSecurityHeaders`):
+  `no-store`, `nosniff`, `X-Frame-Options: DENY`, `frame-ancestors 'none'`,
+  `Referrer-Policy: same-origin`. A page carrying a session's CSRF token must not
+  be cacheable or framable, and the development public URL is http.
+- **The session cookie's attributes are not choices.** `HttpOnly`, `SameSite=Lax`
+  and `Path=/` always; `Secure` is DERIVED from `NALANDA_PUBLIC_URL`'s scheme
+  (`config.SecureCookie`), never set by hand — the two can only disagree in the
+  direction that either breaks local login or ships a token in clear.
 - **Every server-side timeout is set explicitly — all five.** `ReadTimeout`,
   `ReadHeaderTimeout`, `WriteTimeout`, `IdleTimeout` and `MaxHeaderBytes`. Each
   defaults to zero and zero means *no limit*, so what they prevent is a slow
