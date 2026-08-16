@@ -198,6 +198,57 @@ check_eq "copy 4's answers are all clean despite the unreadable RUT" "ok" \
 check_eq "copy 5's doubled RUT column is reported with both digits" "2011111[01]" \
   "$(jq 'd["copies"]["5"]["rut"]')"
 
+# --- what each question was worth ---------------------------------------------
+#
+# #139 decided every question weighs ONE POINT. AMC does not: a simple question
+# is worth 1 and a multiple is worth one point per alternative, so a four-choice
+# multiple would be four times a simple one, and since every copy draws its own
+# questions the same mistake would cost different students different amounts.
+#
+# The normalisation is the caller's, over numbers AMC publishes:
+#     relative = score / max          the fraction of that question's one point
+#     grade    = sum(relative)        over the N questions THIS copy drew
+# `max` is NOT a constant — 1 for a simple question, the alternative count for a
+# multiple — which is why the report carries it per question instead of the
+# caller assuming a denominator.
+
+check_eq "a simple question is worth one point" "[1.0, 1.0, 1.0]" \
+  "$(jq '[a["max"] for a in d["copies"]["1"]["answers"] if a["type"]=="simple"]')"
+
+check_eq "the multiple-answer question is worth one point per alternative" "4.0" \
+  "$(jq '[a["max"] for a in d["copies"]["1"]["answers"] if a["type"]=="multiple"][0]')"
+
+# The three cases the main batch can reach, one per copy that drew it:
+mult_score() { jq "[a[\"score\"] for a in d[\"copies\"][\"$1\"][\"answers\"] if a[\"type\"]==\"multiple\"][0]"; }
+check_eq "both correct alternatives ticked scores full marks" "4.0" "$(mult_score 1)"
+check_eq "one of the two correct ticked, none wrong, scores partial" "3.0" "$(mult_score 3)"
+check_eq "only a wrong alternative ticked still scores above zero" "1.0" "$(mult_score 5)"
+
+note "copy 1 grade" \
+  "$(jq '"%.2f of %d questions" % (sum(a["score"]/a["max"] for a in d["copies"]["1"]["answers"]), len(d["copies"]["1"]["answers"]))')"
+
+# --- the threshold those scores were computed at ------------------------------
+#
+# `note` scores at ITS OWN threshold (--seuil), while `--ticked` is ours and
+# tunable: PAPER-CHECK.md §4 tells the professor to re-read a stored capture at
+# a different sensitivity without re-scanning. In that re-read the marks move
+# and the scores do not, so the report would disagree with the grade in
+# silence — the exact defect ADR-0031 §Three darkness verdicts exists to forbid
+# (#138 F-2). The report publishes both numbers and says when they differ.
+
+check_eq "the report says which threshold AMC scored at" "0.3" \
+  "$(jq 'd["scoring"]["seuil"]')"
+check_eq "and which one this reading used" "0.3" "$(jq 'd["scoring"]["ticked"]')"
+check_eq "and that they agree" "False" "$(jq 'd["scoring"]["stale"]')"
+
+restale="${work}/restale.json"
+run python3 /opt/amc-worker/read_capture.py --data /work/project/data --ticked 0.20 \
+  >"$restale" 2>/dev/null || true
+rjq() { python3 -c "import json; d=json.load(open('$restale')); print($1)" 2>/dev/null || echo ""; }
+check_eq "re-reading at another sensitivity marks the scores stale" "True" \
+  "$(rjq 'd["scoring"]["stale"]')"
+check_eq "and still says which threshold produced them" "0.3" "$(rjq 'd["scoring"]["seuil"]')"
+
 # --- the review queue ---------------------------------------------------------
 
 check_eq "exactly the three damaged copies need review" "['3', '4', '5']" \
@@ -279,5 +330,63 @@ check_eq "while the batch-wide failure counter still reports zero" "0" \
   "$(djq 'd["pages"]["failed"]')"
 check_contains "and the incomplete copy is queued for review" "'2'" \
   "$(djq 'sorted(d["needs_review"])')"
+
+# --- the two multiple-answer cases the main batch cannot reach ----------------
+#
+# Only copies 1, 3 and 5 draw `comparar-cadenas` under this seed, and the main
+# plan spends them on all-correct, partial and one-wrong. The two remaining
+# cases matter most for the opposite reasons: ticking EVERY box is the one that
+# must not earn full marks (it is the hole the whole design exists to close),
+# and a blank multiple must score zero rather than inheriting anything.
+
+mwork="${WORKER_DIR}/tests/work/s3multiple"
+rm -rf "$mwork"
+mkdir -p "$mwork/src" "$mwork/out" "$mwork/scan" "$mwork/project/data" "$mwork/project/cr" "$mwork/project/scans"
+stage_source "$mwork/src"
+cp "${WORKER_DIR}/tests/fixtures/marking-plan-multiple.json" "$mwork/plan.json"
+cp "${WORKER_DIR}"/tests/tools/*.py "$mwork/"
+
+mrun() { docker run --rm --env DISPLAY= -v "${mwork}:/work" -w /work "$IMAGE" "$@"; }
+
+multiple_pipeline() {
+  mrun bash -c '
+    set -e
+    D=/work/project/data
+    auto-multiple-choice prepare --mode s --n-copies 5 --with pdflatex --data $D \
+      --prefix /work/project --out-sujet /work/out/sujet.pdf \
+      --out-calage /work/out/calage.xy /work/src/control-demo.tex >/dev/null 2>&1
+    auto-multiple-choice meptex --data $D --src /work/out/calage.xy >/dev/null 2>&1
+    python3 /work/fill_sheet.py --layout $D/layout.sqlite --sujet /work/out/sujet.pdf \
+      --out /work/scan --plan /work/plan.json --pdf /work/scan/lote.pdf >/dev/null 2>&1
+    auto-multiple-choice getimages --list /work/project/scans/list.txt \
+      --vector-density 300 --copy-to /work/project/scans /work/scan/lote.pdf >/dev/null 2>&1
+    auto-multiple-choice analyse --data $D --projet /work/project \
+      --cr /work/project/cr --multiple --liste-fichiers /work/project/scans/list.txt >/dev/null 2>&1
+    auto-multiple-choice prepare --mode b --with pdflatex --data $D \
+      --prefix /work/project /work/src/control-demo.tex >/dev/null 2>&1
+    auto-multiple-choice note --data $D --seuil 0.3 >/dev/null 2>&1
+  '
+}
+
+check "a batch marking every box, and one leaving the multiple blank, can be read" \
+  multiple_pipeline
+
+mrep="${mwork}/report.json"
+mrun python3 /opt/amc-worker/read_capture.py --data /work/project/data >"$mrep" 2>/dev/null || true
+mjq() { python3 -c "import json; d=json.load(open('$mrep')); print($1)" 2>/dev/null || echo ""; }
+
+everything="$(mjq '[a for a in d["copies"]["1"]["answers"] if a["type"]=="multiple"][0]')"
+note "every box ticked" "$everything"
+check_eq "ticking every alternative does NOT earn full marks" "2.0" \
+  "$(mjq '[a["score"] for a in d["copies"]["1"]["answers"] if a["type"]=="multiple"][0]')"
+check_eq "a blank multiple-answer question scores zero" "0.0" \
+  "$(mjq '[a["score"] for a in d["copies"]["3"]["answers"] if a["type"]=="multiple"][0]')"
+check_eq "and it is reported blank, not answered" "blank" \
+  "$(mjq '[a["status"] for a in d["copies"]["3"]["answers"] if a["type"]=="multiple"][0]')"
+
+# No question may ever subtract from another question's point: the caller sums
+# score/max, so a negative score would let one answer eat a different one.
+check_eq "no question scores below zero" "True" \
+  "$(mjq 'all(a["score"] >= 0 for c in d["copies"].values() for a in c["answers"])')"
 
 summary

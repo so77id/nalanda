@@ -5,6 +5,9 @@ Runs INSIDE the worker image. Emits JSON on stdout:
 
     {
       "pages": {"captured": 10, "failed": 0},
+      "scoring": {"seuil": 0.3,                      // what AMC's `note` used
+                  "ticked": 0.3,                     // what THIS reading used
+                  "stale": false},                   // true when they differ
       "copies": {
         "1": {
           "rut": "20123456",
@@ -15,7 +18,8 @@ Runs INSIDE the worker image. Emits JSON on stdout:
              "type": "simple",                     // simple | multiple
              "marked": [1],                        // confident ticks
              "doubtful": [],                       // [{answer, darkness}]
-             "status": "ok"}                       // ok|blank|ambiguous|doubtful
+             "status": "ok",                       // ok|blank|ambiguous|doubtful
+             "score": 1.0, "max": 1.0}             // the caller: score / max
           ],
           "expected_questions": 4,                 // what the layout says printed
           "seen_questions": 4,                     // what the capture holds
@@ -138,28 +142,58 @@ def check_scoring(data_dir):
         )
 
 
-def question_types(data_dir):
-    """{(copy, question): "simple" | "multiple"}, per copy because each draws its own.
+UNSCORED = {"type": "simple", "score": None, "max": None}
 
-    A question absent from the table falls back to "simple", which is the safe
-    direction: an unexpected second tick then goes to the review queue instead
-    of being accepted as an answer nobody checked.
+
+def scoring_facts(data_dir):
+    """What AMC scored, keyed per copy because every copy draws its own questions.
+
+    Returns `(seuil, {(copy, question): {"type", "score", "max"}})`.
+
+    The seuil is AMC's own recorded `darkness_threshold` — what `note` actually
+    used, read back rather than assumed from how it was invoked. It is
+    published because it is NOT this module's `--ticked`: PAPER-CHECK.md §4 has
+    the professor re-read a stored capture at another sensitivity, which moves
+    the marks and leaves the scores where they were. A report carrying both
+    without saying so would disagree with the grade in silence, which is the
+    class of defect ADR-0031 exists to forbid.
+
+    A question with no score falls back to `UNSCORED`, whose "simple" is the
+    safe direction: an unexpected second tick then goes to the review queue
+    instead of being accepted as an answer nobody checked.
+
+    `scoring_score` also carries a `copy` column, for a sheet scanned more than
+    once. It is collapsed here exactly as the capture reading collapses it —
+    duplicate scans are out of scope for both and would have to change together.
     """
     con = sqlite3.connect(os.path.join(data_dir, "scoring.sqlite"))
     try:
-        return {
-            (student, q): "multiple" if kind == QUESTION_MULTIPLE else "simple"
-            for student, q, kind in con.execute(
-                "SELECT student, question, type FROM scoring_question"
+        row = con.execute(
+            "SELECT value FROM scoring_variables WHERE name = ?",
+            ("darkness_threshold",),
+        ).fetchone()
+        seuil = float(row[0]) if row else None
+
+        facts = {}
+        for student, q, kind in con.execute(
+            "SELECT student, question, type FROM scoring_question"
+        ):
+            facts[(student, q)] = dict(
+                UNSCORED,
+                type="multiple" if kind == QUESTION_MULTIPLE else "simple",
             )
-        }
+        for student, q, score, top in con.execute(
+            "SELECT student, question, score, max FROM scoring_score"
+        ):
+            facts.setdefault((student, q), dict(UNSCORED)).update(score=score, max=top)
     finally:
         con.close()
+    return seuil, facts
 
 
 def read(data_dir, ticked, unsure):
     check_scoring(data_dir)
-    types = question_types(data_dir)
+    seuil, facts = scoring_facts(data_dir)
 
     lay = sqlite3.connect(f"{data_dir}/layout.sqlite")
     cap = sqlite3.connect(f"{data_dir}/capture.sqlite")
@@ -229,7 +263,8 @@ def read(data_dir, ticked, unsure):
             doubtful = [
                 {"answer": a, "darkness": d} for a, d in sorted(c["doubt"].get(q, []))
             ]
-            kind = types.get((student, q), "simple")
+            fact = facts.get((student, q), UNSCORED)
+            kind = fact["type"]
             if len(marked) > 1 and kind == "simple":
                 # Two ticks where the question admits one. On a MULTIPLE
                 # question the same two ticks are the answer, and calling them
@@ -250,6 +285,8 @@ def read(data_dir, ticked, unsure):
                 "marked": marked,
                 "doubtful": doubtful,
                 "status": status,
+                "score": fact["score"],
+                "max": fact["max"],
             })
 
         seen = set(c["q"])
@@ -280,6 +317,10 @@ def read(data_dir, ticked, unsure):
 
     return {
         "pages": {"captured": captured, "failed": failed},
+        # `stale` is the whole reason both numbers are here: when they differ,
+        # the marks in this report were decided at one threshold and the scores
+        # beside them at another.
+        "scoring": {"seuil": seuil, "ticked": ticked, "stale": seuil != ticked},
         "copies": out,
         "needs_review": [k for k, v in out.items() if v["status"] != "ok"],
     }
