@@ -386,5 +386,13 @@ compiled clean and `pdftotext` printed the host's name back. Today the `.tex` is
 authored in this repo, so it is inside the accepted residual. **When WP-E
 generates the `.tex` from the question bank, every listing path must go through
 `under_work()` before it is written into the document** — otherwise a bank field
-becomes arbitrary-file-read-into-a-student's-graded-PDF, as root. The
-`openin_any = p` override above is the belt to that braces.
+becomes arbitrary-file-read-into-a-student's-graded-PDF, as root.
+
+**And the cheap half is not a drop-in here**, measured: `openin_any = p` also
+refuses the LEGITIMATE listing, because the documented shape is an absolute
+path (a path relative to the `.tex` does not resolve — AMC compiles from its own
+working directory). In paranoid mode `pdflatex` answers `Not reading from
+/work/src/code/x.java (openin_any = p)` and produces no PDF at all. So
+`under_work()` on every generated path is the primary control rather than the
+fallback; taking the override as well means changing the listing shape (or
+arranging `TEXMFOUTPUT`) in the same change.

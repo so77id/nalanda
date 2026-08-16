@@ -275,7 +275,11 @@ example is `tests/fixtures/control-demo.tex`:
   `.tex` does not resolve — AMC compiles from its own working directory, and it
   fails fatally with no PDF. Everything the worker is handed lives under
   `/work`, so that is the path. That is also why the bank keeps code as its own
-  field: nothing has to be escaped.
+  field: nothing has to be escaped. **When WP-E generates that path from the
+  bank instead of taking it from this repo, it goes through `under_work()`
+  first** — with the image's `openin_any = a` an unchecked path reads any file
+  in the container into the printed PDF, as root (`docs/security-notes.md`
+  §The control worker runs as root).
 - **Anything the source reads must be staged beside it.** `tests/lib.sh`'s
   `stage_source` does that for the suite; `make paper` keeps its own copy of
   those two lines.
