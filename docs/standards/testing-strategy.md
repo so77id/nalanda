@@ -581,6 +581,14 @@ playwright package.json` finds nothing by design), then drive `npm run build
   registry→index check in the suite, and the first change to retire a document
   on purpose would have taken it away — a document forgotten out of `index.yaml`
   would then ship green and unreachable in navigation.
+
+  That list was emptied by #135, when the retired documents were deleted and the
+  last one rejoined the teaching path, and the cases were retired with it rather
+  than kept alive on an invented fixture. The shape is what this bullet records,
+  not the instance: reach for it the next time a legitimate exception falsifies
+  a whole-set assertion, and `documentBreadcrumb.test.tsx` still carries the note
+  saying where it goes back.
+
 - **A rendered STATE is located by a semantic `data-*` attribute, never by its
   classes.** Matching Tailwind ties the guard to the styling, so a restyle turns
   it green while the state still ships — and the classes of an error box are the
