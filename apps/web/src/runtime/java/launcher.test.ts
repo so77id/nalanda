@@ -110,9 +110,12 @@ describe('output cap', () => {
     expect(LAUNCHER_SOURCE).toContain(TRUNCATED);
   });
 
-  it('reserves the two class names the platform compiles', () => {
+  it('reserves every class name the platform compiles', () => {
+    // Two when this was written; three since #116 added the tracer, which the
+    // title went on denying until #123.
     expect(RESERVED_CLASSES).toContain(LAUNCHER_CLASS);
     expect(RESERVED_CLASSES).toContain(HARNESS_CLASS);
+    expect(RESERVED_CLASSES).toContain(TRACE_CLASS);
   });
 });
 
@@ -147,10 +150,19 @@ describe('reservedDeclarations', () => {
   it('ignores a reserved name that is only mentioned', () => {
     // Prose and text are not declarations: a program explaining the rule, or
     // printing the name, still compiles.
+    //
+    // The keyword is written in English INSIDE the Spanish comment on purpose,
+    // and the string literal sits at the top level as an annotation argument —
+    // the only place valid Java puts one there. An earlier version of this test
+    // said «no llames a tu clase» and put the string inside the class body, and
+    // so passed with `stripNonCode` removed altogether: the Spanish *clase*
+    // never matched the scan, and the string was suppressed by brace depth
+    // rather than by the stripper it claimed to be testing.
     const source = [
-      `// no puedes llamar a tu clase ${LAUNCHER_CLASS}`,
+      `// nunca escribas class ${LAUNCHER_CLASS} en tu programa`,
+      `@SuppressWarnings("class ${HARNESS_CLASS} {")`,
       'public class Solucion {',
-      `  String s = "class ${HARNESS_CLASS} {";`,
+      `  String s = "class ${TRACE_CLASS} {";`,
       '}',
     ].join('\n');
 
@@ -173,6 +185,60 @@ describe('reservedDeclarations', () => {
 
   it('does not match a longer name that merely starts with a reserved one', () => {
     expect(reservedDeclarations(`public class ${LAUNCHER_CLASS}Mio { }`)).toEqual([]);
+  });
+
+  // Java translates `\uXXXX` before it lexes anything (JLS §3.3), so a scan of
+  // the raw text is reading a different program than the compiler. Each shape
+  // below was compiled by the pinned ECJ 3.21.0 and then run in real CheerpJ: all
+  // three emitted a top-level NalandaLauncher.class into the shared output
+  // directory and `java -cp shared NalandaLauncher Solucion` printed the
+  // hijacker's line instead of the student's program.
+  describe('unicode escapes', () => {
+    it('sees a brace that was written as an escape', () => {
+      // { is `{`. Hiding the opening brace used to send the depth count
+      // negative, and the old `depth === 0` test then skipped everything after.
+      const source = [
+        'public class Solucion \\u007b',
+        '  public static void main(String[] a) { }',
+        '}',
+        `class ${LAUNCHER_CLASS} { public static void main(String[] a) { } }`,
+      ].join('\n');
+
+      expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS]);
+    });
+
+    it('sees a declaration hidden behind an escaped newline in a comment', () => {
+      // The escape IS the newline that ends the comment, so what looks
+      // commented out is what gets compiled.
+      const source = [
+        'public class Solucion { public static void main(String[] a) { } }',
+        `// \\u000a class ${LAUNCHER_CLASS} { public static void main(String[] a) { } }`,
+      ].join('\n');
+
+      expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS]);
+    });
+
+    it('sees an escaped keyword', () => {
+      // c is `c`, so this reads `class` to the compiler and nothing to us.
+      expect(reservedDeclarations(`\\u0063lass ${LAUNCHER_CLASS} {}`)).toEqual([LAUNCHER_CLASS]);
+    });
+
+    it('sees it through a run of u, which Java allows', () => {
+      expect(reservedDeclarations(`\\uuuu0063lass ${LAUNCHER_CLASS} {}`)).toEqual([LAUNCHER_CLASS]);
+    });
+
+    it('leaves an escaped backslash alone, because the compiler does', () => {
+      // `"\\u0063"` is a backslash and a `u`, printed as such — decoding it would
+      // corrupt the string the program was printing. Only a backslash preceded
+      // by an EVEN number of backslashes is eligible (JLS §3.3).
+      const source = [
+        'public class Solucion {',
+        '  public static void main(String[] a) { System.out.println("\\\\u0063lass Nalanda"); }',
+        '}',
+      ].join('\n');
+
+      expect(reservedDeclarations(source)).toEqual([]);
+    });
   });
 
   it('reports every reserved name it finds, in order', () => {

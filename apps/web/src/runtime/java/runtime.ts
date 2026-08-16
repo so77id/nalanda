@@ -201,17 +201,23 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       // anywhere else. `library` is not scanned at all: platform code by
       // construction, reachable only from a module constant, and its unit
       // arriving there is the intended use (ADR-0028 §6).
-      const collision = [
-        ...reservedDeclarations(source),
-        ...(harness === undefined
-          ? []
-          : reservedDeclarations(harness).filter((name) => name !== HARNESS_CLASS)),
-      ][0];
-      if (collision !== undefined) {
+      const inSource = reservedDeclarations(source)[0];
+      const inHarness = reservedDeclarations(harness ?? '').filter(
+        (name) => name !== HARNESS_CLASS,
+      )[0];
+      if (inSource !== undefined || inHarness !== undefined) {
         emit({
           id,
           type: 'result',
-          compileLog: `${collision} es un nombre reservado por la plataforma. Ponle otro nombre a tu clase.`,
+          // Two messages, because there are two authors. A collision in `source`
+          // is the reader's to fix; one in `harness` came from the document's
+          // `test` fence, which the reader can neither see nor edit — telling
+          // them to rename their class would be the author's typo blamed on the
+          // reader, in the component that must not misreport (`Exercise.tsx`).
+          compileLog:
+            inSource !== undefined
+              ? `${inSource} es un nombre reservado por la plataforma. Ponle otro nombre a tu clase.`
+              : `${inHarness} es un nombre reservado por la plataforma y este ejercicio lo declara en sus casos de prueba. No es tu código: avisa a quien escribió el documento.`,
           output: '',
           exitCode: null,
           compileMs: 0,

@@ -555,14 +555,19 @@ export function instrument(source: string): Instrumented {
   const markers: Marker[] = [];
   const errors: string[] = [];
 
-  // The runtime refuses these before compiling anything, so this is not the
-  // guard — it is the same answer given at authoring time, where an author sees
-  // it as an authoring error instead of booting CheerpJ to read it in a
-  // diagnostics panel. Asking the runtime's own helper rather than restating the
-  // rule is what keeps the two answers identical (#123): a secondary
-  // declaration counts, an interface and an enum declare the same binary name
-  // and count too, a nested one collides with nothing and does not, and neither
-  // does a mention in a comment.
+  // Not the guard — the same answer, given at authoring time so a bad fence is
+  // an authoring error instead of a diagnostics panel twelve seconds after
+  // someone presses Ejecutar. Calling the runtime's helper rather than
+  // restating the rule is what keeps the two answers identical (#123); its
+  // edges are documented on `reservedDeclarations`.
+  //
+  // One of those edges is narrower here than it looks. A nested reserved class
+  // overwrites no `.class`, which is why the helper allows it — but `NalandaTrace`
+  // is the one name whose calls this function INJECTS into the author's own
+  // class, where a member type of that simple name captures them and the
+  // diagram draws whatever it printed. Compiled and run with the pinned ECJ
+  // while reviewing #123. It stays allowed: the fence is repo-authored content,
+  // so this is a foot-gun for the author writing it, not a door for anyone else.
   const reserved = reservedDeclarations(source)[0];
   if (reserved !== undefined) {
     errors.push(`${reserved} es un nombre reservado por la plataforma: usa otro.`);

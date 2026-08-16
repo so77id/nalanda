@@ -474,6 +474,58 @@ describe('createJavaRuntime', () => {
 
       await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
       expect(results(seen)[0]!.compileLog).toMatch(/NalandaLauncher.*reservado/i);
+      // And it is the AUTHOR who is told, not the reader: the offending
+      // declaration came from the document's `test` fence, which the reader
+      // cannot see or edit.
+      expect(results(seen)[0]!.compileLog).toMatch(/casos de prueba/i);
+      expect(results(seen)[0]!.compileLog).not.toMatch(/Ponle otro nombre a tu clase/i);
+    });
+
+    it('compiles a NESTED reserved declaration, which overwrites nothing', async () => {
+      // `Solucion$NalandaLauncher.class` collides with no platform class, so
+      // over-refusing here would block a legitimate program. Covered at this
+      // seam and not only on the helper, because the other three shapes are.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: [
+          'public class Solucion {',
+          '  static class NalandaLauncher { int x = 1; }',
+          '  public static void main(String[] a) { }',
+          '}',
+        ].join('\n'),
+        stdin: '',
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).not.toMatch(/reservado/i);
+      const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
+      expect(run?.args[0]).toBe('Solucion');
+    });
+
+    it('refuses a declaration hidden behind a unicode escape', async () => {
+      // Java translates `\\uXXXX` before lexing (JLS §3.3). Compiled with the
+      // pinned ECJ and run in real CheerpJ, this shape emitted a top-level
+      // NalandaLauncher.class and hijacked the launcher for the whole page.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: [
+          'public class Solucion \\u007b',
+          '  public static void main(String[] a) { }',
+          '}',
+          'class NalandaLauncher { public static void main(String[] a) { } }',
+        ].join('\n'),
+        stdin: '',
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(/NalandaLauncher.*reservado/i);
+      expect(invocations.some((one) => one.args.some((arg) => arg.endsWith('Solucion.java')))).toBe(
+        false,
+      );
     });
 
     it('does not wedge the page when an abandoned run finishes anyway', async () => {
