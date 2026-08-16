@@ -22,7 +22,7 @@ content/courses/sample-course/
 ├── costo-busqueda.svg         # an asset sits beside the document that uses it
 ├── estructuras/               # …in a subfolder once there are several
 │   └── arreglo.svg, lista.svg, cola.svg, pila.svg
-├── 04-apuntes.mdx             # presentation: none     — book-only
+├── 04-planificacion.mdx       # presentation: none     — book-only
 ├── 05-codigo-ejecutable.mdx   # presentation: explicit — uses <CodeEditor>
 ├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>
 ├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>
@@ -81,7 +81,7 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    >   slide index** (`?slide=10`, the "Compilar y ejecutar" slide — the only one
    >   carrying a `<pre>`), so that document must stay presentable and keep its
    >   shape there. Nothing names it as a fixture; it is a bare URL in a test.
-   > - `apuntes-del-curso` is named three times over (#136): as the book-only
+   > - `planificacion` is named three times over (#136, renamed in #135): as the book-only
    >   fixture of `presentationRoute.test.tsx` and `documentSections.test.tsx`
    >   (it must keep `presentation: none` and no `h2` at all), and as
    >   `deployedApp.test.tsx`'s deep-link fixture. It must stay in `content/` and
@@ -112,7 +112,7 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
    drawer below it. `h3`/`h4` stay deep-linkable but never appear there, so a
    document you want navigable is structured with `##`. A document with no `h2`
    at all simply has no section navigation, which is a choice rather than a bug
-   (`04-apuntes.mdx` is the worked case).
+   (`04-planificacion.mdx` is the worked case).
 
    Running text is narrowed to ~70 characters inside the 768px column, while
    code, tables and components keep the full width (ADR-0022). You write nothing

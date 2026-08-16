@@ -63,7 +63,7 @@ describe('the breadcrumb row of a document', () => {
     'intro-estructuras',
     'busqueda-binaria',
     'codigo-ejecutable',
-    'apuntes-del-curso',
+    'planificacion',
   ];
 
   // The registry→index direction, which nothing else in the suite covers:

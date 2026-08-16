@@ -637,7 +637,7 @@ describe('leaving the presentation from the deck', () => {
 // with "seed course needs a presentation:none document" — the wrong diagnosis —
 // when a document was taken off the path, which is the failure the §Conventions
 // rule this branch adds exists to prevent.
-const NONE_FIXTURE = 'apuntes-del-curso';
+const NONE_FIXTURE = 'planificacion';
 const noneId = registry.get(NONE_FIXTURE)?.meta.id;
 
 describe('presentation: none documents', () => {

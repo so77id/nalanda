@@ -25,7 +25,7 @@ describe('SectionNav', () => {
   });
 
   it('renders nothing for a document with no sections', () => {
-    // apuntes-del-curso has no h2 at all: an empty "En esta página" heading
+    // planificacion has no h2 at all: an empty "En esta página" heading
     // would be chrome announcing that there is nothing to announce.
     const { container } = render(<SectionNav sections={[]} activeId={undefined} />);
     expect(container).toBeEmptyDOMElement();

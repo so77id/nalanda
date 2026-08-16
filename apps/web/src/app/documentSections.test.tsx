@@ -147,7 +147,7 @@ describe('the section rail over real documents', () => {
     // Named, not discovered — the rule this file's header states, and which the
     // predicate form quietly broke: declaring `none` on a second document would
     // move this case onto it without a word.
-    const FLAT_FIXTURE = 'apuntes-del-curso';
+    const FLAT_FIXTURE = 'planificacion';
     const flatId = registry.get(FLAT_FIXTURE)?.meta.id;
     expect(
       flatId,
