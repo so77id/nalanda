@@ -152,6 +152,19 @@ describe('architecture: content invariants', () => {
         'comprueba a mano que import es una abreviatura, que es justo lo que mide la pregunta de "import y paquetes"',
       'lo-que-sigue': 'cierre del documento: anuncia el siguiente, no enseña nada propio',
     },
+    // Only three, against java-desde-cpp's six, and the difference is not
+    // laxity. Its "Ejecútalo" slides carry the editor and nothing else, so a
+    // question about one would be filler. The lab slides here sit inside
+    // sections whose prose and callouts teach something measurable — the
+    // newline nextInt() leaves behind, the decimal point this page's JVM
+    // insists on — and a section boundary runs to the next h2, not to the end
+    // of the slide.
+    'java-tipos-y-flujo': {
+      'ejercicio-en-vivo-es-par':
+        'actividad: el alumno escribe el método y lo comprueba, no hay nada que preguntar',
+      ejercicios: 'actividad: cinco problemas para escribir, no materia que medir en cinco minutos',
+      'lo-que-sigue': 'cierre del documento: anuncia lo que viene, no enseña nada propio',
+    },
   };
 
   function sourceOf(key: string): string {
