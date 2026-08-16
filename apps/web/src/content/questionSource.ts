@@ -1,4 +1,7 @@
-import { slugify } from '../lib/slug';
+// Extension-qualified: this file is also compiled under tsconfig.node
+// (nodenext), because vite.config.ts loads the bank emitter, which reads
+// questions with this module.
+import { slugify } from '../lib/slug.ts';
 
 /**
  * One question as it was AUTHORED, read from the `.mdx` source.
@@ -14,6 +17,15 @@ export interface SourceQuestion {
   id: string;
   anchor?: string;
   statement: string;
+  /**
+   * The listing the question shows, kept apart from the statement. The
+   * generator writes it to its own file and the sheet reads it with
+   * `\lstinputlisting`, which needs no escaping at all — braces, backslashes,
+   * `$`, `%`, `_` and `#` travel literally from the `.mdx` to the printed page.
+   * Inline in the `.tex` every one of them would have to be escaped, and a Java
+   * program is mostly braces.
+   */
+  code?: { language: string; source: string };
   alternatives: { text: string; correct: boolean }[];
 }
 
@@ -74,15 +86,53 @@ export function headingSlugs(source: string): string[] {
   return slugs;
 }
 
-/** Every question authored in the document, in document order. */
+/**
+ * Every question authored in the document, in document order.
+ *
+ * Walks the raw source with its own fence state rather than the blanked copy
+ * `headingSlugs` uses, because a question's listing is CONTENT here — the field
+ * the printed sheet reads from. Fences outside a question are still skipped, so
+ * a document's ordinary code examples can never be mistaken for a question's.
+ */
 export function readQuestions(source: string): SourceQuestion[] {
-  const lines = withoutFences(source);
+  const lines = source.split('\n');
   const out: SourceQuestion[] = [];
   let open: { id: string; anchor?: string } | null = null;
   let statement = '';
+  let code: SourceQuestion['code'];
   let alternatives: SourceQuestion['alternatives'] = [];
+  let fence: { closing: string; language: string; body: string[] } | null = null;
 
   for (const line of lines) {
+    if (fence !== null) {
+      if (line.trimStart().startsWith(fence.closing)) {
+        // Only the first listing of a question is its code; a second one would
+        // have no field to live in, and the rules keep questions to one.
+        if (open !== null && code === undefined && fence.language !== '') {
+          code = { language: fence.language, source: fence.body.join('\n') };
+        }
+        fence = null;
+        continue;
+      }
+      fence.body.push(line);
+      continue;
+    }
+
+    const opened = FENCE.exec(line);
+    if (opened) {
+      fence = {
+        closing: opened[1] ?? '```',
+        language:
+          line
+            .trim()
+            .replace(/^[`~]+/, '')
+            .trim()
+            .split(/\s+/)[0] ?? '',
+        body: [],
+      };
+      continue;
+    }
+
     if (open === null) {
       const opened = OPEN.exec(line);
       const id = opened ? ATTR('id').exec(opened[1] ?? '')?.[1] : undefined;
@@ -90,12 +140,13 @@ export function readQuestions(source: string): SourceQuestion[] {
       const anchor = ATTR('anchor').exec(opened?.[1] ?? '')?.[1];
       open = anchor === undefined || anchor === '' ? { id } : { id, anchor };
       statement = '';
+      code = undefined;
       alternatives = [];
       continue;
     }
 
     if (CLOSE.test(line)) {
-      out.push({ ...open, statement, alternatives });
+      out.push({ ...open, statement, ...(code ? { code } : {}), alternatives });
       open = null;
       continue;
     }
@@ -109,9 +160,8 @@ export function readQuestions(source: string): SourceQuestion[] {
       continue;
     }
 
-    // The first prose line is the question as the student reads it. The fence
-    // is already blank by now, so a code listing can never become the
-    // statement — it is its own field all the way to the printed sheet.
+    // The first prose line is the question as the student reads it. Fence
+    // bodies never reach here, so a listing can never become the statement.
     if (statement === '' && line.trim() !== '') statement = line.trim();
   }
 

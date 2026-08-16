@@ -86,6 +86,49 @@ describe('readQuestions', () => {
     expect(readQuestions(source)[0]?.alternatives).toHaveLength(2);
   });
 
+  it('keeps a question’s code as its own field, with its language', () => {
+    // Its own field all the way to the printed sheet: the generator writes it to
+    // a separate file and `\lstinputlisting` reads it verbatim, so no brace or
+    // backslash ever needs escaping into a .tex.
+    const source = [
+      '<Question id="suma" anchor="arreglos">',
+      '',
+      '¿Qué imprime?',
+      '',
+      '```java',
+      'int[] v = {1, 2, 3};',
+      'System.out.println(v.length);',
+      '```',
+      '',
+      '- [x] 3',
+      '- [ ] 2',
+      '</Question>',
+    ].join('\n');
+
+    expect(readQuestions(source)[0]?.code).toEqual({
+      language: 'java',
+      source: 'int[] v = {1, 2, 3};\nSystem.out.println(v.length);',
+    });
+  });
+
+  it('leaves code undefined when the question carries none', () => {
+    const source = ['<Question id="sin">', '¿Cuál?', '- [x] a', '</Question>'].join('\n');
+    expect(readQuestions(source)[0]?.code).toBeUndefined();
+  });
+
+  it('does not mistake a fence outside a question for its code', () => {
+    const source = [
+      '```java',
+      'int fuera = 1;',
+      '```',
+      '<Question id="limpia">',
+      '¿Cuál?',
+      '- [x] a',
+      '</Question>',
+    ].join('\n');
+    expect(readQuestions(source)[0]?.code).toBeUndefined();
+  });
+
   it('reads every question of a block, in document order', () => {
     const source = [
       '<Questions>',
