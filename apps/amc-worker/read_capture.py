@@ -12,6 +12,7 @@ Runs INSIDE the worker image. Emits JSON on stdout:
           "rut_columns": [{"column": 0, "digits": ["2"]}, ...],
           "answers": [
             {"question": 9, "name": "requisito",
+             "type": "simple",                     // simple | multiple
              "marked": [1],                        // confident ticks
              "doubtful": [],                       // [{answer, darkness}]
              "status": "ok"}                       // ok|blank|ambiguous|doubtful
@@ -52,8 +53,10 @@ THREE failure kinds are reported SEPARATELY and never merged, because they need
 different repairs (docs/design/2026-08-controles.md §lectura.estado):
 
     who is this        — the RUT is incomplete, or a column holds two digits
-    what did they mark — a question has no box ticked, more than one, or one
-                         faint enough to doubt
+    what did they mark — a question has no box ticked, more than one WHERE IT
+                         ADMITS ONLY ONE, or one faint enough to doubt. On a
+                         question that admits several (`type: "multiple"`),
+                         several ticks are the answer and nothing is flagged.
     what is missing    — the copy printed questions this batch never captured,
                          which is a page that never reached the scanner
 
@@ -70,6 +73,13 @@ import sqlite3
 import sys
 
 BOX_ZONE = 4  # capture_zone.type: 4 is an answer or code box (3 is the page id)
+
+# scoring_question.type, measured against AMC 1.6.0: 1 is a question with one
+# correct alternative, 2 is one with several. Nothing in the capture says which
+# is which — a box is a box — so this is the only place the difference is
+# knowable, and getting it wrong turns a correct answer into a review queue
+# entry (#147).
+QUESTION_MULTIPLE = 2
 
 
 class MissingScoring(Exception):
@@ -128,8 +138,28 @@ def check_scoring(data_dir):
         )
 
 
+def question_types(data_dir):
+    """{(copy, question): "simple" | "multiple"}, per copy because each draws its own.
+
+    A question absent from the table falls back to "simple", which is the safe
+    direction: an unexpected second tick then goes to the review queue instead
+    of being accepted as an answer nobody checked.
+    """
+    con = sqlite3.connect(os.path.join(data_dir, "scoring.sqlite"))
+    try:
+        return {
+            (student, q): "multiple" if kind == QUESTION_MULTIPLE else "simple"
+            for student, q, kind in con.execute(
+                "SELECT student, question, type FROM scoring_question"
+            )
+        }
+    finally:
+        con.close()
+
+
 def read(data_dir, ticked, unsure):
     check_scoring(data_dir)
+    types = question_types(data_dir)
 
     lay = sqlite3.connect(f"{data_dir}/layout.sqlite")
     cap = sqlite3.connect(f"{data_dir}/capture.sqlite")
@@ -199,9 +229,15 @@ def read(data_dir, ticked, unsure):
             doubtful = [
                 {"answer": a, "darkness": d} for a, d in sorted(c["doubt"].get(q, []))
             ]
-            if len(marked) > 1:
+            kind = types.get((student, q), "simple")
+            if len(marked) > 1 and kind == "simple":
+                # Two ticks where the question admits one. On a MULTIPLE
+                # question the same two ticks are the answer, and calling them
+                # ambiguous sent a student who answered correctly to the review
+                # queue while telling the professor to inspect a sheet that was
+                # right (#147).
                 status = "ambiguous"
-            elif len(marked) == 1:
+            elif marked:
                 # A confident mark with a faint one beside it is still a human
                 # decision: the student may have erased the wrong one.
                 status = "ok" if not doubtful else "doubtful"
@@ -210,6 +246,7 @@ def read(data_dir, ticked, unsure):
             answers.append({
                 "question": q,
                 "name": names.get(q, ""),
+                "type": kind,
                 "marked": marked,
                 "doubtful": doubtful,
                 "status": status,

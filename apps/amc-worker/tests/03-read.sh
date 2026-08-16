@@ -133,15 +133,43 @@ check_eq "copy 2 is clean" "ok" "$(jq 'd["copies"]["2"]["status"]')"
 # written in the source wherever it ended up on the page. That is the useful
 # semantics (a plan can say "the correct one") but it is surprising, so it is
 # stated here rather than left to be rediscovered.
-check_eq "copy 1 marked one alternative per question" "[[1], [2], [3], [4]]" \
-  "$(jq '[a["marked"] for a in d["copies"]["1"]["answers"]]')"
+check_eq "copy 1's marks read back, including two on the multiple-answer one" \
+  "[[1], [1, 2], [3], [4]]" "$(jq '[a["marked"] for a in d["copies"]["1"]["answers"]]')"
 check_eq "copy 2 marked one alternative per question" "[[2], [2], [1], [1]]" \
   "$(jq '[a["marked"] for a in d["copies"]["2"]["answers"]]')"
 
+# --- a question says which kind it is ------------------------------------------
+#
+# Which alternatives a copy drew is not enough: `comparar-cadenas` admits
+# several correct answers and the other three do not, and nothing in the
+# capture says so. It comes from AMC's own `scoring_question.type` (1 simple,
+# 2 multiple — measured), which is why the reader now needs the scoring
+# database at all.
+check_eq "each answer says whether its question admits one alternative or several" \
+  "['simple', 'multiple', 'simple', 'simple']" \
+  "$(jq '[a["type"] for a in d["copies"]["1"]["answers"]]')"
+check_eq "and the copy that drew none of them says so too" \
+  "['simple', 'simple', 'simple', 'simple']" \
+  "$(jq '[a["type"] for a in d["copies"]["2"]["answers"]]')"
+
+# THE defect this WP exists for: two ticks on a multiple-answer question are the
+# ANSWER, and the old reader called every second tick an ambiguity — so a
+# student who answered correctly was sent to the manual review queue, and the
+# professor was handed a sheet that was right.
+check_eq "two marks on a multiple-answer question are an answer, not an ambiguity" \
+  "ok" "$(jq '[a["status"] for a in d["copies"]["1"]["answers"] if a["type"]=="multiple"][0]')"
+check_eq "so the copy that answered it correctly is clean" "ok" \
+  "$(jq 'd["copies"]["1"]["status"]')"
+
 # --- AC-5: ambiguity is reported, not resolved --------------------------------
 
+# And the other half of the same rule: on a SIMPLE question a second tick is
+# still an ambiguity. Copy 3 ticks two alternatives of `descarte`, which admits
+# one — the same physical mark that is a correct answer on copy 1's multiple.
 amb="$(jq '[a["status"] for a in d["copies"]["3"]["answers"]].count("ambiguous")')"
-check_eq "copy 3's double mark is reported as ambiguous" "1" "$amb"
+check_eq "copy 3's double mark on a simple question is still ambiguous" "1" "$amb"
+check_eq "and it is the simple question that was flagged" "simple" \
+  "$(jq '[a["type"] for a in d["copies"]["3"]["answers"] if a["status"]=="ambiguous"][0]')"
 
 both="$(jq '[a["marked"] for a in d["copies"]["3"]["answers"] if a["status"]=="ambiguous"][0]')"
 check_eq "and it names BOTH alternatives rather than picking one" "[1, 2]" "$both"
