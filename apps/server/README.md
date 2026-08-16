@@ -85,7 +85,10 @@ app still packages itself: the `Dockerfile` is in this directory.
 ```bash
 cd ../../infra/local
 
-docker compose up -d --wait server        # --wait means "the database answers"
+# --build is load-bearing: compose reuses the tagged image, so without it this
+# runs whichever binary was tagged last — which in #150 was a stale one that
+# passed the check while missing the change under review.
+docker compose up -d --build --wait server   # --wait means "the database answers"
 curl -fsS http://127.0.0.1:8081/health
 docker compose logs -f server
 docker compose down                       # add -v to discard the database too

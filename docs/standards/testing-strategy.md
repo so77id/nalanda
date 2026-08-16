@@ -207,7 +207,7 @@ go build ./...
 go run golang.org/x/vuln/cmd/govulncheck@latest ./...   # same gate as CI; needs network
 docker build -t nalanda/server:dev .
 # then the compose path (L8), from infra/local/:
-#   docker compose up -d --wait server \
+#   docker compose up -d --build --wait server \
 #     && curl -fsS http://127.0.0.1:8081/health \
 #     && curl -fsS http://127.0.0.1:8081/api/health
 ```
@@ -243,6 +243,15 @@ rewritten to read files with `go/parser`, which the cache does track, and
 and one for the accept loop; the detector costs several seconds and finds
 nothing on most commits, which is the shape of a check that belongs in the wider
 battery rather than in every commit.
+
+**`--build` is not optional in that compose line.** `docker compose up` reuses
+the tagged image if one exists, so running it after an earlier `docker build`
+tests whichever binary happened to be tagged — and a stale image passes the L8
+check while the change under review is not in it. Measured in #150: the
+container answered `/health` and served the login page without the security
+headers the source had gained twenty minutes earlier, because the build and the
+`up` had raced. That is the same "green for the wrong reason" this document
+hunts elsewhere, in the one step whose whole job is to see what the suite cannot.
 
 **The image is built and RUN, not only built.** `CGO_ENABLED=0` is what lets the
 binary run on `scratch`; a dependency that needs CGO produces a build that
