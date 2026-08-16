@@ -1,0 +1,240 @@
+package storage_test
+
+import (
+	"context"
+	"database/sql"
+	"path/filepath"
+	"strings"
+	"testing"
+	"testing/fstest"
+
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
+	"github.com/so77id/nalanda/apps/server/migrations"
+)
+
+// The auth schema is asserted here rather than trusted to review because every
+// rule it carries fails SILENTLY when it is absent: a foreign key SQLite is not
+// enforcing keeps the rows it should reject, and a missing unique index shows up
+// as a second professor with the same email rather than as an error.
+//
+// These cases run against the migrations the binary actually ships, applied to a
+// fresh file — the same premise as TestTheEmbeddedMigrationsApplyToAFreshDatabase
+// one file over, which covers the sequence rather than its contents.
+
+// migrated opens a fresh database, applies the embedded set and hands back the
+// handle. Fatal on any failure: a case that cannot reach its assertions has
+// nothing to say about the schema.
+func migrated(t *testing.T) (context.Context, *sql.DB) {
+	t.Helper()
+
+	ctx := context.Background()
+	db, err := storage.Open(ctx, filepath.Join(t.TempDir(), "nalanda.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	t.Cleanup(func() { _ = db.Close() })
+
+	if _, err := storage.Migrate(ctx, db, migrations.FS); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	return ctx, db
+}
+
+// insertProfessor adds a row to users and returns its id.
+func insertProfessor(t *testing.T, ctx context.Context, db *sql.DB, email string) int64 {
+	t.Helper()
+
+	result, err := db.ExecContext(ctx,
+		"INSERT INTO users (email, name) VALUES (?, ?)", email, "Profesora")
+	if err != nil {
+		t.Fatalf("inserting the professor %s: %v", email, err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("reading the inserted id: %v", err)
+	}
+	return id
+}
+
+func TestTheAuthSchemaAcceptsAProfessorWithAnIdentityAndASession(t *testing.T) {
+	ctx, db := migrated(t)
+
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO oauth_identities (user_id, provider, subject, email) VALUES (?, ?, ?, ?)",
+		userID, "google", "sub-1", "profesora@example.com",
+	); err != nil {
+		t.Fatalf("inserting the identity: %v", err)
+	}
+
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO user_sessions (token_hash, user_id, csrf_token, expires_at) VALUES (?, ?, ?, ?)",
+		"hash-1", userID, "csrf-1", 4102444800,
+	); err != nil {
+		t.Fatalf("inserting the session: %v", err)
+	}
+}
+
+// Two professors cannot share an email, and the check has to survive a
+// difference in case: Google returns the address as the account holder typed it,
+// so "Profesora@example.com" and "profesora@example.com" are one person and
+// would otherwise be two rows, only one of which the login resolver would ever
+// find.
+func TestUsersRejectADuplicateEmailWhateverItsCase(t *testing.T) {
+	ctx, db := migrated(t)
+
+	insertProfessor(t, ctx, db, "profesora@example.com")
+
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO users (email, name) VALUES (?, ?)", "Profesora@Example.com", "Otra",
+	); err == nil {
+		t.Error("a second professor with the same email in another case was accepted, want a uniqueness error")
+	}
+}
+
+// (provider, subject) is the login key, so a second row claiming the same Google
+// account is what would let one identity resolve to two professors.
+func TestAnOAuthIdentityIsUniquePerProviderAndSubject(t *testing.T) {
+	ctx, db := migrated(t)
+
+	first := insertProfessor(t, ctx, db, "una@example.com")
+	second := insertProfessor(t, ctx, db, "otra@example.com")
+
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO oauth_identities (user_id, provider, subject, email) VALUES (?, ?, ?, ?)",
+		first, "google", "sub-shared", "una@example.com",
+	); err != nil {
+		t.Fatalf("inserting the first identity: %v", err)
+	}
+
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO oauth_identities (user_id, provider, subject, email) VALUES (?, ?, ?, ?)",
+		second, "google", "sub-shared", "otra@example.com",
+	); err == nil {
+		t.Error("a second identity with the same (provider, subject) was accepted, want a uniqueness error")
+	}
+}
+
+// The references are constraints, not documentation. This is the case that goes
+// green on an unenforced schema, which is why storage.Open sets foreign_keys(1)
+// and why sqlite_test.go asserts the pragma separately: both have to hold.
+func TestTheAuthSchemaEnforcesItsReferences(t *testing.T) {
+	ctx, db := migrated(t)
+
+	for _, c := range []struct {
+		name  string
+		query string
+		args  []any
+	}{
+		{
+			name:  "identity of an unknown professor",
+			query: "INSERT INTO oauth_identities (user_id, provider, subject, email) VALUES (?, ?, ?, ?)",
+			args:  []any{int64(4242), "google", "sub-orphan", "nadie@example.com"},
+		},
+		{
+			name:  "session of an unknown professor",
+			query: "INSERT INTO user_sessions (token_hash, user_id, csrf_token, expires_at) VALUES (?, ?, ?, ?)",
+			args:  []any{"hash-orphan", int64(4242), "csrf-orphan", 4102444800},
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := db.ExecContext(ctx, c.query, c.args...)
+			if err == nil {
+				t.Fatal("the row was accepted, want a foreign-key error")
+			}
+			// Naming the constraint matters: before the schema existed, this
+			// case passed on "no such table" — an error for the wrong reason is
+			// how a guard goes green while verifying nothing.
+			if !strings.Contains(err.Error(), "FOREIGN KEY") {
+				t.Errorf("rejected with %v, want a FOREIGN KEY constraint failure", err)
+			}
+		})
+	}
+}
+
+// Deleting a professor takes their identities and sessions with them. Without
+// the cascade, a deleted professor's session row outlives them and the middleware
+// resolves a cookie to a user that is no longer there.
+func TestDeletingAProfessorRemovesTheirIdentitiesAndSessions(t *testing.T) {
+	ctx, db := migrated(t)
+
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO oauth_identities (user_id, provider, subject, email) VALUES (?, ?, ?, ?)",
+		userID, "google", "sub-1", "profesora@example.com",
+	); err != nil {
+		t.Fatalf("inserting the identity: %v", err)
+	}
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO user_sessions (token_hash, user_id, csrf_token, expires_at) VALUES (?, ?, ?, ?)",
+		"hash-1", userID, "csrf-1", 4102444800,
+	); err != nil {
+		t.Fatalf("inserting the session: %v", err)
+	}
+
+	if _, err := db.ExecContext(ctx, "DELETE FROM users WHERE user_id = ?", userID); err != nil {
+		t.Fatalf("deleting the professor: %v", err)
+	}
+
+	for _, table := range []string{"oauth_identities", "user_sessions"} {
+		var rows int
+		if err := db.QueryRowContext(ctx, "SELECT count(*) FROM "+table).Scan(&rows); err != nil {
+			t.Fatalf("counting %s: %v", table, err)
+		}
+		if rows != 0 {
+			t.Errorf("%s still holds %d row(s) after the professor was deleted, want 0", table, rows)
+		}
+	}
+}
+
+// The one migration case that is about an operator rather than about the schema.
+//
+// #149 shipped migrations/00001_init.sql, a deliberate `SELECT 1;`, and anyone
+// who ran the server locally has a database with version 1 recorded. This WP
+// deletes that file. goose keys applied migrations by version, so the new set
+// must apply cleanly over a database whose only recorded version no longer
+// exists on disk — otherwise the first thing every existing checkout does after
+// this PR is fail to boot, and no other test in this suite would see it because
+// they all start from an empty file.
+func TestTheAuthMigrationAppliesOverADatabaseThatRanThePlaceholder(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "nalanda.db")
+
+	// The set as #149 shipped it, reproduced here because the file it names is
+	// deleted by this very slice.
+	placeholder := fstest.MapFS{
+		"00001_init.sql": &fstest.MapFile{Data: []byte(
+			"-- +goose Up\nSELECT 1;\n\n-- +goose Down\nSELECT 1;\n",
+		)},
+	}
+
+	db, err := storage.Open(ctx, path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if _, err := storage.Migrate(ctx, db, placeholder); err != nil {
+		t.Fatalf("applying the placeholder set: %v", err)
+	}
+	_ = db.Close()
+
+	reopened, err := storage.Open(ctx, path)
+	if err != nil {
+		t.Fatalf("reopening: %v", err)
+	}
+	defer func() { _ = reopened.Close() }()
+
+	applied, err := storage.Migrate(ctx, reopened, migrations.FS)
+	if err != nil {
+		t.Fatalf("applying the shipped set over a database that ran the placeholder: %v", err)
+	}
+	if applied == 0 {
+		t.Fatal("the shipped set applied nothing over the placeholder database, so the auth schema never arrived")
+	}
+
+	if _, err := reopened.ExecContext(ctx,
+		"INSERT INTO users (email, name) VALUES (?, ?)", "profesora@example.com", "Profesora",
+	); err != nil {
+		t.Errorf("the auth schema is not usable after the upgrade: %v", err)
+	}
+}
