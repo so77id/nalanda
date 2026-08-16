@@ -149,11 +149,73 @@ is `apps/amc-worker/PAPER-CHECK.md` (`make paper` → print → mark → scan �
 "execution is invisible to the suite" above: a green run here is not evidence
 the thing works.
 
-## Protocols — `apps/server` (Go) — placeholder
+## Protocols — `apps/server` (Go)
 
-Born with the app in v0.3. Its author registers here the Go per-commit protocol
-(`gofmt`/`golangci-lint`/`go vet`/`go test ./...` or equivalent) and the pre-PR
-battery (full tests + integration L6), same rigor as `apps/web`.
+Born with the app in #149. Style rules for the tests themselves live in
+`backend-code-style.md` §Testing.
+
+**Per-commit** (from `apps/server/`):
+
+```bash
+gofmt -l .             # MUST print nothing — see below
+go vet ./...
+go build ./...
+go test ./...          # at minimum the touched scope, in green
+```
+
+**`gofmt -l` exits 0 whether or not it found anything.** It reports by printing
+filenames, so `gofmt -l .` as a protocol step is green over an unformatted tree
+and CI has to test its OUTPUT rather than its status
+(`.github/workflows/server.yml`). Locally the gate is that the command prints
+nothing.
+
+**Pre-PR** (from `apps/server/`):
+
+```bash
+gofmt -l .
+go vet ./...
+go test -race -count=1 ./...   # FULL suite: unit + L4 architecture + L6
+go build ./...
+docker build -t nalanda/server:dev .
+# then the compose path (L8), from infra/local/:
+#   docker compose up -d --wait server && curl -fsS http://127.0.0.1:8081/health
+```
+
+**`-count=1` is not optional in the pre-PR run, and the reason is specific.**
+`internal/architecture_test.go` reads the source tree rather than importing it.
+Go's build cache keys a test package on its own inputs, so a package that
+imports nothing from the module counts as unchanged whatever happens to the
+code — and an earlier revision that shelled out to `go list` replayed a cached
+PASS through four real dependency-rule violations (#149 S5). The file was
+rewritten to read files with `go/parser`, which the cache does track, and
+`-count=1` is the belt to that braces.
+
+**`-race` in the pre-PR run only.** The server starts a goroutine per connection
+and one for the accept loop; the detector costs several seconds and finds
+nothing on most commits, which is the shape of a check that belongs in the wider
+battery rather than in every commit.
+
+**The image is built and RUN, not only built.** `CGO_ENABLED=0` is what lets the
+binary run on `scratch`; a dependency that needs CGO produces a build that
+succeeds and a container that cannot start, and no compile step notices. CI runs
+the image and probes `/health`; the human runs it through compose.
+
+**Green means exit status 0** — with the `gofmt` exception above, which is the
+one step in this protocol whose status lies.
+
+**Gates in CI** (`apps/server`): `.github/workflows/server.yml`, filtered on
+`apps/server/**`, mirrors the pre-PR protocol. `infra/local/docker-compose.yml`
+is deliberately NOT in its path filters: the file is shared with
+`apps/amc-worker` and the job does not run it — the compose path is the human's
+L8 check.
+
+**What this level cannot see.** The suite drives `httptest` recorders and
+temporary SQLite files. It says nothing about the container: whether the binary
+starts on `scratch`, whether the unprivileged UID can write the volume, whether
+the healthcheck the compose file names exists in the image at all. That last one
+did not exist when the compose file first referenced it (#149 S6), and only
+running the thing said so — which is why the pre-PR protocol ends in Docker
+rather than in `go test`.
 
 ## Conventions (`apps/web`)
 
