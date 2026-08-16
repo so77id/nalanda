@@ -10,8 +10,8 @@ and humans follow this document; deviations are proposed in PRs and recorded her
 nalanda/
 ├── apps/                    # deployable applications, each SELF-CONTAINED
 │   ├── web/                 # platform frontend (React + TS + Vite)
-│   └── amc-worker/          # control engine: Auto-Multiple-Choice in a container (ADR-0030)
-│                            # server/ arrives in v0.3 (Go) — created when it arrives
+│   ├── amc-worker/          # control engine: Auto-Multiple-Choice in a container (ADR-0030)
+│   └── server/              # backend: Go + SQLite, two delivery surfaces (ADR-0033) — born with #149
 ├── content/                 # course material (Material domain) — created by its first course
 │   └── courses/<slug>/...   # v0.1: exactly ONE course (enforced at app startup)
 ├── packages/                # shared libraries between apps — created with the first one
@@ -112,7 +112,8 @@ grows case by case — it is self-governing, like the component catalog.
 
 ## How to add a new app
 
-Checklist for any new application under `apps/` (e.g., `apps/server` in v0.3):
+Checklist for any new application under `apps/`. Both `apps/amc-worker` (#138)
+and `apps/server` (#149) were admitted through it:
 
 - [ ] Own `README.md` with install / dev / test / build commands — the app is
       understandable alone.

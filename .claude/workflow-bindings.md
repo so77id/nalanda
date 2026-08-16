@@ -64,10 +64,10 @@ against a container image) today.
 
 ```
 Documentation standard: docs/standards/documentation.md
-Code style docs:        docs/standards/frontend-code-style.md, docs/standards/python-code-style.md, docs/standards/repository-structure.md, docs/standards/design-system.md
+Code style docs:        docs/standards/frontend-code-style.md, docs/standards/python-code-style.md, docs/standards/backend-code-style.md, docs/standards/repository-structure.md, docs/standards/design-system.md
 ADR directory:          docs/decisions/
 ADR criteria:           docs/standards/documentation.md (Rules §2) + plugin defaults
-Agent instructions:     CLAUDE.md, apps/web/CLAUDE.md, apps/amc-worker/CLAUDE.md
+Agent instructions:     CLAUDE.md, apps/web/CLAUDE.md, apps/amc-worker/CLAUDE.md, apps/server/CLAUDE.md
 ```
 
 NOTE: `docs/standards/*` and `apps/web/` land on main with PR #67.

@@ -8,8 +8,11 @@
 > **Status:** design closed. **WP-A shipped** (#138) — the engine is confirmed
 > by ADR-0030 with one paper check outstanding, and the reading report it
 > returns is owned by ADR-0031. **WP-B is in flight** (#139: the question bank,
-> its gates and the published artifact; #144 and #147 alongside it). WPs C–G not
-> started.
+> its gates and the published artifact; #144 and #147 alongside it, #148 landed
+> the bank itself under ADR-0032). **WP-C1 shipped** (#149) — `apps/server`
+> exists, with the layered shape of C11 enforced by a test and every
+> add-a-new-app obligation discharged; ADR-0033 records C10 and C11. WP-C2
+> (#150) and WP-C3 (#151) are filed and not started; WPs D–G not started.
 > Living decisions distilled from here become ADRs as each WP develops.
 
 ## Problem
@@ -118,16 +121,24 @@ touched.
 |----|-------|-------|-----------|
 | A ✅ | [#138](https://github.com/so77id/nalanda/issues/138) | **AMC worker** — the spike, its acceptance list, the container and its HTTP contract, and the ADR recording engine choice | — |
 | B | [#139](https://github.com/so77id/nalanda/issues/139) | **Question bank in content** — authoring format, anchor resolution and its gate, the rendering component, catalog entry, published JSON | — |
-| C | not refined | **`apps/server` is born** — Go + SQLite + goose, auth domain ported, Google OAuth, seed, professor CRUD, plus the process obligations below. Likely two WPs | — |
-| D | not refined | **Course and roster** — tables and CSV import. Canvas import noted, not assumed | C |
-| E | not refined | **Create a control, generate the PDF** | A, B, C, **+ the paper check** |
+| C1 ✅ | [#149](https://github.com/so77id/nalanda/issues/149) | **`apps/server` is born** — Go + SQLite + goose, the layered skeleton with its dependency rule enforced by a test, `/health`, the image and compose, and every process obligation below | — |
+| C2 | [#150](https://github.com/so77id/nalanda/issues/150) | **Auth domain** — ported from DocumentBuddy per ADR-0009, Google OAuth, sessions, seed | C1 |
+| C3 | [#151](https://github.com/so77id/nalanda/issues/151) | **Backoffice** — server-rendered layout and the professor CRUD | C2 |
+| D | not refined | **Course and roster** — tables and CSV import. Canvas import noted, not assumed | C1 |
+| E | not refined | **Create a control, generate the PDF** | A, B, C1–C3, **+ the paper check** |
 | F | not refined | **Read scans, manual review queue** | E |
 | G | not refined | **Publish grades** — spreadsheet, email, Canvas | F |
 
-WPs C–G are deliberately unrefined. A spec written against an engine the spike
+WPs D–G are deliberately unrefined. A spec written against an engine the spike
 has not confirmed is fiction: if WP-A disqualifies AMC, E and F describe work we
-will not do. Each is refined when its turn comes, C after its own design
-conversation (see *What WP-C brings with it*).
+will not do. Each is refined when its turn comes.
+
+**C was split into three** in the design conversation of 2026-08-16, and the
+split is the point rather than bookkeeping: C1 introduces a LANGUAGE — new
+toolchain, new CI job, new standards document — and burying that under a
+security-sensitive auth port would have made both harder to review. C1 is
+shipped; it leaves a server that starts, reaches its database, answers
+`/health`, and has nothing else in it.
 
 The first real control needs **A, B and E**, grading by hand that first time —
 which is worth doing anyway, to see the printed sheet before automating its
@@ -165,19 +176,24 @@ minutes, disqualifying at forty.
 > Forty sheets read in **53 s** (ADR-0030 §Measurements), so the timing was
 > never the constraint this paragraph expected it to be.
 
-### What WP-C brings with it
+### What WP-C brought with it — discharged by C1 (#149)
 
-`repository-structure.md` §How to add a new app applies in full, and Go is a new
-language in the monorepo:
+`repository-structure.md` §How to add a new app applied in full, and Go was a
+new language in the monorepo. All of it landed with C1:
 
-- `docs/standards/backend-code-style.md`, born with the app (ADR-0005).
-- Its own CI job with path filters; its two testing protocols registered in
-  `testing-strategy.md` before its first PR merges.
-- Own README, own `CLAUDE.md`, own packaging; root `CLAUDE.md` edited so shared
-  concerns stay at root.
-- Extension points registered in `integration-guides.md`.
-- An ADR for C10/C11 — pulling the backend forward and the one-binary,
-  two-surface shape.
+- `docs/standards/backend-code-style.md`, born with the app (ADR-0005). ✅
+- Its own CI job with path filters (`.github/workflows/server.yml`); its two
+  testing protocols registered in `testing-strategy.md`. ✅
+- Own README, own `CLAUDE.md`, own packaging; root `CLAUDE.md` and `README.md`
+  edited so shared concerns stay at root. ✅
+- Extension points registered in `integration-guides.md`. ✅ — with one
+  deliberate deferral: *Add a backend endpoint* needs a repository to show, and
+  C1 has none, so it arrives with C2.
+- An ADR for C10/C11 — ADR-0033. ✅
+
+The one thing C1 did NOT bring is hosting, still deferred by C15: there is a
+Dockerfile and a dev compose service, and no VPS, no Jetson, no Tailscale, no
+deploy workflow.
 
 ## Open questions
 

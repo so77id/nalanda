@@ -12,6 +12,8 @@ This file holds **monorepo-shared** instructions only. Each app has its own
 - `apps/web/CLAUDE.md` — the platform frontend.
 - `apps/amc-worker/CLAUDE.md` — the control engine (Auto-Multiple-Choice in a
   container). Nothing there runs on the host; everything goes through Docker.
+- `apps/server/CLAUDE.md` — the backend (Go + SQLite). One binary, two delivery
+  surfaces, one shared domain; its dependency rule is enforced by a test.
 
 ## Mandatory reading (before any code work)
 

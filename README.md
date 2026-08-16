@@ -23,7 +23,8 @@ piece as the new app needs it.
 nalanda/
 ├── apps/
 │   ├── web/            Platform frontend (React 19 + TS + Vite + Tailwind v4)
-│   └── amc-worker/     Control engine: Auto-Multiple-Choice in a container (ADR-0030)
+│   ├── amc-worker/     Control engine: Auto-Multiple-Choice in a container (ADR-0030)
+│   └── server/         Backend: Go + SQLite, two delivery surfaces (ADR-0033)
 ├── content/            Course material (Material domain): courses/<slug>/ — MDX + index.yaml
 ├── docs/
 │   ├── standards/      Dev standards: repo structure, code style, testing, docs
