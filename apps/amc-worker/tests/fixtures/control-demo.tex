@@ -39,6 +39,20 @@
 % it by hand, in our Spanish, as one more choice — see `comparar-cadenas`.
 \usepackage[box,lang=ES]{automultiplechoice}
 
+% What each question says about itself, and the asymmetry behind it. A student
+% has five minutes and cannot scroll back to learn a convention, so the type is
+% stated per question, in words, for BOTH kinds — a symbol needs a legend, and
+% a legend is read once at the top and forgotten by question three.
+%
+% It takes two different levers, which looks like a bug the first time it is
+% met. A simple question takes the label as its optional argument. A
+% `questionmult` CANNOT: measured, and the .sty says why — its definition
+% already passes `\multiSymbole` into that same slot (automultiplechoice.sty
+% line 1232), so a second one mangles the text. Redefining `\multiSymbole` is
+% the supported way in, and it replaces AMC's default club suit.
+\def\unaSymbole{\textsf{\small(una respuesta)}}
+\def\multiSymbole{\textsf{\small(varias respuestas)}}
+
 % Code inside an AMC question must arrive from a FILE. `verbatim` does not
 % compile inside a question environment, and the way it fails is the trap: the
 % first attempt compiled only because the random draw did not pick that
@@ -55,7 +69,7 @@
 % Fixed seed so a test run is reproducible: the same seed must produce the same
 % four questions in the same order for copy N, every time. Without this, a
 % failure could never be told apart from a different draw.
-\AMCrandomseed{1237}
+\AMCrandomseed{1242}
 
 \begin{document}
 
@@ -65,7 +79,7 @@
 % ---------------------------------------------------------------------------
 
 \element{clase}{
-  \begin{question}{iteraciones}
+  \begin{question}[\unaSymbole]{iteraciones}
     ¿Cuántas iteraciones hace, a lo más, la búsqueda binaria sobre un arreglo
     ordenado de $n$ elementos?
     \begin{choices}
@@ -78,7 +92,7 @@
 }
 
 \element{clase}{
-  \begin{question}{requisito}
+  \begin{question}[\unaSymbole]{requisito}
     ¿Qué condición debe cumplir el arreglo para poder aplicar búsqueda binaria?
     \begin{choices}
       \correctchoice{Estar ordenado}
@@ -90,7 +104,7 @@
 }
 
 \element{clase}{
-  \begin{question}{lineal}
+  \begin{question}[\unaSymbole]{lineal}
     En el peor caso, ¿cuántas comparaciones hace la búsqueda lineal sobre
     $n$ elementos?
     \begin{choices}
@@ -103,7 +117,7 @@
 }
 
 \element{clase}{
-  \begin{question}{tipo-primitivo}
+  \begin{question}[\unaSymbole]{tipo-primitivo}
     En Java, ¿cuál de estos es un tipo primitivo?
     \begin{choices}
       \correctchoice{\texttt{int}}
@@ -115,7 +129,7 @@
 }
 
 \element{clase}{
-  \begin{question}{igualdad}
+  \begin{question}[\unaSymbole]{igualdad}
     En Java, ¿qué compara el operador \texttt{==} aplicado a dos objetos?
     \begin{choices}
       \correctchoice{Si son el mismo objeto}
@@ -127,7 +141,7 @@
 }
 
 \element{clase}{
-  \begin{question}{arreglo-largo}
+  \begin{question}[\unaSymbole]{arreglo-largo}
     En Java, ¿cómo se obtiene la cantidad de elementos de un arreglo
     \texttt{a}?
     \begin{choices}
@@ -140,7 +154,7 @@
 }
 
 \element{clase}{
-  \begin{question}{indice}
+  \begin{question}[\unaSymbole]{indice}
     ¿Cuál es el índice del primer elemento de un arreglo en Java?
     \begin{choices}
       \correctchoice{0}
@@ -152,7 +166,7 @@
 }
 
 \element{clase}{
-  \begin{question}{referencia}
+  \begin{question}[\unaSymbole]{referencia}
     Si \texttt{b = a} y ambos son referencias al mismo objeto, ¿qué ocurre al
     modificar un campo a través de \texttt{b}?
     \begin{choices}
@@ -165,7 +179,7 @@
 }
 
 \element{clase}{
-  \begin{question}{descarte}
+  \begin{question}[\unaSymbole]{descarte}
     En cada paso, la búsqueda binaria descarta:
     \begin{choices}
       \correctchoice{La mitad de los elementos que quedaban}
@@ -177,7 +191,7 @@
 }
 
 \element{clase}{
-  \begin{question}{peor-caso}
+  \begin{question}[\unaSymbole]{peor-caso}
     Sobre 1000 elementos ordenados, ¿cuántas iteraciones hace la búsqueda
     binaria en el peor caso?
     \begin{choices}
@@ -200,6 +214,15 @@
       \correctchoice{\texttt{a.equals(b)}}
       \correctchoice{\texttt{a.compareTo(b) == 0}}
       \wrongchoice{\texttt{a == b}}
+      % `\lastchoices` pins what follows at the end while the rest shuffle, and
+      % it is not decoration: without it this alternative came out SECOND on
+      % copy 1 — a "ninguna de las anteriores" printed above two of them, which
+      % says something false to the student reading it. Found by rendering the
+      % sheet and looking at it, not by any assertion. It is also the mechanism
+      % AMC uses for the box `completemulti` appends (automultiplechoice.sty
+      % line 867), so an alternative of this kind is pinned the same way whether
+      % AMC writes it or we do.
+      \lastchoices
       \wrongchoice{Ninguna de las anteriores}
     \end{choices}
   \end{questionmult}
@@ -207,7 +230,7 @@
 
 % A question carrying code, read from its own file.
 \element{clase}{
-  \begin{question}{suma-arreglo}
+  \begin{question}[\unaSymbole]{suma-arreglo}
     ¿Qué imprime este programa?
 
     % ABSOLUTE, and measured: a path relative to this file does not resolve.
@@ -245,8 +268,20 @@
     \AMCcode{rut}{8}
   \end{center}
 
+  % This used to read "Marca una sola alternativa por pregunta", which stopped
+  % being true the moment the pool held a multiple-answer question. What
+  % replaces it is the instructions plus the total and how the total is
+  % reached, with THIS sheet's numbers — nobody should have to do a rule of
+  % three under a clock. WP-E computes them per generated control; the fixture
+  % only has to stop saying something false.
   \vspace{3mm}
-  \noindent\emph{Marca una sola alternativa por pregunta.}
+  \noindent\fbox{\begin{minipage}{0.98\linewidth}
+      \textbf{4 preguntas} · \textbf{4 puntos} · el 4,0 son 2 puntos
+
+      \smallskip
+      Cada pregunta dice cuántas respuestas admite.
+      \textbf{Respóndelas todas: equivocarse no descuenta.}
+    \end{minipage}}
   \vspace{2mm}
 
   \shufflegroup{clase}

@@ -133,10 +133,10 @@ check_eq "copy 2 is clean" "ok" "$(jq 'd["copies"]["2"]["status"]')"
 # written in the source wherever it ended up on the page. That is the useful
 # semantics (a plan can say "the correct one") but it is surprising, so it is
 # stated here rather than left to be rediscovered.
-check_eq "copy 1's marks read back, including two on the multiple-answer one" \
-  "[[1], [1, 2], [3], [4]]" "$(jq '[a["marked"] for a in d["copies"]["1"]["answers"]]')"
-check_eq "copy 2 marked one alternative per question" "[[2], [2], [1], [1]]" \
-  "$(jq '[a["marked"] for a in d["copies"]["2"]["answers"]]')"
+check_eq "copy 1 marked one alternative per question" "[[1], [2], [3], [4]]" \
+  "$(jq '[a["marked"] for a in d["copies"]["1"]["answers"]]')"
+check_eq "copy 2's marks read back, including two on the multiple-answer one" \
+  "[[2], [1, 2], [1], [1]]" "$(jq '[a["marked"] for a in d["copies"]["2"]["answers"]]')"
 
 # --- a question says which kind it is ------------------------------------------
 #
@@ -147,25 +147,26 @@ check_eq "copy 2 marked one alternative per question" "[[2], [2], [1], [1]]" \
 # database at all.
 check_eq "each answer says whether its question admits one alternative or several" \
   "['simple', 'multiple', 'simple', 'simple']" \
-  "$(jq '[a["type"] for a in d["copies"]["1"]["answers"]]')"
+  "$(jq '[a["type"] for a in d["copies"]["2"]["answers"]]')"
 check_eq "and the copy that drew none of them says so too" \
   "['simple', 'simple', 'simple', 'simple']" \
-  "$(jq '[a["type"] for a in d["copies"]["2"]["answers"]]')"
+  "$(jq '[a["type"] for a in d["copies"]["1"]["answers"]]')"
 
 # THE defect this WP exists for: two ticks on a multiple-answer question are the
 # ANSWER, and the old reader called every second tick an ambiguity — so a
 # student who answered correctly was sent to the manual review queue, and the
 # professor was handed a sheet that was right.
 check_eq "two marks on a multiple-answer question are an answer, not an ambiguity" \
-  "ok" "$(jq '[a["status"] for a in d["copies"]["1"]["answers"] if a["type"]=="multiple"][0]')"
+  "ok" "$(jq '[a["status"] for a in d["copies"]["2"]["answers"] if a["type"]=="multiple"][0]')"
 check_eq "so the copy that answered it correctly is clean" "ok" \
-  "$(jq 'd["copies"]["1"]["status"]')"
+  "$(jq 'd["copies"]["2"]["status"]')"
 
 # --- AC-5: ambiguity is reported, not resolved --------------------------------
 
 # And the other half of the same rule: on a SIMPLE question a second tick is
-# still an ambiguity. Copy 3 ticks two alternatives of `descarte`, which admits
-# one — the same physical mark that is a correct answer on copy 1's multiple.
+# still an ambiguity. Copy 3 ticks two alternatives of `tipo-primitivo`, which
+# admits one — the same physical mark that is a correct answer on copy 2's
+# multiple.
 amb="$(jq '[a["status"] for a in d["copies"]["3"]["answers"]].count("ambiguous")')"
 check_eq "copy 3's double mark on a simple question is still ambiguous" "1" "$amb"
 check_eq "and it is the simple question that was flagged" "simple" \
@@ -213,19 +214,19 @@ check_eq "copy 5's doubled RUT column is reported with both digits" "2011111[01]
 # caller assuming a denominator.
 
 check_eq "a simple question is worth one point" "[1.0, 1.0, 1.0]" \
-  "$(jq '[a["max"] for a in d["copies"]["1"]["answers"] if a["type"]=="simple"]')"
+  "$(jq '[a["max"] for a in d["copies"]["2"]["answers"] if a["type"]=="simple"]')"
 
 check_eq "the multiple-answer question is worth one point per alternative" "4.0" \
-  "$(jq '[a["max"] for a in d["copies"]["1"]["answers"] if a["type"]=="multiple"][0]')"
+  "$(jq '[a["max"] for a in d["copies"]["2"]["answers"] if a["type"]=="multiple"][0]')"
 
 # The three cases the main batch can reach, one per copy that drew it:
 mult_score() { jq "[a[\"score\"] for a in d[\"copies\"][\"$1\"][\"answers\"] if a[\"type\"]==\"multiple\"][0]"; }
-check_eq "both correct alternatives ticked scores full marks" "4.0" "$(mult_score 1)"
+check_eq "both correct alternatives ticked scores full marks" "4.0" "$(mult_score 2)"
 check_eq "one of the two correct ticked, none wrong, scores partial" "3.0" "$(mult_score 3)"
 check_eq "only a wrong alternative ticked still scores above zero" "1.0" "$(mult_score 5)"
 
-note "copy 1 grade" \
-  "$(jq '"%.2f of %d questions" % (sum(a["score"]/a["max"] for a in d["copies"]["1"]["answers"]), len(d["copies"]["1"]["answers"]))')"
+note "copy 2 grade" \
+  "$(jq '"%.2f of %d questions" % (sum(a["score"]/a["max"] for a in d["copies"]["2"]["answers"]), len(d["copies"]["2"]["answers"]))')"
 
 # --- the threshold those scores were computed at ------------------------------
 #
@@ -333,7 +334,7 @@ check_contains "and the incomplete copy is queued for review" "'2'" \
 
 # --- the two multiple-answer cases the main batch cannot reach ----------------
 #
-# Only copies 1, 3 and 5 draw `comparar-cadenas` under this seed, and the main
+# Copies 2, 3, 4 and 5 draw `comparar-cadenas` under this seed, and the main
 # plan spends them on all-correct, partial and one-wrong. The two remaining
 # cases matter most for the opposite reasons: ticking EVERY box is the one that
 # must not earn full marks (it is the hole the whole design exists to close),
@@ -375,10 +376,10 @@ mrep="${mwork}/report.json"
 mrun python3 /opt/amc-worker/read_capture.py --data /work/project/data >"$mrep" 2>/dev/null || true
 mjq() { python3 -c "import json; d=json.load(open('$mrep')); print($1)" 2>/dev/null || echo ""; }
 
-everything="$(mjq '[a for a in d["copies"]["1"]["answers"] if a["type"]=="multiple"][0]')"
+everything="$(mjq '[a for a in d["copies"]["2"]["answers"] if a["type"]=="multiple"][0]')"
 note "every box ticked" "$everything"
 check_eq "ticking every alternative does NOT earn full marks" "2.0" \
-  "$(mjq '[a["score"] for a in d["copies"]["1"]["answers"] if a["type"]=="multiple"][0]')"
+  "$(mjq '[a["score"] for a in d["copies"]["2"]["answers"] if a["type"]=="multiple"][0]')"
 check_eq "a blank multiple-answer question scores zero" "0.0" \
   "$(mjq '[a["score"] for a in d["copies"]["3"]["answers"] if a["type"]=="multiple"][0]')"
 check_eq "and it is reported blank, not answered" "blank" \

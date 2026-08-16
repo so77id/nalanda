@@ -118,47 +118,55 @@ check_eq "every drawn question is one of the authored twelve" "" "$unknown"
 
 # --- alternatives are shuffled per copy ---------------------------------------
 
-# `igualdad` is drawn by more than one copy in this fixture. Its four
-# alternatives all begin with an accent-free "Si ", which is what makes reading
-# them out of the PDF safe. It replaced `indice` when #147 added two questions
-# to the pool and the draw moved — the check below is written to say so out
-# loud rather than skip, which is how this repointing got noticed at all.
-order_of() { # order_of <page> → the alternatives of `igualdad`, in printed order
+# `arreglo-largo` is drawn by copies 2 and 4 in this fixture, and its four
+# alternatives are short, accent-free and ligature-free (`a.length`,
+# `a.length()`, `a.size()`, `len(a)`), which is what makes reading them out of
+# the PDF safe.
+#
+# It has been repointed twice by #147 — from `indice`, then from `igualdad` —
+# because adding questions to the pool moves the seeded draw, and so does
+# `\lastchoices`, which draws from the same random stream. That is exactly why
+# the branch below FAILS rather than skipping when the pair stops sharing it: a
+# skipped check reads as a passing one, and both repointings were noticed by
+# this check going red on purpose.
+c4="$(drawn 4)"
+note "copy 4 drew" "$c4"
+
+order_of() { # order_of <page> → the alternatives of `arreglo-largo`, in printed order
   # `|| true` on the pipeline: lib.sh runs under `set -e -o pipefail`, so a grep
   # that matches nothing would abort the whole script inside the command
   # substitution instead of producing the empty string the check below reports.
-  # Anchor on accent-free text: the stem reads "¿qué compara el operador…" and
-  # pdftotext gives back the accented characters, so "aplicado a dos objetos"
-  # is what is safe to match. Take the six lines that follow rather than
-  # stopping at a blank line — the stem wraps, so the block is not reliably
-  # blank-terminated.
+  # Anchor on accent-free text: the stem reads "¿cómo se obtiene la cantidad…"
+  # and pdftotext gives the accents back, so "la cantidad de elementos" is what
+  # is safe to match. Take the six lines that follow rather than stopping at a
+  # blank line — the stem wraps, so the block is not reliably blank-terminated.
   in_image pdftotext -layout -f "$1" -l "$1" /work/out/sujet.pdf - 2>/dev/null |
-    sed -n '/aplicado a dos objetos/,+6p' | grep -E '^ +Si ' |
+    sed -n '/cantidad de elementos/,+6p' | grep -E '^ +(a\.|len\()' |
     sed 's/^ *//;s/ *$//' | tr '\n' '|' || true
 }
 
 shared=""
-for q in $c1; do
-  case " $c2 " in *" $q "*) shared="$shared $q" ;; esac
+for q in $c2; do
+  case " $c4 " in *" $q "*) shared="$shared $q" ;; esac
 done
 
 case " $shared " in
-*" igualdad "*)
-  o1="$(order_of 1)"
-  o3="$(order_of 3)" # copy 2's first page
-  note "copy 1 alternative order" "$o1"
-  note "copy 2 alternative order" "$o3"
-  if [ -n "$o1" ] && [ -n "$o3" ] && [ "$o1" != "$o3" ]; then
+*" arreglo-largo "*)
+  o2="$(order_of 3)" # copy 2's first page
+  o4="$(order_of 7)" # copy 4's first page
+  note "copy 2 alternative order" "$o2"
+  note "copy 4 alternative order" "$o4"
+  if [ -n "$o2" ] && [ -n "$o4" ] && [ "$o2" != "$o4" ]; then
     pass "the same question prints its alternatives in a different order per copy"
   else
     fail "the same question prints its alternatives in a different order per copy" \
-      "copy1='${o1}' copy2='${o3}'"
+      "copy2='${o2}' copy4='${o4}'"
   fi
   ;;
 *)
   # Not a failure of the code — the fixture's draw changed. Say so loudly rather
   # than skipping silently, because a skipped check reads as a passing one.
-  fail "fixture still shares 'igualdad' between copies 1 and 2 (shuffle check needs it)" \
+  fail "fixture still shares 'arreglo-largo' between copies 2 and 4 (shuffle check needs it)" \
     "shared questions were '${shared:- none}'; repoint order_of() or reseed the fixture"
   ;;
 esac
@@ -174,6 +182,64 @@ case "$page1" in
 *"Question "*) fail "no English question labels" "found 'Question' on the sheet" ;;
 *) pass "no English question labels" ;;
 esac
+
+# --- the sheet says how many answers each question admits ---------------------
+#
+# A student meets four questions under a five-minute clock and cannot scroll
+# back to learn a convention, so the type is stated per question, in words, for
+# BOTH kinds — a symbol would need a legend, and a legend is read once at the
+# top and forgotten by question three.
+#
+# Both strings are accent-free and ligature-free, which is what makes reading
+# them out of the PDF safe (see the header of this file).
+sheet="$(in_image pdftotext -layout /work/out/sujet.pdf - 2>/dev/null)"
+check_contains "a question with one answer says so" "(una respuesta)" "$sheet"
+check_contains "a question with several says so too" "(varias respuestas)" "$sheet"
+
+# And the instruction that contradicted them is gone. It read "Marca una sola
+# alternativa por pregunta", which stopped being true the moment the pool
+# contained a multiple-answer question (#147).
+case "$sheet" in
+*"una sola alternativa"*)
+  fail "the sheet no longer tells everyone to mark a single alternative" \
+    "found 'una sola alternativa' on the sheet" ;;
+*) pass "the sheet no longer tells everyone to mark a single alternative" ;;
+esac
+
+# What replaced it: the instructions, the total, and how the total is reached,
+# with THIS sheet's numbers — nobody should have to do a rule of three under a
+# clock. WP-E computes them per generated control; the fixture only has to stop
+# saying something false.
+check_contains "the sheet says how many questions it holds" "4 preguntas" "$sheet"
+check_contains "and what they are worth" "4 puntos" "$sheet"
+# "equivocarse no" rather than "no descuenta": the sentence wraps between those
+# two words on this sheet, and a needle that spans the wrap would fail for a
+# reason that has nothing to do with what is printed.
+check_contains "and that answering everything is free" "equivocarse no" "$sheet"
+
+# --- an alternative that talks about the others must print after them ---------
+#
+# "Ninguna de las anteriores" is an ordinary alternative, so it shuffles with
+# the rest — and on copy 1 it came out SECOND, above two of the alternatives it
+# claims to be talking about. The sheet said something false and nothing here
+# could see it; it was found by rendering the page and looking at it. AMC's
+# `\lastchoices` pins it, and this check is what keeps it pinned.
+#
+# Checked on both copies that draw the question: with only one, a shuffle that
+# happened to land it last would read as a pass.
+ninguna_last() { # ninguna_last <page> → "yes" when it prints after the others
+  local page="$1" text n_line other_line
+  text="$(in_image pdftotext -layout -f "$page" -l "$page" /work/out/sujet.pdf - 2>/dev/null)"
+  n_line="$(printf '%s\n' "$text" | grep -n 'Ninguna de las anteriores' | cut -d: -f1 | head -1)"
+  other_line="$(printf '%s\n' "$text" | grep -n 'a.compareTo(b) == 0' | cut -d: -f1 | head -1)"
+  if [ -n "$n_line" ] && [ -n "$other_line" ] && [ "$n_line" -gt "$other_line" ]; then
+    echo yes
+  else
+    echo "no (ninguna at line ${n_line:-none}, other at ${other_line:-none})"
+  fi
+}
+check_eq "on copy 2 the catch-all alternative prints last" "yes" "$(ninguna_last 3)"
+check_eq "and on copy 3 too" "yes" "$(ninguna_last 5)"
 
 # --- a question can carry code, read from its own file ------------------------
 
