@@ -56,6 +56,10 @@ services:
       # (ADR-0034 §Consequences). The .tex the generator emits writes /work
       # absolute paths regardless — this only decides where the server writes.
       NALANDA_WORK_DIR: "/work"
+      # --- WP-F (issue #167): scans ---
+      # The largest scan PDF the upload handler will accept, in whole MB.
+      # Optional — defaults to 100 in the loader.
+      NALANDA_MAX_SCAN_MB: "${NALANDA_MAX_SCAN_MB:-100}"
     volumes:
       - server-data:/data
       # Shared with the amc-worker service below. The server writes a

@@ -1,0 +1,69 @@
+{{ define "content" }}
+  <h1>{{ .Name }} — copia {{ .CopyNumber }}</h1>
+  <p><a href="{{ .BackURL }}">Volver a los resultados</a></p>
+
+  {{ if .Graded }}
+    <p class="aviso">Estás editando un control cerrado. Los cambios se guardan igual, pero la corrección ya fue marcada como <strong>Corregida</strong>.</p>
+  {{ end }}
+
+  <div class="review-split">
+    <section class="review-image">
+      <h2>Escaneo</h2>
+      <p><img src="{{ .ImageURL }}" alt="Escaneo de la copia {{ .CopyNumber }}"></p>
+    </section>
+
+    <section class="review-form">
+      <h2>Corrección</h2>
+      <form method="post" action="{{ .SaveURL }}">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+
+        <fieldset>
+          <legend>RUT</legend>
+          <p>
+            <label for="rut">RUT (8 dígitos):</label>
+            <input type="text" id="rut" name="rut" value="{{ .RUT.Value }}"
+                   pattern="[0-9]{8}" maxlength="8" inputmode="numeric">
+            {{ if .RUT.Overridden }}<small>(editado por ti)</small>{{ end }}
+            {{ if and .RUT.WasRead .RUT.Overridden }}
+              <br><small>AMC leyó: {{ .RUT.OriginalRead }}</small>
+            {{ end }}
+          </p>
+        </fieldset>
+
+        {{ range $q := .Questions }}
+          <fieldset>
+            <legend>P{{ $q.Index }} ({{ if eq $q.Type "multiple" }}varias respuestas{{ else }}una respuesta{{ end }})</legend>
+            <p>{{ $q.Statement }}</p>
+            {{ range $a := $q.Alternatives }}
+              <p>
+                {{ if eq $q.Type "multiple" }}
+                  <input type="checkbox" id="q{{ $q.Index }}-a{{ $a.Index }}"
+                         name="q{{ $q.QuestionRef }}"
+                         value="{{ $a.Index }}"
+                         {{ if $q.IsSelected $a.Index }}checked{{ end }}>
+                {{ else }}
+                  <input type="radio" id="q{{ $q.Index }}-a{{ $a.Index }}"
+                         name="q{{ $q.QuestionRef }}"
+                         value="{{ $a.Index }}"
+                         {{ if $q.IsSelected $a.Index }}checked{{ end }}>
+                {{ end }}
+                <label for="q{{ $q.Index }}-a{{ $a.Index }}">{{ $a.Label }}</label>
+              </p>
+            {{ end }}
+            <p>
+              <button type="submit" name="blank" value="{{ $q.QuestionRef }}">
+                Marcar en blanco
+              </button>
+              {{ if $q.Overridden }}<small>{{ $q.OriginalRead }}</small>{{ end }}
+            </p>
+          </fieldset>
+        {{ end }}
+
+        <p>
+          <a class="boton" href="{{ .BackURL }}">Cancelar</a>
+          <button type="submit" name="save" value="1">Guardar cambios</button>
+        </p>
+      </form>
+    </section>
+  </div>
+{{ end }}

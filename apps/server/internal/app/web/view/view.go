@@ -196,15 +196,75 @@ type SectionOption struct {
 	Section string
 }
 
-// ControlDetailPage is what controls_detail.html renders (S8). The three
-// boxes issue #166 §The screens asks for: metadata, PDFs, and the WP-F
-// placeholder scans box (rendered by the template unconditionally today,
-// with no reader on the server side until WP-F ships).
+// ControlDetailPage is what controls_detail.html renders. It grows with
+// each WP: WP-E landed the three boxes (§The screens); WP-F fills the
+// Escaneos box with an upload form and appends a Resultados table when
+// readings exist.
 type ControlDetailPage struct {
 	Page
 	Control    DetailedControl
 	SujetURL   string
 	CorrigeURL string
+	// ScansURL is the POST target of the upload form.
+	ScansURL string
+	// MaxScanMB is what the Spanish "máximo N MB" hint says on the
+	// form. The unit is megabytes — the handler enforces the byte
+	// value.
+	MaxScanMB int64
+	// Readings is the list of copies known so far (empty for a control
+	// with no uploads). WP-F S4 renders the results table off this.
+	Readings []ReadingRow
+	// Summary is the "N impresas · M corregidas · K requieren revisión · L no rendidas"
+	// line under the table. Empty when Readings is empty.
+	Summary string
+	// QuestionColumns is the header row for the per-question columns
+	// (P1, P2, …), sized to control.QuestionsPerCopy.
+	QuestionColumns []string
+	// ReanalyzeURL is the POST target for "re-leer con otra sensibilidad".
+	ReanalyzeURL string
+	// CurrentTicked / CurrentUnsure pre-fill the reanalyze form with the
+	// last thresholds used (or the defaults for a first read).
+	CurrentTicked float64
+	CurrentUnsure float64
+	// CanClose is true when the state gate for "Cerrar corrección" is
+	// satisfied. WP-F S8 populates it.
+	CanClose bool
+	// CloseBlockedReason is the Spanish sentence explaining what stops
+	// the professor from closing yet, empty when CanClose is true.
+	CloseBlockedReason string
+	// CloseURL is the POST target for "Cerrar corrección".
+	CloseURL string
+	// Graded is true when control.state = graded — the template surfaces
+	// the "correction was closed" line above the results table.
+	Graded bool
+}
+
+// ReadingRow is one row of the results table. Everything is pre-formatted
+// for the template so it does no arithmetic (issue #167 §The results
+// table).
+type ReadingRow struct {
+	CopyNumber int
+	// RUT is the eight digits to render, or empty when unreadable /
+	// not-present.
+	RUT string
+	// PerQuestion is per-question cells (already formatted with the
+	// relative or "⚠" or "—"), aligned to QuestionColumns.
+	PerQuestion []string
+	// TotalRaw is like "3.5/4" or "—".
+	TotalRaw string
+	// Grade is like "6.5" or "—".
+	Grade string
+	// Estado is the Spanish estado word / phrase per §The results
+	// table's collapse rules.
+	Estado string
+	// EstadoClass is the CSS class the row applies for coloring.
+	EstadoClass string
+	// ReviewURL is the "[revisar]" link — always present, WP-F allows
+	// review of any row.
+	ReviewURL string
+	// Edited is true when the row carries at least one override; the
+	// template renders a subtle marker.
+	Edited bool
 }
 
 // DetailedControl is the metadata the detail page shows, pre-formatted.
@@ -216,6 +276,61 @@ type DetailedControl struct {
 	Shape           string
 	State           string
 	CreatedAt       string
+}
+
+// ReviewPage is what review.html renders (WP-F §The screens). Split view:
+// scanned image on the left, editable form on the right.
+type ReviewPage struct {
+	Page
+	ControlID  string
+	Name       string
+	CopyNumber int
+	BackURL    string
+	ImageURL   string
+	SaveURL    string
+	Graded     bool // when true the template shows the "editing a closed correction" warning
+	RUT        ReviewRUT
+	Questions  []ReviewQuestion
+}
+
+// ReviewRUT is the top row of the form — the RUT block.
+type ReviewRUT struct {
+	Value        string
+	OriginalRead string
+	Status       string
+	Overridden   bool
+	WasRead      bool
+}
+
+// ReviewQuestion is one row of the review form.
+type ReviewQuestion struct {
+	Index        int
+	QuestionRef  string
+	Statement    string
+	Type         string // "simple" | "multiple"
+	Alternatives []ReviewAlternative
+	Selected     []int
+	Status       string
+	Overridden   bool
+	OriginalRead string // "AMC leyó: …" — empty when unedited
+}
+
+// ReviewAlternative is one option a professor can pick.
+type ReviewAlternative struct {
+	Index int
+	Label string
+}
+
+// IsSelected is a helper the template calls — Go html/template's `in`
+// operator does not exist, and a template-level map lookup on []int is
+// awkward. One method per test keeps the template readable.
+func (q ReviewQuestion) IsSelected(index int) bool {
+	for _, s := range q.Selected {
+		if s == index {
+			return true
+		}
+	}
+	return false
 }
 
 // ErrorPage is what error.html renders. AC-11: 404, 403 and 500 render
@@ -363,6 +478,14 @@ func RenderControlDetail(w http.ResponseWriter, page ControlDetailPage) error {
 		page.Title = page.Control.Name
 	}
 	return render(w, "controls_detail", http.StatusOK, page)
+}
+
+// RenderReview writes the WP-F review page.
+func RenderReview(w http.ResponseWriter, page ReviewPage) error {
+	if page.Title == "" {
+		page.Title = fmt.Sprintf("Copia %d — %s", page.CopyNumber, page.Name)
+	}
+	return render(w, "review", http.StatusOK, page)
 }
 
 // RenderError writes an error page through the shell (AC-11).

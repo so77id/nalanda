@@ -141,7 +141,7 @@ touched.
 | C3 ✅ | [#151](https://github.com/so77id/nalanda/issues/151) | **Backoffice** — server-rendered layout and the professor CRUD | C2 |
 | D | not refined | **Course and roster** — tables and CSV import. Canvas import noted, not assumed | C1 |
 | E ✅ | [#166](https://github.com/so77id/nalanda/issues/166) | **Create a control, generate the PDF** — bank reader, AMC worker client, controls domain (Service + Store + tex generator), the three screens (list, form, detail), the two PDF downloads. `/` now redirects to `/controls` (was `/professors`). | A, B, C1–C3, **+ the paper check** |
-| F | not refined | **Read scans, manual review queue** | E |
+| F ✅ | [#167](https://github.com/so77id/nalanda/issues/167) | **Read scans, manual review queue** — the Escaneos box turns live, `/analyse` runs from a PDF upload, readings/answers/overrides persist through `controls.ReadingStore`, the results table + side-by-side review page ship, and *Cerrar corrección* moves the control to `graded`. Rider on the paper check (§Not yet proven) — the reader is not confirmed. | E, **+ paper check** |
 | G | not refined | **Publish grades** — spreadsheet, email, Canvas | F |
 
 WPs D–G are deliberately unrefined. A spec written against an engine the spike

@@ -9,7 +9,12 @@ SQLite underneath. Born with the entrance-controls subsystem
 
 Since WP-C3 (#151) the backoffice has its shell (nav, both themes, error
 pages, one-shot flash cookie) and the professor CRUD. The login round trip
-and the session gate arrived earlier with WP-C2 (#150).
+and the session gate arrived earlier with WP-C2 (#150). WP-E (#166) added
+the entrance-controls screens (list, create, detail with the printable PDF
+downloads); WP-F (#167) turned the Escaneos box live with the whole
+reader loop — upload → analyse → results table → side-by-side review
+page → re-leer con otra sensibilidad → *Cerrar corrección*. The routes
+table in `README.md` is the current inventory.
 
 Commands, stack, configuration and layout live in `README.md` — one home per
 fact.
@@ -30,10 +35,11 @@ fact.
   route here: which surface it belongs to, the handler → domain → repository
   chain, and the middleware a state-changing route needs.
 - `README.md` §"What is not here yet" — before adding anything, check whether
-  the work belongs to WP-D (roster) or WP-E (control creation). **WP-C1,
-  WP-C2 and WP-C3 are closed**: the layered layout (#149), the login round
-  trip + session gate (#150), and the backoffice shell + professor CRUD
-  (#151) all live here.
+  the work belongs to WP-D (roster) or WP-G (publish grades). **WP-C1,
+  WP-C2, WP-C3, WP-E and WP-F are closed**: the layered layout (#149), the
+  login round trip + session gate (#150), the backoffice shell + professor
+  CRUD (#151), control creation with the PDF pipeline (#166) and the
+  scans + review flow (#167) all live here.
 
 ## Language
 
