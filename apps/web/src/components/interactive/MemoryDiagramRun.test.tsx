@@ -47,9 +47,12 @@ vi.mock('../../runtime', async (importOriginal) => {
   const original = await importOriginal<typeof import('../../runtime')>();
   return {
     ...original,
+    // No `loadGrammar` fake here, deliberately, and its absence is an assertion:
+    // <MemoryDiagram> draws its own listing and is the consumer #122 split the
+    // grammar out FOR. If this component ever starts asking for one, these cases
+    // reach the real `loadGrammar` and the reason will be visible.
     loadRuntime: vi.fn(async () => ({
       descriptor: { id: 'java' as const, label: 'Java 8', fileName: 'Main.java', defaultCode: '' },
-      codeMirrorLanguage: () => [],
       createWorker: () => {
         const worker = new FakeWorker();
         workers.push(worker);

@@ -60,6 +60,18 @@ src/
   an architectural decision: extend the map AND record the new edge + rationale
   here in the same PR. Test files may cross any feature through its seam (they
   are consumers, like the shell); production code follows the allowlist.
+- **A seam may expose a loader instead of the data**, when the shell reaches that
+  seam eagerly and the data is not first-paint payload. `components/index.ts`
+  exports `loadCatalogEntries()` — a dynamic `import()` of
+  `components/catalogEntries.ts` — rather than the array, because the shell
+  imports the seam to build the MDX map and a static array there travelled with
+  every course page (#122; ADR-0018 §Consequences has the bytes). The function is
+  the mechanism, not
+  decoration: `export { catalogEntries } from './catalogEntries'` is a static
+  edge and puts it straight back, while importing the inner module from another
+  feature would break the one-seam rule above. Same shape as `runtime/`'s
+  `loadRuntime` / `loadGrammar`. The guard is the eager-graph walk in
+  `src/architecture.test.ts`, never a naming convention.
 - **Cross-feature contract types live in `lib/`** (e.g. `lib/catalogEntry.ts`,
   `lib/componentMeta.ts`) so the producing feature never imports the consuming
   one. Worked case: a component's colocated catalog entry types itself from

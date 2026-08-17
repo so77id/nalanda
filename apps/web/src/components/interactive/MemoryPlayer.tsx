@@ -33,11 +33,15 @@ function changedBetween(before: TraceStep | undefined, after: TraceStep): number
  * driving the editor's decorations from outside it is awkward, and the highlight
  * IS the content here.
  *
- * The weight argument is smaller than it looks and is recorded so nobody repeats
- * it as gospel: ADR-0018's ~162 kB gzip is measured against a page with no
- * runtime, but a mounted diagram already pulls the CodeMirror core through the
- * java runtime module, so the editor would add only ~37 kB gzip on top
- * (ADR-0028 §9). The cost of the trade is a listing with no syntax colour.
+ * The weight argument is recorded so nobody repeats it as gospel — and it has
+ * since been voided, which is exactly why it is kept. It used to read: a mounted
+ * diagram already pulls the CodeMirror core through the java runtime module, so
+ * an editor would add only ~37 kB gzip on top. #122 moved grammars behind
+ * `loadGrammar(id)`, so the diagram now pulls neither grammar nor core, and an
+ * editor here would cost the core as well — the trade is WORSE than that number
+ * said, not better. Reopen it with a fresh measurement (ADR-0028 §Consequences),
+ * never with the old one. The cost of the trade is a listing with no syntax
+ * colour.
  */
 export function MemoryPlayer({ steps, source, truncated = null }: MemoryPlayerProps) {
   const [index, setIndex] = useState(0);

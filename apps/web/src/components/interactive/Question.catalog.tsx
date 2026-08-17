@@ -27,7 +27,7 @@ const SUMA = `public class Demo {
 }
 `;
 
-/** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
+/** Catalog entry (ADR-0010) — colocated with the component, aggregated in catalogEntries.ts. */
 export const questionCatalogEntry: CatalogEntry = {
   name: 'Question',
   family: 'interactive',

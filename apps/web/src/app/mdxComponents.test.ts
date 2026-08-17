@@ -1,8 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { catalog } from '../catalog';
+import { loadCatalog } from '../catalog';
 import { SectionBreak, Slide } from '../components';
 import { mdxComponents } from './mdxComponents';
+
+// Collection-time read: the entries are behind a dynamic import now (#122), and
+// these cases enumerate them to generate their own describes.
+const catalog = await loadCatalog();
 
 const map: Record<string, unknown> = mdxComponents;
 

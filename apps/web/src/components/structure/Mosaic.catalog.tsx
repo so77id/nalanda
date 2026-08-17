@@ -11,7 +11,7 @@ function cells(count: number) {
   return Array.from({ length: count }, (_, i) => <Figure key={i} src={COST_CURVE} alt="" />);
 }
 
-/** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
+/** Catalog entry (ADR-0010) — colocated with the component, aggregated in catalogEntries.ts. */
 export const mosaicCatalogEntry: CatalogEntry = {
   name: 'Mosaic',
   family: 'structure',

@@ -1,19 +1,6 @@
 // Public seam of the components feature (import direction rule, frontend-code-style.md).
 import type { CatalogEntry } from '../lib/catalogEntry';
 
-import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
-import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
-import { memoryDiagramCatalogEntry } from './interactive/MemoryDiagram.catalog';
-import { questionCatalogEntry } from './interactive/Question.catalog';
-import { questionsCatalogEntry } from './interactive/Questions.catalog';
-import { figureCatalogEntry } from './media/Figure.catalog';
-import { sheetEmbedCatalogEntry } from './media/SheetEmbed.catalog';
-import { mosaicCatalogEntry } from './structure/Mosaic.catalog';
-import { sectionBreakCatalogEntry } from './structure/SectionBreak.catalog';
-import { sideBySideCatalogEntry } from './structure/SideBySide.catalog';
-import { slideCatalogEntry } from './structure/Slide.catalog';
-import { splitCatalogEntry } from './structure/Split.catalog';
-
 // Documents and the catalog both get the lazy wrapper — nothing outside
 // `interactive/lazyCodeEditor.tsx` may name the editor module, or CodeMirror
 // returns to the entry chunk (guarded in src/architecture.test.ts).
@@ -35,18 +22,17 @@ export { SideBySide } from './structure/SideBySide';
 export { Slide } from './structure/Slide';
 export { Split } from './structure/Split';
 
-/** Every catalog entry this feature ships (colocated *.catalog.tsx files). */
-export const catalogEntries: CatalogEntry[] = [
-  slideCatalogEntry,
-  sectionBreakCatalogEntry,
-  sideBySideCatalogEntry,
-  splitCatalogEntry,
-  mosaicCatalogEntry,
-  figureCatalogEntry,
-  sheetEmbedCatalogEntry,
-  codeEditorCatalogEntry,
-  exerciseCatalogEntry,
-  memoryDiagramCatalogEntry,
-  questionsCatalogEntry,
-  questionCatalogEntry,
-];
+/**
+ * Every catalog entry this feature ships (colocated *.catalog.tsx files), behind
+ * a dynamic import.
+ *
+ * A FUNCTION rather than the array itself, and that is the whole mechanism: the
+ * shell reaches this seam eagerly for the MDX map, so a static `export {
+ * catalogEntries }` here — even re-exported from another module — puts every
+ * entry's prose in the payload of every course page. The `import()` is the cut,
+ * and `src/architecture.test.ts` walks the eager graph to prove it holds. Only
+ * `/catalog` calls this.
+ */
+export async function loadCatalogEntries(): Promise<CatalogEntry[]> {
+  return (await import('./catalogEntries')).catalogEntries;
+}

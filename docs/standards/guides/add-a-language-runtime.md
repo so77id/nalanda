@@ -27,7 +27,8 @@ of the work:
 ```
 src/runtime/python/
 ├── descriptor.ts        # id, label, fileName, defaultCode, formatWarmStats
-├── index.ts             # descriptor + codeMirrorLanguage() + createWorker()
+├── index.ts             # descriptor + createWorker() — the compiler half
+├── grammar.ts           # the CodeMirror grammar, its own chunk (#122)
 ├── pyodideVersion.ts    # the CDN build, pinned
 ├── pyodideVersion.test.ts
 └── worker.ts            # the actual compile-and-run
@@ -101,8 +102,12 @@ src/runtime/python/
    Do the expensive boot in a `warmUp()` promise at module scope and `await` it
    on every message, so the first Run is fast rather than the slowest.
 
-4. **Write the module** (`<lang>/index.ts`): export `descriptor`,
-   `codeMirrorLanguage()` and `createWorker()`.
+4. **Write the module** (`<lang>/index.ts`): export `descriptor` and
+   `createWorker()`. The CodeMirror grammar is NOT part of it — it lives in
+   `<lang>/grammar.ts` exporting `grammar(): Extension`, so a consumer that
+   drives the runtime without mounting an editor does not pay for a highlighter
+   (#122: `<MemoryDiagram>` paid for one to render none; ADR-0018 §4 has the
+   bytes).
 
    **If it cannot run in a worker** — implement `RuntimeWorker` by hand and
    return it from `createWorker()`; it is our interface, not the platform's, so
@@ -115,9 +120,10 @@ src/runtime/python/
    is unbounded (ADR-0017 §3).
 
 5. **Register it** in `src/runtime/registry.ts`: the descriptor in
-   `runtimeDescriptors`, and a `case` in `loadRuntime`. Keep the `case` a static
-   `import('./<lang>')` — a computed specifier defeats chunk splitting and pulls
-   every toolchain into one file.
+   `runtimeDescriptors`, a `case` in `loadRuntime`, and a `case` in
+   `loadGrammar`. **Two cases, not one** — that is the whole reason there are two
+   functions. Keep both a static `import(...)` — a computed specifier defeats
+   chunk splitting and pulls every toolchain into one file.
 
 6. **Pin the CDN build** if you load one, with a test comparing the constant
    against `package.json` (`pyodideVersion.test.ts` is the pattern). Types that
@@ -158,7 +164,9 @@ src/runtime/python/
 
 - [ ] Fences already tagged with the new language audited; page-weight delta measured and stated.
 - [ ] Id added to `RUNTIME_IDS` (`src/lib/runtimeIds.ts`); descriptor registered in `runtimeDescriptors`;
-      `case` added to `loadRuntime`. The registry tests cover it automatically.
+      a `case` added to `loadRuntime` AND one to `loadGrammar`. The registry tests
+      cover both automatically, and `src/architecture.test.ts` fails if the
+      grammar is reachable from the runtime module.
 - [ ] Descriptor imports nothing heavy.
 - [ ] Worker distinguishes a failed compile (`result`) from a broken runtime
       (`error`), reports `warm` exactly once, and sends `started` once per

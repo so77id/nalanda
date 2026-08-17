@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
@@ -14,28 +14,37 @@ import { AppRoutes } from './AppRoutes';
  * "Nalanda". That is the same shape as the plugin list that could be unwired
  * with the suite green — the failure this WP exists to stop repeating.
  */
-function renderAt(path: string) {
-  return render(
-    <MemoryRouter initialEntries={[path]}>
-      <AppRoutes />
-    </MemoryRouter>,
-  );
+// Async for the same reason as catalogRoute.test.tsx: /catalog suspends on its
+// first render now (#122), and a tree that suspends inside an unawaited `act`
+// scope is discarded — including the sibling <DocumentTitle /> this file exists
+// to prove is wired. Measured with a plain `render`: the first case that mounts
+// /catalog fails, its title still reading the previous test's document, because
+// the effect that sets it never ran. The other three pass — see the note in
+// catalogRoute.test.tsx for why only the first one pays.
+async function renderAt(path: string) {
+  await act(async () => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <AppRoutes />
+      </MemoryRouter>,
+    );
+  });
 }
 
 describe('the document title, as the shell actually sets it', () => {
   it('names the document being read', async () => {
-    renderAt('/d/java-desde-cpp');
+    await renderAt('/d/java-desde-cpp');
     await waitFor(() => expect(document.title).toBe('Java desde C++ · Nalanda'));
   });
 
   it('names the catalog and its pages', async () => {
-    renderAt('/catalog');
+    await renderAt('/catalog');
     await waitFor(() => expect(document.title).toBe('Catalog · Nalanda'));
   });
 
   it('follows a navigation rather than only the first load', async () => {
     const user = userEvent.setup();
-    renderAt('/catalog');
+    await renderAt('/catalog');
     await waitFor(() => expect(document.title).toBe('Catalog · Nalanda'));
 
     await user.click(await screen.findByRole('link', { name: 'Interactive' }));
@@ -48,7 +57,7 @@ describe('the document title, as the shell actually sets it', () => {
     // failure and falls through to the catch-all; the title effect used to throw
     // URIError, and with no error boundary anywhere React unmounted the root —
     // a link anyone can type turned the whole site into a blank page.
-    renderAt('/d/%');
+    await renderAt('/d/%');
 
     expect(await screen.findByText(/no encontrad|not found/i)).toBeInTheDocument();
     expect(document.title).toBe('Nalanda');

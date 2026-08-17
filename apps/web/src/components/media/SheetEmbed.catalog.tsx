@@ -8,7 +8,7 @@ import { SheetEmbed } from './SheetEmbed';
 const PLAN =
   'https://docs.google.com/spreadsheets/d/1_cxMUbcF9Tscd3_4Nu71HiXy-MZuaz28IapmvhS7FkM/edit?usp=sharing';
 
-/** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
+/** Catalog entry (ADR-0010) — colocated with the component, aggregated in catalogEntries.ts. */
 export const sheetEmbedCatalogEntry: CatalogEntry = {
   name: 'SheetEmbed',
   family: 'media',

@@ -1,22 +1,42 @@
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
-import { catalog, families } from '../catalog';
+import { families, loadCatalog } from '../catalog';
 
 import { AppRoutes } from './AppRoutes';
 
-function renderAt(path: string) {
-  render(
-    <MemoryRouter initialEntries={[path]}>
-      <AppRoutes />
-    </MemoryRouter>,
-  );
+// Collection-time read: the entries are behind a dynamic import now (#122), and
+// these cases enumerate them to generate their own describes.
+const catalog = await loadCatalog();
+
+// Async because the catalog entries arrive as a promise (#122) and `use()`
+// suspends. Testing Library's synchronous `render` wraps the mount in an `act`
+// scope nobody awaits, and React discards a tree that suspends inside one — for
+// good. A `findBy*` does NOT rescue it; that was this comment's second wrong
+// explanation, and re-running the experiment is what killed it.
+//
+// What actually happens: only the FIRST `use()` on a given promise suspends,
+// because React tags the promise with its result the moment it settles, so every
+// later mount reads it synchronously. With a plain `render`, exactly one case in
+// this file fails — whichever one runs first — and the other 37 pass because the
+// first one already paid. Which case that is, is an ordering accident.
+//
+// So the awaited `act` scope is not hygiene for one case: it is what stops the
+// suite's verdict depending on test order.
+async function renderAt(path: string) {
+  await act(async () => {
+    render(
+      <MemoryRouter initialEntries={[path]}>
+        <AppRoutes />
+      </MemoryRouter>,
+    );
+  });
 }
 
 describe('/catalog', () => {
   it('lists every family with its definition', async () => {
-    renderAt('/catalog');
+    await renderAt('/catalog');
     expect(await screen.findByRole('heading', { name: /^catalog$/i })).toBeInTheDocument();
     for (const family of families) {
       expect(screen.getByRole('heading', { name: family.name })).toBeInTheDocument();
@@ -25,7 +45,7 @@ describe('/catalog', () => {
   });
 
   it('points each family link at its route segment, not its display name', async () => {
-    renderAt('/catalog');
+    await renderAt('/catalog');
     await screen.findByRole('heading', { name: /^catalog$/i });
     for (const family of families) {
       // Guards the accented-name mistake: ids are route segments, names are not.
@@ -41,7 +61,7 @@ describe('/catalog', () => {
   });
 
   it('makes a family name look like the link it is', async () => {
-    renderAt('/catalog');
+    await renderAt('/catalog');
     await screen.findByRole('heading', { name: /^catalog$/i });
 
     // All four were <a> elements with no colour and no underline: nothing said
@@ -71,7 +91,7 @@ describe('/catalog', () => {
   });
 
   it('navigates from the overview into a family page by clicking its link', async () => {
-    renderAt('/catalog');
+    await renderAt('/catalog');
     await screen.findByRole('heading', { name: /^catalog$/i });
 
     fireEvent.click(screen.getByRole('link', { name: 'Semantic' }));
@@ -89,7 +109,7 @@ describe('/catalog', () => {
   }
 
   it('counts each family in words that agree with its own number', async () => {
-    renderAt('/catalog');
+    await renderAt('/catalog');
     await screen.findByRole('heading', { name: /^catalog$/i });
     for (const family of families) {
       const n = catalog.byFamily(family.id).length;
@@ -105,7 +125,7 @@ describe('/catalog', () => {
   it('says on the overview that an empty family is empty by design, and only there', async () => {
     // The overview is where the two holes sit beside the populated families and
     // where, until #87, they were indistinguishable from them.
-    renderAt('/catalog');
+    await renderAt('/catalog');
     await screen.findByRole('heading', { name: /^catalog$/i });
 
     const emptyCount = families.filter((f) => catalog.byFamily(f.id).length === 0).length;
@@ -127,7 +147,7 @@ describe('/catalog', () => {
       empty,
       'every family now has components — cover the empty branch with a direct FamilyPage test',
     ).toBeDefined();
-    renderAt(`/catalog/${empty!.id}`);
+    await renderAt(`/catalog/${empty!.id}`);
 
     const copy = await screen.findByText(/nothing lives here yet/i);
     expect(copy).toHaveTextContent(/built when a class needs one/i);
@@ -147,7 +167,7 @@ describe('/catalog', () => {
         "and make sure that family's page is in the rendered-English path list below",
     ).toBe(0);
 
-    renderAt('/catalog/semantic');
+    await renderAt('/catalog/semantic');
     await screen.findByRole('heading', { level: 1, name: 'Semantic' });
     // The path sits in its own <code>; the tense is on the paragraph around it.
     expect(screen.getByText(/src\/components\/semantic\//).parentElement).toHaveTextContent(
@@ -160,7 +180,7 @@ describe('/catalog', () => {
     // constant 'will live' pass the whole suite, so /catalog/structure could
     // deny the existence of the folder holding the three components listed
     // right below it.
-    renderAt('/catalog/structure');
+    await renderAt('/catalog/structure');
     await screen.findByRole('heading', { level: 1, name: 'Structure' });
     const line = screen.getByText(/src\/components\/structure\//).parentElement;
     expect(line).toHaveTextContent(/components live in/i);
@@ -168,21 +188,21 @@ describe('/catalog', () => {
   });
 
   it('leaves a populated family free of empty-state copy', async () => {
-    renderAt('/catalog/structure');
+    await renderAt('/catalog/structure');
     await screen.findByRole('heading', { level: 1, name: 'Structure' });
     expect(screen.queryByText(/nothing lives here yet/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/built when a class needs one/i)).not.toBeInTheDocument();
   });
 
   it('shows the 404 page for an unknown family', async () => {
-    renderAt('/catalog/nope');
+    await renderAt('/catalog/nope');
     expect(await screen.findByRole('heading', { name: /not found/i })).toBeInTheDocument();
   });
 });
 
 describe('/catalog/:family', () => {
   it('lists its components with links to their pages', async () => {
-    renderAt('/catalog/structure');
+    await renderAt('/catalog/structure');
     await screen.findByRole('heading', { level: 1, name: 'Structure' });
     const entries = catalog.byFamily('structure');
     expect(entries.length).toBeGreaterThan(0);
@@ -195,7 +215,7 @@ describe('/catalog/:family', () => {
   });
 
   it('navigates into a component page by clicking its link', async () => {
-    renderAt('/catalog/structure');
+    await renderAt('/catalog/structure');
     await screen.findByRole('heading', { level: 1, name: 'Structure' });
 
     fireEvent.click(screen.getByRole('link', { name: 'Slide' }));
@@ -208,7 +228,7 @@ describe('/catalog/:family', () => {
   it.each(['estructura', 'semanticos', 'interactivos'])(
     'no longer answers the old Spanish segment /catalog/%s',
     async (old) => {
-      renderAt(`/catalog/${old}`);
+      await renderAt(`/catalog/${old}`);
       expect(await screen.findByRole('heading', { name: /not found/i })).toBeInTheDocument();
     },
   );
@@ -216,13 +236,13 @@ describe('/catalog/:family', () => {
 
 describe('/catalog/c/:name', () => {
   it('shows the 404 page for an unknown component', async () => {
-    renderAt('/catalog/c/nope');
+    await renderAt('/catalog/c/nope');
     expect(await screen.findByRole('heading', { name: /not found/i })).toBeInTheDocument();
   });
 
   for (const entry of catalog.entries) {
     it(`documents ${entry.name} with its examples and a back link to its family`, async () => {
-      renderAt(`/catalog/c/${entry.name}`);
+      await renderAt(`/catalog/c/${entry.name}`);
       await screen.findByRole('heading', { level: 1, name: entry.name });
 
       expect(screen.getByText(entry.whenToUse)).toBeInTheDocument();
@@ -248,7 +268,7 @@ describe('/catalog/c/:name', () => {
   }
 
   it('renders the real Slide component in both modes (not just page chrome)', async () => {
-    renderAt('/catalog/c/Slide');
+    await renderAt('/catalog/c/Slide');
     await screen.findByRole('heading', { level: 1, name: 'Slide' });
 
     // Both examples render the same prose (the selector excludes the code
@@ -259,7 +279,7 @@ describe('/catalog/c/:name', () => {
   });
 
   it('renders the real SectionBreak component (divider in book, nothing in presentation)', async () => {
-    renderAt('/catalog/c/SectionBreak');
+    await renderAt('/catalog/c/SectionBreak');
     const article = await screen.findByRole('main');
     await screen.findByRole('heading', { level: 1, name: 'SectionBreak' });
 
@@ -289,7 +309,7 @@ describe('the catalog writes English', () => {
     '/catalog/semantic',
     '/catalog/governance',
   ])('renders no Spanish orthography at %s', async (path) => {
-    renderAt(path);
+    await renderAt(path);
     const main = await screen.findByRole('main');
     const offenders = (main.textContent ?? '')
       .split('\n')
@@ -300,7 +320,7 @@ describe('the catalog writes English', () => {
 
 describe('/catalog/governance', () => {
   it('renders the self-governance rules and links back to the catalog', async () => {
-    renderAt('/catalog/governance');
+    await renderAt('/catalog/governance');
     expect(
       await screen.findByRole('heading', { level: 1, name: /governance/i }),
     ).toBeInTheDocument();
@@ -313,7 +333,7 @@ describe('/catalog/governance', () => {
     // It used to assert a "Name → folder/" mapping, which the rename turned
     // into the identity `Structure → structure/`. What an author still needs is
     // the list of families; the folder is the id and the page now says so.
-    renderAt('/catalog/governance');
+    await renderAt('/catalog/governance');
     await screen.findByRole('heading', { level: 1, name: /governance/i });
     const step = screen.getByText(/Pick the family/i);
     for (const family of families) {

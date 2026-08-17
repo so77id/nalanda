@@ -10,6 +10,7 @@ import { OUTPUT, Panel } from './Panel';
 import type { RuntimeId } from '../../lib/runtimeIds';
 import { useResolvedTheme } from '../../lib/useResolvedTheme';
 import { RunAbandonedError } from '../../runtime';
+import { useGrammar } from './useGrammar';
 import { useLoadedRuntime } from './useLoadedRuntime';
 import type { RunReading } from './harness';
 import { STARTER_FENCE, TEST_FENCE, buildHarness, readRun } from './harness';
@@ -111,14 +112,10 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
   const [failure, setFailure] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
 
-  const {
-    run,
-    warm,
-    queued,
-    ready,
-    module: runtime,
-    failure: loadFailure,
-  } = useLoadedRuntime(language);
+  const { run, warm, queued, ready, failure: loadFailure } = useLoadedRuntime(language);
+  // Separately from the runtime, and earlier: an exercise highlights before —
+  // and whether or not — the student ever presses Comprobar (#122).
+  const grammar = useGrammar(language);
 
   const check = useCallback(async () => {
     // Before the run, not after: a Java loop that never ends freezes this tab
@@ -183,7 +180,7 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
           value={code}
           onChange={setCode}
           theme={theme}
-          extensions={[...(runtime ? [runtime.codeMirrorLanguage()] : []), checkShortcut]}
+          extensions={[...(grammar ? [grammar] : []), checkShortcut]}
           basicSetup={{ lineNumbers: true, foldGutter: false }}
         />
       </div>

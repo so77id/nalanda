@@ -447,9 +447,11 @@ Seven things worth knowing before you write one:
   `NalandaCheck`. A snippet declaring it is refused before compiling.
 
 **The compiler** is not downloaded until the reader presses _Ejecutar y
-dibujar_. Mounting is not free, though: it pulls ~120 kB gzip of Java runtime
-module and CodeMirror grammar the component never uses (measured; returning it
-is #122), so do not put many diagrams on one page yet.
+dibujar_. Mounting is not free, though: it pulls four lazy chunks — the
+component, the runtime-loading hook, the runtime seam and the Java module. It
+used to pull a CodeMirror grammar the component never uses on top of that;
+#122 removed it, and the current cost is published on the component's own catalog
+page. Each instance is still a JVM, so a page of diagrams is a page of JVMs.
 
 Decisions behind all this: ADR-0028. Worked examples, live:
 `/catalog/c/MemoryDiagram`.

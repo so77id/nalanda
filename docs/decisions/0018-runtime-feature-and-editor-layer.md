@@ -2,7 +2,10 @@
 
 **Status:** Accepted
 **Amended by:** ADR-0024 (§4: nothing under `runtime/` may be reached before
-first paint, so a descriptor may no longer travel in the entry chunk)
+first paint, so a descriptor may no longer travel in the entry chunk) · #122
+(2026-08-16) — §4/§6: the CodeMirror grammar left `RuntimeModule` for
+`loadGrammar(id)`, and nothing under `runtime/` may statically reach any package
+but `react`
 **Date:** 2026-08-11
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the `RuntimeWorker` contract · lazy per-language runtime modules ·
@@ -58,6 +61,24 @@ Two rules carry weight beyond their size:
 
 **4. Runtimes are split in two halves: a cheap descriptor and a lazy module.**
 
+> **Amended by #122 (2026-08-16): three halves, not two.** The CodeMirror grammar
+> left the lazy module and became its own entry point, `loadGrammar(id)`, with a
+> `<lang>/grammar.ts` per language. `RuntimeModule` is now the compiler half
+> only. The reason is a consumer this decision did not anticipate: `<MemoryDiagram>`
+> drives a real JVM and draws its own listing (ADR-0028), so a grammar inside the
+> module made it pay 16.14 kB gzip to render no highlighting at all. Measured on
+> the built site — java 43.94 kB / 17.76 kB gzip → 3.20 kB / 1.62 kB gzip, cpp
+> 104.13 / 33.41 → 0.20 / 0.19, python 44.82 / 18.64 → 0.20 / 0.19, with the
+> grammars in three lazy chunks of their own (16.15 / 33.29 / 18.52 kB gzip) that
+> only a consumer mounting an editor asks for. The eager payload is untouched —
+> nothing under `runtime/` was ever in it, and the invariant below still holds —
+> but a SECOND invariant now sits beside it: nothing under `runtime/` may
+> statically reach any package but `react`. Grammars, toolchains and parsers go
+> behind a dynamic entry point. An allowlist rather than a denylist, for the same
+> reason the entry-chunk one is (`RUNTIME_MAY_REACH` in
+> `src/architecture.test.ts`) — it replaced a denylist that review evaded three
+> ways while the suite stayed green.
+
 > **Amended by ADR-0024.** Nothing under `runtime/` may be reached before first
 > paint, whatever it costs on its own — importing any of it drags the registry.
 
@@ -82,8 +103,9 @@ self-hosted: the Java compiler jar, which CheerpJ reads through our own origin
 (ADR-0017 §1).
 
 **6. CodeMirror 6 is the editor, and `lucide-react` the icon set.** Via
-`@uiw/react-codemirror`, one grammar per runtime exposed through
-`RuntimeModule.codeMirrorLanguage()`. It is THE editor and THE highlighter for
+`@uiw/react-codemirror`, one grammar per runtime — exposed through
+`RuntimeModule.codeMirrorLanguage()` when this was written, and through
+`loadGrammar(id)` since #122 amended Decision 4. It is THE editor and THE highlighter for
 documents, in the sense ADR-0004 makes framer-motion THE animation library; this
 extends ADR-0004's stack enumeration as ADR-0011 did for the router. ADR-0014's seventh decision
 kept catalog examples on plain `<pre>` "until a real need appears" — this is
@@ -92,9 +114,10 @@ example snippets on `<pre>`. `lucide-react` is likewise the only icon library
 (usage rules in `frontend-code-style.md` §Icons).
 
 **7. Heavy components register through a lazy wrapper — extends ADR-0010/0014.**
-The shell builds the MDX map and `catalogEntries` eagerly, so any static import
-of a heavy component from a module the shell reaches pays its full weight in the
-entry chunk: measured 478.41kB → 893.69kB for CodeMirror (2026-08-12,
+The shell builds the MDX map eagerly (it built `catalogEntries` eagerly too when
+this was written; #122 put those behind a dynamic import, amending ADR-0014's
+second decision), so any static import of a heavy component from a module the
+shell reaches pays its full weight in the entry chunk: measured 478.41kB → 893.69kB for CodeMirror (2026-08-12,
 vite 8.2.0; the widely-quoted "478 → 891" is the same delta measured a day
 earlier). Such a component ships a
 `lazy<Name>.tsx` wrapper, and **both** the MDX map and the component's own
@@ -137,10 +160,13 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   **+4.85kB** (measured 2026-08-12, vite 8.2.0). The editor is a 111.58kB chunk;
   the languages are 44.78kB (python), 45.63kB (java) and 104.12kB (cpp), all
   lazy. **The case that does not hold**: this number tracks content, not only
-  code — a catalog entry's prose ships in the entry chunk because
-  `catalogEntries` is built eagerly, so writing documentation moves it. The
-  claim to defend is "no CodeMirror, no compiler, no runtime in the entry
-  chunk". **`grep` was said to prove it and does not** — #85 breached it without
+  code — a catalog entry's prose shipped in the entry chunk because
+  `catalogEntries` was built eagerly, so writing documentation moved it. (**Fixed
+  in #122**, and the paragraph below carries the measurement; the sentence is
+  kept in the past tense because the *lesson* survives the fix — a
+  payload number that moves when nobody touches code is a number measuring the
+  wrong thing.) The claim to defend is "no CodeMirror, no compiler, no runtime in
+  the entry chunk". **`grep` was said to prove it and does not** — #85 breached it without
   naming CodeEditor or Exercise: a component reached eagerly by the shell's MDX
   map imported the runtime seam for a list of language ids, and brought the
   registry, the descriptors and the Java launcher with it. Both name-based
@@ -174,7 +200,10 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   the math side and states the comparison from both directions.)
   Of that, **161.2 is five lazy chunks** — 95.6 core + 36.4 wrapper + 17.7 java
   grammar + 8.6 `@lezer/lr` + 2.9 the editor chunk itself — and the remaining
-  1.7 is the entry chunk's own growth. (Two earlier drafts got this wrong in the
+  1.7 is the entry chunk's own growth. (#122 split the grammar out of the
+  language module, so a fence page now fetches one more chunk for the same
+  bytes — the 17.7 grammar term was already counted separately here, and the
+  page total is unchanged.) (Two earlier drafts got this wrong in the
   same way and it is worth saying how: the first quoted ~153 kB from three terms
   that summed to 149.8, the second quoted 162.4 against five that summed to
   161.2. A breakdown that does not add up to its own headline is the defect this
@@ -194,6 +223,108 @@ ADR-0014's fifth decision reserves for an ADR extending ADR-0010; `/catalog/gove
   **That thread is now pulled and tied off in ADR-0024**, which decides for a
   listing on palette coherence rather than on cost, and writes the price down so
   a future reader can reopen it with numbers in hand.
+- **The eager payload is measured as a payload, not as "the entry chunk"**
+  (#122, 2026-08-16, vite 8.2.0). The unit is the entry script **plus every
+  `modulepreload` plus every stylesheet in `dist/index.html`** — everything the
+  first paint blocks on. The entry chunk alone lies the moment chunking changes,
+  which is exactly how the 1-chunk/503,623 B → 9/542,194 B regression above went
+  unnoticed.
+
+  **Name the compressor or the next reader will "disagree" for no reason.** These
+  figures are `zlib.gzipSync` at its default level, which is what `vite preview`
+  actually puts on the wire (verified against `encodedBodySize`, byte for byte).
+  Vite's own printed gzip column is a different setting and reads a few percent
+  off — up to **+4.89%** on the grammar chunks in this very build, and *lower* on
+  sub-kB files, where its two-decimal rounding dominates; the two are not interchangeable, and one draft of this section mixed
+  them. **Every figure in this section is real gzip**, the table and the grammar
+  chunks alike. kB is 1000 bytes throughout, as vite reports it.
+
+  The stylesheet is in the unit because it is render-blocking and it is 12.85 kB
+  gzip, 7.3% of what the first paint waits on. It is byte-identical on both sides
+  here, so it changes no delta below — but Tailwind's scan is filesystem-based, so
+  a stray build copy inside `apps/web/` moves it with no source change at all.
+  (That happened during this review; `dist*` is gitignored now.)
+
+  On `main` at 5fa384e, measured at the tip of the WP rather than mid-flight —
+  the first version of this table was taken at slice 1 of 3 and was 245 raw bytes
+  stale by the time it shipped:
+
+  |                                   | eager JS chunks | raw | gzip |
+  |---|---|---|---|
+  | before                            | 2 | 549.31 kB | 174.74 kB |
+  | catalog entries behind `loadCatalogEntries()` | 3 | 512.48 kB | 163.51 kB |
+
+  **The table is the JS half of the unit**, listed on its own because the
+  stylesheet is byte-identical on both sides and would only add a constant to
+  every row. With it: 3 files / 624.47 kB / 187.58 kB gzip before, 4 / 587.65 kB /
+  176.35 kB after — the same deltas. A reader who follows the recipe literally and
+  gets the larger numbers has done it right.
+
+  **A last-mile trap, met twice while writing this section.** Some of this repo's
+  own prose is eagerly shipped — `catalog/GovernancePage.tsx` and every catalog
+  entry's `whenToUse` are strings in the bundle — so *editing the documentation
+  moves the number the documentation reports*. Both times the figure above shifted
+  by a few bytes it was because a sentence in this very WP had been reworded. That
+  is one more reason the satellite documents now point here instead of repeating
+  the digits: the fewer places a payload figure is written, the fewer ways writing
+  it can change it.
+
+  **−36.83 kB raw, −11.23 kB gzip on every page of the site**, including the ones
+  with no code and no interest in the catalog. The third chunk is lucide's
+  `createLucideIcon` (2.70 kB / 1.43 kB gzip): re-cutting the graph let rolldown
+  hoist it out of the entry chunk, and the entry now shares it with the lazy
+  component chunks (`CodeEditor`, `Exercise`, `MemoryDiagram`, `useRunShortcut`
+  and the shared runtime chunk, which carries a Loader icon).
+  One more request, no duplicated bytes. **Not** shared with the catalog chunk —
+  no catalog entry imports an icon, and the first version of this sentence said it
+  did. Third time in this section that a right number arrived with a wrong reason
+  attached; if that is not a pattern by now it never will be.
+
+  **A lazy `/catalog` route was rejected, and the first version of this paragraph
+  rejected it for a reason that was not true.** It is worth writing down in full,
+  because the mistake is subtler than the one this whole section warns about.
+
+  The obvious design is to `React.lazy` the four `/catalog` routes as well. Built
+  and measured, it read **11 eager chunks / 514.74 kB / 166.71 kB gzip**, and that
+  was written up as "moving *more* code out of the entry chunk shipped 4 kB gzip
+  more, because eleven small chunks compress worse than one large one". The build
+  had printed `INEFFECTIVE_DYNAMIC_IMPORT` four times and nobody read it: the
+  pages were still statically reachable through `src/catalog/index.ts`, so
+  **nothing moved**. The measurement was real; the causal story attached to it was
+  invented. What it actually measured is re-splitting the *same* eager bytes into
+  eleven chunks, which costs **+3.26 kB gzip** — a genuine lesson about chunk
+  count as a criterion, and no evidence whatsoever about how gzip treats small
+  chunks.
+
+  Measured honestly (the `lazy()` calls moved INSIDE `src/catalog/index.ts`, so
+  the seam is the cut and `src/architecture.test.ts` stays green), a lazy
+  `/catalog` is **9 eager chunks / 502.95 kB / 162.22 kB gzip** — about **1.2 kB
+  gzip better** than what shipped. The real trade is 1.2 kB gzip against **six
+  extra requests on the first paint of every page**, and this ADR's own criterion
+  says to pin the chunk count. That is why the routes are not lazy. It is a close
+  call decided on requests, not a rout decided on bytes.
+
+  One trap for whoever reopens it: the obvious cut — four
+  `lazy(() => import('../catalog/<Page>'))` in `AppRoutes.tsx` plus
+  `app/DocumentTitle.tsx` pointing at `../catalog/families` — fails
+  `src/architecture.test.ts` with five seam violations, because that walker counts
+  dynamic imports too. The `DocumentTitle` edge alone accounts for one of them. The
+  lazy variant has to go through the seam, or `families` has to move to `lib/`
+  first.
+
+  Also worth keeping: the catalog pages suspend on first render now, so a test
+  that mounts one with Testing Library's synchronous `render` must await an `act`
+  scope — React discards a tree that suspends inside one nobody awaits, and the
+  page never commits.
+
+  **And a `<Suspense fallback={null}>` around them was measured and removed.** It
+  looked free and was not: first paint on `/catalog` went from ~60 ms to ~375 ms,
+  of which roughly 310 ms is React's fixed `FALLBACK_THROTTLE_MS` holding the
+  reveal once a fallback has committed — the chunk itself lands at ~45 ms. On a
+  client-side navigation it blanked the page the reader was still reading. With no
+  boundary React keeps the outgoing page up and reveals the new one when the data
+  lands: 68–76 ms, measured. A `null` fallback is not "no fallback"; it is a
+  commitment to show nothing, and it is charged at the throttle.
 - **One live worker costs a few hundred MB of RSS** — 681MB peak measured for a
   single C++ worker on Apple Silicon (2026-08-11, Chromium via Playwright),
   against a 152MB idle baseline. Discarding it reclaims the live heap and all

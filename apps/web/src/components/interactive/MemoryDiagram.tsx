@@ -35,10 +35,12 @@ export interface MemoryDiagramProps {
  * be worse than one that says so.
  *
  * The CDN toolchain is not fetched until the reader asks — `loadCheerpJ` runs on
- * the first `run`, never on mount. Mounting is not free though: it pulls the java
- * runtime module and, through its `@codemirror/lang-java` import, the CodeMirror
- * core with it — ~121.7 kB gzip measured, none of which this component uses
- * because it draws its own listing. Returning that is #122.
+ * the first `run`, never on mount. Mounting is not free though: it pulls four
+ * lazy chunks — this component, the runtime seam, `useLoadedRuntime` and the java
+ * module (33.95 kB raw / 13.12 kB gzip, ADR-0028 §9). It used to pull the java
+ * grammar and the CodeMirror core on top of that, ~121.7 kB gzip this component
+ * never used because it draws its own listing; #122 moved grammars behind
+ * `loadGrammar(id)`, so it no longer does.
  */
 export function MemoryDiagram({ title, children }: MemoryDiagramProps) {
   const fences = useMemo(() => fencesByMeta(children), [children]);

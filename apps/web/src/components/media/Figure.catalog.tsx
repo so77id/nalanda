@@ -10,7 +10,7 @@ const COST_CURVE = 'asset:courses/sample-course/costo-busqueda.svg';
 const ALT =
   'Dos curvas de costo sobre los mismos ejes: la búsqueda lineal sube en línea recta con el tamaño del arreglo, mientras la binaria se aplana casi de inmediato.';
 
-/** Catalog entry (ADR-0010) — colocated with the component, exported via the seam. */
+/** Catalog entry (ADR-0010) — colocated with the component, aggregated in catalogEntries.ts. */
 export const figureCatalogEntry: CatalogEntry = {
   name: 'Figure',
   family: 'media',
