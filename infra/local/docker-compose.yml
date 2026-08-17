@@ -68,6 +68,12 @@ services:
       - ./questions.example.json:/work/questions.json:ro
     ports:
       - "127.0.0.1:8081:8081"
+    # Comes back after a reboot or a Docker daemon restart. The Jetson deploy
+    # (#162) reboots without a human touching it, and one of the risks its ADR
+    # names is home power cuts — a container that stayed stopped after each of
+    # those is silently down until someone notices. `unless-stopped` leaves
+    # `docker compose stop` intact, unlike `always`.
+    restart: unless-stopped
     # Free here in a way it is not for amc-worker: the image is `scratch` with
     # three files in it, and /data is the only path written. The worker's own
     # accepted residual in docs/security-notes.md prescribes exactly this pair
@@ -116,6 +122,11 @@ services:
     # network, and publishing it here is a convenience for driving it by hand.
     ports:
       - "127.0.0.1:8080:8080"
+    # Same rationale as the server above (#162). The Jetson deploy leaves this
+    # service off unless the box is asked to generate controls — the WP that
+    # decides whether a 4 GB Nano can host AMC is separate from #162 — but if
+    # it IS running, it should come back after a reboot for the same reason.
+    restart: unless-stopped
     # The image's default command is the HTTP wrapper; the AMC CLI stays
     # available underneath for exploring by hand (`docker compose run --rm
     # amc-worker auto-multiple-choice prepare ...`).
