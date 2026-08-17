@@ -175,6 +175,89 @@ Environment variables only, read **once at boot** into a struct, through
   api surface, and a global write deadline kills a long-lived connection. It
   moves onto the routes that want it when that arrives — it is not deleted.
 
+## Forms, flash and error pages
+
+The backoffice's server-rendered shape, born in WP-C3 (#151). These rules
+apply to every screen `internal/app/web` grows from here on — WP-D's roster
+import, WP-E's control creation, WP-F's review queue.
+
+### Every page renders through the shell
+
+`internal/app/web/view` parses `templates/layout.html` once at package init
+and stitches every page under `templates/pages/*.html` onto a clone of it.
+The layout carries the two-half navigation, both themes (`color-scheme:
+light dark`, `currentColor` only), the embedded CSS, and the render of
+`.Flash`. `view.render` is the only writer: it buffers into memory, sets
+the security headers and the content type, writes the status, and only
+then writes the body — a template that fails halfway must not arrive as a
+200 with a truncated page.
+
+**Add a page**: an HTML file under `templates/pages/`, a `Page`-embedding
+struct in `view.go`, and a `RenderXxx` that delegates to `render` with a
+status parameter. The status is a parameter because the same page (see
+below) renders both 200 and 422; a fresh render function that hard-coded
+200 would ship a validation refusal as success.
+
+### Form / validation / errors
+
+One shape for every write screen (`ProfessorsFormPage` is the worked case):
+
+- **The SAME template handles GET (empty), validation-failure re-render
+  (values + errors) and edit (pre-filled)**. `EmailReadonly` and per-page
+  `Action`/`Heading`/`Submit` are what differ.
+- **Errors are field-keyed** (`map[string]string`). A single blob would
+  make a two-error submission read as "something went wrong".
+- **The values the professor typed come back on refusal**. A form that
+  lost the input would tempt a fix that hits a different validation
+  branch by accident and turns a rejection into a confusing loop.
+- **A refusal is 422**, never 200. A refusal rendered as 200 would look
+  right in a browser and hide the rejection from anything reading the HTTP
+  layer.
+- **Known-shape domain errors become field errors, not 500s**. Duplicate
+  email is the worked case — `authstore.CreateUser` surfaces the SQLite
+  UNIQUE violation as text, `isDuplicateEmail` matches it, the field gets
+  a Spanish message. A preflight SELECT would be a race window and is not
+  the pattern.
+- **Every state-changing form carries `<input type="hidden"
+  name="csrf_token" value="{{ .CSRFToken }}">`** — the router's guard
+  refuses a POST without it and `TestEveryStateChangingRouteVerifiesCSRF`
+  walks the table to prove it.
+
+### Flash — POST/redirect/GET
+
+Server-side "your action worked" between a mutation and the redirected GET
+that shows it. `internal/app/web/flash.Set` writes a base64-encoded
+HttpOnly cookie; `flash.Consume` reads it AND clears it in the same
+response, so a refresh does not re-show "Profesora creada" and tell the
+professor they created two.
+
+**Do NOT use a query parameter** (`?aviso=`) for a mutation's message —
+it lands in URL bar, history, page title and proxy access logs, and
+re-shows on reload. `?aviso=` stays on the login page because that route
+is public and has no session to hang a flash on.
+
+**Guard refusals reach the professor as flash + redirect (303), not as a
+4xx** (issue #151 AC-8). The domain returns a sentinel error, the handler
+branches on it with `errors.Is`, sets the Spanish message and redirects to
+the list. `auth.ErrCannotDeactivateSelf` and
+`auth.ErrCannotDeactivateLastActive` are the worked cases.
+
+### Error pages — 404 / 403 / 500
+
+`view.RenderError` writes any of them through the shell with the caller's
+status. Three callers today:
+
+- `router.renderNotFound` — the surface's default 404, distinguished from a
+  405 by looking up the request path in the routes table (a wrong verb
+  reaches the mux so its Allow header is set).
+- `middleware.renderForbidden` — the CSRF gate's refusal, replacing the
+  plain-text `http.Error`.
+- Handler-side `renderInternalError` — the last-resort catch when the
+  domain fails a read.
+
+An error page reached by a signed-in professor still shows the bar, so
+they can leave the 404 by clicking Profesores rather than the back button.
+
 ## Database
 
 - **Only `internal/infra/storage` names a driver.** Everything above receives a

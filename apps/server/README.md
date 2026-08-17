@@ -106,10 +106,11 @@ cmd/server/        wiring and entry point — the only main package
 internal/domain/   business types and the interfaces they need — PURE
   auth/            professors, identities, sessions, and who may log in
 internal/app/web/  the professor's backoffice
-  handler/         the login round trip
+  handler/         the login round trip and the professor CRUD
   middleware/      cookie → professor, the gate, CSRF
   oauthstate/      the single-use state nonces of the OAuth flow
-  view/            html/template, embedded
+  flash/           the one-shot POST/redirect/GET message cookie
+  view/            html/template, embedded — shell + pages
 internal/app/api/  the JSON/WS surface — anonymous, no middleware (§C12)
 internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
   oidc/            the Google client — standard library, no OIDC dependency
@@ -162,23 +163,63 @@ asymmetry is also the first concrete thing `internal/app/api` exists to express.
 { "process": "up", "database": "down" }
 ```
 
+## The backoffice
+
+Since WP-C3 (#151) the shell exists and holds the professor CRUD. Every page
+renders through one layout (`view/templates/layout.html`) with a two-half
+navigation — sections on the left, the professor's own `<details>`/`<summary>`
+menu on the right holding the POST logout. Both themes come from
+`color-scheme: light dark` and `currentColor`; no stylesheet is served
+(§C13 — the backoffice is an internal tool and does not follow ADR-0026).
+
+Routes today:
+
+| Route | What |
+|---|---|
+| `GET /` | Redirects to `/professors` (an anonymous request lands in `/login` first, via the gate) |
+| `GET /professors` | The list: address, name, state, created, last sign-in |
+| `GET /professors/new` · `POST /professors` | Create by address and name — the `Authenticate` path (2) round trip |
+| `GET /professors/{id}/edit` · `POST /professors/{id}` | Rename. The address is not editable |
+| `POST /professors/{id}/deactivate` | Flips `is_active=0` and ends every session that professor holds |
+| `POST /professors/{id}/reactivate` | Flips `is_active=1` and clears `deactivated_at` |
+| `GET /login` · `GET /login/google` · `GET /login/google/callback` · `POST /logout` | The login round trip — see §Signing in |
+
+Every state-changing route sits behind `middleware.RequireProfessor` AND
+`middleware.VerifyCSRF`, both enforced by
+`TestEveryRouteIsGatedUnlessItSaysWhyNot` and
+`TestEveryStateChangingRouteVerifiesCSRF` walking the router's table. 404,
+403 and 500 render through the shell (`view.RenderError`) rather than as
+Go's default text.
+
+Two guards enforce that the backoffice cannot be locked shut, both in
+`domain/auth/admin.go`: a professor cannot deactivate themselves, and the
+last active professor cannot be deactivated. Both refuse in Spanish, as a
+flash + redirect rather than a 4xx.
+
+The address is deliberately NOT editable and there is NO delete — a
+mistyped address is permanent debt, recorded and accepted in issue #151
+§Notes with the fix that would close it (allow delete or re-address on
+professors who have never signed in) when it earns its turn.
+
 ## What is not here yet
 
 Deliberately, and each with an owner:
 
 | Missing | Arrives with |
 |---|---|
-| The backoffice screens, the layout, the professor CRUD | WP-C3 — [#151](https://github.com/so77id/nalanda/issues/151) |
 | Courses, students, enrolment — any domain table | WP-D |
 | JSON contracts, CORS, WebSocket on `/api` | with a consumer (ADR-0008) |
 | Talking to `apps/amc-worker` | WP-E |
 | Deploy, hosting, secrets | deferred (`2026-08-controles.md` §C15) |
+| Deleting or re-addressing a professor who has never signed in | WP that reopens the mistyped-address debt (#151 §Notes) |
+| An audit trail of who did what | The WP that gains a second class of actor (#151 §Non-goals) |
 
 `migrations/00001_init.sql` was the deliberately empty placeholder #149 shipped,
 and **#150 deleted it** with the first real migration, as planned. The auth
 schema is numbered `00002` even so: goose keys applied migrations by version, so
 a file reusing number 1 would be considered already applied by every checkout
-that had run the server, and the schema would never arrive.
+that had run the server, and the schema would never arrive. WP-C3 added
+`00003_last_login_at.sql`.
 
 ## Signing in
 
@@ -188,7 +229,7 @@ surface and none on `/api/` (§C12):
 
 | Route | What |
 |---|---|
-| `GET /login` | The page. Doubles as the signed-in page while there are no screens |
+| `GET /login` | The page. Signed-in professors see it re-rendered through the shell too — a link back into the backoffice |
 | `GET /login/google` | Starts the flow: issues a state nonce, redirects to Google |
 | `GET /login/google/callback` | Completes it. Refuses a state that is not in this browser's own cookie, and then one this server never issued — both before spending the code (ADR-0036; the cookie half is what closes login CSRF) |
 | `POST /logout` | Ends the session. Requires a professor **and** the session's CSRF token |
