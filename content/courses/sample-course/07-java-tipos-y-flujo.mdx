@@ -2,7 +2,7 @@
 id: java-tipos-y-flujo
 title: Tipos, operadores y entrada/salida
 presentation: explicit
-questions: none
+questions: per-section
 ---
 
 {/* This deck is pinned by app/presentationRoute.test.tsx (ADR-0025: the */}
@@ -15,6 +15,12 @@ questions: none
 {/* of documentSections.test.tsx, chosen because it carries both heading */}
 {/* sources — <Slide title> h2s AND markdown `##` — so it must keep at least */}
 {/* one `##` (today `## Ejercicios` and `## Lo que sigue`). */}
+{/* This document declares `questions: per-section` (#144). Adding or */}
+{/* retitling a section therefore means writing a question for it, or */}
+{/* declaring it WITH ITS REASON in NO_QUESTION in */}
+{/* apps/web/src/content/architecture.test.ts — the suite is red until you do. */}
+{/* app/documentFences.test.tsx also pins the untagged fences of the two Java */}
+{/* documents at 2, so any new listing here carries a language tag. */}
 
 # Tipos, operadores y entrada/salida
 
@@ -526,6 +532,160 @@ check(Solution.sumaLarga(-2000000000, -2000000000), -4000000000L);
 ```
 
 </Exercise>
+
+<Questions>
+
+<Question id="bits-de-un-char" anchor="tipos-primitivos">
+
+¿Cuántos bits ocupa un `char` en Java?
+
+- [x] 16
+- [ ] 8
+- [ ] 32
+- [ ] Depende de la máquina
+
+</Question>
+
+<Question id="tipos-de-java-ciertas" anchor="cuatro-diferencias-con-c">
+
+¿Cuáles de estas afirmaciones sobre los tipos de Java son ciertas?
+
+- [x] El tamaño de un `int` es el mismo en toda máquina donde corra Java
+- [x] `char` es el único entero sin signo
+- [ ] Un emoji fuera del plano básico ocupa un solo `char`
+- [ ] Existe `unsigned int`, igual que en C++
+
+</Question>
+
+<Question id="desborde-de-un-int" anchor="el-desborde-en-vivo">
+
+¿Qué imprime este programa?
+
+```java
+class Desborde {
+    public static void main(String[] args) {
+        int maximo = Integer.MAX_VALUE;
+        System.out.println(maximo + 1);
+    }
+}
+```
+
+- [x] -2147483648
+- [ ] 2147483648
+- [ ] 0
+- [ ] No compila
+
+</Question>
+
+<Question id="desborde-especificado" anchor="definido-en-java-indefinido-en-c">
+
+¿En qué se diferencian Java y C++ ante el desborde de un entero con signo?
+
+- [x] En Java está especificado; en C++ es indefinido
+- [ ] En Java lanza una excepción; en C++ da la vuelta
+- [ ] En los dos está especificado que da la vuelta
+- [ ] En Java lo rechaza el compilador; en C++ compila
+
+</Question>
+
+<Question id="division-entre-enteros" anchor="operadores">
+
+En Java, ¿cuánto vale `7 / 2`?
+
+- [x] 3
+- [ ] 3.5
+- [ ] 4
+- [ ] 3.0
+
+</Question>
+
+<Question id="tres-diferencias-de-operadores" anchor="tres-diferencias-reales">
+
+¿Cuáles de estas afirmaciones sobre los operadores de Java son ciertas?
+
+- [x] No se puede definir qué significa `+` para una clase propia
+- [x] `+` concatena texto, y eso es un privilegio del lenguaje
+- [ ] `>>` rellena siempre con ceros al correr a la derecha
+- [ ] Se puede sobrecargar `==` para comparar objetos
+
+</Question>
+
+<Question id="concatenar-antes-de-sumar" anchor="que-imprime-esto">
+
+¿Qué imprime este programa?
+
+```java
+class Concatenacion {
+    public static void main(String[] args) {
+        System.out.println("total: " + 1 + 2);
+    }
+}
+```
+
+- [x] total: 12
+- [ ] total: 3
+- [ ] total: 1 + 2
+- [ ] No compila
+
+</Question>
+
+<Question id="metodo-que-lee-la-linea" anchor="entrada-y-salida">
+
+¿Qué método de `Scanner` lee el resto de la línea?
+
+- [x] `nextLine()`
+- [ ] `next()`
+- [ ] `nextString()`
+- [ ] `hasNext()`
+
+</Question>
+
+<Question id="decimales-con-punto" anchor="lee-dos-numeros">
+
+En el Java que corre en el navegador de este curso, ¿qué acepta `nextDouble()` como
+decimal?
+
+- [x] `3.14`, con punto
+- [ ] `3,14`, con coma
+- [ ] Las dos formas, según el idioma del navegador
+- [ ] Solo enteros; los decimales se leen con `next()`
+
+</Question>
+
+<Question id="trampa-de-nextline" anchor="la-trampa-de-nextline">
+
+Después de `nextInt()`, ¿qué devuelve el `nextLine()` que sigue?
+
+- [x] El resto vacío de la línea del número
+- [ ] La línea siguiente completa
+- [ ] La misma línea del número, entera
+- [ ] Lanza una excepción por falta de datos
+
+</Question>
+
+<Question id="if-con-asignacion" anchor="control-de-flujo">
+
+¿Por qué `if (x = 5)` no compila en Java?
+
+- [x] Porque `x = 5` vale `5`, y `5` no es un `boolean`
+- [ ] Porque no se puede asignar dentro de un paréntesis
+- [ ] Porque el compilador supone que querías `==`
+- [ ] Porque `if` solo acepta comparaciones, no variables
+
+</Question>
+
+<Question id="switch-sin-break" anchor="control-de-flujo">
+
+En un `switch`, ¿qué pasa si a un `case` le falta el `break`?
+
+- [x] Sigue ejecutando los casos siguientes
+- [ ] Salta al `default` y termina ahí
+- [ ] El compilador rechaza el programa
+- [ ] Sale del `switch`, igual que con `break`
+
+</Question>
+
+</Questions>
 
 ## Lo que sigue
 

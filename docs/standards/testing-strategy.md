@@ -60,8 +60,11 @@ npm run lint           # oxlint
 npm run build          # tsc -b + vite build (type gate + content/ integrity gate:
                        # document frontmatter (id, title, presentation, questions)
                        # and index.yaml validated by contentIntegrity; ALSO fails on
-                       # a duplicate question id, which the suite does not see —
-                       # it is the join key into a grade, so it fails the build)
+                       # a duplicate question id — it is the join key into a grade,
+                       # so publishing is what must be blocked. The suite catches it
+                       # too (content/questionBank.test.ts drives the plugin over
+                       # real content/), but do not harmonise the build gate away:
+                       # ADR-0032 §Consequences)
 npm run test           # vitest run — at minimum the touched scope, in green
 ```
 

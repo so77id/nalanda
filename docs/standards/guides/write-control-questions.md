@@ -39,7 +39,7 @@ because they are checkable — not because they matter more than the ones below.
 | No *todas las anteriores* | If every alternative is correct, mark them — that is what a multiple is. Pinning does not save this one. |
 | No negated stem (`NO`, *excepto*, *salvo*) | Under a clock with shuffled alternatives, a negation measures hurried reading. Lowercase *no* is fine — *"¿Por qué no compila?"* is a real question, not a negated stem. The uppercase form is caught after a space or after `¿`. |
 | The correct alternative is not far longer than the rest | The most exploitable tell there is: pick the longest, be right, never study. Compared against the SECOND longest, and switched off below 15 characters — between `123` and `No compila` the ratio means nothing, and `{3, 6, 123, No compila}` is correct authoring. |
-| `id` present, kebab-case, unique across the whole `content/` tree | It is the join key from the printed sheet, through the scanner, into a grade (ADR-0031). A duplicate merges two students' answers into one column — and that one fails `npm run build`, not the suite. |
+| `id` present, kebab-case, unique across the whole `content/` tree | It is the join key from the printed sheet, through the scanner, into a grade (ADR-0031). A duplicate merges two students' answers into one column — and that one fails `npm run build`, which is the gate that must block publishing; the suite catches it too, in `content/questionBank.test.ts`. |
 | A statement, and no empty alternative | A blank stem or a blank option reaches a printed, graded sheet as a question with nothing on it. |
 | `anchor` names a real section of the document | Otherwise the question belongs to nothing and enters no control. |
 
@@ -50,6 +50,11 @@ These decide whether the control measures anything. No test will catch you.
 **Answerable from its own section alone.** This is what makes "from section X to
 section Y" mean anything at all. If answering needs something from three sections
 back, the control silently tests material it did not announce.
+
+A section runs from its `h2` to the **next `h2`** (ADR-0021), never to the end of
+the `<Slide>` that opened it. So the prose, the callout or the editor that
+follows a slide is still inside that section — and an `###` subsection belongs to
+the `h2` above it, whole.
 
 **Asks what the section says, not what can be inferred from it.** An entrance
 control measures whether the student read the class. Reasoning problems belong in
@@ -188,6 +193,34 @@ skips it when it emits the bank. Its questions would be unreachable by
 definition. Write questions for a document only once it is on the path, and
 declare `questions: none` on one that is deliberately off it.
 
+## When a section owes nothing, and when one owes two
+
+`per-section` promises a question for every section, and the gap you leave is
+**declared with its reason** in `NO_QUESTION`
+(`apps/web/src/content/architecture.test.ts`; the mechanics are in
+`add-a-course-document.md` step 2). The set is closed in both directions: forget
+a section and the gate reddens, cover one that is listed and it reddens too, so
+a stale exemption cannot outlive the gap it described.
+
+**A section owes nothing only when it teaches nothing of its own** — an activity
+the student performs, a side-by-side listing whose lesson is measured elsewhere,
+a closing that announces the next document.
+
+**"It is a hands-on slide" is not the test.** Because a section runs to the next
+`h2`, what follows the editor is still inside it, and that is usually where the
+teaching lives. The two Java documents differ for exactly this reason and both
+are right: `java-desde-cpp` exempts its *Ejecútalo* slides, which are followed by
+nothing but the next heading, while `java-tipos-y-flujo` covers its lab slides,
+because the newline `nextInt()` leaves behind and the decimal point the browser's
+JVM insists on are taught in the prose *after* the editor (#144).
+
+**One section may owe two.** Coverage is counted per `h2`, so the gate is
+satisfied by one — but a section that swallows an `###` subsection can hold more
+material than one question can measure. `control-de-flujo` carries two for that
+reason: the `###` beneath it teaches `switch`, `do-while`, `final` and the
+`for-each`, and one question would have left all of that unmeasured while the
+gate stayed green.
+
 ## How many, and how balanced
 
 No maximum. A control draws four from whatever the range offers, so a bigger
@@ -206,8 +239,10 @@ teaching judgement before it is a fact. Nothing here changes that.
 
 ## Checklist
 
-- [ ] `questions:` declared in the frontmatter (`per-section`, `pool` or `none`).
-- [ ] Every question has a hand-written `id`, kebab-case, stable across edits, and not used by any other question in `content/`.
+- [ ] `questions:` declared in the frontmatter (`per-section`, `pool` or `none`), and flipped in the SAME commit that supplies the questions and the exemptions (`add-a-course-document.md` step 2).
+- [ ] Every question has a hand-written `id`, kebab-case, and not used by any other question in `content/`. Free to change until the PR merges; frozen after, because from then on it is the join key into a grade.
+- [ ] Every section either carries a question or appears in `NO_QUESTION` with its reason — the exemptions are part of the work, not a gate change (`repository-structure.md` §`content/`).
+- [ ] Every listing inside a question is tagged with its language (`add-a-course-document.md` §7b) — an untagged fence ships no listing at all.
 - [ ] Anchored to the section it is answerable from, or unanchored on purpose.
 - [ ] Read each question against its own section, alone, and answered it.
 - [ ] Each distractor is something a real student might believe.
