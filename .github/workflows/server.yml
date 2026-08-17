@@ -113,6 +113,7 @@ jobs:
             -e NALANDA_GOOGLE_CLIENT_SECRET=placeholder-secret \
             -e NALANDA_SESSION_TTL=720h \
             -e NALANDA_BOOTSTRAP_PROFESSOR_EMAIL= \
+            -e NALANDA_TRUST_PROXY_HEADERS=false \
             -e NALANDA_QUESTIONS_JSON_URL=file:///work/questions.json \
             -e NALANDA_AMC_WORKER_URL=http://amc-worker-placeholder:8080 \
             -e NALANDA_WORK_DIR=/work \

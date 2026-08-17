@@ -35,6 +35,14 @@ const (
 	KeyGoogleClientSecret      = "NALANDA_GOOGLE_CLIENT_SECRET"
 	KeySessionTTL              = "NALANDA_SESSION_TTL"
 	KeyBootstrapProfessorEmail = "NALANDA_BOOTSTRAP_PROFESSOR_EMAIL"
+	// KeyTrustProxyHeaders is the deploy-time answer to "does a proxy sit
+	// in front of this server, and does it own X-Forwarded-For". False in
+	// development and in every deploy where the server terminates its own
+	// TLS; true behind Tailscale Funnel (#162), where the proxy is the
+	// visitor's peer and RemoteAddr is 127.0.0.1. Absent (or "false") is
+	// the safe default — a client-supplied header would put an attacker's
+	// chosen string in the sessions table.
+	KeyTrustProxyHeaders = "NALANDA_TRUST_PROXY_HEADERS"
 )
 
 // The entrance-controls WP-E block (#166). Separate block because these
@@ -117,6 +125,12 @@ type Config struct {
 	// professors at all. Empty disables the path entirely, which is what an
 	// operator does once the first professor exists.
 	BootstrapProfessorEmail string
+	// TrustProxyHeaders is true when a trusted reverse proxy terminates in
+	// front of this server AND owns X-Forwarded-For. When true, the client
+	// IP written to the sessions table is that header's first hop; when
+	// false (the default), it is RemoteAddr. The header is honoured only
+	// under this flag because otherwise it is a value the caller chose.
+	TrustProxyHeaders bool
 
 	// QuestionsJSONURL points at the published question bank
 	// (ADR-0032). Fetched once at boot; a parse failure there is a panic.
@@ -136,7 +150,7 @@ func Keys() []string {
 	return []string{
 		KeyAddr, KeyDatabaseURL, KeyLogLevel,
 		KeyPublicURL, KeyGoogleClientID, KeyGoogleClientSecret,
-		KeySessionTTL, KeyBootstrapProfessorEmail,
+		KeySessionTTL, KeyBootstrapProfessorEmail, KeyTrustProxyHeaders,
 		KeyQuestionsJSONURL, KeyAmcWorkerURL, KeyWorkDir,
 	}
 }
@@ -224,6 +238,22 @@ func Load(lookup LookupFunc) (Config, error) {
 	}
 	cfg.SessionTTL = ttl
 
+	// The proxy trust flag is a bool with a tight allowed set: "true" and
+	// "false", case-insensitive. A misspelling — "yes", "1", "on" — is
+	// refused here rather than silently taken as false, because falling to
+	// the wrong side of this switch is exactly the shape "a client-supplied
+	// header ends up in the sessions table" and nothing downstream would
+	// notice.
+	switch strings.ToLower(strings.TrimSpace(l.optional(KeyTrustProxyHeaders, "false"))) {
+	case "false":
+		cfg.TrustProxyHeaders = false
+	case "true":
+		cfg.TrustProxyHeaders = true
+	default:
+		raw, _ := l.lookup(KeyTrustProxyHeaders)
+		return Config{}, fmt.Errorf("%s=%q is not a boolean; expected true or false", KeyTrustProxyHeaders, raw)
+	}
+
 	return cfg, nil
 }
 
@@ -275,6 +305,7 @@ func (c Config) LogValue() slog.Value {
 		slog.String("google_client_id", c.GoogleClientID),
 		slog.String("session_ttl", c.SessionTTL.String()),
 		slog.Bool("bootstrap_email_set", c.BootstrapProfessorEmail != ""),
+		slog.Bool("trust_proxy_headers", c.TrustProxyHeaders),
 		slog.String("questions_json_url", c.QuestionsJSONURL),
 		slog.String("amc_worker_url", c.AmcWorkerURL),
 		slog.String("work_dir", c.WorkDir),
@@ -286,9 +317,9 @@ func (c Config) LogValue() slog.Value {
 // either.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t questions_json_url:%s amc_worker_url:%s work_dir:%s}",
+		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s}",
 		c.Addr, c.SafeDatabaseURL(), c.LogLevel, c.PublicURL, c.GoogleClientID,
-		c.SessionTTL, c.BootstrapProfessorEmail != "",
+		c.SessionTTL, c.BootstrapProfessorEmail != "", c.TrustProxyHeaders,
 		c.QuestionsJSONURL, c.AmcWorkerURL, c.WorkDir,
 	)
 }

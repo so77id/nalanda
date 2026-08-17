@@ -128,6 +128,41 @@ end to end against the same URL. That run is the one that finally verifies
 the `Secure` cookie flag on the wire — the section §"What this check has NOT
 verified" defers to it.
 
+## The proxy-trust measurement
+
+Behind Tailscale Funnel `RemoteAddr` becomes `127.0.0.1` for every visitor —
+the tunnel completes on loopback. Without `NALANDA_TRUST_PROXY_HEADERS=true`
+the sessions table records `127.0.0.1` for every session, which is legible
+but useless. With it, the column carries the first hop of `X-Forwarded-For`,
+which is what the outermost proxy saw when the visitor arrived.
+
+**Before flipping the switch, measure once**, so the assumption "the Funnel
+owns this header" is verified rather than trusted. From any browser off the
+tailnet, complete a login. Then on the Jetson:
+
+```bash
+docker compose logs server | grep 'X-Forwarded-For\|professor signed in'
+```
+
+The `professor signed in` line does not itself carry the address, but the
+sessions row does. Read it back:
+
+```bash
+docker compose exec server /server -health   # just to prove liveness
+# no shell in the scratch image — read the row from the host:
+sqlite3 <path to the mounted volume>/nalanda.db \
+  'SELECT ip_address, user_agent FROM user_sessions ORDER BY created_at DESC LIMIT 1'
+```
+
+Expected: with `NALANDA_TRUST_PROXY_HEADERS=false` (default) the row holds
+`127.0.0.1`. Set it to `true` in `.env`, restart the server, log in again,
+and the same query holds the visitor's public IP.
+
+If it does not — the header is empty, or the row is still `127.0.0.1` — the
+Funnel is not writing what this switch assumes, and the safe answer is to
+leave the flag off and record the finding as a new deferral in
+`docs/security-notes.md`.
+
 ## Restart, logs, rollback
 
 - **Restart** (no config change): `docker compose restart server`

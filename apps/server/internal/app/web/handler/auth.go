@@ -38,7 +38,16 @@ type Auth struct {
 	// redirect URI against the one registered, character for character — and
 	// because a URI built from the Host header is one a caller chooses.
 	PublicURL string
-	Log       *slog.Logger
+	// TrustProxyHeaders decides whose value is written to the sessions
+	// table as the visitor's IP: RemoteAddr (false, the default), or the
+	// first hop of X-Forwarded-For (true, only when a trusted reverse
+	// proxy owns the header — behind Tailscale Funnel on the Jetson,
+	// #162). Setting this true where the header is client-supplied is
+	// the failure `TestTheSessionIPIgnoresAForgeableHeader` was written
+	// to guard against; setting it false behind a proxy records every
+	// visitor as 127.0.0.1.
+	TrustProxyHeaders bool
+	Log               *slog.Logger
 
 	// secureCookie is DERIVED from PublicURL by NewAuth, never passed in.
 	//
@@ -258,7 +267,7 @@ func (a *Auth) LoginGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, session, err := a.Login.StartSession(r.Context(), professor.ID, r.UserAgent(), clientIP(r))
+	token, session, err := a.Login.StartSession(r.Context(), professor.ID, r.UserAgent(), a.clientIP(r))
 	if err != nil {
 		a.Log.Error("starting a session", "error", err)
 		a.redirectToLogin(w, r, "fallo")
@@ -307,17 +316,53 @@ func (a *Auth) redirectToLogin(w http.ResponseWriter, r *http.Request, aviso str
 }
 
 // clientIP is a best-effort record of where a session was opened from, for an
-// operator reading the table. It reads RemoteAddr and NOT X-Forwarded-For:
-// nothing sits in front of this server today, so that header is client-supplied
-// and would put an attacker's chosen string in the database. The day a reverse
-// proxy exists (§C15), this is where it is taught to trust one.
+// operator reading the table.
+//
+// Without TrustProxyHeaders it reads RemoteAddr and NOTHING else: X-Forwarded-For
+// is a value the caller writes into their own request, and honouring it puts an
+// attacker's chosen string in the database. That is the shape
+// `TestTheSessionIPIgnoresAForgeableHeader` was written to pin — a comment
+// forbidding the header is not a comment a test can enforce.
+//
+// With TrustProxyHeaders it takes the FIRST hop of X-Forwarded-For — the
+// leftmost entry, per RFC 7239 §5.2, which is the address the proxy nearest the
+// server added when the visitor arrived at it. The rightmost is the one closest
+// to us and is not the visitor. On the Jetson (#162) Tailscale Funnel terminates
+// on localhost and the server sees RemoteAddr = 127.0.0.1 for every visitor, so
+// this direction is what makes the sessions table useful. It is off by default
+// on purpose: an operator who forgets to enable it records every session as
+// 127.0.0.1, which is legible; an operator who enables it with no proxy in front
+// writes the visitor's chosen string, which is not.
+//
+// If the header is empty (or absent) even under TrustProxyHeaders, we fall back
+// to RemoteAddr rather than emitting empty text: a misconfigured proxy is not
+// a reason to lose the row.
 //
 // net.SplitHostPort rather than a cut at the first colon, which would turn the
 // IPv6 address [::1]:54321 into "[".
-func clientIP(r *http.Request) string {
+func (a *Auth) clientIP(r *http.Request) string {
+	if a.TrustProxyHeaders {
+		if forwarded := firstForwardedFor(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+			return forwarded
+		}
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// firstForwardedFor returns the leftmost entry of an X-Forwarded-For header
+// value, trimmed. RFC 7239 §5.2: entries are comma-separated and each proxy
+// APPENDS, so the leftmost is the address the outermost proxy first saw.
+// Empty when the header is empty or holds only whitespace.
+func firstForwardedFor(header string) string {
+	if header == "" {
+		return ""
+	}
+	if comma := strings.Index(header, ","); comma >= 0 {
+		header = header[:comma]
+	}
+	return strings.TrimSpace(header)
 }

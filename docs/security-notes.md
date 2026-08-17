@@ -664,19 +664,33 @@ difference that only shows up in production.
 **Review trigger**: the first https deployment. There the prefix costs nothing,
 and adding it is a two-line change in `handler.StateCookieName`'s neighbourhood.
 
-### The session's IP is `RemoteAddr`, with no proxy-trust story (accepted 2026-08-16, #150)
+### The session's IP is `RemoteAddr`, with no proxy-trust story (accepted 2026-08-16, #150; CLOSED 2026-08-17, #162)
 
 `user_sessions.ip_address` records the peer address of the connection, and
 deliberately ignores `X-Forwarded-For`.
 
-**Why it is accepted**: nothing sits in front of this server today, so that header
-is client-supplied — honouring it would put an attacker's chosen string in the
+**Why it was accepted**: nothing sat in front of this server, so that header
+was client-supplied — honouring it would put an attacker's chosen string in the
 column an operator reads. `TestTheSessionIPIgnoresAForgeableHeader` pins it,
 because before that test a line honouring the header could be added with the
 whole suite green.
 
-**Review trigger**: the first reverse proxy (§C15). Whoever adds it must decide
-WHICH hop to trust, in `handler.clientIP`, rather than trusting the header.
+**How it closed (#162, 2026-08-17)**: the Jetson deploy put Tailscale Funnel in
+front of the server, so `RemoteAddr` became `127.0.0.1` for every visitor and
+the column stopped being useful. `handler.Auth.clientIP` now takes the FIRST
+hop of `X-Forwarded-For` when `NALANDA_TRUST_PROXY_HEADERS` is true — the
+leftmost entry per RFC 7239 §5.2, which is the address the outermost proxy
+first saw; the rightmost is the one closest to us and is not the visitor. The
+switch is off by default: an operator who forgets to enable it records every
+session as `127.0.0.1` (legible), while an operator who enables it with no
+proxy in front writes an attacker's chosen string (not legible). Both arms
+are pinned: `TestTheSessionIPIgnoresAForgeableHeader` on the false arm,
+`TestTheSessionIPTrustsTheProxyHeaderWhenConfigured` on the true one, and the
+pair proves the switch reads its flag at all. **Review trigger for the switch
+itself**: any deploy that ends up with an untrusted party able to write
+`X-Forwarded-For` — a proxy that appends rather than replaces, a second
+container joining the same network — must flip the flag off, since the
+guarantee is exactly that the header comes from a trusted proxy.
 
 ### The login keeps no audit trail (accepted 2026-08-16, #150)
 

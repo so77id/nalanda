@@ -50,6 +50,12 @@ services:
       # being visible where an operator edits it, not about which variables the
       # loader would survive without.
       NALANDA_SESSION_TTL: "${NALANDA_SESSION_TTL:-720h}"
+      # Off in dev on purpose: the server binds loopback and there is no proxy.
+      # On the Jetson (#162) the .env carries `NALANDA_TRUST_PROXY_HEADERS=true`
+      # so the sessions table records the visitor rather than 127.0.0.1 — see
+      # `handler.Auth.clientIP` and `DEPLOY-JETSON.md` §"The proxy-trust
+      # measurement".
+      NALANDA_TRUST_PROXY_HEADERS: "${NALANDA_TRUST_PROXY_HEADERS:-false}"
       # --- WP-E (issue #166): entrance controls ---
       # The published bank (ADR-0032). Points at the JSON we bind-mount into
       # /work below — a placeholder set with zero questions, enough to boot

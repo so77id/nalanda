@@ -72,7 +72,11 @@ func newFixture(t *testing.T, bootstrapEmail string) *fixture {
 		ProviderName: "google",
 		State:        oauthstate.New(time.Minute, func() time.Time { return f.now }),
 		PublicURL:    publicURL,
-		Log:          quiet,
+		// Default off: RemoteAddr owns the sessions table's IP column, which is
+		// what `TestTheSessionIPIgnoresAForgeableHeader` reads. The other arm
+		// lives in newTrustProxyFixture below.
+		TrustProxyHeaders: false,
+		Log:               quiet,
 	})
 	f.mw = middleware.NewAuth(middleware.Auth{
 		Sessions:  f.store,
@@ -81,6 +85,25 @@ func newFixture(t *testing.T, bootstrapEmail string) *fixture {
 		PublicURL: publicURL,
 		LoginPath: handler.LoginPath,
 		Log:       quiet,
+	})
+	return f
+}
+
+// newTrustProxyFixture is newFixture with the deploy-behind-a-proxy switch on.
+// Two callers only, both in this file: the tests that pin the WITH-flag arm of
+// `Auth.clientIP`. Everything else uses newFixture — the default is the safe
+// one, and turning the flag on everywhere would hide the without-flag arm.
+func newTrustProxyFixture(t *testing.T, bootstrapEmail string) *fixture {
+	t.Helper()
+	f := newFixture(t, bootstrapEmail)
+	f.auth = handler.NewAuth(handler.Auth{
+		Login:             f.auth.Login,
+		Provider:          f.auth.Provider,
+		ProviderName:      f.auth.ProviderName,
+		State:             f.auth.State,
+		PublicURL:         f.auth.PublicURL,
+		TrustProxyHeaders: true,
+		Log:               f.auth.Log,
 	})
 	return f
 }
@@ -507,7 +530,7 @@ func TestTheStateCookieIsProtectedAndSpentOnce(t *testing.T) {
 // SEC-4. The decision "the session's IP comes from RemoteAddr and NOT from
 // X-Forwarded-For" was a comment and nothing else — mutation showed a line
 // honouring the header could be added with the whole suite green. Nothing sits
-// in front of this server, so that header is client-supplied.
+// in front of this server by default, so that header is client-supplied.
 func TestTheSessionIPIgnoresAForgeableHeader(t *testing.T) {
 	f := newFixture(t, "profesora@example.com")
 	state, stateCookie := f.start(t)
@@ -535,6 +558,81 @@ func TestTheSessionIPIgnoresAForgeableHeader(t *testing.T) {
 	}
 	if session.IPAddress != "192.0.2.10" {
 		t.Errorf("IPAddress = %q, want the host of RemoteAddr", session.IPAddress)
+	}
+}
+
+// The other side of the same switch: the Jetson deploy (#162) puts Tailscale
+// Funnel in front of this server, and RemoteAddr becomes 127.0.0.1 for every
+// visitor. Under NALANDA_TRUST_PROXY_HEADERS=true the sessions table records
+// the FIRST hop of X-Forwarded-For instead — the leftmost, which is what the
+// outermost proxy first saw, not the rightmost (which is the one nearest us).
+//
+// This test travels with `TestTheSessionIPIgnoresAForgeableHeader` on purpose:
+// each pins one arm of the same switch, and the pair proves the guard reads
+// the flag at all — one alone would stay green if the switch stopped switching.
+func TestTheSessionIPTrustsTheProxyHeaderWhenConfigured(t *testing.T) {
+	f := newTrustProxyFixture(t, "profesora@example.com")
+	state, stateCookie := f.start(t)
+
+	target := handler.LoginCallbackPath + "?state=" + url.QueryEscape(state) + "&code=the-code"
+	request := httptest.NewRequest(http.MethodGet, target, nil)
+	request.AddCookie(stateCookie)
+	// The shape Tailscale Funnel produces on the Jetson: the outermost proxy
+	// wrote the visitor's public IP; RemoteAddr is loopback because the
+	// tunnel completes on 127.0.0.1.
+	request.Header.Set("X-Forwarded-For", "203.0.113.9, 100.64.0.1")
+	request.RemoteAddr = "127.0.0.1:54321"
+
+	recorder := httptest.NewRecorder()
+	f.auth.LoginGoogleCallback(recorder, request)
+
+	cookie := sessionCookie(recorder)
+	if cookie == nil {
+		t.Fatal("the callback set no session cookie")
+	}
+	session, err := f.store.SessionByTokenHash(context.Background(), auth.HashToken(cookie.Value))
+	if err != nil {
+		t.Fatalf("SessionByTokenHash: %v", err)
+	}
+
+	if session.IPAddress == "127.0.0.1" {
+		t.Error("the session recorded 127.0.0.1 — the proxy's peer address rather than the visitor's")
+	}
+	if session.IPAddress == "100.64.0.1" {
+		t.Error("the session recorded the RIGHTMOST hop of X-Forwarded-For rather than the leftmost")
+	}
+	if session.IPAddress != "203.0.113.9" {
+		t.Errorf("IPAddress = %q, want %q — the leftmost hop of X-Forwarded-For", session.IPAddress, "203.0.113.9")
+	}
+}
+
+// And the fall-through: TrustProxyHeaders is on but the proxy did not send the
+// header. Falling to RemoteAddr rather than emitting empty text is what makes a
+// misconfigured proxy legible in the operator's table instead of losing the row.
+func TestTheSessionIPFallsBackToRemoteAddrWhenTheHeaderIsAbsent(t *testing.T) {
+	f := newTrustProxyFixture(t, "profesora@example.com")
+	state, stateCookie := f.start(t)
+
+	target := handler.LoginCallbackPath + "?state=" + url.QueryEscape(state) + "&code=the-code"
+	request := httptest.NewRequest(http.MethodGet, target, nil)
+	request.AddCookie(stateCookie)
+	// No X-Forwarded-For at all.
+	request.RemoteAddr = "127.0.0.1:54321"
+
+	recorder := httptest.NewRecorder()
+	f.auth.LoginGoogleCallback(recorder, request)
+
+	cookie := sessionCookie(recorder)
+	if cookie == nil {
+		t.Fatal("the callback set no session cookie")
+	}
+	session, err := f.store.SessionByTokenHash(context.Background(), auth.HashToken(cookie.Value))
+	if err != nil {
+		t.Fatalf("SessionByTokenHash: %v", err)
+	}
+
+	if session.IPAddress != "127.0.0.1" {
+		t.Errorf("IPAddress = %q, want %q (RemoteAddr fallback)", session.IPAddress, "127.0.0.1")
 	}
 }
 
