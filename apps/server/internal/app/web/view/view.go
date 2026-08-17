@@ -196,15 +196,58 @@ type SectionOption struct {
 	Section string
 }
 
-// ControlDetailPage is what controls_detail.html renders (S8). The three
-// boxes issue #166 §The screens asks for: metadata, PDFs, and the WP-F
-// placeholder scans box (rendered by the template unconditionally today,
-// with no reader on the server side until WP-F ships).
+// ControlDetailPage is what controls_detail.html renders. It grows with
+// each WP: WP-E landed the three boxes (§The screens); WP-F fills the
+// Escaneos box with an upload form and appends a Resultados table when
+// readings exist.
 type ControlDetailPage struct {
 	Page
 	Control    DetailedControl
 	SujetURL   string
 	CorrigeURL string
+	// ScansURL is the POST target of the upload form.
+	ScansURL string
+	// MaxScanMB is what the Spanish "máximo N MB" hint says on the
+	// form. The unit is megabytes — the handler enforces the byte
+	// value.
+	MaxScanMB int64
+	// Readings is the list of copies known so far (empty for a control
+	// with no uploads). WP-F S4 renders the results table off this.
+	Readings []ReadingRow
+	// Summary is the "N impresas · M corregidas · K requieren revisión · L no rendidas"
+	// line under the table. Empty when Readings is empty.
+	Summary string
+	// QuestionColumns is the header row for the per-question columns
+	// (P1, P2, …), sized to control.QuestionsPerCopy.
+	QuestionColumns []string
+}
+
+// ReadingRow is one row of the results table. Everything is pre-formatted
+// for the template so it does no arithmetic (issue #167 §The results
+// table).
+type ReadingRow struct {
+	CopyNumber int
+	// RUT is the eight digits to render, or empty when unreadable /
+	// not-present.
+	RUT string
+	// PerQuestion is per-question cells (already formatted with the
+	// relative or "⚠" or "—"), aligned to QuestionColumns.
+	PerQuestion []string
+	// TotalRaw is like "3.5/4" or "—".
+	TotalRaw string
+	// Grade is like "6.5" or "—".
+	Grade string
+	// Estado is the Spanish estado word / phrase per §The results
+	// table's collapse rules.
+	Estado string
+	// EstadoClass is the CSS class the row applies for coloring.
+	EstadoClass string
+	// ReviewURL is the "[revisar]" link — always present, WP-F allows
+	// review of any row.
+	ReviewURL string
+	// Edited is true when the row carries at least one override; the
+	// template renders a subtle marker.
+	Edited bool
 }
 
 // DetailedControl is the metadata the detail page shows, pre-formatted.

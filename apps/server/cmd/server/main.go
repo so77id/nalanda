@@ -160,6 +160,8 @@ func run(logger *slog.Logger) error {
 		Bank:      loadedBank,
 		Store:     controlStore,
 		Generator: amcClient,
+		Analyzer:  amcClient,
+		Readings:  controlStore,
 		WorkDir:   cfg.WorkDir,
 		Now:       time.Now,
 		// Constant seed for reproducibility (tex.Compile refuses zero).
@@ -192,10 +194,11 @@ func run(logger *slog.Logger) error {
 			Log:       logger,
 		}),
 		Controls: handler.NewControls(handler.Controls{
-			Service:   controlsService,
-			Bank:      loadedBank,
-			PublicURL: cfg.PublicURL,
-			Log:       logger,
+			Service:      controlsService,
+			Bank:         loadedBank,
+			PublicURL:    cfg.PublicURL,
+			MaxScanBytes: cfg.MaxScanBytes,
+			Log:          logger,
 		}),
 		Login: handler.NewAuth(handler.Auth{
 			Login: login,

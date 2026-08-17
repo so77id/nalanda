@@ -58,6 +58,12 @@ type Service struct {
 	Bank      *bank.Bank
 	Store     Store
 	Generator Generator
+	// Analyzer and Readings power the WP-F pipeline: upload → analyse →
+	// persist a report → serve the review queue. Optional in the sense
+	// that Create/List/Get do not touch them; the scan methods panic
+	// when they are nil, and NewService wires that check.
+	Analyzer Analyzer
+	Readings ReadingStore
 	// WorkDir is what the SERVER sees as the root of the shared volume.
 	// In compose it is bind-mounted onto /work in the worker; in
 	// development it may be any path the operator chose (see
@@ -82,6 +88,10 @@ func NewService(deps Service) *Service {
 		panic("controls.NewService: no store")
 	case deps.Generator == nil:
 		panic("controls.NewService: no generator")
+	case deps.Analyzer == nil:
+		panic("controls.NewService: no analyzer")
+	case deps.Readings == nil:
+		panic("controls.NewService: no reading store")
 	case deps.WorkDir == "":
 		panic("controls.NewService: no work directory")
 	case deps.Now == nil:

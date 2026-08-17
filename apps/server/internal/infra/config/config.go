@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"slices"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -59,6 +60,20 @@ const (
 	// the WORKER's side regardless of what this server names its own.
 	KeyWorkDir = "NALANDA_WORK_DIR"
 )
+
+// The entrance-controls WP-F block (#167). Optional variables that bound
+// what the scan upload will accept.
+const (
+	// KeyMaxScanMB is the largest scan PDF the upload handler will accept,
+	// in whole megabytes. Optional — defaults to 100. A single scan of a
+	// four-page control at 300 dpi is roughly 3-5 MB, so 100 is generous
+	// enough that a rare four-double-sided-sheet class fits and a runaway
+	// upload is refused before it enters the worker.
+	KeyMaxScanMB = "NALANDA_MAX_SCAN_MB"
+)
+
+// defaultMaxScanMB is what an unset KeyMaxScanMB resolves to.
+const defaultMaxScanMB = 100
 
 // ErrMissing is wrapped by every error caused by an absent or empty required
 // variable, so a caller can distinguish "the operator has not finished
@@ -127,6 +142,12 @@ type Config struct {
 	// The .tex the generator emits always uses /work absolute paths (from
 	// the worker's perspective, controls.WorkerWorkDir) whatever this is.
 	WorkDir string
+
+	// MaxScanBytes is what the upload handler will accept. Derived from
+	// KeyMaxScanMB (in whole megabytes) and expressed here as bytes so
+	// callers can pass it straight into http.MaxBytesReader without
+	// re-doing the multiplication.
+	MaxScanBytes int64
 }
 
 // Keys lists every variable this package reads, in the order an operator would
@@ -138,6 +159,7 @@ func Keys() []string {
 		KeyPublicURL, KeyGoogleClientID, KeyGoogleClientSecret,
 		KeySessionTTL, KeyBootstrapProfessorEmail,
 		KeyQuestionsJSONURL, KeyAmcWorkerURL, KeyWorkDir,
+		KeyMaxScanMB,
 	}
 }
 
@@ -224,7 +246,29 @@ func Load(lookup LookupFunc) (Config, error) {
 	}
 	cfg.SessionTTL = ttl
 
+	maxScanMB, err := parsePositiveInt(l.optional(KeyMaxScanMB, ""), defaultMaxScanMB)
+	if err != nil {
+		return Config{}, fmt.Errorf("%s: %w", KeyMaxScanMB, err)
+	}
+	cfg.MaxScanBytes = int64(maxScanMB) * (1 << 20)
+
 	return cfg, nil
+}
+
+// parsePositiveInt returns the value or the default (when raw is empty). A
+// non-empty non-integer or a non-positive value is refused.
+func parsePositiveInt(raw string, fallback int) (int, error) {
+	if raw == "" {
+		return fallback, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil {
+		return 0, fmt.Errorf("%q is not an integer", raw)
+	}
+	if n <= 0 {
+		return 0, fmt.Errorf("%d is not positive", n)
+	}
+	return n, nil
 }
 
 // SecureCookie reports whether the session cookie carries the Secure attribute.

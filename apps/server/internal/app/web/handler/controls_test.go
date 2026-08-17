@@ -94,12 +94,13 @@ func newControlsFixture(t *testing.T) *controlsFixture {
 
 	cstore := controlstore.New(db)
 	svc := controls.NewService(controls.Service{
-		Bank: b, Store: cstore, Generator: fake, WorkDir: workDir,
-		Now: time.Now, Seed: 1, Log: log,
+		Bank: b, Store: cstore, Generator: fake, Analyzer: fake, Readings: cstore,
+		WorkDir: workDir,
+		Now:     time.Now, Seed: 1, Log: log,
 	})
 	h := handler.NewControls(handler.Controls{
 		Service: svc, Bank: b,
-		PublicURL: publicURL, Log: log,
+		PublicURL: publicURL, MaxScanBytes: 5 << 20, Log: log,
 	})
 	return &controlsFixture{handler: h, service: svc, fake: fake, workDir: workDir, user: prof, session: session, log: log}
 }
