@@ -372,6 +372,17 @@ for writing a test here:
   test package that imports nothing from the module is considered unchanged
   whatever happens to the code, so `go test ./...` replays a cached PASS. Read
   files with the standard library instead; the cache tracks those.
+- **A refusal test asserts BOTH the sentinel AND the state the guard is
+  protecting.** A test that names one guard but only checks the error a
+  handler returns is falsifiable by a mutation that swaps sentinels — the
+  case still trips one, and the state the guard was supposed to prevent goes
+  unchecked. Worked case: `TestDeactivateRefusesSelf` in
+  `internal/domain/auth/admin_test.go` asserts `errors.Is(err,
+  ErrCannotDeactivateSelf)` AND re-reads the row via `UserByID` to prove
+  `IsActive` is still true and `DeactivatedAt` is still nil. The re-read is
+  what catches a mutation that renamed the branch: without it, a code path
+  that returns the right error but ALSO flipped the flag ships green.
+  Learned in the WP-C3 review (COR-7).
 
 ## References
 
