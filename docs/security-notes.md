@@ -606,7 +606,7 @@ handler unbounded again.
 The rule itself lives where it bites, not here: the constant's own comment in
 `internal/infra/httpserver/server.go` and `backend-code-style.md` §HTTP.
 
-### The professor login is public, unrate-limited and remembered in memory (accepted 2026-08-16, #150)
+### The professor login is public, unrate-limited and remembered in memory (accepted 2026-08-16, #150; re-deferred 2026-08-17, #162)
 
 `GET /login/google` is reachable by anyone and issues a fresh OAuth state nonce
 per request. There is **no rate limiting anywhere on this server** — not on the
@@ -630,17 +630,30 @@ So the trade is deliberate: a professor already signing in can finish, and a
 professor who has not started sees "vuelve a intentarlo" for as long as the flood
 lasts. That is the better half to protect, and it is not a fix.
 
-**Why it is accepted rather than fixed**: the server is not reachable from the
-internet. Hosting is deferred (`2026-08-controles.md` §C15), it binds loopback in
-development and the compose file publishes it on 127.0.0.1. Rate limiting also
-wants a shape this server does not have yet — a trusted proxy header, or a store
-that survives a restart — and guessing that shape now is how it gets built wrong.
+**Re-deferred at the first deploy (#162, 2026-08-17)**, which is what the
+previous entry named as the review trigger. Two things changed and two did not:
 
-**Review trigger**: the first deploy of `apps/server` to a host, or anything that
-makes it reachable from outside a laptop. That is the moment `/login/google`,
-`/login/google/callback` and `/logout` need a per-IP throttle — the cheapest
-shape being a per-source ceiling on live nonces, which needs no dependency — and
-the moment the proxy question below has to be answered too.
+- Changed: the server is reachable from the internet at
+  `https://<host>.<tailnet>.ts.net:8443`, and the proxy question is answered
+  (`NALANDA_TRUST_PROXY_HEADERS=true`) so a per-IP throttle could now be built
+  correctly rather than guessed.
+- Not changed: the audience is friends-and-family (ADR-0009), the URL is not
+  discoverable (a Tailscale-issued name only shared with people who need it),
+  and Google's own throttling on the OAuth endpoint is the practical ceiling on
+  what a flood at this server can do — it fails the visitor's login by refusing
+  the state store insertion, not by opening Google to abuse.
+
+Miguel accepts the risk on those grounds. **New review trigger**: the first
+non-Miguel professor arriving on a URL whose address gets written down anywhere
+— a course page linking the login, the URL appearing in a document a student
+saves, or the site moving to a discoverable domain. That is the moment
+`/login/google`, `/login/google/callback` and `/logout` need a per-IP throttle
+of their own, and the shape can now be a per-source ceiling on live nonces that
+keys off `handler.Auth.clientIP` (which is now the visitor, not `127.0.0.1`).
+
+The `apps/amc-worker`-shaped endpoints on this server (`/api/controls/…`) are
+outside the same trigger by construction: they sit behind `RequireProfessor`,
+so an anonymous flood dies at the middleware and the store below never sees it.
 
 ### The login's state cookie is a double-submit cookie (accepted 2026-08-16, #150; hardened 2026-08-17, #162)
 
