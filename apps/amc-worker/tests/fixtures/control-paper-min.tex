@@ -1,0 +1,127 @@
+% The minimum paper check — one page per copy, one question, one RUT block.
+%
+% This fixture exists because the shipped paper check (control-demo.tex + six
+% copies × two pages) is too big to iterate on when a single variable is under
+% test — yesterday's cycle (ADR-0030 §Partial evidence — 2026-08-17) burned six
+% marker-marked sheets on a Q2 (RUT) result that would have been answered with
+% one pencil-marked sheet.
+%
+% Design choices, each one measured against yesterday's failure mode:
+%
+%   - **One question per copy, one page per copy.** The whole point of iterating
+%     is to change one thing (marker → pencil, or one column layout → another)
+%     without printing forty pages. `\AMCcleardoublepage` at the end of the copy
+%     still forces a fresh sheet for the next one, so N copies = N pages when
+%     printed single-sided.
+%   - **The question is simple (`una respuesta`) with three alternatives.** A
+%     `simple` question is the one where DOUBLE-MARK reads as `ambiguous`
+%     rather than as a valid multi-answer, which is a distinction PAPER-CHECK.md
+%     §5.3 depends on. Three alternatives is the fewest that still lets us
+%     distinguish a single confident mark, a doubtful faint one, and an
+%     ambiguous double.
+%   - **The RUT block carries a numbered label ROW above the columns and an
+%     explicit example**, both absent from control-demo.tex. Yesterday's cycle
+%     ended with the reader returning `rut=None` on both copies — the sqlite
+%     evidence is unambiguous that the reader read exactly what was marked, so
+%     the amend is on the SIDE of the sheet the human reads: which column is
+%     which digit, and what "the leftmost column" means for an 8-digit RUT
+%     without the DV. If a professor cannot map their own RUT onto the columns
+%     without an example, no engine can save them.
+%   - **The header says `LÁPIZ 2B`, not `pencil`, and not "pencil or marker".**
+%     Yesterday's failure mode was blue marker crossing into adjacent columns.
+%     The instruction here is a defence against the same failure appearing on
+%     the second cycle.
+%
+% Content is Spanish because a control sheet is what a student reads
+% (`apps/amc-worker/CLAUDE.md` §Language). Identifiers, filenames and the code
+% around this stay English.
+
+\documentclass[a4paper,11pt]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[spanish]{babel}
+\usepackage[box,lang=ES]{automultiplechoice}
+
+\def\unaSymbole{\textsf{\small(una respuesta)}}
+
+% Fixed seed so a re-run produces the same sheet — the point of the min
+% experiment is to change ONE input at a time and re-print, not the shuffle.
+\AMCrandomseed{4270}
+
+\begin{document}
+
+\element{clase}{
+  \begin{question}[\unaSymbole]{una-alternativa}
+    En Java, ¿cuál de estos es un tipo primitivo?
+    \begin{choices}
+      \correctchoice{\texttt{int}}
+      \wrongchoice{\texttt{String}}
+      \wrongchoice{\texttt{Integer}}
+    \end{choices}
+  \end{question}
+}
+
+\onecopy{1}{
+
+  \noindent{\large\bf Control mínimo}\hfill
+  \textsf{\small (marca con \textbf{LÁPIZ 2B}, no marcador)}
+
+  \vspace{4mm}
+
+  \begin{center}
+    \begin{minipage}{0.9\linewidth}
+      \textbf{RUT} (8 dígitos, sin puntos ni dígito verificador).
+
+      \smallskip
+
+      Encima de cada columna está su número. La \textbf{columna 1} es el dígito
+      de \textbf{más a la izquierda} de tu RUT; la \textbf{columna 8} el de más
+      a la derecha (las unidades).
+
+      \smallskip
+
+      \emph{Ejemplo}: si tu RUT es \texttt{12345678-K}, marca \texttt{1} en la
+      columna~1, \texttt{2} en la columna~2, \ldots, \texttt{8} en la
+      columna~8.
+    \end{minipage}
+
+    \vspace{2mm}
+
+    % Column header row that sits directly above the AMCcode grid. Kept as a
+    % plain \makebox strip rather than a tabular so it lines up with the grid
+    % without importing longtable or fiddling with column widths — AMCcode
+    % renders a fixed-width column layout, so a monospace strip of the same
+    % width lines up predictably (measured, #167 review).
+    \texttt{\hspace{1.2em}%
+      \makebox[1.75em][c]{1}%
+      \makebox[1.75em][c]{2}%
+      \makebox[1.75em][c]{3}%
+      \makebox[1.75em][c]{4}%
+      \makebox[1.75em][c]{5}%
+      \makebox[1.75em][c]{6}%
+      \makebox[1.75em][c]{7}%
+      \makebox[1.75em][c]{8}%
+    }
+
+    \AMCcode{rut}{8}
+  \end{center}
+
+  \vspace{4mm}
+
+  \noindent\fbox{\begin{minipage}{0.98\linewidth}
+      \textbf{1 pregunta.} Cada pregunta dice cuántas respuestas admite.
+    \end{minipage}}
+
+  \vspace{2mm}
+
+  \insertgroup{clase}
+
+  % `\clearpage`, NOT `\AMCcleardoublepage`. This fixture prints
+  % SINGLE-SIDED, and the double-page variant would insert a blank back page
+  % between every copy — measured at 6 pages for 3 copies. `\clearpage`
+  % packs one copy per printed sheet.
+  \clearpage
+}
+
+\end{document}
