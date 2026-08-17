@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
@@ -20,7 +21,8 @@ import (
 // a Spanish path would be the only one on the server. What a reader sees
 // stays Spanish (issue #151 §Routes).
 const (
-	ProfessorsPath = "/professors"
+	ProfessorsPath    = "/professors"
+	ProfessorsNewPath = "/professors/new"
 )
 
 // Professors holds the CRUD's handlers. Same shape as Auth: several handlers
@@ -154,6 +156,129 @@ func (p *Professors) pageFromRequest(r *http.Request, title string) view.Page {
 		}
 	}
 	return page
+}
+
+// New renders the empty create form (GET /professors/new). It is the WP's
+// form convention in one page: the SAME template handles GET (empty),
+// validation-failure re-render (values + errors) and — from S7 — the edit
+// form. Values are always echoed back; errors are per-field.
+func (p *Professors) New(w http.ResponseWriter, r *http.Request) {
+	page := view.ProfessorsFormPage{
+		Page:    p.pageFromRequest(r, "Añadir profesora"),
+		Action:  ProfessorsPath,
+		Submit:  "Añadir",
+		Heading: "Añadir profesora",
+	}
+	if err := view.RenderProfessorsForm(w, http.StatusOK, page); err != nil {
+		p.Log.Error("rendering the create form", "error", err)
+	}
+}
+
+// Create handles POST /professors: validates, creates, flashes and redirects
+// (POST/redirect/GET) on success; re-renders the form with the values and
+// per-field errors on refusal (status 422).
+//
+// Duplicate emails are a KNOWN validation failure and must not 500. authstore
+// wraps the SQLite UNIQUE constraint error as a plain string; the domain
+// does not sort constraint violations from unavailable databases, and
+// checking with a preflight SELECT would be a race window. The shape used
+// here is exactly what backend-code-style.md §Errors §Adding a repository
+// covers — try, catch a known-shape error, report Spanish.
+func (p *Professors) Create(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseForm(); err != nil {
+		p.rerenderNewWithErrors(w, r, view.ProfessorFormValues{}, map[string]string{
+			"": "No se pudo leer el formulario. Inténtalo de nuevo.",
+		})
+		return
+	}
+
+	values := view.ProfessorFormValues{
+		Email: strings.TrimSpace(strings.ToLower(r.PostFormValue("email"))),
+		Name:  strings.TrimSpace(r.PostFormValue("name")),
+	}
+	if errs := validateProfessorForm(values); len(errs) > 0 {
+		p.rerenderNewWithErrors(w, r, values, errs)
+		return
+	}
+
+	if _, err := p.Users.CreateUser(r.Context(), values.Email, values.Name); err != nil {
+		if isDuplicateEmail(err) {
+			p.rerenderNewWithErrors(w, r, values, map[string]string{
+				"email": "Ya existe una profesora con ese correo.",
+			})
+			return
+		}
+		p.Log.Error("creating a professor", "error", err, "email", values.Email)
+		p.renderInternalError(w, r)
+		return
+	}
+
+	flash.Set(w, p.secureCookie, "Profesora añadida: "+values.Email+".")
+	http.Redirect(w, r, ProfessorsPath, http.StatusSeeOther)
+}
+
+func (p *Professors) rerenderNewWithErrors(w http.ResponseWriter, r *http.Request, values view.ProfessorFormValues, errs map[string]string) {
+	page := view.ProfessorsFormPage{
+		Page:    p.pageFromRequest(r, "Añadir profesora"),
+		Action:  ProfessorsPath,
+		Submit:  "Añadir",
+		Heading: "Añadir profesora",
+		Values:  values,
+		Errors:  errs,
+	}
+	if err := view.RenderProfessorsForm(w, http.StatusUnprocessableEntity, page); err != nil {
+		p.Log.Error("rendering the create form after validation", "error", err)
+	}
+}
+
+// validateProfessorForm is the WP's validation convention: return a
+// field-keyed map — empty means valid, and every unhappy field carries its
+// own Spanish message.
+//
+// The email check is deliberately minimal: an `@` and a `.` after it, both
+// non-empty around, because Google is what really validates the address on
+// the way in (the callback exchanges a verified id_token). Nothing here can
+// rescue a professor from a mistyped address — that is the debt §Notes
+// records and defers.
+func validateProfessorForm(values view.ProfessorFormValues) map[string]string {
+	errs := map[string]string{}
+	if values.Email == "" {
+		errs["email"] = "El correo es obligatorio."
+	} else if !looksLikeEmail(values.Email) {
+		errs["email"] = "El correo no tiene la forma esperada."
+	}
+	if values.Name == "" {
+		errs["name"] = "El nombre es obligatorio."
+	}
+	return errs
+}
+
+func looksLikeEmail(s string) bool {
+	at := strings.LastIndex(s, "@")
+	if at <= 0 || at == len(s)-1 {
+		return false
+	}
+	local, domain := s[:at], s[at+1:]
+	if strings.IndexByte(domain, '.') <= 0 {
+		return false
+	}
+	if strings.HasPrefix(local, ".") || strings.HasSuffix(local, ".") {
+		return false
+	}
+	return true
+}
+
+// isDuplicateEmail reports whether the error came from the schema's UNIQUE
+// constraint on users.email. Modernc's SQLite returns the message text
+// unchanged, so this matches on the substring the driver uses — kept in one
+// place so the query and the check about it live together.
+func isDuplicateEmail(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "UNIQUE constraint failed: users.email") ||
+		strings.Contains(msg, "constraint failed: UNIQUE") // driver-version-tolerant fallback
 }
 
 // renderInternalError writes a 500 through the shell when the domain layer

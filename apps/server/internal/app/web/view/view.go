@@ -57,6 +57,41 @@ type Page struct {
 	Flash string
 }
 
+// ProfessorsFormPage is what professors_new.html and (in S7)
+// professors_edit.html render. It holds the values a submission carried and
+// the errors validation produced — the WP's form / validation / error
+// convention (issue #151 §Goals):
+//
+//   - the SAME page renders empty (GET), pre-filled (validation failure
+//     re-render), and, when reusing this shape, with a pre-existing row
+//     (S7's edit form);
+//   - errors are field-keyed rather than a single blob, so the template can
+//     mark each field with the message it broke on;
+//   - the values the professor typed come back so they do not retype them.
+//
+// A form that lost the invalid input on refusal would tell a professor with a
+// mistyped comma to type the whole thing again — a bad UX and a subtle
+// invitation to type it differently the second time and hit a different
+// validation branch.
+type ProfessorsFormPage struct {
+	Page
+	Action  string
+	Values  ProfessorFormValues
+	Errors  map[string]string
+	Submit  string
+	Heading string
+	// EmailReadonly is set by S7's edit form: the address is deliberately
+	// not editable (issue #151 §Non-goals). The create form leaves it false.
+	EmailReadonly bool
+}
+
+// ProfessorFormValues holds what the user typed. Rendered back into the
+// inputs on a validation-failure re-render.
+type ProfessorFormValues struct {
+	Email string
+	Name  string
+}
+
 // ProfessorsListPage is what professors_list.html renders. The row values
 // are pre-formatted by the handler; see handler/professors.go for why.
 type ProfessorsListPage struct {
@@ -177,6 +212,22 @@ func RenderProfessorsList(w http.ResponseWriter, page ProfessorsListPage) error 
 		page.Title = "Profesores"
 	}
 	return render(w, "professors_list", http.StatusOK, page)
+}
+
+// RenderProfessorsForm writes the CRUD's create/edit form.
+//
+// status is a parameter because this render has two callers with two
+// meanings: 200 for a fresh GET, 422 for a re-render after a validation
+// refusal. Rendering the refusal as 200 would look right in a browser and
+// hide the rejection from anything reading the HTTP layer.
+func RenderProfessorsForm(w http.ResponseWriter, status int, page ProfessorsFormPage) error {
+	if page.Title == "" {
+		page.Title = page.Heading
+	}
+	if page.Submit == "" {
+		page.Submit = "Guardar"
+	}
+	return render(w, "professors_form", status, page)
 }
 
 // RenderError writes an error page through the shell (AC-11).
