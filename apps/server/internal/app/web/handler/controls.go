@@ -546,7 +546,7 @@ func toReadingRow(c controls.Control, r controls.Reading) view.ReadingRow {
 	}
 	row.RUT, row.Edited = renderRUT(r)
 	row.Estado, row.EstadoClass = estadoFor(r)
-	row.TotalRaw, row.Grade = totalAndGrade(c.QuestionsPerCopy, r)
+	row.TotalRaw, row.Grade = controls.TotalAndGrade(c.QuestionsPerCopy, r)
 	return row
 }
 
@@ -643,71 +643,6 @@ func effectiveAnswerStatus(a controls.Answer) controls.AnswerStatus {
 		return a.Override.Status
 	}
 	return a.Status
-}
-
-// totalAndGrade computes "Σ relative / N" over the drawn questions, plus
-// the 1,0–7,0 mark (§C7: 4,0 at 50%, linear either side). Returns raw
-// like "3.50/4" and grade like "5.5", or "—/—" for a not_present copy.
-func totalAndGrade(questions int, r controls.Reading) (string, string) {
-	if r.CopyStatus == controls.CopyStatusNotPresent {
-		return "—", "—"
-	}
-	// Any unresolved failure leaves the total unknown until the review
-	// is done — the estado column carries the reason.
-	if r.RUTStatus == controls.RUTStatusUnreadable && r.RUTOverride == nil {
-		return "—", "—"
-	}
-	total := 0.0
-	for _, a := range r.Answers {
-		effective := effectiveAnswerStatus(a)
-		if effective == controls.AnswerStatusDoubtful || effective == controls.AnswerStatusAmbiguous {
-			return "—", "—"
-		}
-		if effective == controls.AnswerStatusBlank {
-			continue
-		}
-		if a.Override != nil {
-			// Overrides do not carry per-question scores; a corrected
-			// answer earns the whole point (§AC-4). By construction: the
-			// override stands for "the professor decided this is the
-			// right answer" — comparing it against the bank's `correct`
-			// set would double-decide, and the WP explicitly leaves that
-			// out of scope. A wrong-answer override therefore also earns
-			// 1.0; that is the same trust model as manual grading.
-			total += 1.0
-			continue
-		}
-		if a.Max > 0 {
-			total += a.Score / a.Max
-		}
-	}
-	if questions == 0 {
-		return "—", "—"
-	}
-	return fmt.Sprintf("%.2f/%d", total, questions), formatGrade(total, questions)
-}
-
-// formatGrade maps a fraction onto the 1,0–7,0 scale: 4,0 at 50%, linear
-// on either side (§C7). Rounded to one decimal. Negative or >1 fractions
-// are clamped — either would only appear from a scoring bug upstream, and
-// a grade outside 1–7 has no reader.
-func formatGrade(total float64, questions int) string {
-	if questions == 0 {
-		return "—"
-	}
-	pct := total / float64(questions)
-	var grade float64
-	switch {
-	case pct <= 0:
-		grade = 1.0
-	case pct <= 0.5:
-		grade = 1.0 + 6.0*pct // 0.0→1.0, 0.5→4.0
-	case pct >= 1.0:
-		grade = 7.0
-	default:
-		grade = 4.0 + 6.0*(pct-0.5) // 0.5→4.0, 1.0→7.0
-	}
-	return fmt.Sprintf("%.1f", grade)
 }
 
 // summarise counts each collapse bucket for the results-table footer.

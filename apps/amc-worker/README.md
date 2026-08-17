@@ -56,10 +56,24 @@ GET  /health                                          → { ok, amc }
 POST /generate      { project, source, copies }       → { sujet, corrige, calage, copies }
 POST /analyse       { project, scan_pdf, source }     → { pages, scoring, copies, needs_review }
                     ⏱ MINUTES-CLASS — background job only, see below
+POST /reanalyse     { project, ticked, unsure }       → { pages, scoring, copies, needs_review }
 POST /associate     { project, roster, code, key }    → { associations, refused_codes }
 POST /associate/set { project, copy, id }             → { copy, id, source }
 POST /annotate      { project, roster, key, out,      → { pdfs, unidentified }
                       [name_column], [verdict] }
+```
+
+**Named files under `<project>/` that the worker produces and callers open
+directly** (ADR-0037 — this naming is part of the contract, the same class
+of promise as `/generate`'s response paths):
+
+```
+<project>/out/sujet.pdf         printed set, from /generate
+<project>/out/corrige.pdf       answer key, from /generate
+<project>/out/calage.xy         layout coordinates, from /generate
+<project>/scans/copy-N-page-M.png
+                                one image per scanned page, from /analyse's
+                                getimages step (N = copy number, M = page)
 ```
 
 **A refusal is not a crash.** The reader refuses a project it cannot score —

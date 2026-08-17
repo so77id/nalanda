@@ -242,7 +242,11 @@ and **#150 deleted it** with the first real migration, as planned. The auth
 schema is numbered `00002` even so: goose keys applied migrations by version, so
 a file reusing number 1 would be considered already applied by every checkout
 that had run the server, and the schema would never arrive. WP-C3 added
-`00003_last_login_at.sql`.
+`00003_last_login_at.sql`. WP-E (#166) added `00004_controls.sql` with the
+three tables the controls domain reads (`control`, `control_pregunta`,
+`copia`); WP-F (#167) added `00005_readings.sql` with the four the
+reading half needs (`reading`, `answer`, `answer_override`,
+`rut_override`).
 
 ## Signing in
 

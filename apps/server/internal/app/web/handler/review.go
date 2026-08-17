@@ -225,13 +225,13 @@ func statusFor(marks []int, qtype controls.QuestionType) controls.AnswerStatus {
 }
 
 // PageImage serves the scanned page image for a copy. Path convention:
-// <workdir>/controls/<id>/scans/copy-<copy>-page-<n>.png. The naming is a
-// MODEL of what apps/amc-worker's getimages produces — the WP-F ADR-0031
-// note about "we depend on the engine's private storage" applies here
-// too. When the file is not on disk (which happens today because the
-// worker's actual naming is not yet pinned), the endpoint answers 404 and
-// the review page shows a broken-image icon rather than failing the
-// whole page.
+// <workdir>/controls/<id>/scans/copy-<copy>-page-<n>.png. This shape is
+// part of the WORKER CONTRACT (ADR-0037) — the same class of promise
+// as /generate's response paths — so a fallback engine has to satisfy
+// the same names. The paper check (ADR-0030 §Not yet proven) is what
+// pins the exact filename against real AMC output. Until then the
+// endpoint answers 404 when the file is not on disk and the review
+// page shows a broken-image icon rather than failing the whole page.
 func (h *Controls) PageImage(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	copyNumber, okCopy := parseCopyPathValue(r.PathValue("copy"))

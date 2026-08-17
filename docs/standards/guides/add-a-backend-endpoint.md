@@ -246,9 +246,12 @@ this student's sheet" — reads both from the same query.
 
 The paired resource for the image on the left is a **sibling
 endpoint**, not a data URL in the page: `GET .../page/{n}` streams
-the scanned image (`Content-Type` set from the path suffix, not
-inferred). Bounds the path segment with a caller-side check
-(page > 0, copy in the control's range) before it touches the disk.
+the scanned image (`Content-Type` set explicitly rather than sniffed
+from the body). Bound the path segments with caller-side checks
+(page in an absolute cap, copy within the create-form's ceiling)
+before touching the disk — a per-row check that copy belongs to
+this control is preferable when the row is already loaded; the fixed
+cap is the fallback when it isn't.
 
 ## Checklist
 
