@@ -134,7 +134,15 @@ From `infra/local/` on the Jetson, first-time bring-up:
 #    mount in DocumentBuddy's watchtower service) to authenticate; keeping
 #    an entry there is what makes the pipeline resilient to the images
 #    going private later.
-docker login ghcr.io   # username: your GitHub handle; password: a PAT with read:packages
+#
+#    PAT SCOPE: create it at github.com/settings/tokens with `read:packages`
+#    ONLY — do NOT tick `write:packages`. `~/.docker/config.json` holds the
+#    token base64-encoded (not encrypted), and Watchtower's mount exposes
+#    that file to any container that gains access to it; a broader scope
+#    silently promotes the credential the mount reveals. SET AN
+#    EXPIRATION (90 days is a reasonable default); the docs sidebar
+#    reminds you to rotate.
+docker login ghcr.io   # username: your GitHub handle; password: PAT (read:packages only, expires ≤90d)
 
 # 2. Pull the three prod images from GHCR (server, backup, monitor). The
 #    COMPOSE_FILE line in .env is what makes this reach the overlay.
@@ -197,14 +205,20 @@ after editing `.env`.
 - **Emergency pin to a specific past image, without a git push**:
   ```bash
   # On the Jetson:
-  docker compose pull ghcr.io/so77id/nalanda-server:sha-<good-sha>
+  docker pull ghcr.io/so77id/nalanda-server:sha-<good-sha>
   docker tag  ghcr.io/so77id/nalanda-server:sha-<good-sha> \
               ghcr.io/so77id/nalanda-server:latest
-  docker compose up -d --force-recreate server
+  docker compose up -d --pull=never --force-recreate server
   ```
-  Note that Watchtower will unpin this on the next `:latest` update from
-  CI. Use only during an active incident, and follow with the `git
-  revert` path above.
+  `docker pull` (not `docker compose pull` — the latter takes SERVICE
+  names, not image references) fetches the SHA-pinned image. `--pull=never`
+  is not optional: `pull_policy: always` on the service would otherwise
+  re-fetch `ghcr.io/so77id/nalanda-server:latest` from GHCR before creating
+  the container, immediately undoing the local `:latest` tag we just set —
+  the rollback would live for one command and unwind itself.
+  Watchtower will still unpin this on its next poll if a new `:latest`
+  reaches GHCR. Use only during an active incident, and follow with the
+  `git revert` path above.
 - **Take the site offline** (Funnel disabled, containers down):
   ```bash
   sudo tailscale funnel --https=8443 off
@@ -354,7 +368,7 @@ review, SEC-2).
 
 - **Restart** (no config change): `docker compose restart server`
 - **Logs**: `docker compose logs -f server backup monitor`
-- **Config change** (edit `.env`, no code change): `docker compose up -d --force-recreate` — pulls no new image, just re-reads env.
+- **Config change** (edit `.env`, no code change): `docker compose up -d --pull=never --force-recreate` — re-reads env and recreates the containers. `--pull=never` is not optional; the overlay carries `pull_policy: always`, so a plain `up` would also fetch the current `:latest` from GHCR mid-config-change. Pass it to keep the config change and any pending image swap separate.
 - **Skip a Watchtower cycle** (deploy immediately, without waiting the 5-min poll):
   ```bash
   docker compose pull

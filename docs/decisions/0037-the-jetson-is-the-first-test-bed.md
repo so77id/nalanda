@@ -88,8 +88,10 @@ Rejected reasons and their answers:
 
 **Rollback stays `git revert && git push`.** CI republishes against the
 reverted code, Watchtower pulls within its poll interval. An emergency
-pin to a specific image without a git push (`docker tag :sha-<good> :latest`
-then `--force-recreate`) is documented in
+pin to a specific image without a git push (`docker pull <sha-tag>`,
+`docker tag :sha-<good> :latest`, then `docker compose up -d --pull=never
+--force-recreate` — the `--pull=never` is load-bearing under
+`pull_policy: always`) is documented in
 [`DEPLOY-JETSON.md`](../../infra/local/DEPLOY-JETSON.md) §Rollback.
 
 **`restart: unless-stopped` on every compose service.** The Jetson accepts
@@ -204,9 +206,12 @@ their own `security-notes.md` entries:
 - **Recoverable from a wiped box.** `git clone`, a `.env` from a
   password manager (including the `COMPOSE_FILE=…` line that loads the
   overlay), `docker login ghcr.io`, `docker compose pull`,
-  `docker compose up -d`, and `sudo tailscale funnel --bg --https=8443 on`
-  bring the service back on any Jetson — no rebuild, no waiting for the
-  toolchain to compile on the Nano.
+  `docker compose up -d`, then the Funnel pair (`sudo tailscale serve
+  --bg --https=8443 http://127.0.0.1:8081 && sudo tailscale funnel --bg
+  --https=8443 on` — `funnel` alone with no `serve` target answers
+  nothing, DEPLOY-JETSON.md §The Funnel is the one home for the exact
+  invocation) bring the service back on any Jetson — no rebuild, no
+  waiting for the toolchain to compile on the Nano.
 - **Deploy loop is short.** Merge to `main` → CI (~2–3 min) → Watchtower
   poll (≤5 min) → new container. No `ssh` step, no `git pull` step, no
   human on the box between merge and deploy. Rollback is the same shape
@@ -284,6 +289,16 @@ predictions. **Numbers to collect and report on the issue that decides
   changed its container registry pricing before; if `docker pull`s from
   the Jetson start throttling, revisit the registry choice (self-host
   registry, Docker Hub, cache proxy on the Jetson).
+- **Image supply-chain hardening becomes worth the cost.** Today the CD
+  workflow pins third-party actions by SHA (closes SEC-1 on the write
+  side) and images ship unsigned (accepted for friends-and-family
+  scale). If a signed-image loop becomes cheap to run (`cosign sign` in
+  CD + Watchtower verification, or a policy engine on the Jetson), or a
+  compromise reaches production via `:latest` before Watchtower's 5-min
+  poll can catch it via a manual re-tag, adopt cosign — the code hook
+  is one workflow step, the operator hook is one docker daemon config.
+  Named because the ADR §Consequences already accepts "the `:latest`
+  tag moves under the operator's feet" without a mitigation path.
 - **The five WP-C2 triggers this ADR closes.** Any change that would
   reintroduce them — a switch to a proxy that does not own `X-Forwarded-For`,
   a bypass of `SessionCookieName`/`StateCookieName` — reopens the entries

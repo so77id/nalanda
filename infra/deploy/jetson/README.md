@@ -14,9 +14,11 @@ on the Jetson (the one in DocumentBuddy's compose) pulls them within
 The placement rule these files sit under is
 [`docs/standards/repository-structure.md`](../../../docs/standards/repository-structure.md)
 §Placement criteria — the row "Host-specific production service DEFINITIONS
-(backup, monitor)...". Service definitions themselves live in
-`infra/local/docker-compose.yml` behind `profiles: [jetson]`; the images
-they build from and the scripts they run live here.
+(backup, monitor)...". Service definitions live in the overlay
+`docker-compose.jetson.yml` in this directory, merged on top of
+`infra/local/docker-compose.yml` via the `COMPOSE_FILE=…` line in the
+Jetson's `.env` (DEPLOY-JETSON.md §"The `.env` on the Jetson"). The
+images they build from and the scripts they run live here too.
 
 ## Files
 

@@ -96,10 +96,11 @@ and [`apps/web/README.md`](apps/web/README.md). Before contributing, read
 
 ## Deployment
 
-Two surfaces run in production, on different mechanics: the SITE
-(`apps/web`, GitHub Pages, automatic on every push to `main`) and the SERVER
-(`apps/server`, DocumentBuddy's Jetson behind Tailscale Funnel, manual `git
-pull` on the box). See §"apps/server on the Jetson" below.
+Two surfaces run in production. Both republish automatically on every
+push to `main`, on different mechanics: the SITE (`apps/web`) via GitHub
+Pages, and the SERVER (`apps/server`) via CI-built arm64 images pushed to
+GHCR and pulled by Watchtower on DocumentBuddy's Jetson within ≤5 min.
+See §"apps/server on the Jetson" below.
 
 ### apps/web on GitHub Pages
 

@@ -84,8 +84,9 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
   (server + backup + monitor), pushes them to
   `ghcr.io/so77id/nalanda-*:latest`, and Watchtower on the Jetson (the
   one running inside DocumentBuddy's compose) pulls and restarts within
-  ≤5 minutes. Path filters: `apps/server/**` or
-  `infra/deploy/jetson/{Dockerfile.*,*.sh}`. A change to the login path
+  ≤5 minutes. Path filters: `apps/server/**`,
+  `infra/deploy/jetson/{Dockerfile.*,*.sh}`, or the workflow itself
+  (`.github/workflows/server-cd.yml`). A change to the login path
   (the OIDC adapter, the callback, a cookie, `NALANDA_PUBLIC_URL`) is
   unfinished until [`apps/server/GOOGLE-CHECK.md`](apps/server/GOOGLE-CHECK.md)
   runs against the https URL (its §7 observes the `Secure` flag on the

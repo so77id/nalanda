@@ -19,9 +19,13 @@
 #
 # Rollback path is a plain `git revert <sha> && git push origin main`: CI
 # rebuilds against the reverted code, tags `:latest`, Watchtower pulls the
-# new (old) code within its poll interval. For an emergency pin to a specific
-# revision without a git push: `docker compose pull
-# ghcr.io/so77id/nalanda-server:sha-<good-sha>` and swap it in by hand.
+# new (old) code within its poll interval. Emergency pin to a specific
+# revision without a git push: `docker pull
+# ghcr.io/so77id/nalanda-server:sha-<good-sha>` (plain docker — `docker
+# compose pull` takes service names, not image refs), then `docker tag`
+# to `:latest` and `docker compose up -d --pull=never --force-recreate
+# server` (see DEPLOY-JETSON.md §Rollback for why `--pull=never` is
+# load-bearing: pull_policy:always would immediately undo the pin).
 
 services:
   server:
