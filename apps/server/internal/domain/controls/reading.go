@@ -20,6 +20,11 @@ const (
 	// RUTStatusUnreadable: a column is blank or holds more than one digit.
 	// Repair: type the eight digits into the review queue.
 	RUTStatusUnreadable RUTStatus = "unreadable"
+	// RUTStatusNotPresent: WP-F extension, not in the wire report — used on
+	// reading rows for copies (copia) that were printed but never captured.
+	// The rut_read column is NULL for these; the row exists so the results
+	// table has an entry to render as "no rendida".
+	RUTStatusNotPresent RUTStatus = "not_present"
 )
 
 // CopyStatus collapses what happened to a copy.
@@ -165,8 +170,12 @@ var (
 // A Reading is one copy's stored state. WP-F persists this beside the
 // existing copia rows; grades are computed on the fly from the answers
 // under any overrides.
+//
+// The identity here is (ControlID, CopyNumber): every copia gets at most
+// one reading. ID is the surrogate the answer table and the override
+// tables reference — it comes from the store on Upsert.
 type Reading struct {
-	ID           string
+	ID           int64
 	ControlID    string
 	CopyNumber   int
 	RUTRead      *string // nil when unreadable or not present
@@ -174,16 +183,17 @@ type Reading struct {
 	Answers      []Answer
 	CopyStatus   CopyStatus
 	ReadAt       time.Time
-	LastEditedAt *time.Time // set on any manual override
+	LastEditedAt *time.Time   // set on any manual override
+	RUTOverride  *RUTOverride // eagerly loaded by ReadingsByControl and ReadingByCopy
 }
 
 // Answer is one question of a Reading, with the engine's numbers beside
-// the optional professor override.
+// the optional professor override. The natural key is (ReadingID,
+// QuestionRef), which is what the override table uses — there is no
+// separate answer_id column.
 type Answer struct {
-	ID           string
-	ReadingID    string
-	QuestionRef  string // the bank id resolved from the layout name
-	QuestionType QuestionType
+	QuestionRef  string       // the bank id resolved from the layout name
+	QuestionType QuestionType // never assumed; comes from the report
 	Marked       []int
 	Doubtful     []Doubtful
 	Status       AnswerStatus
@@ -207,3 +217,56 @@ type RUTOverride struct {
 	RUT      string
 	EditedAt time.Time
 }
+
+// ReadingStore is the persistence side of the reading domain. Declared
+// here per §The dependency rule and separate from Store because the two
+// families of writes have different transaction shapes — the read half
+// of a WP-F flow (upsert a whole report, mark missing copies, load a
+// reading with overrides) does not benefit from being wedged into
+// CreateControl's atomicity contract.
+type ReadingStore interface {
+	// UpsertReadingsFromReport persists a Report against controlID. For
+	// each copy in the report, the reading row is inserted or updated by
+	// (control_id, copy_number). The existing answer rows for that
+	// reading are replaced by the report's; the override tables are
+	// LEFT INTACT — a re-read must not wipe manual decisions
+	// (§Reading with different thresholds).
+	UpsertReadingsFromReport(ctx context.Context, controlID string, report Report, now time.Time) error
+
+	// MarkMissingAsNotPresent inserts a reading with copy_status
+	// not_present and rut_status not_present for every printed copia
+	// row without a reading. Idempotent — a copy that already has a
+	// reading is left alone whatever its status.
+	MarkMissingAsNotPresent(ctx context.Context, controlID string, now time.Time) error
+
+	// ReadingsByControl returns every reading for a control, ordered
+	// by copy_number ascending, with overrides eagerly attached.
+	ReadingsByControl(ctx context.Context, controlID string) ([]Reading, error)
+
+	// ReadingByCopy returns one reading (with overrides), or
+	// ErrReadingNotFound.
+	ReadingByCopy(ctx context.Context, controlID string, copyNumber int) (Reading, error)
+
+	// SetAnswerOverride upserts an override for one (reading,
+	// question_ref) and stamps the reading's last_edited_at.
+	SetAnswerOverride(ctx context.Context, readingID int64, questionRef string, override AnswerOverride) error
+
+	// ClearAnswerOverride deletes the override for (reading,
+	// question_ref), if any.
+	ClearAnswerOverride(ctx context.Context, readingID int64, questionRef string) error
+
+	// SetRUTOverride upserts the RUT override for a reading and stamps
+	// last_edited_at.
+	SetRUTOverride(ctx context.Context, readingID int64, rut string, editedAt time.Time) error
+
+	// ClearRUTOverride deletes the RUT override, if any.
+	ClearRUTOverride(ctx context.Context, readingID int64) error
+
+	// SetControlState updates control.state. Named on this interface
+	// because the reading half is where the state moves — WP-F flips
+	// to InReview on the first upload and to Graded on close.
+	SetControlState(ctx context.Context, controlID string, state State) error
+}
+
+// ErrReadingNotFound is a lookup that named nothing.
+var ErrReadingNotFound = errors.New("controls: no such reading")
