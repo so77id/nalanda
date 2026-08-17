@@ -45,6 +45,23 @@ type Fake struct {
 	// value writes that many bytes so the "PDF present" path can also be
 	// tested.
 	SujetSize int
+
+	// AnalyzeCalls records every Analyze call in order.
+	AnalyzeCalls []controls.AnalyzeRequest
+	// AnalyzeReports is popped left-to-right, one per Analyze call; the last
+	// one sticks (so a test with three uploads and one fixed report gets
+	// that report three times). An empty slice returns the zero Report.
+	AnalyzeReports []controls.Report
+	// AnalyzeErr, when set, is returned from Analyze instead of the success
+	// path.
+	AnalyzeErr error
+
+	// ReanalyzeCalls records every Reanalyze call in order.
+	ReanalyzeCalls []controls.ReanalyzeRequest
+	// ReanalyzeReports mirrors AnalyzeReports.
+	ReanalyzeReports []controls.Report
+	// ReanalyzeErr, when set, is returned from Reanalyze.
+	ReanalyzeErr error
 }
 
 // Generate satisfies controls.Generator. When Err is set, it returns that;
