@@ -109,27 +109,44 @@ AWS_SECRET_ACCESS_KEY=<the printed secret>
 # Notifications (S8, S9): from @BotFather + @getidsbot.
 INFRA_TELEGRAM_TOKEN=<bot token from BotFather>
 ALLOWED_CHAT_IDS=<numeric chat id from getidsbot>
+
+# Load the production overlay by default. Every `docker compose <cmd>` in
+# this directory merges docker-compose.yml + the overlay below, which
+# switches server/backup/monitor from build-local to pull-from-GHCR and
+# adds the Watchtower labels. Paths are relative to this directory.
+COMPOSE_FILE=docker-compose.yml:../deploy/jetson/docker-compose.jetson.yml
 ```
 
 `infra/local/.env` is gitignored via the root `.gitignore` for `.env`.
 
-## Bringing it up
+## Bringing it up — the first time
 
-From `infra/local/` on the Jetson, first time or after a `git pull`:
+**After this WP lands, the box needs to be primed exactly once.** Everything
+after "day 2" is `git push origin main` and Watchtower does the rest — see
+§"Auto-update via Watchtower" below.
+
+From `infra/local/` on the Jetson, first-time bring-up:
 
 ```bash
-# The `jetson` profile brings the backup + monitor services along with the
-# server; on a developer laptop `docker compose up -d server` runs the server
-# alone and leaves them off. See infra/local/docker-compose.yml.
-docker compose --profile jetson up -d --build --wait server
-docker compose --profile jetson up -d --build backup monitor
-# --build is not optional: `up` reuses the tagged image without it, so a
-#   fresh git pull runs the OLD binary and every check below passes for the
-#   wrong reason (see infra/local/docker-compose.yml server section).
-# --wait blocks until the healthcheck reports the database is reachable.
+# 1. Log the local Docker daemon into GHCR so Watchtower has credentials.
+#    Nalanda's images are public today, so this is not required for the
+#    pull itself — but Watchtower reads /root/.docker/config.json (via the
+#    mount in DocumentBuddy's watchtower service) to authenticate; keeping
+#    an entry there is what makes the pipeline resilient to the images
+#    going private later.
+docker login ghcr.io   # username: your GitHub handle; password: a PAT with read:packages
 
-# Verify BOTH surfaces from outside the tailnet — a phone on mobile data,
-# or any browser off Wi-Fi:
+# 2. Pull the three prod images from GHCR (server, backup, monitor). The
+#    COMPOSE_FILE line in .env is what makes this reach the overlay.
+docker compose pull
+
+# 3. Bring them up. `--wait` blocks until the server's healthcheck reports
+#    the database is reachable; the sidecars start after it.
+docker compose up -d --wait server
+docker compose up -d backup monitor
+
+# 4. Verify BOTH surfaces from outside the tailnet — a phone on mobile data,
+#    or any browser off Wi-Fi:
 curl -fsS https://<host>.<tailnet>.ts.net:8443/health
 curl -fsS https://<host>.<tailnet>.ts.net:8443/api/health
 ```
@@ -138,6 +155,64 @@ Then go through [`apps/server/GOOGLE-CHECK.md`](../../apps/server/GOOGLE-CHECK.m
 end to end against the same URL. That run is the one that finally verifies
 the `Secure` cookie flag on the wire — the section §"What this check has NOT
 verified" defers to it.
+
+## Auto-update via Watchtower
+
+After the first-time bring-up above, the deploy loop is:
+
+1. Merge a PR to `main`. The `.github/workflows/server-cd.yml` workflow
+   fires on any push touching `apps/server/**` or the three Jetson-sidecar
+   files, cross-compiles `linux/arm64` images, pushes them to
+   `ghcr.io/so77id/nalanda-{server,backup,monitor}:latest` (plus a
+   `:sha-<sha>` tag), and posts a Telegram line via the Nalanda bot.
+2. On the Jetson, the Watchtower container **that runs inside
+   DocumentBuddy's compose** (`docbuddy-watchtower`) polls GHCR every 5
+   minutes and pulls any `:latest` whose digest changed. It restarts the
+   container in place, keeping the volumes attached.
+3. The `monitor` sidecar posts `🧭 Nalanda 🟢 Monitor started (…)` after
+   the restart — that is the ops-chat signal that a deploy landed.
+
+**Watchtower is not Nalanda's — it is a dependency.** If DocumentBuddy's
+compose is stopped, Nalanda's images stop being updated (they keep
+running the last-pulled version indefinitely). Recovery: start
+DocumentBuddy's compose, or add a Watchtower service to Nalanda's
+overlay (`containrrr/watchtower` with `--label-enable`,
+`WATCHTOWER_POLL_INTERVAL=300`, and the same `/var/run/docker.sock`
+mount — DocumentBuddy's `docker-compose.prod.yml` is the worked case).
+Two Watchtowers on one daemon both observing the same labels is
+idempotent and wastes a poll each; do it only if DocumentBuddy is
+retired and Nalanda outlives it.
+
+**What Watchtower does NOT do**: it does not run migrations, it does not
+re-provision AWS, it does not update `.env`. Config changes and schema
+migrations still need a git push (the migration runs at container boot,
+so restarting is enough) or a `docker compose up -d --force-recreate`
+after editing `.env`.
+
+## Rollback
+
+- **Preferred**: `git revert <bad-sha> && git push origin main`. CI
+  rebuilds against the reverted code, tags `:latest`, Watchtower pulls
+  within its poll interval. Same shape as merging any other PR.
+- **Emergency pin to a specific past image, without a git push**:
+  ```bash
+  # On the Jetson:
+  docker compose pull ghcr.io/so77id/nalanda-server:sha-<good-sha>
+  docker tag  ghcr.io/so77id/nalanda-server:sha-<good-sha> \
+              ghcr.io/so77id/nalanda-server:latest
+  docker compose up -d --force-recreate server
+  ```
+  Note that Watchtower will unpin this on the next `:latest` update from
+  CI. Use only during an active incident, and follow with the `git
+  revert` path above.
+- **Take the site offline** (Funnel disabled, containers down):
+  ```bash
+  sudo tailscale funnel --https=8443 off
+  docker compose stop server backup monitor
+  ```
+
+`restart: unless-stopped` on every service means a reboot brings them
+back on their own, and `docker compose stop` still means "stay stopped".
 
 ## Backups
 
@@ -275,20 +350,15 @@ an IP (`net.ParseIP`), so a header like `X-Forwarded-For: <script>alert(1)</scri
 falls through to `RemoteAddr` rather than reaching the sessions row (#162
 review, SEC-2).
 
-## Restart, logs, rollback
+## Day-to-day operations
 
 - **Restart** (no config change): `docker compose restart server`
-- **Logs**: `docker compose logs -f server`
-- **Rollback** to the previously-tagged image:
-  1. `git log --oneline` — find the commit before the bad one.
-  2. `git checkout <that sha>`
-  3. `docker compose up -d --build --wait server`
-- **Take the site offline** (Funnel disabled, container down):
+- **Logs**: `docker compose logs -f server backup monitor`
+- **Config change** (edit `.env`, no code change): `docker compose up -d --force-recreate` — pulls no new image, just re-reads env.
+- **Skip a Watchtower cycle** (deploy immediately, without waiting the 5-min poll):
   ```bash
-  sudo tailscale funnel --https=8443 off
-  docker compose stop server
+  docker compose pull
+  docker compose up -d
   ```
-
-The compose services carry `restart: unless-stopped` (see the file), so a
-reboot brings them back on their own and `docker compose stop` still means
-"stay stopped".
+  Same result as waiting for Watchtower, minus the wait.
+- Rollback recipes are in §Rollback above.

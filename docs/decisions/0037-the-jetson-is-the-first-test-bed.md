@@ -53,13 +53,44 @@ that the professor can log in and reach the backoffice screens WP-C3 built;
 `/api/controls/*` returns an amc-worker connection error until the Nano
 question is answered.
 
-**Deploy is by hand: `git pull` and `docker compose --profile jetson up -d
---build server backup monitor` on the box.** No CI/CD, no registry, no
-automated deploy — §C15 says these decisions are not due, and building them
-against a test bed is how they get built for the wrong host. The image is a
-12.2 MB static Go binary and the machine is arm64 like the build host, so
-nothing cross-compiles; building on a Nano is slow, and it is the only option
-that leaves no artefact travelling by hand.
+**Deploy is `git push origin main`.** GitHub Actions
+(`.github/workflows/server-cd.yml`, added in S11) cross-compiles arm64
+images for the three prod services (server, backup, monitor), pushes them
+to `ghcr.io/so77id/nalanda-<name>:latest` (plus a `:sha-<sha>` tag), and
+notifies the Nalanda Telegram bot. Watchtower — the SHARED instance from
+DocumentBuddy's compose (already running on this Jetson under
+`WATCHTOWER_LABEL_ENABLE=true`) — polls GHCR every 5 minutes and swaps
+each container the moment the `:latest` digest changes. The first-time
+bring-up on the box is `docker compose pull && docker compose up -d`;
+after that, the operator does nothing on the Jetson unless a config
+change or a schema-only migration needs `--force-recreate`.
+
+The build path is fast because the `apps/server` Dockerfile pins its
+builder stage to `--platform=${BUILDPLATFORM}` and cross-compiles Go via
+`GOARCH=${TARGETARCH}` — no QEMU emulation of the Go toolchain. The two
+alpine sidecars (backup, monitor) build under QEMU but ship in seconds
+because their whole content is one `apk add` and three shell scripts.
+
+**The previous shape was `git pull` on the box.** It was written down
+that way in S1–S10 and dropped in S12 (this WP) because merging code and
+manually re-invoking `docker compose up --build` on the Nano is exactly
+the friction that keeps a test bed from becoming a real deploy target.
+Rejected reasons and their answers:
+- *"§C15 says CI is not due."* True when this WP started, and this WP
+  itself is the case that changed it: closing five WP-C2 review triggers
+  is what made "deploy" a real path, and every one of them is easier to
+  keep closed with automated republishing than with a manual step.
+- *"Building against a test bed is how it gets built for the wrong host."*
+  The pipeline builds a plain arm64 OCI image and pushes it to GHCR — no
+  Jetson-specific step, no baked-in credential, no host-dependent path.
+  Moving to a VPS is a `docker compose pull` from that VPS; the
+  workflow does not know which host runs it.
+
+**Rollback stays `git revert && git push`.** CI republishes against the
+reverted code, Watchtower pulls within its poll interval. An emergency
+pin to a specific image without a git push (`docker tag :sha-<good> :latest`
+then `--force-recreate`) is documented in
+[`DEPLOY-JETSON.md`](../../infra/local/DEPLOY-JETSON.md) §Rollback.
 
 **`restart: unless-stopped` on every compose service.** The Jetson accepts
 home power cuts as an acceptable risk (its ADR-010), so a container that
@@ -84,25 +115,36 @@ Polls the compose network name, NOT the Funnel URL: the point is to
 distinguish "server is down" from "Funnel is down". Shape from DocumentBuddy's
 `scripts/monitor.sh`; a fresh file, not a reference.
 
-**Compose-file shape: one file, one profile per host — not two files.**
-The `backup` and `monitor` service definitions live in
-`infra/local/docker-compose.yml` (the shared file) behind
-`profiles: [jetson]`, rather than in a `infra/deploy/jetson/docker-compose.yml`
-overlay or a `docker-compose.override.yml`. Reasons:
+**Compose-file shape: dev in the base, prod in an overlay** (S12 revised
+this — the earlier iteration of this ADR argued for one file behind a
+`jetson` profile, and S11's introduction of GHCR images made the profile
+shape strictly worse). The base at `infra/local/docker-compose.yml`
+holds ONLY the services a dev needs (server + amc-worker, both with
+`build:`); the overlay at
+`infra/deploy/jetson/docker-compose.jetson.yml` swaps `build:` for
+`image: ghcr.io/…:latest`, adds `pull_policy: always`, adds the
+Watchtower label to every prod service, and adds the `backup` and
+`monitor` sidecars.
 
-- The two sidecars are coupled to the app-composition graph — the backup
-  mounts the server's named volume, the monitor polls its compose-network
-  DNS name. An overlay would repeat that graph twice, and the two copies
-  would drift the moment the server grew a second volume or a new port.
-- A dev laptop's `docker compose up server` is unaffected: unnamed
-  profile-gated services do not start, so a developer never accidentally
-  hits an empty S3 bucket or an unreachable Telegram bot. The Jetson
-  invokes them with `--profile jetson`.
-- The alternative — a `docker-compose.jetson.yml` overlay under
-  `infra/deploy/jetson/` — is the docker-native shape and was rejected on
-  the drift ground above; it stays available as a fallback if a second
-  host needs a different service graph from the Jetson's (at which point
-  two profiles inside one file is no longer cheaper than two files).
+Reasons for the split, per iteration:
+- **The asymmetry is genuine.** Prod PULLS from a registry; dev BUILDS
+  locally. Overriding `build:` with `image:` (leaving both in the merged
+  config, using `pull_policy: always` to decide) is exactly what
+  docker-compose overlays are for. The earlier "one file, one profile"
+  shape had prod services carrying `build:` they never used — a lie the
+  config told itself.
+- **Dev never touches the overlay.** No profile, no `COMPOSE_FILE` env,
+  no way to accidentally pull `latest` from GHCR when working on a
+  branch. The overlay is opt-in through the Jetson's `.env` line
+  `COMPOSE_FILE=docker-compose.yml:../deploy/jetson/docker-compose.jetson.yml`.
+- **Graph coupling stays intact.** The overlay references the same
+  volume names and service names as the base, so the compose merge
+  builds one coherent graph. The "two files drift" argument the previous
+  iteration made is real when the overlay REDECLARES services from
+  scratch; it does not apply when it OVERRIDES fields on services the
+  base defines. The backup and monitor services (new to the overlay)
+  reference `server-data:` and `server` by name — the base's names are
+  authoritative for both.
 
 The **images and scripts** the sidecars build from stay under
 `infra/deploy/jetson/` because they are host-only — an alpine-based
@@ -159,9 +201,16 @@ their own `security-notes.md` entries:
   AWS bill are the same as before this WP; the AWS pieces added
   (`nalanda-jetson` IAM user, one bucket, 30-day lifecycle) are pennies at
   this size.
-- **Recoverable from a wiped box.** A `git clone`, an `.env` from a password
-  manager, a `docker compose --profile jetson up -d --build`, and a
-  `tailscale funnel --https=8443 on` bring the service back on any Jetson.
+- **Recoverable from a wiped box.** `git clone`, a `.env` from a
+  password manager (including the `COMPOSE_FILE=…` line that loads the
+  overlay), `docker login ghcr.io`, `docker compose pull`,
+  `docker compose up -d`, and `sudo tailscale funnel --bg --https=8443 on`
+  bring the service back on any Jetson — no rebuild, no waiting for the
+  toolchain to compile on the Nano.
+- **Deploy loop is short.** Merge to `main` → CI (~2–3 min) → Watchtower
+  poll (≤5 min) → new container. No `ssh` step, no `git pull` step, no
+  human on the box between merge and deploy. Rollback is the same shape
+  via `git revert`.
 
 ### Negative
 
@@ -176,9 +225,24 @@ their own `security-notes.md` entries:
 - **Tailscale is now a dependency for reaching Nalanda.** A Tailscale outage
   takes both services down. Free-tier Tailscale has held up for a year on the
   same box, which is the evidence this decision leans on.
-- **Deploy is manual.** `git pull` and `docker compose up -d --build` on the
-  box. A pipeline is a decision §C15 says is not due, and it would be built
-  against the wrong host if built now.
+- **GHCR is a new dependency.** A GitHub outage means CI cannot push, and
+  Watchtower keeps the last-pulled image running (safe fallback). A GHCR
+  outage during a manual `docker compose pull` fails the pull; the running
+  containers stay up. Neither is a hosted-CI risk this WP introduces beyond
+  what `apps/web` already carries (GitHub Pages).
+- **Watchtower is a shared dependency with DocumentBuddy.** The auto-update
+  loop uses DocumentBuddy's Watchtower container. Stopping DocumentBuddy
+  stops auto-update for Nalanda (running containers keep serving; only new
+  images stop landing). Named as an accepted trade — the alternative (a
+  Watchtower per project) doubles the poll traffic and adds a coordination
+  race when both observe the same daemon.
+- **The `:latest` tag moves under the operator's feet.** Watchtower can
+  restart a container at any minute of the day. Deliberate: this WP explicitly
+  accepts uninterrupted deploys as "friends-and-family scale, no maintenance
+  window needed"; SQLite-with-WAL survives a container swap because the
+  volume outlives the process. Migrations apply at boot, so a schema change
+  requires no separate step. A future WP that wants a maintenance window can
+  add `com.centurylinklabs.watchtower.enable=false` temporarily.
 
 ### The permanent home is still open
 
@@ -208,9 +272,18 @@ predictions. **Numbers to collect and report on the issue that decides
   relevant, and this ADR's "one instance" assumption stops holding.
 - **A permanent hosting decision.** §C15 closes, this ADR is superseded, and
   its measurements should be part of what supersedes it.
-- **A CI/CD pipeline.** The `git pull` cadence stops being appropriate, and
-  the image needs to travel with a registry rather than being built on the
-  target.
+- **Watchtower stops being observed.** DocumentBuddy retires or its
+  Watchtower is stopped and not replaced — auto-update for Nalanda dies
+  silently (containers keep running the last-pulled image forever).
+  Recovery: add a Watchtower service to Nalanda's overlay
+  (`containrrr/watchtower` + `WATCHTOWER_LABEL_ENABLE=true` + the
+  docker-sock mount; DocumentBuddy's `docker-compose.prod.yml` is the
+  worked case). Reopen this ADR to record which of the two hosts owns
+  the Watchtower.
+- **GHCR becomes rate-limited or paid for public repos.** GitHub has
+  changed its container registry pricing before; if `docker pull`s from
+  the Jetson start throttling, revisit the registry choice (self-host
+  registry, Docker Hub, cache proxy on the Jetson).
 - **The five WP-C2 triggers this ADR closes.** Any change that would
   reintroduce them — a switch to a proxy that does not own `X-Forwarded-For`,
   a bypass of `SessionCookieName`/`StateCookieName` — reopens the entries

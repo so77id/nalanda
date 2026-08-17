@@ -177,12 +177,14 @@ DocumentBuddy already holds 443 on the same box). Full context in
   runs permanently; the Jetson exists to produce the measurements that
   decision will need. Numbers to collect: ADR-0037 §"The permanent home is
   still open".
-- **What publishes it**: `git pull` on the Jetson, then
-  `docker compose --profile jetson up -d --build server backup monitor` from
-  `infra/local/`. There is no CI/CD and no registry. The image is a 12.2 MB
-  static Go binary; the Nano is arm64 like the build host so nothing
-  cross-compiles. `--build` is not optional — without it compose reuses a
-  stale tag.
+- **What publishes it**: `git push origin main`. On any push touching
+  `apps/server/**` or the Jetson sidecar files,
+  `.github/workflows/server-cd.yml` cross-compiles three arm64 images
+  (server + backup + monitor), pushes them to `ghcr.io/so77id/nalanda-*:latest`,
+  and pings the Nalanda Telegram bot. Watchtower on the Jetson (the
+  instance running inside DocumentBuddy's compose) polls GHCR every 5
+  minutes and swaps each container the moment the digest changes.
+  End-to-end: merge → deploy in ≤8 min, hands-off.
 - **What runs there**: `apps/server` (the login and the backoffice screens),
   a daily `backup` container (SQLite `.backup` → gzip → S3, 30-day retention
   via bucket lifecycle, Telegram notify), and a `monitor` container (polls
@@ -195,10 +197,12 @@ DocumentBuddy already holds 443 on the same box). Full context in
   answer 200; then run **[`apps/server/GOOGLE-CHECK.md`](apps/server/GOOGLE-CHECK.md)**
   end-to-end against the https URL — §7 is what finally observes the
   `Secure` cookie flag on the wire.
-- **Rollback**: `git log --oneline` on the box, `git checkout <sha>`, and
-  `docker compose --profile jetson up -d --build --wait server`. The
-  compose services carry `restart: unless-stopped`, so a reboot brings them
-  back on their own.
+- **Rollback**: `git revert <sha> && git push origin main` — CI rebuilds
+  against the reverted code, Watchtower pulls the new (old) image within
+  its poll interval. Emergency pin to a specific past image without a
+  git push: `docker compose pull ghcr.io/so77id/nalanda-server:sha-<good>`
+  then `docker tag …:sha-<good> …:latest` and `--force-recreate`
+  ([`DEPLOY-JETSON.md`](infra/local/DEPLOY-JETSON.md) §Rollback).
 
 ## Workflow
 

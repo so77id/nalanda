@@ -1,8 +1,17 @@
-# Local orchestration for the Nalanda services.
+# Local orchestration for the Nalanda services (development).
 #
 # Lives here rather than inside an app because it coordinates services and
 # belongs to none of them (docs/standards/repository-structure.md §Placement
 # criteria). Each app still packages itself — the Dockerfile is in the app.
+#
+# This file is the DEVELOPMENT surface: `docker compose up server` on a
+# developer's laptop builds locally and runs. The PRODUCTION surface for the
+# Jetson is the overlay at `infra/deploy/jetson/docker-compose.jetson.yml`
+# (#162 S12, ADR-0037): it replaces `build:` with `image: ghcr.io/…` so
+# Watchtower can pull new images CI publishes, and adds the `backup` and
+# `monitor` sidecars. Overlay is opt-in via
+# `COMPOSE_FILE=docker-compose.yml:../deploy/jetson/docker-compose.jetson.yml`
+# in `.env`, or `-f` on the command line. Dev never touches the overlay.
 #
 # `apps/server` joined with WP-C1 (#149). The two do not talk yet: the server has
 # no HTTP client for the worker and does not mount `amc-work`, because that seam
@@ -144,77 +153,6 @@ services:
     # The image's default command is the HTTP wrapper; the AMC CLI stays
     # available underneath for exploring by hand (`docker compose run --rm
     # amc-worker auto-multiple-choice prepare ...`).
-
-  # The daily off-site backup, only used on the Jetson deploy (#162). Left in
-  # the shared compose file rather than a prod overlay because a second file
-  # is a second place to drift — the whole service is inert in dev unless the
-  # AWS credentials below are present (which `.env.example` in `apps/server/`
-  # leaves blank on purpose, and the profile below keeps it off the default
-  # `docker compose up` path anyway).
-  backup:
-    build:
-      context: ../deploy/jetson
-      dockerfile: Dockerfile.backup
-    image: nalanda/backup:dev
-    # Only starts under the `jetson` profile — `docker compose up -d server`
-    # will not spin this up on a developer's laptop, but on the Jetson
-    # `docker compose --profile jetson up -d server backup monitor` brings
-    # the three services the deploy actually runs.
-    profiles: ["jetson"]
-    depends_on:
-      # The database file the script backs up has to exist and be reachable.
-      # `service_started` rather than `service_healthy` because the FIRST
-      # daily cron trigger is 03:00 UTC anyway — there is no useful race.
-      server:
-        condition: service_started
-    volumes:
-      # Read-only on purpose: SQLite's .backup holds a SHARED lock and writes
-      # to the destination path in /tmp — the source itself is never mutated,
-      # so the mount does not need write permission and denying it is the
-      # cheapest guard against a bug that decides to `rm -f` the database.
-      - server-data:/data:ro
-    environment:
-      # From the .env on the Jetson; the four printed by
-      # `infra/deploy/jetson/provision-jetson-iam.sh` plus the two of the
-      # Telegram bot. Everything is required at runtime — the script fails
-      # loudly (with a Telegram notification of its own) when any is missing.
-      NALANDA_S3_BUCKET: "${NALANDA_S3_BUCKET:-}"
-      AWS_REGION: "${AWS_REGION:-}"
-      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
-      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
-      # These two are shared conceptually with DocumentBuddy's — same key
-      # name for the same idea — but hold DISTINCT values, because the bots
-      # are distinct (the message prefix is `🧭 Nalanda`, and Miguel points
-      # both bots at the same chat).
-      INFRA_TELEGRAM_TOKEN: "${INFRA_TELEGRAM_TOKEN:-}"
-      ALLOWED_CHAT_IDS: "${ALLOWED_CHAT_IDS:-}"
-    restart: unless-stopped
-
-  # The health monitor of #162, ADR-0037. Polls /health on the compose
-  # network (not through the public Funnel — the point is to distinguish "the
-  # server is down" from "the Funnel is down"), alerts after 3 consecutive
-  # failures with a 30-minute cooldown, posts a recovery message when it
-  # comes back. See infra/deploy/jetson/monitor.sh for the loop.
-  monitor:
-    build:
-      context: ../deploy/jetson
-      dockerfile: Dockerfile.monitor
-    image: nalanda/monitor:dev
-    profiles: ["jetson"]
-    depends_on:
-      server:
-        condition: service_started
-    environment:
-      # Overridable so a test-restore or a bench run against a different port
-      # can point this elsewhere. Defaults match this compose file's bind.
-      HEALTH_URL: "${MONITOR_HEALTH_URL:-http://server:8081/health}"
-      CHECK_INTERVAL: "${MONITOR_CHECK_INTERVAL:-300}"
-      FAIL_THRESHOLD: "${MONITOR_FAIL_THRESHOLD:-3}"
-      COOLDOWN: "${MONITOR_COOLDOWN:-1800}"
-      # Same shared-name / distinct-value pair as `backup` above.
-      INFRA_TELEGRAM_TOKEN: "${INFRA_TELEGRAM_TOKEN:-}"
-      ALLOWED_CHAT_IDS: "${ALLOWED_CHAT_IDS:-}"
-    restart: unless-stopped
 
 volumes:
   amc-work:

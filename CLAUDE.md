@@ -79,15 +79,18 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
   `main` touching `apps/web/**` or `content/**`. Mechanics (trigger, deep-link
   fallback, rollback, what gets published): root `README.md` §Deployment;
   decisions: ADR-0015.
-- **`apps/server` runs on the Jetson, and its deploy is BY HAND.** Merging
-  to `main` does NOT deploy it — Miguel runs `git pull` then
-  `docker compose --profile jetson up -d --build server backup monitor` on
-  the box. A change to the login path (the OIDC adapter, the callback, a
-  cookie, `NALANDA_PUBLIC_URL`) is unfinished until
-  [`apps/server/GOOGLE-CHECK.md`](apps/server/GOOGLE-CHECK.md) runs against
-  the https URL (its §7 observes the `Secure` flag on the wire).
-  Mechanics and decisions: root `README.md` §"apps/server on the Jetson",
-  operating procedure `infra/local/DEPLOY-JETSON.md`, ADR-0037.
+- **Merging to `main` also publishes `apps/server` to the Jetson.**
+  `.github/workflows/server-cd.yml` cross-compiles three arm64 images
+  (server + backup + monitor), pushes them to
+  `ghcr.io/so77id/nalanda-*:latest`, and Watchtower on the Jetson (the
+  one running inside DocumentBuddy's compose) pulls and restarts within
+  ≤5 minutes. Path filters: `apps/server/**` or
+  `infra/deploy/jetson/{Dockerfile.*,*.sh}`. A change to the login path
+  (the OIDC adapter, the callback, a cookie, `NALANDA_PUBLIC_URL`) is
+  unfinished until [`apps/server/GOOGLE-CHECK.md`](apps/server/GOOGLE-CHECK.md)
+  runs against the https URL (its §7 observes the `Secure` flag on the
+  wire). Mechanics and decisions: root `README.md` §"apps/server on the
+  Jetson", operating procedure `infra/local/DEPLOY-JETSON.md`, ADR-0037.
 - **All changes go through PRs** — never push directly to `main`.
 - **Squash merge** is mandatory for every PR (manual, by the user).
 - **One commit per slice**; the slice list lives in the issue body as checkboxes.

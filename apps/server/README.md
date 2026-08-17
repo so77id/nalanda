@@ -224,7 +224,6 @@ Deliberately, and each with an owner:
 | Courses, students, enrolment — any domain table | WP-D |
 | JSON contracts, CORS, WebSocket on `/api` | with a consumer (ADR-0008) |
 | Reading scans back, per-question grades, review queue | WP-F |
-| Automated deploy (CI/CD, registry, image travel) | deferred by §C15 for the same reason as its predecessor: not due until the permanent host is chosen. Manual `git pull` on the Jetson today, ADR-0037 |
 | Deleting or re-addressing a professor who has never signed in | WP that reopens the mistyped-address debt (#151 §Notes) |
 | An audit trail of who did what | The WP that gains a second class of actor (#151 §Non-goals) |
 
