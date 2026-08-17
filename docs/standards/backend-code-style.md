@@ -198,6 +198,13 @@ status parameter. The status is a parameter because the same page (see
 below) renders both 200 and 422; a fresh render function that hard-coded
 200 would ship a validation refusal as success.
 
+**The handler fills the shell fields (title, professor, csrf) with
+`middleware.PageFor(r, title)` and writes shell error pages with
+`middleware.WriteError(w, r, status, message)`** — one helper each, so a
+new page cannot silently drift from the shell every other page shows. The
+same block used to be inlined in four callers before the WP-C3 review
+extracted them (ARQ-1, ARQ-2).
+
 ### Form / validation / errors
 
 One shape for every write screen (`ProfessorsFormPage` is the worked case):
@@ -207,6 +214,12 @@ One shape for every write screen (`ProfessorsFormPage` is the worked case):
   `Action`/`Heading`/`Submit` are what differ.
 - **Errors are field-keyed** (`map[string]string`). A single blob would
   make a two-error submission read as "something went wrong".
+- **A form-wide failure that belongs to no field goes into a dedicated
+  `Notice` string on the page struct**, rendered above the fields. Do NOT
+  reach for `Errors[""]` — an empty-string key is silently dropped by the
+  template (COR-1, WP-C3 review), so the message never reaches the
+  professor. Worked case: `view.ProfessorsFormPage.Notice` carries
+  "No se pudo leer el formulario" when `r.ParseForm()` fails.
 - **The values the professor typed come back on refusal**. A form that
   lost the input would tempt a fix that hits a different validation
   branch by accident and turns a rejection into a confusing loop.
@@ -245,15 +258,20 @@ the list. `auth.ErrCannotDeactivateSelf` and
 ### Error pages — 404 / 403 / 500
 
 `view.RenderError` writes any of them through the shell with the caller's
-status. Three callers today:
+status. `middleware.WriteError(w, r, status, message)` is its only
+production caller: it builds the `view.ErrorPage` from the request context
+via `middleware.PageFor` and falls back to `http.Error` if the render
+itself fails. Three sites reach the helper today:
 
 - `router.renderNotFound` — the surface's default 404, distinguished from a
   405 by looking up the request path in the routes table (a wrong verb
   reaches the mux so its Allow header is set).
-- `middleware.renderForbidden` — the CSRF gate's refusal, replacing the
-  plain-text `http.Error`.
-- Handler-side `renderInternalError` — the last-resort catch when the
-  domain fails a read.
+- `middleware.renderForbidden` — the state-changing gate's refusal (no
+  session on a state-changing request, unparseable body, or wrong CSRF
+  token), replacing the plain-text `http.Error`.
+- Handler-side inline calls, `middleware.WriteError(w, r,
+  http.StatusInternalServerError, "…")` — the last-resort catch when the
+  domain fails a read. `professors.go` has six such sites.
 
 An error page reached by a signed-in professor still shows the bar, so
 they can leave the 404 by clicking Profesores rather than the back button.

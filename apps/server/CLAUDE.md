@@ -7,8 +7,9 @@ backoffice and a JSON/WS API for anonymous students), one shared domain,
 SQLite underneath. Born with the entrance-controls subsystem
 (`docs/design/2026-08-controles.md` §C10) rather than in the abstract.
 
-Since #150 a professor can sign in with Google and the backoffice has a session
-gate. The screens behind it are WP-C3 (#151).
+Since WP-C3 (#151) the backoffice has its shell (nav, both themes, error
+pages, one-shot flash cookie) and the professor CRUD. The login round trip
+and the session gate arrived earlier with WP-C2 (#150).
 
 Commands, stack, configuration and layout live in `README.md` — one home per
 fact.
@@ -28,20 +29,24 @@ fact.
 - `docs/standards/guides/add-a-backend-endpoint.md` — read before adding ANY
   route here: which surface it belongs to, the handler → domain → repository
   chain, and the middleware a state-changing route needs.
-- `README.md` §"What is not here yet" — before adding anything, check whether it
-  belongs to WP-C3 (#151), WP-D or WP-E. **WP-C2 (#150) is closed**: the login
-  round trip and the session gate are here.
+- `README.md` §"What is not here yet" — before adding anything, check whether
+  the work belongs to WP-D (roster) or WP-E (control creation). **WP-C1,
+  WP-C2 and WP-C3 are closed**: the layered layout (#149), the login round
+  trip + session gate (#150), and the backoffice shell + professor CRUD
+  (#151) all live here.
 
 ## Language
 
 Code, comments, identifiers, tests and commit messages in **English**, like the
 rest of the repo.
 
-**Everything a person reads is Spanish** — which on this app means the
-backoffice's rendered text when WP-C3 brings it, and any message that reaches a
-student. Same rule as `content/` and as the LaTeX in `apps/amc-worker`: English
-stays inside identifiers. Log lines are English: their reader is an operator
-looking at the same identifiers.
+**Everything a person reads is Spanish** — the backoffice's rendered text
+(the CRUD's list and form, the flash messages, the shell's 404/403/500),
+and any message that reaches a student. Same rule as `content/` and as the
+LaTeX in `apps/amc-worker`: English stays inside identifiers. Log lines
+are English: their reader is an operator looking at the same identifiers.
+Worked cases in-tree: `internal/app/web/view/templates/pages/*.html` and
+the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`.
 
 ## Rules for Claude
 
