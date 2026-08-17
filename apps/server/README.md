@@ -175,11 +175,21 @@ menu on the right holding the POST logout. Both themes come from
 `color-scheme: light dark` and `currentColor`; no stylesheet is served
 (§C13 — the backoffice is an internal tool and does not follow ADR-0026).
 
+Since WP-E (#166) the shell also holds the entrance-controls screens: a
+professor picks a section range from the published question bank, gets a
+printable `sujet.pdf` back, and every control is persisted with its pool
+and its per-copy identity. `apps/amc-worker` is the compilation engine
+(ADR-0030) and `questions.json` (ADR-0032) is the input.
+
 Routes today:
 
 | Route | What |
 |---|---|
-| `GET /` | Redirects to `/professors` (an anonymous request lands in `/login` first, via the gate) |
+| `GET /` | Redirects to `/controls` (an anonymous request lands in `/login` first, via the gate). Superseded #151's redirect to `/professors` when WP-E landed |
+| `GET /controls` | The list, ordered by application_date desc with nulls last |
+| `GET /controls/new` · `POST /controls` | Pick a section range, generate the PDF |
+| `GET /controls/{id}` | Detail: metadata, PDF downloads, the WP-F placeholder Escaneos box |
+| `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
 | `GET /professors` | The list: address, name, state, created, last sign-in |
 | `GET /professors/new` · `POST /professors` | Create by address and name — the `Authenticate` path (2) round trip |
 | `GET /professors/{id}/edit` · `POST /professors/{id}` | Rename. The address is not editable |
@@ -212,7 +222,7 @@ Deliberately, and each with an owner:
 |---|---|
 | Courses, students, enrolment — any domain table | WP-D |
 | JSON contracts, CORS, WebSocket on `/api` | with a consumer (ADR-0008) |
-| Talking to `apps/amc-worker` | WP-E |
+| Reading scans back, per-question grades, review queue | WP-F |
 | Deploy, hosting, secrets | deferred (`2026-08-controles.md` §C15) |
 | Deleting or re-addressing a professor who has never signed in | WP that reopens the mistyped-address debt (#151 §Notes) |
 | An audit trail of who did what | The WP that gains a second class of actor (#151 §Non-goals) |

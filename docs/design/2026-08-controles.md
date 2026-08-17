@@ -21,8 +21,11 @@
 > the port cost no dependency. **WP-C3 shipped** (#151) — the backoffice has
 > its shell (nav, both themes, error pages, one-shot flash cookie) and the
 > professor CRUD (create, edit, deactivate/reactivate with both guards); C13
-> is honoured (no bundler, `system-ui`, `currentColor` only). WPs D–G not
-> started.
+> is honoured (no bundler, `system-ui`, `currentColor` only). **WP-E shipped**
+> (#166) — the professor picks a section range from the published bank, the
+> AMC worker generates the PDF, and every control is persisted with its pool
+> and its per-copy identity. `/` now redirects to `/controls`. WPs D, F and G
+> not started.
 > Living decisions distilled from here become ADRs as each WP develops.
 
 ## Problem
@@ -135,9 +138,9 @@ touched.
 | B ✅ | [#139](https://github.com/so77id/nalanda/issues/139), [#144](https://github.com/so77id/nalanda/issues/144) | **Question bank in content** — authoring format, anchor resolution and its gate, the rendering component, catalog entry, published JSON; and a bank for every document on the teaching path | — |
 | C1 ✅ | [#149](https://github.com/so77id/nalanda/issues/149) | **`apps/server` is born** — Go + SQLite + goose, the layered skeleton with its dependency rule enforced by a test, `/health`, the image and compose, and every process obligation below | — |
 | C2 ✅ | [#150](https://github.com/so77id/nalanda/issues/150) | **Auth domain** — ported from DocumentBuddy per ADR-0009, Google OAuth, sessions, and a bootstrap address rather than a seed (ADR-0036) | C1 |
-| C3 | [#151](https://github.com/so77id/nalanda/issues/151) | **Backoffice** — server-rendered layout and the professor CRUD | C2 |
+| C3 ✅ | [#151](https://github.com/so77id/nalanda/issues/151) | **Backoffice** — server-rendered layout and the professor CRUD | C2 |
 | D | not refined | **Course and roster** — tables and CSV import. Canvas import noted, not assumed | C1 |
-| E | not refined | **Create a control, generate the PDF** | A, B, C1–C3, **+ the paper check** |
+| E ✅ | [#166](https://github.com/so77id/nalanda/issues/166) | **Create a control, generate the PDF** — bank reader, AMC worker client, controls domain (Service + Store + tex generator), the three screens (list, form, detail), the two PDF downloads. `/` now redirects to `/controls` (was `/professors`). | A, B, C1–C3, **+ the paper check** |
 | F | not refined | **Read scans, manual review queue** | E |
 | G | not refined | **Publish grades** — spreadsheet, email, Canvas | F |
 
