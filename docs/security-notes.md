@@ -642,27 +642,39 @@ makes it reachable from outside a laptop. That is the moment `/login/google`,
 shape being a per-source ceiling on live nonces, which needs no dependency — and
 the moment the proxy question below has to be answered too.
 
-### The login's state cookie is a double-submit cookie (accepted 2026-08-16, #150)
+### The login's state cookie is a double-submit cookie (accepted 2026-08-16, #150; hardened 2026-08-17, #162)
 
 The OAuth callback requires the `state` parameter to match a cookie the browser
 holds. That is what stops login CSRF (#150 SEC-1), and it is a double-submit
 cookie, which carries the pattern's one weakness: an attacker who can WRITE a
 cookie on this site can plant their own nonce.
 
-**What is exposed.** Writing a cookie here means controlling a sibling host under
-the same registrable domain, or a MITM over http. Demonstrated in review: with
-two `nalanda_oauth_state` cookies present, the deeper-path one is read first
-(RFC 6265 §5.4) and the victim ends up in the attacker's session. **Now refused**
-— the callback rejects a request carrying more than one such cookie.
+**What was exposed.** Writing a cookie here means controlling a sibling host
+under the same registrable domain, or a MITM over http. Demonstrated in review:
+with two `nalanda_oauth_state` cookies present, the deeper-path one is read
+first (RFC 6265 §5.4) and the victim ends up in the attacker's session. **Now
+refused** — the callback rejects a request carrying more than one such cookie.
 
-**Why it is still recorded**: the `__Host-` prefix would remove the whole class
-by forbidding a sibling host from setting the cookie at all, and it is not used
-because it requires `Secure`, which the documented development URL (http) cannot
-satisfy — and a cookie NAME that differs between development and production is a
-difference that only shows up in production.
+**And, since #162, closed at its source in production.** The Jetson deploy
+adopts the `__Host-` prefix, which is what forbids a sibling host from setting
+the cookie at all — the browser refuses a `__Host-` cookie without `Secure`, or
+with `Domain`, or on a `Path` other than `/`, and rejects any that came from a
+subdomain. The prefix requires `Secure`, which the documented development URL
+(http) cannot satisfy, so the cookie NAME differs between dev
+(`nalanda_oauth_state`) and prod (`__Host-nalanda_oauth_state`). That split was
+resisted through #150 for the reason "a difference that only shows up in
+production" and is adopted here anyway, because it is now pinned by two literal
+tests (`TestSessionCookieNameCarriesHostPrefixInProductionAndNotInDev` and its
+state-cookie twin), because every read and write goes through
+`handler.StateCookieName(secure)` / `middleware.SessionCookieName(secure)`
+rather than a bare literal, and because the extra guarantee is exactly the
+class the `CookiesNamed` count above defends against.
 
-**Review trigger**: the first https deployment. There the prefix costs nothing,
-and adding it is a two-line change in `handler.StateCookieName`'s neighbourhood.
+**Review trigger**: any change that reintroduces a bare `"nalanda_oauth_state"`
+literal in a read or write path, or any test that hard-codes one name — either
+of those makes the prod path stop being exercised. The two literal-string tests
+would catch a mutation of the name function; only careful review catches a
+bypass around it.
 
 ### The session's IP is `RemoteAddr`, with no proxy-trust story (accepted 2026-08-16, #150; CLOSED 2026-08-17, #162)
 
@@ -720,17 +732,25 @@ professor.
 across providers, and this is the first assumption to re-examine — see ADR-0036
 §Consequences.
 
-### The session cookie has no `Secure` flag in development (accepted 2026-08-16, #150)
+### The session cookie has no `Secure` flag in development (accepted 2026-08-16, #150; CLOSED 2026-08-17, #162)
 
 `config.SecureCookie()` derives the flag from `NALANDA_PUBLIC_URL`'s scheme, and
 the documented development value is `http://127.0.0.1:8081`.
 
-**Why it is accepted**: the alternative is a Secure cookie the browser never sends
-over http, i.e. a login that cannot work locally. The `__Host-` prefix was
-rejected for the same reason, plus a worse one: a cookie NAME that differs between
-development and production is a difference that only ever shows up in production
-(`middleware.SessionCookieName`).
+**Why it was accepted**: the alternative is a Secure cookie the browser never
+sends over http, i.e. a login that cannot work locally.
 
-**Review trigger**: the first deploy. `GOOGLE-CHECK.md` §"What this check has NOT
-verified" says the https run is the one that verifies the flag, and that run is
-what closes this entry.
+**How it closed (#162, 2026-08-17)**: the Jetson deploy runs behind Tailscale
+Funnel on `https://<host>.<tailnet>.ts.net:8443`, so `config.SecureCookie()`
+returns true there and the session cookie carries `Secure` on the wire.
+[`GOOGLE-CHECK.md`](../apps/server/GOOGLE-CHECK.md) §7 is the run that
+observes it — the section that section previously deferred to.
+
+The old "worse reason" for rejecting the `__Host-` prefix — that a cookie name
+differing between dev and prod is a difference that only shows up in production
+— has been converted from a rejection into a checked invariant: since #162,
+`middleware.SessionCookieName` and `handler.StateCookieName` are functions of
+the flag, every read and write goes through them, and two literal-string tests
+pin the two names (`__Host-nalanda_session` / `nalanda_session`). The split
+between dev and prod is real, and the class of defect that used to come with it
+is closed by the tests rather than by refusing the prefix.

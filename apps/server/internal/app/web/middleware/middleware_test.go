@@ -115,7 +115,7 @@ func (h *harness) login(t *testing.T, email string) (auth.User, string) {
 func (h *harness) request(handler http.Handler, token string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(http.MethodGet, "/", nil)
 	if token != "" {
-		req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: token})
+		req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: token})
 	}
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, req)
@@ -128,7 +128,7 @@ func clearedCookie(t *testing.T, recorder *httptest.ResponseRecorder) bool {
 	t.Helper()
 
 	for _, cookie := range recorder.Result().Cookies() {
-		if cookie.Name == middleware.SessionCookieName && cookie.MaxAge < 0 {
+		if cookie.Name == middleware.SessionCookieName(true) && cookie.MaxAge < 0 {
 			return true
 		}
 	}
@@ -299,7 +299,7 @@ func TestCSRF(t *testing.T) {
 		req := httptest.NewRequest(http.MethodPost, "/logout", strings.NewReader(form.Encode()))
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 		if token != "" {
-			req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: token})
+			req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: token})
 		}
 		recorder := httptest.NewRecorder()
 		h.auth.Resolve(h.auth.RequireProfessor(h.auth.VerifyCSRF(h.next()))).ServeHTTP(recorder, req)
@@ -376,10 +376,30 @@ func TestCSRF(t *testing.T) {
 	})
 }
 
+// The __Host- prefix's dev/prod split is pinned by LITERAL — every other test
+// asks `SessionCookieName(secure)` back for the answer, which is circular: a
+// mutation deleting the branch would agree with itself. This one names the two
+// strings the browser will actually see, so removing the prefix (or accidentally
+// pinning dev to the prefixed name, which #150 said was worse than the split)
+// goes red at exactly one message.
+func TestSessionCookieNameCarriesHostPrefixInProductionAndNotInDev(t *testing.T) {
+	if got, want := middleware.SessionCookieName(true), "__Host-nalanda_session"; got != want {
+		t.Errorf("SessionCookieName(true) = %q, want %q — the __Host- prefix is what closes cookie tossing from a sibling host on the same registrable domain (#162)", got, want)
+	}
+	if got, want := middleware.SessionCookieName(false), "nalanda_session"; got != want {
+		t.Errorf("SessionCookieName(false) = %q, want %q — dev keeps the unprefixed name because __Host- requires Secure, which http does not carry", got, want)
+	}
+}
+
 // The cookie's attributes are each load-bearing and none of them is visible in
 // any other test: HttpOnly keeps a script from reading the session, SameSite
 // keeps a cross-site form from riding it, Path scopes it to the whole site, and
 // Secure is what the configuration derives from the public URL.
+//
+// The three the __Host- prefix REQUIRES to be honoured (Secure=true, Path="/",
+// no Domain) are the ones checked when `secure` is true: weakening any of them
+// makes the browser refuse the cookie by name, not by rule, and this is where
+// that would be seen.
 func TestTheSessionCookieCarriesItsProtections(t *testing.T) {
 	for _, secure := range []bool{true, false} {
 		name := "over https"
@@ -398,8 +418,8 @@ func TestTheSessionCookieCarriesItsProtections(t *testing.T) {
 			}
 			cookie := cookies[0]
 
-			if cookie.Name != middleware.SessionCookieName || cookie.Value != "the-token" {
-				t.Errorf("cookie = %s=%s", cookie.Name, cookie.Value)
+			if cookie.Name != middleware.SessionCookieName(secure) || cookie.Value != "the-token" {
+				t.Errorf("cookie = %s=%s, want name %s", cookie.Name, cookie.Value, middleware.SessionCookieName(secure))
 			}
 			if !cookie.HttpOnly {
 				t.Error("the session cookie is readable by scripts")
@@ -415,6 +435,12 @@ func TestTheSessionCookieCarriesItsProtections(t *testing.T) {
 			}
 			if !cookie.Expires.Equal(expires) {
 				t.Errorf("Expires = %v, want %v", cookie.Expires, expires)
+			}
+			if cookie.Domain != "" {
+				// The __Host- prefix requires no Domain attribute at all
+				// (browser refuses the cookie by name otherwise). It costs
+				// nothing over http either, so it is asserted for both arms.
+				t.Errorf("Domain = %q, want empty (the __Host- prefix requires the attribute be absent, and there is no reason to set it in dev)", cookie.Domain)
 			}
 		})
 	}
@@ -560,7 +586,7 @@ func TestVerifyCSRFRefusesAnUnparseableBody(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodPost, "/logout", strings.NewReader("%zz=%"))
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: token})
+	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: token})
 
 	recorder := httptest.NewRecorder()
 	h.auth.Resolve(h.auth.RequireProfessor(h.auth.VerifyCSRF(h.next()))).ServeHTTP(recorder, req)

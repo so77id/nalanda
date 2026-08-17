@@ -125,11 +125,19 @@ func (f *fixture) start(t *testing.T) (string, *http.Cookie) {
 
 // stateCookie pulls the state cookie out of a response, failing if it is absent:
 // without it no callback can succeed, so its absence is never incidental.
+//
+// Accepts either of the two possible names — `__Host-nalanda_oauth_state` over
+// https, `nalanda_oauth_state` over http — because #162 made the prefix a
+// function of the URL scheme (`handler.StateCookieName`), and the tests that
+// iterate over both schemes cannot pin one name here.
 func stateCookie(t *testing.T, recorder *httptest.ResponseRecorder) *http.Cookie {
 	t.Helper()
 
 	for _, cookie := range recorder.Result().Cookies() {
-		if cookie.Name == handler.StateCookieName && cookie.Value != "" {
+		if cookie.Value == "" {
+			continue
+		}
+		if cookie.Name == handler.StateCookieName(true) || cookie.Name == handler.StateCookieName(false) {
 			return cookie
 		}
 	}
@@ -152,10 +160,14 @@ func (f *fixture) callback(t *testing.T, state, code string, cookie *http.Cookie
 	return recorder
 }
 
-// sessionCookie returns the session cookie a response set, if any.
+// sessionCookie returns the session cookie a response set, if any. Accepts
+// either of the two possible names — see stateCookie for why.
 func sessionCookie(recorder *httptest.ResponseRecorder) *http.Cookie {
 	for _, cookie := range recorder.Result().Cookies() {
-		if cookie.Name == middleware.SessionCookieName && cookie.Value != "" {
+		if cookie.Value == "" {
+			continue
+		}
+		if cookie.Name == middleware.SessionCookieName(true) || cookie.Name == middleware.SessionCookieName(false) {
 			return cookie
 		}
 	}
@@ -512,18 +524,42 @@ func TestTheStateCookieIsProtectedAndSpentOnce(t *testing.T) {
 	if !cookie.Secure {
 		t.Error("the state cookie is not Secure although the fixture is https")
 	}
+	// __Host- requires Path=/ and no Domain. The Secure requirement is the
+	// assertion two lines up.
+	if cookie.Path != "/" {
+		t.Errorf("Path = %q, want /", cookie.Path)
+	}
+	if cookie.Domain != "" {
+		t.Errorf("Domain = %q, want empty (required by the __Host- prefix)", cookie.Domain)
+	}
+	if got, want := cookie.Name, "__Host-nalanda_oauth_state"; got != want {
+		t.Errorf("Name = %q, want %q — the fixture is https, so the prefix must apply", got, want)
+	}
 
 	state, live := f.start(t)
 	done := f.callback(t, state, "the-code", live)
 
 	var cleared bool
 	for _, c := range done.Result().Cookies() {
-		if c.Name == handler.StateCookieName && c.MaxAge < 0 {
+		if c.Name == handler.StateCookieName(true) && c.MaxAge < 0 {
 			cleared = true
 		}
 	}
 	if !cleared {
 		t.Error("the state cookie survived the callback that spent it")
+	}
+}
+
+// State-cookie names by literal — same shape as
+// `middleware.TestSessionCookieNameCarriesHostPrefixInProductionAndNotInDev`
+// and for the same reason: asking the function to answer its own question is
+// circular.
+func TestStateCookieNameCarriesHostPrefixInProductionAndNotInDev(t *testing.T) {
+	if got, want := handler.StateCookieName(true), "__Host-nalanda_oauth_state"; got != want {
+		t.Errorf("StateCookieName(true) = %q, want %q", got, want)
+	}
+	if got, want := handler.StateCookieName(false), "nalanda_oauth_state"; got != want {
+		t.Errorf("StateCookieName(false) = %q, want %q", got, want)
 	}
 }
 

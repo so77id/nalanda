@@ -134,10 +134,29 @@ func avisoFor(key string) string {
 	}
 }
 
+// stateCookieBase is the unprefixed name. See StateCookieName.
+const stateCookieBase = "nalanda_oauth_state"
+
 // StateCookieName carries the OAuth state nonce back to the browser that
 // started the flow. See LoginGoogle for why the server-side store is not enough
 // on its own.
-const StateCookieName = "nalanda_oauth_state"
+//
+// Reads `__Host-nalanda_oauth_state` when the cookie carries Secure
+// (production, over https) and `nalanda_oauth_state` otherwise (local
+// development). Same rationale as `middleware.SessionCookieName`: the prefix
+// closes the last shape of cookie-tossing this handler defends against by
+// counting cookies, and its cost — an https requirement dev cannot meet — is
+// isolated to this file.
+//
+// The other requirements of the prefix (Set-Cookie must carry Secure; Path=/;
+// no Domain) are already satisfied by every caller below, and asserted so a
+// weakening cannot pass the suite.
+func StateCookieName(secure bool) string {
+	if secure {
+		return "__Host-" + stateCookieBase
+	}
+	return stateCookieBase
+}
 
 // LoginGoogle starts the flow: a fresh nonce, then a redirect to the provider.
 //
@@ -170,7 +189,7 @@ func (a *Auth) LoginGoogle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     StateCookieName,
+		Name:     StateCookieName(a.secureCookie),
 		Value:    nonce,
 		Path:     "/",
 		MaxAge:   int(oauthstate.DefaultTTL.Seconds()),
@@ -187,7 +206,7 @@ func (a *Auth) LoginGoogle(w http.ResponseWriter, r *http.Request) {
 // whatever the outcome, and leaving it in the browser only invites a replay.
 func (a *Auth) clearStateCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     StateCookieName,
+		Name:     StateCookieName(a.secureCookie),
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
@@ -219,7 +238,7 @@ func (a *Auth) LoginGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	//
 	// Refusing when there is more than one is what closes it, and it works over
 	// http, which the __Host- prefix does not (development).
-	cookies := r.CookiesNamed(StateCookieName)
+	cookies := r.CookiesNamed(StateCookieName(a.secureCookie))
 	a.clearStateCookie(w)
 	if len(cookies) != 1 || !auth.VerifyCSRF(cookies[0].Value, state) {
 		a.Log.Warn("refusing a callback whose state was not issued to this browser",
@@ -293,7 +312,7 @@ func (a *Auth) LoginGoogleCallback(w http.ResponseWriter, r *http.Request) {
 // middleware runs in front of it: a logout reachable by GET is a logout any
 // image tag on any page can perform.
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
-	if cookie, err := r.Cookie(middleware.SessionCookieName); err == nil && cookie.Value != "" {
+	if cookie, err := r.Cookie(middleware.SessionCookieName(a.secureCookie)); err == nil && cookie.Value != "" {
 		if err := a.Login.EndSession(r.Context(), cookie.Value); err != nil {
 			// The cookie is cleared regardless: from the professor's side the
 			// logout has to succeed, and a session row that outlives it is a
