@@ -53,7 +53,8 @@ apps/server/
   internal/domain/   business types and the interfaces they need — PURE
   internal/app/web/  the professor's backoffice (server-rendered)
   internal/app/api/  the JSON/WS surface for anonymous students
-  internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
+  internal/infra/    adapters: config, storage (+ authstore), httpserver,
+                     httpjson, selfcheck, oidc
   migrations/        goose SQL migrations, embedded
 ```
 
@@ -144,6 +145,23 @@ Environment variables only, read **once at boot** into a struct, through
 - **Encode a response body BEFORE writing the header** (`httpjson.Write`).
   Encoding into the `ResponseWriter` commits the status line first, so a value
   that fails to marshal arrives as a 200 with a truncated body.
+- **Render a template into a BUFFER before writing the header**
+  (`view.RenderLogin`, and every render function added beside it).
+  The template half of the `httpjson.Write` rule above, and for the same reason:
+  executing straight into the `ResponseWriter` commits a 200 with the first byte,
+  so a template that fails halfway arrives as a successful truncated page.
+- **Templates are parsed once, at package initialisation, and a parse error is a
+  panic at boot.** That is the deliberate exception to §Errors: a typo becomes a
+  failure an operator sees immediately instead of a 500 on the one page nobody
+  visits.
+- **Every page sets the same security headers** (`view.setSecurityHeaders`):
+  `no-store`, `nosniff`, `X-Frame-Options: DENY`, `frame-ancestors 'none'`,
+  `Referrer-Policy: same-origin`. A page carrying a session's CSRF token must not
+  be cacheable or framable, and the development public URL is http.
+- **The session cookie's attributes are not choices.** `HttpOnly`, `SameSite=Lax`
+  and `Path=/` always; `Secure` is DERIVED from `NALANDA_PUBLIC_URL`'s scheme
+  (`config.SecureCookie`), never set by hand — the two can only disagree in the
+  direction that either breaks local login or ships a token in clear.
 - **Every server-side timeout is set explicitly — all five.** `ReadTimeout`,
   `ReadHeaderTimeout`, `WriteTimeout`, `IdleTimeout` and `MaxHeaderBytes`. Each
   defaults to zero and zero means *no limit*, so what they prevent is a slow
@@ -192,10 +210,14 @@ The extension point born with this app. Registered in `integration-guides.md`.
 4. **Never edit a migration that has been applied anywhere.** goose records the
    version, not the content, so an edit is invisible to a database that already
    ran it.
-5. **The first real migration deletes `00001_init.sql`** in the same PR. That
-   file exists only so `//go:embed` has something to take and so the boot path
-   is provable; it is a `SELECT 1;` and does not belong in permanent schema
-   history.
+5. **Never reuse a version number, even a deleted one.** #150 deleted #149's
+   placeholder `00001_init.sql` and numbered the auth schema `00002`, which
+   looks like a gap and is not one: goose records the VERSION it applied, so a
+   new `00001` counts as already applied on every database that ran the
+   placeholder, and its tables would never be created. The failure is silent at
+   boot and appears later as "no such table". The guard is
+   `TestTheAuthMigrationAppliesOverADatabaseThatRanThePlaceholder`, which is the
+   only case that starts from a database rather than from an empty file.
 6. Run the pre-PR protocol: `sqlite_test.go` applies the embedded set to a fresh
    temp file and asserts a second boot applies nothing.
 
@@ -251,6 +273,18 @@ for writing a test here:
   the commit message, restore. Reviewing a test by reading it is how a test that
   cannot fail gets written — three such tests were written and caught this way
   in #149 alone.
+- **When two layers can produce the same answer, assert on what only one of them
+  produces.** A status code is usually not it: in #150, `POST /logout` with no
+  session answers 303 from the gate AND 303 from the handler that runs when the
+  gate is absent, so two tests asserting the status stayed green with the gate
+  removed. They now assert the redirect DESTINATION. Reach for the Location
+  header, the body, or a side effect in the database.
+- **When mutation shows a test proves less than its name, rename the test and
+  move the rule to the layer that can express it**, leaving the reason in a
+  comment. #150's `TestTheBootstrapDoesNotAdmitASecondStranger` survived the
+  removal of the check it was named for, because its second account was refused
+  earlier by an unrelated comparison; the narrow rule moved to the domain, where
+  the case can be set up, and the handler test took the name of what it proves.
 - **A guard that shells out to a subprocess is invisible to the build cache.** A
   test package that imports nothing from the module is considered unchanged
   whatever happens to the code, so `go test ./...` replays a cached PASS. Read

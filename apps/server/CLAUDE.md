@@ -7,6 +7,9 @@ backoffice and a JSON/WS API for anonymous students), one shared domain,
 SQLite underneath. Born with the entrance-controls subsystem
 (`docs/design/2026-08-controles.md` §C10) rather than in the abstract.
 
+Since #150 a professor can sign in with Google and the backoffice has a session
+gate. The screens behind it are WP-C3 (#151).
+
 Commands, stack, configuration and layout live in `README.md` — one home per
 fact.
 
@@ -19,9 +22,15 @@ fact.
   §"What this level cannot see", which is why the pre-PR one ends in Docker.
 - `docs/decisions/0034-the-backend-is-born-with-the-controls.md` — the layered
   layout and why microservices were rejected. Also ADR-0006 (Go), ADR-0007
-  (SQLite first, and the Postgres exit), ADR-0009 (professor-only auth).
+  (SQLite first, and the Postgres exit), ADR-0009 (professor-only auth) and
+  `0036-the-professor-session-is-ours-and-costs-no-dependency.md` — how the
+  session works, the three ways in, and why there is no OIDC library.
+- `docs/standards/guides/add-a-backend-endpoint.md` — read before adding ANY
+  route here: which surface it belongs to, the handler → domain → repository
+  chain, and the middleware a state-changing route needs.
 - `README.md` §"What is not here yet" — before adding anything, check whether it
-  belongs to WP-C2 (#150), WP-C3 (#151), WP-D or WP-E.
+  belongs to WP-C3 (#151), WP-D or WP-E. **WP-C2 (#150) is closed**: the login
+  round trip and the session gate are here.
 
 ## Language
 
@@ -42,8 +51,10 @@ looking at the same identifiers.
      any third-party package.
   2. **`internal/infra` does not import `internal/app`.** Adapters sit beneath
      the surfaces, not beside them. This edge was missing from the guard for a
-     whole WP, and it is the one WP-C2 will push on: OIDC and session storage
-     live in infra.
+     whole WP, and #150 is the one that pushed on it: `internal/infra/oidc` and
+     `internal/infra/storage/authstore` both sit below the surface that uses
+     them. The OAuth redirect URI is passed IN from the handler for exactly this
+     reason — an adapter reading it from the surface would invert the layering.
   3. Neither delivery surface imports the other.
 
   When the domain needs something from outside, it declares the interface and
@@ -70,18 +81,36 @@ looking at the same identifiers.
 - **`docker compose` lives in `infra/local/`, never here.** The app packages
   itself (`Dockerfile`); infra places it. Adding a service or a volume is an
   edit to `infra/local/docker-compose.yml`.
-- **A new configuration variable is added in FOUR places and a test catches only
-  the first**: `.env.example` (checked against `config.Keys()`),
-  `infra/local/docker-compose.yml` §server.environment,
-  `.github/workflows/server.yml` §"Run the image and probe it", and the table in
-  `README.md` §Configuration. A REQUIRED variable missing from any of the last
-  three makes the container refuse to start — and compose sits outside CI's path
-  filters, so nothing sees it before a human runs the L8 step.
-- **`migrations/00001_init.sql` is WP-C2's to delete**, in the same PR that adds
-  the first real migration (the users table). It is a deliberately empty
-  placeholder; leaving it turns a `SELECT 1;` into permanent schema history.
+- **A new configuration variable is added in FOUR places, and since #150 all four
+  are gated**: `.env.example` (`TestExampleEnvFileDeclaresEveryVariable`, which
+  demands a real declaration), plus `infra/local/docker-compose.yml`,
+  `.github/workflows/server.yml` and the table in `README.md` §Configuration
+  (`TestEveryVariableReachesAllFourHomes`). The guard reads those three as TEXT
+  rather than parsing them: the two that are EXECUTED must declare the key on a
+  non-comment line, the README need only mention it. It was added because the
+  rule drifted inside the PR that restated it, and it found a gap older than that
+  PR on its first run. A REQUIRED variable missing from compose or CI still makes
+  the container refuse to start, and compose sits outside CI's path filters — the
+  guard is why that is now caught before the L8 step rather than by it.
+- **The migration numbering carries a scar worth knowing.** #150 deleted #149's
+  empty `00001_init.sql` as planned, and still numbered the auth schema `00002`:
+  goose keys applied migrations by VERSION, so a file reusing number 1 counts as
+  already applied on every database that ran the placeholder, and its contents
+  would never arrive. `TestTheAuthMigrationAppliesOverADatabaseThatRanThe`
+  `Placeholder` covers that upgrade path — no other case can see it, since they
+  all start from an empty file.
 - The database file, its `-wal`/`-shm` siblings and a locally built binary are
-  gitignored. Never commit `.env`.
+  gitignored. Never commit `.env`, which now holds a real OAuth client secret.
+- **Nothing here can test the Google integration.** The suite drives
+  `oidctest.Provider`; the real round trip is `GOOGLE-CHECK.md`, and a change to
+  the login path is unfinished while a human has not run it. Same rule, and the
+  same reason, as `apps/amc-worker/PAPER-CHECK.md`.
+- **The two surfaces do not share an auth gate** (§C12). Everything auth-shaped
+  is mounted inside `internal/app/web`; `internal/app/api` is anonymous by
+  construction, and `/health` sits deliberately outside the gate because the
+  container healthcheck carries no cookie. Both directions are asserted in
+  `cmd/server/main_test.go` — mounting the middleware one line higher compiles
+  and passes everything else in the module.
 
 ## Testing protocols
 
@@ -90,9 +119,12 @@ Registered in `docs/standards/testing-strategy.md` (the two-protocol rule).
 - **Per-commit**: `gofmt -l .` (must print NOTHING — it exits 0 either way, so
   the status is not the gate), then `go vet ./...`, `go build ./...`,
   `go test ./...`.
-- **Pre-PR**: the above plus `go test -race -count=1 ./...`, `docker build`, and
-  the compose path from `infra/local/` (`up -d --wait server`, then
-  `curl -fsS /health`).
+- **Pre-PR**: NOT restated here. Run it line by line from
+  `docs/standards/testing-strategy.md` §`apps/server`, which is its one home —
+  this bullet used to be a copy and had already lost `govulncheck` and the
+  `/api/health` probe, so an agent following the file it was told to read failed
+  CI on a gate no document it read mentioned (#150 review, AGR-4). It is longer
+  than the per-commit one and ends in Docker.
 
 **`-count=1` is not decoration** — see the cache note above. **And the image is
 RUN, not only built**: the suite cannot see whether the binary starts on

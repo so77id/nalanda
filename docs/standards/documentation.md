@@ -230,8 +230,10 @@ Archived | Superseded by ADR-MMMM
 ```
 
 **`Amended by:`** is for an accepted ADR that gains material without being
-superseded — the decision still holds, and something was added to it. Ten ADRs
-already carry it; it is written down here because parallel branches otherwise
+superseded — the decision still holds, and something was added to it. Several
+ADRs carry it (the count is deliberately not written down: #150 amended two more
+and would have falsified a number here, which is the drift this section exists to
+prevent); it is written down here because parallel branches otherwise
 each invent their own spelling from whichever neighbour they open first.
 
 ## References

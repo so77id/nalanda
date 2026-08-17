@@ -11,14 +11,21 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/api"
 	"github.com/so77id/nalanda/apps/server/internal/app/web"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/oauthstate"
+	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpserver"
+	"github.com/so77id/nalanda/apps/server/internal/infra/oidc"
 	"github.com/so77id/nalanda/apps/server/internal/infra/selfcheck"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
@@ -69,9 +76,13 @@ func main() {
 // The mount prefixes are asserted by main_test.go against the routes the
 // surfaces actually register, because this file and each router both hold an
 // opinion about the "/api/" prefix and nothing else reconciles them.
-func rootHandler(prober health.Prober, logger *slog.Logger) http.Handler {
+func rootHandler(backoffice web.Deps, prober health.Prober, logger *slog.Logger) http.Handler {
 	mux := http.NewServeMux()
-	mux.Handle("/", web.Router(prober, logger))
+	mux.Handle("/", web.Router(backoffice))
+	// No middleware, and that is the point of §C12: this surface serves
+	// anonymous students who join a session with a room code. The professor gate
+	// belongs to the backoffice and is mounted there, on the line above.
+	// TestTheApiSurfaceIsReachableWithoutASession asserts it stayed that way.
 	mux.Handle("/api/", api.Router(prober, logger))
 	return mux
 }
@@ -110,11 +121,73 @@ func run(logger *slog.Logger) error {
 	}
 	logger.Info("migrations up to date", "applied", applied, "database", cfg.SafeDatabaseURL())
 
-	srv, err := httpserver.New(cfg.Addr, rootHandler(storage.NewProber(db), logger))
+	// The auth chain, constructed once and in order: repositories over the
+	// database, the domain service over those, the provider beside it, and the
+	// surface over both. Nothing below cmd/server builds any of it.
+	store := authstore.New(db)
+	login := auth.NewLogin(auth.Login{
+		Users:          store,
+		Identities:     store,
+		Sessions:       store,
+		Now:            time.Now,
+		SessionTTL:     cfg.SessionTTL,
+		BootstrapEmail: cfg.BootstrapProfessorEmail,
+	})
+
+	if err := warnIfNobodyCanLogIn(ctx, store, cfg, logger); err != nil {
+		return err
+	}
+
+	backoffice := web.Deps{
+		Database: storage.NewProber(db),
+		Gate: middleware.NewAuth(middleware.Auth{
+			Sessions:  store,
+			Users:     store,
+			Now:       time.Now,
+			PublicURL: cfg.PublicURL,
+			LoginPath: handler.LoginPath,
+			Log:       logger,
+		}),
+		Login: handler.NewAuth(handler.Auth{
+			Login: login,
+			Provider: oidc.NewGoogle(oidc.GoogleConfig{
+				ClientID:     cfg.GoogleClientID,
+				ClientSecret: cfg.GoogleClientSecret,
+			}),
+			ProviderName: oidc.Provider(),
+			State:        oauthstate.New(oauthstate.DefaultTTL, time.Now),
+			PublicURL:    cfg.PublicURL,
+			Log:          logger,
+		}),
+		Log: logger,
+	}
+
+	srv, err := httpserver.New(cfg.Addr, rootHandler(backoffice, storage.NewProber(db), logger))
 	if err != nil {
 		return err
 	}
 
 	logger.Info("server listening", "addr", srv.Addr())
 	return srv.Serve(ctx)
+}
+
+// warnIfNobodyCanLogIn says so at boot when the database holds no professors and
+// no bootstrap address is configured.
+//
+// That combination is a backoffice nobody can ever enter, and every symptom of
+// it appears somewhere else: the login page works, Google works, and the
+// callback refuses the professor who owns the server. It is a warning rather
+// than an error because it is a legitimate state — a server whose professors
+// have all been deactivated is still a server worth starting so that somebody
+// can fix it.
+func warnIfNobodyCanLogIn(ctx context.Context, users auth.UserStore, cfg config.Config, logger *slog.Logger) error {
+	count, err := users.CountUsers(ctx)
+	if err != nil {
+		return err
+	}
+	if count == 0 && cfg.BootstrapProfessorEmail == "" {
+		logger.Warn("no professors exist and no bootstrap address is set, so nobody can log in",
+			"set", config.KeyBootstrapProfessorEmail)
+	}
+	return nil
 }

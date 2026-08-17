@@ -102,6 +102,22 @@ nalanda/
      - `infra/deploy/` — host provisioning, reverse-proxy/systemd config,
        production compose. Apps package themselves; infra _places_ them.
 
+### One named exception to §2 (added #150)
+
+`apps/server`'s suite reads two files outside the app:
+`infra/local/docker-compose.yml` and `.github/workflows/server.yml`
+(`internal/infra/config/homes_test.go`). It is deliberate and it is the only one.
+
+The rule it enforces — a configuration variable lives in four homes — spans the
+app and the two files that RUN it, so a guard living inside the app is the only
+place that can see all four. It was added because the rule drifted inside the PR
+that restated it, and it found an older gap on its first run.
+
+The cost, stated so nobody discovers it: a change to either file does not trigger
+`server.yml`'s path filters, so this guard fails on a PR that did not touch
+`apps/server/` only when something else in that PR did. The compose step of the
+pre-PR protocol is still the human's backstop.
+
 ## Placement criteria — "where does X go"
 
 | Thing                                                                             | Where                                                                       | Why                                                                                               |

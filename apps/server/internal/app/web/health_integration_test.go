@@ -22,7 +22,7 @@ func TestHealthIs503OverARealDatabaseThatHasGoneAway(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	router := web.Router(storage.NewProber(db), testLogger())
+	router := web.Router(deps(t, storage.NewProber(db)))
 
 	// Healthy first, so the 503 below is caused by the database going away and
 	// not by a router that was never able to answer 200.

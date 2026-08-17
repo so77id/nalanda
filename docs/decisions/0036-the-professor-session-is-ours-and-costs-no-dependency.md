@@ -1,0 +1,241 @@
+# ADR-0036: The professor session is ours, server-side, and costs no dependency
+
+**Status:** Accepted — `apps/server/GOOGLE-CHECK.md` outstanding
+**Date:** 2026-08-16
+**Decision-makers:** Miguel Rodriguez
+**Source:** #150 (WP-C2), ADR-0009, design `docs/design/2026-08-controles.md` §C12, §C13
+
+## Context
+
+ADR-0009 decided that a professor user system ships with the backend: Google
+OAuth, a user table, a first professor who arrives without a screen, and a CRUD
+for friends-and-family accounts. ADR-0034 built the app that would hold it and
+drew the layers. §C13 decided the domain would be **ported from DocumentBuddy
+rather than rewritten**, on the grounds that roughly 1 900 tested lines of
+exactly this problem already run in production on the same stack.
+
+What the port could not decide in advance was how much of the source's design
+survives contact with this repository's rules. Two measurements taken before
+starting shaped everything else:
+
+1. **DocumentBuddy's Google provider is standard library only.** It fetches the
+   published JWKS and verifies RS256 by hand — no `golang.org/x/oauth2`, no
+   `coreos/go-oidc`. Its whole `domain/auth` tree imports zero third-party
+   packages.
+2. **Its layout violates the dependency rule this repo enforces.**
+   `domain/auth/sqlite_store.go` imports `infra/storage`, and the domain imports
+   `infra/clock` — two of the three edges `internal/architecture_test.go` fails
+   on. DocumentBuddy's own ADR-005 records the same debt at scale: the rule
+   violated in 13 files, 18 SQLite stores in `domain/`, 308 lines of OIDC inside
+   the domain.
+
+And one thing ADR-0009 said that could not be done as written: *"Miguel's user
+arrives via seeds."* A seed migration cannot know a Google `subject`, which does
+not exist until the first login, and it would freeze a personal email address in
+permanent schema history.
+
+## Decision
+
+**A session lasts 30 days, absolutely rather than sliding.** The professor using
+this backoffice works in bursts weeks apart, so a short window buys nothing that
+logging out does not buy sooner, and a sliding window was rejected because
+renewing a session on every request makes the expiry unpredictable to the person
+holding it. `NALANDA_SESSION_TTL` moves it; zero or negative is a startup error.
+The compromise-response lever is revocation — a `DELETE` — not a shorter clock.
+
+**Session policy is split across the boundary on purpose.** `auth.Session.
+IsExpired` is the single rule, but the code that applies it — read the cookie,
+resolve, sweep, clear — lives in `internal/app/web/middleware`, because it is the
+only layer holding a `ResponseWriter` to clear a cookie with. The cost is two
+clocks wired separately in `cmd/server`, which nothing reconciles; that is
+accepted while there is one caller and is the first thing to revisit if the API
+surface ever needs to resolve a session too (#150 review, ARQ-4/ADR-4).
+
+**Sessions are ours: opaque, server-side, and stored as a hash.** The cookie
+carries 32 bytes of randomness, hex-encoded; `user_sessions` holds its SHA-256
+and never the token. Expiry is the row's, so a restart logs nobody out and
+revoking a session is a `DELETE` rather than a wait. No JWT, no signed cookie:
+this server has one instance (§C15), a database it already talks to, and no
+reason to trade revocability for statelessness.
+
+**CSRF is a per-session token, verified in constant time on every
+state-changing route, and the "every" is now walked by a test rather than
+asserted here.** The routes of `internal/app/web` are a table the mux is built
+from, and the gate is applied to what the MUX MATCHED rather than to the table
+entry — so a handler registered straight on the mux is gated too. That last part
+was the second version: the first wrapped each handler as it was registered, and
+three separate rechecking lenses each mounted a bare `GET /professors` beside the
+loop and served a professor's address anonymously with the suite green.
+`TestEveryStateChangingRouteVerifiesCSRF` and
+`TestEveryRouteIsGatedUnlessItSaysWhyNot` walk the table; the fail-closed default
+covers everything the table does not name. This sentence originally claimed the
+invariant with hand-wiring behind it, which ADR-0034 had already rejected as a
+shape for the sibling rule ("Documenting the dependency rule instead of testing
+it. Rejected"). The token itself is stored beside the session, so verification
+needs no second store and no server-side state of its own.
+
+**The login itself has its own CSRF defence, and it takes two halves.** The
+state nonce is held server-side, which makes it single-use and stops a callback
+being replayed. It is ALSO written to a short-lived cookie, and the callback
+requires the two to match before it spends the authorization code. The second
+half is the load-bearing one and this ADR originally claimed the first was
+enough: the store is one map for the whole process, so a nonce issued to one
+visitor is a nonce any visitor can present. An attacker starts a flow, keeps the
+redirect, and gets a professor to follow the callback — the professor's browser
+then holds a session for the ATTACKER's account and types into it. That was
+demonstrated against this code during review (#150, SEC-1) and is now refused,
+with the attack itself kept as the test.
+
+That is a double-submit cookie, and it carries the one weakness of the pattern:
+an attacker able to WRITE a cookie on the site — a sibling host under the same
+registrable domain, plausible on university hosting — can plant their own nonce
+under a deeper path and have it read first. The recheck demonstrated exactly
+that. What closes it is refusing a callback that arrives with more than one such
+cookie (`r.CookiesNamed`), which works over http, where the `__Host-` prefix
+does not.
+
+**The OIDC client is ours, and stays in `internal/infra/oidc`.** The port keeps
+DocumentBuddy's stdlib verifier — signature against the published JWKS, then
+`aud`, issuer, `exp`, `email_verified` — and each of those checks has a test that
+fails when that check alone is removed. **The consequence is the headline: the
+entire professor auth system adds no dependency.** `go.mod`'s direct block is
+still exactly `modernc.org/sqlite` and `github.com/pressly/goose/v3`.
+
+**The layout is corrected on entry**, as ADR-0034 said it would be. The domain
+declares `UserStore`, `IdentityStore`, `SessionStore` and `OAuthProvider`;
+`internal/infra/storage/authstore` implements the first three and
+`internal/infra/oidc` the fourth. There is no clock package: time enters as a
+parameter, or as a `func() time.Time` handed down from `cmd/server`.
+
+**The login resolver lives in the domain, not in the handler.** DocumentBuddy
+puts that orchestration in its HTTP layer; here that would leave the domain
+declaring four interfaces it never calls, and `backend-code-style.md` declares an
+interface where it is *consumed*.
+
+**There are exactly three ways in**, and the middle one replaces a subsystem the
+port deliberately left behind:
+
+1. The Google identity is already linked — the ordinary login.
+2. No identity, but a professor exists with that **verified** address: their
+   first login, and the identity is linked on the way through.
+3. No identity, no professor, **no professors at all**, and the address matches
+   `NALANDA_BOOTSTRAP_PROFESSOR_EMAIL`: the first professor of a new server.
+
+Everything else is refused. Path 2 is what makes WP-C3's CRUD work — that screen
+knows an email and cannot know a Google subject — and it is why DocumentBuddy's
+invitation flow (its ADR-011) is not ported.
+
+**The bootstrap replaces ADR-0009's "seeds", deliberately.** It closes behind
+itself: once any professor exists the configured address is inert, so a variable
+left set is not a standing door.
+
+**The two surfaces do not share an auth gate (§C12), and that is asserted rather
+than promised.** All of this is mounted inside `internal/app/web` and none of it
+on `internal/app/api`; `/health` stays open, because the container healthcheck is
+the binary itself and carries no cookie. `cmd/server/main_test.go` proves both
+directions from the composed handler.
+
+## Alternatives considered
+
+- **A JWT or a signed cookie instead of a session row.** Rejected: it buys
+  statelessness this server has no use for — one instance, one SQLite file — and
+  pays with a token that cannot be revoked before it expires. Logging a
+  compromised professor out would mean rotating a signing key and logging
+  everyone out.
+
+- **An OIDC library** (`coreos/go-oidc` + `golang.org/x/oauth2`). Rejected, and
+  this is the closest call in the ADR. It would be the conventional choice and it
+  is well-maintained. But the code it replaces already exists, is tested, and
+  runs in production; adopting it would add two direct dependencies and their
+  transitive set to a binary whose entire supply chain is currently two packages,
+  in exchange for code we would still have to read. The rule that made this easy
+  to decide is the repo's own: a dependency is a PR discussion, and the argument
+  for this one is "everybody does it".
+
+- **A `nonce` claim in the ID token.** Not implemented. What the callback needs
+  is to be tied to the browser that started it, and that is what the state cookie
+  below does; the OIDC `nonce` claim additionally ties the ID TOKEN to the
+  attempt, which matters against a provider that could be induced to mint one for
+  a different flow. Revisit if a second provider is ever added.
+
+- **Porting invitations and impersonation.** Rejected (#150 §Non-goals): ADR-0009
+  asks for neither, and path 2 above covers what an invitation would have been
+  for at this scale. An invitation flow arrives the day adding a colleague by
+  hand becomes the annoying part.
+
+- **An audit table.** Rejected for now. At friends-and-family scale the `slog`
+  line for each login, refusal and logout is the record; a table arrives with the
+  screen that reads it.
+
+- **A seed migration for the first professor**, as ADR-0009 worded it. Rejected
+  on two counts: it cannot know the Google subject, and it would put a personal
+  address in schema history that migrations are never allowed to edit.
+
+## Consequences
+
+- **Auth costs no dependency**, and that property is now something to defend: the
+  next person tempted to add an OIDC library is arguing against this ADR.
+
+- **`internal/infra/oidc` is cryptographic code this project owns.** It is small
+  and heavily tested, but it is ours to keep correct — the review trigger is any
+  change to Google's OIDC contract, and the standing guard is the per-claim
+  table in `google_test.go`.
+
+- **The suite cannot verify the integration.** Nothing in `go test` or the pre-PR
+  protocol reaches Google, so `apps/server/GOOGLE-CHECK.md` is a manual check in
+  the spirit of `apps/amc-worker/PAPER-CHECK.md`: the WP does not close until a
+  human has logged in with a real OAuth client at least once.
+
+- **Five NEW configuration variables**, three of them required (the server needs
+  five in all, counting the two it already had), and the
+  four-homes rule of `apps/server/CLAUDE.md` applies to each. A required variable
+  missing from the compose file or the CI probe stops the container from
+  starting, and compose sits outside CI's path filters.
+
+- **The state nonce store is in memory.** A restart mid-login costs a click. It
+  is also the first thing that has to move the day there is a second instance —
+  recorded in the package comment, since nothing else would say so.
+
+- **A full nonce store refuses the newest attempt rather than evicting the
+  oldest**, and the direction is a security property rather than a cache policy.
+  `/login/google` is public and unrate-limited, so evicting the oldest let 4096
+  anonymous requests knock out precisely the login in flight — the professor
+  standing at Google's account chooser — and a loop kept the backoffice
+  permanently unenterable. Measured during review (#150, SEC-2). **There is still
+  no rate limiting anywhere on this server**, which is acceptable while it is
+  unreachable from the internet (§C15) and is the first thing to add when that
+  changes.
+
+- **The login page sends `Cache-Control: no-store`, `nosniff`, `X-Frame-Options:
+  DENY`, a `frame-ancestors` CSP and `Referrer-Policy: same-origin`** — five, and
+  the last one is here because the login URL carries an `aviso` parameter and the
+  callback URL an authorization code. The signed-in page carries a professor's
+  address and their CSRF token, and the development public URL is http.
+  **WP-C3's screens do NOT inherit them automatically**: `setSecurityHeaders` is
+  one call inside `RenderLogin`, so a new render function that forgets it ships
+  bare. This bullet claimed the opposite twice — once when it was written, and
+  again in a commit whose message said it had been corrected while the sentence
+  stood unchanged. It is the failure AGR-1 was about, surviving inside the PR
+  that fixed AGR-1, and the guide is what carries the true version to the WP that
+  reads it.
+
+- **Trusting a verified email for path 2 means trusting the provider's
+  `email_verified` claim.** That is checked, and the check has its own test. If a
+  second provider is ever added, this is the assumption to re-examine first.
+
+- **`users.is_active` is read but never written** in this WP. The middleware and
+  the resolver both honour it; the screen that flips it is WP-C3 (#151).
+
+- **WP-C3 is unblocked**, and inherits a worked example rather than a blank page:
+  `docs/standards/guides/add-a-backend-endpoint.md` walks the chain this WP
+  built.
+
+## References
+
+- ADR-0009 (professor-only auth, the decision this implements) · ADR-0034 (the
+  layered layout) · ADR-0007 (SQLite) · ADR-0026 (the design system the backoffice
+  deliberately does not follow, §C13).
+- `docs/design/2026-08-controles.md` §C12, §C13, §C15.
+- DocumentBuddy ADR-005 (the layout debt corrected on entry), ADR-011 (the
+  invitation and impersonation subsystems not ported).
+- `apps/server/GOOGLE-CHECK.md` · `docs/standards/guides/add-a-backend-endpoint.md`.

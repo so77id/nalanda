@@ -1,5 +1,13 @@
 # Design System
 
+> **Scope: `apps/web`.** The `apps/server` backoffice is deliberately outside
+> this document (§C13, ADR-0036): it is an internal tool for one or two people,
+> server-rendered `html/template`, and it ships a small inline stylesheet built
+> on `system-ui`, `color-scheme: light dark` and `currentColor` rather than these
+> tokens. That is a decision, not an oversight — recorded here because this file
+> says it governs any UI, and a reviewer of the first backoffice screens should
+> not have to discover the exemption from a template comment.
+
 How colour is chosen in Nalanda. **Read this before writing any UI**; the review
 lenses hold every diff to it.
 
