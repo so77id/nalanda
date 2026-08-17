@@ -330,3 +330,31 @@ func TestAuthenticateRefusesADeactivatedProfessorWhoNeverSignedIn(t *testing.T) 
 		t.Errorf("an identity was linked to a refused account: %v", err)
 	}
 }
+
+// RecordLastSignIn stamps users.last_login_at with the domain's clock. It
+// exists as a domain method so the login handler does not have to touch the
+// store directly, and its failure is bookkeeping the caller may log and swallow
+// (issue #151 S3, same shape as SessionStore.TouchSession).
+func TestRecordLastSignInStampsTheUsersRow(t *testing.T) {
+	ctx, _, store, service, now := login(t, "")
+
+	created, err := store.CreateUser(ctx, "profesora@example.com", "Profesora")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	if err := service.RecordLastSignIn(ctx, created.ID); err != nil {
+		t.Fatalf("RecordLastSignIn: %v", err)
+	}
+
+	got, err := store.UserByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if got.LastLoginAt == nil {
+		t.Fatalf("LastLoginAt is nil after RecordLastSignIn, want the domain's clock (%v)", now)
+	}
+	if !got.LastLoginAt.Equal(now) {
+		t.Errorf("LastLoginAt = %v, want %v (the domain's clock)", *got.LastLoginAt, now)
+	}
+}

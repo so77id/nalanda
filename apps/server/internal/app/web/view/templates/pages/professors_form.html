@@ -1,0 +1,33 @@
+{{ define "content" }}
+  <h1>{{ .Heading }}</h1>
+
+  {{ if .Notice }}
+    <p class="error">{{ .Notice }}</p>
+  {{ end }}
+
+  <form class="form" method="post" action="{{ .Action }}">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+
+    <p class="field">
+      <label for="email">Correo</label>
+      <input id="email" type="email" name="email" value="{{ .Values.Email }}"
+             autocomplete="off" inputmode="email" required
+             {{ if .EmailReadonly }}readonly{{ end }} />
+      {{ with index .Errors "email" }}
+        <span class="error">{{ . }}</span>
+      {{ end }}
+    </p>
+
+    <p class="field">
+      <label for="name">Nombre</label>
+      <input id="name" type="text" name="name" value="{{ .Values.Name }}"
+             autocomplete="off" required />
+      {{ with index .Errors "name" }}
+        <span class="error">{{ . }}</span>
+      {{ end }}
+    </p>
+
+    <p><button type="submit">{{ .Submit }}</button>
+       <a href="/professors" class="boton">Cancelar</a></p>
+  </form>
+{{ end }}

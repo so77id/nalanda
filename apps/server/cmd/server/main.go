@@ -148,6 +148,16 @@ func run(logger *slog.Logger) error {
 			LoginPath: handler.LoginPath,
 			Log:       logger,
 		}),
+		Professors: handler.NewProfessors(handler.Professors{
+			Users: store,
+			Admin: auth.NewAdmin(auth.Admin{
+				Users:    store,
+				Sessions: store,
+				Now:      time.Now,
+			}),
+			PublicURL: cfg.PublicURL,
+			Log:       logger,
+		}),
 		Login: handler.NewAuth(handler.Auth{
 			Login: login,
 			Provider: oidc.NewGoogle(oidc.GoogleConfig{

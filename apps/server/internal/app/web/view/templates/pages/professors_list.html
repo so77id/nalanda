@@ -1,0 +1,48 @@
+{{ define "content" }}
+  <h1>Profesores</h1>
+
+  <p>Quienes tienen cuenta para entrar al backoffice. Los estudiantes no
+    necesitan cuenta: leen el curso y entran a las sesiones con un código.</p>
+
+  <p><a class="boton" href="/professors/new">Añadir profesora</a></p>
+
+  <table class="lista">
+    <thead>
+      <tr>
+        <th>Correo</th>
+        <th>Nombre</th>
+        <th>Estado</th>
+        <th>Creada</th>
+        <th>Último acceso</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {{ range .Professors }}
+        <tr>
+          <td>{{ .Email }}</td>
+          <td>{{ .Name }}</td>
+          <td>{{ .State }}</td>
+          <td>{{ .CreatedAt }}</td>
+          <td>{{ .LastSignIn }}</td>
+          <td>
+            <a href="/professors/{{ .ID }}/edit">Editar</a>
+            {{ if .IsActive }}
+              {{ if ne .ID $.SelfID }}
+                <form method="post" action="/professors/{{ .ID }}/deactivate" class="inline">
+                  <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                  <button type="submit">Desactivar</button>
+                </form>
+              {{ end }}
+            {{ else }}
+              <form method="post" action="/professors/{{ .ID }}/reactivate" class="inline">
+                <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                <button type="submit">Reactivar</button>
+              </form>
+            {{ end }}
+          </td>
+        </tr>
+      {{ end }}
+    </tbody>
+  </table>
+{{ end }}

@@ -434,3 +434,311 @@ func TestTheRawSessionTokenIsNowhereInTheDatabase(t *testing.T) {
 		t.Fatal("the sweep read no rows, so it verified nothing")
 	}
 }
+
+// The last-sign-in column and the write that stamps it (issue #151 S3). The
+// list in the professor CRUD reads this: it answers "is this account still in
+// use?" — see the issue's §Last sign-in for why user_sessions.last_seen_at
+// cannot be that source.
+
+func TestANewProfessorHasNoLastLoginAt(t *testing.T) {
+	ctx, _, s := store(t)
+
+	created, err := s.CreateUser(ctx, "profesora@example.com", "Profesora")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if created.LastLoginAt != nil {
+		t.Errorf("CreateUser.LastLoginAt = %v, want nil for a freshly created professor", created.LastLoginAt)
+	}
+
+	got, err := s.UserByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if got.LastLoginAt != nil {
+		t.Errorf("UserByID.LastLoginAt = %v, want nil until the professor has signed in", got.LastLoginAt)
+	}
+}
+
+func TestRecordLoginStampsTheColumnAndSurvivesARead(t *testing.T) {
+	ctx, _, s := store(t)
+
+	created, err := s.CreateUser(ctx, "profesora@example.com", "Profesora")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	at := time.Date(2026, time.August, 16, 14, 30, 45, 0, time.UTC)
+	if err := s.RecordLogin(ctx, created.ID, at); err != nil {
+		t.Fatalf("RecordLogin: %v", err)
+	}
+
+	got, err := s.UserByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if got.LastLoginAt == nil {
+		t.Fatalf("LastLoginAt is nil after RecordLogin, want %v", at)
+	}
+	if !got.LastLoginAt.Equal(at) {
+		t.Errorf("LastLoginAt = %v, want %v", *got.LastLoginAt, at)
+	}
+}
+
+// The CRUD needs an ordered list. Ordered by created_at ASC so the oldest
+// professor sits at the top and a new one arrives visibly at the bottom — a
+// list a person reads must have an order they can predict.
+func TestListUsersReturnsEveryProfessorOrderedByCreatedAt(t *testing.T) {
+	ctx, db, s := store(t)
+
+	// Rows inserted out of the wanted order, with explicit created_at so the
+	// case is not racing the clock.
+	rows := []struct {
+		email     string
+		name      string
+		createdAt int64
+		active    int
+	}{
+		{"tercera@example.com", "Tercera", 300, 1},
+		{"primera@example.com", "Primera", 100, 1},
+		{"segunda@example.com", "Segunda", 200, 0},
+	}
+	for _, r := range rows {
+		if _, err := db.ExecContext(ctx,
+			"INSERT INTO users (email, name, created_at, is_active) VALUES (?, ?, ?, ?)",
+			r.email, r.name, r.createdAt, r.active); err != nil {
+			t.Fatalf("seeding %s: %v", r.email, err)
+		}
+	}
+
+	listed, err := s.ListUsers(ctx)
+	if err != nil {
+		t.Fatalf("ListUsers: %v", err)
+	}
+	if len(listed) != 3 {
+		t.Fatalf("ListUsers returned %d, want 3", len(listed))
+	}
+	wantOrder := []string{"primera@example.com", "segunda@example.com", "tercera@example.com"}
+	for i, u := range listed {
+		if u.Email != wantOrder[i] {
+			t.Errorf("listed[%d].Email = %q, want %q", i, u.Email, wantOrder[i])
+		}
+	}
+	if listed[1].IsActive {
+		t.Error("segunda@example.com came back active; the row was seeded is_active=0")
+	}
+}
+
+func TestUpdateUserRenamesTheProfessorAndReturnsTheFreshRow(t *testing.T) {
+	ctx, _, s := store(t)
+
+	created, err := s.CreateUser(ctx, "profesora@example.com", "Antes")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	updated, err := s.UpdateUser(ctx, created.ID, "Después")
+	if err != nil {
+		t.Fatalf("UpdateUser: %v", err)
+	}
+	if updated.Name != "Después" {
+		t.Errorf("returned Name = %q, want %q", updated.Name, "Después")
+	}
+	if updated.Email != "profesora@example.com" {
+		t.Errorf("Email changed unexpectedly: %q", updated.Email)
+	}
+
+	// A round-trip through the store confirms the row on disk changed, not
+	// only the returned copy — a bug where UpdateUser returned the new value
+	// without writing it would still pass on the returned struct alone.
+	reread, err := s.UserByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if reread.Name != "Después" {
+		t.Errorf("re-read Name = %q, want %q", reread.Name, "Después")
+	}
+}
+
+func TestUpdateUserOnAnUnknownProfessorReturnsErrNotFound(t *testing.T) {
+	ctx, _, s := store(t)
+
+	_, err := s.UpdateUser(ctx, 9999, "Nadie")
+	if !errors.Is(err, auth.ErrNotFound) {
+		t.Errorf("UpdateUser on an absent id = %v, want auth.ErrNotFound", err)
+	}
+}
+
+func TestSetActiveTogglesIsActiveAndStampsDeactivatedAt(t *testing.T) {
+	ctx, db, s := store(t)
+
+	created, err := s.CreateUser(ctx, "profesora@example.com", "Profesora")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if !created.IsActive || created.DeactivatedAt != nil {
+		t.Fatalf("fresh professor state = active=%v deactivatedAt=%v, want active with no deactivation stamp",
+			created.IsActive, created.DeactivatedAt)
+	}
+
+	at := time.Date(2026, time.August, 16, 15, 0, 0, 0, time.UTC)
+
+	deactivated, err := s.SetActive(ctx, created.ID, false, at)
+	if err != nil {
+		t.Fatalf("SetActive false: %v", err)
+	}
+	if deactivated.IsActive {
+		t.Error("SetActive(false) returned an active professor")
+	}
+	if deactivated.DeactivatedAt == nil || !deactivated.DeactivatedAt.Equal(at) {
+		t.Errorf("DeactivatedAt = %v, want %v", deactivated.DeactivatedAt, at)
+	}
+
+	reactivated, err := s.SetActive(ctx, created.ID, true, at)
+	if err != nil {
+		t.Fatalf("SetActive true: %v", err)
+	}
+	if !reactivated.IsActive {
+		t.Error("SetActive(true) returned an inactive professor")
+	}
+	if reactivated.DeactivatedAt != nil {
+		t.Errorf("DeactivatedAt = %v, want nil after reactivation", reactivated.DeactivatedAt)
+	}
+
+	// Verify on disk too: deactivated_at should be NULL after reactivation.
+	var stamp sql.NullInt64
+	if err := db.QueryRowContext(ctx,
+		"SELECT deactivated_at FROM users WHERE user_id = ?", created.ID).Scan(&stamp); err != nil {
+		t.Fatalf("reading deactivated_at: %v", err)
+	}
+	if stamp.Valid {
+		t.Errorf("deactivated_at on disk = %v after reactivation, want NULL", stamp.Int64)
+	}
+}
+
+func TestSetActiveOnAnUnknownProfessorReturnsErrNotFound(t *testing.T) {
+	ctx, _, s := store(t)
+
+	at := time.Date(2026, time.August, 16, 15, 0, 0, 0, time.UTC)
+	_, err := s.SetActive(ctx, 9999, false, at)
+	if !errors.Is(err, auth.ErrNotFound) {
+		t.Errorf("SetActive on an absent id = %v, want auth.ErrNotFound", err)
+	}
+}
+
+// CountActiveUsers is what the deactivation guard reads. Kept separate from
+// CountUsers because a table that will grow (WP-D imports a roster) should
+// not scan every row to decide a two-line condition.
+func TestCountActiveUsersIgnoresInactiveRows(t *testing.T) {
+	ctx, _, s := store(t)
+
+	at := time.Date(2026, time.August, 15, 9, 0, 0, 0, time.UTC)
+	a, err := s.CreateUser(ctx, "a@example.com", "A")
+	if err != nil {
+		t.Fatalf("CreateUser a: %v", err)
+	}
+	b, err := s.CreateUser(ctx, "b@example.com", "B")
+	if err != nil {
+		t.Fatalf("CreateUser b: %v", err)
+	}
+	c, err := s.CreateUser(ctx, "c@example.com", "C")
+	if err != nil {
+		t.Fatalf("CreateUser c: %v", err)
+	}
+	if _, err := s.SetActive(ctx, b.ID, false, at); err != nil {
+		t.Fatalf("SetActive b: %v", err)
+	}
+	_ = a
+	_ = c
+
+	active, err := s.CountActiveUsers(ctx)
+	if err != nil {
+		t.Fatalf("CountActiveUsers: %v", err)
+	}
+	if active != 2 {
+		t.Errorf("CountActiveUsers = %d, want 2 (a + c active; b deactivated)", active)
+	}
+
+	// Sanity: CountUsers still returns three.
+	total, err := s.CountUsers(ctx)
+	if err != nil {
+		t.Fatalf("CountUsers: %v", err)
+	}
+	if total != 3 {
+		t.Errorf("CountUsers = %d, want 3", total)
+	}
+}
+
+// DeleteUserSessions ends EVERY session a professor holds — the load-bearing
+// half of deactivation. #150 shipped this on the adapter but not on the
+// interface; S4 raises it into auth.SessionStore so the deactivation screen
+// in S8 can call it through the domain (issue #151 §Deactivation and §Stores).
+func TestDeleteUserSessionsEndsEverySessionAProfessorHolds(t *testing.T) {
+	ctx, _, s := store(t)
+
+	created, err := s.CreateUser(ctx, "profesora@example.com", "Profesora")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	other, err := s.CreateUser(ctx, "otra@example.com", "Otra")
+	if err != nil {
+		t.Fatalf("CreateUser other: %v", err)
+	}
+
+	now := time.Date(2026, time.August, 16, 12, 0, 0, 0, time.UTC)
+	for _, hash := range []string{"h1", "h2", "h3"} {
+		if err := s.CreateSession(ctx, auth.Session{
+			TokenHash: hash, UserID: created.ID, CSRFToken: "csrf-" + hash,
+			CreatedAt: now, ExpiresAt: now.Add(time.Hour), LastSeenAt: now,
+		}); err != nil {
+			t.Fatalf("CreateSession %s: %v", hash, err)
+		}
+	}
+	if err := s.CreateSession(ctx, auth.Session{
+		TokenHash: "other-h", UserID: other.ID, CSRFToken: "csrf-other",
+		CreatedAt: now, ExpiresAt: now.Add(time.Hour), LastSeenAt: now,
+	}); err != nil {
+		t.Fatalf("CreateSession for the other professor: %v", err)
+	}
+
+	if err := s.DeleteUserSessions(ctx, created.ID); err != nil {
+		t.Fatalf("DeleteUserSessions: %v", err)
+	}
+
+	for _, hash := range []string{"h1", "h2", "h3"} {
+		if _, err := s.SessionByTokenHash(ctx, hash); !errors.Is(err, auth.ErrNotFound) {
+			t.Errorf("session %s survived: %v", hash, err)
+		}
+	}
+	// The other professor's session is untouched: a "log this professor out
+	// of every browser" screen must not touch anyone else.
+	if _, err := s.SessionByTokenHash(ctx, "other-h"); err != nil {
+		t.Errorf("another professor's session was collateral damage: %v", err)
+	}
+}
+
+func TestRecordLoginOverwritesAPreviousValue(t *testing.T) {
+	ctx, _, s := store(t)
+
+	created, err := s.CreateUser(ctx, "profesora@example.com", "Profesora")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	first := time.Date(2026, time.August, 10, 9, 0, 0, 0, time.UTC)
+	second := time.Date(2026, time.August, 16, 12, 0, 0, 0, time.UTC)
+	if err := s.RecordLogin(ctx, created.ID, first); err != nil {
+		t.Fatalf("RecordLogin first: %v", err)
+	}
+	if err := s.RecordLogin(ctx, created.ID, second); err != nil {
+		t.Fatalf("RecordLogin second: %v", err)
+	}
+
+	got, err := s.UserByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if got.LastLoginAt == nil || !got.LastLoginAt.Equal(second) {
+		t.Errorf("LastLoginAt = %v, want %v (the later of the two writes)", got.LastLoginAt, second)
+	}
+}

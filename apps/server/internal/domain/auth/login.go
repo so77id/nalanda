@@ -183,3 +183,13 @@ func (l *Login) StartSession(ctx context.Context, userID int64, userAgent, ipAdd
 func (l *Login) EndSession(ctx context.Context, token string) error {
 	return l.Sessions.DeleteSession(ctx, HashToken(token))
 }
+
+// RecordLastSignIn stamps users.last_login_at for the professor who just
+// signed in. The login path calls it after StartSession; a failure here is
+// bookkeeping the caller may log and swallow — the professor DID sign in, and
+// denying the request over a missing display column would trade a real login
+// for what the operator's list renders (same shape as
+// SessionStore.TouchSession, called by the middleware for last_seen_at).
+func (l *Login) RecordLastSignIn(ctx context.Context, userID int64) error {
+	return l.Users.RecordLogin(ctx, userID, l.Now())
+}

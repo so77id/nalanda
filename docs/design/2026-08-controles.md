@@ -18,8 +18,11 @@
 > add-a-new-app obligation discharged; ADR-0034 records C10 and C11. **WP-C2
 > shipped** (#150) — a professor signs in with Google, sessions are server-side
 > and the C12 seam is asserted rather than promised; ADR-0036 records how, and
-> the port cost no dependency. WP-C3 (#151) is filed and not started; WPs D–G
-> not started.
+> the port cost no dependency. **WP-C3 shipped** (#151) — the backoffice has
+> its shell (nav, both themes, error pages, one-shot flash cookie) and the
+> professor CRUD (create, edit, deactivate/reactivate with both guards); C13
+> is honoured (no bundler, `system-ui`, `currentColor` only). WPs D–G not
+> started.
 > Living decisions distilled from here become ADRs as each WP develops.
 
 ## Problem

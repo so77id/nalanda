@@ -188,6 +188,38 @@ func TestDeletingAProfessorRemovesTheirIdentitiesAndSessions(t *testing.T) {
 	}
 }
 
+// The nullable last-sign-in column (migration 00003). A fresh professor has
+// NULL; a written value survives a read.
+func TestLastLoginAtIsNullableAndSurvivesARoundTrip(t *testing.T) {
+	ctx, db := migrated(t)
+
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+
+	var initial sql.NullInt64
+	if err := db.QueryRowContext(ctx,
+		"SELECT last_login_at FROM users WHERE user_id = ?", userID).Scan(&initial); err != nil {
+		t.Fatalf("reading last_login_at: %v", err)
+	}
+	if initial.Valid {
+		t.Errorf("last_login_at is set for a fresh professor: %v", initial.Int64)
+	}
+
+	stamped := int64(1_755_360_000)
+	if _, err := db.ExecContext(ctx,
+		"UPDATE users SET last_login_at = ? WHERE user_id = ?", stamped, userID); err != nil {
+		t.Fatalf("stamping last_login_at: %v", err)
+	}
+
+	var read sql.NullInt64
+	if err := db.QueryRowContext(ctx,
+		"SELECT last_login_at FROM users WHERE user_id = ?", userID).Scan(&read); err != nil {
+		t.Fatalf("reading back last_login_at: %v", err)
+	}
+	if !read.Valid || read.Int64 != stamped {
+		t.Errorf("last_login_at = %v, want %v", read, stamped)
+	}
+}
+
 // The one migration case that is about an operator rather than about the schema.
 //
 // #149 shipped migrations/00001_init.sql, a deliberate `SELECT 1;`, and anyone

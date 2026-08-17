@@ -97,13 +97,9 @@ const (
 // backoffice home is WP-C3's, and a second template today would exist only to
 // say the same sentence in a different file.
 func (a *Auth) LoginPage(w http.ResponseWriter, r *http.Request) {
-	page := view.LoginPage{Aviso: avisoFor(r.URL.Query().Get("aviso"))}
-
-	if professor, ok := middleware.ProfessorFrom(r.Context()); ok {
-		page.Professor = &professor
-		if session, ok := middleware.SessionFrom(r.Context()); ok {
-			page.CSRFToken = session.CSRFToken
-		}
+	page := view.LoginPage{
+		Page:  middleware.PageFor(r, ""), // RenderLogin picks the title
+		Aviso: avisoFor(r.URL.Query().Get("aviso")),
 	}
 
 	if err := view.RenderLogin(w, page); err != nil {
@@ -267,6 +263,16 @@ func (a *Auth) LoginGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		a.Log.Error("starting a session", "error", err)
 		a.redirectToLogin(w, r, "fallo")
 		return
+	}
+
+	// last_login_at is what the CRUD list renders as "when did they last sign
+	// in?" — see issue #151 §Last sign-in for why it cannot be read from
+	// user_sessions.last_seen_at. Bookkeeping: a failure here does not deny
+	// the login (the professor did sign in), it goes into the log so the
+	// operator can see it. Same shape as middleware.TouchSession for
+	// user_sessions.last_seen_at.
+	if err := a.Login.RecordLastSignIn(r.Context(), professor.ID); err != nil {
+		a.Log.Warn("recording the last sign-in", "error", err, "professor", professor.ID)
 	}
 
 	middleware.SetSessionCookie(w, token, session.ExpiresAt, a.secureCookie)

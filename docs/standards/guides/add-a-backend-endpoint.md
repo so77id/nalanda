@@ -97,6 +97,19 @@ Postgres exit a change in one package.
 - Pin the interface at compile time, the way `storage.Prober` does:
   `var _ auth.SessionStore = (*Store)(nil)`.
 
+**On `web`, this WP's screens follow one shape** — form, validation, flash
+messages, and error pages. All of it is written down in
+[`backend-code-style.md` §Forms, flash and error pages](../backend-code-style.md#forms-flash-and-error-pages);
+read it before adding a screen so a new one does not invent a convention.
+Fill the shell fields (title, professor, csrf) with
+`middleware.PageFor(r, title)` and write shell error pages via
+`middleware.WriteError(w, r, status, message)` — the same helpers §Add a
+page names, so a new caller does not re-inline the block the review
+consolidated (ARQ-1 / ARQ-2). §Form / validation / errors is the
+create/edit form shape (with `Notice` for form-wide messages), §Flash
+covers the POST/redirect/GET message cookie, §Error pages covers 404 /
+403 / 500.
+
 ### 5. The handler
 
 A closure over its dependencies, **returned by a small constructor**

@@ -59,6 +59,16 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			PublicURL:    "https://nalanda.test",
 			Log:          logger,
 		}),
+		Professors: handler.NewProfessors(handler.Professors{
+			Users: store,
+			Admin: auth.NewAdmin(auth.Admin{
+				Users:    store,
+				Sessions: store,
+				Now:      time.Now,
+			}),
+			PublicURL: "https://nalanda.test",
+			Log:       logger,
+		}),
 		Log: logger,
 	}
 }
@@ -107,17 +117,24 @@ func TestHealthRejectsANonGetMethod(t *testing.T) {
 	}
 }
 
-// The backoffice still has no SCREENS (WP-C3), which is now a narrower claim
-// than it was: /login exists since #150 and is asserted separately below. The
-// case is kept because the emptiness is deliberate, and the first person to add
-// a screen should know they are the first.
-func TestTheBackofficeHasNoScreensYet(t *testing.T) {
-	for _, path := range []string{"/", "/admin", "/cursos"} {
-		rec := httptest.NewRecorder()
-		web.Router(deps(t, reachable)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
+// The 404 rendered by the shell — AC-11. The default Go text "404 page not
+// found\n" is what an operator got before this WP; from S2 on the response is
+// an HTML page carrying the shell markers, whatever the caller's session
+// state.
+func TestA404GoesThroughTheShell(t *testing.T) {
+	rec := httptest.NewRecorder()
+	web.Router(deps(t, reachable)).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/no-such-path", nil))
 
-		if rec.Code != http.StatusNotFound {
-			t.Errorf("GET %s = %d, want 404: the screens arrive with WP-C3 (#151)", path, rec.Code)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("GET /no-such-path = %d, want 404", rec.Code)
+	}
+	body := rec.Body.String()
+	if strings.HasPrefix(body, "404 page not found") {
+		t.Errorf("body is Go's default 404 text; the shell did not take over:\n%s", body)
+	}
+	for _, want := range []string{"<!doctype html>", "color-scheme: light dark"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("404 body missing %q\n---\n%s", want, body)
 		}
 	}
 }

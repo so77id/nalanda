@@ -39,6 +39,8 @@ type Deps struct {
 	Gate *middleware.Auth
 	// Login is the login round trip's handlers.
 	Login *handler.Auth
+	// Professors is the CRUD's handlers (issue #151 S5 onward).
+	Professors *handler.Professors
 	// Log is spelled the same here as in the two structs above.
 	Log *slog.Logger
 }
@@ -105,6 +107,41 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.LogoutPath,
 			Handler: deps.Login.Logout,
 		},
+		// The CRUD, from S5 on. Gated by default (no Public), which the
+		// TestEveryRouteIsGatedUnlessItSaysWhyNot guard walks — an anonymous
+		// visitor is redirected to /login before the handler runs.
+		{
+			Method: http.MethodGet, Path: "/",
+			Handler: deps.Professors.Root,
+		},
+		{
+			Method: http.MethodGet, Path: handler.ProfessorsPath,
+			Handler: deps.Professors.List,
+		},
+		{
+			Method: http.MethodGet, Path: handler.ProfessorsNewPath,
+			Handler: deps.Professors.New,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ProfessorsPath,
+			Handler: deps.Professors.Create,
+		},
+		{
+			Method: http.MethodGet, Path: handler.ProfessorEditPath,
+			Handler: deps.Professors.Edit,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ProfessorUpdatePath,
+			Handler: deps.Professors.Update,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ProfessorDeactivatePath,
+			Handler: deps.Professors.Deactivate,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ProfessorReactivatePath,
+			Handler: deps.Professors.Reactivate,
+		},
 	}
 }
 
@@ -139,6 +176,8 @@ func Router(deps Deps) http.Handler {
 		panic("web.Router: no gate")
 	case deps.Login == nil:
 		panic("web.Router: no login handlers")
+	case deps.Professors == nil:
+		panic("web.Router: no professors handlers")
 	case deps.Log == nil:
 		panic("web.Router: no logger")
 	}
@@ -147,31 +186,53 @@ func Router(deps Deps) http.Handler {
 
 	mux := http.NewServeMux()
 	public := map[string]bool{}
+	paths := map[string]bool{}
 	for _, route := range table {
-		pattern := route.Method + " " + route.Path
+		pattern := route.Method + " " + muxPathFor(route.Path)
 		mux.Handle(pattern, route.Handler)
 		if route.Public {
 			public[pattern] = true
 		}
+		// `paths` remembers every REGISTERED path under any method (the
+		// BROWSER path, not the mux pattern). A request to a path that
+		// appears here but under the wrong verb must reach the mux so it
+		// can answer 405 with the Allow header set — from the mux's side a
+		// 404 and a 405 both look like "pattern == ''", and turning the
+		// second into a shell 404 would hide the "wrong verb" signal a
+		// client relies on.
+		paths[route.Path] = true
 	}
 
-	return deps.Gate.Resolve(gate(deps.Gate, mux, public))
+	return deps.Gate.Resolve(gate(deps.Gate, mux, public, paths))
 }
 
 // gate decides, per request, what the matched route requires.
 //
 // It asks the mux which pattern it matched rather than trusting a table lookup:
 // that is what makes the answer true of the server that is actually running.
-func gate(auth *middleware.Auth, mux *http.ServeMux, public map[string]bool) http.Handler {
+func gate(auth *middleware.Auth, mux *http.ServeMux, public, paths map[string]bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, pattern := mux.Handler(r)
 
-		// Nothing matched: let the mux answer its own 404 rather than
-		// redirecting a stranger to the login page, which would turn every typo
-		// into a sign-in prompt and hide which paths exist behind a wall that
-		// is not protecting anything.
+		// Nothing matched. Two cases from the mux's side both look the same,
+		// and they have to be split before answering:
+		//
+		//   - The path exists under some other method. Then this is a 405,
+		//     not a 404: the mux answers it with the Allow header set, which
+		//     is what tells a client which verbs to try.
+		//   - The path exists under no method at all. Then it is a real 404,
+		//     and we render it THROUGH THE SHELL (AC-11) rather than letting
+		//     Go answer "404 page not found\n" in plain text.
+		//
+		// A stranger is still not redirected to the login page in either
+		// case: turning every typo into a sign-in prompt would hide which
+		// paths exist behind a wall that is not protecting anything.
 		if pattern == "" {
-			mux.ServeHTTP(w, r)
+			if paths[r.URL.Path] {
+				mux.ServeHTTP(w, r)
+				return
+			}
+			renderNotFound(w, r)
 			return
 		}
 
@@ -193,6 +254,33 @@ func gate(auth *middleware.Auth, mux *http.ServeMux, public map[string]bool) htt
 // about HTTP semantics is cheaper than exporting one.
 func isSafeMethod(method string) bool {
 	return method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
+}
+
+// muxPathFor turns the BROWSER path a route carries into the mux pattern it
+// registers under. `/` in the table means the exact index; net/http.ServeMux
+// spells that `/{$}` since Go 1.22 — a bare `/` pattern is a SUBTREE that
+// silently matches every path nothing else claims, so `GET /` swallows every
+// 404 and 405 on the whole site (measured in this WP's S5 first pass: `GET
+// /logout` came back 303 to /professors instead of 405). Every other path is
+// left alone.
+//
+// The split is what lets Route.Path stay the URL a browser types, so the
+// guards that walk the table (`TestEveryRouteIsGatedUnlessItSaysWhyNot`,
+// `TestEveryStateChangingRouteVerifiesCSRF`) can build a real request from
+// it, and `paths[]` — the set the gate consults to distinguish a real 404
+// from a 405 — is keyed by that same browser path.
+func muxPathFor(path string) string {
+	if path == "/" {
+		return "/{$}"
+	}
+	return path
+}
+
+// renderNotFound writes a 404 through the shell. The Spanish is not echoed
+// back at the reader: what was asked for is deliberately dropped so that an
+// attacker choosing the path cannot pick one that says something for them.
+func renderNotFound(w http.ResponseWriter, r *http.Request) {
+	middleware.WriteError(w, r, http.StatusNotFound, "Esta página no existe.")
 }
 
 // healthHandler answers JSON rather than HTML, which is not an oversight: its
