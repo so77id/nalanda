@@ -261,6 +261,61 @@ type DetailedControl struct {
 	CreatedAt       string
 }
 
+// ReviewPage is what review.html renders (WP-F §The screens). Split view:
+// scanned image on the left, editable form on the right.
+type ReviewPage struct {
+	Page
+	ControlID  string
+	Name       string
+	CopyNumber int
+	BackURL    string
+	ImageURL   string
+	SaveURL    string
+	Graded     bool // when true the template shows the "editing a closed correction" warning
+	RUT        ReviewRUT
+	Questions  []ReviewQuestion
+}
+
+// ReviewRUT is the top row of the form — the RUT block.
+type ReviewRUT struct {
+	Value        string
+	OriginalRead string
+	Status       string
+	Overridden   bool
+	WasRead      bool
+}
+
+// ReviewQuestion is one row of the review form.
+type ReviewQuestion struct {
+	Index        int
+	QuestionRef  string
+	Statement    string
+	Type         string // "simple" | "multiple"
+	Alternatives []ReviewAlternative
+	Selected     []int
+	Status       string
+	Overridden   bool
+	OriginalRead string // "AMC leyó: …" — empty when unedited
+}
+
+// ReviewAlternative is one option a professor can pick.
+type ReviewAlternative struct {
+	Index int
+	Label string
+}
+
+// IsSelected is a helper the template calls — Go html/template's `in`
+// operator does not exist, and a template-level map lookup on []int is
+// awkward. One method per test keeps the template readable.
+func (q ReviewQuestion) IsSelected(index int) bool {
+	for _, s := range q.Selected {
+		if s == index {
+			return true
+		}
+	}
+	return false
+}
+
 // ErrorPage is what error.html renders. AC-11: 404, 403 and 500 render
 // through the shell rather than as Go's default text.
 //
@@ -406,6 +461,14 @@ func RenderControlDetail(w http.ResponseWriter, page ControlDetailPage) error {
 		page.Title = page.Control.Name
 	}
 	return render(w, "controls_detail", http.StatusOK, page)
+}
+
+// RenderReview writes the WP-F review page.
+func RenderReview(w http.ResponseWriter, page ReviewPage) error {
+	if page.Title == "" {
+		page.Title = fmt.Sprintf("Copia %d — %s", page.CopyNumber, page.Name)
+	}
+	return render(w, "review", http.StatusOK, page)
 }
 
 // RenderError writes an error page through the shell (AC-11).
