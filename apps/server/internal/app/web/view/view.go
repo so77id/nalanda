@@ -1,9 +1,8 @@
 // Package view renders the backoffice's HTML.
 //
-// One template today, and no layout. A layout with a single page in it is a
-// directory that exists for its own sake — the same reasoning that kept
-// /health answering JSON in #149 — and WP-C3, which brings the screens, is what
-// makes a shared shell worth extracting.
+// The shell born with WP-C3 (#151, S1). Every page renders through the layout
+// in templates/layout.html — nav, both themes, embedded CSS — so a new page
+// arrives with the shape the rest of the surface has, and cannot ship bare.
 //
 // The templates are parsed ONCE at package initialisation and embedded in the
 // binary. Parsing per request would turn a typo in a template into a 500 that
@@ -11,6 +10,13 @@
 // panic at boot, which is a failure an operator sees immediately and a test can
 // reproduce. This is the one place a panic is right (backend-code-style.md
 // §Errors: never in a request path, fine at wiring time).
+//
+// One *template.Template per page rather than one template set for all of them.
+// Each page defines the `content` block the layout invokes; parsing every page
+// into one set would leave the last-defined `content` visible to everything
+// else — the shell would silently render whichever page happened to be parsed
+// last on top of the layout. A clone per page is what keeps the pages
+// independent.
 package view
 
 import (
@@ -18,65 +24,116 @@ import (
 	"embed"
 	"fmt"
 	"html/template"
+	"io/fs"
 	"net/http"
+	"strings"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 )
 
-//go:embed templates/*.html
+//go:embed templates/layout.html templates/pages/*.html
 var files embed.FS
 
-var templates = template.Must(template.ParseFS(files, "templates/*.html"))
+var pages = mustParsePages()
 
-// LoginPage is what login.html renders.
-//
-// The whole professor is passed rather than an email string because the template
-// asks whether there IS one — html/template treats a nil pointer and an empty
-// struct differently, and "is somebody signed in" is exactly the question the
-// page branches on.
-type LoginPage struct {
-	// Professor is nil for an anonymous visitor.
+// Page is the layout's contract. Every page struct embeds it so the shell can
+// render the title and, when there is one, the professor's bar without knowing
+// what specific data the page carries.
+type Page struct {
+	// Title goes into the <title>; " · Nalanda" is appended by the layout so
+	// no page has to remember to.
+	Title string
+	// Professor is nil for an anonymous visitor. The layout hides the bar in
+	// that case and centers the content, which is what makes the login page
+	// look the same as it did before this shell existed.
 	Professor *auth.User
-	// CSRFToken goes into the logout form. Empty when nobody is signed in,
-	// because there is no form.
+	// CSRFToken goes into the logout form in the bar. Empty when Professor is
+	// nil, because there is no form.
 	CSRFToken string
-	// Aviso is the Spanish message shown to someone who was refused or logged
-	// out. Text a person reads, so it is Spanish, like everything else on this
-	// surface (root CLAUDE.md).
-	Aviso string
 }
 
-// RenderLogin writes the login page.
-//
-// It renders into a buffer first and only then writes to the ResponseWriter.
-// Executing straight into the writer commits a 200 with the first byte, so a
-// template that fails halfway produces a truncated page that claims to have
-// succeeded — the same failure httpjson.Write exists to avoid on the other
-// surface.
-//
-// The status is 200 and is not a parameter. It was one, with a single call site
-// passing a single value; the third caller that needs another status is the one
-// that should introduce it (#150 review, ARQ-8).
-func RenderLogin(w http.ResponseWriter, page LoginPage) error {
-	var rendered bytes.Buffer
-	if err := templates.ExecuteTemplate(&rendered, "login.html", page); err != nil {
-		return fmt.Errorf("render the login page: %w", err)
+func mustParsePages() map[string]*template.Template {
+	layout, err := template.ParseFS(files, "templates/layout.html")
+	if err != nil {
+		panic("view: parse layout: " + err.Error())
+	}
+
+	entries, err := fs.ReadDir(files, "templates/pages")
+	if err != nil {
+		panic("view: read pages: " + err.Error())
+	}
+
+	out := make(map[string]*template.Template, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".html") {
+			continue
+		}
+		clone, err := layout.Clone()
+		if err != nil {
+			panic("view: clone layout for " + entry.Name() + ": " + err.Error())
+		}
+		tmpl, err := clone.ParseFS(files, "templates/pages/"+entry.Name())
+		if err != nil {
+			panic("view: parse page " + entry.Name() + ": " + err.Error())
+		}
+		out[strings.TrimSuffix(entry.Name(), ".html")] = tmpl
+	}
+	return out
+}
+
+// render is the one function that writes a page. Every render function in this
+// package delegates to it, so the buffer-before-header rule and the security
+// headers are applied once — a new page cannot forget them.
+func render(w http.ResponseWriter, name string, data any) error {
+	tmpl, ok := pages[name]
+	if !ok {
+		return fmt.Errorf("view.render: unknown page %q", name)
+	}
+
+	var buf bytes.Buffer
+	if err := tmpl.ExecuteTemplate(&buf, "layout.html", data); err != nil {
+		return fmt.Errorf("render %s: %w", name, err)
 	}
 
 	setSecurityHeaders(w)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(http.StatusOK)
-	_, err := w.Write(rendered.Bytes())
+	_, err := w.Write(buf.Bytes())
 	return err
 }
 
-// setSecurityHeaders is applied to every page this package renders, which is
-// why it lives here rather than in a handler: WP-C3 adds its screens through
-// this same function and inherits them without having to remember.
+// LoginPage is what login.html renders. It embeds Page: title, professor and
+// CSRF token are handled by the shell, and the page adds only what is unique
+// to it — the aviso, the Spanish message shown to a visitor who was refused or
+// logged out.
+type LoginPage struct {
+	Page
+	Aviso string
+}
+
+// RenderLogin writes the login page.
+//
+// The status is 200 and is not a parameter. It was one, with a single call site
+// passing a single value; the third caller that needs another status is the one
+// that should introduce it (#150 review, ARQ-8).
+func RenderLogin(w http.ResponseWriter, page LoginPage) error {
+	if page.Title == "" {
+		if page.Professor != nil {
+			page.Title = "Sesión iniciada"
+		} else {
+			page.Title = "Entrar"
+		}
+	}
+	return render(w, "login", page)
+}
+
+// setSecurityHeaders is applied to every page render() writes, which is why it
+// lives here rather than in a handler: a new page inherits them without having
+// to remember.
 //
 // What each one is for, since none of them is decoration:
 //
-//   - no-store, because the signed-in page carries the professor's address and
+//   - no-store, because the signed-in pages carry the professor's address and
 //     the session's CSRF token, and the public URL may be http in development —
 //     where any intermediary is free to keep a copy.
 //   - nosniff, so a rendering bug that emits the wrong bytes cannot be

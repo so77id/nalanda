@@ -105,6 +105,8 @@ func (a *Auth) LoginPage(w http.ResponseWriter, r *http.Request) {
 			page.CSRFToken = session.CSRFToken
 		}
 	}
+	// The layout takes its title from Page.Title; RenderLogin picks a default
+	// when the caller leaves it blank, and both callers do.
 
 	if err := view.RenderLogin(w, page); err != nil {
 		a.Log.Error("rendering the login page", "error", err)

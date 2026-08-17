@@ -1,0 +1,16 @@
+{{ define "content" }}
+  {{ if .Professor }}
+    <h1>Nalanda · administración</h1>
+    <p>Todavía no hay pantallas que administrar: llegan con la siguiente
+      unidad de trabajo. Por ahora esto sirve para comprobar que entrar y
+      salir funciona.</p>
+  {{ else }}
+    <h1>Nalanda · administración</h1>
+    {{ if .Aviso }}
+      <p class="aviso">{{ .Aviso }}</p>
+    {{ end }}
+    <p>Esta sección es solo para profesores. Los estudiantes no necesitan
+      cuenta: leen el curso y entran a las sesiones con un código.</p>
+    <a class="boton" href="/login/google">Entrar con Google</a>
+  {{ end }}
+{{ end }}
