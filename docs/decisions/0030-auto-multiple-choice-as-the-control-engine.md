@@ -255,6 +255,118 @@ misread, thresholds unusable — reopen this decision and record which criterion
 broke. The fallback is unchanged (our own PDF generation plus OMRChecker) and
 the container boundary is what makes it a swap rather than a rewrite.
 
+### Partial evidence — 2026-08-17
+
+First real cycle run. **Not the final verdict**: the professor marked with a
+blue marker instead of a pencil, and the RUT column was not tested with a well
+marked, well read positive case. A second cycle with pencil is scheduled for
+2026-08-18 to close question 2 before this section is amended to Accepted.
+
+What was verified against paper (four sheets, printed at 100% on A4, marked in
+blue marker, scanned at 300 dpi on a duplex scanner):
+
+- **Q1 — every page captured.** Pass. 4/4 captured, 0 failed. Copies identified
+  by their printed marker even after the pile was mixed on the scanner feed.
+- **Q2 — RUTs read.** **Outstanding.** Both copies returned `rut=None` and fell
+  to `needs_review` — the correct manual-queue path (ADR-0031). One copy was
+  marked cleanly (one X per column, all within the boxes); the other stacked
+  three X in the same column, which is a real mismark and was correctly refused.
+  The cleanly marked one **should have read** and did not, and the leading
+  hypothesis is the blue marker's thicker stroke crossing into adjacent
+  columns' vertical space rather than the printed geometry — the `\AMCcode`
+  grid's own tolerance is stricter than the answer detector's, and lowering
+  `--ticked`/`--unsure` does not affect it. Retest with pencil is the direct
+  way to distinguish "marker limitation" from "engine limitation".
+- **Q3 — deliberate damage in the right bucket.** Pass on both cases seen:
+  a question left blank returned `status: blank`, and a question with three
+  boxes marked on a `(una respuesta)` returned `status: ambiguous` with the
+  three indices in `marked`.
+- **Q4 — doubtful mechanism.** Pass mechanically — measured `doubtful`
+  detections with `darkness=0.091, 0.106, 0.114, 0.064` (with `--ticked 0.20
+  --unsure 0.05`), each attached to the specific alternative it landed on. The
+  faint-pencil-into-the-band case was not forced (marker, not pencil), so the
+  darkness a real student mark actually lands at is still unmeasured — that
+  number is what ADR-0031's thresholds (0.30 / 0.10) hang on and is scheduled
+  for the second cycle.
+- **Q5 — erased and corrected.** Pass. With `--ticked 0.20 --unsure 0.05`
+  the corrected value read as the confident `marked` and the erased value
+  appeared as a low-darkness `doubtful` on the same question — the intended
+  behaviour: the reader reports both and does not silently choose the erased
+  one.
+
+**Calibration note, not a decision.** At the current defaults, the detections
+sat at `darkness=0.091, 0.106, 0.114` and one at `0.064` — some below the
+`unsure=0.10` floor. A pencil batch is what these numbers should be measured
+against; a marker's darkness is not what ADR-0031's thresholds were sized for.
+
+**One operational finding, worth writing down:** the scanner used produced two
+distinct defects that broke the first two attempts and are not the engine's
+fault. (a) A PDF where each page carried the same image embedded twice, so
+`getimages` extracted 16 files for 8 pages and every answer read as
+`marked=[N, N]`; flattened out with `gs -sDEVICE=pdfwrite`. (b) The scanner
+default of 75 dpi is below the resolution AMC needs to find the corner marks —
+`AMC-analyse.pl:150` throws `Use of uninitialized value` there. The
+`PAPER-CHECK.md` §3 line "300 dpi, greyscale or colour" is load-bearing;
+worth surfacing more visibly to the professor at the moment of scanning.
+
+### Second cycle — 2026-08-17 (minimum paper check, pencil)
+
+**Q2 closed.** Three sheets, one page each, one question each, marked in
+**pencil 2B** against the minimum fixture `control-paper-min.tex` (see
+`apps/amc-worker/PAPER-CHECK-MIN.md`). Results, ran through the same
+reader baked into the image:
+
+- **Q1 — pages captured.** Pass. 3/3 captured, 0 failed.
+- **Q2 — RUTs read.** **Pass on the marker-vs-pencil hypothesis.** Two of
+  three copies came back with `rut_status: ok` and the eight expected
+  digits (`17673777`, `27512345`). The third came back `unreadable`
+  because the professor deliberately left column 0 blank on that copy
+  (a real omission on the sheet, not a reading defect) — the reader
+  returned `digits: []` for the missing column and put the copy in the
+  review queue. **The engine reads RUTs cleanly under pencil.** The
+  first cycle's Q2 outcome (`rut=None` on cleanly-marked copies with
+  blue marker) is attributed to marker stroke geometry, not to the
+  reader.
+- **Q1 answer path.** All three answers came back with `status: ok`, one
+  confident mark each — the pencil landed above `ticked=0.30`
+  throughout. The `doubtful` / `ambiguous` / `blank` buckets were not
+  forced in this cycle (each sheet had one clean answer); they were
+  cleared for real in the first cycle §Q3, so §Q3 stays passed.
+- **Q4 — faint-pencil calibration.** Not remeasured in this cycle. The
+  first cycle's darkness numbers (`0.064–0.114`) were from marker, not
+  pencil; a pencil-specific measurement is still open and belongs to a
+  future check when a professor forces a faint stroke on purpose.
+- **Q5 — erased and corrected.** Not remeasured; first cycle's pass
+  stands.
+
+**Tooling notes surfaced by this cycle:**
+
+- `make read-paper-min` did not wipe the previous run's capture state
+  before invoking `getimages --copy-to` and `analyse --multiple` again,
+  so a second call against the same scan compounded captures — measured
+  at `pages.captured=18` on a 3-page PDF, with every digit and every
+  answer index repeated six times. Fixed inline: the target now removes
+  the capture-derived files (`scans/*.jpg`, `list.txt`, `capture.sqlite`,
+  `scoring.sqlite`, `report.sqlite`, and the `cr/` directory) before
+  each run. Idempotent by construction.
+- The minimum fixture `control-paper-min.tex` prints one copy per page
+  when driven with `\clearpage` (rather than `\AMCcleardoublepage`);
+  three copies = three single-sided pages, five-minute cycle time.
+- The header now carries a hand-written `RUT:` line next to `Nombre:` —
+  when the bubble grid comes back unreadable the professor still has
+  the correct RUT written on the sheet and can enter it by hand in the
+  review queue.
+
+**Still open** (blocking §Not yet proven → Accepted):
+
+- Pencil-specific darkness measurement for Q4 (§Not yet proven asked
+  for the number that ADR-0031's `unsure=0.10` was sized against; the
+  first cycle produced marker numbers only).
+- A larger pencil cycle that forces every §5 bucket at once on the
+  same batch, matching the shape of the shipped `PAPER-CHECK.md`.
+  The minimum check answered Q2 quickly; the full check remains the
+  criterion for Accepted status on this ADR.
+
 ## References
 
 - `docs/design/2026-08-controles.md` — the subsystem's decisions (C8, C9).

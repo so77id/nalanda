@@ -49,6 +49,11 @@
 % experiment is to change ONE input at a time and re-print, not the shuffle.
 \AMCrandomseed{4270}
 
+% The control's name. Whatever the professor typed in the software will
+% land here on every printed sheet — for this fixture it is a hard-coded
+% placeholder; a generated control will have the name substituted.
+\def\controlName{mínimo}
+
 \begin{document}
 
 \element{clase}{
@@ -64,45 +69,23 @@
 
 \onecopy{1}{
 
-  \noindent{\large\bf Control mínimo}\hfill
-  \textsf{\small (marca con \textbf{LÁPIZ 2B}, no marcador)}
+  % Header: title + Nombre / RUT box the student writes on. The RUT is
+  % duplicated as a hand-written line below the name on purpose — if the
+  % bubble grid comes back unreadable (blank column, blue marker, faint
+  % marks) the professor still has the correct RUT written on the sheet
+  % and can enter it by hand in the review queue without asking the
+  % student.
+  \noindent{\large\bf Control \controlName}\hfill
+  \namefield{\fbox{\begin{minipage}{.45\linewidth}
+        Nombre:\dotfill
 
-  \vspace{4mm}
+        \vspace*{2mm}
+        RUT:\dotfill
+        \vspace*{2mm}
+      \end{minipage}}}
 
   \begin{center}
-    \begin{minipage}{0.9\linewidth}
-      \textbf{RUT} (8 dígitos, sin puntos ni dígito verificador).
-
-      \smallskip
-
-      Encima de cada columna está su número. La \textbf{columna 1} es el dígito
-      de \textbf{más a la izquierda} de tu RUT; la \textbf{columna 8} el de más
-      a la derecha (las unidades).
-
-      \smallskip
-
-      \emph{Ejemplo}: si tu RUT es \texttt{12345678-K}, marca \texttt{1} en la
-      columna~1, \texttt{2} en la columna~2, \ldots, \texttt{8} en la
-      columna~8.
-    \end{minipage}
-
-    \vspace{2mm}
-
-    % Column header row that sits directly above the AMCcode grid. Kept as a
-    % plain \makebox strip rather than a tabular so it lines up with the grid
-    % without importing longtable or fiddling with column widths — AMCcode
-    % renders a fixed-width column layout, so a monospace strip of the same
-    % width lines up predictably (measured, #167 review).
-    \texttt{\hspace{1.2em}%
-      \makebox[1.75em][c]{1}%
-      \makebox[1.75em][c]{2}%
-      \makebox[1.75em][c]{3}%
-      \makebox[1.75em][c]{4}%
-      \makebox[1.75em][c]{5}%
-      \makebox[1.75em][c]{6}%
-      \makebox[1.75em][c]{7}%
-      \makebox[1.75em][c]{8}%
-    }
+    \emph{Marca tu RUT sin el dígito verificador, un dígito por columna.}
 
     \AMCcode{rut}{8}
   \end{center}
@@ -111,6 +94,7 @@
 
   \noindent\fbox{\begin{minipage}{0.98\linewidth}
       \textbf{1 pregunta.} Cada pregunta dice cuántas respuestas admite.
+      Marca con \textbf{lápiz 2B} (no marcador).
     \end{minipage}}
 
   \vspace{2mm}

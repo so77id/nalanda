@@ -104,9 +104,27 @@ paper-min:
 
 ## read-paper-min — read the min-check scanned batch back
 ##   Expects the scan at tests/work/paper-min/scan/lote.pdf
-##   Same command chain as read-paper — the reader does not care that the
-##   source is a different fixture.
+##   Idempotent: wipes the capture/scoring state and the extracted scan
+##   images before running, so a second call against the same lote.pdf
+##   produces the same report as the first. Without this a rerun of
+##   `read-paper-min` invokes `analyse --multiple` on top of the previous
+##   captures — the flag exists so an incremental scan APPENDS to the
+##   existing capture (worker.py TRAP for /analyse), which is what /reanalyse
+##   in WP-F relies on, and it is exactly what compounds a manual rerun.
+##   Measured: after two reruns of read-paper-min on a 3-page scan,
+##   pages.captured came back 18 and every digit read as marked six times
+##   (2026-08-17 min paper check, first cycle).
+##   Only the CAPTURE-derived files are wiped; layout/scoring are kept
+##   because `paper-min` produced them and re-running getimages does not
+##   need them regenerated.
 read-paper-min:
+	rm -f tests/work/paper-min/project/scans/*.jpg \
+	      tests/work/paper-min/project/scans/list.txt \
+	      tests/work/paper-min/project/data/capture.sqlite \
+	      tests/work/paper-min/project/data/scoring.sqlite \
+	      tests/work/paper-min/project/data/report.sqlite
+	rm -rf tests/work/paper-min/project/cr
+	mkdir -p tests/work/paper-min/project/cr
 	docker run --rm --env DISPLAY= -v "$(PWD)/tests/work/paper-min:/work" -w /work $(IMAGE) \
 		bash -c 'set -e; \
 		  auto-multiple-choice getimages --list /work/project/scans/list.txt \
