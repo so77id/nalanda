@@ -152,6 +152,80 @@ func (s *Store) RecordLogin(ctx context.Context, userID int64, at time.Time) err
 	return nil
 }
 
+// ListUsers returns every professor, ordered by created_at ASC. Read the note
+// in the interface for why the order matters and the pagination note in the
+// issue for why there is none — friends-and-family sized (issue #151 §Notes).
+func (s *Store) ListUsers(ctx context.Context) ([]auth.User, error) {
+	rows, err := s.db.QueryContext(ctx,
+		"SELECT "+userColumns+" FROM users ORDER BY created_at ASC, user_id ASC")
+	if err != nil {
+		return nil, fmt.Errorf("list the professors: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []auth.User
+	for rows.Next() {
+		user, err := scanUser(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan a professor: %w", err)
+		}
+		out = append(out, user)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate the professors: %w", err)
+	}
+	return out, nil
+}
+
+// UpdateUser renames the professor and returns the fresh row through the same
+// RETURNING clause CreateUser uses — one round trip, and the caller reads what
+// the database now holds rather than what the input claimed.
+//
+// The address is deliberately not editable here: it is what Authenticate path
+// (2) matches on before an identity exists, so changing it is account transfer
+// wearing a rename's clothes (issue #151 §Non-goals).
+func (s *Store) UpdateUser(ctx context.Context, userID int64, name string) (auth.User, error) {
+	row := s.db.QueryRowContext(ctx,
+		"UPDATE users SET name = ? WHERE user_id = ? RETURNING "+userColumns, name, userID)
+
+	user, err := scanUser(row)
+	if err != nil {
+		return auth.User{}, notFound(err, fmt.Sprintf("rename the professor %d", userID))
+	}
+	return user, nil
+}
+
+// SetActive flips is_active and stamps deactivated_at accordingly: writing
+// `at` on the way out and clearing it on the way back. Both halves are one
+// UPDATE so an inconsistent state — active with a stamp, or inactive without
+// one — cannot land through this call.
+//
+// A caller renaming and reactivating in a row would like the guarantee that
+// the row read back matches what is on disk; RETURNING gives that, and the
+// re-read after SetActive in the test is what pins it.
+func (s *Store) SetActive(ctx context.Context, userID int64, active bool, at time.Time) (auth.User, error) {
+	var (
+		stamp sql.NullInt64
+		flag  int
+	)
+	if active {
+		flag = 1
+		// stamp stays invalid → NULL
+	} else {
+		stamp = sql.NullInt64{Int64: at.Unix(), Valid: true}
+	}
+
+	row := s.db.QueryRowContext(ctx,
+		"UPDATE users SET is_active = ?, deactivated_at = ? WHERE user_id = ? RETURNING "+userColumns,
+		flag, stamp, userID)
+
+	user, err := scanUser(row)
+	if err != nil {
+		return auth.User{}, notFound(err, fmt.Sprintf("set active on the professor %d", userID))
+	}
+	return user, nil
+}
+
 const identityColumns = "id, user_id, provider, subject, email, linked_at"
 
 func scanIdentity(row interface{ Scan(...any) error }) (auth.Identity, error) {

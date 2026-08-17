@@ -158,6 +158,24 @@ type UserStore interface {
 	// change" trigger, so the value the CRUD renders is the one the login
 	// service decided to write (issue #151 §Last sign-in).
 	RecordLogin(ctx context.Context, userID int64, at time.Time) error
+	// ListUsers is what the professor CRUD's list screen calls. Ordered by
+	// created_at ASC in the adapter so a person reading the list has a
+	// predictable order — the oldest at the top, a new one arrives visibly
+	// at the bottom (issue #151 §Stores).
+	ListUsers(ctx context.Context) ([]User, error)
+	// UpdateUser renames a professor and returns the fresh row. The address
+	// is deliberately NOT editable (issue #151 §Non-goals): changing it is
+	// account transfer wearing a rename's clothes, since Authenticate path
+	// (2) matches on the address before any identity is linked.
+	UpdateUser(ctx context.Context, userID int64, name string) (User, error)
+	// SetActive flips is_active and stamps deactivated_at accordingly. A
+	// deactivated professor is refused at their next login by the middleware,
+	// and the CRUD's deactivation screen calls this + DeleteUserSessions in
+	// the same transaction of intent — otherwise a live session outlives the
+	// decision (issue #151 §Deactivation).
+	//
+	// `at` is used only when active=false; reactivation clears the stamp.
+	SetActive(ctx context.Context, userID int64, active bool, at time.Time) (User, error)
 }
 
 type IdentityStore interface {
@@ -184,11 +202,14 @@ type SessionStore interface {
 	// DeleteSession is logout, and is idempotent: deleting a session that is
 	// already gone is a successful logout, not an error.
 	DeleteSession(ctx context.Context, hash string) error
-	// Ending EVERY session a professor holds is deliberately not here. The
-	// adapter implements it, because deactivating a professor without it is a
-	// half-measure and the SQL is worth banking — but this interface lists what
-	// this package calls, and the caller is WP-C3's deactivation screen. It adds
-	// the line in the commit that first needs it (#150 review, ARQ-5).
+	// DeleteUserSessions ends EVERY session a professor holds. The load-
+	// bearing half of deactivation: `is_active=0` alone kills the next
+	// request through the middleware, but leaves the session rows behind,
+	// and a revoke that leaves rows behind reads as done and is not
+	// (issue #151 §Deactivation). #150 shipped the SQL and left the
+	// interface bare with a comment naming this WP as the caller; S4 adds
+	// the line (#150 review, ARQ-5).
+	DeleteUserSessions(ctx context.Context, userID int64) error
 }
 
 // OAuthProvider is the identity provider, declared as this package needs it
