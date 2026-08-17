@@ -127,6 +127,14 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.ProfessorsPath,
 			Handler: deps.Professors.Create,
 		},
+		{
+			Method: http.MethodGet, Path: handler.ProfessorEditPath,
+			Handler: deps.Professors.Edit,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ProfessorUpdatePath,
+			Handler: deps.Professors.Update,
+		},
 	}
 }
 

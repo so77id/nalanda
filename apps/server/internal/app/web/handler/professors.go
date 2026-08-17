@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,8 +23,10 @@ import (
 // a Spanish path would be the only one on the server. What a reader sees
 // stays Spanish (issue #151 §Routes).
 const (
-	ProfessorsPath    = "/professors"
-	ProfessorsNewPath = "/professors/new"
+	ProfessorsPath      = "/professors"
+	ProfessorsNewPath   = "/professors/new"
+	ProfessorEditPath   = "/professors/{id}/edit"
+	ProfessorUpdatePath = "/professors/{id}"
 )
 
 // Professors holds the CRUD's handlers. Same shape as Auth: several handlers
@@ -279,6 +283,143 @@ func isDuplicateEmail(err error) bool {
 	msg := err.Error()
 	return strings.Contains(msg, "UNIQUE constraint failed: users.email") ||
 		strings.Contains(msg, "constraint failed: UNIQUE") // driver-version-tolerant fallback
+}
+
+// Edit renders the edit form pre-filled with the professor's current name.
+// The address is shown but readonly — see issue #151 §Non-goals for why
+// editing an address is account transfer wearing a rename's clothes.
+func (p *Professors) Edit(w http.ResponseWriter, r *http.Request) {
+	target, ok := p.loadTarget(w, r)
+	if !ok {
+		return
+	}
+
+	page := view.ProfessorsFormPage{
+		Page:          p.pageFromRequest(r, "Editar profesora"),
+		Action:        professorPath(target.ID),
+		Submit:        "Guardar",
+		Heading:       "Editar profesora",
+		EmailReadonly: true,
+		Values: view.ProfessorFormValues{
+			Email: target.Email,
+			Name:  target.Name,
+		},
+	}
+	if err := view.RenderProfessorsForm(w, http.StatusOK, page); err != nil {
+		p.Log.Error("rendering the edit form", "error", err)
+	}
+}
+
+// Update handles POST /professors/{id}: validates the NAME only (the address
+// is not editable), writes, flashes and redirects.
+//
+// The professor's ID is read from the URL pattern, not from a hidden form
+// field, so a client cannot rename a professor by posting somebody else's id
+// with their own token. The row's existence is checked first: an unknown id
+// is a 404 through the shell, whether the caller landed here by URL or by a
+// stale form.
+func (p *Professors) Update(w http.ResponseWriter, r *http.Request) {
+	target, ok := p.loadTarget(w, r)
+	if !ok {
+		return
+	}
+
+	if err := r.ParseForm(); err != nil {
+		p.rerenderEditWithErrors(w, r, target, view.ProfessorFormValues{Email: target.Email}, map[string]string{
+			"": "No se pudo leer el formulario. Inténtalo de nuevo.",
+		})
+		return
+	}
+	name := strings.TrimSpace(r.PostFormValue("name"))
+
+	if name == "" {
+		p.rerenderEditWithErrors(w, r, target, view.ProfessorFormValues{Email: target.Email, Name: name}, map[string]string{
+			"name": "El nombre es obligatorio.",
+		})
+		return
+	}
+
+	if _, err := p.Users.UpdateUser(r.Context(), target.ID, name); err != nil {
+		p.Log.Error("updating a professor", "error", err, "professor", target.ID)
+		p.renderInternalError(w, r)
+		return
+	}
+
+	flash.Set(w, p.secureCookie, "Cambios guardados en "+target.Email+".")
+	http.Redirect(w, r, ProfessorsPath, http.StatusSeeOther)
+}
+
+func (p *Professors) rerenderEditWithErrors(w http.ResponseWriter, r *http.Request, target auth.User, values view.ProfessorFormValues, errs map[string]string) {
+	page := view.ProfessorsFormPage{
+		Page:          p.pageFromRequest(r, "Editar profesora"),
+		Action:        professorPath(target.ID),
+		Submit:        "Guardar",
+		Heading:       "Editar profesora",
+		EmailReadonly: true,
+		Values:        values,
+		Errors:        errs,
+	}
+	if err := view.RenderProfessorsForm(w, http.StatusUnprocessableEntity, page); err != nil {
+		p.Log.Error("rendering the edit form after validation", "error", err)
+	}
+}
+
+// loadTarget parses the {id} out of the URL path pattern and reads the row.
+// A non-numeric id or an unknown one is a 404 through the shell — same
+// answer, since neither has a professor to write a message about.
+func (p *Professors) loadTarget(w http.ResponseWriter, r *http.Request) (auth.User, bool) {
+	id, ok := parseIDFromPath(r)
+	if !ok {
+		p.renderNotFoundShell(w, r)
+		return auth.User{}, false
+	}
+	target, err := p.Users.UserByID(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, auth.ErrNotFound) {
+			p.renderNotFoundShell(w, r)
+			return auth.User{}, false
+		}
+		p.Log.Error("reading a professor", "error", err, "id", id)
+		p.renderInternalError(w, r)
+		return auth.User{}, false
+	}
+	return target, true
+}
+
+// parseIDFromPath reads {id} from the mux's registered pattern. Written
+// against r.PathValue so the code moves with the pattern; a hand-rolled path
+// split would silently accept /professors/123/anything.
+func parseIDFromPath(r *http.Request) (int64, bool) {
+	raw := r.PathValue("id")
+	if raw == "" {
+		return 0, false
+	}
+	id, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || id <= 0 {
+		return 0, false
+	}
+	return id, true
+}
+
+// professorPath is the canonical URL for one professor's actions. Kept in
+// one place so a change to the pattern moves everywhere it is written.
+func professorPath(id int64) string {
+	return fmt.Sprintf("%s/%d", ProfessorsPath, id)
+}
+
+// renderNotFoundShell writes a 404 through the shell without going through
+// the router — same shape as router.renderNotFound but for the case where a
+// handler has ALREADY matched a pattern and only then finds the target is
+// absent (an unknown id).
+func (p *Professors) renderNotFoundShell(w http.ResponseWriter, r *http.Request) {
+	page := view.ErrorPage{
+		Page:    p.pageFromRequest(r, "No se encuentra"),
+		Status:  http.StatusNotFound,
+		Message: "Esa profesora no existe.",
+	}
+	if err := view.RenderError(w, page); err != nil {
+		http.Error(w, "404", http.StatusNotFound)
+	}
 }
 
 // renderInternalError writes a 500 through the shell when the domain layer

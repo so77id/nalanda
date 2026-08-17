@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -100,15 +101,38 @@ func (f *professorsFixture) signIn(t *testing.T, email string) (auth.User, strin
 
 // request runs a signed-in GET through the middleware, so the handler sees the
 // professor on its context — the way the router mounts it.
+//
+// Also parses {id} out of the path so r.PathValue("id") resolves the way it
+// would through the mux — the handlers use r.PathValue, and a direct call
+// that skipped this would render a 404 for every parameterised route.
 func (f *professorsFixture) get(t *testing.T, path, token string, h http.HandlerFunc) *httptest.ResponseRecorder {
 	t.Helper()
 	request := httptest.NewRequest(http.MethodGet, path, nil)
+	setPathValues(request, path)
 	if token != "" {
 		request.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: token})
 	}
 	recorder := httptest.NewRecorder()
 	f.middleware.Resolve(f.middleware.RequireProfessor(h)).ServeHTTP(recorder, request)
 	return recorder
+}
+
+// setPathValues mimics what the mux does for parameterised routes: reads
+// /professors/{id} or /professors/{id}/edit and binds the numeric component
+// to r.PathValue("id"). Kept narrow — the mux is what runs in production;
+// this helper only exists so a direct handler call in a test does not blank
+// the id.
+func setPathValues(r *http.Request, path string) {
+	parts := strings.Split(strings.Trim(path, "/"), "/")
+	if len(parts) >= 2 && parts[0] == "professors" {
+		if _, err := strconvAtoi(parts[1]); err == nil {
+			r.SetPathValue("id", parts[1])
+		}
+	}
+}
+
+func strconvAtoi(s string) (int, error) {
+	return strconv.Atoi(s)
 }
 
 // AC-2: `/` redirects to the professor list.
@@ -255,6 +279,7 @@ func (f *professorsFixture) post(t *testing.T, path, token, csrf string, values 
 	}
 	request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	setPathValues(request, path)
 	if token != "" {
 		request.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: token})
 	}
@@ -376,6 +401,133 @@ func TestCreateWithMalformedEmailRerendersWithError(t *testing.T) {
 
 // A duplicate must not 500. The schema's UNIQUE constraint is what would
 // otherwise reach the reader as a Go error string with SQLite's own text.
+// S7: edit the name only. Same form template as Create, address readonly.
+func TestEditRendersTheFormPreFilledAndWithTheAddressReadonly(t *testing.T) {
+	f := newProfessorsFixture(t)
+	_, token := f.signIn(t, "yo@example.com")
+
+	target, err := f.store.CreateUser(context.Background(), "profesora@example.com", "Antes")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	path := fmt.Sprintf("/professors/%d/edit", target.ID)
+	recorder := f.get(t, path, token, f.handler.Edit)
+
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", recorder.Code)
+	}
+	body := recorder.Body.String()
+	for _, want := range []string{
+		`value="profesora@example.com"`,
+		`readonly`,
+		`value="Antes"`,
+		fmt.Sprintf(`action="/professors/%d"`, target.ID),
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("edit form missing %q\n---\n%s", want, body)
+		}
+	}
+}
+
+func TestEditOnAnUnknownProfessorIs404(t *testing.T) {
+	f := newProfessorsFixture(t)
+	_, token := f.signIn(t, "yo@example.com")
+
+	recorder := f.get(t, "/professors/9999/edit", token, f.handler.Edit)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 through the shell", recorder.Code)
+	}
+	if !strings.Contains(recorder.Body.String(), "<!doctype html>") {
+		t.Error("body missing the shell doctype: the 404 must go through the shell")
+	}
+}
+
+func TestUpdatePersistsTheNewNameAndFlashes(t *testing.T) {
+	f := newProfessorsFixture(t)
+	_, token, csrf := f.signInWithCSRF(t, "yo@example.com")
+
+	target, err := f.store.CreateUser(context.Background(), "profesora@example.com", "Antes")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	path := fmt.Sprintf("/professors/%d", target.ID)
+	values := url.Values{"name": []string{"Después"}, "email": []string{"ignored@example.com"}}
+	recorder := f.post(t, path, token, csrf, values, f.handler.Update)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 (POST/redirect/GET)", recorder.Code)
+	}
+	if location := recorder.Header().Get("Location"); location != "/professors" {
+		t.Errorf("Location = %q, want %q", location, "/professors")
+	}
+
+	got, err := f.store.UserByID(context.Background(), target.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if got.Name != "Después" {
+		t.Errorf("stored Name = %q, want %q", got.Name, "Después")
+	}
+	// The address was NOT changed by an email posted in the body: the input
+	// is readonly and the handler ignores it — otherwise a professor could
+	// rewrite anyone's address by inspecting the form (issue #151 §Non-goals).
+	if got.Email != "profesora@example.com" {
+		t.Errorf("stored Email = %q, want %q (the address must not be editable)", got.Email, "profesora@example.com")
+	}
+
+	// Flash cookie set for the redirected GET to consume.
+	var flashCookie *http.Cookie
+	for _, c := range recorder.Result().Cookies() {
+		if c.Name == "nalanda_flash" && c.Value != "" {
+			flashCookie = c
+		}
+	}
+	if flashCookie == nil {
+		t.Error("no flash cookie set after a successful update")
+	}
+}
+
+func TestUpdateWithAnEmptyNameRerendersWithError(t *testing.T) {
+	f := newProfessorsFixture(t)
+	_, token, csrf := f.signInWithCSRF(t, "yo@example.com")
+
+	target, err := f.store.CreateUser(context.Background(), "profesora@example.com", "Antes")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	path := fmt.Sprintf("/professors/%d", target.ID)
+	values := url.Values{"name": []string{""}}
+	recorder := f.post(t, path, token, csrf, values, f.handler.Update)
+
+	if recorder.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 (empty name rejection)", recorder.Code)
+	}
+	// The row was not touched.
+	got, err := f.store.UserByID(context.Background(), target.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if got.Name != "Antes" {
+		t.Errorf("stored Name = %q, want %q", got.Name, "Antes")
+	}
+}
+
+func TestUpdateOnAnUnknownProfessorIs404(t *testing.T) {
+	f := newProfessorsFixture(t)
+	_, token, csrf := f.signInWithCSRF(t, "yo@example.com")
+
+	values := url.Values{"name": []string{"Cualquiera"}}
+	recorder := f.post(t, "/professors/9999", token, csrf, values, f.handler.Update)
+
+	if recorder.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", recorder.Code)
+	}
+}
+
 func TestCreateWithADuplicateEmailRerendersWithError(t *testing.T) {
 	f := newProfessorsFixture(t)
 	_, token, csrf := f.signInWithCSRF(t, "yo@example.com")
