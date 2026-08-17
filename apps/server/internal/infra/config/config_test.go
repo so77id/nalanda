@@ -65,6 +65,9 @@ func TestLoadFailsByNameOnAMissingVariable(t *testing.T) {
 		"NALANDA_PUBLIC_URL",
 		"NALANDA_GOOGLE_CLIENT_ID",
 		"NALANDA_GOOGLE_CLIENT_SECRET",
+		"NALANDA_QUESTIONS_JSON_URL",
+		"NALANDA_AMC_WORKER_URL",
+		"NALANDA_WORK_DIR",
 	} {
 		t.Run(key, func(t *testing.T) {
 			broken := env()
@@ -117,6 +120,9 @@ func TestLoadReportsEveryMissingVariableAtOnce(t *testing.T) {
 		"NALANDA_PUBLIC_URL",
 		"NALANDA_GOOGLE_CLIENT_ID",
 		"NALANDA_GOOGLE_CLIENT_SECRET",
+		"NALANDA_QUESTIONS_JSON_URL",
+		"NALANDA_AMC_WORKER_URL",
+		"NALANDA_WORK_DIR",
 	} {
 		if !strings.Contains(err.Error(), key) {
 			t.Errorf("error = %q, want it to name %q", err, key)

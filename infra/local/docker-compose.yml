@@ -93,6 +93,17 @@ services:
       context: ../../apps/amc-worker
       dockerfile: Dockerfile
     image: nalanda/amc-worker:dev
+    # depends_on the server so THIS is the second container to mount the
+    # shared amc-work volume. Docker seeds a named volume from the first
+    # container that touches it, permissions included — and the server
+    # runs as UID 65532 while the worker runs as root. Without this
+    # order, root:root would seed /work and the server's first
+    # os.MkdirAll under /work would fail EACCES on the first /generate.
+    # The failure is invisible to `compose up --wait` because that step
+    # only probes /health.
+    depends_on:
+      server:
+        condition: service_started
     # No display, and no X socket mounted: a code path that reaches the GTK
     # interface dies here rather than silently working on a developer's machine
     # and failing on a server.

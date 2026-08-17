@@ -97,7 +97,6 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				Seed:      1,
 				Log:       logger,
 			}),
-			Store:     controlstore.New(db),
 			Bank:      emptyBank(t),
 			PublicURL: "https://nalanda.test",
 			Log:       logger,

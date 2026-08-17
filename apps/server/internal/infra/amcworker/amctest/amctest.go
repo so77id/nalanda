@@ -45,34 +45,30 @@ type Fake struct {
 	// value writes that many bytes so the "PDF present" path can also be
 	// tested.
 	SujetSize int
-
-	// Copies overrides the copy count in the response. Zero means "echo the
-	// request's Copies", which is what a real successful call does.
-	Copies int
 }
 
 // Generate satisfies controls.Generator. When Err is set, it returns that;
-// otherwise it writes the stub files (if WorkDir is set) and returns Assets
-// whose paths are relative to WorkDir.
+// otherwise it writes the stub files (if WorkDir is set) and returns
+// Assets whose Sujet path is relative to WorkDir.
+//
+// The stub corrige.pdf and calage.xy files are still written to disk even
+// though controls.Assets no longer carries their paths — a Service test
+// that opens them (or a WP-F test that reads them back) exercises the same
+// convention the worker follows, and that convention is where the
+// download handlers derive their paths from.
 func (f *Fake) Generate(_ context.Context, req controls.GenerateRequest) (controls.Assets, error) {
 	f.mu.Lock()
 	f.Calls = append(f.Calls, req)
 	err := f.Err
 	work := f.WorkDir
 	size := f.SujetSize
-	copies := f.Copies
 	f.mu.Unlock()
 
 	if err != nil {
 		return controls.Assets{}, err
 	}
-	if copies == 0 {
-		copies = req.Copies
-	}
 
 	sujetRel := filepath.Join(req.Project, "out", "sujet.pdf")
-	corrigeRel := filepath.Join(req.Project, "out", "corrige.pdf")
-	calageRel := filepath.Join(req.Project, "out", "calage.xy")
 
 	if work != "" {
 		outDir := filepath.Join(work, req.Project, "out")
@@ -82,20 +78,15 @@ func (f *Fake) Generate(_ context.Context, req controls.GenerateRequest) (contro
 		if err := writeStub(filepath.Join(work, sujetRel), size); err != nil {
 			return controls.Assets{}, err
 		}
-		if err := writeStub(filepath.Join(work, corrigeRel), 4); err != nil {
+		if err := writeStub(filepath.Join(outDir, "corrige.pdf"), 4); err != nil {
 			return controls.Assets{}, err
 		}
-		if err := writeStub(filepath.Join(work, calageRel), 4); err != nil {
+		if err := writeStub(filepath.Join(outDir, "calage.xy"), 4); err != nil {
 			return controls.Assets{}, err
 		}
 	}
 
-	return controls.Assets{
-		Sujet:   sujetRel,
-		Corrige: corrigeRel,
-		Calage:  calageRel,
-		Copies:  copies,
-	}, nil
+	return controls.Assets{Sujet: sujetRel}, nil
 }
 
 func writeStub(path string, size int) error {

@@ -95,7 +95,6 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 				Seed:      1,
 				Log:       logger,
 			}),
-			Store:     controlstore.New(db),
 			Bank:      emptyBank(t),
 			PublicURL: "https://nalanda.test",
 			Log:       logger,

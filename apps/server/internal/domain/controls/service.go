@@ -130,17 +130,22 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 	project := filepath.Join(projectPrefix, id)
 	projectDir := filepath.Join(s.WorkDir, project)
 	inputsDir := filepath.Join(projectDir, "inputs")
-	if err := os.MkdirAll(inputsDir, 0o755); err != nil {
-		return Control{}, fmt.Errorf("controls.Create: prepare %s: %w", projectDir, err)
-	}
 
 	// rollback removes the project directory. Best-effort: a failure to
 	// remove is logged rather than escalated, since the caller already has
 	// an error and forwarding a cleanup problem loses the real cause.
+	// Declared BEFORE MkdirAll so a partial-create failure (parents made,
+	// leaf denied) also runs it — RemoveAll on a non-existent path is a
+	// no-op, so a MkdirAll that produced nothing costs nothing to clean.
 	rollback := func() {
 		if err := os.RemoveAll(projectDir); err != nil {
 			s.Log.Warn("controls.Create: rollback failed", "project", projectDir, "error", err)
 		}
+	}
+
+	if err := os.MkdirAll(inputsDir, 0o755); err != nil {
+		rollback()
+		return Control{}, fmt.Errorf("controls.Create: prepare %s: %w", projectDir, err)
 	}
 
 	for _, q := range pool {
@@ -226,8 +231,30 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 	return control, nil
 }
 
+// List returns every control, delegating to the Store's own ordering
+// (application_date desc, nulls last). Exposed on Service so the handler
+// has ONE door into the controls domain rather than reaching into Store
+// for reads and Service for writes — the ambiguity a reviewer noticed
+// (WP-E review, ARQ-11).
+func (s *Service) List(ctx context.Context) ([]Control, error) {
+	return s.Store.ListControls(ctx)
+}
+
+// Get returns one control by id, or ErrControlNotFound.
+func (s *Service) Get(ctx context.Context, id string) (Control, error) {
+	return s.Store.ControlByID(ctx, id)
+}
+
 // ProjectDir is the directory (on the SERVER's side) where a control's
 // files live. Handlers use it to serve the PDF downloads (S8).
+//
+// The layout it encodes — controls/<id>/{inputs,out} — is a MODEL of
+// what the AMC worker writes at generation time (ADR-0030 §Operational
+// leaves the directory shape to the caller; we chose it and pass its
+// contents through to the worker). Nothing in this repo cross-checks the
+// two, so a change to where the worker writes its output must be paired
+// with a change here; a fixture-shape assertion between the amctest
+// stubs and these paths pins the current agreement (ARQ-8).
 func (s *Service) ProjectDir(controlID string) string {
 	return filepath.Join(s.WorkDir, projectPrefix, controlID)
 }

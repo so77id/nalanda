@@ -161,10 +161,6 @@ type ControlsFormPage struct {
 	// publishes, in reading order, so the two range dropdowns can render
 	// them. Grouped by document so an <optgroup> renders per document.
 	SectionOptions []DocumentSections
-	// PoolPreview is a Spanish note "Preguntas disponibles en el rango:
-	// N", computed on submit and re-rendered on refusal. Empty on the
-	// blank GET.
-	PoolPreview string
 }
 
 // ControlFormValues holds what the user typed. Values are echoed back on
@@ -191,23 +187,24 @@ type DocumentSections struct {
 }
 
 // SectionOption is one option in the range dropdown. Value is
-// "document:section", the string a form submission sends.
+// "document:section", the string a form submission sends. The template
+// decides which option is selected by comparing Value against the
+// composite form value (Values.FromDocument + ":" + Values.FromSection).
 type SectionOption struct {
-	Value      string
-	Label      string
-	Section    string
-	IsSelected bool
+	Value   string
+	Label   string
+	Section string
 }
 
 // ControlDetailPage is what controls_detail.html renders (S8). The three
-// boxes issue #166 §The screens asks for: metadata, PDFs, scans placeholder.
+// boxes issue #166 §The screens asks for: metadata, PDFs, and the WP-F
+// placeholder scans box (rendered by the template unconditionally today,
+// with no reader on the server side until WP-F ships).
 type ControlDetailPage struct {
 	Page
-	Control      DetailedControl
-	SujetURL     string
-	CorrigeURL   string
-	ScansEnabled bool // false until WP-F: shows the disabled placeholder
-	ScansNotice  string
+	Control    DetailedControl
+	SujetURL   string
+	CorrigeURL string
 }
 
 // DetailedControl is the metadata the detail page shows, pre-formatted.

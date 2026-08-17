@@ -115,6 +115,35 @@ func TestParseRejectsUnsupportedVersion(t *testing.T) {
 	}
 }
 
+func TestParseRejectsDuplicateQuestionID(t *testing.T) {
+	// ADR-0032: the id is the join key from a printed sheet to a grade,
+	// so a duplicate silently merges two students' answers into one
+	// column. The emitter fails the BUILD on this; the reader mirrors
+	// the check so a bank JSON handed to a server that skipped the
+	// build gate is still rejected — otherwise the failure appears
+	// later as a PRIMARY KEY conflict on control_pregunta the first
+	// time a control draws both.
+	const dupJSON = `{
+  "version": 1,
+  "documents": [
+    {"id": "d", "title": "D", "coverage": "c", "sections": ["s"]}
+  ],
+  "questions": [
+    {"id": "same", "document": "d", "anchor": "s", "type": "simple",
+     "statement": "A?", "code": null, "alternatives": ["a","b"], "correct": [0]},
+    {"id": "same", "document": "d", "anchor": "s", "type": "simple",
+     "statement": "B?", "code": null, "alternatives": ["a","b"], "correct": [0]}
+  ]
+}`
+	_, err := bank.Parse(strings.NewReader(dupJSON))
+	if !errors.Is(err, bank.ErrDuplicateQuestionID) {
+		t.Errorf("Parse(duplicate id): %v, want ErrDuplicateQuestionID", err)
+	}
+	if err != nil && !strings.Contains(err.Error(), `"same"`) {
+		t.Errorf("error %q does not name the duplicated id", err.Error())
+	}
+}
+
 func TestParseRejectsMalformedJSON(t *testing.T) {
 	_, err := bank.Parse(strings.NewReader(`{version: 1,`))
 	if err == nil {

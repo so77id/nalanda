@@ -193,7 +193,6 @@ func run(logger *slog.Logger) error {
 		}),
 		Controls: handler.NewControls(handler.Controls{
 			Service:   controlsService,
-			Store:     controlStore,
 			Bank:      loadedBank,
 			PublicURL: cfg.PublicURL,
 			Log:       logger,

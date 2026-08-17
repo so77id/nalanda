@@ -115,6 +115,17 @@ var (
 	// offending field.
 	ErrUnknownDocument = errors.New("bank: unknown document")
 	ErrUnknownSection  = errors.New("bank: unknown section")
+
+	// ErrDuplicateQuestionID is a bank whose Parse found the same
+	// question id twice. ADR-0032 §Consequences names this "a duplicate
+	// question id fails the BUILD, deliberately unlike the rest of the
+	// gate ladder — the id is the join key, and a duplicate silently
+	// merges two students' answers into one column". The emitter in
+	// apps/web already enforces it at build time; this reader mirrors
+	// that rule so a bank JSON handed to a server that skipped the build
+	// gate is still rejected at boot rather than at the first control's
+	// PRIMARY KEY conflict on control_pregunta.
+	ErrDuplicateQuestionID = errors.New("bank: duplicate question id")
 )
 
 // Load fetches the bank from URL and parses it. Blocking, once, at boot.
@@ -204,7 +215,13 @@ func Parse(r io.Reader) (*Bank, error) {
 			b.sectionIndex[SectionRef{Document: d.ID, Section: s}] = j
 		}
 	}
+	seenID := make(map[string]bool, len(raw.Questions))
 	for _, q := range raw.Questions {
+		if seenID[q.ID] {
+			return nil, fmt.Errorf("%w: %q", ErrDuplicateQuestionID, q.ID)
+		}
+		seenID[q.ID] = true
+
 		anchor := ""
 		if q.Anchor != nil {
 			anchor = *q.Anchor

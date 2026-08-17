@@ -48,8 +48,8 @@ const controlsBankJSON = `{
 
 type controlsFixture struct {
 	handler *handler.Controls
+	service *controls.Service
 	fake    *amctest.Fake
-	store   controls.Store
 	workDir string
 	user    auth.User
 	session auth.Session
@@ -98,10 +98,10 @@ func newControlsFixture(t *testing.T) *controlsFixture {
 		Now: time.Now, Seed: 1, Log: log,
 	})
 	h := handler.NewControls(handler.Controls{
-		Service: svc, Store: cstore, Bank: b,
+		Service: svc, Bank: b,
 		PublicURL: publicURL, Log: log,
 	})
-	return &controlsFixture{handler: h, fake: fake, store: cstore, workDir: workDir, user: prof, session: session, log: log}
+	return &controlsFixture{handler: h, service: svc, fake: fake, workDir: workDir, user: prof, session: session, log: log}
 }
 
 func (f *controlsFixture) authedRequest(t *testing.T, method, path string, body url.Values) *http.Request {
@@ -163,7 +163,7 @@ func TestCreateWritesAControlAndRedirectsToItsDetail(t *testing.T) {
 		t.Errorf("Location = %q, want /controls/<id>", loc)
 	}
 
-	rows, err := f.store.ListControls(context.Background())
+	rows, err := f.service.List(context.Background())
 	if err != nil {
 		t.Fatalf("ListControls: %v", err)
 	}
@@ -205,7 +205,7 @@ func TestCreateRefusesMissingNameWith422(t *testing.T) {
 		t.Error("a 422 refusal must not carry a Location header")
 	}
 	// The store is untouched.
-	rows, _ := f.store.ListControls(context.Background())
+	rows, _ := f.service.List(context.Background())
 	if len(rows) != 0 {
 		t.Errorf("stored %d rows after a refusal, want 0", len(rows))
 	}
@@ -316,7 +316,7 @@ func TestCreateRendersA500ThroughTheShellWhenTheWorkerRefuses(t *testing.T) {
 		t.Error("body does not carry the shell error page's Spanish message")
 	}
 
-	rows, _ := f.store.ListControls(context.Background())
+	rows, _ := f.service.List(context.Background())
 	if len(rows) != 0 {
 		t.Errorf("stored %d rows after a worker failure, want 0 (creation is all-or-nothing)", len(rows))
 	}
@@ -332,7 +332,7 @@ func TestCreateRendersA500WhenSujetIsMissing(t *testing.T) {
 	if rec.Code != http.StatusInternalServerError {
 		t.Fatalf("status = %d, want 500", rec.Code)
 	}
-	rows, _ := f.store.ListControls(context.Background())
+	rows, _ := f.service.List(context.Background())
 	if len(rows) != 0 {
 		t.Errorf("stored %d rows after a 0-byte sujet, want 0", len(rows))
 	}
@@ -441,14 +441,23 @@ func TestSujetPDFStreamsTheFile(t *testing.T) {
 
 func TestSujetPDF404sWhenTheControlIsUnknown(t *testing.T) {
 	f := newControlsFixture(t)
+
+	// Well-shaped but unknown id — the store's lookup misses.
 	rec := httptest.NewRecorder()
 	req := f.authedRequest(t, http.MethodGet, "/controls/AAAAAAAAAAAAAAAAAAAAAAAAAA/sujet.pdf", nil)
 	req.SetPathValue("id", "AAAAAAAAAAAAAAAAAAAAAAAAAA")
 	f.handler.SujetPDF(rec, req)
 	if rec.Code != http.StatusNotFound {
-		t.Errorf("status = %d, want 404", rec.Code)
+		t.Errorf("status(well-shaped unknown) = %d, want 404", rec.Code)
+	}
+
+	// Badly-shaped id — the isValidControlID guard rejects before the
+	// store is even reached. Covers the fast-fail path Detail also has.
+	rec = httptest.NewRecorder()
+	req = f.authedRequest(t, http.MethodGet, "/controls/short/sujet.pdf", nil)
+	req.SetPathValue("id", "short")
+	f.handler.SujetPDF(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status(bad shape) = %d, want 404", rec.Code)
 	}
 }
-
-// silence io import in case future edits drop the last use.
-var _ = io.Discard

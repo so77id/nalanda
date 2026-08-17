@@ -43,9 +43,12 @@ const (
 // reasoning: several handlers sharing dependencies, refused when the set
 // is incomplete so a wiring mistake is a panic at boot rather than a nil
 // dereference inside a request (backend-code-style.md §Errors).
+//
+// Only Service is here on the domain side — reads and writes both go
+// through it (WP-E review, ARQ-11: the earlier shape held both Service
+// and Store and reviewers could not tell which was canonical for reads).
 type Controls struct {
 	Service   *controls.Service
-	Store     controls.Store
 	Bank      *bank.Bank
 	PublicURL string
 	Log       *slog.Logger
@@ -58,8 +61,6 @@ func NewControls(deps Controls) *Controls {
 	switch {
 	case deps.Service == nil:
 		panic("handler.NewControls: no service")
-	case deps.Store == nil:
-		panic("handler.NewControls: no store")
 	case deps.Bank == nil:
 		panic("handler.NewControls: no bank")
 	case deps.PublicURL == "":
@@ -71,10 +72,10 @@ func NewControls(deps Controls) *Controls {
 	return &deps
 }
 
-// List renders every control the store returns, ordered as the store
+// List renders every control the service returns, ordered as the store
 // promises (application_date desc, nulls last).
 func (h *Controls) List(w http.ResponseWriter, r *http.Request) {
-	rows, err := h.Store.ListControls(r.Context())
+	rows, err := h.Service.List(r.Context())
 	if err != nil {
 		h.Log.Error("listing controls", "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
@@ -95,7 +96,7 @@ func (h *Controls) List(w http.ResponseWriter, r *http.Request) {
 
 // New renders the empty create form.
 func (h *Controls) New(w http.ResponseWriter, r *http.Request) {
-	page := h.newFormPage(r, defaultFormValues(), nil, "", "")
+	page := h.newFormPage(r, defaultFormValues(), nil, "")
 	if err := view.RenderControlsForm(w, http.StatusOK, page); err != nil {
 		h.Log.Error("rendering the controls create form", "error", err)
 	}
@@ -106,20 +107,14 @@ func (h *Controls) New(w http.ResponseWriter, r *http.Request) {
 func (h *Controls) Create(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		h.rerenderNew(w, r, defaultFormValues(), nil,
-			"No se pudo leer el formulario. Inténtalo de nuevo.", "")
+			"No se pudo leer el formulario. Inténtalo de nuevo.")
 		return
 	}
 
 	values := valuesFromRequest(r)
-	errs, req, appDateErr := validateCreate(values, h.Bank)
-	if appDateErr != "" {
-		if errs == nil {
-			errs = map[string]string{}
-		}
-		errs["application_date"] = appDateErr
-	}
+	errs, req := validateCreate(values, h.Bank)
 	if len(errs) > 0 {
-		h.rerenderNew(w, r, values, errs, "", "")
+		h.rerenderNew(w, r, values, errs, "")
 		return
 	}
 
@@ -135,7 +130,7 @@ func (h *Controls) Create(w http.ResponseWriter, r *http.Request) {
 
 	control, err := h.Service.Create(r.Context(), req)
 	if err != nil {
-		fieldErr, message, ok := domainErrorToForm(err)
+		fieldErr, ok := domainErrorToForm(err)
 		if !ok {
 			// A failure the professor cannot repair — worker down, sujet
 			// missing, disk full. Log it, render a 500 through the shell
@@ -145,7 +140,7 @@ func (h *Controls) Create(w http.ResponseWriter, r *http.Request) {
 				"El servidor no pudo generar el control. Vuelve a intentarlo en unos minutos; si el problema persiste, avisa a alguien de infraestructura.")
 			return
 		}
-		h.rerenderNew(w, r, values, fieldErr, message, "")
+		h.rerenderNew(w, r, values, fieldErr, "")
 		return
 	}
 
@@ -160,7 +155,7 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
 		return
 	}
-	c, err := h.Store.ControlByID(r.Context(), id)
+	c, err := h.Service.Get(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, controls.ErrControlNotFound) {
 			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
@@ -205,7 +200,7 @@ func (h *Controls) servePDF(w http.ResponseWriter, r *http.Request, name string)
 	// A lookup rather than a bare filepath.Join(WorkDir, id): the row is
 	// the authority, so a control that has no row cannot have its files
 	// served either (auth's list-then-serve pattern applied here).
-	if _, err := h.Store.ControlByID(r.Context(), id); err != nil {
+	if _, err := h.Service.Get(r.Context(), id); err != nil {
 		if errors.Is(err, controls.ErrControlNotFound) {
 			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
 			return
@@ -249,14 +244,14 @@ func (h *Controls) servePDF(w http.ResponseWriter, r *http.Request, name string)
 }
 
 // rerenderNew re-renders the form after a validation refusal (422).
-func (h *Controls) rerenderNew(w http.ResponseWriter, r *http.Request, values view.ControlFormValues, errs map[string]string, notice, poolPreview string) {
-	page := h.newFormPage(r, values, errs, notice, poolPreview)
+func (h *Controls) rerenderNew(w http.ResponseWriter, r *http.Request, values view.ControlFormValues, errs map[string]string, notice string) {
+	page := h.newFormPage(r, values, errs, notice)
 	if err := view.RenderControlsForm(w, http.StatusUnprocessableEntity, page); err != nil {
 		h.Log.Error("rendering the controls form after validation", "error", err)
 	}
 }
 
-func (h *Controls) newFormPage(r *http.Request, values view.ControlFormValues, errs map[string]string, notice, poolPreview string) view.ControlsFormPage {
+func (h *Controls) newFormPage(r *http.Request, values view.ControlFormValues, errs map[string]string, notice string) view.ControlsFormPage {
 	return view.ControlsFormPage{
 		Page:           middleware.PageFor(r, "Nuevo control"),
 		Action:         ControlsPath,
@@ -265,8 +260,7 @@ func (h *Controls) newFormPage(r *http.Request, values view.ControlFormValues, e
 		Values:         values,
 		Errors:         errs,
 		Notice:         notice,
-		SectionOptions: sectionOptionsFromBank(h.Bank, values),
-		PoolPreview:    poolPreview,
+		SectionOptions: sectionOptionsFromBank(h.Bank),
 	}
 }
 
@@ -298,12 +292,9 @@ func valuesFromRequest(r *http.Request) view.ControlFormValues {
 }
 
 // validateCreate is the form's validation convention: field-keyed map,
-// empty means valid. Also returns the parsed CreateRequest (populated only
-// when the map is empty) and any application_date error to be re-inserted
-// after the map is built (a parse error is per-field but application_date
-// is optional; the empty case is valid and the presence of an error only
-// matters when a value was typed).
-func validateCreate(v view.ControlFormValues, b *bank.Bank) (map[string]string, controls.CreateRequest, string) {
+// empty means valid. Also returns the parsed CreateRequest (populated
+// only when the map is empty).
+func validateCreate(v view.ControlFormValues, b *bank.Bank) (map[string]string, controls.CreateRequest) {
 	errs := map[string]string{}
 
 	if v.Name == "" {
@@ -314,12 +305,14 @@ func validateCreate(v view.ControlFormValues, b *bank.Bank) (map[string]string, 
 		errs["name"] = "El nombre debe tener a lo más 100 caracteres."
 	}
 
+	// application_date is optional: an empty string is valid and skips
+	// the parse. A non-empty value that fails to parse is a per-field
+	// refusal.
 	var appDate *time.Time
-	var appDateErr string
 	if v.ApplicationDate != "" {
 		parsed, err := time.Parse("2006-01-02", v.ApplicationDate)
 		if err != nil {
-			appDateErr = "La fecha no tiene la forma esperada (AAAA-MM-DD)."
+			errs["application_date"] = "La fecha no tiene la forma esperada (AAAA-MM-DD)."
 		} else {
 			appDate = &parsed
 		}
@@ -355,7 +348,7 @@ func validateCreate(v view.ControlFormValues, b *bank.Bank) (map[string]string, 
 		QuestionsPerCopy: qpc,
 		Copies:           copies,
 	}
-	return errs, req, appDateErr
+	return errs, req
 }
 
 // parsePositive parses a positive integer in [min, max]. Empty is
@@ -375,16 +368,16 @@ func parsePositive(raw string, min, max int) (int, string) {
 }
 
 // domainErrorToForm maps a Service.Create failure onto (field errors,
-// notice, ok). ok is false for errors the professor cannot repair; those
-// bubble up as a 500 in Create.
-func domainErrorToForm(err error) (map[string]string, string, bool) {
+// ok). ok is false for errors the professor cannot repair; those bubble
+// up as a 500 in Create.
+func domainErrorToForm(err error) (map[string]string, bool) {
 	switch {
 	case errors.Is(err, bank.ErrRangeInverted):
-		return map[string]string{"to": "El fin va antes que el inicio en el orden de lectura."}, "", true
+		return map[string]string{"to": "El fin va antes que el inicio en el orden de lectura."}, true
 	case errors.Is(err, bank.ErrEmptyRange):
-		return map[string]string{"to": "El rango no tiene preguntas todavía."}, "", true
+		return map[string]string{"to": "El rango no tiene preguntas todavía."}, true
 	case errors.Is(err, bank.ErrUnknownDocument), errors.Is(err, bank.ErrUnknownSection):
-		return map[string]string{"from": "Ese rango no existe en el banco."}, "", true
+		return map[string]string{"from": "Ese rango no existe en el banco."}, true
 	case errors.Is(err, controls.ErrPoolTooSmall):
 		var pool controls.PoolTooSmallErr
 		if errors.As(err, &pool) {
@@ -392,17 +385,17 @@ func domainErrorToForm(err error) (map[string]string, string, bool) {
 				"questions_per_copy": fmt.Sprintf(
 					"Pediste %d preguntas por copia, pero el rango solo tiene %d disponibles.",
 					pool.QuestionsPerCopy, pool.Pool),
-			}, "", true
+			}, true
 		}
 	}
-	return nil, "", false
+	return nil, false
 }
 
 // sectionOptionsFromBank builds the range dropdowns from the bank, in
-// reading order. A pre-selected value (from a form re-render) sets
-// IsSelected — actually done inline in the template with a comparison
-// against the composite value, so no per-option flag is needed here.
-func sectionOptionsFromBank(b *bank.Bank, _ view.ControlFormValues) []view.DocumentSections {
+// reading order. The template decides which option is selected by
+// comparing option.Value against the composite form value; no per-option
+// flag is needed and no per-render state has to travel through here.
+func sectionOptionsFromBank(b *bank.Bank) []view.DocumentSections {
 	if b == nil {
 		return nil
 	}

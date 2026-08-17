@@ -43,7 +43,7 @@ func TestFakeWritesStubFilesWhenWorkDirIsSet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Generate: %v", err)
 	}
-	if assets.Sujet != "controls/abc/out/sujet.pdf" || assets.Copies != 2 {
+	if assets.Sujet != "controls/abc/out/sujet.pdf" {
 		t.Errorf("Assets = %+v", assets)
 	}
 
@@ -54,11 +54,13 @@ func TestFakeWritesStubFilesWhenWorkDirIsSet(t *testing.T) {
 	if info.Size() != 42 {
 		t.Errorf("sujet size = %d, want 42", info.Size())
 	}
-	if _, err := os.Stat(filepath.Join(dir, assets.Corrige)); err != nil {
-		t.Errorf("corrige missing: %v", err)
-	}
-	if _, err := os.Stat(filepath.Join(dir, assets.Calage)); err != nil {
-		t.Errorf("calage missing: %v", err)
+	// corrige.pdf and calage.xy are still written to disk (WP-F reads them
+	// off the same convention the worker follows); Assets does not carry
+	// their paths.
+	for _, name := range []string{"corrige.pdf", "calage.xy"} {
+		if _, err := os.Stat(filepath.Join(dir, "controls", "abc", "out", name)); err != nil {
+			t.Errorf("%s missing: %v", name, err)
+		}
 	}
 }
 

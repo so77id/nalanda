@@ -54,7 +54,7 @@ func TestGenerateSendsProjectSourceAndCopies(t *testing.T) {
 	if got.Project != "controls/abc" || got.Source != "controls/abc/inputs/source.tex" || got.Copies != 30 {
 		t.Errorf("worker received %+v", got)
 	}
-	if assets.Sujet != "controls/abc/out/sujet.pdf" || assets.Copies != 30 {
+	if assets.Sujet != "controls/abc/out/sujet.pdf" {
 		t.Errorf("Assets = %+v", assets)
 	}
 }

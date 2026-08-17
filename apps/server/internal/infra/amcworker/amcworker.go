@@ -176,6 +176,11 @@ func (c *Client) Generate(ctx context.Context, req controls.GenerateRequest) (co
 		return controls.Assets{}, fmt.Errorf("%w: decode response: %v", controls.ErrGeneratorRefused, err)
 	}
 
+	// The wire-level completeness checks stay HERE, on the wire type,
+	// because they are properties of the /generate response — not
+	// something the domain models. Missing paths or a wrong copy count
+	// both reduce to ErrGeneratorRefused, which is the shape a handler
+	// renders.
 	if payload.Sujet == "" || payload.Corrige == "" || payload.Calage == "" {
 		return controls.Assets{}, fmt.Errorf("%w: worker returned an incomplete response: %+v",
 			controls.ErrGeneratorRefused, payload)
@@ -185,12 +190,7 @@ func (c *Client) Generate(ctx context.Context, req controls.GenerateRequest) (co
 			controls.ErrGeneratorRefused, payload.Copies, req.Copies)
 	}
 
-	return controls.Assets{
-		Sujet:   payload.Sujet,
-		Corrige: payload.Corrige,
-		Calage:  payload.Calage,
-		Copies:  payload.Copies,
-	}, nil
+	return controls.Assets{Sujet: payload.Sujet}, nil
 }
 
 // truncateForLog keeps a response body short enough to log without dumping a

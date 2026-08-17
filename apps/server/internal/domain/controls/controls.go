@@ -64,14 +64,20 @@ type Copy struct {
 	Numero    int // 1-based, matches AMC's printed \onecopy index
 }
 
-// Store is what the controls Service (S5) reaches into for persistence.
-// Declared in the domain per §The dependency rule: an interface lives where
-// it is consumed, and infra implements it.
+// Store is what the controls Service reaches into for persistence.
+// Declared in the domain per §The dependency rule: an interface lives
+// where it is consumed, and infra implements it.
 //
-// The unit of work here is a whole control — the row plus its pool plus its
-// copies land atomically or not at all (§Failure modes: "creation is
+// The unit of work here is a whole control — the row plus its pool plus
+// its copies land atomically or not at all (§Failure modes: "creation is
 // all-or-nothing"). Splitting it into per-table methods would push the
 // atomicity contract onto every caller.
+//
+// The method set is deliberately what THIS WP calls. `controlstore.Store`
+// also exposes ControlPool, unregistered here on purpose: WP-F is where
+// the pool is read back for grading, and adding it now with no reader
+// would be a Java-shaped interface (backend-code-style.md §The dependency
+// rule) whose consumer's needs cannot yet shape it.
 type Store interface {
 	// CreateControl writes the control, its pool entries and its copies in
 	// one transaction. Fails atomically: no rows are left behind on any
@@ -85,10 +91,6 @@ type Store interface {
 	// descending — with nulls last, so a "no date declared" row does not
 	// hide freshly generated controls. Created-at ties break within a date.
 	ListControls(ctx context.Context) ([]Control, error)
-
-	// ControlPool returns the pool drawn for this control, in the order it
-	// was drawn. Exposed for WP-F; WP-E writes and never reads it back.
-	ControlPool(ctx context.Context, controlID string) ([]PoolEntry, error)
 }
 
 // Generator asks the AMC worker to compile a .tex into printable PDFs.
@@ -122,23 +124,23 @@ type GenerateRequest struct {
 	Copies int
 }
 
-// Assets is what a successful Generate returns: the paths AMC wrote and the
-// copy count it confirms. Paths are relative to the work volume so a caller
-// can join them with either the local mount (server side) or /work (worker
-// side) without translation.
+// Assets is what a successful Generate returns: the printable sujet the
+// Service checks on disk before committing the row. The worker also produces
+// corrige.pdf and calage.xy in the same out/ directory, but WP-E never reads
+// them after generation — the download handlers (SujetPath, CorrigePath)
+// re-derive them from ProjectDir. WP-F will read them off the same
+// convention (see the ADR-0033 note next to ProjectDir).
+//
+// The narrower value here is the whole point: adding Corrige/Calage/Copies
+// as domain fields with no reader made them a shape a maintainer had to
+// keep in step with a worker they never see; the amcworker client keeps
+// its own non-empty checks on the wire response and does not need this
+// domain type to carry them.
 type Assets struct {
-	// Sujet is the printable subject PDF, one per class, staged for printing
-	// (the professor's headline deliverable).
+	// Sujet is the sujet.pdf path relative to the work volume, so a caller
+	// can join it with either the local mount (server side) or /work
+	// (worker side) without translation.
 	Sujet string
-	// Corrige is the answer key AMC produces alongside sujet.pdf. Handed to
-	// the professor as a second download, and read by WP-F for grading.
-	Corrige string
-	// Calage is AMC's per-copy layout, needed by WP-F to know where each box
-	// landed. WP-E writes it to disk and never reads it back.
-	Calage string
-	// Copies is what the worker confirmed as generated. A mismatch with the
-	// requested count is treated as a generation failure by the Service.
-	Copies int
 }
 
 // The failure modes callers branch on. Wrapped so a handler can render a

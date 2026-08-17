@@ -308,7 +308,7 @@ func TestFixtureAndGeneratorAgreeOnTheLoadBearingRules(t *testing.T) {
 			{`\lstset present`, strings.Contains(source, `\lstset`), ""},
 			{`\AMCcode{rut}{8}`, strings.Contains(source, `\AMCcode{rut}{8}`), "8-digit RUT grid (§C5)"},
 			{`\shufflegroup{clase}`, strings.Contains(source, `\shufflegroup{clase}`), ""},
-			{`\lastchoices before "Ninguna de las anteriores"`, strings.Index(source, `\lastchoices`) < strings.Index(source, "Ninguna de las anteriores") && strings.Contains(source, `\lastchoices`), "pin has no effect (ADR-0033)"},
+			{`\lastchoices before "Ninguna de las anteriores"`, lastchoicesPinsCorrectly(source), "pin has no effect (ADR-0033) — a \\lastchoices comment mention does not satisfy the rule the CODE version has to obey"},
 			{"deleted 'Marca una sola alternativa'", !containsOutsideComments(source, "Marca una sola alternativa por pregunta"), "false when a multiple is drawn"},
 			{"answering everything is free", strings.Contains(source, "equivocarse no descuenta"), "§C7"},
 		}
@@ -331,6 +331,43 @@ func TestFixtureAndGeneratorAgreeOnTheLoadBearingRules(t *testing.T) {
 		})
 		assertShape(t, generated, "generator")
 	})
+}
+
+// lastchoicesPinsCorrectly enforces two things at once, both against a
+// comment-stripped copy of the source: `\lastchoices` really appears in
+// CODE (not just in a comment explaining why it is there), and it
+// appears BEFORE "Ninguna de las anteriores". Reviewed in as its own
+// helper because the naive `strings.Index(source, "\\lastchoices")` was
+// satisfied by a comment mentioning the macro — measured on the
+// checked-in fixture, which has the comment above the real command.
+func lastchoicesPinsCorrectly(source string) bool {
+	stripped := stripLatexComments(source)
+	last := strings.Index(stripped, `\lastchoices`)
+	if last < 0 {
+		return false
+	}
+	pinned := strings.Index(stripped, "Ninguna de las anteriores")
+	if pinned < 0 {
+		return false
+	}
+	return last < pinned
+}
+
+// stripLatexComments returns source with LaTeX line comments removed
+// (everything from an unescaped % to end of line). Newlines are
+// preserved so offsets outside comments remain meaningful.
+func stripLatexComments(source string) string {
+	var out strings.Builder
+	out.Grow(len(source))
+	for _, line := range strings.Split(source, "\n") {
+		if i := indexUnescapedPercent(line); i >= 0 {
+			out.WriteString(line[:i])
+		} else {
+			out.WriteString(line)
+		}
+		out.WriteByte('\n')
+	}
+	return out.String()
 }
 
 // containsOutsideComments reports whether needle appears in source outside
