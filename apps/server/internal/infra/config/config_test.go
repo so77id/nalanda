@@ -22,6 +22,12 @@ func env() map[string]string {
 		"NALANDA_GOOGLE_CLIENT_SECRET":      "the-client-secret",
 		"NALANDA_SESSION_TTL":               "168h",
 		"NALANDA_BOOTSTRAP_PROFESSOR_EMAIL": "profesora@example.com",
+		// WP-E (#166): the three variables the controls domain needs. A
+		// case that breaks a different variable still needs these set,
+		// otherwise every case would fail with the wrong reason.
+		"NALANDA_QUESTIONS_JSON_URL": "https://nalanda.example.com/questions.json",
+		"NALANDA_AMC_WORKER_URL":     "http://amc-worker:8080",
+		"NALANDA_WORK_DIR":           "/work",
 	}
 }
 
@@ -59,6 +65,9 @@ func TestLoadFailsByNameOnAMissingVariable(t *testing.T) {
 		"NALANDA_PUBLIC_URL",
 		"NALANDA_GOOGLE_CLIENT_ID",
 		"NALANDA_GOOGLE_CLIENT_SECRET",
+		"NALANDA_QUESTIONS_JSON_URL",
+		"NALANDA_AMC_WORKER_URL",
+		"NALANDA_WORK_DIR",
 	} {
 		t.Run(key, func(t *testing.T) {
 			broken := env()
@@ -111,6 +120,9 @@ func TestLoadReportsEveryMissingVariableAtOnce(t *testing.T) {
 		"NALANDA_PUBLIC_URL",
 		"NALANDA_GOOGLE_CLIENT_ID",
 		"NALANDA_GOOGLE_CLIENT_SECRET",
+		"NALANDA_QUESTIONS_JSON_URL",
+		"NALANDA_AMC_WORKER_URL",
+		"NALANDA_WORK_DIR",
 	} {
 		if !strings.Contains(err.Error(), key) {
 			t.Errorf("error = %q, want it to name %q", err, key)

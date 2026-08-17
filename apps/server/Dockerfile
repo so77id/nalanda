@@ -24,12 +24,22 @@ RUN go mod download
 
 COPY . .
 
-# The directory the database lives in, created here because scratch has no
-# shell to mkdir with and no chown to fix ownership afterwards. Docker seeds a
+# The two writable mount points, created here because scratch has no shell
+# to mkdir with and no chown to fix ownership afterwards. Docker seeds a
 # named volume from whatever is at the mount point in the image, permissions
-# included, so this is what makes the volume writable by the unprivileged UID
-# below.
-RUN mkdir -p /data && chown 65532:65532 /data
+# included, so this is what makes both volumes writable by the unprivileged
+# UID below:
+#
+#   /data — the SQLite database (this app's own volume, seeded once).
+#   /work — the SHARED volume with amc-worker (issue #166 WP-E, ADR-0034
+#           §Consequences). Both containers mount it. The compose file
+#           depends_on: server so THIS container is the one that seeds
+#           the volume the first time it comes up; without that, the
+#           worker (which runs as root) seeds it root:root and the
+#           server's first os.MkdirAll under /work fails EACCES on the
+#           first /generate — a failure invisible to `compose up --wait`
+#           because that step only probes /health.
+RUN mkdir -p /data /work && chown 65532:65532 /data /work
 
 # CGO_ENABLED=0 is the load-bearing flag. With it on, the toolchain would link
 # against Alpine's musl and the binary would not run on `scratch` — and the
@@ -59,6 +69,7 @@ COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 ENV TZ=UTC
 
 COPY --from=build --chown=65532:65532 /data /data
+COPY --from=build --chown=65532:65532 /work /work
 COPY --from=build /server /server
 
 # An unprivileged, numeric UID. Numeric because scratch has no /etc/passwd for a

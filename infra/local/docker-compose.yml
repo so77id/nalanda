@@ -42,8 +42,30 @@ services:
       # being visible where an operator edits it, not about which variables the
       # loader would survive without.
       NALANDA_SESSION_TTL: "${NALANDA_SESSION_TTL:-720h}"
+      # --- WP-E (issue #166): entrance controls ---
+      # The published bank (ADR-0032). Points at the JSON we bind-mount into
+      # /work below — a placeholder set with zero questions, enough to boot
+      # so `compose up --wait` proves the binary starts. Replace with the
+      # real questions.json for actual generation:
+      #   NALANDA_QUESTIONS_JSON_URL=file:///work/questions.json \
+      #     cp path/to/apps/web/dist/questions.json infra/local/questions.example.json
+      NALANDA_QUESTIONS_JSON_URL: "${NALANDA_QUESTIONS_JSON_URL:-file:///work/questions.json}"
+      # The worker service. Same compose network, so the service name resolves.
+      NALANDA_AMC_WORKER_URL: "${NALANDA_AMC_WORKER_URL:-http://amc-worker:8080}"
+      # The shared volume the server and the worker BOTH mount at /work
+      # (ADR-0034 §Consequences). The .tex the generator emits writes /work
+      # absolute paths regardless — this only decides where the server writes.
+      NALANDA_WORK_DIR: "/work"
     volumes:
       - server-data:/data
+      # Shared with the amc-worker service below. The server writes a
+      # control's inputs here, the worker reads them and writes the PDFs
+      # back — see docs/design/2026-08-controles.md §C9.
+      - amc-work:/work
+      # A minimal bank file so the boot fetch succeeds. Real bank is the
+      # published artifact from apps/web; this is the placeholder that lets
+      # `compose up --wait` prove the binary starts.
+      - ./questions.example.json:/work/questions.json:ro
     ports:
       - "127.0.0.1:8081:8081"
     # Free here in a way it is not for amc-worker: the image is `scratch` with
@@ -71,6 +93,17 @@ services:
       context: ../../apps/amc-worker
       dockerfile: Dockerfile
     image: nalanda/amc-worker:dev
+    # depends_on the server so THIS is the second container to mount the
+    # shared amc-work volume. Docker seeds a named volume from the first
+    # container that touches it, permissions included — and the server
+    # runs as UID 65532 while the worker runs as root. Without this
+    # order, root:root would seed /work and the server's first
+    # os.MkdirAll under /work would fail EACCES on the first /generate.
+    # The failure is invisible to `compose up --wait` because that step
+    # only probes /health.
+    depends_on:
+      server:
+        condition: service_started
     # No display, and no X socket mounted: a code path that reaches the GTK
     # interface dies here rather than silently working on a developer's machine
     # and failing on a server.

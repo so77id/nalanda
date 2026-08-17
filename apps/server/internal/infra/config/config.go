@@ -37,6 +37,29 @@ const (
 	KeyBootstrapProfessorEmail = "NALANDA_BOOTSTRAP_PROFESSOR_EMAIL"
 )
 
+// The entrance-controls WP-E block (#166). Separate block because these
+// mean something different again: without them the CONTROL SCREENS refuse
+// to work, but the login and health paths still answer.
+const (
+	// KeyQuestionsJSONURL points at the published question bank (ADR-0032).
+	// http/https for production, file:// for development. The Load happens
+	// once at boot and a parse failure is a panic there, so the value is
+	// required.
+	KeyQuestionsJSONURL = "NALANDA_QUESTIONS_JSON_URL"
+	// KeyAmcWorkerURL is where the AMC worker's /generate is reached
+	// (ADR-0030). Absolute http/https URL.
+	KeyAmcWorkerURL = "NALANDA_AMC_WORKER_URL"
+	// KeyWorkDir is the shared volume mount point on the SERVER'S side.
+	// The two containers share the amc-work named volume and its
+	// seeding order is load-bearing — the whole rule (UID 65532 vs
+	// root, first mounter seeds the volume, why compose up --wait
+	// cannot see the failure) lives in ADR-0034 §Consequences
+	// ("The shared amc-work volume ... has a seeding order that is
+	// load-bearing"). The generator writes /work absolute paths from
+	// the WORKER's side regardless of what this server names its own.
+	KeyWorkDir = "NALANDA_WORK_DIR"
+)
+
 // ErrMissing is wrapped by every error caused by an absent or empty required
 // variable, so a caller can distinguish "the operator has not finished
 // configuring this" from "the operator configured it wrongly".
@@ -94,6 +117,16 @@ type Config struct {
 	// professors at all. Empty disables the path entirely, which is what an
 	// operator does once the first professor exists.
 	BootstrapProfessorEmail string
+
+	// QuestionsJSONURL points at the published question bank
+	// (ADR-0032). Fetched once at boot; a parse failure there is a panic.
+	QuestionsJSONURL string
+	// AmcWorkerURL is the AMC worker's HTTP origin.
+	AmcWorkerURL string
+	// WorkDir is where the server sees the shared volume with the worker.
+	// The .tex the generator emits always uses /work absolute paths (from
+	// the worker's perspective, controls.WorkerWorkDir) whatever this is.
+	WorkDir string
 }
 
 // Keys lists every variable this package reads, in the order an operator would
@@ -104,6 +137,7 @@ func Keys() []string {
 		KeyAddr, KeyDatabaseURL, KeyLogLevel,
 		KeyPublicURL, KeyGoogleClientID, KeyGoogleClientSecret,
 		KeySessionTTL, KeyBootstrapProfessorEmail,
+		KeyQuestionsJSONURL, KeyAmcWorkerURL, KeyWorkDir,
 	}
 }
 
@@ -120,6 +154,10 @@ func Load(lookup LookupFunc) (Config, error) {
 		GoogleClientID:          l.required(KeyGoogleClientID),
 		GoogleClientSecret:      l.required(KeyGoogleClientSecret),
 		BootstrapProfessorEmail: l.optional(KeyBootstrapProfessorEmail, ""),
+
+		QuestionsJSONURL: l.required(KeyQuestionsJSONURL),
+		AmcWorkerURL:     l.required(KeyAmcWorkerURL),
+		WorkDir:          l.required(KeyWorkDir),
 	}
 
 	// Report every missing variable at once: an operator starting from an
@@ -237,6 +275,9 @@ func (c Config) LogValue() slog.Value {
 		slog.String("google_client_id", c.GoogleClientID),
 		slog.String("session_ttl", c.SessionTTL.String()),
 		slog.Bool("bootstrap_email_set", c.BootstrapProfessorEmail != ""),
+		slog.String("questions_json_url", c.QuestionsJSONURL),
+		slog.String("amc_worker_url", c.AmcWorkerURL),
+		slog.String("work_dir", c.WorkDir),
 	)
 }
 
@@ -245,9 +286,10 @@ func (c Config) LogValue() slog.Value {
 // either.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t}",
+		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t questions_json_url:%s amc_worker_url:%s work_dir:%s}",
 		c.Addr, c.SafeDatabaseURL(), c.LogLevel, c.PublicURL, c.GoogleClientID,
 		c.SessionTTL, c.BootstrapProfessorEmail != "",
+		c.QuestionsJSONURL, c.AmcWorkerURL, c.WorkDir,
 	)
 }
 

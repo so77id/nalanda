@@ -6,7 +6,16 @@ three honest.
 
 Deferred from #149 on purpose — a guide written against a worked example that
 does not exist is fiction — and written by #150, which produced the first real
-chain: a route, a domain service, three repositories and a migration.
+chain: a route, a domain service, three repositories and a migration. Since
+WP-E (#166) there is a second, non-auth chain that adds the pieces this guide
+did not exhibit — a domain interface for an outbound HTTP adapter
+(`controls.Generator`, implemented by `amcworker.Client`, with the fake living
+next to the client in `amcworker/amctest`), a domain service that orchestrates
+a store and that adapter together (`controls.Service`), and a handler that
+maps a family of domain sentinels onto per-field form errors while letting
+operator-caused failures render a shell 500 (`handler/controls.go`
+`domainErrorToForm`). Reach for that chain when the endpoint reaches out over
+HTTP as well as into SQLite; the auth chain is still the smaller shape.
 
 ## When to use
 

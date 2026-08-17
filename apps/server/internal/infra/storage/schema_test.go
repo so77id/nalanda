@@ -220,6 +220,30 @@ func TestLastLoginAtIsNullableAndSurvivesARoundTrip(t *testing.T) {
 	}
 }
 
+// The control table's state column is CHECK-guarded because the value is
+// what the professor reads and what WP-F's lifecycle branches on: a typo
+// silently accepted would put the row in a state nothing else recognises,
+// with no schema-level signal.
+func TestControlStateRefusesAnUnknownValue(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+
+	_, err := db.ExecContext(ctx, `
+        INSERT INTO control (
+            id, name, application_date,
+            from_document, from_section, to_document, to_section,
+            questions_per_copy, copies, state, created_at, created_by
+        ) VALUES (?, 'x', NULL, 'flujo', 'if-else', 'flujo', 'bucles', 4, 3, ?, 0, ?)`,
+		"CTRLSTATE00000000000000000", "typoed_state", userID,
+	)
+	if err == nil {
+		t.Fatal("the control table accepted an unknown state, want a CHECK constraint failure")
+	}
+	if !strings.Contains(err.Error(), "CHECK constraint failed") {
+		t.Errorf("rejected with %v, want CHECK constraint failure", err)
+	}
+}
+
 // The one migration case that is about an operator rather than about the schema.
 //
 // #149 shipped migrations/00001_init.sql, a deliberate `SELECT 1;`, and anyone

@@ -124,6 +124,100 @@ type ListedProfessor struct {
 	LastSignIn string
 }
 
+// ControlsListPage is what controls_list.html renders (S7). One row per
+// control, with the columns issue #166 §The screens asks for. All values
+// are pre-formatted by the handler (Spanish dates, human ranges), same
+// reasoning as ProfessorsListPage.
+type ControlsListPage struct {
+	Page
+	Controls []ListedControl
+}
+
+// ListedControl is one row of the controls list, with every column already
+// as a string a person reads.
+type ListedControl struct {
+	ID              string
+	Name            string
+	ApplicationDate string // "sin fecha" for a control with no date
+	Range           string // "Bienvenida/hola → Flujo/bucles"
+	Shape           string // "4 preguntas × 30 copias"
+	State           string // Spanish word matching the domain State
+	DetailURL       string
+}
+
+// ControlsFormPage is what controls_form.html renders. Same one-template-
+// for-three-purposes shape as ProfessorsFormPage (issue #151 §Form /
+// validation / errors): GET (empty), validation-failure re-render (values
+// + errors), and — when a future WP grows an edit form — pre-filled.
+type ControlsFormPage struct {
+	Page
+	Action  string
+	Values  ControlFormValues
+	Errors  map[string]string
+	Notice  string
+	Submit  string
+	Heading string
+	// SectionOptions lists every (document, section) pair the bank
+	// publishes, in reading order, so the two range dropdowns can render
+	// them. Grouped by document so an <optgroup> renders per document.
+	SectionOptions []DocumentSections
+}
+
+// ControlFormValues holds what the user typed. Values are echoed back on
+// refusal (§Form: "The values the professor typed come back on refusal").
+type ControlFormValues struct {
+	Name             string
+	ApplicationDate  string // "YYYY-MM-DD" or empty
+	FromDocument     string
+	FromSection      string
+	ToDocument       string
+	ToSection        string
+	QuestionsPerCopy string
+	Copies           string
+}
+
+// DocumentSections carries one document's sections for the range
+// dropdowns. Title is what the professor reads; Sections carry both slugs
+// and the section text ('hola' → 'hola'; the bank does not carry a
+// separate title per section today).
+type DocumentSections struct {
+	DocumentID    string
+	DocumentTitle string
+	Sections      []SectionOption
+}
+
+// SectionOption is one option in the range dropdown. Value is
+// "document:section", the string a form submission sends. The template
+// decides which option is selected by comparing Value against the
+// composite form value (Values.FromDocument + ":" + Values.FromSection).
+type SectionOption struct {
+	Value   string
+	Label   string
+	Section string
+}
+
+// ControlDetailPage is what controls_detail.html renders (S8). The three
+// boxes issue #166 §The screens asks for: metadata, PDFs, and the WP-F
+// placeholder scans box (rendered by the template unconditionally today,
+// with no reader on the server side until WP-F ships).
+type ControlDetailPage struct {
+	Page
+	Control    DetailedControl
+	SujetURL   string
+	CorrigeURL string
+}
+
+// DetailedControl is the metadata the detail page shows, pre-formatted.
+type DetailedControl struct {
+	ID              string
+	Name            string
+	ApplicationDate string
+	Range           string
+	Shape           string
+	State           string
+	CreatedAt       string
+}
+
 // ErrorPage is what error.html renders. AC-11: 404, 403 and 500 render
 // through the shell rather than as Go's default text.
 //
@@ -239,6 +333,36 @@ func RenderProfessorsForm(w http.ResponseWriter, status int, page ProfessorsForm
 		page.Submit = "Guardar"
 	}
 	return render(w, "professors_form", status, page)
+}
+
+// RenderControlsList writes the controls list page (S7).
+func RenderControlsList(w http.ResponseWriter, page ControlsListPage) error {
+	if page.Title == "" {
+		page.Title = "Controles"
+	}
+	return render(w, "controls_list", http.StatusOK, page)
+}
+
+// RenderControlsForm writes the create form (S6).
+//
+// status is a parameter for the same reason RenderProfessorsForm's is:
+// 200 for GET, 422 for a validation-failure re-render.
+func RenderControlsForm(w http.ResponseWriter, status int, page ControlsFormPage) error {
+	if page.Title == "" {
+		page.Title = page.Heading
+	}
+	if page.Submit == "" {
+		page.Submit = "Generar control"
+	}
+	return render(w, "controls_form", status, page)
+}
+
+// RenderControlDetail writes one control's detail page (S8).
+func RenderControlDetail(w http.ResponseWriter, page ControlDetailPage) error {
+	if page.Title == "" {
+		page.Title = page.Control.Name
+	}
+	return render(w, "controls_detail", http.StatusOK, page)
 }
 
 // RenderError writes an error page through the shell (AC-11).

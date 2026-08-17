@@ -41,6 +41,11 @@ type Deps struct {
 	Login *handler.Auth
 	// Professors is the CRUD's handlers (issue #151 S5 onward).
 	Professors *handler.Professors
+	// Controls is the entrance-controls CRUD's handlers (issue #166,
+	// WP-E). Landed together with the two other blocks above rather than
+	// piecemeal so a request to /controls/new does not 404 while the row
+	// exists.
+	Controls *handler.Controls
 	// Log is spelled the same here as in the two structs above.
 	Log *slog.Logger
 }
@@ -110,9 +115,39 @@ func routes(deps Deps) []Route {
 		// The CRUD, from S5 on. Gated by default (no Public), which the
 		// TestEveryRouteIsGatedUnlessItSaysWhyNot guard walks — an anonymous
 		// visitor is redirected to /login before the handler runs.
+		//
+		// / is claimed by Controls.Root since issue #166 (WP-E) supersedes
+		// #151's /professors landing: with WP-E landed, controls are the
+		// professor's primary activity, and the professors table is
+		// reached from the nav.
 		{
 			Method: http.MethodGet, Path: "/",
-			Handler: deps.Professors.Root,
+			Handler: deps.Controls.Root,
+		},
+		// The entrance-controls CRUD (issue #166 WP-E). Gated by default.
+		{
+			Method: http.MethodGet, Path: handler.ControlsPath,
+			Handler: deps.Controls.List,
+		},
+		{
+			Method: http.MethodGet, Path: handler.ControlsNewPath,
+			Handler: deps.Controls.New,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ControlsPath,
+			Handler: deps.Controls.Create,
+		},
+		{
+			Method: http.MethodGet, Path: handler.ControlDetailPath,
+			Handler: deps.Controls.Detail,
+		},
+		{
+			Method: http.MethodGet, Path: handler.ControlSujetPath,
+			Handler: deps.Controls.SujetPDF,
+		},
+		{
+			Method: http.MethodGet, Path: handler.ControlCorrigePath,
+			Handler: deps.Controls.CorrigePDF,
 		},
 		{
 			Method: http.MethodGet, Path: handler.ProfessorsPath,
@@ -178,6 +213,8 @@ func Router(deps Deps) http.Handler {
 		panic("web.Router: no login handlers")
 	case deps.Professors == nil:
 		panic("web.Router: no professors handlers")
+	case deps.Controls == nil:
+		panic("web.Router: no controls handlers")
 	case deps.Log == nil:
 		panic("web.Router: no logger")
 	}

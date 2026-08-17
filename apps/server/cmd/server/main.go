@@ -19,13 +19,17 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/oauthstate"
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
+	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
+	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpserver"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc"
 	"github.com/so77id/nalanda/apps/server/internal/infra/selfcheck"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
@@ -138,6 +142,35 @@ func run(logger *slog.Logger) error {
 		return err
 	}
 
+	// The published question bank (ADR-0032). Loaded once at boot; a
+	// failure here IS a startup failure, not a first-request failure, so
+	// an operator sees it immediately.
+	loadedBank, err := bank.Load(ctx, cfg.QuestionsJSONURL)
+	if err != nil {
+		return err
+	}
+	logger.Info("question bank loaded",
+		"url", cfg.QuestionsJSONURL,
+		"documents", len(loadedBank.Documents),
+		"questions", len(loadedBank.Questions))
+
+	controlStore := controlstore.New(db)
+	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL})
+	controlsService := controls.NewService(controls.Service{
+		Bank:      loadedBank,
+		Store:     controlStore,
+		Generator: amcClient,
+		WorkDir:   cfg.WorkDir,
+		Now:       time.Now,
+		// Constant seed for reproducibility (tex.Compile refuses zero).
+		// A per-control seed is a future decision: today every control
+		// runs the same shuffle, and re-generating one produces the same
+		// pool — which the four traps of ADR-0030 need to be testable
+		// against.
+		Seed: 4242,
+		Log:  logger,
+	})
+
 	backoffice := web.Deps{
 		Database: storage.NewProber(db),
 		Gate: middleware.NewAuth(middleware.Auth{
@@ -155,6 +188,12 @@ func run(logger *slog.Logger) error {
 				Sessions: store,
 				Now:      time.Now,
 			}),
+			PublicURL: cfg.PublicURL,
+			Log:       logger,
+		}),
+		Controls: handler.NewControls(handler.Controls{
+			Service:   controlsService,
+			Bank:      loadedBank,
 			PublicURL: cfg.PublicURL,
 			Log:       logger,
 		}),

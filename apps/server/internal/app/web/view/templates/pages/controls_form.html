@@ -1,0 +1,88 @@
+{{ define "content" }}
+  <h1>{{ .Heading }}</h1>
+
+  {{ if .Notice }}
+    <p class="error">{{ .Notice }}</p>
+  {{ end }}
+
+  <form class="form" method="post" action="{{ .Action }}">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+
+    <p class="field">
+      <label for="name">Nombre</label>
+      <input id="name" type="text" name="name" value="{{ .Values.Name }}"
+             autocomplete="off" required maxlength="100" />
+      {{ with index .Errors "name" }}
+        <span class="error">{{ . }}</span>
+      {{ end }}
+    </p>
+
+    <p class="field">
+      <label for="application_date">Fecha de aplicación <small>(opcional)</small></label>
+      <input id="application_date" type="date" name="application_date"
+             value="{{ .Values.ApplicationDate }}" />
+      {{ with index .Errors "application_date" }}
+        <span class="error">{{ . }}</span>
+      {{ end }}
+    </p>
+
+    <p class="field">
+      <label for="from">Desde</label>
+      <select id="from" name="from" required>
+        <option value="">— elige un inicio —</option>
+        {{ $from := printf "%s:%s" .Values.FromDocument .Values.FromSection }}
+        {{ range .SectionOptions }}
+          <optgroup label="{{ .DocumentTitle }}">
+            {{ range .Sections }}
+              <option value="{{ .Value }}"{{ if eq .Value $from }} selected{{ end }}>{{ .Section }}</option>
+            {{ end }}
+          </optgroup>
+        {{ end }}
+      </select>
+      {{ with index .Errors "from" }}
+        <span class="error">{{ . }}</span>
+      {{ end }}
+    </p>
+
+    <p class="field">
+      <label for="to">Hasta</label>
+      <select id="to" name="to" required>
+        <option value="">— elige un fin —</option>
+        {{ $to := printf "%s:%s" .Values.ToDocument .Values.ToSection }}
+        {{ range .SectionOptions }}
+          <optgroup label="{{ .DocumentTitle }}">
+            {{ range .Sections }}
+              <option value="{{ .Value }}"{{ if eq .Value $to }} selected{{ end }}>{{ .Section }}</option>
+            {{ end }}
+          </optgroup>
+        {{ end }}
+      </select>
+      {{ with index .Errors "to" }}
+        <span class="error">{{ . }}</span>
+      {{ end }}
+    </p>
+
+    <p class="field">
+      <label for="questions_per_copy">Preguntas por copia</label>
+      <input id="questions_per_copy" type="number" name="questions_per_copy"
+             value="{{ .Values.QuestionsPerCopy }}"
+             min="1" max="20" required />
+      {{ with index .Errors "questions_per_copy" }}
+        <span class="error">{{ . }}</span>
+      {{ end }}
+    </p>
+
+    <p class="field">
+      <label for="copies">Cantidad de copias</label>
+      <input id="copies" type="number" name="copies"
+             value="{{ .Values.Copies }}"
+             min="1" max="300" required />
+      {{ with index .Errors "copies" }}
+        <span class="error">{{ . }}</span>
+      {{ end }}
+    </p>
+
+    <p><button type="submit">{{ .Submit }}</button>
+       <a href="/controls" class="boton">Cancelar</a></p>
+  </form>
+{{ end }}
