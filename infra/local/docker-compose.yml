@@ -30,7 +30,15 @@ services:
       # port below, not the bind address above. The OAuth redirect URI is built
       # from this and Google matches it character for character, so it has to be
       # the URL the browser actually visits.
-      NALANDA_PUBLIC_URL: "http://127.0.0.1:8081"
+      #
+      # Overridable so the SAME compose file runs behind Tailscale Funnel on
+      # the Jetson (#162) — `NALANDA_PUBLIC_URL=https://<host>.<tailnet>.ts.net:8443`
+      # in that box's `.env`. Its scheme also flips `config.SecureCookie()`, so
+      # `https://` there is what makes the session cookie carry `Secure` for the
+      # first time — the piece `GOOGLE-CHECK.md` §"What this check has NOT
+      # verified" defers to the first deploy. Full procedure and the exact
+      # `tailscale serve`/`funnel` invocation: `infra/local/DEPLOY-JETSON.md`.
+      NALANDA_PUBLIC_URL: "${NALANDA_PUBLIC_URL:-http://127.0.0.1:8081}"
       # Placeholders. The three required variables have to be present or the
       # container refuses to start, and `compose up --wait` proves the binary
       # boots — which is the whole reason this file names them. A real login
