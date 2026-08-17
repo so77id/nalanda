@@ -190,6 +190,32 @@ services:
       ALLOWED_CHAT_IDS: "${ALLOWED_CHAT_IDS:-}"
     restart: unless-stopped
 
+  # The health monitor of #162, ADR-0037. Polls /health on the compose
+  # network (not through the public Funnel — the point is to distinguish "the
+  # server is down" from "the Funnel is down"), alerts after 3 consecutive
+  # failures with a 30-minute cooldown, posts a recovery message when it
+  # comes back. See infra/deploy/jetson/monitor.sh for the loop.
+  monitor:
+    build:
+      context: ../deploy/jetson
+      dockerfile: Dockerfile.monitor
+    image: nalanda/monitor:dev
+    profiles: ["jetson"]
+    depends_on:
+      server:
+        condition: service_started
+    environment:
+      # Overridable so a test-restore or a bench run against a different port
+      # can point this elsewhere. Defaults match this compose file's bind.
+      HEALTH_URL: "${MONITOR_HEALTH_URL:-http://server:8081/health}"
+      CHECK_INTERVAL: "${MONITOR_CHECK_INTERVAL:-300}"
+      FAIL_THRESHOLD: "${MONITOR_FAIL_THRESHOLD:-3}"
+      COOLDOWN: "${MONITOR_COOLDOWN:-1800}"
+      # Same shared-name / distinct-value pair as `backup` above.
+      INFRA_TELEGRAM_TOKEN: "${INFRA_TELEGRAM_TOKEN:-}"
+      ALLOWED_CHAT_IDS: "${ALLOWED_CHAT_IDS:-}"
+    restart: unless-stopped
+
 volumes:
   amc-work:
   # The database file. A named volume rather than a bind mount because the

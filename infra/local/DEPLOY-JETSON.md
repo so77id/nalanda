@@ -178,6 +178,38 @@ sqlite3 "${LATEST%.gz}" 'SELECT COUNT(*) FROM users;'
 If either command errors, the backup did not round-trip and the ADR-0037 AC
 for backups has failed — do not delete the scratch copy, and open an issue.
 
+## Health monitor
+
+The `monitor` compose service (built from `infra/deploy/jetson/Dockerfile.monitor`
++ `monitor.sh`) polls `http://server:8081/health` on the compose network every
+5 minutes, alerts the Nalanda Telegram bot after 3 consecutive failures, and
+posts a recovery line when the server answers again. There is a 30-minute
+cooldown between failure alerts, so a long outage is one message per cycle
+rather than one per poll.
+
+**It does NOT go through Funnel.** The whole point is to distinguish "the
+server is down" from "the Funnel is down" — a monitor polling the public
+https URL reports on Funnel + network + server, which is the wrong scope
+when Miguel needs to know which of the three to look at.
+
+**Verify it end-to-end after the first deploy** — this is AC-7b:
+
+```bash
+# On the Jetson, in one shell:
+docker compose stop server
+# Wait ≤15 minutes (3 failures × 5-minute poll). The Telegram bot posts:
+#   🧭 Nalanda ❌ Server unhealthy (3 consecutive failures on http://server:8081/health)
+
+# Then bring it back:
+docker compose start server
+# Within one poll interval (≤5 min) the bot posts:
+#   🧭 Nalanda ✅ Server recovered (http://server:8081/health)
+```
+
+If either message never lands and the container is running (`docker compose
+logs monitor`), the bot token or chat id is wrong — check them against the
+values Miguel put in `.env`.
+
 ## The proxy-trust measurement
 
 Behind Tailscale Funnel `RemoteAddr` becomes `127.0.0.1` for every visitor —
