@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-08-16
 **Decision-makers:** Miguel Rodriguez
-**Amended by:** #150 (2026-08-16) — the empty `00001_init.sql` was deleted and the auth schema numbered `00002`; the image measured 12.2 MB after the port
+**Amended by:** #150 (2026-08-16) — the empty `00001_init.sql` was deleted and the auth schema numbered `00002`; the image measured 12.2 MB after the port · #166 (2026-08-17) — WP-E landed and the server now shares the `amc-work` named volume with `apps/amc-worker`; the two-container seeding-order rule is recorded in §Consequences
 **Source:** #149 (WP-C1), design `docs/design/2026-08-controles.md` §C10, §C11
 
 ## Context
@@ -176,6 +176,31 @@ rule the repo already applies to `proof-of-concept/`.
   domain tables, but `//go:embed *.sql` will not compile over a directory
   without one, and an applied migration is what makes the boot path provable.
   WP-C2's users table replaces it.
+
+- **The shared `amc-work` volume between this app and `apps/amc-worker` has a
+  seeding order that is load-bearing, and no CI step can see it.** Added by
+  WP-E (#166): both containers mount the same named volume at `/work`, this
+  server runs as UID 65532, and `apps/amc-worker` runs as root
+  (ADR-0030 §Operational). Docker seeds a fresh named volume from the FIRST
+  container that touches it — permissions included — so whichever container
+  starts first owns `/work`. If root seeds it, the server's next
+  `os.MkdirAll` under `/work` fails EACCES on the first `/generate`, and the
+  failure is invisible to `compose up --wait` because that step only probes
+  `/health`. Two things enforce the order:
+  1. `apps/server/Dockerfile` creates `/work` in the image with UID 65532
+     ownership (`chown 65532:65532`), so a server-first seed lands with the
+     right owner. `scratch` has no shell to fix it later.
+  2. `infra/local/docker-compose.yml` puts `depends_on: server` on
+     `amc-worker` (`service_started`), so the server is the first container
+     up in a fresh compose stack.
+  Removing either half re-opens the EACCES. `NALANDA_WORK_DIR` is where the
+  server sees this volume; the `.tex` the generator emits always uses `/work`
+  absolute paths, because that is the WORKER's mount point regardless of
+  what the server names its own. Review trigger: any change to
+  `apps/server/Dockerfile`'s `/work` ownership, to the compose `depends_on`,
+  or to either container's UID. The compose path in the pre-PR protocol
+  (§`apps/server` of `testing-strategy.md`) still cannot exercise a real
+  `/generate`, so the L8 human check is where this rule fails last.
 
 ## References
 

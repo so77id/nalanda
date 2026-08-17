@@ -49,9 +49,14 @@ const (
 	// KeyAmcWorkerURL is where the AMC worker's /generate is reached
 	// (ADR-0030). Absolute http/https URL.
 	KeyAmcWorkerURL = "NALANDA_AMC_WORKER_URL"
-	// KeyWorkDir is the shared volume mount point on the SERVER'S side
-	// (ADR-0034 §Consequences: the two containers share amc-work). The
-	// generator writes /work absolute paths regardless.
+	// KeyWorkDir is the shared volume mount point on the SERVER'S side.
+	// The two containers share the amc-work named volume and its
+	// seeding order is load-bearing — the whole rule (UID 65532 vs
+	// root, first mounter seeds the volume, why compose up --wait
+	// cannot see the failure) lives in ADR-0034 §Consequences
+	// ("The shared amc-work volume ... has a seeding order that is
+	// load-bearing"). The generator writes /work absolute paths from
+	// the WORKER's side regardless of what this server names its own.
 	KeyWorkDir = "NALANDA_WORK_DIR"
 )
 
