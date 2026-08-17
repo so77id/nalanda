@@ -1,13 +1,14 @@
 #!/bin/sh
-# Health monitor for Nalanda. Polls /health on a schedule and alerts via
-# Telegram after N consecutive failures, with a cooldown so a long outage
-# is one message per cycle rather than one per poll (#162).
+# Health monitor for Nalanda. Polls /health on a schedule, alerts via
+# Telegram after N consecutive failures, and posts a REMINDER every COOLDOWN
+# seconds until the server recovers (#162).
 #
 # Shape from DocumentBuddy's scripts/monitor.sh, rewired to the Nalanda
 # server URL and the Nalanda bot. Fresh file — never a reference.
 set -eu
+set -o pipefail 2>/dev/null || true
 
-# The server's HEALTHY signal. `server:8080` (compose service DNS) plus the
+# The server's HEALTHY signal. `server:8081` (compose service DNS) plus the
 # apps/server bind port. NOT the public https URL — the monitor lives on the
 # same compose network as the server, and going out to the Funnel just to
 # check ourselves would report on Funnel + network + server rather than the
@@ -17,29 +18,21 @@ HEALTH_URL="${HEALTH_URL:-http://server:8081/health}"
 
 CHECK_INTERVAL="${CHECK_INTERVAL:-300}"  # 5 minutes
 FAIL_THRESHOLD="${FAIL_THRESHOLD:-3}"    # alert after 3 consecutive failures
-COOLDOWN="${COOLDOWN:-1800}"             # 30 minutes between alerts
+COOLDOWN="${COOLDOWN:-1800}"             # 30 minutes between REPEAT alerts
 
 PREFIX="🧭 Nalanda"
+
+# shellcheck disable=SC1091
+. /usr/local/bin/notify.sh
 
 FAIL_COUNT=0
 ALERTED=0
 LAST_ALERT=0
 
-notify() {
-  # Same reasoning as backup.sh's notify: || true so a Telegram outage does
-  # not take the monitor down. The monitor's job is to notice server
-  # outages, not Telegram ones.
-  if [ -n "${INFRA_TELEGRAM_TOKEN:-}" ] && [ -n "${ALLOWED_CHAT_IDS:-}" ]; then
-    curl -s -X POST "https://api.telegram.org/bot${INFRA_TELEGRAM_TOKEN}/sendMessage" \
-      -d chat_id="${ALLOWED_CHAT_IDS}" \
-      -d text="${PREFIX} $1" > /dev/null 2>&1 || true
-  fi
-}
-
 # One boot message so an operator can see the monitor started at all — the
 # most common "there is no alert" cause is not a healthy server, it is a
 # monitor that never came up.
-notify "🟢 Monitor started (polling ${HEALTH_URL} every ${CHECK_INTERVAL}s; alert after ${FAIL_THRESHOLD} failures; cooldown ${COOLDOWN}s)"
+notify "🟢 Monitor started (polling ${HEALTH_URL} every ${CHECK_INTERVAL}s; alert after ${FAIL_THRESHOLD} failures; reminders every ${COOLDOWN}s)"
 
 while true; do
   # wget --spider probes without downloading the body. -q keeps stderr
@@ -54,12 +47,26 @@ while true; do
   else
     FAIL_COUNT=$((FAIL_COUNT + 1))
 
-    if [ "${FAIL_COUNT}" -ge "${FAIL_THRESHOLD}" ] && [ "${ALERTED}" -eq 0 ]; then
+    # Fire the alert once the threshold is reached, and again every COOLDOWN
+    # seconds while the outage continues. The previous shape gated the whole
+    # branch on `ALERTED -eq 0`, which made the cooldown variable dead code
+    # — a 24-hour outage produced exactly one message, and a silent chat
+    # after that message reads as "it probably recovered" on the ops chat
+    # (#162 review, COR-3). This version restores the reminder cadence the
+    # file header describes.
+    if [ "${FAIL_COUNT}" -ge "${FAIL_THRESHOLD}" ]; then
       NOW=$(date +%s)
       ELAPSED=$((NOW - LAST_ALERT))
 
       if [ "${LAST_ALERT}" -eq 0 ] || [ "${ELAPSED}" -ge "${COOLDOWN}" ]; then
-        notify "❌ Server unhealthy (${FAIL_COUNT} consecutive failures on ${HEALTH_URL})"
+        if [ "${ALERTED}" -eq 0 ]; then
+          notify "❌ Server unhealthy (${FAIL_COUNT} consecutive failures on ${HEALTH_URL})"
+        else
+          # A reminder line so the ops chat can distinguish "outage still on"
+          # from "outage forgotten by monitor". Same recipient, different
+          # verb, easy to filter on when the outage ends.
+          notify "⏳ Still unhealthy (${FAIL_COUNT} consecutive failures on ${HEALTH_URL})"
+        fi
         ALERTED=1
         LAST_ALERT=${NOW}
       fi

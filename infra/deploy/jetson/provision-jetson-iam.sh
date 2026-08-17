@@ -141,6 +141,44 @@ else
   echo "    AWS_SECRET_ACCESS_KEY=${SECRET_ACCESS_KEY}"
 fi
 
+echo ""
+echo "==> Verifying the bucket carries every safety we set (post-condition, #162 review SEC-5)..."
+# The script does not just apply the safeties, it READS THEM BACK. A future
+# console-clicky operator (or an aborted rerun) that disables lifecycle,
+# encryption, or public-access-block leaves the bucket collecting backups
+# forever, or without SSE, or writable to the world — silent to any operator
+# who trusts "==> Done." from a prior run. Verify at every recorded exit.
+LIFECYCLE_STATUS="$(aws s3api get-bucket-lifecycle-configuration \
+  --bucket "${NALANDA_S3_BUCKET}" \
+  --query 'Rules[?ID==`expire-backups-after-30-days`].Status | [0]' \
+  --output text 2>/dev/null || true)"
+if [[ "${LIFECYCLE_STATUS}" != "Enabled" ]]; then
+  echo "error: lifecycle rule 'expire-backups-after-30-days' is not Enabled on ${NALANDA_S3_BUCKET} (got: '${LIFECYCLE_STATUS}'). Backups will accumulate forever. Rerun." >&2
+  exit 1
+fi
+echo "    lifecycle: Enabled (30 days on backups/)."
+
+BPA_JSON="$(aws s3api get-public-access-block --bucket "${NALANDA_S3_BUCKET}" \
+  --query 'PublicAccessBlockConfiguration' --output json 2>/dev/null || true)"
+if ! echo "${BPA_JSON}" | grep -q '"BlockPublicAcls": true' \
+  || ! echo "${BPA_JSON}" | grep -q '"IgnorePublicAcls": true' \
+  || ! echo "${BPA_JSON}" | grep -q '"BlockPublicPolicy": true' \
+  || ! echo "${BPA_JSON}" | grep -q '"RestrictPublicBuckets": true'; then
+  echo "error: public-access-block is not fully enforced on ${NALANDA_S3_BUCKET}:" >&2
+  echo "${BPA_JSON}" >&2
+  exit 1
+fi
+echo "    public access: fully blocked (four flags true)."
+
+ENC_ALG="$(aws s3api get-bucket-encryption --bucket "${NALANDA_S3_BUCKET}" \
+  --query 'ServerSideEncryptionConfiguration.Rules[0].ApplyServerSideEncryptionByDefault.SSEAlgorithm' \
+  --output text 2>/dev/null || true)"
+if [[ "${ENC_ALG}" != "AES256" ]]; then
+  echo "error: SSE default is '${ENC_ALG}', want AES256 on ${NALANDA_S3_BUCKET}. Rerun." >&2
+  exit 1
+fi
+echo "    encryption: SSE-S3 (AES256) by default."
+
 cat <<'STEPS'
 
 ==> Next steps (on the Jetson):

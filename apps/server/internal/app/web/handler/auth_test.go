@@ -642,6 +642,91 @@ func TestTheSessionIPTrustsTheProxyHeaderWhenConfigured(t *testing.T) {
 	}
 }
 
+// SEC-2: the leftmost X-Forwarded-For entry is trusted as an ADDRESS at the
+// seam — it is not enough that the header be present, its first hop must
+// parse as an IP. The failure mode is that a header value like
+// `<script>alert(1)</script>` (or 4 KB of garbage) reaches
+// `user_sessions.ip_address` verbatim, and a future backoffice screen
+// rendering the sessions table inherits an XSS or UI-truncation surface
+// through a value the boundary never refused.
+func TestTheSessionIPRejectsANonAddressLeftmostHop(t *testing.T) {
+	for name, header := range map[string]string{
+		"a script tag":              "<script>alert(1)</script>",
+		"bare word":                 "definitely-not-an-ip",
+		"empty leftmost with comma": ", 100.64.0.1",
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newTrustProxyFixture(t, "profesora@example.com")
+			state, stateCookie := f.start(t)
+
+			target := handler.LoginCallbackPath + "?state=" + url.QueryEscape(state) + "&code=the-code"
+			request := httptest.NewRequest(http.MethodGet, target, nil)
+			request.AddCookie(stateCookie)
+			request.Header.Set("X-Forwarded-For", header)
+			request.RemoteAddr = "127.0.0.1:54321"
+
+			recorder := httptest.NewRecorder()
+			f.auth.LoginGoogleCallback(recorder, request)
+
+			cookie := sessionCookie(recorder)
+			if cookie == nil {
+				t.Fatal("the callback set no session cookie")
+			}
+			session, err := f.store.SessionByTokenHash(context.Background(), auth.HashToken(cookie.Value))
+			if err != nil {
+				t.Fatalf("SessionByTokenHash: %v", err)
+			}
+
+			if session.IPAddress != "127.0.0.1" {
+				t.Errorf("IPAddress = %q, want the RemoteAddr fallback %q — a non-address X-Forwarded-For must not reach the sessions table", session.IPAddress, "127.0.0.1")
+			}
+		})
+	}
+}
+
+// And a port-carrying leftmost hop is stripped rather than dropped — some
+// proxies write `<addr>:<port>` and the port half is not part of the address.
+// SEC-2 covers both directions: garbage in the port slot still refuses the
+// row, an IP with a port keeps the address.
+func TestTheSessionIPStripsThePortFromAProxyHopThatCarriesOne(t *testing.T) {
+	for name, header := range map[string]string{
+		"ipv4 with port": "203.0.113.9:12345",
+		"ipv6 bracketed": "[2001:db8::1]:443",
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newTrustProxyFixture(t, "profesora@example.com")
+			state, stateCookie := f.start(t)
+
+			target := handler.LoginCallbackPath + "?state=" + url.QueryEscape(state) + "&code=the-code"
+			request := httptest.NewRequest(http.MethodGet, target, nil)
+			request.AddCookie(stateCookie)
+			request.Header.Set("X-Forwarded-For", header)
+			request.RemoteAddr = "127.0.0.1:54321"
+
+			recorder := httptest.NewRecorder()
+			f.auth.LoginGoogleCallback(recorder, request)
+
+			cookie := sessionCookie(recorder)
+			if cookie == nil {
+				t.Fatal("the callback set no session cookie")
+			}
+			session, err := f.store.SessionByTokenHash(context.Background(), auth.HashToken(cookie.Value))
+			if err != nil {
+				t.Fatalf("SessionByTokenHash: %v", err)
+			}
+
+			// The port must be gone.
+			if strings.ContainsAny(session.IPAddress, ":") && !strings.HasPrefix(session.IPAddress, "2001:") {
+				// A bare IPv6 address has colons; a stripped IPv4 or bracketed IPv6 does not carry the :port.
+				t.Errorf("IPAddress = %q; the port half of %q was not stripped", session.IPAddress, header)
+			}
+			if session.IPAddress == "127.0.0.1" {
+				t.Errorf("IPAddress fell back to RemoteAddr; a well-formed hop with a port must NOT be treated as garbage")
+			}
+		})
+	}
+}
+
 // And the fall-through: TrustProxyHeaders is on but the proxy did not send the
 // header. Falling to RemoteAddr rather than emitting empty text is what makes a
 // misconfigured proxy legible in the operator's table instead of losing the row.

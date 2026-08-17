@@ -10,7 +10,10 @@ FROM alpine:3.20
 
 RUN apk add --no-cache curl
 
+# notify.sh is sourced by monitor.sh (extracted at #162 review, ARQ-2, so the
+# backup container's copy cannot drift from this one).
+COPY notify.sh /usr/local/bin/notify.sh
 COPY monitor.sh /usr/local/bin/monitor.sh
-RUN chmod +x /usr/local/bin/monitor.sh
+RUN chmod +x /usr/local/bin/monitor.sh /usr/local/bin/notify.sh
 
 ENTRYPOINT ["/bin/sh", "/usr/local/bin/monitor.sh"]

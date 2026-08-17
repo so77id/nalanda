@@ -11,8 +11,11 @@ FROM alpine:3.20
 
 RUN apk add --no-cache sqlite aws-cli curl
 
+# notify.sh is sourced by backup.sh (extracted at #162 review, ARQ-2, so the
+# monitor container's copy cannot drift from this one).
+COPY notify.sh /usr/local/bin/notify.sh
 COPY backup.sh /usr/local/bin/backup.sh
-RUN chmod +x /usr/local/bin/backup.sh
+RUN chmod +x /usr/local/bin/backup.sh /usr/local/bin/notify.sh
 
 # 03:00 UTC daily. UTC not local: the Jetson runs headless and its clock is
 # never touched, so a schedule the operator can predict is more valuable than

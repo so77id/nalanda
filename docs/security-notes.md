@@ -606,6 +606,51 @@ handler unbounded again.
 The rule itself lives where it bites, not here: the constant's own comment in
 `internal/infra/httpserver/server.go` and `backend-code-style.md` §HTTP.
 
+### The Jetson sidecars run as root and carry AWS credentials in their env (accepted 2026-08-17, #162)
+
+The `backup` and `monitor` compose services in `infra/local/docker-compose.yml`
+run their alpine images as UID 0 (no `USER` directive), with none of the
+`read_only`/`cap_drop`/`no-new-privileges` posture the `server` service
+carries. The `backup` service also holds `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY` as compose `environment:` values, so they are visible
+in `docker inspect backup` on the host and readable from `/proc/1/environ`
+inside the container.
+
+**What is exposed.** An RCE in the sidecar (a future CVE in `aws-cli` or
+`sqlite3`, a mishandled Telegram response) runs with root inside the
+container and can:
+
+- Rewrite `/usr/local/bin/backup.sh` (crontab points at it) to exfiltrate
+  the daily DB dump.
+- Read the S3 write credential and use it against `s3://<bucket>/backups/*`.
+  The IAM policy is scoped to that prefix and carries `PutObject` but not
+  `DeleteObject`, so the blast radius is *overwriting* legitimate dumps
+  (silent sabotage of the backup chain) — never deleting them, and never
+  reaching anything outside `backups/`.
+- Read `/data` from the backup container's own view — read-only mount, so
+  cannot mutate the live database from there.
+
+**Why it is accepted rather than fixed today.** Both sidecars are small
+alpine + curl + one shell script; the attack surface is what alpine
+distributes. The `read_only` + `no-new-privileges` + non-root triple is
+worth adopting and has a real cost — sqlite3 `.backup` to `/tmp` in a
+read-only container needs a `tmpfs`, and the monitor needs `/tmp` too for
+wget's scratch state. Adopting them right does not fit inside #162, and
+adopting them wrong (a container that starts fine and cannot write its
+temp file at run time) is worse than the current posture. Recorded so the
+next reader does not have to rediscover the cost.
+
+**Review trigger**: any of these — (a) a second data class in the DB, at
+which point the S3 dumps carry more than professor identifiers; (b) a
+future CVE in `aws-cli` / `sqlite3` / `curl` that would land in these
+containers; (c) an operator other than Miguel gaining shell on the Jetson
+host; (d) any of the sidecars gaining new privileges (a `docker.sock` mount,
+a second env variable that carries a token). At that point take the cheap
+half first: `USER nonroot`, `read_only: true`, `tmpfs: [/tmp]`,
+`security_opt: [no-new-privileges:true]`, `cap_drop: [ALL]` on both compose
+services, and rebuild once. Moving the AWS secret to a `secrets:` mount is
+the second half and follows the same trigger.
+
 ### The professor login is public, unrate-limited and remembered in memory (accepted 2026-08-16, #150; re-deferred 2026-08-17, #162)
 
 `GET /login/google` is reachable by anyone and issues a fresh OAuth state nonce

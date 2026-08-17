@@ -218,21 +218,23 @@ the sessions table records `127.0.0.1` for every session, which is legible
 but useless. With it, the column carries the first hop of `X-Forwarded-For`,
 which is what the outermost proxy saw when the visitor arrived.
 
-**Before flipping the switch, measure once**, so the assumption "the Funnel
-owns this header" is verified rather than trusted. From any browser off the
-tailnet, complete a login. Then on the Jetson:
+**Before flipping the switch, TWO measurements**, so the assumption "the Funnel
+owns this header" is verified rather than trusted. The first (benign) is what
+proves the switch works at all; the second (adversarial) is what proves the
+switch is SAFE — that Tailscale Funnel strips or replaces a client-supplied
+`X-Forwarded-For` rather than appending to it. Skip the adversarial half and
+an attacker sending `curl -H 'X-Forwarded-For: 6.6.6.6' https://<host>:8443/…`
+writes `6.6.6.6` to `user_sessions.ip_address` — the failure
+`TestTheSessionIPIgnoresAForgeableHeader` was written to guard against,
+reintroduced through the `true` branch. #162 review, SEC-1.
+
+### 1. Benign — the switch works
+
+From any browser off the tailnet, complete a login. On the Jetson, read the
+row back (the scratch image has no shell, so this runs from the host):
 
 ```bash
-docker compose logs server | grep 'X-Forwarded-For\|professor signed in'
-```
-
-The `professor signed in` line does not itself carry the address, but the
-sessions row does. Read it back:
-
-```bash
-docker compose exec server /server -health   # just to prove liveness
-# no shell in the scratch image — read the row from the host:
-sqlite3 <path to the mounted volume>/nalanda.db \
+sqlite3 /var/lib/docker/volumes/local_server-data/_data/nalanda.db \
   'SELECT ip_address, user_agent FROM user_sessions ORDER BY created_at DESC LIMIT 1'
 ```
 
@@ -240,10 +242,38 @@ Expected: with `NALANDA_TRUST_PROXY_HEADERS=false` (default) the row holds
 `127.0.0.1`. Set it to `true` in `.env`, restart the server, log in again,
 and the same query holds the visitor's public IP.
 
-If it does not — the header is empty, or the row is still `127.0.0.1` — the
-Funnel is not writing what this switch assumes, and the safe answer is to
-leave the flag off and record the finding as a new deferral in
-`docs/security-notes.md`.
+### 2. Adversarial — the switch is safe
+
+From a machine **off the tailnet** (a phone on mobile data, or any laptop
+not signed into Tailscale), while `NALANDA_TRUST_PROXY_HEADERS=true`:
+
+```bash
+# Send an attacker-chosen header at the LOGIN CALLBACK path (any path that
+# opens a session works, but the callback is what an exploit would target).
+curl -sS -H 'X-Forwarded-For: 6.6.6.6' \
+  "https://<host>.<tailnet>.ts.net:8443/health"
+```
+
+Then log in normally in a browser and re-run the SQL above. What the row
+shows decides everything:
+
+- **The row holds the browser's real public IP** (not `6.6.6.6` and not
+  `127.0.0.1`): Funnel strips or replaces inbound `X-Forwarded-For`. The
+  `true` branch is safe. Record the measurement under the closed
+  `security-notes.md` entry so future readers do not have to redo it.
+- **The row holds `6.6.6.6`**: Funnel APPENDS rather than replaces, and this
+  server takes the leftmost — which is the attacker's value. **Set
+  `NALANDA_TRUST_PROXY_HEADERS=false` immediately** and record the finding
+  as a new deferral in `security-notes.md`. Do not flip the flag back on
+  until Funnel's behaviour changes or the code takes the rightmost hop
+  instead.
+- **The row holds `127.0.0.1`**: the header did not reach the server at
+  all (Funnel dropped it). Same as "strips", the switch is safe.
+
+`handler.Auth.clientIP` also refuses a leftmost hop that does not parse as
+an IP (`net.ParseIP`), so a header like `X-Forwarded-For: <script>alert(1)</script>`
+falls through to `RemoteAddr` rather than reaching the sessions row (#162
+review, SEC-2).
 
 ## Restart, logs, rollback
 

@@ -10,7 +10,13 @@
 # Under SQLite's WAL mode, `.backup` is safe against a live server — the API
 # holds a shared lock and copies pages, so a professor logging in while this
 # runs sees no interruption.
+
+# pipefail is not in POSIX sh but busybox ash (alpine) supports it; without
+# it `SIZE=$(du -h "${BACKUP_GZ}" | cut -f1)` would silently keep going if
+# `du` failed, and the Telegram line would land as `✅ Backup complete: … ()`
+# with no signal that anything was odd (#162 review, COR-4).
 set -eu
+set -o pipefail 2>/dev/null || true
 
 DB_PATH="/data/nalanda.db"
 TIMESTAMP=$(date -u +%Y%m%dT%H%M%SZ)
@@ -23,17 +29,10 @@ S3_KEY="backups/nalanda-${TIMESTAMP}.db.gz"
 # reads "🧭 Nalanda" versus DocumentBuddy's own without parsing the sentence.
 PREFIX="🧭 Nalanda"
 
-notify() {
-  MESSAGE="$1"
-  if [ -n "${INFRA_TELEGRAM_TOKEN:-}" ] && [ -n "${ALLOWED_CHAT_IDS:-}" ]; then
-    # || true so a Telegram outage never fails the backup itself; a missing
-    # notification is loud (the daily message stops) but does not lose the
-    # gzipped copy the S3 side already holds.
-    curl -s -X POST "https://api.telegram.org/bot${INFRA_TELEGRAM_TOKEN}/sendMessage" \
-      -d chat_id="${ALLOWED_CHAT_IDS}" \
-      -d text="${PREFIX} ${MESSAGE}" > /dev/null 2>&1 || true
-  fi
-}
+# notify() is sourced from a shared file so backup.sh and monitor.sh cannot
+# drift (#162 review, ARQ-2). Uses PREFIX above.
+# shellcheck disable=SC1091
+. /usr/local/bin/notify.sh
 
 if [ ! -f "${DB_PATH}" ]; then
   notify "❌ Backup skipped: ${DB_PATH} does not exist. Is the server volume mounted?"

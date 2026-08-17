@@ -344,18 +344,26 @@ func (a *Auth) redirectToLogin(w http.ResponseWriter, r *http.Request, aviso str
 // forbidding the header is not a comment a test can enforce.
 //
 // With TrustProxyHeaders it takes the FIRST hop of X-Forwarded-For — the
-// leftmost entry, per RFC 7239 §5.2, which is the address the proxy nearest the
-// server added when the visitor arrived at it. The rightmost is the one closest
-// to us and is not the visitor. On the Jetson (#162) Tailscale Funnel terminates
-// on localhost and the server sees RemoteAddr = 127.0.0.1 for every visitor, so
-// this direction is what makes the sessions table useful. It is off by default
-// on purpose: an operator who forgets to enable it records every session as
-// 127.0.0.1, which is legible; an operator who enables it with no proxy in front
-// writes the visitor's chosen string, which is not.
+// leftmost entry, following the de-facto convention of Squid, nginx and
+// Tailscale Funnel where each proxy APPENDS to the header and the leftmost
+// value is the address the outermost proxy first saw. (X-Forwarded-For is
+// not standardised in an RFC; RFC 7239's `Forwarded` header uses a different
+// syntax and is not the one we read.) The rightmost is the one closest to us
+// and is not the visitor. On the Jetson (#162) Tailscale Funnel terminates
+// on localhost and the server sees RemoteAddr = 127.0.0.1 for every visitor,
+// so this direction is what makes the sessions table useful. It is off by
+// default on purpose: an operator who forgets to enable it records every
+// session as 127.0.0.1, which is legible; an operator who enables it with no
+// proxy in front writes the visitor's chosen string, which is not.
 //
-// If the header is empty (or absent) even under TrustProxyHeaders, we fall back
-// to RemoteAddr rather than emitting empty text: a misconfigured proxy is not
-// a reason to lose the row.
+// If the header is empty, absent or unparseable (even under
+// TrustProxyHeaders), we fall back to RemoteAddr rather than emitting empty
+// text or garbage: a misconfigured proxy is not a reason to lose the row,
+// and an attacker's chosen bytes are not a reason to store them (#162
+// review, SEC-2 — validated to be an IP address before persistence, so a
+// future backoffice screen rendering `user_sessions.ip_address` inherits no
+// XSS or UI-truncation surface through a header nobody validated at the
+// boundary).
 //
 // net.SplitHostPort rather than a cut at the first colon, which would turn the
 // IPv6 address [::1]:54321 into "[".
@@ -373,9 +381,20 @@ func (a *Auth) clientIP(r *http.Request) string {
 }
 
 // firstForwardedFor returns the leftmost entry of an X-Forwarded-For header
-// value, trimmed. RFC 7239 §5.2: entries are comma-separated and each proxy
-// APPENDS, so the leftmost is the address the outermost proxy first saw.
-// Empty when the header is empty or holds only whitespace.
+// value if it parses as an IP address; empty otherwise.
+//
+// The IP check is defence at the boundary: without it the raw bytes before
+// the first comma reach `user_sessions.ip_address` unvalidated — up to whatever
+// the header line accepts, ~8 KB, and with no character-class restriction —
+// and a future backoffice screen rendering that column inherits an XSS or
+// UI-truncation surface from a value nobody at the seam refused (#162 review,
+// SEC-2). The consequence is deliberate: a malformed leftmost hop is not
+// recorded at all, and the caller falls back to RemoteAddr.
+//
+// An entry with a port suffix is trimmed via net.SplitHostPort: some proxies
+// write `192.0.2.1:12345`, and the port half is not part of the address and
+// should not land in the column. IPv6 with brackets and port
+// (`[2001:db8::1]:443`) is handled by the same SplitHostPort attempt.
 func firstForwardedFor(header string) string {
 	if header == "" {
 		return ""
@@ -383,5 +402,17 @@ func firstForwardedFor(header string) string {
 	if comma := strings.Index(header, ","); comma >= 0 {
 		header = header[:comma]
 	}
-	return strings.TrimSpace(header)
+	candidate := strings.TrimSpace(header)
+	if candidate == "" {
+		return ""
+	}
+	// If the entry carries a port, strip it. SplitHostPort errors on a bare
+	// address, in which case candidate stays as-is.
+	if host, _, err := net.SplitHostPort(candidate); err == nil {
+		candidate = host
+	}
+	if net.ParseIP(candidate) == nil {
+		return ""
+	}
+	return candidate
 }
