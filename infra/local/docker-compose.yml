@@ -145,6 +145,51 @@ services:
     # available underneath for exploring by hand (`docker compose run --rm
     # amc-worker auto-multiple-choice prepare ...`).
 
+  # The daily off-site backup, only used on the Jetson deploy (#162). Left in
+  # the shared compose file rather than a prod overlay because a second file
+  # is a second place to drift — the whole service is inert in dev unless the
+  # AWS credentials below are present (which `.env.example` in `apps/server/`
+  # leaves blank on purpose, and the profile below keeps it off the default
+  # `docker compose up` path anyway).
+  backup:
+    build:
+      context: ../deploy/jetson
+      dockerfile: Dockerfile.backup
+    image: nalanda/backup:dev
+    # Only starts under the `jetson` profile — `docker compose up -d server`
+    # will not spin this up on a developer's laptop, but on the Jetson
+    # `docker compose --profile jetson up -d server backup monitor` brings
+    # the three services the deploy actually runs.
+    profiles: ["jetson"]
+    depends_on:
+      # The database file the script backs up has to exist and be reachable.
+      # `service_started` rather than `service_healthy` because the FIRST
+      # daily cron trigger is 03:00 UTC anyway — there is no useful race.
+      server:
+        condition: service_started
+    volumes:
+      # Read-only on purpose: SQLite's .backup holds a SHARED lock and writes
+      # to the destination path in /tmp — the source itself is never mutated,
+      # so the mount does not need write permission and denying it is the
+      # cheapest guard against a bug that decides to `rm -f` the database.
+      - server-data:/data:ro
+    environment:
+      # From the .env on the Jetson; the four printed by
+      # `infra/deploy/jetson/provision-jetson-iam.sh` plus the two of the
+      # Telegram bot. Everything is required at runtime — the script fails
+      # loudly (with a Telegram notification of its own) when any is missing.
+      NALANDA_S3_BUCKET: "${NALANDA_S3_BUCKET:-}"
+      AWS_REGION: "${AWS_REGION:-}"
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID:-}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY:-}"
+      # These two are shared conceptually with DocumentBuddy's — same key
+      # name for the same idea — but hold DISTINCT values, because the bots
+      # are distinct (the message prefix is `🧭 Nalanda`, and Miguel points
+      # both bots at the same chat).
+      INFRA_TELEGRAM_TOKEN: "${INFRA_TELEGRAM_TOKEN:-}"
+      ALLOWED_CHAT_IDS: "${ALLOWED_CHAT_IDS:-}"
+    restart: unless-stopped
+
 volumes:
   amc-work:
   # The database file. A named volume rather than a bind mount because the

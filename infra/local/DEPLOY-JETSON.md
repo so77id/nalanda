@@ -118,7 +118,11 @@ ALLOWED_CHAT_IDS=<numeric chat id from getidsbot>
 From `infra/local/` on the Jetson, first time or after a `git pull`:
 
 ```bash
-docker compose up -d --build --wait server
+# The `jetson` profile brings the backup + monitor services along with the
+# server; on a developer laptop `docker compose up -d server` runs the server
+# alone and leaves them off. See infra/local/docker-compose.yml.
+docker compose --profile jetson up -d --build --wait server
+docker compose --profile jetson up -d --build backup monitor
 # --build is not optional: `up` reuses the tagged image without it, so a
 #   fresh git pull runs the OLD binary and every check below passes for the
 #   wrong reason (see infra/local/docker-compose.yml server section).
@@ -134,6 +138,45 @@ Then go through [`apps/server/GOOGLE-CHECK.md`](../../apps/server/GOOGLE-CHECK.m
 end to end against the same URL. That run is the one that finally verifies
 the `Secure` cookie flag on the wire — the section §"What this check has NOT
 verified" defers to it.
+
+## Backups
+
+The `backup` compose service (built from `infra/deploy/jetson/Dockerfile.backup`
++ `backup.sh`) runs `crond -f` inside an alpine container. **03:00 UTC every
+day** it calls `sqlite3 /data/nalanda.db ".backup /tmp/backup-<ts>.db"`
+against the mounted server volume (read-only from the container's side),
+gzips the file, uploads it to `s3://<bucket>/backups/nalanda-<ts>.db.gz` and
+posts a `🧭 Nalanda ✅ Backup complete` line to the Nalanda Telegram bot.
+A failure at any step posts a `🧭 Nalanda ❌ Backup failed: <reason>` line.
+
+**Retention: 30 days, on S3, via the bucket's lifecycle policy** (installed
+by `provision-jetson-iam.sh`). The script never deletes; the credentials do
+not carry `s3:DeleteObject`.
+
+**Trigger a backup by hand** (for verification, or for an on-demand snapshot
+before a risky migration):
+
+```bash
+docker compose exec backup /usr/local/bin/backup.sh
+```
+
+**Test-restore into a scratch container** (never overwrites the live volume):
+
+```bash
+# Pull the most recent object into a scratch dir on the Jetson host.
+mkdir -p /tmp/nalanda-restore && cd /tmp/nalanda-restore
+LATEST=$(aws s3 ls "s3://${NALANDA_S3_BUCKET}/backups/" --region "${AWS_REGION}" \
+  | sort | tail -1 | awk '{print $4}')
+aws s3 cp "s3://${NALANDA_S3_BUCKET}/backups/${LATEST}" .
+gunzip "${LATEST}"
+
+# Read it back: schema query, and a quick sanity SELECT.
+sqlite3 "${LATEST%.gz}" '.schema users'
+sqlite3 "${LATEST%.gz}" 'SELECT COUNT(*) FROM users;'
+```
+
+If either command errors, the backup did not round-trip and the ADR-0037 AC
+for backups has failed — do not delete the scratch copy, and open an issue.
 
 ## The proxy-trust measurement
 
