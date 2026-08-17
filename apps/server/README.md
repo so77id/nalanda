@@ -189,8 +189,13 @@ Routes today:
 | `GET /` | Redirects to `/controls` (an anonymous request lands in `/login` first, via the gate). Superseded #151's redirect to `/professors` when WP-E landed |
 | `GET /controls` | The list, ordered by application_date desc with nulls last |
 | `GET /controls/new` · `POST /controls` | Pick a section range, generate the PDF |
-| `GET /controls/{id}` | Detail: metadata, PDF downloads, the WP-F placeholder Escaneos box |
+| `GET /controls/{id}` | Detail: metadata, PDF downloads, the Escaneos upload form, the Resultados table and (after upload) the *Cerrar corrección* button |
 | `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
+| `POST /controls/{id}/scans` | Multipart PDF upload — hands the file to the worker's `/analyse`, persists the report, flips the state to `in_review` |
+| `POST /controls/{id}/reanalyze` | Re-reads the stored captures at new `ticked`/`unsure` thresholds without a new capture |
+| `POST /controls/{id}/close` | Moves the control to `graded` when every failure kind is resolved (WP-F S8) |
+| `GET /controls/{id}/copies/{copy}/review` · `POST` | Split view — scanned image + editable form; POST saves overrides through `answer_override` / `rut_override` |
+| `GET /controls/{id}/copies/{copy}/page/{n}` | Streams the scanned page image from the shared volume |
 | `GET /professors` | The list: address, name, state, created, last sign-in |
 | `GET /professors/new` · `POST /professors` | Create by address and name — the `Authenticate` path (2) round trip |
 | `GET /professors/{id}/edit` · `POST /professors/{id}` | Rename. The address is not editable |
@@ -223,7 +228,10 @@ Deliberately, and each with an owner:
 |---|---|
 | Courses, students, enrolment — any domain table | WP-D |
 | JSON contracts, CORS, WebSocket on `/api` | with a consumer (ADR-0008) |
-| Reading scans back, per-question grades, review queue | WP-F |
+| Publishing grades (CSV export, Canvas, email) | WP-G |
+| Bulk download of annotated PDFs as a ZIP | when the pile is large enough — captured in #167 §Notes |
+| Regenerating the annotated PDF after a manual override | #167 §Non-goals; the annotated stays a view of what AMC read, overrides live in the DB |
+| Roster / student names, isolation between professors | V2 / #163 |
 | Deploy, hosting, secrets | deferred (`2026-08-controles.md` §C15) |
 | Deleting or re-addressing a professor who has never signed in | WP that reopens the mistyped-address debt (#151 §Notes) |
 | An audit trail of who did what | The WP that gains a second class of actor (#151 §Non-goals) |

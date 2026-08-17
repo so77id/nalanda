@@ -218,6 +218,38 @@ the rule, and name the test and line in the commit message. Reviewing a test by
 reading it is how a test that cannot fail gets written — #150 found four of its
 own that way, including two that asserted a redirect the handler produced anyway.
 
+## A pattern the review flow adds — the split-view page
+
+WP-F (#167) introduced a shape worth naming for the next endpoint that
+carries editable per-row detail: a **review page**. The reader is the
+professor sitting in front of one row's worth of context (the scanned
+image on the left, the editable form on the right); the endpoint is
+therefore **two URLs**, not one:
+
+- `GET .../review` — renders the page. Loads the whole row (with any
+  prior overrides eagerly attached — the store's shape is
+  `SELECT … LEFT JOIN override`, so the "was this edited by a human"
+  bit travels with the row) and hands the template pre-filled inputs.
+- `POST .../review` — saves. The handler **enumerates the row's own
+  fields** rather than trusting the client with the field set: a stale
+  form that names a field the row no longer has silently drops that
+  field. Values that MATCH what the machine read for that field **clear
+  any override** rather than upserting a redundant one — so a professor
+  can undo their own edit by putting the value back.
+
+Where the "undo" bit lives in the schema is why the WP-F migration
+holds `answer_override` alongside `answer` (both keyed by
+`(reading_id, question_ref)`) rather than mutating `answer` in place:
+an INSERT is what a save is, the pre-override state is what the
+base row still holds, and a future audit — or "what did I change on
+this student's sheet" — reads both from the same query.
+
+The paired resource for the image on the left is a **sibling
+endpoint**, not a data URL in the page: `GET .../page/{n}` streams
+the scanned image (`Content-Type` set from the path suffix, not
+inferred). Bounds the path segment with a caller-side check
+(page > 0, copy in the control's range) before it touches the disk.
+
 ## Checklist
 
 - [ ] The endpoint is on the right surface, and neither surface imports the other.
