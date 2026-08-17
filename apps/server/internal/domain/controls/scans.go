@@ -236,6 +236,52 @@ func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) e
 	return nil
 }
 
+// CloseCorrection moves a control to Graded, refusing when the gate is
+// not satisfied. The rules mirror closeGate in the handler; enforcing
+// them here means a request that skipped the disabled-button UI still
+// hits the same guard.
+func (s *Service) CloseCorrection(ctx context.Context, controlID string) error {
+	if s.Readings == nil {
+		return errors.New("controls.CloseCorrection: service is not configured for WP-F")
+	}
+	control, err := s.Store.ControlByID(ctx, controlID)
+	if err != nil {
+		return err
+	}
+	if control.State == Graded {
+		return nil // already closed — idempotent
+	}
+	readings, err := s.Readings.ReadingsByControl(ctx, controlID)
+	if err != nil {
+		return err
+	}
+	for _, r := range readings {
+		if r.CopyStatus == CopyStatusNotPresent {
+			continue
+		}
+		if r.CopyStatus == CopyStatusIncomplete {
+			return ErrCloseBlocked
+		}
+		if r.RUTStatus == RUTStatusUnreadable && r.RUTOverride == nil {
+			return ErrCloseBlocked
+		}
+		for _, a := range r.Answers {
+			effective := a.Status
+			if a.Override != nil {
+				effective = a.Override.Status
+			}
+			if (effective == AnswerStatusDoubtful || effective == AnswerStatusAmbiguous) && a.Override == nil {
+				return ErrCloseBlocked
+			}
+		}
+	}
+	return s.Readings.SetControlState(ctx, controlID, Graded)
+}
+
+// ErrCloseBlocked is returned when CloseCorrection refuses because a
+// failure kind is still unresolved.
+var ErrCloseBlocked = errors.New("controls: the correction cannot close while a failure kind is unresolved")
+
 // SaveOverridesRequest carries the whole edit atomically.
 type SaveOverridesRequest struct {
 	ControlID  string

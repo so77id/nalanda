@@ -13,6 +13,19 @@ import (
 // ControlScansPath is POST target for the upload form on /controls/:id.
 const ControlScansPath = "/controls/{id}/scans"
 
+// ControlReanalyzePath is POST target for the "re-leer con otra
+// sensibilidad" form.
+const ControlReanalyzePath = "/controls/{id}/reanalyze"
+
+// ControlClosePath is POST target for "Cerrar corrección" (S8).
+const ControlClosePath = "/controls/{id}/close"
+
+// Defaults for the reanalyze form, mirroring apps/amc-worker.
+const (
+	defaultTicked = 0.30
+	defaultUnsure = 0.10
+)
+
 // scanFormField is the multipart field the upload form posts under.
 const scanFormField = "scan"
 
@@ -99,6 +112,91 @@ func (h *Controls) UploadScan(w http.ResponseWriter, r *http.Request) {
 	flash.Set(w, h.secureCookie,
 		fmt.Sprintf("Escaneo %d procesado (%d copias leídas).", result.BatchNumber, len(result.Report.Copies)))
 	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+}
+
+// ReanalyzeScans handles POST /controls/:id/reanalyze. Reads ticked/unsure
+// from the form (defaults if empty), asks the Service to re-read the
+// captured project at those thresholds, and redirects to detail with a
+// flash.
+func (h *Controls) ReanalyzeScans(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !isValidControlID(id) {
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		flash.Set(w, h.secureCookie, "No se pudo leer el formulario.")
+		http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+		return
+	}
+	ticked := parseFloatField(r.PostFormValue("ticked"), defaultTicked)
+	unsure := parseFloatField(r.PostFormValue("unsure"), defaultUnsure)
+	if ticked <= 0 || ticked >= 1 || unsure < 0 || unsure >= ticked {
+		flash.Set(w, h.secureCookie,
+			"Los umbrales deben cumplir 0 < inseguro < marcado < 1.")
+		http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+		return
+	}
+	if _, err := h.Service.Reanalyze(r.Context(), id, ticked, unsure); err != nil {
+		switch {
+		case errors.Is(err, controls.ErrControlNotFound):
+			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+		case errors.Is(err, controls.ErrAnalyzerRefused):
+			h.Log.Warn("controls: worker refused reanalyze", "control", id, "error", err)
+			flash.Set(w, h.secureCookie,
+				"El motor rechazó re-leer. Puede que aún no haya escaneos subidos.")
+			http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+		case errors.Is(err, controls.ErrAnalyzerUnavailable):
+			h.Log.Error("controls: worker unreachable during reanalyze", "control", id, "error", err)
+			middleware.WriteError(w, r, http.StatusInternalServerError,
+				"El motor no está disponible. Vuelve a intentarlo en unos minutos.")
+		default:
+			h.Log.Error("controls: reanalyze failed", "control", id, "error", err)
+			middleware.WriteError(w, r, http.StatusInternalServerError,
+				"El servidor no pudo re-leer el lote.")
+		}
+		return
+	}
+	flash.Set(w, h.secureCookie,
+		fmt.Sprintf("Lote re-leído (marcado: %.2f, inseguro: %.2f).", ticked, unsure))
+	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+}
+
+// CloseCorrection handles POST /controls/:id/close.
+func (h *Controls) CloseCorrection(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !isValidControlID(id) {
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+		return
+	}
+	if err := h.Service.CloseCorrection(r.Context(), id); err != nil {
+		switch {
+		case errors.Is(err, controls.ErrControlNotFound):
+			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+		case errors.Is(err, controls.ErrCloseBlocked):
+			flash.Set(w, h.secureCookie,
+				"No se puede cerrar todavía: aún hay copias sin resolver.")
+			http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+		default:
+			h.Log.Error("close correction", "control", id, "error", err)
+			middleware.WriteError(w, r, http.StatusInternalServerError,
+				"El servidor no pudo cerrar la corrección.")
+		}
+		return
+	}
+	flash.Set(w, h.secureCookie, "Corrección cerrada.")
+	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+}
+
+func parseFloatField(raw string, fallback float64) float64 {
+	if raw == "" {
+		return fallback
+	}
+	var v float64
+	if _, err := fmt.Sscanf(raw, "%f", &v); err != nil {
+		return fallback
+	}
+	return v
 }
 
 // looksLikePDF is a defensive check the professor sees a nice message

@@ -220,6 +220,23 @@ type ControlDetailPage struct {
 	// QuestionColumns is the header row for the per-question columns
 	// (P1, P2, …), sized to control.QuestionsPerCopy.
 	QuestionColumns []string
+	// ReanalyzeURL is the POST target for "re-leer con otra sensibilidad".
+	ReanalyzeURL string
+	// CurrentTicked / CurrentUnsure pre-fill the reanalyze form with the
+	// last thresholds used (or the defaults for a first read).
+	CurrentTicked float64
+	CurrentUnsure float64
+	// CanClose is true when the state gate for "Cerrar corrección" is
+	// satisfied. WP-F S8 populates it.
+	CanClose bool
+	// CloseBlockedReason is the Spanish sentence explaining what stops
+	// the professor from closing yet, empty when CanClose is true.
+	CloseBlockedReason string
+	// CloseURL is the POST target for "Cerrar corrección".
+	CloseURL string
+	// Graded is true when control.state = graded — the template surfaces
+	// the "correction was closed" line above the results table.
+	Graded bool
 }
 
 // ReadingRow is one row of the results table. Everything is pre-formatted

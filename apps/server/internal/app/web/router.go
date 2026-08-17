@@ -155,6 +155,14 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.ControlScansPath,
 			Handler: deps.Controls.UploadScan,
 		},
+		{
+			Method: http.MethodPost, Path: handler.ControlReanalyzePath,
+			Handler: deps.Controls.ReanalyzeScans,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ControlClosePath,
+			Handler: deps.Controls.CloseCorrection,
+		},
 		// WP-F: the review page and its scanned-image endpoint.
 		{
 			Method: http.MethodGet, Path: handler.CopyReviewPath,

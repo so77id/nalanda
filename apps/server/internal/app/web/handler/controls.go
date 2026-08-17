@@ -173,16 +173,18 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := view.ControlDetailPage{
-		Page:       middleware.PageFor(r, c.Name),
-		Control:    toDetailedControl(c, h.Bank),
-		SujetURL:   controlSujetURL(c.ID),
-		CorrigeURL: controlCorrigeURL(c.ID),
-		ScansURL:   controlScansURL(c.ID),
-		MaxScanMB:  h.MaxScanBytes >> 20,
+		Page:          middleware.PageFor(r, c.Name),
+		Control:       toDetailedControl(c, h.Bank),
+		SujetURL:      controlSujetURL(c.ID),
+		CorrigeURL:    controlCorrigeURL(c.ID),
+		ScansURL:      controlScansURL(c.ID),
+		ReanalyzeURL:  controlReanalyzeURL(c.ID),
+		CloseURL:      controlCloseURL(c.ID),
+		MaxScanMB:     h.MaxScanBytes >> 20,
+		CurrentTicked: defaultTicked,
+		CurrentUnsure: defaultUnsure,
+		Graded:        c.State == controls.Graded,
 	}
-	// The results table (S4) is populated when at least one reading
-	// exists. An empty list keeps the "Aún no hay escaneos" copy the
-	// WP-E template already showed, without a Resultados section.
 	if h.Service != nil {
 		readings, err := h.Service.ReadingsFor(r.Context(), c.ID)
 		if err != nil {
@@ -195,6 +197,7 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 			page.QuestionColumns = perQuestionColumns(c.QuestionsPerCopy)
 			page.Readings = toReadingRows(c, readings)
 			page.Summary = summarise(readings)
+			page.CanClose, page.CloseBlockedReason = closeGate(c, readings)
 		}
 	}
 	page.Flash = flash.Consume(w, r, h.secureCookie)
@@ -471,6 +474,52 @@ func controlCorrigeURL(id string) string {
 
 func controlScansURL(id string) string {
 	return controlDetailURL(id) + "/scans"
+}
+
+func controlReanalyzeURL(id string) string {
+	return controlDetailURL(id) + "/reanalyze"
+}
+
+func controlCloseURL(id string) string {
+	return controlDetailURL(id) + "/close"
+}
+
+// closeGate implements the S8 rule: enabled when no reading holds an
+// unresolved failure kind. Returns the reason otherwise, in Spanish, for
+// the disabled button's hint.
+func closeGate(c controls.Control, readings []controls.Reading) (bool, string) {
+	if c.State == controls.Graded {
+		return false, ""
+	}
+	blockingIncomplete := 0
+	blockingRUT := 0
+	blockingDoubtful := 0
+	for _, r := range readings {
+		if r.CopyStatus == controls.CopyStatusNotPresent {
+			continue
+		}
+		if r.CopyStatus == controls.CopyStatusIncomplete {
+			blockingIncomplete++
+			continue
+		}
+		if r.RUTStatus == controls.RUTStatusUnreadable && r.RUTOverride == nil {
+			blockingRUT++
+		}
+		for _, a := range r.Answers {
+			st := effectiveAnswerStatus(a)
+			if st == controls.AnswerStatusDoubtful || st == controls.AnswerStatusAmbiguous {
+				if a.Override == nil {
+					blockingDoubtful++
+					break
+				}
+			}
+		}
+	}
+	total := blockingIncomplete + blockingRUT + blockingDoubtful
+	if total == 0 {
+		return true, ""
+	}
+	return false, fmt.Sprintf("Faltan %d revisiones antes de cerrar.", total)
 }
 
 // perQuestionColumns returns the "P1, P2, …" header labels for the results
