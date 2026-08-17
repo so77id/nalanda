@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -58,7 +59,12 @@ func newProfessorsFixture(t *testing.T) *professorsFixture {
 	}
 
 	f.handler = handler.NewProfessors(handler.Professors{
-		Users:     f.store,
+		Users: f.store,
+		Admin: auth.NewAdmin(auth.Admin{
+			Users:    f.store,
+			Sessions: f.store,
+			Now:      func() time.Time { return f.now },
+		}),
 		PublicURL: publicURL,
 		Log:       f.log,
 	})
@@ -526,6 +532,131 @@ func TestUpdateOnAnUnknownProfessorIs404(t *testing.T) {
 	if recorder.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", recorder.Code)
 	}
+}
+
+// S8: deactivate/reactivate at the handler layer. The domain enforces the
+// guards; here we assert that the domain's answer reaches the professor as
+// the Spanish flash the WP promises (AC-8).
+
+func TestDeactivateRedirectsWithFlashAndCallsTheDomain(t *testing.T) {
+	f := newProfessorsFixture(t)
+	_, token, csrf := f.signInWithCSRF(t, "yo@example.com")
+
+	target, err := f.store.CreateUser(context.Background(), "otra@example.com", "Otra")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	path := fmt.Sprintf("/professors/%d/deactivate", target.ID)
+	recorder := f.post(t, path, token, csrf, nil, f.handler.Deactivate)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 (POST/redirect/GET)", recorder.Code)
+	}
+	if location := recorder.Header().Get("Location"); location != "/professors" {
+		t.Errorf("Location = %q, want %q", location, "/professors")
+	}
+
+	// The row is inactive.
+	got, err := f.store.UserByID(context.Background(), target.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if got.IsActive {
+		t.Error("target is still active after Deactivate")
+	}
+	if got.DeactivatedAt == nil {
+		t.Error("DeactivatedAt is nil after Deactivate")
+	}
+	// A flash cookie is set for the redirected GET to consume.
+	if !hasFlash(recorder) {
+		t.Error("no flash cookie set after a successful deactivation")
+	}
+}
+
+func TestDeactivateRefusesSelfWithASpanishFlash(t *testing.T) {
+	f := newProfessorsFixture(t)
+	me, token, csrf := f.signInWithCSRF(t, "yo@example.com")
+
+	path := fmt.Sprintf("/professors/%d/deactivate", me.ID)
+	recorder := f.post(t, path, token, csrf, nil, f.handler.Deactivate)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 — a refused deactivation is a flash + redirect, not a 4xx (AC-8)", recorder.Code)
+	}
+
+	// The row is still active — a refused deactivation must not touch state.
+	got, err := f.store.UserByID(context.Background(), me.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if !got.IsActive {
+		t.Error("self went inactive after a refused self-deactivation")
+	}
+
+	// The flash carries the Spanish "cannot deactivate yourself" message,
+	// verified by decoding the cookie the way the flash package does on
+	// consume.
+	msg := readFlash(t, recorder)
+	if !strings.Contains(msg, "No puedes desactivarte") {
+		t.Errorf("flash = %q, want the Spanish 'No puedes desactivarte' message", msg)
+	}
+}
+
+func TestReactivateRedirectsWithFlash(t *testing.T) {
+	f := newProfessorsFixture(t)
+	_, token, csrf := f.signInWithCSRF(t, "yo@example.com")
+
+	target, err := f.store.CreateUser(context.Background(), "otra@example.com", "Otra")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if _, err := f.store.SetActive(context.Background(), target.ID, false, f.now); err != nil {
+		t.Fatalf("SetActive: %v", err)
+	}
+
+	path := fmt.Sprintf("/professors/%d/reactivate", target.ID)
+	recorder := f.post(t, path, token, csrf, nil, f.handler.Reactivate)
+
+	if recorder.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", recorder.Code)
+	}
+	got, err := f.store.UserByID(context.Background(), target.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if !got.IsActive {
+		t.Error("target is still inactive after Reactivate")
+	}
+	if !hasFlash(recorder) {
+		t.Error("no flash cookie set after Reactivate")
+	}
+}
+
+// hasFlash and readFlash mirror what flash.Consume does — decoded with the
+// same encoding, so a change to the encoding shows up here.
+func hasFlash(recorder *httptest.ResponseRecorder) bool {
+	for _, c := range recorder.Result().Cookies() {
+		if c.Name == "nalanda_flash" && c.Value != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func readFlash(t *testing.T, recorder *httptest.ResponseRecorder) string {
+	t.Helper()
+	for _, c := range recorder.Result().Cookies() {
+		if c.Name == "nalanda_flash" && c.Value != "" {
+			decoded, err := base64.URLEncoding.DecodeString(c.Value)
+			if err != nil {
+				t.Fatalf("decoding the flash: %v", err)
+			}
+			return string(decoded)
+		}
+	}
+	t.Fatal("no flash cookie present")
+	return ""
 }
 
 func TestCreateWithADuplicateEmailRerendersWithError(t *testing.T) {

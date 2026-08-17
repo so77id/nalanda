@@ -152,6 +152,13 @@ type UserStore interface {
 	// CountUsers is what the bootstrap path asks before deciding that a server
 	// with no professors may adopt the one named by the configuration.
 	CountUsers(ctx context.Context) (int, error)
+	// CountActiveUsers is what the deactivation guard checks: "would this
+	// action leave the server with no active professor?" (issue #151
+	// §Deactivation). A separate count rather than filtering the ListUsers
+	// slice because the guard is called on every deactivation and a
+	// full-table scan of a table that will grow (WP-D imports a roster) is
+	// wasted work as soon as the friends-and-family scale is left.
+	CountActiveUsers(ctx context.Context) (int, error)
 	// RecordLogin stamps users.last_login_at for the given professor. The
 	// login path is the only caller today (Login.RecordLastSignIn); the
 	// timestamp comes from the domain's clock, not from a "when did the row

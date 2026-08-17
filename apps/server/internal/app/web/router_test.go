@@ -60,7 +60,12 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			Log:          logger,
 		}),
 		Professors: handler.NewProfessors(handler.Professors{
-			Users:     store,
+			Users: store,
+			Admin: auth.NewAdmin(auth.Admin{
+				Users:    store,
+				Sessions: store,
+				Now:      time.Now,
+			}),
 			PublicURL: "https://nalanda.test",
 			Log:       logger,
 		}),

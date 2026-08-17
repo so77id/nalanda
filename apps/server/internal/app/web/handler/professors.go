@@ -23,10 +23,12 @@ import (
 // a Spanish path would be the only one on the server. What a reader sees
 // stays Spanish (issue #151 §Routes).
 const (
-	ProfessorsPath      = "/professors"
-	ProfessorsNewPath   = "/professors/new"
-	ProfessorEditPath   = "/professors/{id}/edit"
-	ProfessorUpdatePath = "/professors/{id}"
+	ProfessorsPath          = "/professors"
+	ProfessorsNewPath       = "/professors/new"
+	ProfessorEditPath       = "/professors/{id}/edit"
+	ProfessorUpdatePath     = "/professors/{id}"
+	ProfessorDeactivatePath = "/professors/{id}/deactivate"
+	ProfessorReactivatePath = "/professors/{id}/reactivate"
 )
 
 // Professors holds the CRUD's handlers. Same shape as Auth: several handlers
@@ -35,6 +37,7 @@ const (
 // a request (backend-code-style.md §Errors).
 type Professors struct {
 	Users     auth.UserStore
+	Admin     *auth.Admin
 	PublicURL string
 	Log       *slog.Logger
 
@@ -50,6 +53,8 @@ func NewProfessors(deps Professors) *Professors {
 	switch {
 	case deps.Users == nil:
 		panic("handler.NewProfessors: no user store")
+	case deps.Admin == nil:
+		panic("handler.NewProfessors: no admin service")
 	case deps.PublicURL == "":
 		panic("handler.NewProfessors: no public URL — the flash cookie's Secure attribute is derived from it")
 	case deps.Log == nil:
@@ -81,6 +86,9 @@ func (p *Professors) List(w http.ResponseWriter, r *http.Request) {
 	page := view.ProfessorsListPage{
 		Page:       p.pageFromRequest(r, "Profesores"),
 		Professors: toListedProfessors(users),
+	}
+	if pr, ok := middleware.ProfessorFrom(r.Context()); ok {
+		page.SelfID = pr.ID
 	}
 	page.Flash = flash.Consume(w, r, p.secureCookie)
 
@@ -405,6 +413,57 @@ func parseIDFromPath(r *http.Request) (int64, bool) {
 // one place so a change to the pattern moves everywhere it is written.
 func professorPath(id int64) string {
 	return fmt.Sprintf("%s/%d", ProfessorsPath, id)
+}
+
+// Deactivate handles POST /professors/{id}/deactivate. Both guards are
+// enforced by the domain (auth.Admin.Deactivate); this method's job is to
+// translate the outcome into a flash message and a redirect. Neither guard
+// returns a 4xx — issue #151 AC-8 asks for the refusal to reach the
+// professor in Spanish rather than as a status code, and the flash + redirect
+// pattern is what the WP established for that.
+func (p *Professors) Deactivate(w http.ResponseWriter, r *http.Request) {
+	target, ok := p.loadTarget(w, r)
+	if !ok {
+		return
+	}
+	acting, ok := middleware.ProfessorFrom(r.Context())
+	if !ok {
+		// Cannot happen: the gate would have redirected an anonymous
+		// request before it reached here. Keep the branch honest anyway.
+		p.renderInternalError(w, r)
+		return
+	}
+
+	_, err := p.Admin.Deactivate(r.Context(), target.ID, acting.ID)
+	switch {
+	case errors.Is(err, auth.ErrCannotDeactivateSelf):
+		flash.Set(w, p.secureCookie, "No puedes desactivarte a ti misma.")
+	case errors.Is(err, auth.ErrCannotDeactivateLastActive):
+		flash.Set(w, p.secureCookie, "No puedes desactivar a la única profesora activa.")
+	case err != nil:
+		p.Log.Error("deactivating a professor", "error", err, "target", target.ID)
+		p.renderInternalError(w, r)
+		return
+	default:
+		flash.Set(w, p.secureCookie, target.Email+" queda inactiva; se cerraron sus sesiones.")
+	}
+	http.Redirect(w, r, ProfessorsPath, http.StatusSeeOther)
+}
+
+// Reactivate handles POST /professors/{id}/reactivate. Same screen as
+// deactivation in the list — the row's action button just flips.
+func (p *Professors) Reactivate(w http.ResponseWriter, r *http.Request) {
+	target, ok := p.loadTarget(w, r)
+	if !ok {
+		return
+	}
+	if _, err := p.Admin.Reactivate(r.Context(), target.ID); err != nil {
+		p.Log.Error("reactivating a professor", "error", err, "target", target.ID)
+		p.renderInternalError(w, r)
+		return
+	}
+	flash.Set(w, p.secureCookie, target.Email+" vuelve a estar activa.")
+	http.Redirect(w, r, ProfessorsPath, http.StatusSeeOther)
 }
 
 // renderNotFoundShell writes a 404 through the shell without going through

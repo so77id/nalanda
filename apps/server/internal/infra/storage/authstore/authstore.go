@@ -141,6 +141,16 @@ func (s *Store) CountUsers(ctx context.Context) (int, error) {
 	return count, nil
 }
 
+// CountActiveUsers reports how many professors have is_active = 1. Used by
+// the deactivation guard.
+func (s *Store) CountActiveUsers(ctx context.Context) (int, error) {
+	var count int
+	if err := s.db.QueryRowContext(ctx, "SELECT count(*) FROM users WHERE is_active = 1").Scan(&count); err != nil {
+		return 0, fmt.Errorf("count the active professors: %w", err)
+	}
+	return count, nil
+}
+
 // RecordLogin stamps users.last_login_at for the given professor. Time is unix
 // seconds, matching the rest of the schema; the caller has already decided
 // what "now" means (Login.Now), so we do not read the clock here.

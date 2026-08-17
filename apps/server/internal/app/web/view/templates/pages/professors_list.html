@@ -25,7 +25,22 @@
           <td>{{ .State }}</td>
           <td>{{ .CreatedAt }}</td>
           <td>{{ .LastSignIn }}</td>
-          <td><a href="/professors/{{ .ID }}/edit">Editar</a></td>
+          <td>
+            <a href="/professors/{{ .ID }}/edit">Editar</a>
+            {{ if .IsActive }}
+              {{ if ne .ID $.SelfID }}
+                <form method="post" action="/professors/{{ .ID }}/deactivate" class="inline">
+                  <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                  <button type="submit">Desactivar</button>
+                </form>
+              {{ end }}
+            {{ else }}
+              <form method="post" action="/professors/{{ .ID }}/reactivate" class="inline">
+                <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}" />
+                <button type="submit">Reactivar</button>
+              </form>
+            {{ end }}
+          </td>
         </tr>
       {{ end }}
     </tbody>

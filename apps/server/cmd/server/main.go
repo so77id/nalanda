@@ -149,7 +149,12 @@ func run(logger *slog.Logger) error {
 			Log:       logger,
 		}),
 		Professors: handler.NewProfessors(handler.Professors{
-			Users:     store,
+			Users: store,
+			Admin: auth.NewAdmin(auth.Admin{
+				Users:    store,
+				Sessions: store,
+				Now:      time.Now,
+			}),
 			PublicURL: cfg.PublicURL,
 			Log:       logger,
 		}),

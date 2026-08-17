@@ -626,6 +626,49 @@ func TestSetActiveOnAnUnknownProfessorReturnsErrNotFound(t *testing.T) {
 	}
 }
 
+// CountActiveUsers is what the deactivation guard reads. Kept separate from
+// CountUsers because a table that will grow (WP-D imports a roster) should
+// not scan every row to decide a two-line condition.
+func TestCountActiveUsersIgnoresInactiveRows(t *testing.T) {
+	ctx, _, s := store(t)
+
+	at := time.Date(2026, time.August, 15, 9, 0, 0, 0, time.UTC)
+	a, err := s.CreateUser(ctx, "a@example.com", "A")
+	if err != nil {
+		t.Fatalf("CreateUser a: %v", err)
+	}
+	b, err := s.CreateUser(ctx, "b@example.com", "B")
+	if err != nil {
+		t.Fatalf("CreateUser b: %v", err)
+	}
+	c, err := s.CreateUser(ctx, "c@example.com", "C")
+	if err != nil {
+		t.Fatalf("CreateUser c: %v", err)
+	}
+	if _, err := s.SetActive(ctx, b.ID, false, at); err != nil {
+		t.Fatalf("SetActive b: %v", err)
+	}
+	_ = a
+	_ = c
+
+	active, err := s.CountActiveUsers(ctx)
+	if err != nil {
+		t.Fatalf("CountActiveUsers: %v", err)
+	}
+	if active != 2 {
+		t.Errorf("CountActiveUsers = %d, want 2 (a + c active; b deactivated)", active)
+	}
+
+	// Sanity: CountUsers still returns three.
+	total, err := s.CountUsers(ctx)
+	if err != nil {
+		t.Fatalf("CountUsers: %v", err)
+	}
+	if total != 3 {
+		t.Errorf("CountUsers = %d, want 3", total)
+	}
+}
+
 // DeleteUserSessions ends EVERY session a professor holds — the load-bearing
 // half of deactivation. #150 shipped this on the adapter but not on the
 // interface; S4 raises it into auth.SessionStore so the deactivation screen

@@ -97,6 +97,11 @@ type ProfessorFormValues struct {
 type ProfessorsListPage struct {
 	Page
 	Professors []ListedProfessor
+	// SelfID is the id of the professor viewing the page. The template uses
+	// it to hide the "Desactivar" button on the row that IS them — the
+	// domain would refuse the action (auth.ErrCannotDeactivateSelf) but the
+	// button that leads there might as well not be shown.
+	SelfID int64
 }
 
 // ListedProfessor is one row of the CRUD's list, with every column already
