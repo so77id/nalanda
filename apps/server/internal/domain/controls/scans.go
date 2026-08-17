@@ -175,6 +175,113 @@ func (s *Service) ReadingFor(ctx context.Context, controlID string, copyNumber i
 	return s.Readings.ReadingByCopy(ctx, controlID, copyNumber)
 }
 
+// SaveOverrides applies a professor's edits to a single reading. The
+// request carries the RUT (empty means "no change" — the review handler
+// enforces its own precondition) and one entry per question in the
+// reading's pool with the new marked set. A submitted set that MATCHES
+// what AMC read for that question clears any prior override; anything
+// else upserts one. The RUT logic is symmetric.
+func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) error {
+	if s.Readings == nil {
+		return errors.New("controls.SaveOverrides: service is not configured for WP-F")
+	}
+	reading, err := s.Readings.ReadingByCopy(ctx, req.ControlID, req.CopyNumber)
+	if err != nil {
+		return err
+	}
+	now := s.Now()
+
+	// RUT — the override is what shows up beside the AMC read on the
+	// review page; setting it back to what AMC read clears the override.
+	rutMatchesRead := reading.RUTRead != nil && *reading.RUTRead == req.RUT
+	switch {
+	case req.RUT == "":
+		// Empty submission is ignored — the review form always sends the
+		// current visible RUT (either the read value or the override).
+	case rutMatchesRead && reading.RUTStatus == RUTStatusOK:
+		if err := s.Readings.ClearRUTOverride(ctx, reading.ID); err != nil {
+			return err
+		}
+	default:
+		if err := s.Readings.SetRUTOverride(ctx, reading.ID, req.RUT, now); err != nil {
+			return err
+		}
+	}
+
+	// Per question — clear when the submission matches what AMC read,
+	// upsert otherwise.
+	for _, edit := range req.Answers {
+		ans, ok := findAnswer(reading, edit.QuestionRef)
+		if !ok {
+			// Silently drop questions the reading does not know — the
+			// form was generated for a stale reading; the professor's
+			// next attempt will re-read the correct set.
+			continue
+		}
+		if matchesRead(ans, edit) {
+			if err := s.Readings.ClearAnswerOverride(ctx, reading.ID, edit.QuestionRef); err != nil {
+				return err
+			}
+			continue
+		}
+		override := AnswerOverride{
+			Marked:   edit.Marked,
+			Status:   edit.Status,
+			EditedAt: now,
+		}
+		if err := s.Readings.SetAnswerOverride(ctx, reading.ID, edit.QuestionRef, override); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// SaveOverridesRequest carries the whole edit atomically.
+type SaveOverridesRequest struct {
+	ControlID  string
+	CopyNumber int
+	RUT        string
+	Answers    []AnswerEdit
+}
+
+// AnswerEdit is one question's new state.
+type AnswerEdit struct {
+	QuestionRef string
+	Marked      []int
+	Status      AnswerStatus
+}
+
+func findAnswer(r Reading, ref string) (Answer, bool) {
+	for _, a := range r.Answers {
+		if a.QuestionRef == ref {
+			return a, true
+		}
+	}
+	return Answer{}, false
+}
+
+// matchesRead reports whether an edit brings the answer back to what AMC
+// originally read (same marks in any order, same status).
+func matchesRead(a Answer, edit AnswerEdit) bool {
+	if a.Status != edit.Status {
+		return false
+	}
+	if len(a.Marked) != len(edit.Marked) {
+		return false
+	}
+	seen := make(map[int]int, len(a.Marked))
+	for _, m := range a.Marked {
+		seen[m]++
+	}
+	for _, m := range edit.Marked {
+		if seen[m] == 0 {
+			return false
+		}
+		seen[m]--
+	}
+	return true
+}
+
 // nextBatchNumber walks the uploads/ directory and picks the smallest
 // unused batch-N.pdf. Deterministic — a delete-then-upload puts the new
 // scan under a lower number than a fresh one would — which is what a

@@ -161,6 +161,10 @@ func routes(deps Deps) []Route {
 			Handler: deps.Controls.Review,
 		},
 		{
+			Method: http.MethodPost, Path: handler.CopyReviewPath,
+			Handler: deps.Controls.SaveReview,
+		},
+		{
 			Method: http.MethodGet, Path: handler.CopyPageImage,
 			Handler: deps.Controls.PageImage,
 		},

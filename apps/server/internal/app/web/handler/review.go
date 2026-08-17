@@ -73,6 +73,117 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// SaveReview handles POST /controls/:id/copies/:copy/review. Reads the
+// form values, hands them to the Service, and flashes back to the detail
+// page.
+func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	copyNumber, ok := parseCopyPathValue(r.PathValue("copy"))
+	if !isValidControlID(id) || !ok {
+		middleware.WriteError(w, r, http.StatusNotFound, "Esa página no existe.")
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		flash.Set(w, h.secureCookie, "No se pudo leer el formulario. Inténtalo de nuevo.")
+		http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
+		return
+	}
+	// Load the reading so we know which question refs live on it — the
+	// form fields are named `q<ref>`, and enumerating them from the
+	// reading avoids trusting the client with the set of refs.
+	reading, err := h.Service.ReadingFor(r.Context(), id, copyNumber)
+	if err != nil {
+		if errors.Is(err, controls.ErrReadingNotFound) {
+			middleware.WriteError(w, r, http.StatusNotFound,
+				"Aún no hay una lectura para esta copia. Sube el escaneo primero.")
+			return
+		}
+		h.Log.Error("save review: reading", "error", err, "id", id, "copy", copyNumber)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	req := controls.SaveOverridesRequest{
+		ControlID:  id,
+		CopyNumber: copyNumber,
+		RUT:        strings.TrimSpace(r.PostFormValue("rut")),
+	}
+	blank := r.PostFormValue("blank") // "" or one question_ref
+	for _, a := range reading.Answers {
+		edit := controls.AnswerEdit{QuestionRef: a.QuestionRef}
+		if a.QuestionRef == blank {
+			edit.Marked = nil
+			edit.Status = controls.AnswerStatusBlank
+		} else {
+			field := "q" + a.QuestionRef
+			values := r.PostForm[field]
+			marks, err := parseAnswerValues(values)
+			if err != nil {
+				flash.Set(w, h.secureCookie, "El formulario tiene un valor inválido.")
+				http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
+				return
+			}
+			edit.Marked = marks
+			edit.Status = statusFor(marks, a.QuestionType)
+		}
+		req.Answers = append(req.Answers, edit)
+	}
+
+	if err := h.Service.SaveOverrides(r.Context(), req); err != nil {
+		h.Log.Error("save review", "error", err, "id", id, "copy", copyNumber)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"El servidor no pudo guardar los cambios. Vuelve a intentarlo.")
+		return
+	}
+	if blank != "" {
+		flash.Set(w, h.secureCookie, fmt.Sprintf("Pregunta %s marcada en blanco.", blank))
+	} else {
+		flash.Set(w, h.secureCookie, "Cambios guardados.")
+	}
+	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+}
+
+// parseAnswerValues turns form values ("1", "3") into a sorted int slice.
+// Empty is legal (a blank answer).
+func parseAnswerValues(values []string) ([]int, error) {
+	if len(values) == 0 {
+		return nil, nil
+	}
+	out := make([]int, 0, len(values))
+	seen := map[int]bool{}
+	for _, v := range values {
+		v = strings.TrimSpace(v)
+		if v == "" {
+			continue
+		}
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			return nil, fmt.Errorf("bad value %q", v)
+		}
+		if seen[n] {
+			continue
+		}
+		seen[n] = true
+		out = append(out, n)
+	}
+	return out, nil
+}
+
+// statusFor decides the AnswerStatus a saved edit lands at. For a simple
+// question with more than one mark the professor has produced something
+// impossible via the form — but leaving the branch in matches the report's
+// own contract.
+func statusFor(marks []int, qtype controls.QuestionType) controls.AnswerStatus {
+	if len(marks) == 0 {
+		return controls.AnswerStatusBlank
+	}
+	if qtype == controls.QuestionSimple && len(marks) > 1 {
+		return controls.AnswerStatusAmbiguous
+	}
+	return controls.AnswerStatusOK
+}
+
 // PageImage serves the scanned page image for a copy. Path convention:
 // <workdir>/controls/<id>/scans/copy-<copy>-page-<n>.png. The naming is a
 // MODEL of what apps/amc-worker's getimages produces — the WP-F ADR-0031
