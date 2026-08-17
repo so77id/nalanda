@@ -64,6 +64,11 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 			PublicURL:    "https://nalanda.test",
 			Log:          logger,
 		}),
+		Professors: handler.NewProfessors(handler.Professors{
+			Users:     store,
+			PublicURL: "https://nalanda.test",
+			Log:       logger,
+		}),
 		Log: logger,
 	}, prober, logger), store
 }
@@ -200,11 +205,31 @@ func TestTheMountsDoNotSwallowEachOther(t *testing.T) {
 		t.Errorf("GET /api/nothing-here = %d, want 404", rec.Code)
 	}
 
-	// And the backoffice still has no screens (WP-C3).
+	// WP-C3 (#151, S5) claimed `/`: it is now the exact-match index of the
+	// backoffice surface and redirects a signed-in professor to the CRUD
+	// list. An anonymous request gets the gate's redirect to /login — which
+	// is what asserts here — and the case still verifies that `/` is
+	// EXACT: an accidental subtree pattern (`GET /`) would swallow every
+	// unregistered path and make TestA404GoesThroughTheShell impossible.
 	root := httptest.NewRecorder()
 	handler.ServeHTTP(root, httptest.NewRequest(http.MethodGet, "/", nil))
-	if root.Code != http.StatusNotFound {
-		t.Errorf("GET / = %d, want 404 until WP-C3 (#151)", root.Code)
+	if root.Code != http.StatusSeeOther {
+		t.Errorf("GET / = %d, want 303 (the gate redirects an anonymous request to /login)", root.Code)
+	}
+	if location := root.Header().Get("Location"); location != "/login" {
+		// The literal, because the outer `handler` name in this scope is
+		// the http.Handler returned by composed(); typing
+		// handler.LoginPath here would be that variable and not the
+		// package constant. Kept in sync with handler.LoginPath.
+		t.Errorf("Location = %q, want %q", location, "/login")
+	}
+
+	// And an unregistered top-level path is a real 404, not swallowed by
+	// the `/` route above.
+	miss := httptest.NewRecorder()
+	handler.ServeHTTP(miss, httptest.NewRequest(http.MethodGet, "/no-such-path", nil))
+	if miss.Code != http.StatusNotFound {
+		t.Errorf("GET /no-such-path = %d, want 404 — `/` must be exact-match, not a subtree", miss.Code)
 	}
 }
 

@@ -1,0 +1,29 @@
+{{ define "content" }}
+  <h1>Profesores</h1>
+
+  <p>Quienes tienen cuenta para entrar al backoffice. Los estudiantes no
+    necesitan cuenta: leen el curso y entran a las sesiones con un código.</p>
+
+  <table class="lista">
+    <thead>
+      <tr>
+        <th>Correo</th>
+        <th>Nombre</th>
+        <th>Estado</th>
+        <th>Creada</th>
+        <th>Último acceso</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{ range .Professors }}
+        <tr>
+          <td>{{ .Email }}</td>
+          <td>{{ .Name }}</td>
+          <td>{{ .State }}</td>
+          <td>{{ .CreatedAt }}</td>
+          <td>{{ .LastSignIn }}</td>
+        </tr>
+      {{ end }}
+    </tbody>
+  </table>
+{{ end }}

@@ -40,6 +40,8 @@ type Deps struct {
 	Gate *middleware.Auth
 	// Login is the login round trip's handlers.
 	Login *handler.Auth
+	// Professors is the CRUD's handlers (issue #151 S5 onward).
+	Professors *handler.Professors
 	// Log is spelled the same here as in the two structs above.
 	Log *slog.Logger
 }
@@ -106,6 +108,17 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.LogoutPath,
 			Handler: deps.Login.Logout,
 		},
+		// The CRUD, from S5 on. Gated by default (no Public), which the
+		// TestEveryRouteIsGatedUnlessItSaysWhyNot guard walks — an anonymous
+		// visitor is redirected to /login before the handler runs.
+		{
+			Method: http.MethodGet, Path: "/",
+			Handler: deps.Professors.Root,
+		},
+		{
+			Method: http.MethodGet, Path: handler.ProfessorsPath,
+			Handler: deps.Professors.List,
+		},
 	}
 }
 
@@ -140,6 +153,8 @@ func Router(deps Deps) http.Handler {
 		panic("web.Router: no gate")
 	case deps.Login == nil:
 		panic("web.Router: no login handlers")
+	case deps.Professors == nil:
+		panic("web.Router: no professors handlers")
 	case deps.Log == nil:
 		panic("web.Router: no logger")
 	}
@@ -150,17 +165,18 @@ func Router(deps Deps) http.Handler {
 	public := map[string]bool{}
 	paths := map[string]bool{}
 	for _, route := range table {
-		pattern := route.Method + " " + route.Path
+		pattern := route.Method + " " + muxPathFor(route.Path)
 		mux.Handle(pattern, route.Handler)
 		if route.Public {
 			public[pattern] = true
 		}
-		// `paths` remembers every REGISTERED path under any method. A request
-		// to a path that appears here but under the wrong verb must reach the
-		// mux so it can answer 405 with the Allow header set — from the mux's
-		// side a 404 and a 405 both look like "pattern == ''", and turning the
-		// second into a shell 404 would hide the "wrong verb" signal a client
-		// relies on.
+		// `paths` remembers every REGISTERED path under any method (the
+		// BROWSER path, not the mux pattern). A request to a path that
+		// appears here but under the wrong verb must reach the mux so it
+		// can answer 405 with the Allow header set — from the mux's side a
+		// 404 and a 405 both look like "pattern == ''", and turning the
+		// second into a shell 404 would hide the "wrong verb" signal a
+		// client relies on.
 		paths[route.Path] = true
 	}
 
@@ -215,6 +231,26 @@ func gate(auth *middleware.Auth, mux *http.ServeMux, public, paths map[string]bo
 // about HTTP semantics is cheaper than exporting one.
 func isSafeMethod(method string) bool {
 	return method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
+}
+
+// muxPathFor turns the BROWSER path a route carries into the mux pattern it
+// registers under. `/` in the table means the exact index; net/http.ServeMux
+// spells that `/{$}` since Go 1.22 — a bare `/` pattern is a SUBTREE that
+// silently matches every path nothing else claims, so `GET /` swallows every
+// 404 and 405 on the whole site (measured in this WP's S5 first pass: `GET
+// /logout` came back 303 to /professors instead of 405). Every other path is
+// left alone.
+//
+// The split is what lets Route.Path stay the URL a browser types, so the
+// guards that walk the table (`TestEveryRouteIsGatedUnlessItSaysWhyNot`,
+// `TestEveryStateChangingRouteVerifiesCSRF`) can build a real request from
+// it, and `paths[]` — the set the gate consults to distinguish a real 404
+// from a 405 — is keyed by that same browser path.
+func muxPathFor(path string) string {
+	if path == "/" {
+		return "/{$}"
+	}
+	return path
 }
 
 // renderNotFound writes a 404 through the shell. Placed here rather than in

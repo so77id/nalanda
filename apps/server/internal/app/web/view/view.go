@@ -57,6 +57,27 @@ type Page struct {
 	Flash string
 }
 
+// ProfessorsListPage is what professors_list.html renders. The row values
+// are pre-formatted by the handler; see handler/professors.go for why.
+type ProfessorsListPage struct {
+	Page
+	Professors []ListedProfessor
+}
+
+// ListedProfessor is one row of the CRUD's list, with every column already
+// as a string a person reads. Not the domain's auth.User: dates are a
+// formatted Spanish short date and state is a Spanish word, so the template
+// carries no formatting logic and cannot get it wrong.
+type ListedProfessor struct {
+	ID         int64
+	Email      string
+	Name       string
+	IsActive   bool
+	State      string
+	CreatedAt  string
+	LastSignIn string
+}
+
 // ErrorPage is what error.html renders. AC-11: 404, 403 and 500 render
 // through the shell rather than as Go's default text.
 //
@@ -148,6 +169,14 @@ func RenderLogin(w http.ResponseWriter, page LoginPage) error {
 		}
 	}
 	return render(w, "login", http.StatusOK, page)
+}
+
+// RenderProfessorsList writes the CRUD's list page.
+func RenderProfessorsList(w http.ResponseWriter, page ProfessorsListPage) error {
+	if page.Title == "" {
+		page.Title = "Profesores"
+	}
+	return render(w, "professors_list", http.StatusOK, page)
 }
 
 // RenderError writes an error page through the shell (AC-11).

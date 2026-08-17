@@ -59,6 +59,11 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			PublicURL:    "https://nalanda.test",
 			Log:          logger,
 		}),
+		Professors: handler.NewProfessors(handler.Professors{
+			Users:     store,
+			PublicURL: "https://nalanda.test",
+			Log:       logger,
+		}),
 		Log: logger,
 	}
 }
