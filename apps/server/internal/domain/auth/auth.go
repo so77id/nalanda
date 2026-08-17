@@ -46,6 +46,16 @@ type User struct {
 	IsActive      bool
 	CreatedAt     time.Time
 	DeactivatedAt *time.Time
+	// LastLoginAt is nil until the professor signs in at least once. Written
+	// by the login path (Login.RecordLastSignIn), so a professor created by
+	// the CRUD and not yet arrived has never logged in and the list says so
+	// in words rather than showing an epoch (issue #151 §Last sign-in).
+	//
+	// It is NOT the same as SessionStore's LastSeenAt, and it cannot be
+	// derived from it: user_sessions rows are DELETED on logout, so the
+	// professor who signs out tidily is exactly the one whose last sign-in
+	// would render blank.
+	LastLoginAt *time.Time
 }
 
 // MayLogIn reports whether this professor is allowed to hold a session. The zero
@@ -142,6 +152,12 @@ type UserStore interface {
 	// CountUsers is what the bootstrap path asks before deciding that a server
 	// with no professors may adopt the one named by the configuration.
 	CountUsers(ctx context.Context) (int, error)
+	// RecordLogin stamps users.last_login_at for the given professor. The
+	// login path is the only caller today (Login.RecordLastSignIn); the
+	// timestamp comes from the domain's clock, not from a "when did the row
+	// change" trigger, so the value the CRUD renders is the one the login
+	// service decided to write (issue #151 §Last sign-in).
+	RecordLogin(ctx context.Context, userID int64, at time.Time) error
 }
 
 type IdentityStore interface {

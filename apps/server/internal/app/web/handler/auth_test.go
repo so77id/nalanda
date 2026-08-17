@@ -233,6 +233,17 @@ func TestTheCallbackBootstrapsTheFirstProfessorAndOpensASession(t *testing.T) {
 	if professor.Email != "profesora@example.com" {
 		t.Errorf("the session belongs to %q", professor.Email)
 	}
+
+	// AC-3 groundwork (issue #151 S3): a successful callback stamps
+	// users.last_login_at, so the CRUD's "when did they last sign in?" column
+	// has something to render. The value is the domain's clock (the fixture's
+	// pinned `now`), matched exactly.
+	if professor.LastLoginAt == nil {
+		t.Fatalf("last_login_at is nil after a successful sign-in, want the fixture's clock (%v)", f.now)
+	}
+	if !professor.LastLoginAt.Equal(f.now) {
+		t.Errorf("last_login_at = %v, want %v (the fixture's pinned now)", *professor.LastLoginAt, f.now)
+	}
 }
 
 // AC-1: a verified Google account that belongs to nobody gets in nowhere, and

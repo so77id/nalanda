@@ -58,7 +58,7 @@ func notFound(err error, subject string) error {
 	return fmt.Errorf("%s: %w", subject, err)
 }
 
-const userColumns = "user_id, email, name, is_active, created_at, deactivated_at"
+const userColumns = "user_id, email, name, is_active, created_at, deactivated_at, last_login_at"
 
 // scanUser reads the userColumns set in order.
 func scanUser(row interface{ Scan(...any) error }) (auth.User, error) {
@@ -66,14 +66,19 @@ func scanUser(row interface{ Scan(...any) error }) (auth.User, error) {
 		user          auth.User
 		createdAt     int64
 		deactivatedAt sql.NullInt64
+		lastLoginAt   sql.NullInt64
 	)
-	if err := row.Scan(&user.ID, &user.Email, &user.Name, &user.IsActive, &createdAt, &deactivatedAt); err != nil {
+	if err := row.Scan(&user.ID, &user.Email, &user.Name, &user.IsActive, &createdAt, &deactivatedAt, &lastLoginAt); err != nil {
 		return auth.User{}, err
 	}
 	user.CreatedAt = time.Unix(createdAt, 0).UTC()
 	if deactivatedAt.Valid {
 		at := time.Unix(deactivatedAt.Int64, 0).UTC()
 		user.DeactivatedAt = &at
+	}
+	if lastLoginAt.Valid {
+		at := time.Unix(lastLoginAt.Int64, 0).UTC()
+		user.LastLoginAt = &at
 	}
 	return user, nil
 }
@@ -134,6 +139,17 @@ func (s *Store) CountUsers(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("count the professors: %w", err)
 	}
 	return count, nil
+}
+
+// RecordLogin stamps users.last_login_at for the given professor. Time is unix
+// seconds, matching the rest of the schema; the caller has already decided
+// what "now" means (Login.Now), so we do not read the clock here.
+func (s *Store) RecordLogin(ctx context.Context, userID int64, at time.Time) error {
+	if _, err := s.db.ExecContext(ctx,
+		"UPDATE users SET last_login_at = ? WHERE user_id = ?", at.Unix(), userID); err != nil {
+		return fmt.Errorf("record the last sign-in of professor %d: %w", userID, err)
+	}
+	return nil
 }
 
 const identityColumns = "id, user_id, provider, subject, email, linked_at"

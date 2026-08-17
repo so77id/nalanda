@@ -434,3 +434,79 @@ func TestTheRawSessionTokenIsNowhereInTheDatabase(t *testing.T) {
 		t.Fatal("the sweep read no rows, so it verified nothing")
 	}
 }
+
+// The last-sign-in column and the write that stamps it (issue #151 S3). The
+// list in the professor CRUD reads this: it answers "is this account still in
+// use?" — see the issue's §Last sign-in for why user_sessions.last_seen_at
+// cannot be that source.
+
+func TestANewProfessorHasNoLastLoginAt(t *testing.T) {
+	ctx, _, s := store(t)
+
+	created, err := s.CreateUser(ctx, "profesora@example.com", "Profesora")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+	if created.LastLoginAt != nil {
+		t.Errorf("CreateUser.LastLoginAt = %v, want nil for a freshly created professor", created.LastLoginAt)
+	}
+
+	got, err := s.UserByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if got.LastLoginAt != nil {
+		t.Errorf("UserByID.LastLoginAt = %v, want nil until the professor has signed in", got.LastLoginAt)
+	}
+}
+
+func TestRecordLoginStampsTheColumnAndSurvivesARead(t *testing.T) {
+	ctx, _, s := store(t)
+
+	created, err := s.CreateUser(ctx, "profesora@example.com", "Profesora")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	at := time.Date(2026, time.August, 16, 14, 30, 45, 0, time.UTC)
+	if err := s.RecordLogin(ctx, created.ID, at); err != nil {
+		t.Fatalf("RecordLogin: %v", err)
+	}
+
+	got, err := s.UserByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if got.LastLoginAt == nil {
+		t.Fatalf("LastLoginAt is nil after RecordLogin, want %v", at)
+	}
+	if !got.LastLoginAt.Equal(at) {
+		t.Errorf("LastLoginAt = %v, want %v", *got.LastLoginAt, at)
+	}
+}
+
+func TestRecordLoginOverwritesAPreviousValue(t *testing.T) {
+	ctx, _, s := store(t)
+
+	created, err := s.CreateUser(ctx, "profesora@example.com", "Profesora")
+	if err != nil {
+		t.Fatalf("CreateUser: %v", err)
+	}
+
+	first := time.Date(2026, time.August, 10, 9, 0, 0, 0, time.UTC)
+	second := time.Date(2026, time.August, 16, 12, 0, 0, 0, time.UTC)
+	if err := s.RecordLogin(ctx, created.ID, first); err != nil {
+		t.Fatalf("RecordLogin first: %v", err)
+	}
+	if err := s.RecordLogin(ctx, created.ID, second); err != nil {
+		t.Fatalf("RecordLogin second: %v", err)
+	}
+
+	got, err := s.UserByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if got.LastLoginAt == nil || !got.LastLoginAt.Equal(second) {
+		t.Errorf("LastLoginAt = %v, want %v (the later of the two writes)", got.LastLoginAt, second)
+	}
+}

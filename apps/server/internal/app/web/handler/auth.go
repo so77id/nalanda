@@ -271,6 +271,16 @@ func (a *Auth) LoginGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// last_login_at is what the CRUD list renders as "when did they last sign
+	// in?" — see issue #151 §Last sign-in for why it cannot be read from
+	// user_sessions.last_seen_at. Bookkeeping: a failure here does not deny
+	// the login (the professor did sign in), it goes into the log so the
+	// operator can see it. Same shape as middleware.TouchSession for
+	// user_sessions.last_seen_at.
+	if err := a.Login.RecordLastSignIn(r.Context(), professor.ID); err != nil {
+		a.Log.Warn("recording the last sign-in", "error", err, "professor", professor.ID)
+	}
+
 	middleware.SetSessionCookie(w, token, session.ExpiresAt, a.secureCookie)
 	a.Log.Info("professor signed in", "professor", professor.ID)
 	http.Redirect(w, r, LoginPath, http.StatusSeeOther)
