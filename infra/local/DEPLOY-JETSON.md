@@ -18,10 +18,17 @@ The repo carries the script or the exact place to click, never the
 credentials themselves.
 
 1. **AWS bucket + IAM user** for daily backups.
-   - Repo tool: [`scripts/provision-jetson-iam.sh`](../../scripts/provision-jetson-iam.sh).
-   - Miguel runs it with AWS admin credentials in the shell.
-   - It creates the bucket, sets a 30-day lifecycle policy on the `backups/`
-     prefix, and prints an access key with write-only access to that prefix.
+   - Repo tool: [`infra/deploy/jetson/provision-jetson-iam.sh`](../deploy/jetson/provision-jetson-iam.sh).
+   - Miguel runs it with AWS admin credentials in the shell, from a laptop:
+     ```bash
+     NALANDA_S3_BUCKET=nalanda-backups-<something> \
+     AWS_REGION=us-east-1 \
+       ./infra/deploy/jetson/provision-jetson-iam.sh
+     ```
+   - It creates the bucket (with public access blocked and SSE-S3 at rest),
+     sets a 30-day lifecycle policy on the `backups/` prefix, creates the
+     `nalanda-jetson` user with `s3:PutObject` on that prefix only, and
+     prints the access key ONCE.
 2. **Telegram bot** for backup/monitor notifications.
    - Message [`@BotFather`](https://t.me/BotFather) on Telegram: `/newbot` →
      name it (suggestion: `nalanda_ops_bot`), copy the token.
