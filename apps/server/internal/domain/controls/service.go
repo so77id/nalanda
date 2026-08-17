@@ -59,9 +59,10 @@ type Service struct {
 	Store     Store
 	Generator Generator
 	// Analyzer and Readings power the WP-F pipeline: upload → analyse →
-	// persist a report → serve the review queue. Optional in the sense
-	// that Create/List/Get do not touch them; the scan methods panic
-	// when they are nil, and NewService wires that check.
+	// persist a report → serve the review queue. Required — NewService
+	// panics on either nil; no method here re-checks them, since a
+	// wiring mistake is a panic at boot rather than a nil dereference
+	// inside a request (backend-code-style.md §Errors).
 	Analyzer Analyzer
 	Readings ReadingStore
 	// WorkDir is what the SERVER sees as the root of the shared volume.

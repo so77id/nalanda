@@ -4,6 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path/filepath"
+	"strconv"
+	"strings"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
@@ -192,8 +195,8 @@ func parseFloatField(raw string, fallback float64) float64 {
 	if raw == "" {
 		return fallback
 	}
-	var v float64
-	if _, err := fmt.Sscanf(raw, "%f", &v); err != nil {
+	v, err := strconv.ParseFloat(raw, 64)
+	if err != nil {
 		return fallback
 	}
 	return v
@@ -206,7 +209,7 @@ func looksLikePDF(filename, contentType string) bool {
 		return true
 	}
 	// A missing content-type is common when the browser cannot infer one;
-	// the filename is what saves the round trip.
-	n := len(filename)
-	return n >= 4 && (filename[n-4:] == ".pdf" || filename[n-4:] == ".PDF")
+	// the filename is what saves the round trip. EqualFold catches .Pdf,
+	// .PDF and friends.
+	return strings.EqualFold(filepath.Ext(filename), ".pdf")
 }

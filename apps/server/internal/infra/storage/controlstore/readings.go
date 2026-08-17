@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strconv"
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
@@ -83,15 +84,13 @@ func (s *Store) UpsertReadingsFromReport(ctx context.Context, controlID string, 
 }
 
 func upsertReading(ctx context.Context, tx *sql.Tx, controlID string, copyNumber int, c controls.ReportCopy, now time.Time) (int64, error) {
-	var (
-		rutRead sql.NullString
-	)
-	if c.RUT != "" && c.RUTStatus == controls.RUTStatusOK {
-		rutRead = sql.NullString{String: c.RUT, Valid: true}
-	} else if c.RUT != "" {
-		// An unreadable RUT still carries the digits AMC could pin down;
-		// storing it verbatim lets the review page show what the reader
-		// saw beside the professor's typed correction.
+	var rutRead sql.NullString
+	// The wire report carries what AMC pinned down in either case: eight
+	// clean digits when RUTStatusOK, or the partial digits + `_` / `[…]`
+	// sentinels from read_capture when RUTStatusUnreadable. Both are
+	// stored verbatim — the review page shows what AMC saw beside the
+	// professor's typed correction (§Reading with different thresholds).
+	if c.RUT != "" {
 		rutRead = sql.NullString{String: c.RUT, Valid: true}
 	}
 	if _, err := tx.ExecContext(ctx,
@@ -401,8 +400,8 @@ func scanReading(row interface{ Scan(...any) error }) (controls.Reading, error) 
 }
 
 func parseCopyNumber(key string) (int, error) {
-	var n int
-	if _, err := fmt.Sscanf(key, "%d", &n); err != nil {
+	n, err := strconv.Atoi(key)
+	if err != nil {
 		return 0, fmt.Errorf("copy key %q is not a number: %w", key, err)
 	}
 	if n < 1 {

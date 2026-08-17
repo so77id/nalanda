@@ -228,6 +228,7 @@ Deliberately, and each with an owner:
 |---|---|
 | Courses, students, enrolment — any domain table | WP-D |
 | JSON contracts, CORS, WebSocket on `/api` | with a consumer (ADR-0008) |
+| A per-control upload quota (batches per control, or total bytes) — today `NALANDA_MAX_SCAN_MB` bounds ONE upload | when an operator wants a ceiling on abuse by an authenticated professor |
 | Publishing grades (CSV export, Canvas, email) | WP-G |
 | Bulk download of annotated PDFs as a ZIP | when the pile is large enough — captured in #167 §Notes |
 | Regenerating the annotated PDF after a manual override | #167 §Non-goals; the annotated stays a view of what AMC read, overrides live in the DB |

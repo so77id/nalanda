@@ -185,20 +185,18 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 		CurrentUnsure: defaultUnsure,
 		Graded:        c.State == controls.Graded,
 	}
-	if h.Service != nil {
-		readings, err := h.Service.ReadingsFor(r.Context(), c.ID)
-		if err != nil {
-			h.Log.Error("listing readings", "control", c.ID, "error", err)
-			middleware.WriteError(w, r, http.StatusInternalServerError,
-				"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
-			return
-		}
-		if len(readings) > 0 {
-			page.QuestionColumns = perQuestionColumns(c.QuestionsPerCopy)
-			page.Readings = toReadingRows(c, readings)
-			page.Summary = summarise(readings)
-			page.CanClose, page.CloseBlockedReason = closeGate(c, readings)
-		}
+	readings, err := h.Service.ReadingsFor(r.Context(), c.ID)
+	if err != nil {
+		h.Log.Error("listing readings", "control", c.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+	if len(readings) > 0 {
+		page.QuestionColumns = perQuestionColumns(c.QuestionsPerCopy)
+		page.Readings = toReadingRows(c, readings)
+		page.Summary = summarise(readings)
+		page.CanClose, page.CloseBlockedReason = closeGate(c, readings)
 	}
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 
@@ -486,40 +484,37 @@ func controlCloseURL(id string) string {
 
 // closeGate implements the S8 rule: enabled when no reading holds an
 // unresolved failure kind. Returns the reason otherwise, in Spanish, for
-// the disabled button's hint.
+// the disabled button's hint. The rules mirror
+// controls.Service.CloseCorrection so the disabled UI and the server-side
+// guard agree.
 func closeGate(c controls.Control, readings []controls.Reading) (bool, string) {
 	if c.State == controls.Graded {
 		return false, ""
 	}
-	blockingIncomplete := 0
-	blockingRUT := 0
-	blockingDoubtful := 0
+	blocking := 0
 	for _, r := range readings {
 		if r.CopyStatus == controls.CopyStatusNotPresent {
 			continue
 		}
 		if r.CopyStatus == controls.CopyStatusIncomplete {
-			blockingIncomplete++
+			blocking++
 			continue
 		}
 		if r.RUTStatus == controls.RUTStatusUnreadable && r.RUTOverride == nil {
-			blockingRUT++
+			blocking++
 		}
 		for _, a := range r.Answers {
 			st := effectiveAnswerStatus(a)
 			if st == controls.AnswerStatusDoubtful || st == controls.AnswerStatusAmbiguous {
-				if a.Override == nil {
-					blockingDoubtful++
-					break
-				}
+				blocking++
+				break
 			}
 		}
 	}
-	total := blockingIncomplete + blockingRUT + blockingDoubtful
-	if total == 0 {
+	if blocking == 0 {
 		return true, ""
 	}
-	return false, fmt.Sprintf("Faltan %d revisiones antes de cerrar.", total)
+	return false, fmt.Sprintf("Faltan %d revisiones antes de cerrar.", blocking)
 }
 
 // perQuestionColumns returns the "P1, P2, …" header labels for the results
@@ -568,7 +563,7 @@ func renderRUT(r controls.Reading) (string, bool) {
 		return *r.RUTRead, false
 	}
 	// Unreadable / not_present with no override.
-	return "", r.RUTOverride != nil
+	return "", false
 }
 
 // renderPerQuestion aligns answers to the P1..PN columns. Missing entries
@@ -582,21 +577,23 @@ func renderPerQuestion(cols int, r controls.Reading) []string {
 		return out
 	}
 	// Answers are per-copy and their count equals the drawn questions;
-	// alignment is by index, one to one.
+	// alignment is by index, one to one. A row-level "editado" marker
+	// beside the RUT is what surfaces overrides; per-question cells
+	// display the same shape whether AMC or a human wrote them.
 	for i, a := range r.Answers {
 		if i >= cols {
 			break
 		}
+		status := a.Status
 		if a.Override != nil {
-			out[i] = renderAnswerCell(a.Override.Status, a.Score, a.Max, true, a.QuestionType == controls.QuestionMultiple)
-			continue
+			status = a.Override.Status
 		}
-		out[i] = renderAnswerCell(a.Status, a.Score, a.Max, false, a.QuestionType == controls.QuestionMultiple)
+		out[i] = renderAnswerCell(status, a.Score, a.Max, a.QuestionType == controls.QuestionMultiple)
 	}
 	return out
 }
 
-func renderAnswerCell(status controls.AnswerStatus, score, max float64, edited, multiple bool) string {
+func renderAnswerCell(status controls.AnswerStatus, score, max float64, multiple bool) string {
 	if status == controls.AnswerStatusBlank ||
 		status == controls.AnswerStatusAmbiguous ||
 		status == controls.AnswerStatusDoubtful {
@@ -671,7 +668,12 @@ func totalAndGrade(questions int, r controls.Reading) (string, string) {
 		}
 		if a.Override != nil {
 			// Overrides do not carry per-question scores; a corrected
-			// answer earns the whole point (§AC-4 override contract).
+			// answer earns the whole point (§AC-4). By construction: the
+			// override stands for "the professor decided this is the
+			// right answer" — comparing it against the bank's `correct`
+			// set would double-decide, and the WP explicitly leaves that
+			// out of scope. A wrong-answer override therefore also earns
+			// 1.0; that is the same trust model as manual grading.
 			total += 1.0
 			continue
 		}
@@ -686,20 +688,23 @@ func totalAndGrade(questions int, r controls.Reading) (string, string) {
 }
 
 // formatGrade maps a fraction onto the 1,0–7,0 scale: 4,0 at 50%, linear
-// on either side (§C7). Rounded to one decimal.
+// on either side (§C7). Rounded to one decimal. Negative or >1 fractions
+// are clamped — either would only appear from a scoring bug upstream, and
+// a grade outside 1–7 has no reader.
 func formatGrade(total float64, questions int) string {
 	if questions == 0 {
 		return "—"
 	}
 	pct := total / float64(questions)
-	grade := 1.0
-	if pct <= 0 {
+	var grade float64
+	switch {
+	case pct <= 0:
 		grade = 1.0
-	} else if pct <= 0.5 {
+	case pct <= 0.5:
 		grade = 1.0 + 6.0*pct // 0.0→1.0, 0.5→4.0
-	} else if pct >= 1.0 {
+	case pct >= 1.0:
 		grade = 7.0
-	} else {
+	default:
 		grade = 4.0 + 6.0*(pct-0.5) // 0.5→4.0, 1.0→7.0
 	}
 	return fmt.Sprintf("%.1f", grade)
@@ -715,8 +720,7 @@ func summarise(readings []controls.Reading) string {
 	revisar := 0
 	noRendidas := 0
 	for _, r := range readings {
-		switch r.CopyStatus {
-		case controls.CopyStatusNotPresent:
+		if r.CopyStatus == controls.CopyStatusNotPresent {
 			noRendidas++
 			continue
 		}

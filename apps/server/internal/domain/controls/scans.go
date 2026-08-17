@@ -8,8 +8,8 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
-	"time"
 )
 
 // uploadsDir is the subdirectory under a control's project where uploaded
@@ -66,9 +66,6 @@ type UploadResult struct {
 // not; there is no partial commit, because UpsertReadingsFromReport uses
 // a single transaction.
 func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResult, error) {
-	if s.Analyzer == nil || s.Readings == nil {
-		return UploadResult{}, errors.New("controls.UploadScan: service is not configured for WP-F")
-	}
 	control, err := s.Store.ControlByID(ctx, req.ControlID)
 	if err != nil {
 		return UploadResult{}, err
@@ -137,9 +134,6 @@ func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResu
 // Reanalyze re-reads the existing captures at new thresholds. Fails cleanly
 // when no scans have been uploaded yet (nothing to re-read).
 func (s *Service) Reanalyze(ctx context.Context, controlID string, ticked, unsure float64) (Report, error) {
-	if s.Analyzer == nil || s.Readings == nil {
-		return Report{}, errors.New("controls.Reanalyze: service is not configured for WP-F")
-	}
 	control, err := s.Store.ControlByID(ctx, controlID)
 	if err != nil {
 		return Report{}, err
@@ -161,17 +155,11 @@ func (s *Service) Reanalyze(ctx context.Context, controlID string, ticked, unsur
 // The handler decorates them with per-question detail for the results
 // table (S4).
 func (s *Service) ReadingsFor(ctx context.Context, controlID string) ([]Reading, error) {
-	if s.Readings == nil {
-		return nil, errors.New("controls.ReadingsFor: service is not configured for WP-F")
-	}
 	return s.Readings.ReadingsByControl(ctx, controlID)
 }
 
 // ReadingFor returns one reading (with overrides).
 func (s *Service) ReadingFor(ctx context.Context, controlID string, copyNumber int) (Reading, error) {
-	if s.Readings == nil {
-		return Reading{}, errors.New("controls.ReadingFor: service is not configured for WP-F")
-	}
 	return s.Readings.ReadingByCopy(ctx, controlID, copyNumber)
 }
 
@@ -182,9 +170,6 @@ func (s *Service) ReadingFor(ctx context.Context, controlID string, copyNumber i
 // what AMC read for that question clears any prior override; anything
 // else upserts one. The RUT logic is symmetric.
 func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) error {
-	if s.Readings == nil {
-		return errors.New("controls.SaveOverrides: service is not configured for WP-F")
-	}
 	reading, err := s.Readings.ReadingByCopy(ctx, req.ControlID, req.CopyNumber)
 	if err != nil {
 		return err
@@ -241,9 +226,6 @@ func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) e
 // them here means a request that skipped the disabled-button UI still
 // hits the same guard.
 func (s *Service) CloseCorrection(ctx context.Context, controlID string) error {
-	if s.Readings == nil {
-		return errors.New("controls.CloseCorrection: service is not configured for WP-F")
-	}
 	control, err := s.Store.ControlByID(ctx, controlID)
 	if err != nil {
 		return err
@@ -270,7 +252,11 @@ func (s *Service) CloseCorrection(ctx context.Context, controlID string) error {
 			if a.Override != nil {
 				effective = a.Override.Status
 			}
-			if (effective == AnswerStatusDoubtful || effective == AnswerStatusAmbiguous) && a.Override == nil {
+			// Blocks on the EFFECTIVE status — an override that itself lands
+			// doubtful/ambiguous is not resolution. Reachable today because
+			// statusFor() can produce Ambiguous for a simple question with
+			// two marks.
+			if effective == AnswerStatusDoubtful || effective == AnswerStatusAmbiguous {
 				return ErrCloseBlocked
 			}
 		}
@@ -282,7 +268,12 @@ func (s *Service) CloseCorrection(ctx context.Context, controlID string) error {
 // failure kind is still unresolved.
 var ErrCloseBlocked = errors.New("controls: the correction cannot close while a failure kind is unresolved")
 
-// SaveOverridesRequest carries the whole edit atomically.
+// SaveOverridesRequest carries the whole edit the professor's form
+// produced. NOT atomic across per-question override upserts: each
+// Set/Clear is its own transaction (readings.SetAnswerOverride uses
+// BeginTx), so a mid-loop store failure leaves the earlier edits and
+// the RUT edit persisted. A follow-up WP that wants strict atomicity
+// would widen ReadingStore with a single-tx SaveOverrides.
 type SaveOverridesRequest struct {
 	ControlID  string
 	CopyNumber int
@@ -328,10 +319,11 @@ func matchesRead(a Answer, edit AnswerEdit) bool {
 	return true
 }
 
-// nextBatchNumber walks the uploads/ directory and picks the smallest
-// unused batch-N.pdf. Deterministic — a delete-then-upload puts the new
-// scan under a lower number than a fresh one would — which is what a
-// test that asserts against filenames wants.
+// nextBatchNumber walks the uploads/ directory and returns one past the
+// highest existing batch-N.pdf (max+1). Empty dir → 1. If the highest
+// batch is deleted the next number goes back to fill the gap — the
+// uploads dir is the persisted state and no counter lives outside it.
+// Names that do not match batch-<positive int>.pdf are ignored.
 func nextBatchNumber(dir string) (int, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -346,9 +338,9 @@ func nextBatchNumber(dir string) (int, error) {
 		if !strings.HasPrefix(name, scanFilePrefix) || !strings.HasSuffix(name, scanFileExt) {
 			continue
 		}
-		var n int
 		trimmed := strings.TrimSuffix(strings.TrimPrefix(name, scanFilePrefix), scanFileExt)
-		if _, err := fmt.Sscanf(trimmed, "%d", &n); err != nil {
+		n, err := strconv.Atoi(trimmed)
+		if err != nil {
 			continue
 		}
 		if n > 0 {
@@ -382,6 +374,3 @@ func writeUpload(path string, r io.ReadCloser) error {
 	}
 	return nil
 }
-
-// Placeholder to reserve time.Time until other callers land.
-var _ = time.Time{}

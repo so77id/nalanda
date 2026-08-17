@@ -104,10 +104,23 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rut := strings.TrimSpace(r.PostFormValue("rut"))
+	// SEC-1: the template's pattern="[0-9]{8}" is client-side; the
+	// professor's form goes to the RUT override table verbatim, so an
+	// arbitrary string would persist. Reject anything that is not eight
+	// digits — the review handler is authenticated but a defensive server
+	// check is cheap and stops the field from carrying garbage the rest
+	// of the surface treats as an 8-digit id.
+	if rut != "" && !isValidRUT(rut) {
+		flash.Set(w, h.secureCookie, "El RUT debe tener 8 dígitos.")
+		http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
+		return
+	}
+
 	req := controls.SaveOverridesRequest{
 		ControlID:  id,
 		CopyNumber: copyNumber,
-		RUT:        strings.TrimSpace(r.PostFormValue("rut")),
+		RUT:        rut,
 	}
 	blank := r.PostFormValue("blank") // "" or one question_ref
 	for _, a := range reading.Answers {
@@ -118,7 +131,14 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 		} else {
 			field := "q" + a.QuestionRef
 			values := r.PostForm[field]
-			marks, err := parseAnswerValues(values)
+			// SEC-2: cap the mark index at the answer's known alternative
+			// count — the form was never generated with options past
+			// a.Max, so anything higher is data pollution.
+			maxMark := int(a.Max)
+			if maxMark < 1 {
+				maxMark = 26 // fallback cap (a professor cannot author more)
+			}
+			marks, err := parseAnswerValues(values, maxMark)
 			if err != nil {
 				flash.Set(w, h.secureCookie, "El formulario tiene un valor inválido.")
 				http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
@@ -144,9 +164,11 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 }
 
-// parseAnswerValues turns form values ("1", "3") into a sorted int slice.
-// Empty is legal (a blank answer).
-func parseAnswerValues(values []string) ([]int, error) {
+// parseAnswerValues turns form values ("1", "3") into an int slice,
+// preserving the order the form submitted. Empty is legal (a blank
+// answer). Anything above maxMark is refused — the form was never
+// generated with those options.
+func parseAnswerValues(values []string, maxMark int) ([]int, error) {
 	if len(values) == 0 {
 		return nil, nil
 	}
@@ -161,6 +183,9 @@ func parseAnswerValues(values []string) ([]int, error) {
 		if err != nil || n < 1 {
 			return nil, fmt.Errorf("bad value %q", v)
 		}
+		if n > maxMark {
+			return nil, fmt.Errorf("value %d exceeds this question's alternatives (%d)", n, maxMark)
+		}
 		if seen[n] {
 			continue
 		}
@@ -168,6 +193,21 @@ func parseAnswerValues(values []string) ([]int, error) {
 		out = append(out, n)
 	}
 	return out, nil
+}
+
+// isValidRUT: exactly 8 digits. The check the client-side pattern
+// makes, moved to the server so a hand-crafted POST cannot store
+// arbitrary bytes in the RUT override table.
+func isValidRUT(s string) bool {
+	if len(s) != 8 {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 // statusFor decides the AnswerStatus a saved edit lands at. For a simple
@@ -267,12 +307,13 @@ func toReviewRUT(r controls.Reading) view.ReviewRUT {
 func toReviewQuestions(r controls.Reading, b *bank.Bank) []view.ReviewQuestion {
 	out := make([]view.ReviewQuestion, 0, len(r.Answers))
 	for i, a := range r.Answers {
+		bq, hasBank := lookupQuestion(b, a.QuestionRef)
 		q := view.ReviewQuestion{
 			Index:        i + 1,
 			QuestionRef:  a.QuestionRef,
-			Statement:    lookupStatement(b, a.QuestionRef),
+			Statement:    statementOr(bq, hasBank, a.QuestionRef),
 			Type:         string(a.QuestionType),
-			Alternatives: alternativesFor(a, lookupAlternatives(b, a.QuestionRef)),
+			Alternatives: alternativesFor(a, bq, hasBank),
 			OriginalRead: originalReadLabel(a),
 		}
 		if a.Override != nil {
@@ -288,9 +329,28 @@ func toReviewQuestions(r controls.Reading, b *bank.Bank) []view.ReviewQuestion {
 	return out
 }
 
-func alternativesFor(a controls.Answer, labels []string) []view.ReviewAlternative {
-	// If we have no bank info, still render one option per marked slot so
-	// the form remains editable.
+// lookupQuestion resolves a bank ref through the O(1) FindQuestion added
+// for WP-F. Returns hasBank=false when the bank is nil (test paths) or the
+// ref is not authored — callers fall back to a generic label.
+func lookupQuestion(b *bank.Bank, ref string) (bank.Question, bool) {
+	if b == nil {
+		return bank.Question{}, false
+	}
+	return b.FindQuestion(ref)
+}
+
+func statementOr(q bank.Question, has bool, ref string) string {
+	if has {
+		return q.Statement
+	}
+	return ref
+}
+
+func alternativesFor(a controls.Answer, q bank.Question, has bool) []view.ReviewAlternative {
+	labels := q.Alternatives
+	if !has {
+		labels = nil
+	}
 	max := len(labels)
 	if max == 0 {
 		max = int(a.Max)
@@ -307,30 +367,6 @@ func alternativesFor(a controls.Answer, labels []string) []view.ReviewAlternativ
 		out[i] = view.ReviewAlternative{Index: i + 1, Label: label}
 	}
 	return out
-}
-
-func lookupStatement(b *bank.Bank, ref string) string {
-	if b == nil {
-		return ref
-	}
-	for _, q := range b.Questions {
-		if q.ID == ref {
-			return q.Statement
-		}
-	}
-	return ref
-}
-
-func lookupAlternatives(b *bank.Bank, ref string) []string {
-	if b == nil {
-		return nil
-	}
-	for _, q := range b.Questions {
-		if q.ID == ref {
-			return q.Alternatives
-		}
-	}
-	return nil
 }
 
 func originalReadLabel(a controls.Answer) string {
