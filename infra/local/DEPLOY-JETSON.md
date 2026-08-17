@@ -27,7 +27,7 @@ credentials themselves.
      ```
    - It creates the bucket (with public access blocked and SSE-S3 at rest),
      sets a 30-day lifecycle policy on the `backups/` prefix, creates the
-     `nalanda-jetson` user with `s3:PutObject` on that prefix only, and
+     `nalanda-jetson` user with `s3:PutObject` + `s3:GetObject` + `s3:ListBucket` on that prefix only (Put for the daily backup, Get for the test-restore below, List for the lookup — no `DeleteObject`, so the lifecycle policy is the only thing that removes), and
      prints the access key ONCE.
 2. **Telegram bot** for backup/monitor notifications.
    - Message [`@BotFather`](https://t.me/BotFather) on Telegram: `/newbot` →

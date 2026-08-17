@@ -34,7 +34,8 @@ nalanda/
 │   ├── security-notes.md  Security deferrals / accepted-risk records
 │   └── course-graph.md Course topology (planning tool)
 ├── infra/
-│   └── local/          Local orchestration (docker-compose) — belongs to no single app
+│   ├── local/          Local orchestration (docker-compose) — belongs to no single app
+│   └── deploy/         Host-specific production images and scripts (born with infra/deploy/jetson/, #162, ADR-0037)
 ├── proof-of-concept/   Archived POC + old roadmap issues (reference)
 ├── .claude/            Agent infra: workflow bindings, settings (plugins), hooks, repo agents
 └── CLAUDE.md           Monorepo-shared agent instructions (per-app CLAUDE.md in each app)
@@ -94,6 +95,13 @@ and [`apps/web/README.md`](apps/web/README.md). Before contributing, read
 (per-commit and pre-PR) in `testing-strategy.md`.
 
 ## Deployment
+
+Two surfaces run in production, on different mechanics: the SITE
+(`apps/web`, GitHub Pages, automatic on every push to `main`) and the SERVER
+(`apps/server`, DocumentBuddy's Jetson behind Tailscale Funnel, manual `git
+pull` on the box). See §"apps/server on the Jetson" below.
+
+### apps/web on GitHub Pages
 
 The site is live at **<https://so77id.github.io/nalanda/>** (GitHub Pages, free
 project-pages URL). A custom domain would change the Vite `base` and the
@@ -155,6 +163,42 @@ prefix may not survive the move, so decide before handing URLs to students
   | `/d/<id>/present` blank on an old iPhone | `MediaQueryList.addEventListener` needs Safari/iOS 14 | nothing — accepted baseline, ADR-0023 |
   | `/d/<id>/present` shows "Gira el teléfono" and no slide | working as designed on a touch device held upright; rotate, or use the book view | `presentationRoute.test.tsx`, ADR-0023 |
   | Slide text renders small, or slide sizes vary across a deck | working as designed — each slide is scaled to fit its stage (ADR-0013 §5.1). If it is unreadable the slide is too dense: split it | `presentation/fit.test.ts` |
+
+### apps/server on the Jetson
+
+Since #162, the backend runs on DocumentBuddy's Jetson Nano at
+**`https://<host>.<tailnet>.ts.net:8443`** (the exact host is Miguel's;
+Tailscale Funnel gives it a real https certificate on port 8443 —
+DocumentBuddy already holds 443 on the same box). Full context in
+**ADR-0037**; operating procedure in
+[`infra/local/DEPLOY-JETSON.md`](infra/local/DEPLOY-JETSON.md).
+
+- **Test bed, not a home.** Design §C15 is still open on where the server
+  runs permanently; the Jetson exists to produce the measurements that
+  decision will need. Numbers to collect: ADR-0037 §"The permanent home is
+  still open".
+- **What publishes it**: `git pull` on the Jetson, then
+  `docker compose --profile jetson up -d --build server backup monitor` from
+  `infra/local/`. There is no CI/CD and no registry. The image is a 12.2 MB
+  static Go binary; the Nano is arm64 like the build host so nothing
+  cross-compiles. `--build` is not optional — without it compose reuses a
+  stale tag.
+- **What runs there**: `apps/server` (the login and the backoffice screens),
+  a daily `backup` container (SQLite `.backup` → gzip → S3, 30-day retention
+  via bucket lifecycle, Telegram notify), and a `monitor` container (polls
+  `/health` every 5 min, alerts after 3 failures with a 30-min reminder
+  cadence). `apps/amc-worker` is DELIBERATELY out of scope for this deploy:
+  its 1.04 GB image on a 4 GB Nano is a separate question. So `/api/controls/…`
+  answers with a worker connection error.
+- **How to verify after a deploy**: from a browser off the tailnet,
+  `curl -fsS https://<host>.<tailnet>.ts.net:8443/health` and `/api/health`
+  answer 200; then run **[`apps/server/GOOGLE-CHECK.md`](apps/server/GOOGLE-CHECK.md)**
+  end-to-end against the https URL — §7 is what finally observes the
+  `Secure` cookie flag on the wire.
+- **Rollback**: `git log --oneline` on the box, `git checkout <sha>`, and
+  `docker compose --profile jetson up -d --build --wait server`. The
+  compose services carry `restart: unless-stopped`, so a reboot brings them
+  back on their own.
 
 ## Workflow
 

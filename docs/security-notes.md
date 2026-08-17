@@ -749,7 +749,7 @@ whole suite green.
 front of the server, so `RemoteAddr` became `127.0.0.1` for every visitor and
 the column stopped being useful. `handler.Auth.clientIP` now takes the FIRST
 hop of `X-Forwarded-For` when `NALANDA_TRUST_PROXY_HEADERS` is true — the
-leftmost entry per RFC 7239 §5.2, which is the address the outermost proxy
+leftmost entry per the de-facto Squid/nginx/Tailscale-Funnel convention, which is the address the outermost proxy
 first saw; the rightmost is the one closest to us and is not the visitor. The
 switch is off by default: an operator who forgets to enable it records every
 session as `127.0.0.1` (legible), while an operator who enables it with no

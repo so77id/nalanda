@@ -145,7 +145,7 @@ the bootstrap did not close, or the address matched something it should not have
 **Skip this section when running against `http://127.0.0.1:8081`.** It applies
 only when `NALANDA_PUBLIC_URL` starts with `https://` — the Jetson deploy
 (#162) or any future deploy. This is the run that closes
-[the `security-notes.md` entry](../../docs/security-notes.md#the-session-cookie-has-no-secure-flag-in-development-accepted-2026-08-16-150)
+[the `security-notes.md` entry](../../docs/security-notes.md#the-session-cookie-has-no-secure-flag-in-development-accepted-2026-08-16-150-closed-2026-08-17-162)
 for the `Secure` flag.
 
 Sign in normally (steps 1–6). Then, from any terminal:

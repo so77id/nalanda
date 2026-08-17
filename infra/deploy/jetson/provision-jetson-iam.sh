@@ -7,9 +7,9 @@
 # shell (NOT the Jetson creds). Run from a laptop with the AWS CLI installed,
 # never from the box. The Jetson never sees admin credentials.
 #
-# After running, copy the printed access key into /etc/nalanda/.env on the
-# Jetson, restart the backup container, and verify with the two commands the
-# script prints at the end.
+# After running, copy the printed access key into infra/local/.env on the
+# Jetson (where docker compose reads its env), restart the backup + monitor
+# services, and verify with the two commands the script prints at the end.
 #
 # The bucket name and region are inputs — Miguel picks them, so nothing here
 # hard-codes them. Set NALANDA_S3_BUCKET and AWS_REGION (or pass --region on
@@ -108,7 +108,7 @@ else
   echo "    Created user."
 fi
 
-echo "==> Attaching inline policy '${POLICY_NAME}' (least privilege, PutObject on backups/ only)..."
+echo "==> Attaching inline policy '${POLICY_NAME}' (least privilege, PutObject + GetObject on backups/ only)..."
 # Substitute ${NALANDA_S3_BUCKET} in the template. envsubst is not on every
 # Nalanda operator's laptop; sed is.
 RENDERED_POLICY="$(sed "s|\${NALANDA_S3_BUCKET}|${NALANDA_S3_BUCKET}|g" "${POLICY_TEMPLATE}")"
@@ -116,7 +116,7 @@ aws iam put-user-policy \
   --user-name "${USER_NAME}" \
   --policy-name "${POLICY_NAME}" \
   --policy-document "${RENDERED_POLICY}"
-echo "    Policy attached (PutObject + ListBucket on ${NALANDA_S3_BUCKET}/backups/)."
+echo "    Policy attached (PutObject + GetObject + ListBucket on ${NALANDA_S3_BUCKET}/backups/)."
 
 echo "==> Checking existing access keys..."
 KEY_COUNT="$(aws iam list-access-keys --user-name "${USER_NAME}" \
@@ -182,8 +182,11 @@ echo "    encryption: SSE-S3 (AES256) by default."
 cat <<'STEPS'
 
 ==> Next steps (on the Jetson):
-  1. Edit /etc/nalanda/.env (or wherever the compose file's env_file points):
-     put the four variables above into it.
+  1. Edit infra/local/.env on the Jetson (docker compose reads it from the CWD
+     where you invoke it — the same directory as docker-compose.yml). Put the
+     four variables above (NALANDA_S3_BUCKET, AWS_REGION, AWS_ACCESS_KEY_ID,
+     AWS_SECRET_ACCESS_KEY) into it, plus the two Telegram variables from
+     @BotFather (INFRA_TELEGRAM_TOKEN, ALLOWED_CHAT_IDS).
   2. Restart the backup + monitor services:
        cd infra/local
        docker compose up -d --build backup monitor

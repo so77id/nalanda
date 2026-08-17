@@ -24,7 +24,8 @@ nalanda/
 │   ├── security-notes.md    # security deferrals / accepted-risk records
 │   └── course-graph.md      # course topology (planning tool)
 ├── infra/                   # running the system around the apps (see below)
-│   └── local/               # docker-compose — born with apps/amc-worker (#138)
+│   ├── local/               # docker-compose — born with apps/amc-worker (#138)
+│   └── deploy/<host>/       # host-specific production images and scripts — born with infra/deploy/jetson/ (#162, ADR-0037)
 ├── proof-of-concept/        # archived 2025/May-2026 POC — reference only, never active work
 ├── .github/                 # CI/CD workflows
 ├── .claude/                 # agent infra: workflow-bindings.md, settings (plugin declarations), hooks, repo-specific agents — workflow skills come from the agentic-workflow plugin

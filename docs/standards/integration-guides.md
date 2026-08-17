@@ -20,6 +20,7 @@ guide here** (ADR-0005).
 | Drive the control engine | [`../../apps/amc-worker/README.md`](../../apps/amc-worker/README.md) | Calling `apps/amc-worker`: the HTTP contract, the shared-volume convention, and the four silent AMC traps a caller must not hit (ADR-0030) |
 | Verify the Google login by hand | [`../../apps/server/GOOGLE-CHECK.md`](../../apps/server/GOOGLE-CHECK.md) | The other check no agent can run: a real OAuth client, a real sign-in, a second account refused, a sign-out that sticks. Required whenever the login path changes, because no test in this repository reaches Google |
 | Verify the control engine on paper | [`../../apps/amc-worker/PAPER-CHECK.md`](../../apps/amc-worker/PAPER-CHECK.md) | The one check no agent can run: print, mark, scan, read, compare. Required before trusting a synthetic green run |
+| Deploy `apps/server` to the Jetson | [`../../infra/local/DEPLOY-JETSON.md`](../../infra/local/DEPLOY-JETSON.md) | Bringing the server up on DocumentBuddy's Jetson (#162, ADR-0037): the off-box prerequisites (AWS bucket + IAM via `infra/deploy/jetson/provision-jetson-iam.sh`, Telegram bot, Google OAuth second redirect URI), Tailscale Funnel on port 8443, the `.env` shape, verification (`/health`, `GOOGLE-CHECK.md` §7), backup test-restore, the two proxy-trust measurements (benign AND adversarial) before flipping `NALANDA_TRUST_PROXY_HEADERS=true`, and rollback |
 
 ## Pending guides (registered by the WP that creates the extension point)
 

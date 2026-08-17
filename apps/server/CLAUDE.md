@@ -26,6 +26,11 @@ fact.
   (SQLite first, and the Postgres exit), ADR-0009 (professor-only auth) and
   `0036-the-professor-session-is-ours-and-costs-no-dependency.md` — how the
   session works, the three ways in, and why there is no OIDC library.
+- `docs/decisions/0037-the-jetson-is-the-first-test-bed.md` — where this app
+  runs in production, and the operational triggers for hosting / rate-limiting
+  / proxy-trust choices. Any change to the login path, a cookie read/write,
+  or `NALANDA_PUBLIC_URL` needs it: the tests here pin the helpers, not their
+  callers, and ADR-0037 is where the reasoning lives.
 - `docs/standards/guides/add-a-backend-endpoint.md` — read before adding ANY
   route here: which surface it belongs to, the handler → domain → repository
   chain, and the middleware a state-changing route needs.
@@ -85,7 +90,25 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   `storage.Prober`, on `SELECT` versus `Ping`.
 - **`docker compose` lives in `infra/local/`, never here.** The app packages
   itself (`Dockerfile`); infra places it. Adding a service or a volume is an
-  edit to `infra/local/docker-compose.yml`.
+  edit to `infra/local/docker-compose.yml`. **A HOST-SPECIFIC production
+  service** (`backup`, `monitor`, or the next one) is that same edit behind a
+  `profiles: [<host>]` gate, with its own Dockerfile and scripts under
+  `infra/deploy/<host>/` — worked case: `infra/deploy/jetson/` with the
+  `jetson` profile (#162, ADR-0037, `docs/standards/repository-structure.md`
+  §Placement criteria). A dev laptop's `docker compose up server` does NOT
+  start profile-gated services; the Jetson invokes them with `--profile jetson`.
+- **Cookie names are computed, not literal.** Since #162 (ADR-0037) both the
+  session and OAuth-state cookies carry the `__Host-` prefix when
+  `config.SecureCookie()` is true (production, https). Read and write them
+  ONLY through `middleware.SessionCookieName(secure)` and
+  `handler.StateCookieName(secure)`. A bare literal (`"nalanda_session"`,
+  `"nalanda_oauth_state"`) is dev-only correct — production stops reading it
+  and the login breaks silently on the deployed URL.
+  `TestSessionCookieNameCarriesHostPrefixInProductionAndNotInDev` and its
+  state-cookie twin pin the two names AGAINST THE HELPERS, not against callers;
+  a bypass around them is caught only by review
+  (`docs/security-notes.md` §"The login's state cookie is a double-submit
+  cookie", §"The session cookie has no `Secure` flag in development").
 - **A new configuration variable is added in FOUR places, and since #150 all four
   are gated**: `.env.example` (`TestExampleEnvFileDeclaresEveryVariable`, which
   demands a real declaration), plus `infra/local/docker-compose.yml`,
@@ -96,7 +119,10 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   rule drifted inside the PR that restated it, and it found a gap older than that
   PR on its first run. A REQUIRED variable missing from compose or CI still makes
   the container refuse to start, and compose sits outside CI's path filters — the
-  guard is why that is now caught before the L8 step rather than by it.
+  guard is why that is now caught before the L8 step rather than by it. Worked
+  case: `NALANDA_TRUST_PROXY_HEADERS` landed in all four homes in the same
+  commit at #162; `TestEveryVariableReachesAllFourHomes` was what caught the
+  early revision that had it missing from `.github/workflows/server.yml`.
 - **The migration numbering carries a scar worth knowing.** #150 deleted #149's
   empty `00001_init.sql` as planned, and still numbered the auth schema `00002`:
   goose keys applied migrations by VERSION, so a file reusing number 1 counts as

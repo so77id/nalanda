@@ -84,6 +84,33 @@ Polls the compose network name, NOT the Funnel URL: the point is to
 distinguish "server is down" from "Funnel is down". Shape from DocumentBuddy's
 `scripts/monitor.sh`; a fresh file, not a reference.
 
+**Compose-file shape: one file, one profile per host — not two files.**
+The `backup` and `monitor` service definitions live in
+`infra/local/docker-compose.yml` (the shared file) behind
+`profiles: [jetson]`, rather than in a `infra/deploy/jetson/docker-compose.yml`
+overlay or a `docker-compose.override.yml`. Reasons:
+
+- The two sidecars are coupled to the app-composition graph — the backup
+  mounts the server's named volume, the monitor polls its compose-network
+  DNS name. An overlay would repeat that graph twice, and the two copies
+  would drift the moment the server grew a second volume or a new port.
+- A dev laptop's `docker compose up server` is unaffected: unnamed
+  profile-gated services do not start, so a developer never accidentally
+  hits an empty S3 bucket or an unreachable Telegram bot. The Jetson
+  invokes them with `--profile jetson`.
+- The alternative — a `docker-compose.jetson.yml` overlay under
+  `infra/deploy/jetson/` — is the docker-native shape and was rejected on
+  the drift ground above; it stays available as a fallback if a second
+  host needs a different service graph from the Jetson's (at which point
+  two profiles inside one file is no longer cheaper than two files).
+
+The **images and scripts** the sidecars build from stay under
+`infra/deploy/jetson/` because they are host-only — an alpine-based
+container that never runs on a dev laptop belongs where the standards
+put host-specific artifacts, not next to the shared server. The
+`docs/standards/repository-structure.md` §Placement row added by this WP
+names this pattern with #162 as its worked case.
+
 **The port is 8443, not 443, and not a path prefix on 443.** DocumentBuddy
 owns 443 on this host; Nalanda gets its own origin instead of a shared one.
 A path prefix on 443 was rejected because `config.Load` refuses a base URL
