@@ -50,6 +50,25 @@ type Page struct {
 	// CSRFToken goes into the logout form in the bar. Empty when Professor is
 	// nil, because there is no form.
 	CSRFToken string
+	// Flash is the one-shot message the flash package consumed on this GET,
+	// if any. Rendered by the layout above the page's content, once, so a
+	// mutation that redirects can say what happened without putting the
+	// message in the URL (issue #151 §Flash).
+	Flash string
+}
+
+// ErrorPage is what error.html renders. AC-11: 404, 403 and 500 render
+// through the shell rather than as Go's default text.
+//
+// Status is the numeric status shown to the reader — it is not what the
+// RESPONSE carries, because the response status is a separate concern set by
+// the caller through the writer. Keeping the two decoupled is what lets a
+// caller shape one 500 as "the database is down" and another as "an internal
+// error" without inventing a template per shape.
+type ErrorPage struct {
+	Page
+	Status  int
+	Message string
 }
 
 func mustParsePages() map[string]*template.Template {
@@ -84,7 +103,11 @@ func mustParsePages() map[string]*template.Template {
 // render is the one function that writes a page. Every render function in this
 // package delegates to it, so the buffer-before-header rule and the security
 // headers are applied once — a new page cannot forget them.
-func render(w http.ResponseWriter, name string, data any) error {
+//
+// status is a parameter rather than a constant so error pages can carry their
+// own — a 404 or 500 rendered as 200 is exactly the "silent success" the
+// buffer-first rule exists to prevent.
+func render(w http.ResponseWriter, name string, status int, data any) error {
 	tmpl, ok := pages[name]
 	if !ok {
 		return fmt.Errorf("view.render: unknown page %q", name)
@@ -97,7 +120,7 @@ func render(w http.ResponseWriter, name string, data any) error {
 
 	setSecurityHeaders(w)
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(status)
 	_, err := w.Write(buf.Bytes())
 	return err
 }
@@ -124,7 +147,19 @@ func RenderLogin(w http.ResponseWriter, page LoginPage) error {
 			page.Title = "Entrar"
 		}
 	}
-	return render(w, "login", page)
+	return render(w, "login", http.StatusOK, page)
+}
+
+// RenderError writes an error page through the shell (AC-11).
+//
+// The status is taken from page.Status: it is what the reader sees and what
+// the response carries — a 404 rendered as 200 would look right in the browser
+// and be wrong to every cache, script and log line that reads the HTTP layer.
+func RenderError(w http.ResponseWriter, page ErrorPage) error {
+	if page.Title == "" {
+		page.Title = http.StatusText(page.Status)
+	}
+	return render(w, "error", page.Status, page)
 }
 
 // setSecurityHeaders is applied to every page render() writes, which is why it

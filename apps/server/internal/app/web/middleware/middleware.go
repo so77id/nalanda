@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 )
@@ -232,26 +233,47 @@ func (a *Auth) VerifyCSRF(next http.Handler) http.Handler {
 			// No session means no token to compare against, and a
 			// state-changing request from nobody is refused rather than
 			// redirected: it was not a person following a link.
-			http.Error(w, "Solicitud no autorizada.", http.StatusForbidden)
+			renderForbidden(w, r)
 			return
 		}
 
 		// ParseForm is what populates PostFormValue, and its error is worth
 		// refusing on: a body that cannot be parsed carries no token either.
 		if err := r.ParseForm(); err != nil {
-			http.Error(w, "Solicitud no autorizada.", http.StatusForbidden)
+			renderForbidden(w, r)
 			return
 		}
 
 		if !auth.VerifyCSRF(session.CSRFToken, r.PostFormValue(CSRFFieldName)) {
 			a.Log.Warn("refusing a request with no valid CSRF token",
 				"professor", session.UserID, "path", r.URL.Path, "method", r.Method)
-			http.Error(w, "Solicitud no autorizada.", http.StatusForbidden)
+			renderForbidden(w, r)
 			return
 		}
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// renderForbidden writes a 403 through the shell (AC-11). The plain-text
+// http.Error version was what a signed-in professor got when a form's CSRF
+// token was wrong; from S2 on the answer is an HTML page they can navigate
+// away from.
+func renderForbidden(w http.ResponseWriter, r *http.Request) {
+	page := view.ErrorPage{
+		Page:    view.Page{Title: "Solicitud no autorizada"},
+		Status:  http.StatusForbidden,
+		Message: "Solicitud no autorizada.",
+	}
+	if professor, ok := ProfessorFrom(r.Context()); ok {
+		page.Professor = &professor
+		if session, ok := SessionFrom(r.Context()); ok {
+			page.CSRFToken = session.CSRFToken
+		}
+	}
+	if err := view.RenderError(w, page); err != nil {
+		http.Error(w, "Solicitud no autorizada.", http.StatusForbidden)
+	}
 }
 
 // isSafeMethod reports whether the method is one that changes nothing, per

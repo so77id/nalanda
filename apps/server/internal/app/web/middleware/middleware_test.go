@@ -318,6 +318,17 @@ func TestCSRF(t *testing.T) {
 		if recorder.Code != http.StatusForbidden {
 			t.Errorf("status = %d, want 403", recorder.Code)
 		}
+		// AC-11 for the 403 path: the refusal renders through the shell,
+		// not as Go's default plain-text `http.Error` string. A signed-in
+		// professor's other browser tab that got its token wrong should
+		// land on a page with the bar, not on a wall of monospace text.
+		body := recorder.Body.String()
+		if strings.Contains(body, "Solicitud no autorizada.\n") && !strings.Contains(body, "<!doctype html>") {
+			t.Errorf("body looks like http.Error's plain text, want the shell:\n%s", body)
+		}
+		if !strings.Contains(body, "<!doctype html>") {
+			t.Errorf("403 body missing the shell doctype:\n%s", body)
+		}
 	})
 
 	t.Run("a state-changing request with another session's token is refused", func(t *testing.T) {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpjson"
 )
@@ -147,31 +148,52 @@ func Router(deps Deps) http.Handler {
 
 	mux := http.NewServeMux()
 	public := map[string]bool{}
+	paths := map[string]bool{}
 	for _, route := range table {
 		pattern := route.Method + " " + route.Path
 		mux.Handle(pattern, route.Handler)
 		if route.Public {
 			public[pattern] = true
 		}
+		// `paths` remembers every REGISTERED path under any method. A request
+		// to a path that appears here but under the wrong verb must reach the
+		// mux so it can answer 405 with the Allow header set — from the mux's
+		// side a 404 and a 405 both look like "pattern == ''", and turning the
+		// second into a shell 404 would hide the "wrong verb" signal a client
+		// relies on.
+		paths[route.Path] = true
 	}
 
-	return deps.Gate.Resolve(gate(deps.Gate, mux, public))
+	return deps.Gate.Resolve(gate(deps.Gate, mux, public, paths))
 }
 
 // gate decides, per request, what the matched route requires.
 //
 // It asks the mux which pattern it matched rather than trusting a table lookup:
 // that is what makes the answer true of the server that is actually running.
-func gate(auth *middleware.Auth, mux *http.ServeMux, public map[string]bool) http.Handler {
+func gate(auth *middleware.Auth, mux *http.ServeMux, public, paths map[string]bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, pattern := mux.Handler(r)
 
-		// Nothing matched: let the mux answer its own 404 rather than
-		// redirecting a stranger to the login page, which would turn every typo
-		// into a sign-in prompt and hide which paths exist behind a wall that
-		// is not protecting anything.
+		// Nothing matched. Two cases from the mux's side both look the same,
+		// and they have to be split before answering:
+		//
+		//   - The path exists under some other method. Then this is a 405,
+		//     not a 404: the mux answers it with the Allow header set, which
+		//     is what tells a client which verbs to try.
+		//   - The path exists under no method at all. Then it is a real 404,
+		//     and we render it THROUGH THE SHELL (AC-11) rather than letting
+		//     Go answer "404 page not found\n" in plain text.
+		//
+		// A stranger is still not redirected to the login page in either
+		// case: turning every typo into a sign-in prompt would hide which
+		// paths exist behind a wall that is not protecting anything.
 		if pattern == "" {
-			mux.ServeHTTP(w, r)
+			if paths[r.URL.Path] {
+				mux.ServeHTTP(w, r)
+				return
+			}
+			renderNotFound(w, r)
 			return
 		}
 
@@ -193,6 +215,30 @@ func gate(auth *middleware.Auth, mux *http.ServeMux, public map[string]bool) htt
 // about HTTP semantics is cheaper than exporting one.
 func isSafeMethod(method string) bool {
 	return method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions
+}
+
+// renderNotFound writes a 404 through the shell. Placed here rather than in
+// view because "what to say to a stranger" is a surface concern (Spanish, and
+// the professor's bar if there is one), while `view` only knows how to write
+// pages.
+func renderNotFound(w http.ResponseWriter, r *http.Request) {
+	page := view.ErrorPage{
+		Page:   view.Page{Title: "No se encuentra"},
+		Status: http.StatusNotFound,
+		// Spanish, since it is what the reader sees. What was asked for is
+		// deliberately not echoed back — an attacker choosing the path would
+		// otherwise pick one that says something for them.
+		Message: "Esta página no existe.",
+	}
+	if professor, ok := middleware.ProfessorFrom(r.Context()); ok {
+		page.Professor = &professor
+		if session, ok := middleware.SessionFrom(r.Context()); ok {
+			page.CSRFToken = session.CSRFToken
+		}
+	}
+	if err := view.RenderError(w, page); err != nil {
+		http.Error(w, "404", http.StatusNotFound)
+	}
 }
 
 // healthHandler answers JSON rather than HTML, which is not an oversight: its
