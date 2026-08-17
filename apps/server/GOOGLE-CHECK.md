@@ -37,6 +37,16 @@ In [Google Cloud console](https://console.cloud.google.com/) →
    sends and refuses anything else, including `localhost` where you wrote
    `127.0.0.1`, and including a trailing slash.
 
+   **On the Jetson deploy (#162), add a SECOND URI to the same client** —
+   the ONE OAuth client is shared between dev and prod, so both URIs coexist:
+
+   ```
+   https://<host>.<tailnet>.ts.net:8443/login/google/callback
+   ```
+
+   With the port. `<host>` and `<tailnet>` are the Jetson's Tailscale-issued
+   names; `infra/local/DEPLOY-JETSON.md` §Prerequisites walks it through.
+
 4. Copy the **client ID** and **client secret**.
 
 > **Add a second Google account under Test users**, or have one to hand. Step 5
@@ -130,6 +140,34 @@ the bootstrap did not close, or the address matched something it should not have
 
 - [ ] The old cookie no longer signs anyone in.
 
+## 7. Only on the https re-run — the `Secure` cookie flag is observed on the wire
+
+**Skip this section when running against `http://127.0.0.1:8081`.** It applies
+only when `NALANDA_PUBLIC_URL` starts with `https://` — the Jetson deploy
+(#162) or any future deploy. This is the run that closes
+[the `security-notes.md` entry](../../docs/security-notes.md#the-session-cookie-has-no-secure-flag-in-development-accepted-2026-08-16-150)
+for the `Secure` flag.
+
+Sign in normally (steps 1–6). Then, from any terminal:
+
+```bash
+curl -sSI -c /tmp/nalanda-cookies https://<host>.<tailnet>.ts.net:8443/login \
+  | grep -i '^set-cookie:'
+# Nothing there until the login is completed; the observation is on the
+# callback response, not on /login itself.
+```
+
+The evidence is easier from a browser. In DevTools → Application → Cookies →
+the `<host>.<tailnet>.ts.net` origin, the session cookie's row shows the
+`Secure` and `HttpOnly` columns both checked, and `SameSite=Lax`. And, since
+the Jetson deploy takes the `__Host-` prefix, the cookie NAME reads
+`__Host-nalanda_session` (dev is still plain `nalanda_session`, on purpose —
+see `security-notes.md` §"The session cookie has no Secure flag" and
+§"The login's state cookie is a double-submit cookie").
+
+- [ ] The session cookie has `Secure` checked in DevTools.
+- [ ] Its name begins with `__Host-`.
+
 ---
 
 ## What may be recorded, and where
@@ -152,10 +190,11 @@ are gitignored; that stops a commit, not a paste.
 
 Say so out loud rather than let the green ticks imply it:
 
-- **Anything over https.** `NALANDA_PUBLIC_URL` is `http://` here, so the session
-  cookie carries no `Secure` attribute (`config.SecureCookie()` derives it from
-  the scheme). The first deploy re-runs this whole document against the real
-  URL, and that run is the one that verifies the flag.
+- **Anything over https, from the local run.** `NALANDA_PUBLIC_URL` is `http://`
+  in the local `.env`, so the session cookie carries no `Secure` attribute
+  (`config.SecureCookie()` derives it from the scheme). The Jetson deploy (#162)
+  is the first https run of this document, and its §7 is what verifies the flag
+  on the wire.
 - **Consent-screen behaviour for accounts outside your Test users list.** In
   **Testing** status Google refuses them before this server is involved.
 - **Key rotation.** Google rotates its signing keys on its own schedule; the
