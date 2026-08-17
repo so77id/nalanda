@@ -98,6 +98,13 @@ func (s Session) IsExpired(now time.Time) bool {
 	return !s.ExpiresAt.After(now)
 }
 
+// DeactivateOutcome is what UserStore.DeactivateIfNotLast reports back. See
+// the interface method's comment for the three cases the caller decides on.
+type DeactivateOutcome struct {
+	User    User
+	Changed bool
+}
+
 // NewToken returns a fresh random token, hex-encoded. It is the source of both
 // session tokens and CSRF tokens: they have the same requirements — unguessable,
 // single-purpose, never reused — and a second generator would only be a second
@@ -152,13 +159,31 @@ type UserStore interface {
 	// CountUsers is what the bootstrap path asks before deciding that a server
 	// with no professors may adopt the one named by the configuration.
 	CountUsers(ctx context.Context) (int, error)
-	// CountActiveUsers is what the deactivation guard checks: "would this
-	// action leave the server with no active professor?" (issue #151
-	// §Deactivation). A separate count rather than filtering the ListUsers
-	// slice because the guard is called on every deactivation and a
-	// full-table scan of a table that will grow (WP-D imports a roster) is
-	// wasted work as soon as the friends-and-family scale is left.
+	// CountActiveUsers reports how many professors have is_active=1. Kept
+	// as a domain primitive for read-only callers (a future dashboard, a
+	// health check); the deactivation path does NOT use it — see
+	// DeactivateIfNotLast below for why.
 	CountActiveUsers(ctx context.Context) (int, error)
+	// DeactivateIfNotLast atomically flips is_active=0 + stamps deactivated_at
+	// for the target ONLY when both hold at write time: the target is
+	// currently active AND leaving it would keep at least one active professor.
+	//
+	// One method rather than "read count + write" because a check-then-write
+	// leaves a TOCTOU window: two concurrent deactivations by peer professors
+	// can both observe count=2 and both succeed, landing the server in the
+	// zero-active state the guard exists to prevent (COR-4 / SEC-1, WP
+	// review). The adapter runs it as a single UPDATE guarded by a subquery,
+	// so SQLite's write serialization does the work.
+	//
+	// The result carries three cases the handler branches on:
+	//   - Changed=true:  deactivation happened; caller may then end sessions.
+	//   - Changed=false, User.IsActive=false: target was already inactive
+	//     (COR-5, WP review — idempotent no-op, not a refusal).
+	//   - Changed=false, User.IsActive=true: guard fired; the target was the
+	//     only active professor. Caller returns ErrCannotDeactivateLastActive.
+	//
+	// ErrNotFound is returned when there is no row with that user_id.
+	DeactivateIfNotLast(ctx context.Context, userID int64, at time.Time) (DeactivateOutcome, error)
 	// RecordLogin stamps users.last_login_at for the given professor. The
 	// login path is the only caller today (Login.RecordLastSignIn); the
 	// timestamp comes from the domain's clock, not from a "when did the row

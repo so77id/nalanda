@@ -1,6 +1,10 @@
 {{ define "content" }}
   <h1>{{ .Heading }}</h1>
 
+  {{ if .Notice }}
+    <p class="error">{{ .Notice }}</p>
+  {{ end }}
+
   <form class="form" method="post" action="{{ .Action }}">
     <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
 

@@ -97,16 +97,10 @@ const (
 // backoffice home is WP-C3's, and a second template today would exist only to
 // say the same sentence in a different file.
 func (a *Auth) LoginPage(w http.ResponseWriter, r *http.Request) {
-	page := view.LoginPage{Aviso: avisoFor(r.URL.Query().Get("aviso"))}
-
-	if professor, ok := middleware.ProfessorFrom(r.Context()); ok {
-		page.Professor = &professor
-		if session, ok := middleware.SessionFrom(r.Context()); ok {
-			page.CSRFToken = session.CSRFToken
-		}
+	page := view.LoginPage{
+		Page:  middleware.PageFor(r, ""), // RenderLogin picks the title
+		Aviso: avisoFor(r.URL.Query().Get("aviso")),
 	}
-	// The layout takes its title from Page.Title; RenderLogin picks a default
-	// when the caller leaves it blank, and both callers do.
 
 	if err := view.RenderLogin(w, page); err != nil {
 		a.Log.Error("rendering the login page", "error", err)

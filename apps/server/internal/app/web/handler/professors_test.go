@@ -215,14 +215,19 @@ func TestListRendersEveryProfessorAndSpellsOutTheNeverSignedInCase(t *testing.T)
 		t.Errorf("body missing the Spanish state words\n---\n%s", body)
 	}
 	// AC-11 companion: it goes through the shell — the layout markers.
-	for _, want := range []string{"<!doctype html>", `class="sections"`, "profesora@example.com" /* the bar's menu */} {
-		_ = want
-	}
 	if !strings.Contains(body, "<!doctype html>") {
 		t.Error("body is not rendered through the shell")
 	}
 	if !strings.Contains(body, `class="sections"`) {
 		t.Error("body missing the shell's bar (should show since a professor is signed in)")
+	}
+	// COR-3 (WP review): the bar carries the signed-in professor's email —
+	// the ONE property that says "the shell is rendered for THIS reader".
+	// A dead assertion loop was here first and asserted nothing (the loop
+	// body was `_ = want`), which meant a shell that lost the bar's menu
+	// entirely still shipped green.
+	if !strings.Contains(body, `>yo@example.com<`) {
+		t.Errorf("body does not carry the signed-in email in the shell's own bar\n---\n%s", body)
 	}
 }
 
@@ -346,16 +351,12 @@ func TestCreatePersistsTheProfessorAndSetsAFlashOnRedirect(t *testing.T) {
 		t.Errorf("stored Name = %q, want %q", created.Name, "Nueva")
 	}
 
-	// The flash cookie is set — S8 will show it, this asserts the "message
-	// crosses POST/redirect/GET" half.
-	found := false
-	for _, c := range recorder.Result().Cookies() {
-		if c.Name == "nalanda_flash" && c.Value != "" {
-			found = true
-		}
-	}
-	if !found {
-		t.Error("no flash cookie set after a successful create")
+	// The flash cookie carries the Spanish success text. COR-2 (WP
+	// review): a hasFlash-only check would stay green through a message
+	// swap; readFlash pins the actual sentence.
+	msg := readFlash(t, recorder)
+	if !strings.Contains(msg, "Profesora añadida") || !strings.Contains(msg, "nueva@example.com") {
+		t.Errorf("create flash = %q, want the Spanish 'Profesora añadida' + the created address", msg)
 	}
 }
 
@@ -484,15 +485,11 @@ func TestUpdatePersistsTheNewNameAndFlashes(t *testing.T) {
 		t.Errorf("stored Email = %q, want %q (the address must not be editable)", got.Email, "profesora@example.com")
 	}
 
-	// Flash cookie set for the redirected GET to consume.
-	var flashCookie *http.Cookie
-	for _, c := range recorder.Result().Cookies() {
-		if c.Name == "nalanda_flash" && c.Value != "" {
-			flashCookie = c
-		}
-	}
-	if flashCookie == nil {
-		t.Error("no flash cookie set after a successful update")
+	// COR-2 (WP review): pin the Spanish sentence too — the update flash
+	// used to be tested only with hasFlash and could ship any message.
+	msg := readFlash(t, recorder)
+	if !strings.Contains(msg, "Cambios guardados") || !strings.Contains(msg, "profesora@example.com") {
+		t.Errorf("update flash = %q, want the Spanish 'Cambios guardados' + the target's address", msg)
 	}
 }
 
@@ -568,9 +565,61 @@ func TestDeactivateRedirectsWithFlashAndCallsTheDomain(t *testing.T) {
 	if got.DeactivatedAt == nil {
 		t.Error("DeactivatedAt is nil after Deactivate")
 	}
-	// A flash cookie is set for the redirected GET to consume.
-	if !hasFlash(recorder) {
-		t.Error("no flash cookie set after a successful deactivation")
+	// COR-2 (WP review): pin the Spanish success sentence — a mutation
+	// that swapped it used to ship green.
+	msg := readFlash(t, recorder)
+	if !strings.Contains(msg, "queda inactiva") || !strings.Contains(msg, "otra@example.com") {
+		t.Errorf("deactivate flash = %q, want the Spanish 'queda inactiva' + the target's address", msg)
+	}
+}
+
+// COR-2 (WP review): the last-active refusal reads the correct Spanish
+// sentence. The self-refusal case above covered guard 1; guard 2 had no
+// handler-layer text assertion at all before this case.
+//
+// Reaching guard 2 through the middleware is impossible by construction —
+// the acting professor holds a session, therefore is active, so
+// CountActiveUsers >= 2 whenever acting != target. This test seeds the
+// state guard 2 protects (target is the only active row) and drives the
+// handler directly with a pre-populated context, bypassing Resolve — the
+// domain enforcement is what closes the door, and the flash text is what
+// this case asserts.
+func TestDeactivateRefusesLastActiveWithASpanishFlash(t *testing.T) {
+	f := newProfessorsFixture(t)
+
+	acting, err := f.store.CreateUser(context.Background(), "acting@example.com", "Acting")
+	if err != nil {
+		t.Fatalf("CreateUser acting: %v", err)
+	}
+	target, err := f.store.CreateUser(context.Background(), "target@example.com", "Target")
+	if err != nil {
+		t.Fatalf("CreateUser target: %v", err)
+	}
+	// Take acting out of the active set — target is now the only active row.
+	if _, err := f.store.SetActive(context.Background(), acting.ID, false, f.now); err != nil {
+		t.Fatalf("SetActive acting inactive: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/professors/%d/deactivate", target.ID), nil)
+	req.SetPathValue("id", fmt.Sprintf("%d", target.ID))
+	req = req.WithContext(middleware.WithProfessorForTest(req.Context(), acting, auth.Session{CSRFToken: "csrf"}))
+	rec := httptest.NewRecorder()
+	f.handler.Deactivate(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 (guard 2 is a flash + redirect, not a 4xx)", rec.Code)
+	}
+	msg := readFlash(t, rec)
+	if !strings.Contains(msg, "única profesora activa") {
+		t.Errorf("flash = %q, want the Spanish 'única profesora activa' message", msg)
+	}
+	// The row is still active — a refused deactivation must not touch state.
+	got, err := f.store.UserByID(context.Background(), target.ID)
+	if err != nil {
+		t.Fatalf("UserByID: %v", err)
+	}
+	if !got.IsActive {
+		t.Error("target went inactive after guard 2 refused the operation")
 	}
 }
 
@@ -628,8 +677,10 @@ func TestReactivateRedirectsWithFlash(t *testing.T) {
 	if !got.IsActive {
 		t.Error("target is still inactive after Reactivate")
 	}
-	if !hasFlash(recorder) {
-		t.Error("no flash cookie set after Reactivate")
+	// COR-2 (WP review): pin the Spanish success sentence.
+	msg := readFlash(t, recorder)
+	if !strings.Contains(msg, "vuelve a estar activa") || !strings.Contains(msg, "otra@example.com") {
+		t.Errorf("reactivate flash = %q, want the Spanish 'vuelve a estar activa' + the target's address", msg)
 	}
 }
 

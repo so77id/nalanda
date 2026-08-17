@@ -55,37 +55,55 @@ func NewAdmin(deps Admin) *Admin {
 // §Deactivation).
 //
 // Two guards. actingID is the professor performing the action — passed in
-// rather than read from any context here so the domain does not know what
-// a session is:
+// rather than read from any context here so the domain does not know what a
+// session is:
 //
 //  1. targetID == actingID → ErrCannotDeactivateSelf, unconditionally.
-//  2. CountActiveUsers <= 1 → ErrCannotDeactivateLastActive, so the server
-//     never lands in a state where nobody can sign in.
+//  2. The write leaves at least one active professor. Enforced atomically
+//     by UserStore.DeactivateIfNotLast, so two concurrent deactivations
+//     cannot both pass a check-then-write TOCTOU (COR-4 / SEC-1). The
+//     ErrCannotDeactivateLastActive branch fires when the target IS
+//     currently active and yet the atomic write refused — the only reason
+//     that happens is "would leave zero active".
 //
-// The sessions of an unknown target are not deleted: the row is looked up
-// via SetActive, and if it does not exist ErrNotFound propagates BEFORE the
-// session sweep — a Deactivate on a mistyped id must not have side effects.
-func (a *Admin) Deactivate(ctx context.Context, targetID, actingID int64) (User, error) {
+// The DeactivateOutcome shape lets a target that was ALREADY inactive
+// (crafted URL, since the list hides the button) return through the
+// success path as an idempotent no-op with Changed=false (COR-5) —
+// avoiding a misleading "última profesora activa" for a state the caller
+// could not reach through the UI.
+type DeactivateResult struct {
+	User User
+	// Changed reports whether the store actually flipped is_active. A
+	// Changed=false with err=nil is a no-op (target was already inactive)
+	// — the caller flashes accordingly instead of celebrating.
+	Changed bool
+}
+
+func (a *Admin) Deactivate(ctx context.Context, targetID, actingID int64) (DeactivateResult, error) {
 	if targetID == actingID {
-		return User{}, ErrCannotDeactivateSelf
-	}
-	active, err := a.Users.CountActiveUsers(ctx)
-	if err != nil {
-		return User{}, fmt.Errorf("count active professors: %w", err)
-	}
-	if active <= 1 {
-		return User{}, ErrCannotDeactivateLastActive
+		return DeactivateResult{}, ErrCannotDeactivateSelf
 	}
 
-	user, err := a.Users.SetActive(ctx, targetID, false, a.Now())
+	outcome, err := a.Users.DeactivateIfNotLast(ctx, targetID, a.Now())
 	if err != nil {
-		return User{}, fmt.Errorf("deactivate professor %d: %w", targetID, err)
+		return DeactivateResult{}, fmt.Errorf("deactivate professor %d: %w", targetID, err)
+	}
+	if !outcome.Changed {
+		if outcome.User.IsActive {
+			// The atomic guard refused: the target is active but is the
+			// only active one, so flipping would leave zero.
+			return DeactivateResult{}, ErrCannotDeactivateLastActive
+		}
+		// Target was already inactive. No-op success, no session sweep to
+		// do (a professor with no active flag also has no live sessions
+		// past the next middleware check).
+		return DeactivateResult{User: outcome.User, Changed: false}, nil
 	}
 
 	if err := a.Sessions.DeleteUserSessions(ctx, targetID); err != nil {
-		return User{}, fmt.Errorf("end sessions of professor %d after deactivation: %w", targetID, err)
+		return DeactivateResult{}, fmt.Errorf("end sessions of professor %d after deactivation: %w", targetID, err)
 	}
-	return user, nil
+	return DeactivateResult{User: outcome.User, Changed: true}, nil
 }
 
 // Reactivate flips a professor back to is_active=1 and clears

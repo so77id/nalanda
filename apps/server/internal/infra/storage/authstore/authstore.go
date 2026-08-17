@@ -141,14 +141,53 @@ func (s *Store) CountUsers(ctx context.Context) (int, error) {
 	return count, nil
 }
 
-// CountActiveUsers reports how many professors have is_active = 1. Used by
-// the deactivation guard.
+// CountActiveUsers reports how many professors have is_active = 1. A
+// domain-visible primitive for read-only callers; NOT used by the
+// deactivation guard, which serializes read + write in one statement
+// (DeactivateIfNotLast).
 func (s *Store) CountActiveUsers(ctx context.Context) (int, error) {
 	var count int
 	if err := s.db.QueryRowContext(ctx, "SELECT count(*) FROM users WHERE is_active = 1").Scan(&count); err != nil {
 		return 0, fmt.Errorf("count the active professors: %w", err)
 	}
 	return count, nil
+}
+
+// DeactivateIfNotLast is the atomic guarded write behind Admin.Deactivate.
+// One statement, so SQLite's write-serialization does what a read-then-write
+// pair cannot: two concurrent deactivations on different targets both see
+// the same guard state and only one can succeed.
+//
+// The subquery counts active professors as of THIS statement's snapshot —
+// SQLite evaluates it while the UPDATE holds its write lock, so the count
+// cannot change under it. A caller that observes Changed=false consults the
+// returned User to distinguish "already inactive" (idempotent no-op) from
+// "guard fired" (would-be last-active).
+func (s *Store) DeactivateIfNotLast(ctx context.Context, userID int64, at time.Time) (auth.DeactivateOutcome, error) {
+	row := s.db.QueryRowContext(ctx, `
+		UPDATE users
+		SET is_active = 0, deactivated_at = ?
+		WHERE user_id = ?
+		  AND is_active = 1
+		  AND (SELECT count(*) FROM users WHERE is_active = 1) > 1
+		RETURNING `+userColumns, at.Unix(), userID)
+
+	user, err := scanUser(row)
+	if err == nil {
+		return auth.DeactivateOutcome{User: user, Changed: true}, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return auth.DeactivateOutcome{}, fmt.Errorf("deactivate professor %d: %w", userID, err)
+	}
+
+	// The UPDATE affected zero rows. Read the row to tell the caller which
+	// case: absent → ErrNotFound; present-and-inactive → no-op; present-and-
+	// active → guard fired.
+	existing, err := s.UserByID(ctx, userID)
+	if err != nil {
+		return auth.DeactivateOutcome{}, err
+	}
+	return auth.DeactivateOutcome{User: existing, Changed: false}, nil
 }
 
 // RecordLogin stamps users.last_login_at for the given professor. Time is unix

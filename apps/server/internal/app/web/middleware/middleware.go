@@ -111,6 +111,23 @@ func SessionFrom(ctx context.Context) (auth.Session, bool) {
 	return session, ok
 }
 
+// WithProfessorForTest returns a context carrying the professor and session
+// that Resolve would attach. **For tests only** — production always goes
+// through Resolve, which is what makes the context values match the DB. Kept
+// in a production file rather than an _test.go so a handler test in a
+// different package can call it (a _test.go export does not cross package
+// boundaries).
+//
+// Used by a handler test that needs to reach a state the middleware would
+// otherwise refuse to route to (guard 2 in Admin.Deactivate: acting is
+// deactivated, target is the only active — RequireProfessor would kick
+// acting out, and the domain guard is what would then be under test).
+func WithProfessorForTest(ctx context.Context, u auth.User, s auth.Session) context.Context {
+	ctx = context.WithValue(ctx, professorKey, u)
+	ctx = context.WithValue(ctx, sessionKey, s)
+	return ctx
+}
+
 // Resolve turns the session cookie into a professor on the request context.
 //
 // It never refuses a request. A missing, expired, unknown or deactivated session
@@ -260,19 +277,42 @@ func (a *Auth) VerifyCSRF(next http.Handler) http.Handler {
 // token was wrong; from S2 on the answer is an HTML page they can navigate
 // away from.
 func renderForbidden(w http.ResponseWriter, r *http.Request) {
-	page := view.ErrorPage{
-		Page:    view.Page{Title: "Solicitud no autorizada"},
-		Status:  http.StatusForbidden,
-		Message: "Solicitud no autorizada.",
-	}
+	WriteError(w, r, http.StatusForbidden, "Solicitud no autorizada.")
+}
+
+// PageFor builds the shell's own fields (title, professor, csrf) from the
+// request context. Consolidated here rather than repeated inline in each
+// handler because the block used to appear verbatim in four places (Auth,
+// Professors, router 404, middleware 403) and any drift between them would
+// have shown different "who am I" chrome on different pages — the shell's
+// whole purpose is that every page renders through the same one.
+//
+// Kept as a package-level function rather than a method: it reads only the
+// context that Resolve fills, never any middleware.Auth field.
+func PageFor(r *http.Request, title string) view.Page {
+	page := view.Page{Title: title}
 	if professor, ok := ProfessorFrom(r.Context()); ok {
 		page.Professor = &professor
 		if session, ok := SessionFrom(r.Context()); ok {
 			page.CSRFToken = session.CSRFToken
 		}
 	}
+	return page
+}
+
+// WriteError writes a shell error page for the given status. Callers used to
+// build a view.ErrorPage literal + copy the same http.Error fallback in four
+// places; one helper here consolidates both. The title defaults to the HTTP
+// status text — a caller with a page-specific title should set it and pass
+// the resulting Page in directly through view.RenderError.
+func WriteError(w http.ResponseWriter, r *http.Request, status int, message string) {
+	page := view.ErrorPage{
+		Page:    PageFor(r, http.StatusText(status)),
+		Status:  status,
+		Message: message,
+	}
 	if err := view.RenderError(w, page); err != nil {
-		http.Error(w, "Solicitud no autorizada.", http.StatusForbidden)
+		http.Error(w, http.StatusText(status), status)
 	}
 }
 

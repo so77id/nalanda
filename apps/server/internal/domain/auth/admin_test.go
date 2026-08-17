@@ -128,15 +128,18 @@ func TestDeactivateFlipsFlagAndEndsEverySessionTheTargetHolds(t *testing.T) {
 		t.Fatalf("seeding acting's session: %v", err)
 	}
 
-	updated, err := a.Deactivate(ctx, target.ID, acting.ID)
+	result, err := a.Deactivate(ctx, target.ID, acting.ID)
 	if err != nil {
 		t.Fatalf("Deactivate: %v", err)
 	}
-	if updated.IsActive {
+	if !result.Changed {
+		t.Error("result.Changed = false, want true (target was active, guard held)")
+	}
+	if result.User.IsActive {
 		t.Error("returned user still marked active")
 	}
-	if updated.DeactivatedAt == nil || !updated.DeactivatedAt.Equal(at) {
-		t.Errorf("DeactivatedAt = %v, want %v", updated.DeactivatedAt, at)
+	if result.User.DeactivatedAt == nil || !result.User.DeactivatedAt.Equal(at) {
+		t.Errorf("DeactivatedAt = %v, want %v", result.User.DeactivatedAt, at)
 	}
 
 	// Target's sessions are gone; acting's is not.

@@ -83,6 +83,12 @@ type ProfessorsFormPage struct {
 	// EmailReadonly is set by S7's edit form: the address is deliberately
 	// not editable (issue #151 §Non-goals). The create form leaves it false.
 	EmailReadonly bool
+	// Notice is a non-field message rendered above the fields — used for
+	// form-wide failures like "could not read the form" that do not belong
+	// to any single field. Errors[""] was tried first and silently dropped
+	// by the template (COR-1, WP review), which is why the slot has its own
+	// name now.
+	Notice string
 }
 
 // ProfessorFormValues holds what the user typed. Rendered back into the

@@ -79,12 +79,12 @@ func (p *Professors) List(w http.ResponseWriter, r *http.Request) {
 	users, err := p.Users.ListUsers(r.Context())
 	if err != nil {
 		p.Log.Error("listing professors", "error", err)
-		p.renderInternalError(w, r)
+		middleware.WriteError(w, r, http.StatusInternalServerError, "Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
 	}
 
 	page := view.ProfessorsListPage{
-		Page:       p.pageFromRequest(r, "Profesores"),
+		Page:       middleware.PageFor(r, "Profesores"),
 		Professors: toListedProfessors(users),
 	}
 	if pr, ok := middleware.ProfessorFrom(r.Context()); ok {
@@ -156,32 +156,17 @@ var spanishMonth = map[time.Month]string{
 	time.December:  "dic",
 }
 
-// pageFromRequest builds the shell's own fields (title, professor, csrf).
-// Handlers call this so the shell is populated the same way from every
-// screen.
-func (p *Professors) pageFromRequest(r *http.Request, title string) view.Page {
-	page := view.Page{Title: title}
-	if professor, ok := middleware.ProfessorFrom(r.Context()); ok {
-		page.Professor = &professor
-		if session, ok := middleware.SessionFrom(r.Context()); ok {
-			page.CSRFToken = session.CSRFToken
-		}
-	}
-	return page
-}
+// The shell's Page (title, professor, csrf) is built by middleware.PageFor.
+// It used to live here as a *Professors method that never read any field of
+// *Professors; extracted in the WP review (ARQ-1) so router / handler /
+// middleware share one implementation and cannot drift.
 
 // New renders the empty create form (GET /professors/new). It is the WP's
 // form convention in one page: the SAME template handles GET (empty),
 // validation-failure re-render (values + errors) and — from S7 — the edit
 // form. Values are always echoed back; errors are per-field.
 func (p *Professors) New(w http.ResponseWriter, r *http.Request) {
-	page := view.ProfessorsFormPage{
-		Page:    p.pageFromRequest(r, "Añadir profesora"),
-		Action:  ProfessorsPath,
-		Submit:  "Añadir",
-		Heading: "Añadir profesora",
-	}
-	if err := view.RenderProfessorsForm(w, http.StatusOK, page); err != nil {
+	if err := view.RenderProfessorsForm(w, http.StatusOK, createFormPage(r, view.ProfessorFormValues{}, nil, "")); err != nil {
 		p.Log.Error("rendering the create form", "error", err)
 	}
 }
@@ -198,9 +183,10 @@ func (p *Professors) New(w http.ResponseWriter, r *http.Request) {
 // covers — try, catch a known-shape error, report Spanish.
 func (p *Professors) Create(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
-		p.rerenderNewWithErrors(w, r, view.ProfessorFormValues{}, map[string]string{
-			"": "No se pudo leer el formulario. Inténtalo de nuevo.",
-		})
+		// COR-1: general messages go on Notice, not on Errors[""] — the
+		// template only reads keys "email" and "name", so an empty key was
+		// dropped and the professor saw an empty form with no explanation.
+		p.rerenderNew(w, r, view.ProfessorFormValues{}, nil, "No se pudo leer el formulario. Inténtalo de nuevo.")
 		return
 	}
 
@@ -209,19 +195,19 @@ func (p *Professors) Create(w http.ResponseWriter, r *http.Request) {
 		Name:  strings.TrimSpace(r.PostFormValue("name")),
 	}
 	if errs := validateProfessorForm(values); len(errs) > 0 {
-		p.rerenderNewWithErrors(w, r, values, errs)
+		p.rerenderNew(w, r, values, errs, "")
 		return
 	}
 
 	if _, err := p.Users.CreateUser(r.Context(), values.Email, values.Name); err != nil {
 		if isDuplicateEmail(err) {
-			p.rerenderNewWithErrors(w, r, values, map[string]string{
+			p.rerenderNew(w, r, values, map[string]string{
 				"email": "Ya existe una profesora con ese correo.",
-			})
+			}, "")
 			return
 		}
 		p.Log.Error("creating a professor", "error", err, "email", values.Email)
-		p.renderInternalError(w, r)
+		middleware.WriteError(w, r, http.StatusInternalServerError, "Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
 	}
 
@@ -229,17 +215,24 @@ func (p *Professors) Create(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, ProfessorsPath, http.StatusSeeOther)
 }
 
-func (p *Professors) rerenderNewWithErrors(w http.ResponseWriter, r *http.Request, values view.ProfessorFormValues, errs map[string]string) {
-	page := view.ProfessorsFormPage{
-		Page:    p.pageFromRequest(r, "Añadir profesora"),
+func (p *Professors) rerenderNew(w http.ResponseWriter, r *http.Request, values view.ProfessorFormValues, errs map[string]string, notice string) {
+	if err := view.RenderProfessorsForm(w, http.StatusUnprocessableEntity, createFormPage(r, values, errs, notice)); err != nil {
+		p.Log.Error("rendering the create form after validation", "error", err)
+	}
+}
+
+// createFormPage is the ARQ-3 builder: one place decides the create form's
+// {Action, Submit, Heading, EmailReadonly} tuple so GET, POST-validation-
+// failure re-render, and any future caller cannot drift on the chrome.
+func createFormPage(r *http.Request, values view.ProfessorFormValues, errs map[string]string, notice string) view.ProfessorsFormPage {
+	return view.ProfessorsFormPage{
+		Page:    middleware.PageFor(r, "Añadir profesora"),
 		Action:  ProfessorsPath,
 		Submit:  "Añadir",
 		Heading: "Añadir profesora",
 		Values:  values,
 		Errors:  errs,
-	}
-	if err := view.RenderProfessorsForm(w, http.StatusUnprocessableEntity, page); err != nil {
-		p.Log.Error("rendering the create form after validation", "error", err)
+		Notice:  notice,
 	}
 }
 
@@ -282,15 +275,19 @@ func looksLikeEmail(s string) bool {
 
 // isDuplicateEmail reports whether the error came from the schema's UNIQUE
 // constraint on users.email. Modernc's SQLite returns the message text
-// unchanged, so this matches on the substring the driver uses — kept in one
-// place so the query and the check about it live together.
+// unchanged, so this matches on the substring the driver uses.
+//
+// The check REQUIRES the users.email column in the substring — a loose
+// fallback ("constraint failed: UNIQUE" alone) would silently claim
+// "duplicate email" for any future UNIQUE column added to any table
+// CreateUser touches. Better: fall through to a 500 the operator will read
+// than to lie to the professor about which field collided (COR-6).
 func isDuplicateEmail(err error) bool {
 	if err == nil {
 		return false
 	}
 	msg := err.Error()
-	return strings.Contains(msg, "UNIQUE constraint failed: users.email") ||
-		strings.Contains(msg, "constraint failed: UNIQUE") // driver-version-tolerant fallback
+	return strings.Contains(msg, "users.email")
 }
 
 // Edit renders the edit form pre-filled with the professor's current name.
@@ -301,18 +298,7 @@ func (p *Professors) Edit(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-
-	page := view.ProfessorsFormPage{
-		Page:          p.pageFromRequest(r, "Editar profesora"),
-		Action:        professorPath(target.ID),
-		Submit:        "Guardar",
-		Heading:       "Editar profesora",
-		EmailReadonly: true,
-		Values: view.ProfessorFormValues{
-			Email: target.Email,
-			Name:  target.Name,
-		},
-	}
+	page := editFormPage(r, target, view.ProfessorFormValues{Email: target.Email, Name: target.Name}, nil, "")
 	if err := view.RenderProfessorsForm(w, http.StatusOK, page); err != nil {
 		p.Log.Error("rendering the edit form", "error", err)
 	}
@@ -333,23 +319,21 @@ func (p *Professors) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseForm(); err != nil {
-		p.rerenderEditWithErrors(w, r, target, view.ProfessorFormValues{Email: target.Email}, map[string]string{
-			"": "No se pudo leer el formulario. Inténtalo de nuevo.",
-		})
+		p.rerenderEdit(w, r, target, view.ProfessorFormValues{Email: target.Email}, nil, "No se pudo leer el formulario. Inténtalo de nuevo.")
 		return
 	}
 	name := strings.TrimSpace(r.PostFormValue("name"))
 
 	if name == "" {
-		p.rerenderEditWithErrors(w, r, target, view.ProfessorFormValues{Email: target.Email, Name: name}, map[string]string{
+		p.rerenderEdit(w, r, target, view.ProfessorFormValues{Email: target.Email, Name: name}, map[string]string{
 			"name": "El nombre es obligatorio.",
-		})
+		}, "")
 		return
 	}
 
 	if _, err := p.Users.UpdateUser(r.Context(), target.ID, name); err != nil {
 		p.Log.Error("updating a professor", "error", err, "professor", target.ID)
-		p.renderInternalError(w, r)
+		middleware.WriteError(w, r, http.StatusInternalServerError, "Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
 	}
 
@@ -357,18 +341,24 @@ func (p *Professors) Update(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, ProfessorsPath, http.StatusSeeOther)
 }
 
-func (p *Professors) rerenderEditWithErrors(w http.ResponseWriter, r *http.Request, target auth.User, values view.ProfessorFormValues, errs map[string]string) {
-	page := view.ProfessorsFormPage{
-		Page:          p.pageFromRequest(r, "Editar profesora"),
+func (p *Professors) rerenderEdit(w http.ResponseWriter, r *http.Request, target auth.User, values view.ProfessorFormValues, errs map[string]string, notice string) {
+	if err := view.RenderProfessorsForm(w, http.StatusUnprocessableEntity, editFormPage(r, target, values, errs, notice)); err != nil {
+		p.Log.Error("rendering the edit form after validation", "error", err)
+	}
+}
+
+// editFormPage is the ARQ-3 builder for edit — one place decides
+// {Action, Submit, Heading, EmailReadonly} for GET and re-render.
+func editFormPage(r *http.Request, target auth.User, values view.ProfessorFormValues, errs map[string]string, notice string) view.ProfessorsFormPage {
+	return view.ProfessorsFormPage{
+		Page:          middleware.PageFor(r, "Editar profesora"),
 		Action:        professorPath(target.ID),
 		Submit:        "Guardar",
 		Heading:       "Editar profesora",
 		EmailReadonly: true,
 		Values:        values,
 		Errors:        errs,
-	}
-	if err := view.RenderProfessorsForm(w, http.StatusUnprocessableEntity, page); err != nil {
-		p.Log.Error("rendering the edit form after validation", "error", err)
+		Notice:        notice,
 	}
 }
 
@@ -378,17 +368,17 @@ func (p *Professors) rerenderEditWithErrors(w http.ResponseWriter, r *http.Reque
 func (p *Professors) loadTarget(w http.ResponseWriter, r *http.Request) (auth.User, bool) {
 	id, ok := parseIDFromPath(r)
 	if !ok {
-		p.renderNotFoundShell(w, r)
+		middleware.WriteError(w, r, http.StatusNotFound, "Esa profesora no existe.")
 		return auth.User{}, false
 	}
 	target, err := p.Users.UserByID(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, auth.ErrNotFound) {
-			p.renderNotFoundShell(w, r)
+			middleware.WriteError(w, r, http.StatusNotFound, "Esa profesora no existe.")
 			return auth.User{}, false
 		}
 		p.Log.Error("reading a professor", "error", err, "id", id)
-		p.renderInternalError(w, r)
+		middleware.WriteError(w, r, http.StatusInternalServerError, "Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return auth.User{}, false
 	}
 	return target, true
@@ -430,11 +420,11 @@ func (p *Professors) Deactivate(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		// Cannot happen: the gate would have redirected an anonymous
 		// request before it reached here. Keep the branch honest anyway.
-		p.renderInternalError(w, r)
+		middleware.WriteError(w, r, http.StatusInternalServerError, "Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
 	}
 
-	_, err := p.Admin.Deactivate(r.Context(), target.ID, acting.ID)
+	result, err := p.Admin.Deactivate(r.Context(), target.ID, acting.ID)
 	switch {
 	case errors.Is(err, auth.ErrCannotDeactivateSelf):
 		flash.Set(w, p.secureCookie, "No puedes desactivarte a ti misma.")
@@ -442,8 +432,15 @@ func (p *Professors) Deactivate(w http.ResponseWriter, r *http.Request) {
 		flash.Set(w, p.secureCookie, "No puedes desactivar a la única profesora activa.")
 	case err != nil:
 		p.Log.Error("deactivating a professor", "error", err, "target", target.ID)
-		p.renderInternalError(w, r)
+		middleware.WriteError(w, r, http.StatusInternalServerError, "Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
+	case !result.Changed:
+		// COR-5: target was already inactive. The list hides the button in
+		// that case, but a crafted URL still reaches here — the reasonable
+		// answer is an idempotent no-op with a message that says so, NOT
+		// the "última profesora activa" refusal a naïve count check would
+		// have surfaced.
+		flash.Set(w, p.secureCookie, target.Email+" ya estaba inactiva.")
 	default:
 		flash.Set(w, p.secureCookie, target.Email+" queda inactiva; se cerraron sus sesiones.")
 	}
@@ -459,38 +456,9 @@ func (p *Professors) Reactivate(w http.ResponseWriter, r *http.Request) {
 	}
 	if _, err := p.Admin.Reactivate(r.Context(), target.ID); err != nil {
 		p.Log.Error("reactivating a professor", "error", err, "target", target.ID)
-		p.renderInternalError(w, r)
+		middleware.WriteError(w, r, http.StatusInternalServerError, "Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
 	}
 	flash.Set(w, p.secureCookie, target.Email+" vuelve a estar activa.")
 	http.Redirect(w, r, ProfessorsPath, http.StatusSeeOther)
-}
-
-// renderNotFoundShell writes a 404 through the shell without going through
-// the router — same shape as router.renderNotFound but for the case where a
-// handler has ALREADY matched a pattern and only then finds the target is
-// absent (an unknown id).
-func (p *Professors) renderNotFoundShell(w http.ResponseWriter, r *http.Request) {
-	page := view.ErrorPage{
-		Page:    p.pageFromRequest(r, "No se encuentra"),
-		Status:  http.StatusNotFound,
-		Message: "Esa profesora no existe.",
-	}
-	if err := view.RenderError(w, page); err != nil {
-		http.Error(w, "404", http.StatusNotFound)
-	}
-}
-
-// renderInternalError writes a 500 through the shell when the domain layer
-// blows up on a read. Kept small: an operator reading logs has the error, the
-// professor reading the page needs a way out.
-func (p *Professors) renderInternalError(w http.ResponseWriter, r *http.Request) {
-	page := view.ErrorPage{
-		Page:    p.pageFromRequest(r, "Error del servidor"),
-		Status:  http.StatusInternalServerError,
-		Message: "Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.",
-	}
-	if err := view.RenderError(w, page); err != nil {
-		http.Error(w, "500", http.StatusInternalServerError)
-	}
 }

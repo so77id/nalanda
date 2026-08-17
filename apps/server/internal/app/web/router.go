@@ -13,7 +13,6 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
-	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpjson"
 )
@@ -277,28 +276,11 @@ func muxPathFor(path string) string {
 	return path
 }
 
-// renderNotFound writes a 404 through the shell. Placed here rather than in
-// view because "what to say to a stranger" is a surface concern (Spanish, and
-// the professor's bar if there is one), while `view` only knows how to write
-// pages.
+// renderNotFound writes a 404 through the shell. The Spanish is not echoed
+// back at the reader: what was asked for is deliberately dropped so that an
+// attacker choosing the path cannot pick one that says something for them.
 func renderNotFound(w http.ResponseWriter, r *http.Request) {
-	page := view.ErrorPage{
-		Page:   view.Page{Title: "No se encuentra"},
-		Status: http.StatusNotFound,
-		// Spanish, since it is what the reader sees. What was asked for is
-		// deliberately not echoed back — an attacker choosing the path would
-		// otherwise pick one that says something for them.
-		Message: "Esta página no existe.",
-	}
-	if professor, ok := middleware.ProfessorFrom(r.Context()); ok {
-		page.Professor = &professor
-		if session, ok := middleware.SessionFrom(r.Context()); ok {
-			page.CSRFToken = session.CSRFToken
-		}
-	}
-	if err := view.RenderError(w, page); err != nil {
-		http.Error(w, "404", http.StatusNotFound)
-	}
+	middleware.WriteError(w, r, http.StatusNotFound, "Esta página no existe.")
 }
 
 // healthHandler answers JSON rather than HTML, which is not an oversight: its
