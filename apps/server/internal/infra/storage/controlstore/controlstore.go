@@ -198,4 +198,3 @@ func nullableUnixSeconds(t *time.Time) sql.NullInt64 {
 	}
 	return sql.NullInt64{Int64: t.Unix(), Valid: true}
 }
-

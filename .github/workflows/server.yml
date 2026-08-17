@@ -93,6 +93,17 @@ jobs:
       # (apps/server/GOOGLE-CHECK.md).
       - name: Run the image and probe it
         run: |
+          # WP-E adds three required variables and a shared-volume mount.
+          # The bank comes from the checked-in example (zero questions,
+          # enough to make the boot fetch succeed). The worker URL is a
+          # placeholder — the probe never asks the server to generate a
+          # control, so nothing actually calls the worker; it just has to
+          # be a URL the config validator accepts.
+          #
+          # A host directory holds the bank; that directory is bind-mounted
+          # onto /work read-only. The probe does not write to /work.
+          mkdir -p "$GITHUB_WORKSPACE/ci-work"
+          cp "$GITHUB_WORKSPACE/infra/local/questions.example.json" "$GITHUB_WORKSPACE/ci-work/questions.json"
           docker run -d --name server-ci \
             -e NALANDA_ADDR=0.0.0.0:8081 \
             -e NALANDA_DATABASE_URL=/data/nalanda.db \
@@ -102,6 +113,10 @@ jobs:
             -e NALANDA_GOOGLE_CLIENT_SECRET=placeholder-secret \
             -e NALANDA_SESSION_TTL=720h \
             -e NALANDA_BOOTSTRAP_PROFESSOR_EMAIL= \
+            -e NALANDA_QUESTIONS_JSON_URL=file:///work/questions.json \
+            -e NALANDA_AMC_WORKER_URL=http://amc-worker-placeholder:8080 \
+            -e NALANDA_WORK_DIR=/work \
+            -v "$GITHUB_WORKSPACE/ci-work:/work:ro" \
             -p 127.0.0.1:8081:8081 \
             nalanda/server:ci
           for attempt in $(seq 1 20); do

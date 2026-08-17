@@ -23,12 +23,25 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/oauthstate"
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
+	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
+	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
+
+func emptyBank(t *testing.T) *bank.Bank {
+	t.Helper()
+	b, err := bank.Parse(strings.NewReader(`{"version":1,"documents":[],"questions":[]}`))
+	if err != nil {
+		t.Fatalf("emptyBank: %v", err)
+	}
+	return b
+}
 
 // composed builds the root handler the way run() does, so these cases exercise
 // the composition rather than a rehearsal of it.
@@ -71,6 +84,21 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				Sessions: store,
 				Now:      time.Now,
 			}),
+			PublicURL: "https://nalanda.test",
+			Log:       logger,
+		}),
+		Controls: handler.NewControls(handler.Controls{
+			Service: controls.NewService(controls.Service{
+				Bank:      emptyBank(t),
+				Store:     controlstore.New(db),
+				Generator: &amctest.Fake{},
+				WorkDir:   t.TempDir(),
+				Now:       time.Now,
+				Seed:      1,
+				Log:       logger,
+			}),
+			Store:     controlstore.New(db),
+			Bank:      emptyBank(t),
 			PublicURL: "https://nalanda.test",
 			Log:       logger,
 		}),

@@ -42,8 +42,30 @@ services:
       # being visible where an operator edits it, not about which variables the
       # loader would survive without.
       NALANDA_SESSION_TTL: "${NALANDA_SESSION_TTL:-720h}"
+      # --- WP-E (issue #166): entrance controls ---
+      # The published bank (ADR-0032). Points at the JSON we bind-mount into
+      # /work below — a placeholder set with zero questions, enough to boot
+      # so `compose up --wait` proves the binary starts. Replace with the
+      # real questions.json for actual generation:
+      #   NALANDA_QUESTIONS_JSON_URL=file:///work/questions.json \
+      #     cp path/to/apps/web/dist/questions.json infra/local/questions.example.json
+      NALANDA_QUESTIONS_JSON_URL: "${NALANDA_QUESTIONS_JSON_URL:-file:///work/questions.json}"
+      # The worker service. Same compose network, so the service name resolves.
+      NALANDA_AMC_WORKER_URL: "${NALANDA_AMC_WORKER_URL:-http://amc-worker:8080}"
+      # The shared volume the server and the worker BOTH mount at /work
+      # (ADR-0034 §Consequences). The .tex the generator emits writes /work
+      # absolute paths regardless — this only decides where the server writes.
+      NALANDA_WORK_DIR: "/work"
     volumes:
       - server-data:/data
+      # Shared with the amc-worker service below. The server writes a
+      # control's inputs here, the worker reads them and writes the PDFs
+      # back — see docs/design/2026-08-controles.md §C9.
+      - amc-work:/work
+      # A minimal bank file so the boot fetch succeeds. Real bank is the
+      # published artifact from apps/web; this is the placeholder that lets
+      # `compose up --wait` prove the binary starts.
+      - ./questions.example.json:/work/questions.json:ro
     ports:
       - "127.0.0.1:8081:8081"
     # Free here in a way it is not for amc-worker: the image is `scratch` with

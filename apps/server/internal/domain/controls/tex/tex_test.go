@@ -297,9 +297,9 @@ func TestFixtureAndGeneratorAgreeOnTheLoadBearingRules(t *testing.T) {
 	assertShape := func(t *testing.T, source, label string) {
 		t.Helper()
 		checks := []struct {
-			name  string
-			ok    bool
-			note  string
+			name string
+			ok   bool
+			note string
 		}{
 			{"lang=ES", strings.Contains(source, `lang=ES`), "AMC would label questions in English"},
 			{"no completemulti in usepackage", !strings.Contains(source, ",completemulti]{automultiplechoice}") && !strings.Contains(source, "[completemulti]{automultiplechoice}"), "would append wrong-Spanish 'none of these'"},

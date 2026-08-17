@@ -1,0 +1,36 @@
+{{ define "content" }}
+  <h1>{{ .Control.Name }}</h1>
+
+  <section>
+    <h2>Datos</h2>
+    <table class="lista">
+      <tbody>
+        <tr><th>Aplicación</th><td>{{ .Control.ApplicationDate }}</td></tr>
+        <tr><th>Rango</th><td>{{ .Control.Range }}</td></tr>
+        <tr><th>Formato</th><td>{{ .Control.Shape }}</td></tr>
+        <tr><th>Estado</th><td>{{ .Control.State }}</td></tr>
+        <tr><th>Creado</th><td>{{ .Control.CreatedAt }}</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>Prueba a imprimir</h2>
+    <p>
+      <a class="boton" href="{{ .SujetURL }}">Descargar prueba (sujet.pdf)</a>
+      <a class="boton" href="{{ .CorrigeURL }}">Descargar clave (corrige.pdf)</a>
+    </p>
+  </section>
+
+  <section>
+    <h2>Escaneos</h2>
+    {{ if .ScansEnabled }}
+      <p>{{ .ScansNotice }}</p>
+    {{ else }}
+      <p>Aún no hay escaneos subidos.</p>
+      <p><button type="button" disabled>Subir escaneos</button></p>
+    {{ end }}
+  </section>
+
+  <p><a href="/controls">Volver a los controles</a></p>
+{{ end }}

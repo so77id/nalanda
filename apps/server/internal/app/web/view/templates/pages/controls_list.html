@@ -1,0 +1,37 @@
+{{ define "content" }}
+  <h1>Controles</h1>
+
+  <p>Cada control se imprime en papel y se lee al inicio de la clase; están
+    ordenados por fecha de aplicación, de más reciente a más antigua.</p>
+
+  <p><a class="boton" href="/controls/new">Nuevo control</a></p>
+
+  {{ if .Controls }}
+    <table class="lista">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Aplicación</th>
+          <th>Rango</th>
+          <th>Formato</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Controls }}
+          <tr>
+            <td>{{ .Name }}</td>
+            <td>{{ .ApplicationDate }}</td>
+            <td>{{ .Range }}</td>
+            <td>{{ .Shape }}</td>
+            <td>{{ .State }}</td>
+            <td><a href="{{ .DetailURL }}">Ver</a></td>
+          </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  {{ else }}
+    <p>Aún no hay controles. Empieza uno con <a href="/controls/new">Nuevo control</a>.</p>
+  {{ end }}
+{{ end }}
