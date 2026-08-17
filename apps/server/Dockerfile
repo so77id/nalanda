@@ -12,7 +12,20 @@
 # --- build -------------------------------------------------------------------
 # Pinned by digest, not only by tag: a tag is a moving pointer, and "the build
 # that worked last week" has to be reproducible for a project measured in years.
-FROM golang:1.25-alpine@sha256:3eb6c2b3db8d55e38537302edb510b4417f8a115efbd5906d131ceba9468e29a AS build
+#
+# --platform=${BUILDPLATFORM} pins the BUILDER to the runner's own arch. Without
+# it, buildx cross-compiling to linux/arm64 from an amd64 runner would run the
+# Go toolchain under qemu emulation — a few minutes turn into tens. With it,
+# Go runs natively (amd64 → amd64) and the ARG TARGETARCH / GOARCH pair below
+# tells it to CROSS-COMPILE for the target. Load-bearing on the CI runner
+# (issue #162 S11); a no-op on a local build where BUILDPLATFORM equals
+# TARGETPLATFORM.
+FROM --platform=${BUILDPLATFORM} golang:1.25-alpine@sha256:3eb6c2b3db8d55e38537302edb510b4417f8a115efbd5906d131ceba9468e29a AS build
+
+# TARGETARCH is set by buildx from --platform; empty in a plain `docker build`,
+# where the `${TARGETARCH:-$(go env GOARCH)}` fallback below keeps Go writing
+# the runner's own arch (a local dev build).
+ARG TARGETARCH
 
 WORKDIR /src
 
@@ -48,7 +61,7 @@ RUN mkdir -p /data /work && chown 65532:65532 /data /work
 # -trimpath keeps the builder's absolute paths out of the binary; the ldflags
 # drop the symbol table and DWARF, which is a few megabytes of nothing anyone
 # debugs in production.
-RUN CGO_ENABLED=0 GOOS=linux go build \
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=${TARGETARCH:-$(go env GOARCH)} go build \
         -trimpath \
         -ldflags='-s -w' \
         -o /server \
