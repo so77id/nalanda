@@ -1,10 +1,11 @@
 import type { RunRequest, RuntimeWorker, WorkerMessage } from '../contract';
 import { OUTPUT_DIR, javaClassPath } from './classPath';
 import {
+  HARNESS_CLASS,
   LAUNCHER_CLASS,
   LAUNCHER_SOURCE,
-  RESERVED_CLASSES,
   deriveEntryClass,
+  reservedDeclarations,
   sourceFileName,
 } from './launcher';
 
@@ -188,15 +189,42 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       // measuring the student's program.
       emit({ id, type: 'started' });
 
-      const studentClass = deriveEntryClass(source);
-      // See RESERVED_CLASSES: a student class named after a platform one
-      // overwrites its .class in the shared output directory and poisons every
-      // editor on the page.
-      if (RESERVED_CLASSES.includes(studentClass.split('.').pop() ?? studentClass)) {
+      // See RESERVED_CLASSES: a class named after a platform one overwrites its
+      // .class in the shared output directory and poisons every editor on the
+      // page. Every top-level declaration, not the entry class alone — that is
+      // the hole #123 closed, and `reservedDeclarations` documents its edges.
+      //
+      // A unit may not declare a reserved name it does not OWN. `source` owns
+      // none. The harness IS `NalandaCheck` (`buildHarness` generates it), so
+      // that one name is its own and scanning for it would refuse every
+      // exercise on the site. `library` is not scanned at all: platform code by
+      // construction, reachable only from a module constant, and its unit
+      // arriving there is the intended use (ADR-0028 §6).
+      //
+      // The harness scan is narrower in practice than it reads, and measured to
+      // be: `buildHarness` splices the author's `test` fence into the body of
+      // `NalandaCheck.main`, so a reserved name written there is a LOCAL class
+      // (`NalandaCheck$1NalandaLauncher.class`) that shadows nothing and is
+      // correctly not flagged. What this catches is the one fence that
+      // unbalances braces and escapes the method into the compilation unit —
+      // which is exactly the case worth an author-facing message.
+      const inSource = reservedDeclarations(source)[0];
+      const inHarness = reservedDeclarations(harness ?? '').filter(
+        (name) => name !== HARNESS_CLASS,
+      )[0];
+      if (inSource !== undefined || inHarness !== undefined) {
         emit({
           id,
           type: 'result',
-          compileLog: `${studentClass} es un nombre reservado por la plataforma. Ponle otro nombre a tu clase.`,
+          // Two messages, because there are two authors. A collision in `source`
+          // is the reader's to fix; one in `harness` came from the document's
+          // `test` fence, which the reader can neither see nor edit — telling
+          // them to rename their class would be the author's typo blamed on the
+          // reader, in the component that must not misreport (`Exercise.tsx`).
+          compileLog:
+            inSource !== undefined
+              ? `${inSource} es un nombre reservado por la plataforma. Ponle otro nombre a tu clase.`
+              : `${inHarness} es un nombre reservado por la plataforma y este ejercicio lo declara en sus casos de prueba. No es tu código: avisa a quien escribió el documento.`,
           output: '',
           exitCode: null,
           compileMs: 0,
@@ -213,9 +241,9 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
 
       const sourcePaths = [write(source)];
       // Compiled beside the source and never run: the snippet keeps `main` and
-      // calls into it. Not subject to the reserved-name guard above — that
-      // guard is about a student shadowing a platform class, and this IS the
-      // platform class.
+      // calls into it. The one unit the guard above does not read — that guard
+      // is about a student shadowing a platform class, and this IS the platform
+      // class.
       if (library !== undefined) sourcePaths.push(write(library));
       // With a harness present the student's class is a library, not a program:
       // the harness owns `main` and decides what to call.

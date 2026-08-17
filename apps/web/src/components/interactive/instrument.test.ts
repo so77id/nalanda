@@ -65,9 +65,10 @@ describe('instrument', () => {
   });
 
   it('refuses a snippet that declares the tracer itself', () => {
-    // The runtime guard only inspects the ENTRY class, so a secondary class
-    // named NalandaTrace would compile and overwrite the one collecting the
-    // trace — the diagram would then draw whatever the author's version emitted.
+    // A class named NalandaTrace overwrites the one collecting the trace, so the
+    // diagram would draw whatever the author's version emitted. The runtime
+    // refuses this too (#123); saying so here costs no JVM, and an unrunnable
+    // `trace` fence is an authoring mistake, reported as one.
     const { errors } = instrument(
       ['public class Demo { }', 'class NalandaTrace { }', 'int a = 1; // foto a'].join('\n'),
     );
@@ -144,6 +145,39 @@ describe('the reserved name in any shape', () => {
 
     expect(errors[0]).toMatch(/NalandaTrace/);
     expect(errors[0]).toMatch(/reservado/i);
+  });
+
+  // The three properties below come from sharing the runtime's guard rather than
+  // restating it here: one statement of the rule, one set of edges (#123).
+  it.each(['NalandaLauncher', 'NalandaCheck'])('refuses %s as well', (reserved) => {
+    // A `trace` fence is sent as `source`, so every reserved name collides in it,
+    // not only the tracer's. The private regex this replaced knew one name.
+    const { errors } = instrument([`class ${reserved} {}`, 'int a = 1; // foto a'].join('\n'));
+
+    expect(errors[0]).toMatch(new RegExp(reserved));
+    expect(errors[0]).toMatch(/reservado/i);
+  });
+
+  it('allows a nested declaration, which collides with nothing', () => {
+    // `Demo$NalandaTrace.class` overwrites no platform class, so refusing it
+    // would block a legitimate snippet.
+    const { errors } = instrument(
+      ['public class Demo {', '  static class NalandaTrace { }', '}', 'int a = 1; // foto a'].join(
+        '\n',
+      ),
+    );
+
+    expect(errors).toEqual([]);
+  });
+
+  it('allows a snippet that only mentions the name', () => {
+    // The private regex read the raw source, so a comment naming the rule
+    // refused the diagram that was explaining it.
+    const { errors } = instrument(
+      ['// no declares class NalandaTrace aquí', 'int a = 1; // foto a'].join('\n'),
+    );
+
+    expect(errors).toEqual([]);
   });
 });
 

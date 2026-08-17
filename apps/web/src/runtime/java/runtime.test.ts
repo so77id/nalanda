@@ -381,6 +381,187 @@ describe('createJavaRuntime', () => {
       expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
     });
 
+    it('refuses a reserved class declared BESIDE the public one', async () => {
+      // The hole this guard had: `deriveEntryClass` returns the public class, so
+      // the second declaration was never looked at — and ECJ compiled it into
+      // the same output directory, overwriting the memoised launcher for every
+      // editor on the page.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: [
+          'public class Solucion { }',
+          'class NalandaLauncher { public static void main(String[] a) {} }',
+        ].join('\n'),
+        stdin: '',
+        harness,
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(/NalandaLauncher.*reservado/i);
+      // Nothing was compiled or run: the refusal happens before either.
+      expect(invocations.some((one) => one.args.some((arg) => arg.endsWith('Solucion.java')))).toBe(
+        false,
+      );
+    });
+
+    it.each(['NalandaCheck', 'NalandaTrace'])('refuses a secondary %s too', async (reserved) => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: ['public class Solucion { }', `class ${reserved} { }`].join('\n'),
+        stdin: '',
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(new RegExp(`${reserved}.*reservado`, 'i'));
+    });
+
+    it.each(['interface', 'enum'])('refuses the %s form as well', async (keyword) => {
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: ['public class Solucion { }', `${keyword} NalandaTrace { }`].join('\n'),
+        stdin: '',
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
+    });
+
+    it('compiles a program that only MENTIONS a reserved name', async () => {
+      // A comment and a string are not declarations. Refusing them would refuse
+      // a program explaining the rule — the guard reads code, not prose.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: [
+          '// no llames a tu clase NalandaLauncher',
+          'public class Solucion {',
+          '  String s = "class NalandaCheck {";',
+          '  public static void main(String[] a) { }',
+          '}',
+        ].join('\n'),
+        stdin: '',
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).not.toMatch(/reservado/i);
+      const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
+      expect(run?.args[0]).toBe('Solucion');
+    });
+
+    it('refuses a reserved class the HARNESS smuggles in beside its own', async () => {
+      // The harness is generated from an author's `test` fence, and it carries
+      // that text into a compilation unit. Its own NalandaCheck is legitimate —
+      // it IS that class — but a second reserved declaration is the same
+      // overwrite as any other.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: 'class Solution { static int doble(int n) { return n * 2; } }',
+        stdin: '',
+        harness: [
+          'public class NalandaCheck { public static void main(String[] a) {} }',
+          'class NalandaLauncher { }',
+        ].join('\n'),
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(/NalandaLauncher.*reservado/i);
+      // And it is the AUTHOR who is told, not the reader: the offending
+      // declaration came from the document's `test` fence, which the reader
+      // cannot see or edit.
+      expect(results(seen)[0]!.compileLog).toMatch(/casos de prueba/i);
+      expect(results(seen)[0]!.compileLog).not.toMatch(/Ponle otro nombre a tu clase/i);
+    });
+
+    it('lets a REAL generated harness through, reserved name in the fence and all', async () => {
+      // The shape the platform actually produces, not one hand-written to trip
+      // the guard: `buildHarness` splices the author's `test` fence into the
+      // body of `NalandaCheck.main`, so a reserved name written there is a LOCAL
+      // class — `NalandaCheck$1NalandaLauncher.class` — which shadows nothing and
+      // must not be refused. The scan above is a backstop for the one fence that
+      // unbalances braces and escapes the method, which is the case the
+      // author-facing message exists for.
+      const harnessFromAuthor = [
+        'public class NalandaCheck {',
+        '    public static void main(String[] a) {',
+        '        try {',
+        '            class NalandaLauncher { int x = 1; }',
+        '            check(Solution.doble(2), 4);',
+        '        } catch (Throwable e) { }',
+        '    }',
+        '}',
+      ].join('\n');
+
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: 'class Solution { static int doble(int n) { return n * 2; } }',
+        stdin: '',
+        harness: harnessFromAuthor,
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).not.toMatch(/reservado/i);
+      const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
+      expect(run?.args[0]).toBe('NalandaCheck');
+    });
+
+    it('compiles a NESTED reserved declaration, which overwrites nothing', async () => {
+      // `Solucion$NalandaLauncher.class` collides with no platform class, so
+      // over-refusing here would block a legitimate program. Covered at this
+      // seam and not only on the helper, because the other three shapes are.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: [
+          'public class Solucion {',
+          '  static class NalandaLauncher { int x = 1; }',
+          '  public static void main(String[] a) { }',
+          '}',
+        ].join('\n'),
+        stdin: '',
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).not.toMatch(/reservado/i);
+      const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
+      expect(run?.args[0]).toBe('Solucion');
+    });
+
+    it('refuses a declaration hidden behind a unicode escape', async () => {
+      // Java translates `\\uXXXX` before lexing (JLS §3.3). Compiled with the
+      // pinned ECJ and run in real CheerpJ, this shape emitted a top-level
+      // NalandaLauncher.class and hijacked the launcher for the whole page.
+      const worker = createJavaRuntime('/');
+      const seen = listen(worker);
+      worker.postMessage({
+        id: 1,
+        source: [
+          'public class Solucion \\u007b',
+          '  public static void main(String[] a) { }',
+          '}',
+          'class NalandaLauncher { public static void main(String[] a) { } }',
+        ].join('\n'),
+        stdin: '',
+      });
+
+      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
+      expect(results(seen)[0]!.compileLog).toMatch(/NalandaLauncher.*reservado/i);
+      expect(invocations.some((one) => one.args.some((arg) => arg.endsWith('Solucion.java')))).toBe(
+        false,
+      );
+    });
+
     it('does not wedge the page when an abandoned run finishes anyway', async () => {
       // A route change unmounts every editor, which terminates their workers. If
       // a run was in flight — the ~12s boot is easy to wander off during — that

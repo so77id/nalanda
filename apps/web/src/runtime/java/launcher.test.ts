@@ -5,8 +5,10 @@ import {
   LAUNCHER_CLASS,
   LAUNCHER_SOURCE,
   RESERVED_CLASSES,
+  TRACE_CLASS,
   TRUNCATED,
   deriveEntryClass,
+  reservedDeclarations,
   sourceFileName,
 } from './launcher';
 
@@ -108,8 +110,164 @@ describe('output cap', () => {
     expect(LAUNCHER_SOURCE).toContain(TRUNCATED);
   });
 
-  it('reserves the two class names the platform compiles', () => {
+  it('reserves every class name the platform compiles', () => {
+    // Two when this was written; three since #116 added the tracer, which the
+    // title went on denying until #123.
     expect(RESERVED_CLASSES).toContain(LAUNCHER_CLASS);
     expect(RESERVED_CLASSES).toContain(HARNESS_CLASS);
+    expect(RESERVED_CLASSES).toContain(TRACE_CLASS);
+  });
+});
+
+describe('reservedDeclarations', () => {
+  it('finds a reserved class declared beside the public one', () => {
+    // The hazard the entry-class check could not see: `deriveEntryClass` returns
+    // the PUBLIC class, so the launcher-shaped second declaration compiled
+    // anyway and overwrote the memoised launcher for the whole page.
+    const source = ['public class Solucion { }', `class ${LAUNCHER_CLASS} { }`].join('\n');
+
+    expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS]);
+  });
+
+  it.each([HARNESS_CLASS, TRACE_CLASS, LAUNCHER_CLASS])('finds %s', (reserved) => {
+    expect(reservedDeclarations(`public class Solucion {}\nclass ${reserved} {}`)).toEqual([
+      reserved,
+    ]);
+  });
+
+  it.each(['class', 'interface', 'enum'])('finds the %s form', (keyword) => {
+    // All three declare the same binary name, so all three overwrite the same
+    // .class in the shared output directory.
+    expect(reservedDeclarations(`public class Solucion {}\n${keyword} ${TRACE_CLASS} {}`)).toEqual([
+      TRACE_CLASS,
+    ]);
+  });
+
+  it('finds the entry class itself', () => {
+    expect(reservedDeclarations(`public class ${LAUNCHER_CLASS} { }`)).toEqual([LAUNCHER_CLASS]);
+  });
+
+  it('ignores a reserved name that is only mentioned', () => {
+    // Prose and text are not declarations: a program explaining the rule, or
+    // printing the name, still compiles.
+    //
+    // The keyword is written in English INSIDE the Spanish comment on purpose,
+    // and the string literal sits at the top level as an annotation argument —
+    // the only place valid Java puts one there. An earlier version of this test
+    // said «no llames a tu clase» and put the string inside the class body, and
+    // so passed with `stripNonCode` removed altogether: the Spanish *clase*
+    // never matched the scan, and the string was suppressed by brace depth
+    // rather than by the stripper it claimed to be testing.
+    const source = [
+      `// nunca escribas class ${LAUNCHER_CLASS} en tu programa`,
+      `@SuppressWarnings("class ${HARNESS_CLASS} {")`,
+      'public class Solucion {',
+      `  String s = "class ${TRACE_CLASS} {";`,
+      '}',
+    ].join('\n');
+
+    expect(reservedDeclarations(source)).toEqual([]);
+  });
+
+  it('ignores a nested reserved declaration, which collides with nothing', () => {
+    // A member class compiles to `Solucion$NalandaLauncher.class`, so it cannot
+    // overwrite the platform's. Refusing it would be a false positive.
+    const source = `public class Solucion {\n  static class ${LAUNCHER_CLASS} { }\n}`;
+
+    expect(reservedDeclarations(source)).toEqual([]);
+  });
+
+  it('says nothing about an ordinary program', () => {
+    expect(reservedDeclarations('public class Main { void f() { int[] a = {1, 2}; } }')).toEqual(
+      [],
+    );
+  });
+
+  it('does not match a longer name that merely starts with a reserved one', () => {
+    expect(reservedDeclarations(`public class ${LAUNCHER_CLASS}Mio { }`)).toEqual([]);
+  });
+
+  // Java translates `\uXXXX` before it lexes anything (JLS §3.3), so a scan of
+  // the raw text is reading a different program than the compiler. Each shape
+  // below was compiled by the pinned ECJ 3.21.0 and then run in real CheerpJ: all
+  // three emitted a top-level NalandaLauncher.class into the shared output
+  // directory and `java -cp shared NalandaLauncher Solucion` printed the
+  // hijacker's line instead of the student's program.
+  describe('unicode escapes', () => {
+    it('sees a brace that was written as an escape', () => {
+      // { is `{`. Hiding the opening brace used to send the depth count
+      // negative, and the old `depth === 0` test then skipped everything after.
+      const source = [
+        'public class Solucion \\u007b',
+        '  public static void main(String[] a) { }',
+        '}',
+        `class ${LAUNCHER_CLASS} { public static void main(String[] a) { } }`,
+      ].join('\n');
+
+      expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS]);
+    });
+
+    it('sees a declaration hidden behind an escaped newline in a comment', () => {
+      // The escape IS the newline that ends the comment, so what looks
+      // commented out is what gets compiled.
+      const source = [
+        'public class Solucion { public static void main(String[] a) { } }',
+        `// \\u000a class ${LAUNCHER_CLASS} { public static void main(String[] a) { } }`,
+      ].join('\n');
+
+      expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS]);
+    });
+
+    it('sees a declaration hidden behind an escaped CARRIAGE RETURN', () => {
+      // JLS §3.4 makes a lone CR a line terminator too, and §3.7 excludes it
+      // from `InputCharacter`. Stopping the comment at LF alone left this shape
+      // alive after the LF one was closed — the same hijack, two characters
+      // apart.
+      const source = [
+        'public class Solucion { public static void main(String[] a) { } }',
+        `// \\u000d class ${LAUNCHER_CLASS} { public static void main(String[] a) { } }`,
+      ].join('\n');
+
+      expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS]);
+    });
+
+    it('sees one behind a RAW carriage return, which needs no escape at all', () => {
+      // A file with classic-Mac line endings is enough; nothing here is exotic.
+      const source = `public class Solucion { }\n// \r class ${LAUNCHER_CLASS} { }`;
+
+      expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS]);
+    });
+
+    it('sees an escaped keyword', () => {
+      // c is `c`, so this reads `class` to the compiler and nothing to us.
+      expect(reservedDeclarations(`\\u0063lass ${LAUNCHER_CLASS} {}`)).toEqual([LAUNCHER_CLASS]);
+    });
+
+    it('sees it through a run of u, which Java allows', () => {
+      expect(reservedDeclarations(`\\uuuu0063lass ${LAUNCHER_CLASS} {}`)).toEqual([LAUNCHER_CLASS]);
+    });
+
+    it('leaves an escaped backslash alone, because the compiler does', () => {
+      // `"\\u0063"` is a backslash and a `u`, printed as such — decoding it would
+      // corrupt the string the program was printing. Only a backslash preceded
+      // by an EVEN number of backslashes is eligible (JLS §3.3).
+      const source = [
+        'public class Solucion {',
+        '  public static void main(String[] a) { System.out.println("\\\\u0063lass Nalanda"); }',
+        '}',
+      ].join('\n');
+
+      expect(reservedDeclarations(source)).toEqual([]);
+    });
+  });
+
+  it('reports every reserved name it finds, in order', () => {
+    const source = [
+      'public class Solucion {}',
+      `class ${LAUNCHER_CLASS} {}`,
+      `interface ${HARNESS_CLASS} {}`,
+    ].join('\n');
+
+    expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS, HARNESS_CLASS]);
   });
 });

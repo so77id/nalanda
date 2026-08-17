@@ -3,7 +3,7 @@
 // runs in the browser is Java, and jsdom has none (ADR-0017), so both halves
 // have to be testable without a JVM.
 
-import { TRACE_CLASS, TRUNCATED } from '../../runtime';
+import { TRACE_CLASS, TRUNCATED, reservedDeclarations } from '../../runtime';
 
 export { TRACE_CLASS };
 
@@ -555,14 +555,22 @@ export function instrument(source: string): Instrumented {
   const markers: Marker[] = [];
   const errors: string[] = [];
 
-  // The runtime's reserved-name guard only inspects the entry class, so a
-  // secondary class carrying this name would compile and overwrite the one
-  // collecting the trace — and the diagram would draw whatever it emitted.
-  // Not just `class`: an interface or an enum declares the same binary name, so
-  // it collides with the library unit exactly the same way and produced an
-  // obscure ECJ "already defined" instead of this message.
-  if (new RegExp(`\\b(?:class|interface|enum)\\s+${TRACE_CLASS}\\b`).test(source)) {
-    errors.push(`${TRACE_CLASS} es un nombre reservado por la plataforma: usa otro.`);
+  // Not the guard — the same answer, given at authoring time so a bad fence is
+  // an authoring error instead of a diagnostics panel twelve seconds after
+  // someone presses Ejecutar. Calling the runtime's helper rather than
+  // restating the rule is what keeps the two answers identical (#123); its
+  // edges are documented on `reservedDeclarations`.
+  //
+  // One of those edges is narrower here than it looks. A nested reserved class
+  // overwrites no `.class`, which is why the helper allows it — but `NalandaTrace`
+  // is the one name whose calls this function INJECTS into the author's own
+  // class, where a member type of that simple name captures them and the
+  // diagram draws whatever it printed. Compiled and run with the pinned ECJ
+  // while reviewing #123. It stays allowed: the fence is repo-authored content,
+  // so this is a foot-gun for the author writing it, not a door for anyone else.
+  const reserved = reservedDeclarations(source)[0];
+  if (reserved !== undefined) {
+    errors.push(`${reserved} es un nombre reservado por la plataforma: usa otro.`);
   }
 
   const lines = source.split('\n').map((line, index) => {

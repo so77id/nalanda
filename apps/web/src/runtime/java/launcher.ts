@@ -1,4 +1,68 @@
 /**
+ * Rewrites `\uXXXX` into the character it names, as a Java compiler does.
+ *
+ * This is not decoration: JLS §3.3 makes the translation happen BEFORE lexing,
+ * so a scanner reading the raw text is reading something the compiler never
+ * sees. Verified against the pinned ECJ 3.21.0 and then in real CheerpJ: three
+ * shapes compiled and hijacked the launcher while the guard reported nothing.
+ * Writing the escapes as `\-u007b` etc. so this comment is about them rather
+ * than made of them:
+ *
+ * - `// \-u000a class NalandaLauncher {}`, and the same with `\-u000d`: the
+ *   escape IS the line terminator that ends the comment (JLS §3.4 counts LF, CR
+ *   and CRLF), so what the stripper blanked is what the compiler compiles.
+ * - `\-u0063lass NalandaLauncher {}`. The keyword itself is escaped.
+ * - `\-u007b` in place of a class's opening brace. This one is stopped by the
+ *   depth rule rather than by the decoder — `reservedDeclarations` keeps
+ *   checking once the count goes negative, precisely because a hidden brace is
+ *   what negative means. It is listed because it is what made the mismatch
+ *   between our scanner and the compiler visible, and because it DID get
+ *   through the first version of this fix, which tested `depth === 0`.
+ *
+ * Two rules from §3.3 that a naive four-hex-digit replace gets wrong, both
+ * measured against that compiler:
+ *
+ * - **A run of `u` is legal**: `\-uuuu0063lass` compiles just as well.
+ * - **Only an eligible backslash counts** — one preceded by an even number of
+ *   backslashes, i.e. the last of an odd-length run. In `"\\-u0063"` the
+ *   compiler prints `\-u0063` verbatim — the `\\` yields one backslash and
+ *   `u0063` are then ordinary characters, not the letter `c`. Decoding it would
+ *   corrupt the very string the program was printing.
+ */
+function decodeUnicodeEscapes(source: string): string {
+  let out = '';
+  let index = 0;
+
+  while (index < source.length) {
+    if (source[index] !== '\\') {
+      out += source[index];
+      index += 1;
+      continue;
+    }
+
+    let backslashes = 0;
+    while (source[index + backslashes] === '\\') backslashes += 1;
+
+    let markers = 0;
+    while (source[index + backslashes + markers] === 'u') markers += 1;
+    const at = index + backslashes + markers;
+    const hex = source.slice(at, at + 4);
+
+    if (backslashes % 2 === 1 && markers > 0 && /^[0-9a-fA-F]{4}$/.test(hex)) {
+      // The escaped one is the LAST of the run; the pairs before it stay.
+      out += '\\'.repeat(backslashes - 1) + String.fromCharCode(parseInt(hex, 16));
+      index = at + 4;
+      continue;
+    }
+
+    out += '\\'.repeat(backslashes);
+    index += backslashes;
+  }
+
+  return out;
+}
+
+/**
  * Blanks comments and literals so class detection reads code, not prose.
  *
  * A single left-to-right scan, not a chain of replaces: whichever of `//` and
@@ -13,7 +77,14 @@ function stripNonCode(source: string): string {
     const pair = source.slice(index, index + 2);
 
     if (pair === '//') {
-      while (index < source.length && source[index] !== '\n') index += 1;
+      // A LINE TERMINATOR ends it, and JLS §3.4 makes that LF, CR or CRLF —
+      // `InputCharacter` is explicitly "not CR or LF". Stopping at LF alone left
+      // everything after a lone CR inside the comment for us and outside it for
+      // the compiler, which is a top-level declaration the guard cannot see:
+      // measured, `// \-u000d class NalandaLauncher {}` and the same line with a
+      // raw CR both hijacked the launcher. The raw form needs no escape at all —
+      // a file with classic-Mac line endings is enough.
+      while (index < source.length && source[index] !== '\n' && source[index] !== '\r') index += 1;
       out += ' ';
       continue;
     }
@@ -49,12 +120,18 @@ function stripNonCode(source: string): string {
  * because that is how `Class.forName` wants it.
  */
 export function deriveEntryClass(source: string): string {
-  const code = stripNonCode(source);
+  // Decoded first, like `reservedDeclarations`: the two must read the same
+  // program or the guard clears one file and the compiler is handed another.
+  const code = stripNonCode(decodeUnicodeEscapes(source));
 
   const packageName = /\bpackage\s+([\w.]+)\s*;/.exec(code)?.[1];
   // `static` is deliberately absent: a top-level class can never be static, so
   // leaving it in let a nested `public static class` outrank the real public
   // class declared after it.
+  //
+  // `reservedDeclarations` below decides top-level by counting braces instead,
+  // and the two must NOT be unified: this one has to stay class-only, because
+  // the entry class is a `class` and never an interface or an enum.
   const modifiers = '(?:final|abstract|strictfp)\\s+';
   const publicClass = new RegExp(`\\bpublic\\s+(?:${modifiers})*class\\s+(\\w+)`).exec(code)?.[1];
   const anyClass = new RegExp(`\\b(?:${modifiers})*class\\s+(\\w+)`).exec(code)?.[1];
@@ -115,6 +192,58 @@ export const TRACE_CLASS = 'NalandaTrace';
  * full pass.
  */
 export const RESERVED_CLASSES = [LAUNCHER_CLASS, HARNESS_CLASS, TRACE_CLASS];
+
+/**
+ * The reserved names a compilation unit declares, in the order it declares them.
+ *
+ * Checking the ENTRY class was not enough, which is what this replaces: a unit
+ * declaring `public class Solucion` and `class NalandaLauncher` beside it hands
+ * `deriveEntryClass` the public one and compiles both, so the launcher was
+ * overwritten by a program the guard had just cleared (#123).
+ *
+ * It reads what the COMPILER reads, in the compiler's own order: unicode escapes
+ * are decoded first (JLS §3.3), then comments and literals are blanked. Skipping
+ * the first step left three one-line bypasses, all of which compiled and
+ * hijacked the launcher in real CheerpJ — see `decodeUnicodeEscapes`.
+ *
+ * `record` is in the keyword set although `SOURCE_LEVEL` is Java 8, where it is
+ * not one. It costs a word here and would otherwise be the quiet way this guard
+ * reopens the day that level is raised.
+ *
+ * Two things it deliberately does NOT flag:
+ *
+ * - **A nested declaration.** A member class compiles to
+ *   `Solucion$NalandaLauncher.class` and overwrites no platform `.class`, so
+ *   brace depth is tracked and only the top level counts. Everything at depth 0
+ *   in a Java file is a package, an import or a type declaration, which is also
+ *   why matching there cannot mistake a `Foo.class` literal for one. It is not a
+ *   free pass in every direction: a nested `NalandaTrace` still captures the
+ *   calls `instrument()` injects into the author's own class, which `trace.ts`
+ *   documents where it matters.
+ * - **A mention.** A comment explaining the rule, and a string holding
+ *   `"class NalandaCheck {"`, are blank by the time the scan runs.
+ *
+ * And one thing it flags although nothing collides: a packaged declaration
+ * (`package p; class NalandaLauncher {}`) compiles to `p/NalandaLauncher.class`
+ * and cannot overwrite the default-package launcher. Refusing it is the older
+ * guard's behaviour, kept deliberately — the names are reserved as names.
+ */
+export function reservedDeclarations(source: string): string[] {
+  const code = stripNonCode(decodeUnicodeEscapes(source));
+  const found: string[] = [];
+  let depth = 0;
+
+  for (const match of code.matchAll(/[{}]|\b(?:class|interface|enum|record)\s+(\w+)/g)) {
+    if (match[0] === '{') depth += 1;
+    else if (match[0] === '}') depth -= 1;
+    // `<= 0`, not `=== 0`: a count that has gone negative means a brace was
+    // hidden from us, and the safe reading of "I lost track" is to keep
+    // checking rather than to wave everything after it through.
+    else if (depth <= 0 && RESERVED_CLASSES.includes(match[1] ?? '')) found.push(match[1] ?? '');
+  }
+
+  return found;
+}
 
 /**
  * Runs the student's program with a real stdin behind it.

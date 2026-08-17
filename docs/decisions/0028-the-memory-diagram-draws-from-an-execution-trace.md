@@ -11,7 +11,10 @@ Extends ADR-0019 (annotated fences as an authoring surface) and ADR-0010/0014
 and is constrained by ADR-0018 (what may reach the entry chunk).
 **Amended by:** #122 (2026-08-16) — §9's mounting cost re-measured once the
 CodeMirror grammar left the runtime module, and the revisit trigger §Consequences
-set is answered there
+set is answered there; #123 (2026-08-16) — §6 and §7 stated the guard's reach
+wrong; it now reads every top-level declaration in `source` and `harness` (after
+decoding what the compiler decodes), and the instrumenter shares it instead of
+restating it (see the notes inline)
 
 ## Context
 
@@ -97,10 +100,48 @@ reserved-name guard on the platform's own class. `library` compiles beside
 exists to stop a *student* shadowing a platform class, and the platform's own unit
 arriving as a library is the intended use.
 
+> **Amended by #123 (2026-08-16).** "On `source` alone" was the wrong half of the
+> rule to write down. What is deliberate is the **`library` exemption**, and it
+> stands unchanged. The guard now also reads `harness` — every reserved name
+> except the one that unit owns, since `buildHarness` generates `public class
+> NalandaCheck` and scanning for that name would refuse every exercise on the
+> site. `library` is still not read at all: it is reachable only from a module
+> constant.
+>
+> What the harness half actually catches is narrower than that reads, and the
+> review of #123 measured it: `buildHarness` splices the author's `test` fence
+> into the body of `NalandaCheck.main`, so a reserved name an author writes there
+> is a LOCAL class — `NalandaCheck$1NalandaLauncher.class` — which shadows
+> nothing and is correctly not refused. The scan fires on the one fence that
+> unbalances braces and escapes the method into the compilation unit. That is the
+> case the author-facing refusal message exists for, and it is the honest form of
+> the claim.
+
 **7. `NalandaTrace` is the third reserved class name**, beside `NalandaLauncher`
 and `NalandaCheck` (ADR-0019 §3b). The runtime refuses it as an entry class, and
 the instrumenter additionally refuses a snippet that declares it as a *secondary*
 class — which the runtime guard cannot see, since it inspects only the entry.
+
+> **Amended by #123 (2026-08-16).** The runtime guard sees it now: it reads every
+> top-level declaration, so the secondary case was never the instrumenter's to
+> catch. The instrumenter keeps refusing it — a `trace` fence is authored content
+> and `<MemoryDiagram>` reports the mistake as an `<AuthoringError>` without
+> booting a JVM — but it now calls the runtime's `reservedDeclarations` instead
+> of carrying a regex of its own. That regex was worse than the rule it copied in
+> three ways: it knew one of the three names, it read raw source so a comment
+> naming the rule refused the diagram explaining it, and it flagged a *nested*
+> declaration, which compiles to `Demo$NalandaTrace.class` and collides with
+> nothing.
+>
+> **That last one is only two-thirds true, and the review of #123 measured which
+> third is not.** A nested `NalandaLauncher` or `NalandaCheck` is inert. A nested
+> `NalandaTrace` is not: this function INJECTS `NalandaTrace.inicio(…)` into the
+> author's own class, where a member type of that simple name captures the calls
+> and the diagram draws whatever it printed — compiled with the pinned ECJ 3.21.0
+> and run, 2026-08-16, output `TRAZA FALSIFICADA POR EL AUTOR`. It stays allowed
+> because a `trace` fence is repo-authored content, so the only person it can
+> mislead is the author writing it. `trace.ts` carries the warning at the call
+> site, `security-notes.md` holds the disposition.
 
 **8. Bounded, and the bound is on what is DRAWN.** Java runs on the page's main
 thread (ADR-0017) and reachability is transitive, so a `// foto` inside a loop
