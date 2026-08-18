@@ -207,6 +207,18 @@ describe('PredictOutput', () => {
     expect(screen.queryByRole('button', { name: /revelar/i })).not.toBeInTheDocument();
   });
 
+  it('paints "(sin salida)" when the program terminates without printing anything', async () => {
+    renderPredict();
+
+    await revealWith('');
+
+    const panel = screen.getByText(/lo que imprimió el programa/i).closest('section')!;
+    // A run that exits 0 with no output is a legitimate answer to a
+    // predict-output question, and an empty <pre> would look identical to
+    // "the run has not happened yet". The literal is the difference.
+    expect(panel).toHaveTextContent(/\(sin salida\)/);
+  });
+
   it('lets the reader run again — the button renames and the output re-renders', async () => {
     renderPredict();
 

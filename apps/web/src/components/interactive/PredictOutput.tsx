@@ -127,7 +127,20 @@ export function PredictOutput({ title, language = 'java', children }: PredictOut
       </Panel>
 
       {diagnostics === '' ? null : (
-        <Panel label={failure === null ? 'errores de compilación' : 'error'}>
+        // Three sources feed this panel and each is a different kind of
+        // failure, so the label has to match the source rather than saying
+        // "errores de compilación" over every one — a run that never got to
+        // the compiler because the runtime module failed to load would
+        // otherwise be reported as if the reader's program did not compile.
+        <Panel
+          label={
+            failure !== null
+              ? 'error'
+              : loadFailure !== null
+                ? 'error al cargar el runtime'
+                : 'errores de compilación'
+          }
+        >
           <pre className={`${OUTPUT} max-h-40 bg-sunk text-flag`}>{diagnostics}</pre>
         </Panel>
       )}
