@@ -198,9 +198,14 @@ cheap, and it is a property of our reporting layer rather than of AMC.
 
 ### Operational
 
-- **Each copy is two PDF pages**, padded to an even count. Printed duplex that
-  is one physical sheet per student and costs no paper; it does mean the scan
-  batch has a back side for every sheet.
+- **Each copy is two PDF pages by default**, padded to an even count via
+  `\AMCcleardoublepage` at the end of `\onecopy`. Printed duplex that is one
+  physical sheet per student and costs no paper; it does mean the scan batch
+  has a back side for every sheet. Since #185 (ADR-0039) the padding is a
+  per-control preference (form checkbox, `control.duplex_padding`): unchecked
+  emits `\clearpage` instead, so each copy is one PDF page for simplex
+  printing. The reader tolerates both — evidence in §"Second cycle —
+  2026-08-17" below.
 - **An unassociated copy still gets an annotated PDF**, named with the literal
   `_ID_` placeholder. Counting files is not a completeness check; the
   association table is.

@@ -108,6 +108,36 @@ func TestCreateControlWritesTheRowThePoolAndTheCopies(t *testing.T) {
 	}
 }
 
+// Issue #185: the professor's duplex-padding preference persists on the
+// control so a future WP-G regenerate honours it. Both values round-trip.
+func TestCreateControlPersistsDuplexPaddingBothWays(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+
+	pool := []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}
+	for _, tc := range []struct {
+		id  string
+		val bool
+	}{
+		{"CTRLPAD00000000000000000TT", true},
+		{"CTRLPAD00000000000000000FF", false},
+	} {
+		c := newControl(tc.id, userID, nil)
+		c.DuplexPadding = tc.val
+		if err := store.CreateControl(ctx, c, pool); err != nil {
+			t.Fatalf("CreateControl(%s, %v): %v", tc.id, tc.val, err)
+		}
+		got, err := store.ControlByID(ctx, tc.id)
+		if err != nil {
+			t.Fatalf("ControlByID(%s): %v", tc.id, err)
+		}
+		if got.DuplexPadding != tc.val {
+			t.Errorf("round-trip: DuplexPadding = %v, want %v", got.DuplexPadding, tc.val)
+		}
+	}
+}
+
 func TestCreateControlIsAllOrNothingOnAConflict(t *testing.T) {
 	ctx, db := migrated(t)
 	userID := insertProfessor(t, ctx, db, "p@example.com")

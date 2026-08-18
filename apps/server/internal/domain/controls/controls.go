@@ -43,9 +43,16 @@ type Control struct {
 	RangeTo          bank.SectionRef
 	QuestionsPerCopy int
 	Copies           int
-	State            State
-	CreatedAt        time.Time
-	CreatedBy        int64 // users.user_id
+	// DuplexPadding, when true, tells the tex generator to emit
+	// \AMCcleardoublepage inside \onecopy so each copy pads to an even
+	// page count for duplex printing. False emits \clearpage instead —
+	// one page per copy, no blank filler. Issue #185. The default at the
+	// SQL level is 1 (padded) so pre-migration controls stay padded, but
+	// every caller in Go passes an explicit value.
+	DuplexPadding bool
+	State         State
+	CreatedAt     time.Time
+	CreatedBy     int64 // users.user_id
 }
 
 // PoolEntry is one authored question that was actually drawn from at

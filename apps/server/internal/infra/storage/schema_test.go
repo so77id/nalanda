@@ -244,6 +244,39 @@ func TestControlStateRefusesAnUnknownValue(t *testing.T) {
 	}
 }
 
+// Issue #185: the professor opts out of the padded-to-even-pages layout by
+// unchecking a form checkbox; the preference persists on the control so a
+// future WP-G regenerate honours it. Default = 1 (padded) so every control
+// created before the checkbox existed keeps its historical layout, and any
+// caller that omits the column (including this test) reads it back as such.
+func TestControlDuplexPaddingDefaultsToPaddedWhenTheColumnIsOmitted(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO control (
+            id, name, application_date,
+            from_document, from_section, to_document, to_section,
+            questions_per_copy, copies, state, created_at, created_by
+        ) VALUES (?, 'x', NULL, 'flujo', 'if-else', 'flujo', 'bucles', 4, 3, 'generated', 0, ?)`,
+		"CTRLPADDING000000000000000", userID,
+	); err != nil {
+		t.Fatalf("insert without duplex_padding: %v", err)
+	}
+
+	var padding int
+	err := db.QueryRowContext(ctx,
+		`SELECT duplex_padding FROM control WHERE id = ?`,
+		"CTRLPADDING000000000000000",
+	).Scan(&padding)
+	if err != nil {
+		t.Fatalf("read back duplex_padding: %v", err)
+	}
+	if padding != 1 {
+		t.Errorf("duplex_padding = %d, want 1 (a control without an explicit preference is duplex-padded, the historical layout)", padding)
+	}
+}
+
 // The one migration case that is about an operator rather than about the schema.
 //
 // #149 shipped migrations/00001_init.sql, a deliberate `SELECT 1;`, and anyone

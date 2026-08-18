@@ -174,6 +174,12 @@ type ControlFormValues struct {
 	ToSection        string
 	QuestionsPerCopy string
 	Copies           string
+	// DuplexPadding echoes the checkbox state so the template can render
+	// `checked` after a refusal that preserves the professor's choice.
+	// Default true at the empty-GET form step (defaultFormValues), which
+	// keeps the historical layout without the professor having to think
+	// about it. Issue #185.
+	DuplexPadding bool
 }
 
 // DocumentSections carries one document's sections for the range
@@ -274,8 +280,13 @@ type DetailedControl struct {
 	ApplicationDate string
 	Range           string
 	Shape           string
-	State           string
-	CreatedAt       string
+	// PrintLayout is the human phrase for control.duplex_padding: "dúplex
+	// (con página en blanco)" or "simplex (una página por copia)". Shown
+	// on the detail page so the professor sees the layout their generated
+	// PDF actually carries (issue #185, ADR-0039).
+	PrintLayout string
+	State       string
+	CreatedAt   string
 }
 
 // ReviewPage is what review.html renders (WP-F §The screens). Split view:

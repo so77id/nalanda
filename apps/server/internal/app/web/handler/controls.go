@@ -294,6 +294,9 @@ func defaultFormValues() view.ControlFormValues {
 	return view.ControlFormValues{
 		QuestionsPerCopy: strconv.Itoa(defaultQuestionsPerCopy),
 		Copies:           strconv.Itoa(defaultCopies),
+		// Historical AMC layout by default (issue #185): the professor
+		// opts out for simplex printing.
+		DuplexPadding: true,
 	}
 }
 
@@ -313,6 +316,9 @@ func valuesFromRequest(r *http.Request) view.ControlFormValues {
 		ToSection:        toSec,
 		QuestionsPerCopy: strings.TrimSpace(r.PostFormValue("questions_per_copy")),
 		Copies:           strings.TrimSpace(r.PostFormValue("copies")),
+		// HTML checkbox convention: absent means unchecked. `on` is what
+		// the browser sends when the checkbox has no explicit value.
+		DuplexPadding: r.PostFormValue("duplex_padding") == "on",
 	}
 }
 
@@ -372,6 +378,7 @@ func validateCreate(v view.ControlFormValues, b *bank.Bank) (map[string]string, 
 		RangeTo:          to,
 		QuestionsPerCopy: qpc,
 		Copies:           copies,
+		DuplexPadding:    v.DuplexPadding,
 	}
 	return errs, req
 }
@@ -696,9 +703,19 @@ func toDetailedControl(c controls.Control, b *bank.Bank) view.DetailedControl {
 		ApplicationDate: formatOptionalDate(c.ApplicationDate),
 		Range:           formatRangeWithTitles(c.RangeFrom, c.RangeTo, b),
 		Shape:           fmt.Sprintf("%d preguntas × %d copias", c.QuestionsPerCopy, c.Copies),
+		PrintLayout:     printLayoutWord(c.DuplexPadding),
 		State:           stateWordControl(c.State),
 		CreatedAt:       spanishDate(c.CreatedAt),
 	}
+}
+
+// printLayoutWord names the two layout modes for the detail page, so the
+// professor sees which one their PDF carries. Issue #185, ADR-0039.
+func printLayoutWord(duplexPadding bool) string {
+	if duplexPadding {
+		return "dúplex (con página en blanco por copia)"
+	}
+	return "simplex (una página por copia)"
 }
 
 func formatOptionalDate(t *time.Time) string {

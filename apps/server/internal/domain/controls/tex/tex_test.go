@@ -287,6 +287,38 @@ func TestStatementAndAlternativesAreEscapedBeforeEmission(t *testing.T) {
 	}
 }
 
+// Issue #185: the generator branches on Input.DuplexPadding.
+//
+//   - true (historical): emits \AMCcleardoublepage inside \onecopy so each
+//     copy pads to an even page count for duplex printing.
+//   - false: emits \clearpage instead — one page per copy for simplex
+//     printing, no blank filler between prints.
+//
+// The default of the bool at the Go level is false; the SQL default is 1;
+// the handler always passes an explicit value (form checkbox). See ADR-0033
+// §The sheet carries its own arithmetic for the surrounding layout.
+func TestDuplexPaddingBranchesOnAMCcleardoublepageVsClearpage(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		padding bool
+		want    string
+		unwant  string
+	}{
+		{"padded emits AMCcleardoublepage", true, `\AMCcleardoublepage`, "  \\clearpage\n}"},
+		{"unpadded emits clearpage only", false, "\n  \\clearpage\n}", `\AMCcleardoublepage`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			out := compile(t, func(in *tex.Input) { in.DuplexPadding = tc.padding })
+			if !strings.Contains(out, tc.want) {
+				t.Errorf("missing %q in output", tc.want)
+			}
+			if strings.Contains(out, tc.unwant) {
+				t.Errorf("unexpected %q in output", tc.unwant)
+			}
+		})
+	}
+}
+
 func TestCompileRefusesShapesThatCannotProduceASheet(t *testing.T) {
 	cases := []struct {
 		name string

@@ -113,7 +113,12 @@ type CreateRequest struct {
 	RangeTo          bank.SectionRef
 	QuestionsPerCopy int
 	Copies           int
-	CreatedBy        int64
+	// DuplexPadding, when true, keeps the historical AMC layout (each copy
+	// padded to an even page count for duplex printing). False produces
+	// one page per copy for simplex printing. Handler always passes an
+	// explicit value; there is no Go-level default. Issue #185.
+	DuplexPadding bool
+	CreatedBy     int64
 }
 
 // Create is the whole orchestration: resolve the range against the bank,
@@ -180,6 +185,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 		QuestionsPerCopy: req.QuestionsPerCopy,
 		Seed:             s.Seed,
 		ListingsDir:      workerPath(project, "inputs"),
+		DuplexPadding:    req.DuplexPadding,
 	})
 	if err != nil {
 		rollback()
@@ -226,6 +232,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 		RangeTo:          req.RangeTo,
 		QuestionsPerCopy: req.QuestionsPerCopy,
 		Copies:           req.Copies,
+		DuplexPadding:    req.DuplexPadding,
 		State:            Generated,
 		CreatedAt:        s.Now(),
 		CreatedBy:        req.CreatedBy,
