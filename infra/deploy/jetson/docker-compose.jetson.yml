@@ -49,6 +49,13 @@ services:
   amc-worker:
     image: ghcr.io/so77id/nalanda-amc-worker:latest
     pull_policy: always
+    # No host port on this box: DocumentBuddy's bot already owns 8080 on the
+    # Nano, and the worker is reachable by `apps/server` over the compose
+    # network anyway (`http://amc-worker:8080`). The base file's loopback
+    # publish is a dev convenience; production drops it. Compose merges lists
+    # by appending — `!reset null` clears the field entirely (requires compose
+    # 2.24+; the Jetson runs 2.29.2).
+    ports: !reset null
     labels:
       com.centurylinklabs.watchtower.enable: "true"
 
