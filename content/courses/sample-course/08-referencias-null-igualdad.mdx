@@ -51,8 +51,8 @@ b.x = 99;      // a también ve x = 99
 Una **referencia** en Java es parecida a un puntero de C++, con dos comodidades
 y dos limitaciones: se desreferencia sola —no escribes `*` ni `->`—, no
 puedes sumarle un número, no puedes tomar la dirección de una variable local
-con `&`, y no existe `nullptr` — su ausencia se llama `null`, y aparece en
-la §4.
+con `&`, y no existe `nullptr` — su ausencia se llama `null`, y se retoma
+más adelante con nombre propio.
 
 </Slide>
 
@@ -115,7 +115,7 @@ En Java hay dos familias, y se comportan al revés que en C++.
   guarda una flecha hacia ella.
 
 La regla, corta: **minúscula copia, mayúscula comparte**. `int` copia;
-`Integer` no. Lo verás bordear en la §6.
+`Integer` no.
 
 En C++ tú elegías: `Punto p` era un objeto con su caja aparte; `Punto* p` era
 un puntero a una caja compartida. En Java **no puedes elegir**: los objetos
@@ -257,9 +257,9 @@ variable de referencia puede contenerlo.
 
 En C++ un puntero podía ser `nullptr` — pero también podía ser un puntero
 **colgante**, apuntando a una caja que ya no existía. En Java el recolector
-de basura (§8) mantiene vivos los objetos alcanzables, así que **no hay
-referencias colgantes**: una referencia está apuntando a un objeto válido, o
-bien es `null`. Nunca las dos cosas.
+de basura de [[java-desde-cpp|la primera clase]] mantiene vivos los objetos
+alcanzables, así que **no hay referencias colgantes**: una referencia está
+apuntando a un objeto válido, o bien es `null`. Nunca las dos cosas.
 
 Cuando pides algo a `null` — llamar un método, leer un campo — Java lanza
 `NullPointerException`. Es la excepción más famosa del lenguaje, y por ahora
@@ -409,85 +409,9 @@ class Cache {
 
 </PredictOutput>
 
-Moraleja idéntica a la de la §5: para comparar el **valor** de dos wrappers,
-`.equals()`. `==` sobre `Integer` es identidad, y la identidad de un `Integer`
-depende de si un cache invisible te sonrió.
-
-</Slide>
-
-<Slide title="Excepciones">
-
-**En C** las funciones reportaban un error **en el retorno**: devolvían `-1`,
-o `NULL`, o llenaban `errno`. Quien llamaba tenía que revisar el retorno cada
-vez, y olvidarlo era exactamente cómo se colaban los bugs.
-
-**En Java, un error interrumpe el flujo con una excepción.** El método que la
-lanza no devuelve un código de error; salta hacia arriba hasta el primer
-`try/catch` que la esté esperando. Si nadie la atrapa, el programa termina.
-
-```java
-try {
-    // el código que puede fallar
-} catch (NullPointerException e) {
-    // lo que hacemos cuando falla
-}
-```
-
-Un `try/catch` con la excepción **atrapada** significa que el programa
-**continúa** después del `catch`. Sin `try/catch` — o con uno que no menciona
-esa excepción — la ejecución muere.
-
-</Slide>
-
-<Slide>
-
-Las dos excepciones que verás todo el semestre, en vivo. La primera es la NPE
-de la §4; la segunda es indexar un arreglo fuera de rango:
-
-<CodeEditor
-  language="java"
-  defaultValue={`class Excepciones {
-    public static void main(String[] args) {
-        try {
-            String s = null;
-            System.out.println(s.length());
-        } catch (NullPointerException e) {
-            System.out.println("NPE atrapada");
-        }
-
-        try {
-            int[] a = {1, 2, 3};
-            System.out.println(a[10]);
-        } catch (ArrayIndexOutOfBoundsException e) {
-            System.out.println("índice fuera de rango: " + e.getMessage());
-        }
-
-        System.out.println("el programa sigue vivo");
-    }
-}
-`}
-/>
-
-</Slide>
-
-<Slide title="Recolector de basura">
-
-**En C++ y en C** tú eras responsable de la memoria. Cada `new` pedía una
-copia manual con `delete`; olvidarlo era una **fuga**, hacerlo dos veces era
-un **double free**, hacerlo antes de tiempo era un **use-after-free**. Media
-carrera aprendiendo cuándo llamar `delete`.
-
-**En Java `delete` no existe.** Hay un **recolector de basura** —el
-*garbage collector*— que corre en segundo plano y libera cualquier objeto
-al que ya **no apunte ninguna referencia viva**. Ni antes ni después de
-tiempo: cuando nadie puede llegar al objeto, se libera.
-
-Eso hace desaparecer las tres cabezas del monstruo de C++ — nada de
-`delete`, nada de dobles frees, nada de use-after-free. **Pero no todo lo
-que se llama fuga desaparece.** Si guardas referencias vivas a objetos que
-ya no necesitas — dentro de una lista que crece sin límite, dentro de una
-caché que nadie limpia — el GC hace lo que se le pide y no libera nada.
-Eso también es una fuga, más silenciosa.
+Moraleja idéntica a la de `String`: para comparar el **valor** de dos
+wrappers, `.equals()`. `==` sobre `Integer` es identidad, y la identidad
+de un `Integer` depende de si un cache invisible te sonrió.
 
 </Slide>
 
@@ -783,50 +707,17 @@ System.out.println(c == d);
 
 </Question>
 
-<Question id="que-atrapa-el-catch" anchor="excepciones">
-
-¿Qué imprime este programa?
-
-```java
-try {
-    String s = null;
-    s.length();
-} catch (NullPointerException e) {
-    System.out.println("A");
-}
-System.out.println("B");
-```
-
-- [x] `A` y luego `B`
-- [ ] Solo `A`
-- [ ] Solo `B`
-- [ ] El programa termina sin imprimir nada
-
-</Question>
-
-<Question id="que-libera-el-gc" anchor="recolector-de-basura">
-
-¿Cuál de estas afirmaciones sobre el recolector de basura de Java es
-cierta?
-
-- [x] Libera cualquier objeto al que ya no apunte ninguna referencia viva
-- [ ] Libera cualquier objeto cuando se llama `delete` sobre él
-- [ ] Libera cualquier objeto tan pronto como sale del bloque en que se creó
-- [ ] Libera cualquier objeto solo si el programador llama a `System.gc()`
-
-</Question>
-
 </Questions>
 
 ## Lo que sigue
 
-Con esto ya sabes qué guarda una variable, cómo viaja al llamar un método, y
-por qué `==` sobre dos objetos casi nunca es lo que quieres. El paso
+Con esto ya sabes qué guarda una variable, cómo viaja al llamar un método,
+y por qué `==` sobre dos objetos casi nunca es lo que quieres. El paso
 siguiente es aplicar esas ideas a la primera estructura compuesta que
 aparecerá el resto del curso: los **arreglos**. Un arreglo en Java es un
-objeto —esa parte ya la vimos de refilón en el `swap` que no swappeaba—,
-así que se comparte, se paga con una referencia, y trae con él una excepción
-propia (`ArrayIndexOutOfBoundsException`) que ya se cruzó en §7. También
-volveremos sobre las **funciones** con la lupa del paso de parámetros:
-cómo se declaran, qué se pueden devolver, y por qué en Java no existen
-"funciones sueltas". Es el próximo documento del curso.
+objeto —esa parte ya la viste de refilón en el `swap` que no swappeaba—,
+así que se comparte y se paga con una referencia, con las mismas reglas de
+identidad e igualdad que acabas de ver. También volveremos sobre las
+**funciones** con la lupa del paso de parámetros: cómo se declaran, qué
+pueden devolver, y por qué en Java no existen "funciones sueltas". Es el
+próximo documento del curso.
