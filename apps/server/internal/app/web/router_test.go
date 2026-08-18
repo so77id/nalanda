@@ -284,7 +284,7 @@ func signInAgainst(t *testing.T, d web.Deps) *http.Cookie {
 	}); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
-	return &http.Cookie{Name: middleware.SessionCookieName, Value: token}
+	return &http.Cookie{Name: middleware.SessionCookieName(true), Value: token}
 }
 
 // ARQ-1. The gate redirects somewhere, and nothing used to check that the

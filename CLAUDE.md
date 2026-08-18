@@ -20,7 +20,9 @@ This file holds **monorepo-shared** instructions only. Each app has its own
 - `apps/server/CLAUDE.md` — the backend (Go + SQLite). One binary, two delivery
   surfaces, one shared domain; its dependency rule is enforced by a test. The
   professor login lives there (ADR-0009, ADR-0036) and the two surfaces
-  deliberately do not share an auth gate.
+  deliberately do not share an auth gate. **First production deploy: the
+  Jetson (ADR-0038), operating procedure `infra/local/DEPLOY-JETSON.md`; the
+  host-specific images and scripts live under `infra/deploy/jetson/`.**
 
 ## Mandatory reading (before any code work)
 
@@ -77,6 +79,19 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
   `main` touching `apps/web/**` or `content/**`. Mechanics (trigger, deep-link
   fallback, rollback, what gets published): root `README.md` §Deployment;
   decisions: ADR-0015.
+- **Merging to `main` also publishes `apps/server` to the Jetson.**
+  `.github/workflows/server-cd.yml` cross-compiles three arm64 images
+  (server + backup + monitor), pushes them to
+  `ghcr.io/so77id/nalanda-*:latest`, and Watchtower on the Jetson (the
+  one running inside DocumentBuddy's compose) pulls and restarts within
+  ≤5 minutes. Path filters: `apps/server/**`,
+  `infra/deploy/jetson/{Dockerfile.*,*.sh}`, or the workflow itself
+  (`.github/workflows/server-cd.yml`). A change to the login path
+  (the OIDC adapter, the callback, a cookie, `NALANDA_PUBLIC_URL`) is
+  unfinished until [`apps/server/GOOGLE-CHECK.md`](apps/server/GOOGLE-CHECK.md)
+  runs against the https URL (its §7 observes the `Secure` flag on the
+  wire). Mechanics and decisions: root `README.md` §"apps/server on the
+  Jetson", operating procedure `infra/local/DEPLOY-JETSON.md`, ADR-0038.
 - **All changes go through PRs** — never push directly to `main`.
 - **Squash merge** is mandatory for every PR (manual, by the user).
 - **One commit per slice**; the slice list lives in the issue body as checkboxes.

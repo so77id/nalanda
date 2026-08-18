@@ -249,6 +249,85 @@ func TestSlogLevelMapsEveryAcceptedLevel(t *testing.T) {
 	}
 }
 
+// The proxy-trust switch is a bool with a TIGHT accepted set (true/false,
+// case-insensitive, whitespace-trimmed); anything else is a startup error
+// rather than a silent fall to false. The parser branch that enforces this
+// was originally shipped with zero test coverage, so a mutation replacing
+// the default arm with `cfg.TrustProxyHeaders = false` (silently accepting
+// 'yes', '1', 'TRUE ', '  false', anything) passed the whole suite. This
+// pins both directions: the accept set, AND the reject-by-name behaviour
+// (#162 review, COR-1).
+func TestTrustProxyHeaders(t *testing.T) {
+	t.Run("defaults to false when unset", func(t *testing.T) {
+		withoutFlag := env()
+		delete(withoutFlag, "NALANDA_TRUST_PROXY_HEADERS")
+
+		cfg, err := config.Load(lookupFrom(withoutFlag))
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if cfg.TrustProxyHeaders {
+			t.Error("TrustProxyHeaders = true with the key unset, want the safe default false")
+		}
+	})
+
+	t.Run("accepted values", func(t *testing.T) {
+		for _, c := range []struct {
+			raw  string
+			want bool
+		}{
+			{"true", true},
+			{"True", true},
+			{"TRUE", true},
+			{" true ", true},
+			{"false", false},
+			{"False", false},
+			{"FALSE", false},
+			{" false ", false},
+			// An empty string here is equivalent to unset (optional() treats
+			// it as absent), so the default kicks in — same rule as every
+			// other optional key.
+			{"", false},
+		} {
+			t.Run("raw="+c.raw, func(t *testing.T) {
+				e := env()
+				e["NALANDA_TRUST_PROXY_HEADERS"] = c.raw
+
+				cfg, err := config.Load(lookupFrom(e))
+				if err != nil {
+					t.Fatalf("Load with %q: %v", c.raw, err)
+				}
+				if cfg.TrustProxyHeaders != c.want {
+					t.Errorf("TrustProxyHeaders = %v for %q, want %v", cfg.TrustProxyHeaders, c.raw, c.want)
+				}
+			})
+		}
+	})
+
+	t.Run("rejected values", func(t *testing.T) {
+		// Every one of these fell to false silently under a mutation of the
+		// default arm. Naming them, in the test, is what stops that mutation
+		// staying green.
+		for _, raw := range []string{"yes", "no", "1", "0", "on", "off", "TRUE!", "verdadero"} {
+			t.Run("raw="+raw, func(t *testing.T) {
+				e := env()
+				e["NALANDA_TRUST_PROXY_HEADERS"] = raw
+
+				_, err := config.Load(lookupFrom(e))
+				if err == nil {
+					t.Fatalf("Load with NALANDA_TRUST_PROXY_HEADERS=%q returned no error, want one — a garbage value must not fall to the safe default silently", raw)
+				}
+				if !strings.Contains(err.Error(), "NALANDA_TRUST_PROXY_HEADERS") {
+					t.Errorf("error = %q, want it to name the key", err)
+				}
+				if !strings.Contains(err.Error(), raw) {
+					t.Errorf("error = %q, want it to carry the offending raw value %q", err, raw)
+				}
+			})
+		}
+	})
+}
+
 // The redaction that matters only after the Postgres swap of ADR-0007, written
 // now because doing it later means auditing every log sink that held the DSN.
 func TestSafeDatabaseURL(t *testing.T) {

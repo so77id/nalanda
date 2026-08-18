@@ -116,7 +116,7 @@ func (f *professorsFixture) get(t *testing.T, path, token string, h http.Handler
 	request := httptest.NewRequest(http.MethodGet, path, nil)
 	setPathValues(request, path)
 	if token != "" {
-		request.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: token})
+		request.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: token})
 	}
 	recorder := httptest.NewRecorder()
 	f.middleware.Resolve(f.middleware.RequireProfessor(h)).ServeHTTP(recorder, request)
@@ -292,7 +292,7 @@ func (f *professorsFixture) post(t *testing.T, path, token, csrf string, values 
 	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	setPathValues(request, path)
 	if token != "" {
-		request.AddCookie(&http.Cookie{Name: middleware.SessionCookieName, Value: token})
+		request.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: token})
 	}
 	recorder := httptest.NewRecorder()
 	f.middleware.Resolve(f.middleware.RequireProfessor(f.middleware.VerifyCSRF(h))).ServeHTTP(recorder, request)

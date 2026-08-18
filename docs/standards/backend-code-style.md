@@ -162,6 +162,22 @@ Environment variables only, read **once at boot** into a struct, through
   and `Path=/` always; `Secure` is DERIVED from `NALANDA_PUBLIC_URL`'s scheme
   (`config.SecureCookie`), never set by hand — the two can only disagree in the
   direction that either breaks local login or ships a token in clear.
+- **The session and OAuth-state cookie NAMES are also derived, not literal.**
+  Since #162, `middleware.SessionCookieName(secure)` and
+  `handler.StateCookieName(secure)` are functions of the `Secure` flag: they
+  return `__Host-nalanda_session` / `__Host-nalanda_oauth_state` when
+  `Secure` is true (production, https), and the unprefixed names when it is
+  false (local dev, http). Every read AND write goes through those helpers.
+  Two literal-string tests
+  (`TestSessionCookieNameCarriesHostPrefixInProductionAndNotInDev` and
+  `TestStateCookieNameCarriesHostPrefixInProductionAndNotInDev`) pin the
+  four strings against the HELPERS, so a caller that bypasses the helpers
+  and writes the bare literal reads no cookie in production and the login
+  breaks on the deployed URL — the exact "difference that only shows up in
+  production" #150 originally rejected the prefix over, now closed at the
+  seam. Review triggers: `docs/security-notes.md` §"The login's state cookie
+  is a double-submit cookie" and §"The session cookie has no `Secure` flag
+  in development".
 - **Every server-side timeout is set explicitly — all five.** `ReadTimeout`,
   `ReadHeaderTimeout`, `WriteTimeout`, `IdleTimeout` and `MaxHeaderBytes`. Each
   defaults to zero and zero means *no limit*, so what they prevent is a slow

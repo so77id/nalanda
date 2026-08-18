@@ -24,7 +24,8 @@ nalanda/
 │   ├── security-notes.md    # security deferrals / accepted-risk records
 │   └── course-graph.md      # course topology (planning tool)
 ├── infra/                   # running the system around the apps (see below)
-│   └── local/               # docker-compose — born with apps/amc-worker (#138)
+│   ├── local/               # docker-compose — born with apps/amc-worker (#138)
+│   └── deploy/<host>/       # host-specific production images and scripts — born with infra/deploy/jetson/ (#162, ADR-0038)
 ├── proof-of-concept/        # archived 2025/May-2026 POC — reference only, never active work
 ├── .github/                 # CI/CD workflows
 ├── .claude/                 # agent infra: workflow-bindings.md, settings (plugin declarations), hooks, repo-specific agents — workflow skills come from the agentic-workflow plugin
@@ -128,6 +129,7 @@ pre-PR protocol is still the human's backstop.
 | A third-party tool we run as a service (AMC, a future OCR engine)                 | `apps/<name>/` — a deployable whose source is a Dockerfile                  | It is a service the system runs, not scaffolding around one. Self-containment applies unchanged (#138) |
 | Dockerfile / packaging of one app                                                 | Inside that app                                                             | The app packages itself; infra places it                                                          |
 | VPS provisioning, systemd/proxy config, production compose                        | `infra/deploy/`                                                             | Belongs to the host, not to an app                                                                |
+| Host-specific production service DEFINITIONS (backup, monitor) that share the app-composition graph | Service block in `infra/local/docker-compose.yml` behind a `profiles: [<host>]` gate; its images and scripts under `infra/deploy/<host>/` | The service is coupled to the app (mounts its volume, polls its port), so a second compose file would repeat the same graph twice and drift; the images and scripts they build from are host-only and belong under `infra/deploy/`. Worked case: `infra/deploy/jetson/` with the `jetson` profile in the compose file (#162, ADR-0038) |
 | One app's integration tests                                                       | In that app                                                                 | They verify ITS behavior                                                                          |
 | Cross-app e2e (browser → web → server)                                            | Top-level `e2e/` (created when it first exists)                             | Verifies the whole                                                                                |
 | Course assets (images/video)                                                      | `content/`, next to their documents                                         | Material domain                                                                                   |

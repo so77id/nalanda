@@ -136,7 +136,7 @@ func signIn(t *testing.T, store *authstore.Store) (*http.Cookie, string) {
 	}); err != nil {
 		t.Fatalf("CreateSession: %v", err)
 	}
-	return &http.Cookie{Name: middleware.SessionCookieName, Value: token}, csrf
+	return &http.Cookie{Name: middleware.SessionCookieName(true), Value: token}, csrf
 }
 
 type proberFunc func(context.Context) error

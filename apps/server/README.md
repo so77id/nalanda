@@ -40,6 +40,7 @@ Environment variables, read once at boot. A required variable that is absent
 | `NALANDA_GOOGLE_CLIENT_SECRET` | yes | Its secret. Never printed: `config.Config` redacts it for both `fmt` and `slog` |
 | `NALANDA_SESSION_TTL` | no (`720h`) | Session lifetime, as a Go duration. Zero or negative is a startup error |
 | `NALANDA_BOOTSTRAP_PROFESSOR_EMAIL` | no | On a database with **no** professors, the first Google login by this address creates one. Inert as soon as any professor exists |
+| `NALANDA_TRUST_PROXY_HEADERS` | no (`false`) | `true` when a trusted reverse proxy owns `X-Forwarded-For` — the Jetson deploy (#162) behind Tailscale Funnel. The sessions table's IP column then comes from the FIRST hop of the header instead of `RemoteAddr` (loopback for every visitor there). Only `true`/`false`; a misspelling is a startup error |
 | `NALANDA_QUESTIONS_JSON_URL` | yes | The published question bank (ADR-0032). `http://`, `https://` or `file://`. Fetched **once at boot** and held in memory; a parse failure is a panic there. WP-E |
 | `NALANDA_AMC_WORKER_URL` | yes | The AMC worker's HTTP origin, e.g. `http://amc-worker:8080` in compose. Absolute http/https URL, no path. WP-E |
 | `NALANDA_WORK_DIR` | yes | Where the server sees the shared volume. The `.tex` generator emits `/work` absolute paths regardless (that is the worker's mount); this only decides where the server writes its files. WP-E |
@@ -233,7 +234,6 @@ Deliberately, and each with an owner:
 | Bulk download of annotated PDFs as a ZIP | when the pile is large enough — captured in #167 §Notes |
 | Regenerating the annotated PDF after a manual override | #167 §Non-goals; the annotated stays a view of what AMC read, overrides live in the DB |
 | Roster / student names, isolation between professors | V2 / #163 |
-| Deploy, hosting, secrets | deferred (`2026-08-controles.md` §C15) |
 | Deleting or re-addressing a professor who has never signed in | WP that reopens the mistyped-address debt (#151 §Notes) |
 | An audit trail of who did what | The WP that gains a second class of actor (#151 §Non-goals) |
 

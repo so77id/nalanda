@@ -1,0 +1,166 @@
+name: server CD
+
+# Builds the three container images the Jetson deploy of `apps/server` uses
+# (server, backup, monitor) and pushes them to GHCR on every push to `main`
+# touching what they build from. Watchtower on the Jetson polls GHCR and
+# swaps the container in when a new `:latest` appears (#162 S11, ADR-0038).
+#
+# Shape borrowed from DocumentBuddy's `.github/workflows/cd.yml` and
+# `cd-browser.yml`. A fresh file, not a reference: an edit here must never
+# silently touch DocumentBuddy, and the reverse. Same rule as backup.sh /
+# monitor.sh.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/server/**'
+      - 'infra/deploy/jetson/Dockerfile.backup'
+      - 'infra/deploy/jetson/Dockerfile.monitor'
+      - 'infra/deploy/jetson/backup.sh'
+      - 'infra/deploy/jetson/monitor.sh'
+      - 'infra/deploy/jetson/notify.sh'
+      - '.github/workflows/server-cd.yml'
+  # Manual re-run — useful when Watchtower needs a poke without a commit,
+  # or when re-provisioning the Jetson from a wiped image.
+  workflow_dispatch: {}
+
+concurrency:
+  # A second push while the first is still building queues, does not cancel:
+  # cancelling in flight leaves the registry with a partial `:sha-<sha>` and
+  # the ops chat with no notification.
+  group: server-cd
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: ${{ github.repository_owner }}
+
+jobs:
+  # One job per image, in a matrix — parallel builds, one log per image,
+  # and adding a fourth is one new matrix row. Every image builds on every
+  # trigger; Docker's layer cache means an unchanged image reuses layers
+  # and completes in seconds, so filtering per-image would only save the
+  # cache lookup and complicate the workflow.
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      # A failure in one image should NOT cancel the other two — a broken
+      # backup does not stop the server going out, and Watchtower keeps
+      # the previous image running until the new one lands. fail-fast is
+      # for compile-time build matrices, not for deploy pipelines.
+      fail-fast: false
+      matrix:
+        include:
+          - name: server
+            image: nalanda-server
+            context: ./apps/server
+            dockerfile: ./apps/server/Dockerfile
+          - name: backup
+            image: nalanda-backup
+            context: ./infra/deploy/jetson
+            dockerfile: ./infra/deploy/jetson/Dockerfile.backup
+          - name: monitor
+            image: nalanda-monitor
+            context: ./infra/deploy/jetson
+            dockerfile: ./infra/deploy/jetson/Dockerfile.monitor
+    steps:
+      # SHAs, not tags — a moved tag on a third-party action reaches
+      # production within Watchtower's poll interval because this job has
+      # packages:write and pushes `:latest`. Same convention deploy.yml and
+      # ci.yml use in this repo (#162 review, SEC-1). Bump SHAs when the
+      # advisory feed says so; a tag bump alone is not enough.
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # QEMU is what buildx uses to run linux/arm64 containers on the amd64
+      # runner. For the two alpine sidecars (backup, monitor) it emulates
+      # every RUN — apk is fast enough for that. For the server, the
+      # Dockerfile pins the BUILDER stage to $BUILDPLATFORM and Go cross-
+      # compiles natively via $TARGETARCH, so QEMU only runs the final
+      # scratch layer (there is nothing to run) — the Go build stays fast.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          # GITHUB_TOKEN has packages:write per the permissions block above.
+          # Same identity, same lifetime, no PAT to rotate.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (arm64)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/arm64
+          # Two tags on purpose: `:latest` is what Watchtower observes, and
+          # `:sha-<sha>` is what a rollback pins to (`docker compose pull` a
+          # specific sha in an emergency without editing the tag in registry).
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image }}:sha-${{ github.sha }}
+          # Layer cache across runs: keeps the Go module download layer,
+          # the apk layer, and unchanged file COPYs from re-executing on
+          # every push. Backend by GHA's built-in cache (free, no external
+          # service, tied to this repo).
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  notify:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    # always() so the notification also fires when the build failed —
+    # otherwise a broken push produces no signal at all.
+    if: always()
+    # No token needed — this job only reads secrets and calls Telegram.
+    # Empty permissions closes the surface a future action addition would
+    # inherit by default (#162 review, SEC-4).
+    permissions: {}
+    steps:
+      - name: Send Telegram notification
+        env:
+          # Same variable names as the Jetson containers (backup.sh /
+          # monitor.sh) so the reader who sets one up knows how to set the
+          # other. Both are repo secrets in Actions; NOT the same values
+          # as DocumentBuddy's (Nalanda has its own bot per #162 §Design).
+          INFRA_TELEGRAM_TOKEN: ${{ secrets.INFRA_TELEGRAM_TOKEN }}
+          ALLOWED_CHAT_IDS: ${{ secrets.ALLOWED_CHAT_IDS }}
+          BUILD_STATUS: ${{ needs.build-and-push.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "${BUILD_STATUS}" = "success" ]; then
+            EMOJI="✅"
+            TEXT="Images pushed to GHCR (arm64). Watchtower will pull them on the Jetson within its poll interval."
+          else
+            EMOJI="❌"
+            TEXT="Build/push failed for one or more images"
+          fi
+
+          MESSAGE="🧭 Nalanda ${EMOJI} ${TEXT}
+          Commit: ${GITHUB_SHA::7}
+          By: ${GITHUB_ACTOR}
+          ${RUN_URL}"
+
+          # Skip cleanly when the secrets are not set — the workflow's first
+          # run against a fresh repo will not have INFRA_TELEGRAM_TOKEN, and
+          # a hard failure there would confuse the actual build/push signal.
+          if [ -z "${INFRA_TELEGRAM_TOKEN}" ] || [ -z "${ALLOWED_CHAT_IDS}" ]; then
+            echo "notify: INFRA_TELEGRAM_TOKEN or ALLOWED_CHAT_IDS not set as repo secrets; skipping." >&2
+            exit 0
+          fi
+
+          curl -s -X POST "https://api.telegram.org/bot${INFRA_TELEGRAM_TOKEN}/sendMessage" \
+            -d chat_id="${ALLOWED_CHAT_IDS}" \
+            -d text="${MESSAGE}" \
+            -d disable_web_page_preview=true

@@ -38,7 +38,16 @@ type Auth struct {
 	// redirect URI against the one registered, character for character — and
 	// because a URI built from the Host header is one a caller chooses.
 	PublicURL string
-	Log       *slog.Logger
+	// TrustProxyHeaders decides whose value is written to the sessions
+	// table as the visitor's IP: RemoteAddr (false, the default), or the
+	// first hop of X-Forwarded-For (true, only when a trusted reverse
+	// proxy owns the header — behind Tailscale Funnel on the Jetson,
+	// #162). Setting this true where the header is client-supplied is
+	// the failure `TestTheSessionIPIgnoresAForgeableHeader` was written
+	// to guard against; setting it false behind a proxy records every
+	// visitor as 127.0.0.1.
+	TrustProxyHeaders bool
+	Log               *slog.Logger
 
 	// secureCookie is DERIVED from PublicURL by NewAuth, never passed in.
 	//
@@ -125,10 +134,29 @@ func avisoFor(key string) string {
 	}
 }
 
+// stateCookieBase is the unprefixed name. See StateCookieName.
+const stateCookieBase = "nalanda_oauth_state"
+
 // StateCookieName carries the OAuth state nonce back to the browser that
 // started the flow. See LoginGoogle for why the server-side store is not enough
 // on its own.
-const StateCookieName = "nalanda_oauth_state"
+//
+// Reads `__Host-nalanda_oauth_state` when the cookie carries Secure
+// (production, over https) and `nalanda_oauth_state` otherwise (local
+// development). Same rationale as `middleware.SessionCookieName`: the prefix
+// closes the last shape of cookie-tossing this handler defends against by
+// counting cookies, and its cost — an https requirement dev cannot meet — is
+// isolated to this file.
+//
+// The other requirements of the prefix (Set-Cookie must carry Secure; Path=/;
+// no Domain) are already satisfied by every caller below, and asserted so a
+// weakening cannot pass the suite.
+func StateCookieName(secure bool) string {
+	if secure {
+		return "__Host-" + stateCookieBase
+	}
+	return stateCookieBase
+}
 
 // LoginGoogle starts the flow: a fresh nonce, then a redirect to the provider.
 //
@@ -161,7 +189,7 @@ func (a *Auth) LoginGoogle(w http.ResponseWriter, r *http.Request) {
 	}
 
 	http.SetCookie(w, &http.Cookie{
-		Name:     StateCookieName,
+		Name:     StateCookieName(a.secureCookie),
 		Value:    nonce,
 		Path:     "/",
 		MaxAge:   int(oauthstate.DefaultTTL.Seconds()),
@@ -178,7 +206,7 @@ func (a *Auth) LoginGoogle(w http.ResponseWriter, r *http.Request) {
 // whatever the outcome, and leaving it in the browser only invites a replay.
 func (a *Auth) clearStateCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     StateCookieName,
+		Name:     StateCookieName(a.secureCookie),
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
@@ -210,7 +238,7 @@ func (a *Auth) LoginGoogleCallback(w http.ResponseWriter, r *http.Request) {
 	//
 	// Refusing when there is more than one is what closes it, and it works over
 	// http, which the __Host- prefix does not (development).
-	cookies := r.CookiesNamed(StateCookieName)
+	cookies := r.CookiesNamed(StateCookieName(a.secureCookie))
 	a.clearStateCookie(w)
 	if len(cookies) != 1 || !auth.VerifyCSRF(cookies[0].Value, state) {
 		a.Log.Warn("refusing a callback whose state was not issued to this browser",
@@ -258,7 +286,7 @@ func (a *Auth) LoginGoogleCallback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, session, err := a.Login.StartSession(r.Context(), professor.ID, r.UserAgent(), clientIP(r))
+	token, session, err := a.Login.StartSession(r.Context(), professor.ID, r.UserAgent(), a.clientIP(r))
 	if err != nil {
 		a.Log.Error("starting a session", "error", err)
 		a.redirectToLogin(w, r, "fallo")
@@ -284,7 +312,7 @@ func (a *Auth) LoginGoogleCallback(w http.ResponseWriter, r *http.Request) {
 // middleware runs in front of it: a logout reachable by GET is a logout any
 // image tag on any page can perform.
 func (a *Auth) Logout(w http.ResponseWriter, r *http.Request) {
-	if cookie, err := r.Cookie(middleware.SessionCookieName); err == nil && cookie.Value != "" {
+	if cookie, err := r.Cookie(middleware.SessionCookieName(a.secureCookie)); err == nil && cookie.Value != "" {
 		if err := a.Login.EndSession(r.Context(), cookie.Value); err != nil {
 			// The cookie is cleared regardless: from the professor's side the
 			// logout has to succeed, and a session row that outlives it is a
@@ -307,17 +335,84 @@ func (a *Auth) redirectToLogin(w http.ResponseWriter, r *http.Request, aviso str
 }
 
 // clientIP is a best-effort record of where a session was opened from, for an
-// operator reading the table. It reads RemoteAddr and NOT X-Forwarded-For:
-// nothing sits in front of this server today, so that header is client-supplied
-// and would put an attacker's chosen string in the database. The day a reverse
-// proxy exists (§C15), this is where it is taught to trust one.
+// operator reading the table.
+//
+// Without TrustProxyHeaders it reads RemoteAddr and NOTHING else: X-Forwarded-For
+// is a value the caller writes into their own request, and honouring it puts an
+// attacker's chosen string in the database. That is the shape
+// `TestTheSessionIPIgnoresAForgeableHeader` was written to pin — a comment
+// forbidding the header is not a comment a test can enforce.
+//
+// With TrustProxyHeaders it takes the FIRST hop of X-Forwarded-For — the
+// leftmost entry, following the de-facto convention of Squid, nginx and
+// Tailscale Funnel where each proxy APPENDS to the header and the leftmost
+// value is the address the outermost proxy first saw. (X-Forwarded-For is
+// not standardised in an RFC; RFC 7239's `Forwarded` header uses a different
+// syntax and is not the one we read.) The rightmost is the one closest to us
+// and is not the visitor. On the Jetson (#162) Tailscale Funnel terminates
+// on localhost and the server sees RemoteAddr = 127.0.0.1 for every visitor,
+// so this direction is what makes the sessions table useful. It is off by
+// default on purpose: an operator who forgets to enable it records every
+// session as 127.0.0.1, which is legible; an operator who enables it with no
+// proxy in front writes the visitor's chosen string, which is not.
+//
+// If the header is empty, absent or unparseable (even under
+// TrustProxyHeaders), we fall back to RemoteAddr rather than emitting empty
+// text or garbage: a misconfigured proxy is not a reason to lose the row,
+// and an attacker's chosen bytes are not a reason to store them (#162
+// review, SEC-2 — validated to be an IP address before persistence, so a
+// future backoffice screen rendering `user_sessions.ip_address` inherits no
+// XSS or UI-truncation surface through a header nobody validated at the
+// boundary).
 //
 // net.SplitHostPort rather than a cut at the first colon, which would turn the
 // IPv6 address [::1]:54321 into "[".
-func clientIP(r *http.Request) string {
+func (a *Auth) clientIP(r *http.Request) string {
+	if a.TrustProxyHeaders {
+		if forwarded := firstForwardedFor(r.Header.Get("X-Forwarded-For")); forwarded != "" {
+			return forwarded
+		}
+	}
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr
 	}
 	return host
+}
+
+// firstForwardedFor returns the leftmost entry of an X-Forwarded-For header
+// value if it parses as an IP address; empty otherwise.
+//
+// The IP check is defence at the boundary: without it the raw bytes before
+// the first comma reach `user_sessions.ip_address` unvalidated — up to whatever
+// the header line accepts, ~8 KB, and with no character-class restriction —
+// and a future backoffice screen rendering that column inherits an XSS or
+// UI-truncation surface from a value nobody at the seam refused (#162 review,
+// SEC-2). The consequence is deliberate: a malformed leftmost hop is not
+// recorded at all, and the caller falls back to RemoteAddr.
+//
+// An entry with a port suffix is trimmed via net.SplitHostPort: some proxies
+// write `192.0.2.1:12345`, and the port half is not part of the address and
+// should not land in the column. IPv6 with brackets and port
+// (`[2001:db8::1]:443`) is handled by the same SplitHostPort attempt.
+func firstForwardedFor(header string) string {
+	if header == "" {
+		return ""
+	}
+	if comma := strings.Index(header, ","); comma >= 0 {
+		header = header[:comma]
+	}
+	candidate := strings.TrimSpace(header)
+	if candidate == "" {
+		return ""
+	}
+	// If the entry carries a port, strip it. SplitHostPort errors on a bare
+	// address, in which case candidate stays as-is.
+	if host, _, err := net.SplitHostPort(candidate); err == nil {
+		candidate = host
+	}
+	if net.ParseIP(candidate) == nil {
+		return ""
+	}
+	return candidate
 }

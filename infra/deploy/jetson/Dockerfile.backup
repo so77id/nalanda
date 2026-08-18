@@ -1,0 +1,30 @@
+# Backup container for the Nalanda Jetson deploy (#162, ADR-0038).
+#
+# alpine, sqlite (for .backup on the mounted WAL database), aws-cli (for the
+# S3 upload), curl (for the Telegram notification). Nothing else — the whole
+# container's job is one daily shell script.
+#
+# Shape from DocumentBuddy's scripts/Dockerfile.backup. Rewired to a Nalanda
+# script and to this WP's cron schedule; separate file so an edit to one
+# never silently touches the other.
+FROM alpine:3.20
+
+RUN apk add --no-cache sqlite aws-cli curl
+
+# notify.sh is sourced by backup.sh (extracted at #162 review, ARQ-2, so the
+# monitor container's copy cannot drift from this one).
+COPY notify.sh /usr/local/bin/notify.sh
+COPY backup.sh /usr/local/bin/backup.sh
+RUN chmod +x /usr/local/bin/backup.sh /usr/local/bin/notify.sh
+
+# 03:00 UTC daily. UTC not local: the Jetson runs headless and its clock is
+# never touched, so a schedule the operator can predict is more valuable than
+# one anchored to a timezone. -1 second precision beyond hour is not
+# meaningful for a backup that catches whatever landed since the previous
+# day.
+RUN echo "0 3 * * * /usr/local/bin/backup.sh" | crontab -
+
+# -f is what keeps crond in the foreground so the container does not exit;
+# -l 2 raises the log level so `docker compose logs backup` shows the fact
+# that the schedule fired at 03:00, not only whether the script failed.
+CMD ["crond", "-f", "-l", "2"]

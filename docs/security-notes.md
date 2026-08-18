@@ -606,7 +606,52 @@ handler unbounded again.
 The rule itself lives where it bites, not here: the constant's own comment in
 `internal/infra/httpserver/server.go` and `backend-code-style.md` §HTTP.
 
-### The professor login is public, unrate-limited and remembered in memory (accepted 2026-08-16, #150)
+### The Jetson sidecars run as root and carry AWS credentials in their env (accepted 2026-08-17, #162)
+
+The `backup` and `monitor` compose services in `infra/local/docker-compose.yml`
+run their alpine images as UID 0 (no `USER` directive), with none of the
+`read_only`/`cap_drop`/`no-new-privileges` posture the `server` service
+carries. The `backup` service also holds `AWS_ACCESS_KEY_ID` and
+`AWS_SECRET_ACCESS_KEY` as compose `environment:` values, so they are visible
+in `docker inspect backup` on the host and readable from `/proc/1/environ`
+inside the container.
+
+**What is exposed.** An RCE in the sidecar (a future CVE in `aws-cli` or
+`sqlite3`, a mishandled Telegram response) runs with root inside the
+container and can:
+
+- Rewrite `/usr/local/bin/backup.sh` (crontab points at it) to exfiltrate
+  the daily DB dump.
+- Read the S3 write credential and use it against `s3://<bucket>/backups/*`.
+  The IAM policy is scoped to that prefix and carries `PutObject` but not
+  `DeleteObject`, so the blast radius is *overwriting* legitimate dumps
+  (silent sabotage of the backup chain) — never deleting them, and never
+  reaching anything outside `backups/`.
+- Read `/data` from the backup container's own view — read-only mount, so
+  cannot mutate the live database from there.
+
+**Why it is accepted rather than fixed today.** Both sidecars are small
+alpine + curl + one shell script; the attack surface is what alpine
+distributes. The `read_only` + `no-new-privileges` + non-root triple is
+worth adopting and has a real cost — sqlite3 `.backup` to `/tmp` in a
+read-only container needs a `tmpfs`, and the monitor needs `/tmp` too for
+wget's scratch state. Adopting them right does not fit inside #162, and
+adopting them wrong (a container that starts fine and cannot write its
+temp file at run time) is worse than the current posture. Recorded so the
+next reader does not have to rediscover the cost.
+
+**Review trigger**: any of these — (a) a second data class in the DB, at
+which point the S3 dumps carry more than professor identifiers; (b) a
+future CVE in `aws-cli` / `sqlite3` / `curl` that would land in these
+containers; (c) an operator other than Miguel gaining shell on the Jetson
+host; (d) any of the sidecars gaining new privileges (a `docker.sock` mount,
+a second env variable that carries a token). At that point take the cheap
+half first: `USER nonroot`, `read_only: true`, `tmpfs: [/tmp]`,
+`security_opt: [no-new-privileges:true]`, `cap_drop: [ALL]` on both compose
+services, and rebuild once. Moving the AWS secret to a `secrets:` mount is
+the second half and follows the same trigger.
+
+### The professor login is public, unrate-limited and remembered in memory (accepted 2026-08-16, #150; re-deferred 2026-08-17, #162)
 
 `GET /login/google` is reachable by anyone and issues a fresh OAuth state nonce
 per request. There is **no rate limiting anywhere on this server** — not on the
@@ -630,53 +675,92 @@ So the trade is deliberate: a professor already signing in can finish, and a
 professor who has not started sees "vuelve a intentarlo" for as long as the flood
 lasts. That is the better half to protect, and it is not a fix.
 
-**Why it is accepted rather than fixed**: the server is not reachable from the
-internet. Hosting is deferred (`2026-08-controles.md` §C15), it binds loopback in
-development and the compose file publishes it on 127.0.0.1. Rate limiting also
-wants a shape this server does not have yet — a trusted proxy header, or a store
-that survives a restart — and guessing that shape now is how it gets built wrong.
+**Re-deferred at the first deploy (#162, 2026-08-17)**, which is what the
+previous entry named as the review trigger. Two things changed and two did not:
 
-**Review trigger**: the first deploy of `apps/server` to a host, or anything that
-makes it reachable from outside a laptop. That is the moment `/login/google`,
-`/login/google/callback` and `/logout` need a per-IP throttle — the cheapest
-shape being a per-source ceiling on live nonces, which needs no dependency — and
-the moment the proxy question below has to be answered too.
+- Changed: the server is reachable from the internet at
+  `https://<host>.<tailnet>.ts.net:8443`, and the proxy question is answered
+  (`NALANDA_TRUST_PROXY_HEADERS=true`) so a per-IP throttle could now be built
+  correctly rather than guessed.
+- Not changed: the audience is friends-and-family (ADR-0009), the URL is not
+  discoverable (a Tailscale-issued name only shared with people who need it),
+  and Google's own throttling on the OAuth endpoint is the practical ceiling on
+  what a flood at this server can do — it fails the visitor's login by refusing
+  the state store insertion, not by opening Google to abuse.
 
-### The login's state cookie is a double-submit cookie (accepted 2026-08-16, #150)
+Miguel accepts the risk on those grounds. **New review trigger**: the first
+non-Miguel professor arriving on a URL whose address gets written down anywhere
+— a course page linking the login, the URL appearing in a document a student
+saves, or the site moving to a discoverable domain. That is the moment
+`/login/google`, `/login/google/callback` and `/logout` need a per-IP throttle
+of their own, and the shape can now be a per-source ceiling on live nonces that
+keys off `handler.Auth.clientIP` (which is now the visitor, not `127.0.0.1`).
+
+The `apps/amc-worker`-shaped endpoints on this server (`/api/controls/…`) are
+outside the same trigger by construction: they sit behind `RequireProfessor`,
+so an anonymous flood dies at the middleware and the store below never sees it.
+
+### The login's state cookie is a double-submit cookie (accepted 2026-08-16, #150; hardened 2026-08-17, #162)
 
 The OAuth callback requires the `state` parameter to match a cookie the browser
 holds. That is what stops login CSRF (#150 SEC-1), and it is a double-submit
 cookie, which carries the pattern's one weakness: an attacker who can WRITE a
 cookie on this site can plant their own nonce.
 
-**What is exposed.** Writing a cookie here means controlling a sibling host under
-the same registrable domain, or a MITM over http. Demonstrated in review: with
-two `nalanda_oauth_state` cookies present, the deeper-path one is read first
-(RFC 6265 §5.4) and the victim ends up in the attacker's session. **Now refused**
-— the callback rejects a request carrying more than one such cookie.
+**What was exposed.** Writing a cookie here means controlling a sibling host
+under the same registrable domain, or a MITM over http. Demonstrated in review:
+with two `nalanda_oauth_state` cookies present, the deeper-path one is read
+first (RFC 6265 §5.4) and the victim ends up in the attacker's session. **Now
+refused** — the callback rejects a request carrying more than one such cookie.
 
-**Why it is still recorded**: the `__Host-` prefix would remove the whole class
-by forbidding a sibling host from setting the cookie at all, and it is not used
-because it requires `Secure`, which the documented development URL (http) cannot
-satisfy — and a cookie NAME that differs between development and production is a
-difference that only shows up in production.
+**And, since #162, closed at its source in production.** The Jetson deploy
+adopts the `__Host-` prefix, which is what forbids a sibling host from setting
+the cookie at all — the browser refuses a `__Host-` cookie without `Secure`, or
+with `Domain`, or on a `Path` other than `/`, and rejects any that came from a
+subdomain. The prefix requires `Secure`, which the documented development URL
+(http) cannot satisfy, so the cookie NAME differs between dev
+(`nalanda_oauth_state`) and prod (`__Host-nalanda_oauth_state`). That split was
+resisted through #150 for the reason "a difference that only shows up in
+production" and is adopted here anyway, because it is now pinned by two literal
+tests (`TestSessionCookieNameCarriesHostPrefixInProductionAndNotInDev` and its
+state-cookie twin), because every read and write goes through
+`handler.StateCookieName(secure)` / `middleware.SessionCookieName(secure)`
+rather than a bare literal, and because the extra guarantee is exactly the
+class the `CookiesNamed` count above defends against.
 
-**Review trigger**: the first https deployment. There the prefix costs nothing,
-and adding it is a two-line change in `handler.StateCookieName`'s neighbourhood.
+**Review trigger**: any change that reintroduces a bare `"nalanda_oauth_state"`
+literal in a read or write path, or any test that hard-codes one name — either
+of those makes the prod path stop being exercised. The two literal-string tests
+would catch a mutation of the name function; only careful review catches a
+bypass around it.
 
-### The session's IP is `RemoteAddr`, with no proxy-trust story (accepted 2026-08-16, #150)
+### The session's IP is `RemoteAddr`, with no proxy-trust story (accepted 2026-08-16, #150; CLOSED 2026-08-17, #162)
 
 `user_sessions.ip_address` records the peer address of the connection, and
 deliberately ignores `X-Forwarded-For`.
 
-**Why it is accepted**: nothing sits in front of this server today, so that header
-is client-supplied — honouring it would put an attacker's chosen string in the
+**Why it was accepted**: nothing sat in front of this server, so that header
+was client-supplied — honouring it would put an attacker's chosen string in the
 column an operator reads. `TestTheSessionIPIgnoresAForgeableHeader` pins it,
 because before that test a line honouring the header could be added with the
 whole suite green.
 
-**Review trigger**: the first reverse proxy (§C15). Whoever adds it must decide
-WHICH hop to trust, in `handler.clientIP`, rather than trusting the header.
+**How it closed (#162, 2026-08-17)**: the Jetson deploy put Tailscale Funnel in
+front of the server, so `RemoteAddr` became `127.0.0.1` for every visitor and
+the column stopped being useful. `handler.Auth.clientIP` now takes the FIRST
+hop of `X-Forwarded-For` when `NALANDA_TRUST_PROXY_HEADERS` is true — the
+leftmost entry per the de-facto Squid/nginx/Tailscale-Funnel convention, which is the address the outermost proxy
+first saw; the rightmost is the one closest to us and is not the visitor. The
+switch is off by default: an operator who forgets to enable it records every
+session as `127.0.0.1` (legible), while an operator who enables it with no
+proxy in front writes an attacker's chosen string (not legible). Both arms
+are pinned: `TestTheSessionIPIgnoresAForgeableHeader` on the false arm,
+`TestTheSessionIPTrustsTheProxyHeaderWhenConfigured` on the true one, and the
+pair proves the switch reads its flag at all. **Review trigger for the switch
+itself**: any deploy that ends up with an untrusted party able to write
+`X-Forwarded-For` — a proxy that appends rather than replaces, a second
+container joining the same network — must flip the flag off, since the
+guarantee is exactly that the header comes from a trusted proxy.
 
 ### The login keeps no audit trail (accepted 2026-08-16, #150)
 
@@ -706,17 +790,25 @@ professor.
 across providers, and this is the first assumption to re-examine — see ADR-0036
 §Consequences.
 
-### The session cookie has no `Secure` flag in development (accepted 2026-08-16, #150)
+### The session cookie has no `Secure` flag in development (accepted 2026-08-16, #150; CLOSED 2026-08-17, #162)
 
 `config.SecureCookie()` derives the flag from `NALANDA_PUBLIC_URL`'s scheme, and
 the documented development value is `http://127.0.0.1:8081`.
 
-**Why it is accepted**: the alternative is a Secure cookie the browser never sends
-over http, i.e. a login that cannot work locally. The `__Host-` prefix was
-rejected for the same reason, plus a worse one: a cookie NAME that differs between
-development and production is a difference that only ever shows up in production
-(`middleware.SessionCookieName`).
+**Why it was accepted**: the alternative is a Secure cookie the browser never
+sends over http, i.e. a login that cannot work locally.
 
-**Review trigger**: the first deploy. `GOOGLE-CHECK.md` §"What this check has NOT
-verified" says the https run is the one that verifies the flag, and that run is
-what closes this entry.
+**How it closed (#162, 2026-08-17)**: the Jetson deploy runs behind Tailscale
+Funnel on `https://<host>.<tailnet>.ts.net:8443`, so `config.SecureCookie()`
+returns true there and the session cookie carries `Secure` on the wire.
+[`GOOGLE-CHECK.md`](../apps/server/GOOGLE-CHECK.md) §7 is the run that
+observes it — the section that section previously deferred to.
+
+The old "worse reason" for rejecting the `__Host-` prefix — that a cookie name
+differing between dev and prod is a difference that only shows up in production
+— has been converted from a rejection into a checked invariant: since #162,
+`middleware.SessionCookieName` and `handler.StateCookieName` are functions of
+the flag, every read and write goes through them, and two literal-string tests
+pin the two names (`__Host-nalanda_session` / `nalanda_session`). The split
+between dev and prod is real, and the class of defect that used to come with it
+is closed by the tests rather than by refusing the prefix.

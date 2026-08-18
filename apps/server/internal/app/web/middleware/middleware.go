@@ -30,12 +30,36 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 )
 
-// SessionCookieName is the cookie the session token travels in. The __Host-
-// prefix was considered and rejected: it requires Secure, which local
-// development over http cannot satisfy, and a cookie name that differs between
-// development and production is a difference that only ever shows up in
-// production.
-const SessionCookieName = "nalanda_session"
+// sessionCookieBase is the unprefixed name. See SessionCookieName.
+const sessionCookieBase = "nalanda_session"
+
+// SessionCookieName is the cookie the session token travels in. It reads
+// `__Host-nalanda_session` when the cookie carries Secure (production, over
+// https) and `nalanda_session` otherwise (local development, over http).
+//
+// The asymmetry between dev and prod was resisted through #150 and is adopted
+// here (#162): the extra guarantee the prefix carries — a sibling host on the
+// same registrable domain cannot set this cookie at all, which is the entire
+// class of cookie-tossing attack the double-submit state cookie has to defend
+// against with a header count — is real, and dev never runs over https anyway.
+// The failure mode the previous rejection warned about (a difference that
+// only shows up in production) is disarmed by
+// `TestSessionCookieNameCarriesHostPrefixInProduction` and its dev twin, and
+// by the read/write sites all going through THIS function rather than a raw
+// literal. A caller that hard-codes `"nalanda_session"` reads no cookie in
+// production and shows up in the very first login attempt against the deployed
+// URL — the failure the old comment feared is what these tests forbid.
+//
+// The prefix's other requirements (Set-Cookie must carry Secure; Path=/; no
+// Domain) are already satisfied by the callers below — the tests
+// `TestSessionCookieCarriesTheHostPrefixRequirements` and its state twin pin
+// them, so weakening one of the three does not silently reopen the class.
+func SessionCookieName(secure bool) string {
+	if secure {
+		return "__Host-" + sessionCookieBase
+	}
+	return sessionCookieBase
+}
 
 // CSRFFieldName is the form field every state-changing request carries.
 const CSRFFieldName = "csrf_token"
@@ -135,7 +159,7 @@ func WithProfessorForTest(ctx context.Context, u auth.User, s auth.Session) cont
 // belongs to RequireProfessor, one layer out.
 func (a *Auth) Resolve(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		cookie, err := r.Cookie(SessionCookieName)
+		cookie, err := r.Cookie(SessionCookieName(a.secureCookie))
 		if err != nil || cookie.Value == "" {
 			next.ServeHTTP(w, r)
 			return
@@ -336,7 +360,7 @@ func isSafeMethod(method string) bool {
 // whole site, and Secure is derived from the public URL rather than chosen.
 func SetSessionCookie(w http.ResponseWriter, token string, expires time.Time, secure bool) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     SessionCookieName,
+		Name:     SessionCookieName(secure),
 		Value:    token,
 		Path:     "/",
 		Expires:  expires,
@@ -352,7 +376,7 @@ func SetSessionCookie(w http.ResponseWriter, token string, expires time.Time, se
 // cookie in place that simply says nothing, and the browser keeps sending it.
 func ClearSessionCookie(w http.ResponseWriter, secure bool) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     SessionCookieName,
+		Name:     SessionCookieName(secure),
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,
