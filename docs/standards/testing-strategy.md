@@ -458,9 +458,9 @@ page-only, invisible to every other gate.
   draft store, MUST also be verified in a real browser against `npm run build &&
 npm run preview` — run, stdin, and a deliberate compile error — per
   `guides/add-a-language-runtime.md` §7. Today that set is `CodeEditor`,
-  `Exercise` and `MemoryDiagram`. Define it by what the code DOES: worded as
-  "mounts `CodeEditor`" it silently excluded `MemoryDiagram`, which draws its own
-  listing (ADR-0028) and drives a JVM end to end.
+  `Exercise`, `MemoryDiagram` and `PredictOutput`. Define it by what the code
+  DOES: worded as "mounts `CodeEditor`" it silently excluded `MemoryDiagram`,
+  which draws its own listing (ADR-0028) and drives a JVM end to end.
 
   For `Exercise`, add: a correct solution passes, the untouched starter fails,
   and a compile error surfaces as a diagnostic. The two verdict forgeries
@@ -473,6 +473,14 @@ npm run preview` — run, stdin, and a deliberate compile error — per
   says so instead of claiming `paso N de N`. That last one is not paranoia —
   every one of those failures shipped past a green suite in #116 and was found
   in a browser.
+
+  For `PredictOutput`, add: the reveal panel prints what the snippet actually
+  printed (never an authored string), the diagnostics panel names the right
+  layer when a run fails (loader vs compiler vs runtime), and the reader's
+  typed prediction stays in local state and is deliberately not persisted
+  across a reload. Same jsdom hazard: the suite drives a fake worker with an
+  authored reply, so `run()` in a real browser is the only place the JVM's
+  actual output is measured against the trap the document is teaching.
   (The browser mechanics are the shared ones below; the guide's §7 lists what to
   check for a runtime.)
 

@@ -12,6 +12,7 @@ import type { CatalogEntry } from '../lib/catalogEntry';
 import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
 import { memoryDiagramCatalogEntry } from './interactive/MemoryDiagram.catalog';
+import { predictOutputCatalogEntry } from './interactive/PredictOutput.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
 import { questionsCatalogEntry } from './interactive/Questions.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
@@ -34,6 +35,7 @@ export const catalogEntries: CatalogEntry[] = [
   codeEditorCatalogEntry,
   exerciseCatalogEntry,
   memoryDiagramCatalogEntry,
+  predictOutputCatalogEntry,
   questionsCatalogEntry,
   questionCatalogEntry,
 ];

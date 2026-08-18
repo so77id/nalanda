@@ -58,10 +58,21 @@ de 1991 dejó tres decisiones que te van a acompañar todo el curso.
 - **Compilar una vez, ejecutar en cualquier parte.** El compilador no produce un
   binario para tu máquina, sino *bytecode* para la máquina virtual.
 - **Recolección de basura.** Nadie llama `delete`. La memoria que ya no se usa se
-  libera sola, y cuándo exactamente no es asunto tuyo.
+  libera sola — y cuándo exactamente no es asunto tuyo — mientras nadie
+  todavía la esté apuntando.
 - **Orientado a objetos sin escapatoria.** En C++ puedes escribir un programa entero
   sin declarar una clase. En Java no.
 </Slide>
+
+Sobre esa segunda decisión hay una consecuencia que no cabe en la bala y
+conviene tener presente todo el curso: el recolector libera un objeto cuando
+**ya no queda ninguna referencia viva** hacia él. Así desaparece el trío que
+en C y C++ costaba tardes enteras — el `delete` olvidado (fuga), el
+`delete` doble, el uso después del `delete` — y aparece un cuarto, más
+silencioso: **si guardas referencias vivas a cosas que ya no necesitas** —
+adentro de una lista que crece sin límite, adentro de una caché que nadie
+limpia — el recolector hace lo que le pides y no libera nada. También es
+una fuga, y es la única que sigues teniendo que vigilar.
 
 <Slide title="El mismo programa, en dos idiomas">
 Este es el programa que ya conoces, en los dos idiomas.

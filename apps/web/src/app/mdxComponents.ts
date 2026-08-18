@@ -3,6 +3,7 @@ import {
   LazyCodeEditor,
   LazyExercise,
   LazyMemoryDiagram,
+  LazyPredictOutput,
   MdxPre,
   Mosaic,
   Question,
@@ -53,6 +54,7 @@ export const mdxComponents = {
   CodeEditor: LazyCodeEditor,
   Exercise: LazyExercise,
   MemoryDiagram: LazyMemoryDiagram,
+  PredictOutput: LazyPredictOutput,
   // Not lazy: a question renders text and buttons. The editor it may embed is
   // itself lazy, so a document with no code question pulls no CodeMirror.
   Questions,

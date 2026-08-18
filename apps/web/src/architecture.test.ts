@@ -140,6 +140,27 @@ describe('architecture: the memory diagram stays out of the entry chunk', () => 
   });
 });
 
+describe('architecture: the predict-output card stays out of the entry chunk', () => {
+  // PredictOutput reaches the hazard both ways: it wraps LazyCodeEditor and it
+  // imports the runtime seam through `useLoadedRuntime`. Either would have been
+  // enough for its own case (see the two describes above); together they leave
+  // no ambiguity about why the lazy wrapper is required. Same shape as
+  // MemoryDiagram's guard — a single ALLOWED entry, no per-file exemptions.
+  const ALLOWED = ['components/interactive/lazyPredictOutput.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/predictoutput' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: cross-feature dependencies', () => {
   it('only the allowed feature edges exist in production code', () => {
     // Test files may exercise any feature through its seam (they are consumers,

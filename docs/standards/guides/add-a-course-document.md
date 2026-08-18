@@ -489,7 +489,69 @@ page. Each instance is still a JVM, so a page of diagrams is a page of JVMs.
 Decisions behind all this: ADR-0028. Worked examples, live:
 `/catalog/c/MemoryDiagram`.
 
-5e. **External links**: write them as explicit `https://`. Markdown now parses
+5e. **Predict before revealing (optional)**: `<PredictOutput>` shows a snippet
+and lets the reader commit to a prediction — typed into a textarea — before
+executing the code and revealing what it **actually printed**. The reveal is
+what the JVM said, never an answer you write in prose, so the trap has to
+demonstrate itself for the card to show anything at all:
+
+````mdx
+<PredictOutput title="Dos veces new String">
+
+¿Qué imprime este programa?
+
+```java predict
+class Trampa {
+    public static void main(String[] args) {
+        String a = new String("hola");
+        String b = new String("hola");
+        System.out.println(a == b);
+        System.out.println(a.equals(b));
+    }
+}
+```
+
+</PredictOutput>
+````
+
+Contract: prose + **exactly one** fence marked `predict` (` ```java predict `).
+The fence never renders in the flow — its source lands in the read-only
+listing, and showing it twice would spoil the point. Same shape as an
+`<Exercise>` reads its `starter`/`test` fences.
+
+Six things worth knowing before you write one:
+
+- **Java only**, and Java 8 like everything else here. `language` accepts the
+  three runtime ids but no shipped document uses another today; changing that
+  needs a decision about what "predict the output" means for a language whose
+  interesting mistakes are not `System.out.println`.
+- **The reveal is a real run.** An answer written in prose can be wrong and
+  ship past a green build (the general principle behind ADR-0019 §7 — _a
+  written verdict is feedback, not evidence_); wrapping a real editor and
+  running through the shared runtime seam is what defeats it. The JVM is
+  the one saying so.
+- **The reader's typed prediction is deliberately disposable.** Unlike
+  `<CodeEditor>` and `<Exercise>` — which save to localStorage before every
+  run (step 5 above) — `<PredictOutput>` keeps the prediction in React state
+  and never persists it. A Java freeze loses it; a reload loses it. That is
+  the design: the prediction only earns its keep next to the reveal that
+  falsifies or confirms it, and pretending the reader is committed for the
+  next session would be pretending.
+- **The same Java sharp edge as step 5** (ADR-0017): main-thread execution
+  means a `while (true)` freezes the tab. Keep every predict snippet
+  terminating — this component is for pinpoint programs, not loops.
+- **Two of these on one page share one JVM and one queue** with every other
+  Java editor, so a page of six PredictOutputs is what a reader waits behind
+  one at a time. The footer chip says so while it waits.
+- **All three platform class names are reserved** — `NalandaLauncher`,
+  `NalandaCheck` and `NalandaTrace`. A snippet declaring any of them at top
+  level is refused before the JVM boots.
+
+Decisions behind all this: same frame as ADR-0010 (catalog contract),
+ADR-0017 (Java threading), and the "verdict-is-feedback" principle of
+ADR-0019 §7. Worked examples, live: `/catalog/c/PredictOutput`.
+
+5f. **External links**: write them as explicit `https://`. Markdown now parses
 GFM, so a bare URL becomes a link on its own — and a bare `www.host` resolves
 to **`http://`**, a cleartext link the reader can be downgraded on. Tables,
 strikethrough (`~~`), task lists and footnotes also work now.
@@ -915,6 +977,11 @@ is not scaled at all.
 - [ ] Every exercise opened in `npm run preview` and actually run: no authoring
       banner, cases pass against a correct solution and fail against the starter.
       Nothing in the build or the suite can check this for you.
+- [ ] Every `<PredictOutput>` opened in `npm run preview` and revealed: no
+      authoring banner, the snippet actually runs to completion (no Java
+      infinite loop), and the reveal panel prints. Same reason as the exercise
+      case above — a snippet that fails to compile or that hangs is invisible
+      to the build and the suite.
 - [ ] Every `<SheetEmbed>` opened at `/nalanda/d/<id>` under
       `npm run build && npm run preview`, and **looked at**: the grid is on
       screen — not Google's request-access page, not a rectangle stuck on

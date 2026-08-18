@@ -9,6 +9,9 @@ export { LazyCodeEditor } from './interactive/lazyCodeEditor';
 export { LazyExercise } from './interactive/lazyExercise';
 // Same rule again, reached differently: MemoryDiagram imports the runtime seam.
 export { LazyMemoryDiagram } from './interactive/lazyMemoryDiagram';
+// Same rule, both routes: PredictOutput wraps LazyCodeEditor AND imports the
+// runtime seam through `useLoadedRuntime`.
+export { LazyPredictOutput } from './interactive/lazyPredictOutput';
 // Not a document-facing component and deliberately not in the catalog: authors
 // never write it, they write a fence. The shell maps it onto `pre`.
 export { MdxPre } from './MdxPre';
