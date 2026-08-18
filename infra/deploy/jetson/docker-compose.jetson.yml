@@ -1,4 +1,4 @@
-# Production overlay for the Jetson deploy (#162 S12, ADR-0037).
+# Production overlay for the Jetson deploy (#162 S12, ADR-0038).
 #
 # Applied on TOP of `infra/local/docker-compose.yml` — set
 # `COMPOSE_FILE=docker-compose.yml:../deploy/jetson/docker-compose.jetson.yml`
@@ -43,7 +43,7 @@ services:
 
   amc-worker:
     # Not deployed on the Jetson (1.04 GB image on a 4 GB Nano is a separate
-    # decision, ADR-0037 §Decision). This overlay does not touch it — Docker
+    # decision, ADR-0038 §Decision). This overlay does not touch it — Docker
     # compose keeps it defined but the Jetson never invokes it. A future WP
     # deciding to host amc-worker here adds its own overlay entry.
     labels:

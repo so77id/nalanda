@@ -1,10 +1,10 @@
 # ADR-0036: The professor session is ours, server-side, and costs no dependency
 
 **Status:** Accepted — `apps/server/GOOGLE-CHECK.md` outstanding.
-Hardened in part 2026-08-17 (#162, ADR-0037): the session and OAuth-state
+Hardened in part 2026-08-17 (#162, ADR-0038): the session and OAuth-state
 cookies carry the `__Host-` prefix in production, and `handler.clientIP`
 gained a proxy-trust switch. This ADR still governs the session shape;
-ADR-0037 §Decision records the cookie-name split and the switch.
+ADR-0038 §Decision records the cookie-name split and the switch.
 **Date:** 2026-08-16
 **Decision-makers:** Miguel Rodriguez
 **Source:** #150 (WP-C2), ADR-0009, design `docs/design/2026-08-controles.md` §C12, §C13

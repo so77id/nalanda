@@ -1,7 +1,7 @@
 # Deploying apps/server to the Jetson
 
 The Jetson Nano hosts `apps/server` for the first real tests of the
-professor login and the entrance-controls backoffice (issue #162, ADR-0037).
+professor login and the entrance-controls backoffice (issue #162, ADR-0038).
 This document is the operating procedure. The design decisions live in the
 WP body and the ADR; this one is what an operator opens.
 
@@ -264,7 +264,7 @@ sqlite3 "${LATEST%.gz}" '.schema users'
 sqlite3 "${LATEST%.gz}" 'SELECT COUNT(*) FROM users;'
 ```
 
-If either command errors, the backup did not round-trip and the ADR-0037 AC
+If either command errors, the backup did not round-trip and the ADR-0038 AC
 for backups has failed — do not delete the scratch copy, and open an issue.
 
 ## Health monitor

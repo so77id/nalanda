@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Provision the Nalanda backups bucket + the least-privilege IAM user the
-# Jetson uses to write into it (#162, ADR-0037).
+# Jetson uses to write into it (#162, ADR-0038).
 #
 # Idempotent: safe to re-run. Requires AWS admin credentials in the current
 # shell (NOT the Jetson creds). Run from a laptop with the AWS CLI installed,

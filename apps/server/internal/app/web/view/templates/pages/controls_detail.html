@@ -24,9 +24,77 @@
 
   <section>
     <h2>Escaneos</h2>
-    <p>Aún no hay escaneos subidos.</p>
-    <p><button type="button" disabled>Subir escaneos</button></p>
+    {{ if not .Readings }}
+      <p>Aún no hay escaneos subidos.</p>
+    {{ else }}
+      <p>Sube otro PDF para añadir páginas al lote existente.</p>
+    {{ end }}
+    <form method="post" action="{{ .ScansURL }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+      <p>
+        <label for="scan">Archivo PDF (máximo {{ .MaxScanMB }} MB):</label><br>
+        <input type="file" id="scan" name="scan" accept="application/pdf" required>
+      </p>
+      <p><button type="submit">Subir escaneos</button></p>
+    </form>
   </section>
+
+  {{ if .Readings }}
+    <section>
+      <h2>Resultados</h2>
+      {{ if .Graded }}
+        <p class="aviso">Este control fue marcado como <strong>Corregido</strong>. Puedes editar copias todavía, pero cualquier cambio queda en un control cerrado.</p>
+      {{ else }}
+        <form method="post" action="{{ .CloseURL }}" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+          {{ if .CanClose }}
+            <button type="submit">Cerrar corrección</button>
+          {{ else }}
+            <button type="submit" disabled>Cerrar corrección</button>
+            {{ if .CloseBlockedReason }}<small>{{ .CloseBlockedReason }}</small>{{ end }}
+          {{ end }}
+        </form>
+      {{ end }}
+
+      <details style="margin-top:0.5em">
+        <summary>Re-leer con otra sensibilidad</summary>
+        <form method="post" action="{{ .ReanalyzeURL }}">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+          <p>
+            <label>Marcado (0–1): <input type="number" name="ticked" min="0.01" max="0.99" step="0.01" value="{{ printf "%.2f" .CurrentTicked }}"></label>
+            <label>Inseguro (0–marcado): <input type="number" name="unsure" min="0" max="0.99" step="0.01" value="{{ printf "%.2f" .CurrentUnsure }}"></label>
+            <button type="submit">Re-leer</button>
+          </p>
+        </form>
+      </details>
+
+      <table class="lista">
+        <thead>
+          <tr>
+            <th>RUT</th>
+            {{ range .QuestionColumns }}<th>{{ . }}</th>{{ end }}
+            <th>Total</th>
+            <th>Nota</th>
+            <th>Estado</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ range .Readings }}
+            <tr class="{{ .EstadoClass }}">
+              <td>{{ if .RUT }}{{ .RUT }}{{ else }}—{{ end }}{{ if .Edited }} <small>(editado)</small>{{ end }}</td>
+              {{ range .PerQuestion }}<td>{{ . }}</td>{{ end }}
+              <td>{{ .TotalRaw }}</td>
+              <td>{{ .Grade }}</td>
+              <td>{{ .Estado }}</td>
+              <td><a href="{{ .ReviewURL }}">[revisar]</a></td>
+            </tr>
+          {{ end }}
+        </tbody>
+      </table>
+      {{ if .Summary }}<p>{{ .Summary }}</p>{{ end }}
+    </section>
+  {{ end }}
 
   <p><a href="/controls">Volver a los controles</a></p>
 {{ end }}

@@ -1,4 +1,4 @@
-# Backup container for the Nalanda Jetson deploy (#162, ADR-0037).
+# Backup container for the Nalanda Jetson deploy (#162, ADR-0038).
 #
 # alpine, sqlite (for .backup on the mounted WAL database), aws-cli (for the
 # S3 upload), curl (for the Telegram notification). Nothing else — the whole

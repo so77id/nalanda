@@ -149,6 +149,33 @@ func routes(deps Deps) []Route {
 			Method: http.MethodGet, Path: handler.ControlCorrigePath,
 			Handler: deps.Controls.CorrigePDF,
 		},
+		// WP-F: the upload target. Gated by default (no Public), CSRF
+		// enforced because the method is POST.
+		{
+			Method: http.MethodPost, Path: handler.ControlScansPath,
+			Handler: deps.Controls.UploadScan,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ControlReanalyzePath,
+			Handler: deps.Controls.ReanalyzeScans,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ControlClosePath,
+			Handler: deps.Controls.CloseCorrection,
+		},
+		// WP-F: the review page and its scanned-image endpoint.
+		{
+			Method: http.MethodGet, Path: handler.CopyReviewPath,
+			Handler: deps.Controls.Review,
+		},
+		{
+			Method: http.MethodPost, Path: handler.CopyReviewPath,
+			Handler: deps.Controls.SaveReview,
+		},
+		{
+			Method: http.MethodGet, Path: handler.CopyPageImage,
+			Handler: deps.Controls.PageImage,
+		},
 		{
 			Method: http.MethodGet, Path: handler.ProfessorsPath,
 			Handler: deps.Professors.List,

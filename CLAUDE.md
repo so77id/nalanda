@@ -21,7 +21,7 @@ This file holds **monorepo-shared** instructions only. Each app has its own
   surfaces, one shared domain; its dependency rule is enforced by a test. The
   professor login lives there (ADR-0009, ADR-0036) and the two surfaces
   deliberately do not share an auth gate. **First production deploy: the
-  Jetson (ADR-0037), operating procedure `infra/local/DEPLOY-JETSON.md`; the
+  Jetson (ADR-0038), operating procedure `infra/local/DEPLOY-JETSON.md`; the
   host-specific images and scripts live under `infra/deploy/jetson/`.**
 
 ## Mandatory reading (before any code work)
@@ -91,7 +91,7 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
   unfinished until [`apps/server/GOOGLE-CHECK.md`](apps/server/GOOGLE-CHECK.md)
   runs against the https URL (its §7 observes the `Secure` flag on the
   wire). Mechanics and decisions: root `README.md` §"apps/server on the
-  Jetson", operating procedure `infra/local/DEPLOY-JETSON.md`, ADR-0037.
+  Jetson", operating procedure `infra/local/DEPLOY-JETSON.md`, ADR-0038.
 - **All changes go through PRs** — never push directly to `main`.
 - **Squash merge** is mandatory for every PR (manual, by the user).
 - **One commit per slice**; the slice list lives in the issue body as checkboxes.

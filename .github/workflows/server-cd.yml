@@ -3,7 +3,7 @@ name: server CD
 # Builds the three container images the Jetson deploy of `apps/server` uses
 # (server, backup, monitor) and pushes them to GHCR on every push to `main`
 # touching what they build from. Watchtower on the Jetson polls GHCR and
-# swaps the container in when a new `:latest` appears (#162 S11, ADR-0037).
+# swaps the container in when a new `:latest` appears (#162 S11, ADR-0038).
 #
 # Shape borrowed from DocumentBuddy's `.github/workflows/cd.yml` and
 # `cd-browser.yml`. A fresh file, not a reference: an edit here must never

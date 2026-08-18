@@ -86,15 +86,21 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			Log:       logger,
 		}),
 		Controls: handler.NewControls(handler.Controls{
-			Service: controls.NewService(controls.Service{
-				Bank:      emptyBank(t),
-				Store:     controlstore.New(db),
-				Generator: &amctest.Fake{},
-				WorkDir:   t.TempDir(),
-				Now:       time.Now,
-				Seed:      1,
-				Log:       logger,
-			}),
+			Service: func() *controls.Service {
+				cstore := controlstore.New(db)
+				fake := &amctest.Fake{}
+				return controls.NewService(controls.Service{
+					Bank:      emptyBank(t),
+					Store:     cstore,
+					Generator: fake,
+					Analyzer:  fake,
+					Readings:  cstore,
+					WorkDir:   t.TempDir(),
+					Now:       time.Now,
+					Seed:      1,
+					Log:       logger,
+				})
+			}(),
 			Bank:      emptyBank(t),
 			PublicURL: "https://nalanda.test",
 			Log:       logger,

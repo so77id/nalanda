@@ -32,10 +32,11 @@ type Bank struct {
 	Questions []Question
 
 	// Indices, built by Parse. Not exported: consumers reach them through
-	// Pool, FindDocument and DocumentSections, so a rename here does not
-	// leak into the callers.
-	docIndex     map[string]int
-	sectionIndex map[SectionRef]int
+	// Pool, FindDocument, FindQuestion and DocumentSections, so a rename
+	// here does not leak into the callers.
+	docIndex      map[string]int
+	sectionIndex  map[SectionRef]int
+	questionIndex map[string]int
 }
 
 // Document is one course document as the emitter published it: id, title, the
@@ -197,11 +198,12 @@ func Parse(r io.Reader) (*Bank, error) {
 	}
 
 	b := &Bank{
-		Version:      raw.Version,
-		Documents:    make([]Document, 0, len(raw.Documents)),
-		Questions:    make([]Question, 0, len(raw.Questions)),
-		docIndex:     make(map[string]int, len(raw.Documents)),
-		sectionIndex: make(map[SectionRef]int, len(raw.Documents)*4),
+		Version:       raw.Version,
+		Documents:     make([]Document, 0, len(raw.Documents)),
+		Questions:     make([]Question, 0, len(raw.Questions)),
+		docIndex:      make(map[string]int, len(raw.Documents)),
+		sectionIndex:  make(map[SectionRef]int, len(raw.Documents)*4),
+		questionIndex: make(map[string]int, len(raw.Questions)),
 	}
 	for i, d := range raw.Documents {
 		b.Documents = append(b.Documents, Document{
@@ -216,7 +218,7 @@ func Parse(r io.Reader) (*Bank, error) {
 		}
 	}
 	seenID := make(map[string]bool, len(raw.Questions))
-	for _, q := range raw.Questions {
+	for i, q := range raw.Questions {
 		if seenID[q.ID] {
 			return nil, fmt.Errorf("%w: %q", ErrDuplicateQuestionID, q.ID)
 		}
@@ -236,6 +238,7 @@ func Parse(r io.Reader) (*Bank, error) {
 			Alternatives: append([]string(nil), q.Alternatives...),
 			Correct:      append([]int(nil), q.Correct...),
 		})
+		b.questionIndex[q.ID] = i
 	}
 	return b, nil
 }
@@ -324,6 +327,17 @@ func (b *Bank) FindDocument(id string) (Document, bool) {
 func (b *Bank) HasSection(ref SectionRef) bool {
 	_, ok := b.sectionIndex[ref]
 	return ok
+}
+
+// FindQuestion returns the Question with id, and whether it exists.
+// WP-F's review page needs statement + alternatives together per rendered
+// question; the old code walked b.Questions twice per row.
+func (b *Bank) FindQuestion(id string) (Question, bool) {
+	i, ok := b.questionIndex[id]
+	if !ok {
+		return Question{}, false
+	}
+	return b.Questions[i], true
 }
 
 // --- JSON shape --------------------------------------------------------------

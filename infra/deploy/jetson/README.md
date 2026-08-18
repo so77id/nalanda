@@ -1,7 +1,7 @@
 # infra/deploy/jetson
 
 Host-specific production images, off-box provisioning artifacts, and the
-compose overlay for the Jetson deploy of `apps/server` (#162, ADR-0037).
+compose overlay for the Jetson deploy of `apps/server` (#162, ADR-0038).
 The runbook that stitches these files together lives at
 [`../../local/DEPLOY-JETSON.md`](../../local/DEPLOY-JETSON.md) — read it
 first if you are here to actually deploy. The images published from these

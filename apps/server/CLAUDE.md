@@ -9,7 +9,12 @@ SQLite underneath. Born with the entrance-controls subsystem
 
 Since WP-C3 (#151) the backoffice has its shell (nav, both themes, error
 pages, one-shot flash cookie) and the professor CRUD. The login round trip
-and the session gate arrived earlier with WP-C2 (#150).
+and the session gate arrived earlier with WP-C2 (#150). WP-E (#166) added
+the entrance-controls screens (list, create, detail with the printable PDF
+downloads); WP-F (#167) turned the Escaneos box live with the whole
+reader loop — upload → analyse → results table → side-by-side review
+page → re-leer con otra sensibilidad → *Cerrar corrección*. The routes
+table in `README.md` is the current inventory.
 
 Commands, stack, configuration and layout live in `README.md` — one home per
 fact.
@@ -26,19 +31,20 @@ fact.
   (SQLite first, and the Postgres exit), ADR-0009 (professor-only auth) and
   `0036-the-professor-session-is-ours-and-costs-no-dependency.md` — how the
   session works, the three ways in, and why there is no OIDC library.
-- `docs/decisions/0037-the-jetson-is-the-first-test-bed.md` — where this app
+- `docs/decisions/0038-the-jetson-is-the-first-test-bed.md` — where this app
   runs in production, and the operational triggers for hosting / rate-limiting
   / proxy-trust choices. Any change to the login path, a cookie read/write,
   or `NALANDA_PUBLIC_URL` needs it: the tests here pin the helpers, not their
-  callers, and ADR-0037 is where the reasoning lives.
+  callers, and ADR-0038 is where the reasoning lives.
 - `docs/standards/guides/add-a-backend-endpoint.md` — read before adding ANY
   route here: which surface it belongs to, the handler → domain → repository
   chain, and the middleware a state-changing route needs.
 - `README.md` §"What is not here yet" — before adding anything, check whether
-  the work belongs to WP-D (roster) or WP-E (control creation). **WP-C1,
-  WP-C2 and WP-C3 are closed**: the layered layout (#149), the login round
-  trip + session gate (#150), and the backoffice shell + professor CRUD
-  (#151) all live here.
+  the work belongs to WP-D (roster) or WP-G (publish grades). **WP-C1,
+  WP-C2, WP-C3, WP-E and WP-F are closed**: the layered layout (#149), the
+  login round trip + session gate (#150), the backoffice shell + professor
+  CRUD (#151), control creation with the PDF pipeline (#166) and the
+  scans + review flow (#167) all live here.
 
 ## Language
 
@@ -94,10 +100,10 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   service** (`backup`, `monitor`, or the next one) is that same edit behind a
   `profiles: [<host>]` gate, with its own Dockerfile and scripts under
   `infra/deploy/<host>/` — worked case: `infra/deploy/jetson/` with the
-  `jetson` profile (#162, ADR-0037, `docs/standards/repository-structure.md`
+  `jetson` profile (#162, ADR-0038, `docs/standards/repository-structure.md`
   §Placement criteria). A dev laptop's `docker compose up server` does NOT
   start profile-gated services; the Jetson invokes them with `--profile jetson`.
-- **Cookie names are computed, not literal.** Since #162 (ADR-0037) both the
+- **Cookie names are computed, not literal.** Since #162 (ADR-0038) both the
   session and OAuth-state cookies carry the `__Host-` prefix when
   `config.SecureCookie()` is true (production, https). Read and write them
   ONLY through `middleware.SessionCookieName(secure)` and

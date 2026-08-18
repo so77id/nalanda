@@ -44,6 +44,7 @@ Environment variables, read once at boot. A required variable that is absent
 | `NALANDA_QUESTIONS_JSON_URL` | yes | The published question bank (ADR-0032). `http://`, `https://` or `file://`. Fetched **once at boot** and held in memory; a parse failure is a panic there. WP-E |
 | `NALANDA_AMC_WORKER_URL` | yes | The AMC worker's HTTP origin, e.g. `http://amc-worker:8080` in compose. Absolute http/https URL, no path. WP-E |
 | `NALANDA_WORK_DIR` | yes | Where the server sees the shared volume. The `.tex` generator emits `/work` absolute paths regardless (that is the worker's mount); this only decides where the server writes its files. WP-E |
+| `NALANDA_MAX_SCAN_MB` | no (`100`) | Largest scan PDF the upload handler accepts, in whole MB. A 4-page control at 300 dpi is roughly 3–5 MB; 100 fits a large class and refuses a runaway upload before it enters the worker. WP-F |
 
 ## Commands
 
@@ -189,8 +190,13 @@ Routes today:
 | `GET /` | Redirects to `/controls` (an anonymous request lands in `/login` first, via the gate). Superseded #151's redirect to `/professors` when WP-E landed |
 | `GET /controls` | The list, ordered by application_date desc with nulls last |
 | `GET /controls/new` · `POST /controls` | Pick a section range, generate the PDF |
-| `GET /controls/{id}` | Detail: metadata, PDF downloads, the WP-F placeholder Escaneos box |
+| `GET /controls/{id}` | Detail: metadata, PDF downloads, the Escaneos upload form, the Resultados table and (after upload) the *Cerrar corrección* button |
 | `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
+| `POST /controls/{id}/scans` | Multipart PDF upload — hands the file to the worker's `/analyse`, persists the report, flips the state to `in_review` |
+| `POST /controls/{id}/reanalyze` | Re-reads the stored captures at new `ticked`/`unsure` thresholds without a new capture |
+| `POST /controls/{id}/close` | Moves the control to `graded` when every failure kind is resolved (WP-F S8) |
+| `GET /controls/{id}/copies/{copy}/review` · `POST` | Split view — scanned image + editable form; POST saves overrides through `answer_override` / `rut_override` |
+| `GET /controls/{id}/copies/{copy}/page/{n}` | Streams the scanned page image from the shared volume |
 | `GET /professors` | The list: address, name, state, created, last sign-in |
 | `GET /professors/new` · `POST /professors` | Create by address and name — the `Authenticate` path (2) round trip |
 | `GET /professors/{id}/edit` · `POST /professors/{id}` | Rename. The address is not editable |
@@ -223,7 +229,11 @@ Deliberately, and each with an owner:
 |---|---|
 | Courses, students, enrolment — any domain table | WP-D |
 | JSON contracts, CORS, WebSocket on `/api` | with a consumer (ADR-0008) |
-| Reading scans back, per-question grades, review queue | WP-F |
+| A per-control upload quota (batches per control, or total bytes) — today `NALANDA_MAX_SCAN_MB` bounds ONE upload | when an operator wants a ceiling on abuse by an authenticated professor |
+| Publishing grades (CSV export, Canvas, email) | WP-G |
+| Bulk download of annotated PDFs as a ZIP | when the pile is large enough — captured in #167 §Notes |
+| Regenerating the annotated PDF after a manual override | #167 §Non-goals; the annotated stays a view of what AMC read, overrides live in the DB |
+| Roster / student names, isolation between professors | V2 / #163 |
 | Deleting or re-addressing a professor who has never signed in | WP that reopens the mistyped-address debt (#151 §Notes) |
 | An audit trail of who did what | The WP that gains a second class of actor (#151 §Non-goals) |
 
@@ -232,7 +242,11 @@ and **#150 deleted it** with the first real migration, as planned. The auth
 schema is numbered `00002` even so: goose keys applied migrations by version, so
 a file reusing number 1 would be considered already applied by every checkout
 that had run the server, and the schema would never arrive. WP-C3 added
-`00003_last_login_at.sql`.
+`00003_last_login_at.sql`. WP-E (#166) added `00004_controls.sql` with the
+three tables the controls domain reads (`control`, `control_pregunta`,
+`copia`); WP-F (#167) added `00005_readings.sql` with the four the
+reading half needs (`reading`, `answer`, `answer_override`,
+`rut_override`).
 
 ## Signing in
 

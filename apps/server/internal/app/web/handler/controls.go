@@ -19,7 +19,8 @@ import (
 )
 
 // The controls routes (issue #166 §The screens). URL paths in English like
-// every other route in this surface (issue #151 §Routes).
+// every other route in this surface (issue #151 §Routes). WP-F extends the
+// set with the scan-upload target (ControlScansPath in scans.go).
 const (
 	ControlsPath       = "/controls"
 	ControlsNewPath    = "/controls/new"
@@ -51,7 +52,11 @@ type Controls struct {
 	Service   *controls.Service
 	Bank      *bank.Bank
 	PublicURL string
-	Log       *slog.Logger
+	// MaxScanBytes is the largest scan upload the handler accepts. Comes
+	// from config.MaxScanBytes so main is the only place the byte value
+	// is composed (backend-code-style.md §Configuration).
+	MaxScanBytes int64
+	Log          *slog.Logger
 
 	secureCookie bool
 }
@@ -168,10 +173,30 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := view.ControlDetailPage{
-		Page:       middleware.PageFor(r, c.Name),
-		Control:    toDetailedControl(c, h.Bank),
-		SujetURL:   controlSujetURL(c.ID),
-		CorrigeURL: controlCorrigeURL(c.ID),
+		Page:          middleware.PageFor(r, c.Name),
+		Control:       toDetailedControl(c, h.Bank),
+		SujetURL:      controlSujetURL(c.ID),
+		CorrigeURL:    controlCorrigeURL(c.ID),
+		ScansURL:      controlScansURL(c.ID),
+		ReanalyzeURL:  controlReanalyzeURL(c.ID),
+		CloseURL:      controlCloseURL(c.ID),
+		MaxScanMB:     h.MaxScanBytes >> 20,
+		CurrentTicked: defaultTicked,
+		CurrentUnsure: defaultUnsure,
+		Graded:        c.State == controls.Graded,
+	}
+	readings, err := h.Service.ReadingsFor(r.Context(), c.ID)
+	if err != nil {
+		h.Log.Error("listing readings", "control", c.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+	if len(readings) > 0 {
+		page.QuestionColumns = perQuestionColumns(c.QuestionsPerCopy)
+		page.Readings = toReadingRows(c, readings)
+		page.Summary = summarise(readings)
+		page.CanClose, page.CloseBlockedReason = closeGate(c, readings)
 	}
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 
@@ -443,6 +468,207 @@ func controlSujetURL(id string) string {
 
 func controlCorrigeURL(id string) string {
 	return controlDetailURL(id) + "/corrige.pdf"
+}
+
+func controlScansURL(id string) string {
+	return controlDetailURL(id) + "/scans"
+}
+
+func controlReanalyzeURL(id string) string {
+	return controlDetailURL(id) + "/reanalyze"
+}
+
+func controlCloseURL(id string) string {
+	return controlDetailURL(id) + "/close"
+}
+
+// closeGate implements the S8 rule: enabled when no reading holds an
+// unresolved failure kind. Returns the reason otherwise, in Spanish, for
+// the disabled button's hint. The rules mirror
+// controls.Service.CloseCorrection so the disabled UI and the server-side
+// guard agree.
+func closeGate(c controls.Control, readings []controls.Reading) (bool, string) {
+	if c.State == controls.Graded {
+		return false, ""
+	}
+	blocking := 0
+	for _, r := range readings {
+		if r.CopyStatus == controls.CopyStatusNotPresent {
+			continue
+		}
+		if r.CopyStatus == controls.CopyStatusIncomplete {
+			blocking++
+			continue
+		}
+		if r.RUTStatus == controls.RUTStatusUnreadable && r.RUTOverride == nil {
+			blocking++
+		}
+		for _, a := range r.Answers {
+			st := effectiveAnswerStatus(a)
+			if st == controls.AnswerStatusDoubtful || st == controls.AnswerStatusAmbiguous {
+				blocking++
+				break
+			}
+		}
+	}
+	if blocking == 0 {
+		return true, ""
+	}
+	return false, fmt.Sprintf("Faltan %d revisiones antes de cerrar.", blocking)
+}
+
+// perQuestionColumns returns the "P1, P2, …" header labels for the results
+// table, one per question the control drew.
+func perQuestionColumns(n int) []string {
+	out := make([]string, n)
+	for i := range out {
+		out[i] = fmt.Sprintf("P%d", i+1)
+	}
+	return out
+}
+
+// toReadingRows turns each Reading into the pre-formatted table row.
+// Grade math and the estado collapse live here so the template does no
+// arithmetic.
+func toReadingRows(c controls.Control, readings []controls.Reading) []view.ReadingRow {
+	out := make([]view.ReadingRow, 0, len(readings))
+	for _, r := range readings {
+		out = append(out, toReadingRow(c, r))
+	}
+	return out
+}
+
+func toReadingRow(c controls.Control, r controls.Reading) view.ReadingRow {
+	row := view.ReadingRow{
+		CopyNumber:  r.CopyNumber,
+		PerQuestion: renderPerQuestion(c.QuestionsPerCopy, r),
+		ReviewURL:   controlReviewURL(c.ID, r.CopyNumber),
+	}
+	row.RUT, row.Edited = renderRUT(r)
+	row.Estado, row.EstadoClass = estadoFor(r)
+	row.TotalRaw, row.Grade = controls.TotalAndGrade(c.QuestionsPerCopy, r)
+	return row
+}
+
+// controlReviewURL is the URL of one copy's review page (S5).
+func controlReviewURL(controlID string, copyNumber int) string {
+	return fmt.Sprintf("%s/copies/%d/review", controlDetailURL(controlID), copyNumber)
+}
+
+func renderRUT(r controls.Reading) (string, bool) {
+	if r.RUTOverride != nil {
+		return r.RUTOverride.RUT, true
+	}
+	if r.RUTStatus == controls.RUTStatusOK && r.RUTRead != nil {
+		return *r.RUTRead, false
+	}
+	// Unreadable / not_present with no override.
+	return "", false
+}
+
+// renderPerQuestion aligns answers to the P1..PN columns. Missing entries
+// become "—" and doubtful/blank/ambiguous become "⚠".
+func renderPerQuestion(cols int, r controls.Reading) []string {
+	out := make([]string, cols)
+	for i := range out {
+		out[i] = "—"
+	}
+	if r.CopyStatus == controls.CopyStatusNotPresent {
+		return out
+	}
+	// Answers are per-copy and their count equals the drawn questions;
+	// alignment is by index, one to one. A row-level "editado" marker
+	// beside the RUT is what surfaces overrides; per-question cells
+	// display the same shape whether AMC or a human wrote them.
+	for i, a := range r.Answers {
+		if i >= cols {
+			break
+		}
+		status := a.Status
+		if a.Override != nil {
+			status = a.Override.Status
+		}
+		out[i] = renderAnswerCell(status, a.Score, a.Max, a.QuestionType == controls.QuestionMultiple)
+	}
+	return out
+}
+
+func renderAnswerCell(status controls.AnswerStatus, score, max float64, multiple bool) string {
+	if status == controls.AnswerStatusBlank ||
+		status == controls.AnswerStatusAmbiguous ||
+		status == controls.AnswerStatusDoubtful {
+		return "⚠"
+	}
+	if max <= 0 {
+		return "—"
+	}
+	rel := score / max
+	if multiple {
+		return fmt.Sprintf("%.2f", rel)
+	}
+	if rel == 1 {
+		return "1"
+	}
+	if rel == 0 {
+		return "0"
+	}
+	return fmt.Sprintf("%.2f", rel)
+}
+
+func estadoFor(r controls.Reading) (string, string) {
+	switch r.CopyStatus {
+	case controls.CopyStatusNotPresent:
+		return "no rendida", "estado-no-rendida"
+	case controls.CopyStatusIncomplete:
+		return "⚠ página faltante", "estado-incompleta"
+	}
+	if r.RUTStatus == controls.RUTStatusUnreadable && r.RUTOverride == nil {
+		return "⚠ RUT ilegible", "estado-rut"
+	}
+	for _, a := range r.Answers {
+		effective := effectiveAnswerStatus(a)
+		if effective == controls.AnswerStatusDoubtful ||
+			effective == controls.AnswerStatusAmbiguous ||
+			effective == controls.AnswerStatusBlank {
+			return "⚠ marca dudosa", "estado-dudosa"
+		}
+	}
+	return "ok", "estado-ok"
+}
+
+// effectiveAnswerStatus is the status the professor's decision (if any)
+// left the answer at.
+func effectiveAnswerStatus(a controls.Answer) controls.AnswerStatus {
+	if a.Override != nil {
+		return a.Override.Status
+	}
+	return a.Status
+}
+
+// summarise counts each collapse bucket for the results-table footer.
+func summarise(readings []controls.Reading) string {
+	if len(readings) == 0 {
+		return ""
+	}
+	printed := len(readings)
+	corregidas := 0
+	revisar := 0
+	noRendidas := 0
+	for _, r := range readings {
+		if r.CopyStatus == controls.CopyStatusNotPresent {
+			noRendidas++
+			continue
+		}
+		estado, _ := estadoFor(r)
+		switch estado {
+		case "ok":
+			corregidas++
+		default:
+			revisar++
+		}
+	}
+	return fmt.Sprintf("%d copias impresas · %d corregidas · %d requieren revisión · %d no rendidas",
+		printed, corregidas, revisar, noRendidas)
 }
 
 // toListedControls turns domain values into rows the template can render

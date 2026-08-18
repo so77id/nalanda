@@ -79,6 +79,33 @@ func (s *fakeStore) ControlPool(_ context.Context, id string) ([]controls.PoolEn
 	return s.pools[id], nil
 }
 
+// fakeReadingStore is the do-nothing double the pre-WP-F cases use. The
+// WP-F flows are exercised through Service.UploadScan in scans_test.go
+// with a real controlstore.
+type fakeReadingStore struct{}
+
+func (fakeReadingStore) UpsertReadingsFromReport(context.Context, string, controls.Report, time.Time) error {
+	return nil
+}
+func (fakeReadingStore) MarkMissingAsNotPresent(context.Context, string, time.Time) error { return nil }
+func (fakeReadingStore) ReadingsByControl(context.Context, string) ([]controls.Reading, error) {
+	return nil, nil
+}
+func (fakeReadingStore) ReadingByCopy(context.Context, string, int) (controls.Reading, error) {
+	return controls.Reading{}, controls.ErrReadingNotFound
+}
+func (fakeReadingStore) SetAnswerOverride(context.Context, int64, string, controls.AnswerOverride) error {
+	return nil
+}
+func (fakeReadingStore) ClearAnswerOverride(context.Context, int64, string) error { return nil }
+func (fakeReadingStore) SetRUTOverride(context.Context, int64, string, time.Time) error {
+	return nil
+}
+func (fakeReadingStore) ClearRUTOverride(context.Context, int64) error { return nil }
+func (fakeReadingStore) SetControlState(context.Context, string, controls.State) error {
+	return nil
+}
+
 // newService returns a Service against a fixture bank, a fake store, a
 // fake generator that succeeds (SujetSize > 0), and a work dir under t's
 // tempdir.
@@ -95,6 +122,8 @@ func newService(t *testing.T) (*controls.Service, *fakeStore, *amctest.Fake, str
 		Bank:      b,
 		Store:     store,
 		Generator: gen,
+		Analyzer:  gen,
+		Readings:  fakeReadingStore{},
 		WorkDir:   workDir,
 		Now:       func() time.Time { return time.Unix(1_755_446_400, 0).UTC() },
 		Seed:      1242,
@@ -272,8 +301,9 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 	gen := &amctest.Fake{WorkDir: workDir, SujetSize: 4}
 	store := newFakeStore()
 	svc := controls.NewService(controls.Service{
-		Bank: b, Store: store, Generator: gen, WorkDir: workDir,
-		Now: func() time.Time { return time.Now() }, Seed: 1,
+		Bank: b, Store: store, Generator: gen, Analyzer: gen, Readings: fakeReadingStore{},
+		WorkDir: workDir,
+		Now:     func() time.Time { return time.Now() }, Seed: 1,
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 

@@ -35,7 +35,7 @@ nalanda/
 │   └── course-graph.md Course topology (planning tool)
 ├── infra/
 │   ├── local/          Local orchestration (docker-compose) — belongs to no single app
-│   └── deploy/         Host-specific production images and scripts (born with infra/deploy/jetson/, #162, ADR-0037)
+│   └── deploy/         Host-specific production images and scripts (born with infra/deploy/jetson/, #162, ADR-0038)
 ├── proof-of-concept/   Archived POC + old roadmap issues (reference)
 ├── .claude/            Agent infra: workflow bindings, settings (plugins), hooks, repo agents
 └── CLAUDE.md           Monorepo-shared agent instructions (per-app CLAUDE.md in each app)
@@ -171,12 +171,12 @@ Since #162, the backend runs on DocumentBuddy's Jetson Nano at
 **`https://<host>.<tailnet>.ts.net:8443`** (the exact host is Miguel's;
 Tailscale Funnel gives it a real https certificate on port 8443 —
 DocumentBuddy already holds 443 on the same box). Full context in
-**ADR-0037**; operating procedure in
+**ADR-0038**; operating procedure in
 [`infra/local/DEPLOY-JETSON.md`](infra/local/DEPLOY-JETSON.md).
 
 - **Test bed, not a home.** Design §C15 is still open on where the server
   runs permanently; the Jetson exists to produce the measurements that
-  decision will need. Numbers to collect: ADR-0037 §"The permanent home is
+  decision will need. Numbers to collect: ADR-0038 §"The permanent home is
   still open".
 - **What publishes it**: `git push origin main`. On any push touching
   `apps/server/**` or the Jetson sidecar files,

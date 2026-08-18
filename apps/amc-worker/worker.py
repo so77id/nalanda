@@ -213,6 +213,24 @@ def analyse(body):
     return read_capture.read(data, TICKED, UNSURE)
 
 
+def reanalyse(body):
+    """Re-read a captured project at new thresholds, without a new capture.
+
+    Same project directory as `/analyse`, no scan_pdf: the read runs against
+    the sqlite files AMC already wrote and only the darkness verdicts move.
+    The scores stay where `note` left them, and the report's `scoring.stale`
+    is the caller's cue (ADR-0031 §The report says which threshold).
+    """
+    _project, data = project_paths(body)
+    ticked = float(body.get("ticked", TICKED))
+    unsure = float(body.get("unsure", UNSURE))
+    if not 0 < ticked < 1:
+        raise Failed(f"ticked must be in (0, 1), got {ticked}")
+    if not 0 <= unsure < ticked:
+        raise Failed(f"unsure must be in [0, ticked), got {unsure} vs ticked {ticked}")
+    return read_capture.read(data, ticked, unsure)
+
+
 def associate(body):
     """Match the codes AMC assembled against the course roster."""
     _project, data = project_paths(body)
@@ -308,6 +326,7 @@ ROUTES = {
     ("GET", "/health"): health,
     ("POST", "/generate"): generate,
     ("POST", "/analyse"): analyse,
+    ("POST", "/reanalyse"): reanalyse,
     ("POST", "/associate"): associate,
     ("POST", "/associate/set"): associate_set,
     ("POST", "/annotate"): annotate,

@@ -1,4 +1,4 @@
-# ADR-0037: The Jetson is the first test bed, chosen because it exists
+# ADR-0038: The Jetson is the first test bed, chosen because it exists
 
 **Status:** Accepted — off-box execution outstanding (Miguel runs the AWS
 provisioning, the Funnel bring-up, and `GOOGLE-CHECK.md` on https)

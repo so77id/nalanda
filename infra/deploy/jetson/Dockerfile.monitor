@@ -1,4 +1,4 @@
-# Health monitor container for the Nalanda Jetson deploy (#162, ADR-0037).
+# Health monitor container for the Nalanda Jetson deploy (#162, ADR-0038).
 #
 # alpine + curl (for Telegram) + wget (base image). Nothing else — the whole
 # container's job is one long-lived shell loop.
