@@ -726,6 +726,14 @@ check(Solution.sumaHastaN(100), 5050);
 
 </Exercise>
 
+{/* Las trece preguntas del banco de este documento. Cada una fue redactada */}
+{/* con la sección que la mide, no meses después contra un documento que */}
+{/* nadie recuerda — el orden que #148 (ADR-0032) inauguró y esta primera */}
+{/* aplicación intencional del `guides/write-control-questions.md`. */}
+{/* La verificación en runtime real (`fact(5) = 120`, `Arrays.sort` deja */}
+{/* `v[0] = 1`, `fib(30)` recursivo cae en el orden del segundo en CheerpJ */}
+{/* del navegador de referencia) se hace en el browser check de S7; ajustar */}
+{/* alternativas si el JVM discrepa es parte de esa lista. */}
 <Questions>
 
 <Question id="largo-array-java" anchor="arrays-en-java">
@@ -848,10 +856,10 @@ System.out.println(fact(5));
 ¿Cuál de estas afirmaciones sobre las tres implementaciones de Fibonacci es
 cierta?
 
-- [x] La versión con arreglo y la ventana calculan los mismos valores en tiempos parecidos
+- [x] La versión con arreglo y la de dos variables tardan tiempos parecidos
 - [ ] La recursiva es la más rápida porque es la más corta y clara
 - [ ] Java optimiza la recursión automáticamente; las tres corren igual
-- [ ] La versión con ventana usa más memoria que la del arreglo
+- [ ] La versión con dos variables usa más memoria que la del arreglo
 
 </Question>
 
