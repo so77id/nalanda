@@ -50,6 +50,11 @@ type Input struct {
 	// verbatim into \lstinputlisting{...}, so the caller (the Service, S5)
 	// must have staged the files before compile time.
 	ListingsDir string
+	// DuplexPadding, when true, closes each \onecopy with
+	// \AMCcleardoublepage so every copy pads to an even page count for
+	// duplex printing (historical layout). When false, emits \clearpage
+	// instead — one page per copy for simplex printing. Issue #185.
+	DuplexPadding bool
 }
 
 // Compile emits the .tex source. The output ends with a newline.
@@ -245,7 +250,14 @@ func writeSheet(b *strings.Builder, in Input) {
 
 	b.WriteString("  \\shufflegroup{clase}\n")
 	fmt.Fprintf(b, "  \\insertgroup[%d]{clase}\n\n", in.QuestionsPerCopy)
-	b.WriteString("  \\AMCcleardoublepage\n")
+	// Issue #185: padded closes the copy with \AMCcleardoublepage (blank
+	// filler page when the content ended on an odd page); unpadded uses
+	// \clearpage so the sujet.pdf is one page per copy.
+	if in.DuplexPadding {
+		b.WriteString("  \\AMCcleardoublepage\n")
+	} else {
+		b.WriteString("  \\clearpage\n")
+	}
 	b.WriteString("}\n\n")
 	b.WriteString("\\end{document}\n")
 }

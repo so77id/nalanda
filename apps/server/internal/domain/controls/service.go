@@ -185,6 +185,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 		QuestionsPerCopy: req.QuestionsPerCopy,
 		Seed:             s.Seed,
 		ListingsDir:      workerPath(project, "inputs"),
+		DuplexPadding:    req.DuplexPadding,
 	})
 	if err != nil {
 		rollback()
