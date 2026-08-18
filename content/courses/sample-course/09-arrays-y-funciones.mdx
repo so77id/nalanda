@@ -216,6 +216,196 @@ binaria más adelante en el curso; aquí lo que necesitabas era **la herramienta
 `sort`, no el algoritmo por debajo.
 </Slide>
 
+<Slide title="Funciones en C++">
+En C++ declaras una función indicando su tipo de retorno, su nombre y sus
+parámetros, y opcionalmente la separas en firma y cuerpo:
+
+```cpp
+int maximo(int a, int b);              // firma
+int maximo(int a, int b) { return a > b ? a : b; }  // cuerpo
+
+int main() { std::cout << maximo(3, 4); }
+```
+
+Puedes tener **funciones libres** (sueltas, como `maximo`), **métodos** dentro de
+una clase, y **funciones sobrecargadas** (mismo nombre, distintos parámetros). Y
+tienes **punteros a función**, además de operadores que puedes sobrecargar para
+tus propios tipos.
+
+En Java todo esto vuelve a plantearse desde el hecho de que **no existen funciones
+libres**: cada función vive dentro de una clase. El resto de las diferencias caen
+por sí solas cuando entendiste esa.
+</Slide>
+
+<Slide title="Anatomía de una función">
+En Java, `main` es lo único que has visto hasta ahora que se parece a una función.
+Cualquier otra la escribes exactamente con la misma forma: modificadores, tipo de
+retorno, nombre, parámetros entre paréntesis, y un bloque.
+
+```java
+class Util {
+    static int maximo(int a, int b) {
+        return a > b ? a : b;
+    }
+}
+```
+
+- **`static`** significa "no necesita un objeto para llamarla". Un método sin
+  `static` vive **en un objeto** (la instancia lo lleva), y solo se puede llamar
+  con un objeto delante: `x.mayorQue(y)`. Todo lo que has escrito hasta ahora es
+  `static` porque todavía no hay objetos en escena — llegan en el próximo
+  documento.
+- **El tipo de retorno es obligatorio.** Si no devuelves nada, se declara `void`
+  — pero se declara, Java nunca lo infiere. Un método `int` que se olvida de
+  ejecutar `return` con un `int` no compila; un método `void` que escribe
+  `return 5;` tampoco.
+- **Los parámetros se pasan por valor.** Un `int` viaja como copia; un objeto
+  viaja como copia de la referencia — el mismo hecho de
+  [[referencias-null-igualdad|el documento anterior]]. Java no tiene el `&` de
+  C++ para pedir referencia; si necesitas modificar algo, devuélvelo o pasa un
+  arreglo (que es un objeto).
+
+**Sobrecarga: dos funciones con el mismo nombre, distintos parámetros.**
+
+```java
+static int maximo(int a, int b)            { return a > b ? a : b; }
+static int maximo(int a, int b, int c)     { return maximo(maximo(a, b), c); }
+static double maximo(double a, double b)   { return a > b ? a : b; }
+```
+
+Las tres se llaman `maximo`; el compilador elige cuál usar mirando los tipos y
+la cantidad de argumentos que le pasas. `maximo(3, 4)` va a la primera —
+literales enteros — y `maximo(3.0, 4.0)` va a la tercera.
+
+**Lo que sí tenías en C++ y en Java no:** sobrecargar `+`, `==` o cualquier otro
+operador para tus propios tipos. Esa es la razón — la misma que aparece en
+[[referencias-null-igualdad|el documento anterior]] — por la que `==` sobre
+`String` no compara contenido: nadie puede reescribir qué significa `==`, ni
+siquiera para las clases que Java trae de fábrica.
+</Slide>
+
+<Slide title="Recursión en C++">
+Una función que se llama a sí misma. La sintaxis es idéntica a cualquier otra
+llamada — no hay palabra clave "recursivo" en C++ ni en Java. La responsabilidad
+de que la recursión termine es del autor: hay que garantizar un **caso base**
+donde la función devuelve sin llamarse otra vez, y que el **caso recursivo**
+llame con argumentos que se acerquen al base.
+
+```cpp
+int factorial(int n) {
+    if (n <= 1) return 1;           // caso base
+    return n * factorial(n - 1);    // caso recursivo
+}
+```
+
+Si te olvidas del base — o el recursivo llama con el mismo argumento — la pila
+crece hasta que el sistema operativo interrumpe el programa. En C++ eso puede
+ser un `stack overflow`, un segfault, o algo peor si tocaste memoria ajena.
+
+Java hereda la mecánica y hace lo mismo mejor: te lanza una excepción con el
+nombre exacto de lo que pasó.
+</Slide>
+
+<Slide title="Recursión">
+Una función que se llama a sí misma. Las reglas son las mismas que ya conoces
+de C++, con dos cosas que Java hace distinto: la excepción cuando la pila se
+llena tiene nombre propio, y no hay ninguna manera de escribir un ciclo que no
+sea uno de los que ya viste (`for`, `while`, `for-each`) — es decir, si quieres
+recorrer sin repetir estado, la opción legítima es la recursión.
+
+**Toda función recursiva tiene dos partes:**
+
+1. **Caso base**: el argumento donde la función devuelve sin llamarse otra vez.
+   Es el fondo de la recursión.
+2. **Caso recursivo**: la función se llama a sí misma con un argumento que se
+   acerca al caso base. Sin ese "se acerca" la recursión no termina.
+
+```java
+class Factorial {
+
+    static int factorial(int n) {
+        if (n <= 1) return 1;               // caso base
+        return n * factorial(n - 1);        // caso recursivo
+    }
+
+    public static void main(String[] args) {
+        System.out.println(factorial(5));   // 120
+    }
+}
+```
+
+Léelo como una historia: `factorial(4)` no sabe cuánto vale, pero sabe que es
+`4 * factorial(3)`. `factorial(3)` a su vez es `3 * factorial(2)`. Y así hasta
+`factorial(1)`, que responde `1` sin preguntarle a nadie. Ese `1` vuelve, se
+multiplica por `2`, ese `2` se multiplica por `3`, ese `6` se multiplica por
+`4`, y llega a `main` como `24`.
+
+Cada llamada anidada abre una **capa** en la pila y se cierra al retornar. Esa
+pila es finita (unas decenas de miles de llamadas en un JVM típico), y ahí
+entra el peor defecto de una recursión mal escrita.
+</Slide>
+
+<Slide title="Factorial en vivo">
+Corre este `factorial(5)` y confirma que da `120`. Después prueba `factorial(1)`
+y `factorial(0)` — los dos deberían dar `1`, porque los dos entran directo al
+caso base.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Factorial {
+
+    static int factorial(int n) {
+        if (n <= 1) return 1;
+        return n * factorial(n - 1);
+    }
+
+    public static void main(String[] args) {
+        System.out.println("factorial(0) = " + factorial(0));
+        System.out.println("factorial(1) = " + factorial(1));
+        System.out.println("factorial(5) = " + factorial(5));
+        System.out.println("factorial(10) = " + factorial(10));
+    }
+}
+`}
+/>
+
+`factorial(10)` es `3628800`. Un `int` guarda `factorial(12)`; a partir de `13`
+desborda y aterriza en un número negativo — el mismo desbordamiento silencioso
+de [[java-tipos-y-flujo|"Tipos, operadores y entrada/salida"]]. Es lo que
+introduce el siguiente caso de estudio, `fib`, donde el problema no es el
+tamaño del resultado sino el tiempo que toma llegar a él.
+</Slide>
+
+<Slide title="Sin caso base">
+El defecto más común de escribir una recursión: olvidar el caso base, o escribir
+uno que la llamada nunca alcanza. La pila se llena y Java lanza
+`StackOverflowError` con el rastro completo.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Descuidado {
+
+    static int cuenta(int n) {
+        return n + cuenta(n - 1);   // sin caso base
+    }
+
+    public static void main(String[] args) {
+        System.out.println(cuenta(5));
+    }
+}
+`}
+/>
+
+Ejecútalo. El rastro es larguísimo — miles de líneas idénticas — porque cada
+llamada anidada aparece en el reporte. Es el error más ruidoso que Java sabe
+lanzar, y para eso está: el defecto es serio y merece un mensaje que no se
+confunda con otro.
+
+En C++ el mismo programa dependería del compilador y la máquina; en Java el
+comportamiento está **especificado**, igual que el desbordamiento de enteros y
+por la misma razón: predecibilidad multiplataforma.
+</Slide>
+
 <Questions>
 
 <Question id="largo-array-java" anchor="arrays-en-java">
@@ -271,6 +461,65 @@ System.out.println(v[0]);
 - [ ] Recorrer con `for` y comparar cada elemento con `== "María"` a secas
 - [ ] Comparar directamente el arreglo entero: `names == "María"`
 - [ ] Java lo detecta solo, no hace falta escribir el recorrido
+
+</Question>
+
+<Question id="valor-de-retorno" anchor="anatomia-de-una-funcion">
+
+¿Cuáles de estas afirmaciones sobre las funciones en Java son ciertas?
+
+- [x] Una función que devuelve `int` tiene que ejecutar un `return` con un `int`
+- [x] Una función declarada `void` no puede escribir `return algo;`
+- [ ] Java tiene punteros a función, como en C++
+- [ ] El tipo de retorno es opcional; el compilador lo infiere
+
+</Question>
+
+<Question id="overloading-cual-se-elige" anchor="anatomia-de-una-funcion">
+
+Dado:
+
+```java
+static int max(int a, int b) { return a > b ? a : b; }
+static double max(double a, double b) { return a > b ? a : b; }
+```
+
+Al llamar `max(3, 4)`, ¿cuál se elige?
+
+- [x] La versión `int`, porque los literales son `int`
+- [ ] La versión `double`, porque es más general
+- [ ] Error de compilación por ambigüedad
+- [ ] Cualquiera, Java elige al azar
+
+</Question>
+
+<Question id="factorial-recursion" anchor="recursion">
+
+¿Qué imprime este programa?
+
+```java
+static int fact(int n) {
+    if (n <= 1) return 1;
+    return n * fact(n - 1);
+}
+System.out.println(fact(5));
+```
+
+- [x] `120`
+- [ ] `5`
+- [ ] Error de compilación
+- [ ] `StackOverflowError`
+
+</Question>
+
+<Question id="sin-caso-base" anchor="recursion">
+
+¿Qué pasa si una función recursiva no tiene caso base?
+
+- [x] Lanza `StackOverflowError` cuando la pila se llena
+- [ ] Corre para siempre sin problema
+- [ ] Java lo detecta al compilar y no deja compilar
+- [ ] Devuelve `null`
 
 </Question>
 

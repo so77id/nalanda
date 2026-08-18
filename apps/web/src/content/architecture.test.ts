@@ -177,6 +177,14 @@ describe('architecture: content invariants', () => {
         'sub-detalle del §1 arrays; el hecho principal (largo como campo, tamaño fijo) se mide en la pregunta de "Arrays en Java"',
       'en-c-era-segfault':
         'contraste con C++; el comportamiento que Java garantiza se mide en la pregunta de "Acceso y bounds"',
+      'funciones-en-c':
+        'contraste con C++; lo que Java hace distinto se mide en la pregunta de "Anatomía de una función"',
+      'recursion-en-c':
+        'contraste con C++; el mecanismo Java y su excepción propia se miden en las preguntas de "Recursión"',
+      'factorial-en-vivo':
+        'actividad: el alumno corre factorial(5) y compara los resultados; la mecánica se mide en "Recursión"',
+      'sin-caso-base':
+        'actividad: el alumno provoca el StackOverflowError; la pregunta que mide el mecanismo vive en "Recursión"',
     },
   };
 
