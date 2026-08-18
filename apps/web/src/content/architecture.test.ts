@@ -161,6 +161,10 @@ describe('architecture: content invariants', () => {
       ejercicios: 'actividad: cinco problemas para escribir, no materia que medir en cinco minutos',
       'lo-que-sigue': 'cierre del documento: anuncia lo que viene, no enseña nada propio',
     },
+    'referencias-null-igualdad': {
+      ejercicios: 'actividad: tres problemas para escribir, no materia que medir en cinco minutos',
+      'lo-que-sigue': 'cierre del documento: anuncia lo que viene, no enseña nada propio',
+    },
   };
 
   function sourceOf(key: string): string {

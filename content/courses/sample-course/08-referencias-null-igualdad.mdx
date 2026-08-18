@@ -2,15 +2,17 @@
 id: referencias-null-igualdad
 title: Referencias, null e igualdad
 presentation: explicit
-questions: none
+questions: per-section
 ---
 
 {/* This document is the third of the Java unit and the first that opens the */}
 {/* memory model. It declares `presentation: explicit`, so ONLY content */}
 {/* inside <Slide> markers is projected; loose prose stays book-only. */}
-{/* `questions:` will flip to `per-section` in the same commit that lands the */}
-{/* fourteen questions from #77 §Question bank (S6) — declaring it earlier */}
-{/* reddens the coverage gate by construction (guide §7b). */}
+{/* `questions: per-section` — every anchored `h2` owes at least one question */}
+{/* (or a NO_QUESTION exemption WITH ITS REASON in */}
+{/* apps/web/src/content/architecture.test.ts). Two sections declared exempt */}
+{/* today: `ejercicios` (activity, not material) and `lo-que-sigue` */}
+{/* (closing announcement), same shape as java-tipos-y-flujo. */}
 
 # Referencias, null e igualdad
 
@@ -583,6 +585,238 @@ check(Solution.longitudSegura("Estructuras de Datos"), 20);
 ```
 
 </Exercise>
+
+<Questions>
+
+<Question id="que-imprime-aliasing" anchor="dos-variables-un-objeto">
+
+¿Qué imprime este programa?
+
+```java
+int[] a = {1, 2, 3};
+int[] b = a;
+b[0] = 99;
+System.out.println(a[0]);
+```
+
+- [x] `99`
+- [ ] `1`
+- [ ] Error de compilación
+- [ ] `NullPointerException`
+
+</Question>
+
+<Question id="referencia-vs-puntero-cpp" anchor="dos-variables-un-objeto">
+
+¿Cuáles de estas afirmaciones sobre las referencias en Java son ciertas,
+comparadas con los punteros de C++?
+
+- [x] Se desreferencian solas — no escribes `*` ni `->`
+- [x] No se les puede sumar un número
+- [ ] Pueden obtener la dirección de una variable local con `&`
+- [ ] Igual que en C++, `==` compara el contenido apuntado
+
+</Question>
+
+<Question id="cual-es-primitivo" anchor="primitivos-vs-objetos">
+
+¿Cuál de estos tipos de Java es **primitivo**?
+
+- [x] `int`
+- [ ] `Integer`
+- [ ] `String`
+- [ ] `int[]`
+
+</Question>
+
+<Question id="asignar-primitivo" anchor="primitivos-vs-objetos">
+
+¿Qué imprime este programa?
+
+```java
+int a = 5;
+int b = a;
+b = 99;
+System.out.println(a);
+```
+
+- [x] `5`
+- [ ] `99`
+- [ ] Error de compilación
+- [ ] `0`
+
+</Question>
+
+<Question id="por-que-swap-no-swappea" anchor="paso-de-parametros">
+
+Dado este método:
+
+```java
+static void swap(int[] x, int[] y) {
+    int[] t = x;
+    x = y;
+    y = t;
+}
+```
+
+Al llamarlo con dos arreglos `a` y `b`, no intercambia nada visto desde el
+llamador. ¿Por qué?
+
+- [x] `x` e `y` son variables locales de `swap`; reasignarlas no toca las variables `a` y `b` del llamador
+- [ ] Los arreglos en Java son inmutables
+- [ ] Java lanza silenciosamente una excepción que hace fallar el swap
+- [ ] Falta declarar los parámetros con `final`
+
+</Question>
+
+<Question id="modificar-vs-reasignar" anchor="paso-de-parametros">
+
+¿Qué imprime este programa?
+
+```java
+static void modificar(int[] x) { x[0] = 99; }
+static void reasignar(int[] x) { x = new int[]{99}; }
+
+int[] a = {1};
+int[] b = {1};
+modificar(a);
+reasignar(b);
+System.out.println(a[0] + " " + b[0]);
+```
+
+- [x] `99 1`
+- [ ] `1 99`
+- [ ] `99 99`
+- [ ] `1 1`
+
+</Question>
+
+<Question id="que-pasa-con-null" anchor="null-y-npe">
+
+¿Qué pasa cuando se ejecuta esto?
+
+```java
+String s = null;
+System.out.println(s.length());
+```
+
+- [x] Lanza `NullPointerException`
+- [ ] Imprime `0`
+- [ ] Imprime `null`
+- [ ] Comportamiento indefinido, como un segfault en C++
+
+</Question>
+
+<Question id="new-string-doble-igual" anchor="identidad-vs-igualdad">
+
+¿Qué imprime este programa?
+
+```java
+String a = new String("hola");
+String b = new String("hola");
+System.out.println(a == b);
+System.out.println(a.equals(b));
+```
+
+- [x] `false` y `true`
+- [ ] `true` y `true`
+- [ ] `false` y `false`
+- [ ] `true` y `false`
+
+</Question>
+
+<Question id="literal-de-string-doble-igual" anchor="identidad-vs-igualdad">
+
+¿Qué imprime este programa?
+
+```java
+String a = "hola";
+String b = "hola";
+System.out.println(a == b);
+```
+
+- [x] `true`
+- [ ] `false`
+- [ ] `null`
+- [ ] Error de compilación
+
+</Question>
+
+<Question id="cuando-usar-equals" anchor="identidad-vs-igualdad">
+
+¿Cuáles de estas afirmaciones sobre `==` y `.equals()` en Java son ciertas?
+
+- [x] `==` sobre dos referencias distintas al mismo contenido devuelve `false`
+- [x] `.equals()` puede lanzar `NullPointerException` si el receptor es `null`
+- [ ] `==` en Java se puede sobrecargar por clase, como en C++
+- [ ] Para comparar Strings, usar `==` es siempre equivalente a `.equals()`
+
+</Question>
+
+<Question id="cache-integer-frontera" anchor="wrappers-y-autoboxing">
+
+¿Qué imprime este programa?
+
+```java
+Integer a = 127;  Integer b = 127;
+Integer c = 128;  Integer d = 128;
+System.out.println(a == b);
+System.out.println(c == d);
+```
+
+- [x] `true` y `false`
+- [ ] `true` y `true`
+- [ ] `false` y `false`
+- [ ] `false` y `true`
+
+</Question>
+
+<Question id="por-que-existen-wrappers" anchor="wrappers-y-autoboxing">
+
+¿Por qué existen `Integer`, `Long`, `Double`, etc., si ya existen `int`,
+`long`, `double`?
+
+- [x] Porque las colecciones (`List`, `Map`, `Set`) solo pueden guardar objetos
+- [ ] Porque son más rápidos en aritmética que los tipos primitivos
+- [ ] Porque solo los wrappers admiten valores negativos y decimales
+- [ ] Porque los primitivos no se pueden imprimir con `System.out.println`
+
+</Question>
+
+<Question id="que-atrapa-el-catch" anchor="excepciones">
+
+¿Qué imprime este programa?
+
+```java
+try {
+    String s = null;
+    s.length();
+} catch (NullPointerException e) {
+    System.out.println("A");
+}
+System.out.println("B");
+```
+
+- [x] `A` y luego `B`
+- [ ] Solo `A`
+- [ ] Solo `B`
+- [ ] El programa termina sin imprimir nada
+
+</Question>
+
+<Question id="que-libera-el-gc" anchor="recolector-de-basura">
+
+¿Cuál de estas afirmaciones sobre el recolector de basura de Java es
+cierta?
+
+- [x] Libera cualquier objeto al que ya no apunte ninguna referencia viva
+- [ ] Libera cualquier objeto cuando se llama `delete` sobre él
+- [ ] Libera cualquier objeto tan pronto como sale del bloque en que se creó
+- [ ] Libera cualquier objeto solo si el programador llama a `System.gc()`
+
+</Question>
+
+</Questions>
 
 ## Lo que sigue
 
