@@ -191,6 +191,8 @@ describe('architecture: content invariants', () => {
         'actividad: el alumno corre la versión con ventana y compara con la del arreglo; misma razón que la anterior',
       'fibonacci-recursivo':
         'actividad: el alumno corre la versión recursiva y siente la lentitud; el porqué se mide en "El árbol de llamadas"',
+      ejercicios:
+        'actividad: cuatro problemas para escribir; la materia se mide en las preguntas ancladas a las secciones que los preparan',
     },
   };
 

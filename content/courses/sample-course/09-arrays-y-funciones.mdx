@@ -600,6 +600,132 @@ mediste tú, en tu propia máquina, y viste que un mismo problema resuelto
 de tres maneras tiene tres tiempos radicalmente distintos.
 </Slide>
 
+## Ejercicios
+
+Cuatro problemas para escribir tú. Completa el método que falta y presiona
+**Comprobar**: tu código se compila junto a una batería de casos que lo llaman
+y te dicen cuáles pasaron. Los casos aparecen después de la primera ejecución.
+
+Todos están **acotados** — los arreglos son cortos, y el recursivo tiene un
+caso base explícito y un input chico. Ningún ejercicio te puede colgar la
+pestaña siempre que respetes el contrato del enunciado.
+
+<Exercise title="1. Suma de un arreglo">
+
+Escribe `sumaArreglo`, que recibe un `int[]` y devuelve la suma de todos sus
+elementos. Si el arreglo está vacío, la suma es `0`.
+
+```java starter
+class Solution {
+
+    static int sumaArreglo(int[] v) {
+        // tu código aquí
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.sumaArreglo(new int[]{1, 2, 3, 4}), 10);
+check(Solution.sumaArreglo(new int[]{-5, 5}), 0);
+check(Solution.sumaArreglo(new int[]{}), 0);
+check(Solution.sumaArreglo(new int[]{42}), 42);
+check(Solution.sumaArreglo(new int[]{1, -1, 1, -1, 1}), 1);
+```
+
+</Exercise>
+
+<Exercise title="2. Máximo de un arreglo">
+
+Escribe `maximoDeArreglo`, que recibe un `int[]` **no vacío** y devuelve el
+mayor de sus elementos. Puedes suponer que el arreglo tiene al menos un
+elemento.
+
+```java starter
+class Solution {
+
+    static int maximoDeArreglo(int[] v) {
+        // tu código aquí
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.maximoDeArreglo(new int[]{3, 1, 4, 1, 5, 9, 2, 6}), 9);
+check(Solution.maximoDeArreglo(new int[]{7}), 7);
+check(Solution.maximoDeArreglo(new int[]{-5, -2, -9, -1, -8}), -1);
+check(Solution.maximoDeArreglo(new int[]{10, 10, 10}), 10);
+check(Solution.maximoDeArreglo(new int[]{-100, 0, 100}), 100);
+```
+
+</Exercise>
+
+<Exercise title="3. ¿Contiene el elemento?">
+
+Escribe `contieneElemento`, que recibe un `String[]` y un `String buscado`, y
+devuelve `true` si el arreglo contiene una cadena **con el mismo contenido**
+que `buscado`. Recuerda que en Java las cadenas se comparan con `.equals()`,
+no con `==`.
+
+Puedes suponer que ni el arreglo ni `buscado` son `null`, y que ninguno de
+los elementos del arreglo es `null` tampoco.
+
+```java starter
+class Solution {
+
+    static boolean contieneElemento(String[] xs, String buscado) {
+        // tu código aquí
+        return false;
+    }
+}
+```
+
+```java test
+check(Solution.contieneElemento(new String[]{"a", "b", "c"}, "b"), true);
+check(Solution.contieneElemento(new String[]{"a", "b", "c"}, "d"), false);
+check(Solution.contieneElemento(new String[]{}, "a"), false);
+check(Solution.contieneElemento(new String[]{"hola"}, "hola"), true);
+check(Solution.contieneElemento(new String[]{"Hola"}, "hola"), false);
+check(Solution.contieneElemento(new String[]{"", "x"}, ""), true);
+```
+
+</Exercise>
+
+<Exercise title="4. Suma hasta n, recursivo">
+
+Escribe `sumaHastaN` **recursivamente**, que recibe un `int n` y devuelve la
+suma `1 + 2 + ... + n`. Si `n` es menor o igual a `0`, la suma es `0`.
+
+Este es el ejercicio donde te falta escribir el caso base y el caso recursivo,
+como en el `factorial` de la sección de recursión. **No uses ciclos**: la
+gracia está en la recursión.
+
+Los casos usan `n ≤ 100`, así que ni tu pila ni el tiempo son un problema. Si
+tu implementación provoca `StackOverflowError`, el caso base está mal escrito
+o falta.
+
+```java starter
+class Solution {
+
+    static int sumaHastaN(int n) {
+        // tu código aquí
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.sumaHastaN(0), 0);
+check(Solution.sumaHastaN(-3), 0);
+check(Solution.sumaHastaN(1), 1);
+check(Solution.sumaHastaN(5), 15);
+check(Solution.sumaHastaN(10), 55);
+check(Solution.sumaHastaN(100), 5050);
+```
+
+</Exercise>
+
 <Questions>
 
 <Question id="largo-array-java" anchor="arrays-en-java">
