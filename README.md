@@ -178,21 +178,30 @@ DocumentBuddy already holds 443 on the same box). Full context in
   runs permanently; the Jetson exists to produce the measurements that
   decision will need. Numbers to collect: ADR-0038 §"The permanent home is
   still open".
-- **What publishes it**: `git push origin main`. On any push touching
-  `apps/server/**` or the Jetson sidecar files,
-  `.github/workflows/server-cd.yml` cross-compiles three arm64 images
-  (server + backup + monitor), pushes them to `ghcr.io/so77id/nalanda-*:latest`,
-  and pings the Nalanda Telegram bot. Watchtower on the Jetson (the
-  instance running inside DocumentBuddy's compose) polls GHCR every 5
-  minutes and swaps each container the moment the digest changes.
-  End-to-end: merge → deploy in ≤8 min, hands-off.
-- **What runs there**: `apps/server` (the login and the backoffice screens),
-  a daily `backup` container (SQLite `.backup` → gzip → S3, 30-day retention
-  via bucket lifecycle, Telegram notify), and a `monitor` container (polls
-  `/health` every 5 min, alerts after 3 failures with a 30-min reminder
-  cadence). `apps/amc-worker` is DELIBERATELY out of scope for this deploy:
-  its 1.04 GB image on a 4 GB Nano is a separate question. So `/api/controls/…`
-  answers with a worker connection error.
+- **What publishes it**: `git push origin main`. Two workflows watch
+  different path filters:
+  - `.github/workflows/server-cd.yml` — fires on `apps/server/**` or
+    the Jetson sidecar files. Cross-compiles arm64 images for server +
+    backup + monitor. ~2–3 min per build with GHA layer cache.
+  - `.github/workflows/amc-worker-cd.yml` — fires on `apps/amc-worker/**`
+    alone. Cross-compiles the amc-worker image (Debian + texlive, ~30
+    min first build under QEMU, ~5-10 min with cache). Own workflow so
+    a one-line server change does not queue behind it.
+
+  Both push to `ghcr.io/so77id/nalanda-*:latest` and ping the Nalanda
+  Telegram bot. Watchtower on the Jetson (the instance running inside
+  DocumentBuddy's compose) polls GHCR every 5 minutes and swaps each
+  container the moment the digest changes. End-to-end for the server:
+  merge → deploy in ≤8 min, hands-off.
+- **What runs there**: four containers under one compose. `apps/server`
+  (the login and the backoffice screens), `apps/amc-worker` (the AMC
+  engine that generates and reads controls — added in #175), a daily
+  `backup` container (SQLite `.backup` → gzip → S3, 30-day retention
+  via bucket lifecycle, Telegram notify), and a `monitor` container
+  (polls `/health` every 5 min, alerts after 3 failures with a 30-min
+  reminder cadence). `/api/controls/…` is answered end-to-end once
+  amc-worker's health check passes; the RSS-and-coexistence measurement
+  is recorded in ADR-0038 §Decision.
 - **How to verify after a deploy**: from a browser off the tailnet,
   `curl -fsS https://<host>.<tailnet>.ts.net:8443/health` and `/api/health`
   answer 200; then run **[`apps/server/GOOGLE-CHECK.md`](apps/server/GOOGLE-CHECK.md)**

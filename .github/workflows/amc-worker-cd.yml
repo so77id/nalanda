@@ -1,0 +1,140 @@
+name: amc-worker CD
+
+# Builds the amc-worker container image and pushes it to GHCR on every push to
+# `main` touching `apps/amc-worker/**`. Watchtower on the Jetson (shared with
+# DocumentBuddy) polls GHCR and swaps the container when a new `:latest`
+# appears (#175, closes ADR-0038 §"Only apps/server is deployed here").
+#
+# Own workflow rather than a matrix row in server-cd.yml because cross-compiling
+# amc-worker under QEMU is expensive — Debian bookworm + apt install of
+# texlive-* + auto-multiple-choice + Perl + OpenCV, all emulated. First build
+# on a fresh cache is ~30 min; server-cd.yml matrix builds complete in ~2 min.
+# A one-line comment change to apps/server should not queue behind a texlive
+# install. Separate path filter, separate concurrency group, separate build.
+#
+# Shape from server-cd.yml. Fresh file, not a reference — same rule as
+# backup.sh / monitor.sh: an edit here must never silently touch its sibling.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/amc-worker/**'
+      - '.github/workflows/amc-worker-cd.yml'
+  # Manual re-run — useful when Watchtower needs a poke without a commit,
+  # or when re-provisioning the Jetson from a wiped image.
+  workflow_dispatch: {}
+
+concurrency:
+  # A second push while the first is still building queues, does not cancel:
+  # cancelling in flight leaves the registry with a partial `:sha-<sha>` and
+  # the ops chat with no notification. Separate group from server-cd so a
+  # server push does not wait behind an amc-worker build (or vice versa).
+  group: amc-worker-cd
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE: ${{ github.repository_owner }}/nalanda-amc-worker
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    # QEMU emulation of an arm64 image with apt install of texlive is slow.
+    # 45 min is generous for a fresh cache; subsequent runs with layer cache
+    # complete in 5-10 min. If a run really needs longer than this, something
+    # is wrong with the image and cancelling it saves a stuck runner.
+    timeout-minutes: 45
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      # SHAs, not tags — a moved tag on a third-party action reaches production
+      # within Watchtower's poll interval because this job has packages:write
+      # and pushes `:latest`. Same convention server-cd.yml, deploy.yml, ci.yml
+      # use in this repo (#162 review, SEC-1).
+      - name: Checkout code
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      # QEMU is what buildx uses to run linux/arm64 containers on the amd64
+      # runner. For amc-worker this emulates the entire apt install of
+      # Debian bookworm packages — the reason this workflow's timeout is
+      # 45 minutes rather than the 10 server-cd.yml can afford.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          # GITHUB_TOKEN has packages:write per the permissions block above.
+          # Same identity, same lifetime, no PAT to rotate.
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push (arm64)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ./apps/amc-worker
+          file: ./apps/amc-worker/Dockerfile
+          push: true
+          platforms: linux/arm64
+          # Two tags on purpose: `:latest` is what Watchtower observes, and
+          # `:sha-<sha>` is what a rollback pins to (`docker pull` a specific
+          # sha without editing the tag in registry). Same pattern as
+          # server-cd.yml.
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE }}:sha-${{ github.sha }}
+          # Layer cache across runs: keeps the `apt install` layer from
+          # re-executing on every push. GHA's built-in cache is free, tied to
+          # this repo, per-workflow scope.
+          cache-from: type=gha,scope=amc-worker
+          cache-to: type=gha,mode=max,scope=amc-worker
+
+  notify:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    # always() so the notification also fires when the build failed —
+    # otherwise a broken push produces no signal at all.
+    if: always()
+    # No token needed — this job only reads secrets and calls Telegram.
+    # Empty permissions closes the surface a future action addition would
+    # inherit by default (#162 review, SEC-4).
+    permissions: {}
+    steps:
+      - name: Send Telegram notification
+        env:
+          # Same repo secrets as server-cd.yml.
+          INFRA_TELEGRAM_TOKEN: ${{ secrets.INFRA_TELEGRAM_TOKEN }}
+          ALLOWED_CHAT_IDS: ${{ secrets.ALLOWED_CHAT_IDS }}
+          BUILD_STATUS: ${{ needs.build-and-push.result }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "${BUILD_STATUS}" = "success" ]; then
+            EMOJI="✅"
+            TEXT="amc-worker image pushed to GHCR (arm64). Watchtower will pull it on the Jetson within its poll interval."
+          else
+            EMOJI="❌"
+            TEXT="amc-worker build/push failed"
+          fi
+
+          MESSAGE="🧭 Nalanda ${EMOJI} ${TEXT}
+          Commit: ${GITHUB_SHA::7}
+          By: ${GITHUB_ACTOR}
+          ${RUN_URL}"
+
+          # Skip cleanly when the secrets are not set — same reason as
+          # server-cd.yml.
+          if [ -z "${INFRA_TELEGRAM_TOKEN}" ] || [ -z "${ALLOWED_CHAT_IDS}" ]; then
+            echo "notify: INFRA_TELEGRAM_TOKEN or ALLOWED_CHAT_IDS not set as repo secrets; skipping." >&2
+            exit 0
+          fi
+
+          curl -s -X POST "https://api.telegram.org/bot${INFRA_TELEGRAM_TOKEN}/sendMessage" \
+            -d chat_id="${ALLOWED_CHAT_IDS}" \
+            -d text="${MESSAGE}" \
+            -d disable_web_page_preview=true

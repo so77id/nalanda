@@ -95,14 +95,20 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   cannot be pinned by a test, the comment says so and says why — worked case:
   `storage.Prober`, on `SELECT` versus `Ping`.
 - **`docker compose` lives in `infra/local/`, never here.** The app packages
-  itself (`Dockerfile`); infra places it. Adding a service or a volume is an
-  edit to `infra/local/docker-compose.yml`. **A HOST-SPECIFIC production
-  service** (`backup`, `monitor`, or the next one) is that same edit behind a
-  `profiles: [<host>]` gate, with its own Dockerfile and scripts under
-  `infra/deploy/<host>/` — worked case: `infra/deploy/jetson/` with the
-  `jetson` profile (#162, ADR-0038, `docs/standards/repository-structure.md`
-  §Placement criteria). A dev laptop's `docker compose up server` does NOT
-  start profile-gated services; the Jetson invokes them with `--profile jetson`.
+  itself (`Dockerfile`); infra places it. Adding a service or a volume that
+  DEV needs is an edit to `infra/local/docker-compose.yml`. **A HOST-SPECIFIC
+  production service** (`backup`, `monitor`, `amc-worker`'s prod flip, or the
+  next one) is an edit to the overlay
+  `infra/deploy/<host>/docker-compose.<host>.yml`, with its own Dockerfile
+  and scripts (if any) under `infra/deploy/<host>/` — worked case:
+  `infra/deploy/jetson/docker-compose.jetson.yml` overlays server + amc-worker
+  with GHCR images and adds the backup/monitor sidecars (#162, #175, ADR-0038,
+  `docs/standards/repository-structure.md` §Placement criteria). A dev
+  laptop's `docker compose up server` runs only the base compose and never
+  touches the overlay; the Jetson's `.env` loads the overlay via
+  `COMPOSE_FILE=docker-compose.yml:../deploy/jetson/docker-compose.jetson.yml`.
+  The pre-S12 shape (a `profiles: [<host>]` gate inside the base file) was
+  rejected in ADR-0038 §Decision "Compose-file shape".
 - **Cookie names are computed, not literal.** Since #162 (ADR-0038) both the
   session and OAuth-state cookies carry the `__Host-` prefix when
   `config.SecureCookie()` is true (production, https). Read and write them

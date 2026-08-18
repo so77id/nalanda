@@ -8,7 +8,7 @@
 #
 # What this overlay does:
 #   1. Replaces `build:` with `image: ghcr.io/so77id/nalanda-<name>:latest` on
-#      the three prod services, and asks docker to `pull` rather than build.
+#      the four prod services, and asks docker to `pull` rather than build.
 #   2. Labels each container `com.centurylinklabs.watchtower.enable=true` so
 #      the Watchtower instance running INSIDE DocumentBuddy's compose (already
 #      on this Jetson) auto-updates them on every new `:latest` push. See
@@ -38,16 +38,19 @@ services:
     labels:
       # The label Watchtower's `--label-enable` looks for (see DocumentBuddy's
       # `docker-compose.prod.yml` watchtower service — same daemon, same
-      # Watchtower). Present on all three prod services below.
+      # Watchtower). Present on every prod service in this overlay.
       com.centurylinklabs.watchtower.enable: "true"
 
+  # amc-worker joined the Jetson deploy in #175. The measurement it exists to
+  # produce (RSS + coexistence with DocumentBuddy under 4 GB shared RAM) is the
+  # AC that closes ADR-0038's review trigger for this service. Same pattern as
+  # the other prod services below: image pulled from GHCR, always-pull,
+  # Watchtower observes the label.
   amc-worker:
-    # Not deployed on the Jetson (1.04 GB image on a 4 GB Nano is a separate
-    # decision, ADR-0038 §Decision). This overlay does not touch it — Docker
-    # compose keeps it defined but the Jetson never invokes it. A future WP
-    # deciding to host amc-worker here adds its own overlay entry.
+    image: ghcr.io/so77id/nalanda-amc-worker:latest
+    pull_policy: always
     labels:
-      com.centurylinklabs.watchtower.enable: "false"
+      com.centurylinklabs.watchtower.enable: "true"
 
   # Daily off-site backup — every field carries over from the previous compose
   # shape (S8) except `build:` becomes `image:`, and the label is added.

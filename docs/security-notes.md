@@ -501,6 +501,28 @@ holds more than one course at a time; or `apps/server` gains any path that
 writes into `/work` on behalf of something other than itself. At that point
 re-resolve the derived paths and reconsider authentication.
 
+**Trigger status after #175 (Jetson deploy of amc-worker, 2026-08-18)**:
+
+- *Loopback exposure*: NOT fired. The overlay `docker-compose.jetson.yml`
+  defines no `ports:` for `amc-worker`; the base compose file publishes it on
+  `127.0.0.1:8080` (host loopback) and that inherits into prod. External
+  reachability of the worker is still zero.
+- *Second component on the compose network*: fired by #162 S8/S9 (backup +
+  monitor entered the same network on the Jetson) and by #175 (amc-worker
+  finally comes up on the same host). Re-resolved: **backup and monitor do
+  not call the worker** (backup reads only `/data`, monitor polls the server
+  only). Only the server holds an HTTP client for it. No new caller.
+- *One course at a time*: NOT fired. Still one implicit course (V1).
+- *`apps/server` gaining a `/work`-writing path*: **fired by #166 (WP-E)** —
+  `internal/infra/amcworker/*` writes `/work/<control>/` and asks the worker
+  to act on it. That review already covered path-escape and detail-leakage
+  concerns; #175 does not add new writers.
+
+None of the four is a new failure this WP introduces. The worker moved from
+"defined in compose but never launched on the Jetson" to "actually running
+on the Jetson", but the security posture (loopback, unauthenticated, trusted
+single caller) is unchanged.
+
 ### The control worker runs as root and parses scans there (accepted 2026-08-15, #138)
 
 `apps/amc-worker` has no `USER` directive and no `cap_drop`/`no-new-privileges`,
@@ -543,6 +565,25 @@ working directory). In paranoid mode `pdflatex` answers `Not reading from
 fallback; taking the override as well means changing the listing shape (or
 arranging `TEXMFOUTPUT`) in the same change.
 
+**Trigger status after #175 (Jetson deploy of amc-worker, 2026-08-18)**: NOT
+fired. This WP puts the worker on the Jetson and makes it reachable from the
+`/api/controls/*` codepath in production, but does not change the input
+provenance: scans still come from the professor's own scanner, `.tex` inputs
+are still repo-authored (the WP-E-generated `.tex` goes through
+`under_work()`, per §"WP-E will pull that trigger" above). The residual is
+unchanged. Two follow-ups touch the same accepted risk without firing this
+trigger:
+
+- `docker compose stop amc-worker` is the cheapest first response if AMC
+  itself misbehaves after a package rev (documented in ADR-0038
+  §Consequences).
+- The `cap_drop: [ALL]` + `security_opt: [no-new-privileges:true]` cheap
+  half named above is now tracked under
+  [issue #173](https://github.com/so77id/nalanda/issues/173) as a hardening
+  step to take before the trigger fires — the blast-radius asymmetry
+  paragraph in ADR-0038 §Consequences names why it becomes worth doing
+  first once amc-worker sits behind Watchtower.
+
 ### `apps/server` joins the worker's compose network (accepted 2026-08-16, #149)
 
 WP-C1 adds a second service to `infra/local/docker-compose.yml`, which trips the
@@ -566,6 +607,24 @@ container reaching another on a developer's laptop.
 hosting entirely, and this note assumes it stays deferred); or `apps/server`
 gaining any code that calls the worker — at which point WP-E owns the seam and
 should decide whether the worker still needs no authentication of its own.
+
+**Trigger status (updated 2026-08-18)**: both triggers HAVE fired.
+
+- *First deploy of either service to a host*: **fired**. #162 landed
+  `apps/server` on DocumentBuddy's Jetson; #175 landed `apps/amc-worker`
+  alongside. Both share the same compose network on the same daemon.
+- *`apps/server` gains code that calls the worker*: **fired by #166 (WP-E)**.
+  `internal/infra/amcworker/*` is the seam; it opens the HTTP client and
+  writes into `/work`. That review kept the worker unauthenticated because
+  the trust argument (topology: one caller, one network, one operator) still
+  held.
+
+Re-resolved after those triggers: the story is unchanged. The worker is still
+authenticated by TOPOLOGY (loopback-only external, one caller on the compose
+network) rather than by CODE. Adding authentication to the worker would need a
+shared secret + rotate story that this scale does not need. Next re-open trigger
+is the same as the entry above: any of the four listed. Nothing new in #175
+opens them.
 
 ### The health endpoint is anonymous and reports a cause (accepted 2026-08-16, #149)
 
