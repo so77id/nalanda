@@ -1,0 +1,294 @@
+---
+id: arrays-y-funciones
+title: Arrays y funciones
+presentation: explicit
+questions: per-section
+---
+
+{/* Este documento declara `questions: per-section` (#139). Cada sección o */}
+{/* tiene una `<Question anchor="...">` en el bloque `<Questions>` al final, */}
+{/* o está declarada con su razón en NO_QUESTION en */}
+{/* apps/web/src/content/architecture.test.ts (§Question coverage). */}
+{/* */}
+{/* Anclas que llevan pregunta (deben existir como secciones): */}
+{/*   arrays-en-java, acceso-y-bounds, recorrer-un-arreglo, */}
+{/*   buscar-un-elemento, ordenar-y-buscar, anatomia-de-una-funcion, */}
+{/*   recursion, fibonacci-tres-formas, el-arbol-de-llamadas, cap-de-la-demo. */}
+{/* */}
+{/* Regla del WP (AC-11): cada sección abre con el ANCLA C++ antes del delta */}
+{/* Java. La ancla C++ es su propia slide; su pregunta es la de la sección */}
+{/* Java que la sigue, no una propia. */}
+{/* */}
+{/* AC-12: cada bloque de código en slides está resaltado. Interactivos con */}
+{/* <CodeEditor>; read-only con fences ```java (que se renderizan a través */}
+{/* del listing de #85). Nunca <pre> crudo. */}
+
+# Arrays y funciones
+
+En [[referencias-null-igualdad|Referencias, `null` e igualdad]] viste que los objetos
+viven en el heap y las variables guardan referencias a ellos; ahora vas a trabajar con
+un tipo de objeto que ya conocías en C++ pero que Java trata distinto — el arreglo — y
+vas a agrupar código en **funciones**, tema que el material anterior tampoco cubrió a
+fondo. El documento cierra con un caso de estudio: tres formas de calcular Fibonacci,
+medidas en tu propio navegador, y por qué la recursiva pierde.
+
+<SectionBreak />
+
+<Slide title="Arrays en C++">
+En C++, un arreglo es dos cosas separadas: un puntero al primer elemento y, en algún
+lado, el tamaño que tú decides recordar. El compilador no verifica que un acceso caiga
+adentro; leer `v[3]` cuando el arreglo tiene 3 elementos devuelve lo que sea que esté
+en esa posición de memoria, o interrumpe el programa si le pegaste a memoria ajena.
+
+```cpp
+int v[3] = {1, 2, 3};
+std::cout << sizeof(v) / sizeof(v[0]);  // 3, si el tipo no se decayó a puntero
+std::cout << v[3];                       // comportamiento indefinido
+```
+
+El largo lo administras tú, y el rango no lo revisa nadie. Ese "nadie" es la mitad de
+los defectos que Java te va a quitar.
+</Slide>
+
+<Slide title="Arrays en Java">
+En Java un arreglo **es un objeto**: sabe su propio largo, y ese largo se pregunta
+como campo, no como método.
+
+```java
+int[] v = {1, 2, 3};
+System.out.println(v.length);   // 3 — sin paréntesis, es un campo, no un método
+```
+
+- `.length` sin paréntesis. `String` sí usa `.length()` (es un método); un arreglo no.
+  La distinción parece cosmética hasta que el compilador te para porque escribiste una
+  por la otra, o el editor te sugiere la incorrecta.
+- El largo se fija al crearlo y no cambia. Si necesitas crecer, se copia a otro arreglo
+  más grande (o se usa una lista, que viene más adelante en el curso).
+- El tipo del elemento va antes de los corchetes: `int[]`, `String[]`, `Persona[]`.
+</Slide>
+
+<Slide title="Tres iniciaciones">
+Las tres formas que vas a ver todo el semestre:
+
+```java
+int[] a = {1, 2, 3};               // literal: el arreglo con esos tres valores
+int[] b = new int[5];              // reservado con largo 5 y valores por defecto (0)
+int[] c = new int[]{10, 20, 30};   // literal con new — necesaria si no es en la declaración
+```
+
+Los valores por defecto de `new int[5]` son `0`; de `new boolean[5]` son `false`; de
+`new String[5]` son `null` — el mismo `null` de [[referencias-null-igualdad|el documento
+anterior]], listo para dar `NullPointerException` si accedes sin asignar primero.
+
+La tercera forma existe porque la primera (`{1, 2, 3}`) solo se puede escribir en la
+declaración misma. Fuera de ahí — devolviendo un arreglo desde un método, por
+ejemplo — hay que escribirla como `new int[]{...}`.
+</Slide>
+
+<Slide title="Acceso y bounds">
+El acceso es igual que en C++: `v[i]`, con `i` de `0` a `v.length - 1`. La diferencia
+que importa es lo que pasa cuando `i` se sale de ese rango. En vez de comportamiento
+indefinido, Java lanza `ArrayIndexOutOfBoundsException` — la excepción concreta que
+[[referencias-null-igualdad|el documento anterior]] preparó al enseñar el mecanismo.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Bounds {
+    public static void main(String[] args) {
+        int[] v = {1, 2, 3};
+        System.out.println("largo: " + v.length);
+        System.out.println("v[0] = " + v[0]);
+        System.out.println("v[3] = " + v[3]);  // lanza excepción
+        System.out.println("esta línea nunca se ejecuta");
+    }
+}
+`}
+/>
+
+Ejecútalo. Vas a ver `largo: 3`, `v[0] = 1`, y después el rastro de la excepción — el
+programa se detiene en `v[3]` y la última línea nunca corre. El chequeo cuesta unos
+nanosegundos por acceso; a cambio, un defecto silencioso en C++ se vuelve un defecto
+que salta a la cara.
+</Slide>
+
+<Slide title="En C++ era segfault">
+El mismo programa en C++ tiene tres desenlaces posibles, ninguno bueno:
+
+1. **Imprime basura.** `v[3]` cae en memoria que le pertenece al programa pero no al
+   arreglo — la próxima variable en la pila, o alineación, o lo que sea que estaba ahí.
+2. **Segmentation fault.** `v[3]` cae en memoria que no le pertenece al programa; el
+   sistema operativo lo interrumpe.
+3. **Sobrescribe algo importante.** Si en vez de leer estás escribiendo (`v[3] = 99`),
+   modificas variables sin saberlo. Los defectos que resultan de esto son de los más
+   difíciles de rastrear que hay.
+
+En Java las tres se colapsan en una sola: la excepción con el índice exacto y la línea
+exacta. Es más lento; es incomparablemente más depurable.
+</Slide>
+
+<Slide title="Recorrer un arreglo">
+Dos formas. El `for` clásico, cuando necesitas el índice — para asignar, para comparar
+con el vecino, para pasarlo a otra función:
+
+```java
+int[] v = {10, 20, 30};
+for (int i = 0; i < v.length; i++) {
+    System.out.println(i + ": " + v[i]);
+}
+```
+
+Y el `for-each`, cuando solo te importa el valor:
+
+```java
+int[] v = {10, 20, 30};
+for (int x : v) {
+    System.out.println(x);
+}
+```
+
+**Una trampa que se llevó su tarde.** En el `for-each`, `x` es una **copia** del
+elemento cuando el tipo es primitivo, o una **copia de la referencia** cuando es un
+objeto. Asignarle un valor nuevo dentro del ciclo NO modifica el arreglo:
+
+```java
+int[] v = {1, 2, 3};
+for (int x : v) x = 99;    // no hace nada útil
+System.out.println(v[0]);  // sigue siendo 1
+```
+
+Si necesitas modificar el arreglo, escribe el `for` clásico y asigna a `v[i]`.
+</Slide>
+
+<Slide title="Buscar un elemento">
+En C++ compararías con `==` porque los tipos primitivos se comparan por valor y las
+cadenas se manejan de otra manera. En Java, ya viste en
+[[referencias-null-igualdad|el documento anterior]] que `==` sobre `String` compara
+**referencias**, no contenido — y por eso la búsqueda de un texto en un arreglo se
+hace con `.equals()`:
+
+```java
+static boolean contiene(String[] xs, String buscado) {
+    for (String x : xs) {
+        if (x.equals(buscado)) return true;
+    }
+    return false;
+}
+```
+
+Para arreglos de primitivos (`int[]`, `double[]`, …) el `==` sí compara valores, así
+que el mismo esqueleto funciona con `if (x == buscado)`. La regla mental que te
+conviene grabar: **`==` es igualdad de referencia, `.equals()` es igualdad de
+contenido**; para primitivos las dos coinciden, para objetos rara vez lo hacen sin que
+alguien las haga coincidir a mano.
+
+Un detalle práctico: `buscado.equals(x)` y `x.equals(buscado)` dan el mismo resultado
+cuando ninguno es `null`, pero si `x` puede serlo la primera forma evita el
+`NullPointerException`. Es una convención barata que ahorra pruebas defensivas.
+</Slide>
+
+<Slide title="Ordenar y buscar">
+Java trae `Arrays.sort` como método estático, y ordena **en el mismo arreglo** — no
+devuelve uno nuevo. Es la diferencia con `std::sort` de C++, que también ordena en
+sitio pero recibe un par de iteradores en vez del contenedor completo.
+
+<CodeEditor
+  language="java"
+  defaultValue={`import java.util.Arrays;
+
+class Orden {
+    public static void main(String[] args) {
+        int[] v = {3, 1, 4, 1, 5, 9, 2, 6};
+        Arrays.sort(v);
+        System.out.println(Arrays.toString(v));
+        System.out.println("v[0] = " + v[0]);
+    }
+}
+`}
+/>
+
+Los `import` que ya conoces: `java.util.Arrays` para los métodos utilitarios de
+arreglo (`sort`, `toString`, `fill`, `copyOf`). `Arrays.toString` imprime el arreglo
+como `[1, 1, 2, 3, ...]`, útil para depurar — un `System.out.println(v)` a secas
+imprime la dirección de memoria, que no ayuda a nadie.
+
+`Arrays.binarySearch` existe y sí es rápido, pero pertenece al documento de búsqueda
+binaria más adelante en el curso; aquí lo que necesitabas era **la herramienta**
+`sort`, no el algoritmo por debajo.
+</Slide>
+
+<Questions>
+
+<Question id="largo-array-java" anchor="arrays-en-java">
+
+En Java, ¿cómo se obtiene el largo de un `int[] v`?
+
+- [x] `v.length`
+- [ ] `v.length()`
+- [ ] `v.size()`
+- [ ] `sizeof(v)`
+
+</Question>
+
+<Question id="indice-fuera-de-rango" anchor="acceso-y-bounds">
+
+¿Qué pasa al ejecutar esto?
+
+```java
+int[] v = {1, 2, 3};
+System.out.println(v[3]);
+```
+
+- [x] Lanza `ArrayIndexOutOfBoundsException`
+- [ ] Imprime `0`, el valor por defecto de un `int`
+- [ ] Imprime lo que haya en esa posición de memoria
+- [ ] No compila: el compilador detecta que 3 está fuera de rango
+
+</Question>
+
+<Question id="for-each-modifica" anchor="recorrer-un-arreglo">
+
+¿Qué imprime este programa?
+
+```java
+int[] v = {1, 2, 3};
+for (int x : v) x = 99;
+System.out.println(v[0]);
+```
+
+- [x] `1`
+- [ ] `99`
+- [ ] Error de compilación
+- [ ] `0`
+
+</Question>
+
+<Question id="buscar-con-equals" anchor="buscar-un-elemento">
+
+¿Cuál es la forma correcta de saber si un `String[] names` contiene
+`"María"` como contenido?
+
+- [x] Recorrer con `for` y comparar cada elemento con `.equals("María")`
+- [ ] Recorrer con `for` y comparar cada elemento con `== "María"` a secas
+- [ ] Comparar directamente el arreglo entero: `names == "María"`
+- [ ] Java lo detecta solo, no hace falta escribir el recorrido
+
+</Question>
+
+<Question id="sort-in-place" anchor="ordenar-y-buscar">
+
+¿Qué imprime este programa?
+
+```java
+int[] v = {3, 1, 2};
+Arrays.sort(v);
+System.out.println(v[0]);
+```
+
+- [x] `1`
+- [ ] `3`
+- [ ] `2`
+- [ ] Error de compilación
+
+</Question>
+
+</Questions>

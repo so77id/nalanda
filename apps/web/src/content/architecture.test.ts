@@ -165,6 +165,19 @@ describe('architecture: content invariants', () => {
       ejercicios: 'actividad: tres problemas para escribir, no materia que medir en cinco minutos',
       'lo-que-sigue': 'cierre del documento: anuncia lo que viene, no enseña nada propio',
     },
+    // Regla del WP #78 (AC-11): cada sección abre con la ancla C++ antes del
+    // delta Java. La slide de C++ y las de sub-detalle no llevan pregunta
+    // propia — lo que enseñan se mide en la pregunta de la sección Java que
+    // las sigue. Convención inaugurada aquí, misma forma que las exenciones
+    // de `java-desde-cpp` arriba (contexto, comparaciones, actividades).
+    'arrays-y-funciones': {
+      'arrays-en-c':
+        'contraste con C++; el delta Java que introduce se mide en la pregunta de "Arrays en Java"',
+      'tres-iniciaciones':
+        'sub-detalle del §1 arrays; el hecho principal (largo como campo, tamaño fijo) se mide en la pregunta de "Arrays en Java"',
+      'en-c-era-segfault':
+        'contraste con C++; el comportamiento que Java garantiza se mide en la pregunta de "Acceso y bounds"',
+    },
   };
 
   function sourceOf(key: string): string {
