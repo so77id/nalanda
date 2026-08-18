@@ -237,7 +237,7 @@ after editing `.env`.
 - **Take the site offline** (Funnel disabled, containers down):
   ```bash
   sudo tailscale funnel --https=8443 off
-  docker compose stop server backup monitor
+  docker compose stop server amc-worker backup monitor
   ```
 
 `restart: unless-stopped` on every service means a reboot brings them
@@ -382,7 +382,7 @@ review, SEC-2).
 ## Day-to-day operations
 
 - **Restart** (no config change): `docker compose restart server`
-- **Logs**: `docker compose logs -f server backup monitor`
+- **Logs**: `docker compose logs -f server amc-worker backup monitor`
 - **Config change** (edit `.env`, no code change): `docker compose up -d --pull=never --force-recreate` — re-reads env and recreates the containers. `--pull=never` is not optional; the overlay carries `pull_policy: always`, so a plain `up` would also fetch the current `:latest` from GHCR mid-config-change. Pass it to keep the config change and any pending image swap separate.
 - **Skip a Watchtower cycle** (deploy immediately, without waiting the 5-min poll):
   ```bash

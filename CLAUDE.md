@@ -17,6 +17,9 @@ This file holds **monorepo-shared** instructions only. Each app has its own
 - `apps/web/CLAUDE.md` — the platform frontend.
 - `apps/amc-worker/CLAUDE.md` — the control engine (Auto-Multiple-Choice in a
   container). Nothing there runs on the host; everything goes through Docker.
+  **Since #175 it also runs in production on the Jetson (ADR-0038); operating
+  procedure `infra/local/DEPLOY-JETSON.md`; images and its own CD workflow
+  under `infra/deploy/jetson/` + `.github/workflows/amc-worker-cd.yml`.**
 - `apps/server/CLAUDE.md` — the backend (Go + SQLite). One binary, two delivery
   surfaces, one shared domain; its dependency rule is enforced by a test. The
   professor login lives there (ADR-0009, ADR-0036) and the two surfaces
@@ -79,8 +82,8 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
   `main` touching `apps/web/**` or `content/**`. Mechanics (trigger, deep-link
   fallback, rollback, what gets published): root `README.md` §Deployment;
   decisions: ADR-0015.
-- **Merging to `main` also publishes `apps/server` to the Jetson.**
-  two workflows watch different path filters:
+- **Merging to `main` also publishes `apps/server` AND `apps/amc-worker` to
+  the Jetson.** Two workflows watch different path filters:
   `.github/workflows/server-cd.yml` (fires on `apps/server/**` or the
   Jetson sidecar files — cross-compiles server + backup + monitor arm64
   images to GHCR) and `.github/workflows/amc-worker-cd.yml` (fires on

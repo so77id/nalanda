@@ -148,6 +148,18 @@ measurement, the date, and the case that does NOT hold**. An unmeasured "it is
 fast enough" or "the platform handles it" is a hypothesis, not a decision, and
 the next reader cannot tell which they are looking at.
 
+**A measurement not yet taken lands as a TODO block with owner, deadline and
+tracking issue** — not as a bare `TBD` in prose. The shape:
+
+> **Measurements to fill in (owner: <name>, deadline: <date>, tracked in
+> #<N>):** the numbers this decision waits on, one bullet each. A number that
+> falls outside its expected range reopens the review trigger it closed.
+
+Worked case: ADR-0038 §Decision at #162/#175 — the Nano RSS block for both
+apps, filled by Miguel within a week of the bring-up and tracked in #173.
+Without the block, "measure later" degrades into no measurement at all, and
+the decision stays hypothesis-shaped forever.
+
 Worked case (issue #74): ADR-0017 first said "the page stays responsive anyway
 (timers keep firing while a Java program blocks)" — generalised from the one
 case that had been spiked, a program waiting on `System.in`. A CPU-bound loop

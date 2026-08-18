@@ -349,6 +349,23 @@ example is `tests/fixtures/control-demo.tex`:
   is one physical sheet per student; it does mean the scan has a back side for
   every sheet.
 
+## Deployment
+
+Production runs on the Jetson (ADR-0038). Merging to `main` any change under
+`apps/amc-worker/**` triggers `.github/workflows/amc-worker-cd.yml`, which
+cross-compiles arm64 and pushes `ghcr.io/so77id/nalanda-amc-worker:latest`
+(and `:sha-<sha>`) to GHCR. Watchtower on the box pulls and restarts within
+≤5 minutes. The workflow is separate from `server-cd.yml` because a texlive
+image under QEMU takes ~30 minutes to build, and that latency should not sit
+on a server-only push.
+
+Operating procedure: [`../../infra/local/DEPLOY-JETSON.md`](../../infra/local/DEPLOY-JETSON.md).
+Overlay definition: `infra/deploy/jetson/docker-compose.jetson.yml`. The
+container reaches `apps/server` on the compose network; there is no external
+port. The paper check — the one no agent can run — is `PAPER-CHECK.md`, and
+a change that reaches the sheet is unfinished until that has run against a
+real print, mark and scan.
+
 ## Code
 
 - `worker.py` — the HTTP contract.

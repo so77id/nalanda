@@ -129,7 +129,7 @@ pre-PR protocol is still the human's backstop.
 | A third-party tool we run as a service (AMC, a future OCR engine)                 | `apps/<name>/` — a deployable whose source is a Dockerfile                  | It is a service the system runs, not scaffolding around one. Self-containment applies unchanged (#138) |
 | Dockerfile / packaging of one app                                                 | Inside that app                                                             | The app packages itself; infra places it                                                          |
 | VPS provisioning, systemd/proxy config, production compose                        | `infra/deploy/`                                                             | Belongs to the host, not to an app                                                                |
-| Host-specific production service DEFINITIONS (backup, monitor) that share the app-composition graph | Service block in `infra/local/docker-compose.yml` behind a `profiles: [<host>]` gate; its images and scripts under `infra/deploy/<host>/` | The service is coupled to the app (mounts its volume, polls its port), so a second compose file would repeat the same graph twice and drift; the images and scripts they build from are host-only and belong under `infra/deploy/`. Worked case: `infra/deploy/jetson/` with the `jetson` profile in the compose file (#162, ADR-0038) |
+| Host-specific production service DEFINITIONS (backup, monitor, prod-only overrides on shared services) | Base compose `infra/local/docker-compose.yml` holds only what dev needs. Prod-only services and prod-only field overrides live in an overlay `infra/deploy/<host>/docker-compose.<host>.yml` that redeclares or overrides fields on shared services and adds host-only sidecars. Overlay is opt-in via `COMPOSE_FILE=docker-compose.yml:../deploy/<host>/docker-compose.<host>.yml` in the host's `.env` — dev never touches it. Images and scripts the sidecars build from live under `infra/deploy/<host>/`. Worked case: `infra/deploy/jetson/docker-compose.jetson.yml` overlays server (image + Watchtower label), adds backup, monitor and amc-worker (#162, #175, ADR-0038 §Decision "Compose-file shape"). Pre-S12 shape (a `profiles: [<host>]` gate inside the base file) was rejected in the same section. |
 | One app's integration tests                                                       | In that app                                                                 | They verify ITS behavior                                                                          |
 | Cross-app e2e (browser → web → server)                                            | Top-level `e2e/` (created when it first exists)                             | Verifies the whole                                                                                |
 | Course assets (images/video)                                                      | `content/`, next to their documents                                         | Material domain                                                                                   |
@@ -155,6 +155,14 @@ and `apps/server` (#149) were admitted through it:
       at root and app-specific concerns live in the app — no duplication.
 - [ ] Own CI job with **path filters**: changes under `apps/<name>/**` trigger only
       that app's pipeline.
+- [ ] If the app deploys, its **own CD workflow** —
+      `.github/workflows/<name>-cd.yml`, one per publishable image — rather than
+      a matrix row inside a sibling app's workflow. Worked case: `amc-worker-cd.yml`
+      was separated from `server-cd.yml` at #175 because texlive under QEMU takes
+      ~30 minutes and would sit on every server push. The rule: two apps with
+      very different build costs never share a CD workflow. If a third image
+      earns its own file, extract the common steps into a reusable workflow
+      (`.github/workflows/_docker-build-and-push.yml`) — tracked in #173.
 - [ ] If the app is user-facing, its **publication** wired into
       `.github/workflows/deploy.yml` with the same filters — including any
       directory outside `apps/` whose content it serves (`content/**` for

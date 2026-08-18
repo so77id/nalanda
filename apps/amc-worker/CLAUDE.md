@@ -40,10 +40,11 @@ it — script names, test titles, the fixture's own comments.
 
 ## Rules for Claude
 
-- **Nothing is installed on the host.** AMC is a Debian package with an OpenCV
-  and LaTeX dependency tree that has no good native path on macOS. Every command
-  goes through Docker; if a step seems to need a local install, it is the wrong
-  step.
+- **On your dev host, nothing is installed.** AMC is a Debian package with an
+  OpenCV and LaTeX dependency tree that has no good native path on macOS. Every
+  command goes through Docker; if a step seems to need a local install, it is
+  the wrong step. (Production is the Jetson, which runs the same image —
+  ADR-0038 and the Deployment section below.)
 - **Never mount an X socket, and never set `DISPLAY` to a real value.** Headless
   is the property this worker exists to have. The GTK stack is present in the
   image because `auto-multiple-choice-common` depends on it and packaging cannot

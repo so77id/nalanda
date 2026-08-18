@@ -3,10 +3,13 @@
 **Status:** Accepted — off-box execution outstanding (Miguel runs the AWS
 provisioning, the Funnel bring-up, and `GOOGLE-CHECK.md` on https)
 **Date:** 2026-08-17
+**Amended by:** #175 (2026-08-18) — extended to co-host `apps/amc-worker`
+on the same Jetson; §Decision "Compose-file shape" now covers both apps
+and the measurement block adds three amc-worker RSS numbers.
 **Decision-makers:** Miguel Rodriguez
-**Source:** #162, design `docs/design/2026-08-controles.md` §C15, ADR-0034
-§Consequences, WP-C2 (#150) — the five review triggers that fire at the first
-deploy.
+**Source:** #162, #175, design `docs/design/2026-08-controles.md` §C15,
+ADR-0034 §Consequences, WP-C2 (#150) — the five review triggers that fire at
+the first deploy.
 
 ## Context
 
