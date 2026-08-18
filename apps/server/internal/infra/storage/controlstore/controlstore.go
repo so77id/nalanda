@@ -32,7 +32,7 @@ func New(db *sql.DB) *Store {
 // Compile-time proof the shape here is the one the domain asked for.
 var _ controls.Store = (*Store)(nil)
 
-const controlColumns = "id, name, application_date, from_document, from_section, to_document, to_section, questions_per_copy, copies, state, created_at, created_by"
+const controlColumns = "id, name, application_date, from_document, from_section, to_document, to_section, questions_per_copy, copies, duplex_padding, state, created_at, created_by"
 
 // CreateControl writes the control, its pool and its copies in one
 // transaction. Rolled back on any failure so a control never appears in the
@@ -54,13 +54,14 @@ func (s *Store) CreateControl(ctx context.Context, control controls.Control, poo
 
 	if _, err := tx.ExecContext(ctx, `
         INSERT INTO control (`+controlColumns+`)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		control.ID,
 		control.Name,
 		nullableUnixSeconds(control.ApplicationDate),
 		control.RangeFrom.Document, control.RangeFrom.Section,
 		control.RangeTo.Document, control.RangeTo.Section,
 		control.QuestionsPerCopy, control.Copies,
+		boolToInt(control.DuplexPadding),
 		string(control.State),
 		control.CreatedAt.Unix(),
 		control.CreatedBy,
@@ -161,6 +162,7 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 	var (
 		c               controls.Control
 		applicationDate sql.NullInt64
+		duplexPadding   int
 		createdAt       int64
 		state           string
 	)
@@ -169,10 +171,12 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		&c.RangeFrom.Document, &c.RangeFrom.Section,
 		&c.RangeTo.Document, &c.RangeTo.Section,
 		&c.QuestionsPerCopy, &c.Copies,
+		&duplexPadding,
 		&state, &createdAt, &c.CreatedBy,
 	); err != nil {
 		return controls.Control{}, err
 	}
+	c.DuplexPadding = duplexPadding != 0
 	c.State = controls.State(state)
 	c.CreatedAt = time.Unix(createdAt, 0).UTC()
 	if applicationDate.Valid {
@@ -180,6 +184,14 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		c.ApplicationDate = &at
 	}
 	return c, nil
+}
+
+// boolToInt is the SQLite convention: 0 for false, 1 for true.
+func boolToInt(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // notFound turns database/sql's absence sentinel into the domain's.
