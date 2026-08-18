@@ -489,6 +489,101 @@ Eso también es una fuga, más silenciosa.
 
 </Slide>
 
+## Ejercicios
+
+Tres problemas para escribir tú, en el libro. Completa el método que falta y
+presiona **Comprobar**: tu código se compila junto a una batería de casos que
+lo llaman y te dicen cuáles pasaron. Ninguno necesita bucles — este documento
+no los pide, y así te ahorras el susto de la pestaña congelada.
+
+<Exercise title="1. ¿Son el mismo objeto?">
+
+Escribe `sonElMismoObjeto`, que recibe dos `Object` y devuelve `true` si son
+**el mismo objeto** (la misma caja en memoria) y `false` si no. Aunque las
+dos referencias sean `null`, se consideran "el mismo objeto ausente" —
+`true`. Ojo con `.equals()`: no es lo que se pide y lanza `NullPointerException`
+si el receptor es `null`.
+
+```java starter
+class Solution {
+
+    static boolean sonElMismoObjeto(Object a, Object b) {
+        // tu código aquí
+        return false;
+    }
+}
+```
+
+```java test
+Object p = new Object();
+check(Solution.sonElMismoObjeto(p, p), true);
+check(Solution.sonElMismoObjeto(p, new Object()), false);
+check(Solution.sonElMismoObjeto(new String("hola"), new String("hola")), false);
+check(Solution.sonElMismoObjeto(null, null), true);
+check(Solution.sonElMismoObjeto("hola", null), false);
+check(Solution.sonElMismoObjeto(null, "hola"), false);
+```
+
+</Exercise>
+
+<Exercise title="2. ¿Las mismas letras?">
+
+Escribe `mismasLetras`, que recibe dos `String` y devuelve `true` si tienen
+**las mismas letras** en el mismo orden. Dos `String` distintos con el mismo
+contenido son "las mismas letras" — `true`. Y si los dos son `null`, también
+lo son — `true` — sin lanzar excepción. Si solo uno es `null`, `false`.
+
+```java starter
+class Solution {
+
+    static boolean mismasLetras(String a, String b) {
+        // tu código aquí
+        return false;
+    }
+}
+```
+
+```java test
+check(Solution.mismasLetras("hola", "hola"), true);
+check(Solution.mismasLetras(new String("hola"), new String("hola")), true);
+check(Solution.mismasLetras("hola", "mundo"), false);
+check(Solution.mismasLetras("", ""), true);
+check(Solution.mismasLetras(null, null), true);
+check(Solution.mismasLetras(null, "hola"), false);
+check(Solution.mismasLetras("hola", null), false);
+```
+
+</Exercise>
+
+<Exercise title="3. Longitud, tolerando null">
+
+Escribe `longitudSegura`, que recibe un `String` y devuelve su longitud —
+salvo cuando el argumento es `null`, en cuyo caso devuelve `0` en lugar de
+lanzar `NullPointerException`. La cadena vacía `""` tiene longitud `0`, y
+un `null` también: la firma reemplaza el fallo por un valor por defecto,
+que es el patrón habitual cuando `null` significa "no hay nada" en el
+dominio.
+
+```java starter
+class Solution {
+
+    static int longitudSegura(String s) {
+        // tu código aquí
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.longitudSegura("hola"), 4);
+check(Solution.longitudSegura(""), 0);
+check(Solution.longitudSegura(null), 0);
+check(Solution.longitudSegura("A"), 1);
+check(Solution.longitudSegura("Estructuras de Datos"), 20);
+```
+
+</Exercise>
+
 ## Lo que sigue
 
 Con esto ya sabes qué guarda una variable, cómo viaja al llamar un método, y
