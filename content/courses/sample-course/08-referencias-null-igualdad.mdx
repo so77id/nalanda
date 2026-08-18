@@ -1,0 +1,289 @@
+---
+id: referencias-null-igualdad
+title: Referencias, null e igualdad
+presentation: explicit
+questions: none
+---
+
+{/* This document is the third of the Java unit and the first that opens the */}
+{/* memory model. It declares `presentation: explicit`, so ONLY content */}
+{/* inside <Slide> markers is projected; loose prose stays book-only. */}
+{/* `questions:` will flip to `per-section` in the same commit that lands the */}
+{/* fourteen questions from #77 §Question bank (S6) — declaring it earlier */}
+{/* reddens the coverage gate by construction (guide §7b). */}
+
+# Referencias, null e igualdad
+
+En [[java-tipos-y-flujo|Tipos, operadores y entrada/salida]] cerramos los tipos
+primitivos, los operadores y la entrada estándar. Con eso ya calculas cosas.
+Lo que todavía no sabes es qué guarda realmente una variable **cuando no es un
+tipo primitivo** — y esa pregunta, que parece de detalle, es la que separa a
+quien entiende una lista enlazada de quien la copia.
+
+Este documento cubre ocho ideas, todas Java 8, y las trampas las verás **en
+acción** en un editor: las de este tema las asegura el JVM, no un párrafo del
+autor.
+
+<SectionBreak />
+
+<Slide title="Dos variables, un objeto">
+
+**En C++ era una copia.** Cada variable tenía su propia caja, y una asignación
+copiaba el contenido:
+
+```cpp
+Punto a{1, 2};
+Punto b = a;   // b es una COPIA de a
+b.x = 99;      // a sigue siendo (1, 2)
+```
+
+**En Java, dos variables son dos etiquetas para la misma caja**, siempre que
+lo asignado no sea un primitivo:
+
+```java
+Punto a = new Punto(1, 2);
+Punto b = a;   // b apunta al MISMO objeto que a
+b.x = 99;      // a también ve x = 99
+```
+
+Una **referencia** en Java es parecida a un puntero de C++, con dos comodidades
+y dos limitaciones: se desreferencia sola —no escribes `*` ni `->`—, no
+puedes sumarle un número, no puedes tomar la dirección de una variable local
+con `&`, y no existe `nullptr` — su ausencia se llama `null`, y aparece en
+la §4.
+
+</Slide>
+
+<Slide>
+
+Míralo. Dos etiquetas para un mismo arreglo; cambia por `b`, observa desde
+`a`:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Alias {
+    public static void main(String[] args) {
+        int[] a = {1, 2, 3};
+        int[] b = a;
+        b[0] = 99;
+        System.out.println("a[0] = " + a[0]);
+        System.out.println("b[0] = " + b[0]);
+    }
+}
+`}
+/>
+
+</Slide>
+
+<Slide>
+
+<MemoryDiagram title="Dos nombres, una caja">
+
+`a` y `b` son dos flechas que apuntan al mismo objeto. Modificar por una es
+modificar la caja que la otra también observa.
+
+```java trace
+class Punto {
+    int x, y;
+    Punto(int x, int y) { this.x = x; this.y = y; }
+}
+
+public class Demo {
+    public static void main(String[] args) {
+        Punto a = new Punto(1, 2);   // foto a
+        Punto b = a;                 // foto a, b
+        b.x = 99;                    // foto a, b
+    }
+}
+```
+
+</MemoryDiagram>
+
+</Slide>
+
+<Slide title="Primitivos vs objetos">
+
+En Java hay dos familias, y se comportan al revés que en C++.
+
+- Los **primitivos** (los ocho tipos con minúscula: `int`, `double`,
+  `boolean`, …) **se copian** al asignar. Cada variable tiene su propia
+  caja.
+- Los **objetos** (todo lo que se crea con `new`, incluidas las cadenas y los
+  arreglos) **se comparten** al asignar. La caja es una sola y la variable
+  guarda una flecha hacia ella.
+
+La regla, corta: **minúscula copia, mayúscula comparte**. `int` copia;
+`Integer` no. Lo verás bordear en la §6.
+
+En C++ tú elegías: `Punto p` era un objeto con su caja aparte; `Punto* p` era
+un puntero a una caja compartida. En Java **no puedes elegir**: los objetos
+siempre son referencias, y solo los primitivos son valores.
+
+</Slide>
+
+<Slide>
+
+Con un primitivo la copia es real. Predice: `b` cambia, ¿qué pasa con `a`?
+
+<PredictOutput title="Copia entre primitivos">
+
+```java predict
+class Copia {
+    public static void main(String[] args) {
+        int a = 5;
+        int b = a;
+        b = 99;
+        System.out.println("a = " + a);
+        System.out.println("b = " + b);
+    }
+}
+```
+
+</PredictOutput>
+
+</Slide>
+
+<Slide title="Paso de parámetros">
+
+**Java pasa por valor. Siempre.** No hay `&` para pedir referencias, ni `*`
+para pedir punteros. Y sin embargo, el objeto que le pasas a un método sí
+puede volver cambiado.
+
+La aparente contradicción se resuelve viendo qué es "el valor" de una
+variable. Para un primitivo es el número; para un objeto es la **flecha** —
+la referencia. Copiar la flecha no copia el objeto. De ahí dos cosas que
+parecen opuestas y no lo son:
+
+- **Modificar** el objeto desde dentro del método se ve fuera. La flecha del
+  llamador y la del parámetro apuntan al mismo lugar; modificar por una es
+  modificar por la otra.
+- **Reasignar** el parámetro **no** cambia nada fuera. Esa flecha era una
+  copia; hacerla apuntar a otra caja no toca la del llamador.
+
+En C++ tenías `Punto&` o `Punto*` para elegir. En Java la elección la decide
+el tipo del parámetro: primitivo copia, objeto comparte la caja pero no la
+variable.
+
+</Slide>
+
+<Slide>
+
+El `swap` clásico **no** funciona. Predice y verifica:
+
+<PredictOutput title="El swap que no swappea">
+
+```java predict
+class Swap {
+    static void swap(int[] x, int[] y) {
+        int[] t = x;
+        x = y;
+        y = t;
+    }
+
+    public static void main(String[] args) {
+        int[] a = {1};
+        int[] b = {2};
+        swap(a, b);
+        System.out.println("a[0] = " + a[0]);
+        System.out.println("b[0] = " + b[0]);
+    }
+}
+```
+
+</PredictOutput>
+
+</Slide>
+
+<Slide>
+
+<MemoryDiagram title="Dos marcos en la pila">
+
+`swap` tiene sus propias `x` y `y`. Reasignarlas mueve las flechas **dentro
+de `swap`** y nada más — las variables de `main` no se enteran.
+
+```java trace
+public class Demo {
+    static void swap(int[] x, int[] y) {
+        int[] t = x;
+        x = y;
+        y = t;                       // foto swap: x, y
+                                     // foto-fin swap
+    }
+
+    public static void main(String[] args) {
+        int[] a = {1};
+        int[] b = {2};               // foto a, b
+        swap(a, b);                  // foto a, b
+    }
+}
+```
+
+</MemoryDiagram>
+
+</Slide>
+
+<Slide>
+
+**Modificar** el arreglo desde el método sí se ve fuera; **reasignar** el
+parámetro no. Las dos cosas, lado a lado; predice **las dos líneas**:
+
+<PredictOutput title="Modificar vs reasignar">
+
+```java predict
+class Dos {
+    static void modificar(int[] x) { x[0] = 99; }
+    static void reasignar(int[] x) { x = new int[]{99}; }
+
+    public static void main(String[] args) {
+        int[] a = {1};
+        int[] b = {1};
+        modificar(a);
+        reasignar(b);
+        System.out.println(a[0] + " " + b[0]);
+    }
+}
+```
+
+</PredictOutput>
+
+</Slide>
+
+<Slide title="Null y NPE">
+
+`null` es el valor especial que quiere decir **"no hay objeto"**. Cualquier
+variable de referencia puede contenerlo.
+
+En C++ un puntero podía ser `nullptr` — pero también podía ser un puntero
+**colgante**, apuntando a una caja que ya no existía. En Java el recolector
+de basura (§8) mantiene vivos los objetos alcanzables, así que **no hay
+referencias colgantes**: una referencia está apuntando a un objeto válido, o
+bien es `null`. Nunca las dos cosas.
+
+Cuando pides algo a `null` — llamar un método, leer un campo — Java lanza
+`NullPointerException`. Es la excepción más famosa del lenguaje, y por ahora
+la única forma de defenderte es preguntar antes de usar:
+
+```java
+if (s != null) {
+    System.out.println(s.length());
+}
+```
+
+</Slide>
+
+<Slide>
+
+Falla al vuelo, con la excepción como respuesta:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Npe {
+    public static void main(String[] args) {
+        String s = null;
+        System.out.println(s.length());
+    }
+}
+`}
+/>
+
+</Slide>
