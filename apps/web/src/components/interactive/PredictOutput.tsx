@@ -27,11 +27,21 @@ export interface PredictOutputProps {
  *
  * Wraps a read-only `<CodeEditor>` for the listing and executes the same source
  * through the shared runtime seam. The reveal shows what the program **actually
- * printed** side-by-side with the student's prediction: never an author-written
- * answer, because a trap this document teaches (`new String("hola") == new
- * String("hola")`, the Integer cache at 128) is only convincing when the JVM is
- * the one saying so. Same hazard shape ADR-0019 §7 records for exercise
- * fences — an authored answer that lies ships past a green build.
+ * printed** — never an author-written answer, because a trap this document
+ * teaches (`new String("hola") == new String("hola")`, the Integer cache at
+ * 128) is only convincing when the JVM is the one saying so. Same shape as
+ * the general principle ADR-0019 §7 lays down for `<Exercise>` — _a written
+ * verdict is feedback, not evidence_. §7's two named forgeries are
+ * student-side; this component defeats the author-side twin, an answer
+ * asserted in prose that no gate can falsify.
+ *
+ * **The reader's typed prediction is deliberately disposable.** Unlike
+ * `<CodeEditor>` and `<Exercise>` (which save to localStorage before every
+ * run, ADR-0020), the prediction lives in React state only. A tab freeze
+ * loses it and a reload loses it. That is the design: the prediction only
+ * earns its keep next to the reveal that falsifies or confirms it, and
+ * pretending the reader is committed for the next session would be
+ * pretending. Same-commit guide update: `add-a-course-document.md` step 5e.
  *
  * **Only Java.** The runtime seam accepts any registered language, but this
  * document is a Java lesson and every trap here is Java's; other languages

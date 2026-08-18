@@ -41,8 +41,8 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
      that calls `run()` through `useRuntime`/`useLoadedRuntime`, anything that
      GENERATES a compilation unit sent to one (`harness.ts`, `trace.ts`), and
      anything that mounts `CodeEditor`. Today that is `CodeEditor`, `Exercise`,
-     `MemoryDiagram`, the draft store, and since #85 `MdxPre` and any fence in
-     `content/` tagged with a runtime id.
+     `MemoryDiagram`, `PredictOutput`, the draft store, and since #85 `MdxPre`
+     and any fence in `content/` tagged with a runtime id.
 
      Stated as a class and not a list on purpose, and **the class itself has now
      gone stale twice**: once when `Exercise` arrived, again when a markdown
