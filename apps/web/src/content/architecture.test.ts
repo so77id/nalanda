@@ -179,8 +179,6 @@ describe('architecture: content invariants', () => {
         'contraste con C++; el comportamiento que Java garantiza se mide en la pregunta de "Acceso y bounds"',
       'funciones-en-c':
         'contraste con C++; lo que Java hace distinto se mide en la pregunta de "Anatomía de una función"',
-      'recursion-en-c':
-        'contraste con C++; el mecanismo Java y su excepción propia se miden en las preguntas de "Recursión"',
       'factorial-en-vivo':
         'actividad: el alumno corre factorial(5) y compara los resultados; la mecánica se mide en "Recursión"',
       'sin-caso-base':
