@@ -193,6 +193,8 @@ describe('architecture: content invariants', () => {
         'actividad: el alumno corre la versión recursiva y siente la lentitud; el porqué se mide en "El árbol de llamadas"',
       ejercicios:
         'actividad: cuatro problemas para escribir; la materia se mide en las preguntas ancladas a las secciones que los preparan',
+      'lo-que-sigue':
+        'cierre del documento: anuncia el siguiente y cierra el hilo de complejidad, no enseña nada propio',
     },
   };
 
