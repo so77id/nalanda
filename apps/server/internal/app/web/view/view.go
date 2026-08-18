@@ -280,8 +280,13 @@ type DetailedControl struct {
 	ApplicationDate string
 	Range           string
 	Shape           string
-	State           string
-	CreatedAt       string
+	// PrintLayout is the human phrase for control.duplex_padding: "dúplex
+	// (con página en blanco)" or "simplex (una página por copia)". Shown
+	// on the detail page so the professor sees the layout their generated
+	// PDF actually carries (issue #185, ADR-0039).
+	PrintLayout string
+	State       string
+	CreatedAt   string
 }
 
 // ReviewPage is what review.html renders (WP-F §The screens). Split view:

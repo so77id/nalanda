@@ -703,9 +703,19 @@ func toDetailedControl(c controls.Control, b *bank.Bank) view.DetailedControl {
 		ApplicationDate: formatOptionalDate(c.ApplicationDate),
 		Range:           formatRangeWithTitles(c.RangeFrom, c.RangeTo, b),
 		Shape:           fmt.Sprintf("%d preguntas × %d copias", c.QuestionsPerCopy, c.Copies),
+		PrintLayout:     printLayoutWord(c.DuplexPadding),
 		State:           stateWordControl(c.State),
 		CreatedAt:       spanishDate(c.CreatedAt),
 	}
+}
+
+// printLayoutWord names the two layout modes for the detail page, so the
+// professor sees which one their PDF carries. Issue #185, ADR-0039.
+func printLayoutWord(duplexPadding bool) string {
+	if duplexPadding {
+		return "dúplex (con página en blanco por copia)"
+	}
+	return "simplex (una página por copia)"
 }
 
 func formatOptionalDate(t *time.Time) string {

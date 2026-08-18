@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
@@ -139,6 +140,14 @@ func validForm() url.Values {
 // Issue #185: the form carries a duplex-padding checkbox, checked by
 // default so the historical layout requires no action. Unchecking it means
 // simplex printing: no blank filler page between prints.
+//
+// Pinned against the duplex_padding INPUT (attribute-order agnostic) rather
+// than a stray "checked" anywhere in the page, so a second checkbox or a
+// class="check-something" would not silently keep this test green
+// (Round A local-review, item 1).
+var duplexPaddingCheckedRe = regexp.MustCompile(
+	`<input[^>]*(?:name="duplex_padding"[^>]*\bchecked\b|\bchecked\b[^>]*name="duplex_padding")[^>]*>`)
+
 func TestNewRendersTheDuplexPaddingCheckboxCheckedByDefault(t *testing.T) {
 	f := newControlsFixture(t)
 	rec := httptest.NewRecorder()
@@ -154,13 +163,8 @@ func TestNewRendersTheDuplexPaddingCheckboxCheckedByDefault(t *testing.T) {
 	if !strings.Contains(body, `type="checkbox"`) {
 		t.Error("duplex_padding is not a checkbox input")
 	}
-	if !strings.Contains(body, `name="duplex_padding" value="on" checked`) &&
-		!strings.Contains(body, `checked name="duplex_padding"`) &&
-		!strings.Contains(body, `type="checkbox" name="duplex_padding"`) {
-		// Accept any attribute order; assert `checked` is present near the checkbox.
-	}
-	if !strings.Contains(body, "checked") {
-		t.Error("duplex_padding checkbox is not checked by default")
+	if !duplexPaddingCheckedRe.MatchString(body) {
+		t.Errorf("the duplex_padding <input> is not `checked` on the empty GET form\nbody:\n%s", body)
 	}
 }
 
@@ -178,6 +182,26 @@ func TestCreateStoresDuplexPaddingTrueWhenTheCheckboxIsOn(t *testing.T) {
 	}
 	if len(rows) != 1 || !rows[0].DuplexPadding {
 		t.Errorf("stored DuplexPadding = false, want true (form sent duplex_padding=on)")
+	}
+}
+
+// The negative-render case: DuplexPadding = false in the form values must
+// produce an <input> WITHOUT the `checked` attribute, else a refusal that
+// preserves the professor's unchecked state silently returns to padded on
+// re-render.
+func TestNewDoesNotRenderCheckedWhenTheFormValueIsFalse(t *testing.T) {
+	f := newControlsFixture(t)
+	form := validForm()
+	form.Del("duplex_padding")
+	form.Del("name") // force a refusal so the same form is re-rendered
+	rec := httptest.NewRecorder()
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 (form refusal); body:\n%s", rec.Code, rec.Body.String())
+	}
+	if duplexPaddingCheckedRe.MatchString(rec.Body.String()) {
+		t.Error("re-rendered form carries `checked` on duplex_padding after the professor unchecked it")
 	}
 }
 
@@ -484,6 +508,12 @@ func TestDetailRendersMetadataAndDownloadLinks(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("detail body missing %q", want)
 		}
+	}
+	// Issue #185: the detail page surfaces the print layout so the professor
+	// can tell duplex-padded controls from simplex ones without opening the
+	// PDF. validForm() sends duplex_padding=on, so this control is padded.
+	if !strings.Contains(body, "dúplex") {
+		t.Errorf("detail body missing the print-layout row (\"dúplex\")")
 	}
 }
 
