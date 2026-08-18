@@ -22,13 +22,26 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"mime"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 )
+
+// csrfMultipartMemoryLimit is what ParseMultipartForm keeps in memory before
+// spilling parts to a tempfile. 32 MiB matches Go's default; the CSRF token
+// itself is a few bytes, but a scan upload's file part travels in the same
+// body, and it belongs on disk anyway (WP-F's handler already uses the same
+// number). Since this middleware parses the multipart body before the
+// handler runs, the handler's own `http.MaxBytesReader` wrap is bypassed.
+// The pragmatic bound is the reverse proxy in front of the server (Funnel);
+// a body cap in this middleware would need per-route config the middleware
+// does not receive today. Follow-up in the PR body.
+const csrfMultipartMemoryLimit = 32 << 20
 
 // sessionCookieBase is the unprefixed name. See SessionCookieName.
 const sessionCookieBase = "nalanda_session"
@@ -278,9 +291,27 @@ func (a *Auth) VerifyCSRF(next http.Handler) http.Handler {
 			return
 		}
 
-		// ParseForm is what populates PostFormValue, and its error is worth
-		// refusing on: a body that cannot be parsed carries no token either.
-		if err := r.ParseForm(); err != nil {
+		// Populate PostFormValue's map from whatever the request body actually
+		// is. Two cases to keep separate:
+		//
+		//   - application/x-www-form-urlencoded: ParseForm reads and decodes
+		//     the body into r.PostForm. This is the common case (every
+		//     backoffice form except the scan upload).
+		//   - multipart/form-data: ParseForm does NOT read a multipart body —
+		//     it leaves r.PostForm as an empty, non-nil map, which then
+		//     stops any later PostFormValue from ever calling
+		//     ParseMultipartForm (the guard is `r.PostForm == nil`, and
+		//     empty-non-nil is not nil). Reported in production on
+		//     2026-08-18 when WP-F's scan upload started returning 403
+		//     "Solicitud no autorizada." for every attempt, because the
+		//     multipart body carried the csrf_token that this middleware
+		//     never read. The gated test above pins the fix.
+		if isMultipart(r) {
+			if err := r.ParseMultipartForm(csrfMultipartMemoryLimit); err != nil {
+				renderForbidden(w, r)
+				return
+			}
+		} else if err := r.ParseForm(); err != nil {
 			renderForbidden(w, r)
 			return
 		}
@@ -294,6 +325,25 @@ func (a *Auth) VerifyCSRF(next http.Handler) http.Handler {
 
 		next.ServeHTTP(w, r)
 	})
+}
+
+// isMultipart is true when the request declares a multipart/form-data body.
+// The parse is best-effort: a missing or malformed Content-Type falls back
+// to the url-encoded branch, which will produce the same 403 for a
+// state-changing request without a valid form.
+func isMultipart(r *http.Request) bool {
+	ct := r.Header.Get("Content-Type")
+	if ct == "" {
+		return false
+	}
+	if !strings.HasPrefix(ct, "multipart/") {
+		return false
+	}
+	mt, _, err := mime.ParseMediaType(ct)
+	if err != nil {
+		return false
+	}
+	return mt == "multipart/form-data"
 }
 
 // renderForbidden writes a 403 through the shell (AC-11). The plain-text
