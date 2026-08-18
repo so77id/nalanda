@@ -1,0 +1,944 @@
+---
+id: arrays-y-funciones
+title: Arrays y funciones
+presentation: explicit
+questions: per-section
+---
+
+{/* Este documento declara `questions: per-section` (#139). Cada sección o */}
+{/* tiene una `<Question anchor="...">` en el bloque `<Questions>` al final, */}
+{/* o está declarada con su razón en NO_QUESTION en */}
+{/* apps/web/src/content/architecture.test.ts (§Question coverage). */}
+{/* */}
+{/* Anclas que llevan pregunta (deben existir como secciones): */}
+{/*   arrays-en-java, acceso-y-bounds, recorrer-un-arreglo, */}
+{/*   buscar-un-elemento, ordenar-y-buscar, anatomia-de-una-funcion, */}
+{/*   recursion, fibonacci-tres-formas, el-arbol-de-llamadas, */}
+{/*   la-complejidad-se-ve. */}
+{/* */}
+{/* Regla del WP (AC-11): cada sección abre con el ANCLA C++ antes del delta */}
+{/* Java. La ancla C++ es su propia slide; su pregunta es la de la sección */}
+{/* Java que la sigue, no una propia. */}
+{/* */}
+{/* AC-12: cada bloque de código en slides está resaltado. Interactivos con */}
+{/* <CodeEditor>; read-only con fences ```java (que se renderizan a través */}
+{/* del listing de #85). Nunca <pre> crudo. */}
+
+# Arrays y funciones
+
+En [[referencias-null-igualdad|Referencias, null e igualdad]] viste que los objetos
+viven en el heap y las variables guardan referencias a ellos; ahora vas a trabajar con
+un tipo de objeto que ya conocías en C++ pero que Java trata distinto — el arreglo — y
+vas a agrupar código en **funciones**, tema que el material anterior tampoco cubrió a
+fondo. El documento cierra con un caso de estudio: tres formas de calcular Fibonacci,
+medidas en tu propio navegador, y por qué la recursiva pierde.
+
+<SectionBreak />
+
+<Slide title="Arrays en C++">
+En C++, un arreglo son dos cosas separadas: un puntero al primer elemento y una
+variable aparte con el tamaño, que tú administras. El compilador no revisa que
+el índice esté dentro del rango: leer `v[3]` cuando el arreglo tiene tres
+elementos devuelve el contenido de la posición de memoria que sigue al arreglo,
+o interrumpe el programa si esa posición no le pertenece.
+
+```cpp
+int v[3] = {1, 2, 3};
+std::cout << sizeof(v) / sizeof(v[0]);  // 3, si el tipo no se decayó a puntero
+std::cout << v[3];                       // comportamiento indefinido
+```
+
+El largo lo llevas tú, y el rango no lo revisa nadie. Esos dos hechos son la
+mitad de los defectos que Java te va a quitar.
+</Slide>
+
+<Slide title="Arrays en Java">
+En Java un arreglo **es un objeto**: sabe su propio largo, y ese largo se pregunta
+como campo, no como método.
+
+```java
+int[] v = {1, 2, 3};
+System.out.println(v.length);   // 3 — sin paréntesis, es un campo, no un método
+```
+
+- **`v.length` es un campo, no un método** — no lleva paréntesis. `String` es
+  distinto: ahí sí es un método (`s.length()`, con paréntesis). Es la confusión
+  más común del semestre, y el compilador te para siempre que las mezcles.
+- El largo se fija al crearlo y no cambia. Si necesitas crecer, se copia a otro
+  arreglo más grande (o se usa una lista, que viene más adelante en el curso).
+- El tipo del elemento va antes de los corchetes: `int[]`, `String[]`,
+  `Persona[]`.
+</Slide>
+
+<Slide title="Tres iniciaciones">
+Las tres formas que vas a ver todo el semestre:
+
+```java
+int[] a = {1, 2, 3};               // literal: el arreglo con esos tres valores
+int[] b = new int[5];              // reservado con largo 5 y valores por defecto (0)
+int[] c = new int[]{10, 20, 30};   // literal con new — necesaria si no es en la declaración
+```
+
+Los valores por defecto de `new int[5]` son `0`; de `new boolean[5]` son `false`; de
+`new String[5]` son `null` — el mismo `null` de
+[[referencias-null-igualdad|el documento anterior]], listo para dar
+`NullPointerException` si accedes sin asignar primero.
+</Slide>
+
+<Slide title="Acceso y bounds">
+El acceso es igual que en C++: `v[i]`, con `i` de `0` a `v.length - 1`. La
+diferencia que importa es lo que pasa cuando `i` se sale de ese rango: en vez
+de comportamiento indefinido, **Java lanza `ArrayIndexOutOfBoundsException`** y
+detiene el programa en esa línea, con el índice exacto en el mensaje.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Bounds {
+    public static void main(String[] args) {
+        int[] v = {1, 2, 3};
+        System.out.println("largo: " + v.length);
+        System.out.println("v[0] = " + v[0]);
+        System.out.println("v[3] = " + v[3]);  // lanza excepción
+        System.out.println("esta línea nunca se ejecuta");
+    }
+}
+`}
+/>
+
+Ejecútalo. Vas a ver `largo: 3`, `v[0] = 1`, y después el rastro de la excepción — el
+programa se detiene en `v[3]` y la última línea nunca corre. El chequeo cuesta unos
+nanosegundos por acceso; a cambio, un defecto silencioso en C++ se vuelve un defecto
+que salta a la cara.
+</Slide>
+
+<Slide title="En C++ era segfault">
+El mismo programa en C++ tiene tres desenlaces posibles, ninguno bueno:
+
+1. **Imprime basura.** `v[3]` cae en memoria que le pertenece al programa pero no al
+   arreglo — la próxima variable en la pila, o alineación, o lo que sea que estaba ahí.
+2. **Segmentation fault.** `v[3]` cae en memoria que no le pertenece al programa; el
+   sistema operativo lo interrumpe.
+3. **Sobrescribe algo importante.** Si en vez de leer estás escribiendo (`v[3] = 99`),
+   modificas variables sin saberlo. Los defectos que resultan de esto son de los más
+   difíciles de rastrear que hay.
+
+En Java las tres se colapsan en una sola: la excepción con el índice exacto y la línea
+exacta. Es más lento; es incomparablemente más depurable.
+</Slide>
+
+<Slide title="Recorrer un arreglo">
+Dos formas. El `for` clásico, cuando necesitas el índice — para asignar, para comparar
+con el vecino, para pasarlo a otra función:
+
+```java
+int[] v = {10, 20, 30};
+for (int i = 0; i < v.length; i++) {
+    System.out.println(i + ": " + v[i]);
+}
+```
+
+Y el `for-each`, cuando solo te importa el valor:
+
+```java
+int[] v = {10, 20, 30};
+for (int x : v) {
+    System.out.println(x);
+}
+```
+
+**Ojo con el `for-each` si querías modificar el arreglo — no lo hace.** Mira:
+
+```java
+int[] v = {1, 2, 3};
+for (int x : v) x = 99;
+System.out.println(v[0]);  // sigue siendo 1, no 99
+```
+
+El `x` del `for-each` es una **variable aparte** que en cada vuelta recibe el
+valor de la casilla actual — no es la casilla misma. Asignarle un `99` cambia
+solo el `x`, no el `v[0]`. Si quieres modificar el arreglo, escribe el `for`
+clásico y asigna a `v[i]` directamente:
+
+```java
+int[] v = {1, 2, 3};
+for (int i = 0; i < v.length; i++) v[i] = 99;
+System.out.println(v[0]);  // ahora sí, 99
+```
+</Slide>
+
+<Slide title="Buscar un elemento">
+En C++ compararías con `==` porque los tipos primitivos se comparan por valor y las
+cadenas se manejan de otra manera. En Java, como acabas de ver en
+[[referencias-null-igualdad|el documento anterior]], `==` sobre `String` compara
+**referencias**, no contenido — y por eso la búsqueda de un texto en un arreglo
+se hace con `.equals()`:
+
+```java
+static boolean contiene(String[] xs, String buscado) {
+    for (String x : xs) {
+        if (x.equals(buscado)) return true;
+    }
+    return false;
+}
+```
+
+Para arreglos de primitivos (`int[]`, `double[]`, …) el `==` sí compara valores, así
+que el mismo esqueleto funciona con `if (x == buscado)`. La regla mental que te
+conviene grabar: **`==` es igualdad de referencia, `.equals()` es igualdad de
+contenido**; para primitivos las dos coinciden, para objetos rara vez lo hacen sin que
+alguien las haga coincidir a mano.
+
+Un detalle práctico: `buscado.equals(x)` y `x.equals(buscado)` dan el mismo resultado
+cuando ninguno es `null`, pero si `x` puede serlo la primera forma evita el
+`NullPointerException`. Es una convención barata que ahorra pruebas defensivas.
+</Slide>
+
+<Slide title="Ordenar y buscar">
+Java trae `Arrays.sort` como método estático, y ordena **en el mismo arreglo** —
+no devuelve uno nuevo. Por default ordena de menor a mayor.
+
+<CodeEditor
+  language="java"
+  defaultValue={`import java.util.Arrays;
+
+class Orden {
+    public static void main(String[] args) {
+        int[] v = {3, 1, 4, 1, 5, 9, 2, 6};
+        Arrays.sort(v);
+        System.out.println(Arrays.toString(v));
+    }
+}
+`}
+/>
+
+`import java.util.Arrays` te da los métodos utilitarios de arreglo (`sort`,
+`toString`, `fill`, `copyOf`).
+
+**Para ordenar de mayor a menor** hay una variante de `sort` que recibe un
+segundo argumento — un `Comparator` que dice cómo comparar. Como los `int[]`
+primitivos no soportan `Comparator`, la variante trabaja sobre `Integer[]` (la
+versión objeto):
+
+<CodeEditor
+  language="java"
+  defaultValue={`import java.util.Arrays;
+import java.util.Comparator;
+
+class OrdenReverso {
+    public static void main(String[] args) {
+        Integer[] v = {3, 1, 4, 1, 5, 9, 2, 6};
+        Arrays.sort(v);
+        System.out.println("ascendente:  " + Arrays.toString(v));
+        Arrays.sort(v, Comparator.reverseOrder());
+        System.out.println("descendente: " + Arrays.toString(v));
+    }
+}
+`}
+/>
+</Slide>
+
+<Slide title="Funciones en C++">
+En C++ declaras una función indicando su tipo de retorno, su nombre y sus
+parámetros, y opcionalmente la separas en firma y cuerpo:
+
+```cpp
+int maximo(int a, int b);              // firma
+int maximo(int a, int b) { return a > b ? a : b; }  // cuerpo
+
+int main() { std::cout << maximo(3, 4); }
+```
+
+Puedes tener **funciones libres** (sueltas, como `maximo`), **métodos** dentro de
+una clase, y **funciones sobrecargadas** (mismo nombre, distintos parámetros). Y
+tienes **punteros a función**, además de operadores que puedes sobrecargar para
+tus propios tipos.
+
+En Java todo esto vuelve a plantearse desde el hecho de que **no existen funciones
+libres**: cada función vive dentro de una clase. El resto de las diferencias caen
+por sí solas cuando entendiste esa.
+</Slide>
+
+<Slide title="Anatomía de una función">
+En Java, `main` es lo único que has visto hasta ahora que se parece a una función.
+Cualquier otra la escribes exactamente con la misma forma: modificadores, tipo de
+retorno, nombre, parámetros entre paréntesis, y un bloque.
+
+```java
+class Util {
+    static int maximo(int a, int b) {
+        return a > b ? a : b;
+    }
+}
+```
+
+- **`static`** significa "no necesita un objeto para llamarla". Un método sin
+  `static` vive **en un objeto** (la instancia lo lleva), y solo se puede llamar
+  con un objeto delante: `x.mayorQue(y)`. Todo lo que has escrito hasta ahora es
+  `static` porque todavía no hay objetos en escena — llegan en el próximo
+  documento.
+- **El tipo de retorno es obligatorio.** Si no devuelves nada, se declara `void`
+  — pero se declara, Java nunca lo infiere. Un método `int` que se olvida de
+  ejecutar `return` con un `int` no compila; un método `void` que escribe
+  `return 5;` tampoco.
+- **Los parámetros se pasan por valor.** Un `int` viaja como copia; un objeto
+  viaja como copia de la referencia — el mismo hecho que se enseña en
+  [[referencias-null-igualdad|el documento anterior]]. Java no tiene el `&` de
+  C++ para pedir referencia; si necesitas modificar algo, devuélvelo o pasa un
+  arreglo (que es un objeto).
+
+**Sobrecarga: dos funciones con el mismo nombre, distintos parámetros.**
+
+```java
+static int maximo(int a, int b)            { return a > b ? a : b; }
+static int maximo(int a, int b, int c)     { return maximo(maximo(a, b), c); }
+static double maximo(double a, double b)   { return a > b ? a : b; }
+```
+
+Las tres se llaman `maximo`; el compilador elige cuál usar mirando los tipos y
+la cantidad de argumentos que le pasas. `maximo(3, 4)` va a la primera —
+literales enteros — y `maximo(3.0, 4.0)` va a la tercera.
+
+**Lo que sí tenías en C++ y en Java no:** sobrecargar `+`, `==` o cualquier otro
+operador para tus propios tipos. Esa es la razón — la misma que aparece en
+[[referencias-null-igualdad|el documento anterior]] — por la que `==` sobre
+`String` no compara contenido: nadie puede reescribir qué significa `==`, ni
+siquiera para las clases que Java trae de fábrica.
+</Slide>
+
+<Slide title="Recursión">
+**Una función puede llamarse a sí misma.** Suena raro la primera vez, pero es
+solo eso: una función que aparece dentro de su propio cuerpo. Sirve cuando el
+problema que estás resolviendo se resuelve resolviendo un problema más chico
+del mismo tipo.
+
+Pensalo así: imagina que quieres contar cuántos escalones tiene una escalera y
+solo puedes bajar de a uno. Si estás en el piso, la respuesta es `0`. Si no,
+bajás un escalón, preguntás a la escalera más corta que quedó cuántos tiene, y
+sumás `1`. Esa es exactamente la forma que va a tener el código.
+
+Toda función recursiva tiene **dos partes obligatorias**:
+
+1. **Caso base**: el escalón donde la función responde sin volver a llamarse.
+   Sin esto, la recursión no termina nunca.
+2. **Caso recursivo**: la función se llama a sí misma con un argumento **más
+   cercano al caso base**. Ese "más cercano" es lo que garantiza que en algún
+   momento se detenga.
+
+Un ejemplo clásico: `factorial(n)` es `1 · 2 · 3 · … · n`. Su definición
+recursiva es más limpia que cualquier ciclo:
+
+```java
+class Factorial {
+
+    static int factorial(int n) {
+        if (n <= 1) return 1;               // caso base
+        return n * factorial(n - 1);        // caso recursivo
+    }
+
+    public static void main(String[] args) {
+        System.out.println(factorial(5));   // 120
+    }
+}
+```
+
+Leelo como una historia: `factorial(4)` no sabe cuánto vale, pero sabe que es
+`4 * factorial(3)`. `factorial(3)` a su vez es `3 * factorial(2)`. Y así hasta
+`factorial(1)`, que responde `1` sin preguntarle a nadie. Ese `1` vuelve, se
+multiplica por `2`, ese `2` por `3`, ese `6` por `4`, y llega a `main` como
+`24`.
+
+Cada llamada anidada abre una **capa** en una estructura llamada **pila de
+llamadas**, y esa capa se cierra cuando la llamada termina. La pila es finita
+(unas decenas de miles de capas en un JVM típico) — y ahí está el peor defecto
+de una recursión mal escrita, que verás dos slides más adelante.
+</Slide>
+
+<Slide title="Factorial en vivo">
+Corre este `factorial(5)` y confirma que da `120`. Después prueba `factorial(1)`
+y `factorial(0)` — los dos deberían dar `1`, porque los dos entran directo al
+caso base.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Factorial {
+
+    static int factorial(int n) {
+        if (n <= 1) return 1;
+        return n * factorial(n - 1);
+    }
+
+    public static void main(String[] args) {
+        System.out.println("factorial(0) = " + factorial(0));
+        System.out.println("factorial(1) = " + factorial(1));
+        System.out.println("factorial(5) = " + factorial(5));
+        System.out.println("factorial(10) = " + factorial(10));
+        System.out.println("factorial(13) = " + factorial(13));
+        System.out.println("factorial(17) = " + factorial(17));
+    }
+}
+`}
+/>
+
+`factorial(10)` es `3628800`. Un `int` guarda hasta `factorial(12)`. **Desde
+`n = 13` el resultado ya no cabe en 32 bits**: el número que devuelve
+`factorial` deja de ser el factorial matemático, pero sigue apareciendo
+positivo porque el desbordamiento da la vuelta dentro del rango del `int`.
+**A partir de `n = 17` esa vuelta cruza el cero** y el resultado aparece
+negativo (`factorial(17)` imprime `-288522240`, no un número enorme). Es el
+mismo desbordamiento silencioso de
+[[java-tipos-y-flujo|"Tipos, operadores y entrada/salida"]], visto ahora en un
+ejemplo donde el defecto no salta a la cara la primera vez: el número está mal
+desde `n = 13`, y solo se ve raro desde `n = 17`. Cuando el resultado tenga
+que crecer más, el tipo `long` (que resiste hasta `factorial(20)`) es la salida
+mínima, y para más allá, `BigInteger`.
+</Slide>
+
+<Slide title="Sin caso base">
+El defecto más común de escribir una recursión: olvidar el caso base. La
+función se llama a sí misma para siempre, la pila se llena, y el JVM la
+interrumpe con un `StackOverflowError` — el error más ruidoso que Java sabe
+lanzar. Es intencional: el defecto es serio y merece un mensaje que no se
+confunda con otro.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Descuidado {
+
+    static void nunca() {
+        nunca();          // se llama a sí misma sin caso base
+    }
+
+    public static void main(String[] args) {
+        nunca();
+    }
+}
+`}
+/>
+
+Ejecútalo. El rastro es larguísimo — miles de líneas idénticas — porque cada
+llamada anidada aparece en el reporte.
+
+En C++ el mismo programa dependería del compilador y la máquina; en Java el
+comportamiento está **especificado**, igual que el desbordamiento de enteros y
+por la misma razón: predecibilidad multiplataforma.
+</Slide>
+
+<Slide title="Fibonacci: tres formas">
+La sucesión de Fibonacci se define así:
+
+- `fib(0) = 0`
+- `fib(1) = 1`
+- `fib(n) = fib(n - 1) + fib(n - 2)` para `n ≥ 2`
+
+Los primeros números son `0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, …` — cada uno
+la suma de los dos anteriores.
+
+Es un problema chico, con una definición simple, y admite **muchísimas maneras
+distintas** de resolverse. Vamos a implementarlo de tres formas y medir cuánto
+tarda cada una:
+
+1. **Con un arreglo** — llenamos `f[0..n]` de izquierda a derecha, cada casilla
+   suma las dos anteriores. Es la más directa: la definición traducida a un
+   ciclo.
+2. **Con dos variables** — el mismo cálculo, pero notando que solo necesitamos
+   los dos últimos valores; guardarlos en un arreglo de largo `n` es memoria
+   desperdiciada.
+3. **Recursiva** — traducimos la definición matemática literal a Java.
+   Sintácticamente es la más corta y la que más se parece al enunciado. Vas a
+   ver que es dramáticamente la más lenta.
+
+Las tres calculan exactamente lo mismo. La diferencia que vas a medir es el
+**costo**: mismo problema, mismo resultado, tiempos que difieren en tres órdenes
+de magnitud.
+</Slide>
+
+<Slide title="Fibonacci con arreglo">
+Llena `f[0..n]` de izquierda a derecha. Después de la última casilla, `f[n]` es
+la respuesta.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class FibArreglo {
+
+    static long fib(int n) {
+        long[] f = new long[n + 1];
+        f[0] = 0;
+        if (n >= 1) f[1] = 1;
+        for (int i = 2; i <= n; i++) {
+            f[i] = f[i - 1] + f[i - 2];
+        }
+        return f[n];
+    }
+
+    public static void main(String[] args) {
+        int n = 40;
+        long inicio = System.nanoTime();
+        long r = fib(n);
+        long fin = System.nanoTime();
+        System.out.println("fib(" + n + ") = " + r);
+        System.out.println("tiempo: " + (fin - inicio) + " ns");
+    }
+}
+`}
+/>
+
+`long` en vez de `int` porque cerca de `fib(47)` el resultado ya no cabe en
+32 bits (`fib(46)` es el último que entra). El ciclo hace `n - 1` sumas y
+usa `n + 1` casillas de memoria: **coste lineal en tiempo y en memoria**.
+
+`System.nanoTime()` devuelve un contador monótono con resolución de
+nanosegundos. Es lo que vas a usar para comparar los tres tiempos.
+</Slide>
+
+<Slide title="Fibonacci con dos variables">
+En cada paso solo necesitamos los últimos dos valores. Guardar los `n - 1`
+anteriores es desperdicio: dos `long` bastan.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class FibVentana {
+
+    static long fib(int n) {
+        if (n == 0) return 0;
+        long anterior = 0;
+        long actual = 1;
+        for (int i = 2; i <= n; i++) {
+            long siguiente = anterior + actual;
+            anterior = actual;
+            actual = siguiente;
+        }
+        return actual;
+    }
+
+    public static void main(String[] args) {
+        int n = 40;
+        long inicio = System.nanoTime();
+        long r = fib(n);
+        long fin = System.nanoTime();
+        System.out.println("fib(" + n + ") = " + r);
+        System.out.println("tiempo: " + (fin - inicio) + " ns");
+    }
+}
+`}
+/>
+
+Mismo número de sumas que la versión con arreglo; la memoria bajó de `n + 1`
+casillas a tres variables. El tiempo debería ser prácticamente idéntico al
+anterior — la diferencia entre ambas es cuánta memoria ocupan, no cuántas
+operaciones hacen.
+</Slide>
+
+<Slide title="Fibonacci recursivo">
+Ahora la que se parece a la definición matemática, letra por letra.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class FibRecursivo {
+
+    static long fib(int n) {
+        if (n < 2) return n;
+        return fib(n - 1) + fib(n - 2);
+    }
+
+    public static void main(String[] args) {
+        int n = 40;   // cambia al valor que quieras probar
+        long inicio = System.nanoTime();
+        long r = fib(n);
+        long fin = System.nanoTime();
+        System.out.println("fib(" + n + ") = " + r);
+        System.out.println("tiempo: " + (fin - inicio) + " ns");
+    }
+}
+`}
+/>
+
+Es la más corta y la más legible, y también la más lenta por mucho. Ejecútalo
+con `n = 40` y anota el tiempo. Después súbelo a `42` y confirma que tardó
+casi el triple: el tiempo se multiplica por un factor cercano a `3` cada vez
+que sumas dos a `n`, y del orden de `10` cada vez que sumas cinco. **Es la
+primera vez en el curso que un programa que compila y no tiene defectos
+aparentes se demora tanto que la página parece congelada.**
+
+**No subas mucho más allá de `n = 45`** — cada `+5` multiplica el tiempo por
+diez, y este código corre en el hilo principal del navegador sin botón de
+cancelar. La próxima slide vuelve sobre este punto.
+</Slide>
+
+<Slide title="El árbol de llamadas">
+La versión recursiva es lenta por una razón concreta que las otras dos no
+tienen: **recalcula muchas veces los mismos valores**. Corre este árbol y
+mira:
+
+<RecursionTree recipe="fib" arg={5} title="fib(5)" />
+
+Cliquea el nodo raíz. Aparecen `fib(4)` y `fib(3)`. Cliquea `fib(4)` — aparecen
+`fib(3)` y `fib(2)`. Ahí ya hay dos `fib(3)`, pintados del mismo color.
+Cliquea el segundo `fib(3)` — aparece otro `fib(2)`. Sigue bajando hasta las
+hojas: **cada valor se calcula tantas veces como aparece en el árbol**, y
+`fib(1)` aparece muchísimas veces.
+
+Con `n = 30` el árbol tiene del orden de un millón de nodos, todos calculando
+respuestas que las otras dos versiones calcularon **una sola vez**. Ese es el
+costo: no es que la recursión sea intrínsecamente lenta, es que este árbol
+en particular está lleno de trabajo repetido. Un compilador teóricamente
+podría cachear cada `fib(k)` la primera vez que lo calcula (a esa técnica se
+le llama **memoización**, y se ve más adelante en el curso), pero de fábrica
+ni Java ni ningún lenguaje mainstream lo hace por ti.
+</Slide>
+
+<Slide title="La complejidad se ve">
+Lo que acabas de medir es la primera aparición de un tema propio en este
+curso: la **complejidad computacional**. Estudia por qué **un mismo problema
+resuelto de tres maneras distintas tiene tres costos radicalmente distintos**
+— microsegundos, microsegundos, y segundos que crecen exponencialmente — y
+cómo elegir cuál usar sin tener que medir cada vez.
+
+Las tres versiones que corriste hacen exactamente el mismo cálculo. Ninguna
+está "mal" en el sentido de que devuelva un resultado equivocado. La
+diferencia entera está en **cómo llegan** a la respuesta: las dos primeras
+suman cada `fib(k)` una vez; la recursiva suma `fib(1)` decenas de miles de
+veces sin darse cuenta.
+
+**Nota práctica:** el recursivo corre en el hilo principal del navegador y no
+tiene botón de cancelar. Con `n = 40` tarda del orden del segundo, con
+`n = 45` del orden del minuto, y con `n = 50` no vas a esperar. No subas
+mucho más allá de `n = 45` si no querés cerrar la pestaña.
+
+La complejidad computacional es un tema propio y grande, con su documento
+más adelante en el curso. Por ahora lo importante es que la mediste tú, en
+tu propia máquina, y viste que **elegir cómo implementar tiene consecuencias
+que se cuentan en órdenes de magnitud**.
+</Slide>
+
+## Ejercicios
+
+Cuatro problemas para escribir tú. Completa el método que falta y presiona
+**Comprobar**: tu código se compila junto a una batería de casos que lo llaman
+y te dicen cuáles pasaron. Los casos aparecen después de la primera ejecución.
+
+Todos están **acotados** — los arreglos son cortos, y el recursivo tiene un
+caso base explícito y un input chico. Ningún ejercicio te puede colgar la
+pestaña siempre que respetes el contrato del enunciado.
+
+<Exercise title="1. Suma de un arreglo">
+
+Escribe `sumaArreglo`, que recibe un `int[]` y devuelve la suma de todos sus
+elementos. Si el arreglo está vacío, la suma es `0`.
+
+```java starter
+class Solution {
+
+    static int sumaArreglo(int[] v) {
+        // tu código aquí — reemplaza el -1
+        return -1;
+    }
+}
+```
+
+```java test
+check(Solution.sumaArreglo(new int[]{1, 2, 3, 4}), 10);
+check(Solution.sumaArreglo(new int[]{-5, 5}), 0);
+check(Solution.sumaArreglo(new int[]{}), 0);
+check(Solution.sumaArreglo(new int[]{42}), 42);
+check(Solution.sumaArreglo(new int[]{1, -1, 1, -1, 1}), 1);
+```
+
+</Exercise>
+
+<Exercise title="2. Máximo de un arreglo">
+
+Escribe `maximoDeArreglo`, que recibe un `int[]` **no vacío** y devuelve el
+mayor de sus elementos. Puedes suponer que el arreglo tiene al menos un
+elemento.
+
+```java starter
+class Solution {
+
+    static int maximoDeArreglo(int[] v) {
+        // tu código aquí
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.maximoDeArreglo(new int[]{3, 1, 4, 1, 5, 9, 2, 6}), 9);
+check(Solution.maximoDeArreglo(new int[]{7}), 7);
+check(Solution.maximoDeArreglo(new int[]{-5, -2, -9, -1, -8}), -1);
+check(Solution.maximoDeArreglo(new int[]{10, 10, 10}), 10);
+check(Solution.maximoDeArreglo(new int[]{-100, 0, 100}), 100);
+```
+
+</Exercise>
+
+<Exercise title="3. ¿Contiene el elemento?">
+
+Escribe `contieneElemento`, que recibe un `String[]` y un `String buscado`, y
+devuelve `true` si el arreglo contiene una cadena **con el mismo contenido**
+que `buscado`. Recuerda que en Java las cadenas se comparan con `.equals()`,
+no con `==`.
+
+Puedes suponer que ni el arreglo ni `buscado` son `null`, y que ninguno de
+los elementos del arreglo es `null` tampoco.
+
+```java starter
+class Solution {
+
+    static boolean contieneElemento(String[] xs, String buscado) {
+        // tu código aquí — el starter tira una excepción a propósito
+        // hasta que lo escribas (con booleanos, ni `true` ni `false`
+        // son sentinelas que no coincidan con algún caso legítimo).
+        throw new UnsupportedOperationException("aún no implementado");
+    }
+}
+```
+
+```java test
+check(Solution.contieneElemento(new String[]{"a", "b", "c"}, "b"), true);
+check(Solution.contieneElemento(new String[]{"a", "b", "c"}, "d"), false);
+check(Solution.contieneElemento(new String[]{}, "a"), false);
+check(Solution.contieneElemento(new String[]{"hola"}, "hola"), true);
+check(Solution.contieneElemento(new String[]{"Hola"}, "hola"), false);
+check(Solution.contieneElemento(new String[]{"", "x"}, ""), true);
+```
+
+</Exercise>
+
+<Exercise title="4. Suma hasta n, recursivo">
+
+Escribe `sumaHastaN` **recursivamente**, que recibe un `int n` y devuelve la
+suma `1 + 2 + ... + n`. Si `n` es menor o igual a `0`, la suma es `0`.
+
+Este es el ejercicio donde te falta escribir el caso base y el caso recursivo,
+como en el `factorial` de la sección de recursión. **No uses ciclos**: la
+gracia está en la recursión.
+
+Los casos usan `n ≤ 100`, así que ni tu pila ni el tiempo son un problema. Si
+tu implementación provoca `StackOverflowError`, el caso base está mal escrito
+o falta.
+
+```java starter
+class Solution {
+
+    static int sumaHastaN(int n) {
+        // tu código aquí — reemplaza el -1
+        return -1;
+    }
+}
+```
+
+```java test
+check(Solution.sumaHastaN(0), 0);
+check(Solution.sumaHastaN(-3), 0);
+check(Solution.sumaHastaN(1), 1);
+check(Solution.sumaHastaN(5), 15);
+check(Solution.sumaHastaN(10), 55);
+check(Solution.sumaHastaN(100), 5050);
+```
+
+</Exercise>
+
+{/* Las trece preguntas del banco de este documento. Cada una fue redactada */}
+{/* con la sección que la mide, no meses después contra un documento que */}
+{/* nadie recuerda — el orden que #148 (ADR-0032) inauguró y esta primera */}
+{/* aplicación intencional del `guides/write-control-questions.md`. */}
+{/* La verificación en runtime real (`fact(5) = 120`, `Arrays.sort` deja */}
+{/* `v[0] = 1`, `fib(30)` recursivo cae en el orden del segundo en CheerpJ */}
+{/* del navegador de referencia) se hace en el browser check de S7; ajustar */}
+{/* alternativas si el JVM discrepa es parte de esa lista. */}
+<Questions>
+
+<Question id="largo-array-java" anchor="arrays-en-java">
+
+En Java, ¿cómo se obtiene el largo de un `int[] v`?
+
+- [x] `v.length`
+- [ ] `v.length()`
+- [ ] `v.size()`
+- [ ] `sizeof(v)`
+
+</Question>
+
+<Question id="indice-fuera-de-rango" anchor="acceso-y-bounds">
+
+¿Qué pasa al ejecutar esto?
+
+```java
+int[] v = {1, 2, 3};
+System.out.println(v[3]);
+```
+
+- [x] Lanza `ArrayIndexOutOfBoundsException`
+- [ ] Imprime `0`, el valor por defecto de un `int`
+- [ ] Imprime lo que haya en esa posición de memoria
+- [ ] No compila: el compilador detecta que 3 está fuera de rango
+
+</Question>
+
+<Question id="for-each-modifica" anchor="recorrer-un-arreglo">
+
+¿Qué imprime este programa?
+
+```java
+int[] v = {1, 2, 3};
+for (int x : v) x = 99;
+System.out.println(v[0]);
+```
+
+- [x] `1`
+- [ ] `99`
+- [ ] Error de compilación
+- [ ] `0`
+
+</Question>
+
+<Question id="buscar-con-equals" anchor="buscar-un-elemento">
+
+¿Cuál es la forma correcta de saber si un `String[] names` contiene
+`"María"` como contenido?
+
+- [x] Recorrer con `for` y comparar cada elemento con `.equals("María")`
+- [ ] Recorrer con `for` y comparar cada elemento con `== "María"` a secas
+- [ ] Comparar directamente el arreglo entero: `names == "María"`
+- [ ] Java lo detecta solo, no hace falta escribir el recorrido
+
+</Question>
+
+<Question id="valor-de-retorno" anchor="anatomia-de-una-funcion">
+
+¿Cuáles de estas afirmaciones sobre las funciones en Java son ciertas?
+
+- [x] Una función que devuelve `int` tiene que ejecutar un `return` con un `int`
+- [x] Una función declarada `void` no puede escribir `return algo;`
+- [ ] Java tiene punteros a función, como en C++
+- [ ] El tipo de retorno es opcional; el compilador lo infiere
+
+</Question>
+
+<Question id="overloading-cual-se-elige" anchor="anatomia-de-una-funcion">
+
+Dado:
+
+```java
+static int max(int a, int b) { return a > b ? a : b; }
+static double max(double a, double b) { return a > b ? a : b; }
+```
+
+Al llamar `max(3, 4)`, ¿cuál se elige?
+
+- [x] La versión `int`, porque los literales son `int`
+- [ ] La versión `double`, porque es más general
+- [ ] Error de compilación por ambigüedad
+- [ ] Cualquiera, Java elige al azar
+
+</Question>
+
+<Question id="factorial-recursion" anchor="recursion">
+
+¿Qué imprime este programa?
+
+```java
+static int fact(int n) {
+    if (n <= 1) return 1;
+    return n * fact(n - 1);
+}
+System.out.println(fact(5));
+```
+
+- [x] `120`
+- [ ] `5`
+- [ ] Error de compilación
+- [ ] `StackOverflowError`
+
+</Question>
+
+<Question id="sin-caso-base" anchor="recursion">
+
+¿Qué pasa si una función recursiva no tiene caso base?
+
+- [x] Lanza `StackOverflowError` cuando la pila se llena
+- [ ] Corre para siempre sin problema
+- [ ] Java lo detecta al compilar y no deja compilar
+- [ ] Devuelve `null`
+
+</Question>
+
+<Question id="cuando-recursivo" anchor="fibonacci-tres-formas">
+
+¿Cuál de estas afirmaciones sobre las tres implementaciones de Fibonacci es
+cierta?
+
+- [x] La versión con arreglo y la de dos variables tardan tiempos parecidos
+- [ ] La recursiva es la más rápida porque es la más corta y clara
+- [ ] Java optimiza la recursión automáticamente; las tres corren igual
+- [ ] La versión con dos variables usa más memoria que la del arreglo
+
+</Question>
+
+<Question id="por-que-lento" anchor="el-arbol-de-llamadas">
+
+¿Por qué la implementación recursiva de Fibonacci es tan lenta?
+
+- [x] Recalcula muchas veces los mismos valores intermedios (`fib(3)` aparece varias veces en el árbol de `fib(5)`)
+- [ ] La recursión en Java es intrínsecamente más lenta que los ciclos por diseño del lenguaje
+- [ ] `System.nanoTime()` mide mal el tiempo de las funciones recursivas por su granularidad
+- [ ] La pila de llamadas se llena y el JVM empieza a paginarla a disco automáticamente
+
+</Question>
+
+<Question id="crecimiento-comparado" anchor="el-arbol-de-llamadas">
+
+Si `fib(40)` con la versión de arreglo toma alrededor de 1 ms, ¿cuánto toma
+aproximadamente `fib(40)` con la versión recursiva en el mismo navegador?
+
+- [x] Del orden de un segundo
+- [ ] 1 ms también, ambas hacen el mismo cálculo
+- [ ] Del orden de 10 ms, apenas un poco más lenta
+- [ ] Del orden de una hora, tanto que la pestaña se cierra sola
+
+</Question>
+
+<Question id="cap-del-n" anchor="la-complejidad-se-ve">
+
+El documento sugiere probar `fib(40)` en vivo con el recursivo y desaconseja
+subir mucho más allá de `fib(45)`. ¿Por qué?
+
+- [x] Porque cada `+5` en `n` multiplica el tiempo por diez y no hay botón de cancelar
+- [ ] Porque CheerpJ no soporta números tan grandes como `fib(45)`
+- [ ] Porque el resultado de `fib(45)` no cabe en un `int` ni en un `long`
+- [ ] Es una limitación arbitraria; con permisos elevados se puede correr
+
+</Question>
+
+<Question id="sort-in-place" anchor="ordenar-y-buscar">
+
+¿Qué imprime este programa?
+
+```java
+int[] v = {3, 1, 2};
+Arrays.sort(v);
+System.out.println(v[0]);
+```
+
+- [x] `1`
+- [ ] `3`
+- [ ] `2`
+- [ ] Error de compilación
+
+</Question>
+
+</Questions>
+
+## Lo que sigue
+
+Ya sabes trabajar con arreglos, escribir funciones (con sobrecarga incluida),
+y reconocer cuándo una recursión te resuelve un problema y cuándo, escrita
+sin cuidado, te lo hace más caro que un ciclo. El caso de estudio de
+Fibonacci te dio la primera medición concreta de que **elegir cómo
+implementar** tiene consecuencias que se cuentan en órdenes de magnitud —
+volveremos a ese hilo cuando el curso llegue a la complejidad computacional
+en su documento propio.
+
+Lo que falta antes de eso es la última pieza del lenguaje: **los objetos**,
+con `equals` y `hashCode` para ser autor de tus propios tipos igualables. Es
+el próximo documento: [[objetos|Objetos, con equals y hashCode]].

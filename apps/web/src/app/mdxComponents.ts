@@ -8,6 +8,7 @@ import {
   Mosaic,
   Question,
   Questions,
+  RecursionTree,
   SectionBreak,
   SheetEmbed,
   SideBySide,
@@ -59,4 +60,10 @@ export const mdxComponents = {
   // itself lazy, so a document with no code question pulls no CodeMirror.
   Questions,
   Question,
+  // Not lazy: draws a small SVG-free tree with lucide chevrons and inline
+  // styles for the per-argument hue (theme-aware via useResolvedTheme, no raw
+  // Tailwind colour class — design-system.md §Adding a token would be the
+  // alternative and buys nothing scoped to one component). No CodeMirror, no
+  // runtime seam: the eager-graph walk in architecture.test.ts stays happy.
+  RecursionTree,
 };

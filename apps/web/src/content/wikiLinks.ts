@@ -2,6 +2,21 @@ import type { Link, Root, Text } from 'mdast';
 import { visit } from 'unist-util-visit';
 
 // [[id]] or [[id|custom text]] — id and text may not contain brackets or pipes.
+//
+// The label also must not contain any markdown inline syntax that runs before
+// this plugin — backticks are the trap. `remark-parse` tokenises `` `null` ``
+// as an `inlineCode` node BEFORE the wiki-link transformer visits text nodes,
+// so a label like `` Referencias, `null` e igualdad `` reaches this plugin
+// split across text/inlineCode/text nodes and the `[[…]]` pattern is never
+// matched in any single text node. The link ships as literal brackets on the
+// page — invisible to every gate (`architecture.test.ts` only checks that the
+// wiki id resolves in the registry, not that the plugin actually rewrote the
+// source). Worked cases: #78 review — one instance in `arrays-y-funciones`,
+// two in `java-tipos-y-flujo` (07:74, 07:698), all fixed by dropping the
+// backticks from the label ("Referencias, null e igualdad" reads plain and
+// links correctly). Widening the plugin to reconstruct labels across sibling
+// nodes was considered and rejected: this note is the guard, and course
+// authors write plain labels.
 const WIKI_LINK = /\[\[([^[\]|]+)(?:\|([^[\]|]+))?\]\]/g;
 
 function wikiLink(id: string, label: string): Link {

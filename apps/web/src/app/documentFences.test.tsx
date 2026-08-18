@@ -46,7 +46,11 @@ async function renderThroughTheShellMap(source: string): Promise<HTMLElement> {
 // content/mdxPipeline.test.tsx — duplicated, not shared: sharing would be legal
 // (architecture.test.ts:145 exempts `.test.` files from the cross-feature seam),
 // but a two-element filename list is not worth a shared test-util module.
-const JAVA_DOCS = ['06-java-desde-cpp.mdx', '07-java-tipos-y-flujo.mdx'];
+const JAVA_DOCS = [
+  '06-java-desde-cpp.mdx',
+  '07-java-tipos-y-flujo.mdx',
+  '09-arrays-y-funciones.mdx',
+];
 const DOCUMENT = JAVA_DOCS.map((file) =>
   readFileSync(join(process.cwd(), '../../content/courses/sample-course/', file), 'utf8'),
 ).join('\n');

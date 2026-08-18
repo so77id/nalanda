@@ -204,7 +204,17 @@ a stale exemption cannot outlive the gap it described.
 
 **A section owes nothing only when it teaches nothing of its own** — an activity
 the student performs, a side-by-side listing whose lesson is measured elsewhere,
-a closing that announces the next document.
+a closing that announces the next document, or a **contrast-anchor** opener
+that names the C++ (or other prior-language) shape before the Java delta the
+next section teaches. `arrays-y-funciones` inaugurated the last shape (#78,
+AC-11): every Java section opens with a slide called "X en C++" whose lesson
+is measured in the pregunta of the "X en Java" sibling that immediately
+follows it. Same rationale as the side-by-side case: the slide's job is
+context, not new material. `arrays-en-c`, `funciones-en-c`, `recursion-en-c`
+and `en-c-era-segfault` are the four worked cases. Sub-detail slides — an
+`h2`-level breakout of one point already made by its parent section, such as
+`tres-iniciaciones` following "Arrays en Java" — sit in the same category:
+the principal fact is measured in the parent's pregunta.
 
 **"It is a hands-on slide" is not the test.** Because a section runs to the next
 `h2`, what follows the editor is still inside it, and that is usually where the

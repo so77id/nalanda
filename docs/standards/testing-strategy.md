@@ -367,6 +367,23 @@ page-only, invisible to every other gate.
   which is the one placement that never happens when the tab freezes. The fake
   worker already provides the seam — a message posted and deliberately left
   unanswered is the frozen tab.
+- **A property jsdom cannot see is tested by pinning the DETERMINISTIC INPUT it
+  is derived from, and the paint itself is verified in a real browser.** Same
+  shape as the grammar bullet below and the wider "the suite cannot execute
+  code, lay out a page…" class in `apps/web/CLAUDE.md`, applied to any
+  computed appearance the browser check ultimately owns. `RecursionTree`
+  (#78, S1) is the worked case: the six-hue palette derived from
+  `useResolvedTheme` is unobservable in jsdom (no layout, no paint), but the
+  component surfaces the argument that the hue is keyed on as a `data-arg`
+  attribute on every node — the unit suite asserts that two duplicated
+  arguments carry the same `data-arg`, which is a stand-in for "same hue" no
+  browser is needed to see. A refactor that silently rewrites the seed
+  reddens the unit test even though every node still paints something; the
+  paint itself is confirmed against the live tokens at the S7 browser check,
+  in both themes. The alternative — faking `getComputedStyle` or the resolved
+  theme and pinning the resulting `style` string — is exactly the
+  "green test pinning whatever the author assumed" the class already warns
+  about (#103).
 - **A grammar is invisible to the suite, and fails silently by design.**
   `useGrammar` and `runtime/<lang>/grammar.ts` neither drive a runtime nor mount
   `CodeEditor`, so they fall outside every trigger of the execution class above —

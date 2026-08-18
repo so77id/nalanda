@@ -135,6 +135,42 @@ pins token values and `architecture.test.ts` greps our class names; neither can
 see a cross-origin document, and no test can. This note is the guard, and the
 check is to look at `/d/planificacion` in the dark theme.
 
+**A component-scoped categorical palette is the fourth exemption** (#78).
+`<RecursionTree>` cycles six hues over the arguments of a recursive call, so
+duplicated subcalls (`fib(3)` twice, `fib(2)` three times) share a hue and the
+duplication that makes recursive Fibonacci slow becomes visible as the reader
+expands. Each hue's meaning is **identity within one component's data**, not a
+role the rest of the product shares — no other panel ever paints something
+`bg-cycle-3`. Tokenising the palette would cost three CSS blocks × six hues
+for pairs the rest of the app never uses, and add a naming problem (`cycle`
+of what?) with no reader beyond the tree. The pairs are picked inline via
+`useResolvedTheme` and interpolated into `hsl(...)` — the raw-colour guard
+(`architecture.test.ts`) fires on Tailwind class shapes, not on `style`
+attributes, so the exemption is silent to it by construction.
+
+The two invariants that keep this honest, and the guard:
+
+- **Colour is never the only signal** (§Rules that are not about contrast):
+  each node prints its argument in the label as well, so a reader who cannot
+  distinguish hues still sees "`fib(3)` again". Colour reinforces; it does
+  not carry.
+- **The identity is derived from a deterministic seed the suite CAN pin.**
+  `data-arg` on each node is what `paintFor` reads to pick a hue; a
+  refactor that silently breaks the sharing reddens the unit test even
+  though every case still paints something. See the recipe in
+  `testing-strategy.md` §Conventions ("a property jsdom cannot see").
+- **Guard: a browser check on both themes.** The pairs are legible on
+  `surface` in both grounds by construction (low-saturation fill + higher-
+  saturation border), and the S7 browser check confirms the whole tree
+  against the live tokens. Contrast measurements land here when the check
+  runs against the shipped build.
+
+Adding a second component-scoped categorical palette records it here with
+the same shape, or converges on shared cycle tokens if two components would
+share them meaningfully. Do not extend this exemption to a hue whose meaning
+IS shared across the product; that is the design failure §The one rule
+exists to prevent (#109).
+
 ## Verifying a colour change
 
 `getComputedStyle` returning the right value **is not evidence**. It reports what

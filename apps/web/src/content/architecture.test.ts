@@ -165,6 +165,35 @@ describe('architecture: content invariants', () => {
       ejercicios: 'actividad: tres problemas para escribir, no materia que medir en cinco minutos',
       'lo-que-sigue': 'cierre del documento: anuncia lo que viene, no enseña nada propio',
     },
+    // Regla del WP #78 (AC-11): cada sección abre con la ancla C++ antes del
+    // delta Java. La slide de C++ y las de sub-detalle no llevan pregunta
+    // propia — lo que enseñan se mide en la pregunta de la sección Java que
+    // las sigue. Convención inaugurada aquí, misma forma que las exenciones
+    // de `java-desde-cpp` arriba (contexto, comparaciones, actividades).
+    'arrays-y-funciones': {
+      'arrays-en-c':
+        'contraste con C++; el delta Java que introduce se mide en la pregunta de "Arrays en Java"',
+      'tres-iniciaciones':
+        'sub-detalle del §1 arrays; el hecho principal (largo como campo, tamaño fijo) se mide en la pregunta de "Arrays en Java"',
+      'en-c-era-segfault':
+        'contraste con C++; el comportamiento que Java garantiza se mide en la pregunta de "Acceso y bounds"',
+      'funciones-en-c':
+        'contraste con C++; lo que Java hace distinto se mide en la pregunta de "Anatomía de una función"',
+      'factorial-en-vivo':
+        'actividad: el alumno corre factorial(5) y compara los resultados; la mecánica se mide en "Recursión"',
+      'sin-caso-base':
+        'actividad: el alumno provoca el StackOverflowError; la pregunta que mide el mecanismo vive en "Recursión"',
+      'fibonacci-con-arreglo':
+        'actividad: el alumno corre la versión con arreglo y mide su tiempo; la lección se sintetiza en "El árbol de llamadas"',
+      'fibonacci-con-dos-variables':
+        'actividad: el alumno corre la versión con ventana y compara con la del arreglo; misma razón que la anterior',
+      'fibonacci-recursivo':
+        'actividad: el alumno corre la versión recursiva y siente la lentitud; el porqué se mide en "El árbol de llamadas"',
+      ejercicios:
+        'actividad: cuatro problemas para escribir; la materia se mide en las preguntas ancladas a las secciones que los preparan',
+      'lo-que-sigue':
+        'cierre del documento: anuncia el siguiente y cierra el hilo de complejidad, no enseña nada propio',
+    },
   };
 
   function sourceOf(key: string): string {
