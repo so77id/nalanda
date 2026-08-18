@@ -82,6 +82,15 @@
       {{ end }}
     </p>
 
+    <p class="field">
+      <label>
+        <input type="checkbox" name="duplex_padding" value="on"
+               {{ if .Values.DuplexPadding }}checked{{ end }} />
+        Página en blanco por copia (impresión duplex)
+      </label>
+      <small>Desactívalo si vas a imprimir simplex — te ahorra una hoja por prueba.</small>
+    </p>
+
     <p><button type="submit">{{ .Submit }}</button>
        <a href="/controls" class="boton">Cancelar</a></p>
   </form>

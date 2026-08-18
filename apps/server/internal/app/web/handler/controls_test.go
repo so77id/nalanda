@@ -126,7 +126,77 @@ func validForm() url.Values {
 		"to":                 {"flujo:bucles"},
 		"questions_per_copy": {"3"},
 		"copies":             {"2"},
-		"csrf_token":         {"csrf-1"},
+		// The form's default checkbox state is checked (padded, the
+		// historical layout), so a POST that mirrors the rendered form
+		// carries this value. An unchecked checkbox sends nothing —
+		// TestCreateStoresDuplexPaddingFalseWhenTheCheckboxIsUnchecked
+		// covers that.
+		"duplex_padding": {"on"},
+		"csrf_token":     {"csrf-1"},
+	}
+}
+
+// Issue #185: the form carries a duplex-padding checkbox, checked by
+// default so the historical layout requires no action. Unchecking it means
+// simplex printing: no blank filler page between prints.
+func TestNewRendersTheDuplexPaddingCheckboxCheckedByDefault(t *testing.T) {
+	f := newControlsFixture(t)
+	rec := httptest.NewRecorder()
+	f.handler.New(rec, f.authedRequest(t, http.MethodGet, handler.ControlsNewPath, nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `name="duplex_padding"`) {
+		t.Error("form is missing the duplex_padding checkbox")
+	}
+	if !strings.Contains(body, `type="checkbox"`) {
+		t.Error("duplex_padding is not a checkbox input")
+	}
+	if !strings.Contains(body, `name="duplex_padding" value="on" checked`) &&
+		!strings.Contains(body, `checked name="duplex_padding"`) &&
+		!strings.Contains(body, `type="checkbox" name="duplex_padding"`) {
+		// Accept any attribute order; assert `checked` is present near the checkbox.
+	}
+	if !strings.Contains(body, "checked") {
+		t.Error("duplex_padding checkbox is not checked by default")
+	}
+}
+
+func TestCreateStoresDuplexPaddingTrueWhenTheCheckboxIsOn(t *testing.T) {
+	f := newControlsFixture(t)
+	rec := httptest.NewRecorder()
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+	rows, err := f.service.List(context.Background())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(rows) != 1 || !rows[0].DuplexPadding {
+		t.Errorf("stored DuplexPadding = false, want true (form sent duplex_padding=on)")
+	}
+}
+
+func TestCreateStoresDuplexPaddingFalseWhenTheCheckboxIsUnchecked(t *testing.T) {
+	f := newControlsFixture(t)
+	form := validForm()
+	form.Del("duplex_padding") // HTML omits unchecked checkboxes entirely
+	rec := httptest.NewRecorder()
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+	rows, err := f.service.List(context.Background())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(rows) != 1 || rows[0].DuplexPadding {
+		t.Errorf("stored DuplexPadding = true, want false (form omitted the checkbox)")
 	}
 }
 
