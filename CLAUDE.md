@@ -80,13 +80,14 @@ rules live in the plugin's `docs/defaults.md`. Engineering-practice doctrine
   fallback, rollback, what gets published): root `README.md` §Deployment;
   decisions: ADR-0015.
 - **Merging to `main` also publishes `apps/server` to the Jetson.**
-  `.github/workflows/server-cd.yml` cross-compiles three arm64 images
-  (server + backup + monitor), pushes them to
-  `ghcr.io/so77id/nalanda-*:latest`, and Watchtower on the Jetson (the
-  one running inside DocumentBuddy's compose) pulls and restarts within
-  ≤5 minutes. Path filters: `apps/server/**`,
-  `infra/deploy/jetson/{Dockerfile.*,*.sh}`, or the workflow itself
-  (`.github/workflows/server-cd.yml`). A change to the login path
+  two workflows watch different path filters:
+  `.github/workflows/server-cd.yml` (fires on `apps/server/**` or the
+  Jetson sidecar files — cross-compiles server + backup + monitor arm64
+  images to GHCR) and `.github/workflows/amc-worker-cd.yml` (fires on
+  `apps/amc-worker/**` — cross-compiles the amc-worker arm64 image, its
+  own workflow because texlive under QEMU takes ~30 min and shouldn't
+  queue a server push). Watchtower on the Jetson (the one running inside
+  DocumentBuddy's compose) pulls and restarts within ≤5 minutes. A change to the login path
   (the OIDC adapter, the callback, a cookie, `NALANDA_PUBLIC_URL`) is
   unfinished until [`apps/server/GOOGLE-CHECK.md`](apps/server/GOOGLE-CHECK.md)
   runs against the https URL (its §7 observes the `Secure` flag on the

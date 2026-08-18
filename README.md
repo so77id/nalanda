@@ -178,14 +178,21 @@ DocumentBuddy already holds 443 on the same box). Full context in
   runs permanently; the Jetson exists to produce the measurements that
   decision will need. Numbers to collect: ADR-0038 §"The permanent home is
   still open".
-- **What publishes it**: `git push origin main`. On any push touching
-  `apps/server/**` or the Jetson sidecar files,
-  `.github/workflows/server-cd.yml` cross-compiles three arm64 images
-  (server + backup + monitor), pushes them to `ghcr.io/so77id/nalanda-*:latest`,
-  and pings the Nalanda Telegram bot. Watchtower on the Jetson (the
-  instance running inside DocumentBuddy's compose) polls GHCR every 5
-  minutes and swaps each container the moment the digest changes.
-  End-to-end: merge → deploy in ≤8 min, hands-off.
+- **What publishes it**: `git push origin main`. Two workflows watch
+  different path filters:
+  - `.github/workflows/server-cd.yml` — fires on `apps/server/**` or
+    the Jetson sidecar files. Cross-compiles arm64 images for server +
+    backup + monitor. ~2–3 min per build with GHA layer cache.
+  - `.github/workflows/amc-worker-cd.yml` — fires on `apps/amc-worker/**`
+    alone. Cross-compiles the amc-worker image (Debian + texlive, ~30
+    min first build under QEMU, ~5-10 min with cache). Own workflow so
+    a one-line server change does not queue behind it.
+
+  Both push to `ghcr.io/so77id/nalanda-*:latest` and ping the Nalanda
+  Telegram bot. Watchtower on the Jetson (the instance running inside
+  DocumentBuddy's compose) polls GHCR every 5 minutes and swaps each
+  container the moment the digest changes. End-to-end for the server:
+  merge → deploy in ≤8 min, hands-off.
 - **What runs there**: `apps/server` (the login and the backoffice screens),
   a daily `backup` container (SQLite `.backup` → gzip → S3, 30-day retention
   via bucket lifecycle, Telegram notify), and a `monitor` container (polls

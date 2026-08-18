@@ -1,15 +1,16 @@
-# Deploying apps/server to the Jetson
+# Deploying apps/server + amc-worker to the Jetson
 
-The Jetson Nano hosts `apps/server` for the first real tests of the
-professor login and the entrance-controls backoffice (issue #162, ADR-0038).
-This document is the operating procedure. The design decisions live in the
-WP body and the ADR; this one is what an operator opens.
+The Jetson Nano hosts `apps/server` (professor login, backoffice) and
+`apps/amc-worker` (the AMC engine that generates and reads controls) for
+their first real tests — issue #162 (server) and #175 (amc-worker),
+ADR-0038. This document is the operating procedure. The design decisions
+live in the WP bodies and the ADR; this one is what an operator opens.
 
-**Scope of this deploy.** `apps/server` only. `apps/amc-worker` is a separate
-question (1.04 GB image with LaTeX and OpenCV on a 4 GB Nano) that belongs
-to WP-E, and is deliberately left out — so the professor can log in, and
-control generation returns an amc-worker connection error until that WP
-decides otherwise.
+**Scope of this deploy.** Both apps run here, plus the two sidecars for
+the server (`backup`, `monitor`). Total four containers under the same
+`docker compose` on the box. The measurement `apps/amc-worker` was added
+here to produce (RSS on the Nano, coexistence with DocumentBuddy under
+shared 4 GB) is recorded in ADR-0038 §Decision.
 
 ## Prerequisites — the account-level pieces Miguel provisions off-box
 
@@ -144,14 +145,17 @@ From `infra/local/` on the Jetson, first-time bring-up:
 #    reminds you to rotate.
 docker login ghcr.io   # username: your GitHub handle; password: PAT (read:packages only, expires ≤90d)
 
-# 2. Pull the three prod images from GHCR (server, backup, monitor). The
-#    COMPOSE_FILE line in .env is what makes this reach the overlay.
+# 2. Pull the four prod images from GHCR (server, amc-worker, backup,
+#    monitor). The COMPOSE_FILE line in .env is what makes this reach the
+#    overlay. amc-worker's image is ~1 GB so the first pull on a fresh
+#    host takes 10-15 min over a home connection; subsequent pulls only
+#    fetch changed layers.
 docker compose pull
 
 # 3. Bring them up. `--wait` blocks until the server's healthcheck reports
-#    the database is reachable; the sidecars start after it.
+#    the database is reachable; the sidecars and amc-worker start after it.
 docker compose up -d --wait server
-docker compose up -d backup monitor
+docker compose up -d amc-worker backup monitor
 
 # 4. Verify BOTH surfaces from outside the tailnet — a phone on mobile data,
 #    or any browser off Wi-Fi:
@@ -168,11 +172,19 @@ verified" defers to it.
 
 After the first-time bring-up above, the deploy loop is:
 
-1. Merge a PR to `main`. The `.github/workflows/server-cd.yml` workflow
-   fires on any push touching `apps/server/**` or the three Jetson-sidecar
-   files, cross-compiles `linux/arm64` images, pushes them to
-   `ghcr.io/so77id/nalanda-{server,backup,monitor}:latest` (plus a
-   `:sha-<sha>` tag), and posts a Telegram line via the Nalanda bot.
+1. Merge a PR to `main`. Two workflows watch different path filters:
+   - `.github/workflows/server-cd.yml` fires on `apps/server/**` or the
+     Jetson sidecar files (backup + monitor + notify scripts),
+     cross-compiles arm64 images for server + backup + monitor, pushes
+     `ghcr.io/so77id/nalanda-{server,backup,monitor}:latest` (plus
+     `:sha-<sha>`), and posts a Telegram line via the Nalanda bot.
+   - `.github/workflows/amc-worker-cd.yml` fires on `apps/amc-worker/**`
+     alone, cross-compiles the amc-worker image (heavier — Debian +
+     texlive under QEMU takes ~30 min the first time, ~5-10 min with GHA
+     layer cache), pushes `ghcr.io/so77id/nalanda-amc-worker:latest`
+     (+ `:sha-<sha>`), and posts its own Telegram line. Own workflow so
+     a one-line comment change to the server does not queue behind a
+     texlive install (#175 §Design).
 2. On the Jetson, the Watchtower container **that runs inside
    DocumentBuddy's compose** (`docbuddy-watchtower`) polls GHCR every 5
    minutes and pulls any `:latest` whose digest changed. It restarts the
