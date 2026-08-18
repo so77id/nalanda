@@ -287,3 +287,213 @@ Falla al vuelo, con la excepción como respuesta:
 />
 
 </Slide>
+
+<Slide title="Identidad vs igualdad">
+
+En C++ podías **sobrecargar `==`** para tu clase: hacías que comparara el
+contenido y punto. Un `s1 == s2` sobre dos `std::string` con las mismas letras
+daba `true` porque `std::string::operator==` lo hacía así.
+
+**En Java `==` no se puede sobrecargar. Nunca.** Sobre dos objetos siempre
+compara **identidad**: si las dos flechas apuntan a la misma caja. Y ese es el
+comportamiento en el que caen todos los principiantes de Java al mirar un
+`String`, porque el que **compara el contenido** se llama `.equals()`:
+
+```java
+s1 == s2        // ¿son el mismo objeto?
+s1.equals(s2)   // ¿tienen las mismas letras?
+```
+
+`.equals()` es un método y por eso puede lanzar `NullPointerException` si el
+receptor es `null`. Cuando lo sospeches, ponlo del lado seguro:
+`"hola".equals(s)`.
+
+</Slide>
+
+<Slide>
+
+Dos `new String("hola")` son **dos objetos distintos**. Predice **las dos
+líneas**:
+
+<PredictOutput title="Dos veces new String">
+
+```java predict
+class Trampa {
+    public static void main(String[] args) {
+        String a = new String("hola");
+        String b = new String("hola");
+        System.out.println(a == b);
+        System.out.println(a.equals(b));
+    }
+}
+```
+
+</PredictOutput>
+
+</Slide>
+
+<Slide>
+
+Y ahora la trampa cambia de bando. Dos literales `"hola"` no siempre son dos
+objetos: Java tiene un **string pool** que reutiliza los literales, así que
+las dos variables acaban apuntando al mismo:
+
+<PredictOutput title="Dos literales">
+
+```java predict
+class Literales {
+    public static void main(String[] args) {
+        String a = "hola";
+        String b = "hola";
+        System.out.println(a == b);
+    }
+}
+```
+
+</PredictOutput>
+
+Lo que hace tan traicionero al `==` con Strings es exactamente esto: **a veces
+da la respuesta que esperabas y a veces no**, y depende de si el que
+construyó el `String` usó `new` o un literal. Usa `.equals()` siempre.
+
+</Slide>
+
+<Slide title="Wrappers y autoboxing">
+
+**En C++** los tipos primitivos eran tipos como cualquier otro: `std::vector<int>`
+funciona sin más. **En Java no**: los tipos primitivos **no son objetos**, y
+las colecciones — `List`, `Map`, `Set` — solo pueden guardar objetos.
+
+Por eso cada primitivo tiene una **clase envolvente** —un *wrapper*— con el
+mismo nombre en mayúscula: `int` → `Integer`, `long` → `Long`, `double` →
+`Double`, `boolean` → `Boolean`, etc. Un `List<Integer>` funciona; un
+`List<int>` **no compila**.
+
+Y como pasar del primitivo al wrapper todo el rato es un fastidio, Java lo
+hace por ti — se llama **autoboxing**:
+
+```java
+List<Integer> nums = new ArrayList<>();
+nums.add(5);                 // equivale a nums.add(Integer.valueOf(5))
+int n = nums.get(0);         // equivale a nums.get(0).intValue()
+```
+
+Autoboxing es cómodo y arma una trampa pequeña pero famosa que descubrimos a
+continuación.
+
+</Slide>
+
+<Slide>
+
+`Integer` es un objeto, así que `==` sobre dos `Integer` **compara
+identidad**. Pero por rendimiento la JVM cachea los `Integer` "pequeños" —
+entre `-128` y `127` — y los reutiliza, así que las dos flechas apuntan al
+mismo. Fuera del cache cada `valueOf` construye un objeto nuevo.
+
+Predice **las dos líneas**:
+
+<PredictOutput title="La frontera del cache">
+
+```java predict
+class Cache {
+    public static void main(String[] args) {
+        Integer a = 127;  Integer b = 127;
+        Integer c = 128;  Integer d = 128;
+        System.out.println(a == b);
+        System.out.println(c == d);
+    }
+}
+```
+
+</PredictOutput>
+
+Moraleja idéntica a la de la §5: para comparar el **valor** de dos wrappers,
+`.equals()`. `==` sobre `Integer` es identidad, y la identidad de un `Integer`
+depende de si un cache invisible te sonrió.
+
+</Slide>
+
+<Slide title="Excepciones">
+
+**En C** las funciones reportaban un error **en el retorno**: devolvían `-1`,
+o `NULL`, o llenaban `errno`. Quien llamaba tenía que revisar el retorno cada
+vez, y olvidarlo era exactamente cómo se colaban los bugs.
+
+**En Java, un error interrumpe el flujo con una excepción.** El método que la
+lanza no devuelve un código de error; salta hacia arriba hasta el primer
+`try/catch` que la esté esperando. Si nadie la atrapa, el programa termina.
+
+```java
+try {
+    // el código que puede fallar
+} catch (NullPointerException e) {
+    // lo que hacemos cuando falla
+}
+```
+
+Un `try/catch` con la excepción **atrapada** significa que el programa
+**continúa** después del `catch`. Sin `try/catch` — o con uno que no menciona
+esa excepción — la ejecución muere.
+
+</Slide>
+
+<Slide>
+
+Las dos excepciones que verás todo el semestre, en vivo. La primera es la NPE
+de la §4; la segunda es indexar un arreglo fuera de rango:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Excepciones {
+    public static void main(String[] args) {
+        try {
+            String s = null;
+            System.out.println(s.length());
+        } catch (NullPointerException e) {
+            System.out.println("NPE atrapada");
+        }
+
+        try {
+            int[] a = {1, 2, 3};
+            System.out.println(a[10]);
+        } catch (ArrayIndexOutOfBoundsException e) {
+            System.out.println("índice fuera de rango: " + e.getMessage());
+        }
+
+        System.out.println("el programa sigue vivo");
+    }
+}
+`}
+/>
+
+</Slide>
+
+<Slide title="Recolector de basura">
+
+**En C++ y en C** tú eras responsable de la memoria. Cada `new` pedía una
+copia manual con `delete`; olvidarlo era una **fuga**, hacerlo dos veces era
+un **double free**, hacerlo antes de tiempo era un **use-after-free**. Media
+carrera aprendiendo cuándo llamar `delete`.
+
+**En Java `delete` no existe.** Hay un **recolector de basura** —el
+*garbage collector*— que corre en segundo plano y libera cualquier objeto
+al que ya **no apunte ninguna referencia viva**. Ni antes ni después de
+tiempo: cuando nadie puede llegar al objeto, se libera.
+
+Eso hace desaparecer las tres cabezas del monstruo de C++ — nada de
+`delete`, nada de dobles frees, nada de use-after-free. **Pero no todo lo
+que se llama fuga desaparece.** Si guardas referencias vivas a objetos que
+ya no necesitas — dentro de una lista que crece sin límite, dentro de una
+caché que nadie limpia — el GC hace lo que se le pide y no libera nada.
+Eso también es una fuga, más silenciosa.
+
+</Slide>
+
+## Lo que sigue
+
+Con esto ya sabes qué guarda una variable, cómo viaja al llamar un método, y
+por qué `==` sobre dos objetos casi nunca es lo que quieres. El paso
+siguiente es empezar a **construir** objetos propios: qué es una clase, qué
+es un constructor, cómo `this` se relaciona con lo que acabas de leer, y por
+qué toda clase decente sobrescribe `equals` y `hashCode` a la vez. Es el
+próximo documento del curso.
