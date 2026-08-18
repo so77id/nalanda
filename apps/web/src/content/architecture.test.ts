@@ -185,6 +185,12 @@ describe('architecture: content invariants', () => {
         'actividad: el alumno corre factorial(5) y compara los resultados; la mecánica se mide en "Recursión"',
       'sin-caso-base':
         'actividad: el alumno provoca el StackOverflowError; la pregunta que mide el mecanismo vive en "Recursión"',
+      'fibonacci-con-arreglo':
+        'actividad: el alumno corre la versión con arreglo y mide su tiempo; la lección se sintetiza en "El árbol de llamadas"',
+      'fibonacci-con-dos-variables':
+        'actividad: el alumno corre la versión con ventana y compara con la del arreglo; misma razón que la anterior',
+      'fibonacci-recursivo':
+        'actividad: el alumno corre la versión recursiva y siente la lentitud; el porqué se mide en "El árbol de llamadas"',
     },
   };
 

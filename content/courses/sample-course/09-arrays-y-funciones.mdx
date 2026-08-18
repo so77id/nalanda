@@ -406,6 +406,200 @@ comportamiento está **especificado**, igual que el desbordamiento de enteros y
 por la misma razón: predecibilidad multiplataforma.
 </Slide>
 
+<Slide title="Fibonacci: tres formas">
+La sucesión de Fibonacci se define así:
+
+- `fib(0) = 0`
+- `fib(1) = 1`
+- `fib(n) = fib(n - 1) + fib(n - 2)` para `n ≥ 2`
+
+Los primeros números son `0, 1, 1, 2, 3, 5, 8, 13, 21, 34, 55, 89, …` — cada uno
+la suma de los dos anteriores.
+
+Es un problema chico, con una definición simple, y admite **muchísimas maneras
+distintas** de resolverse. Vamos a implementarlo de tres formas y medir cuánto
+tarda cada una:
+
+1. **Con un arreglo** — llenamos `f[0..n]` de izquierda a derecha, cada casilla
+   suma las dos anteriores. Es la más directa: la definición traducida a un
+   ciclo.
+2. **Con dos variables** — el mismo cálculo, pero notando que solo necesitamos
+   los dos últimos valores; guardarlos en un arreglo de largo `n` es memoria
+   desperdiciada.
+3. **Recursiva** — traducimos la definición matemática literal a Java.
+   Sintácticamente es la más corta y la que más se parece al enunciado. Vas a
+   ver que es dramáticamente la más lenta.
+
+Las tres calculan exactamente lo mismo. La diferencia que vas a medir es el
+**costo**: mismo problema, mismo resultado, tiempos que difieren en tres órdenes
+de magnitud.
+</Slide>
+
+<Slide title="Fibonacci con arreglo">
+Llena `f[0..n]` de izquierda a derecha. Después de la última casilla, `f[n]` es
+la respuesta.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class FibArreglo {
+
+    static long fib(int n) {
+        long[] f = new long[n + 1];
+        f[0] = 0;
+        if (n >= 1) f[1] = 1;
+        for (int i = 2; i <= n; i++) {
+            f[i] = f[i - 1] + f[i - 2];
+        }
+        return f[n];
+    }
+
+    public static void main(String[] args) {
+        int n = 30;
+        long inicio = System.nanoTime();
+        long r = fib(n);
+        long fin = System.nanoTime();
+        System.out.println("fib(" + n + ") = " + r);
+        System.out.println("tiempo: " + (fin - inicio) + " ns");
+    }
+}
+`}
+/>
+
+`long` en vez de `int` porque `fib(46)` ya no cabe en 32 bits. El ciclo hace
+`n - 1` sumas y usa `n + 1` casillas de memoria: **coste lineal en tiempo y
+en memoria**.
+
+`System.nanoTime()` devuelve un contador monótono con resolución de
+nanosegundos. La granularidad real en tu navegador puede ser menor (CheerpJ
+mide microsegundos, no nanosegundos, en la mayoría de los hosts), pero para
+comparar tiempos que difieren en órdenes de magnitud es suficiente.
+</Slide>
+
+<Slide title="Fibonacci con dos variables">
+En cada paso solo necesitamos los últimos dos valores. Guardar los `n - 1`
+anteriores es desperdicio: dos `long` bastan.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class FibVentana {
+
+    static long fib(int n) {
+        if (n == 0) return 0;
+        long anterior = 0;
+        long actual = 1;
+        for (int i = 2; i <= n; i++) {
+            long siguiente = anterior + actual;
+            anterior = actual;
+            actual = siguiente;
+        }
+        return actual;
+    }
+
+    public static void main(String[] args) {
+        int n = 30;
+        long inicio = System.nanoTime();
+        long r = fib(n);
+        long fin = System.nanoTime();
+        System.out.println("fib(" + n + ") = " + r);
+        System.out.println("tiempo: " + (fin - inicio) + " ns");
+    }
+}
+`}
+/>
+
+Mismo número de sumas que la versión con arreglo; la memoria bajó de `n + 1`
+casillas a tres variables. El tiempo debería ser prácticamente idéntico al
+anterior — la diferencia entre ambas es cuánta memoria ocupan, no cuántas
+operaciones hacen.
+
+(Si tu navegador reporta `0 ns` en el tiempo, es que la medición cayó bajo la
+resolución del reloj — sube `n` a `40` o `45` y vuelve a correrlo. Ni siquiera
+así vas a notar diferencia entre esta y la anterior.)
+</Slide>
+
+<Slide title="Fibonacci recursivo">
+Ahora la que se parece a la definición matemática, letra por letra.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class FibRecursivo {
+
+    static long fib(int n) {
+        if (n < 2) return n;
+        return fib(n - 1) + fib(n - 2);
+    }
+
+    public static void main(String[] args) {
+        int n = 30;   // cambia al valor que quieras probar
+        long inicio = System.nanoTime();
+        long r = fib(n);
+        long fin = System.nanoTime();
+        System.out.println("fib(" + n + ") = " + r);
+        System.out.println("tiempo: " + (fin - inicio) + " ns");
+    }
+}
+`}
+/>
+
+Es la más corta y la más legible. Ejecútalo con `n = 30` y anota el tiempo.
+Después súbelo a `35` y **prepárate a esperar**: el tiempo se multiplica por
+un factor cercano a `10` cada vez que sumas dos a `n`. Con `n = 30` alcanzas
+del orden del segundo; con `n = 35` alcanzas del orden de la decena de
+segundos. Es la primera vez en el curso que un programa que compila y no
+tiene defectos aparentes se demora tanto que la página parece congelada.
+
+**No pruebes `n = 45`.** Y aunque quisieras, la próxima slide te explica por
+qué el documento no te deja.
+</Slide>
+
+<Slide title="El árbol de llamadas">
+La versión recursiva es lenta por una razón concreta que las otras dos no
+tienen: **recalcula muchas veces los mismos valores**. Corre este árbol y
+mira:
+
+<RecursionTree recipe="fib" arg={5} title="fib(5)" />
+
+Cliquea el nodo raíz. Aparecen `fib(4)` y `fib(3)`. Cliquea `fib(4)` — aparecen
+`fib(3)` y `fib(2)`. Ahí ya hay dos `fib(3)`, pintados del mismo color.
+Cliquea el segundo `fib(3)` — aparece otro `fib(2)`. Sigue bajando hasta las
+hojas: **cada valor se calcula tantas veces como aparece en el árbol**, y
+`fib(1)` aparece muchísimas veces.
+
+Con `n = 30` el árbol tiene del orden de un millón de nodos, todos calculando
+respuestas que las otras dos versiones calcularon **una sola vez**. Ese es el
+costo: no es que la recursión sea intrínsecamente lenta, es que este árbol
+en particular está lleno de trabajo repetido. Un compilador teóricamente
+podría cachear cada `fib(k)` la primera vez que lo calcula (a esa técnica se
+le llama **memoización**, y se ve más adelante en el curso), pero de fábrica
+ni Java ni ningún lenguaje mainstream lo hace por ti.
+</Slide>
+
+<Slide title="Cap de la demo">
+Los tres editores de arriba te dejan modificar `n`. Los dos primeros
+(`FibArreglo` y `FibVentana`) puedes subirlos hasta que el resultado deje de
+caber en `long` (alrededor de `n = 92`) sin ningún riesgo — son lineales, van
+a terminar en microsegundos.
+
+**El recursivo es distinto.** Cada `+2` en `n` multiplica el tiempo por casi
+`3`. Con `n = 40` tardan minutos, con `n = 45` tardan horas. Y este runtime
+—CheerpJ compilando Java a WebAssembly— corre en el hilo principal de la
+página; mientras el JVM piensa, la pestaña está congelada. **No hay botón de
+cancelar**. Si te vas más allá de `n ≈ 35` en tu máquina, vas a terminar
+cerrando la pestaña.
+
+Por eso los cuadros de código de este documento sugieren `n = 30`, y el
+comentario del recursivo dice "cambia al valor que quieras probar" sin
+prometer que 45 sea seguro. La lección aquí no es "hasta qué `n` puedes
+llegar"; es que **la complejidad se ve**: con `n = 30` los dos primeros
+terminan en microsegundos y el recursivo en un segundo. Con `n = 35`,
+segundos. Con `n = 45` — si tuvieras horas — llegarías a horas.
+
+Cuando quieras aprender **por qué** la complejidad se comporta así, el
+curso lo cubre en un documento propio. Aquí lo importante es que la
+mediste tú, en tu propia máquina, y viste que un mismo problema resuelto
+de tres maneras tiene tres tiempos radicalmente distintos.
+</Slide>
+
 <Questions>
 
 <Question id="largo-array-java" anchor="arrays-en-java">
@@ -520,6 +714,53 @@ System.out.println(fact(5));
 - [ ] Corre para siempre sin problema
 - [ ] Java lo detecta al compilar y no deja compilar
 - [ ] Devuelve `null`
+
+</Question>
+
+<Question id="cuando-recursivo" anchor="fibonacci-tres-formas">
+
+¿Cuál de estas afirmaciones sobre las tres implementaciones de Fibonacci es
+cierta?
+
+- [x] La versión con arreglo y la ventana calculan los mismos valores en tiempos parecidos
+- [ ] La recursiva es la más rápida porque es la más corta y clara
+- [ ] Java optimiza la recursión automáticamente; las tres corren igual
+- [ ] La versión con ventana usa más memoria que la del arreglo
+
+</Question>
+
+<Question id="por-que-lento" anchor="el-arbol-de-llamadas">
+
+¿Por qué la implementación recursiva de Fibonacci es tan lenta?
+
+- [x] Recalcula muchas veces los mismos valores intermedios (`fib(3)` aparece varias veces en el árbol de `fib(5)`)
+- [ ] La recursión en Java es intrínsecamente más lenta que los ciclos por diseño del lenguaje
+- [ ] `System.nanoTime()` mide mal el tiempo de las funciones recursivas por su granularidad
+- [ ] La pila de llamadas se llena y el JVM empieza a paginarla a disco automáticamente
+
+</Question>
+
+<Question id="crecimiento-comparado" anchor="el-arbol-de-llamadas">
+
+Si `fib(30)` con la versión de arreglo toma alrededor de 1 ms, ¿cuánto toma
+aproximadamente `fib(30)` con la versión recursiva en el mismo navegador?
+
+- [x] Del orden de un segundo
+- [ ] 1 ms también, ambas hacen el mismo cálculo
+- [ ] Del orden de 10 ms, apenas un poco más lenta
+- [ ] Del orden de una hora, tanto que la pestaña se cierra sola
+
+</Question>
+
+<Question id="cap-del-n" anchor="cap-de-la-demo">
+
+El documento sugiere probar `fib(30)` en vivo con el recursivo y desaconseja
+subir a `fib(45)`. ¿Por qué?
+
+- [x] Porque `fib(45)` congela la página por minutos u horas sin manera de cancelar
+- [ ] Porque CheerpJ no soporta números tan grandes como `fib(45)`
+- [ ] Porque el resultado de `fib(45)` no cabe en un `int` ni en un `long`
+- [ ] Es una limitación arbitraria; con permisos elevados se puede correr
 
 </Question>
 
