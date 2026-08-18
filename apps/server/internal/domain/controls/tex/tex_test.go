@@ -241,6 +241,52 @@ func TestNameIsEscapedBeforeEmission(t *testing.T) {
 	}
 }
 
+// A bank Statement and its alternatives arrive from the MDX author as plain
+// text; the generator escapes them like it escapes the professor-typed name.
+// Regression from prod 2026-08-18: the pregunta `peso-de-la-presentacion` had
+// alternatives `70%`/`50%`/`30%`, and `%` is a LaTeX comment, so
+// `\correctchoice{70%}` swallowed the closing brace and cascaded up to a
+// runaway argument in `\element{clase}{...}`. See issue #183 for the future
+// opt-in that would let a professor emit real LaTeX (formulas).
+func TestStatementAndAlternativesAreEscapedBeforeEmission(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "peso", Document: "welcome", Anchor: "hola",
+				Type:      bank.TypeSimple,
+				Statement: "¿Cuánto pesa la nota en el 100% final?",
+				Alternatives: []string{
+					"70% & algo",
+					"50%",
+					"30%",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	for _, want := range []string{
+		`el 100\% final`,
+		`\correctchoice{70\% \& algo}`,
+		`\wrongchoice{50\%}`,
+		`\wrongchoice{30\%}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("bank text was not LaTeX-escaped: missing %q in output", want)
+		}
+	}
+	for _, unwant := range []string{
+		"100% final",
+		"70% & algo",
+		"{70%}",
+		"{50%}",
+	} {
+		if strings.Contains(out, unwant) {
+			t.Errorf("bank text emitted UNESCAPED: %q found in output — the raw %% would open a LaTeX comment and break brace matching", unwant)
+		}
+	}
+}
+
 func TestCompileRefusesShapesThatCannotProduceASheet(t *testing.T) {
 	cases := []struct {
 		name string
