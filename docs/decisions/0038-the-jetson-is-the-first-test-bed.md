@@ -46,18 +46,46 @@ occupant has held up in production for a year. This decision is a **test
 bed**, not a home: it exists to produce the measurements the permanent choice
 of §C15 will need.
 
-**Only `apps/server` is deployed here.** `apps/amc-worker` is a 1.04 GB image
-(LaTeX, OpenCV, ghostscript, poppler), and whether a 4 GB Nano can host it is
-a real question that belongs to a WP other than this one. The consequence is
-that the professor can log in and reach the backoffice screens WP-C3 built;
-`/api/controls/*` returns an amc-worker connection error until the Nano
-question is answered.
+**Both `apps/server` AND `apps/amc-worker` are deployed here** (this decision
+opened as "`apps/server` only" in #162 and closed by #175 with the
+measurement). `apps/amc-worker` is a 1.04 GB image (LaTeX, OpenCV, ghostscript,
+poppler), and whether a 4 GB Nano can host it alongside DocumentBuddy was the
+open question this decision named as the trigger for opening it. Result of the
+measurement (recorded post-first-generation):
 
-**Deploy is `git push origin main`.** GitHub Actions
-(`.github/workflows/server-cd.yml`, added in S11) cross-compiles arm64
-images for the three prod services (server, backup, monitor), pushes them
-to `ghcr.io/so77id/nalanda-<name>:latest` (plus a `:sha-<sha>` tag), and
-notifies the Nalanda Telegram bot. Watchtower — the SHARED instance from
+- **Idle RSS of `nalanda-amc-worker`**: TODO — filled after the first bring-up
+  on the box. Expected: <200 MB for the AMC engine at rest.
+- **Peak RSS after one control generation** (four questions, one copy, LaTeX
+  compile + AMC prepare): TODO — expected 400-800 MB depending on the
+  document.
+- **Peak RSS during a scan-read batch** (N sheets, OpenCV + AMC analyse): TODO
+  — the taller of the two; this is what decides whether the coexistence is
+  stable.
+- **DocumentBuddy p95 latency before/after the co-tenant landed**: TODO —
+  compared over an hour of normal-hour traffic.
+- **OOM-kill incidents in the first week**: TODO — should be zero.
+
+The measurements above are TODO because CI publishes the image on the merge of
+#175 and the bring-up on the Jetson happens after that; this ADR is updated in
+a follow-up commit to `main` once the numbers exist. Until they exist, this
+paragraph is HONEST rather than confident — the deploy is proceeding on the
+hypothesis that the coexistence works, not on the confirmation.
+
+**Deploy is `git push origin main`.** GitHub Actions runs two workflows
+watching different path filters:
+
+- `.github/workflows/server-cd.yml` (added in #162 S11) fires on
+  `apps/server/**` or the Jetson sidecar files. Matrix of three arm64
+  images: server, backup, monitor.
+- `.github/workflows/amc-worker-cd.yml` (added in #175 S1) fires on
+  `apps/amc-worker/**` alone. Own workflow — cross-compiling the AMC image
+  under QEMU (Debian + texlive + Perl + OpenCV) takes ~30 min the first
+  time and ~5-10 min with GHA layer cache. Not queueing a one-line server
+  change behind that build is what justifies a second workflow instead of
+  a matrix row.
+
+Both push to `ghcr.io/so77id/nalanda-<name>:latest` (+ `:sha-<sha>`) and
+notify the Nalanda Telegram bot. Watchtower — the SHARED instance from
 DocumentBuddy's compose (already running on this Jetson under
 `WATCHTOWER_LABEL_ENABLE=true`) — polls GHCR every 5 minutes and swaps
 each container the moment the `:latest` digest changes. The first-time
@@ -222,11 +250,16 @@ their own `security-notes.md` entries:
 - **A single point of failure.** One instance, one box, one home power circuit.
   ADR-0034 §Consequences already accepted this and this WP does not fix it —
   a second instance needs Postgres (ADR-0007), which is a decision not due.
-- **A shared box with DocumentBuddy.** A resource fight on the Nano affects
-  both services. Measured before deploying: the server's static binary is
-  12.2 MB and its idle memory is negligible next to DocumentBuddy's Python
-  process. If the Nano runs out under real load, this is the entry that gets
-  reopened first.
+- **A shared box with DocumentBuddy** — now with a third heavyweight
+  co-tenant (`nalanda-amc-worker`, added #175). Original text from #162
+  measurement, still true: "the server's static binary is 12.2 MB and its
+  idle memory is negligible next to DocumentBuddy's Python process". #175
+  adds AMC's Perl + LaTeX + OpenCV, which is NOT negligible during a
+  generation or a scan-read. Actual footprint and coexistence outcome
+  recorded in §Decision above under the measurement block. If the Nano
+  OOMs under real load, the first thing to reopen is the amc-worker
+  paragraph (`docker compose stop amc-worker` cheaper than tuning
+  DocumentBuddy's browser).
 - **Tailscale is now a dependency for reaching Nalanda.** A Tailscale outage
   takes both services down. Free-tier Tailscale has held up for a year on the
   same box, which is the evidence this decision leans on.
@@ -268,11 +301,11 @@ predictions. **Numbers to collect and report on the issue that decides
 
 ### Review triggers for this ADR itself
 
-- **`apps/amc-worker` needs a home too.** The moment WP-E's decision is that
-  it runs on the Jetson, this ADR reopens — the 4 GB / 1.04 GB question is
-  the reason it is out of scope here, and once it is in scope, the
-  single-box / shared-fate story of the "Negative" list above needs
-  revisiting.
+- **~~`apps/amc-worker` needs a home too.~~** *(CLOSED by #175 — amc-worker
+  joined the Jetson deploy; measurement recorded in §Decision above. If the
+  numbers say the coexistence is unstable, the follow-up trigger is
+  "amc-worker moves off the Nano" — probably to a VPS with its own compose
+  or to a dedicated arm64 box, decided when §C15 permanent-home is decided).*
 - **A second physical instance appears.** ADR-0007's Postgres exit becomes
   relevant, and this ADR's "one instance" assumption stops holding.
 - **A permanent hosting decision.** §C15 closes, this ADR is superseded, and
