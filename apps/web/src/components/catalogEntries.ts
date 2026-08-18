@@ -15,6 +15,7 @@ import { memoryDiagramCatalogEntry } from './interactive/MemoryDiagram.catalog';
 import { predictOutputCatalogEntry } from './interactive/PredictOutput.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
 import { questionsCatalogEntry } from './interactive/Questions.catalog';
+import { recursionTreeCatalogEntry } from './interactive/RecursionTree.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
 import { sheetEmbedCatalogEntry } from './media/SheetEmbed.catalog';
 import { mosaicCatalogEntry } from './structure/Mosaic.catalog';
@@ -38,4 +39,5 @@ export const catalogEntries: CatalogEntry[] = [
   predictOutputCatalogEntry,
   questionsCatalogEntry,
   questionCatalogEntry,
+  recursionTreeCatalogEntry,
 ];
