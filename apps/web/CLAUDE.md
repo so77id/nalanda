@@ -74,6 +74,16 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
      asserts that frames do not overlap and that the canvas holds what it drew,
      without faking a single measurement.
 
+     When the paint itself cannot be pure — a theme-keyed per-argument colour —
+     surface the INPUT the paint is derived from as a semantic `data-*`
+     attribute and pin THAT instead of the paint. Worked case:
+     `components/interactive/RecursionTree.tsx` exposes `data-arg` on every
+     node, and `RecursionTree.test.tsx` asserts that two duplicated arguments
+     carry the same `data-arg` — a stand-in for "same hue" jsdom is not asked
+     to observe. The browser check confirms the actual paint against the live
+     tokens in both themes. The recipe lives in `testing-strategy.md`
+     §Conventions ("A property jsdom cannot see").
+
      A device rule also needs an emulated device, not
      merely a small window: the recipe is in `testing-strategy.md` §Conventions.
 

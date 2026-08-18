@@ -72,11 +72,11 @@ export interface RecursionTreeProps {
  * than asserted in the prose. The colour is picked from the resolved theme
  * rather than a raw Tailwind class: this component is rendered inside pages
  * that ship in both themes, and inline styles pick a legible pair for each.
- * The design-system guard covers `bg-*-500` shapes, not `style` attributes;
- * this is one of the two cases the standard anticipates (design-system.md
- * §Adding a token would be the alternative, but this palette is scoped to one
- * component and the token cost — three CSS blocks × six hues — buys nothing
- * the inline pair does not).
+ * The design-system guard covers `bg-*-500` shapes, not `style` attributes.
+ * design-system.md §"A component-scoped categorical palette" is the exemption
+ * that carries this decision; the token alternative — three CSS blocks × six
+ * hues — buys nothing scoped to one component and no pair meaningful outside
+ * this tree.
  *
  * **Colour is never the only signal** (design-system.md): each node shows its
  * argument in the label as well, so a reader who cannot distinguish hues still
