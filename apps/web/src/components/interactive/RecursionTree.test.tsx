@@ -12,79 +12,70 @@ import { RecursionTree } from './RecursionTree';
 // is detectable without measuring one.
 
 describe('RecursionTree', () => {
-  it('renders only the root before anyone clicks anywhere', () => {
+  it('renders the full tree open by default so the duplication is visible at a glance', () => {
+    // Miguel called this out at review: the reader gets more from SEEING the
+    // shape all at once than from unfolding it click by click, and closed the
+    // tree read as a broken widget. Everything below the root is visible on
+    // mount now; the click-to-collapse behaviour stays for a reader who wants
+    // to focus on a subtree.
     render(<RecursionTree recipe="fib" arg={5} />);
 
     expect(screen.getByText('fib(5)')).toBeInTheDocument();
-    expect(screen.queryByText('fib(4)')).not.toBeInTheDocument();
-    expect(screen.queryByText('fib(3)')).not.toBeInTheDocument();
+    expect(screen.getAllByText('fib(4)').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('fib(3)').length).toBeGreaterThanOrEqual(2);
+    expect(screen.getAllByText('fib(2)').length).toBeGreaterThanOrEqual(3);
+    // Base cases visible without any click.
+    expect(screen.getAllByText('fib(1)').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('fib(0)').length).toBeGreaterThanOrEqual(1);
   });
 
-  it('shows the two subcalls when the root is clicked', async () => {
-    const user = userEvent.setup();
-    render(<RecursionTree recipe="fib" arg={5} />);
-
-    await user.click(screen.getByRole('button', { name: /fib\(5\)/ }));
-
-    expect(screen.getByText('fib(4)')).toBeInTheDocument();
-    expect(screen.getByText('fib(3)')).toBeInTheDocument();
-    // The reader has NOT asked for the grandchildren yet.
-    expect(screen.queryByText('fib(2)')).not.toBeInTheDocument();
-  });
-
-  it('collapses a node when it is clicked a second time', async () => {
+  it('collapses a subtree when its root is clicked, and re-expands on a second click', async () => {
     const user = userEvent.setup();
     render(<RecursionTree recipe="fib" arg={5} />);
 
     const root = screen.getByRole('button', { name: /fib\(5\)/ });
     await user.click(root);
-    await user.click(root);
-
+    // With everything hidden below fib(5), no other node is on the page.
     expect(screen.queryByText('fib(4)')).not.toBeInTheDocument();
     expect(screen.queryByText('fib(3)')).not.toBeInTheDocument();
+
+    await user.click(root);
+    // Second click re-reveals the full subtree.
+    expect(screen.getAllByText('fib(4)').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('fib(3)').length).toBeGreaterThanOrEqual(2);
   });
 
-  it('makes the base cases visible after enough clicks, with no expand affordance', async () => {
-    // fib(0) and fib(1) return without recursing; the tree stops there. What
-    // the reader must see: those two leaves have no chevron and cannot be
-    // clicked to reveal children they do not have.
-    const user = userEvent.setup();
+  it('renders base cases as leaves that cannot be clicked to expand', () => {
+    // fib(0) and fib(1) return without recursing; the tree stops there. They
+    // appear as plain chips, not buttons — nothing to expand.
     render(<RecursionTree recipe="fib" arg={2} />);
 
-    await user.click(screen.getByRole('button', { name: /fib\(2\)/ }));
-
-    // Now fib(1) and fib(0) are both showing.
     expect(screen.getByText('fib(1)')).toBeInTheDocument();
     expect(screen.getByText('fib(0)')).toBeInTheDocument();
-    // A base case is not a button — no expansion is possible.
+    // A base case is not a button — no expansion affordance.
     expect(screen.queryByRole('button', { name: /^fib\(1\)$/ })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^fib\(0\)$/ })).not.toBeInTheDocument();
   });
 
-  it('tags nodes with the same argument so a shared colour is verifiable', async () => {
-    // fib(3) appears twice in fib(5) once the tree is expanded — that is the
-    // whole point of the visualisation. Colour reads it at a glance; this case
-    // pins the identifier the colour is derived from, so a refactor cannot
-    // silently break the sharing that makes the lesson land.
-    const user = userEvent.setup();
+  it('tags nodes with the same argument so a shared colour is verifiable', () => {
+    // fib(3) appears twice in fib(5) — that is the whole point of the
+    // visualisation. Colour reads it at a glance; this case pins the
+    // identifier the colour is derived from, so a refactor cannot silently
+    // break the sharing that makes the lesson land.
     const { container } = render(<RecursionTree recipe="fib" arg={5} />);
-
-    await user.click(screen.getByRole('button', { name: /fib\(5\)/ }));
-    await user.click(screen.getByRole('button', { name: /fib\(4\)/ }));
 
     const threes = container.querySelectorAll('[data-arg="3"]');
     expect(threes.length).toBeGreaterThanOrEqual(2);
   });
 
-  it('supports the factorial recipe', async () => {
-    const user = userEvent.setup();
+  it('supports the factorial recipe', () => {
     render(<RecursionTree recipe="factorial" arg={4} />);
 
-    await user.click(screen.getByRole('button', { name: /factorial\(4\)/ }));
-
+    // Fully expanded by default — every step in the chain is visible.
+    expect(screen.getByText('factorial(4)')).toBeInTheDocument();
     expect(screen.getByText('factorial(3)')).toBeInTheDocument();
-    // Single subcall, unlike fib.
-    expect(screen.queryByText('factorial(2)')).not.toBeInTheDocument();
+    expect(screen.getByText('factorial(2)')).toBeInTheDocument();
+    expect(screen.getByText('factorial(1)')).toBeInTheDocument();
   });
 
   it('shows the title when the author gives one', () => {

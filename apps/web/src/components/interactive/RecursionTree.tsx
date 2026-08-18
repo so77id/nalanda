@@ -132,8 +132,30 @@ interface TreeBodyProps {
   title?: string;
 }
 
+/**
+ * Every interior-node path in the tree, seeded so the tree renders open.
+ *
+ * The issue's original §Design opened the tree closed and asked the reader to
+ * expand it; on the built page that looked like a broken widget rather than a
+ * teaching aid, and Miguel called it out at review — the reader gets more from
+ * SEEING the duplication all at once than from unfolding it click by click.
+ * The click-to-collapse behaviour stays (a reader who wants to focus on a
+ * subtree can hide siblings), only the initial state flipped.
+ */
+function allInteriorPaths(recipe: Recipe, arg: number): Set<string> {
+  const paths = new Set<string>();
+  const walk = (a: number, path: string) => {
+    const kids = recipe.children(a);
+    if (kids.length === 0) return;
+    paths.add(path);
+    kids.forEach((childArg, i) => walk(childArg, `${path}.${i}`));
+  };
+  walk(arg, 'r');
+  return paths;
+}
+
 function TreeBody({ recipe, arg, title }: TreeBodyProps) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [expanded, setExpanded] = useState<Set<string>>(() => allInteriorPaths(recipe, arg));
   const theme = useResolvedTheme();
 
   const toggle = useCallback((path: string) => {
@@ -156,7 +178,7 @@ function TreeBody({ recipe, arg, title }: TreeBodyProps) {
         {title === undefined ? null : <h4 className="m-0 text-sm font-medium text-ink">{title}</h4>}
       </header>
 
-      <div className="overflow-x-auto px-3 py-4 font-mono text-sm">
+      <div className="flex justify-center overflow-x-auto px-3 py-6 font-mono text-sm">
         <Node
           recipe={recipe}
           arg={arg}
@@ -168,8 +190,8 @@ function TreeBody({ recipe, arg, title }: TreeBodyProps) {
       </div>
 
       <p className="border-t border-rule bg-sunk px-3 py-1.5 text-3xs text-ink-faint">
-        Cliquea un nodo para abrir sus subcallas. Los nodos con el mismo argumento comparten color —
-        la duplicación es lo que hace lento al recursivo.
+        Los nodos con el mismo argumento comparten color — la duplicación es lo que hace lento al
+        recursivo. Cliquea un nodo para ocultar sus subcallas si quieres enfocarte en una parte.
       </p>
     </figure>
   );
@@ -194,7 +216,7 @@ function Node({ recipe, arg, path, expanded, toggle, paint }: NodeProps) {
   const chip = isBase ? (
     <span
       data-arg={arg}
-      className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs"
+      className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs whitespace-nowrap"
       style={style}
     >
       {label}
@@ -204,7 +226,7 @@ function Node({ recipe, arg, path, expanded, toggle, paint }: NodeProps) {
       type="button"
       data-arg={arg}
       onClick={() => toggle(path)}
-      className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+      className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       style={style}
       aria-expanded={isOpen}
     >
@@ -213,22 +235,52 @@ function Node({ recipe, arg, path, expanded, toggle, paint }: NodeProps) {
     </button>
   );
 
+  const showChildren = isOpen && children.length > 0;
+
   return (
-    <div className="flex flex-col items-start gap-1">
+    // Classic-tree layout: the chip sits centred on top, subcalls fan out
+    // beneath it in a row, and CSS pseudo-elements draw the connector lines.
+    // The parent's ::before is the vertical stub going down from the chip;
+    // each child's ::before is the horizontal bar half-segment (nothing on
+    // a single child), and each child's ::after is the vertical stub coming
+    // up to its own chip. All lines paint in `bg-rule` (a decorative
+    // separator with no contrast floor — design-system.md §The tokens).
+    <div className="flex flex-col items-center">
       {chip}
-      {isOpen && children.length > 0 ? (
-        <div className="ml-4 flex flex-col items-start gap-1 border-l border-rule pl-3">
-          {children.map((childArg, i) => (
-            <Node
-              key={`${path}.${i}`}
-              recipe={recipe}
-              arg={childArg}
-              path={`${path}.${i}`}
-              expanded={expanded}
-              toggle={toggle}
-              paint={paint}
-            />
-          ))}
+      {showChildren ? (
+        // The horizontal bar between siblings is drawn as ::before on each
+        // child — `gap-` would leave visual breaks, so siblings use inner
+        // horizontal padding (`px-3`) instead and touch at their borders,
+        // making the concatenated ::before line unbroken from center of the
+        // first child to center of the last.
+        <div className="relative flex justify-center pt-6 before:absolute before:top-0 before:left-1/2 before:h-6 before:w-px before:bg-rule before:content-['']">
+          {children.map((childArg, i) => {
+            const only = children.length === 1;
+            const first = i === 0;
+            const last = i === children.length - 1;
+            const barSide = only
+              ? 'before:hidden'
+              : first
+                ? 'before:left-1/2 before:right-0'
+                : last
+                  ? 'before:left-0 before:right-1/2'
+                  : 'before:left-0 before:right-0';
+            return (
+              <div
+                key={`${path}.${i}`}
+                className={`relative flex flex-col items-center px-3 pt-6 before:absolute before:top-0 before:h-px before:bg-rule before:content-[''] after:absolute after:top-0 after:left-1/2 after:h-6 after:w-px after:bg-rule after:content-[''] ${barSide}`}
+              >
+                <Node
+                  recipe={recipe}
+                  arg={childArg}
+                  path={`${path}.${i}`}
+                  expanded={expanded}
+                  toggle={toggle}
+                  paint={paint}
+                />
+              </div>
+            );
+          })}
         </div>
       ) : null}
     </div>

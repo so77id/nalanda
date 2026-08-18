@@ -78,7 +78,7 @@ int[] c = new int[]{10, 20, 30};   // literal con new — necesaria si no es en 
 
 Los valores por defecto de `new int[5]` son `0`; de `new boolean[5]` son `false`; de
 `new String[5]` son `null` — el mismo `null` de
-[[referencias-null-igualdad|Referencias, `null` e igualdad]], listo para dar
+[[referencias-null-igualdad|el documento anterior]], listo para dar
 `NullPointerException` si accedes sin asignar primero.
 
 La tercera forma existe porque la primera (`{1, 2, 3}`) solo se puede escribir en la
@@ -90,8 +90,8 @@ ejemplo — hay que escribirla como `new int[]{...}`.
 El acceso es igual que en C++: `v[i]`, con `i` de `0` a `v.length - 1`. La diferencia
 que importa es lo que pasa cuando `i` se sale de ese rango. En vez de comportamiento
 indefinido, Java lanza `ArrayIndexOutOfBoundsException` — la excepción concreta que
-[[referencias-null-igualdad|Referencias, `null` e igualdad]] prepara al enseñar el
-mecanismo de excepciones en Java.
+[[referencias-null-igualdad|el documento anterior]] preparó al enseñar el mecanismo
+de excepciones en Java.
 
 <CodeEditor
   language="java"
@@ -163,10 +163,10 @@ Si necesitas modificar el arreglo, escribe el `for` clásico y asigna a `v[i]`.
 
 <Slide title="Buscar un elemento">
 En C++ compararías con `==` porque los tipos primitivos se comparan por valor y las
-cadenas se manejan de otra manera. En Java, como se enseña en
-[[referencias-null-igualdad|Referencias, `null` e igualdad]], `==` sobre `String`
-compara **referencias**, no contenido — y por eso la búsqueda de un texto en un
-arreglo se hace con `.equals()`:
+cadenas se manejan de otra manera. En Java, como acabas de ver en
+[[referencias-null-igualdad|el documento anterior]], `==` sobre `String` compara
+**referencias**, no contenido — y por eso la búsqueda de un texto en un arreglo
+se hace con `.equals()`:
 
 ```java
 static boolean contiene(String[] xs, String buscado) {
@@ -262,10 +262,10 @@ class Util {
   ejecutar `return` con un `int` no compila; un método `void` que escribe
   `return 5;` tampoco.
 - **Los parámetros se pasan por valor.** Un `int` viaja como copia; un objeto
-  viaja como copia de la referencia — el mismo hecho de
-  [[referencias-null-igualdad|Referencias, `null` e igualdad]]. Java no tiene
-  el `&` de C++ para pedir referencia; si necesitas modificar algo, devuélvelo
-  o pasa un arreglo (que es un objeto).
+  viaja como copia de la referencia — el mismo hecho que se enseña en
+  [[referencias-null-igualdad|el documento anterior]]. Java no tiene el `&` de
+  C++ para pedir referencia; si necesitas modificar algo, devuélvelo o pasa un
+  arreglo (que es un objeto).
 
 **Sobrecarga: dos funciones con el mismo nombre, distintos parámetros.**
 
@@ -281,9 +281,9 @@ literales enteros — y `maximo(3.0, 4.0)` va a la tercera.
 
 **Lo que sí tenías en C++ y en Java no:** sobrecargar `+`, `==` o cualquier otro
 operador para tus propios tipos. Esa es la razón — la misma que aparece en
-[[referencias-null-igualdad|Referencias, `null` e igualdad]] — por la que `==`
-sobre `String` no compara contenido: nadie puede reescribir qué significa `==`,
-ni siquiera para las clases que Java trae de fábrica.
+[[referencias-null-igualdad|el documento anterior]] — por la que `==` sobre
+`String` no compara contenido: nadie puede reescribir qué significa `==`, ni
+siquiera para las clases que Java trae de fábrica.
 </Slide>
 
 <Slide title="Recursión en C++">
