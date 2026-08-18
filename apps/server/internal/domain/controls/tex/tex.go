@@ -158,7 +158,7 @@ func writeQuestion(b *strings.Builder, q bank.Question, listingsDir string) {
 		// (ADR-0033 §The sheet carries its own arithmetic).
 		fmt.Fprintf(b, "  \\begin{%s}{%s}\n", env, q.ID)
 	}
-	fmt.Fprintf(b, "    %s\n", strings.TrimSpace(q.Statement))
+	fmt.Fprintf(b, "    %s\n", escapeLatex(strings.TrimSpace(q.Statement)))
 
 	if q.Code != nil {
 		// Absolute path: AMC compiles from its own working directory, so
@@ -205,7 +205,7 @@ func emitAlternative(b *strings.Builder, text string, correct bool) {
 	if correct {
 		macro = "\\correctchoice"
 	}
-	fmt.Fprintf(b, "      %s{%s}\n", macro, strings.TrimSpace(text))
+	fmt.Fprintf(b, "      %s{%s}\n", macro, escapeLatex(strings.TrimSpace(text)))
 }
 
 func writeSheet(b *strings.Builder, in Input) {
@@ -278,8 +278,16 @@ func fourZeroClause(questions int) string {
 	return fmt.Sprintf("son %d,5 puntos", questions/2)
 }
 
-// escapeLatex escapes the ten TeX specials in a professor-typed name.
-// Statements from the bank are trusted LaTeX and are not run through this.
+// escapeLatex escapes the ten TeX specials in text that arrived as plain text
+// from a human author — the professor-typed control name AND the bank's
+// Statement / Alternatives (which come from MDX where `70%` means "seventy
+// percent", not "start of LaTeX comment"). Issue #183 is the follow-up that
+// formalises the policy and designs the opt-in for a bank field that WANTS to
+// carry LaTeX (formulas). Regression from prod 2026-08-18: the pregunta
+// `peso-de-la-presentacion` had alternatives ending in `%`, which without
+// escaping opened a LaTeX comment inside `\correctchoice{...}` and cascaded
+// up to a runaway argument in `\element{clase}{...}` — the whole
+// generation returned exit 1 without producing a PDF.
 func escapeLatex(s string) string {
 	replacer := strings.NewReplacer(
 		"\\", "\\textbackslash{}",
