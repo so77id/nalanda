@@ -565,6 +565,25 @@ working directory). In paranoid mode `pdflatex` answers `Not reading from
 fallback; taking the override as well means changing the listing shape (or
 arranging `TEXMFOUTPUT`) in the same change.
 
+**Trigger status after #175 (Jetson deploy of amc-worker, 2026-08-18)**: NOT
+fired. This WP puts the worker on the Jetson and makes it reachable from the
+`/api/controls/*` codepath in production, but does not change the input
+provenance: scans still come from the professor's own scanner, `.tex` inputs
+are still repo-authored (the WP-E-generated `.tex` goes through
+`under_work()`, per §"WP-E will pull that trigger" above). The residual is
+unchanged. Two follow-ups touch the same accepted risk without firing this
+trigger:
+
+- `docker compose stop amc-worker` is the cheapest first response if AMC
+  itself misbehaves after a package rev (documented in ADR-0038
+  §Consequences).
+- The `cap_drop: [ALL]` + `security_opt: [no-new-privileges:true]` cheap
+  half named above is now tracked under
+  [issue #173](https://github.com/so77id/nalanda/issues/173) as a hardening
+  step to take before the trigger fires — the blast-radius asymmetry
+  paragraph in ADR-0038 §Consequences names why it becomes worth doing
+  first once amc-worker sits behind Watchtower.
+
 ### `apps/server` joins the worker's compose network (accepted 2026-08-16, #149)
 
 WP-C1 adds a second service to `infra/local/docker-compose.yml`, which trips the

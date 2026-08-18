@@ -147,9 +147,12 @@ docker login ghcr.io   # username: your GitHub handle; password: PAT (read:packa
 
 # 2. Pull the four prod images from GHCR (server, amc-worker, backup,
 #    monitor). The COMPOSE_FILE line in .env is what makes this reach the
-#    overlay. amc-worker's image is ~1 GB so the first pull on a fresh
-#    host takes 10-15 min over a home connection; subsequent pulls only
-#    fetch changed layers.
+#    overlay. amc-worker's image is ~1 GB (Debian + texlive + Perl +
+#    OpenCV), so the first pull on a fresh host takes several minutes
+#    depending on the link — `docker compose pull` prints per-layer
+#    progress if you want to watch. Subsequent pulls only fetch changed
+#    layers. Actual elapsed time on the Jetson's home link belongs in
+#    ADR-0038 §Decision (the measurement block) alongside RSS.
 docker compose pull
 
 # 3. Bring them up. `--wait` blocks until the server's healthcheck reports

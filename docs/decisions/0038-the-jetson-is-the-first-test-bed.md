@@ -71,6 +71,14 @@ a follow-up commit to `main` once the numbers exist. Until they exist, this
 paragraph is HONEST rather than confident — the deploy is proceeding on the
 hypothesis that the coexistence works, not on the confirmation.
 
+**Owner + tracking**: **Miguel** fills in each of the five numbers within one
+week of the Jetson bring-up. Tracked under
+[issue #173](https://github.com/so77id/nalanda/issues/173) (post-#162 Jetson
+deploy follow-ups) alongside the AC-4/AC-7b verifications from the sibling
+WP. If a number falls outside the expected range (see each bullet), the
+follow-up commit records the observation and reopens the review trigger below
+rather than closing it silently.
+
 **Deploy is `git push origin main`.** GitHub Actions runs two workflows
 watching different path filters:
 
@@ -260,6 +268,25 @@ their own `security-notes.md` entries:
   OOMs under real load, the first thing to reopen is the amc-worker
   paragraph (`docker compose stop amc-worker` cheaper than tuning
   DocumentBuddy's browser).
+
+  **Blast-radius asymmetry under the Watchtower `:latest` trade-off.** The
+  same auto-pull loop that lets `git push` reach the box in ≤5 min has an
+  asymmetric consequence between the two Nalanda services if a malicious
+  `:latest` ever reaches GHCR (compromised action, leaked PAT with
+  `write:packages`, run-of-the-mill CI compromise): `nalanda-server` is UID
+  65532 on `scratch` with a three-entry filesystem, so a swap gives an
+  attacker a highly constrained shell; `nalanda-amc-worker` runs as `root`
+  on a full Debian userland with `texlive`, `poppler`, `opencv` and reach
+  to the compose peers, so the same swap gives r/w to `amc-work` (student
+  RUTs, controls, PDFs) and network reach to server + backup + monitor.
+  Recorded because the shape of the risk changed with #175; the residual
+  itself was accepted at #138 and is documented in
+  [`security-notes.md` §"The control worker runs as root and parses scans
+  there"](../security-notes.md#the-control-worker-runs-as-root-and-parses-scans-there-accepted-2026-08-15-138).
+  The cheap half of that residual (`cap_drop: [ALL]` +
+  `security_opt: [no-new-privileges:true]` on the amc-worker service in
+  the overlay) has not been adopted; tracked under
+  [issue #173](https://github.com/so77id/nalanda/issues/173).
 - **Tailscale is now a dependency for reaching Nalanda.** A Tailscale outage
   takes both services down. Free-tier Tailscale has held up for a year on the
   same box, which is the evidence this decision leans on.

@@ -193,13 +193,15 @@ DocumentBuddy already holds 443 on the same box). Full context in
   DocumentBuddy's compose) polls GHCR every 5 minutes and swaps each
   container the moment the digest changes. End-to-end for the server:
   merge → deploy in ≤8 min, hands-off.
-- **What runs there**: `apps/server` (the login and the backoffice screens),
-  a daily `backup` container (SQLite `.backup` → gzip → S3, 30-day retention
-  via bucket lifecycle, Telegram notify), and a `monitor` container (polls
-  `/health` every 5 min, alerts after 3 failures with a 30-min reminder
-  cadence). `apps/amc-worker` is DELIBERATELY out of scope for this deploy:
-  its 1.04 GB image on a 4 GB Nano is a separate question. So `/api/controls/…`
-  answers with a worker connection error.
+- **What runs there**: four containers under one compose. `apps/server`
+  (the login and the backoffice screens), `apps/amc-worker` (the AMC
+  engine that generates and reads controls — added in #175), a daily
+  `backup` container (SQLite `.backup` → gzip → S3, 30-day retention
+  via bucket lifecycle, Telegram notify), and a `monitor` container
+  (polls `/health` every 5 min, alerts after 3 failures with a 30-min
+  reminder cadence). `/api/controls/…` is answered end-to-end once
+  amc-worker's health check passes; the RSS-and-coexistence measurement
+  is recorded in ADR-0038 §Decision.
 - **How to verify after a deploy**: from a browser off the tailnet,
   `curl -fsS https://<host>.<tailnet>.ts.net:8443/health` and `/api/health`
   answer 200; then run **[`apps/server/GOOGLE-CHECK.md`](apps/server/GOOGLE-CHECK.md)**

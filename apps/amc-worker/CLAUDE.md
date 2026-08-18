@@ -67,6 +67,22 @@ it — script names, test titles, the fixture's own comments.
   `--force-depends`, so the package database is deliberately inconsistent
   (ADR-0030 §Operational). The Dockerfile's package set is this app's manifest,
   and the root `CLAUDE.md` rule about manifests applies to it.
+- **A merge to `main` reaches the Jetson.** Since #175 (ADR-0038), edits to
+  `worker.py`, `read_capture.py`, `Dockerfile` or anything under
+  `apps/amc-worker/**` trigger `.github/workflows/amc-worker-cd.yml`, which
+  cross-compiles arm64 and pushes `ghcr.io/so77id/nalanda-amc-worker:latest`
+  to GHCR. Watchtower on the Jetson (shared with DocumentBuddy) pulls and
+  restarts within ≤5 min. Two consequences for edits here:
+  1. **`make test` alone is not enough for a change that reaches the sheet.**
+     The suite drives synthetic PDFs; `apps/amc-worker/PAPER-CHECK.md` is the
+     L8 procedure a human runs against real paper. Read it before merging any
+     change that affects generation, reading, or grading — the same rule as
+     `apps/server/GOOGLE-CHECK.md` for auth changes.
+  2. **The container runs on a Nano shared with DocumentBuddy** (~4 GB RAM,
+     16 GB eMMC). A change that inflates image size or peak RSS lands on the
+     box within minutes of merge, and can OOM the co-tenant. If a diff pulls
+     in a heavy package, measure locally first; ADR-0038 §Decision holds the
+     measurement block for the co-tenancy.
 
 ## Testing protocols
 
