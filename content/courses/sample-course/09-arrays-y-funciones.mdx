@@ -77,8 +77,9 @@ int[] c = new int[]{10, 20, 30};   // literal con new — necesaria si no es en 
 ```
 
 Los valores por defecto de `new int[5]` son `0`; de `new boolean[5]` son `false`; de
-`new String[5]` son `null` — el mismo `null` de [[referencias-null-igualdad|el documento
-anterior]], listo para dar `NullPointerException` si accedes sin asignar primero.
+`new String[5]` son `null` — el mismo `null` de
+[[referencias-null-igualdad|Referencias, `null` e igualdad]], listo para dar
+`NullPointerException` si accedes sin asignar primero.
 
 La tercera forma existe porque la primera (`{1, 2, 3}`) solo se puede escribir en la
 declaración misma. Fuera de ahí — devolviendo un arreglo desde un método, por
@@ -89,7 +90,8 @@ ejemplo — hay que escribirla como `new int[]{...}`.
 El acceso es igual que en C++: `v[i]`, con `i` de `0` a `v.length - 1`. La diferencia
 que importa es lo que pasa cuando `i` se sale de ese rango. En vez de comportamiento
 indefinido, Java lanza `ArrayIndexOutOfBoundsException` — la excepción concreta que
-[[referencias-null-igualdad|el documento anterior]] preparó al enseñar el mecanismo.
+[[referencias-null-igualdad|Referencias, `null` e igualdad]] prepara al enseñar el
+mecanismo de excepciones en Java.
 
 <CodeEditor
   language="java"
@@ -161,10 +163,10 @@ Si necesitas modificar el arreglo, escribe el `for` clásico y asigna a `v[i]`.
 
 <Slide title="Buscar un elemento">
 En C++ compararías con `==` porque los tipos primitivos se comparan por valor y las
-cadenas se manejan de otra manera. En Java, ya viste en
-[[referencias-null-igualdad|el documento anterior]] que `==` sobre `String` compara
-**referencias**, no contenido — y por eso la búsqueda de un texto en un arreglo se
-hace con `.equals()`:
+cadenas se manejan de otra manera. En Java, como se enseña en
+[[referencias-null-igualdad|Referencias, `null` e igualdad]], `==` sobre `String`
+compara **referencias**, no contenido — y por eso la búsqueda de un texto en un
+arreglo se hace con `.equals()`:
 
 ```java
 static boolean contiene(String[] xs, String buscado) {
@@ -261,9 +263,9 @@ class Util {
   `return 5;` tampoco.
 - **Los parámetros se pasan por valor.** Un `int` viaja como copia; un objeto
   viaja como copia de la referencia — el mismo hecho de
-  [[referencias-null-igualdad|el documento anterior]]. Java no tiene el `&` de
-  C++ para pedir referencia; si necesitas modificar algo, devuélvelo o pasa un
-  arreglo (que es un objeto).
+  [[referencias-null-igualdad|Referencias, `null` e igualdad]]. Java no tiene
+  el `&` de C++ para pedir referencia; si necesitas modificar algo, devuélvelo
+  o pasa un arreglo (que es un objeto).
 
 **Sobrecarga: dos funciones con el mismo nombre, distintos parámetros.**
 
@@ -279,9 +281,9 @@ literales enteros — y `maximo(3.0, 4.0)` va a la tercera.
 
 **Lo que sí tenías en C++ y en Java no:** sobrecargar `+`, `==` o cualquier otro
 operador para tus propios tipos. Esa es la razón — la misma que aparece en
-[[referencias-null-igualdad|el documento anterior]] — por la que `==` sobre
-`String` no compara contenido: nadie puede reescribir qué significa `==`, ni
-siquiera para las clases que Java trae de fábrica.
+[[referencias-null-igualdad|Referencias, `null` e igualdad]] — por la que `==`
+sobre `String` no compara contenido: nadie puede reescribir qué significa `==`,
+ni siquiera para las clases que Java trae de fábrica.
 </Slide>
 
 <Slide title="Recursión en C++">
@@ -364,16 +366,23 @@ caso base.
         System.out.println("factorial(1) = " + factorial(1));
         System.out.println("factorial(5) = " + factorial(5));
         System.out.println("factorial(10) = " + factorial(10));
+        System.out.println("factorial(13) = " + factorial(13));
+        System.out.println("factorial(17) = " + factorial(17));
     }
 }
 `}
 />
 
-`factorial(10)` es `3628800`. Un `int` guarda `factorial(12)`; a partir de `13`
-desborda y aterriza en un número negativo — el mismo desbordamiento silencioso
-de [[java-tipos-y-flujo|"Tipos, operadores y entrada/salida"]]. Es lo que
-introduce el siguiente caso de estudio, `fib`, donde el problema no es el
-tamaño del resultado sino el tiempo que toma llegar a él.
+`factorial(10)` es `3628800`. Un `int` guarda hasta `factorial(12)`; **a partir
+de `13` el resultado ya no cabe en 32 bits** y aparece un número que ya no es
+el factorial matemático — pero sigue siendo positivo, porque el desbordamiento
+da la vuelta dentro del rango. **A `17` la vuelta cruza el cero** y el
+resultado aparece negativo. Es el mismo desbordamiento silencioso de
+[[java-tipos-y-flujo|"Tipos, operadores y entrada/salida"]], visto ahora con
+un ejemplo donde el defecto no salta a la cara la primera vez: el número está
+mal desde `n = 13`, y solo se ve raro desde `n = 17`. Cuando el resultado deba
+crecer más, el tipo `long` (que resiste hasta `factorial(20)`) es la salida
+mínima, y para más allá, `BigInteger`.
 </Slide>
 
 <Slide title="Sin caso base">
@@ -465,9 +474,9 @@ la respuesta.
 `}
 />
 
-`long` en vez de `int` porque `fib(46)` ya no cabe en 32 bits. El ciclo hace
-`n - 1` sumas y usa `n + 1` casillas de memoria: **coste lineal en tiempo y
-en memoria**.
+`long` en vez de `int` porque cerca de `fib(47)` el resultado ya no cabe en
+32 bits (`fib(46)` es el último que entra). El ciclo hace `n - 1` sumas y
+usa `n + 1` casillas de memoria: **coste lineal en tiempo y en memoria**.
 
 `System.nanoTime()` devuelve un contador monótono con resolución de
 nanosegundos. La granularidad real en tu navegador puede ser menor (CheerpJ
@@ -543,10 +552,11 @@ Ahora la que se parece a la definición matemática, letra por letra.
 
 Es la más corta y la más legible. Ejecútalo con `n = 30` y anota el tiempo.
 Después súbelo a `35` y **prepárate a esperar**: el tiempo se multiplica por
-un factor cercano a `10` cada vez que sumas dos a `n`. Con `n = 30` alcanzas
-del orden del segundo; con `n = 35` alcanzas del orden de la decena de
-segundos. Es la primera vez en el curso que un programa que compila y no
-tiene defectos aparentes se demora tanto que la página parece congelada.
+un factor cercano a `3` cada vez que sumas dos a `n`, y del orden de `10`
+cada vez que sumas cinco. Con `n = 30` alcanzas del orden del segundo; con
+`n = 35` alcanzas del orden de la decena de segundos. Es la primera vez en
+el curso que un programa que compila y no tiene defectos aparentes se demora
+tanto que la página parece congelada.
 
 **No pruebes `n = 45`.** Y aunque quisieras, la próxima slide te explica por
 qué el documento no te deja.
@@ -619,8 +629,8 @@ elementos. Si el arreglo está vacío, la suma es `0`.
 class Solution {
 
     static int sumaArreglo(int[] v) {
-        // tu código aquí
-        return 0;
+        // tu código aquí — reemplaza el -1
+        return -1;
     }
 }
 ```
@@ -675,8 +685,10 @@ los elementos del arreglo es `null` tampoco.
 class Solution {
 
     static boolean contieneElemento(String[] xs, String buscado) {
-        // tu código aquí
-        return false;
+        // tu código aquí — el starter tira una excepción a propósito
+        // hasta que lo escribas (con booleanos, ni `true` ni `false`
+        // son sentinelas que no coincidan con algún caso legítimo).
+        throw new UnsupportedOperationException("aún no implementado");
     }
 }
 ```
@@ -709,8 +721,8 @@ o falta.
 class Solution {
 
     static int sumaHastaN(int n) {
-        // tu código aquí
-        return 0;
+        // tu código aquí — reemplaza el -1
+        return -1;
     }
 }
 ```
