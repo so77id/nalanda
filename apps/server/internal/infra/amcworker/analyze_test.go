@@ -61,6 +61,8 @@ func TestAnalyzeSendsProjectScanPDFAndSource(t *testing.T) {
 		Project: "controls/abc",
 		ScanPDF: "controls/abc/scans/batch-1.pdf",
 		Source:  "controls/abc/inputs/source.tex",
+		Ticked:  controls.DefaultTicked,
+		Unsure:  controls.DefaultUnsure,
 	})
 	if err != nil {
 		t.Fatalf("Analyze: %v", err)
@@ -68,6 +70,11 @@ func TestAnalyzeSendsProjectScanPDFAndSource(t *testing.T) {
 	if got.Project != "controls/abc" || got.ScanPDF != "controls/abc/scans/batch-1.pdf" ||
 		got.Source != "controls/abc/inputs/source.tex" {
 		t.Errorf("worker received %+v", got)
+	}
+	// Issue #197: the pair travels on the wire, not only through validation.
+	if got.Ticked != controls.DefaultTicked || got.Unsure != controls.DefaultUnsure {
+		t.Errorf("worker received thresholds (%v, %v), want the defaults",
+			got.Ticked, got.Unsure)
 	}
 	// The report round-trips into the domain shape.
 	if report.Pages.Captured != 4 || len(report.Copies) != 1 {
@@ -97,6 +104,7 @@ func TestAnalyzeRefusedOn4xxWrapsErrAnalyzerRefused(t *testing.T) {
 	client := amcworker.New(amcworker.Config{BaseURL: srv.URL})
 	_, err := client.Analyze(context.Background(), controls.AnalyzeRequest{
 		Project: "controls/x", ScanPDF: "controls/x/s.pdf", Source: "controls/x/s.tex",
+		Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure,
 	})
 	if !errors.Is(err, controls.ErrAnalyzerRefused) {
 		t.Errorf("Analyze on 400: %v, want ErrAnalyzerRefused", err)
@@ -114,9 +122,14 @@ func TestAnalyzeRefusesInvalidRequestBeforeCallingTheWorker(t *testing.T) {
 	client := amcworker.New(amcworker.Config{BaseURL: srv.URL})
 
 	cases := []controls.AnalyzeRequest{
-		{Project: "", ScanPDF: "s", Source: "t"},
-		{Project: "p", ScanPDF: "", Source: "t"},
-		{Project: "p", ScanPDF: "s", Source: ""},
+		{Project: "", ScanPDF: "s", Source: "t",
+			Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure},
+		{Project: "p", ScanPDF: "", Source: "t",
+			Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure},
+		{Project: "p", ScanPDF: "s", Source: "",
+			Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure},
+		// Issue #197: the band rule is refused before the wire.
+		{Project: "p", ScanPDF: "s", Source: "t", Ticked: 0.05, Unsure: 0.20},
 	}
 	for _, req := range cases {
 		if _, err := client.Analyze(context.Background(), req); !errors.Is(err, controls.ErrAnalyzerRefused) {
@@ -173,9 +186,11 @@ func TestReanalyzeRefusesOutOfRangeThresholds(t *testing.T) {
 }
 
 type analyzeSent struct {
-	Project string `json:"project"`
-	ScanPDF string `json:"scan_pdf"`
-	Source  string `json:"source"`
+	Project string  `json:"project"`
+	ScanPDF string  `json:"scan_pdf"`
+	Source  string  `json:"source"`
+	Ticked  float64 `json:"ticked"`
+	Unsure  float64 `json:"unsure"`
 }
 
 type reanalyzeSent struct {

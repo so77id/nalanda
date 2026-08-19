@@ -103,10 +103,10 @@ first-cycle question, not a full validation.
    `digits: []`. The hand-written `RUT:` line on the sheet gives the
    correct value.
 4. **Sheet 2 Q1 doubtful.** The light-pencil answer should come back with
-   `status: doubtful` (its `darkness` in `[0.10, 0.30)`) or `status: blank`
-   (below `0.10`). Either is informative — a doubtful means the professor
-   sees it in the review queue; a blank means the sensitivity needs
-   lowering. Write the number down.
+   `status: doubtful` (its `darkness` in `[0.05, 0.15)`, the issue #197
+   defaults) or `status: blank` (below `0.05`). Either is informative — a
+   doubtful means the professor sees it in the review queue; a blank means
+   the sensitivity needs lowering. Write the number down.
 5. **Sheet 3 Q1 ambiguous.** The double-marked answer should come back with
    `status: ambiguous` and both indices in `marked`. Sheet 3's RUT should
    read the CORRECTED digit (or come back unreadable if the erasure left

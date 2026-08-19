@@ -192,6 +192,12 @@ scan while none exists. `NALANDA_ANNOTATE_ENABLED=false` switches the whole
 loop off. Closing a correction fires the `OnCorrectionClosed` hook — today a
 no-op logger, tomorrow the seam email/Canvas integrations hang off.
 
+Since issue #197 one darkness-threshold pair travels with every control
+(ADR-0041): the upload and reanalyse forms set it (defaults 0.15/0.05, the
+X-friendly pair measured on a real batch), and the same `ticked` drives the
+reader, AMC's `note` and the annotated PDF — marks, scores and the drawn
+sheet always agree.
+
 Routes today:
 
 | Route | What |
@@ -201,8 +207,8 @@ Routes today:
 | `GET /controls/new` · `POST /controls` | Pick a section range, generate the PDF |
 | `GET /controls/{id}` | Detail: metadata, PDF downloads, the Escaneos upload form, the Resultados table and (after upload) the *Cerrar corrección* button |
 | `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
-| `POST /controls/{id}/scans` | Multipart PDF upload — hands the file to the worker's `/analyse`, persists the report, flips the state to `in_review` |
-| `POST /controls/{id}/reanalyze` | Re-reads the stored captures at new `ticked`/`unsure` thresholds without a new capture |
+| `POST /controls/{id}/scans` | Multipart PDF upload — hands the file to the worker's `/analyse` at the submitted thresholds, persists the report and the pair, annotates clean copies, flips the state to `in_review` |
+| `POST /controls/{id}/reanalyze` | Re-reads the stored captures at new `ticked`/`unsure` thresholds without a new capture, re-scores at them, and re-annotates the clean copies (issue #197) |
 | `POST /controls/{id}/close` | Moves the control to `graded` when every failure kind is resolved (WP-F S8), then fires `OnCorrectionClosed` (issue #190) |
 | `GET /controls/{id}/copies/{copy}/review` · `POST` | Split view — corrected PDF (or raw scan) + editable form; POST saves overrides through `answer_override` / `rut_override` and re-annotates the copy |
 | `GET /controls/{id}/copies/{copy}/page/{n}` | Streams the scanned page image from the shared volume |
