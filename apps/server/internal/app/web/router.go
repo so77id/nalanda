@@ -185,6 +185,12 @@ func routes(deps Deps) []Route {
 			Method: http.MethodGet, Path: handler.CopyAnnotatedPDF,
 			Handler: deps.Controls.AnnotatedPDF,
 		},
+		// Issue #204: the uploaded scan batch, downloadable from the detail
+		// page like the generated PDFs.
+		{
+			Method: http.MethodGet, Path: handler.ControlUploadPath,
+			Handler: deps.Controls.UploadsPDF,
+		},
 		{
 			Method: http.MethodGet, Path: handler.ProfessorsPath,
 			Handler: deps.Professors.List,

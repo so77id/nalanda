@@ -443,3 +443,121 @@ func TestReanalyzeRefusesAnInvertedBand(t *testing.T) {
 		t.Errorf("Reanalyze called %d times with an inverted band, want 0", count)
 	}
 }
+
+// Issue #204: the uploaded batch is downloadable from the control page —
+// the endpoint streams the stored batch-N.pdf with download headers.
+func TestUploadsPDFServesTheStoredBatch(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control batch", 1)
+
+	uploads := filepath.Join(f.workDir, "controls", controlID, "uploads")
+	if err := os.MkdirAll(uploads, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(uploads, "batch-1.pdf"), []byte("%PDF-batch"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/uploads/batch-1.pdf", nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("batch", "batch-1.pdf")
+	rec := httptest.NewRecorder()
+	f.handler.UploadsPDF(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d\nbody: %s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Body.String(); got != "%PDF-batch" {
+		t.Errorf("body = %q, want the stored batch bytes", got)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/pdf" {
+		t.Errorf("Content-Type = %q, want application/pdf", got)
+	}
+	if got := rec.Header().Get("Content-Disposition"); !strings.Contains(got, "attachment") ||
+		!strings.Contains(got, "batch-1.pdf") {
+		t.Errorf("Content-Disposition = %q, want an attachment named batch-1.pdf", got)
+	}
+}
+
+// The batch name is a URL segment, so the pattern is the barrier: names
+// outside the on-disk contract 404 before any file is opened, as do an
+// unknown control and a batch that is not on disk.
+func TestUploadsPDFRefusesBadNamesMissingFilesAndUnknownControls(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control batch 404", 1)
+
+	cases := []struct {
+		name  string
+		id    string
+		batch string
+	}{
+		{"unknown control", "CTRLBADIDBADIDBADIDBADIDID", "batch-1.pdf"},
+		{"traversal-ish segment", controlID, ".."},
+		{"non-contract name", controlID, "notas.txt"},
+		{"zero batch", controlID, "batch-0.pdf"},
+		{"missing on disk", controlID, "batch-7.pdf"},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			req := f.authedRequest(t, http.MethodGet, "/controls/"+c.id+"/uploads/"+c.batch, nil)
+			req.SetPathValue("id", c.id)
+			req.SetPathValue("batch", c.batch)
+			rec := httptest.NewRecorder()
+			f.handler.UploadsPDF(rec, req)
+			if rec.Code != http.StatusNotFound {
+				t.Errorf("status = %d, want 404", rec.Code)
+			}
+		})
+	}
+}
+
+// Issue #204: the detail page lists the uploaded batches with download
+// links — and renders nothing when no batch exists yet.
+func TestDetailListsUploadedBatchesWithDownloadLinks(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control lista lotes", 1)
+
+	uploads := filepath.Join(f.workDir, "controls", controlID, "uploads")
+	if err := os.MkdirAll(uploads, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	for _, name := range []string{"batch-1.pdf", "batch-2.pdf"} {
+		if err := os.WriteFile(filepath.Join(uploads, name), []byte("%PDF"), 0o644); err != nil {
+			t.Fatalf("WriteFile %s: %v", name, err)
+		}
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID, nil)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.Detail(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		"Lotes subidos",
+		`href="/controls/` + controlID + `/uploads/batch-1.pdf"`,
+		`href="/controls/` + controlID + `/uploads/batch-2.pdf"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("detail page missing %q\n--- body ---\n%s", want, body)
+		}
+	}
+}
+
+func TestDetailShowsNoUploadSectionWhenNothingWasUploaded(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control sin lotes", 1)
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID, nil)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.Detail(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "Lotes subidos") {
+		t.Error("detail page shows the upload section with no batches on disk")
+	}
+}
