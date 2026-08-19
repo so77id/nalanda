@@ -12,8 +12,8 @@ export { LazyMemoryDiagram } from './interactive/lazyMemoryDiagram';
 // Same rule, both routes: PredictOutput wraps LazyCodeEditor AND imports the
 // runtime seam through `useLoadedRuntime`.
 export { LazyPredictOutput } from './interactive/lazyPredictOutput';
-// Same rule, heaviest instance: mermaid reaches dagre/d3/parsers (~600kB
-// gzipped, ADR-0040 §Consequences).
+// Same rule, heaviest instance: mermaid reaches dagre/d3/parsers (~200kB
+// gzipped of mermaid-only chunks, measured — ADR-0040 §Consequences).
 export { LazyMermaid } from './interactive/lazyMermaid';
 // Not a document-facing component and deliberately not in the catalog: authors
 // never write it, they write a fence. The shell maps it onto `pre`.

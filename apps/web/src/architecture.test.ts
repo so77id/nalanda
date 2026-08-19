@@ -163,7 +163,8 @@ describe('architecture: the predict-output card stays out of the entry chunk', (
 
 describe('architecture: the mermaid diagram stays out of the entry chunk', () => {
   // Mermaid drags dagre, d3 and a set of parsers into any chunk that imports
-  // it (~600kB gzipped, ADR-0040 §Consequences) — heavier than CodeMirror, so
+  // it (~200kB gzipped of mermaid-only chunks, measured — ADR-0040
+  // §Consequences) — heavier than CodeMirror, so
   // it carries the same per-name case the four heavy components above carry,
   // with the same rationale: a single ALLOWED entry, no per-file exemptions.
   const ALLOWED = ['components/interactive/lazyMermaid.tsx'];

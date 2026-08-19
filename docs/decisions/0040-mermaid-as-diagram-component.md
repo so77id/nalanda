@@ -106,15 +106,20 @@ hand-written SVG option, one library up.
 
 ## Consequences
 
-**Bundle cost.** The `mermaid` package is heavy — measured on the built
-Nalanda tree, its own chunk weighs ~600kB gzipped (the library reaches
-`dagre`, `d3`, `mdast-util-from-markdown`, `khroma` and a handful of parsers).
-The lazy-load mitigation is what makes this acceptable: no page that never
-uses a diagram pays the cost, and a page that uses one pays it once. The
-guard in `apps/web/src/architecture.test.ts` (a per-name case forbidding
-static imports of the component module outside its lazy wrapper, PLUS the
-eager-graph walk over the shell entry) fails the suite if the boundary
-opens — the same shape that has held `CodeEditor`, `Exercise`,
+**Bundle cost.** The `mermaid` package is heavy — it reaches `dagre`, `d3`,
+`mdast-util-from-markdown`, `khroma` and a handful of parsers. Measured on the
+built tree (S9 of the #79 WP, Playwright request logs): a page that mounts
+`<Mermaid>` downloads **~196 kB gzipped more than a page without one** — the
+mermaid-only chunks (`mermaid.core`, `dagre`, `graphlib`, per-diagram
+sub-chunks, `rough`), while `/d/java-desde-cpp` requests zero of them. Part
+of the library sits in a chunk shared with other dependencies already on the
+first paint, which is why the delta is smaller than the library's raw
+footprint. The lazy-load mitigation is what makes this acceptable: no page
+that never uses a diagram pays the cost, and a page that uses one pays it
+once. The guard in `apps/web/src/architecture.test.ts` (a per-name case
+forbidding static imports of the component module outside its lazy wrapper,
+PLUS the eager-graph walk over the shell entry) fails the suite if the
+boundary opens — the same shape that has held `CodeEditor`, `Exercise`,
 `MemoryDiagram` and `PredictOutput` behind the same line since #85 and #122.
 
 **A new class the suite cannot fully verify.** Mermaid renders SVG in the

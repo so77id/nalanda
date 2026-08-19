@@ -58,7 +58,8 @@ export const mdxComponents = {
   MemoryDiagram: LazyMemoryDiagram,
   PredictOutput: LazyPredictOutput,
   // Same lazy rule, for the same entry-chunk reason (ADR-0040): the mermaid
-  // library weighs ~600kB gzipped and must only load on pages that mount a
+  // library adds ~200kB gzipped of mermaid-only chunks (measured, ADR-0040
+  // §Consequences) and must only load on pages that mount a
   // diagram.
   Mermaid: LazyMermaid,
   // Not lazy: a question renders text and buttons. The editor it may embed is

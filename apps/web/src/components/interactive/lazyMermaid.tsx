@@ -4,7 +4,8 @@ import type { MermaidProps } from './Mermaid';
 
 // Same reason as lazyCodeEditor / lazyMemoryDiagram / lazyPredictOutput:
 // the MDX component map is built eagerly in the shell, and `mermaid` is a
-// heavy library (~600kB gzipped, ADR-0040 §Consequences) that reaches
+// heavy library (~200kB gzipped of mermaid-only chunks, measured — ADR-0040
+// §Consequences) that reaches
 // dagre/d3/parsers. Registering the real component would put all of that in
 // the entry chunk of every reader of every page, whether or not the page has
 // a diagram at all. Guarded in src/architecture.test.ts by a per-name case

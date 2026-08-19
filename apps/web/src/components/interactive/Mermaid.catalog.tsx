@@ -2,7 +2,8 @@ import type { CatalogEntry } from '../../lib/catalogEntry';
 
 // The wrapper, not the component. Same rule as lazyCodeEditor / lazyPredictOutput:
 // this guards the catalog's own chunk — a static import here would pull the
-// mermaid library (~600kB gzipped, ADR-0040 §Consequences) into the chunk
+// mermaid library (~200kB gzipped of mermaid-only chunks, measured — ADR-0040
+// §Consequences) into the chunk
 // /catalog fetches, for a page whose examples the reader may never scroll to.
 // It is also what a document writes, which is what an example must render.
 // Aliased for exactly that.
@@ -36,7 +37,7 @@ export const mermaidCatalogEntry: CatalogEntry = {
   whenToUse:
     'When the idea is a shape rather than a sentence: inheritance and interface hierarchies side by side, a state chart, an entity-relationship picture. Prose renders a diagram as a list; a diagram renders it as one picture with the parallel visible. ' +
     'NOT for a single execution trace — that is <MemoryDiagram> (ADR-0028) — and NOT for recursion call trees, which <RecursionTree> draws natively. ' +
-    "Keep the source small: the library parses and lays out on every mount, and the first mount also downloads the chunk (~600kB gzipped, ADR-0040 §Consequences). One diagram per section is the working budget today; a page that mounts many should trigger the ADR's revisit note.",
+    "Keep the source small: the library parses and lays out on every mount, and the first mount also downloads the mermaid chunks (~200kB gzipped measured, ADR-0040 §Consequences). One diagram per section is the working budget today; a page that mounts many should trigger the ADR's revisit note.",
   props: [
     {
       name: 'source',
