@@ -285,6 +285,19 @@ check_eq "and no question scores a point" "True" \
 check_eq "an inverted band is refused, not silently reordered" "400" \
   "$(post_status /analyse '{"project":"project-t","scan_pdf":"scan-t/lote.pdf","source":"src/control-demo.tex","ticked":0.05,"unsure":0.2}')"
 
+# Issue #197, reanalyse half: re-reading at a new threshold re-runs note at
+# it too, so the scores follow the marks and the report can no longer go
+# stale through this route.
+reread_t="$(post /reanalyse '{"project":"project-t","ticked":0.15,"unsure":0.05}' || true)"
+check_eq "reanalyse re-runs note at the new seuil" "0.15" \
+  "$(echo "$reread_t" | field 'd["scoring"]["seuil"]')"
+check_eq "and the report is no longer stale" "False" \
+  "$(echo "$reread_t" | field 'd["scoring"]["stale"]')"
+check_eq "the marks come back at the new threshold" "False" \
+  "$(echo "$reread_t" | field 'all(a["marked"] == [] for a in d["copies"]["1"]["answers"])')"
+check_eq "and the scores follow them" "False" \
+  "$(echo "$reread_t" | field 'all(a["score"] == 0 for a in d["copies"]["1"]["answers"])')"
+
 # --- /annotate/copy — the corrected copy, issue #190 ---------------------------
 #
 # The worker half of the annotate loop: the server sends the professor's
@@ -335,6 +348,16 @@ check_eq "a no-overrides annotate restores the original reading" "Nota: 1/4" \
 # Go marshals an empty marked slice as null; the worker must read null as
 # a blank override, not as a malformed field (measured: the null body used
 # to answer 400 while the save itself had succeeded).
+# Issue #197, annotate half: the same capture annotated at two thresholds
+# produces two verdicts — the drawn score is what proves ticked reached
+# note, not a log line.
+ac_high="$(post /annotate/copy '{"project":"project","copy":1,"ticked":0.9}' || true)"
+check_eq "annotating at ticked 0.9 blanks every score" "Nota: 0/4" \
+  "$(annotated_text)"
+ac_restore="$(post /annotate/copy '{"project":"project","copy":1}' || true)"
+check_eq "and without ticked the default restores the original verdict" "Nota: 1/4" \
+  "$(annotated_text)"
+
 null_blank="$(python3 -c "
 import json
 rep = json.load(open('${work}/report.json'))

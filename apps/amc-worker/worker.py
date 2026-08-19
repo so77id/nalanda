@@ -355,6 +355,7 @@ def reanalyse(body):
     """
     _project, data = project_paths(body)
     ticked, unsure = parse_thresholds(body)
+    amc("note", "--data", data, "--seuil", str(ticked))
     return read_capture.read(data, ticked, unsure)
 
 
@@ -442,6 +443,10 @@ def annotate_copy(body):
 
     Idempotent: re-annotating a copy overwrites its file, so the review
     page always sees the latest correction.
+
+    Optional `ticked` (issue #197): `note` runs at it, so the drawn marks
+    and the verdict agree with the reader's verdict — the server sends the
+    control's stored threshold.
     """
     project, data = project_paths(body)
     copy = body["copy"]
@@ -454,6 +459,9 @@ def annotate_copy(body):
     if copy < 1:
         raise Failed("copy must be at least 1")
     overrides = body.get("overrides") or {}
+    ticked = float(body.get("ticked", TICKED))
+    if not 0 < ticked < 1:
+        raise Failed(f"ticked must be in (0, 1), got {ticked}")
 
     if not os.path.isfile(os.path.join(data, "capture.sqlite")):
         raise Failed("no capture in this project", "run /analyse first")
@@ -485,7 +493,7 @@ def annotate_copy(body):
     # annotate: `note` reads capture_zone.manual, which is the override
     # channel (re-patched or reset) applied above. Unconditional on purpose
     # — after a reset the raw scores must come back too.
-    amc("note", "--data", data, "--seuil", str(TICKED))
+    amc("note", "--data", data, "--seuil", str(ticked))
 
     sujet = os.path.join(project, "out", "sujet.pdf")
     if not os.path.isfile(sujet):

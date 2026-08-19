@@ -68,11 +68,14 @@ POST /analyse       { project, scan_pdf, source,      → { pages, scoring, copi
                     note run at the same ticked — marks, scores and any
                     downstream annotated PDF agree on one threshold.
 POST /reanalyse     { project, [ticked], [unsure] }    → { pages, scoring, copies, needs_review }
+                    re-runs note at the new ticked, so the scores follow
+                    the marks (issue #197).
 POST /associate     { project, roster, code, key }    → { associations, refused_codes }
 POST /associate/set { project, copy, id }             → { copy, id, source }
 POST /annotate      { project, roster, key, out,      → { pdfs, unidentified }
                       [name_column], [verdict] }
-POST /annotate/copy { project, copy, [overrides] }   → { path, copy }
+POST /annotate/copy { project, copy, [overrides],     → { path, copy }
+                      [ticked] }
                     one annotated PDF for ONE copy (copy-N.pdf under
                     <project>/annotated/, overwritten on re-run).
                     overrides = { rut?, answers: [{question, marked}] }
