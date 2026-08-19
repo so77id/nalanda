@@ -9,7 +9,12 @@
   <div class="review-split">
     <section class="review-image">
       <h2>Escaneo</h2>
-      <p><img src="{{ .ImageURL }}" alt="Escaneo de la copia {{ .CopyNumber }}"></p>
+      {{ if .HasAnnotated }}
+        <p><iframe src="{{ .AnnotatedURL }}" title="Copia {{ .CopyNumber }} corregida"></iframe></p>
+        <p><a href="{{ .AnnotatedURL }}">Abrir el PDF corregido en otra pestaña</a></p>
+      {{ else }}
+        <p><img src="{{ .ImageURL }}" alt="Escaneo de la copia {{ .CopyNumber }}"></p>
+      {{ end }}
     </section>
 
     <section class="review-form">

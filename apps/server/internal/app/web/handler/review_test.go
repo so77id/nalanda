@@ -1,6 +1,7 @@
 package handler_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -47,10 +48,105 @@ func TestReviewPageRendersEditableFormForACopy(t *testing.T) {
 		`type="radio"`,    // simple question
 		`type="checkbox"`, // multiple question
 		"Marcar en blanco",
+		// Issue #190: the copy was clean, so the upload annotated it and the
+		// page shows the corrected PDF, not the raw scan.
+		`<iframe`,
+		"annotated.pdf",
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("review page missing %q\n--- body ---\n%s", want, body)
 		}
+	}
+}
+
+// TestReviewPageFallsBackToRawScanWithoutAnnotated pins the fallback of
+// issue #190: a copy that was never annotated (needs_review, waiting for
+// the professor) shows the raw scan image, not the iframe.
+func TestReviewPageFallsBackToRawScanWithoutAnnotated(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control fallback", 1)
+
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{
+			"1": {RUT: "2011111_", RUTStatus: controls.RUTStatusUnreadable, Status: controls.CopyStatusNeedsReview,
+				ExpectedQuestions: 2, SeenQuestions: 2,
+				Answers: []controls.ReportAnswer{
+					{Question: 1, Name: "q3", Type: controls.QuestionSimple, Marked: []int{1},
+						Status: controls.AnswerStatusOK, Score: 1, Max: 1},
+					{Question: 2, Name: "q4", Type: controls.QuestionMultiple, Marked: []int{1},
+						Status: controls.AnswerStatusOK, Score: 4, Max: 4},
+				}},
+		}},
+	}
+	uploadOnce(t, f, controlID)
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/copies/1/review", nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", "1")
+	rec := httptest.NewRecorder()
+	f.handler.Review(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d\nbody: %s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, "<iframe") {
+		t.Errorf("review page shows an iframe for a copy with no annotated PDF\n%s", body)
+	}
+	if !strings.Contains(body, `<img src="/controls/`+controlID+`/copies/1/page/1"`) {
+		t.Errorf("review page missing the raw scan image\n%s", body)
+	}
+}
+
+// TestAnnotatedPDFServesTheRecordedFile: the row is the authority — the
+// endpoint serves the bytes at the recorded path and 404s when no row
+// exists.
+func TestAnnotatedPDFServesTheRecordedFile(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control pdf", 1)
+
+	rel := "controls/" + controlID + "/annotated/copy-1.pdf"
+	if err := os.MkdirAll(filepath.Join(f.workDir, "controls", controlID, "annotated"), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(f.workDir, rel), []byte("%PDF-corrected"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	if err := f.cstore.RecordAnnotated(context.Background(), controls.AnnotatedCopy{
+		ControlID: controlID, CopyNumber: 1, Path: rel,
+	}); err != nil {
+		t.Fatalf("RecordAnnotated: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/copies/1/annotated.pdf", nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", "1")
+	rec := httptest.NewRecorder()
+	f.handler.AnnotatedPDF(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d\nbody: %s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Body.String(); got != "%PDF-corrected" {
+		t.Errorf("body = %q, want the recorded file's bytes", got)
+	}
+	if got := rec.Header().Get("Content-Type"); got != "application/pdf" {
+		t.Errorf("Content-Type = %q, want application/pdf", got)
+	}
+}
+
+func TestAnnotatedPDFIs404WithoutARecord(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control pdf none", 1)
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/copies/1/annotated.pdf", nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", "1")
+	rec := httptest.NewRecorder()
+	f.handler.AnnotatedPDF(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rec.Code)
 	}
 }
 
@@ -218,5 +314,93 @@ func fakePNG() []byte {
 		0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00,
 		0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
 		0x42, 0x60, 0x82,
+	}
+}
+
+// TestAnnotatedPDFRefusesARecordPointingOutsideTheWorkDir pins the
+// containment guard: the row is written from the worker's response, and
+// defense-in-depth means a record naming a path outside the shared volume
+// is refused rather than served.
+func TestAnnotatedPDFRefusesARecordPointingOutsideTheWorkDir(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control escape", 1)
+
+	// A second temp dir, OUTSIDE the fixture's work dir: the file exists
+	// on purpose, so the guard must refuse BEFORE the open — not because
+	// the file happens to be missing. The relative path between the two is
+	// exactly the shape a hostile record would carry.
+	outside := t.TempDir()
+	secret := filepath.Join(outside, "secrets.pdf")
+	if err := os.WriteFile(secret, []byte("secret"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	rel, err := filepath.Rel(f.workDir, secret)
+	if err != nil {
+		t.Fatalf("Rel: %v", err)
+	}
+	if err := f.cstore.RecordAnnotated(context.Background(), controls.AnnotatedCopy{
+		ControlID: controlID, CopyNumber: 1, Path: filepath.ToSlash(rel),
+	}); err != nil {
+		t.Fatalf("RecordAnnotated: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/copies/1/annotated.pdf", nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", "1")
+	rec := httptest.NewRecorder()
+	f.handler.AnnotatedPDF(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 for a record outside the work dir", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "secret") {
+		t.Errorf("body leaked the outside file")
+	}
+}
+
+// The flag gates the READ too, not only the write: rows produced while
+// the flow was on must not keep rendering the iframe after the operator
+// flips it off — the escape hatch exists precisely for the scenario where
+// the surviving rows are the stale or broken ones (issue #190 review, F5).
+func TestAnnotateDisabledHidesRowsProducedWhileItWasOn(t *testing.T) {
+	f := newControlsFixtureWith(t, false)
+	controlID := f.createControl(t, "Control off stale", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	if err := f.cstore.RecordAnnotated(context.Background(), controls.AnnotatedCopy{
+		ControlID: controlID, CopyNumber: 1,
+		Path: "controls/" + controlID + "/annotated/copy-1.pdf",
+	}); err != nil {
+		t.Fatalf("RecordAnnotated: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/copies/1/review", nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", "1")
+	rec := httptest.NewRecorder()
+	f.handler.Review(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, "<iframe") {
+		t.Errorf("review page shows the iframe with the flow disabled, stale row or not\n%s", body)
+	}
+	if !strings.Contains(body, `<img src="/controls/`+controlID+`/copies/1/page/1"`) {
+		t.Errorf("review page must serve the raw scan with the flow disabled\n%s", body)
+	}
+
+	// The endpoint follows the same gate: a hidden row is a 404, not a
+	// PDF the escape hatch was supposed to hide.
+	req = f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/copies/1/annotated.pdf", nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", "1")
+	rec = httptest.NewRecorder()
+	f.handler.AnnotatedPDF(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("annotated.pdf status = %d with the flow disabled, want 404", rec.Code)
 	}
 }

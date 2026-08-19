@@ -290,7 +290,9 @@ type DetailedControl struct {
 }
 
 // ReviewPage is what review.html renders (WP-F §The screens). Split view:
-// scanned image on the left, editable form on the right.
+// scanned image on the left, editable form on the right. Since issue #190
+// the left side shows the corrected PDF when one exists (HasAnnotated) and
+// the raw scan otherwise.
 type ReviewPage struct {
 	Page
 	ControlID  string
@@ -300,8 +302,12 @@ type ReviewPage struct {
 	ImageURL   string
 	SaveURL    string
 	Graded     bool // when true the template shows the "editing a closed correction" warning
-	RUT        ReviewRUT
-	Questions  []ReviewQuestion
+	// HasAnnotated / AnnotatedURL carry the corrected PDF (issue #190).
+	// AnnotatedURL is empty when HasAnnotated is false.
+	HasAnnotated bool
+	AnnotatedURL string
+	RUT          ReviewRUT
+	Questions    []ReviewQuestion
 }
 
 // ReviewRUT is the top row of the form — the RUT block.

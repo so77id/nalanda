@@ -83,6 +83,11 @@ services:
       # The largest scan PDF the upload handler will accept, in whole MB.
       # Optional — defaults to 100 in the loader.
       NALANDA_MAX_SCAN_MB: "${NALANDA_MAX_SCAN_MB:-100}"
+      # --- issue #190: the annotate loop ---
+      # Master switch for the corrected-PDF flow. Optional — defaults to
+      # true; "false" serves raw scans everywhere (reversibility escape
+      # hatch, see the issue §Design).
+      NALANDA_ANNOTATE_ENABLED: "${NALANDA_ANNOTATE_ENABLED:-true}"
     volumes:
       - server-data:/data
       # Shared with the amc-worker service below. The server writes a

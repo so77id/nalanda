@@ -1,11 +1,13 @@
 package handler_test
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 )
@@ -67,6 +69,35 @@ func TestSaveReviewOverridesLandAndFlashConfirms(t *testing.T) {
 	}
 	if q3.Override.Status != controls.AnswerStatusOK || len(q3.Override.Marked) != 1 || q3.Override.Marked[0] != 1 {
 		t.Errorf("q3 override wrong = %+v", q3.Override)
+	}
+
+	// Issue #190, ruta B: the save triggered the annotate with exactly the
+	// override it just wrote, and the record reflects the moment of the
+	// save.
+	if count := f.fake.AnnotateCallCount(); count != 1 {
+		t.Fatalf("AnnotateCallCount = %d, want 1", count)
+	}
+	call, _ := f.fake.LastAnnotateCall()
+	if call.Copy != 1 {
+		t.Errorf("annotate copy = %d, want 1", call.Copy)
+	}
+	if call.Overrides.RUT != nil {
+		t.Errorf("RUT override = %v, want none (the form left the RUT unchanged)", *call.Overrides.RUT)
+	}
+	if len(call.Overrides.Answers) != 1 || call.Overrides.Answers[0].Question != "q3" ||
+		len(call.Overrides.Answers[0].Marked) != 1 || call.Overrides.Answers[0].Marked[0] != 1 {
+		t.Errorf("answer overrides = %+v, want exactly q3 marked [1]", call.Overrides.Answers)
+	}
+
+	record, exists, err := f.cstore.AnnotatedByCopy(context.Background(), controlID, 1)
+	if err != nil || !exists {
+		t.Fatalf("annotated_copy row: exists=%v err=%v", exists, err)
+	}
+	if d := time.Since(record.GeneratedAt); d > 5*time.Second || d < -5*time.Second {
+		t.Errorf("GeneratedAt = %v, now = %v — want the moment of the save", record.GeneratedAt, time.Now())
+	}
+	if record.Path == "" {
+		t.Error("annotated_copy path is empty")
 	}
 }
 

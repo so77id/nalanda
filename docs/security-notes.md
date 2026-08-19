@@ -494,6 +494,13 @@ for what. Two narrower residuals found in the #138 review and accepted with it:
 - **`detail` in an error response carries up to 4 kB of raw AMC output**, and
   AMC's association output names student identifiers verbatim. `apps/server`
   must surface it to a human in the review queue and must not log it.
+- **`/annotate/copy` writes into AMC's private sqlite layout** (`capture_zone`
+  keyed by request data, #190 / ADR-0040). The payload is shape-validated
+  before any write (integer copy, existing question names, 8-digit RUT) and
+  the target files are the same project files a hostile caller could already
+  delete outright — so this adds no new capability, only a narrower way to
+  corrupt a project. **Review trigger**: an AMC upstream update changes the
+  schema; see ADR-0040 for the rollback.
 
 **Review trigger**: the worker is published on any interface other than
 loopback; a second component gains access to the compose network; the volume

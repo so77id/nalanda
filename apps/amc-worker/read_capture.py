@@ -72,6 +72,13 @@ marker, locates every box from the layout, and counts how many of each box's
 pixels are black (`capture_zone.black` over `.total`). Those are its numbers and
 we do not second-guess them.
 
+AMC's OWN manual override is honoured, not second-guessed either:
+`capture_zone.manual` (AMC's GUI writes it when a human clicks a box, and the
+worker's /annotate/copy writes it for the server's review-page corrections,
+issue #190) says a box is ticked (1) or blank (0) whatever the pixels say. The
+report must agree with what annotate and note will draw from the same column,
+or the grade shown beside the marks would silently disagree with the PDF.
+
 The THRESHOLD is ours. AMC stores darkness, not a verdict, so "is this box
 ticked" is a decision this layer makes and can tune per batch. A synthetic fill
 lands near 0.63 and an empty box at 0.0, so any threshold in between works here
@@ -295,8 +302,9 @@ def read(data_dir, ticked, unsure):
             expected.setdefault(student, set()).add(q)
 
     copies = {}
-    for student, q, a, black, total in cap.execute(
-        "SELECT student, id_a, id_b, black, total FROM capture_zone WHERE type = ?",
+    for student, q, a, black, total, manual in cap.execute(
+        "SELECT student, id_a, id_b, black, total, manual "
+        "FROM capture_zone WHERE type = ?",
         (BOX_ZONE,),
     ):
         ratio = (black / total) if total > 0 else 0.0
@@ -306,14 +314,20 @@ def read(data_dir, ticked, unsure):
             # rut[8] is the most significant digit and prints leftmost.
             col = 8 - int(name[4:-1])
             c["rut"].setdefault(col, [])
-            if ratio >= ticked:
+            if manual == 1 or (manual < 0 and ratio >= ticked):
                 c["rut"][col].append((chars[(student, q, a)], ratio))
         else:
             c["q"].setdefault(q, [])
             c["doubt"].setdefault(q, [])
-            if ratio >= ticked:
+            # `manual` is AMC's own override channel (capture.pm: a zone is
+            # ticked when manual=1, or manual<0 and the darkness is in band;
+            # manual=0 is "this box is blank" whatever the pixels say). The
+            # worker writes it for the professor's review-page corrections
+            # (/annotate/copy, issue #190), and the report must agree with
+            # what annotate and note will draw — not with the raw pixels.
+            if manual == 1 or (manual < 0 and ratio >= ticked):
                 c["q"][q].append((a, ratio))
-            elif ratio >= unsure:
+            elif manual < 0 and ratio >= unsure:
                 # Dark enough to worry about, NOT dark enough to count — and the
                 # difference has to survive into the output. An earlier version
                 # appended to the same list in both branches, so a box at 0.15

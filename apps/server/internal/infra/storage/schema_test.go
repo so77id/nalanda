@@ -277,6 +277,66 @@ func TestControlDuplexPaddingDefaultsToPaddedWhenTheColumnIsOmitted(t *testing.T
 	}
 }
 
+// Issue #190: the annotated_copy table records where the PDF anotado for one
+// copia lives on the shared volume, when it was generated, and which copia it
+// belongs to. Nothing about the contents in the DB — path is the whole point.
+func TestAnnotatedCopyRoundTripsThePathAndTimestamp(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO control (
+            id, name, application_date,
+            from_document, from_section, to_document, to_section,
+            questions_per_copy, copies, state, created_at, created_by
+        ) VALUES (?, 'x', NULL, 'flujo', 'if-else', 'flujo', 'bucles', 4, 3, 'generated', 0, ?)`,
+		"CTRLANNOT00000000000000000", userID,
+	); err != nil {
+		t.Fatalf("insert control: %v", err)
+	}
+
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO annotated_copy (control_id, copy_number, generated_at, path)
+        VALUES (?, ?, ?, ?)`,
+		"CTRLANNOT00000000000000000", 2, int64(1_787_100_000),
+		"controls/CTRLANNOT00000000000000000/annotated/copy-2.pdf",
+	); err != nil {
+		t.Fatalf("insert annotated_copy: %v", err)
+	}
+
+	var (
+		controlID  string
+		copyNumber int
+		generated  int64
+		path       string
+	)
+	if err := db.QueryRowContext(ctx,
+		`SELECT control_id, copy_number, generated_at, path FROM annotated_copy
+         WHERE control_id = ? AND copy_number = ?`,
+		"CTRLANNOT00000000000000000", 2,
+	).Scan(&controlID, &copyNumber, &generated, &path); err != nil {
+		t.Fatalf("read back annotated_copy: %v", err)
+	}
+	if controlID != "CTRLANNOT00000000000000000" || copyNumber != 2 ||
+		generated != 1_787_100_000 ||
+		path != "controls/CTRLANNOT00000000000000000/annotated/copy-2.pdf" {
+		t.Errorf("round-trip mismatch: control_id=%q copy_number=%d generated_at=%d path=%q",
+			controlID, copyNumber, generated, path)
+	}
+
+	// The compound PK refuses a duplicate — one annotation per (control, copy).
+	// A re-annotation of the same copia replaces via UPSERT elsewhere; a
+	// naïve second INSERT is a bug worth reddening.
+	_, err := db.ExecContext(ctx, `
+        INSERT INTO annotated_copy (control_id, copy_number, generated_at, path)
+        VALUES (?, ?, ?, ?)`,
+		"CTRLANNOT00000000000000000", 2, int64(1_787_100_001), "otra.pdf",
+	)
+	if err == nil {
+		t.Error("annotated_copy accepted a second INSERT for the same (control, copy), want a UNIQUE / PK conflict")
+	}
+}
+
 // The one migration case that is about an operator rather than about the schema.
 //
 // #149 shipped migrations/00001_init.sql, a deliberate `SELECT 1;`, and anyone

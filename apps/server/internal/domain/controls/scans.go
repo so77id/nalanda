@@ -114,6 +114,32 @@ func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResu
 		return UploadResult{}, fmt.Errorf("controls.UploadScan: mark missing: %w", err)
 	}
 
+	// Issue #190, ruta A: every copy the reader accepted as clean gets its
+	// annotated PDF right away, before any human touches the queue. One
+	// /annotate/copy call per copy is seconds-class, and the batch as a
+	// whole was minutes-class anyway.
+	//
+	// A failure here must not fail the upload: the reading is already
+	// persisted and the professor can retry the same copy from the review
+	// page (ruta B) — or switch the whole loop off by config.
+	for key, copy := range report.Copies {
+		if copy.Status != CopyStatusOK {
+			continue
+		}
+		copyNumber, err := strconv.Atoi(key)
+		if err != nil {
+			// The worker keys copies by decimal string; a key that does not
+			// parse is a worker-side contract break, not something a retry
+			// would fix.
+			s.Log.Warn("controls.UploadScan: unparseable copy key", "control", control.ID, "key", key)
+			continue
+		}
+		if _, err := s.Annotate(ctx, control.ID, copyNumber); err != nil {
+			s.Log.Warn("controls.UploadScan: annotate failed",
+				"control", control.ID, "copy", copyNumber, "error", err)
+		}
+	}
+
 	// Move the control forward — but never backwards. A re-upload to a
 	// graded control leaves state=graded (S8 renders the "editing a closed
 	// correction" warning); the readings still land.
@@ -148,6 +174,14 @@ func (s *Service) Reanalyze(ctx context.Context, controlID string, ticked, unsur
 	if err := s.Readings.UpsertReadingsFromReport(ctx, control.ID, report, s.Now()); err != nil {
 		return Report{}, fmt.Errorf("controls.Reanalyze: persist: %w", err)
 	}
+	// The stored annotated PDFs were drawn at the PREVIOUS thresholds, so
+	// they no longer agree with the report just persisted — same class as
+	// the report-vs-grade disagreement ADR-0031 exists to forbid. Drop the
+	// rows: the review page falls back to the raw scan, and the next save
+	// (or upload) re-annotates at the new reading.
+	if err := s.Store.ClearAnnotated(ctx, control.ID); err != nil {
+		return Report{}, fmt.Errorf("controls.Reanalyze: clear annotated: %w", err)
+	}
 	return report, nil
 }
 
@@ -161,6 +195,21 @@ func (s *Service) ReadingsFor(ctx context.Context, controlID string) ([]Reading,
 // ReadingFor returns one reading (with overrides).
 func (s *Service) ReadingFor(ctx context.Context, controlID string, copyNumber int) (Reading, error) {
 	return s.Readings.ReadingByCopy(ctx, controlID, copyNumber)
+}
+
+// AnnotatedFor returns the anotado PDF record for one copia, or
+// exists=false when the copia has not been annotated yet — the review
+// page's cue to fall back to the raw scan (issue #190).
+//
+// The flag gates the READ too, not only the write: rows produced while
+// the flow was on are hidden when the operator flips it off, because the
+// escape hatch exists precisely for the scenario where the surviving
+// rows are the stale or broken ones.
+func (s *Service) AnnotatedFor(ctx context.Context, controlID string, copyNumber int) (AnnotatedCopy, bool, error) {
+	if !s.AnnotateEnabled {
+		return AnnotatedCopy{}, false, nil
+	}
+	return s.Store.AnnotatedByCopy(ctx, controlID, copyNumber)
 }
 
 // SaveOverrides applies a professor's edits to a single reading. The

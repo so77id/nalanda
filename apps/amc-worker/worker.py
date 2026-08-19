@@ -363,6 +363,245 @@ def annotate(body):
     }
 
 
+def annotate_copy(body):
+    """One annotated PDF for ONE copy, honouring the review-page overrides.
+
+    The server sends the corrections the professor just saved; this route
+    writes them into AMC's capture (its own manual mechanism), recomputes
+    the scores, and annotates only that copy. `--id-file` plus
+    `--single-output` is AMC's single-copy mode; the file is named
+    `copy-<N>.pdf` so it is addressed by copy number, not by a roster name
+    (#190 keeps rosters out of scope).
+
+    Idempotent: re-annotating a copy overwrites its file, so the review
+    page always sees the latest correction.
+    """
+    project, data = project_paths(body)
+    copy = body["copy"]
+    # A malformed field is the caller's mistake and can never succeed on
+    # retry — but int() would silently accept "1.9" and JSON's true as copy
+    # 1, and annotating the wrong copy is exactly the mistake this route
+    # must not make quietly.
+    if not isinstance(copy, int) or isinstance(copy, bool):
+        raise Failed("copy must be an integer")
+    if copy < 1:
+        raise Failed("copy must be at least 1")
+    overrides = body.get("overrides") or {}
+
+    if not os.path.isfile(os.path.join(data, "capture.sqlite")):
+        raise Failed("no capture in this project", "run /analyse first")
+    if not os.path.isfile(os.path.join(data, "scoring.sqlite")):
+        raise Failed("no scoring database in this project", "run /analyse first")
+
+    cap = sqlite3.connect(os.path.join(data, "capture.sqlite"))
+    try:
+        copies = [r[0] for r in cap.execute(
+            "SELECT DISTINCT copy FROM capture_zone WHERE student=?", (copy,)
+        )]
+        if not copies:
+            raise Failed(f"copy {copy} has no captured boxes")
+        if len(copies) > 1:
+            # Two scans of the same sheet is the one case the reading report
+            # flags as unreadable rather than resolving; annotating it would
+            # draw one scan's marks over the other's verdict.
+            raise Failed(f"copy {copy} was scanned more than once",
+                         "annotating a duplicate-scan copy needs a human decision")
+    finally:
+        cap.close()
+
+    # Even with NO overrides this is a call: it means "converge to the raw
+    # reading". The professor may have REVERTED a correction, which clears
+    # the override row server-side and sends nothing — the previous manual
+    # patches must not survive that (apply_overrides resets them first).
+    apply_overrides(data, copy, overrides)
+    # Scores are computed FROM the capture, so they are recomputed on every
+    # annotate: `note` reads capture_zone.manual, which is the override
+    # channel (re-patched or reset) applied above. Unconditional on purpose
+    # — after a reset the raw scores must come back too.
+    amc("note", "--data", data, "--seuil", str(TICKED))
+
+    sujet = os.path.join(project, "out", "sujet.pdf")
+    if not os.path.isfile(sujet):
+        raise Failed("no sujet.pdf in this project", "run /generate first")
+
+    out = os.path.join(project, "annotated")
+    os.makedirs(out, exist_ok=True)
+    target = os.path.join(out, f"copy-{copy}.pdf")
+    if os.path.exists(target):
+        # TRAP 2 in reverse: annotate writes but never cleans, so an
+        # existing file is removed rather than left beside the new one.
+        os.remove(target)
+
+    # student:copy — the copy index is part of AMC's keying everywhere
+    # (scoring_mark, association), and the verdict does not substitute
+    # without it (measured against AMC 1.6.0).
+    id_file = os.path.join(project, f"annotate-copy-{copy}.txt")
+    with open(id_file, "w", encoding="utf-8") as f:
+        f.write(f"{copy}:{copies[0]}\n")
+
+    amc("annotate", "--data", data, "--project", project,
+        "--cr", os.path.join(project, "cr"),
+        "--subject", sujet,
+        "--pdf-dir", out, "--id-file", id_file,
+        "--single-output", f"copy-{copy}.pdf",
+        "--verdict", "Nota: %S/%M")
+
+    # The id-file is scratch, not project state — leaving one per annotate
+    # call would litter the project directory with files nothing reads.
+    try:
+        os.remove(id_file)
+    except OSError:
+        pass
+
+    if not os.path.isfile(target):
+        raise Failed(f"annotate produced no copy-{copy}.pdf",
+                     "AMC reported success but the file is missing")
+    return {"path": os.path.relpath(target, WORK), "copy": copy}
+
+
+def apply_overrides(data, copy, overrides):
+    """Write the professor's corrections into AMC's capture.
+
+    AMC keeps one row per box in `capture_zone`, with `manual` at -1 while
+    the scan's verdict stands; 1 means "this box is ticked" and 0 "this box
+    is blank". That column is AMC's own manual-correction mechanism — the
+    same one its GUI writes when a human clicks a box — and every
+    downstream consumer (note, annotate, the reading report) honours it
+    over the black/total measurement. The worker drives it for the server
+    instead of a mouse.
+
+    The call is not a delta over the capture: it RESETS the copy's manual
+    columns to -1 first and then applies what the request carries, so a
+    reverted correction disappears with the request that carried it. The
+    request is therefore "the whole desired state", never "the change
+    since last time".
+
+    Two shapes, matching the two corrections the review page offers:
+
+    - `answers: [{question, marked}]` — `question` is the layout question
+      NAME (the reading report's `answers[].name`, the bank ref the server
+      stores as question_ref), resolved to the numeric id through
+      layout_question. `marked` are the answer numbers the professor
+      confirmed. Every box of that question becomes manual, ticked exactly
+      where `marked` says so. `marked: []` (or null) is a blank override,
+      not "leave alone".
+    - `rut: "20123456"` — the corrected identifier: one manual tick per
+      column of the RUT grid, plus a forced association so every
+      downstream consumer sees the same identity.
+
+    The layout of these sqlite files is AMC's private schema (#190 accepted
+    the trade-off); everything here was measured against AMC 1.6.0.
+    """
+    lay = sqlite3.connect(os.path.join(data, "layout.sqlite"))
+    try:
+        names = {r[0]: r[1] for r in lay.execute(
+            "SELECT question, name FROM layout_question")}
+        # layout_box is per student: each copy gets its own shuffled layout,
+        # so the digit chars are read for THIS copy (same convention as
+        # read_capture.py).
+        chars = {
+            (r[0], r[1]): r[2]
+            for r in lay.execute(
+                "SELECT question, answer, char FROM layout_box WHERE student=?",
+                (copy,),
+            )
+        }
+    finally:
+        lay.close()
+
+    cap = sqlite3.connect(os.path.join(data, "capture.sqlite"))
+    try:
+        # Converge to the CURRENT desired state, not a delta: every annotate
+        # resets the copy's manual columns first. Without this, a correction
+        # the professor later REVERTED (the server clears the override row
+        # and sends nothing) would keep its old patches in the capture, and
+        # the annotated PDF would silently show the correction they undid —
+        # measured against 1.6.0 with the blank-all override in 06-http.sh.
+        cap.execute(
+            "UPDATE capture_zone SET manual = -1 WHERE student = ?", (copy,))
+        for entry in overrides.get("answers", []):
+            _override_answer(cap, copy, entry, names)
+        if overrides.get("rut"):
+            _override_rut(cap, copy, overrides["rut"], names, chars)
+        cap.commit()
+    finally:
+        cap.close()
+    if overrides.get("rut"):
+        _force_association(data, copy, overrides["rut"])
+
+
+def _override_answer(cap, copy, entry, names):
+    name = str(entry["question"])
+    question = next((q for q, n in names.items() if n == name), None)
+    if question is None:
+        raise Failed(
+            f"no question named {name!r} in the layout",
+            "the override names a question this control never printed",
+        )
+    # `or []` on purpose: a blank override may arrive as `"marked": null`
+    # (Go marshals an empty slice as null), and null is present-but-not-
+    # the-default — `get("marked", [])` alone would hand None to the set
+    # comprehension below (measured, 06-http.sh).
+    marked = {int(a) for a in (entry.get("marked") or [])}
+    zones = cap.execute(
+        "SELECT id_b FROM capture_zone WHERE student=? AND type=? AND id_a=?",
+        (copy, read_capture.BOX_ZONE, question),
+    ).fetchall()
+    if not zones:
+        raise Failed(
+            f"question {name!r} has no captured boxes for copy {copy}",
+            "the override names a question this copy never captured",
+        )
+    for (id_b,) in zones:
+        cap.execute(
+            "UPDATE capture_zone SET manual=? "
+            "WHERE student=? AND type=? AND id_a=? AND id_b=?",
+            (1 if id_b in marked else 0, copy, read_capture.BOX_ZONE, question, id_b),
+        )
+
+
+def _override_rut(cap, copy, rut, names, chars):
+    rut = str(rut)
+    if len(rut) != 8 or not rut.isdigit():
+        raise Failed("rut must be exactly 8 digits")
+
+    touched = 0
+    for col, digit in enumerate(rut):
+        # rut[8] is the most significant digit and prints leftmost — the
+        # same convention the reading report reads the grid with.
+        question = next(
+            (q for q, n in names.items() if n == f"rut[{8 - col}]"), None)
+        if question is None:
+            raise Failed(f"the layout has no rut[{8 - col}] question")
+        for (q, a), ch in chars.items():
+            if q != question:
+                continue
+            touched += cap.execute(
+                "UPDATE capture_zone SET manual=? "
+                "WHERE student=? AND type=? AND id_a=? AND id_b=?",
+                (1 if ch == digit else 0, copy, read_capture.BOX_ZONE, question, a),
+            ).rowcount
+    if not touched:
+        raise Failed(f"copy {copy} has no captured RUT boxes",
+                     "the RUT grid was never captured for this copy")
+
+
+def _force_association(data, copy, rut):
+    """Make the corrected RUT the association's answer for this copy.
+
+    Same call as /associate/set — TRAP 1 applies here too: --copy is not
+    optional — and the read-back is what proves it took effect. The literal
+    1 is the scan-copy index the capture carries: /annotate/copy refuses a
+    copy scanned more than once, so there is exactly one index, and it is
+    the one the id-file uses (copies[0], same guard).
+    """
+    amc("association", "--data", data, "--set",
+        "--student", copy, "--copy", 1, "--id", rut)
+    found = [a for a in _associations(data) if a["copy"] == copy]
+    if not found or found[0]["id"] != rut:
+        raise Failed(f"association for copy {copy} did not take effect")
+
+
 def _associations(data):
     db = os.path.join(data, "association.sqlite")
     if not os.path.exists(db):
@@ -390,6 +629,7 @@ ROUTES = {
     ("POST", "/associate"): associate,
     ("POST", "/associate/set"): associate_set,
     ("POST", "/annotate"): annotate,
+    ("POST", "/annotate/copy"): annotate_copy,
 }
 
 

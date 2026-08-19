@@ -78,6 +78,13 @@ const (
 	// enough that a rare four-double-sided-sheet class fits and a runaway
 	// upload is refused before it enters the worker.
 	KeyMaxScanMB = "NALANDA_MAX_SCAN_MB"
+	// KeyAnnotateEnabled is the annotate loop's master switch (issue #190
+	// §Reversibility). Optional — defaults to true. When "false", the
+	// server never calls the worker's /annotate/copy, writes no
+	// annotated_copy rows, and the review page serves the raw scan: the
+	// escape hatch if the AMC-patching approach breaks against a real
+	// batch in production.
+	KeyAnnotateEnabled = "NALANDA_ANNOTATE_ENABLED"
 )
 
 // defaultMaxScanMB is what an unset KeyMaxScanMB resolves to.
@@ -162,6 +169,10 @@ type Config struct {
 	// callers can pass it straight into http.MaxBytesReader without
 	// re-doing the multiplication.
 	MaxScanBytes int64
+
+	// AnnotateEnabled is the annotate loop's master switch (issue #190).
+	// True unless KeyAnnotateEnabled is explicitly "false".
+	AnnotateEnabled bool
 }
 
 // Keys lists every variable this package reads, in the order an operator would
@@ -173,7 +184,7 @@ func Keys() []string {
 		KeyPublicURL, KeyGoogleClientID, KeyGoogleClientSecret,
 		KeySessionTTL, KeyBootstrapProfessorEmail, KeyTrustProxyHeaders,
 		KeyQuestionsJSONURL, KeyAmcWorkerURL, KeyWorkDir,
-		KeyMaxScanMB,
+		KeyMaxScanMB, KeyAnnotateEnabled,
 	}
 }
 
@@ -260,21 +271,24 @@ func Load(lookup LookupFunc) (Config, error) {
 	}
 	cfg.SessionTTL = ttl
 
-	// The proxy trust flag is a bool with a tight allowed set: "true" and
-	// "false", case-insensitive. A misspelling — "yes", "1", "on" — is
-	// refused here rather than silently taken as false, because falling to
-	// the wrong side of this switch is exactly the shape "a client-supplied
-	// header ends up in the sessions table" and nothing downstream would
-	// notice.
-	switch strings.ToLower(strings.TrimSpace(l.optional(KeyTrustProxyHeaders, "false"))) {
-	case "false":
-		cfg.TrustProxyHeaders = false
-	case "true":
-		cfg.TrustProxyHeaders = true
-	default:
-		raw, _ := l.lookup(KeyTrustProxyHeaders)
-		return Config{}, fmt.Errorf("%s=%q is not a boolean; expected true or false", KeyTrustProxyHeaders, raw)
+	// Booleans parse through a strict helper with a tight allowed set:
+	// "true" and "false", case-insensitive. A misspelling — "yes", "1",
+	// "on" — is refused rather than silently taken as the default,
+	// because falling to the wrong side of one of these switches is
+	// exactly the shape that lets a client-supplied header end up in the
+	// sessions table (or a broken annotate flow ship unnoticed), and
+	// nothing downstream would notice.
+	trustProxy, err := strictBool(&l, KeyTrustProxyHeaders, false)
+	if err != nil {
+		return Config{}, err
 	}
+	cfg.TrustProxyHeaders = trustProxy
+
+	annotate, err := strictBool(&l, KeyAnnotateEnabled, true)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.AnnotateEnabled = annotate
 
 	maxScanMB, err := parsePositiveInt(l.optional(KeyMaxScanMB, ""), defaultMaxScanMB)
 	if err != nil {
@@ -353,6 +367,7 @@ func (c Config) LogValue() slog.Value {
 		slog.String("questions_json_url", c.QuestionsJSONURL),
 		slog.String("amc_worker_url", c.AmcWorkerURL),
 		slog.String("work_dir", c.WorkDir),
+		slog.Bool("annotate_enabled", c.AnnotateEnabled),
 	)
 }
 
@@ -361,10 +376,10 @@ func (c Config) LogValue() slog.Value {
 // either.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s}",
+		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s annotate_enabled:%t}",
 		c.Addr, c.SafeDatabaseURL(), c.LogLevel, c.PublicURL, c.GoogleClientID,
 		c.SessionTTL, c.BootstrapProfessorEmail != "", c.TrustProxyHeaders,
-		c.QuestionsJSONURL, c.AmcWorkerURL, c.WorkDir,
+		c.QuestionsJSONURL, c.AmcWorkerURL, c.WorkDir, c.AnnotateEnabled,
 	)
 }
 
@@ -434,4 +449,20 @@ func (l *loader) optional(key, fallback string) string {
 		return fallback
 	}
 	return value
+}
+
+// strictBool reads a boolean with a tight allowed set: "true"/"false",
+// case-insensitive, fallback when absent. Anything else is an error naming
+// the variable and the offending value — a misspelling must not silently
+// land on the default.
+func strictBool(l *loader, key string, fallback bool) (bool, error) {
+	switch strings.ToLower(strings.TrimSpace(l.optional(key, strconv.FormatBool(fallback)))) {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		raw, _ := l.lookup(key)
+		return false, fmt.Errorf("%s=%q is not a boolean; expected true or false", key, raw)
+	}
 }

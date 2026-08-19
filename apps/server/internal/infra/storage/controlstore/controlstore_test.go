@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -164,6 +165,85 @@ func TestCreateControlIsAllOrNothingOnAConflict(t *testing.T) {
 	}
 }
 
+// Issue #190: RecordAnnotated is UPSERT — re-annotating a copia replaces its
+// row rather than growing history. AnnotatedByCopy is the review page's
+// single-row lookup; returns exists=false when there is no row so the caller
+// can fall back to the raw scan.
+func TestRecordAnnotatedInsertsAndUpsertsAndAnnotatedByCopyReadsBack(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+
+	c := newControl("CTRLANNOT00000000000000AA1", userID, nil)
+	pool := []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}
+	if err := store.CreateControl(ctx, c, pool); err != nil {
+		t.Fatalf("CreateControl: %v", err)
+	}
+
+	first := controls.AnnotatedCopy{
+		ControlID: c.ID, CopyNumber: 2,
+		GeneratedAt: time.Unix(1_787_100_000, 0).UTC(),
+		Path:        "controls/CTRLANNOT00000000000000AA1/annotated/copy-2.pdf",
+	}
+	if err := store.RecordAnnotated(ctx, first); err != nil {
+		t.Fatalf("RecordAnnotated first: %v", err)
+	}
+
+	got, ok, err := store.AnnotatedByCopy(ctx, c.ID, 2)
+	if err != nil {
+		t.Fatalf("AnnotatedByCopy: %v", err)
+	}
+	if !ok {
+		t.Fatal("AnnotatedByCopy exists=false after RecordAnnotated, want true")
+	}
+	if got.Path != first.Path || !got.GeneratedAt.Equal(first.GeneratedAt) {
+		t.Errorf("read back = %+v, want %+v", got, first)
+	}
+
+	// UPSERT: a second RecordAnnotated with the same (control, copy) replaces
+	// the row instead of leaving two.
+	second := controls.AnnotatedCopy{
+		ControlID: c.ID, CopyNumber: 2,
+		GeneratedAt: time.Unix(1_787_200_000, 0).UTC(),
+		Path:        "controls/CTRLANNOT00000000000000AA1/annotated/copy-2.pdf",
+	}
+	if err := store.RecordAnnotated(ctx, second); err != nil {
+		t.Fatalf("RecordAnnotated second (should UPSERT): %v", err)
+	}
+
+	got2, _, err := store.AnnotatedByCopy(ctx, c.ID, 2)
+	if err != nil {
+		t.Fatalf("AnnotatedByCopy after UPSERT: %v", err)
+	}
+	if !got2.GeneratedAt.Equal(second.GeneratedAt) {
+		t.Errorf("generated_at after UPSERT = %v, want %v", got2.GeneratedAt, second.GeneratedAt)
+	}
+
+	var count int
+	if err := db.QueryRowContext(ctx,
+		"SELECT count(*) FROM annotated_copy WHERE control_id = ? AND copy_number = ?",
+		c.ID, 2,
+	).Scan(&count); err != nil {
+		t.Fatalf("count: %v", err)
+	}
+	if count != 1 {
+		t.Errorf("row count = %d after two RecordAnnotated for the same copy, want 1 (UPSERT, not INSERT-and-grow)", count)
+	}
+}
+
+func TestAnnotatedByCopyReturnsFalseWhenMissing(t *testing.T) {
+	ctx, db := migrated(t)
+	store := controlstore.New(db)
+
+	_, ok, err := store.AnnotatedByCopy(ctx, "CTRLNONE0000000000000000AA", 1)
+	if err != nil {
+		t.Fatalf("AnnotatedByCopy(missing) unexpected error: %v", err)
+	}
+	if ok {
+		t.Error("AnnotatedByCopy returned exists=true for a copy that was never annotated")
+	}
+}
+
 func TestControlByIDReturnsErrControlNotFoundForAMissingID(t *testing.T) {
 	ctx, db := migrated(t)
 	store := controlstore.New(db)
@@ -250,5 +330,44 @@ func TestCreateControlRefusesAnUnknownProfessor(t *testing.T) {
 	err := store.CreateControl(ctx, c, []controls.PoolEntry{{Ref: "q-if-1", Order: 0}})
 	if err == nil {
 		t.Fatal("CreateControl accepted a control with no professor, want a FOREIGN KEY error")
+	}
+}
+
+func TestClearAnnotatedDeletesEveryRowOfOneControlOnly(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+
+	c1 := newControl("CTRLCLEAR10000000000000AA1", userID, nil)
+	c2 := newControl("CTRLCLEAR20000000000000AA1", userID, nil)
+	pool := []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}
+	for _, c := range []controls.Control{c1, c2} {
+		if err := store.CreateControl(ctx, c, pool); err != nil {
+			t.Fatalf("CreateControl: %v", err)
+		}
+	}
+	now := time.Unix(1_787_100_000, 0).UTC()
+	for _, c := range []controls.Control{c1, c2} {
+		for _, n := range []int{1, 2} {
+			if err := store.RecordAnnotated(ctx, controls.AnnotatedCopy{
+				ControlID: c.ID, CopyNumber: n, GeneratedAt: now,
+				Path: "controls/" + c.ID + "/annotated/copy-" + strconv.Itoa(n) + ".pdf",
+			}); err != nil {
+				t.Fatalf("RecordAnnotated: %v", err)
+			}
+		}
+	}
+
+	if err := store.ClearAnnotated(ctx, c1.ID); err != nil {
+		t.Fatalf("ClearAnnotated: %v", err)
+	}
+	for _, n := range []int{1, 2} {
+		if _, exists, err := store.AnnotatedByCopy(ctx, c1.ID, n); err != nil || exists {
+			t.Errorf("c1 copy %d: exists=%v err=%v, want gone", n, exists, err)
+		}
+		// The OTHER control's rows are untouched — the delete is scoped.
+		if _, exists, err := store.AnnotatedByCopy(ctx, c2.ID, n); err != nil || !exists {
+			t.Errorf("c2 copy %d: exists=%v err=%v, want intact", n, exists, err)
+		}
 	}
 }

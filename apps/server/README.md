@@ -45,6 +45,7 @@ Environment variables, read once at boot. A required variable that is absent
 | `NALANDA_AMC_WORKER_URL` | yes | The AMC worker's HTTP origin, e.g. `http://amc-worker:8080` in compose. Absolute http/https URL, no path. WP-E |
 | `NALANDA_WORK_DIR` | yes | Where the server sees the shared volume. The `.tex` generator emits `/work` absolute paths regardless (that is the worker's mount); this only decides where the server writes its files. WP-E |
 | `NALANDA_MAX_SCAN_MB` | no (`100`) | Largest scan PDF the upload handler accepts, in whole MB. A 4-page control at 300 dpi is roughly 3–5 MB; 100 fits a large class and refuses a runaway upload before it enters the worker. WP-F |
+| `NALANDA_ANNOTATE_ENABLED` | no (`true`) | The annotate loop's master switch (issue #190). `false` turns the whole flow off: no `/annotate/copy` calls, no `annotated_copy` rows, the review page serves the raw scan — the escape hatch if the AMC-patching approach breaks against a real batch. Only `true`/`false`; a misspelling is a startup error |
 
 ## Commands
 
@@ -183,6 +184,14 @@ printable `sujet.pdf` back, and every control is persisted with its pool
 and its per-copy identity. `apps/amc-worker` is the compilation engine
 (ADR-0030) and `questions.json` (ADR-0032) is the input.
 
+Since issue #190 the cycle CLOSES with an artefact per copy: an annotated
+PDF drawn by AMC that reflects the professor's corrections (ADR-0040). It
+is generated automatically for clean copies after an upload and re-generated
+on every review save; the review page embeds it and falls back to the raw
+scan while none exists. `NALANDA_ANNOTATE_ENABLED=false` switches the whole
+loop off. Closing a correction fires the `OnCorrectionClosed` hook — today a
+no-op logger, tomorrow the seam email/Canvas integrations hang off.
+
 Routes today:
 
 | Route | What |
@@ -194,9 +203,10 @@ Routes today:
 | `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
 | `POST /controls/{id}/scans` | Multipart PDF upload — hands the file to the worker's `/analyse`, persists the report, flips the state to `in_review` |
 | `POST /controls/{id}/reanalyze` | Re-reads the stored captures at new `ticked`/`unsure` thresholds without a new capture |
-| `POST /controls/{id}/close` | Moves the control to `graded` when every failure kind is resolved (WP-F S8) |
-| `GET /controls/{id}/copies/{copy}/review` · `POST` | Split view — scanned image + editable form; POST saves overrides through `answer_override` / `rut_override` |
+| `POST /controls/{id}/close` | Moves the control to `graded` when every failure kind is resolved (WP-F S8), then fires `OnCorrectionClosed` (issue #190) |
+| `GET /controls/{id}/copies/{copy}/review` · `POST` | Split view — corrected PDF (or raw scan) + editable form; POST saves overrides through `answer_override` / `rut_override` and re-annotates the copy |
 | `GET /controls/{id}/copies/{copy}/page/{n}` | Streams the scanned page image from the shared volume |
+| `GET /controls/{id}/copies/{copy}/annotated.pdf` | Streams the corrected PDF from the shared volume; 404 while none exists (issue #190) |
 | `GET /professors` | The list: address, name, state, created, last sign-in |
 | `GET /professors/new` · `POST /professors` | Create by address and name — the `Authenticate` path (2) round trip |
 | `GET /professors/{id}/edit` · `POST /professors/{id}` | Rename. The address is not editable |

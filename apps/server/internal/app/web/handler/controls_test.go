@@ -50,14 +50,44 @@ const controlsBankJSON = `{
 type controlsFixture struct {
 	handler *handler.Controls
 	service *controls.Service
+	// cstore is the real controlstore behind the service — tests that need
+	// to read rows back (annotated_copy since issue #190) query it instead
+	// of re-deriving the database path.
+	cstore  *controlstore.Store
 	fake    *amctest.Fake
+	hook    *recordingHook
 	workDir string
 	user    auth.User
 	session auth.Session
 	log     *slog.Logger
 }
 
+// recordingHook is the test double for controls.OnCorrectionClosed: it
+// records every Closed call and captures the control's state AT THE MOMENT
+// the hook ran, which is what pins the "state=graded, then hook" order.
+type recordingHook struct {
+	calls   []string
+	service *controls.Service
+}
+
+func (h *recordingHook) Closed(ctx context.Context, controlID string) error {
+	h.calls = append(h.calls, controlID)
+	if c, err := h.service.Get(ctx, controlID); err == nil {
+		h.calls = append(h.calls, string(c.State))
+	}
+	return nil
+}
+
 func newControlsFixture(t *testing.T) *controlsFixture {
+	t.Helper()
+	// The production default (config default true, issue #190).
+	return newControlsFixtureWith(t, true)
+}
+
+// newControlsFixtureWith builds the fixture with the annotate loop on or
+// off — the AC-7 integration case needs the off side, which the shared
+// helper never produces.
+func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture {
 	t.Helper()
 	ctx := context.Background()
 
@@ -96,14 +126,18 @@ func newControlsFixture(t *testing.T) *controlsFixture {
 	cstore := controlstore.New(db)
 	svc := controls.NewService(controls.Service{
 		Bank: b, Store: cstore, Generator: fake, Analyzer: fake, Readings: cstore,
+		Annotator: fake, AnnotateEnabled: annotateEnabled,
 		WorkDir: workDir,
 		Now:     time.Now, Seed: 1, Log: log,
 	})
+	hook := &recordingHook{service: svc}
 	h := handler.NewControls(handler.Controls{
 		Service: svc, Bank: b,
-		PublicURL: publicURL, MaxScanBytes: 5 << 20, Log: log,
+		PublicURL: publicURL, MaxScanBytes: 5 << 20,
+		OnCorrectionClosed: hook,
+		Log:                log,
 	})
-	return &controlsFixture{handler: h, service: svc, fake: fake, workDir: workDir, user: prof, session: session, log: log}
+	return &controlsFixture{handler: h, service: svc, cstore: cstore, fake: fake, hook: hook, workDir: workDir, user: prof, session: session, log: log}
 }
 
 func (f *controlsFixture) authedRequest(t *testing.T, method, path string, body url.Values) *http.Request {
