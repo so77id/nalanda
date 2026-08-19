@@ -28,6 +28,8 @@ const (
 	ControlSujetPath    = "/controls/{id}/sujet.pdf"
 	ControlCorrigePath  = "/controls/{id}/corrige.pdf"
 	ControlPoolJSONPath = "/controls/{id}/pool.json"
+	// ControlUploadPath serves an uploaded scan batch (issue #204).
+	ControlUploadPath = "/controls/{id}/uploads/{batch}"
 )
 
 // Defaults for the form fields. §C17: a control is four questions under a
@@ -179,6 +181,14 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	uploads, err := h.Service.UploadList(id)
+	if err != nil {
+		h.Log.Error("listing upload batches", "control", id, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
 	page := view.ControlDetailPage{
 		Page:         middleware.PageFor(r, c.Name),
 		Control:      toDetailedControl(c, h.Bank),
@@ -194,6 +204,12 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 		CurrentTicked: c.Ticked,
 		CurrentUnsure: c.Unsure,
 		Graded:        c.State == controls.Graded,
+	}
+	for _, name := range uploads {
+		page.Uploads = append(page.Uploads, view.UploadedBatch{
+			Name: name,
+			URL:  controlUploadURL(id, name),
+		})
 	}
 	readings, err := h.Service.ReadingsFor(r.Context(), c.ID)
 	if err != nil {
@@ -481,6 +497,11 @@ func controlDetailURL(id string) string {
 
 func controlSujetURL(id string) string {
 	return controlDetailURL(id) + "/sujet.pdf"
+}
+
+// controlUploadURL is one uploaded batch's download URL (issue #204).
+func controlUploadURL(id, batch string) string {
+	return ControlsPath + "/" + id + "/uploads/" + batch
 }
 
 func controlCorrigeURL(id string) string {

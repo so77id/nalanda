@@ -44,6 +44,14 @@
       </p>
       <p><button type="submit">Subir escaneos</button></p>
     </form>
+    {{ if .Uploads }}
+      <h3>Lotes subidos</h3>
+      <ul>
+        {{ range $u := .Uploads }}
+          <li><a href="{{ $u.URL }}">{{ $u.Name }}</a></li>
+        {{ end }}
+      </ul>
+    {{ end }}
   </section>
 
   {{ if .Readings }}

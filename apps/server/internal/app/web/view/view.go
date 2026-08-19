@@ -231,6 +231,11 @@ type ControlDetailPage struct {
 	QuestionColumns []string
 	// ReanalyzeURL is the POST target for "re-leer con otra sensibilidad".
 	ReanalyzeURL string
+	// Uploads lists the uploaded scan batches with their download URLs
+	// (issue #204). Empty while nothing was uploaded — the template then
+	// renders no section at all.
+	Uploads []UploadedBatch
+
 	// CurrentTicked / CurrentUnsure pre-fill the reanalyze form with the
 	// last thresholds used (or the defaults for a first read).
 	CurrentTicked float64
@@ -290,6 +295,12 @@ type DetailedControl struct {
 	PrintLayout string
 	State       string
 	CreatedAt   string
+}
+
+// UploadedBatch is one uploaded scan batch's download link (issue #204).
+type UploadedBatch struct {
+	Name string // the stored batch-N.pdf name (the original filename is not kept)
+	URL  string
 }
 
 // ReviewPage is what review.html renders (WP-F §The screens). Split view:

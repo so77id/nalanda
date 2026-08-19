@@ -412,6 +412,34 @@ func matchesRead(a Answer, edit AnswerEdit) bool {
 	return true
 }
 
+// IsBatchName reports whether a name matches the on-disk batch contract
+// batch-<positive int>.pdf (batchNumber). Exported because the upload
+// handler validates its URL segment against the SAME rule (issue #204
+// review) — the contract has one home, and every reader of the naming
+// goes through it.
+func IsBatchName(name string) bool {
+	_, ok := batchNumber(name)
+	return ok
+}
+
+// batchNumber parses a filename into its batch number when it matches the
+// on-disk contract batch-<positive int>.pdf, ok=false otherwise. One home
+// for the contract, shared by nextBatchNumber (naming the next batch),
+// UploadList (listing the existing ones, issue #204) and the handler's
+// URL validation (IsBatchName) — readers of the same naming must not
+// drift.
+func batchNumber(name string) (int, bool) {
+	if !strings.HasPrefix(name, scanFilePrefix) || !strings.HasSuffix(name, scanFileExt) {
+		return 0, false
+	}
+	trimmed := strings.TrimSuffix(strings.TrimPrefix(name, scanFilePrefix), scanFileExt)
+	n, err := strconv.Atoi(trimmed)
+	if err != nil || n <= 0 {
+		return 0, false
+	}
+	return n, true
+}
+
 // nextBatchNumber walks the uploads/ directory and returns one past the
 // highest existing batch-N.pdf (max+1). Empty dir → 1. If the highest
 // batch is deleted the next number goes back to fill the gap — the
@@ -427,16 +455,7 @@ func nextBatchNumber(dir string) (int, error) {
 		if e.IsDir() {
 			continue
 		}
-		name := e.Name()
-		if !strings.HasPrefix(name, scanFilePrefix) || !strings.HasSuffix(name, scanFileExt) {
-			continue
-		}
-		trimmed := strings.TrimSuffix(strings.TrimPrefix(name, scanFilePrefix), scanFileExt)
-		n, err := strconv.Atoi(trimmed)
-		if err != nil {
-			continue
-		}
-		if n > 0 {
+		if n, ok := batchNumber(e.Name()); ok {
 			used[n] = true
 		}
 	}
@@ -449,6 +468,44 @@ func nextBatchNumber(dir string) (int, error) {
 	}
 	sort.Ints(nums)
 	return nums[len(nums)-1] + 1, nil
+}
+
+// UploadList returns the names of the scan batches already on disk for a
+// control, ordered by batch number. Only files matching the on-disk
+// contract count (batch-N.pdf, batchNumber); the handler renders one
+// download link per entry (issue #204). Empty when nothing was uploaded
+// yet or the directory does not exist — the page then shows nothing.
+func (s *Service) UploadList(controlID string) ([]string, error) {
+	dir := filepath.Join(s.ProjectDir(controlID), uploadsDir)
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("controls.UploadList: read %s: %w", dir, err)
+	}
+	names := make([]string, 0, len(entries))
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if _, ok := batchNumber(e.Name()); ok {
+			names = append(names, e.Name())
+		}
+	}
+	sort.Slice(names, func(i, j int) bool {
+		a, _ := batchNumber(names[i])
+		b, _ := batchNumber(names[j])
+		return a < b
+	})
+	return names, nil
+}
+
+// UploadPath composes the host-side path of one uploaded batch. The name
+// must already match the batch contract — the handler validates at the URL
+// boundary (issue #204); this is a path join, not a validation.
+func (s *Service) UploadPath(controlID, name string) string {
+	return filepath.Join(s.ProjectDir(controlID), uploadsDir, name)
 }
 
 func writeUpload(path string, r io.ReadCloser) error {

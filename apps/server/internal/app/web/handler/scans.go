@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -273,6 +274,60 @@ func (h *Controls) CloseCorrection(w http.ResponseWriter, r *http.Request) {
 	}
 	flash.Set(w, h.secureCookie, "Corrección cerrada.")
 	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+}
+
+// UploadsPDF serves an uploaded scan batch from the shared volume
+// (issue #204). The batch name comes from a URL segment, so the pattern
+// above is the barrier: only the on-disk contract's shape can reach the
+// file system. The control must exist (same list-then-serve pattern as
+// servePDF); a batch that is not on disk is a 404.
+func (h *Controls) UploadsPDF(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	batch := r.PathValue("batch")
+	if !isValidControlID(id) {
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+		return
+	}
+	// The domain owns the batch-naming contract (IsBatchName, the same
+	// rule nextBatchNumber and UploadList use); a segment outside it never
+	// reaches os.Open.
+	if !controls.IsBatchName(batch) {
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese archivo no existe.")
+		return
+	}
+	if _, err := h.Service.Get(r.Context(), id); err != nil {
+		if errors.Is(err, controls.ErrControlNotFound) {
+			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+			return
+		}
+		h.Log.Error("serving upload batch: reading control", "error", err, "id", id)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	path := h.Service.UploadPath(id, batch)
+	f, err := os.Open(path)
+	if err != nil {
+		h.Log.Warn("serving upload batch", "id", id, "batch", batch, "error", err)
+		middleware.WriteError(w, r, http.StatusNotFound,
+			"Ese archivo no existe en el volumen compartido.")
+		return
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		h.Log.Error("stat upload batch", "id", id, "batch", batch, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+	// It is a download, not an embed: Content-Disposition attachment with
+	// the stored batch name (the professor's original filename is not kept,
+	// issue #204 §Non-goals).
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, batch))
+	http.ServeContent(w, r, batch, info.ModTime(), f)
 }
 
 func parseFloatField(raw string, fallback float64) float64 {
