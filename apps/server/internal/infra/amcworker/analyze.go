@@ -136,8 +136,8 @@ type analyzeRequestBody struct {
 	Project string  `json:"project"`
 	ScanPDF string  `json:"scan_pdf"`
 	Source  string  `json:"source"`
-	Ticked  float64 `json:"ticked,omitempty"`
-	Unsure  float64 `json:"unsure,omitempty"`
+	Ticked  float64 `json:"ticked"`
+	Unsure  float64 `json:"unsure"`
 }
 
 type reanalyzeRequestBody struct {

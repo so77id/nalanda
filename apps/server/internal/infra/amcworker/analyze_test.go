@@ -76,6 +76,20 @@ func TestAnalyzeSendsProjectScanPDFAndSource(t *testing.T) {
 		t.Errorf("worker received thresholds (%v, %v), want the defaults",
 			got.Ticked, got.Unsure)
 	}
+
+	// unsure=0 is a legal pair (no doubtful band) and must reach the wire
+	// as 0 — an omitempty tag dropped it once, and the worker then silently
+	// read its own 0.05 default.
+	if _, err := client.Analyze(context.Background(), controls.AnalyzeRequest{
+		Project: "controls/abc", ScanPDF: "controls/abc/scans/batch-1.pdf",
+		Source: "controls/abc/inputs/source.tex",
+		Ticked: 0.30, Unsure: 0,
+	}); err != nil {
+		t.Fatalf("Analyze with unsure=0: %v", err)
+	}
+	if got.Unsure != 0 {
+		t.Errorf("worker received unsure %v, want the explicit 0", got.Unsure)
+	}
 	// The report round-trips into the domain shape.
 	if report.Pages.Captured != 4 || len(report.Copies) != 1 {
 		t.Errorf("Report = %+v", report)

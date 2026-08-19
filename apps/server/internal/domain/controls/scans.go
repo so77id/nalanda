@@ -76,6 +76,19 @@ func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResu
 	if err != nil {
 		return UploadResult{}, err
 	}
+	// Issue #197: refuse a bad pair BEFORE anything touches the disk — the
+	// all-or-nothing promise covers the batch file too.
+	ticked, unsure := req.Ticked, req.Unsure
+	if ticked == 0 {
+		// The handler always resolves the form (optional fields fall back
+		// to the control's stored pair), but a caller that skips that step
+		// gets the stored pair rather than a refusal.
+		ticked, unsure = control.Ticked, control.Unsure
+	}
+	if !ThresholdsValid(ticked, unsure) {
+		return UploadResult{}, fmt.Errorf("%w: invalid thresholds (%v, %v)",
+			ErrAnalyzerRefused, ticked, unsure)
+	}
 
 	projectDir := s.ProjectDir(control.ID)
 	uploads := filepath.Join(projectDir, uploadsDir)
@@ -100,17 +113,6 @@ func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResu
 	}
 
 	project := filepath.Join(projectPrefix, control.ID)
-	ticked, unsure := req.Ticked, req.Unsure
-	if ticked == 0 {
-		// The handler always resolves the form (optional fields fall back
-		// to the control's stored pair), but a caller that skips that step
-		// gets the stored pair rather than a refusal.
-		ticked, unsure = control.Ticked, control.Unsure
-	}
-	if !ThresholdsValid(ticked, unsure) {
-		return UploadResult{}, fmt.Errorf("%w: invalid thresholds (%v, %v)",
-			ErrAnalyzerRefused, ticked, unsure)
-	}
 	report, err := s.Analyzer.Analyze(ctx, AnalyzeRequest{
 		Project: project,
 		ScanPDF: filepath.ToSlash(filepath.Join(project, uploadsDir, batchName)),

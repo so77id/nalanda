@@ -39,7 +39,7 @@
       </p>
       <p>
         <label>Marcado (0–1): <input type="number" name="ticked" min="0.01" max="0.99" step="0.01" value="{{ printf "%.2f" .CurrentTicked }}"></label>
-        <label>Inseguro (0–marcado): <input type="number" name="unsure" min="0" max="0.99" step="0.01" value="{{ printf "%.2f" .CurrentUnsure }}"></label>
+        <label>Inseguro (0–marcado): <input type="number" name="unsure" min="0" step="0.01" value="{{ printf "%.2f" .CurrentUnsure }}"></label>
       </p>
       <p><button type="submit">Subir escaneos</button></p>
     </form>
@@ -68,7 +68,7 @@
           <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
           <p>
             <label>Marcado (0–1): <input type="number" name="ticked" min="0.01" max="0.99" step="0.01" value="{{ printf "%.2f" .CurrentTicked }}"></label>
-            <label>Inseguro (0–marcado): <input type="number" name="unsure" min="0" max="0.99" step="0.01" value="{{ printf "%.2f" .CurrentUnsure }}"></label>
+            <label>Inseguro (0–marcado): <input type="number" name="unsure" min="0" step="0.01" value="{{ printf "%.2f" .CurrentUnsure }}"></label>
             <button type="submit">Re-leer</button>
           </p>
         </form>

@@ -276,10 +276,12 @@ correct → 4/4; one correct and nothing wrong → 3/4; only a wrong one → 1/4
 score comes back negative.
 
 **The report says which threshold those scores were computed at.** AMC's `note`
-scores at its own `--seuil` while `--ticked` is ours and tunable, so a re-read of
-a stored capture at another sensitivity moves the marks and leaves the scores
-where they were. `scoring: {seuil, ticked, stale}` carries both and flags the
-disagreement rather than hiding it.
+scores at its own `--seuil` while `--ticked` is ours and tunable, so a CLI
+re-read of a stored capture at another sensitivity moves the marks and leaves
+the scores where they were — `scoring: {seuil, ticked, stale}` carries both
+and flags the disagreement rather than hiding it. The HTTP routes never
+produce it: since issue #197 `/analyse` and `/reanalyse` run `note` at the
+same `ticked` they read with, so marks and scores move together.
 
 **Reading requires a SCORED batch**, not only a captured one: the reader opens
 `scoring.sqlite` as well, which exists only after `prepare --mode b` and `note`

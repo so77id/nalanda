@@ -102,6 +102,8 @@ amc-worker  (separate container)   generate PDFs · read scans · annotate
 ```
 control            id, nombre, fecha, desde_ancla, hasta_ancla,
                    n_preguntas, n_copias, estado
+                   [+ issue #197: marcado, inseguro — the darkness pair the
+                    batch was read at; travels end-to-end, see ADR-0041]
 control_pregunta   control_id, pregunta_ref, puntaje
 copia              id, control_id, numero              ← one printed sheet, its own draw
 lectura            copia_id, rut_leido, estado         ← rut_leido is the identifier

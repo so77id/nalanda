@@ -298,6 +298,14 @@ check_eq "the marks come back at the new threshold" "False" \
 check_eq "and the scores follow them" "False" \
   "$(echo "$reread_t" | field 'all(a["score"] == 0 for a in d["copies"]["1"]["answers"])')"
 
+# The other extreme (AC-2's second case): at ticked=0.01 everything counts
+# as a mark — the same sheets that were blank at 0.9.
+reread_low="$(post /reanalyse '{"project":"project-t","ticked":0.01,"unsure":0}' || true)"
+check_eq "at 0.01 every box counts as a mark" "False" \
+  "$(echo "$reread_low" | field 'all(a["marked"] == [] for a in d["copies"]["1"]["answers"])')"
+check_eq "and the seuil follows" "0.01" \
+  "$(echo "$reread_low" | field 'd["scoring"]["seuil"]')"
+
 # --- /annotate/copy — the corrected copy, issue #190 ---------------------------
 #
 # The worker half of the annotate loop: the server sends the professor's

@@ -236,8 +236,13 @@ def parse_thresholds(body):
     takes the pair too (it used to be reanalyse-only), so the checks live
     here once instead of twice.
     """
-    ticked = float(body.get("ticked", TICKED))
-    unsure = float(body.get("unsure", UNSURE))
+    try:
+        ticked = float(body.get("ticked", TICKED))
+        unsure = float(body.get("unsure", UNSURE))
+    except (TypeError, ValueError) as exc:
+        # A malformed field is the caller's mistake and can never succeed
+        # on retry — 400, not a 500 from the dispatcher's exception net.
+        raise Failed("ticked and unsure must be numbers", str(exc))
     if not 0 < ticked < 1:
         raise Failed(f"ticked must be in (0, 1), got {ticked}")
     if not 0 <= unsure < ticked:
@@ -459,7 +464,10 @@ def annotate_copy(body):
     if copy < 1:
         raise Failed("copy must be at least 1")
     overrides = body.get("overrides") or {}
-    ticked = float(body.get("ticked", TICKED))
+    try:
+        ticked = float(body.get("ticked", TICKED))
+    except (TypeError, ValueError) as exc:
+        raise Failed("ticked must be a number", str(exc))
     if not 0 < ticked < 1:
         raise Failed(f"ticked must be in (0, 1), got {ticked}")
 
