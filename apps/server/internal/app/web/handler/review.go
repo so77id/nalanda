@@ -253,21 +253,37 @@ func (h *Controls) PageImage(w http.ResponseWriter, r *http.Request) {
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
 		return
 	}
-	path := filepath.Join(h.Service.ProjectDir(id), "scans",
-		fmt.Sprintf("copy-%d-page-%d.png", copyNumber, pageNumber))
-	f, err := os.Open(path)
-	if err != nil {
-		middleware.WriteError(w, r, http.StatusNotFound, "La imagen escaneada no está disponible.")
+	// The extension follows whatever AMC's `getimages` produced: PNG for a
+	// vector-sourced page, JPG for a raster-sourced scan. Miguel's first
+	// real batch (2026-08-19) landed as JPG and this endpoint used to look
+	// only for PNG, returning 404 for every real scan. PNG wins when both
+	// exist so a future engine that produces both cannot silently flip
+	// which image the reviewer sees. Content-Type mirrors the extension —
+	// browsers accept both and the caller does not have to know.
+	scansDir := filepath.Join(h.Service.ProjectDir(id), "scans")
+	base := fmt.Sprintf("copy-%d-page-%d", copyNumber, pageNumber)
+	for _, ext := range []string{".png", ".jpg"} {
+		path := filepath.Join(scansDir, base+ext)
+		f, err := os.Open(path)
+		if err != nil {
+			continue
+		}
+		info, statErr := f.Stat()
+		if statErr != nil {
+			_ = f.Close()
+			middleware.WriteError(w, r, http.StatusInternalServerError, "")
+			return
+		}
+		defer func() { _ = f.Close() }()
+		if ext == ".png" {
+			w.Header().Set("Content-Type", "image/png")
+		} else {
+			w.Header().Set("Content-Type", "image/jpeg")
+		}
+		http.ServeContent(w, r, "page"+ext, info.ModTime(), f)
 		return
 	}
-	defer func() { _ = f.Close() }()
-	info, err := f.Stat()
-	if err != nil {
-		middleware.WriteError(w, r, http.StatusInternalServerError, "")
-		return
-	}
-	w.Header().Set("Content-Type", "image/png")
-	http.ServeContent(w, r, "page.png", info.ModTime(), f)
+	middleware.WriteError(w, r, http.StatusNotFound, "La imagen escaneada no está disponible.")
 }
 
 // parseCopyPathValue turns a path segment into a positive int. Empty and

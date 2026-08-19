@@ -210,7 +210,67 @@ def analyse(body):
         "--data", data, "--prefix", project, source)
     amc("note", "--data", data, "--seuil", str(TICKED))
 
+    # ADR-0037: the server serves review-page images at
+    # `<work>/controls/<id>/scans/copy-<N>-page-<M>.<ext>`. AMC's `getimages`
+    # names its outputs `batch-<K>.pdf-page-<seq>-<idx>.<ext>` and only
+    # `capture_page` knows which batch file is which physical (copy, page).
+    # Create symlinks under the contract's naming beside the originals so
+    # the server finds them and AMC's own downstream tools (annotate,
+    # re-analyse) still resolve their capture.sqlite src references.
+    # Reported in production 2026-08-19 when the review page returned 404
+    # on every scanned copy of Miguel's first real batch.
+    link_scans_to_contract_names(data, os.path.join(project, "scans"))
+
     return read_capture.read(data, TICKED, UNSURE)
+
+
+def scan_link_targets(rows):
+    """Compute the (source_basename, link_basename) pairs to symlink into the
+    scans directory. Pure — takes the capture_page rows and returns what
+    caller should link. Extension follows what AMC actually produced (`.jpg`
+    for raster scans, `.png` for vector).
+
+    >>> scan_link_targets([(1, 1, "%PROJET/scans/batch-1.pdf-page-014-013.jpg")])
+    [('batch-1.pdf-page-014-013.jpg', 'copy-1-page-1.jpg')]
+    >>> scan_link_targets([(6, 2, "batch-1.pdf-page-018-017.png")])
+    [('batch-1.pdf-page-018-017.png', 'copy-6-page-2.png')]
+    """
+    out = []
+    for student, page, src in rows:
+        original = os.path.basename(src)
+        ext = os.path.splitext(original)[1]
+        out.append((original, f"copy-{student}-page-{page}{ext}"))
+    return out
+
+
+def link_scans_to_contract_names(data, scans):
+    """Symlink `copy-<student>-page-<page>.<ext>` for every capture_page row.
+
+    Idempotent: replaces any stale symlink from a previous run. Skips a row
+    whose src file is not on disk (a capture that never actually produced an
+    image — should not happen in practice, but noise here would hide the
+    real error the caller was going to look at).
+    """
+    capture_db = os.path.join(data, "capture.sqlite")
+    if not os.path.isfile(capture_db):
+        return
+    conn = sqlite3.connect(capture_db)
+    try:
+        rows = conn.execute(
+            "SELECT student, page, src FROM capture_page"
+        ).fetchall()
+    finally:
+        conn.close()
+    for original, link_name in scan_link_targets(rows):
+        source_path = os.path.join(scans, original)
+        if not os.path.exists(source_path):
+            continue
+        link_path = os.path.join(scans, link_name)
+        try:
+            os.remove(link_path)
+        except FileNotFoundError:
+            pass
+        os.symlink(original, link_path)
 
 
 def reanalyse(body):
