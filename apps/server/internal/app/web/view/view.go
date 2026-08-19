@@ -211,6 +211,9 @@ type ControlDetailPage struct {
 	Control    DetailedControl
 	SujetURL   string
 	CorrigeURL string
+	// PoolJSONURL is the download of the pool snapshot written at Create
+	// time (issue #198).
+	PoolJSONURL string
 	// ScansURL is the POST target of the upload form.
 	ScansURL string
 	// MaxScanMB is what the Spanish "máximo N MB" hint says on the

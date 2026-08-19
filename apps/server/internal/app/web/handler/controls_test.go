@@ -3,6 +3,7 @@ package handler_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"io"
 	"log/slog"
 	"net/http"
@@ -538,7 +539,7 @@ func TestDetailRendersMetadataAndDownloadLinks(t *testing.T) {
 		t.Fatalf("Detail status = %d, want 200", rec.Code)
 	}
 	body := rec.Body.String()
-	for _, want := range []string{"Control 1", "Descargar prueba", "Descargar clave", "Aún no hay escaneos"} {
+	for _, want := range []string{"Control 1", "Descargar prueba", "Descargar clave", "Descargar respaldo", "Aún no hay escaneos"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("detail body missing %q", want)
 		}
@@ -592,6 +593,61 @@ func TestSujetPDF404sWhenTheControlIsUnknown(t *testing.T) {
 	req = f.authedRequest(t, http.MethodGet, "/controls/short/sujet.pdf", nil)
 	req.SetPathValue("id", "short")
 	f.handler.SujetPDF(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status(bad shape) = %d, want 404", rec.Code)
+	}
+}
+
+func TestPoolJSONStreamsTheSnapshot(t *testing.T) {
+	f := newControlsFixture(t)
+	rec := httptest.NewRecorder()
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
+	loc := rec.Header().Get("Location")
+	id := strings.TrimPrefix(loc, handler.ControlsPath+"/")
+
+	rec = httptest.NewRecorder()
+	req := f.authedRequest(t, http.MethodGet, loc+"/pool.json", nil)
+	req.SetPathValue("id", id)
+	f.handler.PoolJSON(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PoolJSON status = %d, want 200", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); ct != "application/json" {
+		t.Errorf("Content-Type = %q, want application/json", ct)
+	}
+	if cd := rec.Header().Get("Content-Disposition"); !strings.Contains(cd, "attachment") {
+		t.Errorf("Content-Disposition = %q, want attachment (backup material, not a page)", cd)
+	}
+	// The body is the snapshot Create wrote — parse it back and check the
+	// control's id arrived.
+	var snap controls.PoolSnapshot
+	if err := json.Unmarshal(rec.Body.Bytes(), &snap); err != nil {
+		t.Fatalf("pool.json body does not parse: %v", err)
+	}
+	if snap.Control.ID != id {
+		t.Errorf("pool.json control id = %q, want %q", snap.Control.ID, id)
+	}
+	if len(snap.Pool) == 0 {
+		t.Error("pool.json pool is empty")
+	}
+}
+
+func TestPoolJSON404sWhenTheControlIsUnknown(t *testing.T) {
+	f := newControlsFixture(t)
+
+	rec := httptest.NewRecorder()
+	req := f.authedRequest(t, http.MethodGet, "/controls/AAAAAAAAAAAAAAAAAAAAAAAAAA/pool.json", nil)
+	req.SetPathValue("id", "AAAAAAAAAAAAAAAAAAAAAAAAAA")
+	f.handler.PoolJSON(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status(well-shaped unknown) = %d, want 404", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	req = f.authedRequest(t, http.MethodGet, "/controls/short/pool.json", nil)
+	req.SetPathValue("id", "short")
+	f.handler.PoolJSON(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status(bad shape) = %d, want 404", rec.Code)
 	}

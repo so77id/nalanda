@@ -207,6 +207,7 @@ Routes today:
 | `GET /controls/new` · `POST /controls` | Pick a section range, generate the PDF |
 | `GET /controls/{id}` | Detail: metadata, PDF downloads, the Escaneos upload form, the Resultados table and (after upload) the *Cerrar corrección* button |
 | `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
+| `GET /controls/{id}/pool.json` | The pool snapshot written at Create time (issue #198) — attachment |
 | `POST /controls/{id}/scans` | Multipart PDF upload — hands the file to the worker's `/analyse` at the submitted thresholds, persists the report and the pair, annotates clean copies, flips the state to `in_review` |
 | `POST /controls/{id}/reanalyze` | Re-reads the stored captures at new `ticked`/`unsure` thresholds without a new capture, re-scores at them, and re-annotates the clean copies (issue #197) |
 | `POST /controls/{id}/close` | Moves the control to `graded` when every failure kind is resolved (WP-F S8), then fires `OnCorrectionClosed` (issue #190) |
