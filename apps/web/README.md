@@ -9,7 +9,10 @@ time through remark-math + rehype-katex, so no KaTeX JavaScript ships.
 
 Since #74 it also **executes code in the reader's browser**: CodeMirror 6 editors
 (+ lucide-react icons) driving three runtimes — Java on CheerpJ, C++ on
-browsercc, Python on Pyodide (ADR-0018).
+browsercc, Python on Pyodide (ADR-0018). And since #79, diagrams render
+client-side via **mermaid** (ADR-0040), lazy-loaded so only pages that mount
+`<Mermaid>` fetch the ~196 kB gzipped of mermaid-only chunks — a page without
+a diagram pays nothing.
 
 ## Commands
 

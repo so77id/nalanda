@@ -65,7 +65,7 @@ The two options were both considered:
   renderer, but that renderer is the shell's `pre` mapping and is wired to
   the runtime seam — a fence in it becomes a read-only code listing, and
   overloading it with a "render as a diagram" branch fights the abstraction.
-  `<MemoryDiagram>` had to solve the same problem (ADR-0028 §Decision-6) and
+  `<MemoryDiagram>` had to solve the same problem (ADR-0028 §Decision-2) and
   chose an annotated fence for a different reason (it drives a compiled
   program). A diagram is not a program; a prop is the honest surface.
 - **A prop** costs the author one attribute and keeps the shell's fence
@@ -108,7 +108,9 @@ hand-written SVG option, one library up.
 
 **Bundle cost.** The `mermaid` package is heavy — it reaches `dagre`, `d3`,
 `mdast-util-from-markdown`, `khroma` and a handful of parsers. Measured on the
-built tree (S9 of the #79 WP, Playwright request logs): a page that mounts
+built tree (S9 of the #79 WP, Playwright request logs; the later
+review-fixes commit changed no import lines, so the figure stands at the
+tip): a page that mounts
 `<Mermaid>` downloads **~196 kB gzipped more than a page without one** — the
 mermaid-only chunks (`mermaid.core`, `dagre`, `graphlib`, per-diagram
 sub-chunks, `rough`), while `/d/java-desde-cpp` requests zero of them. Part
@@ -155,7 +157,10 @@ disables click bindings. The setting is pinned by a test — the same shape as
 the KaTeX `trust: false` pin — and recorded with its review triggers in
 `docs/security-notes.md` (§Accepted invariants).
 
-**A future revisit.** Mermaid's rendering is not free at runtime: the library
+**The working budget: one diagram per section.** The library parses and
+lays out on every mount and the first mount pays the module download, so a
+section may carry one diagram; a page that mounts many should trigger the
+revisit below rather than grow silently. Mermaid's rendering is not free at runtime: the library
 parses the source, runs its layout engine and produces SVG on every mount,
 and the first mount pays for the module load too. On the pages the course
 uses today (one diagram in one section of one document), that cost is not

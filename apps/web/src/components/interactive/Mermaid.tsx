@@ -20,12 +20,13 @@ export interface MermaidProps {
  * `useResolvedTheme` is the SSOT for anything a stylesheet cannot express
  * (same reason `<CodeEditor>` uses it — see `useResolvedTheme.ts`).
  *
- * **jsdom cannot render this** (the library needs SVG layout APIs the runtime
- * does not implement), so the effect body is not exercised in the suite —
- * `Mermaid.test.tsx` pins container attributes, the source-forwarding contract
- * and the authoring-error branch. The paint itself is verified in a real
- * browser at S9 (apps/web/CLAUDE.md §the suite cannot lay out a page, and
- * ADR-0040 §Consequences).
+ * **jsdom cannot run the real library** (it needs SVG layout APIs the runtime
+ * does not implement), so the suite exercises the effect only against a stub —
+ * `Mermaid.test.tsx` pins the contract: the container attributes, the source
+ * handed to the library, the theme it initializes with, `securityLevel` at
+ * 'strict', the error branch and its recovery. The paint itself is verified in
+ * a real browser at S9 (apps/web/CLAUDE.md §the suite cannot lay out a page,
+ * and ADR-0040 §Consequences).
  */
 export function Mermaid({ source, title }: MermaidProps) {
   const theme = useResolvedTheme();
