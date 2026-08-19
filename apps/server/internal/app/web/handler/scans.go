@@ -187,6 +187,12 @@ func (h *Controls) CloseCorrection(w http.ResponseWriter, r *http.Request) {
 		}
 		return
 	}
+	// Issue #190: the hook fires AFTER the state committed as Graded — the
+	// order is the contract, so a future integration can rely on reading a
+	// graded control. A hook failure is logged and does not undo the close.
+	if err := h.OnCorrectionClosed.Closed(r.Context(), id); err != nil {
+		h.Log.Error("close correction: hook failed", "control", id, "error", err)
+	}
 	flash.Set(w, h.secureCookie, "Corrección cerrada.")
 	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 }

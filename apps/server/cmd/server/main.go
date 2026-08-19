@@ -203,7 +203,11 @@ func run(logger *slog.Logger) error {
 			Bank:         loadedBank,
 			PublicURL:    cfg.PublicURL,
 			MaxScanBytes: cfg.MaxScanBytes,
-			Log:          logger,
+			// The default hook: logs and does nothing. A future
+			// integration (email, Canvas) replaces it here without
+			// touching the flow (issue #190).
+			OnCorrectionClosed: controls.NewNoopHook(logger),
+			Log:                logger,
 		}),
 		Login: handler.NewAuth(handler.Auth{
 			Login: login,

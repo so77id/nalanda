@@ -55,10 +55,27 @@ type controlsFixture struct {
 	// of re-deriving the database path.
 	cstore  *controlstore.Store
 	fake    *amctest.Fake
+	hook    *recordingHook
 	workDir string
 	user    auth.User
 	session auth.Session
 	log     *slog.Logger
+}
+
+// recordingHook is the test double for controls.OnCorrectionClosed: it
+// records every Closed call and captures the control's state AT THE MOMENT
+// the hook ran, which is what pins the "state=graded, then hook" order.
+type recordingHook struct {
+	calls   []string
+	service *controls.Service
+}
+
+func (h *recordingHook) Closed(ctx context.Context, controlID string) error {
+	h.calls = append(h.calls, controlID)
+	if c, err := h.service.Get(ctx, controlID); err == nil {
+		h.calls = append(h.calls, string(c.State))
+	}
+	return nil
 }
 
 func newControlsFixture(t *testing.T) *controlsFixture {
@@ -104,11 +121,14 @@ func newControlsFixture(t *testing.T) *controlsFixture {
 		WorkDir: workDir,
 		Now:     time.Now, Seed: 1, Log: log,
 	})
+	hook := &recordingHook{service: svc}
 	h := handler.NewControls(handler.Controls{
 		Service: svc, Bank: b,
-		PublicURL: publicURL, MaxScanBytes: 5 << 20, Log: log,
+		PublicURL: publicURL, MaxScanBytes: 5 << 20,
+		OnCorrectionClosed: hook,
+		Log:                log,
 	})
-	return &controlsFixture{handler: h, service: svc, cstore: cstore, fake: fake, workDir: workDir, user: prof, session: session, log: log}
+	return &controlsFixture{handler: h, service: svc, cstore: cstore, fake: fake, hook: hook, workDir: workDir, user: prof, session: session, log: log}
 }
 
 func (f *controlsFixture) authedRequest(t *testing.T, method, path string, body url.Values) *http.Request {

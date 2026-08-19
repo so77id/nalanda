@@ -56,7 +56,11 @@ type Controls struct {
 	// from config.MaxScanBytes so main is the only place the byte value
 	// is composed (backend-code-style.md §Configuration).
 	MaxScanBytes int64
-	Log          *slog.Logger
+	// OnCorrectionClosed fires after a correction moves to Graded
+	// (issue #190 §Hook para futuros integraciones). Required — the
+	// default is controls.NewNoopHook, wired in cmd/server.
+	OnCorrectionClosed controls.OnCorrectionClosed
+	Log                *slog.Logger
 
 	secureCookie bool
 }
@@ -70,6 +74,8 @@ func NewControls(deps Controls) *Controls {
 		panic("handler.NewControls: no bank")
 	case deps.PublicURL == "":
 		panic("handler.NewControls: no public URL — the flash cookie's Secure attribute is derived from it")
+	case deps.OnCorrectionClosed == nil:
+		panic("handler.NewControls: no correction-closed hook — pass controls.NewNoopHook(log)")
 	case deps.Log == nil:
 		panic("handler.NewControls: no logger")
 	}

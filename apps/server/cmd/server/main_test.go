@@ -105,9 +105,10 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 					Log:             logger,
 				})
 			}(),
-			Bank:      emptyBank(t),
-			PublicURL: "https://nalanda.test",
-			Log:       logger,
+			Bank:               emptyBank(t),
+			PublicURL:          "https://nalanda.test",
+			OnCorrectionClosed: controls.NewNoopHook(logger),
+			Log:                logger,
 		}),
 		Log: logger,
 	}, prober, logger), store

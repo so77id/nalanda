@@ -233,3 +233,47 @@ func TestUploadScanUnknownControlIs404(t *testing.T) {
 		t.Errorf("status = %d, want 404", rec.Code)
 	}
 }
+
+// TestCloseCorrectionFiresTheHookAfterGrading pins AC-8's ordering half:
+// the hook runs AFTER the state committed as Graded — the recording hook
+// captures the state it saw, so an inverted order fails the assertion
+// rather than merely reordering two log lines.
+func TestCloseCorrectionFiresTheHookAfterGrading(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control close", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/close", nil)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.CloseCorrection(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", rec.Code)
+	}
+	if got := rec.Header().Get("Location"); got != "/controls/"+controlID {
+		t.Errorf("Location = %q", got)
+	}
+
+	if len(f.hook.calls) != 2 {
+		t.Fatalf("hook calls = %v, want [controlID, state-as-seen]", f.hook.calls)
+	}
+	if f.hook.calls[0] != controlID {
+		t.Errorf("hook control id = %q, want %q", f.hook.calls[0], controlID)
+	}
+	if f.hook.calls[1] != string(controls.Graded) {
+		t.Errorf("hook saw state %q, want %q — the hook must run after the state commits",
+			f.hook.calls[1], controls.Graded)
+	}
+
+	got, err := f.service.Get(context.Background(), controlID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.State != controls.Graded {
+		t.Errorf("control state = %q, want graded", got.State)
+	}
+}
