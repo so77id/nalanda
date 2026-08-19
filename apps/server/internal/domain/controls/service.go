@@ -206,6 +206,14 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 		return Control{}, fmt.Errorf("controls.Create: write source: %w", err)
 	}
 
+	// The pool snapshot (issue #198) goes down beside the source, inside
+	// the same guarded region: a failure below rolls it away with the rest
+	// of the project.
+	if err := writePoolSnapshot(filepath.Join(projectDir, "pool.json"), id, req, pool, s.Seed, s.Now()); err != nil {
+		rollback()
+		return Control{}, fmt.Errorf("controls.Create: write pool snapshot: %w", err)
+	}
+
 	// Worker paths are relative to /work: it prefixes them itself with
 	// its own mount (worker.py's under_work).
 	assets, err := s.Generator.Generate(ctx, GenerateRequest{
@@ -298,6 +306,12 @@ func (s *Service) SujetPath(controlID string) string {
 // CorrigePath returns the corrige.pdf's full path on the server side.
 func (s *Service) CorrigePath(controlID string) string {
 	return filepath.Join(s.ProjectDir(controlID), "out", "corrige.pdf")
+}
+
+// PoolJSONPath returns the pool snapshot's full path on the server side
+// (issue #198).
+func (s *Service) PoolJSONPath(controlID string) string {
+	return filepath.Join(s.ProjectDir(controlID), "pool.json")
 }
 
 // workerPath joins components under WorkerWorkDir using forward slashes.
