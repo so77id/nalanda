@@ -92,6 +92,15 @@ check_eq "and reads copy 1's RUT back" "20123456" "$(echo "$rep" | field 'd["cop
 check_eq "and queues exactly the damaged copies" "['3', '4', '5']" \
   "$(echo "$rep" | field 'sorted(d["needs_review"])')"
 
+# ADR-0037: the server serves review-page images at
+# `<work>/controls/<id>/scans/copy-<N>-page-<M>.<ext>`. After /analyse the
+# worker links every captured page under that naming so the server does
+# not have to know AMC's own batch-<K>.pdf-page-<seq>-<idx> shape. Missing
+# in production 2026-08-19 (the review page 404'd on every real scan).
+check "copy-1-page-1 symlink exists after /analyse" \
+  test -L "${work}/project/scans/copy-1-page-1.png" -o \
+       -L "${work}/project/scans/copy-1-page-1.jpg"
+
 # --- associate ----------------------------------------------------------------
 
 as="$(post /associate '{"project":"project","roster":"curso.csv","code":"rut","key":"rut"}')"
