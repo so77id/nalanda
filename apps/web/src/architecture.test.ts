@@ -161,6 +161,26 @@ describe('architecture: the predict-output card stays out of the entry chunk', (
   });
 });
 
+describe('architecture: the mermaid diagram stays out of the entry chunk', () => {
+  // Mermaid drags dagre, d3 and a set of parsers into any chunk that imports
+  // it (~600kB gzipped, ADR-0040 §Consequences) — heavier than CodeMirror, so
+  // it carries the same per-name case the four heavy components above carry,
+  // with the same rationale: a single ALLOWED entry, no per-file exemptions.
+  const ALLOWED = ['components/interactive/lazyMermaid.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/mermaid' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: cross-feature dependencies', () => {
   it('only the allowed feature edges exist in production code', () => {
     // Test files may exercise any feature through its seam (they are consumers,

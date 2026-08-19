@@ -84,6 +84,15 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
      tokens in both themes. The recipe lives in `testing-strategy.md`
      §Conventions ("A property jsdom cannot see").
 
+     One further step is Mermaid's: the component hands its source to a
+     third-party SVG layout engine jsdom cannot run at all — the library
+     refuses to render against it — so `<Mermaid>` (ADR-0040) pins the
+     container attributes, the source handed to the library and the
+     authoring-error branch, and the painted SVG is confirmed in a real
+     browser in both themes. The same browser check confirms the
+     `mermaid-*.js` chunk is the only place the library ships (ADR-0040
+     §Consequences).
+
      A device rule also needs an emulated device, not
      merely a small window: the recipe is in `testing-strategy.md` §Conventions.
 
