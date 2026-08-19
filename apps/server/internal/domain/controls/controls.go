@@ -71,6 +71,21 @@ type Copy struct {
 	Numero    int // 1-based, matches AMC's printed \onecopy index
 }
 
+// AnnotatedCopy is the record of an anotado PDF the worker produced for one
+// copia. The PDF itself lives on the shared volume at Path (relative to the
+// server's WorkDir); this row only tracks that it exists and when it was
+// generated (issue #190, ADR-0030 §Not yet proven → the pipeline that closes
+// the paper flow's last step).
+type AnnotatedCopy struct {
+	ControlID   string
+	CopyNumber  int
+	GeneratedAt time.Time
+	// Path is relative to the server's WorkDir. Absolute on the worker side
+	// is <WorkerWorkDir>/<Path>. Same convention as the sujet.pdf and scan
+	// image paths.
+	Path string
+}
+
 // Store is what the controls Service reaches into for persistence.
 // Declared in the domain per §The dependency rule: an interface lives
 // where it is consumed, and infra implements it.
@@ -98,6 +113,17 @@ type Store interface {
 	// descending — with nulls last, so a "no date declared" row does not
 	// hide freshly generated controls. Created-at ties break within a date.
 	ListControls(ctx context.Context) ([]Control, error)
+
+	// RecordAnnotated writes (or replaces) the anotado PDF record for one
+	// copia. UPSERT on the compound PK (control_id, copy_number) — a
+	// re-annotation replaces the row rather than growing history, so the
+	// review page always sees the latest one (issue #190).
+	RecordAnnotated(ctx context.Context, a AnnotatedCopy) error
+
+	// AnnotatedByCopy returns the anotado PDF record for one copia, or
+	// exists=false when the copia has not been annotated yet — the review
+	// page's cue to fall back to the raw scan (issue #190).
+	AnnotatedByCopy(ctx context.Context, controlID string, copyNumber int) (AnnotatedCopy, bool, error)
 }
 
 // Generator asks the AMC worker to compile a .tex into printable PDFs.

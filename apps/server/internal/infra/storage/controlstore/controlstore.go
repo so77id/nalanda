@@ -210,3 +210,46 @@ func nullableUnixSeconds(t *time.Time) sql.NullInt64 {
 	}
 	return sql.NullInt64{Int64: t.Unix(), Valid: true}
 }
+
+// RecordAnnotated writes the anotado PDF record for one copia. Idempotent
+// UPSERT on (control_id, copy_number) — the same copia re-annotated in the
+// review page replaces its row rather than growing history (issue #190).
+func (s *Store) RecordAnnotated(ctx context.Context, a controls.AnnotatedCopy) error {
+	if _, err := s.db.ExecContext(ctx, `
+        INSERT INTO annotated_copy (control_id, copy_number, generated_at, path)
+        VALUES (?, ?, ?, ?)
+        ON CONFLICT (control_id, copy_number) DO UPDATE SET
+            generated_at = excluded.generated_at,
+            path         = excluded.path`,
+		a.ControlID, a.CopyNumber, a.GeneratedAt.Unix(), a.Path,
+	); err != nil {
+		return fmt.Errorf("controlstore.RecordAnnotated %s/%d: %w",
+			a.ControlID, a.CopyNumber, err)
+	}
+	return nil
+}
+
+// AnnotatedByCopy reads back one anotado record. exists=false when the copia
+// has never been annotated — the review page falls back to the raw scan
+// (issue #190).
+func (s *Store) AnnotatedByCopy(ctx context.Context, controlID string, copyNumber int) (controls.AnnotatedCopy, bool, error) {
+	var (
+		a         controls.AnnotatedCopy
+		generated int64
+	)
+	err := s.db.QueryRowContext(ctx, `
+        SELECT control_id, copy_number, generated_at, path
+        FROM annotated_copy
+        WHERE control_id = ? AND copy_number = ?`,
+		controlID, copyNumber,
+	).Scan(&a.ControlID, &a.CopyNumber, &generated, &a.Path)
+	if errors.Is(err, sql.ErrNoRows) {
+		return controls.AnnotatedCopy{}, false, nil
+	}
+	if err != nil {
+		return controls.AnnotatedCopy{}, false, fmt.Errorf(
+			"controlstore.AnnotatedByCopy %s/%d: %w", controlID, copyNumber, err)
+	}
+	a.GeneratedAt = time.Unix(generated, 0).UTC()
+	return a, true, nil
+}

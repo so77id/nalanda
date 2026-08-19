@@ -3,6 +3,7 @@ package controls_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -44,13 +45,17 @@ const bankJSON = `{
 // error-handling paths without a real database. The controlstore's own L6
 // tests cover the real one.
 type fakeStore struct {
-	controls []controls.Control
-	pools    map[string][]controls.PoolEntry
-	fail     error
+	controls  []controls.Control
+	pools     map[string][]controls.PoolEntry
+	annotated map[string]controls.AnnotatedCopy // key: <controlID>#<copyNumber>
+	fail      error
 }
 
 func newFakeStore() *fakeStore {
-	return &fakeStore{pools: map[string][]controls.PoolEntry{}}
+	return &fakeStore{
+		pools:     map[string][]controls.PoolEntry{},
+		annotated: map[string]controls.AnnotatedCopy{},
+	}
 }
 
 func (s *fakeStore) CreateControl(_ context.Context, c controls.Control, pool []controls.PoolEntry) error {
@@ -77,6 +82,19 @@ func (s *fakeStore) ListControls(_ context.Context) ([]controls.Control, error) 
 
 func (s *fakeStore) ControlPool(_ context.Context, id string) ([]controls.PoolEntry, error) {
 	return s.pools[id], nil
+}
+
+func (s *fakeStore) RecordAnnotated(_ context.Context, a controls.AnnotatedCopy) error {
+	if s.fail != nil {
+		return s.fail
+	}
+	s.annotated[fmt.Sprintf("%s#%d", a.ControlID, a.CopyNumber)] = a
+	return nil
+}
+
+func (s *fakeStore) AnnotatedByCopy(_ context.Context, controlID string, copyNumber int) (controls.AnnotatedCopy, bool, error) {
+	a, ok := s.annotated[fmt.Sprintf("%s#%d", controlID, copyNumber)]
+	return a, ok, nil
 }
 
 // fakeReadingStore is the do-nothing double the pre-WP-F cases use. The
