@@ -330,6 +330,40 @@ func TestAngleBracketsAreEscapedBeforeEmission(t *testing.T) {
 	}
 }
 
+// MDX writes code identifiers between backticks and the book renders them as
+// code. The sheet's answer is \texttt: a raw backtick is a quote mark on
+// paper, so the bank would read 'int' where the author wrote `int`
+// (issue #193 S3). The professor-typed NAME keeps escapeLatex alone — it is
+// not MDX.
+func TestBacktickPairsRenderAsTypewriterText(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "backtick", Document: "welcome", Anchor: "hola",
+				Type:      bank.TypeSimple,
+				Statement: "¿Cuántos bits ocupa un `char` en Java?",
+				Alternatives: []string{
+					"16 `bits`",
+					"8",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	for _, want := range []string{
+		`un \texttt{char} en Java`,
+		`16 \texttt{bits}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("backtick pair was not rendered as \\texttt: missing %q in output", want)
+		}
+	}
+	if strings.Contains(out, "`char`") {
+		t.Error("a backtick pair survived into the .tex — on paper it renders as a quote mark")
+	}
+}
+
 // Issue #185: the generator branches on Input.DuplexPadding.
 //
 //   - true (historical): emits \AMCcleardoublepage inside \onecopy so each

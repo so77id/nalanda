@@ -163,7 +163,7 @@ func writeQuestion(b *strings.Builder, q bank.Question, listingsDir string) {
 		// (ADR-0033 §The sheet carries its own arithmetic).
 		fmt.Fprintf(b, "  \\begin{%s}{%s}\n", env, q.ID)
 	}
-	fmt.Fprintf(b, "    %s\n", escapeLatex(strings.TrimSpace(q.Statement)))
+	fmt.Fprintf(b, "    %s\n", escapeBankText(strings.TrimSpace(q.Statement)))
 
 	if q.Code != nil {
 		// Absolute path: AMC compiles from its own working directory, so
@@ -210,7 +210,7 @@ func emitAlternative(b *strings.Builder, text string, correct bool) {
 	if correct {
 		macro = "\\correctchoice"
 	}
-	fmt.Fprintf(b, "      %s{%s}\n", macro, escapeLatex(strings.TrimSpace(text)))
+	fmt.Fprintf(b, "      %s{%s}\n", macro, escapeBankText(strings.TrimSpace(text)))
 }
 
 func writeSheet(b *strings.Builder, in Input) {
@@ -328,4 +328,22 @@ func escapeLatex(s string) string {
 		">", "\\textgreater{}",
 	)
 	return replacer.Replace(s)
+}
+
+// codeFontPattern matches an MDX-style backtick pair: the book's inline
+// code, which the sheet renders as \texttt. A backtick without its pair is
+// not matched and stays where it was — it renders as a quote mark, which is
+// the same behaviour the sheet had before this transform existed.
+var codeFontPattern = regexp.MustCompile("`([^`]+)`")
+
+// escapeBankText is the Statement / Alternatives pipeline: TeX specials
+// escaped, then backtick pairs rendered as code. Escaping runs FIRST so the
+// \texttt command itself is not escaped, and the pair pattern survives it
+// intact because backticks are not special to TeX.
+//
+// A raw backtick is a quote mark on paper: the sheet would read 'int' where
+// the author wrote `int`. The professor-typed control NAME goes through
+// escapeLatex alone — it is plain text, not MDX (issue #193 S3).
+func escapeBankText(s string) string {
+	return codeFontPattern.ReplaceAllString(escapeLatex(s), `\texttt{$1}`)
 }
