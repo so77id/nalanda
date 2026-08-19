@@ -287,6 +287,49 @@ func TestStatementAndAlternativesAreEscapedBeforeEmission(t *testing.T) {
 	}
 }
 
+// `<` and `>` arrive from MDX as plain text too (`>>`, `<<` in inline code)
+// and are not TeX specials in general — but babel-spanish makes them ACTIVE,
+// and an active `>` that meets the closing brace of a `\correctchoice{...}`
+// swallows it, unwinding the whole question's group structure.
+//
+// Regression from prod 2026-08-19 (issue #193): the pregunta
+// `tres-diferencias-de-operadores` carried the alternative "`>>` rellena
+// siempre con ceros…", and generating Control 1 failed in
+// `auto-multiple-choice prepare` — reproduced against the worker image with
+// that single question, and shown to compile clean once `>` is emitted as
+// `\textgreater` or babel-spanish is absent.
+func TestAngleBracketsAreEscapedBeforeEmission(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "corrimiento", Document: "welcome", Anchor: "hola",
+				Type:      bank.TypeSimple,
+				Statement: "¿Qué hace `>>` en Java?",
+				Alternatives: []string{
+					"corre `>>` a la derecha",
+					"corre `<<` a la izquierda",
+					"nada",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	for _, want := range []string{
+		`\textgreater{}\textgreater{}`,
+		`\textless{}\textless{}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("angle brackets were not escaped: missing %q in output", want)
+		}
+	}
+	for _, unwant := range []string{"`>>`", "`<<`"} {
+		if strings.Contains(out, unwant) {
+			t.Errorf("angle brackets emitted UNESCAPED: %q found in output — babel-spanish's active `>` would swallow the closing brace and break the compile", unwant)
+		}
+	}
+}
+
 // Issue #185: the generator branches on Input.DuplexPadding.
 //
 //   - true (historical): emits \AMCcleardoublepage inside \onecopy so each
