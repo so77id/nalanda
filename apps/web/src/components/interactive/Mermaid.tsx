@@ -44,6 +44,14 @@ export function Mermaid({ source, title }: MermaidProps) {
 
     let cancelled = false;
 
+    // Every attempt starts clean: a failed render must not be a dead end.
+    // The previous paint (or the absence of one) is cleared here, and the
+    // error is dropped the moment a new attempt begins — otherwise the error
+    // branch unmounts nothing (the figure stays mounted below) but the stale
+    // SVG would keep showing as if it were the current source's paint.
+    el.innerHTML = '';
+    setError(null);
+
     (async () => {
       try {
         const { default: mermaid } = await import('mermaid');
@@ -77,23 +85,20 @@ export function Mermaid({ source, title }: MermaidProps) {
     );
   }
 
-  if (error !== null) {
-    return (
-      <AuthoringError component="Mermaid">
-        Mermaid rechazó el diagrama: <code>{error}</code>. Revisá la sintaxis en{' '}
-        <a href="https://mermaid.js.org/" rel="noreferrer">
-          mermaid.js.org
-        </a>
-        .
-      </AuthoringError>
-    );
-  }
-
   return (
     <figure
-      className="not-prose my-6 flex justify-center overflow-x-auto rounded-lg border border-rule bg-surface p-4"
+      className="not-prose my-6 flex flex-col justify-center overflow-x-auto rounded-lg border border-rule bg-surface p-4"
       aria-label={title ?? 'diagrama'}
     >
+      {error !== null && (
+        <AuthoringError component="Mermaid">
+          Mermaid rechazó el diagrama: <code>{error}</code>. Revisá la sintaxis en{' '}
+          <a href="https://mermaid.js.org/" rel="noreferrer">
+            mermaid.js.org
+          </a>
+          .
+        </AuthoringError>
+      )}
       <div ref={container} data-mermaid-source={source} className="max-w-full" />
     </figure>
   );

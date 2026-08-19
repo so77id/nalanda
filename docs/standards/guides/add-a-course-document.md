@@ -32,6 +32,9 @@ content/courses/sample-course/
 ├── 04-planificacion.mdx       # presentation: none     — book-only; <SheetEmbed> around the live plan
 ├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>, plus a markdown ##
 ├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>, plus two markdown ##
+├── 08-referencias-null-igualdad.mdx  # presentation: explicit — uses <PredictOutput> + <Exercise>
+├── 09-arrays-y-funciones.mdx  # presentation: explicit — uses <RecursionTree> + <Exercise> + <CodeEditor>
+├── 10-objetos.mdx             # presentation: explicit — uses <Mermaid> (the only worked example) + <PredictOutput> + <Exercise>
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -575,6 +578,43 @@ build on the `@` (`Unexpected character '@' (U+0040) in member name`). GFM
 autolinks the bare address anyway, so the angle brackets buy nothing and cost
 a red build — hit while writing `01-bienvenida.mdx` (#120).
 
+5g. **Draw a diagram (optional)**: `<Mermaid>` renders a diagram from its
+source, written as a prop — a class diagram today, and the same surface will
+carry sequence, state and entity-relationship diagrams as the course needs
+them (ADR-0040). The source is exactly what would sit inside a ```mermaid
+fence:
+
+```mdx
+<Mermaid
+  title="Un mismo dispatch, dos jerarquías"
+  source={`classDiagram
+    class Vehiculo {
+        +describir()
+    }
+    class Auto
+    Vehiculo <|-- Auto`}
+/>
+```
+
+- **`source` is required** — missing or blank renders an authoring error, not
+  a broken figure. `title` is the figure's accessible label (defaults to
+  "diagrama").
+- **The library is heavy and lazy.** The mermaid chunks (~200 kB gzipped)
+  download only when a page actually mounts a diagram, once per reader. Keep
+  to one diagram per section — the budget ADR-0040 declares.
+- **The paint exists only in a real browser.** The suite parses the syntax of
+  every authored diagram with the real library
+  (`app/mermaidSources.test.ts`), but cannot lay the diagram out — open it in
+  `npm run preview`, in both themes, in the book and on its slide. Same reason
+  as `<MemoryDiagram>` and `<PredictOutput>` below.
+- A diagram mermaid rejects renders the library's message in an authoring
+  banner and re-renders on the next source or theme change — the error is for
+  you, not for the reader.
+
+Decisions behind all this: ADR-0040. Worked example:
+`content/courses/sample-course/10-objetos.mdx` (§7); live:
+`/catalog/c/Mermaid`.
+
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
    a spreadsheet in **6g**: the asset lives **beside the `.mdx` that uses
    it**, addressed relatively, and a subfolder is fine when there are several
@@ -982,6 +1022,10 @@ is not scaled at all.
       infinite loop), and the reveal panel prints. Same reason as the exercise
       case above — a snippet that fails to compile or that hangs is invisible
       to the build and the suite.
+- [ ] Every `<Mermaid>` opened in `npm run preview` and **looked at**: the
+      diagram paints (no authoring banner, no empty rectangle) in the book, on
+      its slide, and in both themes. The paint runs only in a real browser —
+      nothing in the build or the suite can see it (ADR-0040 §Consequences).
 - [ ] Every `<SheetEmbed>` opened at `/nalanda/d/<id>` under
       `npm run build && npm run preview`, and **looked at**: the grid is on
       screen — not Google's request-access page, not a rectangle stuck on

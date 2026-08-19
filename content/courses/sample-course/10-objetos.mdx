@@ -227,10 +227,12 @@ class Uso {
 </PredictOutput>
 
 El compilador no discute intenciones: `saldo` es `private` y `Uso` está
-afuera. El error — `saldo has private access in Cuenta` — es la puerta
-funcionando. En C++ el mismo descuido compilaba (o solo advertía); en Java es
-un error de compilación, y eso es una característica: el modelo de
-visibilidad se hace cumplir, no se sugiere.
+afuera. El error — `The field Cuenta.saldo is not visible` — es la puerta
+funcionando, y es el mensaje real que el editor te muestra al correr, letra
+por letra. C++ rechaza el mismo descuido en compilación, igual que aquí: la
+visibilidad se hace cumplir en ambos lenguajes. Lo que cambia es la sintaxis
+— por miembro en vez de en bloque — y que en Java el mensaje te llega en el
+mismo panel donde corre el código.
 </Slide>
 
 ## Herencia
@@ -457,10 +459,10 @@ class Persona implements Formal {
 
 No compila. `implements` es un contrato: el compilador exige el método
 `tratarDe()`, y `saludar()` no lo cumple. El error —
-`Persona is not abstract and does not override abstract method tratarDe() in Formal` —
-te dice exactamente qué falta y dónde. («abstract» es la clase de la nota de
-§5: no la necesitas hoy para leer el mensaje — se lee «no cumpliste el
-contrato».)
+`The type Persona must implement the inherited abstract method Formal.tratarDe()` —
+te dice exactamente qué falta y dónde, con el mensaje real del compilador de
+la plataforma. («abstract» es la clase de la nota de §5: no la necesitas hoy
+para leer el mensaje — se lee «no cumpliste el contrato».)
 </Slide>
 
 ## Polimorfismo
@@ -678,10 +680,11 @@ public class Main {
 
 </PredictOutput>
 
-Imprime `2`. Los dos objetos tienen `hashCode` por defecto distinto, caen a
-buckets distintos, y `HashSet` nunca llega a preguntar por `equals`. El
-método que escribiste con cuidado existe, y la estructura lo ignora por
-completo. La mitad del trabajo no cuenta: o los dos, o ninguno.
+Imprime `2`. Los dos objetos tienen `hashCode` por defecto distinto,
+normalmente caen a buckets distintos, y `HashSet` ni siquiera llega a
+preguntar por `equals`. El método que escribiste con cuidado existe, y la
+estructura casi nunca lo consulta. La mitad del trabajo no cuenta: o los
+dos, o ninguno.
 </Slide>
 
 <Slide title="La corrección">
@@ -726,8 +729,8 @@ public class Main {
 />
 
 El mismo test, distinto resultado: `1`. Con `hashCode` correcto los dos
-objetos caen al mismo bucket, `HashSet` pregunta por `equals`, y la segunda
-`Ana` se descarta como duplicada. En la práctica los generas con el IDE
+objetos caen al mismo bucket, `HashSet` pregunta por `equals`, y `Anita`
+(mismo RUT) se descarta como duplicada. En la práctica los generas con el IDE
 («Generate equals() and hashCode()»); aquí van a mano para que veas de qué
 están hechos.
 </Slide>
@@ -1062,7 +1065,7 @@ Una clase `Persona` sobrescribe `equals` (compara por RUT) pero no
 sobrescribe `hashCode`. Se guardan dos `Persona` con el mismo RUT en un
 `HashSet`. ¿Cuántos elementos tiene el `HashSet` al final?
 
-- [x] Dos: los `hashCode` por defecto los mandan a buckets distintos
+- [x] Dos: los `hashCode` por defecto normalmente caen en buckets distintos
 - [ ] Uno — `equals` decide que son la misma persona
 - [ ] Cero — el `HashSet` los rechaza a los dos
 - [ ] Lanza excepción

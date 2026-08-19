@@ -127,8 +127,7 @@ browser at runtime; jsdom lays nothing out, does not implement the SVG
 measurement APIs the layout engine needs, and the library refuses to render
 against it. The component's unit test therefore pins **what the component
 declares** (the container attributes, the source it hands the library, the
-authoring error branch) and the paint itself is confirmed in a real browser at
-the WP's S10 browser check, in both themes. Same shape as `<RecursionTree>`
+authoring error branch) and the paint itself is confirmed in a real browser at the WP's S9 browser check, in both themes. Same shape as `<RecursionTree>`
 (#78, argument identity pinned in jsdom, colour verified in a browser) and
 `<MemoryDiagram>` (ADR-0028, the drawing verified in a browser because the
 listing is generated from a run).
@@ -147,6 +146,14 @@ Miguel approved Mermaid at issue-refinement time (2026-08-18), and this ADR
 formalises that decision. Future diagram needs — sequence diagrams, ERDs, the
 course-graph rewrite — do not need another ADR; they use the surface this one
 adopts.
+
+**A new third-party render surface, gated at `securityLevel: 'strict'`.** The
+library's SVG is injected into the page via `innerHTML`, so strict mode is the
+whole defense: it enables mermaid's label escaping and its final DOMPurify
+pass over the produced SVG (both verified against the locked 11.16.1), and it
+disables click bindings. The setting is pinned by a test — the same shape as
+the KaTeX `trust: false` pin — and recorded with its review triggers in
+`docs/security-notes.md` (§Accepted invariants).
 
 **A future revisit.** Mermaid's rendering is not free at runtime: the library
 parses the source, runs its layout engine and produces SVG on every mount,

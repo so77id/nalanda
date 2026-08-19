@@ -97,7 +97,7 @@ describe('Mermaid', () => {
     expect(mermaid.initialize).toHaveBeenCalledWith(expect.objectContaining({ theme: 'dark' }));
   });
 
-  it('reports the library failure as an authoring error, not a broken figure', async () => {
+  it('reports the library failure as an authoring error, and the figure stays mounted for recovery', async () => {
     vi.mocked(mermaid.render).mockRejectedValueOnce(new Error('Parse error on line 1'));
 
     render(<Mermaid source={DIAGRAM} />);
@@ -106,6 +106,65 @@ describe('Mermaid', () => {
       expect(screen.getByText(/Mermaid rechazó el diagrama/)).toBeInTheDocument(),
     );
     expect(screen.getByText(/Parse error on line 1/)).toBeInTheDocument();
-    expect(screen.queryByRole('figure')).not.toBeInTheDocument();
+    // The figure (and its container) stays mounted: a corrected source or a
+    // theme change must be able to paint into it — the error branch cannot be
+    // a dead end (review finding COR-3).
+    expect(screen.getByRole('figure')).toBeInTheDocument();
+  });
+
+  it('recovers after a failed render when the attempt starts again', async () => {
+    vi.mocked(mermaid.render).mockRejectedValueOnce(new Error('Parse error on line 1'));
+
+    render(<Mermaid source={DIAGRAM} />);
+    await waitFor(() =>
+      expect(screen.getByText(/Mermaid rechazó el diagrama/)).toBeInTheDocument(),
+    );
+
+    // A new attempt: flip the theme — one of the effect's deps — so a fresh
+    // attempt starts without touching the source. The previous error must go
+    // away and the stub svg must land in the container.
+    document.documentElement.dataset.theme = 'dark';
+
+    await waitFor(() => expect(mermaid.render).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.queryByText(/Mermaid rechazó el diagrama/)).not.toBeInTheDocument(),
+    );
+    const figure = screen.getByRole('figure');
+    await waitFor(() =>
+      expect(figure.querySelector('[data-testid="fake-mermaid"]')).not.toBeNull(),
+    );
+  });
+
+  it('re-renders when the theme changes after mount', async () => {
+    render(<Mermaid source={DIAGRAM} />);
+
+    await waitFor(() => expect(mermaid.render).toHaveBeenCalledTimes(1));
+    const firstCall = vi.mocked(mermaid.render).mock.calls[0]!;
+    expect(firstCall[0]).toMatch(/^mermaid-/);
+
+    // The attribute half of useResolvedTheme: stamping the root fires the
+    // MutationObserver the hook subscribes with, so the effect re-runs with
+    // the new theme. (The id staying identical across re-renders is React's
+    // own useId contract, not something this component adds — the contract
+    // here is that the theme flip triggers a fresh render.)
+    document.documentElement.dataset.theme = 'dark';
+
+    await waitFor(() => expect(mermaid.render).toHaveBeenCalledTimes(2));
+    const secondCall = vi.mocked(mermaid.render).mock.calls[1]!;
+    expect(secondCall[0]).toMatch(/^mermaid-/);
+    // The re-render asks the library for the theme actually in force.
+    expect(mermaid.initialize).toHaveBeenLastCalledWith(expect.objectContaining({ theme: 'dark' }));
+  });
+
+  it('pins securityLevel strict — the only guard on the injected svg', async () => {
+    // The component injects the library's SVG via innerHTML, so 'strict' is
+    // the whole defense (label escaping + the final DOMPurify pass, ADR-0040
+    // and docs/security-notes.md). Same shape as the KaTeX trust:false pin.
+    render(<Mermaid source={DIAGRAM} />);
+
+    await waitFor(() => expect(mermaid.initialize).toHaveBeenCalledTimes(1));
+    expect(mermaid.initialize).toHaveBeenCalledWith(
+      expect.objectContaining({ securityLevel: 'strict' }),
+    );
   });
 });
