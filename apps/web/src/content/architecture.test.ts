@@ -229,6 +229,18 @@ describe('architecture: content invariants', () => {
         'sub-detalle de §5: la mecánica que muestra se mide en las preguntas ancladas a la sección',
       'la-trampa-del-override':
         'actividad: el alumno predice la salida del typo sin @Override; la pregunta que mide el mecanismo vive en "Herencia"',
+      interfaces:
+        'sección principal de §6; la cubre multi-interfaces cuando aterrice el bloque <Questions> (S8)',
+      'interfaces-para-que-sirven':
+        'motivación de la sección; el mecanismo (implements como contrato) se mide en la pregunta anclada a "Interfaces"',
+      'una-interfaz-una-clase-que-la-cumple':
+        'sub-detalle de §6: el primer ejemplo; la regla (implements obliga a definir el método) se mide en la pregunta anclada a la sección',
+      'la-misma-clase-varias-interfaces':
+        'sub-detalle de §6: la extensión a varios contratos se mide en la pregunta anclada a la sección',
+      'una-interfaz-del-sistema-comparable':
+        'ejemplo detallado: lo que mide una pregunta va en la sección principal de §6',
+      'la-trampa-implements-sin-cumplir':
+        'actividad: el alumno predice el error de compilación; el mecanismo se mide en la pregunta anclada a "Interfaces"',
     },
   };
 

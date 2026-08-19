@@ -340,3 +340,127 @@ programa compila, corre, e imprime lo contrario de lo que querías. Con
 `@Override` encima de `saluar`, el compilador lo habría atajado en build:
 «el método no sobrescribe nada del padre».
 </Slide>
+
+**Nota:** Java tiene además `abstract class` — una clase que no se instancia,
+solo se hereda, y que puede mezclar métodos con y sin implementación. La vas
+a leer mucho en el JDK (Collections está lleno de ellas), aunque escribas
+pocas.
+
+## Interfaces
+
+<Slide title="Interfaces · para qué sirven">
+Una interfaz dice **qué métodos hay** sin decir cómo se hacen. Es un
+**contrato**: cualquier clase que la implementa se compromete a ofrecer esos
+métodos, cada una a su manera.
+
+Sirven para que un mismo verbo — `comparar`, `ejecutar`, `imprimir` — lo
+puedan cumplir clases muy distintas, y el resto del programa las trate igual.
+Media biblioteca estándar de Java funciona así: `Comparable`, `Iterable`,
+`Runnable`, `Iterator`… — todas son interfaces. Es la herramienta que más
+vas a usar de este capítulo.
+</Slide>
+
+<Slide title="Una interfaz, una clase que la cumple">
+```java
+public interface Formal {
+  String tratarDe();
+}
+
+public class Persona implements Formal {
+  @Override
+  public String tratarDe() { return "usted"; }
+}
+```
+
+La interfaz declara el método; `implements` obliga a la clase a definirlo.
+Un `Persona` es ahora **también** un `Formal` — puede ir a cualquier parte
+que pida un `Formal`. Nota el `@Override` de §5 haciendo su trabajo: si
+escribieras `tratarde()` con typo, el compilador lo atajaría aquí mismo.
+</Slide>
+
+<Slide title="La misma clase, varias interfaces">
+Una clase puede cumplir **varios** contratos a la vez, separados por coma:
+
+```java
+public interface Serializable { String aString(); }
+
+public class Persona implements Formal, Serializable {
+  @Override public String tratarDe() { return "usted"; }
+  @Override public String aString()  { return "persona"; }
+}
+```
+
+`Persona` puede pasar por cualquier lugar que pida un `Formal` **o** un
+`Serializable`. Esto es lo que las estructuras de datos de Java explotan
+constantemente — `TreeSet` acepta cualquier cosa que sea `Comparable`,
+`HashMap` acepta cualquier cosa que sea `Object` (con `equals`+`hashCode`,
+§8), y así.
+</Slide>
+
+<Slide title="Una interfaz del sistema: Comparable">
+Los mismos `Integer`/`Long`/`Double` que en §5 vimos como `Number` (por
+herencia), acá los miras desde otro lado: **también** implementan
+`Comparable` (por interfaz). Un mismo objeto vive las dos vidas.
+
+`Comparable` vive en `java.lang` y define UN método: «cuando te comparen
+contigo, ¿cómo respondes?». Media biblioteca la implementa:
+
+```java
+Integer.valueOf(3).compareTo(5);              //  -1  (this < arg)
+"pera".compareTo("manzana");                  //  > 0 (this > arg)
+LocalDate.now().compareTo(LocalDate.now());   //   0
+```
+
+El mismo `Integer`, dos familias:
+
+```java
+Integer x = 3;
+
+double s = sumar(x, 4.5);      // como Number (herencia, §5)
+int c    = x.compareTo(5);     // como Comparable (interfaz, §6) → -1
+```
+
+Y tu propia clase puede unirse al club:
+
+```java
+public class Fecha implements Comparable<Fecha> {
+  int año, mes, dia;
+
+  @Override
+  public int compareTo(Fecha o) {
+    // negativo si this < o, 0 si igual, positivo si this > o
+    if (año != o.año) return año - o.año;
+    if (mes != o.mes) return mes - o.mes;
+    return dia - o.dia;
+  }
+}
+```
+
+Con esto solo, `TreeSet<Fecha>` y `Collections.sort(listaDeFechas)` ya saben
+ordenarla — sin cambiar una línea del código de esas estructuras. Eso es lo
+que muestra §7. (Los `<Fecha>` entre los `<...>` son **genéricos** — te los
+explica el próximo documento.)
+</Slide>
+
+<Slide title="La trampa: implements sin cumplir">
+<PredictOutput title="El contrato no se negocia">
+
+¿Compila?
+
+```java predict
+interface Formal { String tratarDe(); }
+
+class Persona implements Formal {
+    public String saludar() { return "hola"; }
+}
+```
+
+</PredictOutput>
+
+No compila. `implements` es un contrato: el compilador exige el método
+`tratarDe()`, y `saludar()` no lo cumple. El error —
+`Persona is not abstract and does not override abstract method tratarDe() in Formal` —
+te dice exactamente qué falta y dónde. («abstract» es la clase de la nota de
+§5: no la necesitas hoy para leer el mensaje — se lee «no cumpliste el
+contrato».)
+</Slide>
