@@ -2,6 +2,7 @@ package controls_test
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -240,6 +241,39 @@ func TestCreateWritesFilesAndPersistsTheControl(t *testing.T) {
 	}
 	if !strings.Contains(string(source), "\\AMCrandomseed{1242}") {
 		t.Errorf("source.tex is missing the configured seed")
+	}
+
+	// The pool snapshot (issue #198) sits beside the source: the control's
+	// metadata plus every pool question in full, self-contained.
+	snapPath := filepath.Join(workDir, "controls", got.ID, "pool.json")
+	raw, err := os.ReadFile(snapPath)
+	if err != nil {
+		t.Fatalf("read pool.json: %v", err)
+	}
+	var snap controls.PoolSnapshot
+	if err := json.Unmarshal(raw, &snap); err != nil {
+		t.Fatalf("pool.json does not parse: %v\n---\n%s", err, raw)
+	}
+	if snap.Version != 1 {
+		t.Errorf("pool.json version = %d, want 1", snap.Version)
+	}
+	if snap.Control.ID != got.ID || snap.Control.Name != "Control 1" {
+		t.Errorf("pool.json control = %+v", snap.Control)
+	}
+	if snap.Control.Seed != 1242 {
+		t.Errorf("pool.json seed = %d, want 1242", snap.Control.Seed)
+	}
+	if snap.Control.QuestionsPerCopy != 3 || snap.Control.Copies != 5 {
+		t.Errorf("pool.json counts = %d/%d, want 3/5",
+			snap.Control.QuestionsPerCopy, snap.Control.Copies)
+	}
+	if len(snap.Pool) != 4 {
+		t.Fatalf("pool.json pool = %d questions, want 4 (the fixture range)", len(snap.Pool))
+	}
+	for i, q := range snap.Pool {
+		if q.ID == "" || q.Statement == "" || len(q.Alternatives) == 0 || len(q.Correct) == 0 {
+			t.Errorf("pool.json pool[%d] is not self-contained: %+v", i, q)
+		}
 	}
 }
 

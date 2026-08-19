@@ -149,6 +149,10 @@ func routes(deps Deps) []Route {
 			Method: http.MethodGet, Path: handler.ControlCorrigePath,
 			Handler: deps.Controls.CorrigePDF,
 		},
+		{
+			Method: http.MethodGet, Path: handler.ControlPoolJSONPath,
+			Handler: deps.Controls.PoolJSON,
+		},
 		// WP-F: the upload target. Gated by default (no Public), CSRF
 		// enforced because the method is POST.
 		{

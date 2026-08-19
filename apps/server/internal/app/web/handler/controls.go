@@ -22,11 +22,12 @@ import (
 // every other route in this surface (issue #151 §Routes). WP-F extends the
 // set with the scan-upload target (ControlScansPath in scans.go).
 const (
-	ControlsPath       = "/controls"
-	ControlsNewPath    = "/controls/new"
-	ControlDetailPath  = "/controls/{id}"
-	ControlSujetPath   = "/controls/{id}/sujet.pdf"
-	ControlCorrigePath = "/controls/{id}/corrige.pdf"
+	ControlsPath        = "/controls"
+	ControlsNewPath     = "/controls/new"
+	ControlDetailPath   = "/controls/{id}"
+	ControlSujetPath    = "/controls/{id}/sujet.pdf"
+	ControlCorrigePath  = "/controls/{id}/corrige.pdf"
+	ControlPoolJSONPath = "/controls/{id}/pool.json"
 )
 
 // Defaults for the form fields. §C17: a control is four questions under a
@@ -183,6 +184,7 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 		Control:      toDetailedControl(c, h.Bank),
 		SujetURL:     controlSujetURL(c.ID),
 		CorrigeURL:   controlCorrigeURL(c.ID),
+		PoolJSONURL:  controlPoolJSONURL(c.ID),
 		ScansURL:     controlScansURL(c.ID),
 		ReanalyzeURL: controlReanalyzeURL(c.ID),
 		CloseURL:     controlCloseURL(c.ID),
@@ -213,18 +215,28 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// SujetPDF and CorrigePDF stream the PDF files from the shared volume.
-// Wrote-through helpers so a caller cannot accidentally hand back
-// something outside the control's own directory.
+// SujetPDF, CorrigePDF and PoolJSON stream the control's files from the
+// shared volume. Paths are computed through the Service's wrote-through
+// helpers so a caller cannot accidentally hand back something outside the
+// control's own directory.
 func (h *Controls) SujetPDF(w http.ResponseWriter, r *http.Request) {
-	h.servePDF(w, r, "sujet.pdf")
+	h.serveControlFile(w, r, h.Service.SujetPath, "sujet.pdf", "application/pdf", "inline",
+		"El PDF del control no está disponible. Puede que se haya limpiado del volumen compartido.")
 }
 
 func (h *Controls) CorrigePDF(w http.ResponseWriter, r *http.Request) {
-	h.servePDF(w, r, "corrige.pdf")
+	h.serveControlFile(w, r, h.Service.CorrigePath, "corrige.pdf", "application/pdf", "inline",
+		"El PDF del control no está disponible. Puede que se haya limpiado del volumen compartido.")
 }
 
-func (h *Controls) servePDF(w http.ResponseWriter, r *http.Request, name string) {
+// PoolJSON streams the pool snapshot written at Create time (issue #198).
+// Attachment rather than inline: it is backup material, not a page.
+func (h *Controls) PoolJSON(w http.ResponseWriter, r *http.Request) {
+	h.serveControlFile(w, r, h.Service.PoolJSONPath, "pool.json", "application/json", "attachment",
+		"El respaldo de preguntas del control no está disponible.")
+}
+
+func (h *Controls) serveControlFile(w http.ResponseWriter, r *http.Request, pathFor func(string) string, name, contentType, disposition, missingMsg string) {
 	id := r.PathValue("id")
 	if !isValidControlID(id) {
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
@@ -238,41 +250,31 @@ func (h *Controls) servePDF(w http.ResponseWriter, r *http.Request, name string)
 			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
 			return
 		}
-		h.Log.Error("reading a control for PDF", "error", err, "id", id)
+		h.Log.Error("reading a control for a file", "error", err, "id", id)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
 			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
 	}
 
-	var path string
-	switch name {
-	case "sujet.pdf":
-		path = h.Service.SujetPath(id)
-	case "corrige.pdf":
-		path = h.Service.CorrigePath(id)
-	default:
-		middleware.WriteError(w, r, http.StatusNotFound, "Descarga no disponible.")
-		return
-	}
+	path := pathFor(id)
 
 	f, err := os.Open(path)
 	if err != nil {
-		h.Log.Warn("serving control PDF", "id", id, "name", name, "error", err)
-		middleware.WriteError(w, r, http.StatusNotFound,
-			"El PDF del control no está disponible. Puede que se haya limpiado del volumen compartido.")
+		h.Log.Warn("serving control file", "id", id, "name", name, "error", err)
+		middleware.WriteError(w, r, http.StatusNotFound, missingMsg)
 		return
 	}
 	defer func() { _ = f.Close() }()
 
 	info, err := f.Stat()
 	if err != nil {
-		h.Log.Error("stat control PDF", "id", id, "name", name, "error", err)
+		h.Log.Error("stat control file", "id", id, "name", name, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
 			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
 	}
-	w.Header().Set("Content-Type", "application/pdf")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`inline; filename="control-%s-%s"`, id, name))
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`%s; filename="control-%s-%s"`, disposition, id, name))
 	http.ServeContent(w, r, name, info.ModTime(), f)
 }
 
@@ -483,6 +485,10 @@ func controlSujetURL(id string) string {
 
 func controlCorrigeURL(id string) string {
 	return controlDetailURL(id) + "/corrige.pdf"
+}
+
+func controlPoolJSONURL(id string) string {
+	return controlDetailURL(id) + "/pool.json"
 }
 
 func controlScansURL(id string) string {
