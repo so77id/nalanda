@@ -263,6 +263,10 @@ describe('architecture: content invariants', () => {
         'actividad: el alumno predice el tamaño del HashSet; el mecanismo se mide en equals-sin-hashcode, anclada a la sección',
       'la-correccion':
         'actividad: el alumno corre la corrección; el mecanismo se mide en las preguntas ancladas a la sección',
+      ejercicios:
+        'actividad: cinco problemas para escribir; la materia se mide en las preguntas ancladas a las secciones que los preparan',
+      'lo-que-sigue':
+        'cierre del documento: anuncia el siguiente (genéricos), no enseña nada propio',
     },
   };
 

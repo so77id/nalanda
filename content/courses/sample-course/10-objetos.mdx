@@ -733,3 +733,209 @@ objetos caen al mismo bucket, `HashSet` pregunta por `equals`, y la segunda
 («Generate equals() and hashCode()»); aquí van a mano para que veas de qué
 están hechos.
 </Slide>
+
+## Ejercicios
+
+Cinco problemas para escribir tú. Completa lo que falta y presiona
+**Comprobar**: tu código se compila junto a una batería de casos que lo
+llaman y te dicen cuáles pasaron. Los casos aparecen después de la primera
+ejecución.
+
+Ninguno necesita ciclos, y todos los inputs son chicos: lo que se evalúa es
+que la clase o el método cumpla su contrato, no que resista datos grandes.
+
+<Exercise title="1. La clase Pair">
+
+Escribe la clase `Pair` con:
+
+- dos campos privados `first` y `second`, ambos `int`
+- un constructor que reciba ambos y los guarde
+- getters `first()` y `second()`
+- un `toString()` que devuelva `(3, 7)` para `new Pair(3, 7)` — con
+  paréntesis y coma
+
+```java starter
+class Pair {
+    // Dos campos privados first y second, ambos int.
+    // Un constructor que los reciba y los guarde.
+    // Getters first() y second().
+    // toString() que devuelva "(3, 7)" para new Pair(3, 7).
+}
+```
+
+```java test
+Pair p = new Pair(3, 7);
+check(p.first(), 3);
+check(p.second(), 7);
+check(p.toString(), "(3, 7)");
+check(new Pair(0, -1).toString(), "(0, -1)");
+check(new Pair(12, 34).first(), 12);
+```
+
+</Exercise>
+
+<Exercise title="2. Un toString legible">
+
+`Persona` te viene con `nombre` (String) y `rut` (int). Sobrescribe
+`toString` para que `new Persona("Ana", 12345)` se imprima como
+`Ana#12345`. Formato exacto: `nombre#rut`, sin espacios.
+
+```java starter
+class Persona {
+    private String nombre;
+    private int rut;
+
+    public Persona(String nombre, int rut) {
+        this.nombre = nombre;
+        this.rut = rut;
+    }
+
+    // Sobrescribe toString() con el formato nombre#rut, sin espacios.
+}
+```
+
+```java test
+check(new Persona("Ana", 12345).toString(), "Ana#12345");
+check(new Persona("Luis", 1).toString(), "Luis#1");
+check(new Persona("", 0).toString(), "#0");
+```
+
+</Exercise>
+
+<Exercise title="3. equals y hashCode para Persona">
+
+`Persona` tiene `nombre` (String) y `apellido` (String). Escribe `equals`
+para que dos personas sean iguales si **nombre Y apellido** coinciden. Y
+también `hashCode`, obviamente (§8) — la regla no tiene excepciones.
+
+Pista: `Objects.equals(a, b)` y `Objects.hash(a, b, ...)` de
+`java.util.Objects`.
+
+```java starter
+class Persona {
+    private String nombre;
+    private String apellido;
+
+    public Persona(String nombre, String apellido) {
+        this.nombre = nombre;
+        this.apellido = apellido;
+    }
+
+    // equals(): dos personas son iguales si nombre Y apellido coinciden.
+    // hashCode(): consistente con equals. Pista: Objects.equals y Objects.hash.
+}
+```
+
+```java test
+check(new Persona("Ana", "Soto").equals(new Persona("Ana", "Soto")), true);
+check(new Persona("Ana", "Soto").equals(new Persona("Ana", "Reyes")), false);
+check(new Persona("Ana", "Soto").equals(new Persona("Luis", "Soto")), false);
+check(new Persona("Ana", "Soto").equals(null), false);
+check(new Persona("Ana", "Soto").equals("Ana Soto"), false);
+check(new Persona("Ana", "Soto").hashCode(), new Persona("Ana", "Soto").hashCode());
+```
+
+</Exercise>
+
+<Exercise title="4. La interfaz Formal y sus saludos">
+
+Define la interfaz `Formal` con un método `String tratarDe()`. Implementa
+dos clases: `Saludo` devuelve `"buenos días"` y `Despedida` devuelve
+`"hasta luego"`.
+
+Escribe además el método `saludaTodos(Formal[] fs)`: llama `tratarDe()` en
+cada uno y devuelve los saludos unidos por un espacio. Sin saludos, devuelve
+`""`.
+
+```java starter
+// El contrato:
+interface Formal {
+    String tratarDe();
+}
+
+class Saludo implements Formal {
+    @Override
+    public String tratarDe() {
+        return "buenos días";
+    }
+}
+
+class Despedida implements Formal {
+    @Override
+    public String tratarDe() {
+        return "hasta luego";
+    }
+}
+
+class Solution {
+    // Llama tratarDe() en cada Formal y devuelve los saludos unidos por un
+    // espacio ("buenos días hasta luego"). Sin saludos: "".
+    static String saludaTodos(Formal[] fs) {
+        // tu código aquí
+        return "";
+    }
+}
+```
+
+```java test
+check(new Saludo().tratarDe(), "buenos días");
+check(new Despedida().tratarDe(), "hasta luego");
+check(Solution.saludaTodos(new Formal[]{ new Saludo(), new Despedida() }), "buenos días hasta luego");
+check(Solution.saludaTodos(new Formal[]{ new Despedida(), new Saludo() }), "hasta luego buenos días");
+check(Solution.saludaTodos(new Formal[0]), "");
+```
+
+</Exercise>
+
+<Exercise title="5. El bug del HashSet">
+
+Aquí tienes `Persona` con `equals` sobrescrito (compara por RUT) y
+`hashCode` **sin** sobrescribir. El test guarda dos personas con el mismo
+RUT en un `HashSet` y afirma que el tamaño es `1`. Falla.
+
+**Arregla el bug**: agrega lo que falta — no reescribas la clase. Con
+`equals` y `hashCode` de acuerdo, el test pasa.
+
+```java starter
+class Persona {
+    private String nombre;
+    private int rut;
+
+    public Persona(String nombre, int rut) {
+        this.nombre = nombre;
+        this.rut = rut;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof Persona)) return false;
+        Persona p = (Persona) o;
+        return rut == p.rut;
+    }
+
+    // hashCode falta a propósito — agrégalo, no reescribas la clase.
+    // Pista: Objects.hash(...) de java.util.Objects.
+}
+```
+
+```java test
+check(new Persona("Ana", 12345).equals(new Persona("Ana", 12345)), true);
+check(new Persona("Ana", 12345).hashCode(), new Persona("Ana", 12345).hashCode());
+
+java.util.HashSet<Persona> s = new java.util.HashSet<>();
+s.add(new Persona("Ana", 12345));
+s.add(new Persona("Ana", 12345));
+check(s.size(), 1);
+```
+
+</Exercise>
+
+## Lo que sigue
+
+Ya escribes tus propios tipos, los encajas en jerarquías o los haces cumplir
+contratos, y haces que dos objetos «tuyos» sean iguales cuando deben serlo.
+La siguiente pieza es cómo el compilador te ayuda a que un `Pair` de enteros
+no se mezcle con un `Pair` de strings — los **genéricos**. Y con ellos,
+`Comparable<T>` bien tipado, no `Comparable` a secas.
+
+Próximo documento: [[genericos-y-orden|Genéricos y orden]] (aún por venir).
