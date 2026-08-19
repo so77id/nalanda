@@ -78,8 +78,14 @@ CALLER_UID = 65532
 # The same two defaults read_capture.py declares — stated here rather than
 # derived from each other, because they are independent tunables and PAPER-CHECK
 # tells the professor to move one of them alone.
-TICKED = 0.30
-UNSURE = 0.10
+#
+# The values are the issue #197 defaults, chosen from a real batch (Jetson,
+# 2026-08-19): pencil X marks measured 0.14-0.32 darkness, painted squares
+# 0.62-1.00, empty boxes ~0.0 — 0.30 cut straight through the X band. 0.15
+# reads every X except the faintest tail, which falls into the doubtful band
+# (0.05-0.15) and stays visible in needs_review instead of being lost.
+TICKED = 0.15
+UNSURE = 0.05
 
 # AMC keeps its state in sqlite files inside the project directory, and nothing
 # about `prepare`/`analyse`/`note` is re-entrant over one project. Threading the
@@ -221,11 +227,40 @@ def generate(body):
     }
 
 
+def parse_thresholds(body):
+    """Read the optional ticked/unsure pair with the band rule enforced.
+
+    Absent fields fall back to the worker defaults. The band rule is the
+    reader's contract: unsure must sit strictly below ticked, or the
+    "doubtful" band the review queue relies on inverts. Issue #197: /analyse
+    takes the pair too (it used to be reanalyse-only), so the checks live
+    here once instead of twice.
+    """
+    try:
+        ticked = float(body.get("ticked", TICKED))
+        unsure = float(body.get("unsure", UNSURE))
+    except (TypeError, ValueError) as exc:
+        # A malformed field is the caller's mistake and can never succeed
+        # on retry — 400, not a 500 from the dispatcher's exception net.
+        raise Failed("ticked and unsure must be numbers", str(exc))
+    if not 0 < ticked < 1:
+        raise Failed(f"ticked must be in (0, 1), got {ticked}")
+    if not 0 <= unsure < ticked:
+        raise Failed(f"unsure must be in [0, ticked), got {unsure} vs ticked {ticked}")
+    return ticked, unsure
+
+
 def analyse(body):
-    """Read a scan batch and score it, in the one order that works."""
+    """Read a scan batch and score it, in the one order that works.
+
+    Optional `ticked`/`unsure` (issue #197): the darkness verdicts AND
+    AMC's `note` run at the same `ticked`, so the report's marks, scores
+    and any downstream annotated PDF agree on one threshold.
+    """
     project, data = project_paths(body)
     scan_pdf = under_work(body["scan_pdf"], must_exist=True)
     source = under_work(body["source"], must_exist=True)
+    ticked, unsure = parse_thresholds(body)
 
     scans = os.path.join(project, "scans")
     listing = os.path.join(scans, "list.txt")
@@ -247,7 +282,9 @@ def analyse(body):
     amc("prepare", "--mode", "b", "--with", "pdflatex",
         "--n-copies", read_capture.printed_copies(data),
         "--data", data, "--prefix", project, source)
-    amc("note", "--data", data, "--seuil", str(TICKED))
+    # Same threshold the reader will use: marks, scores and (later) the
+    # annotated PDF all agree — scoring.stale cannot come from this route.
+    amc("note", "--data", data, "--seuil", str(ticked))
 
     # ADR-0037: the server serves review-page images at
     # `<work>/controls/<id>/scans/copy-<N>-page-<M>.<ext>`. AMC's `getimages`
@@ -260,7 +297,7 @@ def analyse(body):
     # on every scanned copy of Miguel's first real batch.
     link_scans_to_contract_names(data, os.path.join(project, "scans"))
 
-    return read_capture.read(data, TICKED, UNSURE)
+    return read_capture.read(data, ticked, unsure)
 
 
 def scan_link_targets(rows):
@@ -316,17 +353,14 @@ def reanalyse(body):
     """Re-read a captured project at new thresholds, without a new capture.
 
     Same project directory as `/analyse`, no scan_pdf: the read runs against
-    the sqlite files AMC already wrote and only the darkness verdicts move.
-    The scores stay where `note` left them, and the report's `scoring.stale`
-    is the caller's cue (ADR-0031 §The report says which threshold).
+    the sqlite files AMC already wrote. Issue #197: `note` re-runs at the
+    NEW seuil too, so the scores follow the marks — the report's
+    `scoring.stale` can no longer come from this route (it survives for
+    whoever drives the CLI by hand with a divergent seuil, ADR-0031).
     """
     _project, data = project_paths(body)
-    ticked = float(body.get("ticked", TICKED))
-    unsure = float(body.get("unsure", UNSURE))
-    if not 0 < ticked < 1:
-        raise Failed(f"ticked must be in (0, 1), got {ticked}")
-    if not 0 <= unsure < ticked:
-        raise Failed(f"unsure must be in [0, ticked), got {unsure} vs ticked {ticked}")
+    ticked, unsure = parse_thresholds(body)
+    amc("note", "--data", data, "--seuil", str(ticked))
     return read_capture.read(data, ticked, unsure)
 
 
@@ -414,6 +448,10 @@ def annotate_copy(body):
 
     Idempotent: re-annotating a copy overwrites its file, so the review
     page always sees the latest correction.
+
+    Optional `ticked` (issue #197): `note` runs at it, so the drawn marks
+    and the verdict agree with the reader's verdict — the server sends the
+    control's stored threshold.
     """
     project, data = project_paths(body)
     copy = body["copy"]
@@ -426,6 +464,12 @@ def annotate_copy(body):
     if copy < 1:
         raise Failed("copy must be at least 1")
     overrides = body.get("overrides") or {}
+    try:
+        ticked = float(body.get("ticked", TICKED))
+    except (TypeError, ValueError) as exc:
+        raise Failed("ticked must be a number", str(exc))
+    if not 0 < ticked < 1:
+        raise Failed(f"ticked must be in (0, 1), got {ticked}")
 
     if not os.path.isfile(os.path.join(data, "capture.sqlite")):
         raise Failed("no capture in this project", "run /analyse first")
@@ -457,7 +501,7 @@ def annotate_copy(body):
     # annotate: `note` reads capture_zone.manual, which is the override
     # channel (re-patched or reset) applied above. Unconditional on purpose
     # — after a reset the raw scores must come back too.
-    amc("note", "--data", data, "--seuil", str(TICKED))
+    amc("note", "--data", data, "--seuil", str(ticked))
 
     sujet = os.path.join(project, "out", "sujet.pdf")
     if not os.path.isfile(sujet):

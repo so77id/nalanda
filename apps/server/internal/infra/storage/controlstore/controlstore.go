@@ -32,7 +32,7 @@ func New(db *sql.DB) *Store {
 // Compile-time proof the shape here is the one the domain asked for.
 var _ controls.Store = (*Store)(nil)
 
-const controlColumns = "id, name, application_date, from_document, from_section, to_document, to_section, questions_per_copy, copies, duplex_padding, state, created_at, created_by"
+const controlColumns = "id, name, application_date, from_document, from_section, to_document, to_section, questions_per_copy, copies, duplex_padding, ticked, unsure, state, created_at, created_by"
 
 // CreateControl writes the control, its pool and its copies in one
 // transaction. Rolled back on any failure so a control never appears in the
@@ -54,7 +54,7 @@ func (s *Store) CreateControl(ctx context.Context, control controls.Control, poo
 
 	if _, err := tx.ExecContext(ctx, `
         INSERT INTO control (`+controlColumns+`)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		control.ID,
 		control.Name,
 		nullableUnixSeconds(control.ApplicationDate),
@@ -62,6 +62,7 @@ func (s *Store) CreateControl(ctx context.Context, control controls.Control, poo
 		control.RangeTo.Document, control.RangeTo.Section,
 		control.QuestionsPerCopy, control.Copies,
 		boolToInt(control.DuplexPadding),
+		control.Ticked, control.Unsure,
 		string(control.State),
 		control.CreatedAt.Unix(),
 		control.CreatedBy,
@@ -172,6 +173,7 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		&c.RangeTo.Document, &c.RangeTo.Section,
 		&c.QuestionsPerCopy, &c.Copies,
 		&duplexPadding,
+		&c.Ticked, &c.Unsure,
 		&state, &createdAt, &c.CreatedBy,
 	); err != nil {
 		return controls.Control{}, err
@@ -252,6 +254,19 @@ func (s *Store) AnnotatedByCopy(ctx context.Context, controlID string, copyNumbe
 	}
 	a.GeneratedAt = time.Unix(generated, 0).UTC()
 	return a, true, nil
+}
+
+// SetControlThresholds persists the darkness pair a batch was read at
+// (issue #197). Last-wins: each upload and each reanalyse writes the pair
+// it used, and Annotate reads it back so the PDFs agree.
+func (s *Store) SetControlThresholds(ctx context.Context, controlID string, ticked, unsure float64) error {
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE control SET ticked = ?, unsure = ? WHERE id = ?`,
+		ticked, unsure, controlID,
+	); err != nil {
+		return fmt.Errorf("controlstore.SetControlThresholds %s: %w", controlID, err)
+	}
+	return nil
 }
 
 // ClearAnnotated deletes every anotado record for a control — the review

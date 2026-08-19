@@ -61,14 +61,21 @@ rollback died on it, issue #193).
 ```
 GET  /health                                          → { ok, amc }
 POST /generate      { project, source, copies }       → { sujet, corrige, calage, copies }
-POST /analyse       { project, scan_pdf, source }     → { pages, scoring, copies, needs_review }
-                    ⏱ MINUTES-CLASS — background job only, see below
-POST /reanalyse     { project, ticked, unsure }       → { pages, scoring, copies, needs_review }
+POST /analyse       { project, scan_pdf, source,      → { pages, scoring, copies, needs_review }
+                      [ticked], [unsure] }
+                    ⏱ MINUTES-CLASS — background job only, see below.
+                    ticked/unsure (issue #197): the darkness verdicts AND
+                    note run at the same ticked — marks, scores and any
+                    downstream annotated PDF agree on one threshold.
+POST /reanalyse     { project, [ticked], [unsure] }    → { pages, scoring, copies, needs_review }
+                    re-runs note at the new ticked, so the scores follow
+                    the marks (issue #197).
 POST /associate     { project, roster, code, key }    → { associations, refused_codes }
 POST /associate/set { project, copy, id }             → { copy, id, source }
 POST /annotate      { project, roster, key, out,      → { pdfs, unidentified }
                       [name_column], [verdict] }
-POST /annotate/copy { project, copy, [overrides] }   → { path, copy }
+POST /annotate/copy { project, copy, [overrides],     → { path, copy }
+                      [ticked] }
                     one annotated PDF for ONE copy (copy-N.pdf under
                     <project>/annotated/, overwritten on re-run).
                     overrides = { rut?, answers: [{question, marked}] }
@@ -234,10 +241,14 @@ because they need different repairs:
 | answer `blank` / `ambiguous` / `doubtful` | what did they mark | a human looks at the sheet |
 | `status: incomplete` | the copy printed questions this batch never captured | find the sheet and scan it again |
 
-A box above `ticked` (0.30) is marked; above `unsure` (0.10) it is **doubtful**
-and reported separately, never counted as an answer. That band is where a
-half-erased pencil lands, and it is the one region a solid synthetic fill (~0.63)
-can never reach — so it is exercised by its own batch in `03-read.sh`.
+A box at or above `ticked` (0.15) is marked; at or above `unsure` (0.05) it
+is **doubtful** and reported separately, never counted as an answer. Those
+defaults are issue #197's, chosen from a real batch (Jetson 2026-08-19):
+pencil X marks measured 0.14-0.32 darkness, painted squares 0.62-1.00 and
+empty boxes ~0.0 — the old 0.30 cut straight through the X band. The
+doubtful band is where a half-erased pencil or a faint X lands, and it is
+the one region a solid synthetic fill (~0.63) can never reach — so it is
+exercised by its own batch in `03-read.sh`.
 
 **Each answer says which kind of question it is** — `type: "simple"` or
 `type: "multiple"` — and on a multiple one **several marks are the answer**, not
@@ -265,10 +276,12 @@ correct → 4/4; one correct and nothing wrong → 3/4; only a wrong one → 1/4
 score comes back negative.
 
 **The report says which threshold those scores were computed at.** AMC's `note`
-scores at its own `--seuil` while `--ticked` is ours and tunable, so a re-read of
-a stored capture at another sensitivity moves the marks and leaves the scores
-where they were. `scoring: {seuil, ticked, stale}` carries both and flags the
-disagreement rather than hiding it.
+scores at its own `--seuil` while `--ticked` is ours and tunable, so a CLI
+re-read of a stored capture at another sensitivity moves the marks and leaves
+the scores where they were — `scoring: {seuil, ticked, stale}` carries both
+and flags the disagreement rather than hiding it. The HTTP routes never
+produce it: since issue #197 `/analyse` and `/reanalyse` run `note` at the
+same `ticked` they read with, so marks and scores move together.
 
 **Reading requires a SCORED batch**, not only a captured one: the reader opens
 `scoring.sqlite` as well, which exists only after `prepare --mode b` and `note`

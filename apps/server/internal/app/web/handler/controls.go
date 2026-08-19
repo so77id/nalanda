@@ -179,16 +179,18 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 	}
 
 	page := view.ControlDetailPage{
-		Page:          middleware.PageFor(r, c.Name),
-		Control:       toDetailedControl(c, h.Bank),
-		SujetURL:      controlSujetURL(c.ID),
-		CorrigeURL:    controlCorrigeURL(c.ID),
-		ScansURL:      controlScansURL(c.ID),
-		ReanalyzeURL:  controlReanalyzeURL(c.ID),
-		CloseURL:      controlCloseURL(c.ID),
-		MaxScanMB:     h.MaxScanBytes >> 20,
-		CurrentTicked: defaultTicked,
-		CurrentUnsure: defaultUnsure,
+		Page:         middleware.PageFor(r, c.Name),
+		Control:      toDetailedControl(c, h.Bank),
+		SujetURL:     controlSujetURL(c.ID),
+		CorrigeURL:   controlCorrigeURL(c.ID),
+		ScansURL:     controlScansURL(c.ID),
+		ReanalyzeURL: controlReanalyzeURL(c.ID),
+		CloseURL:     controlCloseURL(c.ID),
+		MaxScanMB:    h.MaxScanBytes >> 20,
+		// Issue #197: the pair the control was last read at — the prefill
+		// for both threshold forms and the "umbral actual" line.
+		CurrentTicked: c.Ticked,
+		CurrentUnsure: c.Unsure,
 		Graded:        c.State == controls.Graded,
 	}
 	readings, err := h.Service.ReadingsFor(r.Context(), c.ID)

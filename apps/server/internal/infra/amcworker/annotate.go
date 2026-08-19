@@ -23,6 +23,9 @@ func (c *Client) AnnotateCopy(ctx context.Context, req controls.AnnotateRequest)
 	if req.Copy < 1 {
 		return "", fmt.Errorf("%w: copy must be at least 1, got %d", controls.ErrAnnotatorRefused, req.Copy)
 	}
+	if req.Ticked <= 0 || req.Ticked >= 1 {
+		return "", fmt.Errorf("%w: invalid ticked %v", controls.ErrAnnotatorRefused, req.Ticked)
+	}
 
 	c.generateLock.Lock()
 	defer c.generateLock.Unlock()
@@ -31,6 +34,7 @@ func (c *Client) AnnotateCopy(ctx context.Context, req controls.AnnotateRequest)
 		Project:   req.Project,
 		Copy:      req.Copy,
 		Overrides: toWireOverrides(req.Overrides),
+		Ticked:    req.Ticked,
 	})
 	if err != nil {
 		return "", fmt.Errorf("amcworker: encode annotate request: %w", err)
@@ -95,6 +99,7 @@ type annotateRequestBody struct {
 	Project   string                 `json:"project"`
 	Copy      int                    `json:"copy"`
 	Overrides *annotateOverridesBody `json:"overrides,omitempty"`
+	Ticked    float64                `json:"ticked,omitempty"`
 }
 
 type annotateOverridesBody struct {

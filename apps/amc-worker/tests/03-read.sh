@@ -120,7 +120,12 @@ note_scoring() {
 check "the batch can be scored" note_scoring
 
 report="${work}/report.json"
-if ! run python3 /opt/amc-worker/read_capture.py --data /work/project/data >"$report" 2>/dev/null; then
+# The 0.30/0.10 pins below are deliberate: this file documents the
+# historical band that issue #197's defaults replaced, and its fixtures
+# (a faint mark at 0.15) were tuned to it. Explicit flags keep the pins
+# true whatever the CLI defaults are.
+if ! run python3 /opt/amc-worker/read_capture.py --data /work/project/data \
+    --ticked 0.30 --unsure 0.10 >"$report" 2>/dev/null; then
   fail "capture is readable as a report" "read_capture.py failed"
   summary
 fi
@@ -352,7 +357,8 @@ damaged_pipeline() {
 check "a batch with a faint mark and a missing page can be read" damaged_pipeline
 
 drep="${dwork}/report.json"
-drun python3 /opt/amc-worker/read_capture.py --data /work/project/data >"$drep" 2>/dev/null || true
+drun python3 /opt/amc-worker/read_capture.py --data /work/project/data \
+    --ticked 0.30 --unsure 0.10 >"$drep" 2>/dev/null || true
 djq() { python3 -c "import json,sys; d=json.load(open('$drep')); print($1)" 2>/dev/null || echo ""; }
 
 # F-2: a faint mark must NOT be reported as a confident answer. The earlier code

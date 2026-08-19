@@ -136,12 +136,14 @@ becomes a confident answer, `--unsure` is where it stops being noticed at all. A
 mark that came back `blank` fell below `--unsure`, and lowering `--ticked` alone
 cannot rescue it.
 
-**A re-read at another `--ticked` comes back with `scoring.stale: true`**, and
-that is the report telling the truth rather than a fault: the marks moved and
-the per-question scores did not, because AMC scored them at its own threshold
-during `make read-paper`. The marks are what this step calibrates, so read
-them; the scores in a stale report belong to the previous threshold and are
-evidence of nothing before the batch is scored again.
+**A CLI re-read at another `--ticked` comes back with `scoring.stale: true`**,
+and that is the report telling the truth rather than a fault: the marks moved
+and the per-question scores did not, because this script scores at its own
+threshold during `make read-paper`. The marks are what this step calibrates,
+so read them; the scores in a stale report belong to the previous threshold
+and are evidence of nothing before the batch is scored again. (The SERVER's
+re-read does not have this caveat: since issue #197 `POST /reanalyse` re-runs
+`note` at the new threshold, so marks and scores move together.)
 
 ## 5. What to look for
 
@@ -163,8 +165,9 @@ of how badly a "no" would hurt:
 4. **How did the faint pencil on sheet 2 read?** `doubtful` is the right answer
    — the report should carry it under `doubtful` with its measured `darkness`,
    not under `marked`. If it came back `blank`, the mark was below `unsure`
-   (0.10) and the sensitivity needs lowering; if it came back a confident
-   `marked`, it was above `ticked` (0.30) and your "faint" was not faint. Both
+   (0.05, the issue #197 default) and the sensitivity needs lowering; if it
+   came back a confident `marked`, it was above `ticked` (0.15) and your
+   "faint" was not faint. Both
    are useful measurements of where a real pencil actually lands — write the
    number down. The two flags move different boundaries; see §4.
 5. **Did the corrected mark on sheet 6 read as the corrected value**, or as

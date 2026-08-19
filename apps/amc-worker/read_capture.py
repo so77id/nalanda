@@ -6,8 +6,8 @@ Runs INSIDE the worker image. Emits JSON on stdout:
     {                                              // shape, not a real reading:
       "pages": {"captured": 10, "failed": 0},       // the fixture's own numbers
                                                     // are in tests/03-read.sh
-      "scoring": {"seuil": 0.3,                      // what AMC's `note` used
-                  "ticked": 0.3,                     // what THIS reading used
+      "scoring": {"seuil": 0.15,                     // what AMC's `note` used
+                  "ticked": 0.15,                    // what THIS reading used
                   "stale": false},                   // true when they differ
       "copies": {
         "1": {
@@ -435,9 +435,9 @@ def read(data_dir, ticked, unsure):
 def main():
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("--data", required=True, help="AMC project data directory")
-    ap.add_argument("--ticked", type=float, default=0.30,
+    ap.add_argument("--ticked", type=float, default=0.15,
                     help="darkness at or above which a box counts as ticked")
-    ap.add_argument("--unsure", type=float, default=0.10,
+    ap.add_argument("--unsure", type=float, default=0.05,
                     help="darkness at or above which a box is reported as doubtful")
     args = ap.parse_args()
     try:

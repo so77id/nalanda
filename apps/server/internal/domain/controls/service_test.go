@@ -107,6 +107,16 @@ func (s *fakeStore) ClearAnnotated(_ context.Context, controlID string) error {
 	return nil
 }
 
+func (s *fakeStore) SetControlThresholds(_ context.Context, controlID string, ticked, unsure float64) error {
+	for i := range s.controls {
+		if s.controls[i].ID == controlID {
+			s.controls[i].Ticked = ticked
+			s.controls[i].Unsure = unsure
+		}
+	}
+	return nil
+}
+
 // fakeReadingStore is the do-nothing double the pre-WP-F cases use. The
 // WP-F flows are exercised through Service.UploadScan in scans_internal_test.go
 // with a real controlstore. readingsByCopy holds stored readings for the
@@ -376,4 +386,32 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 	if !strings.Contains(string(source), want) {
 		t.Errorf("source.tex is missing %q — a listing under the server's mount would not resolve inside the worker", want)
 	}
+}
+
+// Issue #197: the defense-in-depth pair validation refuses before the
+// analyzer is called and before the batch file touches the disk.
+func TestUploadScanRefusesAnInvalidPair(t *testing.T) {
+	svc, store, gen, workDir := newService(t)
+	control, err := svc.Create(context.Background(), req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	_, err = svc.UploadScan(context.Background(), controls.UploadRequest{
+		ControlID: control.ID,
+		Filename:  "batch.pdf",
+		Content:   io.NopCloser(strings.NewReader("%PDF-fake")),
+		Ticked:    0.05,
+		Unsure:    0.20, // inverted band
+	})
+	if !errors.Is(err, controls.ErrAnalyzerRefused) {
+		t.Fatalf("UploadScan = %v, want ErrAnalyzerRefused", err)
+	}
+	if n := gen.AnalyzeCallCount(); n != 0 {
+		t.Errorf("Analyze called %d times for an invalid pair, want 0", n)
+	}
+	if _, statErr := os.Stat(filepath.Join(workDir, "controls", control.ID, "uploads")); !os.IsNotExist(statErr) {
+		t.Errorf("uploads dir exists after the refusal: %v — the batch file must not touch the disk", statErr)
+	}
+	_ = store
 }

@@ -138,7 +138,7 @@ read-paper-min:
 		    --n-copies "$$N" \
 		    --data /work/project/data --prefix /work/project \
 		    /work/src/control-paper-min.tex >/dev/null; \
-		  auto-multiple-choice note --data /work/project/data --seuil 0.3 >/dev/null; \
+		  auto-multiple-choice note --data /work/project/data --seuil 0.15 >/dev/null; \
 		  python3 /opt/amc-worker/read_capture.py --data /work/project/data'
 
 ## read-paper — read the scanned batch back (step 4 of PAPER-CHECK.md)
@@ -168,5 +168,5 @@ read-paper:
 		    --n-copies "$$N" \
 		    --data /work/project/data --prefix /work/project \
 		    /work/src/control-demo.tex >/dev/null; \
-		  auto-multiple-choice note --data /work/project/data --seuil 0.3 >/dev/null; \
+		  auto-multiple-choice note --data /work/project/data --seuil 0.15 >/dev/null; \
 		  python3 /opt/amc-worker/read_capture.py --data /work/project/data'

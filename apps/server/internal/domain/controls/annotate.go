@@ -28,6 +28,11 @@ type AnnotateRequest struct {
 	Project   string
 	Copy      int
 	Overrides AnnotateOverrides
+	// Ticked is the darkness threshold the annotated PDF must agree with
+	// (issue #197): the worker re-runs `note` at it, so the drawn marks
+	// and the verdict match the reader's verdict. Always set by the
+	// Service from the control's stored pair.
+	Ticked float64
 }
 
 // AnnotateOverrides is the professor's corrections, keyed the way the
@@ -92,6 +97,7 @@ func (s *Service) Annotate(ctx context.Context, controlID string, copyNumber int
 		Project:   filepath.Join(projectPrefix, control.ID),
 		Copy:      copyNumber,
 		Overrides: overridesFromReading(reading),
+		Ticked:    control.Ticked,
 	})
 	if err != nil {
 		return AnnotatedCopy{}, err

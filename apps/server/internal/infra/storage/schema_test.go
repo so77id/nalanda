@@ -387,3 +387,58 @@ func TestTheAuthMigrationAppliesOverADatabaseThatRanThePlaceholder(t *testing.T)
 		t.Errorf("the auth schema is not usable after the upgrade: %v", err)
 	}
 }
+
+// Issue #197: control.ticked/unsure carry the darkness thresholds end-to-end.
+// The defaults are the X-friendly pair chosen from a real batch; a control
+// inserted without them inherits the defaults, and an UPDATE round-trips.
+func TestControlThresholdsDefaultAndRoundTrip(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO control (
+            id, name, from_document, from_section, to_document, to_section,
+            questions_per_copy, copies, state, created_at, created_by
+        ) VALUES (?, 'x', 'flujo', 'if-else', 'flujo', 'bucles', 4, 3, 'generated', 0, ?)`,
+		"CTRLTHRESH0000000000000000", userID,
+	); err != nil {
+		t.Fatalf("insert control: %v", err)
+	}
+
+	var ticked, unsure float64
+	if err := db.QueryRowContext(ctx,
+		`SELECT ticked, unsure FROM control WHERE id = ?`,
+		"CTRLTHRESH0000000000000000",
+	).Scan(&ticked, &unsure); err != nil {
+		t.Fatalf("read back thresholds: %v", err)
+	}
+	if ticked != 0.15 || unsure != 0.05 {
+		t.Errorf("defaults = (%v, %v), want (0.15, 0.05) — the X-friendly pair of issue #197",
+			ticked, unsure)
+	}
+
+	if _, err := db.ExecContext(ctx,
+		`UPDATE control SET ticked = 0.25, unsure = 0.10 WHERE id = ?`,
+		"CTRLTHRESH0000000000000000",
+	); err != nil {
+		t.Fatalf("update thresholds: %v", err)
+	}
+	if err := db.QueryRowContext(ctx,
+		`SELECT ticked, unsure FROM control WHERE id = ?`,
+		"CTRLTHRESH0000000000000000",
+	).Scan(&ticked, &unsure); err != nil {
+		t.Fatalf("read back updated thresholds: %v", err)
+	}
+	if ticked != 0.25 || unsure != 0.10 {
+		t.Errorf("updated = (%v, %v), want (0.25, 0.10)", ticked, unsure)
+	}
+
+	// The per-column CHECKs refuse out-of-band values; the band rule itself
+	// (unsure < ticked) is enforced in the domain, not expressible here.
+	if _, err := db.ExecContext(ctx,
+		`UPDATE control SET ticked = 1.5 WHERE id = ?`,
+		"CTRLTHRESH0000000000000000",
+	); err == nil {
+		t.Error("ticked = 1.5 accepted, want the CHECK to refuse it")
+	}
+}

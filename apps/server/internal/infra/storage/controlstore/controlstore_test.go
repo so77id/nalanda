@@ -57,9 +57,12 @@ func newControl(id string, userID int64, appDate *time.Time) controls.Control {
 		RangeTo:          bank.SectionRef{Document: "flujo", Section: "bucles"},
 		QuestionsPerCopy: 4,
 		Copies:           3,
-		State:            controls.Generated,
-		CreatedAt:        time.Unix(1_755_360_000, 0).UTC(),
-		CreatedBy:        userID,
+		// Issue #197: the product defaults, like Service.Create writes.
+		Ticked:    controls.DefaultTicked,
+		Unsure:    controls.DefaultUnsure,
+		State:     controls.Generated,
+		CreatedAt: time.Unix(1_755_360_000, 0).UTC(),
+		CreatedBy: userID,
 	}
 }
 
