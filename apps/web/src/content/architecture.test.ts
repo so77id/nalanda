@@ -194,6 +194,66 @@ describe('architecture: content invariants', () => {
       'lo-que-sigue':
         'cierre del documento: anuncia el siguiente y cierra el hilo de complejidad, no enseña nada propio',
     },
+    // WP #79, same convention as #78: C++ openers and detail/activity slides
+    // owe nothing of their own — what they teach is measured by the section's
+    // main question. The seven section anchors (clase-atributos-y-metodos,
+    // this, visibilidad, herencia, interfaces, polimorfismo,
+    // tostring-equals-hashcode) carry the bank's eleven questions; the
+    // entries below are the slides that sit beside them.
+    objetos: {
+      'que-es-una-clase-que-es-un-objeto':
+        'definiciones de apertura: clase, objeto e instancia; lo que mide la pregunta de la sección es la anatomía de la clase',
+      'clases-en-c':
+        'contraste con C++; el delta Java que introduce se mide en la pregunta de "Clase: atributos y métodos"',
+      'clases-en-java':
+        'sub-detalle del §1; el hecho principal (atributos + constructor + métodos, en un archivo) se mide en la pregunta de la sección',
+      'instancia-y-usa':
+        'actividad: el alumno construye una Pair y llama getters; la mecánica se mide en la pregunta de la sección',
+      'visibilidad-en-c':
+        'contraste con C++; el delta Java que introduce se mide en la pregunta de "Visibilidad"',
+      'public-private-en-java':
+        'sub-detalle del §3; el hecho principal (acceso por miembro, compilador como guardia) se mide en la pregunta de la sección',
+      'la-trampa-acceso-desde-afuera':
+        'actividad: el alumno predice el error de compilación; la pregunta que mide el mecanismo vive en "Visibilidad"',
+      'herencia-para-que-sirve':
+        'motivación de la sección; el mecanismo (extends/super/@Override) se mide en las preguntas ancladas a "Herencia"',
+      'herencia-en-el-jdk-ejemplo-real':
+        'ejemplo: lo que enseña (el padre acepta a cualquier hijo) se mide en las preguntas ancladas a "Herencia"',
+      'extends-super-override':
+        'sub-detalle de §5: la mecánica que muestra se mide en las preguntas ancladas a la sección',
+      'la-trampa-del-override':
+        'actividad: el alumno predice la salida del typo sin @Override; la pregunta que mide el mecanismo vive en "Herencia"',
+      'interfaces-para-que-sirven':
+        'motivación de la sección; el mecanismo (implements como contrato) se mide en la pregunta anclada a "Interfaces"',
+      'una-interfaz-una-clase-que-la-cumple':
+        'sub-detalle de §6: el primer ejemplo; la regla (implements obliga a definir el método) se mide en la pregunta anclada a la sección',
+      'la-misma-clase-varias-interfaces':
+        'sub-detalle de §6: la extensión a varios contratos se mide en la pregunta anclada a la sección',
+      'una-interfaz-del-sistema-comparable':
+        'ejemplo detallado: lo que mide una pregunta va en la sección principal de §6',
+      'tu-clase-se-une-al-club':
+        'ejemplo detallado: lo que mide una pregunta va en la sección principal de §6',
+      'la-trampa-implements-sin-cumplir':
+        'actividad: el alumno predice el error de compilación; el mecanismo se mide en la pregunta anclada a "Interfaces"',
+      'polimorfismo-que-es-y-para-que':
+        'motivación de la sección; el mecanismo (dispatch según el objeto real) se mide en las preguntas ancladas a "Polimorfismo"',
+      'dos-maneras-un-mismo-verbo':
+        'el diagrama muestra las dos vías; lo que enseña (un mismo verbo, dos jerarquías) se mide en las preguntas ancladas a "Polimorfismo"',
+      'polimorfismo-por-herencia-vehiculo':
+        'actividad: el alumno corre el arreglo Vehiculo[]; la mecánica se mide en las preguntas ancladas a "Polimorfismo"',
+      'polimorfismo-por-interfaz-comparable':
+        'actividad: el alumno corre el arreglo Comparable[]; la mecánica se mide en las preguntas ancladas a "Polimorfismo"',
+      'los-metodos-que-toda-clase-hereda':
+        'introducción de la sección; lo que enseña (herencia desde Object, por qué se sobrescribe) se mide en las preguntas ancladas a "toString, equals, hashCode"',
+      tostring:
+        'sub-detalle de §8: el override de toString; lo que se mide vive en las preguntas ancladas a la sección',
+      'equals-cuando-dos-objetos-son-el-mismo':
+        'el ejemplo y el mecanismo de equals se miden en las preguntas ancladas a "toString, equals, hashCode"',
+      ejercicios:
+        'actividad: cuatro problemas para escribir; la materia se mide en las preguntas ancladas a las secciones que los preparan',
+      'lo-que-sigue':
+        'cierre del documento: anuncia el siguiente (genéricos), no enseña nada propio',
+    },
   };
 
   function sourceOf(key: string): string {

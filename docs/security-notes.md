@@ -468,8 +468,36 @@ detail.
   the first non-repo-authored content path, which changes who can author an SVG at
   all.
 
-### The control worker is unauthenticated and trusts its only caller (accepted 2026-08-15, #138)
+### Mermaid renders third-party SVG into the page origin (accepted 2026-08-19, #79)
 
+The `<Mermaid>` component (ADR-0040) hands a repo-authored diagram source to the
+`mermaid@11.16.1` library and injects the SVG it returns via `innerHTML` — the
+first third-party-rendered markup the platform inlines into the page origin,
+distinct from #119's content images, which stay inert through `<img>`. The
+library also executes its own parser/dagre/d3 code (~200 kB gzipped) in the
+page origin and injects an inline `<style>`.
+
+- **What relies on it**: `securityLevel: 'strict'` is passed explicitly in
+  `Mermaid.tsx`, and it is the whole defense. Verified against the locked
+  11.16.1: strict enables mermaid's label escaping (`sanitizeMore`) and its
+  final `DOMPurify.sanitize` pass over the produced SVG (scripts, handlers,
+  `javascript:` URLs and unsafe tags stripped; `foreignObject` content treated
+  as HTML and filtered). Click bindings are disabled in strict, and the
+  component discards `bindFunctions` anyway. Pinned by a test
+  (`Mermaid.test.tsx`, "pins securityLevel strict") — the same shape as the
+  KaTeX `trust: false` pin.
+- **Why currently safe**: the only sources today are repo-authored MDX strings
+  shipped via git + PR review (see "All bundled MDX is repo-controlled
+  content"), and `npm audit` reports 0 vulnerabilities with every mermaid 11.x
+  advisory patched by the locked version. Residual, accepted: a future CSP
+  must allow the injected inline `<style>` (`style-src 'unsafe-inline'`), and
+  the library's runtime code runs in the main origin.
+- **Review trigger**: (a) any non-repo-authored content path reaching
+  `<Mermaid>`, (b) any change to `securityLevel` away from `'strict'` — e.g.
+  to enable clickable links, which requires `'loose'` and drops both the label
+  escaping and the final sanitize pass — and (c) a mermaid major bump.
+
+### The control worker is unauthenticated and trusts its only caller (accepted 2026-08-15, #138)
 `apps/amc-worker` serves JSON on 8080 with no authentication, no rate limiting
 and no audit trail, and it will handle RUTs and grades — personal data under
 Ley 21.719. What holds it closed is **topology, not code**: it is reachable

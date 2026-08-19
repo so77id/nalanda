@@ -1,0 +1,1030 @@
+---
+id: objetos
+title: Clases y Objetos
+presentation: explicit
+questions: per-section
+---
+
+{/* Este documento declara `questions: per-section` (#139). Cada sección o */}
+{/* tiene una `<Question anchor="...">` en el bloque `<Questions>` al final, */}
+{/* o está declarada con su razón en NO_QUESTION en */}
+{/* apps/web/src/content/architecture.test.ts (§Question coverage). */}
+{/* */}
+{/* Anclas de sección (llevan pregunta, deben existir como h2): */}
+{/*   clase-atributos-y-metodos, this, visibilidad, herencia, interfaces, */}
+{/*   polimorfismo, tostring-equals-hashcode. */}
+{/* */}
+{/* Regla del WP (igual que #78): los openers C++ y las slides de detalle o */}
+{/* actividad no llevan pregunta propia — van al NO_QUESTION con su razón; */}
+{/* lo que enseñan se mide en la pregunta de la sección principal. */}
+
+# Clases y Objetos
+
+Hasta aquí has programado con los tipos que Java trae de fábrica. Este
+documento te convierte en autor de tipos: defines tus propias clases, creas
+objetos a partir de ellas y decides qué significa que dos objetos «tuyos»
+sean iguales. El documento cierra con la pieza que integra tus objetos con
+todo el lenguaje: presentarse e igualarse a tu manera.
+
+## Clase: atributos y métodos
+
+<Slide title="¿Qué es una clase? ¿Qué es un objeto?">
+Una **clase** es una definición: dice qué datos guarda algo y qué puede
+hacer. Piensa en la clase `Persona`: tiene un nombre y un RUT (los datos) y
+sabe presentarse (el comportamiento). Es una plantilla — por sí sola no *es*
+nadie.
+
+Un **objeto** es una pieza concreta construida a partir de esa definición:
+`new Persona("Ana", 12345)` crea una persona real en memoria, con su propio
+nombre y su propio RUT. **Instancia** y **objeto** son dos nombres para lo
+mismo: cada `new` produce una instancia de la clase.
+
+La clase es la definición; el objeto es lo que usas para interactuar. Todo
+lo que sigue es, en el fondo, ese ciclo: definir una clase, crear objetos
+con `new` y llamar sus métodos.
+</Slide>
+
+<Slide title="Clases en C++">
+En C++ ya escribiste clases: atributos, constructor, métodos, con la
+separación en `.h` y `.cpp`. La `Pair` con la que vas a trabajar en este
+documento:
+
+```cpp
+class Pair {
+ public:
+  Pair(int a, int b) : first_(a), second_(b) {}
+  int first() const  { return first_; }
+  int second() const { return second_; }
+ private:
+  int first_, second_;
+};
+```
+
+El delta con Java es cosmético: no hay `.h` ni `.cpp`, no hay `::`, y todo va
+junto en un archivo. La idea — datos y comportamiento en una misma caja — es
+la misma.
+</Slide>
+
+<Slide title="Clases en Java">
+Una clase Java lleva atributos, uno o más constructores y métodos, todo en el
+mismo archivo. La misma `Pair`:
+
+```java
+public class Pair {
+  private int first;
+  private int second;
+
+  public Pair(int first, int second) {
+    this.first = first;
+    this.second = second;
+  }
+
+  public int first()  { return first; }
+  public int second() { return second; }
+}
+```
+
+- **Atributos `private`** — los datos de la clase. `private` significa que
+  solo los métodos de la propia clase pueden tocarlos: desde fuera, los datos
+  de un objeto cambian únicamente a través de sus métodos.
+- **El constructor** — el método que corre cuando creas un objeto con `new`.
+  Se llama exactamente como la clase, no declara tipo de retorno, y su
+  trabajo es dejar el objeto listo para usarse: aquí, guardar en los
+  atributos los dos números que recibió. `this.first = first` se lee «el
+  atributo `first` de este objeto recibe el parámetro `first`» — `this` es
+  el objeto que se está construyendo.
+- **Getters** — métodos de lectura. `first()` devuelve el valor del atributo
+  `first`; el atributo queda privado y el resto del programa lo lee por esta
+  puerta. **Setters** serían lo simétrico — métodos que cambian el valor — y
+  no toda clase los necesita: escribir `setX` para cada campo no es una
+  regla, es una decisión.
+</Slide>
+
+<Slide title="Instancia y usa">
+`new Pair(3, 7)` es el momento en que la definición se vuelve algo real:
+reserva memoria, corre el constructor con esos dos argumentos y devuelve una
+**instancia** — un objeto `Pair` concreto, con sus propios `first` y
+`second`. La variable `p` guarda una referencia a esa instancia, y a través
+de ella llamas sus métodos:
+
+<CodeEditor
+  language="java"
+  defaultValue={`// La clase provista — en tus programas futuros viviría en su propio archivo
+class Pair {
+    private int first;
+    private int second;
+
+    public Pair(int first, int second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    public int first()  { return first; }
+    public int second() { return second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair p = new Pair(3, 7);
+        System.out.println(p.first() + " y " + p.second());
+    }
+}
+`}
+/>
+
+`p.first()` y `p.second()` llaman a los getters. Prueba `new Pair(40, 2)` y
+confirma que `p` no es los números — es la caja que los guarda.
+</Slide>
+
+<Slide title="this">
+Dentro de un método, `this` es una referencia al objeto sobre el que se llamó
+ese método. Sirve para desambiguar cuando un parámetro tiene el mismo nombre
+que un atributo:
+
+```java
+public class Punto {
+  private int x, y;
+
+  public void mover(int x, int y) {
+    this.x = x;   // el atributo x recibe el parámetro x
+    this.y = y;
+  }
+}
+```
+
+Sin el `this.`, el parámetro `x` le tapa al atributo — el compilador te deja
+escribirlo, no siempre te avisa, y el bug es callado. Corre la versión con
+`this.` y después bórralos para ver la diferencia:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Punto {
+    private int x, y;
+
+    public void mover(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    // toString: «cómo se imprime este objeto»
+    public String toString() {
+        return "x=" + x + ", y=" + y;
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Punto p = new Punto();
+        p.mover(3, 4);
+        System.out.println(p);
+    }
+}
+`}
+/>
+
+Borra los `this.` y corre de nuevo: `p` queda en `x=0, y=0`. El parámetro
+ganó el nombre y el atributo nunca se tocó — el programa compila, corre e
+imprime un resultado silenciosamente equivocado.
+</Slide>
+
+## Visibilidad
+
+<Slide title="Visibilidad en C++">
+En C++ la visibilidad se declara en bloque: `public:` y `private:` son
+etiquetas que cambian todo lo que viene después.
+
+```cpp
+class Cuenta {
+ private:
+  int saldo;
+ public:
+  int ver() const { return saldo; }
+};
+```
+
+Java usa el mismo modelo con otra sintaxis — la diferencia está en la
+próxima slide.
+</Slide>
+
+<Slide title="public / private en Java">
+Java pone la visibilidad **por miembro**, no en bloque, y el compilador te
+detiene si intentas leer un `private` desde fuera:
+
+```java
+public class Cuenta {
+  private int saldo;
+
+  public int getSaldo()        { return saldo; }
+  public void depositar(int m) { saldo += m; }
+}
+```
+
+- `private int saldo` — solo los métodos de `Cuenta` lo ven.
+- Getters y setters son la fachada para no exponer el campo. **No los generes
+  por reflejo**: cada uno abre una puerta, y a veces la puerta correcta es no
+  tenerla. `Cuenta` no tiene `setSaldo` — el saldo solo se mueve con
+  `depositar`.
+</Slide>
+
+<Slide title="La trampa: acceso desde afuera">
+<PredictOutput title="El saldo es privado">
+
+¿Compila? ¿Qué imprime?
+
+```java predict
+class Cuenta { private int saldo = 100; }
+class Uso {
+    public static void main(String[] args) {
+        System.out.println(new Cuenta().saldo);
+    }
+}
+```
+
+</PredictOutput>
+
+El compilador no discute intenciones: `saldo` es `private` y `Uso` está
+afuera. El error — `The field Cuenta.saldo is not visible` — es la puerta
+funcionando, y es el mensaje real que el editor te muestra al correr, letra
+por letra. C++ rechaza el mismo descuido en compilación, igual que aquí: la
+visibilidad se hace cumplir en ambos lenguajes. Lo que cambia es la sintaxis
+— por miembro en vez de en bloque — y que en Java el mensaje te llega en el
+mismo panel donde corre el código.
+</Slide>
+
+## Herencia
+
+<Slide title="Herencia · para qué sirve">
+La herencia captura una relación **«es-un»**: un `Auto` **es un** `Vehiculo`.
+Sirve para dos cosas:
+
+1. **No repetir código** — lo que todos los vehículos tienen en común (una
+   marca, un método `describir`) vive una vez, en `Vehiculo`.
+2. **Tratar variedad como una sola cosa** — cuando el resto del programa
+   recibe `Vehiculo`, funciona con `Auto`, `Camion`, o lo que venga después.
+
+Un curso de estructuras de datos usa herencia poco, pero tiene que **leerla**
+en el JDK todo el rato (`ArrayList extends AbstractList`, y así con media
+biblioteca). Vas a escribir dos o tres jerarquías tuyas y a leer muchas.
+</Slide>
+
+<Slide title="Herencia en el JDK · ejemplo real">
+Ya usaste una jerarquía real sin darte cuenta. Los tipos numéricos «boxed»
+heredan todos de una misma clase, `Number`, que vive en `java.lang`:
+
+- `Number` — la clase madre, abstracta.
+  - `Integer`, `Long`, `Double`, `Float`
+  - `BigInteger`, `BigDecimal`, …
+
+Un método declarado sobre el padre acepta cualquiera de los hijos:
+
+```java
+public static double sumar(Number a, Number b) {
+  return a.doubleValue() + b.doubleValue();
+}
+
+System.out.println(sumar(42, 3.14));   // 45.14
+// el 42 entra como Integer, el 3.14 como Double,
+// y sumar() no cambia una línea
+```
+
+Es lo que la herencia te compra en la práctica: escribes **una** vez, y te
+sirve para toda la familia — la de hoy y la que agreguen mañana.
+</Slide>
+
+<Slide title="extends, super, @Override">
+La mecánica completa, en una jerarquía de vehículos:
+
+```java
+public class Vehiculo {
+  protected String marca;
+
+  public Vehiculo(String marca) { this.marca = marca; }
+  public String describir() { return "vehículo " + marca; }
+}
+
+public class Auto extends Vehiculo {
+  public Auto(String marca) { super(marca); }
+
+  @Override
+  public String describir() { return "auto " + marca; }
+}
+```
+
+- **`extends`** — `Auto` hereda todo lo de `Vehiculo`. Y en Java heredas de
+  **una sola** clase: nada de herencia múltiple como en C++. Si un tipo
+  necesita cumplir varios contratos a la vez, las **interfaces** lo
+  resuelven.
+- **`super(marca)`** — llama al constructor del padre, para que la parte
+  «vehículo» se inicialice con la marca.
+- **`protected`** — visible para las subclases, invisible desde fuera: el
+  punto medio entre `public` y `private`.
+- **`@Override`** — una anotación que le pide al compilador **verificar** que
+  realmente estás sobrescribiendo algo. Un typo en el nombre pasa de bug
+  silencioso a error de build. Escríbela siempre.
+</Slide>
+
+<Slide title="La trampa del @Override">
+`@Override` no cambia lo que corre — le pide al compilador que revise. Mira
+qué pasa sin ella, con un typo de una letra:
+
+<PredictOutput title="saluar en vez de saludar">
+
+¿Qué imprime? Ojo con `saluar`:
+
+```java predict
+class A { void saludar() { System.out.println("hola"); } }
+class B extends A { void saluar() { System.out.println("chao"); } }
+
+public class Main {
+    public static void main(String[] args) {
+        A x = new B();
+        x.saludar();
+    }
+}
+```
+
+</PredictOutput>
+
+Imprime `hola`: `saluar` no sobrescribe nada — es un método nuevo con otro
+nombre, y `B` hereda el `saludar` original de `A`. El bug es silencioso: el
+programa compila, corre, e imprime lo contrario de lo que querías. Con
+`@Override` encima de `saluar`, el compilador lo habría atajado en build:
+«el método no sobrescribe nada del padre».
+</Slide>
+
+**Nota:** Java tiene además `abstract class` — una clase que no se instancia,
+solo se hereda, y que puede mezclar métodos con y sin implementación. La vas
+a leer mucho en el JDK (Collections está lleno de ellas), aunque escribas
+pocas.
+
+## Interfaces
+
+<Slide title="Interfaces · para qué sirven">
+Una interfaz dice **qué métodos hay** sin decir cómo se hacen. Es un
+**contrato**: cualquier clase que la implementa se compromete a ofrecer esos
+métodos, cada una a su manera.
+
+Sirven para que un mismo verbo — `comparar`, `ejecutar`, `imprimir` — lo
+puedan cumplir clases muy distintas, y el resto del programa las trate igual.
+Media biblioteca estándar de Java funciona así: `Comparable`, `Iterable`,
+`Runnable`, `Iterator`… — todas son interfaces.
+</Slide>
+
+<Slide title="Una interfaz, una clase que la cumple">
+```java
+public interface Formal {
+  String tratarDe();
+}
+
+public class Persona implements Formal {
+  @Override
+  public String tratarDe() { return "usted"; }
+}
+```
+
+La interfaz declara el método; `implements` obliga a la clase a definirlo.
+Un `Persona` es ahora **también** un `Formal` — puede ir a cualquier parte
+que pida un `Formal`.
+</Slide>
+
+<Slide title="La misma clase, varias interfaces">
+Una clase puede cumplir **varios** contratos a la vez, separados por coma:
+
+```java
+public interface Serializable { String aString(); }
+
+public class Persona implements Formal, Serializable {
+  @Override public String tratarDe() { return "usted"; }
+  @Override public String aString()  { return "persona"; }
+}
+```
+
+`Persona` puede pasar por cualquier lugar que pida un `Formal` **o** un
+`Serializable`. Esto es lo que las estructuras de datos de Java explotan
+constantemente — `TreeSet` acepta cualquier cosa que sea `Comparable`, y así
+con media biblioteca.
+</Slide>
+
+<Slide title="Una interfaz del sistema: Comparable">
+`Comparable` vive en `java.lang` y define UN método: «cuando te comparen
+contigo, ¿cómo respondes?». Ese método es `compareTo`, y su contrato es
+simple: devuelve un **negativo** si `this` va antes que el argumento,
+**cero** si son iguales en el orden, **positivo** si va después. Quien
+recibe el número no necesita saber nada más.
+
+```java
+Integer.valueOf(3).compareTo(5);              // -1
+"pera".compareTo("manzana");                  // número positivo
+LocalDate.now().compareTo(LocalDate.now());   // 0
+```
+
+Cada línea compara dos cosas del mismo tipo y devuelve el número según
+**qué significa «antes» para ese tipo**:
+
+- **`Integer`**: compara valores numéricos. `3` va antes que `5`, así que
+  devuelve `-1` (negativo). Si comparas `5` contra `3`, devolvería positivo;
+  dos enteros iguales devuelven `0`.
+- **`String`**: compara en orden alfabético. `"manzana"` va antes que
+  `"pera"`, así que `"pera".compareTo("manzana")` devuelve un número
+  **positivo** (no te importa cuál exactamente — solo su signo). Comparar
+  una cadena consigo misma devolvería `0`.
+- **`LocalDate`**: compara fechas, más antigua primero. `LocalDate.now()`
+  contra sí misma es la misma fecha, así que devuelve `0`.
+
+El punto es ese: cada clase decide qué significa «antes» para ella, y quien
+usa `compareTo` solo mira el signo del resultado. Por eso `Integer`, `String`
+y `LocalDate` — tipos que no se parecen en nada — cumplen todos el mismo
+contrato.
+</Slide>
+
+<Slide title="Tu clase se une al club">
+Tu propia clase puede implementar `Comparable` y ordenarse igual que las de
+fábrica. La `Pair` que usamos desde el principio: dos números, y el orden
+natural es comparar el primer número; si empatan, el segundo.
+
+```java
+public class Pair implements Comparable<Pair> {
+  private int first;
+  private int second;
+
+  public Pair(int first, int second) {
+    this.first = first;
+    this.second = second;
+  }
+
+  @Override
+  public int compareTo(Pair o) {
+    if (first != o.first) return first - o.first;
+    return second - o.second;
+  }
+}
+```
+
+Compara `first` contra `first`; si son distintos, la diferencia ya es
+negativa o positiva según quién va antes — y la devuelve. Si empatan,
+compara `second` contra `second` y devuelve esa diferencia. Con esto solo,
+`TreeSet<Pair>` y `Collections.sort(listaDePairs)` ya saben ordenarla, sin
+cambiar una línea del código de esas estructuras. (El `<Pair>` entre
+ángulos declara con qué tipo se compara.)
+</Slide>
+
+<Slide title="La trampa: implements sin cumplir">
+<PredictOutput title="El contrato no se negocia">
+
+¿Compila?
+
+```java predict
+interface Formal { String tratarDe(); }
+
+class Persona implements Formal {
+    public String saludar() { return "hola"; }
+}
+```
+
+</PredictOutput>
+
+No compila. `implements` es un contrato: el compilador exige el método
+`tratarDe()`, y `saludar()` no lo cumple. El error —
+`The type Persona must implement the inherited abstract method Formal.tratarDe()` —
+te dice exactamente qué falta y dónde. («abstract» es la palabra que usa el
+mensaje para decir «la clase no terminó de cumplir su contrato» — se lee «no
+cumpliste el contrato».)
+</Slide>
+
+## Polimorfismo
+
+<Slide title="Polimorfismo · qué es y para qué">
+**La palabra**: «polimorfismo» = «muchas formas». **La idea**: una misma
+operación — «describir», «comparar», «imprimir» — que responde distinto
+según **quién es** el objeto que la recibe.
+
+**Para qué sirve**: para escribir código **una vez** que funcione sobre
+muchos tipos distintos, sin `switch` ni `if instanceof`. La estructura de
+datos que trate `Comparable` funciona con `Integer`, con `String`, con tu
+propia clase — sin cambiar una línea del código de la estructura.
+
+**Cómo pensarlo**: cuando escribas «recorrer una colección y aplicar algo a
+cada elemento», el «algo» normalmente **es** un método polimórfico. No
+pienses «qué tipo es cada uno»; piensa «qué verbo necesito de todos ellos».
+
+Ya viste este juego moviéndose: un mismo método `sumar` aceptaba un
+`Integer` y un `Double` sin cambiar una línea, y un mismo `Integer`
+respondía como número y como comparable. Esas dos maneras — heredar e
+implementar — se llaman ambas polimorfismo, y se usan exactamente igual. Es
+lo que muestran los dos ejemplos a continuación.
+</Slide>
+
+<Slide title="Dos maneras, un mismo verbo">
+<Mermaid
+  title="Un mismo dispatch, dos jerarquías"
+  source={`classDiagram
+    class Vehiculo {
+        +describir()
+    }
+    class Auto
+    class Camion
+    Vehiculo <|-- Auto
+    Vehiculo <|-- Camion
+
+    class Formal {
+        +tratarDe()
+    }
+    <<interface>> Formal
+    class Saludo
+    class Despedida
+    Formal <|.. Saludo
+    Formal <|.. Despedida`}
+/>
+
+**Izquierda**: por herencia. Todo lo que sea `Vehiculo` (o herede de él)
+responde a `describir()`.
+**Derecha**: por interfaz. Todo lo que **implementa** `Formal` responde a
+`tratarDe()`.
+Ambos son polimorfismo; los usas igual.
+</Slide>
+
+<Slide title="Polimorfismo por herencia — Vehiculo[]">
+Un arreglo declarado `Vehiculo[]` acepta cualquier subtipo. El método que
+corre es el del objeto real, no el del tipo declarado:
+
+<CodeEditor
+  language="java"
+  defaultValue={`// Clases provistas — lo nuevo es el arreglo y el for-each
+class Vehiculo {
+    protected String marca;
+    public Vehiculo(String marca) { this.marca = marca; }
+    public String describir() { return "vehículo " + marca; }
+}
+
+class Auto extends Vehiculo {
+    public Auto(String marca) { super(marca); }
+    @Override public String describir() { return "auto " + marca; }
+}
+
+class Camión extends Vehiculo {
+    public Camión(String marca) { super(marca); }
+    @Override public String describir() { return "camión " + marca; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Vehiculo[] flota = { new Auto("Toyota"),
+                             new Camión("Kenworth"),
+                             new Auto("Fiat") };
+        for (Vehiculo v : flota) {
+            System.out.println(v.describir());
+        }
+    }
+}
+`}
+/>
+
+Cada vuelta del `for-each` llama `describir()` sobre una variable `Vehiculo`
+— y sin embargo imprime `auto Toyota`, `camión Kenworth`, `auto Fiat`. El
+tipo de la variable dice qué métodos puedes llamar; **el objeto real decide
+cuál corre**. Agrega un `Camión` más a la flota: el `for-each` no cambia una
+línea.
+</Slide>
+
+<Slide title="Polimorfismo por interfaz — Comparable[]">
+Muchos tipos de la biblioteca estándar implementan `Comparable`. Un arreglo
+`Comparable[]` los mezcla libremente:
+
+<CodeEditor
+  language="java"
+  defaultValue={`public class Main {
+    public static void main(String[] args) {
+        Comparable[] cosas = { 3, "pera", 1 };
+        for (Comparable c : cosas) {
+            System.out.println(c);
+        }
+    }
+}
+`}
+/>
+
+Imprime `3`, `pera`, `1` — en orden de inserción, cada uno respondiendo por
+sí mismo a `println`. El `Integer` se imprime como número, el `String` como
+texto: la misma línea `System.out.println(c)` hace dos trabajos distintos
+según quién es `c`. Es la misma máquina, llegando por la otra vía —
+interfaz en vez de herencia.
+</Slide>
+
+## toString, equals, hashCode
+
+<Slide title="Los métodos que toda clase hereda">
+En el ejemplo anterior, `println` imprimió un `Integer` y un `String` sin que
+nadie le dijera cómo: cada objeto trae su propia forma de presentarse. Esa
+forma no es magia — es un método que **todos** los objetos tienen, porque
+toda clase en Java desciende de una clase base llamada `Object`.
+
+`Object` define tres métodos que tus clases heredan desde el primer día:
+
+- `toString()` — cómo se presenta el objeto cuando se imprime.
+- `equals()` — cuándo dos objetos son «el mismo» para ti.
+- `hashCode()` — un número que identifica al objeto.
+
+Heredarlos es gratis; el problema es lo que traen **por defecto**. `toString`
+imprime `Persona@1b6d3586` (tipo + dirección de memoria — inútil para leer);
+`equals` compara si dos variables apuntan a la misma instancia (no si dos
+personas tienen el mismo RUT). Y Java no permite redefinir `==` para tus
+tipos, así que «iguales en contenido» siempre pasa por métodos.
+
+Por eso se **sobrescriben**: `@Override` reemplaza la versión heredada por la
+tuya. Una clase que define cómo presentarse y cómo igualarse es una clase
+que se integra con todo el lenguaje — desde `println` hasta las colecciones.
+</Slide>
+
+<Slide title="toString">
+Sobrescribe `toString` cuando quieras que el objeto se imprima legible.
+`System.out.println(p)` lo llama automáticamente:
+
+```java
+public class Persona {
+  private String nombre;
+  private int rut;
+
+  @Override
+  public String toString() {
+    return nombre + " (" + rut + ")";
+  }
+}
+```
+
+Sin el override: `Persona@1b6d3586`. Con el override: `Ana (12345)`. Es el
+método que `println` viene llamando en silencio cada vez que le pasas un
+objeto.
+</Slide>
+
+<Slide title="equals: cuándo dos objetos son el mismo">
+**Para qué sirve**: para decidir cuándo dos objetos representan **lo mismo
+para tu dominio**. El `equals` heredado de `Object` compara si dos variables
+apuntan a la misma instancia: dos `new Persona("Ana", 12345)` son objetos
+distintos en memoria, aunque tengan los mismos datos. Si para ti dos
+personas con el mismo RUT son la misma persona, eso lo escribes tú.
+
+**Cómo se sobrescribe**:
+
+```java
+public class Persona {
+  private String nombre;
+  private int rut;
+
+  public Persona(String nombre, int rut) {
+    this.nombre = nombre;
+    this.rut = rut;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof Persona)) return false;
+    Persona p = (Persona) o;
+    return rut == p.rut;
+  }
+}
+```
+
+El método recibe un `Object`, no una `Persona`: Java no sabe contra qué lo
+van a comparar. Por eso la primera línea — `instanceof` — descarta todo lo
+que no sea `Persona` (incluido `null`). Después castea y compara lo que
+define igualdad en tu dominio; aquí, el RUT.
+
+```java
+new Persona("Ana", 12345).equals(new Persona("Ana", 12345));  // true
+new Persona("Ana", 12345).equals(new Persona("Ana", 99999));  // false
+new Persona("Ana", 12345).equals("Ana");                      // false: ni siquiera es Persona
+```
+
+Desde ese momento, todo lo que compare contenido — listas, búsquedas,
+cualquier estructura que pregunte «¿ya tengo uno así?» — usa **tu**
+definición de igualdad.
+</Slide>
+
+## Ejercicios
+
+Cuatro problemas para escribir tú. Completa lo que falta y presiona
+**Comprobar**: tu código se compila junto a una batería de casos que lo
+llaman y te dicen cuáles pasaron. Los casos aparecen después de la primera
+ejecución.
+
+Ninguno necesita ciclos, y todos los inputs son chicos: lo que se evalúa es
+que la clase o el método cumpla su contrato, no que resista datos grandes.
+
+<Exercise title="1. La clase Pair">
+
+Escribe la clase `Pair` con:
+
+- dos campos privados `first` y `second`, ambos `int`
+- un constructor que reciba ambos y los guarde
+- getters `first()` y `second()`
+- un `toString()` que devuelva `(3, 7)` para `new Pair(3, 7)` — con
+  paréntesis y coma
+
+```java starter
+class Pair {
+    // Dos campos privados first y second, ambos int.
+    // Un constructor que los reciba y los guarde.
+    // Getters first() y second().
+    // toString() que devuelva "(3, 7)" para new Pair(3, 7).
+}
+```
+
+```java test
+Pair p = new Pair(3, 7);
+check(p.first(), 3);
+check(p.second(), 7);
+check(p.toString(), "(3, 7)");
+check(new Pair(0, -1).toString(), "(0, -1)");
+check(new Pair(12, 34).first(), 12);
+```
+
+</Exercise>
+
+<Exercise title="2. Un toString legible">
+
+`Persona` te viene con `nombre` (String) y `rut` (int). Sobrescribe
+`toString` para que `new Persona("Ana", 12345)` se imprima como
+`Ana#12345`. Formato exacto: `nombre#rut`, sin espacios.
+
+```java starter
+class Persona {
+    private String nombre;
+    private int rut;
+
+    public Persona(String nombre, int rut) {
+        this.nombre = nombre;
+        this.rut = rut;
+    }
+
+    // Sobrescribe toString() con el formato nombre#rut, sin espacios.
+}
+```
+
+```java test
+check(new Persona("Ana", 12345).toString(), "Ana#12345");
+check(new Persona("Luis", 1).toString(), "Luis#1");
+check(new Persona("", 0).toString(), "#0");
+```
+
+</Exercise>
+
+<Exercise title="3. equals para Persona">
+
+`Persona` tiene `nombre` (String) y `apellido` (String). Escribe `equals`
+para que dos personas sean iguales si **nombre Y apellido** coinciden.
+
+Pista: `Objects.equals(a, b)` de `java.util.Objects` compara dos textos sin
+tropezar con `null`.
+
+```java starter
+class Persona {
+    private String nombre;
+    private String apellido;
+
+    public Persona(String nombre, String apellido) {
+        this.nombre = nombre;
+        this.apellido = apellido;
+    }
+
+    // equals(): dos personas son iguales si nombre Y apellido coinciden.
+    // Pista: Objects.equals(a, b).
+}
+```
+
+```java test
+check(new Persona("Ana", "Soto").equals(new Persona("Ana", "Soto")), true);
+check(new Persona("Ana", "Soto").equals(new Persona("Ana", "Reyes")), false);
+check(new Persona("Ana", "Soto").equals(new Persona("Luis", "Soto")), false);
+check(new Persona("Ana", "Soto").equals(null), false);
+check(new Persona("Ana", "Soto").equals("Ana Soto"), false);
+```
+
+</Exercise>
+
+<Exercise title="4. La interfaz Formal y sus saludos">
+
+Define la interfaz `Formal` con un método `String tratarDe()`. Implementa
+dos clases: `Saludo` devuelve `"buenos días"` y `Despedida` devuelve
+`"hasta luego"`.
+
+Escribe además el método `saludaTodos(Formal[] fs)`: llama `tratarDe()` en
+cada uno y devuelve los saludos unidos por un espacio. Sin saludos, devuelve
+`""`.
+
+```java starter
+// El contrato:
+interface Formal {
+    String tratarDe();
+}
+
+class Saludo implements Formal {
+    @Override
+    public String tratarDe() {
+        return "buenos días";
+    }
+}
+
+class Despedida implements Formal {
+    @Override
+    public String tratarDe() {
+        return "hasta luego";
+    }
+}
+
+class Solution {
+    // Llama tratarDe() en cada Formal y devuelve los saludos unidos por un
+    // espacio ("buenos días hasta luego"). Sin saludos: "".
+    static String saludaTodos(Formal[] fs) {
+        // tu código aquí
+        return "";
+    }
+}
+```
+
+```java test
+check(new Saludo().tratarDe(), "buenos días");
+check(new Despedida().tratarDe(), "hasta luego");
+check(Solution.saludaTodos(new Formal[]{ new Saludo(), new Despedida() }), "buenos días hasta luego");
+check(Solution.saludaTodos(new Formal[]{ new Despedida(), new Saludo() }), "hasta luego buenos días");
+check(Solution.saludaTodos(new Formal[0]), "");
+```
+
+</Exercise>
+
+{/* Las once preguntas del banco de este documento (edición 2026-08-19): */}
+{/* fuera enum-basico (§4 eliminada) y abstract-class (abstract salió del */}
+{/* deck en refinamiento). Cada una quedó anclada a su sección; los anchors */}
+{/* que no llevan pregunta están declarados con su razón en NO_QUESTION. */}
+{/* La verificación en runtime real (los snippets de las preguntas, los */}
+{/* CodeEditors y los ejercicios) se hizo en el browser check de S9 contra */}
+{/* el runtime Java 8 de CheerpJ. */}
+<Questions>
+
+<Question id="que-va-en-clase" anchor="clase-atributos-y-metodos">
+
+¿Cuáles de estas afirmaciones sobre una clase Java son ciertas?
+
+- [x] Tiene atributos, un constructor (o varios) y métodos
+- [x] Vive en el heap cuando se instancia con `new`
+- [ ] Se destruye automáticamente al salir del scope
+- [ ] Puede tener métodos definidos fuera de la clase, como en C++
+
+</Question>
+
+<Question id="this-en-java" anchor="this">
+
+En Java, `this` dentro de un método de instancia es:
+
+- [x] Una referencia al objeto sobre el que se llamó el método
+- [ ] Un puntero al objeto (con aritmética permitida)
+- [ ] Un alias de una variable local del método
+- [ ] La clase, no el objeto — como `Clase::` en C++
+
+</Question>
+
+<Question id="private-desde-afuera" anchor="visibilidad">
+
+¿Qué pasa al compilar esto?
+
+```java
+class Cuenta { private int saldo = 100; }
+class Uso { void ver(Cuenta c) { System.out.println(c.saldo); } }
+```
+
+- [x] Error de compilación: `saldo` es privado
+- [ ] Compila e imprime `100`
+- [ ] Compila e imprime `0`
+- [ ] Compila pero lanza excepción en runtime
+
+</Question>
+
+<Question id="override-sin-anotacion" anchor="herencia">
+
+¿Qué pasa con este `override` que tipeó mal el nombre?
+
+```java
+class A { void saludar() { System.out.println("hola"); } }
+class B extends A { void saluar() { System.out.println("chao"); } }
+// ...
+A a = new B();
+a.saludar();
+```
+
+- [x] Imprime `hola`: `saluar` no sobrescribe nada, es un método nuevo
+- [ ] Imprime `chao`, porque `saluar` es casi `saludar`
+- [ ] Error de compilación
+- [ ] Ambos
+
+</Question>
+
+<Question id="anotacion-override-protege" anchor="herencia">
+
+¿Por qué se recomienda escribir `@Override` sobre los métodos que
+sobrescriben?
+
+- [x] Porque el compilador verifica que sobrescriben algo: un typo pasa a ser error de build
+- [ ] Porque acelera la ejecución del método en runtime
+- [ ] Porque es obligatorio para que la sobrescritura funcione
+- [ ] Porque marca el método como `virtual`, que en Java es opt-in
+
+</Question>
+
+<Question id="multi-interfaces" anchor="interfaces">
+
+¿Cuántas clases y cuántas interfaces puede una clase Java heredar/
+implementar directamente?
+
+- [x] Una sola clase, pero múltiples interfaces
+- [ ] Una sola clase y una sola interfaz
+- [ ] Múltiples clases y múltiples interfaces (como en C++)
+- [ ] Ninguna — Java no tiene herencia
+
+</Question>
+
+<Question id="polimorfismo-por-interfaz" anchor="polimorfismo">
+
+¿Qué imprime este programa?
+
+```java
+Comparable[] cosas = { 3, "pera", 1 };
+for (Comparable c : cosas) System.out.println(c);
+```
+
+- [x] `3`, `pera`, `1`
+- [ ] Error de compilación
+- [ ] `1`, `3`, `pera` (ordenado)
+- [ ] `NullPointerException`
+
+</Question>
+
+<Question id="dispatch-runtime" anchor="polimorfismo">
+
+Dado:
+
+```java
+class Vehiculo { String describir() { return "vehículo"; } }
+class Auto extends Vehiculo { String describir() { return "auto"; } }
+
+Vehiculo v = new Auto();
+System.out.println(v.describir());
+```
+
+¿Qué imprime?
+
+- [x] `auto` — el dispatch va por el tipo del OBJETO, no de la variable
+- [ ] `vehículo` — el dispatch va por el tipo de la VARIABLE
+- [ ] Error de compilación
+- [ ] Ambos, en orden
+
+</Question>
+
+<Question id="equals-por-defecto" anchor="tostring-equals-hashcode">
+
+¿Qué compara el `equals` que toda clase hereda de `Object`, si no lo
+sobrescribes?
+
+- [x] Si dos variables apuntan a la misma instancia
+- [ ] Los datos de los objetos (nombre, RUT)
+- [ ] El texto que devuelve `toString()`
+- [ ] Siempre devuelve `true`
+
+</Question>
+
+<Question id="equals-sobrescrito" anchor="tostring-equals-hashcode">
+
+Con `equals` sobrescrito para comparar por RUT, ¿qué imprime esto?
+
+```java
+new Persona("Ana", 12345).equals(new Persona("Ana", 12345));
+```
+
+- [x] `true`
+- [ ] `false` — son instancias distintas en memoria
+- [ ] Error de compilación — `equals` no se puede sobrescribir
+- [ ] Solo si tienen el mismo `nombre` además del RUT
+
+</Question>
+
+<Question id="tostring-por-defecto" anchor="tostring-equals-hashcode">
+
+¿Qué imprime `System.out.println(new Persona("Ana", 12345))` si `Persona` no
+sobrescribe `toString`?
+
+- [x] Algo como `Persona@1b6d3586`
+- [ ] `Ana (12345)`
+- [ ] `Ana`
+- [ ] Nada — error de compilación
+
+</Question>
+
+</Questions>
+
+## Lo que sigue
+
+Ya escribes tus propios tipos, los encajas en jerarquías o los haces cumplir
+contratos, y haces que dos objetos «tuyos» sean iguales cuando deben serlo.
+La siguiente pieza es cómo el compilador te ayuda a que un `Pair` de enteros
+no se mezcle con un `Pair` de strings — los **genéricos**. Y con ellos,
+`Comparable<T>` bien tipado, no `Comparable` a secas.
+
+Próximo documento: [[genericos-y-orden|Genéricos y orden]] (aún por venir).

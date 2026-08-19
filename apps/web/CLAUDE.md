@@ -84,6 +84,19 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
      tokens in both themes. The recipe lives in `testing-strategy.md`
      §Conventions ("A property jsdom cannot see").
 
+     One further step is Mermaid's: the component hands its source to a
+     third-party SVG layout engine jsdom cannot run at all — the library
+     refuses to render against it — so `<Mermaid>` (ADR-0040) pins the
+     container attributes, the source handed to the library and the
+     authoring-error branch, and the painted SVG is confirmed in a real
+     browser in both themes. The lazy boundary itself is pinned by the
+     suite — the per-name case and the eager-graph walk in
+     `src/architecture.test.ts` fail if mermaid leaves its lazy wrapper —
+     and S9 confirmed it once in a real browser: a page without a diagram
+     requests zero mermaid chunks, and the mermaid chunks are the only NEW
+     payload a diagram page downloads (part of the library rides in a chunk
+     already shared with the first paint, ADR-0040 §Consequences).
+
      A device rule also needs an emulated device, not
      merely a small window: the recipe is in `testing-strategy.md` §Conventions.
 

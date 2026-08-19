@@ -32,6 +32,9 @@ content/courses/sample-course/
 ├── 04-planificacion.mdx       # presentation: none     — book-only; <SheetEmbed> around the live plan
 ├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>, plus a markdown ##
 ├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>, plus two markdown ##
+├── 08-referencias-null-igualdad.mdx  # presentation: explicit — uses <PredictOutput> + <MemoryDiagram> + <Exercise> + <CodeEditor>
+├── 09-arrays-y-funciones.mdx  # presentation: explicit — uses <RecursionTree> + <Exercise> + <CodeEditor>
+├── 10-objetos.mdx             # presentation: explicit — uses <Mermaid> (the only worked example) + <PredictOutput> + <Exercise> + <CodeEditor>
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -312,6 +315,13 @@ so a formula is read as mathematics rather than skipped as decoration.
    section list** — one more reason to give every Slide a title. An untitled
    Slide cuts a slide but contributes no section.
 
+   **A `<SectionBreak />` collects, it does not cut.** In an `explicit` deck
+   only marked content forms slides: a markdown `##` after a SectionBreak does
+   NOT cut a slide (only `auto` slices on h2 — `presentation/parser.ts`), so
+   the heading is swallowed into one untitled slide and the deck gains a slide
+   nobody chose. #79 shipped exactly that extra slide; only the `/present`
+   walk finds it. Where you want a titled cut, write `<Slide title="…">`.
+
 5. **Add runnable code (optional)**: `<CodeEditor language="java" />` is
    likewise available without imports — Java, C++ or Python, compiled and run in
    the reader's own browser. Worked example: `07-java-tipos-y-flujo.mdx`, which
@@ -402,6 +412,13 @@ under `content/` is published, so the page source reveals them to anyone who
 looks: never author an exercise whose cases must stay private.
 
 Worked example: `07-java-tipos-y-flujo.mdx` (six exercises, one of them on a slide).
+
+**Exercises are book-first sections.** An exercise lives under `## Ejercicios`
+unless the classroom flow needs it projected — an exercise earns a slide only
+then, and any deck an issue promises must either ship as slides or the issue
+must be amended when the delivered deck differs (#79's issue promised five
+exercise slides plus a closing slide; the deck shipped cover + 25 slides with
+exercises and «Lo que sigue» as book-only sections).
 
 5c. **Compare two listings (optional)**: `<SideBySide left="C++" right="Java">`
 places exactly two blocks next to each other, stacking on a narrow screen.
@@ -574,6 +591,43 @@ This is MDX: `<name@host.cl>` opens a JSX tag, and the compiler stops the
 build on the `@` (`Unexpected character '@' (U+0040) in member name`). GFM
 autolinks the bare address anyway, so the angle brackets buy nothing and cost
 a red build — hit while writing `01-bienvenida.mdx` (#120).
+
+5g. **Draw a diagram (optional)**: `<Mermaid>` renders a diagram from its
+source, written as a prop — a class diagram today, and the same surface will
+carry sequence, state and entity-relationship diagrams as the course needs
+them (ADR-0040). The source is exactly what would sit inside a ```mermaid
+fence:
+
+```mdx
+<Mermaid
+  title="Un mismo dispatch, dos jerarquías"
+  source={`classDiagram
+    class Vehiculo {
+        +describir()
+    }
+    class Auto
+    Vehiculo <|-- Auto`}
+/>
+```
+
+- **`source` is required** — missing or blank renders an authoring error, not
+  a broken figure. `title` is the figure's accessible label (defaults to
+  "diagrama").
+- **The library is heavy and lazy.** The mermaid chunks (~200 kB gzipped)
+  download only when a page actually mounts a diagram, once per reader. Keep
+  to one diagram per section — the budget ADR-0040 declares.
+- **The paint exists only in a real browser.** The suite parses the syntax of
+  every authored diagram with the real library
+  (`app/mermaidSources.test.ts`), but cannot lay the diagram out — open it in
+  `npm run preview`, in both themes, in the book and on its slide. Same reason
+  as in 5d and 5e.
+- A diagram mermaid rejects renders the library's message in an authoring
+  banner and re-renders on the next source or theme change — the error is for
+  you, not for the reader.
+
+Decisions behind all this: ADR-0040. Worked example:
+`content/courses/sample-course/10-objetos.mdx` (§7); live:
+`/catalog/c/Mermaid`.
 
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
    a spreadsheet in **6g**: the asset lives **beside the `.mdx` that uses
@@ -982,6 +1036,10 @@ is not scaled at all.
       infinite loop), and the reveal panel prints. Same reason as the exercise
       case above — a snippet that fails to compile or that hangs is invisible
       to the build and the suite.
+- [ ] Every `<Mermaid>` opened in `npm run preview` and **looked at**: the
+      diagram paints (no authoring banner, no empty rectangle) in the book, on
+      its slide, and in both themes. The paint runs only in a real browser —
+      nothing in the build or the suite can see it (ADR-0040 §Consequences).
 - [ ] Every `<SheetEmbed>` opened at `/nalanda/d/<id>` under
       `npm run build && npm run preview`, and **looked at**: the grid is on
       screen — not Google's request-access page, not a rectangle stuck on
