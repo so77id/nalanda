@@ -156,6 +156,14 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 			"El servidor no pudo guardar los cambios. Vuelve a intentarlo.")
 		return
 	}
+	// Issue #190, ruta B: the save just changed what this copy means, so
+	// the annotated PDF must follow — synchronously, inside the request
+	// (the issue accepts the seconds-class block). A failure here does not
+	// fail the save: the overrides are persisted and the next save retries
+	// the annotate with the same payload.
+	if _, err := h.Service.Annotate(r.Context(), id, copyNumber); err != nil {
+		h.Log.Warn("save review: annotate failed", "control", id, "copy", copyNumber, "error", err)
+	}
 	if blank != "" {
 		flash.Set(w, h.secureCookie, fmt.Sprintf("Pregunta %s marcada en blanco.", blank))
 	} else {
