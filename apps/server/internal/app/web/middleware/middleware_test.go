@@ -1,11 +1,13 @@
 package middleware_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
 	"io"
 	"log/slog"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -361,6 +363,73 @@ func TestCSRF(t *testing.T) {
 		}
 		if recorder.Code != http.StatusOK {
 			t.Errorf("status = %d, want 200", recorder.Code)
+		}
+	})
+
+	// A multipart request is the shape WP-F's scan upload uses. The middleware
+	// used to call `r.ParseForm()` unconditionally, which for a multipart body
+	// leaves `r.PostForm` empty-non-nil and prevents any later
+	// `r.PostFormValue` from ever reading the multipart body — so the CSRF
+	// token was invisible even when the form carried it. WP-F's handler test
+	// bypasses the middleware, so this hole shipped and only appeared the
+	// first time a professor tried to upload a scan from a real browser
+	// (Jetson production, 2026-08-18: five 403s over two minutes on the same
+	// form after re-login and hard refresh).
+	postMultipart := func(t *testing.T, h *harness, token, csrf, extraField string) *httptest.ResponseRecorder {
+		t.Helper()
+
+		var buf bytes.Buffer
+		w := multipart.NewWriter(&buf)
+		if csrf != "" {
+			_ = w.WriteField(middleware.CSRFFieldName, csrf)
+		}
+		if extraField != "" {
+			// A payload part big enough to matter — a real scan upload is
+			// several MiB, so the test carries a modest KiB to cover the
+			// case where the file part comes before the token part.
+			part, _ := w.CreateFormFile("scan", "scan.pdf")
+			_, _ = part.Write(bytes.Repeat([]byte(extraField), 4096))
+		}
+		_ = w.Close()
+
+		req := httptest.NewRequest(http.MethodPost, "/controls/X/scans", &buf)
+		req.Header.Set("Content-Type", w.FormDataContentType())
+		if token != "" {
+			req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: token})
+		}
+		recorder := httptest.NewRecorder()
+		h.auth.Resolve(h.auth.RequireProfessor(h.auth.VerifyCSRF(h.next()))).ServeHTTP(recorder, req)
+		return recorder
+	}
+
+	t.Run("a multipart POST carrying the session's own token is accepted", func(t *testing.T) {
+		h := newHarness(t)
+		_, token := h.login(t, "profesora@example.com")
+
+		session, err := h.store.SessionByTokenHash(context.Background(), auth.HashToken(token))
+		if err != nil {
+			t.Fatalf("SessionByTokenHash: %v", err)
+		}
+
+		recorder := postMultipart(t, h, token, session.CSRFToken, "a")
+		if !h.handlerRan {
+			t.Error("the handler did not run for a multipart POST with the session's token — the middleware never read the token from the multipart body (WP-F upload was silently unreachable)")
+		}
+		if recorder.Code != http.StatusOK {
+			t.Errorf("status = %d, want 200; body:\n%s", recorder.Code, recorder.Body.String())
+		}
+	})
+
+	t.Run("a multipart POST with no token is still refused", func(t *testing.T) {
+		h := newHarness(t)
+		_, token := h.login(t, "profesora@example.com")
+
+		recorder := postMultipart(t, h, token, "", "a")
+		if h.handlerRan {
+			t.Error("the handler ran for a multipart POST with no CSRF token")
+		}
+		if recorder.Code != http.StatusForbidden {
+			t.Errorf("status = %d, want 403", recorder.Code)
 		}
 	})
 
