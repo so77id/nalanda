@@ -88,6 +88,22 @@ func compile(t *testing.T, override func(*tex.Input)) string {
 	return out
 }
 
+// The paper size is the operational contract with the printer (ADR-0042).
+// Chile printer default is US Letter; an A4 preamble was printed clipped
+// 18mm at the bottom in the 2026-08-19 Jetson incident, losing the two
+// bottom fiducials and taking every one of 44 pages to +0/0/0+. The test
+// exists so that a future revert to a4paper does not ship silently — the
+// L8 print check is a manual step by design (ADR-0030 §Not yet proven).
+func TestPreambleDeclaresLetterPaperNotA4(t *testing.T) {
+	out := compile(t, nil)
+	if !strings.Contains(out, `\documentclass[letterpaper,11pt]{article}`) {
+		t.Error("preamble is missing letterpaper: printed in Chile it clips the bottom fiducials (ADR-0042)")
+	}
+	if strings.Contains(out, "a4paper") {
+		t.Error("preamble still declares a4paper: Chile's printer default is Letter (ADR-0042)")
+	}
+}
+
 func TestPreambleDeclaresLangESAndDoesNotUseCompletemulti(t *testing.T) {
 	out := compile(t, nil)
 	if !strings.Contains(out, `\usepackage[box,lang=ES]{automultiplechoice}`) {

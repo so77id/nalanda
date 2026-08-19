@@ -105,7 +105,7 @@ func validate(in Input) error {
 var lastChoicePattern = regexp.MustCompile(`(?i)\bninguna\b[^.]*\banteriores\b`)
 
 // preamble tails and heads that never change with the input.
-const preambleHead = `\documentclass[a4paper,11pt]{article}
+const preambleHead = `\documentclass[letterpaper,11pt]{article}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
