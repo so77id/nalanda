@@ -1,6 +1,6 @@
 ---
 id: objetos
-title: Objetos, con equals y hashCode
+title: Clases y Objetos
 presentation: explicit
 questions: per-section
 ---
@@ -18,22 +18,36 @@ questions: per-section
 {/* actividad no llevan pregunta propia — van al NO_QUESTION con su razón; */}
 {/* lo que enseñan se mide en la pregunta de la sección principal. */}
 
-# Objetos, con equals y hashCode
+# Clases y Objetos
 
-En [[arrays-y-funciones|Arrays y funciones]] agrupaste código en funciones
-`static`. En [[referencias-null-igualdad|Referencias, null e igualdad]] viste
-que las variables guardan referencias a objetos y que `==` sobre objetos no
-compara contenido. Este documento junta las dos piezas: vas a escribir tus
-propios tipos — clases con atributos, constructores y métodos — y vas a
-decidir qué significa que dos objetos **tuyos** sean «el mismo». El documento
-cierra con un bug real que aparece cuando ese trabajo se hace a medias: un
-`HashSet` que no encuentra lo que tú mismo le metiste.
+Hasta aquí has programado con los tipos que Java trae de fábrica. Este
+documento te convierte en autor de tipos: defines tus propias clases, creas
+objetos a partir de ellas y decides qué significa que dos objetos «tuyos»
+sean iguales. El documento cierra con un bug real que aparece cuando ese
+trabajo se hace a medias: un `HashSet` que no encuentra lo que tú mismo le
+metiste.
 
 ## Clase: atributos y métodos
 
+<Slide title="¿Qué es una clase? ¿Qué es un objeto?">
+Una **clase** es una definición: dice qué datos guarda algo y qué puede
+hacer. Piensa en la clase `Persona`: tiene un nombre y un RUT (los datos) y
+sabe presentarse (el comportamiento). Es una plantilla — por sí sola no *es*
+nadie.
+
+Un **objeto** es una pieza concreta construida a partir de esa definición:
+`new Persona("Ana", 12345)` crea una persona real en memoria, con su propio
+nombre y su propio RUT. **Instancia** y **objeto** son dos nombres para lo
+mismo: cada `new` produce una instancia de la clase.
+
+La clase es la definición; el objeto es lo que usas para interactuar. Todo
+lo que sigue es, en el fondo, ese ciclo: definir una clase, crear objetos
+con `new` y llamar sus métodos.
+</Slide>
+
 <Slide title="Clases en C++">
 En C++ ya escribiste clases: atributos, constructor, métodos, con la
-separación en `.h` y `.cpp`. La `Pair` con la que vas a trabajar todo el
+separación en `.h` y `.cpp`. La `Pair` con la que vas a trabajar en este
 documento:
 
 ```cpp
@@ -71,23 +85,28 @@ public class Pair {
 }
 ```
 
-- **Atributos `private`**: solo los métodos de `Pair` los tocan — la sección
-  de visibilidad vuelve sobre esto.
-- **El constructor se llama como la clase** y no declara tipo de retorno, ni
-  siquiera `void`. El parámetro `first` y el atributo `first` comparten
-  nombre; `this.first` desambigua cuál es cuál (la sección de `this` es
-  entera sobre eso).
-- **Getters**: `first()` y `second()` exponen lectura sin exponer el campo.
-
-Cuando la instancias con `new Pair(3, 7)` el objeto vive en el heap y la
-variable guarda una referencia a él — el mismo modelo de
-[[referencias-null-igualdad|el documento anterior]], ahora con una clase tuya
-en vez de una del JDK.
+- **Atributos `private`** — los datos de la clase. `private` significa que
+  solo los métodos de la propia clase pueden tocarlos: desde fuera, los datos
+  de un objeto cambian únicamente a través de sus métodos.
+- **El constructor** — el método que corre cuando creas un objeto con `new`.
+  Se llama exactamente como la clase, no declara tipo de retorno, y su
+  trabajo es dejar el objeto listo para usarse: aquí, guardar en los
+  atributos los dos números que recibió. `this.first = first` se lee «el
+  atributo `first` de este objeto recibe el parámetro `first`» — `this` es
+  el objeto que se está construyendo.
+- **Getters** — métodos de lectura. `first()` devuelve el valor del atributo
+  `first`; el atributo queda privado y el resto del programa lo lee por esta
+  puerta. **Setters** serían lo simétrico — métodos que cambian el valor — y
+  no toda clase los necesita: escribir `setX` para cada campo no es una
+  regla, es una decisión.
 </Slide>
 
 <Slide title="Instancia y usa">
-Construye una `Pair`, llámale a sus getters y mira qué imprime. Después
-cambia los números y corre de nuevo.
+`new Pair(3, 7)` es el momento en que la definición se vuelve algo real:
+reserva memoria, corre el constructor con esos dos argumentos y devuelve una
+**instancia** — un objeto `Pair` concreto, con sus propios `first` y
+`second`. La variable `p` guarda una referencia a esa instancia, y a través
+de ella llamas sus métodos:
 
 <CodeEditor
   language="java"
@@ -114,10 +133,8 @@ public class Main {
 `}
 />
 
-`new Pair(3, 7)` reserva el objeto en el heap y corre el constructor; `p` es
-la referencia. `p.first()` y `p.second()` llaman a los getters. Prueba
-`new Pair(40, 2)` y confirma que `p` no es los números — es la caja que los
-guarda.
+`p.first()` y `p.second()` llaman a los getters. Prueba `new Pair(40, 2)` y
+confirma que `p` no es los números — es la caja que los guarda.
 </Slide>
 
 <Slide title="this">
@@ -150,7 +167,7 @@ escribirlo, no siempre te avisa, y el bug es callado. Corre la versión con
         this.y = y;
     }
 
-    // toString viene en §8 — por ahora tómalo como «cómo se imprime»
+    // toString: «cómo se imprime este objeto»
     public String toString() {
         return "x=" + x + ", y=" + y;
     }
@@ -207,7 +224,7 @@ public class Cuenta {
 - Getters y setters son la fachada para no exponer el campo. **No los generes
   por reflejo**: cada uno abre una puerta, y a veces la puerta correcta es no
   tenerla. `Cuenta` no tiene `setSaldo` — el saldo solo se mueve con
-  `depositar` (y, más adelante, con un `retirar` que valide fondos).
+  `depositar`.
 </Slide>
 
 <Slide title="La trampa: acceso desde afuera">
@@ -245,7 +262,6 @@ Sirve para dos cosas:
    marca, un método `describir`) vive una vez, en `Vehiculo`.
 2. **Tratar variedad como una sola cosa** — cuando el resto del programa
    recibe `Vehiculo`, funciona con `Auto`, `Camion`, o lo que venga después.
-   Esa idea es el §7.
 
 Un curso de estructuras de datos usa herencia poco, pero tiene que **leerla**
 en el JDK todo el rato (`ArrayList extends AbstractList`, y así con media
@@ -274,10 +290,6 @@ System.out.println(sumar(42, 3.14));   // 45.14
 
 Es lo que la herencia te compra en la práctica: escribes **una** vez, y te
 sirve para toda la familia — la de hoy y la que agreguen mañana.
-
-**Y estos mismos tipos — `Integer`, `Long`, `Double` — cumplen ADEMÁS otro
-contrato: se pueden comparar entre sí. Eso es lo que muestra la próxima
-sección con `Comparable`.**
 </Slide>
 
 <Slide title="extends, super, @Override">
@@ -300,9 +312,9 @@ public class Auto extends Vehiculo {
 ```
 
 - **`extends`** — `Auto` hereda todo lo de `Vehiculo`. Y en Java heredas de
-  **una sola** clase: nada de herencia múltiple como en C++. La variedad de
-  la que hablaba la primera slide se multiplica con **interfaces** (§6), no
-  con más padres.
+  **una sola** clase: nada de herencia múltiple como en C++. Si un tipo
+  necesita cumplir varios contratos a la vez, las **interfaces** lo
+  resuelven.
 - **`super(marca)`** — llama al constructor del padre, para que la parte
   «vehículo» se inicialice con la marca.
 - **`protected`** — visible para las subclases, invisible desde fuera: el
@@ -356,8 +368,7 @@ métodos, cada una a su manera.
 Sirven para que un mismo verbo — `comparar`, `ejecutar`, `imprimir` — lo
 puedan cumplir clases muy distintas, y el resto del programa las trate igual.
 Media biblioteca estándar de Java funciona así: `Comparable`, `Iterable`,
-`Runnable`, `Iterator`… — todas son interfaces. Es la herramienta que más
-vas a usar de este capítulo.
+`Runnable`, `Iterator`… — todas son interfaces.
 </Slide>
 
 <Slide title="Una interfaz, una clase que la cumple">
@@ -374,8 +385,7 @@ public class Persona implements Formal {
 
 La interfaz declara el método; `implements` obliga a la clase a definirlo.
 Un `Persona` es ahora **también** un `Formal` — puede ir a cualquier parte
-que pida un `Formal`. Nota el `@Override` de §5 haciendo su trabajo: si
-escribieras `tratarde()` con typo, el compilador lo atajaría aquí mismo.
+que pida un `Formal`.
 </Slide>
 
 <Slide title="La misma clase, varias interfaces">
@@ -392,35 +402,41 @@ public class Persona implements Formal, Serializable {
 
 `Persona` puede pasar por cualquier lugar que pida un `Formal` **o** un
 `Serializable`. Esto es lo que las estructuras de datos de Java explotan
-constantemente — `TreeSet` acepta cualquier cosa que sea `Comparable`,
-`HashMap` acepta cualquier cosa que sea `Object` (con `equals`+`hashCode`,
-§8), y así.
+constantemente — `TreeSet` acepta cualquier cosa que sea `Comparable`, y así
+con media biblioteca.
 </Slide>
 
 <Slide title="Una interfaz del sistema: Comparable">
-Los mismos `Integer`/`Long`/`Double` que en §5 vimos como `Number` (por
-herencia), acá los miras desde otro lado: **también** implementan
-`Comparable` (por interfaz). Un mismo objeto vive las dos vidas.
+Los mismos `Integer`/`Long`/`Double` que vimos como `Number`, acá se miran
+desde otro lado: **también** implementan `Comparable` (por interfaz). Un
+mismo objeto vive las dos vidas.
 
 `Comparable` vive en `java.lang` y define UN método: «cuando te comparen
-contigo, ¿cómo respondes?». Media biblioteca la implementa:
+contigo, ¿cómo respondes?». El contrato de `compareTo` es simple: devuelve
+**negativo** si `this` va antes que el argumento, **cero** si son iguales en
+el orden, **positivo** si va después. Cada clase decide qué significa
+«antes» para ella:
 
 ```java
-Integer.valueOf(3).compareTo(5);              //  -1  (this < arg)
-"pera".compareTo("manzana");                  //  > 0 (this > arg)
-LocalDate.now().compareTo(LocalDate.now());   //   0
+Integer.valueOf(3).compareTo(5);              // -1: 3 va antes que 5
+"pera".compareTo("manzana");                  // > 0: "pera" va después, por orden alfabético
+LocalDate.now().compareTo(LocalDate.now());   // 0: misma fecha
 ```
 
-El mismo `Integer`, dos familias:
+`Integer` compara valores numéricos, `String` compara en orden alfabético,
+`LocalDate` compara fechas — y quien las use no necesita saber cómo lo
+calcula cada una. El mismo `Integer`, dos vidas:
 
 ```java
 Integer x = 3;
-
-double s = sumar(x, 4.5);      // como Number (herencia, §5)
-int c    = x.compareTo(5);     // como Comparable (interfaz, §6) → -1
+double s = x.doubleValue();   // la vida heredada de Number
+int c    = x.compareTo(5);    // la vida contratada con Comparable → -1
 ```
+</Slide>
 
-Y tu propia clase puede unirse al club:
+<Slide title="Tu clase se une al club">
+Tu propia clase puede implementar `Comparable` y ordenarse igual que las de
+fábrica:
 
 ```java
 public class Fecha implements Comparable<Fecha> {
@@ -436,10 +452,11 @@ public class Fecha implements Comparable<Fecha> {
 }
 ```
 
-Con esto solo, `TreeSet<Fecha>` y `Collections.sort(listaDeFechas)` ya saben
-ordenarla — sin cambiar una línea del código de esas estructuras. Eso es lo
-que muestra §7. (Los `<Fecha>` entre los `<...>` son **genéricos** — te los
-explica el próximo documento.)
+Compara año contra año; si empatan, mes contra mes; si empatan, día contra
+día — por eso los `return` devuelven la diferencia. Con esto solo,
+`TreeSet<Fecha>` y `Collections.sort(listaDeFechas)` ya saben ordenarla, sin
+cambiar una línea del código de esas estructuras. (El `<Fecha>` entre
+ángulos declara con qué tipo se compara.)
 </Slide>
 
 <Slide title="La trampa: implements sin cumplir">
@@ -460,9 +477,9 @@ class Persona implements Formal {
 No compila. `implements` es un contrato: el compilador exige el método
 `tratarDe()`, y `saludar()` no lo cumple. El error —
 `The type Persona must implement the inherited abstract method Formal.tratarDe()` —
-te dice exactamente qué falta y dónde, con el mensaje real del compilador de
-la plataforma. («abstract» es la clase de la nota de §5: no la necesitas hoy
-para leer el mensaje — se lee «no cumpliste el contrato».)
+te dice exactamente qué falta y dónde. («abstract» es la palabra que usa el
+mensaje para decir «la clase no terminó de cumplir su contrato» — se lee «no
+cumpliste el contrato».)
 </Slide>
 
 ## Polimorfismo
@@ -481,10 +498,11 @@ propia clase — sin cambiar una línea del código de la estructura.
 cada elemento», el «algo» normalmente **es** un método polimórfico. No
 pienses «qué tipo es cada uno»; piensa «qué verbo necesito de todos ellos».
 
-Ya viste este juego moviéndose: en §5 el mismo `sumar(Number, Number)`
-funcionaba con `Integer` y `Double`; en §6 el mismo `Integer` respondía a
-`Comparable`. Esas dos maneras — heredar e implementar — se llaman ambas
-polimorfismo. Las dos slides siguientes las muestran en su forma más común.
+Ya viste este juego moviéndose: un mismo método `sumar` aceptaba un
+`Integer` y un `Double` sin cambiar una línea, y un mismo `Integer`
+respondía como número y como comparable. Esas dos maneras — heredar e
+implementar — se llaman ambas polimorfismo, y se usan exactamente igual. Es
+lo que muestran los dos ejemplos a continuación.
 </Slide>
 
 <Slide title="Dos maneras, un mismo verbo">
@@ -579,26 +597,36 @@ Muchos tipos de la biblioteca estándar implementan `Comparable`. Un arreglo
 Imprime `3`, `pera`, `1` — en orden de inserción, cada uno respondiendo por
 sí mismo a `println`. El `Integer` se imprime como número, el `String` como
 texto: la misma línea `System.out.println(c)` hace dos trabajos distintos
-según quién es `c`. Es la misma máquina de la slide anterior, llegando por
-la otra vía — interfaz en vez de herencia.
+según quién es `c`. Es la misma máquina, llegando por la otra vía —
+interfaz en vez de herencia.
 </Slide>
 
 ## toString, equals, hashCode
 
-<Slide title="Por qué necesitamos métodos">
-Java no permite sobrescribir operadores (lo viste en
-[[referencias-null-igualdad|Referencias, null e igualdad]]). Por eso `==`
-sobre objetos **siempre** compara referencias (¿misma caja?), y **nunca**
-contenido. Para preguntar «¿son el mismo objeto para mi dominio?» hay que
-usar **métodos**:
+<Slide title="Los métodos que toda clase hereda">
+En el ejemplo anterior, `println` imprimió un `Integer` y un `String` sin que
+nadie le dijera cómo: cada objeto trae su propia forma de presentarse. Esa
+forma no es magia — es un método que **todos** los objetos tienen, porque
+toda clase en Java desciende de una clase base llamada `Object`.
 
-- `toString()` — cómo se ve el objeto impreso.
-- `equals()` — cuándo dos objetos son «el mismo» según tú.
-- `hashCode()` — el número que las estructuras hash usan para ubicarlo.
+`Object` define tres métodos que tus clases heredan desde el primer día:
 
-`Object` trae los tres por defecto, y **casi siempre** los tres por defecto
-no sirven: `equals` compara por referencia (como `==`), `hashCode` es una
-dirección, y `toString` imprime `Persona@1b6d3586`.
+- `toString()` — cómo se presenta el objeto cuando se imprime.
+- `equals()` — cuándo dos objetos son «el mismo» para ti.
+- `hashCode()` — un número que identifica al objeto para las estructuras que
+  agrupan por valor.
+
+Heredarlos es gratis; el problema es lo que traen **por defecto**. `toString`
+imprime `Persona@1b6d3586` (tipo + dirección de memoria — inútil para leer);
+`equals` compara si dos variables apuntan a la misma instancia (no si dos
+personas tienen el mismo RUT); `hashCode` devuelve un número derivado de la
+identidad del objeto, no de sus datos. Y Java no permite redefinir `==` para
+tus tipos, así que «iguales en contenido» siempre pasa por métodos.
+
+Por eso se **sobrescriben**: `@Override` reemplaza la versión heredada por la
+tuya. Una clase que define cómo presentarse, cómo igualarse y cómo agruparse
+es una clase que se integra con todo el lenguaje — desde `println` hasta las
+colecciones.
 </Slide>
 
 <Slide title="toString">
@@ -618,28 +646,32 @@ public class Persona {
 ```
 
 Sin el override: `Persona@1b6d3586`. Con el override: `Ana (12345)`. Es el
-método que usaste sin nombre en §2 — `println` lo invoca cada vez que le
-pasas un objeto.
+método que `println` viene llamando en silencio cada vez que le pasas un
+objeto.
 </Slide>
 
-<Slide title="equals y hashCode — la regla operativa">
-**La regla, para memorizar:**
+<Slide title="equals y hashCode: qué son y cómo se usan">
+**`equals`: cuándo dos objetos son el mismo.** Lo escribes tú porque solo tú
+sabes qué hace iguales a dos personas en tu dominio: ¿el RUT? ¿nombre y
+apellido? Tu `equals` responde esa pregunta, y `HashSet`, `HashMap` y
+cualquier comparación de contenido la usan.
+
+**`hashCode`: el número que agrupa.** Las estructuras hash reparten los
+objetos en grupos usando un número, y ese número es `hashCode`. Para que dos
+objetos que `equals` declara iguales caigan en el mismo grupo, su `hashCode`
+debe coincidir. Por eso la regla operativa:
 
 > Si sobrescribes `equals`, sobrescribes `hashCode`. Siempre. Juntos.
 
-**Cuándo importa**: solo cuando esa clase entra a una estructura hash
-(`HashSet`, `HashMap`, sets y keys derivados). El teorema del contrato
-(reflexivo / simétrico / transitivo) te lo enseña el material de
-**algoritmos y estructuras** más adelante, donde también aprendes cómo
-funciona una tabla de hash por dentro. Aquí, solo: **haz los dos**.
+**Cómo se usan**: al guardar objetos en un `HashSet` (o como llave de un
+`HashMap`), los dos trabajan en equipo — `hashCode` elige el grupo, `equals`
+confirma dentro del grupo. Si el orden de recorrido importa y tu clase sabe
+compararse, `TreeSet`/`TreeMap` ordenan con `compareTo` en vez de agrupar
+por hash.
 
-**Cuándo usar qué estructura**:
-
-- `HashXxx` (`HashSet`, `HashMap`) — el orden no importa y tienes
-  `equals`+`hashCode`.
-- `TreeXxx` (`TreeSet`, `TreeMap`) — el orden sí importa y tu clase
-  implementa `Comparable` (viene en el próximo documento, «Genéricos y
-  orden»).
+El teorema completo del contrato (reflexivo, simétrico, transitivo) lo
+enseña el material de algoritmos y estructuras; aquí alcanza con la regla:
+**los dos, juntos**.
 </Slide>
 
 <Slide title="El bug del HashSet">
@@ -807,7 +839,7 @@ check(new Persona("", 0).toString(), "#0");
 
 `Persona` tiene `nombre` (String) y `apellido` (String). Escribe `equals`
 para que dos personas sean iguales si **nombre Y apellido** coinciden. Y
-también `hashCode`, obviamente (§8) — la regla no tiene excepciones.
+también `hashCode`: la regla no tiene excepciones.
 
 Pista: `Objects.equals(a, b)` y `Objects.hash(a, b, ...)` de
 `java.util.Objects`.
@@ -936,9 +968,8 @@ check(s.size(), 1);
 {/* deck en refinamiento). Cada una quedó anclada a su sección; los anchors */}
 {/* que no llevan pregunta están declarados con su razón en NO_QUESTION. */}
 {/* La verificación en runtime real (los snippets de las preguntas, los */}
-{/* CodeEditors y los ejercicios) se hace en el browser check de S9 contra */}
-{/* el runtime Java 8 de CheerpJ; ajustar alternativas si el JVM discrepa */}
-{/* es parte de esa lista. */}
+{/* CodeEditors y los ejercicios) se hizo en el browser check de S9 contra */}
+{/* el runtime Java 8 de CheerpJ. */}
 <Questions>
 
 <Question id="que-va-en-clase" anchor="clase-atributos-y-metodos">

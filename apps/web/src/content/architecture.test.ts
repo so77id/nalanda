@@ -201,6 +201,8 @@ describe('architecture: content invariants', () => {
     // tostring-equals-hashcode) carry the bank's eleven questions; the
     // entries below are the slides that sit beside them.
     objetos: {
+      'que-es-una-clase-que-es-un-objeto':
+        'definiciones de apertura: clase, objeto e instancia; lo que mide la pregunta de la sección es la anatomía de la clase',
       'clases-en-c':
         'contraste con C++; el delta Java que introduce se mide en la pregunta de "Clase: atributos y métodos"',
       'clases-en-java':
@@ -229,6 +231,8 @@ describe('architecture: content invariants', () => {
         'sub-detalle de §6: la extensión a varios contratos se mide en la pregunta anclada a la sección',
       'una-interfaz-del-sistema-comparable':
         'ejemplo detallado: lo que mide una pregunta va en la sección principal de §6',
+      'tu-clase-se-une-al-club':
+        'ejemplo detallado: lo que mide una pregunta va en la sección principal de §6',
       'la-trampa-implements-sin-cumplir':
         'actividad: el alumno predice el error de compilación; el mecanismo se mide en la pregunta anclada a "Interfaces"',
       'polimorfismo-que-es-y-para-que':
@@ -239,12 +243,12 @@ describe('architecture: content invariants', () => {
         'actividad: el alumno corre el arreglo Vehiculo[]; la mecánica se mide en las preguntas ancladas a "Polimorfismo"',
       'polimorfismo-por-interfaz-comparable':
         'actividad: el alumno corre el arreglo Comparable[]; la mecánica se mide en las preguntas ancladas a "Polimorfismo"',
-      'por-que-necesitamos-metodos':
-        'introducción de la sección; lo que enseña (== compara referencias, hacen falta métodos) se mide en las preguntas ancladas a "toString, equals y hashCode"',
+      'los-metodos-que-toda-clase-hereda':
+        'introducción de la sección; lo que enseña (herencia desde Object, por qué se sobrescribe) se mide en las preguntas ancladas a "toString, equals, hashCode"',
       tostring:
         'sub-detalle de §8: el override de toString; lo que se mide vive en las preguntas ancladas a la sección',
-      'equals-y-hashcode-la-regla-operativa':
-        'la regla y el cuándo se miden en las preguntas ancladas a "toString, equals y hashCode"',
+      'equals-y-hashcode-que-son-y-como-se-usan':
+        'la regla y el cuándo se miden en las preguntas ancladas a "toString, equals, hashCode"',
       'el-bug-del-hashset':
         'actividad: el alumno predice el tamaño del HashSet; el mecanismo se mide en equals-sin-hashcode, anclada a la sección',
       'la-correccion':
