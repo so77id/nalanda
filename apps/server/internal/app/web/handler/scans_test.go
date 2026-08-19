@@ -8,6 +8,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -40,6 +41,13 @@ func (f *controlsFixture) createControl(t *testing.T, name string, copies int) s
 // buildScanUpload writes a multipart body with a single PDF part.
 func buildScanUpload(t *testing.T, filename, contentType string, body []byte) (*bytes.Buffer, string) {
 	t.Helper()
+	return buildScanUploadWithFields(t, filename, contentType, body, nil)
+}
+
+// buildScanUploadWithFields is buildScanUpload plus extra form fields —
+// the threshold pair since issue #197.
+func buildScanUploadWithFields(t *testing.T, filename, contentType string, body []byte, fields map[string]string) (*bytes.Buffer, string) {
+	t.Helper()
 	var buf bytes.Buffer
 	w := multipart.NewWriter(&buf)
 	partHeader := make(map[string][]string)
@@ -55,6 +63,11 @@ func buildScanUpload(t *testing.T, filename, contentType string, body []byte) (*
 	}
 	if _, err := part.Write(body); err != nil {
 		t.Fatalf("write body: %v", err)
+	}
+	for name, value := range fields {
+		if err := w.WriteField(name, value); err != nil {
+			t.Fatalf("WriteField %s: %v", name, err)
+		}
 	}
 	if err := w.Close(); err != nil {
 		t.Fatalf("close writer: %v", err)
@@ -317,5 +330,116 @@ func TestAnnotateDisabledServesRawEverywhere(t *testing.T) {
 	}
 	if !strings.Contains(body, `<img src="/controls/`+controlID+`/copies/1/page/1"`) {
 		t.Errorf("review page must serve the raw scan with the flow disabled\n%s", body)
+	}
+}
+
+// Issue #197: the optional threshold fields travel with the upload — the
+// analyzer is asked to read at them, the control stores them, and the
+// annotate calls carry the stored ticked so the PDFs agree.
+func TestUploadScanWithExplicitThresholds(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control umbral", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+
+	body, ct := buildScanUploadWithFields(t, "batch.pdf", "application/pdf",
+		[]byte("%PDF-fake"), map[string]string{"ticked": "0.25", "unsure": "0.10"})
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/scans", nil)
+	req.Body = io.NopCloser(body)
+	req.Header.Set("Content-Type", ct)
+	req.ContentLength = int64(body.Len())
+	req.SetPathValue("id", controlID)
+
+	rec := httptest.NewRecorder()
+	f.handler.UploadScan(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d\nbody: %s", rec.Code, rec.Body.String())
+	}
+
+	last, _ := f.fake.LastAnalyzeCall()
+	if last.Ticked != 0.25 || last.Unsure != 0.10 {
+		t.Errorf("Analyze called with (%v, %v), want (0.25, 0.10)", last.Ticked, last.Unsure)
+	}
+	got, err := f.service.Get(context.Background(), controlID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.Ticked != 0.25 || got.Unsure != 0.10 {
+		t.Errorf("control stored (%v, %v), want (0.25, 0.10)", got.Ticked, got.Unsure)
+	}
+	annotate, ok := f.fake.LastAnnotateCall()
+	if !ok {
+		t.Fatal("no annotate call")
+	}
+	if annotate.Ticked != 0.25 {
+		t.Errorf("annotate called with ticked %v, want the stored 0.25", annotate.Ticked)
+	}
+}
+
+// The re-read persists the pair it used and re-annotates the copies the
+// new reading accepts (ruta A over the new report).
+func TestReanalyzePersistsThresholdsAndReannotates(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control re", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+	before := f.fake.AnnotateCallCount()
+
+	f.fake.ReanalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	values := url.Values{"ticked": {"0.20"}, "unsure": {"0.05"}}
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/reanalyze", values)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.ReanalyzeScans(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d\nbody: %s", rec.Code, rec.Body.String())
+	}
+	got, err := f.service.Get(context.Background(), controlID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.Ticked != 0.20 || got.Unsure != 0.05 {
+		t.Errorf("control stored (%v, %v), want (0.20, 0.05)", got.Ticked, got.Unsure)
+	}
+	if after := f.fake.AnnotateCallCount(); after != before+1 {
+		t.Errorf("AnnotateCallCount = %d after reanalyze, want %d (one re-annotated ok copy)",
+			after, before+1)
+	}
+	if _, exists, err := f.cstore.AnnotatedByCopy(context.Background(), controlID, 1); err != nil || !exists {
+		t.Errorf("annotated row after reanalyze: exists=%v err=%v, want the re-annotation", exists, err)
+	}
+	annotate, _ := f.fake.LastAnnotateCall()
+	if annotate.Ticked != 0.20 {
+		t.Errorf("re-annotate called with ticked %v, want the stored 0.20", annotate.Ticked)
+	}
+}
+
+// The band rule is enforced at the form boundary: an inverted pair never
+// reaches the worker.
+func TestReanalyzeRefusesAnInvertedBand(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control banda", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	values := url.Values{"ticked": {"0.05"}, "unsure": {"0.20"}}
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/reanalyze", values)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.ReanalyzeScans(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	if count := len(f.fake.ReanalyzeCalls); count != 0 {
+		t.Errorf("Reanalyze called %d times with an inverted band, want 0", count)
 	}
 }

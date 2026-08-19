@@ -24,11 +24,18 @@ const ControlReanalyzePath = "/controls/{id}/reanalyze"
 // ControlClosePath is POST target for "Cerrar corrección" (S8).
 const ControlClosePath = "/controls/{id}/close"
 
-// Defaults for the reanalyze form, mirroring apps/amc-worker.
-const (
-	defaultTicked = 0.30
-	defaultUnsure = 0.10
-)
+// resolveThresholds parses the two optional form fields against the
+// control's stored pair (the form prefill), and enforces the band rule.
+// ok is false when a provided value fails to parse or the pair is
+// invalid. Issue #197.
+func resolveThresholds(rawTicked, rawUnsure string, c controls.Control) (float64, float64, bool) {
+	ticked := parseFloatField(rawTicked, c.Ticked)
+	unsure := parseFloatField(rawUnsure, c.Unsure)
+	if !controls.ThresholdsValid(ticked, unsure) {
+		return 0, 0, false
+	}
+	return ticked, unsure, true
+}
 
 // uploadWriteWindow is how long the upload handler may take before the
 // server's write deadline cuts it. /analyse is minutes-class (53s for a
@@ -109,10 +116,37 @@ func (h *Controls) UploadScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Issue #197: the optional threshold fields resolve against the
+	// control's stored pair (the form prefill), so a crafted POST that
+	// omits one lands on the control's own pair, never on garbage.
+	control, err := h.Service.Get(r.Context(), id)
+	if err != nil {
+		_ = file.Close()
+		if errors.Is(err, controls.ErrControlNotFound) {
+			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+			return
+		}
+		h.Log.Error("upload: reading control for thresholds", "error", err, "id", id)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+	ticked, unsure, ok := resolveThresholds(
+		r.PostFormValue("ticked"), r.PostFormValue("unsure"), control)
+	if !ok {
+		_ = file.Close()
+		flash.Set(w, h.secureCookie,
+			"Los umbrales deben cumplir 0 < inseguro < marcado < 1.")
+		http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+		return
+	}
+
 	result, err := h.Service.UploadScan(r.Context(), controls.UploadRequest{
 		ControlID: id,
 		Filename:  header.Filename,
 		Content:   file,
+		Ticked:    ticked,
+		Unsure:    unsure,
 	})
 	if err != nil {
 		switch {
@@ -141,9 +175,9 @@ func (h *Controls) UploadScan(w http.ResponseWriter, r *http.Request) {
 }
 
 // ReanalyzeScans handles POST /controls/:id/reanalyze. Reads ticked/unsure
-// from the form (defaults if empty), asks the Service to re-read the
-// captured project at those thresholds, and redirects to detail with a
-// flash.
+// from the form (prefilled with the control's stored pair), asks the
+// Service to re-read the captured project at those thresholds, and
+// redirects to detail with a flash.
 func (h *Controls) ReanalyzeScans(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if !isValidControlID(id) {
@@ -155,14 +189,35 @@ func (h *Controls) ReanalyzeScans(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 		return
 	}
-	ticked := parseFloatField(r.PostFormValue("ticked"), defaultTicked)
-	unsure := parseFloatField(r.PostFormValue("unsure"), defaultUnsure)
-	if ticked <= 0 || ticked >= 1 || unsure < 0 || unsure >= ticked {
+	control, err := h.Service.Get(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, controls.ErrControlNotFound) {
+			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+			return
+		}
+		h.Log.Error("reanalyze: reading control for thresholds", "error", err, "id", id)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+	ticked, unsure, ok := resolveThresholds(
+		r.PostFormValue("ticked"), r.PostFormValue("unsure"), control)
+	if !ok {
 		flash.Set(w, h.secureCookie,
 			"Los umbrales deben cumplir 0 < inseguro < marcado < 1.")
 		http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 		return
 	}
+
+	// Issue #197: the re-read now also re-runs note and re-annotates every
+	// clean copy — minutes-class work, so the route claims its own write
+	// deadline like the upload does.
+	controller := http.NewResponseController(w)
+	if err := controller.SetWriteDeadline(time.Now().Add(uploadWriteWindow)); err != nil &&
+		!errors.Is(err, http.ErrNotSupported) {
+		h.Log.Warn("controls: cannot extend the reanalyze write deadline", "error", err)
+	}
+
 	if _, err := h.Service.Reanalyze(r.Context(), id, ticked, unsure); err != nil {
 		switch {
 		case errors.Is(err, controls.ErrControlNotFound):
