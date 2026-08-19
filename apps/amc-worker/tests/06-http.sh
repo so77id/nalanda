@@ -91,6 +91,12 @@ check_eq "with none failed" "0" "$(echo "$rep" | field 'd["pages"]["failed"]')"
 check_eq "and reads copy 1's RUT back" "20123456" "$(echo "$rep" | field 'd["copies"]["1"]["rut"]')"
 check_eq "and queues exactly the damaged copies" "['3', '4', '5']" \
   "$(echo "$rep" | field 'sorted(d["needs_review"])')"
+# Issue #197: the default threshold is 0.15 (X marks measure 0.14-0.32), and
+# the SAME value reaches AMC's note — the report says which seuil scored it.
+check_eq "the default threshold travels into scoring" "0.15" \
+  "$(echo "$rep" | field 'd["scoring"]["seuil"]')"
+check_eq "and the reader used the same default" "0.15" \
+  "$(echo "$rep" | field 'd["scoring"]["ticked"]')"
 
 # ADR-0037: the server serves review-page images at
 # `<work>/controls/<id>/scans/copy-<N>-page-<M>.<ext>`. After /analyse the
@@ -248,6 +254,36 @@ check_eq "and with a real denominator on every question" "False" \
   "$(echo "$rep6" | field 'any(a["max"] is None for a in d["copies"]["6"]["answers"])')"
 note "copy 6 over HTTP" \
   "$(echo "$rep6" | field '[(a["name"], a["score"], a["max"]) for a in d["copies"]["6"]["answers"]]')"
+
+# --- issue #197: the threshold travels, not only on paper ---------------------
+#
+# The same sheets analysed at two thresholds must produce two different
+# scorings. ticked=0.9 (above every real mark) blanks everything: the marks
+# the reader reports, the scores note computed, and the seuil recorded all
+# agree on 0.9 — one number, three consumers.
+
+printf '{"1": {"rut": "20123456", "answers": [1, 1, 1, 1]},\n' >"$work/plan-t.json"
+printf ' "2": {"rut": "19876543", "answers": [2, 2, 2, 2]}}\n' >>"$work/plan-t.json"
+
+gen_t="$(post /generate '{"project":"project-t","source":"src/control-demo.tex","copies":2}')"
+check_eq "two copies generate for the threshold probe" "2" \
+  "$(echo "$gen_t" | field 'd["copies"]')"
+
+check "the threshold-probe sheets can be filled" \
+  docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" \
+  python3 /work/fill_sheet.py --layout /work/project-t/data/layout.sqlite \
+  --sujet /work/project-t/out/sujet.pdf --out /work/scan-t \
+  --plan /work/plan-t.json --pdf /work/scan-t/lote.pdf
+
+rep_t="$(post /analyse '{"project":"project-t","scan_pdf":"scan-t/lote.pdf","source":"src/control-demo.tex","ticked":0.9,"unsure":0.05}' || true)"
+check_eq "the chosen threshold reaches note's --seuil" "0.9" \
+  "$(echo "$rep_t" | field 'd["scoring"]["seuil"]')"
+check_eq "at 0.9 no box counts as a mark" "True" \
+  "$(echo "$rep_t" | field 'all(a["marked"] == [] for a in d["copies"]["1"]["answers"])')"
+check_eq "and no question scores a point" "True" \
+  "$(echo "$rep_t" | field 'all(a["score"] == 0 for a in d["copies"]["1"]["answers"])')"
+check_eq "an inverted band is refused, not silently reordered" "400" \
+  "$(post_status /analyse '{"project":"project-t","scan_pdf":"scan-t/lote.pdf","source":"src/control-demo.tex","ticked":0.05,"unsure":0.2}')"
 
 # --- /annotate/copy — the corrected copy, issue #190 ---------------------------
 #

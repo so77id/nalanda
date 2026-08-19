@@ -6,8 +6,8 @@ Runs INSIDE the worker image. Emits JSON on stdout:
     {                                              // shape, not a real reading:
       "pages": {"captured": 10, "failed": 0},       // the fixture's own numbers
                                                     // are in tests/03-read.sh
-      "scoring": {"seuil": 0.3,                      // what AMC's `note` used
-                  "ticked": 0.3,                     // what THIS reading used
+      "scoring": {"seuil": 0.15,                     // what AMC's `note` used
+                  "ticked": 0.15,                    // what THIS reading used
                   "stale": false},                   // true when they differ
       "copies": {
         "1": {
