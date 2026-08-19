@@ -6,7 +6,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -49,11 +48,6 @@ const uploadWriteWindow = 15 * time.Minute
 
 // scanFormField is the multipart field the upload form posts under.
 const scanFormField = "scan"
-
-// uploadBatchPattern is the URL-boundary validation for the uploaded batch
-// segment (issue #204): the on-disk contract is batch-<positive int>.pdf,
-// and a segment that does not match it never reaches os.Open.
-var uploadBatchPattern = regexp.MustCompile(`^batch-[0-9]+\.pdf$`)
 
 // UploadScan reads the multipart form, streams the PDF onto disk through the
 // Service, and redirects back to /controls/:id with a flash message. Failure
@@ -290,7 +284,14 @@ func (h *Controls) CloseCorrection(w http.ResponseWriter, r *http.Request) {
 func (h *Controls) UploadsPDF(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	batch := r.PathValue("batch")
-	if !isValidControlID(id) || !uploadBatchPattern.MatchString(batch) {
+	if !isValidControlID(id) {
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+		return
+	}
+	// The domain owns the batch-naming contract (IsBatchName, the same
+	// rule nextBatchNumber and UploadList use); a segment outside it never
+	// reaches os.Open.
+	if !controls.IsBatchName(batch) {
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese archivo no existe.")
 		return
 	}

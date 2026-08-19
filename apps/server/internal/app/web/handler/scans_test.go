@@ -479,9 +479,10 @@ func TestUploadsPDFServesTheStoredBatch(t *testing.T) {
 	}
 }
 
-// The batch name is a URL segment, so the pattern is the barrier: names
-// outside the on-disk contract 404 before any file is opened, as do an
-// unknown control and a batch that is not on disk.
+// The batch name is a URL segment validated against the domain's batch
+// contract (IsBatchName): names outside it 404 before any file is opened
+// — including batch-0.pdf, which nextBatchNumber can never produce — as
+// do an unknown control and a batch that is not on disk.
 func TestUploadsPDFRefusesBadNamesMissingFilesAndUnknownControls(t *testing.T) {
 	f := newControlsFixture(t)
 	controlID := f.createControl(t, "Control batch 404", 1)

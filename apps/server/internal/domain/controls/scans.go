@@ -412,11 +412,22 @@ func matchesRead(a Answer, edit AnswerEdit) bool {
 	return true
 }
 
+// IsBatchName reports whether a name matches the on-disk batch contract
+// batch-<positive int>.pdf (batchNumber). Exported because the upload
+// handler validates its URL segment against the SAME rule (issue #204
+// review) — the contract has one home, and every reader of the naming
+// goes through it.
+func IsBatchName(name string) bool {
+	_, ok := batchNumber(name)
+	return ok
+}
+
 // batchNumber parses a filename into its batch number when it matches the
 // on-disk contract batch-<positive int>.pdf, ok=false otherwise. One home
-// for the contract, shared by nextBatchNumber (naming the next batch) and
-// UploadList (listing the existing ones, issue #204) — two readers of the
-// same naming must not drift.
+// for the contract, shared by nextBatchNumber (naming the next batch),
+// UploadList (listing the existing ones, issue #204) and the handler's
+// URL validation (IsBatchName) — readers of the same naming must not
+// drift.
 func batchNumber(name string) (int, bool) {
 	if !strings.HasPrefix(name, scanFilePrefix) || !strings.HasSuffix(name, scanFileExt) {
 		return 0, false
