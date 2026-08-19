@@ -80,6 +80,15 @@ func (h *recordingHook) Closed(ctx context.Context, controlID string) error {
 
 func newControlsFixture(t *testing.T) *controlsFixture {
 	t.Helper()
+	// The production default (config default true, issue #190).
+	return newControlsFixtureWith(t, true)
+}
+
+// newControlsFixtureWith builds the fixture with the annotate loop on or
+// off — the AC-7 integration case needs the off side, which the shared
+// helper never produces.
+func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture {
+	t.Helper()
 	ctx := context.Background()
 
 	db, err := storage.Open(ctx, filepath.Join(t.TempDir(), "nalanda.db"))
@@ -117,7 +126,7 @@ func newControlsFixture(t *testing.T) *controlsFixture {
 	cstore := controlstore.New(db)
 	svc := controls.NewService(controls.Service{
 		Bank: b, Store: cstore, Generator: fake, Analyzer: fake, Readings: cstore,
-		Annotator: fake, AnnotateEnabled: true,
+		Annotator: fake, AnnotateEnabled: annotateEnabled,
 		WorkDir: workDir,
 		Now:     time.Now, Seed: 1, Log: log,
 	})

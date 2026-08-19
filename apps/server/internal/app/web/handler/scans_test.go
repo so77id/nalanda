@@ -277,3 +277,40 @@ func TestCloseCorrectionFiresTheHookAfterGrading(t *testing.T) {
 		t.Errorf("control state = %q, want graded", got.State)
 	}
 }
+
+// TestAnnotateDisabledServesRawEverywhere is the AC-7 integration case on
+// the OFF side: the flag removed the whole loop — no worker calls, no
+// annotated_copy rows, the review page serves the raw scan. The ON side
+// is every other test in this package (S5/S6/S7 all run with the default
+// true fixture).
+func TestAnnotateDisabledServesRawEverywhere(t *testing.T) {
+	f := newControlsFixtureWith(t, false)
+	controlID := f.createControl(t, "Control off", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	if count := f.fake.AnnotateCallCount(); count != 0 {
+		t.Errorf("AnnotateCallCount = %d with the flow disabled, want 0", count)
+	}
+	if _, exists, err := f.cstore.AnnotatedByCopy(context.Background(), controlID, 1); err != nil || exists {
+		t.Errorf("annotated_copy row exists=%v err=%v, want none", exists, err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/copies/1/review", nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", "1")
+	rec := httptest.NewRecorder()
+	f.handler.Review(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, "<iframe") {
+		t.Errorf("review page shows an iframe with the flow disabled\n%s", body)
+	}
+	if !strings.Contains(body, `<img src="/controls/`+controlID+`/copies/1/page/1"`) {
+		t.Errorf("review page must serve the raw scan with the flow disabled\n%s", body)
+	}
+}
