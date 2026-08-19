@@ -33,8 +33,8 @@ That produces `tests/work/paper-min/out/control-min-para-imprimir.pdf` — three
 copies, three pages.
 
 **Print single-sided, at 100% scale.** Not "fit to page": AMC finds the sheet
-by the four corner marks, and scaling moves them. Plain white A4; three sheets
-come out.
+by the four corner marks, and scaling moves them. Plain white US Letter; three
+sheets come out (paper size is a printer-facing contract per ADR-0042).
 
 ## 2. Mark them
 
