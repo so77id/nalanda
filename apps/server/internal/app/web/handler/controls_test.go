@@ -96,6 +96,7 @@ func newControlsFixture(t *testing.T) *controlsFixture {
 	cstore := controlstore.New(db)
 	svc := controls.NewService(controls.Service{
 		Bank: b, Store: cstore, Generator: fake, Analyzer: fake, Readings: cstore,
+		Annotator: fake, AnnotateEnabled: true,
 		WorkDir: workDir,
 		Now:     time.Now, Seed: 1, Log: log,
 	})

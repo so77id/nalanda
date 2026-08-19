@@ -118,6 +118,7 @@ jobs:
             -e NALANDA_AMC_WORKER_URL=http://amc-worker-placeholder:8080 \
             -e NALANDA_WORK_DIR=/work \
             -e NALANDA_MAX_SCAN_MB=100 \
+            -e NALANDA_ANNOTATE_ENABLED=true \
             -v "$GITHUB_WORKSPACE/ci-work:/work:ro" \
             -p 127.0.0.1:8081:8081 \
             nalanda/server:ci

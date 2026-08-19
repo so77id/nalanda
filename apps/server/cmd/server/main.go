@@ -162,8 +162,13 @@ func run(logger *slog.Logger) error {
 		Generator: amcClient,
 		Analyzer:  amcClient,
 		Readings:  controlStore,
-		WorkDir:   cfg.WorkDir,
-		Now:       time.Now,
+		Annotator: amcClient,
+		// The annotate loop's master switch (NALANDA_ANNOTATE_ENABLED,
+		// issue #190 §Reversibility): defaults to true, the operator can
+		// turn the whole flow off without a deploy.
+		AnnotateEnabled: cfg.AnnotateEnabled,
+		WorkDir:         cfg.WorkDir,
+		Now:             time.Now,
 		// Constant seed for reproducibility (tex.Compile refuses zero).
 		// A per-control seed is a future decision: today every control
 		// runs the same shuffle, and re-generating one produces the same

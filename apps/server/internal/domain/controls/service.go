@@ -65,6 +65,13 @@ type Service struct {
 	// inside a request (backend-code-style.md §Errors).
 	Analyzer Analyzer
 	Readings ReadingStore
+	// Annotator and AnnotateEnabled are the annotate loop (issue #190):
+	// every copy ends the control cycle with a corrected PDF. The
+	// interface is required — a wiring mistake panics at boot; the flag
+	// comes from config (NALANDA_ANNOTATE_ENABLED, default true) and is
+	// the escape hatch that turns the whole flow off in production.
+	Annotator       Annotator
+	AnnotateEnabled bool
 	// WorkDir is what the SERVER sees as the root of the shared volume.
 	// In compose it is bind-mounted onto /work in the worker; in
 	// development it may be any path the operator chose (see
@@ -93,6 +100,8 @@ func NewService(deps Service) *Service {
 		panic("controls.NewService: no analyzer")
 	case deps.Readings == nil:
 		panic("controls.NewService: no reading store")
+	case deps.Annotator == nil:
+		panic("controls.NewService: no annotator")
 	case deps.WorkDir == "":
 		panic("controls.NewService: no work directory")
 	case deps.Now == nil:

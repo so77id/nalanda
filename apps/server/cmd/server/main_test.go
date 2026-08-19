@@ -92,15 +92,17 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				cstore := controlstore.New(db)
 				fake := &amctest.Fake{}
 				return controls.NewService(controls.Service{
-					Bank:      emptyBank(t),
-					Store:     cstore,
-					Generator: fake,
-					Analyzer:  fake,
-					Readings:  cstore,
-					WorkDir:   t.TempDir(),
-					Now:       time.Now,
-					Seed:      1,
-					Log:       logger,
+					Bank:            emptyBank(t),
+					Store:           cstore,
+					Generator:       fake,
+					Analyzer:        fake,
+					Readings:        cstore,
+					Annotator:       fake,
+					AnnotateEnabled: true,
+					WorkDir:         t.TempDir(),
+					Now:             time.Now,
+					Seed:            1,
+					Log:             logger,
 				})
 			}(),
 			Bank:      emptyBank(t),

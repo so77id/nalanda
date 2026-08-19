@@ -98,19 +98,33 @@ func (s *fakeStore) AnnotatedByCopy(_ context.Context, controlID string, copyNum
 }
 
 // fakeReadingStore is the do-nothing double the pre-WP-F cases use. The
-// WP-F flows are exercised through Service.UploadScan in scans_test.go
-// with a real controlstore.
-type fakeReadingStore struct{}
+// WP-F flows are exercised through Service.UploadScan in scans_internal_test.go
+// with a real controlstore. readingsByCopy holds stored readings for the
+// annotate tests (issue #190); empty maps behave exactly like the old
+// do-nothing shape.
+type fakeReadingStore struct {
+	readingsByCopy map[string]controls.Reading // key: <controlID>#<copyNumber>
+}
 
-func (fakeReadingStore) UpsertReadingsFromReport(context.Context, string, controls.Report, time.Time) error {
+func newFakeReadingStore() *fakeReadingStore {
+	return &fakeReadingStore{readingsByCopy: map[string]controls.Reading{}}
+}
+
+func (s *fakeReadingStore) UpsertReadingsFromReport(context.Context, string, controls.Report, time.Time) error {
 	return nil
 }
-func (fakeReadingStore) MarkMissingAsNotPresent(context.Context, string, time.Time) error { return nil }
-func (fakeReadingStore) ReadingsByControl(context.Context, string) ([]controls.Reading, error) {
+func (s *fakeReadingStore) MarkMissingAsNotPresent(context.Context, string, time.Time) error {
+	return nil
+}
+func (s *fakeReadingStore) ReadingsByControl(context.Context, string) ([]controls.Reading, error) {
 	return nil, nil
 }
-func (fakeReadingStore) ReadingByCopy(context.Context, string, int) (controls.Reading, error) {
-	return controls.Reading{}, controls.ErrReadingNotFound
+func (s *fakeReadingStore) ReadingByCopy(_ context.Context, controlID string, copyNumber int) (controls.Reading, error) {
+	r, ok := s.readingsByCopy[fmt.Sprintf("%s#%d", controlID, copyNumber)]
+	if !ok {
+		return controls.Reading{}, controls.ErrReadingNotFound
+	}
+	return r, nil
 }
 func (fakeReadingStore) SetAnswerOverride(context.Context, int64, string, controls.AnswerOverride) error {
 	return nil
@@ -141,11 +155,15 @@ func newService(t *testing.T) (*controls.Service, *fakeStore, *amctest.Fake, str
 		Store:     store,
 		Generator: gen,
 		Analyzer:  gen,
-		Readings:  fakeReadingStore{},
-		WorkDir:   workDir,
-		Now:       func() time.Time { return time.Unix(1_755_446_400, 0).UTC() },
-		Seed:      1242,
-		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Readings:  newFakeReadingStore(),
+		Annotator: gen,
+		// The production default (config default true, issue #190). Tests
+		// that exercise the off switch build their own Service.
+		AnnotateEnabled: true,
+		WorkDir:         workDir,
+		Now:             func() time.Time { return time.Unix(1_755_446_400, 0).UTC() },
+		Seed:            1242,
+		Log:             slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 	return svc, store, gen, workDir
 }
@@ -319,7 +337,8 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 	gen := &amctest.Fake{WorkDir: workDir, SujetSize: 4}
 	store := newFakeStore()
 	svc := controls.NewService(controls.Service{
-		Bank: b, Store: store, Generator: gen, Analyzer: gen, Readings: fakeReadingStore{},
+		Bank: b, Store: store, Generator: gen, Analyzer: gen, Readings: newFakeReadingStore(),
+		Annotator: gen, AnnotateEnabled: true,
 		WorkDir: workDir,
 		Now:     func() time.Time { return time.Now() }, Seed: 1,
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),

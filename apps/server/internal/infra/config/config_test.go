@@ -358,3 +358,71 @@ func TestSafeDatabaseURL(t *testing.T) {
 		})
 	}
 }
+
+// The annotate switch parses through the same strictBool helper as the
+// proxy-trust flag (issue #190). The difference that needs its own test is
+// the DEFAULT: true, because the flow is on unless the operator explicitly
+// turns it off. A mutation that defaulted it to false would silently
+// disable the whole annotate loop with the suite green — this pins the
+// default and the accept/reject sets in one table.
+func TestAnnotateEnabled(t *testing.T) {
+	t.Run("defaults to true when unset", func(t *testing.T) {
+		withoutFlag := env()
+		delete(withoutFlag, "NALANDA_ANNOTATE_ENABLED")
+
+		cfg, err := config.Load(lookupFrom(withoutFlag))
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if !cfg.AnnotateEnabled {
+			t.Error("AnnotateEnabled = false with the key unset, want the default true")
+		}
+	})
+
+	t.Run("accepted values", func(t *testing.T) {
+		for _, c := range []struct {
+			raw  string
+			want bool
+		}{
+			{"true", true},
+			{"True", true},
+			{"TRUE", true},
+			{" true ", true},
+			{"false", false},
+			{"False", false},
+			{"FALSE", false},
+			{" false ", false},
+			{"", true}, // empty is unset; the default is true, not false
+		} {
+			t.Run("raw="+c.raw, func(t *testing.T) {
+				e := env()
+				e["NALANDA_ANNOTATE_ENABLED"] = c.raw
+
+				cfg, err := config.Load(lookupFrom(e))
+				if err != nil {
+					t.Fatalf("Load with %q: %v", c.raw, err)
+				}
+				if cfg.AnnotateEnabled != c.want {
+					t.Errorf("AnnotateEnabled = %v for %q, want %v", cfg.AnnotateEnabled, c.raw, c.want)
+				}
+			})
+		}
+	})
+
+	t.Run("rejected values", func(t *testing.T) {
+		for _, raw := range []string{"yes", "no", "1", "0", "on", "off", "TRUE!"} {
+			t.Run("raw="+raw, func(t *testing.T) {
+				e := env()
+				e["NALANDA_ANNOTATE_ENABLED"] = raw
+
+				_, err := config.Load(lookupFrom(e))
+				if err == nil {
+					t.Fatalf("Load with NALANDA_ANNOTATE_ENABLED=%q returned no error, want one", raw)
+				}
+				if !strings.Contains(err.Error(), "NALANDA_ANNOTATE_ENABLED") {
+					t.Errorf("error = %q, want it to name the key", err)
+				}
+			})
+		}
+	})
+}

@@ -62,6 +62,14 @@ type Fake struct {
 	ReanalyzeReports []controls.Report
 	// ReanalyzeErr, when set, is returned from Reanalyze.
 	ReanalyzeErr error
+
+	// AnnotateCalls records every AnnotateCopy call in order.
+	AnnotateCalls []controls.AnnotateRequest
+	// AnnotatedPath overrides the default convention-derived path
+	// AnnotateCopy returns.
+	AnnotatedPath string
+	// AnnotateErr, when set, is returned from AnnotateCopy.
+	AnnotateErr error
 }
 
 // Generate satisfies controls.Generator. When Err is set, it returns that;
