@@ -236,6 +236,67 @@ check_eq "and with a real denominator on every question" "False" \
 note "copy 6 over HTTP" \
   "$(echo "$rep6" | field '[(a["name"], a["score"], a["max"]) for a in d["copies"]["6"]["answers"]]')"
 
+# --- /annotate/copy — the corrected copy, issue #190 ---------------------------
+#
+# The worker half of the annotate loop: the server sends the professor's
+# overrides, the worker writes them into AMC's own capture (capture_zone.
+# manual), recomputes the scores and annotates ONE copy. The PDF is what
+# proves the override took effect — a verdict that does not move would mean
+# the patch was ignored and annotate drew the original reading.
+
+echo "$rep" >"$work/report.json"
+
+ac="$(post /annotate/copy '{"project":"project","copy":1}' || true)"
+check_eq "annotate/copy answers the path to the corrected PDF" "project/annotated/copy-1.pdf" \
+  "$(echo "$ac" | field 'd["path"]')"
+check "and the corrected PDF exists on the volume" \
+  test -s "${work}/project/annotated/copy-1.pdf"
+
+annotated_text() { # annotated_text → the global verdict line of copy-1.pdf
+  docker run --rm --env DISPLAY= -v "${work}:/work" -w /work "$IMAGE" \
+    pdftotext -layout -f 1 -l 1 /work/project/annotated/copy-1.pdf - 2>/dev/null \
+    | grep -o 'Nota: [^ ]*' || true
+}
+check_contains "the annotated PDF carries the verdict" "Nota:" "$(annotated_text)"
+
+# Blank every question of copy 1 and annotate again. The verdict must drop
+# to zero: annotate draws what `note` scored AFTER the manual patch — if it
+# drew the original reading instead, the score would not move.
+blank_all="$(python3 -c "
+import json
+rep = json.load(open('${work}/report.json'))
+ans = [{'question': a['name'], 'marked': []} for a in rep['copies']['1']['answers']]
+print(json.dumps({'project': 'project', 'copy': 1, 'overrides': {'answers': ans}}))")"
+ac2="$(post /annotate/copy "$blank_all" || true)"
+check_eq "re-annotating the same copy answers the same path" "project/annotated/copy-1.pdf" \
+  "$(echo "$ac2" | field 'd["path"]')"
+check_eq "the override moved the score in the PDF" "Nota: 0/4" "$(annotated_text)"
+check_eq "and the old PDF was replaced, not orphaned beside a new one" "1" \
+  "$(ls "${work}/project/annotated"/*.pdf 2>/dev/null | wc -l | tr -d ' ')"
+
+# The RUT override: copy 4's grid came back unreadable (1912345_). Typing
+# the eight digits must land in AMC's capture, so a re-read agrees with the
+# professor — not only with the server's own override table.
+ac4="$(post /annotate/copy '{"project":"project","copy":4,"overrides":{"rut":"19123450"}}' || true)"
+check_eq "annotate/copy accepts a RUT override" "project/annotated/copy-4.pdf" \
+  "$(echo "$ac4" | field 'd["path"]')"
+
+reread="$(post /reanalyse '{"project":"project"}' || true)"
+check_eq "a re-read sees the corrected RUT" "19123450" \
+  "$(echo "$reread" | field 'd["copies"]["4"]["rut"]')"
+check_eq "and reads it as clean" "ok" \
+  "$(echo "$reread" | field 'd["copies"]["4"]["rut_status"]')"
+
+# Refusals: a copy that was never captured, and an override naming a
+# question this copy never captured. Both are the caller's mistake and can
+# never succeed on retry, so they answer 400.
+check_eq "a copy with no capture is refused" "400" \
+  "$(post_status /annotate/copy '{"project":"project","copy":99}')"
+check_eq "an override naming a question the layout does not have is refused" "400" \
+  "$(post_status /annotate/copy '{"project":"project","copy":1,"overrides":{"answers":[{"question":"no-such-question","marked":[]}]}}')"
+
+note "annotated copy size" "$(du -h "${work}/project/annotated/copy-1.pdf" | cut -f1)"
+
 note "container" "$(docker ps --filter "name=${NAME}" --format '{{.Image}} {{.Status}}')"
 
 summary

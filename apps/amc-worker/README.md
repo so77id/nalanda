@@ -61,6 +61,16 @@ POST /associate     { project, roster, code, key }    → { associations, refuse
 POST /associate/set { project, copy, id }             → { copy, id, source }
 POST /annotate      { project, roster, key, out,      → { pdfs, unidentified }
                       [name_column], [verdict] }
+POST /annotate/copy { project, copy, [overrides] }   → { path, copy }
+                    one annotated PDF for ONE copy (copy-N.pdf under
+                    <project>/annotated/, overwritten on re-run).
+                    overrides = { rut?, answers: [{question, marked}] }
+                    — `question` is the layout question NAME (the reading
+                    report's answers[].name, the bank ref), resolved to the
+                    numeric id through layout_question. Writes the
+                    professor's corrections into AMC's capture
+                    (capture_zone.manual, its own manual mechanism), re-runs
+                    note, and annotates only that copy (issue #190).
 ```
 
 **Named files under `<project>/` that the worker produces and callers open
