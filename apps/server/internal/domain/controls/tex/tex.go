@@ -163,7 +163,7 @@ func writeQuestion(b *strings.Builder, q bank.Question, listingsDir string) {
 		// (ADR-0033 §The sheet carries its own arithmetic).
 		fmt.Fprintf(b, "  \\begin{%s}{%s}\n", env, q.ID)
 	}
-	fmt.Fprintf(b, "    %s\n", escapeLatex(strings.TrimSpace(q.Statement)))
+	fmt.Fprintf(b, "    %s\n", escapeBankText(strings.TrimSpace(q.Statement)))
 
 	if q.Code != nil {
 		// Absolute path: AMC compiles from its own working directory, so
@@ -210,7 +210,7 @@ func emitAlternative(b *strings.Builder, text string, correct bool) {
 	if correct {
 		macro = "\\correctchoice"
 	}
-	fmt.Fprintf(b, "      %s{%s}\n", macro, escapeLatex(strings.TrimSpace(text)))
+	fmt.Fprintf(b, "      %s{%s}\n", macro, escapeBankText(strings.TrimSpace(text)))
 }
 
 func writeSheet(b *strings.Builder, in Input) {
@@ -290,7 +290,7 @@ func fourZeroClause(questions int) string {
 	return fmt.Sprintf("son %d,5 puntos", questions/2)
 }
 
-// escapeLatex escapes the ten TeX specials in text that arrived as plain text
+// escapeLatex escapes the TeX specials in text that arrived as plain text
 // from a human author — the professor-typed control name AND the bank's
 // Statement / Alternatives (which come from MDX where `70%` means "seventy
 // percent", not "start of LaTeX comment"). Issue #183 is the follow-up that
@@ -300,6 +300,18 @@ func fourZeroClause(questions int) string {
 // escaping opened a LaTeX comment inside `\correctchoice{...}` and cascaded
 // up to a runaway argument in `\element{clase}{...}` — the whole
 // generation returned exit 1 without producing a PDF.
+//
+// `<` and `>` join the list even though they are not TeX specials in
+// general: babel-spanish makes them ACTIVE. An active `>` decides what it
+// means by looking at the token that follows it, and a `>` followed by the
+// `}` that closes a `\correctchoice{...}` swallows that brace — the whole
+// question's group structure unwinds and `auto-multiple-choice prepare`
+// exits 1. Regression from prod 2026-08-19 (issue #193): the pregunta
+// `tres-diferencias-de-operadores` carried the alternative
+// "`>>` rellena siempre con ceros…", and creating Control 1 failed with a
+// 500 whose server log showed only "prepare failed (1)". Reproduced against
+// the worker image: the single question fails alone; the same .tex without
+// babel-spanish, or with `>` written `\textgreater`, compiles clean.
 func escapeLatex(s string) string {
 	replacer := strings.NewReplacer(
 		"\\", "\\textbackslash{}",
@@ -312,6 +324,26 @@ func escapeLatex(s string) string {
 		"_", "\\_",
 		"^", "\\^{}",
 		"~", "\\~{}",
+		"<", "\\textless{}",
+		">", "\\textgreater{}",
 	)
 	return replacer.Replace(s)
+}
+
+// codeFontPattern matches an MDX-style backtick pair: the book's inline
+// code, which the sheet renders as \texttt. A backtick without its pair is
+// not matched and stays where it was — it renders as a quote mark, which is
+// the same behaviour the sheet had before this transform existed.
+var codeFontPattern = regexp.MustCompile("`([^`]+)`")
+
+// escapeBankText is the Statement / Alternatives pipeline: TeX specials
+// escaped, then backtick pairs rendered as code. Escaping runs FIRST so the
+// \texttt command itself is not escaped, and the pair pattern survives it
+// intact because backticks are not special to TeX.
+//
+// A raw backtick is a quote mark on paper: the sheet would read 'int' where
+// the author wrote `int`. The professor-typed control NAME goes through
+// escapeLatex alone — it is plain text, not MDX (issue #193 S3).
+func escapeBankText(s string) string {
+	return codeFontPattern.ReplaceAllString(escapeLatex(s), `\texttt{$1}`)
 }

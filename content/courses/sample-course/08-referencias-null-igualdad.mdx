@@ -586,9 +586,9 @@ static void swap(int[] x, int[] y) {
 Al llamarlo con dos arreglos `a` y `b`, no intercambia nada visto desde el
 llamador. ¿Por qué?
 
-- [x] `x` e `y` son variables locales de `swap`; reasignarlas no toca las variables `a` y `b` del llamador
+- [x] `x` e `y` son variables locales; reasignarlas no toca `a` y `b`
 - [ ] Los arreglos en Java son inmutables
-- [ ] Java lanza silenciosamente una excepción que hace fallar el swap
+- [ ] El método recibe copias de los arreglos, no las referencias
 - [ ] Falta declarar los parámetros con `final`
 
 </Question>

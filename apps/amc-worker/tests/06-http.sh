@@ -145,6 +145,19 @@ check_eq "annotating twice into the same directory is REFUSED" "400" \
 check_eq "an unknown route is a 404, not a stack trace" "404" \
   "$(post_status /definitely-not-a-route '{}')"
 check_eq "a missing field is a 400" "400" "$(post_status /generate '{"project":"project"}')"
+
+# The wrapper and AMC run as root; apps/server runs as UID 65532 and rolls a
+# failed request back by deleting the whole project. Everything the failed
+# request touched must be handed back owned by the caller's UID, or the
+# rollback dies on a root-owned file (prod 2026-08-19, issue #193). A fresh
+# project makes the check real: project_paths creates its data/ as root
+# BEFORE the missing `source` field is even looked at, so a green result
+# proves the hand-back ran on the failure path, not on an earlier success.
+check_eq "a missing field on a fresh project is a 400" "400" \
+  "$(post_status /generate '{"project":"project-fail"}')"
+check_eq "a failed request hands the project back to the caller's UID" "65532" \
+  "$(docker run --rm -v "${work}:/work" "$IMAGE" stat -c %u /work/project-fail/data)"
+
 check_eq "a path escaping the volume is refused" "400" \
   "$(post_status /generate '{"project":"../../etc","source":"src/control-demo.tex","copies":1}')"
 
