@@ -51,6 +51,13 @@ under `/work` and asks the worker to act on it; requests and responses name
 paths. A scan batch is a multi-page PDF of ~40 sheets, and putting that through
 an HTTP body would buy nothing.
 
+The wrapper and the AMC tools it drives run as **root**; the caller
+(`apps/server`) runs as UID 65532. After every request that names a project —
+succeeded or failed — the wrapper chowns that project to 65532, so the
+caller's rollback can always delete what a failed request left behind
+(regression: a failed `/generate` left a root-owned `data/` and the server's
+rollback died on it, issue #193).
+
 ```
 GET  /health                                          → { ok, amc }
 POST /generate      { project, source, copies }       → { sujet, corrige, calage, copies }

@@ -66,6 +66,14 @@ MAX_BODY = 1 << 20  # 1 MiB
 # without a bound it would hold a worker thread forever.
 AMC_TIMEOUT = 1800
 
+# apps/server runs as this UID (its Dockerfile, `USER 65532:65532`). The
+# shared volume is the hand-off point between the two containers: a project
+# this wrapper creates as root must go back owned by this UID, or the
+# server's rollback cannot delete it. Regression from prod 2026-08-19
+# (issue #193): a failed generate left a root-owned data/ behind and the
+# server logged "rollback failed … permission denied".
+CALLER_UID = 65532
+
 # A capture is only trustworthy if we agree with AMC about which boxes are dark.
 # The same two defaults read_capture.py declares — stated here rather than
 # derived from each other, because they are independent tunables and PAPER-CHECK
@@ -133,6 +141,37 @@ def project_paths(body):
     for d in (data, os.path.join(project, "cr"), os.path.join(project, "scans")):
         os.makedirs(d, exist_ok=True)
     return project, data
+
+
+def hand_back_project(body):
+    """Chown the request's project to the caller's UID, best-effort.
+
+    The wrapper and the AMC tools it drives run as root; apps/server runs
+    as CALLER_UID and, after a failed request, removes the whole project
+    directory as a rollback. Files this process created as root are then
+    undeletable for the server — a failed generate left a root-owned data/
+    behind in production (issue #193, 2026-08-19). Every request that names
+    a project hands it back owned by the caller, so the rollback always
+    works. Best-effort by design: the AMC work already succeeded or already
+    failed, and a chown problem must not rewrite that answer.
+    """
+    if not isinstance(body, dict):
+        return
+    try:
+        project = under_work(body.get("project", ""))
+    except Failed:
+        return
+    try:
+        proc = subprocess.run(
+            ["chown", "-R", "%d:%d" % (CALLER_UID, CALLER_UID), project],
+            capture_output=True, text=True, timeout=60,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return
+    if proc.returncode != 0:
+        sys.stderr.write(
+            "amc-worker chown failed for %s: %s\n"
+            % (project, (proc.stderr or "").strip()))
 
 
 # --- handlers ----------------------------------------------------------------
@@ -467,6 +506,8 @@ class Handler(BaseHTTPRequestHandler):
             self._respond(400, {"error": f"missing field: {exc.args[0]}"})
         except Exception as exc:  # noqa: BLE001 — the wire needs a JSON answer
             self._respond(500, {"error": type(exc).__name__, "detail": str(exc)})
+
+        hand_back_project(body)
 
     def do_GET(self):
         self._dispatch("GET")
