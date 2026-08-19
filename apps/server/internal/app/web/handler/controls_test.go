@@ -50,6 +50,10 @@ const controlsBankJSON = `{
 type controlsFixture struct {
 	handler *handler.Controls
 	service *controls.Service
+	// cstore is the real controlstore behind the service — tests that need
+	// to read rows back (annotated_copy since issue #190) query it instead
+	// of re-deriving the database path.
+	cstore  *controlstore.Store
 	fake    *amctest.Fake
 	workDir string
 	user    auth.User
@@ -104,7 +108,7 @@ func newControlsFixture(t *testing.T) *controlsFixture {
 		Service: svc, Bank: b,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20, Log: log,
 	})
-	return &controlsFixture{handler: h, service: svc, fake: fake, workDir: workDir, user: prof, session: session, log: log}
+	return &controlsFixture{handler: h, service: svc, cstore: cstore, fake: fake, workDir: workDir, user: prof, session: session, log: log}
 }
 
 func (f *controlsFixture) authedRequest(t *testing.T, method, path string, body url.Values) *http.Request {
