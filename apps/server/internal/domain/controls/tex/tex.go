@@ -245,6 +245,13 @@ func writeSheet(b *strings.Builder, in Input) {
 	b.WriteString("\n      \\smallskip\n")
 	b.WriteString("      Cada pregunta dice cuántas respuestas admite.\n")
 	b.WriteString("      \\textbf{Respóndelas todas: equivocarse no descuenta.}\n")
+	// Issue #203: the reader is calibrated for a FULLY FILLED box. Measured
+	// on the first real batch: painted squares read 0.62-1.00 darkness
+	// while pencil X marks read 0.14-0.32, right at the threshold — a faint
+	// X lands in the review queue or is lost. The sheet says so, because a
+	// rule the professor announces once is forgotten by question five.
+	b.WriteString("      \\textbf{Rellena por completo el cuadrado de tu respuesta.}\n")
+	b.WriteString("      No marques con X ni con tilde.\n")
 	b.WriteString("    \\end{minipage}}\n")
 	b.WriteString("  \\vspace{2mm}\n\n")
 

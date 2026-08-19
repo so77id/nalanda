@@ -192,6 +192,14 @@ func TestHeaderBlockCarriesThisSheetsArithmetic(t *testing.T) {
 	if !strings.Contains(out, `\textbf{Respóndelas todas: equivocarse no descuenta.}`) {
 		t.Error("header block is missing the 'answering everything is free' line (§C7)")
 	}
+	// Issue #203: the marking instruction travels on the printed sheet —
+	// a filled box reads at 4x the threshold margin of an X (measured).
+	if !strings.Contains(out, "Rellena por completo el cuadrado de tu respuesta.") {
+		t.Error("header block is missing the fill-the-box instruction (issue #203)")
+	}
+	if !strings.Contains(out, "No marques con X ni con tilde.") {
+		t.Error("header block is missing the no-X-no-tilde line (issue #203)")
+	}
 	// The one instruction that stopped being true once a control could
 	// draw a multiple must not appear (ADR-0033 §Context).
 	if strings.Contains(out, "Marca una sola alternativa por pregunta") {
@@ -466,6 +474,7 @@ func TestFixtureAndGeneratorAgreeOnTheLoadBearingRules(t *testing.T) {
 			{`\lastchoices before "Ninguna de las anteriores"`, lastchoicesPinsCorrectly(source), "pin has no effect (ADR-0033) — a \\lastchoices comment mention does not satisfy the rule the CODE version has to obey"},
 			{"deleted 'Marca una sola alternativa'", !containsOutsideComments(source, "Marca una sola alternativa por pregunta"), "false when a multiple is drawn"},
 			{"answering everything is free", strings.Contains(source, "equivocarse no descuenta"), "§C7"},
+			{"fill the box instruction", strings.Contains(source, "Rellena por completo el cuadrado"), "issue #203: X marks sit at the threshold; a filled box reads at 4x margin"},
 		}
 		for _, c := range checks {
 			if !c.ok {
