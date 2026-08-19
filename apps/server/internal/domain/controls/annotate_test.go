@@ -48,7 +48,12 @@ func newAnnotateFixture(t *testing.T, annotateEnabled bool) *annotateFixture {
 		Seed:            1242,
 		Log:             slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
-	control := controls.Control{ID: "CTRL0001ABC0000000000000AA", Copies: 5}
+	control := controls.Control{
+		ID:     "CTRL0001ABC0000000000000AA",
+		Copies: 5,
+		Ticked: controls.DefaultTicked,
+		Unsure: controls.DefaultUnsure,
+	}
 	store.controls = append(store.controls, control)
 	return &annotateFixture{svc: svc, store: store, readings: readings, fake: fake, control: control}
 }
@@ -96,6 +101,11 @@ func TestAnnotateSendsTheOverridesAndPersistsTheRecord(t *testing.T) {
 	}
 	if call.Copy != 3 {
 		t.Errorf("Copy = %d, want 3", call.Copy)
+	}
+	// Issue #197: the control's stored threshold travels with the annotate
+	// call — the PDF must agree with the reader's verdict.
+	if call.Ticked != controls.DefaultTicked {
+		t.Errorf("Ticked = %v, want the control's stored %v", call.Ticked, controls.DefaultTicked)
 	}
 	if want := "controls/" + f.control.ID; call.Project != want {
 		t.Errorf("Project = %q, want %q", call.Project, want)

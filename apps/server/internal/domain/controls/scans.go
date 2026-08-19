@@ -38,6 +38,12 @@ type UploadRequest struct {
 	// Content is where the bytes come from. The Service closes it when it
 	// has copied them (or on any failure).
 	Content io.ReadCloser
+	// Ticked/Unsure (issue #197): the thresholds THIS batch is read and
+	// scored at. Zero means "keep the control's stored pair" — the handler
+	// resolves the form's optional fields against the control before
+	// calling, so a concrete pair always arrives here.
+	Ticked float64
+	Unsure float64
 }
 
 // UploadResult reports what the upload produced. Not consumed today, but a
@@ -94,14 +100,31 @@ func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResu
 	}
 
 	project := filepath.Join(projectPrefix, control.ID)
+	ticked, unsure := req.Ticked, req.Unsure
+	if ticked == 0 {
+		// The handler always resolves the form (optional fields fall back
+		// to the control's stored pair), but a caller that skips that step
+		// gets the stored pair rather than a refusal.
+		ticked, unsure = control.Ticked, control.Unsure
+	}
+	if !ThresholdsValid(ticked, unsure) {
+		return UploadResult{}, fmt.Errorf("%w: invalid thresholds (%v, %v)",
+			ErrAnalyzerRefused, ticked, unsure)
+	}
 	report, err := s.Analyzer.Analyze(ctx, AnalyzeRequest{
 		Project: project,
 		ScanPDF: filepath.ToSlash(filepath.Join(project, uploadsDir, batchName)),
 		Source:  filepath.ToSlash(filepath.Join(project, "inputs", "source.tex")),
+		Ticked:  ticked,
+		Unsure:  unsure,
 	})
 	if err != nil {
 		rollbackFile()
 		return UploadResult{}, err
+	}
+	if err := s.Store.SetControlThresholds(ctx, control.ID, ticked, unsure); err != nil {
+		rollbackFile()
+		return UploadResult{}, fmt.Errorf("controls.UploadScan: persist thresholds: %w", err)
 	}
 
 	now := s.Now()
@@ -115,30 +138,8 @@ func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResu
 	}
 
 	// Issue #190, ruta A: every copy the reader accepted as clean gets its
-	// annotated PDF right away, before any human touches the queue. One
-	// /annotate/copy call per copy is seconds-class, and the batch as a
-	// whole was minutes-class anyway.
-	//
-	// A failure here must not fail the upload: the reading is already
-	// persisted and the professor can retry the same copy from the review
-	// page (ruta B) — or switch the whole loop off by config.
-	for key, copy := range report.Copies {
-		if copy.Status != CopyStatusOK {
-			continue
-		}
-		copyNumber, err := strconv.Atoi(key)
-		if err != nil {
-			// The worker keys copies by decimal string; a key that does not
-			// parse is a worker-side contract break, not something a retry
-			// would fix.
-			s.Log.Warn("controls.UploadScan: unparseable copy key", "control", control.ID, "key", key)
-			continue
-		}
-		if _, err := s.Annotate(ctx, control.ID, copyNumber); err != nil {
-			s.Log.Warn("controls.UploadScan: annotate failed",
-				"control", control.ID, "copy", copyNumber, "error", err)
-		}
-	}
+	// annotated PDF right away, before any human touches the queue.
+	s.annotateCleanCopies(ctx, control, report)
 
 	// Move the control forward — but never backwards. A re-upload to a
 	// graded control leaves state=graded (S8 renders the "editing a closed
@@ -174,15 +175,56 @@ func (s *Service) Reanalyze(ctx context.Context, controlID string, ticked, unsur
 	if err := s.Readings.UpsertReadingsFromReport(ctx, control.ID, report, s.Now()); err != nil {
 		return Report{}, fmt.Errorf("controls.Reanalyze: persist: %w", err)
 	}
+	// Issue #197: the pair this re-read used becomes the control's — the
+	// next annotate (and the next reanalyse's defaults) agree with it.
+	if err := s.Store.SetControlThresholds(ctx, control.ID, ticked, unsure); err != nil {
+		return Report{}, fmt.Errorf("controls.Reanalyze: persist thresholds: %w", err)
+	}
 	// The stored annotated PDFs were drawn at the PREVIOUS thresholds, so
 	// they no longer agree with the report just persisted — same class as
 	// the report-vs-grade disagreement ADR-0031 exists to forbid. Drop the
-	// rows: the review page falls back to the raw scan, and the next save
-	// (or upload) re-annotates at the new reading.
+	// rows and re-annotate the copies the new reading accepts as clean
+	// (issue #197: ruta A over the new report), so the professor does not
+	// have to save copy by copy to see corrected PDFs again.
 	if err := s.Store.ClearAnnotated(ctx, control.ID); err != nil {
 		return Report{}, fmt.Errorf("controls.Reanalyze: clear annotated: %w", err)
 	}
+	s.annotateCleanCopies(ctx, control, report)
 	return report, nil
+}
+
+// annotateCleanCopies runs ruta A over a report: one Service.Annotate per
+// status:ok copy. One /annotate/copy call per copy is seconds-class, and
+// the flows that call this were minutes-class anyway. A failure must not
+// fail the caller's operation: the reading is already persisted and the
+// professor can retry the same copy from the review page (ruta B) — or
+// switch the whole loop off by config.
+func (s *Service) annotateCleanCopies(ctx context.Context, control Control, report Report) {
+	for key, copy := range report.Copies {
+		if copy.Status != CopyStatusOK {
+			continue
+		}
+		copyNumber, err := strconv.Atoi(key)
+		if err != nil {
+			// The worker keys copies by decimal string; a key that does not
+			// parse is a worker-side contract break, not something a retry
+			// would fix.
+			s.Log.Warn("controls: unparseable copy key", "control", control.ID, "key", key)
+			continue
+		}
+		if _, err := s.Annotate(ctx, control.ID, copyNumber); err != nil {
+			s.Log.Warn("controls: annotate failed",
+				"control", control.ID, "copy", copyNumber, "error", err)
+		}
+	}
+}
+
+// ThresholdsValid reports whether a ticked/unsure pair respects the band
+// rule the reader's contract depends on: ticked inside (0,1) and unsure
+// strictly below it. Shared by the Service (defense in depth) and the
+// handlers (form validation) — the worker runs the same rule.
+func ThresholdsValid(ticked, unsure float64) bool {
+	return ticked > 0 && ticked < 1 && unsure >= 0 && unsure < ticked
 }
 
 // Readings returns every reading for a control, ordered by copy_number.

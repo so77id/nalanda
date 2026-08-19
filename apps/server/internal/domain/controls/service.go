@@ -242,9 +242,13 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 		QuestionsPerCopy: req.QuestionsPerCopy,
 		Copies:           req.Copies,
 		DuplexPadding:    req.DuplexPadding,
-		State:            Generated,
-		CreatedAt:        s.Now(),
-		CreatedBy:        req.CreatedBy,
+		// Issue #197: the product defaults; the upload and reanalyse
+		// forms change them per batch afterwards.
+		Ticked:    DefaultTicked,
+		Unsure:    DefaultUnsure,
+		State:     Generated,
+		CreatedAt: s.Now(),
+		CreatedBy: req.CreatedBy,
 	}
 	entries := make([]PoolEntry, len(pool))
 	for i, q := range pool {

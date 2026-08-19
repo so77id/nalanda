@@ -129,6 +129,13 @@ type AnalyzeRequest struct {
 	Project string // AMC project directory, relative to /work
 	ScanPDF string // the batch to read, relative to /work
 	Source  string // the .tex the control was generated from, relative to /work
+	// Ticked/Unsure (issue #197): the darkness verdicts AND AMC's `note`
+	// run at the same Ticked, so marks, scores and the annotated PDF agree
+	// on one threshold. Always set by the Service (the control's stored
+	// pair or the form's new one); zero is not a valid Ticked and the
+	// client refuses it.
+	Ticked float64
+	Unsure float64
 }
 
 // ReanalyzeRequest re-reads the SAME captures at different thresholds.

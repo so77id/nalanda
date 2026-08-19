@@ -30,6 +30,13 @@ func (c *Client) Analyze(ctx context.Context, req controls.AnalyzeRequest) (cont
 	if req.Source == "" {
 		return controls.Report{}, fmt.Errorf("%w: source path is required", controls.ErrAnalyzerRefused)
 	}
+	// Issue #197: the pair must respect the band rule before it crosses the
+	// wire — the worker runs the same checks, and a refusal here is closer
+	// to the caller that produced the bad pair.
+	if !controls.ThresholdsValid(req.Ticked, req.Unsure) {
+		return controls.Report{}, fmt.Errorf("%w: invalid thresholds (%v, %v)",
+			controls.ErrAnalyzerRefused, req.Ticked, req.Unsure)
+	}
 
 	c.generateLock.Lock()
 	defer c.generateLock.Unlock()
@@ -38,6 +45,8 @@ func (c *Client) Analyze(ctx context.Context, req controls.AnalyzeRequest) (cont
 		Project: req.Project,
 		ScanPDF: req.ScanPDF,
 		Source:  req.Source,
+		Ticked:  req.Ticked,
+		Unsure:  req.Unsure,
 	})
 	if err != nil {
 		return controls.Report{}, fmt.Errorf("amcworker: encode analyse request: %w", err)
@@ -124,9 +133,11 @@ var _ controls.Analyzer = (*Client)(nil)
 // --- wire shapes -------------------------------------------------------------
 
 type analyzeRequestBody struct {
-	Project string `json:"project"`
-	ScanPDF string `json:"scan_pdf"`
-	Source  string `json:"source"`
+	Project string  `json:"project"`
+	ScanPDF string  `json:"scan_pdf"`
+	Source  string  `json:"source"`
+	Ticked  float64 `json:"ticked,omitempty"`
+	Unsure  float64 `json:"unsure,omitempty"`
 }
 
 type reanalyzeRequestBody struct {

@@ -50,10 +50,29 @@ type Control struct {
 	// SQL level is 1 (padded) so pre-migration controls stay padded, but
 	// every caller in Go passes an explicit value.
 	DuplexPadding bool
-	State         State
-	CreatedAt     time.Time
-	CreatedBy     int64 // users.user_id
+	// Ticked/Unsure are the darkness thresholds this control's batches are
+	// read and scored at (issue #197). One pair per control, last-wins:
+	// the upload form can set them, the reanalyse form re-sets them, and
+	// the worker uses the same ticked for the reader, note and the
+	// annotated PDF. The zero value is not a valid pair; Create writes the
+	// product defaults below.
+	Ticked    float64
+	Unsure    float64
+	State     State
+	CreatedAt time.Time
+	CreatedBy int64 // users.user_id
 }
+
+// DefaultTicked / DefaultUnsure are the product defaults for a newly
+// generated control (issue #197). Measured on a real batch (Jetson
+// 2026-08-19): pencil X marks read 0.14-0.32 darkness, painted squares
+// 0.62-1.00, empty boxes ~0.0 — the previous 0.30 cut through the X band.
+// 0.15 reads every X except the faintest tail, which lands in the
+// doubtful band (0.05-0.15) and stays visible in needs_review.
+const (
+	DefaultTicked = 0.15
+	DefaultUnsure = 0.05
+)
 
 // PoolEntry is one authored question that was actually drawn from at
 // generation time, in the order it was drawn in. The pair (ControlID, Ref)
@@ -131,6 +150,11 @@ type Store interface {
 	// Reanalyze re-reads at new thresholds and invalidates the old
 	// drawings).
 	ClearAnnotated(ctx context.Context, controlID string) error
+
+	// SetControlThresholds persists the darkness pair a batch was read
+	// at (issue #197). Last-wins: each upload and each reanalyse writes
+	// the pair it used, and Annotate reads it back so the PDFs agree.
+	SetControlThresholds(ctx context.Context, controlID string, ticked, unsure float64) error
 }
 
 // Generator asks the AMC worker to compile a .tex into printable PDFs.

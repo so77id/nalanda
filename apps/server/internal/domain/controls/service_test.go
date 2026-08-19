@@ -107,6 +107,16 @@ func (s *fakeStore) ClearAnnotated(_ context.Context, controlID string) error {
 	return nil
 }
 
+func (s *fakeStore) SetControlThresholds(_ context.Context, controlID string, ticked, unsure float64) error {
+	for i := range s.controls {
+		if s.controls[i].ID == controlID {
+			s.controls[i].Ticked = ticked
+			s.controls[i].Unsure = unsure
+		}
+	}
+	return nil
+}
+
 // fakeReadingStore is the do-nothing double the pre-WP-F cases use. The
 // WP-F flows are exercised through Service.UploadScan in scans_internal_test.go
 // with a real controlstore. readingsByCopy holds stored readings for the
