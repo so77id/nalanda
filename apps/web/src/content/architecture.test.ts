@@ -198,29 +198,21 @@ describe('architecture: content invariants', () => {
     // owe nothing of their own — what they teach is measured by the section's
     // main question. The seven section anchors (clase-atributos-y-metodos,
     // this, visibilidad, herencia, interfaces, polimorfismo,
-    // tostring-equals-hashcode) carry the bank's eleven questions once the
-    // <Questions> block lands (S8); until then they sit here so the document
-    // can be built slice by slice with the suite green.
+    // tostring-equals-hashcode) carry the bank's eleven questions; the
+    // entries below are the slides that sit beside them.
     objetos: {
-      'clase-atributos-y-metodos':
-        'sección principal de §1; la cubre la pregunta que-va-en-clase cuando aterrice el bloque <Questions> (S8)',
       'clases-en-c':
         'contraste con C++; el delta Java que introduce se mide en la pregunta de "Clase: atributos y métodos"',
       'clases-en-java':
         'sub-detalle del §1; el hecho principal (atributos + constructor + métodos, en un archivo) se mide en la pregunta de la sección',
       'instancia-y-usa':
         'actividad: el alumno construye una Pair y llama getters; la mecánica se mide en la pregunta de la sección',
-      this: 'sección principal de §2; la cubre la pregunta this-en-java cuando aterrice el bloque <Questions> (S8)',
-      visibilidad:
-        'sección principal de §3; la cubre la pregunta private-desde-afuera cuando aterrice el bloque <Questions> (S8)',
       'visibilidad-en-c':
         'contraste con C++; el delta Java que introduce se mide en la pregunta de "Visibilidad"',
       'public-private-en-java':
         'sub-detalle del §3; el hecho principal (acceso por miembro, compilador como guardia) se mide en la pregunta de la sección',
       'la-trampa-acceso-desde-afuera':
         'actividad: el alumno predice el error de compilación; la pregunta que mide el mecanismo vive en "Visibilidad"',
-      herencia:
-        'sección principal de §5; la cubren override-sin-anotacion y anotacion-override-protege cuando aterrice el bloque <Questions> (S8)',
       'herencia-para-que-sirve':
         'motivación de la sección; el mecanismo (extends/super/@Override) se mide en las preguntas ancladas a "Herencia"',
       'herencia-en-el-jdk-ejemplo-real':
@@ -229,8 +221,6 @@ describe('architecture: content invariants', () => {
         'sub-detalle de §5: la mecánica que muestra se mide en las preguntas ancladas a la sección',
       'la-trampa-del-override':
         'actividad: el alumno predice la salida del typo sin @Override; la pregunta que mide el mecanismo vive en "Herencia"',
-      interfaces:
-        'sección principal de §6; la cubre multi-interfaces cuando aterrice el bloque <Questions> (S8)',
       'interfaces-para-que-sirven':
         'motivación de la sección; el mecanismo (implements como contrato) se mide en la pregunta anclada a "Interfaces"',
       'una-interfaz-una-clase-que-la-cumple':
@@ -241,8 +231,6 @@ describe('architecture: content invariants', () => {
         'ejemplo detallado: lo que mide una pregunta va en la sección principal de §6',
       'la-trampa-implements-sin-cumplir':
         'actividad: el alumno predice el error de compilación; el mecanismo se mide en la pregunta anclada a "Interfaces"',
-      polimorfismo:
-        'sección principal de §7; la cubren polimorfismo-por-interfaz y dispatch-runtime cuando aterrice el bloque <Questions> (S8)',
       'polimorfismo-que-es-y-para-que':
         'motivación de la sección; el mecanismo (dispatch según el objeto real) se mide en las preguntas ancladas a "Polimorfismo"',
       'dos-maneras-un-mismo-verbo':
@@ -251,8 +239,6 @@ describe('architecture: content invariants', () => {
         'actividad: el alumno corre el arreglo Vehiculo[]; la mecánica se mide en las preguntas ancladas a "Polimorfismo"',
       'polimorfismo-por-interfaz-comparable':
         'actividad: el alumno corre el arreglo Comparable[]; la mecánica se mide en las preguntas ancladas a "Polimorfismo"',
-      'tostring-equals-y-hashcode':
-        'sección principal de §8; la cubren equals-sin-hashcode, cuando-hash-vs-tree y regla-de-equals-y-hashcode cuando aterrice el bloque <Questions> (S8)',
       'por-que-necesitamos-metodos':
         'introducción de la sección; lo que enseña (== compara referencias, hacen falta métodos) se mide en las preguntas ancladas a "toString, equals y hashCode"',
       tostring:

@@ -583,7 +583,7 @@ según quién es `c`. Es la misma máquina de la slide anterior, llegando por
 la otra vía — interfaz en vez de herencia.
 </Slide>
 
-## toString, equals y hashCode
+## toString, equals, hashCode
 
 <Slide title="Por qué necesitamos métodos">
 Java no permite sobrescribir operadores (lo viste en
@@ -929,6 +929,171 @@ check(s.size(), 1);
 ```
 
 </Exercise>
+
+{/* Las once preguntas del banco de este documento (edición 2026-08-18): */}
+{/* fuera enum-basico (§4 eliminada) y abstract-class (abstract salió del */}
+{/* deck en refinamiento). Cada una quedó anclada a su sección; los anchors */}
+{/* que no llevan pregunta están declarados con su razón en NO_QUESTION. */}
+{/* La verificación en runtime real (los snippets de las preguntas, los */}
+{/* CodeEditors y los ejercicios) se hace en el browser check de S9 contra */}
+{/* el runtime Java 8 de CheerpJ; ajustar alternativas si el JVM discrepa */}
+{/* es parte de esa lista. */}
+<Questions>
+
+<Question id="que-va-en-clase" anchor="clase-atributos-y-metodos">
+
+¿Cuáles de estas afirmaciones sobre una clase Java son ciertas?
+
+- [x] Tiene atributos, un constructor (o varios) y métodos
+- [x] Vive en el heap cuando se instancia con `new`
+- [ ] Se destruye automáticamente al salir del scope
+- [ ] Puede tener métodos definidos fuera de la clase, como en C++
+
+</Question>
+
+<Question id="this-en-java" anchor="this">
+
+En Java, `this` dentro de un método de instancia es:
+
+- [x] Una referencia al objeto sobre el que se llamó el método
+- [ ] Un puntero al objeto (con aritmética permitida)
+- [ ] Un alias de una variable local del método
+- [ ] La clase, no el objeto — como `Clase::` en C++
+
+</Question>
+
+<Question id="private-desde-afuera" anchor="visibilidad">
+
+¿Qué pasa al compilar esto?
+
+```java
+class Cuenta { private int saldo = 100; }
+class Uso { void ver(Cuenta c) { System.out.println(c.saldo); } }
+```
+
+- [x] Error de compilación: `saldo` es privado
+- [ ] Compila e imprime `100`
+- [ ] Compila e imprime `0`
+- [ ] Compila pero lanza excepción en runtime
+
+</Question>
+
+<Question id="override-sin-anotacion" anchor="herencia">
+
+¿Qué pasa con este `override` que tipeó mal el nombre?
+
+```java
+class A { void saludar() { System.out.println("hola"); } }
+class B extends A { void saluar() { System.out.println("chao"); } }
+// ...
+A a = new B();
+a.saludar();
+```
+
+- [x] Imprime `hola`: `saluar` no sobrescribe nada, es un método nuevo
+- [ ] Imprime `chao`, porque `saluar` es casi `saludar`
+- [ ] Error de compilación
+- [ ] Ambos
+
+</Question>
+
+<Question id="anotacion-override-protege" anchor="herencia">
+
+¿Por qué se recomienda escribir `@Override` sobre los métodos que
+sobrescriben?
+
+- [x] Porque el compilador verifica que sobrescriben algo: un typo pasa a ser error de build
+- [ ] Porque acelera la ejecución del método en runtime
+- [ ] Porque es obligatorio para que la sobrescritura funcione
+- [ ] Porque marca el método como `virtual`, que en Java es opt-in
+
+</Question>
+
+<Question id="multi-interfaces" anchor="interfaces">
+
+¿Cuántas clases y cuántas interfaces puede una clase Java heredar/
+implementar directamente?
+
+- [x] Una sola clase, pero múltiples interfaces
+- [ ] Una sola clase y una sola interfaz
+- [ ] Múltiples clases y múltiples interfaces (como en C++)
+- [ ] Ninguna — Java no tiene herencia
+
+</Question>
+
+<Question id="polimorfismo-por-interfaz" anchor="polimorfismo">
+
+¿Qué imprime este programa?
+
+```java
+Comparable[] cosas = { 3, "pera", 1 };
+for (Comparable c : cosas) System.out.println(c);
+```
+
+- [x] `3`, `pera`, `1`
+- [ ] Error de compilación
+- [ ] `1`, `3`, `pera` (ordenado)
+- [ ] `NullPointerException`
+
+</Question>
+
+<Question id="dispatch-runtime" anchor="polimorfismo">
+
+Dado:
+
+```java
+class Vehiculo { String describir() { return "vehículo"; } }
+class Auto extends Vehiculo { String describir() { return "auto"; } }
+
+Vehiculo v = new Auto();
+System.out.println(v.describir());
+```
+
+¿Qué imprime?
+
+- [x] `auto` — el dispatch va por el tipo del OBJETO, no de la variable
+- [ ] `vehículo` — el dispatch va por el tipo de la VARIABLE
+- [ ] Error de compilación
+- [ ] Ambos, en orden
+
+</Question>
+
+<Question id="equals-sin-hashcode" anchor="tostring-equals-hashcode">
+
+Una clase `Persona` sobrescribe `equals` (compara por RUT) pero no
+sobrescribe `hashCode`. Se guardan dos `Persona` con el mismo RUT en un
+`HashSet`. ¿Cuántos elementos tiene el `HashSet` al final?
+
+- [x] Dos: los `hashCode` por defecto los mandan a buckets distintos
+- [ ] Uno — `equals` decide que son la misma persona
+- [ ] Cero — el `HashSet` los rechaza a los dos
+- [ ] Lanza excepción
+
+</Question>
+
+<Question id="cuando-hash-vs-tree" anchor="tostring-equals-hashcode">
+
+¿Cuándo conviene un `TreeSet` en vez de un `HashSet`?
+
+- [x] Cuando el orden de los elementos importa (recorrerlos en orden)
+- [x] Cuando los elementos implementan `Comparable` pero no `hashCode`
+- [ ] Cuando quieres buscar más rápido
+- [ ] Cuando el conjunto es más grande de 1000 elementos
+
+</Question>
+
+<Question id="regla-de-equals-y-hashcode" anchor="tostring-equals-hashcode">
+
+¿Cuál es la regla práctica para `equals` y `hashCode`?
+
+- [x] Si sobrescribes uno, sobrescribes el otro — siempre, juntos
+- [ ] Solo sobrescribes `equals`; `hashCode` es opcional
+- [ ] Solo sobrescribes `hashCode`; `equals` es opcional
+- [ ] Nunca los sobrescribas — Java lo hace bien por defecto
+
+</Question>
+
+</Questions>
 
 ## Lo que sigue
 
