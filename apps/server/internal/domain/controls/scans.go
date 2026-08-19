@@ -189,6 +189,13 @@ func (s *Service) ReadingFor(ctx context.Context, controlID string, copyNumber i
 	return s.Readings.ReadingByCopy(ctx, controlID, copyNumber)
 }
 
+// AnnotatedFor returns the anotado PDF record for one copia, or
+// exists=false when the copia has not been annotated yet — the review
+// page's cue to fall back to the raw scan (issue #190).
+func (s *Service) AnnotatedFor(ctx context.Context, controlID string, copyNumber int) (AnnotatedCopy, bool, error) {
+	return s.Store.AnnotatedByCopy(ctx, controlID, copyNumber)
+}
+
 // SaveOverrides applies a professor's edits to a single reading. The
 // request carries the RUT (empty means "no change" — the review handler
 // enforces its own precondition) and one entry per question in the

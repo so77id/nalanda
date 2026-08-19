@@ -176,6 +176,11 @@ func routes(deps Deps) []Route {
 			Method: http.MethodGet, Path: handler.CopyPageImage,
 			Handler: deps.Controls.PageImage,
 		},
+		// Issue #190: the corrected PDF, served from the annotated_copy row.
+		{
+			Method: http.MethodGet, Path: handler.CopyAnnotatedPDF,
+			Handler: deps.Controls.AnnotatedPDF,
+		},
 		{
 			Method: http.MethodGet, Path: handler.ProfessorsPath,
 			Handler: deps.Professors.List,

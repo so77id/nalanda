@@ -20,6 +20,8 @@ import (
 const (
 	CopyReviewPath = "/controls/{id}/copies/{copy}/review"
 	CopyPageImage  = "/controls/{id}/copies/{copy}/page/{n}"
+	// CopyAnnotatedPDF serves the corrected PDF (issue #190).
+	CopyAnnotatedPDF = "/controls/{id}/copies/{copy}/annotated.pdf"
 )
 
 // Review renders the split-view page for one copy: the scanned image on
@@ -66,6 +68,19 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 		Graded:     control.State == controls.Graded,
 		RUT:        toReviewRUT(reading),
 		Questions:  toReviewQuestions(reading, h.Bank),
+	}
+	// Issue #190: the corrected PDF replaces the raw scan once it exists.
+	// The lookup failure is a 500 — same convention as the reading list on
+	// the detail page: if the store is broken for this query, the page it
+	// feeds cannot be trusted either.
+	if _, exists, err := h.Service.AnnotatedFor(r.Context(), id, copyNumber); err != nil {
+		h.Log.Error("review: annotated lookup", "error", err, "id", id, "copy", copyNumber)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	} else if exists {
+		page.HasAnnotated = true
+		page.AnnotatedURL = controlAnnotatedURL(id, copyNumber)
 	}
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 	if err := view.RenderReview(w, page); err != nil {
@@ -294,6 +309,60 @@ func (h *Controls) PageImage(w http.ResponseWriter, r *http.Request) {
 	middleware.WriteError(w, r, http.StatusNotFound, "La imagen escaneada no está disponible.")
 }
 
+// AnnotatedPDF serves the corrected PDF for one copy (issue #190). The
+// annotated_copy row is the authority: no row, no PDF — the review page
+// falls back to the raw scan and this endpoint answers 404.
+func (h *Controls) AnnotatedPDF(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	copyNumber, ok := parseCopyPathValue(r.PathValue("copy"))
+	if !isValidControlID(id) || !ok {
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese archivo no existe.")
+		return
+	}
+	if copyNumber > maxCopies {
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese archivo no existe.")
+		return
+	}
+
+	record, exists, err := h.Service.AnnotatedFor(r.Context(), id, copyNumber)
+	if err != nil {
+		h.Log.Error("serving annotated PDF", "error", err, "id", id, "copy", copyNumber)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+	if !exists {
+		middleware.WriteError(w, r, http.StatusNotFound,
+			"El PDF corregido aún no existe para esta copia.")
+		return
+	}
+
+	// The path is relative to the shared volume, and the row is the
+	// authority — a record pointing outside the control's project would
+	// be a database problem, so no path traversal guard beyond the row
+	// lookup (same class as SujetPath/CorrigePath).
+	path := filepath.Join(h.Service.WorkDir, filepath.FromSlash(record.Path))
+	f, err := os.Open(path)
+	if err != nil {
+		h.Log.Warn("serving annotated PDF", "id", id, "copy", copyNumber, "path", path, "error", err)
+		middleware.WriteError(w, r, http.StatusNotFound,
+			"El PDF corregido no está disponible. Puede que se haya limpiado del volumen compartido.")
+		return
+	}
+	defer func() { _ = f.Close() }()
+	info, err := f.Stat()
+	if err != nil {
+		h.Log.Error("stat annotated PDF", "id", id, "copy", copyNumber, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition",
+		fmt.Sprintf(`inline; filename="copia-%d-anotada.pdf"`, copyNumber))
+	http.ServeContent(w, r, "annotated.pdf", info.ModTime(), f)
+}
+
 // parseCopyPathValue turns a path segment into a positive int. Empty and
 // negative reject.
 func parseCopyPathValue(raw string) (int, bool) {
@@ -309,6 +378,11 @@ func parseCopyPathValue(raw string) (int, bool) {
 
 func controlPageImageURL(id string, copyNumber, pageNumber int) string {
 	return fmt.Sprintf("%s/copies/%d/page/%d", controlDetailURL(id), copyNumber, pageNumber)
+}
+
+// controlAnnotatedURL is the corrected PDF's URL (issue #190).
+func controlAnnotatedURL(id string, copyNumber int) string {
+	return fmt.Sprintf("%s/copies/%d/annotated.pdf", controlDetailURL(id), copyNumber)
 }
 
 func toReviewRUT(r controls.Reading) view.ReviewRUT {
