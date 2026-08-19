@@ -23,9 +23,8 @@ questions: per-section
 Hasta aquí has programado con los tipos que Java trae de fábrica. Este
 documento te convierte en autor de tipos: defines tus propias clases, creas
 objetos a partir de ellas y decides qué significa que dos objetos «tuyos»
-sean iguales. El documento cierra con un bug real que aparece cuando ese
-trabajo se hace a medias: un `HashSet` que no encuentra lo que tú mismo le
-metiste.
+sean iguales. El documento cierra con la pieza que integra tus objetos con
+todo el lenguaje: presentarse e igualarse a tu manera.
 
 ## Clase: atributos y métodos
 
@@ -407,55 +406,65 @@ con media biblioteca.
 </Slide>
 
 <Slide title="Una interfaz del sistema: Comparable">
-Los mismos `Integer`/`Long`/`Double` que vimos como `Number`, acá se miran
-desde otro lado: **también** implementan `Comparable` (por interfaz). Un
-mismo objeto vive las dos vidas.
-
 `Comparable` vive en `java.lang` y define UN método: «cuando te comparen
-contigo, ¿cómo respondes?». El contrato de `compareTo` es simple: devuelve
-**negativo** si `this` va antes que el argumento, **cero** si son iguales en
-el orden, **positivo** si va después. Cada clase decide qué significa
-«antes» para ella:
+contigo, ¿cómo respondes?». Ese método es `compareTo`, y su contrato es
+simple: devuelve un **negativo** si `this` va antes que el argumento,
+**cero** si son iguales en el orden, **positivo** si va después. Quien
+recibe el número no necesita saber nada más.
 
 ```java
-Integer.valueOf(3).compareTo(5);              // -1: 3 va antes que 5
-"pera".compareTo("manzana");                  // > 0: "pera" va después, por orden alfabético
-LocalDate.now().compareTo(LocalDate.now());   // 0: misma fecha
+Integer.valueOf(3).compareTo(5);              // -1
+"pera".compareTo("manzana");                  // número positivo
+LocalDate.now().compareTo(LocalDate.now());   // 0
 ```
 
-`Integer` compara valores numéricos, `String` compara en orden alfabético,
-`LocalDate` compara fechas — y quien las use no necesita saber cómo lo
-calcula cada una. El mismo `Integer`, dos vidas:
+Cada línea compara dos cosas del mismo tipo y devuelve el número según
+**qué significa «antes» para ese tipo**:
 
-```java
-Integer x = 3;
-double s = x.doubleValue();   // la vida heredada de Number
-int c    = x.compareTo(5);    // la vida contratada con Comparable → -1
-```
+- **`Integer`**: compara valores numéricos. `3` va antes que `5`, así que
+  devuelve `-1` (negativo). Si comparas `5` contra `3`, devolvería positivo;
+  dos enteros iguales devuelven `0`.
+- **`String`**: compara en orden alfabético. `"manzana"` va antes que
+  `"pera"`, así que `"pera".compareTo("manzana")` devuelve un número
+  **positivo** (no te importa cuál exactamente — solo su signo). Comparar
+  una cadena consigo misma devolvería `0`.
+- **`LocalDate`**: compara fechas, más antigua primero. `LocalDate.now()`
+  contra sí misma es la misma fecha, así que devuelve `0`.
+
+El punto es ese: cada clase decide qué significa «antes» para ella, y quien
+usa `compareTo` solo mira el signo del resultado. Por eso `Integer`, `String`
+y `LocalDate` — tipos que no se parecen en nada — cumplen todos el mismo
+contrato.
 </Slide>
 
 <Slide title="Tu clase se une al club">
 Tu propia clase puede implementar `Comparable` y ordenarse igual que las de
-fábrica:
+fábrica. La `Pair` que usamos desde el principio: dos números, y el orden
+natural es comparar el primer número; si empatan, el segundo.
 
 ```java
-public class Fecha implements Comparable<Fecha> {
-  int año, mes, dia;
+public class Pair implements Comparable<Pair> {
+  private int first;
+  private int second;
+
+  public Pair(int first, int second) {
+    this.first = first;
+    this.second = second;
+  }
 
   @Override
-  public int compareTo(Fecha o) {
-    // negativo si this < o, 0 si igual, positivo si this > o
-    if (año != o.año) return año - o.año;
-    if (mes != o.mes) return mes - o.mes;
-    return dia - o.dia;
+  public int compareTo(Pair o) {
+    if (first != o.first) return first - o.first;
+    return second - o.second;
   }
 }
 ```
 
-Compara año contra año; si empatan, mes contra mes; si empatan, día contra
-día — por eso los `return` devuelven la diferencia. Con esto solo,
-`TreeSet<Fecha>` y `Collections.sort(listaDeFechas)` ya saben ordenarla, sin
-cambiar una línea del código de esas estructuras. (El `<Fecha>` entre
+Compara `first` contra `first`; si son distintos, la diferencia ya es
+negativa o positiva según quién va antes — y la devuelve. Si empatan,
+compara `second` contra `second` y devuelve esa diferencia. Con esto solo,
+`TreeSet<Pair>` y `Collections.sort(listaDePairs)` ya saben ordenarla, sin
+cambiar una línea del código de esas estructuras. (El `<Pair>` entre
 ángulos declara con qué tipo se compara.)
 </Slide>
 
@@ -613,20 +622,17 @@ toda clase en Java desciende de una clase base llamada `Object`.
 
 - `toString()` — cómo se presenta el objeto cuando se imprime.
 - `equals()` — cuándo dos objetos son «el mismo» para ti.
-- `hashCode()` — un número que identifica al objeto para las estructuras que
-  agrupan por valor.
+- `hashCode()` — un número que identifica al objeto.
 
 Heredarlos es gratis; el problema es lo que traen **por defecto**. `toString`
 imprime `Persona@1b6d3586` (tipo + dirección de memoria — inútil para leer);
 `equals` compara si dos variables apuntan a la misma instancia (no si dos
-personas tienen el mismo RUT); `hashCode` devuelve un número derivado de la
-identidad del objeto, no de sus datos. Y Java no permite redefinir `==` para
-tus tipos, así que «iguales en contenido» siempre pasa por métodos.
+personas tienen el mismo RUT). Y Java no permite redefinir `==` para tus
+tipos, así que «iguales en contenido» siempre pasa por métodos.
 
 Por eso se **sobrescriben**: `@Override` reemplaza la versión heredada por la
-tuya. Una clase que define cómo presentarse, cómo igualarse y cómo agruparse
-es una clase que se integra con todo el lenguaje — desde `println` hasta las
-colecciones.
+tuya. Una clase que define cómo presentarse y cómo igualarse es una clase
+que se integra con todo el lenguaje — desde `println` hasta las colecciones.
 </Slide>
 
 <Slide title="toString">
@@ -650,126 +656,53 @@ método que `println` viene llamando en silencio cada vez que le pasas un
 objeto.
 </Slide>
 
-<Slide title="equals y hashCode: qué son y cómo se usan">
-**`equals`: cuándo dos objetos son el mismo.** Lo escribes tú porque solo tú
-sabes qué hace iguales a dos personas en tu dominio: ¿el RUT? ¿nombre y
-apellido? Tu `equals` responde esa pregunta, y `HashSet`, `HashMap` y
-cualquier comparación de contenido la usan.
+<Slide title="equals: cuándo dos objetos son el mismo">
+**Para qué sirve**: para decidir cuándo dos objetos representan **lo mismo
+para tu dominio**. El `equals` heredado de `Object` compara si dos variables
+apuntan a la misma instancia: dos `new Persona("Ana", 12345)` son objetos
+distintos en memoria, aunque tengan los mismos datos. Si para ti dos
+personas con el mismo RUT son la misma persona, eso lo escribes tú.
 
-**`hashCode`: el número que agrupa.** Las estructuras hash reparten los
-objetos en grupos usando un número, y ese número es `hashCode`. Para que dos
-objetos que `equals` declara iguales caigan en el mismo grupo, su `hashCode`
-debe coincidir. Por eso la regla operativa:
+**Cómo se sobrescribe**:
 
-> Si sobrescribes `equals`, sobrescribes `hashCode`. Siempre. Juntos.
+```java
+public class Persona {
+  private String nombre;
+  private int rut;
 
-**Cómo se usan**: al guardar objetos en un `HashSet` (o como llave de un
-`HashMap`), los dos trabajan en equipo — `hashCode` elige el grupo, `equals`
-confirma dentro del grupo. Si el orden de recorrido importa y tu clase sabe
-compararse, `TreeSet`/`TreeMap` ordenan con `compareTo` en vez de agrupar
-por hash.
+  public Persona(String nombre, int rut) {
+    this.nombre = nombre;
+    this.rut = rut;
+  }
 
-El teorema completo del contrato (reflexivo, simétrico, transitivo) lo
-enseña el material de algoritmos y estructuras; aquí alcanza con la regla:
-**los dos, juntos**.
-</Slide>
-
-<Slide title="El bug del HashSet">
-`Persona` tiene `equals` (compara por RUT) pero **no** `hashCode`. Predice
-cuántos elementos tiene el `HashSet` al final:
-
-<PredictOutput title="Iguales según equals, distintos para el HashSet">
-
-```java predict
-import java.util.HashSet;
-
-class Persona {
-    private String nombre;
-    private int rut;
-
-    public Persona(String nombre, int rut) {
-        this.nombre = nombre;
-        this.rut = rut;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (!(o instanceof Persona)) return false;
-        Persona p = (Persona) o;
-        return rut == p.rut;
-    }
-}
-
-public class Main {
-    public static void main(String[] args) {
-        HashSet<Persona> s = new HashSet<>();
-        s.add(new Persona("Ana", 12345));
-        s.add(new Persona("Ana", 12345));
-        System.out.println(s.size());
-    }
+  @Override
+  public boolean equals(Object o) {
+    if (!(o instanceof Persona)) return false;
+    Persona p = (Persona) o;
+    return rut == p.rut;
+  }
 }
 ```
 
-</PredictOutput>
+El método recibe un `Object`, no una `Persona`: Java no sabe contra qué lo
+van a comparar. Por eso la primera línea — `instanceof` — descarta todo lo
+que no sea `Persona` (incluido `null`). Después castea y compara lo que
+define igualdad en tu dominio; aquí, el RUT.
 
-Imprime `2`. Los dos objetos tienen `hashCode` por defecto distinto,
-normalmente caen a buckets distintos, y `HashSet` ni siquiera llega a
-preguntar por `equals`. El método que escribiste con cuidado existe, y la
-estructura casi nunca lo consulta. La mitad del trabajo no cuenta: o los
-dos, o ninguno.
-</Slide>
+```java
+new Persona("Ana", 12345).equals(new Persona("Ana", 12345));  // true
+new Persona("Ana", 12345).equals(new Persona("Ana", 99999));  // false
+new Persona("Ana", 12345).equals("Ana");                      // false: ni siquiera es Persona
+```
 
-<Slide title="La corrección">
-Ahora `Persona` sobrescribe **los dos**, con ayuda de `java.util.Objects`:
-
-<CodeEditor
-  language="java"
-  defaultValue={`import java.util.HashSet;
-import java.util.Objects;
-
-class Persona {
-    private String nombre;
-    private int rut;
-
-    public Persona(String nombre, int rut) {
-        this.nombre = nombre;
-        this.rut = rut;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (!(o instanceof Persona)) return false;
-        Persona p = (Persona) o;
-        return rut == p.rut;
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hash(rut);
-    }
-}
-
-public class Main {
-    public static void main(String[] args) {
-        HashSet<Persona> s = new HashSet<>();
-        s.add(new Persona("Ana",   12345));
-        s.add(new Persona("Anita", 12345));
-        System.out.println(s.size());   // 1
-    }
-}
-`}
-/>
-
-El mismo test, distinto resultado: `1`. Con `hashCode` correcto los dos
-objetos caen al mismo bucket, `HashSet` pregunta por `equals`, y `Anita`
-(mismo RUT) se descarta como duplicada. En la práctica los generas con el IDE
-(«Generate equals() and hashCode()»); aquí van a mano para que veas de qué
-están hechos.
+Desde ese momento, todo lo que compare contenido — listas, búsquedas,
+cualquier estructura que pregunte «¿ya tengo uno así?» — usa **tu**
+definición de igualdad.
 </Slide>
 
 ## Ejercicios
 
-Cinco problemas para escribir tú. Completa lo que falta y presiona
+Cuatro problemas para escribir tú. Completa lo que falta y presiona
 **Comprobar**: tu código se compila junto a una batería de casos que lo
 llaman y te dicen cuáles pasaron. Los casos aparecen después de la primera
 ejecución.
@@ -835,14 +768,13 @@ check(new Persona("", 0).toString(), "#0");
 
 </Exercise>
 
-<Exercise title="3. equals y hashCode para Persona">
+<Exercise title="3. equals para Persona">
 
 `Persona` tiene `nombre` (String) y `apellido` (String). Escribe `equals`
-para que dos personas sean iguales si **nombre Y apellido** coinciden. Y
-también `hashCode`: la regla no tiene excepciones.
+para que dos personas sean iguales si **nombre Y apellido** coinciden.
 
-Pista: `Objects.equals(a, b)` y `Objects.hash(a, b, ...)` de
-`java.util.Objects`.
+Pista: `Objects.equals(a, b)` de `java.util.Objects` compara dos textos sin
+tropezar con `null`.
 
 ```java starter
 class Persona {
@@ -855,7 +787,7 @@ class Persona {
     }
 
     // equals(): dos personas son iguales si nombre Y apellido coinciden.
-    // hashCode(): consistente con equals. Pista: Objects.equals y Objects.hash.
+    // Pista: Objects.equals(a, b).
 }
 ```
 
@@ -865,7 +797,6 @@ check(new Persona("Ana", "Soto").equals(new Persona("Ana", "Reyes")), false);
 check(new Persona("Ana", "Soto").equals(new Persona("Luis", "Soto")), false);
 check(new Persona("Ana", "Soto").equals(null), false);
 check(new Persona("Ana", "Soto").equals("Ana Soto"), false);
-check(new Persona("Ana", "Soto").hashCode(), new Persona("Ana", "Soto").hashCode());
 ```
 
 </Exercise>
@@ -920,50 +851,7 @@ check(Solution.saludaTodos(new Formal[0]), "");
 
 </Exercise>
 
-<Exercise title="5. El bug del HashSet">
-
-Aquí tienes `Persona` con `equals` sobrescrito (compara por RUT) y
-`hashCode` **sin** sobrescribir. El test guarda dos personas con el mismo
-RUT en un `HashSet` y afirma que el tamaño es `1`. Falla.
-
-**Arregla el bug**: agrega lo que falta — no reescribas la clase. Con
-`equals` y `hashCode` de acuerdo, el test pasa.
-
-```java starter
-class Persona {
-    private String nombre;
-    private int rut;
-
-    public Persona(String nombre, int rut) {
-        this.nombre = nombre;
-        this.rut = rut;
-    }
-
-    @Override
-    public boolean equals(Object o) {
-        if (!(o instanceof Persona)) return false;
-        Persona p = (Persona) o;
-        return rut == p.rut;
-    }
-
-    // hashCode falta a propósito — agrégalo, no reescribas la clase.
-    // Pista: Objects.hash(...) de java.util.Objects.
-}
-```
-
-```java test
-check(new Persona("Ana", 12345).equals(new Persona("Ana", 12345)), true);
-check(new Persona("Ana", 12345).hashCode(), new Persona("Ana", 12345).hashCode());
-
-java.util.HashSet<Persona> s = new java.util.HashSet<>();
-s.add(new Persona("Ana", 12345));
-s.add(new Persona("Ana", 12345));
-check(s.size(), 1);
-```
-
-</Exercise>
-
-{/* Las once preguntas del banco de este documento (edición 2026-08-18): */}
+{/* Las once preguntas del banco de este documento (edición 2026-08-19): */}
 {/* fuera enum-basico (§4 eliminada) y abstract-class (abstract salió del */}
 {/* deck en refinamiento). Cada una quedó anclada a su sección; los anchors */}
 {/* que no llevan pregunta están declarados con su razón en NO_QUESTION. */}
@@ -1090,38 +978,42 @@ System.out.println(v.describir());
 
 </Question>
 
-<Question id="equals-sin-hashcode" anchor="tostring-equals-hashcode">
+<Question id="equals-por-defecto" anchor="tostring-equals-hashcode">
 
-Una clase `Persona` sobrescribe `equals` (compara por RUT) pero no
-sobrescribe `hashCode`. Se guardan dos `Persona` con el mismo RUT en un
-`HashSet`. ¿Cuántos elementos tiene el `HashSet` al final?
+¿Qué compara el `equals` que toda clase hereda de `Object`, si no lo
+sobrescribes?
 
-- [x] Dos: los `hashCode` por defecto normalmente caen en buckets distintos
-- [ ] Uno — `equals` decide que son la misma persona
-- [ ] Cero — el `HashSet` los rechaza a los dos
-- [ ] Lanza excepción
-
-</Question>
-
-<Question id="cuando-hash-vs-tree" anchor="tostring-equals-hashcode">
-
-¿Cuándo conviene un `TreeSet` en vez de un `HashSet`?
-
-- [x] Cuando el orden de los elementos importa (recorrerlos en orden)
-- [x] Cuando los elementos implementan `Comparable` pero no `hashCode`
-- [ ] Cuando quieres buscar más rápido
-- [ ] Cuando el conjunto es más grande de 1000 elementos
+- [x] Si dos variables apuntan a la misma instancia
+- [ ] Los datos de los objetos (nombre, RUT)
+- [ ] El texto que devuelve `toString()`
+- [ ] Siempre devuelve `true`
 
 </Question>
 
-<Question id="regla-de-equals-y-hashcode" anchor="tostring-equals-hashcode">
+<Question id="equals-sobrescrito" anchor="tostring-equals-hashcode">
 
-¿Cuál es la regla práctica para `equals` y `hashCode`?
+Con `equals` sobrescrito para comparar por RUT, ¿qué imprime esto?
 
-- [x] Si sobrescribes uno, sobrescribes el otro — siempre, juntos
-- [ ] Solo sobrescribes `equals`; `hashCode` es opcional
-- [ ] Solo sobrescribes `hashCode`; `equals` es opcional
-- [ ] Nunca los sobrescribas — Java lo hace bien por defecto
+```java
+new Persona("Ana", 12345).equals(new Persona("Ana", 12345));
+```
+
+- [x] `true`
+- [ ] `false` — son instancias distintas en memoria
+- [ ] Error de compilación — `equals` no se puede sobrescribir
+- [ ] Solo si tienen el mismo `nombre` además del RUT
+
+</Question>
+
+<Question id="tostring-por-defecto" anchor="tostring-equals-hashcode">
+
+¿Qué imprime `System.out.println(new Persona("Ana", 12345))` si `Persona` no
+sobrescribe `toString`?
+
+- [x] Algo como `Persona@1b6d3586`
+- [ ] `Ana (12345)`
+- [ ] `Ana`
+- [ ] Nada — error de compilación
 
 </Question>
 

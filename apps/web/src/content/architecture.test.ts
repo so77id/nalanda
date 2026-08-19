@@ -247,14 +247,10 @@ describe('architecture: content invariants', () => {
         'introducción de la sección; lo que enseña (herencia desde Object, por qué se sobrescribe) se mide en las preguntas ancladas a "toString, equals, hashCode"',
       tostring:
         'sub-detalle de §8: el override de toString; lo que se mide vive en las preguntas ancladas a la sección',
-      'equals-y-hashcode-que-son-y-como-se-usan':
-        'la regla y el cuándo se miden en las preguntas ancladas a "toString, equals, hashCode"',
-      'el-bug-del-hashset':
-        'actividad: el alumno predice el tamaño del HashSet; el mecanismo se mide en equals-sin-hashcode, anclada a la sección',
-      'la-correccion':
-        'actividad: el alumno corre la corrección; el mecanismo se mide en las preguntas ancladas a la sección',
+      'equals-cuando-dos-objetos-son-el-mismo':
+        'el ejemplo y el mecanismo de equals se miden en las preguntas ancladas a "toString, equals, hashCode"',
       ejercicios:
-        'actividad: cinco problemas para escribir; la materia se mide en las preguntas ancladas a las secciones que los preparan',
+        'actividad: cuatro problemas para escribir; la materia se mide en las preguntas ancladas a las secciones que los preparan',
       'lo-que-sigue':
         'cierre del documento: anuncia el siguiente (genéricos), no enseña nada propio',
     },
