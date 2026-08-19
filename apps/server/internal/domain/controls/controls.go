@@ -124,6 +124,13 @@ type Store interface {
 	// exists=false when the copia has not been annotated yet — the review
 	// page's cue to fall back to the raw scan (issue #190).
 	AnnotatedByCopy(ctx context.Context, controlID string, copyNumber int) (AnnotatedCopy, bool, error)
+
+	// ClearAnnotated deletes every anotado record for a control. The
+	// review page then falls back to the raw scan everywhere; used when
+	// the stored PDFs can no longer agree with the readings (issue #190:
+	// Reanalyze re-reads at new thresholds and invalidates the old
+	// drawings).
+	ClearAnnotated(ctx context.Context, controlID string) error
 }
 
 // Generator asks the AMC worker to compile a .tex into printable PDFs.

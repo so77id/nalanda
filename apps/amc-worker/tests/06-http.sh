@@ -274,6 +274,28 @@ check_eq "the override moved the score in the PDF" "Nota: 0/4" "$(annotated_text
 check_eq "and the old PDF was replaced, not orphaned beside a new one" "1" \
   "$(ls "${work}/project/annotated"/*.pdf 2>/dev/null | wc -l | tr -d ' ')"
 
+# Overrides are the WHOLE desired state, not a delta: a reverted correction
+# (the server clears its override row and sends nothing) must bring the
+# original reading back. Without the capture reset this annotate would
+# keep drawing the blanked copy (measured — the reviewer's live probe
+# returned Nota: 0/4 here).
+ac_revert="$(post /annotate/copy '{"project":"project","copy":1}' || true)"
+check_eq "a no-overrides annotate restores the original reading" "Nota: 1/4" \
+  "$(annotated_text)"
+
+# Go marshals an empty marked slice as null; the worker must read null as
+# a blank override, not as a malformed field (measured: the null body used
+# to answer 400 while the save itself had succeeded).
+null_blank="$(python3 -c "
+import json
+rep = json.load(open('${work}/report.json'))
+q = rep['copies']['1']['answers'][0]['name']
+print(json.dumps({'project': 'project', 'copy': 1,
+                  'overrides': {'answers': [{'question': q, 'marked': None}]}}))")"
+ac_null="$(post /annotate/copy "$null_blank" || true)"
+check_eq "a null marked list is a blank override, not a refusal" "Nota: 0/4" \
+  "$(annotated_text)"
+
 # The RUT override: copy 4's grid came back unreadable (1912345_). Typing
 # the eight digits must land in AMC's capture, so a re-read agrees with the
 # professor — not only with the server's own override table.
@@ -287,13 +309,18 @@ check_eq "a re-read sees the corrected RUT" "19123450" \
 check_eq "and reads it as clean" "ok" \
   "$(echo "$reread" | field 'd["copies"]["4"]["rut_status"]')"
 
-# Refusals: a copy that was never captured, and an override naming a
-# question this copy never captured. Both are the caller's mistake and can
-# never succeed on retry, so they answer 400.
+# Refusals: a copy that was never captured, an override naming a
+# question this copy never captured, and a copy field that is not an
+# integer. All three are the caller's mistake and can never succeed on
+# retry, so they answer 400.
 check_eq "a copy with no capture is refused" "400" \
   "$(post_status /annotate/copy '{"project":"project","copy":99}')"
 check_eq "an override naming a question the layout does not have is refused" "400" \
   "$(post_status /annotate/copy '{"project":"project","copy":1,"overrides":{"answers":[{"question":"no-such-question","marked":[]}]}}')"
+check_eq "a fractional copy is refused, not truncated" "400" \
+  "$(post_status /annotate/copy '{"project":"project","copy":1.9}')"
+check_eq "a boolean copy is refused, not coerced" "400" \
+  "$(post_status /annotate/copy '{"project":"project","copy":true}')"
 
 note "annotated copy size" "$(du -h "${work}/project/annotated/copy-1.pdf" | cut -f1)"
 

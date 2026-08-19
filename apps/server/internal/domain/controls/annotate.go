@@ -124,7 +124,11 @@ func overridesFromReading(r Reading) AnnotateOverrides {
 		}
 		out.Answers = append(out.Answers, AnnotateAnswer{
 			Question: a.QuestionRef,
-			Marked:   append([]int(nil), a.Override.Marked...),
+			// An EMPTY non-nil slice, not nil: nil marshals to JSON null
+			// on the wire, and the worker contract spells a blank override
+			// as [] (measured against the real worker — null used to
+			// answer 400 while the save itself had succeeded).
+			Marked: append([]int{}, a.Override.Marked...),
 		})
 	}
 	return out

@@ -253,3 +253,14 @@ func (s *Store) AnnotatedByCopy(ctx context.Context, controlID string, copyNumbe
 	a.GeneratedAt = time.Unix(generated, 0).UTC()
 	return a, true, nil
 }
+
+// ClearAnnotated deletes every anotado record for a control — the review
+// page then falls back to the raw scan everywhere (issue #190: Reanalyze
+// invalidates drawings made at the previous thresholds).
+func (s *Store) ClearAnnotated(ctx context.Context, controlID string) error {
+	if _, err := s.db.ExecContext(ctx, `
+        DELETE FROM annotated_copy WHERE control_id = ?`, controlID); err != nil {
+		return fmt.Errorf("controlstore.ClearAnnotated %s: %w", controlID, err)
+	}
+	return nil
+}

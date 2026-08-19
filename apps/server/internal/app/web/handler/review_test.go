@@ -316,3 +316,91 @@ func fakePNG() []byte {
 		0x42, 0x60, 0x82,
 	}
 }
+
+// TestAnnotatedPDFRefusesARecordPointingOutsideTheWorkDir pins the
+// containment guard: the row is written from the worker's response, and
+// defense-in-depth means a record naming a path outside the shared volume
+// is refused rather than served.
+func TestAnnotatedPDFRefusesARecordPointingOutsideTheWorkDir(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control escape", 1)
+
+	// A second temp dir, OUTSIDE the fixture's work dir: the file exists
+	// on purpose, so the guard must refuse BEFORE the open — not because
+	// the file happens to be missing. The relative path between the two is
+	// exactly the shape a hostile record would carry.
+	outside := t.TempDir()
+	secret := filepath.Join(outside, "secrets.pdf")
+	if err := os.WriteFile(secret, []byte("secret"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	rel, err := filepath.Rel(f.workDir, secret)
+	if err != nil {
+		t.Fatalf("Rel: %v", err)
+	}
+	if err := f.cstore.RecordAnnotated(context.Background(), controls.AnnotatedCopy{
+		ControlID: controlID, CopyNumber: 1, Path: filepath.ToSlash(rel),
+	}); err != nil {
+		t.Fatalf("RecordAnnotated: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/copies/1/annotated.pdf", nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", "1")
+	rec := httptest.NewRecorder()
+	f.handler.AnnotatedPDF(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 for a record outside the work dir", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "secret") {
+		t.Errorf("body leaked the outside file")
+	}
+}
+
+// The flag gates the READ too, not only the write: rows produced while
+// the flow was on must not keep rendering the iframe after the operator
+// flips it off — the escape hatch exists precisely for the scenario where
+// the surviving rows are the stale or broken ones (issue #190 review, F5).
+func TestAnnotateDisabledHidesRowsProducedWhileItWasOn(t *testing.T) {
+	f := newControlsFixtureWith(t, false)
+	controlID := f.createControl(t, "Control off stale", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	if err := f.cstore.RecordAnnotated(context.Background(), controls.AnnotatedCopy{
+		ControlID: controlID, CopyNumber: 1,
+		Path: "controls/" + controlID + "/annotated/copy-1.pdf",
+	}); err != nil {
+		t.Fatalf("RecordAnnotated: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/copies/1/review", nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", "1")
+	rec := httptest.NewRecorder()
+	f.handler.Review(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d", rec.Code)
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, "<iframe") {
+		t.Errorf("review page shows the iframe with the flow disabled, stale row or not\n%s", body)
+	}
+	if !strings.Contains(body, `<img src="/controls/`+controlID+`/copies/1/page/1"`) {
+		t.Errorf("review page must serve the raw scan with the flow disabled\n%s", body)
+	}
+
+	// The endpoint follows the same gate: a hidden row is a 404, not a
+	// PDF the escape hatch was supposed to hide.
+	req = f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/copies/1/annotated.pdf", nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", "1")
+	rec = httptest.NewRecorder()
+	f.handler.AnnotatedPDF(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("annotated.pdf status = %d with the flow disabled, want 404", rec.Code)
+	}
+}

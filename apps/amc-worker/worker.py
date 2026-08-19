@@ -377,7 +377,13 @@ def annotate_copy(body):
     page always sees the latest correction.
     """
     project, data = project_paths(body)
-    copy = int(body["copy"])
+    copy = body["copy"]
+    # A malformed field is the caller's mistake and can never succeed on
+    # retry — but int() would silently accept "1.9" and JSON's true as copy
+    # 1, and annotating the wrong copy is exactly the mistake this route
+    # must not make quietly.
+    if not isinstance(copy, int) or isinstance(copy, bool):
+        raise Failed("copy must be an integer")
     if copy < 1:
         raise Failed("copy must be at least 1")
     overrides = body.get("overrides") or {}
@@ -403,12 +409,16 @@ def annotate_copy(body):
     finally:
         cap.close()
 
-    if overrides:
-        apply_overrides(data, copy, overrides)
-        # Scores are computed FROM the capture, so they must be recomputed
-        # after the manual patches — `note` reads capture_zone.manual, which
-        # is exactly the override channel applied above.
-        amc("note", "--data", data, "--seuil", str(TICKED))
+    # Even with NO overrides this is a call: it means "converge to the raw
+    # reading". The professor may have REVERTED a correction, which clears
+    # the override row server-side and sends nothing — the previous manual
+    # patches must not survive that (apply_overrides resets them first).
+    apply_overrides(data, copy, overrides)
+    # Scores are computed FROM the capture, so they are recomputed on every
+    # annotate: `note` reads capture_zone.manual, which is the override
+    # channel (re-patched or reset) applied above. Unconditional on purpose
+    # — after a reset the raw scores must come back too.
+    amc("note", "--data", data, "--seuil", str(TICKED))
 
     sujet = os.path.join(project, "out", "sujet.pdf")
     if not os.path.isfile(sujet):
@@ -436,6 +446,13 @@ def annotate_copy(body):
         "--single-output", f"copy-{copy}.pdf",
         "--verdict", "Nota: %S/%M")
 
+    # The id-file is scratch, not project state — leaving one per annotate
+    # call would litter the project directory with files nothing reads.
+    try:
+        os.remove(id_file)
+    except OSError:
+        pass
+
     if not os.path.isfile(target):
         raise Failed(f"annotate produced no copy-{copy}.pdf",
                      "AMC reported success but the file is missing")
@@ -453,6 +470,12 @@ def apply_overrides(data, copy, overrides):
     over the black/total measurement. The worker drives it for the server
     instead of a mouse.
 
+    The call is not a delta over the capture: it RESETS the copy's manual
+    columns to -1 first and then applies what the request carries, so a
+    reverted correction disappears with the request that carried it. The
+    request is therefore "the whole desired state", never "the change
+    since last time".
+
     Two shapes, matching the two corrections the review page offers:
 
     - `answers: [{question, marked}]` — `question` is the layout question
@@ -460,8 +483,8 @@ def apply_overrides(data, copy, overrides):
       stores as question_ref), resolved to the numeric id through
       layout_question. `marked` are the answer numbers the professor
       confirmed. Every box of that question becomes manual, ticked exactly
-      where `marked` says so. `marked: []` is a blank override, not "leave
-      alone".
+      where `marked` says so. `marked: []` (or null) is a blank override,
+      not "leave alone".
     - `rut: "20123456"` — the corrected identifier: one manual tick per
       column of the RUT grid, plus a forced association so every
       downstream consumer sees the same identity.
@@ -488,6 +511,14 @@ def apply_overrides(data, copy, overrides):
 
     cap = sqlite3.connect(os.path.join(data, "capture.sqlite"))
     try:
+        # Converge to the CURRENT desired state, not a delta: every annotate
+        # resets the copy's manual columns first. Without this, a correction
+        # the professor later REVERTED (the server clears the override row
+        # and sends nothing) would keep its old patches in the capture, and
+        # the annotated PDF would silently show the correction they undid —
+        # measured against 1.6.0 with the blank-all override in 06-http.sh.
+        cap.execute(
+            "UPDATE capture_zone SET manual = -1 WHERE student = ?", (copy,))
         for entry in overrides.get("answers", []):
             _override_answer(cap, copy, entry, names)
         if overrides.get("rut"):
@@ -507,7 +538,11 @@ def _override_answer(cap, copy, entry, names):
             f"no question named {name!r} in the layout",
             "the override names a question this control never printed",
         )
-    marked = {int(a) for a in entry.get("marked", [])}
+    # `or []` on purpose: a blank override may arrive as `"marked": null`
+    # (Go marshals an empty slice as null), and null is present-but-not-
+    # the-default — `get("marked", [])` alone would hand None to the set
+    # comprehension below (measured, 06-http.sh).
+    marked = {int(a) for a in (entry.get("marked") or [])}
     zones = cap.execute(
         "SELECT id_b FROM capture_zone WHERE student=? AND type=? AND id_a=?",
         (copy, read_capture.BOX_ZONE, question),
@@ -555,7 +590,10 @@ def _force_association(data, copy, rut):
     """Make the corrected RUT the association's answer for this copy.
 
     Same call as /associate/set — TRAP 1 applies here too: --copy is not
-    optional — and the read-back is what proves it took effect.
+    optional — and the read-back is what proves it took effect. The literal
+    1 is the scan-copy index the capture carries: /annotate/copy refuses a
+    copy scanned more than once, so there is exactly one index, and it is
+    the one the id-file uses (copies[0], same guard).
     """
     amc("association", "--data", data, "--set",
         "--student", copy, "--copy", 1, "--id", rut)

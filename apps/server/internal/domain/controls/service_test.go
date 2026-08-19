@@ -97,6 +97,16 @@ func (s *fakeStore) AnnotatedByCopy(_ context.Context, controlID string, copyNum
 	return a, ok, nil
 }
 
+func (s *fakeStore) ClearAnnotated(_ context.Context, controlID string) error {
+	prefix := controlID + "#"
+	for key := range s.annotated {
+		if strings.HasPrefix(key, prefix) {
+			delete(s.annotated, key)
+		}
+	}
+	return nil
+}
+
 // fakeReadingStore is the do-nothing double the pre-WP-F cases use. The
 // WP-F flows are exercised through Service.UploadScan in scans_internal_test.go
 // with a real controlstore. readingsByCopy holds stored readings for the

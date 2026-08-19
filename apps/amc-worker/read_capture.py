@@ -303,7 +303,8 @@ def read(data_dir, ticked, unsure):
 
     copies = {}
     for student, q, a, black, total, manual in cap.execute(
-        "SELECT student, id_a, id_b, black, total, manual FROM capture_zone WHERE type = ?",
+        "SELECT student, id_a, id_b, black, total, manual "
+        "FROM capture_zone WHERE type = ?",
         (BOX_ZONE,),
     ):
         ratio = (black / total) if total > 0 else 0.0

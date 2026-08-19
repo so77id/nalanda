@@ -337,11 +337,25 @@ func (h *Controls) AnnotatedPDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// The path is relative to the shared volume, and the row is the
-	// authority — a record pointing outside the control's project would
-	// be a database problem, so no path traversal guard beyond the row
-	// lookup (same class as SujetPath/CorrigePath).
+	// The path is relative to the shared volume. Unlike SujetPath and
+	// CorrigePath — which the server composes from a validated control id
+	// — this one arrives from the worker's response through the database,
+	// so the row lookup is NOT the whole boundary. The check below refuses
+	// a record naming a path outside the work dir rather than serving it.
 	path := filepath.Join(h.Service.WorkDir, filepath.FromSlash(record.Path))
+	// The containment check is lexical: a symlink planted INSIDE the work
+	// dir that points out of it would still resolve outside. That residual
+	// is accepted defense-in-depth — the worker is the only writer of both
+	// the volume and the response path, and it holds no auth either way —
+	// but the check still closes the cheap class (a `..` record) without
+	// trusting the database to only ever hold worker-shaped paths.
+	if !withinDir(h.Service.WorkDir, path) {
+		h.Log.Error("serving annotated PDF: record points outside the work dir",
+			"id", id, "copy", copyNumber, "path", record.Path)
+		middleware.WriteError(w, r, http.StatusNotFound,
+			"El PDF corregido no está disponible.")
+		return
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		h.Log.Warn("serving annotated PDF", "id", id, "copy", copyNumber, "path", path, "error", err)
@@ -361,6 +375,17 @@ func (h *Controls) AnnotatedPDF(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Disposition",
 		fmt.Sprintf(`inline; filename="copia-%d-anotada.pdf"`, copyNumber))
 	http.ServeContent(w, r, "annotated.pdf", info.ModTime(), f)
+}
+
+// withinDir reports whether path stays inside dir after cleaning. Both are
+// absolute; the comparison is on the resolved relative form, so `..`
+// segments are resolved rather than matched as text.
+func withinDir(dir, path string) bool {
+	rel, err := filepath.Rel(dir, path)
+	if err != nil {
+		return false
+	}
+	return rel != ".." && !strings.HasPrefix(rel, ".."+string(filepath.Separator))
 }
 
 // parseCopyPathValue turns a path segment into a positive int. Empty and

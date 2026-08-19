@@ -28,6 +28,20 @@ Two approaches:
 `{project, copy, overrides}` as JSON. The reading report honours `manual`
 too, so report, score and PDF always agree.
 
+## Alternatives considered
+
+- **Draw our own annotated PDF in Go** — full control, no private schema.
+  Rejected for this WP: it re-implements AMC's whole drawing pipeline
+  (marks, correct answers, per-question scores, verdict) before it has
+  produced one value; revisit when an AMC update breaks (A) or a needed
+  shape is beyond AMC's drawer.
+- **Overrides as a persistent delta** — apply only the boxes the professor
+  changed and leave the rest. Rejected after review: a reverted correction
+  (server clears the override row, sends nothing) would leave its old
+  patches in the capture and the PDF would silently show the correction
+  the professor undid. Every annotate therefore RESETS the copy's manual
+  columns and re-applies the whole desired state.
+
 ## Decision
 
 - The annotated PDF per copy lives at `<project>/annotated/copy-<N>.pdf`,
@@ -49,8 +63,9 @@ channel is AMC's own, so `note` and `annotate` honour it natively.
 **Negative / trade-offs:**
 - `capture_zone`/`layout_*` layouts are AMC's private schema, not a public
   contract. Measured against AMC 1.6.0; an upstream change can break the
-  patch silently — `docs/security-notes.md` §Trigger de update is the alarm,
-  and the env-var is the rollback.
+  patch silently — the **Review trigger** in `docs/security-notes.md`
+  §"The control worker is unauthenticated and trusts its only caller" is
+  the alarm, and the env-var is the rollback.
 - One `amc annotate` per copy is seconds-class and synchronous inside the
   review save. Accepted for this scale; async is a follow-up if courses grow.
 

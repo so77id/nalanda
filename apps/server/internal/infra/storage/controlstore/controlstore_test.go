@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"path/filepath"
+	"strconv"
 	"testing"
 	"time"
 
@@ -329,5 +330,44 @@ func TestCreateControlRefusesAnUnknownProfessor(t *testing.T) {
 	err := store.CreateControl(ctx, c, []controls.PoolEntry{{Ref: "q-if-1", Order: 0}})
 	if err == nil {
 		t.Fatal("CreateControl accepted a control with no professor, want a FOREIGN KEY error")
+	}
+}
+
+func TestClearAnnotatedDeletesEveryRowOfOneControlOnly(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+
+	c1 := newControl("CTRLCLEAR10000000000000AA1", userID, nil)
+	c2 := newControl("CTRLCLEAR20000000000000AA1", userID, nil)
+	pool := []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}
+	for _, c := range []controls.Control{c1, c2} {
+		if err := store.CreateControl(ctx, c, pool); err != nil {
+			t.Fatalf("CreateControl: %v", err)
+		}
+	}
+	now := time.Unix(1_787_100_000, 0).UTC()
+	for _, c := range []controls.Control{c1, c2} {
+		for _, n := range []int{1, 2} {
+			if err := store.RecordAnnotated(ctx, controls.AnnotatedCopy{
+				ControlID: c.ID, CopyNumber: n, GeneratedAt: now,
+				Path: "controls/" + c.ID + "/annotated/copy-" + strconv.Itoa(n) + ".pdf",
+			}); err != nil {
+				t.Fatalf("RecordAnnotated: %v", err)
+			}
+		}
+	}
+
+	if err := store.ClearAnnotated(ctx, c1.ID); err != nil {
+		t.Fatalf("ClearAnnotated: %v", err)
+	}
+	for _, n := range []int{1, 2} {
+		if _, exists, err := store.AnnotatedByCopy(ctx, c1.ID, n); err != nil || exists {
+			t.Errorf("c1 copy %d: exists=%v err=%v, want gone", n, exists, err)
+		}
+		// The OTHER control's rows are untouched — the delete is scoped.
+		if _, exists, err := store.AnnotatedByCopy(ctx, c2.ID, n); err != nil || !exists {
+			t.Errorf("c2 copy %d: exists=%v err=%v, want intact", n, exists, err)
+		}
 	}
 }

@@ -21,7 +21,14 @@ func TestNoopHookLogsInfo(t *testing.T) {
 	if err := hook.Closed(context.Background(), "CTRL0001ABC0000000000000AA"); err != nil {
 		t.Fatalf("Closed: %v", err)
 	}
-	if got := buf.String(); !strings.Contains(got, "correction closed") {
-		t.Errorf("log = %q, want an INFO line for the closed correction", got)
+	got := buf.String()
+	if !strings.Contains(got, "correction closed") {
+		t.Errorf("log = %q, want a line for the closed correction", got)
+	}
+	// The LEVEL is part of the AC ("loguea INFO"), not only the message —
+	// a mutation that quietly demoted or promoted the line would keep the
+	// message assertion green.
+	if !strings.Contains(got, "level=INFO") {
+		t.Errorf("log = %q, want the line at level INFO", got)
 	}
 }

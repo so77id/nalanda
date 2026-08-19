@@ -167,19 +167,24 @@ func TestUploadScanAnnotatesEveryCleanCopy(t *testing.T) {
 	if count := f.fake.AnnotateCallCount(); count != 2 {
 		t.Fatalf("AnnotateCallCount = %d, want 2 (copies 1 and 2 are ok)", count)
 	}
-	seen := map[int]bool{}
+	// Indexed by copy: LastAnnotateCall inspects the last call, so a
+	// per-copy assertion built on it would actually be asserting copy 2
+	// for both copies (issue #190 review, F7).
+	byCopy := map[int]controls.AnnotateRequest{}
 	for _, call := range f.fake.AnnotateCalls {
-		seen[call.Copy] = true
+		byCopy[call.Copy] = call
 	}
 	for _, copy := range []int{1, 2} {
-		if !seen[copy] {
+		call, ok := byCopy[copy]
+		if !ok {
 			t.Errorf("no annotate call for copy %d", copy)
+			continue
 		}
-		if call, _ := f.fake.LastAnnotateCall(); call.Overrides.RUT != nil {
+		if call.Overrides.RUT != nil {
 			t.Errorf("copy %d sent a RUT override it does not have", copy)
 		}
 	}
-	if seen[3] {
+	if _, seen := byCopy[3]; seen {
 		t.Error("copy 3 is needs_review and must not be annotated automatically")
 	}
 

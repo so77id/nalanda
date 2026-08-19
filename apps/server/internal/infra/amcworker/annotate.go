@@ -124,9 +124,16 @@ func toWireOverrides(o controls.AnnotateOverrides) *annotateOverridesBody {
 		out.RUT = &rut
 	}
 	for _, a := range o.Answers {
+		// Non-nil on the wire: the worker contract spells a blank override
+		// as [] — a nil slice would marshal to null and the worker used to
+		// read that as a malformed field (issue #190 review, blocker 1).
+		marked := a.Marked
+		if marked == nil {
+			marked = []int{}
+		}
 		out.Answers = append(out.Answers, annotateAnswerBody{
 			Question: a.Question,
-			Marked:   append([]int(nil), a.Marked...),
+			Marked:   marked,
 		})
 	}
 	return out

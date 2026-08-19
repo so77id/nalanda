@@ -8,8 +8,10 @@ import (
 // OnCorrectionClosed is the seam a future integration hangs off — sending
 // the grade by email, posting it to Canvas (issue #190 §Non-goals keeps
 // both out of this WP; the hook is the abstraction, not the integration).
-// It fires once, AFTER the control's state is committed as Graded, and its
-// error does not undo the close: the correction is closed either way.
+// It fires after a close request leaves the control Graded — including an
+// idempotent re-close of an already-graded control, so integrations must
+// be idempotent themselves — and its error does not undo the close: the
+// correction is closed either way.
 type OnCorrectionClosed interface {
 	// Closed is called after the state moved to Graded. The order is part
 	// of the contract — a consumer must never observe an ungraded control

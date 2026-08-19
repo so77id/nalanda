@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
@@ -29,6 +30,14 @@ const (
 	defaultUnsure = 0.10
 )
 
+// uploadWriteWindow is how long the upload handler may take before the
+// server's write deadline cuts it. /analyse is minutes-class (53s for a
+// 40-copy batch measured in ADR-0030) and the annotate loop adds seconds
+// per clean copy on top; 15 minutes leaves room for the largest batch the
+// form allows (maxCopies) without abandoning the bound the global
+// writeTimeout exists to provide on every other route.
+const uploadWriteWindow = 15 * time.Minute
+
 // scanFormField is the multipart field the upload form posts under.
 const scanFormField = "scan"
 
@@ -42,6 +51,20 @@ func (h *Controls) UploadScan(w http.ResponseWriter, r *http.Request) {
 	if !isValidControlID(id) {
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
 		return
+	}
+
+	// The upload is the one minutes-class route on this surface: /analyse
+	// plus the annotate loop outlive the server's global 30s write timeout
+	// for any real batch (httpserver.writeTimeout bounds the whole
+	// handler, not a single Write). The default bound stays for everything
+	// else; this route claims the time its design says it needs. Under a
+	// recorder without controller support the call answers
+	// http.ErrNotSupported, which is harmless — the deadline is a
+	// production property, not a test one.
+	controller := http.NewResponseController(w)
+	if err := controller.SetWriteDeadline(time.Now().Add(uploadWriteWindow)); err != nil &&
+		!errors.Is(err, http.ErrNotSupported) {
+		h.Log.Warn("controls: cannot extend the upload write deadline", "error", err)
 	}
 
 	// http.MaxBytesReader wraps r.Body so any read past MaxScanBytes returns

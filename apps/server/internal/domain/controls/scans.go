@@ -174,6 +174,14 @@ func (s *Service) Reanalyze(ctx context.Context, controlID string, ticked, unsur
 	if err := s.Readings.UpsertReadingsFromReport(ctx, control.ID, report, s.Now()); err != nil {
 		return Report{}, fmt.Errorf("controls.Reanalyze: persist: %w", err)
 	}
+	// The stored annotated PDFs were drawn at the PREVIOUS thresholds, so
+	// they no longer agree with the report just persisted — same class as
+	// the report-vs-grade disagreement ADR-0031 exists to forbid. Drop the
+	// rows: the review page falls back to the raw scan, and the next save
+	// (or upload) re-annotates at the new reading.
+	if err := s.Store.ClearAnnotated(ctx, control.ID); err != nil {
+		return Report{}, fmt.Errorf("controls.Reanalyze: clear annotated: %w", err)
+	}
 	return report, nil
 }
 
@@ -192,7 +200,15 @@ func (s *Service) ReadingFor(ctx context.Context, controlID string, copyNumber i
 // AnnotatedFor returns the anotado PDF record for one copia, or
 // exists=false when the copia has not been annotated yet — the review
 // page's cue to fall back to the raw scan (issue #190).
+//
+// The flag gates the READ too, not only the write: rows produced while
+// the flow was on are hidden when the operator flips it off, because the
+// escape hatch exists precisely for the scenario where the surviving
+// rows are the stale or broken ones.
 func (s *Service) AnnotatedFor(ctx context.Context, controlID string, copyNumber int) (AnnotatedCopy, bool, error) {
+	if !s.AnnotateEnabled {
+		return AnnotatedCopy{}, false, nil
+	}
 	return s.Store.AnnotatedByCopy(ctx, controlID, copyNumber)
 }
 

@@ -182,3 +182,54 @@ func TestAnnotateWorkerErrorPropagatesWithoutARecord(t *testing.T) {
 		t.Error("annotated_copy has a row after a refused annotate")
 	}
 }
+
+// A blank override must travel as an EMPTY list, not nil — nil marshals to
+// JSON null, which the worker used to read as a malformed field while the
+// save itself had succeeded (issue #190 review, blocker 1). Pinned here on
+// the domain shape the wire derives from.
+func TestAnnotateBlankOverrideCarriesAnEmptyMarkedList(t *testing.T) {
+	f := newAnnotateFixture(t, true)
+	f.seedReading(t, 5, func(r *controls.Reading) {
+		r.Answers[0].Override = &controls.AnswerOverride{
+			Marked: nil, Status: controls.AnswerStatusBlank, EditedAt: time.Now(),
+		}
+	})
+
+	if _, err := f.svc.Annotate(context.Background(), f.control.ID, 5); err != nil {
+		t.Fatalf("Annotate: %v", err)
+	}
+	call, ok := f.fake.LastAnnotateCall()
+	if !ok {
+		t.Fatal("AnnotateCopy was never called")
+	}
+	if len(call.Overrides.Answers) != 1 {
+		t.Fatalf("Overrides.Answers = %+v, want the blank override", call.Overrides.Answers)
+	}
+	if call.Overrides.Answers[0].Marked == nil {
+		t.Error("Marked is nil for a blank override — the wire would carry null, not []")
+	}
+	if len(call.Overrides.Answers[0].Marked) != 0 {
+		t.Errorf("Marked = %v, want an empty list", call.Overrides.Answers[0].Marked)
+	}
+}
+
+// Reanalyze invalidates the stored annotated PDFs: they were drawn at the
+// previous thresholds and can no longer agree with the report just
+// persisted (issue #190 review, F6).
+func TestReanalyzeClearsAnnotatedRows(t *testing.T) {
+	f := newAnnotateFixture(t, true)
+	if err := f.store.RecordAnnotated(context.Background(), controls.AnnotatedCopy{
+		ControlID: f.control.ID, CopyNumber: 1, GeneratedAt: f.svc.Now(),
+		Path: "controls/" + f.control.ID + "/annotated/copy-1.pdf",
+	}); err != nil {
+		t.Fatalf("RecordAnnotated: %v", err)
+	}
+	f.fake.ReanalyzeReports = []controls.Report{{}}
+
+	if _, err := f.svc.Reanalyze(context.Background(), f.control.ID, 0.30, 0.10); err != nil {
+		t.Fatalf("Reanalyze: %v", err)
+	}
+	if _, exists, _ := f.store.AnnotatedByCopy(context.Background(), f.control.ID, 1); exists {
+		t.Error("annotated_copy row survived the reanalyze — the PDF would disagree with the new reading")
+	}
+}
