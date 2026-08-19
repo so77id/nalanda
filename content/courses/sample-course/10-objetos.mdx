@@ -464,3 +464,121 @@ te dice exactamente qué falta y dónde. («abstract» es la clase de la nota de
 §5: no la necesitas hoy para leer el mensaje — se lee «no cumpliste el
 contrato».)
 </Slide>
+
+## Polimorfismo
+
+<Slide title="Polimorfismo · qué es y para qué">
+**La palabra**: «polimorfismo» = «muchas formas». **La idea**: una misma
+operación — «describir», «comparar», «imprimir» — que responde distinto
+según **quién es** el objeto que la recibe.
+
+**Para qué sirve**: para escribir código **una vez** que funcione sobre
+muchos tipos distintos, sin `switch` ni `if instanceof`. La estructura de
+datos que trate `Comparable` funciona con `Integer`, con `String`, con tu
+propia clase — sin cambiar una línea del código de la estructura.
+
+**Cómo pensarlo**: cuando escribas «recorrer una colección y aplicar algo a
+cada elemento», el «algo» normalmente **es** un método polimórfico. No
+pienses «qué tipo es cada uno»; piensa «qué verbo necesito de todos ellos».
+
+Ya viste este juego moviéndose: en §5 el mismo `sumar(Number, Number)`
+funcionaba con `Integer` y `Double`; en §6 el mismo `Integer` respondía a
+`Comparable`. Esas dos maneras — heredar e implementar — se llaman ambas
+polimorfismo. Las dos slides siguientes las muestran en su forma más común.
+</Slide>
+
+<Slide title="Dos maneras, un mismo verbo">
+<Mermaid
+  title="Un mismo dispatch, dos jerarquías"
+  source={`classDiagram
+    class Vehiculo {
+        +describir()
+    }
+    class Auto
+    class Camion
+    Vehiculo <|-- Auto
+    Vehiculo <|-- Camion
+
+    class Formal {
+        +tratarDe()
+    }
+    <<interface>> Formal
+    class Saludo
+    class Despedida
+    Formal <|.. Saludo
+    Formal <|.. Despedida`}
+/>
+
+**Izquierda**: por herencia. Todo lo que sea `Vehiculo` (o herede de él)
+responde a `describir()`.
+**Derecha**: por interfaz. Todo lo que **implementa** `Formal` responde a
+`tratarDe()`.
+Ambos son polimorfismo; los usas igual.
+</Slide>
+
+<Slide title="Polimorfismo por herencia — Vehiculo[]">
+Un arreglo declarado `Vehiculo[]` acepta cualquier subtipo. El método que
+corre es el del objeto real, no el del tipo declarado:
+
+<CodeEditor
+  language="java"
+  defaultValue={`// Clases provistas — lo nuevo es el arreglo y el for-each
+class Vehiculo {
+    protected String marca;
+    public Vehiculo(String marca) { this.marca = marca; }
+    public String describir() { return "vehículo " + marca; }
+}
+
+class Auto extends Vehiculo {
+    public Auto(String marca) { super(marca); }
+    @Override public String describir() { return "auto " + marca; }
+}
+
+class Camión extends Vehiculo {
+    public Camión(String marca) { super(marca); }
+    @Override public String describir() { return "camión " + marca; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Vehiculo[] flota = { new Auto("Toyota"),
+                             new Camión("Kenworth"),
+                             new Auto("Fiat") };
+        for (Vehiculo v : flota) {
+            System.out.println(v.describir());
+        }
+    }
+}
+`}
+/>
+
+Cada vuelta del `for-each` llama `describir()` sobre una variable `Vehiculo`
+— y sin embargo imprime `auto Toyota`, `camión Kenworth`, `auto Fiat`. El
+tipo de la variable dice qué métodos puedes llamar; **el objeto real decide
+cuál corre**. Agrega un `Camión` más a la flota: el `for-each` no cambia una
+línea.
+</Slide>
+
+<Slide title="Polimorfismo por interfaz — Comparable[]">
+Muchos tipos de la biblioteca estándar implementan `Comparable`. Un arreglo
+`Comparable[]` los mezcla libremente:
+
+<CodeEditor
+  language="java"
+  defaultValue={`public class Main {
+    public static void main(String[] args) {
+        Comparable[] cosas = { 3, "pera", 1 };
+        for (Comparable c : cosas) {
+            System.out.println(c);
+        }
+    }
+}
+`}
+/>
+
+Imprime `3`, `pera`, `1` — en orden de inserción, cada uno respondiendo por
+sí mismo a `println`. El `Integer` se imprime como número, el `String` como
+texto: la misma línea `System.out.println(c)` hace dos trabajos distintos
+según quién es `c`. Es la misma máquina de la slide anterior, llegando por
+la otra vía — interfaz en vez de herencia.
+</Slide>

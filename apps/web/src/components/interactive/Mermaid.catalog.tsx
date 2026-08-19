@@ -14,9 +14,9 @@ const POLIMORFISMO = `classDiagram
         +describir()
     }
     class Auto
-    class Camión
+    class Camion
     Vehiculo <|-- Auto
-    Vehiculo <|-- Camión
+    Vehiculo <|-- Camion
 
     class Formal {
         +tratarDe()

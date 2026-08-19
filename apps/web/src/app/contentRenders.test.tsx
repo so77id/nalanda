@@ -1,10 +1,23 @@
 import { act, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { registry } from '../content';
 
 import { AppRoutes } from './AppRoutes';
+
+// <Mermaid> loads the real library on mount, and mermaid's dagre/d3 pipeline
+// refuses to run in jsdom — CSSStyleSheet and the SVG measurement APIs it needs
+// are absent (ADR-0040 §Consequences). The stub lets a document render its
+// contract — the figure, the source attribute, the label — while the painted
+// SVG is confirmed in a real browser in both themes. The component's own suite
+// covers the forwarding and error branches (Mermaid.test.tsx).
+vi.mock('mermaid', () => ({
+  default: {
+    initialize: vi.fn(),
+    render: vi.fn(async () => ({ svg: '<svg data-testid="mermaid-stub" />' })),
+  },
+}));
 
 /**
  * L4 — every published document renders without an authoring error.

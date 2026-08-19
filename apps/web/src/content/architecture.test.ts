@@ -241,6 +241,16 @@ describe('architecture: content invariants', () => {
         'ejemplo detallado: lo que mide una pregunta va en la sección principal de §6',
       'la-trampa-implements-sin-cumplir':
         'actividad: el alumno predice el error de compilación; el mecanismo se mide en la pregunta anclada a "Interfaces"',
+      polimorfismo:
+        'sección principal de §7; la cubren polimorfismo-por-interfaz y dispatch-runtime cuando aterrice el bloque <Questions> (S8)',
+      'polimorfismo-que-es-y-para-que':
+        'motivación de la sección; el mecanismo (dispatch según el objeto real) se mide en las preguntas ancladas a "Polimorfismo"',
+      'dos-maneras-un-mismo-verbo':
+        'el diagrama muestra las dos vías; lo que enseña (un mismo verbo, dos jerarquías) se mide en las preguntas ancladas a "Polimorfismo"',
+      'polimorfismo-por-herencia-vehiculo':
+        'actividad: el alumno corre el arreglo Vehiculo[]; la mecánica se mide en las preguntas ancladas a "Polimorfismo"',
+      'polimorfismo-por-interfaz-comparable':
+        'actividad: el alumno corre el arreglo Comparable[]; la mecánica se mide en las preguntas ancladas a "Polimorfismo"',
     },
   };
 
