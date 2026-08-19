@@ -194,6 +194,32 @@ describe('architecture: content invariants', () => {
       'lo-que-sigue':
         'cierre del documento: anuncia el siguiente y cierra el hilo de complejidad, no enseña nada propio',
     },
+    // WP #79, same convention as #78: C++ openers and detail/activity slides
+    // owe nothing of their own — what they teach is measured by the section's
+    // main question. The seven section anchors (clase-atributos-y-metodos,
+    // this, visibilidad, herencia, interfaces, polimorfismo,
+    // tostring-equals-hashcode) carry the bank's eleven questions once the
+    // <Questions> block lands (S8); until then they sit here so the document
+    // can be built slice by slice with the suite green.
+    objetos: {
+      'clase-atributos-y-metodos':
+        'sección principal de §1; la cubre la pregunta que-va-en-clase cuando aterrice el bloque <Questions> (S8)',
+      'clases-en-c':
+        'contraste con C++; el delta Java que introduce se mide en la pregunta de "Clase: atributos y métodos"',
+      'clases-en-java':
+        'sub-detalle del §1; el hecho principal (atributos + constructor + métodos, en un archivo) se mide en la pregunta de la sección',
+      'instancia-y-usa':
+        'actividad: el alumno construye una Pair y llama getters; la mecánica se mide en la pregunta de la sección',
+      this: 'sección principal de §2; la cubre la pregunta this-en-java cuando aterrice el bloque <Questions> (S8)',
+      visibilidad:
+        'sección principal de §3; la cubre la pregunta private-desde-afuera cuando aterrice el bloque <Questions> (S8)',
+      'visibilidad-en-c':
+        'contraste con C++; el delta Java que introduce se mide en la pregunta de "Visibilidad"',
+      'public-private-en-java':
+        'sub-detalle del §3; el hecho principal (acceso por miembro, compilador como guardia) se mide en la pregunta de la sección',
+      'la-trampa-acceso-desde-afuera':
+        'actividad: el alumno predice el error de compilación; la pregunta que mide el mecanismo vive en "Visibilidad"',
+    },
   };
 
   function sourceOf(key: string): string {

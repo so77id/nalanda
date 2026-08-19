@@ -1,0 +1,236 @@
+---
+id: objetos
+title: Objetos, con equals y hashCode
+presentation: explicit
+questions: per-section
+---
+
+{/* Este documento declara `questions: per-section` (#139). Cada sección o */}
+{/* tiene una `<Question anchor="...">` en el bloque `<Questions>` al final, */}
+{/* o está declarada con su razón en NO_QUESTION en */}
+{/* apps/web/src/content/architecture.test.ts (§Question coverage). */}
+{/* */}
+{/* Anclas de sección (llevan pregunta, deben existir como h2): */}
+{/*   clase-atributos-y-metodos, this, visibilidad, herencia, interfaces, */}
+{/*   polimorfismo, tostring-equals-hashcode. */}
+{/* */}
+{/* Regla del WP (igual que #78): los openers C++ y las slides de detalle o */}
+{/* actividad no llevan pregunta propia — van al NO_QUESTION con su razón; */}
+{/* lo que enseñan se mide en la pregunta de la sección principal. */}
+
+# Objetos, con equals y hashCode
+
+En [[arrays-y-funciones|Arrays y funciones]] agrupaste código en funciones
+`static`. En [[referencias-null-igualdad|Referencias, null e igualdad]] viste
+que las variables guardan referencias a objetos y que `==` sobre objetos no
+compara contenido. Este documento junta las dos piezas: vas a escribir tus
+propios tipos — clases con atributos, constructores y métodos — y vas a
+decidir qué significa que dos objetos **tuyos** sean «el mismo». El documento
+cierra con un bug real que aparece cuando ese trabajo se hace a medias: un
+`HashSet` que no encuentra lo que tú mismo le metiste.
+
+<SectionBreak />
+
+## Clase: atributos y métodos
+
+<Slide title="Clases en C++">
+En C++ ya escribiste clases: atributos, constructor, métodos, con la
+separación en `.h` y `.cpp`. La `Pair` con la que vas a trabajar todo el
+documento:
+
+```cpp
+class Pair {
+ public:
+  Pair(int a, int b) : first_(a), second_(b) {}
+  int first() const  { return first_; }
+  int second() const { return second_; }
+ private:
+  int first_, second_;
+};
+```
+
+El delta con Java es cosmético: no hay `.h` ni `.cpp`, no hay `::`, y todo va
+junto en un archivo. La idea — datos y comportamiento en una misma caja — es
+la misma.
+</Slide>
+
+<Slide title="Clases en Java">
+Una clase Java lleva atributos, uno o más constructores y métodos, todo en el
+mismo archivo. La misma `Pair`:
+
+```java
+public class Pair {
+  private int first;
+  private int second;
+
+  public Pair(int first, int second) {
+    this.first = first;
+    this.second = second;
+  }
+
+  public int first()  { return first; }
+  public int second() { return second; }
+}
+```
+
+- **Atributos `private`**: solo los métodos de `Pair` los tocan — la sección
+  de visibilidad vuelve sobre esto.
+- **El constructor se llama como la clase** y no declara tipo de retorno, ni
+  siquiera `void`. El parámetro `first` y el atributo `first` comparten
+  nombre; `this.first` desambigua cuál es cuál (la sección de `this` es
+  entera sobre eso).
+- **Getters**: `first()` y `second()` exponen lectura sin exponer el campo.
+
+Cuando la instancias con `new Pair(3, 7)` el objeto vive en el heap y la
+variable guarda una referencia a él — el mismo modelo de
+[[referencias-null-igualdad|el documento anterior]], ahora con una clase tuya
+en vez de una del JDK.
+</Slide>
+
+<Slide title="Instancia y usa">
+Construye una `Pair`, llámale a sus getters y mira qué imprime. Después
+cambia los números y corre de nuevo.
+
+<CodeEditor
+  language="java"
+  defaultValue={`// La clase provista — en tus programas futuros viviría en su propio archivo
+class Pair {
+    private int first;
+    private int second;
+
+    public Pair(int first, int second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    public int first()  { return first; }
+    public int second() { return second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair p = new Pair(3, 7);
+        System.out.println(p.first() + " y " + p.second());
+    }
+}
+`}
+/>
+
+`new Pair(3, 7)` reserva el objeto en el heap y corre el constructor; `p` es
+la referencia. `p.first()` y `p.second()` llaman a los getters. Prueba
+`new Pair(40, 2)` y confirma que `p` no es los números — es la caja que los
+guarda.
+</Slide>
+
+<Slide title="this">
+Dentro de un método, `this` es una referencia al objeto sobre el que se llamó
+ese método. Sirve para desambiguar cuando un parámetro tiene el mismo nombre
+que un atributo:
+
+```java
+public class Punto {
+  private int x, y;
+
+  public void mover(int x, int y) {
+    this.x = x;   // el atributo x recibe el parámetro x
+    this.y = y;
+  }
+}
+```
+
+Sin el `this.`, el parámetro `x` le tapa al atributo — el compilador te deja
+escribirlo, no siempre te avisa, y el bug es callado. Corre la versión con
+`this.` y después bórralos para ver la diferencia:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Punto {
+    private int x, y;
+
+    public void mover(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    // toString viene en §8 — por ahora tómalo como «cómo se imprime»
+    public String toString() {
+        return "x=" + x + ", y=" + y;
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Punto p = new Punto();
+        p.mover(3, 4);
+        System.out.println(p);
+    }
+}
+`}
+/>
+
+Borra los `this.` y corre de nuevo: `p` queda en `x=0, y=0`. El parámetro
+ganó el nombre y el atributo nunca se tocó — el programa compila, corre e
+imprime un resultado silenciosamente equivocado.
+</Slide>
+
+## Visibilidad
+
+<Slide title="Visibilidad en C++">
+En C++ la visibilidad se declara en bloque: `public:` y `private:` son
+etiquetas que cambian todo lo que viene después.
+
+```cpp
+class Cuenta {
+ private:
+  int saldo;
+ public:
+  int ver() const { return saldo; }
+};
+```
+
+Java usa el mismo modelo con otra sintaxis — la diferencia está en la
+próxima slide.
+</Slide>
+
+<Slide title="public / private en Java">
+Java pone la visibilidad **por miembro**, no en bloque, y el compilador te
+detiene si intentas leer un `private` desde fuera:
+
+```java
+public class Cuenta {
+  private int saldo;
+
+  public int getSaldo()        { return saldo; }
+  public void depositar(int m) { saldo += m; }
+}
+```
+
+- `private int saldo` — solo los métodos de `Cuenta` lo ven.
+- Getters y setters son la fachada para no exponer el campo. **No los generes
+  por reflejo**: cada uno abre una puerta, y a veces la puerta correcta es no
+  tenerla. `Cuenta` no tiene `setSaldo` — el saldo solo se mueve con
+  `depositar` (y, más adelante, con un `retirar` que valide fondos).
+</Slide>
+
+<Slide title="La trampa: acceso desde afuera">
+<PredictOutput title="El saldo es privado">
+
+¿Compila? ¿Qué imprime?
+
+```java predict
+class Cuenta { private int saldo = 100; }
+class Uso {
+    public static void main(String[] args) {
+        System.out.println(new Cuenta().saldo);
+    }
+}
+```
+
+</PredictOutput>
+
+El compilador no discute intenciones: `saldo` es `private` y `Uso` está
+afuera. El error — `saldo has private access in Cuenta` — es la puerta
+funcionando. En C++ el mismo descuido compilaba (o solo advertía); en Java es
+un error de compilación, y eso es una característica: el modelo de
+visibilidad se hace cumplir, no se sugiere.
+</Slide>
