@@ -234,3 +234,109 @@ funcionando. En C++ el mismo descuido compilaba (o solo advertía); en Java es
 un error de compilación, y eso es una característica: el modelo de
 visibilidad se hace cumplir, no se sugiere.
 </Slide>
+
+## Herencia
+
+<Slide title="Herencia · para qué sirve">
+La herencia captura una relación **«es-un»**: un `Auto` **es un** `Vehiculo`.
+Sirve para dos cosas:
+
+1. **No repetir código** — lo que todos los vehículos tienen en común (una
+   marca, un método `describir`) vive una vez, en `Vehiculo`.
+2. **Tratar variedad como una sola cosa** — cuando el resto del programa
+   recibe `Vehiculo`, funciona con `Auto`, `Camion`, o lo que venga después.
+   Esa idea es el §7.
+
+Un curso de estructuras de datos usa herencia poco, pero tiene que **leerla**
+en el JDK todo el rato (`ArrayList extends AbstractList`, y así con media
+biblioteca). Vas a escribir dos o tres jerarquías tuyas y a leer muchas.
+</Slide>
+
+<Slide title="Herencia en el JDK · ejemplo real">
+Ya usaste una jerarquía real sin darte cuenta. Los tipos numéricos «boxed»
+heredan todos de una misma clase, `Number`, que vive en `java.lang`:
+
+- `Number` — la clase madre, abstracta.
+  - `Integer`, `Long`, `Double`, `Float`
+  - `BigInteger`, `BigDecimal`, …
+
+Un método declarado sobre el padre acepta cualquiera de los hijos:
+
+```java
+public static double sumar(Number a, Number b) {
+  return a.doubleValue() + b.doubleValue();
+}
+
+System.out.println(sumar(42, 3.14));   // 45.14
+// el 42 entra como Integer, el 3.14 como Double,
+// y sumar() no cambia una línea
+```
+
+Es lo que la herencia te compra en la práctica: escribes **una** vez, y te
+sirve para toda la familia — la de hoy y la que agreguen mañana.
+
+**Y estos mismos tipos — `Integer`, `Long`, `Double` — cumplen ADEMÁS otro
+contrato: se pueden comparar entre sí. Eso es lo que muestra la próxima
+sección con `Comparable`.**
+</Slide>
+
+<Slide title="extends, super, @Override">
+La mecánica completa, en una jerarquía de vehículos:
+
+```java
+public class Vehiculo {
+  protected String marca;
+
+  public Vehiculo(String marca) { this.marca = marca; }
+  public String describir() { return "vehículo " + marca; }
+}
+
+public class Auto extends Vehiculo {
+  public Auto(String marca) { super(marca); }
+
+  @Override
+  public String describir() { return "auto " + marca; }
+}
+```
+
+- **`extends`** — `Auto` hereda todo lo de `Vehiculo`. Y en Java heredas de
+  **una sola** clase: nada de herencia múltiple como en C++. La variedad de
+  la que hablaba la primera slide se multiplica con **interfaces** (§6), no
+  con más padres.
+- **`super(marca)`** — llama al constructor del padre, para que la parte
+  «vehículo» se inicialice con la marca.
+- **`protected`** — visible para las subclases, invisible desde fuera: el
+  punto medio entre `public` y `private`.
+- **`@Override`** — una anotación que le pide al compilador **verificar** que
+  realmente estás sobrescribiendo algo. Un typo en el nombre pasa de bug
+  silencioso a error de build. Escríbela siempre.
+</Slide>
+
+<Slide title="La trampa del @Override">
+`@Override` no cambia lo que corre — le pide al compilador que revise. Mira
+qué pasa sin ella, con un typo de una letra:
+
+<PredictOutput title="saluar en vez de saludar">
+
+¿Qué imprime? Ojo con `saluar`:
+
+```java predict
+class A { void saludar() { System.out.println("hola"); } }
+class B extends A { void saluar() { System.out.println("chao"); } }
+
+public class Main {
+    public static void main(String[] args) {
+        A x = new B();
+        x.saludar();
+    }
+}
+```
+
+</PredictOutput>
+
+Imprime `hola`: `saluar` no sobrescribe nada — es un método nuevo con otro
+nombre, y `B` hereda el `saludar` original de `A`. El bug es silencioso: el
+programa compila, corre, e imprime lo contrario de lo que querías. Con
+`@Override` encima de `saluar`, el compilador lo habría atajado en build:
+«el método no sobrescribe nada del padre».
+</Slide>

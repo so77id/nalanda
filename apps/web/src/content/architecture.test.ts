@@ -219,6 +219,16 @@ describe('architecture: content invariants', () => {
         'sub-detalle del §3; el hecho principal (acceso por miembro, compilador como guardia) se mide en la pregunta de la sección',
       'la-trampa-acceso-desde-afuera':
         'actividad: el alumno predice el error de compilación; la pregunta que mide el mecanismo vive en "Visibilidad"',
+      herencia:
+        'sección principal de §5; la cubren override-sin-anotacion y anotacion-override-protege cuando aterrice el bloque <Questions> (S8)',
+      'herencia-para-que-sirve':
+        'motivación de la sección; el mecanismo (extends/super/@Override) se mide en las preguntas ancladas a "Herencia"',
+      'herencia-en-el-jdk-ejemplo-real':
+        'ejemplo: lo que enseña (el padre acepta a cualquier hijo) se mide en las preguntas ancladas a "Herencia"',
+      'extends-super-override':
+        'sub-detalle de §5: la mecánica que muestra se mide en las preguntas ancladas a la sección',
+      'la-trampa-del-override':
+        'actividad: el alumno predice la salida del typo sin @Override; la pregunta que mide el mecanismo vive en "Herencia"',
     },
   };
 
