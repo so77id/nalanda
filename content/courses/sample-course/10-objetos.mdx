@@ -582,3 +582,154 @@ texto: la misma línea `System.out.println(c)` hace dos trabajos distintos
 según quién es `c`. Es la misma máquina de la slide anterior, llegando por
 la otra vía — interfaz en vez de herencia.
 </Slide>
+
+## toString, equals y hashCode
+
+<Slide title="Por qué necesitamos métodos">
+Java no permite sobrescribir operadores (lo viste en
+[[referencias-null-igualdad|Referencias, null e igualdad]]). Por eso `==`
+sobre objetos **siempre** compara referencias (¿misma caja?), y **nunca**
+contenido. Para preguntar «¿son el mismo objeto para mi dominio?» hay que
+usar **métodos**:
+
+- `toString()` — cómo se ve el objeto impreso.
+- `equals()` — cuándo dos objetos son «el mismo» según tú.
+- `hashCode()` — el número que las estructuras hash usan para ubicarlo.
+
+`Object` trae los tres por defecto, y **casi siempre** los tres por defecto
+no sirven: `equals` compara por referencia (como `==`), `hashCode` es una
+dirección, y `toString` imprime `Persona@1b6d3586`.
+</Slide>
+
+<Slide title="toString">
+Sobrescribe `toString` cuando quieras que el objeto se imprima legible.
+`System.out.println(p)` lo llama automáticamente:
+
+```java
+public class Persona {
+  private String nombre;
+  private int rut;
+
+  @Override
+  public String toString() {
+    return nombre + " (" + rut + ")";
+  }
+}
+```
+
+Sin el override: `Persona@1b6d3586`. Con el override: `Ana (12345)`. Es el
+método que usaste sin nombre en §2 — `println` lo invoca cada vez que le
+pasas un objeto.
+</Slide>
+
+<Slide title="equals y hashCode — la regla operativa">
+**La regla, para memorizar:**
+
+> Si sobrescribes `equals`, sobrescribes `hashCode`. Siempre. Juntos.
+
+**Cuándo importa**: solo cuando esa clase entra a una estructura hash
+(`HashSet`, `HashMap`, sets y keys derivados). El teorema del contrato
+(reflexivo / simétrico / transitivo) te lo enseña el material de
+**algoritmos y estructuras** más adelante, donde también aprendes cómo
+funciona una tabla de hash por dentro. Aquí, solo: **haz los dos**.
+
+**Cuándo usar qué estructura**:
+
+- `HashXxx` (`HashSet`, `HashMap`) — el orden no importa y tienes
+  `equals`+`hashCode`.
+- `TreeXxx` (`TreeSet`, `TreeMap`) — el orden sí importa y tu clase
+  implementa `Comparable` (viene en el próximo documento, «Genéricos y
+  orden»).
+</Slide>
+
+<Slide title="El bug del HashSet">
+`Persona` tiene `equals` (compara por RUT) pero **no** `hashCode`. Predice
+cuántos elementos tiene el `HashSet` al final:
+
+<PredictOutput title="Iguales según equals, distintos para el HashSet">
+
+```java predict
+import java.util.HashSet;
+
+class Persona {
+    private String nombre;
+    private int rut;
+
+    public Persona(String nombre, int rut) {
+        this.nombre = nombre;
+        this.rut = rut;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof Persona)) return false;
+        Persona p = (Persona) o;
+        return rut == p.rut;
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        HashSet<Persona> s = new HashSet<>();
+        s.add(new Persona("Ana", 12345));
+        s.add(new Persona("Ana", 12345));
+        System.out.println(s.size());
+    }
+}
+```
+
+</PredictOutput>
+
+Imprime `2`. Los dos objetos tienen `hashCode` por defecto distinto, caen a
+buckets distintos, y `HashSet` nunca llega a preguntar por `equals`. El
+método que escribiste con cuidado existe, y la estructura lo ignora por
+completo. La mitad del trabajo no cuenta: o los dos, o ninguno.
+</Slide>
+
+<Slide title="La corrección">
+Ahora `Persona` sobrescribe **los dos**, con ayuda de `java.util.Objects`:
+
+<CodeEditor
+  language="java"
+  defaultValue={`import java.util.HashSet;
+import java.util.Objects;
+
+class Persona {
+    private String nombre;
+    private int rut;
+
+    public Persona(String nombre, int rut) {
+        this.nombre = nombre;
+        this.rut = rut;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (!(o instanceof Persona)) return false;
+        Persona p = (Persona) o;
+        return rut == p.rut;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(rut);
+    }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        HashSet<Persona> s = new HashSet<>();
+        s.add(new Persona("Ana",   12345));
+        s.add(new Persona("Anita", 12345));
+        System.out.println(s.size());   // 1
+    }
+}
+`}
+/>
+
+El mismo test, distinto resultado: `1`. Con `hashCode` correcto los dos
+objetos caen al mismo bucket, `HashSet` pregunta por `equals`, y la segunda
+`Ana` se descarta como duplicada. En la práctica los generas con el IDE
+(«Generate equals() and hashCode()»); aquí van a mano para que veas de qué
+están hechos.
+</Slide>

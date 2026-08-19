@@ -251,6 +251,18 @@ describe('architecture: content invariants', () => {
         'actividad: el alumno corre el arreglo Vehiculo[]; la mecánica se mide en las preguntas ancladas a "Polimorfismo"',
       'polimorfismo-por-interfaz-comparable':
         'actividad: el alumno corre el arreglo Comparable[]; la mecánica se mide en las preguntas ancladas a "Polimorfismo"',
+      'tostring-equals-y-hashcode':
+        'sección principal de §8; la cubren equals-sin-hashcode, cuando-hash-vs-tree y regla-de-equals-y-hashcode cuando aterrice el bloque <Questions> (S8)',
+      'por-que-necesitamos-metodos':
+        'introducción de la sección; lo que enseña (== compara referencias, hacen falta métodos) se mide en las preguntas ancladas a "toString, equals y hashCode"',
+      tostring:
+        'sub-detalle de §8: el override de toString; lo que se mide vive en las preguntas ancladas a la sección',
+      'equals-y-hashcode-la-regla-operativa':
+        'la regla y el cuándo se miden en las preguntas ancladas a "toString, equals y hashCode"',
+      'el-bug-del-hashset':
+        'actividad: el alumno predice el tamaño del HashSet; el mecanismo se mide en equals-sin-hashcode, anclada a la sección',
+      'la-correccion':
+        'actividad: el alumno corre la corrección; el mecanismo se mide en las preguntas ancladas a la sección',
     },
   };
 
