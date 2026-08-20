@@ -142,6 +142,27 @@ describe('architecture: the predict-output card stays out of the entry chunk', (
   });
 });
 
+describe('architecture: the step-through widget stays out of the entry chunk', () => {
+  // <StepShow> mounts a <CodeStepper> that imports CodeMirror + `useGrammar`
+  // for syntax-coloured listings (matching the pattern every other `java` fence
+  // gets through `<MdxPre>` since #85). That is the CodeMirror hazard the four
+  // guards above cover, reached through this widget's route. Same shape: a
+  // single ALLOWED entry, no per-file exemptions.
+  const ALLOWED = ['components/interactive/lazyStepShow.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/stepshow' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: the mermaid diagram stays out of the entry chunk', () => {
   // Mermaid drags dagre, d3 and a set of parsers into any chunk that imports
   // it (~200kB gzipped of mermaid-only chunks on the page, measured — ADR-0040

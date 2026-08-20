@@ -1,7 +1,19 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { Step, StepShow } from './StepShow';
+
+// Same reason CodeEditor / Exercise / PredictOutput mock CodeMirror: the
+// editing surface is not the contract under test here, and CodeMirror does
+// not render in jsdom. `<CodeStepper>` (which StepShow mounts internally)
+// imports it, so the mock lives one level up here. The wrapper still carries
+// `data-highlight-lines` as a comma-separated 1-based list — the actual
+// per-line paint is confirmed in the browser check (ADR-0043 §Consequences).
+vi.mock('@uiw/react-codemirror', () => ({
+  default: ({ value }: { value: string }) => (
+    <textarea readOnly value={value} data-testid="code-listing" />
+  ),
+}));
 
 const CODE = `class Punto {
     int x, y;
@@ -15,9 +27,16 @@ public class Demo {
 }`;
 
 function highlightedLines(container: HTMLElement): number[] {
-  return [...container.querySelectorAll('[data-line]')]
-    .filter((el) => el.getAttribute('data-active') === 'true')
-    .map((el) => Number(el.getAttribute('data-line')))
+  // `<CodeStepper>` surfaces its highlight as a comma-separated 1-based list
+  // on its wrapper element, so tests can read it regardless of whether
+  // CodeMirror renders in jsdom. The per-line SVG/CSS paint is checked in
+  // a real browser (same shape RecursionTree earned in #78).
+  const el = container.querySelector('[data-highlight-lines]');
+  const raw = el?.getAttribute('data-highlight-lines') ?? '';
+  if (raw === '') return [];
+  return raw
+    .split(',')
+    .map((s) => Number(s))
     .sort((a, b) => a - b);
 }
 
@@ -123,22 +142,22 @@ describe('StepShow', () => {
     expect(highlightedLines(container)).toEqual([1]);
   });
 
-  it('renders every source line with a number, even the empty ones', () => {
-    // A predecessor widget earned this the hard way (a fence's trailing newline
-    // used to produce a phantom numbered line); CodeStepper takes the source as
-    // a raw string, so it deserves its own pin.
-    const { container } = render(
+  it('passes the raw source to the listing, blank lines and all', () => {
+    // A predecessor widget earned the "blank lines count" lesson (a fence's
+    // trailing newline used to produce a phantom numbered line). Here we
+    // check the value passed to CodeMirror is untouched — the CodeStepper is
+    // not doing any collapse of its own; the reader sees exactly what the
+    // author wrote. Line numbers themselves come from CodeMirror's
+    // `lineNumbers` basicSetup and are verified in the browser check.
+    render(
       <StepShow code={'a\n\nb'} language="java">
-        <Step lines={[1]}>
+        <Step lines={[3]}>
           <span>x</span>
         </Step>
       </StepShow>,
     );
 
-    const numbers = [...container.querySelectorAll('[data-line]')].map((el) =>
-      el.getAttribute('data-line'),
-    );
-    expect(numbers).toEqual(['1', '2', '3']);
+    expect((screen.getByTestId('code-listing') as HTMLTextAreaElement).value).toBe('a\n\nb');
   });
 
   it('refuses an empty child list with an AuthoringError', () => {

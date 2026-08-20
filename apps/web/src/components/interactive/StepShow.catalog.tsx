@@ -1,6 +1,12 @@
 import type { CatalogEntry } from '../../lib/catalogEntry';
 
-import { Step, StepShow } from './StepShow';
+// The lazy wrapper, not the widget itself: it carries its own Suspense boundary
+// so live examples render without one, and it keeps the catalog page's chunk
+// off the CodeMirror hazard the widget imports. Aliased as `StepShow` because
+// that is what a document writes, and an example must render what the
+// document writes.
+import { LazyStepShow as StepShow } from './lazyStepShow';
+import { Step } from './Step';
 
 const ALIASING = `class Punto {
     int x, y;

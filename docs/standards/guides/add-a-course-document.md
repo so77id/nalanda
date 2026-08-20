@@ -505,12 +505,13 @@ Six things worth knowing before you write one:
   mismo objeto" so a reader who cannot see the arrows still gets the lesson.
 - **State is scoped per widget.** Two `<StepShow>`s on one page step
   independently.
-- **No runtime cost.** The widget imports no CodeMirror and no Java compiler.
-  It is registered EAGERLY in the shell's MDX map — so its code ships in the
-  entry chunk of every page rather than in a lazy per-widget chunk. The
-  trade-off is recorded in the ADR-0043 §Consequences bundle bullet and in
-  `app/mdxComponents.ts`; the diagram-bearing page still wins net bytes
-  because the tracer's four lazy chunks are gone.
+- **No Java compiler.** The widget mounts no JVM. It DOES load CodeMirror
+  for syntax-coloured listings (through `<CodeStepper>` and
+  `loadGrammar('java')`, same shape every other `java` fence on the site
+  gets since #85), so `<StepShow>` ships behind a lazy wrapper — pages
+  without a diagram pay none of it. `<MemoryVisual>` stays eager because it
+  is pure SVG code and pulls no third-party. ADR-0043 §Consequences carries
+  the measured deltas.
 - **Author-driven state has an author-catchable safety net.** `<MemoryVisual>`
   refuses two structural mistakes before rendering: two objects sharing an
   `id`, and a `{ kind: 'ref', id }` pointing at an `id` not in `objects`.

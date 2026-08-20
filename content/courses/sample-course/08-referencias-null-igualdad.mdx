@@ -250,6 +250,16 @@ class Swap {
 `swap` tiene sus propias `x` y `y`. Reasignarlas mueve las flechas **dentro
 de `swap`** y nada más — las variables de `main` no se enteran.
 
+export const swapObjs = [
+  { id: 1, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '1' } }] },
+  { id: 2, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '2' } }] },
+];
+
+export const mainAB = { name: 'main', variables: [
+  { name: 'a', value: { kind: 'ref', id: 1 } },
+  { name: 'b', value: { kind: 'ref', id: 2 } },
+]};
+
 <StepShow
   language="java"
   title="Dos marcos en la pila"
@@ -268,61 +278,86 @@ de `swap`** y nada más — las variables de `main` no se enteran.
 }`}
 >
   <Step lines={[9, 10]}>
-    <MemoryVisual
-      state={{
-        frames: [{
-          name: 'main', variables: [
-            { name: 'a', value: { kind: 'ref', id: 1 } },
-            { name: 'b', value: { kind: 'ref', id: 2 } },
-          ],
-        }],
-        objects: [
-          { id: 1, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '1' } }] },
-          { id: 2, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '2' } }] },
-        ],
-      }}
-    />
+    <MemoryVisual state={{ frames: [mainAB], objects: swapObjs }} />
   </Step>
-  <Step lines={[3, 4, 5]}>
+  <Step lines={[11]}>
+    {/* Justo antes de la llamada: mismo estado, pero el foco pasa a la línea
+        que Java está a punto de ejecutar. Copia las FLECHAS de a y b hacia
+        los parámetros x e y. */}
+    <MemoryVisual state={{ frames: [mainAB], objects: swapObjs }} />
+  </Step>
+  <Step lines={[2]}>
+    {/* Se abrió el marco de swap. x apunta donde a; y apunta donde b. Main
+        sigue exactamente como antes — dos flechas siguen siendo dos flechas. */}
     <MemoryVisual
       state={{
         frames: [
-          {
-            name: 'main', variables: [
-              { name: 'a', value: { kind: 'ref', id: 1 } },
-              { name: 'b', value: { kind: 'ref', id: 2 } },
-            ],
-          },
-          {
-            name: 'swap', variables: [
-              { name: 't', value: { kind: 'ref', id: 1 } },
-              { name: 'x', value: { kind: 'ref', id: 2 } },
-              { name: 'y', value: { kind: 'ref', id: 1 } },
-            ],
-          },
+          mainAB,
+          { name: 'swap', variables: [
+            { name: 'x', value: { kind: 'ref', id: 1 } },
+            { name: 'y', value: { kind: 'ref', id: 2 } },
+          ]},
         ],
-        objects: [
-          { id: 1, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '1' } }] },
-          { id: 2, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '2' } }] },
+        objects: swapObjs,
+      }}
+    />
+  </Step>
+  <Step lines={[3]}>
+    {/* t = x: t se queda con la flecha que tenía x (obj1). Nada más se movió. */}
+    <MemoryVisual
+      changed={[]}
+      state={{
+        frames: [
+          mainAB,
+          { name: 'swap', variables: [
+            { name: 't', value: { kind: 'ref', id: 1 } },
+            { name: 'x', value: { kind: 'ref', id: 1 } },
+            { name: 'y', value: { kind: 'ref', id: 2 } },
+          ]},
         ],
+        objects: swapObjs,
+      }}
+    />
+  </Step>
+  <Step lines={[4]}>
+    {/* x = y: swap.x se reasigna a lo que apunta y (obj2). Nota: main.a y main.b
+        no se movieron — esas flechas pertenecen a otro marco. */}
+    <MemoryVisual
+      state={{
+        frames: [
+          mainAB,
+          { name: 'swap', variables: [
+            { name: 't', value: { kind: 'ref', id: 1 } },
+            { name: 'x', value: { kind: 'ref', id: 2 } },
+            { name: 'y', value: { kind: 'ref', id: 2 } },
+          ]},
+        ],
+        objects: swapObjs,
+      }}
+    />
+  </Step>
+  <Step lines={[5]}>
+    {/* y = t: swap.y se reasigna a lo que t guardaba (obj1). Adentro de swap
+        las flechas SÍ se intercambiaron. Pero main.a y main.b ni se enteraron. */}
+    <MemoryVisual
+      state={{
+        frames: [
+          mainAB,
+          { name: 'swap', variables: [
+            { name: 't', value: { kind: 'ref', id: 1 } },
+            { name: 'x', value: { kind: 'ref', id: 2 } },
+            { name: 'y', value: { kind: 'ref', id: 1 } },
+          ]},
+        ],
+        objects: swapObjs,
       }}
     />
   </Step>
   <Step lines={[11]}>
-    <MemoryVisual
-      state={{
-        frames: [{
-          name: 'main', variables: [
-            { name: 'a', value: { kind: 'ref', id: 1 } },
-            { name: 'b', value: { kind: 'ref', id: 2 } },
-          ],
-        }],
-        objects: [
-          { id: 1, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '1' } }] },
-          { id: 2, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '2' } }] },
-        ],
-      }}
-    />
+    {/* swap retornó. El marco de swap desapareció con TODO adentro — t, x, y.
+        Main.a y main.b son exactamente lo que eran: dos flechas hacia dos
+        cajas distintas. El swap no swappeó nada visible desde afuera. */}
+    <MemoryVisual state={{ frames: [mainAB], objects: swapObjs }} />
   </Step>
 </StepShow>
 

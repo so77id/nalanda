@@ -21,7 +21,18 @@ export { SheetEmbed } from './media/SheetEmbed';
 export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { RecursionTree } from './interactive/RecursionTree';
-export { Step, StepShow } from './interactive/StepShow';
+// The lazy wrapper, not the widget itself: `<CodeStepper>` inside `<StepShow>`
+// imports CodeMirror + `useGrammar`, and the MDX map is evaluated eagerly.
+// Registering the real component here would put CodeMirror in the entry chunk
+// of every reader of every page (guarded in `src/architecture.test.ts`). The
+// `StepShowProps` type lives on the lazy wrapper too, so a consumer importing
+// it does not statically pull the real widget into their graph.
+export { LazyStepShow } from './interactive/lazyStepShow';
+export type { StepShowProps } from './interactive/lazyStepShow';
+// The marker child stays eager: it returns null and imports nothing heavy. The
+// `child.type === Step` identity check in `<StepShow>` reads THIS export.
+export { Step } from './interactive/Step';
+export type { StepProps } from './interactive/Step';
 export { MemoryVisual } from './interactive/MemoryVisual';
 export type {
   MemoryFrame,
