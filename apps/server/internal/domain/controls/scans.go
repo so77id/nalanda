@@ -89,8 +89,12 @@ func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResu
 	if err != nil {
 		return UploadResult{}, err
 	}
-	// Issue #197: refuse a bad pair BEFORE anything touches the disk — the
-	// all-or-nothing promise covers the batch file too.
+	// Issue #197: refuse a bad pair BEFORE writing anything so an invalid
+	// threshold submission never even creates a batch file. Note: unlike
+	// pre-#210, DOWNSTREAM failures do not clean the batch file up — see
+	// the UploadScan docstring above for the batch-survives-failure
+	// contract. This validation happens first, so it is the one branch
+	// where nothing on disk is left behind either way.
 	ticked, unsure := req.Ticked, req.Unsure
 	if ticked == 0 {
 		// The handler always resolves the form (optional fields fall back

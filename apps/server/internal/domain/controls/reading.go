@@ -209,6 +209,13 @@ type AnalyzerRefusedError struct {
 	Message string
 	// Detail is the free-form context the analyzer attached, kept
 	// whole. May be empty.
+	//
+	// SECURITY: never send Detail to slog. See docs/security-notes.md
+	// §"The control worker is unauthenticated" — AMC's stderr can name
+	// student identifiers verbatim, so this field is for renderers that
+	// surface the failure to a human (flash, debug view), not for logs.
+	// The type's Error() intentionally does not include Detail, so
+	// slog.Warn("...", "error", err) stays clean.
 	Detail string
 }
 
