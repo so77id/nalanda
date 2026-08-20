@@ -154,6 +154,41 @@ func TestPreambleDeclaresLangESAndDoesNotUseCompletemulti(t *testing.T) {
 	}
 }
 
+// Issue #208 hotfix (after #213 propagated the AMC stderr): a code
+// question with a UTF-8 char (í, ñ, ü, á, etc.) aborted `amc prepare`
+// with "! LaTeX Error: Invalid UTF-8 byte sequence (Ã\lst@EC­)" because
+// \lstinputlisting reads external files through its own byte pipeline
+// that inputenc[utf8] does not cover. The fix maps every Spanish
+// character to its LaTeX escape via \lstset{literate=…}; base listings,
+// no extra packages (listingsutf8's inputencoding=utf8 did not work in
+// this AMC image, tested 2026-08-20). This test pins the mapping so a
+// silent revert of the literate block goes red at the assertion that
+// encodes it — the mutation-detectable shape.
+func TestPreambleMapsSpanishCharsInListingsSoLstinputlistingReadsUTF8(t *testing.T) {
+	out := compile(t, nil)
+	// Every char that has bitten us (or would bite us) in a real code
+	// question needs a mapping. The pair is asserted verbatim because a
+	// truncation or a missing brace would make the whole literate block
+	// silently fall back to no mapping, and the tests below would still
+	// pass with just an `í` mapping present.
+	for _, want := range []string{
+		`{á}{{\'a}}1`, `{é}{{\'e}}1`, `{í}{{\'i}}1`, `{ó}{{\'o}}1`, `{ú}{{\'u}}1`,
+		`{Á}{{\'A}}1`, `{É}{{\'E}}1`, `{Í}{{\'I}}1`, `{Ó}{{\'O}}1`, `{Ú}{{\'U}}1`,
+		`{ñ}{{\~n}}1`, `{Ñ}{{\~N}}1`,
+		`{ü}{{\"u}}1`, `{Ü}{{\"U}}1`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("\\lstset is missing the literate mapping %q — a code question with that char will trip 'Invalid UTF-8 byte sequence' in amc prepare (issue #208 hotfix)", want)
+		}
+	}
+	// The mapping must live INSIDE the \lstset block, not orphaned in a
+	// stray \lstset{} elsewhere in the preamble. Assert the block that
+	// contains both the basicstyle and the literate line.
+	if !strings.Contains(out, "literate=") {
+		t.Error("\\lstset has no literate= key at all — the whole UTF-8 fix was dropped")
+	}
+}
+
 func TestPreambleDeclaresBothPerQuestionLabelMacros(t *testing.T) {
 	out := compile(t, nil)
 	if !strings.Contains(out, `\def\unaSymbole{\textsf{\small(una respuesta)}}`) {

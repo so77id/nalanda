@@ -155,11 +155,31 @@ const preambleHead = `\usepackage[utf8]{inputenc}
 % Listings style — matches apps/amc-worker/tests/fixtures/control-demo.tex.
 % keepspaces keeps a Java program's indentation intact, columns=fullflexible
 % avoids the false extra spacing lstlisting would otherwise insert.
+%
+% literate maps each UTF-8 character that appears in Spanish source code
+% to its LaTeX escape. Base listings + inputenc[utf8] handles UTF-8 in
+% the main .tex source, but \lstinputlisting runs its own byte pipeline
+% and truncates a multi-byte char into two 8-bit chars — "! LaTeX Error:
+% Invalid UTF-8 byte sequence (Ã\lst@EC­)" is the trace this class of
+% bug leaves. The listingsutf8 package would be the clean fix, but its
+% inputencoding=utf8 (neither via \lstset globally nor as a per-call
+% option) succeeded in this AMC image (verified 2026-08-20). literate is
+% the fallback that always works with base listings: each pair
+% {char}{{escape}}N replaces the char with escape at display, N is the
+% visual width. Traced in production 2026-08-20 on control
+% C673QZI7DKYU3TE5V7RP32Z7ZQ ("vehículo" in a code question broke
+% prepare), diagnosable only after #213 propagated the worker Detail.
 \lstset{
   basicstyle=\ttfamily\small,
   columns=fullflexible,
   keepspaces=true,
   xleftmargin=1em,
+  literate=%
+    {á}{{\'a}}1 {é}{{\'e}}1 {í}{{\'i}}1 {ó}{{\'o}}1 {ú}{{\'u}}1
+    {Á}{{\'A}}1 {É}{{\'E}}1 {Í}{{\'I}}1 {Ó}{{\'O}}1 {Ú}{{\'U}}1
+    {ñ}{{\~n}}1 {Ñ}{{\~N}}1
+    {ü}{{\"u}}1 {Ü}{{\"U}}1
+    {¿}{{\textquestiondown}}1 {¡}{{\textexclamdown}}1,
 }
 
 `
