@@ -64,13 +64,20 @@ type UploadResult struct {
 //
 // Failure modes:
 //   - No such control → ErrControlNotFound.
-//   - Copying the upload to disk failed → wraps the io error.
-//   - /analyse refused or was unreachable → wraps ErrAnalyzer* and rolls
-//     back the batch file so the disk shows no evidence of a failed run.
+//   - Copying the upload to disk failed → wraps the io error (the partial
+//     file, if any, is removed inside writeUpload).
+//   - /analyse refused or was unreachable → wraps ErrAnalyzer*. The
+//     uploaded PDF SURVIVES on disk (issue #210): the batch is the
+//     artefact an operator would inspect, and erasing it on refusal
+//     forced a re-scan when the printed sheets — not the file — were
+//     the problem (2026-08-19 incident). The DB writes still roll back
+//     on any downstream failure via the ReadingStore.
 //
 // All-or-nothing on the DB side: the report either persists or it does
 // not; there is no partial commit, because UpsertReadingsFromReport uses
-// a single transaction.
+// a single transaction. The promise moves from "wipe file on failure"
+// to "wipe DB rows on failure" — the batch on disk records what was
+// attempted regardless.
 func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResult, error) {
 	control, err := s.Store.ControlByID(ctx, req.ControlID)
 	if err != nil {
@@ -106,11 +113,11 @@ func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResu
 		return UploadResult{}, fmt.Errorf("controls.UploadScan: %w", err)
 	}
 
-	rollbackFile := func() {
-		if err := os.Remove(batchHostPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-			s.Log.Warn("controls.UploadScan: rollback failed", "path", batchHostPath, "error", err)
-		}
-	}
+	// Issue #210: the batch file survives every downstream failure. The
+	// DB writes below still roll back on their own — the ReadingStore's
+	// UpsertReadingsFromReport is a single transaction — but the artefact
+	// on disk is what an operator inspects and what a re-upload cannot
+	// recreate, so we do not erase it.
 
 	project := filepath.Join(projectPrefix, control.ID)
 	report, err := s.Analyzer.Analyze(ctx, AnalyzeRequest{
@@ -121,21 +128,17 @@ func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResu
 		Unsure:  unsure,
 	})
 	if err != nil {
-		rollbackFile()
 		return UploadResult{}, err
 	}
 	if err := s.Store.SetControlThresholds(ctx, control.ID, ticked, unsure); err != nil {
-		rollbackFile()
 		return UploadResult{}, fmt.Errorf("controls.UploadScan: persist thresholds: %w", err)
 	}
 
 	now := s.Now()
 	if err := s.Readings.UpsertReadingsFromReport(ctx, control.ID, report, now); err != nil {
-		rollbackFile()
 		return UploadResult{}, fmt.Errorf("controls.UploadScan: persist: %w", err)
 	}
 	if err := s.Readings.MarkMissingAsNotPresent(ctx, control.ID, now); err != nil {
-		rollbackFile()
 		return UploadResult{}, fmt.Errorf("controls.UploadScan: mark missing: %w", err)
 	}
 
