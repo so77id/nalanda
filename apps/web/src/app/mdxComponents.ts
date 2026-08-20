@@ -6,6 +6,7 @@ import {
   LazyMermaid,
   LazyPredictOutput,
   MdxPre,
+  MemoryVisual,
   Mosaic,
   Question,
   Questions,
@@ -81,4 +82,10 @@ export const mdxComponents = {
   // through anything, for a component that has nothing async to load.
   StepShow,
   Step,
+  // Not lazy: takes typed state, calls the pure `memoryLayout` algorithm and
+  // paints SVG. No runtime seam, no CheerpJ, no CodeMirror — the whole reversal
+  // #209 buys is that this component's cost is its own tiny chunk and nothing
+  // else. Guarded structurally: adding a static import of `runtime/` from
+  // MemoryVisual.tsx would fail the eager-graph walk in architecture.test.ts.
+  MemoryVisual,
 };

@@ -242,35 +242,17 @@ public class ${TRACE_CLASS} {
 
 // ── Reading the trace back ───────────────────────────────────────────────────
 
-/** What a variable, a field or an array element holds. */
-export type TraceValue =
-  | { kind: 'primitive'; type: string; text: string }
-  | { kind: 'ref'; id: number }
-  | { kind: 'null' };
+// #209 moved the shape types to `memoryVisual.ts` so `<MemoryVisual>` can
+// consume the same drawing the trace machinery produces — from
+// author-written state rather than from a JVM run. The names are re-exported
+// here under their tracer-era aliases so nothing else in this module has to
+// know: this file is deleted in #209 S4.
+import type { MemoryFrame, MemoryObject, MemorySlot, MemoryValue } from './memoryModel';
 
-/** A named slot: a variable in a frame, a field of an object, an array index. */
-export interface Slot {
-  name: string;
-  value: TraceValue;
-}
-
-/** A box in the heap half of the drawing. */
-export interface HeapObject {
-  id: number;
-  kind: 'object' | 'string' | 'array';
-  /** Class name; for an array, its component type. */
-  type: string;
-  /** The text a String carries. Absent for everything else. */
-  text?: string;
-  /** Fields, or elements keyed by index. */
-  fields: Slot[];
-}
-
-/** One method's local variables, as of the last photograph that named it. */
-export interface Frame {
-  name: string;
-  variables: Slot[];
-}
+export type TraceValue = MemoryValue;
+export type Slot = MemorySlot;
+export type HeapObject = MemoryObject;
+export type Frame = MemoryFrame;
 
 /**
  * Why a trace is not the whole run.

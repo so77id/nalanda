@@ -8,7 +8,16 @@
 // the geometry here means the suite can check it and the browser only has to
 // confirm it looks right.
 
-import type { HeapObject, Slot, TraceStep, TraceValue } from './trace';
+// #209 rewrote this module's input from a `TraceStep` (a tracer photograph) to
+// a `MemoryState` (a superset that carries only what this algorithm needs).
+// A `TraceStep` still satisfies the type — it adds `line`, `frame` and
+// `truncated`, which this file never reads — so every existing caller keeps
+// working unchanged until #209's S4 deletes `trace.ts` outright.
+import type { MemoryObject, MemorySlot, MemoryState, MemoryValue } from './memoryModel';
+
+type HeapObject = MemoryObject;
+type Slot = MemorySlot;
+type TraceValue = MemoryValue;
 
 const VAR_WIDTH = 148;
 const VAR_HEIGHT = 26;
@@ -132,7 +141,7 @@ function rowOf(slot: Slot): ObjectRow {
  * breadth-first from the variables — so what a variable points at lands near
  * the top, and what only a field reaches lands below it.
  */
-export function layoutStep(step: TraceStep): Layout {
+export function layoutStep(step: MemoryState): Layout {
   const frames: FrameBox[] = [];
   const variables: VariableBox[] = [];
 
@@ -240,7 +249,7 @@ export function layoutStep(step: TraceStep): Layout {
  * name is announced with Spanish phonemes — the same defect `lang` was set to
  * avoid (root CLAUDE.md §Language).
  */
-export function describeStep(step: TraceStep): string {
+export function describeStep(step: MemoryState): string {
   const parts: string[] = [];
 
   for (const frame of step.frames) {

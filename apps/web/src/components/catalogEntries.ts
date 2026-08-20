@@ -17,6 +17,7 @@ import { predictOutputCatalogEntry } from './interactive/PredictOutput.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
 import { questionsCatalogEntry } from './interactive/Questions.catalog';
 import { recursionTreeCatalogEntry } from './interactive/RecursionTree.catalog';
+import { memoryVisualCatalogEntry } from './interactive/MemoryVisual.catalog';
 import { stepCatalogEntry, stepShowCatalogEntry } from './interactive/StepShow.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
 import { sheetEmbedCatalogEntry } from './media/SheetEmbed.catalog';
@@ -45,4 +46,5 @@ export const catalogEntries: CatalogEntry[] = [
   recursionTreeCatalogEntry,
   stepShowCatalogEntry,
   stepCatalogEntry,
+  memoryVisualCatalogEntry,
 ];

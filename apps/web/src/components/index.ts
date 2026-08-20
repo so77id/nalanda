@@ -24,6 +24,14 @@ export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { RecursionTree } from './interactive/RecursionTree';
 export { Step, StepShow } from './interactive/StepShow';
+export { MemoryVisual } from './interactive/MemoryVisual';
+export type {
+  MemoryFrame,
+  MemoryObject,
+  MemorySlot,
+  MemoryState,
+  MemoryValue,
+} from './interactive/memoryModel';
 export { Mosaic } from './structure/Mosaic';
 export { SectionBreak } from './structure/SectionBreak';
 export { SideBySide } from './structure/SideBySide';
