@@ -48,12 +48,12 @@ export async function loadRuntime(id: RuntimeId): Promise<RuntimeModule> {
  * from the compiler's half above.
  *
  * Two entry points rather than one module with two exports, because two
- * consumers genuinely need one without the other. `<MemoryDiagram>` drives a
- * real JVM and draws its own listing (ADR-0026/0028), so while the grammar sat
- * inside the runtime module it paid a full grammar for a highlighter it never
- * rendered; ADR-0018 §4 carries what that cost and what the split bought, per
- * language (#122). The mirror case is real too: an editor
- * highlights before — and whether or not — anything is ever run.
+ * consumers genuinely need one without the other. A non-editor consumer that
+ * drives a runtime — historically the memory-diagram widget retired in
+ * #209 — used to pay for a full grammar for a highlighter it never rendered;
+ * ADR-0018 §4 carries what that cost and what the split bought, per language
+ * (#122). The mirror case is real too: an editor highlights before — and
+ * whether or not — anything is ever run.
  *
  * Same switch-of-static-`import()` shape as `loadRuntime`, for the same reason.
  */

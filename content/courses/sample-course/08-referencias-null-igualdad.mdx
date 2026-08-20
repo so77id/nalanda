@@ -79,27 +79,76 @@ Míralo. Dos etiquetas para un mismo arreglo; cambia por `b`, observa desde
 
 <Slide>
 
-<MemoryDiagram title="Dos nombres, una caja">
-
 `a` y `b` son dos flechas que apuntan al mismo objeto. Modificar por una es
 modificar la caja que la otra también observa.
 
-```java trace
-class Punto {
+<StepShow
+  language="java"
+  title="Dos nombres, una caja"
+  code={`class Punto {
     int x, y;
     Punto(int x, int y) { this.x = x; this.y = y; }
 }
 
 public class Demo {
     public static void main(String[] args) {
-        Punto a = new Punto(1, 2);   // foto a
-        Punto b = a;                 // foto a, b
-        b.x = 99;                    // foto a, b
+        Punto a = new Punto(1, 2);
+        Punto b = a;
+        b.x = 99;
     }
-}
-```
-
-</MemoryDiagram>
+}`}
+>
+  <Step lines={[8]}>
+    <MemoryVisual
+      state={{
+        frames: [{ name: 'main', variables: [{ name: 'a', value: { kind: 'ref', id: 1 } }] }],
+        objects: [{
+          id: 1, kind: 'object', type: 'Punto', fields: [
+            { name: 'x', value: { kind: 'primitive', type: 'int', text: '1' } },
+            { name: 'y', value: { kind: 'primitive', type: 'int', text: '2' } },
+          ],
+        }],
+      }}
+    />
+  </Step>
+  <Step lines={[9]}>
+    <MemoryVisual
+      state={{
+        frames: [{
+          name: 'main', variables: [
+            { name: 'a', value: { kind: 'ref', id: 1 } },
+            { name: 'b', value: { kind: 'ref', id: 1 } },
+          ],
+        }],
+        objects: [{
+          id: 1, kind: 'object', type: 'Punto', fields: [
+            { name: 'x', value: { kind: 'primitive', type: 'int', text: '1' } },
+            { name: 'y', value: { kind: 'primitive', type: 'int', text: '2' } },
+          ],
+        }],
+      }}
+    />
+  </Step>
+  <Step lines={[10]}>
+    <MemoryVisual
+      changed={[1]}
+      state={{
+        frames: [{
+          name: 'main', variables: [
+            { name: 'a', value: { kind: 'ref', id: 1 } },
+            { name: 'b', value: { kind: 'ref', id: 1 } },
+          ],
+        }],
+        objects: [{
+          id: 1, kind: 'object', type: 'Punto', fields: [
+            { name: 'x', value: { kind: 'primitive', type: 'int', text: '99' } },
+            { name: 'y', value: { kind: 'primitive', type: 'int', text: '2' } },
+          ],
+        }],
+      }}
+    />
+  </Step>
+</StepShow>
 
 </Slide>
 
@@ -198,29 +247,84 @@ class Swap {
 
 <Slide>
 
-<MemoryDiagram title="Dos marcos en la pila">
-
 `swap` tiene sus propias `x` y `y`. Reasignarlas mueve las flechas **dentro
 de `swap`** y nada más — las variables de `main` no se enteran.
 
-```java trace
-public class Demo {
+<StepShow
+  language="java"
+  title="Dos marcos en la pila"
+  code={`public class Demo {
     static void swap(int[] x, int[] y) {
         int[] t = x;
         x = y;
-        y = t;                       // foto swap: x, y
-                                     // foto-fin swap
+        y = t;
     }
 
     public static void main(String[] args) {
         int[] a = {1};
-        int[] b = {2};               // foto a, b
-        swap(a, b);                  // foto a, b
+        int[] b = {2};
+        swap(a, b);
     }
-}
-```
-
-</MemoryDiagram>
+}`}
+>
+  <Step lines={[9, 10]}>
+    <MemoryVisual
+      state={{
+        frames: [{
+          name: 'main', variables: [
+            { name: 'a', value: { kind: 'ref', id: 1 } },
+            { name: 'b', value: { kind: 'ref', id: 2 } },
+          ],
+        }],
+        objects: [
+          { id: 1, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '1' } }] },
+          { id: 2, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '2' } }] },
+        ],
+      }}
+    />
+  </Step>
+  <Step lines={[3, 4, 5]}>
+    <MemoryVisual
+      state={{
+        frames: [
+          {
+            name: 'main', variables: [
+              { name: 'a', value: { kind: 'ref', id: 1 } },
+              { name: 'b', value: { kind: 'ref', id: 2 } },
+            ],
+          },
+          {
+            name: 'swap', variables: [
+              { name: 't', value: { kind: 'ref', id: 1 } },
+              { name: 'x', value: { kind: 'ref', id: 2 } },
+              { name: 'y', value: { kind: 'ref', id: 1 } },
+            ],
+          },
+        ],
+        objects: [
+          { id: 1, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '1' } }] },
+          { id: 2, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '2' } }] },
+        ],
+      }}
+    />
+  </Step>
+  <Step lines={[11]}>
+    <MemoryVisual
+      state={{
+        frames: [{
+          name: 'main', variables: [
+            { name: 'a', value: { kind: 'ref', id: 1 } },
+            { name: 'b', value: { kind: 'ref', id: 2 } },
+          ],
+        }],
+        objects: [
+          { id: 1, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '1' } }] },
+          { id: 2, kind: 'array', type: 'int', fields: [{ name: '0', value: { kind: 'primitive', type: 'int', text: '2' } }] },
+        ],
+      }}
+    />
+  </Step>
+</StepShow>
 
 </Slide>
 

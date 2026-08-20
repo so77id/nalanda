@@ -2,7 +2,7 @@ import { Suspense, lazy } from 'react';
 
 import type { MermaidProps } from './Mermaid';
 
-// Same reason as lazyCodeEditor / lazyMemoryDiagram / lazyPredictOutput:
+// Same reason as lazyCodeEditor / lazyExercise / lazyPredictOutput:
 // the MDX component map is built eagerly in the shell, and `mermaid` is a
 // heavy library (~200kB gzipped of mermaid-only chunks, measured — ADR-0040
 // §Consequences) that reaches

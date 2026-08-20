@@ -1,33 +1,61 @@
 import { useId, useMemo } from 'react';
 
-import type { TraceStep } from './trace';
+import { AuthoringError } from '../AuthoringError';
+import type { MemoryState, MemoryValue } from './memoryModel';
 import { describeStep, layoutStep } from './memoryLayout';
 
-export interface MemoryStateProps {
-  step: TraceStep;
-  /** Object ids whose box changed since the previous photograph. */
+export interface MemoryVisualProps {
+  /** The heap picture to draw: every open frame and every object it references. */
+  state: MemoryState;
+  /**
+   * Object ids whose box the widget should paint with a stronger border, so a
+   * reader following a walk sees what moved. Optional. The author passes this
+   * explicitly on the specific `<Step>` where a box changes; there is no
+   * auto-diff between adjacent `<Step>`s today (ADR-0043 §Alternatives
+   * considered — deferred as future automation on top of the same prop).
+   */
   changed?: number[];
 }
 
 /**
- * One photograph of the heap: named variables on the left, boxes on the right,
- * an arrow for every reference.
+ * A memory diagram driven by AUTHOR-WRITTEN state — the reversal of ADR-0028.
  *
- * An SVG rather than positioned divs because the arrows are the content — a
- * reference is a line from a name to a box, and that is the whole idea document
- * 2 exists to install. The geometry comes from `layoutStep`, so what happens
- * here is painting and nothing else.
+ * The tracer era (retired in #209) compiled a Java class beside the snippet,
+ * ran it, and read back the objects it photographed. The rendering was
+ * identical to this one; what changed is where the truth comes from.
+ *
+ * The pedagogy the tracer bought — the drawing cannot lie about what the code
+ * does — is now the AUTHOR's responsibility: no build gate and no test can
+ * compare a hand-written figure against the snippet beside it, the blind spot
+ * ADR-0028's own §Context described about authored drawings. The ADR that
+ * supersedes 0028 (#209 S6) records the trade-off in full: the trace paid for
+ * that guarantee in bundle weight and load latency, more than the pedagogy
+ * needed at the volumes doc 2 actually uses.
+ *
+ * The drawing convention (arrows on the right, boxes stacked, cross-frame
+ * aliasing described explicitly) is preserved: the algorithm lives in
+ * `memoryLayout.ts` and this component is only its renderer.
  *
  * It carries a Spanish description as its accessible name (`role="img"`): the
- * page is served `lang="es"`, and the drawing is the explanation — a reader who
- * cannot see it would otherwise get the prose minus its point.
+ * page is served `lang="es"`, and the drawing is the explanation — a reader
+ * who cannot see it would otherwise get the prose minus its point.
  */
-export function MemoryState({ step, changed = [] }: MemoryStateProps) {
-  const layout = useMemo(() => layoutStep(step), [step]);
-  const description = useMemo(() => describeStep(step), [step]);
-  // Several diagrams can share one page, and a duplicated marker id would make
-  // every arrow on the page resolve to the first one's definition.
+export function MemoryVisual({ state, changed = [] }: MemoryVisualProps) {
+  const problem = useMemo(() => validateState(state), [state]);
+  const layout = useMemo(() => (problem === null ? layoutStep(state) : null), [state, problem]);
+  const description = useMemo(
+    () => (problem === null ? describeStep(state) : ''),
+    [state, problem],
+  );
+  // Several diagrams can share one page — one <StepShow> can even draw many —
+  // and a duplicated marker id would make every arrow on the page resolve to
+  // the first one's definition. Called unconditionally so the hook order stays
+  // stable when the validator flips a state from acceptable to rejected.
   const head = `${useId()}-punta`;
+
+  if (problem !== null || layout === null) {
+    return <AuthoringError component="MemoryVisual">{problem}</AuthoringError>;
+  }
 
   return (
     <svg
@@ -37,10 +65,10 @@ export function MemoryState({ step, changed = [] }: MemoryStateProps) {
       /*
        * Natural size, and the container scrolls — never scaled to fit.
        * Fitting a tall drawing into a fixed box is what turned a dozen boxes
-       * into confetti: measured at 1440px, twenty-four boxes rendered 80px
-       * wide with 1px labels. A listing solves this by scrolling, and so does
-       * this. Width is capped so a wide drawing shrinks rather than escaping
-       * the column, which costs nothing because drawings are tall, not wide.
+       * into confetti in the tracer era: measured at 1440px, twenty-four boxes
+       * rendered 80px wide with 1px labels. Width is capped so a wide drawing
+       * shrinks rather than escaping the column, which costs nothing because
+       * drawings are tall, not wide.
        */
       width={layout.width}
       height={layout.height}
@@ -181,4 +209,43 @@ export function MemoryState({ step, changed = [] }: MemoryStateProps) {
       ))}
     </svg>
   );
+}
+
+/**
+ * Two authoring mistakes the tracer prevented by construction; a hand-written
+ * state cannot avoid them without a small preflight, and drawing the wrong
+ * picture silently is exactly the pedagogical hazard ADR-0043 §Decision-7
+ * hands the author (see also the trade-off recorded there — the JVM's
+ * truth-guarantee is now the author's).
+ *
+ * Returns a Spanish `<AuthoringError>` body describing the first defect it
+ * finds, or `null` when the state is drawable. Both checks are O(n).
+ */
+function validateState(state: MemoryState): string | null {
+  const ids = new Set<number>();
+  for (const object of state.objects) {
+    if (ids.has(object.id)) {
+      return `dos objetos comparten el id ${object.id}: cada objeto necesita un id único (los ids son claves de identidad, no de tipo).`;
+    }
+    ids.add(object.id);
+  }
+
+  const isRef = (v: MemoryValue): v is Extract<MemoryValue, { kind: 'ref' }> => v.kind === 'ref';
+
+  for (const frame of state.frames) {
+    for (const variable of frame.variables) {
+      if (isRef(variable.value) && !ids.has(variable.value.id)) {
+        return `la variable ${frame.name}.${variable.name} apunta al id ${variable.value.id}, que no está en objects.`;
+      }
+    }
+  }
+  for (const object of state.objects) {
+    for (const slot of object.fields) {
+      if (isRef(slot.value) && !ids.has(slot.value.id)) {
+        return `el campo ${slot.name} de un objeto apunta al id ${slot.value.id}, que no está en objects.`;
+      }
+    }
+  }
+
+  return null;
 }

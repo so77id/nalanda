@@ -283,11 +283,20 @@ check-off, attendance or any record — including anything a future backend
 collects. At that point checking has to move off the student's machine; hardening
 the in-band protocol would not be enough.
 
-### The second platform class arrived (#116, 2026-08-14)
+### The second platform class arrived (#116, 2026-08-14) — RETIRED in #209
 
 The trigger above also said to revisit "if a second platform class is ever
-compiled alongside student code". `NalandaTrace` (ADR-0028) is that class. The
-disposition:
+compiled alongside student code". `NalandaTrace` (ADR-0028) was that class,
+compiled beside the snippet by the memory-diagram widget of the day. The
+widget and its platform class were retired in #209 (the ADR superseding 0028),
+so the third reserved name is gone and the `library` compilation unit is out
+of `RunRequest`. The dispositions below are preserved as history — they
+motivate the reserved-name guard on `source` and `harness`, which stays as
+`reservedDeclarations` in `java/launcher.ts` — but the WORKED case they name
+is historical. Any FUTURE second platform class trips the same review trigger
+above; the guard covers the shape, not one field name.
+
+Original disposition (historical):
 
 - **It is recompiled on every run**, as the request's `library` unit, so a
   student class shadowing it from another editor on the page does not persist —
@@ -448,11 +457,15 @@ detail.
   event handler inside a content SVG cannot execute. Inline SVG and
   `dangerouslySetInnerHTML` on **author** content are forbidden: verified in the
   #119 review that the content-image path uses neither. (Inline `<svg>` does exist
-  elsewhere — `components/interactive/MemoryState.tsx` draws a diagram from a
-  program's execution trace, ADR-0028 — but that is platform-generated geometry,
-  not author markup, and reaches the page as compiled component code, not as a
-  content asset; `dangerouslySetInnerHTML` appears only in a test fixture. Neither
-  is an author-injection surface.)
+  elsewhere — `components/interactive/MemoryVisual.tsx` draws a diagram from an
+  author-written `state` prop, ADR-0043 — but the geometry itself is
+  platform-computed by `memoryLayout.ts`, and the author-supplied text (variable
+  names, field values, `String` contents) reaches the SVG as React `<text>`
+  children, which React auto-escapes; there is no `dangerouslySetInnerHTML` on
+  the path. `dangerouslySetInnerHTML` appears only in a test fixture. Neither
+  is an author-injection surface. Before #209 this note named
+  `MemoryState.tsx` and pointed at ADR-0028's execution-trace source; that
+  widget was retired, and the invariant now covers the author-driven prop.)
 - **This is also why the glob asks for `no-inline`**: ADR-0029 §5 justifies
   `?url&no-inline` on bundle bytes, but the same lever is load-bearing here — an
   inlined SVG would render as markup, not through `<img>`, and lose the inertness

@@ -7,9 +7,10 @@ export {
 } from './useRuntime';
 export type { Runtime, UseRuntimeInput } from './useRuntime';
 export { descriptorOf, loadGrammar, loadRuntime, runtimeDescriptors } from './registry';
-// The harness's and the tracer's entry classes are the runtime's to name: it
-// enforces the reserved set, and `runtime → components` is not an allowed edge.
-export { HARNESS_CLASS, TRACE_CLASS } from './java/launcher';
+// The harness's entry class is the runtime's to name: it enforces the reserved
+// set, and `runtime → components` is not an allowed edge. A third reserved
+// entry class shipped between #116 and #209 for a widget that was retired.
+export { HARNESS_CLASS } from './java/launcher';
 // The guard itself, so a component that GENERATES a unit can refuse a collision
 // at authoring time without restating the rule — `instrument()` had its own
 // regex and it knew one name, read raw source and flagged nested declarations

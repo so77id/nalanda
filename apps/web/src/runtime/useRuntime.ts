@@ -32,18 +32,11 @@ export interface Runtime {
    *
    * `units.harness` is a second compilation unit that takes over the entry
    * point — how an exercise checks a method instead of a printed line.
-   * `units.library` is one compiled beside `source` and never run — how a
-   * memory diagram compiles its tracer next to the author's program. Both are
-   * described in full on RunRequest.
    *
-   * Named rather than positional: they are mirror images of each other, and
-   * `run(code, '', undefined, tracer)` is a shape nobody reads correctly twice.
+   * Named rather than positional so a future second unit slots in without
+   * every call site relearning the argument order.
    */
-  run: (
-    source: string,
-    stdin: string,
-    units?: { harness?: string; library?: string },
-  ) => Promise<RunResult>;
+  run: (source: string, stdin: string, units?: { harness?: string }) => Promise<RunResult>;
   /** Starts booting the runtime ahead of the first run. Idempotent. */
   warmUp: () => void;
   /** The runtime has finished booting and a run will not wait on it. */
@@ -187,11 +180,7 @@ export function useRuntime({
   }, [runtimeId, ensureWorker]);
 
   const run = useCallback(
-    (
-      source: string,
-      stdin: string,
-      units: { harness?: string; library?: string } = {},
-    ): Promise<RunResult> => {
+    (source: string, stdin: string, units: { harness?: string } = {}): Promise<RunResult> => {
       if (runtimeId === null) {
         return Promise.reject(new Error('no runtime selected'));
       }
@@ -239,7 +228,6 @@ export function useRuntime({
           source,
           stdin,
           ...(units.harness === undefined ? {} : { harness: units.harness }),
-          ...(units.library === undefined ? {} : { library: units.library }),
         });
       });
     },

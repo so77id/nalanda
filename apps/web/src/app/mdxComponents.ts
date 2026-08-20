@@ -2,10 +2,10 @@ import {
   Figure,
   LazyCodeEditor,
   LazyExercise,
-  LazyMemoryDiagram,
   LazyMermaid,
   LazyPredictOutput,
   MdxPre,
+  MemoryVisual,
   Mosaic,
   Question,
   Questions,
@@ -15,6 +15,8 @@ import {
   SideBySide,
   Slide,
   Split,
+  Step,
+  StepShow,
 } from '../components';
 import { contentMdxComponents } from '../content';
 
@@ -55,7 +57,6 @@ export const mdxComponents = {
   // registering the real component would put CodeMirror in the entry chunk.
   CodeEditor: LazyCodeEditor,
   Exercise: LazyExercise,
-  MemoryDiagram: LazyMemoryDiagram,
   PredictOutput: LazyPredictOutput,
   // Same lazy rule, for the same entry-chunk reason (ADR-0040): the mermaid
   // library adds ~200kB gzipped of mermaid-only chunks (measured, ADR-0040
@@ -72,4 +73,17 @@ export const mdxComponents = {
   // alternative and buys nothing scoped to one component). No CodeMirror, no
   // runtime seam: the eager-graph walk in architecture.test.ts stays happy.
   RecursionTree,
+  // Not lazy: draws a plain listing (no CodeMirror grammar or core) and hosts
+  // arbitrary JSX. The whole point of #209's reversal is a static widget with
+  // no runtime seam — pulling in a lazy wrapper here would put a Suspense
+  // boundary around every page that steps through anything, for a component
+  // that has nothing async to load.
+  StepShow,
+  Step,
+  // Not lazy: takes typed state, calls the pure `memoryLayout` algorithm and
+  // paints SVG. No runtime seam, no CheerpJ, no CodeMirror — the whole reversal
+  // #209 buys is that this component's cost is its own tiny chunk and nothing
+  // else. Guarded structurally: adding a static import of `runtime/` from
+  // MemoryVisual.tsx would fail the eager-graph walk in architecture.test.ts.
+  MemoryVisual,
 };

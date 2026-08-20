@@ -75,19 +75,22 @@ deciding the verdict "is not in a file the student can edit", which the review
 falsified twice; see §7.
 
 **3b. Two class names are reserved.**
-> **Amended 2026-08-14 (#116, ADR-0028 §7):** three now — `NalandaTrace` joined
-> them when the memory diagram started compiling a tracer beside the snippet.
-> The guard also turned out to inspect only the ENTRY class; a secondary
-> declaration still shadows, which `docs/security-notes.md` dispositions and #123
-> tracks.
+> **Amended 2026-08-14 (#116, ADR-0028 §7):** three now — a third name joined
+> them when the memory diagram of the day started compiling a tracer beside
+> the snippet. The guard also turned out to inspect only the ENTRY class; a
+> secondary declaration still shadows, which `docs/security-notes.md`
+> dispositions and #123 tracks.
 >
 > **Amended 2026-08-16 (#123):** closed. The guard reads every **top-level**
 > declaration — `class`, `interface`, `enum` and `record` alike — in `source` and
 > in `harness`, so a secondary declaration no longer shadows. A *nested* one is
 > allowed on purpose: it compiles to `Solucion$NalandaLauncher.class` and
-> overwrites nothing (with one exception, dispositioned in `security-notes.md`:
-> a nested `NalandaTrace` captures the calls `instrument()` injects into the
-> author's class). `library` is still exempt (ADR-0028 §6).
+> overwrites nothing.
+>
+> **Amended 2026-08-19 (#209):** back to two. The widget that motivated the
+> third reserved name and the `library` compilation unit was retired in the
+> ADR superseding 0028; both went with it. `NalandaLauncher` and
+> `NalandaCheck` stay reserved.
 >
 > **"Closed" was claimed once before it was true, and the review of #123 is what
 > caught it.** The first version of this fix scanned the raw text; a Java

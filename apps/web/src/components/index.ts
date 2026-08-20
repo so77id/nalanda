@@ -7,8 +7,6 @@ import type { CatalogEntry } from '../lib/catalogEntry';
 export { LazyCodeEditor } from './interactive/lazyCodeEditor';
 // Same rule, same reason: Exercise embeds CodeMirror too.
 export { LazyExercise } from './interactive/lazyExercise';
-// Same rule again, reached differently: MemoryDiagram imports the runtime seam.
-export { LazyMemoryDiagram } from './interactive/lazyMemoryDiagram';
 // Same rule, both routes: PredictOutput wraps LazyCodeEditor AND imports the
 // runtime seam through `useLoadedRuntime`.
 export { LazyPredictOutput } from './interactive/lazyPredictOutput';
@@ -23,6 +21,15 @@ export { SheetEmbed } from './media/SheetEmbed';
 export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { RecursionTree } from './interactive/RecursionTree';
+export { Step, StepShow } from './interactive/StepShow';
+export { MemoryVisual } from './interactive/MemoryVisual';
+export type {
+  MemoryFrame,
+  MemoryObject,
+  MemorySlot,
+  MemoryState,
+  MemoryValue,
+} from './interactive/memoryModel';
 export { Mosaic } from './structure/Mosaic';
 export { SectionBreak } from './structure/SectionBreak';
 export { SideBySide } from './structure/SideBySide';

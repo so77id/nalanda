@@ -32,7 +32,7 @@ content/courses/sample-course/
 ├── 04-planificacion.mdx       # presentation: none     — book-only; <SheetEmbed> around the live plan
 ├── 06-java-desde-cpp.mdx      # presentation: explicit — uses <SideBySide>, plus a markdown ##
 ├── 07-java-tipos-y-flujo.mdx  # presentation: explicit — uses <Exercise> + <CodeEditor>, plus two markdown ##
-├── 08-referencias-null-igualdad.mdx  # presentation: explicit — uses <PredictOutput> + <MemoryDiagram> + <Exercise> + <CodeEditor>
+├── 08-referencias-null-igualdad.mdx  # presentation: explicit — uses <PredictOutput> + <StepShow>/<MemoryVisual> + <Exercise> + <CodeEditor>
 ├── 09-arrays-y-funciones.mdx  # presentation: explicit — uses <RecursionTree> + <Exercise> + <CodeEditor>
 ├── 10-objetos.mdx             # presentation: explicit — uses <Mermaid> (the only worked example) + <PredictOutput> + <Exercise> + <CodeEditor>
 └── index.yaml                 # the ordered teaching path
@@ -385,12 +385,12 @@ consequences worth knowing before you write one:
 
 The class named in `starter` and the one the cases call must agree.
 **Only Java validates**; C++ and Python refuse an exercise rather than report
-a pass for something they never checked. Three class names are reserved by the
-platform — `NalandaLauncher`, `NalandaCheck` and `NalandaTrace` — and a Java
-program declaring one of them **at top level** is refused before it compiles, in
-an exercise or a plain editor alike: the entry class or any other declaration in
-the file, `class`, `interface` or `enum` (#123 — until then only the entry class
-was checked). A _nested_ declaration is fine, since it compiles to
+a pass for something they never checked. Two class names are reserved by the
+platform — `NalandaLauncher` and `NalandaCheck` — and a Java program declaring
+either **at top level** is refused before it compiles, in an exercise or a
+plain editor alike: the entry class or any other declaration in the file,
+`class`, `interface` or `enum` (#123 — until then only the entry class was
+checked). A _nested_ declaration is fine, since it compiles to
 `Solucion$NalandaLauncher.class` and overwrites nothing.
 
 **This applies to your `test` fence too, and its failure is addressed to you.**
@@ -431,80 +431,94 @@ Full usage docs, props and live examples for every document-facing component
 live in the catalog — browse `/catalog`, which is generated from the components
 themselves rather than maintained by hand.
 
-5d. **Draw the memory (optional)**: `<MemoryDiagram>` shows variables, stack
-frames and heap objects — **taken from the snippet actually running**, never
-from a description you write. You mark where you want a photograph and which
-variables belong in it:
+5d. **Draw the memory (optional)**: `<StepShow>` + `<MemoryVisual>` show
+variables, stack frames and heap objects — from a **state you write** beside
+the code, walked one step at a time. Each `<Step>` declares which lines to
+highlight and holds any JSX (usually a `<MemoryVisual>` for a memory picture,
+but other visuals plug in the same way):
 
-````mdx
-<MemoryDiagram title="Dos variables, un objeto">
-
-```java trace
-class Punto {
+```mdx
+<StepShow
+  language="java"
+  code={`class Punto {
     int x, y;
     Punto(int x, int y) { this.x = x; this.y = y; }
 }
 
 public class Demo {
     public static void main(String[] args) {
-        Punto a = new Punto(1, 2);   // foto a
-        Punto b = a;                 // foto a, b
-        b.x = 99;                    // foto a, b
+        Punto a = new Punto(1, 2);
+        Punto b = a;
+        b.x = 99;
     }
-}
+}`}
+>
+  <Step lines={[8]}>
+    <MemoryVisual state={{
+      frames: [{ name: 'main', variables: [{ name: 'a', value: { kind: 'ref', id: 1 } }] }],
+      objects: [{ id: 1, kind: 'object', type: 'Punto', fields: [
+        { name: 'x', value: { kind: 'primitive', type: 'int', text: '1' } },
+        { name: 'y', value: { kind: 'primitive', type: 'int', text: '2' } },
+      ]}],
+    }} />
+  </Step>
+  <Step lines={[9]}>
+    {/* a and b share one box now — write it literally: two variables carrying
+        the SAME ref id. That equality is the whole lesson. */}
+    <MemoryVisual state={{
+      frames: [{ name: 'main', variables: [
+        { name: 'a', value: { kind: 'ref', id: 1 } },
+        { name: 'b', value: { kind: 'ref', id: 1 } },
+      ]}],
+      objects: [{ id: 1, kind: 'object', type: 'Punto', fields: [
+        { name: 'x', value: { kind: 'primitive', type: 'int', text: '1' } },
+        { name: 'y', value: { kind: 'primitive', type: 'int', text: '2' } },
+      ]}],
+    }} />
+  </Step>
+</StepShow>
 ```
 
-</MemoryDiagram>
-````
+**You are responsible for the picture being TRUE.** This is the reversal of
+ADR-0028 (the ADR superseding 0028 records it in full): the predecessor widget
+compiled the snippet beside the diagram and ran it, so the drawing could never
+drift from the code — at the cost of a Java compile + JVM per instance. The
+new pattern trades that guarantee for a fraction of the load, and hands the
+truth-preserving job back to you. Draft the states with the snippet in a
+`<CodeEditor>` open beside the doc, and step through them at 1440px in both
+themes before committing.
 
-`// foto a, b` photographs those two variables at that line. `// foto
-   marco: p, q` opens a second frame — needed whenever the lesson is about a
-method call, because a caller and a callee have to be on screen together —
-and `// foto-fin marco` closes it. **Name the variables you want drawn and no
-others**: naming them is what lets this work without a Java parser, and it is
-also how you keep the picture down to what teaches.
+Six things worth knowing before you write one:
 
-The markers are removed from what the reader sees, and every line keeps its
-number, so the highlighted line is the one you marked.
+- **The listing is not syntax-coloured.** Highlighting is a per-line box
+  (`lines={[8, 9]}` lights lines 8 and 9 of the listing; numbers are 1-based
+  and blank lines count). Empty is legal — a step whose lesson is what
+  appears beside the code, not which line is running, passes `lines={[]}`.
+- **Any JSX inside a `<Step>`.** For memory pictures, `<MemoryVisual>`; for a
+  call-stack, tree, hash-table or sequence-diagram widget as they land, the
+  same shape.
+- **Two `new String("hola")` draw as two boxes**, because the shape carries
+  IDs and you assign two of them. That is what makes the `==` trap visible
+  instead of asserted.
+- **Cross-frame aliasing is announced in the accessible name** —
+  `main.a` and `swap.q` naming the same object id come out as "apuntan al
+  mismo objeto" so a reader who cannot see the arrows still gets the lesson.
+- **State is scoped per widget.** Two `<StepShow>`s on one page step
+  independently.
+- **No runtime cost.** The widget imports no CodeMirror and no Java compiler.
+  It is registered EAGERLY in the shell's MDX map — so its code ships in the
+  entry chunk of every page rather than in a lazy per-widget chunk. The
+  trade-off is recorded in the ADR-0043 §Consequences bundle bullet and in
+  `app/mdxComponents.ts`; the diagram-bearing page still wins net bytes
+  because the tracer's four lazy chunks are gone.
+- **Author-driven state has an author-catchable safety net.** `<MemoryVisual>`
+  refuses two structural mistakes before rendering: two objects sharing an
+  `id`, and a `{ kind: 'ref', id }` pointing at an `id` not in `objects`.
+  You see an `AuthoringError` naming the frame/field, not a silently wrong
+  picture (ADR-0043 §Consequences).
 
-Seven things worth knowing before you write one:
-
-- **Java only**, and Java 8 like everything else here. C++ and Python get a
-  refusal rather than an empty drawing.
-- **Primitives are drawn as values, objects as arrows.** That distinction is
-  automatic and is usually the point.
-- **Two `new String("hola")` draw as two boxes**, because identity is what is
-  tracked. That is what makes the `==` trap visible instead of asserted.
-- **A marker inside a branch that never runs produces no photograph.** The
-  build cannot see this — the component says so after the run, and only then.
-- **It cannot draw recursion.** Frames are identified by the name you write in
-  the marker, so three nested calls to `fact` draw **one frame** holding the
-  innermost values — depth 1 for a stack of 3. This is the only case where the
-  drawing can teach the opposite of the truth, which is why it is stated here
-  rather than left to be found: the call stack needs a different component
-  (Discussion #49).
-- **Caps**: 40 photographs, 12 objects drawn in total, and 32 elements or
-  fields per box. A `// foto` inside a loop hits the first; a big structure
-  hits the others. In every case the component says so rather than showing a
-  partial trace as if it were complete — including when the program printed so
-  much that the runtime cut the trace off.
-- **All three platform class names are reserved** — `NalandaTrace`,
-  `NalandaLauncher` and `NalandaCheck`. A snippet declaring any of them at top
-  level is refused as an authoring error, before any JVM boots. Merely naming
-  one in a comment or a string is fine. A _nested_ one is accepted by the guard
-  and is still a mistake here specifically: the tracer's calls are injected into
-  your own class, so a member type called `NalandaTrace` captures them and the
-  diagram draws whatever it printed instead of your program's real state.
-
-**The compiler** is not downloaded until the reader presses _Ejecutar y
-dibujar_. Mounting is not free, though: it pulls four lazy chunks — the
-component, the runtime-loading hook, the runtime seam and the Java module. It
-used to pull a CodeMirror grammar the component never uses on top of that;
-#122 removed it, and the current cost is published on the component's own catalog
-page. Each instance is still a JVM, so a page of diagrams is a page of JVMs.
-
-Decisions behind all this: ADR-0028. Worked examples, live:
-`/catalog/c/MemoryDiagram`.
+Decisions behind all this: ADR-0043 (which supersedes ADR-0028, #209).
+Worked examples, live: `/catalog/c/StepShow` and `/catalog/c/MemoryVisual`.
 
 5e. **Predict before revealing (optional)**: `<PredictOutput>` shows a snippet
 and lets the reader commit to a prediction — typed into a textarea — before
@@ -560,9 +574,9 @@ Six things worth knowing before you write one:
 - **Two of these on one page share one JVM and one queue** with every other
   Java editor, so a page of six PredictOutputs is what a reader waits behind
   one at a time. The footer chip says so while it waits.
-- **All three platform class names are reserved** — `NalandaLauncher`,
-  `NalandaCheck` and `NalandaTrace`. A snippet declaring any of them at top
-  level is refused before the JVM boots.
+- **Both platform class names are reserved** — `NalandaLauncher` and
+  `NalandaCheck`. A snippet declaring either at top level is refused before
+  the JVM boots.
 
 Decisions behind all this: same frame as ADR-0010 (catalog contract),
 ADR-0017 (Java threading), and the "verdict-is-feedback" principle of
@@ -1023,11 +1037,12 @@ is not scaled at all.
       runs the content integrity gate; the declaration invariant and the fixture
       guards live in the suite, so the build alone goes green on content CI
       rejects (#108).
-- [ ] Every `<MemoryDiagram>` opened in `npm run preview` and stepped through:
-      photographs appear (no "ninguna foto" notice), the listing shows no `// foto`
-      markers and keeps every line number, and no cap notice unless you meant it.
-      Same reason as the exercises below — nothing in the build or the suite can
-      see any of it.
+- [ ] Every `<StepShow>` + `<MemoryVisual>` opened in `npm run preview` and
+      stepped through: each `<Step>` renders the intended picture, prev / next /
+      reset walk the sequence with the right line lit, cross-frame aliasing
+      reads accessibly, both themes look right at 1440px. Nothing in the build
+      or the suite can see the drawing (that is the trade-off the ADR
+      superseding 0028 records — the truth-preservation is yours now).
 - [ ] Every exercise opened in `npm run preview` and actually run: no authoring
       banner, cases pass against a correct solution and fail against the starter.
       Nothing in the build or the suite can check this for you.

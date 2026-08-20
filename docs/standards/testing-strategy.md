@@ -490,25 +490,32 @@ page-only, invisible to every other gate.
   suite therefore says nothing about whether code actually compiles or runs. Any
   change under `src/runtime/**`, or to anything that **drives** a runtime — calls
   `run()` through `useRuntime`/`useLoadedRuntime`, generates a compilation unit
-  sent to one (`harness.ts`, `trace.ts`), or mounts `CodeEditor` — or to the
-  draft store, MUST also be verified in a real browser against `npm run build &&
-npm run preview` — run, stdin, and a deliberate compile error — per
+  sent to one (`harness.ts`), or mounts `CodeEditor` — or to the draft store,
+  MUST also be verified in a real browser against `npm run build && npm run
+  preview` — run, stdin, and a deliberate compile error — per
   `guides/add-a-language-runtime.md` §7. Today that set is `CodeEditor`,
-  `Exercise`, `MemoryDiagram` and `PredictOutput`. Define it by what the code
-  DOES: worded as "mounts `CodeEditor`" it silently excluded `MemoryDiagram`,
-  which draws its own listing (ADR-0028) and drives a JVM end to end.
+  `Exercise` and `PredictOutput`. Define it by what the code DOES: worded as
+  "mounts `CodeEditor`" it once silently excluded a widget that drove a JVM
+  end to end without mounting one (the memory-diagram widget retired in #209,
+  which drew its own listing under ADR-0028).
 
   For `Exercise`, add: a correct solution passes, the untouched starter fails,
   and a compile error surfaces as a diagnostic. The two verdict forgeries
   recorded in ADR-0019 §7 were found that way and were invisible to a green
   suite.
 
-  For `MemoryDiagram`, add: the listing shows no `// foto` markers and keeps
-  every line number, the photographs walk forwards and back with the right line
-  lit, an aliasing example draws two names on one box, and a run that hit any cap
-  says so instead of claiming `paso N de N`. That last one is not paranoia —
-  every one of those failures shipped past a green suite in #116 and was found
-  in a browser.
+  For `<StepShow>` + `<MemoryVisual>` (introduced in #209 as the reversal of
+  ADR-0028): these do NOT drive a runtime — the diagram is drawn from
+  author-written state, so the execution class above does not include them.
+  They fall under the layout class below, and the concrete browser checks
+  are: each `<Step>` renders its intended picture; prev / next / reset walk
+  the sequence with the correct line lit and stay focus-safe at both ends
+  (aria-disabled, not disabled — earned in #116, preserved into #209); the
+  cross-frame aliasing sentence lands in the accessible name when two
+  frames share an object id; both themes at ≥1440px in the reading page and
+  in the presentation slide. The state-shape checks the widget refuses
+  before rendering (duplicate `object.id`, `ref` at an unknown id) DO have
+  suite coverage in `MemoryVisual.test.tsx` and can stay there.
 
   For `PredictOutput`, add: the reveal panel prints what the snippet actually
   printed (never an authored string), the diagnostics panel names the right

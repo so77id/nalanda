@@ -26,26 +26,37 @@ describe('rejectHarness', () => {
     // student's file alone would be the same silent pass.
     expect(() => rejectHarness({ ...request, harness: '' }, 'Python')).toThrow();
   });
-});
 
-describe('rejectHarness and the library unit', () => {
-  const request = { id: 1, source: 'public class Demo {}', stdin: '' };
-
-  it('refuses a library the runtime cannot compile', () => {
-    // `library` arrived on the shared RunRequest without arriving here, so C++
-    // and Python would have taken a tracer and run the snippet bare — while
-    // ADR-0028 already promised they refuse.
+  it('refuses a request carrying any UNKNOWN second-unit field', () => {
+    // The shape check the JSDoc promises: adding a field to RunRequest that
+    // this file did not learn about must throw, so a future second unit is
+    // caught by construction rather than by remembering to add another `if`.
+    // Cast because the point is that the guard catches shapes the type does
+    // not yet cover.
     expect(() =>
-      rejectHarness({ ...request, library: 'public class NalandaTrace {}' }, 'Python'),
-    ).toThrow(/Python/);
-    expect(() => rejectHarness({ ...request, library: 'x' }, 'C++')).toThrow(/C\+\+/);
+      rejectHarness(
+        { ...request, resource: 'x' } as unknown as Parameters<typeof rejectHarness>[0],
+        'Python',
+      ),
+    ).toThrow(/resource/);
+    expect(() =>
+      rejectHarness(
+        { ...request, library: 'public class NalandaTrace {}' } as unknown as Parameters<
+          typeof rejectHarness
+        >[0],
+        'Python',
+      ),
+    ).toThrow(/library/);
   });
 
-  it('names the feature the reader was denied, not the field', () => {
-    expect(() => rejectHarness({ ...request, library: 'x' }, 'Python')).toThrow(/diagram/i);
-  });
-
-  it('still accepts a request carrying neither unit', () => {
-    expect(() => rejectHarness(request, 'Python')).not.toThrow();
+  it('ignores unknown fields that are undefined', () => {
+    // Spread-with-optional-props is a common shape (`{...request, harness: harness}`
+    // where `harness` may be undefined). The guard is about POPULATED extras.
+    expect(() =>
+      rejectHarness(
+        { ...request, harness: undefined } as unknown as Parameters<typeof rejectHarness>[0],
+        'Python',
+      ),
+    ).not.toThrow();
   });
 });

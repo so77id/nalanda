@@ -51,8 +51,8 @@ src/
 │                         # governance pages, live-example blocks
 ├── components/           # catalog content components by family (structure: Slide,
 │                         # SectionBreak, SideBySide; interactive: CodeEditor, Exercise,
-│                         # MemoryDiagram (+ MemoryPlayer/MemoryState, and trace.ts +
-│                         # memoryLayout.ts as its JVM-free halves)
+│                         # StepShow/Step/CodeStepper + MemoryVisual (+ memoryLayout.ts
+│                         # + memoryModel.ts as their pure algorithm and types)
 │                         # + their lazy wrappers, shared Panel/useRunShortcut/
 │                         # useLoadedRuntime/useGrammar/draft/placeholder)
 │                         # + their colocated <Component>.catalog.tsx entries,
