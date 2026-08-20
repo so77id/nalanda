@@ -203,18 +203,24 @@ elsewhere in the repo. Rejected on ergonomics.
 
 - **Bundle down for the diagram-bearing page.** The trace chunk vanishes;
   the tracer Java class vanishes with it; the `<MemoryDiagram>` lazy chunk
-  is gone. The new components have no separate chunk: `<StepShow>`,
-  `<Step>` and `<MemoryVisual>` are registered EAGERLY in
-  `app/mdxComponents.ts` (they import no runtime seam, no CodeMirror), so
-  their code + `memoryLayout` + `memoryModel` fold into the entry chunk of
-  every page. Measured on the shipped build (baseline vs. branch,
-  `npm run build`): entry chunk +2 457 B gz (~+1.5%); MemoryDiagram lazy
-  chunk −7 266 B gz; doc-2 chunk +231 B gz for the hand-written states.
-  Net for a doc-2 reader: **−4 578 B gz (≈−2.6%)**. Non-diagram-page
-  readers pay the +2 457 B eager cost. Lazy-wrapping the pair would flip
-  those numbers if that trade is preferred; a follow-up WP can shift it,
-  and the eager decision is the one the ADR pins for now. AC-9 pins
-  verification with `npm run build` + grep of the bundle.
+  is gone. `<StepShow>` ships behind `LazyStepShow` (its `<CodeStepper>`
+  imports CodeMirror + `useGrammar` to give the listing the same syntax
+  colour every other `java` fence on the site gets since #85, so the widget
+  must not reach the entry chunk — architecture guard at
+  `src/architecture.test.ts` §"the step-through widget stays out of the
+  entry chunk"). `<Step>` and `<MemoryVisual>` stay eager: `<Step>` is a
+  null marker, and `<MemoryVisual>` imports only pure code (`memoryModel`,
+  `memoryLayout`, `<AuthoringError>`) — no CodeMirror, no runtime seam.
+  Measured on the shipped build (baseline `main` vs. branch,
+  `npm run build`): entry chunk +1 965 B gz (~+1.2%, mostly the eager
+  MemoryVisual + memoryLayout code); new StepShow lazy chunk +2 087 B gz
+  (loaded only by pages that mount one); doc-2 chunk +298 B gz for the
+  hand-written states; MemoryDiagram lazy chunk −7 266 B gz. Net for a
+  doc-2 reader: **−2 777 B gz (≈−1.6%)**. Non-diagram-page readers pay
+  the +1 965 B eager cost. Making `<MemoryVisual>` lazy too would flatten
+  that further; a follow-up WP can do it, and this ADR pins the current
+  three-way split (StepShow lazy, MemoryVisual eager, Step marker eager).
+  AC-9 pins verification with `npm run build` + grep of the bundle.
 - **The truth-preserving job moves to the author.** Miguel iterates the doc
   2 states visually at 1440px in both themes before merging, and expects
   a post-PR round of visual edits. This is the first time the pictures ship

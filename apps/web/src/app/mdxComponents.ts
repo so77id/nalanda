@@ -4,6 +4,7 @@ import {
   LazyExercise,
   LazyMermaid,
   LazyPredictOutput,
+  LazyStepShow,
   MdxPre,
   MemoryVisual,
   Mosaic,
@@ -16,7 +17,6 @@ import {
   Slide,
   Split,
   Step,
-  StepShow,
 } from '../components';
 import { contentMdxComponents } from '../content';
 
@@ -73,12 +73,15 @@ export const mdxComponents = {
   // alternative and buys nothing scoped to one component). No CodeMirror, no
   // runtime seam: the eager-graph walk in architecture.test.ts stays happy.
   RecursionTree,
-  // Not lazy: draws a plain listing (no CodeMirror grammar or core) and hosts
-  // arbitrary JSX. The whole point of #209's reversal is a static widget with
-  // no runtime seam — pulling in a lazy wrapper here would put a Suspense
-  // boundary around every page that steps through anything, for a component
-  // that has nothing async to load.
-  StepShow,
+  // The lazy wrapper, not the widget itself: `<StepShow>` mounts a
+  // `<CodeStepper>` that uses CodeMirror + `useGrammar` for the same syntax
+  // highlighting every other `java` fence gets on the site. Registering the
+  // real component here would put CodeMirror in the entry chunk of every
+  // reader of every page — same reason `LazyCodeEditor` / `LazyExercise` /
+  // `LazyPredictOutput` are lazy. `<Step>` stays eager (returns null, no
+  // dependencies); the `child.type === Step` identity check inside StepShow
+  // reads THIS reference.
+  StepShow: LazyStepShow,
   Step,
   // Not lazy: takes typed state, calls the pure `memoryLayout` algorithm and
   // paints SVG. No runtime seam, no CheerpJ, no CodeMirror — the whole reversal
