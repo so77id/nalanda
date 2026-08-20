@@ -110,6 +110,18 @@ should shape the method set.
 - **Sentinel errors for conditions a caller branches on**, compared with
   `errors.Is`. Worked case: `config.ErrMissing` distinguishes "the operator has
   not finished configuring this" from "the operator configured it wrongly".
+- **A typed error wrapping a sentinel** when a branched failure must also
+  carry structured fields for a renderer to read. Implement `Unwrap() error`
+  returning the sentinel so `errors.Is` on the sentinel keeps matching, and
+  give the type exported fields the renderer needs — status code, message,
+  detail — so nobody has to regex the error string back out. Worked case
+  (#210): `controls.AnalyzerRefusedError{Status, Message, Detail}` unwraps
+  to `ErrAnalyzerRefused`; the handler's `refusedFlash` reads Detail via
+  `errors.As` to embed the worker's first stderr line in the flash a
+  professor sees, and `Error()` composes Status + Message so
+  `slog.Warn(err)` still reads `worker answered NNN: msg` the way pre-#210
+  log parsers expect. Reach for this shape when a `fmt.Errorf` with a
+  formatted status prefix would force every renderer to re-parse it.
 - **Never `panic` in a request path.** A handler that cannot proceed writes a
   status; `panic` is for a programming error at wiring time and nothing else.
 - **Never discard an error silently.** `_ = f.Close()` in a `defer` is fine and

@@ -64,20 +64,37 @@ type UploadResult struct {
 //
 // Failure modes:
 //   - No such control → ErrControlNotFound.
-//   - Copying the upload to disk failed → wraps the io error.
-//   - /analyse refused or was unreachable → wraps ErrAnalyzer* and rolls
-//     back the batch file so the disk shows no evidence of a failed run.
+//   - Copying the upload to disk failed → wraps the io error (the partial
+//     file, if any, is removed inside writeUpload).
+//   - /analyse refused or was unreachable → wraps ErrAnalyzer*. The
+//     uploaded PDF SURVIVES on disk (issue #210): the batch is the
+//     artefact an operator would inspect, and erasing it on refusal
+//     forced a re-scan when the printed sheets — not the file — were
+//     the problem (2026-08-19 incident). The DB is not touched on this
+//     branch — Analyzer.Analyze runs before any store write.
 //
-// All-or-nothing on the DB side: the report either persists or it does
-// not; there is no partial commit, because UpsertReadingsFromReport uses
-// a single transaction.
+// DB-atomicity is scoped: the reading report itself is transactional
+// because UpsertReadingsFromReport opens a single tx around every insert
+// it does. The three post-analyse writes as a sequence are NOT — they go
+// through two different stores (Store.SetControlThresholds first, then
+// two ReadingStore calls) and there is no outer transaction wrapping
+// them. A failure in MarkMissingAsNotPresent (last step) leaves the
+// updated thresholds and the persisted report committed; a failure in
+// UpsertReadingsFromReport leaves the updated thresholds committed. In
+// operation this class of failure is a store outage and the professor
+// retries — a widened transactional shape (single-tx PersistReport) is
+// a follow-up, same as the SaveOverrides note below.
 func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResult, error) {
 	control, err := s.Store.ControlByID(ctx, req.ControlID)
 	if err != nil {
 		return UploadResult{}, err
 	}
-	// Issue #197: refuse a bad pair BEFORE anything touches the disk — the
-	// all-or-nothing promise covers the batch file too.
+	// Issue #197: refuse a bad pair BEFORE writing anything so an invalid
+	// threshold submission never even creates a batch file. Note: unlike
+	// pre-#210, DOWNSTREAM failures do not clean the batch file up — see
+	// the UploadScan docstring above for the batch-survives-failure
+	// contract. This validation happens first, so it is the one branch
+	// where nothing on disk is left behind either way.
 	ticked, unsure := req.Ticked, req.Unsure
 	if ticked == 0 {
 		// The handler always resolves the form (optional fields fall back
@@ -106,11 +123,9 @@ func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResu
 		return UploadResult{}, fmt.Errorf("controls.UploadScan: %w", err)
 	}
 
-	rollbackFile := func() {
-		if err := os.Remove(batchHostPath); err != nil && !errors.Is(err, os.ErrNotExist) {
-			s.Log.Warn("controls.UploadScan: rollback failed", "path", batchHostPath, "error", err)
-		}
-	}
+	// Issue #210: the batch file survives every downstream failure —
+	// the artefact on disk is what an operator inspects and what a
+	// re-upload cannot recreate. DB scoping below in the docstring.
 
 	project := filepath.Join(projectPrefix, control.ID)
 	report, err := s.Analyzer.Analyze(ctx, AnalyzeRequest{
@@ -121,21 +136,17 @@ func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResu
 		Unsure:  unsure,
 	})
 	if err != nil {
-		rollbackFile()
 		return UploadResult{}, err
 	}
 	if err := s.Store.SetControlThresholds(ctx, control.ID, ticked, unsure); err != nil {
-		rollbackFile()
 		return UploadResult{}, fmt.Errorf("controls.UploadScan: persist thresholds: %w", err)
 	}
 
 	now := s.Now()
 	if err := s.Readings.UpsertReadingsFromReport(ctx, control.ID, report, now); err != nil {
-		rollbackFile()
 		return UploadResult{}, fmt.Errorf("controls.UploadScan: persist: %w", err)
 	}
 	if err := s.Readings.MarkMissingAsNotPresent(ctx, control.ID, now); err != nil {
-		rollbackFile()
 		return UploadResult{}, fmt.Errorf("controls.UploadScan: mark missing: %w", err)
 	}
 

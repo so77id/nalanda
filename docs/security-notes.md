@@ -522,6 +522,14 @@ for what. Two narrower residuals found in the #138 review and accepted with it:
 - **`detail` in an error response carries up to 4 kB of raw AMC output**, and
   AMC's association output names student identifiers verbatim. `apps/server`
   must surface it to a human in the review queue and must not log it.
+  **Worked case since #210**: `apps/server` carries this through
+  `controls.AnalyzerRefusedError.Detail` (kept whole in the struct) and
+  surfaces its first non-empty line, capped to 500 runes, in the flash a
+  professor sees on refusal (`internal/app/web/handler/scans.go`,
+  `refusedFlash`). `Error()` on the same type intentionally omits Detail
+  so `slog.Warn("...", "error", err)` stays clean. The field's godoc
+  points back here so a future caller does not reach for `wrapped.Detail`
+  from a log line by accident.
 - **`/annotate/copy` writes into AMC's private sqlite layout** (`capture_zone`
   keyed by request data, #190 / ADR-0040). The payload is shape-validated
   before any write (integer copy, existing question names, 8-digit RUT) and

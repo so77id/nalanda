@@ -429,6 +429,71 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 	}
 }
 
+// Issue #210: a worker refusal used to rollback the uploaded PDF, which
+// erased the artefact an operator would inspect and forced the professor
+// to re-scan. The promise now is "wipe DB rows on failure" only — the
+// batch survives on disk so the professor can download it and an operator
+// can look at what got sent. The next upload advances to batch-(N+1).pdf,
+// as expected of a preserved counter derived from directory listing.
+func TestUploadScanPreservesTheBatchOnWorkerRefusal(t *testing.T) {
+	svc, _, gen, workDir := newService(t)
+	control, err := svc.Create(context.Background(), req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	gen.AnalyzeErr = &controls.AnalyzerRefusedError{
+		Status: 400, Message: "scan not recognized",
+		Detail: "ERR: /work/controls/x/scans/0001.pdf scan not recognized",
+	}
+	_, err = svc.UploadScan(context.Background(), controls.UploadRequest{
+		ControlID: control.ID,
+		Filename:  "batch.pdf",
+		Content:   io.NopCloser(strings.NewReader("%PDF-fake")),
+		Ticked:    controls.DefaultTicked,
+		Unsure:    controls.DefaultUnsure,
+	})
+	if !errors.Is(err, controls.ErrAnalyzerRefused) {
+		t.Fatalf("UploadScan = %v, want ErrAnalyzerRefused", err)
+	}
+	batch1 := filepath.Join(workDir, "controls", control.ID, "uploads", "batch-1.pdf")
+	if _, statErr := os.Stat(batch1); statErr != nil {
+		t.Fatalf("batch-1.pdf missing after refusal: %v — the failed upload's artefact must survive so the operator can download and inspect it", statErr)
+	}
+
+	// The second upload succeeds. The counter is derived from what is on
+	// disk (nextBatchNumber walks the directory), so the second file must
+	// land at batch-2.pdf, not overwrite batch-1.pdf.
+	gen.AnalyzeErr = nil
+	gen.AnalyzeReports = []controls.Report{{
+		Copies: map[string]controls.ReportCopy{
+			"1": {RUT: "20100001", RUTStatus: controls.RUTStatusOK, Status: controls.CopyStatusOK,
+				ExpectedQuestions: 3, SeenQuestions: 3},
+		},
+	}}
+	result, err := svc.UploadScan(context.Background(), controls.UploadRequest{
+		ControlID: control.ID,
+		Filename:  "batch.pdf",
+		Content:   io.NopCloser(strings.NewReader("%PDF-fake-2")),
+		Ticked:    controls.DefaultTicked,
+		Unsure:    controls.DefaultUnsure,
+	})
+	if err != nil {
+		t.Fatalf("second UploadScan: %v", err)
+	}
+	if result.BatchNumber != 2 {
+		t.Errorf("second BatchNumber = %d, want 2 (batch-1.pdf survived the refusal)", result.BatchNumber)
+	}
+	batch2 := filepath.Join(workDir, "controls", control.ID, "uploads", "batch-2.pdf")
+	if _, statErr := os.Stat(batch2); statErr != nil {
+		t.Errorf("batch-2.pdf missing after second upload: %v", statErr)
+	}
+	// batch-1.pdf still there — the second upload does not shift the first.
+	if _, statErr := os.Stat(batch1); statErr != nil {
+		t.Errorf("batch-1.pdf gone after second upload: %v", statErr)
+	}
+}
+
 // Issue #197: the defense-in-depth pair validation refuses before the
 // analyzer is called and before the batch file touches the disk.
 func TestUploadScanRefusesAnInvalidPair(t *testing.T) {
