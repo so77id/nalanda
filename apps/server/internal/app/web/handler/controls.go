@@ -323,6 +323,9 @@ func defaultFormValues() view.ControlFormValues {
 		// Historical AMC layout by default (issue #185): the professor
 		// opts out for simplex printing.
 		DuplexPadding: true,
+		// Issue #208: Letter is the operational default (ADR-0043); A4
+		// requires opening `<details> Opciones avanzadas` first.
+		Paper: string(controls.DefaultPaper),
 	}
 }
 
@@ -345,6 +348,10 @@ func valuesFromRequest(r *http.Request) view.ControlFormValues {
 		// HTML checkbox convention: absent means unchecked. `on` is what
 		// the browser sends when the checkbox has no explicit value.
 		DuplexPadding: r.PostFormValue("duplex_padding") == "on",
+		// Issue #208: read the radio verbatim. Empty means the professor
+		// never opened `<details>` — validateCreate resolves that to the
+		// default; anything outside {"letter","a4"} is refused there.
+		Paper: strings.TrimSpace(r.PostFormValue("paper")),
 	}
 }
 
@@ -397,6 +404,17 @@ func validateCreate(v view.ControlFormValues, b *bank.Bank) (map[string]string, 
 		errs["copies"] = copiesErr
 	}
 
+	// Issue #208: empty is the "professor never opened <details>" path,
+	// resolved to the default. Anything else must be one of the two
+	// enumerated values; a stray third string is refused here so the
+	// schema CHECK never has to.
+	paper := controls.Paper(v.Paper)
+	if v.Paper == "" {
+		paper = controls.DefaultPaper
+	} else if !controls.ValidPaper(paper) {
+		errs["paper"] = "El papel debe ser Letter o A4."
+	}
+
 	req := controls.CreateRequest{
 		Name:             v.Name,
 		ApplicationDate:  appDate,
@@ -405,6 +423,7 @@ func validateCreate(v view.ControlFormValues, b *bank.Bank) (map[string]string, 
 		QuestionsPerCopy: qpc,
 		Copies:           copies,
 		DuplexPadding:    v.DuplexPadding,
+		Paper:            paper,
 	}
 	return errs, req
 }
@@ -739,6 +758,7 @@ func toDetailedControl(c controls.Control, b *bank.Bank) view.DetailedControl {
 		Range:           formatRangeWithTitles(c.RangeFrom, c.RangeTo, b),
 		Shape:           fmt.Sprintf("%d preguntas × %d copias", c.QuestionsPerCopy, c.Copies),
 		PrintLayout:     printLayoutWord(c.DuplexPadding),
+		Paper:           paperWord(c.Paper),
 		State:           stateWordControl(c.State),
 		CreatedAt:       spanishDate(c.CreatedAt),
 	}
@@ -751,6 +771,18 @@ func printLayoutWord(duplexPadding bool) string {
 		return "dúplex (con página en blanco por copia)"
 	}
 	return "simplex (una página por copia)"
+}
+
+// paperWord names the two paper sizes for the detail page. Issue #208,
+// ADR-0043. An empty value (a control from before the migration ran) reads
+// as the default, so the professor never sees a blank cell.
+func paperWord(p controls.Paper) string {
+	switch p {
+	case controls.PaperA4:
+		return "A4"
+	default:
+		return "US Letter"
+	}
 }
 
 func formatOptionalDate(t *time.Time) string {

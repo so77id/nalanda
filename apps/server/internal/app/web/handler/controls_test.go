@@ -259,6 +259,128 @@ func TestCreateStoresDuplexPaddingFalseWhenTheCheckboxIsUnchecked(t *testing.T) 
 	}
 }
 
+// Issue #208: the paper radio lives inside `<details> Opciones avanzadas`
+// and Letter is checked by default. The pattern mirrors the DuplexPadding
+// tests above: pin the paper input against name+checked (attribute-order
+// agnostic) so a stray checked= elsewhere on the page cannot silently keep
+// this test green. Two facts pinned in one test: the input exists, and
+// Letter is the checked one.
+var paperLetterCheckedRe = regexp.MustCompile(
+	`<input[^>]*(?:name="paper"[^>]*\bvalue="letter"[^>]*\bchecked\b|\bchecked\b[^>]*name="paper"[^>]*\bvalue="letter"|value="letter"[^>]*name="paper"[^>]*\bchecked\b)[^>]*>`)
+
+var paperA4CheckedRe = regexp.MustCompile(
+	`<input[^>]*(?:name="paper"[^>]*\bvalue="a4"[^>]*\bchecked\b|\bchecked\b[^>]*name="paper"[^>]*\bvalue="a4"|value="a4"[^>]*name="paper"[^>]*\bchecked\b)[^>]*>`)
+
+func TestNewRendersThePaperRadioWithLetterCheckedByDefault(t *testing.T) {
+	f := newControlsFixture(t)
+	rec := httptest.NewRecorder()
+	f.handler.New(rec, f.authedRequest(t, http.MethodGet, handler.ControlsNewPath, nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	// Both radios must exist.
+	if !strings.Contains(body, `name="paper"`) || !strings.Contains(body, `value="letter"`) {
+		t.Error("form is missing the paper=letter radio")
+	}
+	if !strings.Contains(body, `value="a4"`) {
+		t.Error("form is missing the paper=a4 radio")
+	}
+	// Letter is the default (ADR-0043).
+	if !paperLetterCheckedRe.MatchString(body) {
+		t.Errorf("the paper=letter radio is not `checked` on the empty GET form\nbody:\n%s", body)
+	}
+	// And A4 is NOT checked when Letter is — asserting the pair keeps a
+	// mutation that checks both from passing.
+	if paperA4CheckedRe.MatchString(body) {
+		t.Error("the paper=a4 radio is `checked` when Letter should be the default")
+	}
+	// The radios live inside `<details>` so the default case shows no
+	// friction (ADR-0043 §Decision).
+	if !strings.Contains(body, `<details`) {
+		t.Error("the paper radio is not inside a <details> block")
+	}
+}
+
+func TestCreateStoresPaperLetterByDefault(t *testing.T) {
+	f := newControlsFixture(t)
+	form := validForm()
+	form.Del("paper") // simulate a submission with the `<details>` never opened
+	rec := httptest.NewRecorder()
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+	rows, err := f.service.List(context.Background())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Paper != controls.PaperLetter {
+		t.Errorf("stored Paper = %q, want %q (default when the form omits it)", rows[0].Paper, controls.PaperLetter)
+	}
+}
+
+func TestCreateStoresPaperA4WhenTheRadioIsA4(t *testing.T) {
+	f := newControlsFixture(t)
+	form := validForm()
+	form.Set("paper", "a4")
+	rec := httptest.NewRecorder()
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+	rows, err := f.service.List(context.Background())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(rows) != 1 || rows[0].Paper != controls.PaperA4 {
+		t.Errorf("stored Paper = %q, want %q", rows[0].Paper, controls.PaperA4)
+	}
+}
+
+// A form value outside {letter, a4} must be refused at 422, not silently
+// coerced. The schema CHECK would refuse it too, but by then the disk-write
+// side effects would have run and the error message would name a sqlite
+// constraint (leak). The handler catches it first (Round A local review
+// rationale: refuse where the meaning is known).
+func TestCreateRefusesAnUnknownPaperValue(t *testing.T) {
+	f := newControlsFixture(t)
+	form := validForm()
+	form.Set("paper", "legal")
+	rec := httptest.NewRecorder()
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 for paper='legal'; body:\n%s", rec.Code, rec.Body.String())
+	}
+}
+
+// After a refusal, the paper the professor CHOSE stays selected on
+// re-render — the same "echo back on refusal" convention every other
+// field follows. Mirror of TestNewDoesNotRenderCheckedWhenTheForm
+// ValueIsFalse for the checkbox.
+func TestFormRefusalEchoesBackTheA4Choice(t *testing.T) {
+	f := newControlsFixture(t)
+	form := validForm()
+	form.Set("paper", "a4")
+	form.Del("name") // force a refusal
+	rec := httptest.NewRecorder()
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422; body:\n%s", rec.Code, rec.Body.String())
+	}
+	if !paperA4CheckedRe.MatchString(rec.Body.String()) {
+		t.Error("re-rendered form does not carry `checked` on paper=a4 after the professor chose it")
+	}
+	if paperLetterCheckedRe.MatchString(rec.Body.String()) {
+		t.Error("re-rendered form still carries `checked` on paper=letter after the professor picked a4")
+	}
+}
+
 func TestNewRendersTheFormWithBankSections(t *testing.T) {
 	f := newControlsFixture(t)
 	rec := httptest.NewRecorder()
