@@ -5,9 +5,9 @@
 **Decision-makers:** Miguel Rodriguez
 **Source:** #138 (the spike), design `docs/design/2026-08-controles.md` §C8, §C9
 **Amended by:** #206 (2026-08-20) — the paper is US Letter, not A4 (ADR-0042).
-The historical record below (§What was verified: "printed at 100% on A4")
-stays as evidence of what was measured then; the operational paper size for
-every future generate is Letter.
+The historical record below (§Partial evidence — 2026-08-17: "printed at
+100% on A4") stays as evidence of what was measured then; the operational
+paper size for every future generate is Letter.
 
 ## Context
 

@@ -33,9 +33,9 @@ The chain, reconstructed:
 Chile's printer default is Letter. It is the operating context of the
 one deployment there is (`docs/decisions/0038-the-jetson-is-the-first-test-bed.md`),
 and it is what every subsequent generate will meet. ADR-0030 recorded
-the paper as A4 because that is what was measured for it (§What was
-verified: "four sheets, printed at 100% on A4"); the choice was
-default-inherited, never argued. This ADR argues it.
+the paper as A4 because that is what was measured for it (§Partial
+evidence — 2026-08-17: "four sheets, printed at 100% on A4"); the
+choice was default-inherited, never argued. This ADR argues it.
 
 ## Decision
 
@@ -101,9 +101,9 @@ to future generates only.
   source; AMC computes the layout from that; the printed PDF matches
   the printer default; the four fiducials land where the scanner
   expects them.
-- ADR-0030 gains an `Amended by:` line. Its §What was verified stays
-  intact as the historical record of what was measured then (A4, four
-  sheets, blue marker); §Not yet proven still points at
+- ADR-0030 gains an `Amended by:` line. Its §Partial evidence —
+  2026-08-17 stays intact as the historical record of what was measured
+  then (A4, four sheets, blue marker); §Not yet proven still points at
   `PAPER-CHECK.md`, which now says Letter.
 - **A deployment outside Chile reopens this ADR.** The choice is
   Chilean-printer-facing; there is no branch of the code that decides
