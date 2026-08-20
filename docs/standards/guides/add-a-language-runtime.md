@@ -78,21 +78,19 @@ src/runtime/python/
    rejectHarness(event.data, "C++"); // from '../rejectHarness'
    ```
 
-   **`library` is the mirror image: a second unit compiled beside `source` that
-   never runs** — how a `<MemoryDiagram>` compiles its tracer next to the
-   author's program, which keeps `main` (ADR-0028 §6). Same two options: compile
-   it beside `source` without touching the entry class, or refuse it with the
-   same `rejectHarness` call, which guards both fields.
+   The `RunRequest` shape used to carry a second field for a platform unit
+   compiled beside `source` that never runs; it was added in #116 and removed
+   in #209 when the widget that needed it was retired. If a future consumer
+   needs one, `rejectHarness` guards the shape (not one field name), so adding
+   the field back is caught by construction until the runtime opts in.
 
-   Note the reserved-name guard does NOT apply to `library`, deliberately: it
-   exists to stop a _student_ class shadowing a platform one, and `library` is
-   reachable only from platform constants. It DOES apply to `source` and to
-   `harness`, and to every **top-level** declaration in them rather than to their
-   entry classes — a unit may not declare a reserved name it does not own, and
-   the harness owns exactly the one it is (`NalandaCheck`). Java's is
-   `reservedDeclarations` in `java/launcher.ts` (#123); a runtime that compiles
-   into a shared output directory needs the same check, and a component that
-   GENERATES a unit can call it too rather than writing its own.
+   The reserved-name guard applies to `source` and to `harness`, at every
+   **top-level** declaration rather than only their entry classes — a unit may
+   not declare a reserved name it does not own, and the harness owns exactly
+   the one it is (`NalandaCheck`). Java's is `reservedDeclarations` in
+   `java/launcher.ts` (#123); a runtime that compiles into a shared output
+   directory needs the same check, and a component that GENERATES a unit can
+   call it too rather than writing its own.
 
    **Scan what the compiler scans, in the compiler's order.** This is the part
    that cost #123 twice. A guard reading raw source is reading a different
@@ -108,16 +106,16 @@ src/runtime/python/
    functions: their unit tests test the model against itself and stay green
    through every divergence (`testing-strategy.md` §Conventions).
 
-   There is no third option for either. Running `source` alone when a second unit
-   is present reports a passing exercise that verified nothing — the worst
-   failure this platform can produce, because it is silent and it is addressed to
-   a student — or draws a memory diagram from a program that was never traced.
+   There is no third option: running `source` alone when a second unit is
+   present reports a passing exercise that verified nothing — the worst
+   failure this platform can produce, because it is silent and it is addressed
+   to a student.
 
-   This is not hypothetical: `library` was added to `RunRequest` in #116 without
-   being added to `rejectHarness`, and for one commit C++ and Python would have
-   accepted a tracer and run the snippet bare. The guard now covers the shape
-   rather than one field name, so the next unit is caught by construction — but
-   only if you read this paragraph before adding one.
+   This is not hypothetical: a platform-unit field added to `RunRequest` in
+   #116 was, for one commit, not added to `rejectHarness`, and C++ and Python
+   would have accepted it and run the snippet bare. The guard now covers the
+   shape rather than one field name, so the next unit is caught by
+   construction — but only if you read this paragraph before adding one.
 
    Do the expensive boot in a `warmUp()` promise at module scope and `await` it
    on every message, so the first Run is fast rather than the slowest.

@@ -385,12 +385,12 @@ consequences worth knowing before you write one:
 
 The class named in `starter` and the one the cases call must agree.
 **Only Java validates**; C++ and Python refuse an exercise rather than report
-a pass for something they never checked. Three class names are reserved by the
-platform — `NalandaLauncher`, `NalandaCheck` and `NalandaTrace` — and a Java
-program declaring one of them **at top level** is refused before it compiles, in
-an exercise or a plain editor alike: the entry class or any other declaration in
-the file, `class`, `interface` or `enum` (#123 — until then only the entry class
-was checked). A _nested_ declaration is fine, since it compiles to
+a pass for something they never checked. Two class names are reserved by the
+platform — `NalandaLauncher` and `NalandaCheck` — and a Java program declaring
+either **at top level** is refused before it compiles, in an exercise or a
+plain editor alike: the entry class or any other declaration in the file,
+`class`, `interface` or `enum` (#123 — until then only the entry class was
+checked). A _nested_ declaration is fine, since it compiles to
 `Solucion$NalandaLauncher.class` and overwrites nothing.
 
 **This applies to your `test` fence too, and its failure is addressed to you.**
@@ -555,9 +555,9 @@ Six things worth knowing before you write one:
 - **Two of these on one page share one JVM and one queue** with every other
   Java editor, so a page of six PredictOutputs is what a reader waits behind
   one at a time. The footer chip says so while it waits.
-- **All three platform class names are reserved** — `NalandaLauncher`,
-  `NalandaCheck` and `NalandaTrace`. A snippet declaring any of them at top
-  level is refused before the JVM boots.
+- **Both platform class names are reserved** — `NalandaLauncher` and
+  `NalandaCheck`. A snippet declaring either at top level is refused before
+  the JVM boots.
 
 Decisions behind all this: same frame as ADR-0010 (catalog contract),
 ADR-0017 (Java threading), and the "verdict-is-feedback" principle of

@@ -3,17 +3,15 @@ import type { RunRequest } from './contract';
 /**
  * Refuses a request carrying a second compilation unit the runtime cannot build.
  *
- * Only Java compiles one today. A runtime that quietly ran `source` alone would
- * report a passing exercise that verified nothing — ADR-0019 §4 calls that the
- * worst failure this feature could have — or draw a memory diagram from a
- * program that was never traced. Either way the answer is to throw rather than
- * ignore the field.
+ * Only Java compiles one today (a `harness`). A runtime that quietly ran
+ * `source` alone would report a passing exercise that verified nothing —
+ * ADR-0019 §4 calls that the worst failure this feature could have. The answer
+ * is to throw rather than ignore the field.
  *
- * **Both units, not just the harness.** `library` (ADR-0028) arrived on the same
- * shared `RunRequest` without arriving here, so C++ and Python would have taken
- * a tracer and run the snippet bare — while ADR-0028 already promised they
- * refuse. The guard covers the shape, not one field name, so the next unit is
- * caught by construction.
+ * The guard covers the SHAPE (a second unit alongside `source`), not one field
+ * name, so a future second unit is caught by construction rather than by
+ * remembering to add another `if`. The `library` unit ADR-0028 added for the
+ * memory-diagram tracer was retired in #209 alongside the widget itself.
  *
  * Extracted from the two workers because the suite cannot run a worker at all:
  * both guards were deletable with 295 tests green until this existed.
@@ -21,8 +19,5 @@ import type { RunRequest } from './contract';
 export function rejectHarness(request: RunRequest, language: string): void {
   if (request.harness !== undefined) {
     throw new Error(`the ${language} runtime does not support exercises yet`);
-  }
-  if (request.library !== undefined) {
-    throw new Error(`the ${language} runtime does not support memory diagrams yet`);
   }
 }

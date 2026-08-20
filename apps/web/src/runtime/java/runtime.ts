@@ -180,7 +180,7 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
     return host;
   };
 
-  const execute = async ({ id, source, stdin, harness, library }: RunRequest): Promise<void> => {
+  const execute = async ({ id, source, stdin, harness }: RunRequest): Promise<void> => {
     if (terminated) return;
     running = true;
     try {
@@ -197,9 +197,7 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       // A unit may not declare a reserved name it does not OWN. `source` owns
       // none. The harness IS `NalandaCheck` (`buildHarness` generates it), so
       // that one name is its own and scanning for it would refuse every
-      // exercise on the site. `library` is not scanned at all: platform code by
-      // construction, reachable only from a module constant, and its unit
-      // arriving there is the intended use (ADR-0028 §6).
+      // exercise on the site.
       //
       // The harness scan is narrower in practice than it reads, and measured to
       // be: `buildHarness` splices the author's `test` fence into the body of
@@ -240,11 +238,6 @@ export function createJavaRuntime(baseUrl: string): RuntimeWorker {
       };
 
       const sourcePaths = [write(source)];
-      // Compiled beside the source and never run: the snippet keeps `main` and
-      // calls into it. The one unit the guard above does not read — that guard
-      // is about a student shadowing a platform class, and this IS the platform
-      // class.
-      if (library !== undefined) sourcePaths.push(write(library));
       // With a harness present the student's class is a library, not a program:
       // the harness owns `main` and decides what to call.
       let entryClass = deriveEntryClass(source);

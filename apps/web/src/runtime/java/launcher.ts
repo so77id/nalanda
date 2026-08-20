@@ -174,14 +174,6 @@ export const TRUNCATED = '[nalanda] salida truncada: el programa imprimió demas
 export const HARNESS_CLASS = 'NalandaCheck';
 
 /**
- * Entry class of the memory tracer (`components/interactive/trace.ts`).
- *
- * Declared here for the same reason as the harness: the reserved set is enforced
- * by the runtime, and `runtime → components` is not an allowed edge.
- */
-export const TRACE_CLASS = 'NalandaTrace';
-
-/**
  * Class names a student's program may not use.
  *
  * Both units compile into one shared output directory, so a student class named
@@ -190,8 +182,13 @@ export const TRACE_CLASS = 'NalandaTrace';
  * compiled at warm-up, and since that compile is memoised every editor on the
  * page then ran the student's `main` — exercises nobody had touched reported a
  * full pass.
+ *
+ * A third name was reserved between #116 and #209 for a widget that used a
+ * platform class of that name; that widget was retired in #209 (the ADR
+ * superseding 0028), so the reserved set is back to the launcher and the
+ * harness — the two units the platform still ships.
  */
-export const RESERVED_CLASSES = [LAUNCHER_CLASS, HARNESS_CLASS, TRACE_CLASS];
+export const RESERVED_CLASSES = [LAUNCHER_CLASS, HARNESS_CLASS];
 
 /**
  * The reserved names a compilation unit declares, in the order it declares them.
@@ -216,10 +213,7 @@ export const RESERVED_CLASSES = [LAUNCHER_CLASS, HARNESS_CLASS, TRACE_CLASS];
  *   `Solucion$NalandaLauncher.class` and overwrites no platform `.class`, so
  *   brace depth is tracked and only the top level counts. Everything at depth 0
  *   in a Java file is a package, an import or a type declaration, which is also
- *   why matching there cannot mistake a `Foo.class` literal for one. It is not a
- *   free pass in every direction: a nested `NalandaTrace` still captures the
- *   calls `instrument()` injects into the author's own class, which `trace.ts`
- *   documents where it matters.
+ *   why matching there cannot mistake a `Foo.class` literal for one.
  * - **A mention.** A comment explaining the rule, and a string holding
  *   `"class NalandaCheck {"`, are blank by the time the scan runs.
  *

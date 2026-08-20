@@ -5,7 +5,6 @@ import {
   LAUNCHER_CLASS,
   LAUNCHER_SOURCE,
   RESERVED_CLASSES,
-  TRACE_CLASS,
   TRUNCATED,
   deriveEntryClass,
   reservedDeclarations,
@@ -111,11 +110,12 @@ describe('output cap', () => {
   });
 
   it('reserves every class name the platform compiles', () => {
-    // Two when this was written; three since #116 added the tracer, which the
-    // title went on denying until #123.
+    // Two units ship platform code today (this launcher and the exercise
+    // harness), so two names are reserved. A third was reserved through #116
+    // and retired in #209 with the widget that owned it.
     expect(RESERVED_CLASSES).toContain(LAUNCHER_CLASS);
     expect(RESERVED_CLASSES).toContain(HARNESS_CLASS);
-    expect(RESERVED_CLASSES).toContain(TRACE_CLASS);
+    expect(RESERVED_CLASSES).toHaveLength(2);
   });
 });
 
@@ -129,7 +129,7 @@ describe('reservedDeclarations', () => {
     expect(reservedDeclarations(source)).toEqual([LAUNCHER_CLASS]);
   });
 
-  it.each([HARNESS_CLASS, TRACE_CLASS, LAUNCHER_CLASS])('finds %s', (reserved) => {
+  it.each([HARNESS_CLASS, LAUNCHER_CLASS])('finds %s', (reserved) => {
     expect(reservedDeclarations(`public class Solucion {}\nclass ${reserved} {}`)).toEqual([
       reserved,
     ]);
@@ -138,9 +138,9 @@ describe('reservedDeclarations', () => {
   it.each(['class', 'interface', 'enum'])('finds the %s form', (keyword) => {
     // All three declare the same binary name, so all three overwrite the same
     // .class in the shared output directory.
-    expect(reservedDeclarations(`public class Solucion {}\n${keyword} ${TRACE_CLASS} {}`)).toEqual([
-      TRACE_CLASS,
-    ]);
+    expect(
+      reservedDeclarations(`public class Solucion {}\n${keyword} ${LAUNCHER_CLASS} {}`),
+    ).toEqual([LAUNCHER_CLASS]);
   });
 
   it('finds the entry class itself', () => {
@@ -162,7 +162,7 @@ describe('reservedDeclarations', () => {
       `// nunca escribas class ${LAUNCHER_CLASS} en tu programa`,
       `@SuppressWarnings("class ${HARNESS_CLASS} {")`,
       'public class Solucion {',
-      `  String s = "class ${TRACE_CLASS} {";`,
+      `  String s = "class ${LAUNCHER_CLASS} {";`,
       '}',
     ].join('\n');
 

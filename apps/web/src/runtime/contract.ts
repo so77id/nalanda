@@ -46,24 +46,6 @@ export interface RunRequest {
    * exercise that verified nothing.
    */
   harness?: string;
-  /**
-   * A second compilation unit, compiled beside `source` and never run.
-   *
-   * The mirror image of `harness`: platform code the snippet CALLS while the
-   * snippet keeps `main`. It exists so a memory diagram can compile its tracer
-   * next to the author's program — as a `harness` the tracer would be run
-   * instead of the program (and it has no `main`), and swapping the two trips
-   * the reserved-name guard on the platform's own class.
-   *
-   * That guard reads every top-level declaration in `source`, and every one in
-   * `harness` except the name that unit owns — not their entry classes alone
-   * (#123). It skips this field entirely, deliberately: it exists to stop a
-   * student's class shadowing a platform one, and the platform's own unit
-   * arriving here is the intended use. Unlike `harness`, which carries an
-   * author's `test` fence into a compilation unit, `library` is reachable only
-   * from a module constant.
-   */
-  library?: string;
 }
 
 /** Sent once, unprompted, when the runtime has finished booting. */

@@ -274,57 +274,6 @@ describe('createJavaRuntime', () => {
     });
   });
 
-  // A memory diagram needs the opposite arrangement: a platform class compiled
-  // beside the snippet that the snippet CALLS, while the snippet keeps `main`.
-  // Neither existing shape can express it — as `harness` the tracer would be run
-  // instead of the snippet (and it has no `main`), and swapping the two trips the
-  // reserved-name guard on the platform's own class.
-  describe('with a library', () => {
-    const snippet = 'public class Demo { public static void main(String[] a) { } }';
-    const library = 'public class NalandaTrace { static void inicio(int l, String m) {} }';
-
-    it('compiles the library alongside the source', async () => {
-      const worker = createJavaRuntime('/');
-      const seen = listen(worker);
-      worker.postMessage({ id: 1, source: snippet, stdin: '', library });
-
-      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
-      const compile = invocations.find(
-        (invocation) =>
-          invocation.mainClass.includes('jdt') &&
-          invocation.args.some((arg) => arg.endsWith('Demo.java')),
-      );
-      expect(compile?.args).toEqual(
-        expect.arrayContaining([
-          expect.stringContaining('Demo.java'),
-          expect.stringContaining('NalandaTrace.java'),
-        ]),
-      );
-    });
-
-    it('leaves the entry point on the source', async () => {
-      const worker = createJavaRuntime('/');
-      const seen = listen(worker);
-      worker.postMessage({ id: 1, source: snippet, stdin: '', library });
-
-      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
-      const run = invocations.find((invocation) => invocation.mainClass === 'NalandaLauncher');
-      expect(run?.args[0]).toBe('Demo');
-    });
-
-    it('does not apply the reserved-name guard to the platform unit', async () => {
-      // The guard exists to stop a STUDENT class shadowing a platform one. The
-      // platform's own class arriving as a library is the intended use, and
-      // refusing it here would refuse every memory diagram.
-      const worker = createJavaRuntime('/');
-      const seen = listen(worker);
-      worker.postMessage({ id: 1, source: snippet, stdin: '', library });
-
-      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
-      expect(results(seen)[0]!.compileLog).not.toMatch(/reservado/i);
-    });
-  });
-
   describe('with a harness, continued', () => {
     const harness = 'public class NalandaCheck { public static void main(String[] a) {} }';
 
@@ -368,19 +317,6 @@ describe('createJavaRuntime', () => {
       expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
     });
 
-    it('refuses a student class named after the tracer', async () => {
-      // Same hazard as the other two, reached through a different door: a memory
-      // diagram compiles NalandaTrace beside the snippet, so a snippet declaring
-      // that name would overwrite the class collecting the trace and the diagram
-      // would draw whatever the student's version emitted.
-      const worker = createJavaRuntime('/');
-      const seen = listen(worker);
-      worker.postMessage({ id: 1, source: 'public class NalandaTrace {}', stdin: '', harness });
-
-      await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
-      expect(results(seen)[0]!.compileLog).toMatch(/reservado/i);
-    });
-
     it('refuses a reserved class declared BESIDE the public one', async () => {
       // The hole this guard had: `deriveEntryClass` returns the public class, so
       // the second declaration was never looked at — and ECJ compiled it into
@@ -406,17 +342,17 @@ describe('createJavaRuntime', () => {
       );
     });
 
-    it.each(['NalandaCheck', 'NalandaTrace'])('refuses a secondary %s too', async (reserved) => {
+    it('refuses a secondary NalandaCheck too', async () => {
       const worker = createJavaRuntime('/');
       const seen = listen(worker);
       worker.postMessage({
         id: 1,
-        source: ['public class Solucion { }', `class ${reserved} { }`].join('\n'),
+        source: ['public class Solucion { }', 'class NalandaCheck { }'].join('\n'),
         stdin: '',
       });
 
       await vi.waitFor(() => expect(results(seen)).toHaveLength(1));
-      expect(results(seen)[0]!.compileLog).toMatch(new RegExp(`${reserved}.*reservado`, 'i'));
+      expect(results(seen)[0]!.compileLog).toMatch(/NalandaCheck.*reservado/i);
     });
 
     it.each(['interface', 'enum'])('refuses the %s form as well', async (keyword) => {
@@ -424,7 +360,7 @@ describe('createJavaRuntime', () => {
       const seen = listen(worker);
       worker.postMessage({
         id: 1,
-        source: ['public class Solucion { }', `${keyword} NalandaTrace { }`].join('\n'),
+        source: ['public class Solucion { }', `${keyword} NalandaLauncher { }`].join('\n'),
         stdin: '',
       });
 

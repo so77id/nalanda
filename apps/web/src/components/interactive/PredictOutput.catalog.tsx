@@ -52,7 +52,7 @@ export const predictOutputCatalogEntry: CatalogEntry = {
     'Java only, and Java 8 like everything else here (`runtime/java/runtime.ts` pins the CheerpJ version). ' +
     "The reader's typed prediction is deliberately disposable. Unlike `<CodeEditor>` and `<Exercise>` (which save to localStorage before every run, ADR-0020), the prediction lives in React state only — a tab freeze loses it and a reload loses it. That is the design: the prediction only earns its keep next to the reveal it faces, and pretending the reader is committed for the next session would be pretending. " +
     'The same Java sharp edge CodeEditor carries applies to this component too (ADR-0017): a snippet that never terminates freezes the tab and no timeout recovers it. Keep the snippets terminating — this component exists for pinpoint programs, not for loops. Two of these on one page share one JVM and one queue with every other Java editor on the page — the footer says so while it waits. ' +
-    'The three platform class names are reserved everywhere Java compiles here — `NalandaLauncher`, `NalandaCheck` and `NalandaTrace` (#123). A snippet declaring one at top level is refused before the JVM boots, not silently corrupted.',
+    'Two platform class names are reserved everywhere Java compiles here — `NalandaLauncher` (the run harness) and `NalandaCheck` (the exercise harness) — since #123. A snippet declaring either at top level is refused before the JVM boots, not silently corrupted. A third name was reserved between #116 and #209 for a widget that was retired.',
   props: [
     {
       name: 'title',

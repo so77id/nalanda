@@ -283,11 +283,20 @@ check-off, attendance or any record — including anything a future backend
 collects. At that point checking has to move off the student's machine; hardening
 the in-band protocol would not be enough.
 
-### The second platform class arrived (#116, 2026-08-14)
+### The second platform class arrived (#116, 2026-08-14) — RETIRED in #209
 
 The trigger above also said to revisit "if a second platform class is ever
-compiled alongside student code". `NalandaTrace` (ADR-0028) is that class. The
-disposition:
+compiled alongside student code". `NalandaTrace` (ADR-0028) was that class,
+compiled beside the snippet by the memory-diagram widget of the day. The
+widget and its platform class were retired in #209 (the ADR superseding 0028),
+so the third reserved name is gone and the `library` compilation unit is out
+of `RunRequest`. The dispositions below are preserved as history — they
+motivate the reserved-name guard on `source` and `harness`, which stays as
+`reservedDeclarations` in `java/launcher.ts` — but the WORKED case they name
+is historical. Any FUTURE second platform class trips the same review trigger
+above; the guard covers the shape, not one field name.
+
+Original disposition (historical):
 
 - **It is recompiled on every run**, as the request's `library` unit, so a
   student class shadowing it from another editor on the page does not persist —
