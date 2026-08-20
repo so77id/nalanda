@@ -878,7 +878,7 @@ En Java, `this` dentro de un método de instancia es:
 - [x] Una referencia al objeto sobre el que se llamó el método
 - [ ] Un puntero al objeto (con aritmética permitida)
 - [ ] Un alias de una variable local del método
-- [ ] La clase, no el objeto — como `Clase::` en C++
+- [ ] Un objeto especial que representa a la clase misma (equivalente a `Persona.class`)
 
 </Question>
 
@@ -925,7 +925,7 @@ sobrescriben?
 - [x] Porque el compilador verifica que sobrescriben algo: un typo pasa a ser error de build
 - [ ] Porque acelera la ejecución del método en runtime
 - [ ] Porque es obligatorio para que la sobrescritura funcione
-- [ ] Porque marca el método como `virtual`, que en Java es opt-in
+- [ ] Porque `@Override` hace la llamada más rápida al saltarse la búsqueda dinámica
 
 </Question>
 
