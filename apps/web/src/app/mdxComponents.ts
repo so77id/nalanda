@@ -15,6 +15,8 @@ import {
   SideBySide,
   Slide,
   Split,
+  Step,
+  StepShow,
 } from '../components';
 import { contentMdxComponents } from '../content';
 
@@ -72,4 +74,11 @@ export const mdxComponents = {
   // alternative and buys nothing scoped to one component). No CodeMirror, no
   // runtime seam: the eager-graph walk in architecture.test.ts stays happy.
   RecursionTree,
+  // Not lazy: draws a plain listing (no CodeMirror grammar or core) and hosts
+  // arbitrary JSX. The whole point of #209's reversal is that this replaces
+  // <MemoryDiagram>'s runtime seam with a static widget — pulling in a lazy
+  // wrapper here would put a Suspense boundary around every page that steps
+  // through anything, for a component that has nothing async to load.
+  StepShow,
+  Step,
 };

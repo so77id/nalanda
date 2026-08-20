@@ -23,6 +23,7 @@ export { SheetEmbed } from './media/SheetEmbed';
 export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { RecursionTree } from './interactive/RecursionTree';
+export { Step, StepShow } from './interactive/StepShow';
 export { Mosaic } from './structure/Mosaic';
 export { SectionBreak } from './structure/SectionBreak';
 export { SideBySide } from './structure/SideBySide';
