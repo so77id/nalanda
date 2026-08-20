@@ -33,7 +33,12 @@ type PoolSnapshot struct {
 		QuestionsPerCopy int    `json:"questions_per_copy"`
 		Copies           int    `json:"copies"`
 		DuplexPadding    bool   `json:"duplex_padding"`
-		Seed             int64  `json:"seed"`
+		// Paper is "letter" or "a4" (issue #208, ADR-0043). Recorded like
+		// DuplexPadding: both are generation-time preferences the backup
+		// needs to reproduce source.tex from — ticked/unsure stay off the
+		// snapshot because they are read-time thresholds re-set per batch.
+		Paper string `json:"paper"`
+		Seed  int64  `json:"seed"`
 		// Unix seconds. The snapshot's own write time, evaluated when the
 		// file is written — the control row's created_at stays where it is
 		// (persist time), the two timestamps differ by the generation.
@@ -81,6 +86,7 @@ func writePoolSnapshot(path string, id string, req CreateRequest, pool []bank.Qu
 	snap.Control.QuestionsPerCopy = req.QuestionsPerCopy
 	snap.Control.Copies = req.Copies
 	snap.Control.DuplexPadding = req.DuplexPadding
+	snap.Control.Paper = string(paperOrDefault(req.Paper))
 	snap.Control.Seed = seed
 	snap.Control.CreatedAt = now.Unix()
 

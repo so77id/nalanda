@@ -1,6 +1,6 @@
 # ADR-0042: Control sheets are printed on US Letter paper
 
-**Status:** Accepted — one verification outstanding, see §Not yet proven
+**Status:** Superseded by ADR-0043
 **Date:** 2026-08-20
 **Decision-makers:** Miguel Rodriguez
 **Source:** #206, incident 2026-08-19 (Jetson, control WNME7QU6SZD26KFM5CBJD3QM4E,

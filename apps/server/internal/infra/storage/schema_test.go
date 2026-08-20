@@ -277,6 +277,59 @@ func TestControlDuplexPaddingDefaultsToPaddedWhenTheColumnIsOmitted(t *testing.T
 	}
 }
 
+// Issue #208: the professor picks Letter or A4 in a `<details> Opciones
+// avanzadas` block of the create form; the preference persists on the control
+// so a future WP-G regenerate honours it. Default = 'letter' so every control
+// created before the column existed (and any test insert that omits it) reads
+// back as such — the operational default from ADR-0043.
+func TestControlPaperDefaultsToLetterWhenTheColumnIsOmitted(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO control (
+            id, name, application_date,
+            from_document, from_section, to_document, to_section,
+            questions_per_copy, copies, state, created_at, created_by
+        ) VALUES (?, 'x', NULL, 'flujo', 'if-else', 'flujo', 'bucles', 4, 3, 'generated', 0, ?)`,
+		"CTRLPAPER00000000000000000", userID,
+	); err != nil {
+		t.Fatalf("insert without paper: %v", err)
+	}
+
+	var paper string
+	err := db.QueryRowContext(ctx,
+		`SELECT paper FROM control WHERE id = ?`,
+		"CTRLPAPER00000000000000000",
+	).Scan(&paper)
+	if err != nil {
+		t.Fatalf("read back paper: %v", err)
+	}
+	if paper != "letter" {
+		t.Errorf("paper = %q, want %q (a control without an explicit choice is Letter, ADR-0043)", paper, "letter")
+	}
+}
+
+// Issue #208: only 'letter' and 'a4' are legal; the schema CHECK refuses
+// anything else so a caller that invents a third value fails at the write,
+// not at the read. Mirrors the duplex_padding CHECK in 00006.
+func TestControlPaperCheckRefusesUnknownValue(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+
+	_, err := db.ExecContext(ctx, `
+        INSERT INTO control (
+            id, name, application_date,
+            from_document, from_section, to_document, to_section,
+            questions_per_copy, copies, paper, state, created_at, created_by
+        ) VALUES (?, 'x', NULL, 'flujo', 'if-else', 'flujo', 'bucles', 4, 3, ?, 'generated', 0, ?)`,
+		"CTRLPAPERBAD0000000000000A", "legal", userID,
+	)
+	if err == nil {
+		t.Error("insert with paper = 'legal' accepted; the CHECK constraint should refuse anything outside ('letter','a4')")
+	}
+}
+
 // Issue #190: the annotated_copy table records where the PDF anotado for one
 // copia lives on the shared volume, when it was generated, and which copia it
 // belongs to. Nothing about the contents in the DB — path is the whole point.

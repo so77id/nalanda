@@ -287,6 +287,25 @@ did not exist when the compose file first referenced it (#149 S6), and only
 running the thing said so — which is why the pre-PR protocol ends in Docker
 rather than in `go test`.
 
+**A form-render test for an enum-valued input (radio or select) asserts the
+chosen value carries `checked` AND every other value does NOT, in the same
+test.** The pair kills two mutations at once — "both values render `checked`"
+and "no value renders `checked`" — either of which a presence-only test
+passes. Same shape as the printed-sheet tests one level down (a
+`\documentclass` test that asserts the presence of `letterpaper` AND the
+absence of `a4paper` is what caught the reversal of the #206 fix; a
+form-render test that asserts `paper=letter` is `checked` AND `paper=a4`
+is not is what pins the analogous mutation at the HTML). Worked cases:
+`TestNewRendersThePaperRadioWithLetterCheckedByDefault` and
+`TestFormRefusalEchoesBackTheA4Choice` in `controls_test.go` (#208), plus
+the `TestPreamble*Paper*` trio in `tex_test.go` (#208). The pair test also
+carries an attribute-order-agnostic regex when the assertion reads HTML
+directly — matching against `name="paper"` alone allows the same test to
+pass over `<input checked value="a4" name="paper">` and
+`<input name="paper" value="a4" checked>` alike, but every stray
+`checked` on any other input on the page then satisfies it. Anchor the
+regex on `name=` + `value=` + `checked` together.
+
 ## Conventions (all apps)
 
 These were learned in one app and apply to every one. They sit above the

@@ -58,8 +58,10 @@ func newControl(id string, userID int64, appDate *time.Time) controls.Control {
 		QuestionsPerCopy: 4,
 		Copies:           3,
 		// Issue #197: the product defaults, like Service.Create writes.
-		Ticked:    controls.DefaultTicked,
-		Unsure:    controls.DefaultUnsure,
+		Ticked: controls.DefaultTicked,
+		Unsure: controls.DefaultUnsure,
+		// Issue #208: the operational default (ADR-0043).
+		Paper:     controls.DefaultPaper,
 		State:     controls.Generated,
 		CreatedAt: time.Unix(1_755_360_000, 0).UTC(),
 		CreatedBy: userID,
@@ -138,6 +140,36 @@ func TestCreateControlPersistsDuplexPaddingBothWays(t *testing.T) {
 		}
 		if got.DuplexPadding != tc.val {
 			t.Errorf("round-trip: DuplexPadding = %v, want %v", got.DuplexPadding, tc.val)
+		}
+	}
+}
+
+// Issue #208: the professor's paper choice persists on the control so a future
+// WP-G regenerate honours it. Both values round-trip.
+func TestCreateControlPersistsPaperBothWays(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+
+	pool := []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}
+	for _, tc := range []struct {
+		id  string
+		val controls.Paper
+	}{
+		{"CTRLPAPER000000000000000LT", controls.PaperLetter},
+		{"CTRLPAPER000000000000000A4", controls.PaperA4},
+	} {
+		c := newControl(tc.id, userID, nil)
+		c.Paper = tc.val
+		if err := store.CreateControl(ctx, c, pool); err != nil {
+			t.Fatalf("CreateControl(%s, %v): %v", tc.id, tc.val, err)
+		}
+		got, err := store.ControlByID(ctx, tc.id)
+		if err != nil {
+			t.Fatalf("ControlByID(%s): %v", tc.id, err)
+		}
+		if got.Paper != tc.val {
+			t.Errorf("round-trip: Paper = %v, want %v", got.Paper, tc.val)
 		}
 	}
 }

@@ -46,6 +46,17 @@ func (e PoolTooSmallErr) Error() string {
 }
 func (e PoolTooSmallErr) Unwrap() error { return ErrPoolTooSmall }
 
+// paperOrDefault resolves an empty request field to DefaultPaper. A caller
+// that omits the field never lands on a schema CHECK failure; a caller
+// that sends a garbage value does — the handler's own ValidPaper is the
+// gate for that path.
+func paperOrDefault(p Paper) Paper {
+	if p == "" {
+		return DefaultPaper
+	}
+	return p
+}
+
 // Service is the orchestration layer of §Design: it turns a form submission
 // into files on disk plus a row in the database, all-or-nothing.
 //
@@ -127,7 +138,13 @@ type CreateRequest struct {
 	// one page per copy for simplex printing. Handler always passes an
 	// explicit value; there is no Go-level default. Issue #185.
 	DuplexPadding bool
-	CreatedBy     int64
+	// Paper is the physical sheet the printed PDF is laid out for.
+	// Handler always passes one of the two enumerated values (PaperLetter
+	// or PaperA4) — an empty string arriving here is a caller bug that
+	// Create resolves to DefaultPaper as a defensive belt over the
+	// schema CHECK. Issue #208, ADR-0043.
+	Paper     Paper
+	CreatedBy int64
 }
 
 // Create is the whole orchestration: resolve the range against the bank,
@@ -195,6 +212,8 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 		Seed:             s.Seed,
 		ListingsDir:      workerPath(project, "inputs"),
 		DuplexPadding:    req.DuplexPadding,
+		// Issue #208, ADR-0043: same guard as the persisted field below.
+		Paper: string(paperOrDefault(req.Paper)),
 	})
 	if err != nil {
 		rollback()
@@ -250,6 +269,11 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 		QuestionsPerCopy: req.QuestionsPerCopy,
 		Copies:           req.Copies,
 		DuplexPadding:    req.DuplexPadding,
+		// Issue #208: honour the professor's choice, falling back to the
+		// default when a caller (a test, a future JSON API, a bug) sends
+		// an empty value — the schema CHECK would refuse "" and this
+		// resolves it to the operational default instead of failing loud.
+		Paper: paperOrDefault(req.Paper),
 		// Issue #197: the product defaults; the upload and reanalyse
 		// forms change them per batch afterwards.
 		Ticked:    DefaultTicked,

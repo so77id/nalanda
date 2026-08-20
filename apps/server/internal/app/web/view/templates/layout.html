@@ -90,9 +90,10 @@
       }
 
       /* Scan images on the review page are the physical scan's native
-         resolution (300 dpi × US Letter = ~2550×3300 px, ADR-0042). Without
-         a max-width the browser lays them out at natural size and the sheet
-         overflows every viewport. */
+         resolution — either ~2550×3300 px (US Letter) or ~2480×3508 px
+         (A4), at 300 dpi (ADR-0043 makes the paper per-control). Without
+         a max-width the browser lays them out at natural size and the
+         sheet overflows every viewport. */
       .review-image img { max-width: 100%; height: auto; }
       /* The corrected PDF (issue #190) renders in the browser's own viewer
          through an iframe; a fixed height keeps the review form's left

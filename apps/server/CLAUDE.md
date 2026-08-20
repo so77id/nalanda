@@ -150,12 +150,17 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   same reason, as `apps/amc-worker/PAPER-CHECK.md`.
 - **Nothing here can test paper, either.** The tex generator lives in
   `internal/domain/controls/tex/**`, and the suite pins tokens
-  (`TestPreambleDeclaresLetterPaperNotA4` pins `letterpaper` and the absence of
-  `a4paper`, ADR-0042) but sees no printer, no scanner and no ink. Any change to
-  the preamble — paper option, font size, margin package, an added `\usepackage`
-  — is unfinished while `apps/amc-worker/PAPER-CHECK.md` has not run against it.
-  Same rule, and the same reason, as the Google bullet above; the failure mode
-  is on paper (2026-08-19: 44 pages `+0/0/0+`, ADR-0042 §Context).
+  (`TestPreambleDeclaresLetterPaperWhenInputSaysLetter` and its A4/empty
+  twins pin each `\documentclass` option's presence and the others'
+  absence, ADR-0043) but sees no printer, no scanner and no ink. Any change
+  to the preamble — paper option, font size, margin package, an added
+  `\usepackage` — is unfinished while `apps/amc-worker/PAPER-CHECK.md` has
+  not run against it. Since ADR-0043 the professor picks paper per
+  control, so a real check now needs one Letter batch and one A4 batch
+  (PAPER-CHECK.md §1). Same rule, and the same reason, as the Google
+  bullet above; the failure mode is on paper (2026-08-19: 44 pages
+  `+0/0/0+`, ADR-0042 §Context — the fixed-Letter that ADR-0043 makes
+  configurable).
 - **The two surfaces do not share an auth gate** (§C12). Everything auth-shaped
   is mounted inside `internal/app/web`; `internal/app/api` is anonymous by
   construction, and `/health` sits deliberately outside the gate because the
