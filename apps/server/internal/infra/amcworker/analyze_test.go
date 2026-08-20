@@ -154,11 +154,19 @@ func TestAnalyzeRefusalCarriesWorkerMessageAndDetail(t *testing.T) {
 	if !errors.As(err, &wrapped) {
 		t.Fatalf("Analyze: %v; want *AnalyzerRefusedError via errors.As", err)
 	}
-	if !strings.Contains(wrapped.Message, "scan not recognized") {
-		t.Errorf("Message = %q; must include the worker's error text", wrapped.Message)
+	if wrapped.Status != http.StatusBadRequest {
+		t.Errorf("Status = %d; want %d — a consumer picking recoverable vs structural refusals needs this", wrapped.Status, http.StatusBadRequest)
+	}
+	if wrapped.Message != "scan not recognized" {
+		t.Errorf("Message = %q; want the worker's raw summary without a status prefix", wrapped.Message)
 	}
 	if wrapped.Detail != "ERR: /work/x/scans/a not recognized\nERR: /work/x/scans/b not recognized" {
 		t.Errorf("Detail = %q; want the raw stderr excerpt", wrapped.Detail)
+	}
+	// The Error() composition still names the status and message for the
+	// log line — the shape pre-#210 log parsers were reading.
+	if !strings.Contains(err.Error(), "worker answered 400: scan not recognized") {
+		t.Errorf("err.Error() = %q; must still log status+message", err.Error())
 	}
 }
 

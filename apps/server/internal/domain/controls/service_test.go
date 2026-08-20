@@ -436,8 +436,8 @@ func TestUploadScanPreservesTheBatchOnWorkerRefusal(t *testing.T) {
 	}
 
 	gen.AnalyzeErr = &controls.AnalyzerRefusedError{
-		Message: "worker answered 400: scan not recognized",
-		Detail:  "ERR: /work/controls/x/scans/0001.pdf scan not recognized",
+		Status: 400, Message: "scan not recognized",
+		Detail: "ERR: /work/controls/x/scans/0001.pdf scan not recognized",
 	}
 	_, err = svc.UploadScan(context.Background(), controls.UploadRequest{
 		ControlID: control.ID,

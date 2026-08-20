@@ -394,7 +394,12 @@ func firstDetailLine(err error) string {
 
 // truncateRunes caps s to n runes, adding an ellipsis when it did not
 // fit. Rune-safe so a multi-byte character does not get cut mid-sequence.
+// n <= 0 returns the empty string — a caller asking for "no room" gets
+// nothing rather than a lone ellipsis (review-fix, WP-210).
 func truncateRunes(s string, n int) string {
+	if n <= 0 {
+		return ""
+	}
 	runes := []rune(s)
 	if len(runes) <= n {
 		return s

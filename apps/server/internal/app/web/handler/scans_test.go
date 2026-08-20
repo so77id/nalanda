@@ -453,8 +453,8 @@ func TestUploadScanRefusedFlashCarriesFirstLineOfDetail(t *testing.T) {
 	f := newControlsFixture(t)
 	controlID := f.createControl(t, "Control 210 upload with detail", 1)
 	f.fake.AnalyzeErr = &controls.AnalyzerRefusedError{
-		Message: "worker answered 400: scan not recognized",
-		Detail:  "ERR: /work/controls/x/scans/0001.pdf scan not recognized\nERR: /work/controls/x/scans/0002.pdf scan not recognized",
+		Status: 400, Message: "scan not recognized",
+		Detail: "ERR: /work/controls/x/scans/0001.pdf scan not recognized\nERR: /work/controls/x/scans/0002.pdf scan not recognized",
 	}
 
 	body, ct := buildScanUpload(t, "batch.pdf", "application/pdf", []byte("%PDF-fake"))
@@ -492,7 +492,7 @@ func TestUploadScanRefusedFlashFallsBackWhenDetailEmpty(t *testing.T) {
 	f := newControlsFixture(t)
 	controlID := f.createControl(t, "Control 210 upload no detail", 1)
 	f.fake.AnalyzeErr = &controls.AnalyzerRefusedError{
-		Message: "worker answered 400: bad request",
+		Status: 400, Message: "bad request",
 	}
 
 	body, ct := buildScanUpload(t, "batch.pdf", "application/pdf", []byte("%PDF-fake"))
@@ -527,8 +527,8 @@ func TestUploadScanRefusedFlashSkipsBlankLinesAndTruncatesLongOnes(t *testing.T)
 	controlID := f.createControl(t, "Control 210 truncation", 1)
 	long := strings.Repeat("A", 800)
 	f.fake.AnalyzeErr = &controls.AnalyzerRefusedError{
-		Message: "worker answered 400",
-		Detail:  "\n\n   \n" + long,
+		Status: 400,
+		Detail: "\n\n   \n" + long,
 	}
 	body, ct := buildScanUpload(t, "batch.pdf", "application/pdf", []byte("%PDF-fake"))
 	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/scans", nil)
@@ -563,8 +563,8 @@ func TestReanalyzeRefusedFlashCarriesFirstLineOfDetail(t *testing.T) {
 	uploadOnce(t, f, controlID)
 
 	f.fake.ReanalyzeErr = &controls.AnalyzerRefusedError{
-		Message: "worker answered 400: no captures",
-		Detail:  "nothing to re-read on /work/controls/y\nsecond line",
+		Status: 400, Message: "no captures",
+		Detail: "nothing to re-read on /work/controls/y\nsecond line",
 	}
 	values := url.Values{"ticked": {"0.20"}, "unsure": {"0.05"}}
 	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/reanalyze", values)

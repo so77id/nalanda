@@ -3,6 +3,7 @@ package controls
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -174,39 +175,60 @@ var (
 	ErrAnalyzerUnavailable = errors.New("controls: the AMC worker is unreachable")
 )
 
-// AnalyzerRefusedError carries the fields the worker reported alongside a
-// refused /analyse or /reanalyse. Callers that only need to branch keep
+// AnalyzerRefusedError carries the fields the analyzer reported alongside
+// a refused /analyse or /reanalyse. Callers that only need to branch keep
 // using errors.Is(err, ErrAnalyzerRefused); callers that render the
 // failure (log, flash, future UI) use errors.As on this type to reach
-// Message and Detail without re-parsing the error string. Issue #210.
+// Status, Message and Detail without re-parsing the error string.
+// Issue #210.
 //
-// Detail carries the worker's raw stderr excerpt (up to 4000 chars per
-// apps/amc-worker/worker.py). Truncation is a rendering concern owned by
-// the caller — the struct keeps the full string so a future consumer
-// (a debug view, a "download the log" flow) can read it whole.
+// The type is engine-neutral by design: Status is the HTTP status the
+// analyzer answered with, Message is the short human summary it chose,
+// and Detail is whatever free-form context it attached — an excerpt of
+// its own stderr in the current AMC-worker implementation. A future
+// non-AMC analyzer (ADR-0031) fills the same fields with whatever
+// equivalents it produces.
 //
-// The field for the worker's "error" JSON is called Message rather than
-// Error because Go forbids a struct field and a method to share a name,
-// and this type implements the error interface via Error() string.
+// The struct keeps Detail whole so a future consumer (a debug view, a
+// "download the analyzer log" flow) can render it in full; truncation
+// for logs and UI is the renderer's concern, not this type's.
+//
+// The field for the analyzer's short summary is called Message rather
+// than Error because Go forbids a struct field and a method to share a
+// name, and this type implements the error interface via Error() string.
 type AnalyzerRefusedError struct {
-	// Message is the "error" field from the worker's JSON envelope — a
-	// short human summary the worker chose. May be empty when the worker
-	// answered a non-2xx with a body that did not parse as its error
-	// envelope; the caller then only knows the failure was structural.
+	// Status is the HTTP status code the analyzer answered with (a 4xx
+	// today), or 0 when the caller did not have one to record. Callers
+	// rendering the failure branch on this to distinguish structural
+	// refusals (400/422) from ones the analyzer may recover from (503).
+	Status int
+	// Message is the short human summary the analyzer chose. May be
+	// empty when the analyzer answered with a body that did not parse
+	// as its error envelope — the caller then only knows the failure
+	// was structural.
 	Message string
-	// Detail is the "detail" field — up to 4000 chars of AMC's stderr,
-	// verbatim. May be empty.
+	// Detail is the free-form context the analyzer attached, kept
+	// whole. May be empty.
 	Detail string
 }
 
-// Error satisfies the error interface. Format mirrors the pre-#210 wrap
-// (`%w: %s` on ErrAnalyzerRefused and Message) so log lines that captured
-// err.Error() still read the same shape.
+// Error satisfies the error interface. Composes Status and Message into
+// the same shape pre-#210 callers logged (`worker answered NNN: msg`) so
+// existing log parsers keep reading the same text.
 func (e *AnalyzerRefusedError) Error() string {
-	if e == nil || e.Message == "" {
+	if e == nil {
 		return ErrAnalyzerRefused.Error()
 	}
-	return ErrAnalyzerRefused.Error() + ": " + e.Message
+	switch {
+	case e.Status != 0 && e.Message != "":
+		return fmt.Sprintf("%s: worker answered %d: %s", ErrAnalyzerRefused, e.Status, e.Message)
+	case e.Status != 0:
+		return fmt.Sprintf("%s: worker answered %d", ErrAnalyzerRefused, e.Status)
+	case e.Message != "":
+		return ErrAnalyzerRefused.Error() + ": " + e.Message
+	default:
+		return ErrAnalyzerRefused.Error()
+	}
 }
 
 // Unwrap returns ErrAnalyzerRefused so errors.Is on the sentinel keeps
