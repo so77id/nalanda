@@ -162,8 +162,21 @@ func (c *Client) Generate(ctx context.Context, req controls.GenerateRequest) (co
 		// do not fail closed if it is not JSON: the value here is the
 		// status and the raw body's leading text, both useful for
 		// diagnosis.
+		//
+		// `detail` is the last 4000 chars of AMC's stderr — the LaTeX
+		// error, the missing file, the pdflatex Emergency stop. Without
+		// it "prepare failed (1)" is unactionable (issue #206 §Notes
+		// follow-up: "Worker payload.Detail is not propagated to the
+		// server log — the 44 ERR lines never appeared, forcing manual
+		// reproduction to diagnose"). Capped so the wire-worst case of a
+		// full 4000-char AMC dump still fits one log line.
 		var payload workerError
 		if jerr := json.Unmarshal(respBody, &payload); jerr == nil && payload.Error != "" {
+			if payload.Detail != "" {
+				return controls.Assets{}, fmt.Errorf("%w: %s answered %d: %s (worker detail: %s)",
+					controls.ErrGeneratorRefused, req.Project, resp.StatusCode,
+					payload.Error, truncateDetail(payload.Detail))
+			}
 			return controls.Assets{}, fmt.Errorf("%w: %s answered %d: %s",
 				controls.ErrGeneratorRefused, req.Project, resp.StatusCode, payload.Error)
 		}
@@ -202,6 +215,23 @@ func truncateForLog(b []byte) string {
 		return string(b[:max]) + "…"
 	}
 	return string(b)
+}
+
+// truncateDetail keeps the worker's AMC-stderr detail short enough to fit a
+// single log line. 1200 chars covers a Package Listings Error's file line,
+// an Emergency stop, and the "Fatal error occurred" tail — the three lines
+// that identify what pdflatex actually rejected. The worker itself caps at
+// 4000, so this is a second gate against a runaway log entry.
+func truncateDetail(s string) string {
+	const max = 1200
+	// Newlines interpolated into a slog Errorf line become "\n" that
+	// splits the message across lines — a log aggregator then sees
+	// several unindexable half-messages. Collapse.
+	s = strings.ReplaceAll(s, "\n", " | ")
+	if len(s) > max {
+		return s[:max] + "…"
+	}
+	return s
 }
 
 // Assert the interface at compile time — the storage.Prober shape.
