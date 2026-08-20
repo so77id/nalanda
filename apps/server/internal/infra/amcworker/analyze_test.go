@@ -128,6 +128,64 @@ func TestAnalyzeRefusedOn4xxWrapsErrAnalyzerRefused(t *testing.T) {
 	}
 }
 
+// Issue #210: a refused analyse (or reanalyse) reaches the caller as a
+// typed *AnalyzerRefusedError that carries the worker's Message and Detail
+// verbatim. errors.Is on the sentinel still matches — the type wraps it.
+// Callers rendering the failure (log, flash) read Detail without parsing
+// the error string.
+func TestAnalyzeRefusalCarriesWorkerMessageAndDetail(t *testing.T) {
+	body := `{"error":"scan not recognized","detail":"ERR: /work/x/scans/a not recognized\nERR: /work/x/scans/b not recognized"}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+
+	client := amcworker.New(amcworker.Config{BaseURL: srv.URL})
+	_, err := client.Analyze(context.Background(), controls.AnalyzeRequest{
+		Project: "controls/x", ScanPDF: "controls/x/s.pdf", Source: "controls/x/s.tex",
+		Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure,
+	})
+	if !errors.Is(err, controls.ErrAnalyzerRefused) {
+		t.Fatalf("Analyze: %v; want wrapping ErrAnalyzerRefused", err)
+	}
+	var wrapped *controls.AnalyzerRefusedError
+	if !errors.As(err, &wrapped) {
+		t.Fatalf("Analyze: %v; want *AnalyzerRefusedError via errors.As", err)
+	}
+	if !strings.Contains(wrapped.Message, "scan not recognized") {
+		t.Errorf("Message = %q; must include the worker's error text", wrapped.Message)
+	}
+	if wrapped.Detail != "ERR: /work/x/scans/a not recognized\nERR: /work/x/scans/b not recognized" {
+		t.Errorf("Detail = %q; want the raw stderr excerpt", wrapped.Detail)
+	}
+}
+
+// Reanalyze shares postReport with Analyze, but a future refactor could
+// split them; this pins the guarantee at both entry points.
+func TestReanalyzeRefusalCarriesWorkerMessageAndDetail(t *testing.T) {
+	body := `{"error":"no captures","detail":"nothing to re-read"}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+
+	client := amcworker.New(amcworker.Config{BaseURL: srv.URL})
+	_, err := client.Reanalyze(context.Background(), controls.ReanalyzeRequest{
+		Project: "controls/x", Ticked: 0.3, Unsure: 0.15,
+	})
+	var wrapped *controls.AnalyzerRefusedError
+	if !errors.As(err, &wrapped) {
+		t.Fatalf("Reanalyze: %v; want *AnalyzerRefusedError via errors.As", err)
+	}
+	if wrapped.Detail != "nothing to re-read" {
+		t.Errorf("Detail = %q; want %q", wrapped.Detail, "nothing to re-read")
+	}
+}
+
 func TestAnalyzeRefusesInvalidRequestBeforeCallingTheWorker(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {
 		t.Fatal("Analyze reached the worker with an invalid request")

@@ -111,13 +111,24 @@ func (c *Client) postReport(ctx context.Context, path string, body []byte) (cont
 	}
 
 	if resp.StatusCode != http.StatusOK {
+		// Issue #210: hand the caller a typed error carrying both fields
+		// the worker reports. Callers that only branch keep using
+		// errors.Is(err, ErrAnalyzerRefused) — the type unwraps to it;
+		// callers that render the failure (handler flash, log) use
+		// errors.As to reach Detail without re-parsing the message.
 		var payload workerError
 		if jerr := json.Unmarshal(respBody, &payload); jerr == nil && payload.Error != "" {
-			return controls.Report{}, fmt.Errorf("%w: worker answered %d: %s",
-				controls.ErrAnalyzerRefused, resp.StatusCode, payload.Error)
+			return controls.Report{}, &controls.AnalyzerRefusedError{
+				Message: fmt.Sprintf("worker answered %d: %s", resp.StatusCode, payload.Error),
+				Detail:  payload.Detail,
+			}
 		}
-		return controls.Report{}, fmt.Errorf("%w: worker answered %d: %s",
-			controls.ErrAnalyzerRefused, resp.StatusCode, truncateForLog(respBody))
+		// The worker answered non-2xx with something that did not parse
+		// as its error envelope — no fields to surface, so Detail stays
+		// empty and Message carries the truncated body for the log.
+		return controls.Report{}, &controls.AnalyzerRefusedError{
+			Message: fmt.Sprintf("worker answered %d: %s", resp.StatusCode, truncateForLog(respBody)),
+		}
 	}
 
 	var wire reportBody

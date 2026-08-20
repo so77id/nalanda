@@ -174,6 +174,45 @@ var (
 	ErrAnalyzerUnavailable = errors.New("controls: the AMC worker is unreachable")
 )
 
+// AnalyzerRefusedError carries the fields the worker reported alongside a
+// refused /analyse or /reanalyse. Callers that only need to branch keep
+// using errors.Is(err, ErrAnalyzerRefused); callers that render the
+// failure (log, flash, future UI) use errors.As on this type to reach
+// Message and Detail without re-parsing the error string. Issue #210.
+//
+// Detail carries the worker's raw stderr excerpt (up to 4000 chars per
+// apps/amc-worker/worker.py). Truncation is a rendering concern owned by
+// the caller — the struct keeps the full string so a future consumer
+// (a debug view, a "download the log" flow) can read it whole.
+//
+// The field for the worker's "error" JSON is called Message rather than
+// Error because Go forbids a struct field and a method to share a name,
+// and this type implements the error interface via Error() string.
+type AnalyzerRefusedError struct {
+	// Message is the "error" field from the worker's JSON envelope — a
+	// short human summary the worker chose. May be empty when the worker
+	// answered a non-2xx with a body that did not parse as its error
+	// envelope; the caller then only knows the failure was structural.
+	Message string
+	// Detail is the "detail" field — up to 4000 chars of AMC's stderr,
+	// verbatim. May be empty.
+	Detail string
+}
+
+// Error satisfies the error interface. Format mirrors the pre-#210 wrap
+// (`%w: %s` on ErrAnalyzerRefused and Message) so log lines that captured
+// err.Error() still read the same shape.
+func (e *AnalyzerRefusedError) Error() string {
+	if e == nil || e.Message == "" {
+		return ErrAnalyzerRefused.Error()
+	}
+	return ErrAnalyzerRefused.Error() + ": " + e.Message
+}
+
+// Unwrap returns ErrAnalyzerRefused so errors.Is on the sentinel keeps
+// matching. Callers written before #210 do not have to change.
+func (e *AnalyzerRefusedError) Unwrap() error { return ErrAnalyzerRefused }
+
 // A Reading is one copy's stored state. WP-F persists this beside the
 // existing copia rows; grades are computed on the fly from the answers
 // under any overrides.
