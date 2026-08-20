@@ -201,19 +201,41 @@ elsewhere in the repo. Rejected on ergonomics.
 
 ## Consequences
 
-- **Bundle down, verifiable.** The trace chunk vanishes; the tracer Java
-  class vanishes with it; the `<MemoryDiagram>` chunk is replaced by the
-  smaller `<StepShow>` / `<MemoryVisual>` chunks (no runtime seam). Every
-  page that once mounted a memory diagram loses four lazy chunks; a page
-  that mounts one now downloads only the two new component chunks and the
-  shared `memoryLayout` / `memoryModel` modules. AC-9 pins verification with
-  `npm run build` + grep of the bundle.
+- **Bundle down for the diagram-bearing page.** The trace chunk vanishes;
+  the tracer Java class vanishes with it; the `<MemoryDiagram>` lazy chunk
+  is gone. The new components have no separate chunk: `<StepShow>`,
+  `<Step>` and `<MemoryVisual>` are registered EAGERLY in
+  `app/mdxComponents.ts` (they import no runtime seam, no CodeMirror), so
+  their code + `memoryLayout` + `memoryModel` fold into the entry chunk of
+  every page. Measured on the shipped build (baseline vs. branch,
+  `npm run build`): entry chunk +2 457 B gz (~+1.5%); MemoryDiagram lazy
+  chunk −7 266 B gz; doc-2 chunk +231 B gz for the hand-written states.
+  Net for a doc-2 reader: **−4 578 B gz (≈−2.6%)**. Non-diagram-page
+  readers pay the +2 457 B eager cost. Lazy-wrapping the pair would flip
+  those numbers if that trade is preferred; a follow-up WP can shift it,
+  and the eager decision is the one the ADR pins for now. AC-9 pins
+  verification with `npm run build` + grep of the bundle.
 - **The truth-preserving job moves to the author.** Miguel iterates the doc
   2 states visually at 1440px in both themes before merging, and expects
   a post-PR round of visual edits. This is the first time the pictures ship
   without a JVM to make them true, and that responsibility is 100% the
   author's from now on. `guides/add-a-course-document.md` §5d writes this
   in full for future authors.
+- **A visual widget consuming author state MUST preflight-check for
+  structural hazards that would silently draw a wrong picture.** VISUAL
+  fidelity to the code stays the author's judgement per §Decision-7. But
+  structural mistakes the tracer prevented by construction — a duplicate
+  object id, a `ref` pointing at an object the state doesn't declare — are
+  cheap for the widget to catch, and a wrong picture drawn silently is
+  exactly the failure mode §Decision-7 asks the author to guard against.
+  `<MemoryVisual>` refuses both cases before rendering, returning an
+  `<AuthoringError>` naming the frame/field. The future
+  `<CallStack>` / `<TreeVisual>` / `<HashTableVisual>` / `<QueueVisual>`
+  the next bullet anticipates each carry their own class of such hazard
+  (an activation id referenced by no frame, a tree child pointing at a
+  non-existent node id, a bucket entry with a key that hashes elsewhere):
+  the rule for each is the same preflight-and-refuse shape, using the
+  shared `<AuthoringError>` seam.
 - **Other visual widgets plug in.** The next `<CallStack>`, `<TreeVisual>`,
   `<HashTableVisual>`, `<QueueVisual>` inherits step navigation and code
   synchronisation for free — the follow-up WPs that build them exercise

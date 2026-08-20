@@ -8,10 +8,11 @@ export interface MemoryVisualProps {
   /** The heap picture to draw: every open frame and every object it references. */
   state: MemoryState;
   /**
-   * Object ids whose box changed since the previous step. Optional — the widget
-   * paints them with a stronger border so a reader following a walk sees what
-   * moved. `<StepShow>` may compute this from the difference between adjacent
-   * `<Step>`s; a standalone `<MemoryVisual>` leaves it empty.
+   * Object ids whose box the widget should paint with a stronger border, so a
+   * reader following a walk sees what moved. Optional. The author passes this
+   * explicitly on the specific `<Step>` where a box changes; there is no
+   * auto-diff between adjacent `<Step>`s today (ADR-0043 §Alternatives
+   * considered — deferred as future automation on top of the same prop).
    */
   changed?: number[];
 }

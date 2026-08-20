@@ -463,8 +463,18 @@ public class Demo {
     }} />
   </Step>
   <Step lines={[9]}>
-    {/* a and b share one box now — you write that literally. */}
-    <MemoryVisual state={/* … */} />
+    {/* a and b share one box now — write it literally: two variables carrying
+        the SAME ref id. That equality is the whole lesson. */}
+    <MemoryVisual state={{
+      frames: [{ name: 'main', variables: [
+        { name: 'a', value: { kind: 'ref', id: 1 } },
+        { name: 'b', value: { kind: 'ref', id: 1 } },
+      ]}],
+      objects: [{ id: 1, kind: 'object', type: 'Punto', fields: [
+        { name: 'x', value: { kind: 'primitive', type: 'int', text: '1' } },
+        { name: 'y', value: { kind: 'primitive', type: 'int', text: '2' } },
+      ]}],
+    }} />
   </Step>
 </StepShow>
 ```
@@ -481,9 +491,9 @@ themes before committing.
 Six things worth knowing before you write one:
 
 - **The listing is not syntax-coloured.** Highlighting is a per-line box
-  (`lines={[8, 9]}` lights lines 8 and 9). Empty is legal — a step whose
-  lesson is what appears beside the code, not which line is running, passes
-  `lines={[]}`.
+  (`lines={[8, 9]}` lights lines 8 and 9 of the listing; numbers are 1-based
+  and blank lines count). Empty is legal — a step whose lesson is what
+  appears beside the code, not which line is running, passes `lines={[]}`.
 - **Any JSX inside a `<Step>`.** For memory pictures, `<MemoryVisual>`; for a
   call-stack, tree, hash-table or sequence-diagram widget as they land, the
   same shape.
@@ -495,11 +505,20 @@ Six things worth knowing before you write one:
   mismo objeto" so a reader who cannot see the arrows still gets the lesson.
 - **State is scoped per widget.** Two `<StepShow>`s on one page step
   independently.
-- **No runtime cost, no lazy chunk.** The widget imports no CodeMirror and no
-  Java compiler; it is its own tiny chunk on any page that mounts one.
+- **No runtime cost.** The widget imports no CodeMirror and no Java compiler.
+  It is registered EAGERLY in the shell's MDX map — so its code ships in the
+  entry chunk of every page rather than in a lazy per-widget chunk. The
+  trade-off is recorded in the ADR-0043 §Consequences bundle bullet and in
+  `app/mdxComponents.ts`; the diagram-bearing page still wins net bytes
+  because the tracer's four lazy chunks are gone.
+- **Author-driven state has an author-catchable safety net.** `<MemoryVisual>`
+  refuses two structural mistakes before rendering: two objects sharing an
+  `id`, and a `{ kind: 'ref', id }` pointing at an `id` not in `objects`.
+  You see an `AuthoringError` naming the frame/field, not a silently wrong
+  picture (ADR-0043 §Consequences).
 
-Decisions behind all this: ADR-0028 and its successor (#209). Worked examples,
-live: `/catalog/c/StepShow` and `/catalog/c/MemoryVisual`.
+Decisions behind all this: ADR-0043 (which supersedes ADR-0028, #209).
+Worked examples, live: `/catalog/c/StepShow` and `/catalog/c/MemoryVisual`.
 
 5e. **Predict before revealing (optional)**: `<PredictOutput>` shows a snippet
 and lets the reader commit to a prediction — typed into a textarea — before

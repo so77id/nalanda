@@ -487,10 +487,16 @@ page-only, invisible to every other gate.
 
   For `<StepShow>` + `<MemoryVisual>` (introduced in #209 as the reversal of
   ADR-0028): these do NOT drive a runtime — the diagram is drawn from
-  author-written state, so the class above does not include them. What they
-  DO need a browser for is a layout/paint check: two names on one box, aliasing
-  described accessibly, prev/next/reset walking the steps with the right line
-  lit. That belongs under the layout/focus class below.
+  author-written state, so the execution class above does not include them.
+  They fall under the layout class below, and the concrete browser checks
+  are: each `<Step>` renders its intended picture; prev / next / reset walk
+  the sequence with the correct line lit and stay focus-safe at both ends
+  (aria-disabled, not disabled — earned in #116, preserved into #209); the
+  cross-frame aliasing sentence lands in the accessible name when two
+  frames share an object id; both themes at ≥1440px in the reading page and
+  in the presentation slide. The state-shape checks the widget refuses
+  before rendering (duplicate `object.id`, `ref` at an unknown id) DO have
+  suite coverage in `MemoryVisual.test.tsx` and can stay there.
 
   For `PredictOutput`, add: the reveal panel prints what the snippet actually
   printed (never an authored string), the diagnostics panel names the right
