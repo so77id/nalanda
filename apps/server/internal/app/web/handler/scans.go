@@ -155,8 +155,11 @@ func (h *Controls) UploadScan(w http.ResponseWriter, r *http.Request) {
 			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
 		case errors.Is(err, controls.ErrAnalyzerRefused):
 			h.Log.Warn("controls: worker refused scan", "control", id, "error", err)
-			flash.Set(w, h.secureCookie,
-				"El motor de lectura rechazó el archivo. Revisa que sea un escaneo del control correcto.")
+			flash.Set(w, h.secureCookie, refusedFlash(
+				"El motor de lectura rechazó el escaneo.",
+				err,
+				"Revisa que la impresión y el escaneo estén completos y no cortados en los bordes.",
+			))
 			http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 		case errors.Is(err, controls.ErrAnalyzerUnavailable):
 			h.Log.Error("controls: worker unreachable", "control", id, "error", err)
@@ -225,8 +228,11 @@ func (h *Controls) ReanalyzeScans(w http.ResponseWriter, r *http.Request) {
 			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
 		case errors.Is(err, controls.ErrAnalyzerRefused):
 			h.Log.Warn("controls: worker refused reanalyze", "control", id, "error", err)
-			flash.Set(w, h.secureCookie,
-				"El motor rechazó re-leer. Puede que aún no haya escaneos subidos.")
+			flash.Set(w, h.secureCookie, refusedFlash(
+				"El motor rechazó re-leer.",
+				err,
+				"Puede que aún no haya escaneos subidos.",
+			))
 			http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 		case errors.Is(err, controls.ErrAnalyzerUnavailable):
 			h.Log.Error("controls: worker unreachable during reanalyze", "control", id, "error", err)
@@ -339,6 +345,61 @@ func parseFloatField(raw string, fallback float64) float64 {
 		return fallback
 	}
 	return v
+}
+
+// flashDetailMax caps the worker Detail excerpt embedded in the flash.
+// 500 chars fits a full "ERR: /work/…/scans/… scan not recognized" line
+// (~85 chars) with plenty of headroom, and keeps a runaway line from
+// blowing past the cookie payload the flash rides on (base64 of ~4 KiB
+// before the browser refuses it). The wrapped AnalyzerRefusedError keeps
+// the full Detail for a future consumer that needs it (issue #210).
+const flashDetailMax = 500
+
+// refusedFlash renders the flash for an ErrAnalyzerRefused branch:
+// verdict + (optional) worker Detail + hint. When the wrapped error
+// carries no usable detail — the detail was empty or only blank lines,
+// or the error is not an *AnalyzerRefusedError at all — the Detalle
+// clause is dropped and the verdict + hint stand on their own.
+//
+// Truncation keeps the FIRST non-empty line only, capped to flashDetailMax
+// runes; a truncation adds a trailing ellipsis. Callers own the verdict
+// and hint copy; this helper owns the shape.
+func refusedFlash(verdict string, err error, hint string) string {
+	detail := firstDetailLine(err)
+	if detail == "" {
+		return verdict + " " + hint
+	}
+	return verdict + " Detalle del motor: " + detail + ". " + hint
+}
+
+// firstDetailLine returns the first non-empty line of an
+// *AnalyzerRefusedError's Detail (trimmed), truncated to flashDetailMax
+// runes with a trailing ellipsis when it did not fit. Returns "" when
+// err does not carry a Detail — including when it is not an
+// *AnalyzerRefusedError.
+func firstDetailLine(err error) string {
+	var wrapped *controls.AnalyzerRefusedError
+	if !errors.As(err, &wrapped) || wrapped == nil {
+		return ""
+	}
+	for _, line := range strings.Split(wrapped.Detail, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" {
+			continue
+		}
+		return truncateRunes(trimmed, flashDetailMax)
+	}
+	return ""
+}
+
+// truncateRunes caps s to n runes, adding an ellipsis when it did not
+// fit. Rune-safe so a multi-byte character does not get cut mid-sequence.
+func truncateRunes(s string, n int) string {
+	runes := []rune(s)
+	if len(runes) <= n {
+		return s
+	}
+	return string(runes[:n]) + "…"
 }
 
 // looksLikePDF is a defensive check the professor sees a nice message

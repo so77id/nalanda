@@ -444,6 +444,152 @@ func TestReanalyzeRefusesAnInvertedBand(t *testing.T) {
 	}
 }
 
+// Issue #210: when the worker refuses an upload with a detail, the flash
+// includes the first non-empty line of that detail so the professor sees
+// what the reader actually said without an SSH round trip. The hint about
+// print/scan borders covers the paper-size class from the 2026-08-19
+// incident without pretending to name a cause.
+func TestUploadScanRefusedFlashCarriesFirstLineOfDetail(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 210 upload with detail", 1)
+	f.fake.AnalyzeErr = &controls.AnalyzerRefusedError{
+		Message: "worker answered 400: scan not recognized",
+		Detail:  "ERR: /work/controls/x/scans/0001.pdf scan not recognized\nERR: /work/controls/x/scans/0002.pdf scan not recognized",
+	}
+
+	body, ct := buildScanUpload(t, "batch.pdf", "application/pdf", []byte("%PDF-fake"))
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/scans", nil)
+	req.Body = io.NopCloser(body)
+	req.Header.Set("Content-Type", ct)
+	req.ContentLength = int64(body.Len())
+	req.SetPathValue("id", controlID)
+
+	rec := httptest.NewRecorder()
+	f.handler.UploadScan(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 (flash + redirect back)", rec.Code)
+	}
+	flash := readFlash(t, rec)
+	if !strings.Contains(flash, "rechazó el escaneo") {
+		t.Errorf("flash %q does not name the refusal", flash)
+	}
+	if !strings.Contains(flash, "ERR: /work/controls/x/scans/0001.pdf scan not recognized") {
+		t.Errorf("flash %q does not include the worker's first stderr line", flash)
+	}
+	if strings.Contains(flash, "0002.pdf") {
+		t.Errorf("flash %q leaks a second line — the flash must show only the first", flash)
+	}
+	if !strings.Contains(flash, "impresión y el escaneo") {
+		t.Errorf("flash %q dropped the print/scan hint", flash)
+	}
+}
+
+// When the worker refuses without carrying a detail (an old worker, a
+// non-envelope 4xx), the flash falls back to the fixed hint. The professor
+// still knows what to do next; the log carries whatever context there is.
+func TestUploadScanRefusedFlashFallsBackWhenDetailEmpty(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 210 upload no detail", 1)
+	f.fake.AnalyzeErr = &controls.AnalyzerRefusedError{
+		Message: "worker answered 400: bad request",
+	}
+
+	body, ct := buildScanUpload(t, "batch.pdf", "application/pdf", []byte("%PDF-fake"))
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/scans", nil)
+	req.Body = io.NopCloser(body)
+	req.Header.Set("Content-Type", ct)
+	req.ContentLength = int64(body.Len())
+	req.SetPathValue("id", controlID)
+
+	rec := httptest.NewRecorder()
+	f.handler.UploadScan(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", rec.Code)
+	}
+	flash := readFlash(t, rec)
+	if !strings.Contains(flash, "rechazó el escaneo") {
+		t.Errorf("flash %q does not name the refusal", flash)
+	}
+	if strings.Contains(flash, "Detalle del motor") {
+		t.Errorf("flash %q renders a Detalle clause with no detail available", flash)
+	}
+	if !strings.Contains(flash, "impresión y el escaneo") {
+		t.Errorf("flash %q dropped the print/scan hint", flash)
+	}
+}
+
+// A refusal whose Detail is only blank lines behaves like an empty detail.
+// The truncation of a very long line adds an ellipsis at the 500-char cap.
+func TestUploadScanRefusedFlashSkipsBlankLinesAndTruncatesLongOnes(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 210 truncation", 1)
+	long := strings.Repeat("A", 800)
+	f.fake.AnalyzeErr = &controls.AnalyzerRefusedError{
+		Message: "worker answered 400",
+		Detail:  "\n\n   \n" + long,
+	}
+	body, ct := buildScanUpload(t, "batch.pdf", "application/pdf", []byte("%PDF-fake"))
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/scans", nil)
+	req.Body = io.NopCloser(body)
+	req.Header.Set("Content-Type", ct)
+	req.ContentLength = int64(body.Len())
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.UploadScan(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", rec.Code)
+	}
+	flash := readFlash(t, rec)
+	// 500 As followed by an ellipsis rune, then the rest of the message.
+	if !strings.Contains(flash, strings.Repeat("A", 500)+"…") {
+		t.Errorf("flash %q did not truncate the long line at 500 chars with an ellipsis", flash)
+	}
+	if strings.Contains(flash, strings.Repeat("A", 501)) {
+		t.Errorf("flash %q kept more than 500 As — truncation did not apply", flash)
+	}
+}
+
+// The reanalyze branch mirrors upload: detail flows through, fallback
+// keeps the "no captures yet" hint that was there before #210.
+func TestReanalyzeRefusedFlashCarriesFirstLineOfDetail(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 210 reanalyze", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	f.fake.ReanalyzeErr = &controls.AnalyzerRefusedError{
+		Message: "worker answered 400: no captures",
+		Detail:  "nothing to re-read on /work/controls/y\nsecond line",
+	}
+	values := url.Values{"ticked": {"0.20"}, "unsure": {"0.05"}}
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/reanalyze", values)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.ReanalyzeScans(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", rec.Code)
+	}
+	flash := readFlash(t, rec)
+	if !strings.Contains(flash, "rechazó re-leer") {
+		t.Errorf("flash %q does not name the reanalyze refusal", flash)
+	}
+	if !strings.Contains(flash, "nothing to re-read on /work/controls/y") {
+		t.Errorf("flash %q does not include the worker's first stderr line", flash)
+	}
+	if strings.Contains(flash, "second line") {
+		t.Errorf("flash %q leaks a second line", flash)
+	}
+	if !strings.Contains(flash, "escaneos subidos") {
+		t.Errorf("flash %q dropped the no-captures hint", flash)
+	}
+}
+
 // Issue #204: the uploaded batch is downloadable from the control page —
 // the endpoint streams the stored batch-N.pdf with download headers.
 func TestUploadsPDFServesTheStoredBatch(t *testing.T) {
