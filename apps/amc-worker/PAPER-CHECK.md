@@ -46,10 +46,30 @@ failed.
 
 **Print double-sided (dúplex), at 100% scale.** Not "fit to page": AMC finds
 the sheet by the four corner marks, and scaling moves them. If your dialog
-offers "actual size" or "100%", that is the one. Use the paper you picked
-when the control was created — Letter by default (Chile), A4 if you opened
-"Opciones avanzadas" in the create form and switched (ADR-0043 supersedes
-the fixed-Letter of ADR-0042). Six sheets come out on that paper.
+offers "actual size" or "100%", that is the one. Use the paper the control
+was created for — Letter by default (Chile), A4 if you opened "Opciones
+avanzadas" in the create form and switched (ADR-0043 supersedes the
+fixed-Letter of ADR-0042). Six sheets come out on that paper.
+
+**To run the A4 leg of the check** (`ADR-0043 §Not yet proven` schedules
+one Letter cycle and one A4 cycle), `make paper` alone is not enough: it
+copies `tests/fixtures/control-demo.tex`, which is hardcoded to
+`\documentclass[letterpaper,11pt]{article}`. Two ways to produce the A4
+batch:
+
+- **Simplest — temporarily flip the fixture.** In
+  `tests/fixtures/control-demo.tex` change the class option from
+  `letterpaper` to `a4paper`, run `make paper`, do steps 2–5 below,
+  then revert the file (`git checkout tests/fixtures/control-demo.tex`).
+  Nothing else in the fixture changes.
+- **End-to-end — go through the server.** Create a control with
+  `paper=a4` from the create form (open "Opciones avanzadas" first),
+  copy the generated `source.tex` from the shared volume into
+  `tests/work/paper/src/`, and run `meptex` on it by hand. Slower but
+  exercises the full generator path.
+
+Whichever you pick, run the Letter cycle first (`make paper` unchanged)
+so the two comparisons stay side by side.
 
 ## 2. Mark them like a student would
 

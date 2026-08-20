@@ -73,10 +73,13 @@ available under `<details> Opciones avanzadas`.**
   the stable rest, and `paperClassOption(paper)` maps
   `"letter"`→`"letterpaper"`, `"a4"`→`"a4paper"`, empty/unknown →
   `"letterpaper"`.
-- **PAPER-CHECK.** Both `PAPER-CHECK.md` and `PAPER-CHECK-MIN.md` say
-  "usa el papel que elegiste al crear el control (por defecto Letter;
-  A4 si lo cambiaste en Opciones avanzadas)" in §1 instead of naming
-  Letter fixed.
+- **PAPER-CHECK.** Both `PAPER-CHECK.md` and `PAPER-CHECK-MIN.md` §1
+  now instruct the operator to use the paper the control was created
+  for — Letter by default, A4 if picked under "Opciones avanzadas" —
+  instead of naming Letter fixed. Each file also names the concrete
+  A4 recipe (fixture flip vs server-generated source) so the A4 leg
+  ADR-0043 §Not yet proven schedules is actually runnable from the
+  docs.
 - **ADR-0042 stays as history**, with `Status: Superseded by ADR-0043`
   in its header. The reasoning it captured is intact — this ADR shows
   what changed and why, not by editing 0042 but by writing 0043 on

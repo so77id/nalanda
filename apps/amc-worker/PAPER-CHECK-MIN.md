@@ -33,10 +33,17 @@ That produces `tests/work/paper-min/out/control-min-para-imprimir.pdf` — three
 copies, three pages.
 
 **Print single-sided, at 100% scale.** Not "fit to page": AMC finds the sheet
-by the four corner marks, and scaling moves them. Use the paper you picked
-when the control was created — Letter by default (Chile), A4 if you opened
-"Opciones avanzadas" in the create form and switched (ADR-0043 supersedes
-the fixed-Letter of ADR-0042). Three sheets come out on that paper.
+by the four corner marks, and scaling moves them. Use the paper the control
+was created for — Letter by default (Chile), A4 if you opened "Opciones
+avanzadas" in the create form and switched (ADR-0043 supersedes the
+fixed-Letter of ADR-0042). Three sheets come out on that paper.
+
+**A4 leg of this MIN check.** `make paper-min` copies
+`tests/fixtures/control-paper-min.tex`, hardcoded to `letterpaper`. To run
+the A4 pass, either temporarily flip the class option in that fixture from
+`letterpaper` to `a4paper` (then `git checkout` to revert), or drop a
+server-generated `paper=a4` source into `tests/work/paper-min/src/` and
+run `meptex` on it. Same guidance as PAPER-CHECK.md §1.
 
 ## 2. Mark them
 
