@@ -55,6 +55,17 @@ type Input struct {
 	// duplex printing (historical layout). When false, emits \clearpage
 	// instead — one page per copy for simplex printing. Issue #185.
 	DuplexPadding bool
+	// Paper is one of "letter" or "a4" — the physical sheet the printed
+	// PDF is laid out for (issue #208, ADR-0043). The generator turns it
+	// into a \documentclass class option: "letter" → letterpaper,
+	// "a4" → a4paper. An empty string defaults to Letter (the ADR-0043
+	// operational default) so a caller stuck on the pre-#208 shape still
+	// gets a legal source. Kept as a plain string rather than a shared
+	// enum type because the tex package sits under domain/controls and
+	// cannot import controls without a cycle; the two-value set is
+	// enforced upstream (handler ValidPaper, schema CHECK) and defaulted
+	// here.
+	Paper string
 }
 
 // Compile emits the .tex source. The output ends with a newline.
@@ -104,10 +115,25 @@ func validate(in Input) error {
 // "ningunas" does not match and "anterior" alone does not match.
 var lastChoicePattern = regexp.MustCompile(`(?i)\bninguna\b[^.]*\banteriores\b`)
 
-// preamble tails and heads that never change with the input.
-const preambleHead = `\documentclass[a4paper,11pt]{article}
+// preambleDocumentClassFmt is the one line the paper choice touches. Split
+// out of preambleHead because Sprintf-ing the whole preamble would try to
+// interpret every LaTeX `%` comment as a format verb. Two lines instead of
+// one abomination. Issue #208, ADR-0043.
+const preambleDocumentClassFmt = "\\documentclass[%s,11pt]{article}\n\n"
 
-\usepackage[utf8]{inputenc}
+// paperClassOption maps the domain enum ("letter"/"a4") to the LaTeX class
+// option AMC and geometry read ("letterpaper"/"a4paper"). Empty/unknown
+// falls back to letterpaper — the ADR-0043 operational default — so a
+// caller with a bug earlier in the chain still gets a legal source.
+func paperClassOption(paper string) string {
+	if paper == "a4" {
+		return "a4paper"
+	}
+	return "letterpaper"
+}
+
+// preamble tails and heads that never change with the input.
+const preambleHead = `\usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage[spanish]{babel}
 \usepackage{multicol}
@@ -139,6 +165,7 @@ const preambleHead = `\documentclass[a4paper,11pt]{article}
 `
 
 func writePreamble(b *strings.Builder, in Input) {
+	fmt.Fprintf(b, preambleDocumentClassFmt, paperClassOption(in.Paper))
 	b.WriteString(preambleHead)
 	// Fixed seed so a compile is reproducible. AMC uses this to derive the
 	// per-copy shuffle; nothing here reshuffles.

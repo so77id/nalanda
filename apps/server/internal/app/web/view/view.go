@@ -180,6 +180,12 @@ type ControlFormValues struct {
 	// keeps the historical layout without the professor having to think
 	// about it. Issue #185.
 	DuplexPadding bool
+	// Paper echoes the radio the professor picked, so the template can
+	// re-render `checked` after a refusal. Two legal string values:
+	// "letter" (default) and "a4"; lives inside `<details> Opciones
+	// avanzadas` so the default requires no interaction. Issue #208,
+	// ADR-0043.
+	Paper string
 }
 
 // DocumentSections carries one document's sections for the range
@@ -293,8 +299,12 @@ type DetailedControl struct {
 	// on the detail page so the professor sees the layout their generated
 	// PDF actually carries (issue #185, ADR-0039).
 	PrintLayout string
-	State       string
-	CreatedAt   string
+	// Paper is the human phrase for control.paper: "US Letter" or "A4".
+	// Shown on the detail page so the professor can see which paper the
+	// PDF assumes for a print (issue #208, ADR-0043).
+	Paper     string
+	State     string
+	CreatedAt string
 }
 
 // UploadedBatch is one uploaded scan batch's download link (issue #204).

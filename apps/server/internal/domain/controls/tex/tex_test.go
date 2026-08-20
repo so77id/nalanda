@@ -88,6 +88,52 @@ func compile(t *testing.T, override func(*tex.Input)) string {
 	return out
 }
 
+// Issue #208, ADR-0043: paper size is a per-control preference. The
+// generator writes whichever LaTeX class option matches Input.Paper. Two
+// tests, one per value, each asserting BOTH the presence of the chosen
+// option and the absence of the other — this is what the review of #206
+// established as the shape that catches a silent revert (a positive-only
+// test passes over a bug that emits both class options and a negative-only
+// test passes over a bug that emits neither).
+//
+// Empty Paper defaults to Letter — same guard the schema CHECK and
+// paperOrDefault (service) apply at their layers, mirrored here so a
+// caller landing at tex.Compile with a bug earlier in the chain still
+// gets a legal source rather than an invalid \documentclass.
+func TestPreambleDeclaresLetterPaperWhenInputSaysLetter(t *testing.T) {
+	out := compile(t, func(in *tex.Input) { in.Paper = "letter" })
+	if !strings.Contains(out, `\documentclass[letterpaper,11pt]{article}`) {
+		t.Error("preamble is missing letterpaper: Input.Paper=\"letter\" must produce the letterpaper class option (ADR-0043)")
+	}
+	if strings.Contains(out, "a4paper") {
+		t.Error("preamble emits a4paper alongside letterpaper: the two are mutually exclusive")
+	}
+}
+
+func TestPreambleDeclaresA4PaperWhenInputSaysA4(t *testing.T) {
+	out := compile(t, func(in *tex.Input) { in.Paper = "a4" })
+	if !strings.Contains(out, `\documentclass[a4paper,11pt]{article}`) {
+		t.Error("preamble is missing a4paper: Input.Paper=\"a4\" must produce the a4paper class option (ADR-0043)")
+	}
+	if strings.Contains(out, "letterpaper") {
+		t.Error("preamble emits letterpaper alongside a4paper: the two are mutually exclusive")
+	}
+}
+
+// Empty Paper is the pre-#208 shape (and any caller that omits the new
+// field). Falls back to Letter so the source is legal even when a caller
+// has not yet been updated. Same guard as controls.paperOrDefault at the
+// service layer.
+func TestPreambleFallsBackToLetterWhenInputPaperIsEmpty(t *testing.T) {
+	out := compile(t, nil) // no Paper override
+	if !strings.Contains(out, `\documentclass[letterpaper,11pt]{article}`) {
+		t.Error("empty Input.Paper must default to letterpaper (ADR-0043 operational default)")
+	}
+	if strings.Contains(out, "a4paper") {
+		t.Error("empty Input.Paper produced a4paper: default is Letter, not A4")
+	}
+}
+
 func TestPreambleDeclaresLangESAndDoesNotUseCompletemulti(t *testing.T) {
 	out := compile(t, nil)
 	if !strings.Contains(out, `\usepackage[box,lang=ES]{automultiplechoice}`) {

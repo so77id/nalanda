@@ -4,6 +4,15 @@
 **Date:** 2026-08-15
 **Decision-makers:** Miguel Rodriguez
 **Source:** #138 (the spike), design `docs/design/2026-08-controles.md` §C8, §C9
+**Amended by:** #206 (2026-08-20) — the paper is US Letter, not A4 (ADR-0042).
+The historical record below (§Partial evidence — 2026-08-17: "printed at
+100% on A4") stays as evidence of what was measured then; ADR-0042 made
+Letter the operational default.
+**Amended by:** #208 (2026-08-20) — ADR-0043 supersedes ADR-0042 and makes
+paper a per-control preference (radio inside `<details> Opciones avanzadas`
+in the create form). Letter stays the default; A4 is available on demand.
+"For every future generate is Letter" from the previous amendment reads:
+every future generate is Letter *by default*.
 
 ## Context
 

@@ -91,6 +91,29 @@
       <small>Desactívalo si vas a imprimir simplex — te ahorra una hoja por prueba.</small>
     </p>
 
+    <details class="advanced">
+      <summary>Opciones avanzadas</summary>
+      <p class="field">
+        <label>Papel</label>
+        <label>
+          <input type="radio" name="paper" value="letter"
+                 {{ if eq .Values.Paper "letter" }}checked{{ end }} />
+          Letter (recomendado en Chile)
+        </label>
+        <label>
+          <input type="radio" name="paper" value="a4"
+                 {{ if eq .Values.Paper "a4" }}checked{{ end }} />
+          A4
+        </label>
+        <small>Debe coincidir con el papel real de tu impresora. Un PDF en A4
+          impreso en Letter pierde 18&nbsp;mm en el borde inferior y destruye
+          la lectura del batch entero (incidente 2026-08-19, ADR-0043).</small>
+        {{ with index .Errors "paper" }}
+          <span class="error">{{ . }}</span>
+        {{ end }}
+      </p>
+    </details>
+
     <p><button type="submit">{{ .Submit }}</button>
        <a href="/controls" class="boton">Cancelar</a></p>
   </form>
