@@ -101,6 +101,60 @@ describe('MemoryVisual', () => {
     expect(container.querySelector('svg')).not.toBeNull();
   });
 
+  it('refuses a state that reuses an object id (authoring mistake)', () => {
+    // The tracer used to enforce id uniqueness by construction (identityHashMap);
+    // a hand-written state can accidentally reuse an id and silently draw two
+    // boxes as one. ADR-0043 §Decision-7 makes the author responsible for the
+    // picture being TRUE, but a cheap preflight is worth naming the mistake.
+    const state: MemoryState = {
+      frames: [],
+      objects: [
+        { id: 1, kind: 'object', type: 'Punto', fields: [] },
+        { id: 1, kind: 'object', type: 'Punto', fields: [] },
+      ],
+    };
+    render(<MemoryVisual state={state} />);
+    const banner = document.querySelector('[data-authoring-error]');
+    expect(banner).not.toBeNull();
+    expect(banner!.textContent).toMatch(/id 1/);
+  });
+
+  it('refuses a state whose reference points at a missing object', () => {
+    const state: MemoryState = {
+      frames: [
+        {
+          name: 'main',
+          variables: [{ name: 'a', value: { kind: 'ref', id: 99 } }],
+        },
+      ],
+      objects: [],
+    };
+    render(<MemoryVisual state={state} />);
+    const banner = document.querySelector('[data-authoring-error]');
+    expect(banner).not.toBeNull();
+    expect(banner!.textContent).toMatch(/main\.a/);
+    expect(banner!.textContent).toMatch(/id 99/);
+  });
+
+  it('refuses a field whose reference points at a missing object', () => {
+    const state: MemoryState = {
+      frames: [],
+      objects: [
+        {
+          id: 1,
+          kind: 'object',
+          type: 'Nodo',
+          fields: [{ name: 'next', value: { kind: 'ref', id: 42 } }],
+        },
+      ],
+    };
+    render(<MemoryVisual state={state} />);
+    const banner = document.querySelector('[data-authoring-error]');
+    expect(banner).not.toBeNull();
+    expect(banner!.textContent).toMatch(/next/);
+    expect(banner!.textContent).toMatch(/id 42/);
+  });
+
   it('draws a String as its text, not its char[]', () => {
     // Preserved from the tracer era so `new String("hola") == new String("hola")`
     // reads as two boxes both with `"hola"` — merging them into one char array

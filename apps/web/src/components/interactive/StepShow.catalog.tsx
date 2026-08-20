@@ -62,29 +62,29 @@ export const stepShowCatalogEntry: CatalogEntry = {
     {
       title: 'Two labels, one box — no runtime',
       code: `<StepShow code={code} language="java" title="Alias">
-  <Step lines={[7]}>
+  <Step lines={[8]}>
     <p>Se crea el objeto y <code>a</code> lo apunta.</p>
   </Step>
-  <Step lines={[8]}>
+  <Step lines={[9]}>
     <p><code>b</code> copia la flecha de <code>a</code>: dos etiquetas, una caja.</p>
   </Step>
-  <Step lines={[9]}>
+  <Step lines={[10]}>
     <p>Modificar por <code>b</code> también cambia lo que ve <code>a</code>.</p>
   </Step>
 </StepShow>`,
       render: () => (
         <StepShow code={ALIASING} language="java" title="Alias">
-          <Step lines={[7]}>
+          <Step lines={[8]}>
             <p className="m-0">
               Se crea el objeto y <code>a</code> lo apunta.
             </p>
           </Step>
-          <Step lines={[8]}>
+          <Step lines={[9]}>
             <p className="m-0">
               <code>b</code> copia la flecha de <code>a</code>: dos etiquetas, una caja.
             </p>
           </Step>
-          <Step lines={[9]}>
+          <Step lines={[10]}>
             <p className="m-0">
               Modificar por <code>b</code> también cambia lo que ve <code>a</code>.
             </p>
@@ -95,19 +95,19 @@ export const stepShowCatalogEntry: CatalogEntry = {
     {
       title: 'A step highlighting more than one line',
       code: `<StepShow code={code} language="java">
-  <Step lines={[1, 2]}>
+  <Step lines={[2, 3]}>
     <p>La condición base y la recursión, leídas juntas.</p>
   </Step>
-  <Step lines={[3]}>
+  <Step lines={[6]}>
     <p>Cada llamada abre un nuevo marco encima del anterior.</p>
   </Step>
 </StepShow>`,
       render: () => (
         <StepShow code={CALL_STACK} language="java">
-          <Step lines={[1, 2]}>
+          <Step lines={[2, 3]}>
             <p className="m-0">La condición base y la recursión, leídas juntas.</p>
           </Step>
-          <Step lines={[3]}>
+          <Step lines={[6]}>
             <p className="m-0">Cada llamada abre un nuevo marco encima del anterior.</p>
           </Step>
         </StepShow>
@@ -140,7 +140,7 @@ export const stepCatalogEntry: CatalogEntry = {
   examples: [
     {
       title: 'A single-line highlight',
-      code: `<Step lines={[8]}>
+      code: `<Step lines={[9]}>
   <p>Aquí <code>b</code> copia la flecha de <code>a</code>.</p>
 </Step>`,
       // A live standalone <Step> renders nothing on purpose. The example above
@@ -148,7 +148,7 @@ export const stepCatalogEntry: CatalogEntry = {
       // Step lives inside a StepShow.
       render: () => (
         <StepShow code={ALIASING} language="java">
-          <Step lines={[8]}>
+          <Step lines={[9]}>
             <p className="m-0">
               Aquí <code>b</code> copia la flecha de <code>a</code>.
             </p>
@@ -169,8 +169,8 @@ export const stepCatalogEntry: CatalogEntry = {
           <Step lines={[]}>
             <p className="m-0">Al comienzo, todavía no hay línea que resaltar.</p>
           </Step>
-          <Step lines={[7]}>
-            <p className="m-0">Cuando se crea el objeto, se enciende la línea 7.</p>
+          <Step lines={[8]}>
+            <p className="m-0">Cuando se crea el objeto, se enciende la línea 8.</p>
           </Step>
         </StepShow>
       ),

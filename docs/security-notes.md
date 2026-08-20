@@ -457,11 +457,15 @@ detail.
   event handler inside a content SVG cannot execute. Inline SVG and
   `dangerouslySetInnerHTML` on **author** content are forbidden: verified in the
   #119 review that the content-image path uses neither. (Inline `<svg>` does exist
-  elsewhere — `components/interactive/MemoryState.tsx` draws a diagram from a
-  program's execution trace, ADR-0028 — but that is platform-generated geometry,
-  not author markup, and reaches the page as compiled component code, not as a
-  content asset; `dangerouslySetInnerHTML` appears only in a test fixture. Neither
-  is an author-injection surface.)
+  elsewhere — `components/interactive/MemoryVisual.tsx` draws a diagram from an
+  author-written `state` prop, ADR-0043 — but the geometry itself is
+  platform-computed by `memoryLayout.ts`, and the author-supplied text (variable
+  names, field values, `String` contents) reaches the SVG as React `<text>`
+  children, which React auto-escapes; there is no `dangerouslySetInnerHTML` on
+  the path. `dangerouslySetInnerHTML` appears only in a test fixture. Neither
+  is an author-injection surface. Before #209 this note named
+  `MemoryState.tsx` and pointed at ADR-0028's execution-trace source; that
+  widget was retired, and the invariant now covers the author-driven prop.)
 - **This is also why the glob asks for `no-inline`**: ADR-0029 §5 justifies
   `?url&no-inline` on bundle bytes, but the same lever is load-bearing here — an
   inlined SVG would render as markup, not through `<img>`, and lose the inertness

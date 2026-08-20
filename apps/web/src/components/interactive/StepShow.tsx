@@ -57,8 +57,10 @@ export function StepShow({ code, language, title, children }: StepShowProps) {
   if (steps.length === 0) {
     return (
       <AuthoringError component="StepShow">
-        no encontró ningún <code>&lt;Step&gt;</code> hijo: escribe uno o más{' '}
+        no encontró ningún <code>&lt;Step&gt;</code> hijo directo: escribe uno o más{' '}
         <code>&lt;Step lines={'{[1, 2]}'}&gt;…&lt;/Step&gt;</code> dentro para declarar los pasos.
+        Si los envolviste en un fragmento <code>&lt;&gt;…&lt;/&gt;</code>, sácalos: los{' '}
+        <code>&lt;Step&gt;</code> tienen que ser hijos directos.
       </AuthoringError>
     );
   }

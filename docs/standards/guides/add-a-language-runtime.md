@@ -51,7 +51,7 @@ src/runtime/python/
    worker reports.
 
 3. **Write the worker** (`<lang>/worker.ts`). It receives
-   `{ id, source, stdin, harness?, library? }` and answers exactly one of:
+   `{ id, source, stdin, harness? }` and answers exactly one of:
    - `{ type: 'warm', detail }` — once, unprompted, when booting finishes.
    - `{ id, type: 'started' }` — once per request, immediately before compiling.
      It marks the boundary between _waiting_ and _running_: before it, the caller
@@ -189,10 +189,12 @@ src/runtime/python/
 - [ ] Worker distinguishes a failed compile (`result`) from a broken runtime
       (`error`), reports `warm` exactly once, and sends `started` once per
       request before compiling.
-- [ ] Worker handles BOTH extra units — `harness` compiled with the entry class
-      derived from it, `library` compiled beside `source` and never run — or
-      refuses them with `rejectHarness`, which guards the shape rather than one
-      field name. Never silently dropped.
+- [ ] Worker handles the `harness` extra unit — compiled with the entry class
+      derived from it — or refuses it with `rejectHarness`. Never silently
+      dropped. (A second field for a platform unit compiled beside `source` was
+      part of the contract until #209 retired the widget that needed it; if you
+      add one back, add its check to `rejectHarness` and to its tests in the
+      same PR.)
 - [ ] Reserved-name guard over every top-level declaration in `source` and
       `harness`, run AFTER the language's pre-lexical source transformations,
       with at least one bypass shape verified refused against the real compiler

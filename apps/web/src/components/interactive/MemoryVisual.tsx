@@ -1,6 +1,7 @@
 import { useId, useMemo } from 'react';
 
-import type { MemoryState } from './memoryModel';
+import { AuthoringError } from '../AuthoringError';
+import type { MemoryState, MemoryValue } from './memoryModel';
 import { describeStep, layoutStep } from './memoryLayout';
 
 export interface MemoryVisualProps {
@@ -39,12 +40,21 @@ export interface MemoryVisualProps {
  * who cannot see it would otherwise get the prose minus its point.
  */
 export function MemoryVisual({ state, changed = [] }: MemoryVisualProps) {
-  const layout = useMemo(() => layoutStep(state), [state]);
-  const description = useMemo(() => describeStep(state), [state]);
+  const problem = useMemo(() => validateState(state), [state]);
+  const layout = useMemo(() => (problem === null ? layoutStep(state) : null), [state, problem]);
+  const description = useMemo(
+    () => (problem === null ? describeStep(state) : ''),
+    [state, problem],
+  );
   // Several diagrams can share one page — one <StepShow> can even draw many —
   // and a duplicated marker id would make every arrow on the page resolve to
-  // the first one's definition.
+  // the first one's definition. Called unconditionally so the hook order stays
+  // stable when the validator flips a state from acceptable to rejected.
   const head = `${useId()}-punta`;
+
+  if (problem !== null || layout === null) {
+    return <AuthoringError component="MemoryVisual">{problem}</AuthoringError>;
+  }
 
   return (
     <svg
@@ -198,4 +208,43 @@ export function MemoryVisual({ state, changed = [] }: MemoryVisualProps) {
       ))}
     </svg>
   );
+}
+
+/**
+ * Two authoring mistakes the tracer prevented by construction; a hand-written
+ * state cannot avoid them without a small preflight, and drawing the wrong
+ * picture silently is exactly the pedagogical hazard ADR-0043 §Decision-7
+ * hands the author (see also the trade-off recorded there — the JVM's
+ * truth-guarantee is now the author's).
+ *
+ * Returns a Spanish `<AuthoringError>` body describing the first defect it
+ * finds, or `null` when the state is drawable. Both checks are O(n).
+ */
+function validateState(state: MemoryState): string | null {
+  const ids = new Set<number>();
+  for (const object of state.objects) {
+    if (ids.has(object.id)) {
+      return `dos objetos comparten el id ${object.id}: cada objeto necesita un id único (los ids son claves de identidad, no de tipo).`;
+    }
+    ids.add(object.id);
+  }
+
+  const isRef = (v: MemoryValue): v is Extract<MemoryValue, { kind: 'ref' }> => v.kind === 'ref';
+
+  for (const frame of state.frames) {
+    for (const variable of frame.variables) {
+      if (isRef(variable.value) && !ids.has(variable.value.id)) {
+        return `la variable ${frame.name}.${variable.name} apunta al id ${variable.value.id}, que no está en objects.`;
+      }
+    }
+  }
+  for (const object of state.objects) {
+    for (const slot of object.fields) {
+      if (isRef(slot.value) && !ids.has(slot.value.id)) {
+        return `el campo ${slot.name} de un objeto apunta al id ${slot.value.id}, que no está en objects.`;
+      }
+    }
+  }
+
+  return null;
 }
