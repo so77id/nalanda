@@ -147,10 +147,18 @@ Three UI shapes were considered for the wrong-option trap.
   rather than naming a paper size. Fixtures under `apps/amc-worker/tests/
   fixtures/` stay Letter (the default) and are documentary of the
   default case, not the whole space.
-- **The three surfaces that assert paper size stay in sync.** Domain
-  enum, schema CHECK, generator switch: adding a third value in future
-  is a three-file change and both L1 tests and the schema refuse the
-  intermediate state.
+- **The three surfaces that assert paper size stay in sync — at the
+  schema, and by convention at the two others.** Domain enum, schema
+  CHECK, generator switch. The schema CHECK refuses any value it does
+  not recognise (`TestControlPaperCheckRefusesUnknownValue`), so a
+  domain enum that grows a value the schema does not know goes red at
+  the first INSERT. The generator's `paperClassOption` and the
+  handler's `ValidPaper` are NOT covered by an iteration over the
+  enum today; adding a third value would silently fall back to
+  letterpaper in the generator until a test is written for it. If
+  the enum ever grows, add a table-driven L1 iteration; today the
+  two-value case is pinned exhaustively by
+  `TestPreamble*Paper*` and the handler tests.
 
 ## Not yet proven
 

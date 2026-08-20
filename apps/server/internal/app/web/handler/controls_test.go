@@ -317,7 +317,10 @@ func TestCreateStoresPaperLetterByDefault(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(rows) != 1 || rows[0].Paper != controls.PaperLetter {
+	if len(rows) != 1 {
+		t.Fatalf("List returned %d rows, want 1", len(rows))
+	}
+	if rows[0].Paper != controls.PaperLetter {
 		t.Errorf("stored Paper = %q, want %q (default when the form omits it)", rows[0].Paper, controls.PaperLetter)
 	}
 }
@@ -336,7 +339,10 @@ func TestCreateStoresPaperA4WhenTheRadioIsA4(t *testing.T) {
 	if err != nil {
 		t.Fatalf("List: %v", err)
 	}
-	if len(rows) != 1 || rows[0].Paper != controls.PaperA4 {
+	if len(rows) != 1 {
+		t.Fatalf("List returned %d rows, want 1", len(rows))
+	}
+	if rows[0].Paper != controls.PaperA4 {
 		t.Errorf("stored Paper = %q, want %q", rows[0].Paper, controls.PaperA4)
 	}
 }
@@ -346,6 +352,12 @@ func TestCreateStoresPaperA4WhenTheRadioIsA4(t *testing.T) {
 // side effects would have run and the error message would name a sqlite
 // constraint (leak). The handler catches it first (Round A local review
 // rationale: refuse where the meaning is known).
+//
+// Asserting the status alone was not enough — a mutation that removed the
+// handler's ValidPaper check reddened this test at the status line too, but
+// because a schema CHECK propagated as a 500 rather than because the handler
+// refused with a 422. Asserting the field-error string in the body pins the
+// layer this test claims to guard (Round A COR-4).
 func TestCreateRefusesAnUnknownPaperValue(t *testing.T) {
 	f := newControlsFixture(t)
 	form := validForm()
@@ -355,6 +367,15 @@ func TestCreateRefusesAnUnknownPaperValue(t *testing.T) {
 
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, want 422 for paper='legal'; body:\n%s", rec.Code, rec.Body.String())
+	}
+	// The Spanish per-field error only appears on the handler's own 422
+	// refusal path (validateCreate → render with errs). A schema CHECK
+	// propagating as a 500 would render the generic server-error page
+	// instead — which never contains this exact string. Also assert the
+	// per-field error is scoped to `paper`, not any other field.
+	body := rec.Body.String()
+	if !strings.Contains(body, "El papel debe ser Letter o A4.") {
+		t.Errorf("422 body is missing the handler's per-field message — the 422 may be coming from a lower gate; body:\n%s", body)
 	}
 }
 

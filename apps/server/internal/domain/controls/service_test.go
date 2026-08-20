@@ -267,6 +267,13 @@ func TestCreateWritesFilesAndPersistsTheControl(t *testing.T) {
 		t.Errorf("pool.json counts = %d/%d, want 3/5",
 			snap.Control.QuestionsPerCopy, snap.Control.Copies)
 	}
+	// Issue #208: Paper is a generation-time preference the snapshot
+	// records like DuplexPadding, so a regenerate off pool.json (WP-G)
+	// can reproduce source.tex byte-for-byte. Empty request → default
+	// (Letter), same guard as paperOrDefault in Create.
+	if snap.Control.Paper != "letter" {
+		t.Errorf("pool.json paper = %q, want \"letter\" (default when the request omits it, ADR-0043)", snap.Control.Paper)
+	}
 	if len(snap.Pool) != 4 {
 		t.Fatalf("pool.json pool = %d questions, want 4 (the fixture range)", len(snap.Pool))
 	}
