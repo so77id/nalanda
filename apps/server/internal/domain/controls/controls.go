@@ -50,6 +50,13 @@ type Control struct {
 	// SQL level is 1 (padded) so pre-migration controls stay padded, but
 	// every caller in Go passes an explicit value.
 	DuplexPadding bool
+	// Paper is the physical sheet the printed PDF is laid out for
+	// (issue #208, ADR-0043). Two values today: PaperLetter (default, the
+	// Chilean printer default from ADR-0042) and PaperA4. The generator
+	// reads this into \documentclass; the professor picks it in `<details>
+	// Opciones avanzadas` on the create form, so the default requires no
+	// interaction and the alternative asks for one.
+	Paper Paper
 	// Ticked/Unsure are the darkness thresholds this control's batches are
 	// read and scored at (issue #197). One pair per control, last-wins:
 	// the upload form can set them, the reanalyse form re-sets them, and
@@ -61,6 +68,33 @@ type Control struct {
 	State     State
 	CreatedAt time.Time
 	CreatedBy int64 // users.user_id
+}
+
+// Paper is the physical sheet a control's PDF is laid out for. The two
+// enumerated values map 1-1 to the two \documentclass options the generator
+// supports (issue #208, ADR-0043). New values are added here, in the SQL
+// CHECK constraint in migrations/00009_paper.sql, and in the generator's
+// preamble switch — all three or none.
+type Paper string
+
+const (
+	// PaperLetter is US Letter (8.5×11 in, 2550×3300 px @ 300 dpi). The
+	// Chilean printer default and this repo's operational default.
+	PaperLetter Paper = "letter"
+	// PaperA4 is A4 (210×297 mm, 2480×3508 px @ 300 dpi). Available when
+	// the professor explicitly asks for it under "Opciones avanzadas".
+	PaperA4 Paper = "a4"
+	// DefaultPaper is what the create form initialises Paper to, what the
+	// migration sets NULL rows to, and what Service.Create writes on any
+	// call that omits the field.
+	DefaultPaper = PaperLetter
+)
+
+// ValidPaper reports whether p is one of the two enumerated values. Handlers
+// use it to reject an unknown form value before it reaches the schema's
+// CHECK (which would refuse it too, one gate later).
+func ValidPaper(p Paper) bool {
+	return p == PaperLetter || p == PaperA4
 }
 
 // DefaultTicked / DefaultUnsure are the product defaults for a newly

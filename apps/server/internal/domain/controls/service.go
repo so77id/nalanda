@@ -250,6 +250,11 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 		QuestionsPerCopy: req.QuestionsPerCopy,
 		Copies:           req.Copies,
 		DuplexPadding:    req.DuplexPadding,
+		// Issue #208: S1 wires the schema and the default; S2 threads the
+		// form value through CreateRequest. Between the two slices Create
+		// always writes DefaultPaper, so the schema CHECK is satisfied and
+		// the tex generator sees Letter — the pre-#208 behaviour.
+		Paper: DefaultPaper,
 		// Issue #197: the product defaults; the upload and reanalyse
 		// forms change them per batch afterwards.
 		Ticked:    DefaultTicked,
