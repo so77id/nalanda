@@ -46,8 +46,8 @@ failed.
 
 **Print double-sided (dúplex), at 100% scale.** Not "fit to page": AMC finds
 the sheet by the four corner marks, and scaling moves them. If your dialog
-offers "actual size" or "100%", that is the one. Plain white A4; six sheets
-come out.
+offers "actual size" or "100%", that is the one. Plain white US Letter; six
+sheets come out (paper size is a printer-facing contract per ADR-0042).
 
 ## 2. Mark them like a student would
 
