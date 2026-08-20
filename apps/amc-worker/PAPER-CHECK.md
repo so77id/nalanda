@@ -46,8 +46,10 @@ failed.
 
 **Print double-sided (dúplex), at 100% scale.** Not "fit to page": AMC finds
 the sheet by the four corner marks, and scaling moves them. If your dialog
-offers "actual size" or "100%", that is the one. Plain white US Letter; six
-sheets come out (paper size is a printer-facing contract per ADR-0042).
+offers "actual size" or "100%", that is the one. Use the paper you picked
+when the control was created — Letter by default (Chile), A4 if you opened
+"Opciones avanzadas" in the create form and switched (ADR-0043 supersedes
+the fixed-Letter of ADR-0042). Six sheets come out on that paper.
 
 ## 2. Mark them like a student would
 

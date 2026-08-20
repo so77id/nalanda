@@ -33,8 +33,10 @@ That produces `tests/work/paper-min/out/control-min-para-imprimir.pdf` — three
 copies, three pages.
 
 **Print single-sided, at 100% scale.** Not "fit to page": AMC finds the sheet
-by the four corner marks, and scaling moves them. Plain white US Letter; three
-sheets come out (paper size is a printer-facing contract per ADR-0042).
+by the four corner marks, and scaling moves them. Use the paper you picked
+when the control was created — Letter by default (Chile), A4 if you opened
+"Opciones avanzadas" in the create form and switched (ADR-0043 supersedes
+the fixed-Letter of ADR-0042). Three sheets come out on that paper.
 
 ## 2. Mark them
 
