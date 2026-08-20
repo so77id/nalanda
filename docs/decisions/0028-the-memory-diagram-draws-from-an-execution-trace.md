@@ -1,6 +1,13 @@
 # ADR-0028: The memory diagram draws from an execution trace, not from a description
 
-**Status:** Accepted
+**Status:** Superseded by ADR-0043
+**Superseded by:** ADR-0043 (#209, 2026-08-19) — the pattern was reversed: the
+memory diagram now consumes author-written state through the more general
+`<StepShow>` primitive, and every piece of runtime this ADR added (the tracer
+class, the `library` compilation unit, the reserved-name entry) was retired
+with the widget. The body below is preserved unchanged per
+`docs/standards/documentation.md` §"When review falsifies a claim"; read it
+alongside ADR-0043 §Context, which explains what stopped being worth the cost.
 **Date:** 2026-08-14
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the `trace` fence and its `// foto` markers · the generated `NalandaTrace` class ·
