@@ -76,12 +76,72 @@ func TestGenerateRefusedOn4xxWrapsErrGeneratorRefused(t *testing.T) {
 		t.Errorf("Generate on 400: %v, want ErrGeneratorRefused", err)
 	}
 	// The worker's `error` string is what the operator will read; the
-	// message must include it. The `detail` field is not part of the
-	// domain-facing text — it can carry student identifiers per the
-	// worker's own security note, and this handler runs BEFORE any
-	// filtering in the caller.
+	// message must include it. `detail` is now included too — it carries
+	// the last 4000 chars of AMC's stderr (Package Listings Error,
+	// Emergency stop, missing file), which is the only diagnosable
+	// signal when pdflatex refuses a source. It was dropped in the
+	// original wire mapping, and "prepare failed (1)" was unactionable
+	// in production (#208 hotfix, mirror of #210's analyze-path fix).
+	// The /generate stderr is LaTeX output, not student data — safe to
+	// log; the analyze path has its own struct because reader stderr
+	// can carry RUT/name fragments.
 	if !strings.Contains(err.Error(), "source path does not exist") {
 		t.Errorf("error %q does not include worker's error message", err.Error())
+	}
+	if !strings.Contains(err.Error(), "no such file: controls/bogus/inputs/source.tex") {
+		t.Errorf("error %q does not include worker's detail — 'prepare failed (1)' alone is unactionable (#208 hotfix)", err.Error())
+	}
+}
+
+// A refusal WITHOUT a detail field falls back to the message-only shape
+// (an older worker version, or a Failed() raised without a stderr tail).
+// The parenthetical "(worker detail: ...)" must not appear in that case,
+// or a reader sees `(worker detail: )` and thinks the stderr was empty
+// when in fact the field was absent.
+func TestGenerateRefusedOmitsDetailClauseWhenDetailAbsent(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		respond(w, http.StatusBadRequest, map[string]any{
+			"error": "copies must be at least 1",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	client := amcworker.New(amcworker.Config{BaseURL: srv.URL})
+	_, err := client.Generate(context.Background(), controls.GenerateRequest{
+		Project: "controls/abc", Source: "controls/abc/inputs/source.tex", Copies: 0,
+	})
+	if !errors.Is(err, controls.ErrGeneratorRefused) {
+		t.Fatalf("Generate on 400: %v, want ErrGeneratorRefused", err)
+	}
+	if strings.Contains(err.Error(), "worker detail:") {
+		t.Errorf("error %q includes an empty 'worker detail:' clause; the parenthetical must be omitted when detail is absent", err.Error())
+	}
+}
+
+// The detail is collapsed to one line so a log aggregator keeps the whole
+// AMC-stderr tail on one entry rather than splitting it across several
+// unindexable half-messages. Newlines become " | ".
+func TestGenerateRefusedCollapsesMultilineDetailIntoOneLine(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		respond(w, http.StatusBadRequest, map[string]any{
+			"error":  "auto-multiple-choice prepare failed (1)",
+			"detail": "line one\nline two\nline three",
+		})
+	}))
+	t.Cleanup(srv.Close)
+
+	client := amcworker.New(amcworker.Config{BaseURL: srv.URL})
+	_, err := client.Generate(context.Background(), controls.GenerateRequest{
+		Project: "controls/abc", Source: "controls/abc/inputs/source.tex", Copies: 1,
+	})
+	if err == nil {
+		t.Fatal("Generate: nil error, want ErrGeneratorRefused")
+	}
+	if strings.Contains(err.Error(), "\n") {
+		t.Errorf("error contains a literal newline — the detail was not collapsed; err = %q", err.Error())
+	}
+	if !strings.Contains(err.Error(), "line one | line two | line three") {
+		t.Errorf("error %q does not preserve every detail line joined by ' | '", err.Error())
 	}
 }
 
