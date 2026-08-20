@@ -67,7 +67,7 @@ export const memoryVisualCatalogEntry: CatalogEntry = {
     'A drawing of variables, stack frames and heap objects, taken from AUTHOR-WRITTEN state passed as a prop — no runtime, no compile, no lazy chunk. Preserves the drawing convention of ADR-0028 (arrows on the right, cross-frame aliasing named in the description) while dropping the tracer that used to produce the state at load time.',
   whenToUse:
     'Whenever the lesson IS the shape of memory: aliasing, parameter passing, identity versus equality, and later linked lists and trees. Prose about references is nodded at and not understood; a drawing of two names on one box is not. ' +
-    'Introduced in #209 as the reversal of ADR-0028. The old <MemoryDiagram> compiled a Java class beside the snippet and ran it on mount; this one takes a `state` object and draws it, at a fraction of the load cost. ' +
+    'Introduced in #209 as the reversal of ADR-0028. The predecessor widget compiled a Java class beside the snippet and ran it on mount; this one takes a `state` object and draws it, at a fraction of the load cost. ' +
     'Usually paired with <StepShow> so several photographs of the same program can be walked, with the code side highlighted — <MemoryVisual> is standalone and only draws one picture. ' +
     'The author is responsible for the picture being TRUE: no build gate or test can compare a hand-written state to the snippet beside it. That is the trade-off the superseding ADR records; the pedagogy the trace bought was more machinery than the volumes here needed.',
   props: [

@@ -126,8 +126,8 @@ src/runtime/python/
    `createWorker()`. The CodeMirror grammar is NOT part of it — it lives in
    `<lang>/grammar.ts` exporting `grammar(): Extension`, so a consumer that
    drives the runtime without mounting an editor does not pay for a highlighter
-   (#122: `<MemoryDiagram>` paid for one to render none; ADR-0018 §4 has the
-   bytes).
+   (#122; ADR-0018 §4 has the bytes, measured against the memory-diagram
+   widget that historically paid for one to render none — retired in #209).
 
    **If it cannot run in a worker** — implement `RuntimeWorker` by hand and
    return it from `createWorker()`; it is our interface, not the platform's, so

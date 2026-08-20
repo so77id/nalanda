@@ -19,10 +19,10 @@ export interface CodeStepperProps {
  *
  * The listing is rendered here as plain monospace text rather than through
  * `<CodeEditor>`, and the reason is bundle weight measured against a real
- * consumer. `MemoryPlayer` earned this trade-off first (ADR-0028 §Consequences,
- * amended by #122): giving the diagram an editor would cost the CodeMirror
- * core AND a grammar — the diagram loads neither today, and would gain nothing
- * from either since the highlight is a per-line box, not tokenised colour.
+ * consumer. Earned in ADR-0028 §Consequences (amended by #122): giving the
+ * diagram an editor would cost the CodeMirror core AND a grammar — the
+ * `<StepShow>` consumer loads neither today, and would gain nothing from
+ * either since the highlight is a per-line box, not tokenised colour.
  *
  * The same reasoning applies to every `<StepShow>` consumer: an author is
  * showing steps beside a visual, not editing code. Adding an editor here would

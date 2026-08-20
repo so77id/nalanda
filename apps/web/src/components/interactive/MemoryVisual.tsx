@@ -18,9 +18,9 @@ export interface MemoryVisualProps {
 /**
  * A memory diagram driven by AUTHOR-WRITTEN state — the reversal of ADR-0028.
  *
- * The tracer era (`trace.ts`, deleted in #209 S4) compiled a Java class beside
- * the snippet, ran it, and read back the objects it photographed. The rendering
- * was identical to this one; what changed is where the truth comes from.
+ * The tracer era (retired in #209) compiled a Java class beside the snippet,
+ * ran it, and read back the objects it photographed. The rendering was
+ * identical to this one; what changed is where the truth comes from.
  *
  * The pedagogy the tracer bought — the drawing cannot lie about what the code
  * does — is now the AUTHOR's responsibility: no build gate and no test can

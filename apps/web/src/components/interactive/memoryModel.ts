@@ -1,16 +1,12 @@
 // The typed state a `<MemoryVisual>` draws — variables in stack frames, boxes
 // on the heap, and the references between them.
 //
-// Extracted from `trace.ts` in #209 as part of the reversal of ADR-0028: the
-// component used to consume the OUTPUT of an execution trace, and it now
-// consumes a state the author writes directly. The shape stays the same, so
+// This is the SSOT for the shape the widget ships. Introduced in #209 as
+// part of the reversal of ADR-0028: the state used to come from an
+// execution trace (a Java compile + JVM per diagram); it now comes from a
+// prop the author writes directly. The shape stayed the same, so
 // `memoryLayout.ts` (the algorithm that decides where every box goes) is
 // unchanged; only the SOURCE of the state changed.
-//
-// Kept alongside `trace.ts` while both exist — `trace.ts` re-exports these
-// names for the old `MemoryDiagram` player until #209's S4 deletes it — but
-// this module is the SSOT for the shape the widget ships. When `trace.ts`
-// goes, everything memory-related lives here.
 
 /** What a variable, a field or an array element holds. */
 export type MemoryValue =
@@ -45,11 +41,11 @@ export interface MemoryFrame {
 /**
  * One picture of the heap: every open frame and every object it references.
  *
- * The author writes one of these per `<Step>` in a `<StepShow>`. The tracer era
- * (`trace.ts`, deleted in #209 S4) accumulated the same shape as it read the
- * launcher's output; the drawing is unchanged. What changed is who is
- * responsible for it being true, and the answer used to be "the JVM" and is
- * now "the author who wrote the diagram beside the code".
+ * The author writes one of these per `<Step>` in a `<StepShow>`. The tracer
+ * era (retired in #209) accumulated the same shape as it read the launcher's
+ * output; the drawing is unchanged. What changed is who is responsible for it
+ * being true, and the answer used to be "the JVM" and is now "the author who
+ * wrote the diagram beside the code".
  */
 export interface MemoryState {
   frames: MemoryFrame[];

@@ -28,15 +28,16 @@ export interface StepShowProps {
  *
  * State is scoped to this instance: two `<StepShow>`s on one page step
  * independently. Prev / next / reset control the index; ArrowLeft and
- * ArrowRight walk it from the focused group, the same shape `MemoryPlayer`
- * earned in #116 so the keyboard reader is not stranded when the button that
- * stranded them is the one that just disabled itself.
+ * ArrowRight walk it from the focused group. Two accessibility invariants are
+ * load-bearing and were paid for once (in #116, on the widget this one
+ * supersedes): the group is focusable, and prev/next expose `aria-disabled`
+ * rather than `disabled`, so the keyboard reader is not stranded when the
+ * button that stranded them is the one that just disabled itself.
  *
- * This is the primitive #209 replaces `<MemoryDiagram>` with. `<MemoryDiagram>`
- * drew from an execution trace (ADR-0028), which turned out to be more machinery
- * than the pedagogy needed: an author-written state, drawn beside the code, is
- * both cheaper to load and freer in what it can show. The trade-off is
- * documented in the ADR that supersedes 0028 and in this WP's design notes.
+ * Introduced in #209 as the reversal of ADR-0028: a memory picture used to be
+ * drawn from an execution trace (a Java compile + JVM per diagram); it now
+ * consumes author-written state through `<MemoryVisual>`, at a fraction of the
+ * bundle. The trade-off is documented in the ADR that supersedes 0028.
  */
 export function StepShow({ code, language, title, children }: StepShowProps) {
   const steps = Children.toArray(children).filter(
@@ -82,7 +83,8 @@ export function StepShow({ code, language, title, children }: StepShowProps) {
     <div
       // `role="group"` + focusable, so the arrows work from anywhere inside —
       // and keep working at both ends, where the button that had focus is the
-      // one that just became unavailable (`MemoryPlayer` earned this).
+      // one that just became unavailable. Earned in #116 by the widget this
+      // one supersedes.
       tabIndex={0}
       role="group"
       aria-label="Ejecución paso a paso: usa las flechas izquierda y derecha para recorrer los pasos"
@@ -105,10 +107,12 @@ export function StepShow({ code, language, title, children }: StepShowProps) {
       </header>
 
       {/*
-        Stacked, not side by side — same reason `MemoryPlayer` stacks: inside a
-        document the widget gets ~700px, two columns compress each to ~350 and
-        anything wider than that scales to unreadable. A media query cannot
-        fix it; what is narrow is the container, not the viewport.
+        Stacked, not side by side. Two columns measured wrong inside a document:
+        the widget gets ~700px, so each column got ~350 and the drawing scaled
+        to ~two-thirds — 11px labels landed near 7px, unreadable on a projector.
+        A media query cannot fix it; what is narrow is the container, not the
+        viewport. Full width each, both legible. Earned in the widget this
+        one supersedes (#116).
       */}
       <div className="flex flex-col gap-px bg-rule">
         <CodeStepper code={code} highlightLines={currentLines} language={language} />
@@ -117,12 +121,12 @@ export function StepShow({ code, language, title, children }: StepShowProps) {
 
       <footer className="flex items-center gap-2 border-t border-rule bg-sunk px-3 py-2">
         {/*
-          `aria-disabled` rather than `disabled`, at both ends. Same reason
-          `MemoryPlayer` earned: a `disabled` button loses focus, so walking to
-          the last step with the keyboard threw focus to the body and the reader
-          could no longer walk back — the control that stranded them being the
-          one they had just used. Announced as unavailable, still focusable,
-          inert on click.
+          `aria-disabled` rather than `disabled`, at both ends. A `disabled`
+          button loses focus, so walking to the last step with the keyboard
+          threw focus to the body and the reader could no longer walk back —
+          the control that stranded them being the one they had just used.
+          Announced as unavailable, still focusable, inert on click.
+          Earned in #116 by the widget this one supersedes.
         */}
         <button
           type="button"
@@ -160,8 +164,9 @@ export function StepShow({ code, language, title, children }: StepShowProps) {
         </span>
 
         {/*
-          Same shape as `MemoryPlayer`: the counter alone announces that
-          something changed without saying what. Spanish because the page is
+          The counter alone would announce that something changed without
+          saying what — for a reader who cannot see the drawing beside the
+          code, what changed IS the lesson. Spanish because the page is
           served `lang="es"` (root CLAUDE.md §Language).
         */}
         <span role="status" aria-live="polite" className="sr-only">

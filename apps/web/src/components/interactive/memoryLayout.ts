@@ -8,11 +8,10 @@
 // the geometry here means the suite can check it and the browser only has to
 // confirm it looks right.
 
-// #209 rewrote this module's input from a `TraceStep` (a tracer photograph) to
-// a `MemoryState` (a superset that carries only what this algorithm needs).
-// A `TraceStep` still satisfies the type — it adds `line`, `frame` and
-// `truncated`, which this file never reads — so every existing caller keeps
-// working unchanged until #209's S4 deletes `trace.ts` outright.
+// #209 changed this module's input from a tracer photograph to a `MemoryState`
+// the author writes directly — the reversal of ADR-0028. The shape is the
+// same, only the source changed, so this file is unchanged apart from the
+// import.
 import type { MemoryObject, MemorySlot, MemoryState, MemoryValue } from './memoryModel';
 
 type HeapObject = MemoryObject;

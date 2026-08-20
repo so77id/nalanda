@@ -190,12 +190,13 @@ src/
   an import site. Required for any component carrying a heavy dependency OR whose
   static import graph reaches a feature seam the shell must not pull eagerly —
   today `runtime/` (`guides/add-a-content-component.md` §Heavy components,
-  ADR-0018 §7). Two worked cases, because the two triggers look nothing alike:
-  `lazyCodeEditor.tsx` (CodeMirror, a heavy dependency) and
-  `lazyMemoryDiagram.tsx` (no editor at all — it imports the runtime seam, which
-  brings the registry, every descriptor and the Java launcher). Stated as two
-  triggers because #85 broke the invariant through the second one while every
-  name-based guard stayed green.
+  ADR-0018 §7). Two triggers, and they look nothing alike: a heavy dependency
+  (worked case `lazyCodeEditor.tsx` — CodeMirror), or a static import of the
+  runtime seam (which brings the registry, every descriptor and the Java
+  launcher — worked case `lazyPredictOutput.tsx`, which combines both because
+  it wraps `<CodeEditor>` AND drives a runtime through `useLoadedRuntime`).
+  Stated as two triggers because #85 broke the invariant through the second
+  one while every name-based guard stayed green.
 - Hooks: `useThing.ts`, exported as `useThing`.
 - Everything else: `camelCase.ts` (`parser.ts`, `wikiLinks.ts`).
 - One exported component per file; small private subcomponents may live beside it

@@ -2,7 +2,7 @@ import { Suspense, lazy } from 'react';
 
 import type { PredictOutputProps } from './PredictOutput';
 
-// Same reason as lazyMemoryDiagram: the MDX component map is built eagerly in
+// Same reason as lazyCodeEditor: the MDX component map is built eagerly in
 // the shell, and PredictOutput reaches the runtime seam (through
 // `useLoadedRuntime`) and CodeMirror (through `LazyCodeEditor`). Registering
 // the real one would put both into the entry chunk of every reader of every

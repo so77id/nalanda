@@ -39,18 +39,19 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
   1. _Execution_: every runtime is faked in jsdom, so anything that **DRIVES a
      runtime** needs a browser too — any change under `src/runtime/**`, anything
      that calls `run()` through `useRuntime`/`useLoadedRuntime`, anything that
-     GENERATES a compilation unit sent to one (`harness.ts`, `trace.ts`), and
-     anything that mounts `CodeEditor`. Today that is `CodeEditor`, `Exercise`,
-     `MemoryDiagram`, `PredictOutput`, the draft store, and since #85 `MdxPre`
-     and any fence in `content/` tagged with a runtime id.
+     GENERATES a compilation unit sent to one (`harness.ts`), and anything that
+     mounts `CodeEditor`. Today that is `CodeEditor`, `Exercise`,
+     `PredictOutput`, the draft store, and since #85 `MdxPre` and any fence in
+     `content/` tagged with a runtime id.
 
-     Stated as a class and not a list on purpose, and **the class itself has now
-     gone stale twice**: once when `Exercise` arrived, again when a markdown
-     fence became a component, and a third time when it was worded as "mounts
-     `CodeEditor`" — which `MemoryDiagram` deliberately does not do (ADR-0026
-     draws its own listing) while driving a real JVM end to end. If you are
-     tempted to narrow it again, narrow it to what the code DOES, never to what
-     it imports.
+     Stated as a class and not a list on purpose, and **the class itself has
+     gone stale three times**: once when `Exercise` arrived, again when a
+     markdown fence became a component, a third time when it was worded as
+     "mounts `CodeEditor`" — which the memory-diagram widget retired in #209
+     deliberately did NOT do while driving a real JVM end to end — and a fourth
+     when #209 retired that widget outright (moving memory drawings off the
+     runtime, so the class shrank). Narrow the class to what the code DOES,
+     never to what it imports.
 
   2. _Layout, focus and device shape_: jsdom lays nothing out and does not
      implement the browser's tab order, so anything that enumerates focusables,

@@ -120,32 +120,13 @@ describe('architecture: the exercise stays out of the entry chunk', () => {
   });
 });
 
-describe('architecture: the memory diagram stays out of the entry chunk', () => {
-  // A different route to the same hazard, which is why it gets its own case:
-  // MemoryDiagram embeds no CodeMirror at all, but it imports the runtime seam,
-  // and that brings the registry, every descriptor and the Java launcher with
-  // it — the exact shape #85 broke the invariant with.
-  const ALLOWED = ['components/interactive/lazyMemoryDiagram.tsx'];
-
-  it('is imported only by its lazy wrapper', () => {
-    expect(
-      violations(
-        (_fileTop, _importTop, importRel, file) =>
-          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
-            'components/interactive/memorydiagram' &&
-          !file.includes('.test.') &&
-          !ALLOWED.includes(file),
-      ),
-    ).toEqual([]);
-  });
-});
-
 describe('architecture: the predict-output card stays out of the entry chunk', () => {
   // PredictOutput reaches the hazard both ways: it wraps LazyCodeEditor and it
   // imports the runtime seam through `useLoadedRuntime`. Either would have been
   // enough for its own case (see the two describes above); together they leave
-  // no ambiguity about why the lazy wrapper is required. Same shape as
-  // MemoryDiagram's guard — a single ALLOWED entry, no per-file exemptions.
+  // no ambiguity about why the lazy wrapper is required. Same shape as the
+  // other heavy-component guards above — a single ALLOWED entry, no
+  // per-file exemptions.
   const ALLOWED = ['components/interactive/lazyPredictOutput.tsx'];
 
   it('is imported only by its lazy wrapper', () => {
@@ -391,10 +372,12 @@ describe('architecture: what the shell reaches eagerly', () => {
 describe('architecture: a runtime carries no editor', () => {
   // `loadRuntime(id)` is the compiler half of a language — a worker factory and a
   // descriptor. `loadGrammar(id)` is the editor half. They are two entry points
-  // because two consumers genuinely need one without the other: <MemoryDiagram>
-  // drives a real JVM and draws its own listing (ADR-0026/0028), so while the
-  // grammar sat inside the runtime module it paid a full highlighter to render
-  // none (#122).
+  // because two consumers genuinely need one without the other. The historical
+  // worked case (retired in #209, the ADR superseding 0028): a memory-diagram
+  // widget drove a real JVM and drew its own listing, so while the grammar
+  // sat inside the runtime module it paid a full highlighter to render none
+  // (#122). The widget is gone; the split stays useful for the next non-editor
+  // runtime consumer.
   //
   // A source walk rather than a size assertion: the kilobytes are the symptom and
   // only a build can see them, but a static import is the cause and it is visible
@@ -469,8 +452,9 @@ describe('architecture: a runtime carries no editor', () => {
     expect(
       [...reached].filter((name) => !RUNTIME_MAY_REACH.includes(name)).sort(),
       'this package is now reachable from a runtime module by a STATIC import, so ' +
-        'every consumer of that language pays for it — including <MemoryDiagram>, ' +
-        'which mounts no editor. A CodeMirror grammar goes behind `loadGrammar(id)`. ' +
+        'every consumer of that language pays for it — an author of a future ' +
+        'non-editor consumer (e.g. a call-stack visualiser) will inherit that cost. ' +
+        'A CodeMirror grammar goes behind `loadGrammar(id)`. ' +
         'Do not add it to RUNTIME_MAY_REACH to go green: that is the same move as ' +
         'widening SHIPS_EAGERLY, and #122 exists because this exact weight was ' +
         'travelling unnoticed.',

@@ -5,7 +5,11 @@
 first paint, so a descriptor may no longer travel in the entry chunk) · #122
 (2026-08-16) — §4/§6: the CodeMirror grammar left `RuntimeModule` for
 `loadGrammar(id)`, and nothing under `runtime/` may statically reach any package
-but `react`
+but `react` · #209 (2026-08-19) — the memory-diagram widget this ADR names in
+several sections as an example of a non-editor runtime consumer was retired by
+the ADR that supersedes 0028; the `loadRuntime` / `loadGrammar` split it
+motivated stays intact for the next non-editor consumer, but concrete
+references to `<MemoryDiagram>` in the sections below are now historical
 **Date:** 2026-08-11
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the `RuntimeWorker` contract · lazy per-language runtime modules ·

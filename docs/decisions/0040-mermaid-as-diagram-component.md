@@ -1,6 +1,10 @@
 # ADR-0040: Mermaid as the diagramming component for course documents
 
 **Status:** Accepted
+**Amended by:** #209 (2026-08-19) — the `<MemoryDiagram>` component this ADR
+names in Context, §Alternatives and §Consequences as a peer example was
+retired by the ADR that supersedes 0028. The lazy-boundary and paint-check
+reasoning stays; only that concrete example is historical.
 **Date:** 2026-08-18
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the `<Mermaid>` course-content component · the `mermaid` runtime dependency · how a document renders a class diagram · the entry-chunk boundary the library sits behind

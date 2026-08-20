@@ -1,14 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import type { TraceStep } from './trace';
+import type { MemoryState } from './memoryModel';
 import { describeStep, layoutStep } from './memoryLayout';
 
-const step = (over: Partial<TraceStep> = {}): TraceStep => ({
-  line: 1,
-  frame: 'main',
+const step = (over: Partial<MemoryState> = {}): MemoryState => ({
   frames: [],
   objects: [],
-  truncated: null,
   ...over,
 });
 

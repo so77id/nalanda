@@ -11,7 +11,6 @@ import type { CatalogEntry } from '../lib/catalogEntry';
 
 import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
-import { memoryDiagramCatalogEntry } from './interactive/MemoryDiagram.catalog';
 import { mermaidCatalogEntry } from './interactive/Mermaid.catalog';
 import { predictOutputCatalogEntry } from './interactive/PredictOutput.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
@@ -38,7 +37,6 @@ export const catalogEntries: CatalogEntry[] = [
   sheetEmbedCatalogEntry,
   codeEditorCatalogEntry,
   exerciseCatalogEntry,
-  memoryDiagramCatalogEntry,
   mermaidCatalogEntry,
   predictOutputCatalogEntry,
   questionsCatalogEntry,

@@ -74,9 +74,10 @@ describe('StepShow', () => {
   });
 
   it('marks prev disabled at the start and next disabled at the end, both focusable', () => {
-    // Same shape MemoryPlayer earned: `aria-disabled` rather than `disabled`, so
-    // the button that stranded the reader stays focusable and can be walked back
-    // from. Losing focus at the end and being unable to walk back was the defect.
+    // `aria-disabled` rather than `disabled`, so the button that stranded the
+    // reader stays focusable and can be walked back from. Losing focus at the
+    // end and being unable to walk back was the defect earned in #116 by the
+    // widget this one supersedes.
     render(
       <StepShow code={CODE} language="java">
         <Step lines={[1]}>
@@ -102,7 +103,7 @@ describe('StepShow', () => {
     expect(screen.getByText('b')).toBeTruthy();
   });
 
-  it('walks with the left/right arrow keys, same shape as MemoryPlayer', () => {
+  it('walks with the left/right arrow keys from the focused group', () => {
     const { container } = render(
       <StepShow code={CODE} language="java">
         <Step lines={[1]}>
@@ -123,8 +124,8 @@ describe('StepShow', () => {
   });
 
   it('renders every source line with a number, even the empty ones', () => {
-    // MemoryPlayer earned this the hard way (the fence's trailing newline used
-    // to produce a phantom numbered line); the CodeStepper takes the source as
+    // A predecessor widget earned this the hard way (a fence's trailing newline
+    // used to produce a phantom numbered line); CodeStepper takes the source as
     // a raw string, so it deserves its own pin.
     const { container } = render(
       <StepShow code={'a\n\nb'} language="java">

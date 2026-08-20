@@ -36,7 +36,7 @@ export const mermaidCatalogEntry: CatalogEntry = {
     'A diagram a course document renders from a mermaid source string (ADR-0040). The author writes the source as a prop, the component loads the mermaid library on demand and paints the SVG — a class diagram today, and the same surface covers the sequence, state and entity-relationship diagrams the course will need before v0.3 closes.',
   whenToUse:
     'When the idea is a shape rather than a sentence: inheritance and interface hierarchies side by side, a state chart, an entity-relationship picture. Prose renders a diagram as a list; a diagram renders it as one picture with the parallel visible. ' +
-    'NOT for a single execution trace — that is <MemoryDiagram> (ADR-0028) — and NOT for recursion call trees, which <RecursionTree> draws natively. ' +
+    'NOT for a heap picture with named boxes and cross-frame aliasing — that is <MemoryVisual> inside a <StepShow> (#209, the ADR superseding 0028) — and NOT for recursion call trees, which <RecursionTree> draws natively. ' +
     "Keep the source small: the library parses and lays out on every mount, and the first mount also downloads the mermaid chunks (~200kB gzipped measured, ADR-0040 §Consequences). One diagram per section is the working budget today; a page that mounts many should trigger the ADR's revisit note.",
   props: [
     {

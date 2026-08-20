@@ -28,9 +28,10 @@ describe('runtime registry', () => {
     },
   );
 
-  // A separate entry point from `loadRuntime`, and separately gated, because the
-  // whole point is that a consumer can have one without the other: <MemoryDiagram>
-  // drives a JVM and draws its own listing, so it paid for a grammar it never
+  // A separate entry point from `loadRuntime`, and separately gated, because
+  // the whole point is that a consumer can have one without the other. The
+  // historical worked case (retired in #209): a memory-diagram widget drove
+  // a JVM and drew its own listing, so it paid for a grammar it never
   // rendered (#122; the bytes are in ADR-0018 §4).
   // "Of its OWN" is the assertion, not "a grammar". `toBeDefined()` alone let a
   // review recheck swap the java and python arms of the switch with all 997 cases
