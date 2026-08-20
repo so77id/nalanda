@@ -212,6 +212,8 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 		Seed:             s.Seed,
 		ListingsDir:      workerPath(project, "inputs"),
 		DuplexPadding:    req.DuplexPadding,
+		// Issue #208, ADR-0043: same guard as the persisted field below.
+		Paper: string(paperOrDefault(req.Paper)),
 	})
 	if err != nil {
 		rollback()
