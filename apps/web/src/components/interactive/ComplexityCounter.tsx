@@ -125,25 +125,24 @@ export function ComplexityCounter({
   if (mode === 'cases' && (cases === undefined || Object.keys(cases).length === 0)) {
     return (
       <AuthoringError component="ComplexityCounter">
-        modo <code>cases</code> requiere la prop <code>cases</code> con al menos un caso
-        (<code>best</code>, <code>worst</code> o <code>average</code>).
+        modo <code>cases</code> requiere la prop <code>cases</code> con al menos un caso (
+        <code>best</code>, <code>worst</code> o <code>average</code>).
       </AuthoringError>
     );
   }
   if (mode !== 'cases' && data === undefined) {
     return (
       <AuthoringError component="ComplexityCounter">
-        falta la prop <code>data</code>: un objeto{' '}
-        <code>{'{ breakdown, formula, evaluate }'}</code> con el desglose por línea, la fórmula
-        final y su evaluador numérico.
+        falta la prop <code>data</code>: un objeto <code>{'{ breakdown, formula, evaluate }'}</code>{' '}
+        con el desglose por línea, la fórmula final y su evaluador numérico.
       </AuthoringError>
     );
   }
   if (active === undefined) {
     return (
       <AuthoringError component="ComplexityCounter">
-        el caso <code>{caseKey}</code> no está definido en <code>cases</code>. Los casos
-        disponibles se muestran como pestañas; verifica que <code>{caseKey}</code> exista.
+        el caso <code>{caseKey}</code> no está definido en <code>cases</code>. Los casos disponibles
+        se muestran como pestañas; verifica que <code>{caseKey}</code> exista.
       </AuthoringError>
     );
   }
@@ -158,9 +157,7 @@ export function ComplexityCounter({
         <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-accent">
           {mode === 'space' ? 'espacio' : 'operaciones'}
         </span>
-        {algorithm !== undefined && (
-          <span className="font-mono text-sm text-ink">{algorithm}</span>
-        )}
+        {algorithm !== undefined && <span className="font-mono text-sm text-ink">{algorithm}</span>}
       </header>
 
       {mode === 'cases' && cases !== undefined && (
@@ -300,7 +297,10 @@ function BreakdownRowView({ row, variable, n, isExpanded, onToggle }: BreakdownR
               <td className="px-3 py-1 text-right">
                 {sub.times ?? ''}
                 {sub.times !== undefined && (
-                  <span className="text-ink-faint"> = {evaluateFormula(sub.times, variable, n)}</span>
+                  <span className="text-ink-faint">
+                    {' '}
+                    = {evaluateFormula(sub.times, variable, n)}
+                  </span>
                 )}
               </td>
             </tr>

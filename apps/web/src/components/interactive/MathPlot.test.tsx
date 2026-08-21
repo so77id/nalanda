@@ -28,7 +28,15 @@ vi.mock('mafs', () => ({
     ),
   },
   Line: {
-    Segment: ({ point1, point2, color }: { point1: [number, number]; point2: [number, number]; color: string }) => (
+    Segment: ({
+      point1,
+      point2,
+      color,
+    }: {
+      point1: [number, number];
+      point2: [number, number];
+      color: string;
+    }) => (
       <div
         data-testid="line-segment"
         data-point1={JSON.stringify(point1)}
@@ -47,7 +55,7 @@ vi.mock('mafs', () => ({
     green: '#0fa958',
     red: '#e01e37',
     orange: '#f57e17',
-    purple: '#8256d0',
+    violet: '#8256d0',
     pink: '#ff5c8a',
     indigo: '#4c3fa4',
     yellow: '#d9b400',
@@ -160,9 +168,7 @@ describe('MathPlot', () => {
   });
 
   it('hides the legend for a single-function plot unless the author overrides', () => {
-    render(
-      <MathPlot type="curves" xRange={[0, 10]} functions={[{ label: 'f', fn: (x) => x }]} />,
-    );
+    render(<MathPlot type="curves" xRange={[0, 10]} functions={[{ label: 'f', fn: (x) => x }]} />);
 
     expect(screen.queryByRole('list')).not.toBeInTheDocument();
   });

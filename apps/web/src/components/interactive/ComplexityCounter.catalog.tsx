@@ -65,8 +65,7 @@ export const complexityCounterCatalogEntry: CatalogEntry = {
   ],
   examples: [
     {
-      title:
-        'The first count of the class: sumaCiclo with the for-header collapsed and expandable',
+      title: 'The first count of the class: sumaCiclo with the for-header collapsed and expandable',
       code: '<ComplexityCounter algorithm="sumaCiclo" data={{ breakdown: [...], formula: "4n + 4", evaluate: n => 4*n + 4 }} />',
       render: () => (
         <ComplexityCounter

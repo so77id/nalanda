@@ -50,9 +50,7 @@ describe('ComplexityCounter', () => {
     expect(within(table).getByText(/control/i)).toBeInTheDocument();
     // The non-header rows carry their formula next to the evaluated numbers.
     // `s = s + i;` runs `n` times → for n = 10, the row shows "n = 10".
-    const codeRow = within(table)
-      .getByText('s = s + i;', { selector: 'code' })
-      .closest('tr')!;
+    const codeRow = within(table).getByText('s = s + i;', { selector: 'code' }).closest('tr')!;
     expect(codeRow).toHaveTextContent(/n\s*=\s*10/);
   });
 

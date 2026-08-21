@@ -129,7 +129,7 @@ export const benchmarkCatalogEntry: CatalogEntry = {
   examples: [
     {
       title:
-        'The Complejidad opener: three implementations of suma(N) — the reader sees their laptop\'s numbers disagree with the professor\'s',
+        "The Complejidad opener: three implementations of suma(N) — the reader sees their laptop's numbers disagree with the professor's",
       code: '<Benchmark implementations={[{ name: "sumaDobleCiclo", code: "..." }, { name: "sumaCiclo", code: "..." }, { name: "sumaFormula", code: "..." }]} />',
       render: () => (
         <Benchmark

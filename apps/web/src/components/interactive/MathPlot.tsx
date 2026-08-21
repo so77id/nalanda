@@ -15,7 +15,7 @@ export interface MathPlotFunction {
   /** The function itself, as a JS callback. */
   fn: (x: number) => number;
   /** Named colour from the plot's palette. Defaults to a rotating pick. */
-  color?: 'blue' | 'green' | 'red' | 'orange' | 'purple' | 'pink' | 'indigo' | 'yellow';
+  color?: 'blue' | 'green' | 'red' | 'orange' | 'violet' | 'pink' | 'indigo' | 'yellow';
   /** Dashed stroke, useful for reference lines. Defaults to solid. */
   dashed?: boolean;
 }
@@ -71,7 +71,7 @@ const COLOR_ROTATION = [
   Theme.green,
   Theme.red,
   Theme.orange,
-  Theme.purple,
+  Theme.violet,
   Theme.pink,
   Theme.indigo,
   Theme.yellow,
@@ -150,8 +150,8 @@ export function MathPlot({
     return (
       <AuthoringError component="MathPlot">
         el tipo <code>{type}</code> aún no está implementado. Solo{' '}
-        <code>type=&quot;curves&quot;</code> valida hoy; <code>3d</code> y <code>graph</code>{' '}
-        son extensiones futuras (ADR-0046).
+        <code>type=&quot;curves&quot;</code> valida hoy; <code>3d</code> y <code>graph</code> son
+        extensiones futuras (ADR-0046).
       </AuthoringError>
     );
   }
@@ -190,11 +190,7 @@ export function MathPlot({
         // site's theme via useResolvedTheme so the surrounding chrome matches.
         data-theme={resolvedTheme}
       >
-        <Mafs
-          viewBox={{ x: xRange, y: computedYRange }}
-          preserveAspectRatio={false}
-          zoom={false}
-        >
+        <Mafs viewBox={{ x: xRange, y: computedYRange }} preserveAspectRatio={false} zoom={false}>
           <Coordinates.Cartesian />
           {functions.map((f, i) => (
             <Plot.OfX

@@ -7,7 +7,7 @@ export const mathPlotCatalogEntry: CatalogEntry = {
   name: 'MathPlot',
   family: 'interactive',
   description:
-    'A 2D math function plotter for course documents (ADR-0046). The author declares one or more `y = f(x)` and the widget paints them on a shared coordinate system with an optional legend, optional reference lines, and Mafs\'s built-in hover interaction. Built on Mafs, a React-first math-visualization library.',
+    "A 2D math function plotter for course documents (ADR-0046). The author declares one or more `y = f(x)` and the widget paints them on a shared coordinate system with an optional legend, optional reference lines, and Mafs's built-in hover interaction. Built on Mafs, a React-first math-visualization library.",
   whenToUse:
     'Anywhere the class needs to draw a mathematical curve or overlay several: the growth-order comparison in Act 4 (1, log N, N, N log N, N squared, 2 to the N), the O grande / Omega / Theta definitions with a reference line drawn as `c * g(N)`, the crossing between a linear-with-big-constant and a quadratic-with-small-constant. ' +
     'NOT for pie charts, bar charts, statistical plots — Mafs is a math renderer, not a dashboard toolkit. ' +
@@ -80,14 +80,15 @@ export const mathPlotCatalogEntry: CatalogEntry = {
             { label: '1', fn: () => 1, color: 'orange' },
             { label: 'lg n', fn: (n) => Math.log2(n), color: 'green' },
             { label: 'n', fn: (n) => n, color: 'blue' },
-            { label: 'n lg n', fn: (n) => n * Math.log2(n), color: 'purple' },
+            { label: 'n lg n', fn: (n) => n * Math.log2(n), color: 'violet' },
             { label: 'n squared', fn: (n) => n * n, color: 'red' },
           ]}
         />
       ),
     },
     {
-      title: 'O grande with reference line: T(N) = 4N + 4 is O(N) since it stays under 5N past N_zero = 4',
+      title:
+        'O grande with reference line: T(N) = 4N + 4 is O(N) since it stays under 5N past N_zero = 4',
       code: '<MathPlot type="curves" xRange={[0, 20]} functions={[{ label: "T(N)", fn: n => 4*n+4 }, { label: "5N", fn: n => 5*n, dashed: true }]} annotations={[{ type: "verticalLine", x: 4, label: "N_zero" }]} />',
       render: () => (
         <MathPlot

@@ -146,7 +146,7 @@ describe('Benchmark', () => {
     expect(screen.getByText(/falta la prop/i)).toBeInTheDocument();
   });
 
-  it('renders one editor per implementation, each seeded with the author\'s source', async () => {
+  it("renders one editor per implementation, each seeded with the author's source", async () => {
     render(<Benchmark implementations={IMPLS} />);
 
     const codes = await screen.findAllByTestId('code');
@@ -174,7 +174,7 @@ describe('Benchmark', () => {
     // middle value (5 ms for impl 1, 15 ms for impl 2), min the smallest,
     // max the largest.
     // (5_000_000 ns = 5 ms; 15_000_000 ns = 15 ms.)
-    const _worker = await runAndReplyPerImpl(
+    await runAndReplyPerImpl(
       // impl 1 (warmup + 3 measured all at 5 ms), impl 2 (warmup + 3 measured all at 15 ms)
       [5_000_000, 15_000_000],
       1 /* warmup */ + 3 /* measured */,
