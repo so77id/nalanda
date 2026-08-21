@@ -27,21 +27,15 @@ export interface VideoEmbedProps {
 const DEFAULT_HEIGHT = 480;
 
 /**
- * What the frame is allowed to do. YouTube needs more than a Google Sheet:
- *
- * - `allow-scripts` runs the player.
- * - `allow-same-origin` is REQUIRED — the YouTube player fetches its own
- *   player.js, thumbnails, and captions; without it the frame paints "Video
- *   no disponible" even for public videos. Contrast with `<SheetEmbed>`,
- *   which deliberately keeps the frame in an opaque origin.
- * - `allow-presentation` lets the fullscreen button work.
- * - `allow-popups` + `allow-popups-to-escape-sandbox` let the "Watch on
- *   YouTube" link (and the "share" popover) open in a fresh tab that is not
- *   itself sandboxed — same shape and same reason as `<SheetEmbed>` for the
- *   spreadsheet's link-outs.
+ * Feature permissions the YouTube iframe player asks for. Matches the shape
+ * YouTube's own oEmbed HTML declares (fetched on 2026-08-21): fullscreen,
+ * autoplay, accelerometer/gyroscope for VR playback, encrypted-media for DRM,
+ * picture-in-picture and web-share for the player's own controls. Dropping any
+ * of these makes a subset of videos fail with a "video unavailable" or a
+ * silent "Player configuration error".
  */
-const SANDBOX =
-  'allow-scripts allow-same-origin allow-presentation allow-popups allow-popups-to-escape-sandbox';
+const ALLOW =
+  'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share';
 
 /**
  * Extracts a YouTube video id from any of the shapes the reader is likely to
@@ -136,11 +130,26 @@ export function VideoEmbed({ src, title, height = DEFAULT_HEIGHT }: VideoEmbedPr
       >
         Cargando el video…
       </p>
+      {/*
+       * Deliberately no `sandbox`: an iframe pointing at youtube.com is
+       * already in youtube.com's origin, so the browser's default cross-origin
+       * boundary is exactly the right restriction — adding a `sandbox`
+       * attribute REMOVES capabilities the YouTube player needs (session
+       * cookies for logged-in users, storage access, its own postMessage
+       * bridge) and hits the reader with a "Player configuration error 153"
+       * even for public videos. Contrast with `<SheetEmbed>`, which we DO
+       * sandbox because Google Sheets survives it and we prefer the extra
+       * isolation for a component the professor shares by link.
+       *
+       * `referrerPolicy` matches what YouTube's own oEmbed HTML uses; the
+       * player performs an origin check for embed-permission and rejects
+       * requests with no referrer at all.
+       */}
       <iframe
         src={url}
         title={title}
-        sandbox={SANDBOX}
-        referrerPolicy="no-referrer"
+        allow={ALLOW}
+        referrerPolicy="strict-origin-when-cross-origin"
         loading="lazy"
         allowFullScreen
         className="relative h-full w-full rounded border border-rule"

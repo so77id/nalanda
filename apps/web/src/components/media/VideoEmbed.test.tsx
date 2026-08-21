@@ -69,18 +69,26 @@ describe('VideoEmbed', () => {
     expect(frame.tagName).toBe('IFRAME');
   });
 
-  it('pins the sandbox tokens the YouTube player needs to run', () => {
-    renderIn(
-      'book',
-      <VideoEmbed src="https://youtu.be/S1PVPluvV9I" title="prueba" />,
-    );
+  it('does NOT sandbox the frame (YouTube player needs its own storage / cookies)', () => {
+    renderIn('book', <VideoEmbed src="https://youtu.be/S1PVPluvV9I" title="prueba" />);
     const frame = screen.getByTitle('prueba');
-    const sandbox = frame.getAttribute('sandbox') ?? '';
-    // allow-same-origin is REQUIRED (unlike SheetEmbed) — YouTube player
-    // fetches its own player.js from youtube.com.
-    expect(sandbox).toContain('allow-scripts');
-    expect(sandbox).toContain('allow-same-origin');
-    expect(sandbox).toContain('allow-presentation');
+    // See VideoEmbed.tsx: an iframe pointing at youtube.com is already in
+    // its own origin, and adding `sandbox` breaks the player with a
+    // "configuration error 153" (measured 2026-08-21 against the QuantumFracture
+    // Turing-analogy video). Contrast with SheetEmbed, which we deliberately
+    // do sandbox.
+    expect(frame.hasAttribute('sandbox')).toBe(false);
+  });
+
+  it('declares the `allow` features the YouTube player asks for', () => {
+    renderIn('book', <VideoEmbed src="https://youtu.be/S1PVPluvV9I" title="prueba" />);
+    const frame = screen.getByTitle('prueba');
+    const allow = frame.getAttribute('allow') ?? '';
+    // Matches YouTube's own oEmbed HTML — anything missing here has been
+    // measured to break at least one video's player.
+    expect(allow).toContain('autoplay');
+    expect(allow).toContain('encrypted-media');
+    expect(allow).toContain('picture-in-picture');
   });
 
   it('caps its height against the slide budget in presentation mode', () => {

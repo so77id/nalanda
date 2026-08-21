@@ -132,10 +132,6 @@ matemático.
 **Y esa definición no existía todavía.** En 1928 nadie sabía qué era exactamente un
 algoritmo. Era intuitivo — *"una receta de pasos"* — pero no había definición matemática
 rigurosa.
-
-En el Acto 2 veremos cómo, en el mismo año (1936), **dos personas en dos continentes**
-llegaron a la misma respuesta al problema — y como subproducto, inventaron **la primera
-definición formal de algoritmo**.
 </Slide>
 
 <SectionBreak />
@@ -489,8 +485,7 @@ Fuentes de ruido que están entrando en la medición:
 estás midiendo *el algoritmo + todo el ambiente que lo rodea*. Ese ambiente cambia entre
 máquinas, entre momentos, y hasta entre corridas consecutivas.
 
-**Pregunta que abre el resto del acto**: *"¿Cómo aíslo el algoritmo del entorno para hablar
-solo de él?"*
+*¿Cómo aíslo el algoritmo del entorno para hablar solo de él?*
 </Slide>
 
 <Slide title="Volver al modelo teórico: de Turing a RAM">
@@ -702,7 +697,7 @@ propiedad de **cómo contamos** y de la máquina.
 T(n)**, sino su **orden de crecimiento**.
 </Slide>
 
-<Slide title="Los órdenes de crecimiento que veremos en el curso">
+<Slide title="Los órdenes de crecimiento del curso">
 | Descripción | Función | Cuándo aparece |
 |---|---|---|
 | Constante | 1 | No depende de N (`sumaFormula`) |
@@ -1184,7 +1179,8 @@ Repaso de lo que hicimos:
 - **Sumamos** todo y descartamos constantes y términos menores.
 - **Obtuvimos** O/Ω/Θ.
 
-Este método funciona para **todos los algoritmos iterativos** que veremos este año.
+Este método funciona para **todos los algoritmos iterativos** — cualquier función que
+compute su resultado con ciclos `for` y `while` sin llamarse a sí misma.
 
 **Pero hay una familia entera que no se puede analizar así.**
 

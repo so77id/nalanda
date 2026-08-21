@@ -207,14 +207,22 @@ export function Benchmark({
         </span>
       </header>
 
-      <div className="flex flex-col gap-2 border-t border-rule bg-sunk p-2">
+      {/*
+       * Fixed-height stack: the three cards together occupy the same vertical
+       * budget the widget always had (before the vertical layout split). Each
+       * card owns 1/N of that budget via `flex-1 basis-0 min-h-0`, with the
+       * editor inside carrying its own scroll. When one card is zoomed the
+       * others render null and the surviving card takes the full budget
+       * without changing the parent's height.
+       */}
+      <div className="flex flex-col gap-2 border-t border-rule bg-sunk p-2" style={{ height: '28rem' }}>
         {implementations.map((impl, i) => {
           if (zoomedIndex !== null && zoomedIndex !== i) return null;
           const isZoomed = zoomedIndex === i;
           return (
             <div
               key={impl.name}
-              className="overflow-hidden rounded border border-rule bg-surface"
+              className="flex min-h-0 flex-1 basis-0 flex-col overflow-hidden rounded border border-rule bg-surface"
             >
               <div className="flex items-center justify-between border-b border-rule bg-sunk px-2 py-1 text-3xs font-mono uppercase tracking-wide text-ink-faint">
                 <span>{impl.name}</span>
@@ -222,7 +230,9 @@ export function Benchmark({
                   type="button"
                   onClick={() => setZoomedIndex(isZoomed ? null : i)}
                   aria-label={
-                    isZoomed ? `Volver a ver las ${implementations.length} implementaciones` : `Ampliar ${impl.name}`
+                    isZoomed
+                      ? `Volver a ver las ${implementations.length} implementaciones`
+                      : `Ampliar ${impl.name}`
                   }
                   aria-pressed={isZoomed}
                   className="rounded p-0.5 text-ink-faint hover:bg-surface hover:text-ink"
@@ -230,12 +240,14 @@ export function Benchmark({
                   {isZoomed ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
                 </button>
               </div>
-              <LazyCodeEditor
-                language={language}
-                variant="read"
-                showFileName={false}
-                defaultValue={impl.code}
-              />
+              <div className="min-h-0 flex-1 overflow-auto">
+                <LazyCodeEditor
+                  language={language}
+                  variant="read"
+                  showFileName={false}
+                  defaultValue={impl.code}
+                />
+              </div>
             </div>
           );
         })}
