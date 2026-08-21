@@ -1,4 +1,4 @@
-import { Loader, Play } from 'lucide-react';
+import { Loader, Maximize2, Minimize2, Play } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
 import type { RuntimeId } from '../../lib/runtimeIds';
@@ -104,6 +104,7 @@ export function Benchmark({
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<string>('');
   const [results, setResults] = useState<Map<string, RunResult> | null>(null);
+  const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
 
   const runAll = useCallback(async () => {
     if (implementations === undefined || implementations.length === 0) return;
@@ -208,21 +209,44 @@ export function Benchmark({
 
       <div
         className="grid gap-2 border-t border-rule bg-sunk p-2"
-        style={{ gridTemplateColumns: `repeat(${implementations.length}, minmax(0, 1fr))` }}
+        style={{
+          gridTemplateColumns:
+            zoomedIndex === null
+              ? `repeat(${implementations.length}, minmax(0, 1fr))`
+              : '1fr',
+        }}
       >
-        {implementations.map((impl) => (
-          <div key={impl.name} className="overflow-hidden rounded border border-rule bg-surface">
-            <div className="border-b border-rule bg-sunk px-2 py-1 text-3xs font-mono uppercase tracking-wide text-ink-faint">
-              {impl.name}
+        {implementations.map((impl, i) => {
+          if (zoomedIndex !== null && zoomedIndex !== i) return null;
+          const isZoomed = zoomedIndex === i;
+          return (
+            <div
+              key={impl.name}
+              className="overflow-hidden rounded border border-rule bg-surface"
+            >
+              <div className="flex items-center justify-between border-b border-rule bg-sunk px-2 py-1 text-3xs font-mono uppercase tracking-wide text-ink-faint">
+                <span>{impl.name}</span>
+                <button
+                  type="button"
+                  onClick={() => setZoomedIndex(isZoomed ? null : i)}
+                  aria-label={
+                    isZoomed ? `Volver a ver las ${implementations.length} implementaciones` : `Ampliar ${impl.name}`
+                  }
+                  aria-pressed={isZoomed}
+                  className="rounded p-0.5 text-ink-faint hover:bg-surface hover:text-ink"
+                >
+                  {isZoomed ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+                </button>
+              </div>
+              <LazyCodeEditor
+                language={language}
+                variant="read"
+                showFileName={false}
+                defaultValue={impl.code}
+              />
             </div>
-            <LazyCodeEditor
-              language={language}
-              variant="read"
-              showFileName={false}
-              defaultValue={impl.code}
-            />
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-rule px-3 py-2">
