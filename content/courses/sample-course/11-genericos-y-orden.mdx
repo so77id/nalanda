@@ -325,6 +325,182 @@ porque un `Pair` no es un mapa ni una función: son dos cosas al lado, sin
 significado especial.
 </Slide>
 
+## Comparable y el bug de resta
+
+<Slide title="Ordenar necesita comparar">
+Un arreglo `Pair<Integer, Integer>[]` no se ordena solo: `Arrays.sort` no
+sabe qué significa que un par sea «menor» que otro — ¿por el primero? ¿por
+el segundo? ¿por los dos? La decisión la toma la clase, y la manera estándar
+de expresarla en Java es implementar la interfaz **`Comparable`**.
+
+Todo lo que ya usás como ordenable — `Integer`, `String`, `Double` — la
+implementa: por eso `Arrays.sort(new int[]{ 3, 1, 2 })` funciona sin más y
+`Arrays.sort(new String[]{ "b", "a" })` los deja alfabéticamente. Para que
+la `Pair` reciba el mismo trato, tenés que decir vos qué criterio usar.
+
+El resto de esta sección construye ese criterio, con un desvío importante:
+la forma más obvia de escribir `compareTo` tiene un bug que Java —y
+prácticamente cualquier lenguaje con enteros de máquina— no puede detectar,
+y que el código «funciona» hasta que un valor grande lo rompe. Lo vas a
+predecir en vivo antes de arreglarlo.
+</Slide>
+
+<Slide title="La interfaz Comparable">
+`Comparable<T>` declara un único método:
+
+```java
+public interface Comparable<T> {
+    int compareTo(T other);
+}
+```
+
+El contrato del `int` que devuelve es lo importante — no es «menor / mayor»,
+son **tres regiones**:
+
+- **negativo** — `this` va antes que `other`.
+- **cero** — `this` y `other` empatan según este criterio.
+- **positivo** — `this` va después que `other`.
+
+Lo que importa es el **signo**, no la magnitud. `-1` y `-483` significan lo
+mismo para `Arrays.sort`. Y hay una regla implícita que te va a doler en la
+próxima slide: el resultado del `compareTo` tiene que ser un `int` válido —
+sin desbordes, sin trampas de aritmética. Esa es la trampa.
+
+Una clase que implementa `Comparable<Pair<Integer, Integer>>` declara que
+sabe compararse con otro par de enteros, y `Arrays.sort` la acepta sin más.
+</Slide>
+
+<Slide title="Primer intento: restar los campos">
+La manera más corta de escribir `compareTo` para ordenar por `second` es
+restarlo — negativo si el mío es menor, positivo si es mayor, cero si son
+iguales. Se lee natural y compila:
+
+```java
+public class Pair implements Comparable<Pair> {
+    private String first;
+    private int    second;
+
+    public Pair(String first, int second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    public int compareTo(Pair other) {
+        return this.second - other.second;   // parece bien
+    }
+}
+```
+
+Sobre un arreglo con valores chicos —edades, notas, cantidades— ordena bien
+y sigue ordenando bien durante mucho tiempo. Nadie te avisa nada. Después
+llega un valor grande y el arreglo sale al revés.
+
+En la próxima slide vas a **predecir** qué pasa cuando ese valor grande
+aparece, sin verlo primero. Corré la predicción con lápiz — no en la cabeza —
+y comparala con lo que imprime el runtime real.
+</Slide>
+
+<Slide title="Predecí antes de correr">
+<PredictOutput title="El bug de la resta">
+
+Este programa ordena tres pares por `second` usando el `compareTo` de la
+slide anterior. Los `second` de los tres son valores grandes.
+
+Antes de correr: escribí en el recuadro qué crees que va a imprimir cada
+línea de la salida y **por qué**. Después, hacé clic en **Ejecutar** y
+comparalo con lo que el runtime imprime.
+
+```java predict
+class Pair implements Comparable<Pair> {
+    private String first;
+    private int second;
+    public Pair(String first, int second) {
+        this.first = first;
+        this.second = second;
+    }
+    public int compareTo(Pair other) {
+        return this.second - other.second;
+    }
+    public String toString() { return first + "=" + second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair a = new Pair("A", Integer.MAX_VALUE);
+        Pair b = new Pair("B", -Integer.MAX_VALUE + 100);
+        Pair c = new Pair("C", 0);
+
+        System.out.println("a.compareTo(b) = " + a.compareTo(b));
+        System.out.println("(esperado: positivo, porque " + Integer.MAX_VALUE
+                + " es mayor que " + (-Integer.MAX_VALUE + 100) + ")");
+
+        Pair[] pares = { a, b, c };
+        java.util.Arrays.sort(pares);
+        for (Pair p : pares) System.out.println(p);
+    }
+}
+```
+
+</PredictOutput>
+
+Si el orden que imprime `Arrays.sort` no coincide con lo que anticipaste,
+lo que acabás de ver es un **overflow de `int`**: la resta `MAX_VALUE -
+(-MAX_VALUE + 100)` no cabe en 32 bits con signo, así que Java le da la
+vuelta en silencio y `compareTo` devuelve un valor con el signo **opuesto**
+al que su nombre promete. El compilador no dice nada, el JVM no dice nada —
+el ordenamiento sale al revés porque el `int` se plegó.
+</Slide>
+
+<Slide title="Fix: Integer.compare + tie-breaking">
+La regla es fácil de escribir y difícil de olvidar: **nunca compares por
+resta**. `Integer.compare(a, b)` (y `Long.compare`, `Double.compare`,
+`Character.compare`) hace exactamente lo que la resta prometía —negativo si
+`a < b`, cero si son iguales, positivo si `a > b`— sin desbordarse, porque
+por dentro compara y no resta.
+
+Y si los `second` empatan, el arreglo tiene que decidir a mano cómo
+desempata. Compararlos por el otro campo — el `first` — mantiene el orden
+determinístico:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Pair implements Comparable<Pair> {
+    private String first;
+    private int second;
+    public Pair(String first, int second) {
+        this.first = first;
+        this.second = second;
+    }
+    public int compareTo(Pair other) {
+        int porSecond = Integer.compare(this.second, other.second);
+        if (porSecond != 0) return porSecond;
+        return this.first.compareTo(other.first);   // desempate por nombre
+    }
+    public String toString() { return first + "=" + second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair a = new Pair("A", Integer.MAX_VALUE);
+        Pair b = new Pair("B", -Integer.MAX_VALUE + 100);
+        Pair c = new Pair("C", 0);
+        Pair d = new Pair("D", 0);           // empate con c en el second
+
+        Pair[] pares = { a, b, c, d };
+        java.util.Arrays.sort(pares);
+        for (Pair p : pares) System.out.println(p);
+    }
+}
+`}
+/>
+
+Dos observaciones sobre el patrón. La primera: **guardá el resultado del
+primer criterio en una variable y devuelvelo si es no-cero**. Es la misma
+forma que después vas a leer con `.thenComparing`. La segunda: `String`
+también implementa `Comparable`, así que `first.compareTo(other.first)`
+funciona sin más — y no tiene el bug de resta, porque no hay resta detrás.
+</Slide>
+
 ## Ejercicios
 
 Los cuatro problemas de este documento viven acá, al final. Cada uno tiene el
@@ -375,6 +551,75 @@ Pair<Integer, Integer> nums = new Pair<Integer, Integer>(1, 2);
 Pair<Integer, Integer> vueltaNums = Solution.swap(nums);
 check(vueltaNums.first(), 2);
 check(vueltaNums.second(), 1);
+```
+
+</Exercise>
+
+<Exercise title="2. compareTo sin restar, con desempate">
+
+Completá el método `compareTo` de la clase `PuntoDosD` para que ordene los
+puntos **por `y` ascendente**, y desempate por `x` ascendente cuando dos
+puntos tengan el mismo `y`.
+
+Dos restricciones que la sección de arriba justificó:
+
+- **No compares por resta.** `Integer.MAX_VALUE - (-Integer.MAX_VALUE)` no
+  cabe en un `int`. Usá `Integer.compare(a, b)`.
+- **Desempatá determinísticamente por `x`.** Sin el desempate, dos puntos con
+  el mismo `y` quedan en un orden que depende del algoritmo interno de
+  `Arrays.sort` y de los datos, no del criterio de tu clase.
+
+```java starter
+class PuntoDosD implements Comparable<PuntoDosD> {
+    private int x;
+    private int y;
+
+    public PuntoDosD(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public int getX() { return x; }
+    public int getY() { return y; }
+
+    // Ordenar por y ascendente. Si dos puntos empatan en y, desempatar por
+    // x ascendente. Sin restas: usar Integer.compare.
+    @Override
+    public int compareTo(PuntoDosD other) {
+        return 0;
+    }
+}
+```
+
+```java test
+PuntoDosD a = new PuntoDosD(3, 7);
+PuntoDosD b = new PuntoDosD(1, 7);
+PuntoDosD c = new PuntoDosD(9, 2);
+PuntoDosD d = new PuntoDosD(0, 2);
+
+// Empate en y: c y d ambos y=2 — el de menor x va primero.
+check(a.compareTo(b) > 0, true);           // (3,7) va después de (1,7)
+check(b.compareTo(a) < 0, true);
+check(a.compareTo(a) == 0, true);
+check(c.compareTo(d) > 0, true);           // (9,2) va después de (0,2)
+check(d.compareTo(a) < 0, true);           // y=2 va antes que y=7
+
+// El caso que la resta rompe:
+PuntoDosD extremoAlto = new PuntoDosD(0, Integer.MAX_VALUE);
+PuntoDosD extremoBajo = new PuntoDosD(0, -Integer.MAX_VALUE + 100);
+check(extremoAlto.compareTo(extremoBajo) > 0, true);
+
+// Ordenar un arreglo entero para verificar la salida completa.
+PuntoDosD[] puntos = { a, b, c, d };
+java.util.Arrays.sort(puntos);
+check(puntos[0].getY(), 2);
+check(puntos[0].getX(), 0);
+check(puntos[1].getY(), 2);
+check(puntos[1].getX(), 9);
+check(puntos[2].getY(), 7);
+check(puntos[2].getX(), 1);
+check(puntos[3].getY(), 7);
+check(puntos[3].getX(), 3);
 ```
 
 </Exercise>
