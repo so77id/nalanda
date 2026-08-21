@@ -1,0 +1,152 @@
+---
+id: genericos-y-orden
+title: Genéricos y orden
+presentation: explicit
+questions: none
+---
+
+{/* Este documento va a declarar `questions: per-section` (#139) cuando el */}
+{/* banco esté escrito. Hasta entonces `questions: none` es la declaración */}
+{/* honesta: no hay preguntas y no hay promesa. La flip a per-section vive */}
+{/* en el mismo commit que el banco y las entradas de NO_QUESTION — regla */}
+{/* dura (#144, add-a-course-document.md §Frontmatter). */}
+{/* */}
+{/* Anclas de sección (llevarán pregunta, deben existir como h2): */}
+{/*   por-que-generics-existen, pair-t, pair-a-b, */}
+{/*   comparable-y-el-bug-de-resta, */}
+{/*   bounded-types-t-extends-comparable-t, comparator-lambda. */}
+{/* */}
+{/* Regla del doc: sin ancla C++ en ninguna sección — decisión explícita del */}
+{/* refinamiento (2026-08-20). Los generics de Java se enseñan «Java-forward», */}
+{/* no como delta de templates. Las slides de detalle y de actividad no llevan */}
+{/* pregunta propia — van al NO_QUESTION con su razón; lo que enseñan se */}
+{/* mide en la pregunta de la sección principal. */}
+
+# Genéricos y orden
+
+Ya escribiste una clase `Pair` que guarda dos enteros. Ahora la vas a hacer
+crecer: primero para que sirva con **cualquier** combinación de tipos, después
+para ordenarla, y al final para ordenarla de tres maneras distintas sin tocar
+la clase. Todo el documento gira alrededor del mismo objeto: cambia lo que la
+`Pair` puede hacer, no lo que la `Pair` es.
+
+## Por qué generics existen
+
+<Slide title="Genéricos y orden">
+Este documento hace crecer la clase `Pair` que ya conocés hasta un punto en el
+que sirva para cualquier combinación de tipos y se pueda ordenar de la manera
+que quieras — sin duplicar la clase y sin apagar la verificación del
+compilador.
+
+El hilo es uno solo, el mismo objeto:
+
+- **§1** una clase `Pair` distinta por cada combinación de tipos: el dolor
+  que motiva todo lo demás.
+- **§2 y §3** parámetros de tipo — un solo `Pair` que sirve para cualquier
+  `A` y `B`.
+- **§4** `Comparable`, con un bug que el aritmética entera esconde, y su
+  arreglo.
+- **§5** cotas sobre los parámetros (`extends Comparable`) para que la
+  `Pair` genérica se pueda ordenar.
+- **§6** comparadores como lambdas: ordenar el mismo arreglo de tres
+  maneras distintas sin tocar la clase.
+
+El código que vas a leer y escribir es Java 8 — el que el editor de esta
+página corre.
+</Slide>
+
+<Slide title="Ya conocés el Pair — ¿cuántos Pairs necesitás?">
+La clase `Pair` de enteros que escribiste guarda dos números. Sirve si lo que
+querés emparejar son dos enteros. En cuanto aparece **otra** combinación —
+dos textos, un número y un texto, una fecha y un texto — el camino conocido
+es escribir otra clase, con el mismo cuerpo y los tipos cambiados. Tres
+tipos ya son nueve pares. Cuatro son dieciséis.
+
+Los tres pares más pedidos, escritos a mano:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class PairIntInt {
+    private int first;
+    private int second;
+    public PairIntInt(int a, int b) { this.first = a; this.second = b; }
+    public int first()  { return first; }
+    public int second() { return second; }
+}
+
+class PairStringString {
+    private String first;
+    private String second;
+    public PairStringString(String a, String b) { this.first = a; this.second = b; }
+    public String first()  { return first; }
+    public String second() { return second; }
+}
+
+class PairIntString {
+    private int first;
+    private String second;
+    public PairIntString(int a, String b) { this.first = a; this.second = b; }
+    public int first()     { return first; }
+    public String second() { return second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        PairIntInt edades      = new PairIntInt(20, 21);
+        PairStringString saludos = new PairStringString("hola", "chao");
+        PairIntString etiqueta = new PairIntString(12345, "Ana");
+        System.out.println(edades.first() + ", " + edades.second());
+        System.out.println(saludos.first() + ", " + saludos.second());
+        System.out.println(etiqueta.first() + ", " + etiqueta.second());
+    }
+}
+`}
+/>
+
+Corré el código: los tres pares imprimen sus dos valores. Y ahora mirá lo que
+tuviste que escribir para llegar hasta ahí: el mismo cuerpo tres veces, con
+dos palabras distintas.
+</Slide>
+
+<Slide title="Un solo Pair para cualquier combinación">
+La otra salida — usar `Object` como campo y castear al leer — quita las tres
+clases pero también quita al compilador de tu lado: `(String) p.first()`
+sobre un par de enteros compila sin quejarse y revienta en runtime. El error
+viaja del compilador al usuario.
+
+Lo que Java te ofrece es una tercera vía, la que va a acompañar todo el
+documento: **una sola clase `Pair`** en la que los tipos de sus campos no se
+fijan al escribir la clase, sino al **instanciarla**. Ese hueco se llama un
+_parámetro de tipo_, y se declara con una letra entre `<...>` al lado del
+nombre de la clase:
+
+```java
+public class Pair<A, B> {
+    private A first;
+    private B second;
+
+    public Pair(A first, B second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    public A first()  { return first; }
+    public B second() { return second; }
+}
+
+// Al instanciar, los huecos se llenan:
+Pair<Integer, String> etiqueta = new Pair<>(12345, "Ana");
+// El compilador ya sabe que etiqueta.first() es Integer,
+// y que etiqueta.second() es String. Sin cast, sin runtime.
+```
+
+Los `<A, B>` son dos huecos que se rellenan al instanciar. `new Pair<Integer,
+String>(...)` los ata a `Integer` y `String` para esa instancia — no para las
+demás. El compilador ahora **sí** sabe qué devuelven `first()` y `second()`,
+sin cast, y `p.first().charAt(0)` sobre un par de enteros no compila.
+
+El resto del documento navega ese `Pair` evolucionando: primero con un solo
+parámetro, después con dos, después ordenable, después ordenable para
+cualquier tipo ordenable, y al final ordenable de varias maneras sin tocar la
+clase.
+</Slide>
