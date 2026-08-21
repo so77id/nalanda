@@ -16,6 +16,21 @@ export interface FigureProps {
   alt?: string;
   /** Visible caption under the image. */
   caption?: ReactNode;
+  /**
+   * If set, the figure floats to that side and the surrounding text wraps
+   * around it. Same shape as a magazine/PowerPoint sidebar picture: the
+   * paragraph next to the image reflows to fill the column, and once the
+   * picture ends vertically the following prose gets the full width back.
+   * Defaults to unset (block-level, centered as before).
+   */
+  float?: 'left' | 'right';
+  /**
+   * Max width when floating. One of `'xs' | 'sm' | 'md' | 'lg'` maps to
+   * Tailwind's `max-w-*` sizes. Ignored when `float` is unset. Defaults
+   * to `'sm'`, which is ~24rem — the width that leaves reading room on a
+   * standard slide/book layout.
+   */
+  width?: 'xs' | 'sm' | 'md' | 'lg';
 }
 
 // Same treatment an unresolved wiki-link gets, in the same tokens: `flag` for
@@ -35,7 +50,7 @@ const BROKEN_STYLE = 'rounded border border-dashed border-flag px-3 py-2 text-sm
  * one who cannot see that it is missing. So the check has to hold here, and it
  * addresses the author (`AuthoringError`) rather than blaming the reader.
  */
-export function Figure({ src, alt, caption }: FigureProps) {
+export function Figure({ src, alt, caption, float, width = 'sm' }: FigureProps) {
   // A cell of a `<Mosaic>` is silent by design: the container already carries
   // the description for the whole group.
   const described = useDescribed();
@@ -66,11 +81,31 @@ export function Figure({ src, alt, caption }: FigureProps) {
     );
   }
 
+  const widthClass = {
+    xs: 'max-w-[16rem]',
+    sm: 'max-w-[24rem]',
+    md: 'max-w-[32rem]',
+    lg: 'max-w-[40rem]',
+  }[width];
+
+  // When floating, the picture becomes an inline block the paragraph next to
+  // it wraps around (like a magazine sidebar). It stays a `<figure>`, keeps
+  // its caption alignment, and centers the caption UNDER the image inside
+  // its narrower width. When not floating, unchanged from before.
+  const floatClass =
+    float === 'right'
+      ? `float-right ml-6 mb-3 ${widthClass}`
+      : float === 'left'
+        ? `float-left mr-6 mb-3 ${widthClass}`
+        : '';
+
   return (
     // `not-prose` because a figure is a block, not running text: without it the
     // reading measure narrows it to 39rem while the code beside it keeps the
     // full column (ADR-0022).
-    <figure className="not-prose my-6 flex flex-col items-center gap-2">
+    <figure
+      className={`not-prose my-6 flex flex-col items-center gap-2 ${floatClass}`.trim()}
+    >
       <img src={url} alt={alt} className="max-w-full" />
       {caption === undefined ? null : (
         <figcaption className="text-center text-sm text-ink-faint">{caption}</figcaption>
