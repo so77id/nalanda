@@ -535,3 +535,315 @@ Y esto sin contar el cuerpo. Cuando el cuerpo hace algo, se suma.
 *"Con esta herramienta, ya podemos contar en serio las tres soluciones al problema
 original."*
 </Slide>
+
+<SectionBreak />
+
+<Slide title="La generación que dio nombre a lo que hacemos (1960s–70s)">
+- Para los años 60, la ciencia de la computación ya está establecida (departamentos
+  universitarios, revistas, congresos). Ahora falta el **vocabulario** para hablar de
+  eficiencia con precisión.
+- **Juris Hartmanis y Richard Stearns** (1965), paper *"On the Computational Complexity of
+  Algorithms"* — introducen formalmente las **clases de complejidad temporal**. Ganan el
+  premio Turing por esto.
+- **Donald Knuth** (1976), paper *"Big Omicron and Big Omega and Big Theta"* — canoniza el
+  uso de las notaciones **O, Ω, Θ** para complejidad de algoritmos. El vocabulario que
+  usamos hoy es literalmente el que Knuth propuso.
+- Nacieron **30 años después** del paper de Turing, y fueron los que le dieron a la
+  disciplina las palabras con las que se habla de sí misma.
+
+Ahora aplicamos ese vocabulario a nuestro problema.
+</Slide>
+
+<Slide title="Contando la primera solución — ciclo simple">
+<ComplexityCounter
+  algorithm="sumaCiclo"
+  code={`int sumaCiclo(int n) {
+    int s = 0;
+    for (int i = 1; i <= n; i++)
+        s = s + i;
+    return s;
+}`}
+  data={{
+    breakdown: [
+      { line: "int s = 0;", oe: 1, times: "1" },
+      {
+        line: "for (int i = 1; i <= n; i++)",
+        subLines: [
+          { line: "int i = 1", oe: 1, times: "1" },
+          { line: "i <= n", oe: 1, times: "n+1" },
+          { line: "i++", oe: 1, times: "n" },
+        ],
+      },
+      { line: "s = s + i;", oe: 2, times: "n" },
+      { line: "return s;", oe: 1, times: "1" },
+    ],
+    formula: "4n + 4",
+    evaluate: (n) => 4 * n + 4,
+  }}
+  slider={{ min: 1, max: 100, default: 10 }}
+/>
+
+**T₁(n) = 4n + 4** OE.
+</Slide>
+
+<Slide title="Contando la segunda solución — doble ciclo">
+<ComplexityCounter
+  algorithm="sumaDobleCiclo"
+  code={`int sumaDobleCiclo(int n) {
+    int s = 0;
+    for (int i = 1; i <= n; i++)
+        for (int j = 1; j <= i; j++)
+            s = s + 1;
+    return s;
+}`}
+  data={{
+    breakdown: [
+      { line: "int s = 0;", oe: 1, times: "1" },
+      { line: "for (int i = 1; i <= n; i++)", oe: 0, times: "control" },
+      { line: "  for (int j = 1; j <= i; j++)", oe: 0, times: "control interno" },
+      { line: "    s = s + 1;", oe: 2, times: "n*(n+1)/2" },
+      { line: "return s;", oe: 1, times: "1" },
+    ],
+    formula: "n^2 + O(n)",
+    evaluate: (n) => n * n + 2 * n + 2,
+  }}
+  slider={{ min: 1, max: 100, default: 10 }}
+/>
+
+El cuerpo `s = s + 1` se ejecuta 1 + 2 + … + n = **n(n+1)/2** veces. Ese es el término
+dominante.
+
+**T₂(n) ≈ n² + O(n)** OE.
+</Slide>
+
+<Slide title="Contando la tercera solución — fórmula">
+<ComplexityCounter
+  algorithm="sumaFormula"
+  code={`int sumaFormula(int n) {
+    return n * (n + 1) / 2;
+}`}
+  data={{
+    breakdown: [
+      { line: "return n * (n + 1) / 2;", oe: 4, times: "1" },
+    ],
+    formula: "4",
+    evaluate: () => 4,
+  }}
+  slider={{ min: 1, max: 100, default: 10 }}
+/>
+
+**T₃(n) = 4** OE. No depende de n.
+</Slide>
+
+<Slide title="Las tres funciones lado a lado">
+Tres códigos distintos que devuelven exactamente el mismo valor. Diferencias radicales en
+costo.
+
+| Solución | T(n) | Para N = 10⁶ (a 1 µs por OE) |
+|---|---|---|
+| Doble ciclo | ≈ n² | **~11,6 días** |
+| Ciclo simple | 4n + 4 | ~4 segundos |
+| Fórmula | 4 | **4 microsegundos** |
+
+**La diferencia no se resuelve comprando un computador más rápido — se resuelve pensando
+mejor el algoritmo.**
+</Slide>
+
+<Slide title="Twist: ¿y si contamos distinto?">
+Otra persona cuenta las mismas operaciones distinto:
+
+- Ella dice: `s = s + i` cuesta **3 OE** (leer s, sumar, escribir s).
+- Yo dije: cuesta **2 OE**.
+
+Para el ciclo simple ella obtiene: **T'(n) = 6n + 3**. Yo obtuve **T(n) = 4n + 4**.
+
+Tabla de razones:
+
+| N | T (mío) | T' (ella) | Razón T'/T |
+|---|---|---|---|
+| 10 | 44 | 63 | 1,43 |
+| 100 | 404 | 603 | 1,49 |
+| 1 000 | 4 004 | 6 003 | 1,50 |
+| 10⁶ | ≈ 4·10⁶ | ≈ 6·10⁶ | 1,50 |
+
+La razón converge a una **constante**. Las constantes no son propiedad del algoritmo — son
+propiedad de **cómo contamos** y de la máquina.
+
+**Descubrimiento clave**: lo que caracteriza a un algoritmo **no es el valor exacto de
+T(n)**, sino su **orden de crecimiento**.
+</Slide>
+
+<Slide title="Los órdenes de crecimiento que veremos en el curso">
+| Descripción | Función | Cuándo aparece |
+|---|---|---|
+| Constante | 1 | No depende de N (`sumaFormula`) |
+| Logarítmico | lg N | División repetida (Euclides, búsqueda binaria) |
+| Raíz | √N | Test de primalidad ingenuo |
+| Lineal | N | Un ciclo simple (`sumaCiclo`) |
+| Linearítmico | N lg N | Mergesort, quicksort promedio |
+| Cuadrático | N² | Dos ciclos anidados (`sumaDobleCiclo`) |
+| Cúbico | N³ | Tres ciclos anidados |
+| Exponencial | 2ᴺ | Fuerza bruta sobre subconjuntos |
+| Factorial | N! | Fuerza bruta sobre permutaciones |
+
+Los tres primeros son "buenos"; a partir de cuadrático empieza a doler; a partir de
+exponencial ya no se puede.
+
+<MathPlot
+  type="curves"
+  title="Órdenes de crecimiento"
+  xRange={[1, 20]}
+  functions={[
+    { label: "1", fn: () => 1, color: "orange" },
+    { label: "lg n", fn: (n) => Math.log2(n), color: "green" },
+    { label: "n", fn: (n) => n, color: "blue" },
+    { label: "n lg n", fn: (n) => n * Math.log2(n), color: "purple" },
+    { label: "n al cuadrado", fn: (n) => n * n, color: "red" },
+  ]}
+/>
+</Slide>
+
+<Slide title="¿Por qué solo importa el orden?">
+En T(n) el término dominante manda. **Las constantes y los términos menores se descartan.**
+Cuatro razones para justificarlo:
+
+**Razón 1 — Las constantes dependen del contador, no del algoritmo.**
+Ya lo vimos: tú contaste `s = s + i` como 2 OE, yo como 3. La razón entre ambos converge a
+una constante fija. **Las constantes no son propiedad del algoritmo.**
+
+**Razón 2 — Las constantes dependen de la máquina.**
+Un `+` en ARM toma un número distinto de nanosegundos que en Intel. **El orden de
+crecimiento sobrevive el cambio de máquina; las constantes no.**
+
+**Razón 3 — Para N grande, el término dominante aplasta a todos los demás.**
+
+| N | 3n² | 5n + 12 | ¿Qué porcentaje aporta n²? |
+|---|---|---|---|
+| 10 | 300 | 62 | 82 % |
+| 100 | 30 000 | 512 | 98 % |
+| 1 000 | 3 000 000 | 5 012 | 99,83 % |
+| 10 000 | 3·10⁸ | 50 012 | 99,98 % |
+
+**Razón 4 — Comparamos algoritmos por lo que hacen eventualmente, no en casos chicos.**
+
+Un O(n) con constante grande y un O(n²) con constante chica: T₁ = 1000·n vs T₂ = 0,001·n².
+Para n < 10⁶ gana T₂. Para n > 10⁶ gana T₁, y por mucho.
+
+<MathPlot
+  type="curves"
+  title="1000n vs 0.001 n^2 — el cruce"
+  xRange={[0, 2000000]}
+  yRange={[0, 4000000000]}
+  functions={[
+    { label: "1000n", fn: (n) => 1000 * n, color: "blue" },
+    { label: "0.001 n^2", fn: (n) => 0.001 * n * n, color: "red" },
+  ]}
+/>
+
+**Conclusión**: el orden dice **quién gana eventualmente**. Las constantes solo dicen **a
+partir de qué tamaño**. Como analizamos algoritmos que van a correr sobre N grandes, **el
+orden es lo que decide**.
+</Slide>
+
+<Slide title="Notación O grande — definición formal + reglas prácticas">
+**Definición formal**:
+
+> **O(g(N))** = \{ f(N) : existen constantes positivas *c* y *N₀* tales que 0 ≤ f(N) ≤
+> c·g(N) para todo N ≥ N₀ \}
+
+**Traducción**: *"a partir de un cierto N₀, f nunca supera a g multiplicada por una
+constante c."*
+
+<MathPlot
+  type="curves"
+  title="T(N) = 4N + 4 es O(N)"
+  xRange={[0, 20]}
+  yRange={[0, 120]}
+  functions={[
+    { label: "f = 4N + 4", fn: (n) => 4 * n + 4, color: "blue" },
+    { label: "c * g = 5N", fn: (n) => 5 * n, color: "red", dashed: true },
+  ]}
+  annotations={[{ type: "verticalLine", x: 4, label: "N_zero = 4" }]}
+/>
+
+**Ejemplo**: T(n) = 4n + 4 es O(n). Basta encontrar un par (c, N₀). Con c=5 y N₀=4:
+4n + 4 ≤ 5n para todo n ≥ 4. ✓
+
+**En la práctica no usamos la definición cada vez.** Aplicamos reglas:
+
+- **Constantes multiplicativas se descartan**: O(5N) = O(N).
+- **Regla de la suma**: se queda el mayor. O(N² + N) = O(N²).
+- **Regla del producto** (ciclos anidados): O(N) · O(N) = O(N²).
+- **Jerarquía**: 1 < lg N < √N < N < N lg N < N² < N³ < 2ᴺ < N!
+
+**Cuidado**: O es cota superior, **no necesariamente ajustada**. Decir *"O(2ᴺ)"* de un
+algoritmo lineal es cierto pero inútil. Siempre buscamos la cota **más ajustada** posible.
+</Slide>
+
+<Slide title="Notaciones Ω y Θ">
+**Ω(g(N))** — cota inferior. Existen c, N₀ tales que 0 ≤ c·g(N) ≤ f(N) para todo N ≥ N₀.
+
+> Traducción: *"f no puede ser más chico que g por una constante, a partir de N₀."*
+> Sirve para afirmar *"no se puede hacer mejor que esto"*.
+
+**Θ(g(N))** — cota ajustada. Existe cuando f es a la vez O(g) **y** Ω(g).
+
+> Traducción: *"f y g crecen al mismo ritmo asintóticamente."*
+> Es la afirmación más fuerte que podemos hacer.
+
+**Ejemplo con nuestro ciclo simple**: T(n) = 4n + 4.
+
+- Es O(n): con c=5, N₀=4.
+- Es Ω(n): con c=4, N₀=1.
+- Como es O(n) y Ω(n) → es **Θ(n)**.
+
+Para un polinomio, Θ es simplemente su **término de mayor grado sin coeficiente**.
+</Slide>
+
+<Slide title="Cota ≠ caso">
+Malentendido muy frecuente: creer que O = "peor caso" y Ω = "mejor caso". **Son dimensiones
+distintas.**
+
+- **Caso** (peor, mejor, promedio): qué **entrada** elegimos analizar.
+- **Notación** (O, Ω, Θ): qué tipo de **cota** damos sobre la función resultante.
+
+Los dos ejes son independientes. Puedo decir:
+
+- *"En el peor caso, este algoritmo es O(N²)"*.
+- *"En el peor caso, este algoritmo es Ω(N)"*.
+- *"En el mejor caso, este algoritmo es Θ(1)"*.
+
+*"Hasta aquí hemos usado el ciclo simple para hablar de cotas — pero ese ciclo hace lo
+mismo con cualquier entrada. Ahora vamos a un problema donde la entrada sí importa, y
+peor/mejor/promedio son cualitativamente distintos: `FindInArray`."*
+</Slide>
+
+<Slide title="Convención: cuando decimos O() sin decir el caso">
+Ya vimos que cota y caso son dimensiones distintas. Pero en la práctica, cuando decimos
+*"este algoritmo es O(N²)"* **sin explicitar el caso**, no estamos siendo ambiguos — hay
+una convención de la disciplina.
+
+**Convención estándar (y del curso)**:
+
+> Cuando decimos *"el algoritmo es O(f(N))"* sin especificar caso, **nos referimos al peor
+> caso**.
+
+Es la convención que hace que la afirmación sea **útil como garantía**: *"nunca va a ser
+más lento que esto"*. El peor caso es el compromiso más fuerte.
+
+**Cómo hablar correctamente en las tres situaciones**:
+
+- **Peor caso** (implícito): *"El algoritmo es O(N²)."* → se sobreentiende peor caso.
+- **Peor caso** (explícito, más claro): *"En el peor caso, el algoritmo es O(N²)."*
+- **Mejor caso**: **siempre** explicitar. *"En el mejor caso, el algoritmo es O(1)."*
+- **Caso promedio**: **siempre** explicitar. *"En promedio, el algoritmo es O(N log N)."*
+
+**Frase modelo del curso** (la que van a usar todo el año):
+
+> *"En el peor caso, este algoritmo es Θ(N²). En el mejor caso, es Θ(N). En promedio, es
+> Θ(N²)."*
+
+**Consecuencia práctica para el resto del curso**: cuando alguien les pregunte *"¿cuál es
+la complejidad de este algoritmo?"* sin más contexto, **respondan con peor caso** — es lo
+que se espera por defecto.
+</Slide>
