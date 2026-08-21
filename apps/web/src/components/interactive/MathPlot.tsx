@@ -175,20 +175,42 @@ export function MathPlot({
 
   const legendVisible = showLegend ?? functions.length >= 2;
 
+  // Mafs paints on its own CSS variables (`--mafs-bg: black`, `--mafs-fg: white`
+  // by default — see `mafs/core.css`). Overriding those variables from a
+  // container respects light/dark theme without touching the library. The dark
+  // side is a light override; when the site is on dark theme we let Mafs's
+  // defaults through.
+  const mafsThemeStyle: React.CSSProperties =
+    resolvedTheme === 'dark'
+      ? {}
+      : {
+          // Light-theme palette — bg matches the surrounding card, fg is the
+          // ink token, grid tones tuned down so the plot does not compete with
+          // the curves.
+          ['--mafs-bg' as string]: 'transparent',
+          ['--mafs-fg' as string]: 'rgb(17 24 39)',
+          ['--mafs-line-color' as string]: 'rgb(203 213 225)',
+          ['--grid-line-subdivision-color' as string]: 'rgb(241 245 249)',
+        };
+
   return (
     <figure
-      className="not-prose my-6 flex flex-col rounded-lg border border-rule bg-surface p-3"
+      className="not-prose my-6 flex flex-col rounded-lg border border-rule bg-surface"
       data-mathplot-type={type}
       data-mathplot-scale={scale}
     >
-      {title !== undefined && (
-        <figcaption className="mb-2 text-sm font-medium text-ink">{title}</figcaption>
-      )}
+      <header className="flex items-center gap-2 bg-sunk px-3 py-1.5">
+        <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-accent">
+          curvas
+        </span>
+        {title !== undefined && <span className="text-sm font-medium text-ink">{title}</span>}
+      </header>
       <div
-        className="w-full"
+        className="w-full p-3"
         // Mafs paints against its own CSS variables; the container inherits the
         // site's theme via useResolvedTheme so the surrounding chrome matches.
         data-theme={resolvedTheme}
+        style={mafsThemeStyle}
       >
         <Mafs viewBox={{ x: xRange, y: computedYRange }} preserveAspectRatio={false} zoom={false}>
           <Coordinates.Cartesian />
@@ -254,7 +276,7 @@ export function MathPlot({
         </Mafs>
       </div>
       {legendVisible && (
-        <ul className="mt-2 flex flex-wrap gap-3 text-xs text-ink-soft">
+        <ul className="flex flex-wrap gap-3 border-t border-rule bg-sunk px-3 py-2 font-mono text-3xs uppercase tracking-wide text-ink-faint">
           {functions.map((f, i) => (
             <li key={f.label} className="flex items-center gap-1.5">
               <span
@@ -262,7 +284,7 @@ export function MathPlot({
                 className="inline-block h-0.5 w-4"
                 style={{ backgroundColor: colorOf(f.color, i) }}
               />
-              <span className="font-mono">{f.label}</span>
+              <span>{f.label}</span>
             </li>
           ))}
         </ul>

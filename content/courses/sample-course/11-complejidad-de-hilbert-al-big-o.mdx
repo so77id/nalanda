@@ -137,7 +137,7 @@ definición formal de algoritmo**.
 <SectionBreak />
 
 <Slide title="1936: tres respuestas simultáneas al Entscheidungsproblem">
-Mismo año, tres personas, tres continentes, tres modelos independientes:
+Mismo año, tres personas, tres modelos independientes:
 
 - **Alonzo Church** (Princeton, EE.UU., mayo 1936) — usa el **lambda-cálculo**.
 - **Alan Turing** (Cambridge, Reino Unido, noviembre 1936) — usa **su máquina**.
@@ -169,6 +169,12 @@ Haskell, ML, incluso las expresiones lambda de Java).
 </Slide>
 
 <Slide title="La máquina de Turing: cinta, cabeza, tabla">
+{/* TODO(visual iteration): agregar aquí un GIF de dominio público de una máquina de
+    Turing en funcionamiento (Wikimedia Commons tiene varios buenos, ej. incrementar un
+    binario). Si no aparece uno adecuado, evaluar `<TuringMachineSim>` como cuarto
+    widget (issue futuro). Este es el slide más "visual por naturaleza" del arco Turing
+    (feedback pedagógico + alumno). */}
+
 Modelo matemático abstracto. Tres piezas:
 
 - **Cinta infinita** dividida en celdas, cada celda contiene un símbolo (por ejemplo `0`,
@@ -183,11 +189,6 @@ Modelo matemático abstracto. Tres piezas:
 </Slide>
 
 <Slide title="Cualquier algoritmo se puede ejecutar aquí">
-{/* TODO(visual iteration): reemplazar por GIF de dominio público de una máquina de Turing
-    en funcionamiento (Wikimedia Commons tiene varios buenos, ej. incrementar un binario).
-    Si no aparece uno adecuado, evaluar `<TuringMachineSim>` como cuarto widget (issue
-    futuro). Hasta entonces, el mensaje pedagógico va en la prosa siguiente. */}
-
 Por más complejo que sea un algoritmo — una calculadora, un buscador web, una inteligencia
 artificial, un videojuego — **puede reducirse a una secuencia de pasos** sobre esta máquina
 simple: leer, escribir, mover, cambiar estado.
@@ -599,21 +600,26 @@ Ahora aplicamos ese vocabulario a nuestro problema.
   data={{
     breakdown: [
       { line: "int s = 0;", oe: 1, times: "1" },
-      { line: "for (int i = 1; i <= n; i++)", oe: 0, times: "control" },
-      { line: "  for (int j = 1; j <= i; j++)", oe: 0, times: "control interno" },
-      { line: "    s = s + 1;", oe: 2, times: "n*(n+1)/2" },
+      { line: "int i = 1", oe: 1, times: "1" },
+      { line: "i <= n", oe: 1, times: "n+1" },
+      { line: "i++", oe: 1, times: "n" },
+      { line: "int j = 1", oe: 1, times: "n" },
+      { line: "j <= i", oe: 1, times: "n*(n+1)/2 + n" },
+      { line: "j++", oe: 1, times: "n*(n+1)/2" },
+      { line: "s = s + 1;", oe: 2, times: "n*(n+1)/2" },
       { line: "return s;", oe: 1, times: "1" },
     ],
-    formula: "n^2 + O(n)",
-    evaluate: (n) => n * n + 2 * n + 2,
+    formula: "2n^2 + 6n + 3",
+    evaluate: (n) => 2 * n * n + 6 * n + 3,
   }}
   slider={{ min: 1, max: 100, default: 10 }}
 />
 
-El cuerpo `s = s + 1` se ejecuta 1 + 2 + … + n = **n(n+1)/2** veces. Ese es el término
-dominante.
+El cuerpo `s = s + 1;` se ejecuta 1 + 2 + … + n = **n(n+1)/2** veces. Ese es el término
+dominante — con el mismo criterio "cuento cada línea" del ciclo simple, el for exterior
+y el for interior aportan sus init/cond/inc.
 
-**T₂(n) ≈ n² + O(n)** OE.
+**T₂(n) = 2n² + 6n + 3** OE. El término dominante es **n²** — la clase se queda con eso.
 </Slide>
 
 <Slide title="Contando la tercera solución — fórmula">
@@ -641,7 +647,7 @@ costo.
 
 | Solución | T(n) | Para N = 10⁶ (a 1 µs por OE) |
 |---|---|---|
-| Doble ciclo | ≈ n² | **~11,6 días** |
+| Doble ciclo | ≈ 2n² | **~23 días** |
 | Ciclo simple | 4n + 4 | ~4 segundos |
 | Fórmula | 4 | **4 microsegundos** |
 
@@ -652,19 +658,20 @@ mejor el algoritmo.**
 <Slide title="Twist: ¿y si contamos distinto?">
 Otra persona cuenta las mismas operaciones distinto:
 
-- Ella dice: `s = s + i` cuesta **3 OE** (leer s, sumar, escribir s).
+- Ella dice: `s = s + i` cuesta **3 OE** (leer s, leer i, sumar-y-escribir).
 - Yo dije: cuesta **2 OE**.
 
-Para el ciclo simple ella obtiene: **T'(n) = 6n + 3**. Yo obtuve **T(n) = 4n + 4**.
+Todo lo demás lo cuentan igual. Para el ciclo simple ella obtiene entonces
+**T'(n) = 5n + 4**. Yo obtuve **T(n) = 4n + 4**.
 
 Tabla de razones:
 
 | N | T (mío) | T' (ella) | Razón T'/T |
 |---|---|---|---|
-| 10 | 44 | 63 | 1,43 |
-| 100 | 404 | 603 | 1,49 |
-| 1 000 | 4 004 | 6 003 | 1,50 |
-| 10⁶ | ≈ 4·10⁶ | ≈ 6·10⁶ | 1,50 |
+| 10 | 44 | 54 | 1,23 |
+| 100 | 404 | 504 | 1,25 |
+| 1 000 | 4 004 | 5 004 | 1,25 |
+| 10⁶ | ≈ 4·10⁶ | ≈ 5·10⁶ | **→ 5/4 = 1,25** |
 
 La razón converge a una **constante**. Las constantes no son propiedad del algoritmo — son
 propiedad de **cómo contamos** y de la máquina.
@@ -918,8 +925,8 @@ encontrar) `x`**. Ahí entra el caso.
         { line: "arr[i] == x", oe: 2, times: "(n+1)/2" },
         { line: "return true;", oe: 1, times: "1" },
       ],
-      formula: "2n + 4",
-      evaluate: (n) => 2 * n + 4,
+      formula: "2n + 3",
+      evaluate: (n) => 2 * n + 3,
     },
   }}
   slider={{ min: 1, max: 100, default: 10 }}
@@ -962,11 +969,12 @@ Asumimos que **`x` puede estar en cualquier posición del arreglo con igual prob
 
 **E\[iteraciones\] = Σᵢ₌₁ⁿ i/n = (1/n) · n(n+1)/2 = (n+1)/2**
 
-Sustituyendo en la fórmula:
+Sustituyendo (los sub-conteos del ciclo son init 1 + cond (n+1)/2 + inc (n−1)/2, más
+2·(n+1)/2 OE de la comparación por iteración; con inicio y `return true` final da):
 
-**T_prom(n) = 1 + 4 · (n+1)/2 + 1 = 2n + 4**
+**T_prom(n) = 1 + \[1 + (n+1)/2 + (n−1)/2 + 2·(n+1)/2\] + 1 = 2n + 3**
 
-**T(n) = 2n + 4**. Lineal en `n`.
+**T(n) = 2n + 3**. Lineal en `n`.
 
 **Complejidad**: Θ(n).
 
@@ -1069,9 +1077,9 @@ Contexto histórico como cierre:
   que se usan como texto de referencia durante **más de 2000 años**.
 - En el Libro VII aparece un algoritmo para calcular el **máximo común divisor (gcd)** de
   dos números.
-- Es el algoritmo más antiguo del que tenemos registro. **1700 años antes** de que
+- Es el algoritmo más antiguo del que tenemos registro. **~1100 años antes** de que
   existiera la palabra "algoritmo" (deriva del matemático persa al-Juarismi, siglo IX
-  d.C.). **2200 años antes** de Turing.
+  d.C.). **~2200 años antes** de Turing.
 
 Versión moderna en Java:
 

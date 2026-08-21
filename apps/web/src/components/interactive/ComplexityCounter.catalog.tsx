@@ -129,8 +129,8 @@ export const complexityCounterCatalogEntry: CatalogEntry = {
                 { line: 'arr[i] == x', oe: 2, times: '(n+1)/2' },
                 { line: 'return true;', oe: 1, times: '1' },
               ],
-              formula: '2n + 4',
-              evaluate: (n) => 2 * n + 4,
+              formula: '2n + 3',
+              evaluate: (n) => 2 * n + 3,
             },
           }}
           slider={{ min: 1, max: 100, default: 10 }}
