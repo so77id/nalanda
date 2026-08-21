@@ -1,189 +1,9 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { Fragment, useMemo, useState, type ReactNode } from 'react';
+import { useMemo, useState } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
+import { CodeStepper } from './CodeStepper';
 import { OUTPUT, Panel } from './Panel';
-
-/**
- * Java keywords/types recognised by the lightweight tokenizer. This is NOT a
- * parser — it is a display-only regex-based colouriser so the code column of
- * `<ComplexityCounter>` reads as syntax-highlighted Java instead of grey text.
- * The set is small on purpose: overpainting is worse than under-painting when
- * a token is ambiguous. ADR-0045 §7 keeps this as the shipping approach
- * until the CodeMirror-integrated gutter lands.
- */
-const JAVA_KEYWORDS = new Set([
-  'abstract',
-  'assert',
-  'break',
-  'case',
-  'catch',
-  'class',
-  'const',
-  'continue',
-  'default',
-  'do',
-  'else',
-  'enum',
-  'extends',
-  'final',
-  'finally',
-  'for',
-  'goto',
-  'if',
-  'implements',
-  'import',
-  'instanceof',
-  'interface',
-  'native',
-  'new',
-  'package',
-  'private',
-  'protected',
-  'public',
-  'return',
-  'static',
-  'strictfp',
-  'super',
-  'switch',
-  'synchronized',
-  'this',
-  'throw',
-  'throws',
-  'transient',
-  'try',
-  'volatile',
-  'while',
-  'yield',
-]);
-const JAVA_TYPES = new Set([
-  'boolean',
-  'byte',
-  'char',
-  'double',
-  'float',
-  'int',
-  'long',
-  'short',
-  'void',
-  'String',
-  'Integer',
-  'Long',
-  'Double',
-  'Boolean',
-  'Character',
-  'Object',
-  'Scanner',
-  'System',
-  'Math',
-  'Arrays',
-  'List',
-  'ArrayList',
-  'Map',
-  'HashMap',
-  'Set',
-  'HashSet',
-]);
-const JAVA_LITERALS = new Set(['true', 'false', 'null']);
-
-/**
- * Tokenizes one line of Java for display and returns coloured spans.
- * Handles: line comments, string literals, char literals, numeric literals,
- * keywords, types, and named literals. Everything else passes through as ink.
- * Tailwind classes use only design-system tokens (see `apps/web/CLAUDE.md` and
- * `docs/standards/design-system.md`).
- */
-/**
- * Colours used by the tokenizer. Deliberately declared as inline CSS custom
- * properties on the widget root (see the component below), NOT as raw
- * Tailwind classes — the architecture test bans raw Tailwind colours since
- * they only render right in one theme (ADR-0026, design-system.md). The
- * variables here render right in both themes: the widget root sets
- * `light-dark(...)` on each so the browser picks the right side automatically.
- */
-type Kind = 'comment' | 'string' | 'number' | 'keyword' | 'type' | 'literal';
-
-const KIND_VAR: Record<Kind, string> = {
-  comment: 'var(--nl-cc-comment)',
-  string: 'var(--nl-cc-string)',
-  number: 'var(--nl-cc-number)',
-  keyword: 'var(--nl-cc-keyword)',
-  type: 'var(--nl-cc-type)',
-  literal: 'var(--nl-cc-literal)',
-};
-
-function highlightJava(line: string): ReactNode {
-  const tokens: ReactNode[] = [];
-  const pattern = new RegExp(
-    [
-      '\\/\\/[^\\n]*', // line comment
-      '"(?:[^"\\\\]|\\\\.)*"', // string literal
-      "'(?:[^'\\\\]|\\\\.)*'", // char literal
-      '\\b\\d+(?:\\.\\d+)?[LlFfDd]?\\b', // number literal
-      '[A-Za-z_][A-Za-z0-9_]*', // identifier
-    ].join('|'),
-    'g',
-  );
-  let last = 0;
-  let match: RegExpExecArray | null;
-  let key = 0;
-  while ((match = pattern.exec(line)) !== null) {
-    const [text] = match;
-    if (match.index > last) {
-      tokens.push(<Fragment key={`p-${key++}`}>{line.slice(last, match.index)}</Fragment>);
-    }
-    let kind: Kind | null = null;
-    let bold = false;
-    if (text.startsWith('//')) {
-      kind = 'comment';
-    } else if (text.startsWith('"') || text.startsWith("'")) {
-      kind = 'string';
-    } else if (/^\d/.test(text)) {
-      kind = 'number';
-    } else if (JAVA_KEYWORDS.has(text)) {
-      kind = 'keyword';
-      bold = true;
-    } else if (JAVA_TYPES.has(text)) {
-      kind = 'type';
-    } else if (JAVA_LITERALS.has(text)) {
-      kind = 'literal';
-      bold = true;
-    }
-    tokens.push(
-      kind === null ? (
-        <Fragment key={`t-${key++}`}>{text}</Fragment>
-      ) : (
-        <span
-          key={`t-${key++}`}
-          style={{
-            color: KIND_VAR[kind],
-            fontWeight: bold ? 500 : undefined,
-            fontStyle: kind === 'comment' ? 'italic' : undefined,
-          }}
-        >
-          {text}
-        </span>
-      ),
-    );
-    last = match.index + text.length;
-  }
-  if (last < line.length) tokens.push(<Fragment key={`p-${key++}`}>{line.slice(last)}</Fragment>);
-  return <>{tokens}</>;
-}
-
-/**
- * CSS variables the widget declares on its root so both themes resolve to a
- * legible palette without touching the raw-Tailwind ban. `light-dark(...)`
- * is the modern CSS function that lets the browser pick per active theme.
- */
-const SYNTAX_STYLE: React.CSSProperties = {
-  ['--nl-cc-comment' as string]: 'light-dark(rgb(107 114 128), rgb(148 163 184))',
-  ['--nl-cc-string' as string]: 'light-dark(rgb(5 150 105), rgb(52 211 153))',
-  ['--nl-cc-number' as string]: 'light-dark(rgb(217 119 6), rgb(251 191 36))',
-  ['--nl-cc-keyword' as string]: 'light-dark(rgb(124 58 237), rgb(167 139 250))',
-  ['--nl-cc-type' as string]: 'light-dark(rgb(2 132 199), rgb(56 189 248))',
-  ['--nl-cc-literal' as string]: 'light-dark(rgb(217 119 6), rgb(251 191 36))',
-};
 
 /**
  * One row in the breakdown: either a single code line with its OE cost and how
@@ -191,7 +11,12 @@ const SYNTAX_STYLE: React.CSSProperties = {
  * in `subLines` and get collapsed under a chevron.
  */
 export interface BreakdownRow {
-  /** Verbatim code as it appears on this line. */
+  /**
+   * Verbatim code as it appears on this line. Used as the label of the
+   * breakdown row AND, when `code` is provided, to auto-locate the row's
+   * line inside the source so hovering / clicking a row highlights that
+   * line in the real CodeEditor.
+   */
   line: string;
   /** OE count of this line (per execution). Ignored on rows that only hold subLines. */
   oe?: number;
@@ -207,6 +32,13 @@ export interface BreakdownRow {
    * expanded on click. Each carries its own `oe` and `times`.
    */
   subLines?: BreakdownRow[];
+  /**
+   * 1-based line number in `code` this row corresponds to. Optional: if
+   * omitted, the widget tries to locate `line` inside `code` (exact-trim
+   * match first, then substring). Provide it explicitly when the auto-match
+   * would be ambiguous.
+   */
+  codeLine?: number;
 }
 
 /**
@@ -231,9 +63,12 @@ export interface ComplexityCounterProps {
   /** Human-readable identifier of the algorithm — shown in the widget header. */
   algorithm?: string;
   /**
-   * The code the widget breaks down, verbatim. Used as a reference display
-   * beneath the breakdown table (the table itself carries the line-by-line
-   * annotations, so the code block is a re-read of the whole algorithm).
+   * The full source code shown on the left of the widget, verbatim. When
+   * provided, it is rendered through the real `<CodeStepper>` (same syntax
+   * highlighting as any other Java snippet on the site) with per-line
+   * highlighting driven by hovering the annotations on the right.
+   * When omitted, the widget falls back to a one-column layout with just
+   * the annotations table.
    */
   code?: string;
   /** Mode: 'base' one case, 'cases' three tabs (best/worst/average), 'space' same layout but in memory cells. */
@@ -250,6 +85,11 @@ export interface ComplexityCounterProps {
   slider?: { min?: number; max?: number; default?: number; step?: number };
   /** The variable name shown in formulas. Defaults to 'n'. */
   variable?: string;
+  /**
+   * Language for CodeStepper's grammar. Defaults to 'java' (matches the
+   * default of CodeStepper itself; keep in sync with the class's runtime).
+   */
+  language?: string;
 }
 
 const DEFAULT_SLIDER = { min: 1, max: 100, default: 10, step: 1 };
@@ -257,26 +97,16 @@ const DEFAULT_SLIDER = { min: 1, max: 100, default: 10, step: 1 };
 /**
  * A widget that makes the process of counting operations visible (ADR-0045).
  *
- * The author writes an algorithm plus a declarative breakdown — one row per
- * line, each with an OE count and a formula for how many times the line
- * runs — and the widget renders it as a three-column table: code, OE per
- * execution, executions. Under it: `T(n) = <sum> = <closed form>` and then
- * `Para N = <slider> → T = <evaluated>`. The reader moves the slider and
- * the "executions" column plus the evaluated T update; the closed form
- * does not, because it is a property of the algorithm.
+ * The layout is code-on-the-left, annotations-on-the-right (falls back to a
+ * single annotations column when no `code` is provided). The code is rendered
+ * through `<CodeStepper>` — the same read-only CodeMirror path every other
+ * Java snippet on the site uses, so the listing here reads exactly as any
+ * fence or editor elsewhere in the course. Annotations sit in a right rail
+ * that carries OE per execution and how many times each line runs; hovering
+ * or clicking an annotation highlights the corresponding line in the editor.
  *
- * Mode `cases` renders three tabs (mejor / peor / promedio), each with its
- * own breakdown and formula — used in Act 5 to show that FindInArray has
- * three qualitatively different behaviours over the same code. Mode
- * `space` swaps the "OE" column for "celdas de memoria" but is otherwise
- * the same shape.
- *
- * Deliberately declarative — the widget does not parse Java or attempt to
- * count operations automatically. Miguel rejected the "widget parses the
- * code" alternative at refinement: a parser would be silently wrong on
- * edge cases, and hiding a counting model inside JS would defeat the
- * pedagogical point (the reader must SEE the counting). The catalog
- * example demonstrates the shape once; every use in the class inherits it.
+ * Mode `cases` renders three tabs (mejor / peor / promedio); mode `space`
+ * swaps the OE column for memory cells and prints M(n) instead of T(n).
  */
 export function ComplexityCounter({
   algorithm,
@@ -286,6 +116,7 @@ export function ComplexityCounter({
   cases,
   slider,
   variable = 'n',
+  language = 'java',
 }: ComplexityCounterProps) {
   const sliderCfg = useMemo(
     () => ({
@@ -297,6 +128,7 @@ export function ComplexityCounter({
   const [n, setN] = useState<number>(sliderCfg.default);
   const [caseKey, setCaseKey] = useState<'best' | 'worst' | 'average'>('worst');
   const [expanded, setExpanded] = useState<Set<number>>(new Set());
+  const [activeLine, setActiveLine] = useState<number | null>(null);
 
   const active = useMemo<ComplexityCase | undefined>(() => {
     if (mode === 'cases') return cases?.[caseKey];
@@ -306,24 +138,25 @@ export function ComplexityCounter({
   if (mode === 'cases' && (cases === undefined || Object.keys(cases).length === 0)) {
     return (
       <AuthoringError component="ComplexityCounter">
-        modo <code>cases</code> requiere la prop <code>cases</code> con al menos un caso (
-        <code>best</code>, <code>worst</code> o <code>average</code>).
+        modo <code>cases</code> requiere la prop <code>cases</code> con al menos un caso
+        (<code>best</code>, <code>worst</code> o <code>average</code>).
       </AuthoringError>
     );
   }
   if (mode !== 'cases' && data === undefined) {
     return (
       <AuthoringError component="ComplexityCounter">
-        falta la prop <code>data</code>: un objeto <code>{'{ breakdown, formula, evaluate }'}</code>{' '}
-        con el desglose por línea, la fórmula final y su evaluador numérico.
+        falta la prop <code>data</code>: un objeto{' '}
+        <code>{'{ breakdown, formula, evaluate }'}</code> con el desglose por línea, la fórmula
+        final y su evaluador numérico.
       </AuthoringError>
     );
   }
   if (active === undefined) {
     return (
       <AuthoringError component="ComplexityCounter">
-        el caso <code>{caseKey}</code> no está definido en <code>cases</code>. Los casos disponibles
-        se muestran como pestañas; verifica que <code>{caseKey}</code> exista.
+        el caso <code>{caseKey}</code> no está definido en <code>cases</code>. Los casos
+        disponibles se muestran como pestañas; verifica que <code>{caseKey}</code> exista.
       </AuthoringError>
     );
   }
@@ -333,15 +166,14 @@ export function ComplexityCounter({
   const evaluated = active.evaluate(n);
 
   return (
-    <div
-      className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink"
-      style={SYNTAX_STYLE}
-    >
+    <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
       <header className="flex flex-wrap items-center gap-2 bg-sunk px-3 py-1.5">
         <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-accent">
           {mode === 'space' ? 'espacio' : 'operaciones'}
         </span>
-        {algorithm !== undefined && <span className="font-mono text-sm text-ink">{algorithm}</span>}
+        {algorithm !== undefined && (
+          <span className="font-mono text-sm text-ink">{algorithm}</span>
+        )}
       </header>
 
       {mode === 'cases' && cases !== undefined && (
@@ -353,7 +185,11 @@ export function ComplexityCounter({
               <button
                 key={k}
                 type="button"
-                onClick={() => setCaseKey(k)}
+                onClick={() => {
+                  setCaseKey(k);
+                  setActiveLine(null);
+                  setExpanded(new Set());
+                }}
                 aria-pressed={k === caseKey}
                 className={
                   k === caseKey
@@ -385,35 +221,44 @@ export function ComplexityCounter({
         </label>
       </div>
 
-      <div className="overflow-x-auto border-t border-rule">
-        <table className="w-full border-collapse text-xs">
-          <thead>
-            <tr className="border-b border-rule bg-sunk text-3xs uppercase tracking-wide text-ink-faint">
-              <th className="px-3 py-1 text-left font-mono font-normal">código</th>
-              <th className="px-2 py-1 text-right font-mono font-normal">{unitLabel}/vez</th>
-              <th className="px-3 py-1 text-right font-mono font-normal">ejecuciones</th>
-            </tr>
-          </thead>
-          <tbody className="font-mono text-ink-soft">
-            {active.breakdown.map((row, index) => (
-              <BreakdownRowView
-                key={index}
-                row={row}
-                variable={variable}
-                n={n}
-                isExpanded={expanded.has(index)}
-                onToggle={() => {
-                  setExpanded((prev) => {
-                    const next = new Set(prev);
-                    if (next.has(index)) next.delete(index);
-                    else next.add(index);
-                    return next;
-                  });
-                }}
-              />
-            ))}
-          </tbody>
-        </table>
+      <div
+        className={
+          code === undefined || code.trim() === ''
+            ? 'border-t border-rule'
+            : 'grid grid-cols-1 border-t border-rule md:grid-cols-[1fr_16rem]'
+        }
+      >
+        {code !== undefined && code.trim() !== '' && (
+          <div className="min-w-0 overflow-hidden border-b border-rule md:border-b-0 md:border-r">
+            <CodeStepper
+              code={code}
+              language={language}
+              highlightLines={activeLine === null ? [] : [activeLine]}
+            />
+          </div>
+        )}
+        <ul className="flex flex-col divide-y divide-rule/50 bg-sunk/30 font-mono text-xs text-ink-soft">
+          {active.breakdown.map((row, index) => (
+            <BreakdownRowView
+              key={index}
+              row={row}
+              variable={variable}
+              n={n}
+              code={code}
+              isExpanded={expanded.has(index)}
+              onToggle={() => {
+                setExpanded((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(index)) next.delete(index);
+                  else next.add(index);
+                  return next;
+                });
+              }}
+              onHover={(line) => setActiveLine(line)}
+              unitLabel={unitLabel}
+            />
+          ))}
+        </ul>
       </div>
 
       <Panel label={`${totalLabel}(${variable})`}>
@@ -424,16 +269,6 @@ export function ComplexityCounter({
           {evaluated.toLocaleString('es')} {unitLabel}
         </pre>
       </Panel>
-
-      {code !== undefined && code.trim() !== '' && (
-        <Panel label="código completo">
-          <pre className={`${OUTPUT} bg-sunk text-ink`}>
-            {code.split('\n').map((line, i) => (
-              <div key={i}>{highlightJava(line)}</div>
-            ))}
-          </pre>
-        </Panel>
-      )}
     </div>
   );
 }
@@ -442,12 +277,34 @@ interface BreakdownRowViewProps {
   row: BreakdownRow;
   variable: string;
   n: number;
+  code: string | undefined;
   isExpanded: boolean;
   onToggle: () => void;
+  onHover: (line: number | null) => void;
+  unitLabel: string;
 }
 
-function BreakdownRowView({ row, variable, n, isExpanded, onToggle }: BreakdownRowViewProps) {
+function BreakdownRowView({
+  row,
+  variable,
+  n,
+  code,
+  isExpanded,
+  onToggle,
+  onHover,
+  unitLabel,
+}: BreakdownRowViewProps) {
   const hasSubLines = row.subLines !== undefined && row.subLines.length > 0;
+  const codeLine = useMemo(() => resolveLine(row, code), [row, code]);
+  const hoverProps = codeLine
+    ? {
+        onMouseEnter: () => onHover(codeLine),
+        onMouseLeave: () => onHover(null),
+        onFocus: () => onHover(codeLine),
+        onBlur: () => onHover(null),
+      }
+    : {};
+
   if (hasSubLines) {
     const totalOe = row.subLines!.reduce((sum, sub) => {
       const times = sub.times ? evaluateFormula(sub.times, variable, n) : 0;
@@ -455,66 +312,100 @@ function BreakdownRowView({ row, variable, n, isExpanded, onToggle }: BreakdownR
     }, 0);
     return (
       <>
-        <tr className="border-b border-rule/50">
-          <td className="px-3 py-1 text-ink">
-            <button
-              type="button"
-              onClick={onToggle}
-              aria-expanded={isExpanded}
-              aria-label={isExpanded ? 'Contraer sub-conteos' : 'Expandir sub-conteos'}
-              className="mr-1 inline-flex items-center align-middle text-ink-faint hover:text-ink"
-            >
-              {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-            </button>
-            <code>{highlightJava(row.line)}</code>
-          </td>
-          <td className="px-2 py-1 text-right text-ink-faint">
-            {totalOe.toLocaleString('es')} (total)
-          </td>
-          <td className="px-3 py-1 text-right text-ink-faint">
-            control ({row.subLines!.length} partes)
-          </td>
-        </tr>
+        <li className="flex items-start gap-2 px-3 py-1.5 hover:bg-accent-soft/20" {...hoverProps}>
+          <button
+            type="button"
+            onClick={onToggle}
+            aria-expanded={isExpanded}
+            aria-label={isExpanded ? 'Contraer sub-conteos' : 'Expandir sub-conteos'}
+            className="mt-0.5 text-ink-faint hover:text-ink"
+          >
+            {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-ink">
+              <code>{row.line}</code>
+            </div>
+            <div className="text-3xs text-ink-faint">
+              control ({row.subLines!.length} partes) · {totalOe.toLocaleString('es')} {unitLabel} total
+            </div>
+          </div>
+        </li>
         {isExpanded &&
-          row.subLines!.map((sub, i) => (
-            <tr key={`sub-${i}`} className="border-b border-rule/30 bg-sunk/30">
-              <td className="px-3 py-1 pl-8 text-ink-soft">
-                <code>{highlightJava(sub.line)}</code>
-              </td>
-              <td className="px-2 py-1 text-right">{sub.oe ?? 0}</td>
-              <td className="px-3 py-1 text-right">
-                {sub.times ?? ''}
-                {sub.times !== undefined && (
-                  <span className="text-ink-faint">
-                    {' '}
-                    = {evaluateFormula(sub.times, variable, n)}
-                  </span>
-                )}
-              </td>
-            </tr>
-          ))}
+          row.subLines!.map((sub, i) => {
+            const subLine = resolveLine(sub, code);
+            const subHover = subLine
+              ? {
+                  onMouseEnter: () => onHover(subLine),
+                  onMouseLeave: () => onHover(null),
+                }
+              : {};
+            const times = sub.times ? evaluateFormula(sub.times, variable, n) : 0;
+            return (
+              <li
+                key={`sub-${i}`}
+                className="flex items-start gap-2 bg-sunk/40 px-3 py-1 pl-8 hover:bg-accent-soft/20"
+                {...subHover}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="truncate">
+                    <code>{sub.line}</code>
+                  </div>
+                  <div className="text-3xs text-ink-faint">
+                    {sub.oe ?? 0} {unitLabel} · {sub.times ?? ''}
+                    {sub.times !== undefined && (
+                      <span> = {times.toLocaleString('es')}</span>
+                    )}
+                  </div>
+                </div>
+              </li>
+            );
+          })}
       </>
     );
   }
+
   const times = row.times ? evaluateFormula(row.times, variable, n) : 0;
   return (
-    <tr className="border-b border-rule/50 last:border-0 even:bg-sunk/30 hover:bg-accent-soft/20">
-      <td className="px-3 py-1 text-ink">
-        <code>{highlightJava(row.line)}</code>
-      </td>
-      <td className="px-2 py-1 text-right">{row.oe ?? 0}</td>
-      <td className="px-3 py-1 text-right">
-        {row.times === undefined ? (
-          '—'
-        ) : (
-          <>
-            {row.times}
-            <span className="text-ink-faint"> = {times}</span>
-          </>
-        )}
-      </td>
-    </tr>
+    <li className="flex items-start gap-2 px-3 py-1.5 hover:bg-accent-soft/20" {...hoverProps}>
+      <div className="min-w-0 flex-1">
+        <div className="truncate text-ink">
+          <code>{row.line}</code>
+        </div>
+        <div className="text-3xs text-ink-faint">
+          {row.oe ?? 0} {unitLabel}
+          {row.times !== undefined && (
+            <>
+              {' · '}
+              {row.times}
+              {' = '}
+              {times.toLocaleString('es')}
+            </>
+          )}
+        </div>
+      </div>
+    </li>
   );
+}
+
+/**
+ * Maps a breakdown row to a 1-based line number in `code`. Prefers an
+ * explicit `codeLine`; else searches for the row's `line` text inside `code`
+ * (exact trimmed match first, then substring). Returns null when nothing
+ * matches — the row just gets no hover-highlight.
+ */
+function resolveLine(row: BreakdownRow, code: string | undefined): number | null {
+  if (row.codeLine !== undefined) return row.codeLine;
+  if (code === undefined || code.trim() === '') return null;
+  const lines = code.split('\n');
+  const needle = row.line.trim();
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i]!.trim() === needle) return i + 1;
+  }
+  for (let i = 0; i < lines.length; i++) {
+    if (lines[i]!.includes(needle)) return i + 1;
+  }
+  return null;
 }
 
 /**

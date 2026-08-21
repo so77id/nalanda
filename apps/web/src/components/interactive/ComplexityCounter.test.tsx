@@ -46,22 +46,22 @@ describe('ComplexityCounter', () => {
   it('renders one row per breakdown line with the OE count and executions formula', () => {
     render(<ComplexityCounter algorithm="sumaCiclo" data={SUMA_CICLO} slider={{ default: 10 }} />);
 
-    const table = screen.getByRole('table');
-    // The four top-level rows each carry their code inside a <code> element;
-    // the parent <td> shares the same textContent, so `selector: 'code'`
-    // disambiguates. The for-header row collapses its sub-lines by default.
-    expect(within(table).getByText(codeMatching('int s = 0;'))).toBeInTheDocument();
+    const rail = screen.getByRole('list');
+    // The four top-level rows each carry their code inside a <code> element
+    // in the right-side rail. The for-header row collapses its sub-lines by
+    // default.
+    expect(within(rail).getByText(codeMatching('int s = 0;'))).toBeInTheDocument();
     expect(
-      within(table).getByText(codeMatching('for (int i = 1; i <= n; i++)')),
+      within(rail).getByText(codeMatching('for (int i = 1; i <= n; i++)')),
     ).toBeInTheDocument();
-    expect(within(table).getByText(codeMatching('s = s + i;'))).toBeInTheDocument();
-    expect(within(table).getByText(codeMatching('return s;'))).toBeInTheDocument();
+    expect(within(rail).getByText(codeMatching('s = s + i;'))).toBeInTheDocument();
+    expect(within(rail).getByText(codeMatching('return s;'))).toBeInTheDocument();
     // The for-header shows its "control" label instead of an "executions" formula.
-    expect(within(table).getByText(/control/i)).toBeInTheDocument();
+    expect(within(rail).getByText(/control/i)).toBeInTheDocument();
     // The non-header rows carry their formula next to the evaluated numbers.
     // `s = s + i;` runs `n` times → for n = 10, the row shows "n = 10".
-    const codeRow = within(table).getByText(codeMatching('s = s + i;')).closest('tr')!;
-    expect(codeRow).toHaveTextContent(/n\s*=\s*10/);
+    const codeItem = within(rail).getByText(codeMatching('s = s + i;')).closest('li')!;
+    expect(codeItem).toHaveTextContent(/n\s*=\s*10/);
   });
 
   it('evaluates the executions formulas against the slider value and updates when it moves', async () => {
@@ -69,8 +69,8 @@ describe('ComplexityCounter', () => {
 
     // For n = 10 the row `s = s + i;` executes 10 times.
     const codeBefore = screen.getByText(codeMatching('s = s + i;'));
-    const rowBefore = codeBefore.closest('tr')!;
-    expect(rowBefore).toHaveTextContent(/= 10/);
+    const itemBefore = codeBefore.closest('li')!;
+    expect(itemBefore).toHaveTextContent(/= 10/);
 
     // Move the slider to 20 and the same row now shows 20 executions.
     // Range inputs update state on `change` in React; fireEvent.change from
@@ -80,9 +80,9 @@ describe('ComplexityCounter', () => {
     fireEvent.change(slider, { target: { value: '20' } });
 
     const codeAfter = screen.getByText(codeMatching('s = s + i;'));
-    const rowAfter = codeAfter.closest('tr')!;
+    const itemAfter = codeAfter.closest('li')!;
     // Formula stays as `n`, evaluated jumps to 20.
-    expect(rowAfter).toHaveTextContent(/n\s*=\s*20/);
+    expect(itemAfter).toHaveTextContent(/n\s*=\s*20/);
   });
 
   it('prints the closed-form T(n) and its numeric evaluation at the current slider value', () => {

@@ -532,11 +532,14 @@ Precalentamiento antes de aplicar a las 3 soluciones:
 
 <ComplexityCounter
   algorithm="for (int i = 0; i < n; i++)"
+  code={`for (int i = 0; i < n; i++) {
+    // cuerpo
+}`}
   data={{
     breakdown: [
-      { line: "int i = 0", oe: 1, times: "1" },
-      { line: "i < n", oe: 1, times: "n+1" },
-      { line: "i++", oe: 1, times: "n" },
+      { line: "int i = 0", oe: 1, times: "1", codeLine: 1 },
+      { line: "i < n", oe: 1, times: "n+1", codeLine: 1 },
+      { line: "i++", oe: 1, times: "n", codeLine: 1 },
     ],
     formula: "2n + 2",
     evaluate: (n) => 2 * n + 2,
@@ -911,6 +914,13 @@ encontrar) `x`**. Ahí entra el caso.
 
 <ComplexityCounter
   algorithm="findInArray — los tres casos"
+  code={`boolean findInArray(int[] arr, int x) {
+    for (int i = 0; i < arr.length; i++) {
+        if (arr[i] == x)
+            return true;
+    }
+    return false;
+}`}
   mode="cases"
   cases={{
     best: {
