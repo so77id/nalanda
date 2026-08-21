@@ -1,0 +1,135 @@
+---
+id: complejidad-de-hilbert-al-big-o
+title: Complejidad · De Hilbert al Big O
+presentation: explicit
+questions: none
+---
+
+{/* Este documento declara `questions: none` a propósito (feedback_question_bank_post_ship). */}
+{/* El banco de preguntas es un WP separado que se abre después del merge, para escribir */}
+{/* las preguntas contra el material final y evitar drift preguntas ↔ material. */}
+{/* */}
+{/* Estructura del deck (44 slides en 5 actos + 1 bisagra): */}
+{/*   Acto 1 · Crisis de fundamentos (slides 1-5)                    ← S4 */}
+{/*   Acto 2 · 1936 se inventa el algoritmo (slides 6-11)             ← S5 */}
+{/*   Bisagra · Aquí nace la ciencia de la computación (slide 12)     ← S6 */}
+{/*   Acto 3 · Máquinas físicas + cambio de pregunta (slides 13-21)   ← S6 */}
+{/*   Acto 4 · Nace el análisis de algoritmos (slides 22-33)          ← S7 */}
+{/*   Acto 5 · Aplicación + espacio + cierre (slides 34-44)           ← S8 */}
+{/* */}
+{/* Referencias: ADR-0044 (Benchmark), ADR-0045 (ComplexityCounter), ADR-0046 (MathPlot). */}
+
+# Complejidad · De Hilbert al Big O
+
+Primera clase de la trilogía **Complejidad**. Aprender a comparar algoritmos y decidir cuál
+usar, siguiendo la evolución histórica que va desde una crisis matemática de comienzos
+del siglo XX hasta la notación asintótica que usamos hoy. La historia no es adorno: es el
+hilo que hace que las herramientas técnicas tengan sentido.
+
+<SectionBreak />
+
+<Slide title="¿Cómo sabemos si un algoritmo es mejor que otro?">
+Si dos algoritmos resuelven exactamente el mismo problema, ¿cómo decidimos cuál elegir?
+
+La respuesta intuitiva es *"el más rápido"*. Pero rápido *¿en qué computador? ¿con qué
+compilador? ¿medido cómo?*
+
+Para responder bien esa pregunta, hace falta un **lenguaje universal** — algo que hable del
+algoritmo mismo, no del computador donde corre.
+
+**Ese lenguaje no siempre existió.** Se inventó a lo largo del siglo XX, como consecuencia
+inesperada de una crisis en los fundamentos de la matemática. Esta clase recorre esa
+historia, y al final van a saber comparar algoritmos con las mismas herramientas que se
+inventaron entonces.
+</Slide>
+
+<Slide title="A comienzos del siglo XX, la matemática estaba en crisis">
+- **Cantor** descubre que hay **infinitos de distinto tamaño**. Extraño pero manejable.
+- **Russell** encuentra una **paradoja** en la teoría de conjuntos:
+
+  *"el conjunto de todos los conjuntos que no se contienen a sí mismos, ¿se contiene a sí
+  mismo?"*
+
+  Cualquiera de las dos respuestas es contradictoria.
+- Los **fundamentos** de la matemática — sobre los que se construía todo — estaban
+  tambaleando.
+
+Alguien tenía que ordenar el desastre.
+</Slide>
+
+<Slide title="David Hilbert y su programa">
+**David Hilbert** (Alemania, 1862–1943), probablemente el matemático más influyente de su
+generación.
+
+- **1900, París** — presenta **23 problemas abiertos** que él pensaba marcarían el siglo XX.
+  Hoy ~13 resueltos, uno demostrado imposible (P10), uno aún abierto (P8 — Hipótesis de
+  Riemann).
+- **Años 1920s** — lanza **el programa de Hilbert** para blindar toda la matemática. Tres
+  objetivos:
+
+  1. **Consistencia** — el sistema no genera contradicciones. Si demuestras "A es cierto",
+     entonces con las mismas reglas nunca puedes demostrar "A es falso".
+  2. **Completitud** — toda verdad matemática es demostrable dentro del sistema. Cero
+     verdades "escondidas" al razonamiento formal.
+  3. **Decidibilidad** — existe un procedimiento mecánico que, dado un enunciado, dice si
+     es demostrable. Meta: automatizar el razonamiento matemático.
+
+Su frase: *"Wir müssen wissen. Wir werden wissen."* — **"Debemos saber. Sabremos."**
+
+Si los tres pilares se cumplen, la matemática es completamente confiable, cerrada y
+automatizable. **Ese era el sueño.**
+</Slide>
+
+<Slide title="Kurt Gödel rompe dos pilares (1931)">
+**Kurt Gödel** (Austria, 25 años en 1931) publica los **Teoremas de Incompletitud**. Dos
+golpes seguidos.
+
+**Teorema 1 — Incompletitud**: en cualquier sistema matemático consistente y lo
+suficientemente potente para expresar la aritmética, **existen enunciados verdaderos que el
+sistema NO puede demostrar**.
+
+Ejemplo intuitivo (versión simplificada de la construcción de Gödel):
+
+> Considera la afirmación matemática:
+> **"Esta afirmación no es demostrable."**
+> - Si **es** demostrable → entonces es falsa (porque dice lo contrario) → el sistema
+>   demostró algo falso → **inconsistente**.
+> - Si **NO** es demostrable → entonces es verdadera (dice la verdad sobre sí misma) → hay
+>   una **verdad que el sistema no puede probar** → **incompleto**.
+
+No hay escape. Gödel demostró que las matemáticas están en el segundo caso.
+
+**Teorema 2 — Consistencia**: ningún sistema puede probar su **propia consistencia** usando
+sus propias reglas.
+
+**Consecuencia**: dos de los tres pilares de Hilbert caen. **Completitud es imposible**, y
+la **consistencia no se puede probar desde adentro**.
+</Slide>
+
+<Slide title="Solo queda un pilar: la decidibilidad">
+Gödel tumbó dos pilares. Queda uno en pie: **la decidibilidad**.
+
+**La pregunta reformulada en humano**:
+
+> *"Aunque no toda verdad sea demostrable, ¿al menos podríamos construir una **máquina** —
+> un algoritmo mecánico — que, dada cualquier afirmación matemática, responda 'es
+> demostrable' o 'no lo es' en un número finito de pasos?"*
+
+Este problema tiene nombre en alemán porque lo formalizó Hilbert: **Entscheidungsproblem**
+("problema de la decisión").
+
+**Lo que Hilbert apostaba**: que la respuesta era **SÍ**. Que existía esa máquina universal,
+aunque nadie la hubiera construido todavía.
+
+**El obstáculo**: para responder la pregunta hay que primero **definir formalmente qué es
+una "máquina" o un "algoritmo"**. Sin definición precisa, la pregunta no tiene sentido
+matemático.
+
+**Y esa definición no existía todavía.** En 1928 nadie sabía qué era exactamente un
+algoritmo. Era intuitivo — *"una receta de pasos"* — pero no había definición matemática
+rigurosa.
+
+En el Acto 2 veremos cómo, en el mismo año (1936), **dos personas en dos continentes**
+llegaron a la misma respuesta al problema — y como subproducto, inventaron **la primera
+definición formal de algoritmo**.
+</Slide>
