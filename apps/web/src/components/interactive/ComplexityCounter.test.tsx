@@ -5,150 +5,182 @@ import { describe, expect, it } from 'vitest';
 import { ComplexityCounter } from './ComplexityCounter';
 
 // The syntax-highlighted code column splits each line into multiple <span>s,
-// so `getByText(codeMatching('int s = 0;'))` no longer matches — the
-// text is fragmented across children even though the <code> element's own
-// textContent still reads as "int s = 0;". This custom matcher looks for the
-// <code> whose full textContent equals the expected line.
+// so `getByText('int s = 0;', { selector: 'code' })` doesn't match. This
+// custom matcher looks for the <code> whose full textContent equals the
+// expected line — matches whether the rail's <code> or a rendered code span.
 function codeMatching(expected: string) {
   return (_content: string, element: Element | null) =>
     element?.tagName === 'CODE' && element.textContent === expected;
 }
 
-const SUMA_CICLO = {
-  breakdown: [
-    { line: 'int s = 0;', oe: 1, times: '1' },
-    {
-      line: 'for (int i = 1; i <= n; i++)',
-      subLines: [
-        { line: 'int i = 1', oe: 1, times: '1' },
-        { line: 'i <= n', oe: 1, times: 'n+1' },
-        { line: 'i++', oe: 1, times: 'n' },
+const SUMA_CICLO_CODE = `int sumaCiclo(int n) {
+    int s = 0;
+    for (int i = 1; i <= n; i++)
+        s = s + i;
+    return s;
+}`;
+
+const SUMA_CICLO_DATA = {
+  annotations: {
+    2: { oe: 1, times: '1' },
+    3: {
+      sub: [
+        { label: 'init', oe: 1, times: '1' },
+        { label: 'cond', oe: 1, times: 'n+1' },
+        { label: 'inc', oe: 1, times: 'n' },
       ],
     },
-    { line: 's = s + i;', oe: 2, times: 'n' },
-    { line: 'return s;', oe: 1, times: '1' },
-  ],
+    4: { oe: 2, times: 'n' },
+    5: { oe: 1, times: '1' },
+  },
   formula: '4n + 4',
   evaluate: (n: number) => 4 * n + 4,
 };
 
 describe('ComplexityCounter', () => {
   it('shows an authoring error when `data` is missing in base mode', () => {
-    render(<ComplexityCounter />);
+    render(<ComplexityCounter code="int x = 0;" />);
+    // The AuthoringError text is split across text nodes (contains a <code>
+    // tag for `data`); match on the leading phrase.
     expect(screen.getByText(/falta la prop/i)).toBeInTheDocument();
+    expect(screen.getByText('data')).toBeInTheDocument();
+  });
+
+  it('shows an authoring error when `code` is missing', () => {
+    render(<ComplexityCounter data={SUMA_CICLO_DATA} />);
+    expect(screen.getByText(/falta la prop/i)).toBeInTheDocument();
+    expect(screen.getByText('code')).toBeInTheDocument();
   });
 
   it('shows an authoring error when `cases` is empty in cases mode', () => {
-    render(<ComplexityCounter mode="cases" cases={{}} />);
+    render(<ComplexityCounter code="int x = 0;" mode="cases" cases={{}} />);
     expect(screen.getByText(/requiere la prop/i)).toBeInTheDocument();
   });
 
-  it('renders one row per breakdown line with the OE count and executions formula', () => {
-    render(<ComplexityCounter algorithm="sumaCiclo" data={SUMA_CICLO} slider={{ default: 10 }} />);
+  it('renders one rail row per annotated line, ordered by line number', () => {
+    render(
+      <ComplexityCounter
+        algorithm="sumaCiclo"
+        code={SUMA_CICLO_CODE}
+        data={SUMA_CICLO_DATA}
+        slider={{ default: 10 }}
+      />,
+    );
 
-    const rail = screen.getByRole('list');
-    // The four top-level rows each carry their code inside a <code> element
-    // in the right-side rail. The for-header row collapses its sub-lines by
-    // default.
+    const rail = screen.getByRole('list', { name: /desglose de operaciones/i });
+    // Line 2, 3, 4, 5 have annotations — line 1 and 6 do not, so they
+    // are absent from the rail.
     expect(within(rail).getByText(codeMatching('int s = 0;'))).toBeInTheDocument();
     expect(
       within(rail).getByText(codeMatching('for (int i = 1; i <= n; i++)')),
     ).toBeInTheDocument();
     expect(within(rail).getByText(codeMatching('s = s + i;'))).toBeInTheDocument();
     expect(within(rail).getByText(codeMatching('return s;'))).toBeInTheDocument();
-    // The for-header shows its "control" label instead of an "executions" formula.
-    expect(within(rail).getByText(/control/i)).toBeInTheDocument();
-    // The non-header rows carry their formula next to the evaluated numbers.
-    // `s = s + i;` runs `n` times → for n = 10, the row shows "n = 10".
-    const codeItem = within(rail).getByText(codeMatching('s = s + i;')).closest('li')!;
-    expect(codeItem).toHaveTextContent(/n\s*=\s*10/);
   });
 
-  it('evaluates the executions formulas against the slider value and updates when it moves', async () => {
-    render(<ComplexityCounter data={SUMA_CICLO} slider={{ min: 1, max: 100, default: 10 }} />);
+  it('collapses for-headers by default and shows the aggregated OE total', () => {
+    render(
+      <ComplexityCounter code={SUMA_CICLO_CODE} data={SUMA_CICLO_DATA} slider={{ default: 10 }} />,
+    );
 
-    // For n = 10 the row `s = s + i;` executes 10 times.
-    const codeBefore = screen.getByText(codeMatching('s = s + i;'));
-    const itemBefore = codeBefore.closest('li')!;
-    expect(itemBefore).toHaveTextContent(/= 10/);
+    // The for row's `sub-parts` (init/cond/inc) are NOT visible until expanded.
+    expect(screen.queryByText(/^init$/i)).not.toBeInTheDocument();
 
-    // Move the slider to 20 and the same row now shows 20 executions.
-    // Range inputs update state on `change` in React; fireEvent.change from
-    // @testing-library/react is the shape that actually triggers React's
-    // onChange handler (dispatchEvent bypasses React's synthetic event system).
-    const slider = screen.getByRole('slider');
-    fireEvent.change(slider, { target: { value: '20' } });
-
-    const codeAfter = screen.getByText(codeMatching('s = s + i;'));
-    const itemAfter = codeAfter.closest('li')!;
-    // Formula stays as `n`, evaluated jumps to 20.
-    expect(itemAfter).toHaveTextContent(/n\s*=\s*20/);
+    // The for row shows the aggregate total instead.
+    // For n=10: init(1×1) + cond(1×11) + inc(1×10) = 22 OE.
+    const forItem = screen.getByText(codeMatching('for (int i = 1; i <= n; i++)')).closest('li')!;
+    expect(forItem).toHaveTextContent(/22/);
+    expect(forItem).toHaveTextContent(/control/i);
   });
 
-  it('prints the closed-form T(n) and its numeric evaluation at the current slider value', () => {
-    render(<ComplexityCounter data={SUMA_CICLO} slider={{ default: 10 }} />);
-
-    // The Panel's label (h4) and its <pre> content both mention T(n). The
-    // heading is the label of the panel — scope the check to it.
-    const heading = screen.getByRole('heading', { level: 4, name: /T\(n\)/i });
-    const panel = heading.closest('section')!;
-    // T(n) = 4n + 4 shown as-is; evaluated at n = 10 → 44.
-    expect(panel).toHaveTextContent(/4n \+ 4/);
-    expect(panel).toHaveTextContent(/T = 44/);
-  });
-
-  it('expands a for-header when its chevron is clicked, showing init/cond/inc as sub-rows', async () => {
-    render(<ComplexityCounter data={SUMA_CICLO} slider={{ default: 10 }} />);
-
-    // Collapsed by default.
-    expect(screen.queryByText(codeMatching('int i = 1'))).not.toBeInTheDocument();
+  it('expands a for-header when the chevron is clicked, revealing sub-ops', async () => {
+    render(
+      <ComplexityCounter code={SUMA_CICLO_CODE} data={SUMA_CICLO_DATA} slider={{ default: 10 }} />,
+    );
 
     const toggle = screen.getByRole('button', { name: /expandir sub-conteos/i });
     await userEvent.click(toggle);
 
-    // Now the three sub-parts are visible.
-    expect(screen.getByText(codeMatching('int i = 1'))).toBeInTheDocument();
-    expect(screen.getByText(codeMatching('i <= n'))).toBeInTheDocument();
-    expect(screen.getByText(codeMatching('i++'))).toBeInTheDocument();
+    // Now the three sub-ops are visible with their labels.
+    expect(screen.getByText(/^init$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^cond$/i)).toBeInTheDocument();
+    expect(screen.getByText(/^inc$/i)).toBeInTheDocument();
   });
 
-  it('renders three tabs in cases mode and switches the breakdown on click', async () => {
+  it('shows each plain row with OE, formula, evaluated value, and total contribution', () => {
+    render(
+      <ComplexityCounter code={SUMA_CICLO_CODE} data={SUMA_CICLO_DATA} slider={{ default: 10 }} />,
+    );
+
+    // Line 4: `s = s + i;` → 2 OE · n (=10) → aporta 20 OE.
+    const row = screen.getByText(codeMatching('s = s + i;')).closest('li')!;
+    expect(row).toHaveTextContent(/2\s*OE/);
+    expect(row).toHaveTextContent(/n\s*=\s*10/);
+    expect(row).toHaveTextContent(/aporta\s*20/i);
+  });
+
+  it('updates the executions and contributions when the slider moves', () => {
     render(
       <ComplexityCounter
+        code={SUMA_CICLO_CODE}
+        data={SUMA_CICLO_DATA}
+        slider={{ min: 1, max: 100, default: 10 }}
+      />,
+    );
+
+    const row10 = screen.getByText(codeMatching('s = s + i;')).closest('li')!;
+    expect(row10).toHaveTextContent(/aporta\s*20/i);
+
+    const slider = screen.getByRole('slider');
+    fireEvent.change(slider, { target: { value: '20' } });
+
+    const row20 = screen.getByText(codeMatching('s = s + i;')).closest('li')!;
+    expect(row20).toHaveTextContent(/aporta\s*40/i);
+  });
+
+  it('prints the closed-form T(n) and its evaluation at the current slider', () => {
+    render(<ComplexityCounter code={SUMA_CICLO_CODE} data={SUMA_CICLO_DATA} slider={{ default: 10 }} />);
+
+    const heading = screen.getByRole('heading', { level: 4, name: /T\(n\)/i });
+    const panel = heading.closest('section')!;
+    expect(panel).toHaveTextContent(/4n \+ 4/);
+    expect(panel).toHaveTextContent(/T = 44/);
+  });
+
+  it('renders three tabs in cases mode and switches the rail on click', async () => {
+    render(
+      <ComplexityCounter
+        code={SUMA_CICLO_CODE}
         mode="cases"
         cases={{
           best: {
-            breakdown: [{ line: 'return arr[0] == x ? true : false;', oe: 3, times: '1' }],
+            annotations: { 2: { oe: 3, times: '1' } },
             formula: '3',
             evaluate: () => 3,
           },
-          worst: SUMA_CICLO,
+          worst: SUMA_CICLO_DATA,
         }}
         slider={{ default: 10 }}
       />,
     );
 
-    // Default tab is "peor" (worst). Its breakdown carries "s = s + i;".
+    // Default is 'peor'. Its rail carries `s = s + i;`.
     expect(screen.getByText(codeMatching('s = s + i;'))).toBeInTheDocument();
-    // The best-case snippet is not rendered yet.
-    expect(
-      screen.queryByText(codeMatching('return arr[0] == x ? true : false;')),
-    ).not.toBeInTheDocument();
 
-    // Switch to mejor (best) — the best-case snippet appears and the worst one goes.
     await userEvent.click(screen.getByRole('button', { name: /^mejor$/i }));
+    // 'mejor' has only line 2 annotated, so the for-row is absent from the rail.
     expect(
-      screen.getByText(codeMatching('return arr[0] == x ? true : false;')),
-    ).toBeInTheDocument();
-    expect(screen.queryByText(codeMatching('s = s + i;'))).not.toBeInTheDocument();
+      screen.queryByText(codeMatching('for (int i = 1; i <= n; i++)')),
+    ).not.toBeInTheDocument();
   });
 
   it('labels the unit column "celdas" and the total M in space mode', () => {
     render(
       <ComplexityCounter
+        code={'int[] arr = new int[n];'}
         mode="space"
         data={{
-          breakdown: [{ line: 'int[] arr = new int[n];', oe: 1, times: 'n' }],
+          annotations: { 1: { oe: 1, times: 'n' } },
           formula: 'n',
           evaluate: (n) => n,
         }}
@@ -156,11 +188,7 @@ describe('ComplexityCounter', () => {
       />,
     );
 
-    // "celdas" appears twice: once as the unit label in the header, once in
-    // the totals panel — `getAllByText` is honest about that.
     expect(screen.getAllByText(/celdas/i).length).toBeGreaterThan(0);
-    // And the total heading is labelled M, not T. Both the h4 label and the
-    // <pre> content mention M(n); scope to the heading role.
     expect(screen.getByRole('heading', { level: 4, name: /M\(n\)/i })).toBeInTheDocument();
   });
 });

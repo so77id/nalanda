@@ -21,6 +21,13 @@ export interface CodeStepperProps {
    * override.
    */
   language?: string;
+  /**
+   * Called whenever the pointer enters or leaves a code line. Delivers the
+   * 1-based line number under the cursor, or `null` when the pointer leaves
+   * the editor. Used by <ComplexityCounter> to sync a side-rail with the
+   * editor without turning this component into a stateful widget itself.
+   */
+  onLineHover?: (line: number | null) => void;
 }
 
 /**
@@ -41,7 +48,7 @@ export interface CodeStepperProps {
  * `data-highlight-lines` for the suite (jsdom mocks CodeMirror, so the paint
  * itself is the browser check — same shape `<RecursionTree>` earned in #78).
  */
-export function CodeStepper({ code, highlightLines, language }: CodeStepperProps) {
+export function CodeStepper({ code, highlightLines, language, onLineHover }: CodeStepperProps) {
   const theme = useResolvedTheme();
   const grammarLang: RuntimeId = isRuntimeId(language ?? '') ? (language as RuntimeId) : 'java';
   const grammar = useGrammar(grammarLang);
@@ -57,6 +64,29 @@ export function CodeStepper({ code, highlightLines, language }: CodeStepperProps
       }),
     [],
   );
+  // Hover-line tracker. `mousemove` fires per pointer move; we translate
+  // clientX/Y to a document position via `posAtCoords`, then to a 1-based
+  // line number. Latest-wins; a mouseleave clears the state. Kept as a
+  // ref-plus-dispatch pattern so we don't tear down and rebuild the
+  // extension on every re-render.
+  const hoverExtension = useMemo(() => {
+    if (onLineHover === undefined) return [];
+    return [
+      EditorView.domEventHandlers({
+        mousemove(event, view) {
+          const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+          if (pos === null) return false;
+          const lineNum = view.state.doc.lineAt(pos).number;
+          onLineHover(lineNum);
+          return false;
+        },
+        mouseleave() {
+          onLineHover(null);
+          return false;
+        },
+      }),
+    ];
+  }, [onLineHover]);
 
   // Push the current highlight into the editor whenever the step changes. The
   // extension itself is stable; the effect below dispatches a `setActiveLines`
@@ -76,7 +106,12 @@ export function CodeStepper({ code, highlightLines, language }: CodeStepperProps
         editable={false}
         readOnly
         theme={theme}
-        extensions={[...(grammar ? [grammar] : []), themeExtension, decorationExtension]}
+        extensions={[
+          ...(grammar ? [grammar] : []),
+          themeExtension,
+          decorationExtension,
+          ...hoverExtension,
+        ]}
         basicSetup={{
           lineNumbers: true,
           foldGutter: false,

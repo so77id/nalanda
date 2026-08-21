@@ -6,55 +6,55 @@ import { CodeStepper } from './CodeStepper';
 import { OUTPUT, Panel } from './Panel';
 
 /**
- * One row in the breakdown: either a single code line with its OE cost and how
- * many times it runs, or a "for" header whose sub-parts (init, cond, inc) live
- * in `subLines` and get collapsed under a chevron.
+ * A sub-operation of a for-header: init / cond / inc, each with its own OE
+ * cost and execution count. Shown when the reader expands the for row.
  */
-export interface BreakdownRow {
-  /**
-   * Verbatim code as it appears on this line. Used as the label of the
-   * breakdown row AND, when `code` is provided, to auto-locate the row's
-   * line inside the source so hovering / clicking a row highlights that
-   * line in the real CodeEditor.
-   */
-  line: string;
-  /** OE count of this line (per execution). Ignored on rows that only hold subLines. */
-  oe?: number;
-  /**
-   * Times this line executes, as a formula in the variable `variable`.
-   * Use `n` (or the widget's `variable` prop) freely — the formula is both
-   * evaluated numerically and shown symbolically. Ignored on rows that only
-   * hold subLines.
-   */
-  times?: string;
-  /**
-   * Sub-parts of a `for` (typically init / cond / inc), collapsed by default,
-   * expanded on click. Each carries its own `oe` and `times`.
-   */
-  subLines?: BreakdownRow[];
-  /**
-   * 1-based line number in `code` this row corresponds to. Optional: if
-   * omitted, the widget tries to locate `line` inside `code` (exact-trim
-   * match first, then substring). Provide it explicitly when the auto-match
-   * would be ambiguous.
-   */
-  codeLine?: number;
+export interface SubOperation {
+  /** Short label shown next to the sub-op ("init", "cond", "inc"). */
+  label: string;
+  /** OE cost of this sub-op per execution. */
+  oe: number;
+  /** Times this sub-op executes, as a symbolic formula in `variable`. */
+  times: string;
 }
 
 /**
- * A single case's breakdown: the rows, the final formula in the variable, and
- * a callable evaluator so the widget can print `T(n) = ... = 4n + 4` and then
- * `Para N = 100 → T = 404`.
+ * One row's worth of annotations, anchored by the code line number.
+ *
+ * Two shapes:
+ *   - a plain line: `{ oe, times }` — the row shows OE × times.
+ *   - a for-header: `{ sub: [init, cond, inc] }` — the row collapses under
+ *     a chevron; the aggregated total is displayed on the header row and
+ *     the individual sub-ops are revealed when the reader expands it.
+ *
+ * The line number is the key in the parent `annotations` object; lines the
+ * author does not annotate simply do not appear in the rail.
+ */
+export interface LineAnnotation {
+  /** OE cost of the line per execution. Ignored on rows that carry `sub`. */
+  oe?: number;
+  /** Times the line executes, as a symbolic formula. Ignored on rows that carry `sub`. */
+  times?: string;
+  /**
+   * For-header sub-ops. When present, the row is rendered as a collapsible
+   * header; `oe` and `times` on the row itself are ignored (the widget
+   * computes the aggregated total from the sub-ops).
+   */
+  sub?: SubOperation[];
+}
+
+/**
+ * A single case's annotations plus the closed-form T(n).
  */
 export interface ComplexityCase {
-  /** Rows in reading order. */
-  breakdown: BreakdownRow[];
-  /** Final closed form as LaTeX-compatible source, e.g. `4n + 4`. */
+  /** Line-number → annotation. The key is the 1-based line in `code`. */
+  annotations: Record<number, LineAnnotation>;
+  /** Final closed form as human-readable string (e.g. "4n + 4"). */
   formula: string;
   /**
-   * Numeric evaluator for `formula`, so the widget shows T evaluated at the
-   * slider's current value. `(n) => 4*n + 4` for the example. Required and
-   * declarative: parsing `formula` symbolically is out of scope.
+   * Numeric evaluator for `formula`, so the widget prints T evaluated at the
+   * slider's current value. Declared alongside `formula` — the widget never
+   * derives one from the other.
    */
   evaluate: (n: number) => number;
 }
@@ -63,12 +63,8 @@ export interface ComplexityCounterProps {
   /** Human-readable identifier of the algorithm — shown in the widget header. */
   algorithm?: string;
   /**
-   * The full source code shown on the left of the widget, verbatim. When
-   * provided, it is rendered through the real `<CodeStepper>` (same syntax
-   * highlighting as any other Java snippet on the site) with per-line
-   * highlighting driven by hovering the annotations on the right.
-   * When omitted, the widget falls back to a one-column layout with just
-   * the annotations table.
+   * The full source code shown on the left of the widget, verbatim. Required:
+   * annotations are anchored by line number in this code.
    */
   code?: string;
   /** Mode: 'base' one case, 'cases' three tabs (best/worst/average), 'space' same layout but in memory cells. */
@@ -85,10 +81,7 @@ export interface ComplexityCounterProps {
   slider?: { min?: number; max?: number; default?: number; step?: number };
   /** The variable name shown in formulas. Defaults to 'n'. */
   variable?: string;
-  /**
-   * Language for CodeStepper's grammar. Defaults to 'java' (matches the
-   * default of CodeStepper itself; keep in sync with the class's runtime).
-   */
+  /** Language for CodeStepper's grammar. Defaults to 'java'. */
   language?: string;
 }
 
@@ -97,16 +90,18 @@ const DEFAULT_SLIDER = { min: 1, max: 100, default: 10, step: 1 };
 /**
  * A widget that makes the process of counting operations visible (ADR-0045).
  *
- * The layout is code-on-the-left, annotations-on-the-right (falls back to a
- * single annotations column when no `code` is provided). The code is rendered
- * through `<CodeStepper>` — the same read-only CodeMirror path every other
- * Java snippet on the site uses, so the listing here reads exactly as any
- * fence or editor elsewhere in the course. Annotations sit in a right rail
- * that carries OE per execution and how many times each line runs; hovering
- * or clicking an annotation highlights the corresponding line in the editor.
+ * Layout: real `<CodeStepper>` on the left, side rail on the right. Rail rows
+ * are anchored to code lines by line number: hovering a line in the editor
+ * highlights its annotation, hovering an annotation highlights its line —
+ * bidirectional sync driven by `CodeStepper`'s `onLineHover` callback.
  *
- * Mode `cases` renders three tabs (mejor / peor / promedio); mode `space`
- * swaps the OE column for memory cells and prints M(n) instead of T(n).
+ * For-headers collapse by default. The header row shows the aggregated OE
+ * total across its sub-ops evaluated at the current slider (`control · 22 OE
+ * total`, not the raw `n+1 + n + 1` of the sub-parts). Expanding reveals
+ * init / cond / inc as sub-rows for the reader who wants the derivation.
+ *
+ * Each plain row shows both the symbolic formula and the total OE that line
+ * contributes at the current slider value (`2 OE · n = 10 → aporta 20`).
  */
 export function ComplexityCounter({
   algorithm,
@@ -147,8 +142,8 @@ export function ComplexityCounter({
     return (
       <AuthoringError component="ComplexityCounter">
         falta la prop <code>data</code>: un objeto{' '}
-        <code>{'{ breakdown, formula, evaluate }'}</code> con el desglose por línea, la fórmula
-        final y su evaluador numérico.
+        <code>{'{ annotations, formula, evaluate }'}</code> con las anotaciones por línea, la
+        fórmula final y su evaluador numérico.
       </AuthoringError>
     );
   }
@@ -160,10 +155,23 @@ export function ComplexityCounter({
       </AuthoringError>
     );
   }
+  if (code === undefined || code.trim() === '') {
+    return (
+      <AuthoringError component="ComplexityCounter">
+        falta la prop <code>code</code>: las anotaciones se anclan por número de línea al
+        código fuente.
+      </AuthoringError>
+    );
+  }
 
   const unitLabel = mode === 'space' ? 'celdas' : 'OE';
   const totalLabel = mode === 'space' ? 'M' : 'T';
   const evaluated = active.evaluate(n);
+  const codeLines = code.split('\n');
+  // Rail rows ordered by line number, only lines the author annotated.
+  const annotationEntries = Object.entries(active.annotations)
+    .map(([k, v]) => [Number(k), v] as const)
+    .sort((a, b) => a[0] - b[0]);
 
   return (
     <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
@@ -221,40 +229,39 @@ export function ComplexityCounter({
         </label>
       </div>
 
-      <div
-        className={
-          code === undefined || code.trim() === ''
-            ? 'border-t border-rule'
-            : 'grid grid-cols-1 border-t border-rule md:grid-cols-[1fr_16rem]'
-        }
-      >
-        {code !== undefined && code.trim() !== '' && (
-          <div className="min-w-0 overflow-hidden border-b border-rule md:border-b-0 md:border-r">
-            <CodeStepper
-              code={code}
-              language={language}
-              highlightLines={activeLine === null ? [] : [activeLine]}
-            />
-          </div>
-        )}
-        <ul className="flex flex-col divide-y divide-rule/50 bg-sunk/30 font-mono text-xs text-ink-soft">
-          {active.breakdown.map((row, index) => (
-            <BreakdownRowView
-              key={index}
-              row={row}
+      <div className="grid grid-cols-1 border-t border-rule md:grid-cols-[1fr_18rem]">
+        <div className="min-w-0 overflow-hidden border-b border-rule md:border-b-0 md:border-r">
+          <CodeStepper
+            code={code}
+            language={language}
+            highlightLines={activeLine === null ? [] : [activeLine]}
+            onLineHover={setActiveLine}
+          />
+        </div>
+        <ul
+          role="list"
+          aria-label="Desglose de operaciones por línea"
+          className="flex flex-col divide-y divide-rule/50 bg-sunk/30 font-mono text-xs text-ink-soft"
+        >
+          {annotationEntries.map(([lineNum, ann]) => (
+            <RailRow
+              key={lineNum}
+              lineNum={lineNum}
+              lineText={codeLines[lineNum - 1] ?? ''}
+              ann={ann}
               variable={variable}
               n={n}
-              code={code}
-              isExpanded={expanded.has(index)}
+              isActive={activeLine === lineNum}
+              isExpanded={expanded.has(lineNum)}
               onToggle={() => {
                 setExpanded((prev) => {
                   const next = new Set(prev);
-                  if (next.has(index)) next.delete(index);
-                  else next.add(index);
+                  if (next.has(lineNum)) next.delete(lineNum);
+                  else next.add(lineNum);
                   return next;
                 });
               }}
-              onHover={(line) => setActiveLine(line)}
+              onHover={setActiveLine}
               unitLabel={unitLabel}
             />
           ))}
@@ -273,46 +280,50 @@ export function ComplexityCounter({
   );
 }
 
-interface BreakdownRowViewProps {
-  row: BreakdownRow;
+interface RailRowProps {
+  lineNum: number;
+  lineText: string;
+  ann: LineAnnotation;
   variable: string;
   n: number;
-  code: string | undefined;
+  isActive: boolean;
   isExpanded: boolean;
   onToggle: () => void;
   onHover: (line: number | null) => void;
   unitLabel: string;
 }
 
-function BreakdownRowView({
-  row,
+function RailRow({
+  lineNum,
+  lineText,
+  ann,
   variable,
   n,
-  code,
+  isActive,
   isExpanded,
   onToggle,
   onHover,
   unitLabel,
-}: BreakdownRowViewProps) {
-  const hasSubLines = row.subLines !== undefined && row.subLines.length > 0;
-  const codeLine = useMemo(() => resolveLine(row, code), [row, code]);
-  const hoverProps = codeLine
-    ? {
-        onMouseEnter: () => onHover(codeLine),
-        onMouseLeave: () => onHover(null),
-        onFocus: () => onHover(codeLine),
-        onBlur: () => onHover(null),
-      }
-    : {};
+}: RailRowProps) {
+  const hoverProps = {
+    onMouseEnter: () => onHover(lineNum),
+    onMouseLeave: () => onHover(null),
+    onFocus: () => onHover(lineNum),
+    onBlur: () => onHover(null),
+  };
+  const activeClass = isActive ? 'bg-accent-soft/40' : 'hover:bg-accent-soft/20';
+  const hasSub = ann.sub !== undefined && ann.sub.length > 0;
 
-  if (hasSubLines) {
-    const totalOe = row.subLines!.reduce((sum, sub) => {
-      const times = sub.times ? evaluateFormula(sub.times, variable, n) : 0;
-      return sum + (sub.oe ?? 0) * times;
-    }, 0);
+  if (hasSub) {
+    // For-header: aggregate the sub-ops' contribution and display it as the
+    // headline. The sub-ops appear only when expanded.
+    const totalOe = ann.sub!.reduce(
+      (sum, s) => sum + s.oe * evaluateFormula(s.times, variable, n),
+      0,
+    );
     return (
       <>
-        <li className="flex items-start gap-2 px-3 py-1.5 hover:bg-accent-soft/20" {...hoverProps}>
+        <li className={`flex items-start gap-2 px-3 py-1.5 ${activeClass}`} {...hoverProps}>
           <button
             type="button"
             onClick={onToggle}
@@ -323,39 +334,40 @@ function BreakdownRowView({
             {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
           </button>
           <div className="min-w-0 flex-1">
-            <div className="truncate text-ink">
-              <code>{row.line}</code>
+            <div className="flex items-baseline gap-2 text-ink">
+              <span className="w-6 shrink-0 text-right text-3xs text-ink-faint">
+                {lineNum}
+              </span>
+              <code className="truncate">{lineText.trim()}</code>
             </div>
-            <div className="text-3xs text-ink-faint">
-              control ({row.subLines!.length} partes) · {totalOe.toLocaleString('es')} {unitLabel} total
+            <div className="pl-8 text-3xs text-ink-faint">
+              control · aporta <span className="text-ink">{totalOe.toLocaleString('es')}</span>{' '}
+              {unitLabel} total
             </div>
           </div>
         </li>
         {isExpanded &&
-          row.subLines!.map((sub, i) => {
-            const subLine = resolveLine(sub, code);
-            const subHover = subLine
-              ? {
-                  onMouseEnter: () => onHover(subLine),
-                  onMouseLeave: () => onHover(null),
-                }
-              : {};
-            const times = sub.times ? evaluateFormula(sub.times, variable, n) : 0;
+          ann.sub!.map((sub, i) => {
+            const times = evaluateFormula(sub.times, variable, n);
+            const contrib = sub.oe * times;
             return (
               <li
                 key={`sub-${i}`}
-                className="flex items-start gap-2 bg-sunk/40 px-3 py-1 pl-8 hover:bg-accent-soft/20"
-                {...subHover}
+                className="flex items-start gap-2 bg-sunk/50 px-3 py-1 pl-11"
               >
                 <div className="min-w-0 flex-1">
-                  <div className="truncate">
-                    <code>{sub.line}</code>
+                  <div className="flex items-baseline gap-2 text-ink-soft">
+                    <span className="rounded bg-accent-soft/50 px-1 text-3xs uppercase tracking-wide text-accent">
+                      {sub.label}
+                    </span>
+                    <span className="text-3xs">
+                      {sub.oe} {unitLabel} · {sub.times} ={' '}
+                      {times.toLocaleString('es')}
+                    </span>
                   </div>
                   <div className="text-3xs text-ink-faint">
-                    {sub.oe ?? 0} {unitLabel} · {sub.times ?? ''}
-                    {sub.times !== undefined && (
-                      <span> = {times.toLocaleString('es')}</span>
-                    )}
+                    aporta <span className="text-ink">{contrib.toLocaleString('es')}</span>{' '}
+                    {unitLabel}
                   </div>
                 </div>
               </li>
@@ -365,47 +377,31 @@ function BreakdownRowView({
     );
   }
 
-  const times = row.times ? evaluateFormula(row.times, variable, n) : 0;
+  // Plain row: OE × times → aporte total.
+  const oe = ann.oe ?? 0;
+  const times = ann.times !== undefined ? evaluateFormula(ann.times, variable, n) : 0;
+  const contrib = oe * times;
   return (
-    <li className="flex items-start gap-2 px-3 py-1.5 hover:bg-accent-soft/20" {...hoverProps}>
+    <li className={`flex items-start gap-2 px-3 py-1.5 ${activeClass}`} {...hoverProps}>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-ink">
-          <code>{row.line}</code>
+        <div className="flex items-baseline gap-2 text-ink">
+          <span className="w-6 shrink-0 text-right text-3xs text-ink-faint">{lineNum}</span>
+          <code className="truncate">{lineText.trim()}</code>
         </div>
-        <div className="text-3xs text-ink-faint">
-          {row.oe ?? 0} {unitLabel}
-          {row.times !== undefined && (
+        <div className="pl-8 text-3xs text-ink-faint">
+          {oe} {unitLabel}
+          {ann.times !== undefined && (
             <>
               {' · '}
-              {row.times}
-              {' = '}
-              {times.toLocaleString('es')}
+              {ann.times} = {times.toLocaleString('es')}
+              {' → aporta '}
+              <span className="text-ink">{contrib.toLocaleString('es')}</span> {unitLabel}
             </>
           )}
         </div>
       </div>
     </li>
   );
-}
-
-/**
- * Maps a breakdown row to a 1-based line number in `code`. Prefers an
- * explicit `codeLine`; else searches for the row's `line` text inside `code`
- * (exact trimmed match first, then substring). Returns null when nothing
- * matches — the row just gets no hover-highlight.
- */
-function resolveLine(row: BreakdownRow, code: string | undefined): number | null {
-  if (row.codeLine !== undefined) return row.codeLine;
-  if (code === undefined || code.trim() === '') return null;
-  const lines = code.split('\n');
-  const needle = row.line.trim();
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i]!.trim() === needle) return i + 1;
-  }
-  for (let i = 0; i < lines.length; i++) {
-    if (lines[i]!.includes(needle)) return i + 1;
-  }
-  return null;
 }
 
 /**
@@ -417,13 +413,8 @@ function resolveLine(row: BreakdownRow, code: string | undefined): number | null
  */
 function evaluateFormula(formula: string, variable: string, n: number): number {
   try {
-    // Restrict to arithmetic + the variable, so a stray identifier does not
-    // accidentally reach a real name — an author typo that introduced `nn`
-    // would throw here instead of resolving to `undefined` in strict mode.
     const trimmed = formula.trim();
     if (trimmed === '') return 0;
-    // Substitution respects word boundaries so `variable = 'n'` does not
-    // rewrite `nueva` or `logn`.
     const substituted = trimmed.replace(new RegExp(`\\b${variable}\\b`, 'g'), `(${n})`);
     // eslint-disable-next-line @typescript-eslint/no-implied-eval
     const fn = new Function(`return (${substituted});`);
