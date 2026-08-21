@@ -2,6 +2,7 @@ import {
   Figure,
   LazyBenchmark,
   LazyCodeEditor,
+  LazyComplexityCounter,
   LazyExercise,
   LazyMermaid,
   LazyPredictOutput,
@@ -65,6 +66,9 @@ export const mdxComponents = {
   // reader of every page. ADR-0044 documents the widget; the guard is
   // `apps/web/src/architecture.test.ts` per-name case for `benchmark`.
   Benchmark: LazyBenchmark,
+  // Lazy for pattern consistency and the CodeMirror-gutter future extension
+  // the ADR anticipates (ADR-0045).
+  ComplexityCounter: LazyComplexityCounter,
   // Same lazy rule, for the same entry-chunk reason (ADR-0040): the mermaid
   // library adds ~200kB gzipped of mermaid-only chunks (measured, ADR-0040
   // §Consequences) and must only load on pages that mount a

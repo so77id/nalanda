@@ -13,6 +13,9 @@ export { LazyPredictOutput } from './interactive/lazyPredictOutput';
 // Same rule, same two routes as PredictOutput: <Benchmark> wraps
 // LazyCodeEditor and drives the runtime through `useLoadedRuntime` (ADR-0044).
 export { LazyBenchmark } from './interactive/lazyBenchmark';
+// Lazy for pattern consistency and for the CodeMirror-gutter future
+// extension the ADR anticipates (ADR-0045).
+export { LazyComplexityCounter } from './interactive/lazyComplexityCounter';
 // Same rule, heaviest instance: mermaid reaches dagre/d3/parsers (~200kB
 // gzipped of mermaid-only chunks, measured — ADR-0040 §Consequences).
 export { LazyMermaid } from './interactive/lazyMermaid';
