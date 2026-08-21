@@ -185,6 +185,26 @@ describe('architecture: the benchmark widget stays out of the entry chunk', () =
   });
 });
 
+describe('architecture: the mathplot widget stays out of the entry chunk', () => {
+  // MathPlot pulls Mafs, a math-visualization library that reaches its own
+  // React tree + KaTeX for labels. Same rationale as the other heavy
+  // components' guards (ADR-0046): a single ALLOWED entry, no per-file
+  // exemptions.
+  const ALLOWED = ['components/interactive/lazyMathPlot.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/mathplot' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: the mermaid diagram stays out of the entry chunk', () => {
   // Mermaid drags dagre, d3 and a set of parsers into any chunk that imports
   // it (~200kB gzipped of mermaid-only chunks on the page, measured — ADR-0040

@@ -16,6 +16,10 @@ export { LazyBenchmark } from './interactive/lazyBenchmark';
 // Lazy for pattern consistency and for the CodeMirror-gutter future
 // extension the ADR anticipates (ADR-0045).
 export { LazyComplexityCounter } from './interactive/lazyComplexityCounter';
+// Mafs is a math-visualization library that pulls its own React tree, SVG
+// helpers, and KaTeX for labels — the lazy wrapper is what keeps Mafs out
+// of the entry chunk of every reader of every page (ADR-0046).
+export { LazyMathPlot } from './interactive/lazyMathPlot';
 // Same rule, heaviest instance: mermaid reaches dagre/d3/parsers (~200kB
 // gzipped of mermaid-only chunks, measured — ADR-0040 §Consequences).
 export { LazyMermaid } from './interactive/lazyMermaid';

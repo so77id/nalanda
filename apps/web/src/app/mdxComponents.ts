@@ -3,6 +3,7 @@ import {
   LazyBenchmark,
   LazyCodeEditor,
   LazyComplexityCounter,
+  LazyMathPlot,
   LazyExercise,
   LazyMermaid,
   LazyPredictOutput,
@@ -69,6 +70,9 @@ export const mdxComponents = {
   // Lazy for pattern consistency and the CodeMirror-gutter future extension
   // the ADR anticipates (ADR-0045).
   ComplexityCounter: LazyComplexityCounter,
+  // Mafs is heavy (~30 KB + KaTeX) and pulls its own tree; lazy keeps it
+  // out of the entry chunk (ADR-0046). Guarded by architecture.test.ts.
+  MathPlot: LazyMathPlot,
   // Same lazy rule, for the same entry-chunk reason (ADR-0040): the mermaid
   // library adds ~200kB gzipped of mermaid-only chunks (measured, ADR-0040
   // §Consequences) and must only load on pages that mount a
