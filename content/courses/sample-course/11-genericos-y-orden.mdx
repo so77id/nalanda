@@ -232,3 +232,149 @@ lector entender qué está guardando. En el JDK cada letra tiene su convención,
 y tenerla en la cabeza abarata leer `HashMap<K, V>` sin ir a la
 documentación.
 </Slide>
+
+## Pair · A, B
+
+<Slide title="Dos parámetros de tipo">
+La `Pair<T>` de §2 guarda dos cosas del **mismo** tipo. Basta con abrir el
+paréntesis angular a dos letras para que guarde dos tipos **distintos**:
+
+```java
+public class Pair<A, B> {
+    private A first;
+    private B second;
+
+    public Pair(A first, B second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    public A first()  { return first; }
+    public B second() { return second; }
+}
+```
+
+`A` y `B` son dos parámetros **independientes**: cada uno se ata a su tipo al
+instanciar, y no tienen por qué coincidir. El resto del cuerpo lee igual —
+`first` es de tipo `A`, `second` es de tipo `B` — solo que ahora los dos
+huecos son visibles.
+
+El **orden** en el que declarás los parámetros importa: el primero es `A`, y
+`first()` devuelve `A`. Reordenarlos a `<B, A>` no rompe la clase, pero cambia
+lo que significa para el que la instancia. Ese es el trabajo del ejercicio de
+esta sección.
+</Slide>
+
+<Slide title="Un par de entero y texto">
+`Pair<Integer, String>` ata `A` a `Integer` y `B` a `String` para esa
+instancia. Los métodos se leen sin cast — `first()` devuelve `Integer`,
+`second()` devuelve `String` — y el compilador te frena antes de correr si te
+equivocás de tipo al construir:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Pair<A, B> {
+    private A first;
+    private B second;
+    public Pair(A first, B second) {
+        this.first = first;
+        this.second = second;
+    }
+    public A first()  { return first; }
+    public B second() { return second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair<Integer, String> etiqueta = new Pair<Integer, String>(12345, "Ana");
+        Pair<String, Integer> otra     = new Pair<String, Integer>("Luis", 67890);
+
+        // El compilador sabe qué tipo devuelve cada método.
+        int rutEtiqueta    = etiqueta.first();
+        String nombreOtra  = otra.first();
+
+        System.out.println(nombreOtra + " tiene rut " + otra.second());
+        System.out.println(etiqueta.second() + " tiene rut " + rutEtiqueta);
+    }
+}
+`}
+/>
+
+Fijate en las dos instancias: son la **misma** clase (`Pair`), pero para el
+compilador cada una es un tipo diferente. `Pair<Integer, String>` no es
+`Pair<String, Integer>` — pasar una donde se espera la otra no compila. La
+verificación que perdías con `Object` vuelve, sin costo de sintaxis.
+</Slide>
+
+<Slide title="Cuándo aparecen A y B, cuándo K y V">
+Dos parámetros piden dos letras. La convención más neutra es `<A, B>`
+—«primer parámetro», «segundo parámetro»—, y es la que este documento va a
+usar cuando no haya nada más que decir. Cuando **sí** lo hay, dos letras
+específicas dicen para qué sirve la clase:
+
+- **`<K, V>`** — mapa (`HashMap<K, V>`, `Map.Entry<K, V>`): «Key, Value».
+- **`<T, R>`** — función que transforma (`Function<T, R>`): «Type in, Result
+  out».
+- **`<T, U>`** — combinaciones que no son ni clave-valor ni entrada-salida
+  (`BiFunction<T, U, R>` acumula las dos convenciones anteriores).
+
+Elegir las letras es un gesto pequeño; el que lee la firma sabe en segundos
+si el segundo hueco es un valor asociado a una clave, el resultado de una
+operación, o simplemente otra cosa. Este documento se queda con `<A, B>`
+porque un `Pair` no es un mapa ni una función: son dos cosas al lado, sin
+significado especial.
+</Slide>
+
+## Ejercicios
+
+Los cuatro problemas de este documento viven acá, al final. Cada uno tiene el
+esqueleto que rellenás y una batería de casos que se corre al hacer clic en
+**Comprobar** y te dice cuáles pasaron. Ninguno pide ciclos, ninguno pide
+recursión, y ningún caso mide con más de `n = 100`: lo que se evalúa es el
+contrato, no el rendimiento.
+
+<Exercise title="1. Intercambiar los dos parámetros">
+
+Escribí el método genérico `swap` que recibe un `Pair<A, B>` y devuelve un
+`Pair<B, A>` con los mismos valores en el orden opuesto — el `first` de la
+entrada se vuelve el `second` de la salida, y viceversa.
+
+Pista: la firma del método declara sus propios parámetros de tipo, entre la
+palabra `static` y el tipo de retorno: `static <A, B> Pair<B, A>
+swap(Pair<A, B> p)`.
+
+```java starter
+class Pair<A, B> {
+    private A first;
+    private B second;
+    public Pair(A first, B second) { this.first = first; this.second = second; }
+    public A first()  { return first; }
+    public B second() { return second; }
+}
+
+class Solution {
+    // Devolvé un Pair<B, A> con second y first invertidos.
+    static <A, B> Pair<B, A> swap(Pair<A, B> p) {
+        return null;
+    }
+}
+```
+
+```java test
+Pair<Integer, String> etiqueta = new Pair<Integer, String>(12345, "Ana");
+Pair<String, Integer> volteada = Solution.swap(etiqueta);
+check(volteada.first(), "Ana");
+check(volteada.second(), 12345);
+
+Pair<String, String> saludos = new Pair<String, String>("hola", "chao");
+Pair<String, String> vuelto  = Solution.swap(saludos);
+check(vuelto.first(), "chao");
+check(vuelto.second(), "hola");
+
+Pair<Integer, Integer> nums = new Pair<Integer, Integer>(1, 2);
+Pair<Integer, Integer> vueltaNums = Solution.swap(nums);
+check(vueltaNums.first(), 2);
+check(vueltaNums.second(), 1);
+```
+
+</Exercise>
