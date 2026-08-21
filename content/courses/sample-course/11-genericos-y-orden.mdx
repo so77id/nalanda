@@ -615,6 +615,132 @@ arreglos. El primer criterio es el `first`; cuando empatan, entra el
 `second` a desempatar. Todo la clase lo escribió una sola vez.
 </Slide>
 
+## Comparator lambda
+
+<Slide title="Ordenar sin tocar la clase">
+La `Pair<A, B>` de §5 sabe ordenarse **de una** manera: por `first`, con
+`second` como desempate. Eso vive en su `compareTo`, y `Arrays.sort` lo usa
+automáticamente. Pero un mismo arreglo de pares se ordena a veces por
+`first`, otras por `second`, otras por longitud del `first`, otras al revés
+— y no querés reescribir la clase cada vez.
+
+La segunda firma de `Arrays.sort` recibe un **`Comparator`** aparte: un
+segundo argumento que decide, para esa llamada, cómo se comparan los pares.
+La clase no se toca; el criterio va afuera y cambia cada vez.
+</Slide>
+
+<Slide title="Comparator como lambda">
+`Comparator<T>` tiene un solo método — `int compare(T a, T b)` — con el
+mismo contrato de tres regiones que `compareTo`. Al ser una interfaz de un
+método, cualquier lambda del tipo `(a, b) -> int` la implementa
+directamente. Escribir un criterio a mano es una línea:
+
+```java
+// Ordenar por el segundo campo, ascendente.
+Arrays.sort(pares, (a, b) -> Integer.compare(a.second(), b.second()));
+
+// Por longitud del nombre — que la clase no sabe hacer sola.
+Arrays.sort(pares, (a, b) -> Integer.compare(a.first().length(), b.first().length()));
+```
+
+Regla de la lambda: **la que devuelve un `int` con la convención de
+`compareTo`**. Negativo si `a` va antes que `b`, cero si empatan, positivo
+si `a` va después. Y las mismas trampas que en §4: `Integer.compare` en vez
+de resta.
+
+Podrías, si querés, guardar la lambda en una variable de tipo
+`Comparator<Pair<String, Integer>>` y reutilizarla — es útil cuando el
+criterio se usa dos veces o cuando la próxima slide lo modifica en el sitio.
+</Slide>
+
+<Slide title="reversed() y thenComparing() — los atajos">
+`Comparator` es una interfaz con **métodos default**: llamás `.reversed()` o
+`.thenComparing(...)` sobre una lambda ya escrita, y obtenés otro
+`Comparator`. Nada nuevo que memorizar, solo dos combinaciones que aparecen
+a diario.
+
+```java
+Comparator<Pair<String, Integer>> porSecond =
+    (a, b) -> Integer.compare(a.second(), b.second());
+
+Arrays.sort(pares, porSecond);              // ascendente
+Arrays.sort(pares, porSecond.reversed());   // descendente
+```
+
+`.thenComparing(otro)` encadena un segundo criterio como desempate — el
+primero decide, y cuando devuelve `0`, el segundo entra:
+
+```java
+Comparator<Pair<String, Integer>> porFirst =
+    (a, b) -> a.first().compareTo(b.first());
+
+Comparator<Pair<String, Integer>> porFirstLuegoSecond =
+    porFirst.thenComparing((a, b) -> Integer.compare(a.second(), b.second()));
+
+Arrays.sort(pares, porFirstLuegoSecond);
+```
+
+Lo mismo que el `if (porFirst != 0) return porFirst; return porSecond;` de
+§4 y §5, escrito como una composición en vez de a mano. La combinación con
+`.reversed()` también funciona: `porFirst.thenComparing(porSecond).reversed()`
+invierte el criterio compuesto.
+</Slide>
+
+<Slide title="Tres órdenes sobre el mismo arreglo">
+Cinco pares `(nombre, edad)`, tres órdenes distintos sin tocar la clase:
+
+<CodeEditor
+  language="java"
+  defaultValue={`import java.util.Arrays;
+import java.util.Comparator;
+
+class Pair<A, B> {
+    private A first;
+    private B second;
+    public Pair(A first, B second) { this.first = first; this.second = second; }
+    public A first()  { return first; }
+    public B second() { return second; }
+    public String toString() { return "(" + first + ", " + second + ")"; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair<String, Integer>[] pares = new Pair[]{
+            new Pair<String, Integer>("Ana",   30),
+            new Pair<String, Integer>("Luis",  25),
+            new Pair<String, Integer>("Bea",   30),
+            new Pair<String, Integer>("Diego", 22),
+            new Pair<String, Integer>("Cami",  25),
+        };
+
+        // 1) Por edad ascendente.
+        Comparator<Pair<String, Integer>> porEdad =
+            (a, b) -> Integer.compare(a.second(), b.second());
+        Arrays.sort(pares, porEdad);
+        System.out.println("Por edad ascendente:");
+        for (Pair<String, Integer> p : pares) System.out.println("  " + p);
+
+        // 2) Por edad descendente — la misma lambda invertida.
+        Arrays.sort(pares, porEdad.reversed());
+        System.out.println("Por edad descendente:");
+        for (Pair<String, Integer> p : pares) System.out.println("  " + p);
+
+        // 3) Por nombre; empate en nombre desempata por edad.
+        Comparator<Pair<String, Integer>> porNombre =
+            (a, b) -> a.first().compareTo(b.first());
+        Arrays.sort(pares, porNombre.thenComparing(porEdad));
+        System.out.println("Por nombre, desempate por edad:");
+        for (Pair<String, Integer> p : pares) System.out.println("  " + p);
+    }
+}
+`}
+/>
+
+Corré el programa: la misma clase `Pair`, el mismo arreglo, tres órdenes
+distintos. Ninguno tocó la clase — todo el criterio vive en el segundo
+argumento de `Arrays.sort`. Ese es el trato que `Comparator` te propone.
+</Slide>
+
 ## Ejercicios
 
 Los cuatro problemas de este documento viven acá, al final. Cada uno tiene el
@@ -804,6 +930,108 @@ check(uno[0].first, 5);
 
 Pair<Integer, Integer>[] vacio = new Pair[0];
 Solution.ordenar(vacio);
+check(vacio.length, 0);
+```
+
+</Exercise>
+
+<Exercise title="4. Un Comparator invertido">
+
+Devolvé un `Comparator<Pair<String, Integer>>` que ordene los pares **por
+`second` descendente** (el mayor `second` va primero). Escribí una lambda
+que compare, y aplicale `.reversed()`.
+
+Restricción: sin restar. Usá `Integer.compare`.
+
+```java starter
+import java.util.Comparator;
+
+class Pair<A, B> {
+    A first;
+    B second;
+    Pair(A first, B second) { this.first = first; this.second = second; }
+}
+
+class Solution {
+    // Devolver el comparator que ordena por second descendente.
+    static Comparator<Pair<String, Integer>> porSecondDescendente() {
+        return null;
+    }
+}
+```
+
+```java test
+Pair<String, Integer> a = new Pair<String, Integer>("Ana",   30);
+Pair<String, Integer> b = new Pair<String, Integer>("Luis",  25);
+Pair<String, Integer> c = new Pair<String, Integer>("Bea",   30);
+Pair<String, Integer> d = new Pair<String, Integer>("Diego", 22);
+
+Comparator<Pair<String, Integer>> cmp = Solution.porSecondDescendente();
+
+check(cmp.compare(a, b) < 0, true);       // 30 va antes que 25 (descendente)
+check(cmp.compare(b, a) > 0, true);
+check(cmp.compare(a, c) == 0, true);      // empate en 30
+check(cmp.compare(d, b) > 0, true);       // 22 va después que 25
+
+// Ordena un arreglo — n = 4, muy lejos del tope n ≤ 100.
+Pair<String, Integer>[] arr = new Pair[]{ d, a, b, c };
+java.util.Arrays.sort(arr, cmp);
+check(arr[0].second, 30);
+check(arr[1].second, 30);
+check(arr[2].second, 25);
+check(arr[3].second, 22);
+```
+
+</Exercise>
+
+<Exercise title="5. Ordenar por longitud del nombre">
+
+Ordená in-place el arreglo `Pair<String, Integer>[]` **por la longitud del
+`first`** (el nombre más corto va primero). Cuando dos pares tengan la misma
+longitud, el que va antes es el de menor `second`.
+
+Escribí una única llamada a `Arrays.sort(arr, ...)` con una lambda para el
+criterio principal y `.thenComparing(...)` con una segunda lambda para el
+desempate.
+
+Restricción: sin restar. Usá `Integer.compare` para las dos comparaciones.
+
+```java starter
+import java.util.Arrays;
+import java.util.Comparator;
+
+class Pair<A, B> {
+    A first;
+    B second;
+    Pair(A first, B second) { this.first = first; this.second = second; }
+}
+
+class Solution {
+    static void ordenarPorLongitudNombre(Pair<String, Integer>[] arr) {
+        // Arrays.sort(arr, ...);
+    }
+}
+```
+
+```java test
+Pair<String, Integer>[] arr = new Pair[]{
+    new Pair<String, Integer>("Diego", 22),
+    new Pair<String, Integer>("Ana",   30),
+    new Pair<String, Integer>("Bea",   30),
+    new Pair<String, Integer>("Luis",  25),
+    new Pair<String, Integer>("Ana",    5),
+};
+Solution.ordenarPorLongitudNombre(arr);
+// Longitudes: Ana(3), Bea(3), Luis(4), Diego(5). Empate 3 desempata por second: Ana(5) antes que Ana(30) y Bea(30).
+check(arr[0].first, "Ana");   check(arr[0].second, 5);
+check(arr[1].first, "Ana");   check(arr[1].second, 30);
+check(arr[2].first, "Bea");   check(arr[2].second, 30);
+check(arr[3].first, "Luis");  check(arr[3].second, 25);
+check(arr[4].first, "Diego"); check(arr[4].second, 22);
+
+// Un arreglo vacío no lanza nada.
+Pair<String, Integer>[] vacio = new Pair[0];
+Solution.ordenarPorLongitudNombre(vacio);
 check(vacio.length, 0);
 ```
 
