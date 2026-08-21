@@ -442,16 +442,16 @@ public class Main {
 ```
 
 </PredictOutput>
-
-Si el orden que imprime `Arrays.sort` no coincide con lo que anticipaste,
-lo que acabás de ver es un **overflow de `int`**: la resta `MAX_VALUE -
-(-MAX_VALUE + 100)` no cabe en 32 bits con signo, así que Java le da la
-vuelta en silencio y `compareTo` devuelve un valor con el signo **opuesto**
-al que su nombre promete. El compilador no dice nada, el JVM no dice nada —
-el ordenamiento sale al revés porque el `int` se plegó.
 </Slide>
 
 <Slide title="Fix: Integer.compare + tie-breaking">
+Si el orden que imprimió `Arrays.sort` en la slide anterior no coincidió con
+lo que anticipaste, lo que acabás de ver es un **overflow de `int`**: la
+resta `MAX_VALUE - (-MAX_VALUE + 100)` no cabe en 32 bits con signo, así que
+Java le da la vuelta en silencio y `compareTo` devuelve un valor con el
+signo **opuesto** al que su nombre promete. El compilador no dice nada, el
+JVM no dice nada — el ordenamiento sale al revés porque el `int` se plegó.
+
 La regla es fácil de escribir y difícil de olvidar: **nunca compares por
 resta**. `Integer.compare(a, b)` (y `Long.compare`, `Double.compare`,
 `Character.compare`) hace exactamente lo que la resta prometía —negativo si
