@@ -328,33 +328,31 @@ importa el contrato con el que la función se comunica con los tipos que
 ordena.
 </Slide>
 
-<Slide title="Arrays.sort · una función genérica">
-La biblioteca estándar ofrece `Arrays.sort`, una función que ordena un
-arreglo del tipo que se le pase. Un vistazo a su firma revela que se
-apoya en la misma construcción del lenguaje que las secciones anteriores:
+<Slide title="Arrays.sort · el contrato con el tipo">
+La biblioteca estándar ofrece `Arrays.sort` para ordenar un arreglo. La
+firma —simplificada— sobre arreglos de tipos por referencia es:
 
 ```java
-// java.util.Arrays — firma abreviada
-public static <T> void sort(T[] a);
-public static <T> void sort(T[] a, Comparator<? super T> c);
+// java.util.Arrays
+public static void sort(Object[] a);
 ```
 
-`<T>` es un parámetro de tipo declarado por el método: la función es
-**genérica**, opera sobre arreglos de cualquier tipo referencia. La
-implementación del algoritmo no depende del tipo concreto; sólo depende de
-saber cómo comparar dos elementos.
+La firma recibe `Object[]`, no un parámetro de tipo: el algoritmo interno
+no conoce el tipo concreto de los elementos. Lo que exige es que los
+elementos del arreglo **sepan compararse entre sí**. Esa capacidad la
+aportan los tipos que implementan la interfaz `Comparable`, y el
+cumplimiento del contrato se verifica en **tiempo de ejecución**: si el
+arreglo contiene elementos que no implementan `Comparable`, la llamada
+lanza `ClassCastException`.
 
-La primera firma —sin `Comparator`— exige que el tipo del elemento **sepa
-compararse consigo mismo**. Esa capacidad la aportan los tipos que
-implementan la interfaz `Comparable`. Los tipos primarios de la biblioteca
-—`Integer`, `String`, `Double`, `LocalDate`— la implementan de fábrica, y
-por eso `Arrays.sort(new int[]{3, 1, 2})` o `Arrays.sort(new String[]{"b",
-"a"})` funcionan sin trabajo adicional del programador.
-
-La conexión es la misma que este documento viene desarrollando: un método
-genérico, un contrato expresado como interfaz, y la posibilidad de aplicar
-la operación a tipos definidos por el usuario. La clase `Pair` cumplirá
-ese contrato al final de esta sección.
+Los tipos habituales de la biblioteca —`Integer`, `String`, `Double`,
+`LocalDate`— implementan `Comparable` de fábrica, y por eso llamadas como
+`Arrays.sort(new Integer[]{3, 1, 2})` o
+`Arrays.sort(new String[]{"b", "a"})` funcionan sin trabajo adicional del
+programador. El algoritmo interno del `sort` está construido para operar
+sobre cualquier tipo que respete el contrato de `Comparable`; el trabajo
+del programador consiste en implementar `Comparable` en el tipo que
+quiere ordenar.
 </Slide>
 
 <Slide title="El contrato de compareTo">
@@ -458,10 +456,12 @@ public class Main {
 <Slide title="Comparación segura y desempate">
 La resta `MAX_VALUE - (-MAX_VALUE + 100)` produce un valor que no cabe en
 32 bits con signo. Java aplica aritmética modular sin emitir excepción:
-el resultado se pliega y `compareTo` devuelve un valor cuyo **signo es el
-opuesto** al que su nombre promete. El algoritmo de ordenamiento aplica el
-método, obtiene el signo invertido y produce el orden inverso al esperado.
-El compilador y la máquina virtual no dan aviso alguno.
+el resultado se pliega, y el valor devuelto por `compareTo` **pierde la
+garantía** de reflejar el orden real de los operandos — su signo puede
+resultar contrario al esperado, ser cero, o coincidir por casualidad con
+el correcto según los operandos concretos. El algoritmo de ordenamiento
+aplica el método y produce un orden que no corresponde al criterio
+prometido. El compilador y la máquina virtual no dan aviso alguno.
 
 La regla asociada a este fenómeno es directa: **la resta no es una
 comparación segura**. La biblioteca estándar provee `Integer.compare(a, b)`
@@ -472,8 +472,9 @@ por lo tanto sin exponerse al desbordamiento.
 Cuando el criterio principal produce empate, la implementación debe
 declarar un criterio de desempate. Comparar los pares por el segundo
 campo y desempatar por el primero —usando el propio `compareTo` del
-`String`, que también evita restas por no tratarse de aritmética
-entera— produce una implementación estable:
+`String`, cuya implementación interna sí resta, pero sobre `char` (entero
+sin signo de 16 bits) y sobre longitudes no negativas, dos rangos donde
+la sustracción no desborda un `int`— produce una implementación robusta:
 
 <CodeEditor
   language="java"
@@ -509,7 +510,10 @@ public class Main {
 
 El patrón —guardar el resultado del primer criterio, devolverlo si es no
 cero, comparar por el segundo criterio en caso contrario— es la forma
-estándar en Java de expresar comparadores compuestos.
+estándar en Java de expresar comparadores compuestos, y produce una
+implementación **correcta**: el orden que declara es el que el programa
+respeta ante cualquier arreglo, incluidos los que contienen los valores
+extremos del rango de `int`.
 </Slide>
 
 ## Tipos acotados
@@ -959,9 +963,12 @@ check(vacio.length, 0);
 <Exercise title="4. Comparator invertido">
 
 Devolver un `Comparator<Pair<String, Integer>>` que ordene los pares por
-`second` **descendente** — el mayor `second` va primero. La construcción
-requiere una lambda que compare por `second` y la aplicación del método
-default `.reversed()`.
+`second` **descendente** — el mayor `second` va primero.
+
+La ruta recomendada es escribir una lambda que compare por `second` en
+orden ascendente y aplicarle el método default `.reversed()` para
+invertirla. Con esa forma, el criterio ascendente queda declarado una sola
+vez y la inversión aparece explícita.
 
 Restricción: sin restas. Utilizar `Integer.compare`.
 
@@ -1010,9 +1017,10 @@ Ordenar in-place el arreglo `Pair<String, Integer>[]` por la **longitud
 del `first`** — el nombre más corto va primero. Ante empate en longitud, el
 que va antes es el de menor `second`.
 
-La implementación debe consistir en una única invocación a
-`Arrays.sort(arr, ...)`, con una lambda para el criterio principal y
-`.thenComparing(...)` con una segunda lambda para el desempate.
+La ruta recomendada es una única invocación a `Arrays.sort(arr, ...)` con
+una lambda para el criterio principal (longitud del `first`) y
+`.thenComparing(...)` recibiendo una segunda lambda para el desempate
+(comparación por `second`).
 
 Restricción: sin restas. Utilizar `Integer.compare` en ambas comparaciones.
 
