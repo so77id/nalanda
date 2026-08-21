@@ -726,17 +726,18 @@ crecimiento sobrevive el cambio de máquina; las constantes no.**
 
 **Razón 4 — Comparamos algoritmos por lo que hacen eventualmente, no en casos chicos.**
 
-Un O(n) con constante grande y un O(n²) con constante chica: T₁ = 1000·n vs T₂ = 0,001·n².
-Para n < 10⁶ gana T₂. Para n > 10⁶ gana T₁, y por mucho.
+Un O(n) con constante grande y un O(n²) con constante chica. En escala reducida (mismo
+mensaje, coordenadas manejables): T₁ = 100·n vs T₂ = n². Para n < 100 gana T₂. Para
+n > 100 gana T₁ — y a partir de ahí, por mucho.
 
 <MathPlot
   type="curves"
-  title="1000n vs 0.001 n^2 — el cruce"
-  xRange={[0, 2000000]}
-  yRange={[0, 4000000000]}
+  title="100n vs n² — el cruce en n = 100"
+  xRange={[0, 200]}
+  yRange={[0, 40000]}
   functions={[
-    { label: "1000n", fn: (n) => 1000 * n, color: "blue" },
-    { label: "0.001 n^2", fn: (n) => 0.001 * n * n, color: "red" },
+    { label: "100n", fn: (n) => 100 * n, color: "blue" },
+    { label: "n²", fn: (n) => n * n, color: "red" },
   ]}
 />
 
