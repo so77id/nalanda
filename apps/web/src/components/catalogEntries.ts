@@ -9,6 +9,7 @@
 // and `src/architecture.test.ts` walks the eager graph to keep it that way.
 import type { CatalogEntry } from '../lib/catalogEntry';
 
+import { benchmarkCatalogEntry } from './interactive/Benchmark.catalog';
 import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
 import { mermaidCatalogEntry } from './interactive/Mermaid.catalog';
@@ -39,6 +40,7 @@ export const catalogEntries: CatalogEntry[] = [
   exerciseCatalogEntry,
   mermaidCatalogEntry,
   predictOutputCatalogEntry,
+  benchmarkCatalogEntry,
   questionsCatalogEntry,
   questionCatalogEntry,
   recursionTreeCatalogEntry,

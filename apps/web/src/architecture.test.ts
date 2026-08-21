@@ -163,6 +163,28 @@ describe('architecture: the step-through widget stays out of the entry chunk', (
   });
 });
 
+describe('architecture: the benchmark widget stays out of the entry chunk', () => {
+  // Benchmark reaches both hazards, exactly like PredictOutput: it wraps
+  // LazyCodeEditor AND it imports the runtime seam through `useLoadedRuntime`.
+  // Either would have been enough for its own case; together they leave no
+  // ambiguity about why the lazy wrapper is required (ADR-0044). Same shape as
+  // the other heavy-component guards — a single ALLOWED entry, no per-file
+  // exemptions.
+  const ALLOWED = ['components/interactive/lazyBenchmark.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/benchmark' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: the mermaid diagram stays out of the entry chunk', () => {
   // Mermaid drags dagre, d3 and a set of parsers into any chunk that imports
   // it (~200kB gzipped of mermaid-only chunks on the page, measured — ADR-0040

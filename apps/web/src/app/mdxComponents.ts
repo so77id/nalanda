@@ -1,5 +1,6 @@
 import {
   Figure,
+  LazyBenchmark,
   LazyCodeEditor,
   LazyExercise,
   LazyMermaid,
@@ -58,6 +59,12 @@ export const mdxComponents = {
   CodeEditor: LazyCodeEditor,
   Exercise: LazyExercise,
   PredictOutput: LazyPredictOutput,
+  // Same lazy rule, both routes: <Benchmark> wraps LazyCodeEditor AND imports
+  // the runtime seam through `useLoadedRuntime`, so registering the real one
+  // here would put CodeMirror and CheerpJ back in the entry chunk of every
+  // reader of every page. ADR-0044 documents the widget; the guard is
+  // `apps/web/src/architecture.test.ts` per-name case for `benchmark`.
+  Benchmark: LazyBenchmark,
   // Same lazy rule, for the same entry-chunk reason (ADR-0040): the mermaid
   // library adds ~200kB gzipped of mermaid-only chunks (measured, ADR-0040
   // §Consequences) and must only load on pages that mount a
