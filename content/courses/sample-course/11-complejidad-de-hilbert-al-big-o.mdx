@@ -246,16 +246,31 @@ problem** (problema de la parada).
 
 Turing demostró que **la respuesta es no**. El halting problem es **indecidible**.
 
-Argumento pedagógico (por reducción al absurdo, versión corta):
+Argumento pedagógico (por reducción al absurdo, versión trazada):
 
-> Supongamos que sí existe una máquina `H(P, X)` que responde correctamente para todos los
-> pares.
-> Construimos un programa **malicioso** `M` que usa `H(M, M)` para decidir qué hacer
-> consigo mismo:
-> - Si `H` dice *"M termina"* → `M` entra en un ciclo infinito. Contradicción.
-> - Si `H` dice *"M no termina"* → `M` termina inmediatamente. Contradicción.
+> Supongamos que sí existe una máquina `H(P, X)` que responde `sí` si `P` termina con
+> input `X`, o `no` si `P` corre para siempre — y que responde correcto para todos los
+> pares (P, X) del universo.
 >
-> No hay escape. `H` no puede existir.
+> Ahora construimos un programa `M(P)` — un programa que **recibe otro programa** como
+> input — que hace lo siguiente:
+>
+> ```
+> M(P):
+>   si H(P, P) == "sí"  → loop infinito
+>   si H(P, P) == "no"  → detener
+> ```
+>
+> `M` es un programa perfectamente legítimo: usa a `H` como caja negra. Ahora la pregunta:
+> ¿qué pasa cuando corremos `M(M)` (le pasamos a `M` como input a sí mismo)?
+>
+> - Si `H(M, M) = "sí"` → según `H`, `M(M)` termina. Pero por su código, `M(M)` entra en
+>   loop. **`H` mintió.**
+> - Si `H(M, M) = "no"` → según `H`, `M(M)` no termina. Pero por su código, `M(M)` se
+>   detiene. **`H` mintió.**
+>
+> No hay valor posible de `H(M, M)` que sea consistente. Nuestra suposición de que existe
+> `H` correcto para todos los pares se derrumba. **`H` no puede existir.**
 
 **Consecuencia inmediata**: como el halting problem es indecidible, el
 **Entscheidungsproblem también lo es**. El tercer pilar de Hilbert cae. Turing responde a
@@ -552,7 +567,11 @@ original."*
 - Nacieron **30 años después** del paper de Turing, y fueron los que le dieron a la
   disciplina las palabras con las que se habla de sí misma.
 
-Ahora aplicamos ese vocabulario a nuestro problema.
+Ese vocabulario — **O, Ω, Θ** — lo formalizamos en los slides finales de este acto.
+Antes de eso vamos a hacer el trabajo crudo: contar operaciones línea por línea en
+nuestras tres soluciones de `suma(N)` y obtener `T(n)` explícito. Con `T(n)` en la
+mano, las notaciones asintóticas van a ser un renombramiento útil, no una definición
+caída del cielo.
 </Slide>
 
 <Slide title="Contando la primera solución — ciclo simple">
@@ -937,11 +956,14 @@ encontrar) `x`**. Ahí entra el caso.
 Si `x = arr[0]`, entramos al ciclo, evaluamos la comparación **una sola vez**, entra al
 `if`, retorna. Nunca hacemos `i++`, nunca volvemos a evaluar la condición del `for`.
 
-Contamos:
+Contamos las líneas que **sí** se ejecutan:
 
-**T_mejor(n) = L2i + L2c + L3 + L4 = 1 + 1 + 2 + 1 = 5**
+- `int i = 0` (inicialización del for): **1 OE**
+- `i < arr.length` (evaluación 1 vez): **1 OE**
+- `arr[i] == x` (acceso + comparación): **2 OE**
+- `return true;`: **1 OE**
 
-**T(n) = 5**. No depende de `n`.
+**T_mejor(n) = 1 + 1 + 2 + 1 = 5**. No depende de `n`.
 
 **Complejidad**: Θ(1).
 </Slide>
@@ -950,13 +972,21 @@ Contamos:
 Recorremos **todo el arreglo** hasta llegar al final. Retorna `false` (o `true` en la
 última posición — el conteo es el mismo).
 
+Antes de escribir la fórmula introduzco una notación matemática que vamos a usar de aquí
+en adelante — la **sumatoria** Σ. La expresión `Σᵢ₌₁ⁿ f(i)` es solo una forma compacta
+de escribir `f(1) + f(2) + f(3) + … + f(n)`. Nada más. Por ejemplo, `Σᵢ₌₁ⁿ 1` es sumar
+`1` un total de `n` veces, o sea `n`; y `Σᵢ₌₁ⁿ i = 1 + 2 + … + n = n(n+1)/2`, que es
+justo el problema con el que abrimos la clase.
+
 Contamos:
 
-**T_peor(n) = L2i + Σᵢ (L2c + L3 + L2in) + L2c + L6**
+- `int i = 0`: **1 OE**, una vez.
+- Por cada iteración: `i < arr.length` (1) + `arr[i] == x` (2) + `i++` (1) = **4 OE**.
+  Hacemos `n` iteraciones.
+- `i < arr.length` la evaluamos una vez más para salir del ciclo: **1 OE**.
+- `return false;`: **1 OE**.
 
-Reemplazando:
-
-**T_peor(n) = 1 + Σᵢ₌₁ⁿ (1 + 2 + 1) + 1 + 1 = 1 + 4n + 2 = 4n + 3**
+**T_peor(n) = 1 + Σᵢ₌₁ⁿ 4 + 1 + 1 = 1 + 4n + 2 = 4n + 3**
 
 **T(n) = 4n + 3**. Lineal en `n`.
 
@@ -1166,7 +1196,12 @@ Cuando un algoritmo **se llama a sí mismo**, contar operaciones deja de ser sum
 una tabla. La función `fib` se llama, se llama de nuevo, y de nuevo, y de nuevo — el
 número de llamadas explota, y no sabemos cómo contarlo con lo que aprendimos hoy.
 
-Para eso necesitamos herramientas nuevas:
+Haz click en cada nodo para expandirlo — los que tienen el mismo argumento se
+pintan del mismo color, así el problema se ve solo:
+
+<RecursionTree recipe="fib" arg={5} title="fib(5) — el árbol de llamadas" />
+
+Para analizar esto necesitamos herramientas nuevas:
 
 - **Ecuaciones de recurrencia** — expresar T(n) en términos de T(n-1), T(n/2), etc.
 - **Métodos para resolverlas** — sustitución, inducción, Teorema Maestro.

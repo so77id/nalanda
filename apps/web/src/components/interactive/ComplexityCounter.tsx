@@ -1,8 +1,189 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
 import { OUTPUT, Panel } from './Panel';
+
+/**
+ * Java keywords/types recognised by the lightweight tokenizer. This is NOT a
+ * parser — it is a display-only regex-based colouriser so the code column of
+ * `<ComplexityCounter>` reads as syntax-highlighted Java instead of grey text.
+ * The set is small on purpose: overpainting is worse than under-painting when
+ * a token is ambiguous. ADR-0045 §7 keeps this as the shipping approach
+ * until the CodeMirror-integrated gutter lands.
+ */
+const JAVA_KEYWORDS = new Set([
+  'abstract',
+  'assert',
+  'break',
+  'case',
+  'catch',
+  'class',
+  'const',
+  'continue',
+  'default',
+  'do',
+  'else',
+  'enum',
+  'extends',
+  'final',
+  'finally',
+  'for',
+  'goto',
+  'if',
+  'implements',
+  'import',
+  'instanceof',
+  'interface',
+  'native',
+  'new',
+  'package',
+  'private',
+  'protected',
+  'public',
+  'return',
+  'static',
+  'strictfp',
+  'super',
+  'switch',
+  'synchronized',
+  'this',
+  'throw',
+  'throws',
+  'transient',
+  'try',
+  'volatile',
+  'while',
+  'yield',
+]);
+const JAVA_TYPES = new Set([
+  'boolean',
+  'byte',
+  'char',
+  'double',
+  'float',
+  'int',
+  'long',
+  'short',
+  'void',
+  'String',
+  'Integer',
+  'Long',
+  'Double',
+  'Boolean',
+  'Character',
+  'Object',
+  'Scanner',
+  'System',
+  'Math',
+  'Arrays',
+  'List',
+  'ArrayList',
+  'Map',
+  'HashMap',
+  'Set',
+  'HashSet',
+]);
+const JAVA_LITERALS = new Set(['true', 'false', 'null']);
+
+/**
+ * Tokenizes one line of Java for display and returns coloured spans.
+ * Handles: line comments, string literals, char literals, numeric literals,
+ * keywords, types, and named literals. Everything else passes through as ink.
+ * Tailwind classes use only design-system tokens (see `apps/web/CLAUDE.md` and
+ * `docs/standards/design-system.md`).
+ */
+/**
+ * Colours used by the tokenizer. Deliberately declared as inline CSS custom
+ * properties on the widget root (see the component below), NOT as raw
+ * Tailwind classes — the architecture test bans raw Tailwind colours since
+ * they only render right in one theme (ADR-0026, design-system.md). The
+ * variables here render right in both themes: the widget root sets
+ * `light-dark(...)` on each so the browser picks the right side automatically.
+ */
+type Kind = 'comment' | 'string' | 'number' | 'keyword' | 'type' | 'literal';
+
+const KIND_VAR: Record<Kind, string> = {
+  comment: 'var(--nl-cc-comment)',
+  string: 'var(--nl-cc-string)',
+  number: 'var(--nl-cc-number)',
+  keyword: 'var(--nl-cc-keyword)',
+  type: 'var(--nl-cc-type)',
+  literal: 'var(--nl-cc-literal)',
+};
+
+function highlightJava(line: string): ReactNode {
+  const tokens: ReactNode[] = [];
+  const pattern = new RegExp(
+    [
+      '\\/\\/[^\\n]*', // line comment
+      '"(?:[^"\\\\]|\\\\.)*"', // string literal
+      "'(?:[^'\\\\]|\\\\.)*'", // char literal
+      '\\b\\d+(?:\\.\\d+)?[LlFfDd]?\\b', // number literal
+      '[A-Za-z_][A-Za-z0-9_]*', // identifier
+    ].join('|'),
+    'g',
+  );
+  let last = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  while ((match = pattern.exec(line)) !== null) {
+    const [text] = match;
+    if (match.index > last) {
+      tokens.push(<Fragment key={`p-${key++}`}>{line.slice(last, match.index)}</Fragment>);
+    }
+    let kind: Kind | null = null;
+    let bold = false;
+    if (text.startsWith('//')) {
+      kind = 'comment';
+    } else if (text.startsWith('"') || text.startsWith("'")) {
+      kind = 'string';
+    } else if (/^\d/.test(text)) {
+      kind = 'number';
+    } else if (JAVA_KEYWORDS.has(text)) {
+      kind = 'keyword';
+      bold = true;
+    } else if (JAVA_TYPES.has(text)) {
+      kind = 'type';
+    } else if (JAVA_LITERALS.has(text)) {
+      kind = 'literal';
+      bold = true;
+    }
+    tokens.push(
+      kind === null ? (
+        <Fragment key={`t-${key++}`}>{text}</Fragment>
+      ) : (
+        <span
+          key={`t-${key++}`}
+          style={{
+            color: KIND_VAR[kind],
+            fontWeight: bold ? 500 : undefined,
+            fontStyle: kind === 'comment' ? 'italic' : undefined,
+          }}
+        >
+          {text}
+        </span>
+      ),
+    );
+    last = match.index + text.length;
+  }
+  if (last < line.length) tokens.push(<Fragment key={`p-${key++}`}>{line.slice(last)}</Fragment>);
+  return <>{tokens}</>;
+}
+
+/**
+ * CSS variables the widget declares on its root so both themes resolve to a
+ * legible palette without touching the raw-Tailwind ban. `light-dark(...)`
+ * is the modern CSS function that lets the browser pick per active theme.
+ */
+const SYNTAX_STYLE: React.CSSProperties = {
+  ['--nl-cc-comment' as string]: 'light-dark(rgb(107 114 128), rgb(148 163 184))',
+  ['--nl-cc-string' as string]: 'light-dark(rgb(5 150 105), rgb(52 211 153))',
+  ['--nl-cc-number' as string]: 'light-dark(rgb(217 119 6), rgb(251 191 36))',
+  ['--nl-cc-keyword' as string]: 'light-dark(rgb(124 58 237), rgb(167 139 250))',
+  ['--nl-cc-type' as string]: 'light-dark(rgb(2 132 199), rgb(56 189 248))',
+  ['--nl-cc-literal' as string]: 'light-dark(rgb(217 119 6), rgb(251 191 36))',
+};
 
 /**
  * One row in the breakdown: either a single code line with its OE cost and how
@@ -152,7 +333,10 @@ export function ComplexityCounter({
   const evaluated = active.evaluate(n);
 
   return (
-    <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
+    <div
+      className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink"
+      style={SYNTAX_STYLE}
+    >
       <header className="flex flex-wrap items-center gap-2 bg-sunk px-3 py-1.5">
         <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-accent">
           {mode === 'space' ? 'espacio' : 'operaciones'}
@@ -243,7 +427,11 @@ export function ComplexityCounter({
 
       {code !== undefined && code.trim() !== '' && (
         <Panel label="código completo">
-          <pre className={`${OUTPUT} bg-sunk text-ink`}>{code}</pre>
+          <pre className={`${OUTPUT} bg-sunk text-ink`}>
+            {code.split('\n').map((line, i) => (
+              <div key={i}>{highlightJava(line)}</div>
+            ))}
+          </pre>
         </Panel>
       )}
     </div>
@@ -278,7 +466,7 @@ function BreakdownRowView({ row, variable, n, isExpanded, onToggle }: BreakdownR
             >
               {isExpanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
             </button>
-            <code>{row.line}</code>
+            <code>{highlightJava(row.line)}</code>
           </td>
           <td className="px-2 py-1 text-right text-ink-faint">
             {totalOe.toLocaleString('es')} (total)
@@ -291,7 +479,7 @@ function BreakdownRowView({ row, variable, n, isExpanded, onToggle }: BreakdownR
           row.subLines!.map((sub, i) => (
             <tr key={`sub-${i}`} className="border-b border-rule/30 bg-sunk/30">
               <td className="px-3 py-1 pl-8 text-ink-soft">
-                <code>{sub.line}</code>
+                <code>{highlightJava(sub.line)}</code>
               </td>
               <td className="px-2 py-1 text-right">{sub.oe ?? 0}</td>
               <td className="px-3 py-1 text-right">
@@ -310,9 +498,9 @@ function BreakdownRowView({ row, variable, n, isExpanded, onToggle }: BreakdownR
   }
   const times = row.times ? evaluateFormula(row.times, variable, n) : 0;
   return (
-    <tr className="border-b border-rule/50 last:border-0">
+    <tr className="border-b border-rule/50 last:border-0 even:bg-sunk/30 hover:bg-accent-soft/20">
       <td className="px-3 py-1 text-ink">
-        <code>{row.line}</code>
+        <code>{highlightJava(row.line)}</code>
       </td>
       <td className="px-2 py-1 text-right">{row.oe ?? 0}</td>
       <td className="px-3 py-1 text-right">

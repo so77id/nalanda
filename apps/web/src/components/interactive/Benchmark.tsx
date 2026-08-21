@@ -261,7 +261,10 @@ export function Benchmark({
                 {implementations.map((impl) => {
                   const r = results.get(impl.name);
                   return (
-                    <tr key={impl.name} className="border-b border-rule/50 last:border-0">
+                    <tr
+                      key={impl.name}
+                      className="border-b border-rule/50 last:border-0 even:bg-sunk/30 hover:bg-accent-soft/20"
+                    >
                       <td className="px-2 py-1 text-ink">{impl.name}</td>
                       {r === undefined || r.medianMs === null ? (
                         <td colSpan={3} className="px-2 py-1 text-right text-flag">

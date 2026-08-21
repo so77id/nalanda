@@ -4,6 +4,16 @@ import { describe, expect, it } from 'vitest';
 
 import { ComplexityCounter } from './ComplexityCounter';
 
+// The syntax-highlighted code column splits each line into multiple <span>s,
+// so `getByText(codeMatching('int s = 0;'))` no longer matches — the
+// text is fragmented across children even though the <code> element's own
+// textContent still reads as "int s = 0;". This custom matcher looks for the
+// <code> whose full textContent equals the expected line.
+function codeMatching(expected: string) {
+  return (_content: string, element: Element | null) =>
+    element?.tagName === 'CODE' && element.textContent === expected;
+}
+
 const SUMA_CICLO = {
   breakdown: [
     { line: 'int s = 0;', oe: 1, times: '1' },
@@ -40,17 +50,17 @@ describe('ComplexityCounter', () => {
     // The four top-level rows each carry their code inside a <code> element;
     // the parent <td> shares the same textContent, so `selector: 'code'`
     // disambiguates. The for-header row collapses its sub-lines by default.
-    expect(within(table).getByText('int s = 0;', { selector: 'code' })).toBeInTheDocument();
+    expect(within(table).getByText(codeMatching('int s = 0;'))).toBeInTheDocument();
     expect(
-      within(table).getByText('for (int i = 1; i <= n; i++)', { selector: 'code' }),
+      within(table).getByText(codeMatching('for (int i = 1; i <= n; i++)')),
     ).toBeInTheDocument();
-    expect(within(table).getByText('s = s + i;', { selector: 'code' })).toBeInTheDocument();
-    expect(within(table).getByText('return s;', { selector: 'code' })).toBeInTheDocument();
+    expect(within(table).getByText(codeMatching('s = s + i;'))).toBeInTheDocument();
+    expect(within(table).getByText(codeMatching('return s;'))).toBeInTheDocument();
     // The for-header shows its "control" label instead of an "executions" formula.
     expect(within(table).getByText(/control/i)).toBeInTheDocument();
     // The non-header rows carry their formula next to the evaluated numbers.
     // `s = s + i;` runs `n` times → for n = 10, the row shows "n = 10".
-    const codeRow = within(table).getByText('s = s + i;', { selector: 'code' }).closest('tr')!;
+    const codeRow = within(table).getByText(codeMatching('s = s + i;')).closest('tr')!;
     expect(codeRow).toHaveTextContent(/n\s*=\s*10/);
   });
 
@@ -58,7 +68,7 @@ describe('ComplexityCounter', () => {
     render(<ComplexityCounter data={SUMA_CICLO} slider={{ min: 1, max: 100, default: 10 }} />);
 
     // For n = 10 the row `s = s + i;` executes 10 times.
-    const codeBefore = screen.getByText('s = s + i;', { selector: 'code' });
+    const codeBefore = screen.getByText(codeMatching('s = s + i;'));
     const rowBefore = codeBefore.closest('tr')!;
     expect(rowBefore).toHaveTextContent(/= 10/);
 
@@ -69,7 +79,7 @@ describe('ComplexityCounter', () => {
     const slider = screen.getByRole('slider');
     fireEvent.change(slider, { target: { value: '20' } });
 
-    const codeAfter = screen.getByText('s = s + i;', { selector: 'code' });
+    const codeAfter = screen.getByText(codeMatching('s = s + i;'));
     const rowAfter = codeAfter.closest('tr')!;
     // Formula stays as `n`, evaluated jumps to 20.
     expect(rowAfter).toHaveTextContent(/n\s*=\s*20/);
@@ -91,15 +101,15 @@ describe('ComplexityCounter', () => {
     render(<ComplexityCounter data={SUMA_CICLO} slider={{ default: 10 }} />);
 
     // Collapsed by default.
-    expect(screen.queryByText('int i = 1', { selector: 'code' })).not.toBeInTheDocument();
+    expect(screen.queryByText(codeMatching('int i = 1'))).not.toBeInTheDocument();
 
     const toggle = screen.getByRole('button', { name: /expandir sub-conteos/i });
     await userEvent.click(toggle);
 
     // Now the three sub-parts are visible.
-    expect(screen.getByText('int i = 1', { selector: 'code' })).toBeInTheDocument();
-    expect(screen.getByText('i <= n', { selector: 'code' })).toBeInTheDocument();
-    expect(screen.getByText('i++', { selector: 'code' })).toBeInTheDocument();
+    expect(screen.getByText(codeMatching('int i = 1'))).toBeInTheDocument();
+    expect(screen.getByText(codeMatching('i <= n'))).toBeInTheDocument();
+    expect(screen.getByText(codeMatching('i++'))).toBeInTheDocument();
   });
 
   it('renders three tabs in cases mode and switches the breakdown on click', async () => {
@@ -119,18 +129,18 @@ describe('ComplexityCounter', () => {
     );
 
     // Default tab is "peor" (worst). Its breakdown carries "s = s + i;".
-    expect(screen.getByText('s = s + i;', { selector: 'code' })).toBeInTheDocument();
+    expect(screen.getByText(codeMatching('s = s + i;'))).toBeInTheDocument();
     // The best-case snippet is not rendered yet.
     expect(
-      screen.queryByText('return arr[0] == x ? true : false;', { selector: 'code' }),
+      screen.queryByText(codeMatching('return arr[0] == x ? true : false;')),
     ).not.toBeInTheDocument();
 
     // Switch to mejor (best) — the best-case snippet appears and the worst one goes.
     await userEvent.click(screen.getByRole('button', { name: /^mejor$/i }));
     expect(
-      screen.getByText('return arr[0] == x ? true : false;', { selector: 'code' }),
+      screen.getByText(codeMatching('return arr[0] == x ? true : false;')),
     ).toBeInTheDocument();
-    expect(screen.queryByText('s = s + i;', { selector: 'code' })).not.toBeInTheDocument();
+    expect(screen.queryByText(codeMatching('s = s + i;'))).not.toBeInTheDocument();
   });
 
   it('labels the unit column "celdas" and the total M in space mode', () => {
