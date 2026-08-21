@@ -847,3 +847,328 @@ más lento que esto"*. El peor caso es el compromiso más fuerte.
 la complejidad de este algoritmo?"* sin más contexto, **respondan con peor caso** — es lo
 que se espera por defecto.
 </Slide>
+
+<SectionBreak />
+
+<Slide title="Cambio de escenario: `FindInArray`">
+La suma de N naturales fue perfecta para hablar de cotas O/Ω/Θ, pero **mala para hablar de
+casos**: hace exactamente lo mismo con cualquier N. No hay entrada "mejor" o "peor".
+
+Necesitamos un problema donde la entrada importe. Cambio de hilo:
+
+```java
+boolean findInArray(int[] arr, int x) {
+    for (int i = 0; i < arr.length; i++) {
+        if (arr[i] == x)
+            return true;
+    }
+    return false;
+}
+```
+
+*"Dado un arreglo y un valor, ¿está el valor en el arreglo?"*
+
+Este algoritmo **sí** depende de la entrada: dónde está `x`, o si no está. Ahora peor,
+mejor y promedio son cualitativamente distintos.
+</Slide>
+
+<Slide title="Contando OE por línea">
+Anotación línea a línea del `findInArray`:
+
+- **Inicialización del `for`** (`int i = 0`): 1 OE, una vez.
+- **Condición** (`i < arr.length`): 1 OE por evaluación.
+- **Incremento** (`i++`): 1 OE por iteración.
+- **Cuerpo del `if`** (`arr[i] == x`): 2 OE (1 acceso + 1 comparación).
+- **`return true`** o **`return false`**: 1 OE.
+
+El costo total depende de **cuántas iteraciones haga el ciclo antes de encontrar (o no
+encontrar) `x`**. Ahí entra el caso.
+
+<ComplexityCounter
+  algorithm="findInArray — los tres casos"
+  mode="cases"
+  cases={{
+    best: {
+      breakdown: [
+        { line: "int i = 0", oe: 1, times: "1" },
+        { line: "i < arr.length", oe: 1, times: "1" },
+        { line: "arr[i] == x", oe: 2, times: "1" },
+        { line: "return true;", oe: 1, times: "1" },
+      ],
+      formula: "5",
+      evaluate: () => 5,
+    },
+    worst: {
+      breakdown: [
+        { line: "int i = 0", oe: 1, times: "1" },
+        { line: "i < arr.length", oe: 1, times: "n+1" },
+        { line: "i++", oe: 1, times: "n" },
+        { line: "arr[i] == x", oe: 2, times: "n" },
+        { line: "return false;", oe: 1, times: "1" },
+      ],
+      formula: "4n + 3",
+      evaluate: (n) => 4 * n + 3,
+    },
+    average: {
+      breakdown: [
+        { line: "int i = 0", oe: 1, times: "1" },
+        { line: "i < arr.length", oe: 1, times: "(n+1)/2" },
+        { line: "i++", oe: 1, times: "(n-1)/2" },
+        { line: "arr[i] == x", oe: 2, times: "(n+1)/2" },
+        { line: "return true;", oe: 1, times: "1" },
+      ],
+      formula: "2n + 4",
+      evaluate: (n) => 2 * n + 4,
+    },
+  }}
+  slider={{ min: 1, max: 100, default: 10 }}
+/>
+</Slide>
+
+<Slide title="Mejor caso — `x` en la primera posición">
+Si `x = arr[0]`, entramos al ciclo, evaluamos la comparación **una sola vez**, entra al
+`if`, retorna. Nunca hacemos `i++`, nunca volvemos a evaluar la condición del `for`.
+
+Contamos:
+
+**T_mejor(n) = L2i + L2c + L3 + L4 = 1 + 1 + 2 + 1 = 5**
+
+**T(n) = 5**. No depende de `n`.
+
+**Complejidad**: Θ(1).
+</Slide>
+
+<Slide title="Peor caso — `x` no está (o está al final)">
+Recorremos **todo el arreglo** hasta llegar al final. Retorna `false` (o `true` en la
+última posición — el conteo es el mismo).
+
+Contamos:
+
+**T_peor(n) = L2i + Σᵢ (L2c + L3 + L2in) + L2c + L6**
+
+Reemplazando:
+
+**T_peor(n) = 1 + Σᵢ₌₁ⁿ (1 + 2 + 1) + 1 + 1 = 1 + 4n + 2 = 4n + 3**
+
+**T(n) = 4n + 3**. Lineal en `n`.
+
+**Complejidad**: Θ(n).
+</Slide>
+
+<Slide title="Caso promedio — `x` en posición aleatoria">
+Asumimos que **`x` puede estar en cualquier posición del arreglo con igual probabilidad
+1/n**. El número esperado de iteraciones del ciclo es:
+
+**E\[iteraciones\] = Σᵢ₌₁ⁿ i/n = (1/n) · n(n+1)/2 = (n+1)/2**
+
+Sustituyendo en la fórmula:
+
+**T_prom(n) = 1 + 4 · (n+1)/2 + 1 = 2n + 4**
+
+**T(n) = 2n + 4**. Lineal en `n`.
+
+**Complejidad**: Θ(n).
+
+**Observación clave del caso promedio**: aunque en promedio recorras la mitad del arreglo,
+sigues siendo **lineal**. La constante mejora (mitad de trabajo esperado), pero el orden
+asintótico es el mismo que el peor caso. Ese patrón se repite mucho en el curso.
+</Slide>
+
+<Slide title="Regla del curso: peor caso por defecto">
+Ya vimos la convención: cuando decimos *"el algoritmo es O(N)"* sin más contexto, hablamos
+de **peor caso**.
+
+Razones por las que el peor caso es el que se reporta por defecto:
+
+- **Garantía fuerte**: *"nunca va a ser más lento que esto"*. Es lo más útil para tomar
+  decisiones (¿me alcanza el tiempo?, ¿aguanta el pico?).
+- **Independiente de distribución**: no requiere asumir cómo se comportan las entradas
+  reales. El promedio depende de que la distribución que asumas sea la real; el peor caso
+  no depende de nada.
+- **Es la cota que preocupa**: si el peor caso es aceptable, todo lo demás también.
+
+**Cuándo mencionar los otros casos**:
+
+- El **mejor caso** casi nunca es interesante por sí solo — sirve para explicar por qué el
+  algoritmo puede parecer rápido en pruebas superficiales.
+- El **caso promedio** importa cuando la distribución real de entradas es conocida y muy
+  distinta al peor caso (ejemplo clásico: **quicksort** es O(N²) peor caso pero O(N log N)
+  en promedio con inputs aleatorios — por eso se usa a pesar de tener un peor caso feo).
+</Slide>
+
+<Slide title="Complejidad espacial — cómo se calcula">
+No solo el tiempo cuesta — la **memoria** también. Y se analiza igual: contando qué se
+guarda en función del tamaño de la entrada.
+
+**Regla**: el costo espacial `M(n)` = número de celdas de memoria que el algoritmo necesita
+durante su ejecución, **sin contar la memoria de la entrada**.
+
+**Cómo se calcula**, en tres pasos análogos al conteo temporal:
+
+1. **Identificar** las variables y estructuras que el algoritmo crea (no las que recibe
+   como entrada).
+2. **Sumar** el tamaño de cada una, en función de `n`.
+3. **Aplicar las mismas reglas asintóticas**: descartar constantes, quedarse con el término
+   dominante.
+
+**Regla de dedo**:
+
+- Una variable de tipo básico (`int`, `double`, `boolean`) → **1 celda**.
+- Un arreglo de tamaño `k` → **k celdas**.
+- Un arreglo bidimensional `n × m` → **n·m celdas**.
+
+**Notaciones**: las mismas que en tiempo — O, Ω, Θ sobre M(n).
+</Slide>
+
+<Slide title="Espacio aplicado a nuestros ejemplos">
+Aplicamos la receta a los algoritmos ya vistos:
+
+| Algoritmo | Variables/estructuras auxiliares | M(n) |
+|---|---|---|
+| `sumaCiclo` | `s`, `i` — dos ints | **Θ(1)** |
+| `sumaDobleCiclo` | `s`, `i`, `j` — tres ints | **Θ(1)** |
+| `sumaFormula` | ninguna | **Θ(1)** |
+| `findInArray` | `i` — un int | **Θ(1)** |
+
+Todos son **constantes en espacio**. Ninguno crece con la entrada — es lo típico en
+algoritmos iterativos simples.
+
+**Contraejemplo — un algoritmo con espacio no-trivial**:
+
+<ComplexityCounter
+  algorithm="primerosNaturales — espacio"
+  mode="space"
+  code={`int[] primerosNaturales(int n) {
+    int[] arr = new int[n];
+    for (int i = 0; i < n; i++)
+        arr[i] = i + 1;
+    return arr;
+}`}
+  data={{
+    breakdown: [
+      { line: "int[] arr = new int[n];", oe: 1, times: "n" },
+      { line: "arr[i] = i + 1;", oe: 0, times: "0" },
+    ],
+    formula: "n",
+    evaluate: (n) => n,
+  }}
+  slider={{ min: 1, max: 100, default: 10 }}
+/>
+
+Aquí `M(n) = Θ(n)` — el arreglo que devuelve crece con `n`.
+
+**Regla del curso**: cuando se pide "la complejidad" de un algoritmo, se pide **temporal**.
+Si además se pide espacial, se explicita.
+</Slide>
+
+<Slide title="Euclides — el algoritmo más viejo del curso (siglo III a.C.)">
+Contexto histórico como cierre:
+
+- **Euclides de Alejandría** (~300 a.C.) publica *"Elementos"* — 13 libros de matemática
+  que se usan como texto de referencia durante **más de 2000 años**.
+- En el Libro VII aparece un algoritmo para calcular el **máximo común divisor (gcd)** de
+  dos números.
+- Es el algoritmo más antiguo del que tenemos registro. **1700 años antes** de que
+  existiera la palabra "algoritmo" (deriva del matemático persa al-Juarismi, siglo IX
+  d.C.). **2200 años antes** de Turing.
+
+Versión moderna en Java:
+
+```java
+int gcd(int a, int b) {
+    while (b != 0) {
+        int t = b;
+        b = a % b;
+        a = t;
+    }
+    return a;
+}
+```
+
+**Traza con a = 1071, b = 462**:
+
+| Iteración | a | b | a mod b |
+|---|---|---|---|
+| 1 | 1071 | 462 | 147 |
+| 2 | 462 | 147 | 21 |
+| 3 | 147 | 21 | 0 |
+| — | 21 | 0 | (fin) |
+
+**gcd(1071, 462) = 21** en 3 iteraciones.
+</Slide>
+
+<Slide title="Análisis de Euclides — la sorpresa asintótica">
+El costo depende de **cuántas iteraciones haga el `while`**. ¿Cómo lo acotamos?
+
+**Argumento clave**: cada dos iteraciones, el valor de `a` se **reduce a la mitad**.
+
+- Por el paso `b = a % b`, cuando `a ≥ b > 0`, se cumple `a % b < a / 2`.
+- Por lo tanto cada dos iteraciones `a` cae por debajo de la mitad de su valor inicial.
+
+**Consecuencia**: un número solo puede reducirse a la mitad **lg₂(a)** veces antes de
+llegar a 0.
+
+**T(a, b) = O(lg a)**
+
+Comparemos con la alternativa "fuerza bruta" — probar todos los divisores desde `min(a,
+b)` hasta 1:
+
+**T_bruta(a, b) = O(min(a, b))**
+
+Contraste directo:
+
+| a ≈ b | Fuerza bruta | Euclides |
+|---|---|---|
+| 10⁶ | ~10⁶ iteraciones | ~20 |
+| 10⁹ | ~10⁹ iteraciones | ~30 |
+| 10¹² | ~10¹² iteraciones | ~40 |
+
+**La moraleja de la clase**:
+
+> **Un buen algoritmo vale más que una máquina más rápida.**
+> Si mejoras tu CPU 10× pero usas fuerza bruta, ganas un factor 10. Si mejoras del
+> algoritmo lineal al logarítmico, ganas un factor de **50 millones** con a = 10⁹.
+
+Y este algoritmo lo escribieron hace **2300 años** — antes de la palabra "algoritmo",
+antes de las computadoras, antes de la ciencia de la computación. **Y nuestras
+herramientas del siglo XX lo pueden analizar sin cambios.**
+</Slide>
+
+<Slide title="Cliffhanger: hay algoritmos que no se pueden analizar así">
+Repaso de lo que hicimos:
+
+- **Contamos operaciones** línea por línea.
+- **Multiplicamos** por cuántas veces se ejecuta cada línea (por el control de los ciclos).
+- **Sumamos** todo y descartamos constantes y términos menores.
+- **Obtuvimos** O/Ω/Θ.
+
+Este método funciona para **todos los algoritmos iterativos** que veremos este año.
+
+**Pero hay una familia entera que no se puede analizar así.**
+
+```java
+int fib(int n) {
+    if (n < 2) return n;
+    return fib(n - 1) + fib(n - 2);
+}
+```
+
+Cuando un algoritmo **se llama a sí mismo**, contar operaciones deja de ser sumar filas de
+una tabla. La función `fib` se llama, se llama de nuevo, y de nuevo, y de nuevo — el
+número de llamadas explota, y no sabemos cómo contarlo con lo que aprendimos hoy.
+
+Para eso necesitamos herramientas nuevas:
+
+- **Ecuaciones de recurrencia** — expresar T(n) en términos de T(n-1), T(n/2), etc.
+- **Métodos para resolverlas** — sustitución, inducción, Teorema Maestro.
+- **Explosión exponencial** — cuando la recursión no controla su crecimiento, T(n) es 2ⁿ y
+  ninguna máquina te salva.
+- **Memoización y programación dinámica** — cómo domesticar la explosión guardando
+  resultados.
+
+Ese es el material de la próxima película.
+
+**Complejidad · *Recursión y memoria***.
+
+Nos vemos ahí.
+</Slide>
