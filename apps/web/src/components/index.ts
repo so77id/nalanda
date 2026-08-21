@@ -28,6 +28,7 @@ export { LazyMermaid } from './interactive/lazyMermaid';
 export { MdxPre } from './MdxPre';
 export { Figure } from './media/Figure';
 export { SheetEmbed } from './media/SheetEmbed';
+export { VideoEmbed } from './media/VideoEmbed';
 export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { RecursionTree } from './interactive/RecursionTree';

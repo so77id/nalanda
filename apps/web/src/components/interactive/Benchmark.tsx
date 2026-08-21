@@ -207,15 +207,7 @@ export function Benchmark({
         </span>
       </header>
 
-      <div
-        className="grid gap-2 border-t border-rule bg-sunk p-2"
-        style={{
-          gridTemplateColumns:
-            zoomedIndex === null
-              ? `repeat(${implementations.length}, minmax(0, 1fr))`
-              : '1fr',
-        }}
-      >
+      <div className="flex flex-col gap-2 border-t border-rule bg-sunk p-2">
         {implementations.map((impl, i) => {
           if (zoomedIndex !== null && zoomedIndex !== i) return null;
           const isZoomed = zoomedIndex === i;

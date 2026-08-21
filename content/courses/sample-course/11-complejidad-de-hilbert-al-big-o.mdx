@@ -203,21 +203,20 @@ No importa el lenguaje en el que lo escribas (Java, Python, C++, Rust). No impor
 hardware donde corra (tu MacBook, un servidor, un teléfono). **Existe una configuración de
 tabla de transición que hace exactamente lo mismo en una máquina de Turing.**
 
-Esta afirmación se llama **Tesis de Church-Turing**, y la formalizamos en el próximo slide.
-
-**La consecuencia pedagógica clave — el "aha!" del slide**:
-
-> Cuando queremos hablar del **costo** de un algoritmo, podemos hablar de **cuántos pasos
-> toma en la máquina de Turing**.
-> No importa dónde lo ejecutemos: el número de pasos es una **propiedad del algoritmo
-> mismo**, no del computador.
+Cuando queremos hablar del **costo** de un algoritmo, podemos hablar de **cuántos pasos
+toma en la máquina de Turing**. No importa dónde lo ejecutemos: el número de pasos es una
+**propiedad del algoritmo mismo**, no del computador.
 
 **La máquina de Turing es la "cárcel universal" donde todos los algoritmos caben.** Y por
 primera vez, tenemos una **unidad de medida — "un paso"** — que es la misma para todos.
+</Slide>
 
-**Video recomendado (para verlo por su cuenta)**: el video ["8 borrachos revolucionan las
-matemáticas"](https://www.youtube.com/watch?v=RRg38oNQ9vk) explica la máquina de Turing
-con analogías cotidianas — perfecto para consolidar la intuición sin matemática formal.
+<Slide title="8 borrachos revolucionan las matemáticas">
+<VideoEmbed
+  src="https://www.youtube.com/watch?v=S1PVPluvV9I"
+  title="8 borrachos revolucionan las matemáticas — la máquina de Turing con analogías"
+  height={520}
+/>
 </Slide>
 
 <Slide title="La Tesis de Church-Turing">
@@ -468,12 +467,6 @@ public class SumaFormula {
   inputs={[100, 1000, 5000, 10000]}
   defaultInput={1000}
 />
-
-**Flujo en clase**:
-1. Predicción rápida: *"¿cuál será más rápido para N = 10⁶?"* Que se comprometan con una
-   respuesta.
-2. Profesor corre el widget en vivo y proyecta su tabla.
-3. Cada alumno lo corre en su laptop → cada uno obtiene sus propios tiempos.
 </Slide>
 
 <Slide title="El cronómetro no basta: estoy midiendo el entorno">

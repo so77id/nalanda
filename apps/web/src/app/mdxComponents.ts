@@ -20,6 +20,7 @@ import {
   Slide,
   Split,
   Step,
+  VideoEmbed,
 } from '../components';
 import { contentMdxComponents } from '../content';
 
@@ -56,6 +57,10 @@ export const mdxComponents = {
   // weight lands with the page. The attribute stays because it costs nothing
   // and pays off the day a frame sits at the foot of a long document.
   SheetEmbed,
+  // Not lazy: it is one iframe pointing at YouTube. Same shape as SheetEmbed.
+  // See VideoEmbed.tsx for the sandbox rationale (allow-same-origin is
+  // required for YouTube, deliberately absent from SheetEmbed).
+  VideoEmbed,
   // The lazy wrapper, not the editor itself: this map is evaluated eagerly, and
   // registering the real component would put CodeMirror in the entry chunk.
   CodeEditor: LazyCodeEditor,

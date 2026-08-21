@@ -23,6 +23,7 @@ import { memoryVisualCatalogEntry } from './interactive/MemoryVisual.catalog';
 import { stepCatalogEntry, stepShowCatalogEntry } from './interactive/StepShow.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
 import { sheetEmbedCatalogEntry } from './media/SheetEmbed.catalog';
+import { videoEmbedCatalogEntry } from './media/VideoEmbed.catalog';
 import { mosaicCatalogEntry } from './structure/Mosaic.catalog';
 import { sectionBreakCatalogEntry } from './structure/SectionBreak.catalog';
 import { sideBySideCatalogEntry } from './structure/SideBySide.catalog';
@@ -38,6 +39,7 @@ export const catalogEntries: CatalogEntry[] = [
   mosaicCatalogEntry,
   figureCatalogEntry,
   sheetEmbedCatalogEntry,
+  videoEmbedCatalogEntry,
   codeEditorCatalogEntry,
   exerciseCatalogEntry,
   mermaidCatalogEntry,
