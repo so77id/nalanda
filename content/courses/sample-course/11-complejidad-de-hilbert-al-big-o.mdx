@@ -133,3 +133,134 @@ En el Acto 2 veremos cómo, en el mismo año (1936), **dos personas en dos conti
 llegaron a la misma respuesta al problema — y como subproducto, inventaron **la primera
 definición formal de algoritmo**.
 </Slide>
+
+<SectionBreak />
+
+<Slide title="1936: tres respuestas simultáneas al Entscheidungsproblem">
+Mismo año, tres personas, tres continentes, tres modelos independientes:
+
+- **Alonzo Church** (Princeton, EE.UU., mayo 1936) — usa el **lambda-cálculo**.
+- **Alan Turing** (Cambridge, Reino Unido, noviembre 1936) — usa **su máquina**.
+- **Emil Post** (Nueva York, EE.UU., 1936) — usa las **máquinas de Post**.
+
+Los tres, de forma independiente y casi simultánea, llegan a la **misma respuesta**: *no
+existe la máquina universal que Hilbert imaginaba*. **El Entscheidungsproblem es
+indecidible.**
+
+Y los tres modelos resultan ser **equivalentes en poder**: cualquier cosa computable en uno
+lo es en los otros. Esta observación se llama **Tesis de Church-Turing**.
+
+En esta clase nos quedamos con el modelo de Turing porque es **el más visual** y el que se
+convirtió en referencia estándar. Church y Post siguen vivos en el fondo — el
+lambda-cálculo de Church es la base de los **lenguajes funcionales** modernos (Lisp,
+Haskell, ML, incluso las expresiones lambda de Java).
+</Slide>
+
+<Slide title="Alan Turing">
+- **Alan Turing** — Inglaterra, 1912–1954. Matemático.
+- Trabajos que lo hicieron famoso:
+  - **1936** — inventa la **máquina de Turing** en su paper *"On Computable Numbers"* con
+    24 años. Fundamento matemático de toda la computación posterior.
+  - **1939–1945** — lidera el equipo en **Bletchley Park** que descifra **Enigma**. Se
+    estima que acorta la 2ª Guerra Mundial ~2 años y salva millones de vidas.
+  - **1950** — propone el **Test de Turing** para responder *"¿puede una máquina pensar?"*
+    → base filosófica de la IA moderna.
+- **Padre de la ciencia de la computación.**
+</Slide>
+
+<Slide title="La máquina de Turing: cinta, cabeza, tabla">
+Modelo matemático abstracto. Tres piezas:
+
+- **Cinta infinita** dividida en celdas, cada celda contiene un símbolo (por ejemplo `0`,
+  `1`, o vacío).
+- **Cabeza** que lee y escribe **una celda a la vez**, y se mueve una posición
+  **izquierda** o **derecha**.
+- **Tabla de transición**: dado el par (estado actual, símbolo leído) → (nuevo estado,
+  símbolo a escribir, dirección).
+
+**Ejecución**: la máquina lee la celda actual → consulta la tabla → escribe si hace falta
+→ se mueve → cambia de estado. Repite hasta llegar a un estado de "parada".
+</Slide>
+
+<Slide title="Cualquier algoritmo se puede ejecutar aquí">
+{/* TODO(visual iteration): reemplazar por GIF de dominio público de una máquina de Turing
+    en funcionamiento (Wikimedia Commons tiene varios buenos, ej. incrementar un binario).
+    Si no aparece uno adecuado, evaluar `<TuringMachineSim>` como cuarto widget (issue
+    futuro). Hasta entonces, el mensaje pedagógico va en la prosa siguiente. */}
+
+Por más complejo que sea un algoritmo — una calculadora, un buscador web, una inteligencia
+artificial, un videojuego — **puede reducirse a una secuencia de pasos** sobre esta máquina
+simple: leer, escribir, mover, cambiar estado.
+
+No importa el lenguaje en el que lo escribas (Java, Python, C++, Rust). No importa el
+hardware donde corra (tu MacBook, un servidor, un teléfono). **Existe una configuración de
+tabla de transición que hace exactamente lo mismo en una máquina de Turing.**
+
+Esta afirmación se llama **Tesis de Church-Turing**, y la formalizamos en el próximo slide.
+
+**La consecuencia pedagógica clave — el "aha!" del slide**:
+
+> Cuando queremos hablar del **costo** de un algoritmo, podemos hablar de **cuántos pasos
+> toma en la máquina de Turing**.
+> No importa dónde lo ejecutemos: el número de pasos es una **propiedad del algoritmo
+> mismo**, no del computador.
+
+**La máquina de Turing es la "cárcel universal" donde todos los algoritmos caben.** Y por
+primera vez, tenemos una **unidad de medida — "un paso"** — que es la misma para todos.
+
+**Video recomendado (para verlo por su cuenta)**: el video ["8 borrachos revolucionan las
+matemáticas"](https://www.youtube.com/watch?v=RRg38oNQ9vk) explica la máquina de Turing
+con analogías cotidianas — perfecto para consolidar la intuición sin matemática formal.
+</Slide>
+
+<Slide title="La Tesis de Church-Turing">
+**Enunciado**: cualquier función que sea *"computable"* en algún sentido intuitivo — que
+un humano pueda calcular con lápiz y papel siguiendo una receta — es computable por una
+**máquina de Turing**.
+
+Traducción en humano:
+
+> Todo lo que puedes programar en Java, Python, C++, o pensar en tu cabeza como una receta
+> paso a paso — se puede simular en una máquina de Turing.
+
+**Consecuencia importante**: la máquina de Turing es **universal**. Es la referencia
+máxima de *"qué se puede computar"*.
+
+Detalle interesante: no es un teorema, es una **tesis**. No se puede demostrar formalmente
+porque involucra la noción intuitiva de *"computable"*, que no es un objeto matemático
+preciso. Pero en **90 años nadie ha encontrado un contraejemplo** — todo modelo de cómputo
+propuesto (lambda-cálculo, funciones recursivas, RAM, tu MacBook, computación cuántica en
+su capacidad estándar) resulta ser equivalente a Turing en poder.
+</Slide>
+
+<Slide title="El halting problem: la trampa que hace caer a Hilbert">
+Con la máquina de Turing definida, se puede hacer la pregunta precisa del
+Entscheidungsproblem. Turing la reformuló como un problema concreto: el **halting
+problem** (problema de la parada).
+
+**Enunciado**:
+
+> *"Dado un programa P y un input X, ¿existe un algoritmo que responda 'sí' si P termina
+> con X, y 'no' si P corre para siempre?"*
+
+Turing demostró que **la respuesta es no**. El halting problem es **indecidible**.
+
+Argumento pedagógico (por reducción al absurdo, versión corta):
+
+> Supongamos que sí existe una máquina `H(P, X)` que responde correctamente para todos los
+> pares.
+> Construimos un programa **malicioso** `M` que usa `H(M, M)` para decidir qué hacer
+> consigo mismo:
+> - Si `H` dice *"M termina"* → `M` entra en un ciclo infinito. Contradicción.
+> - Si `H` dice *"M no termina"* → `M` termina inmediatamente. Contradicción.
+>
+> No hay escape. `H` no puede existir.
+
+**Consecuencia inmediata**: como el halting problem es indecidible, el
+**Entscheidungsproblem también lo es**. El tercer pilar de Hilbert cae. Turing responde a
+Hilbert 40 años después: *"no, no existe la máquina universal que soñabas."*
+
+**Consecuencia moderna**: por eso un compilador **no puede decirte con certeza** si tu
+bucle terminará para cualquier input. El halting problem no es una curiosidad de los 30 —
+es la razón por la que hay bugs que ninguna herramienta puede descartar automáticamente.
+</Slide>
