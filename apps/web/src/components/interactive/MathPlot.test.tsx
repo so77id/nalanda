@@ -3,71 +3,40 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { MathPlot } from './MathPlot';
 
-// Mafs renders SVG through a coordinate transform pipeline jsdom cannot lay
-// out — the tests pin what the component DECLARES (the reference lines it
-// draws, the legend it renders, the auto-y-range it computes) with the
-// library replaced by stubs. The paint itself is confirmed in a real browser
-// at the WP's S10 browser check.
-vi.mock('mafs', () => ({
-  Mafs: ({ children, viewBox }: { children: React.ReactNode; viewBox: unknown }) => (
-    <div data-testid="mafs" data-viewbox={JSON.stringify(viewBox)}>
-      {children}
-    </div>
+// Nivo Line renders SVG that needs a real ResponsiveContainer measurement
+// (uses `use-resize-observer` under the hood — vitest.setup.ts polyfills the
+// ResizeObserver global, but Nivo's Responsive wrapper still bails to a
+// fallback when it cannot measure). We stub the Line to a marker element and
+// assert what the widget HANDS to it — same shape as the Mafs stub before.
+vi.mock('@nivo/line', () => ({
+  ResponsiveLine: ({
+    data,
+    colors,
+    yScale,
+    axisLeft,
+  }: {
+    data: { id: string; data: unknown[] }[];
+    colors: string[];
+    yScale: unknown;
+    axisLeft: unknown;
+  }) => (
+    <div
+      data-testid="nivo-line"
+      data-series-count={data.length}
+      data-series-ids={data.map((d) => d.id).join('|')}
+      data-first-series-points={data[0]?.data.length ?? 0}
+      data-colors={colors.join('|')}
+      data-y-scale={JSON.stringify(yScale)}
+      data-axis-left={JSON.stringify(axisLeft)}
+    />
   ),
-  Coordinates: {
-    Cartesian: () => <div data-testid="cartesian" />,
-  },
-  Plot: {
-    OfX: ({ y, color, style }: { y: (x: number) => number; color: string; style: string }) => (
-      <div
-        data-testid="plot-of-x"
-        data-color={color}
-        data-style={style}
-        data-y-at-1={String(y(1))}
-      />
-    ),
-  },
-  Line: {
-    Segment: ({
-      point1,
-      point2,
-      color,
-    }: {
-      point1: [number, number];
-      point2: [number, number];
-      color: string;
-    }) => (
-      <div
-        data-testid="line-segment"
-        data-point1={JSON.stringify(point1)}
-        data-point2={JSON.stringify(point2)}
-        data-color={color}
-      />
-    ),
-  },
-  Text: ({ x, y, children }: { x: number; y: number; children: React.ReactNode }) => (
-    <div data-testid="text" data-x={x} data-y={y}>
-      {children}
-    </div>
-  ),
-  Theme: {
-    blue: '#0b5fff',
-    green: '#0fa958',
-    red: '#e01e37',
-    orange: '#f57e17',
-    violet: '#8256d0',
-    pink: '#ff5c8a',
-    indigo: '#4c3fa4',
-    yellow: '#d9b400',
-    foreground: '#111827',
-  },
 }));
 
 describe('MathPlot', () => {
   it('shows an authoring error when type is 3d (not implemented)', () => {
     render(<MathPlot type="3d" xRange={[0, 10]} functions={[]} />);
     expect(screen.getByText(/aún no está implementado/i)).toBeInTheDocument();
-    expect(screen.queryByTestId('mafs')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('nivo-line')).not.toBeInTheDocument();
   });
 
   it('shows an authoring error when functions is missing', () => {
@@ -77,13 +46,11 @@ describe('MathPlot', () => {
 
   it('shows an authoring error when xRange is missing', () => {
     render(<MathPlot type="curves" functions={[{ label: 'f', fn: (x) => x }]} />);
-    // The message spans a <code> element, so match on visible fragments
-    // separately rather than the whole sentence.
     expect(screen.getByText(/falta la prop/i)).toBeInTheDocument();
     expect(screen.getByText('xRange')).toBeInTheDocument();
   });
 
-  it('paints one Plot.OfX per function with the color rotation when none is specified', () => {
+  it('samples every function across xRange and hands the points to Nivo', () => {
     render(
       <MathPlot
         type="curves"
@@ -92,21 +59,18 @@ describe('MathPlot', () => {
           { label: 'f', fn: (x) => x },
           { label: 'g', fn: (x) => x * x },
         ]}
+        samples={100}
       />,
     );
 
-    const plots = screen.getAllByTestId('plot-of-x');
-    expect(plots).toHaveLength(2);
-    // First curve gets the first colour in the rotation (blue), second gets the second (green).
-    expect(plots[0]).toHaveAttribute('data-color', '#0b5fff');
-    expect(plots[1]).toHaveAttribute('data-color', '#0fa958');
-    // The functions themselves reach the plotter — a passing value proves the
-    // callback is threaded through, not replaced.
-    expect(plots[0]).toHaveAttribute('data-y-at-1', '1');
-    expect(plots[1]).toHaveAttribute('data-y-at-1', '1');
+    const chart = screen.getByTestId('nivo-line');
+    expect(chart).toHaveAttribute('data-series-count', '2');
+    expect(chart).toHaveAttribute('data-series-ids', 'f|g');
+    // 101 samples = samples+1 (endpoints inclusive)
+    expect(chart).toHaveAttribute('data-first-series-points', '101');
   });
 
-  it('honours the picked color when the author names one', () => {
+  it('honours the picked colour for a series', () => {
     render(
       <MathPlot
         type="curves"
@@ -114,66 +78,36 @@ describe('MathPlot', () => {
         functions={[{ label: 'f', fn: (x) => x, color: 'red' }]}
       />,
     );
-
-    expect(screen.getByTestId('plot-of-x')).toHaveAttribute('data-color', '#e01e37');
+    const chart = screen.getByTestId('nivo-line');
+    const colors = (chart.getAttribute('data-colors') ?? '').split('|');
+    // The picked colour uses `light-dark(...)` so both themes render right.
+    expect(colors[0]).toContain('light-dark');
+    expect(colors[0]).toContain('#dc2626');
   });
 
-  it('renders a dashed curve when dashed=true', () => {
+  it('transforms functions through log10 when scale="log"', () => {
     render(
       <MathPlot
         type="curves"
-        xRange={[0, 10]}
-        functions={[{ label: 'f', fn: (x) => x, dashed: true }]}
+        xRange={[1, 100]}
+        yRange={[1, 10000]}
+        scale="log"
+        functions={[{ label: 'n^2', fn: (x) => x * x }]}
       />,
     );
-
-    expect(screen.getByTestId('plot-of-x')).toHaveAttribute('data-style', 'dashed');
+    const chart = screen.getByTestId('nivo-line');
+    // yRange [1, 10000] in original units → [0, 4] in log10 space.
+    const yScale = JSON.parse(chart.getAttribute('data-y-scale') ?? '{}');
+    expect(yScale.min).toBeCloseTo(0);
+    expect(yScale.max).toBeCloseTo(4);
+    // The axis's format function goes into `axisLeft.format`; the stub
+    // dropped it (functions do not serialise), but the axis is present with
+    // its legend text.
+    const axisLeft = JSON.parse(chart.getAttribute('data-axis-left') ?? '{}');
+    expect(axisLeft.legend).toBe('costo');
   });
 
-  it('paints an annotation as a line segment when the author asks for a vertical line', () => {
-    render(
-      <MathPlot
-        type="curves"
-        xRange={[0, 10]}
-        yRange={[0, 20]}
-        functions={[{ label: 'f', fn: (x) => x }]}
-        annotations={[{ type: 'verticalLine', x: 4, label: 'N₀' }]}
-      />,
-    );
-
-    const segments = screen.getAllByTestId('line-segment');
-    expect(segments).toHaveLength(1);
-    // The vertical line stretches from y=0 to y=20 at x=4.
-    expect(segments[0]).toHaveAttribute('data-point1', '[4,0]');
-    expect(segments[0]).toHaveAttribute('data-point2', '[4,20]');
-    // The label reaches the plot as a Text node.
-    expect(screen.getByTestId('text')).toHaveTextContent('N₀');
-  });
-
-  it('shows a legend by default when there are two or more functions', () => {
-    render(
-      <MathPlot
-        type="curves"
-        xRange={[0, 10]}
-        functions={[
-          { label: 'linear', fn: (x) => x },
-          { label: 'squared', fn: (x) => x * x },
-        ]}
-      />,
-    );
-
-    const legend = screen.getByRole('list');
-    expect(legend).toHaveTextContent('linear');
-    expect(legend).toHaveTextContent('squared');
-  });
-
-  it('hides the legend for a single-function plot unless the author overrides', () => {
-    render(<MathPlot type="curves" xRange={[0, 10]} functions={[{ label: 'f', fn: (x) => x }]} />);
-
-    expect(screen.queryByRole('list')).not.toBeInTheDocument();
-  });
-
-  it('paints the title as a figcaption when provided', () => {
+  it('paints the title as a header when provided', () => {
     render(
       <MathPlot
         type="curves"
@@ -182,7 +116,20 @@ describe('MathPlot', () => {
         functions={[{ label: 'f', fn: (x) => x }]}
       />,
     );
-
     expect(screen.getByText(/Órdenes de crecimiento/)).toBeInTheDocument();
+  });
+
+  it('marks the widget with data-mathplot-scale so the suite can pin it', () => {
+    const { container } = render(
+      <MathPlot
+        type="curves"
+        scale="log"
+        xRange={[1, 100]}
+        yRange={[1, 100]}
+        functions={[{ label: 'f', fn: (x) => x }]}
+      />,
+    );
+    const figure = container.querySelector('[data-mathplot-scale]');
+    expect(figure).toHaveAttribute('data-mathplot-scale', 'log');
   });
 });

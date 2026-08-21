@@ -1,16 +1,25 @@
-import { Coordinates, Line, Mafs, Plot, Text, Theme } from 'mafs';
+import { ResponsiveLine } from '@nivo/line';
+
+/**
+ * Local shape of a Nivo Line series. `@nivo/line` no longer exports its
+ * `Serie` type by name in this version; the shape is tiny (id + data
+ * points) so we declare it locally instead of chasing the type export.
+ */
+interface NivoSeries {
+  id: string;
+  color?: string;
+  data: { x: number; y: number }[];
+}
 import { useMemo } from 'react';
 
 import { useResolvedTheme } from '../../lib/useResolvedTheme';
 import { AuthoringError } from '../AuthoringError';
 
-import 'mafs/core.css';
-
 /**
  * A curve to overlay on the plot.
  */
 export interface MathPlotFunction {
-  /** Legend label, LaTeX-friendly (Mafs renders labels via KaTeX). */
+  /** Legend label. */
   label: string;
   /** The function itself, as a JS callback. */
   fn: (x: number) => number;
@@ -40,8 +49,7 @@ export type MathPlotAnnotation =
 export interface MathPlotProps {
   /**
    * Which flavour of plot to render. Only `"curves"` validates today; `"3d"`
-   * and `"graph"` are reserved for future extensions (ADR-0046 §Alternatives)
-   * and reject the render with a clear authoring error until they land.
+   * and `"graph"` are reserved for future extensions (ADR-0046 §Alternatives).
    */
   type?: 'curves' | '3d' | 'graph';
   /** Optional title shown above the plot. */
@@ -50,85 +58,67 @@ export interface MathPlotProps {
   functions?: MathPlotFunction[];
   /** Visible x range as [min, max]. Required. */
   xRange?: [number, number];
-  /**
-   * Visible y range as [min, max]. `"auto"` (default) fits to the plotted
-   * values. In `log` mode the range is stated in ORIGINAL units (e.g.
-   * `[1, 10000]`) — the widget converts to log-space internally.
-   */
+  /** Visible y range as [min, max]. `"auto"` (default) fits to the plotted values. */
   yRange?: [number, number] | 'auto';
   /**
-   * Y-axis scale mode. `"linear"` (default) plots y directly. `"log"` plots
-   * `log10(y)` so orders of growth that differ by many orders of magnitude
-   * (1, lg n, n, n log n, n²) become legible on the same plot.
-   * `"loglog"` reserved for future extension (ADR-0046 §6).
+   * Y-axis scale mode. `"linear"` (default), `"log"` (log10 on Y). `"loglog"`
+   * reserved for future work.
    */
   scale?: 'linear' | 'log' | 'loglog';
   /** Whether to render the legend. Defaults to true when there are 2+ functions. */
   showLegend?: boolean;
-  /** Vertical or horizontal reference lines, useful for O/Ω/Θ bounds. */
+  /** Vertical or horizontal reference lines. */
   annotations?: MathPlotAnnotation[];
   /** Sampling resolution for the plots — higher = smoother, slower. Defaults to 200. */
   samples?: number;
-  /**
-   * Height of the plotting canvas in pixels. Defaults to 320. Set larger for
-   * a slide that lives on its own, smaller for inline figures.
-   */
+  /** Plot canvas height in pixels. Defaults to 320. */
   height?: number;
+  /** X-axis label. Defaults to "N". */
+  xLabel?: string;
+  /** Y-axis label. Defaults to "costo". */
+  yLabel?: string;
 }
 
-const COLOR_ROTATION = [
-  Theme.blue,
-  Theme.green,
-  Theme.red,
-  Theme.orange,
-  Theme.violet,
-  Theme.pink,
-  Theme.indigo,
-  Theme.yellow,
-] as const;
+const COLOR_MAP = {
+  blue: 'light-dark(#2563eb, #60a5fa)',
+  green: 'light-dark(#059669, #34d399)',
+  red: 'light-dark(#dc2626, #f87171)',
+  orange: 'light-dark(#ea580c, #fb923c)',
+  violet: 'light-dark(#7c3aed, #a78bfa)',
+  pink: 'light-dark(#db2777, #f472b6)',
+  indigo: 'light-dark(#4338ca, #818cf8)',
+  yellow: 'light-dark(#d97706, #fbbf24)',
+} as const;
 
-function colorOf(picked: MathPlotFunction['color'], index: number): string {
-  if (picked !== undefined) return Theme[picked];
-  return COLOR_ROTATION[index % COLOR_ROTATION.length]!;
+const COLOR_ROTATION: (keyof typeof COLOR_MAP)[] = [
+  'blue',
+  'green',
+  'red',
+  'orange',
+  'violet',
+  'pink',
+  'indigo',
+  'yellow',
+];
+
+function pickColor(picked: MathPlotFunction['color'], index: number): string {
+  const key = picked ?? COLOR_ROTATION[index % COLOR_ROTATION.length]!;
+  return COLOR_MAP[key];
 }
 
 /**
- * CSS variable overrides for Mafs so both themes read correct. `light-dark(...)`
- * lets the browser pick per active theme; declaring it unconditionally (not
- * behind an if branch) is what fixed the "dark rectangle on a light page" bug
- * flagged in the UI review.
- */
-const MAFS_THEME_STYLE: React.CSSProperties = {
-  ['--mafs-bg' as string]: 'transparent',
-  ['--mafs-fg' as string]:
-    'light-dark(rgb(17 24 39), rgb(226 232 240))',
-  ['--mafs-line-color' as string]:
-    'light-dark(rgb(203 213 225), rgb(51 65 85))',
-  ['--grid-line-subdivision-color' as string]:
-    'light-dark(rgb(241 245 249), rgb(30 41 59))',
-  ['--mafs-origin-color' as string]:
-    'light-dark(rgb(100 116 139), rgb(148 163 184))',
-};
-
-/**
- * A 2D math function plotter (ADR-0046), built on top of Mafs.
- *
- * The author declares one or more functions `y = f(x)` and the widget paints
- * them on a shared coordinate system with an optional legend, optional
- * reference lines (vertical / horizontal), and a hover tooltip on each curve
- * (Mafs's default interaction).
- *
- * Type is a prop rather than a component name because the widget is designed
- * to grow — `type="3d"` and `type="graph"` are the two extensions the class
- * anticipates for future acts (3D surfaces and node-edge graphs). Today only
- * `type="curves"` is implemented; the others fall through to an authoring
- * error so the surface is honest about what it does.
+ * A 2D math function plotter, built on Nivo Line — the same look Yerko's
+ * matplotlib-style slides deliver, without carrying Python. The author writes
+ * `y = f(x)`; the widget samples the function across `xRange`, hands the
+ * points to Nivo, and lets Nivo do the axis / grid / legend / tooltip work.
  *
  * `scale="log"` transforms each function's output through `log10` before
- * handing it to Mafs — the plot is drawn in log-space and the Y axis's tick
- * labels are re-formatted to show the original decade values (1, 10, 100, …).
- * This is what makes "comparar órdenes de crecimiento" (1, lg n, n, n²) a
- * single legible chart instead of three curves squashed against the x axis.
+ * sampling and marks the Y axis with the corresponding decade labels — the
+ * knob that makes "comparar órdenes de crecimiento" a legible chart instead
+ * of a wall of curves squashed against the x axis.
+ *
+ * The plot uses CSS custom properties + `light-dark(...)` so it reads right
+ * in both themes without a runtime theme switch inside Nivo.
  */
 export function MathPlot({
   type = 'curves',
@@ -141,67 +131,57 @@ export function MathPlot({
   annotations,
   samples = 200,
   height = 320,
+  xLabel = 'N',
+  yLabel = 'costo',
 }: MathPlotProps) {
   const resolvedTheme = useResolvedTheme();
   const isLog = scale === 'log' || scale === 'loglog';
 
-  // Transform functions into log space when needed. `Math.log10(0)` is
-  // -Infinity — clamp to a tiny positive value so a constant-1 curve does not
-  // vanish and a curve that dips to zero degrades gracefully.
-  const displayFns = useMemo(() => {
-    if (!isLog) return functions;
-    return functions?.map(
-      (f) =>
-        ({
-          ...f,
-          fn: (x: number) => {
-            const y = f.fn(x);
-            if (!Number.isFinite(y) || y <= 0) return Number.NaN;
-            return Math.log10(y);
-          },
-        }) as MathPlotFunction,
-    );
-  }, [functions, isLog]);
-
-  // Auto y-range: sample every function across xRange and derive [minY, maxY].
-  // In log mode the sampling happens on the display (log-space) functions.
-  const computedYRange = useMemo<[number, number]>(() => {
-    if (yRange !== 'auto') {
-      if (isLog) {
-        const [lo, hi] = yRange;
-        return [Math.log10(Math.max(1e-10, lo)), Math.log10(Math.max(1e-10, hi))];
-      }
-      return yRange;
-    }
-    if (xRange === undefined || displayFns === undefined || displayFns.length === 0) {
-      return [-10, 10];
-    }
+  // Build Nivo's `Serie[]`. Each series carries {x, y} points sampled evenly
+  // across xRange. Log mode transforms y = log10(f(x)); points where f(x) is
+  // non-positive or non-finite are skipped.
+  const series = useMemo<NivoSeries[]>(() => {
+    if (functions === undefined || xRange === undefined) return [];
     const [xMin, xMax] = xRange;
     const step = (xMax - xMin) / samples;
-    let minY = Number.POSITIVE_INFINITY;
-    let maxY = Number.NEGATIVE_INFINITY;
-    for (const { fn } of displayFns) {
-      for (let i = 0; i <= samples; i++) {
-        const x = xMin + i * step;
+    return functions.map((f, i) => {
+      const data: { x: number; y: number }[] = [];
+      for (let k = 0; k <= samples; k++) {
+        const x = xMin + k * step;
+        let y: number;
         try {
-          const y = fn(x);
-          if (Number.isFinite(y)) {
-            if (y < minY) minY = y;
-            if (y > maxY) maxY = y;
-          }
+          y = f.fn(x);
         } catch {
-          // Ignore samples where fn throws.
+          continue;
         }
+        if (!Number.isFinite(y)) continue;
+        if (isLog) {
+          if (y <= 0) continue;
+          y = Math.log10(y);
+        }
+        data.push({ x, y });
       }
-    }
-    if (!Number.isFinite(minY) || !Number.isFinite(maxY)) return [-10, 10];
-    const pad = (maxY - minY) * 0.05 || 1;
+      return {
+        id: f.label,
+        color: pickColor(f.color, i),
+        data,
+      };
+    });
+  }, [functions, xRange, samples, isLog]);
+
+  const yScale = useMemo(() => {
+    if (yRange === 'auto') return { type: 'linear' as const, stacked: false };
+    const [lo, hi] = yRange;
     if (isLog) {
-      // Snap to whole decades so the tick labels come out as 1, 10, 100...
-      return [Math.floor(minY - pad * 0.2), Math.ceil(maxY + pad * 0.2)];
+      return {
+        type: 'linear' as const,
+        stacked: false,
+        min: Math.log10(Math.max(1e-10, lo)),
+        max: Math.log10(Math.max(1e-10, hi)),
+      };
     }
-    return [Math.min(0, minY - pad), maxY + pad];
-  }, [displayFns, xRange, yRange, samples, isLog]);
+    return { type: 'linear' as const, stacked: false, min: lo, max: hi };
+  }, [yRange, isLog]);
 
   if (type !== 'curves') {
     return (
@@ -231,35 +211,80 @@ export function MathPlot({
   }
 
   const legendVisible = showLegend ?? functions.length >= 2;
+  const colors = series.map((s) => s.color ?? '#000');
 
-  // Y-axis label formatter. On log scale each integer step is a decade, so
-  // the label is 10^k rendered plain-text (no LaTeX so Mafs's KaTeX renderer
-  // does not need to run for something as short as "10", "100").
-  const yLabelMaker = isLog
-    ? (n: number) => {
-        if (!Number.isInteger(n)) return '';
-        if (n === 0) return '1';
-        if (n === 1) return '10';
-        if (n === -1) return '0.1';
-        return `10^${n}`;
-      }
-    : undefined;
+  // Y-axis tick formatter for log mode: renders integer decades as 1, 10, 100...
+  const formatLogTick = (value: number) => {
+    if (!Number.isInteger(value)) return '';
+    if (value === 0) return '1';
+    if (value === 1) return '10';
+    if (value === 2) return '100';
+    if (value === 3) return '1 000';
+    if (value === 4) return '10 000';
+    if (value === 5) return '100 000';
+    if (value === 6) return '1 000 000';
+    return `10^${value}`;
+  };
 
-  // Decade grid lines on Y in log mode. `lines: 1` means one line per unit
-  // (= one line per decade in log-space).
-  const yAxisConfig = isLog
-    ? {
-        axis: true as const,
-        lines: 1,
-        labels: yLabelMaker as (n: number) => string,
-      }
-    : undefined;
+  // Reference-line markers as Nivo layers. Nivo has no first-class annotation
+  // API, but its layers array lets us drop a small SVG on top of the plot.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const annotationLayer = ({ xScale, yScale: nivoYScale, innerHeight, innerWidth }: any) => (
+    <g pointerEvents="none">
+      {annotations?.map((a, i) => {
+        if (a.type === 'verticalLine') {
+          const x = xScale(a.x);
+          return (
+            <g key={`v-${i}`}>
+              <line
+                x1={x}
+                x2={x}
+                y1={0}
+                y2={innerHeight}
+                stroke="currentColor"
+                strokeDasharray="4 3"
+                strokeWidth={1}
+                opacity={0.7}
+              />
+              {a.label !== undefined && (
+                <text x={x + 4} y={12} fontSize={11} fill="currentColor">
+                  {a.label}
+                </text>
+              )}
+            </g>
+          );
+        }
+        const yVal = isLog ? Math.log10(Math.max(1e-10, a.y)) : a.y;
+        const y = nivoYScale(yVal);
+        return (
+          <g key={`h-${i}`}>
+            <line
+              x1={0}
+              x2={innerWidth}
+              y1={y}
+              y2={y}
+              stroke="currentColor"
+              strokeDasharray="4 3"
+              strokeWidth={1}
+              opacity={0.7}
+            />
+            {a.label !== undefined && (
+              <text x={innerWidth - 4} y={y - 4} fontSize={11} fill="currentColor" textAnchor="end">
+                {a.label}
+              </text>
+            )}
+          </g>
+        );
+      })}
+    </g>
+  );
 
   return (
     <figure
       className="not-prose my-6 flex flex-col rounded-lg border border-rule bg-surface"
       data-mathplot-type={type}
       data-mathplot-scale={scale}
+      data-theme={resolvedTheme}
     >
       <header className="flex items-center gap-2 bg-sunk px-3 py-1.5">
         <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-accent">
@@ -267,101 +292,104 @@ export function MathPlot({
         </span>
         {title !== undefined && <span className="text-sm font-medium text-ink">{title}</span>}
       </header>
-      <div
-        className="w-full p-3"
-        data-theme={resolvedTheme}
-        style={MAFS_THEME_STYLE}
-      >
-        <Mafs
-          viewBox={{ x: xRange, y: computedYRange }}
-          preserveAspectRatio={false}
-          zoom={false}
-          height={height}
-        >
-          {yAxisConfig !== undefined ? (
-            <Coordinates.Cartesian yAxis={yAxisConfig} subdivisions={false} />
-          ) : (
-            <Coordinates.Cartesian />
-          )}
-          {displayFns?.map((f, i) => (
-            <Plot.OfX
-              key={f.label}
-              y={f.fn}
-              color={colorOf(f.color, i)}
-              style={f.dashed === true ? 'dashed' : 'solid'}
-            />
-          ))}
-          {annotations?.map((annotation, i) => {
-            if (annotation.type === 'verticalLine') {
-              return (
-                <Line.Segment
-                  key={`v-${i}`}
-                  point1={[annotation.x, computedYRange[0]]}
-                  point2={[annotation.x, computedYRange[1]]}
-                  color={Theme.foreground}
-                  style="dashed"
-                  weight={1}
-                />
-              );
-            }
-            // Horizontal reference: if we are in log mode the author declares
-            // the y in original units, transform for the plot.
-            const y = isLog ? Math.log10(Math.max(1e-10, annotation.y)) : annotation.y;
-            return (
-              <Line.Segment
-                key={`h-${i}`}
-                point1={[xRange[0], y]}
-                point2={[xRange[1], y]}
-                color={Theme.foreground}
-                style="dashed"
-                weight={1}
-              />
-            );
-          })}
-          {annotations?.map((annotation, i) => {
-            if (annotation.label === undefined) return null;
-            if (annotation.type === 'verticalLine') {
-              return (
-                <Text
-                  key={`vl-${i}`}
-                  x={annotation.x}
-                  y={computedYRange[1] * 0.95}
-                  attach="e"
-                  color={Theme.foreground}
-                >
-                  {annotation.label}
-                </Text>
-              );
-            }
-            const y = isLog ? Math.log10(Math.max(1e-10, annotation.y)) : annotation.y;
-            return (
-              <Text
-                key={`hl-${i}`}
-                x={xRange[1] * 0.95}
-                y={y}
-                attach="n"
-                color={Theme.foreground}
-              >
-                {annotation.label}
-              </Text>
-            );
-          })}
-        </Mafs>
+      <div style={{ height: `${height}px` }} className="text-ink">
+        <ResponsiveLine
+          data={series}
+          colors={colors}
+          margin={{ top: 20, right: legendVisible ? 130 : 30, bottom: 50, left: 60 }}
+          xScale={{ type: 'linear', min: xRange[0], max: xRange[1] }}
+          yScale={yScale}
+          axisTop={null}
+          axisRight={null}
+          axisBottom={{
+            legend: xLabel,
+            legendOffset: 36,
+            legendPosition: 'middle',
+            tickSize: 4,
+            tickPadding: 4,
+          }}
+          axisLeft={{
+            legend: yLabel,
+            legendOffset: -50,
+            legendPosition: 'middle',
+            tickSize: 4,
+            tickPadding: 4,
+            format: isLog ? formatLogTick : undefined,
+          }}
+          enablePoints={false}
+          enableGridX={false}
+          enableGridY={true}
+          curve="linear"
+          isInteractive={true}
+          useMesh={true}
+          enableSlices={false}
+          layers={[
+            'grid',
+            'markers',
+            'axes',
+            'areas',
+            'crosshair',
+            'lines',
+            annotationLayer,
+            'points',
+            'slices',
+            'mesh',
+            'legends',
+          ]}
+          legends={
+            legendVisible
+              ? [
+                  {
+                    anchor: 'right',
+                    direction: 'column',
+                    justify: false,
+                    translateX: 110,
+                    translateY: 0,
+                    itemWidth: 100,
+                    itemHeight: 20,
+                    itemsSpacing: 4,
+                    symbolSize: 12,
+                    symbolShape: 'square',
+                  },
+                ]
+              : []
+          }
+          theme={{
+            background: 'transparent',
+            text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 12 },
+            axis: {
+              domain: { line: { stroke: 'var(--nl-mathplot-axis, currentColor)', strokeWidth: 1 } },
+              ticks: {
+                line: { stroke: 'var(--nl-mathplot-axis, currentColor)', strokeWidth: 1 },
+                text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 11 },
+              },
+              legend: { text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 12 } },
+            },
+            grid: { line: { stroke: 'var(--nl-mathplot-grid, currentColor)', strokeOpacity: 0.15 } },
+            legends: { text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 11 } },
+            tooltip: {
+              container: {
+                background: 'var(--nl-surface, white)',
+                color: 'var(--nl-mathplot-fg, black)',
+                fontSize: 11,
+              },
+            },
+          }}
+        />
       </div>
-      {legendVisible && (
-        <ul className="flex flex-wrap gap-3 border-t border-rule bg-sunk px-3 py-2 font-mono text-3xs uppercase tracking-wide text-ink-faint">
-          {functions.map((f, i) => (
-            <li key={f.label} className="flex items-center gap-1.5">
-              <span
-                aria-hidden="true"
-                className="inline-block h-0.5 w-4"
-                style={{ backgroundColor: colorOf(f.color, i) }}
-              />
-              <span>{f.label}</span>
-            </li>
-          ))}
-        </ul>
-      )}
+      {/*
+       * Theme-aware tokens for Nivo. `light-dark()` lets the browser pick per
+       * active theme; declaring both at the container makes the plot read
+       * right in system, light, and dark. Grid gets a low-opacity ink for the
+       * matplotlib-style thin lines.
+       */}
+      <style>{`
+        [data-mathplot-type] {
+          --nl-mathplot-fg: light-dark(rgb(17 24 39), rgb(226 232 240));
+          --nl-mathplot-axis: light-dark(rgb(71 85 105), rgb(148 163 184));
+          --nl-mathplot-grid: light-dark(rgb(148 163 184), rgb(100 116 139));
+        }
+      `}</style>
     </figure>
   );
 }
