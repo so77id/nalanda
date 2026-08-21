@@ -1,4 +1,4 @@
-import { Loader, Maximize2, Minimize2, Play } from 'lucide-react';
+import { Loader, Play } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
 import type { RuntimeId } from '../../lib/runtimeIds';
@@ -104,7 +104,7 @@ export function Benchmark({
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<string>('');
   const [results, setResults] = useState<Map<string, RunResult> | null>(null);
-  const [zoomedIndex, setZoomedIndex] = useState<number | null>(null);
+  const [activeImplIndex, setActiveImplIndex] = useState<number>(0);
 
   const runAll = useCallback(async () => {
     if (implementations === undefined || implementations.length === 0) return;
@@ -208,49 +208,37 @@ export function Benchmark({
       </header>
 
       {/*
-       * Fixed-height stack: the three cards together occupy the same vertical
-       * budget the widget always had (before the vertical layout split). Each
-       * card owns 1/N of that budget via `flex-1 basis-0 min-h-0`, with the
-       * editor inside carrying its own scroll. When one card is zoomed the
-       * others render null and the surviving card takes the full budget
-       * without changing the parent's height.
+       * Tabs above one full-width CodeEditor. The tabs share the same visual
+       * language as ComplexityCounter's case tabs — user already knows what
+       * a bordered underline row means. Only the selected implementation
+       * renders its editor; the runtime state (results, running) applies to
+       * ALL implementations because Run runs the whole set.
        */}
-      <div className="flex flex-col gap-2 border-t border-rule bg-sunk p-2" style={{ height: '28rem' }}>
-        {implementations.map((impl, i) => {
-          if (zoomedIndex !== null && zoomedIndex !== i) return null;
-          const isZoomed = zoomedIndex === i;
-          return (
-            <div
-              key={impl.name}
-              className="flex min-h-0 flex-1 basis-0 flex-col overflow-hidden rounded border border-rule bg-surface"
-            >
-              <div className="flex items-center justify-between border-b border-rule bg-sunk px-2 py-1 text-3xs font-mono uppercase tracking-wide text-ink-faint">
-                <span>{impl.name}</span>
-                <button
-                  type="button"
-                  onClick={() => setZoomedIndex(isZoomed ? null : i)}
-                  aria-label={
-                    isZoomed
-                      ? `Volver a ver las ${implementations.length} implementaciones`
-                      : `Ampliar ${impl.name}`
-                  }
-                  aria-pressed={isZoomed}
-                  className="rounded p-0.5 text-ink-faint hover:bg-surface hover:text-ink"
-                >
-                  {isZoomed ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
-                </button>
-              </div>
-              <div className="min-h-0 flex-1 overflow-auto">
-                <LazyCodeEditor
-                  language={language}
-                  variant="read"
-                  showFileName={false}
-                  defaultValue={impl.code}
-                />
-              </div>
-            </div>
-          );
-        })}
+      <div className="flex border-b border-rule bg-sunk">
+        {implementations.map((impl, i) => (
+          <button
+            key={impl.name}
+            type="button"
+            onClick={() => setActiveImplIndex(i)}
+            aria-pressed={i === activeImplIndex}
+            className={
+              i === activeImplIndex
+                ? 'border-b-2 border-accent px-3 py-1 font-mono text-xs font-medium text-ink'
+                : 'border-b-2 border-transparent px-3 py-1 font-mono text-xs text-ink-soft hover:text-ink'
+            }
+          >
+            {impl.name}
+          </button>
+        ))}
+      </div>
+      <div className="border-b border-rule">
+        <LazyCodeEditor
+          key={implementations[activeImplIndex]?.name ?? 'benchmark-code'}
+          language={language}
+          variant="read"
+          showFileName={false}
+          defaultValue={implementations[activeImplIndex]?.code ?? ''}
+        />
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-rule px-3 py-2">

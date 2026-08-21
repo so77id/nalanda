@@ -718,8 +718,10 @@ exponencial ya no se puede.
 
 <MathPlot
   type="curves"
-  title="Órdenes de crecimiento"
-  xRange={[1, 20]}
+  title="Órdenes de crecimiento (escala logarítmica en Y)"
+  xRange={[1, 100]}
+  yRange={[1, 100000]}
+  scale="log"
   functions={[
     { label: "1", fn: () => 1, color: "orange" },
     { label: "lg n", fn: (n) => Math.log2(n), color: "green" },

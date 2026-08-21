@@ -146,16 +146,24 @@ describe('Benchmark', () => {
     expect(screen.getByText(/falta la prop/i)).toBeInTheDocument();
   });
 
-  it("renders one editor per implementation, each seeded with the author's source", async () => {
+  it('renders ONE editor at a time driven by the active tab', async () => {
     render(<Benchmark implementations={IMPLS} />);
 
-    const codes = await screen.findAllByTestId('code');
-    expect(codes).toHaveLength(2);
+    // The active tab (first one by default) is shown; the other's code is
+    // NOT rendered until the user clicks the other tab. This is the tabs
+    // redesign — a single wide editor swaps its source rather than three
+    // cramped ones sharing the vertical budget.
+    const code = await screen.findByTestId('code');
     await waitFor(() =>
-      expect((codes[0] as HTMLTextAreaElement).value).toContain('public class SumaCiclo'),
+      expect((code as HTMLTextAreaElement).value).toContain('public class SumaCiclo'),
     );
+
+    // Click the second tab: the editor swaps to that implementation.
+    await userEvent.click(screen.getByRole('button', { name: 'sumaFormula' }));
     await waitFor(() =>
-      expect((codes[1] as HTMLTextAreaElement).value).toContain('public class SumaFormula'),
+      expect((screen.getByTestId('code') as HTMLTextAreaElement).value).toContain(
+        'public class SumaFormula',
+      ),
     );
   });
 
