@@ -40,12 +40,15 @@ con que uno de los dos valores deje de ser un entero para que la clase
 existente deje de aplicar y aparezca la pregunta que motiva todo el
 material que sigue: **¿cuántas clases `Pair` son necesarias en total?**
 
-La respuesta ingenua es una por combinación de tipos. Con dos tipos
-posibles, cuatro clases; con tres tipos, nueve; con cuatro tipos, dieciséis.
-El crecimiento es cuadrático en la cantidad de tipos, y todas las clases
-comparten el mismo cuerpo: dos campos, un constructor, dos getters. Lo
-único que cambia entre una clase y la siguiente son los nombres de los
-tipos.
+La respuesta ingenua es una por combinación de tipos. Como un `Pair`
+distingue el orden entre el primer y el segundo campo, cada par ordenado
+`(A, B)` cuenta como una combinación distinta de cada `(B, A)`: con dos
+tipos posibles hacen falta cuatro clases (`IntInt`, `StringString`,
+`IntString`, `StringInt`); con tres tipos, nueve; con cuatro, dieciséis.
+El crecimiento es cuadrático en la cantidad de tipos —$n^2$ para $n$
+tipos disponibles—, y todas las clases comparten el mismo cuerpo: dos
+campos, un constructor, dos getters. Lo único que cambia entre una clase
+y la siguiente son los nombres de los tipos.
 </Slide>
 
 <Slide title="Una clase por combinación">
@@ -199,23 +202,15 @@ exige cast. La expresión `edades.first() + edades.second()` compila como
 suma de enteros porque el compilador conoce la ligadura de `T` a `Integer`
 para esa instancia. **La segunda**: pasar `"hola"` a `new Pair<Integer>(...)`
 es rechazado en compilación, no en ejecución.
-</Slide>
 
-<Slide title="Convención de nombres · T, E, K, V">
-La letra empleada como parámetro de tipo es una **convención**, no una
-regla del lenguaje. Cualquier identificador válido funciona; la convención
-del ecosistema Java asigna a cada letra un uso preferente:
-
-- **`T`** — «Type». Contenedor genérico sin significado adicional.
-- **`E`** — «Element». Habitual en colecciones (`List<E>`, `Set<E>`).
-- **`K`, `V`** — «Key, Value». Habitual en mapas (`Map<K, V>`).
-- **`R`** — «Result». Habitual en tipos que devuelven algo (`Function<T, R>`).
-
-Cuando aparecen dos parámetros distintos, las opciones más frecuentes son
-`<A, B>` o `<T, U>`. La letra no altera el comportamiento de la clase; sí
-altera cuánto trabajo cuesta al lector reconocer qué guarda la clase. Un
-`HashMap<K, V>` se lee de un vistazo como «clave-valor» sin necesidad de
-consultar la documentación.
+Un detalle del lenguaje que aparece por primera vez acá: el parámetro de
+tipo sólo puede ligarse a tipos por referencia, no a primitivos. `T` no
+puede ser `int`, sólo `Integer` (su versión objeto, la clase envoltorio).
+Java realiza la conversión entre las dos formas de manera automática
+—**autoboxing** al pasar un `int` donde se espera un `Integer`, **unboxing**
+en el sentido inverso—, y por eso `new Pair<Integer>(20, 21)` funciona
+con literales `int` y `edades.first() + edades.second()` se asigna a un
+`int`.
 </Slide>
 
 ## Pair · A, B
@@ -288,25 +283,9 @@ Las dos instancias pertenecen a la **misma** clase (`Pair`), pero para el
 compilador constituyen tipos diferentes. `Pair<Integer, String>` no es
 `Pair<String, Integer>`; pasar una donde la firma exige la otra no compila.
 La verificación estática que se pierde con `Object` reaparece sin costo
-sintáctico adicional.
-</Slide>
-
-<Slide title="Convenciones · A/B, K/V, T/R">
-Dos parámetros exigen dos letras. La convención más neutra es `<A, B>` —
-«primer parámetro», «segundo parámetro» — y es la que este documento
-utiliza cuando no hay un significado más específico que declarar. Cuando lo
-hay, dos letras determinadas comunican para qué sirve la clase:
-
-- **`<K, V>`** — mapa (`HashMap<K, V>`, `Map.Entry<K, V>`).
-- **`<T, R>`** — función que transforma (`Function<T, R>`): «Type in,
-  Result out».
-- **`<T, U>`** — combinaciones que no son clave-valor ni entrada-salida
-  (`BiFunction<T, U, R>` acumula las dos convenciones anteriores).
-
-La elección de letras no altera la semántica de la clase; el lector que
-reconoce la convención identifica en segundos si el segundo parámetro es un
-valor asociado a una clave, el resultado de una operación o simplemente
-otra cosa.
+sintáctico adicional. En este documento la clase `Pair` genérica utiliza
+`<A, B>` como convención neutra: dos letras contiguas, sin significado
+adicional, tal como se usan en el resto del material.
 </Slide>
 
 ## Comparable
@@ -372,13 +351,10 @@ El `int` devuelto no representa dos valores («menor» o «mayor»); representa
 - **Positivo** — `this` va después que `other`.
 
 Lo que importa es el **signo**, no la magnitud: `-1` y `-483` significan lo
-mismo para `Arrays.sort`. El contrato añade una condición implícita, cuya
-violación motiva la sección siguiente: el valor devuelto debe ser un `int`
-válido, sin desbordamientos silenciosos.
-
-Una clase que implementa `Comparable<Pair<Integer, Integer>>` declara ser
-capaz de compararse con otra instancia del mismo tipo, y `Arrays.sort` la
-acepta como argumento sin modificaciones adicionales.
+mismo para `Arrays.sort`. El contrato añade una condición implícita: el
+valor devuelto debe ser un `int` válido, sin desbordamientos silenciosos,
+condición cuya violación —silenciosa— es una fuente conocida de defectos
+en implementaciones de `compareTo`.
 </Slide>
 
 <Slide title="Un primer intento por resta">
@@ -453,28 +429,64 @@ public class Main {
 </PredictOutput>
 </Slide>
 
-<Slide title="Comparación segura y desempate">
+<Slide title="Comparación segura con Integer.compare">
 La resta `MAX_VALUE - (-MAX_VALUE + 100)` produce un valor que no cabe en
 32 bits con signo. Java aplica aritmética modular sin emitir excepción:
 el resultado se pliega, y el valor devuelto por `compareTo` **pierde la
 garantía** de reflejar el orden real de los operandos — su signo puede
 resultar contrario al esperado, ser cero, o coincidir por casualidad con
-el correcto según los operandos concretos. El algoritmo de ordenamiento
-aplica el método y produce un orden que no corresponde al criterio
-prometido. El compilador y la máquina virtual no dan aviso alguno.
+el correcto según los operandos concretos. El compilador y la máquina
+virtual no dan aviso alguno.
 
 La regla asociada a este fenómeno es directa: **la resta no es una
 comparación segura**. La biblioteca estándar provee `Integer.compare(a, b)`
 —junto con `Long.compare`, `Double.compare` y `Character.compare`— que
 implementa la semántica prometida por la resta sin realizar la resta, y
-por lo tanto sin exponerse al desbordamiento.
+por lo tanto sin exponerse al desbordamiento. Sustituir la resta por
+`Integer.compare` es la corrección directa del método `compareTo`
+mostrado en las slides previas:
 
-Cuando el criterio principal produce empate, la implementación debe
-declarar un criterio de desempate. Comparar los pares por el segundo
-campo y desempatar por el primero —usando el propio `compareTo` del
-`String`, cuya implementación interna sí resta, pero sobre `char` (entero
-sin signo de 16 bits) y sobre longitudes no negativas, dos rangos donde
-la sustracción no desborda un `int`— produce una implementación robusta:
+<CodeEditor
+  language="java"
+  defaultValue={`class Pair implements Comparable<Pair> {
+    private String first;
+    private int second;
+    public Pair(String first, int second) {
+        this.first = first;
+        this.second = second;
+    }
+    public int compareTo(Pair other) {
+        return Integer.compare(this.second, other.second);
+    }
+    public String toString() { return first + "=" + second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair a = new Pair("A", Integer.MAX_VALUE);
+        Pair b = new Pair("B", -Integer.MAX_VALUE + 100);
+        Pair c = new Pair("C", 0);
+
+        Pair[] pares = { a, b, c };
+        java.util.Arrays.sort(pares);
+        for (Pair p : pares) System.out.println(p);
+    }
+}
+`}
+/>
+
+El orden que imprime el programa corresponde al criterio declarado —
+ascendente por `second`— también sobre los valores cercanos a los
+extremos del rango de `int`.
+</Slide>
+
+<Slide title="Desempate en cascada">
+Un criterio de ordenación puede producir **empates**: dos elementos para
+los cuales el criterio principal devuelve cero. Cuando eso ocurre, el
+resultado del `sort` sobre esos elementos queda indefinido si el método
+no declara qué hacer en el empate. Un `compareTo` bien construido
+incorpora un criterio de **desempate**, aplicado únicamente cuando el
+criterio principal devuelve cero:
 
 <CodeEditor
   language="java"
@@ -488,19 +500,18 @@ la sustracción no desborda un `int`— produce una implementación robusta:
     public int compareTo(Pair other) {
         int porSecond = Integer.compare(this.second, other.second);
         if (porSecond != 0) return porSecond;
-        return this.first.compareTo(other.first);
+        return this.first.compareTo(other.first);   // desempate por first
     }
     public String toString() { return first + "=" + second; }
 }
 
 public class Main {
     public static void main(String[] args) {
-        Pair a = new Pair("A", Integer.MAX_VALUE);
-        Pair b = new Pair("B", -Integer.MAX_VALUE + 100);
-        Pair c = new Pair("C", 0);
-        Pair d = new Pair("D", 0);
+        Pair a = new Pair("A", 0);
+        Pair b = new Pair("B", 0);   // empate en second con a
+        Pair c = new Pair("C", 5);
 
-        Pair[] pares = { a, b, c, d };
+        Pair[] pares = { c, b, a };
         java.util.Arrays.sort(pares);
         for (Pair p : pares) System.out.println(p);
     }
@@ -508,12 +519,15 @@ public class Main {
 `}
 />
 
-El patrón —guardar el resultado del primer criterio, devolverlo si es no
-cero, comparar por el segundo criterio en caso contrario— es la forma
-estándar en Java de expresar comparadores compuestos, y produce una
+Dos observaciones sobre el patrón. Primero, `String.compareTo` es una
+elección segura como criterio de desempate: su implementación interna
+resta, sí, pero sobre `char` (entero sin signo de 16 bits) y sobre
+longitudes no negativas, dos rangos donde la sustracción no desborda
+un `int`. Segundo, la forma `guardar el resultado, devolverlo si es no
+cero, comparar por el segundo criterio en caso contrario` es la
+expresión estándar en Java de comparadores compuestos, y produce una
 implementación **correcta**: el orden que declara es el que el programa
-respeta ante cualquier arreglo, incluidos los que contienen los valores
-extremos del rango de `int`.
+respeta ante cualquier arreglo.
 </Slide>
 
 ## Tipos acotados
@@ -573,6 +587,16 @@ public class Pair<A extends Comparable<A>, B extends Comparable<B>>
     }
 }
 ```
+
+El `<T>` que aparece **dentro** de `Comparable<T>` no es decorativo.
+Escribir la cota sin él —`<T extends Comparable>`, usando la interfaz
+en su forma cruda— hace que `compareTo` reciba `Object` y no `T`, con
+lo cual la expresión `this.first.compareTo(other.first)` compila pero
+obliga a un cast interno y pierde la garantía estática de que `other`
+es del mismo tipo que `this`. Escribir `Comparable<T>` es lo que le
+comunica al compilador que la comparación es entre instancias del mismo
+tipo, y es la razón por la cual la cota se declara con la letra que
+repite el parámetro que la cota gobierna.
 
 Dos observaciones sobre la sintaxis. Primero, la palabra clave es
 `extends` aunque `Comparable` sea una interfaz — en las declaraciones
@@ -664,9 +688,13 @@ public interface Comparator<T> {
 ```
 
 El contrato del `int` devuelto es el mismo que el de `compareTo`: tres
-regiones, definidas por el signo. Al ser una interfaz de un solo método,
-cualquier lambda con la firma `(T, T) -> int` la implementa directamente.
-Escribir un criterio a mano ocupa una única línea:
+regiones, definidas por el signo. Al ser una interfaz con un único
+método abstracto —Java llama a esta forma **interfaz funcional**—
+cualquier lambda cuya firma coincida con la del método (aquí,
+`(T, T) -> int`) es una implementación válida de la interfaz: el
+compilador construye por debajo una instancia anónima cuyo `compare`
+tiene el cuerpo de la lambda. Escribir un criterio a mano ocupa una
+única línea:
 
 ```java
 // Orden por el segundo campo, ascendente.
@@ -712,11 +740,9 @@ Comparator<Pair<String, Integer>> porFirstLuegoSecond =
 Arrays.sort(pares, porFirstLuegoSecond);
 ```
 
-La composición equivale al patrón manual con `if` que la implementación de
-`Comparable` de la sección anterior utilizaba, expresado como cadena de
-llamadas en lugar de secuencia de declaraciones. Las combinaciones se
-suman: `porFirst.thenComparing(porSecond).reversed()` invierte el
-criterio compuesto.
+La composición equivale al patrón `if (a != 0) return a; return b;` de un
+`compareTo` con desempate, expresado como cadena de llamadas en lugar de
+secuencia de declaraciones dentro del método.
 </Slide>
 
 <Slide title="Tres órdenes sobre un mismo arreglo">
@@ -772,6 +798,35 @@ veces. El criterio vive en el segundo argumento de `Arrays.sort`, no en
 la definición del tipo. Esta separación entre estructura de datos y
 criterio de comparación es el objeto de estudio central de este bloque
 del material.
+
+`Arrays.sort` reorganiza el arreglo **in-place**: cada llamada reordena
+el mismo objeto según su propio criterio, y el estado en que lo dejó la
+llamada anterior no altera el resultado de la siguiente cuando el
+criterio es un orden total sobre los elementos —como los tres empleados
+acá—. La salida que imprime cada bloque corresponde exclusivamente al
+criterio de ese `sort`.
+</Slide>
+
+<Slide title="Convenciones de nombres · T, E, K, V, R">
+El material recorrió varias clases genéricas —`Pair<T>`, `Pair<A, B>`,
+`Arrays`, `Comparator<T>`, `Comparator<Pair<String, Integer>>`— y en cada
+una la letra del parámetro de tipo se eligió por convención, no por
+regla del lenguaje. La convención del ecosistema Java asigna a cada letra
+un uso preferente:
+
+- **`T`** — «Type». Contenedor genérico sin significado adicional
+  (`Comparable<T>`, `Comparator<T>`).
+- **`E`** — «Element». Habitual en colecciones (`List<E>`, `Set<E>`).
+- **`K`, `V`** — «Key, Value». Habitual en mapas
+  (`Map<K, V>`, `HashMap<K, V>`).
+- **`R`** — «Result». Aparece en tipos que devuelven algo
+  (`Function<T, R>`: «Type in, Result out»).
+- **`A, B`** o **`T, U`** — dos parámetros sin significado específico.
+
+La letra no altera el comportamiento de la clase; sí altera cuánto
+trabajo cuesta al lector reconocer, sin abrir la documentación, qué
+guarda o produce el tipo. Un `HashMap<K, V>` se lee de un vistazo como
+«clave-valor»; un `Function<T, R>` como «entrada, salida».
 </Slide>
 
 ## Ejercicios
