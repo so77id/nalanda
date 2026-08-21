@@ -141,10 +141,13 @@ describe('ComplexityCounter', () => {
   it('prints the closed-form T(n) and its evaluation at the current slider', () => {
     render(<ComplexityCounter code={SUMA_CICLO_CODE} data={SUMA_CICLO_DATA} slider={{ default: 10 }} />);
 
-    const heading = screen.getByRole('heading', { level: 4, name: /T\(n\)/i });
+    const heading = screen.getByRole('heading', { level: 4, name: /construcción de T\(n\)/i });
     const panel = heading.closest('section')!;
+    // Panel prints per-line contributions, the summed expression, the
+    // closed form, and the numeric total at the current slider.
     expect(panel).toHaveTextContent(/4n \+ 4/);
-    expect(panel).toHaveTextContent(/T = 44/);
+    expect(panel).toHaveTextContent(/T\(10\) = 44/);
+    expect(panel).toHaveTextContent(/forma cerrada/);
   });
 
   it('renders three tabs in cases mode and switches the rail on click', async () => {

@@ -268,13 +268,17 @@ export function ComplexityCounter({
         </ul>
       </div>
 
-      <Panel label={`${totalLabel}(${variable})`}>
-        <pre className={`${OUTPUT} bg-sunk text-ink`}>
-          {totalLabel}({variable}) = {active.formula}
-          {'\n'}
-          Para {variable.toUpperCase()} = {n.toLocaleString('es')} → {totalLabel} ={' '}
-          {evaluated.toLocaleString('es')} {unitLabel}
-        </pre>
+      <Panel label={`Construcción de ${totalLabel}(${variable})`}>
+        <pre className={`${OUTPUT} bg-sunk text-ink`}>{renderConstruction({
+          entries: annotationEntries,
+          codeLines,
+          variable,
+          n,
+          formula: active.formula,
+          evaluated,
+          totalLabel,
+          unitLabel,
+        })}</pre>
       </Panel>
     </div>
   );
@@ -316,11 +320,14 @@ function RailRow({
 
   if (hasSub) {
     // For-header: aggregate the sub-ops' contribution and display it as the
-    // headline. The sub-ops appear only when expanded.
+    // headline. The header shows BOTH the literal summed expression
+    // (`1 + (n+1) + n`) and its numeric evaluation at the current slider
+    // (`= 22`). Sub-ops appear only when expanded.
     const totalOe = ann.sub!.reduce(
       (sum, s) => sum + s.oe * evaluateFormula(s.times, variable, n),
       0,
     );
+    const literalSum = ann.sub!.map((s) => termLiteral(s.oe, s.times)).join(' + ');
     return (
       <>
         <li className={`flex items-start gap-2 px-3 py-1.5 ${activeClass}`} {...hoverProps}>
@@ -341,8 +348,9 @@ function RailRow({
               <code className="truncate">{lineText.trim()}</code>
             </div>
             <div className="pl-8 text-3xs text-ink-faint">
-              control · aporta <span className="text-ink">{totalOe.toLocaleString('es')}</span>{' '}
-              {unitLabel} total
+              control · {literalSum}{' '}
+              <span className="text-ink-faint">[{variable}={n.toLocaleString('es')}]</span> ={' '}
+              <span className="text-ink">{totalOe.toLocaleString('es')}</span> {unitLabel}
             </div>
           </div>
         </li>
@@ -350,6 +358,7 @@ function RailRow({
           ann.sub!.map((sub, i) => {
             const times = evaluateFormula(sub.times, variable, n);
             const contrib = sub.oe * times;
+            const isConst = isConstantTimes(sub.times);
             return (
               <li
                 key={`sub-${i}`}
@@ -361,13 +370,13 @@ function RailRow({
                       {sub.label}
                     </span>
                     <span className="text-3xs">
-                      {sub.oe} {unitLabel} · {sub.times} ={' '}
-                      {times.toLocaleString('es')}
+                      {sub.oe} {unitLabel} · {sub.times}
+                      {!isConst && (
+                        <span className="text-ink-faint"> [{variable}={n.toLocaleString('es')}]</span>
+                      )}
+                      {' = '}
+                      <span className="text-ink">{contrib.toLocaleString('es')}</span>
                     </span>
-                  </div>
-                  <div className="text-3xs text-ink-faint">
-                    aporta <span className="text-ink">{contrib.toLocaleString('es')}</span>{' '}
-                    {unitLabel}
                   </div>
                 </div>
               </li>
@@ -377,10 +386,14 @@ function RailRow({
     );
   }
 
-  // Plain row: OE × times → aporte total.
+  // Plain row: OE × times → aporte total. When `times` is not the constant
+  // `1` we also show the substitution `[n=N]` so the algebra and the number
+  // sit side by side.
   const oe = ann.oe ?? 0;
-  const times = ann.times !== undefined ? evaluateFormula(ann.times, variable, n) : 0;
+  const timesStr = ann.times ?? '1';
+  const times = evaluateFormula(timesStr, variable, n);
   const contrib = oe * times;
+  const isConst = isConstantTimes(timesStr);
   return (
     <li className={`flex items-start gap-2 px-3 py-1.5 ${activeClass}`} {...hoverProps}>
       <div className="min-w-0 flex-1">
@@ -389,19 +402,105 @@ function RailRow({
           <code className="truncate">{lineText.trim()}</code>
         </div>
         <div className="pl-8 text-3xs text-ink-faint">
-          {oe} {unitLabel}
-          {ann.times !== undefined && (
-            <>
-              {' · '}
-              {ann.times} = {times.toLocaleString('es')}
-              {' → aporta '}
-              <span className="text-ink">{contrib.toLocaleString('es')}</span> {unitLabel}
-            </>
+          {oe} {unitLabel} · {timesStr} {isConst ? (timesStr === '1' ? 'vez' : 'veces') : 'veces'}
+          {!isConst && (
+            <span className="text-ink-faint"> [{variable}={n.toLocaleString('es')}]</span>
           )}
+          {' → aporta '}
+          <span className="text-ink">{contrib.toLocaleString('es')}</span> {unitLabel}
         </div>
       </div>
     </li>
   );
+}
+
+/**
+ * Formats one OE × times term for the construction expression.
+ * `termLiteral(1, '1') → "1"`, `termLiteral(2, 'n') → "2·n"`,
+ * `termLiteral(1, 'n+1') → "(n+1)"`.
+ */
+function termLiteral(oe: number, times: string): string {
+  const t = times.trim();
+  if (oe === 1 && t === '1') return '1';
+  if (oe === 1) return needsParens(t) ? `(${t})` : t;
+  if (t === '1') return String(oe);
+  return needsParens(t) ? `${oe}·(${t})` : `${oe}·${t}`;
+}
+
+function needsParens(expr: string): boolean {
+  // Wrap in parens if it contains any operator so the printed sum reads
+  // unambiguously (`1·(n+1)`, `2·(n*(n+1)/2)`).
+  return /[+\-*/]/.test(expr);
+}
+
+function isConstantTimes(times: string): boolean {
+  return /^\s*\d+(\.\d+)?\s*$/.test(times);
+}
+
+/**
+ * Renders the "Construcción de T(n)" text panel. One row per annotated line,
+ * each showing the line's contribution expression and its evaluated value;
+ * a running "T(n) = ..." summary at the bottom with the closed-form formula
+ * and the total at the current slider.
+ */
+function renderConstruction({
+  entries,
+  codeLines,
+  variable,
+  n,
+  formula,
+  evaluated,
+  totalLabel,
+  unitLabel,
+}: {
+  entries: readonly (readonly [number, LineAnnotation])[];
+  codeLines: string[];
+  variable: string;
+  n: number;
+  formula: string;
+  evaluated: number;
+  totalLabel: string;
+  unitLabel: string;
+}): string {
+  const rows: { label: string; term: string; value: number }[] = [];
+  for (const [lineNum, ann] of entries) {
+    const codeText = (codeLines[lineNum - 1] ?? '').trim();
+    const label = `L${lineNum} ${truncate(codeText, 34)}`;
+    if (ann.sub !== undefined && ann.sub.length > 0) {
+      const term = ann.sub.map((s) => termLiteral(s.oe, s.times)).join(' + ');
+      const value = ann.sub.reduce((sum, s) => sum + s.oe * evaluateFormula(s.times, variable, n), 0);
+      rows.push({ label, term, value });
+    } else {
+      const oe = ann.oe ?? 0;
+      const timesStr = ann.times ?? '1';
+      rows.push({
+        label,
+        term: termLiteral(oe, timesStr),
+        value: oe * evaluateFormula(timesStr, variable, n),
+      });
+    }
+  }
+  // Column widths for aligned monospace layout.
+  const labelW = Math.max(...rows.map((r) => r.label.length), 0);
+  const termW = Math.max(...rows.map((r) => r.term.length), 0);
+  const perLine = rows
+    .map(
+      (r) =>
+        `  ${r.label.padEnd(labelW)}   ${r.term.padEnd(termW)}   =  ${r.value.toLocaleString('es')}`,
+    )
+    .join('\n');
+  const sumExpr = rows.map((r) => (r.term.includes('+') ? `(${r.term})` : r.term)).join(' + ');
+  return (
+    `Aporte de cada línea (${variable} = ${n.toLocaleString('es')}):\n` +
+    `${perLine}\n\n` +
+    `${totalLabel}(${variable}) = ${sumExpr}\n` +
+    `       = ${formula}    (forma cerrada)\n\n` +
+    `Para ${variable} = ${n.toLocaleString('es')}  →  ${totalLabel}(${n.toLocaleString('es')}) = ${evaluated.toLocaleString('es')} ${unitLabel}`
+  );
+}
+
+function truncate(s: string, max: number): string {
+  return s.length <= max ? s : s.slice(0, max - 1) + '…';
 }
 
 /**
