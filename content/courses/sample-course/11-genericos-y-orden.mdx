@@ -501,6 +501,120 @@ también implementa `Comparable`, así que `first.compareTo(other.first)`
 funciona sin más — y no tiene el bug de resta, porque no hay resta detrás.
 </Slide>
 
+## Bounded types · T extends Comparable · T
+
+<Slide title="El Pair no puede ordenarse todavía">
+La `Pair` de §4 sirve para un caso concreto — `first` es `String`, `second`
+es `int` —, y su `compareTo` está escrito a mano contra esos tipos. Ahora
+querés que **cualquier** `Pair<A, B>` sea ordenable, siempre que sus dos
+tipos sean ordenables. Volvés al `Pair<A, B>` genérico de §3 y probás:
+
+```java
+public class Pair<A, B> implements Comparable<Pair<A, B>> {
+    private A first;
+    private B second;
+    public Pair(A first, B second) { this.first = first; this.second = second; }
+    public A first()  { return first; }
+    public B second() { return second; }
+
+    public int compareTo(Pair<A, B> other) {
+        return this.first.compareTo(other.first);   // ← ¡no compila!
+    }
+}
+```
+
+El compilador se detiene: `first` es del tipo `A`, y sobre un `A` cualquiera
+no existe el método `compareTo`. `A` podría ser cualquier cosa — una clase
+tuya sin nada implementado, un `Object` pelado. Java te pide que le prometas,
+en la firma de la clase, que `A` sabe compararse.
+</Slide>
+
+<Slide title="La sintaxis: extends Comparable">
+Un parámetro de tipo puede llevar una **cota** — la promesa de que solo
+aceptará tipos que satisfagan una condición. La forma es `<T extends X>`, y
+en el mundo de `Comparable` la cota que necesitás se repite bastante:
+`<T extends Comparable<T>>` significa «cualquier `T` que sepa compararse con
+otro `T`».
+
+Con dos parámetros, se repite dos veces:
+
+```java
+public class Pair<A extends Comparable<A>, B extends Comparable<B>>
+        implements Comparable<Pair<A, B>> {
+    private A first;
+    private B second;
+    public Pair(A first, B second) { this.first = first; this.second = second; }
+    public A first()  { return first; }
+    public B second() { return second; }
+
+    public int compareTo(Pair<A, B> other) {
+        int porFirst = this.first.compareTo(other.first);
+        if (porFirst != 0) return porFirst;
+        return this.second.compareTo(other.second);
+    }
+}
+```
+
+Dos observaciones. Primero, **la palabra es `extends`** aunque `Comparable`
+sea una interfaz — en la firma de un genérico, `extends` cubre las dos
+cosas. Segundo, la cota afecta al **compilador**, no al runtime: el objeto
+en el heap sigue siendo el mismo, la promesa vive en el sitio donde
+instanciás la clase. `Pair<Integer, String>` compila porque `Integer` y
+`String` implementan `Comparable`; `Pair<Object, String>` no compila, y el
+error aparece donde escribís `Pair<Object, String>`, no dentro de la clase.
+</Slide>
+
+<Slide title="El mismo Pair, dos combinaciones ordenables">
+La clase se escribió una sola vez y ordena cualquier combinación de tipos
+que sepan compararse — `Pair<Integer, String>` y `Pair<String, Integer>`
+funcionan sin tocar la clase, y `Arrays.sort` sabe qué hacer con las dos:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Pair<A extends Comparable<A>, B extends Comparable<B>>
+        implements Comparable<Pair<A, B>> {
+    private A first;
+    private B second;
+    public Pair(A first, B second) { this.first = first; this.second = second; }
+    public A first()  { return first; }
+    public B second() { return second; }
+
+    public int compareTo(Pair<A, B> other) {
+        int porFirst = this.first.compareTo(other.first);
+        if (porFirst != 0) return porFirst;
+        return this.second.compareTo(other.second);
+    }
+    public String toString() { return "(" + first + ", " + second + ")"; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair<Integer, String>[] numerados = new Pair[]{
+            new Pair<Integer, String>(3, "gamma"),
+            new Pair<Integer, String>(1, "beta"),
+            new Pair<Integer, String>(1, "alfa"),      // empate en first con el anterior
+        };
+        java.util.Arrays.sort(numerados);
+        for (Pair<Integer, String> p : numerados) System.out.println(p);
+        System.out.println("---");
+
+        Pair<String, Integer>[] etiquetados = new Pair[]{
+            new Pair<String, Integer>("beta", 2),
+            new Pair<String, Integer>("alfa", 9),
+            new Pair<String, Integer>("alfa", 1),      // empate en first con el anterior
+        };
+        java.util.Arrays.sort(etiquetados);
+        for (Pair<String, Integer> p : etiquetados) System.out.println(p);
+    }
+}
+`}
+/>
+
+Fijate que la misma línea — `Arrays.sort(...)` — funciona sobre los dos
+arreglos. El primer criterio es el `first`; cuando empatan, entra el
+`second` a desempatar. Todo la clase lo escribió una sola vez.
+</Slide>
+
 ## Ejercicios
 
 Los cuatro problemas de este documento viven acá, al final. Cada uno tiene el
@@ -596,6 +710,7 @@ PuntoDosD a = new PuntoDosD(3, 7);
 PuntoDosD b = new PuntoDosD(1, 7);
 PuntoDosD c = new PuntoDosD(9, 2);
 PuntoDosD d = new PuntoDosD(0, 2);
+// n = 4, muy por debajo del tope n ≤ 100.
 
 // Empate en y: c y d ambos y=2 — el de menor x va primero.
 check(a.compareTo(b) > 0, true);           // (3,7) va después de (1,7)
@@ -620,6 +735,76 @@ check(puntos[2].getY(), 7);
 check(puntos[2].getX(), 1);
 check(puntos[3].getY(), 7);
 check(puntos[3].getX(), 3);
+```
+
+</Exercise>
+
+<Exercise title="3. Un método genérico con dos cotas">
+
+La clase `Pair<A, B>` provista **no** implementa `Comparable`, así que
+`Arrays.sort(arr)` no la aceptaría. Escribí un **método genérico** que
+reciba un `Pair<A, B>[]` y lo ordene **por `first` ascendente** — con
+`second` como desempate — usando `.compareTo` sobre los campos.
+
+La firma del método debe declarar **sus propios** parámetros de tipo con
+sus cotas, entre `static` y `void`, así:
+
+```java
+static <A extends Comparable<A>, B extends Comparable<B>> void ordenar(Pair<A, B>[] arr)
+```
+
+El cuerpo puede usar cualquier algoritmo cuadrático (insertion sort,
+selection sort) — los tests usan `n ≤ 20`. Nada de recursión, ninguna
+llamada a `Arrays.sort`.
+
+```java starter
+class Pair<A, B> {
+    A first;
+    B second;
+    Pair(A first, B second) { this.first = first; this.second = second; }
+}
+
+class Solution {
+    // Ordena in-place por first ascendente, con second como desempate.
+    // Solo se puede usar arr[i].first.compareTo(...) y arr[i].second.compareTo(...).
+    static <A extends Comparable<A>, B extends Comparable<B>> void ordenar(Pair<A, B>[] arr) {
+        // Tu código acá.
+    }
+}
+```
+
+```java test
+Pair<Integer, String>[] a = new Pair[]{
+    new Pair<Integer, String>(3, "z"),
+    new Pair<Integer, String>(1, "b"),
+    new Pair<Integer, String>(1, "a"),
+    new Pair<Integer, String>(2, "m"),
+};
+Solution.ordenar(a);
+check(a[0].first, 1); check(a[0].second, "a");
+check(a[1].first, 1); check(a[1].second, "b");
+check(a[2].first, 2); check(a[2].second, "m");
+check(a[3].first, 3); check(a[3].second, "z");
+
+// La misma firma sirve con los tipos al revés.
+Pair<String, Integer>[] b = new Pair[]{
+    new Pair<String, Integer>("gamma", 7),
+    new Pair<String, Integer>("alfa",  9),
+    new Pair<String, Integer>("alfa",  1),
+};
+Solution.ordenar(b);
+check(b[0].first, "alfa"); check(b[0].second, 1);
+check(b[1].first, "alfa"); check(b[1].second, 9);
+check(b[2].first, "gamma"); check(b[2].second, 7);
+
+// Un arreglo con un solo elemento y otro vacío quedan como estaban.
+Pair<Integer, Integer>[] uno = new Pair[]{ new Pair<Integer, Integer>(5, 5) };
+Solution.ordenar(uno);
+check(uno[0].first, 5);
+
+Pair<Integer, Integer>[] vacio = new Pair[0];
+Solution.ordenar(vacio);
+check(vacio.length, 0);
 ```
 
 </Exercise>
