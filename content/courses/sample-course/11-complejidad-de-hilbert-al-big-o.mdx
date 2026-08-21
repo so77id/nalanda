@@ -264,3 +264,274 @@ Hilbert 40 años después: *"no, no existe la máquina universal que soñabas."*
 bucle terminará para cualquier input. El halting problem no es una curiosidad de los 30 —
 es la razón por la que hay bugs que ninguna herramienta puede descartar automáticamente.
 </Slide>
+
+<SectionBreak />
+
+<Slide title="Aquí nace la ciencia de la computación">
+- **1936** no fue solo el año en que se respondió el Entscheidungsproblem.
+- Fue el año en que, como subproducto, **quedó formalmente definido qué es un algoritmo**.
+- Con esa definición en la mano, la disciplina tuvo su primer objeto de estudio propio: **el
+  algoritmo como entidad matemática**, independiente de quién lo ejecute.
+- Diez años después llegaron las computadoras físicas (ENIAC, 1946). **La teoría precedió al
+  hardware.**
+- Todo lo que estudiarán en esta carrera — algoritmos, estructuras de datos, lenguajes,
+  sistemas operativos, redes, IA, criptografía, complejidad, seguridad — **hereda de este
+  momento**.
+- **Sin la crisis de Hilbert no habría ciencia de la computación.**
+
+*"Ustedes están estudiando el residuo productivo de un fracaso matemático extraordinario."*
+
+**Video recomendado**: ["Las Matemáticas Tienen Una FALLA Descomunal"](https://www.youtube.com/watch?v=RRg38oNQ9vk)
+— Veritasium en Español, 2021. Recorre el arco completo: Cantor → Russell → Gödel → Turing
+→ computadoras. Mejor recap visual de los Actos 1 y 2.
+</Slide>
+
+<SectionBreak />
+
+<Slide title="Llegan las máquinas físicas (1946)">
+- **ENIAC** (1946): primera computadora electrónica de propósito general. 30 toneladas,
+  18.000 tubos de vacío, ocupaba una sala entera.
+- Por primera vez los algoritmos **se pueden ejecutar físicamente**, no solo pensar en
+  papel.
+- La teoría de Turing (1936) precedió al hardware por **10 años**.
+- Pero para que esa teoría se convirtiera en máquinas **usables**, faltaba una pieza — la
+  **arquitectura**. Ahí entra el otro padre de la computación.
+</Slide>
+
+<Slide title="John von Neumann">
+- **John von Neumann** — Hungría-EE.UU., 1903–1957. Matemático polímata, uno de los
+  intelectos más versátiles del siglo XX.
+- Trabajos que lo hicieron famoso (siempre múltiples campos a la vez):
+  - **Teoría de juegos** (1928, 1944) — base matemática de economía moderna.
+  - **Mecánica cuántica** — formalización matemática rigurosa.
+  - **Proyecto Manhattan** — cálculos para la bomba atómica.
+  - **Meteorología numérica** — primeras predicciones del clima con computadora.
+  - **Autómatas celulares** — precursor conceptual de la vida artificial.
+- Para la ciencia de la computación, la contribución central:
+  - **Arquitectura Von Neumann** (1945, *"First Draft of a Report on the EDVAC"*) — **CPU
+    + memoria + I/O**, con **programa y datos guardados en la misma memoria**.
+  - **Antes** de Von Neumann: las computadoras se **re-cableaban físicamente** para cada
+    nuevo programa (ENIAC funcionaba así).
+  - **Después** de Von Neumann: el programa se carga como datos — igual que hacemos hoy en
+    cualquier laptop.
+  - **Todas las computadoras que usamos hoy** — laptops, teléfonos, servidores, consolas —
+    son *"máquinas de Von Neumann"*.
+- Anécdota: Von Neumann leyó el paper de Turing (1936) y quedó tan impresionado que le
+  ofreció quedarse en Princeton como su asistente. Turing declinó y volvió a Inglaterra.
+- **Junto con Turing, padre de la ciencia de la computación**:
+  - Turing → definió *qué se puede computar* (teoría).
+  - Von Neumann → definió *cómo construir la máquina que lo compute* (arquitectura).
+</Slide>
+
+<Slide title="Volvemos a la pregunta del principio">
+Con **la teoría de Turing** y **la arquitectura de Von Neumann**, por primera vez los
+algoritmos son entidades matemáticas **y** máquinas físicas ejecutables.
+
+**La pregunta cambia**:
+- *Antes* (herencia de Hilbert): *"¿es computable?"* — decidibilidad.
+- *Ahora* (nueva disciplina): *"¿cuánto cuesta computarlo?"* — **eficiencia**.
+
+La clase empezó con: *"¿cómo sabemos si un algoritmo es mejor que otro?"* Es la misma
+pregunta desde el otro lado.
+
+Con computadoras físicas, la respuesta intuitiva es: **medir con cronómetro**.
+
+Antes de correr al cronómetro, necesitamos un **problema concreto** sobre el que trabajar
+durante el resto de la clase. Uno simple, familiar, y con **varias soluciones correctas**:
+
+> **Sumar los primeros N naturales.** Dado un entero N ≥ 1, devolver S = 1 + 2 + … + N.
+
+Este va a ser el **hilo conductor** hasta el cierre.
+</Slide>
+
+<Slide title="Tres soluciones que funcionan">
+Los tres códigos Java lado a lado:
+
+```java
+int sumaDobleCiclo(int n) {
+    int s = 0;
+    for (int i = 1; i <= n; i++)
+        for (int j = 1; j <= i; j++)
+            s = s + 1;
+    return s;
+}
+
+int sumaCiclo(int n) {
+    int s = 0;
+    for (int i = 1; i <= n; i++)
+        s = s + i;
+    return s;
+}
+
+int sumaFormula(int n) {
+    return n * (n + 1) / 2;
+}
+```
+
+Los tres devuelven **exactamente el mismo valor** para cada N ≥ 1. Están todos correctos.
+
+**¿Cuál elijo?**
+</Slide>
+
+<Slide title="El cronómetro parece la respuesta obvia — Ejercicio en vivo">
+Presentamos `System.nanoTime()`: mido cada solución, comparo, elijo la más rápida.
+
+<Benchmark
+  implementations={[
+    { name: "sumaDobleCiclo", code: `import java.util.Scanner;
+
+public class SumaDobleCiclo {
+    static long suma(int n) {
+        long s = 0;
+        for (int i = 1; i <= n; i++)
+            for (int j = 1; j <= i; j++)
+                s = s + 1;
+        return s;
+    }
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        long t0 = System.nanoTime();
+        long r = suma(n);
+        long t1 = System.nanoTime();
+        System.out.println("time_ns:" + (t1 - t0));
+        System.out.println("result:" + r);
+    }
+}
+`, entryClass: "SumaDobleCiclo" },
+    { name: "sumaCiclo", code: `import java.util.Scanner;
+
+public class SumaCiclo {
+    static long suma(int n) {
+        long s = 0;
+        for (int i = 1; i <= n; i++) s = s + i;
+        return s;
+    }
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        long t0 = System.nanoTime();
+        long r = suma(n);
+        long t1 = System.nanoTime();
+        System.out.println("time_ns:" + (t1 - t0));
+        System.out.println("result:" + r);
+    }
+}
+`, entryClass: "SumaCiclo" },
+    { name: "sumaFormula", code: `import java.util.Scanner;
+
+public class SumaFormula {
+    static long suma(int n) {
+        return (long) n * (n + 1) / 2;
+    }
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        long t0 = System.nanoTime();
+        long r = suma(n);
+        long t1 = System.nanoTime();
+        System.out.println("time_ns:" + (t1 - t0));
+        System.out.println("result:" + r);
+    }
+}
+`, entryClass: "SumaFormula" },
+  ]}
+  inputs={[100, 10000, 100000, 1000000]}
+  defaultInput={100000}
+/>
+
+**Flujo en clase**:
+1. Predicción rápida: *"¿cuál será más rápido para N = 10⁶?"* Que se comprometan con una
+   respuesta.
+2. Profesor corre el widget en vivo y proyecta su tabla.
+3. Cada alumno lo corre en su laptop → cada uno obtiene sus propios tiempos.
+</Slide>
+
+<Slide title="El cronómetro no basta: estoy midiendo el entorno">
+Contraste: tabla del profe vs alumno A vs alumno B vs vecino → números completamente
+distintos. Todos ejecutaron el mismo código.
+
+Fuentes de ruido que están entrando en la medición:
+
+- **Hardware**: CPU, RAM, caché, disco — cada máquina distinta.
+- **Sistema operativo**: no está ejecutando solo tu programa. Reparte CPU entre procesos,
+  mete context switches, atiende interrupciones. Tu algoritmo **se pausa a mitad de la
+  medición sin que lo notes**.
+- **Compilador / JIT**: en Java, el JIT decide *cuándo* compilar y *cuánto* optimizar. Los
+  primeros runs son más lentos porque el código aún está interpretado.
+- **Lenguaje / runtime**: CheerpJ, JVM local, GCC, Python — cada uno con su overhead.
+- **Momento**: procesos en background, GC corriendo, temperatura del CPU (throttling
+  térmico), estado de la batería.
+
+**Idea que se llevan**: cuando cronometras un algoritmo, no estás midiendo el algoritmo —
+estás midiendo *el algoritmo + todo el ambiente que lo rodea*. Ese ambiente cambia entre
+máquinas, entre momentos, y hasta entre corridas consecutivas.
+
+**Pregunta que abre el resto del acto**: *"¿Cómo aíslo el algoritmo del entorno para hablar
+solo de él?"*
+</Slide>
+
+<Slide title="Volver al modelo teórico: de Turing a RAM">
+La respuesta natural es **volver al modelo teórico** — la máquina ideal de Turing, donde un
+"paso" es una unidad universal sin entorno.
+
+Pero hay un problema práctico. En Turing, acceder a `arr[1000]` cuesta ~1000 pasos porque
+la cabeza tiene que **caminar** la cinta celda por celda. Ninguna computadora real funciona
+así.
+
+**Cook y Reckhow (1973)** formalizan la **RAM — Random Access Machine**: un modelo con
+registros direccionables y **acceso O(1) por dirección**.
+
+- **Mismo poder de cómputo**: cualquier cosa computable en Turing lo es en RAM y viceversa.
+- **Distinto costo**: los tiempos difieren en un factor polinómico, pero el **orden
+  asintótico** se conserva para casi todo lo que verán en este curso.
+- **RAM está más cerca de las computadoras reales**; **Turing está más cerca de la teoría
+  de la computación**.
+
+**Regla del curso**: usamos **Turing** como referencia **conceptual** (universalidad) y
+**RAM** como modelo **operativo** cuando contamos operaciones sobre código Java.
+</Slide>
+
+<Slide title="Operaciones Elementales (OE)">
+Sobre el modelo RAM, la unidad de costo se llama **Operación Elemental (OE)**: una
+operación básica que corre en **tiempo constante en la máquina ideal**, independiente del
+tamaño de la entrada.
+
+Lista concreta que usaremos en el curso:
+
+- **Aritmética básica**: `+`, `-`, `*`, `/`, `%`
+- **Comparaciones**: `<`, `>`, `==`, `!=`, `<=`, `>=`
+- **Asignaciones** a variables de tipos básicos: `int x = 5;`
+- **Acceso a arreglo**: `arr[i]` (RAM lo hace en 1 paso).
+- **Llamada a método**: el costo *de llamar*, no del cuerpo.
+
+**Regla del curso**: el **costo temporal** de un algoritmo = **número de OE que ejecuta**
+para una entrada dada. Le pondremos nombre a esa cantidad: **T(N)**, donde N es el tamaño
+de la entrada.
+</Slide>
+
+<Slide title="Primer conteo: un `for` línea a línea">
+Precalentamiento antes de aplicar a las 3 soluciones:
+
+<ComplexityCounter
+  algorithm="for (int i = 0; i < n; i++)"
+  data={{
+    breakdown: [
+      { line: "int i = 0", oe: 1, times: "1" },
+      { line: "i < n", oe: 1, times: "n+1" },
+      { line: "i++", oe: 1, times: "n" },
+    ],
+    formula: "2n + 2",
+    evaluate: (n) => 2 * n + 2,
+  }}
+  slider={{ min: 1, max: 100, default: 10 }}
+/>
+
+Y esto sin contar el cuerpo. Cuando el cuerpo hace algo, se suma.
+
+*"Con esta herramienta, ya podemos contar en serio las tres soluciones al problema
+original."*
+</Slide>
