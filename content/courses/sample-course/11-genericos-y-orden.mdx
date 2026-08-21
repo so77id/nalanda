@@ -108,45 +108,127 @@ tuviste que escribir para llegar hasta ahí: el mismo cuerpo tres veces, con
 dos palabras distintas.
 </Slide>
 
-<Slide title="Un solo Pair para cualquier combinación">
-La otra salida — usar `Object` como campo y castear al leer — quita las tres
-clases pero también quita al compilador de tu lado: `(String) p.first()`
-sobre un par de enteros compila sin quejarse y revienta en runtime. El error
-viaja del compilador al usuario.
-
-Lo que Java te ofrece es una tercera vía, la que va a acompañar todo el
-documento: **una sola clase `Pair`** en la que los tipos de sus campos no se
-fijan al escribir la clase, sino al **instanciarla**. Ese hueco se llama un
-_parámetro de tipo_, y se declara con una letra entre `<...>` al lado del
-nombre de la clase:
+<Slide title="¿Y si un solo Pair sirviera para cualquier combinación?">
+Hay una salida intermedia que suele aparecer primero — un `Pair` cuyos campos
+son `Object`, porque `Object` es el ancestro común de todo tipo por
+referencia. Cualquier cosa entra. El problema es al **sacar**:
 
 ```java
-public class Pair<A, B> {
-    private A first;
-    private B second;
+class Pair {
+    private Object first;
+    private Object second;
+    public Pair(Object a, Object b) { this.first = a; this.second = b; }
+    public Object first()  { return first; }
+    public Object second() { return second; }
+}
 
-    public Pair(A first, B second) {
+Pair p = new Pair(20, "Ana");
+int edad = (Integer) p.first();       // cast al leer
+String s = (String) p.second();       // otra vez
+```
+
+Compila, pero cada uso pide un cast, y — peor — `(String) p.first()` sobre un
+`Integer` compila sin quejarse y **revienta en runtime** con
+`ClassCastException`. El error viaja del compilador al usuario, que es
+justamente lo que Java trata de evitar.
+
+Los **genéricos** son la tercera vía: una sola clase `Pair` cuyos tipos no se
+fijan al escribir la clase, sino al **instanciarla**. Los tipos siguen ahí, y
+el compilador los conoce — nada de casts, nada de sorpresas en runtime. En
+las próximas secciones esa idea se vuelve concreta: primero con **un** hueco
+(`Pair<T>`), después con **dos** (`Pair<A, B>`), y de ahí en adelante todo
+sale del mismo objeto.
+</Slide>
+
+## Pair · T
+
+<Slide title="Un parámetro de tipo — la sintaxis">
+El primer paso es un solo hueco. La clase `Pair` declara un **parámetro de
+tipo** — una letra entre `<...>` al lado del nombre — y lo usa como si fuera
+un tipo cualquiera dentro del cuerpo:
+
+```java
+public class Pair<T> {
+    private T first;
+    private T second;
+
+    public Pair(T first, T second) {
         this.first = first;
         this.second = second;
     }
 
-    public A first()  { return first; }
-    public B second() { return second; }
+    public T first()  { return first; }
+    public T second() { return second; }
 }
-
-// Al instanciar, los huecos se llenan:
-Pair<Integer, String> etiqueta = new Pair<>(12345, "Ana");
-// El compilador ya sabe que etiqueta.first() es Integer,
-// y que etiqueta.second() es String. Sin cast, sin runtime.
 ```
 
-Los `<A, B>` son dos huecos que se rellenan al instanciar. `new Pair<Integer,
-String>(...)` los ata a `Integer` y `String` para esa instancia — no para las
-demás. El compilador ahora **sí** sabe qué devuelven `first()` y `second()`,
-sin cast, y `p.first().charAt(0)` sobre un par de enteros no compila.
+`T` no es un tipo — es una **variable** de tipo. Todavía no vale nada; es un
+hueco. La regla del cuerpo es que en toda la clase esas cuatro `T` se
+refieren al **mismo** tipo, cualquiera que termine siendo.
 
-El resto del documento navega ese `Pair` evolucionando: primero con un solo
-parámetro, después con dos, después ordenable, después ordenable para
-cualquier tipo ordenable, y al final ordenable de varias maneras sin tocar la
-clase.
+Este `Pair<T>` guarda dos cosas **del mismo tipo**: dos enteros, dos textos,
+dos fechas — pero no un entero y un texto. Un solo parámetro es una
+restricción de diseño: dos parámetros llegan en §3.
+</Slide>
+
+<Slide title="Instanciarlo: Pair de enteros, Pair de textos">
+El hueco se rellena al instanciar. `new Pair<Integer>(20, 21)` ata `T` a
+`Integer` **para ese objeto**; una instancia distinta puede atarlo a `String`
+o a lo que necesites, y las dos coexisten sin conflicto:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Pair<T> {
+    private T first;
+    private T second;
+    public Pair(T first, T second) {
+        this.first = first;
+        this.second = second;
+    }
+    public T first()  { return first; }
+    public T second() { return second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair<Integer> edades   = new Pair<Integer>(20, 21);
+        Pair<String>  saludos  = new Pair<String>("hola", "chao");
+
+        // El compilador ya sabe qué devuelve first() y second().
+        int sumaEdades         = edades.first() + edades.second();
+        String junto           = saludos.first() + " y " + saludos.second();
+
+        System.out.println(sumaEdades);
+        System.out.println(junto);
+    }
+}
+`}
+/>
+
+Fijate en dos cosas. La primera: **sin casts**. `edades.first() +
+edades.second()` compila como suma de enteros porque el compilador sabe que
+esa `T` es `Integer`. La segunda: intentá pasar `"hola"` a
+`new Pair<Integer>(...)` — el compilador te frena en el editor, no cuando el
+programa está corriendo.
+</Slide>
+
+<Slide title="T, E, K, V — convención de nombres">
+La letra que se usa como parámetro de tipo es una convención, no una regla
+del lenguaje. Podrías llamarla `MiTipoDeCosa` y funcionaría igual — pero
+todo el mundo espera una letra mayúscula, corta, con un significado:
+
+- **`T`** — «Type», el uso más común. Un contenedor cualquiera.
+- **`E`** — «Element», habitual en colecciones (`List<E>`, `Set<E>`).
+- **`K`, `V`** — «Key, Value», habitual en mapas (`Map<K, V>`).
+- **`R`** — «Result», habitual en tipos que devuelven algo (`Function<T, R>`).
+
+Cuando hay dos parámetros distintos, las opciones más frecuentes son `<A, B>`
+o `<T, U>`. Este documento va a usar `<A, B>` desde §3 en adelante — no le da
+a las letras un significado, así que dos letras contiguas del alfabeto son
+la elección más honesta.
+
+La letra no cambia lo que hace la clase; cambia cuánto trabajo le cuesta al
+lector entender qué está guardando. En el JDK cada letra tiene su convención,
+y tenerla en la cabeza abarata leer `HashMap<K, V>` sin ir a la
+documentación.
 </Slide>
