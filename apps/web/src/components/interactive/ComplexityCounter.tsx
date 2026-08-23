@@ -83,6 +83,23 @@ export interface ComplexityCounterProps {
   variable?: string;
   /** Language for CodeStepper's grammar. Defaults to 'java'. */
   language?: string;
+  /**
+   * When `false`, shows only the read-only editor — hides the header,
+   * tabs, slider, rail and construction panel. Used by
+   * `<ComplexityExercise>` to render a code-only view before the student
+   * reveals the analysis (the SAME box then expands when they click
+   * "Ver desarrollo", instead of a second editor mounting below).
+   * Default `true` keeps the standalone widget's behaviour.
+   */
+  showAnalysis?: boolean;
+  /**
+   * When `false`, suppresses the widget's own header (the "operaciones ·
+   * <algorithm>" tag). Used by wrappers like `<ComplexityExercise>` that
+   * already draw their own header — avoids the double-header a naive
+   * embedding would produce. Default `true` keeps the standalone
+   * widget's behaviour.
+   */
+  showHeader?: boolean;
 }
 
 const DEFAULT_SLIDER = { min: 1, max: 100, default: 10, step: 1 };
@@ -112,6 +129,8 @@ export function ComplexityCounter({
   slider,
   variable = 'n',
   language = 'java',
+  showAnalysis = true,
+  showHeader = true,
 }: ComplexityCounterProps) {
   const sliderCfg = useMemo(
     () => ({
@@ -130,31 +149,6 @@ export function ComplexityCounter({
     return data;
   }, [mode, cases, caseKey, data]);
 
-  if (mode === 'cases' && (cases === undefined || Object.keys(cases).length === 0)) {
-    return (
-      <AuthoringError component="ComplexityCounter">
-        modo <code>cases</code> requiere la prop <code>cases</code> con al menos un caso
-        (<code>best</code>, <code>worst</code> o <code>average</code>).
-      </AuthoringError>
-    );
-  }
-  if (mode !== 'cases' && data === undefined) {
-    return (
-      <AuthoringError component="ComplexityCounter">
-        falta la prop <code>data</code>: un objeto{' '}
-        <code>{'{ annotations, formula, evaluate }'}</code> con las anotaciones por línea, la
-        fórmula final y su evaluador numérico.
-      </AuthoringError>
-    );
-  }
-  if (active === undefined) {
-    return (
-      <AuthoringError component="ComplexityCounter">
-        el caso <code>{caseKey}</code> no está definido en <code>cases</code>. Los casos
-        disponibles se muestran como pestañas; verifica que <code>{caseKey}</code> exista.
-      </AuthoringError>
-    );
-  }
   if (code === undefined || code.trim() === '') {
     return (
       <AuthoringError component="ComplexityCounter">
@@ -163,26 +157,76 @@ export function ComplexityCounter({
       </AuthoringError>
     );
   }
+  // `data`/`cases` are only required for the analysis. When `showAnalysis`
+  // is off, the widget degrades to a code-only view — used by
+  // `<ComplexityExercise>` before the student reveals the analysis.
+  if (showAnalysis) {
+    if (mode === 'cases' && (cases === undefined || Object.keys(cases).length === 0)) {
+      return (
+        <AuthoringError component="ComplexityCounter">
+          modo <code>cases</code> requiere la prop <code>cases</code> con al menos un caso
+          (<code>best</code>, <code>worst</code> o <code>average</code>).
+        </AuthoringError>
+      );
+    }
+    if (mode !== 'cases' && data === undefined) {
+      return (
+        <AuthoringError component="ComplexityCounter">
+          falta la prop <code>data</code>: un objeto{' '}
+          <code>{'{ annotations, formula, evaluate }'}</code> con las anotaciones por línea, la
+          fórmula final y su evaluador numérico.
+        </AuthoringError>
+      );
+    }
+    if (active === undefined) {
+      return (
+        <AuthoringError component="ComplexityCounter">
+          el caso <code>{caseKey}</code> no está definido en <code>cases</code>. Los casos
+          disponibles se muestran como pestañas; verifica que <code>{caseKey}</code> exista.
+        </AuthoringError>
+      );
+    }
+  }
+
+  // Code-only view: same frame + editor as the full widget, but the header,
+  // slider, rail and panel are all suppressed. The frame stays because
+  // <ComplexityExercise> wraps this in its own border; the editor inside
+  // matches the analysis view visually so revealing feels like the same box
+  // opening up, not a second widget mounting below.
+  if (!showAnalysis) {
+    return (
+      <div className="not-prose overflow-hidden rounded-lg border border-rule bg-surface text-ink">
+        <CodeStepper
+          code={code}
+          language={language}
+          highlightLines={activeLine === null ? [] : [activeLine]}
+          onLineHover={setActiveLine}
+        />
+      </div>
+    );
+  }
 
   const unitLabel = mode === 'space' ? 'celdas' : 'OE';
   const totalLabel = mode === 'space' ? 'M' : 'T';
-  const evaluated = active.evaluate(n);
+  const evaluated = active!.evaluate(n);
   const codeLines = code.split('\n');
   // Rail rows ordered by line number, only lines the author annotated.
-  const annotationEntries = Object.entries(active.annotations)
+  const annotationEntries = Object.entries(active!.annotations)
     .map(([k, v]) => [Number(k), v] as const)
     .sort((a, b) => a[0] - b[0]);
 
   return (
     <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
-      <header className="flex flex-wrap items-center gap-2 bg-sunk px-3 py-1.5">
-        <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-accent">
-          {mode === 'space' ? 'espacio' : 'operaciones'}
-        </span>
-        {algorithm !== undefined && (
-          <span className="font-mono text-sm text-ink">{algorithm}</span>
-        )}
-      </header>
+      {showHeader && (
+        <header className="flex flex-wrap items-center gap-2 bg-sunk px-3 py-1.5">
+          <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-accent">
+            {mode === 'space' ? 'espacio' : 'operaciones'}
+          </span>
+          {algorithm !== undefined && (
+            <span className="font-mono text-sm text-ink">{algorithm}</span>
+          )}
+        </header>
+      )}
 
       {mode === 'cases' && cases !== undefined && (
         <div className="flex border-b border-rule bg-sunk">
@@ -274,7 +318,7 @@ export function ComplexityCounter({
           codeLines,
           variable,
           n,
-          formula: active.formula,
+          formula: active!.formula,
           evaluated,
           totalLabel,
           unitLabel,

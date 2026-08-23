@@ -81,6 +81,27 @@ describe('ComplexityExercise', () => {
     expect(screen.getByText(/Asume n par para simplificar\./)).toBeInTheDocument();
   });
 
+  it('mounts a single editor — the same box expands when revealing, not a second widget below', async () => {
+    // Before reveal: one editor (the code-only counter). After reveal:
+    // still one editor (same instance, now with rail + panel). No
+    // duplicate CodeStepper mounts.
+    render(
+      <ComplexityExercise code={SUMA_CICLO_CODE} prompt="T(n)" data={SUMA_CICLO_DATA} />,
+    );
+
+    // Editor identity check: the CodeStepper renders exactly one wrapper
+    // with `data-highlight-lines`. Before and after reveal, this count is 1.
+    expect(
+      document.querySelectorAll('[data-highlight-lines]').length,
+    ).toBe(1);
+
+    await userEvent.click(screen.getByRole('button', { name: /ver desarrollo/i }));
+
+    expect(
+      document.querySelectorAll('[data-highlight-lines]').length,
+    ).toBe(1);
+  });
+
   it('hides the ComplexityCounter development until the reveal button is pressed', async () => {
     render(
       <ComplexityExercise code={SUMA_CICLO_CODE} prompt="T(n)" data={SUMA_CICLO_DATA} />,

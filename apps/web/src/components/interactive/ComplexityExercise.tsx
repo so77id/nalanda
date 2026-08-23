@@ -1,7 +1,6 @@
 import { type ReactNode, useState } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
-import { CodeStepper } from './CodeStepper';
 import { ComplexityCounter, type ComplexityCounterProps } from './ComplexityCounter';
 
 /**
@@ -98,7 +97,21 @@ export function ComplexityExercise({
         </p>
       )}
 
-      <CodeStepper code={code} language={language} highlightLines={[]} />
+      {/* The SAME <ComplexityCounter> mounts before and after reveal — we
+          just flip its `showAnalysis` prop. That way the code lives in one
+          box that expands, instead of a code-block-then-second-widget
+          pair the reader has to reconcile. When `reveal` is provided
+          (E6-style abstract exercise) there is no `data` to render, so
+          we always keep `showAnalysis=false` and render the reveal
+          ReactNode below instead. */}
+      <ComplexityCounter
+        code={code}
+        language={language}
+        algorithm={algorithm}
+        showAnalysis={revealed && reveal === undefined}
+        showHeader={false}
+        {...counterProps}
+      />
 
       <div className="border-t border-rule px-3 py-2">
         <label className="mb-1 block text-3xs uppercase tracking-wide text-ink-faint">
@@ -130,19 +143,8 @@ export function ComplexityExercise({
         )}
       </div>
 
-      {revealed && (
-        <div className="border-t border-rule">
-          {reveal !== undefined ? (
-            <div className="px-3 py-3 text-sm text-ink">{reveal}</div>
-          ) : (
-            <ComplexityCounter
-              code={code}
-              language={language}
-              algorithm={algorithm}
-              {...counterProps}
-            />
-          )}
-        </div>
+      {revealed && reveal !== undefined && (
+        <div className="border-t border-rule px-3 py-3 text-sm text-ink">{reveal}</div>
       )}
     </div>
   );
