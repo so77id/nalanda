@@ -3,6 +3,7 @@ import {
   LazyBenchmark,
   LazyCodeEditor,
   LazyComplexityCounter,
+  LazyComplexityExercise,
   LazyMathPlot,
   LazyExercise,
   LazyMermaid,
@@ -75,6 +76,10 @@ export const mdxComponents = {
   // Lazy for pattern consistency and the CodeMirror-gutter future extension
   // the ADR anticipates (ADR-0045).
   ComplexityCounter: LazyComplexityCounter,
+  // Same lazy rule: composes <CodeStepper> + <ComplexityCounter>, so both
+  // CodeMirror and the counter chunk stay off the entry chunk of readers who
+  // never mount an exercise. Guarded by architecture.test.ts.
+  ComplexityExercise: LazyComplexityExercise,
   // Mafs is heavy (~30 KB + KaTeX) and pulls its own tree; lazy keeps it
   // out of the entry chunk (ADR-0046). Guarded by architecture.test.ts.
   MathPlot: LazyMathPlot,

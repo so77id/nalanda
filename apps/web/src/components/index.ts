@@ -16,6 +16,11 @@ export { LazyBenchmark } from './interactive/lazyBenchmark';
 // Lazy for pattern consistency and for the CodeMirror-gutter future
 // extension the ADR anticipates (ADR-0045).
 export { LazyComplexityCounter } from './interactive/lazyComplexityCounter';
+// Lazy on the same rule: <ComplexityExercise> composes <CodeStepper> +
+// <ComplexityCounter>, both CodeMirror-adjacent, and registering it eagerly
+// would pull the editor back into the entry chunk. Guarded by
+// `src/architecture.test.ts` (per-name `complexityexercise`).
+export { LazyComplexityExercise } from './interactive/lazyComplexityExercise';
 // Mafs is a math-visualization library that pulls its own React tree, SVG
 // helpers, and KaTeX for labels — the lazy wrapper is what keeps Mafs out
 // of the entry chunk of every reader of every page (ADR-0046).

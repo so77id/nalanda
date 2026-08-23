@@ -227,6 +227,27 @@ describe('architecture: the mermaid diagram stays out of the entry chunk', () =>
   });
 });
 
+describe('architecture: the complexityexercise widget stays out of the entry chunk', () => {
+  // ComplexityExercise composes <CodeStepper> + <ComplexityCounter>: two
+  // CodeMirror-adjacent widgets. Registering the real component eagerly in
+  // the MDX map would pull both into the entry chunk of readers of pages
+  // that mount no exercise. Same shape as the other heavy-component guards —
+  // a single ALLOWED entry, no per-file exemptions.
+  const ALLOWED = ['components/interactive/lazyComplexityExercise.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/complexityexercise' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: cross-feature dependencies', () => {
   it('only the allowed feature edges exist in production code', () => {
     // Test files may exercise any feature through its seam (they are consumers,
