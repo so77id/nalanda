@@ -1261,6 +1261,280 @@ antes de las computadoras, antes de la ciencia de la computación. **Y nuestras
 herramientas del siglo XX lo pueden analizar sin cambios.**
 </Slide>
 
+<SectionBreak />
+
+<Slide title="Ejercicios — pon a prueba tu análisis">
+Los siguientes ocho ejercicios cubren lo que vimos: contar OE por línea, distinguir
+mejor/peor caso, derivar sumatorias, comparar constantes contra clases asintóticas y
+analizar espacio.
+
+Cada ejercicio muestra un código y una pregunta. Al apretar **"Ver desarrollo"** se
+despliega el análisis completo con el mismo `<ComplexityCounter>` que usamos en clase —
+línea por línea, con fórmula literal, evaluación y forma cerrada.
+
+**Regla de oro**: intenta primero con lápiz y papel. Compara tu respuesta con el
+desarrollo. Si difieres, mira línea por línea dónde perdiste (o ganaste) una OE.
+</Slide>
+
+<Slide title="Ejercicio 1 — `sumaPares`">
+<ComplexityExercise
+  algorithm="sumaPares"
+  prompt="T(n)"
+  hint="Asume n par para simplificar. Presta atención al paso del for — no es i++."
+  code={`int sumaPares(int n) {
+    int s = 0;
+    for (int i = 2; i <= n; i = i + 2) {
+        s = s + i;
+    }
+    return s;
+}`}
+  data={{
+    annotations: {
+      2: { oe: 1, times: "1" },
+      3: {
+        sub: [
+          { label: "init", oe: 1, times: "1" },
+          { label: "cond", oe: 1, times: "n/2 + 1" },
+          { label: "inc", oe: 2, times: "n/2" },
+        ],
+      },
+      4: { oe: 2, times: "n/2" },
+      5: { oe: 1, times: "1" },
+    },
+    formula: "5n/2 + 4",
+    evaluate: (n) => (5 * n) / 2 + 4,
+  }}
+  slider={{ min: 2, max: 100, default: 10, step: 2 }}
+/>
+</Slide>
+
+<Slide title="Ejercicio 2 — `while` con corto-circuito · mejor caso">
+<ComplexityExercise
+  algorithm="findLinear — mejor caso"
+  prompt="T(n)"
+  hint="Asume que arr[0] == x, es decir, x se encuentra en la primera posición."
+  code={`int i = 0;
+while (i < n && arr[i] != x) {
+    i++;
+}`}
+  data={{
+    annotations: {
+      1: { oe: 1, times: "1" },
+      2: { oe: 3, times: "1" },
+    },
+    formula: "4",
+    evaluate: () => 4,
+  }}
+  slider={{ min: 1, max: 100, default: 10 }}
+/>
+</Slide>
+
+<Slide title="Ejercicio 3 — `while` con corto-circuito · peor caso">
+<ComplexityExercise
+  algorithm="findLinear — peor caso"
+  prompt="T(n)"
+  hint="Asume que x no está en el arreglo. Pista: la última evaluación de la cond cuesta menos que las demás — el `&&` corta antes de tocar arr[i]."
+  code={`int i = 0;
+while (i < n && arr[i] != x) {
+    i++;
+}`}
+  data={{
+    annotations: {
+      1: { oe: 1, times: "1" },
+      2: {
+        sub: [
+          { label: "cond (entra)", oe: 3, times: "n" },
+          { label: "cond (sale)", oe: 1, times: "1" },
+        ],
+      },
+      3: { oe: 1, times: "n" },
+    },
+    formula: "4n + 2",
+    evaluate: (n) => 4 * n + 2,
+  }}
+  slider={{ min: 1, max: 100, default: 10 }}
+/>
+</Slide>
+
+<Slide title="Ejercicio 4 — doble ciclo triangular (interno arranca en i)">
+<ComplexityExercise
+  algorithm="sumaTri"
+  prompt="T(n)"
+  hint="El ciclo interno arranca en j=i, no en j=1. La sumatoria del cuerpo es Σᵢ₌₁ⁿ (n − i + 1) = n(n+1)/2 — la misma que sumaDobleCiclo, pero recorrida en el sentido contrario."
+  code={`int sumaTri(int n) {
+    int s = 0;
+    for (int i = 1; i <= n; i++) {
+        for (int j = i; j <= n; j++) {
+            s = s + 1;
+        }
+    }
+    return s;
+}`}
+  data={{
+    annotations: {
+      2: { oe: 1, times: "1" },
+      3: {
+        sub: [
+          { label: "init", oe: 1, times: "1" },
+          { label: "cond", oe: 1, times: "n+1" },
+          { label: "inc", oe: 1, times: "n" },
+        ],
+      },
+      4: {
+        sub: [
+          { label: "init", oe: 1, times: "n" },
+          { label: "cond", oe: 1, times: "(n+1)*(n+2)/2 - 1" },
+          { label: "inc", oe: 1, times: "n*(n+1)/2" },
+        ],
+      },
+      5: { oe: 2, times: "n*(n+1)/2" },
+      6: { oe: 1, times: "1" },
+    },
+    formula: "2n² + 6n + 4",
+    evaluate: (n) => 2 * n * n + 6 * n + 4,
+  }}
+  slider={{ min: 1, max: 30, default: 10 }}
+/>
+</Slide>
+
+<Slide title="Ejercicio 5 — `contarNegativos`, peor caso">
+<ComplexityExercise
+  algorithm="contarNegativos — peor caso"
+  prompt="T(n)"
+  hint="Asume el peor caso: TODOS los elementos del arreglo son negativos, así que el cuerpo del `if` se ejecuta cada iteración."
+  code={`int contarNegativos(int[] arr, int n) {
+    int c = 0;
+    for (int i = 0; i < n; i++) {
+        if (arr[i] < 0) {
+            c = c + 1;
+        }
+    }
+    return c;
+}`}
+  data={{
+    annotations: {
+      2: { oe: 1, times: "1" },
+      3: {
+        sub: [
+          { label: "init", oe: 1, times: "1" },
+          { label: "cond", oe: 1, times: "n+1" },
+          { label: "inc", oe: 1, times: "n" },
+        ],
+      },
+      4: { oe: 2, times: "n" },
+      5: { oe: 2, times: "n" },
+      6: { oe: 1, times: "1" },
+    },
+    formula: "6n + 4",
+    evaluate: (n) => 6 * n + 4,
+  }}
+  slider={{ min: 1, max: 100, default: 10 }}
+/>
+</Slide>
+
+<Slide title="Ejercicio 6 — constantes contra clase asintótica">
+<ComplexityExercise
+  algorithm="crossover A vs B"
+  prompt="¿A partir de qué N conviene el algoritmo A sobre el B? Deriva el crossover."
+  hint="Modela cada tiempo como t(N) = k · f(N), calcula las constantes con los datos dados, e iguala los tiempos para encontrar el crossover."
+  code={`// A tiene complejidad Θ(N²) y tarda 10 s con N = 10
+// B tiene complejidad Θ(N³) y tarda 1 s  con N = 10
+//
+// Aunque B empieza más rápido, el término asintótico crece.
+// ¿Desde qué N conviene A?`}
+  reveal={
+    <div className="space-y-2 font-mono text-xs leading-relaxed">
+      <p>Modelamos cada tiempo como una función de N:</p>
+      <pre className="rounded bg-sunk px-2 py-1">{`t_A(N) = k_A · N²
+t_B(N) = k_B · N³`}</pre>
+      <p>Con los datos dados (N = 10):</p>
+      <pre className="rounded bg-sunk px-2 py-1">{`t_A(10) = 100 · k_A = 10 s  →  k_A = 0.1
+t_B(10) = 1000 · k_B = 1 s  →  k_B = 0.001`}</pre>
+      <p>El crossover ocurre cuando t_A(N) = t_B(N):</p>
+      <pre className="rounded bg-sunk px-2 py-1">{`0.1 · N² = 0.001 · N³
+100 · N² = N³
+100 = N`}</pre>
+      <p className="font-sans">
+        <strong>Para N &gt; 100, A gana.</strong> B empieza siendo 10× más rápido que A
+        con N = 10 (constante chica), pero B crece cúbicamente y el término asintótico
+        (N³ vs N²) domina cualquier ventaja de constante en cuanto N se hace grande.
+        <br />
+        <br />
+        Moraleja: <strong>las constantes importan a N chico; las clases asintóticas
+        importan a N grande</strong>. Elegir la implementación correcta requiere saber
+        el rango de N que vas a manejar en producción.
+      </p>
+    </div>
+  }
+/>
+</Slide>
+
+<Slide title="Ejercicio 7 — espacio acumulativo (matriz triangular)">
+<ComplexityExercise
+  algorithm="triangular"
+  prompt="M(n)"
+  hint="Cuenta AMBOS: el arreglo de punteros (n celdas) y el total de celdas alocadas por los `new int[i]` de cada iteración."
+  mode="space"
+  code={`int[][] triangular(int n) {
+    int[][] arr = new int[n][];
+    for (int i = 1; i <= n; i++) {
+        arr[i - 1] = new int[i];
+    }
+    return arr;
+}`}
+  data={{
+    annotations: {
+      2: { oe: 1, times: "n" },
+      4: { oe: 1, times: "n*(n+1)/2" },
+    },
+    formula: "(n² + 3n) / 2",
+    evaluate: (n) => (n * n + 3 * n) / 2,
+  }}
+  slider={{ min: 1, max: 50, default: 10 }}
+/>
+</Slide>
+
+<Slide title="Ejercicio 8 — reverse in-place vs copia">
+<ComplexityExercise
+  algorithm="reverseInPlace vs reverseNuevo"
+  prompt="M(n)"
+  hint="Compara las dos implementaciones. Las pestañas 'mejor' y 'peor' del widget etiquetan las dos versiones: 'mejor' = in-place, 'peor' = copia (usa más memoria)."
+  mode="cases"
+  code={`void reverseInPlace(int[] arr) {
+    for (int i = 0; i < arr.length / 2; i++) {
+        int tmp = arr[i];
+        arr[i] = arr[arr.length - 1 - i];
+        arr[arr.length - 1 - i] = tmp;
+    }
+}
+
+int[] reverseNuevo(int[] arr) {
+    int[] out = new int[arr.length];
+    for (int i = 0; i < arr.length; i++) {
+        out[i] = arr[arr.length - 1 - i];
+    }
+    return out;
+}`}
+  cases={{
+    best: {
+      annotations: {
+        3: { oe: 1, times: "1" },
+      },
+      formula: "1 (constante)",
+      evaluate: () => 1,
+    },
+    worst: {
+      annotations: {
+        10: { oe: 1, times: "n" },
+      },
+      formula: "n",
+      evaluate: (n) => n,
+    },
+  }}
+  slider={{ min: 1, max: 100, default: 10 }}
+/>
+</Slide>
+
 <Slide title="Cliffhanger: hay algoritmos que no se pueden analizar así">
 Repaso de lo que hicimos:
 

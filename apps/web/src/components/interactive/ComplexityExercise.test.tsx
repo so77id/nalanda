@@ -157,6 +157,25 @@ describe('ComplexityExercise', () => {
     expect(screen.getAllByText('sumaCiclo').length).toBeGreaterThanOrEqual(2);
   });
 
+  it('renders a custom reveal ReactNode instead of the counter when `reveal` is set', async () => {
+    render(
+      <ComplexityExercise
+        code={`// Two abstract algorithms — no annotated code`}
+        prompt="¿Cuándo A supera a B?"
+        reveal={<p data-testid="custom-reveal">Cuando N &gt; 100 A gana.</p>}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole('button', { name: /ver desarrollo/i }));
+
+    expect(screen.getByTestId('custom-reveal')).toBeInTheDocument();
+    // The <ComplexityCounter> is NOT mounted when reveal is provided —
+    // it has no annotated data to render.
+    expect(
+      screen.queryByRole('list', { name: /desglose de operaciones/i }),
+    ).not.toBeInTheDocument();
+  });
+
   it('supports cases mode and switches tabs on the revealed counter', async () => {
     render(
       <ComplexityExercise

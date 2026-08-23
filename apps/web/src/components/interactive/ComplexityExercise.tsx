@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
@@ -44,11 +44,20 @@ export interface ComplexityExerciseProps extends ComplexityCounterProps {
   prompt?: 'T(n)' | 'O()' | 'M(n)' | string;
   /** Optional preamble shown above the code (short context sentence). */
   hint?: string;
+  /**
+   * Optional custom reveal. When present, the reveal panel renders THIS
+   * ReactNode instead of a `<ComplexityCounter>`. Use when the exercise
+   * has no annotated code — for example an abstract crossover problem
+   * that compares two Θ classes with symbolic derivation. The `data` /
+   * `mode` / `cases` props are ignored when `reveal` is provided.
+   */
+  reveal?: ReactNode;
 }
 
 export function ComplexityExercise({
   prompt = 'T(n)',
   hint,
+  reveal,
   code,
   language = 'java',
   algorithm,
@@ -123,12 +132,16 @@ export function ComplexityExercise({
 
       {revealed && (
         <div className="border-t border-rule">
-          <ComplexityCounter
-            code={code}
-            language={language}
-            algorithm={algorithm}
-            {...counterProps}
-          />
+          {reveal !== undefined ? (
+            <div className="px-3 py-3 text-sm text-ink">{reveal}</div>
+          ) : (
+            <ComplexityCounter
+              code={code}
+              language={language}
+              algorithm={algorithm}
+              {...counterProps}
+            />
+          )}
         </div>
       )}
     </div>
