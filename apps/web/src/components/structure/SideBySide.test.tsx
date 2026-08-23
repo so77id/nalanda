@@ -102,6 +102,32 @@ describe('SideBySide', () => {
     );
     expect(screen.getByText(/espera exactamente dos bloques; recibió 1/)).toBeInTheDocument();
   });
+
+  it('defaults to horizontal — two columns on desktop', () => {
+    const { container } = render(
+      <SideBySide>
+        <pre>uno</pre>
+        <pre>dos</pre>
+      </SideBySide>,
+    );
+    const grid = container.querySelector('.grid');
+    expect(grid).toHaveAttribute('data-direction', 'horizontal');
+    expect(grid?.className).toContain('md:grid-cols-2');
+    expect(grid?.className).not.toContain('grid-cols-1');
+  });
+
+  it('stacks unconditionally when direction="vertical"', () => {
+    const { container } = render(
+      <SideBySide direction="vertical">
+        <pre>arriba</pre>
+        <pre>abajo</pre>
+      </SideBySide>,
+    );
+    const grid = container.querySelector('.grid');
+    expect(grid).toHaveAttribute('data-direction', 'vertical');
+    expect(grid?.className).toContain('grid-cols-1');
+    expect(grid?.className).not.toContain('md:grid-cols-2');
+  });
 });
 
 /** Reports what a column tells whatever lands inside it. */

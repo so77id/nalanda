@@ -21,6 +21,12 @@ export const sideBySideCatalogEntry: CatalogEntry = {
       description:
         'Exactly two blocks, typically two code fences. Authored order is kept: the first is the left column. A fence in a runtime language renders as the read-only editor (#85) and the column suppresses its frame, filename, language chip and line numbers — the column already provides all four.',
     },
+    {
+      name: 'direction',
+      type: '"horizontal" | "vertical"',
+      description:
+        '"horizontal" (default): two columns on desktop, stacked on narrow. "vertical": always stacked. Use vertical when both blocks need the full page width (for example prompt + revealed answer in a complexity exercise). The reading "SideBySide direction=vertical" is acknowledged awkward — Discussion #220 tracks a rename.',
+    },
   ],
   examples: [
     {
@@ -65,6 +71,35 @@ int main() {
         System.out.println("Hola");
     }
 }
+`}</code>
+          </MdxPre>
+        </SideBySide>
+      ),
+    },
+    {
+      title: 'Vertical direction — two blocks stacked, each at full width',
+      code: `<SideBySide direction="vertical" left="Prompt" right="Solution">
+
+\`\`\`java
+int algo(int n) { ... }
+\`\`\`
+
+\`\`\`java
+// desarrollo revelado
+\`\`\`
+
+</SideBySide>`,
+      render: () => (
+        <SideBySide direction="vertical" left="Prompt" right="Solution">
+          <MdxPre>
+            <code className="language-java">{`int algo(int n) {
+    // code to analyse
+}
+`}</code>
+          </MdxPre>
+          <MdxPre>
+            <code className="language-java">{`// revealed development
+// T(n) = ...
 `}</code>
           </MdxPre>
         </SideBySide>
