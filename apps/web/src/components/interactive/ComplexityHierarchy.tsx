@@ -166,7 +166,15 @@ export function ComplexityHierarchy({
                     fill="none"
                     stroke={stroke}
                     strokeWidth={isActive ? 5 : 2.5}
-                    style={{ transition: 'stroke-width 120ms ease' }}
+                    // pointerEvents:'all' lets the whole disc capture
+                    // hover — no need to aim at the stroke. Because
+                    // circles are drawn largest-first (small ones on
+                    // top of DOM), the browser resolves the topmost
+                    // circle under the cursor first, so hovering the
+                    // O(1) area picks O(1), and hovering the crescent
+                    // between O(N) and O(N lg N) picks O(N lg N)
+                    // naturally.
+                    style={{ pointerEvents: 'all', transition: 'stroke-width 120ms ease' }}
                     onMouseEnter={() => setActiveIdx(i)}
                     onMouseLeave={() => setActiveIdx(null)}
                     className="cursor-pointer"
