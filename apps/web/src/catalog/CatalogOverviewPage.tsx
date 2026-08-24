@@ -25,7 +25,7 @@ export function CatalogOverviewPage() {
           return (
             <li key={family.id}>
               <div className="flex items-baseline gap-3">
-                <h2 className="text-accent-pop text-2xl font-semibold">
+                <h2 className="text-2xl font-semibold">
                   {/* Coloured and underlined-on-hover like every other link here:
                       with only `hover:text-accent` the four family names were
                       indistinguishable from headings, and a keyboard user reached

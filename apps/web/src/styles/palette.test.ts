@@ -59,6 +59,12 @@ const SURFACES = ['ground', 'surface', 'sunk', 'deck-ground'] as const;
  *  at the 3:1 "large text" allowance. */
 const TEXT_TOKENS = ['ink', 'ink-soft', 'ink-faint', 'accent', 'flag', 'keep'] as const;
 
+/** WCAG's "large text / non-text UI" floor. Shared by `UI_TOKENS` (meaning-
+ *  carrying non-text) and `CHROME_TOKENS` (large-text chrome). Two spellings
+ *  would drift: a future author who tightens one would silently leave the
+ *  other behind. Named because the error-message string benefits from it. */
+const LARGE_TEXT_FLOOR = 3;
+
 /** Non-text UI that carries meaning: WCAG AA is 3:1. `rule` is absent on purpose
  *  — it is decorative, and a decorative hairline needs no ratio. That is exactly
  *  why `rule-strong` exists as a separate token. */
@@ -67,19 +73,20 @@ const UI_TOKENS = ['rule-strong', 'focus'] as const;
 /**
  * Chrome tokens paint on the two page-level surfaces (canvas + cards) at the
  * WCAG "large text / non-text UI" floor of 3:1, and are NOT checked against
- * inset surfaces like `sunk` (where `<pre>`, inputs and inset panels live) or
- * `deck-ground`. The system's real `accent-pop` uses are: filled buttons (BG
- * `accent-pop` + label on-pop, folded into `PAIRS` via the existing on-keep
- * shape), TEXT on `accent-soft` (chips, covered by `[accent, accent-soft]`),
- * and section titles (H1/H2/H3) on `ground` or `surface`. Testing `accent-pop`
- * against every surface would sacrifice the deck seed's identity (`#E86800`)
- * to a hypothetical use no component makes; if a future component needs
- * `accent-pop` on `sunk`, mint a specific token for that use or promote
- * `accent-pop` into `UI_TOKENS`. Recorded in ADR-0026's addendum, alongside
- * the seed provenance. */
+ * inset surfaces like `sunk` or `deck-ground`. The real uses of `accent-pop`
+ * are: filled buttons (BG `accent-pop` + label on-pop, folded into `PAIRS` via
+ * the existing on-keep shape), TEXT on `accent-soft` (chips, covered by
+ * `[accent, accent-soft]`), and section titles (H1/H2/H3) on `ground` or
+ * `surface`. Inside `bg-deck-ground` (slides) the `--tw-prose-headings` reroute
+ * is overridden and prose headings paint in `ink` instead — deck ≠ book, see
+ * ADR-0026 §"The deck is not the book" and the deck-override block in
+ * `styles/index.css`. Testing `accent-pop` against every surface would
+ * sacrifice the deck seed's identity (`#E86800`) to a pairing no component
+ * paints; if a future component needs `accent-pop` on `sunk`, mint a specific
+ * token for that use or promote `accent-pop` into `UI_TOKENS`. Recorded in
+ * ADR-0026's addendum, alongside the seed provenance. */
 const CHROME_TOKENS = ['accent-pop'] as const;
 const CHROME_SURFACES = ['ground', 'surface'] as const;
-const CHROME_FLOOR = 3.0;
 
 /**
  * Pairs that are not "text on a surface": a tinted state background with its own
@@ -149,8 +156,8 @@ describe('the palette', () => {
           const ratio = contrast(tokens[fg]!, tokens[bg]!);
           expect(
             ratio,
-            `${theme.name}: ${fg} (${tokens[fg]}) on ${bg} (${tokens[bg]}) is ${ratio.toFixed(2)}:1, below AA for a meaning-carrying border`,
-          ).toBeGreaterThanOrEqual(3);
+            `${theme.name}: ${fg} (${tokens[fg]}) on ${bg} (${tokens[bg]}) is ${ratio.toFixed(2)}:1, below the ${LARGE_TEXT_FLOOR}:1 floor for a meaning-carrying border`,
+          ).toBeGreaterThanOrEqual(LARGE_TEXT_FLOOR);
         }
       });
 
@@ -159,8 +166,8 @@ describe('the palette', () => {
           const ratio = contrast(tokens[fg]!, tokens[bg]!);
           expect(
             ratio,
-            `${theme.name}: ${fg} (${tokens[fg]}) on ${bg} (${tokens[bg]}) is ${ratio.toFixed(2)}:1, below the ${CHROME_FLOOR}:1 large-text / non-text UI floor for a chrome token`,
-          ).toBeGreaterThanOrEqual(CHROME_FLOOR);
+            `${theme.name}: ${fg} (${tokens[fg]}) on ${bg} (${tokens[bg]}) is ${ratio.toFixed(2)}:1, below the ${LARGE_TEXT_FLOOR}:1 large-text / non-text UI floor for a chrome token`,
+          ).toBeGreaterThanOrEqual(LARGE_TEXT_FLOOR);
         }
       });
     });

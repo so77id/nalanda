@@ -161,9 +161,25 @@ harder floor, breaking the identity this ADR chose to preserve.
 
 Section titles (H1/H2/H3) paint the seed. Inside `.prose` this is automatic
 via `--tw-prose-headings = var(--color-accent-pop)`. Outside `.prose` —
-catalog surfaces, presentation slides, the `<Questions>` block, the 404 —
-the class `text-accent-pop` is applied to the heading. `design-system.md`
-carries the utility rule; this ADR carries the intent.
+catalog surfaces, the `<Questions>` block, the 404 — the class
+`text-accent-pop` is applied to the heading. `design-system.md` carries the
+utility rule; this ADR carries the intent.
+
+### Deck exception
+
+The reroute of `--tw-prose-headings` to `accent-pop` does NOT apply inside
+`bg-deck-ground`. The slide is a deliberately distinct surface (§Consequences
+above, "the deck is not the book") and `accent-pop` clears only 2.92:1 on
+`deck-ground` in light — below the 3:1 floor `CHROME_TOKENS` declares. The
+override lives declaratively in `styles/index.css` as
+`.bg-deck-ground .prose { --tw-prose-headings: var(--color-ink); }`, so slide
+prose headings paint in `ink` without any component-side knowledge. The slide
+`<h2>` title in `SlideDeck.tsx` also stays on `text-ink` (never
+`text-accent-pop`), mirroring `RotateNotice.tsx`'s exclusion on the same
+surface. If a future component needs the seed hue on `deck-ground`, mint a
+darker `accent-pop-deck` variant that clears 3:1 there; do not lift the
+override, and do not extend `CHROME_SURFACES` to `deck-ground` without a
+palette nudge that keeps the exclusion honest.
 
 ### What is NOT changed
 

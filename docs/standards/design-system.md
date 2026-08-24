@@ -194,18 +194,28 @@ H1/H2/H3 in the product:
   through the typography plugin already carries it. This covers every course
   document.
 - **Outside `.prose`** — apply the utility `text-accent-pop` to the heading
-  element itself. The catalog pages, the presentation deck's slide titles,
-  the `<Questions>` block, and the 404 page all use this shape today; new
-  surfaces follow it. `text-accent-pop` is generated from the
-  `--color-accent-pop` alias declared in `@theme`, so it is a first-class
-  utility and passes `architecture.test.ts`'s raw-colour guard.
+  element itself. The catalog pages, the `<Questions>` block, and the 404
+  page all use this shape today; new surfaces follow it. `text-accent-pop`
+  is generated from the `--color-accent-pop` alias declared in `@theme`, so
+  it is a first-class utility and passes `architecture.test.ts`'s raw-colour
+  guard.
 
-**The one exception.** System UI framed on top of a course page — the
-rotate-to-landscape notice is the only one today — does NOT paint titles in
-the seed. Its heading is chrome the reader sees when the app cannot render
-what they asked for, not a title in a course document. `RotateNotice`
-therefore stays on `text-ink`; do the same for any new full-page system
-overlay.
+**Two exceptions.**
+
+- **Slides.** Content inside `bg-deck-ground` (`SlideDeck.tsx`) paints its
+  titles with `ink`, not `accent-pop`. It is a consequence of two things: the
+  deck and the book live in different registers (ADR-0026 §"The deck is not
+  the book"), and `accent-pop` clears only 2.92:1 on `deck-ground` in light —
+  below the 3:1 floor `palette.test.ts`'s CHROME_TOKENS declares. `.prose`
+  inside `bg-deck-ground` overrides `--tw-prose-headings` back to `ink` in
+  `styles/index.css`; the slide `<h2>` (which is not prose) also stays on
+  `text-ink`. The override is unlayered on purpose — a layered version would
+  lose to Tailwind's utilities.
+- **System UI framed on top of a course page.** The rotate-to-landscape
+  notice is the only one today. Its heading is chrome the reader sees when
+  the app cannot render what they asked for, not a title in a course
+  document. `RotateNotice` therefore stays on `text-ink`; do the same for
+  any new full-page system overlay.
 
 ## Verifying a colour change
 
