@@ -129,9 +129,13 @@ export function ComplexityHierarchy({
             aria-label="Jerarquía de clases asintóticas — elipses concéntricas al estilo Venn, la clase más eficiente al centro"
           >
             {classes.map((cls, i) => {
-              // The class at ORIGINAL index i sits at ring depth (n-1-i)
-              // from the outer edge. i=0 → deepest ring (innermost).
-              const ringDepth = n - 1 - i;
+              // `classes` is authored cheap-to-expensive (O(1) first,
+              // O(2ᴺ) last). The Venn semantic is A ⊂ B → A drawn INSIDE
+              // B: O(1) is the smallest set (few algorithms are constant),
+              // O(2ᴺ) is the largest (contains every polynomial and log
+              // class), so the earliest class in the array is the
+              // innermost ring. rx/ry grow linearly with index.
+              const ringDepth = i;
               const rx = INNER_RX + ringDepth * STEP_X;
               const ry = INNER_RY + ringDepth * STEP_Y;
               const isActive = activeIdx === i;
