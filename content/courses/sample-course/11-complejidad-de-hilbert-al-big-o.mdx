@@ -498,7 +498,7 @@ la cabeza tiene que **caminar** la cinta celda por celda. Ninguna computadora re
 así.
 
 **Cook y Reckhow (1973)** formalizan la **RAM — Random Access Machine**: un modelo con
-registros direccionables y **acceso O(1) por dirección**.
+registros direccionables y **acceso $$$$O(1)$$$$ por dirección**.
 
 - **Mismo poder de cómputo**: cualquier cosa computable en Turing lo es en RAM y viceversa.
 - **Distinto costo**: los tiempos difieren en un factor polinómico, pero el **orden
@@ -524,7 +524,7 @@ Lista concreta que usaremos en el curso:
 - **Llamada a método**: el costo *de llamar*, no del cuerpo.
 
 **Regla del curso**: el **costo temporal** de un algoritmo = **número de OE que ejecuta**
-para una entrada dada. Le pondremos nombre a esa cantidad: **T(N)**, donde N es el tamaño
+para una entrada dada. Le pondremos nombre a esa cantidad: **$$T(N)$$**, donde N es el tamaño
 de la entrada.
 </Slide>
 
@@ -574,7 +574,7 @@ Con esta herramienta ya podemos contar las tres soluciones al problema inicial.
 
 Ese vocabulario — **O, Ω, Θ** — lo formalizamos más adelante. Antes haremos el trabajo
 crudo: contar operaciones línea por línea en
-nuestras tres soluciones de `suma(N)` y obtener `T(n)` explícito. Con `T(n)` en la
+nuestras tres soluciones de `suma(N)` y obtener `$$T(n)$$` explícito. Con `$$T(n)$$` en la
 mano, las notaciones asintóticas van a ser un renombramiento útil, no una definición
 caída del cielo.
 </Slide>
@@ -607,7 +607,7 @@ caída del cielo.
   slider={{ min: 1, max: 100, default: 10 }}
 />
 
-**T₁(n) = 4n + 4** OE.
+**$$T_1(n)$$ = 4n + 4** OE.
 </Slide>
 
 <Slide title="Contando la segunda solución — doble ciclo">
@@ -649,7 +649,7 @@ caída del cielo.
 El cuerpo `s = s + 1;` se ejecuta 1 + 2 + … + n = **n(n+1)/2** veces. Ese es el término
 dominante. Los dos `for` se muestran colapsados; ábranlos para ver init / cond / inc por separado.
 
-**T₂(n) = 2n² + 6n + 4** OE. El término dominante es **n²** — con eso nos quedamos.
+$$T_2(n) = 2n^2 + 6n + 4$$ OE. El término dominante es **$$n^2$$** — con eso nos quedamos.
 </Slide>
 
 <Slide title="Contando la tercera solución — fórmula">
@@ -668,16 +668,16 @@ dominante. Los dos `for` se muestran colapsados; ábranlos para ver init / cond 
   slider={{ min: 1, max: 100, default: 10 }}
 />
 
-**T₃(n) = 4** OE. No depende de n.
+**$$T_3(n)$$ = 4** OE. No depende de n.
 </Slide>
 
 <Slide title="Las tres funciones lado a lado">
 Tres códigos distintos que devuelven exactamente el mismo valor. Diferencias radicales en
 costo.
 
-| Solución | T(n) | Para N = 10⁶ (a 1 µs por OE) |
+| Solución | $$T(n)$$ | Para N = $$10^6$$ (a 1 µs por OE) |
 |---|---|---|
-| Doble ciclo | ≈ 2n² | **~23 días** |
+| Doble ciclo | $$\approx 2n^2$$ | **~23 días** |
 | Ciclo simple | 4n + 4 | ~4 segundos |
 | Fórmula | 4 | **4 microsegundos** |
 
@@ -692,7 +692,7 @@ Otra persona cuenta las mismas operaciones de manera distinta:
 - El conteo del curso dio **2 OE**.
 
 Todo lo demás lo cuentan igual. Para el ciclo simple ella obtiene entonces
-**T'(n) = 5n + 4**. El conteo del curso da **T(n) = 4n + 4**.
+**T'(n) = 5n + 4**. El conteo del curso da **$$T(n)$$ = 4n + 4**.
 
 Tabla de razones:
 
@@ -701,13 +701,13 @@ Tabla de razones:
 | 10 | 44 | 54 | 1,23 |
 | 100 | 404 | 504 | 1,25 |
 | 1 000 | 4 004 | 5 004 | 1,25 |
-| 10⁶ | ≈ 4·10⁶ | ≈ 5·10⁶ | **→ 5/4 = 1,25** |
+| $$10^6$$ | ≈ 4·$$10^6$$ | ≈ 5·$$10^6$$ | **→ 5/4 = 1,25** |
 
 La razón converge a una **constante**. Las constantes no son propiedad del algoritmo — son
 propiedad de **cómo contamos** y de la máquina.
 
 **Descubrimiento clave**: lo que caracteriza a un algoritmo **no es el valor exacto de
-T(n)**, sino su **orden de crecimiento**.
+$$T(n)$$**, sino su **orden de crecimiento**.
 </Slide>
 
 <Slide title="Los órdenes de crecimiento del curso">
@@ -718,18 +718,18 @@ T(n)**, sino su **orden de crecimiento**.
 | Raíz | √N | Test de primalidad ingenuo |
 | Lineal | N | Un ciclo simple (`sumaCiclo`) |
 | Linearítmico | N lg N | Mergesort, quicksort promedio |
-| Cuadrático | N² | Dos ciclos anidados (`sumaDobleCiclo`) |
-| Cúbico | N³ | Tres ciclos anidados |
-| Exponencial | 2ᴺ | Fuerza bruta sobre subconjuntos |
+| Cuadrático | $$N^2$$ | Dos ciclos anidados (`sumaDobleCiclo`) |
+| Cúbico | $$N^3$$ | Tres ciclos anidados |
+| Exponencial | $$2^N$$ | Fuerza bruta sobre subconjuntos |
 | Factorial | N! | Fuerza bruta sobre permutaciones |
 
 Los tres primeros son "buenos"; a partir de cuadrático empieza a doler; a partir de
 exponencial ya no se puede.
 
 **Jerarquía de complejidad** (notación de contención `⊂` — "está estrictamente contenido
-en"; se lee: *un algoritmo O(1) también es O(lg N), que también es O(N)…*):
+en"; se lee: *un algoritmo $$O(1)$$ también es $$O(\lg N)$$, que también es $$O(N)$$…*):
 
-> **O(1) ⊂ O(lg N) ⊂ O(N) ⊂ O(N lg N) ⊂ O(N²) ⊂ O(N³) ⊂ O(2ᴺ)**
+> **$$O(1)$$ ⊂ $$O(\lg N)$$ ⊂ $$O(N)$$ ⊂ $$O(N \lg N)$$ ⊂ $$O(N^2)$$ ⊂ $$O(N^3)$$ ⊂ $$O(2^N)$$**
 
 Cada clase contiene a todas las anteriores. En la práctica: la que aparece más a la
 izquierda gana para N grande.
@@ -738,7 +738,7 @@ izquierda gana para N grande.
 <Slide title="La jerarquía, dibujada">
 Los `⊂` de la notación dicen que cada clase **contiene** a las anteriores. Aquí lo
 vemos así, literalmente — cada anillo es una clase, la más eficiente al centro. Los
-colores acompañan: verde al centro (O(1), el ideal), rojo por fuera (O(2ᴺ), donde ya
+colores acompañan: verde al centro ($$O(1)$$, el ideal), rojo por fuera ($$O(2^N)$$, donde ya
 no se puede).
 
 <ComplexityHierarchy title="Jerarquía asintótica" />
@@ -773,8 +773,8 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
   functions={[
     { label: "N", fn: (n) => n, color: "violet" },
     { label: "N lg N", fn: (n) => n * Math.log2(n), color: "orange" },
-    { label: "N²", fn: (n) => n * n, color: "pink" },
-    { label: "2ᴺ", fn: (n) => Math.pow(2, n), color: "red" },
+    { label: "$$N^2$$", fn: (n) => n * n, color: "pink" },
+    { label: "$$2^N$$", fn: (n) => Math.pow(2, n), color: "red" },
   ]}
 />
 </SideBySide>
@@ -788,14 +788,14 @@ banda.
 Comparación de algoritmos con distintas complejidades, polinomiales y exponenciales
 (fuente: [Aho, Hopcroft, Ullman, *The Design and Analysis of Computer Algorithms*, 1974](https://en.wikipedia.org/wiki/The_Design_and_Analysis_of_Computer_Algorithms)). Tiempo estimado asumiendo una operación por microsegundo:
 
-| T(n) | n=10 | n=20 | n=30 | n=40 | n=50 | n=60 |
+| $$T(n)$$ | n=10 | n=20 | n=30 | n=40 | n=50 | n=60 |
 |---|---|---|---|---|---|---|
 | n         | 0,00001 s | 0,00002 s | 0,00003 s | 0,00004 s | 0,00005 s | 0,00006 s |
-| n²        | 0,0001 s  | 0,0004 s  | 0,0009 s  | 0,0016 s  | 0,0025 s  | 0,0036 s  |
-| n³        | 0,001 s   | 0,008 s   | 0,027 s   | 0,064 s   | 0,125 s   | 0,216 s   |
-| n⁵        | 0,1 s     | 3,2 s     | 24,3 s    | 1,7 min   | 5,2 min   | 13 min    |
-| 2ⁿ        | 0,001 s   | 1 s       | 17,9 min  | 12,7 días | 35,7 años | 366 siglos |
-| 3ⁿ        | 0,059 s   | 58 min    | 6,5 años  | 3 855 siglos | 2·10⁸ siglos | 1,3·10¹³ siglos |
+| $$n^2$$        | 0,0001 s  | 0,0004 s  | 0,0009 s  | 0,0016 s  | 0,0025 s  | 0,0036 s  |
+| $$n^3$$        | 0,001 s   | 0,008 s   | 0,027 s   | 0,064 s   | 0,125 s   | 0,216 s   |
+| $$n^5$$        | 0,1 s     | 3,2 s     | 24,3 s    | 1,7 min   | 5,2 min   | 13 min    |
+| $$2^n$$        | 0,001 s   | 1 s       | 17,9 min  | 12,7 días | 35,7 años | 366 siglos |
+| $$3^n$$        | 0,059 s   | 58 min    | 6,5 años  | 3 855 siglos | $$2 \cdot 10^8$$ siglos | $$1{,}3 \cdot 10^{13}$$ siglos |
 
 Lo que la tabla dice, en tres frases:
 
@@ -805,12 +805,12 @@ Lo que la tabla dice, en tres frases:
   decir su complejidad temporal es cuadrática.**
 - **No queremos el detalle de implementación de un algoritmo, queremos el comportamiento
   que tendrá cuando la entrada crece.** Esa es la pregunta que la tabla responde: para
-  n = 60 la diferencia entre n² y 2ⁿ deja de ser un detalle — son 3,6 milisegundos vs
+  n = 60 la diferencia entre $$n^2$$ y $$2^n$$ deja de ser un detalle — son 3,6 milisegundos vs
   366 años.
 </Slide>
 
 <Slide title="¿Por qué solo importa el orden?">
-En T(n) el término dominante manda. **Las constantes y los términos menores se descartan.**
+En $$T(n)$$ el término dominante manda. **Las constantes y los términos menores se descartan.**
 Cuatro razones para justificarlo:
 
 **Razón 1 — Las constantes dependen del contador, no del algoritmo.**
@@ -823,27 +823,27 @@ crecimiento sobrevive el cambio de máquina; las constantes no.**
 
 **Razón 3 — Para N grande, el término dominante aplasta a todos los demás.**
 
-| N | 3n² | 5n + 12 | ¿Qué porcentaje aporta n²? |
+| N | $$3n^2$$ | $$5n + 12$$ | ¿Qué porcentaje aporta $$n^2$$? |
 |---|---|---|---|
 | 10 | 300 | 62 | 82 % |
 | 100 | 30 000 | 512 | 98 % |
 | 1 000 | 3 000 000 | 5 012 | 99,83 % |
-| 10 000 | 3·10⁸ | 50 012 | 99,98 % |
+| 10 000 | 3·$$10^8$$ | 50 012 | 99,98 % |
 
 **Razón 4 — Comparamos algoritmos por lo que hacen eventualmente, no en casos pequeños.**
 
-Un O(n) con constante grande y un O(n²) con constante chica. En escala reducida (mismo
-mensaje, coordenadas manejables): T₁ = 100·n vs T₂ = n². Para n < 100 gana T₂. Para
+Un $$O(n)$$ con constante grande y un $$O(n^2)$$ con constante chica. En escala reducida (mismo
+mensaje, coordenadas manejables): T₁ = 100·n vs T₂ = $$n^2$$. Para n < 100 gana T₂. Para
 n > 100 gana T₁ — y a partir de ahí, por mucho.
 
 <MathPlot
   type="curves"
-  title="100n vs n² — el cruce en n = 100"
+  title="100n vs $$n^2$$ — el cruce en n = 100"
   xRange={[0, 200]}
   yRange={[0, 40000]}
   functions={[
     { label: "100n", fn: (n) => 100 * n, color: "blue" },
-    { label: "n²", fn: (n) => n * n, color: "red" },
+    { label: "$$n^2$$", fn: (n) => n * n, color: "red" },
   ]}
 />
 
@@ -863,7 +863,7 @@ constante c."*
 
 <MathPlot
   type="curves"
-  title="T(N) = 4N + 4 es O(N)"
+  title="$$T(N)$$ = 4N + 4 es $$O(N)$$"
   xRange={[0, 20]}
   yRange={[0, 120]}
   functions={[
@@ -873,36 +873,36 @@ constante c."*
   annotations={[{ type: "verticalLine", x: 4, label: "N_zero = 4" }]}
 />
 
-**Ejemplo**: T(n) = 4n + 4 es O(n). Basta encontrar un par (c, N₀). Con c=5 y N₀=4:
+**Ejemplo**: $$T(n)$$ = 4n + 4 es $$O(n)$$. Basta encontrar un par (c, N₀). Con c=5 y N₀=4:
 4n + 4 ≤ 5n para todo n ≥ 4. ✓
 
 **En la práctica no usamos la definición cada vez.** Aplicamos reglas:
 
-- **Constantes multiplicativas se descartan**: O(5N) = O(N).
-- **Regla de la suma**: se queda el mayor. O(N² + N) = O(N²).
-- **Regla del producto** (ciclos anidados): O(N) · O(N) = O(N²).
-- **Jerarquía**: 1 < lg N < √N < N < N lg N < N² < N³ < 2ᴺ < N!
+- **Constantes multiplicativas se descartan**: O(5N) = $$O(N)$$.
+- **Regla de la suma**: se queda el mayor. O($$N^2$$ + N) = $$O(N^2)$$.
+- **Regla del producto** (ciclos anidados): $$O(N)$$ · $$O(N)$$ = $$O(N^2)$$.
+- **Jerarquía**: 1 < lg N < √N < N < N lg N < $$N^2$$ < $$N^3$$ < $$2^N$$ < N!
 
-**Cuidado**: O es cota superior, **no necesariamente ajustada**. Decir *"O(2ᴺ)"* de un
+**Cuidado**: O es cota superior, **no necesariamente ajustada**. Decir *"$$O(2^N)$$"* de un
 algoritmo lineal es cierto pero inútil. Siempre buscamos la cota **más ajustada** posible.
 </Slide>
 
 <Slide title="Notaciones Ω y Θ">
-**Ω(g(N))** — cota inferior. Existen c, N₀ tales que 0 ≤ c·g(N) ≤ f(N) para todo N ≥ N₀.
+**$$\Omega(g(N))$$** — cota inferior. Existen c, N₀ tales que 0 ≤ c·g(N) ≤ f(N) para todo N ≥ N₀.
 
 > Traducción: *"f no puede ser más pequeño que g por una constante, a partir de N₀."*
 > Sirve para afirmar *"no se puede hacer mejor que esto"*.
 
-**Θ(g(N))** — cota ajustada. Existe cuando f es a la vez O(g) **y** Ω(g).
+**$$\Theta(g(N))$$** — cota ajustada. Existe cuando f es a la vez O(g) **y** $$\Omega(g)$$.
 
 > Traducción: *"f y g crecen al mismo ritmo asintóticamente."*
 > Es la afirmación más fuerte que podemos hacer.
 
-**Ejemplo con nuestro ciclo simple**: T(n) = 4n + 4.
+**Ejemplo con nuestro ciclo simple**: $$T(n)$$ = 4n + 4.
 
-- Es O(n): con c=5, N₀=4.
-- Es Ω(n): con c=4, N₀=1.
-- Como es O(n) y Ω(n) → es **Θ(n)**.
+- Es $$O(n)$$: con c=5, N₀=4.
+- Es $$\Omega(n)$$: con c=4, N₀=1.
+- Como es $$O(n)$$ y $$\Omega(n)$$ → es **$$\Theta(n)$$**.
 
 Para un polinomio, Θ es simplemente su **término de mayor grado sin coeficiente**.
 </Slide>
@@ -916,9 +916,9 @@ distintas.**
 
 Los dos ejes son independientes. Podemos decir:
 
-- *"En el peor caso, este algoritmo es O(N²)"*.
-- *"En el peor caso, este algoritmo es Ω(N)"*.
-- *"En el mejor caso, este algoritmo es Θ(1)"*.
+- *"En el peor caso, este algoritmo es $$O(N^2)$$"*.
+- *"En el peor caso, este algoritmo es $$\Omega(N)$$"*.
+- *"En el mejor caso, este algoritmo es $$\Theta(1)$$"*.
 
 Hasta aquí el ciclo simple sirvió para hablar de cotas, pero hace lo mismo con cualquier
 entrada. El siguiente problema depende de la entrada, y peor/mejor/promedio son
@@ -927,7 +927,7 @@ cualitativamente distintos: `FindInArray`.
 
 <Slide title="Convención: cuando decimos O() sin decir el caso">
 Ya vimos que cota y caso son dimensiones distintas. Pero en la práctica, cuando decimos
-*"este algoritmo es O(N²)"* **sin explicitar el caso**, no estamos siendo ambiguos — hay
+*"este algoritmo es $$O(N^2)$$"* **sin explicitar el caso**, no estamos siendo ambiguos — hay
 una convención de la disciplina.
 
 **Convención estándar (y del curso)**:
@@ -940,15 +940,15 @@ más lento que esto"*. El peor caso es el compromiso más fuerte.
 
 **Cómo hablar correctamente en las tres situaciones**:
 
-- **Peor caso** (implícito): *"El algoritmo es O(N²)."* → se sobreentiende peor caso.
-- **Peor caso** (explícito, más claro): *"En el peor caso, el algoritmo es O(N²)."*
-- **Mejor caso**: **siempre** explicitar. *"En el mejor caso, el algoritmo es O(1)."*
+- **Peor caso** (implícito): *"El algoritmo es $$O(N^2)$$."* → se sobreentiende peor caso.
+- **Peor caso** (explícito, más claro): *"En el peor caso, el algoritmo es $$O(N^2)$$."*
+- **Mejor caso**: **siempre** explicitar. *"En el mejor caso, el algoritmo es $$O(1)$$."*
 - **Caso promedio**: **siempre** explicitar. *"En promedio, el algoritmo es O(N log N)."*
 
 **Frase modelo**:
 
-> *"En el peor caso, este algoritmo es Θ(N²). En el mejor caso, es Θ(N). En promedio, es
-> Θ(N²)."*
+> *"En el peor caso, este algoritmo es $$\Theta(N^2)$$. En el mejor caso, es $$\Theta(N)$$. En promedio, es
+> $$\Theta(N^2)$$."*
 
 **Consecuencia práctica**: sin más contexto, la complejidad reportada es la del peor
 caso — es la convención por defecto.
@@ -1062,9 +1062,9 @@ Contamos las líneas que **sí** se ejecutan:
 - `arr[i] == x` (acceso + comparación): **2 OE**
 - `return true;`: **1 OE**
 
-**T_mejor(n) = 1 + 1 + 2 + 1 = 5**. No depende de `n`.
+**$$T_	ext{mejor}(n)$$ = 1 + 1 + 2 + 1 = 5**. No depende de `n`.
 
-**Complejidad**: Θ(1).
+**Complejidad**: $$\Theta(1)$$.
 </Slide>
 
 <Slide title="Peor caso — `x` no está (o está al final)">
@@ -1072,9 +1072,9 @@ Recorremos **todo el arreglo** hasta llegar al final. Retorna `false` (o `true` 
 última posición — el conteo es el mismo).
 
 Antes de escribir la fórmula introducimos una notación matemática que vamos a usar de
-aquí en adelante — la **sumatoria** Σ. La expresión `Σᵢ₌₁ⁿ f(i)` es solo una forma compacta
-de escribir `f(1) + f(2) + f(3) + … + f(n)`. Nada más. Por ejemplo, `Σᵢ₌₁ⁿ 1` es sumar
-`1` un total de `n` veces, o sea `n`; y `Σᵢ₌₁ⁿ i = 1 + 2 + … + n = n(n+1)/2`, que es
+aquí en adelante — la **sumatoria** Σ. La expresión `$$\sum_{i=1}^{n} f(i)$$` es solo una forma compacta
+de escribir `f(1) + f(2) + f(3) + … + f(n)`. Nada más. Por ejemplo, `$$\sum_{i=1}^{n} 1$$` es sumar
+`1` un total de `n` veces, o sea `n`; y `$$\sum_{i=1}^{n}$$ i = 1 + 2 + … + n = n(n+1)/2`, que es
 justo el problema con el que abrimos la clase.
 
 Contamos:
@@ -1085,18 +1085,18 @@ Contamos:
 - `i < arr.length` la evaluamos una vez más para salir del ciclo: **1 OE**.
 - `return false;`: **1 OE**.
 
-**T_peor(n) = 1 + Σᵢ₌₁ⁿ 4 + 1 + 1 = 1 + 4n + 2 = 4n + 3**
+**$$T_	ext{peor}(n)$$ = 1 + $$\sum_{i=1}^{n} 4$$ + 1 + 1 = 1 + 4n + 2 = 4n + 3**
 
-**T(n) = 4n + 3**. Lineal en `n`.
+**$$T(n)$$ = 4n + 3**. Lineal en `n`.
 
-**Complejidad**: Θ(n).
+**Complejidad**: $$\Theta(n)$$.
 </Slide>
 
 <Slide title="Caso promedio — `x` en posición aleatoria">
 Asumimos que **`x` puede estar en cualquier posición del arreglo con igual probabilidad
 1/n**. El número esperado de iteraciones del ciclo es:
 
-**E\[iteraciones\] = Σᵢ₌₁ⁿ i/n = (1/n) · n(n+1)/2 = (n+1)/2**
+**E\[iteraciones\] = $$\sum_{i=1}^{n} i/n$$ = (1/n) · n(n+1)/2 = (n+1)/2**
 
 Sustituimos ese número esperado en cada línea, con el mismo formato de los dos casos
 anteriores:
@@ -1108,11 +1108,11 @@ anteriores:
   para salir cuando encuentra `x`.
 - `return true;`: **1 OE**.
 
-**T_prom(n) = 1 + \[3·(n+1)/2 + (n+1)/2 + 1\] + 1 = 1 + (2n+1) + 1 = 2n + 3**
+**$$T_	ext{prom}(n)$$ = 1 + \[3·(n+1)/2 + (n+1)/2 + 1\] + 1 = 1 + (2n+1) + 1 = 2n + 3**
 
-**T(n) = 2n + 3**. Lineal en `n`.
+**$$T(n)$$ = 2n + 3**. Lineal en `n`.
 
-**Complejidad**: Θ(n).
+**Complejidad**: $$\Theta(n)$$.
 
 **Observación clave del caso promedio**: aunque en promedio se recorra la mitad del arreglo,
 el algoritmo sigue siendo **lineal**. La constante mejora (mitad de trabajo esperado), pero el orden
@@ -1135,7 +1135,7 @@ razones:
 - El **mejor caso** casi nunca es interesante por sí solo — sirve para explicar por qué el
   algoritmo puede parecer rápido en pruebas superficiales.
 - El **caso promedio** importa cuando la distribución real de entradas es conocida y muy
-  distinta al peor caso (ejemplo clásico: **quicksort** es O(N²) peor caso pero O(N log N)
+  distinta al peor caso (ejemplo clásico: **quicksort** es $$O(N^2)$$ peor caso pero O(N log N)
   en promedio con inputs aleatorios — por eso se usa a pesar de tener un peor caso feo).
 </Slide>
 
@@ -1143,7 +1143,7 @@ razones:
 No solo el tiempo cuesta — la **memoria** también. Y se analiza igual: contando qué se
 guarda en función del tamaño de la entrada.
 
-**Regla**: el costo espacial `M(n)` = número de celdas de memoria que el algoritmo necesita
+**Regla**: el costo espacial `$$M(n)$$` = número de celdas de memoria que el algoritmo necesita
 durante su ejecución, **sin contar la memoria de la entrada**.
 
 **Cómo se calcula**, en tres pasos análogos al conteo temporal:
@@ -1160,18 +1160,18 @@ durante su ejecución, **sin contar la memoria de la entrada**.
 - Un arreglo de tamaño `k` → **k celdas**.
 - Un arreglo bidimensional `n × m` → **n·m celdas**.
 
-**Notaciones**: las mismas que en tiempo — O, Ω, Θ sobre M(n).
+**Notaciones**: las mismas que en tiempo — O, Ω, Θ sobre $$M(n)$$.
 </Slide>
 
 <Slide title="Espacio aplicado a nuestros ejemplos">
 Aplicamos la receta a los algoritmos ya vistos:
 
-| Algoritmo | Variables/estructuras auxiliares | M(n) |
+| Algoritmo | Variables/estructuras auxiliares | $$M(n)$$ |
 |---|---|---|
-| `sumaCiclo` | `s`, `i` — dos ints | **Θ(1)** |
-| `sumaDobleCiclo` | `s`, `i`, `j` — tres ints | **Θ(1)** |
-| `sumaFormula` | ninguna | **Θ(1)** |
-| `findInArray` | `i` — un int | **Θ(1)** |
+| `sumaCiclo` | `s`, `i` — dos ints | **$$\Theta(1)$$** |
+| `sumaDobleCiclo` | `s`, `i`, `j` — tres ints | **$$\Theta(1)$$** |
+| `sumaFormula` | ninguna | **$$\Theta(1)$$** |
+| `findInArray` | `i` — un int | **$$\Theta(1)$$** |
 
 Todos son **constantes en espacio**. Ninguno crece con la entrada — es lo típico en
 algoritmos iterativos simples.
@@ -1197,7 +1197,7 @@ algoritmos iterativos simples.
   slider={{ min: 1, max: 100, default: 10 }}
 />
 
-Aquí `M(n) = Θ(n)` — el arreglo que devuelve crece con `n`.
+Aquí `$$M(n)$$ = $$\Theta(n)$$` — el arreglo que devuelve crece con `n`.
 
 **Regla del curso**: cuando se pide "la complejidad" de un algoritmo, se pide **temporal**.
 Si además se pide espacial, se explicita.
@@ -1250,29 +1250,29 @@ El costo depende de **cuántas iteraciones haga el `while`**. ¿Cómo lo acotamo
   En cualquiera de los dos casos, `a % b < a / 2`.
 - Por lo tanto, cada dos iteraciones `a` cae por debajo de la mitad de su valor inicial.
 
-**Consecuencia**: un número solo puede reducirse a la mitad **lg₂(a)** veces antes de
+**Consecuencia**: un número solo puede reducirse a la mitad **$$\lg_2(a)$$** veces antes de
 llegar a 0.
 
-**T(a, b) = O(lg a)**
+**$$T(a, b)$$ = $$O(\lg a)$$**
 
 Comparemos con la alternativa "fuerza bruta" — probar todos los divisores desde `min(a,
 b)` hasta 1:
 
-**T_bruta(a, b) = O(min(a, b))**
+**T_bruta(a, b) = $$O(\min(a, b))$$**
 
 Contraste directo:
 
 | a ≈ b | Fuerza bruta | Euclides |
 |---|---|---|
-| 10⁶ | ~10⁶ iteraciones | ~20 |
-| 10⁹ | ~10⁹ iteraciones | ~30 |
-| 10¹² | ~10¹² iteraciones | ~40 |
+| $$10^6$$ | ~$$10^6$$ iteraciones | ~20 |
+| $$10^9$$ | ~$$10^9$$ iteraciones | ~30 |
+| $$10^{12}$$ | ~$$10^{12}$$ iteraciones | ~40 |
 
 **La moraleja**:
 
 > **Un buen algoritmo vale más que una máquina más rápida.**
 > Si se mejora la CPU 10× pero se usa fuerza bruta, se gana un factor 10. Si se cambia
-> del algoritmo lineal al logarítmico, se gana un factor de **~33 millones** con a = 10⁹.
+> del algoritmo lineal al logarítmico, se gana un factor de **~33 millones** con a = $$10^9$$.
 
 Y este algoritmo lo escribieron hace **2300 años** — y **nuestras herramientas del siglo
 XX lo pueden analizar sin cambios.**
@@ -1308,9 +1308,9 @@ que las herramientas iterativas no alcanzan a describir.
 
 Para analizar esto necesitamos herramientas nuevas:
 
-- **Ecuaciones de recurrencia** — expresar T(n) en términos de T(n-1), T(n/2), etc.
+- **Ecuaciones de recurrencia** — expresar $$T(n)$$ en términos de T(n-1), T(n/2), etc.
 - **Métodos para resolverlas** — sustitución, inducción, Teorema Maestro.
-- **Explosión exponencial** — cuando la recursión no controla su crecimiento, T(n) es 2ⁿ y
+- **Explosión exponencial** — cuando la recursión no controla su crecimiento, $$T(n)$$ es $$2^n$$ y
   ninguna máquina te salva.
 - **Memoización y programación dinámica** — cómo domesticar la explosión guardando
   resultados.
