@@ -750,75 +750,145 @@ Ahora formalizamos ese vocabulario — **O, Ω, Θ** — el que canonizó Knuth 
 usando 50 años después.
 </Slide>
 
-<Slide title="Notación O grande — definición formal + reglas prácticas">
-**Definición formal**:
+<Slide title="Big O — la intuición">
+Cuando decimos que un algoritmo es $$O(n)$$, informalmente queremos decir:
 
-> **O(g(N))** = \{ f(N) : existen constantes positivas *c* y *N₀* tales que 0 ≤ f(N) ≤
-> c·g(N) para todo N ≥ N₀ \}
+> *"crece **a lo sumo** como $$n$$"*
 
-**Traducción**: *"a partir de un cierto N₀, f nunca supera a g multiplicada por una
-constante c."*
+Es una **cota superior**. Existe alguna línea recta múltiplo de $$n$$ que, a partir de
+cierto punto, queda **siempre por encima** del costo del algoritmo. Puede haber
+altibajos al principio, pero desde algún $$N_0$$ en adelante el costo nunca la
+sobrepasa.
 
-**Ejemplo visual** — $$f(N) = 4N + 4$$ es $$O(N)$$ con $$c = 5$$ y $$N_0 = 4$$:
+Ninguna fórmula todavía — la idea visual primero:
 
 <MathPlot
   type="curves"
   xRange={[0, 20]}
   yRange={[0, 120]}
-  height={420}
+  height={380}
   functions={[
     { label: "f(N) = 4N+4", fn: (n) => 4 * n + 4, color: "blue" },
-    { label: "c·g(N) = 5N", fn: (n) => 5 * n, color: "red", dashed: true },
+    { label: "5N (cota superior)", fn: (n) => 5 * n, color: "red", dashed: true },
   ]}
   annotations={[{ type: "verticalLine", x: 4, label: "N₀ = 4" }]}
 />
 
-**Ejemplo**: $$T(n)$$ = 4n + 4 es $$O(n)$$. Basta encontrar un par (c, N₀). Con c=5 y N₀=4:
-4n + 4 ≤ 5n para todo n ≥ 4. ✓
+La curva azul es el costo del ciclo simple ($$T(n) = 4n + 4$$). La línea roja es
+$$5n$$. A partir de $$N_0 = 4$$, la roja queda **siempre por encima** de la azul —
+eso alcanza para decir que $$4n + 4$$ es $$O(n)$$.
 
-**En la práctica no usamos la definición cada vez.** Aplicamos reglas:
-
-- **Constantes multiplicativas se descartan**: O(5N) = $$O(N)$$.
-- **Regla de la suma**: se queda el mayor. O($$N^2$$ + N) = $$O(N^2)$$.
-- **Regla del producto** (ciclos anidados): $$O(N)$$ · $$O(N)$$ = $$O(N^2)$$.
-- **Jerarquía**: 1 < lg N < √N < N < N lg N < $$N^2$$ < $$N^3$$ < $$2^N$$ < N!
-
-**Cuidado**: O es cota superior, **no necesariamente ajustada**. Decir *"$$O(2^N)$$"* de un
-algoritmo lineal es cierto pero inútil. Siempre buscamos la cota **más ajustada** posible.
+No importa que la cota superior no sea la más apretada; **basta con que exista una**.
 </Slide>
 
-<Slide title="Notaciones Ω y Θ">
-**Ω(g(N)) — cota inferior**. Existen c, N₀ tales que 0 ≤ c·g(N) ≤ f(N) para todo N ≥ N₀.
+<Slide title="Big O — la definición formal">
+Ahora la definición matemática precisa:
 
-> *"f no puede ser más pequeño que g por una constante, a partir de N₀."*
-> Sirve para afirmar *"no se puede hacer mejor que esto"*.
+> **$$O(g(N))$$** = $$\{\,f(N) : \exists\ c > 0,\ N_0 > 0\ \text{tales que}\ 0 \le f(N) \le c \cdot g(N)\ \forall N \ge N_0\,\}$$
 
-**Ejemplo visual** — $$f(N) = 4N + 4$$ es $$\Omega(N)$$ con $$c = 4$$ y $$N_0 = 1$$:
+**Traducción**: *"a partir de un cierto $$N_0$$, $$f$$ nunca supera a $$g$$ multiplicada
+por una constante $$c$$."*
+
+**Cómo se prueba en la práctica**: para demostrar que $$f \in O(g)$$, basta **exhibir un
+solo par** $$(c, N_0)$$ que cumpla la desigualdad. Un ejemplo con nuestro ciclo simple:
+
+- Queremos probar que $$T(n) = 4n + 4$$ es $$O(n)$$.
+- Elegimos $$c = 5$$ y $$N_0 = 4$$.
+- Verificamos: para todo $$n \ge 4$$, ¿es cierto que $$4n + 4 \le 5n$$? Sí — despejando
+  queda $$4 \le n$$, que se cumple para $$n \ge 4$$. ✓
+
+Con ese par listo, ya está: $$4n + 4$$ es $$O(n)$$. No hay que encontrar el par más
+chico ni el mejor — cualquier par que funcione es suficiente.
+</Slide>
+
+<Slide title="Reglas prácticas para trabajar con O">
+No usamos la definición cada vez que analizamos un algoritmo. En su lugar aplicamos
+cuatro reglas que se demuestran una vez y se reutilizan siempre:
+
+- **Constantes multiplicativas se descartan**: $$O(5N) = O(N)$$. Cualquier factor
+  constante se absorbe eligiendo otro $$c$$ en la definición.
+- **Regla de la suma** (bloques secuenciales): $$O(N^2 + N) = O(N^2)$$. Se queda el
+  término dominante — el más grande gana asintóticamente.
+- **Regla del producto** (ciclos anidados): $$O(N) \cdot O(N) = O(N^2)$$. Un ciclo
+  dentro de otro multiplica los costos.
+- **Jerarquía**: $$1 < \lg N < \sqrt{N} < N < N \lg N < N^2 < N^3 < 2^N < N!$$. La
+  posición en esta cadena decide quién domina cuando hay que aplicar la regla de la
+  suma.
+
+**Cuidado importante**: $$O$$ es cota superior, **no necesariamente la más ajustada**.
+Decir *"este algoritmo es $$O(2^N)$$"* de uno que en realidad es lineal es cierto pero
+inútil. Siempre buscamos la cota más apretada posible — si un algoritmo es $$O(N)$$,
+lo llamamos $$O(N)$$, no $$O(N^2)$$.
+</Slide>
+
+<Slide title="Ω — cota inferior">
+Simétrica de O. Cuando decimos que un algoritmo es $$\Omega(n)$$:
+
+> *"crece **al menos** como $$n$$"*
+
+Es una **cota inferior**. Existe alguna línea recta múltiplo de $$n$$ que, a partir de
+cierto punto, queda **siempre por debajo** del costo del algoritmo. Sirve para afirmar
+*"no se puede hacer mejor que esto"*.
 
 <MathPlot
   type="curves"
   xRange={[0, 20]}
   yRange={[0, 100]}
-  height={420}
+  height={380}
   functions={[
     { label: "f(N) = 4N+4", fn: (n) => 4 * n + 4, color: "blue" },
-    { label: "c·g(N) = 4N", fn: (n) => 4 * n, color: "green", dashed: true },
+    { label: "4N (cota inferior)", fn: (n) => 4 * n, color: "green", dashed: true },
   ]}
   annotations={[{ type: "verticalLine", x: 1, label: "N₀ = 1" }]}
 />
 
-**Θ(g(N)) — cota ajustada**. Existe cuando f es a la vez O(g) **y** Ω(g).
+**Definición formal**:
 
-> *"f y g crecen al mismo ritmo asintóticamente."* Es la afirmación más fuerte que
-> podemos hacer.
+> **$$\Omega(g(N))$$** = $$\{\,f(N) : \exists\ c > 0,\ N_0 > 0\ \text{tales que}\ 0 \le c \cdot g(N) \le f(N)\ \forall N \ge N_0\,\}$$
 
-**Ejemplo con nuestro ciclo simple**: $$T(n) = 4n + 4$$.
+**Ejemplo**: $$4n + 4$$ es $$\Omega(n)$$ con $$c = 4$$ y $$N_0 = 1$$ — para todo $$n \ge 1$$
+se cumple $$4n \le 4n + 4$$. Trivial pero suficiente.
+</Slide>
 
-- Es $$O(n)$$: con c=5, N₀=4.
-- Es $$\Omega(n)$$: con c=4, N₀=1.
-- Como es $$O(n)$$ y $$\Omega(n)$$ → es $$\Theta(n)$$.
+<Slide title="Θ — cota ajustada">
+Θ combina las otras dos:
 
-Para un polinomio, Θ es simplemente su **término de mayor grado sin coeficiente**.
+> $$f(N) \in \Theta(g(N))$$   ⇔   $$f \in O(g)$$ **y** $$f \in \Omega(g)$$
+
+*"$$f$$ y $$g$$ crecen al mismo ritmo asintóticamente."* Es la afirmación más fuerte que
+podemos hacer sobre el costo de un algoritmo — no solo una cota, sino una caracterización
+exacta salvo constantes.
+
+**Ejemplo con el ciclo simple**: $$T(n) = 4n + 4$$.
+
+- Ya vimos que es $$O(n)$$ (con $$c = 5$$, $$N_0 = 4$$).
+- Ya vimos que es $$\Omega(n)$$ (con $$c = 4$$, $$N_0 = 1$$).
+- Como es las dos cosas → es $$\Theta(n)$$. **El ciclo simple es exactamente lineal.**
+
+**Regla de dedo para polinomios**: si $$T(n)$$ es un polinomio, entonces $$\Theta$$ es
+simplemente su **término de mayor grado sin coeficiente**. Así:
+
+- $$T(n) = 4n + 4$$ → $$\Theta(n)$$.
+- $$T(n) = 2n^2 + 6n + 4$$ → $$\Theta(n^2)$$.
+- $$T(n) = 100$$ (constante) → $$\Theta(1)$$.
+</Slide>
+
+<Slide title="O, Ω y Θ — cuándo se usa cada una">
+Las tres se usan en la práctica pero con propósitos distintos:
+
+- **$$O(g)$$** — para afirmar *"no puede ser peor que esto"*. Es la más común en
+  análisis de algoritmos: describe el peor comportamiento posible.
+- **$$\Omega(g)$$** — para afirmar *"no se puede hacer mejor que esto"*. Se usa en
+  demostraciones de **cotas inferiores** (ej: cualquier ordenamiento por comparación
+  es $$\Omega(N \lg N)$$).
+- **$$\Theta(g)$$** — para caracterizar el crecimiento **exacto**. Es la afirmación
+  más fuerte y la que preferimos cuando la podemos hacer.
+
+**Regla del curso**: cuando decimos *"este algoritmo es $$O(N^2)$$"* sin más contexto,
+normalmente queremos decir $$\Theta(N^2)$$ — es decir, esa es la clase exacta, no solo
+una cota holgada. Solo usamos $$O$$ estricto cuando no podemos apretar la cota (típico
+con recursiones sin resolver o con algoritmos donde el peor caso no siempre se
+alcanza).
 </Slide>
 
 <Slide title="Los órdenes de crecimiento del curso">
