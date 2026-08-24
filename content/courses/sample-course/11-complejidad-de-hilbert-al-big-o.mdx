@@ -401,11 +401,11 @@ int sumaFormula(int n) {
 
 Los tres devuelven **exactamente el mismo valor** para cada N ≥ 1. Están todos correctos.
 
-**¿Cuál elijo?**
+**¿Cuál elegimos?**
 </Slide>
 
 <Slide title="El cronómetro parece la respuesta obvia — Ejercicio en vivo">
-Presentamos `System.nanoTime()`: mido cada solución, comparo, elijo la más rápida.
+Presentamos `System.nanoTime()`: medimos cada solución, comparamos y elegimos la más rápida.
 
 <Benchmark
   implementations={[
@@ -476,8 +476,8 @@ public class SumaFormula {
 </Slide>
 
 <Slide title="El cronómetro no basta: estoy midiendo el entorno">
-Contraste: tabla del profe vs alumno A vs alumno B vs vecino → números completamente
-distintos. Todos ejecutaron el mismo código.
+Cuando varias personas corren el mismo código en máquinas distintas, obtienen números
+completamente distintos.
 
 Fuentes de ruido que están entrando en la medición:
 
@@ -495,7 +495,7 @@ Fuentes de ruido que están entrando en la medición:
 estás midiendo *el algoritmo + todo el ambiente que lo rodea*. Ese ambiente cambia entre
 máquinas, entre momentos, y hasta entre corridas consecutivas.
 
-*¿Cómo aíslo el algoritmo del entorno para hablar solo de él?*
+*¿Cómo aislamos el algoritmo del entorno para hablar solo de él?*
 </Slide>
 
 <Slide title="Volver al modelo teórico: de Turing a RAM">
@@ -700,10 +700,10 @@ mejor el algoritmo.**
 Otra persona cuenta las mismas operaciones distinto:
 
 - Ella dice: `s = s + i` cuesta **3 OE** (leer s, leer i, sumar-y-escribir).
-- Yo dije: cuesta **2 OE**.
+- El conteo del curso dio **2 OE**.
 
 Todo lo demás lo cuentan igual. Para el ciclo simple ella obtiene entonces
-**T'(n) = 5n + 4**. Yo obtuve **T(n) = 4n + 4**.
+**T'(n) = 5n + 4**. El conteo del curso da **T(n) = 4n + 4**.
 
 Tabla de razones:
 
@@ -790,8 +790,7 @@ clase; identifícalos.
 />
 </SideBySide>
 
-Mismos ejes que en la presentación clásica de Yerko: N en el rango 1–100, costo en
-escala lineal. Las curvas sublineales quedan aplastadas contra el eje inferior cuando se
+Ejes clásicos: N en el rango 1–100, costo en escala lineal. Las curvas sublineales quedan aplastadas contra el eje inferior cuando se
 mezclan con las superlineales — separarlas en dos gráficos es lo que hace legible cada
 banda.
 </Slide>
@@ -806,10 +805,10 @@ Comparación de algoritmos con distintas complejidades, polinomiales y exponenci
 | n²        | 0,0001 s  | 0,0004 s  | 0,0009 s  | 0,0016 s  | 0,0025 s  | 0,0036 s  |
 | n³        | 0,001 s   | 0,008 s   | 0,027 s   | 0,064 s   | 0,125 s   | 0,216 s   |
 | n⁵        | 0,1 s     | 3,2 s     | 24,3 s    | 1,7 min   | 5,2 min   | 13 min    |
-| 2ⁿ        | 0,001 s   | 1 s       | 17,9 min  | 12,7 días | 35,7 años | 366 años  |
+| 2ⁿ        | 0,001 s   | 1 s       | 17,9 min  | 12,7 días | 35,7 años | 366 siglos |
 | 3ⁿ        | 0,059 s   | 58 min    | 6,5 años  | 3 855 siglos | 2·10⁸ siglos | 1,3·10¹³ siglos |
 
-Lo que la tabla dice, en tres frases (parafraseando a Yerko):
+Lo que la tabla dice, en tres frases:
 
 - **El orden de crecimiento caracteriza el comportamiento** de un algoritmo respecto a un
   recurso (tiempo o espacio). No el número concreto de operaciones — el orden.
@@ -826,7 +825,7 @@ En T(n) el término dominante manda. **Las constantes y los términos menores se
 Cuatro razones para justificarlo:
 
 **Razón 1 — Las constantes dependen del contador, no del algoritmo.**
-Ya lo vimos: tú contaste `s = s + i` como 2 OE, yo como 3. La razón entre ambos converge a
+Ya lo vimos: una persona contó `s = s + i` como 2 OE y otra como 3. La razón entre ambos converge a
 una constante fija. **Las constantes no son propiedad del algoritmo.**
 
 **Razón 2 — Las constantes dependen de la máquina.**
@@ -926,7 +925,7 @@ distintas.**
 - **Caso** (peor, mejor, promedio): qué **entrada** elegimos analizar.
 - **Notación** (O, Ω, Θ): qué tipo de **cota** damos sobre la función resultante.
 
-Los dos ejes son independientes. Puedo decir:
+Los dos ejes son independientes. Podemos decir:
 
 - *"En el peor caso, este algoritmo es O(N²)"*.
 - *"En el peor caso, este algoritmo es Ω(N)"*.
@@ -1084,8 +1083,8 @@ Contamos las líneas que **sí** se ejecutan:
 Recorremos **todo el arreglo** hasta llegar al final. Retorna `false` (o `true` en la
 última posición — el conteo es el mismo).
 
-Antes de escribir la fórmula introduzco una notación matemática que vamos a usar de aquí
-en adelante — la **sumatoria** Σ. La expresión `Σᵢ₌₁ⁿ f(i)` es solo una forma compacta
+Antes de escribir la fórmula introducimos una notación matemática que vamos a usar de
+aquí en adelante — la **sumatoria** Σ. La expresión `Σᵢ₌₁ⁿ f(i)` es solo una forma compacta
 de escribir `f(1) + f(2) + f(3) + … + f(n)`. Nada más. Por ejemplo, `Σᵢ₌₁ⁿ 1` es sumar
 `1` un total de `n` veces, o sea `n`; y `Σᵢ₌₁ⁿ i = 1 + 2 + … + n = n(n+1)/2`, que es
 justo el problema con el que abrimos la clase.
@@ -1114,7 +1113,7 @@ Asumimos que **`x` puede estar en cualquier posición del arreglo con igual prob
 Sustituyendo (los sub-conteos del ciclo son init 1 + cond (n+1)/2 + inc (n−1)/2, más
 2·(n+1)/2 OE de la comparación por iteración; con inicio y `return true` final da):
 
-**T_prom(n) = 1 + \[1 + (n+1)/2 + (n−1)/2 + 2·(n+1)/2\] + 1 = 2n + 3**
+**T_prom(n) = 1 + \[(n+1)/2 + (n−1)/2 + 2·(n+1)/2\] + 1 = 1 + (2n+1) + 1 = 2n + 3**
 
 **T(n) = 2n + 3**. Lineal en `n`.
 
@@ -1162,7 +1161,7 @@ durante su ejecución, **sin contar la memoria de la entrada**.
 3. **Aplicar las mismas reglas asintóticas**: descartar constantes, quedarse con el término
    dominante.
 
-**Regla de dedo**:
+**Regla práctica**:
 
 - Una variable de tipo básico (`int`, `double`, `boolean`) → **1 celda**.
 - Un arreglo de tamaño `k` → **k celdas**.
@@ -1276,8 +1275,8 @@ Contraste directo:
 **La moraleja de la clase**:
 
 > **Un buen algoritmo vale más que una máquina más rápida.**
-> Si mejoras tu CPU 10× pero usas fuerza bruta, ganas un factor 10. Si mejoras del
-> algoritmo lineal al logarítmico, ganas un factor de **50 millones** con a = 10⁹.
+> Si se mejora la CPU 10× pero se usa fuerza bruta, se gana un factor 10. Si se cambia
+> del algoritmo lineal al logarítmico, se gana un factor de **~33 millones** con a = 10⁹.
 
 Y este algoritmo lo escribieron hace **2300 años** — antes de la palabra "algoritmo",
 antes de las computadoras, antes de la ciencia de la computación. **Y nuestras
