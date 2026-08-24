@@ -66,6 +66,12 @@ Su frase: *"Wir müssen wissen. Wir werden wissen."* — **"Debemos saber. Sabre
 
 Si los tres pilares se cumplen, la matemática es completamente confiable, cerrada y
 automatizable. **Ese era el sueño.**
+
+**Para leer más**: la [entrada de *Hilbert's Program* en la Stanford Encyclopedia of
+Philosophy](https://plato.stanford.edu/entries/hilbert-program/) cubre en profundidad los
+tres pilares y el contexto histórico. La lista original de los [23 problemas de
+Hilbert](https://en.wikipedia.org/wiki/Hilbert%27s_problems) — con el estado actual
+de cada uno — vive en Wikipedia.
 </Slide>
 
 <Slide title="Kurt Gödel rompe dos pilares (1931)">
@@ -94,6 +100,13 @@ sus propias reglas.
 
 **Consecuencia**: dos de los tres pilares de Hilbert caen. **Completitud es imposible**, y
 la **consistencia no se puede probar desde adentro**.
+
+**Para leer más**: el paper original de Gödel, [*Über formal unentscheidbare Sätze der
+Principia Mathematica und verwandter Systeme I*
+(1931)](https://link.springer.com/article/10.1007/BF01700692), publicado en
+*Monatshefte für Mathematik und Physik*. Una entrada divulgativa buena para arrancar:
+[Gödel's incompleteness theorems](https://en.wikipedia.org/wiki/G%C3%B6del%27s_incompleteness_theorems)
+en Wikipedia.
 </Slide>
 
 <Slide title="Solo queda un pilar: la decidibilidad">
@@ -210,8 +223,6 @@ enunciar la Tesis de Church-Turing en el siguiente slide.
 </Slide>
 
 <Slide title="La Tesis de Church-Turing">
-Ya la mencionamos al presentar los tres modelos de 1936 — aquí la desarrollamos.
-
 **Enunciado**: cualquier función que sea *"computable"* en algún sentido intuitivo — que
 un humano pueda calcular con lápiz y papel siguiendo una receta — es computable por una
 **máquina de Turing**.
@@ -241,41 +252,53 @@ problem** (problema de la parada).
 > *"Dado un programa P y una entrada X, ¿existe un algoritmo que responda 'sí' si P termina
 > con X, y 'no' si P corre para siempre?"*
 
-Turing demostró que **la respuesta es no**. El halting problem es **indecidible**.
-
-Argumento pedagógico (por reducción al absurdo, versión trazada):
-
-> Supongamos que sí existe una máquina `H(P, X)` que responde `sí` si `P` termina con
-> input `X`, o `no` si `P` corre para siempre — y que responde correcto para todos los
-> pares (P, X) del universo.
->
-> Ahora construimos un programa `M(P)` — un programa que **recibe otro programa** como
-> input — que hace lo siguiente:
->
-> ```
-> M(P):
->   si H(P, P) == "sí"  → ciclo infinito
->   si H(P, P) == "no"  → detener
-> ```
->
-> `M` es un programa perfectamente legítimo: usa a `H` como caja negra. Ahora la pregunta:
-> ¿qué pasa cuando corremos `M(M)` (le pasamos a `M` como entrada a sí mismo)?
->
-> - Si `H(M, M) = "sí"` → según `H`, `M(M)` termina. Pero por su código, `M(M)` entra en
->   loop. **`H` mintió.**
-> - Si `H(M, M) = "no"` → según `H`, `M(M)` no termina. Pero por su código, `M(M)` se
->   detiene. **`H` mintió.**
->
-> No hay valor posible de `H(M, M)` que sea consistente. Nuestra suposición de que existe
-> `H` correcto para todos los pares se derrumba. **`H` no puede existir.**
+Turing demostró que **la respuesta es no**. El halting problem es **indecidible** —
+no existe ningún algoritmo que pueda responder correctamente para todos los pares
+(P, X) posibles.
 
 **Consecuencia inmediata**: como el halting problem es indecidible, el
 **Entscheidungsproblem también lo es**. El tercer pilar de Hilbert cae. Turing responde a
 Hilbert 40 años después: *"no, no existe la máquina universal que soñabas."*
 
 **Consecuencia moderna**: por eso un compilador **no puede decirte con certeza** si tu
-bucle terminará para cualquier input. El halting problem no es una curiosidad de los 30 —
+ciclo terminará para cualquier input. El halting problem no es una curiosidad de los 30 —
 es la razón por la que hay bugs que ninguna herramienta puede descartar automáticamente.
+
+*(En el próximo slide vemos por qué no puede existir esa máquina.)*
+</Slide>
+
+<Slide title="Por qué el halting problem no se puede resolver">
+La prueba es una contradicción autorreferencial — el mismo tipo de truco que usó Gödel.
+Se supone que existe la máquina que resuelve el problema y se llega a un absurdo.
+
+Supongamos entonces que existe una máquina `H(P, X)` que, para cualquier programa `P` y
+entrada `X`, responde correctamente:
+
+- `sí` si `P` termina con la entrada `X`,
+- `no` si `P` corre para siempre.
+
+Con `H` disponible como caja negra, construimos un programa nuevo, `M(P)`, que recibe
+otro programa como entrada y hace exactamente lo contrario de lo que `H` predice sobre
+`P` aplicado a sí mismo:
+
+```
+M(P):
+  si H(P, P) == "sí"  → ciclo infinito
+  si H(P, P) == "no"  → detener
+```
+
+`M` es un programa perfectamente legítimo: usa a `H` como subrutina. Ahora corremos
+`M(M)` — le pasamos `M` como entrada a sí mismo — y miramos qué debería responder `H`:
+
+- Si `H(M, M) = "sí"` — es decir, `H` afirma que `M(M)` termina — entonces por el código
+  de `M`, `M(M)` entra en ciclo infinito. **`H` mintió.**
+- Si `H(M, M) = "no"` — `H` afirma que `M(M)` no termina — entonces por el código de
+  `M`, `M(M)` se detiene. **`H` mintió.**
+
+No hay respuesta posible de `H` sobre el par `(M, M)` que sea consistente con la
+definición de `M`. La única salida es que **`H` no puede existir**.
+
+Y con `H` cae el sueño de Hilbert.
 </Slide>
 
 <SectionBreak />
