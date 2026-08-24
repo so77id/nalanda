@@ -828,20 +828,30 @@ Comparación de algoritmos con distintas complejidades, polinomiales y exponenci
 | n         | 0,00001 s | 0,00002 s | 0,00003 s | 0,00004 s | 0,00005 s | 0,00006 s |
 | n²        | 0,0001 s  | 0,0004 s  | 0,0009 s  | 0,0016 s  | 0,0025 s  | 0,0036 s  |
 | n³        | 0,001 s   | 0,008 s   | 0,027 s   | 0,064 s   | 0,125 s   | 0,216 s   |
-| $$n^5$$        | 0,1 s     | 3,2 s     | 24,3 s    | 1,7 min   | 5,2 min   | 13 min    |
+| n⁵        | 0,1 s     | 3,2 s     | 24,3 s    | 1,7 min   | 5,2 min   | 13 min    |
 | 2ⁿ        | 0,001 s   | 1 s       | 17,9 min  | 12,7 días | 35,7 años | 366 siglos |
-| 3ⁿ        | 0,059 s   | 58 min    | 6,5 años  | 3 855 siglos | $$2 \cdot 10^8$$ siglos | $$1{,}3 \cdot 10^{13}$$ siglos |
+| 3ⁿ        | 0,059 s   | 58 min    | 6,5 años  | 3 855 siglos | 2·10⁸ siglos | 1,3·10¹³ siglos |
 
-Lo que la tabla dice, en tres frases:
+Lo dramático está en las últimas dos filas: hasta n = 20 todas caben en segundos.
+En n = 60 la brecha entre $$n^2$$ y $$2^n$$ es de **3,6 milisegundos contra 366
+siglos** — trece órdenes de magnitud, entre "correr al instante" y "más que la
+historia del universo".
+</Slide>
 
-- **El orden de crecimiento caracteriza el comportamiento** de un algoritmo respecto a un
-  recurso (tiempo o espacio). No el número concreto de operaciones — el orden.
-- **En lugar de decir *"tiene 102 395 474 operaciones cuando N = x"*, es mucho más simple
-  decir su complejidad temporal es cuadrática.**
-- **No queremos el detalle de implementación de un algoritmo, queremos el comportamiento
-  que tendrá cuando la entrada crece.** Esa es la pregunta que la tabla responde: para
-  n = 60 la diferencia entre $$n^2$$ y $$2^n$$ deja de ser un detalle — son 3,6 milisegundos vs
-  366 años.
+<Slide title="Lo que la tabla dice, en tres frases">
+- **El orden de crecimiento caracteriza el comportamiento** de un algoritmo respecto a
+  un recurso (tiempo o espacio). No el número concreto de operaciones — el orden.
+- **En lugar de decir *"tiene 102 395 474 operaciones cuando N = x"*, es mucho más
+  simple decir *"su complejidad temporal es cuadrática"*.** La segunda afirmación
+  permite comparar el algoritmo con otros de un vistazo; la primera no dice nada sobre
+  qué pasa cuando N cambia.
+- **No queremos el detalle de implementación de un algoritmo, queremos el
+  comportamiento que tendrá cuando la entrada crece.** Los detalles cambian con la
+  máquina, el compilador, el lenguaje; el orden de crecimiento es propiedad del
+  algoritmo mismo.
+
+Esta es la razón pedagógica por la que nos vamos a olvidar de las constantes en los
+próximos slides y quedarnos solo con el término dominante.
 </Slide>
 
 <Slide title="Big O — la intuición">
