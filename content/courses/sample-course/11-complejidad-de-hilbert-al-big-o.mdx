@@ -753,7 +753,7 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 <MathPlot
   type="curves"
   xRange={[1, 100]}
-  yRange={[0, 105]}
+  yRange={[0, 25]}
   height={280}
   functions={[
     { label: "1", fn: () => 1, color: "blue" },
@@ -765,9 +765,8 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 
 <MathPlot
   type="curves"
-  scale="log"
   xRange={[1, 100]}
-  yRange={[1, 1e31]}
+  yRange={[0, 1000]}
   height={280}
   functions={[
     { label: "N", fn: (n) => n, color: "violet" },
@@ -778,14 +777,9 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 />
 </SideBySide>
 
-Sublineal en escala lineal — N sube derecho hasta 100 mientras √N, lg N y la constante
-quedan aplanadas contra el eje. Ese aplanamiento es la lección: mezcladas con
-superlineales, las sublineales desaparecen visualmente.
-
-Superlineal en escala logarítmica: N=100 llevaría 2ᴺ a 2¹⁰⁰ ≈ 10³⁰, imposible en lineal.
-El eje `log` comprime el rango vertical para que las cuatro curvas quepan y se vea
-cómo cada una despega en su propio orden — N es una recta suave, N² sube más rápido,
-y 2ᴺ escapa hacia arriba dejando a todas las demás abajo.
+Ejes clásicos: N en el rango 1–100, costo en escala lineal. Las curvas sublineales
+quedan aplastadas contra el eje inferior cuando se mezclan con las superlineales —
+separarlas en dos gráficos es lo que hace legible cada banda.
 </Slide>
 
 <Slide title="¿Por qué quiero algoritmos asintóticamente eficientes?">
