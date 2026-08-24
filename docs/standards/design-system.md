@@ -200,24 +200,23 @@ H1/H2/H3 in the product:
   it is a first-class utility and passes `architecture.test.ts`'s raw-colour
   guard.
 
-**Two exceptions.**
+**One exception.**
 
-- **Slides.** Content inside `bg-deck-ground` (`SlideDeck.tsx`) paints its
-  titles with `ink`, not `accent-pop`. It is a consequence of two things: the
-  deck and the book live in different registers (§Rules that are not about
-  contrast above: "the deck is not the book"; the palette-level consequence
-  is recorded in ADR-0026 addendum §Deck exception), and `accent-pop` clears
-  only 2.92:1 on `deck-ground` in light —
-  below the 3:1 floor `palette.test.ts`'s CHROME_TOKENS declares. `.prose`
-  inside `bg-deck-ground` overrides `--tw-prose-headings` back to `ink` in
-  `styles/index.css`; the slide `<h2>` (which is not prose) also stays on
-  `text-ink`. The override is unlayered on purpose — a layered version would
-  lose to Tailwind's utilities.
 - **System UI framed on top of a course page.** The rotate-to-landscape
   notice is the only one today. Its heading is chrome the reader sees when
   the app cannot render what they asked for, not a title in a course
   document. `RotateNotice` therefore stays on `text-ink`; do the same for
   any new full-page system overlay.
+
+**Slides are NOT an exception.** Slide titles paint `text-accent-pop` like
+every other H1/H2/H3, because `--nl-deck-ground` collapses to the same
+value as `--nl-ground` in both themes (see §Rules that are not about
+contrast: "the deck is not the book" — narrowed since #225 to layout,
+motion, and typography scale, not surface). This was different in #222,
+which shipped `deck-ground` as a distinct surface and reset slide prose
+headings back to `ink` because `accent-pop` failed 3:1 there. #225 unified
+the two surfaces so the failing pair no longer exists — full history in
+ADR-0026 addendum §Deck exception (now superseded) and §Reversal.
 
 ## Verifying a colour change
 
@@ -237,13 +236,13 @@ Emulate the reader who never chose, which is the common case — in Playwright,
 deck, the catalog and an editor. Screenshot each and look.
 
 **Extras when the change touches `accent-pop` or the deck.** When a colour
-change modifies `--nl-accent-pop`, `--nl-deck-ground`, the `.prose` reroute
-or the `.bg-deck-ground .prose` override, confirm on the screenshots that
-slide H1/H2/H3 still paint `ink` (never the seed hue) in BOTH themes. That
-override in `styles/index.css` is what keeps them from failing 3:1 against
-`deck-ground` in light — see §Títulos "Two exceptions" and ADR-0026 addendum
-§Deck exception. A green suite proves nothing about this; the paint has to
-be looked at.
+change modifies `--nl-accent-pop`, `--nl-deck-ground`, or the `.prose`
+reroute, confirm on the screenshots that slide H1/H2/H3 paint the seed
+hue in BOTH themes (matching every other document H1/H2/H3). If a change
+re-diverges `--nl-deck-ground` from `--nl-ground`, the accent-pop pair
+against the new value has to clear 3:1 or a fresh mitigation is required —
+that history is in ADR-0026 addendum §Deck exception and §Reversal. A
+green suite proves nothing about this; the paint has to be looked at.
 
 The full browser recipe, including how to stop a preview server without killing
 other agents', is in `testing-strategy.md` §Conventions.

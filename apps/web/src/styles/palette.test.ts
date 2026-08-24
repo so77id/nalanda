@@ -73,20 +73,20 @@ const UI_TOKENS = ['rule-strong', 'focus'] as const;
 /**
  * Chrome tokens paint on the two page-level surfaces (canvas + cards) at the
  * WCAG "large text / non-text UI" floor of 3:1, and are NOT checked against
- * inset surfaces like `sunk` or `deck-ground`. The real uses of `accent-pop`
- * are: filled buttons (BG `accent-pop` + label on-pop, folded into `PAIRS` via
- * the existing on-keep shape), TEXT on `accent-soft` (chips, covered by
+ * inset surfaces like `sunk`. The real uses of `accent-pop` are: filled
+ * buttons (BG `accent-pop` + label on-pop, folded into `PAIRS` via the
+ * existing on-keep shape), TEXT on `accent-soft` (chips, covered by
  * `[accent, accent-soft]`), and section titles (H1/H2/H3) on `ground` or
- * `surface`. Inside `bg-deck-ground` (slides) the `--tw-prose-headings` reroute
- * is overridden and prose headings paint in `ink` instead — deck ≠ book, see
- * ADR-0026 addendum §Deck exception (the palette-level consequence) and the
- * deck-override block in `styles/index.css`. Testing `accent-pop` against every surface would
- * sacrifice the deck seed's identity (reference `#E86800`, shipped as the
- * nudged `#E66600` — see ADR-0026 addendum §Seed provenance) to a pairing
- * no component
- * paints; if a future component needs `accent-pop` on `sunk`, mint a specific
- * token for that use or promote `accent-pop` into `UI_TOKENS`. Recorded in
- * ADR-0026's addendum, alongside the seed provenance. */
+ * `surface`. Slides paint titles here too since #225 unified
+ * `--nl-deck-ground` with `--nl-ground` — every deck-ground pair collapses
+ * into a `ground` pair this test already verifies. Testing `accent-pop`
+ * against every surface would sacrifice the deck seed's identity (reference
+ * `#E86800`, shipped as the nudged `#E66600` — see ADR-0026 addendum §Seed
+ * provenance) to a pairing no component paints; if a future component needs
+ * `accent-pop` on `sunk`, mint a specific token for that use or promote
+ * `accent-pop` into `UI_TOKENS`. If a future WP re-diverges deck-ground
+ * from ground, revisit `CHROME_SURFACES` alongside the palette nudge — see
+ * ADR-0026 addendum §Reversal for why this coupling is now the shape. */
 const CHROME_TOKENS = ['accent-pop'] as const;
 const CHROME_SURFACES = ['ground', 'surface'] as const;
 
