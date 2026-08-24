@@ -777,18 +777,22 @@ formalizamos en los próximos slides.
 </Slide>
 
 <Slide title="¿Por qué solo importa el orden?">
-En $$T(n)$$ el término dominante manda. **Las constantes y los términos menores se descartan.**
-Cuatro razones para justificarlo:
+En $$T(n)$$ el término dominante manda. **Las constantes y los términos menores se
+descartan.** Tres razones sobre las constantes, una sobre los términos menores:
 
 **Razón 1 — Las constantes dependen del contador, no del algoritmo.**
-Ya lo vimos: una persona contó `s = s + i` como 2 OE y otra como 3. La razón entre ambos converge a
-una constante fija. **Las constantes no son propiedad del algoritmo.**
+Ya lo vimos: una persona contó `s = s + i` como 2 OE y otra como 3. La razón entre
+ambos converge a una constante fija. **Las constantes no son propiedad del algoritmo.**
 
 **Razón 2 — Las constantes dependen de la máquina.**
 Un `+` en ARM toma un número distinto de nanosegundos que en Intel. **El orden de
 crecimiento sobrevive el cambio de máquina; las constantes no.**
+</Slide>
 
-**Razón 3 — Para N grande, el término dominante aplasta a todos los demás.**
+<Slide title="El término dominante aplasta al resto">
+**Razón 3** para descartar términos menores: cuando $$N$$ crece, el término dominante
+se traga a todos los demás. Comparemos $$T(N) = 3N^2 + 5N + 12$$ — el $$N^2$$ vs todo
+lo demás:
 
 | N | 3n² | 5n + 12 | ¿Qué porcentaje aporta n²? |
 |---|---|---|---|
@@ -797,26 +801,34 @@ crecimiento sobrevive el cambio de máquina; las constantes no.**
 | 1 000 | 3 000 000 | 5 012 | 99,83 % |
 | 10 000 | 3·10⁸ | 50 012 | 99,98 % |
 
-**Razón 4 — Comparamos algoritmos por lo que hacen eventualmente, no en casos pequeños.**
+A $$N = 10\,000$$, los términos menores aportan menos del 0,02 %. Ignorarlos no
+cambia nada respecto al comportamiento del algoritmo.
+</Slide>
 
-Un $$O(n)$$ con constante grande y un $$O(n^2)$$ con constante chica. En escala reducida (mismo
-mensaje, coordenadas manejables): T₁ = 100·n vs T₂ = $$n^2$$. Para n < 100 gana T₂. Para
-n > 100 gana T₁ — y a partir de ahí, por mucho.
+<Slide title="Constantes vs orden: el cruce">
+**Razón 4** — comparamos algoritmos por lo que hacen eventualmente, no en casos
+pequeños. Un $$O(n)$$ con constante grande y un $$O(n^2)$$ con constante chica cruzan
+sus curvas en algún punto; a partir de ahí el orden decide.
+
+Ejemplo escalado (mismo mensaje, coordenadas manejables): $$T_1 = 100 \cdot n$$ vs
+$$T_2 = n^2$$. Para $$n < 100$$ gana $$T_2$$. Para $$n > 100$$ gana $$T_1$$ — y a
+partir de ahí, por mucho.
 
 <MathPlot
   type="curves"
-  title="100n vs n² — el cruce en n = 100"
   xRange={[0, 200]}
   yRange={[0, 40000]}
+  height={520}
   functions={[
     { label: "100n", fn: (n) => 100 * n, color: "blue" },
     { label: "n²", fn: (n) => n * n, color: "red" },
   ]}
+  annotations={[{ type: "verticalLine", x: 100, label: "cruce en n=100" }]}
 />
 
-**Conclusión**: el orden dice **quién gana a la larga**. Las constantes solo dicen **a
-partir de qué tamaño**. Como analizamos algoritmos que van a correr sobre N grandes, **el
-orden es lo que decide**.
+**Conclusión**: el orden dice **quién gana a la larga**. Las constantes solo dicen
+**a partir de qué tamaño**. Como analizamos algoritmos que van a correr sobre $$N$$
+grandes, **el orden es lo que decide**.
 </Slide>
 
 <Slide title="¿Por qué quiero algoritmos asintóticamente eficientes?">
@@ -965,8 +977,8 @@ la verde. Eso alcanza para decir que $$f \in \Omega(g)$$.
 
 > $$f(N) \in \Theta(g(N))$$   ⇔   $$f \in O(g)$$ **y** $$f \in \Omega(g)$$
 
-*"$$f$$ y $$g$$ crecen al mismo ritmo asintóticamente."* Es la afirmación más fuerte que
-podemos hacer sobre el costo de un algoritmo — no solo una cota, sino una
+*"$$f$$ y $$g$$ crecen al mismo ritmo asintóticamente."* Es la afirmación más fuerte
+que podemos hacer sobre el costo de un algoritmo — no solo una cota, sino una
 caracterización exacta salvo constantes. Visualmente $$f$$ queda **atrapada entre dos
 funciones proporcionales a $$g$$**, una arriba y otra abajo:
 
@@ -985,19 +997,24 @@ funciones proporcionales a $$g$$**, una arriba y otra abajo:
 
 Desde $$N_0 = 10$$, $$f(n)$$ está entre $$k_1 \cdot g(n) = 3n$$ y $$k_2 \cdot g(n) =
 7n$$. Ese sandwich es la definición de Θ.
+</Slide>
 
+<Slide title="Θ en la práctica — ejemplo y regla del polinomio">
 **Ejemplo con el ciclo simple**: $$T(n) = 4n + 4$$.
 
 - Es $$O(n)$$ (con $$k = 5$$, $$N_0 = 4$$).
 - Es $$\Omega(n)$$ (con $$k = 4$$, $$N_0 = 1$$).
 - Por lo tanto es $$\Theta(n)$$. **El ciclo simple es exactamente lineal.**
 
-**Regla de dedo para polinomios**: si $$T(n)$$ es un polinomio, entonces $$\Theta$$ es
-simplemente su **término de mayor grado sin coeficiente**. Así:
+**Regla de dedo para polinomios**: si $$T(n)$$ es un polinomio, entonces $$\Theta$$
+es simplemente su **término de mayor grado sin coeficiente**. Así:
 
 - $$T(n) = 4n + 4$$ → $$\Theta(n)$$.
 - $$T(n) = 2n^2 + 6n + 4$$ → $$\Theta(n^2)$$.
 - $$T(n) = 100$$ (constante) → $$\Theta(1)$$.
+
+Es la forma más rápida y práctica de sacar el orden asintótico cuando ya se calculó
+$$T(n)$$ como polinomio.
 </Slide>
 
 <Slide title="O, Ω y Θ — cuándo se usa cada una">
