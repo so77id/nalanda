@@ -200,8 +200,8 @@ palette nudge that keeps the exclusion honest.
 
 ### Reversal — 2026-08-24 (#225)
 
-Miguel opened the merged #223 build in presentation mode and rejected the
-ink-titled slides. The doctrine loss ("the deck is not the book" narrowing
+Miguel opened the merged #222 build (PR #223) in presentation mode and
+rejected the ink-titled slides. The doctrine loss ("the deck is not the book" narrowing
 to layout only) is preferable to the identity loss (slide titles muted while
 every other document surface carries the seed).
 
@@ -219,6 +219,14 @@ the pair no longer exists. Consequences:
   comment there is refreshed to reflect the new reasoning.
 - `CHROME_TOKENS` continues to check `ground` + `surface` only; that pair
   now includes what used to be `deck-ground`, so coverage is unchanged.
+- `--nl-deck-ground` is kept as a pure alias of `--nl-ground`, not retired.
+  The alias is the marker that says "slide surface", so a future
+  re-divergence has to touch the palette (one file, one line per theme)
+  rather than every callsite (`bg-deck-ground` in `SlideDeck.tsx` and
+  `RotateNotice.tsx`, the token binding in `@theme`, the token-table row
+  in `design-system.md`). The `palette.test.ts` coupling guard
+  ("deck-ground stays coupled to ground until CHROME_SURFACES catches up")
+  is what makes the alias safe — a silent re-divergence fails there.
 - The "deck is not the book" clause in `design-system.md` §Rules that are
   not about contrast narrows to **layout, motion, and typography scale**.
   It no longer implies a separate surface.

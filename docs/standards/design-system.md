@@ -35,7 +35,7 @@ was found by looking at a screenshot.
 | `ground`                              | The page background                      | Painted on `html`, not on a div                                                      |
 | `surface`                             | Panels, cards, the editor shell          | Sits on `ground`                                                                     |
 | `sunk`                                | Table heads, inputs, chips, hover states | **The worst-case surface** — contrast is measured against it                         |
-| `deck-ground`                         | The slide deck only                      | Deliberately deeper than `ground` in dark: a projected room wants less light         |
+| `deck-ground`                         | The slide deck only                      | Currently aliases `ground` in both themes; kept as a semantic anchor for the slide deck — see ADR-0026 addendum §Reversal |
 | `ink`                                 | Primary text, headings                   | AAA on every surface                                                                 |
 | `ink-soft`                            | Body prose, secondary text               |                                                                                      |
 | `ink-faint`                           | Labels, timings, metadata, anchors       | The smallest type in the product — held to 4.5:1, never the 3:1 large-text allowance |
@@ -59,12 +59,15 @@ Contrast is a property of a **pair**, not of a token. These are the legal pairs;
 - **Meaning-carrying non-text** — `rule-strong`, `focus` on the same four
   surfaces. Floor **3:1**.
 - **Chrome on the page surfaces** — `accent-pop` on `ground` and `surface`
-  ONLY. Floor **3:1** (WCAG §1.4.11: large text / non-text UI). `sunk` and
-  `deck-ground` are deliberately excluded — see §Títulos and the addendum in
-  ADR-0026 for why testing accent-pop against them would sacrifice the deck
-  seed's identity to a hypothetical use no component makes. If a future
-  component needs `accent-pop` as text on `sunk`, mint a specific token for
-  that use or promote `accent-pop` into the previous row.
+  ONLY. Floor **3:1** (WCAG §1.4.11: large text / non-text UI). `sunk` is
+  deliberately excluded to protect the deck seed's identity from a chip-on-
+  inset pairing no component makes (see ADR-0026 addendum §CHROME_TOKENS).
+  `deck-ground` currently aliases `ground` — since #225 the pair is already
+  tested via `ground`, and the palette test carries a guard that fires if a
+  future author re-diverges without adding `deck-ground` back to this row
+  (see ADR-0026 addendum §Reversal). If a future component needs `accent-pop`
+  as text on `sunk`, mint a specific token for that use or promote
+  `accent-pop` into the previous row.
 - **Tinted pairs** — `keep`/`keep-soft`, `flag`/`flag-soft`,
   `accent`/`accent-soft`, and `on-keep`/`keep`. Floor **4.5:1**: a status chip
   is text, and small text at that.
@@ -95,8 +98,11 @@ something to allow; it is something nobody should write.
   accents — a rule ADR-0026's addendum records in full. If something needs to
   stand out and both `accent` slots are taken, the answer is hierarchy —
   weight, size, position — not a third hue.
-- **The deck is not the book.** It has its own ground on purpose. Do not
-  collapse them.
+- **The deck is not the book — in layout, motion, and typography scale.** The
+  ground itself IS shared: `--nl-deck-ground` aliases `--nl-ground` in both
+  themes since #225 (see ADR-0026 addendum §Reversal). Do not add a
+  projected-room-specific ground back without reopening that decision — the
+  palette test carries a guard against silent re-divergence.
 - **Third-party components that own their colours** take the theme through
   `lib/useResolvedTheme.ts`. That hook exists for CodeMirror and should stay
   rare: anything we style ourselves takes tokens and needs no hook.
