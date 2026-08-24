@@ -4,6 +4,7 @@ import {
   LazyCodeEditor,
   LazyComplexityCounter,
   LazyComplexityExercise,
+  LazyComplexityHierarchy,
   LazyMathPlot,
   LazyExercise,
   LazyMermaid,
@@ -80,6 +81,10 @@ export const mdxComponents = {
   // CodeMirror and the counter chunk stay off the entry chunk of readers who
   // never mount an exercise. Guarded by architecture.test.ts.
   ComplexityExercise: LazyComplexityExercise,
+  // Concentric-rings visualization of `O(1) ⊂ ··· ⊂ O(2ᴺ)`. Lazy for
+  // pattern consistency with the other interactive widgets. Guarded by
+  // architecture.test.ts.
+  ComplexityHierarchy: LazyComplexityHierarchy,
   // Mafs is heavy (~30 KB + KaTeX) and pulls its own tree; lazy keeps it
   // out of the entry chunk (ADR-0046). Guarded by architecture.test.ts.
   MathPlot: LazyMathPlot,

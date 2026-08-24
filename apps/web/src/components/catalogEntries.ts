@@ -13,6 +13,7 @@ import { benchmarkCatalogEntry } from './interactive/Benchmark.catalog';
 import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { complexityCounterCatalogEntry } from './interactive/ComplexityCounter.catalog';
 import { complexityExerciseCatalogEntry } from './interactive/ComplexityExercise.catalog';
+import { complexityHierarchyCatalogEntry } from './interactive/ComplexityHierarchy.catalog';
 import { mathPlotCatalogEntry } from './interactive/MathPlot.catalog';
 import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
 import { mermaidCatalogEntry } from './interactive/Mermaid.catalog';
@@ -48,6 +49,7 @@ export const catalogEntries: CatalogEntry[] = [
   benchmarkCatalogEntry,
   complexityCounterCatalogEntry,
   complexityExerciseCatalogEntry,
+  complexityHierarchyCatalogEntry,
   mathPlotCatalogEntry,
   questionsCatalogEntry,
   questionCatalogEntry,

@@ -248,6 +248,27 @@ describe('architecture: the complexityexercise widget stays out of the entry chu
   });
 });
 
+describe('architecture: the complexityhierarchy widget stays out of the entry chunk', () => {
+  // ComplexityHierarchy is React + SVG only — no CodeMirror, no runtime.
+  // Guarded here for pattern uniformity: every widget under `interactive/`
+  // goes through its lazy wrapper, so a future extension (drill-in
+  // animations, class-relative graphs) can add weight without moving the
+  // seam. Same shape as the other heavy-component guards.
+  const ALLOWED = ['components/interactive/lazyComplexityHierarchy.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/complexityhierarchy' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: cross-feature dependencies', () => {
   it('only the allowed feature edges exist in production code', () => {
     // Test files may exercise any feature through its seam (they are consumers,

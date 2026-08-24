@@ -21,6 +21,12 @@ export { LazyComplexityCounter } from './interactive/lazyComplexityCounter';
 // would pull the editor back into the entry chunk. Guarded by
 // `src/architecture.test.ts` (per-name `complexityexercise`).
 export { LazyComplexityExercise } from './interactive/lazyComplexityExercise';
+// Lazy for pattern consistency with the other interactive widgets. Carries
+// no CodeMirror weight, only React + SVG — the eager-graph rule is uniform
+// so the seam stays predictable, and the guard in `src/architecture.test.ts`
+// (per-name `complexityhierarchy`) keeps future extensions inside the
+// wrapper.
+export { LazyComplexityHierarchy } from './interactive/lazyComplexityHierarchy';
 // Mafs is a math-visualization library that pulls its own React tree, SVG
 // helpers, and KaTeX for labels — the lazy wrapper is what keeps Mafs out
 // of the entry chunk of every reader of every page (ADR-0046).
