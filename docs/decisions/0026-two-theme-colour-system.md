@@ -5,6 +5,7 @@
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #109. Extends ADR-0004 (frontend stack) and ADR-0010 (component
 contract); the usage rules live in `docs/standards/design-system.md`.
+**Amended by:** #222 (2026-08-24) — Seed provenance + accent-pop token + CHROME_TOKENS category + deck exception (§Addendum below); #225 (2026-08-24) — Deck exception reversed, `--nl-deck-ground` unified with `--nl-ground` (§Reversal below).
 
 ## Context
 
@@ -143,17 +144,21 @@ not the full four, and `palette.test.ts` models this with a new
 `CHROME_TOKENS` category parallel to `UI_TOKENS` at the 3:1 floor. Its
 worked-case comment carries the reasoning. In one line:
 
-> `accent-pop` no se testea contra `sunk` ni `deck-ground`. El diseño lo usa
-> exclusivamente en (a) BG de botones llenos con label on-pop, (b) TEXTO sobre
-> `accent-soft` (chips), y (c) H1/H2/H3 sobre `ground` o `surface`. Testear el
+> `accent-pop` no se testea contra `sunk`. El diseño lo usa exclusivamente en
+> (a) BG de botones llenos con label on-pop, (b) TEXTO sobre `accent-soft`
+> (chips), y (c) H1/H2/H3 sobre `ground` o `surface` — y en (d) slides desde
+> #225 (§Reversal más abajo), superficie que ahora aliasa `ground`. Testear el
 > par accent-pop×sunk chequea una combinación que ningún componente pinta y
-> que forzaría sacrificar la identidad visual de la semilla del deck
-> (referencia `#E86800`, embarcado como `#E66600` — ver §Seed provenance) sin
-> proteger ningún uso real. El test lo modela con la
-> categoría `CHROME_TOKENS`, que itera solo sobre `ground` y `surface` con
-> floor 3.0. Si un componente futuro necesita pintar accent-pop como texto
-> sobre sunk, el diseño debe crear un token específico para ese uso o mover
-> accent-pop a `UI_TOKENS`.
+> forzaría sacrificar la identidad visual de la semilla del deck (referencia
+> `#E86800`, embarcado como `#E66600` — ver §Seed provenance) sin proteger
+> ningún uso real. `deck-ground` estaba en esta lista bajo #222 con la misma
+> justificación; #225 lo cubre transitivamente vía `ground`, y el guardián de
+> `palette.test.ts` fuerza a re-evaluar `CHROME_SURFACES` si un futuro WP
+> re-diverge el alias. El test modela `sunk`-exclusion con la categoría
+> `CHROME_TOKENS`, que itera solo sobre `ground` y `surface` con floor 3.0.
+> Si un componente futuro necesita pintar accent-pop como texto sobre sunk,
+> el diseño debe crear un token específico para ese uso o mover accent-pop a
+> `UI_TOKENS`.
 
 This is a genuine relaxation of Decision §3 ("the pairs are declared") and
 lives here on purpose: the ADR is where the exception is written down,
@@ -167,19 +172,25 @@ harder floor, breaking the identity this ADR chose to preserve.
 
 Section titles (H1/H2/H3) paint the seed. Inside `.prose` this is automatic
 via `--tw-prose-headings = var(--color-accent-pop)`. Outside `.prose` —
-catalog surfaces, the `<Questions>` block, the 404 — the class
-`text-accent-pop` is applied to the heading. `design-system.md` carries the
-utility rule; this ADR carries the intent.
+catalog surfaces, the `<Questions>` block, the 404, and (since #225) the
+slide `<h2>` in `SlideDeck.tsx` — the class `text-accent-pop` is applied
+to the heading. `design-system.md` carries the utility rule; this ADR
+carries the intent.
 
-### Deck exception
+### Deck exception (reversed — see §Reversal below)
+
+> ⚠️ **This subsection describes what #222 shipped and #225 reversed.** It is
+> kept as the historical record of the trade-off that got the palette merged
+> in the first place. The rule it declares does NOT govern the current code —
+> read §Reversal for what does. (`"superseded"` in ADR vocabulary is a
+> file-level status transition that spins off a new ADR file; this is an
+> intra-addendum reversal, so it lives inline.)
 
 **The deck is not the book.** Slides live on `--nl-deck-ground`, a surface
 deliberately distinct from `--nl-ground` — deeper in dark, warmer-but-lower-
 contrast in light — because a projected room wants less light than a book.
 `design-system.md` §Rules that are not about contrast phrases this rule the
-same way. This subsection is where the palette-level consequence of that rule
-now lives, and every cross-reference in the code that names "the deck is not
-the book" points here.
+same way.
 
 The reroute of `--tw-prose-headings` to `accent-pop` does NOT apply inside
 `bg-deck-ground`. `accent-pop` clears only 2.92:1 on `deck-ground` in light —
@@ -193,6 +204,53 @@ surface. If a future component needs the seed hue on `deck-ground`, mint a
 darker `accent-pop-deck` variant that clears 3:1 there; do not lift the
 override, and do not extend `CHROME_SURFACES` to `deck-ground` without a
 palette nudge that keeps the exclusion honest.
+
+### Reversal — 2026-08-24 (#225)
+
+Miguel opened the merged #222 build (PR #223) in presentation mode and
+rejected the ink-titled slides. The doctrine loss ("the deck is not the book" narrowing
+to layout only) is preferable to the identity loss (slide titles muted while
+every other document surface carries the seed).
+
+**Decision.** `--nl-deck-ground` is unified with `--nl-ground` in both
+themes — light drops from `#F5EEEA` to `#F8F2EF` (dark was already `#0D1117`
+in both). Every `deck-ground` pair collapses to a `ground` pair
+`palette.test.ts` already verifies; the 2.92:1 concern dissolves because
+the pair no longer exists. Consequences:
+
+- `.bg-deck-ground .prose { --tw-prose-headings: var(--color-ink) }`
+  deleted. Slide prose headings inherit the normal `accent-pop` reroute.
+- `SlideDeck.tsx`'s slide `<h2>` restores `text-accent-pop`.
+- `RotateNotice.tsx`'s H1 stays on `text-ink`, but for a different reason —
+  it's system UI (a device-shape signal), not a course-content title. The
+  comment there is refreshed to reflect the new reasoning.
+- `CHROME_TOKENS` continues to check `ground` + `surface` only; that pair
+  now includes what used to be `deck-ground`, so coverage is unchanged.
+- `--nl-deck-ground` is kept as a pure alias of `--nl-ground`, not retired.
+  The alias is the marker that says "slide surface", so a future
+  re-divergence has to touch the palette (one file, one line per theme)
+  rather than every callsite (`bg-deck-ground` in `SlideDeck.tsx` and
+  `RotateNotice.tsx`, the token binding in `@theme`, the token-table row
+  in `design-system.md`). The `palette.test.ts` coupling guard
+  ("deck-ground stays coupled to ground until CHROME_SURFACES catches up")
+  is what makes the alias safe — a silent re-divergence fails there.
+- The "deck is not the book" clause in `design-system.md` §Rules that are
+  not about contrast narrows to **layout, motion, and typography scale**.
+  It no longer implies a separate surface.
+
+This is a two-line palette change with a large doctrinal footprint. The
+addendum keeps §Deck exception above as the record of the trade-off that
+got #222 out the door — deleting it would erase the reasoning a future
+reviewer needs to understand why the two-value split ever existed.
+
+If a future WP wants a projected-room-specific ground back (deeper dark,
+warmer light), reopen this decision explicitly: rename `--nl-deck-ground`
+to something like `--nl-deck-projection` so its use is intentional, add it
+to `CHROME_SURFACES` with a palette nudge, and update `design-system.md`
+§Títulos accordingly. Do NOT silently re-diverge `deck-ground` from
+`ground`; the CHROME_TOKENS test will pass and the slide titles will still
+land on the accent, but the doctrine will be back to the same broken
+shape #222 → #225 fixed.
 
 ### What is NOT changed
 

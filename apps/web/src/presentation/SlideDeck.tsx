@@ -247,12 +247,9 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
             className="w-full max-w-4xl"
           >
             {slide.title ? (
-              // No `text-accent-pop` here: on `bg-deck-ground` the seed clears
-              // only 2.92:1 in light (<3:1). Slide titles are `text-ink` on
-              // purpose — see ADR-0026 addendum §Deck exception and
-              // `design-system.md` §Títulos. `.prose` inside the slide is
-              // handled by the deck-override block in `styles/index.css`.
-              <h2 className="mb-10 text-5xl font-bold tracking-tight">{slide.title}</h2>
+              <h2 className="text-accent-pop mb-10 text-5xl font-bold tracking-tight">
+                {slide.title}
+              </h2>
             ) : null}
             <div className="prose prose-xl max-w-none">{slide.content}</div>
           </motion.div>
