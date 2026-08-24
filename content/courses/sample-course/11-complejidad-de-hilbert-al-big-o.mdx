@@ -750,35 +750,65 @@ Ahora formalizamos ese vocabulario — **O, Ω, Θ** — el que canonizó Knuth 
 usando 50 años después.
 </Slide>
 
+<Slide title="Análisis asintótico">
+En el twist descubrimos que **el número exacto de OE no importa** — lo que importa es
+el **orden de crecimiento** de $$T(n)$$ cuando $$n$$ crece.
+
+Esa observación es una técnica con nombre propio: **análisis asintótico**. Estudia
+cómo se comporta una función cuando su entrada tiende a infinito, ignorando lo que
+pasa con entradas chicas y descartando constantes y términos menores.
+
+Tres razones por las que la técnica funciona:
+
+- **A $$n$$ grande, el término dominante aplasta todo lo demás.** En $$3n^2 + 100n +
+  500$$, el $$n^2$$ termina siendo mucho más grande que el resto ($$n = 1000$$ →
+  $$3\,000\,000$$ contra $$100\,500$$). Cualquier factor constante se vuelve
+  irrelevante.
+- **Las constantes dependen de cómo cuentes, no del algoritmo.** El twist mostró que
+  dos personas contando las mismas OE con reglas ligeramente distintas obtienen
+  fórmulas con razón constante — el algoritmo no cambia.
+- **Las diferencias importantes entre algoritmos aparecen a $$n$$ grande.** A $$n$$
+  chico cualquier algoritmo alcanza; el punto es que dos algoritmos con órdenes
+  distintos divergen dramáticamente al escalar.
+
+Para hablar con precisión de "orden de crecimiento" se inventaron **tres notaciones**:
+$$O$$ (cota superior), $$\Omega$$ (cota inferior) y $$\Theta$$ (cota ajustada). Las
+formalizamos en los próximos slides.
+</Slide>
+
 <Slide title="Big O — la intuición">
 Cuando decimos que un algoritmo es $$O(n)$$, informalmente queremos decir:
 
 > *"crece **a lo sumo** como $$n$$"*
 
-Es una **cota superior**. Existe alguna línea recta múltiplo de $$n$$ que, a partir de
-cierto punto, queda **siempre por encima** del costo del algoritmo. Puede haber
-altibajos al principio, pero desde algún $$N_0$$ en adelante el costo nunca la
-sobrepasa.
-
-Ninguna fórmula todavía — la idea visual primero:
+Es una **cota superior**. Existe alguna función proporcional a $$g(n)$$ que, a partir
+de cierto punto, queda **siempre por encima** del costo del algoritmo. La función real
+puede tener altibajos — las condiciones cambian, hay ramas, algunos inputs son más
+rápidos que otros — pero desde algún $$N_0$$ en adelante nunca sobrepasa la cota.
 
 <MathPlot
   type="curves"
   xRange={[0, 20]}
-  yRange={[0, 120]}
+  yRange={[0, 160]}
   height={380}
   functions={[
-    { label: "f(N) = 4N+4", fn: (n) => 4 * n + 4, color: "blue" },
-    { label: "5N (cota superior)", fn: (n) => 5 * n, color: "red", dashed: true },
+    { label: "f(n)", fn: (n) => 5 * n + 10 + 8 * Math.sin(n), color: "blue" },
+    { label: "k·g(n)", fn: (n) => 7 * n, color: "red", dashed: true },
+    { label: "g(n)", fn: (n) => n, color: "orange" },
   ]}
-  annotations={[{ type: "verticalLine", x: 4, label: "N₀ = 4" }]}
+  annotations={[{ type: "verticalLine", x: 10, label: "N₀ = 10" }]}
 />
 
-La curva azul es el costo del ciclo simple ($$T(n) = 4n + 4$$). La línea roja es
-$$5n$$. A partir de $$N_0 = 4$$, la roja queda **siempre por encima** de la azul —
-eso alcanza para decir que $$4n + 4$$ es $$O(n)$$.
+La curva azul es $$f(n)$$ — el costo real de un algoritmo con altibajos. La roja es
+$$k \cdot g(n)$$, la cota superior propuesta. La naranja es $$g(n)$$ (sin la
+constante) — sola no acota, pero **multiplicada por $$k$$** sí.
 
-No importa que la cota superior no sea la más apretada; **basta con que exista una**.
+Desde $$N_0 = 10$$ en adelante, la roja queda **siempre por encima** de la azul.
+Eso alcanza para decir que $$f \in O(g)$$.
+
+No importa que antes de $$N_0$$ la cota falle, ni que la cota no sea la más
+apretada; **basta con que exista una función proporcional a $$g$$ que acote a $$f$$
+desde algún punto**.
 </Slide>
 
 <Slide title="Big O — la definición formal">
@@ -822,32 +852,34 @@ lo llamamos $$O(N)$$, no $$O(N^2)$$.
 </Slide>
 
 <Slide title="Ω — cota inferior">
-Simétrica de O. Cuando decimos que un algoritmo es $$\Omega(n)$$:
+Simétrica de O. Cuando decimos que un algoritmo es $$\Omega(g)$$:
 
-> *"crece **al menos** como $$n$$"*
+> *"crece **al menos** como $$g$$"*
 
-Es una **cota inferior**. Existe alguna línea recta múltiplo de $$n$$ que, a partir de
-cierto punto, queda **siempre por debajo** del costo del algoritmo. Sirve para afirmar
-*"no se puede hacer mejor que esto"*.
+Es una **cota inferior**. Existe alguna función proporcional a $$g(n)$$ que, a partir
+de cierto punto, queda **siempre por debajo** del costo del algoritmo. Sirve para
+afirmar *"no se puede hacer mejor que esto"*.
 
 <MathPlot
   type="curves"
   xRange={[0, 20]}
-  yRange={[0, 100]}
+  yRange={[0, 160]}
   height={380}
   functions={[
-    { label: "f(N) = 4N+4", fn: (n) => 4 * n + 4, color: "blue" },
-    { label: "4N (cota inferior)", fn: (n) => 4 * n, color: "green", dashed: true },
+    { label: "f(n)", fn: (n) => 5 * n + 10 + 8 * Math.sin(n), color: "blue" },
+    { label: "g(n)", fn: (n) => n, color: "orange" },
+    { label: "k·g(n)", fn: (n) => 3 * n, color: "green", dashed: true },
   ]}
   annotations={[{ type: "verticalLine", x: 1, label: "N₀ = 1" }]}
 />
 
+Misma $$f(n)$$ ondulante que en O. Ahora la verde $$k \cdot g(n) = 3n$$ es una **cota
+inferior**: desde $$N_0 = 1$$ en adelante, $$f(n)$$ queda **siempre por encima** de
+la verde. Eso alcanza para decir que $$f \in \Omega(g)$$.
+
 **Definición formal**:
 
-> **$$\Omega(g(N))$$** = $$\{\,f(N) : \exists\ c > 0,\ N_0 > 0\ \text{tales que}\ 0 \le c \cdot g(N) \le f(N)\ \forall N \ge N_0\,\}$$
-
-**Ejemplo**: $$4n + 4$$ es $$\Omega(n)$$ con $$c = 4$$ y $$N_0 = 1$$ — para todo $$n \ge 1$$
-se cumple $$4n \le 4n + 4$$. Trivial pero suficiente.
+> **$$\Omega(g(N))$$** = $$\{\,f(N) : \exists\ k > 0,\ N_0 > 0\ \text{tales que}\ 0 \le k \cdot g(N) \le f(N)\ \forall N \ge N_0\,\}$$
 </Slide>
 
 <Slide title="Θ — cota ajustada">
@@ -856,14 +888,31 @@ se cumple $$4n \le 4n + 4$$. Trivial pero suficiente.
 > $$f(N) \in \Theta(g(N))$$   ⇔   $$f \in O(g)$$ **y** $$f \in \Omega(g)$$
 
 *"$$f$$ y $$g$$ crecen al mismo ritmo asintóticamente."* Es la afirmación más fuerte que
-podemos hacer sobre el costo de un algoritmo — no solo una cota, sino una caracterización
-exacta salvo constantes.
+podemos hacer sobre el costo de un algoritmo — no solo una cota, sino una
+caracterización exacta salvo constantes. Visualmente $$f$$ queda **atrapada entre dos
+funciones proporcionales a $$g$$**, una arriba y otra abajo:
+
+<MathPlot
+  type="curves"
+  xRange={[0, 20]}
+  yRange={[0, 160]}
+  height={380}
+  functions={[
+    { label: "f(n)", fn: (n) => 5 * n + 10 + 8 * Math.sin(n), color: "blue" },
+    { label: "k₂·g(n)", fn: (n) => 7 * n, color: "red", dashed: true },
+    { label: "k₁·g(n)", fn: (n) => 3 * n, color: "green", dashed: true },
+  ]}
+  annotations={[{ type: "verticalLine", x: 10, label: "N₀ = 10" }]}
+/>
+
+Desde $$N_0 = 10$$, $$f(n)$$ está entre $$k_1 \cdot g(n) = 3n$$ y $$k_2 \cdot g(n) =
+7n$$. Ese sandwich es la definición de Θ.
 
 **Ejemplo con el ciclo simple**: $$T(n) = 4n + 4$$.
 
-- Ya vimos que es $$O(n)$$ (con $$c = 5$$, $$N_0 = 4$$).
-- Ya vimos que es $$\Omega(n)$$ (con $$c = 4$$, $$N_0 = 1$$).
-- Como es las dos cosas → es $$\Theta(n)$$. **El ciclo simple es exactamente lineal.**
+- Es $$O(n)$$ (con $$k = 5$$, $$N_0 = 4$$).
+- Es $$\Omega(n)$$ (con $$k = 4$$, $$N_0 = 1$$).
+- Por lo tanto es $$\Theta(n)$$. **El ciclo simple es exactamente lineal.**
 
 **Regla de dedo para polinomios**: si $$T(n)$$ es un polinomio, entonces $$\Theta$$ es
 simplemente su **término de mayor grado sin coeficiente**. Así:
