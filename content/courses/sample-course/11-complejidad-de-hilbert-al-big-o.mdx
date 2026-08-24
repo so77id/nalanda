@@ -66,7 +66,7 @@ generación.
 - **1900, París** — presenta **23 problemas abiertos** que él pensaba marcarían el siglo XX.
   Hoy ~13 resueltos, uno demostrado imposible (P10), uno aún abierto (P8 — Hipótesis de
   Riemann).
-- **Años 1920s** — lanza **el programa de Hilbert** para blindar toda la matemática. Tres
+- **Años 1920** — lanza **el programa de Hilbert** para blindar toda la matemática. Tres
   objetivos:
 
   1. **Consistencia** — el sistema no genera contradicciones. Si demuestras "A es cierto",
@@ -153,7 +153,9 @@ lo es en los otros. Esta observación se llama **Tesis de Church-Turing**.
 En esta clase nos quedamos con el modelo de Turing porque es **el más visual** y el que se
 convirtió en referencia estándar. Church y Post siguen vivos en el fondo — el
 lambda-cálculo de Church es la base de los **lenguajes funcionales** modernos (Lisp,
-Haskell, ML, incluso las expresiones lambda de Java).
+Haskell, ML, incluso las expresiones lambda de Java), y las máquinas de Post inspiraron
+los **sistemas de reescritura** y las **gramáticas formales** que estudia la teoría de
+lenguajes.
 </Slide>
 
 <Slide title="Alan Turing">
@@ -215,6 +217,10 @@ primera vez, tenemos una **unidad de medida — "un paso"** — que es la misma 
   title="8 borrachos revolucionan las matemáticas — la máquina de Turing con analogías"
   height={520}
 />
+
+La mejor analogía visual de por qué la máquina de Turing es universal — cómo un modelo
+de "cabeza sobre una cinta" alcanza a computar cualquier cosa. Es una pausa antes de
+enunciar la Tesis de Church-Turing en el siguiente slide.
 </Slide>
 
 <Slide title="La Tesis de Church-Turing">
@@ -244,7 +250,7 @@ problem** (problema de la parada).
 
 **Enunciado**:
 
-> *"Dado un programa P y un input X, ¿existe un algoritmo que responda 'sí' si P termina
+> *"Dado un programa P y una entrada X, ¿existe un algoritmo que responda 'sí' si P termina
 > con X, y 'no' si P corre para siempre?"*
 
 Turing demostró que **la respuesta es no**. El halting problem es **indecidible**.
@@ -260,12 +266,12 @@ Argumento pedagógico (por reducción al absurdo, versión trazada):
 >
 > ```
 > M(P):
->   si H(P, P) == "sí"  → loop infinito
+>   si H(P, P) == "sí"  → ciclo infinito
 >   si H(P, P) == "no"  → detener
 > ```
 >
 > `M` es un programa perfectamente legítimo: usa a `H` como caja negra. Ahora la pregunta:
-> ¿qué pasa cuando corremos `M(M)` (le pasamos a `M` como input a sí mismo)?
+> ¿qué pasa cuando corremos `M(M)` (le pasamos a `M` como entrada a sí mismo)?
 >
 > - Si `H(M, M) = "sí"` → según `H`, `M(M)` termina. Pero por su código, `M(M)` entra en
 >   loop. **`H` mintió.**
@@ -298,7 +304,7 @@ es la razón por la que hay bugs que ninguna herramienta puede descartar automá
   momento**.
 - **Sin la crisis de Hilbert no habría ciencia de la computación.**
 
-*"Ustedes están estudiando el residuo productivo de un fracaso matemático extraordinario."*
+*La ciencia de la computación es el residuo productivo de un fracaso matemático extraordinario.*
 </Slide>
 
 <Slide title="Las matemáticas tienen una falla descomunal">
@@ -308,9 +314,8 @@ es la razón por la que hay bugs que ninguna herramienta puede descartar automá
   height={520}
 />
 
-Recorre el arco completo Cantor → Russell → Gödel → Turing → computadoras. El mejor
-recap visual de los Actos 1 y 2 — verlo antes de seguir consolida todo lo que armamos
-hasta acá.
+Recorre el arco completo Cantor → Russell → Gödel → Turing → computadoras — un recap
+visual del hilo que hemos armado hasta aquí.
 </Slide>
 
 <SectionBreak />
@@ -372,7 +377,7 @@ durante el resto de la clase. Uno simple, familiar, y con **varias soluciones co
 
 > **Sumar los primeros N naturales.** Dado un entero N ≥ 1, devolver S = 1 + 2 + … + N.
 
-Este va a ser el **hilo conductor** hasta el cierre.
+Volveremos a este problema varias veces.
 </Slide>
 
 <Slide title="Tres soluciones que funcionan">
@@ -404,7 +409,7 @@ Los tres devuelven **exactamente el mismo valor** para cada N ≥ 1. Están todo
 **¿Cuál elegimos?**
 </Slide>
 
-<Slide title="El cronómetro parece la respuesta obvia — Ejercicio en vivo">
+<Slide title="El cronómetro parece la respuesta obvia">
 Presentamos `System.nanoTime()`: medimos cada solución, comparamos y elegimos la más rápida.
 
 <Benchmark
@@ -483,17 +488,17 @@ Fuentes de ruido que están entrando en la medición:
 
 - **Hardware**: CPU, RAM, caché, disco — cada máquina distinta.
 - **Sistema operativo**: no está ejecutando solo tu programa. Reparte CPU entre procesos,
-  mete context switches, atiende interrupciones. Tu algoritmo **se pausa a mitad de la
+  mete cambios de contexto, atiende interrupciones. Tu algoritmo **se pausa a mitad de la
   medición sin que lo notes**.
 - **Compilador / JIT**: en Java, el JIT decide *cuándo* compilar y *cuánto* optimizar. Los
-  primeros runs son más lentos porque el código aún está interpretado.
+  primeras ejecuciones son más lentas porque el código aún está interpretado.
 - **Lenguaje / runtime**: CheerpJ, JVM local, GCC, Python — cada uno con su overhead.
-- **Momento**: procesos en background, GC corriendo, temperatura del CPU (throttling
+- **Momento**: procesos en segundo plano, GC corriendo, temperatura del CPU (throttling
   térmico), estado de la batería.
 
-**Idea que se llevan**: cuando cronometras un algoritmo, no estás midiendo el algoritmo —
-estás midiendo *el algoritmo + todo el ambiente que lo rodea*. Ese ambiente cambia entre
-máquinas, entre momentos, y hasta entre corridas consecutivas.
+**Idea que se llevan**: cuando cronometramos un algoritmo, no estamos midiendo el
+algoritmo — estamos midiendo *el algoritmo + todo el ambiente que lo rodea*. Ese ambiente
+cambia entre máquinas, entre momentos, y hasta entre corridas consecutivas.
 
 *¿Cómo aislamos el algoritmo del entorno para hablar solo de él?*
 </Slide>
@@ -538,7 +543,7 @@ de la entrada.
 </Slide>
 
 <Slide title="Primer conteo: un `for` línea a línea">
-Precalentamiento antes de aplicar a las 3 soluciones:
+Antes de aplicarlo a las tres soluciones, contemos un `for` vacío:
 
 <ComplexityCounter
   algorithm="for (int i = 0; i < n; i++)"
@@ -563,8 +568,7 @@ Precalentamiento antes de aplicar a las 3 soluciones:
 
 Y esto sin contar el cuerpo. Cuando el cuerpo hace algo, se suma.
 
-*"Con esta herramienta, ya podemos contar en serio las tres soluciones al problema
-original."*
+Con esta herramienta ya podemos contar las tres soluciones al problema inicial.
 </Slide>
 
 <SectionBreak />
@@ -582,8 +586,8 @@ original."*
 - Nacieron **30 años después** del [paper de Turing](https://www.cs.virginia.edu/~robins/Turing_Paper_1936.pdf), y fueron los que le dieron a la
   disciplina las palabras con las que se habla de sí misma.
 
-Ese vocabulario — **O, Ω, Θ** — lo formalizamos en los slides finales de este acto.
-Antes de eso vamos a hacer el trabajo crudo: contar operaciones línea por línea en
+Ese vocabulario — **O, Ω, Θ** — lo formalizamos más adelante. Antes haremos el trabajo
+crudo: contar operaciones línea por línea en
 nuestras tres soluciones de `suma(N)` y obtener `T(n)` explícito. Con `T(n)` en la
 mano, las notaciones asintóticas van a ser un renombramiento útil, no una definición
 caída del cielo.
@@ -660,7 +664,7 @@ El cuerpo `s = s + 1;` se ejecuta 1 + 2 + … + n = **n(n+1)/2** veces. Ese es e
 dominante. Los dos `for` aparecen colapsados por defecto en el riel mostrando su total
 OE — expandirlos revela la contribución de init / cond / inc.
 
-**T₂(n) = 2n² + 6n + 4** OE. El término dominante es **n²** — la clase se queda con eso.
+**T₂(n) = 2n² + 6n + 4** OE. El término dominante es **n²** — con eso nos quedamos.
 </Slide>
 
 <Slide title="Contando la tercera solución — fórmula">
@@ -697,7 +701,7 @@ mejor el algoritmo.**
 </Slide>
 
 <Slide title="Twist: ¿y si contamos distinto?">
-Otra persona cuenta las mismas operaciones distinto:
+Otra persona cuenta las mismas operaciones de manera distinta:
 
 - Ella dice: `s = s + i` cuesta **3 OE** (leer s, leer i, sumar-y-escribir).
 - El conteo del curso dio **2 OE**.
@@ -754,9 +758,9 @@ no se puede).
 
 <ComplexityHierarchy title="Jerarquía asintótica" />
 
-Pasa el cursor sobre un anillo — o sobre una fila de la lista — y ambos se resaltan.
-Los ejemplos son los algoritmos que ya vimos (o que veremos en el curso) por cada
-clase; identifícalos.
+Pasen el cursor sobre un anillo — o sobre una fila de la lista — y ambos se resaltan.
+Los ejemplos son algoritmos que ya vimos, o que aparecerán en las próximas clases de la
+trilogía, por cada clase; identifíquenlos cuando los conozcan.
 </Slide>
 
 <Slide title="Curvas: sublineal vs superlineal">
@@ -858,7 +862,7 @@ n > 100 gana T₁ — y a partir de ahí, por mucho.
   ]}
 />
 
-**Conclusión**: el orden dice **quién gana eventualmente**. Las constantes solo dicen **a
+**Conclusión**: el orden dice **quién gana a la larga**. Las constantes solo dicen **a
 partir de qué tamaño**. Como analizamos algoritmos que van a correr sobre N grandes, **el
 orden es lo que decide**.
 </Slide>
@@ -901,7 +905,7 @@ algoritmo lineal es cierto pero inútil. Siempre buscamos la cota **más ajustad
 <Slide title="Notaciones Ω y Θ">
 **Ω(g(N))** — cota inferior. Existen c, N₀ tales que 0 ≤ c·g(N) ≤ f(N) para todo N ≥ N₀.
 
-> Traducción: *"f no puede ser más chico que g por una constante, a partir de N₀."*
+> Traducción: *"f no puede ser más pequeño que g por una constante, a partir de N₀."*
 > Sirve para afirmar *"no se puede hacer mejor que esto"*.
 
 **Θ(g(N))** — cota ajustada. Existe cuando f es a la vez O(g) **y** Ω(g).
@@ -931,9 +935,9 @@ Los dos ejes son independientes. Podemos decir:
 - *"En el peor caso, este algoritmo es Ω(N)"*.
 - *"En el mejor caso, este algoritmo es Θ(1)"*.
 
-*"Hasta aquí hemos usado el ciclo simple para hablar de cotas — pero ese ciclo hace lo
-mismo con cualquier entrada. Ahora vamos a un problema donde la entrada sí importa, y
-peor/mejor/promedio son cualitativamente distintos: `FindInArray`."*
+Hasta aquí el ciclo simple sirvió para hablar de cotas, pero hace lo mismo con cualquier
+entrada. El siguiente problema depende de la entrada, y peor/mejor/promedio son
+cualitativamente distintos: `FindInArray`.
 </Slide>
 
 <Slide title="Convención: cuando decimos O() sin decir el caso">
@@ -956,14 +960,13 @@ más lento que esto"*. El peor caso es el compromiso más fuerte.
 - **Mejor caso**: **siempre** explicitar. *"En el mejor caso, el algoritmo es O(1)."*
 - **Caso promedio**: **siempre** explicitar. *"En promedio, el algoritmo es O(N log N)."*
 
-**Frase modelo del curso** (la que van a usar todo el año):
+**Frase modelo**:
 
 > *"En el peor caso, este algoritmo es Θ(N²). En el mejor caso, es Θ(N). En promedio, es
 > Θ(N²)."*
 
-**Consecuencia práctica para el resto del curso**: cuando alguien les pregunte *"¿cuál es
-la complejidad de este algoritmo?"* sin más contexto, **respondan con peor caso** — es lo
-que se espera por defecto.
+**Consecuencia práctica**: sin más contexto, la complejidad reportada es la del peor
+caso — es la convención por defecto.
 </Slide>
 
 <SectionBreak />
@@ -972,7 +975,7 @@ que se espera por defecto.
 La suma de N naturales fue perfecta para hablar de cotas O/Ω/Θ, pero **mala para hablar de
 casos**: hace exactamente lo mismo con cualquier N. No hay entrada "mejor" o "peor".
 
-Necesitamos un problema donde la entrada importe. Cambio de hilo:
+Necesitamos un problema donde la entrada importe:
 
 ```java
 boolean findInArray(int[] arr, int x) {
@@ -1110,32 +1113,37 @@ Asumimos que **`x` puede estar en cualquier posición del arreglo con igual prob
 
 **E\[iteraciones\] = Σᵢ₌₁ⁿ i/n = (1/n) · n(n+1)/2 = (n+1)/2**
 
-Sustituyendo (los sub-conteos del ciclo son init 1 + cond (n+1)/2 + inc (n−1)/2, más
-2·(n+1)/2 OE de la comparación por iteración; con inicio y `return true` final da):
+Sustituimos ese número esperado en cada línea, con el mismo formato de los dos casos
+anteriores:
 
-**T_prom(n) = 1 + \[(n+1)/2 + (n−1)/2 + 2·(n+1)/2\] + 1 = 1 + (2n+1) + 1 = 2n + 3**
+- `int i = 0`: **1 OE**, una vez.
+- Por cada iteración: `arr[i] == x` (2) + `i++` (1) = **3 OE**. Hacemos en promedio
+  **(n+1)/2** iteraciones.
+- `i < arr.length`: se evalúa **(n+1)/2** veces mientras entra al ciclo, más **1 vez**
+  para salir cuando encuentra `x`.
+- `return true;`: **1 OE**.
+
+**T_prom(n) = 1 + \[3·(n+1)/2 + (n+1)/2 + 1\] + 1 = 1 + (2n+1) + 1 = 2n + 3**
 
 **T(n) = 2n + 3**. Lineal en `n`.
 
 **Complejidad**: Θ(n).
 
-**Observación clave del caso promedio**: aunque en promedio recorras la mitad del arreglo,
-sigues siendo **lineal**. La constante mejora (mitad de trabajo esperado), pero el orden
-asintótico es el mismo que el peor caso. Ese patrón se repite mucho en el curso.
+**Observación clave del caso promedio**: aunque en promedio se recorra la mitad del arreglo,
+el algoritmo sigue siendo **lineal**. La constante mejora (mitad de trabajo esperado), pero el orden
+asintótico es el mismo que el peor caso. Ese patrón se repite mucho.
 </Slide>
 
-<Slide title="Regla del curso: peor caso por defecto">
-Ya vimos la convención: cuando decimos *"el algoritmo es O(N)"* sin más contexto, hablamos
-de **peor caso**.
+<Slide title="Por qué se reporta el peor caso">
+Los tres casos existen. La convención es reportar el **peor caso** por defecto, por tres
+razones:
 
-Razones por las que el peor caso es el que se reporta por defecto:
-
-- **Garantía fuerte**: *"nunca va a ser más lento que esto"*. Es lo más útil para tomar
-  decisiones (¿me alcanza el tiempo?, ¿aguanta el pico?).
+- **Garantía fuerte**: *"nunca va a ser más lento que esto"*. Si el peor caso es
+  aceptable, todo lo demás también — es la cota que sirve para decidir (¿alcanza el
+  tiempo?, ¿aguanta el pico?).
 - **Independiente de distribución**: no requiere asumir cómo se comportan las entradas
-  reales. El promedio depende de que la distribución que asumas sea la real; el peor caso
-  no depende de nada.
-- **Es la cota que preocupa**: si el peor caso es aceptable, todo lo demás también.
+  reales. El promedio depende de que la distribución que se asuma sea la real; el peor
+  caso no depende de nada.
 
 **Cuándo mencionar los otros casos**:
 
@@ -1211,7 +1219,7 @@ Si además se pide espacial, se explicita.
 </Slide>
 
 <Slide title="Euclides — el algoritmo más viejo del curso (siglo III a.C.)">
-Contexto histórico como cierre:
+Contexto histórico:
 
 - **Euclides de Alejandría** (~300 a.C.) publica *"Elementos"* — 13 libros de matemática
   que se usan como texto de referencia durante **más de 2000 años**.
@@ -1251,8 +1259,11 @@ El costo depende de **cuántas iteraciones haga el `while`**. ¿Cómo lo acotamo
 
 **Argumento clave**: cada dos iteraciones, el valor de `a` se **reduce a la mitad**.
 
-- Por el paso `b = a % b`, cuando `a ≥ b > 0`, se cumple `a % b < a / 2`.
-- Por lo tanto cada dos iteraciones `a` cae por debajo de la mitad de su valor inicial.
+- Por el paso `b = a % b`, cuando `a ≥ b > 0`, se cumple `a % b < a / 2`. La razón:
+  - si `b ≤ a / 2`, entonces `a % b < b ≤ a / 2`;
+  - si `b > a / 2`, entonces `a % b = a − b < a / 2`.
+  En cualquiera de los dos casos, `a % b < a / 2`.
+- Por lo tanto, cada dos iteraciones `a` cae por debajo de la mitad de su valor inicial.
 
 **Consecuencia**: un número solo puede reducirse a la mitad **lg₂(a)** veces antes de
 llegar a 0.
@@ -1272,7 +1283,7 @@ Contraste directo:
 | 10⁹ | ~10⁹ iteraciones | ~30 |
 | 10¹² | ~10¹² iteraciones | ~40 |
 
-**La moraleja de la clase**:
+**La moraleja**:
 
 > **Un buen algoritmo vale más que una máquina más rápida.**
 > Si se mejora la CPU 10× pero se usa fuerza bruta, se gana un factor 10. Si se cambia
@@ -1283,7 +1294,7 @@ antes de las computadoras, antes de la ciencia de la computación. **Y nuestras
 herramientas del siglo XX lo pueden analizar sin cambios.**
 </Slide>
 
-<Slide title="Cliffhanger: hay algoritmos que no se pueden analizar así">
+<Slide title="Hay algoritmos que no se pueden analizar así">
 Repaso de lo que hicimos:
 
 - **Contamos operaciones** línea por línea.
@@ -1307,7 +1318,7 @@ Cuando un algoritmo **se llama a sí mismo**, contar operaciones deja de ser sum
 una tabla. La función `fib` se llama, se llama de nuevo, y de nuevo, y de nuevo — el
 número de llamadas explota, y no sabemos cómo contarlo con lo que aprendimos hoy.
 
-Haz click en cada nodo para expandirlo — los que tienen el mismo argumento se
+Hagan click en cada nodo para expandirlo — los que tienen el mismo argumento se
 pintan del mismo color, así el problema se ve solo:
 
 <RecursionTree recipe="fib" arg={5} title="fib(5) — el árbol de llamadas" />
@@ -1325,5 +1336,5 @@ Ese es el material de la próxima película.
 
 **Complejidad · *Recursión y memoria***.
 
-Nos vemos ahí.
+De eso trata la próxima entrega de Complejidad.
 </Slide>
