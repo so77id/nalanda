@@ -5,6 +5,7 @@
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #109. Extends ADR-0004 (frontend stack) and ADR-0010 (component
 contract); the usage rules live in `docs/standards/design-system.md`.
+**Amended by:** #222 (2026-08-24) — Seed provenance + accent-pop token + CHROME_TOKENS category + deck exception (§Addendum below); #225 (2026-08-24) — Deck exception reversed, `--nl-deck-ground` unified with `--nl-ground` (§Reversal below).
 
 ## Context
 
@@ -143,17 +144,21 @@ not the full four, and `palette.test.ts` models this with a new
 `CHROME_TOKENS` category parallel to `UI_TOKENS` at the 3:1 floor. Its
 worked-case comment carries the reasoning. In one line:
 
-> `accent-pop` no se testea contra `sunk` ni `deck-ground`. El diseño lo usa
-> exclusivamente en (a) BG de botones llenos con label on-pop, (b) TEXTO sobre
-> `accent-soft` (chips), y (c) H1/H2/H3 sobre `ground` o `surface`. Testear el
+> `accent-pop` no se testea contra `sunk`. El diseño lo usa exclusivamente en
+> (a) BG de botones llenos con label on-pop, (b) TEXTO sobre `accent-soft`
+> (chips), y (c) H1/H2/H3 sobre `ground` o `surface` — y en (d) slides desde
+> #225 (§Reversal más abajo), superficie que ahora aliasa `ground`. Testear el
 > par accent-pop×sunk chequea una combinación que ningún componente pinta y
-> que forzaría sacrificar la identidad visual de la semilla del deck
-> (referencia `#E86800`, embarcado como `#E66600` — ver §Seed provenance) sin
-> proteger ningún uso real. El test lo modela con la
-> categoría `CHROME_TOKENS`, que itera solo sobre `ground` y `surface` con
-> floor 3.0. Si un componente futuro necesita pintar accent-pop como texto
-> sobre sunk, el diseño debe crear un token específico para ese uso o mover
-> accent-pop a `UI_TOKENS`.
+> forzaría sacrificar la identidad visual de la semilla del deck (referencia
+> `#E86800`, embarcado como `#E66600` — ver §Seed provenance) sin proteger
+> ningún uso real. `deck-ground` estaba en esta lista bajo #222 con la misma
+> justificación; #225 lo cubre transitivamente vía `ground`, y el guardián de
+> `palette.test.ts` fuerza a re-evaluar `CHROME_SURFACES` si un futuro WP
+> re-diverge el alias. El test modela `sunk`-exclusion con la categoría
+> `CHROME_TOKENS`, que itera solo sobre `ground` y `surface` con floor 3.0.
+> Si un componente futuro necesita pintar accent-pop como texto sobre sunk,
+> el diseño debe crear un token específico para ese uso o mover accent-pop a
+> `UI_TOKENS`.
 
 This is a genuine relaxation of Decision §3 ("the pairs are declared") and
 lives here on purpose: the ADR is where the exception is written down,
@@ -172,12 +177,14 @@ slide `<h2>` in `SlideDeck.tsx` — the class `text-accent-pop` is applied
 to the heading. `design-system.md` carries the utility rule; this ADR
 carries the intent.
 
-### Deck exception (superseded — see §Reversal below)
+### Deck exception (reversed — see §Reversal below)
 
 > ⚠️ **This subsection describes what #222 shipped and #225 reversed.** It is
 > kept as the historical record of the trade-off that got the palette merged
 > in the first place. The rule it declares does NOT govern the current code —
-> read §Reversal for what does.
+> read §Reversal for what does. (`"superseded"` in ADR vocabulary is a
+> file-level status transition that spins off a new ADR file; this is an
+> intra-addendum reversal, so it lives inline.)
 
 **The deck is not the book.** Slides live on `--nl-deck-ground`, a surface
 deliberately distinct from `--nl-ground` — deeper in dark, warmer-but-lower-
