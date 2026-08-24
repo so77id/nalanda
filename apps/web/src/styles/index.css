@@ -193,7 +193,7 @@
   --tw-prose-td-borders: var(--color-rule);
 }
 
-/* Slides run deeper than the book (ADR-0026 §"The deck is not the book"). The
+/* Slides run deeper than the book (see ADR-0026 addendum §Deck exception). The
    reroute above paints prose headings with accent-pop, but on `bg-deck-ground`
    (`#F5EEEA` in light) accent-pop lands at 2.92:1 — below the 3:1 floor
    `palette.test.ts` enforces via CHROME_TOKENS. Reset headings back to `ink`

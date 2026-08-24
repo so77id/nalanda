@@ -79,9 +79,11 @@ const UI_TOKENS = ['rule-strong', 'focus'] as const;
  * `[accent, accent-soft]`), and section titles (H1/H2/H3) on `ground` or
  * `surface`. Inside `bg-deck-ground` (slides) the `--tw-prose-headings` reroute
  * is overridden and prose headings paint in `ink` instead — deck ≠ book, see
- * ADR-0026 §"The deck is not the book" and the deck-override block in
- * `styles/index.css`. Testing `accent-pop` against every surface would
- * sacrifice the deck seed's identity (`#E86800`) to a pairing no component
+ * ADR-0026 addendum §Deck exception (the palette-level consequence) and the
+ * deck-override block in `styles/index.css`. Testing `accent-pop` against every surface would
+ * sacrifice the deck seed's identity (reference `#E86800`, shipped as the
+ * nudged `#E66600` — see ADR-0026 addendum §Seed provenance) to a pairing
+ * no component
  * paints; if a future component needs `accent-pop` on `sunk`, mint a specific
  * token for that use or promote `accent-pop` into `UI_TOKENS`. Recorded in
  * ADR-0026's addendum, alongside the seed provenance. */

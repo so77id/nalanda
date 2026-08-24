@@ -31,6 +31,10 @@ export function RotateNotice({ docId }: Props) {
       className="fixed inset-0 h-[100dvh] z-40 flex flex-col items-center justify-center gap-4 bg-deck-ground px-8 text-center text-ink"
     >
       <RotateCwSquare size={48} aria-hidden="true" className="text-ink-faint" />
+      {/* No `text-accent-pop` here: this panel is `bg-deck-ground`, and on that
+          surface the seed clears only 2.92:1 in light (<3:1). The heading is
+          system UI, not a course-content title — see ADR-0026 addendum §Deck
+          exception and `design-system.md` §Títulos "Two exceptions". */}
       <h1 id="rotate-notice-title" className="text-2xl font-bold tracking-tight">
         Gira el teléfono
       </h1>

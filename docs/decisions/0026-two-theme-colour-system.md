@@ -107,8 +107,13 @@ without paying the 4.5:1 body-text obligation.
 
 ### Seed provenance
 
-- **Light seed `#E86800`** — the title colour of the *Complejidad de Algoritmos*
-  deck the course ships. A student who has sat through a lecture recognises it.
+- **Light seed `#E86800`** (reference) — the title colour of the *Complejidad
+  de Algoritmos* deck the course ships. A student who has sat through a
+  lecture recognises it. The `--nl-accent-pop` token ships the nudged
+  `#E66600`, one luminance step darker so `accent-pop` clears the 3:1 floor on
+  `--nl-ground` and `--nl-surface`; the reference lives on to name the visual
+  intent when the wording says "the seed" (see the shipped vs. reference rule
+  below).
 - **Dark seed `#D946EF`** — the brand accent from the original nalanda POC
   (`fuchsia-500`). Reused so the site keeps its identity when the reader flips
   to the theme most readers arrive in.
@@ -143,7 +148,8 @@ worked-case comment carries the reasoning. In one line:
 > `accent-soft` (chips), y (c) H1/H2/H3 sobre `ground` o `surface`. Testear el
 > par accent-pop×sunk chequea una combinación que ningún componente pinta y
 > que forzaría sacrificar la identidad visual de la semilla del deck
-> (`#E86800`) sin proteger ningún uso real. El test lo modela con la
+> (referencia `#E86800`, embarcado como `#E66600` — ver §Seed provenance) sin
+> proteger ningún uso real. El test lo modela con la
 > categoría `CHROME_TOKENS`, que itera solo sobre `ground` y `surface` con
 > floor 3.0. Si un componente futuro necesita pintar accent-pop como texto
 > sobre sunk, el diseño debe crear un token específico para ese uso o mover
@@ -167,11 +173,18 @@ utility rule; this ADR carries the intent.
 
 ### Deck exception
 
+**The deck is not the book.** Slides live on `--nl-deck-ground`, a surface
+deliberately distinct from `--nl-ground` — deeper in dark, warmer-but-lower-
+contrast in light — because a projected room wants less light than a book.
+`design-system.md` §Rules that are not about contrast phrases this rule the
+same way. This subsection is where the palette-level consequence of that rule
+now lives, and every cross-reference in the code that names "the deck is not
+the book" points here.
+
 The reroute of `--tw-prose-headings` to `accent-pop` does NOT apply inside
-`bg-deck-ground`. The slide is a deliberately distinct surface (§Consequences
-above, "the deck is not the book") and `accent-pop` clears only 2.92:1 on
-`deck-ground` in light — below the 3:1 floor `CHROME_TOKENS` declares. The
-override lives declaratively in `styles/index.css` as
+`bg-deck-ground`. `accent-pop` clears only 2.92:1 on `deck-ground` in light —
+below the 3:1 floor `CHROME_TOKENS` declares. The override lives declaratively
+in `styles/index.css` as
 `.bg-deck-ground .prose { --tw-prose-headings: var(--color-ink); }`, so slide
 prose headings paint in `ink` without any component-side knowledge. The slide
 `<h2>` title in `SlideDeck.tsx` also stays on `text-ink` (never
@@ -189,3 +202,18 @@ palette nudge that keeps the exclusion honest.
   `themeVariables` remain a follow-up; see #222 Notes.
 - The 27 hand-drawn SVGs under `content/` are not re-palettified in this
   WP; visual review is a follow-up.
+- **Four learned-during-review follow-ups** (surfaced by the Round A
+  pipeline of #222, deferred out of this WP by explicit agreement):
+  - Raise `LARGE_TEXT_FLOOR` from 3.0 to 3.1 to give `accent-pop`'s razor-thin
+    ground/surface margins (3.02/3.21 today) some headroom.
+  - Add a JSX-walk test asserting every `text-<token>` in `src/` has a
+    matching `--color-<token>: var(--nl-<token>)` in the `@theme` block —
+    closes the alias-drift hole this WP ships nine callers of.
+  - Codify in `testing-strategy.md` §Conventions that palette-critical
+    changes obligate a preview-screenshot artifact in the PR body — the
+    review had to catch a class-2 (jsdom-invisible) regression by prose
+    inspection rather than by a required protocol step.
+  - Fold `--nl-accent-pop`'s declaration into the same commit as the
+    `--tw-prose-headings` reroute so the between-commit "invalid var"
+    window disappears (would require rebasing shipped commits; the cost
+    outweighed the benefit at this stage).

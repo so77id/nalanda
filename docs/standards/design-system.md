@@ -204,8 +204,10 @@ H1/H2/H3 in the product:
 
 - **Slides.** Content inside `bg-deck-ground` (`SlideDeck.tsx`) paints its
   titles with `ink`, not `accent-pop`. It is a consequence of two things: the
-  deck and the book live in different registers (ADR-0026 §"The deck is not
-  the book"), and `accent-pop` clears only 2.92:1 on `deck-ground` in light —
+  deck and the book live in different registers (§Rules that are not about
+  contrast above: "the deck is not the book"; the palette-level consequence
+  is recorded in ADR-0026 addendum §Deck exception), and `accent-pop` clears
+  only 2.92:1 on `deck-ground` in light —
   below the 3:1 floor `palette.test.ts`'s CHROME_TOKENS declares. `.prose`
   inside `bg-deck-ground` overrides `--tw-prose-headings` back to `ink` in
   `styles/index.css`; the slide `<h2>` (which is not prose) also stays on
@@ -233,6 +235,15 @@ npm run build && npm run preview -- --port <n>
 Emulate the reader who never chose, which is the common case — in Playwright,
 `browser.newContext({ colorScheme: 'light' | 'dark' })`. Check the book, the
 deck, the catalog and an editor. Screenshot each and look.
+
+**Extras when the change touches `accent-pop` or the deck.** When a colour
+change modifies `--nl-accent-pop`, `--nl-deck-ground`, the `.prose` reroute
+or the `.bg-deck-ground .prose` override, confirm on the screenshots that
+slide H1/H2/H3 still paint `ink` (never the seed hue) in BOTH themes. That
+override in `styles/index.css` is what keeps them from failing 3:1 against
+`deck-ground` in light — see §Títulos "Two exceptions" and ADR-0026 addendum
+§Deck exception. A green suite proves nothing about this; the paint has to
+be looked at.
 
 The full browser recipe, including how to stop a preview server without killing
 other agents', is in `testing-strategy.md` §Conventions.
