@@ -748,26 +748,40 @@ Los ejemplos son algoritmos que ya vimos, o que aparecerán en las próximas cla
 trilogía, por cada clase; identifíquenlos cuando los conozcan.
 </Slide>
 
-<Slide title="Órdenes de crecimiento — el gráfico">
+<Slide title="Curvas: sublineal vs superlineal">
+<SideBySide>
 <MathPlot
   type="curves"
-  title="Órdenes de crecimiento (escala logarítmica en Y)"
+  title="Crecimiento sublineal"
   xRange={[1, 100]}
-  yRange={[1, 100000]}
-  scale="log"
+  yRange={[0, 25]}
+  height={280}
   functions={[
-    { label: "1", fn: () => 1, color: "orange" },
+    { label: "1", fn: () => 1, color: "blue" },
     { label: "lg N", fn: (n) => Math.log2(n), color: "green" },
-    { label: "N", fn: (n) => n, color: "blue" },
-    { label: "N lg N", fn: (n) => n * Math.log2(n), color: "violet" },
-    { label: "N²", fn: (n) => n * n, color: "red" },
+    { label: "√N", fn: (n) => Math.sqrt(n), color: "orange" },
+    { label: "N", fn: (n) => n, color: "violet" },
   ]}
 />
 
-Eje Y en **escala logarítmica** para que las cinco curvas se lean en el mismo cuadro
-— en lineal, la constante y el logaritmo quedan aplastados contra el eje mientras la
-cuadrática dispara. En log, cada clase ocupa su propia banda vertical, y se ve
-claramente cómo cada una despega en su orden asintótico.
+<MathPlot
+  type="curves"
+  title="Crecimiento superlineal"
+  xRange={[1, 100]}
+  yRange={[0, 1000]}
+  height={280}
+  functions={[
+    { label: "N", fn: (n) => n, color: "violet" },
+    { label: "N lg N", fn: (n) => n * Math.log2(n), color: "orange" },
+    { label: "N²", fn: (n) => n * n, color: "pink" },
+    { label: "2ᴺ", fn: (n) => Math.pow(2, n), color: "red" },
+  ]}
+/>
+</SideBySide>
+
+Ejes clásicos: N en el rango 1–100, costo en escala lineal. Las curvas sublineales quedan aplastadas contra el eje inferior cuando se
+mezclan con las superlineales — separarlas en dos gráficos es lo que hace legible cada
+banda.
 </Slide>
 
 <Slide title="¿Por qué quiero algoritmos asintóticamente eficientes?">
