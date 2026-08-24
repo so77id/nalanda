@@ -1,4 +1,4 @@
-import { ResponsiveLine } from '@nivo/line';
+import { Line, ResponsiveLine } from '@nivo/line';
 
 /**
  * Local shape of a Nivo Line series. `@nivo/line` no longer exports its
@@ -13,6 +13,7 @@ interface NivoSeries {
 import { useMemo } from 'react';
 
 import { useEmbedded } from '../embedded';
+import { useMode } from '../../presentation';
 import { useResolvedTheme } from '../../lib/useResolvedTheme';
 import { AuthoringError } from '../AuthoringError';
 
@@ -137,6 +138,7 @@ export function MathPlot({
 }: MathPlotProps) {
   const resolvedTheme = useResolvedTheme();
   const embedded = useEmbedded();
+  const mode = useMode();
   const isLog = scale === 'log' || scale === 'loglog';
 
   // Build Nivo's `Serie[]`. Each series carries {x, y} points sampled evenly
@@ -300,7 +302,106 @@ export function MathPlot({
           {title !== undefined && <span className="text-sm font-medium text-ink">{title}</span>}
         </header>
       )}
-      <div style={{ height: `${height}px` }} className="overflow-hidden text-ink">
+      {/*
+       * Presentation mode uses fixed-size <Line> instead of <ResponsiveLine>
+       * because ResponsiveLine relies on ResizeObserver, which reports
+       * POST-transform dimensions. The deck applies transform:scale to fit
+       * the slide, so ResponsiveLine would measure the scaled-down box,
+       * draw the SVG at that size, and then the deck's transform would
+       * shrink it AGAIN — double-scaling that made every plot render at
+       * ~50% of the container. Fixed-size Line produces an SVG with
+       * intrinsic width/height; the deck's transform scales it once, as
+       * intended. Book mode keeps ResponsiveLine so plots grow with the
+       * document column.
+       */}
+      <div style={{ height: `${height}px`, width: '100%' }} className="overflow-hidden text-ink">
+        {mode === 'presentation' ? (
+          <Line
+            data={series}
+            width={900}
+            height={height}
+            colors={colors}
+            margin={{ top: 20, right: legendVisible ? 130 : 30, bottom: 50, left: 60 }}
+            xScale={{ type: 'linear', min: xRange[0], max: xRange[1] }}
+            yScale={yScale}
+            axisTop={null}
+            axisRight={null}
+            axisBottom={{
+              legend: xLabel,
+              legendOffset: 36,
+              legendPosition: 'middle',
+              tickSize: 4,
+              tickPadding: 4,
+            }}
+            axisLeft={{
+              legend: yLabel,
+              legendOffset: -50,
+              legendPosition: 'middle',
+              tickSize: 4,
+              tickPadding: 4,
+              format: isLog ? formatLogTick : undefined,
+            }}
+            enablePoints={false}
+            enableGridX={false}
+            enableGridY={true}
+            curve="linear"
+            isInteractive={false}
+            useMesh={false}
+            enableSlices={false}
+            layers={[
+              'grid',
+              'markers',
+              'axes',
+              'areas',
+              'crosshair',
+              'lines',
+              annotationLayer,
+              'points',
+              'slices',
+              'mesh',
+              'legends',
+            ]}
+            legends={
+              legendVisible
+                ? [
+                    {
+                      anchor: 'right',
+                      direction: 'column',
+                      justify: false,
+                      translateX: 110,
+                      translateY: 0,
+                      itemWidth: 100,
+                      itemHeight: 20,
+                      itemsSpacing: 4,
+                      symbolSize: 12,
+                      symbolShape: 'square',
+                    },
+                  ]
+                : []
+            }
+            theme={{
+              background: 'transparent',
+              text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 12 },
+              axis: {
+                domain: { line: { stroke: 'var(--nl-mathplot-axis, currentColor)', strokeWidth: 1 } },
+                ticks: {
+                  line: { stroke: 'var(--nl-mathplot-axis, currentColor)', strokeWidth: 1 },
+                  text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 11 },
+                },
+                legend: { text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 12 } },
+              },
+              grid: { line: { stroke: 'var(--nl-mathplot-grid, currentColor)', strokeOpacity: 0.15 } },
+              legends: { text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 11 } },
+              tooltip: {
+                container: {
+                  background: 'var(--nl-surface, white)',
+                  color: 'var(--nl-mathplot-fg, black)',
+                  fontSize: 11,
+                },
+              },
+            }}
+          />
+        ) : (
         <ResponsiveLine
           data={series}
           colors={colors}
@@ -384,6 +485,7 @@ export function MathPlot({
             },
           }}
         />
+        )}
       </div>
       {/*
        * Theme-aware tokens for Nivo. `light-dark()` lets the browser pick per
