@@ -749,12 +749,11 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 </Slide>
 
 <Slide title="Curvas: sublineal vs superlineal">
-<SideBySide>
+<SideBySide left="Crecimiento sublineal" right="Crecimiento superlineal">
 <MathPlot
   type="curves"
-  title="Crecimiento sublineal"
-  xRange={[1, 100]}
-  yRange={[0, 25]}
+  xRange={[1, 25]}
+  yRange={[0, 26]}
   height={280}
   functions={[
     { label: "1", fn: () => 1, color: "blue" },
@@ -766,9 +765,8 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 
 <MathPlot
   type="curves"
-  title="Crecimiento superlineal"
-  xRange={[1, 100]}
-  yRange={[0, 1000]}
+  xRange={[1, 8]}
+  yRange={[0, 300]}
   height={280}
   functions={[
     { label: "N", fn: (n) => n, color: "violet" },
@@ -779,9 +777,11 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 />
 </SideBySide>
 
-Ejes clásicos: N en el rango 1–100, costo en escala lineal. Las curvas sublineales quedan aplastadas contra el eje inferior cuando se
-mezclan con las superlineales — separarlas en dos gráficos es lo que hace legible cada
-banda.
+Escala lineal en ambos ejes. Los rangos están recortados para que ninguna curva se
+escape por el techo — sublineal hasta N = 25, superlineal hasta N = 8, que es donde
+las cuatro curvas ya se separan visiblemente. Mezclar sublineales y superlineales en un
+mismo gráfico aplasta las primeras contra el eje inferior; separarlas en dos hace
+legible cada banda.
 </Slide>
 
 <Slide title="¿Por qué quiero algoritmos asintóticamente eficientes?">

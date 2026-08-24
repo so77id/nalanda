@@ -12,6 +12,7 @@ interface NivoSeries {
 }
 import { useMemo } from 'react';
 
+import { useEmbedded } from '../embedded';
 import { useResolvedTheme } from '../../lib/useResolvedTheme';
 import { AuthoringError } from '../AuthoringError';
 
@@ -135,6 +136,7 @@ export function MathPlot({
   yLabel = 'costo',
 }: MathPlotProps) {
   const resolvedTheme = useResolvedTheme();
+  const embedded = useEmbedded();
   const isLog = scale === 'log' || scale === 'loglog';
 
   // Build Nivo's `Serie[]`. Each series carries {x, y} points sampled evenly
@@ -281,17 +283,23 @@ export function MathPlot({
 
   return (
     <figure
-      className="not-prose my-6 flex flex-col rounded-lg border border-rule bg-surface"
+      className={
+        embedded
+          ? 'not-prose flex flex-col bg-surface'
+          : 'not-prose my-6 flex flex-col rounded-lg border border-rule bg-surface'
+      }
       data-mathplot-type={type}
       data-mathplot-scale={scale}
       data-theme={resolvedTheme}
     >
-      <header className="flex items-center gap-2 bg-sunk px-3 py-1.5">
-        <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-accent">
-          {isLog ? 'log' : 'curvas'}
-        </span>
-        {title !== undefined && <span className="text-sm font-medium text-ink">{title}</span>}
-      </header>
+      {embedded ? null : (
+        <header className="flex items-center gap-2 bg-sunk px-3 py-1.5">
+          <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-accent">
+            {isLog ? 'log' : 'curvas'}
+          </span>
+          {title !== undefined && <span className="text-sm font-medium text-ink">{title}</span>}
+        </header>
+      )}
       <div style={{ height: `${height}px` }} className="text-ink">
         <ResponsiveLine
           data={series}
