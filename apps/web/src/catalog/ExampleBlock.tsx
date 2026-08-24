@@ -10,7 +10,7 @@ interface Props {
 export function ExampleBlock({ title, code, children }: Props) {
   return (
     <section className="mt-6">
-      <h3 className="text-lg font-semibold">{title}</h3>
+      <h3 className="text-accent-pop text-lg font-semibold">{title}</h3>
       <div className="mt-2 rounded border border-rule p-4">{children}</div>
       <pre className="mt-2 overflow-x-auto rounded bg-surface p-3 text-sm text-ink-soft">
         <code>{code}</code>

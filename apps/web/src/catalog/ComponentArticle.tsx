@@ -14,7 +14,7 @@ export function ComponentArticle({ entry }: Props) {
   // to carry the id and so read "structure" beside a page headed "Structure".
   return (
     <CatalogLayout back={{ to: `/catalog/${entry.family}`, label: familyName(entry.family) }}>
-      <h1 className="mt-4 text-4xl font-bold tracking-tight">{entry.name}</h1>
+      <h1 className="text-accent-pop mt-4 text-4xl font-bold tracking-tight">{entry.name}</h1>
       <p className="mt-3 text-ink-soft">{entry.description}</p>
       <p className="mt-1 text-sm text-ink-faint">
         {/* The family id IS the folder name (#87) — no mapping to keep in sync. */}
@@ -23,10 +23,10 @@ export function ComponentArticle({ entry }: Props) {
         </code>
       </p>
 
-      <h2 className="mt-8 text-2xl font-semibold">When to use</h2>
+      <h2 className="text-accent-pop mt-8 text-2xl font-semibold">When to use</h2>
       <p className="mt-2 text-ink-soft">{entry.whenToUse}</p>
 
-      <h2 className="mt-8 text-2xl font-semibold">Props</h2>
+      <h2 className="text-accent-pop mt-8 text-2xl font-semibold">Props</h2>
       {entry.props.length === 0 ? (
         <p className="mt-2 text-ink-faint">This component takes no props.</p>
       ) : (
@@ -52,7 +52,7 @@ export function ComponentArticle({ entry }: Props) {
         </table>
       )}
 
-      <h2 className="mt-8 text-2xl font-semibold">Examples</h2>
+      <h2 className="text-accent-pop mt-8 text-2xl font-semibold">Examples</h2>
       {/* The catalog writes English; what it renders is the real component with
           real course content, so the snippets and the widgets' own chrome are
           Spanish. Stated here so the mix reads as the boundary it is (#87). */}

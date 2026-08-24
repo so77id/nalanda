@@ -25,7 +25,7 @@ export const Questions = withMeta(
   function Questions({ children }: QuestionsProps) {
     return (
       <section className="mt-10 border-t border-rule pt-6">
-        <h2 className="m-0 text-lg font-semibold text-ink">Preguntas</h2>
+        <h2 className="text-accent-pop m-0 text-lg font-semibold">Preguntas</h2>
         {children}
       </section>
     );

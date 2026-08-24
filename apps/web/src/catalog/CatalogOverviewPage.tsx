@@ -11,7 +11,7 @@ export function CatalogOverviewPage() {
   const catalog = use(loadCatalog());
   return (
     <CatalogLayout>
-      <h1 className="text-4xl font-bold tracking-tight">Catalog</h1>
+      <h1 className="text-accent-pop text-4xl font-bold tracking-tight">Catalog</h1>
       <p className="mt-3 text-ink-faint">
         The components a document can use — the platform&apos;s grammar (ADR-0010). Four editable
         families; every component ships its entry here.{' '}
@@ -25,7 +25,7 @@ export function CatalogOverviewPage() {
           return (
             <li key={family.id}>
               <div className="flex items-baseline gap-3">
-                <h2 className="text-2xl font-semibold">
+                <h2 className="text-accent-pop text-2xl font-semibold">
                   {/* Coloured and underlined-on-hover like every other link here:
                       with only `hover:text-accent` the four family names were
                       indistinguishable from headings, and a keyboard user reached
