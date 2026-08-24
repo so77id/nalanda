@@ -752,8 +752,8 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 <SideBySide left="Crecimiento sublineal" right="Crecimiento superlineal">
 <MathPlot
   type="curves"
-  xRange={[1, 25]}
-  yRange={[0, 26]}
+  xRange={[1, 100]}
+  yRange={[0, 105]}
   height={280}
   functions={[
     { label: "1", fn: () => 1, color: "blue" },
@@ -765,8 +765,8 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 
 <MathPlot
   type="curves"
-  xRange={[1, 8]}
-  yRange={[0, 300]}
+  xRange={[1, 12]}
+  yRange={[0, 4200]}
   height={280}
   functions={[
     { label: "N", fn: (n) => n, color: "violet" },
@@ -777,11 +777,12 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 />
 </SideBySide>
 
-Escala lineal en ambos ejes. Los rangos están recortados para que ninguna curva se
-escape por el techo — sublineal hasta N = 25, superlineal hasta N = 8, que es donde
-las cuatro curvas ya se separan visiblemente. Mezclar sublineales y superlineales en un
-mismo gráfico aplasta las primeras contra el eje inferior; separarlas en dos hace
-legible cada banda.
+Escala lineal en ambos ejes, con los rangos elegidos para que se vea la explosión de
+cada familia sin curvas fugadas. En sublineal, N sube derecho hasta 100 mientras √N,
+lg N y la constante quedan aplanadas contra el eje — ese aplanamiento es la lección:
+mezcladas con superlineales, las sublineales desaparecen visualmente. En superlineal
+basta llegar hasta N = 12 para que 2ᴺ dispare a 4096 mientras N² vale solo 144 — el
+contraste asintótico se ve en el mismo cuadro.
 </Slide>
 
 <Slide title="¿Por qué quiero algoritmos asintóticamente eficientes?">
