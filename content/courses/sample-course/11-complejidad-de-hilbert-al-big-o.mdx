@@ -530,8 +530,19 @@ Pero hay un problema práctico. En Turing, acceder a `arr[1000]` cuesta ~1000 pa
 la cabeza tiene que **caminar** la cinta celda por celda. Ninguna computadora real funciona
 así.
 
-**Cook y Reckhow (1973)** formalizan la **RAM — Random Access Machine**: un modelo con
-registros direccionables y **acceso $$O(1)$$ por dirección**.
+**Cook y Reckhow (1973)**, en el paper
+[*Time bounded random access machines*](https://doi.org/10.1016/S0022-0000(73)80029-7),
+formalizan la **RAM — Random Access Machine**: un modelo con registros direccionables y
+**acceso $$O(1)$$ por dirección**.
+
+<Mermaid
+  title="Modelo RAM — Random Access Machine"
+  source={`flowchart LR
+    IN(["Entrada"]) --> CPU
+    P["Programa<br/>(instrucciones)"] --> CPU["CPU<br/>+ acumulador"]
+    CPU <--> R[("Registros<br/>R0, R1, R2, …<br/>direccionables")]
+    CPU --> OUT(["Salida"])`}
+/>
 
 - **Mismo poder de cómputo**: cualquier cosa computable en Turing lo es en RAM y viceversa.
 - **Distinto costo**: los tiempos difieren en un factor polinómico, pero el **orden
@@ -539,8 +550,8 @@ registros direccionables y **acceso $$O(1)$$ por dirección**.
 - **RAM está más cerca de las computadoras reales**; **Turing está más cerca de la teoría
   de la computación**.
 
-**Regla del curso**: usamos **Turing** como referencia **conceptual** (universalidad) y
-**RAM** como modelo **operativo** cuando contamos operaciones sobre código Java.
+Usamos **Turing** como referencia **conceptual** (universalidad) y **RAM** como modelo
+**operativo** cuando contamos operaciones sobre código Java.
 </Slide>
 
 <Slide title="Operaciones Elementales (OE)">
@@ -556,9 +567,8 @@ Lista concreta que usaremos en el curso:
 - **Acceso a arreglo**: `arr[i]` (RAM lo hace en 1 paso).
 - **Llamada a método**: el costo *de llamar*, no del cuerpo.
 
-**Regla del curso**: el **costo temporal** de un algoritmo = **número de OE que ejecuta**
-para una entrada dada. Le pondremos nombre a esa cantidad: $$T(N)$$, donde N es el tamaño
-de la entrada.
+El **costo temporal** de un algoritmo es el **número de OE que ejecuta** para una entrada
+dada. Esa cantidad se denota $$T(N)$$, donde $$N$$ es el tamaño de la entrada.
 </Slide>
 
 <Slide title="Primer conteo: un `for` línea a línea">
