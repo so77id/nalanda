@@ -902,16 +902,17 @@ orden es lo que decide**.
 **Traducción**: *"a partir de un cierto N₀, f nunca supera a g multiplicada por una
 constante c."*
 
+**Ejemplo visual** — $$f(N) = 4N + 4$$ es $$O(N)$$ con $$c = 5$$ y $$N_0 = 4$$:
+
 <MathPlot
   type="curves"
-  title="T(N) = 4N + 4 es O(N)"
   xRange={[0, 20]}
   yRange={[0, 120]}
   functions={[
-    { label: "f = 4N + 4", fn: (n) => 4 * n + 4, color: "blue" },
-    { label: "c * g = 5N", fn: (n) => 5 * n, color: "red", dashed: true },
+    { label: "f(N) = 4N+4", fn: (n) => 4 * n + 4, color: "blue" },
+    { label: "c·g(N) = 5N", fn: (n) => 5 * n, color: "red", dashed: true },
   ]}
-  annotations={[{ type: "verticalLine", x: 4, label: "N_zero = 4" }]}
+  annotations={[{ type: "verticalLine", x: 4, label: "N₀ = 4" }]}
 />
 
 **Ejemplo**: $$T(n)$$ = 4n + 4 es $$O(n)$$. Basta encontrar un par (c, N₀). Con c=5 y N₀=4:
@@ -929,17 +930,30 @@ algoritmo lineal es cierto pero inútil. Siempre buscamos la cota **más ajustad
 </Slide>
 
 <Slide title="Notaciones Ω y Θ">
-$$\Omega(g(N))$$ — cota inferior. Existen c, N₀ tales que 0 ≤ c·g(N) ≤ f(N) para todo N ≥ N₀.
+**Ω(g(N)) — cota inferior**. Existen c, N₀ tales que 0 ≤ c·g(N) ≤ f(N) para todo N ≥ N₀.
 
-> Traducción: *"f no puede ser más pequeño que g por una constante, a partir de N₀."*
+> *"f no puede ser más pequeño que g por una constante, a partir de N₀."*
 > Sirve para afirmar *"no se puede hacer mejor que esto"*.
 
-$$\Theta(g(N))$$ — cota ajustada. Existe cuando f es a la vez O(g) **y** $$\Omega(g)$$.
+**Ejemplo visual** — $$f(N) = 4N + 4$$ es $$\Omega(N)$$ con $$c = 4$$ y $$N_0 = 1$$:
 
-> Traducción: *"f y g crecen al mismo ritmo asintóticamente."*
-> Es la afirmación más fuerte que podemos hacer.
+<MathPlot
+  type="curves"
+  xRange={[0, 20]}
+  yRange={[0, 100]}
+  functions={[
+    { label: "f(N) = 4N+4", fn: (n) => 4 * n + 4, color: "blue" },
+    { label: "c·g(N) = 4N", fn: (n) => 4 * n, color: "green", dashed: true },
+  ]}
+  annotations={[{ type: "verticalLine", x: 1, label: "N₀ = 1" }]}
+/>
 
-**Ejemplo con nuestro ciclo simple**: $$T(n)$$ = 4n + 4.
+**Θ(g(N)) — cota ajustada**. Existe cuando f es a la vez O(g) **y** Ω(g).
+
+> *"f y g crecen al mismo ritmo asintóticamente."* Es la afirmación más fuerte que
+> podemos hacer.
+
+**Ejemplo con nuestro ciclo simple**: $$T(n) = 4n + 4$$.
 
 - Es $$O(n)$$: con c=5, N₀=4.
 - Es $$\Omega(n)$$: con c=4, N₀=1.
