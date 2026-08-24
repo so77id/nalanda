@@ -95,3 +95,81 @@ this work was specified, a fortnight earlier.
   rule and now this case.
 - Themes beyond two, or a high-contrast mode, are additive: a new block of token
   values and an entry in the pairing table. Nothing in the components changes.
+
+## Addendum — 2026-08-24 (#222)
+
+The palette this ADR shipped carried placeholder values Miguel accepted to
+unblock the two-theme system: cool blue-grey ground with a magenta accent,
+neither derived from anything the course actually uses. #222 replaces both
+palettes with values SEEDED on material the course already ships, and
+introduces a second accent token so that section titles can carry the seed
+without paying the 4.5:1 body-text obligation.
+
+### Seed provenance
+
+- **Light seed `#E86800`** — the title colour of the *Complejidad de Algoritmos*
+  deck the course ships. A student who has sat through a lecture recognises it.
+- **Dark seed `#D946EF`** — the brand accent from the original nalanda POC
+  (`fuchsia-500`). Reused so the site keeps its identity when the reader flips
+  to the theme most readers arrive in.
+
+Every `--nl-*` token in each theme is derived from its seed's hue. Per-token
+luminances were nudged from the reference artifacts to keep every AA pairing
+in `palette.test.ts` green — the reference specifies visual intent; the test
+specifies contract, and the contract wins where they disagree.
+
+### The `accent-pop` token
+
+Both themes gain `--nl-accent-pop` separated from `--nl-accent`. They are
+**one hue with two luminances**, not two independent accents — clarifies
+Decision §1's "one accent for the whole product". The pair:
+
+- `--nl-accent` is the AA-legal variant. Used for body-sized text: links,
+  inline prose accents, `--tw-prose-links`. Passes 4.5:1 on every surface.
+- `--nl-accent-pop` is the seed itself. Used for **section titles**
+  (`--tw-prose-headings` and the H1/H2/H3 chrome outside `.prose`), filled
+  buttons' BG, chips. Passes the 3:1 large-text / non-text UI floor WCAG
+  §1.4.11 explicitly allows for its use cases.
+
+### `CHROME_TOKENS` — the pairing table's third category
+
+`accent-pop` is tested against a subset of surfaces (`ground` + `surface`),
+not the full four, and `palette.test.ts` models this with a new
+`CHROME_TOKENS` category parallel to `UI_TOKENS` at the 3:1 floor. Its
+worked-case comment carries the reasoning. In one line:
+
+> `accent-pop` no se testea contra `sunk` ni `deck-ground`. El diseño lo usa
+> exclusivamente en (a) BG de botones llenos con label on-pop, (b) TEXTO sobre
+> `accent-soft` (chips), y (c) H1/H2/H3 sobre `ground` o `surface`. Testear el
+> par accent-pop×sunk chequea una combinación que ningún componente pinta y
+> que forzaría sacrificar la identidad visual de la semilla del deck
+> (`#E86800`) sin proteger ningún uso real. El test lo modela con la
+> categoría `CHROME_TOKENS`, que itera solo sobre `ground` y `surface` con
+> floor 3.0. Si un componente futuro necesita pintar accent-pop como texto
+> sobre sunk, el diseño debe crear un token específico para ese uso o mover
+> accent-pop a `UI_TOKENS`.
+
+This is a genuine relaxation of Decision §3 ("the pairs are declared") and
+lives here on purpose: the ADR is where the exception is written down,
+because the reason the test-subset exists is a design intent (protect the
+seed's identity), not a test convenience. If it is not written down, the
+next author who sees the `CHROME_TOKENS` block deletes it and folds
+`accent-pop` into `UI_TOKENS`, then re-nudges the seed hex to pass the
+harder floor, breaking the identity this ADR chose to preserve.
+
+### Titles policy
+
+Section titles (H1/H2/H3) paint the seed. Inside `.prose` this is automatic
+via `--tw-prose-headings = var(--color-accent-pop)`. Outside `.prose` —
+catalog surfaces, presentation slides, the `<Questions>` block, the 404 —
+the class `text-accent-pop` is applied to the heading. `design-system.md`
+carries the utility rule; this ADR carries the intent.
+
+### What is NOT changed
+
+- CodeMirror still uses the package's built-in `light`/`dark` themes. A
+  bespoke highlighting theme remains deferred (Alternatives §, unchanged).
+- Mermaid still uses its built-in `default`/`dark` themes. Custom
+  `themeVariables` remain a follow-up; see #222 Notes.
+- The 27 hand-drawn SVGs under `content/` are not re-palettified in this
+  WP; visual review is a follow-up.
