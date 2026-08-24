@@ -41,7 +41,8 @@ was found by looking at a screenshot.
 | `ink-faint`                           | Labels, timings, metadata, anchors       | The smallest type in the product — held to 4.5:1, never the 3:1 large-text allowance |
 | `rule`                                | Decorative separators                    | Carries no information, so it has **no** contrast floor                              |
 | `rule-strong`                         | Borders that _are_ the signal            | ≥3:1. This is why `rule` and `rule-strong` are two tokens                            |
-| `accent`                              | Links, active state, emphasis            | **One accent in the whole product**                                                  |
+| `accent`                              | Links, active state, emphasis            | AA-legal luminance of the seed hue; held to 4.5:1                                    |
+| `accent-pop`                          | Section titles, filled buttons, chips    | The raw seed hue; large-text / non-text UI floor (3:1 on `ground` and `surface`)     |
 | `flag`                                | Errors, warnings, diagnostics            | Semantic, never decorative                                                           |
 | `keep`                                | Success, passing cases, the run button   | Semantic                                                                             |
 | `accent-soft` `flag-soft` `keep-soft` | Tinted grounds for chips and callouts    | Only ever under their own foreground                                                 |
@@ -57,6 +58,13 @@ Contrast is a property of a **pair**, not of a token. These are the legal pairs;
   `keep` on `ground`, `surface`, `sunk`, `deck-ground`. Floor **4.5:1**.
 - **Meaning-carrying non-text** — `rule-strong`, `focus` on the same four
   surfaces. Floor **3:1**.
+- **Chrome on the page surfaces** — `accent-pop` on `ground` and `surface`
+  ONLY. Floor **3:1** (WCAG §1.4.11: large text / non-text UI). `sunk` and
+  `deck-ground` are deliberately excluded — see §Títulos and the addendum in
+  ADR-0026 for why testing accent-pop against them would sacrifice the deck
+  seed's identity to a hypothetical use no component makes. If a future
+  component needs `accent-pop` as text on `sunk`, mint a specific token for
+  that use or promote `accent-pop` into the previous row.
 - **Tinted pairs** — `keep`/`keep-soft`, `flag`/`flag-soft`,
   `accent`/`accent-soft`, and `on-keep`/`keep`. Floor **4.5:1**: a status chip
   is text, and small text at that.
@@ -80,8 +88,13 @@ something to allow; it is something nobody should write.
 - **Colour is never the only signal.** An error, a passing case, a disabled
   control: each carries text or an icon as well. `flag` and `keep` are how it
   reads at a glance, not how it is understood.
-- **One accent.** If something needs to stand out and `accent` is taken, the
-  answer is hierarchy — weight, size, position — not a second hue.
+- **One accent, two luminances.** The product has one accent hue. It ships as
+  two tokens: `accent` (AA-legal luminance, for links and inline prose) and
+  `accent-pop` (the raw seed luminance, for section titles and filled chrome).
+  These are the SAME hue rendered at different luminances, not two independent
+  accents — a rule ADR-0026's addendum records in full. If something needs to
+  stand out and both `accent` slots are taken, the answer is hierarchy —
+  weight, size, position — not a third hue.
 - **The deck is not the book.** It has its own ground on purpose. Do not
   collapse them.
 - **Third-party components that own their colours** take the theme through
@@ -171,6 +184,41 @@ share them meaningfully. Do not extend this exemption to a hue whose meaning
 IS shared across the product; that is the design failure §The one rule
 exists to prevent (#109).
 
+## Títulos
+
+Section titles paint the seed hue. The rule is one line and applies to every
+H1/H2/H3 in the product:
+
+- **Inside `.prose`** — nothing to do. `--tw-prose-headings` is routed to
+  `var(--color-accent-pop)` in `styles/index.css`, so every heading rendered
+  through the typography plugin already carries it. This covers every course
+  document.
+- **Outside `.prose`** — apply the utility `text-accent-pop` to the heading
+  element itself. The catalog pages, the `<Questions>` block, and the 404
+  page all use this shape today; new surfaces follow it. `text-accent-pop`
+  is generated from the `--color-accent-pop` alias declared in `@theme`, so
+  it is a first-class utility and passes `architecture.test.ts`'s raw-colour
+  guard.
+
+**Two exceptions.**
+
+- **Slides.** Content inside `bg-deck-ground` (`SlideDeck.tsx`) paints its
+  titles with `ink`, not `accent-pop`. It is a consequence of two things: the
+  deck and the book live in different registers (§Rules that are not about
+  contrast above: "the deck is not the book"; the palette-level consequence
+  is recorded in ADR-0026 addendum §Deck exception), and `accent-pop` clears
+  only 2.92:1 on `deck-ground` in light —
+  below the 3:1 floor `palette.test.ts`'s CHROME_TOKENS declares. `.prose`
+  inside `bg-deck-ground` overrides `--tw-prose-headings` back to `ink` in
+  `styles/index.css`; the slide `<h2>` (which is not prose) also stays on
+  `text-ink`. The override is unlayered on purpose — a layered version would
+  lose to Tailwind's utilities.
+- **System UI framed on top of a course page.** The rotate-to-landscape
+  notice is the only one today. Its heading is chrome the reader sees when
+  the app cannot render what they asked for, not a title in a course
+  document. `RotateNotice` therefore stays on `text-ink`; do the same for
+  any new full-page system overlay.
+
 ## Verifying a colour change
 
 `getComputedStyle` returning the right value **is not evidence**. It reports what
@@ -187,6 +235,15 @@ npm run build && npm run preview -- --port <n>
 Emulate the reader who never chose, which is the common case — in Playwright,
 `browser.newContext({ colorScheme: 'light' | 'dark' })`. Check the book, the
 deck, the catalog and an editor. Screenshot each and look.
+
+**Extras when the change touches `accent-pop` or the deck.** When a colour
+change modifies `--nl-accent-pop`, `--nl-deck-ground`, the `.prose` reroute
+or the `.bg-deck-ground .prose` override, confirm on the screenshots that
+slide H1/H2/H3 still paint `ink` (never the seed hue) in BOTH themes. That
+override in `styles/index.css` is what keeps them from failing 3:1 against
+`deck-ground` in light — see §Títulos "Two exceptions" and ADR-0026 addendum
+§Deck exception. A green suite proves nothing about this; the paint has to
+be looked at.
 
 The full browser recipe, including how to stop a preview server without killing
 other agents', is in `testing-strategy.md` §Conventions.

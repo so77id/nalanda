@@ -40,41 +40,41 @@ const REVIEW_CHECKLIST = [
 export function GovernancePage() {
   return (
     <CatalogLayout back={{ to: '/catalog', label: 'Catalog' }}>
-      <h1 className="mt-4 text-4xl font-bold tracking-tight">Governance</h1>
+      <h1 className="text-accent-pop mt-4 text-4xl font-bold tracking-tight">Governance</h1>
       <p className="mt-3 text-ink-faint">
         The catalog governs itself (ADR-0010): these pages are the rules, and changing the rules
         goes through the process at the bottom.
       </p>
 
-      <h2 className="mt-10 text-2xl font-semibold">How to add a component</h2>
+      <h2 className="text-accent-pop mt-10 text-2xl font-semibold">How to add a component</h2>
       <ol className="mt-3 list-decimal space-y-2 pl-6 text-ink-soft">
         {ADD_STEPS.map((step) => (
           <li key={step}>{step}</li>
         ))}
       </ol>
 
-      <h2 className="mt-10 text-2xl font-semibold">Component contract</h2>
+      <h2 className="text-accent-pop mt-10 text-2xl font-semibold">Component contract</h2>
       <ol className="mt-3 list-decimal space-y-2 pl-6 text-ink-soft">
         {CONTRACT_POINTS.map((point) => (
           <li key={point}>{point}</li>
         ))}
       </ol>
 
-      <h2 className="mt-10 text-2xl font-semibold">Documentation checklist</h2>
+      <h2 className="text-accent-pop mt-10 text-2xl font-semibold">Documentation checklist</h2>
       <ul className="mt-3 list-disc space-y-2 pl-6 text-ink-soft">
         {DOC_CHECKLIST.map((item) => (
           <li key={item}>{item}</li>
         ))}
       </ul>
 
-      <h2 className="mt-10 text-2xl font-semibold">Review checklist</h2>
+      <h2 className="text-accent-pop mt-10 text-2xl font-semibold">Review checklist</h2>
       <ul className="mt-3 list-disc space-y-2 pl-6 text-ink-soft">
         {REVIEW_CHECKLIST.map((item) => (
           <li key={item}>{item}</li>
         ))}
       </ul>
 
-      <h2 className="mt-10 text-2xl font-semibold">Changing these rules</h2>
+      <h2 className="text-accent-pop mt-10 text-2xl font-semibold">Changing these rules</h2>
       <p className="mt-3 text-ink-soft">
         A PR that edits these governance pages, reviewed like any other change. If the change is
         architectural (new family, contract point added/removed, catalog mechanics), it also needs

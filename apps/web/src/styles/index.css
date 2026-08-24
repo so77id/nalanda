@@ -43,6 +43,7 @@
   --color-rule: var(--nl-rule);
   --color-rule-strong: var(--nl-rule-strong);
   --color-accent: var(--nl-accent);
+  --color-accent-pop: var(--nl-accent-pop);
   --color-flag: var(--nl-flag);
   --color-keep: var(--nl-keep);
   --color-focus: var(--nl-focus);
@@ -87,70 +88,73 @@
    state, which paints one theme's text on the other theme's ground. Every token
    is therefore declared in full in block 1. */
 :root {
-  --nl-ground: #eef1f4;
-  --nl-surface: #ffffff;
-  --nl-sunk: #e4e9ee;
-  --nl-deck-ground: #eaeef2;
-  --nl-ink: #141a22;
-  --nl-ink-soft: #47525f;
-  --nl-ink-faint: #5a6573;
-  --nl-rule: #cdd5dd;
-  --nl-rule-strong: #7a8592;
-  --nl-accent: #9c3b76;
-  --nl-flag: #b04527;
-  --nl-keep: #2c6a4e;
-  --nl-focus: #0b63c4;
-  --nl-keep-soft: #e0eee7;
-  --nl-flag-soft: #f8e5df;
+  --nl-ground: #f8f2ef;
+  --nl-surface: #fef9f7;
+  --nl-sunk: #ede6e3;
+  --nl-deck-ground: #f5eeea;
+  --nl-ink: #2b221d;
+  --nl-ink-soft: #493d37;
+  --nl-ink-faint: #73645c;
+  --nl-rule: #dfd7d3;
+  --nl-rule-strong: #8e817c;
+  --nl-accent: #ba3b00;
+  --nl-accent-pop: #e66600;
+  --nl-flag: #c62b2a;
+  --nl-keep: #1f7546;
+  --nl-focus: #008388;
+  --nl-keep-soft: #e6f4ea;
+  --nl-flag-soft: #ffeae6;
   --nl-plate: #ffffff;
-  --nl-accent-soft: #f3e4ee;
-  --nl-on-keep: #ffffff;
+  --nl-accent-soft: #ffe1d1;
+  --nl-on-keep: #fef9f7;
 }
 
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme='light']) {
-    --nl-ground: #0c1118;
-    --nl-surface: #141b24;
-    --nl-sunk: #1b232e;
-    --nl-deck-ground: #020617;
-    --nl-ink: #e6eaef;
-    --nl-ink-soft: #a8b3c0;
-    --nl-ink-faint: #8a96a4;
-    --nl-rule: #2c3644;
-    --nl-rule-strong: #66748a;
-    --nl-accent: #dd91bd;
-    --nl-flag: #e08a69;
-    --nl-keep: #7ec2a0;
-    --nl-focus: #38bdf8;
-    --nl-keep-soft: #17291f;
-    --nl-flag-soft: #33211a;
+    --nl-ground: #0d1117;
+    --nl-surface: #161b22;
+    --nl-sunk: #1c2128;
+    --nl-deck-ground: #0d1117;
+    --nl-ink: #e6edf3;
+    --nl-ink-soft: #c9d1d9;
+    --nl-ink-faint: #8b949e;
+    --nl-rule: #30363d;
+    --nl-rule-strong: #646b74;
+    --nl-accent: #e879f9;
+    --nl-accent-pop: #d946ef;
+    --nl-flag: #fa8054;
+    --nl-keep: #3fbe90;
+    --nl-focus: #00b8e1;
+    --nl-keep-soft: #0f2820;
+    --nl-flag-soft: #2a1811;
     /* Identical in every theme, deliberately — see --color-plate. */
     --nl-plate: #ffffff;
-    --nl-accent-soft: #33202c;
-    --nl-on-keep: #0c1118;
+    --nl-accent-soft: #241634;
+    --nl-on-keep: #0d1117;
   }
 }
 
 :root[data-theme='dark'] {
-  --nl-ground: #0c1118;
-  --nl-surface: #141b24;
-  --nl-sunk: #1b232e;
-  --nl-deck-ground: #020617;
-  --nl-ink: #e6eaef;
-  --nl-ink-soft: #a8b3c0;
-  --nl-ink-faint: #8a96a4;
-  --nl-rule: #2c3644;
-  --nl-rule-strong: #66748a;
-  --nl-accent: #dd91bd;
-  --nl-flag: #e08a69;
-  --nl-keep: #7ec2a0;
-  --nl-focus: #38bdf8;
-  --nl-keep-soft: #17291f;
-  --nl-flag-soft: #33211a;
+  --nl-ground: #0d1117;
+  --nl-surface: #161b22;
+  --nl-sunk: #1c2128;
+  --nl-deck-ground: #0d1117;
+  --nl-ink: #e6edf3;
+  --nl-ink-soft: #c9d1d9;
+  --nl-ink-faint: #8b949e;
+  --nl-rule: #30363d;
+  --nl-rule-strong: #646b74;
+  --nl-accent: #e879f9;
+  --nl-accent-pop: #d946ef;
+  --nl-flag: #fa8054;
+  --nl-keep: #3fbe90;
+  --nl-focus: #00b8e1;
+  --nl-keep-soft: #0f2820;
+  --nl-flag-soft: #2a1811;
   /* Identical in every theme, deliberately — see --color-plate. */
   --nl-plate: #ffffff;
-  --nl-accent-soft: #33202c;
-  --nl-on-keep: #0c1118;
+  --nl-accent-soft: #241634;
+  --nl-on-keep: #0d1117;
 }
 
 /* Prose that follows the theme (#109).
@@ -172,7 +176,7 @@
    documented for `.cm-editor.cm-focused` below. */
 .prose {
   --tw-prose-body: var(--color-ink-soft);
-  --tw-prose-headings: var(--color-ink);
+  --tw-prose-headings: var(--color-accent-pop);
   --tw-prose-lead: var(--color-ink-soft);
   --tw-prose-links: var(--color-accent);
   --tw-prose-bold: var(--color-ink);
@@ -187,6 +191,19 @@
   --tw-prose-pre-bg: var(--color-sunk);
   --tw-prose-th-borders: var(--color-rule-strong);
   --tw-prose-td-borders: var(--color-rule);
+}
+
+/* Slides run deeper than the book (see ADR-0026 addendum §Deck exception). The
+   reroute above paints prose headings with accent-pop, but on `bg-deck-ground`
+   (`#F5EEEA` in light) accent-pop lands at 2.92:1 — below the 3:1 floor
+   `palette.test.ts` enforces via CHROME_TOKENS. Reset headings back to `ink`
+   whenever prose renders inside a deck-ground container. Unlayered for the same
+   reason the reroute itself is unlayered: a layered override loses to Tailwind's
+   utilities, and every `.prose h1/h2/h3` inside a slide is exactly what this
+   catches. The paint check itself lives in the browser (jsdom cannot see it);
+   documented in ADR-0026 addendum and `design-system.md` §Títulos. */
+.bg-deck-ground .prose {
+  --tw-prose-headings: var(--color-ink);
 }
 
 /* What the page is, declared on the document rather than assumed by a div.

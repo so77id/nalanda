@@ -23,7 +23,7 @@ export function FamilyPage({ notFound }: Props) {
   const entries = use(loadCatalog()).byFamily(family.id);
   return (
     <CatalogLayout back={{ to: '/catalog', label: 'Catalog' }}>
-      <h1 className="mt-4 text-4xl font-bold tracking-tight">{family.name}</h1>
+      <h1 className="text-accent-pop mt-4 text-4xl font-bold tracking-tight">{family.name}</h1>
       <p className="mt-3 text-ink-soft">{family.definition}</p>
       <p className="mt-1 text-sm text-ink-faint">{family.whatBelongs}</p>
       <p className="mt-1 text-sm text-ink-faint">

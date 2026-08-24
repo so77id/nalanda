@@ -95,3 +95,125 @@ this work was specified, a fortnight earlier.
   rule and now this case.
 - Themes beyond two, or a high-contrast mode, are additive: a new block of token
   values and an entry in the pairing table. Nothing in the components changes.
+
+## Addendum — 2026-08-24 (#222)
+
+The palette this ADR shipped carried placeholder values Miguel accepted to
+unblock the two-theme system: cool blue-grey ground with a magenta accent,
+neither derived from anything the course actually uses. #222 replaces both
+palettes with values SEEDED on material the course already ships, and
+introduces a second accent token so that section titles can carry the seed
+without paying the 4.5:1 body-text obligation.
+
+### Seed provenance
+
+- **Light seed `#E86800`** (reference) — the title colour of the *Complejidad
+  de Algoritmos* deck the course ships. A student who has sat through a
+  lecture recognises it. The `--nl-accent-pop` token ships the nudged
+  `#E66600`, one luminance step darker so `accent-pop` clears the 3:1 floor on
+  `--nl-ground` and `--nl-surface`; the reference lives on to name the visual
+  intent when the wording says "the seed" (see the shipped vs. reference rule
+  below).
+- **Dark seed `#D946EF`** — the brand accent from the original nalanda POC
+  (`fuchsia-500`). Reused so the site keeps its identity when the reader flips
+  to the theme most readers arrive in.
+
+Every `--nl-*` token in each theme is derived from its seed's hue. Per-token
+luminances were nudged from the reference artifacts to keep every AA pairing
+in `palette.test.ts` green — the reference specifies visual intent; the test
+specifies contract, and the contract wins where they disagree.
+
+### The `accent-pop` token
+
+Both themes gain `--nl-accent-pop` separated from `--nl-accent`. They are
+**one hue with two luminances**, not two independent accents — clarifies
+Decision §1's "one accent for the whole product". The pair:
+
+- `--nl-accent` is the AA-legal variant. Used for body-sized text: links,
+  inline prose accents, `--tw-prose-links`. Passes 4.5:1 on every surface.
+- `--nl-accent-pop` is the seed itself. Used for **section titles**
+  (`--tw-prose-headings` and the H1/H2/H3 chrome outside `.prose`), filled
+  buttons' BG, chips. Passes the 3:1 large-text / non-text UI floor WCAG
+  §1.4.11 explicitly allows for its use cases.
+
+### `CHROME_TOKENS` — the pairing table's third category
+
+`accent-pop` is tested against a subset of surfaces (`ground` + `surface`),
+not the full four, and `palette.test.ts` models this with a new
+`CHROME_TOKENS` category parallel to `UI_TOKENS` at the 3:1 floor. Its
+worked-case comment carries the reasoning. In one line:
+
+> `accent-pop` no se testea contra `sunk` ni `deck-ground`. El diseño lo usa
+> exclusivamente en (a) BG de botones llenos con label on-pop, (b) TEXTO sobre
+> `accent-soft` (chips), y (c) H1/H2/H3 sobre `ground` o `surface`. Testear el
+> par accent-pop×sunk chequea una combinación que ningún componente pinta y
+> que forzaría sacrificar la identidad visual de la semilla del deck
+> (referencia `#E86800`, embarcado como `#E66600` — ver §Seed provenance) sin
+> proteger ningún uso real. El test lo modela con la
+> categoría `CHROME_TOKENS`, que itera solo sobre `ground` y `surface` con
+> floor 3.0. Si un componente futuro necesita pintar accent-pop como texto
+> sobre sunk, el diseño debe crear un token específico para ese uso o mover
+> accent-pop a `UI_TOKENS`.
+
+This is a genuine relaxation of Decision §3 ("the pairs are declared") and
+lives here on purpose: the ADR is where the exception is written down,
+because the reason the test-subset exists is a design intent (protect the
+seed's identity), not a test convenience. If it is not written down, the
+next author who sees the `CHROME_TOKENS` block deletes it and folds
+`accent-pop` into `UI_TOKENS`, then re-nudges the seed hex to pass the
+harder floor, breaking the identity this ADR chose to preserve.
+
+### Titles policy
+
+Section titles (H1/H2/H3) paint the seed. Inside `.prose` this is automatic
+via `--tw-prose-headings = var(--color-accent-pop)`. Outside `.prose` —
+catalog surfaces, the `<Questions>` block, the 404 — the class
+`text-accent-pop` is applied to the heading. `design-system.md` carries the
+utility rule; this ADR carries the intent.
+
+### Deck exception
+
+**The deck is not the book.** Slides live on `--nl-deck-ground`, a surface
+deliberately distinct from `--nl-ground` — deeper in dark, warmer-but-lower-
+contrast in light — because a projected room wants less light than a book.
+`design-system.md` §Rules that are not about contrast phrases this rule the
+same way. This subsection is where the palette-level consequence of that rule
+now lives, and every cross-reference in the code that names "the deck is not
+the book" points here.
+
+The reroute of `--tw-prose-headings` to `accent-pop` does NOT apply inside
+`bg-deck-ground`. `accent-pop` clears only 2.92:1 on `deck-ground` in light —
+below the 3:1 floor `CHROME_TOKENS` declares. The override lives declaratively
+in `styles/index.css` as
+`.bg-deck-ground .prose { --tw-prose-headings: var(--color-ink); }`, so slide
+prose headings paint in `ink` without any component-side knowledge. The slide
+`<h2>` title in `SlideDeck.tsx` also stays on `text-ink` (never
+`text-accent-pop`), mirroring `RotateNotice.tsx`'s exclusion on the same
+surface. If a future component needs the seed hue on `deck-ground`, mint a
+darker `accent-pop-deck` variant that clears 3:1 there; do not lift the
+override, and do not extend `CHROME_SURFACES` to `deck-ground` without a
+palette nudge that keeps the exclusion honest.
+
+### What is NOT changed
+
+- CodeMirror still uses the package's built-in `light`/`dark` themes. A
+  bespoke highlighting theme remains deferred (Alternatives §, unchanged).
+- Mermaid still uses its built-in `default`/`dark` themes. Custom
+  `themeVariables` remain a follow-up; see #222 Notes.
+- The 27 hand-drawn SVGs under `content/` are not re-palettified in this
+  WP; visual review is a follow-up.
+- **Four learned-during-review follow-ups** (surfaced by the Round A
+  pipeline of #222, deferred out of this WP by explicit agreement):
+  - Raise `LARGE_TEXT_FLOOR` from 3.0 to 3.1 to give `accent-pop`'s razor-thin
+    ground/surface margins (3.02/3.21 today) some headroom.
+  - Add a JSX-walk test asserting every `text-<token>` in `src/` has a
+    matching `--color-<token>: var(--nl-<token>)` in the `@theme` block —
+    closes the alias-drift hole this WP ships nine callers of.
+  - Codify in `testing-strategy.md` §Conventions that palette-critical
+    changes obligate a preview-screenshot artifact in the PR body — the
+    review had to catch a class-2 (jsdom-invisible) regression by prose
+    inspection rather than by a required protocol step.
+  - Fold `--nl-accent-pop`'s declaration into the same commit as the
+    `--tw-prose-headings` reroute so the between-commit "invalid var"
+    window disappears (would require rebasing shipped commits; the cost
+    outweighed the benefit at this stage).
