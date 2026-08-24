@@ -765,8 +765,9 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 
 <MathPlot
   type="curves"
-  xRange={[1, 12]}
-  yRange={[0, 4200]}
+  scale="log"
+  xRange={[1, 100]}
+  yRange={[1, 1e31]}
   height={280}
   functions={[
     { label: "N", fn: (n) => n, color: "violet" },
@@ -777,12 +778,14 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 />
 </SideBySide>
 
-Escala lineal en ambos ejes, con los rangos elegidos para que se vea la explosión de
-cada familia sin curvas fugadas. En sublineal, N sube derecho hasta 100 mientras √N,
-lg N y la constante quedan aplanadas contra el eje — ese aplanamiento es la lección:
-mezcladas con superlineales, las sublineales desaparecen visualmente. En superlineal
-basta llegar hasta N = 12 para que 2ᴺ dispare a 4096 mientras N² vale solo 144 — el
-contraste asintótico se ve en el mismo cuadro.
+Sublineal en escala lineal — N sube derecho hasta 100 mientras √N, lg N y la constante
+quedan aplanadas contra el eje. Ese aplanamiento es la lección: mezcladas con
+superlineales, las sublineales desaparecen visualmente.
+
+Superlineal en escala logarítmica: N=100 llevaría 2ᴺ a 2¹⁰⁰ ≈ 10³⁰, imposible en lineal.
+El eje `log` comprime el rango vertical para que las cuatro curvas quepan y se vea
+cómo cada una despega en su propio orden — N es una recta suave, N² sube más rápido,
+y 2ᴺ escapa hacia arriba dejando a todas las demás abajo.
 </Slide>
 
 <Slide title="¿Por qué quiero algoritmos asintóticamente eficientes?">
