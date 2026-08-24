@@ -99,12 +99,19 @@ export function ComplexityHierarchy({
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   };
 
-  // Geometry. Every ring keeps the same width. The innermost ring holds the
-  // smallest class's label — reserve enough space for it inside the box.
-  const VIEWBOX = 400;
-  const OUTER_MARGIN = 8;
-  const INNER_MIN = 56;
-  const STEP = (VIEWBOX / 2 - OUTER_MARGIN - INNER_MIN / 2) / (n - 1 || 1);
+  // Geometry — Venn-style concentric ellipses (horizontal). Every ring keeps
+  // the same "half-width". The innermost ellipse holds the smallest class's
+  // label along its top edge.
+  const VIEWBOX_W = 480;
+  const VIEWBOX_H = 320;
+  const CX = VIEWBOX_W / 2;
+  const CY = VIEWBOX_H / 2;
+  const OUTER_MARGIN_X = 12;
+  const OUTER_MARGIN_Y = 8;
+  const INNER_RX = 40;
+  const INNER_RY = 22;
+  const STEP_X = (VIEWBOX_W / 2 - OUTER_MARGIN_X - INNER_RX) / (n - 1 || 1);
+  const STEP_Y = (VIEWBOX_H / 2 - OUTER_MARGIN_Y - INNER_RY) / (n - 1 || 1);
 
   return (
     <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
@@ -116,28 +123,30 @@ export function ComplexityHierarchy({
       <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr]">
         <div className="min-w-0 border-b border-rule p-4 md:border-b-0 md:border-r">
           <svg
-            viewBox={`0 0 ${VIEWBOX} ${VIEWBOX}`}
-            className="mx-auto block h-auto w-full max-w-md"
+            viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
+            className="mx-auto block h-auto w-full max-w-lg"
             role="img"
-            aria-label="Jerarquía de clases asintóticas — anillos concéntricos, la clase más eficiente al centro"
+            aria-label="Jerarquía de clases asintóticas — elipses concéntricas al estilo Venn, la clase más eficiente al centro"
           >
             {classes.map((cls, i) => {
               // The class at ORIGINAL index i sits at ring depth (n-1-i)
               // from the outer edge. i=0 → deepest ring (innermost).
               const ringDepth = n - 1 - i;
-              const pad = OUTER_MARGIN + ringDepth * STEP;
-              const size = VIEWBOX - 2 * pad;
+              const rx = INNER_RX + ringDepth * STEP_X;
+              const ry = INNER_RY + ringDepth * STEP_Y;
               const isActive = activeIdx === i;
               const stroke = strokeFor(i);
+              // Label sits just below the top edge of its ellipse, centred
+              // horizontally — same "top-hanging" convention every Venn
+              // sketch uses.
+              const labelY = CY - ry + 14;
               return (
                 <g key={cls.name}>
-                  <rect
-                    x={pad}
-                    y={pad}
-                    width={size}
-                    height={size}
-                    rx={14}
-                    ry={14}
+                  <ellipse
+                    cx={CX}
+                    cy={CY}
+                    rx={rx}
+                    ry={ry}
                     fill="none"
                     stroke={stroke}
                     strokeWidth={isActive ? 5 : 2.5}
@@ -147,12 +156,13 @@ export function ComplexityHierarchy({
                     className="cursor-pointer"
                   />
                   <text
-                    x={pad + 10}
-                    y={pad + 20}
+                    x={CX}
+                    y={labelY}
                     fill={stroke}
-                    fontSize={14}
+                    fontSize={13}
                     fontFamily="monospace"
                     fontWeight={isActive ? 700 : 500}
+                    textAnchor="middle"
                     style={{ pointerEvents: 'none' }}
                   >
                     {cls.name}

@@ -92,10 +92,10 @@ describe('ComplexityHierarchy', () => {
     const rows = within(list)
       .getAllByRole('listitem')
       .filter((li) => li.parentElement === list);
-    const rects = [...container.querySelectorAll('svg rect')];
-    // Two classes → two rings. Hover the first rect (deepest = Θ(1))
+    const ellipses = [...container.querySelectorAll('svg ellipse')];
+    // Two classes → two rings. Hover the first ellipse (deepest = Θ(1))
     // and its corresponding row activates.
-    fireEvent.mouseEnter(rects[0]);
+    fireEvent.mouseEnter(ellipses[0]);
     expect(rows[0]).toHaveAttribute('data-active', 'true');
   });
 });
