@@ -89,17 +89,17 @@ export function ComplexityHierarchy({
   }
 
   const n = classes.length;
-  // Dark themes need a lighter, less-saturated fill so the crescent reads on
-  // a dark background; light themes need a deeper one. Same hue sweep in
-  // both — the semantic mapping (green→red) is the lesson, not the exact
-  // swatch.
-  const lightness = theme === 'dark' ? 55 : 48;
-  const saturation = theme === 'dark' ? 55 : 62;
-  const fillFor = (originalIdx: number) => {
+  // Two derivations of the class hue: one for the stroke (deep, readable
+  // against the surface background) and one for the label text (same hue,
+  // slightly deeper still — it sits inside the ring, so it needs to
+  // separate from the stroke line without competing with it).
+  const strokeLightness = theme === 'dark' ? 60 : 42;
+  const strokeSaturation = theme === 'dark' ? 60 : 68;
+  const strokeFor = (originalIdx: number) => {
     // Innermost / topmost class (index 0 → O(1)) is green (hue 120).
     // Outermost / bottommost (index n-1 → O(2ᴺ)) is red (hue 0).
     const hue = ((n - 1 - originalIdx) / (n - 1)) * 120;
-    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    return `hsl(${hue}, ${strokeSaturation}%, ${strokeLightness}%)`;
   };
 
   // Geometry — filled circles stacked top-aligned.
@@ -109,20 +109,26 @@ export function ComplexityHierarchy({
   //     of circle i (uncovered by circle i-1) spans y ∈ [top+2·r_{i-1},
   //     top+2·r_i], of height STEP·2 — enough for one line of label at
   //     the crescent's midpoint.
-  const R_MIN = 26;
-  const STEP = 22;
-  const TOP_MARGIN = 12;
-  const SIDE_MARGIN = 12;
+  const R_MIN = 28;
+  const STEP = 26;
+  const TOP_MARGIN = 14;
+  const SIDE_MARGIN = 14;
   const r = (i: number) => R_MIN + i * STEP;
   const R_MAX = r(n - 1);
   const VIEWBOX_W = 2 * R_MAX + 2 * SIDE_MARGIN;
   const VIEWBOX_H = 2 * R_MAX + 2 * TOP_MARGIN;
   const CX = VIEWBOX_W / 2;
   const cy = (i: number) => TOP_MARGIN + r(i);
-  // Label y: for i=0 the label sits at the centre of the top circle.
-  // For i>0 it sits at the midpoint of the visible crescent below
-  // circle i-1.
-  const labelY = (i: number) => (i === 0 ? cy(0) + 4 : TOP_MARGIN + r(i - 1) + r(i) - r(i - 1) / 2);
+  // Label y positioning:
+  // - i = 0: centred vertically in the topmost circle. `+4` compensates
+  //   the text baseline so the glyph appears vertically centred.
+  // - i > 0: centred in the visible crescent (band between circle i-1's
+  //   bottom edge and circle i's bottom edge). Crescent spans y ∈
+  //   [top + 2·r_{i-1}, top + 2·r_i], midpoint = top + r_{i-1} + r_i.
+  //   With STEP fixed, the crescent height is 2·STEP — enough for a
+  //   13px label with padding on both strokes.
+  const labelY = (i: number) =>
+    i === 0 ? cy(0) + 4 : TOP_MARGIN + r(i - 1) + r(i) + 4;
 
   return (
     <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
@@ -139,12 +145,13 @@ export function ComplexityHierarchy({
             role="img"
             aria-label="Jerarquía de clases asintóticas — círculos apilados alineados por el borde superior, la clase más eficiente arriba"
           >
-            {/* Circles from largest (bottom, drawn first) to smallest (top,
-                drawn last) so the small ones sit visually on top. */}
+            {/* Stroke-only rings (no fill). Drawn largest-first so the
+                smaller ones sit visually on top. */}
             {[...classes]
               .map((cls, i) => ({ cls, i }))
               .reverse()
               .map(({ cls, i }) => {
+                const stroke = strokeFor(i);
                 const isActive = activeIdx === i;
                 return (
                   <circle
@@ -152,27 +159,24 @@ export function ComplexityHierarchy({
                     cx={CX}
                     cy={cy(i)}
                     r={r(i)}
-                    fill={fillFor(i)}
-                    stroke={isActive ? fillFor(i) : 'none'}
-                    strokeWidth={isActive ? 4 : 0}
-                    style={{
-                      transition: 'stroke-width 120ms ease, filter 120ms ease',
-                      filter: isActive ? 'brightness(1.08)' : 'none',
-                    }}
+                    fill="none"
+                    stroke={stroke}
+                    strokeWidth={isActive ? 5 : 2.5}
+                    style={{ transition: 'stroke-width 120ms ease' }}
                     onMouseEnter={() => setActiveIdx(i)}
                     onMouseLeave={() => setActiveIdx(null)}
                     className="cursor-pointer"
                   />
                 );
               })}
-            {/* Labels drawn on a separate pass so no circle covers a
-                label below it. */}
+            {/* Labels drawn on a separate pass, in the same colour as
+                each class's stroke so the pairing reads. */}
             {classes.map((cls, i) => (
               <text
                 key={`label-${cls.name}`}
                 x={CX}
                 y={labelY(i)}
-                fill="white"
+                fill={strokeFor(i)}
                 fontSize={13}
                 fontFamily="monospace"
                 fontWeight={activeIdx === i ? 700 : 500}
@@ -190,7 +194,7 @@ export function ComplexityHierarchy({
           className="flex flex-col divide-y divide-rule/50"
         >
           {classes.map((cls, i) => {
-            const fill = fillFor(i);
+            const fill = strokeFor(i);
             const isActive = activeIdx === i;
             return (
               <li
