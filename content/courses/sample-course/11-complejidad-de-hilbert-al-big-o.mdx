@@ -5,20 +5,6 @@ presentation: explicit
 questions: none
 ---
 
-{/* Este documento declara `questions: none` a propósito (feedback_question_bank_post_ship). */}
-{/* El banco de preguntas es un WP separado que se abre después del merge, para escribir */}
-{/* las preguntas contra el material final y evitar drift preguntas ↔ material. */}
-{/* */}
-{/* Estructura del deck (44 slides en 5 actos + 1 bisagra): */}
-{/*   Acto 1 · Crisis de fundamentos (slides 1-5)                    ← S4 */}
-{/*   Acto 2 · 1936 se inventa el algoritmo (slides 6-11)             ← S5 */}
-{/*   Bisagra · Aquí nace la ciencia de la computación (slide 12)     ← S6 */}
-{/*   Acto 3 · Máquinas físicas + cambio de pregunta (slides 13-21)   ← S6 */}
-{/*   Acto 4 · Nace el análisis de algoritmos (slides 22-33)          ← S7 */}
-{/*   Acto 5 · Aplicación + espacio + cierre (slides 34-44)           ← S8 */}
-{/* */}
-{/* Referencias: ADR-0044 (Benchmark), ADR-0045 (ComplexityCounter), ADR-0046 (MathPlot). */}
-
 # Complejidad · De Hilbert al Big O
 
 Primera clase de la trilogía **Complejidad**. Aprender a comparar algoritmos y decidir cuál
@@ -113,7 +99,7 @@ la **consistencia no se puede probar desde adentro**.
 <Slide title="Solo queda un pilar: la decidibilidad">
 Gödel tumbó dos pilares. Queda uno en pie: **la decidibilidad**.
 
-**La pregunta reformulada en humano**:
+**La pregunta reformulada en lenguaje humano**:
 
 > *"Aunque no toda verdad sea demostrable, ¿al menos podríamos construir una **máquina** —
 > un algoritmo mecánico — que, dada cualquier afirmación matemática, responda 'es
@@ -183,7 +169,7 @@ lenguajes.
 
 Modelo matemático abstracto. Tres piezas:
 
-- **Cinta infinita** dividida en celdas, cada celda contiene un símbolo (por ejemplo `0`,
+- **Cinta infinita** dividida en celdas; cada celda contiene un símbolo (por ejemplo `0`,
   `1`, o vacío).
 - **Cabeza** que lee y escribe **una celda a la vez**, y se mueve una posición
   **izquierda** o **derecha**.
@@ -224,11 +210,13 @@ enunciar la Tesis de Church-Turing en el siguiente slide.
 </Slide>
 
 <Slide title="La Tesis de Church-Turing">
+Ya la mencionamos al presentar los tres modelos de 1936 — aquí la desarrollamos.
+
 **Enunciado**: cualquier función que sea *"computable"* en algún sentido intuitivo — que
 un humano pueda calcular con lápiz y papel siguiendo una receta — es computable por una
 **máquina de Turing**.
 
-Traducción en humano:
+Traducción a lenguaje humano:
 
 > Todo lo que puedes programar en Java, Python, C++, o pensar en tu cabeza como una receta
 > paso a paso — se puede simular en una máquina de Turing.
@@ -327,7 +315,6 @@ visual del hilo que hemos armado hasta aquí.
   18.000 tubos de vacío, ocupaba una sala entera.
 - Por primera vez los algoritmos **se pueden ejecutar físicamente**, no solo pensar en
   papel.
-- La teoría de Turing (1936) precedió al hardware por **10 años**.
 - Pero para que esa teoría se convirtiera en máquinas **usables**, faltaba una pieza — la
   **arquitectura**. Ahí entra el otro padre de la computación.
 </Slide>
@@ -346,13 +333,13 @@ visual del hilo que hemos armado hasta aquí.
 - Para la ciencia de la computación, la contribución central:
   - **Arquitectura Von Neumann** (1945, *"First Draft of a Report on the EDVAC"*) — **CPU
     + memoria + I/O**, con **programa y datos guardados en la misma memoria**.
-  - **Antes** de Von Neumann: las computadoras se **re-cableaban físicamente** para cada
+  - **Antes** de Von Neumann: las computadoras se **recableaban físicamente** para cada
     nuevo programa (ENIAC funcionaba así).
   - **Después** de Von Neumann: el programa se carga como datos — igual que hacemos hoy en
     cualquier laptop.
   - **Todas las computadoras que usamos hoy** — laptops, teléfonos, servidores, consolas —
     son *"máquinas de Von Neumann"*.
-- Anécdota: Von Neumann leyó [el paper de Turing (1936)](https://www.cs.virginia.edu/~robins/Turing_Paper_1936.pdf) y quedó tan impresionado que le
+- Anécdota: Von Neumann leyó [el artículo de Turing (1936)](https://www.cs.virginia.edu/~robins/Turing_Paper_1936.pdf) y quedó tan impresionado que le
   ofreció quedarse en Princeton como su asistente. Turing declinó y volvió a Inglaterra.
 - **Junto con Turing, padre de la ciencia de la computación**:
   - Turing → definió *qué se puede computar* (teoría).
@@ -373,7 +360,7 @@ pregunta desde el otro lado.
 Con computadoras físicas, la respuesta intuitiva es: **medir con cronómetro**.
 
 Antes de correr al cronómetro, necesitamos un **problema concreto** sobre el que trabajar
-durante el resto de la clase. Uno simple, familiar, y con **varias soluciones correctas**:
+en lo que sigue. Uno simple, familiar, y con **varias soluciones correctas**:
 
 > **Sumar los primeros N naturales.** Dado un entero N ≥ 1, devolver S = 1 + 2 + … + N.
 
@@ -493,12 +480,11 @@ Fuentes de ruido que están entrando en la medición:
 - **Compilador / JIT**: en Java, el JIT decide *cuándo* compilar y *cuánto* optimizar. Los
   primeras ejecuciones son más lentas porque el código aún está interpretado.
 - **Lenguaje / runtime**: CheerpJ, JVM local, GCC, Python — cada uno con su overhead.
-- **Momento**: procesos en segundo plano, GC corriendo, temperatura del CPU (throttling
-  térmico), estado de la batería.
+- **Momento**: procesos en segundo plano, GC en ejecución, temperatura del CPU (limitación
+  térmica), estado de la batería.
 
 **Idea que se llevan**: cuando cronometramos un algoritmo, no estamos midiendo el
-algoritmo — estamos midiendo *el algoritmo + todo el ambiente que lo rodea*. Ese ambiente
-cambia entre máquinas, entre momentos, y hasta entre corridas consecutivas.
+algoritmo — estamos midiendo *el algoritmo + todo el ambiente que lo rodea*.
 
 *¿Cómo aislamos el algoritmo del entorno para hablar solo de él?*
 </Slide>
@@ -573,7 +559,7 @@ Con esta herramienta ya podemos contar las tres soluciones al problema inicial.
 
 <SectionBreak />
 
-<Slide title="La generación que dio nombre a lo que hacemos (1960s–70s)">
+<Slide title="La generación que dio nombre a lo que hacemos (décadas de 1960 y 1970)">
 - Para los años 60, la ciencia de la computación ya está establecida (departamentos
   universitarios, revistas, congresos). Ahora falta el **vocabulario** para hablar de
   eficiencia con precisión.
@@ -661,8 +647,7 @@ caída del cielo.
 />
 
 El cuerpo `s = s + 1;` se ejecuta 1 + 2 + … + n = **n(n+1)/2** veces. Ese es el término
-dominante. Los dos `for` aparecen colapsados por defecto en el riel mostrando su total
-OE — expandirlos revela la contribución de init / cond / inc.
+dominante. Los dos `for` se muestran colapsados; ábranlos para ver init / cond / inc por separado.
 
 **T₂(n) = 2n² + 6n + 4** OE. El término dominante es **n²** — con eso nos quedamos.
 </Slide>
@@ -845,7 +830,7 @@ crecimiento sobrevive el cambio de máquina; las constantes no.**
 | 1 000 | 3 000 000 | 5 012 | 99,83 % |
 | 10 000 | 3·10⁸ | 50 012 | 99,98 % |
 
-**Razón 4 — Comparamos algoritmos por lo que hacen eventualmente, no en casos chicos.**
+**Razón 4 — Comparamos algoritmos por lo que hacen eventualmente, no en casos pequeños.**
 
 Un O(n) con constante grande y un O(n²) con constante chica. En escala reducida (mismo
 mensaje, coordenadas manejables): T₁ = 100·n vs T₂ = n². Para n < 100 gana T₂. Para
@@ -1191,7 +1176,7 @@ Aplicamos la receta a los algoritmos ya vistos:
 Todos son **constantes en espacio**. Ninguno crece con la entrada — es lo típico en
 algoritmos iterativos simples.
 
-**Contraejemplo — un algoritmo con espacio no-trivial**:
+**Contraejemplo — un algoritmo con espacio no trivial**:
 
 <ComplexityCounter
   algorithm="primerosNaturales — espacio"
@@ -1289,20 +1274,14 @@ Contraste directo:
 > Si se mejora la CPU 10× pero se usa fuerza bruta, se gana un factor 10. Si se cambia
 > del algoritmo lineal al logarítmico, se gana un factor de **~33 millones** con a = 10⁹.
 
-Y este algoritmo lo escribieron hace **2300 años** — antes de la palabra "algoritmo",
-antes de las computadoras, antes de la ciencia de la computación. **Y nuestras
-herramientas del siglo XX lo pueden analizar sin cambios.**
+Y este algoritmo lo escribieron hace **2300 años** — y **nuestras herramientas del siglo
+XX lo pueden analizar sin cambios.**
 </Slide>
 
 <Slide title="Hay algoritmos que no se pueden analizar así">
-Repaso de lo que hicimos:
-
-- **Contamos operaciones** línea por línea.
-- **Multiplicamos** por cuántas veces se ejecuta cada línea (por el control de los ciclos).
-- **Sumamos** todo y descartamos constantes y términos menores.
-- **Obtuvimos** O/Ω/Θ.
-
-Este método funciona para **todos los algoritmos iterativos** — cualquier función que
+Este método — contar operaciones línea por línea, multiplicar por cuántas veces se
+ejecuta cada línea, sumar todo y descartar constantes y términos menores — funciona
+para **todos los algoritmos iterativos** — cualquier función que
 compute su resultado con ciclos `for` y `while` sin llamarse a sí misma.
 
 **Pero hay una familia entera que no se puede analizar así.**
@@ -1323,6 +1302,10 @@ pintan del mismo color, así el problema se ve solo:
 
 <RecursionTree recipe="fib" arg={5} title="fib(5) — el árbol de llamadas" />
 
+Basta contar los nodos del árbol: computar `fib(5)` genera **15 llamadas**. El número
+de nodos crece más rápido que `n` — mucho más rápido — y esa es la escala del problema
+que las herramientas iterativas no alcanzan a describir.
+
 Para analizar esto necesitamos herramientas nuevas:
 
 - **Ecuaciones de recurrencia** — expresar T(n) en términos de T(n-1), T(n/2), etc.
@@ -1332,7 +1315,7 @@ Para analizar esto necesitamos herramientas nuevas:
 - **Memoización y programación dinámica** — cómo domesticar la explosión guardando
   resultados.
 
-Ese es el material de la próxima película.
+Ese es el material de la próxima entrega de Complejidad.
 
 **Complejidad · *Recursión y memoria***.
 
