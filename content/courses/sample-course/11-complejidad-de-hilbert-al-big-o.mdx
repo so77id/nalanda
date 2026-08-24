@@ -746,11 +746,8 @@ $$T(n)$$**, sino su **orden de crecimiento**.
 - Nacieron **30 años después** del [paper de Turing](https://www.cs.virginia.edu/~robins/Turing_Paper_1936.pdf), y fueron los que le dieron a la
   disciplina las palabras con las que se habla de sí misma.
 
-Ese vocabulario — **O, Ω, Θ** — lo formalizamos más adelante. Antes haremos el trabajo
-crudo: contar operaciones línea por línea en
-nuestras tres soluciones de `suma(N)` y obtener $$T(n)$$ explícito. Con $$T(n)$$ en la
-mano, las notaciones asintóticas van a ser un renombramiento útil, no una definición
-caída del cielo.
+Ahora formalizamos ese vocabulario — **O, Ω, Θ** — el que canonizó Knuth y que se sigue
+usando 50 años después.
 </Slide>
 
 <Slide title="Notación O grande — definición formal + reglas prácticas">
@@ -768,6 +765,7 @@ constante c."*
   type="curves"
   xRange={[0, 20]}
   yRange={[0, 120]}
+  height={420}
   functions={[
     { label: "f(N) = 4N+4", fn: (n) => 4 * n + 4, color: "blue" },
     { label: "c·g(N) = 5N", fn: (n) => 5 * n, color: "red", dashed: true },
@@ -801,6 +799,7 @@ algoritmo lineal es cierto pero inútil. Siempre buscamos la cota **más ajustad
   type="curves"
   xRange={[0, 20]}
   yRange={[0, 100]}
+  height={420}
   functions={[
     { label: "f(N) = 4N+4", fn: (n) => 4 * n + 4, color: "blue" },
     { label: "c·g(N) = 4N", fn: (n) => 4 * n, color: "green", dashed: true },
