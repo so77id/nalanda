@@ -48,10 +48,13 @@ function contrast(a: string, b: string): number {
  * token lands here or it is not covered — see the completeness case below, which
  * is what makes that true rather than aspirational.
  */
-// `deck-ground` is a surface like the others and is checked like the others. It
-// is separate from `ground` because a projected room wants less light, so the
-// deck runs deeper than the book in dark and lighter-but-not-white in light —
-// but "it is the deck" is not a licence to be less readable.
+// `deck-ground` is retained in SURFACES so the completeness case still names it
+// and every TEXT_TOKENS/UI_TOKENS pair keeps a gate against it. Since #225 both
+// themes have `--nl-deck-ground === --nl-ground` (see ADR-0026 addendum
+// §Reversal), so every pair collapses to a `ground` pair this file already
+// verifies — the alias is kept as a semantic anchor for the slide surface,
+// not because the value is expected to diverge again. A re-divergence is
+// guarded by the "deck-ground stays coupled to ground" case below.
 const SURFACES = ['ground', 'surface', 'sunk', 'deck-ground'] as const;
 
 /** Text: WCAG AA is 4.5:1. `ink-faint` is deliberately included — it carries the
@@ -209,6 +212,34 @@ describe('the palette', () => {
       Object.keys(tokensIn(':root')).sort(),
     );
   });
+
+  // The guard against silently re-diverging `deck-ground` from `ground` — the
+  // failure mode ADR-0026 addendum §Reversal calls out by name. #222 shipped
+  // `--nl-deck-ground: #F5EEEA` in light and paid for it with a 2.92:1 pair
+  // that only came out in review. #225 collapsed the value, and every real
+  // component gate today assumes the collapse: `CHROME_SURFACES` excludes
+  // `deck-ground` because the pair is already tested via `ground`. If a future
+  // author reintroduces a distinct `deck-ground` without adding it to
+  // `CHROME_SURFACES` too, `accent-pop` becomes ungated on the surface the
+  // slide actually paints, and the failure mode of #222 reappears green.
+  //
+  // The case is not "deck-ground equals ground" (that would foreclose a
+  // legitimate future re-divergence). It is "if you re-diverge, own the
+  // consequence" — either move `deck-ground` into `CHROME_SURFACES` and
+  // re-verify the palette, or mint a specific token for the deeper deck ground
+  // and leave this alias alone.
+  it.each(THEMES)(
+    '$name: if deck-ground diverges from ground, CHROME_SURFACES must catch up',
+    (theme) => {
+      const tokens = tokensIn(theme.selector);
+      if (tokens['deck-ground'] !== tokens['ground']) {
+        expect(
+          CHROME_SURFACES,
+          `${theme.name}: --nl-deck-ground (${tokens['deck-ground']}) diverges from --nl-ground (${tokens['ground']}), but CHROME_SURFACES does not include 'deck-ground'. That is the silent-pass ADR-0026 addendum §Reversal warns about — accent-pop is ungated on the surface the slide paints. Add 'deck-ground' to CHROME_SURFACES and re-verify contrast, or mint a specific darker/warmer deck token instead of re-diverging this alias.`,
+        ).toContain('deck-ground');
+      }
+    },
+  );
 
   /**
    * The tokens whose whole point is NOT following the theme, and which therefore
