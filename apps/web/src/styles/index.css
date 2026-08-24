@@ -98,6 +98,7 @@
   --nl-rule: #dfd7d3;
   --nl-rule-strong: #8e817c;
   --nl-accent: #ba3b00;
+  --nl-accent-pop: #e66600;
   --nl-flag: #c62b2a;
   --nl-keep: #1f7546;
   --nl-focus: #008388;
@@ -120,6 +121,7 @@
     --nl-rule: #30363d;
     --nl-rule-strong: #646b74;
     --nl-accent: #e879f9;
+    --nl-accent-pop: #d946ef;
     --nl-flag: #fa8054;
     --nl-keep: #3fbe90;
     --nl-focus: #00b8e1;
@@ -143,6 +145,7 @@
   --nl-rule: #30363d;
   --nl-rule-strong: #646b74;
   --nl-accent: #e879f9;
+  --nl-accent-pop: #d946ef;
   --nl-flag: #fa8054;
   --nl-keep: #3fbe90;
   --nl-focus: #00b8e1;

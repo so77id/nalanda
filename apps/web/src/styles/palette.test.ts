@@ -65,6 +65,23 @@ const TEXT_TOKENS = ['ink', 'ink-soft', 'ink-faint', 'accent', 'flag', 'keep'] a
 const UI_TOKENS = ['rule-strong', 'focus'] as const;
 
 /**
+ * Chrome tokens paint on the two page-level surfaces (canvas + cards) at the
+ * WCAG "large text / non-text UI" floor of 3:1, and are NOT checked against
+ * inset surfaces like `sunk` (where `<pre>`, inputs and inset panels live) or
+ * `deck-ground`. The system's real `accent-pop` uses are: filled buttons (BG
+ * `accent-pop` + label on-pop, folded into `PAIRS` via the existing on-keep
+ * shape), TEXT on `accent-soft` (chips, covered by `[accent, accent-soft]`),
+ * and section titles (H1/H2/H3) on `ground` or `surface`. Testing `accent-pop`
+ * against every surface would sacrifice the deck seed's identity (`#E86800`)
+ * to a hypothetical use no component makes; if a future component needs
+ * `accent-pop` on `sunk`, mint a specific token for that use or promote
+ * `accent-pop` into `UI_TOKENS`. Recorded in ADR-0026's addendum, alongside
+ * the seed provenance. */
+const CHROME_TOKENS = ['accent-pop'] as const;
+const CHROME_SURFACES = ['ground', 'surface'] as const;
+const CHROME_FLOOR = 3.0;
+
+/**
  * Pairs that are not "text on a surface": a tinted state background with its own
  * foreground, and the label on a filled button.
  *
@@ -92,7 +109,14 @@ describe('the palette', () => {
       const tokens = tokensIn(theme.selector);
 
       it('declares every token the pairing table names', () => {
-        const required = [...SURFACES, ...TEXT_TOKENS, ...UI_TOKENS, ...PAIRS.flat(), 'rule'];
+        const required = [
+          ...SURFACES,
+          ...TEXT_TOKENS,
+          ...UI_TOKENS,
+          ...CHROME_TOKENS,
+          ...PAIRS.flat(),
+          'rule',
+        ];
         expect(
           Object.keys(tokens).length,
           `no --nl-* tokens found for the ${theme.name} theme — the selector in this test no longer matches index.css`,
@@ -129,6 +153,16 @@ describe('the palette', () => {
           ).toBeGreaterThanOrEqual(3);
         }
       });
+
+      it.each(CHROME_TOKENS)('%s reaches large-text (3.0) on the page surfaces', (fg) => {
+        for (const bg of CHROME_SURFACES) {
+          const ratio = contrast(tokens[fg]!, tokens[bg]!);
+          expect(
+            ratio,
+            `${theme.name}: ${fg} (${tokens[fg]}) on ${bg} (${tokens[bg]}) is ${ratio.toFixed(2)}:1, below the ${CHROME_FLOOR}:1 large-text / non-text UI floor for a chrome token`,
+          ).toBeGreaterThanOrEqual(CHROME_FLOOR);
+        }
+      });
     });
   }
 
@@ -141,6 +175,7 @@ describe('the palette', () => {
       ...SURFACES,
       ...TEXT_TOKENS,
       ...UI_TOKENS,
+      ...CHROME_TOKENS,
       ...PAIRS.flat(),
       'rule',
       // `plate` carries no product text and no product UI — it is the white a
