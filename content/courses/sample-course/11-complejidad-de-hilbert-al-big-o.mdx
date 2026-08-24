@@ -776,6 +776,74 @@ $$O$$ (cota superior), $$\Omega$$ (cota inferior) y $$\Theta$$ (cota ajustada). 
 formalizamos en los próximos slides.
 </Slide>
 
+<Slide title="¿Por qué solo importa el orden?">
+En $$T(n)$$ el término dominante manda. **Las constantes y los términos menores se descartan.**
+Cuatro razones para justificarlo:
+
+**Razón 1 — Las constantes dependen del contador, no del algoritmo.**
+Ya lo vimos: una persona contó `s = s + i` como 2 OE y otra como 3. La razón entre ambos converge a
+una constante fija. **Las constantes no son propiedad del algoritmo.**
+
+**Razón 2 — Las constantes dependen de la máquina.**
+Un `+` en ARM toma un número distinto de nanosegundos que en Intel. **El orden de
+crecimiento sobrevive el cambio de máquina; las constantes no.**
+
+**Razón 3 — Para N grande, el término dominante aplasta a todos los demás.**
+
+| N | 3n² | 5n + 12 | ¿Qué porcentaje aporta n²? |
+|---|---|---|---|
+| 10 | 300 | 62 | 82 % |
+| 100 | 30 000 | 512 | 98 % |
+| 1 000 | 3 000 000 | 5 012 | 99,83 % |
+| 10 000 | 3·10⁸ | 50 012 | 99,98 % |
+
+**Razón 4 — Comparamos algoritmos por lo que hacen eventualmente, no en casos pequeños.**
+
+Un $$O(n)$$ con constante grande y un $$O(n^2)$$ con constante chica. En escala reducida (mismo
+mensaje, coordenadas manejables): T₁ = 100·n vs T₂ = $$n^2$$. Para n < 100 gana T₂. Para
+n > 100 gana T₁ — y a partir de ahí, por mucho.
+
+<MathPlot
+  type="curves"
+  title="100n vs n² — el cruce en n = 100"
+  xRange={[0, 200]}
+  yRange={[0, 40000]}
+  functions={[
+    { label: "100n", fn: (n) => 100 * n, color: "blue" },
+    { label: "n²", fn: (n) => n * n, color: "red" },
+  ]}
+/>
+
+**Conclusión**: el orden dice **quién gana a la larga**. Las constantes solo dicen **a
+partir de qué tamaño**. Como analizamos algoritmos que van a correr sobre N grandes, **el
+orden es lo que decide**.
+</Slide>
+
+<Slide title="¿Por qué quiero algoritmos asintóticamente eficientes?">
+Comparación de algoritmos con distintas complejidades, polinomiales y exponenciales
+(fuente: [Aho, Hopcroft, Ullman, *The Design and Analysis of Computer Algorithms*, 1974](https://en.wikipedia.org/wiki/The_Design_and_Analysis_of_Computer_Algorithms)). Tiempo estimado asumiendo una operación por microsegundo:
+
+| T(n) | n=10 | n=20 | n=30 | n=40 | n=50 | n=60 |
+|---|---|---|---|---|---|---|
+| n         | 0,00001 s | 0,00002 s | 0,00003 s | 0,00004 s | 0,00005 s | 0,00006 s |
+| n²        | 0,0001 s  | 0,0004 s  | 0,0009 s  | 0,0016 s  | 0,0025 s  | 0,0036 s  |
+| n³        | 0,001 s   | 0,008 s   | 0,027 s   | 0,064 s   | 0,125 s   | 0,216 s   |
+| $$n^5$$        | 0,1 s     | 3,2 s     | 24,3 s    | 1,7 min   | 5,2 min   | 13 min    |
+| 2ⁿ        | 0,001 s   | 1 s       | 17,9 min  | 12,7 días | 35,7 años | 366 siglos |
+| 3ⁿ        | 0,059 s   | 58 min    | 6,5 años  | 3 855 siglos | $$2 \cdot 10^8$$ siglos | $$1{,}3 \cdot 10^{13}$$ siglos |
+
+Lo que la tabla dice, en tres frases:
+
+- **El orden de crecimiento caracteriza el comportamiento** de un algoritmo respecto a un
+  recurso (tiempo o espacio). No el número concreto de operaciones — el orden.
+- **En lugar de decir *"tiene 102 395 474 operaciones cuando N = x"*, es mucho más simple
+  decir su complejidad temporal es cuadrática.**
+- **No queremos el detalle de implementación de un algoritmo, queremos el comportamiento
+  que tendrá cuando la entrada crece.** Esa es la pregunta que la tabla responde: para
+  n = 60 la diferencia entre $$n^2$$ y $$2^n$$ deja de ser un detalle — son 3,6 milisegundos vs
+  366 años.
+</Slide>
+
 <Slide title="Big O — la intuición">
 Cuando decimos que un algoritmo es $$O(n)$$, informalmente queremos decir:
 
@@ -1010,74 +1078,6 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 Ejes clásicos: N en el rango 1–100, costo en escala lineal. Las curvas sublineales quedan aplastadas contra el eje inferior cuando se
 mezclan con las superlineales — separarlas en dos gráficos es lo que hace legible cada
 banda.
-</Slide>
-
-<Slide title="¿Por qué quiero algoritmos asintóticamente eficientes?">
-Comparación de algoritmos con distintas complejidades, polinomiales y exponenciales
-(fuente: [Aho, Hopcroft, Ullman, *The Design and Analysis of Computer Algorithms*, 1974](https://en.wikipedia.org/wiki/The_Design_and_Analysis_of_Computer_Algorithms)). Tiempo estimado asumiendo una operación por microsegundo:
-
-| T(n) | n=10 | n=20 | n=30 | n=40 | n=50 | n=60 |
-|---|---|---|---|---|---|---|
-| n         | 0,00001 s | 0,00002 s | 0,00003 s | 0,00004 s | 0,00005 s | 0,00006 s |
-| n²        | 0,0001 s  | 0,0004 s  | 0,0009 s  | 0,0016 s  | 0,0025 s  | 0,0036 s  |
-| n³        | 0,001 s   | 0,008 s   | 0,027 s   | 0,064 s   | 0,125 s   | 0,216 s   |
-| $$n^5$$        | 0,1 s     | 3,2 s     | 24,3 s    | 1,7 min   | 5,2 min   | 13 min    |
-| 2ⁿ        | 0,001 s   | 1 s       | 17,9 min  | 12,7 días | 35,7 años | 366 siglos |
-| 3ⁿ        | 0,059 s   | 58 min    | 6,5 años  | 3 855 siglos | $$2 \cdot 10^8$$ siglos | $$1{,}3 \cdot 10^{13}$$ siglos |
-
-Lo que la tabla dice, en tres frases:
-
-- **El orden de crecimiento caracteriza el comportamiento** de un algoritmo respecto a un
-  recurso (tiempo o espacio). No el número concreto de operaciones — el orden.
-- **En lugar de decir *"tiene 102 395 474 operaciones cuando N = x"*, es mucho más simple
-  decir su complejidad temporal es cuadrática.**
-- **No queremos el detalle de implementación de un algoritmo, queremos el comportamiento
-  que tendrá cuando la entrada crece.** Esa es la pregunta que la tabla responde: para
-  n = 60 la diferencia entre $$n^2$$ y $$2^n$$ deja de ser un detalle — son 3,6 milisegundos vs
-  366 años.
-</Slide>
-
-<Slide title="¿Por qué solo importa el orden?">
-En $$T(n)$$ el término dominante manda. **Las constantes y los términos menores se descartan.**
-Cuatro razones para justificarlo:
-
-**Razón 1 — Las constantes dependen del contador, no del algoritmo.**
-Ya lo vimos: una persona contó `s = s + i` como 2 OE y otra como 3. La razón entre ambos converge a
-una constante fija. **Las constantes no son propiedad del algoritmo.**
-
-**Razón 2 — Las constantes dependen de la máquina.**
-Un `+` en ARM toma un número distinto de nanosegundos que en Intel. **El orden de
-crecimiento sobrevive el cambio de máquina; las constantes no.**
-
-**Razón 3 — Para N grande, el término dominante aplasta a todos los demás.**
-
-| N | 3n² | 5n + 12 | ¿Qué porcentaje aporta n²? |
-|---|---|---|---|
-| 10 | 300 | 62 | 82 % |
-| 100 | 30 000 | 512 | 98 % |
-| 1 000 | 3 000 000 | 5 012 | 99,83 % |
-| 10 000 | 3·10⁸ | 50 012 | 99,98 % |
-
-**Razón 4 — Comparamos algoritmos por lo que hacen eventualmente, no en casos pequeños.**
-
-Un $$O(n)$$ con constante grande y un $$O(n^2)$$ con constante chica. En escala reducida (mismo
-mensaje, coordenadas manejables): T₁ = 100·n vs T₂ = $$n^2$$. Para n < 100 gana T₂. Para
-n > 100 gana T₁ — y a partir de ahí, por mucho.
-
-<MathPlot
-  type="curves"
-  title="100n vs n² — el cruce en n = 100"
-  xRange={[0, 200]}
-  yRange={[0, 40000]}
-  functions={[
-    { label: "100n", fn: (n) => 100 * n, color: "blue" },
-    { label: "n²", fn: (n) => n * n, color: "red" },
-  ]}
-/>
-
-**Conclusión**: el orden dice **quién gana a la larga**. Las constantes solo dicen **a
-partir de qué tamaño**. Como analizamos algoritmos que van a correr sobre N grandes, **el
-orden es lo que decide**.
 </Slide>
 
 <Slide title="Cota ≠ caso">
