@@ -571,7 +571,7 @@ El **costo temporal** de un algoritmo es el **número de OE que ejecuta** para u
 dada. Esa cantidad se denota $$T(N)$$, donde $$N$$ es el tamaño de la entrada.
 </Slide>
 
-<Slide title="Primer conteo: un `for` línea a línea">
+<Slide title="Primer conteo: un for línea a línea">
 Antes de aplicarlo a las tres soluciones, contemos un `for` vacío:
 
 <ComplexityCounter
@@ -598,28 +598,6 @@ Antes de aplicarlo a las tres soluciones, contemos un `for` vacío:
 Y esto sin contar el cuerpo. Cuando el cuerpo hace algo, se suma.
 
 Con esta herramienta ya podemos contar las tres soluciones al problema inicial.
-</Slide>
-
-<SectionBreak />
-
-<Slide title="La generación que dio nombre a lo que hacemos (décadas de 1960 y 1970)">
-- Para los años 60, la ciencia de la computación ya está establecida (departamentos
-  universitarios, revistas, congresos). Ahora falta el **vocabulario** para hablar de
-  eficiencia con precisión.
-- **Juris Hartmanis y Richard Stearns** (1965), paper *["On the Computational Complexity of
-  Algorithms"](https://www.ams.org/journals/tran/1965-117-05/S0002-9947-1965-0170805-7/)* — introducen formalmente las **clases de complejidad temporal**. Ganan el
-  premio Turing por esto.
-- **Donald Knuth** (1976), paper *["Big Omicron and Big Omega and Big Theta"](https://dl.acm.org/doi/10.1145/1008328.1008329)* — canoniza el
-  uso de las notaciones **O, Ω, Θ** para complejidad de algoritmos. El vocabulario que
-  usamos hoy es literalmente el que Knuth propuso.
-- Nacieron **30 años después** del [paper de Turing](https://www.cs.virginia.edu/~robins/Turing_Paper_1936.pdf), y fueron los que le dieron a la
-  disciplina las palabras con las que se habla de sí misma.
-
-Ese vocabulario — **O, Ω, Θ** — lo formalizamos más adelante. Antes haremos el trabajo
-crudo: contar operaciones línea por línea en
-nuestras tres soluciones de `suma(N)` y obtener $$T(n)$$ explícito. Con $$T(n)$$ en la
-mano, las notaciones asintóticas van a ser un renombramiento útil, no una definición
-caída del cielo.
 </Slide>
 
 <Slide title="Contando la primera solución — ciclo simple">
@@ -751,6 +729,28 @@ propiedad de **cómo contamos** y de la máquina.
 
 **Descubrimiento clave**: lo que caracteriza a un algoritmo **no es el valor exacto de
 $$T(n)$$**, sino su **orden de crecimiento**.
+</Slide>
+
+<SectionBreak />
+
+<Slide title="La generación que dio nombre a lo que hacemos (décadas de 1960 y 1970)">
+- Para los años 60, la ciencia de la computación ya está establecida (departamentos
+  universitarios, revistas, congresos). Ahora falta el **vocabulario** para hablar de
+  eficiencia con precisión.
+- **Juris Hartmanis y Richard Stearns** (1965), paper *["On the Computational Complexity of
+  Algorithms"](https://www.ams.org/journals/tran/1965-117-05/S0002-9947-1965-0170805-7/)* — introducen formalmente las **clases de complejidad temporal**. Ganan el
+  premio Turing por esto.
+- **Donald Knuth** (1976), paper *["Big Omicron and Big Omega and Big Theta"](https://dl.acm.org/doi/10.1145/1008328.1008329)* — canoniza el
+  uso de las notaciones **O, Ω, Θ** para complejidad de algoritmos. El vocabulario que
+  usamos hoy es literalmente el que Knuth propuso.
+- Nacieron **30 años después** del [paper de Turing](https://www.cs.virginia.edu/~robins/Turing_Paper_1936.pdf), y fueron los que le dieron a la
+  disciplina las palabras con las que se habla de sí misma.
+
+Ese vocabulario — **O, Ω, Θ** — lo formalizamos más adelante. Antes haremos el trabajo
+crudo: contar operaciones línea por línea en
+nuestras tres soluciones de `suma(N)` y obtener $$T(n)$$ explícito. Con $$T(n)$$ en la
+mano, las notaciones asintóticas van a ser un renombramiento útil, no una definición
+caída del cielo.
 </Slide>
 
 <Slide title="Los órdenes de crecimiento del curso">
