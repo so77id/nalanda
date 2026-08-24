@@ -56,7 +56,11 @@ const DEFAULT_CLASSES: ComplexityClass[] = [
   },
   {
     name: 'O(2ᴺ)',
-    examples: ['fuerza bruta sobre subconjuntos', 'TSP naïve', 'Fibonacci recursivo'],
+    examples: ['fuerza bruta sobre subconjuntos', 'Fibonacci recursivo'],
+  },
+  {
+    name: 'O(N!)',
+    examples: ['fuerza bruta sobre permutaciones', 'TSP naïve'],
   },
 ];
 
@@ -138,7 +142,7 @@ export function ComplexityHierarchy({
         </header>
       )}
       <div className="grid grid-cols-1 md:grid-cols-[3fr_2fr]">
-        <div className="min-w-0 border-b border-rule p-4 md:border-b-0 md:border-r">
+        <div className="flex min-w-0 items-center justify-center border-b border-rule p-4 md:border-b-0 md:border-r">
           <svg
             viewBox={`0 0 ${VIEWBOX_W} ${VIEWBOX_H}`}
             className="mx-auto block h-auto w-full max-w-sm"
