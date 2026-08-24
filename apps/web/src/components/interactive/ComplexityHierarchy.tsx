@@ -99,17 +99,17 @@ export function ComplexityHierarchy({
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   };
 
-  // Geometry — Venn-style concentric ellipses (horizontal). Every ring keeps
-  // the same "half-width". The innermost ellipse holds the smallest class's
-  // label along its top edge.
-  const VIEWBOX_W = 480;
-  const VIEWBOX_H = 320;
+  // Geometry — Venn-style concentric ellipses (VERTICAL — taller than wide).
+  // Every ring keeps the same "half-height". The innermost ellipse holds
+  // the smallest class's label along its top edge.
+  const VIEWBOX_W = 320;
+  const VIEWBOX_H = 480;
   const CX = VIEWBOX_W / 2;
   const CY = VIEWBOX_H / 2;
-  const OUTER_MARGIN_X = 12;
-  const OUTER_MARGIN_Y = 8;
-  const INNER_RX = 40;
-  const INNER_RY = 22;
+  const OUTER_MARGIN_X = 8;
+  const OUTER_MARGIN_Y = 12;
+  const INNER_RX = 22;
+  const INNER_RY = 40;
   const STEP_X = (VIEWBOX_W / 2 - OUTER_MARGIN_X - INNER_RX) / (n - 1 || 1);
   const STEP_Y = (VIEWBOX_H / 2 - OUTER_MARGIN_Y - INNER_RY) / (n - 1 || 1);
 
