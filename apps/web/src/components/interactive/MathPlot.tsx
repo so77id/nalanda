@@ -143,7 +143,16 @@ export function MathPlot({
 
   // Build Nivo's `Serie[]`. Each series carries {x, y} points sampled evenly
   // across xRange. Log mode transforms y = log10(f(x)); points where f(x) is
-  // non-positive or non-finite are skipped.
+  // non-positive or non-finite are skipped. When `yRange` is a fixed
+  // interval, points whose y falls outside are dropped too — Nivo doesn't
+  // clip line paths to the axis area, so a series that shoots past yMax
+  // would draw outside the plot; filtering the samples makes the line stop
+  // cleanly at the boundary instead of escaping the frame.
+  const yClip = useMemo<[number, number] | null>(() => {
+    if (yRange === 'auto') return null;
+    return yRange;
+  }, [yRange]);
+
   const series = useMemo<NivoSeries[]>(() => {
     if (functions === undefined || xRange === undefined) return [];
     const [xMin, xMax] = xRange;
@@ -162,6 +171,15 @@ export function MathPlot({
         if (isLog) {
           if (y <= 0) continue;
           y = Math.log10(y);
+          if (yClip !== null) {
+            const [loLog, hiLog] = [
+              Math.log10(Math.max(1e-10, yClip[0])),
+              Math.log10(Math.max(1e-10, yClip[1])),
+            ];
+            if (y < loLog || y > hiLog) continue;
+          }
+        } else if (yClip !== null) {
+          if (y < yClip[0] || y > yClip[1]) continue;
         }
         data.push({ x, y });
       }
@@ -171,7 +189,7 @@ export function MathPlot({
         data,
       };
     });
-  }, [functions, xRange, samples, isLog]);
+  }, [functions, xRange, samples, isLog, yClip]);
 
   const yScale = useMemo(() => {
     if (yRange === 'auto') return { type: 'linear' as const, stacked: false };
@@ -316,12 +334,21 @@ export function MathPlot({
        */}
       <div style={{ height: `${height}px`, width: '100%' }} className="overflow-hidden text-ink">
         {mode === 'presentation' ? (
+          // Fixed-size <Line> — see comment above. When the plot is embedded
+          // (e.g. inside <SideBySide>), each column is ~440 px wide, so
+          // width=900 would overflow and be clipped by the container.
+          // Embedded uses a narrower canvas and moves the legend to the
+          // bottom so the plot area itself doesn't shrink to a sliver.
           <Line
             data={series}
-            width={900}
+            width={embedded ? 440 : 900}
             height={height}
             colors={colors}
-            margin={{ top: 20, right: legendVisible ? 130 : 30, bottom: 50, left: 60 }}
+            margin={
+              embedded
+                ? { top: 20, right: 20, bottom: legendVisible ? 100 : 50, left: 60 }
+                : { top: 20, right: legendVisible ? 130 : 30, bottom: 50, left: 60 }
+            }
             xScale={{ type: 'linear', min: xRange[0], max: xRange[1] }}
             yScale={yScale}
             axisTop={null}
@@ -363,6 +390,109 @@ export function MathPlot({
             ]}
             legends={
               legendVisible
+                ? embedded
+                  ? [
+                      {
+                        anchor: 'bottom',
+                        direction: 'row',
+                        justify: false,
+                        translateX: 0,
+                        translateY: 75,
+                        itemWidth: 80,
+                        itemHeight: 16,
+                        itemsSpacing: 4,
+                        symbolSize: 10,
+                        symbolShape: 'square',
+                      },
+                    ]
+                  : [
+                      {
+                        anchor: 'right',
+                        direction: 'column',
+                        justify: false,
+                        translateX: 110,
+                        translateY: 0,
+                        itemWidth: 100,
+                        itemHeight: 20,
+                        itemsSpacing: 4,
+                        symbolSize: 12,
+                        symbolShape: 'square',
+                      },
+                    ]
+                : []
+            }
+            theme={{
+              background: 'transparent',
+              text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 12 },
+              axis: {
+                domain: {
+                  line: { stroke: 'var(--nl-mathplot-axis, currentColor)', strokeWidth: 1 },
+                },
+                ticks: {
+                  line: { stroke: 'var(--nl-mathplot-axis, currentColor)', strokeWidth: 1 },
+                  text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 11 },
+                },
+                legend: { text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 12 } },
+              },
+              grid: {
+                line: { stroke: 'var(--nl-mathplot-grid, currentColor)', strokeOpacity: 0.15 },
+              },
+              legends: { text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 11 } },
+              tooltip: {
+                container: {
+                  background: 'var(--nl-surface, white)',
+                  color: 'var(--nl-mathplot-fg, black)',
+                  fontSize: 11,
+                },
+              },
+            }}
+          />
+        ) : (
+          <ResponsiveLine
+            data={series}
+            colors={colors}
+            margin={{ top: 20, right: legendVisible ? 130 : 30, bottom: 50, left: 60 }}
+            xScale={{ type: 'linear', min: xRange[0], max: xRange[1] }}
+            yScale={yScale}
+            axisTop={null}
+            axisRight={null}
+            axisBottom={{
+              legend: xLabel,
+              legendOffset: 36,
+              legendPosition: 'middle',
+              tickSize: 4,
+              tickPadding: 4,
+            }}
+            axisLeft={{
+              legend: yLabel,
+              legendOffset: -50,
+              legendPosition: 'middle',
+              tickSize: 4,
+              tickPadding: 4,
+              format: isLog ? formatLogTick : undefined,
+            }}
+            enablePoints={false}
+            enableGridX={false}
+            enableGridY={true}
+            curve="linear"
+            isInteractive={true}
+            useMesh={true}
+            enableSlices={false}
+            layers={[
+              'grid',
+              'markers',
+              'axes',
+              'areas',
+              'crosshair',
+              'lines',
+              annotationLayer,
+              'points',
+              'slices',
+              'mesh',
+              'legends',
+            ]}
+            legends={
+              legendVisible
                 ? [
                     {
                       anchor: 'right',
@@ -383,14 +513,18 @@ export function MathPlot({
               background: 'transparent',
               text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 12 },
               axis: {
-                domain: { line: { stroke: 'var(--nl-mathplot-axis, currentColor)', strokeWidth: 1 } },
+                domain: {
+                  line: { stroke: 'var(--nl-mathplot-axis, currentColor)', strokeWidth: 1 },
+                },
                 ticks: {
                   line: { stroke: 'var(--nl-mathplot-axis, currentColor)', strokeWidth: 1 },
                   text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 11 },
                 },
                 legend: { text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 12 } },
               },
-              grid: { line: { stroke: 'var(--nl-mathplot-grid, currentColor)', strokeOpacity: 0.15 } },
+              grid: {
+                line: { stroke: 'var(--nl-mathplot-grid, currentColor)', strokeOpacity: 0.15 },
+              },
               legends: { text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 11 } },
               tooltip: {
                 container: {
@@ -401,90 +535,6 @@ export function MathPlot({
               },
             }}
           />
-        ) : (
-        <ResponsiveLine
-          data={series}
-          colors={colors}
-          margin={{ top: 20, right: legendVisible ? 130 : 30, bottom: 50, left: 60 }}
-          xScale={{ type: 'linear', min: xRange[0], max: xRange[1] }}
-          yScale={yScale}
-          axisTop={null}
-          axisRight={null}
-          axisBottom={{
-            legend: xLabel,
-            legendOffset: 36,
-            legendPosition: 'middle',
-            tickSize: 4,
-            tickPadding: 4,
-          }}
-          axisLeft={{
-            legend: yLabel,
-            legendOffset: -50,
-            legendPosition: 'middle',
-            tickSize: 4,
-            tickPadding: 4,
-            format: isLog ? formatLogTick : undefined,
-          }}
-          enablePoints={false}
-          enableGridX={false}
-          enableGridY={true}
-          curve="linear"
-          isInteractive={true}
-          useMesh={true}
-          enableSlices={false}
-          layers={[
-            'grid',
-            'markers',
-            'axes',
-            'areas',
-            'crosshair',
-            'lines',
-            annotationLayer,
-            'points',
-            'slices',
-            'mesh',
-            'legends',
-          ]}
-          legends={
-            legendVisible
-              ? [
-                  {
-                    anchor: 'right',
-                    direction: 'column',
-                    justify: false,
-                    translateX: 110,
-                    translateY: 0,
-                    itemWidth: 100,
-                    itemHeight: 20,
-                    itemsSpacing: 4,
-                    symbolSize: 12,
-                    symbolShape: 'square',
-                  },
-                ]
-              : []
-          }
-          theme={{
-            background: 'transparent',
-            text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 12 },
-            axis: {
-              domain: { line: { stroke: 'var(--nl-mathplot-axis, currentColor)', strokeWidth: 1 } },
-              ticks: {
-                line: { stroke: 'var(--nl-mathplot-axis, currentColor)', strokeWidth: 1 },
-                text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 11 },
-              },
-              legend: { text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 12 } },
-            },
-            grid: { line: { stroke: 'var(--nl-mathplot-grid, currentColor)', strokeOpacity: 0.15 } },
-            legends: { text: { fill: 'var(--nl-mathplot-fg, currentColor)', fontSize: 11 } },
-            tooltip: {
-              container: {
-                background: 'var(--nl-surface, white)',
-                color: 'var(--nl-mathplot-fg, black)',
-                fontSize: 11,
-              },
-            },
-          }}
-        />
         )}
       </div>
       {/*
