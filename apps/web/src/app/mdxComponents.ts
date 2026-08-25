@@ -1,6 +1,12 @@
 import {
+  Explanation,
   Figure,
+  LazyBenchmark,
   LazyCodeEditor,
+  LazyComplexityCounter,
+  LazyComplexityExercise,
+  LazyComplexityHierarchy,
+  LazyMathPlot,
   LazyExercise,
   LazyMermaid,
   LazyPredictOutput,
@@ -17,6 +23,7 @@ import {
   Slide,
   Split,
   Step,
+  VideoEmbed,
 } from '../components';
 import { contentMdxComponents } from '../content';
 
@@ -53,11 +60,36 @@ export const mdxComponents = {
   // weight lands with the page. The attribute stays because it costs nothing
   // and pays off the day a frame sits at the foot of a long document.
   SheetEmbed,
+  // Not lazy: it is one iframe pointing at YouTube. Same shape as SheetEmbed.
+  // See VideoEmbed.tsx for the sandbox rationale (allow-same-origin is
+  // required for YouTube, deliberately absent from SheetEmbed).
+  VideoEmbed,
   // The lazy wrapper, not the editor itself: this map is evaluated eagerly, and
   // registering the real component would put CodeMirror in the entry chunk.
   CodeEditor: LazyCodeEditor,
   Exercise: LazyExercise,
   PredictOutput: LazyPredictOutput,
+  // Same lazy rule, both routes: <Benchmark> wraps LazyCodeEditor AND imports
+  // the runtime seam through `useLoadedRuntime`, so registering the real one
+  // here would put CodeMirror and CheerpJ back in the entry chunk of every
+  // reader of every page. ADR-0044 documents the widget; the guard is
+  // `apps/web/src/architecture.test.ts` per-name case for `benchmark`.
+  Benchmark: LazyBenchmark,
+  // Lazy for pattern consistency and the CodeMirror-gutter future extension
+  // the ADR anticipates (ADR-0045).
+  ComplexityCounter: LazyComplexityCounter,
+  // Same lazy rule: composes <CodeStepper> + <ComplexityCounter>, so both
+  // CodeMirror and the counter chunk stay off the entry chunk of readers who
+  // never mount an exercise. Guarded by architecture.test.ts.
+  ComplexityExercise: LazyComplexityExercise,
+  // Concentric-rings visualization of `O(1) ⊂ ··· ⊂ O(2ᴺ)`. Lazy for
+  // pattern consistency with the other interactive widgets. Guarded by
+  // architecture.test.ts.
+  ComplexityHierarchy: LazyComplexityHierarchy,
+  // Nivo (@nivo/line) is a chart library that pulls its own React tree +
+  // a slice of d3 for scales / shapes / interpolation; lazy keeps it out
+  // of the entry chunk (ADR-0046). Guarded by architecture.test.ts.
+  MathPlot: LazyMathPlot,
   // Same lazy rule, for the same entry-chunk reason (ADR-0040): the mermaid
   // library adds ~200kB gzipped of mermaid-only chunks (measured, ADR-0040
   // §Consequences) and must only load on pages that mount a
@@ -67,6 +99,11 @@ export const mdxComponents = {
   // itself lazy, so a document with no code question pulls no CodeMirror.
   Questions,
   Question,
+  // Pedagogical note attached to a `<Question>` — page-only, unwrapped by the
+  // parent's `parseQuestionParts` and rendered inline after the reader
+  // answers. Never travels to `questions.json` (source parser drops the
+  // block; see `Explanation.tsx`).
+  Explanation,
   // Not lazy: draws a small SVG-free tree with lucide chevrons and inline
   // styles for the per-argument hue (theme-aware via useResolvedTheme, no raw
   // Tailwind colour class — design-system.md §Adding a token would be the

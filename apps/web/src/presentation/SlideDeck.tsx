@@ -247,7 +247,12 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
             className="w-full max-w-4xl"
           >
             {slide.title ? (
-              <h2 className="text-accent-pop mb-10 text-5xl font-bold tracking-tight">
+              // `text-accent-pop` per #225 / ADR-0026 addendum: the deck was
+              // unified with the book's `bg-ground`, giving accent-pop ≥3:1
+              // contrast on slide titles so the deck exception is retired.
+              // `mt-8` kept from #218: gives long-titled slides breathing
+              // room above so a two-line title doesn't hug the top edge.
+              <h2 className="text-accent-pop mt-8 mb-10 text-5xl font-bold tracking-tight">
                 {slide.title}
               </h2>
             ) : null}

@@ -11,3 +11,8 @@ entries:
       - docId: referencias-null-igualdad
       - docId: arrays-y-funciones
       - docId: objetos
+  - label: Complejidad
+    levelName: Unidad
+    children:
+      - docId: complejidad-de-hilbert-al-big-o
+      - docId: complejidad-espacial

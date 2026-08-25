@@ -9,8 +9,14 @@
 // and `src/architecture.test.ts` walks the eager graph to keep it that way.
 import type { CatalogEntry } from '../lib/catalogEntry';
 
+import { benchmarkCatalogEntry } from './interactive/Benchmark.catalog';
 import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
+import { complexityCounterCatalogEntry } from './interactive/ComplexityCounter.catalog';
+import { complexityExerciseCatalogEntry } from './interactive/ComplexityExercise.catalog';
+import { complexityHierarchyCatalogEntry } from './interactive/ComplexityHierarchy.catalog';
+import { mathPlotCatalogEntry } from './interactive/MathPlot.catalog';
 import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
+import { explanationCatalogEntry } from './interactive/Explanation.catalog';
 import { mermaidCatalogEntry } from './interactive/Mermaid.catalog';
 import { predictOutputCatalogEntry } from './interactive/PredictOutput.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
@@ -20,6 +26,7 @@ import { memoryVisualCatalogEntry } from './interactive/MemoryVisual.catalog';
 import { stepCatalogEntry, stepShowCatalogEntry } from './interactive/StepShow.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
 import { sheetEmbedCatalogEntry } from './media/SheetEmbed.catalog';
+import { videoEmbedCatalogEntry } from './media/VideoEmbed.catalog';
 import { mosaicCatalogEntry } from './structure/Mosaic.catalog';
 import { sectionBreakCatalogEntry } from './structure/SectionBreak.catalog';
 import { sideBySideCatalogEntry } from './structure/SideBySide.catalog';
@@ -35,12 +42,19 @@ export const catalogEntries: CatalogEntry[] = [
   mosaicCatalogEntry,
   figureCatalogEntry,
   sheetEmbedCatalogEntry,
+  videoEmbedCatalogEntry,
   codeEditorCatalogEntry,
   exerciseCatalogEntry,
   mermaidCatalogEntry,
   predictOutputCatalogEntry,
+  benchmarkCatalogEntry,
+  complexityCounterCatalogEntry,
+  complexityExerciseCatalogEntry,
+  complexityHierarchyCatalogEntry,
+  mathPlotCatalogEntry,
   questionsCatalogEntry,
   questionCatalogEntry,
+  explanationCatalogEntry,
   recursionTreeCatalogEntry,
   stepShowCatalogEntry,
   stepCatalogEntry,

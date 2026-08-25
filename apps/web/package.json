@@ -23,6 +23,8 @@
     "@codemirror/state": "^6.7.1",
     "@codemirror/view": "^6.43.8",
     "@mdx-js/react": "^3.1.1",
+    "@nivo/core": "^0.99.0",
+    "@nivo/line": "^0.99.0",
     "@tailwindcss/vite": "^4.3.3",
     "@uiw/react-codemirror": "^4.25.11",
     "framer-motion": "^13.0.0",

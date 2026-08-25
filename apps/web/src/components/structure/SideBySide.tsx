@@ -11,6 +11,17 @@ export interface SideBySideProps {
   right?: string;
   /** Exactly two blocks — typically two code fences. */
   children?: ReactNode;
+  /**
+   * `horizontal` (default): two columns on desktop, stacked on narrow.
+   * `vertical`: always stacked. The vertical direction covers cases like
+   * `<ComplexityExercise>` where the reveal panel is as wide as the
+   * prompt and side-by-side would compress both. Default preserves
+   * backward-compat: existing usages need no changes.
+   *
+   * The `<SideBySide direction="vertical">` reading is a known
+   * awkwardness (Discussion #220 tracks a rename).
+   */
+  direction?: 'horizontal' | 'vertical';
 }
 
 const LABEL = 'bg-sunk px-3 py-1 font-mono text-3xs uppercase tracking-wide text-ink-faint';
@@ -55,7 +66,7 @@ function Column({ label, children }: { label?: string; children: ReactNode }) {
  * one listing under the other makes the reader hold the first in their head
  * while reading the second.
  */
-export function SideBySide({ left, right, children }: SideBySideProps) {
+export function SideBySide({ left, right, children, direction = 'horizontal' }: SideBySideProps) {
   // MDX contributes whitespace between blocks; it is not a column.
   const columns = Children.toArray(children).filter(
     (child) => typeof child !== 'string' || child.trim() !== '',
@@ -69,8 +80,12 @@ export function SideBySide({ left, right, children }: SideBySideProps) {
     );
   }
 
+  // `horizontal` keeps the previous responsive behaviour (two columns on
+  // desktop, stacked on narrow). `vertical` stacks unconditionally.
+  const gridClass = direction === 'vertical' ? 'grid-cols-1' : 'md:grid-cols-2';
+
   return (
-    <div className="not-prose my-6 grid gap-3 md:grid-cols-2">
+    <div className={`not-prose my-6 grid gap-3 ${gridClass}`} data-direction={direction}>
       <Column label={left}>{columns[0]}</Column>
       <Column label={right}>{columns[1]}</Column>
     </div>

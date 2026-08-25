@@ -10,6 +10,27 @@ export { LazyExercise } from './interactive/lazyExercise';
 // Same rule, both routes: PredictOutput wraps LazyCodeEditor AND imports the
 // runtime seam through `useLoadedRuntime`.
 export { LazyPredictOutput } from './interactive/lazyPredictOutput';
+// Same rule, same two routes as PredictOutput: <Benchmark> wraps
+// LazyCodeEditor and drives the runtime through `useLoadedRuntime` (ADR-0044).
+export { LazyBenchmark } from './interactive/lazyBenchmark';
+// Lazy for pattern consistency and for the CodeMirror-gutter future
+// extension the ADR anticipates (ADR-0045).
+export { LazyComplexityCounter } from './interactive/lazyComplexityCounter';
+// Lazy on the same rule: <ComplexityExercise> composes <CodeStepper> +
+// <ComplexityCounter>, both CodeMirror-adjacent, and registering it eagerly
+// would pull the editor back into the entry chunk. Guarded by
+// `src/architecture.test.ts` (per-name `complexityexercise`).
+export { LazyComplexityExercise } from './interactive/lazyComplexityExercise';
+// Lazy for pattern consistency with the other interactive widgets. Carries
+// no CodeMirror weight, only React + SVG — the eager-graph rule is uniform
+// so the seam stays predictable, and the guard in `src/architecture.test.ts`
+// (per-name `complexityhierarchy`) keeps future extensions inside the
+// wrapper.
+export { LazyComplexityHierarchy } from './interactive/lazyComplexityHierarchy';
+// Nivo (@nivo/line) is a chart library that pulls its own React tree and
+// a slice of d3 (scales, shapes, interpolation) — the lazy wrapper is what
+// keeps Nivo out of the entry chunk of every reader of every page (ADR-0046).
+export { LazyMathPlot } from './interactive/lazyMathPlot';
 // Same rule, heaviest instance: mermaid reaches dagre/d3/parsers (~200kB
 // gzipped of mermaid-only chunks, measured — ADR-0040 §Consequences).
 export { LazyMermaid } from './interactive/lazyMermaid';
@@ -18,6 +39,8 @@ export { LazyMermaid } from './interactive/lazyMermaid';
 export { MdxPre } from './MdxPre';
 export { Figure } from './media/Figure';
 export { SheetEmbed } from './media/SheetEmbed';
+export { VideoEmbed } from './media/VideoEmbed';
+export { Explanation } from './interactive/Explanation';
 export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { RecursionTree } from './interactive/RecursionTree';

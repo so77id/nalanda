@@ -35,6 +35,8 @@ const SLIDE_TITLE = /<Slide\b[^>]*?\btitle="([^"]*)"/g;
 const OPEN_SLIDE = /<Slide\b/;
 const OPEN = /<Question\b([^>]*)>/;
 const CLOSE = /<\/Question>/;
+const OPEN_EXPLANATION = /<Explanation\b[^>]*>/;
+const CLOSE_EXPLANATION = /<\/Explanation>/;
 const ALTERNATIVE = /^\s*[-*] \[([ xX])\]\s+(.*?)\s*$/;
 const ATTR = (name: string) => new RegExp(`\\b${name}="([^"]*)"`);
 
@@ -123,6 +125,12 @@ export function readQuestions(source: string): SourceQuestion[] {
   let code: SourceQuestion['code'];
   let alternatives: SourceQuestion['alternatives'] = [];
   let fence: { closing: string; language: string; body: string[] } | null = null;
+  // Inside `<Explanation>...</Explanation>` — page-only pedagogical note. The
+  // source parser drops the whole block, defensive against text that could
+  // otherwise look like an alternative (`- [ ]`) or a fresh statement. The
+  // rendered-tree parser (`lib/questions.ts`) is what actually surfaces the
+  // note, to the widget only.
+  let inExplanation = false;
   // What a bare line continues. Prose here is hard-wrapped near 80 columns and
   // nothing formats `content/` (it lives outside `apps/web`, so prettier never
   // visits it), so a wrapped stem or alternative is ordinary authoring — and
@@ -140,6 +148,18 @@ export function readQuestions(source: string): SourceQuestion[] {
   }
 
   for (const line of lines) {
+    if (inExplanation) {
+      if (CLOSE_EXPLANATION.test(line)) {
+        inExplanation = false;
+        continues = null;
+      }
+      continue;
+    }
+    if (open !== null && OPEN_EXPLANATION.test(line)) {
+      inExplanation = !CLOSE_EXPLANATION.test(line);
+      continues = null;
+      continue;
+    }
     if (fence !== null) {
       if (line.trimStart().startsWith(fence.closing)) {
         // Only the first listing of a question is its code; a second one would

@@ -1,0 +1,178 @@
+---
+id: complejidad-espacial
+title: Complejidad Espacial
+presentation: explicit
+questions: pool
+---
+
+# Complejidad Espacial
+
+Capítulo 3 de la unidad **Complejidad**. En los capítulos anteriores medimos
+el **tiempo** que tarda un algoritmo. Acá extendemos exactamente las mismas
+herramientas al otro recurso que cuesta: la **memoria**. Las notaciones no
+cambian ($$O$$, $$\Omega$$, $$\Theta$$); lo que cambia es qué contamos y
+cómo lo contamos.
+
+<SectionBreak />
+
+<Slide title="Complejidad espacial — cómo se calcula">
+No solo el tiempo cuesta — la **memoria** también. Y se analiza igual:
+contando qué se guarda en función del tamaño de la entrada.
+
+**Regla**: el costo espacial $$M(n)$$ = número de celdas de memoria que el
+algoritmo necesita durante su ejecución, **sin contar la memoria de la
+entrada**.
+
+**Cómo se calcula**, en tres pasos análogos al conteo temporal:
+
+1. **Identificar** las variables y estructuras que el algoritmo crea (no las
+   que recibe como entrada).
+2. **Sumar** el tamaño de cada una, en función de $$n$$.
+3. **Aplicar las mismas reglas asintóticas**: descartar constantes, quedarse
+   con el término dominante.
+
+**Regla práctica**:
+
+- Una variable de tipo básico (`int`, `double`, `boolean`) → **1 celda**.
+- Un arreglo de tamaño `k` → **k celdas**.
+- Un arreglo bidimensional `n × m` → **n·m celdas**.
+
+**Notaciones**: las mismas que en tiempo — $$O$$, $$\Omega$$, $$\Theta$$
+sobre $$M(n)$$.
+</Slide>
+
+<Slide title="Espacio aplicado a nuestros ejemplos">
+Aplicamos la receta a los algoritmos iterativos que ya conocemos:
+
+| Algoritmo | Variables/estructuras auxiliares | $$M(n)$$ |
+|---|---|---|
+| `sumaCiclo` | `s`, `i` — dos ints | $$\Theta(1)$$ |
+| `sumaDobleCiclo` | `s`, `i`, `j` — tres ints | $$\Theta(1)$$ |
+| `sumaFormula` | ninguna | $$\Theta(1)$$ |
+| `findInArray` | `i` — un int | $$\Theta(1)$$ |
+
+Todos son **constantes en espacio**. Ninguno crece con la entrada — es lo
+típico en algoritmos iterativos simples.
+
+**Contraejemplo — un algoritmo con espacio no trivial**:
+
+<ComplexityCounter
+  algorithm="primerosNaturales — espacio"
+  mode="space"
+  code={`int[] primerosNaturales(int n) {
+    int[] arr = new int[n];
+    for (int i = 0; i < n; i++)
+        arr[i] = i + 1;
+    return arr;
+}`}
+  data={{
+    annotations: {
+      2: { oe: 1, times: "n" },
+    },
+    formula: "n",
+    evaluate: (n) => n,
+  }}
+  slider={{ min: 1, max: 100, default: 10 }}
+/>
+
+Aquí $$M(n) = \Theta(n)$$ — el arreglo que devuelve crece con $$n$$.
+
+**Regla del curso**: cuando se pide "la complejidad" de un algoritmo sin
+más contexto, se pide **temporal**. Si además se pide espacial, se explicita.
+</Slide>
+
+## Ejercicios
+
+Dos ejercicios cortos sobre complejidad espacial. Cada uno muestra un código y
+te pide $$M(n)$$; al apretar **"Ver desarrollo"** se despliega el análisis
+completo con `<ComplexityCounter>` en `mode="space"`.
+
+### Ejercicio 1 — espacio acumulativo (matriz triangular)
+
+<ComplexityExercise
+  algorithm="triangular"
+  prompt="M(n)"
+  hint="Cuenta AMBOS: el arreglo de punteros (n celdas) y el total de celdas alocadas por los `new int[i]` de cada iteración."
+  mode="space"
+  code={`int[][] triangular(int n) {
+    int[][] arr = new int[n][];
+    for (int i = 1; i <= n; i++) {
+        arr[i - 1] = new int[i];
+    }
+    return arr;
+}`}
+  data={{
+    annotations: {
+      2: { oe: 1, times: "n" },
+      4: { oe: 1, times: "n*(n+1)/2" },
+    },
+    formula: "(n² + 3n) / 2",
+    evaluate: (n) => (n * n + 3 * n) / 2,
+  }}
+  slider={{ min: 1, max: 50, default: 10 }}
+/>
+
+### Ejercicio 2 — reverse in-place vs copia
+
+<ComplexityExercise
+  algorithm="reverseInPlace vs reverseNuevo"
+  prompt="M(n)"
+  hint="Compara las dos implementaciones. Las pestañas 'mejor' y 'peor' del widget etiquetan las dos versiones: 'mejor' = in-place, 'peor' = copia (usa más memoria)."
+  mode="cases"
+  code={`void reverseInPlace(int[] arr) {
+    for (int i = 0; i < arr.length / 2; i++) {
+        int tmp = arr[i];
+        arr[i] = arr[arr.length - 1 - i];
+        arr[arr.length - 1 - i] = tmp;
+    }
+}
+
+int[] reverseNuevo(int[] arr) {
+    int[] out = new int[arr.length];
+    for (int i = 0; i < arr.length; i++) {
+        out[i] = arr[arr.length - 1 - i];
+    }
+    return out;
+}`}
+  cases={{
+    best: {
+      annotations: {
+        3: { oe: 1, times: "1" },
+      },
+      formula: "1 (constante)",
+      evaluate: () => 1,
+    },
+    worst: {
+      annotations: {
+        10: { oe: 1, times: "n" },
+      },
+      formula: "n",
+      evaluate: (n) => n,
+    },
+  }}
+  slider={{ min: 1, max: 100, default: 10 }}
+/>
+
+<Questions>
+
+<Question id="cual-crece-en-espacio">
+
+¿Cuál de los siguientes algoritmos tiene complejidad espacial que **crece
+con `n`** (no es constante)?
+
+- [ ] Un `for` que recorre un arreglo dado y acumula la suma en un `int`.
+- [x] Una función que asigna `int[] out = new int[n]` y lo devuelve.
+- [ ] Un algoritmo iterativo con tres variables locales (`int i`, `int j`, `int s`).
+- [ ] `findInArray` — recorre el arreglo hasta encontrar el valor.
+
+<Explanation>
+La memoria auxiliar de un algoritmo cuenta lo que **el algoritmo crea**, no
+lo que recibe como entrada. Las variables locales de tipo básico son
+$$\Theta(1)$$ por muchas que sean. La opción correcta crea un arreglo de
+tamaño $$n$$ — su espacio es $$\Theta(n)$$.
+</Explanation>
+
+</Question>
+
+</Questions>
+

@@ -163,6 +163,48 @@ describe('architecture: the step-through widget stays out of the entry chunk', (
   });
 });
 
+describe('architecture: the benchmark widget stays out of the entry chunk', () => {
+  // Benchmark reaches both hazards, exactly like PredictOutput: it wraps
+  // LazyCodeEditor AND it imports the runtime seam through `useLoadedRuntime`.
+  // Either would have been enough for its own case; together they leave no
+  // ambiguity about why the lazy wrapper is required (ADR-0044). Same shape as
+  // the other heavy-component guards — a single ALLOWED entry, no per-file
+  // exemptions.
+  const ALLOWED = ['components/interactive/lazyBenchmark.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/benchmark' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the mathplot widget stays out of the entry chunk', () => {
+  // MathPlot pulls Nivo (@nivo/line), a chart library that reaches its own
+  // React tree + a slice of d3 for scales / shapes / interpolation. Same
+  // rationale as the other heavy components' guards (ADR-0046): a single
+  // ALLOWED entry, no per-file exemptions.
+  const ALLOWED = ['components/interactive/lazyMathPlot.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/mathplot' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: the mermaid diagram stays out of the entry chunk', () => {
   // Mermaid drags dagre, d3 and a set of parsers into any chunk that imports
   // it (~200kB gzipped of mermaid-only chunks on the page, measured — ADR-0040
@@ -178,6 +220,48 @@ describe('architecture: the mermaid diagram stays out of the entry chunk', () =>
         (_fileTop, _importTop, importRel, file) =>
           importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
             'components/interactive/mermaid' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the complexityexercise widget stays out of the entry chunk', () => {
+  // ComplexityExercise composes <CodeStepper> + <ComplexityCounter>: two
+  // CodeMirror-adjacent widgets. Registering the real component eagerly in
+  // the MDX map would pull both into the entry chunk of readers of pages
+  // that mount no exercise. Same shape as the other heavy-component guards —
+  // a single ALLOWED entry, no per-file exemptions.
+  const ALLOWED = ['components/interactive/lazyComplexityExercise.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/complexityexercise' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the complexityhierarchy widget stays out of the entry chunk', () => {
+  // ComplexityHierarchy is React + SVG only — no CodeMirror, no runtime.
+  // Guarded here for pattern uniformity: every widget under `interactive/`
+  // goes through its lazy wrapper, so a future extension (drill-in
+  // animations, class-relative graphs) can add weight without moving the
+  // seam. Same shape as the other heavy-component guards.
+  const ALLOWED = ['components/interactive/lazyComplexityHierarchy.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/complexityhierarchy' &&
           !file.includes('.test.') &&
           !ALLOWED.includes(file),
       ),

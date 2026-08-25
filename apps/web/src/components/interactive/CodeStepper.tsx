@@ -13,6 +13,13 @@ export interface CodeStepperProps {
   /** 1-based line numbers to highlight. Empty means no highlight this step. */
   highlightLines: number[];
   /**
+   * 1-based line numbers to render dimmed — painted with reduced opacity so
+   * "these lines don't participate in this scenario" reads at a glance.
+   * Independent of `highlightLines`; a line can be either, neither, or (in
+   * theory) both — dim wins the paint in that case.
+   */
+  dimmedLines?: number[];
+  /**
    * Which language grammar CodeMirror uses to syntax-highlight the listing.
    * Any known runtime id loads that language's grammar (`loadGrammar(id)` — the
    * editor-half of the runtime split from #122); anything else (or omitted)
@@ -21,6 +28,13 @@ export interface CodeStepperProps {
    * override.
    */
   language?: string;
+  /**
+   * Called whenever the pointer enters or leaves a code line. Delivers the
+   * 1-based line number under the cursor, or `null` when the pointer leaves
+   * the editor. Used by <ComplexityCounter> to sync a side-rail with the
+   * editor without turning this component into a stateful widget itself.
+   */
+  onLineHover?: (line: number | null) => void;
 }
 
 /**
@@ -41,7 +55,13 @@ export interface CodeStepperProps {
  * `data-highlight-lines` for the suite (jsdom mocks CodeMirror, so the paint
  * itself is the browser check — same shape `<RecursionTree>` earned in #78).
  */
-export function CodeStepper({ code, highlightLines, language }: CodeStepperProps) {
+export function CodeStepper({
+  code,
+  highlightLines,
+  dimmedLines,
+  language,
+  onLineHover,
+}: CodeStepperProps) {
   const theme = useResolvedTheme();
   const grammarLang: RuntimeId = isRuntimeId(language ?? '') ? (language as RuntimeId) : 'java';
   const grammar = useGrammar(grammarLang);
@@ -54,9 +74,36 @@ export function CodeStepper({ code, highlightLines, language }: CodeStepperProps
         '.nal-step-line-active': {
           backgroundColor: 'var(--color-keep-soft)',
         },
+        '.nal-step-line-dimmed': {
+          opacity: '0.35',
+          filter: 'grayscale(0.6)',
+        },
       }),
     [],
   );
+  // Hover-line tracker. `mousemove` fires per pointer move; we translate
+  // clientX/Y to a document position via `posAtCoords`, then to a 1-based
+  // line number. Latest-wins; a mouseleave clears the state. Kept as a
+  // ref-plus-dispatch pattern so we don't tear down and rebuild the
+  // extension on every re-render.
+  const hoverExtension = useMemo(() => {
+    if (onLineHover === undefined) return [];
+    return [
+      EditorView.domEventHandlers({
+        mousemove(event, view) {
+          const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+          if (pos === null) return false;
+          const lineNum = view.state.doc.lineAt(pos).number;
+          onLineHover(lineNum);
+          return false;
+        },
+        mouseleave() {
+          onLineHover(null);
+          return false;
+        },
+      }),
+    ];
+  }, [onLineHover]);
 
   // Push the current highlight into the editor whenever the step changes. The
   // extension itself is stable; the effect below dispatches a `setActiveLines`
@@ -69,14 +116,29 @@ export function CodeStepper({ code, highlightLines, language }: CodeStepperProps
     view.dispatch({ effects: setActiveLines.of(highlightLines) });
   }, [highlightLines]);
 
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({ effects: setDimmedLines.of(dimmedLines ?? []) });
+  }, [dimmedLines]);
+
   return (
-    <div data-highlight-lines={highlightLines.join(',')} className="bg-surface">
+    <div
+      data-highlight-lines={highlightLines.join(',')}
+      data-dimmed-lines={(dimmedLines ?? []).join(',')}
+      className="bg-surface"
+    >
       <CodeMirror
         value={code}
         editable={false}
         readOnly
         theme={theme}
-        extensions={[...(grammar ? [grammar] : []), themeExtension, decorationExtension]}
+        extensions={[
+          ...(grammar ? [grammar] : []),
+          themeExtension,
+          decorationExtension,
+          ...hoverExtension,
+        ]}
         basicSetup={{
           lineNumbers: true,
           foldGutter: false,
@@ -85,9 +147,11 @@ export function CodeStepper({ code, highlightLines, language }: CodeStepperProps
         }}
         onCreateEditor={(view) => {
           viewRef.current = view;
-          // Apply the initial highlight on mount — the effect above only runs
-          // AFTER the first render (it depends on viewRef being populated).
+          // Apply the initial highlight and dim on mount — the effects above
+          // only run AFTER the first render (they depend on viewRef being
+          // populated).
           view.dispatch({ effects: setActiveLines.of(highlightLines) });
+          view.dispatch({ effects: setDimmedLines.of(dimmedLines ?? []) });
         }}
       />
     </div>
@@ -104,31 +168,58 @@ export function CodeStepper({ code, highlightLines, language }: CodeStepperProps
  * fresh.
  */
 const setActiveLines = StateEffect.define<number[]>();
+const setDimmedLines = StateEffect.define<number[]>();
 
+/**
+ * Two independent StateFields — one for the active-line decorations, one for
+ * the dimmed-line decorations — combined into the editor's decoration stream
+ * so both paints can coexist. Split so a change in one pool never clears the
+ * other; the effects fire independently from separate `useEffect`s.
+ */
 function makeHighlightExtension() {
-  return StateField.define<DecorationSet>({
+  const activeField = StateField.define<DecorationSet>({
     create: () => Decoration.none,
     update: (deco, tr) => {
       for (const effect of tr.effects) {
         if (effect.is(setActiveLines)) {
-          const lines = effect.value;
-          if (lines.length === 0) return Decoration.none;
-          const doc = tr.state.doc;
-          const decos = [];
-          for (const n of lines) {
-            if (n < 1 || n > doc.lines) continue;
-            const line = doc.line(n);
-            decos.push(
-              Decoration.line({
-                attributes: { class: 'nal-step-line-active', 'data-active': 'true' },
-              }).range(line.from),
-            );
-          }
-          return Decoration.set(decos, /* sort */ true);
+          return buildLineDecorations(tr.state.doc, effect.value, 'nal-step-line-active', 'active');
         }
       }
       return deco.map(tr.changes);
     },
     provide: (field) => EditorView.decorations.from(field),
   });
+  const dimmedField = StateField.define<DecorationSet>({
+    create: () => Decoration.none,
+    update: (deco, tr) => {
+      for (const effect of tr.effects) {
+        if (effect.is(setDimmedLines)) {
+          return buildLineDecorations(tr.state.doc, effect.value, 'nal-step-line-dimmed', 'dimmed');
+        }
+      }
+      return deco.map(tr.changes);
+    },
+    provide: (field) => EditorView.decorations.from(field),
+  });
+  return [activeField, dimmedField];
+}
+
+function buildLineDecorations(
+  doc: { lines: number; line: (n: number) => { from: number } },
+  lines: number[],
+  className: string,
+  dataFlag: 'active' | 'dimmed',
+): DecorationSet {
+  if (lines.length === 0) return Decoration.none;
+  const decos = [];
+  for (const n of lines) {
+    if (n < 1 || n > doc.lines) continue;
+    const line = doc.line(n);
+    decos.push(
+      Decoration.line({
+        attributes: { class: className, [`data-${dataFlag}`]: 'true' },
+      }).range(line.from),
+    );
+  }
+  return Decoration.set(decos, /* sort */ true);
 }

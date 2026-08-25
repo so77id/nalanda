@@ -262,6 +262,13 @@ export interface QuestionParts {
   code?: QuestionCode;
   alternatives: QuestionAlternative[];
   type: QuestionType;
+  /**
+   * Pedagogical note attached to the question, unwrapped from its
+   * `<Explanation>` child. Page-only: never surfaces in `parseQuestions` /
+   * `BankQuestion`, so `questions.json` and the printed sheet stay unaware
+   * of it. Undefined when the author didn't write one.
+   */
+  explanationNode?: ReactNode;
 }
 
 /**
@@ -277,13 +284,31 @@ export function parseQuestionParts(children: ReactNode): QuestionParts {
   const code = codeOf(nodes);
   const statementNode = statementOf(nodes);
   const alternatives = alternativesOf(nodes);
+  const explanationNode = explanationOf(nodes);
   return {
     statement: deepText(statementNode).trim(),
     statementNode,
     ...(code ? { code } : {}),
     alternatives,
     type: typeOf(alternatives),
+    ...(explanationNode !== undefined ? { explanationNode } : {}),
   };
+}
+
+/**
+ * The `<Explanation>` child of a question, unwrapped as its content nodes.
+ *
+ * Recognised by meta rather than by importing the component (`lib/` must not
+ * depend on `components/`), so any future component that carries
+ * `questionRole: 'explanation'` composes here for free.
+ */
+function explanationOf(children: ReactNode[]): ReactNode | undefined {
+  for (const child of children) {
+    if (!isValidElement(child)) continue;
+    if (metaOf(child.type).questionRole !== 'explanation') continue;
+    return (child.props as { children?: ReactNode }).children;
+  }
+  return undefined;
 }
 
 /**
