@@ -27,9 +27,9 @@ export { LazyComplexityExercise } from './interactive/lazyComplexityExercise';
 // (per-name `complexityhierarchy`) keeps future extensions inside the
 // wrapper.
 export { LazyComplexityHierarchy } from './interactive/lazyComplexityHierarchy';
-// Mafs is a math-visualization library that pulls its own React tree, SVG
-// helpers, and KaTeX for labels — the lazy wrapper is what keeps Mafs out
-// of the entry chunk of every reader of every page (ADR-0046).
+// Nivo (@nivo/line) is a chart library that pulls its own React tree and
+// a slice of d3 (scales, shapes, interpolation) — the lazy wrapper is what
+// keeps Nivo out of the entry chunk of every reader of every page (ADR-0046).
 export { LazyMathPlot } from './interactive/lazyMathPlot';
 // Same rule, heaviest instance: mermaid reaches dagre/d3/parsers (~200kB
 // gzipped of mermaid-only chunks, measured — ADR-0040 §Consequences).
@@ -40,6 +40,7 @@ export { MdxPre } from './MdxPre';
 export { Figure } from './media/Figure';
 export { SheetEmbed } from './media/SheetEmbed';
 export { VideoEmbed } from './media/VideoEmbed';
+export { Explanation } from './interactive/Explanation';
 export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { RecursionTree } from './interactive/RecursionTree';

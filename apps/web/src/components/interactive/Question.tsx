@@ -33,7 +33,8 @@ export interface QuestionProps {
  */
 export const Question = withMeta(
   function Question({ id, anchor, children }: QuestionProps) {
-    const { statementNode, code, alternatives, type } = parseQuestionParts(children);
+    const { statementNode, code, alternatives, type, explanationNode } =
+      parseQuestionParts(children);
     const sections = useKnownSections();
     const multiple = type === 'multiple';
     const [picked, setPicked] = useState<number[]>([]);
@@ -159,6 +160,20 @@ export const Question = withMeta(
                 ? 'Incorrecto. Las respuestas correctas están marcadas.'
                 : 'Incorrecto. La respuesta correcta está marcada.'}
         </p>
+
+        {/* Pedagogical note — appears only once the reader has answered, so
+            the explanation cannot spoil the guess. Same pacing rule as the
+            verdict above. Page-only: the source parser drops the block, and
+            the bank never sees it. */}
+        {answered && explanationNode !== undefined ? (
+          <div
+            role="note"
+            aria-label="Explicación"
+            className="mt-3 rounded border border-rule bg-sunk/40 px-3 py-2 text-sm text-ink-soft"
+          >
+            {explanationNode}
+          </div>
+        ) : null}
       </div>
     );
   },

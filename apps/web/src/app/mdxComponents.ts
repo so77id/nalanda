@@ -1,4 +1,5 @@
 import {
+  Explanation,
   Figure,
   LazyBenchmark,
   LazyCodeEditor,
@@ -85,8 +86,9 @@ export const mdxComponents = {
   // pattern consistency with the other interactive widgets. Guarded by
   // architecture.test.ts.
   ComplexityHierarchy: LazyComplexityHierarchy,
-  // Mafs is heavy (~30 KB + KaTeX) and pulls its own tree; lazy keeps it
-  // out of the entry chunk (ADR-0046). Guarded by architecture.test.ts.
+  // Nivo (@nivo/line) is a chart library that pulls its own React tree +
+  // a slice of d3 for scales / shapes / interpolation; lazy keeps it out
+  // of the entry chunk (ADR-0046). Guarded by architecture.test.ts.
   MathPlot: LazyMathPlot,
   // Same lazy rule, for the same entry-chunk reason (ADR-0040): the mermaid
   // library adds ~200kB gzipped of mermaid-only chunks (measured, ADR-0040
@@ -97,6 +99,11 @@ export const mdxComponents = {
   // itself lazy, so a document with no code question pulls no CodeMirror.
   Questions,
   Question,
+  // Pedagogical note attached to a `<Question>` — page-only, unwrapped by the
+  // parent's `parseQuestionParts` and rendered inline after the reader
+  // answers. Never travels to `questions.json` (source parser drops the
+  // block; see `Explanation.tsx`).
+  Explanation,
   // Not lazy: draws a small SVG-free tree with lucide chevrons and inline
   // styles for the per-argument hue (theme-aware via useResolvedTheme, no raw
   // Tailwind colour class — design-system.md §Adding a token would be the

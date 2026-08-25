@@ -16,6 +16,7 @@ import { complexityExerciseCatalogEntry } from './interactive/ComplexityExercise
 import { complexityHierarchyCatalogEntry } from './interactive/ComplexityHierarchy.catalog';
 import { mathPlotCatalogEntry } from './interactive/MathPlot.catalog';
 import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
+import { explanationCatalogEntry } from './interactive/Explanation.catalog';
 import { mermaidCatalogEntry } from './interactive/Mermaid.catalog';
 import { predictOutputCatalogEntry } from './interactive/PredictOutput.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
@@ -53,6 +54,7 @@ export const catalogEntries: CatalogEntry[] = [
   mathPlotCatalogEntry,
   questionsCatalogEntry,
   questionCatalogEntry,
+  explanationCatalogEntry,
   recursionTreeCatalogEntry,
   stepShowCatalogEntry,
   stepCatalogEntry,
