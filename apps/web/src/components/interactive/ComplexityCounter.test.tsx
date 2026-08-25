@@ -139,7 +139,9 @@ describe('ComplexityCounter', () => {
   });
 
   it('prints the closed-form T(n) and its evaluation at the current slider', () => {
-    render(<ComplexityCounter code={SUMA_CICLO_CODE} data={SUMA_CICLO_DATA} slider={{ default: 10 }} />);
+    render(
+      <ComplexityCounter code={SUMA_CICLO_CODE} data={SUMA_CICLO_DATA} slider={{ default: 10 }} />,
+    );
 
     const heading = screen.getByRole('heading', { level: 4, name: /construcción de T\(n\)/i });
     const panel = heading.closest('section')!;

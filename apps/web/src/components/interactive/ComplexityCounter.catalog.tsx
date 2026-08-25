@@ -47,8 +47,7 @@ export const complexityCounterCatalogEntry: CatalogEntry = {
     {
       name: 'cases',
       type: '{ best?, worst?, average? }',
-      description:
-        'For mode "cases": each tab carries its own case with the same shape as `data`.',
+      description: 'For mode "cases": each tab carries its own case with the same shape as `data`.',
     },
     {
       name: 'slider',

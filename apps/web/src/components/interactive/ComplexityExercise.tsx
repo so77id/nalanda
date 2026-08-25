@@ -68,8 +68,8 @@ export function ComplexityExercise({
   if (code === undefined || code.trim() === '') {
     return (
       <AuthoringError component="ComplexityExercise">
-        falta la prop <code>code</code>: el listado sobre el que el alumno debe calcular
-        la complejidad.
+        falta la prop <code>code</code>: el listado sobre el que el alumno debe calcular la
+        complejidad.
       </AuthoringError>
     );
   }
@@ -82,9 +82,7 @@ export function ComplexityExercise({
         <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-accent">
           ejercicio
         </span>
-        {algorithm !== undefined && (
-          <span className="font-mono text-sm text-ink">{algorithm}</span>
-        )}
+        {algorithm !== undefined && <span className="font-mono text-sm text-ink">{algorithm}</span>}
       </header>
 
       <div className="border-b border-rule px-3 py-2 text-sm text-ink">
@@ -92,9 +90,7 @@ export function ComplexityExercise({
       </div>
 
       {hint !== undefined && (
-        <p className="border-b border-rule bg-sunk/30 px-3 py-2 text-xs text-ink-soft">
-          {hint}
-        </p>
+        <p className="border-b border-rule bg-sunk/30 px-3 py-2 text-xs text-ink-soft">{hint}</p>
       )}
 
       {/* The SAME <ComplexityCounter> mounts before and after reveal — we

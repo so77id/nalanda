@@ -49,14 +49,27 @@ export interface LineAnnotation {
 export interface ComplexityCase {
   /** Line-number → annotation. The key is the 1-based line in `code`. */
   annotations: Record<number, LineAnnotation>;
-  /** Final closed form as human-readable string (e.g. "4n + 4"). */
-  formula: string;
+  /**
+   * Final closed form as human-readable string (e.g. `"4n + 4"`). Required for
+   * `'base' | 'cases' | 'space'`; ignored in `'abstract'` (there is no formula
+   * to display before any case has been derived).
+   */
+  formula?: string;
   /**
    * Numeric evaluator for `formula`, so the widget prints T evaluated at the
    * slider's current value. Declared alongside `formula` — the widget never
-   * derives one from the other.
+   * derives one from the other. Required for `'base' | 'cases' | 'space'`;
+   * ignored in `'abstract'`.
    */
-  evaluate: (n: number) => number;
+  evaluate?: (n: number) => number;
+  /**
+   * Lines that don't execute in this scenario. Each entry can carry an
+   * optional pedagogical `note` explaining why. In `'abstract'` mode the
+   * lines are painted dimmed in the code editor, and the notes render as
+   * a dedicated section at the bottom of the rail. Ignored in the other
+   * modes.
+   */
+  skipped?: Array<{ line: number; note?: string }>;
 }
 
 export interface ComplexityCounterProps {
@@ -67,9 +80,19 @@ export interface ComplexityCounterProps {
    * annotations are anchored by line number in this code.
    */
   code?: string;
-  /** Mode: 'base' one case, 'cases' three tabs (best/worst/average), 'space' same layout but in memory cells. */
-  mode?: 'base' | 'cases' | 'space';
-  /** For mode = 'base' | 'space': the single case to show. */
+  /**
+   * Mode:
+   * - `'base'`: one case, with slider, formula and evaluation.
+   * - `'cases'`: three tabs (best/worst/average), each with its own slider/formula.
+   * - `'space'`: same layout as `'base'` but the unit is memory cells (M) instead of OE.
+   * - `'abstract'`: code + per-line annotations, WITHOUT slider, formula, or numeric
+   *   substitution — the `times` field is displayed as descriptive text
+   *   (e.g. `"por iteración"`). Used to introduce a code before any specific
+   *   case has been derived; the same widget then re-appears in `'base'` mode
+   *   for each concrete case.
+   */
+  mode?: 'base' | 'cases' | 'space' | 'abstract';
+  /** For mode = 'base' | 'space' | 'abstract': the single case to show. In `'abstract'`, only `annotations` is required. */
   data?: ComplexityCase;
   /** For mode = 'cases': the three cases. */
   cases?: {
@@ -152,20 +175,21 @@ export function ComplexityCounter({
   if (code === undefined || code.trim() === '') {
     return (
       <AuthoringError component="ComplexityCounter">
-        falta la prop <code>code</code>: las anotaciones se anclan por número de línea al
-        código fuente.
+        falta la prop <code>code</code>: las anotaciones se anclan por número de línea al código
+        fuente.
       </AuthoringError>
     );
   }
   // `data`/`cases` are only required for the analysis. When `showAnalysis`
   // is off, the widget degrades to a code-only view — used by
   // `<ComplexityExercise>` before the student reveals the analysis.
+  const isAbstract = mode === 'abstract';
   if (showAnalysis) {
     if (mode === 'cases' && (cases === undefined || Object.keys(cases).length === 0)) {
       return (
         <AuthoringError component="ComplexityCounter">
-          modo <code>cases</code> requiere la prop <code>cases</code> con al menos un caso
-          (<code>best</code>, <code>worst</code> o <code>average</code>).
+          modo <code>cases</code> requiere la prop <code>cases</code> con al menos un caso (
+          <code>best</code>, <code>worst</code> o <code>average</code>).
         </AuthoringError>
       );
     }
@@ -173,8 +197,8 @@ export function ComplexityCounter({
       return (
         <AuthoringError component="ComplexityCounter">
           falta la prop <code>data</code>: un objeto{' '}
-          <code>{'{ annotations, formula, evaluate }'}</code> con las anotaciones por línea, la
-          fórmula final y su evaluador numérico.
+          <code>{isAbstract ? '{ annotations }' : '{ annotations, formula, evaluate }'}</code> con
+          las anotaciones por línea{isAbstract ? '' : ', la fórmula final y su evaluador numérico'}.
         </AuthoringError>
       );
     }
@@ -183,6 +207,14 @@ export function ComplexityCounter({
         <AuthoringError component="ComplexityCounter">
           el caso <code>{caseKey}</code> no está definido en <code>cases</code>. Los casos
           disponibles se muestran como pestañas; verifica que <code>{caseKey}</code> exista.
+        </AuthoringError>
+      );
+    }
+    if (!isAbstract && (active.formula === undefined || active.evaluate === undefined)) {
+      return (
+        <AuthoringError component="ComplexityCounter">
+          modo <code>{mode}</code> requiere <code>formula</code> y <code>evaluate</code> en el caso.
+          Si no querés derivar la fórmula todavía, usá <code>mode=&quot;abstract&quot;</code>.
         </AuthoringError>
       );
     }
@@ -208,7 +240,7 @@ export function ComplexityCounter({
 
   const unitLabel = mode === 'space' ? 'celdas' : 'OE';
   const totalLabel = mode === 'space' ? 'M' : 'T';
-  const evaluated = active!.evaluate(n);
+  const evaluated = isAbstract ? 0 : active!.evaluate!(n);
   const codeLines = code.split('\n');
   // Rail rows ordered by line number, only lines the author annotated.
   const annotationEntries = Object.entries(active!.annotations)
@@ -256,22 +288,24 @@ export function ComplexityCounter({
         </div>
       )}
 
-      <div className="px-3 py-2">
-        <label className="flex items-center gap-3 text-xs">
-          <span className="font-mono text-ink-soft">{variable} =</span>
-          <input
-            type="range"
-            min={sliderCfg.min}
-            max={sliderCfg.max}
-            step={sliderCfg.step}
-            value={n}
-            onChange={(event) => setN(Number(event.target.value))}
-            className="flex-1 accent-accent"
-            aria-label={`Valor de ${variable}`}
-          />
-          <span className="min-w-16 text-right font-mono text-ink">{n.toLocaleString('es')}</span>
-        </label>
-      </div>
+      {!isAbstract && (
+        <div className="px-3 py-2">
+          <label className="flex items-center gap-3 text-xs">
+            <span className="font-mono text-ink-soft">{variable} =</span>
+            <input
+              type="range"
+              min={sliderCfg.min}
+              max={sliderCfg.max}
+              step={sliderCfg.step}
+              value={n}
+              onChange={(event) => setN(Number(event.target.value))}
+              className="flex-1 accent-accent"
+              aria-label={`Valor de ${variable}`}
+            />
+            <span className="min-w-16 text-right font-mono text-ink">{n.toLocaleString('es')}</span>
+          </label>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 border-t border-rule md:grid-cols-[1fr_18rem]">
         <div className="min-w-0 overflow-hidden border-b border-rule md:border-b-0 md:border-r">
@@ -279,6 +313,7 @@ export function ComplexityCounter({
             code={code}
             language={language}
             highlightLines={activeLine === null ? [] : [activeLine]}
+            dimmedLines={(active?.skipped ?? []).map((s) => s.line)}
             onLineHover={setActiveLine}
           />
         </div>
@@ -307,23 +342,49 @@ export function ComplexityCounter({
               }}
               onHover={setActiveLine}
               unitLabel={unitLabel}
+              isAbstract={isAbstract}
             />
           ))}
+          {isAbstract &&
+            (active?.skipped ?? []).map(({ line, note }) => (
+              <li
+                key={`skip-${line}`}
+                className="flex items-start gap-2 px-3 py-1.5 opacity-70"
+                onMouseEnter={() => setActiveLine(line)}
+                onMouseLeave={() => setActiveLine(null)}
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline gap-2 text-ink-faint">
+                    <span className="w-6 shrink-0 text-right text-3xs">{line}</span>
+                    <code className="truncate line-through">
+                      {(codeLines[line - 1] ?? '').trim()}
+                    </code>
+                  </div>
+                  <div className="pl-8 text-3xs italic text-ink-faint">
+                    no se ejecuta{note !== undefined && ` — ${note}`}
+                  </div>
+                </div>
+              </li>
+            ))}
         </ul>
       </div>
 
-      <Panel label={`Construcción de ${totalLabel}(${variable})`}>
-        <pre className={`${OUTPUT} bg-sunk text-ink`}>{renderConstruction({
-          entries: annotationEntries,
-          codeLines,
-          variable,
-          n,
-          formula: active!.formula,
-          evaluated,
-          totalLabel,
-          unitLabel,
-        })}</pre>
-      </Panel>
+      {!isAbstract && (
+        <Panel label={`Construcción de ${totalLabel}(${variable})`}>
+          <pre className={`${OUTPUT} bg-sunk text-ink`}>
+            {renderConstruction({
+              entries: annotationEntries,
+              codeLines,
+              variable,
+              n,
+              formula: active!.formula!,
+              evaluated,
+              totalLabel,
+              unitLabel,
+            })}
+          </pre>
+        </Panel>
+      )}
     </div>
   );
 }
@@ -339,6 +400,12 @@ interface RailRowProps {
   onToggle: () => void;
   onHover: (line: number | null) => void;
   unitLabel: string;
+  /**
+   * Abstract mode: show `times` verbatim as descriptive text (no algebra
+   * parsing, no numeric substitution). The rail becomes a legend of costs
+   * per line without deriving any total.
+   */
+  isAbstract?: boolean;
 }
 
 function RailRow({
@@ -352,6 +419,7 @@ function RailRow({
   onToggle,
   onHover,
   unitLabel,
+  isAbstract = false,
 }: RailRowProps) {
   const hoverProps = {
     onMouseEnter: () => onHover(lineNum),
@@ -366,12 +434,15 @@ function RailRow({
     // For-header: aggregate the sub-ops' contribution and display it as the
     // headline. The header shows BOTH the literal summed expression
     // (`1 + (n+1) + n`) and its numeric evaluation at the current slider
-    // (`= 22`). Sub-ops appear only when expanded.
-    const totalOe = ann.sub!.reduce(
-      (sum, s) => sum + s.oe * evaluateFormula(s.times, variable, n),
-      0,
-    );
-    const literalSum = ann.sub!.map((s) => termLiteral(s.oe, s.times)).join(' + ');
+    // (`= 22`). Sub-ops appear only when expanded. In abstract mode we drop
+    // the numeric aggregate — `times` is descriptive text, not an algebraic
+    // expression, so nothing to evaluate — and just list the sub-parts.
+    const literalSum = isAbstract
+      ? ann.sub!.map((s) => s.label).join(' + ')
+      : ann.sub!.map((s) => termLiteral(s.oe, s.times)).join(' + ');
+    const totalOe = isAbstract
+      ? null
+      : ann.sub!.reduce((sum, s) => sum + s.oe * evaluateFormula(s.times, variable, n), 0);
     return (
       <>
         <li className={`flex items-start gap-2 px-3 py-1.5 ${activeClass}`} {...hoverProps}>
@@ -386,28 +457,46 @@ function RailRow({
           </button>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2 text-ink">
-              <span className="w-6 shrink-0 text-right text-3xs text-ink-faint">
-                {lineNum}
-              </span>
+              <span className="w-6 shrink-0 text-right text-3xs text-ink-faint">{lineNum}</span>
               <code className="truncate">{lineText.trim()}</code>
             </div>
             <div className="pl-8 text-3xs text-ink-faint">
-              control · {literalSum}{' '}
-              <span className="text-ink-faint">[{variable}={n.toLocaleString('es')}]</span> ={' '}
-              <span className="text-ink">{totalOe.toLocaleString('es')}</span> {unitLabel}
+              control · {literalSum}
+              {totalOe !== null && (
+                <>
+                  {' '}
+                  <span className="text-ink-faint">
+                    [{variable}={n.toLocaleString('es')}]
+                  </span>{' '}
+                  = <span className="text-ink">{totalOe.toLocaleString('es')}</span> {unitLabel}
+                </>
+              )}
             </div>
           </div>
         </li>
         {isExpanded &&
           ann.sub!.map((sub, i) => {
+            if (isAbstract) {
+              return (
+                <li key={`sub-${i}`} className="flex items-start gap-2 bg-sunk/50 px-3 py-1 pl-11">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-2 text-ink-soft">
+                      <span className="rounded bg-accent-soft/50 px-1 text-3xs uppercase tracking-wide text-accent">
+                        {sub.label}
+                      </span>
+                      <span className="text-3xs">
+                        {sub.oe} {unitLabel} · {sub.times}
+                      </span>
+                    </div>
+                  </div>
+                </li>
+              );
+            }
             const times = evaluateFormula(sub.times, variable, n);
             const contrib = sub.oe * times;
             const isConst = isConstantTimes(sub.times);
             return (
-              <li
-                key={`sub-${i}`}
-                className="flex items-start gap-2 bg-sunk/50 px-3 py-1 pl-11"
-              >
+              <li key={`sub-${i}`} className="flex items-start gap-2 bg-sunk/50 px-3 py-1 pl-11">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline gap-2 text-ink-soft">
                     <span className="rounded bg-accent-soft/50 px-1 text-3xs uppercase tracking-wide text-accent">
@@ -416,7 +505,10 @@ function RailRow({
                     <span className="text-3xs">
                       {sub.oe} {unitLabel} · {sub.times}
                       {!isConst && (
-                        <span className="text-ink-faint"> [{variable}={n.toLocaleString('es')}]</span>
+                        <span className="text-ink-faint">
+                          {' '}
+                          [{variable}={n.toLocaleString('es')}]
+                        </span>
                       )}
                       {' = '}
                       <span className="text-ink">{contrib.toLocaleString('es')}</span>
@@ -432,9 +524,25 @@ function RailRow({
 
   // Plain row: OE × times → aporte total. When `times` is not the constant
   // `1` we also show the substitution `[n=N]` so the algebra and the number
-  // sit side by side.
+  // sit side by side. In abstract mode we display `times` verbatim as
+  // descriptive text with no substitution and no total.
   const oe = ann.oe ?? 0;
   const timesStr = ann.times ?? '1';
+  if (isAbstract) {
+    return (
+      <li className={`flex items-start gap-2 px-3 py-1.5 ${activeClass}`} {...hoverProps}>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-baseline gap-2 text-ink">
+            <span className="w-6 shrink-0 text-right text-3xs text-ink-faint">{lineNum}</span>
+            <code className="truncate">{lineText.trim()}</code>
+          </div>
+          <div className="pl-8 text-3xs text-ink-faint">
+            {oe} {unitLabel} · {timesStr}
+          </div>
+        </div>
+      </li>
+    );
+  }
   const times = evaluateFormula(timesStr, variable, n);
   const contrib = oe * times;
   const isConst = isConstantTimes(timesStr);
@@ -448,7 +556,10 @@ function RailRow({
         <div className="pl-8 text-3xs text-ink-faint">
           {oe} {unitLabel} · {timesStr} {isConst ? (timesStr === '1' ? 'vez' : 'veces') : 'veces'}
           {!isConst && (
-            <span className="text-ink-faint"> [{variable}={n.toLocaleString('es')}]</span>
+            <span className="text-ink-faint">
+              {' '}
+              [{variable}={n.toLocaleString('es')}]
+            </span>
           )}
           {' → aporta '}
           <span className="text-ink">{contrib.toLocaleString('es')}</span> {unitLabel}
@@ -512,7 +623,10 @@ function renderConstruction({
     const label = `L${lineNum} ${truncate(codeText, 34)}`;
     if (ann.sub !== undefined && ann.sub.length > 0) {
       const term = ann.sub.map((s) => termLiteral(s.oe, s.times)).join(' + ');
-      const value = ann.sub.reduce((sum, s) => sum + s.oe * evaluateFormula(s.times, variable, n), 0);
+      const value = ann.sub.reduce(
+        (sum, s) => sum + s.oe * evaluateFormula(s.times, variable, n),
+        0,
+      );
       rows.push({ label, term, value });
     } else {
       const oe = ann.oe ?? 0;

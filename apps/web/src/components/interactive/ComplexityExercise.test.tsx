@@ -36,9 +36,7 @@ describe('ComplexityExercise', () => {
   });
 
   it('renders the canned T(n) prompt in Spanish', () => {
-    render(
-      <ComplexityExercise code={SUMA_CICLO_CODE} prompt="T(n)" data={SUMA_CICLO_DATA} />,
-    );
+    render(<ComplexityExercise code={SUMA_CICLO_CODE} prompt="T(n)" data={SUMA_CICLO_DATA} />);
     expect(screen.getByText(/Calcula T\(n\) en OE y clasifica en Θ/)).toBeInTheDocument();
   });
 
@@ -85,27 +83,19 @@ describe('ComplexityExercise', () => {
     // Before reveal: one editor (the code-only counter). After reveal:
     // still one editor (same instance, now with rail + panel). No
     // duplicate CodeStepper mounts.
-    render(
-      <ComplexityExercise code={SUMA_CICLO_CODE} prompt="T(n)" data={SUMA_CICLO_DATA} />,
-    );
+    render(<ComplexityExercise code={SUMA_CICLO_CODE} prompt="T(n)" data={SUMA_CICLO_DATA} />);
 
     // Editor identity check: the CodeStepper renders exactly one wrapper
     // with `data-highlight-lines`. Before and after reveal, this count is 1.
-    expect(
-      document.querySelectorAll('[data-highlight-lines]').length,
-    ).toBe(1);
+    expect(document.querySelectorAll('[data-highlight-lines]').length).toBe(1);
 
     await userEvent.click(screen.getByRole('button', { name: /ver desarrollo/i }));
 
-    expect(
-      document.querySelectorAll('[data-highlight-lines]').length,
-    ).toBe(1);
+    expect(document.querySelectorAll('[data-highlight-lines]').length).toBe(1);
   });
 
   it('hides the ComplexityCounter development until the reveal button is pressed', async () => {
-    render(
-      <ComplexityExercise code={SUMA_CICLO_CODE} prompt="T(n)" data={SUMA_CICLO_DATA} />,
-    );
+    render(<ComplexityExercise code={SUMA_CICLO_CODE} prompt="T(n)" data={SUMA_CICLO_DATA} />);
 
     // The counter's rail is absent before reveal.
     expect(
@@ -127,15 +117,11 @@ describe('ComplexityExercise', () => {
   });
 
   it('toggles the reveal back off when the button is pressed again', async () => {
-    render(
-      <ComplexityExercise code={SUMA_CICLO_CODE} prompt="T(n)" data={SUMA_CICLO_DATA} />,
-    );
+    render(<ComplexityExercise code={SUMA_CICLO_CODE} prompt="T(n)" data={SUMA_CICLO_DATA} />);
 
     const toggle = screen.getByRole('button', { name: /ver desarrollo/i });
     await userEvent.click(toggle);
-    expect(
-      screen.getByRole('list', { name: /desglose de operaciones/i }),
-    ).toBeInTheDocument();
+    expect(screen.getByRole('list', { name: /desglose de operaciones/i })).toBeInTheDocument();
 
     await userEvent.click(screen.getByRole('button', { name: /ocultar desarrollo/i }));
     expect(
@@ -144,9 +130,7 @@ describe('ComplexityExercise', () => {
   });
 
   it('gives the student a textarea to type their answer before revealing', async () => {
-    render(
-      <ComplexityExercise code={SUMA_CICLO_CODE} prompt="T(n)" data={SUMA_CICLO_DATA} />,
-    );
+    render(<ComplexityExercise code={SUMA_CICLO_CODE} prompt="T(n)" data={SUMA_CICLO_DATA} />);
 
     const textarea = screen.getByRole('textbox', { name: /tu respuesta al ejercicio/i });
     await userEvent.type(textarea, 'T(n) = 4n + 4');
