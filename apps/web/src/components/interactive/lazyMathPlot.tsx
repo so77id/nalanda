@@ -2,11 +2,11 @@ import { Suspense, lazy } from 'react';
 
 import type { MathPlotProps } from './MathPlot';
 
-// Same reason as lazyMermaid: Mafs is a math-visualization library that pulls
-// its own React tree, SVG helpers, and KaTeX for labels. Registering the real
-// component here would put the whole package in the entry chunk of every
-// reader of every page. Guarded in src/architecture.test.ts by a per-name
-// case and by the eager-graph walk.
+// Same reason as lazyMermaid: Nivo (@nivo/line) is a chart library that
+// pulls its own React tree and a slice of d3 for scales / shapes /
+// interpolation. Registering the real component here would put the whole
+// package in the entry chunk of every reader of every page. Guarded in
+// src/architecture.test.ts by a per-name case and by the eager-graph walk.
 const Real = lazy(async () => ({ default: (await import('./MathPlot')).MathPlot }));
 
 /** The math-plot widget as documents see it: loaded the first time a page has one. */

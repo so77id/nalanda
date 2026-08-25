@@ -7,7 +7,7 @@ import { MathPlot } from './MathPlot';
 // (uses `use-resize-observer` under the hood — vitest.setup.ts polyfills the
 // ResizeObserver global, but Nivo's Responsive wrapper still bails to a
 // fallback when it cannot measure). We stub the Line to a marker element and
-// assert what the widget HANDS to it — same shape as the Mafs stub before.
+// assert what the widget HANDS to it — that is what jsdom can verify.
 vi.mock('@nivo/line', () => ({
   ResponsiveLine: ({
     data,

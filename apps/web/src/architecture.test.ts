@@ -186,10 +186,10 @@ describe('architecture: the benchmark widget stays out of the entry chunk', () =
 });
 
 describe('architecture: the mathplot widget stays out of the entry chunk', () => {
-  // MathPlot pulls Mafs, a math-visualization library that reaches its own
-  // React tree + KaTeX for labels. Same rationale as the other heavy
-  // components' guards (ADR-0046): a single ALLOWED entry, no per-file
-  // exemptions.
+  // MathPlot pulls Nivo (@nivo/line), a chart library that reaches its own
+  // React tree + a slice of d3 for scales / shapes / interpolation. Same
+  // rationale as the other heavy components' guards (ADR-0046): a single
+  // ALLOWED entry, no per-file exemptions.
   const ALLOWED = ['components/interactive/lazyMathPlot.tsx'];
 
   it('is imported only by its lazy wrapper', () => {

@@ -1,9 +1,9 @@
 # ADR-0046: `<MathPlot>` as the math-visualisation widget for Complejidad
 
 **Status:** Accepted
-**Date:** 2026-08-20
+**Date:** 2026-08-20 (amended 2026-08-25 — library switched from Mafs to Nivo)
 **Decision-makers:** Miguel Rodriguez
-**Covers:** the `<MathPlot>` course-content component · the choice of Mafs as the base library · the `type` prop as the extension surface for future 3D and graph modes · the lazy boundary the component sits behind · what today ships and what is deferred
+**Covers:** the `<MathPlot>` course-content component · the choice of Nivo as the base library · the `type` prop as the extension surface for future 3D and graph modes · the lazy boundary the component sits behind · what today ships and what is deferred
 **Source:** Issue #218, approved in refinement 2026-08-20 as slice S3 of the "Complejidad · De Hilbert al Big O" document — Act 4 draws the orders of growth as a comparison, and the O grande / Ω / Θ definitions carry a reference line drawn as `c · g(N)`.
 
 ## Context
@@ -32,27 +32,36 @@ re-design.
 **1. Adopt `<MathPlot>` as a new course-content component.** Documents write
 `<MathPlot type="curves" functions={[...]} xRange={[...]} />` and the widget
 paints the curves on a shared coordinate system, with an optional legend,
-optional reference lines (annotations), and Mafs's built-in hover
+optional reference lines (annotations), and Nivo's built-in tooltip / hover
 interaction on each curve.
 
-**2. Base library: Mafs.** Small (~30 KB), React-first, KaTeX for labels,
-math-visualisation-first API (`Plot.OfX({ y: fn })`, `Coordinates.Cartesian`,
-`Line.Segment`, `Text`), theme-aware. Rejected alternatives at refinement:
+**2. Base library: Nivo (`@nivo/line`).** React-first line-chart component,
+theme-friendly, exposes both a `<ResponsiveLine>` (auto-sized to the parent)
+and a fixed-size `<Line>` — the fixed-size variant is what the widget uses in
+presentation mode to sidestep Nivo's `ResizeObserver`-based sizing under CSS
+`transform: scale(...)`, which the deck applies to fit each slide (see
+`feedback_nivo_transform_double_scale`). Rejected alternatives at refinement:
 
-- **Nivo** — larger ecosystem (includes `@nivo/network` for future graphs),
-  but built for dashboards over data points; plotting a continuous function
-  requires sampling and reads foreign to math authors.
+- **Mafs** — Small (~30 KB), React-first, KaTeX for labels; the original
+  choice at refinement. Deferred once the widget landed inside `<Slide>` and
+  the class's real requirement — plotting sampled `y = f(x)` alongside
+  reference lines, both under a scaled coordinate system — turned out to be
+  a better fit for Nivo's data-points model. Mafs's math-first API
+  (`Plot.OfX({ y: fn })`, `Coordinates.Cartesian`) is elegant but does not
+  hand us the "sample the function, then let the chart do its axis/grid/
+  legend" workflow the deck exercises repeatedly.
 - **Plotly.js** — universal (2D + 3D + geo + network), but ~3 MB gzipped and
   every render pulls the full stack. The lazy load mitigates a lot, but the
   chunk size is a class of its own.
 - **A bespoke SVG renderer** — Full control, zero dependency footprint, but
   every curve becomes a hand-crafted path and every future extension is a
-  new implementation. The tax on future authoring is larger than Mafs's
-  shipped size.
+  new implementation. The tax on future authoring is larger than a shipped
+  chart library's size.
 
-Miguel's decision at refinement: Mafs for curves now; when 3D or graphs
-land, evaluate the best library for that case (Three.js for 3D, Cytoscape.js
-or React Flow for graphs) and wrap it behind the same `type` prop.
+Miguel's decision at refinement + amendment: Nivo for curves now; when 3D or
+graphs land, evaluate the best library for that case (Three.js for 3D, Nivo's
+own `@nivo/network` or Cytoscape.js / React Flow for graphs) and wrap it
+behind the same `type` prop.
 
 **3. `type` is a prop, not a component name.** `type="curves"` today.
 `type="3d"` and `type="graph"` are reserved for future extensions and reject
@@ -64,46 +73,41 @@ placement, theme). One component with three modes names it once.
 **4. Lazy-loaded, no per-document opt-in.** Registered in
 `app/mdxComponents.ts` behind `Suspense` as `MathPlot: LazyMathPlot`, same
 shape as `LazyMermaid`. Every reader of every document pays for what the
-MDX map itself contains and nothing more — Mafs only enters the page once
+MDX map itself contains and nothing more — Nivo only enters the page once
 `<MathPlot>` is actually mounted. Guarded in
 `apps/web/src/architecture.test.ts` by a per-name case (the boundary the
 lazy wrapper protects) and by the eager-graph walk (the invariant nothing
 new can regress).
 
 **5. What the widget shows today.** Curves as `y = f(x)`, one or many
-overlaid, on a linear coordinate system. Optional title, legend (auto-on for
-≥2 functions), and reference lines (vertical or horizontal) with optional
-labels. Auto y-range fits to the plotted values with a small padding;
-explicit `yRange={[min, max]}` overrides. Colours cycle through a
-theme-safe palette; the author picks a named colour with `color: "red"`
-if a specific curve needs a specific hue.
+overlaid, on a linear (or log) coordinate system. Optional title, legend
+(auto-on for ≥2 functions), and reference lines (vertical or horizontal)
+with optional labels. Fixed `yRange={[min, max]}` clips samples so lines
+never overflow the axis frame. Colours cycle through a theme-safe palette;
+the author picks a named colour with `color: "red"` if a specific curve
+needs a specific hue.
 
-**6. What is deferred.** Three items, each documented here so the future
+**6. What is deferred.** Two items, each documented here so the future
 maintainer does not re-derive them:
 
 - **`type="3d"` and `type="graph"`.** Reserved in the prop surface;
   future issues filed alongside #218.
-- **`scale="log"` and `scale="loglog"`.** The prop exists so a future
-  widget can accept it without a prop rename, but only `"linear"` renders
-  today. Log scales require sampling in log space (or a Mafs coordinate
-  transform); worth a slice of its own when the class needs it.
 - **CodeMirror-integrated legend.** Not on the roadmap; the current
-  legend is a plain `<ul>` beneath the plot, which is enough for what
-  the class draws.
+  legend is Nivo's native one, which is enough for what the class draws.
 
 ## Alternatives considered
 
-**Bespoke SVG per plot** — Miguel rejected at refinement: does not scale
-to the number of plots the class needs, and reinvents Mafs's math-first
-API for every future user.
+**Mafs** — Original choice at refinement, replaced during implementation
+(see §Decision item 2). The API was elegant for math authors, but the
+practical demands of the class — plotting inside a CSS-transformed slide,
+overlaying reference lines with `N₀` markers, mixing 3–8 curves in the same
+frame — landed more cleanly on Nivo's charting primitives.
+
+**Bespoke SVG per plot** — Rejected: does not scale to the number of plots
+the class needs, and reinvents a chart-library API for every future user.
 
 **Plotly** — Rejected: 3 MB gzipped is more than the whole current site
 delta, and the lazy load only masks it.
-
-**Nivo** — Rejected: better ecosystem for the future graph mode, but
-worse fit for the today job (function plotting). When graph mode lands,
-Nivo's `@nivo/network` is a candidate to evaluate against Cytoscape.js
-and React Flow.
 
 **Three components rather than a `type` prop** — Rejected: three names in
 the catalog, three sets of container chrome to keep in sync, three
@@ -111,22 +115,31 @@ consumers to migrate if the site's tokens move.
 
 ## Consequences
 
-**New dependency: `mafs` in `package.json`.** Miguel approved at
-refinement (issue #218 body §Widgets); this ADR formalises the decision.
-Future math renderers do not need another ADR — they use the surface
-this one adopts.
+**New dependencies: `@nivo/core` and `@nivo/line` in `package.json`.**
+Miguel approved at refinement (issue #218 body §Widgets) and at the
+amendment (2026-08-25). Future math renderers do not need another ADR —
+they use the surface this one adopts.
 
 **Another lazy boundary and another architecture-test case.** The
 per-name case in `apps/web/src/architecture.test.ts` grows by one entry
 (`components/interactive/mathplot`), and the eager-graph walk catches any
-static import that would put Mafs back in the entry chunk.
+static import that would put Nivo back in the entry chunk.
 
-**A new class the suite cannot fully verify.** Mafs renders SVG with a
-coordinate transform pipeline jsdom cannot lay out. The unit test pins
-what the component DECLARES (the curves it hands the library, the
-annotations, the legend visibility, the auto y-range) with the library
-replaced by a stub. The paint itself is confirmed in a real browser at
-S10.
+**A CSS-transform hazard the widget hides from the author.** Nivo's
+`<ResponsiveLine>` measures its container via `ResizeObserver`, which
+reports *post-transform* dimensions — inside a slide that the deck scales
+to fit the viewport, the plot ends up half-sized. The widget picks
+`<Line width={900}>` (fixed size) in presentation mode and
+`<ResponsiveLine>` in book mode, so the author writes one component and
+gets the right paint in both. Recorded in
+`feedback_nivo_transform_double_scale`.
+
+**A new class the suite cannot fully verify.** Nivo renders SVG through
+its own layout pipeline that jsdom cannot exercise. The unit test pins
+what the component DECLARES (the sampled points it hands the library, the
+annotations, the legend visibility, the y-clip) with the library replaced
+by a stub. The paint itself is confirmed in a real browser during manual
+verification.
 
 **A reserved prop surface that fails gracefully.** `type="3d"` and
 `type="graph"` today render an authoring error. When they land, the
