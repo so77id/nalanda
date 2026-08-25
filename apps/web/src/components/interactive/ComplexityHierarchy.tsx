@@ -10,6 +10,11 @@ import { useResolvedTheme } from '../../lib/useResolvedTheme';
 export interface ComplexityClass {
   /** Notation of the class, e.g. `"O(1)"`, `"O(N lg N)"`, `"O(2ᴺ)"`. */
   name: string;
+  /**
+   * Human-readable label for the class (e.g. `"Constante"`, `"Cuadrático"`).
+   * Optional — when omitted, only the notation shows in the lateral list.
+   */
+  description?: string;
   /** Short natural-language descriptions of algorithms in this class. */
   examples: string[];
 }
@@ -28,38 +33,61 @@ export interface ComplexityHierarchyProps {
   title?: string;
 }
 
-/** The seven classes named in the course's textual hierarchy. */
+/**
+ * The nine canonical classes of the course. Each entry carries the notation
+ * (`name`), its familiar Spanish label (`description`), and a list of
+ * `examples` that starts with the algorithmic pattern that produces this
+ * order and then lists concrete algorithms fitting the pattern.
+ */
 const DEFAULT_CLASSES: ComplexityClass[] = [
   {
     name: 'O(1)',
-    examples: ['acceso a array', 'suma con fórmula cerrada', 'aritmética básica'],
+    description: 'Constante',
+    examples: ['no depende de N', 'sumaFormula', 'acceso a array', 'aritmética básica'],
   },
   {
     name: 'O(lg N)',
-    examples: ['búsqueda binaria', 'operaciones en árbol balanceado'],
+    description: 'Logarítmico',
+    examples: [
+      'división repetida',
+      'búsqueda binaria',
+      'Euclides',
+      'operaciones en árbol balanceado',
+    ],
+  },
+  {
+    name: 'O(√N)',
+    description: 'Raíz',
+    examples: ['recorrer hasta la raíz de N', 'test de primalidad ingenuo'],
   },
   {
     name: 'O(N)',
-    examples: ['recorrido lineal', 'findInArray peor caso', 'sumaCiclo'],
+    description: 'Lineal',
+    examples: ['un ciclo simple', 'sumaCiclo', 'recorrido lineal', 'findInArray peor caso'],
   },
   {
     name: 'O(N lg N)',
-    examples: ['mergesort', 'quicksort promedio', 'ordenamientos óptimos por comparación'],
+    description: 'Linearítmico',
+    examples: ['ordenamientos óptimos por comparación', 'mergesort', 'quicksort promedio'],
   },
   {
     name: 'O(N²)',
-    examples: ['bubble sort', 'insertion sort', 'sumaDobleCiclo'],
+    description: 'Cuadrático',
+    examples: ['dos ciclos anidados', 'sumaDobleCiclo', 'bubble sort', 'insertion sort'],
   },
   {
     name: 'O(N³)',
-    examples: ['multiplicación de matrices ingenua', 'Floyd-Warshall'],
+    description: 'Cúbico',
+    examples: ['tres ciclos anidados', 'multiplicación de matrices ingenua', 'Floyd-Warshall'],
   },
   {
     name: 'O(2ᴺ)',
+    description: 'Exponencial',
     examples: ['fuerza bruta sobre subconjuntos', 'Fibonacci recursivo'],
   },
   {
     name: 'O(N!)',
+    description: 'Factorial',
     examples: ['fuerza bruta sobre permutaciones', 'TSP naïve'],
   },
 ];
@@ -131,8 +159,7 @@ export function ComplexityHierarchy({
   //   [top + 2·r_{i-1}, top + 2·r_i], midpoint = top + r_{i-1} + r_i.
   //   With STEP fixed, the crescent height is 2·STEP — enough for a
   //   13px label with padding on both strokes.
-  const labelY = (i: number) =>
-    i === 0 ? cy(0) + 4 : TOP_MARGIN + r(i - 1) + r(i) + 4;
+  const labelY = (i: number) => (i === 0 ? cy(0) + 4 : TOP_MARGIN + r(i - 1) + r(i) + 4);
 
   return (
     <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
@@ -225,6 +252,9 @@ export function ComplexityHierarchy({
                     aria-hidden="true"
                   />
                   <code className="font-mono text-sm text-ink">{cls.name}</code>
+                  {cls.description !== undefined && (
+                    <span className="text-xs text-ink-soft">— {cls.description}</span>
+                  )}
                 </div>
                 <ul className="mt-1 flex flex-col gap-y-0.5 pl-5 text-xs text-ink-soft">
                   {cls.examples.map((ex) => (

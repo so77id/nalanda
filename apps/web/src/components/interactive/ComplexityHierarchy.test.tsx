@@ -9,17 +9,17 @@ describe('ComplexityHierarchy', () => {
     expect(screen.getByText(/no puede estar vacío/i)).toBeInTheDocument();
   });
 
-  it('renders the default eight canonical classes when `classes` is omitted', () => {
+  it('renders the default nine canonical classes when `classes` is omitted', () => {
     render(<ComplexityHierarchy />);
     const list = screen.getByRole('list', { name: /ejemplos de algoritmos/i });
     const rows = within(list).getAllByRole('listitem');
-    // 8 canonical classes = 8 top-level rows. Each row contains its own
+    // 9 canonical classes = 9 top-level rows. Each row contains its own
     // nested <ul> of examples, so total listitem count is higher — filter.
     const topRows = rows.filter((li) => li.parentElement === list);
-    expect(topRows).toHaveLength(8);
+    expect(topRows).toHaveLength(9);
     // Content sanity: first row is O(1), last is O(N!).
     expect(topRows[0]).toHaveTextContent('O(1)');
-    expect(topRows[7]).toHaveTextContent('O(N!)');
+    expect(topRows[8]).toHaveTextContent('O(N!)');
   });
 
   it('renders one ring per class, ordered inner→outer (cheapest at centre)', () => {
