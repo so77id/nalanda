@@ -2,8 +2,9 @@
 
 **Status:** Accepted
 **Date:** 2026-08-20
+**Amended:** 2026-08-25 — added `mode="abstract"` + `skipped` field, `formula`/`evaluate` now optional per-case; see §Amendment.
 **Decision-makers:** Miguel Rodriguez
-**Covers:** the `<ComplexityCounter>` course-content component · the declarative breakdown authoring surface · the three modes (base / cases / space) · the choice not to parse the code · the choice not to integrate a CodeMirror gutter for now
+**Covers:** the `<ComplexityCounter>` course-content component · the declarative breakdown authoring surface · the four modes (base / cases / space / abstract) · the choice not to parse the code · the choice not to integrate a CodeMirror gutter for now
 **Source:** Issue #218, approved in refinement 2026-08-20 as slice S2 of the "Complejidad · De Hilbert al Big O" document — Act 4 opens with counting operations in the three implementations of `suma(N)`, and Act 5 uses the same widget in `cases` mode over `FindInArray`.
 
 ## Context
@@ -151,3 +152,43 @@ a follow-up issue in the Future work of #218.
 
 **No package.json change.** The widget uses `lucide-react` (already
 present) for the chevrons, and standard React for state and layout.
+
+## Amendment — 2026-08-25 (`mode="abstract"` + `skipped`)
+
+Chapter 11 (`Complejidad Temporal I`) needed to introduce a piece of code
+ONCE, in abstract terms, before the class dives into each specific case.
+The original three-mode set (§Decision item 3) could not express that
+without lying: `mode="base"` requires a `formula` and an `evaluate`, so the
+author had to commit to one derivation before they had introduced the
+concept of "case" to the reader.
+
+**Fourth mode: `mode="abstract"`.** Code + per-line annotations, no
+slider, no formula, no derivation panel. `times` is treated as descriptive
+text ("por iteración", "1 vez") rather than an algebraic expression the
+widget evaluates. Used to introduce the code before any specific case
+lands; each individual case then re-mounts the widget in its own mode.
+
+**New field: `skipped?: Array<{ line: number; note?: string }>` on
+`ComplexityCase`.** In `abstract` mode (used per individual case's
+slide), the widget dims the listed lines in the code editor and renders
+each entry as a dedicated rail row ("no se ejecuta — <note>"). The reader
+sees at a glance which branches don't run for THIS case, without prose
+narration. Implemented via a companion `dimmedLines?: number[]` prop on
+`<CodeStepper>`, running through a second parallel CodeMirror
+`StateField` so active-line and dimmed-line decorations coexist.
+
+**Relaxation: `formula` and `evaluate` are now optional on
+`ComplexityCase`.** Required for `'base' | 'cases' | 'space'` (the
+original contract — the anti-drift pair of §4 stands for those modes);
+ignored in `'abstract'`. The widget's validation gate makes the mode
+requirement explicit — an `abstract` case with no formula is authored
+correctly; a `base` case missing one authoring-errors.
+
+**Alternatives considered at amendment.** A boolean flag on `mode="base"`
+(`showAnalysis={false}`) was rejected because it would have doubled the
+prop surface (an abstract-shaped case still needs `annotations`, so the
+`data` shape shift was unavoidable, and the flag would have hidden that
+in a boolean). A separate `<AbstractComplexity>` component was rejected
+for the same reason as the original three-modes decision: shared slider,
+shared display, shared LaTeX rendering — one component with four modes
+keeps the surface small.

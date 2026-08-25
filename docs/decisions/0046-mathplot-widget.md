@@ -1,7 +1,8 @@
 # ADR-0046: `<MathPlot>` as the math-visualisation widget for Complejidad
 
 **Status:** Accepted
-**Date:** 2026-08-20 (amended 2026-08-25 — library switched from Mafs to Nivo)
+**Date:** 2026-08-20
+**Amended:** 2026-08-25 — library switched from Mafs to Nivo; embedded-mode fixed-size `<Line>` for `<SideBySide>` documented as a Consequence; y-clip behaviour for fixed `yRange` documented.
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the `<MathPlot>` course-content component · the choice of Nivo as the base library · the `type` prop as the extension surface for future 3D and graph modes · the lazy boundary the component sits behind · what today ships and what is deferred
 **Source:** Issue #218, approved in refinement 2026-08-20 as slice S3 of the "Complejidad · De Hilbert al Big O" document — Act 4 draws the orders of growth as a comparison, and the O grande / Ω / Θ definitions carry a reference line drawn as `c · g(N)`.
@@ -133,6 +134,23 @@ to fit the viewport, the plot ends up half-sized. The widget picks
 `<ResponsiveLine>` in book mode, so the author writes one component and
 gets the right paint in both. Recorded in
 `feedback_nivo_transform_double_scale`.
+
+**Embedded mode for `<SideBySide>`.** When the plot mounts inside a
+`<SideBySide>` column (~440 px wide), the default 900-px fixed-size
+`<Line>` overflows the column and gets clipped by its `overflow-hidden`.
+The widget reads `useEmbedded()` from the ancestor context (`#85`,
+originally introduced for `CodeFence`); when true, it uses a narrower
+`<Line width={440}>`, moves the legend to the BOTTOM of the plot, and
+adjusts margin/spacing so the plot area itself doesn't collapse to a
+sliver. Documenting so a future maintainer of `<SideBySide>` knows
+`<MathPlot>` is a consumer of that context.
+
+**y-clip when `yRange` is a fixed interval.** Nivo doesn't clip line
+paths to the axis area, so a curve that shoots past `yMax` used to draw
+outside the plot frame. The widget filters samples outside `[yMin, yMax]`
+(and outside the log-space interval when `scale="log"`) so the line stops
+cleanly at the boundary. Author sees a plot that respects its own frame
+without any per-plot workaround.
 
 **A new class the suite cannot fully verify.** Nivo renders SVG through
 its own layout pipeline that jsdom cannot exercise. The unit test pins

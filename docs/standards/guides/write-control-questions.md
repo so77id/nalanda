@@ -247,6 +247,41 @@ Claude drafts, the professor edits. A draft can satisfy every rule on this page
 and still be wrong about what the class emphasised, and the correct answer is a
 teaching judgement before it is a fact. Nothing here changes that.
 
+## Post-answer explanation
+
+`<Question>` accepts a nested `<Explanation>` block after the alternatives.
+The reader sees it only AFTER answering — same pacing rule as the verdict, so
+the note cannot spoil the guess. The source parser drops the block, so the
+note never travels to `questions.json` and the printed sheet stays unaware:
+
+```mdx
+<Question id="for-condition-count">
+
+En un ciclo `for (int i = 0; i < n; i++)` que hace `n` iteraciones
+completas, ¿cuántas veces se evalúa la condición?
+
+- [ ] n − 1
+- [ ] n
+- [x] n + 1
+- [ ] 2n
+
+<Explanation>
+La condición se evalúa una vez por cada iteración que sí entra al ciclo
+(n veces) más una vez extra al final para determinar que ya no se entra
+— total n + 1.
+</Explanation>
+
+</Question>
+```
+
+Use it when the WHY of the answer is worth teaching — a distractor worth
+naming, a subtle rule, a reference back to how the concept was framed in
+class. Skip it when the correct alternative is obvious once read: an
+explanation that only restates the winning option is noise. The block is
+page-only, so it can hold any MDX the author needs (formulas, code, links)
+without adding weight to the control artifact. Catalog entry:
+[`/catalog/c/Explanation`](../../../apps/web/src/components/interactive/Explanation.catalog.tsx).
+
 ## Checklist
 
 - [ ] `questions:` declared in the frontmatter (`per-section`, `pool` or `none`), and flipped in the SAME commit that supplies the questions and the exemptions (`add-a-course-document.md` step 2).
@@ -254,6 +289,7 @@ teaching judgement before it is a fact. Nothing here changes that.
 - [ ] Every section either carries a question or appears in `NO_QUESTION` with its reason — the exemptions are part of the work, not a gate change (`repository-structure.md` §`content/`).
 - [ ] Every listing inside a question is tagged with its language (`add-a-course-document.md` §7b) — an untagged fence ships no listing at all.
 - [ ] Anchored to the section it is answerable from, or unanchored on purpose.
+- [ ] `<Explanation>` attached when a distractor is worth naming — appears only after the reader answers, never reaches the printed sheet.
 - [ ] Read each question against its own section, alone, and answered it.
 - [ ] Each distractor is something a real student might believe.
 - [ ] `npm run test` green — the mechanical rules and the coverage gate.

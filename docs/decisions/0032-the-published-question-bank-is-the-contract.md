@@ -2,6 +2,7 @@
 
 **Status:** Accepted
 **Date:** 2026-08-16
+**Amended:** 2026-08-25 — page-only annotations (`<Explanation>`) are permitted authored content that deliberately does NOT enter the bank; see §Amendment.
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the shape of `questions.json` as the `apps/web` → `apps/server`
 contract · the join key from a printed sheet to a grade · why one authored
@@ -120,3 +121,24 @@ requirement the id exists for.
   govern one lever and neither may be reversed alone.
 - The section spine the artifact carries is produced from the SOURCE, which
   ADR-0021 had rejected. See that ADR's amendment.
+
+## Amendment — 2026-08-25 (page-only annotations)
+
+`<Question>` may carry a nested `<Explanation>` block (a pedagogical note
+attached to the answer). The block is authored the same way as the rest of
+the question, but it is **deliberately dropped by the source reader** and
+therefore never enters `questions.json` — the bank stays the exact
+stems + alternatives + correct-set the contract promises. The rendered-tree
+reader (`lib/questions.ts`) picks the note up separately and hands it to
+`<Question>`, which paints it in a subtle panel below the verdict, only
+after the reader has answered.
+
+The asymmetry is by design: the printed sheet and the entrance-controls
+generator must not see the explanation (a note that "spoils" the answer on
+the printed page defeats the point of a control), while the study version
+of the material benefits from teaching the WHY of the answer as the reader
+crosses each question. "Two readers, one authored source, one artifact
+deliberately unaware" is now a first-class pattern of the question
+subsystem; any future annotator that follows the same shape (declared via a
+`questionRole` value, dropped by the source parser, unwrapped by the
+rendered-tree parser) inherits this ADR without needing its own.

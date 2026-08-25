@@ -35,6 +35,9 @@ content/courses/sample-course/
 ├── 08-referencias-null-igualdad.mdx  # presentation: explicit — uses <PredictOutput> + <StepShow>/<MemoryVisual> + <Exercise> + <CodeEditor>
 ├── 09-arrays-y-funciones.mdx  # presentation: explicit — uses <RecursionTree> + <Exercise> + <CodeEditor>
 ├── 10-objetos.mdx             # presentation: explicit — uses <Mermaid> (the only worked example) + <PredictOutput> + <Exercise> + <CodeEditor>
+├── 11-complejidad-de-hilbert-al-big-o.mdx  # presentation: explicit — <ComplexityCounter> (all four modes incl. "abstract") + <ComplexityExercise> + <ComplexityHierarchy> + <MathPlot> + <Benchmark> + <VideoEmbed> + <Figure float=…> + <Question> with <Explanation>
+├── eniac.jpg, gödel.jpg, hilbert.jpg, turing.jpg, turing-machine.gif, von-neumann.gif, von-neumann-architecture.svg   # assets for chapter 11
+├── 13-complejidad-espacial.mdx  # presentation: explicit — <ComplexityCounter mode="space"> + <ComplexityExercise mode="space"|"cases"> + <Question> with <Explanation>
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -926,6 +929,36 @@ is not scaled at all.
    control covers a range of the reading order, so questions in an unlisted
    document enter no control — every gate stays green and the work is
    unreachable.
+
+   **Optionally attach a post-answer explanation with `<Explanation>`.** Nested
+   inside the `<Question>`, after the alternatives:
+
+   ```mdx
+   <Question id="por-que-oe-no-segundos">
+
+   ¿Por qué medimos la complejidad en operaciones elementales (OE) y no en
+   segundos?
+
+   - [ ] Porque el cronómetro es impreciso.
+   - [x] Porque los segundos dependen de la máquina y el compilador; las OE
+     dependen solo del algoritmo.
+   - [ ] Porque los procesadores optimizan las constantes.
+   - [ ] Porque las OE se convierten a segundos por la frecuencia del CPU.
+
+   <Explanation>
+   El cronómetro mide el entorno, no el algoritmo. Contar OE aísla la propiedad
+   que queremos comparar entre algoritmos.
+   </Explanation>
+
+   </Question>
+   ```
+
+   The reader sees the explanation only AFTER answering (same pacing as the
+   verdict). The source parser drops the block, so the note **never** travels
+   to `questions.json` — the printed control and the entrance-controls sheet
+   stay unaware. Use it when the WHY of the answer is worth teaching (a
+   distractor worth naming, a subtle rule); skip it when "the correct
+   alternative is obvious once you read it".
 
    **Read [`write-control-questions.md`](write-control-questions.md) before
    drafting any.** This step is how to type them; that is whether they are worth

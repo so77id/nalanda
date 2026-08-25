@@ -40,13 +40,13 @@ export const mathPlotCatalogEntry: CatalogEntry = {
       name: 'yRange',
       type: '[number, number] | "auto"',
       description:
-        'Visible y range as [min, max], or "auto" (default) to fit to the plotted values. Set explicitly when the auto-fit chops the top off an exponential.',
+        'Visible y range as [min, max], or "auto" (default) to fit to the plotted values. Set explicitly when the auto-fit chops the top off an exponential. When a fixed interval is given, samples whose y falls OUTSIDE it are dropped — the curve stops cleanly at the frame instead of overflowing into the surrounding layout.',
     },
     {
       name: 'scale',
       type: '"linear" | "log" | "loglog"',
       description:
-        'Scale mode. Only "linear" validates today; "log" and "loglog" are future extensions (ADR-0046). Defaults to "linear".',
+        'Y-axis scale mode. Defaults to "linear". "log" applies log10 to each function\'s output before sampling and marks the Y axis with decade labels (1, 10, 100, …) — the knob that makes a growth-orders comparison legible instead of squashing every sub-exponential curve against the x axis. "loglog" is reserved for future work.',
     },
     {
       name: 'showLegend',
@@ -65,6 +65,22 @@ export const mathPlotCatalogEntry: CatalogEntry = {
       type: 'number',
       description:
         'Sampling resolution for the auto y-range fit. Higher = smoother auto-fit, slower. Defaults to 200.',
+    },
+    {
+      name: 'height',
+      type: 'number',
+      description:
+        'Plot canvas height in pixels. Defaults to 320. Course slides typically bump this to 420–520 so the plot reads at a lecture-room distance.',
+    },
+    {
+      name: 'xLabel',
+      type: 'string',
+      description: 'X-axis label. Defaults to "N".',
+    },
+    {
+      name: 'yLabel',
+      type: 'string',
+      description: 'Y-axis label. Defaults to "costo".',
     },
   ],
   examples: [

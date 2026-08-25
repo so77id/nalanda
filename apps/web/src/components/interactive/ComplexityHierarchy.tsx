@@ -24,9 +24,9 @@ export interface ComplexityHierarchyProps {
    * Classes in "cheap-to-expensive" order — the first class is the
    * innermost / topmost circle (smallest set: O(1) — few algorithms
    * are constant); the last is the outermost / bottommost circle
-   * (largest set: O(2ᴺ) — contains every polynomial and log class).
-   * Defaults to the seven canonical classes covered in the current
-   * course.
+   * (largest set: O(N!) — contains every polynomial, log, and
+   * exponential class). Defaults to the nine canonical classes
+   * covered in the current course.
    */
   classes?: ComplexityClass[];
   /** Optional heading rendered above the widget. */
