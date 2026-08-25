@@ -99,8 +99,8 @@ export function VideoEmbed({ src, title, height = DEFAULT_HEIGHT }: VideoEmbedPr
   if (title === undefined || title === '') {
     return (
       <AuthoringError component="VideoEmbed">
-        necesita un title que diga qué video es, en español: es lo único que un lector de
-        pantalla anuncia de un marco.
+        necesita un title que diga qué video es, en español: es lo único que un lector de pantalla
+        anuncia de un marco.
       </AuthoringError>
     );
   }
@@ -109,8 +109,8 @@ export function VideoEmbed({ src, title, height = DEFAULT_HEIGHT }: VideoEmbedPr
   if (id === null) {
     return (
       <AuthoringError component="VideoEmbed">
-        el src debe ser un enlace de YouTube (youtube.com/watch?v=…,
-        youtu.be/…, o /embed/…). Este no sirve: {src}
+        el src debe ser un enlace de YouTube (youtube.com/watch?v=…, youtu.be/…, o /embed/…). Este
+        no sirve: {src}
       </AuthoringError>
     );
   }

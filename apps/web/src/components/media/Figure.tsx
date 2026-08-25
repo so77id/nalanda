@@ -103,9 +103,7 @@ export function Figure({ src, alt, caption, float, width = 'sm' }: FigureProps) 
     // `not-prose` because a figure is a block, not running text: without it the
     // reading measure narrows it to 39rem while the code beside it keeps the
     // full column (ADR-0022).
-    <figure
-      className={`not-prose my-6 flex flex-col items-center gap-2 ${floatClass}`.trim()}
-    >
+    <figure className={`not-prose my-6 flex flex-col items-center gap-2 ${floatClass}`.trim()}>
       <img src={url} alt={alt} className="max-w-full" />
       {caption === undefined ? null : (
         <figcaption className="text-center text-sm text-ink-faint">{caption}</figcaption>

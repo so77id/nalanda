@@ -82,8 +82,7 @@ export function SideBySide({ left, right, children, direction = 'horizontal' }: 
 
   // `horizontal` keeps the previous responsive behaviour (two columns on
   // desktop, stacked on narrow). `vertical` stacks unconditionally.
-  const gridClass =
-    direction === 'vertical' ? 'grid-cols-1' : 'md:grid-cols-2';
+  const gridClass = direction === 'vertical' ? 'grid-cols-1' : 'md:grid-cols-2';
 
   return (
     <div className={`not-prose my-6 grid gap-3 ${gridClass}`} data-direction={direction}>
