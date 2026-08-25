@@ -1,16 +1,19 @@
 ---
 id: complejidad-de-hilbert-al-big-o
-title: Complejidad · De Hilbert al Big O
+title: Complejidad Temporal I · De Hilbert al Big O
 presentation: explicit
-questions: none
+questions: pool
 ---
 
-# Complejidad · De Hilbert al Big O
+# Complejidad Temporal I · De Hilbert al Big O
 
-Primera clase de la trilogía **Complejidad**. Aprender a comparar algoritmos y decidir cuál
-usar, siguiendo la evolución histórica que va desde una crisis matemática de comienzos
-del siglo XX hasta la notación asintótica que usamos hoy. La historia no es adorno: es el
-hilo que hace que las herramientas técnicas tengan sentido.
+Capítulo 1 de la unidad **Complejidad**. Vamos a aprender a comparar
+algoritmos por su **costo temporal** — cuánto tardan cuando la entrada crece —
+en el caso más simple: algoritmos **iterativos**, con `for` y `while` sin
+recursión. Para llegar ahí seguimos la evolución histórica de la idea, desde
+la crisis matemática de comienzos del siglo XX hasta la notación asintótica
+que hoy usamos todos los días. La historia no es adorno: es lo que le da
+sentido a las herramientas técnicas.
 
 <SectionBreak />
 
@@ -733,65 +736,47 @@ $$T(n)$$**, sino su **orden de crecimiento**.
 
 <SectionBreak />
 
-<Slide title="La generación que dio nombre a lo que hacemos (décadas de 1960 y 1970)">
-- Para los años 60, la ciencia de la computación ya está establecida (departamentos
-  universitarios, revistas, congresos). Ahora falta el **vocabulario** para hablar de
-  eficiencia con precisión.
-- **Juris Hartmanis y Richard Stearns** (1965), paper *["On the Computational Complexity of
-  Algorithms"](https://www.ams.org/journals/tran/1965-117-05/S0002-9947-1965-0170805-7/)* — introducen formalmente las **clases de complejidad temporal**. Ganan el
-  premio Turing por esto.
-- **Donald Knuth** (1976), paper *["Big Omicron and Big Omega and Big Theta"](https://dl.acm.org/doi/10.1145/1008328.1008329)* — canoniza el
-  uso de las notaciones **O, Ω, Θ** para complejidad de algoritmos. El vocabulario que
-  usamos hoy es literalmente el que Knuth propuso.
-- Nacieron **30 años después** del [paper de Turing](https://www.cs.virginia.edu/~robins/Turing_Paper_1936.pdf), y fueron los que le dieron a la
-  disciplina las palabras con las que se habla de sí misma.
-
-Ahora formalizamos ese vocabulario — **O, Ω, Θ** — el que canonizó Knuth y que se sigue
-usando 50 años después.
-</Slide>
-
 <Slide title="Análisis asintótico">
-En el twist descubrimos que **el número exacto de OE no importa** — lo que importa es
-el **orden de crecimiento** de $$T(n)$$ cuando $$n$$ crece.
+El twist mostró que **el número exacto de OE cambia con el contador** — pero el
+**orden de crecimiento** de $$T(n)$$ no. La técnica que exprime esa observación
+tiene nombre propio: **análisis asintótico**.
 
-Esa observación es una técnica con nombre propio: **análisis asintótico**. Estudia
-cómo se comporta una función cuando su entrada tiende a infinito, ignorando lo que
-pasa con entradas chicas y descartando constantes y términos menores.
+"Asintótico" viene de **asíntota** — la recta a la que una curva se acerca
+indefinidamente cuando su entrada crece. La técnica estudia exactamente eso:
+cómo se comporta una función a lo lejos, cuando $$n \to \infty$$, y no cuando
+$$n$$ es chico.
 
-Tres razones por las que la técnica funciona:
+Para hacerlo se **descartan dos cosas** de la fórmula:
 
-- **A $$n$$ grande, el término dominante aplasta todo lo demás.** En $$3n^2 + 100n +
-  500$$, el $$n^2$$ termina siendo mucho más grande que el resto ($$n = 1000$$ →
-  $$3\,000\,000$$ contra $$100\,500$$). Cualquier factor constante se vuelve
-  irrelevante.
-- **Las constantes dependen de cómo cuentes, no del algoritmo.** El twist mostró que
-  dos personas contando las mismas OE con reglas ligeramente distintas obtienen
-  fórmulas con razón constante — el algoritmo no cambia.
-- **Las diferencias importantes entre algoritmos aparecen a $$n$$ grande.** A $$n$$
-  chico cualquier algoritmo alcanza; el punto es que dos algoritmos con órdenes
-  distintos divergen dramáticamente al escalar.
+- las **constantes multiplicativas** (el $$3$$ de $$3n^2$$),
+- y los **términos menores** (el $$5n + 12$$ de $$3n^2 + 5n + 12$$).
 
-Para hablar con precisión de "orden de crecimiento" se inventaron **tres notaciones**:
-$$O$$ (cota superior), $$\Omega$$ (cota inferior) y $$\Theta$$ (cota ajustada). Las
-formalizamos en los próximos slides.
+Dos amputaciones, y no son gratis. Vamos a verificar que cada una está justificada.
 </Slide>
 
-<Slide title="¿Por qué solo importa el orden?">
-En $$T(n)$$ el término dominante manda. **Las constantes y los términos menores se
-descartan.** Tres razones sobre las constantes, una sobre los términos menores:
+<Slide title="Las constantes no son del algoritmo">
+Dos razones para descartar constantes multiplicativas:
 
-**Razón 1 — Las constantes dependen del contador, no del algoritmo.**
-Ya lo vimos: una persona contó `s = s + i` como 2 OE y otra como 3. La razón entre
-ambos converge a una constante fija. **Las constantes no son propiedad del algoritmo.**
+**Dependen del contador.**
+Ya lo vimos en el twist: una persona contó `s = s + i` como 2 OE y otra como 3. Las
+dos son defendibles. La razón entre las dos fórmulas resultantes converge a una
+constante fija — el algoritmo no cambió, solo la convención de conteo. **Las
+constantes no son propiedad del algoritmo, son propiedad del contador.**
 
-**Razón 2 — Las constantes dependen de la máquina.**
-Un `+` en ARM toma un número distinto de nanosegundos que en Intel. **El orden de
-crecimiento sobrevive el cambio de máquina; las constantes no.**
+**Dependen de la máquina.**
+Un `+` en ARM toma un número distinto de nanosegundos que en Intel. Un `mov` en x86
+tiene distinto costo que en RISC-V. Si medimos en tiempo real, cada máquina inventa
+sus propias constantes. **El orden de crecimiento sobrevive el cambio de máquina;
+las constantes no.**
+
+Como las constantes no son del algoritmo, descartarlas no pierde información sobre
+el algoritmo — pierde información sobre el contador y la máquina, que es
+precisamente lo que queremos ignorar.
 </Slide>
 
 <Slide title="El término dominante aplasta al resto">
-**Razón 3** para descartar términos menores: cuando $$N$$ crece, el término dominante
-se traga a todos los demás. Comparemos $$T(N) = 3N^2 + 5N + 12$$ — el $$N^2$$ vs todo
+La segunda amputación: descartar los términos menores. La justificación es
+puramente aritmética. Comparemos $$T(N) = 3N^2 + 5N + 12$$ — el $$N^2$$ vs todo
 lo demás:
 
 | N | 3n² | 5n + 12 | ¿Qué porcentaje aporta n²? |
@@ -801,18 +786,20 @@ lo demás:
 | 1 000 | 3 000 000 | 5 012 | 99,83 % |
 | 10 000 | 3·10⁸ | 50 012 | 99,98 % |
 
-A $$N = 10\,000$$, los términos menores aportan menos del 0,02 %. Ignorarlos no
-cambia nada respecto al comportamiento del algoritmo.
+A $$N = 10\,000$$, los términos menores aportan menos del **0,02 %**. Ignorarlos no
+cambia nada respecto al comportamiento del algoritmo cuando $$N$$ es grande — y en
+la práctica siempre queremos saber cómo se comporta a $$N$$ grande.
 </Slide>
 
-<Slide title="Constantes vs orden: el cruce">
-**Razón 4** — comparamos algoritmos por lo que hacen eventualmente, no en casos
-pequeños. Un $$O(n)$$ con constante grande y un $$O(n^2)$$ con constante chica cruzan
-sus curvas en algún punto; a partir de ahí el orden decide.
+<Slide title="Los órdenes deciden — el cruce">
+Descartamos constantes y términos menores, y nos quedamos con el orden. Queda
+una pregunta natural: ¿de verdad importa el orden? ¿O una constante pequeña de
+un orden peor le gana a una constante grande de un orden mejor?
 
-Ejemplo escalado (mismo mensaje, coordenadas manejables): $$T_1 = 100 \cdot n$$ vs
-$$T_2 = n^2$$. Para $$n < 100$$ gana $$T_2$$. Para $$n > 100$$ gana $$T_1$$ — y a
-partir de ahí, por mucho.
+Sí importa, y siempre. Cualquier algoritmo con orden mayor **cruza** a uno con orden
+menor en algún $$N$$ — y a partir de ahí lo pierde para siempre. Ejemplo:
+$$T_1 = 100 \cdot n$$ vs $$T_2 = n^2$$. Para $$n < 100$$ gana $$T_2$$; a partir de
+$$n = 100$$ gana $$T_1$$, cada vez por más:
 
 <MathPlot
   type="curves"
@@ -826,14 +813,15 @@ partir de ahí, por mucho.
   annotations={[{ type: "verticalLine", x: 100, label: "cruce en n=100" }]}
 />
 
-**Conclusión**: el orden dice **quién gana a la larga**. Las constantes solo dicen
-**a partir de qué tamaño**. Como analizamos algoritmos que van a correr sobre $$N$$
-grandes, **el orden es lo que decide**.
+El orden dice **quién gana a la larga**. Las constantes solo dicen **a partir de
+qué $$N$$** empieza a ganar.
 </Slide>
 
-<Slide title="¿Por qué quiero algoritmos asintóticamente eficientes?">
-Comparación de algoritmos con distintas complejidades, polinomiales y exponenciales
-(fuente: [Aho, Hopcroft, Ullman, *The Design and Analysis of Computer Algorithms*, 1974](https://en.wikipedia.org/wiki/The_Design_and_Analysis_of_Computer_Algorithms)). Tiempo estimado asumiendo una operación por microsegundo:
+<Slide title="A largo plazo, el orden es dramático">
+Ya vimos que el orden decide **quién** gana. Falta ver **por cuánto**. Esta
+tabla compara algoritmos de distintos órdenes de crecimiento sobre entradas de
+tamaño creciente, asumiendo una operación por microsegundo (fuente: [Aho,
+Hopcroft, Ullman, *The Design and Analysis of Computer Algorithms*, 1974](https://en.wikipedia.org/wiki/The_Design_and_Analysis_of_Computer_Algorithms)).
 
 | T(n) | n=10 | n=20 | n=30 | n=40 | n=50 | n=60 |
 |---|---|---|---|---|---|---|
@@ -844,26 +832,84 @@ Comparación de algoritmos con distintas complejidades, polinomiales y exponenci
 | 2ⁿ        | 0,001 s   | 1 s       | 17,9 min  | 12,7 días | 35,7 años | 366 siglos |
 | 3ⁿ        | 0,059 s   | 58 min    | 6,5 años  | 3 855 siglos | 2·10⁸ siglos | 1,3·10¹³ siglos |
 
-Lo dramático está en las últimas dos filas: hasta n = 20 todas caben en segundos.
-En n = 60 la brecha entre $$n^2$$ y $$2^n$$ es de **3,6 milisegundos contra 366
-siglos** — trece órdenes de magnitud, entre "correr al instante" y "más que la
-historia del universo".
+Hasta $$n = 20$$ todas las filas caben en segundos. Pero a $$n = 60$$ la brecha entre
+$$n^2$$ y $$2^n$$ es de **3,6 milisegundos contra 366 siglos** — trece órdenes de
+magnitud, entre "correr al instante" y "más que la historia del universo".
+
+Por eso importa el orden. Por eso vale la pena descartar constantes y términos
+menores: **el orden domina cualquier otra consideración cuando $$N$$ crece**.
 </Slide>
 
-<Slide title="Lo que la tabla dice, en tres frases">
-- **El orden de crecimiento caracteriza el comportamiento** de un algoritmo respecto a
-  un recurso (tiempo o espacio). No el número concreto de operaciones — el orden.
+<Slide title="En una frase">
+Recogiendo lo que hemos armado:
+
+- **El orden de crecimiento caracteriza el comportamiento** de un algoritmo respecto
+  a un recurso (tiempo o espacio). No el número concreto de operaciones — el orden.
 - **En lugar de decir *"tiene 102 395 474 operaciones cuando N = x"*, es mucho más
   simple decir *"su complejidad temporal es cuadrática"*.** La segunda afirmación
-  permite comparar el algoritmo con otros de un vistazo; la primera no dice nada sobre
-  qué pasa cuando N cambia.
+  permite comparar el algoritmo con otros de un vistazo; la primera no dice nada
+  sobre qué pasa cuando $$N$$ cambia.
 - **No queremos el detalle de implementación de un algoritmo, queremos el
   comportamiento que tendrá cuando la entrada crece.** Los detalles cambian con la
   máquina, el compilador, el lenguaje; el orden de crecimiento es propiedad del
   algoritmo mismo.
 
-Esta es la razón pedagógica por la que nos vamos a olvidar de las constantes en los
-próximos slides y quedarnos solo con el término dominante.
+Esta es la razón por la que, cuando analizamos un algoritmo, no nos quedamos con
+la fórmula completa: descartamos las constantes y los términos menores, y nos
+quedamos solo con el término dominante — que es lo único que sobrevive a un
+cambio de máquina, de compilador o de convención de conteo.
+</Slide>
+
+<Slide title="La generación que le puso nombre">
+Con "orden de crecimiento" ya consolidado como el objeto que queremos medir,
+falta darle nombres formales. Los que hicieron ese trabajo — canonizar la
+notación con la que seguimos hablando hoy — fueron una generación que empujó la
+ciencia de la computación en los 60 y 70.
+
+- Para entonces la disciplina ya estaba establecida (departamentos
+  universitarios, revistas, congresos). Faltaba el **vocabulario** para hablar
+  de eficiencia con precisión.
+- **Juris Hartmanis y Richard Stearns** (1965), paper *["On the Computational
+  Complexity of Algorithms"](https://www.ams.org/journals/tran/1965-117-05/S0002-9947-1965-0170805-7/)* —
+  introducen formalmente las **clases de complejidad temporal**. Premio Turing
+  por esto.
+- **Donald Knuth** (1976), paper *["Big Omicron and Big Omega and Big Theta"](https://dl.acm.org/doi/10.1145/1008328.1008329)* —
+  canoniza el uso de las notaciones **O, Ω, Θ** para complejidad de algoritmos.
+  El vocabulario que usamos hoy es literalmente el que Knuth propuso.
+- Nacieron **30 años después** del [paper de Turing](https://www.cs.virginia.edu/~robins/Turing_Paper_1936.pdf); fueron los que le dieron a la
+  disciplina las palabras con las que se habla de sí misma.
+
+Vamos a esas palabras. Son tres, y cada una responde a una pregunta distinta
+sobre el costo del algoritmo.
+</Slide>
+
+<Slide title="Tres formas de acotar el orden">
+Cada notación responde a una pregunta diferente sobre el costo del algoritmo:
+
+- **Big O** ($$O$$) — *"no puede ser peor que $$g$$"*. Una **cota superior**.
+- **Omega** ($$\Omega$$) — *"no puede ser mejor que $$g$$"*. Una **cota inferior**.
+- **Theta** ($$\Theta$$) — *"crece exactamente como $$g$$"*. Una **cota ajustada** —
+  cuando la superior y la inferior coinciden en orden.
+
+Sobre la misma función real $$f(n)$$ (curva azul, con altibajos), las tres se ven así:
+
+<MathPlot
+  type="curves"
+  xRange={[0, 20]}
+  yRange={[0, 160]}
+  height={460}
+  functions={[
+    { label: "f(n) — costo real", fn: (n) => 5 * n + 10 + 8 * Math.sin(n), color: "blue" },
+    { label: "cota superior — c₁·g", fn: (n) => 7 * n, color: "red", dashed: true },
+    { label: "cota inferior — c₂·g", fn: (n) => 3 * n, color: "green", dashed: true },
+  ]}
+  annotations={[{ type: "verticalLine", x: 10, label: "N₀" }]}
+/>
+
+La roja acota por arriba (eso es $$O$$), la verde acota por abajo (eso es
+$$\Omega$$), y como las dos son proporcionales a $$g(n) = n$$, entonces
+$$f \in \Theta(n)$$. Vamos a definir cada una por separado, empezando por la
+más usada.
 </Slide>
 
 <Slide title="Big O — la intuición">
@@ -919,26 +965,6 @@ solo par** $$(c, N_0)$$ que cumpla la desigualdad. Un ejemplo con nuestro ciclo 
 
 Con ese par listo, ya está: $$4n + 4$$ es $$O(n)$$. No hay que encontrar el par más
 chico ni el mejor — cualquier par que funcione es suficiente.
-</Slide>
-
-<Slide title="Reglas prácticas para trabajar con O">
-No usamos la definición cada vez que analizamos un algoritmo. En su lugar aplicamos
-cuatro reglas que se demuestran una vez y se reutilizan siempre:
-
-- **Constantes multiplicativas se descartan**: $$O(5N) = O(N)$$. Cualquier factor
-  constante se absorbe eligiendo otro $$c$$ en la definición.
-- **Regla de la suma** (bloques secuenciales): $$O(N^2 + N) = O(N^2)$$. Se queda el
-  término dominante — el más grande gana asintóticamente.
-- **Regla del producto** (ciclos anidados): $$O(N) \cdot O(N) = O(N^2)$$. Un ciclo
-  dentro de otro multiplica los costos.
-- **Jerarquía**: $$1 < \lg N < \sqrt{N} < N < N \lg N < N^2 < N^3 < 2^N < N!$$. La
-  posición en esta cadena decide quién domina cuando hay que aplicar la regla de la
-  suma.
-
-**Cuidado importante**: $$O$$ es cota superior, **no necesariamente la más ajustada**.
-Decir *"este algoritmo es $$O(2^N)$$"* de uno que en realidad es lineal es cierto pero
-inútil. Siempre buscamos la cota más apretada posible — si un algoritmo es $$O(N)$$,
-lo llamamos $$O(N)$$, no $$O(N^2)$$.
 </Slide>
 
 <Slide title="Ω — cota inferior">
@@ -997,83 +1023,61 @@ funciones proporcionales a $$g$$**, una arriba y otra abajo:
 
 Desde $$N_0 = 10$$, $$f(n)$$ está entre $$k_1 \cdot g(n) = 3n$$ y $$k_2 \cdot g(n) =
 7n$$. Ese sandwich es la definición de Θ.
-</Slide>
 
-<Slide title="Θ en la práctica — ejemplo y regla del polinomio">
 **Ejemplo con el ciclo simple**: $$T(n) = 4n + 4$$.
 
-- Es $$O(n)$$ (con $$k = 5$$, $$N_0 = 4$$).
-- Es $$\Omega(n)$$ (con $$k = 4$$, $$N_0 = 1$$).
+- Ya vimos que es $$O(n)$$ (con $$c = 5$$, $$N_0 = 4$$).
+- También es $$\Omega(n)$$ (con $$c = 4$$, $$N_0 = 1$$).
 - Por lo tanto es $$\Theta(n)$$. **El ciclo simple es exactamente lineal.**
-
-**Regla de dedo para polinomios**: si $$T(n)$$ es un polinomio, entonces $$\Theta$$
-es simplemente su **término de mayor grado sin coeficiente**. Así:
-
-- $$T(n) = 4n + 4$$ → $$\Theta(n)$$.
-- $$T(n) = 2n^2 + 6n + 4$$ → $$\Theta(n^2)$$.
-- $$T(n) = 100$$ (constante) → $$\Theta(1)$$.
-
-Es la forma más rápida y práctica de sacar el orden asintótico cuando ya se calculó
-$$T(n)$$ como polinomio.
 </Slide>
 
-<Slide title="O, Ω y Θ — cuándo se usa cada una">
-Las tres se usan en la práctica pero con propósitos distintos:
+<Slide title="Reglas prácticas para las tres notaciones">
+No usamos la definición cada vez que analizamos un algoritmo. Aplicamos cinco
+reglas que se demuestran una vez y se reutilizan siempre. Valen para $$O$$,
+$$\Omega$$ y $$\Theta$$ por igual:
 
-- **$$O(g)$$** — para afirmar *"no puede ser peor que esto"*. Es la más común en
-  análisis de algoritmos: describe el peor comportamiento posible.
-- **$$\Omega(g)$$** — para afirmar *"no se puede hacer mejor que esto"*. Se usa en
-  demostraciones de **cotas inferiores** (ej: cualquier ordenamiento por comparación
-  es $$\Omega(N \lg N)$$).
-- **$$\Theta(g)$$** — para caracterizar el crecimiento **exacto**. Es la afirmación
-  más fuerte y la que preferimos cuando la podemos hacer.
+- **Constantes multiplicativas se descartan**: $$O(5N) = O(N)$$. Cualquier
+  factor constante se absorbe eligiendo otro $$c$$ en la definición.
+- **Regla de la suma** (bloques secuenciales): $$O(N^2 + N) = O(N^2)$$. Se
+  queda el término dominante — el más grande gana asintóticamente.
+- **Regla del producto** (ciclos anidados): $$O(N) \cdot O(N) = O(N^2)$$. Un
+  ciclo dentro de otro multiplica los costos.
+- **Regla del polinomio**: si $$T(n)$$ es un polinomio, su $$\Theta$$ es su
+  **término de mayor grado sin coeficiente**. Ejemplos: $$4n + 4 \to \Theta(n)$$,
+  $$2n^2 + 6n + 4 \to \Theta(n^2)$$, $$100 \to \Theta(1)$$. Es la forma más
+  rápida de sacar el orden cuando ya se calculó $$T(n)$$ como polinomio.
+- **Jerarquía**: $$1 < \lg N < \sqrt{N} < N < N \lg N < N^2 < N^3 < 2^N < N!$$.
+  La posición en esta cadena decide quién domina cuando hay que aplicar la
+  regla de la suma.
 
-**Regla del curso**: cuando decimos *"este algoritmo es $$O(N^2)$$"* sin más contexto,
-normalmente queremos decir $$\Theta(N^2)$$ — es decir, esa es la clase exacta, no solo
-una cota holgada. Solo usamos $$O$$ estricto cuando no podemos apretar la cota (típico
-con recursiones sin resolver o con algoritmos donde el peor caso no siempre se
-alcanza).
+**Cuidado importante**: $$O$$ es una cota superior, **no necesariamente la más
+ajustada**. Decir *"este algoritmo es $$O(2^N)$$"* de uno que en realidad es
+lineal es cierto pero inútil. Al reportar la complejidad de un algoritmo hay
+que dar la cota más apretada que uno pueda demostrar.
 </Slide>
 
-<Slide title="Los órdenes de crecimiento del curso">
-| Descripción | Función | Cuándo aparece |
-|---|---|---|
-| Constante | 1 | No depende de N (`sumaFormula`) |
-| Logarítmico | lg N | División repetida (Euclides, búsqueda binaria) |
-| Raíz | √N | Test de primalidad ingenuo |
-| Lineal | N | Un ciclo simple (`sumaCiclo`) |
-| Linearítmico | N lg N | Mergesort, quicksort promedio |
-| Cuadrático | N² | Dos ciclos anidados (`sumaDobleCiclo`) |
-| Cúbico | N³ | Tres ciclos anidados |
-| Exponencial | 2ᴺ | Fuerza bruta sobre subconjuntos |
-| Factorial | N! | Fuerza bruta sobre permutaciones |
+<Slide title="Jerarquía asintótica">
+En las reglas prácticas la jerarquía apareció como **línea de dominancia**
+($$1 < \lg N < \dots < N!$$) para decidir quién gana en la regla de la suma.
+La misma cadena se puede leer como **contención de clases**:
 
-Los tres primeros son "buenos"; a partir de cuadrático empieza a doler; a partir de
-exponencial ya no se puede.
+> $$O(1) \subset O(\lg N) \subset O(\sqrt{N}) \subset O(N) \subset O(N \lg N) \subset O(N^2) \subset O(N^3) \subset O(2^N) \subset O(N!)$$
 
-**Jerarquía de complejidad** (notación de contención `⊂` — "está estrictamente contenido
-en"; se lee: *un algoritmo $$O(1)$$ también es O(\lg N), que también es O(N)…*):
+Cada clase contiene a las anteriores. Reportamos siempre la más chica en la
+que cabe.
 
-> $$O(1) \subset O(\lg N) \subset O(N) \subset O(N \lg N) \subset O(N^2) \subset O(N^3) \subset O(2^N)$$
+<ComplexityHierarchy />
 
-Cada clase contiene a todas las anteriores. En la práctica: la que aparece más a la
-izquierda gana para N grande.
+🟢 **Eficientes**: $$1$$, $$\lg N$$, $$\sqrt{N}$$. 🟡 **Aceptables**: $$N$$,
+$$N \lg N$$. 🟠 **Costosos**: $$N^2$$, $$N^3$$. 🔴 **Inviables**: $$2^N$$, $$N!$$.
+
+Esos cuatro tramos se ven directamente en cómo crecen las curvas.
 </Slide>
 
-<Slide title="La jerarquía, dibujada">
-Los `⊂` de la notación dicen que cada clase **contiene** a las anteriores. Aquí lo
-vemos así, literalmente — cada anillo es una clase, la más eficiente al centro. Los
-colores acompañan: verde al centro ($$O(1)$$, el ideal), rojo por fuera ($$O(2^N)$$, donde ya
-no se puede).
+<Slide title="Sublineal vs superlineal">
+$$N$$ es la frontera de las dos bandas: por debajo, **sublineales** (crecen
+más despacio que lineal); por encima, **superlineales** (más rápido).
 
-<ComplexityHierarchy title="Jerarquía asintótica" />
-
-Pasen el cursor sobre un anillo — o sobre una fila de la lista — y ambos se resaltan.
-Los ejemplos son algoritmos que ya vimos, o que aparecerán en las próximas clases de la
-trilogía, por cada clase; identifíquenlos cuando los conozcan.
-</Slide>
-
-<Slide title="Curvas: sublineal vs superlineal">
 <SideBySide left="Crecimiento sublineal" right="Crecimiento superlineal">
 <MathPlot
   type="curves"
@@ -1102,9 +1106,33 @@ trilogía, por cada clase; identifíquenlos cuando los conozcan.
 />
 </SideBySide>
 
-Ejes clásicos: N en el rango 1–100, costo en escala lineal. Las curvas sublineales quedan aplastadas contra el eje inferior cuando se
-mezclan con las superlineales — separarlas en dos gráficos es lo que hace legible cada
-banda.
+En el **sublineal** el costo apenas se mueve: a $$N = 100$$, ninguna curva
+supera $$25$$ operaciones.
+
+En el **superlineal** $$2^N$$ se dispara antes de $$N = 15$$ y hace que
+incluso $$N^2$$ parezca chico.
+
+Con los nueve órdenes clasificados y sus curvas contrastadas, queda decidir
+con qué notación reportamos cada uno: $$O$$, $$\Omega$$ o $$\Theta$$.
+</Slide>
+
+<Slide title="O, Ω y Θ — cuándo se usa cada una">
+Ya sabemos qué clases existen (widget) y cómo crecen (curvas). Falta
+elegir con qué notación las **reportamos**. Las tres se usan en la práctica,
+con propósitos distintos:
+
+- **$$O(g)$$** — para afirmar *"no puede ser peor que esto"*. Es la más común
+  en análisis de algoritmos: describe el peor comportamiento posible.
+- **$$\Omega(g)$$** — para afirmar *"no se puede hacer mejor que esto"*. Se
+  usa sobre todo en demostraciones de **cotas inferiores** (ej: cualquier
+  ordenamiento por comparación es $$\Omega(N \lg N)$$).
+- **$$\Theta(g)$$** — para caracterizar el crecimiento **exacto**. Es la
+  afirmación más fuerte y la que preferimos cuando la podemos hacer.
+
+Quien analiza un algoritmo siempre busca la cota más apretada que sepa dar:
+si puede demostrar $$\Theta$$, usa $$\Theta$$; si solo sabe una cota superior
+holgada, usa $$O$$ y lo dice explícitamente. La notación elegida transporta
+información sobre **cuánto sabemos**, no solo sobre el algoritmo.
 </Slide>
 
 <Slide title="Cota ≠ caso">
@@ -1157,41 +1185,13 @@ caso — es la convención por defecto.
 <SectionBreak />
 
 <Slide title="Cambio de escenario: `FindInArray`">
-La suma de N naturales fue perfecta para hablar de cotas O/Ω/Θ, pero **mala para hablar de
-casos**: hace exactamente lo mismo con cualquier N. No hay entrada "mejor" o "peor".
-
-Necesitamos un problema donde la entrada importe:
-
-```java
-boolean findInArray(int[] arr, int x) {
-    for (int i = 0; i < arr.length; i++) {
-        if (arr[i] == x)
-            return true;
-    }
-    return false;
-}
-```
-
-*"Dado un arreglo y un valor, ¿está el valor en el arreglo?"*
-
-Este algoritmo **sí** depende de la entrada: dónde está `x`, o si no está. Ahora peor,
-mejor y promedio son cualitativamente distintos.
-</Slide>
-
-<Slide title="Contando OE por línea">
-Anotación línea a línea del `findInArray`:
-
-- **Inicialización del `for`** (`int i = 0`): 1 OE, una vez.
-- **Condición** (`i < arr.length`): 1 OE por evaluación.
-- **Incremento** (`i++`): 1 OE por iteración.
-- **Cuerpo del `if`** (`arr[i] == x`): 2 OE (1 acceso + 1 comparación).
-- **`return true`** o **`return false`**: 1 OE.
-
-El costo total depende de **cuántas iteraciones haga el ciclo antes de encontrar (o no
-encontrar) `x`**. Ahí entra el caso.
+La suma de N naturales fue perfecta para hablar de cotas $$O/\Omega/\Theta$$,
+pero **mala para hablar de casos**: hace exactamente lo mismo con cualquier
+$$N$$. Necesitamos un problema donde la entrada importe — *"dado un arreglo
+y un valor, ¿está el valor en el arreglo?"*:
 
 <ComplexityCounter
-  algorithm="findInArray — los tres casos"
+  algorithm="findInArray"
   code={`boolean findInArray(int[] arr, int x) {
     for (int i = 0; i < arr.length; i++) {
         if (arr[i] == x)
@@ -1199,147 +1199,171 @@ encontrar) `x`**. Ahí entra el caso.
     }
     return false;
 }`}
-  mode="cases"
-  cases={{
-    best: {
-      annotations: {
-        2: {
-          sub: [
-            { label: "init", oe: 1, times: "1" },
-            { label: "cond", oe: 1, times: "1" },
-            { label: "inc", oe: 1, times: "0" },
-          ],
-        },
-        3: { oe: 2, times: "1" },
-        4: { oe: 1, times: "1" },
+  mode="abstract"
+  data={{
+    annotations: {
+      2: {
+        sub: [
+          { label: "init", oe: 1, times: "una vez" },
+          { label: "cond", oe: 1, times: "por evaluación" },
+          { label: "inc", oe: 1, times: "por iteración" },
+        ],
       },
-      formula: "5",
-      evaluate: () => 5,
-    },
-    worst: {
-      annotations: {
-        2: {
-          sub: [
-            { label: "init", oe: 1, times: "1" },
-            { label: "cond", oe: 1, times: "n+1" },
-            { label: "inc", oe: 1, times: "n" },
-          ],
-        },
-        3: { oe: 2, times: "n" },
-        6: { oe: 1, times: "1" },
-      },
-      formula: "4n + 3",
-      evaluate: (n) => 4 * n + 3,
-    },
-    average: {
-      annotations: {
-        2: {
-          sub: [
-            { label: "init", oe: 1, times: "1" },
-            { label: "cond", oe: 1, times: "(n+1)/2" },
-            { label: "inc", oe: 1, times: "(n-1)/2" },
-          ],
-        },
-        3: { oe: 2, times: "(n+1)/2" },
-        4: { oe: 1, times: "1" },
-      },
-      formula: "2n + 3",
-      evaluate: (n) => 2 * n + 3,
+      3: { oe: 2, times: "por iteración" },
+      4: { oe: 1, times: "si encuentra x" },
+      6: { oe: 1, times: "si termina el ciclo" },
     },
   }}
-  slider={{ min: 1, max: 100, default: 10 }}
 />
+
+Los costos por línea son fijos. **Lo que cambia entre casos es cuántas
+veces se ejecutan las líneas del ciclo** — según dónde esté $$x$$, o si
+no está. Vamos uno por uno.
 </Slide>
 
 <Slide title="Mejor caso — `x` en la primera posición">
-Si `x = arr[0]`, entramos al ciclo, evaluamos la comparación **una sola vez**, entra al
-`if`, retorna. Nunca hacemos `i++`, nunca volvemos a evaluar la condición del `for`.
+Si `x = arr[0]`, entramos al ciclo, evaluamos la comparación **una sola vez**,
+entra al `if`, retorna. Nunca hacemos `i++`, nunca volvemos a evaluar la
+condición del `for`, nunca llegamos al `return false`.
 
-Contamos las líneas que **sí** se ejecutan:
+<ComplexityCounter
+  algorithm="findInArray — mejor caso"
+  code={`boolean findInArray(int[] arr, int x) {
+    for (int i = 0; i < arr.length; i++) {
+        if (arr[i] == x)
+            return true;
+    }
+    return false;
+}`}
+  mode="abstract"
+  data={{
+    annotations: {
+      2: {
+        sub: [
+          { label: "init", oe: 1, times: "1 vez" },
+          { label: "cond", oe: 1, times: "1 vez" },
+          { label: "inc", oe: 1, times: "0 veces" },
+        ],
+      },
+      3: { oe: 2, times: "1 vez" },
+      4: { oe: 1, times: "1 vez" },
+    },
+    skipped: [
+      { line: 6, note: "no llegamos acá — retornamos en la línea 4" },
+    ],
+  }}
+/>
 
-- `int i = 0` (inicialización del for): **1 OE**
-- `i < arr.length` (evaluación 1 vez): **1 OE**
-- `arr[i] == x` (acceso + comparación): **2 OE**
-- `return true;`: **1 OE**
-
-**$$T_\text{mejor}(n)$$ = 1 + 1 + 2 + 1 = 5**. No depende de `n`.
-
-**Complejidad**: $$\Theta(1)$$.
+Sumando los aportes: $$T_\text{mejor}(n) = 1 + 1 + 0 + 2 + 1 = 5$$. No depende
+de $$n$$ → **complejidad $$\Theta(1)$$**.
 </Slide>
 
 <Slide title="Peor caso — `x` no está (o está al final)">
-Recorremos **todo el arreglo** hasta llegar al final. Retorna `false` (o `true` en la
-última posición — el conteo es el mismo).
+Recorremos **todo el arreglo** hasta llegar al final. Retorna `false` (o
+`true` en la última posición — el conteo es el mismo). El `if` nunca se
+cumple durante las $$n$$ iteraciones, así que `return true` no se ejecuta.
 
-Antes de escribir la fórmula introducimos una notación matemática que vamos a usar de
-aquí en adelante — la **sumatoria** Σ. La expresión $$\sum_{i=1}^{n} f(i)$$ es solo una forma compacta
-de escribir `f(1) + f(2) + f(3) + … + f(n)`. Nada más. Por ejemplo, $$\sum_{i=1}^{n} 1$$ es sumar
-`1` un total de `n` veces, o sea `n`; y $$\sum_{i=1}^{n} i = 1 + 2 + \ldots + n = n(n+1)/2$$, que es
-justo el problema con el que abrimos la clase.
+Vamos a usar la **sumatoria** $$\Sigma$$ para escribir el total compacto:
+$$\sum_{i=1}^{n} 1 = n$$, $$\sum_{i=1}^{n} i = n(n+1)/2$$.
 
-Contamos:
+<ComplexityCounter
+  algorithm="findInArray — peor caso"
+  code={`boolean findInArray(int[] arr, int x) {
+    for (int i = 0; i < arr.length; i++) {
+        if (arr[i] == x)
+            return true;
+    }
+    return false;
+}`}
+  mode="abstract"
+  data={{
+    annotations: {
+      2: {
+        sub: [
+          { label: "init", oe: 1, times: "1 vez" },
+          { label: "cond", oe: 1, times: "n+1 veces" },
+          { label: "inc", oe: 1, times: "n veces" },
+        ],
+      },
+      3: { oe: 2, times: "n veces" },
+      6: { oe: 1, times: "1 vez" },
+    },
+    skipped: [
+      { line: 4, note: "no encontramos x — nunca entramos al if" },
+    ],
+  }}
+/>
 
-- `int i = 0`: **1 OE**, una vez.
-- Por cada iteración: `i < arr.length` (1) + `arr[i] == x` (2) + `i++` (1) = **4 OE**.
-  Hacemos `n` iteraciones.
-- `i < arr.length` la evaluamos una vez más para salir del ciclo: **1 OE**.
-- `return false;`: **1 OE**.
-
-**$$T_\text{peor}(n)$$ = 1 + $$\sum_{i=1}^{n} 4$$ + 1 + 1 = 1 + 4n + 2 = 4n + 3**
-
-**$$T(n)$$ = 4n + 3**. Lineal en `n`.
-
-**Complejidad**: $$\Theta(n)$$.
+Sumando los aportes: $$T_\text{peor}(n) = 1 + (n+1) + n + 2n + 1 = 4n + 3$$.
+Lineal en $$n$$ → **complejidad $$\Theta(n)$$**.
 </Slide>
 
 <Slide title="Caso promedio — `x` en posición aleatoria">
-Asumimos que **`x` puede estar en cualquier posición del arreglo con igual probabilidad
-1/n**. El número esperado de iteraciones del ciclo es:
+Asumimos que $$x$$ puede estar en cualquier posición del arreglo con igual
+probabilidad $$1/n$$. El número esperado de iteraciones del ciclo es:
 
-**E\[iteraciones\] = $$\sum_{i=1}^{n} i/n$$ = (1/n) · n(n+1)/2 = (n+1)/2**
+$$E[\text{iter}] \;=\; \frac{1}{n} \sum_{i=1}^{n} i \;=\; \frac{1}{n} \cdot \frac{n(n+1)}{2} \;=\; \frac{n+1}{2}$$
 
-Sustituimos ese número esperado en cada línea, con el mismo formato de los dos casos
-anteriores:
+Suponiendo que $$x$$ se encuentra, `return true` se ejecuta y `return false`
+no. Cada línea del ciclo se ejecuta en promedio $$(n+1)/2$$ veces:
 
-- `int i = 0`: **1 OE**, una vez.
-- Por cada iteración: `arr[i] == x` (2) + `i++` (1) = **3 OE**. Hacemos en promedio
-  **(n+1)/2** iteraciones.
-- `i < arr.length`: se evalúa **(n+1)/2** veces mientras entra al ciclo, más **1 vez**
-  para salir cuando encuentra `x`.
-- `return true;`: **1 OE**.
+<ComplexityCounter
+  algorithm="findInArray — caso promedio"
+  code={`boolean findInArray(int[] arr, int x) {
+    for (int i = 0; i < arr.length; i++) {
+        if (arr[i] == x)
+            return true;
+    }
+    return false;
+}`}
+  mode="abstract"
+  data={{
+    annotations: {
+      2: {
+        sub: [
+          { label: "init", oe: 1, times: "1 vez" },
+          { label: "cond", oe: 1, times: "(n+1)/2 veces" },
+          { label: "inc", oe: 1, times: "(n-1)/2 veces" },
+        ],
+      },
+      3: { oe: 2, times: "(n+1)/2 veces" },
+      4: { oe: 1, times: "1 vez" },
+    },
+    skipped: [
+      { line: 6, note: "asumimos que x se encuentra en el arreglo" },
+    ],
+  }}
+/>
 
-**$$T_\text{prom}(n)$$ = 1 + \[3·(n+1)/2 + (n+1)/2 + 1\] + 1 = 1 + (2n+1) + 1 = 2n + 3**
+Sumando los aportes:
+$$T_\text{prom}(n) = 1 + \frac{n+1}{2} + \frac{n-1}{2} + 2 \cdot \frac{n+1}{2} + 1 = 2n + 3$$.
+Lineal en $$n$$ → **complejidad $$\Theta(n)$$**.
 
-**$$T(n)$$ = 2n + 3**. Lineal en `n`.
-
-**Complejidad**: $$\Theta(n)$$.
-
-**Observación clave del caso promedio**: aunque en promedio se recorra la mitad del arreglo,
-el algoritmo sigue siendo **lineal**. La constante mejora (mitad de trabajo esperado), pero el orden
-asintótico es el mismo que el peor caso. Ese patrón se repite mucho.
+**Observación clave**: aunque en promedio se recorre la mitad del arreglo, el
+algoritmo sigue siendo **lineal**. La constante mejora (mitad del trabajo
+esperado), pero el orden asintótico es el mismo que el peor caso. Ese patrón
+se repite mucho.
 </Slide>
 
-<Slide title="Por qué se reporta el peor caso">
-Los tres casos existen. La convención es reportar el **peor caso** por defecto, por tres
-razones:
+<Slide title="Los tres casos, comparados">
+| Caso | $$T(n)$$ | Clase |
+|---|---|---|
+| Mejor ($$x$$ al inicio) | $$5$$ | $$\Theta(1)$$ |
+| Peor ($$x$$ ausente o al final) | $$4n + 3$$ | $$\Theta(n)$$ |
+| Promedio ($$x$$ en posición aleatoria) | $$2n + 3$$ | $$\Theta(n)$$ |
 
-- **Garantía fuerte**: *"nunca va a ser más lento que esto"*. Si el peor caso es
-  aceptable, todo lo demás también — es la cota que sirve para decidir (¿alcanza el
-  tiempo?, ¿aguanta el pico?).
-- **Independiente de distribución**: no requiere asumir cómo se comportan las entradas
-  reales. El promedio depende de que la distribución que se asuma sea la real; el peor
-  caso no depende de nada.
+Peor y promedio caen en la misma clase — el promedio solo mejora la
+constante. **Conocer la distribución típica ayuda a estimar el trabajo real,
+pero rara vez cambia el orden**.
 
-**Cuándo mencionar los otros casos**:
-
-- El **mejor caso** casi nunca es interesante por sí solo — sirve para explicar por qué el
-  algoritmo puede parecer rápido en pruebas superficiales.
-- El **caso promedio** importa cuando la distribución real de entradas es conocida y muy
-  distinta al peor caso (ejemplo clásico: **quicksort** es $$O(N^2)$$ peor caso pero O(N log N)
-  en promedio con inputs aleatorios — por eso se usa a pesar de tener un peor caso feo).
+Por eso reportamos el **peor caso**: es garantía dura y no depende de asumir
+una distribución. El **promedio** solo se destaca cuando difiere del peor en
+orden — el ejemplo clásico es **quicksort**, con peor caso $$\Theta(N^2)$$ y
+promedio $$\Theta(N \lg N)$$ para inputs aleatorios.
 </Slide>
 
-<Slide title="Euclides — el algoritmo más viejo del curso (siglo III a.C.)">
+## Euclides — el algoritmo más viejo del curso (siglo III a.C.)
+
 Contexto histórico:
 
 - **Euclides de Alejandría** (~300 a.C.) publica *"Elementos"* — 13 libros de matemática
@@ -1373,9 +1397,9 @@ int gcd(int a, int b) {
 | — | 21 | 0 | (fin) |
 
 **gcd(1071, 462) = 21** en 3 iteraciones.
-</Slide>
 
-<Slide title="Análisis de Euclides — la sorpresa asintótica">
+## Análisis de Euclides — la sorpresa asintótica
+
 El costo depende de **cuántas iteraciones haga el `while`**. ¿Cómo lo acotamos?
 
 **Argumento clave**: cada dos iteraciones, el valor de `a` se **reduce a la mitad**.
@@ -1412,79 +1436,14 @@ Contraste directo:
 
 Y este algoritmo lo escribieron hace **2300 años** — y **nuestras herramientas del siglo
 XX lo pueden analizar sin cambios.**
-</Slide>
 
-<Slide title="Complejidad espacial — cómo se calcula">
-No solo el tiempo cuesta — la **memoria** también. Y se analiza igual: contando qué se
-guarda en función del tamaño de la entrada.
+<Slide title="El método iterativo tiene un límite">
+El aparato que construimos — contar OE por línea, multiplicar por cuántas
+veces se ejecuta cada línea, sumar todo y descartar constantes y términos
+menores — describe con precisión cualquier algoritmo cuyo control fluye
+linealmente por ciclos `for` y `while`.
 
-**Regla**: el costo espacial $$M(n)$$ = número de celdas de memoria que el algoritmo necesita
-durante su ejecución, **sin contar la memoria de la entrada**.
-
-**Cómo se calcula**, en tres pasos análogos al conteo temporal:
-
-1. **Identificar** las variables y estructuras que el algoritmo crea (no las que recibe
-   como entrada).
-2. **Sumar** el tamaño de cada una, en función de `n`.
-3. **Aplicar las mismas reglas asintóticas**: descartar constantes, quedarse con el término
-   dominante.
-
-**Regla práctica**:
-
-- Una variable de tipo básico (`int`, `double`, `boolean`) → **1 celda**.
-- Un arreglo de tamaño `k` → **k celdas**.
-- Un arreglo bidimensional `n × m` → **n·m celdas**.
-
-**Notaciones**: las mismas que en tiempo — O, Ω, Θ sobre $$M(n)$$.
-</Slide>
-
-<Slide title="Espacio aplicado a nuestros ejemplos">
-Aplicamos la receta a los algoritmos ya vistos:
-
-| Algoritmo | Variables/estructuras auxiliares | $$M(n)$$ |
-|---|---|---|
-| `sumaCiclo` | `s`, `i` — dos ints | $$\Theta(1)$$ |
-| `sumaDobleCiclo` | `s`, `i`, `j` — tres ints | $$\Theta(1)$$ |
-| `sumaFormula` | ninguna | $$\Theta(1)$$ |
-| `findInArray` | `i` — un int | $$\Theta(1)$$ |
-
-Todos son **constantes en espacio**. Ninguno crece con la entrada — es lo típico en
-algoritmos iterativos simples.
-
-**Contraejemplo — un algoritmo con espacio no trivial**:
-
-<ComplexityCounter
-  algorithm="primerosNaturales — espacio"
-  mode="space"
-  code={`int[] primerosNaturales(int n) {
-    int[] arr = new int[n];
-    for (int i = 0; i < n; i++)
-        arr[i] = i + 1;
-    return arr;
-}`}
-  data={{
-    annotations: {
-      2: { oe: 1, times: "n" },
-    },
-    formula: "n",
-    evaluate: (n) => n,
-  }}
-  slider={{ min: 1, max: 100, default: 10 }}
-/>
-
-Aquí $$M(n)$$ = $$\Theta(n)$$ — el arreglo que devuelve crece con `n`.
-
-**Regla del curso**: cuando se pide "la complejidad" de un algoritmo, se pide **temporal**.
-Si además se pide espacial, se explicita.
-</Slide>
-
-<Slide title="Hay algoritmos que no se pueden analizar así">
-Este método — contar operaciones línea por línea, multiplicar por cuántas veces se
-ejecuta cada línea, sumar todo y descartar constantes y términos menores — funciona
-para **todos los algoritmos iterativos** — cualquier función que
-compute su resultado con ciclos `for` y `while` sin llamarse a sí misma.
-
-**Pero hay una familia entera que no se puede analizar así.**
+Deja de funcionar en cuanto un algoritmo **se llama a sí mismo**:
 
 ```java
 int fib(int n) {
@@ -1493,39 +1452,31 @@ int fib(int n) {
 }
 ```
 
-Cuando un algoritmo **se llama a sí mismo**, contar operaciones deja de ser sumar filas de
-una tabla. La función `fib` se llama, se llama de nuevo, y de nuevo, y de nuevo — el
-número de llamadas explota, y no sabemos cómo contarlo con lo que aprendimos hoy.
+Cada invocación de `fib(n)` abre dos invocaciones nuevas — `fib(n-1)` y
+`fib(n-2)` — que a su vez abren más. Contar líneas ya no alcanza: no hay un
+$$T(n)$$ que salga de sumar filas de una tabla.
+</Slide>
 
-Hagan click en cada nodo para expandirlo — los que tienen el mismo argumento se
-pintan del mismo color, así el problema se ve solo:
+<Slide title="Cuánto explotan las llamadas recursivas">
+Un caso pequeño alcanza para ver el problema. Para `fib(5)`, el árbol de
+llamadas tiene **15 nodos**; cada uno es una invocación real, y muchos
+repiten trabajo idéntico (los que comparten argumento).
 
 <RecursionTree recipe="fib" arg={5} title="fib(5) — el árbol de llamadas" />
 
-Basta contar los nodos del árbol: computar `fib(5)` genera **15 llamadas**. El número
-de nodos crece más rápido que `n` — mucho más rápido — y esa es la escala del problema
-que las herramientas iterativas no alcanzan a describir.
+El número de nodos crece **mucho más rápido que $$n$$**, y ese crecimiento
+es exactamente lo que la maquinaria iterativa no captura.
 
-Para analizar esto necesitamos herramientas nuevas:
-
-- **Ecuaciones de recurrencia** — expresar $$T(n)$$ en términos de T(n-1), T(n/2), etc.
-- **Métodos para resolverlas** — sustitución, inducción, Teorema Maestro.
-- **Explosión exponencial** — cuando la recursión no controla su crecimiento, $$T(n)$$ es $$2^n$$ y
-  ninguna máquina te salva.
-- **Memoización y programación dinámica** — cómo domesticar la explosión guardando
-  resultados.
-
-Ese es el material de la próxima entrega de Complejidad.
-
-**Complejidad · *Recursión y memoria***.
-
-De eso trata la próxima entrega de Complejidad.
+Analizar este tipo de algoritmos necesita una idea nueva: **ecuaciones de
+recurrencia** que expresen $$T(n)$$ en función de sí misma sobre entradas
+más chicas ($$T(n-1)$$, $$T(n/2)$$…), y **métodos matemáticos para
+resolverlas**.
 </Slide>
+
 ## Ejercicios
 
-Los siguientes ocho ejercicios cubren lo que vimos: contar OE por línea, distinguir
-mejor/peor caso, derivar sumatorias, comparar constantes contra clases asintóticas y
-analizar espacio.
+Los siguientes seis ejercicios cubren lo que vimos: contar OE por línea, distinguir
+mejor/peor caso, derivar sumatorias, y comparar constantes contra clases asintóticas.
 
 Cada ejercicio muestra un código y una pregunta. Al apretar **"Ver desarrollo"** se
 despliega el análisis completo con el mismo `<ComplexityCounter>` que usamos en clase —
@@ -1727,69 +1678,352 @@ t_B(10) = 1000 · k_B = 1 s  →  k_B = 0.001`}</pre>
   }
 />
 
-### Ejercicio 7 — espacio acumulativo (matriz triangular)
+<Questions>
 
-<ComplexityExercise
-  algorithm="triangular"
-  prompt="M(n)"
-  hint="Cuenta AMBOS: el arreglo de punteros (n celdas) y el total de celdas alocadas por los `new int[i]` de cada iteración."
-  mode="space"
-  code={`int[][] triangular(int n) {
-    int[][] arr = new int[n][];
-    for (int i = 1; i <= n; i++) {
-        arr[i - 1] = new int[i];
-    }
-    return arr;
-}`}
-  data={{
-    annotations: {
-      2: { oe: 1, times: "n" },
-      4: { oe: 1, times: "n*(n+1)/2" },
-    },
-    formula: "(n² + 3n) / 2",
-    evaluate: (n) => (n * n + 3 * n) / 2,
-  }}
-  slider={{ min: 1, max: 50, default: 10 }}
-/>
+<Question id="por-que-oe-no-segundos">
 
-### Ejercicio 8 — reverse in-place vs copia
+¿Por qué medimos la complejidad de un algoritmo en **operaciones elementales**
+(OE) en vez de en **segundos**?
 
-<ComplexityExercise
-  algorithm="reverseInPlace vs reverseNuevo"
-  prompt="M(n)"
-  hint="Compara las dos implementaciones. Las pestañas 'mejor' y 'peor' del widget etiquetan las dos versiones: 'mejor' = in-place, 'peor' = copia (usa más memoria)."
-  mode="cases"
-  code={`void reverseInPlace(int[] arr) {
-    for (int i = 0; i < arr.length / 2; i++) {
-        int tmp = arr[i];
-        arr[i] = arr[arr.length - 1 - i];
-        arr[arr.length - 1 - i] = tmp;
+- [ ] Porque el cronómetro es impreciso a escala de milisegundos.
+- [x] Porque los segundos dependen de la máquina, el compilador y la carga del sistema; las OE dependen solo del algoritmo.
+- [ ] Porque los procesadores modernos no pueden ejecutar más de una operación por ciclo.
+- [ ] Porque las OE se pueden convertir directamente a segundos usando la frecuencia del CPU.
+
+<Explanation>
+El cronómetro mide el entorno, no el algoritmo. Contar OE aísla la propiedad
+que queremos comparar entre algoritmos.
+</Explanation>
+
+</Question>
+
+<Question id="for-condition-count">
+
+En un ciclo `for (int i = 0; i < n; i++)` que hace `n` iteraciones completas
+del cuerpo, ¿cuántas veces se evalúa la **condición** `i < n` en total?
+
+- [ ] n − 1
+- [ ] n
+- [x] n + 1
+- [ ] 2n
+
+<Explanation>
+La condición se evalúa una vez por cada iteración que sí entra al ciclo
+($$n$$ veces) más una vez extra al final para determinar que ya no se entra —
+total $$n + 1$$.
+</Explanation>
+
+</Question>
+
+<Question id="dos-contadores-distintos">
+
+Dos personas cuentan OE para el mismo algoritmo. Una obtiene
+**T₁(n) = 2n + 3**; la otra, **T₂(n) = 3n + 2**. ¿Qué se puede concluir?
+
+- [ ] Al menos una contó mal — no puede haber dos T(n) distintos para el mismo algoritmo.
+- [x] Ambas son válidas: dependen de la convención de conteo, pero comparten el mismo orden de crecimiento (lineal en n).
+- [ ] La segunda es más precisa porque cuenta más operaciones.
+- [ ] Solo coinciden si las dos personas usan la misma máquina.
+
+<Explanation>
+La fórmula depende de qué declaremos como OE (una asignación puede ser 1 o 2,
+un acceso puede ser gratis o no). Convenciones distintas dan fórmulas
+distintas — pero el orden asintótico, lo que sobrevive a las constantes, es
+el mismo.
+</Explanation>
+
+</Question>
+
+<Question id="por-que-descartar-constantes">
+
+En análisis asintótico, ¿por qué se descartan las constantes multiplicativas
+(por ejemplo, tratar **3n²** como **n²**)?
+
+- [ ] Porque las constantes son demasiado pequeñas para importar.
+- [x] Porque dependen del contador de OE y de la máquina, no del algoritmo.
+- [ ] Porque los procesadores modernos las optimizan.
+- [ ] Porque la definición matemática de O no permite constantes.
+
+<Explanation>
+La constante $$3$$ en $$3n^2$$ podría ser $$2$$ o $$5$$ dependiendo de cómo
+contemos OE, o de qué tan rápido corra cada operación en la máquina — no es
+propiedad del algoritmo. Descartarla aísla lo que sí lo es: el orden $$n^2$$.
+</Explanation>
+
+</Question>
+
+<Question id="definicion-big-o">
+
+Decir que **f(n) ∈ O(g(n))** significa que:
+
+- [ ] f y g crecen al mismo ritmo salvo constantes.
+- [x] ∃ c > 0, N₀ > 0: f(n) ≤ c · g(n) para todo n ≥ N₀.
+- [ ] f(n) ≤ g(n) punto a punto, para todo n ≥ 1.
+- [ ] f(n) / g(n) → 1 cuando n → ∞.
+
+<Explanation>
+$$O$$ es una cota superior asintótica. La desigualdad no vale desde el
+inicio (por eso el $$N_0$$), ni $$f$$ tiene que ser menor punto a punto (por
+eso el $$c$$). "Crecen al mismo ritmo" describe $$\Theta$$; "$$f/g \to 1$$"
+es equivalencia asintótica, aún más fuerte.
+</Explanation>
+
+</Question>
+
+<Question id="definicion-omega">
+
+¿Cuál de las siguientes afirmaciones sobre **f(n) ∈ Ω(g(n))** es correcta?
+
+- [ ] f(n) crece más despacio que g(n) para todo n grande.
+- [x] ∃ c > 0, N₀ > 0: f(n) ≥ c · g(n) para todo n ≥ N₀.
+- [ ] f no puede exceder a g salvo por un factor constante.
+- [ ] Ω es lo que llamamos el "mejor caso" de un algoritmo.
+
+<Explanation>
+$$\Omega$$ es la cota inferior asintótica — dice "$$f$$ crece al menos como
+$$g$$". La última opción es la trampa clásica: confundir cota (O/Ω/Θ) con
+caso (peor/mejor/promedio) — son dimensiones distintas.
+</Explanation>
+
+</Question>
+
+<Question id="regla-polinomio">
+
+Un algoritmo tiene **T(n) = 5n³ + 100n² + 42**. ¿En qué clase asintótica
+está?
+
+- [ ] Θ(n²)
+- [x] Θ(n³)
+- [ ] Θ(n³ + n²)
+- [ ] Θ(5n³)
+
+<Explanation>
+Por la regla del polinomio, $$\Theta$$ es el término de mayor grado sin
+coeficiente. Aquí $$5n^3$$ domina, así que la clase es $$\Theta(n^3)$$. Las
+opciones con constantes ($$5$$) o suma de términos son formas incorrectas de
+escribir la notación — los términos menores y los coeficientes se descartan.
+</Explanation>
+
+</Question>
+
+<Question id="suma-secuencial-constantes">
+
+Un algoritmo hace dos operaciones consecutivas: la primera es **5n**
+operaciones y la segunda es **2n²** operaciones. ¿Cuál es su complejidad
+asintótica?
+
+- [ ] Θ(5n)
+- [x] Θ(n²)
+- [ ] Θ(2n²)
+- [ ] Θ(10n³)
+
+<Explanation>
+Regla de la suma (bloques secuenciales): queda el término dominante $$2n^2$$.
+Descartando la constante multiplicativa: $$\Theta(n^2)$$. Cuidado:
+$$\Theta(2n^2)$$ es incorrecta — la constante hay que descartarla. Y
+$$\Theta(10n^3)$$ vendría de aplicar la regla del producto, que corresponde a
+ciclos anidados, no a bloques secuenciales.
+</Explanation>
+
+</Question>
+
+<Question id="cual-orden-mas-eficiente">
+
+A partir de un `n` suficientemente grande, ¿cuál algoritmo hace **menos
+operaciones**?
+
+- [ ] Un algoritmo O(n)
+- [x] Un algoritmo O(lg n)
+- [ ] Un algoritmo O(√n)
+- [ ] Un algoritmo O(n lg n)
+
+<Explanation>
+La jerarquía es $$O(1) \subset O(\lg n) \subset O(\sqrt{n}) \subset O(n)
+\subset O(n \lg n)$$. Cuanto más a la izquierda de la cadena, menos
+operaciones para $$n$$ grande. $$O(\lg n)$$ está a la izquierda de los otros
+tres.
+</Explanation>
+
+</Question>
+
+<Question id="cota-vs-caso">
+
+¿Cuál de las siguientes afirmaciones sobre notación y casos es correcta?
+
+- [ ] O siempre se refiere al peor caso, Ω al mejor caso, y Θ al caso promedio.
+- [x] La notación (O, Ω, Θ) y el caso (mejor, peor, promedio) son dimensiones independientes.
+- [ ] Un algoritmo solo tiene una única complejidad, sin importar el caso.
+- [ ] O siempre es una cota más apretada que Θ.
+
+<Explanation>
+Cota y caso son ejes ortogonales. Se puede decir "en el mejor caso este
+algoritmo es $$\Theta(1)$$" o "en el peor caso es $$O(n^2)$$" — la notación
+describe qué tipo de cota se da sobre $$T(n)$$; el caso describe qué entrada
+se consideró para analizar.
+</Explanation>
+
+</Question>
+
+<Question id="convencion-peor-caso">
+
+Un profesor dice: *"este algoritmo es O(n²)"*, sin mencionar caso. ¿A qué
+caso se refiere por convención?
+
+- [ ] Al caso promedio.
+- [ ] Al mejor caso.
+- [x] Al peor caso.
+- [ ] A los tres casos simultáneamente.
+
+<Explanation>
+Cuando no se explicita, la convención de la disciplina es reportar el peor
+caso — es la garantía más fuerte ("nunca va a ser más lento que esto") y no
+requiere asumir una distribución particular de entradas.
+</Explanation>
+
+</Question>
+
+<Question id="cotas-validas-lineal">
+
+Si un algoritmo tiene **T(n) = 4n + 4**, ¿cuáles de las siguientes
+afirmaciones son **verdaderas**?
+
+- [x] T(n) ∈ O(n)
+- [x] T(n) ∈ O(n²)
+- [ ] T(n) ∈ Ω(n²)
+- [x] T(n) ∈ Θ(n)
+
+<Explanation>
+$$T(n)$$ es lineal. $$O(n)$$ es su cota superior más apretada, pero cualquier
+cota mayor ($$O(n^2)$$, $$O(2^n)$$…) también es cierta — solo es más
+holgada. En cambio, $$\Omega(n^2)$$ es falsa: $$T$$ no crece "al menos como
+$$n^2$$". Y $$\Theta(n)$$ vale porque coincide $$O(n) \cap \Omega(n)$$.
+</Explanation>
+
+</Question>
+
+<Question id="complejidad-anidados">
+
+¿Cuál es la complejidad asintótica de este algoritmo?
+
+```java
+int suma = 0;
+for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) {
+        suma = suma + arr[i] * arr[j];
     }
 }
+```
 
-int[] reverseNuevo(int[] arr) {
-    int[] out = new int[arr.length];
-    for (int i = 0; i < arr.length; i++) {
-        out[i] = arr[arr.length - 1 - i];
+- [ ] O(n)
+- [ ] O(n lg n)
+- [x] O(n²)
+- [ ] O(n³)
+
+<Explanation>
+Dos ciclos anidados, cada uno de $$n$$ iteraciones. Regla del producto:
+$$O(n) \cdot O(n) = O(n^2)$$. El cuerpo del ciclo interno hace un número
+constante de operaciones (asignación + multiplicación + accesos), lo que no
+cambia el orden.
+</Explanation>
+
+</Question>
+
+<Question id="secuencial-vs-anidado">
+
+¿Cuál es la diferencia entre estos dos algoritmos en términos asintóticos?
+
+```java
+// Algoritmo A:
+for (int i = 0; i < n; i++) { /* trabajo constante */ }
+for (int j = 0; j < n; j++) { /* trabajo constante */ }
+
+// Algoritmo B:
+for (int i = 0; i < n; i++) {
+    for (int j = 0; j < n; j++) { /* trabajo constante */ }
+}
+```
+
+- [ ] Ambos son O(n).
+- [ ] Ambos son O(n²).
+- [ ] A es O(n²), B es O(n).
+- [x] A es O(n), B es O(n²).
+
+<Explanation>
+A tiene dos ciclos secuenciales — regla de la suma: $$O(n) + O(n) = O(n)$$.
+B tiene dos ciclos anidados — regla del producto: $$O(n) \cdot O(n) =
+O(n^2)$$. La diferencia entre suma y producto se lee directamente en la
+estructura del código: secuenciales vs anidados.
+</Explanation>
+
+</Question>
+
+<Question id="igualdades-asintoticas">
+
+¿Cuáles de las siguientes igualdades entre clases asintóticas son
+**verdaderas**?
+
+- [x] O(5n) = O(n)
+- [x] O(n² + n) = O(n²)
+- [ ] O(n · n) = O(n)
+- [x] O(100) = O(1)
+
+<Explanation>
+La primera es la regla de las constantes ($$5$$ se absorbe eligiendo otro
+$$c$$). La segunda es la regla de la suma (el término dominante $$n^2$$
+gana). La tercera es falsa: la regla del producto da $$O(n^2)$$, no
+$$O(n)$$ — multiplicar dos $$O(n)$$ no colapsa a uno. La cuarta es la regla
+de constantes en su forma extrema: cualquier constante, por grande que sea,
+cabe en $$O(1)$$.
+</Explanation>
+
+</Question>
+
+<Question id="cruce-x-y">
+
+Dos algoritmos que resuelven el mismo problema: **X** hace **100n**
+operaciones, **Y** hace **n²** operaciones. Para `n` suficientemente
+grande, ¿cuál es más rápido?
+
+- [ ] Y, porque tiene una constante multiplicativa más chica.
+- [x] X, porque su orden (n) es más chico que el de Y (n²).
+- [ ] Ambos son iguales asintóticamente.
+- [ ] Depende de la máquina que los ejecute.
+
+<Explanation>
+Aunque X tiene una constante multiplicativa alta ($$100$$), el orden de
+crecimiento es lo que decide a $$n$$ grande. Existe un cruce ($$n = 100$$ en
+este caso, donde $$100n = n^2$$); a partir de ahí, Y crece más rápido y la
+brecha se ensancha.
+</Explanation>
+
+</Question>
+
+<Question id="mitad-triangulo">
+
+¿Cuál es la complejidad asintótica de este algoritmo?
+
+```java
+for (int i = 0; i < n; i++) {
+    for (int j = 0; j < i; j++) {
+        // trabajo constante
     }
-    return out;
-}`}
-  cases={{
-    best: {
-      annotations: {
-        3: { oe: 1, times: "1" },
-      },
-      formula: "1 (constante)",
-      evaluate: () => 1,
-    },
-    worst: {
-      annotations: {
-        10: { oe: 1, times: "n" },
-      },
-      formula: "n",
-      evaluate: (n) => n,
-    },
-  }}
-  slider={{ min: 1, max: 100, default: 10 }}
-/>
+}
+```
+
+- [ ] O(n)
+- [ ] O(n lg n)
+- [x] O(n²)
+- [ ] O(n³)
+
+<Explanation>
+El ciclo interno hace $$i$$ iteraciones (no $$n$$). El total es
+$$\sum_{i=0}^{n-1} i = n(n-1)/2$$, que por la regla del polinomio es
+$$\Theta(n^2)$$. Aunque el interno hace la mitad del trabajo de uno de
+$$n$$, el orden termina siendo el mismo — el patrón "mitad-triángulo", muy
+común.
+</Explanation>
+
+</Question>
+
+</Questions>
 
