@@ -2,14 +2,14 @@
 id: genericos-y-orden
 title: Genéricos y orden
 presentation: explicit
-questions: none
+questions: per-section
 ---
 
-{/* Este documento va a declarar `questions: per-section` (#139) cuando el */}
-{/* banco esté escrito. Hasta entonces `questions: none` es la declaración */}
-{/* honesta: no hay preguntas y no hay promesa. La flip a per-section vive */}
-{/* en el mismo commit que el banco y las entradas de NO_QUESTION — regla */}
-{/* dura (#144, add-a-course-document.md §Frontmatter). */}
+{/* Declaración per-section (#139): cada sección lleva al menos una */}
+{/* pregunta anclada, o queda declarada en NO_QUESTION con su razón */}
+{/* (apps/web/src/content/architecture.test.ts). La flip y el banco */}
+{/* llegan en el mismo commit — regla dura (#144, */}
+{/* add-a-course-document.md §Frontmatter). */}
 {/* */}
 {/* Anclas de sección (llevarán pregunta, deben existir como h2): */}
 {/*   el-problema-combinatorio, pair-t, pair-a-b, comparable, */}
@@ -1118,6 +1118,201 @@ check(vacio.length, 0);
 ```
 
 </Exercise>
+
+{/* Catorce preguntas, una anclada por sección (una a dos preguntas por */}
+{/* sección; §Comparable lleva cuatro por el arco compareTo → bug de resta */}
+{/* → Integer.compare → desempate). Las slides de contexto, ejemplo y */}
+{/* actividad no llevan pregunta propia — su exención vive en NO_QUESTION */}
+{/* (apps/web/src/content/architecture.test.ts) con la razón. */}
+<Questions>
+
+<Question id="motivo-combinatorio" anchor="el-problema-combinatorio">
+
+Sin genéricos, ¿por qué el número de clases `Pair` distintas necesarias
+para cubrir todas las combinaciones de dos tipos crece cuadráticamente en
+la cantidad de tipos disponibles?
+
+- [x] Porque cada par ordenado `(A, B)` es una combinación distinta de cada `(B, A)`, y con `n` tipos existen `n × n` pares ordenados
+- [ ] Porque cada clase `Pair` requiere el doble de memoria que la anterior
+- [ ] Porque el compilador genera dos versiones internas por cada clase declarada
+- [ ] Porque cada método de la clase se compila una vez por cada par de tipos posibles
+
+</Question>
+
+<Question id="parametro-de-tipo-t" anchor="pair-t">
+
+En la declaración `public class Pair<T>`, ¿qué representa la letra `T`
+dentro del cuerpo de la clase?
+
+- [x] Una variable de tipo que se liga a un tipo concreto en el momento de instanciar la clase
+- [ ] El tipo `Object`, empleado como caso general
+- [ ] Un tipo definido por Java exclusivamente para uso en clases genéricas
+- [ ] Una etiqueta de documentación sin efecto en el compilador
+
+</Question>
+
+<Question id="pair-t-instancia" anchor="pair-t">
+
+Dada la siguiente clase, ¿cuál de las instanciaciones es rechazada por el
+compilador?
+
+```java
+public class Pair<T> {
+    private T first;
+    private T second;
+    public Pair(T first, T second) { this.first = first; this.second = second; }
+}
+```
+
+- [x] `new Pair<Integer>(20, "hola")`
+- [ ] `new Pair<String>("hola", "chao")`
+- [ ] `new Pair<Integer>(20, 21)`
+- [ ] `new Pair<Double>(1.5, 2.5)`
+
+</Question>
+
+<Question id="pair-a-b-declaracion" anchor="pair-a-b">
+
+Al declarar `public class Pair<A, B>`, ¿qué relación existe entre los dos
+parámetros de tipo?
+
+- [x] Son independientes: cada uno se liga a su tipo al instanciar y no se exige que coincidan
+- [ ] Deben coincidir siempre, como en `Pair<T, T>`
+- [ ] El segundo (`B`) debe ser subtipo del primero (`A`)
+- [ ] Ambos comparten el mismo tipo en todas las instancias de la clase
+
+</Question>
+
+<Question id="pair-a-b-orden" anchor="pair-a-b">
+
+¿Cuál de las siguientes afirmaciones sobre los tipos
+`Pair<Integer, String>` y `Pair<String, Integer>` es cierta?
+
+- [x] Son tipos diferentes para el compilador: pasar uno donde la firma exige el otro no compila
+- [ ] Son el mismo tipo, porque provienen de la misma clase `Pair`
+- [ ] El compilador acepta el intercambio si los datos se pueden convertir en tiempo de ejecución
+- [ ] Sólo son distintos cuando la clase implementa `Comparable`
+
+</Question>
+
+<Question id="tres-regiones-compareto" anchor="comparable">
+
+El método `compareTo` de la interfaz `Comparable<T>` devuelve un `int`.
+¿Qué significan sus tres regiones?
+
+- [x] Negativo: `this` va antes que `other`. Cero: empatan. Positivo: `this` va después que `other`
+- [ ] Los tres valores posibles son `-1`, `0` y `1`, y otros valores rompen el contrato
+- [ ] La magnitud del valor devuelto indica el orden de preferencia entre los dos elementos
+- [ ] Negativo: los elementos no son comparables. Cero: son iguales. Positivo: son comparables
+
+</Question>
+
+<Question id="resta-como-comparacion" anchor="comparable">
+
+Un `compareTo(Pair other)` implementado como `return this.second - other.second;`
+sobre enteros cercanos a los extremos del rango de `int`, ¿qué
+comportamiento produce?
+
+- [x] Puede devolver un valor cuyo signo no corresponde al orden real de los operandos, porque la resta desborda silenciosamente
+- [ ] Lanza `ArithmeticException` al desbordarse
+- [ ] Devuelve siempre el signo correcto, porque el desbordamiento se compensa entre positivos y negativos
+- [ ] El compilador rechaza la resta entre enteros dentro de un método `compareTo`
+
+</Question>
+
+<Question id="integer-compare" anchor="comparable">
+
+¿Por qué `Integer.compare(a, b)` es una alternativa segura a `a - b` como
+implementación de `compareTo`?
+
+- [x] Compara los dos operandos internamente sin realizar la resta, evitando el desbordamiento
+- [ ] Realiza la resta con precisión extendida a 64 bits antes de truncar el resultado
+- [ ] Lanza una excepción cuando detecta un desbordamiento en la resta
+- [ ] Su resultado siempre es `-1`, `0` o `1`, en lugar de un `int` de magnitud arbitraria
+
+</Question>
+
+<Question id="desempate-patron" anchor="comparable">
+
+En un `compareTo` con desempate, el patrón estándar aplica el criterio
+secundario **sólo cuando el primero devuelve cero**. Dado el fragmento
+siguiente, ¿cuál de las expresiones respeta ese patrón?
+
+```java
+int porFirst = Integer.compare(this.first, other.first);
+int porSecond = Integer.compare(this.second, other.second);
+```
+
+- [x] `return porFirst != 0 ? porFirst : porSecond;`
+- [ ] `return porFirst + porSecond;`
+- [ ] `return porFirst * porSecond;`
+- [ ] `return Math.max(porFirst, porSecond);`
+
+</Question>
+
+<Question id="cuando-bounded" anchor="tipos-acotados">
+
+En la declaración `public class Pair<A, B> implements Comparable<Pair<A, B>>`,
+¿por qué el compilador rechaza `this.first.compareTo(other.first)` dentro
+del método `compareTo`?
+
+- [x] Porque `A` puede ligarse a cualquier tipo, y el compilador no tiene garantía de que ese tipo implemente `Comparable`
+- [ ] Porque `Comparable<T>` no puede aparecer con parámetros de tipo dentro de `implements`
+- [ ] Porque el método `compareTo` de la interfaz `Comparable` está declarado como `final`
+- [ ] Porque `this` y `other` deben ser del mismo tipo, y `A` no garantiza esa igualdad
+
+</Question>
+
+<Question id="sintaxis-bounded" anchor="tipos-acotados">
+
+¿Cuál es la declaración correcta de una clase `Pair` cuyos dos parámetros
+deben implementar `Comparable` sobre sí mismos?
+
+- [x] `class Pair<A extends Comparable<A>, B extends Comparable<B>>`
+- [ ] `class Pair<A implements Comparable<A>, B implements Comparable<B>>`
+- [ ] `class Pair<A, B> where A extends Comparable, B extends Comparable`
+- [ ] `class Pair<A: Comparable, B: Comparable>`
+
+</Question>
+
+<Question id="comparator-lambda" anchor="comparator">
+
+`Comparator<T>` declara un único método abstracto, `int compare(T a, T b)`.
+¿Qué relación tiene una lambda con esta interfaz?
+
+- [x] Una lambda con firma `(T, T) -> int` es implementación válida de la interfaz: su cuerpo se usa como método `compare`
+- [ ] Una lambda sólo puede implementar interfaces marcadas con `@FunctionalInterface`, anotación que `Comparator` no lleva
+- [ ] El compilador rechaza asignar una lambda a una variable de tipo interfaz; se requiere una clase anónima
+- [ ] Una lambda implementa `Comparator` únicamente si su cuerpo llama internamente a `Comparable.compareTo`
+
+</Question>
+
+<Question id="reversed-comparator" anchor="comparator">
+
+Dado el comparador
+`Comparator<Pair<String, Integer>> porSecond = (a, b) -> Integer.compare(a.second(), b.second());`,
+¿qué produce la llamada `Arrays.sort(pares, porSecond.reversed())`?
+
+- [x] El arreglo ordenado por `second` descendente
+- [ ] El arreglo con los elementos en el orden inverso al que tenían antes de la llamada
+- [ ] Una excepción, porque `.reversed()` sólo se puede aplicar a comparadores provenientes de `Comparator.comparing`
+- [ ] Una copia del arreglo original, ordenada por `second` ascendente
+
+</Question>
+
+<Question id="thencomparing-desempate" anchor="comparator">
+
+`porA.thenComparing(porB)` produce un comparador compuesto. ¿En qué caso
+entra en acción `porB` sobre un par de elementos comparados?
+
+- [x] Únicamente cuando `porA` devuelve cero para ese par
+- [ ] En todas las comparaciones, sumando su resultado con el de `porA`
+- [ ] Sólo cuando `porA` devuelve un valor positivo
+- [ ] En ninguna: `thenComparing` es una marca sintáctica sin efecto en tiempo de ejecución
+
+</Question>
+
+</Questions>
 
 ## Lo que sigue
 
