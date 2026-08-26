@@ -287,6 +287,48 @@ it, in two places at once (mirror is the pin against a silent revert):
    `tex_internal_test.go` — one `{name, in, want}` per character so a
    silent revert of the map row lands red on that row.
 
+## Text emphasis
+
+A question's statement and alternatives may use four MDX inline markers, and
+the server translates each one to LaTeX before the printed sheet is compiled
+(same pipeline as Unicode above — `escapeBankText` in
+`apps/server/internal/domain/controls/tex/tex.go`).
+
+- **Bold** — `**palabra**` renders as `\textbf{palabra}`. The double asterisks
+  themselves never reach the paper; before the fix (issue #239) they printed
+  verbatim around the word.
+- **Italic** — `*palabra*` renders as `\textit{palabra}`. A single asterisk
+  without its partner stays as a bare `*` on the sheet — pair the marker or
+  omit it.
+- **Code** — a backtick pair, `` `int` ``, renders as `\texttt{int}`
+  (monospace). A backtick without its partner prints as a quote mark on paper
+  and is not what any reader expects; pair them.
+- **Quotation** — an ASCII double quote pair, `"así"`, renders as
+  babel-spanish guillemets `«así»`. Straight ASCII quotes are NOT rendered
+  as such: writing `"así"` on the page produces the Spanish typographic
+  form, and the transform also sidesteps a `fontenc[T1]` diacritic-composition
+  trap where a bare `"` before a vowel produced an unintended superscript
+  glyph on paper.
+
+Nested emphasis works in one direction: an italic inside a bold
+(`**bold *italic* end**`) renders as `\textbf{bold \textit{italic} end}`
+because the pipeline runs bold first. The reverse order, bold inside italic
+(`*italic **bold** end*`), is undefined — bold consumes the `**` pair and
+italic does not see a matching pair on either side. Author-time: pick one
+kind of emphasis per span.
+
+Everything else that looks like a Markdown marker (headers, lists, links,
+tables) is NOT supported here — statements are single-paragraph by
+convention (see §"A good simple question"), and those constructs would be
+neither authored today nor useful on a paper sheet. If a compile does need
+raw LaTeX one day (a formula, a diagram), that opt-in is tracked as issue
+#183; it is separate work from this markers set.
+
+Round-trip is that: the online reader renders the MDX natively (bold, italic,
+code, quotes read as prose on screen), and the printed sheet renders the
+same intent through LaTeX. The author writes ONE source, both surfaces read
+the same story.
+
 ## Post-answer explanation
 
 `<Question>` accepts a nested `<Explanation>` block after the alternatives.
