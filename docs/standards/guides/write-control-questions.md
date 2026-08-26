@@ -247,6 +247,36 @@ Claude drafts, the professor edits. A draft can satisfy every rule on this page
 and still be wrong about what the class emphasised, and the correct answer is a
 teaching judgement before it is a fact. Nothing here changes that.
 
+## Unicode symbols
+
+A question's statement and alternatives may use Unicode math, Greek, and dash
+characters directly — the server translates them to LaTeX before the printed
+sheet is compiled (see `apps/server/internal/domain/controls/tex/tex.go`,
+`mapUnicodeToLatex`). The full source of truth is that table; the summary is
+enough for authoring:
+
+- Greek letters: uppercase Θ Ω Γ Δ Λ Ξ Π Σ Υ Φ Ψ and the full lowercase
+  α β γ δ ε ζ η θ ι κ λ μ ν ξ π ρ σ τ υ φ χ ψ ω. Uppercase Greek that
+  shares a glyph with a Latin letter (Α Β Ε Ζ Η Ι Κ Μ Ν Ο Ρ Τ Χ) and
+  lowercase omicron `ο` have no LaTeX equivalent — type the Latin letter.
+- Superscripts and subscripts: `⁰¹²³⁴⁵⁶⁷⁸⁹`, `₀₁₂₃₄₅₆₇₈₉`.
+- Math operators: `√ ≤ ≥ ≠ ≈ ≡ ± × ÷ · ∘ ∞ ∂ ∇`.
+- Standalone big operators: `∑ ∏ ∫` — no argument bound (an author who
+  wants `∑ᵢ` writes `$\sum_i$` explicitly, out of scope for the mapping).
+- Set operators: `∈ ∉ ∪ ∩ ⊂ ⊃ ⊆ ⊇ ∅`.
+- Logic: `∃ ∀`.
+- Arrows: `→ ↔ ⇒ ⇐ ⇔`.
+- Dashes: em-dash `—` (renders as em-dash), en-dash `–` (en-dash), true
+  minus sign `−` U+2212 (plain hyphen).
+
+Accented Spanish (`á é í ó ú ñ ü ¿ ¡`) is handled by the preamble's
+`inputenc[utf8]` + `fontenc[T1]` — write it directly, no escape needed.
+
+A character not on either list will land in pdftex verbatim; production
+today refuses that compile with `auto-multiple-choice prepare failed (1)`
+(issue #237). Add the character to `unicodeToLatex` in the same PR as the
+question that needs it.
+
 ## Post-answer explanation
 
 `<Question>` accepts a nested `<Explanation>` block after the alternatives.
