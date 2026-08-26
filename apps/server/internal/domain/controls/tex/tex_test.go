@@ -376,6 +376,143 @@ func TestStatementAndAlternativesAreEscapedBeforeEmission(t *testing.T) {
 	}
 }
 
+// Issue #237: statements in the published complejidad bank carry Unicode
+// math/greek/dash characters (Θ, Ω, ², ³, √, ≤, →, ∞, ·, —, −, ₀-₉). The
+// preamble's inputenc[utf8]+fontenc[T1] covers Latin accents but not these
+// symbols — pdftex falls back to metafont synthesising a glyph, times out,
+// and `auto-multiple-choice prepare` refuses the compile with "prepare
+// failed (1)" (the ecrm0800.mf trace in the issue).
+//
+// This test drives the FULL escapeBankText pipeline over a statement and
+// alternatives shaped like the ones that broke Control 1: mixed Unicode
+// math + Spanish accents + LaTeX specials + backtick-quoted code. It
+// verifies:
+//   - every Unicode symbol is translated to its LaTeX escape (no bare
+//     symbol survives into the emitted .tex);
+//   - accents pass through (they are handled by inputenc[utf8], and
+//     over-eager mapping here would double-escape them);
+//   - LaTeX specials introduced by mapUnicodeToLatex (`\`, `$`) are NOT
+//     re-escaped as `\textbackslash{}\$` — the order of the pipeline is
+//     load-bearing;
+//   - author-typed `%`, `&` still get escaped exactly as before;
+//   - backtick pairs still render as \texttt.
+func TestUnicodeInStatementAndAlternativesIsTranslatedToLatex(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "complejidad", Document: "welcome", Anchor: "hola",
+				Type: bank.TypeSimple,
+				// Real-shaped statement: accented Spanish + Unicode math
+				// (Θ, superscript, subscript, arrow, comparison) + LaTeX
+				// special (%) + backtick pair for code font.
+				Statement: "¿Cuál es Θ(n²) cuando log₂ n → ∞ en el 100% de los casos con `int` array?",
+				Alternatives: []string{
+					// Unicode-heavy alternative: greek + superscript +
+					// comparison + em-dash.
+					"Θ(n²) — la cota estricta",
+					// Contains a — em-dash and a − minus sign, both must
+					// map cleanly.
+					"O(n) − no aplica",
+					// Purely ASCII alternative — must round-trip unaltered.
+					"nada",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+
+	// Positive assertions: every mapped symbol survives as its LaTeX escape,
+	// accents pass through, the `%` still escapes, and the backtick pair
+	// becomes \texttt.
+	for _, want := range []string{
+		// Statement fragments.
+		"¿Cuál es",           // accent + Spanish opening question mark pass through as UTF-8 (inputenc renders).
+		`$\Theta$(n$^{2}$)`,  // Θ + ² translated.
+		`log$_{2}$ n $\to$`,  // subscript + arrow translated.
+		`$\infty$`,           // infinity translated.
+		`100\% de los casos`, // author's % still escaped.
+		`\texttt{int}`,       // backtick pair still \texttt.
+		// Correct alternative.
+		`\correctchoice{$\Theta$(n$^{2}$) --- la cota estricta}`,
+		// Wrong alternative with em-dash and minus sign.
+		`\wrongchoice{O(n) - no aplica}`,
+		// ASCII-only alternative round-trips.
+		`\wrongchoice{nada}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("mixed-Unicode statement did not render as expected: missing %q in output", want)
+		}
+	}
+
+	// Negative assertions: no bare Unicode from the AUTHOR-CONTROLLED
+	// region (Statement + Alternatives inside \begin{question}...
+	// \end{question}) survives into the .tex, and no double-escape.
+	// Scoped: the preamble legitimately uses `·` as a header separator
+	// and `—` inside LaTeX line comments (`% …`), so a whole-output
+	// scan false-positives on those — the danger is bare Unicode
+	// inside the CHOICE and STATEMENT text pdftex compiles.
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block for scoped Unicode absence check")
+	}
+	questionRegion := out[qStart:qEnd]
+	for _, unwant := range []string{
+		// Bare Unicode chars would break the compile — the whole point.
+		"Θ", "Ω", "²", "³", "₂", "√", "≤", "≥", "→", "∃", "∈", "∞", "·",
+		"—", "−",
+	} {
+		if strings.Contains(questionRegion, unwant) {
+			t.Errorf("question block emitted bare Unicode %q — pdftex would refuse the compile (issue #237)", unwant)
+		}
+	}
+	// Double-escape checks run over the whole output — these strings
+	// could not appear naturally anywhere.
+	for _, unwant := range []string{
+		`\textbackslash{}Theta`,
+		`\textbackslash{}leq`,
+		`\$\Theta`,
+	} {
+		if strings.Contains(out, unwant) {
+			t.Errorf("pipeline double-escaped a LaTeX sequence introduced by mapUnicodeToLatex: %q — escapeLatex must run BEFORE mapUnicodeToLatex", unwant)
+		}
+	}
+}
+
+// The `á` in escapeLatex output arrives as raw UTF-8 (\usepackage[utf8]{inputenc}
+// handles rendering); confirm mapUnicodeToLatex does not touch it.
+func TestAccentedLatinIsNotTouchedByUnicodePipeline(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "acentos", Document: "welcome", Anchor: "hola",
+				Type:      bank.TypeSimple,
+				Statement: "¿Cuántas señoras? Pingüino, año, público.",
+				Alternatives: []string{
+					"Sí, todas",
+					"Ninguna",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	// The raw UTF-8 accented text is expected to travel through the
+	// pipeline unchanged; inputenc[utf8] renders it. Any modification here
+	// would be a regression on the existing 66-ish ASCII/accented-Latin
+	// questions the day this ships.
+	for _, want := range []string{
+		"¿Cuántas señoras?",
+		"Pingüino, año, público.",
+		`\wrongchoice{Ninguna}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("accented-Latin question was altered: missing %q in output", want)
+		}
+	}
+}
+
 // `<` and `>` arrive from MDX as plain text too (`>>`, `<<` in inline code)
 // and are not TeX specials in general — but babel-spanish makes them ACTIVE,
 // and an active `>` that meets the closing brace of a `\correctchoice{...}`

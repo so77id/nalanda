@@ -185,6 +185,21 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   that resolves `.Get()` then hands the request to the service,
   which also resolves `.Get()`, can straddle a swap; the addendum
   pins that distinction after the WP review flagged it).
+- **Bank text destined for the printed sheet MUST go through
+  `escapeBankText` (issue #237).** The pipeline runs three ordered
+  stages in `internal/domain/controls/tex/tex.go` — `escapeLatex` →
+  `mapUnicodeToLatex` → the backtick-to-`\texttt` regex — and the
+  order is load-bearing: `mapUnicodeToLatex` introduces `\` and `$`
+  that `escapeLatex` would otherwise re-escape as `\textbackslash{}\$`
+  if the two ran in the other order. A new path that emits Statement
+  or Alternatives text into `.tex` outside `escapeBankText` will let
+  bare Unicode (Θ ² √ ≤ → ∞ — …) reach pdftex and reproduce the exact
+  `auto-multiple-choice prepare failed (1)` this WP set out to
+  prevent. Extending the map: add the char to `unicodeReplacer` AND a
+  matching row to `TestMapUnicodeToLatex_Round2` in `tex_internal_test.go`
+  in the same PR (one row per character is the pin against a silent
+  revert); author-facing summary is
+  `docs/standards/guides/write-control-questions.md` §Unicode symbols.
 - **The two surfaces do not share an auth gate** (§C12). Everything auth-shaped
   is mounted inside `internal/app/web`; `internal/app/api` is anonymous by
   construction, and `/health` sits deliberately outside the gate because the
