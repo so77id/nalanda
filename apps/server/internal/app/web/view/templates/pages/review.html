@@ -10,7 +10,7 @@
     <section class="review-image">
       <h2>Escaneo</h2>
       {{ if .HasAnnotated }}
-        <p><iframe src="{{ .AnnotatedURL }}" title="Copia {{ .CopyNumber }} corregida"></iframe></p>
+        <p><embed src="{{ .AnnotatedURL }}#view=FitH&scrollbar=1" type="application/pdf" title="Copia {{ .CopyNumber }} corregida"></p>
         <p><a href="{{ .AnnotatedURL }}">Abrir el PDF corregido en otra pestaña</a></p>
       {{ else }}
         <p><img src="{{ .ImageURL }}" alt="Escaneo de la copia {{ .CopyNumber }}"></p>
