@@ -481,13 +481,31 @@ func alternativesFor(a controls.Answer, q bank.Question, has bool) []view.Review
 	if max == 0 {
 		max = 4 // sensible default; a professor can still edit
 	}
-	out := make([]view.ReviewAlternative, max)
-	for i := 0; i < max; i++ {
-		label := fmt.Sprintf("Opción %d", i+1)
-		if i < len(labels) {
+	// #229: `a.Alternatives` is the authoring-index list in the physical
+	// printed order for this copy. When it is set, iterate it — the
+	// professor's review page then renders alternatives in the same order
+	// as the paper. When it is empty (a reading written before #229, or
+	// an analyzer that predates S1), iterate 1..max in bank order —
+	// indistinguishable from the pre-change behaviour.
+	//
+	// Index remains the AUTHORING index in both branches: it is what the
+	// store persisted as `marked`, what the save-review form sends back,
+	// and what the bank's Correct list is keyed by. Only the position in
+	// the returned slice changes.
+	order := a.Alternatives
+	if len(order) == 0 {
+		order = make([]int, max)
+		for i := range order {
+			order[i] = i + 1
+		}
+	}
+	out := make([]view.ReviewAlternative, 0, len(order))
+	for _, idx := range order {
+		label := fmt.Sprintf("Opción %d", idx)
+		if i := idx - 1; i >= 0 && i < len(labels) {
 			label = labels[i]
 		}
-		out[i] = view.ReviewAlternative{Index: i + 1, Label: label}
+		out = append(out, view.ReviewAlternative{Index: idx, Label: label})
 	}
 	return out
 }
