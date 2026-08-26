@@ -125,15 +125,16 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	cstore := controlstore.New(db)
+	live := bank.NewStaticLive(b)
 	svc := controls.NewService(controls.Service{
-		Bank: b, Store: cstore, Generator: fake, Analyzer: fake, Readings: cstore,
+		Bank: live, Store: cstore, Generator: fake, Analyzer: fake, Readings: cstore,
 		Annotator: fake, AnnotateEnabled: annotateEnabled,
 		WorkDir: workDir,
 		Now:     time.Now, Seed: 1, Log: log,
 	})
 	hook := &recordingHook{service: svc}
 	h := handler.NewControls(handler.Controls{
-		Service: svc, Bank: b,
+		Service: svc, Bank: live,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
 		OnCorrectionClosed: hook,
 		Log:                log,

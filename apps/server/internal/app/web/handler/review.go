@@ -67,7 +67,7 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 		SaveURL:    controlReviewURL(id, copyNumber),
 		Graded:     control.State == controls.Graded,
 		RUT:        toReviewRUT(reading),
-		Questions:  toReviewQuestions(reading, h.Bank),
+		Questions:  toReviewQuestions(reading, h.Bank.Get()),
 	}
 	// Issue #190: the corrected PDF replaces the raw scan once it exists.
 	// The lookup failure is a 500 — same convention as the reading list on

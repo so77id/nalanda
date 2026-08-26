@@ -66,7 +66,10 @@ func paperOrDefault(p Paper) Paper {
 // re-compile of the same input produces the same draw, ADR-0030's four
 // silent traps need a deterministic input.
 type Service struct {
-	Bank      *bank.Bank
+	// Bank is the live wrapper around the published question bank
+	// (ADR-0032, issue #230). Reads call .Get() to pick up the current
+	// snapshot; the ticker and the admin endpoint rotate it at runtime.
+	Bank      *bank.LiveBank
 	Store     Store
 	Generator Generator
 	// Analyzer and Readings power the WP-F pipeline: upload → analyse →
@@ -157,7 +160,7 @@ type CreateRequest struct {
 // versa — the "the row is committed and the files are on disk, or neither"
 // promise.
 func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error) {
-	pool, err := s.Bank.Pool(req.RangeFrom, req.RangeTo)
+	pool, err := s.Bank.Get().Pool(req.RangeFrom, req.RangeTo)
 	if err != nil {
 		return Control{}, err
 	}

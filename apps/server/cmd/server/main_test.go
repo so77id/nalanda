@@ -34,13 +34,13 @@ import (
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
-func emptyBank(t *testing.T) *bank.Bank {
+func emptyBank(t *testing.T) *bank.LiveBank {
 	t.Helper()
 	b, err := bank.Parse(strings.NewReader(`{"version":1,"documents":[],"questions":[]}`))
 	if err != nil {
 		t.Fatalf("emptyBank: %v", err)
 	}
-	return b
+	return bank.NewStaticLive(b)
 }
 
 // composed builds the root handler the way run() does, so these cases exercise

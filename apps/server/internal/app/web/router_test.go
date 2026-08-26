@@ -28,16 +28,18 @@ import (
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
-// emptyBank returns a valid, empty bank for the router tests — the
-// existing cases do not exercise controls flow, but the constructor
-// refuses a nil bank.
-func emptyBank(t *testing.T) *bank.Bank {
+// emptyBank returns a LiveBank wrapping a valid, empty bank for the router
+// tests — the existing cases do not exercise controls flow, but the
+// handler and service constructors refuse a nil bank. NewStaticLive is
+// the test seam bank added for issue #230; production wiring goes through
+// bank.NewLive.
+func emptyBank(t *testing.T) *bank.LiveBank {
 	t.Helper()
 	b, err := bank.Parse(strings.NewReader(`{"version":1,"documents":[],"questions":[]}`))
 	if err != nil {
 		t.Fatalf("emptyBank: %v", err)
 	}
-	return b
+	return bank.NewStaticLive(b)
 }
 
 // deps builds the surface the way cmd/server does, over a real (empty) database.

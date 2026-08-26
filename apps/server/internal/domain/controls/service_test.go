@@ -172,7 +172,7 @@ func newService(t *testing.T) (*controls.Service, *fakeStore, *amctest.Fake, str
 	store := newFakeStore()
 	gen := &amctest.Fake{WorkDir: workDir, SujetSize: 42}
 	svc := controls.NewService(controls.Service{
-		Bank:      b,
+		Bank:      bank.NewStaticLive(b),
 		Store:     store,
 		Generator: gen,
 		Analyzer:  gen,
@@ -398,7 +398,7 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 	gen := &amctest.Fake{WorkDir: workDir, SujetSize: 4}
 	store := newFakeStore()
 	svc := controls.NewService(controls.Service{
-		Bank: b, Store: store, Generator: gen, Analyzer: gen, Readings: newFakeReadingStore(),
+		Bank: bank.NewStaticLive(b), Store: store, Generator: gen, Analyzer: gen, Readings: newFakeReadingStore(),
 		Annotator: gen, AnnotateEnabled: true,
 		WorkDir: workDir,
 		Now:     func() time.Time { return time.Now() }, Seed: 1,
