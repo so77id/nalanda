@@ -46,6 +46,29 @@
       .sections a:hover, .sections a:focus-visible {
         background: color-mix(in srgb, currentColor 12%, transparent);
       }
+      /* The bank-refresh button (issue #230) sits beside the section
+         links in the top bar and needs to READ as one — a button that
+         opens a form flash message, not a page. The `form` is inline so
+         the layout stays a single row; the `button` inherits color and
+         font from currentColor so it lands in both themes without a
+         second palette. */
+      .sections form.section-action {
+        display: inline;
+        margin: 0;
+      }
+      .sections form.section-action button {
+        font: inherit;
+        color: inherit;
+        background: transparent;
+        border: none;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.375rem;
+        cursor: pointer;
+      }
+      .sections form.section-action button:hover,
+      .sections form.section-action button:focus-visible {
+        background: color-mix(in srgb, currentColor 12%, transparent);
+      }
 
       /* <details>, not a script: the one piece of interactivity this surface
          needs is a dropdown, and the element that does it ships in every
@@ -189,6 +212,10 @@
         <nav class="sections" aria-label="Secciones">
           <span class="brand">Nalanda · administración</span>
           <a href="/professors">Profesores</a>
+          <form method="post" action="/admin/bank/refresh" class="section-action">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+            <button type="submit" title="Vuelve a leer questions.json publicado en apps/web">Recargar banco</button>
+          </form>
         </nav>
         <details class="menu">
           <summary>{{ .Professor.Email }}</summary>

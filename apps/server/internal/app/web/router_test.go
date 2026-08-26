@@ -110,6 +110,11 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			OnCorrectionClosed: controls.NewNoopHook(logger),
 			Log:                logger,
 		}),
+		AdminBank: handler.NewAdminBank(handler.AdminBank{
+			Bank:      emptyBank(t),
+			PublicURL: "https://nalanda.test",
+			Log:       logger,
+		}),
 		Log: logger,
 	}
 }

@@ -213,6 +213,11 @@ func run(logger *slog.Logger) error {
 			OnCorrectionClosed: controls.NewNoopHook(logger),
 			Log:                logger,
 		}),
+		AdminBank: handler.NewAdminBank(handler.AdminBank{
+			Bank:      liveBank,
+			PublicURL: cfg.PublicURL,
+			Log:       logger,
+		}),
 		Login: handler.NewAuth(handler.Auth{
 			Login: login,
 			Provider: oidc.NewGoogle(oidc.GoogleConfig{

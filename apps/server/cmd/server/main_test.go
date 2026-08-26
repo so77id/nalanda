@@ -110,6 +110,11 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 			OnCorrectionClosed: controls.NewNoopHook(logger),
 			Log:                logger,
 		}),
+		AdminBank: handler.NewAdminBank(handler.AdminBank{
+			Bank:      emptyBank(t),
+			PublicURL: "https://nalanda.test",
+			Log:       logger,
+		}),
 		Log: logger,
 	}, prober, logger), store
 }

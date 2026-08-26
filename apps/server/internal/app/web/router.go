@@ -46,6 +46,11 @@ type Deps struct {
 	// piecemeal so a request to /controls/new does not 404 while the row
 	// exists.
 	Controls *handler.Controls
+	// AdminBank is the manual bank-refresh endpoint (issue #230). Small
+	// enough to warrant its own handler struct rather than a method on
+	// Controls: the CRUD lives inside the controls domain, the bank
+	// refresh sits in an /admin/ namespace one layer up.
+	AdminBank *handler.AdminBank
 	// Log is spelled the same here as in the two structs above.
 	Log *slog.Logger
 }
@@ -219,6 +224,12 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.ProfessorReactivatePath,
 			Handler: deps.Professors.Reactivate,
 		},
+		// Issue #230: the manual bank-refresh endpoint. Gated by default
+		// (no Public), CSRF enforced because the method is POST.
+		{
+			Method: http.MethodPost, Path: handler.AdminBankRefreshPath,
+			Handler: deps.AdminBank.Refresh,
+		},
 	}
 }
 
@@ -257,6 +268,8 @@ func Router(deps Deps) http.Handler {
 		panic("web.Router: no professors handlers")
 	case deps.Controls == nil:
 		panic("web.Router: no controls handlers")
+	case deps.AdminBank == nil:
+		panic("web.Router: no admin bank handler")
 	case deps.Log == nil:
 		panic("web.Router: no logger")
 	}
