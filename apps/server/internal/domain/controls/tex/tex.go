@@ -390,6 +390,113 @@ func escapeLatex(s string) string {
 // the same behaviour the sheet had before this transform existed.
 var codeFontPattern = regexp.MustCompile("`([^`]+)`")
 
+// unicodeToLatex maps a Unicode math/greek/dash character to its LaTeX
+// escape. Applied in escapeBankText AFTER escapeLatex, so the `\` and `$`
+// that appear in the values are NOT re-escaped as `\textbackslash{}\$`.
+//
+// Round 1 is exactly the character set that appears in the published
+// complejidad bank today (issue #237): the 18 questions across
+// `complejidad-de-hilbert-al-big-o` and `complejidad-espacial` had these
+// symbols verbatim in Statement / Alternatives, and pdftex went to metafont
+// synthesising a glyph — `auto-multiple-choice prepare` refused the compile
+// with "prepare failed (1)" (the ecrm0800.mf trace in the issue).
+//
+// A standalone `√` maps to `\sqrt{}` — no argument to bind; the empty braces
+// are how LaTeX draws a bare radical (an author who wants `√n` writes the
+// pair as `√{n}` today, out of scope for this WP).
+//
+// Dashes carry semantic intent: an em-dash (U+2014) renders as `---` in
+// LaTeX (which prints as an em-dash on paper), an en-dash (U+2013) as `--`,
+// and the true minus sign (U+2212) as `-`.
+//
+// Accented Latin (`á`, `ñ`, `ü`, `¿`, `¡`) is deliberately absent: those are
+// covered by the preamble's `\usepackage[utf8]{inputenc}` +
+// `\usepackage[T1]{fontenc}`, and remapping them here would be dead work at
+// best and a source of double-processing regressions at worst.
+var unicodeToLatex = map[rune]string{
+	// Uppercase Greek that appears in the bank today.
+	'Θ': `$\Theta$`,
+	'Ω': `$\Omega$`,
+
+	// Superscripts (n², 2³, 10⁴).
+	'⁰': `$^{0}$`,
+	'¹': `$^{1}$`,
+	'²': `$^{2}$`,
+	'³': `$^{3}$`,
+	'⁴': `$^{4}$`,
+	'⁵': `$^{5}$`,
+	'⁶': `$^{6}$`,
+	'⁷': `$^{7}$`,
+	'⁸': `$^{8}$`,
+	'⁹': `$^{9}$`,
+
+	// Subscripts (log₂ n, x₁).
+	'₀': `$_{0}$`,
+	'₁': `$_{1}$`,
+	'₂': `$_{2}$`,
+	'₃': `$_{3}$`,
+	'₄': `$_{4}$`,
+	'₅': `$_{5}$`,
+	'₆': `$_{6}$`,
+	'₇': `$_{7}$`,
+	'₈': `$_{8}$`,
+	'₉': `$_{9}$`,
+
+	// Standalone square root: no argument to bind (see doc above).
+	'√': `$\sqrt{}$`,
+
+	// Comparisons.
+	'≤': `$\leq$`,
+	'≥': `$\geq$`,
+	'≠': `$\neq$`,
+
+	// Arrows.
+	'→': `$\to$`,
+	'↔': `$\leftrightarrow$`,
+
+	// Logic / set.
+	'∃': `$\exists$`,
+	'∀': `$\forall$`,
+	'∈': `$\in$`,
+	'∉': `$\notin$`,
+
+	// Misc math.
+	'∞': `$\infty$`,
+	'·': `$\cdot$`,
+
+	// Dashes (semantic preservation, see doc above).
+	'—': `---`,
+	'–': `--`,
+	'−': `-`,
+}
+
+// mapUnicodeToLatex replaces every rune in s that has a LaTeX escape in
+// unicodeToLatex with that escape. Runes with no mapping (ASCII, accented
+// Latin, anything not in the table) pass through unaltered — a
+// re-encoding pass here would defeat inputenc[utf8].
+func mapUnicodeToLatex(s string) string {
+	needsWork := false
+	for _, r := range s {
+		if _, ok := unicodeToLatex[r]; ok {
+			needsWork = true
+			break
+		}
+	}
+	if !needsWork {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for _, r := range s {
+		if repl, ok := unicodeToLatex[r]; ok {
+			b.WriteString(repl)
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
+}
+
 // escapeBankText is the Statement / Alternatives pipeline: TeX specials
 // escaped, then backtick pairs rendered as code. Escaping runs FIRST so the
 // \texttt command itself is not escaped, and the pair pattern survives it
