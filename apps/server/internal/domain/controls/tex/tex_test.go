@@ -791,6 +791,98 @@ func TestUnbalancedQuoteStillProducesLegalTex(t *testing.T) {
 	}
 }
 
+// Issue #239 integration: every transform in escapeBankText fires in the same
+// question, in the load-bearing order. This is the fixture that would go red
+// on a silent reorder of the pipeline (e.g. italic before bold, or quotes
+// before bold) — a single-transform test cannot see the interaction with the
+// others. The statement carries:
+//
+//   - author-typed `%` (must survive escapeLatex);
+//   - Unicode math `Θ` and `²` (must translate to `$\Theta$` and `$^{2}$`);
+//   - `**bold**` around the whole expression (must render as \textbf, wrapping
+//     the translated math);
+//   - `*italic*` and `**bold *italic* end**` (must nest correctly);
+//   - `"quoted"` (must render as `\og … \fg{}`);
+//   - a backtick pair (must render as \texttt, run LAST).
+//
+// The alternatives repeat the same interleaving on smaller strings so the
+// assertion set covers both regions the pipeline can touch (Statement and
+// Alternatives share escapeBankText but are emitted through different call
+// sites — writeQuestion vs. emitAlternative).
+func TestEmphasisPipelineHandlesMixedContentInOneQuestion(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "mixed", Document: "welcome", Anchor: "hola",
+				Type: bank.TypeSimple,
+				// bold(Θ(n²)) + author % + italic word + quoted phrase
+				// + backtick code. Every stage of escapeBankText has to
+				// fire, and their order has to hold.
+				Statement: "**Θ(n²)** es la cota *ajustada* del 100% en el \"peor caso\" con `for` loop.",
+				Alternatives: []string{
+					// bold with a nested italic AND a nested backtick.
+					"**bold *italic* con `code`**",
+					// quoted alternative with an author-escaped &.
+					"llamado \"peor caso\" & similares",
+					// unicode + emphasis mix.
+					"complejidad *Θ(n²)*",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+
+	// Positive assertions — every transform lands its output on the exact
+	// shape the printed sheet needs. Each assertion pins ONE decision (a
+	// transform, a run order, or a downstream survival) so a regression
+	// names the broken stage rather than the whole pipeline.
+	for _, want := range []string{
+		// Statement: bold wraps the translated math, italic runs on the
+		// residue, `%` survived escapeLatex, quotes became guillemets, the
+		// backtick pair became \texttt at the end.
+		"\\textbf{$\\Theta$(n$^{2}$)} es la cota \\textit{ajustada} del 100\\% en el \\og peor caso\\fg{} con \\texttt{for} loop.",
+		// Alternative 0: bold-then-italic pin holds, code inside bold runs
+		// because codeFontPattern comes last.
+		"\\correctchoice{\\textbf{bold \\textit{italic} con \\texttt{code}}}",
+		// Alternative 1: quotes translated inside a wrongchoice, `&` still
+		// escaped by escapeLatex.
+		"\\wrongchoice{llamado \\og peor caso\\fg{} \\& similares}",
+		// Alternative 2: italic wraps math after both transforms fire.
+		"\\wrongchoice{complejidad \\textit{$\\Theta$(n$^{2}$)}}",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("mixed-content statement did not render as expected: missing %q in output", want)
+		}
+	}
+
+	// Negative assertions — no marker survives into the question block.
+	// Scoped: the preamble legitimately carries `%` (LaTeX comments) and
+	// `"` (`\lstset{literate={"u}...}`); the danger is bare markers inside
+	// what compiles as the question's own text.
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block for scoped absence checks")
+	}
+	region := out[qStart:qEnd]
+	for _, unwant := range []string{
+		"**", // bold pair
+		`"`,  // ASCII quote
+		"Θ",  // bare Unicode
+		"²",  // bare Unicode
+	} {
+		if strings.Contains(region, unwant) {
+			t.Errorf("raw marker %q survived into the question block — the pipeline failed to consume it (issue #239)", unwant)
+		}
+	}
+	// A stray `*` should not survive either — italic must have consumed
+	// every remaining pair after bold ran.
+	if strings.Contains(region, "*") {
+		t.Error(`a bare "*" survived into the question block — italic did not consume every remaining marker`)
+	}
+}
+
 // Issue #185: the generator branches on Input.DuplexPadding.
 //
 //   - true (historical): emits \AMCcleardoublepage inside \onecopy so each
