@@ -38,7 +38,7 @@
 
           (async () => {
             try {
-              const pdf = await pdfjs.getDocument(url).promise;
+              const pdf = await pdfjs.getDocument({ url }).promise;
               for (let n = 1; n <= pdf.numPages; n++) {
                 const page = await pdf.getPage(n);
                 const viewport = page.getViewport({ scale: baseScale * dpr });
