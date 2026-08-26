@@ -267,33 +267,83 @@ func (s *Service) AnnotatedFor(ctx context.Context, controlID string, copyNumber
 	return s.Store.AnnotatedByCopy(ctx, controlID, copyNumber)
 }
 
+// RUTAction reports what happened to the RUT during SaveOverrides — the
+// distinction that lets the surface build a professor-facing flash without
+// re-deriving state (issue #228 S3). Empty submissions are refused by the
+// handler, so the empty case is not represented here.
+type RUTAction string
+
+const (
+	// RUTActionUpdated: an override was written and the effective RUT
+	// changed (either it is a new override, or the override's value
+	// differs from what was there before).
+	RUTActionUpdated RUTAction = "updated"
+	// RUTActionMatchedRead: the submission equalled what AMC originally
+	// read, so any prior override was cleared. This is the branch that
+	// looked like "nothing persisted" to Miguel in the 2026-08-26 report
+	// (issue #228 S2 diagnosis H1) — the flash now names it explicitly.
+	RUTActionMatchedRead RUTAction = "matched_read"
+	// RUTActionUnchanged: the submitted value matched what was already
+	// effective (either an override matching itself, or a bare AMC read
+	// with no override — the ClearRUTOverride call was a no-op).
+	RUTActionUnchanged RUTAction = "unchanged"
+)
+
+// SaveOverridesResult reports what SaveOverrides did, so the surface can
+// build a flash that names the actual outcome. See RUTAction for the RUT
+// half; AnswersChanged counts answers whose Override state moved (either a
+// clear that removed a prior override, or an upsert that stored a value
+// different from what was already stored).
+type SaveOverridesResult struct {
+	RUTAction      RUTAction
+	RUTFrom        string // effective RUT the reading had before the save.
+	RUTTo          string // effective RUT the reading has after the save.
+	AnswersChanged int
+}
+
 // SaveOverrides applies a professor's edits to a single reading. The
-// request carries the RUT (empty means "no change" — the review handler
-// enforces its own precondition) and one entry per question in the
-// reading's pool with the new marked set. A submitted set that MATCHES
-// what AMC read for that question clears any prior override; anything
-// else upserts one. The RUT logic is symmetric.
-func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) error {
+// request carries the RUT (empty is refused — the handler validates and
+// rejects before calling this, issue #228 S3) and one entry per question
+// in the reading's pool with the new marked set. A submitted set that
+// MATCHES what AMC read for that question clears any prior override;
+// anything else upserts one. The RUT logic is symmetric.
+//
+// Returns a SaveOverridesResult that names the actual outcome (was the
+// RUT set anew, cleared to AMC's read, or unchanged; how many answers
+// moved), so the surface can render a flash the professor can trust.
+func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) (SaveOverridesResult, error) {
 	reading, err := s.Readings.ReadingByCopy(ctx, req.ControlID, req.CopyNumber)
 	if err != nil {
-		return err
+		return SaveOverridesResult{}, err
 	}
 	now := s.Now()
 
+	result := SaveOverridesResult{
+		RUTAction: RUTActionUnchanged,
+		RUTFrom:   effectiveRUT(reading),
+		RUTTo:     effectiveRUT(reading),
+	}
+
 	// RUT — the override is what shows up beside the AMC read on the
 	// review page; setting it back to what AMC read clears the override.
+	// Empty submissions are refused by the handler before reaching here.
 	rutMatchesRead := reading.RUTRead != nil && *reading.RUTRead == req.RUT
 	switch {
-	case req.RUT == "":
-		// Empty submission is ignored — the review form always sends the
-		// current visible RUT (either the read value or the override).
 	case rutMatchesRead && reading.RUTStatus == RUTStatusOK:
 		if err := s.Readings.ClearRUTOverride(ctx, reading.ID); err != nil {
-			return err
+			return result, err
+		}
+		if reading.RUTOverride != nil {
+			result.RUTAction = RUTActionMatchedRead
+			result.RUTTo = *reading.RUTRead
 		}
 	default:
 		if err := s.Readings.SetRUTOverride(ctx, reading.ID, req.RUT, now); err != nil {
-			return err
+			return result, err
+		}
+		if reading.RUTOverride == nil || reading.RUTOverride.RUT != req.RUT {
+			result.RUTAction = RUTActionUpdated
+			result.RUTTo = req.RUT
 		}
 	}
 
@@ -309,7 +359,10 @@ func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) e
 		}
 		if matchesRead(ans, edit) {
 			if err := s.Readings.ClearAnswerOverride(ctx, reading.ID, edit.QuestionRef); err != nil {
-				return err
+				return result, err
+			}
+			if ans.Override != nil {
+				result.AnswersChanged++
 			}
 			continue
 		}
@@ -319,10 +372,45 @@ func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) e
 			EditedAt: now,
 		}
 		if err := s.Readings.SetAnswerOverride(ctx, reading.ID, edit.QuestionRef, override); err != nil {
-			return err
+			return result, err
+		}
+		if ans.Override == nil || !sameOverride(*ans.Override, override) {
+			result.AnswersChanged++
 		}
 	}
-	return nil
+	return result, nil
+}
+
+// effectiveRUT is what the review page would display for the reading:
+// the override if any, else what AMC read, else empty.
+func effectiveRUT(r Reading) string {
+	if r.RUTOverride != nil {
+		return r.RUTOverride.RUT
+	}
+	if r.RUTRead != nil {
+		return *r.RUTRead
+	}
+	return ""
+}
+
+// sameOverride reports whether two answer overrides carry the same
+// professor-visible state. EditedAt is ignored — the timestamp is
+// bookkeeping, not something the professor edited.
+func sameOverride(a, b AnswerOverride) bool {
+	if a.Status != b.Status || len(a.Marked) != len(b.Marked) {
+		return false
+	}
+	seen := make(map[int]int, len(a.Marked))
+	for _, m := range a.Marked {
+		seen[m]++
+	}
+	for _, m := range b.Marked {
+		if seen[m] == 0 {
+			return false
+		}
+		seen[m]--
+	}
+	return true
 }
 
 // CloseCorrection moves a control to Graded, refusing when the gate is

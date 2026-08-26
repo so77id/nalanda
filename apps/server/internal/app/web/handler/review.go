@@ -89,8 +89,16 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 }
 
 // SaveReview handles POST /controls/:id/copies/:copy/review. Reads the
-// form values, hands them to the Service, and flashes back to the detail
+// form values, hands them to the Service, and flashes back to the review
 // page.
+//
+// Since issue #228 S3 the redirect target is the review page itself, not
+// the control detail: the professor was losing the RUT edit's "(editado
+// por ti)" marker AND the flash by being sent away from the page they
+// just submitted. Empty RUT is refused here rather than silently dropped
+// by the domain (S2 diagnosis H1), and the success flash is per-action
+// rather than a generic "Cambios guardados." so a ClearRUTOverride does
+// not look identical to a real update.
 func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	copyNumber, ok := parseCopyPathValue(r.PathValue("copy"))
@@ -126,7 +134,22 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 	// digits — the review handler is authenticated but a defensive server
 	// check is cheap and stops the field from carrying garbage the rest
 	// of the surface treats as an 8-digit id.
-	if rut != "" && !isValidRUT(rut) {
+	//
+	// Empty is refused for its own reason (issue #228 S3): the previous
+	// behaviour silently ignored empty submissions in the domain, so the
+	// professor got the generic "Cambios guardados." flash even though the
+	// RUT field they had cleared was not persisted. Refusing here surfaces
+	// the mistake instead. The rule applies to every submission the form
+	// can produce, including the "Marcar en blanco" question button — the
+	// RUT field is always in the form and is always submitted with it,
+	// prefilled with the current effective value; clearing it on any
+	// submission is what the professor said, and the refusal names it.
+	switch {
+	case rut == "":
+		flash.Set(w, h.secureCookie, "El RUT no puede quedar vacío.")
+		http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
+		return
+	case !isValidRUT(rut):
 		flash.Set(w, h.secureCookie, "El RUT debe tener 8 dígitos.")
 		http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
 		return
@@ -165,12 +188,24 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 		req.Answers = append(req.Answers, edit)
 	}
 
-	if err := h.Service.SaveOverrides(r.Context(), req); err != nil {
+	result, err := h.Service.SaveOverrides(r.Context(), req)
+	if err != nil {
 		h.Log.Error("save review", "error", err, "id", id, "copy", copyNumber)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
 			"El servidor no pudo guardar los cambios. Vuelve a intentarlo.")
 		return
 	}
+	// Issue #228 S3: the observability gap that made Bug 3 invisible
+	// closes here. The line names the concrete outcome (what the RUT
+	// action was, how many answers moved) so a future diagnosis has
+	// something to search for.
+	h.Log.Info("save review",
+		"control", id,
+		"copy", copyNumber,
+		"rut_from", result.RUTFrom,
+		"rut_to", result.RUTTo,
+		"rut_action", string(result.RUTAction),
+		"answers_changed", result.AnswersChanged)
 	// Issue #190, ruta B: the save just changed what this copy means, so
 	// the annotated PDF must follow — synchronously, inside the request
 	// (the issue accepts the seconds-class block). A failure here does not
@@ -179,12 +214,38 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 	if _, err := h.Service.Annotate(r.Context(), id, copyNumber); err != nil {
 		h.Log.Warn("save review: annotate failed", "control", id, "copy", copyNumber, "error", err)
 	}
-	if blank != "" {
-		flash.Set(w, h.secureCookie, fmt.Sprintf("Pregunta %s marcada en blanco.", blank))
-	} else {
-		flash.Set(w, h.secureCookie, "Cambios guardados.")
+	flash.Set(w, h.secureCookie, buildSaveReviewFlash(result, blank))
+	http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
+}
+
+// buildSaveReviewFlash turns a save result into the professor-visible
+// flash. Multi-line output is separated by "\n" — the layout template
+// splits and renders `<li>` items when there is more than one line.
+//
+// The "Marcar en blanco" question button submits with `blank=<ref>` and
+// gets its own dedicated line, because the professor was clicking that
+// specific button and the confirmation belongs beside its intent.
+func buildSaveReviewFlash(result controls.SaveOverridesResult, blank string) string {
+	lines := []string{}
+	switch result.RUTAction {
+	case controls.RUTActionUpdated:
+		lines = append(lines, fmt.Sprintf("RUT actualizado a %s.", result.RUTTo))
+	case controls.RUTActionMatchedRead:
+		lines = append(lines, "RUT vuelto al valor leído por AMC.")
 	}
-	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+	if blank != "" {
+		lines = append(lines, fmt.Sprintf("Pregunta %s marcada en blanco.", blank))
+	} else if result.AnswersChanged > 0 {
+		if result.AnswersChanged == 1 {
+			lines = append(lines, "Cambios en 1 respuesta.")
+		} else {
+			lines = append(lines, fmt.Sprintf("Cambios en %d respuestas.", result.AnswersChanged))
+		}
+	}
+	if len(lines) == 0 {
+		return "Sin cambios."
+	}
+	return strings.Join(lines, "\n")
 }
 
 // parseAnswerValues turns form values ("1", "3") into an int slice,
