@@ -87,6 +87,14 @@ type ReportAnswer struct {
 	Status   AnswerStatus
 	Score    float64 // engine per-question score
 	Max      float64 // 1 for simple; alternative count for multiple
+	// Position is this question's 1-based slot on the printed sheet, per
+	// copy. Zero means the analyzer did not report one — the review UI
+	// falls back to iteration order. Issue #229.
+	Position int
+	// Alternatives is the authoring-index list in the physical printed
+	// order for THIS copy. Empty when the analyzer did not report the
+	// layout — the review UI falls back to bank order. Issue #229.
+	Alternatives []int
 }
 
 // ReportCopy is one copy's reading.
@@ -275,6 +283,14 @@ type Answer struct {
 	Score        float64
 	Max          float64
 	Override     *AnswerOverride
+	// Position is this question's 1-based slot on the printed sheet for
+	// this reading's copy. Zero means the answer row was written before
+	// #229 and no positional data is stored — callers rendering the paper
+	// fall back to iteration order or question_ref.
+	Position int
+	// Alternatives is the authoring-index list in the physical printed
+	// order for this reading's copy. Nil for a legacy row (#229).
+	Alternatives []int
 }
 
 // AnswerOverride sits BESIDE Answer rather than replacing it, so the UI

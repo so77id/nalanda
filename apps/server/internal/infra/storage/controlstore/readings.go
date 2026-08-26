@@ -63,13 +63,33 @@ func (s *Store) UpsertReadingsFromReport(ctx context.Context, controlID string, 
 				return fmt.Errorf("controlstore.UpsertReadingsFromReport: copy %d question %d has empty layout name — the wrapper cannot resolve it against the pool",
 					copyNumber, ans.Question)
 			}
+			// #229: position is NULL when the analyzer sent 0 (no data)
+			// and alternatives_json is NULL for a nil list. A NULL
+			// position triggers loadAnswers' legacy ORDER BY fallback,
+			// so a mixed-shape report cannot silently reorder rows that
+			// had no position to begin with.
+			var (
+				positionVal     any
+				alternativesVal any
+			)
+			if ans.Position > 0 {
+				positionVal = ans.Position
+			}
+			if ans.Alternatives != nil {
+				b, err := json.Marshal(ans.Alternatives)
+				if err != nil {
+					return fmt.Errorf("controlstore.UpsertReadingsFromReport: encode alternatives: %w", err)
+				}
+				alternativesVal = string(b)
+			}
 			if _, err := tx.ExecContext(ctx,
 				`INSERT INTO answer
-                    (reading_id, question_ref, question_type, marked_json, doubtful_json, status, score, max)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    (reading_id, question_ref, question_type, marked_json, doubtful_json, status, score, max, position, alternatives_json)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 				readingID, ans.Name, string(ans.Type),
 				string(markedJSON), string(doubtfulJSON),
 				string(ans.Status), ans.Score, ans.Max,
+				positionVal, alternativesVal,
 			); err != nil {
 				return fmt.Errorf("controlstore.UpsertReadingsFromReport: insert answer copy %d %s: %w",
 					copyNumber, ans.Name, err)
@@ -203,13 +223,20 @@ func (s *Store) attachAnswersAndOverrides(ctx context.Context, readings []contro
 }
 
 func (s *Store) loadAnswers(ctx context.Context, r *controls.Reading) error {
+	// #229: order by position when it is set, and fall back to
+	// question_ref for legacy rows written before the position column
+	// existed. `position IS NULL` sorts new rows (has position) first
+	// under SQLite's default (false < true = 0 < 1). Answers with a
+	// position come out in the order the student saw them on the paper;
+	// answers without one keep the pre-#229 alphabetical order.
 	rows, err := s.db.QueryContext(ctx, `
         SELECT a.question_ref, a.question_type, a.marked_json, a.doubtful_json, a.status, a.score, a.max,
+               a.position, a.alternatives_json,
                o.marked_json, o.status, o.edited_at
         FROM answer a
         LEFT JOIN answer_override o ON o.reading_id = a.reading_id AND o.question_ref = a.question_ref
         WHERE a.reading_id = ?
-        ORDER BY a.question_ref ASC`, r.ID)
+        ORDER BY a.position IS NULL, a.position ASC, a.question_ref ASC`, r.ID)
 	if err != nil {
 		return fmt.Errorf("controlstore.loadAnswers: reading %d: %w", r.ID, err)
 	}
@@ -218,17 +245,20 @@ func (s *Store) loadAnswers(ctx context.Context, r *controls.Reading) error {
 	r.Answers = nil
 	for rows.Next() {
 		var (
-			a             controls.Answer
-			qtype         string
-			markedJSON    string
-			doubtfulJSON  string
-			status        string
-			ovMarkedJSON  sql.NullString
-			ovStatus      sql.NullString
-			ovEditedAtRaw sql.NullInt64
+			a                controls.Answer
+			qtype            string
+			markedJSON       string
+			doubtfulJSON     string
+			status           string
+			positionRaw      sql.NullInt64
+			alternativesJSON sql.NullString
+			ovMarkedJSON     sql.NullString
+			ovStatus         sql.NullString
+			ovEditedAtRaw    sql.NullInt64
 		)
 		if err := rows.Scan(
 			&a.QuestionRef, &qtype, &markedJSON, &doubtfulJSON, &status, &a.Score, &a.Max,
+			&positionRaw, &alternativesJSON,
 			&ovMarkedJSON, &ovStatus, &ovEditedAtRaw,
 		); err != nil {
 			return fmt.Errorf("controlstore.loadAnswers: scan: %w", err)
@@ -240,6 +270,14 @@ func (s *Store) loadAnswers(ctx context.Context, r *controls.Reading) error {
 		}
 		if err := json.Unmarshal([]byte(doubtfulJSON), &a.Doubtful); err != nil {
 			return fmt.Errorf("controlstore.loadAnswers: decode doubtful: %w", err)
+		}
+		if positionRaw.Valid {
+			a.Position = int(positionRaw.Int64)
+		}
+		if alternativesJSON.Valid {
+			if err := json.Unmarshal([]byte(alternativesJSON.String), &a.Alternatives); err != nil {
+				return fmt.Errorf("controlstore.loadAnswers: decode alternatives: %w", err)
+			}
 		}
 		if ovMarkedJSON.Valid {
 			ov := controls.AnswerOverride{
