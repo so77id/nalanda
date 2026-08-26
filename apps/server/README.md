@@ -46,6 +46,7 @@ Environment variables, read once at boot. A required variable that is absent
 | `NALANDA_WORK_DIR` | yes | Where the server sees the shared volume. The `.tex` generator emits `/work` absolute paths regardless (that is the worker's mount); this only decides where the server writes its files. WP-E |
 | `NALANDA_MAX_SCAN_MB` | no (`100`) | Largest scan PDF the upload handler accepts, in whole MB. A 4-page control at 300 dpi is roughly 3–5 MB; 100 fits a large class and refuses a runaway upload before it enters the worker. WP-F |
 | `NALANDA_ANNOTATE_ENABLED` | no (`true`) | The annotate loop's master switch (issue #190). `false` turns the whole flow off: no `/annotate/copy` calls, no `annotated_copy` rows, the review page serves the raw scan — the escape hatch if the AMC-patching approach breaks against a real batch. Only `true`/`false`; a misspelling is a startup error |
+| `NALANDA_BANK_REFRESH_INTERVAL` | no (`5m`) | How often LiveBank polls `NALANDA_QUESTIONS_JSON_URL` for a fresh `questions.json` (issue #230). A Go duration; matches the Watchtower poll cadence on the Jetson so the server refreshes at the same rhythm as the container. `0s` disables the ticker — the manual admin button is then the only refresh path. A negative value is a startup error |
 
 ## Commands
 

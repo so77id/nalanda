@@ -266,6 +266,30 @@ func (lb *LiveBank) Reload(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
+// Watch calls Reload on interval until ctx is done. A zero or negative
+// interval returns immediately — the operator's opt-out, wired through
+// NALANDA_BANK_REFRESH_INTERVAL. Errors surface through the logger:
+// Reload already logs a Warn on failure and Info on a real update, so
+// this loop cannot itself add a signal a caller would react to.
+//
+// A static bank (built by NewStaticLive for tests) has no source to poll,
+// so Watch is a no-op there.
+func (lb *LiveBank) Watch(ctx context.Context, interval time.Duration) {
+	if interval <= 0 || lb.static {
+		return
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_, _ = lb.Reload(ctx)
+		}
+	}
+}
+
 // fetch reads the bank from lb.url. ifModifiedSince, when non-empty, is
 // sent as If-Modified-Since; the server may then answer 304, and fetch
 // returns errNotModified with a nil *Bank. The returned lastModified is

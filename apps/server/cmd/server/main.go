@@ -152,6 +152,11 @@ func run(logger *slog.Logger) error {
 	if err != nil {
 		return err
 	}
+	// The ticker owns the poll cadence (NALANDA_BANK_REFRESH_INTERVAL,
+	// issue #230): a zero interval disables it — the manual admin button
+	// is then the only refresh path — otherwise Watch calls Reload every
+	// interval and exits when ctx does at shutdown.
+	go liveBank.Watch(ctx, cfg.BankRefreshInterval)
 
 	controlStore := controlstore.New(db)
 	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL})

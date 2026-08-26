@@ -85,10 +85,24 @@ const (
 	// escape hatch if the AMC-patching approach breaks against a real
 	// batch in production.
 	KeyAnnotateEnabled = "NALANDA_ANNOTATE_ENABLED"
+
+	// KeyBankRefreshInterval is the cadence at which LiveBank.Watch calls
+	// Reload against NALANDA_QUESTIONS_JSON_URL (issue #230). Optional —
+	// defaults to 5 minutes, which matches the Watchtower poll cadence on
+	// the Jetson deploy so the server refreshes at the same rhythm as
+	// container updates. "0s" disables the ticker, and then the manual
+	// admin button is the only refresh path.
+	KeyBankRefreshInterval = "NALANDA_BANK_REFRESH_INTERVAL"
 )
 
 // defaultMaxScanMB is what an unset KeyMaxScanMB resolves to.
 const defaultMaxScanMB = 100
+
+// defaultBankRefreshInterval is what an unset KeyBankRefreshInterval
+// resolves to. Five minutes matches the Watchtower poll cadence on the
+// Jetson (ADR-0038, `docs/decisions/0032-*`) — the server refreshes its
+// bank at the same rhythm the container itself updates.
+const defaultBankRefreshInterval = 5 * time.Minute
 
 // ErrMissing is wrapped by every error caused by an absent or empty required
 // variable, so a caller can distinguish "the operator has not finished
@@ -173,6 +187,12 @@ type Config struct {
 	// AnnotateEnabled is the annotate loop's master switch (issue #190).
 	// True unless KeyAnnotateEnabled is explicitly "false".
 	AnnotateEnabled bool
+
+	// BankRefreshInterval is how often LiveBank.Watch polls
+	// QuestionsJSONURL for a fresh questions.json (issue #230). Zero
+	// disables the ticker; a positive Go duration overrides the 5-minute
+	// default.
+	BankRefreshInterval time.Duration
 }
 
 // Keys lists every variable this package reads, in the order an operator would
@@ -185,6 +205,7 @@ func Keys() []string {
 		KeySessionTTL, KeyBootstrapProfessorEmail, KeyTrustProxyHeaders,
 		KeyQuestionsJSONURL, KeyAmcWorkerURL, KeyWorkDir,
 		KeyMaxScanMB, KeyAnnotateEnabled,
+		KeyBankRefreshInterval,
 	}
 }
 
@@ -296,6 +317,20 @@ func Load(lookup LookupFunc) (Config, error) {
 	}
 	cfg.MaxScanBytes = int64(maxScanMB) * (1 << 20)
 
+	rawInterval := l.optional(KeyBankRefreshInterval, "")
+	if rawInterval == "" {
+		cfg.BankRefreshInterval = defaultBankRefreshInterval
+	} else {
+		interval, err := time.ParseDuration(rawInterval)
+		if err != nil {
+			return Config{}, fmt.Errorf("%s=%q is not a duration: %w", KeyBankRefreshInterval, rawInterval, err)
+		}
+		if interval < 0 {
+			return Config{}, fmt.Errorf("%s=%v is negative; zero disables the ticker and a positive duration overrides the default", KeyBankRefreshInterval, interval)
+		}
+		cfg.BankRefreshInterval = interval
+	}
+
 	return cfg, nil
 }
 
@@ -368,6 +403,7 @@ func (c Config) LogValue() slog.Value {
 		slog.String("amc_worker_url", c.AmcWorkerURL),
 		slog.String("work_dir", c.WorkDir),
 		slog.Bool("annotate_enabled", c.AnnotateEnabled),
+		slog.String("bank_refresh_interval", c.BankRefreshInterval.String()),
 	)
 }
 
@@ -376,10 +412,11 @@ func (c Config) LogValue() slog.Value {
 // either.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s annotate_enabled:%t}",
+		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s annotate_enabled:%t bank_refresh_interval:%s}",
 		c.Addr, c.SafeDatabaseURL(), c.LogLevel, c.PublicURL, c.GoogleClientID,
 		c.SessionTTL, c.BootstrapProfessorEmail != "", c.TrustProxyHeaders,
 		c.QuestionsJSONURL, c.AmcWorkerURL, c.WorkDir, c.AnnotateEnabled,
+		c.BankRefreshInterval,
 	)
 }
 

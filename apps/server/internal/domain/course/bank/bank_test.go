@@ -521,6 +521,73 @@ func TestReloadEmitsSlogInfoOnUpdate(t *testing.T) {
 	}
 }
 
+// TestWatchTicksAndCancels is the observable half of S2's contract: given a
+// non-zero interval, Watch calls Reload on the tick, and returns as soon as
+// the context is cancelled. The test uses a short interval and a channel to
+// avoid a sleep the race detector would flake on.
+func TestWatchTicksAndCancels(t *testing.T) {
+	seen := make(chan struct{}, 10)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(fixtureJSON))
+		select {
+		case seen <- struct{}{}:
+		default:
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	lb, err := bank.NewLive(context.Background(), srv.URL+"/questions.json", testLogger())
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+
+	// Drain the boot fetch signal so the count below is only ticks.
+	<-seen
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		lb.Watch(ctx, 5*time.Millisecond)
+		close(done)
+	}()
+
+	// Wait for at least two ticks — enough to prove the ticker fires more
+	// than once (the mistake a bare goroutine + Reload would make).
+	for i := 0; i < 2; i++ {
+		select {
+		case <-seen:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("no tick after 2s (saw %d)", i)
+		}
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Watch did not return after ctx cancel")
+	}
+}
+
+// TestWatchWithZeroIntervalReturnsImmediately guards the operator's opt-out:
+// setting NALANDA_BANK_REFRESH_INTERVAL=0 disables the ticker, and Watch
+// must not park on a nil ticker channel forever.
+func TestWatchWithZeroIntervalReturnsImmediately(t *testing.T) {
+	lb := bank.NewStaticLive(parse(t))
+
+	done := make(chan struct{})
+	go func() {
+		lb.Watch(context.Background(), 0)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("Watch(0) did not return; the opt-out is not wired")
+	}
+}
+
 // TestStaticLiveExposesAFixedBank is the shim other packages' tests use to
 // hand a bank into constructors that now take *LiveBank. Reload on a static
 // bank is a no-op — the fixture never changes.
