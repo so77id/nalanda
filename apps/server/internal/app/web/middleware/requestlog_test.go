@@ -72,9 +72,9 @@ func TestRequestLogCapturesStatusFromWriteHeader(t *testing.T) {
 	}
 }
 
-// TestRequestLogCapturesStatusFromRedirect pins a 302: the login redirect is
-// the single most common non-200 in production, and losing it in the log would
-// mean every anonymous request looked like a served page.
+// TestRequestLogCapturesStatusFromRedirect pins a 303 (See Other): the
+// login-redirect is the single most common non-200 in production, and losing
+// it in the log would mean every anonymous request looked like a served page.
 func TestRequestLogCapturesStatusFromRedirect(t *testing.T) {
 	buf := &bytes.Buffer{}
 	logger := captureLogs(buf)
@@ -127,6 +127,59 @@ func TestRequestLogDemotesHealthToDebug(t *testing.T) {
 	}
 	if got, want := line["path"], "/health"; got != want {
 		t.Errorf("path: got %q, want %q", got, want)
+	}
+}
+
+// TestRequestLogEmitsALineEvenWhenTheHandlerPanics pins COR-1 (S3 review):
+// the middleware's whole purpose is one line per request; a panic in the
+// wrapped handler used to skip the log call entirely, recurring the exact
+// "silent failure, docker logs shows nothing" symptom the middleware exists
+// to prevent. The fix moves LogAttrs into a defer.
+func TestRequestLogEmitsALineEvenWhenTheHandlerPanics(t *testing.T) {
+	buf := &bytes.Buffer{}
+	logger := captureLogs(buf)
+	wrapped := middleware.RequestLog(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		panic("boom")
+	}))
+
+	// The panic is expected — swallow it here so the defer in RequestLog
+	// runs and the case can assert the log was written.
+	func() {
+		defer func() { _ = recover() }()
+		wrapped.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/controls", nil))
+	}()
+
+	line := decodeOneLine(t, buf)
+	if got, want := line["path"], "/controls"; got != want {
+		t.Errorf("path: got %q, want %q — the log line must survive the handler panic", got, want)
+	}
+}
+
+// TestRequestLogDropsQueryOnOAuthCallback pins SEC-1 (S3 review): the
+// OAuth callback receives `?code=...&state=...` from Google. Both are
+// one-shot credentials that must not sit in the docker log rotation
+// (RFC 6749 §10.3). The middleware drops the query on this one path only.
+func TestRequestLogDropsQueryOnOAuthCallback(t *testing.T) {
+	buf := &bytes.Buffer{}
+	logger := captureLogs(buf)
+	wrapped := middleware.RequestLog(logger, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusSeeOther)
+	}))
+
+	wrapped.ServeHTTP(httptest.NewRecorder(),
+		httptest.NewRequest(http.MethodGet, "/login/google/callback?state=abc123&code=secret-oauth-code", nil))
+
+	line := decodeOneLine(t, buf)
+	if got, want := line["path"], "/login/google/callback"; got != want {
+		t.Errorf("path: got %q, want %q — the OAuth callback must never persist code/state to logs", got, want)
+	}
+	// Belt-and-suspenders: nothing in the serialised line carries the
+	// tokens under any key.
+	raw := buf.String()
+	for _, needle := range []string{"secret-oauth-code", "state=abc123", "abc123"} {
+		if strings.Contains(raw, needle) {
+			t.Errorf("log line leaks %q — the query must be stripped for the callback", needle)
+		}
 	}
 }
 

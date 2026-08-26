@@ -393,3 +393,79 @@ func TestSaveReviewFlashesBothRUTAndAnswersOnOneSubmit(t *testing.T) {
 		t.Errorf("flash = %q, want %q — S3 joins per-action lines with \\n", got, want)
 	}
 }
+
+// TestSaveReviewBlankButtonAcceptsEmptyRUT pins COR-3 (S3 review): on a
+// copy where AMC never read the RUT, the input renders with `value=""`;
+// clicking the "Marcar en blanco" question button submits `rut=""`, and
+// the previous revision refused with `El RUT no puede quedar vacío`,
+// silently dropping the blanking. The blank click is orthogonal to the
+// RUT edit — the button's purpose is to blank one answer, not to force a
+// RUT. Now the submission is accepted, the answer is blanked, and the
+// flash names the blank.
+func TestSaveReviewBlankButtonAcceptsEmptyRUT(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control blank empty RUT", 1)
+	// A copy AMC could not read the RUT for — RUTStatus=NotPresent, no
+	// RUTRead, no override. This is the state where `toReviewRUT`
+	// renders the input with value="".
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{
+			"1": {RUT: "", RUTStatus: controls.RUTStatusNotPresent, Status: controls.CopyStatusNeedsReview,
+				ExpectedQuestions: 2, SeenQuestions: 2,
+				Answers: []controls.ReportAnswer{
+					{Question: 1, Name: "q3", Type: controls.QuestionSimple, Marked: []int{1},
+						Status: controls.AnswerStatusOK, Score: 1, Max: 1},
+					{Question: 2, Name: "q4", Type: controls.QuestionMultiple, Marked: []int{1},
+						Status: controls.AnswerStatusOK, Score: 4, Max: 4},
+				}},
+		}},
+	}
+	uploadOnce(t, f, controlID)
+
+	values := url.Values{}
+	values.Set("rut", "") // the case: no RUT typed, blank button clicked
+	values.Set("qq3", "1")
+	values.Set("qq4", "1")
+	values.Set("blank", "q3")
+
+	rec := postSaveReview(t, f, controlID, 1, values)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d\nbody: %s", rec.Code, rec.Body.String())
+	}
+	// The blanking landed — q3 has a blank override.
+	reading, _ := f.service.ReadingFor(context.Background(), controlID, 1)
+	var q3 *controls.Answer
+	for i := range reading.Answers {
+		if reading.Answers[i].QuestionRef == "q3" {
+			q3 = &reading.Answers[i]
+		}
+	}
+	if q3 == nil || q3.Override == nil || q3.Override.Status != controls.AnswerStatusBlank {
+		t.Fatalf("q3 was not blanked: %+v", q3)
+	}
+	// Flash names the blank, not a RUT rejection.
+	if got, want := flashFromResponse(t, rec), "Pregunta q3 marcada en blanco."; got != want {
+		t.Errorf("flash = %q, want %q — COR-3: blank click must not be refused for empty RUT", got, want)
+	}
+}
+
+// TestSaveReviewBlankButtonAlsoReportsOtherMovedAnswers pins COR-5: when
+// the professor mid-edits other radios and then clicks the blank button,
+// the count of OTHER moves is not swallowed by the blank line.
+func TestSaveReviewBlankButtonAlsoReportsOtherMovedAnswers(t *testing.T) {
+	f, controlID := saveReviewFixture(t)
+	values := url.Values{}
+	values.Set("rut", "20111111") // == AMC-read
+	values.Set("qq3", "1")        // == AMC-read (no move)
+	values.Set("qq4", "2")        // was 1 → moves
+	values.Set("blank", "q3")     // ALSO blanks q3 → 2 answers touched total
+
+	rec := postSaveReview(t, f, controlID, 1, values)
+
+	got := flashFromResponse(t, rec)
+	want := "Pregunta q3 marcada en blanco.\nCambios en 1 respuesta."
+	if got != want {
+		t.Errorf("flash = %q, want %q — COR-5: the mid-blank submission must still report the other move", got, want)
+	}
+}

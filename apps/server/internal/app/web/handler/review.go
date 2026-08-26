@@ -128,6 +128,7 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rut := strings.TrimSpace(r.PostFormValue("rut"))
+	blank := r.PostFormValue("blank") // "" or one question_ref
 	// SEC-1: the template's pattern="[0-9]{8}" is client-side; the
 	// professor's form goes to the RUT override table verbatim, so an
 	// arbitrary string would persist. Reject anything that is not eight
@@ -139,17 +140,32 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 	// behaviour silently ignored empty submissions in the domain, so the
 	// professor got the generic "Cambios guardados." flash even though the
 	// RUT field they had cleared was not persisted. Refusing here surfaces
-	// the mistake instead. The rule applies to every submission the form
-	// can produce, including the "Marcar en blanco" question button — the
-	// RUT field is always in the form and is always submitted with it,
-	// prefilled with the current effective value; clearing it on any
-	// submission is what the professor said, and the refusal names it.
-	switch {
-	case rut == "":
-		flash.Set(w, h.secureCookie, "El RUT no puede quedar vacío.")
-		http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
-		return
-	case !isValidRUT(rut):
+	// the mistake instead.
+	//
+	// The rule is scoped to the main Guardar submission (S3 review COR-3):
+	// the "Marcar en blanco" question button is orthogonal to the RUT
+	// edit, and on a copy where AMC never read the RUT the input renders
+	// with `value=""`; refusing every blank click on such a copy would
+	// silently drop the professor's actual intent (mark this answer
+	// blank). When `blank != ""`, the empty-RUT case falls through to
+	// SaveOverrides, which the domain rejects too — we return a specific
+	// flash there so the professor still learns what happened.
+	if blank == "" {
+		switch {
+		case rut == "":
+			flash.Set(w, h.secureCookie, "El RUT no puede quedar vacío.")
+			http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
+			return
+		case !isValidRUT(rut):
+			flash.Set(w, h.secureCookie, "El RUT debe tener 8 dígitos.")
+			http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
+			return
+		}
+	} else if rut != "" && !isValidRUT(rut) {
+		// Blank click AND the RUT field carries invalid non-empty text —
+		// still refuse (same SEC-1 reasoning). Empty on a blank click
+		// falls through as documented above; the domain treats it as a
+		// no-op on the RUT half.
 		flash.Set(w, h.secureCookie, "El RUT debe tener 8 dígitos.")
 		http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
 		return
@@ -160,7 +176,6 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 		CopyNumber: copyNumber,
 		RUT:        rut,
 	}
-	blank := r.PostFormValue("blank") // "" or one question_ref
 	for _, a := range reading.Answers {
 		edit := controls.AnswerEdit{QuestionRef: a.QuestionRef}
 		if a.QuestionRef == blank {
@@ -199,11 +214,17 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 	// closes here. The line names the concrete outcome (what the RUT
 	// action was, how many answers moved) so a future diagnosis has
 	// something to search for.
+	//
+	// The RUT values are masked to the last 4 digits (S3 review SEC-2):
+	// the full RUT is personal data under Ley 19.628 and would otherwise
+	// sit in the docker log rotation. `rut_action` already carries the
+	// diagnostic value — the last 4 digits are enough to correlate two
+	// log lines about the same student without persisting the full ID.
 	h.Log.Info("save review",
 		"control", id,
 		"copy", copyNumber,
-		"rut_from", result.RUTFrom,
-		"rut_to", result.RUTTo,
+		"rut_from", maskRUT(result.RUTFrom),
+		"rut_to", maskRUT(result.RUTTo),
 		"rut_action", string(result.RUTAction),
 		"answers_changed", result.AnswersChanged)
 	// Issue #190, ruta B: the save just changed what this copy means, so
@@ -224,7 +245,11 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 //
 // The "Marcar en blanco" question button submits with `blank=<ref>` and
 // gets its own dedicated line, because the professor was clicking that
-// specific button and the confirmation belongs beside its intent.
+// specific button and the confirmation belongs beside its intent. When
+// the same submission also moved OTHER answers (a mid-edit blank click
+// carries every field on the page), the count line still fires with
+// those other moves subtracted from `AnswersChanged` — the blank click
+// is already counted there (S3 review COR-5).
 func buildSaveReviewFlash(result controls.SaveOverridesResult, blank string) string {
 	lines := []string{}
 	switch result.RUTAction {
@@ -233,19 +258,35 @@ func buildSaveReviewFlash(result controls.SaveOverridesResult, blank string) str
 	case controls.RUTActionMatchedRead:
 		lines = append(lines, "RUT vuelto al valor leído por AMC.")
 	}
+	otherAnswers := result.AnswersChanged
 	if blank != "" {
 		lines = append(lines, fmt.Sprintf("Pregunta %s marcada en blanco.", blank))
-	} else if result.AnswersChanged > 0 {
-		if result.AnswersChanged == 1 {
+		otherAnswers-- // the blank click itself is counted in AnswersChanged.
+	}
+	if otherAnswers > 0 {
+		if otherAnswers == 1 {
 			lines = append(lines, "Cambios en 1 respuesta.")
 		} else {
-			lines = append(lines, fmt.Sprintf("Cambios en %d respuestas.", result.AnswersChanged))
+			lines = append(lines, fmt.Sprintf("Cambios en %d respuestas.", otherAnswers))
 		}
 	}
 	if len(lines) == 0 {
 		return "Sin cambios."
 	}
 	return strings.Join(lines, "\n")
+}
+
+// maskRUT returns the last four digits of a RUT, prefixed with an
+// ellipsis, for logging. Empty stays empty. Anything shorter than four
+// characters is returned verbatim — the RUT is validated to eight
+// digits before reaching the domain, so a shorter string is either the
+// "never had a RUT" case (empty) or a test fixture; either way it is
+// not personal data.
+func maskRUT(rut string) string {
+	if len(rut) < 4 {
+		return rut
+	}
+	return "…" + rut[len(rut)-4:]
 }
 
 // parseAnswerValues turns form values ("1", "3") into an int slice,

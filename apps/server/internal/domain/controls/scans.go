@@ -302,11 +302,17 @@ type SaveOverridesResult struct {
 }
 
 // SaveOverrides applies a professor's edits to a single reading. The
-// request carries the RUT (empty is refused — the handler validates and
-// rejects before calling this, issue #228 S3) and one entry per question
-// in the reading's pool with the new marked set. A submitted set that
-// MATCHES what AMC read for that question clears any prior override;
-// anything else upserts one. The RUT logic is symmetric.
+// request carries the RUT and one entry per question in the reading's
+// pool with the new marked set. A submitted set that MATCHES what AMC
+// read for that question clears any prior override; anything else
+// upserts one. The RUT logic is symmetric.
+//
+// Empty RUT is a no-op on the RUT half (RUTAction stays Unchanged): the
+// main Guardar submission is refused by the handler before calling here,
+// but the "Marcar en blanco" question button IS allowed through with an
+// empty RUT — the copy may not have had a RUT read yet, and the button's
+// purpose is to blank a single answer, not to force a RUT edit
+// (issue #228 S3 review COR-3).
 //
 // Returns a SaveOverridesResult that names the actual outcome (was the
 // RUT set anew, cleared to AMC's read, or unchanged; how many answers
@@ -326,9 +332,11 @@ func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) (
 
 	// RUT — the override is what shows up beside the AMC read on the
 	// review page; setting it back to what AMC read clears the override.
-	// Empty submissions are refused by the handler before reaching here.
 	rutMatchesRead := reading.RUTRead != nil && *reading.RUTRead == req.RUT
 	switch {
+	case req.RUT == "":
+		// No RUT half to apply; see the docstring for when this branch
+		// is reachable.
 	case rutMatchesRead && reading.RUTStatus == RUTStatusOK:
 		if err := s.Readings.ClearRUTOverride(ctx, reading.ID); err != nil {
 			return result, err
@@ -397,20 +405,7 @@ func effectiveRUT(r Reading) string {
 // professor-visible state. EditedAt is ignored — the timestamp is
 // bookkeeping, not something the professor edited.
 func sameOverride(a, b AnswerOverride) bool {
-	if a.Status != b.Status || len(a.Marked) != len(b.Marked) {
-		return false
-	}
-	seen := make(map[int]int, len(a.Marked))
-	for _, m := range a.Marked {
-		seen[m]++
-	}
-	for _, m := range b.Marked {
-		if seen[m] == 0 {
-			return false
-		}
-		seen[m]--
-	}
-	return true
+	return sameMarksAndStatus(a.Status, a.Marked, b.Status, b.Marked)
 }
 
 // CloseCorrection moves a control to Graded, refusing when the gate is
@@ -492,17 +487,22 @@ func findAnswer(r Reading, ref string) (Answer, bool) {
 // matchesRead reports whether an edit brings the answer back to what AMC
 // originally read (same marks in any order, same status).
 func matchesRead(a Answer, edit AnswerEdit) bool {
-	if a.Status != edit.Status {
+	return sameMarksAndStatus(a.Status, a.Marked, edit.Status, edit.Marked)
+}
+
+// sameMarksAndStatus reports whether two (status, marks) pairs represent
+// the same professor-visible answer. Marks are compared as multisets
+// (order-independent, duplicates counted). Extracted from `sameOverride`
+// and `matchesRead`, which were near-identical (S3 review ARQ-2).
+func sameMarksAndStatus(s1 AnswerStatus, m1 []int, s2 AnswerStatus, m2 []int) bool {
+	if s1 != s2 || len(m1) != len(m2) {
 		return false
 	}
-	if len(a.Marked) != len(edit.Marked) {
-		return false
-	}
-	seen := make(map[int]int, len(a.Marked))
-	for _, m := range a.Marked {
+	seen := make(map[int]int, len(m1))
+	for _, m := range m1 {
 		seen[m]++
 	}
-	for _, m := range edit.Marked {
+	for _, m := range m2 {
 		if seen[m] == 0 {
 			return false
 		}
