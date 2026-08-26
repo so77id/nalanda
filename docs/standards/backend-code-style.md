@@ -190,6 +190,16 @@ Environment variables only, read **once at boot** into a struct, through
   seam. Review triggers: `docs/security-notes.md` §"The login's state cookie
   is a double-submit cookie" and §"The session cookie has no `Secure` flag
   in development".
+- **Middleware placement**: the three AUTH middlewares
+  (`Resolve` / `RequireProfessor` / `VerifyCSRF`) live under
+  `internal/app/web/middleware` — mounting any of them on the API surface
+  would put a login gate in front of anonymous students (§C12). A
+  SURFACE-AGNOSTIC middleware (the request log added in #228, a rate
+  limiter later) also lives there — same package, but wraps the composed
+  mux in `cmd/server/main.go`'s `rootHandler` so both surfaces trace their
+  own requests. The package doc names both tenants; a new middleware
+  chooses its layer by asking whether it inspects the session (auth →
+  wraps `web.Router`; surface-agnostic → wraps `rootHandler`).
 - **Every server-side timeout is set explicitly — all five.** `ReadTimeout`,
   `ReadHeaderTimeout`, `WriteTimeout`, `IdleTimeout` and `MaxHeaderBytes`. Each
   defaults to zero and zero means *no limit*, so what they prevent is a slow
@@ -282,6 +292,29 @@ is public and has no session to hang a flash on.
 branches on it with `errors.Is`, sets the Spanish message and redirects to
 the list. `auth.ErrCannotDeactivateSelf` and
 `auth.ErrCannotDeactivateLastActive` are the worked cases.
+
+**A flash with multiple bullet-worthy lines is one string joined by
+`"\n"`** — the layout renders a single line as `<p class="flash">` and
+more than one as `<div class="flash"><ul><li>…</li></ul></div>` via the
+`splitLines` template FuncMap in `internal/app/web/view/view.go`. Worked
+case: `handler.buildSaveReviewFlash` (issue #228) emits one line per
+action ("RUT actualizado a X", "Cambios en N respuestas"). Do NOT set
+several flash cookies in one response — the second overwrites the first.
+
+### Client-side JS in a server template
+
+The backoffice serves no static assets today (no `/static/` mount), and a
+one-page progressive enhancement is inline in the template that needs it.
+Worked case: the two-level cascade picker in `controls_form.html` (issue
+#228 S4) inlines ~110 lines of vanilla JS at the end of the form. The
+enhancement reads the flat `<select>`'s own `<optgroup>` structure — one
+source of truth — and hides the flat control while keeping it in the form
+so its value is what POSTs. Without JS the flat select is the whole UI;
+the handler contract is unchanged.
+
+A SECOND page adopting client-side behavior tips the balance: introduce a
+`/static/` mount under `internal/app/web` and move both scripts to files
+with SRI or an immutable path, rather than inlining a second block.
 
 ### Error pages — 404 / 403 / 500
 
