@@ -423,6 +423,39 @@ func TestNewRendersTheFormWithBankSections(t *testing.T) {
 	}
 }
 
+// TestNewFormCarriesTheCascadePickerMarkers pins the S4 progressive
+// enhancement: the flat select is annotated with the data-cascade attribute
+// (so the inline script finds it) and the script itself is inlined on the
+// page. The flat <select> still carries every (doc, section) option — the
+// case above asserts that, and it is what continues to submit when JS is
+// off.
+//
+// A tighter DOM test (asserting the cascade renders and cascades correctly)
+// belongs in a browser, not here: this file is a Go test and cannot execute
+// the script. The DOM behavior is verified by the manual check.
+func TestNewFormCarriesTheCascadePickerMarkers(t *testing.T) {
+	f := newControlsFixture(t)
+	rec := httptest.NewRecorder()
+	f.handler.New(rec, f.authedRequest(t, http.MethodGet, handler.ControlsNewPath, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, needle := range []string{
+		`id="from" name="from" required` + "\n" + `              data-cascade`,
+		`id="to" name="to" required` + "\n" + `              data-cascade`,
+		// The script that builds the cascade. Asserted by a stable-looking
+		// substring rather than the whole block so an added comment does
+		// not break the case.
+		`select[data-cascade]`,
+		`data-cascade-doc-label`,
+	} {
+		if !strings.Contains(body, needle) {
+			t.Errorf("form is missing cascade marker %q", needle)
+		}
+	}
+}
+
 func TestCreateWritesAControlAndRedirectsToItsDetail(t *testing.T) {
 	f := newControlsFixture(t)
 	rec := httptest.NewRecorder()
