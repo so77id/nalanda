@@ -296,10 +296,41 @@ def read(data_dir, ticked, unsure):
     # every question that *is* present looks fine. A double feed on a duplex
     # batch is the most likely failure with real paper, and it would otherwise
     # give a student zero on half the sheet and tell nobody (#138 review, F-3).
+    #
+    # And in what order it printed them. AMC shuffles questions per copy
+    # (`\shufflegroup`) and alternatives per question, so the layout knows the
+    # physical position of every box on every sheet and no other database
+    # does. Publishing that lets the review page render each copy the way its
+    # student saw it — the numeric-id / authoring-index order the reader used
+    # to iterate in did not match the paper in hand (#229). Order is derived
+    # from the box geometry (page, ymin, xmin): AMC records coordinates, not a
+    # position column.
     expected = {}
-    for student, q in lay.execute("SELECT DISTINCT student, question FROM layout_box"):
-        if not names.get(q, "").startswith("rut["):
-            expected.setdefault(student, set()).add(q)
+    printed_alts = {}   # (student, question) -> [answer_id, ...] in printed order
+    q_anchors = {}      # (student, question) -> (page, ymin, xmin) of first box
+    for student, q, ans, page, ymin, xmin in lay.execute(
+        "SELECT student, question, answer, page, ymin, xmin FROM layout_box"
+    ):
+        if names.get(q, "").startswith("rut["):
+            continue
+        expected.setdefault(student, set()).add(q)
+        key = (student, q)
+        printed_alts.setdefault(key, []).append((page, ymin, xmin, ans))
+        anchor = (page, ymin, xmin)
+        if key not in q_anchors or anchor < q_anchors[key]:
+            q_anchors[key] = anchor
+    for key, boxes in printed_alts.items():
+        boxes.sort()
+        printed_alts[key] = [a for _, _, _, a in boxes]
+
+    q_positions = {}    # (student, question) -> 1-based position on the sheet
+    by_student = {}
+    for (student, q), anchor in q_anchors.items():
+        by_student.setdefault(student, []).append((anchor, q))
+    for student, items in by_student.items():
+        items.sort()
+        for pos, (_, q) in enumerate(items, 1):
+            q_positions[(student, q)] = pos
 
     copies = {}
     for student, q, a, black, total, manual in cap.execute(
@@ -393,6 +424,16 @@ def read(data_dir, ticked, unsure):
                 "status": status,
                 "score": fact["score"],
                 "max": fact["max"],
+                # Where THIS copy printed the question, and in what order it
+                # printed its alternatives. Both come from layout.sqlite and
+                # are per-copy: two students holding the same test see the
+                # same questions in a different order and each question's
+                # alternatives in a different order (#229). The outer answers
+                # list keeps its iteration order for compatibility; a consumer
+                # rendering the paper sorts by `position` and iterates
+                # `alternatives` to pick each box's letter.
+                "position": q_positions.get((student, q), 0),
+                "alternatives": printed_alts.get((student, q), []),
             })
 
         seen = set(c["q"])

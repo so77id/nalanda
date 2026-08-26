@@ -177,6 +177,43 @@ check_eq "and the copy that drew none of them says so too" \
   "['simple', 'simple', 'simple', 'simple']" \
   "$(jq '[a["type"] for a in d["copies"]["1"]["answers"]]')"
 
+# --- per-copy printed order: questions and alternatives (issue #229) ----------
+#
+# AMC shuffles both the questions per copy (\shufflegroup) and the alternatives
+# per question. Reading them back in numeric-id / authored-index order made the
+# professor's review page render the sheet in a different order from the paper
+# in hand — nothing was mismarked, but the mental alignment broke. The reader
+# now publishes each answer's 1-based `position` on the printed sheet and the
+# question's full `alternatives` list (authoring indices, in printed order),
+# so the server can lay both out the way the student saw them.
+#
+# Numbers here are pinned against layout.sqlite for seed 1242, 5 copies. The
+# outer answers list keeps its old (question-id) order for compatibility; the
+# server sorts by `position` when it renders.
+
+check_eq "each answer carries its 1-based position on the printed sheet" \
+  "[3, 1, 2, 4]" "$(jq '[a["position"] for a in d["copies"]["2"]["answers"]]')"
+
+check_eq "copy 2's questions in printed order match the paper" \
+  "['comparar-cadenas', 'arreglo-largo', 'suma-arreglo', 'indice']" \
+  "$(jq '[a["name"] for a in sorted(d["copies"]["2"]["answers"], key=lambda x: x["position"])]')"
+
+check_eq "copy 3's questions in printed order match ITS paper (differs from copy 2)" \
+  "['comparar-cadenas', 'suma-arreglo', 'tipo-primitivo', 'requisito']" \
+  "$(jq '[a["name"] for a in sorted(d["copies"]["3"]["answers"], key=lambda x: x["position"])]')"
+
+# Alternatives are shuffled per copy too. `descarte` prints [3, 4, 2, 1] on
+# copy 1 and [1, 2, 4, 3] on copy 5 — same question, different paper.
+check_eq "copy 1 alternatives for descarte are in printed order [3,4,2,1]" \
+  "[3, 4, 2, 1]" \
+  "$(jq '[a["alternatives"] for a in d["copies"]["1"]["answers"] if a["name"]=="descarte"][0]')"
+check_eq "and copy 5's printing of the same question is [1,2,4,3]" \
+  "[1, 2, 4, 3]" \
+  "$(jq '[a["alternatives"] for a in d["copies"]["5"]["answers"] if a["name"]=="descarte"][0]')"
+check_eq "the multiple-answer question, `comparar-cadenas`, is shuffled too" \
+  "[1, 3, 2, 4]" \
+  "$(jq '[a["alternatives"] for a in d["copies"]["3"]["answers"] if a["name"]=="comparar-cadenas"][0]')"
+
 # THE defect this WP exists for: two ticks on a multiple-answer question are the
 # ANSWER, and the old reader called every second tick an ambiguity — so a
 # student who answered correctly was sent to the manual review queue, and the
