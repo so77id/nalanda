@@ -406,6 +406,44 @@ var boldPattern = regexp.MustCompile(`\*\*([^*]+(?:\*[^*]+)*)\*\*`)
 // in the string are single italic markers (issue #239).
 var italicPattern = regexp.MustCompile(`\*([^*]+)\*`)
 
+// mapAsciiQuotes replaces every ASCII `"` with a Spanish babel guillemet
+// macro. The first quote in the string opens (`\og `), the second closes
+// (`\fg{}`), and so on — a running toggle rather than a regex, because a
+// pair is defined by ordinal position, not by matching parentheses. The
+// preamble already loads `\usepackage[spanish]{babel}` so `\og` and `\fg`
+// are defined; no package change (issue #239).
+//
+// Why guillemets: `[T1]{fontenc}` makes a bare ASCII `"` a
+// diacritic-composition trigger — `"este"` on paper prints as an unintended
+// superscript-e on the `e`. Guillemets are also the Spanish typographic
+// convention for a quotation on the printed sheet.
+//
+// An odd number of quotes in one field (a stray `"` alone) still emits
+// legal LaTeX: the state machine opens, and without a partner the print
+// shows an unmatched open guillemet — visible on the sheet, but does not
+// break brace matching. Covered by TestUnbalancedQuoteStillProducesLegalTex.
+func mapAsciiQuotes(s string) string {
+	if !strings.ContainsRune(s, '"') {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	open := true
+	for _, r := range s {
+		if r != '"' {
+			b.WriteRune(r)
+			continue
+		}
+		if open {
+			b.WriteString(`\og `)
+		} else {
+			b.WriteString(`\fg{}`)
+		}
+		open = !open
+	}
+	return b.String()
+}
+
 // unicodeReplacer maps a Unicode math/greek/dash character to its LaTeX
 // escape. Applied in escapeBankText AFTER escapeLatex, so the `\` and `$`
 // that appear in the values are NOT re-escaped as `\textbackslash{}\$`.
@@ -600,11 +638,13 @@ func mapUnicodeToLatex(s string) string {
 
 // escapeBankText is the Statement / Alternatives pipeline: TeX specials
 // escaped, then Unicode math/greek/dash mapped to LaTeX (issue #237), then
-// MDX emphasis markers (bold, italic — issue #239) translated, then
-// backtick pairs rendered as code. Order is load-bearing, see the body.
-// Escaping runs FIRST so the \textbf / \textit / \texttt commands themselves
-// are not escaped, and the marker patterns survive the earlier stages intact
-// because `*` and “ ` “ are not TeX-special and are not in unicodeReplacer.
+// MDX emphasis markers (bold, italic — issue #239) translated, then ASCII
+// quotes turned into babel-spanish guillemets (issue #239), then backtick
+// pairs rendered as code. Order is load-bearing, see the body. Escaping
+// runs FIRST so the \textbf / \textit / \og / \fg / \texttt commands are
+// not themselves escaped, and the marker patterns survive the earlier
+// stages intact because `*`, `"` and the backtick are not TeX-special
+// and are not in unicodeReplacer.
 //
 // A raw backtick is a quote mark on paper: the sheet would read 'int' where
 // the author wrote `int`. The professor-typed control NAME goes through
@@ -624,14 +664,20 @@ func escapeBankText(s string) string {
 	//   4. italicPattern — `*text*` → \textit (issue #239). Safe to use
 	//      the simple pattern here because boldPattern has already removed
 	//      every `**` pair.
-	//   5. codeFontPattern — backtick pairs → \texttt. Runs LAST because
+	//   5. mapAsciiQuotes — `"..."` → `\og … \fg{}` (issue #239). Runs
+	//      AFTER the emphasis transforms so an author's `*"quoted"*` still
+	//      picks up italic on the whole span (the `"` chars sit inside the
+	//      italic text and only later toggle open/close on their way
+	//      through).
+	//   6. codeFontPattern — backtick pairs → \texttt. Runs LAST because
 	//      its output (`\texttt{…}`) must not be re-escaped either, and
 	//      because the pair pattern survives the previous stages intact
 	//      (backticks are not TeX-special, not in the Unicode map, and
-	//      not touched by the emphasis patterns).
+	//      not touched by the emphasis or quote transforms).
 	s = escapeLatex(s)
 	s = mapUnicodeToLatex(s)
 	s = boldPattern.ReplaceAllString(s, `\textbf{$1}`)
 	s = italicPattern.ReplaceAllString(s, `\textit{$1}`)
+	s = mapAsciiQuotes(s)
 	return codeFontPattern.ReplaceAllString(s, `\texttt{$1}`)
 }

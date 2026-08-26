@@ -703,6 +703,94 @@ func TestNestedItalicInsideBoldRendersAsBothInOrder(t *testing.T) {
 	}
 }
 
+// Issue #239: straight ASCII double quotes in a Statement or Alternative
+// leak two bugs onto the printed sheet at once. First, with [T1]{fontenc}
+// the `"` glyph is a diacritic-composition trigger — the character
+// immediately after `"` prints with an unintended umlaut / superscript
+// artefact (`*"este algoritmo"*` prints as `*"ᵉste algoritmo*"` on paper).
+// Second, the raw ASCII quote is not the typographic convention for a
+// Spanish sheet anyway.
+//
+// The fix pairs each `"` with its partner and emits guillemets via the
+// babel-spanish macros `\og … \fg{}` — the standard Spanish typography, and
+// already covered by the preamble's `\usepackage[spanish]{babel}` (no
+// package change needed). A simple state machine toggles open/close on
+// every quote; an odd number of quotes in one field is a degenerate input
+// (the professor would have to have typed a stray `"` alone), covered by
+// the "unbalanced" test below.
+func TestAsciiQuotesRenderAsSpanishGuillemets(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "quotes", Document: "welcome", Anchor: "hola",
+				Type:      bank.TypeSimple,
+				Statement: `¿Qué significa "este algoritmo" en la clase?`,
+				Alternatives: []string{
+					`"correcto" según la definición`,
+					`también llamado "peor caso"`,
+					"nada",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	for _, want := range []string{
+		`\og este algoritmo\fg{}`,
+		`\correctchoice{\og correcto\fg{} según la definición}`,
+		`\wrongchoice{también llamado \og peor caso\fg{}}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("ASCII quote pair was not translated to babel guillemets: missing %q in output", want)
+		}
+	}
+	// The raw `"` must not survive into the .tex — that is the fontenc[T1]
+	// diacritic-composition bug the WP was opened for.
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block for scoped ASCII-quote absence check")
+	}
+	if strings.Contains(out[qStart:qEnd], `"`) {
+		t.Error(`a bare ASCII " survived into the question block — fontenc[T1] would compose a diacritic onto the next glyph (issue #239)`)
+	}
+}
+
+// An odd number of quotes in one field is degenerate input — the author
+// typed a stray `"` alone. The state machine still toggles: the first
+// stray opens (`\og`) and, without a close partner, prints as an open
+// guillemet with a trailing thin space (`\og`). No brace-balancing damage
+// downstream. Verified so a review does not have to reason about it.
+func TestUnbalancedQuoteStillProducesLegalTex(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "unbal", Document: "welcome", Anchor: "hola",
+				Type:         bank.TypeSimple,
+				Statement:    `mira "esto pero no cierra`,
+				Alternatives: []string{"única", "otra"},
+				Correct:      []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	if !strings.Contains(out, `mira \og esto pero no cierra`) {
+		t.Error("unbalanced open quote did not become \\og — the state machine must still fire on a lone quote")
+	}
+	// Scoped: the preamble's `\lstset{literate=…}` block legitimately
+	// contains `\"u` and friends, which include the ASCII `"` byte
+	// — a whole-output scan false-positives on them. The bug is bare `"`
+	// inside the question block.
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block for scoped ASCII-quote absence check")
+	}
+	if strings.Contains(out[qStart:qEnd], `"`) {
+		t.Error(`a bare ASCII " survived into the question block even on an unbalanced input`)
+	}
+}
+
 // Issue #185: the generator branches on Input.DuplexPadding.
 //
 //   - true (historical): emits \AMCcleardoublepage inside \onecopy so each
