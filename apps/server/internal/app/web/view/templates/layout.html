@@ -96,11 +96,13 @@
          sheet overflows every viewport. */
       .review-image img { max-width: 100%; height: auto; }
       /* The corrected PDF (issue #190) renders in the browser's own viewer
-         through an iframe; a fixed height keeps the review form's left
-         column from collapsing to the viewer's default 150px sliver. */
-      .review-image iframe {
+         through an <embed>; a fixed height keeps the review form's left
+         column from collapsing to the viewer's default 150px sliver, and
+         letting the viewer own its scroll is what lets it show every page
+         (an <iframe> gated to 70vh cut it to the first page in Safari). */
+      .review-image embed {
         width: 100%;
-        height: 70vh;
+        height: 85vh;
         border: 1px solid var(--border, #ddd);
       }
 
