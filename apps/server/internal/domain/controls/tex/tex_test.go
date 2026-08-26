@@ -590,6 +590,119 @@ func TestBacktickPairsRenderAsTypewriterText(t *testing.T) {
 	}
 }
 
+// Issue #239: MDX authors write `**bold**` and `*italic*` in Statement and
+// Alternatives. Without translation, the double asterisks print verbatim on
+// paper (raw markers around the word), and a lone `*` renders as a low
+// asterisk with no emphasis at all. The fix wires two more transforms into
+// escapeBankText — boldPattern (`**text**` → `\textbf{text}`), then
+// italicPattern (`*text*` → `\textit{text}`) — with bold FIRST so the
+// simpler italic pattern does not eat the two asterisks of a bold marker.
+//
+// Scope in production (from the published bank at issue-time): 44 `**`
+// occurrences across 5 documents, mostly in `complejidad-de-hilbert-al-big-o`.
+func TestBoldMarkersRenderAsTextbf(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "bold", Document: "welcome", Anchor: "hola",
+				Type:      bank.TypeSimple,
+				Statement: "El algoritmo se ejecuta en vez de en **segundos**.",
+				Alternatives: []string{
+					"lineal **exacto**",
+					"cuadrático **peor caso**",
+					"nada",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	for _, want := range []string{
+		`en vez de en \textbf{segundos}`,
+		`\correctchoice{lineal \textbf{exacto}}`,
+		`\wrongchoice{cuadrático \textbf{peor caso}}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("bold marker was not translated to \\textbf: missing %q in output", want)
+		}
+	}
+	// The raw `**` must not survive into the .tex — that is the printed-sheet
+	// bug the WP was opened for.
+	if strings.Contains(out, "**segundos**") {
+		t.Error("raw **bold** survived into the .tex — the printed sheet would show the asterisks (issue #239)")
+	}
+	if strings.Contains(out, "**exacto**") || strings.Contains(out, "**peor caso**") {
+		t.Error("raw **bold** survived in a \\wrongchoice — the printed sheet would show the asterisks")
+	}
+}
+
+// A single `*text*` marker in an author-typed Statement or Alternative renders
+// as \textit on paper. The italic pipeline runs AFTER bold has consumed every
+// `**` pair, so its regex is the simple `\*([^*]+)\*` — no negative-context
+// gymnastics needed.
+func TestItalicMarkersRenderAsTextit(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "italic", Document: "welcome", Anchor: "hola",
+				Type:      bank.TypeSimple,
+				Statement: "*este algoritmo* corre en tiempo constante.",
+				Alternatives: []string{
+					"para *cada* caso",
+					"solo en el *peor* caso",
+					"nada",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	for _, want := range []string{
+		`\textit{este algoritmo} corre`,
+		`\correctchoice{para \textit{cada} caso}`,
+		`\wrongchoice{solo en el \textit{peor} caso}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("italic marker was not translated to \\textit: missing %q in output", want)
+		}
+	}
+	if strings.Contains(out, "*este algoritmo*") ||
+		strings.Contains(out, "*cada*") ||
+		strings.Contains(out, "*peor*") {
+		t.Error("raw *italic* survived into the .tex — on paper it renders as a bare asterisk (issue #239)")
+	}
+}
+
+// The bold pattern MUST run before the italic pattern: if italic ran first,
+// its `\*([^*]+)\*` would match the two asterisks that open and close a
+// `**bold**` marker, translating `**foo**` into `\textit{}foo\textit{}` (or
+// worse, matching across a following pair) and losing the bold entirely. The
+// order is the pin.
+func TestNestedItalicInsideBoldRendersAsBothInOrder(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "nested", Document: "welcome", Anchor: "hola",
+				Type: bank.TypeSimple,
+				// **bold *italic* end** exercises the interleaving: bold
+				// consumes the `**` pairs, leaving `bold *italic* end` for
+				// italic to translate.
+				Statement:    "es **bold *italic* end** del enunciado.",
+				Alternatives: []string{"única", "otra"},
+				Correct:      []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	want := `\textbf{bold \textit{italic} end}`
+	if !strings.Contains(out, want) {
+		t.Errorf("nested *italic* inside **bold** did not render as %q — bold-then-italic order is the pin (issue #239)", want)
+	}
+	if strings.Contains(out, "**bold") || strings.Contains(out, "end**") {
+		t.Error("raw ** survived alongside the nested marker — bold pattern did not consume the outer pair")
+	}
+}
+
 // Issue #185: the generator branches on Input.DuplexPadding.
 //
 //   - true (historical): emits \AMCcleardoublepage inside \onecopy so each

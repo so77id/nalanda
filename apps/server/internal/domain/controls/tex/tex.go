@@ -390,6 +390,22 @@ func escapeLatex(s string) string {
 // the same behaviour the sheet had before this transform existed.
 var codeFontPattern = regexp.MustCompile("`([^`]+)`")
 
+// boldPattern matches an MDX-style bold marker `**text**` and renders as
+// \textbf. The inner class allows single `*` runes so a nested italic
+// (`**bold *italic* end**`) is captured whole and italicPattern can find its
+// pair inside the resulting `\textbf{…}`. `[^*]+(?:\*[^*]+)*` reads as "one
+// or more non-star runs, glued by single stars" — which forbids `**` inside
+// (each glue star is required to be followed by non-stars), keeping each
+// bold pair local. Runs BEFORE italicPattern so the `**` pairs are consumed
+// before the simpler italic regex sees the string (issue #239).
+var boldPattern = regexp.MustCompile(`\*\*([^*]+(?:\*[^*]+)*)\*\*`)
+
+// italicPattern matches an MDX-style italic marker `*text*` and renders as
+// \textit. Safe to use the simple `\*([^*]+)\*` shape because boldPattern
+// has already consumed every `**` pair upstream — the only `*` runes left
+// in the string are single italic markers (issue #239).
+var italicPattern = regexp.MustCompile(`\*([^*]+)\*`)
+
 // unicodeReplacer maps a Unicode math/greek/dash character to its LaTeX
 // escape. Applied in escapeBankText AFTER escapeLatex, so the `\` and `$`
 // that appear in the values are NOT re-escaped as `\textbackslash{}\$`.
@@ -584,10 +600,11 @@ func mapUnicodeToLatex(s string) string {
 
 // escapeBankText is the Statement / Alternatives pipeline: TeX specials
 // escaped, then Unicode math/greek/dash mapped to LaTeX (issue #237), then
+// MDX emphasis markers (bold, italic — issue #239) translated, then
 // backtick pairs rendered as code. Order is load-bearing, see the body.
-// Escaping runs FIRST so the \texttt command itself is not escaped, and
-// the pair pattern survives all three stages intact because backticks are
-// not special to TeX and are not in unicodeReplacer.
+// Escaping runs FIRST so the \textbf / \textit / \texttt commands themselves
+// are not escaped, and the marker patterns survive the earlier stages intact
+// because `*` and “ ` “ are not TeX-special and are not in unicodeReplacer.
 //
 // A raw backtick is a quote mark on paper: the sheet would read 'int' where
 // the author wrote `int`. The professor-typed control NAME goes through
@@ -599,12 +616,22 @@ func escapeBankText(s string) string {
 	//      AFTER escapeLatex so the `\` and `$` we introduce
 	//      (`$\Theta$`, `$\leq$`) are NOT re-escaped as
 	//      `\textbackslash{}\$`.
-	//   3. codeFontPattern — backtick pairs → \texttt. Runs LAST because
+	//   3. boldPattern — `**text**` → \textbf (issue #239). Runs BEFORE
+	//      italicPattern so the double asterisks are consumed as a pair;
+	//      if italic ran first, its `\*([^*]+)\*` would match the two
+	//      asterisks that open and close a `**bold**` marker and destroy
+	//      the bold.
+	//   4. italicPattern — `*text*` → \textit (issue #239). Safe to use
+	//      the simple pattern here because boldPattern has already removed
+	//      every `**` pair.
+	//   5. codeFontPattern — backtick pairs → \texttt. Runs LAST because
 	//      its output (`\texttt{…}`) must not be re-escaped either, and
-	//      because the pair pattern survives the previous two intact
-	//      (backticks are not TeX-special and are not in the Unicode
-	//      map).
+	//      because the pair pattern survives the previous stages intact
+	//      (backticks are not TeX-special, not in the Unicode map, and
+	//      not touched by the emphasis patterns).
 	s = escapeLatex(s)
 	s = mapUnicodeToLatex(s)
+	s = boldPattern.ReplaceAllString(s, `\textbf{$1}`)
+	s = italicPattern.ReplaceAllString(s, `\textit{$1}`)
 	return codeFontPattern.ReplaceAllString(s, `\texttt{$1}`)
 }
