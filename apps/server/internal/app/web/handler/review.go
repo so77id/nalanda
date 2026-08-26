@@ -216,10 +216,13 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 	// something to search for.
 	//
 	// The RUT values are masked to the last 4 digits (S3 review SEC-2):
-	// the full RUT is personal data under Ley 19.628 and would otherwise
-	// sit in the docker log rotation. `rut_action` already carries the
-	// diagnostic value — the last 4 digits are enough to correlate two
-	// log lines about the same student without persisting the full ID.
+	// the full RUT is personal data under Ley 21.719 (Chile's 2024
+	// data-protection law, which supersedes Ley 19.628) and would
+	// otherwise sit in the docker log rotation. `rut_action` already
+	// carries the diagnostic value — the last 4 digits are enough to
+	// correlate two log lines about the same student without persisting
+	// the full ID. See `docs/security-notes.md` §"Logs and personal
+	// data" for the surface-wide masking rule (Round B ADR-1).
 	h.Log.Info("save review",
 		"control", id,
 		"copy", copyNumber,

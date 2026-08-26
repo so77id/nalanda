@@ -34,7 +34,7 @@ Environment variables, read once at boot. A required variable that is absent
 |---|---|---|
 | `NALANDA_ADDR` | yes | Bind address, `host:port` |
 | `NALANDA_DATABASE_URL` | yes | Path to the SQLite file |
-| `NALANDA_LOG_LEVEL` | no (`info`) | `debug`, `info`, `warn` or `error` |
+| `NALANDA_LOG_LEVEL` | no (`info`) | `debug`, `info`, `warn` or `error`. Since #228 every HTTP request is logged at INFO across both surfaces (backoffice + api), one line with method, path, status and duration_ms; `/health` is at DEBUG on purpose so the container healthcheck stays out of the operator's view. The OAuth callback path is logged without its `code`/`state` query — those are one-shot credentials (RFC 6749 §10.3). Middleware: `internal/app/web/middleware/requestlog.go` |
 | `NALANDA_PUBLIC_URL` | yes | Base URL the server is reached at — scheme, host, optional port, and **no path**. The OAuth redirect URI is built from it and its scheme decides the cookie's `Secure` flag; a base carrying a path would build a redirect URI these routes do not serve, so it is refused at boot |
 | `NALANDA_GOOGLE_CLIENT_ID` | yes | The Google OAuth client (ADR-0009) |
 | `NALANDA_GOOGLE_CLIENT_SECRET` | yes | Its secret. Never printed: `config.Config` redacts it for both `fmt` and `slog` |
@@ -113,7 +113,7 @@ internal/domain/   business types and the interfaces they need — PURE
   auth/            professors, identities, sessions, and who may log in
 internal/app/web/  the professor's backoffice
   handler/         the login round trip and the professor CRUD
-  middleware/      cookie → professor, the gate, CSRF
+  middleware/      cookie → professor, the gate, CSRF, and the surface-agnostic request log
   oauthstate/      the single-use state nonces of the OAuth flow
   flash/           the one-shot POST/redirect/GET message cookie
   view/            html/template, embedded — shell + pages
