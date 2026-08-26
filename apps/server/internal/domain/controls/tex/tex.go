@@ -390,9 +390,15 @@ func escapeLatex(s string) string {
 // the same behaviour the sheet had before this transform existed.
 var codeFontPattern = regexp.MustCompile("`([^`]+)`")
 
-// unicodeToLatex maps a Unicode math/greek/dash character to its LaTeX
+// unicodeReplacer maps a Unicode math/greek/dash character to its LaTeX
 // escape. Applied in escapeBankText AFTER escapeLatex, so the `\` and `$`
 // that appear in the values are NOT re-escaped as `\textbackslash{}\$`.
+//
+// Shape mirrors escapeLatex above: strings.NewReplacer over a fixed set of
+// source → target pairs, single pass, no allocation when nothing matches.
+// The one difference is that source strings here are multi-byte runes
+// rather than ASCII specials, which is transparent to Replacer (it works
+// on UTF-8 byte sequences).
 //
 // Round 1 is exactly the character set that appears in the published
 // complejidad bank today (issue #237): the 18 questions across
@@ -413,61 +419,70 @@ var codeFontPattern = regexp.MustCompile("`([^`]+)`")
 // covered by the preamble's `\usepackage[utf8]{inputenc}` +
 // `\usepackage[T1]{fontenc}`, and remapping them here would be dead work at
 // best and a source of double-processing regressions at worst.
-var unicodeToLatex = map[rune]string{
+//
+// A few look-alike codepoints share a glyph with a Round 1 entry (U+2126
+// Ohm Sign vs U+03A9 Greek Capital Omega; U+03F5 Lunate Epsilon vs U+03B5
+// Greek Small Epsilon; U+03D5 Greek Phi Symbol vs U+03C6 Greek Small Phi):
+// keyboard layouts and copy-paste from physics or math sources emit the
+// look-alike, which then survives into pdftex verbatim and reproduces the
+// exact `prepare failed (1)` this WP set out to prevent. Cheap to cover.
+var unicodeReplacer = strings.NewReplacer(
+	// --- Round 1 — characters that broke a compile in production. ---
+
 	// Uppercase Greek that appears in the bank today.
-	'Θ': `$\Theta$`,
-	'Ω': `$\Omega$`,
+	"Θ", `$\Theta$`,
+	"Ω", `$\Omega$`,
 
 	// Superscripts (n², 2³, 10⁴).
-	'⁰': `$^{0}$`,
-	'¹': `$^{1}$`,
-	'²': `$^{2}$`,
-	'³': `$^{3}$`,
-	'⁴': `$^{4}$`,
-	'⁵': `$^{5}$`,
-	'⁶': `$^{6}$`,
-	'⁷': `$^{7}$`,
-	'⁸': `$^{8}$`,
-	'⁹': `$^{9}$`,
+	"⁰", `$^{0}$`,
+	"¹", `$^{1}$`,
+	"²", `$^{2}$`,
+	"³", `$^{3}$`,
+	"⁴", `$^{4}$`,
+	"⁵", `$^{5}$`,
+	"⁶", `$^{6}$`,
+	"⁷", `$^{7}$`,
+	"⁸", `$^{8}$`,
+	"⁹", `$^{9}$`,
 
 	// Subscripts (log₂ n, x₁).
-	'₀': `$_{0}$`,
-	'₁': `$_{1}$`,
-	'₂': `$_{2}$`,
-	'₃': `$_{3}$`,
-	'₄': `$_{4}$`,
-	'₅': `$_{5}$`,
-	'₆': `$_{6}$`,
-	'₇': `$_{7}$`,
-	'₈': `$_{8}$`,
-	'₉': `$_{9}$`,
+	"₀", `$_{0}$`,
+	"₁", `$_{1}$`,
+	"₂", `$_{2}$`,
+	"₃", `$_{3}$`,
+	"₄", `$_{4}$`,
+	"₅", `$_{5}$`,
+	"₆", `$_{6}$`,
+	"₇", `$_{7}$`,
+	"₈", `$_{8}$`,
+	"₉", `$_{9}$`,
 
 	// Standalone square root: no argument to bind (see doc above).
-	'√': `$\sqrt{}$`,
+	"√", `$\sqrt{}$`,
 
 	// Comparisons.
-	'≤': `$\leq$`,
-	'≥': `$\geq$`,
-	'≠': `$\neq$`,
+	"≤", `$\leq$`,
+	"≥", `$\geq$`,
+	"≠", `$\neq$`,
 
 	// Arrows.
-	'→': `$\to$`,
-	'↔': `$\leftrightarrow$`,
+	"→", `$\to$`,
+	"↔", `$\leftrightarrow$`,
 
 	// Logic / set.
-	'∃': `$\exists$`,
-	'∀': `$\forall$`,
-	'∈': `$\in$`,
-	'∉': `$\notin$`,
+	"∃", `$\exists$`,
+	"∀", `$\forall$`,
+	"∈", `$\in$`,
+	"∉", `$\notin$`,
 
 	// Misc math.
-	'∞': `$\infty$`,
-	'·': `$\cdot$`,
+	"∞", `$\infty$`,
+	"·", `$\cdot$`,
 
 	// Dashes (semantic preservation, see doc above).
-	'—': `---`,
-	'–': `--`,
-	'−': `-`,
+	"—", `---`,
+	"–", `--`,
+	"−", `-`,
 
 	// --- Round 2 (opportunistic — coverage for future course content). ---
 	//
@@ -481,102 +496,90 @@ var unicodeToLatex = map[rune]string{
 	// π, θ, ω for the lowercase forms of Round 1's uppercase pair).
 	// `ο` (omicron) is deliberately absent — LaTeX has no macro for it
 	// because it prints identically to the Latin `o`.
-	'α': `$\alpha$`,
-	'β': `$\beta$`,
-	'γ': `$\gamma$`,
-	'δ': `$\delta$`,
-	'ε': `$\varepsilon$`,
-	'ζ': `$\zeta$`,
-	'η': `$\eta$`,
-	'θ': `$\theta$`,
-	'ι': `$\iota$`,
-	'κ': `$\kappa$`,
-	'λ': `$\lambda$`,
-	'μ': `$\mu$`,
-	'ν': `$\nu$`,
-	'ξ': `$\xi$`,
-	'π': `$\pi$`,
-	'ρ': `$\rho$`,
-	'σ': `$\sigma$`,
-	'τ': `$\tau$`,
-	'υ': `$\upsilon$`,
-	'φ': `$\varphi$`,
-	'χ': `$\chi$`,
-	'ψ': `$\psi$`,
-	'ω': `$\omega$`,
+	"α", `$\alpha$`,
+	"β", `$\beta$`,
+	"γ", `$\gamma$`,
+	"δ", `$\delta$`,
+	"ε", `$\varepsilon$`,
+	"ζ", `$\zeta$`,
+	"η", `$\eta$`,
+	"θ", `$\theta$`,
+	"ι", `$\iota$`,
+	"κ", `$\kappa$`,
+	"λ", `$\lambda$`,
+	"μ", `$\mu$`,
+	"ν", `$\nu$`,
+	"ξ", `$\xi$`,
+	"π", `$\pi$`,
+	"ρ", `$\rho$`,
+	"σ", `$\sigma$`,
+	"τ", `$\tau$`,
+	"υ", `$\upsilon$`,
+	"φ", `$\varphi$`,
+	"χ", `$\chi$`,
+	"ψ", `$\psi$`,
+	"ω", `$\omega$`,
 
 	// Remaining uppercase Greek with a distinct LaTeX macro. Α, Β, Ε, Ζ,
 	// Η, Ι, Κ, Μ, Ν, Ο, Ρ, Τ, Χ share glyphs with Latin letters and
 	// have no LaTeX macro — an author who typed one meant the Latin
 	// letter, and the map would just remove the char.
-	'Γ': `$\Gamma$`,
-	'Δ': `$\Delta$`,
-	'Λ': `$\Lambda$`,
-	'Ξ': `$\Xi$`,
-	'Π': `$\Pi$`,
-	'Σ': `$\Sigma$`,
-	'Υ': `$\Upsilon$`,
-	'Φ': `$\Phi$`,
-	'Ψ': `$\Psi$`,
+	"Γ", `$\Gamma$`,
+	"Δ", `$\Delta$`,
+	"Λ", `$\Lambda$`,
+	"Ξ", `$\Xi$`,
+	"Π", `$\Pi$`,
+	"Σ", `$\Sigma$`,
+	"Υ", `$\Upsilon$`,
+	"Φ", `$\Phi$`,
+	"Ψ", `$\Psi$`,
+
+	// Look-alike codepoints for Round 1 & Round 2 entries: keyboards and
+	// copy-paste from physics / math sources emit these instead of the
+	// canonical Greek codepoint. Same LaTeX target as their twin.
+	"\u2126", `$\Omega$`, // Ohm Sign U+2126 ↔ U+03A9 Greek Capital Omega
+	"\u03f5", `$\varepsilon$`, // Greek Lunate Epsilon U+03F5 ↔ U+03B5 Greek Small Epsilon
+	"\u03d5", `$\varphi$`, // Greek Phi Symbol U+03D5 ↔ U+03C6 Greek Small Phi
 
 	// Extended arithmetic.
-	'±': `$\pm$`,
-	'×': `$\times$`,
-	'÷': `$\div$`,
-	'∘': `$\circ$`,
-	'≈': `$\approx$`,
-	'≡': `$\equiv$`,
+	"±", `$\pm$`,
+	"×", `$\times$`,
+	"÷", `$\div$`,
+	"∘", `$\circ$`,
+	"≈", `$\approx$`,
+	"≡", `$\equiv$`,
 
 	// Standalone big operators — same convention as √: no argument to
 	// bind. An author who needs `∑ᵢ` writes `$\sum_i$` today.
-	'∑': `$\sum$`,
-	'∏': `$\prod$`,
-	'∫': `$\int$`,
+	"∑", `$\sum$`,
+	"∏", `$\prod$`,
+	"∫", `$\int$`,
 
 	// Set operators.
-	'∅': `$\emptyset$`,
-	'∪': `$\cup$`,
-	'∩': `$\cap$`,
-	'⊂': `$\subset$`,
-	'⊃': `$\supset$`,
-	'⊆': `$\subseteq$`,
-	'⊇': `$\supseteq$`,
+	"∅", `$\emptyset$`,
+	"∪", `$\cup$`,
+	"∩", `$\cap$`,
+	"⊂", `$\subset$`,
+	"⊃", `$\supset$`,
+	"⊆", `$\subseteq$`,
+	"⊇", `$\supseteq$`,
 
 	// Calculus.
-	'∂': `$\partial$`,
-	'∇': `$\nabla$`,
+	"∂", `$\partial$`,
+	"∇", `$\nabla$`,
 
 	// Double arrows (implication).
-	'⇒': `$\Rightarrow$`,
-	'⇐': `$\Leftarrow$`,
-	'⇔': `$\Leftrightarrow$`,
-}
+	"⇒", `$\Rightarrow$`,
+	"⇐", `$\Leftarrow$`,
+	"⇔", `$\Leftrightarrow$`,
+)
 
 // mapUnicodeToLatex replaces every rune in s that has a LaTeX escape in
-// unicodeToLatex with that escape. Runes with no mapping (ASCII, accented
-// Latin, anything not in the table) pass through unaltered — a
-// re-encoding pass here would defeat inputenc[utf8].
+// unicodeReplacer with that escape. Runes with no mapping (ASCII, accented
+// Latin, anything not in the table) pass through unaltered — a re-encoding
+// pass here would defeat inputenc[utf8].
 func mapUnicodeToLatex(s string) string {
-	needsWork := false
-	for _, r := range s {
-		if _, ok := unicodeToLatex[r]; ok {
-			needsWork = true
-			break
-		}
-	}
-	if !needsWork {
-		return s
-	}
-	var b strings.Builder
-	b.Grow(len(s))
-	for _, r := range s {
-		if repl, ok := unicodeToLatex[r]; ok {
-			b.WriteString(repl)
-		} else {
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
+	return unicodeReplacer.Replace(s)
 }
 
 // escapeBankText is the Statement / Alternatives pipeline: TeX specials

@@ -172,6 +172,17 @@ func TestMapUnicodeToLatex_Round2(t *testing.T) {
 		{"right-double-arrow", "⇒", `$\Rightarrow$`},
 		{"left-double-arrow", "⇐", `$\Leftarrow$`},
 		{"iff-double-arrow", "⇔", `$\Leftrightarrow$`},
+
+		// Look-alike codepoints: keyboards and math/physics copy-paste emit
+		// these instead of the canonical Greek codepoint, and they render
+		// visually identically — an author cannot spot the difference in an
+		// editor. Same LaTeX target as their twin. Written with \u escapes
+		// because a bare literal in this test would be visually identical
+		// to the Round 1 / Round 2 row that already covers the twin and
+		// prove nothing.
+		{"lookalike-ohm-sign", "\u2126", `$\Omega$`},
+		{"lookalike-lunate-epsilon", "\u03f5", `$\varepsilon$`},
+		{"lookalike-phi-symbol", "\u03d5", `$\varphi$`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
