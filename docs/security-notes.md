@@ -44,6 +44,60 @@ names its trigger for re-evaluation — nothing is "accepted forever".
 
 ## Accepted invariants
 
+### CSP posture on `apps/server` is `frame-ancestors 'none'` only (accepted 2026-08-26, #231, ADR-0047)
+
+**What.** `internal/app/web/view/view.go` sets the response header
+`Content-Security-Policy: frame-ancestors 'none'` and nothing else — no
+`script-src`, no `default-src`, no `worker-src`. Since #231 the review
+page carries an inline `<script type="module">` that boots PDF.js; the
+block runs because there is no `script-src` directive to refuse it.
+
+**Why it is accepted.** The surface is authenticated (professor session)
+and served over Tailscale Funnel to a private tailnet (ADR-0038); the
+threat model tightening CSP would defend against — a supply-chain
+injection into an inline block — is not one this deployment faces
+today. Adding a `script-src 'self' 'nonce-…'` now would require either
+lifting the inline block out of the template (bundle with SEC-1 / ARQ-3
+from #231's review) or wiring nonces through `view.go`'s render path —
+either belongs in a WP whose job IS the CSP tightening, not the PDF
+viewer's.
+
+**Review trigger.** The next WP that adds a second inline
+`<script>` block anywhere under `internal/app/web/view/templates/`,
+OR any WP that opens the backoffice to a broader audience than the
+tailnet — either promotes this line into an ADR of its own with a
+concrete tightening plan (nonce/hash for every existing inline
+script + `worker-src 'self' blob:` for the PDF.js worker's Blob
+fallback).
+
+### Vendored front-end assets are scanned by hand at each upgrade (accepted 2026-08-26, #231, ADR-0047)
+
+**What.** Vendored JavaScript libraries under
+`apps/server/internal/app/web/static/vendor/<lib>/` (today: PDF.js
+v6.2.108) are pinned at version, embedded into the Go binary via
+`//go:embed`, and are invisible to `govulncheck` — the Go vulnerability
+scanner covers `go.mod` and the standard library, and cannot see a
+committed `.mjs`. Every vendored library carries a `README.md` with a
+`## Upgrading` recipe whose FIRST step is to consult Mozilla's
+advisories AND the NVD CPE for the library at the current pinned
+version; the check date is recorded next to the version line and
+gets re-recorded on every upgrade.
+
+**Why it is accepted.** The alternatives (npm's audit
+infrastructure, GitHub Dependabot with a `package.json`, a CDN with
+SRI) each add a dependency this app deliberately does not carry (see
+ADR-0047 §Alternatives). The manual check is fast — one URL per
+library on upgrade — and it is documented in the ONE place a person
+touches the library: the vendor README beside it.
+
+**Review trigger.** The second vendored front-end library that lands
+under `internal/app/web/static/vendor/`. The pattern is codified in
+ADR-0047 §6 and in `docs/standards/repository-structure.md` §Placement
+criteria; the second library also decides whether the check is worth
+promoting to a `make` target that greps every vendor README for a
+stale "advisories last checked" date, or whether the README-per-lib
+convention still suffices.
+
 ### The control question bank is published, answers included (accepted 2026-08-16, #139)
 
 **What.** Entrance-control questions live under `content/` beside the class they

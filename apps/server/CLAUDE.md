@@ -39,6 +39,19 @@ fact.
 - `docs/standards/guides/add-a-backend-endpoint.md` — read before adding ANY
   route here: which surface it belongs to, the handler → domain → repository
   chain, and the middleware a state-changing route needs.
+- `internal/app/web/static/static.go` package doc + ADR-0047 — read before
+  adding ANY vendored front-end library (a JS bundle, a CSS file, a font
+  the browser downloads). Shape: `vendor/<lib>/` subdirectory + one more
+  entry per file on the explicit `//go:embed` line (never `all:vendor` —
+  the point is to keep companion files out), plus a `README.md` beside
+  them with four required sections (Version with an "advisories last
+  checked" date, Integrity SHA-384s, How it is served, Upgrading).
+  Directory-shaped requests answer 404 (both trailing-slash AND bare-name
+  — Go's default 301 on a bare directory is refused). The `/static/`
+  URL prefix is a string literal spelled in router.go, in the template
+  that consumes the asset, and in the vendor README — a rename touches
+  all three; there is no shared constant on purpose (see the router
+  entry's comment).
 - `README.md` §"What is not here yet" — before adding anything, check whether
   the work belongs to WP-D (roster) or WP-G (publish grades). **WP-C1,
   WP-C2, WP-C3, WP-E and WP-F are closed**: the layered layout (#149), the

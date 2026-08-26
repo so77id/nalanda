@@ -75,11 +75,14 @@ curl -s http://127.0.0.1:8081/api/health  # API surface
 # like a gate and is not one.
 test -z "$(gofmt -l .)" && go vet ./... && go build ./... && go test ./...
 
-# Build the production image (12.2 MB, measured 2026-08-16 on darwin/arm64:
-# `docker image inspect nalanda/server:dev --format '{{.Size}}'` = 12827991).
+# Build the production image (16.4 MB, measured 2026-08-26 on darwin/arm64:
+# `docker image inspect nalanda/server:dev --format '{{.Size}}'` = 16366935).
 # It was 10.3 MB before #150 added the auth domain, the OIDC client and an
-# embedded template; the figure is reported, never gated — a test that reddens
-# because a number moved teaches nothing (ADR-0034 §Consequences).
+# embedded template; 12.2 MB after #150. #231 embeds ~3 MB of vendored PDF.js
+# (pdf.mjs + pdf.worker.mjs, see internal/app/web/static/vendor/pdfjs/) for
+# the annotated-PDF viewer on the review page — ADR-0047. The figure is
+# reported, never gated — a test that reddens because a number moved teaches
+# nothing (ADR-0034 §Consequences).
 docker build -t nalanda/server:dev .
 ```
 
@@ -118,6 +121,10 @@ internal/app/web/  the professor's backoffice
   oauthstate/      the single-use state nonces of the OAuth flow
   flash/           the one-shot POST/redirect/GET message cookie
   view/            html/template, embedded — shell + pages
+  static/          vendored front-end assets (PDF.js today), embedded via
+                   //go:embed and served under /static/ (ADR-0047). New
+                   libraries land under vendor/<lib>/ with their own README
+                   (source, version, SHA-384, upgrade recipe).
 internal/app/api/  the JSON/WS surface — anonymous, no middleware (§C12)
 internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
   oidc/            the Google client — standard library, no OIDC dependency
@@ -188,10 +195,22 @@ and its per-copy identity. `apps/amc-worker` is the compilation engine
 Since issue #190 the cycle CLOSES with an artefact per copy: an annotated
 PDF drawn by AMC that reflects the professor's corrections (ADR-0040). It
 is generated automatically for clean copies after an upload and re-generated
-on every review save; the review page embeds it and falls back to the raw
+on every review save; the review page renders it and falls back to the raw
 scan while none exists. `NALANDA_ANNOTATE_ENABLED=false` switches the whole
 loop off. Closing a correction fires the `OnCorrectionClosed` hook — today a
 no-op logger, tomorrow the seam email/Canvas integrations hang off.
+
+Since issue #231 the review page renders the annotated PDF through
+**PDF.js** (ADR-0047), not the browser's built-in viewer: a `<div
+id="pdf-viewer">` gets one `<canvas>` per page from an inline ES module
+that imports the vendored library from `/static/vendor/pdfjs/`. Browsers'
+built-in PDF viewers disagreed on pagination (Brave rendered page 1 only
+after PR #227 shipped `<embed>`), and the canvas render keeps every
+browser out of the disagreement. A page-N render failure preserves the
+pages 1..N-1 that already drew, appends a Spanish error paragraph, and
+the "Abrir en otra pestaña" link below the viewer remains as fallback.
+`<noscript>` covers the JS-off case. First inline browser script on the
+backoffice — the rules for adding another live in ADR-0047 §4.
 
 Since issue #197 one darkness-threshold pair travels with every control
 (ADR-0041): the upload and reanalyse forms set it (defaults 0.15/0.05, the
@@ -216,6 +235,7 @@ Routes today:
 | `GET /controls/{id}/copies/{copy}/page/{n}` | Streams the scanned page image from the shared volume |
 | `GET /controls/{id}/copies/{copy}/annotated.pdf` | Streams the corrected PDF from the shared volume; 404 while none exists (issue #190) |
 | `GET /controls/{id}/uploads/{batch}.pdf` | Downloads an uploaded scan batch (`batch-N.pdf`) from the shared volume; the detail page links every batch (issue #204) |
+| `GET /static/vendor/pdfjs/pdf.mjs` · `GET /static/vendor/pdfjs/pdf.worker.mjs` | Vendored PDF.js served by the `static` package. Public (issue #231, ADR-0047) — a browser fetching an ES module over a stale session would 302-redirect to login HTML the browser then refuses as JS. Directory-shaped requests answer 404 (no listing, no bare-name redirect); anything else under `/static/` that is not on the embed list is 404 too |
 | `GET /professors` | The list: address, name, state, created, last sign-in |
 | `GET /professors/new` · `POST /professors` | Create by address and name — the `Authenticate` path (2) round trip |
 | `GET /professors/{id}/edit` · `POST /professors/{id}` | Rename. The address is not editable |

@@ -18,11 +18,16 @@
         <p><a href="{{ .AnnotatedURL }}">Abrir el PDF corregido en otra pestaña</a></p>
         <script type="module">
           // PDF.js 6.x — ES module + module worker, both served from
-          // /static/vendor/pdfjs/ (issue #231). Rendering happens page by
-          // page into <canvas> children of #pdf-viewer, which keeps the
-          // browser-specific PDF viewer out of the loop — the reason the
-          // <embed> shipped in PR #227 paginated in Safari + stock Chrome
-          // but showed only page 1 in Brave.
+          // /static/vendor/pdfjs/ (issue #231, ADR-0047). Rendering
+          // happens page by page into <canvas> children of #pdf-viewer,
+          // which keeps the browser-specific PDF viewer out of the loop
+          // — the reason the <embed> shipped in PR #227 paginated in
+          // Safari + stock Chrome but showed only page 1 in Brave.
+          //
+          // Inline pending a CSP tightening — extracting this block to a
+          // first-party .mjs under /static/js/ pairs with adding
+          // script-src 'self' + a nonce or hash; see docs/security-notes.md
+          // §"CSP posture on apps/server" for the review trigger.
           import * as pdfjs from '/static/vendor/pdfjs/pdf.mjs';
           pdfjs.GlobalWorkerOptions.workerSrc = '/static/vendor/pdfjs/pdf.worker.mjs';
 

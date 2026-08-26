@@ -7,6 +7,11 @@ backoffice. See issue #231 and PR #227's superseded fix for the "why".
 ## Version
 
 `v6.2.108` — released 2026-07-28.
+Advisories last checked: **2026-08-26** against
+<https://github.com/mozilla/pdf.js/security/advisories> and
+<https://nvd.nist.gov/vuln/search> (CPE `cpe:2.3:a:mozilla:pdf.js`) — no
+advisory affects 6.2.108. Re-record this line on every upgrade (§Upgrading
+step 1).
 
 Files:
 
@@ -43,6 +48,13 @@ The files are embedded into the server binary through `//go:embed` in the
 route in `internal/app/web/router.go`. Adding files here makes them
 available at `/static/vendor/pdfjs/<filename>` after a rebuild — no other
 wiring is needed.
+
+The URL prefix `/static/vendor/pdfjs/` is a string literal spelled in
+THREE places on purpose (see the comment on the `/static/` route entry
+in `router.go`): the router entry + its `http.StripPrefix`, the two
+`import` URLs inside `review.html`'s `<script type="module">`, and this
+section of the README. A rename touches all three; no test spans them,
+so a browser check follows.
 
 ## Upgrading
 
