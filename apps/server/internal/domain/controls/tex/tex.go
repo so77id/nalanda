@@ -506,5 +506,18 @@ func mapUnicodeToLatex(s string) string {
 // the author wrote `int`. The professor-typed control NAME goes through
 // escapeLatex alone — it is plain text, not MDX (issue #193 S3).
 func escapeBankText(s string) string {
-	return codeFontPattern.ReplaceAllString(escapeLatex(s), `\texttt{$1}`)
+	// Order is load-bearing:
+	//   1. escapeLatex — TeX specials in author text (`\`, `%`, `&`, …).
+	//   2. mapUnicodeToLatex — Θ, ², ≤, →, ∞, — … (issue #237). Runs
+	//      AFTER escapeLatex so the `\` and `$` we introduce
+	//      (`$\Theta$`, `$\leq$`) are NOT re-escaped as
+	//      `\textbackslash{}\$`.
+	//   3. codeFontPattern — backtick pairs → \texttt. Runs LAST because
+	//      its output (`\texttt{…}`) must not be re-escaped either, and
+	//      because the pair pattern survives the previous two intact
+	//      (backticks are not TeX-special and are not in the Unicode
+	//      map).
+	s = escapeLatex(s)
+	s = mapUnicodeToLatex(s)
+	return codeFontPattern.ReplaceAllString(s, `\texttt{$1}`)
 }
