@@ -10,8 +10,62 @@
     <section class="review-image">
       <h2>Escaneo</h2>
       {{ if .HasAnnotated }}
-        <p><embed src="{{ .AnnotatedURL }}#view=FitH&scrollbar=1" type="application/pdf" title="Copia {{ .CopyNumber }} corregida"></p>
+        <div id="pdf-viewer" data-pdf-url="{{ .AnnotatedURL }}"
+             aria-label="Copia {{ .CopyNumber }} corregida"
+             role="document">
+          <noscript><p>El visor necesita JavaScript. Usa el enlace de abajo.</p></noscript>
+        </div>
         <p><a href="{{ .AnnotatedURL }}">Abrir el PDF corregido en otra pestaña</a></p>
+        <script type="module">
+          // PDF.js 6.x — ES module + module worker, both served from
+          // /static/vendor/pdfjs/ (issue #231). Rendering happens page by
+          // page into <canvas> children of #pdf-viewer, which keeps the
+          // browser-specific PDF viewer out of the loop — the reason the
+          // <embed> shipped in PR #227 paginated in Safari + stock Chrome
+          // but showed only page 1 in Brave.
+          import * as pdfjs from '/static/vendor/pdfjs/pdf.mjs';
+          pdfjs.GlobalWorkerOptions.workerSrc = '/static/vendor/pdfjs/pdf.worker.mjs';
+
+          const container = document.getElementById('pdf-viewer');
+          const url = container.dataset.pdfUrl;
+
+          // devicePixelRatio makes the canvas sharp on hi-dpi displays;
+          // 1.5 is the base scale — high enough to read hand-written marks
+          // in the annotated PDF at width:100% without ballooning memory on
+          // a 30-page copy.
+          const dpr = Math.max(1, window.devicePixelRatio || 1);
+          const baseScale = 1.5;
+
+          (async () => {
+            try {
+              const pdf = await pdfjs.getDocument(url).promise;
+              for (let n = 1; n <= pdf.numPages; n++) {
+                const page = await pdf.getPage(n);
+                const viewport = page.getViewport({ scale: baseScale * dpr });
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                // CSS sizing keeps the container in charge of layout — the
+                // canvas backing store is at device pixels, the display
+                // size at CSS pixels.
+                canvas.style.width = '100%';
+                canvas.style.height = 'auto';
+                container.appendChild(canvas);
+                await page.render({
+                  canvasContext: canvas.getContext('2d'),
+                  viewport: viewport,
+                }).promise;
+              }
+            } catch (err) {
+              // The "Abrir en otra pestaña" link below the container is
+              // the fallback surface — this message points at it rather
+              // than duplicating it, so the professor is not left with a
+              // silent empty box.
+              container.textContent = 'No se pudo cargar el PDF en el visor. Usa el enlace de abajo.';
+              console.error('PDF.js render failed:', err);
+            }
+          })();
+        </script>
       {{ else }}
         <p><img src="{{ .ImageURL }}" alt="Escaneo de la copia {{ .CopyNumber }}"></p>
       {{ end }}
