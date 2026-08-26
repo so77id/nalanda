@@ -94,6 +94,95 @@ func TestMapUnicodeToLatex_Round1(t *testing.T) {
 	}
 }
 
+// Round 2 (opportunistic — coverage for future course content). These would
+// break the next compile the same way Round 1 broke #237's, so they land ahead
+// of time. Same shape as the Round 1 table for the same mutation-detectable
+// reason: each row asserted independently so a silent revert of a single map
+// entry lands red on that row.
+func TestMapUnicodeToLatex_Round2(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		want string
+	}{
+		// Lowercase Greek. Omicron (ο) is deliberately not tested — LaTeX
+		// has no macro for it (prints identically to Latin `o`).
+		{"lower-alpha", "α", `$\alpha$`},
+		{"lower-beta", "β", `$\beta$`},
+		{"lower-gamma", "γ", `$\gamma$`},
+		{"lower-delta", "δ", `$\delta$`},
+		{"lower-epsilon", "ε", `$\varepsilon$`},
+		{"lower-zeta", "ζ", `$\zeta$`},
+		{"lower-eta", "η", `$\eta$`},
+		{"lower-theta", "θ", `$\theta$`},
+		{"lower-iota", "ι", `$\iota$`},
+		{"lower-kappa", "κ", `$\kappa$`},
+		{"lower-lambda", "λ", `$\lambda$`},
+		{"lower-mu", "μ", `$\mu$`},
+		{"lower-nu", "ν", `$\nu$`},
+		{"lower-xi", "ξ", `$\xi$`},
+		{"lower-pi", "π", `$\pi$`},
+		{"lower-rho", "ρ", `$\rho$`},
+		{"lower-sigma", "σ", `$\sigma$`},
+		{"lower-tau", "τ", `$\tau$`},
+		{"lower-upsilon", "υ", `$\upsilon$`},
+		{"lower-phi", "φ", `$\varphi$`},
+		{"lower-chi", "χ", `$\chi$`},
+		{"lower-psi", "ψ", `$\psi$`},
+		{"lower-omega", "ω", `$\omega$`},
+
+		// Remaining uppercase Greek with a distinct LaTeX macro.
+		{"upper-gamma", "Γ", `$\Gamma$`},
+		{"upper-delta", "Δ", `$\Delta$`},
+		{"upper-lambda", "Λ", `$\Lambda$`},
+		{"upper-xi", "Ξ", `$\Xi$`},
+		{"upper-pi", "Π", `$\Pi$`},
+		{"upper-sigma", "Σ", `$\Sigma$`},
+		{"upper-upsilon", "Υ", `$\Upsilon$`},
+		{"upper-phi", "Φ", `$\Phi$`},
+		{"upper-psi", "Ψ", `$\Psi$`},
+
+		// Extended arithmetic.
+		{"plus-minus", "±", `$\pm$`},
+		{"multiplication", "×", `$\times$`},
+		{"division", "÷", `$\div$`},
+		{"composition", "∘", `$\circ$`},
+		{"approx", "≈", `$\approx$`},
+		{"identical", "≡", `$\equiv$`},
+
+		// Standalone big operators (same convention as √).
+		{"sum-standalone", "∑", `$\sum$`},
+		{"product-standalone", "∏", `$\prod$`},
+		{"integral-standalone", "∫", `$\int$`},
+
+		// Set operators.
+		{"empty-set", "∅", `$\emptyset$`},
+		{"union", "∪", `$\cup$`},
+		{"intersection", "∩", `$\cap$`},
+		{"subset", "⊂", `$\subset$`},
+		{"superset", "⊃", `$\supset$`},
+		{"subset-or-equal", "⊆", `$\subseteq$`},
+		{"superset-or-equal", "⊇", `$\supseteq$`},
+
+		// Calculus.
+		{"partial", "∂", `$\partial$`},
+		{"nabla", "∇", `$\nabla$`},
+
+		// Double arrows (implication).
+		{"right-double-arrow", "⇒", `$\Rightarrow$`},
+		{"left-double-arrow", "⇐", `$\Leftarrow$`},
+		{"iff-double-arrow", "⇔", `$\Leftrightarrow$`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := mapUnicodeToLatex(tc.in)
+			if got != tc.want {
+				t.Errorf("mapUnicodeToLatex(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
 // A string with no mapped characters must pass through unaltered. This is the
 // "no regression" guard for the existing 66-ish ASCII/accented-Latin questions
 // — an over-eager replacer that touched accents (`á`, `ñ`) would break the

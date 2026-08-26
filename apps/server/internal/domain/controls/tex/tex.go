@@ -468,6 +468,88 @@ var unicodeToLatex = map[rune]string{
 	'—': `---`,
 	'–': `--`,
 	'−': `-`,
+
+	// --- Round 2 (opportunistic — coverage for future course content). ---
+	//
+	// The distinction from Round 1 is authorship, not correctness: Round 1
+	// is characters that broke a compile in production; Round 2 is
+	// characters that WOULD break the next one, added ahead of time so a
+	// future author's ∑ or α does not repeat the diagnosis loop.
+
+	// Lowercase Greek — the letters most likely to appear in algorithm
+	// analysis (α, β, ε for asymptotic bounds; μ, σ for statistics;
+	// π, θ, ω for the lowercase forms of Round 1's uppercase pair).
+	// `ο` (omicron) is deliberately absent — LaTeX has no macro for it
+	// because it prints identically to the Latin `o`.
+	'α': `$\alpha$`,
+	'β': `$\beta$`,
+	'γ': `$\gamma$`,
+	'δ': `$\delta$`,
+	'ε': `$\varepsilon$`,
+	'ζ': `$\zeta$`,
+	'η': `$\eta$`,
+	'θ': `$\theta$`,
+	'ι': `$\iota$`,
+	'κ': `$\kappa$`,
+	'λ': `$\lambda$`,
+	'μ': `$\mu$`,
+	'ν': `$\nu$`,
+	'ξ': `$\xi$`,
+	'π': `$\pi$`,
+	'ρ': `$\rho$`,
+	'σ': `$\sigma$`,
+	'τ': `$\tau$`,
+	'υ': `$\upsilon$`,
+	'φ': `$\varphi$`,
+	'χ': `$\chi$`,
+	'ψ': `$\psi$`,
+	'ω': `$\omega$`,
+
+	// Remaining uppercase Greek with a distinct LaTeX macro. Α, Β, Ε, Ζ,
+	// Η, Ι, Κ, Μ, Ν, Ο, Ρ, Τ, Χ share glyphs with Latin letters and
+	// have no LaTeX macro — an author who typed one meant the Latin
+	// letter, and the map would just remove the char.
+	'Γ': `$\Gamma$`,
+	'Δ': `$\Delta$`,
+	'Λ': `$\Lambda$`,
+	'Ξ': `$\Xi$`,
+	'Π': `$\Pi$`,
+	'Σ': `$\Sigma$`,
+	'Υ': `$\Upsilon$`,
+	'Φ': `$\Phi$`,
+	'Ψ': `$\Psi$`,
+
+	// Extended arithmetic.
+	'±': `$\pm$`,
+	'×': `$\times$`,
+	'÷': `$\div$`,
+	'∘': `$\circ$`,
+	'≈': `$\approx$`,
+	'≡': `$\equiv$`,
+
+	// Standalone big operators — same convention as √: no argument to
+	// bind. An author who needs `∑ᵢ` writes `$\sum_i$` today.
+	'∑': `$\sum$`,
+	'∏': `$\prod$`,
+	'∫': `$\int$`,
+
+	// Set operators.
+	'∅': `$\emptyset$`,
+	'∪': `$\cup$`,
+	'∩': `$\cap$`,
+	'⊂': `$\subset$`,
+	'⊃': `$\supset$`,
+	'⊆': `$\subseteq$`,
+	'⊇': `$\supseteq$`,
+
+	// Calculus.
+	'∂': `$\partial$`,
+	'∇': `$\nabla$`,
+
+	// Double arrows (implication).
+	'⇒': `$\Rightarrow$`,
+	'⇐': `$\Leftarrow$`,
+	'⇔': `$\Leftrightarrow$`,
 }
 
 // mapUnicodeToLatex replaces every rune in s that has a LaTeX escape in
