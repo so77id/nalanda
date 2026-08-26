@@ -122,6 +122,93 @@ requirement the id exists for.
 - The section spine the artifact carries is produced from the SOURCE, which
   ADR-0021 had rejected. See that ADR's amendment.
 
+## Addendum — 2026-08-26 — the server refreshes the bank in place (issue #230)
+
+**Context.** Until this WP, `apps/server` read `questions.json` once at boot
+and never refreshed it: a redeploy of `apps/web` left the server serving the
+pre-publish snapshot until an operator restarted the container. The
+first-reported symptom (2026-08-26) was that a new control's picker did not
+show two just-published Complejidad chapters — the site had 9 documents / 84
+questions, the server still held 7 / 66. `docker-compose restart server` on
+the Jetson fixed it in ~30 seconds; that path is invisible to the professor,
+racy with in-flight requests, needs SSH, and does not scale as Miguel
+publishes more content.
+
+**Decision.** The server refreshes its in-memory bank on a schedule, with a
+manual admin button as an escape hatch. Both paths call one method
+(`bank.LiveBank.Reload`) that swaps an `atomic.Pointer[Bank]`; a reader
+holding a `*Bank` captured before a swap keeps seeing the previous snapshot,
+so the rotation is safe against every concurrent request without locking the
+read path.
+
+- **Cadence.** 5 minutes, configurable via `NALANDA_BANK_REFRESH_INTERVAL`.
+  Matches the Watchtower poll cadence on the Jetson (ADR-0038) so the server
+  refreshes at the same rhythm as the container image itself updates. `0s`
+  disables the ticker, and then the manual button is the only refresh path.
+- **Conditional GET.** Every refresh cycle after the first sends
+  `If-Modified-Since` derived from the previous response's `Last-Modified`;
+  the server answers `304` when the artifact has not moved, and `Reload` is
+  a no-op (`DEBUG` line only). A real update logs `INFO` with document and
+  question counts, so an operator grepping the logs can tell one boot from
+  the next.
+- **Failure preserves the snapshot.** A network flap, a 5xx, a malformed
+  publish — none may nil the current bank. `Reload` logs `WARN` and returns
+  an error; the server keeps serving the last known good snapshot. Reintroducing
+  a code path that clears the pointer on failure is forbidden — the same rule
+  §Rules for Claude carries for the uploaded scan batch after issue #210, for
+  the same reason.
+- **Manual escape hatch.** `POST /admin/bank/refresh` (session-gated, CSRF-
+  verified) triggers an immediate `Reload` and flashes the outcome in
+  Spanish. A "Recargar banco" button in the backoffice top bar posts to it;
+  the professor stays on the page they clicked from when the `Referer` shares
+  scheme+host with `NALANDA_PUBLIC_URL`, or lands on `/controls` otherwise
+  (an off-origin Referer never steers the redirect).
+
+### Alternatives considered
+
+- **GitHub Actions webhook** on `apps/web` publish, targeting the server's
+  own endpoint. Rejected: the Jetson deploy sits behind Tailscale (ADR-0038),
+  and exposing a public webhook target for GitHub to hit adds a security
+  surface and infra coordination cost. The ticker + `If-Modified-Since` is
+  cheaper (most polls are a ~200-byte 304), robust to infra changes on either
+  side, and stays inside the Tailscale boundary.
+- **Watchfile / inotify on a mounted repo.** Rejected — ADR-0032 §C14 already
+  closed transport as "publish an artifact, never mount the repo". The
+  webhook alternative is what this addendum weighs against; a mounted repo is
+  a shape this decision continues to refuse.
+- **Partial reload of one document.** Rejected: a bank swap is atomic
+  (`atomic.Pointer[Bank]`), and a per-document diff would need a merge policy
+  the current shape does not have. The whole bank fits comfortably in memory;
+  swapping the pointer is cheaper than reconciling.
+- **Persisting the last-good snapshot to disk between boots.** Rejected: the
+  source of truth is GH Pages, and re-fetching on startup is fast (`FetchTimeout`
+  is 30s, the file is kilobytes). Persisting adds a second cache to keep in
+  sync for no measured benefit.
+
+### Consequences
+
+- **The reader is now a lifecycle, not a one-shot.** Callers hold a
+  `*bank.LiveBank` rather than a `*bank.Bank`; every consumer resolves the
+  current snapshot with `.Get()`. The atomicity guarantee is
+  **per-call**, not per-request: a handler that validates in one `.Get()`
+  and then hands the request to the service, which resolves another
+  `.Get()`, can straddle a swap. The failure mode is small (a picker
+  validation against snapshot A followed by a pool draw against snapshot
+  B) and no worse than any other read against a slowly-changing store;
+  the WP review of #230 (IMPORTANT-3) pinned the distinction so future
+  readers do not confuse per-call atomicity with request-level
+  consistency. The static shim `bank.NewStaticLive(*Bank)` covers tests
+  that hand a fixed bank into constructors that now take the live
+  wrapper.
+- **A boot log line is expected on every start.** Same message as before
+  (`question bank loaded`), plus a `bank refreshed` on each cycle the source
+  actually moved and a `question bank refresh failed` when a cycle fails —
+  the last one is the signal an operator watches for.
+- **The manual endpoint sits inside `/admin/`.** Session-gated + CSRF-verified
+  like every other state-changing route on this surface; the button's
+  visibility follows the top bar's `.Professor` guard. Neither an anonymous
+  visitor nor a signed-out browser tab can trigger a refresh.
+
 ## Amendment — 2026-08-25 (page-only annotations)
 
 `<Question>` may carry a nested `<Explanation>` block (a pedagogical note

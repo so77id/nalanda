@@ -88,6 +88,12 @@ services:
       # true; "false" serves raw scans everywhere (reversibility escape
       # hatch, see the issue §Design).
       NALANDA_ANNOTATE_ENABLED: "${NALANDA_ANNOTATE_ENABLED:-true}"
+
+      # How often the server polls NALANDA_QUESTIONS_JSON_URL for a fresh
+      # bank (issue #230). Defaults to 5m (Watchtower's cadence on the
+      # Jetson); "0s" disables the ticker and leaves the manual admin
+      # button as the only refresh path.
+      NALANDA_BANK_REFRESH_INTERVAL: "${NALANDA_BANK_REFRESH_INTERVAL:-5m}"
     volumes:
       - server-data:/data
       # Shared with the amc-worker service below. The server writes a

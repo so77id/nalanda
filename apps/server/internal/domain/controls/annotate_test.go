@@ -36,7 +36,7 @@ func newAnnotateFixture(t *testing.T, annotateEnabled bool) *annotateFixture {
 	readings := newFakeReadingStore()
 	fake := &amctest.Fake{}
 	svc := controls.NewService(controls.Service{
-		Bank:            b,
+		Bank:            bank.NewStaticLive(b),
 		Store:           store,
 		Generator:       fake,
 		Analyzer:        fake,

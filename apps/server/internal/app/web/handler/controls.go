@@ -52,8 +52,18 @@ const (
 // through it (WP-E review, ARQ-11: the earlier shape held both Service
 // and Store and reviewers could not tell which was canonical for reads).
 type Controls struct {
-	Service   *controls.Service
-	Bank      *bank.Bank
+	Service *controls.Service
+	// Bank is the live wrapper around the published question bank
+	// (ADR-0032, issue #230). Handler methods call h.Bank.Get() to pick
+	// up the current snapshot; each call resolves independently, so a
+	// Reload landing mid-request may leave the handler and the service
+	// looking at different snapshots. The failure mode is small — a
+	// picker validation against snapshot A followed by a pool draw
+	// against snapshot B — and no worse than any other read against a
+	// slowly-changing store. The atomic-swap guarantee is per-call
+	// atomicity, not request-level; the WP review of #230 pinned that
+	// distinction (IMPORTANT-3) rather than let this comment overclaim.
+	Bank      *bank.LiveBank
 	PublicURL string
 	// MaxScanBytes is the largest scan upload the handler accepts. Comes
 	// from config.MaxScanBytes so main is the only place the byte value
@@ -126,7 +136,7 @@ func (h *Controls) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	values := valuesFromRequest(r)
-	errs, req := validateCreate(values, h.Bank)
+	errs, req := validateCreate(values, h.Bank.Get())
 	if len(errs) > 0 {
 		h.rerenderNew(w, r, values, errs, "")
 		return
@@ -191,7 +201,7 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 
 	page := view.ControlDetailPage{
 		Page:         middleware.PageFor(r, c.Name),
-		Control:      toDetailedControl(c, h.Bank),
+		Control:      toDetailedControl(c, h.Bank.Get()),
 		SujetURL:     controlSujetURL(c.ID),
 		CorrigeURL:   controlCorrigeURL(c.ID),
 		PoolJSONURL:  controlPoolJSONURL(c.ID),
@@ -311,7 +321,7 @@ func (h *Controls) newFormPage(r *http.Request, values view.ControlFormValues, e
 		Values:         values,
 		Errors:         errs,
 		Notice:         notice,
-		SectionOptions: sectionOptionsFromBank(h.Bank),
+		SectionOptions: sectionOptionsFromBank(h.Bank.Get()),
 	}
 }
 
@@ -741,7 +751,7 @@ func (h *Controls) toListedControls(rows []controls.Control) []view.ListedContro
 			ID:              c.ID,
 			Name:            c.Name,
 			ApplicationDate: formatOptionalDate(c.ApplicationDate),
-			Range:           formatRangeWithTitles(c.RangeFrom, c.RangeTo, h.Bank),
+			Range:           formatRangeWithTitles(c.RangeFrom, c.RangeTo, h.Bank.Get()),
 			Shape:           fmt.Sprintf("%d preguntas × %d copias", c.QuestionsPerCopy, c.Copies),
 			State:           stateWordControl(c.State),
 			DetailURL:       controlDetailURL(c.ID),

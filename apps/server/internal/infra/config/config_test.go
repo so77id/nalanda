@@ -359,6 +359,78 @@ func TestSafeDatabaseURL(t *testing.T) {
 	}
 }
 
+// BankRefreshInterval (issue #230) is the ticker cadence for the bank
+// hot-refresh. Optional, defaults to 5 minutes; zero disables the ticker
+// (an operator can run without background polling and rely on the
+// manual admin button); a negative duration is a startup error rather
+// than a silent fall.
+func TestBankRefreshInterval(t *testing.T) {
+	t.Run("defaults to five minutes when unset", func(t *testing.T) {
+		e := env()
+		delete(e, "NALANDA_BANK_REFRESH_INTERVAL")
+
+		cfg, err := config.Load(lookupFrom(e))
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if got := cfg.BankRefreshInterval; got != 5*60*1_000_000_000 {
+			t.Errorf("BankRefreshInterval = %v, want 5m — the Watchtower poll cadence on the Jetson", got)
+		}
+	})
+
+	t.Run("accepts a duration override", func(t *testing.T) {
+		e := env()
+		e["NALANDA_BANK_REFRESH_INTERVAL"] = "30s"
+
+		cfg, err := config.Load(lookupFrom(e))
+		if err != nil {
+			t.Fatalf("Load: %v", err)
+		}
+		if got := cfg.BankRefreshInterval; got.String() != "30s" {
+			t.Errorf("BankRefreshInterval = %v, want 30s", got)
+		}
+	})
+
+	t.Run("zero disables the ticker without error", func(t *testing.T) {
+		e := env()
+		e["NALANDA_BANK_REFRESH_INTERVAL"] = "0s"
+
+		cfg, err := config.Load(lookupFrom(e))
+		if err != nil {
+			t.Fatalf("Load(0s): %v — zero is the operator's opt-out, not an error", err)
+		}
+		if cfg.BankRefreshInterval != 0 {
+			t.Errorf("BankRefreshInterval = %v, want 0", cfg.BankRefreshInterval)
+		}
+	})
+
+	t.Run("rejects a negative duration", func(t *testing.T) {
+		e := env()
+		e["NALANDA_BANK_REFRESH_INTERVAL"] = "-1s"
+
+		_, err := config.Load(lookupFrom(e))
+		if err == nil {
+			t.Fatal("Load(-1s): no error, want one — a negative interval never fires")
+		}
+		if !strings.Contains(err.Error(), "NALANDA_BANK_REFRESH_INTERVAL") {
+			t.Errorf("error = %q, want it to name the key", err)
+		}
+	})
+
+	t.Run("rejects a value that is not a duration", func(t *testing.T) {
+		e := env()
+		e["NALANDA_BANK_REFRESH_INTERVAL"] = "five minutes"
+
+		_, err := config.Load(lookupFrom(e))
+		if err == nil {
+			t.Fatal("Load(non-duration): no error, want one")
+		}
+		if !strings.Contains(err.Error(), "NALANDA_BANK_REFRESH_INTERVAL") {
+			t.Errorf("error = %q, want it to name the key", err)
+		}
+	})
+}
+
 // The annotate switch parses through the same strictBool helper as the
 // proxy-trust flag (issue #190). The difference that needs its own test is
 // the DEFAULT: true, because the flow is on unless the operator explicitly

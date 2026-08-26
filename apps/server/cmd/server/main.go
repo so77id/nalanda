@@ -144,20 +144,24 @@ func run(logger *slog.Logger) error {
 
 	// The published question bank (ADR-0032). Loaded once at boot; a
 	// failure here IS a startup failure, not a first-request failure, so
-	// an operator sees it immediately.
-	loadedBank, err := bank.Load(ctx, cfg.QuestionsJSONURL)
+	// an operator sees it immediately. Issue #230 wraps it in a LiveBank
+	// so a subsequent apps/web publish rotates the in-memory snapshot
+	// without a restart; NewLive emits its own boot log line naming the
+	// URL and the document/question counts.
+	liveBank, err := bank.NewLive(ctx, cfg.QuestionsJSONURL, logger)
 	if err != nil {
 		return err
 	}
-	logger.Info("question bank loaded",
-		"url", cfg.QuestionsJSONURL,
-		"documents", len(loadedBank.Documents),
-		"questions", len(loadedBank.Questions))
+	// The ticker owns the poll cadence (NALANDA_BANK_REFRESH_INTERVAL,
+	// issue #230): a zero interval disables it — the manual admin button
+	// is then the only refresh path — otherwise Watch calls Reload every
+	// interval and exits when ctx does at shutdown.
+	go liveBank.Watch(ctx, cfg.BankRefreshInterval)
 
 	controlStore := controlstore.New(db)
 	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL})
 	controlsService := controls.NewService(controls.Service{
-		Bank:      loadedBank,
+		Bank:      liveBank,
 		Store:     controlStore,
 		Generator: amcClient,
 		Analyzer:  amcClient,
@@ -200,7 +204,7 @@ func run(logger *slog.Logger) error {
 		}),
 		Controls: handler.NewControls(handler.Controls{
 			Service:      controlsService,
-			Bank:         loadedBank,
+			Bank:         liveBank,
 			PublicURL:    cfg.PublicURL,
 			MaxScanBytes: cfg.MaxScanBytes,
 			// The default hook: logs and does nothing. A future
@@ -208,6 +212,11 @@ func run(logger *slog.Logger) error {
 			// touching the flow (issue #190).
 			OnCorrectionClosed: controls.NewNoopHook(logger),
 			Log:                logger,
+		}),
+		AdminBank: handler.NewAdminBank(handler.AdminBank{
+			Bank:      liveBank,
+			PublicURL: cfg.PublicURL,
+			Log:       logger,
 		}),
 		Login: handler.NewAuth(handler.Auth{
 			Login: login,

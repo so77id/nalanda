@@ -7,6 +7,13 @@
 // A shape change is a cross-app breaking change and carries a version field —
 // this reader refuses anything but version 1, so drift shows up at boot rather
 // than as a subtle misread later.
+//
+// Since issue #230 the bank is served through LiveBank rather than a bare
+// *Bank pointer: apps/web is the source of truth, and this reader now
+// rotates its in-memory snapshot when apps/web publishes a new
+// questions.json. NewLive performs the boot fetch and returns the wrapper;
+// callers rotate it via Reload (with 304 semantics) and get the current
+// snapshot via Get, which never holds a lock on the read path.
 package bank
 
 import (
@@ -15,17 +22,18 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
+	"sync"
+	"sync/atomic"
 	"time"
 )
 
-// Bank is the whole published set, held in memory. Load reads it once at boot
-// (cmd/server) and hands the *Bank down; nothing here refreshes at runtime.
-// The runtime refresh comes with an apps/web redeploy followed by an
-// apps/server redeploy, which is enough at this scale (issue #166 §Bank
-// reader).
+// Bank is the whole published set, held in memory. NewLive reads it once at
+// boot (cmd/server) and hands a *LiveBank down; Reload rotates the *Bank
+// atomically at runtime (issue #230).
 type Bank struct {
 	Version   int
 	Documents []Document
@@ -83,19 +91,18 @@ type SectionRef struct {
 	Section  string
 }
 
-// FetchTimeout bounds a boot fetch. Long enough to survive a slow start on
-// GitHub Pages, short enough that a completely dead URL fails the boot
-// rather than hanging it. It is the boot budget, not a request-time budget:
-// nothing refreshes the bank at runtime, so a slow fetch here is a slow
-// server start and not a slow user request.
+// FetchTimeout bounds a single fetch. Long enough to survive a slow start
+// on GitHub Pages, short enough that a completely dead URL fails one
+// refresh cycle rather than hanging it. Applied both at boot (NewLive) and
+// on every subsequent Reload.
 const FetchTimeout = 30 * time.Second
 
 // The failure modes callers branch on, wrapped so a caller can tell them
 // apart with errors.Is without importing json or net/http.
 var (
-	// ErrUnsupportedScheme wraps a Load call whose URL is neither http, https
-	// nor file. The design closed transport in ADR-0032 §C14; this refuses to
-	// widen it by accident.
+	// ErrUnsupportedScheme wraps a URL whose scheme is neither http, https
+	// nor file. The design closed transport in ADR-0032 §C14; this refuses
+	// to widen it by accident.
 	ErrUnsupportedScheme = errors.New("bank: URL scheme must be http, https or file")
 
 	// ErrUnsupportedVersion is a bank with a version this reader does not know
@@ -129,51 +136,215 @@ var (
 	ErrDuplicateQuestionID = errors.New("bank: duplicate question id")
 )
 
-// Load fetches the bank from URL and parses it. Blocking, once, at boot.
+// errNotModified is the private sentinel fetch returns when a conditional
+// GET was answered 304. Reload consumes it and returns (updated=false,
+// err=nil): "the source is unchanged" is not a failure a caller wants to
+// distinguish from a successful refresh, it is just quieter.
+var errNotModified = errors.New("bank: not modified")
+
+// LiveBank wraps a *Bank so the boot snapshot can be swapped at runtime
+// without a lock on the read path.
 //
-// http/https use the default client with a bounded context; file:// is opened
-// against the local filesystem. A path escape check would be the wrong
-// mitigation here: the URL is operator-supplied at boot and reaching it is
-// the operator's decision, exactly like NALANDA_DATABASE_URL.
-func Load(ctx context.Context, rawURL string) (*Bank, error) {
-	parsed, err := url.Parse(rawURL)
-	if err != nil {
-		return nil, fmt.Errorf("bank: parse URL %q: %w", rawURL, err)
+// The published questions.json (ADR-0032) is the source of truth. Since
+// issue #230 the server refreshes its in-memory bank on a schedule
+// (background ticker, S2) and via a manual admin endpoint (S3); the swap
+// is atomic, and a failed refresh preserves the current snapshot rather
+// than nilling it out — a network flap or a bad publish must not leave
+// the server serving nothing.
+//
+// A pointer captured by a reader before a Reload keeps naming the previous
+// snapshot: the atomic pointer rotates, the *Bank it points at does not
+// mutate. That is what makes concurrent requests safe without locking the
+// read path.
+type LiveBank struct {
+	url    string
+	logger *slog.Logger
+
+	// static is set by NewStaticLive; Reload is a no-op on a static bank.
+	// This is a test seam other packages need (their handler/service
+	// constructors take a *LiveBank now).
+	static bool
+
+	snap atomic.Pointer[Bank]
+
+	// reloadMu serializes Reload so a manual click that races the ticker
+	// does not send two GETs and race the two Stores against each other.
+	// NEVER held while a reader calls Get() — readers touch snap and
+	// nothing else.
+	reloadMu     sync.Mutex
+	lastModified string // guarded by reloadMu
+}
+
+// NewLive fetches the bank once and returns a LiveBank whose Get() serves
+// that snapshot. Callers wire the background refresh (via Watch) and/or
+// the manual admin endpoint separately.
+//
+// A boot failure is a startup failure, deliberately: the same rule Load
+// followed. An operator sees "questions.json refused to load" immediately
+// rather than as a first-request failure later.
+func NewLive(ctx context.Context, rawURL string, logger *slog.Logger) (*LiveBank, error) {
+	if logger == nil {
+		return nil, errors.New("bank: NewLive requires a logger")
 	}
-	switch parsed.Scheme {
-	case "http", "https":
-		return loadHTTP(ctx, rawURL)
-	case "file":
-		// url.Parse folds a file:/// path into .Path. Empty means the URL was
-		// nothing after the scheme, which is not a location we can open.
-		if parsed.Path == "" {
-			return nil, fmt.Errorf("bank: file URL %q names no path", rawURL)
+	lb := &LiveBank{url: rawURL, logger: logger}
+	b, lastMod, err := lb.fetch(ctx, "")
+	if err != nil {
+		return nil, err
+	}
+	lb.snap.Store(b)
+	lb.lastModified = lastMod
+	logger.Info("question bank loaded",
+		"url", rawURL,
+		"documents", len(b.Documents),
+		"questions", len(b.Questions),
+	)
+	return lb, nil
+}
+
+// NewStaticLive wraps a parsed Bank in a LiveBank whose Reload is a no-op.
+//
+// It exists for tests in other packages that hand a fixed bank into
+// constructors that take a *LiveBank now; production code goes through
+// NewLive. Its logger discards output — tests that need to observe log
+// lines build their own *LiveBank against httptest.
+func NewStaticLive(b *Bank) *LiveBank {
+	lb := &LiveBank{
+		logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		static: true,
+	}
+	lb.snap.Store(b)
+	return lb
+}
+
+// Get returns the current bank snapshot. Never nil once NewLive returned;
+// a reader may hold the pointer past a subsequent Reload and keep seeing
+// the same snapshot.
+func (lb *LiveBank) Get() *Bank {
+	return lb.snap.Load()
+}
+
+// URL returns the URL this bank was loaded from. Handlers use it in log
+// lines that report a manual refresh outcome.
+func (lb *LiveBank) URL() string {
+	return lb.url
+}
+
+// Reload attempts to refresh the bank in place. It returns:
+//
+//   - (true, nil)  the server answered 200 and the snapshot was swapped.
+//   - (false, nil) the server answered 304, or this is a static bank — nothing to do.
+//   - (false, err) the fetch or parse failed; the current snapshot is preserved.
+//
+// A failure is a WARN in the logger: an operator reading logs sees which
+// refresh failed and why, and the server keeps serving the last known
+// good bank. A successful update is an INFO with document + question
+// counts, so a comparison across boots is one grep away.
+func (lb *LiveBank) Reload(ctx context.Context) (bool, error) {
+	if lb.static {
+		return false, nil
+	}
+
+	lb.reloadMu.Lock()
+	defer lb.reloadMu.Unlock()
+
+	b, lastMod, err := lb.fetch(ctx, lb.lastModified)
+	if err != nil {
+		if errors.Is(err, errNotModified) {
+			lb.logger.Debug("question bank unchanged", "url", lb.url)
+			return false, nil
 		}
-		return loadFile(parsed.Path)
-	default:
-		return nil, fmt.Errorf("%w: got %q in %s", ErrUnsupportedScheme, parsed.Scheme, rawURL)
+		lb.logger.Warn("question bank refresh failed", "url", lb.url, "error", err)
+		return false, err
+	}
+	lb.snap.Store(b)
+	lb.lastModified = lastMod
+	lb.logger.Info("bank refreshed",
+		"url", lb.url,
+		"documents", len(b.Documents),
+		"questions", len(b.Questions),
+	)
+	return true, nil
+}
+
+// Watch calls Reload on interval until ctx is done. A zero or negative
+// interval returns immediately — the operator's opt-out, wired through
+// NALANDA_BANK_REFRESH_INTERVAL. Errors surface through the logger:
+// Reload already logs a Warn on failure and Info on a real update, so
+// this loop cannot itself add a signal a caller would react to.
+//
+// A static bank (built by NewStaticLive for tests) has no source to poll,
+// so Watch is a no-op there.
+func (lb *LiveBank) Watch(ctx context.Context, interval time.Duration) {
+	if interval <= 0 || lb.static {
+		return
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			_, _ = lb.Reload(ctx)
+		}
 	}
 }
 
-func loadHTTP(ctx context.Context, u string) (*Bank, error) {
+// fetch reads the bank from lb.url. ifModifiedSince, when non-empty, is
+// sent as If-Modified-Since; the server may then answer 304, and fetch
+// returns errNotModified with a nil *Bank. The returned lastModified is
+// the header the next call should echo back — empty for file:// (which
+// re-parses every call, since it is a dev-only scheme per
+// NALANDA_QUESTIONS_JSON_URL docs) or for an HTTP response without the
+// header.
+func (lb *LiveBank) fetch(ctx context.Context, ifModifiedSince string) (*Bank, string, error) {
+	parsed, err := url.Parse(lb.url)
+	if err != nil {
+		return nil, "", fmt.Errorf("bank: parse URL %q: %w", lb.url, err)
+	}
+	switch parsed.Scheme {
+	case "http", "https":
+		return fetchHTTP(ctx, lb.url, ifModifiedSince)
+	case "file":
+		if parsed.Path == "" {
+			return nil, "", fmt.Errorf("bank: file URL %q names no path", lb.url)
+		}
+		b, err := loadFile(parsed.Path)
+		return b, "", err
+	default:
+		return nil, "", fmt.Errorf("%w: got %q in %s", ErrUnsupportedScheme, parsed.Scheme, lb.url)
+	}
+}
+
+func fetchHTTP(ctx context.Context, u, ifModifiedSince string) (*Bank, string, error) {
 	ctx, cancel := context.WithTimeout(ctx, FetchTimeout)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
 	if err != nil {
-		return nil, fmt.Errorf("bank: build request for %s: %w", u, err)
+		return nil, "", fmt.Errorf("bank: build request for %s: %w", u, err)
+	}
+	if ifModifiedSince != "" {
+		req.Header.Set("If-Modified-Since", ifModifiedSince)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("bank: fetch %s: %w", u, err)
+		return nil, "", fmt.Errorf("bank: fetch %s: %w", u, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode == http.StatusNotModified {
+		return nil, "", errNotModified
+	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bank: %s answered %s", u, resp.Status)
+		return nil, "", fmt.Errorf("bank: %s answered %s", u, resp.Status)
 	}
 	// The bank is small (kilobytes); anything approaching this cap is a wrong
 	// URL pointing at the whole site rather than the artifact.
 	const maxRead = 32 << 20
-	return Parse(io.LimitReader(resp.Body, maxRead))
+	b, err := Parse(io.LimitReader(resp.Body, maxRead))
+	if err != nil {
+		return nil, "", err
+	}
+	return b, resp.Header.Get("Last-Modified"), nil
 }
 
 func loadFile(path string) (*Bank, error) {

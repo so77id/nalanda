@@ -1,14 +1,19 @@
 package bank_test
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 )
@@ -37,6 +42,30 @@ const fixtureJSON = `{
 }
 `
 
+// fixtureJSONExtra adds one more document ("nuevo/basico") so a Reload can
+// prove it observed the site's publish rather than the boot snapshot.
+const fixtureJSONExtra = `{
+  "version": 1,
+  "documents": [
+    {"id": "welcome",   "title": "Bienvenida",   "coverage": "clase 0",     "sections": ["hola", "reglas"]},
+    {"id": "flujo",     "title": "Flujo",        "coverage": "clase 2",     "sections": ["if-else", "bucles", "cortes"]},
+    {"id": "arreglos",  "title": "Arreglos",     "coverage": "clase 3",     "sections": ["basico", "longitud"]},
+    {"id": "nuevo",     "title": "Nuevo",        "coverage": "clase 4",     "sections": ["basico"]}
+  ],
+  "questions": [
+    {"id": "q-hola-1",       "document": "welcome",  "anchor": "hola",      "type": "simple",   "statement": "¿Qué es Nalanda?", "code": null, "alternatives": ["una plataforma","un lenguaje"], "correct": [0]},
+    {"id": "q-reglas-1",     "document": "welcome",  "anchor": "reglas",    "type": "simple",   "statement": "R1?",              "code": null, "alternatives": ["a","b"],                             "correct": [0]},
+    {"id": "q-orphan",       "document": "welcome",  "anchor": null,        "type": "simple",   "statement": "S/A",              "code": null, "alternatives": ["a","b"],                             "correct": [1]},
+    {"id": "q-if-1",         "document": "flujo",    "anchor": "if-else",   "type": "simple",   "statement": "if?",              "code": null, "alternatives": ["a","b"],                             "correct": [0]},
+    {"id": "q-bucles-1",     "document": "flujo",    "anchor": "bucles",    "type": "multiple", "statement": "¿Cuáles bucles?",  "code": null, "alternatives": ["for","while","hazlo","ninguno"],     "correct": [0,1]},
+    {"id": "q-cortes-1",     "document": "flujo",    "anchor": "cortes",    "type": "simple",   "statement": "corte?",           "code": null, "alternatives": ["a","b"],                             "correct": [0]},
+    {"id": "q-arr-basico-1", "document": "arreglos", "anchor": "basico",    "type": "simple",   "statement": "arr?",             "code": {"language": "java", "source": "int[] a = new int[3];"}, "alternatives": ["a","b"], "correct": [0]},
+    {"id": "q-arr-longitud-1","document": "arreglos","anchor": "longitud",  "type": "simple",   "statement": "longitud?",        "code": null, "alternatives": ["a.length","a.length()"],             "correct": [0]},
+    {"id": "q-nuevo-1",      "document": "nuevo",    "anchor": "basico",    "type": "simple",   "statement": "nuevo?",           "code": null, "alternatives": ["a","b"],                             "correct": [0]}
+  ]
+}
+`
+
 func parse(t *testing.T) *bank.Bank {
 	t.Helper()
 	b, err := bank.Parse(strings.NewReader(fixtureJSON))
@@ -44,6 +73,10 @@ func parse(t *testing.T) *bank.Bank {
 		t.Fatalf("Parse fixture: %v", err)
 	}
 	return b
+}
+
+func testLogger() *slog.Logger {
+	return slog.New(slog.NewTextHandler(io.Discard, nil))
 }
 
 func TestParseHoldsEveryFieldTheContractCarries(t *testing.T) {
@@ -261,55 +294,317 @@ func TestFindDocumentAndHasSection(t *testing.T) {
 	}
 }
 
-func TestLoadFileScheme(t *testing.T) {
+// --- LiveBank / NewLive / Reload (issue #230, S1) -----------------------------
+
+func TestNewLiveLoadsInitialBankFromFile(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "questions.json")
 	if err := os.WriteFile(path, []byte(fixtureJSON), 0o600); err != nil {
 		t.Fatalf("write fixture: %v", err)
 	}
 
-	b, err := bank.Load(context.Background(), "file://"+path)
+	lb, err := bank.NewLive(context.Background(), "file://"+path, testLogger())
 	if err != nil {
-		t.Fatalf("Load(file): %v", err)
+		t.Fatalf("NewLive(file): %v", err)
+	}
+	b := lb.Get()
+	if b == nil {
+		t.Fatal("Get() after NewLive returned nil")
 	}
 	if len(b.Documents) != 3 {
-		t.Errorf("Load(file) returned %d documents, want 3", len(b.Documents))
+		t.Errorf("Get().Documents = %d, want 3", len(b.Documents))
 	}
 }
 
-func TestLoadHTTPScheme(t *testing.T) {
+func TestNewLiveLoadsInitialBankFromHTTP(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Last-Modified", time.Now().UTC().Format(http.TimeFormat))
 		_, _ = w.Write([]byte(fixtureJSON))
 	}))
 	t.Cleanup(srv.Close)
 
-	b, err := bank.Load(context.Background(), srv.URL+"/questions.json")
+	lb, err := bank.NewLive(context.Background(), srv.URL+"/questions.json", testLogger())
 	if err != nil {
-		t.Fatalf("Load(http): %v", err)
+		t.Fatalf("NewLive(http): %v", err)
 	}
-	if len(b.Documents) != 3 {
-		t.Errorf("Load(http) returned %d documents, want 3", len(b.Documents))
+	if got := len(lb.Get().Documents); got != 3 {
+		t.Errorf("Get().Documents = %d, want 3", got)
 	}
 }
 
-func TestLoadRejectsUnsupportedScheme(t *testing.T) {
-	_, err := bank.Load(context.Background(), "ftp://example.com/questions.json")
+func TestNewLiveRejectsUnsupportedScheme(t *testing.T) {
+	_, err := bank.NewLive(context.Background(), "ftp://example.com/questions.json", testLogger())
 	if !errors.Is(err, bank.ErrUnsupportedScheme) {
-		t.Errorf("Load(ftp): %v, want ErrUnsupportedScheme", err)
+		t.Errorf("NewLive(ftp): %v, want ErrUnsupportedScheme", err)
 	}
 }
 
-func TestLoadHTTPReportsNon200(t *testing.T) {
+func TestNewLiveReportsHTTPNon200(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "gone", http.StatusGone)
 	}))
 	t.Cleanup(srv.Close)
 
-	_, err := bank.Load(context.Background(), srv.URL+"/questions.json")
+	_, err := bank.NewLive(context.Background(), srv.URL+"/questions.json", testLogger())
 	if err == nil {
-		t.Fatal("Load(410): no error")
+		t.Fatal("NewLive(410): no error")
 	}
 	if !strings.Contains(err.Error(), "410") {
 		t.Errorf("error %q does not name status 410", err.Error())
+	}
+}
+
+// TestReloadAtomicallySwapsWithoutInvalidatingPriorSnapshot is the whole point
+// of atomic.Pointer: a reader holding a *Bank captured before Reload keeps
+// seeing the old snapshot; a reader that calls Get() again after Reload sees
+// the new one. Nothing in the middle observes a nil.
+func TestReloadAtomicallySwapsWithoutInvalidatingPriorSnapshot(t *testing.T) {
+	var body atomic.Pointer[string]
+	initial := fixtureJSON
+	body.Store(&initial)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Last-Modified", time.Now().UTC().Format(http.TimeFormat))
+		_, _ = w.Write([]byte(*body.Load()))
+	}))
+	t.Cleanup(srv.Close)
+
+	lb, err := bank.NewLive(context.Background(), srv.URL+"/questions.json", testLogger())
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	before := lb.Get()
+	if len(before.Documents) != 3 {
+		t.Fatalf("before.Documents = %d, want 3", len(before.Documents))
+	}
+
+	// The site publishes.
+	extra := fixtureJSONExtra
+	body.Store(&extra)
+
+	updated, err := lb.Reload(context.Background())
+	if err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+	if !updated {
+		t.Errorf("Reload: updated=false, want true (the body changed)")
+	}
+
+	after := lb.Get()
+	if len(after.Documents) != 4 {
+		t.Errorf("after.Documents = %d, want 4 (Reload did not swap)", len(after.Documents))
+	}
+
+	// The pointer captured before Reload is UNCHANGED — atomic.Pointer stores
+	// pointers, it does not mutate the underlying struct.
+	if len(before.Documents) != 3 {
+		t.Errorf("before.Documents mutated to %d — the swap must not touch a prior snapshot",
+			len(before.Documents))
+	}
+	if before == after {
+		t.Error("Get() returned the same pointer before and after Reload; the swap did not happen")
+	}
+}
+
+// TestReloadIsNoOpOn304 covers the conditional-GET path: after a successful
+// load the LiveBank remembers the Last-Modified header, and a subsequent
+// Reload sends If-Modified-Since; when the server answers 304 the snapshot
+// pointer is unchanged and Reload reports updated=false.
+func TestReloadIsNoOpOn304(t *testing.T) {
+	const lastMod = "Mon, 25 Aug 2026 12:00:00 GMT"
+	var calls atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		if r.Header.Get("If-Modified-Since") != "" {
+			// A conditional GET AFTER the initial load. Answer 304 to prove
+			// the server can veto the parse without sending a body.
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Last-Modified", lastMod)
+		_, _ = w.Write([]byte(fixtureJSON))
+	}))
+	t.Cleanup(srv.Close)
+
+	lb, err := bank.NewLive(context.Background(), srv.URL+"/questions.json", testLogger())
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	before := lb.Get()
+
+	updated, err := lb.Reload(context.Background())
+	if err != nil {
+		t.Fatalf("Reload(304): %v", err)
+	}
+	if updated {
+		t.Errorf("Reload: updated=true on 304, want false")
+	}
+	if lb.Get() != before {
+		t.Errorf("Get() pointer changed on 304 — the snapshot must survive a not-modified answer")
+	}
+	if calls.Load() != 2 {
+		t.Errorf("server saw %d requests, want 2 (initial + conditional)", calls.Load())
+	}
+}
+
+// TestReloadPreservesSnapshotOnServerError guards the escape-hatch promise: a
+// GH Pages outage, a malformed response, a network flap — none may nil the
+// snapshot. The server keeps serving the last known good bank.
+func TestReloadPreservesSnapshotOnServerError(t *testing.T) {
+	var down atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if down.Load() {
+			http.Error(w, "gone", http.StatusGone)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(fixtureJSON))
+	}))
+	t.Cleanup(srv.Close)
+
+	lb, err := bank.NewLive(context.Background(), srv.URL+"/questions.json", testLogger())
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	before := lb.Get()
+
+	down.Store(true)
+	updated, err := lb.Reload(context.Background())
+	if err == nil {
+		t.Fatal("Reload(down): no error, want one")
+	}
+	if updated {
+		t.Errorf("Reload(down): updated=true, want false")
+	}
+	if got := lb.Get(); got != before {
+		t.Errorf("Get() after failed Reload returned a different pointer — the escape hatch nilled the snapshot")
+	}
+	if got := lb.Get(); got == nil || len(got.Documents) != 3 {
+		t.Errorf("Get() after failed Reload = %v, want the boot snapshot", got)
+	}
+}
+
+// TestReloadEmitsSlogInfoOnUpdate is the observability half of the promise:
+// an operator reading logs sees which reload actually rotated the bank.
+func TestReloadEmitsSlogInfoOnUpdate(t *testing.T) {
+	var body atomic.Pointer[string]
+	initial := fixtureJSON
+	body.Store(&initial)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(*body.Load()))
+	}))
+	t.Cleanup(srv.Close)
+
+	var buf bytes.Buffer
+	logger := slog.New(slog.NewJSONHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
+
+	lb, err := bank.NewLive(context.Background(), srv.URL+"/questions.json", logger)
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+	buf.Reset() // discard the boot log line
+
+	extra := fixtureJSONExtra
+	body.Store(&extra)
+	if _, err := lb.Reload(context.Background()); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
+
+	got := buf.String()
+	for _, want := range []string{`"level":"INFO"`, `"documents":4`, `"questions":9`, `bank refreshed`} {
+		if !strings.Contains(got, want) {
+			t.Errorf("info log missing %q\n---\n%s", want, got)
+		}
+	}
+}
+
+// TestWatchTicksAndCancels is the observable half of S2's contract: given a
+// non-zero interval, Watch calls Reload on the tick, and returns as soon as
+// the context is cancelled. The test uses a short interval and a channel to
+// avoid a sleep the race detector would flake on.
+func TestWatchTicksAndCancels(t *testing.T) {
+	seen := make(chan struct{}, 10)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(fixtureJSON))
+		select {
+		case seen <- struct{}{}:
+		default:
+		}
+	}))
+	t.Cleanup(srv.Close)
+
+	lb, err := bank.NewLive(context.Background(), srv.URL+"/questions.json", testLogger())
+	if err != nil {
+		t.Fatalf("NewLive: %v", err)
+	}
+
+	// Drain the boot fetch signal so the count below is only ticks.
+	<-seen
+
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		lb.Watch(ctx, 5*time.Millisecond)
+		close(done)
+	}()
+
+	// Wait for at least two ticks — enough to prove the ticker fires more
+	// than once (the mistake a bare goroutine + Reload would make).
+	for i := 0; i < 2; i++ {
+		select {
+		case <-seen:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("no tick after 2s (saw %d)", i)
+		}
+	}
+
+	cancel()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Watch did not return after ctx cancel")
+	}
+}
+
+// TestWatchWithZeroIntervalReturnsImmediately guards the operator's opt-out:
+// setting NALANDA_BANK_REFRESH_INTERVAL=0 disables the ticker, and Watch
+// must not park on a nil ticker channel forever.
+func TestWatchWithZeroIntervalReturnsImmediately(t *testing.T) {
+	lb := bank.NewStaticLive(parse(t))
+
+	done := make(chan struct{})
+	go func() {
+		lb.Watch(context.Background(), 0)
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(200 * time.Millisecond):
+		t.Fatal("Watch(0) did not return; the opt-out is not wired")
+	}
+}
+
+// TestStaticLiveExposesAFixedBank is the shim other packages' tests use to
+// hand a bank into constructors that now take *LiveBank. Reload on a static
+// bank is a no-op — the fixture never changes.
+func TestStaticLiveExposesAFixedBank(t *testing.T) {
+	b := parse(t)
+	lb := bank.NewStaticLive(b)
+	if lb.Get() != b {
+		t.Error("StaticLive.Get() returned a different pointer than the one it was built from")
+	}
+	updated, err := lb.Reload(context.Background())
+	if err != nil {
+		t.Errorf("StaticLive.Reload: err = %v, want nil (static bank has no source)", err)
+	}
+	if updated {
+		t.Error("StaticLive.Reload: updated=true, want false")
+	}
+	if lb.Get() != b {
+		t.Error("StaticLive.Get() changed after Reload; a static bank never rotates")
 	}
 }
