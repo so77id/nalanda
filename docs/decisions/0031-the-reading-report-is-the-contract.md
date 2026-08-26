@@ -6,6 +6,8 @@
 **Source:** #138 review (round B) — split out of ADR-0030
 **Amended by:** #147 (2026-08-16) — multiple-answer questions, per-question
 weight, and the threshold the scores were computed at
+**Amended by:** #229 (2026-08-26) — per-copy printed order of questions and
+alternatives
 
 ## Context
 
@@ -133,6 +135,32 @@ partial-credit setting awards **full marks for ticking every box** — the hole
 this design exists to close. Reporting the engine's numbers and owning the
 arithmetic keeps the decision ours and survives an engine swap, which is the
 whole point of this ADR.
+
+### Each answer says where it printed on THIS copy, and in what order
+
+The engine shuffles both the questions per copy (a random draw plus
+`\shufflegroup`) and the alternatives per question. A reader that iterated
+by numeric question id and by authoring alternative index produced a review
+page whose questions and options were rendered in a different order than
+the paper the professor held (#229): nothing was mismarked, but the mental
+alignment broke.
+
+So each answer carries `position` (its 1-based slot on THIS copy's printed
+sheet) and `alternatives` (the authoring-index list in printed order for
+THIS copy, per question). The natural key for the reader is still the
+authoring alternative index — it is what `marked` names, what the review
+form posts back, and what the bank's Correct list is keyed by — so
+`alternatives` is a permutation OF those indices, not a replacement for
+them. `position` and `alternatives` are engine-independent by
+construction: any engine that can print a shuffled paper knows this order
+and can publish it; the AMC-fallback reversal test still holds.
+
+Both fields are **optional**. A missing `position` (0) and an empty
+`alternatives` mean "the analyzer has no layout data" — a reading written
+before this amendment, or an analyzer that predates it. Callers rendering
+the paper fall back to their pre-amendment ordering (iteration order for
+the outer answers list, bank order for the alternatives) rather than
+refusing the report, so historical readings stay legible.
 
 ### The report says which threshold its scores were computed at
 

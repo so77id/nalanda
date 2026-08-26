@@ -20,7 +20,13 @@ Runs INSIDE the worker image. Emits JSON on stdout:
              "marked": [1],                        // confident ticks
              "doubtful": [],                       // [{answer, darkness}]
              "status": "ok",                       // ok|blank|ambiguous|doubtful
-             "score": 1.0, "max": 1.0}             // the caller: score / max
+             "score": 1.0, "max": 1.0,             // the caller: score / max
+             "position": 3,                        // 1-based slot on THIS
+                                                   // copy's printed sheet;
+                                                   // 0 when no layout data
+             "alternatives": [3, 4, 2, 1]}         // authoring indices in
+                                                   // printed order for THIS
+                                                   // copy; [] when unknown
           ],
           "expected_questions": 4,                 // what the layout says printed
           "seen_questions": 4,                     // what the capture holds

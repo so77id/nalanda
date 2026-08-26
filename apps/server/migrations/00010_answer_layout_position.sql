@@ -17,9 +17,10 @@
 --
 -- Two columns on `answer` rather than a child answer_alternative_position
 -- table, for the same reason marked_json and doubtful_json sit here
--- (00005 §JSON arrays): the natural read shape is "here is the whole list
--- at once", and a normalised table would answer every render with an
--- extra query per question.
+-- (00005_readings.sql, the `answer` table's inline comment on those two
+-- columns): the natural read shape is "here is the whole list at once",
+-- and a normalised table would answer every render with an extra query
+-- per question.
 
 -- +goose Up
 ALTER TABLE answer ADD COLUMN position INTEGER;
