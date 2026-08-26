@@ -1681,7 +1681,7 @@ t_B(10) = 1000 · k_B = 1 s  →  k_B = 0.001`}</pre>
 
 <Questions>
 
-<Question id="por-que-oe-no-segundos">
+<Question id="por-que-oe-no-segundos" anchor="operaciones-elementales-oe">
 
 ¿Por qué medimos la complejidad de un algoritmo en **operaciones elementales**
 (OE) en vez de en **segundos**?
@@ -1698,7 +1698,7 @@ que queremos comparar entre algoritmos.
 
 </Question>
 
-<Question id="for-condition-count">
+<Question id="for-condition-count" anchor="primer-conteo-un-for-linea-a-linea">
 
 En un ciclo `for (int i = 0; i < n; i++)` que hace `n` iteraciones completas
 del cuerpo, ¿cuántas veces se evalúa la **condición** `i < n` en total?
@@ -1716,7 +1716,7 @@ total $$n + 1$$.
 
 </Question>
 
-<Question id="dos-contadores-distintos">
+<Question id="dos-contadores-distintos" anchor="twist-y-si-contamos-distinto">
 
 Dos personas cuentan OE para el mismo algoritmo. Una obtiene
 **T₁(n) = 2n + 3**; la otra, **T₂(n) = 3n + 2**. ¿Qué se puede concluir?
@@ -1735,7 +1735,7 @@ el mismo.
 
 </Question>
 
-<Question id="por-que-descartar-constantes">
+<Question id="por-que-descartar-constantes" anchor="las-constantes-no-son-del-algoritmo">
 
 En análisis asintótico, ¿por qué se descartan las constantes multiplicativas
 (por ejemplo, tratar **3n²** como **n²**)?
@@ -1753,7 +1753,7 @@ propiedad del algoritmo. Descartarla aísla lo que sí lo es: el orden $$n^2$$.
 
 </Question>
 
-<Question id="definicion-big-o">
+<Question id="definicion-big-o" anchor="big-o-la-definicion-formal">
 
 Decir que **f(n) ∈ O(g(n))** significa que:
 
@@ -1771,7 +1771,7 @@ es equivalencia asintótica, aún más fuerte.
 
 </Question>
 
-<Question id="definicion-omega">
+<Question id="definicion-omega" anchor="cota-inferior">
 
 ¿Cuál de las siguientes afirmaciones sobre **f(n) ∈ Ω(g(n))** es correcta?
 
@@ -1788,7 +1788,7 @@ caso (peor/mejor/promedio) — son dimensiones distintas.
 
 </Question>
 
-<Question id="regla-polinomio">
+<Question id="regla-polinomio" anchor="reglas-practicas-para-las-tres-notaciones">
 
 Un algoritmo tiene **T(n) = 5n³ + 100n² + 42**. ¿En qué clase asintótica
 está?
@@ -1807,7 +1807,7 @@ escribir la notación — los términos menores y los coeficientes se descartan.
 
 </Question>
 
-<Question id="suma-secuencial-constantes">
+<Question id="suma-secuencial-constantes" anchor="reglas-practicas-para-las-tres-notaciones">
 
 Un algoritmo hace dos operaciones consecutivas: la primera es **5n**
 operaciones y la segunda es **2n²** operaciones. ¿Cuál es su complejidad
@@ -1828,7 +1828,7 @@ ciclos anidados, no a bloques secuenciales.
 
 </Question>
 
-<Question id="cual-orden-mas-eficiente">
+<Question id="cual-orden-mas-eficiente" anchor="jerarquia-asintotica">
 
 A partir de un `n` suficientemente grande, ¿cuál algoritmo hace **menos
 operaciones**?
@@ -1847,7 +1847,7 @@ tres.
 
 </Question>
 
-<Question id="cota-vs-caso">
+<Question id="cota-vs-caso" anchor="cota-caso">
 
 ¿Cuál de las siguientes afirmaciones sobre notación y casos es correcta?
 
@@ -1865,7 +1865,7 @@ se consideró para analizar.
 
 </Question>
 
-<Question id="convencion-peor-caso">
+<Question id="convencion-peor-caso" anchor="convencion-cuando-decimos-o-sin-decir-el-caso">
 
 Un profesor dice: *"este algoritmo es O(n²)"*, sin mencionar caso. ¿A qué
 caso se refiere por convención?
@@ -1883,7 +1883,7 @@ requiere asumir una distribución particular de entradas.
 
 </Question>
 
-<Question id="cotas-validas-lineal">
+<Question id="cotas-validas-lineal" anchor="reglas-practicas-para-las-tres-notaciones">
 
 Si un algoritmo tiene **T(n) = 4n + 4**, ¿cuáles de las siguientes
 afirmaciones son **verdaderas**?
@@ -1902,7 +1902,7 @@ $$n^2$$". Y $$\Theta(n)$$ vale porque coincide $$O(n) \cap \Omega(n)$$.
 
 </Question>
 
-<Question id="complejidad-anidados">
+<Question id="complejidad-anidados" anchor="contando-la-segunda-solucion-doble-ciclo">
 
 ¿Cuál es la complejidad asintótica de este algoritmo?
 
@@ -1929,7 +1929,7 @@ cambia el orden.
 
 </Question>
 
-<Question id="secuencial-vs-anidado">
+<Question id="secuencial-vs-anidado" anchor="reglas-practicas-para-las-tres-notaciones">
 
 ¿Cuál es la diferencia entre estos dos algoritmos en términos asintóticos?
 
@@ -1958,7 +1958,7 @@ estructura del código: secuenciales vs anidados.
 
 </Question>
 
-<Question id="igualdades-asintoticas">
+<Question id="igualdades-asintoticas" anchor="reglas-practicas-para-las-tres-notaciones">
 
 ¿Cuáles de las siguientes igualdades entre clases asintóticas son
 **verdaderas**?
@@ -1979,7 +1979,7 @@ cabe en $$O(1)$$.
 
 </Question>
 
-<Question id="cruce-x-y">
+<Question id="cruce-x-y" anchor="los-ordenes-deciden-el-cruce">
 
 Dos algoritmos que resuelven el mismo problema: **X** hace **100n**
 operaciones, **Y** hace **n²** operaciones. Para `n` suficientemente
@@ -1999,7 +1999,7 @@ brecha se ensancha.
 
 </Question>
 
-<Question id="mitad-triangulo">
+<Question id="mitad-triangulo" anchor="reglas-practicas-para-las-tres-notaciones">
 
 ¿Cuál es la complejidad asintótica de este algoritmo?
 
