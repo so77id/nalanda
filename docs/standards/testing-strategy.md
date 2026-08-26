@@ -306,6 +306,19 @@ pass over `<input checked value="a4" name="paper">` and
 `checked` on any other input on the page then satisfies it. Anchor the
 regex on `name=` + `value=` + `checked` together.
 
+**Flash assertions decode the flash cookie, not the response body.** A
+save handler sets its message with `flash.Set(w, secure, msg)`, which
+base64url-encodes into the cookie named `flash.CookieName`; the redirected
+GET then renders the message through the shell — as `<p class="flash">`
+for one line or as `<ul><li>…</li></ul>` for a `"\n"`-separated multi-line
+flash (`backend-code-style.md` §Flash). A body-scrape assertion is
+therefore coupled to the layout markup that renders the flash and would
+break on `<p>` ↔ `<ul>` transitions; decoding the cookie tests the
+handler's actual output. Worked helper: `flashFromResponse` in
+`internal/app/web/handler/save_review_test.go` (#228). Use it whenever the
+pinning matters — a substring-in-body check is fine as a smoke test,
+never as a per-line assertion.
+
 ## Conventions (all apps)
 
 These were learned in one app and apply to every one. They sit above the

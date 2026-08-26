@@ -88,7 +88,11 @@ func rootHandler(backoffice web.Deps, prober health.Prober, logger *slog.Logger)
 	// belongs to the backoffice and is mounted there, on the line above.
 	// TestTheApiSurfaceIsReachableWithoutASession asserts it stayed that way.
 	mux.Handle("/api/", api.Router(prober, logger))
-	return mux
+	// Request logging is outermost and covers BOTH surfaces: the gate above
+	// records who is asking, this records what was asked (issue #228 S1). It
+	// wraps the composition rather than each router individually so a route
+	// added on either side is logged by construction.
+	return middleware.RequestLog(logger, mux)
 }
 
 // run holds everything main would otherwise do, so the only thing outside it is

@@ -28,7 +28,12 @@
 
     <p class="field">
       <label for="from">Desde</label>
-      <select id="from" name="from" required>
+      <select id="from" name="from" required
+              data-cascade
+              data-cascade-doc-label="Documento"
+              data-cascade-section-label="Sección"
+              data-cascade-doc-placeholder="— elige un documento —"
+              data-cascade-section-placeholder="— elige una sección —">
         <option value="">— elige un inicio —</option>
         {{ $from := printf "%s:%s" .Values.FromDocument .Values.FromSection }}
         {{ range .SectionOptions }}
@@ -46,7 +51,12 @@
 
     <p class="field">
       <label for="to">Hasta</label>
-      <select id="to" name="to" required>
+      <select id="to" name="to" required
+              data-cascade
+              data-cascade-doc-label="Documento"
+              data-cascade-section-label="Sección"
+              data-cascade-doc-placeholder="— elige un documento —"
+              data-cascade-section-placeholder="— elige una sección —">
         <option value="">— elige un fin —</option>
         {{ $to := printf "%s:%s" .Values.ToDocument .Values.ToSection }}
         {{ range .SectionOptions }}
@@ -117,4 +127,127 @@
     <p><button type="submit">{{ .Submit }}</button>
        <a href="/controls" class="boton">Cancelar</a></p>
   </form>
+
+  <script>
+    // Progressive enhancement: for each <select data-cascade>, build a
+    // two-level picker (document → section) beside it and hide the flat
+    // select. The flat select stays part of the form so the value it holds
+    // is still what POSTs; without JS the flat select is the whole UI.
+    //
+    // Issue #228 S4: with 9+ documents and several sections each, the flat
+    // grouped <select> is a scroll of ~30 options that hides section names
+    // behind the currently-selected group. The cascade shows one document
+    // list and one section list.
+    (function () {
+      for (const flat of document.querySelectorAll('select[data-cascade]')) {
+        buildCascade(flat);
+      }
+
+      function buildCascade(flat) {
+        // Read the doc → sections map from the flat select's <optgroup>s
+        // — no separate JSON payload, one source of truth.
+        const groups = [];
+        for (const og of flat.querySelectorAll('optgroup')) {
+          const options = [];
+          for (const opt of og.querySelectorAll('option')) {
+            const [docId, sectionId] = opt.value.split(':', 2);
+            options.push({ value: opt.value, docId, sectionId, label: opt.textContent });
+          }
+          if (options.length) {
+            groups.push({ docId: options[0].docId, title: og.label, options });
+          }
+        }
+        if (!groups.length) return;
+
+        const docLabel = flat.dataset.cascadeDocLabel || 'Documento';
+        const sectionLabel = flat.dataset.cascadeSectionLabel || 'Sección';
+        const docPlaceholder = flat.dataset.cascadeDocPlaceholder || '— documento —';
+        const sectionPlaceholder = flat.dataset.cascadeSectionPlaceholder || '— sección —';
+        const fieldId = flat.id;
+
+        const wrap = document.createElement('span');
+        wrap.className = 'cascade';
+        wrap.dataset.cascadeFor = fieldId;
+
+        const docSel = document.createElement('select');
+        docSel.id = fieldId + '-doc';
+        const docLbl = document.createElement('label');
+        docLbl.htmlFor = docSel.id;
+        docLbl.textContent = docLabel + ': ';
+
+        docSel.appendChild(new Option(docPlaceholder, ''));
+        for (const g of groups) {
+          docSel.appendChild(new Option(g.title, g.docId));
+        }
+
+        const secSel = document.createElement('select');
+        secSel.id = fieldId + '-section';
+        secSel.disabled = true;
+        secSel.setAttribute('aria-live', 'polite');
+        const secLbl = document.createElement('label');
+        secLbl.htmlFor = secSel.id;
+        secLbl.textContent = ' ' + sectionLabel + ': ';
+        secSel.appendChild(new Option(sectionPlaceholder, ''));
+
+        wrap.appendChild(docLbl);
+        wrap.appendChild(docSel);
+        wrap.appendChild(secLbl);
+        wrap.appendChild(secSel);
+        flat.parentNode.insertBefore(wrap, flat);
+
+        // Hide the flat select but keep it in the form so its value posts.
+        flat.hidden = true;
+        // Remove `required` from the flat control — the browser refuses to
+        // focus a `hidden` invalid element and the form silently fails to
+        // submit. The cascade validates by having both selects `required`.
+        flat.removeAttribute('required');
+        docSel.required = true;
+        secSel.required = true;
+
+        docSel.addEventListener('change', () => {
+          fillSections(secSel, groups, docSel.value, sectionPlaceholder);
+          syncFlat(flat, docSel.value, secSel.value);
+        });
+        secSel.addEventListener('change', () => {
+          syncFlat(flat, docSel.value, secSel.value);
+        });
+
+        // Initialise from whatever the server pre-selected. On a fresh GET
+        // both are empty; after a validation refusal the flat select holds
+        // "doc:section" and both cascades should pre-select accordingly.
+        const initial = (flat.value || '').split(':', 2);
+        if (initial.length === 2 && initial[0]) {
+          docSel.value = initial[0];
+          fillSections(secSel, groups, initial[0], sectionPlaceholder);
+          secSel.value = initial[0] + ':' + initial[1];
+        }
+      }
+
+      function fillSections(secSel, groups, docId, placeholder) {
+        while (secSel.firstChild) secSel.removeChild(secSel.firstChild);
+        secSel.appendChild(new Option(placeholder, ''));
+        const g = groups.find(g => g.docId === docId);
+        if (!g) {
+          secSel.disabled = true;
+          return;
+        }
+        for (const opt of g.options) {
+          secSel.appendChild(new Option(opt.label, opt.value));
+        }
+        secSel.disabled = false;
+      }
+
+      function syncFlat(flat, docId, sectionValue) {
+        // The flat select's value carries the composite "doc:section" the
+        // handler expects (valuesFromRequest splits on ':' — controls.go).
+        // Empty when either half is unselected — the server refuses that
+        // as a validation error and re-renders the form.
+        if (!docId || !sectionValue) {
+          flat.value = '';
+          return;
+        }
+        flat.value = sectionValue;
+      }
+    })();
+  </script>
 {{ end }}

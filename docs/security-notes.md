@@ -927,3 +927,36 @@ the flag, every read and write goes through them, and two literal-string tests
 pin the two names (`__Host-nalanda_session` / `nalanda_session`). The split
 between dev and prod is real, and the class of defect that used to come with it
 is closed by the tests rather than by refusing the prefix.
+
+### Logs and personal data — RUT is masked to the last four digits (recorded 2026-08-26, #228)
+
+Personal data under **Ley 21.719** (Chile's 2024 data-protection law, which
+supersedes Ley 19.628 — either statute number may appear in older comments and
+tickets, they refer to the same class of obligation on the same fields) reaches
+the server through the review flow: a professor edits a copy's RUT, and both
+the previous and the corrected value briefly exist in the request handler.
+Since #228 the `slog.Info("save review", …)` line in
+`internal/app/web/handler/review.go` masks both `rut_from` and `rut_to` to the
+last four digits (`"…" + rut[len(rut)-4:]`) via the `maskRUT` helper. The
+`rut_action` (`updated` / `matched_read` / `unchanged`) and `answers_changed`
+fields carry the diagnostic value the log was added for; the last four digits
+are enough to correlate two lines about the same student without persisting
+the full identifier to the docker log rotation on the Jetson.
+
+**Rule for new slog callers**: any log line that would touch a RUT or another
+Ley 21.719 field goes through `maskRUT` (or an equivalent masking helper for
+its field). Log the `_action` and `_changed`-style fields freely — they are
+the diagnostic value; keep the identifier itself out.
+
+**Request path (SEC-1, #228)**: `middleware.RequestLog` logs the full
+`RequestURI()` on every request, EXCEPT on `/login/google/callback`, where
+the query string is stripped — `?code=…&state=…` are one-shot OAuth
+credentials that RFC 6749 §10.3 warns against persisting to logs. Any future
+route that carries a credential-like value in its query string needs the same
+scoping added to `middleware.loggedPath` (`internal/app/web/middleware/requestlog.go`).
+
+**Residual, accepted**: the flash cookie the professor sees on save still
+carries the full RUT (`"RUT actualizado a XXXXXXXX."`) — that is intended
+feedback to the same authenticated user who typed it, not a log or third-
+party sink; `flash.Set` scopes it to the session and it is cleared on the
+next render.

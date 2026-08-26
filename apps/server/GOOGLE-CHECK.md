@@ -184,6 +184,13 @@ the raw log lines (they carry the professor id and, on a refusal, the email), th
 database file, or a screenshot of the signed-in page. `nalanda.db*` and `.env`
 are gitignored; that stops a commit, not a paste.
 
+Since #228 a per-request line lands on the callback fetch too
+(`msg=request path=/login/google/callback method=GET status=302 …`) — the
+query string (`?code=…&state=…`) is stripped by `middleware.loggedPath`
+because those are one-shot credentials RFC 6749 §10.3 warns against
+persisting to logs. That line is safe to summarise (status, duration) but
+not to paste in full while other identifying lines sit around it.
+
 ---
 
 ## What this check has NOT verified

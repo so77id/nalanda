@@ -232,7 +232,16 @@
 
     <main{{ if not .Professor }} class="centered"{{ end }}>
       {{ if .Flash }}
-        <p class="flash">{{ .Flash }}</p>
+        {{ $lines := splitLines .Flash }}
+        {{ if gt (len $lines) 1 }}
+          <div class="flash">
+            <ul>
+              {{ range $lines }}<li>{{ . }}</li>{{ end }}
+            </ul>
+          </div>
+        {{ else }}
+          <p class="flash">{{ .Flash }}</p>
+        {{ end }}
       {{ end }}
       {{ template "content" . }}
     </main>

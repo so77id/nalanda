@@ -1,21 +1,27 @@
-// Package middleware turns a cookie into a professor, gates what needs one, and
-// refuses a state-changing request that cannot prove it was intended.
+// Package middleware turns a cookie into a professor, gates what needs one,
+// refuses a state-changing request that cannot prove it was intended, and
+// records what each request was.
 //
-// It lives under internal/app/web and nowhere else, which is the seam §C12 of
-// the design draws: the backoffice serves an authenticated professor and the API
-// surface serves anonymous students who join with a room code. Same process,
-// opposite auth models. Mounting any of this on internal/app/api would put a
-// login gate in front of the students, and the composition test in cmd/server
-// asserts that it has not happened.
+// The three AUTH middlewares live under internal/app/web and nowhere else,
+// which is the seam §C12 of the design draws: the backoffice serves an
+// authenticated professor and the API surface serves anonymous students who
+// join with a room code. Same process, opposite auth models. Mounting any of
+// them on internal/app/api would put a login gate in front of the students,
+// and the composition test in cmd/server asserts that it has not happened.
 //
-// The three middlewares are separate on purpose:
+// The four middlewares are separate on purpose:
 //
 //	Resolve          runs on everything — it only ANSWERS who is asking.
 //	RequireProfessor gates — it decides that an answer was required.
 //	VerifyCSRF       refuses a state-changing request without the session's token.
+//	RequestLog       records one slog line per HTTP request (surface-agnostic).
 //
-// Collapsing them would make /health and /login require a session, which is how
-// a container healthcheck starts failing for reasons nobody can see.
+// Collapsing the auth trio would make /health and /login require a session,
+// which is how a container healthcheck starts failing for reasons nobody can
+// see. RequestLog is deliberately outside that trio — it wraps the composed
+// mux in `cmd/server/main.go`'s rootHandler so both the backoffice AND the
+// api surface log their requests, and it never inspects the session (issue
+// #228 S1 + S3 review ARQ-1).
 package middleware
 
 import (

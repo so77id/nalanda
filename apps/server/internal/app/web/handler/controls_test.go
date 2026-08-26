@@ -424,6 +424,46 @@ func TestNewRendersTheFormWithBankSections(t *testing.T) {
 	}
 }
 
+// TestNewFormCarriesTheCascadePickerMarkers pins the S4 progressive
+// enhancement: the flat select is annotated with the data-cascade attribute
+// (so the inline script finds it) and the script itself is inlined on the
+// page. The flat <select> still carries every (doc, section) option — the
+// case above asserts that, and it is what continues to submit when JS is
+// off.
+//
+// A tighter DOM test (asserting the cascade renders and cascades correctly)
+// belongs in a browser, not here: this file is a Go test and cannot execute
+// the script. The DOM behavior is verified by the manual check.
+func TestNewFormCarriesTheCascadePickerMarkers(t *testing.T) {
+	f := newControlsFixture(t)
+	rec := httptest.NewRecorder()
+	f.handler.New(rec, f.authedRequest(t, http.MethodGet, handler.ControlsNewPath, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	// Each check is one intent; the whitespace of the template is NOT
+	// part of the assertion, so a reformat of the HTML leaves the case
+	// green (S3 review ARQ-4). The initial revision baked the 14-space
+	// indent of the `data-cascade` line into the substring and would have
+	// broken on any indent change.
+	for _, needle := range []string{
+		`id="from"`,
+		`id="to"`,
+		`name="from"`,
+		`name="to"`,
+		`data-cascade`,
+		`data-cascade-doc-label`,
+		// The script that builds the cascade — a stable-looking selector
+		// substring, not a whole-block match.
+		`select[data-cascade]`,
+	} {
+		if !strings.Contains(body, needle) {
+			t.Errorf("form is missing cascade marker %q", needle)
+		}
+	}
+}
+
 func TestCreateWritesAControlAndRedirectsToItsDetail(t *testing.T) {
 	f := newControlsFixture(t)
 	rec := httptest.NewRecorder()

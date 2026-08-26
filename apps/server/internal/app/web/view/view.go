@@ -388,8 +388,18 @@ type ErrorPage struct {
 	Message string
 }
 
+// templateFuncs is registered on every parsed template.
+//
+// splitLines turns a multi-line flash into a []string the layout can range
+// over: a save review flash carries one line per action ("RUT actualizado
+// a X", "Cambios en 3 respuestas") joined by "\n" — see
+// handler.buildSaveReviewFlash (issue #228 S3).
+var templateFuncs = template.FuncMap{
+	"splitLines": func(s string) []string { return strings.Split(s, "\n") },
+}
+
 func mustParsePages() map[string]*template.Template {
-	layout, err := template.ParseFS(files, "templates/layout.html")
+	layout, err := template.New("layout.html").Funcs(templateFuncs).ParseFS(files, "templates/layout.html")
 	if err != nil {
 		panic("view: parse layout: " + err.Error())
 	}
