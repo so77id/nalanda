@@ -41,7 +41,7 @@ Environment variables, read once at boot. A required variable that is absent
 | `NALANDA_SESSION_TTL` | no (`720h`) | Session lifetime, as a Go duration. Zero or negative is a startup error |
 | `NALANDA_BOOTSTRAP_PROFESSOR_EMAIL` | no | On a database with **no** professors, the first Google login by this address creates one. Inert as soon as any professor exists |
 | `NALANDA_TRUST_PROXY_HEADERS` | no (`false`) | `true` when a trusted reverse proxy owns `X-Forwarded-For` — the Jetson deploy (#162) behind Tailscale Funnel. The sessions table's IP column then comes from the FIRST hop of the header instead of `RemoteAddr` (loopback for every visitor there). Only `true`/`false`; a misspelling is a startup error |
-| `NALANDA_QUESTIONS_JSON_URL` | yes | The published question bank (ADR-0032). `http://`, `https://` or `file://`. Fetched **once at boot** and held in memory; a parse failure is a panic there. WP-E |
+| `NALANDA_QUESTIONS_JSON_URL` | yes | The published question bank (ADR-0032). `http://`, `https://` or `file://`. Fetched at boot AND polled at `NALANDA_BANK_REFRESH_INTERVAL` cadence (issue #230, ADR-0032 §Addendum). A parse failure **at boot** is a startup panic; a failure **on a subsequent refresh** logs `WARN` and preserves the last-good snapshot — the server never nils the pointer. WP-E |
 | `NALANDA_AMC_WORKER_URL` | yes | The AMC worker's HTTP origin, e.g. `http://amc-worker:8080` in compose. Absolute http/https URL, no path. WP-E |
 | `NALANDA_WORK_DIR` | yes | Where the server sees the shared volume. The `.tex` generator emits `/work` absolute paths regardless (that is the worker's mount); this only decides where the server writes its files. WP-E |
 | `NALANDA_MAX_SCAN_MB` | no (`100`) | Largest scan PDF the upload handler accepts, in whole MB. A 4-page control at 300 dpi is roughly 3–5 MB; 100 fits a large class and refuses a runaway upload before it enters the worker. WP-F |
@@ -221,6 +221,7 @@ Routes today:
 | `GET /professors/{id}/edit` · `POST /professors/{id}` | Rename. The address is not editable |
 | `POST /professors/{id}/deactivate` | Flips `is_active=0` and ends every session that professor holds |
 | `POST /professors/{id}/reactivate` | Flips `is_active=1` and clears `deactivated_at` |
+| `POST /admin/bank/refresh` | Reloads the in-memory question bank from `NALANDA_QUESTIONS_JSON_URL` and redirects back to `Referer` (or `/controls` on empty / off-origin / scheme-relative-path). Session-gated + CSRF. The "Recargar banco" button in the top bar posts to it (issue #230, ADR-0032 §Addendum) |
 | `GET /login` · `GET /login/google` · `GET /login/google/callback` · `POST /logout` | The login round trip — see §Signing in |
 
 Every state-changing route sits behind `middleware.RequireProfessor` AND

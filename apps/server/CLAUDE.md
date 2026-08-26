@@ -173,6 +173,18 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   `io.Copy` failure); downstream failures do not. The rollback promise
   is scoped to DB rows, not the file — see the `UploadScan` docstring
   for what is transactional and what is not.
+- **The LiveBank in-memory snapshot survives every Reload failure
+  (issue #230).** Reintroducing a code path that clears the
+  `atomic.Pointer[Bank]` on a fetch/parse failure is forbidden — a
+  Reload logs `WARN` and returns an error while readers keep seeing
+  the last-known-good snapshot. Same rule shape and same reason as
+  the UploadScan bullet above; ADR-0032 §Addendum records the
+  decision. Both refresh paths call `LiveBank.Reload` — the ticker
+  in `bank.LiveBank.Watch` and `handler.AdminBank.Refresh` — and the
+  atomicity guarantee is **per-call**, not request-level (a handler
+  that resolves `.Get()` then hands the request to the service,
+  which also resolves `.Get()`, can straddle a swap; the addendum
+  pins that distinction after the WP review flagged it).
 - **The two surfaces do not share an auth gate** (§C12). Everything auth-shaped
   is mounted inside `internal/app/web`; `internal/app/api` is anonymous by
   construction, and `/health` sits deliberately outside the gate because the
