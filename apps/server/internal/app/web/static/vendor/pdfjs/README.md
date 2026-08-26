@@ -46,8 +46,18 @@ wiring is needed.
 
 ## Upgrading
 
-1. Download the matching `pdfjs-<version>-dist.zip` from Mozilla's releases.
-2. Replace `pdf.mjs`, `pdf.worker.mjs` and `LICENSE`.
-3. Update the version line above and the two SHA-384 hashes.
-4. Load the review page in Brave / Chrome / Safari / Firefox; look for a
+1. Check **security advisories** before touching the files — the vendor step
+   pins a version, so `govulncheck` (Go-only) cannot see it, and this README
+   is where the check has to happen:
+   - Mozilla advisories: <https://github.com/mozilla/pdf.js/security/advisories>
+   - NVD CPE: `cpe:2.3:a:mozilla:pdf.js` — search at
+     <https://nvd.nist.gov/vuln/search> for the current pinned version.
+   Record the check date beside the version line above. Worked precedent:
+   CVE-2024-4367 was arbitrary JS via crafted font metadata, fixed in
+   4.2.67 — well below 6.2.108 today, but exactly the kind of advisory a
+   silent upgrade would miss.
+2. Download the matching `pdfjs-<version>-dist.zip` from Mozilla's releases.
+3. Replace `pdf.mjs`, `pdf.worker.mjs` and `LICENSE`.
+4. Update the version line above and the two SHA-384 hashes.
+5. Load the review page in Brave / Chrome / Safari / Firefox; look for a
    console error like "worker version mismatch" if the pair drifted apart.

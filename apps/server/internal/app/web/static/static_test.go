@@ -72,18 +72,35 @@ func TestUnknownPathAnswers404(t *testing.T) {
 	}
 }
 
-// TestDirectoryListingIsNotServed guards against http.FileServerFS's default
-// of rendering a browsable index of the embed. That would leak whatever else
-// ends up under vendor/ over time.
-func TestDirectoryListingIsNotServed(t *testing.T) {
+// TestDirectoryRequestsAnswer404 guards against http.FileServerFS's defaults:
+// (a) rendering a browsable index at a trailing-slash path, (b) 301-redirecting
+// a bare directory name to the trailing-slash form (which still confirms the
+// directory exists to a probe). Both shapes must answer 404, and the body must
+// carry no href a listing would contain — removing the guard in Handler() has
+// to fail this test rather than pass because the substring "pdf.mjs" happens
+// not to appear in a listing after some future rearrangement.
+func TestDirectoryRequestsAnswer404(t *testing.T) {
 	handler := static.Handler()
 
-	rec := httptest.NewRecorder()
-	handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/vendor/pdfjs/", nil))
+	cases := []string{
+		"/vendor/pdfjs/", // trailing-slash shape
+		"/vendor/pdfjs",  // bare directory name — Go's default is a 301
+		"/vendor/",       // one level up, same shapes
+		"/vendor",        //
+	}
+	for _, path := range cases {
+		t.Run(path, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			handler.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, path, nil))
 
-	// 404 or 403 both count as "no listing"; a 200 with the file list is what
-	// this case rules out.
-	if rec.Code == http.StatusOK && strings.Contains(rec.Body.String(), "pdf.mjs") {
-		t.Errorf("GET /vendor/pdfjs/ served a directory listing:\n%s", rec.Body.String())
+			if rec.Code != http.StatusNotFound {
+				t.Errorf("GET %s = %d, want 404 — a directory request must not "+
+					"return a listing (200) or a redirect (301)", path, rec.Code)
+			}
+			if strings.Contains(rec.Body.String(), "<a href=") {
+				t.Errorf("GET %s body carries a link, which a directory listing "+
+					"would; the guard has drifted:\n%s", path, rec.Body.String())
+			}
+		})
 	}
 }

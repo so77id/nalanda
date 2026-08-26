@@ -325,7 +325,7 @@ func TestAnnotateDisabledServesRawEverywhere(t *testing.T) {
 		t.Fatalf("status = %d", rec.Code)
 	}
 	body := rec.Body.String()
-	if strings.Contains(body, `id="pdf-viewer"`) {
+	if strings.Contains(body, pdfViewerMarker) {
 		t.Errorf("review page shows the PDF viewer with the flow disabled\n%s", body)
 	}
 	if !strings.Contains(body, `<img src="/controls/`+controlID+`/copies/1/page/1"`) {

@@ -97,8 +97,15 @@ func routes(deps Deps) []Route {
 				"and CI probes the same path; behind the gate it would build, start and be unhealthy forever",
 		},
 		{
-			Method: http.MethodGet, Path: static.Prefix,
-			Handler: http.StripPrefix(static.Prefix, static.Handler()).ServeHTTP,
+			// The URL prefix is spelled out here rather than lifted to a
+			// shared constant: this router is the one place that decides the
+			// URL space (paths[] guards depend on it), and the review.html
+			// template writes the two vendored-file URLs as string literals
+			// anyway — a Go-side constant would create a coupling the
+			// template does not verify (`Never let a comment claim what the
+			// suite does not verify`, apps/server/CLAUDE.md).
+			Method: http.MethodGet, Path: "/static/",
+			Handler: http.StripPrefix("/static/", static.Handler()).ServeHTTP,
 			Public:  true,
 			Why: "vendored front-end assets (PDF.js today) that the review page loads before any " +
 				"session cookie is read; a browser fetching pdf.mjs sends no CSRF token and holds " +

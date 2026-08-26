@@ -12,6 +12,14 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 )
 
+// pdfViewerMarker is the DOM marker the review template writes when the
+// annotated-PDF viewer is present (issue #231). Extracted so the positive
+// case AND the anti-cases in this file (plus scans_test.go) all read from
+// one string — a rename must update ONE symbol, and the anti-cases cannot
+// silently drift into vacuous checks the way the pre-#231 `<embed>` anti-
+// checks did after the template stopped writing that marker.
+const pdfViewerMarker = `id="pdf-viewer"`
+
 func TestReviewPageRendersEditableFormForACopy(t *testing.T) {
 	f := newControlsFixture(t)
 	controlID := f.createControl(t, "Control review", 2)
@@ -54,7 +62,7 @@ func TestReviewPageRendersEditableFormForACopy(t *testing.T) {
 		// parsing HTML — a browser's native <embed> viewer had different
 		// pagination behaviour per browser (Brave rendered page 1 only,
 		// which is what pushed this off the <embed> shipped in #227).
-		`id="pdf-viewer"`,
+		pdfViewerMarker,
 		`data-pdf-url="`,
 		"annotated.pdf",
 	} {
@@ -95,7 +103,7 @@ func TestReviewPageFallsBackToRawScanWithoutAnnotated(t *testing.T) {
 		t.Fatalf("status = %d\nbody: %s", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
-	if strings.Contains(body, `id="pdf-viewer"`) {
+	if strings.Contains(body, pdfViewerMarker) {
 		t.Errorf("review page shows the PDF viewer for a copy with no annotated PDF\n%s", body)
 	}
 	if !strings.Contains(body, `<img src="/controls/`+controlID+`/copies/1/page/1"`) {
@@ -391,7 +399,7 @@ func TestAnnotateDisabledHidesRowsProducedWhileItWasOn(t *testing.T) {
 		t.Fatalf("status = %d", rec.Code)
 	}
 	body := rec.Body.String()
-	if strings.Contains(body, `id="pdf-viewer"`) {
+	if strings.Contains(body, pdfViewerMarker) {
 		t.Errorf("review page shows the PDF viewer with the flow disabled, stale row or not\n%s", body)
 	}
 	if !strings.Contains(body, `<img src="/controls/`+controlID+`/copies/1/page/1"`) {

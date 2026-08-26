@@ -31,14 +31,38 @@
 
           // devicePixelRatio makes the canvas sharp on hi-dpi displays;
           // 1.5 is the base scale — high enough to read hand-written marks
-          // in the annotated PDF at width:100% without ballooning memory on
-          // a 30-page copy.
-          const dpr = Math.max(1, window.devicePixelRatio || 1);
+          // in the annotated PDF at width:100%. Capped at 2× so a 4K/5K
+          // display does not multiply a 30-page copy's canvas memory by
+          // 9× or 16× for a visual gain no professor will read (COR-4).
+          const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
           const baseScale = 1.5;
 
+          // renderedAny lets the catch branch decide whether to WIPE the
+          // container (nothing rendered — show a message the noscript
+          // block would show too) or APPEND an error line under the pages
+          // that DID render (COR-1: a page-25-of-30 render failure must
+          // not delete the 24 pages the professor was reading through).
+          let renderedAny = false;
+          const showError = () => {
+            const p = document.createElement('p');
+            p.textContent = 'No se pudo cargar el PDF completo. Usa el enlace de abajo para abrirlo en otra pestaña.';
+            if (renderedAny) {
+              container.appendChild(p);
+            } else {
+              container.replaceChildren(p);
+            }
+          };
+
           (async () => {
+            // getDocument returns a PDFDocumentLoadingTask; awaiting its
+            // .promise gives a PDFDocumentProxy. destroy() lives on the
+            // LOADING TASK, not on the proxy — the proxy has no such method.
+            // Keep both references so the finally block can release the
+            // document's transport (COR-4).
+            const loadingTask = pdfjs.getDocument({ url });
+            let pdf;
             try {
-              const pdf = await pdfjs.getDocument({ url }).promise;
+              pdf = await loadingTask.promise;
               for (let n = 1; n <= pdf.numPages; n++) {
                 const page = await pdf.getPage(n);
                 const viewport = page.getViewport({ scale: baseScale * dpr });
@@ -55,14 +79,20 @@
                   canvasContext: canvas.getContext('2d'),
                   viewport: viewport,
                 }).promise;
+                renderedAny = true;
+                // Release pdf.js's internal caches for this page; the
+                // canvas stays on-screen and continues to render (COR-4).
+                page.cleanup();
               }
             } catch (err) {
-              // The "Abrir en otra pestaña" link below the container is
-              // the fallback surface — this message points at it rather
-              // than duplicating it, so the professor is not left with a
-              // silent empty box.
-              container.textContent = 'No se pudo cargar el PDF en el visor. Usa el enlace de abajo.';
+              showError();
               console.error('PDF.js render failed:', err);
+            } finally {
+              // Release the document's caches, whether the loop ran to
+              // completion or bailed mid-way. destroy() returns a promise
+              // pdf.js resolves once the worker cleans up; not awaited so
+              // the DOM does not sit blocked on it.
+              loadingTask.destroy();
             }
           })();
         </script>
