@@ -13,6 +13,7 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/static"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpjson"
 )
@@ -94,6 +95,15 @@ func routes(deps Deps) []Route {
 			Public:  true,
 			Why: "the container healthcheck is the binary itself and carries no cookie, " +
 				"and CI probes the same path; behind the gate it would build, start and be unhealthy forever",
+		},
+		{
+			Method: http.MethodGet, Path: static.Prefix,
+			Handler: http.StripPrefix(static.Prefix, static.Handler()).ServeHTTP,
+			Public:  true,
+			Why: "vendored front-end assets (PDF.js today) that the review page loads before any " +
+				"session cookie is read; a browser fetching pdf.mjs sends no CSRF token and holds " +
+				"no professor role, and gating them would 302-redirect an ES-module import to the " +
+				"login page whose HTML the browser then refuses as JS",
 		},
 		{
 			Method: http.MethodGet, Path: handler.LoginPath,
