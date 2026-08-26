@@ -583,9 +583,11 @@ func mapUnicodeToLatex(s string) string {
 }
 
 // escapeBankText is the Statement / Alternatives pipeline: TeX specials
-// escaped, then backtick pairs rendered as code. Escaping runs FIRST so the
-// \texttt command itself is not escaped, and the pair pattern survives it
-// intact because backticks are not special to TeX.
+// escaped, then Unicode math/greek/dash mapped to LaTeX (issue #237), then
+// backtick pairs rendered as code. Order is load-bearing, see the body.
+// Escaping runs FIRST so the \texttt command itself is not escaped, and
+// the pair pattern survives all three stages intact because backticks are
+// not special to TeX and are not in unicodeReplacer.
 //
 // A raw backtick is a quote mark on paper: the sheet would read 'int' where
 // the author wrote `int`. The professor-typed control NAME goes through

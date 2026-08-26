@@ -260,9 +260,13 @@ enough for authoring:
   shares a glyph with a Latin letter (Α Β Ε Ζ Η Ι Κ Μ Ν Ο Ρ Τ Χ) and
   lowercase omicron `ο` have no LaTeX equivalent — type the Latin letter.
 - Superscripts and subscripts: `⁰¹²³⁴⁵⁶⁷⁸⁹`, `₀₁₂₃₄₅₆₇₈₉`.
-- Math operators: `√ ≤ ≥ ≠ ≈ ≡ ± × ÷ · ∘ ∞ ∂ ∇`.
-- Standalone big operators: `∑ ∏ ∫` — no argument bound (an author who
-  wants `∑ᵢ` writes `$\sum_i$` explicitly, out of scope for the mapping).
+- Math operators: `≤ ≥ ≠ ≈ ≡ ± × ÷ · ∘ ∞ ∂ ∇`.
+- Standalone symbols with no argument bound — `√ ∑ ∏ ∫`: these render
+  as a bare radical / summation / product / integral glyph. An author
+  who wants a rooted or indexed form writes it as `$\sqrt{n}$` /
+  `$\sum_i x_i$` / etc. explicitly; the mapping does not bind arguments
+  and a bare `√n` in the source prints as a radical followed by a plain
+  `n` (silent-wrong-render).
 - Set operators: `∈ ∉ ∪ ∩ ⊂ ⊃ ⊆ ⊇ ∅`.
 - Logic: `∃ ∀`.
 - Arrows: `→ ↔ ⇒ ⇐ ⇔`.
@@ -274,8 +278,14 @@ Accented Spanish (`á é í ó ú ñ ü ¿ ¡`) is handled by the preamble's
 
 A character not on either list will land in pdftex verbatim; production
 today refuses that compile with `auto-multiple-choice prepare failed (1)`
-(issue #237). Add the character to `unicodeToLatex` in the same PR as the
-question that needs it.
+(issue #237). Add the character in the same PR as the question that needs
+it, in two places at once (mirror is the pin against a silent revert):
+
+1. A new pair in the `unicodeReplacer` table in
+   `apps/server/internal/domain/controls/tex/tex.go` (Round 2 section).
+2. A matching row in `TestMapUnicodeToLatex_Round2` in
+   `tex_internal_test.go` — one `{name, in, want}` per character so a
+   silent revert of the map row lands red on that row.
 
 ## Post-answer explanation
 
