@@ -75,6 +75,17 @@ func (h *AdminBank) Refresh(w http.ResponseWriter, r *http.Request) {
 // A referer that shares scheme+host with PublicURL keeps its path (so the
 // professor lands back on the page they clicked from). Anything else —
 // empty, malformed, or off-origin — falls back to /controls.
+//
+// The scheme+host guard alone is not enough. A same-origin referer whose
+// path begins with `//` (e.g. `https://nalanda.test//evil.com/x` — the
+// path is `//evil.com/x`, the host is nalanda.test) passes the origin
+// check, and Go's http.Redirect writes the Location header verbatim; a
+// browser then resolves `//evil.com/x` as a scheme-relative URL and
+// navigates to `https://evil.com/x`. IMPORTANT-1 from the WP review
+// reproduced that on the real function. The extra check below rejects
+// any path that does not start with a single `/` followed by a non-`/`
+// non-`\` character — the two forms browsers historically resolve as
+// scheme-relative navigations.
 func safeRedirect(referer, publicURL string) string {
 	if referer == "" {
 		return ControlsPath
@@ -88,6 +99,11 @@ func safeRedirect(referer, publicURL string) string {
 		return ControlsPath
 	}
 	if !strings.EqualFold(refParsed.Scheme, pubParsed.Scheme) || refParsed.Host != pubParsed.Host {
+		return ControlsPath
+	}
+	if !strings.HasPrefix(refParsed.Path, "/") ||
+		strings.HasPrefix(refParsed.Path, "//") ||
+		strings.HasPrefix(refParsed.Path, `/\`) {
 		return ControlsPath
 	}
 	target := refParsed.Path

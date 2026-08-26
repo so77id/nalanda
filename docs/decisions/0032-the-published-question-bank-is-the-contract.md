@@ -189,9 +189,17 @@ read path.
 
 - **The reader is now a lifecycle, not a one-shot.** Callers hold a
   `*bank.LiveBank` rather than a `*bank.Bank`; every consumer resolves the
-  current snapshot with `.Get()` at method entry. The static shim
-  `bank.NewStaticLive(*Bank)` covers tests that hand a fixed bank into
-  constructors that now take the live wrapper.
+  current snapshot with `.Get()`. The atomicity guarantee is
+  **per-call**, not per-request: a handler that validates in one `.Get()`
+  and then hands the request to the service, which resolves another
+  `.Get()`, can straddle a swap. The failure mode is small (a picker
+  validation against snapshot A followed by a pool draw against snapshot
+  B) and no worse than any other read against a slowly-changing store;
+  the WP review of #230 (IMPORTANT-3) pinned the distinction so future
+  readers do not confuse per-call atomicity with request-level
+  consistency. The static shim `bank.NewStaticLive(*Bank)` covers tests
+  that hand a fixed bank into constructors that now take the live
+  wrapper.
 - **A boot log line is expected on every start.** Same message as before
   (`question bank loaded`), plus a `bank refreshed` on each cycle the source
   actually moved and a `question bank refresh failed` when a cycle fails —

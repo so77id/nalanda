@@ -170,6 +170,58 @@ func TestAdminBankRefreshFallsBackToControlsWithoutReferer(t *testing.T) {
 	}
 }
 
+// TestAdminBankRefreshKeepsSameOriginReferer pins the whole reason
+// safeRedirect exists: a professor clicking the button from
+// /controls/{id} lands back on /controls/{id}, keeping their query
+// string. Without this case, a mutation replacing safeRedirect's body
+// with `return ControlsPath` leaves the file green (WP #230 review,
+// IMPORTANT-2).
+func TestAdminBankRefreshKeepsSameOriginReferer(t *testing.T) {
+	f := newAdminBankFixture(t)
+
+	req := httptest.NewRequest(http.MethodPost, handler.AdminBankRefreshPath, nil)
+	// Same-origin Referer with a concrete control detail path + a query
+	// string. publicURL is `https://nalanda.test` (auth_test.go); the
+	// exact URL an authenticated professor's browser would send.
+	req.Header.Set("Referer", "https://nalanda.test/controls/ABCD2345?batch=1")
+	ctx := middleware.WithProfessorForTest(req.Context(), f.user, f.session)
+	req = req.WithContext(ctx)
+	rec := httptest.NewRecorder()
+	f.handler.Refresh(rec, req)
+
+	if got := rec.Header().Get("Location"); got != "/controls/ABCD2345?batch=1" {
+		t.Errorf("Location = %q, want /controls/ABCD2345?batch=1 — same-origin Referer must preserve path and query", got)
+	}
+}
+
+// TestAdminBankRefreshRejectsAProtocolRelativeReferer is the regression
+// test for IMPORTANT-1: a Referer whose path starts with `//` (e.g.
+// `https://nalanda.test//evil.com/x`) passed the scheme+host check, so
+// safeRedirect returned `//evil.com/x` and http.Redirect wrote it
+// verbatim, which browsers resolve as https://evil.com/x. The extra
+// prefix check in safeRedirect rejects the class; a companion `/\`
+// case covers the historical Windows-style split that some browsers
+// treated the same way.
+func TestAdminBankRefreshRejectsAProtocolRelativeReferer(t *testing.T) {
+	f := newAdminBankFixture(t)
+
+	for _, path := range []string{"//evil.com/steal", `/\evil.com/steal`, "//evil.com/x?a=1"} {
+		t.Run(path, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPost, handler.AdminBankRefreshPath, nil)
+			req.Header.Set("Referer", "https://nalanda.test"+path)
+			ctx := middleware.WithProfessorForTest(req.Context(), f.user, f.session)
+			req = req.WithContext(ctx)
+			rec := httptest.NewRecorder()
+			f.handler.Refresh(rec, req)
+
+			if got := rec.Header().Get("Location"); got != "/controls" {
+				t.Errorf("Location = %q for path %q, want /controls — a scheme-relative or backslash-prefixed path must fall back",
+					got, path)
+			}
+		})
+	}
+}
+
 func TestAdminBankRefreshRejectsAnOffOriginReferer(t *testing.T) {
 	// A crafted request from another origin still carries the CSRF token
 	// (assume the worst) and names an evil Referer. The handler must

@@ -43,15 +43,14 @@
         padding: 0.25rem 0.5rem;
         border-radius: 0.375rem;
       }
-      .sections a:hover, .sections a:focus-visible {
-        background: color-mix(in srgb, currentColor 12%, transparent);
-      }
       /* The bank-refresh button (issue #230, ADR-0032 §Addendum) sits beside the section
          links in the top bar and needs to READ as one — a button that
          opens a form flash message, not a page. The `form` is inline so
          the layout stays a single row; the `button` inherits color and
          font from currentColor so it lands in both themes without a
-         second palette. */
+         second palette. The hover/focus rule is shared with .sections a
+         (below) so a future palette tweak on the anchor version cannot
+         drift from the button. */
       .sections form.section-action {
         display: inline;
         margin: 0;
@@ -65,6 +64,7 @@
         border-radius: 0.375rem;
         cursor: pointer;
       }
+      .sections a:hover, .sections a:focus-visible,
       .sections form.section-action button:hover,
       .sections form.section-action button:focus-visible {
         background: color-mix(in srgb, currentColor 12%, transparent);

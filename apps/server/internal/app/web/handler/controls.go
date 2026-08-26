@@ -54,9 +54,15 @@ const (
 type Controls struct {
 	Service *controls.Service
 	// Bank is the live wrapper around the published question bank
-	// (ADR-0032, issue #230). Handler methods call h.Bank.Get() once at
-	// entry so the whole request sees a consistent snapshot even if a
-	// Reload lands mid-handler.
+	// (ADR-0032, issue #230). Handler methods call h.Bank.Get() to pick
+	// up the current snapshot; each call resolves independently, so a
+	// Reload landing mid-request may leave the handler and the service
+	// looking at different snapshots. The failure mode is small — a
+	// picker validation against snapshot A followed by a pool draw
+	// against snapshot B — and no worse than any other read against a
+	// slowly-changing store. The atomic-swap guarantee is per-call
+	// atomicity, not request-level; the WP review of #230 pinned that
+	// distinction (IMPORTANT-3) rather than let this comment overclaim.
 	Bank      *bank.LiveBank
 	PublicURL string
 	// MaxScanBytes is the largest scan upload the handler accepts. Comes
