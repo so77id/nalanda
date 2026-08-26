@@ -73,7 +73,10 @@ func TestUpsertReadingsFromReportInsertsThenUpdatesOnASecondCall(t *testing.T) {
 		t.Errorf("Reading(1) RUT = %+v (%v)", r.RUTRead, r.RUTStatus)
 	}
 	if len(r.Answers) != 2 || r.Answers[0].QuestionRef != "q-bucles-1" || r.Answers[1].QuestionRef != "q-if-1" {
-		// ORDER BY question_ref ASC — bucles < if lexicographically.
+		// Both answers have Position=0 → NULL, so ORDER BY falls back to
+		// question_ref ASC — bucles < if lexicographically. The
+		// primary printed-order path is covered by
+		// TestUpsertReadingsFromReportPersistsPerCopyPrintedOrder.
 		t.Errorf("Reading(1) answers = %+v", r.Answers)
 	}
 	multi := r.Answers[0]

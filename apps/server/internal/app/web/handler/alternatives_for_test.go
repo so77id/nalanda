@@ -104,6 +104,45 @@ func TestAlternativesForRendersGenericLabelsInPrintedOrderWithoutBank(t *testing
 	}
 }
 
+// TestAlternativesForFallsBackWhenAlternativesLengthMismatchesMax covers a
+// malformed analyzer emit: a wrong-length Alternatives (short, over-long,
+// or a lone bad index) triggers the bank-order fallback, so a "[99]" from
+// a buggy analyzer no longer renders one option instead of four (review
+// COR-1). Nothing panics; index bounds stay inside labels.
+func TestAlternativesForFallsBackWhenAlternativesLengthMismatchesMax(t *testing.T) {
+	q := bank.Question{
+		ID:           "tipo-primitivo",
+		Alternatives: []string{"int", "String", "Integer", "Object"},
+	}
+	for _, tc := range []struct {
+		name string
+		alts []int
+	}{
+		{"single bad index", []int{99}},
+		{"short list", []int{1, 2}},
+		{"over-long list", []int{1, 2, 3, 4, 5}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			a := controls.Answer{
+				QuestionRef:  "tipo-primitivo",
+				QuestionType: controls.QuestionSimple,
+				Max:          4,
+				Alternatives: tc.alts,
+			}
+			got := alternativesFor(a, q, true)
+			want := []view.ReviewAlternative{
+				{Index: 1, Label: "int"},
+				{Index: 2, Label: "String"},
+				{Index: 3, Label: "Integer"},
+				{Index: 4, Label: "Object"},
+			}
+			if !equalAlternatives(got, want) {
+				t.Errorf("alternativesFor mismatch\ngot  %+v\nwant %+v", got, want)
+			}
+		})
+	}
+}
+
 func equalAlternatives(a, b []view.ReviewAlternative) bool {
 	if len(a) != len(b) {
 		return false

@@ -482,18 +482,21 @@ func alternativesFor(a controls.Answer, q bank.Question, has bool) []view.Review
 		max = 4 // sensible default; a professor can still edit
 	}
 	// #229: `a.Alternatives` is the authoring-index list in the physical
-	// printed order for this copy. When it is set, iterate it — the
-	// professor's review page then renders alternatives in the same order
-	// as the paper. When it is empty (a reading written before #229, or
-	// an analyzer that predates S1), iterate 1..max in bank order —
-	// indistinguishable from the pre-change behaviour.
+	// printed order for this copy. When it is set AND its length matches
+	// the question's alternative count, iterate it — the professor's
+	// review page then renders alternatives in the same order as the
+	// paper. Otherwise (empty for a pre-#229 reading, or unexpected
+	// length from a malformed analyzer emit), iterate 1..max in bank
+	// order — indistinguishable from the pre-change behaviour, and
+	// enough to prevent the "only one option shown" regression a stray
+	// `[99]` from a buggy analyzer would produce (review COR-1).
 	//
 	// Index remains the AUTHORING index in both branches: it is what the
 	// store persisted as `marked`, what the save-review form sends back,
 	// and what the bank's Correct list is keyed by. Only the position in
 	// the returned slice changes.
 	order := a.Alternatives
-	if len(order) == 0 {
+	if len(order) != max {
 		order = make([]int, max)
 		for i := range order {
 			order[i] = i + 1
