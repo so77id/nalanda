@@ -35,7 +35,7 @@ matemático que Kleene formalizó en 1936.
 
 <SectionBreak />
 
-<Slide title="En Complejidad I vimos iterativos. Ahora vienen los recursivos">
+<Slide title="Los algoritmos recursivos requieren otra técnica de análisis">
 En [[complejidad-de-hilbert-al-big-o|Complejidad I]] aprendimos a contar
 operaciones elementales línea por línea en un `for`, a distinguir mejor y
 peor caso, y a clasificar el costo con la notación asintótica $$O$$,
@@ -141,7 +141,7 @@ mano; recursiones **no lineales** son las que necesitan más cuidado, y
 son las que explotan en la segunda mitad de este capítulo.
 </Slide>
 
-<Slide title="Primer ejemplo: factorial">
+<Slide title="Ejemplo canónico: factorial">
 El factorial matemático se define recursivamente:
 $$
 n! = \begin{cases} 1 & \text{si } n = 0 \\ n \cdot (n-1)! & \text{si } n > 0 \end{cases}
@@ -426,7 +426,7 @@ máquina tarda varios segundos**. Con `fib(50)` la ventana se cuelga
 prácticamente hasta que la cerremos. Algo raro pasa.
 </Slide>
 
-<Slide title="El árbol de llamadas">
+<Slide title="El árbol de llamadas: subproblemas hechos visibles">
 Cada llamada a `fib(n)` con $$n \geq 2$$ abre **dos** llamadas más
 chicas. El resultado es un árbol.
 
@@ -518,7 +518,7 @@ c$$, y expandimos. Sale $$O(k^N)$$ donde $$k$$ es el número de llamadas
 del paso recursivo.
 </Slide>
 
-<Slide title="Verificación con `<Benchmark>`">
+<Slide title="Verificación empírica del costo exponencial">
 La teoría dice **exponencial**. Comparemos con la realidad medida.
 
 <Benchmark
@@ -614,7 +614,7 @@ técnicas estándar para arreglarlo. Vamos a las dos.
 
 <SectionBreak />
 
-<Slide title="La idea: guardar el resultado la primera vez">
+<Slide title="Memoization: guardar cada resultado la primera vez">
 Si una función va a ser llamada varias veces con el mismo argumento,
 **guardá el resultado la primera vez y devolvelo cacheado las
 siguientes**. Esta técnica se llama **memoization**.
@@ -862,7 +862,7 @@ terminen, el mundo se acaba. $$2^{64} - 1 \approx 1{,}8 \times 10^{19}$$
 movimientos: **585 mil millones de años**.
 </Slide>
 
-<Slide title="La solución recursiva">
+<Slide title="Solución recursiva de Torres de Hanoi">
 Aplicando la receta de diseño (caso base + paso recursivo):
 
 <CodeEditor
@@ -938,7 +938,7 @@ disco tiene que moverse.
 
 <SectionBreak />
 
-<Slide title="Lo que sobrevivió del programa de Hilbert">
+<Slide title="Origen de la teoría de recursión (Gödel-Herbrand-Kleene)">
 En [[complejidad-de-hilbert-al-big-o|Complejidad I]] contamos que
 **David Hilbert** lanzó en los años 20 un programa para blindar toda la
 matemática: tres pilares — consistencia, completitud, decidibilidad.
@@ -1058,7 +1058,7 @@ Java le aplicamos, sin saberlo, la misma matemática que Fibonacci puso
 por escrito hace 800.
 </Slide>
 
-<Slide title="Recursión: matemática de mil años en su editor de código">
+<Slide title="Cierre: la recursión como objeto matemático viejo">
 Cuando escribimos `fib(n)` en Java durante este capítulo, estuvimos
 simultáneamente:
 
