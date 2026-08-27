@@ -1077,3 +1077,47 @@ memoria es tan buena como cualquier iterativa.
 </Slide>
 
 <SectionBreak />
+
+<Slide title="Regla operativa: recursión + subproblemas repetidos ⇒ memoizar o tabular">
+La conclusión del capítulo cabe en una regla.
+
+> **Regla**: si tenés una función recursiva **pura** que se llama a sí
+> misma **varias veces con el mismo argumento**, memoizala o tabulala. La
+> ganancia típica es de una clase exponencial a una clase polinomial en
+> $$T(n)$$.
+
+Las tres condiciones — recursiva, pura, con subproblemas repetidos —
+tienen que darse las tres. Si falta alguna, la técnica no aporta o no
+aplica:
+
+- **Recursiva pero sin subproblemas repetidos** (ej. `factorial(n)` o
+  cualquier recursión lineal que sólo se llama a sí misma con un
+  argumento único): memoizar no ahorra nada. Cada valor se calcula una
+  única vez de todas formas.
+- **Recursiva pero impura** (ej. una función que lee un input, un timer,
+  o el estado del mundo): memoizar es incorrecto — el resultado
+  guardado puede quedar viejo. Se puede memoizar bajo condiciones más
+  finas (memoización con clave que incluya el input relevante), pero
+  eso ya no es *"la misma técnica"*.
+- **Iterativa que repite trabajo por otra razón** (ej. dos loops que
+  recalculan lo mismo): existen técnicas — precomputar la tabla, usar
+  memorias auxiliares — pero **no son estas**. Este capítulo cubre
+  estrictamente la recursión con subproblemas repetidos.
+
+Sobre el **costo en memoria**: memoizar o tabular te agrega memoria
+proporcional al número de subproblemas distintos. Para Fibonacci son
+$$\Theta(n)$$ celdas. Para problemas 2D (por ejemplo, calcular caminos
+en una matriz $$n \times n$$) son $$\Theta(n^2)$$. El análisis formal
+de $$M(n)$$ para código iterativo vive en [[complejidad-espacial]]; acá
+alcanza con saber que **el trade-off existe** y que en muchos problemas
+también admite micro-optimizaciones (la ventana constante de Fibonacci
+en el acto 4 es el caso más simple).
+
+**Con esto cerramos la unidad de complejidad en su primera vuelta**.
+Sabemos analizar el costo temporal de un algoritmo iterativo (Peli 1),
+el costo espacial de un algoritmo iterativo
+([[complejidad-espacial]]), y el costo temporal de un algoritmo
+recursivo (este capítulo). Tenemos las tres piezas que necesitábamos
+para poder comparar algoritmos con honestidad matemática — que era la
+promesa original.
+</Slide>
