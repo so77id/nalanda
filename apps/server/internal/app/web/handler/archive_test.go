@@ -397,34 +397,8 @@ func TestPurgePOSTRefusesActiveControl(t *testing.T) {
 	}
 }
 
-// Issue #261: /controls/archived lists archived rows newest first —
-// Service.ArchivedList delegates to Store.ListArchivedControls which
-// orders by deleted_at DESC.
-func TestArchivedPageOrdersRowsByDeletedAtDesc(t *testing.T) {
-	f := newControlsFixture(t)
-	ctx := context.Background()
-	older := f.createControl(t, "Archivado más viejo", 1)
-	newer := f.createControl(t, "Archivado más nuevo", 1)
-	if err := f.service.Archive(ctx, older); err != nil {
-		t.Fatalf("Archive older: %v", err)
-	}
-	// Force strictly-greater deleted_at on the newer one — same second
-	// resolution as the DB, so a small sleep avoids a flaky tie-break.
-	time.Sleep(1100 * time.Millisecond)
-	if err := f.service.Archive(ctx, newer); err != nil {
-		t.Fatalf("Archive newer: %v", err)
-	}
-
-	req := f.authedRequest(t, http.MethodGet, "/controls/archived", nil)
-	rec := httptest.NewRecorder()
-	f.handler.Archived(rec, req)
-	body := rec.Body.String()
-	newerIdx := strings.Index(body, "Archivado más nuevo")
-	olderIdx := strings.Index(body, "Archivado más viejo")
-	if newerIdx < 0 || olderIdx < 0 {
-		t.Fatalf("both archived rows not present in body")
-	}
-	if newerIdx > olderIdx {
-		t.Errorf("older row rendered before newer — want deleted_at DESC")
-	}
-}
+// Handler-level "the archived page renders rows in a stable order" lives
+// on the store (controlstore_test.go) where the two timestamps can be set
+// independently — this fixture uses time.Now for both created_at and
+// deleted_at, so two same-second archives cannot exercise the tie-break
+// without a sleep the store test avoids entirely (Round-A COR-2).

@@ -277,38 +277,20 @@ func (h *Controls) Purge(w http.ResponseWriter, r *http.Request) {
 }
 
 // renderPurgeConfirm centralises the confirmation-page render (GET and
-// the two POST refusal paths).
+// the two POST refusal paths). Reuses toArchivedControls with a one-row
+// slice so the row shape stays in one place (Round-A ARQ-1): a future
+// field added to the archived listing lands on the confirmation page
+// too, no drift.
 func (h *Controls) renderPurgeConfirm(w http.ResponseWriter, r *http.Request, c controls.Control, status int, typed, mismatch string) {
+	rows := h.toArchivedControls([]controls.Control{c})
 	page := view.ControlPurgeConfirmPage{
 		Page:         middleware.PageFor(r, "Eliminar "+c.Name),
-		Control:      h.toArchivedRow(c),
+		Control:      rows[0],
 		PurgeURL:     controlPurgeURL(c.ID),
 		NameMismatch: mismatch,
 		Typed:        typed,
 	}
 	if err := view.RenderControlPurgeConfirm(w, status, page); err != nil {
 		h.Log.Error("rendering the purge confirmation page", "error", err)
-	}
-}
-
-// toArchivedRow is toArchivedControls of a single row — kept separate so
-// the confirmation page renders the same shape as the archived listing
-// without allocating a slice.
-func (h *Controls) toArchivedRow(c controls.Control) view.ArchivedControl {
-	archivedAt := ""
-	if c.DeletedAt != nil {
-		archivedAt = spanishDate(*c.DeletedAt)
-	}
-	return view.ArchivedControl{
-		ID:              c.ID,
-		Name:            c.Name,
-		ApplicationDate: formatOptionalDate(c.ApplicationDate),
-		Range:           formatRangeWithTitles(c.RangeFrom, c.RangeTo, h.Bank.Get()),
-		Shape:           fmt.Sprintf("%d preguntas × %d copias", c.QuestionsPerCopy, c.Copies),
-		State:           stateWordControl(c.State),
-		ArchivedAt:      archivedAt,
-		DetailURL:       controlDetailURL(c.ID),
-		RestoreURL:      controlRestoreURL(c.ID),
-		PurgeConfirmURL: controlPurgeConfirmURL(c.ID),
 	}
 }

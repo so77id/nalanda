@@ -148,13 +148,16 @@ func (s *Store) ListControls(ctx context.Context) ([]controls.Control, error) {
 // ListArchivedControls returns every archived control (deleted_at IS NOT
 // NULL), ordered by deleted_at descending so the most recently archived is
 // on top of /controls/archived (issue #261). The idx_control_deleted_at
-// index (migration 00013) covers both the WHERE and the ORDER BY.
+// index (migration 00013) covers the WHERE and the primary sort; the
+// created_at DESC tie-breaker breaks ties for two rows archived in the
+// same unix second (Round-A COR-2), so a batch archive renders in a
+// deterministic order rather than depending on the row layout.
 func (s *Store) ListArchivedControls(ctx context.Context) ([]controls.Control, error) {
 	rows, err := s.db.QueryContext(ctx, `
         SELECT `+controlColumns+`
         FROM control
         WHERE deleted_at IS NOT NULL
-        ORDER BY deleted_at DESC`)
+        ORDER BY deleted_at DESC, created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("controlstore.ListArchivedControls: %w", err)
 	}

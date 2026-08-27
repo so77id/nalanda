@@ -339,11 +339,12 @@ type ControlDetailPage struct {
 	// and the WP intentionally does not duplicate the policy on the
 	// server side (§Design > UI).
 	Archived bool
-	// ArchiveURL is the POST target of the danger-zone form. Empty when
-	// Archived is true (the archive button is hidden). CSRF-protected.
+	// ArchiveURL and RestoreURL are BOTH always populated; the template
+	// picks one via {{ if .Archived }} / {{ if not .Archived }}. Handled
+	// this way — rather than by leaving one empty per shape — so a
+	// template change that renders both branches under a different
+	// flag never dereferences a zero string (Round-A ARQ-2).
 	ArchiveURL string
-	// RestoreURL is the POST target of the archived banner's button.
-	// Empty when Archived is false.
 	RestoreURL string
 }
 
