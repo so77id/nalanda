@@ -217,6 +217,52 @@ func TestPerQuestionPctBlancoAndErrada(t *testing.T) {
 	}
 }
 
+// TestPctErradaCountsOKWrongsEvenWithOverrides pins the four-bucket
+// invariant against the pre-fix double-subtraction of the override
+// bucket (issue #251 review, COR-1). 10 copies: 5 raw correct, 2 raw
+// wrong, 2 overridden (fullyCorrect via TotalAndGrade rule), 1 blank.
+// PctErrada must reflect the two real OK-wrong answers (20 %), not
+// 0 % — the shape that landed green on the first review round.
+func TestPctErradaCountsOKWrongsEvenWithOverrides(t *testing.T) {
+	b := bankFor("q1", "simple", []int{0}, 4)
+	var readings []controls.Reading
+	for i := 1; i <= 5; i++ {
+		readings = append(readings, reading(i, []controls.Answer{answer("q1", 1)}))
+	}
+	for i := 6; i <= 7; i++ {
+		readings = append(readings, reading(i, []controls.Answer{answerWrong("q1", 2)}))
+	}
+	for i := 8; i <= 9; i++ {
+		readings = append(readings, reading(i, []controls.Answer{answerOverride("q1")}))
+	}
+	readings = append(readings, reading(10, []controls.Answer{answerBlank("q1")}))
+
+	q := stats.Compute(readings, b, 1).PerQuestion[0]
+	if q.N != 10 {
+		t.Errorf("N = %d, want 10", q.N)
+	}
+	if !closeEnough(q.Dificultad, 70.0) {
+		t.Errorf("Dificultad = %v, want 70.0 (5 raw correct + 2 overrides of 10)", q.Dificultad)
+	}
+	if !closeEnough(q.PctErrada, 20.0) {
+		t.Errorf("PctErrada = %v, want 20.0 (2 real OK-wrongs of 10)", q.PctErrada)
+	}
+	if !closeEnough(q.PctBlanco, 10.0) {
+		t.Errorf("PctBlanco = %v, want 10.0", q.PctBlanco)
+	}
+	// Three-bucket sum-to-100 invariant: every graded copy contributes
+	// to exactly one of {fully-correct (Dificultad), OK-wrong
+	// (PctErrada), blank (PctBlanco)}. An override lands in Dificultad
+	// (TotalAndGrade earns the full point) AND in the Invalid bucket
+	// for the distribution — Invalid is therefore an intersection view
+	// of Dificultad, not a fourth disjoint bucket, and summing it in
+	// would double-count.
+	if got := q.Dificultad + q.PctErrada + q.PctBlanco; !closeEnough(got, 100.0) {
+		t.Errorf("three-bucket sum = %v, want 100.0 (Dificultad %.1f + Errada %.1f + Blanco %.1f)",
+			got, q.Dificultad, q.PctErrada, q.PctBlanco)
+	}
+}
+
 func TestPerQuestionOverrideCountsAsCorrectForDificultadInvalidForDistribution(t *testing.T) {
 	// The override earns the full point (TotalAndGrade rule), so
 	// dificultad counts it as correct. The distribution cannot tell

@@ -29,7 +29,7 @@ import "fmt"
 // Returns raw like "1.75/2" and grade like "6.2", or "—"/"—" when
 // unknown.
 func TotalAndGrade(questions int, r Reading) (string, string) {
-	total, _, ok := rawTotalAndGrade(questions, r)
+	total, ok := rawTotal(questions, r)
 	if !ok {
 		return "—", "—"
 	}
@@ -45,23 +45,27 @@ func TotalAndGrade(questions int, r Reading) (string, string) {
 // number the panel shows flows through here, so the panel cannot
 // disagree with the readings table.
 func NumericGrade(questions int, r Reading) (float64, bool) {
-	total, _, ok := rawTotalAndGrade(questions, r)
+	total, ok := rawTotal(questions, r)
 	if !ok {
 		return 0, false
 	}
 	return numericGrade(total, questions), true
 }
 
-// rawTotalAndGrade is the shared numeric core. Returns (total, grade,
-// ok=false) when the reading has no defined grade. Both TotalAndGrade
-// (string) and NumericGrade (float) build on it — single source of the
-// grade math per ADR-0031 and issue #251's cannot-disagree rule.
-func rawTotalAndGrade(questions int, r Reading) (float64, float64, bool) {
+// rawTotal is the shared numeric core. Returns the raw total (Σ
+// relative scores) and ok=false when the reading has no defined
+// grade. Both TotalAndGrade (string) and NumericGrade (float) build on
+// it — single source of the grade math per ADR-0031 and issue #251's
+// cannot-disagree rule. Callers derive the 1.0–7.0 grade with
+// numericGrade / FormatGrade — this core does not compute it, because
+// the two callers used to receive it and throw it away (issue #251
+// review, ARQ-3).
+func rawTotal(questions int, r Reading) (float64, bool) {
 	if r.CopyStatus == CopyStatusNotPresent {
-		return 0, 0, false
+		return 0, false
 	}
 	if r.RUTStatus == RUTStatusUnreadable && r.RUTOverride == nil {
-		return 0, 0, false
+		return 0, false
 	}
 	total := 0.0
 	for _, a := range r.Answers {
@@ -70,7 +74,7 @@ func rawTotalAndGrade(questions int, r Reading) (float64, float64, bool) {
 			effective = a.Override.Status
 		}
 		if effective == AnswerStatusDoubtful || effective == AnswerStatusAmbiguous {
-			return 0, 0, false
+			return 0, false
 		}
 		if effective == AnswerStatusBlank {
 			continue
@@ -84,9 +88,9 @@ func rawTotalAndGrade(questions int, r Reading) (float64, float64, bool) {
 		}
 	}
 	if questions == 0 {
-		return 0, 0, false
+		return 0, false
 	}
-	return total, numericGrade(total, questions), true
+	return total, true
 }
 
 // FormatGrade maps a fraction onto the 1,0–7,0 scale: 4,0 at 50%,

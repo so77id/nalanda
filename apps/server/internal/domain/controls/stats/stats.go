@@ -46,15 +46,16 @@ const (
 
 // Statistics is the whole panel's data. The nested sub-structs let the
 // template pick out one region without threading every field through
-// the top-level.
+// the top-level: Global holds the class-level numbers, Histogram bins
+// the grades onto the 1.0–7.0 axis, Boxplot summarises the shape, and
+// PerQuestion is the item-analysis table (one row per authored
+// question the readings referenced).
 //
-// Fields grow in later slices: Histogram/Boxplot land in S2, and
-// PerQuestion in S3–S4. The Global shape is stable at S1.
+// Every number lives on Statistics by value — no pointers into the
+// readings, no aliasing of the bank snapshot — so a caller may hand
+// the value across goroutines without a copy.
 type Statistics struct {
-	Global Global
-	// Histogram, Boxplot and PerQuestion arrive with later slices;
-	// consumers already reading Global today do not have to change
-	// when they land.
+	Global      Global
 	Histogram   Histogram
 	Boxplot     Boxplot
 	PerQuestion []QuestionStats
@@ -323,7 +324,16 @@ func itemStatsFor(ref string, graded []gradedReading, b *bank.Bank) QuestionStat
 	if q.N > 0 {
 		q.Dificultad = pct(q.FullyCorrect, q.N)
 		q.PctBlanco = pct(q.Blank, q.N)
-		wrong := q.N - q.FullyCorrect - q.Blank - q.Invalid
+		// Overrides land in BOTH q.FullyCorrect (an override earns the
+		// full point) and q.Invalid (the distribution cannot attribute
+		// them to a letter). Subtracting Invalid here as well would
+		// remove each override twice — the pre-fix bug that made
+		// PctErrada undercount by 100·Invalid/N whenever the professor
+		// resolved a doubtful mark (issue #251 review, COR-1). A raw
+		// doubtful/ambiguous answer without override drops the whole
+		// copy from N via NumericGrade, so it never reaches this
+		// arithmetic — Invalid here is exactly the override bucket.
+		wrong := q.N - q.FullyCorrect - q.Blank
 		if wrong < 0 {
 			wrong = 0
 		}

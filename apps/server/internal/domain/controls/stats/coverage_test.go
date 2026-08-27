@@ -165,4 +165,18 @@ func TestCompute40CopyBatchWithMixedStatuses(t *testing.T) {
 	if !closeEnough(q1.Dificultad, 68.75) {
 		t.Errorf("q1 Dificultad = %v, want 68.75", q1.Dificultad)
 	}
+	// PctErrada: 32 - 22 (fully correct incl. overrides) - 0 (no q1
+	// blanks) = 10 → 31.25%. Pinned in the AC-7 shape after the review
+	// caught the pre-fix formula subtracting Invalid twice
+	// (issue #251 review, COR-1 / COR-2).
+	if !closeEnough(q1.PctErrada, 31.25) {
+		t.Errorf("q1 PctErrada = %v, want 31.25 (10 OK-wrong of 32)", q1.PctErrada)
+	}
+	// Three-bucket sum-to-100 invariant on the realistic batch.
+	// Overrides live in Dificultad (grade math) AND Invalid (the
+	// distribution's "cannot attribute to a letter" bucket) — the two
+	// are not disjoint, so summing PctInvalid in would double-count.
+	if got := q1.Dificultad + q1.PctErrada + q1.PctBlanco; !closeEnough(got, 100.0) {
+		t.Errorf("q1 three-bucket sum = %v, want 100.0", got)
+	}
 }
