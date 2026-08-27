@@ -1,6 +1,9 @@
 // Package stats aggregates a control's readings into the numbers the
 // professor sees on `/controles/{id}` once the correction is closed
-// (issue #251, ADR-0043 unaffected).
+// (issue #251). The grade math this package builds on lives in
+// `controls.NumericGrade` / `controls.rawTotal` — ADR-0031 is the
+// binding contract, and every number here flows through it so the
+// panel and the readings table cannot disagree.
 //
 // The whole package is pure: `Compute` returns a `Statistics` value out
 // of the readings, the bank snapshot and the control's per-copy
