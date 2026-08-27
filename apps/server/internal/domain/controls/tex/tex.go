@@ -744,6 +744,15 @@ const (
 // A backtick without its pair passes through — the pattern only matches
 // pairs, same behaviour as the pre-#239 codeFontPattern.
 func extractCodePayloads(s string) (string, []string) {
+	// Strip any NUL bytes already in s so the sentinel remains
+	// unambiguous. Normal MDX / YAML tooling rejects or strips NUL,
+	// so this is a defence for a case that should not happen — pdftex
+	// would refuse a NUL anyway, but the strip keeps restoreCodePayloads
+	// from binding its `strings.Replace` to an author-typed sentinel
+	// lookalike (issue #239 review recheck).
+	if strings.ContainsRune(s, '\x00') {
+		s = strings.ReplaceAll(s, "\x00", "")
+	}
 	if !strings.Contains(s, "`") {
 		return s, nil
 	}
