@@ -409,6 +409,85 @@ describe('presentation on a phone held in portrait', () => {
   });
 });
 
+// The deck's window-level keydown listener sees keystrokes that originate in
+// editable regions inside a slide — the code widget on Class 0, any runtime
+// <MdxPre> fence — because they bubble up to window. Before the guard, Space
+// and ArrowRight cancelled the character AND advanced ?slide; ArrowLeft
+// rewound it (issue #262). The predicate is unit-tested in
+// presentation/typingTarget.test.ts; this block pins the WIRING through the
+// real route, over the same document the viewer cases use.
+describe('presentation while the reader is typing in a slide', () => {
+  it('ignores slide keys that come from an <input> in the page', async () => {
+    await renderAt(`/d/${firstId}/present`);
+    const counter = await findCounter();
+    const input = document.createElement('input');
+    document.body.append(input);
+
+    try {
+      // Every navigation key the deck listens to: without the guard, ArrowRight
+      // and Space each advance and ArrowLeft rewinds — three chances for the
+      // counter to move if the guard is off.
+      fireEvent.keyDown(input, { key: 'ArrowRight' });
+      fireEvent.keyDown(input, { key: ' ' });
+      fireEvent.keyDown(input, { key: 'ArrowLeft' });
+      expect(counter).toHaveTextContent(/^1 \//);
+    } finally {
+      input.remove();
+    }
+
+    // Positive control: with the editable gone, the SAME key fired at window
+    // moves the deck. Without this, a listener that stopped working entirely
+    // would satisfy the assertion above.
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(counter).toHaveTextContent(/^2 \//);
+  });
+
+  it('ignores slide keys that come from inside a contenteditable region', async () => {
+    // The shape a rich editor produces: the real keydown target is a
+    // descendant of the contenteditable root, not the root itself. CodeMirror
+    // fires at an inner <span class="cm-line">; the predicate walks up.
+    await renderAt(`/d/${firstId}/present`);
+    const counter = await findCounter();
+    const editor = document.createElement('div');
+    editor.setAttribute('contenteditable', 'true');
+    const line = document.createElement('span');
+    editor.append(line);
+    document.body.append(editor);
+
+    try {
+      fireEvent.keyDown(line, { key: 'ArrowRight' });
+      fireEvent.keyDown(line, { key: ' ' });
+      fireEvent.keyDown(line, { key: 'ArrowLeft' });
+      expect(counter).toHaveTextContent(/^1 \//);
+    } finally {
+      editor.remove();
+    }
+
+    // Same positive control the <input> case above carries: without a key that
+    // still moves the deck once the editable is gone, a listener that no-op'd
+    // outright would satisfy the assertion above.
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(counter).toHaveTextContent(/^2 \//);
+  });
+
+  it('still leaves the deck on Escape from an editable target', async () => {
+    // The one shortcut the guard deliberately lets through, matching the
+    // portrait branch above it (SlideDeck.tsx §portrait short-circuit): a
+    // modal has to have a way out, and the editor is one.
+    await renderAt(`/d/${firstId}/present`);
+    await findCounter();
+    const input = document.createElement('input');
+    document.body.append(input);
+
+    try {
+      fireEvent.keyDown(input, { key: 'Escape' });
+      expect(await screen.findByRole('article')).toBeInTheDocument();
+    } finally {
+      input.remove();
+    }
+  });
+});
+
 describe('advancing the deck by touch', () => {
   function swipe(from: number, to: number, y = 200, endY = 205) {
     const stage = screen.getByTestId('slide-stage');

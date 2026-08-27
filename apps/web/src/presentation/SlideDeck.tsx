@@ -18,6 +18,7 @@ import { fitScale } from './fit';
 import { startsInsideHorizontalScroller, swipeDirection } from './swipe';
 import type { Point } from './swipe';
 import { RotateNotice } from './RotateNotice';
+import { isTypingTarget } from './typingTarget';
 import { usePortraitPhone } from './usePortraitPhone';
 
 // Exiting is guarded everywhere it happens: exitFullscreen() REJECTS when
@@ -161,6 +162,13 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
       // wrong slide (#91 review). Escape is deliberately still live: it is the
       // way out of a modal, and the panel is one.
       if (portraitPhone && event.key !== 'Escape') return;
+      // A slide can host an editable region (the code widget on Class 0, any
+      // runtime <MdxPre>): the reader typing there sees Space and ArrowRight
+      // cancel the character AND advance ?slide, ArrowLeft rewind mid-edit
+      // (#262). Escape stays live for the same reason it does through the
+      // portrait branch above: a modal has to have a way out, and the editor
+      // is one.
+      if (event.key !== 'Escape' && isTypingTarget(event.target)) return;
       switch (event.key) {
         case 'ArrowRight':
         case ' ':
