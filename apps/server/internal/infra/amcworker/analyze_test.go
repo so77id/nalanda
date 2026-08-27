@@ -218,6 +218,77 @@ func TestAnalyzeRefusesInvalidRequestBeforeCallingTheWorker(t *testing.T) {
 	}
 }
 
+// TestAnalyzeMapsPagesPerCopyIntoReportCopyPages pins issue #243's
+// wire → domain mapping. read_capture.py emits `pages_per_copy`
+// keyed by the same decimal copy string; the mapping copies the list
+// verbatim into ReportCopy.Pages so the store persists exactly what
+// AMC captured.
+func TestAnalyzeMapsPagesPerCopyIntoReportCopyPages(t *testing.T) {
+	body := `{
+	  "pages": {"captured": 3, "failed": 0},
+	  "scoring": {"seuil": 0.3, "ticked": 0.3, "stale": false},
+	  "copies": {
+	    "1": {"rut": "20123456", "rut_status": "ok",
+	          "answers": [], "expected_questions": 0, "seen_questions": 0,
+	          "missing_questions": [], "status": "ok"},
+	    "2": {"rut": "19876543", "rut_status": "ok",
+	          "answers": [], "expected_questions": 0, "seen_questions": 0,
+	          "missing_questions": [], "status": "needs_review"}
+	  },
+	  "pages_per_copy": {"1": [1, 2], "2": [1]},
+	  "needs_review": ["2"]
+	}`
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+
+	client := amcworker.New(amcworker.Config{BaseURL: srv.URL})
+	report, err := client.Analyze(context.Background(), controls.AnalyzeRequest{
+		Project: "p", ScanPDF: "s", Source: "t",
+		Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure,
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	if got := report.Copies["1"].Pages; len(got) != 2 || got[0] != 1 || got[1] != 2 {
+		t.Errorf("Copies[1].Pages = %v, want [1 2]", got)
+	}
+	if got := report.Copies["2"].Pages; len(got) != 1 || got[0] != 1 {
+		t.Errorf("Copies[2].Pages = %v, want [1] (page-2-missed case)", got)
+	}
+}
+
+// TestAnalyzeFromLegacyWorkerFallsBackToPageOne pins the legacy
+// compatibility path: a worker that predates the pages_per_copy
+// field omits it entirely from the wire, and the mapping fills each
+// copy with [1] so the review page's raw-scan fallback keeps its
+// pre-#243 single-page behaviour. Symmetric with migration 00011's
+// backfill on the storage side — both paths converge on [1] for
+// "nothing was said about pages".
+func TestAnalyzeFromLegacyWorkerFallsBackToPageOne(t *testing.T) {
+	// sampleReport predates #243 — no pages_per_copy field.
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(sampleReport))
+	}))
+	t.Cleanup(srv.Close)
+
+	client := amcworker.New(amcworker.Config{BaseURL: srv.URL})
+	report, err := client.Analyze(context.Background(), controls.AnalyzeRequest{
+		Project: "p", ScanPDF: "s", Source: "t",
+		Ticked: controls.DefaultTicked, Unsure: controls.DefaultUnsure,
+	})
+	if err != nil {
+		t.Fatalf("Analyze: %v", err)
+	}
+	got := report.Copies["1"].Pages
+	if len(got) != 1 || got[0] != 1 {
+		t.Errorf("legacy Copies[1].Pages = %v, want [1] fallback", got)
+	}
+}
+
 func TestReanalyzeSendsProjectAndThresholds(t *testing.T) {
 	var got reanalyzeSent
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

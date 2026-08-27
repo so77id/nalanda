@@ -34,7 +34,16 @@ Runs INSIDE the worker image. Emits JSON on stdout:
           "status": "ok"                           // ok|needs_review|incomplete
         }
       },
-      "needs_review": ["4", "5"]
+      "needs_review": ["4", "5"],
+      "pages_per_copy": {                              // issue #243: physical pages
+        "1": [1, 2], "5": [1]                          // the engine captured for each
+      }                                                // copy, ascending, string keys
+                                                       // (server parses to int). A
+                                                       // copy whose page 2 was
+                                                       // rejected does NOT list 2
+                                                       // here; the review page's
+                                                       // raw-scan fallback iterates
+                                                       // this list verbatim.
     }
 
 WHAT THE PROJECT MUST ALREADY HAVE. This reads three of AMC's databases, not
@@ -468,6 +477,20 @@ def read(data_dir, ticked, unsure):
     captured = cap.execute("SELECT COUNT(*) FROM capture_page").fetchone()[0]
     failed = cap.execute("SELECT COUNT(*) FROM capture_failed").fetchone()[0]
 
+    # Which physical pages of each copy AMC captured. The review page's raw-scan
+    # fallback (`apps/server`, issue #190) renders one `<img>` per captured page,
+    # and until #243 it only ever asked for page 1 — a two-page copy lost half
+    # its answers to the professor. AMC is the source of truth for what was
+    # captured: a copy whose page 2 was scanned but rejected does not appear in
+    # `capture_page`, and the fallback must not invent an image for it. Ascending
+    # page order per copy; string keys because JSON keys are strings and the
+    # server parses back to int.
+    pages_per_copy = {}
+    for student, page in cap.execute(
+        "SELECT student, page FROM capture_page ORDER BY student, page"
+    ):
+        pages_per_copy.setdefault(str(student), []).append(page)
+
     return {
         "pages": {"captured": captured, "failed": failed},
         # `stale` is the whole reason both numbers are here: when they differ,
@@ -475,6 +498,7 @@ def read(data_dir, ticked, unsure):
         # beside them at another.
         "scoring": {"seuil": seuil, "ticked": ticked, "stale": seuil != ticked},
         "copies": out,
+        "pages_per_copy": pages_per_copy,
         "needs_review": [k for k, v in out.items() if v["status"] != "ok"],
     }
 

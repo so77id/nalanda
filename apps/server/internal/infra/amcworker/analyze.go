@@ -172,8 +172,14 @@ type reportBody struct {
 		Ticked float64 `json:"ticked"`
 		Stale  bool    `json:"stale"`
 	} `json:"scoring"`
-	Copies      map[string]copyBody `json:"copies"`
-	NeedsReview []string            `json:"needs_review"`
+	Copies map[string]copyBody `json:"copies"`
+	// PagesPerCopy is the per-copy list of physical pages AMC
+	// captured, keyed by copy number as a decimal string (issue #243).
+	// Absent from workers that predate the field; toDomain then falls
+	// back to [1] per copy so the review page's raw-scan fallback
+	// keeps its pre-#243 single-page behaviour.
+	PagesPerCopy map[string][]int `json:"pages_per_copy"`
+	NeedsReview  []string         `json:"needs_review"`
 }
 
 type copyBody struct {
@@ -223,6 +229,17 @@ func (b reportBody) toDomain() controls.Report {
 		NeedsReview: append([]string(nil), b.NeedsReview...),
 	}
 	for k, v := range b.Copies {
+		// #243: the worker sends pages_per_copy keyed by the same
+		// decimal string. A worker that predates the field leaves the
+		// map nil (or missing this key), so fall back to [1] — the
+		// review page's raw-scan fallback rendered exactly page 1
+		// before this WP, and legacy readings backfill to [1] too
+		// (migration 00011), so both paths converge on the same
+		// pre-#243 shape.
+		pages := append([]int(nil), b.PagesPerCopy[k]...)
+		if len(pages) == 0 {
+			pages = []int{1}
+		}
 		out.Copies[k] = controls.ReportCopy{
 			RUT:               v.RUT,
 			RUTStatus:         controls.RUTStatus(v.RUTStatus),
@@ -231,6 +248,7 @@ func (b reportBody) toDomain() controls.Report {
 			SeenQuestions:     v.SeenQuestions,
 			MissingQuestions:  append([]string(nil), v.MissingQuestions...),
 			Status:            controls.CopyStatus(v.Status),
+			Pages:             pages,
 		}
 	}
 	return out

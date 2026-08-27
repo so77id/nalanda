@@ -63,7 +63,7 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 		Name:       control.Name,
 		CopyNumber: copyNumber,
 		BackURL:    controlDetailURL(id),
-		ImageURL:   controlPageImageURL(id, copyNumber, 1),
+		Pages:      buildReviewImages(id, copyNumber, reading.Pages),
 		SaveURL:    controlReviewURL(id, copyNumber),
 		Graded:     control.State == controls.Graded,
 		RUT:        toReviewRUT(reading),
@@ -519,6 +519,27 @@ func parseCopyPathValue(raw string) (int, bool) {
 
 func controlPageImageURL(id string, copyNumber, pageNumber int) string {
 	return fmt.Sprintf("%s/copies/%d/page/%d", controlDetailURL(id), copyNumber, pageNumber)
+}
+
+// buildReviewImages turns the reading's captured-pages list into the
+// per-page items the template iterates (issue #243). Trusts the
+// invariant "every reviewable copy has at least one captured page" —
+// migration 00011 backfills legacy rows to [1] and amcworker.toDomain
+// substitutes [1] for a wire report without pages_per_copy, so the
+// only path that lands here with an empty list is a not_present copy
+// reached by hand-typed URL (the results table filters it out of the
+// review link). An empty list emits zero <img> — an empty "Escaneo"
+// section is a more honest render than a broken image icon that
+// looks like a legitimate page.
+func buildReviewImages(id string, copyNumber int, pages []int) []view.ReviewImage {
+	out := make([]view.ReviewImage, 0, len(pages))
+	for _, n := range pages {
+		out = append(out, view.ReviewImage{
+			Number: n,
+			URL:    controlPageImageURL(id, copyNumber, n),
+		})
+	}
+	return out
 }
 
 // controlAnnotatedURL is the corrected PDF's URL (issue #190).

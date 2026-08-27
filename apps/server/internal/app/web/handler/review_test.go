@@ -2,6 +2,7 @@ package handler_test
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -82,7 +83,7 @@ func TestReviewPageFallsBackToRawScanWithoutAnnotated(t *testing.T) {
 	f.fake.AnalyzeReports = []controls.Report{
 		{Copies: map[string]controls.ReportCopy{
 			"1": {RUT: "2011111_", RUTStatus: controls.RUTStatusUnreadable, Status: controls.CopyStatusNeedsReview,
-				ExpectedQuestions: 2, SeenQuestions: 2,
+				ExpectedQuestions: 2, SeenQuestions: 2, Pages: []int{1},
 				Answers: []controls.ReportAnswer{
 					{Question: 1, Name: "q3", Type: controls.QuestionSimple, Marked: []int{1},
 						Status: controls.AnswerStatusOK, Score: 1, Max: 1},
@@ -109,6 +110,97 @@ func TestReviewPageFallsBackToRawScanWithoutAnnotated(t *testing.T) {
 	if !strings.Contains(body, `<img src="/controls/`+controlID+`/copies/1/page/1"`) {
 		t.Errorf("review page missing the raw scan image\n%s", body)
 	}
+}
+
+// TestReviewPageRendersAllCapturedPages pins issue #243's fix:
+// a needs_review copy whose scan spans several pages renders one
+// <img> per captured page, in ascending order, so the professor can
+// see and correct answers on every page instead of only page 1.
+func TestReviewPageRendersAllCapturedPages(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control multi-page", 3)
+
+	// Three copies with different page shapes: copy 1 captured both
+	// pages (the happy case), copy 2 captured only page 1 (page 2
+	// scanned but rejected by AMC — AC-2), copy 3 captured pages 1,
+	// 2 and 3 (a longer sheet).
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{
+			"1": {RUT: "20111111", RUTStatus: controls.RUTStatusOK, Status: controls.CopyStatusNeedsReview,
+				ExpectedQuestions: 1, SeenQuestions: 1, Pages: []int{1, 2},
+				Answers: []controls.ReportAnswer{
+					{Question: 1, Name: "q3", Type: controls.QuestionSimple, Marked: []int{1},
+						Status: controls.AnswerStatusOK, Score: 1, Max: 1},
+				}},
+			"2": {RUT: "20222222", RUTStatus: controls.RUTStatusOK, Status: controls.CopyStatusNeedsReview,
+				ExpectedQuestions: 1, SeenQuestions: 1, Pages: []int{1},
+				Answers: []controls.ReportAnswer{
+					{Question: 1, Name: "q3", Type: controls.QuestionSimple, Marked: []int{1},
+						Status: controls.AnswerStatusOK, Score: 1, Max: 1},
+				}},
+			"3": {RUT: "20333333", RUTStatus: controls.RUTStatusOK, Status: controls.CopyStatusNeedsReview,
+				ExpectedQuestions: 1, SeenQuestions: 1, Pages: []int{1, 2, 3},
+				Answers: []controls.ReportAnswer{
+					{Question: 1, Name: "q3", Type: controls.QuestionSimple, Marked: []int{1},
+						Status: controls.AnswerStatusOK, Score: 1, Max: 1},
+				}},
+		}},
+	}
+	uploadOnce(t, f, controlID)
+
+	// Copy 1: both pages rendered, in order.
+	body := reviewBody(t, f, controlID, 1)
+	for _, want := range []string{
+		`<img src="/controls/` + controlID + `/copies/1/page/1"`,
+		`<img src="/controls/` + controlID + `/copies/1/page/2"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("copy 1 review missing %q\n--- body ---\n%s", want, body)
+		}
+	}
+	if got := strings.Count(body, `<img src="/controls/`+controlID+`/copies/1/`); got != 2 {
+		t.Errorf("copy 1 review = %d raw-scan <img>, want 2 (pages 1 and 2)", got)
+	}
+
+	// Copy 2 (AC-2): only page 1 was captured — no phantom page 2.
+	body = reviewBody(t, f, controlID, 2)
+	if !strings.Contains(body, `<img src="/controls/`+controlID+`/copies/2/page/1"`) {
+		t.Errorf("copy 2 review missing page 1\n%s", body)
+	}
+	if strings.Contains(body, `<img src="/controls/`+controlID+`/copies/2/page/2"`) {
+		t.Errorf("copy 2 review shows a phantom page 2 (AMC only captured page 1)\n%s", body)
+	}
+	if got := strings.Count(body, `<img src="/controls/`+controlID+`/copies/2/`); got != 1 {
+		t.Errorf("copy 2 review = %d raw-scan <img>, want 1 (only page 1 captured)", got)
+	}
+
+	// Copy 3: all three pages render, in the same order the store returned.
+	body = reviewBody(t, f, controlID, 3)
+	for n := 1; n <= 3; n++ {
+		if !strings.Contains(body, fmt.Sprintf(`<img src="/controls/%s/copies/3/page/%d"`, controlID, n)) {
+			t.Errorf("copy 3 review missing page %d\n%s", n, body)
+		}
+	}
+	if got := strings.Count(body, `<img src="/controls/`+controlID+`/copies/3/`); got != 3 {
+		t.Errorf("copy 3 review = %d raw-scan <img>, want 3", got)
+	}
+}
+
+// reviewBody helper: render the review page for one copy and return
+// the response body. Keeps TestReviewPageRendersAllCapturedPages
+// readable — three copies means three requests.
+func reviewBody(t *testing.T, f *controlsFixture, controlID string, copyNumber int) string {
+	t.Helper()
+	req := f.authedRequest(t, http.MethodGet,
+		fmt.Sprintf("/controls/%s/copies/%d/review", controlID, copyNumber), nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", fmt.Sprintf("%d", copyNumber))
+	rec := httptest.NewRecorder()
+	f.handler.Review(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("copy %d review status = %d\nbody: %s", copyNumber, rec.Code, rec.Body.String())
+	}
+	return rec.Body.String()
 }
 
 // TestAnnotatedPDFServesTheRecordedFile: the row is the authority — the

@@ -61,13 +61,13 @@ rollback died on it, issue #193).
 ```
 GET  /health                                          → { ok, amc }
 POST /generate      { project, source, copies }       → { sujet, corrige, calage, copies }
-POST /analyse       { project, scan_pdf, source,      → { pages, scoring, copies, needs_review }
+POST /analyse       { project, scan_pdf, source,      → { pages, scoring, copies, needs_review, pages_per_copy }
                       [ticked], [unsure] }
                     ⏱ MINUTES-CLASS — background job only, see below.
                     ticked/unsure (issue #197): the darkness verdicts AND
                     note run at the same ticked — marks, scores and any
                     downstream annotated PDF agree on one threshold.
-POST /reanalyse     { project, [ticked], [unsure] }    → { pages, scoring, copies, needs_review }
+POST /reanalyse     { project, [ticked], [unsure] }    → { pages, scoring, copies, needs_review, pages_per_copy }
                     re-runs note at the new ticked, so the scores follow
                     the marks (issue #197).
 POST /associate     { project, roster, code, key }    → { associations, refused_codes }
@@ -286,6 +286,20 @@ per question). Both are optional: an empty `alternatives` or `position:
 0` means the analyzer has no layout data, and callers fall back to bank
 order. The full shape stays in the module docstring, which is the
 schema-of-record.
+
+**The report says which physical pages of each copy the engine captured.**
+Top-level `pages_per_copy` maps copy number (as a decimal string; the
+server parses to int) to the ascending 1-based list of pages AMC
+accepted for that copy — `{"9": [1, 2], "10": [1, 2], "12": [1]}` says
+copy 12 lost page 2 at the scanner. The review page's raw-scan fallback
+(`apps/server`, issue #190) iterates this list to render one `<img>`
+per captured page: before #243 it only asked for page 1 and any
+two-page copy lost half its answers to the professor. The engine is the
+source of truth — a copy whose page 2 was scanned but rejected by AMC's
+page-recognition does not appear here and does not get an `<img>`.
+Optional: a report without the field, or a copy missing from the map,
+means the analyzer predates #243; callers substitute `[1]` per copy so
+the raw-scan fallback keeps its pre-#243 single-page render.
 
 **The report says which threshold those scores were computed at.** AMC's `note`
 scores at its own `--seuil` while `--ticked` is ours and tunable, so a CLI

@@ -102,7 +102,14 @@
           })();
         </script>
       {{ else }}
-        <p><img src="{{ .ImageURL }}" alt="Escaneo de la copia {{ .CopyNumber }}"></p>
+        {{/* Issue #243: one <img> per captured page. AMC is the source
+             of truth — a copy whose page 2 was scanned but rejected
+             does not appear here and does not get an <img>. Inside a
+             range, `.` is the current ReviewImage, so `$` reaches back
+             to the ReviewPage for CopyNumber. */}}
+        {{ range .Pages }}
+          <p><img src="{{ .URL }}" alt="Escaneo de la copia {{ $.CopyNumber }} — página {{ .Number }}"></p>
+        {{ end }}
       {{ end }}
     </section>
 

@@ -113,15 +113,28 @@ func upsertReading(ctx context.Context, tx *sql.Tx, controlID string, copyNumber
 	if c.RUT != "" {
 		rutRead = sql.NullString{String: c.RUT, Valid: true}
 	}
+	// #243: pages_json is the physical scan pages AMC captured for this
+	// copy. Persist verbatim from the report — the amcworker mapping
+	// substitutes [1] for a legacy worker that did not emit the field,
+	// so a nil c.Pages here means the caller bypassed the mapping and
+	// the JSON marshaller writes 'null'. That reads back as a nil
+	// Reading.Pages, which the handler renders as an empty "Escaneo"
+	// section — a loud tell rather than a silent [1] papering over
+	// what may be a real breakage upstream.
+	pagesJSON, err := json.Marshal(c.Pages)
+	if err != nil {
+		return 0, fmt.Errorf("controlstore.upsertReading: encode pages: %w", err)
+	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO reading (control_id, copy_number, rut_read, rut_status, copy_status, read_at)
-         VALUES (?, ?, ?, ?, ?, ?)
+		`INSERT INTO reading (control_id, copy_number, rut_read, rut_status, copy_status, read_at, pages_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (control_id, copy_number) DO UPDATE SET
              rut_read = excluded.rut_read,
              rut_status = excluded.rut_status,
              copy_status = excluded.copy_status,
-             read_at = excluded.read_at`,
-		controlID, copyNumber, rutRead, string(c.RUTStatus), string(c.Status), now.Unix(),
+             read_at = excluded.read_at,
+             pages_json = excluded.pages_json`,
+		controlID, copyNumber, rutRead, string(c.RUTStatus), string(c.Status), now.Unix(), string(pagesJSON),
 	); err != nil {
 		return 0, fmt.Errorf("controlstore.upsertReading: %s/%d: %w", controlID, copyNumber, err)
 	}
@@ -156,7 +169,7 @@ func (s *Store) MarkMissingAsNotPresent(ctx context.Context, controlID string, n
 // copy_number ascending, with overrides eagerly attached.
 func (s *Store) ReadingsByControl(ctx context.Context, controlID string) ([]controls.Reading, error) {
 	rows, err := s.db.QueryContext(ctx, `
-        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at
+        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json
         FROM reading
         WHERE control_id = ?
         ORDER BY copy_number ASC`, controlID)
@@ -186,7 +199,7 @@ func (s *Store) ReadingsByControl(ctx context.Context, controlID string) ([]cont
 // ErrReadingNotFound.
 func (s *Store) ReadingByCopy(ctx context.Context, controlID string, copyNumber int) (controls.Reading, error) {
 	row := s.db.QueryRowContext(ctx, `
-        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at
+        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json
         FROM reading
         WHERE control_id = ? AND copy_number = ?`, controlID, copyNumber)
 	r, err := scanReading(row)
@@ -419,8 +432,9 @@ func scanReading(row interface{ Scan(...any) error }) (controls.Reading, error) 
 		copyStatus      string
 		readAt          int64
 		lastEditedAtRaw sql.NullInt64
+		pagesJSON       string
 	)
-	if err := row.Scan(&r.ID, &r.ControlID, &r.CopyNumber, &rutRead, &rutStatus, &copyStatus, &readAt, &lastEditedAtRaw); err != nil {
+	if err := row.Scan(&r.ID, &r.ControlID, &r.CopyNumber, &rutRead, &rutStatus, &copyStatus, &readAt, &lastEditedAtRaw, &pagesJSON); err != nil {
 		return controls.Reading{}, err
 	}
 	r.RUTStatus = controls.RUTStatus(rutStatus)
@@ -433,6 +447,17 @@ func scanReading(row interface{ Scan(...any) error }) (controls.Reading, error) 
 	if lastEditedAtRaw.Valid {
 		t := time.Unix(lastEditedAtRaw.Int64, 0).UTC()
 		r.LastEditedAt = &t
+	}
+	// #243: pages_json is NOT NULL under migration 00011 and decodes to
+	// r.Pages. What the CALLER does with an empty list is not this
+	// layer's concern — the render path (buildReviewImages) and the
+	// wire boundary (amcworker.toDomain) each own their own contract
+	// for "nothing was said about pages", and scanReading returning nil
+	// stays honest to what the column holds.
+	if pagesJSON != "" {
+		if err := json.Unmarshal([]byte(pagesJSON), &r.Pages); err != nil {
+			return controls.Reading{}, fmt.Errorf("controlstore.scanReading: decode pages: %w", err)
+		}
 	}
 	return r, nil
 }
