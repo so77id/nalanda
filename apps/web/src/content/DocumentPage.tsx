@@ -59,7 +59,7 @@ function SequenceNav({ id }: { id: string }) {
  * not an edge in `FEATURE_EDGES` (`src/architecture.test.ts`). Handed down
  * by `app/` the same way `notFound` is.
  */
-export interface PresentableSectionsWrapperProps {
+interface PresentableSectionsWrapperProps {
   docId: string;
   title: string;
   configMode?: 'auto' | 'explicit';

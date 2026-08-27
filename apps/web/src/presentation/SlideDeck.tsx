@@ -97,13 +97,14 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   // rewritten to the canonical `?slide=<N>` form in the effect below so the
   // history holds ONE shape (ADR-0013) and a bookmark of the resolved URL
   // still resolves after slides are renumbered.
+  //
+  // One clamp on purpose: `findIndex` returns -1 for an unknown slug and the
+  // clamp resolves it to slide 1, matching the ?slide out-of-range tolerance
+  // in the same expression.
   const rawSection = searchParams.get('section');
-  const sectionIndex = rawSection !== null ? slides.findIndex((s) => s.slug === rawSection) : -1;
-  const initialIndex =
-    rawSection !== null
-      ? Math.max(sectionIndex, 0)
-      : Math.min(Math.max(requested - 1, 0), slides.length - 1);
-  const index = Math.min(Math.max(initialIndex, 0), slides.length - 1);
+  const preferred =
+    rawSection !== null ? slides.findIndex((s) => s.slug === rawSection) : requested - 1;
+  const index = Math.min(Math.max(preferred, 0), slides.length - 1);
   const slide = slides[index]!;
 
   useEffect(() => {
