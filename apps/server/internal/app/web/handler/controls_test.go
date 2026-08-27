@@ -674,6 +674,30 @@ func TestListRendersEveryControl(t *testing.T) {
 	}
 }
 
+// Issue #254: the "Recargar banco" button moved from the navbar to the
+// /controls index — refreshing the bank is what precedes creating a control,
+// so the button lives where the professor actually reaches for it.
+func TestListCarriesTheBankRefreshFormWithItsCSRFToken(t *testing.T) {
+	f := newControlsFixture(t)
+
+	rec := httptest.NewRecorder()
+	f.handler.List(rec, f.authedRequest(t, http.MethodGet, handler.ControlsPath, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("List status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		`action="/admin/bank/refresh"`,
+		`method="post"`,
+		`name="csrf_token"`,
+		`Recargar banco`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("list body missing %q\n---\n%s", want, body)
+		}
+	}
+}
+
 func TestRootRedirectsToControls(t *testing.T) {
 	f := newControlsFixture(t)
 	rec := httptest.NewRecorder()

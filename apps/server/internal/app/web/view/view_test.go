@@ -64,6 +64,27 @@ func TestTheLayoutRendersTheBarForASignedInProfessor(t *testing.T) {
 	}
 }
 
+// Issue #254: the "Recargar banco" button was in the navbar; the WP moves it
+// to /controls (its natural home — refreshing the bank is what precedes creating
+// a control). The layout must no longer carry the form.
+func TestTheLayoutDoesNotCarryTheBankRefreshForm(t *testing.T) {
+	body := renderLogin(t, view.LoginPage{
+		Page: view.Page{
+			Professor: &auth.User{Email: "profesora@example.com"},
+			CSRFToken: "csrf-here",
+		},
+	})
+
+	for _, unwanted := range []string{
+		`action="/admin/bank/refresh"`,
+		`Recargar banco`,
+	} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("layout carries %q — the bank-refresh form belongs on /controls now (issue #254)\n---\n%s", unwanted, body)
+		}
+	}
+}
+
 // A page rendered for an anonymous visitor does NOT carry the bar: nobody is
 // signed in, and a menu naming "" as the professor would be a menu the login
 // page ships with no owner.
