@@ -13,6 +13,7 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/static"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpjson"
 )
@@ -94,6 +95,26 @@ func routes(deps Deps) []Route {
 			Public:  true,
 			Why: "the container healthcheck is the binary itself and carries no cookie, " +
 				"and CI probes the same path; behind the gate it would build, start and be unhealthy forever",
+		},
+		{
+			// The URL prefix is spelled out here rather than lifted to a
+			// shared constant: this router is the one place that decides the
+			// URL space (paths[] guards depend on it), and the review.html
+			// template writes the two vendored-file URLs as string literals
+			// anyway — a Go-side constant would create a coupling the
+			// template does not verify (`Never let a comment claim what the
+			// suite does not verify`, apps/server/CLAUDE.md). The vendor
+			// README's §"How it is served" is the third copy of the URL and
+			// names this file; a rename touches all three.
+			Method: http.MethodGet, Path: "/static/",
+			Handler: http.StripPrefix("/static/", static.Handler()).ServeHTTP,
+			Public:  true,
+			Why: "vendored front-end assets (PDF.js today) — the review page loads pdf.mjs as an " +
+				"ES module AFTER the professor has signed in, so the happy path carries a session " +
+				"cookie. What Public defends is the stale-tab case: if the session expires while " +
+				"the tab is open, gating the module would 302-redirect the import to the login " +
+				"HTML the browser then refuses as JavaScript. Public keeps a stale tab's viewer " +
+				"failing loudly (missing PDF) instead of silently (module-type error). ADR-0047 §3",
 		},
 		{
 			Method: http.MethodGet, Path: handler.LoginPath,

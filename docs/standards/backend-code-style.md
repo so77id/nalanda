@@ -166,6 +166,16 @@ Environment variables only, read **once at boot** into a struct, through
   panic at boot.** That is the deliberate exception to §Errors: a typo becomes a
   failure an operator sees immediately instead of a 500 on the one page nobody
   visits.
+- **Inline `<script type="module">` content inside a template is OPAQUE to the
+  Go parser and to `httptest`** — the boot-time parse gate above catches Go
+  template syntax; the JavaScript in a `<script>` block is transparent text
+  to `html/template` and never runs in unit tests. A JS typo boots green and
+  fails in the browser. Every change to an inline block requires a
+  real-browser check (see `testing-strategy.md` §`apps/server`, "What this
+  level cannot see"); prefer moving non-trivial JS to a first-party `.mjs`
+  under `internal/app/web/static/` where the loader tests at least pin that
+  the file is served with a JS MIME type. Worked case:
+  `templates/pages/review.html`'s PDF.js bootstrap (#231, ADR-0047 §4).
 - **Every page sets the same security headers** (`view.setSecurityHeaders`):
   `no-store`, `nosniff`, `X-Frame-Options: DENY`, `frame-ancestors 'none'`,
   `Referrer-Policy: same-origin`. A page carrying a session's CSRF token must not

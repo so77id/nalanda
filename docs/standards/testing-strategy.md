@@ -287,6 +287,21 @@ did not exist when the compose file first referenced it (#149 S6), and only
 running the thing said so — which is why the pre-PR protocol ends in Docker
 rather than in `go test`.
 
+**What this level cannot see — inline browser scripts (added by #231).**
+Since #231 `internal/app/web/view/templates/pages/review.html` carries an
+inline `<script type="module">` that boots PDF.js. Go's `html/template`
+treats the script's body as opaque text, `httptest` never executes it,
+and every test in the suite pins DOM markers around it (`id="pdf-viewer"`,
+`data-pdf-url=`, canvas absence in the fallback case) but not the
+script's syntactic validity. A JS typo passes `go test -race -count=1`
+and fails only when a browser opens the page. Every change to a
+`<script type="module">` block under `templates/pages/` — or to a file
+it imports from `/static/vendor/…` — needs a real-browser check as
+part of its own pre-PR run. Worked case: #231 caught its own
+`getDocument()` argument shape mid-slice via a Playwright rig outside
+the tree; the tests said nothing until then. Same class as PAPER-CHECK
+above but scoped to the JS/browser edge.
+
 **A form-render test for an enum-valued input (radio or select) asserts the
 chosen value carries `checked` AND every other value does NOT, in the same
 test.** The pair kills two mutations at once — "both values render `checked`"

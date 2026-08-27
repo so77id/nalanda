@@ -10,8 +10,97 @@
     <section class="review-image">
       <h2>Escaneo</h2>
       {{ if .HasAnnotated }}
-        <p><embed src="{{ .AnnotatedURL }}#view=FitH&scrollbar=1" type="application/pdf" title="Copia {{ .CopyNumber }} corregida"></p>
+        <div id="pdf-viewer" data-pdf-url="{{ .AnnotatedURL }}"
+             aria-label="Copia {{ .CopyNumber }} corregida"
+             role="document">
+          <noscript><p>El visor necesita JavaScript. Usa el enlace de abajo.</p></noscript>
+        </div>
         <p><a href="{{ .AnnotatedURL }}">Abrir el PDF corregido en otra pestaña</a></p>
+        <script type="module">
+          // PDF.js 6.x — ES module + module worker, both served from
+          // /static/vendor/pdfjs/ (issue #231, ADR-0047). Rendering
+          // happens page by page into <canvas> children of #pdf-viewer,
+          // which keeps the browser-specific PDF viewer out of the loop
+          // — the reason the <embed> shipped in PR #227 paginated in
+          // Safari + stock Chrome but showed only page 1 in Brave.
+          //
+          // Inline pending a CSP tightening — extracting this block to a
+          // first-party .mjs under /static/js/ pairs with adding
+          // script-src 'self' + a nonce or hash; see docs/security-notes.md
+          // §"CSP posture on apps/server" for the review trigger.
+          import * as pdfjs from '/static/vendor/pdfjs/pdf.mjs';
+          pdfjs.GlobalWorkerOptions.workerSrc = '/static/vendor/pdfjs/pdf.worker.mjs';
+
+          const container = document.getElementById('pdf-viewer');
+          const url = container.dataset.pdfUrl;
+
+          // devicePixelRatio makes the canvas sharp on hi-dpi displays;
+          // 1.5 is the base scale — high enough to read hand-written marks
+          // in the annotated PDF at width:100%. Capped at 2× so a 4K/5K
+          // display does not multiply a 30-page copy's canvas memory by
+          // 9× or 16× for a visual gain no professor will read (COR-4).
+          const dpr = Math.min(2, Math.max(1, window.devicePixelRatio || 1));
+          const baseScale = 1.5;
+
+          // renderedAny lets the catch branch decide whether to WIPE the
+          // container (nothing rendered — show a message the noscript
+          // block would show too) or APPEND an error line under the pages
+          // that DID render (COR-1: a page-25-of-30 render failure must
+          // not delete the 24 pages the professor was reading through).
+          let renderedAny = false;
+          const showError = () => {
+            const p = document.createElement('p');
+            p.textContent = 'No se pudo cargar el PDF completo. Usa el enlace de abajo para abrirlo en otra pestaña.';
+            if (renderedAny) {
+              container.appendChild(p);
+            } else {
+              container.replaceChildren(p);
+            }
+          };
+
+          (async () => {
+            // getDocument returns a PDFDocumentLoadingTask; awaiting its
+            // .promise gives a PDFDocumentProxy. destroy() lives on the
+            // LOADING TASK, not on the proxy — the proxy has no such method.
+            // Keep both references so the finally block can release the
+            // document's transport (COR-4).
+            const loadingTask = pdfjs.getDocument({ url });
+            let pdf;
+            try {
+              pdf = await loadingTask.promise;
+              for (let n = 1; n <= pdf.numPages; n++) {
+                const page = await pdf.getPage(n);
+                const viewport = page.getViewport({ scale: baseScale * dpr });
+                const canvas = document.createElement('canvas');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                // CSS sizing keeps the container in charge of layout — the
+                // canvas backing store is at device pixels, the display
+                // size at CSS pixels.
+                canvas.style.width = '100%';
+                canvas.style.height = 'auto';
+                container.appendChild(canvas);
+                await page.render({
+                  canvasContext: canvas.getContext('2d'),
+                  viewport: viewport,
+                }).promise;
+                renderedAny = true;
+                // Release pdf.js's internal caches for this page; the
+                // canvas stays on-screen and continues to render (COR-4).
+                page.cleanup();
+              }
+            } catch (err) {
+              showError();
+              console.error('PDF.js render failed:', err);
+            } finally {
+              // Release the document's caches, whether the loop ran to
+              // completion or bailed mid-way. destroy() returns a promise
+              // pdf.js resolves once the worker cleans up; not awaited so
+              // the DOM does not sit blocked on it.
+              loadingTask.destroy();
+            }
+          })();
+        </script>
       {{ else }}
         <p><img src="{{ .ImageURL }}" alt="Escaneo de la copia {{ .CopyNumber }}"></p>
       {{ end }}

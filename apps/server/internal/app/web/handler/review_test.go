@@ -12,6 +12,14 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 )
 
+// pdfViewerMarker is the DOM marker the review template writes when the
+// annotated-PDF viewer is present (issue #231). Extracted so the positive
+// case AND the anti-cases in this file (plus scans_test.go) all read from
+// one string — a rename must update ONE symbol, and the anti-cases cannot
+// silently drift into vacuous checks the way the pre-#231 `<embed>` anti-
+// checks did after the template stopped writing that marker.
+const pdfViewerMarker = `id="pdf-viewer"`
+
 func TestReviewPageRendersEditableFormForACopy(t *testing.T) {
 	f := newControlsFixture(t)
 	controlID := f.createControl(t, "Control review", 2)
@@ -48,11 +56,14 @@ func TestReviewPageRendersEditableFormForACopy(t *testing.T) {
 		`type="radio"`,    // simple question
 		`type="checkbox"`, // multiple question
 		"Marcar en blanco",
-		// Issue #190: the copy was clean, so the upload annotated it and the
-		// page shows the corrected PDF, not the raw scan. The viewer is an
-		// <embed> so the browser's native PDF UI can paginate to every page
-		// (an <iframe> gated by a fixed height cut it to page 1 in Safari).
-		`<embed`,
+		// Issue #231: the corrected PDF renders through PDF.js into a
+		// container the template owns. The div carries the PDF URL in a
+		// data attribute so the inline module script can find it without
+		// parsing HTML — a browser's native <embed> viewer had different
+		// pagination behaviour per browser (Brave rendered page 1 only,
+		// which is what pushed this off the <embed> shipped in #227).
+		pdfViewerMarker,
+		`data-pdf-url="`,
 		"annotated.pdf",
 	} {
 		if !strings.Contains(body, want) {
@@ -63,7 +74,7 @@ func TestReviewPageRendersEditableFormForACopy(t *testing.T) {
 
 // TestReviewPageFallsBackToRawScanWithoutAnnotated pins the fallback of
 // issue #190: a copy that was never annotated (needs_review, waiting for
-// the professor) shows the raw scan image, not the PDF <embed>.
+// the professor) shows the raw scan image, not the PDF viewer.
 func TestReviewPageFallsBackToRawScanWithoutAnnotated(t *testing.T) {
 	f := newControlsFixture(t)
 	controlID := f.createControl(t, "Control fallback", 1)
@@ -92,8 +103,8 @@ func TestReviewPageFallsBackToRawScanWithoutAnnotated(t *testing.T) {
 		t.Fatalf("status = %d\nbody: %s", rec.Code, rec.Body.String())
 	}
 	body := rec.Body.String()
-	if strings.Contains(body, "<embed") {
-		t.Errorf("review page shows a PDF <embed> for a copy with no annotated PDF\n%s", body)
+	if strings.Contains(body, pdfViewerMarker) {
+		t.Errorf("review page shows the PDF viewer for a copy with no annotated PDF\n%s", body)
 	}
 	if !strings.Contains(body, `<img src="/controls/`+controlID+`/copies/1/page/1"`) {
 		t.Errorf("review page missing the raw scan image\n%s", body)
@@ -361,7 +372,7 @@ func TestAnnotatedPDFRefusesARecordPointingOutsideTheWorkDir(t *testing.T) {
 }
 
 // The flag gates the READ too, not only the write: rows produced while
-// the flow was on must not keep rendering the PDF <embed> after the operator
+// the flow was on must not keep rendering the PDF viewer after the operator
 // flips it off — the escape hatch exists precisely for the scenario where
 // the surviving rows are the stale or broken ones (issue #190 review, F5).
 func TestAnnotateDisabledHidesRowsProducedWhileItWasOn(t *testing.T) {
@@ -388,8 +399,8 @@ func TestAnnotateDisabledHidesRowsProducedWhileItWasOn(t *testing.T) {
 		t.Fatalf("status = %d", rec.Code)
 	}
 	body := rec.Body.String()
-	if strings.Contains(body, "<embed") {
-		t.Errorf("review page shows the PDF <embed> with the flow disabled, stale row or not\n%s", body)
+	if strings.Contains(body, pdfViewerMarker) {
+		t.Errorf("review page shows the PDF viewer with the flow disabled, stale row or not\n%s", body)
 	}
 	if !strings.Contains(body, `<img src="/controls/`+controlID+`/copies/1/page/1"`) {
 		t.Errorf("review page must serve the raw scan with the flow disabled\n%s", body)

@@ -211,6 +211,29 @@ func TestTheLoginRoutesAreMountedAndOpen(t *testing.T) {
 	}
 }
 
+// The /static/ subtree is mounted, reachable without a cookie, and its
+// StripPrefix is wired so that a request to `/static/vendor/pdfjs/pdf.mjs`
+// resolves to the embedded pdf.mjs — not to a 404. Asserted end-to-end
+// through web.Router (not the raw static.Handler) because the interesting
+// invariant is what a browser actually reaches; the static package's own
+// tests exercise the handler in isolation. Issue #231.
+func TestTheStaticSubtreeServesPDFJSThroughTheStripPrefix(t *testing.T) {
+	router := web.Router(deps(t, reachable))
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/static/vendor/pdfjs/pdf.mjs", nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /static/vendor/pdfjs/pdf.mjs = %d, want 200 — the router's mount is broken", rec.Code)
+	}
+	if ct := rec.Header().Get("Content-Type"); !strings.HasPrefix(ct, "text/javascript") {
+		t.Errorf("Content-Type = %q, want text/javascript — an ES-module import from the review page refuses a wrong MIME", ct)
+	}
+	if got := rec.Body.Len(); got < 100_000 {
+		t.Errorf("body = %d bytes, want ~830 KB — StripPrefix may be dropping too much of the path", got)
+	}
+}
+
 // /health carries no cookie — the container healthcheck is the binary itself and
 // CI probes the same path — so a gate in front of it produces a container that
 // builds, starts, and is unhealthy forever. Asserted here because the mistake is

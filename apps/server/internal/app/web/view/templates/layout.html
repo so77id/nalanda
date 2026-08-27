@@ -118,15 +118,24 @@
          a max-width the browser lays them out at natural size and the
          sheet overflows every viewport. */
       .review-image img { max-width: 100%; height: auto; }
-      /* The corrected PDF (issue #190) renders in the browser's own viewer
-         through an <embed>; a fixed height keeps the review form's left
-         column from collapsing to the viewer's default 150px sliver, and
-         letting the viewer own its scroll is what lets it show every page
-         (an <iframe> gated to 70vh cut it to the first page in Safari). */
-      .review-image embed {
-        width: 100%;
-        height: 85vh;
+      /* The corrected PDF (issue #190) renders through PDF.js into a
+         container the template owns (issue #231). Each page becomes a
+         <canvas> child stacked vertically, and the container owns the
+         scroll — 85vh is what keeps the review form's left column tall
+         enough to show more than the sliver a browser's default 150px
+         <embed> box collapsed to, while leaving the form on the right
+         where it is. */
+      .review-image #pdf-viewer {
+        max-height: 85vh;
+        overflow-y: auto;
         border: 1px solid var(--border, #ddd);
+        background: var(--surface-2, #f5f5f5);
+      }
+      .review-image #pdf-viewer canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        margin-block-end: 0.5rem;
       }
 
       h1 { font-size: 1.5rem; margin-block: 0 0.5rem; }
