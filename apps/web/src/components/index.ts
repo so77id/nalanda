@@ -13,6 +13,11 @@ export { LazyPredictOutput } from './interactive/lazyPredictOutput';
 // Same rule, same two routes as PredictOutput: <Benchmark> wraps
 // LazyCodeEditor and drives the runtime through `useLoadedRuntime` (ADR-0044).
 export { LazyBenchmark } from './interactive/lazyBenchmark';
+// Lazy: composes <CodeStepper> (CodeMirror + java grammar) and lucide icons
+// for the playback controls. Registering the real one here would put
+// CodeMirror in the entry chunk of every reader (ADR-0049). Guarded by
+// `src/architecture.test.ts` (per-name `callstack`).
+export { LazyCallStack } from './interactive/lazyCallStack';
 // Lazy for pattern consistency and for the CodeMirror-gutter future
 // extension the ADR anticipates (ADR-0045).
 export { LazyComplexityCounter } from './interactive/lazyComplexityCounter';

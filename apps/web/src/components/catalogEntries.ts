@@ -10,6 +10,7 @@
 import type { CatalogEntry } from '../lib/catalogEntry';
 
 import { benchmarkCatalogEntry } from './interactive/Benchmark.catalog';
+import { callStackCatalogEntry } from './interactive/CallStack.catalog';
 import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { complexityCounterCatalogEntry } from './interactive/ComplexityCounter.catalog';
 import { complexityExerciseCatalogEntry } from './interactive/ComplexityExercise.catalog';
@@ -56,6 +57,7 @@ export const catalogEntries: CatalogEntry[] = [
   questionCatalogEntry,
   explanationCatalogEntry,
   recursionTreeCatalogEntry,
+  callStackCatalogEntry,
   stepShowCatalogEntry,
   stepCatalogEntry,
   memoryVisualCatalogEntry,

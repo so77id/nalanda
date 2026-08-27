@@ -2,6 +2,7 @@ import {
   Explanation,
   Figure,
   LazyBenchmark,
+  LazyCallStack,
   LazyCodeEditor,
   LazyComplexityCounter,
   LazyComplexityExercise,
@@ -110,6 +111,11 @@ export const mdxComponents = {
   // alternative and buys nothing scoped to one component). No CodeMirror, no
   // runtime seam: the eager-graph walk in architecture.test.ts stays happy.
   RecursionTree,
+  // Lazy: composes <CodeStepper> (CodeMirror + java grammar) and lucide
+  // icons for its controls. Registering the real one here would put
+  // CodeMirror in the entry chunk of every reader. Guarded by
+  // architecture.test.ts. ADR-0049.
+  CallStack: LazyCallStack,
   // The lazy wrapper, not the widget itself: `<StepShow>` mounts a
   // `<CodeStepper>` that uses CodeMirror + `useGrammar` for the same syntax
   // highlighting every other `java` fence gets on the site. Registering the
