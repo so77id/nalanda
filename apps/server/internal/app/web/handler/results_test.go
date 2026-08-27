@@ -132,6 +132,10 @@ func uploadOnce(t *testing.T, f *controlsFixture, controlID string) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("upload status = %d, want 303", rec.Code)
 	}
+	// Issue #249: /scans now enqueues an analyse job. Wait for the
+	// runner to finish it so callers see the readings the sync path
+	// used to leave behind directly.
+	f.waitLatestJobTerminal(t, controlID)
 }
 
 func getDetail(t *testing.T, f *controlsFixture, controlID string) string {

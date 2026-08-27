@@ -143,6 +143,7 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 	jstore := jobstore.New(db)
 	runner := jobs.NewRunner(jstore, jobs.Handlers{
 		jobs.KindReanalyse: controls.NewReanalyseHandler(svc),
+		jobs.KindAnalyse:   controls.NewAnalyseHandler(svc),
 	}, log, time.Now)
 	// Start the runner in the background so the async Submit path in
 	// ReanalyzeScans reaches its handler. Cleanup cancels the context

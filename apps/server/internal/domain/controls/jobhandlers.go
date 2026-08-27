@@ -27,6 +27,17 @@ type ReanalysePayload struct {
 	Unsure float64 `json:"unsure"`
 }
 
+// AnalysePayload is what the /scans handler serialises before Submit
+// (issue #249, S4). BatchName is the name of the uploaded PDF the
+// runner points AMC at; Ticked/Unsure are the thresholds the reader
+// runs at. The HTTP handler wrote the file to disk synchronously
+// before enqueuing — SaveUploadedBatch returns these three values.
+type AnalysePayload struct {
+	BatchName string  `json:"batch_name"`
+	Ticked    float64 `json:"ticked"`
+	Unsure    float64 `json:"unsure"`
+}
+
 // NewReanalyseHandler returns the jobs.Handler for KindReanalyse.
 // controlID comes from the job row; payload is the JSON-marshalled
 // ReanalysePayload the HTTP handler produced.
@@ -43,6 +54,28 @@ func NewReanalyseHandler(svc *Service) jobs.Handler {
 			}
 		}
 		if _, err := svc.Reanalyze(ctx, controlID, p.Ticked, p.Unsure); err != nil {
+			return failureFromAnalyzeError(err)
+		}
+		return nil
+	}
+}
+
+// NewAnalyseHandler returns the jobs.Handler for KindAnalyse (issue
+// #249, S4). controlID comes from the job row; payload is the
+// JSON-marshalled AnalysePayload the HTTP handler produced.
+func NewAnalyseHandler(svc *Service) jobs.Handler {
+	if svc == nil {
+		panic("controls.NewAnalyseHandler: no service")
+	}
+	return func(ctx context.Context, controlID string, raw []byte) error {
+		var p AnalysePayload
+		if err := json.Unmarshal(raw, &p); err != nil {
+			return &jobs.Failure{
+				Message: "no se pudo leer el trabajo de análisis",
+				Detail:  fmt.Sprintf("unmarshal payload: %v", err),
+			}
+		}
+		if _, err := svc.AnalyzeBatch(ctx, controlID, p.BatchName, p.Ticked, p.Unsure); err != nil {
 			return failureFromAnalyzeError(err)
 		}
 		return nil

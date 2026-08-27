@@ -17,8 +17,7 @@
 --
 -- error is the short one-line message the banner renders (typically
 -- AnalyzerRefusedError.Message); detail carries the long context for
--- future debugging (AnalyzerRefusedError.Detail — the same distinction the
--- flash cookie already draws in refusedFlash, scans.go). Same
+-- future debugging (AnalyzerRefusedError.Detail). Same
 -- shape-of-two-fields as the wrapped error the amcworker client returns.
 
 -- +goose Up

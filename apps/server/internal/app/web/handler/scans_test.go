@@ -111,6 +111,16 @@ func TestUploadScanCallsAnalyzerAndFlashesSuccess(t *testing.T) {
 	if got := rec.Header().Get("Location"); got != "/controls/"+controlID {
 		t.Errorf("Location = %q", got)
 	}
+	// The uploaded PDF landed on disk BEFORE the runner picks up —
+	// SaveUploadedBatch is sync.
+	uploads := filepath.Join(f.workDir, "controls", controlID, "uploads")
+	entries, _ := os.ReadDir(uploads)
+	if len(entries) != 1 || entries[0].Name() != "batch-1.pdf" {
+		t.Errorf("uploads dir = %v", entries)
+	}
+	// Wait for the analyse job to complete before asserting the async
+	// side effects (analyze + annotate).
+	f.waitLatestJobTerminal(t, controlID)
 	if count := f.fake.AnalyzeCallCount(); count != 1 {
 		t.Errorf("AnalyzeCallCount = %d, want 1", count)
 	}
@@ -118,13 +128,6 @@ func TestUploadScanCallsAnalyzerAndFlashesSuccess(t *testing.T) {
 	if !strings.HasPrefix(last.Project, "controls/") {
 		t.Errorf("Analyze project = %q, want prefix controls/", last.Project)
 	}
-	// The uploaded PDF landed on disk.
-	uploads := filepath.Join(f.workDir, "controls", controlID, "uploads")
-	entries, _ := os.ReadDir(uploads)
-	if len(entries) != 1 || entries[0].Name() != "batch-1.pdf" {
-		t.Errorf("uploads dir = %v", entries)
-	}
-
 	// Issue #190, ruta A: the one clean copy got its annotated PDF without
 	// any human touching the queue.
 	if count := f.fake.AnnotateCallCount(); count != 1 {
@@ -178,6 +181,7 @@ func TestUploadScanAnnotatesEveryCleanCopy(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303", rec.Code)
 	}
+	f.waitLatestJobTerminal(t, controlID)
 
 	if count := f.fake.AnnotateCallCount(); count != 2 {
 		t.Fatalf("AnnotateCallCount = %d, want 2 (copies 1 and 2 are ok)", count)
@@ -358,6 +362,7 @@ func TestUploadScanWithExplicitThresholds(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d\nbody: %s", rec.Code, rec.Body.String())
 	}
+	f.waitLatestJobTerminal(t, controlID)
 
 	last, _ := f.fake.LastAnalyzeCall()
 	if last.Ticked != 0.25 || last.Unsure != 0.10 {
@@ -454,14 +459,16 @@ func TestReanalyzeRefusesAnInvertedBand(t *testing.T) {
 	}
 }
 
-// Issue #210: when the worker refuses an upload with a detail, the flash
-// includes the first non-empty line of that detail so the professor sees
-// what the reader actually said without an SSH round trip. The hint about
-// print/scan borders covers the paper-size class from the 2026-08-19
-// incident without pretending to name a cause.
-func TestUploadScanRefusedFlashCarriesFirstLineOfDetail(t *testing.T) {
+// Since issue #249 the analyse path is async: the sync HTTP handler
+// only saves the batch to disk, and the worker call happens in the
+// runner. A refusal from the worker lands on the job row's error/detail
+// columns instead of the flash — the banner surfaces the short message,
+// the detail column holds the long stderr excerpt for a future debug
+// view. Same distinction refusedFlash used to draw between banner and
+// detail; the flash/hint copy no longer applies.
+func TestUploadScanRefusalRecordsMessageAndDetailOnTheJobRow(t *testing.T) {
 	f := newControlsFixture(t)
-	controlID := f.createControl(t, "Control 210 upload with detail", 1)
+	controlID := f.createControl(t, "Control 249 upload refusal detail", 1)
 	f.fake.AnalyzeErr = &controls.AnalyzerRefusedError{
 		Status: 400, Message: "scan not recognized",
 		Detail: "ERR: /work/controls/x/scans/0001.pdf scan not recognized\nERR: /work/controls/x/scans/0002.pdf scan not recognized",
@@ -476,35 +483,37 @@ func TestUploadScanRefusedFlashCarriesFirstLineOfDetail(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	f.handler.UploadScan(rec, req)
-
 	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("status = %d, want 303 (flash + redirect back)", rec.Code)
+		t.Fatalf("status = %d, want 303", rec.Code)
 	}
-	flash := readFlash(t, rec)
-	if !strings.Contains(flash, "rechazó el escaneo") {
-		t.Errorf("flash %q does not name the refusal", flash)
+	job := f.waitLatestJobTerminal(t, controlID)
+	if job.Status != jobs.StatusFailed {
+		t.Fatalf("job status = %q, want failed", job.Status)
 	}
-	if !strings.Contains(flash, "ERR: /work/controls/x/scans/0001.pdf scan not recognized") {
-		t.Errorf("flash %q does not include the worker's first stderr line", flash)
+	if !strings.Contains(job.Error, "scan not recognized") {
+		t.Errorf("job.Error = %q, want the AnalyzerRefusedError.Message", job.Error)
 	}
-	if strings.Contains(flash, "0002.pdf") {
-		t.Errorf("flash %q leaks a second line — the flash must show only the first", flash)
+	if !strings.Contains(job.Detail, "0001.pdf scan not recognized") {
+		t.Errorf("job.Detail = %q, want the AMC stderr excerpt", job.Detail)
 	}
-	if !strings.Contains(flash, "impresión y el escaneo") {
-		t.Errorf("flash %q dropped the print/scan hint", flash)
+	// The job row keeps the full detail (multi-line): the flash cookie's
+	// old 500-char truncation was a payload constraint on the cookie,
+	// not on the DB.
+	if !strings.Contains(job.Detail, "0002.pdf") {
+		t.Errorf("job.Detail = %q, want the full multi-line context (not truncated)", job.Detail)
 	}
 }
 
-// When the worker refuses without carrying a detail (an old worker, a
-// non-envelope 4xx), the flash falls back to the fixed hint. The professor
-// still knows what to do next; the log carries whatever context there is.
-func TestUploadScanRefusedFlashFallsBackWhenDetailEmpty(t *testing.T) {
+// A refusal that carries no detail still records the short message —
+// callers that composed a hint on the sync flash path can no longer
+// piggy-back on the same channel; the hint is now in the flash's
+// "Análisis encolado — refresca…" copy instead.
+func TestUploadScanRefusalWithoutDetailStillRecordsTheShortMessage(t *testing.T) {
 	f := newControlsFixture(t)
-	controlID := f.createControl(t, "Control 210 upload no detail", 1)
+	controlID := f.createControl(t, "Control 249 upload refusal no detail", 1)
 	f.fake.AnalyzeErr = &controls.AnalyzerRefusedError{
 		Status: 400, Message: "bad request",
 	}
-
 	body, ct := buildScanUpload(t, "batch.pdf", "application/pdf", []byte("%PDF-fake"))
 	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/scans", nil)
 	req.Body = io.NopCloser(body)
@@ -514,51 +523,18 @@ func TestUploadScanRefusedFlashFallsBackWhenDetailEmpty(t *testing.T) {
 
 	rec := httptest.NewRecorder()
 	f.handler.UploadScan(rec, req)
-
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303", rec.Code)
 	}
-	flash := readFlash(t, rec)
-	if !strings.Contains(flash, "rechazó el escaneo") {
-		t.Errorf("flash %q does not name the refusal", flash)
+	job := f.waitLatestJobTerminal(t, controlID)
+	if job.Status != jobs.StatusFailed {
+		t.Fatalf("job status = %q, want failed", job.Status)
 	}
-	if strings.Contains(flash, "Detalle del motor") {
-		t.Errorf("flash %q renders a Detalle clause with no detail available", flash)
+	if !strings.Contains(job.Error, "bad request") {
+		t.Errorf("job.Error = %q, want the short refusal message", job.Error)
 	}
-	if !strings.Contains(flash, "impresión y el escaneo") {
-		t.Errorf("flash %q dropped the print/scan hint", flash)
-	}
-}
-
-// A refusal whose Detail is only blank lines behaves like an empty detail.
-// The truncation of a very long line adds an ellipsis at the 500-char cap.
-func TestUploadScanRefusedFlashSkipsBlankLinesAndTruncatesLongOnes(t *testing.T) {
-	f := newControlsFixture(t)
-	controlID := f.createControl(t, "Control 210 truncation", 1)
-	long := strings.Repeat("A", 800)
-	f.fake.AnalyzeErr = &controls.AnalyzerRefusedError{
-		Status: 400,
-		Detail: "\n\n   \n" + long,
-	}
-	body, ct := buildScanUpload(t, "batch.pdf", "application/pdf", []byte("%PDF-fake"))
-	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/scans", nil)
-	req.Body = io.NopCloser(body)
-	req.Header.Set("Content-Type", ct)
-	req.ContentLength = int64(body.Len())
-	req.SetPathValue("id", controlID)
-	rec := httptest.NewRecorder()
-	f.handler.UploadScan(rec, req)
-
-	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("status = %d, want 303", rec.Code)
-	}
-	flash := readFlash(t, rec)
-	// 500 As followed by an ellipsis rune, then the rest of the message.
-	if !strings.Contains(flash, strings.Repeat("A", 500)+"…") {
-		t.Errorf("flash %q did not truncate the long line at 500 chars with an ellipsis", flash)
-	}
-	if strings.Contains(flash, strings.Repeat("A", 501)) {
-		t.Errorf("flash %q kept more than 500 As — truncation did not apply", flash)
+	if job.Detail != "" {
+		t.Errorf("job.Detail = %q, want empty when the refusal carries no detail", job.Detail)
 	}
 }
 

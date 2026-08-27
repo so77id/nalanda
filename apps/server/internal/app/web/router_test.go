@@ -108,6 +108,7 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			jstore := jobstore.New(db)
 			runner := jobs.NewRunner(jstore, jobs.Handlers{
 				jobs.KindReanalyse: controls.NewReanalyseHandler(svc),
+				jobs.KindAnalyse:   controls.NewAnalyseHandler(svc),
 			}, logger, time.Now)
 			return handler.NewControls(handler.Controls{
 				Service:            svc,
