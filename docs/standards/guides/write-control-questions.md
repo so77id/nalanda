@@ -310,20 +310,27 @@ the server translates each one to LaTeX before the printed sheet is compiled
   trap where a bare `"` before a vowel produced an unintended superscript
   glyph on paper.
 
-Nested emphasis works in one direction: an italic inside a bold
-(`**bold *italic* end**`) renders as `\textbf{bold \textit{italic} end}`
-because the pipeline runs bold first. The reverse order, bold inside italic
-(`*italic **bold** end*`), is undefined — bold consumes the `**` pair and
-italic does not see a matching pair on either side. Author-time: pick one
-kind of emphasis per span.
+Nested emphasis works in both directions when the inner marker sits with
+whitespace around it: `**bold *italic* end**` renders as
+`\textbf{bold \textit{italic} end}`, and `*italic **bold** end*` renders as
+`\textit{italic \textbf{bold} end}`. The one shape that misfires is
+contiguous nesting with no space around the inner marker
+(`*italic**bold**end*`): bold's word-boundary gate rejects the inner
+`**bold**` because it sits between two letters, and italic then sees no
+clean pair. Author-time: keep a space around inner emphasis, or pick one
+kind per span.
 
 **Two guarantees the pipeline pins**:
 
-- **Backticks are inviolable.** Anything the author wraps in `` `…` ``
-  reaches the sheet as monospace, literally. `` `**not bold**` ``,
-  `` `"María"` `` and `` `n*m*p` `` all print exactly as written inside
-  `\texttt{…}` — no bold, no guillemets, no italic bleeds into a code
-  fragment. Same rule MDX applies on-screen.
+- **Backticks quarantine their content from emphasis and quote transforms.**
+  Anything the author wraps in `` `…` `` reaches the sheet as monospace,
+  and no bold, italic or guillemet transform touches the payload —
+  `` `**not bold**` ``, `` `"María"` `` and `` `n*m*p` `` all print
+  exactly as written inside `\texttt{…}`. Same rule MDX applies on-screen.
+  (TeX-special escapes and the Unicode map still apply inside code, so
+  `` `70%` `` prints as `70%` and `` `Θ(n)` `` renders the Greek letter
+  correctly in monospace — the guarantee is scoped to the four MDX
+  emphasis markers.)
 - **`*` between word characters is arithmetic, not emphasis.** `n*m*p`,
   `O(a*b*c*d)`, `5*3*2` and `n**m` all print with their asterisks intact.
   An emphasis marker requires whitespace or punctuation on the OUTSIDE of
