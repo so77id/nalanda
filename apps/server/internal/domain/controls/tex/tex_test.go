@@ -883,6 +883,155 @@ func TestEmphasisPipelineHandlesMixedContentInOneQuestion(t *testing.T) {
 	}
 }
 
+// Issue #239 COR-1: an author-typed `*` between word characters is
+// multiplication (or any adjacency), NOT an italic marker. `n*m*p` must
+// survive verbatim. Same for the same shape wrapped in parentheses,
+// digits, and — since Miguel's imminent complexity-exercise batch is
+// exactly the authoring context — expressions like `O(a*b*c*d)` and
+// `5*3*2`. Pinned with `\B` on both outer sides of italicPattern
+// (regex asserts no word boundary at the outer `*` position, and since
+// `*` is itself non-word, a word char on the outside would create a
+// boundary and disqualify the match).
+func TestItalicDoesNotFireOnArithmeticAsterisks(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "arith", Document: "welcome", Anchor: "hola",
+				Type:      bank.TypeSimple,
+				Statement: "El costo es O(a*b*c*d) para n*m*p iteraciones y 5*3*2 elementos.",
+				Alternatives: []string{
+					"una vez",
+					"n*log(n) veces",
+					"depende",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	// The arithmetic must not become italic — the `*` runes stay literal
+	// asterisks on the printed sheet, which is how the author meant them.
+	for _, want := range []string{
+		"O(a*b*c*d) para n*m*p iteraciones y 5*3*2 elementos.",
+		`\wrongchoice{n*log(n) veces}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("arithmetic `*` was consumed by italic pattern: missing %q in output", want)
+		}
+	}
+	// And nothing in this question region should carry a stray \textit —
+	// there is no legitimate italic in the input.
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block")
+	}
+	if strings.Contains(out[qStart:qEnd], `\textit`) {
+		t.Errorf(`italic fired inside the arithmetic-only question: found \textit in the question block (issue #239 COR-1)`)
+	}
+}
+
+// The same gate must hold for boldPattern. `n**m**p` (Python-style
+// exponent, or an accidental double asterisk in a distractor) must not
+// become `n\textbf{m}p`. Same `\B` shape as italic.
+func TestBoldDoesNotFireOnDoubleAsteriskArithmetic(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "doubleast", Document: "welcome", Anchor: "hola",
+				Type:         bank.TypeSimple,
+				Statement:    "En Python n**m es la potencia; en Java 2**3 no compila.",
+				Alternatives: []string{"cierto", "falso"},
+				Correct:      []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	if !strings.Contains(out, "En Python n**m es la potencia; en Java 2**3 no compila.") {
+		t.Error("word-adjacent `**` was consumed by bold pattern: the arithmetic did not survive verbatim")
+	}
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block")
+	}
+	if strings.Contains(out[qStart:qEnd], `\textbf`) {
+		t.Errorf(`bold fired inside the arithmetic-only question: found \textbf in the question block (issue #239 COR-1)`)
+	}
+}
+
+// Issue #239 COR-2: content inside a backtick pair is CODE, and MDX
+// treats it as inviolable on-screen. The printed sheet must match — no
+// `*` becomes italic, no `"` becomes a guillemet, no `**` becomes bold
+// once the payload has entered its `\texttt{…}`. Live shipped case at
+// the time of this WP: buscar-con-equals in
+// `09-arrays-y-funciones.mdx` had alternatives like “ `.equals("María")` “
+// rendered as `\texttt{.equals(\og María\fg{})}` — «María» in monospace
+// on paper vs. the correct `.equals("María")` on screen.
+//
+// The fix extracts each backtick payload before the emphasis / quote
+// pipeline runs and restores it as `\texttt{escapeLatex(payload)}` at
+// the end.
+func TestCodeFragmentContentIsNotTouchedByEmphasisOrQuotes(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "javacode", Document: "welcome", Anchor: "hola",
+				Type: bank.TypeSimple,
+				// The exact shape that triggered the shipped bug.
+				Statement: "¿Cómo se compara `\"María\"` con otra cadena?",
+				Alternatives: []string{
+					"`.equals(\"María\")`",
+					"`== \"María\"`",
+					"`names == \"María\"`",
+					// And a code fragment whose payload contains
+					// authoring characters that used to bleed into it.
+					"`a*b*c` no aplica",
+					// A payload with `**` — must stay literal in
+					// monospace, not become bold.
+					"`**not bold**` tampoco",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	// Positive: the emphasis / quote pipeline did NOT run inside the
+	// backtick payloads. `"María"` stays as `"María"`; `a*b*c` stays as
+	// `a*b*c`; `**not bold**` stays as `**not bold**`.
+	for _, want := range []string{
+		`\texttt{"María"}`,
+		`\texttt{.equals("María")}`,
+		`\texttt{== "María"}`,
+		`\texttt{names == "María"}`,
+		`\texttt{a*b*c}`,
+		`\texttt{**not bold**}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("code payload was mutated by an emphasis or quote transform: missing %q in output (issue #239 COR-2)", want)
+		}
+	}
+	// Negative: no `\og` or `\fg{}` inside a `\texttt{…}`, no `\textit`
+	// or `\textbf` inside a `\texttt{…}`. Grep the question region for
+	// the pathological substrings the pre-fix pipeline emitted.
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block")
+	}
+	region := out[qStart:qEnd]
+	for _, unwant := range []string{
+		`\texttt{\og`,      // guillemet macro started inside \texttt
+		`\og María`,        // pre-fix bleed
+		`\texttt{a\textit`, // pre-fix italic bleed
+		`\texttt{\textbf`,  // pre-fix bold bleed
+	} {
+		if strings.Contains(region, unwant) {
+			t.Errorf("emphasis or quote transform bled into a code payload: found %q in the question block (issue #239 COR-2)", unwant)
+		}
+	}
+}
+
 // Issue #185: the generator branches on Input.DuplexPadding.
 //
 //   - true (historical): emits \AMCcleardoublepage inside \onecopy so each
