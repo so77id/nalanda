@@ -317,6 +317,20 @@ because the pipeline runs bold first. The reverse order, bold inside italic
 italic does not see a matching pair on either side. Author-time: pick one
 kind of emphasis per span.
 
+**Two guarantees the pipeline pins**:
+
+- **Backticks are inviolable.** Anything the author wraps in `` `…` ``
+  reaches the sheet as monospace, literally. `` `**not bold**` ``,
+  `` `"María"` `` and `` `n*m*p` `` all print exactly as written inside
+  `\texttt{…}` — no bold, no guillemets, no italic bleeds into a code
+  fragment. Same rule MDX applies on-screen.
+- **`*` between word characters is arithmetic, not emphasis.** `n*m*p`,
+  `O(a*b*c*d)`, `5*3*2` and `n**m` all print with their asterisks intact.
+  An emphasis marker requires whitespace or punctuation on the OUTSIDE of
+  each `*`; a `*` adjacent to a letter or digit is left alone. This lets
+  the complexity chapter carry `n*log(n)` in a distractor without an
+  emphasis transform corrupting the expression.
+
 Everything else that looks like a Markdown marker (headers, lists, links,
 tables) is NOT supported here — statements are single-paragraph by
 convention (see §"A good simple question"), and those constructs would be
