@@ -150,8 +150,8 @@ Traducción directa a Java:
   language="java"
   code={`class Factorial {
     static long factorial(int n) {
-        if (n == 0) return 1;         // caso base
-        return n * factorial(n - 1);  // paso recursivo
+        if (n == 0) return 1;         // base case
+        return n * factorial(n - 1);  // recursive step
     }
 
     public static void main(String[] args) {
@@ -238,9 +238,10 @@ Repasamos la receta con un problema propuesto:
 
 <Exercise title="Suma de los primeros N naturales">
 
-Escribe una función recursiva `sum` que reciba un entero $$N \geq 0$$ y
-devuelva la suma $$1 + 2 + 3 + \ldots + N$$. **No uses la fórmula
-$$N(N+1)/2$$**; el ejercicio es diseñar la recursión.
+El objetivo es implementar una función recursiva `sum` que reciba un
+entero $$N \geq 0$$ y devuelva la suma $$1 + 2 + 3 + \ldots + N$$. **No
+podemos usar la fórmula $$N(N+1)/2$$**; el ejercicio es diseñar la
+recursión.
 
 Guía de diseño (aplicamos la receta):
 
@@ -659,9 +660,9 @@ antes de recursar consultamos la tabla y solo bajamos si no está.
 
     static long fib(int n) {
         if (n < 2) return n;
-        if (done[n]) return memo[n];       // lee del cache: O(1)
+        if (done[n]) return memo[n];       // cache hit: O(1)
         long r = fib(n - 1) + fib(n - 2);
-        memo[n] = r;                        // guarda
+        memo[n] = r;                        // store
         done[n] = true;
         return r;
     }
@@ -709,8 +710,8 @@ Nueva recurrencia:
   mode="recursion"
   code={`static long fib(int n) {
     if (n < 2) return n;
-    if (done[n]) return memo[n];       // ← lee del cache: O(1)
-    long r = fib(n - 1) + fib(n - 2);   // ← una llamada real + una cacheada
+    if (done[n]) return memo[n];       // cache hit: O(1)
+    long r = fib(n - 1) + fib(n - 2);   // one real call + one cache hit
     memo[n] = r;
     done[n] = true;
     return r;
@@ -870,7 +871,7 @@ Aplicando la receta de diseño (caso base + paso recursivo):
   language="java"
   code={`class Hanoi {
     static void hanoi(int n, char from, char to, char aux) {
-        if (n == 0) return;                                       // caso base
+        if (n == 0) return;                                       // base case
         hanoi(n - 1, from, aux, to);                              // move N-1 to auxiliary
         System.out.println("Disc " + n + ": " + from + " -> " + to);
         hanoi(n - 1, aux, to, from);                              // move N-1 to destination
