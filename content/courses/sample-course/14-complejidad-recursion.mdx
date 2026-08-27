@@ -84,24 +84,31 @@ por lo técnico.
 
 <Slide title="Una función que se llama a sí misma">
 Una **recursión** es una función que, en su cuerpo, se invoca a sí misma
-sobre un problema **más chico**.
+sobre **una versión más pequeña del problema**.
 
-Ejemplo mínimo:
+Ejemplo — la suma de los primeros $$N$$ naturales, escrita
+recursivamente:
 
 ```java
-static long f(int n) {
-    if (n == 0) return 1;
-    return n * f(n - 1);
+static long sum(int n) {
+    if (n == 0) return 0;
+    return n + sum(n - 1);
 }
 ```
 
-La distinción clave con un `for` o `while`: en un ciclo la reducción del
-problema vive en el **cuerpo del loop** (`i++` o `i--`). En una recursión
-vive en la **llamada**: `f` no manipula `n`, sino que **llama a `f` con un
-argumento distinto**.
+Esta función devuelve $$1 + 2 + \ldots + N$$. Es la versión recursiva de
+la suma que normalmente escribiríamos con un `for`: en lugar de acumular
+en una variable a lo largo de un ciclo, cada llamada le pide a la
+siguiente que resuelva la suma hasta $$N-1$$, y le agrega su propio
+$$N$$.
 
-Esto abre una pregunta que un `for` nunca necesita responder: *¿basta con
-escribir la fórmula matemática para tener una recursión válida?*
+La distinción clave con un `for` o `while`: en un ciclo, la reducción
+del problema vive en el **cuerpo del loop** (`i++` o `i--`). En una
+recursión vive en la **llamada**: `sum` no manipula `n`, sino que
+**llama a `sum` con un argumento distinto**.
+
+Esto abre una pregunta que un `for` nunca necesita responder: *¿basta
+con escribir la fórmula matemática para tener una recursión válida?*
 </Slide>
 
 <Slide title="Dos partes obligatorias: caso base y paso recursivo">
@@ -110,19 +117,30 @@ Toda recursión bien diseñada tiene dos piezas:
 - **Caso base** — una condición conocida, **sin llamada recursiva**, que
   produce un resultado directamente. Es lo que garantiza que la
   recursión **termine**.
-- **Paso recursivo** — la llamada a sí misma con un problema
-  estrictamente **más chico**, que se combina con trabajo del paso para
+- **Paso recursivo** — la llamada a sí misma sobre una versión más
+  pequeña del problema, que se combina con trabajo del paso para
   producir el resultado.
 
-Y una tercera propiedad, implícita, hay que probar por inspección:
+Y una tercera propiedad, implícita, que hay que verificar por
+inspección:
 
 - **Convergencia** — el paso recursivo debe empujar hacia el caso base.
-  Si `f(n)` llama a `f(n + 1)`, o si `f(n)` llama a `f(n)`, la recursión
-  no termina nunca.
 
-**Regla del diseñador**: si no logramos convencernos, mirando el código,
-de que toda ejecución llega al caso base en un número finito de pasos, la
-recursión está mal planteada. Hay que cambiarla antes de correrla.
+**Cómo nos convencemos de que converge** (regla del diseñador, aplicable
+a cualquier recursión):
+
+1. **Identificar el argumento** con el que se llama recursivamente
+   (`n - 1`, `n / 2`, la lista sin su cabeza…).
+2. **Comprobar que es estrictamente menor** que el argumento de la
+   llamada actual, en la misma métrica que usa el caso base (un número,
+   el tamaño de la lista, la cantidad de nodos del árbol).
+3. **Comprobar que ese decrecer alcanza el caso base** en un número
+   finito de pasos, para todo input válido.
+
+Si alguno de los tres puntos no se cumple mirando el código — por
+ejemplo `sum(n)` que llama a `sum(n + 1)`, o `sum(n)` que se llama a sí
+mismo con `sum(n)` — la recursión no termina, y hay que cambiarla antes
+de correrla.
 </Slide>
 
 <Slide title="Clasificación de recursiones">
@@ -141,19 +159,27 @@ Las funciones recursivas se clasifican por tres ejes; conocerlos permite
   todavía hay trabajo después de que la llamada retorna. En Java, la
   distinción no cambia el costo teórico, pero afecta el uso de
   memoria del stack.
-
-Anticipo del análisis: recursiones **lineales** las resolvemos limpio a
-mano; recursiones **no lineales** son las que necesitan más cuidado, y
-son las que explotan en la segunda mitad de este capítulo.
 </Slide>
 
-<Slide title="Ejemplo canónico: factorial">
+<Slide title="Diseñando una función recursiva: factorial">
 El factorial matemático se define recursivamente:
 $$
 n! = \begin{cases} 1 & \text{si } n = 0 \\ n \cdot (n-1)! & \text{si } n > 0 \end{cases}
 $$
 
-Traducción directa a Java:
+**Identifiquemos las tres piezas del diseño en la definición** antes de
+escribir código:
+
+- **Caso base**: si $$n = 0$$, el resultado es $$1$$. Trabajo constante,
+  sin llamada.
+- **Paso recursivo**: $$n \cdot (n-1)!$$ — el resultado se apoya en el
+  factorial de un argumento más chico.
+- **Convergencia**: el argumento decrece de $$n$$ a $$n-1$$ en cada
+  llamada, así que baja de a $$1$$ y en $$n$$ pasos alcanza el caso
+  base. Para cualquier entero no negativo, termina.
+
+Con esas tres piezas identificadas, la traducción a Java es directa —
+una línea por pieza:
 
 <CodeEditor
   language="java"
@@ -170,18 +196,9 @@ Traducción directa a Java:
 `}
 />
 
-Identifiquemos las tres piezas del diseño:
-
-- **Caso base**: `if (n == 0) return 1;` — trabajo constante, sin llamada.
-- **Paso recursivo**: `factorial(n - 1)` — el argumento es estrictamente
-  más chico.
-- **Convergencia**: el argumento decrece de a 1 hasta llegar a 0. Si el
-  argumento inicial es un entero no negativo, siempre alcanza el caso
-  base.
-
 Es una recursión **lineal directa no final** (hay una multiplicación
-después de la llamada). Corremos `factorial(5)`: debería imprimir `120`.
-Ahora la pregunta: ¿cómo la ejecuta la JVM realmente?
+después de la llamada). Al correr `factorial(5)` debería imprimir
+`120`.
 </Slide>
 
 <Slide title="La memoria de la recursión: stack de llamadas">
