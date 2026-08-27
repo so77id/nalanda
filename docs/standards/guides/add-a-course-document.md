@@ -160,17 +160,11 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
 3. **Write prose in Markdown.** Headings h2–h4 get automatic slug anchors
    (deep-linkable). Code fences render book-style.
 
-   **How the prose reads is [`course-content-style.md`](course-content-style.md)**
-   — the voice of the course, sitting apart from the mechanics on this page.
-   Read it before writing any paragraph: formal first-person plural (_analicemos_,
-   _construimos_), neutral Spanish (no voseo, no argentinismos), book register
-   (no _fijate_ / _mirá_), and — the one that keeps drifting — no
-   cross-references between sections or slides of the same document. Titles
-   in the same file too: noun phrase with an optional `·` subtitle, never an
-   imperative or a question. Same shape as the split between
+   **How the prose reads — voice, register, titles, cross-reference discipline
+   — lives in [`course-content-style.md`](course-content-style.md).** Read it
+   before writing any paragraph. Same shape as the split between
    [`write-control-questions.md`](write-control-questions.md) and this page:
    mechanics here, wording there.
-
 
    **`h2` is also the section spine** (ADR-0021): every `h2` the page paints
    becomes an entry in the "En esta página" list — the rail from `2xl`, the
