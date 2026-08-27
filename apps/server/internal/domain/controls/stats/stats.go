@@ -86,11 +86,39 @@ type Global struct {
 	PctReprobacionGrave float64 // grades < ReprobacionGrave
 }
 
-// Histogram is filled in S2.
-type Histogram struct{}
+// Histogram bins the class's grades on 0.1 steps of the 1.0–7.0 scale
+// so the panel can render a fixed 61-column bar chart without having to
+// rescale between controls. MaxCount is the tallest column — a
+// convenience for the template so it can size bars without walking the
+// bins again.
+type Histogram struct {
+	Bins     []HistogramBin
+	MaxCount int
+}
 
-// Boxplot is filled in S2.
-type Boxplot struct{}
+// HistogramBin is one column of the histogram: the grade the column
+// stands for (1.0, 1.1, … 7.0) and how many readings landed on it.
+// Grades round to the same 0.1 the readings table renders — a reading
+// shown as "6.2" adds to the 6.2 bin, whatever its underlying float.
+type HistogramBin struct {
+	Grade float64
+	Count int
+}
+
+// Boxplot summarises the distribution as the five-number shape the
+// template renders inline. WhiskerLow/High are the extreme non-outlier
+// values inside the 1.5·IQR fences (Tukey); Outliers is every grade
+// outside those fences, sorted ascending. Empty (zero-valued) when N =
+// 0 — the caller then renders no boxplot at all rather than a fake
+// one at 0.0.
+type Boxplot struct {
+	Q1          float64
+	Median      float64
+	Q3          float64
+	WhiskerLow  float64
+	WhiskerHigh float64
+	Outliers    []float64
+}
 
 // QuestionStats is filled in S3–S4.
 type QuestionStats struct{}
@@ -151,7 +179,96 @@ func Compute(readings []controls.Reading, b *bank.Bank, questionsPerCopy int) St
 	g.PctExcelencia = pct(excel, g.N)
 	g.PctReprobacionGrave = pct(low, g.N)
 
-	return Statistics{Global: g}
+	return Statistics{
+		Global:    g,
+		Histogram: histogram(grades),
+		Boxplot:   boxplot(sorted),
+	}
+}
+
+// histogram allocates the fixed 61-column bar chart (1.0 through 7.0
+// inclusive by 0.1) and drops each grade into its rounded bin. A grade
+// is rounded to one decimal — the same precision the readings table
+// prints — so a reading shown as "6.2" adds to the 6.2 column.
+func histogram(grades []float64) Histogram {
+	if len(grades) == 0 {
+		return Histogram{}
+	}
+	const bins = 61
+	h := Histogram{Bins: make([]HistogramBin, bins)}
+	for i := range h.Bins {
+		h.Bins[i].Grade = 1.0 + 0.1*float64(i)
+	}
+	for _, g := range grades {
+		idx := int(math.Round((g - 1.0) * 10))
+		if idx < 0 {
+			idx = 0
+		}
+		if idx >= bins {
+			idx = bins - 1
+		}
+		h.Bins[idx].Count++
+		if h.Bins[idx].Count > h.MaxCount {
+			h.MaxCount = h.Bins[idx].Count
+		}
+	}
+	return h
+}
+
+// boxplot computes the five-number summary and Tukey's 1.5·IQR
+// outliers. `sorted` is already ascending. Q1 and Q3 use the
+// median-of-halves rule (Tukey hinges): on an even N the halves split
+// cleanly, on an odd N the true median is included in both halves.
+// Whiskers are the extremes inside the fences, not the fences
+// themselves — that is what makes the boxplot legible when nothing is
+// an outlier.
+func boxplot(sorted []float64) Boxplot {
+	if len(sorted) == 0 {
+		return Boxplot{}
+	}
+	var lower, upper []float64
+	n := len(sorted)
+	if n%2 == 0 {
+		lower = sorted[:n/2]
+		upper = sorted[n/2:]
+	} else {
+		lower = sorted[:n/2+1]
+		upper = sorted[n/2:]
+	}
+	b := Boxplot{
+		Q1:     median(lower),
+		Median: median(sorted),
+		Q3:     median(upper),
+	}
+	iqr := b.Q3 - b.Q1
+	fenceLow := b.Q1 - 1.5*iqr
+	fenceHigh := b.Q3 + 1.5*iqr
+	// Whiskers: min/max inside the fences. Outliers everything else.
+	b.WhiskerLow = math.Inf(+1)
+	b.WhiskerHigh = math.Inf(-1)
+	for _, v := range sorted {
+		if v < fenceLow || v > fenceHigh {
+			b.Outliers = append(b.Outliers, v)
+			continue
+		}
+		if v < b.WhiskerLow {
+			b.WhiskerLow = v
+		}
+		if v > b.WhiskerHigh {
+			b.WhiskerHigh = v
+		}
+	}
+	// A degenerate sample where every value is an outlier is
+	// impossible (the fences straddle the hinges, which are inside
+	// the data), but guard the whisker infinities anyway so a caller
+	// rendering a max-height bar never divides by an infinity.
+	if math.IsInf(b.WhiskerLow, +1) {
+		b.WhiskerLow = b.Q1
+	}
+	if math.IsInf(b.WhiskerHigh, -1) {
+		b.WhiskerHigh = b.Q3
+	}
+	return b
 }
 
 func mean(xs []float64) float64 {
