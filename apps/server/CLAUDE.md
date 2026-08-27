@@ -271,6 +271,32 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
     `docs/standards/guides/write-control-questions.md` §"Unicode
     symbols" and §"Text emphasis" — both get a matching update in the
     same PR (documentation.md Rule 1).
+- **The statistics panel is a pure read and every grade flows through
+  `controls.NumericGrade` (issue #251).** `internal/domain/controls/stats/`
+  computes the panel out of the readings, the current bank snapshot and
+  `Control.QuestionsPerCopy` — no writes to the DB, no worker call, no
+  cache. The panel is only rendered on `Control.State == Graded` AND
+  `Global.N > 0` (a Graded control with no gradeable readings shows no
+  panel rather than an empty state). `NumericGrade` is the numeric
+  back door of `TotalAndGrade` — both delegate to a single `rawTotal`
+  in `grade.go`, and `NumericGrade` maps its return through
+  `numericGrade` for the 1.0–7.0 grade. A comment above the pair
+  claims the panel and the readings table cannot disagree, and the
+  shared core is what makes that true. A future caller that adds a
+  second grade computation — a parallel math for "estadísticas
+  ponderadas", a hardcoded 4.0 cut in the panel, anything — will
+  drift the two silently. The exclusion rules (not_present,
+  unreadable RUT without override, doubtful/ambiguous without
+  override) are `rawTotal`'s responsibility, not each caller's;
+  adding a new "invalid" case belongs there. Same rule shape and
+  same reason as the UploadScan / LiveBank / Reading.Pages bullets
+  above; the invariants that pin the shared computation live in
+  `internal/domain/controls/stats/`:
+  `TestPerQuestionAlternativeDistributionSumsToNForSimpleQuestions`
+  (`item_test.go`) and `TestCompute40CopyBatchWithMixedStatuses`
+  (`coverage_test.go`) — plus `TestPctErradaCountsOKWrongsEvenWith
+  Overrides` (`item_test.go`), added after the review caught the
+  pre-fix double-subtraction of the override bucket.
 - **The two surfaces do not share an auth gate** (§C12). Everything auth-shaped
   is mounted inside `internal/app/web`; `internal/app/api` is anonymous by
   construction, and `/health` sits deliberately outside the gate because the

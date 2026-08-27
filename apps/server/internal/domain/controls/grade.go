@@ -29,11 +29,43 @@ import "fmt"
 // Returns raw like "1.75/2" and grade like "6.2", or "—"/"—" when
 // unknown.
 func TotalAndGrade(questions int, r Reading) (string, string) {
-	if r.CopyStatus == CopyStatusNotPresent {
+	total, ok := rawTotal(questions, r)
+	if !ok {
 		return "—", "—"
 	}
+	return fmt.Sprintf("%.2f/%d", total, questions), FormatGrade(total, questions)
+}
+
+// NumericGrade returns the 1.0–7.0 grade for r drawn over `questions`
+// slots as a float, with ok=false when the grade is unknown (dashes:
+// doubtful/ambiguous without override, unreadable RUT without override,
+// not_present, or questions=0). Same math as TotalAndGrade — this is the
+// numeric back door for callers that need to compute statistics without
+// string-parsing the formatted grade (issue #251, stats panel). Every
+// number the panel shows flows through here, so the panel cannot
+// disagree with the readings table.
+func NumericGrade(questions int, r Reading) (float64, bool) {
+	total, ok := rawTotal(questions, r)
+	if !ok {
+		return 0, false
+	}
+	return numericGrade(total, questions), true
+}
+
+// rawTotal is the shared numeric core. Returns the raw total (Σ
+// relative scores) and ok=false when the reading has no defined
+// grade. Both TotalAndGrade (string) and NumericGrade (float) build on
+// it — single source of the grade math per ADR-0031 and issue #251's
+// cannot-disagree rule. Callers derive the 1.0–7.0 grade with
+// numericGrade / FormatGrade — this core does not compute it, because
+// the two callers used to receive it and throw it away (issue #251
+// review, ARQ-3).
+func rawTotal(questions int, r Reading) (float64, bool) {
+	if r.CopyStatus == CopyStatusNotPresent {
+		return 0, false
+	}
 	if r.RUTStatus == RUTStatusUnreadable && r.RUTOverride == nil {
-		return "—", "—"
+		return 0, false
 	}
 	total := 0.0
 	for _, a := range r.Answers {
@@ -42,7 +74,7 @@ func TotalAndGrade(questions int, r Reading) (string, string) {
 			effective = a.Override.Status
 		}
 		if effective == AnswerStatusDoubtful || effective == AnswerStatusAmbiguous {
-			return "—", "—"
+			return 0, false
 		}
 		if effective == AnswerStatusBlank {
 			continue
@@ -56,9 +88,9 @@ func TotalAndGrade(questions int, r Reading) (string, string) {
 		}
 	}
 	if questions == 0 {
-		return "—", "—"
+		return 0, false
 	}
-	return fmt.Sprintf("%.2f/%d", total, questions), FormatGrade(total, questions)
+	return total, true
 }
 
 // FormatGrade maps a fraction onto the 1,0–7,0 scale: 4,0 at 50%,
@@ -69,17 +101,27 @@ func FormatGrade(total float64, questions int) string {
 	if questions == 0 {
 		return "—"
 	}
+	return fmt.Sprintf("%.1f", numericGrade(total, questions))
+}
+
+// numericGrade is the unrounded 1.0–7.0 mapping used by both FormatGrade
+// (which then rounds) and NumericGrade (which does not). The one-decimal
+// rounding is the renderer's concern, not the math's — a statistics
+// mean over rounded grades would drift from the mean of the underlying
+// scores.
+func numericGrade(total float64, questions int) float64 {
+	if questions == 0 {
+		return 0
+	}
 	pct := total / float64(questions)
-	var grade float64
 	switch {
 	case pct <= 0:
-		grade = 1.0
+		return 1.0
 	case pct <= 0.5:
-		grade = 1.0 + 6.0*pct // 0.0→1.0, 0.5→4.0
+		return 1.0 + 6.0*pct // 0.0→1.0, 0.5→4.0
 	case pct >= 1.0:
-		grade = 7.0
+		return 7.0
 	default:
-		grade = 4.0 + 6.0*(pct-0.5) // 0.5→4.0, 1.0→7.0
+		return 4.0 + 6.0*(pct-0.5) // 0.5→4.0, 1.0→7.0
 	}
-	return fmt.Sprintf("%.1f", grade)
 }

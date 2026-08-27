@@ -218,6 +218,20 @@ X-friendly pair measured on a real batch), and the same `ticked` drives the
 reader, AMC's `note` and the annotated PDF — marks, scores and the drawn
 sheet always agree.
 
+Since issue #251 a closed correction grows a statistics panel on
+`/controles/{id}`: the professor sees N rendidos vs Y copias, class
+globals (promedio / mediana / moda / desviación / mín-máx-rango, %
+aprobación / excelencia / reprobación grave — Chilean floors at 4.0 /
+6.0 / 3.0 hardcoded for V1), a histogram binned by decimals, a Tukey
+boxplot with outliers, and per-question item analysis (dificultad,
+alternative distribution A/B/C/D/E, point-biserial discrimination,
+% blanco vs % errada). The panel is pure read — no writes, no worker
+call, no cache — and every grade flows through `controls.NumericGrade`
+so the panel and the readings table cannot disagree. It renders ONLY
+when `Control.State == graded` AND at least one reading has a defined
+grade; the SVG chrome is inline `currentColor` and lands in both
+themes without a stylesheet, matching the rest of the backoffice.
+
 Routes today:
 
 | Route | What |
@@ -225,7 +239,7 @@ Routes today:
 | `GET /` | Redirects to `/controls` (an anonymous request lands in `/login` first, via the gate). Superseded #151's redirect to `/professors` when WP-E landed |
 | `GET /controls` | The list, ordered by application_date desc with nulls last |
 | `GET /controls/new` · `POST /controls` | Pick a section range, generate the PDF |
-| `GET /controls/{id}` | Detail: metadata, PDF downloads, the Escaneos upload form, the Resultados table and (after upload) the *Cerrar corrección* button |
+| `GET /controls/{id}` | Detail: metadata, PDF downloads, the Escaneos upload form, the Resultados table, (after upload) the *Cerrar corrección* button, and (once graded) the statistics panel — globals, histogram, boxplot, item analysis (issue #251) |
 | `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
 | `GET /controls/{id}/pool.json` | The pool snapshot written at Create time (issue #198) — attachment |
 | `POST /controls/{id}/scans` | Multipart PDF upload — hands the file to the worker's `/analyse` at the submitted thresholds, persists the report and the pair, annotates clean copies, flips the state to `in_review` |

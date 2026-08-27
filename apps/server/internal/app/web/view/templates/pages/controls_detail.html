@@ -112,5 +112,124 @@
     </section>
   {{ end }}
 
+  {{ with .Stats }}
+    <section id="estadisticas">
+      <h2>Estadísticas</h2>
+      <p>N rendidos = {{ .Global.N }} (de {{ .Global.TotalCopies }} copias).</p>
+      <table class="lista">
+        <tbody>
+          <tr><th>Promedio</th><td>{{ printf "%.1f" .Global.Mean }}</td></tr>
+          <tr><th>Mediana</th><td>{{ printf "%.1f" .Global.Median }}</td></tr>
+          <tr><th>Moda</th><td>{{ range $i, $v := .Global.Mode }}{{ if $i }}, {{ end }}{{ printf "%.1f" $v }}{{ end }}</td></tr>
+          <tr><th>Desviación estándar</th><td>{{ printf "%.2f" .Global.StdDev }}</td></tr>
+          <tr><th>Mín – Máx</th><td>{{ printf "%.1f" .Global.Min }} – {{ printf "%.1f" .Global.Max }} (rango {{ printf "%.1f" .Global.Range }})</td></tr>
+          <tr><th>% aprobación (≥ 4,0)</th><td>{{ printf "%.1f" .Global.PctAprobacion }}%</td></tr>
+          <tr><th>% excelencia (≥ 6,0)</th><td>{{ printf "%.1f" .Global.PctExcelencia }}%</td></tr>
+          <tr><th>% reprobación grave (&lt; 3,0)</th><td>{{ printf "%.1f" .Global.PctReprobacionGrave }}%</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Distribución de notas</h3>
+      <figure class="estadisticas-histograma">
+        <svg viewBox="0 0 620 220" role="img" aria-label="Histograma de notas por décima">
+          {{ $max := .Histogram.MaxCount }}
+          {{ range $i, $bin := .Histogram.Bins }}
+            {{ $h := 0 }}
+            {{ if gt $max 0 }}{{ $h = pctInt $bin.Count $max 180 }}{{ end }}
+            <rect x="{{ mul $i 10 }}" y="{{ sub 200 $h }}" width="9" height="{{ $h }}"
+                  fill="currentColor" opacity="0.7">
+              <title>{{ printf "%.1f" $bin.Grade }}: {{ $bin.Count }}</title>
+            </rect>
+          {{ end }}
+          <!-- Grade axis marks at 1.0, 2.0 ... 7.0 -->
+          {{ range $g := seven }}
+            <line x1="{{ mul $g 100 }}" y1="200" x2="{{ mul $g 100 }}" y2="206"
+                  stroke="currentColor" stroke-width="1" />
+            <text x="{{ mul $g 100 }}" y="218" text-anchor="middle"
+                  font-size="10" fill="currentColor">{{ add $g 1 }}</text>
+          {{ end }}
+          <line x1="0" y1="200" x2="610" y2="200" stroke="currentColor" stroke-width="1" />
+        </svg>
+      </figure>
+
+      <h3>Boxplot</h3>
+      <figure class="estadisticas-boxplot">
+        <svg viewBox="0 0 620 80" role="img"
+             aria-label="Boxplot: cuartiles, mediana, bigotes y valores atípicos">
+          {{ $b := .Boxplot }}
+          <!-- Whisker span. Positions map grade 1..7 to x 0..600. -->
+          <line x1="{{ gradeX $b.WhiskerLow }}" y1="40" x2="{{ gradeX $b.WhiskerHigh }}" y2="40"
+                stroke="currentColor" stroke-width="1" />
+          <line x1="{{ gradeX $b.WhiskerLow }}" y1="25" x2="{{ gradeX $b.WhiskerLow }}" y2="55"
+                stroke="currentColor" stroke-width="1" />
+          <line x1="{{ gradeX $b.WhiskerHigh }}" y1="25" x2="{{ gradeX $b.WhiskerHigh }}" y2="55"
+                stroke="currentColor" stroke-width="1" />
+          <!-- Box Q1..Q3 with median line. -->
+          <rect x="{{ gradeX $b.Q1 }}" y="20" width="{{ sub (gradeX $b.Q3) (gradeX $b.Q1) }}" height="40"
+                fill="none" stroke="currentColor" stroke-width="1.5" />
+          <line x1="{{ gradeX $b.Median }}" y1="20" x2="{{ gradeX $b.Median }}" y2="60"
+                stroke="currentColor" stroke-width="2" />
+          {{ range $o := $b.Outliers }}
+            <circle cx="{{ gradeX $o }}" cy="40" r="3" fill="currentColor" opacity="0.8">
+              <title>Atípico: {{ printf "%.1f" $o }}</title>
+            </circle>
+          {{ end }}
+          <!-- Axis. -->
+          {{ range $g := seven }}
+            <line x1="{{ mul $g 100 }}" y1="65" x2="{{ mul $g 100 }}" y2="70"
+                  stroke="currentColor" stroke-width="1" />
+            <text x="{{ mul $g 100 }}" y="78" text-anchor="middle"
+                  font-size="10" fill="currentColor">{{ add $g 1 }}</text>
+          {{ end }}
+        </svg>
+        <figcaption>
+          Q1 {{ printf "%.1f" .Boxplot.Q1 }} · Mediana {{ printf "%.1f" .Boxplot.Median }} · Q3 {{ printf "%.1f" .Boxplot.Q3 }}
+          {{ if .Boxplot.Outliers }}· atípicos: {{ range $i, $o := .Boxplot.Outliers }}{{ if $i }}, {{ end }}{{ printf "%.1f" $o }}{{ end }}{{ end }}
+        </figcaption>
+      </figure>
+
+      <h3>Análisis por pregunta</h3>
+      <table class="lista estadisticas-items">
+        <thead>
+          <tr>
+            <th>Pregunta</th>
+            <th>Dificultad</th>
+            <th>Discriminación</th>
+            <th>% blanco</th>
+            <th>% errada</th>
+            <th>Distribución</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{ range $q := .PerQuestion }}
+            <tr>
+              <td>
+                <strong>{{ $q.QuestionRef }}</strong>
+                {{ if $q.Statement }}<br><small>{{ $q.Statement }}</small>{{ end }}
+              </td>
+              <td>{{ printf "%.1f" $q.Dificultad }}%</td>
+              <td>{{ if $q.DiscriminacionDefined }}{{ printf "%.2f" $q.Discriminacion }}{{ else }}—{{ end }}</td>
+              <td>{{ printf "%.1f" $q.PctBlanco }}%</td>
+              <td>{{ printf "%.1f" $q.PctErrada }}%</td>
+              <td>
+                {{ if $q.AltCount }}
+                  {{ range $i, $c := $q.AltDistribution }}
+                    <span class="alt {{ if isCorrect $i $q.Correct }}alt-correct{{ end }}">
+                      {{ letter $i }}: {{ $c }}
+                    </span>
+                  {{ end }}
+                  {{ if $q.Blank }}<span class="alt">blanco: {{ $q.Blank }}</span>{{ end }}
+                  {{ if $q.Invalid }}<span class="alt">inválida: {{ $q.Invalid }}</span>{{ end }}
+                {{ else }}
+                  <small>sin metadatos del banco</small>
+                {{ end }}
+              </td>
+            </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </section>
+  {{ end }}
+
   <p><a href="/controls">Volver a los controles</a></p>
 {{ end }}

@@ -14,6 +14,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/controls/stats"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 )
@@ -233,6 +234,17 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 		page.Readings = toReadingRows(c, readings)
 		page.Summary = summarise(readings)
 		page.CanClose, page.CloseBlockedReason = closeGate(c, readings)
+	}
+	// Issue #251: the stats panel is gated on Graded + at least one
+	// reading. A pure read from the domain — no writes, no worker call,
+	// no cache. Compute walks the readings again per request; the panel
+	// is server-rendered and a graded control's readings do not change
+	// between requests, so the cost is proportional to N and small.
+	if c.State == controls.Graded && len(readings) > 0 {
+		computed := stats.Compute(readings, h.Bank.Get(), c.QuestionsPerCopy)
+		if computed.Global.N > 0 {
+			page.Stats = &computed
+		}
 	}
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 
