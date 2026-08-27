@@ -25,7 +25,7 @@ export const complexityCounterCatalogEntry: CatalogEntry = {
   whenToUse:
     'Anywhere the class teaches HOW to count operations, or HOW to analyse a recursive algorithm. Modes: "base" (one case, with slider + formula), "cases" (three tabs for best/worst/average), "space" (memory cells instead of OE; total labelled M(n)), "abstract" (code + per-line annotations without slider or derivation — used to introduce the code before any specific case has been derived, or per individual case with `skipped` lines dimmed), "recursion" (code + per-line notes + three panels — Recurrencia, Desarrollo, Forma cerrada — for linear-recurrence analyses; ADR-0048). ' +
     'NOT for showing the RESULT of running code — that is the Benchmark widget. ' +
-    'NOT for Master-Theorem cases (a*T(n/b) + f(n)) — a future divide-and-conquer WP will add its own extension.',
+    'NOT for Master-Theorem cases (a*T(n/b) + f(n)) — a future divide and conquer WP will add its own extension.',
   props: [
     {
       name: 'algorithm',
