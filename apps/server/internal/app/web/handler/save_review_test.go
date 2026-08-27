@@ -450,6 +450,51 @@ func TestSaveReviewBlankButtonAcceptsEmptyRUT(t *testing.T) {
 	}
 }
 
+// TestSaveReviewAcceptsMarksBeyondScoringWeight pins the regression fixed
+// post-#234: the SEC-2 cap must use the question's bank alternative COUNT,
+// not `Answer.Max` (which is the scoring weight — 1 for a simple, N for a
+// multiple's number-of-correct). The old code rejected any mark index > Max
+// on a simple question, so any copy where AMC read option B, C, or D was
+// unsavable — every re-submit came back with "El formulario tiene un valor
+// inválido." (reported 2026-08-27 against Control 2 copy 9).
+//
+// The fixture's q3 has Max=1 (simple) but the bank declares 2 alternatives
+// ("a", "b"); marking option 2 must land, not refuse.
+func TestSaveReviewAcceptsMarksBeyondScoringWeight(t *testing.T) {
+	f, controlID := saveReviewFixture(t)
+	values := url.Values{}
+	values.Set("rut", "20111111") // unchanged
+	values.Set("qq3", "2")        // Max=1 but bank has 2 alternatives → must land
+	values.Set("qq4", "1")        // unchanged
+
+	rec := postSaveReview(t, f, controlID, 1, values)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d\nbody: %s", rec.Code, rec.Body.String())
+	}
+	got := flashFromResponse(t, rec)
+	if got == "El formulario tiene un valor inválido." {
+		t.Fatalf("SEC-2 cap rejected a mark within the question's real alternative count — pre-fix behaviour: got %q", got)
+	}
+	// Positive: the answer moved from [1] to [2].
+	reading, err := f.service.ReadingFor(f.authedRequest(t, http.MethodGet, "/", nil).Context(), controlID, 1)
+	if err != nil {
+		t.Fatalf("ReadingFor: %v", err)
+	}
+	var q3 *controls.Answer
+	for i := range reading.Answers {
+		if reading.Answers[i].QuestionRef == "q3" {
+			q3 = &reading.Answers[i]
+		}
+	}
+	if q3 == nil || q3.Override == nil || len(q3.Override.Marked) != 1 || q3.Override.Marked[0] != 2 {
+		t.Fatalf("q3 override did not persist mark [2]: %+v", q3)
+	}
+	if want := "Cambios en 1 respuesta."; got != want {
+		t.Errorf("flash = %q, want %q — the move on q3 must be reported", got, want)
+	}
+}
+
 // TestSaveReviewBlankButtonAlsoReportsOtherMovedAnswers pins COR-5: when
 // the professor mid-edits other radios and then clicks the blank button,
 // the count of OTHER moves is not swallowed by the blank line.

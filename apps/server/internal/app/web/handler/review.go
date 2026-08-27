@@ -176,6 +176,7 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 		CopyNumber: copyNumber,
 		RUT:        rut,
 	}
+	bnk := h.Bank.Get()
 	for _, a := range reading.Answers {
 		edit := controls.AnswerEdit{QuestionRef: a.QuestionRef}
 		if a.QuestionRef == blank {
@@ -184,12 +185,22 @@ func (h *Controls) SaveReview(w http.ResponseWriter, r *http.Request) {
 		} else {
 			field := "q" + a.QuestionRef
 			values := r.PostForm[field]
-			// SEC-2: cap the mark index at the answer's known alternative
-			// count — the form was never generated with options past
-			// a.Max, so anything higher is data pollution.
-			maxMark := int(a.Max)
-			if maxMark < 1 {
-				maxMark = 26 // fallback cap (a professor cannot author more)
+			// SEC-2 (S3 review, revised post-#234 regression): cap the mark
+			// index at the question's ACTUAL alternative count from the bank.
+			// The prior revision used `a.Max`, but Max is the SCORING weight
+			// (1 for a simple question, N-of-correct for a multiple), not the
+			// alternative count — a simple question with 4 alternatives has
+			// Max=1, so parseAnswerValues rejected any mark on B/C/D as
+			// "exceeds this question's alternatives (1)" and every re-submit
+			// on a copy where AMC read anything past option A came back as
+			// "El formulario tiene un valor inválido." (reported 2026-08-27).
+			// The bank is authoritative on the count; a missing bank entry
+			// (test paths, or a question dropped from the pool) falls back
+			// to the 26-option ceiling so the form is not the one that
+			// refuses.
+			maxMark := 26 // fallback cap (a professor cannot author more)
+			if q, ok := lookupQuestion(bnk, a.QuestionRef); ok && len(q.Alternatives) > 0 {
+				maxMark = len(q.Alternatives)
 			}
 			marks, err := parseAnswerValues(values, maxMark)
 			if err != nil {
