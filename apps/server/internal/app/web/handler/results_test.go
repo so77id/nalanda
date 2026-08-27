@@ -104,6 +104,13 @@ func okCopy(rut string) controls.ReportCopy {
 	return controls.ReportCopy{
 		RUT: rut, RUTStatus: controls.RUTStatusOK, Status: controls.CopyStatusOK,
 		ExpectedQuestions: 2, SeenQuestions: 2,
+		// Pages matches the shape a real 1-page-per-copy control emits —
+		// callers overriding for multi-page cases set it explicitly.
+		// Without this the raw-scan fallback renders zero <img>, which
+		// is honest for the domain but not what the "annotate off" and
+		// "stale annotated" tests are checking (they exercise the raw
+		// scan render, not an empty section).
+		Pages: []int{1},
 		Answers: []controls.ReportAnswer{
 			{Question: 1, Name: "q3", Type: controls.QuestionSimple, Marked: []int{1},
 				Status: controls.AnswerStatusOK, Score: 1, Max: 1},

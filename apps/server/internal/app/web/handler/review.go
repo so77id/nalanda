@@ -522,17 +522,16 @@ func controlPageImageURL(id string, copyNumber, pageNumber int) string {
 }
 
 // buildReviewImages turns the reading's captured-pages list into the
-// per-page items the template iterates (issue #243). An empty list
-// falls back to page 1, matching migration 00011's backfill and the
-// amcworker mapping's legacy fallback: "nothing was said about
-// pages" renders exactly page 1, same as the pre-#243 template did.
-// A copy with no scan at all (not_present) skips the raw-scan
-// section entirely — the review page is never reached for it (the
-// results table filters not_present rows out of the review link).
+// per-page items the template iterates (issue #243). Trusts the
+// invariant "every reviewable copy has at least one captured page" —
+// migration 00011 backfills legacy rows to [1] and amcworker.toDomain
+// substitutes [1] for a wire report without pages_per_copy, so the
+// only path that lands here with an empty list is a not_present copy
+// reached by hand-typed URL (the results table filters it out of the
+// review link). An empty list emits zero <img> — an empty "Escaneo"
+// section is a more honest render than a broken image icon that
+// looks like a legitimate page.
 func buildReviewImages(id string, copyNumber int, pages []int) []view.ReviewImage {
-	if len(pages) == 0 {
-		pages = []int{1}
-	}
 	out := make([]view.ReviewImage, 0, len(pages))
 	for _, n := range pages {
 		out = append(out, view.ReviewImage{

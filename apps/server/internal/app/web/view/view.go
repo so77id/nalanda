@@ -326,9 +326,15 @@ type ReviewPage struct {
 	// Pages is the raw-scan fallback's per-page images (issue #243):
 	// one entry per physical page AMC captured, in ascending order.
 	// The template iterates it and renders one <img> per page — a
-	// two-page copy shows both pages stacked. Empty when
-	// HasAnnotated is true (the PDF.js viewer takes over) or when
-	// the reading recorded zero captured pages (a not_present copy).
+	// two-page copy shows both pages stacked. Always populated for a
+	// reviewable copy (migration 00011 backfills legacy rows to [1]
+	// and amcworker.toDomain substitutes [1] for a legacy worker),
+	// so the template's `{{ range .Pages }}` never sees an empty
+	// list in practice; a not_present copy reached by hand-typed URL
+	// is the one exception, and its empty list renders an empty
+	// "Escaneo" section rather than a broken-image placeholder.
+	// Consumed only when HasAnnotated is false; the PDF.js viewer
+	// takes over otherwise.
 	Pages   []ReviewImage
 	SaveURL string
 	Graded  bool // when true the template shows the "editing a closed correction" warning

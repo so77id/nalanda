@@ -83,7 +83,7 @@ func TestReviewPageFallsBackToRawScanWithoutAnnotated(t *testing.T) {
 	f.fake.AnalyzeReports = []controls.Report{
 		{Copies: map[string]controls.ReportCopy{
 			"1": {RUT: "2011111_", RUTStatus: controls.RUTStatusUnreadable, Status: controls.CopyStatusNeedsReview,
-				ExpectedQuestions: 2, SeenQuestions: 2,
+				ExpectedQuestions: 2, SeenQuestions: 2, Pages: []int{1},
 				Answers: []controls.ReportAnswer{
 					{Question: 1, Name: "q3", Type: controls.QuestionSimple, Marked: []int{1},
 						Status: controls.AnswerStatusOK, Score: 1, Max: 1},

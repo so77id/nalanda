@@ -5,11 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
+	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
 // seedControl creates one control with N copies so a reading test has a
@@ -323,7 +325,29 @@ func TestUpsertReadingsFromReportPersistsPagesPerCopy(t *testing.T) {
 // follow-up UPDATE turned each of them into '[1]', so the review
 // page's iteration keeps its pre-#243 single-page render on legacy
 // data — no regression on rows the professor has already reviewed.
+//
+// This test guards two things:
+//   - the runtime effect (row inserted with '[]' reads back as [1]),
+//     exercised by re-running an UPDATE identical to 00011's; and
+//   - the SOURCE OF TRUTH (the migration file itself still contains
+//     that UPDATE) — without the file assertion the test would keep
+//     passing on its own inline SQL after the migration silently
+//     drifted away from it (Round A review, COR-3).
 func TestLegacyReadingsBackfillToPageOne(t *testing.T) {
+	// Guard: the migration file must still carry the backfill clause
+	// the runtime half of this test replays. A future edit that
+	// changes the WHERE predicate or the target value regresses the
+	// legacy render, and this line is what surfaces it before the
+	// silent DB drift does.
+	raw, err := migrations.FS.ReadFile("00011_reading_pages.sql")
+	if err != nil {
+		t.Fatalf("read migration 00011: %v", err)
+	}
+	const backfillSQL = `UPDATE reading SET pages_json = '[1]' WHERE pages_json = '[]'`
+	if !strings.Contains(string(raw), backfillSQL) {
+		t.Fatalf("migration 00011 no longer contains the backfill clause %q — update this test to replay the new clause and confirm legacy rows still converge on [1]", backfillSQL)
+	}
+
 	ctx, db := migrated(t)
 	seedControl(t, ctx, db, "CTRL0133LEGACY0000000000AA", 1)
 	store := controlstore.New(db)
@@ -340,12 +364,7 @@ func TestLegacyReadingsBackfillToPageOne(t *testing.T) {
 		"CTRL0133LEGACY0000000000AA", time.Now().Unix()); err != nil {
 		t.Fatalf("insert legacy reading: %v", err)
 	}
-	// Re-run the backfill the migration performed. Executing it here
-	// is what makes this test faithful to the migration's semantics
-	// rather than a shortcut: the row was written with '[]', and the
-	// UPDATE (the same statement in 00011) turns it into '[1]'.
-	if _, err := db.ExecContext(ctx,
-		`UPDATE reading SET pages_json = '[1]' WHERE pages_json = '[]'`); err != nil {
+	if _, err := db.ExecContext(ctx, backfillSQL); err != nil {
 		t.Fatalf("backfill: %v", err)
 	}
 

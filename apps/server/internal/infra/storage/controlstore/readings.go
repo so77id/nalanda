@@ -115,14 +115,13 @@ func upsertReading(ctx context.Context, tx *sql.Tx, controlID string, copyNumber
 	}
 	// #243: pages_json is the physical scan pages AMC captured for this
 	// copy. Persist verbatim from the report — the amcworker mapping
-	// already substituted [1] for a legacy worker that did not emit the
-	// field, so this write never records the empty-list shape a legacy
-	// row was backfilled to '[1]' from.
-	pages := c.Pages
-	if pages == nil {
-		pages = []int{}
-	}
-	pagesJSON, err := json.Marshal(pages)
+	// substitutes [1] for a legacy worker that did not emit the field,
+	// so a nil c.Pages here means the caller bypassed the mapping and
+	// the JSON marshaller writes 'null'. That reads back as a nil
+	// Reading.Pages, which the handler renders as an empty "Escaneo"
+	// section — a loud tell rather than a silent [1] papering over
+	// what may be a real breakage upstream.
+	pagesJSON, err := json.Marshal(c.Pages)
 	if err != nil {
 		return 0, fmt.Errorf("controlstore.upsertReading: encode pages: %w", err)
 	}
@@ -449,14 +448,12 @@ func scanReading(row interface{ Scan(...any) error }) (controls.Reading, error) 
 		t := time.Unix(lastEditedAtRaw.Int64, 0).UTC()
 		r.LastEditedAt = &t
 	}
-	// #243: pages_json is NOT NULL under migration 00011; a legacy row
-	// was backfilled to '[1]', a new write from a legacy worker landed
-	// as '[1]' via the amcworker fallback, and a new write from the
-	// current worker carries the AMC-captured list. Empty '[]' decodes
-	// to nil — the handler treats that identically to "no pages known"
-	// and lets the raw-scan fallback render nothing rather than an
-	// invented page 1 (COR: the domain does not silently paper over
-	// what the schema says is empty).
+	// #243: pages_json is NOT NULL under migration 00011 and decodes to
+	// r.Pages. What the CALLER does with an empty list is not this
+	// layer's concern — the render path (buildReviewImages) and the
+	// wire boundary (amcworker.toDomain) each own their own contract
+	// for "nothing was said about pages", and scanReading returning nil
+	// stays honest to what the column holds.
 	if pagesJSON != "" {
 		if err := json.Unmarshal([]byte(pagesJSON), &r.Pages); err != nil {
 			return controls.Reading{}, fmt.Errorf("controlstore.scanReading: decode pages: %w", err)
