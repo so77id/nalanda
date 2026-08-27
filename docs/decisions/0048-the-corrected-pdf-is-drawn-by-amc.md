@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-08-19
 **Decision-makers:** Miguel Rodriguez
+**Amended by:** #249 (2026-08-27) — the per-copy `amc annotate` call moved off the HTTP goroutine into the async job runner (`KindAnnotate`, `controls.NewAnnotateHandler`, `Service.AnnotateAllCleanCopies`), discharging §Consequences "async is a follow-up if courses grow". The runner is documented in ADR-0050.
 **Source:** #190 (every copy ends the control cycle with an annotated PDF),
 conversation 2026-08-19 after the first real production control (#186–#189).
 

@@ -51,11 +51,18 @@ const uploadWriteWindow = 15 * time.Minute
 // scanFormField is the multipart field the upload form posts under.
 const scanFormField = "scan"
 
-// UploadScan reads the multipart form, streams the PDF onto disk through the
-// Service, and redirects back to /controls/:id with a flash message. Failure
-// modes are visible to the professor as a redirect + flash; the 500 shell is
-// reserved for the "operator has to look" ones (unknown control, worker
-// unreachable).
+// UploadScan reads the multipart form, streams the PDF onto disk
+// through Service.SaveUploadedBatch, enqueues an analyse job through
+// the runner, and redirects back to /controls/:id with a flash message.
+// The worker call runs on the async job (issue #249) — a refusal there
+// lands on job.error / job.detail and surfaces via the JobBanner, not
+// on the flash.
+//
+// Failure modes reachable synchronously are professor-repairable
+// (invalid form, threshold band, control unknown, PDF-shaped
+// pre-check) and surface as flash + redirect. The 500 shell is
+// reserved for "operator has to look" branches — disk write failure,
+// payload encode failure, Submit failure.
 func (h *Controls) UploadScan(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if !isValidControlID(id) {

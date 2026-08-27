@@ -11,8 +11,11 @@
 --
 -- payload_json holds the runner's inputs verbatim so a Sweep-requeued
 -- job can be re-executed by the runner without hitting anything else in
--- the schema. The shape is kind-specific (generate carries a CreateRequest,
--- reanalyse carries thresholds, etc.); the runner unmarshals against the
+-- the schema. The shape is kind-specific: analyse carries a batch name +
+-- thresholds (controls.AnalysePayload); reanalyse carries thresholds
+-- (controls.ReanalysePayload); generate and annotate carry the empty
+-- object `{}` (controls.EmptyPayload) because their async methods read
+-- the control row for what they need. The runner unmarshals against the
 -- kind stored on the row.
 --
 -- error is the short one-line message the banner renders (typically

@@ -13,8 +13,13 @@ and the session gate arrived earlier with WP-C2 (#150). WP-E (#166) added
 the entrance-controls screens (list, create, detail with the printable PDF
 downloads); WP-F (#167) turned the Escaneos box live with the whole
 reader loop — upload → analyse → results table → side-by-side review
-page → re-leer con otra sensibilidad → *Cerrar corrección*. The routes
-table in `README.md` is the current inventory.
+page → re-leer con otra sensibilidad → *Cerrar corrección*. Since #249 the
+four minutes-class AMC operations (generate, analyse, reanalyse, close-
+annotate) run through an in-process async job runner
+(`internal/domain/jobs`), so an HTTP POST returns immediately and the
+detail page's `JobBanner` surfaces the running / done / failed state; the
+routes table in `README.md` is the current inventory and ADR-0050
+records the design.
 
 Commands, stack, configuration and layout live in `README.md` — one home per
 fact.
@@ -36,6 +41,13 @@ fact.
   / proxy-trust choices. Any change to the login path, a cookie read/write,
   or `NALANDA_PUBLIC_URL` needs it: the tests here pin the helpers, not their
   callers, and ADR-0038 is where the reasoning lives.
+- `docs/decisions/0050-the-controls-runner-is-in-process-single-goroutine.md`
+  — the async job runner design. Read before touching
+  `internal/domain/jobs`, `internal/infra/storage/jobstore`, or any of the
+  four minutes-class AMC handlers (`POST /controls`, `POST /controls/{id}/scans`,
+  `POST /controls/{id}/reanalyze`, `POST /controls/{id}/close`). Records
+  single-goroutine + SQLite persistence + Sweep-on-boot + no retry + the
+  atomicity split that amends ADR-0034 §Failure modes.
 - `docs/standards/guides/add-a-backend-endpoint.md` — read before adding ANY
   route here: which surface it belongs to, the handler → domain → repository
   chain, and the middleware a state-changing route needs.
@@ -90,6 +102,13 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   infra implements it — `health.Prober`, implemented by `storage.Prober`, is the
   shape to copy. Full statement and the inversion recipe:
   `docs/standards/backend-code-style.md` §The dependency rule.
+
+  The rule forbids `domain → app` and `domain → infra`, NOT `domain → domain`.
+  Worked case since #249: `internal/domain/controls/jobhandlers.go` imports
+  `internal/domain/jobs` to satisfy `jobs.Handler`. `jobs.Store` (declared in
+  `jobs`, implemented by `jobstore` under `internal/infra`) and `jobs.Handler`
+  (declared in `jobs`, implemented from `controls`) are two more shapes to copy
+  alongside `health.Prober`.
 - **Never add a dependency without discussing it.** `go.mod` is a manifest and
   the root `CLAUDE.md` rule applies to it unchanged. The direct set is exactly
   `modernc.org/sqlite` and `github.com/pressly/goose/v3`; there is deliberately
@@ -174,18 +193,58 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   bullet above; the failure mode is on paper (2026-08-19: 44 pages
   `+0/0/0+`, ADR-0042 §Context — the fixed-Letter that ADR-0043 makes
   configurable).
-- **The uploaded scan batch survives every downstream failure of
-  `UploadScan` (issue #210).** Reintroducing `os.Remove(batchHostPath)` on
-  a refusal — or on any post-copy error — is forbidden. The batch on disk
-  is the artefact an operator inspects and what the professor would
-  otherwise have to re-scan; erasing it on refusal was the pre-#210
-  behavior that made the 2026-08-19 incident cost twenty SSH minutes to
-  diagnose (same incident ADR-0042 §Context and the paper-check bullet
-  above reference — that WP fixed the printer cause, this one fixes the
+- **The uploaded scan batch survives every downstream failure of the
+  scan pipeline (issue #210, still true after #249).** Reintroducing
+  `os.Remove(batchHostPath)` on a refusal — or on any post-copy error
+  — is forbidden. The batch on disk is the artefact an operator
+  inspects and what the professor would otherwise have to re-scan;
+  erasing it on refusal was the pre-#210 behavior that made the
+  2026-08-19 incident cost twenty SSH minutes to diagnose (same
+  incident ADR-0042 §Context and the paper-check bullet above
+  reference — that WP fixed the printer cause, this one fixes the
   diagnosis path). `writeUpload` still cleans a PARTIAL file (its own
-  `io.Copy` failure); downstream failures do not. The rollback promise
-  is scoped to DB rows, not the file — see the `UploadScan` docstring
-  for what is transactional and what is not.
+  `io.Copy` failure); downstream failures do not. Since #249 the
+  invariant depends on the sync/async split: the file write happens
+  in `Service.SaveUploadedBatch` on the HTTP goroutine BEFORE
+  `Runner.Submit`. Moving the file write into the analyse job handler
+  is forbidden for the same reason — a Submit failure would then
+  discard the batch. Transactional scoping of the async writes
+  (upsert readings + mark missing + set state) lives on
+  `Service.AnalyzeBatch`'s docstring.
+- **A new async operation (a new `jobs.Kind`) lands in FOUR
+  coordinated places, and the runner's `NewRunner` panics at boot if
+  any is missing (issue #249, ADR-0050).**
+  1. A new `Kind` constant + `ValidKinds` entry in
+     `internal/domain/jobs/jobs.go`.
+  2. A migration that ALTERs `job.kind`'s `CHECK` to include the new
+     value — the SQLite `CHECK` and the Go enum enforce the same
+     closed set, and a `Kind` satisfying one but not the other is a
+     silent drop of that class of work.
+  3. A handler factory in `internal/domain/controls/jobhandlers.go`
+     (mirror `controls.NewReanalyseHandler` / `NewAnalyseHandler` /
+     `NewGenerateHandler` / `NewAnnotateHandler`) that translates
+     domain sentinels into `jobs.Failure{Message, Detail}` for the
+     banner + debug pair.
+  4. Its registration in `cmd/server/main.go`'s `jobs.Handlers` map.
+  The related operating rule: any AMC-worker-touching operation is
+  async by construction (do NOT add a synchronous handler that calls
+  `amcworker.Client` from the HTTP goroutine — split the sync half
+  from the async half, as `PrepareControl`/`GenerateAssets` and
+  `SaveUploadedBatch`/`AnalyzeBatch` already do). ADR-0050 has the
+  full reasoning.
+- **A worker refusal on the async half leaves the row and files
+  intact (issue #249, ADR-0050 §6 — amends ADR-0034 §Failure modes).**
+  `GenerateAssets` returning `ErrGeneratorRefused` /
+  `ErrSujetMissing` / `ErrGeneratorUnavailable`, and `AnalyzeBatch`
+  returning `ErrAnalyzerRefused` / `ErrAnalyzerUnavailable`, MUST
+  NOT delete the row or the input files. `source.tex` and
+  `pool.json` are the professor's authored artefacts; rolling them
+  back on a transient outage would force the professor to
+  re-choose the pool. The pre-#249 all-or-nothing promise of
+  `Service.Create` is now scoped to the sync half
+  (`Service.PrepareControl`). The banner surfaces the failure; a
+  future WP adds the explicit retry button. Same rule shape as the
+  UploadScan-survives bullet above.
 - **The LiveBank in-memory snapshot survives every Reload failure
   (issue #230).** Reintroducing a code path that clears the
   `atomic.Pointer[Bank]` on a fetch/parse failure is forbidden — a

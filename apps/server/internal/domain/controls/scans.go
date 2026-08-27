@@ -102,10 +102,26 @@ type SaveUploadedBatchResult struct {
 // Analyzer.Analyze onward. Called by the analyse job handler in the
 // runner goroutine; the batch file must already exist on disk.
 //
-// Failure modes match the pre-#249 sync path (same wrapped errors,
-// same batch-survives-failure contract). The three post-analyse writes
-// have the same non-atomic sequencing note: a mid-loop store outage
-// leaves the earlier writes committed — a follow-up widens the tx.
+// Failure modes:
+//   - The uploaded PDF survives every failure past SaveUploadedBatch
+//     (apps/server/CLAUDE.md §"The uploaded scan batch survives"). The
+//     batch file is the artefact an operator inspects and what the
+//     professor cannot re-scan.
+//   - Analyzer.Analyze refused / unreachable → wraps ErrAnalyzer*. The
+//     row + files stay intact (ADR-0050 §6, amending ADR-0034 §Failure
+//     modes); the runner records the failure on job.error / job.detail
+//     and the banner surfaces it.
+//
+// DB-atomicity is scoped: the reading report itself is transactional
+// because UpsertReadingsFromReport opens a single tx around every
+// insert it does. The three post-analyse writes as a sequence are NOT
+// — they go through two different stores (Store.SetControlThresholds
+// first, then Readings.UpsertReadingsFromReport, then
+// Readings.MarkMissingAsNotPresent) and there is no outer transaction
+// wrapping them. A mid-loop store failure leaves the earlier writes
+// committed; in operation this class of failure is a store outage and
+// the professor retries. A widened transactional shape (single-tx
+// PersistReport) is a follow-up.
 func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string, ticked, unsure float64) (Report, error) {
 	control, err := s.Store.ControlByID(ctx, controlID)
 	if err != nil {

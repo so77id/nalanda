@@ -600,7 +600,9 @@ func TestCreateWritesAControlAndRedirectsToItsDetail(t *testing.T) {
 		t.Errorf("no flash cookie set, want one (POST/redirect/GET convention)")
 	}
 
-	// sujet.pdf is on disk.
+	// Issue #249: the worker call runs on the async generate job.
+	// Wait for it before checking sujet.pdf is on disk.
+	f.waitLatestJobTerminal(t, rows[0].ID)
 	if _, err := os.Stat(filepath.Join(f.workDir, "controls", rows[0].ID, "out", "sujet.pdf")); err != nil {
 		t.Errorf("sujet.pdf missing on disk: %v", err)
 	}

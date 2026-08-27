@@ -13,8 +13,8 @@ import (
 // one per Kind. Handlers unmarshal the payload the HTTP surface
 // serialised at Submit time, delegate to the Service, and translate a
 // domain error into the (message, detail) pair the runner records —
-// so the banner surfaces exactly what refusedFlash would have surfaced
-// on the sync path (scans.go).
+// the short message reaches the banner (view.JobBanner.Error), the
+// long detail stays on the job row for a future debug view.
 //
 // The payload types live here rather than in a sibling package because
 // they belong to the domain call: a change to Reanalyze's signature is
@@ -148,10 +148,9 @@ func failureFromGenerateError(err error) error {
 }
 
 // failureFromAnalyzeError translates a controls.Service error into the
-// (banner-message, debug-detail) pair the runner records. Same shape as
-// refusedFlash in the sync path (scans.go): the professor sees the
-// short verdict on the banner and the long AMC line stays in the DB
-// for a future consumer that needs it.
+// (banner-message, debug-detail) pair the runner records: the
+// professor sees the short verdict on the banner and the long AMC line
+// stays in the DB for a future consumer that needs it.
 func failureFromAnalyzeError(err error) error {
 	if err == nil {
 		return nil

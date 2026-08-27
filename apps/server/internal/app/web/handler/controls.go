@@ -609,7 +609,7 @@ func humanElapsed(d time.Duration) string {
 	return fmt.Sprintf("hace %d h", int(d.Hours()))
 }
 
-// JobDismissPath is POST target for the "Refrescar / Reintentar" button
+// JobDismissPath is POST target for the "Refrescar" / "Cerrar aviso" button
 // on the banner (issue #249). The id lives in the URL segment; the
 // handler stamps viewed_at and redirects back to the control.
 const JobDismissPath = "/jobs/{id}/dismiss"

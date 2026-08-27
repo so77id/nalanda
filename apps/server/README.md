@@ -115,6 +115,11 @@ wget — so the only executable a healthcheck can invoke is the server.
 cmd/server/        wiring and entry point — the only main package
 internal/domain/   business types and the interfaces they need — PURE
   auth/            professors, identities, sessions, and who may log in
+  controls/        the entrance-controls domain: create/upload/read pipeline
+  course/          course + bank types (LiveBank, sections, questions)
+  health/          the /health prober seam
+  jobs/            the async job runner (issue #249, ADR-0050): types +
+                   single-goroutine Runner
 internal/app/web/  the professor's backoffice
   handler/         the login round trip and the professor CRUD
   middleware/      cookie → professor, the gate, CSRF, and the surface-agnostic request log
@@ -127,8 +132,11 @@ internal/app/web/  the professor's backoffice
                    (source, version, SHA-384, upgrade recipe).
 internal/app/api/  the JSON/WS surface — anonymous, no middleware (§C12)
 internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
+  amcworker/       the AMC worker HTTP client (with generateLock mutex)
   oidc/            the Google client — standard library, no OIDC dependency
-  storage/authstore/  the SQLite side of the auth domain
+  storage/authstore/     the SQLite side of the auth domain
+  storage/controlstore/  the SQLite side of the controls domain
+  storage/jobstore/      the SQLite side of the jobs domain (issue #249)
 migrations/        goose SQL migrations, embedded into the binary
 ```
 
@@ -238,7 +246,7 @@ Routes today:
 |---|---|
 | `GET /` | Redirects to `/controls` (an anonymous request lands in `/login` first, via the gate). Superseded #151's redirect to `/professors` when WP-E landed |
 | `GET /controls` | The list, ordered by application_date desc with nulls last |
-| `GET /controls/new` · `POST /controls` | Pick a section range; POST prepares the row + input files synchronously and enqueues a `generate` job for the worker call. The professor lands on the detail page with the banner showing "Generando…" until the runner finishes (issue #249) |
+| `GET /controls/new` · `POST /controls` | Pick a section range; POST prepares the row + input files synchronously and enqueues a `generate` job for the worker call. The professor lands on the detail page with the banner showing "Procesando generación…" until the runner finishes (issue #249) |
 | `GET /controls/{id}` | Detail: metadata, PDF downloads, the Escaneos upload form, the Resultados table, (after upload) the *Cerrar corrección* button, and (once graded) the statistics panel — globals, histogram, boxplot, item analysis (issue #251) |
 | `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
 | `GET /controls/{id}/pool.json` | The pool snapshot written at Create time (issue #198) — attachment |

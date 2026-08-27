@@ -267,12 +267,14 @@ type ControlDetailPage struct {
 	Stats *stats.Statistics
 
 	// JobBanner, when non-nil, renders the async job runner's status
-	// on the detail page: "Analizando… reanalyse (iniciado hace 15 s).
-	// Refrescá cuando termine." for a running job, or "Análisis listo /
-	// falló — [Refrescar / Reintentar]" for a done/failed job the
-	// professor has not dismissed yet. Nil hides the banner entirely
-	// (issue #249). The runner drives the state — this struct only
-	// carries what the template needs to render one iteration.
+	// on the detail page: "Procesando re-lectura… (hace 15 s). Refrescá
+	// la página cuando el aviso cambie." for a running job,
+	// "re-lectura lista." for a done job, or "re-lectura falló: …" for
+	// a failed one. Every branch shows a "Refrescar" (running / done)
+	// or "Cerrar aviso" (failed) button that POSTs to
+	// /jobs/{JobID}/dismiss. Nil hides the banner entirely (issue
+	// #249). The runner drives the state — this struct only carries
+	// what the template needs to render one iteration.
 	JobBanner *JobBanner
 }
 
@@ -282,10 +284,11 @@ type ControlDetailPage struct {
 type JobBanner struct {
 	JobID int64
 	// Kind is the Spanish label ("re-lectura", "análisis", "generación",
-	// "anotado") — the template renders it verbatim.
+	// "anotado") — the template renders it verbatim inside
+	// "Procesando {Kind}…".
 	Kind string
 	// Running is true while the runner is still working on the job.
-	// The template shows the "Analizando…" line with StartedAgo.
+	// The template shows the "Procesando {Kind}…" line with StartedAgo.
 	Running bool
 	// Done is true when the job finished successfully AND has not yet
 	// been dismissed. Failed = true is the failure branch.
@@ -297,9 +300,10 @@ type JobBanner struct {
 	// Error is the AnalyzerRefusedError.Message (or another short
 	// summary) the runner recorded. Only populated when Failed.
 	Error string
-	// DismissURL is POST /jobs/{id}/dismiss — the "Refrescar" and
-	// "Reintentar" button both target it (Reintentar posts and then
-	// the professor re-submits the operation from the usual form).
+	// DismissURL is POST /jobs/{id}/dismiss — the "Refrescar" (running /
+	// done) and "Cerrar aviso" (failed) button both target it. The
+	// professor re-submits the operation from the usual form after
+	// dismissing.
 	DismissURL string
 }
 
