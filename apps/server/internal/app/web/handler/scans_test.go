@@ -13,9 +13,11 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 )
 
 // createControl runs the domain Service to make a real control with N
@@ -378,7 +380,9 @@ func TestUploadScanWithExplicitThresholds(t *testing.T) {
 }
 
 // The re-read persists the pair it used and re-annotates the copies the
-// new reading accepts (ruta A over the new report).
+// new reading accepts (ruta A over the new report). Since issue #249
+// the HTTP handler enqueues an async job; the assertions run AFTER the
+// runner has consumed the row.
 func TestReanalyzePersistsThresholdsAndReannotates(t *testing.T) {
 	f := newControlsFixture(t)
 	controlID := f.createControl(t, "Control re", 1)
@@ -399,6 +403,12 @@ func TestReanalyzePersistsThresholdsAndReannotates(t *testing.T) {
 
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d\nbody: %s", rec.Code, rec.Body.String())
+	}
+	// Wait for the async job to complete, then verify the persisted
+	// state matches the sync-path contract from before #249.
+	job := f.waitLatestJobTerminal(t, controlID)
+	if job.Status != jobs.StatusDone {
+		t.Fatalf("job status = %q (error %q), want done", job.Status, job.Error)
 	}
 	got, err := f.service.Get(context.Background(), controlID)
 	if err != nil {
@@ -552,11 +562,15 @@ func TestUploadScanRefusedFlashSkipsBlankLinesAndTruncatesLongOnes(t *testing.T)
 	}
 }
 
-// The reanalyze branch mirrors upload: detail flows through, fallback
-// keeps the "no captures yet" hint that was there before #210.
-func TestReanalyzeRefusedFlashCarriesFirstLineOfDetail(t *testing.T) {
+// Since issue #249 the reanalyze path is async: the professor no longer
+// sees a flash carrying the worker refusal, because the HTTP handler
+// returns before the worker is even called. The refusal lands on the
+// job row instead — job.error carries the short message the banner
+// renders, job.detail carries the long AMC context for a future debug
+// view. Same shape refusedFlash used to build for the flash cookie.
+func TestReanalyzeRefusalRecordsMessageAndDetailOnTheJobRow(t *testing.T) {
 	f := newControlsFixture(t)
-	controlID := f.createControl(t, "Control 210 reanalyze", 1)
+	controlID := f.createControl(t, "Control 249 reanalyze refusal", 1)
 	f.fake.AnalyzeReports = []controls.Report{
 		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
 	}
@@ -575,18 +589,18 @@ func TestReanalyzeRefusedFlashCarriesFirstLineOfDetail(t *testing.T) {
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303", rec.Code)
 	}
-	flash := readFlash(t, rec)
-	if !strings.Contains(flash, "rechazó re-leer") {
-		t.Errorf("flash %q does not name the reanalyze refusal", flash)
+	job := f.waitLatestJobTerminal(t, controlID)
+	if job.Status != jobs.StatusFailed {
+		t.Fatalf("job status = %q, want failed", job.Status)
 	}
-	if !strings.Contains(flash, "nothing to re-read on /work/controls/y") {
-		t.Errorf("flash %q does not include the worker's first stderr line", flash)
+	if !strings.Contains(job.Error, "no captures") {
+		t.Errorf("job.Error = %q, want the AnalyzerRefusedError.Message", job.Error)
 	}
-	if strings.Contains(flash, "second line") {
-		t.Errorf("flash %q leaks a second line", flash)
+	if !strings.Contains(job.Detail, "nothing to re-read on /work/controls/y") {
+		t.Errorf("job.Detail = %q, want the AnalyzerRefusedError.Detail", job.Detail)
 	}
-	if !strings.Contains(flash, "escaneos subidos") {
-		t.Errorf("flash %q dropped the no-captures hint", flash)
+	if !strings.Contains(job.Detail, "second line") {
+		t.Errorf("job.Detail = %q, want the full multi-line detail (not truncated on the row)", job.Detail)
 	}
 }
 
@@ -706,5 +720,207 @@ func TestDetailShowsNoUploadSectionWhenNothingWasUploaded(t *testing.T) {
 	}
 	if strings.Contains(rec.Body.String(), "Lotes subidos") {
 		t.Error("detail page shows the upload section with no batches on disk")
+	}
+}
+
+// The Reanalyze handler enqueues a job and redirects immediately; the
+// runner processes it in the background. Since #249 the ACs demand the
+// HTTP round trip stays fast even when the underlying operation would
+// have been minutes-class.
+func TestReanalyzeReturns303ImmediatelyAndCreatesAJobRow(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 249 fast enqueue", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	// A reanalyze whose worker call would normally take a while — the
+	// fake's report list is deliberately empty here, so the sync path
+	// would have blocked at the worker; the async path returns first.
+	f.fake.ReanalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	values := url.Values{"ticked": {"0.30"}, "unsure": {"0.10"}}
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/reanalyze", values)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.ReanalyzeScans(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 (async enqueue redirects)", rec.Code)
+	}
+	// A row exists on the store IMMEDIATELY — the runner may or may
+	// not have picked it up yet, but the job is committed.
+	latest, err := f.jstore.LatestForControl(context.Background(), controlID)
+	if err != nil {
+		t.Fatalf("LatestForControl right after Submit: %v", err)
+	}
+	if latest.Kind != jobs.KindReanalyse {
+		t.Errorf("latest job Kind = %q, want reanalyse", latest.Kind)
+	}
+	// Wait for the runner to consume it — success proves the whole
+	// enqueue → dispatch → persist chain.
+	done := f.waitLatestJobTerminal(t, controlID)
+	if done.Status != jobs.StatusDone {
+		t.Errorf("job final status = %q, want done", done.Status)
+	}
+}
+
+// Two /reanalyze POSTs in quick succession produce two rows on the
+// store. The runner's single goroutine serialises them (S6 AC:
+// "resultan en dos jobs — el segundo espera al primero"); the callers'
+// HTTP requests each get their 303 without waiting for the AMC work.
+func TestTwoConcurrentReanalyzesProduceTwoJobs(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 249 concurrent", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	f.fake.ReanalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	postReanalyze := func(ticked string) {
+		values := url.Values{"ticked": {ticked}, "unsure": {"0.05"}}
+		req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/reanalyze", values)
+		req.SetPathValue("id", controlID)
+		rec := httptest.NewRecorder()
+		f.handler.ReanalyzeScans(rec, req)
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("status = %d, want 303", rec.Code)
+		}
+	}
+	postReanalyze("0.20")
+	postReanalyze("0.30")
+
+	// Wait for BOTH to reach terminal — the second's completion means
+	// the runner already finished the first.
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		ids, err := f.jstoreQueuedAndTerminalCount(context.Background(), controlID)
+		if err != nil {
+			t.Fatalf("counting jobs: %v", err)
+		}
+		if ids.terminal == 2 {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("jobs after 3s: queued=%d running=%d terminal=%d (want terminal=2)",
+				ids.queued, ids.running, ids.terminal)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+// The Detail page renders the JobBanner section when the latest job is
+// running or queued. Since the handler tests start the runner, the job
+// might have already finished — the banner then renders the done
+// branch instead. Either way, the section is present.
+func TestDetailRendersTheJobBannerAfterAReanalyzeIsEnqueued(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 249 banner", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+	f.fake.ReanalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+
+	values := url.Values{"ticked": {"0.30"}, "unsure": {"0.10"}}
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/reanalyze", values)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.ReanalyzeScans(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("submit status = %d, want 303", rec.Code)
+	}
+
+	// Ask Detail to render — capture whatever state the runner is in.
+	detailReq := f.authedRequest(t, http.MethodGet, "/controls/"+controlID, nil)
+	detailReq.SetPathValue("id", controlID)
+	detailRec := httptest.NewRecorder()
+	f.handler.Detail(detailRec, detailReq)
+	if detailRec.Code != http.StatusOK {
+		t.Fatalf("detail status = %d", detailRec.Code)
+	}
+	body := detailRec.Body.String()
+	// One of three variants must be present. "re-lectura" is the
+	// Spanish spanishKind() label the template renders verbatim.
+	if !strings.Contains(body, "re-lectura") {
+		t.Errorf("detail page missing the reanalyse banner (looked for 're-lectura'):\n%s", body)
+	}
+	// The dismiss form is always present on the banner.
+	if !strings.Contains(body, "/jobs/") || !strings.Contains(body, "/dismiss") {
+		t.Errorf("detail page missing the dismiss form:\n%s", body)
+	}
+}
+
+// DismissJob stamps viewed_at and redirects back to the control's
+// detail. A subsequent Detail render omits the banner.
+func TestDismissJobStampsViewedAtAndRedirects(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 249 dismiss", 1)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+	f.fake.ReanalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+
+	values := url.Values{"ticked": {"0.30"}, "unsure": {"0.10"}}
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/reanalyze", values)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.ReanalyzeScans(rec, req)
+
+	job := f.waitLatestJobTerminal(t, controlID)
+
+	dismissPath := fmt.Sprintf("/jobs/%d/dismiss", job.ID)
+	dismissReq := f.authedRequest(t, http.MethodPost, dismissPath, nil)
+	dismissReq.SetPathValue("id", fmt.Sprintf("%d", job.ID))
+	dismissRec := httptest.NewRecorder()
+	f.handler.DismissJob(dismissRec, dismissReq)
+	if dismissRec.Code != http.StatusSeeOther {
+		t.Fatalf("dismiss status = %d, want 303", dismissRec.Code)
+	}
+	if got := dismissRec.Header().Get("Location"); got != "/controls/"+controlID {
+		t.Errorf("dismiss Location = %q, want /controls/%s", got, controlID)
+	}
+	after, err := f.jstore.ByID(context.Background(), job.ID)
+	if err != nil {
+		t.Fatalf("ByID: %v", err)
+	}
+	if after.ViewedAt == nil {
+		t.Errorf("job.ViewedAt is nil after dismiss, want a timestamp")
+	}
+	// The next Detail render omits the banner because the terminal
+	// job has been dismissed.
+	detailReq := f.authedRequest(t, http.MethodGet, "/controls/"+controlID, nil)
+	detailReq.SetPathValue("id", controlID)
+	detailRec := httptest.NewRecorder()
+	f.handler.Detail(detailRec, detailReq)
+	body := detailRec.Body.String()
+	if strings.Contains(body, "re-lectura lista") ||
+		strings.Contains(body, "Procesando re-lectura") {
+		t.Errorf("banner still visible after dismiss:\n%s", body)
+	}
+}
+
+// DismissJob answers 404 for a job id that does not exist. The path is
+// URL-driven and public-ish (any professor can dismiss any job), so an
+// invalid id must not 500.
+func TestDismissJobAnswers404ForAnUnknownID(t *testing.T) {
+	f := newControlsFixture(t)
+	req := f.authedRequest(t, http.MethodPost, "/jobs/999999/dismiss", nil)
+	req.SetPathValue("id", "999999")
+	rec := httptest.NewRecorder()
+	f.handler.DismissJob(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404 for a missing job id", rec.Code)
 	}
 }

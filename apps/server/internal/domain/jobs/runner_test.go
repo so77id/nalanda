@@ -3,7 +3,6 @@ package jobs_test
 import (
 	"context"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"sync"
@@ -164,22 +163,11 @@ func (s *fakeStore) FailRunningWithMessage(_ context.Context, msg string, at tim
 	return n, nil
 }
 
-// stubHandlers returns a Handlers map where every kind runs `handler`.
-// Convenient default: three of the four kinds return "unexpected kind"
-// so a test that submits the wrong one fails loudly.
+// stubHandlers returns a Handlers map with `handler` bound to `kind`.
+// Since NewRunner now allows partial registration (S3 wires only one
+// kind at first), the fixture registers only the one under test.
 func stubHandlers(kind jobs.Kind, handler jobs.Handler) jobs.Handlers {
-	h := jobs.Handlers{}
-	for _, k := range jobs.ValidKinds {
-		k := k
-		if k == kind {
-			h[k] = handler
-			continue
-		}
-		h[k] = func(context.Context, string, []byte) error {
-			return fmt.Errorf("stub: unexpected kind %q", k)
-		}
-	}
-	return h
+	return jobs.Handlers{kind: handler}
 }
 
 func silentLogger() *slog.Logger {
@@ -400,11 +388,38 @@ func TestSubmitRefusesAnUnregisteredKind(t *testing.T) {
 		func(context.Context, string, []byte) error { return nil }),
 		silentLogger(), time.Now)
 
-	// Every ValidKind is registered by stubHandlers. Force a mismatch
-	// by constructing an out-of-set kind — the runner rejects it.
-	_, err := runner.Submit(context.Background(), "CTRL001", jobs.Kind("nonesuch"), []byte(`{}`))
+	// Only KindAnalyse is registered; a Submit for a different kind is
+	// refused rather than accepted and never run.
+	_, err := runner.Submit(context.Background(), "CTRL001", jobs.KindGenerate, []byte(`{}`))
 	if err == nil {
 		t.Errorf("Submit accepted an unregistered kind; want an error")
+	}
+}
+
+func TestRunnerFailsAQueuedRowWhoseKindHasNoHandler(t *testing.T) {
+	store := newFakeStore()
+	// Only KindAnalyse is registered — but a KindGenerate row is
+	// pre-seeded on the store (a previous binary wrote it, then this
+	// binary boots without that handler yet).
+	if _, err := store.Insert(context.Background(), jobs.NewJob{
+		ControlID: "CTRL001", Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+	}); err != nil {
+		t.Fatalf("seeding: %v", err)
+	}
+	runner := jobs.NewRunner(store, stubHandlers(jobs.KindAnalyse,
+		func(context.Context, string, []byte) error { return nil }),
+		silentLogger(), time.Now)
+	if err := runner.Sweep(context.Background()); err != nil {
+		t.Fatalf("Sweep: %v", err)
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go runner.Start(ctx)
+
+	// It ends up failed rather than stuck queued.
+	final := waitForStatus(t, store, 1, jobs.StatusFailed)
+	if final.Error == "" {
+		t.Errorf("unknown-kind row has empty Error; want the operator-facing message")
 	}
 }
 

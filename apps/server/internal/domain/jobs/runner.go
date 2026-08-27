@@ -58,21 +58,26 @@ type Runner struct {
 // Start.drain re-scans the store after every job.
 const runnerBuffer = 256
 
-// NewRunner returns a Runner over store, with a Handler registered for
-// every Kind. Same shape as controls.NewService: a wiring mistake is a
-// panic at boot (backend-code-style.md §Errors).
+// NewRunner returns a Runner over store, dispatching each Kind to the
+// Handler registered for it. Handlers can be partial while the WP is
+// mid-migration (S3 registers only reanalyse; S4–S6 add the rest): a
+// Submit of an unregistered Kind is refused, and a queued row with an
+// unregistered Kind is failed rather than dropped — never a silent
+// no-op. A nil entry is a wiring bug, though, so those still panic.
 func NewRunner(store Store, handlers Handlers, log *slog.Logger, now func() time.Time) *Runner {
 	switch {
 	case store == nil:
 		panic("jobs.NewRunner: no store")
+	case handlers == nil:
+		panic("jobs.NewRunner: no handlers map")
 	case log == nil:
 		panic("jobs.NewRunner: no logger")
 	case now == nil:
 		panic("jobs.NewRunner: no clock")
 	}
-	for _, kind := range ValidKinds {
-		if _, ok := handlers[kind]; !ok {
-			panic("jobs.NewRunner: no handler for kind " + string(kind))
+	for kind, h := range handlers {
+		if h == nil {
+			panic("jobs.NewRunner: nil handler for kind " + string(kind))
 		}
 	}
 	return &Runner{
@@ -201,11 +206,24 @@ func (r *Runner) runOne(ctx context.Context, id int64) {
 		// previous run stands.
 		return
 	}
+	handler, ok := r.handlers[job.Kind]
+	if !ok {
+		// A queued row whose Kind has no handler yet — most likely a
+		// row written by a newer server against a schema this binary
+		// does not know about, or an in-flight WP-migration boot order.
+		// Fail it with a distinct message so it does not stay `queued`
+		// forever and the banner surfaces the operator issue.
+		msg := "no handler registered for kind " + string(job.Kind)
+		if err := r.store.MarkFailed(ctx, id, msg, "", r.now()); err != nil {
+			r.log.Error("jobs: mark failed (unknown kind)", "id", id, "error", err)
+		}
+		r.log.Error("jobs: no handler for kind", "id", id, "kind", string(job.Kind))
+		return
+	}
 	if err := r.store.MarkRunning(ctx, id, r.now()); err != nil {
 		r.log.Error("jobs: mark running", "id", id, "error", err)
 		return
 	}
-	handler := r.handlers[job.Kind]
 	handlerErr := r.callHandler(ctx, handler, job)
 	if handlerErr == nil {
 		if err := r.store.MarkDone(ctx, id, r.now()); err != nil {

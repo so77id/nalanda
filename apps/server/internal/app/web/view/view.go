@@ -265,6 +265,42 @@ type ControlDetailPage struct {
 	// with State != Graded (or a Graded control with N = 0) shows no
 	// panel at all rather than a "no hay datos" empty state.
 	Stats *stats.Statistics
+
+	// JobBanner, when non-nil, renders the async job runner's status
+	// on the detail page: "Analizando… reanalyse (iniciado hace 15 s).
+	// Refrescá cuando termine." for a running job, or "Análisis listo /
+	// falló — [Refrescar / Reintentar]" for a done/failed job the
+	// professor has not dismissed yet. Nil hides the banner entirely
+	// (issue #249). The runner drives the state — this struct only
+	// carries what the template needs to render one iteration.
+	JobBanner *JobBanner
+}
+
+// JobBanner is the summary of a control's most recent async job for the
+// detail page (issue #249). Composed by the handler from the latest
+// jobs.Job row — the template does no time arithmetic.
+type JobBanner struct {
+	JobID int64
+	// Kind is the Spanish label ("re-lectura", "análisis", "generación",
+	// "anotado") — the template renders it verbatim.
+	Kind string
+	// Running is true while the runner is still working on the job.
+	// The template shows the "Analizando…" line with StartedAgo.
+	Running bool
+	// Done is true when the job finished successfully AND has not yet
+	// been dismissed. Failed = true is the failure branch.
+	Done   bool
+	Failed bool
+	// StartedAgo is the human phrase for "hace 15 s" / "hace 2 min",
+	// rendered while Running.
+	StartedAgo string
+	// Error is the AnalyzerRefusedError.Message (or another short
+	// summary) the runner recorded. Only populated when Failed.
+	Error string
+	// DismissURL is POST /jobs/{id}/dismiss — the "Refrescar" and
+	// "Reintentar" button both target it (Reintentar posts and then
+	// the professor re-submits the operation from the usual form).
+	DismissURL string
 }
 
 // ReadingRow is one row of the results table. Everything is pre-formatted

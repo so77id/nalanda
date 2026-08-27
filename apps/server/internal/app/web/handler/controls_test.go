@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,10 +22,12 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
@@ -54,7 +57,11 @@ type controlsFixture struct {
 	// cstore is the real controlstore behind the service — tests that need
 	// to read rows back (annotated_copy since issue #190) query it instead
 	// of re-deriving the database path.
-	cstore  *controlstore.Store
+	cstore *controlstore.Store
+	// jstore is the real jobstore behind the runner — issue #249 tests
+	// (Submit path, banner, dismiss) query it directly.
+	jstore  *jobstore.Store
+	runner  *jobs.Runner
 	fake    *amctest.Fake
 	hook    *recordingHook
 	workDir string
@@ -133,13 +140,109 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		Now:     time.Now, Seed: 1, Log: log,
 	})
 	hook := &recordingHook{service: svc}
+	jstore := jobstore.New(db)
+	runner := jobs.NewRunner(jstore, jobs.Handlers{
+		jobs.KindReanalyse: controls.NewReanalyseHandler(svc),
+	}, log, time.Now)
+	// Start the runner in the background so the async Submit path in
+	// ReanalyzeScans reaches its handler. Cleanup cancels the context
+	// so the goroutine drains at end-of-test.
+	runnerCtx, runnerCancel := context.WithCancel(context.Background())
+	t.Cleanup(runnerCancel)
+	go runner.Start(runnerCtx)
 	h := handler.NewControls(handler.Controls{
 		Service: svc, Bank: live,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
 		OnCorrectionClosed: hook,
+		Jobs:               jstore,
+		Runner:             runner,
 		Log:                log,
 	})
-	return &controlsFixture{handler: h, service: svc, cstore: cstore, fake: fake, hook: hook, workDir: workDir, user: prof, session: session, log: log}
+	return &controlsFixture{handler: h, service: svc, cstore: cstore, jstore: jstore, runner: runner, fake: fake, hook: hook, workDir: workDir, user: prof, session: session, log: log}
+}
+
+// jobCounts is what jstoreQueuedAndTerminalCount returns — the three
+// buckets a concurrent-serialisation test cares about.
+type jobCounts struct {
+	queued   int
+	running  int
+	terminal int
+}
+
+// jstoreQueuedAndTerminalCount reads every job for this control and
+// buckets by status. Used by the concurrent-reanalyze test to wait for
+// the runner to catch up without over-fitting to id order.
+func (f *controlsFixture) jstoreQueuedAndTerminalCount(ctx context.Context, controlID string) (jobCounts, error) {
+	rows, err := f.jstoreRawByControl(ctx, controlID)
+	if err != nil {
+		return jobCounts{}, err
+	}
+	c := jobCounts{}
+	for _, j := range rows {
+		switch j.Status {
+		case jobs.StatusQueued:
+			c.queued++
+		case jobs.StatusRunning:
+			c.running++
+		case jobs.StatusDone, jobs.StatusFailed:
+			c.terminal++
+		}
+	}
+	return c, nil
+}
+
+// jstoreRawByControl reads every job for the control via the fixture's
+// database — jobs.Store doesn't expose "list by control" (its readers
+// are LatestForControl and ByID by design), and the test does not need
+// a new method on the domain interface for one case.
+func (f *controlsFixture) jstoreRawByControl(ctx context.Context, controlID string) ([]jobs.Job, error) {
+	// LatestForControl + walking id backwards would need extra
+	// interface methods. The fixture cheats by hitting the same
+	// sql.DB — jstore is a thin adapter, and no domain state hangs
+	// off the walk.
+	rows, err := f.jstore.QueuedIDs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// The list above only returns queued rows. Combine with a
+	// LatestForControl fan-out via the ByID contract: iterate
+	// increasing ids from 1 until ErrJobNotFound.
+	out := []jobs.Job{}
+	for id := int64(1); ; id++ {
+		j, err := f.jstore.ByID(ctx, id)
+		if err != nil {
+			if errors.Is(err, jobs.ErrJobNotFound) {
+				break
+			}
+			return nil, err
+		}
+		if j.ControlID == controlID {
+			out = append(out, j)
+		}
+	}
+	_ = rows
+	return out, nil
+}
+
+// waitLatestJobTerminal polls until the control's latest job is `done`
+// or `failed`. Handler tests that submit a job (reanalyze, analyse in
+// S4, etc.) call this after the POST so the runner has time to consume
+// the row before assertions read the resulting state.
+func (f *controlsFixture) waitLatestJobTerminal(t *testing.T, controlID string) jobs.Job {
+	t.Helper()
+	ctx := context.Background()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		job, err := f.jstore.LatestForControl(ctx, controlID)
+		if err == nil && (job.Status == jobs.StatusDone || job.Status == jobs.StatusFailed) {
+			return job
+		}
+		if time.Now().After(deadline) {
+			last, _ := f.jstore.LatestForControl(ctx, controlID)
+			t.Fatalf("no terminal job for %s after 3s (last: %+v, err: %v)", controlID, last, err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 func (f *controlsFixture) authedRequest(t *testing.T, method, path string, body url.Values) *http.Request {

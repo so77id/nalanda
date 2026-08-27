@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 )
 
 // ControlScansPath is POST target for the upload form on /controls/:id.
@@ -178,10 +180,13 @@ func (h *Controls) UploadScan(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 }
 
-// ReanalyzeScans handles POST /controls/:id/reanalyze. Reads ticked/unsure
-// from the form (prefilled with the control's stored pair), asks the
-// Service to re-read the captured project at those thresholds, and
-// redirects to detail with a flash.
+// ReanalyzeScans handles POST /controls/:id/reanalyze. Reads
+// ticked/unsure from the form (prefilled with the control's stored
+// pair) and enqueues an async job for the runner (issue #249) rather
+// than blocking the HTTP request. The professor is redirected to the
+// detail page whose banner (Detail's JobBanner) surfaces the running
+// job and the eventual done/failed state — no 502 from a slow proxy
+// while the worker chews on the batch.
 func (h *Controls) ReanalyzeScans(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if !isValidControlID(id) {
@@ -212,41 +217,24 @@ func (h *Controls) ReanalyzeScans(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 		return
 	}
-
-	// Issue #197: the re-read now also re-runs note and re-annotates every
-	// clean copy — minutes-class work, so the route claims its own write
-	// deadline like the upload does.
-	controller := http.NewResponseController(w)
-	if err := controller.SetWriteDeadline(time.Now().Add(uploadWriteWindow)); err != nil &&
-		!errors.Is(err, http.ErrNotSupported) {
-		h.Log.Warn("controls: cannot extend the reanalyze write deadline", "error", err)
+	payload, err := json.Marshal(controls.ReanalysePayload{Ticked: ticked, Unsure: unsure})
+	if err != nil {
+		// Encoding two float64s does not fail in practice; the log line
+		// is honest belt-and-braces so a change to the payload does not
+		// pass unnoticed.
+		h.Log.Error("reanalyze: encode payload", "control", id, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"El servidor no pudo encolar el trabajo.")
+		return
 	}
-
-	if _, err := h.Service.Reanalyze(r.Context(), id, ticked, unsure); err != nil {
-		switch {
-		case errors.Is(err, controls.ErrControlNotFound):
-			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
-		case errors.Is(err, controls.ErrAnalyzerRefused):
-			h.Log.Warn("controls: worker refused reanalyze", "control", id, "error", err)
-			flash.Set(w, h.secureCookie, refusedFlash(
-				"El motor rechazó re-leer.",
-				err,
-				"Puede que aún no haya escaneos subidos.",
-			))
-			http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
-		case errors.Is(err, controls.ErrAnalyzerUnavailable):
-			h.Log.Error("controls: worker unreachable during reanalyze", "control", id, "error", err)
-			middleware.WriteError(w, r, http.StatusInternalServerError,
-				"El motor no está disponible. Vuelve a intentarlo en unos minutos.")
-		default:
-			h.Log.Error("controls: reanalyze failed", "control", id, "error", err)
-			middleware.WriteError(w, r, http.StatusInternalServerError,
-				"El servidor no pudo re-leer el lote.")
-		}
+	if _, err := h.Runner.Submit(r.Context(), id, jobs.KindReanalyse, payload); err != nil {
+		h.Log.Error("reanalyze: submit job", "control", id, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"El servidor no pudo encolar el trabajo.")
 		return
 	}
 	flash.Set(w, h.secureCookie,
-		fmt.Sprintf("Lote re-leído (marcado: %.2f, inseguro: %.2f).", ticked, unsure))
+		fmt.Sprintf("Re-lectura encolada (marcado: %.2f, inseguro: %.2f). Refresca cuando el aviso cambie.", ticked, unsure))
 	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 }
 
