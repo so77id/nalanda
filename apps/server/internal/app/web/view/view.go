@@ -323,15 +323,30 @@ type ReviewPage struct {
 	Name       string
 	CopyNumber int
 	BackURL    string
-	ImageURL   string
-	SaveURL    string
-	Graded     bool // when true the template shows the "editing a closed correction" warning
+	// Pages is the raw-scan fallback's per-page images (issue #243):
+	// one entry per physical page AMC captured, in ascending order.
+	// The template iterates it and renders one <img> per page — a
+	// two-page copy shows both pages stacked. Empty when
+	// HasAnnotated is true (the PDF.js viewer takes over) or when
+	// the reading recorded zero captured pages (a not_present copy).
+	Pages   []ReviewImage
+	SaveURL string
+	Graded  bool // when true the template shows the "editing a closed correction" warning
 	// HasAnnotated / AnnotatedURL carry the corrected PDF (issue #190).
 	// AnnotatedURL is empty when HasAnnotated is false.
 	HasAnnotated bool
 	AnnotatedURL string
 	RUT          ReviewRUT
 	Questions    []ReviewQuestion
+}
+
+// ReviewImage is one page of a copy's raw scan (issue #243). The
+// review page's raw-scan fallback iterates ReviewPage.Pages and
+// emits one <img> per entry. Number is what AMC's capture_page
+// reported; URL is the /copies/N/page/M endpoint.
+type ReviewImage struct {
+	Number int
+	URL    string
 }
 
 // ReviewRUT is the top row of the form — the RUT block.

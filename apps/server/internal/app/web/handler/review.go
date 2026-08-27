@@ -63,7 +63,7 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 		Name:       control.Name,
 		CopyNumber: copyNumber,
 		BackURL:    controlDetailURL(id),
-		ImageURL:   controlPageImageURL(id, copyNumber, 1),
+		Pages:      buildReviewImages(id, copyNumber, reading.Pages),
 		SaveURL:    controlReviewURL(id, copyNumber),
 		Graded:     control.State == controls.Graded,
 		RUT:        toReviewRUT(reading),
@@ -519,6 +519,28 @@ func parseCopyPathValue(raw string) (int, bool) {
 
 func controlPageImageURL(id string, copyNumber, pageNumber int) string {
 	return fmt.Sprintf("%s/copies/%d/page/%d", controlDetailURL(id), copyNumber, pageNumber)
+}
+
+// buildReviewImages turns the reading's captured-pages list into the
+// per-page items the template iterates (issue #243). An empty list
+// falls back to page 1, matching migration 00011's backfill and the
+// amcworker mapping's legacy fallback: "nothing was said about
+// pages" renders exactly page 1, same as the pre-#243 template did.
+// A copy with no scan at all (not_present) skips the raw-scan
+// section entirely — the review page is never reached for it (the
+// results table filters not_present rows out of the review link).
+func buildReviewImages(id string, copyNumber int, pages []int) []view.ReviewImage {
+	if len(pages) == 0 {
+		pages = []int{1}
+	}
+	out := make([]view.ReviewImage, 0, len(pages))
+	for _, n := range pages {
+		out = append(out, view.ReviewImage{
+			Number: n,
+			URL:    controlPageImageURL(id, copyNumber, n),
+		})
+	}
+	return out
 }
 
 // controlAnnotatedURL is the corrected PDF's URL (issue #190).
