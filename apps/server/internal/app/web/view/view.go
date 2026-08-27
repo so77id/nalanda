@@ -425,6 +425,33 @@ type ErrorPage struct {
 // handler.buildSaveReviewFlash (issue #228 S3).
 var templateFuncs = template.FuncMap{
 	"splitLines": func(s string) []string { return strings.Split(s, "\n") },
+	// Stats-panel helpers (issue #251). All pure integer / float math —
+	// arithmetic in the template beats a second pass in Go and keeps the
+	// data plane free of layout arithmetic.
+	"add":    func(a, b int) int { return a + b },
+	"sub":    func(a, b int) int { return a - b },
+	"mul":    func(a, b int) int { return a * b },
+	"pctInt": func(part, total, span int) int { return part * span / total },
+	// gradeX maps a 1.0–7.0 grade onto a 0–600 pixel band, so the
+	// boxplot and the histogram share the same x-axis span.
+	"gradeX": func(g float64) int { return int((g - 1.0) * 100) },
+	// letter renders the A/B/C… label for a 0-indexed authoring
+	// alternative. Only meaningful up to five (Nalanda's controls do
+	// not exceed the alphabet in practice).
+	"letter": func(i int) string { return string(rune('A' + i)) },
+	// isCorrect reports whether the alternative index (0-based) is in
+	// the bank's Correct set for that question.
+	"isCorrect": func(i int, correct []int) bool {
+		for _, c := range correct {
+			if c == i {
+				return true
+			}
+		}
+		return false
+	},
+	// seven yields the axis-tick indices 0..6 (grade 1..7) — a helper
+	// because html/template has no `range 7` shorthand.
+	"seven": func() []int { return []int{0, 1, 2, 3, 4, 5, 6} },
 }
 
 func mustParsePages() map[string]*template.Template {
