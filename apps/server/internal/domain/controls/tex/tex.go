@@ -397,20 +397,21 @@ var codeFontPattern = regexp.MustCompile("`([^`]+)`")
 
 // boldPattern matches an MDX-style bold marker `**text**` and renders as
 // \textbf. The inner class allows single `*` runes so a nested italic
-// (`**bold *italic* end**`) is captured whole and italicPattern can find its
-// pair inside the resulting `\textbf{…}`. `[^*]+(?:\*[^*]+)*` reads as "one
-// or more non-star runs, glued by single stars" — which forbids `**` inside
-// (each glue star is required to be followed by non-stars), keeping each
-// bold pair local.
+// (`**bold *italic* end**`) is captured whole and mapItalic (below) can
+// find its pair inside the resulting `\textbf{…}`. `[^*]+(?:\*[^*]+)*`
+// reads as "one or more non-star runs, glued by single stars" — which
+// forbids `**` inside (each glue star is required to be followed by
+// non-stars), keeping each bold pair local.
 //
 // `\B` on both outer sides gates the marker to non-word-adjacent positions,
 // so author-typed arithmetic like `n**m**p` never fires as bold. `\B`
 // (opposite of `\b`) asserts "no word boundary here"; since `*` is itself
 // non-word, `\B` next to `*` forbids a word character on the outside — the
 // only way it matches is if the outer neighbour is start-of-string,
-// whitespace, or punctuation. Same gate is applied to italicPattern below
-// for the same reason (issue #239 COR-1). Runs BEFORE italicPattern so the
-// `**` pairs are consumed before the simpler italic regex sees the string.
+// whitespace, or punctuation. mapItalic below uses a stricter version of
+// the same gate — its `italicBoundaryOK` also forbids an adjacent `*`,
+// which pure `\B` cannot express (issue #239 COR-1). Runs BEFORE mapItalic
+// so the `**` pairs are consumed before the single-`*` scan sees them.
 var boldPattern = regexp.MustCompile(`\B\*\*([^*]+(?:\*[^*]+)*)\*\*\B`)
 
 // mapItalic replaces MDX italic markers `*text*` with `\textit{text}`. A
@@ -783,8 +784,8 @@ func restoreCodePayloads(s string, payloads []string) string {
 	return s
 }
 
-// escapeBankText is the Statement / Alternatives pipeline. Six stages in a
-// load-bearing order; each stage names its "why here" in the body. The
+// escapeBankText is the Statement / Alternatives pipeline. Seven stages in
+// a load-bearing order; each stage names its "why here" in the body. The
 // professor-typed control NAME goes through escapeLatex alone — it is
 // plain text, not MDX (issue #193 S3).
 func escapeBankText(s string) string {
@@ -802,8 +803,8 @@ func escapeBankText(s string) string {
 	//      (`$\Theta$`, `$\leq$`) are NOT re-escaped as
 	//      `\textbackslash{}\$`.
 	//   4. boldPattern — `**text**` → \textbf (issue #239). Runs BEFORE
-	//      italicPattern so the `**` pairs are consumed as a pair; if
-	//      italic ran first, its `\*(...)\*` would match the two
+	//      mapItalic so the `**` pairs are consumed as a pair; if
+	//      italic ran first, its single-`*` scan would match the two
 	//      asterisks that open and close a `**bold**` marker and destroy
 	//      the bold. Gated with `\B` on both outer sides (see the
 	//      boldPattern doc) so `n**m**p` arithmetic is not read as bold.

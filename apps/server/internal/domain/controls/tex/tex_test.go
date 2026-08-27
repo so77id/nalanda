@@ -595,8 +595,8 @@ func TestBacktickPairsRenderAsTypewriterText(t *testing.T) {
 // paper (raw markers around the word), and a lone `*` renders as a low
 // asterisk with no emphasis at all. The fix wires two more transforms into
 // escapeBankText — boldPattern (`**text**` → `\textbf{text}`), then
-// italicPattern (`*text*` → `\textit{text}`) — with bold FIRST so the
-// simpler italic pattern does not eat the two asterisks of a bold marker.
+// mapItalic (`*text*` → `\textit{text}`) — with bold FIRST so the
+// single-`*` scan does not eat the two asterisks of a bold marker.
 //
 // Scope in production (from the published bank at issue-time): 44 `**`
 // occurrences across 5 documents, mostly in `complejidad-de-hilbert-al-big-o`.
@@ -842,8 +842,9 @@ func TestEmphasisPipelineHandlesMixedContentInOneQuestion(t *testing.T) {
 		// residue, `%` survived escapeLatex, quotes became guillemets, the
 		// backtick pair became \texttt at the end.
 		"\\textbf{$\\Theta$(n$^{2}$)} es la cota \\textit{ajustada} del 100\\% en el \\og peor caso\\fg{} con \\texttt{for} loop.",
-		// Alternative 0: bold-then-italic pin holds, code inside bold runs
-		// because codeFontPattern comes last.
+		// Alternative 0: bold-then-italic pin holds, and code inside bold
+		// still wraps as \texttt because restoreCodePayloads rewrites the
+		// sentinel back to \texttt{…} at the end.
 		"\\correctchoice{\\textbf{bold \\textit{italic} con \\texttt{code}}}",
 		// Alternative 1: quotes translated inside a wrongchoice, `&` still
 		// escaped by escapeLatex.
@@ -888,10 +889,11 @@ func TestEmphasisPipelineHandlesMixedContentInOneQuestion(t *testing.T) {
 // survive verbatim. Same for the same shape wrapped in parentheses,
 // digits, and — since Miguel's imminent complexity-exercise batch is
 // exactly the authoring context — expressions like `O(a*b*c*d)` and
-// `5*3*2`. Pinned with `\B` on both outer sides of italicPattern
-// (regex asserts no word boundary at the outer `*` position, and since
-// `*` is itself non-word, a word char on the outside would create a
-// boundary and disqualify the match).
+// `5*3*2`. Pinned by mapItalic's boundary check (italicBoundaryOK): a
+// `*` is treated as an italic marker only when the rune immediately
+// outside it is neither a word character nor another `*`. Manual scan
+// rather than a regex because Go's RE2 cannot express the "no `*` on
+// the outside" half without lookaround.
 func TestItalicDoesNotFireOnArithmeticAsterisks(t *testing.T) {
 	out := compile(t, func(in *tex.Input) {
 		in.Pool = []bank.Question{

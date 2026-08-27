@@ -186,20 +186,62 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   which also resolves `.Get()`, can straddle a swap; the addendum
   pins that distinction after the WP review flagged it).
 - **Bank text destined for the printed sheet MUST go through
-  `escapeBankText` (issue #237).** The pipeline runs three ordered
-  stages in `internal/domain/controls/tex/tex.go` — `escapeLatex` →
-  `mapUnicodeToLatex` → the backtick-to-`\texttt` regex — and the
-  order is load-bearing: `mapUnicodeToLatex` introduces `\` and `$`
-  that `escapeLatex` would otherwise re-escape as `\textbackslash{}\$`
-  if the two ran in the other order. A new path that emits Statement
-  or Alternatives text into `.tex` outside `escapeBankText` will let
-  bare Unicode (Θ ² √ ≤ → ∞ — …) reach pdftex and reproduce the exact
-  `auto-multiple-choice prepare failed (1)` this WP set out to
-  prevent. Extending the map: add the char to `unicodeReplacer` AND a
-  matching row to `TestMapUnicodeToLatex_Round2` in `tex_internal_test.go`
-  in the same PR (one row per character is the pin against a silent
-  revert); author-facing summary is
-  `docs/standards/guides/write-control-questions.md` §Unicode symbols.
+  `escapeBankText` (issue #237, further shaped by #239).** The pipeline
+  in `internal/domain/controls/tex/tex.go` runs SEVEN ordered stages,
+  bracketed by a quarantine mechanism for content the author wants
+  literal. Order top-to-bottom, load-bearing at every step (the
+  step-by-step "why here" is on `escapeBankText`'s doc-comment):
+  1. `extractCodePayloads` — pulls every backtick pair out to a
+     `\x00CODE<n>\x00` sentinel BEFORE the emphasis / quote / Unicode
+     passes run, so nothing bleeds into `` `code` `` content. Author's
+     `` `.equals("María")` `` reaches the sheet as `.equals("María")`
+     in monospace, matching MDX's on-screen "backticks are inviolable"
+     rule (#239 COR-2, shipped bug in `buscar-con-equals`).
+  2. `escapeLatex` — TeX specials in author text.
+  3. `mapUnicodeToLatex` — Θ ² √ ≤ → ∞ — … (#237). Runs AFTER
+     `escapeLatex` so the `\` and `$` it introduces are not re-escaped.
+  4. `boldPattern` — `**text**` → `\textbf{…}`. `\B` gates on BOTH
+     outer sides so `n**m` arithmetic never fires as bold (#239).
+  5. `mapItalic` — `*text*` → `\textit{…}`. Manual scan, not a regex:
+     Go's RE2 cannot express "no `*` on the outside" without lookaround.
+     The boundary check (`italicBoundaryOK`) forbids BOTH word chars
+     AND another `*` on the outside of a marker, so `n*m*p` arithmetic
+     and cross-`**` italic bleed (`n**m es la … 2**3`) are both blocked
+     (#239 COR-1).
+  6. `mapAsciiQuotes` — `"…"` → `\og … \fg{}` (babel-spanish
+     guillemets). State machine: first quote opens, second closes, so
+     on. `[T1]{fontenc}` would otherwise compose a diacritic onto the
+     next glyph on a bare `"` (#239).
+  7. `restoreCodePayloads` — puts each backtick payload back as
+     `\texttt{escapeLatex(mapUnicodeToLatex(payload))}`. Emphasis /
+     quote transforms are deliberately NOT re-applied to code content.
+
+  A new path that emits Statement or Alternatives text into `.tex`
+  outside `escapeBankText` will let bare Unicode reach pdftex and
+  reproduce the exact `auto-multiple-choice prepare failed (1)` #237
+  set out to prevent — and now also lets raw `**`, `"` and stray `*`
+  leak onto paper as literal markers.
+
+  Extension conventions the pipeline pins (non-negotiable when adding
+  a new transform):
+  - A new Unicode row goes in `unicodeReplacer` AND a matching row in
+    `TestMapUnicodeToLatex_Round2` (`tex_internal_test.go`), one per
+    character — the pin against a silent revert.
+  - **A new inviolable payload type** (author-controlled content that
+    must reach the sheet literally) follows the
+    `extractCodePayloads` / `restoreCodePayloads` recipe — sentinel
+    swap before the transform pipeline, unwrap after. Do NOT insert a
+    new transform in the middle of the chain and hope authors won't
+    hit the bleed; #239 COR-2 was that hope, and it printed on paper.
+  - **A new emphasis marker** (a `~~strike~~`-shaped rule) needs its
+    outer-boundary check to forbid BOTH word chars AND another
+    marker-char — worked case: `italicBoundaryOK` in `tex.go`. A pure
+    `\B` gate is not enough; #239 COR-1 shows the exact silent-corruption
+    failure mode.
+  - Author-facing summary lives in
+    `docs/standards/guides/write-control-questions.md` §"Unicode
+    symbols" and §"Text emphasis" — both get a matching update in the
+    same PR (documentation.md Rule 1).
 - **The two surfaces do not share an auth gate** (§C12). Everything auth-shaped
   is mounted inside `internal/app/web`; `internal/app/api` is anonymous by
   construction, and `/health` sits deliberately outside the gate because the
