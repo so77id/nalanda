@@ -689,3 +689,249 @@ describe('architecture: colour goes through the palette', () => {
     ).toEqual([]);
   });
 });
+
+describe('architecture: every colour class resolves to a registered palette token', () => {
+  // #247. The raw-colour ban above stops a component from naming a Tailwind
+  // family (`bg-slate-800`, `text-white`). But it cannot see the *inverse*
+  // defect: a component that reaches for a SEMANTIC token which was renamed,
+  // typo'd, or never registered — `text-ink-fain`, `bg-accent-poop`, a
+  // resurrected `--color-brand-primary` after the palette moved on. Tailwind
+  // silently drops the class (no `--color-<name>` alias in @theme, no
+  // stylesheet rule generated) and the element paints nothing. jsdom cannot
+  // see paint, so the whole suite stays green over a colourless button.
+  //
+  // This case reads the SET of declared tokens out of `styles/index.css`
+  // (the same @theme block `palette.test.ts` reads for its contract) and
+  // fails when a `text-|bg-|border-|ring-|outline-|divide-|fill-|stroke-|
+  // placeholder-|accent-` class names anything else. False positives — every
+  // Tailwind non-colour utility that shares a prefix (`text-xs`, `bg-cover`,
+  // `border-solid`, `ring-2`, `outline-offset`, ...) — go through
+  // `NON_COLOUR_STARTERS` and the numeric guard, both narrow because ADR-0026
+  // forbids raw palette names in the same prefixes.
+  //
+  // The raw-colour ban owns family names (`slate`, `emerald`, ...) so we do
+  // not repeat that vocabulary here — a raw hit fails the OTHER case with a
+  // better message. This case owns the palette-only vocabulary.
+
+  const CSS = readFileSync(join(SRC, 'styles/index.css'), 'utf8');
+  const themeBlock = /@theme\s*\{([\s\S]*?)\n\}/m.exec(CSS);
+  const declared = new Set<string>();
+  if (themeBlock) {
+    for (const [, name] of themeBlock[1]!.matchAll(/--color-([a-z][a-z0-9-]*):/g)) {
+      declared.add(name!);
+    }
+  }
+
+  // The first segment of a Tailwind class token that names a NON-COLOUR
+  // utility on one of the colour-shaped prefixes. Kept small and stable
+  // because we own the palette vocabulary and raw families are already
+  // banned — the only reason this list exists is that Tailwind reuses
+  // `text-|bg-|border-|...` for sizes, alignment, and styles.
+  const NON_COLOUR_STARTERS = new Set<string>([
+    // typography sizes (`text-xs` ... `text-9xl`, plus the local `2xs`/`3xs`)
+    'xs',
+    '2xs',
+    '3xs',
+    'sm',
+    'base',
+    'lg',
+    'xl',
+    '2xl',
+    '3xl',
+    '4xl',
+    '5xl',
+    '6xl',
+    '7xl',
+    '8xl',
+    '9xl',
+    // alignment / wrap / transform
+    'left',
+    'right',
+    'center',
+    'justify',
+    'start',
+    'end',
+    'nowrap',
+    'wrap',
+    'balance',
+    'pretty',
+    // border sides
+    't',
+    'r',
+    'b',
+    'l',
+    'x',
+    'y',
+    's',
+    'e',
+    // border/outline/divide styles
+    'solid',
+    'dashed',
+    'dotted',
+    'double',
+    'hidden',
+    'none',
+    'collapse',
+    'separate',
+    'reverse',
+    // ring / outline extras
+    'inset',
+    'offset',
+    // background utilities that share the prefix
+    'cover',
+    'contain',
+    'fixed',
+    'local',
+    'scroll',
+    'top',
+    'bottom',
+    'auto',
+    'clip',
+    'no',
+    'origin',
+    'repeat',
+    // fill/stroke helpers
+    'current',
+    'inherit',
+    'transparent',
+    'width',
+  ]);
+
+  const CLASS_RE =
+    /\b(text|bg|border|ring|outline|divide|fill|stroke|placeholder|accent)-([a-z][a-z0-9-]*)\b/g;
+
+  function classify(token: string): 'declared' | 'non-colour' | 'unknown' {
+    if (declared.has(token)) return 'declared';
+    const first = token.split('-')[0]!;
+    if (NON_COLOUR_STARTERS.has(first)) return 'non-colour';
+    if (/^\d/.test(first)) return 'non-colour';
+    // Some raw families would still land here (`slate`, `emerald`, ...);
+    // the raw-colour ban catches those with a clearer message, so we do
+    // not re-flag them.
+    const RAW_FAMILIES = new Set([
+      'slate',
+      'zinc',
+      'gray',
+      'neutral',
+      'stone',
+      'sky',
+      'blue',
+      'emerald',
+      'green',
+      'teal',
+      'amber',
+      'yellow',
+      'orange',
+      'red',
+      'rose',
+      'violet',
+      'purple',
+      'indigo',
+      'cyan',
+      'lime',
+      'fuchsia',
+      'pink',
+      'white',
+      'black',
+    ]);
+    if (RAW_FAMILIES.has(first)) return 'non-colour';
+    return 'unknown';
+  }
+
+  function walkMdx(dir: string): string[] {
+    return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+      e.isDirectory()
+        ? walkMdx(join(dir, e.name))
+        : e.name.endsWith('.mdx')
+          ? [join(dir, e.name)]
+          : [],
+    );
+  }
+
+  const CONTENT = join(SRC, '../../../content/courses');
+
+  function unregisteredTokens(): Map<string, Set<string>> {
+    const out = new Map<string, Set<string>>();
+    const sources = [
+      ...walk(SRC).filter((f) => {
+        const rel = relative(SRC, f);
+        // Skip tests: they carry sample class names as data for THIS test
+        // and for the raw-colour test above. `architecture.test.ts` itself
+        // is a test file — the filter drops it too.
+        return !rel.includes('.test.');
+      }),
+      ...walkMdx(CONTENT),
+    ];
+    for (const file of sources) {
+      // Strip comments before matching. `accent-pop` in a JSX comment
+      // (`{/* text-accent-pop per #225 */}`) or in a `// ...` line
+      // matches the regex as prefix=`accent` + token=`pop`, and `pop` is
+      // not a registered token — the check would flag a comment as a
+      // defect. Same shape as the `no component hardcodes a CodeMirror
+      // theme` case above (line 671).
+      const source = readFileSync(file, 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .split('\n')
+        .filter((line) => !line.trim().startsWith('//'))
+        .join('\n');
+      const label = relative(SRC, file).replace(/^(\.\.\/)+/, '');
+      for (const match of source.matchAll(CLASS_RE)) {
+        const token = match[2]!;
+        if (classify(token) !== 'unknown') continue;
+        if (!out.has(token)) out.set(token, new Set());
+        out.get(token)!.add(label);
+      }
+    }
+    return out;
+  }
+
+  it('reads at least one --color-<name> declaration out of the @theme block', () => {
+    // The whole check hinges on `declared` being populated. If the regex
+    // ever stops matching, every unknown token silently classifies as
+    // 'declared' (empty set never rejects) and the case below passes
+    // vacuously over a broken palette. Assert non-vacuity here.
+    expect(
+      declared.size,
+      'no --color-<name> declarations extracted from styles/index.css @theme block',
+    ).toBeGreaterThan(5);
+    // The core semantic tokens must be present — a bulwark against a
+    // future regex-refactor that harvests something else.
+    for (const name of ['ink', 'ground', 'accent-pop', 'rule-strong']) {
+      expect(declared, `${name} missing from extracted palette`).toContain(name);
+    }
+  });
+
+  it('every colour-shaped class in src/ and content/ resolves to --color-<name>', () => {
+    const unknown = unregisteredTokens();
+    expect(
+      [...unknown.entries()].map(([tok, files]) => `${tok} (${[...files].join(', ')})`),
+      'colour-shaped class names a token that is not declared as --color-<name> in styles/index.css @theme block. Register it there (with a value under both themes), or fix the typo.',
+    ).toEqual([]);
+  });
+
+  it('catches an unregistered token (guards against a silent-passing check)', () => {
+    // The check IS the test; if `classify` ever stops flagging, the case
+    // above passes over a broken codebase. Prove the regex + classifier
+    // still catch the shape we care about.
+    for (const token of ['nonexistent-palette-token', 'brand-primary', 'ink-fain']) {
+      expect(classify(token), `${token} should classify as unknown`).toBe('unknown');
+    }
+    // …and does not fire on the known-good shapes.
+    for (const token of [
+      'ink',
+      'accent-pop',
+      'rule-strong',
+      'xs',
+      'lg',
+      'left',
+      'solid',
+      'none',
+      'b',
+      'b-0',
+      'offset-2',
+      'slate-800',
+    ]) {
+      expect(classify(token), `${token} should NOT classify as unknown`).not.toBe('unknown');
+    }
+  });
+});

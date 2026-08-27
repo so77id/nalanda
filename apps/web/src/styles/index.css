@@ -60,6 +60,22 @@
   --color-accent-soft: var(--nl-accent-soft);
   --color-on-keep: var(--nl-on-keep);
 
+  /* Label on a filled `bg-accent` button. Used by <Benchmark> and
+     <ComplexityExercise> (#218). Introduced by the JSX-walk guard in
+     #247 that caught `text-on-accent` shipping without a `--color-`
+     alias — the class produced no rule, so the label was rendering in
+     inherited body text against the accent ground, which is right in
+     at most one theme.
+
+     Aliased to `--nl-on-keep` rather than declared as its own value:
+     the on-button label problem is identical for `bg-accent` and
+     `bg-keep` (invert with the theme, high contrast on a saturated
+     ground) and #247 is a housekeeping WP — introducing a distinct
+     `--nl-on-accent` value is a design decision left to a follow-up.
+     If the accent and keep grounds ever diverge in a way that makes
+     the labels drift, split the alias into its own value. */
+  --color-on-accent: var(--nl-on-keep);
+
   /* The one surface that deliberately does NOT follow the theme. A brand mark is
      drawn for white and served through `<img>`, so it cannot see any of the
      tokens above: a monochrome logo paints black and disappears on the dark
