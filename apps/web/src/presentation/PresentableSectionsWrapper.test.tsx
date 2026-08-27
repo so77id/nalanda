@@ -1,5 +1,6 @@
 import { render } from '@testing-library/react';
 import { Fragment, type ReactNode } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 
 import { Slide, SectionBreak } from '../components';
@@ -48,24 +49,20 @@ function capture(options: {
 }) {
   const captured: { value?: ReturnType<typeof usePresentableSections> } = {};
   const probe = <Probe key="__probe" onValue={(v) => (captured.value = v)} />;
-  if (options.noWrapper) {
-    render(probe);
-  } else {
-    // The probe rides INSIDE the compiled-MDX Fragment so `Children.only` in
-    // the wrapper still sees one child (the outer opaque element), while the
-    // probe itself lands as a sibling of the real slide markers and can read
-    // the context the provider publishes for that subtree.
-    const siblings = [...(options.siblings ?? []), probe];
-    render(
-      <PresentableSectionsWrapper
-        docId={options.docId ?? 'mi-doc'}
-        title={options.title ?? 'Mi documento'}
-        configMode={options.configMode}
-      >
-        <CompiledMdxLike siblings={siblings} />
-      </PresentableSectionsWrapper>,
-    );
-  }
+  // MemoryRouter around every render: since #256 mdxHeading paints a `<Link>`
+  // when the context publishes the slug, and `<Link>` needs a router.
+  const body = options.noWrapper ? (
+    probe
+  ) : (
+    <PresentableSectionsWrapper
+      docId={options.docId ?? 'mi-doc'}
+      title={options.title ?? 'Mi documento'}
+      configMode={options.configMode}
+    >
+      <CompiledMdxLike siblings={[...(options.siblings ?? []), probe]} />
+    </PresentableSectionsWrapper>
+  );
+  render(<MemoryRouter>{body}</MemoryRouter>);
   return captured.value!;
 }
 

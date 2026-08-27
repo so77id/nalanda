@@ -748,14 +748,21 @@ describe('presentation: none documents', () => {
 describe('book-view entry points to presentation', () => {
   it('shows a Presentar toggle in the document header', async () => {
     await renderAt(`/d/${firstId}`);
-    const toggle = await screen.findByRole('link', { name: /presentar/i });
+    // Exact match: since #256 an h2 slide can also carry a "Presentar la
+    // sección «…»" link, so a `/presentar/i` regex now finds many. The
+    // top-bar toggle is the one whose only word is `Presentar`.
+    const toggle = await screen.findByRole('link', { name: 'Presentar' });
     expect(toggle).toHaveAttribute('href', `/d/${firstId}/present`);
   });
 
   it('hides the toggle for presentation: none documents', async () => {
     await renderAt(`/d/${noneId}`);
     await screen.findByRole('article');
-    expect(screen.queryByRole('link', { name: /presentar/i })).not.toBeInTheDocument();
+    // Same reason as above: an h2 in a `presentation: none` document must not
+    // carry the per-section button either, and the assertion has to be exact
+    // to distinguish the two.
+    expect(screen.queryByRole('link', { name: 'Presentar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /presentar la sección/i })).not.toBeInTheDocument();
   });
 
   it('enters presentation with the p key from the book view', async () => {
@@ -763,6 +770,46 @@ describe('book-view entry points to presentation', () => {
     await screen.findByRole('article');
     fireEvent.keyDown(window, { key: 'p' });
     expect(await screen.findByText(/^\d+ \/ \d+$/)).toBeInTheDocument();
+  });
+});
+
+describe('present-section button in the book view', () => {
+  // End-to-end: the S4 wrapper publishes the slugs and S5's button in
+  // `mdxHeading` links to `?section=<slug>` on the presentation route, which
+  // S2 resolves. Unit tests in `content/mdxHeading.test.tsx` cover the render
+  // matrix; this block guards the wire-up.
+  const EXPLICIT_FIXTURE = 'java-tipos-y-flujo';
+  const explicitId = registry.get(EXPLICIT_FIXTURE)?.meta.id;
+
+  it('offers a Presentar-sección link on a marked <Slide> h2 in the book', async () => {
+    await renderAt(`/d/${explicitId}`);
+    await screen.findByRole('article');
+    const link = screen.getByRole('link', { name: /presentar la sección «tipos primitivos»/i });
+    expect(link).toHaveAttribute('href', `/d/${explicitId}/present?section=tipos-primitivos`);
+  });
+
+  it('does not offer the button on a loose h2 (explicit-mode book-only section)', async () => {
+    // "Ejercicios" in java-tipos-y-flujo is a loose h2 outside every <Slide>,
+    // so it is presentation-invisible by design — no button, but the `#`
+    // anchor stays.
+    await renderAt(`/d/${explicitId}`);
+    await screen.findByRole('article');
+    expect(
+      screen.getByRole('link', { name: /^enlace a la sección «ejercicios»$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /presentar la sección «ejercicios»/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not offer the button on the catalog surface (no wrapper mounted)', async () => {
+    // /catalog/c/slide renders the Slide component in isolation with no
+    // PresentableSectionsWrapper above it, so the button must stay silent —
+    // the default context value is what silences it, so nothing catalog-
+    // specific was written to make this true.
+    await renderAt('/catalog/c/slide');
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByRole('link', { name: /presentar la sección/i })).not.toBeInTheDocument();
   });
 });
 
