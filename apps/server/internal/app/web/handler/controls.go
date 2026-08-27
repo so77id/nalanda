@@ -489,9 +489,9 @@ func parsePositive(raw string, min, max int) (int, string) {
 	return n, ""
 }
 
-// domainErrorToForm maps a Service.Create failure onto (field errors,
-// ok). ok is false for errors the professor cannot repair; those bubble
-// up as a 500 in Create.
+// domainErrorToForm maps a Service.PrepareControl failure onto
+// (field errors, ok). ok is false for errors the professor cannot
+// repair; those bubble up as a 500 in Create.
 func domainErrorToForm(err error) (map[string]string, bool) {
 	switch {
 	case errors.Is(err, bank.ErrRangeInverted):

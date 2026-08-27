@@ -128,7 +128,8 @@ func NewService(deps Service) *Service {
 	return &deps
 }
 
-// CreateRequest is what a handler hands to Service.Create.
+// CreateRequest is what a handler hands to Service.PrepareControl
+// (the async runner then picks up GenerateAssets).
 type CreateRequest struct {
 	Name             string
 	ApplicationDate  *time.Time

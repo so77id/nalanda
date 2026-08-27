@@ -85,8 +85,8 @@ const (
 	// the professor explicitly asks for it under "Opciones avanzadas".
 	PaperA4 Paper = "a4"
 	// DefaultPaper is what the create form initialises Paper to, what the
-	// migration sets NULL rows to, and what Service.Create writes on any
-	// call that omits the field.
+	// migration sets NULL rows to, and what Service.PrepareControl
+	// writes on any call that omits the field.
 	DefaultPaper = PaperLetter
 )
 
