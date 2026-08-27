@@ -40,7 +40,13 @@ describe('the breadcrumb row of a document', () => {
   it('keeps Presentar in the same row as the breadcrumb, not floating alone', async () => {
     renderAt(`/d/${nestedId}`);
     const nav = await screen.findByRole('navigation', { name: /ubicaci/i });
-    const presentar = screen.getByRole('link', { name: /presentar/i });
+    // Exact name: since #256 an h2 slide can also carry a "Presentar la
+    // sección «…»" link, and a `/presentar/i` regex now finds all of them
+    // (12+ on java-desde-cpp). The top-bar toggle is the one whose only word
+    // is `Presentar` — flaky-in-CI without this, green locally because the
+    // lazy doc chunk sometimes lost the race and only the top-bar was in the
+    // DOM when the assertion ran (feedback_match_visual_expectation).
+    const presentar = screen.getByRole('link', { name: 'Presentar' });
     // Sharing the row is the whole point of the slice — a link floating in the
     // corner attached to nothing is what it replaces.
     expect(nav.closest('div')?.parentElement).toContainElement(presentar);
@@ -48,7 +54,9 @@ describe('the breadcrumb row of a document', () => {
 
   it('drops the arrow glyph the rest of the product does not use', async () => {
     renderAt(`/d/${nestedId}`);
-    const presentar = await screen.findByRole('link', { name: /presentar/i });
+    // Same reason as above — the top-bar toggle's accessible name is exactly
+    // `Presentar`; every per-h2 sibling is `Presentar la sección «…»`.
+    const presentar = await screen.findByRole('link', { name: 'Presentar' });
     expect(presentar.textContent).not.toContain('▸');
     expect(presentar.querySelector('svg')).not.toBeNull();
   });
