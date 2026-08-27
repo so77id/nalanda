@@ -277,6 +277,17 @@ func (h *Controls) CloseCorrection(w http.ResponseWriter, r *http.Request) {
 	if err := h.OnCorrectionClosed.Closed(r.Context(), id); err != nil {
 		h.Log.Error("close correction: hook failed", "control", id, "error", err)
 	}
+	// Issue #249, S6: defensive re-annotate pass over every ok copy.
+	// A no-op when every ok copy is already annotated (the usual case,
+	// since analyse and reanalyse both annotate as they go); the
+	// operator scenario is a control read while AnnotateEnabled was
+	// false — closing the correction back-fills the PDFs.
+	payload, err := json.Marshal(controls.AnnotatePayload{})
+	if err != nil {
+		h.Log.Error("close correction: encode annotate payload", "control", id, "error", err)
+	} else if _, err := h.Runner.Submit(r.Context(), id, jobs.KindAnnotate, payload); err != nil {
+		h.Log.Error("close correction: submit annotate job", "control", id, "error", err)
+	}
 	flash.Set(w, h.secureCookie, "Corrección cerrada.")
 	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 }

@@ -198,6 +198,7 @@ func run(logger *slog.Logger) error {
 		jobs.KindReanalyse: controls.NewReanalyseHandler(controlsService),
 		jobs.KindAnalyse:   controls.NewAnalyseHandler(controlsService),
 		jobs.KindGenerate:  controls.NewGenerateHandler(controlsService),
+		jobs.KindAnnotate:  controls.NewAnnotateHandler(controlsService),
 	}, logger, time.Now)
 	if err := jobRunner.Sweep(ctx); err != nil {
 		return err

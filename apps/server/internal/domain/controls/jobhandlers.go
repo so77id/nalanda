@@ -45,6 +45,11 @@ type AnalysePayload struct {
 // (e.g. a per-run seed) has a home.
 type GeneratePayload struct{}
 
+// AnnotatePayload is what the "Cerrar corrección" handler serialises
+// before Submit (issue #249, S6). Empty: the async
+// AnnotateAllCleanCopies walks the persisted readings on its own.
+type AnnotatePayload struct{}
+
 // NewReanalyseHandler returns the jobs.Handler for KindReanalyse.
 // controlID comes from the job row; payload is the JSON-marshalled
 // ReanalysePayload the HTTP handler produced.
@@ -99,6 +104,27 @@ func NewGenerateHandler(svc *Service) jobs.Handler {
 	return func(ctx context.Context, controlID string, _ []byte) error {
 		if err := svc.GenerateAssets(ctx, controlID); err != nil {
 			return failureFromGenerateError(err)
+		}
+		return nil
+	}
+}
+
+// NewAnnotateHandler returns the jobs.Handler for KindAnnotate (issue
+// #249, S6). Called when the professor closes the correction — a
+// defensive re-annotate pass over every ok copy, so a control that
+// was analysed while AnnotateEnabled was false gets its PDFs on
+// close. A no-op when every ok copy is already annotated.
+func NewAnnotateHandler(svc *Service) jobs.Handler {
+	if svc == nil {
+		panic("controls.NewAnnotateHandler: no service")
+	}
+	return func(ctx context.Context, controlID string, _ []byte) error {
+		if err := svc.AnnotateAllCleanCopies(ctx, controlID); err != nil {
+			// AnnotateAllCleanCopies logs per-copy failures and never
+			// propagates them (annotate is best-effort — the professor
+			// can retry per copy from review). Anything reaching here
+			// is a whole-flow failure (control not found, store outage).
+			return &jobs.Failure{Message: err.Error()}
 		}
 		return nil
 	}

@@ -110,6 +110,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				jobs.KindReanalyse: controls.NewReanalyseHandler(svc),
 				jobs.KindAnalyse:   controls.NewAnalyseHandler(svc),
 				jobs.KindGenerate:  controls.NewGenerateHandler(svc),
+				jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
 			}, logger, time.Now)
 			return handler.NewControls(handler.Controls{
 				Service:            svc,

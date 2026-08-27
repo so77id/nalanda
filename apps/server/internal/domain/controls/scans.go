@@ -230,6 +230,32 @@ func (s *Service) Reanalyze(ctx context.Context, controlID string, ticked, unsur
 	return report, nil
 }
 
+// AnnotateAllCleanCopies is the close-time defensive re-annotate
+// (issue #249, S6): walk the persisted readings and call
+// Service.Annotate for every copy in status ok. Per-copy failures are
+// logged and swallowed — same "annotate is best-effort" policy as
+// annotateCleanCopies below. Returns an error only when the whole
+// flow cannot start (control missing, readings unreadable).
+func (s *Service) AnnotateAllCleanCopies(ctx context.Context, controlID string) error {
+	if _, err := s.Store.ControlByID(ctx, controlID); err != nil {
+		return err
+	}
+	readings, err := s.Readings.ReadingsByControl(ctx, controlID)
+	if err != nil {
+		return err
+	}
+	for _, r := range readings {
+		if r.CopyStatus != CopyStatusOK {
+			continue
+		}
+		if _, err := s.Annotate(ctx, controlID, r.CopyNumber); err != nil {
+			s.Log.Warn("controls: annotate on close failed",
+				"control", controlID, "copy", r.CopyNumber, "error", err)
+		}
+	}
+	return nil
+}
+
 // annotateCleanCopies runs ruta A over a report: one Service.Annotate per
 // status:ok copy. One /annotate/copy call per copy is seconds-class, and
 // the flows that call this were minutes-class anyway. A failure must not

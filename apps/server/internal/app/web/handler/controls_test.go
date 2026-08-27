@@ -145,6 +145,7 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		jobs.KindReanalyse: controls.NewReanalyseHandler(svc),
 		jobs.KindAnalyse:   controls.NewAnalyseHandler(svc),
 		jobs.KindGenerate:  controls.NewGenerateHandler(svc),
+		jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
 	}, log, time.Now)
 	// Start the runner in the background so the async Submit path in
 	// ReanalyzeScans reaches its handler. Cleanup cancels the context
