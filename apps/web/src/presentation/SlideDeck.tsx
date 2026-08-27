@@ -139,10 +139,17 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   // history.back(): a reader who opened /present from a link has nothing behind
   // them (ADR-0023). Fullscreen goes with it, because the control that exits
   // fullscreen lives in the deck being left.
+  //
+  // If the current slide has a slug (S1), append `#<slug>` so the book takes
+  // the reader back to the h2 they were watching — `mdxHeading.tsx` already
+  // renders `id={slug}` with `scroll-mt-8`, so the browser handles the scroll
+  // on its own. Without a slug (cover, SectionBreak) the URL stays fragment-
+  // less, preserving the pre-#256 behaviour for those two cases.
   const leave = useCallback(() => {
     leaveFullscreen();
-    void navigate(`/d/${docId}`);
-  }, [docId, navigate]);
+    const target = slide.slug ? `/d/${docId}#${slide.slug}` : `/d/${docId}`;
+    void navigate(target);
+  }, [docId, navigate, slide.slug]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

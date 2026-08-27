@@ -652,6 +652,40 @@ describe('leaving the presentation from the deck', () => {
     expect(await screen.findByRole('article')).toBeInTheDocument();
   });
 
+  // The exit contract's second half (#256): when the reader leaves from a
+  // slide that has a slug, the book takes them back to that heading via the
+  // URL fragment — no scrolling back to the section by hand. `mdxHeading.tsx`
+  // already renders `id={slug}` on every h2, so the browser handles the
+  // scroll on its own.
+  const EXPLICIT_FIXTURE = 'java-tipos-y-flujo';
+  const explicitId = registry.get(EXPLICIT_FIXTURE)?.meta.id;
+
+  it('lands on the book #<slug> when Escape leaves a slide that has one', async () => {
+    // Slide 2 of the fixture is `<Slide title="Tipos primitivos">`, whose
+    // slug is `tipos-primitivos` — the same anchor the book renders on the
+    // heading (mdxHeading.tsx).
+    await renderAt(`/d/${explicitId}/present?slide=2`);
+    await screen.findByRole('heading', { name: 'Tipos primitivos' });
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await screen.findByRole('article');
+    expect(lastLocation.pathname).toBe(`/d/${explicitId}`);
+    expect(lastLocation.hash).toBe('#tipos-primitivos');
+  });
+
+  it('publishes no fragment when Escape leaves from the cover slide', async () => {
+    // The cover slide has no slug (parser.ts §slugFor): the top-bar
+    // "Presentar" button lands there, so `#doc-title` on exit would round-
+    // trip the reader to the same spot they came from.
+    await renderAt(`/d/${firstId}/present`);
+    await findCounter();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await screen.findByRole('article');
+    expect(lastLocation.pathname).toBe(`/d/${firstId}`);
+    expect(lastLocation.hash).toBe('');
+  });
+
   it('leaves fullscreen on the way out, since the control goes with the deck', async () => {
     const exitFullscreen = vi.fn(() => Promise.resolve());
     Object.defineProperty(document, 'fullscreenElement', {
