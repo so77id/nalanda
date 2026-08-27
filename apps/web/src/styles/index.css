@@ -67,14 +67,17 @@
      inherited body text against the accent ground, which is right in
      at most one theme.
 
-     Aliased to `--nl-on-keep` rather than declared as its own value:
-     the on-button label problem is identical for `bg-accent` and
-     `bg-keep` (invert with the theme, high contrast on a saturated
-     ground) and #247 is a housekeeping WP — introducing a distinct
-     `--nl-on-accent` value is a design decision left to a follow-up.
-     If the accent and keep grounds ever diverge in a way that makes
-     the labels drift, split the alias into its own value. */
-  --color-on-accent: var(--nl-on-keep);
+     Own `--nl-on-accent` value in each theme (identical to
+     `--nl-on-keep` today, no visual change from #247's non-goal), so
+     `palette.test.ts` can iterate the `['on-accent', 'accent']` pair
+     against the theme's real values — an alias to `--nl-on-keep`
+     would have made the same class of silent-failure that the
+     JSX-walk guard exists to close (the pair had no `--nl-*` name for
+     the completeness case to iterate). If the accent and keep grounds
+     ever diverge and the labels need to follow one but not the
+     other, that value split now happens WITHOUT touching the aliases
+     or the callers. */
+  --color-on-accent: var(--nl-on-accent);
 
   /* The one surface that deliberately does NOT follow the theme. A brand mark is
      drawn for white and served through `<img>`, so it cannot see any of the
@@ -123,6 +126,10 @@
   --nl-plate: #ffffff;
   --nl-accent-soft: #ffe1d1;
   --nl-on-keep: #fef9f7;
+  /* Identical to `--nl-on-keep` today: same class of label, same
+     invert-with-theme shape. A split into its own value is a design
+     decision (see the `--color-on-accent` docstring above). */
+  --nl-on-accent: #fef9f7;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -147,6 +154,8 @@
     --nl-plate: #ffffff;
     --nl-accent-soft: #241634;
     --nl-on-keep: #0d1117;
+    /* See #247 / the light block. Same value as `--nl-on-keep` today. */
+    --nl-on-accent: #0d1117;
   }
 }
 
@@ -171,6 +180,8 @@
   --nl-plate: #ffffff;
   --nl-accent-soft: #241634;
   --nl-on-keep: #0d1117;
+  /* See #247 / the light block. Same value as `--nl-on-keep` today. */
+  --nl-on-accent: #0d1117;
 }
 
 /* Prose that follows the theme (#109).

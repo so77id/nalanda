@@ -46,11 +46,16 @@ function productionSources(): string[] {
   return [...walk(SRC).filter((f) => !relative(SRC, f).includes('.test.')), ...mdxFiles(CONTENT)];
 }
 
-// Strip `/* ... */` block comments and `//` line comments before matching
-// class-name-shaped patterns. Same recipe as the CodeMirror-theme case (this
-// file, below): a class name in a comment matches the same regex as a class
-// name in code and reads as a defect. Not a real comment parser — good
-// enough for the source shapes the suite scans.
+// Strip `/* ... */` block comments and full-line `//` line comments before
+// matching class-name-shaped patterns. Same recipe as the CodeMirror-theme
+// case (this file, below): a class name in a comment matches the same regex
+// as a class name in code and reads as a defect. Not a real comment parser:
+// a TRAILING `// text-...` on a code line survives the strip (#247 review,
+// CORR-2), which a proper tokeniser would fix but a naïve regex over the
+// source cannot without eating `//` inside strings (URLs, template
+// literals). The current tree does not trigger it — if a future line does,
+// the guidance is to move the comment to its own line rather than pretend
+// the strip is comprehensive.
 function stripComments(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, '')
