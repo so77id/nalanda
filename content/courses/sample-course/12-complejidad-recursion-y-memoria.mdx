@@ -155,8 +155,6 @@ de antes"** — parejas fértiles el mes pasado con parejas nuevas de este
 mes, patrón corto seguido de patrón largo, hoja nueva encima de la
 espiral previa — tiene la misma regla de composición.
 
-<SectionBreak />
-
 **Para leer más**: la [entrada de la sucesión de
 Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_sequence) en
 Wikipedia tiene una sección extensa de apariciones documentadas con
@@ -297,6 +295,179 @@ la historia del juego, la solución algorítmica y su conexión con la
 recurrencia. Sobre Lucas mismo, [Édouard
 Lucas](https://en.wikipedia.org/wiki/%C3%89douard_Lucas) tiene un buen
 resumen biográfico.
+</Slide>
+
+<SectionBreak />
+
+<Slide title="Recap: los tres pilares de Hilbert (Peli 1)">
+Este acto cierra un cabo suelto que dejamos en
+[[complejidad-de-hilbert-al-big-o|Peli 1]]. Vale la pena refrescar.
+
+A comienzos de los años 20, **David Hilbert** propone un programa para
+blindar toda la matemática. Tres pilares:
+
+1. **Consistencia** — el sistema no genera contradicciones.
+2. **Completitud** — toda verdad matemática es demostrable dentro del
+   sistema.
+3. **Decidibilidad** — existe un procedimiento mecánico que, dado un
+   enunciado, decide si es demostrable.
+
+**Gödel** (1931) tumbó los pilares 1 y 2 con los teoremas de
+incompletitud. **Turing** (1936) tumbó el 3 al mostrar que el
+Entscheidungsproblem es indecidible — y para hacerlo tuvo que
+**definir formalmente qué es un algoritmo**, lo cual le costó inventar
+las máquinas de Turing.
+
+Con eso quedamos en Peli 1: los tres pilares caídos, la definición de
+"algoritmo" en pie. Lo que Peli 1 *no* dijo — y este acto sí — es que
+**otra definición equivalente de "algoritmo" ya existía antes**:
+las **funciones recursivas** de Gödel-Herbrand-Kleene, desarrolladas
+entre 1931 y 1936. Y esa definición es literalmente el sustento
+matemático del `fib(n)` que vamos a escribir en Java en el acto 3.
+</Slide>
+
+<Slide title="Ackermann (1928) y Péter (1935): la recursión general supera a la iteración acotada">
+Antes de Turing y en paralelo a Gödel, la comunidad matemática tenía una
+pregunta técnica: *¿toda función razonable se puede definir por
+recursión primitiva?* — es decir, por bucles anidados con contadores
+acotados de antemano, sin nada más elaborado que la iteración.
+
+La respuesta la dio **Wilhelm Ackermann** (Alemania) en 1928: **no**.
+Ackermann exhibe una función total, computable, definida por reglas
+recursivas simples, que **no** se puede expresar por recursión
+primitiva. Su versión original tenía tres argumentos. En 1935
+**Rózsa Péter** (Hungría) simplifica la construcción a dos argumentos —
+lo que hoy llamamos por costumbre "la función de Ackermann" (con
+cierta injusticia terminológica) es en realidad la variante de Péter:
+
+$$
+\begin{aligned}
+A(0, n) &= n + 1 \\
+A(m+1, 0) &= A(m, 1) \\
+A(m+1, n+1) &= A(m, A(m+1, n))
+\end{aligned}
+$$
+
+Se ve inofensiva. No lo es. Los primeros valores:
+
+- $$A(0, n) = n + 1$$
+- $$A(1, n) = n + 2$$
+- $$A(2, n) = 2n + 3$$
+- $$A(3, n) = 2^{n+3} - 3$$
+- $$A(4, 0) = 13,\ A(4, 1) = 65533,\ A(4, 2) \approx 2 \times 10^{19{,}728}$$
+  — un número de casi **veinte mil dígitos**.
+- $$A(4, 3)$$ tiene aproximadamente $$10^{19{,}600}$$ dígitos.
+- $$A(4, 4)$$ es $$2 \uparrow\uparrow 7$$ en la notación de Knuth: una
+  torre de siete doses. No se puede escribir como número.
+
+**Qué demuestra esto**: la recursión general — donde una función se llama
+a sí misma con un argumento que también es el resultado de una llamada
+recursiva — es **estrictamente más expresiva** que la iteración acotada.
+Hay funciones perfectamente computables (paso a paso, algoritmo claro,
+termina siempre) que **ningún programa iterativo con contadores puede
+calcular**.
+
+Este es el primer sustento formal de por qué la recursión existe como
+concepto propio en informática, y no como *"un truco cómodo pero
+equivalente a un `for`"*.
+
+**Para leer más**: la [entrada de la función de
+Ackermann](https://en.wikipedia.org/wiki/Ackermann_function) en
+Wikipedia cubre historia, definición y las tablas de valores. Los
+papers originales: Ackermann, *"Zum Hilbertschen Aufbau der reellen
+Zahlen"* (Mathematische Annalen, 1928); Péter, *"Konstruktion
+nichtrekursiver Funktionen"* (Mathematische Annalen, 1935).
+</Slide>
+
+<Slide title="Las funciones recursivas de Gödel-Herbrand-Kleene (1931-1936)">
+En paralelo a todo lo anterior, otros matemáticos armaron la definición
+formal del *"qué es exactamente una función computable"* que compitió
+mano a mano con las máquinas de Turing:
+
+- **Gödel (1931)** — introduce las **funciones recursivas primitivas**
+  en la construcción de sus teoremas de incompletitud. Le sirven para
+  aritmetizar sintaxis (codificar fórmulas como números y operar sobre
+  ellas).
+- **Herbrand-Gödel (1934)** — extienden a las **funciones recursivas
+  generales**, definibles por sistemas de ecuaciones.
+- **Kleene (1936)** — completa la caracterización con las **funciones
+  μ-recursivas**: la clase se cierra al agregar el operador
+  **μ** (*"el menor $$y$$ tal que ..."* — una búsqueda que
+  puede no terminar). Kleene demuestra que **la clase de las funciones
+  μ-recursivas es exactamente la clase de las funciones computables por
+  máquina de Turing**.
+
+Esta última equivalencia es la mitad matemática de la **tesis de
+Church-Turing** que mencionamos en Peli 1. La otra mitad es la
+equivalencia con el lambda-cálculo de Church. Tres definiciones
+independientes de *"algoritmo"* — máquinas de Turing, funciones
+μ-recursivas, lambda-cálculo — resultan describir la misma clase de
+funciones. Esa **triple coincidencia** es lo que dio confianza en que
+la definición era la buena.
+
+**Cómo se compone una función μ-recursiva** (sin detalle formal, solo
+para ver la forma): a partir de tres funciones básicas — cero, sucesor,
+proyección — se construyen funciones más complejas con tres reglas —
+composición, recursión primitiva y el operador μ. Ese lenguaje **no
+tiene bucles**, **no tiene variables mutables**, **no tiene estructuras
+de control**: solo funciones definidas en términos de otras funciones,
+donde algunas se llaman a sí mismas sobre argumentos más chicos.
+
+**Un ejemplo**: la propia sucesión de Fibonacci se define en este
+lenguaje como
+
+$$
+F(n) = \begin{cases} n & \text{si } n < 2 \\ F(n-1) + F(n-2) & \text{si } n \geq 2 \end{cases}
+$$
+
+que es **exactamente el `if (n < 2) return n; else return fib(n-1) + fib(n-2);`**
+que vas a escribir en Java en el próximo acto. Cambia la notación, no
+cambia la definición matemática.
+
+**Para leer más**: *Introduction to Metamathematics* de Kleene (1952) —
+el libro de referencia. Los papers originales de Gödel (1931), Kleene
+(1936) y Turing (1936) están todos en dominio público; la [entrada
+Recursion Theory](https://plato.stanford.edu/entries/recursive-functions/)
+en la Stanford Encyclopedia of Philosophy es una buena vía de entrada
+moderna.
+</Slide>
+
+<Slide title="El puente: tu `fib` en Java es una función μ-recursiva">
+El programa que vas a escribir en el próximo acto —
+
+```java
+long fib(int n) {
+    if (n < 2) return n;
+    return fib(n - 1) + fib(n - 2);
+}
+```
+
+— es, literalmente, la **codificación en Java de la función μ-recursiva
+$$F$$** de la slide anterior. La sintaxis cambia; la definición
+matemática es la misma.
+
+Por la **tesis de Church-Turing** eso alcanza para saber que la función
+que calcula el programa **coincide con la sucesión de Fibonacci**
+independientemente del lenguaje en que la escribas: en Java, en Python,
+en Haskell, en lambda-cálculo, en una máquina de Turing con papel y
+lápiz. Todas calculan la misma función matemática.
+
+Lo que **no** dice la tesis de Church-Turing es **cuánto cuesta**
+calcularla. Dos programas que computan la misma función pueden tener
+costos radicalmente distintos — y ese es precisamente el problema del
+acto 3.
+
+Con este puente cerrado, tenemos:
+
+- Del lado de la **matemática** — recurrencias como objeto (acto 1),
+  técnicas para resolverlas (característica), y la teoría de funciones
+  recursivas que dice que *definir una función así es computarla*.
+- Del lado de la **programación** — la sintaxis recursiva de Java, que
+  es la traducción directa de esa definición.
+
+Lo que falta es unir las dos cosas con la vocabulario del capítulo
+anterior: **¿cuál es la $$T(n)$$ de un programa recursivo?** Ese es el
+acto 3.
 </Slide>
 
 <SectionBreak />
