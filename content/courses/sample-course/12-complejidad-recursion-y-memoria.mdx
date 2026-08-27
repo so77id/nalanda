@@ -301,7 +301,7 @@ La recurrencia describe el costo total como **función de sí misma sobre
 entradas más chicas**. Escribimos primero, resolvemos después.
 </Slide>
 
-<Slide title="Factorial: la recurrencia">
+<Slide title="Factorial: $$T(N) = T(N-1) + c$$">
 Miramos `factorial` línea por línea:
 
 ```java
@@ -350,7 +350,7 @@ todas las recurrencias que vamos a resolver, y no requiere adivinar la
 solución.
 </Slide>
 
-<Slide title="Recursión por división: costo logarítmico">
+<Slide title="Recursión por división: $$T(N) = T(N/2) + c \Rightarrow \Theta(\log N)$$">
 Un caso distinto: la función **divide el problema a la mitad** en cada
 llamada. Ejemplo — contar cuántos bits necesita $$n$$ en binario:
 
@@ -466,7 +466,7 @@ coeficientes que siguen la propia sucesión de Fibonacci). Usamos otro
 truco.
 </Slide>
 
-<Slide title="Resolver por acotamiento superior: costo exponencial">
+<Slide title="Resolver por acotamiento superior → $$O(2^N)$$">
 **Truco**: como $$T(N-1) > T(N-2)$$, podemos reemplazar $$T(N-2)$$ por
 $$T(N-1)$$ y acotar por arriba:
 $$
@@ -694,7 +694,7 @@ veamos estructuras más elaboradas, cambiaremos a eso. Por ahora, dos
 arreglos son la forma más honesta.
 </Slide>
 
-<Slide title="El costo del memoized: la caída a lineal">
+<Slide title="El costo del memoized: $$T(N) = T(N-1) + O(1) \Rightarrow \Theta(N)$$">
 Sin memoization teníamos $$T(N) = T(N-1) + T(N-2) + c$$ — dos llamadas
 recursivas. Con memoization, **de las dos llamadas del paso recursivo,
 solo una hace trabajo real**: la primera vez que se pide `fib(n-1)`, la
@@ -900,7 +900,7 @@ T(N) = 2T(N-1) + c \qquad T(0) = c
 $$
 </Slide>
 
-<Slide title="Costo exponencial intrínseco: memoization no lo salva">
+<Slide title="$$\Theta(2^N)$$ intrínseco: memoization no lo salva">
 Como el paso recursivo tiene una sola forma recursiva ($$T(N-1)$$
 aparece dos veces con el **mismo argumento** — antes de contar torres),
 la expansión es directa:
