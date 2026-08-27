@@ -1,0 +1,302 @@
+---
+id: complejidad-recursion-y-memoria
+title: Complejidad · Recursión y memoria
+presentation: explicit
+questions: none
+---
+
+# Complejidad · Recursión y memoria
+
+Capítulo 2 de la unidad **Complejidad**. En [[complejidad-de-hilbert-al-big-o]]
+aprendimos a analizar algoritmos **iterativos**: contar OE línea por línea,
+distinguir mejor y peor caso, y clasificarlos con la notación asintótica
+$$O$$, $$\Omega$$, $$\Theta$$. Esa maquinaria funciona muy bien mientras el
+algoritmo tenga la forma de un `for` o un `while`. Pero **casi todos los
+algoritmos importantes que vas a conocer desde acá — búsqueda binaria,
+mergesort, recorrido de árboles, problemas de programación dinámica — son
+recursivos**, y la recurrencia que describe su costo no es una tabla de OE:
+es un **objeto matemático** distinto, con su propia historia y sus propias
+técnicas.
+
+Este capítulo hace tres cosas. Primero mira las **recurrencias como objetos
+matemáticos** — Fibonacci, De Moivre, Lucas — porque no las inventó la
+computación. Segundo cierra el puente que quedó abierto en Peli 1:
+**"recursión" en informática viene de la teoría de recursión de Gödel y
+Kleene**, y es exactamente eso lo que sobrevivió del programa formalista de
+Hilbert. Tercero abre el problema práctico: cuando la recursión repite
+subproblemas la cuenta explota (Fibonacci recursivo es $$\Theta(\varphi^n)$$)
+y hay dos maneras conocidas de arreglarlo — **memoización** y
+**tabulación**. La cierro con la regla operativa que se llevan puesta:
+*recursión + subproblemas repetidos ⇒ memoizar o tabular*.
+
+El análisis del **espacio** (M(n)) de algoritmos iterativos vive en
+[[complejidad-espacial]]; acá describimos el costo en memoria de las
+versiones recursivas de forma cualitativa, sin formalizar.
+
+<SectionBreak />
+
+<Slide title="La recurrencia: un objeto matemático más viejo que la informática">
+Antes de entrar en costo de algoritmos, hay que aceptar una cosa: una
+**recurrencia** no es un truco de programación. Es un objeto matemático que
+se estudia desde hace **ochocientos años**, y buena parte de las técnicas
+que usamos hoy — resolver una relación como
+$$T(n) = T(n-1) + T(n-2) + c$$ para obtener una fórmula cerrada — ya las
+tenían resueltas los matemáticos del siglo XVIII.
+
+Vale la pena reconocer eso antes de aplicarlas a un algoritmo. Cuando en
+la mitad del capítulo digamos *"la solución de esta recurrencia es
+$$\Theta(\varphi^n)$$ por la ecuación característica"*, esa técnica no la
+estamos inventando nosotros: es la misma que **De Moivre** publicó en 1730
+para resolver **exactamente la misma recurrencia** — la de Fibonacci —
+seiscientos años después de que Fibonacci la escribiera por primera vez.
+
+Este acto recorre esa historia. Al final del acto tenemos el vocabulario
+para hablar de una recurrencia como objeto (secuencia, regla, condición
+inicial, solución cerrada); en el acto 3 lo aplicaremos al costo de un
+algoritmo recursivo.
+</Slide>
+
+<Slide title="Fibonacci, el Liber Abaci y los conejos (1202)">
+**Leonardo de Pisa** — hoy más conocido como **Fibonacci** (Italia,
+c. 1170–1250) — publica en 1202 el **Liber Abaci** ("El libro del ábaco").
+Es el libro con el que Europa aprende a calcular en el sistema decimal
+hindú-arábigo, que Fibonacci había estudiado durante sus viajes por el
+norte de África.
+
+Escondido en el libro, en el capítulo 12, aparece un problema aparentemente
+inocuo:
+
+> *"Un hombre pone una pareja de conejos en un lugar cerrado. ¿Cuántas
+> parejas habrá al cabo de un año si suponemos que cada mes cada pareja
+> engendra una nueva pareja, que a partir del segundo mes también se hace
+> fértil?"*
+
+La respuesta es la sucesión que hoy lleva su nombre:
+
+$$
+1,\ 1,\ 2,\ 3,\ 5,\ 8,\ 13,\ 21,\ 34,\ 55,\ 89,\ 144,\ \ldots
+$$
+
+Cada término es la **suma de los dos anteriores**. Escrito como regla:
+
+$$
+F(n) = F(n-1) + F(n-2), \qquad F(0) = 0,\ F(1) = 1
+$$
+
+Esa es una **relación de recurrencia**: define el término $$n$$-ésimo
+usando términos previos.
+
+**Matiz importante**: Fibonacci no fue el primero. La misma sucesión
+aparece en la matemática **india** siglos antes: **Pingala**
+(~200 aC) la estudia en el contexto de la métrica del sánscrito,
+**Virahanka** (c. siglo VII) la enuncia explícitamente, y
+**Hemachandra** (c. 1150) — cincuenta años antes del Liber Abaci — la
+describe con la misma regla. Fibonacci la trae a Europa pero no la
+descubre. La convención de llamarla "sucesión de Fibonacci" es europea y
+tardía.
+
+**Para leer más**: el capítulo 12 del [Liber
+Abaci](https://en.wikipedia.org/wiki/Liber_Abaci) en Wikipedia, y la
+traducción anotada de Sigler (2002) para el texto original en latín.
+</Slide>
+
+<Slide title="La regla como objeto: una secuencia + una recurrencia + una condición inicial">
+Una **sucesión** es una función de los naturales a algún conjunto (típicamente
+$$\mathbb{Z}$$ o $$\mathbb{R}$$). La escribimos como una lista o como una
+regla:
+
+- **Como lista**: $$1, 1, 2, 3, 5, 8, 13, \ldots$$
+- **Como recurrencia**: $$F(n) = F(n-1) + F(n-2)$$
+- **Con condiciones iniciales**: $$F(0) = 0,\ F(1) = 1$$
+
+Los tres componentes — la variable de índice, la relación que dice cómo
+depende un término de los anteriores, y las condiciones iniciales que
+anclan la relación — son **exactamente los mismos** que vas a encontrar en
+la recurrencia $$T(n) = T(n-1) + T(n-2) + c$$ que describe el costo de
+Fibonacci recursivo en el acto 3.
+
+**No es coincidencia**: el costo del programa recursivo *es* la sucesión
+de Fibonacci, hasta constantes. Cada llamada a `fib(n)` cuesta lo mismo
+que hacer una llamada a `fib(n-1)` y otra a `fib(n-2)`, más un poquito
+constante $$c$$ por el `if` y el `return`. Ese *poquito constante* es la
+única diferencia entre "la sucesión de Fibonacci" y "el costo de calcular
+Fibonacci con esa recursión".
+
+Este es el patrón general: **el programa recursivo pone la recurrencia,
+la matemática la resuelve.** Nuestro trabajo va a ser reconocer qué
+recurrencia produce cada programa y saber leer su solución cerrada.
+</Slide>
+
+<Slide title="La sucesión aparece en todas partes (el zoológico)">
+La sucesión de Fibonacci no vive solo en el problema de los conejos —
+aparece en contextos que no tienen nada que ver entre sí, y esa
+ubicuidad es parte de lo que la hizo célebre:
+
+- **Triángulo de Pascal**: las **diagonales ascendentes** del triángulo
+  de Pascal suman los términos de Fibonacci
+  ($$1,\ 1,\ 2,\ 3,\ 5,\ 8, \ldots$$). La coincidencia es real y tiene
+  una demostración combinatoria elemental.
+- **Botánica**: el número de espirales visibles en una piña, en un
+  girasol o en una piña de pino es casi siempre un número de Fibonacci
+  (típicamente 8 en un sentido y 13 en el otro para una piña, 34/55 u
+  89/144 para un girasol grande). Fenómeno estudiado por
+  **D'Arcy Thompson** (*On Growth and Form*, 1917) y hoy explicado por
+  la eficiencia de empaquetado que da un ángulo divisor irracional.
+- **Reproducción de las abejas**: el árbol genealógico de un zángano
+  (que nace de un huevo no fecundado y tiene madre pero no padre) tiene
+  exactamente los términos de Fibonacci por generación.
+- **Poesía védica**: el número de patrones rítmicos de duración $$n$$
+  con sílabas cortas (1 unidad) y largas (2 unidades) es $$F(n+1)$$.
+  Este es el contexto en que Pingala la encuentra.
+
+Que la misma regla aparezca en tantos lugares dispares no es magia. Es
+que **cualquier proceso que se construye "combinando lo anterior con lo
+de antes"** — parejas fértiles el mes pasado con parejas nuevas de este
+mes, patrón corto seguido de patrón largo, hoja nueva encima de la
+espiral previa — tiene la misma regla de composición.
+
+<SectionBreak />
+
+**Para leer más**: la [entrada de la sucesión de
+Fibonacci](https://en.wikipedia.org/wiki/Fibonacci_sequence) en
+Wikipedia tiene una sección extensa de apariciones documentadas con
+referencias primarias. *On Growth and Form* de D'Arcy Thompson (1917) —
+libro completo en [Internet
+Archive](https://archive.org/details/ongrowthform00thom) — para el
+tratado clásico sobre la forma en biología.
+</Slide>
+
+<Slide title="De Moivre y la razón áurea (1730)">
+Pasan **cinco siglos** entre Fibonacci y el momento en que alguien logra
+escribir el término $$F(n)$$ como **fórmula cerrada** — una expresión que
+te da $$F(n)$$ directamente, sin recorrer los $$n-1$$ términos anteriores.
+Ese alguien es **Abraham de Moivre** (Francia/Inglaterra, 1667–1754).
+
+En 1730, en su *Miscellanea Analytica*, De Moivre publica la fórmula:
+
+$$
+F(n) = \frac{\varphi^n - \psi^n}{\sqrt{5}}
+$$
+
+donde
+
+$$
+\varphi = \frac{1 + \sqrt{5}}{2} \approx 1{,}618\ldots \qquad
+\psi = \frac{1 - \sqrt{5}}{2} \approx -0{,}618\ldots
+$$
+
+Los dos números son las **raíces del polinomio característico**
+$$x^2 - x - 1 = 0$$ — la ecuación que se obtiene al pedir que
+$$x^n = x^{n-1} + x^{n-2}$$. El más grande, $$\varphi$$, es la
+famosa **razón áurea**.
+
+**Matiz importante**: $$\varphi$$ **no** aparece por primera vez con
+De Moivre. Los griegos ya la conocían como *"razón extrema y media"*
+(**Euclides**, *Elementos* Libro VI, c. 300 aC). **Johannes Kepler**
+la vinculó con la sucesión de Fibonacci en 1608, más de un siglo antes
+que De Moivre: notó que el cociente $$F(n+1) / F(n)$$ tiende a
+$$\varphi$$. Lo que De Moivre agrega en 1730 no es la razón áurea ni la
+observación empírica del cociente — es **la fórmula cerrada exacta con
+demostración**. Y aún así la fórmula se conoce hoy como **"fórmula de
+Binet"** porque **Jacques Binet** la redescubre en 1843 y publica la
+demostración moderna; a De Moivre lo recuerdan más por otra cosa (el
+teorema de De Moivre sobre números complejos).
+
+**Para leer más**: el propio texto de De Moivre está en la [*Miscellanea
+Analytica* de 1730](https://archive.org/details/bub_gb_x0AoAAAAcAAJ)
+(Internet Archive, en latín). Para la historia comparada de la razón
+áurea, *The Golden Ratio* de Mario Livio (2002) es una buena introducción
+divulgativa.
+</Slide>
+
+<Slide title="Cómo se resuelve: la ecuación característica (Euler, 1748)">
+La técnica general para resolver una recurrencia lineal con coeficientes
+constantes se debe a **Leonhard Euler** (Suiza, 1707–1783), quien la
+sistematiza en su *Introductio in analysin infinitorum* (1748). La misma
+idea funciona para Fibonacci y para muchas otras recurrencias que vamos a
+ver este semestre.
+
+La receta, aplicada a $$F(n) = F(n-1) + F(n-2)$$:
+
+1. **Postular** que una solución tiene la forma $$F(n) = x^n$$ para
+   algún $$x$$ a determinar. (Es una apuesta razonable: si la ley que
+   relaciona los términos es lineal y homogénea, las funciones
+   exponenciales son sus soluciones naturales.)
+2. **Sustituir** en la recurrencia:
+   $$x^n = x^{n-1} + x^{n-2}$$.
+3. **Simplificar** (dividiendo por $$x^{n-2}$$):
+   $$x^2 = x + 1$$, es decir $$x^2 - x - 1 = 0$$. Este polinomio se
+   llama la **ecuación característica** de la recurrencia.
+4. **Resolver** con la fórmula cuadrática:
+   $$x = \dfrac{1 \pm \sqrt{5}}{2}$$. Las dos raíces son
+   $$\varphi$$ y $$\psi$$ de la slide anterior.
+5. **Combinar linealmente** las dos soluciones básicas — la solución
+   general es $$F(n) = A\,\varphi^n + B\,\psi^n$$ para constantes
+   $$A, B$$ a determinar.
+6. **Ajustar $$A$$ y $$B$$** con las condiciones iniciales
+   $$F(0) = 0$$ y $$F(1) = 1$$. Sale
+   $$A = 1/\sqrt{5}$$ y $$B = -1/\sqrt{5}$$, y de ahí la fórmula de la
+   slide anterior.
+
+**Por qué nos importa esto ahora**: cuando en el acto 3 tengamos
+$$T(n) = T(n-1) + T(n-2) + c$$ para el costo de Fibonacci recursivo,
+vamos a **reusar exactamente este método**. La única diferencia es la
+$$c$$: se resuelve con la ecuación característica homogénea (misma
+raíces $$\varphi, \psi$$) más una **solución particular constante**
+(que aporta una constante también). El dominio asintótico lo pone la
+raíz más grande — $$\varphi^n$$ — así que $$T(n) = \Theta(\varphi^n)$$.
+
+Este *"cómo se resuelve"* lo veremos con más detalle cuando lo
+apliquemos; lo importante ahora es **que el método existe, es viejo, y
+que $$\varphi$$ va a volver a aparecer como la raíz que gana**.
+</Slide>
+
+<Slide title="Lucas (1876) y las Torres de Hanoi (1883)">
+Un último salto histórico antes de meternos en el costo de algoritmos.
+**Édouard Lucas** (Francia, 1842–1891) — matemático y divulgador —
+publica en 1876 el estudio moderno de las **sucesiones recurrentes**,
+generalizando la sucesión de Fibonacci a lo que hoy se llama la
+**sucesión de Lucas**:
+
+$$
+L(n) = L(n-1) + L(n-2), \qquad L(0) = 2,\ L(1) = 1
+$$
+
+Misma regla que Fibonacci, distintas condiciones iniciales: sale
+$$2, 1, 3, 4, 7, 11, 18, 29, 47, \ldots$$. La ecuación característica es
+la misma ($$\varphi$$ y $$\psi$$); la solución cerrada es
+$$L(n) = \varphi^n + \psi^n$$. Fibonacci y Lucas son **dos ventanas al
+mismo objeto matemático**.
+
+En 1883 Lucas inventa además el juego de las **Torres de Hanoi**: tres
+varillas, $$n$$ discos apilados por tamaño en la primera, hay que
+moverlos todos a la tercera sin apoyar nunca un disco grande sobre uno
+chico. El número mínimo de movimientos $$H(n)$$ satisface
+
+$$
+H(n) = 2\,H(n-1) + 1, \qquad H(0) = 0
+$$
+
+Otra recurrencia. Se resuelve con la misma técnica del slide anterior
+(característica homogénea $$x = 2$$ + particular constante) y sale
+$$H(n) = 2^n - 1$$. Es la primera recurrencia con la que la mayoría de
+los estudiantes se cruza y su solución cerrada — **exponencial pura** —
+es lo que hace legendario al problema: **para 64 discos**, la leyenda
+dice que unos monjes lo están resolviendo y cuando terminen se acaba el
+mundo. $$2^{64} - 1 \approx 1{,}8 \times 10^{19}$$ movimientos. A un
+movimiento por segundo, eso son **585 mil millones de años**.
+
+Con esto cerramos el zoológico de recurrencias históricas. El acto 2
+cierra el puente que quedó abierto en Peli 1 — de dónde viene la
+palabra "recursión" en informática — y a partir del acto 3 aplicamos
+todo esto al costo de algoritmos.
+
+**Para leer más**: la [entrada de las Torres de
+Hanoi](https://en.wikipedia.org/wiki/Tower_of_Hanoi) en Wikipedia tiene
+la historia del juego, la solución algorítmica y su conexión con la
+recurrencia. Sobre Lucas mismo, [Édouard
+Lucas](https://en.wikipedia.org/wiki/%C3%89douard_Lucas) tiene un buen
+resumen biográfico.
+</Slide>
+
+<SectionBreak />
