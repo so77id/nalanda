@@ -238,13 +238,14 @@ Routes today:
 |---|---|
 | `GET /` | Redirects to `/controls` (an anonymous request lands in `/login` first, via the gate). Superseded #151's redirect to `/professors` when WP-E landed |
 | `GET /controls` | The list, ordered by application_date desc with nulls last |
-| `GET /controls/new` · `POST /controls` | Pick a section range, generate the PDF |
+| `GET /controls/new` · `POST /controls` | Pick a section range; POST prepares the row + input files synchronously and enqueues a `generate` job for the worker call. The professor lands on the detail page with the banner showing "Generando…" until the runner finishes (issue #249) |
 | `GET /controls/{id}` | Detail: metadata, PDF downloads, the Escaneos upload form, the Resultados table, (after upload) the *Cerrar corrección* button, and (once graded) the statistics panel — globals, histogram, boxplot, item analysis (issue #251) |
 | `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
 | `GET /controls/{id}/pool.json` | The pool snapshot written at Create time (issue #198) — attachment |
-| `POST /controls/{id}/scans` | Multipart PDF upload — hands the file to the worker's `/analyse` at the submitted thresholds, persists the report and the pair, annotates clean copies, flips the state to `in_review` |
-| `POST /controls/{id}/reanalyze` | Re-reads the stored captures at new `ticked`/`unsure` thresholds without a new capture, re-scores at them, and re-annotates the clean copies (issue #197) |
-| `POST /controls/{id}/close` | Moves the control to `graded` when every failure kind is resolved (WP-F S8), then fires `OnCorrectionClosed` (issue #190) |
+| `POST /controls/{id}/scans` | Multipart PDF upload — writes the PDF to disk synchronously, then enqueues an `analyse` job. The runner hands the file to the worker's `/analyse`, persists the report and the pair, annotates clean copies and flips the state to `in_review`. Detail page's banner surfaces the running/done/failed state (issue #249) |
+| `POST /controls/{id}/reanalyze` | Enqueues a `reanalyse` job: the runner re-reads the stored captures at new `ticked`/`unsure` thresholds without a new capture, re-scores at them, and re-annotates the clean copies (issue #197, async since #249) |
+| `POST /controls/{id}/close` | Moves the control to `graded` when every failure kind is resolved (WP-F S8), then fires `OnCorrectionClosed` (issue #190), then enqueues an `annotate` job as a defensive re-annotate pass (issue #249) |
+| `POST /jobs/{id}/dismiss` | Stamps `viewed_at` on a job and redirects back to its control's detail — the "Refrescar / Cerrar aviso" button on the banner (issue #249) |
 | `GET /controls/{id}/copies/{copy}/review` · `POST` | Split view — corrected PDF (or raw scan) + editable form; POST saves overrides through `answer_override` / `rut_override` and re-annotates the copy |
 | `GET /controls/{id}/copies/{copy}/page/{n}` | Streams the scanned page image from the shared volume |
 | `GET /controls/{id}/copies/{copy}/annotated.pdf` | Streams the corrected PDF from the shared volume; 404 while none exists (issue #190) |
