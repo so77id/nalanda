@@ -33,6 +33,16 @@ const (
 	ControlPoolJSONPath = "/controls/{id}/pool.json"
 	// ControlUploadPath serves an uploaded scan batch (issue #204).
 	ControlUploadPath = "/controls/{id}/uploads/{batch}"
+	// The archive / restore / purge subsystem (issue #261). Archive is the
+	// soft-delete step, on the detail page's danger zone; Restore is on
+	// both the archived listing and the archived-detail's banner;
+	// ControlsArchivedPath is the archived listing itself. The purge
+	// endpoints (S5) live beside them.
+	ControlArchivePath      = "/controls/{id}/archive"
+	ControlRestorePath      = "/controls/{id}/restore"
+	ControlsArchivedPath    = "/controls/archived"
+	ControlPurgeConfirmPath = "/controls/{id}/purge/confirm"
+	ControlPurgePath        = "/controls/{id}/purge"
 )
 
 // Defaults for the form fields. §C17: a control is four questions under a
@@ -237,6 +247,12 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 		CurrentTicked: c.Ticked,
 		CurrentUnsure: c.Unsure,
 		Graded:        c.State == controls.Graded,
+		// Issue #261: which of the two shapes this control is in.
+		// Both URLs are always populated (the template picks by flag),
+		// so a browser rendering an archived page never has to guess.
+		Archived:   c.DeletedAt != nil,
+		ArchiveURL: controlArchiveURL(c.ID),
+		RestoreURL: controlRestoreURL(c.ID),
 	}
 	for _, name := range uploads {
 		page.Uploads = append(page.Uploads, view.UploadedBatch{

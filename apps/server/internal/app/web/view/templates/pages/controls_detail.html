@@ -1,6 +1,17 @@
 {{ define "content" }}
   <h1>{{ .Control.Name }}</h1>
 
+  {{ if .Archived }}
+    <section class="aviso" style="margin-bottom:1em">
+      <p><strong>Este control está archivado.</strong> Restauralo para volver a operarlo, o eliminarlo permanentemente desde el listado de archivados.</p>
+      <form method="post" action="{{ .RestoreURL }}" style="display:inline">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <button type="submit">Restaurar</button>
+      </form>
+      <a href="{{ "/controls/archived" }}">Ver archivados</a>
+    </section>
+  {{ end }}
+
   {{ with .JobBanner }}
     <section class="aviso" style="margin-bottom:1em">
       {{ if .Running }}
@@ -258,4 +269,16 @@
   {{ end }}
 
   <p><a href="/controls">Volver a los controles</a></p>
+
+  {{ if not .Archived }}
+    <section style="border-top:2px solid var(--danger,#c00); margin-top:3em; padding-top:1em">
+      <h2>Zona peligrosa</h2>
+      <p>Archivar el control lo saca del listado principal. Podés restaurarlo desde <a href="/controls/archived">/controls/archived</a>, o eliminarlo permanentemente desde ahí escribiendo su nombre.</p>
+      <form method="post" action="{{ .ArchiveURL }}"
+            onsubmit="return confirm('¿Archivar este control? Vas a poder restaurarlo desde el listado de archivados.')">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+        <button type="submit">Archivar control</button>
+      </form>
+    </section>
+  {{ end }}
 {{ end }}

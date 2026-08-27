@@ -258,6 +258,17 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.JobDismissPath,
 			Handler: deps.Controls.DismissJob,
 		},
+		// Issue #261: archive / restore. Purge is S5's addition. Gated
+		// by default (no Public), CSRF enforced because the methods
+		// are POST.
+		{
+			Method: http.MethodPost, Path: handler.ControlArchivePath,
+			Handler: deps.Controls.Archive,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ControlRestorePath,
+			Handler: deps.Controls.Restore,
+		},
 	}
 }
 

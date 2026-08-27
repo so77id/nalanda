@@ -286,6 +286,23 @@ type ControlDetailPage struct {
 	// while the generate is queued/running/failed; the banner then
 	// tells the professor why.
 	PDFsReady bool
+
+	// Archived is true when control.deleted_at IS NOT NULL (issue #261).
+	// The template surfaces a banner at the top of the page ("Este
+	// control está archivado…") with a Restore button, and hides the
+	// danger zone (Archive would fail anyway). Every other section stays
+	// visible so the professor can still consult the archived control's
+	// data, but the operational forms (upload scans, close, reanalyse)
+	// remain technically live — the banner is the fricción del profesor
+	// and the WP intentionally does not duplicate the policy on the
+	// server side (§Design > UI).
+	Archived bool
+	// ArchiveURL is the POST target of the danger-zone form. Empty when
+	// Archived is true (the archive button is hidden). CSRF-protected.
+	ArchiveURL string
+	// RestoreURL is the POST target of the archived banner's button.
+	// Empty when Archived is false.
+	RestoreURL string
 }
 
 // JobBanner is the summary of a control's most recent async job for the
