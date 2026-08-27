@@ -167,7 +167,7 @@ func (h *Controls) Create(w http.ResponseWriter, r *http.Request) {
 
 	// Issue #249, S5: split the sync half (files staged + row committed)
 	// from the async half (worker call). The professor lands on the
-	// detail page immediately with a "Generando…" banner from the
+	// detail page immediately with a "Procesando generación…" banner from the
 	// generate job; the row is safe for the sync-path validations
 	// (domain errors like a too-small pool still surface as form
 	// errors), and the worker outage is asynchronously visible on the

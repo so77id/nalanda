@@ -23,8 +23,9 @@ type Handlers map[Kind]Handler
 // Failure is the shape a handler returns when the runner should record a
 // distinct short (banner) message and a long (debug) detail on the
 // failed row. When the handler returns a plain error, the runner uses
-// err.Error() for the banner and stores no detail — same shape the
-// flash cookie's refusedFlash already draws in scans.go.
+// err.Error() for the banner and stores no detail — a short Message +
+// optional long Detail matches the (Message, Detail) split
+// controls.AnalyzerRefusedError already carries.
 type Failure struct {
 	Message string
 	Detail  string
