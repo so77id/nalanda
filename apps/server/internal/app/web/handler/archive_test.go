@@ -209,3 +209,86 @@ func TestArchiveDoesNotDisturbAnInFlightJob(t *testing.T) {
 		t.Errorf("MarkDone after archive: %v, want nil", err)
 	}
 }
+
+// Issue #261: GET /controls/archived renders every archived control, each
+// row carrying the Restore POST target and the Purge-confirm GET link.
+func TestArchivedPageListsArchivedControlsWithActionURLs(t *testing.T) {
+	f := newControlsFixture(t)
+	activeID := f.createControl(t, "Control activo", 1)
+	archivedID := f.createControl(t, "Control para archivar", 1)
+	if err := f.service.Archive(context.Background(), archivedID); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/archived", nil)
+	rec := httptest.NewRecorder()
+	f.handler.Archived(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body:\n%s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+
+	if !strings.Contains(body, "Control para archivar") {
+		t.Errorf("archived control name missing:\n%s", body)
+	}
+	if strings.Contains(body, "Control activo") {
+		t.Errorf("active control leaked into the archived page")
+	}
+	if !strings.Contains(body, `action="/controls/`+archivedID+`/restore"`) {
+		t.Errorf("Restore form action missing")
+	}
+	if !strings.Contains(body, `href="/controls/`+archivedID+`/purge/confirm"`) {
+		t.Errorf("Purge confirm link missing")
+	}
+	_ = activeID
+}
+
+// Issue #261: /controls has a "Ver archivados" link in the header so a
+// professor can find the archived listing without a bookmark.
+func TestListRendersLinkToArchivedPage(t *testing.T) {
+	f := newControlsFixture(t)
+	_ = f.createControl(t, "Control 1", 1)
+
+	req := f.authedRequest(t, http.MethodGet, "/controls", nil)
+	rec := httptest.NewRecorder()
+	f.handler.List(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `href="/controls/archived"`) {
+		t.Errorf("/controls list is missing the 'Ver archivados' link:\n%s", body)
+	}
+}
+
+// Issue #261: /controls/archived lists archived rows newest first —
+// Service.ArchivedList delegates to Store.ListArchivedControls which
+// orders by deleted_at DESC.
+func TestArchivedPageOrdersRowsByDeletedAtDesc(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+	older := f.createControl(t, "Archivado más viejo", 1)
+	newer := f.createControl(t, "Archivado más nuevo", 1)
+	if err := f.service.Archive(ctx, older); err != nil {
+		t.Fatalf("Archive older: %v", err)
+	}
+	// Force strictly-greater deleted_at on the newer one — same second
+	// resolution as the DB, so a small sleep avoids a flaky tie-break.
+	time.Sleep(1100 * time.Millisecond)
+	if err := f.service.Archive(ctx, newer); err != nil {
+		t.Fatalf("Archive newer: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/archived", nil)
+	rec := httptest.NewRecorder()
+	f.handler.Archived(rec, req)
+	body := rec.Body.String()
+	newerIdx := strings.Index(body, "Archivado más nuevo")
+	olderIdx := strings.Index(body, "Archivado más viejo")
+	if newerIdx < 0 || olderIdx < 0 {
+		t.Fatalf("both archived rows not present in body")
+	}
+	if newerIdx > olderIdx {
+		t.Errorf("older row rendered before newer — want deleted_at DESC")
+	}
+}

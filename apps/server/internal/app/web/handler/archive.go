@@ -2,10 +2,12 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 )
 
@@ -101,6 +103,57 @@ func (h *Controls) Restore(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 }
 
+// Archived renders /controls/archived (issue #261). Same shape as List
+// with the added Restore button per row and the "Eliminar
+// permanentemente" link that opens the S5 confirmation page. Ordered by
+// deleted_at DESC (Service.ArchivedList → Store.ListArchivedControls).
+func (h *Controls) Archived(w http.ResponseWriter, r *http.Request) {
+	rows, err := h.Service.ArchivedList(r.Context())
+	if err != nil {
+		h.Log.Error("listing archived controls", "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	page := view.ControlsArchivedPage{
+		Page:     middleware.PageFor(r, "Controles archivados"),
+		Controls: h.toArchivedControls(rows),
+	}
+	page.Flash = flash.Consume(w, r, h.secureCookie)
+
+	if err := view.RenderControlsArchived(w, page); err != nil {
+		h.Log.Error("rendering the archived-controls list", "error", err)
+	}
+}
+
+// toArchivedControls turns domain values into the rows the archived
+// template renders. Same pre-formatted shape as toListedControls plus the
+// per-row action URLs (restore, purge-confirm).
+func (h *Controls) toArchivedControls(rows []controls.Control) []view.ArchivedControl {
+	out := make([]view.ArchivedControl, 0, len(rows))
+	b := h.Bank.Get()
+	for _, c := range rows {
+		archivedAt := ""
+		if c.DeletedAt != nil {
+			archivedAt = spanishDate(*c.DeletedAt)
+		}
+		out = append(out, view.ArchivedControl{
+			ID:              c.ID,
+			Name:            c.Name,
+			ApplicationDate: formatOptionalDate(c.ApplicationDate),
+			Range:           formatRangeWithTitles(c.RangeFrom, c.RangeTo, b),
+			Shape:           fmt.Sprintf("%d preguntas × %d copias", c.QuestionsPerCopy, c.Copies),
+			State:           stateWordControl(c.State),
+			ArchivedAt:      archivedAt,
+			DetailURL:       controlDetailURL(c.ID),
+			RestoreURL:      controlRestoreURL(c.ID),
+			PurgeConfirmURL: controlPurgeConfirmURL(c.ID),
+		})
+	}
+	return out
+}
+
 // controlArchiveURL and controlRestoreURL are the two POST targets, used
 // by the detail template and the archived list.
 func controlArchiveURL(id string) string {
@@ -109,4 +162,9 @@ func controlArchiveURL(id string) string {
 
 func controlRestoreURL(id string) string {
 	return controlDetailURL(id) + "/restore"
+}
+
+// controlPurgeConfirmURL is the GET target of the confirmation page (S5).
+func controlPurgeConfirmURL(id string) string {
+	return controlDetailURL(id) + "/purge/confirm"
 }

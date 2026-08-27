@@ -1,0 +1,47 @@
+{{ define "content" }}
+  <h1>Controles archivados</h1>
+
+  <p>Los controles archivados no aparecen en <a href="/controls">/controls</a>.
+    Podés restaurarlos con un click, o eliminarlos permanentemente escribiendo
+    su nombre desde la pantalla de confirmación.</p>
+
+  <p><a href="/controls">← Volver a los controles</a></p>
+
+  {{ if .Controls }}
+    <table class="lista">
+      <thead>
+        <tr>
+          <th>Nombre</th>
+          <th>Aplicación</th>
+          <th>Rango</th>
+          <th>Formato</th>
+          <th>Estado</th>
+          <th>Archivado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Controls }}
+          <tr>
+            <td>{{ .Name }}</td>
+            <td>{{ .ApplicationDate }}</td>
+            <td>{{ .Range }}</td>
+            <td>{{ .Shape }}</td>
+            <td>{{ .State }}</td>
+            <td>{{ .ArchivedAt }}</td>
+            <td>
+              <a href="{{ .DetailURL }}">Ver</a>
+              <form method="post" action="{{ .RestoreURL }}" style="display:inline">
+                <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+                <button type="submit">Restaurar</button>
+              </form>
+              <a href="{{ .PurgeConfirmURL }}">Eliminar permanentemente</a>
+            </td>
+          </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  {{ else }}
+    <p>Aún no hay controles archivados.</p>
+  {{ end }}
+{{ end }}

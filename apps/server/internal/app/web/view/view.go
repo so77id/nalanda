@@ -146,6 +146,31 @@ type ListedControl struct {
 	DetailURL       string
 }
 
+// ControlsArchivedPage is what controls_archived.html renders (issue #261).
+// One row per archived control, deleted_at DESC. Each row carries the
+// Restore POST target and the Purge-confirm GET target — the destructive
+// step deliberately does not fit inline.
+type ControlsArchivedPage struct {
+	Page
+	Controls []ArchivedControl
+}
+
+// ArchivedControl is one row of the archived listing. Same pre-formatted
+// shape as ListedControl plus the archived-at column and the two URLs the
+// two operations target.
+type ArchivedControl struct {
+	ID              string
+	Name            string
+	ApplicationDate string
+	Range           string
+	Shape           string
+	State           string
+	ArchivedAt      string // "26 de agosto, 2026"
+	DetailURL       string
+	RestoreURL      string
+	PurgeConfirmURL string
+}
+
 // ControlsFormPage is what controls_form.html renders. Same one-template-
 // for-three-purposes shape as ProfessorsFormPage (issue #151 §Form /
 // validation / errors): GET (empty), validation-failure re-render (values
@@ -630,6 +655,14 @@ func RenderControlsList(w http.ResponseWriter, page ControlsListPage) error {
 		page.Title = "Controles"
 	}
 	return render(w, "controls_list", http.StatusOK, page)
+}
+
+// RenderControlsArchived writes the archived-controls list page (issue #261).
+func RenderControlsArchived(w http.ResponseWriter, page ControlsArchivedPage) error {
+	if page.Title == "" {
+		page.Title = "Controles archivados"
+	}
+	return render(w, "controls_archived", http.StatusOK, page)
 }
 
 // RenderControlsForm writes the create form (S6).

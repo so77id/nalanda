@@ -258,9 +258,9 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.JobDismissPath,
 			Handler: deps.Controls.DismissJob,
 		},
-		// Issue #261: archive / restore. Purge is S5's addition. Gated
-		// by default (no Public), CSRF enforced because the methods
-		// are POST.
+		// Issue #261: archive / restore + the archived listing. Purge is
+		// S5's addition. Gated by default (no Public), CSRF enforced
+		// because the two POST methods are POST.
 		{
 			Method: http.MethodPost, Path: handler.ControlArchivePath,
 			Handler: deps.Controls.Archive,
@@ -268,6 +268,10 @@ func routes(deps Deps) []Route {
 		{
 			Method: http.MethodPost, Path: handler.ControlRestorePath,
 			Handler: deps.Controls.Restore,
+		},
+		{
+			Method: http.MethodGet, Path: handler.ControlsArchivedPath,
+			Handler: deps.Controls.Archived,
 		},
 	}
 }
