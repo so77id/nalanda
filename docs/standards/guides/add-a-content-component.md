@@ -115,7 +115,14 @@ apps/web/src/components/structure/
      same section spine the rail and the drawer draw from. Empty means NOT
      MEASURED — the spine is read from the DOM after mount — so never treat it
      as authority. Worked case: `<Question>` verifying the `anchor` it claims
-     (#139).
+     (#139). To know whether a section is presented as a SLIDE (not merely
+     rendered as an h2 — the two are the same set in `auto` mode but diverge
+     in `explicit`), read `usePresentableSections()`
+     (`lib/presentableSections.ts`): the wrapper computes it synchronously
+     from the MDX children, so an empty set IS authority (a page outside a
+     `DocumentPage` — the catalog — has no wrapper, and the empty default is
+     the signal). Consumed today by `content/mdxHeading` to paint the
+     `Presentar` button (#256, ADR-0051).
    - **Being inside something that has already spoken for you.** A container that
      carries one accessible name for a whole group wraps its children in
      `<DescribedProvider value={true}>` (`components/described.ts`), and a

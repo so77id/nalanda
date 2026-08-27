@@ -90,15 +90,28 @@ src/
 - **Document-level STATE reaches a component through a context declared in
   `lib/`**: the producing feature provides it, the consuming feature reads it,
   and the declaration sits in `lib/` for the same reason as the rule above —
-  `components → content` is not an allowed edge, and adding one to pass a set of
-  strings buys nothing. Worked case: `lib/knownSections.ts`, provided by
-  `content/DocumentPage.tsx` from the same spine the rail and the drawer draw
-  from, read by `<Question>` to check the section it claims (#139). **Part of
-  that contract is that an empty value means NOT MEASURED, never authority** —
-  the spine is read from the DOM after mount, so it is empty on the first render
-  of every document, and a consumer that trusted it would paint an authoring
-  error over every correct question on every page load. Whatever the context
-  cannot see belongs to a source-level gate instead.
+  cross-feature edges the `FEATURE_EDGES` allowlist does not carry (e.g.
+  `components → content`, `content → presentation`) buy nothing by being
+  opened for a set of strings. The empty-value contract depends on WHEN the
+  context can be measured — two worked cases, opposite semantics:
+
+  - **DOM-after-mount contexts: empty means NOT MEASURED, never authority.**
+    Worked case: `lib/knownSections.ts`, provided by `content/DocumentPage.tsx`
+    from the same spine the rail and the drawer draw from, read by
+    `<Question>` to check the section it claims (#139). The spine is read
+    from the DOM after mount, so it is empty on the first render of every
+    document, and a consumer that trusted it would paint an authoring error
+    over every correct question on every page load. Whatever the context
+    cannot see belongs to a source-level gate instead.
+  - **Source-level contexts: empty IS authority.** When the value can be
+    measured before render — a synchronous walk over MDX children — the
+    wrapper publishes it as ground truth and "empty" means empty. Worked
+    case: `lib/presentableSections.ts`, published by
+    `presentation/PresentableSectionsWrapper` (the shell hands the wrapper
+    to `content/DocumentPage`, see the shell-injection rule below), read by
+    `content/mdxHeading` to decide whether an h2 gets a `Presentar` button
+    (#256, ADR-0051). A page that does not mount the wrapper reads the
+    empty default, and that IS the signal — no consumer branch needed.
 - **MDX component maps are shell-composed**: features export partial maps
   (e.g., `content/mdxComponents.ts`), and `app/mdxComponents.ts` merges them
   into the provider around the routes. Features never assemble the global map;
@@ -120,7 +133,16 @@ src/
 - **Shell UI reaches features by injection**: when a feature needs shell-owned
   UI (error pages, layout slots), the shell passes it via props/children —
   features never import from `app/`. Worked case: `AppRoutes` injects
-  `<NotFound />` into `DocumentPage`'s `notFound` prop.
+  `<NotFound />` into `DocumentPage`'s `notFound` prop. **The shell uses the
+  same shape to broker CROSS-FEATURE collaboration** when the alternative
+  would be opening a `FEATURE_EDGES` entry the collaboration is the only
+  motivation for: the producing feature exports the component from its seam,
+  the shell imports both features and hands one to the other by prop.
+  Worked case: `AppRoutes` injects `<PresentableSectionsWrapper />` (from
+  `presentation/`) into `content/`'s `DocumentPage` via the
+  `presentableSectionsWrapper` prop, which composes it as the MDX
+  `components.wrapper` so the wrapped document publishes its slide spine to
+  `mdxHeading` — no `content → presentation` edge added (#256, ADR-0051).
 - **Not everything under `components/` is a catalog component.** Two shapes have
   no catalog entry and no MDX registration, and neither is an omission
   (a third, the intrinsic-element renderer above, has no entry but _is_

@@ -331,7 +331,10 @@ so a formula is read as mathematics rather than skipped as decoration.
    `/d/:id/present?section=<slug>`; leaving the deck from a slide with a
    title lands the reader on the same h2 via `#<slug>`. Both work off the
    same slug the `#` anchor already exposes, so the title you write is what
-   gets bookmarked — keeping it stable keeps live links working.
+   gets bookmarked — keeping it stable keeps live links working. In an
+   `explicit` deck, only `<Slide title>` boundaries publish a slug — a
+   loose book-only h2 like `## Ejercicios` stays button-less on purpose
+   (there is no slide to link to).
 
    **A `<SectionBreak />` collects, it does not cut.** In an `explicit` deck
    only marked content forms slides: a markdown `##` after a SectionBreak does

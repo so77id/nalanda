@@ -8,12 +8,13 @@
 `PresentableSectionsWrapper` + `lib/presentableSections` (the book-side spine
 publication) · the per-h2 "Presentar sección" button in `content/mdxHeading`
 **Source:** Issue #256.
-**Extends:** ADR-0013 (presentation pipeline / `?slide=N` URL contract) — this
-is the same URL as source of truth, gaining a second query key for a stable
-addressee. Reads from ADR-0021 (published anchors are frozen) — the slug is
-already the book's h2 id, so a bookmarked `?section=<slug>` outlives a
-renumbering of the deck. Constrained by ADR-0010 (`<SectionBreak/>` is
-anonymous by design), which is why an anonymous group publishes no slug.
+**Extends:** ADR-0013 (presentation pipeline / `?slide=N` URL contract, and
+the `<SectionBreak/>` = untitled group boundary at §Decision 1) — this is
+the same URL as source of truth, gaining a second query key for a stable
+addressee, and the untitled-group rule is why an anonymous group publishes
+no slug. Reads from ADR-0021 (rendered h2 IS the section spine) and
+ADR-0027 §8 (a published anchor is frozen) — the slug is already the book's
+h2 id, so a bookmarked `?section=<slug>` outlives a renumbering of the deck.
 
 ## Context
 
