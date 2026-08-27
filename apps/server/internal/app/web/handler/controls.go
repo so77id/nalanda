@@ -614,9 +614,16 @@ func humanElapsed(d time.Duration) string {
 // handler stamps viewed_at and redirects back to the control.
 const JobDismissPath = "/jobs/{id}/dismiss"
 
-// DismissJob stamps viewed_at on a job and redirects back to its
-// control. Idempotent — dismissing a running job is fine too (the
-// banner just hides on the next request; the runner keeps working).
+// DismissJob stamps viewed_at on a TERMINAL job (done | failed) and
+// redirects back to its control. A dismiss on a queued / running job
+// is a plain page reload: no stamp, just the redirect. The distinction
+// matters because jobBannerFor hides the banner once viewed_at is set
+// on a non-running row — stamping while the job is still working would
+// silently mute the eventual "listo" / "falló" banner (issue #257,
+// discovered on the Jetson 2026-08-27).
+//
+// The store's MarkDismissed remains unconditional / idempotent; the
+// policy lives on this handler where the professor's click happens.
 func (h *Controls) DismissJob(w http.ResponseWriter, r *http.Request) {
 	rawID := r.PathValue("id")
 	jobID, err := strconv.ParseInt(rawID, 10, 64)
@@ -633,6 +640,13 @@ func (h *Controls) DismissJob(w http.ResponseWriter, r *http.Request) {
 		h.Log.Error("dismiss job: fetch", "id", jobID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
 			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+	if job.Status == jobs.StatusQueued || job.Status == jobs.StatusRunning {
+		// "Refrescar" while the job is still working: reload the page
+		// and let the runner keep going. Stamping viewed_at here would
+		// mute the eventual terminal banner (issue #257).
+		http.Redirect(w, r, controlDetailURL(job.ControlID), http.StatusSeeOther)
 		return
 	}
 	if err := h.Jobs.MarkDismissed(r.Context(), jobID, time.Now()); err != nil {
