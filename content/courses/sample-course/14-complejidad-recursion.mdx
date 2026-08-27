@@ -166,18 +166,18 @@ Las funciones recursivas se clasifican por tres ejes; conocerlos permite
 Tomemos como ejemplo el factorial. Su definición matemática es
 recursiva:
 $$
-n! = \begin{cases} 1 & \text{si } n = 0 \\ n \cdot (n-1)! & \text{si } n > 0 \end{cases}
+n! = \begin{cases} 1 & \text{si } n = 1 \\ n \cdot (n-1)! & \text{si } n > 1 \end{cases}
 $$
 
 **Identifiquemos las tres piezas del diseño en la definición** antes de
 escribir código:
 
-- **Caso base**: $$0! = 1$$. Sin llamada recursiva.
+- **Caso base**: $$1! = 1$$. Sin llamada recursiva.
 - **Paso recursivo**: $$n \cdot (n-1)!$$ — el resultado se apoya en el
   factorial de un argumento más chico.
 - **Convergencia**: el argumento decrece de $$n$$ a $$n-1$$ en cada
-  llamada, así que baja de a $$1$$ y en $$n$$ pasos alcanza el caso
-  base. Para cualquier entero no negativo, termina.
+  llamada, así que baja de a $$1$$ y en $$n-1$$ pasos alcanza el caso
+  base. Para cualquier entero $$\geq 1$$, termina.
 
 Con esas tres piezas identificadas, la traducción a Java es directa —
 una línea por pieza:
@@ -186,7 +186,7 @@ una línea por pieza:
   language="java"
   defaultValue={`class Factorial {
     static long factorial(int n) {
-        if (n == 0) return 1;         // base case
+        if (n == 1) return 1;         // base case
         return n * factorial(n - 1);  // recursive step
     }
 
