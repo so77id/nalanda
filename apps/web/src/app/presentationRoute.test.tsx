@@ -462,6 +462,12 @@ describe('presentation while the reader is typing in a slide', () => {
     } finally {
       editor.remove();
     }
+
+    // Same positive control the <input> case above carries: without a key that
+    // still moves the deck once the editable is gone, a listener that no-op'd
+    // outright would satisfy the assertion above.
+    fireEvent.keyDown(window, { key: 'ArrowRight' });
+    expect(counter).toHaveTextContent(/^2 \//);
   });
 
   it('still leaves the deck on Escape from an editable target', async () => {
