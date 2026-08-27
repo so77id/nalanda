@@ -111,9 +111,9 @@ Y una tercera propiedad, implícita, hay que probar por inspección:
   Si `f(n)` llama a `f(n + 1)`, o si `f(n)` llama a `f(n)`, la recursión
   no termina nunca.
 
-**Regla del diseñador**: si no te podés convencer, mirando el código, de
-que toda ejecución llega al caso base en un número finito de pasos, la
-recursión está mal planteada. Cambiala antes de correrla.
+**Regla del diseñador**: si no logramos convencernos, mirando el código,
+de que toda ejecución llega al caso base en un número finito de pasos, la
+recursión está mal planteada. Hay que cambiarla antes de correrla.
 </Slide>
 
 <Slide title="Clasificación de recursiones">
@@ -135,7 +135,7 @@ Las funciones recursivas se clasifican por tres ejes; conocerlos permite
 
 Anticipo del análisis: recursiones **lineales** las resolvemos limpio a
 mano; recursiones **no lineales** son las que necesitan más cuidado, y
-son las que van a explotar más adelante en el capítulo.
+son las que explotan en la segunda mitad de este capítulo.
 </Slide>
 
 <Slide title="Primer ejemplo: factorial">
@@ -172,7 +172,7 @@ Identifiquemos las tres piezas del diseño:
   base.
 
 Es una recursión **lineal directa no final** (hay una multiplicación
-después de la llamada). Corré `factorial(5)`: debería imprimir `120`.
+después de la llamada). Corremos `factorial(5)`: debería imprimir `120`.
 Ahora la pregunta: ¿cómo la ejecuta la JVM realmente?
 </Slide>
 
@@ -183,7 +183,8 @@ dirección adonde tiene que retornar al terminar. Al recursar, agrega un
 frame nuevo encima; al retornar, lo saca. El orden es **LIFO** — *last
 in, first out*.
 
-Mirá `factorial(5)` corriendo paso a paso. Cliqueá **Paso adelante**:
+Veamos `factorial(5)` paso a paso. Con clic en **Paso adelante** avanzamos
+un evento del stack:
 
 <CallStack recipe="factorial" arg={5} />
 
@@ -208,15 +209,16 @@ la JVM lanza un `StackOverflowError` y el programa termina.
 
 Dos maneras de llegar ahí:
 
-**1. Bug de diseño — falta el caso base o no se alcanza.** Mirá qué pasa
-cuando la recursión no tiene condición de término:
+**1. Bug de diseño — falta el caso base o no se alcanza.** Veamos qué
+pasa cuando la recursión no tiene condición de término:
 
 <CallStack recipe="broken" arg={3} />
 
-Cada `Paso adelante` empuja un frame más; nunca hay pop. La demo está
-limitada a 8 frames para que el error sea legible, pero en la JVM real
-seguiría hasta agotar el stack. **Por eso el caso base no es un adorno**:
-sin él, cualquier ejecución termina en StackOverflowError, siempre.
+Cada `Paso adelante` empuja un frame más; nunca hay pop. Limitamos la
+demo a 8 frames para que el error sea legible, pero en la JVM real la
+recursión seguiría hasta agotar el stack. **Por eso el caso base no es
+un adorno**: sin él, cualquier ejecución termina en StackOverflowError,
+siempre.
 
 **2. Datos gigantes — el diseño es correcto, pero el input es demasiado
 profundo.** Una recursión lineal bien planteada sobre un millón de
@@ -232,7 +234,7 @@ datos.
 </Slide>
 
 <Slide title="Ejercicio: suma de los primeros N naturales">
-Ahora te toca a vos. El problema:
+Repasamos la receta con un problema propuesto:
 
 <Exercise title="Suma de los primeros N naturales">
 
@@ -240,13 +242,13 @@ Escribe una función recursiva `sum` que reciba un entero $$N \geq 0$$ y
 devuelva la suma $$1 + 2 + 3 + \ldots + N$$. **No uses la fórmula
 $$N(N+1)/2$$**; el ejercicio es diseñar la recursión.
 
-Guía de diseño (repasa la receta del capítulo):
+Guía de diseño (aplicamos la receta):
 
 1. ¿Cuál es el **caso base**? ¿Qué devuelve `sum(0)`?
 2. ¿Cuál es el **paso recursivo**? ¿Qué relación hay entre `sum(N)` y
    `sum(N-1)`?
-3. ¿Cómo garantizás **convergencia**? ¿El argumento decrece hacia el caso
-   base?
+3. ¿Cómo garantizamos **convergencia**? ¿El argumento decrece hacia el
+   caso base?
 
 ```java starter
 class Solution {
@@ -266,16 +268,16 @@ check(Solution.sum(100), 5050L);
 
 </Exercise>
 
-Una vez que tu solución pase todos los casos, mirala corriendo en el
+Una vez que la solución pase todos los casos, la vemos corriendo en el
 stack:
 
 <CallStack recipe="sum" arg={5} />
 
-Reconocé el patrón: es idéntico al de factorial. Ambas son recursiones
+Reconocemos el patrón: es idéntico al de factorial. Ambas son recursiones
 lineales, ambas hacen un push por paso y devuelven combinando el
 resultado del sub-caso con un poco de trabajo local. Este es el patrón
-más simple de la recursión, y es el punto de partida para el análisis
-formal de la siguiente sección.
+más simple de la recursión, y es el punto de partida del análisis formal
+que sigue.
 </Slide>
 
 <SectionBreak />
@@ -299,7 +301,7 @@ La recurrencia describe el costo total como **función de sí misma sobre
 entradas más chicas**. Escribimos primero, resolvemos después.
 </Slide>
 
-<Slide title="Factorial: $$T(N) = T(N-1) + c$$">
+<Slide title="Factorial: la recurrencia">
 Miramos `factorial` línea por línea:
 
 ```java
@@ -348,7 +350,7 @@ todas las recurrencias que vamos a resolver, y no requiere adivinar la
 solución.
 </Slide>
 
-<Slide title="Recursión por división: $$T(N) = T(N/2) + c \Rightarrow \Theta(\log N)$$">
+<Slide title="Recursión por división: costo logarítmico">
 Un caso distinto: la función **divide el problema a la mitad** en cada
 llamada. Ejemplo — contar cuántos bits necesita $$n$$ en binario:
 
@@ -380,9 +382,9 @@ T(N) = c + c \log N \in \Theta(\log N)
 $$
 
 **Insight clave**: cuando cada llamada reduce el problema a la mitad,
-solo se necesitan $$\log_2 N$$ pasos hasta el caso base. Cuando veas
-ese patrón en un algoritmo, sospechá logarítmico. Aparece en búsqueda
-binaria y en muchas rutinas que verás en las próximas unidades.
+solo se necesitan $$\log_2 N$$ pasos hasta el caso base. Cuando aparece
+ese patrón en un algoritmo, conviene sospechar logarítmico. Lo veremos
+en búsqueda binaria y en muchas rutinas de las próximas unidades.
 </Slide>
 
 <SectionBreak />
@@ -417,9 +419,9 @@ paso recursivo):
   entryClass="FibNaive"
 />
 
-Está correcto. Se ve simple. Y sin embargo, si corrés `fib(40)` **la
+Está correcto. Se ve simple. Y sin embargo, al correr `fib(40)` **la
 máquina tarda varios segundos**. Con `fib(50)` la ventana se cuelga
-prácticamente hasta que la cierres. Algo raro pasa.
+prácticamente hasta que la cerremos. Algo raro pasa.
 </Slide>
 
 <Slide title="El árbol de llamadas">
@@ -428,11 +430,11 @@ chicas. El resultado es un árbol.
 
 <RecursionTree recipe="fib" arg={5} title="fib(5)" />
 
-Cliqueá la raíz: se abren `fib(4)` y `fib(3)`. Cliqueá `fib(4)`: se abren
-`fib(3)` y `fib(2)`. Y acá aparece la palabra clave: ya hay **dos**
-`fib(3)`, pintados del mismo color porque son el mismo cálculo. Seguí
-bajando: `fib(2)` aparece 5 veces. `fib(1)` aparece 8 veces. `fib(0)`
-aparece 3 veces.
+Con clic en la raíz se abren `fib(4)` y `fib(3)`. Al abrir `fib(4)`
+aparecen `fib(3)` y `fib(2)`. Y acá aparece la palabra clave: ya hay
+**dos** `fib(3)`, pintados del mismo color porque son el mismo cálculo.
+Al seguir bajando: `fib(2)` aparece 5 veces. `fib(1)` aparece 8 veces.
+`fib(0)` aparece 3 veces.
 
 El árbol de `fib(5)` tiene **15 nodos**. Cada nodo es una invocación real
 al método — la JVM está calculando los mismos valores **una y otra
@@ -464,7 +466,7 @@ coeficientes que siguen la propia sucesión de Fibonacci). Usamos otro
 truco.
 </Slide>
 
-<Slide title="Resolver por acotamiento superior → $$O(2^N)$$">
+<Slide title="Resolver por acotamiento superior: costo exponencial">
 **Truco**: como $$T(N-1) > T(N-2)$$, podemos reemplazar $$T(N-2)$$ por
 $$T(N-1)$$ y acotar por arriba:
 $$
@@ -508,9 +510,10 @@ basta: es exponencial y punto. La historia completa la vemos al final del
 capítulo.
 
 **Regla del método (aplicable a cualquier recursión no lineal)**:
-reemplazá cada $$T(N-a_i)$$ por $$T(N-1)$$ (el mayor de los argumentos),
-sumá cuántas llamadas hay, obtenés $$k \cdot T(N-1) + c$$, y expandís.
-Sale $$O(k^N)$$ donde $$k$$ es el número de llamadas del paso recursivo.
+reemplazamos cada $$T(N-a_i)$$ por $$T(N-1)$$ (el mayor de los
+argumentos), sumamos cuántas llamadas hay, obtenemos $$k \cdot T(N-1) +
+c$$, y expandimos. Sale $$O(k^N)$$ donde $$k$$ es el número de llamadas
+del paso recursivo.
 </Slide>
 
 <Slide title="Verificación con `<Benchmark>`">
@@ -575,11 +578,11 @@ public class FibIterative {
   defaultInput={30}
 />
 
-**Corré el recursivo con $$n=30$$ y después con $$n=40$$**. Si el
-crecimiento fuera lineal, esperarías un factor $$40/30 \approx 1{,}33$$.
-Vas a ver que el tiempo **casi se duplica cada vez que $$n$$ aumenta en
-uno** — la firma clásica de un algoritmo $$O(2^N)$$. La medición es
-**consistente con exponencial**.
+**Corremos el recursivo con $$n=30$$ y después con $$n=40$$**. Si el
+crecimiento fuera lineal, esperaríamos un factor $$40/30 \approx
+1{,}33$$. Lo que vemos es que el tiempo **casi se duplica cada vez que
+$$n$$ aumenta en uno** — la firma clásica de un algoritmo $$O(2^N)$$. La
+medición es **consistente con exponencial**.
 
 El iterativo, con los mismos valores, termina en microsegundos siempre.
 $$\Theta(N)$$ contra $$\Theta(\varphi^N)$$: la diferencia asintótica se
@@ -601,10 +604,10 @@ Ese es el diagnóstico:
 
 > **Recursión + subproblemas repetidos ⇒ costo exponencial.**
 
-Es la regla que se llevan puesta. Cada vez que vean una recursión con
-dos o más llamadas donde los argumentos se cruzan, sospechen
-recomputación. Cuando el diagnóstico se cumple, hay dos técnicas
-estándar para arreglarlo. Vamos a las dos.
+Es la regla operativa que nos llevamos. Cada vez que aparece una
+recursión con dos o más llamadas donde los argumentos se cruzan, conviene
+sospechar recomputación. Cuando el diagnóstico se cumple, hay dos
+técnicas estándar para arreglarlo. Vamos a las dos.
 </Slide>
 
 <SectionBreak />
@@ -691,7 +694,7 @@ veamos estructuras más elaboradas, cambiaremos a eso. Por ahora, dos
 arreglos son la forma más honesta.
 </Slide>
 
-<Slide title="El costo del memoized: $$T(N) = T(N-1) + O(1) \Rightarrow \Theta(N)$$">
+<Slide title="El costo del memoized: la caída a lineal">
 Sin memoization teníamos $$T(N) = T(N-1) + T(N-2) + c$$ — dos llamadas
 recursivas. Con memoization, **de las dos llamadas del paso recursivo,
 solo una hace trabajo real**: la primera vez que se pide `fib(n-1)`, la
@@ -782,10 +785,10 @@ Comparación memoized top-down vs tabulated bottom-up:
 | $$T(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
 | $$M(N)$$ | $$\Theta(N)$$ (tabla + stack) | $$\Theta(N)$$ (tabla) |
 
-Cuál elegir depende del problema. Si querés **un solo valor** de una
-tabla que podría ser enorme, top-down te ahorra las celdas no visitadas.
-Si vas a calcular **todos los valores en orden**, bottom-up es más simple
-y sin stack.
+Cuál elegir depende del problema. Si queremos **un solo valor** de una
+tabla que podría ser enorme, top-down nos ahorra las celdas no visitadas.
+Si vamos a calcular **todos los valores en orden**, bottom-up es más
+simple y sin stack.
 </Slide>
 
 <Slide title="Micro-optimización: dos variables">
@@ -818,19 +821,19 @@ tirar el arreglo entero y quedarnos con dos variables:
   entryClass="FibIterative"
 />
 
-**Este es el `fib` iterativo que ya escribieron en
+**Este es el `fib` iterativo que ya escribimos en
 [[arrays-y-funciones]].** Ahora sabemos de dónde sale: es **tabulation
-con memoria colapsada**, después de darse cuenta de que la ventana de
+con memoria colapsada**, después de darnos cuenta de que la ventana de
 valores necesarios en cada paso tiene tamaño constante.
 
 $$T(N) = \Theta(N)$$ igual, pero $$M(N) = \Theta(1)$$ constante.
 
 **Cuándo hacer esta micro-optimización**: cuando el patrón de acceso al
 cache es de **ventana móvil constante** — el próximo valor depende solo
-de los últimos $$k$$ valores, con $$k$$ constante. Si podés necesitar
-volver a leer cualquier celda anterior (como al calcular todas las
-respuestas a partir de una tabla llena), quedate con la tabulation
-completa.
+de los últimos $$k$$ valores, con $$k$$ constante. Si eventualmente hay
+que volver a leer cualquier celda anterior (como al calcular todas las
+respuestas a partir de una tabla llena), conviene quedarse con la
+tabulation completa.
 </Slide>
 
 <Slide title="Torres de Hanoi: el problema">
@@ -850,8 +853,8 @@ El problema:
 Es el **problema recursivo canónico** de la ciencia de la computación.
 Aparece en todos los textos de estructuras y algoritmos porque la
 solución **se define naturalmente en términos recursivos**: para mover
-$$N$$ discos de A a C, movés $$N-1$$ a B, movés el más grande a C, y
-movés los $$N-1$$ de B a C. El paso recursivo hace **dos** llamadas de
+$$N$$ discos de A a C, movemos $$N-1$$ a B, movemos el más grande a C, y
+movemos los $$N-1$$ de B a C. El paso recursivo hace **dos** llamadas de
 tamaño $$N-1$$.
 
 **La leyenda** que popularizó Lucas: en un templo de Benarés hay 64
@@ -897,7 +900,7 @@ T(N) = 2T(N-1) + c \qquad T(0) = c
 $$
 </Slide>
 
-<Slide title="$$\Theta(2^N)$$ intrínseco: memoization no lo salva">
+<Slide title="Costo exponencial intrínseco: memoization no lo salva">
 Como el paso recursivo tiene una sola forma recursiva ($$T(N-1)$$
 aparece dos veces con el **mismo argumento** — antes de contar torres),
 la expansión es directa:
@@ -915,8 +918,8 @@ Es exponencial. **Y sin embargo, memoization no ayuda.**
 
 <RecursionTree recipe="hanoi" arg={3} title="hanoi(3)" />
 
-Mirá el árbol: cada nodo tiene argumentos distintos porque los roles de
-las torres cambian en cada llamada. `hanoi(1, A→C)` no es lo mismo que
+Miramos el árbol: cada nodo tiene argumentos distintos porque los roles
+de las torres cambian en cada llamada. `hanoi(1, A→C)` no es lo mismo que
 `hanoi(1, A→B)`: mueven un disco diferente en un contexto diferente. Y
 aunque los argumentos se repitieran, `hanoi` es **void** — no devuelve
 nada para cachear; su trabajo es un **efecto secundario** (la impresión
@@ -969,13 +972,13 @@ máquina de Turing. Junto con el lambda-cálculo de Alonzo Church, forman
 la **triple coincidencia** que dio confianza en la tesis de
 Church-Turing.
 
-**El `fib(n)` que escribieron en Java** no es una analogía de una
-función μ-recursiva: **es una**, en el sentido matemático estricto.
-Cambia la notación, no cambia la definición. Fibonacci se define en el
-lenguaje de Kleene como
+**El `fib(n)` que escribimos en Java** no es una analogía de una función
+μ-recursiva: **es una**, en el sentido matemático estricto. Cambia la
+notación, no cambia la definición. Fibonacci se define en el lenguaje de
+Kleene como
 $$F(n) = \begin{cases} n & \text{si } n < 2 \\ F(n-1) + F(n-2) & \text{si } n \geq 2 \end{cases}$$
 que es exactamente el `if (n < 2) return n; else return fib(n-1) +
-fib(n-2);` que hoy corren en el navegador.
+fib(n-2);` que hoy corremos en el navegador.
 </Slide>
 
 <Slide title="Ackermann y Péter: la recursión general es más potente que la iteración">
@@ -1009,13 +1012,14 @@ acotada. Hay funciones perfectamente computables que **ningún programa
 iterativo con contadores puede calcular**.
 
 **Por qué esto importa para el curso**: la mayoría de los algoritmos que
-van a encontrar el resto de la carrera — recorridos de árboles binarios,
+encontraremos el resto de la carrera — recorridos de árboles binarios,
 backtracking (Sudoku, N-Queens), divide y vencerás (mergesort,
 quicksort), programación dinámica — tienen esta forma: **la definición
-natural es recursiva**. Escribirlos con ciclos requiere manualmente
-construir una pila auxiliar — es decir, reimplementar lo que la JVM ya
-hace por ustedes en el stack de llamadas. La recursión no es un capricho
-estilístico: es la manera de expresar una clase entera de algoritmos.
+natural es recursiva**. Escribirlos con ciclos requiere construir
+manualmente una pila auxiliar — es decir, reimplementar lo que la JVM ya
+hace por nosotros en el stack de llamadas. La recursión no es un
+capricho estilístico: es la manera de expresar una clase entera de
+algoritmos.
 </Slide>
 
 <Slide title="Fibonacci 1202, De Moivre 1730: la cota ajustada">
@@ -1040,8 +1044,8 @@ recurrencia lineal con coeficientes constantes:
   de recurrencias lineales — y de paso inventó las Torres de Hanoi que
   vimos hace unas slides.
 
-**Cómo funciona en dos pasos** (para que vean qué queda escondido detrás
-del $$\varphi^N$$):
+**Cómo funciona en dos pasos** (para que veamos qué queda escondido
+detrás del $$\varphi^N$$):
 
 1. La recurrencia $$T(N) = T(N-1) + T(N-2) + c$$ tiene **ecuación
    característica** $$x^2 = x + 1$$.
@@ -1051,13 +1055,13 @@ del $$\varphi^N$$):
    término dominante para $$N$$ grande es $$\varphi^N$$, así que $$T(N)
    \in \Theta(\varphi^N)$$.
 
-Esa técnica es **matemática de 300 años**. Cuando resolvieron `fib` en
-Java le aplicaron, sin saberlo, la misma matemática que Fibonacci puso
+Esa técnica es **matemática de 300 años**. Cuando resolvimos `fib` en
+Java le aplicamos, sin saberlo, la misma matemática que Fibonacci puso
 por escrito hace 800.
 </Slide>
 
 <Slide title="Recursión: matemática de mil años en su editor de código">
-Cuando escribieron `fib(n)` en Java durante este capítulo, estuvieron
+Cuando escribimos `fib(n)` en Java durante este capítulo, estuvimos
 simultáneamente:
 
 - **Codificando una función μ-recursiva** en el sentido de Kleene (1936).
@@ -1067,14 +1071,14 @@ simultáneamente:
 - **Optimizando con memoization** — técnica que Michie propuso en 1968.
 
 La recursión no es un truco pedagógico. Es un objeto matemático de mil
-años que hoy manejan en Java. Cada vez que aparezca en la carrera —
-búsqueda binaria, ordenamiento, DP, recorridos de grafos — están hablando
-el mismo idioma que Kleene, Euler y Fibonacci.
+años que hoy manejamos en Java. Cada vez que aparezca en la carrera —
+búsqueda binaria, ordenamiento, DP, recorridos de grafos — estaremos
+hablando el mismo idioma que Kleene, Euler y Fibonacci.
 
 **Cierre del capítulo**: con esto, la unidad de complejidad cierra su
-primera vuelta. Saben analizar el costo temporal de un algoritmo
+primera vuelta. Podemos analizar el costo temporal de un algoritmo
 iterativo ([[complejidad-de-hilbert-al-big-o|Complejidad I]]), el costo
 espacial ([[complejidad-espacial]]) y el costo temporal de uno recursivo
-(este capítulo). Tienen las tres herramientas para comparar algoritmos
+(este capítulo). Tenemos las tres herramientas para comparar algoritmos
 con honestidad matemática.
 </Slide>

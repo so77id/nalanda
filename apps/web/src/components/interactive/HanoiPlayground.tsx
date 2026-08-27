@@ -312,10 +312,12 @@ interface TowerProps {
 }
 
 function Tower({ id, discs, maxHeight, maxDiscSize, paint }: TowerProps) {
-  // Render slots top-down, but discs are stacked bottom-up, so we invert.
+  // Render slots top-down (slot 0 = visual top, slot maxHeight-1 = visual base).
+  // `discs` is bottom-up (discs[0] = physical base, discs[length-1] = physical top),
+  // so we place discs[0] at the bottom slot and walk upward from there.
   const slots: (number | null)[] = new Array(maxHeight).fill(null) as (number | null)[];
   for (let i = 0; i < discs.length; i++) {
-    slots[maxHeight - 1 - i] = discs[discs.length - 1 - i]!;
+    slots[maxHeight - 1 - i] = discs[i]!;
   }
   return (
     <div className="relative flex flex-col items-center" data-testid={`hanoi-tower-${id}`}>

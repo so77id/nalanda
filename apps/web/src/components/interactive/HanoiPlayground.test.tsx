@@ -83,6 +83,24 @@ describe('HanoiPlayground', () => {
     expect(screen.getByText(/torres de hanoi/i)).toBeInTheDocument();
   });
 
+  it('stacks the largest disc at the base of tower A on initial render', () => {
+    // Every physical Hanoi rendering has the biggest disc at the bottom.
+    // If the mapping between the internal stack and the visual slots
+    // inverts, the tower renders upside-down. This test pins the invariant.
+    render(<HanoiPlayground arg={3} />);
+    const towerA = screen.getByTestId('hanoi-tower-A');
+    const discs = Array.from(towerA.querySelectorAll('[data-disc-size]')) as HTMLElement[];
+    // Order the discs by their vertical position on the page (top → bottom).
+    // In jsdom `offsetTop` is 0 for all elements, so we use `getBoundingClientRect`
+    // which reads from the DOM order + inline styles. jsdom does not lay
+    // anything out, so the DOM order is the ground truth here — the discs
+    // are rendered in slot order (slot 0 first) top-to-bottom.
+    // The last disc in DOM order should be the largest (size = arg).
+    expect(discs[discs.length - 1]!.getAttribute('data-disc-size')).toBe('3');
+    // The first (topmost) disc should be size 1.
+    expect(discs[0]!.getAttribute('data-disc-size')).toBe('1');
+  });
+
   it('shows the active recursive call chain when showRecursiveCall is true (default)', async () => {
     render(<HanoiPlayground arg={2} />);
     const forward = screen.getByRole('button', { name: /paso adelante/i });
