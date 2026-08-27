@@ -65,7 +65,19 @@ const TEXT_TOKENS = ['ink', 'ink-soft', 'ink-faint', 'accent', 'flag', 'keep'] a
 /** WCAG's "large text / non-text UI" floor. Shared by `UI_TOKENS` (meaning-
  *  carrying non-text) and `CHROME_TOKENS` (large-text chrome). Two spellings
  *  would drift: a future author who tightens one would silently leave the
- *  other behind. Named because the error-message string benefits from it. */
+ *  other behind. Named because the error-message string benefits from it.
+ *
+ *  #247 attempted to raise this to 3.1 so a token nudge could not silently
+ *  consume the entire headroom. Three pairs failed the raise:
+ *    - light  `rule-strong` on `sunk`      3.05:1
+ *    - light  `accent-pop`  on `ground`    3.02:1  (via the `deck-ground` alias)
+ *    - dark   `rule-strong` on `sunk`      3.00:1
+ *  The raise was reverted per the WP's escape hatch: the current palette has
+ *  ~zero headroom on those three pairs and a nudge would need a new token
+ *  value, which is out of scope for a housekeeping WP (#247 non-goal: "Do not
+ *  change palette token VALUES"). The finding is the deliverable — a separate
+ *  WP (or a design-driven nudge under #109's successor) has to move those
+ *  pairs above 3.05 before the floor can rise. */
 const LARGE_TEXT_FLOOR = 3;
 
 /** Non-text UI that carries meaning: WCAG AA is 3:1. `rule` is absent on purpose
