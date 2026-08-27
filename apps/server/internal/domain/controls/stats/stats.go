@@ -328,8 +328,82 @@ func itemStatsFor(ref string, graded []gradedReading, b *bank.Bank) QuestionStat
 			wrong = 0
 		}
 		q.PctErrada = pct(wrong, q.N)
+		q.Discriminacion, q.DiscriminacionDefined = pointBiserial(ref, graded, q.N, q.FullyCorrect)
 	}
 	return q
+}
+
+// pointBiserial computes the biserial-punto correlation between
+// per-question correctness (dichotomy: fully-correct vs everything
+// else) and the total grade across the graded readings.
+//
+// Formula (standard point-biserial):
+//
+//	r_pb = (M_p - M_q) / σ * sqrt(p * q)
+//
+// where M_p and M_q are the mean grades of the "correct" and
+// "incorrect" groups, σ is the population standard deviation of the
+// grades across all graded copies, and p / q are the correct /
+// incorrect proportions. Undefined when p ∈ {0, 1} (all-correct or
+// all-wrong across the sample — no contrast between groups) and when
+// σ = 0 (every copy scored the same total, so there is no variance
+// for the correctness dichotomy to correlate with). AC-5: the panel
+// prints "—" for both cases rather than a silent 0.
+//
+// The correctness dichotomy matches Dificultad (fully-correct rows,
+// including overrides): consistency with the row the professor reads
+// beside this one.
+func pointBiserial(ref string, graded []gradedReading, n, correct int) (float64, bool) {
+	if correct == 0 || correct == n {
+		return 0, false
+	}
+	incorrect := n - correct
+	var sumP, sumQ, sumAll float64
+	for _, gr := range graded {
+		a, ok := findAnswer(gr.reading.Answers, ref)
+		if !ok {
+			continue
+		}
+		sumAll += gr.grade
+		if answerIsFullyCorrect(a) {
+			sumP += gr.grade
+		} else {
+			sumQ += gr.grade
+		}
+	}
+	meanAll := sumAll / float64(n)
+	meanP := sumP / float64(correct)
+	meanQ := sumQ / float64(incorrect)
+
+	var variance float64
+	for _, gr := range graded {
+		if _, ok := findAnswer(gr.reading.Answers, ref); !ok {
+			continue
+		}
+		d := gr.grade - meanAll
+		variance += d * d
+	}
+	variance /= float64(n)
+	if variance == 0 {
+		return 0, false
+	}
+	sigma := math.Sqrt(variance)
+	p := float64(correct) / float64(n)
+	q := 1 - p
+	r := (meanP - meanQ) / sigma * math.Sqrt(p*q)
+	return r, true
+}
+
+// answerIsFullyCorrect is the same dichotomy Dificultad uses. Kept in
+// one place so the two numbers cannot drift apart.
+func answerIsFullyCorrect(a controls.Answer) bool {
+	if a.Override != nil {
+		return true
+	}
+	if a.Status == controls.AnswerStatusOK && a.Max > 0 && a.Score >= a.Max {
+		return true
+	}
+	return false
 }
 
 func findAnswer(as []controls.Answer, ref string) (controls.Answer, bool) {
