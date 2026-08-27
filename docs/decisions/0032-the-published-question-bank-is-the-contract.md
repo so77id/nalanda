@@ -3,6 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-08-16
 **Amended:** 2026-08-25 — page-only annotations (`<Explanation>`) are permitted authored content that deliberately does NOT enter the bank; see §Amendment.
+**Amended:** 2026-08-27 — the "Recargar banco" button moves from the backoffice top bar to the `/controls` index; the endpoint is unchanged; see §Amendment — 2026-08-27.
 **Decision-makers:** Miguel Rodriguez
 **Covers:** the shape of `questions.json` as the `apps/web` → `apps/server`
 contract · the join key from a printed sheet to a grade · why one authored
@@ -162,7 +163,8 @@ read path.
   Spanish. A "Recargar banco" button in the backoffice top bar posts to it;
   the professor stays on the page they clicked from when the `Referer` shares
   scheme+host with `NALANDA_PUBLIC_URL`, or lands on `/controls` otherwise
-  (an off-origin Referer never steers the redirect).
+  (an off-origin Referer never steers the redirect). *(Amended 2026-08-27 —
+  the button moved to the `/controls` index; see §Amendment — 2026-08-27.)*
 
 ### Alternatives considered
 
@@ -207,7 +209,10 @@ read path.
 - **The manual endpoint sits inside `/admin/`.** Session-gated + CSRF-verified
   like every other state-changing route on this surface; the button's
   visibility follows the top bar's `.Professor` guard. Neither an anonymous
-  visitor nor a signed-out browser tab can trigger a refresh.
+  visitor nor a signed-out browser tab can trigger a refresh. *(Amended
+  2026-08-27 — the button moved to the `/controls` index; the same
+  `.Professor` gate covers it because `/controls` sits behind
+  `RequireProfessor`. See §Amendment — 2026-08-27.)*
 
 ## Amendment — 2026-08-25 (page-only annotations)
 
@@ -229,3 +234,39 @@ deliberately unaware" is now a first-class pattern of the question
 subsystem; any future annotator that follows the same shape (declared via a
 `questionRole` value, dropped by the source parser, unwrapped by the
 rendered-tree parser) inherits this ADR without needing its own.
+
+## Amendment — 2026-08-27 — the "Recargar banco" button lives on `/controls`, not in the navbar (issue #254)
+
+**Context.** §Addendum (2026-08-26) placed the manual escape hatch's button
+"in the backoffice top bar" so it was one click away from every backoffice
+page. Two weeks of using it argued the placement was misjudged: the
+backoffice grew a second CRUD ("Controles"), and the top bar had space for
+one section link at most before the row got busy. Adding `href="/controls"`
+next to `href="/professors"` made the "Recargar banco" `<form>` the third
+occupant of a bar meant for navigation, and the button's own semantics —
+"refresh the bank before creating a control" — placed it inside the
+controls flow, not on top of every unrelated backoffice screen.
+
+**Decision.** The `<form action="/admin/bank/refresh">` moves from
+`layout.html` to the `/controls` index page (`pages/controls_list.html`),
+next to the "Nuevo control" anchor. Nothing else changes: the route is
+still `POST /admin/bank/refresh`, session-gated + CSRF-verified, and its
+Referer-derived redirect is unchanged (the docstring on `AdminBank.Refresh`
+now explains the same-origin guard survives a future caller from another
+page). The `.Professor` gate that ADR-0032 §Addendum §Consequences named
+"the top bar's" is now "the `/controls` list's" — same gate shape (the
+whole backoffice sits behind `RequireProfessor`), different template.
+
+**Why an amendment and not a new ADR.** The endpoint's contract is
+unchanged, the atomicity guarantee is unchanged, the failure semantics
+are unchanged. What moved is one HTML surface. `documentation.md` §Rule 4
+grows standards from recorded cases (plural); a single button moving out
+of a two-item navbar does not yet justify a repo-wide "action buttons
+live on their page, not in the global nav" rule. If a second global
+action ever moves the same way, promote the rule then.
+
+**Preserved wording.** The pre-#254 Addendum text is kept verbatim in the
+"Manual escape hatch" bullet above and in the "The manual endpoint sits
+inside `/admin/`" Consequences bullet, each with a trailing italic
+pointer to this amendment — per `documentation.md` §Reviews falsify
+claims ("it does not quietly replace the sentence").

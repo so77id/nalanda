@@ -674,6 +674,47 @@ func TestListRendersEveryControl(t *testing.T) {
 	}
 }
 
+// Issue #254: the "Recargar banco" button moved from the navbar to the
+// /controls index — refreshing the bank is what precedes creating a control,
+// so the button lives where the professor actually reaches for it.
+func TestListCarriesTheBankRefreshFormWithItsCSRFToken(t *testing.T) {
+	f := newControlsFixture(t)
+
+	rec := httptest.NewRecorder()
+	f.handler.List(rec, f.authedRequest(t, http.MethodGet, handler.ControlsPath, nil))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("List status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, want := range []string{
+		`action="/admin/bank/refresh"`,
+		`method="post"`,
+		// The full pair — a bare `name="csrf_token"` with an empty value
+		// would still pass a name-only assertion. Same guard shape as
+		// TestNewFormRendersCSRFToken above.
+		`name="csrf_token" value="csrf-1"`,
+		`Recargar banco`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("list body missing %q\n---\n%s", want, body)
+		}
+	}
+	// The form must sit inside a flow-content parent — a <p> would be
+	// invalid HTML5 (browsers auto-close the <p> before the <form>) and
+	// the raw-substring assertions above cannot see the DOM mismatch.
+	// The template wraps the actions row in <div class="acciones">.
+	if idx := strings.Index(body, `<form method="post" action="/admin/bank/refresh"`); idx >= 0 {
+		prefix := body[:idx]
+		lastDiv := strings.LastIndex(prefix, "<div")
+		lastP := strings.LastIndex(prefix, "<p")
+		lastClose := strings.LastIndex(prefix, "</p>")
+		// The last <p opened before the form must have been closed before it.
+		if lastP > lastDiv && lastP > lastClose {
+			t.Errorf("bank-refresh <form> nested in a <p> — invalid HTML5, DOM will not match the template")
+		}
+	}
+}
+
 func TestRootRedirectsToControls(t *testing.T) {
 	f := newControlsFixture(t)
 	rec := httptest.NewRecorder()

@@ -37,9 +37,11 @@ func TestTheLayoutRendersTheBarForASignedInProfessor(t *testing.T) {
 	})
 
 	for _, want := range []string{
-		// The sections half, with the one entry the shell already has room for.
+		// The sections half, with the entries the shell now has room for.
 		`class="sections"`,
 		`href="/professors"`,
+		// Issue #254: the most-used CRUD is one click away.
+		`href="/controls"`,
 		// The professor's menu, opened by <details>/<summary> so JavaScript is
 		// not required.
 		`<details class="menu"`,
@@ -51,6 +53,34 @@ func TestTheLayoutRendersTheBarForASignedInProfessor(t *testing.T) {
 	} {
 		if !strings.Contains(body, want) {
 			t.Errorf("body missing %q\n---\n%s", want, body)
+		}
+	}
+
+	// The order matters: Profesores first, Controles second (issue #254 AC-1).
+	profesores := strings.Index(body, `href="/professors"`)
+	controles := strings.Index(body, `href="/controls"`)
+	if profesores < 0 || controles < 0 || controles < profesores {
+		t.Errorf("navbar order wrong: /professors at %d, /controls at %d — want Profesores before Controles", profesores, controles)
+	}
+}
+
+// Issue #254: the "Recargar banco" button was in the navbar; the WP moves it
+// to /controls (its natural home — refreshing the bank is what precedes creating
+// a control). The layout must no longer carry the form.
+func TestTheLayoutDoesNotCarryTheBankRefreshForm(t *testing.T) {
+	body := renderLogin(t, view.LoginPage{
+		Page: view.Page{
+			Professor: &auth.User{Email: "profesora@example.com"},
+			CSRFToken: "csrf-here",
+		},
+	})
+
+	for _, unwanted := range []string{
+		`action="/admin/bank/refresh"`,
+		`Recargar banco`,
+	} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("layout carries %q — the bank-refresh form belongs on /controls now (issue #254)\n---\n%s", unwanted, body)
 		}
 	}
 }

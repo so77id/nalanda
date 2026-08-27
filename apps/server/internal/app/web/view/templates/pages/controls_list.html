@@ -4,7 +4,13 @@
   <p>Cada control se imprime en papel y se lee al inicio de la clase; están
     ordenados por fecha de aplicación, de más reciente a más antigua.</p>
 
-  <p><a class="boton" href="/controls/new">Nuevo control</a></p>
+  <div class="acciones">
+    <a class="boton" href="/controls/new">Nuevo control</a>
+    <form method="post" action="/admin/bank/refresh" class="inline">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <button type="submit" title="Vuelve a leer questions.json publicado en apps/web">Recargar banco</button>
+    </form>
+  </div>
 
   {{ if .Controls }}
     <table class="lista">

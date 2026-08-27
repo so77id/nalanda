@@ -255,7 +255,7 @@ Routes today:
 | `GET /professors/{id}/edit` · `POST /professors/{id}` | Rename. The address is not editable |
 | `POST /professors/{id}/deactivate` | Flips `is_active=0` and ends every session that professor holds |
 | `POST /professors/{id}/reactivate` | Flips `is_active=1` and clears `deactivated_at` |
-| `POST /admin/bank/refresh` | Reloads the in-memory question bank from `NALANDA_QUESTIONS_JSON_URL` and redirects back to `Referer` (or `/controls` on empty / off-origin / scheme-relative-path). Session-gated + CSRF. The "Recargar banco" button in the top bar posts to it (issue #230, ADR-0032 §Addendum) |
+| `POST /admin/bank/refresh` | Reloads the in-memory question bank from `NALANDA_QUESTIONS_JSON_URL` and redirects back to `Referer` (or `/controls` on empty / off-origin / scheme-relative-path). Session-gated + CSRF. The "Recargar banco" button on the `/controls` index posts to it (issue #230, ADR-0032 §Addendum; issue #254 moved the button out of the navbar) |
 | `GET /login` · `GET /login/google` · `GET /login/google/callback` · `POST /logout` | The login round trip — see §Signing in |
 
 Every state-changing route sits behind `middleware.RequireProfessor` AND
