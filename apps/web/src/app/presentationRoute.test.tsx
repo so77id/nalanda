@@ -1,10 +1,23 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { courseIndex, registry, walkIndex } from '../content';
 
 import { AppRoutes } from './AppRoutes';
+
+// The router owns the URL in a MemoryRouter (window.location never moves), so
+// URL-shape assertions read it through a hook probe rendered inside the router.
+let lastLocation: { search: string; hash: string; pathname: string } = {
+  search: '',
+  hash: '',
+  pathname: '',
+};
+function LocationProbe() {
+  const location = useLocation();
+  lastLocation = { search: location.search, hash: location.hash, pathname: location.pathname };
+  return null;
+}
 
 const ids = walkIndex(courseIndex);
 // The first PRESENTABLE document, not simply the first one (#108). These cases
@@ -32,6 +45,7 @@ async function renderAt(path: string): Promise<void> {
   await act(async () => {
     render(
       <MemoryRouter initialEntries={[path]}>
+        <LocationProbe />
         <AppRoutes />
       </MemoryRouter>,
     );
@@ -129,6 +143,49 @@ describe('PresentationPage viewer', () => {
   it('survives a crafted non-integer ?slide value', async () => {
     await renderAt(`/d/${firstId}/present?slide=1.5`);
     expect(await findCounter()).toHaveTextContent(/^1 \//);
+  });
+
+  // The book anchors every h2 with `#<slug>`, and the deep-link contract
+  // (ADR-0013 succession) says presentation should reach the same section
+  // through `?section=<slug>`. The slug spine is the fixture's second slide
+  // — the first h2 of `java-tipos-y-flujo`. Named through the registry so a
+  // future re-cut of the deck doesn't red these cases silently.
+  const EXPLICIT_FIXTURE = 'java-tipos-y-flujo';
+  const explicitId = registry.get(EXPLICIT_FIXTURE)?.meta.id;
+
+  it('deep-links to a slide via ?section=<slug>', async () => {
+    // `tipos-primitivos` is the slug of the first <Slide title> of the fixture,
+    // per its own MDX. If that slide is renamed the case fails loudly.
+    await renderAt(`/d/${explicitId}/present?section=tipos-primitivos`);
+    expect(await screen.findByRole('heading', { name: 'Tipos primitivos' })).toBeInTheDocument();
+  });
+
+  it('canonicalizes ?section=<slug> to ?slide=<N> so the back button behaves', async () => {
+    await renderAt(`/d/${explicitId}/present?section=tipos-primitivos`);
+    await screen.findByRole('heading', { name: 'Tipos primitivos' });
+    // The URL is the source of truth (ADR-0013); after resolving the slug the
+    // deck must publish the canonical `?slide=N` form so the browser history
+    // holds one shape only and a bookmark of the current URL stays valid.
+    const search = new URLSearchParams(lastLocation.search);
+    expect(search.get('section')).toBeNull();
+    expect(search.get('slide')).toMatch(/^\d+$/);
+  });
+
+  it('falls back to slide 1 for an unknown ?section slug (no white screen)', async () => {
+    await renderAt(`/d/${firstId}/present?section=this-slug-does-not-exist`);
+    expect(await findCounter()).toHaveTextContent(/^1 \//);
+    // …and the canonical form is published even in the fallback.
+    const search = new URLSearchParams(lastLocation.search);
+    expect(search.get('section')).toBeNull();
+    expect(search.get('slide')).toBe('1');
+  });
+
+  it('lets ?section win over a conflicting ?slide', async () => {
+    // section=tipos-primitivos → slide 2 of the fixture; slide=1 would keep
+    // the cover. If section had lost the race we would still see the doc
+    // title heading rather than "Tipos primitivos".
+    await renderAt(`/d/${explicitId}/present?slide=1&section=tipos-primitivos`);
+    expect(await screen.findByRole('heading', { name: 'Tipos primitivos' })).toBeInTheDocument();
   });
 
   it('returns to the book view on Escape', async () => {
@@ -595,6 +652,93 @@ describe('leaving the presentation from the deck', () => {
     expect(await screen.findByRole('article')).toBeInTheDocument();
   });
 
+  // The exit contract's second half (#256): when the reader leaves from a
+  // slide that has a slug, the book takes them back to that heading via the
+  // URL fragment — no scrolling back to the section by hand. `mdxHeading.tsx`
+  // already renders `id={slug}` on every h2, so the browser handles the
+  // scroll on its own.
+  const EXPLICIT_FIXTURE = 'java-tipos-y-flujo';
+  const explicitId = registry.get(EXPLICIT_FIXTURE)?.meta.id;
+
+  it('lands on the book #<slug> when Escape leaves a slide that has one', async () => {
+    // Slide 2 of the fixture is `<Slide title="Tipos primitivos">`, whose
+    // slug is `tipos-primitivos` — the same anchor the book renders on the
+    // heading (mdxHeading.tsx).
+    await renderAt(`/d/${explicitId}/present?slide=2`);
+    await screen.findByRole('heading', { name: 'Tipos primitivos' });
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await screen.findByRole('article');
+    expect(lastLocation.pathname).toBe(`/d/${explicitId}`);
+    expect(lastLocation.hash).toBe('#tipos-primitivos');
+  });
+
+  it('publishes no fragment when Escape leaves from the cover slide', async () => {
+    // The cover slide has no slug (parser.ts §slugFor): the top-bar
+    // "Presentar" button lands there, so `#doc-title` on exit would round-
+    // trip the reader to the same spot they came from.
+    await renderAt(`/d/${firstId}/present`);
+    await findCounter();
+
+    fireEvent.keyDown(window, { key: 'Escape' });
+    await screen.findByRole('article');
+    expect(lastLocation.pathname).toBe(`/d/${firstId}`);
+    expect(lastLocation.hash).toBe('');
+  });
+
+  it('scrolls the h2 into view after Escape publishes #<slug>', async () => {
+    // Publishing #<slug> in the URL is not enough — react-router's programmatic
+    // navigate() sets location.hash but does NOT dispatch the browser's own
+    // fragment-scroll (unlike a native <a href="#slug">, which does). Verified
+    // in Chromium at 1440x900: after Escape from slide 2, windowY was 0 and
+    // the reader saw the top of the document, not the section they were
+    // watching. DocumentPage now scrolls the target itself once the article
+    // rehydrates — pin the call so the fix survives.
+    const scrollSpy = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollSpy;
+    try {
+      await renderAt(`/d/${explicitId}/present?slide=2`);
+      await screen.findByRole('heading', { name: 'Tipos primitivos' });
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      await screen.findByRole('article');
+      // Wait for MutationObserver in useSections to see the h2 and fire the
+      // scroll effect. `findBy*` retries — a raw `expect` wouldn't wait for the
+      // observer callback.
+      await waitFor(() =>
+        expect(
+          scrollSpy.mock.instances.some((el) => (el as HTMLElement).id === 'tipos-primitivos'),
+          'scrollIntoView was not called on the target h2 after Escape',
+        ).toBe(true),
+      );
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  it('scrolls to the h2 on direct entry to /d/:id#<slug>, once the article rehydrates', async () => {
+    // Same defect on the other axis: entering the book with a fragment while
+    // the document is behind React.lazy means the browser's initial fragment-
+    // scroll (which runs before the article renders) has no target to hit. The
+    // fix runs again when the article's h2 arrives.
+    const scrollSpy = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollSpy;
+    try {
+      await renderAt(`/d/${explicitId}#tipos-primitivos`);
+      await screen.findByRole('article');
+      await waitFor(() =>
+        expect(
+          scrollSpy.mock.instances.some((el) => (el as HTMLElement).id === 'tipos-primitivos'),
+        ).toBe(true),
+      );
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
   it('leaves fullscreen on the way out, since the control goes with the deck', async () => {
     const exitFullscreen = vi.fn(() => Promise.resolve());
     Object.defineProperty(document, 'fullscreenElement', {
@@ -657,14 +801,21 @@ describe('presentation: none documents', () => {
 describe('book-view entry points to presentation', () => {
   it('shows a Presentar toggle in the document header', async () => {
     await renderAt(`/d/${firstId}`);
-    const toggle = await screen.findByRole('link', { name: /presentar/i });
+    // Exact match: since #256 an h2 slide can also carry a "Presentar la
+    // sección «…»" link, so a `/presentar/i` regex now finds many. The
+    // top-bar toggle is the one whose only word is `Presentar`.
+    const toggle = await screen.findByRole('link', { name: 'Presentar' });
     expect(toggle).toHaveAttribute('href', `/d/${firstId}/present`);
   });
 
   it('hides the toggle for presentation: none documents', async () => {
     await renderAt(`/d/${noneId}`);
     await screen.findByRole('article');
-    expect(screen.queryByRole('link', { name: /presentar/i })).not.toBeInTheDocument();
+    // Same reason as above: an h2 in a `presentation: none` document must not
+    // carry the per-section button either, and the assertion has to be exact
+    // to distinguish the two.
+    expect(screen.queryByRole('link', { name: 'Presentar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /presentar la sección/i })).not.toBeInTheDocument();
   });
 
   it('enters presentation with the p key from the book view', async () => {
@@ -672,6 +823,46 @@ describe('book-view entry points to presentation', () => {
     await screen.findByRole('article');
     fireEvent.keyDown(window, { key: 'p' });
     expect(await screen.findByText(/^\d+ \/ \d+$/)).toBeInTheDocument();
+  });
+});
+
+describe('present-section button in the book view', () => {
+  // End-to-end: the S4 wrapper publishes the slugs and S5's button in
+  // `mdxHeading` links to `?section=<slug>` on the presentation route, which
+  // S2 resolves. Unit tests in `content/mdxHeading.test.tsx` cover the render
+  // matrix; this block guards the wire-up.
+  const EXPLICIT_FIXTURE = 'java-tipos-y-flujo';
+  const explicitId = registry.get(EXPLICIT_FIXTURE)?.meta.id;
+
+  it('offers a Presentar-sección link on a marked <Slide> h2 in the book', async () => {
+    await renderAt(`/d/${explicitId}`);
+    await screen.findByRole('article');
+    const link = screen.getByRole('link', { name: /presentar la sección «tipos primitivos»/i });
+    expect(link).toHaveAttribute('href', `/d/${explicitId}/present?section=tipos-primitivos`);
+  });
+
+  it('does not offer the button on a loose h2 (explicit-mode book-only section)', async () => {
+    // "Ejercicios" in java-tipos-y-flujo is a loose h2 outside every <Slide>,
+    // so it is presentation-invisible by design — no button, but the `#`
+    // anchor stays.
+    await renderAt(`/d/${explicitId}`);
+    await screen.findByRole('article');
+    expect(
+      screen.getByRole('link', { name: /^enlace a la sección «ejercicios»$/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('link', { name: /presentar la sección «ejercicios»/i }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('does not offer the button on the catalog surface (no wrapper mounted)', async () => {
+    // /catalog/c/slide renders the Slide component in isolation with no
+    // PresentableSectionsWrapper above it, so the button must stay silent —
+    // the default context value is what silences it, so nothing catalog-
+    // specific was written to make this true.
+    await renderAt('/catalog/c/slide');
+    await screen.findByRole('heading', { level: 1 });
+    expect(screen.queryByRole('link', { name: /presentar la sección/i })).not.toBeInTheDocument();
   });
 });
 

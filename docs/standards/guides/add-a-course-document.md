@@ -325,6 +325,17 @@ so a formula is read as mathematics rather than skipped as decoration.
    section list** — one more reason to give every Slide a title. An untitled
    Slide cuts a slide but contributes no section.
 
+   **Each `<Slide title>` is deep-linkable from the book, and returns the
+   reader to its title on exit** (ADR-0051). The h2 of a titled slide gets a
+   `Presentar` button next to its `#` anchor, linking to
+   `/d/:id/present?section=<slug>`; leaving the deck from a slide with a
+   title lands the reader on the same h2 via `#<slug>`. Both work off the
+   same slug the `#` anchor already exposes, so the title you write is what
+   gets bookmarked — keeping it stable keeps live links working. In an
+   `explicit` deck, only `<Slide title>` boundaries publish a slug — a
+   loose book-only h2 like `## Ejercicios` stays button-less on purpose
+   (there is no slide to link to).
+
    **A `<SectionBreak />` collects, it does not cut.** In an `explicit` deck
    only marked content forms slides: a markdown `##` after a SectionBreak does
    NOT cut a slide (only `auto` slices on h2 — `presentation/parser.ts`), so

@@ -3,7 +3,7 @@ import { Navigate, Outlet, Route, Routes } from 'react-router-dom';
 
 import { CatalogOverviewPage, ComponentPage, FamilyPage, GovernancePage } from '../catalog';
 import { DocumentPage, courseIndex, walkIndex } from '../content';
-import { PresentationPage } from '../presentation';
+import { PresentableSectionsWrapper, PresentationPage } from '../presentation';
 import { DocumentTitle } from './DocumentTitle';
 import { NotFound } from './NotFound';
 import { mdxComponents } from './mdxComponents';
@@ -22,7 +22,15 @@ export function AppRoutes() {
           path="/"
           element={firstDocId ? <Navigate to={`/d/${firstDocId}`} replace /> : <NotFound />}
         />
-        <Route path="/d/:id" element={<DocumentPage notFound={<NotFound />} />} />
+        <Route
+          path="/d/:id"
+          element={
+            <DocumentPage
+              notFound={<NotFound />}
+              presentableSectionsWrapper={PresentableSectionsWrapper}
+            />
+          }
+        />
         <Route path="/d/:id/present" element={<PresentationPage notFound={<NotFound />} />} />
         {/* A layout route with NO Suspense boundary of its own, deliberately.
             The entries arrive as a promise now (#122) and every page under here

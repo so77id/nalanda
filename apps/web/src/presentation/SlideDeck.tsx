@@ -89,8 +89,35 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   // fractional array index (white-screen crash — review finding, issue #64).
   const raw = Number(searchParams.get('slide') ?? '1');
   const requested = Number.isFinite(raw) ? Math.trunc(raw) : 1;
-  const index = Math.min(Math.max(requested - 1, 0), slides.length - 1);
+
+  // ?section=<slug> is the deep-link form the book publishes on every h2
+  // (`content/mdxHeading.tsx` #256). It wins over ?slide when both come in
+  // together: an unknown slug falls back to slide 1 with the same tolerance
+  // as an out-of-range ?slide — never a white screen. The URL is then
+  // rewritten to the canonical `?slide=<N>` form in the effect below so the
+  // history holds ONE shape (ADR-0013) and a bookmark of the resolved URL
+  // still resolves after slides are renumbered.
+  //
+  // One clamp on purpose: `findIndex` returns -1 for an unknown slug and the
+  // clamp resolves it to slide 1, matching the ?slide out-of-range tolerance
+  // in the same expression.
+  const rawSection = searchParams.get('section');
+  const preferred =
+    rawSection !== null ? slides.findIndex((s) => s.slug === rawSection) : requested - 1;
+  const index = Math.min(Math.max(preferred, 0), slides.length - 1);
   const slide = slides[index]!;
+
+  useEffect(() => {
+    if (rawSection === null) return;
+    setSearchParams(
+      (prev) => {
+        prev.delete('section');
+        prev.set('slide', String(index + 1));
+        return prev;
+      },
+      { replace: true },
+    );
+  }, [index, rawSection, setSearchParams]);
 
   // Out of the keydown effect and shared, so the keyboard and the finger reach
   // the same clamping and the same ?slide contract (ADR-0013) — two paths to
@@ -113,10 +140,17 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   // history.back(): a reader who opened /present from a link has nothing behind
   // them (ADR-0023). Fullscreen goes with it, because the control that exits
   // fullscreen lives in the deck being left.
+  //
+  // If the current slide has a slug (S1), append `#<slug>` so the book takes
+  // the reader back to the h2 they were watching — `mdxHeading.tsx` already
+  // renders `id={slug}` with `scroll-mt-8`, so the browser handles the scroll
+  // on its own. Without a slug (cover, SectionBreak) the URL stays fragment-
+  // less, preserving the pre-#256 behaviour for those two cases.
   const leave = useCallback(() => {
     leaveFullscreen();
-    void navigate(`/d/${docId}`);
-  }, [docId, navigate]);
+    const target = slide.slug ? `/d/${docId}#${slide.slug}` : `/d/${docId}`;
+    void navigate(target);
+  }, [docId, navigate, slide.slug]);
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {

@@ -61,9 +61,17 @@ describe('routing', () => {
     await renderAt(`/d/${ids[0]}`);
     await screen.findByRole('heading', { level: 1 });
     const article = screen.getByRole('article');
+    // Wiki-links point at `/d/<id>` — a bare document id, nothing after it.
+    // The `/present?section=` links added by #256's per-heading button also
+    // sit under `/d/`, so a `.startsWith('/d/')` filter now catches them and
+    // asks the registry for `<id>/present?section=<slug>`, which is not an
+    // id and never resolves. Exclude anything with a path segment after `/d/<id>`.
     const internal = within(article)
       .getAllByRole('link')
-      .filter((a) => a.getAttribute('href')?.startsWith('/d/'));
+      .filter((a) => {
+        const href = a.getAttribute('href') ?? '';
+        return href.startsWith('/d/') && href.indexOf('/', '/d/'.length) === -1;
+      });
     expect(internal.length).toBeGreaterThan(0);
     for (const link of internal) {
       expect(registry.get(link.getAttribute('href')!.slice('/d/'.length))).toBeDefined();

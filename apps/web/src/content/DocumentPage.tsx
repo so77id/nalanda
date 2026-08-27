@@ -1,7 +1,7 @@
 import { Menu, Presentation } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import type { ComponentType, ReactNode } from 'react';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { KnownSectionsProvider } from '../lib/knownSections';
 
@@ -51,13 +51,36 @@ function SequenceNav({ id }: { id: string }) {
   );
 }
 
+/**
+ * The MDX wrapper injected around the whole rendered document to expose the
+ * set of deep-linkable slide sections through context (#256). Injected as a
+ * prop rather than imported directly because it lives in `presentation/` —
+ * the feature that owns the slide model — and `content → presentation` is
+ * not an edge in `FEATURE_EDGES` (`src/architecture.test.ts`). Handed down
+ * by `app/` the same way `notFound` is.
+ */
+interface PresentableSectionsWrapperProps {
+  docId: string;
+  title: string;
+  configMode?: 'auto' | 'explicit';
+  children?: ReactNode;
+}
+
 interface Props {
   /** Rendered when the id is unknown — injected by the shell so the feature never imports app/. */
   notFound: ReactNode;
+  /**
+   * MDX wrapper that publishes the deep-linkable slide slugs of this
+   * document through context (#256). Optional: without it the book still
+   * renders correctly, `mdxHeading` just paints no "Presentar sección"
+   * buttons — a page outside a `DocumentPage` (catalog) sees the same
+   * absence for the same reason.
+   */
+  presentableSectionsWrapper?: ComponentType<PresentableSectionsWrapperProps>;
 }
 
 /** Renders the document whose frontmatter id matches the /d/:id route param. */
-export function DocumentPage({ notFound }: Props) {
+export function DocumentPage({ notFound, presentableSectionsWrapper: Wrapper }: Props) {
   const { id = '' } = useParams();
   const navigate = useNavigate();
   const entry = registry.get(id);
@@ -90,6 +113,34 @@ export function DocumentPage({ notFound }: Props) {
   // Navigating inside the drawer must not leave it covering the document.
   useEffect(() => setDrawerOpen(false), [id]);
 
+  // Scroll the h2 named by the URL fragment into view. `<a href="#slug">` in
+  // the book handles this natively — the browser scrolls on anchor-link
+  // navigation — but SlideDeck.leave() reaches the book via react-router's
+  // `navigate('/d/:id#<slug>')`, and programmatic navigation sets
+  // `location.hash` without dispatching the browser's own fragment scroll
+  // (verified in Chromium at 1440x900: `windowY` stayed at 0 after Escape,
+  // the reader saw the top of the document instead of the section they had
+  // been watching). The same defect affects a direct entry to `#<slug>` while
+  // the document is behind `React.lazy` — the browser's initial fragment
+  // scroll fires before the article has any h2 to hit.
+  //
+  // Depending on `sections` (populated by useSections' MutationObserver once
+  // the article rehydrates) is what makes this work across the Suspense
+  // boundary: on hash change the element may not exist yet; the effect re-runs
+  // when the spine appears and finds its target.
+  const location = useLocation();
+  useEffect(() => {
+    const slug = location.hash.slice(1);
+    if (!slug) return;
+    const target = article.current?.querySelector(`#${CSS.escape(slug)}`);
+    // typeof check: jsdom does not implement scrollIntoView on HTMLElement, so
+    // the call would throw during the test suite. In a real browser this branch
+    // is always taken.
+    if (target instanceof HTMLElement && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView();
+    }
+  }, [location.hash, sections]);
+
   // POC shortcut: p enters presentation from the book view (never while typing).
   useEffect(() => {
     if (!presentable) return;
@@ -103,6 +154,24 @@ export function DocumentPage({ notFound }: Props) {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [id, navigate, presentable]);
+
+  // Composed once per document so the wrapper closes over this document's
+  // docId + title + parser mode (mirrors PresentationPage's DeckWrapper —
+  // one wrapper per entry, remounted only when the entry changes).
+  const mdxComponents = useMemo(() => {
+    if (!Wrapper || !entry) return undefined;
+    const InjectedWrapper = Wrapper;
+    const { id: wrapperDocId, title: wrapperTitle, presentation } = entry.meta;
+    const mode = presentation === 'explicit' ? 'explicit' : 'auto';
+    function DocumentSectionsWrapper({ children }: { children?: ReactNode }) {
+      return (
+        <InjectedWrapper docId={wrapperDocId} title={wrapperTitle} configMode={mode}>
+          {children}
+        </InjectedWrapper>
+      );
+    }
+    return { wrapper: DocumentSectionsWrapper };
+  }, [Wrapper, entry]);
 
   if (!Doc) return <>{notFound}</>;
   return (
@@ -159,7 +228,7 @@ export function DocumentPage({ notFound }: Props) {
               disagree with the navigation about what a section is. */}
           <KnownSectionsProvider value={sectionIds}>
             <Suspense fallback={null}>
-              <Doc />
+              <Doc components={mdxComponents} />
             </Suspense>
           </KnownSectionsProvider>
           <SequenceNav id={id} />
