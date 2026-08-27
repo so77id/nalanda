@@ -120,8 +120,51 @@ type Boxplot struct {
 	Outliers    []float64
 }
 
-// QuestionStats is filled in S3–S4.
-type QuestionStats struct{}
+// QuestionStats is one row of the item-analysis table. All numbers
+// are computed only across readings that made it into N (a copy
+// dropped from the global sample is dropped from every question's
+// sample too — AC-3).
+//
+// Dificultad is the percentage of copies that scored the full point:
+// Score == Max for a raw answer, or an override (the professor's
+// full-point decision, per TotalAndGrade's rule). PctErrada counts the
+// OK-but-not-fully-correct rows; PctBlanco the blank rows. Together
+// with the "inválida" bucket (override / doubtful / ambiguous — a
+// copy that reached the item analysis under override still lands here
+// for the distribution) the three shares sum to 100%.
+//
+// AltDistribution is a per-authoring-alternative tally. Each simple
+// answer contributes one mark to exactly one column (AC-4); a
+// multiple-question answer with two ticks contributes to two — the
+// sum-to-N invariant is documented as "for simple questions". A copy
+// whose answer is override / blank / doubtful / ambiguous contributes
+// to Blank or Invalid instead.
+//
+// A question the reading refers to that the current bank snapshot
+// does not know (authored, then removed after the control was
+// frozen) still gets a row: Statement is empty, AltCount is 0,
+// AltDistribution is nil, and the panel labels the row with
+// QuestionRef so a reader sees which one has no metadata.
+type QuestionStats struct {
+	QuestionRef     string
+	Statement       string
+	Type            controls.QuestionType
+	AltCount        int
+	Correct         []int // 0-based authoring indices, from the bank
+	N               int
+	FullyCorrect    int
+	AltDistribution []int
+	Blank           int
+	Invalid         int
+	Dificultad      float64 // 100 * FullyCorrect / N
+	PctBlanco       float64 // 100 * Blank / N
+	PctErrada       float64 // 100 * (OK-but-wrong) / N
+	// Discriminacion (S4) — biserial-punto correlation between per-question
+	// correctness and total grade. Defined=false when the sample is
+	// degenerate (all-correct or all-wrong across N).
+	Discriminacion        float64
+	DiscriminacionDefined bool
+}
 
 // Compute derives the Statistics for the readings of one control drawn
 // over `questionsPerCopy` slots. `b` is the current bank snapshot;
@@ -134,13 +177,14 @@ type QuestionStats struct{}
 // walks the readings again — the panel is server-rendered per request,
 // and a graded control's readings do not change between requests.
 func Compute(readings []controls.Reading, b *bank.Bank, questionsPerCopy int) Statistics {
-	_ = b // consumed by S3
+	graded := make([]gradedReading, 0, len(readings))
 	grades := make([]float64, 0, len(readings))
 	for _, r := range readings {
 		g, ok := controls.NumericGrade(questionsPerCopy, r)
 		if !ok {
 			continue
 		}
+		graded = append(graded, gradedReading{reading: r, grade: g})
 		grades = append(grades, g)
 	}
 
@@ -179,11 +223,122 @@ func Compute(readings []controls.Reading, b *bank.Bank, questionsPerCopy int) St
 	g.PctExcelencia = pct(excel, g.N)
 	g.PctReprobacionGrave = pct(low, g.N)
 
-	return Statistics{
-		Global:    g,
-		Histogram: histogram(grades),
-		Boxplot:   boxplot(sorted),
+	perQuestion := make([]QuestionStats, 0)
+	if len(graded) > 0 {
+		refOrder := make([]string, 0)
+		seen := make(map[string]int)
+		for _, gr := range graded {
+			for _, a := range gr.reading.Answers {
+				if _, ok := seen[a.QuestionRef]; ok {
+					continue
+				}
+				seen[a.QuestionRef] = len(refOrder)
+				refOrder = append(refOrder, a.QuestionRef)
+			}
+		}
+		perQuestion = make([]QuestionStats, len(refOrder))
+		for i, ref := range refOrder {
+			perQuestion[i] = itemStatsFor(ref, graded, b)
+		}
 	}
+
+	return Statistics{
+		Global:      g,
+		Histogram:   histogram(grades),
+		Boxplot:     boxplot(sorted),
+		PerQuestion: perQuestion,
+	}
+}
+
+// gradedReading pairs a reading with its computed numeric grade, so
+// the item-analysis loop does not recompute the grade per question.
+// Private — the shape is a package-internal working type.
+type gradedReading struct {
+	reading controls.Reading
+	grade   float64
+}
+
+// itemStatsFor tallies one question across every graded reading. A
+// reading that has no answer for `ref` is silently skipped — the pool
+// of a control is fixed, but a reader that predates a schema tweak
+// could in principle carry a subset. The tally is the truthful reply.
+func itemStatsFor(ref string, graded []gradedReading, b *bank.Bank) QuestionStats {
+	q := QuestionStats{QuestionRef: ref}
+	if b != nil {
+		if bq, ok := b.FindQuestion(ref); ok {
+			q.Statement = bq.Statement
+			q.Type = controls.QuestionType(bq.Type)
+			q.AltCount = len(bq.Alternatives)
+			q.Correct = append([]int(nil), bq.Correct...)
+			q.AltDistribution = make([]int, q.AltCount)
+		}
+	}
+
+	for _, gr := range graded {
+		a, found := findAnswer(gr.reading.Answers, ref)
+		if !found {
+			continue
+		}
+		q.N++
+
+		override := a.Override != nil
+		effective := a.Status
+		if override {
+			effective = a.Override.Status
+		}
+
+		fullyCorrect := false
+		switch {
+		case override:
+			// Override earns the full point per TotalAndGrade — the
+			// panel counts it as correct. Distribution cannot attribute
+			// it to a letter → Invalid.
+			fullyCorrect = true
+			q.Invalid++
+		case effective == controls.AnswerStatusBlank:
+			q.Blank++
+		case effective == controls.AnswerStatusOK:
+			if a.Max > 0 && a.Score >= a.Max {
+				fullyCorrect = true
+			}
+			for _, m := range a.Marked {
+				idx := m - 1
+				if q.AltDistribution == nil || idx < 0 || idx >= len(q.AltDistribution) {
+					continue
+				}
+				q.AltDistribution[idx]++
+			}
+		default:
+			// Doubtful / ambiguous without override cannot appear here
+			// (NumericGrade would have excluded the copy), but treat
+			// defensively: Invalid.
+			q.Invalid++
+		}
+
+		if fullyCorrect {
+			q.FullyCorrect++
+		}
+	}
+
+	if q.N > 0 {
+		q.Dificultad = pct(q.FullyCorrect, q.N)
+		q.PctBlanco = pct(q.Blank, q.N)
+		wrong := q.N - q.FullyCorrect - q.Blank - q.Invalid
+		if wrong < 0 {
+			wrong = 0
+		}
+		q.PctErrada = pct(wrong, q.N)
+	}
+	return q
+}
+
+func findAnswer(as []controls.Answer, ref string) (controls.Answer, bool) {
+	for _, a := range as {
+		if a.QuestionRef == ref {
+			return a, true
+		}
+	}
+	return controls.Answer{}, false
 }
 
 // histogram allocates the fixed 61-column bar chart (1.0 through 7.0
