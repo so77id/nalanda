@@ -23,6 +23,74 @@ function walk(dir: string): string[] {
   });
 }
 
+// Course documents (MDX) are the second source the palette guards below scan —
+// an author can carry a className in a document without touching `src/`, and
+// the walk above never reaches them (#109 review). Kept at module scope so
+// the raw-colour ban and the JSX-walk alias guard read it from ONE place.
+const CONTENT = join(SRC, '../../../content/courses');
+
+function mdxFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory()
+      ? mdxFiles(join(dir, e.name))
+      : e.name.endsWith('.mdx')
+        ? [join(dir, e.name)]
+        : [],
+  );
+}
+
+// The production surface both palette guards below scan: every `.ts`/`.tsx`
+// under `src/` that is NOT a test file, plus every `.mdx` under `content/`.
+// The `.test.` filter lives here rather than in each caller (#247 review).
+function productionSources(): string[] {
+  return [...walk(SRC).filter((f) => !relative(SRC, f).includes('.test.')), ...mdxFiles(CONTENT)];
+}
+
+// Strip `/* ... */` block comments and `//` line comments before matching
+// class-name-shaped patterns. Same recipe as the CodeMirror-theme case (this
+// file, below): a class name in a comment matches the same regex as a class
+// name in code and reads as a defect. Not a real comment parser — good
+// enough for the source shapes the suite scans.
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('//'))
+    .join('\n');
+}
+
+// The Tailwind palette-family vocabulary the raw-colour ban forbids
+// (`bg-slate-800`, `text-emerald-400`, ...). Named once so the two colour
+// guards below share one source of truth: the raw-colour ban builds a regex
+// alternation from it (`PALETTE_FAMILIES.join('|')`), and the JSX-walk
+// alias guard uses the same set — plus `white`/`black` — to skip families
+// that fail the OTHER guard with a better message. Extending this list is
+// an architectural decision, same shape as `FEATURE_EDGES` above.
+const RAW_FAMILY_NAMES = [
+  'slate',
+  'zinc',
+  'gray',
+  'neutral',
+  'stone',
+  'sky',
+  'blue',
+  'emerald',
+  'green',
+  'teal',
+  'amber',
+  'yellow',
+  'orange',
+  'red',
+  'rose',
+  'violet',
+  'purple',
+  'indigo',
+  'cyan',
+  'lime',
+  'fuchsia',
+  'pink',
+] as const;
+
 function topSegmentOfImport(file: string, spec: string): string | null {
   if (!spec.startsWith('.')) return null; // external package
   const target = resolve(dirname(file), spec);
@@ -576,8 +644,10 @@ describe('architecture: colour goes through the palette', () => {
   //
   // Tests are exempt: several assert the token a component takes, and naming a
   // colour there is the point rather than the defect.
-  const PALETTE_FAMILIES =
-    'slate|zinc|gray|neutral|stone|sky|blue|emerald|green|teal|amber|yellow|orange|red|rose|violet|purple|indigo|cyan|lime|fuchsia|pink';
+  // Course documents are JSX and can carry className, so an author can break the
+  // light theme from `content/` without touching `src/` — and the walk above
+  // never reaches them (#109 review). They are published, so this is the same
+  // rule, not a stricter one. `productionSources()` covers both surfaces.
   const PROPS =
     'bg|text|border|ring|outline|divide|decoration|placeholder|from|via|to|shadow|accent|caret|fill|stroke';
   // Three shapes, because the codebase can express three and the first version
@@ -589,34 +659,14 @@ describe('architecture: colour goes through the palette', () => {
   // `text-[0.8em]` and friends must NOT match, so shape 3 requires a colour
   // opener rather than any bracket.
   const RAW_COLOUR = new RegExp(
-    String.raw`\b(?:${PROPS})-(?:(?:${PALETTE_FAMILIES})-\d{2,3}|white|black)(?:\/\d{1,3})?\b` +
+    String.raw`\b(?:${PROPS})-(?:(?:${RAW_FAMILY_NAMES.join('|')})-\d{2,3}|white|black)(?:\/\d{1,3})?\b` +
       String.raw`|\b(?:${PROPS})-\[\s*(?:#|rgba?\(|hsla?\(|oklch\(|color-mix\()`,
     'g',
   );
 
-  // Course documents are JSX and can carry className, so an author can break the
-  // light theme from `content/` without touching `src/` — and the walk above
-  // never reaches them (#109 review). They are published, so this is the same
-  // rule, not a stricter one.
-  const CONTENT = join(SRC, '../../../content/courses');
-
-  function mdxFiles(dir: string): string[] {
-    return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-      e.isDirectory()
-        ? mdxFiles(join(dir, e.name))
-        : e.name.endsWith('.mdx')
-          ? [join(dir, e.name)]
-          : [],
-    );
-  }
-
   function rawColours(): string[] {
     const found: string[] = [];
-    const sources = [
-      ...walk(SRC).filter((f) => !relative(SRC, f).includes('.test.')),
-      ...mdxFiles(CONTENT),
-    ];
-    for (const file of sources) {
+    for (const file of productionSources()) {
       const label = relative(SRC, file).replace(/^(\.\.\/)+/, '');
       for (const hit of new Set(readFileSync(file, 'utf8').match(RAW_COLOUR) ?? [])) {
         found.push(`${label}: ${hit}`);
@@ -800,80 +850,25 @@ describe('architecture: every colour class resolves to a registered palette toke
   const CLASS_RE =
     /\b(text|bg|border|ring|outline|divide|fill|stroke|placeholder|accent)-([a-z][a-z0-9-]*)\b/g;
 
+  // Some raw families would still land here (`slate`, `emerald`, ...); the
+  // raw-colour ban above catches those with a clearer message, so we do not
+  // re-flag them. Derived from RAW_FAMILY_NAMES (module scope) plus
+  // `white`/`black` — one vocabulary, two shapes.
+  const RAW_COLOUR_FIRST_SEGMENTS = new Set<string>([...RAW_FAMILY_NAMES, 'white', 'black']);
+
   function classify(token: string): 'declared' | 'non-colour' | 'unknown' {
     if (declared.has(token)) return 'declared';
     const first = token.split('-')[0]!;
     if (NON_COLOUR_STARTERS.has(first)) return 'non-colour';
     if (/^\d/.test(first)) return 'non-colour';
-    // Some raw families would still land here (`slate`, `emerald`, ...);
-    // the raw-colour ban catches those with a clearer message, so we do
-    // not re-flag them.
-    const RAW_FAMILIES = new Set([
-      'slate',
-      'zinc',
-      'gray',
-      'neutral',
-      'stone',
-      'sky',
-      'blue',
-      'emerald',
-      'green',
-      'teal',
-      'amber',
-      'yellow',
-      'orange',
-      'red',
-      'rose',
-      'violet',
-      'purple',
-      'indigo',
-      'cyan',
-      'lime',
-      'fuchsia',
-      'pink',
-      'white',
-      'black',
-    ]);
-    if (RAW_FAMILIES.has(first)) return 'non-colour';
+    if (RAW_COLOUR_FIRST_SEGMENTS.has(first)) return 'non-colour';
     return 'unknown';
   }
 
-  function walkMdx(dir: string): string[] {
-    return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-      e.isDirectory()
-        ? walkMdx(join(dir, e.name))
-        : e.name.endsWith('.mdx')
-          ? [join(dir, e.name)]
-          : [],
-    );
-  }
-
-  const CONTENT = join(SRC, '../../../content/courses');
-
   function unregisteredTokens(): Map<string, Set<string>> {
     const out = new Map<string, Set<string>>();
-    const sources = [
-      ...walk(SRC).filter((f) => {
-        const rel = relative(SRC, f);
-        // Skip tests: they carry sample class names as data for THIS test
-        // and for the raw-colour test above. `architecture.test.ts` itself
-        // is a test file — the filter drops it too.
-        return !rel.includes('.test.');
-      }),
-      ...walkMdx(CONTENT),
-    ];
-    for (const file of sources) {
-      // Strip comments before matching. `accent-pop` in a JSX comment
-      // (`{/* text-accent-pop per #225 */}`) or in a `// ...` line
-      // matches the regex as prefix=`accent` + token=`pop`, and `pop` is
-      // not a registered token — the check would flag a comment as a
-      // defect. Same shape as the `no component hardcodes a CodeMirror
-      // theme` case above (line 671).
-      const source = readFileSync(file, 'utf8')
-        .replace(/\/\*[\s\S]*?\*\//g, '')
-        .split('\n')
-        .filter((line) => !line.trim().startsWith('//'))
-        .join('\n');
+    for (const file of productionSources()) {
+      const source = stripComments(readFileSync(file, 'utf8'));
       const label = relative(SRC, file).replace(/^(\.\.\/)+/, '');
       for (const match of source.matchAll(CLASS_RE)) {
         const token = match[2]!;
