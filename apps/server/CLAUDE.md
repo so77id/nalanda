@@ -198,6 +198,19 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   that resolves `.Get()` then hands the request to the service,
   which also resolves `.Get()`, can straddle a swap; the addendum
   pins that distinction after the WP review flagged it).
+- **The empty-`Reading.Pages` fallback for the review page's raw-scan
+  section is owned by exactly TWO boundaries (issue #243).** Migration
+  `00011_reading_pages.sql` backfills every legacy `reading` row to
+  `pages_json = '[1]'`, and `amcworker.toDomain` substitutes `[1]` per
+  copy when the wire report omits `pages_per_copy` (a legacy worker).
+  `buildReviewImages`, `upsertReading` and `scanReading` **trust** the
+  invariant those two boundaries establish and MUST NOT paper over an
+  empty list with a third substitution — an empty list at
+  `buildReviewImages` means a genuine `not_present` copy reached by
+  hand-typed URL, and an empty `Escaneo` section is the honest signal.
+  Same rule shape and same reason as the UploadScan and LiveBank
+  bullets above; ADR-0031 §"The report says which pages of each copy
+  were captured" (amended by #243) is the shipping contract.
 - **Bank text destined for the printed sheet MUST go through
   `escapeBankText` (issue #237, further shaped by #239).** The pipeline
   in `internal/domain/controls/tex/tex.go` runs SEVEN ordered stages,

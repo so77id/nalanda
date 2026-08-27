@@ -63,6 +63,19 @@ it — script names, test titles, the fixture's own comments.
   used to paraphrase the first two and silently omit the others.
 - **Anything the caller passes crosses the volume, not the wire.** Requests name
   paths under `/work`; PDFs and scans never travel as HTTP bodies.
+- **A new field in the `/analyse` or `/reanalyse` response body is
+  OPTIONAL on the wire.** The server merges FIRST — this repo ships
+  server and worker in the same monorepo but each has its own CD
+  workflow, so their versions can drift on the Jetson for up to ~5
+  minutes across a merge — and `apps/server/internal/infra/amcworker/
+  analyze.go`'s `toDomain` substitutes a legacy default when the field
+  is absent. A worker upgraded ahead of the server must not break the
+  server, and vice versa. Worked cases: `pages_per_copy` → substitute
+  `[1]` per copy (#243); the per-answer `position` + `alternatives`
+  → substitute 0 / empty and iterate in bank order (#229). Adding a
+  required field is forbidden; renaming or removing one is a wire
+  break and needs its own coordination — same rule shape as
+  `ADR-0031`'s "reversal test" for engine-independent fields.
 - **Never run `apt-get install` inside the image, and never add a package
   without discussing it.** `texlive-fonts-extra` is purged with
   `--force-depends`, so the package database is deliberately inconsistent

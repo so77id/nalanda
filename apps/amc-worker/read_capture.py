@@ -34,7 +34,16 @@ Runs INSIDE the worker image. Emits JSON on stdout:
           "status": "ok"                           // ok|needs_review|incomplete
         }
       },
-      "needs_review": ["4", "5"]
+      "needs_review": ["4", "5"],
+      "pages_per_copy": {                              // issue #243: physical pages
+        "1": [1, 2], "5": [1]                          // the engine captured for each
+      }                                                // copy, ascending, string keys
+                                                       // (server parses to int). A
+                                                       // copy whose page 2 was
+                                                       // rejected does NOT list 2
+                                                       // here; the review page's
+                                                       // raw-scan fallback iterates
+                                                       // this list verbatim.
     }
 
 WHAT THE PROJECT MUST ALREADY HAVE. This reads three of AMC's databases, not

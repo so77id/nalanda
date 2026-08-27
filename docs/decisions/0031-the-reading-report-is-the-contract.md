@@ -8,6 +8,8 @@
 weight, and the threshold the scores were computed at
 **Amended by:** #229 (2026-08-26) — per-copy printed order of questions and
 alternatives
+**Amended by:** #243 (2026-08-27) — per-copy captured page list, so the review
+page's raw-scan fallback iterates every page AMC captured
 
 ## Context
 
@@ -161,6 +163,35 @@ before this amendment, or an analyzer that predates it. Callers rendering
 the paper fall back to their pre-amendment ordering (iteration order for
 the outer answers list, bank order for the alternatives) rather than
 refusing the report, so historical readings stay legible.
+
+### The report says which pages of each copy were captured
+
+The review page's raw-scan fallback (issue #190) renders the scan pages a
+professor can look at when there is no annotated PDF yet — the correction
+UI for a `needs_review` copy. Before #243 it only ever asked for page 1,
+so a two-page copy lost half its answers to the professor: any control
+whose sheet spans more than one page (Letter double-sided, A4 with more
+questions, controls with long code samples) was unusable for review.
+
+So the report carries a top-level `pages_per_copy`: a map from copy
+number as a decimal string to the ascending 1-based list of physical
+pages the engine actually captured for that copy. `{"9": [1, 2], "10":
+[1, 2], "12": [1]}` says copies 9 and 10 landed both pages and copy 12
+lost page 2 at the scanner. The engine is the source of truth: a copy
+whose page 2 was scanned but rejected by AMC's page-recognition does not
+appear here and does not get an `<img>` on the review — the professor
+sees exactly what was captured, no more, no less. Any engine that reads
+a batch knows which physical pages it accepted, so this field is
+engine-independent by construction and the AMC-fallback reversal test
+still holds.
+
+`pages_per_copy` is **optional**. An absent field or a copy missing from
+the map means "the analyzer predates this amendment" — the reader falls
+back to `[1]` per copy so the raw-scan fallback keeps its pre-#243
+single-page render. Historical readings stored before this amendment
+converge on the same `[1]` shape through the storage-side backfill
+(`apps/server/migrations/00011_reading_pages.sql`), so a professor
+scrolling through legacy corrections sees no regression.
 
 ### The report says which threshold its scores were computed at
 
