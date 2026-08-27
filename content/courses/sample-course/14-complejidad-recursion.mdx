@@ -202,36 +202,75 @@ después de la llamada). Al correr `factorial(5)` debería imprimir
 `120`.
 </Slide>
 
-<Slide title="La memoria de la recursión: stack de llamadas">
-Cuando la JVM ejecuta un método, reserva un **frame** en su **stack de
-llamadas** para guardar los parámetros, las variables locales y la
-dirección adonde tiene que retornar al terminar. Al recursar, agrega un
-frame nuevo encima; al retornar, lo saca. El orden es **LIFO** — *last
-in, first out*.
+<Slide title="¿Qué es el stack de llamadas?">
+El **stack de llamadas** es una región de memoria que el runtime (la JVM
+en nuestro caso) reserva para cada hilo de ejecución. Es la estructura
+donde el runtime lleva la contabilidad de qué función está corriendo,
+qué la llamó, y qué queda por hacer cuando termine.
 
-Veamos `factorial(5)` paso a paso. Con clic en **Paso adelante** avanzamos
-un evento del stack:
+- Se gestiona **automáticamente**: nosotros no lo tocamos desde el
+  código; la JVM lo empuja y lo saca cuando llamamos y retornamos.
+- Es **LIFO** (*last in, first out*): la última función que entró es la
+  primera en salir. No hay saltos al medio.
+- Tiene **tamaño finito** — el default de la JVM ronda los 512 KB por
+  hilo. Cuando se llena, el runtime tira `StackOverflowError`.
+- Es distinto del **heap**, la otra región grande de memoria del proceso:
+  el heap almacena objetos de vida larga (creados con `new`); el stack
+  almacena datos temporales asociados a la llamada actual.
 
-<CallStack recipe="factorial" arg={5} />
+Cada llamada a una función crea **un frame** en el stack. Vamos al
+frame.
+</Slide>
 
-Cinco pushes hasta llegar al caso base (`factorial(0)`), después cinco
-pops propagando el resultado hacia arriba. El valor de retorno se ve
-subiendo por el stack: `1` sale de `factorial(0)`, se convierte en
-`1 * 1 = 1` en `factorial(1)`, `2 * 1 = 2` en `factorial(2)`, y así hasta
-que `factorial(5)` devuelve `120`.
+<Slide title="Un frame por llamada">
+Cada vez que se llama a una función, el runtime **reserva un frame** en
+el stack con toda la información que la función necesita para ejecutarse
+y para devolver el control cuando termine. Un frame contiene:
 
-**La memoria total usada por una recursión es proporcional a la
-profundidad del stack** — cinco frames para `factorial(5)`, cien para
-`factorial(100)`, $$N$$ para $$factorial(N)$$. Ese costo espacial es
-nativo de la recursión: existe aunque la función no reserve una sola
-variable extra.
+- El **nombre de la función** y sus **parámetros** — los argumentos con
+  los que fue invocada.
+- Sus **variables locales** — declaradas dentro del cuerpo. Viven solo
+  hasta que la función retorna.
+- El **valor de retorno pendiente** — el `?` inicial, que se llena
+  cuando la función termina de calcularlo.
+- La **dirección de retorno** — la posición en el código a la que hay
+  que volver cuando esta función termine.
+
+Cuando la función retorna, el frame **se elimina** del stack y su
+memoria vuelve a estar disponible. Todo lo que estaba en él (locales,
+parámetros) desaparece.
+</Slide>
+
+<Slide title="Ejecución paso a paso: `factorial(3)` en el stack">
+Con el mecanismo del stack claro, miremos qué le pasa a `factorial(3)`
+mientras corre. Con clic en **Paso adelante** avanzamos un evento a la
+vez y observamos cómo el **contexto actual** (centro) se mueve contra
+el **stack de frames pausados** (derecha):
+
+<CallStack recipe="factorial" arg={3} />
+
+**Qué mirar**:
+- Cuando `factorial(3)` llama a `factorial(2)`, el frame de
+  `factorial(3)` se mueve al stack con `return = ?` (esperando el valor
+  que le devolverá la llamada); `factorial(2)` toma su lugar como
+  contexto actual.
+- El proceso se repite hasta `factorial(1)`, que hitea el caso base y
+  devuelve `1` sin recursar.
+- Al retornar, el frame se elimina y el que estaba en la cima del stack
+  vuelve al contexto actual — ahora sabiendo su `return`.
+
+**Regla operativa**: la memoria total del stack en una recursión es
+proporcional a la **profundidad**. Tres frames para `factorial(3)`, cien
+para `factorial(100)`, $$N$$ para $$factorial(N)$$. Ese costo espacial
+es nativo de la recursión: existe aunque el algoritmo no reserve
+ninguna variable extra.
 </Slide>
 
 <Slide title="El stack no es infinito: StackOverflowError">
 La JVM asigna un stack **finito** — el default es del orden de 512 KB,
 que da alrededor de $$10^4$$ frames dependiendo del contenido de cada
-uno. Cuando la recursión intenta empujar un frame más allá de ese límite,
-la JVM lanza un `StackOverflowError` y el programa termina.
+uno. Cuando la recursión intenta empujar un frame más allá de ese
+límite, la JVM lanza un `StackOverflowError` y el programa termina.
 
 Dos maneras de llegar ahí:
 
@@ -241,22 +280,21 @@ pasa cuando la recursión no tiene condición de término:
 <CallStack recipe="broken" arg={3} />
 
 Cada `Paso adelante` empuja un frame más; nunca hay pop. Limitamos la
-demo a 8 frames para que el error sea legible, pero en la JVM real la
-recursión seguiría hasta agotar el stack. **Por eso el caso base no es
-un adorno**: sin él, cualquier ejecución termina en StackOverflowError,
-siempre.
+demo a un puñado de frames para que el error sea legible, pero en la
+JVM real la recursión seguiría hasta agotar el stack. **Por eso el
+caso base no es un adorno**: sin él, cualquier ejecución termina en
+StackOverflowError, siempre.
 
-**2. Datos gigantes — el diseño es correcto, pero el input es demasiado
-profundo.** Una recursión lineal bien planteada sobre un millón de
-elementos también revienta:
+**2. Datos demasiado profundos — el diseño es correcto, pero el input
+excede el stack.** Una recursión lineal bien planteada sobre un
+millón de elementos también revienta:
 
 <CallStack recipe="factorial" arg={20} maxDepth={4} />
 
 Acá `factorial` está bien escrita, pero simulamos un stack pequeño
-(profundidad 4). El resultado es el mismo error, con otro nombre: la
-recursión matemática existe, pero el hardware no la puede correr. Para
-esos casos hay que **convertir a iteración** o usar otra estructura de
-datos.
+(profundidad 4). El resultado es el mismo error: la recursión
+matemática existe, pero el hardware no la puede correr. Para esos casos
+hay que **convertir a iteración** o usar otra estructura de datos.
 </Slide>
 
 <Slide title="Ejercicio: suma de los primeros N naturales">
