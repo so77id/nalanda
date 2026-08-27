@@ -8,24 +8,33 @@ questions: none
 # Complejidad Temporal II · Recursión
 
 Tercer capítulo de la unidad **Complejidad**. La mayoría de los
-algoritmos importantes de la carrera desde aquí en adelante — búsqueda
+algoritmos importantes del curso desde aquí en adelante — búsqueda
 binaria, ordenamientos, recorridos de árboles, muchos problemas de
 programación dinámica — son **recursivos**, y las herramientas de
 análisis que aplicamos a algoritmos iterativos en
 [[complejidad-de-hilbert-al-big-o|Complejidad I]] no alcanzan para
-analizarlos. Una función que se llama a sí misma requiere describir su
-costo con una **recurrencia**, un objeto matemático distinto que hay que
-saber escribir y resolver.
+analizarlos.
 
-Este capítulo hace cinco cosas. **Diseñar** una recursión (qué la define,
-cómo se garantiza que termine, cómo la ejecuta el runtime). **Analizarla**
-— sacar $$T(N)$$ del código, con la receta que usamos toda la unidad.
-**Resolver** esa recurrencia (por expansión hasta el caso base). **Ver que
-algunas explotan** — Fibonacci recursivo es el caso paradigmático — y
-diagnosticar por qué. **Arreglarlas** con memoization y tabulation.
-Veremos también contraejemplos que muestran que estas técnicas no son la
-solución para todo algoritmo que explota — hay problemas cuyo costo
-exponencial es intrínseco y ninguna técnica lo baja.
+Una función que se llama a sí misma no se puede analizar contando
+operaciones elementales línea por línea. Su costo se describe con una
+**recurrencia** — una ecuación en la que $$T(N)$$ aparece a ambos lados,
+aplicada a entradas más chicas. Aprender a escribir esa recurrencia y
+resolverla es la mitad del trabajo del capítulo.
+
+Este capítulo hace cinco cosas:
+
+- **Diseñar** una recursión: qué la define, cómo se garantiza que
+  termine, cómo la ejecuta el runtime.
+- **Analizarla**: sacar $$T(N)$$ del código con la receta que usamos
+  toda la unidad.
+- **Resolver** esa recurrencia por expansión hasta el caso base.
+- **Ver que algunas explotan** — Fibonacci recursivo es el caso
+  paradigmático — y diagnosticar por qué.
+- **Explorar técnicas para arreglar el problema** de las funciones
+  recursivas que explotan (memoization, tabulation). Y aprender también
+  que existen definiciones recursivas que no se arreglan solo con usar
+  memoria: hay problemas cuyo costo exponencial es intrínseco al
+  problema mismo, y ninguna técnica lo baja.
 
 Al final, un epílogo histórico cierra el arco que dejamos abierto en
 [[complejidad-de-hilbert-al-big-o|Complejidad I]]: de dónde viene la
@@ -48,27 +57,24 @@ recorridos de árboles, backtracking, programación dinámica — son
 contar por línea: **cada llamada arrastra el costo de otra llamada**.
 Necesitamos una herramienta nueva.
 
-Ya vimos un caso raro relacionado: en [[arrays-y-funciones]] escribimos
-tres versiones de Fibonacci y las medimos. La recursiva simple tardó
-**varios segundos** en `fib(40)`; la iterativa terminó en microsegundos.
-Dijimos que lo entenderíamos en Complejidad. Este capítulo cumple esa
-promesa.
+Esa herramienta es la **recurrencia** — una ecuación en la que
+$$T(N)$$ aparece a ambos lados, aplicada a entradas más chicas. La
+usaremos para describir el costo de cada función recursiva que
+analicemos.
 </Slide>
 
 <Slide title="La recursión existía antes que los computadores">
-En [[complejidad-de-hilbert-al-big-o|Complejidad I]] vimos que **Alan
-Turing** tuvo que inventar en 1936 la definición formal de "algoritmo"
-para poder responder al Entscheidungsproblem. Lo que no dijimos es que,
-ese mismo año y en paralelo, otros dos matemáticos — **Stephen Kleene** y
-**Kurt Gödel** — llegaron a otra definición equivalente: las **funciones
-recursivas**. Una función que se llama a sí misma en Java no es una
-analogía de aquellas: es una de ellas, en el sentido matemático estricto.
+La recurrencia — la herramienta que vamos a usar todo el capítulo — no
+es un invento de la informática. Son objetos matemáticos que
+**Fibonacci** puso por escrito en el año **1202**, y que ya en **1730**
+tenían fórmula cerrada gracias a **Abraham de Moivre**.
 
-Las **recurrencias** — expresiones del tipo $$T(N) = T(N-1) + c$$ que
-sirven para describir el costo de un algoritmo recursivo — tampoco son un
-invento de la informática. Son objetos matemáticos que **Fibonacci** puso
-por escrito en el año **1202**, y que ya en **1730** tenían fórmula
-cerrada gracias a **De Moivre**.
+La palabra "recursión" tampoco. En **1936**, mientras Alan Turing
+formalizaba qué es un algoritmo con su máquina, otros dos matemáticos —
+**Stephen Kleene** y **Kurt Gödel** — llegaron a una definición
+equivalente: las **funciones recursivas**. Una función que se llama a sí
+misma en Java no es una analogía de aquellas: es una de ellas, en el
+sentido matemático estricto.
 
 Toda esta historia la vamos a ver al final del capítulo. Primero vamos
 por lo técnico.
