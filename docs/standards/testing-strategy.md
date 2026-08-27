@@ -492,6 +492,20 @@ page-only, invisible to every other gate.
   an outline drawn outside its child, then because an opaque child paints over
   one drawn inward. Both times the DOM agreed with the intention and only the
   screenshot disagreed.
+- **A palette change carries preview screenshots in the PR body.** Any PR whose
+  diff touches `apps/web/src/styles/index.css` (the `--nl-*` token
+  declarations, the `--color-*` aliases in the `@theme` block, the `.prose`
+  bindings, or the `[data-theme='dark']` block) attaches screenshots of the
+  affected pages — at minimum the home, one course document, and `/catalog` —
+  in both themes and at ≥1440px, straight in the PR body. `jsdom` cannot see
+  paint and `palette.test.ts` only pins the contract of the tokens, not the
+  effect of a token nudge on a real page: the pixels are the only evidence a
+  reviewer has. Worked cases: #109/#125 shipped the palette without
+  screenshots and needed a follow-up (`design-system.md` was written to
+  document what the code should have been); #222 shipped with screenshots
+  and the review caught the accent-pop drift on `deck-ground` before merge —
+  reversed by #225 in the same shape. No test enforces this; the reviewer
+  flags the absence.
 - **A role query with a `name` matcher throws over mathematics.** jsdom's
   `getComputedStyle` cannot handle a MathML-namespace node, and Testing Library
   calls it (via `isInaccessible`) whenever it has to compute an accessible name.
