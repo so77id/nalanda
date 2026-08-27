@@ -112,5 +112,24 @@
     </section>
   {{ end }}
 
+  {{ with .Stats }}
+    <section id="estadisticas">
+      <h2>Estadísticas</h2>
+      <p>N rendidos = {{ .Global.N }} (de {{ .Global.TotalCopies }} copias).</p>
+      <table class="lista">
+        <tbody>
+          <tr><th>Promedio</th><td>{{ printf "%.1f" .Global.Mean }}</td></tr>
+          <tr><th>Mediana</th><td>{{ printf "%.1f" .Global.Median }}</td></tr>
+          <tr><th>Moda</th><td>{{ range $i, $v := .Global.Mode }}{{ if $i }}, {{ end }}{{ printf "%.1f" $v }}{{ end }}</td></tr>
+          <tr><th>Desviación estándar</th><td>{{ printf "%.2f" .Global.StdDev }}</td></tr>
+          <tr><th>Mín – Máx</th><td>{{ printf "%.1f" .Global.Min }} – {{ printf "%.1f" .Global.Max }} (rango {{ printf "%.1f" .Global.Range }})</td></tr>
+          <tr><th>% aprobación (≥ 4,0)</th><td>{{ printf "%.1f" .Global.PctAprobacion }}%</td></tr>
+          <tr><th>% excelencia (≥ 6,0)</th><td>{{ printf "%.1f" .Global.PctExcelencia }}%</td></tr>
+          <tr><th>% reprobación grave (&lt; 3,0)</th><td>{{ printf "%.1f" .Global.PctReprobacionGrave }}%</td></tr>
+        </tbody>
+      </table>
+    </section>
+  {{ end }}
+
   <p><a href="/controls">Volver a los controles</a></p>
 {{ end }}

@@ -29,6 +29,7 @@ import (
 	"strings"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
+	"github.com/so77id/nalanda/apps/server/internal/domain/controls/stats"
 )
 
 //go:embed templates/layout.html templates/pages/*.html
@@ -257,6 +258,13 @@ type ControlDetailPage struct {
 	// Graded is true when control.state = graded — the template surfaces
 	// the "correction was closed" line above the results table.
 	Graded bool
+	// Stats is the statistics panel's data (issue #251). Non-nil ONLY
+	// when Graded is true AND at least one reading was graded (N ≥ 1 in
+	// stats.Global). The template renders `<section id="estadisticas">`
+	// when this is non-nil and nothing when it is nil, so a control
+	// with State != Graded (or a Graded control with N = 0) shows no
+	// panel at all rather than a "no hay datos" empty state.
+	Stats *stats.Statistics
 }
 
 // ReadingRow is one row of the results table. Everything is pre-formatted
