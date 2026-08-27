@@ -641,7 +641,9 @@ func humanElapsed(d time.Duration) string {
 
 // JobDismissPath is POST target for the "Refrescar" / "Cerrar aviso" button
 // on the banner (issue #249). The id lives in the URL segment; the
-// handler stamps viewed_at and redirects back to the control.
+// handler stamps viewed_at on TERMINAL jobs (done|failed) and redirects
+// back to the control. On a non-terminal job it just redirects — see
+// DismissJob's doc for why (issue #257).
 const JobDismissPath = "/jobs/{id}/dismiss"
 
 // DismissJob stamps viewed_at on a TERMINAL job (done | failed) and

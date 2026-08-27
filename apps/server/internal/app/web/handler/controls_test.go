@@ -151,8 +151,21 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 	// ReanalyzeScans reaches its handler. Cleanup cancels the context
 	// so the goroutine drains at end-of-test.
 	runnerCtx, runnerCancel := context.WithCancel(context.Background())
-	t.Cleanup(runnerCancel)
-	go runner.Start(runnerCtx)
+	// Wait on the runner goroutine to actually exit — cancelling the
+	// context alone doesn't block, and t.TempDir's cleanup runs
+	// concurrently. Before this fix the runner could still be inside
+	// GenerateAssets writing to the tempdir when TempDir's RemoveAll
+	// hit it, and the whole test failed with "directory not empty"
+	// (issue #257 discovery, pre-existing since #249).
+	runnerDone := make(chan struct{})
+	t.Cleanup(func() {
+		runnerCancel()
+		<-runnerDone
+	})
+	go func() {
+		defer close(runnerDone)
+		runner.Start(runnerCtx)
+	}()
 	h := handler.NewControls(handler.Controls{
 		Service: svc, Bank: live,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,

@@ -245,6 +245,31 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   (`Service.PrepareControl`). The banner surfaces the failure; a
   future WP adds the explicit retry button. Same rule shape as the
   UploadScan-survives bullet above.
+- **`DismissJob` refuses to stamp `viewed_at` on a non-terminal
+  job, and the Detail page hides "Prueba a imprimir" until the
+  latest generate reaches `done` (issue #257, Jetson 2026-08-27).**
+  Both are one invariant with a single reason: the banner hides the
+  moment `viewed_at != nil` on a non-`running` row (`jobBannerFor`
+  policy) and the professor never sees the terminal "listo" /
+  "falló" signal — Miguel found this on the first live use of the
+  #249 runner. Two policies enforce it:
+  1. `handler.DismissJob` gates on `job.Status.IsTerminal()`.
+     Non-terminal → plain redirect (no stamp). The store's
+     `MarkDismissed` stays idempotent; the policy lives on the
+     handler where the professor's click happens.
+  2. `handler.pdfsReadyFor` reads `jobs.Store.LatestForControlByKind
+     (controlID, KindGenerate)`. The template gates the download
+     section on the resulting `PDFsReady`. Fallbacks: no generate
+     row → TRUE (pre-#249 rows, or direct `PrepareControl` +
+     `GenerateAssets` in tests); store outage → TRUE (aid, not
+     load-bearing — same policy as `jobBannerFor` which returns
+     nil under the same failure).
+
+  A future banner-consumer that needs a "terminal vs in flight"
+  check MUST call `jobs.Status.IsTerminal()` — do not restate
+  `StatusDone || StatusFailed` inline (issue #257 review, ARQ-2).
+  Same rule shape as the UploadScan-survives / LiveBank-survives /
+  Reading.Pages two-boundary bullets.
 - **The LiveBank in-memory snapshot survives every Reload failure
   (issue #230).** Reintroducing a code path that clears the
   `atomic.Pointer[Bank]` on a fetch/parse failure is forbidden — a
