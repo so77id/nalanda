@@ -195,6 +195,12 @@ type answerBody struct {
 	Status   string         `json:"status"`
 	Score    float64        `json:"score"`
 	Max      float64        `json:"max"`
+	// Per-copy physical layout (issue #229). Absent from workers that
+	// predate the field; a zero Position and nil Alternatives then reach
+	// the store as "no positional data", which the review page falls
+	// back for.
+	Position     int   `json:"position"`
+	Alternatives []int `json:"alternatives"`
 }
 
 type doubtfulBody struct {
@@ -241,14 +247,16 @@ func toAnswers(in []answerBody) []controls.ReportAnswer {
 			doubtful[j] = controls.Doubtful{Answer: d.Answer, Darkness: d.Darkness}
 		}
 		out[i] = controls.ReportAnswer{
-			Question: a.Question,
-			Name:     a.Name,
-			Type:     controls.QuestionType(a.Type),
-			Marked:   append([]int(nil), a.Marked...),
-			Doubtful: doubtful,
-			Status:   controls.AnswerStatus(a.Status),
-			Score:    a.Score,
-			Max:      a.Max,
+			Question:     a.Question,
+			Name:         a.Name,
+			Type:         controls.QuestionType(a.Type),
+			Marked:       append([]int(nil), a.Marked...),
+			Doubtful:     doubtful,
+			Status:       controls.AnswerStatus(a.Status),
+			Score:        a.Score,
+			Max:          a.Max,
+			Position:     a.Position,
+			Alternatives: append([]int(nil), a.Alternatives...),
 		}
 	}
 	return out

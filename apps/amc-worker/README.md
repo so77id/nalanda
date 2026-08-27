@@ -275,6 +275,18 @@ correct → 4/4; one correct and nothing wrong → 3/4; only a wrong one → 1/4
 **every box ticked → 2/4**; blank → 0/4. Ticking everything does not win, and no
 score comes back negative.
 
+**Each answer says where it printed on THIS copy, and in what order.** AMC
+shuffles the questions per copy (`\shufflegroup`) and the alternatives per
+question, so a paper in hand does not match a review page that renders by
+numeric id or authoring index — the mental alignment breaks even when the
+marks are read correctly (#229). Each answer therefore carries
+`position` (its 1-based slot on this copy's printed sheet) and
+`alternatives` (the authoring-index list in printed order for this copy,
+per question). Both are optional: an empty `alternatives` or `position:
+0` means the analyzer has no layout data, and callers fall back to bank
+order. The full shape stays in the module docstring, which is the
+schema-of-record.
+
 **The report says which threshold those scores were computed at.** AMC's `note`
 scores at its own `--seuil` while `--ticked` is ours and tunable, so a CLI
 re-read of a stored capture at another sensitivity moves the marks and leaves

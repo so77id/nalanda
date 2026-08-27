@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"slices"
 	"testing"
 	"time"
 
@@ -72,7 +73,10 @@ func TestUpsertReadingsFromReportInsertsThenUpdatesOnASecondCall(t *testing.T) {
 		t.Errorf("Reading(1) RUT = %+v (%v)", r.RUTRead, r.RUTStatus)
 	}
 	if len(r.Answers) != 2 || r.Answers[0].QuestionRef != "q-bucles-1" || r.Answers[1].QuestionRef != "q-if-1" {
-		// ORDER BY question_ref ASC — bucles < if lexicographically.
+		// Both answers have Position=0 → NULL, so ORDER BY falls back to
+		// question_ref ASC — bucles < if lexicographically. The
+		// primary printed-order path is covered by
+		// TestUpsertReadingsFromReportPersistsPerCopyPrintedOrder.
 		t.Errorf("Reading(1) answers = %+v", r.Answers)
 	}
 	multi := r.Answers[0]
@@ -189,6 +193,118 @@ func TestMarkMissingAsNotPresentAddsAReadingPerMissingCopy(t *testing.T) {
 		default:
 			t.Errorf("unexpected copy_number %d", r.CopyNumber)
 		}
+	}
+}
+
+// TestUpsertReadingsFromReportPersistsPerCopyPrintedOrder pins issue #229's
+// storage contract: the position of each question on the printed sheet and
+// the alternatives in printed order both travel from report to database and
+// back. loadAnswers orders by position (falling back to question_ref for
+// legacy rows without one), so answers come out in the same order the
+// student saw them.
+func TestUpsertReadingsFromReportPersistsPerCopyPrintedOrder(t *testing.T) {
+	ctx, db := migrated(t)
+	seedControl(t, ctx, db, "CTRL0130ORDER00000000000AA", 2)
+	store := controlstore.New(db)
+
+	now := time.Unix(1_755_700_000, 0).UTC()
+	// q-bucles-1 prints SECOND on copy 1 (position 2). q-if-1 prints FIRST.
+	// Alphabetically bucles < if, so the pre-#229 order (question_ref ASC)
+	// would put bucles first — this test proves the store now respects
+	// `position` instead.
+	report := controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": {
+				RUT: "20123456", RUTStatus: controls.RUTStatusOK,
+				ExpectedQuestions: 2, SeenQuestions: 2, Status: controls.CopyStatusOK,
+				Answers: []controls.ReportAnswer{
+					{Question: 9, Name: "q-if-1", Type: controls.QuestionSimple,
+						Marked: []int{1}, Status: controls.AnswerStatusOK,
+						Score: 1.0, Max: 1.0,
+						Position: 1, Alternatives: []int{3, 1, 4, 2}},
+					{Question: 10, Name: "q-bucles-1", Type: controls.QuestionSimple,
+						Marked: []int{2}, Status: controls.AnswerStatusOK,
+						Score: 1.0, Max: 1.0,
+						Position: 2, Alternatives: []int{2, 4, 1, 3}},
+				},
+			},
+		},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0130ORDER00000000000AA", report, now); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	r, err := store.ReadingByCopy(ctx, "CTRL0130ORDER00000000000AA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy: %v", err)
+	}
+	if len(r.Answers) != 2 {
+		t.Fatalf("want 2 answers, got %d", len(r.Answers))
+	}
+	if r.Answers[0].QuestionRef != "q-if-1" || r.Answers[0].Position != 1 {
+		t.Errorf("answers[0] = %+v, want q-if-1 at position 1", r.Answers[0])
+	}
+	if !slices.Equal(r.Answers[0].Alternatives, []int{3, 1, 4, 2}) {
+		t.Errorf("answers[0].Alternatives = %v, want [3 1 4 2]", r.Answers[0].Alternatives)
+	}
+	if r.Answers[1].QuestionRef != "q-bucles-1" || r.Answers[1].Position != 2 {
+		t.Errorf("answers[1] = %+v, want q-bucles-1 at position 2", r.Answers[1])
+	}
+	if !slices.Equal(r.Answers[1].Alternatives, []int{2, 4, 1, 3}) {
+		t.Errorf("answers[1].Alternatives = %v, want [2 4 1 3]", r.Answers[1].Alternatives)
+	}
+}
+
+// TestLegacyAnswerRowsWithoutPositionFallBackToRefOrder pins the migration
+// contract: an answer row written before #229 has NULL position and NULL
+// alternatives; loadAnswers must still return it, ordered by question_ref
+// as before the change. Backfilling a made-up position would be the same
+// silent-wrong shape ADR-0031 exists to forbid — the fallback is the
+// design.
+func TestLegacyAnswerRowsWithoutPositionFallBackToRefOrder(t *testing.T) {
+	ctx, db := migrated(t)
+	seedControl(t, ctx, db, "CTRL0131LEGACY0000000000AA", 1)
+	store := controlstore.New(db)
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO reading (control_id, copy_number, rut_read, rut_status, copy_status, read_at)
+         VALUES (?, 1, '20123456', 'ok', 'ok', ?)`,
+		"CTRL0131LEGACY0000000000AA", time.Now().Unix()); err != nil {
+		t.Fatalf("insert reading: %v", err)
+	}
+	var readingID int64
+	if err := db.QueryRowContext(ctx,
+		`SELECT id FROM reading WHERE control_id = ? AND copy_number = 1`,
+		"CTRL0131LEGACY0000000000AA").Scan(&readingID); err != nil {
+		t.Fatalf("lookup reading: %v", err)
+	}
+	// Two answers, inserted in a deliberately non-alphabetical order so the
+	// fallback ORDER BY question_ref is what determines the read order, not
+	// insertion time.
+	for _, name := range []string{"q-if-1", "q-bucles-1"} {
+		if _, err := db.ExecContext(ctx,
+			`INSERT INTO answer
+                 (reading_id, question_ref, question_type, marked_json, doubtful_json, status, score, max)
+             VALUES (?, ?, 'simple', '[1]', '[]', 'ok', 1.0, 1.0)`,
+			readingID, name); err != nil {
+			t.Fatalf("insert answer %s: %v", name, err)
+		}
+	}
+
+	r, err := store.ReadingByCopy(ctx, "CTRL0131LEGACY0000000000AA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy: %v", err)
+	}
+	if len(r.Answers) != 2 ||
+		r.Answers[0].QuestionRef != "q-bucles-1" ||
+		r.Answers[1].QuestionRef != "q-if-1" {
+		t.Errorf("legacy fallback order = %+v, want [q-bucles-1, q-if-1]", r.Answers)
+	}
+	if r.Answers[0].Position != 0 {
+		t.Errorf("legacy Position = %d, want 0 (unset)", r.Answers[0].Position)
+	}
+	if r.Answers[0].Alternatives != nil {
+		t.Errorf("legacy Alternatives = %v, want nil", r.Answers[0].Alternatives)
 	}
 }
 
