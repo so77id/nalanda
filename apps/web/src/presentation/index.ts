@@ -5,3 +5,4 @@
 export { ModeProvider } from './ModeProvider';
 export { useMode } from './useMode';
 export { PresentationPage } from './PresentationPage';
+export { PresentableSectionsWrapper } from './PresentableSectionsWrapper';
