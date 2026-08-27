@@ -10,19 +10,22 @@ questions: none
 Tercer capítulo de la unidad **Complejidad**. La mayoría de los
 algoritmos importantes de la carrera desde aquí en adelante — búsqueda
 binaria, ordenamientos, recorridos de árboles, muchos problemas de
-programación dinámica — son **recursivos**, y la vocabulario iterativa que
-construimos en [[complejidad-de-hilbert-al-big-o|Complejidad I]] no
-alcanza para analizarlos. Una función que se llama a sí misma no tiene un
-`for` que contar.
+programación dinámica — son **recursivos**, y las herramientas de
+análisis que aplicamos a algoritmos iterativos en
+[[complejidad-de-hilbert-al-big-o|Complejidad I]] no alcanzan para
+analizarlos. Una función que se llama a sí misma requiere describir su
+costo con una **recurrencia**, un objeto matemático distinto que hay que
+saber escribir y resolver.
 
 Este capítulo hace cinco cosas. **Diseñar** una recursión (qué la define,
 cómo se garantiza que termine, cómo la ejecuta el runtime). **Analizarla**
 — sacar $$T(N)$$ del código, con la receta que usamos toda la unidad.
 **Resolver** esa recurrencia (por expansión hasta el caso base). **Ver que
 algunas explotan** — Fibonacci recursivo es el caso paradigmático — y
-diagnosticar por qué. **Arreglarlas** con memoization y tabulation,
-usando Torres de Hanoi como contraejemplo para mostrar cuándo la técnica
-NO sirve.
+diagnosticar por qué. **Arreglarlas** con memoization y tabulation.
+Veremos también contraejemplos que muestran que estas técnicas no son la
+solución para todo algoritmo que explota — hay problemas cuyo costo
+exponencial es intrínseco y ninguna técnica lo baja.
 
 Al final, un epílogo histórico cierra el arco que dejamos abierto en
 [[complejidad-de-hilbert-al-big-o|Complejidad I]]: de dónde viene la
