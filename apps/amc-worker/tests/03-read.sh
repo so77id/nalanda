@@ -142,6 +142,29 @@ check_eq "no page failed to be read" "0" "$(jq 'd["pages"]["failed"]')"
 # its position — no separate assertion is needed, and the bare `pass` that used
 # to sit here was a check no defect could turn red (#138 review).
 
+# --- issue #243: which pages of each copy AMC captured ------------------------
+#
+# The review page (`apps/server`) has a raw-scan fallback for copies that came
+# back `needs_review`, and until #243 it only rendered page 1 — a two-page copy
+# lost half its answers to the professor. The server persists whatever AMC
+# captured, per copy, so it can iterate them in the template. This report is
+# the source of truth: AMC decides which pages were captured (a page that never
+# reached the scanner does not appear in `capture_page`), and nothing here
+# second-guesses that. `pages_per_copy` uses string keys (copies are numeric,
+# but JSON keys are strings; the server parses to int) and each value is the
+# captured pages for that copy in ascending order.
+#
+# This fixture prints 5 copies × 2 pages each (`\AMCcleardoublepage`), which is
+# why AC-4 sees 10 captured; every copy therefore holds [1, 2] here. A copy that
+# scanned page 1 but not page 2 is exercised by the server-side test — that
+# state is fabricable on the DB but not with this scrambled synthetic batch.
+check_eq "the report says which pages of each copy were captured" "[1, 2]" \
+  "$(jq 'd["pages_per_copy"]["1"]')"
+check_eq "and it lists every copy, keyed as a string" \
+  "['1', '2', '3', '4', '5']" "$(jq 'sorted(d["pages_per_copy"].keys())')"
+check_eq "and copy 3 (needs_review) still reports both pages it captured" \
+  "[1, 2]" "$(jq 'd["pages_per_copy"]["3"]')"
+
 # --- AC-3: the RUT grid reads back --------------------------------------------
 
 check_eq "copy 1 RUT reads back exactly as marked" "20123456" "$(jq 'd["copies"]["1"]["rut"]')"
