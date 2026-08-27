@@ -118,6 +118,58 @@ func (s *fakeStore) SetControlThresholds(_ context.Context, controlID string, ti
 	return nil
 }
 
+// Archive/restore/purge stubs (issue #261). ListArchivedControls is the read
+// side; the three mutating methods share the same guard shape the real
+// controlstore encodes — SoftDelete only fires on active rows, Restore only
+// on archived, Purge only on archived.
+func (s *fakeStore) ListArchivedControls(_ context.Context) ([]controls.Control, error) {
+	var out []controls.Control
+	for _, c := range s.controls {
+		if c.DeletedAt != nil {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+func (s *fakeStore) SoftDeleteControl(_ context.Context, id string, at time.Time) error {
+	for i := range s.controls {
+		if s.controls[i].ID == id && s.controls[i].DeletedAt == nil {
+			t := at
+			s.controls[i].DeletedAt = &t
+			return nil
+		}
+	}
+	return controls.ErrControlNotFound
+}
+
+func (s *fakeStore) RestoreControl(_ context.Context, id string) error {
+	for i := range s.controls {
+		if s.controls[i].ID == id && s.controls[i].DeletedAt != nil {
+			s.controls[i].DeletedAt = nil
+			return nil
+		}
+	}
+	return controls.ErrControlNotFound
+}
+
+func (s *fakeStore) PurgeControl(_ context.Context, id string) error {
+	for i := range s.controls {
+		if s.controls[i].ID == id && s.controls[i].DeletedAt != nil {
+			s.controls = append(s.controls[:i], s.controls[i+1:]...)
+			delete(s.pools, id)
+			prefix := id + "#"
+			for key := range s.annotated {
+				if strings.HasPrefix(key, prefix) {
+					delete(s.annotated, key)
+				}
+			}
+			return nil
+		}
+	}
+	return controls.ErrControlNotFound
+}
+
 // fakeReadingStore is the do-nothing double the pre-WP-F cases use. The
 // WP-F flows are exercised through SaveUploadedBatch + AnalyzeBatch in
 // scans_internal_test.go with a real controlstore. readingsByCopy holds

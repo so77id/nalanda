@@ -68,6 +68,11 @@ type Control struct {
 	State     State
 	CreatedAt time.Time
 	CreatedBy int64 // users.user_id
+	// DeletedAt is when the control was archived (soft-deleted), or nil if
+	// still active (issue #261). Active rows have deleted_at IS NULL in the
+	// schema; ListControls hides non-nil rows, ListArchivedControls shows
+	// only them. Purge is a hard delete gated on non-nil at the Store level.
+	DeletedAt *time.Time
 }
 
 // Paper is the physical sheet a control's PDF is laid out for. The two
@@ -189,6 +194,32 @@ type Store interface {
 	// at (issue #197). Last-wins: each upload and each reanalyse writes
 	// the pair it used, and Annotate reads it back so the PDFs agree.
 	SetControlThresholds(ctx context.Context, controlID string, ticked, unsure float64) error
+
+	// ListArchivedControls returns every archived control, ordered by
+	// deleted_at descending — most recently archived first, so what a
+	// professor just archived is at the top of /controls/archived (issue
+	// #261).
+	ListArchivedControls(ctx context.Context) ([]Control, error)
+
+	// SoftDeleteControl stamps deleted_at on the row so ListControls hides
+	// it (issue #261). Idempotent by guard: the update only fires on rows
+	// with deleted_at IS NULL, so a second call on an already-archived
+	// control returns ErrControlNotFound rather than clobbering the
+	// original archive timestamp.
+	SoftDeleteControl(ctx context.Context, id string, at time.Time) error
+
+	// RestoreControl clears deleted_at (issue #261). Symmetric guard: only
+	// fires on rows with deleted_at IS NOT NULL, so a call on an already
+	// active control returns ErrControlNotFound.
+	RestoreControl(ctx context.Context, id string) error
+
+	// PurgeControl hard-deletes an archived control (issue #261).
+	// Refuses to touch an active row (WHERE deleted_at IS NOT NULL) — the
+	// schema-level guard behind Service.Purge's ControlByID gate, so a
+	// hand-typed /controls/{id}/purge URL that skipped the Archive step
+	// cannot destroy grades. Cascade removes control_pregunta, copia,
+	// reading, answer, annotated_copy and job rows.
+	PurgeControl(ctx context.Context, id string) error
 }
 
 // Generator asks the AMC worker to compile a .tex into printable PDFs.
@@ -259,4 +290,10 @@ var (
 	// shape as the pair above, so a handler can render the two the same way
 	// while a future operator dashboard can tell them apart.
 	ErrGeneratorUnavailable = errors.New("controls: the AMC worker is unreachable")
+
+	// ErrCannotPurgeActive is Service.Purge's answer when the target
+	// control exists but is not archived (issue #261). Kept distinct from
+	// ErrControlNotFound so the handler can render "you have to archive it
+	// first" rather than a bare 404 on a defence-in-depth path.
+	ErrCannotPurgeActive = errors.New("controls: cannot purge an active control")
 )
