@@ -41,6 +41,26 @@ export interface LineAnnotation {
    * computes the aggregated total from the sub-ops).
    */
   sub?: SubOperation[];
+  /**
+   * Free-form pedagogical note about this line. Used ONLY by `mode="recursion"`
+   * (ADR-0048) to point out "esta llamada aporta T(n-1)"-style annotations
+   * that are not algebraic contributions but recurrence-building observations.
+   * The other modes ignore this field.
+   */
+  note?: string;
+}
+
+/**
+ * One step in the recurrence unroll: the current form (as author-written
+ * text — the widget does not parse or manipulate) plus an optional short
+ * parenthetical note explaining what changed at this step. Used ONLY by
+ * `mode="recursion"` (ADR-0048).
+ */
+export interface RecurrenceStep {
+  /** Author-written text (`"T(n) = T(n-1) + T(n-2) + c"`). Rendered verbatim. */
+  form: string;
+  /** Short Spanish parenthetical, e.g. "sustituimos T(n-1)". */
+  note?: string;
 }
 
 /**
@@ -51,15 +71,15 @@ export interface ComplexityCase {
   annotations: Record<number, LineAnnotation>;
   /**
    * Final closed form as human-readable string (e.g. `"4n + 4"`). Required for
-   * `'base' | 'cases' | 'space'`; ignored in `'abstract'` (there is no formula
-   * to display before any case has been derived).
+   * `'base' | 'cases' | 'space'`; ignored in `'abstract' | 'recursion'` (in
+   * recursion mode the analogue is `closedForm`).
    */
   formula?: string;
   /**
    * Numeric evaluator for `formula`, so the widget prints T evaluated at the
    * slider's current value. Declared alongside `formula` — the widget never
    * derives one from the other. Required for `'base' | 'cases' | 'space'`;
-   * ignored in `'abstract'`.
+   * ignored in `'abstract' | 'recursion'`.
    */
   evaluate?: (n: number) => number;
   /**
@@ -70,6 +90,19 @@ export interface ComplexityCase {
    * modes.
    */
   skipped?: Array<{ line: number; note?: string }>;
+  // ------------------------------------------------------------------
+  // Recursion-mode fields (ADR-0048) — required for `mode="recursion"`,
+  // ignored elsewhere. The widget renders these verbatim; it does not
+  // solve, parse or manipulate the recurrence.
+  // ------------------------------------------------------------------
+  /** The recurrence as author-written text (`"T(n) = T(n-1) + T(n-2) + c"`). */
+  recurrence?: string;
+  /** Base cases as `{ "T(0)": "c", "T(1)": "c" }`. Empty object is allowed. */
+  base?: Record<string, string>;
+  /** Ordered unroll steps (see `RecurrenceStep`). May be empty. */
+  unroll?: RecurrenceStep[];
+  /** The closed form (`"T(n) = Θ(φⁿ)"`) shown in its own emphasised panel. */
+  closedForm?: string;
 }
 
 export interface ComplexityCounterProps {
@@ -90,8 +123,12 @@ export interface ComplexityCounterProps {
    *   (e.g. `"por iteración"`). Used to introduce a code before any specific
    *   case has been derived; the same widget then re-appears in `'base'` mode
    *   for each concrete case.
+   * - `'recursion'` (ADR-0048): code + per-line free-form `note` annotations +
+   *   three static panels (Recurrencia, Desarrollo, Forma cerrada). No slider,
+   *   no OE substitution, no algebraic parsing. Used to analyse the cost of
+   *   a recursive algorithm.
    */
-  mode?: 'base' | 'cases' | 'space' | 'abstract';
+  mode?: 'base' | 'cases' | 'space' | 'abstract' | 'recursion';
   /** For mode = 'base' | 'space' | 'abstract': the single case to show. In `'abstract'`, only `annotations` is required. */
   data?: ComplexityCase;
   /** For mode = 'cases': the three cases. */
@@ -184,6 +221,7 @@ export function ComplexityCounter({
   // is off, the widget degrades to a code-only view — used by
   // `<ComplexityExercise>` before the student reveals the analysis.
   const isAbstract = mode === 'abstract';
+  const isRecursion = mode === 'recursion';
   if (showAnalysis) {
     if (mode === 'cases' && (cases === undefined || Object.keys(cases).length === 0)) {
       return (
@@ -194,11 +232,20 @@ export function ComplexityCounter({
       );
     }
     if (mode !== 'cases' && data === undefined) {
+      const shape = isRecursion
+        ? '{ annotations, recurrence, base, unroll, closedForm }'
+        : isAbstract
+          ? '{ annotations }'
+          : '{ annotations, formula, evaluate }';
+      const tail = isRecursion
+        ? ', la recurrencia, sus casos base, los pasos del desarrollo y la forma cerrada'
+        : isAbstract
+          ? ''
+          : ', la fórmula final y su evaluador numérico';
       return (
         <AuthoringError component="ComplexityCounter">
-          falta la prop <code>data</code>: un objeto{' '}
-          <code>{isAbstract ? '{ annotations }' : '{ annotations, formula, evaluate }'}</code> con
-          las anotaciones por línea{isAbstract ? '' : ', la fórmula final y su evaluador numérico'}.
+          falta la prop <code>data</code>: un objeto <code>{shape}</code> con las anotaciones por
+          línea{tail}.
         </AuthoringError>
       );
     }
@@ -210,7 +257,21 @@ export function ComplexityCounter({
         </AuthoringError>
       );
     }
-    if (!isAbstract && (active.formula === undefined || active.evaluate === undefined)) {
+    if (isRecursion) {
+      if (
+        active.recurrence === undefined ||
+        active.unroll === undefined ||
+        active.closedForm === undefined
+      ) {
+        return (
+          <AuthoringError component="ComplexityCounter">
+            falta la prop <code>recurrence</code>, <code>unroll</code> o <code>closedForm</code> en
+            el caso. El modo <code>recursion</code> necesita los tres para renderizar la
+            recurrencia, el desarrollo y la forma cerrada.
+          </AuthoringError>
+        );
+      }
+    } else if (!isAbstract && (active.formula === undefined || active.evaluate === undefined)) {
       return (
         <AuthoringError component="ComplexityCounter">
           modo <code>{mode}</code> requiere <code>formula</code> y <code>evaluate</code> en el caso.
@@ -234,6 +295,103 @@ export function ComplexityCounter({
           highlightLines={activeLine === null ? [] : [activeLine]}
           onLineHover={setActiveLine}
         />
+      </div>
+    );
+  }
+
+  if (isRecursion) {
+    const codeLines = code.split('\n');
+    const recursionEntries = Object.entries(active!.annotations)
+      .map(([k, v]) => [Number(k), v] as const)
+      .sort((a, b) => a[0] - b[0]);
+    const baseEntries = Object.entries(active!.base ?? {});
+    return (
+      <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
+        {showHeader && (
+          <header className="flex flex-wrap items-center gap-2 bg-sunk px-3 py-1.5">
+            <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs uppercase tracking-wide text-accent">
+              recurrencia
+            </span>
+            {algorithm !== undefined && (
+              <span className="font-mono text-sm text-ink">{algorithm}</span>
+            )}
+          </header>
+        )}
+
+        <div className="grid grid-cols-1 border-t border-rule md:grid-cols-[1fr_18rem]">
+          <div className="min-w-0 overflow-hidden border-b border-rule md:border-b-0 md:border-r">
+            <CodeStepper
+              code={code}
+              language={language}
+              highlightLines={activeLine === null ? [] : [activeLine]}
+              onLineHover={setActiveLine}
+            />
+          </div>
+          <ul
+            role="list"
+            aria-label="Desglose de recurrencia por línea"
+            className="flex flex-col divide-y divide-rule/50 bg-sunk/30 font-mono text-xs text-ink-soft"
+          >
+            {recursionEntries.map(([lineNum, ann]) => {
+              const isActive = activeLine === lineNum;
+              const activeClass = isActive ? 'bg-accent-soft/40' : 'hover:bg-accent-soft/20';
+              return (
+                <li
+                  key={lineNum}
+                  className={`flex items-start gap-2 px-3 py-1.5 ${activeClass}`}
+                  onMouseEnter={() => setActiveLine(lineNum)}
+                  onMouseLeave={() => setActiveLine(null)}
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-baseline gap-2 text-ink">
+                      <span className="w-6 shrink-0 text-right text-3xs text-ink-faint">
+                        {lineNum}
+                      </span>
+                      <code className="truncate">{(codeLines[lineNum - 1] ?? '').trim()}</code>
+                    </div>
+                    {ann.note !== undefined && (
+                      <div className="pl-8 text-3xs text-ink-faint">{ann.note}</div>
+                    )}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+
+        <Panel label="Recurrencia">
+          <div className={`${OUTPUT} bg-sunk text-ink`}>
+            <div>{active!.recurrence}</div>
+            {baseEntries.length > 0 && (
+              <div className="mt-1 text-ink-soft">
+                {baseEntries.map(([k, v]) => (
+                  <div key={k}>
+                    {k} = {v}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </Panel>
+
+        <Panel label="Desarrollo">
+          <div className={`${OUTPUT} bg-sunk text-ink`}>
+            {active!.unroll!.map((step, i) => (
+              <div key={i} className="flex flex-wrap items-baseline gap-x-3">
+                <span>{step.form}</span>
+                {step.note !== undefined && (
+                  <span className="text-3xs text-ink-faint">({step.note})</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </Panel>
+
+        <Panel label="Forma cerrada">
+          <div className={`${OUTPUT} bg-accent-soft/40 text-ink`}>
+            <strong className="font-mono">{active!.closedForm}</strong>
+          </div>
+        </Panel>
       </div>
     );
   }

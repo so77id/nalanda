@@ -196,4 +196,119 @@ describe('ComplexityCounter', () => {
     expect(screen.getAllByText(/celdas/i).length).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { level: 4, name: /M\(n\)/i })).toBeInTheDocument();
   });
+
+  // ---------------------------------------------------------------
+  // mode="recursion" — ADR-0048
+  // ---------------------------------------------------------------
+
+  const FIB_NAIVE_CODE = `long fib(int n) {
+    if (n < 2) return n;
+    return fib(n - 1) + fib(n - 2);
+}`;
+
+  const FIB_NAIVE_RECURSION = {
+    annotations: {
+      2: { note: 'caso base ⇒ c' },
+      3: { note: 'dos llamadas recursivas ⇒ T(n-1) + T(n-2) + c' },
+    },
+    recurrence: 'T(n) = T(n-1) + T(n-2) + c',
+    base: { 'T(0)': 'c', 'T(1)': 'c' },
+    unroll: [
+      { form: 'T(n) = T(n-1) + T(n-2) + c', note: 'punto de partida' },
+      { form: 'T(n) = [T(n-2) + T(n-3) + c] + T(n-2) + c', note: 'sustituimos T(n-1)' },
+    ],
+    closedForm: 'T(n) = Θ(φⁿ)',
+  };
+
+  it('shows an authoring error when required recursion props are missing', () => {
+    render(<ComplexityCounter code={FIB_NAIVE_CODE} mode="recursion" />);
+    expect(screen.getByText(/falta la prop/i)).toBeInTheDocument();
+  });
+
+  it('renders no slider and no OE construction panel in recursion mode', () => {
+    render(
+      <ComplexityCounter
+        algorithm="fibNaive"
+        code={FIB_NAIVE_CODE}
+        mode="recursion"
+        data={FIB_NAIVE_RECURSION}
+      />,
+    );
+    expect(screen.queryByRole('slider')).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: /construcción/i })).not.toBeInTheDocument();
+  });
+
+  it('labels the header chip "recurrencia" alongside the algorithm name', () => {
+    const { container } = render(
+      <ComplexityCounter
+        algorithm="fibNaive"
+        code={FIB_NAIVE_CODE}
+        mode="recursion"
+        data={FIB_NAIVE_RECURSION}
+      />,
+    );
+    // The chip lives in the top <header> (banner). Scope the query there so
+    // it does not collide with the "Recurrencia" panel h4 further down.
+    const banner = container.querySelector('header')!;
+    expect(within(banner).getByText(/recurrencia/i)).toBeInTheDocument();
+    expect(within(banner).getByText('fibNaive')).toBeInTheDocument();
+  });
+
+  it('renders one rail row per annotated line with the free-form note', () => {
+    render(<ComplexityCounter code={FIB_NAIVE_CODE} mode="recursion" data={FIB_NAIVE_RECURSION} />);
+    const rail = screen.getByRole('list', { name: /desglose de recurrencia por línea/i });
+    expect(within(rail).getByText(/caso base ⇒ c/)).toBeInTheDocument();
+    expect(within(rail).getByText(/dos llamadas recursivas/)).toBeInTheDocument();
+  });
+
+  it('prints the recurrence and its base cases in a dedicated panel', () => {
+    render(<ComplexityCounter code={FIB_NAIVE_CODE} mode="recursion" data={FIB_NAIVE_RECURSION} />);
+    const heading = screen.getByRole('heading', { level: 4, name: /^recurrencia$/i });
+    const panel = heading.closest('section')!;
+    expect(panel).toHaveTextContent('T(n) = T(n-1) + T(n-2) + c');
+    expect(panel).toHaveTextContent('T(0) = c');
+    expect(panel).toHaveTextContent('T(1) = c');
+  });
+
+  it('lists every unroll step in order with its parenthetical note', () => {
+    render(<ComplexityCounter code={FIB_NAIVE_CODE} mode="recursion" data={FIB_NAIVE_RECURSION} />);
+    const heading = screen.getByRole('heading', { level: 4, name: /^desarrollo$/i });
+    const panel = heading.closest('section')!;
+    expect(panel).toHaveTextContent('T(n) = T(n-1) + T(n-2) + c');
+    expect(panel).toHaveTextContent('T(n) = [T(n-2) + T(n-3) + c] + T(n-2) + c');
+    expect(panel).toHaveTextContent(/punto de partida/);
+    expect(panel).toHaveTextContent(/sustituimos T\(n-1\)/);
+  });
+
+  it('emphasises the closed form in its own panel', () => {
+    render(<ComplexityCounter code={FIB_NAIVE_CODE} mode="recursion" data={FIB_NAIVE_RECURSION} />);
+    const heading = screen.getByRole('heading', { level: 4, name: /forma cerrada/i });
+    const panel = heading.closest('section')!;
+    expect(panel).toHaveTextContent('T(n) = Θ(φⁿ)');
+  });
+
+  it('allows an empty annotations map — the rail simply lists no rows', () => {
+    render(
+      <ComplexityCounter
+        code={FIB_NAIVE_CODE}
+        mode="recursion"
+        data={{ ...FIB_NAIVE_RECURSION, annotations: {} }}
+      />,
+    );
+    const rail = screen.getByRole('list', { name: /desglose de recurrencia por línea/i });
+    expect(within(rail).queryByRole('listitem')).not.toBeInTheDocument();
+  });
+
+  it('renders the base panel even when `base` is empty', () => {
+    render(
+      <ComplexityCounter
+        code={FIB_NAIVE_CODE}
+        mode="recursion"
+        data={{ ...FIB_NAIVE_RECURSION, base: {} }}
+      />,
+    );
+    // still shows the recurrence
+    const heading = screen.getByRole('heading', { level: 4, name: /^recurrencia$/i });
+    expect(heading.closest('section')!).toHaveTextContent('T(n) = T(n-1) + T(n-2) + c');
+  });
 });
