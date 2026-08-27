@@ -324,7 +324,13 @@ func TestCreateRefusesAPoolSmallerThanTheCopyAsksFor(t *testing.T) {
 	}
 }
 
-func TestCreateRollsBackWhenTheWorkerRefuses(t *testing.T) {
+// Since issue #249 the worker call is on the async job (Create is now
+// PrepareControl + GenerateAssets composed). A refusal on the worker
+// leg leaves the row committed and the input files staged — the
+// professor can re-run generation from the same row without losing
+// the pool. The all-or-nothing promise (row+files-together) is
+// preserved for the SYNC leg only (PrepareControl).
+func TestGenerateAssetsRefusalLeavesTheRowAndFilesIntact(t *testing.T) {
 	svc, store, gen, workDir := newService(t)
 	gen.Err = controls.ErrGeneratorRefused
 
@@ -332,32 +338,28 @@ func TestCreateRollsBackWhenTheWorkerRefuses(t *testing.T) {
 	if !errors.Is(err, controls.ErrGeneratorRefused) {
 		t.Fatalf("Create(worker refused): %v, want ErrGeneratorRefused", err)
 	}
-
-	if len(store.controls) != 0 {
-		t.Errorf("store.controls = %+v, want empty (worker refusal must roll back the row)", store.controls)
+	if len(store.controls) != 1 {
+		t.Errorf("store.controls = %+v, want the row committed by PrepareControl", store.controls)
 	}
-
-	// The project directory is gone.
 	projects, err := os.ReadDir(filepath.Join(workDir, "controls"))
-	if err == nil && len(projects) > 0 {
-		t.Errorf("workDir/controls holds %d directories after a rolled-back Create, want 0", len(projects))
+	if err != nil || len(projects) != 1 {
+		t.Errorf("workDir/controls holds %d directories after a worker refusal, want 1 (files stay for retry)", len(projects))
 	}
 }
 
-func TestCreateRollsBackWhenSujetIsZeroBytes(t *testing.T) {
+func TestGenerateAssetsSujetMissingLeavesTheRowAndFilesIntact(t *testing.T) {
 	svc, store, gen, workDir := newService(t)
-	gen.SujetSize = 0 // fake writes an empty sujet.pdf
+	gen.SujetSize = 0
 
 	_, err := svc.Create(context.Background(), req(nil))
 	if !errors.Is(err, controls.ErrSujetMissing) {
 		t.Fatalf("Create(0-byte sujet): %v, want ErrSujetMissing", err)
 	}
-
-	if len(store.controls) != 0 {
-		t.Error("store.controls is not empty after a 0-byte sujet failure — creation must be all-or-nothing")
+	if len(store.controls) != 1 {
+		t.Errorf("store.controls should still have the PrepareControl row: %+v", store.controls)
 	}
-	if entries, _ := os.ReadDir(filepath.Join(workDir, "controls")); len(entries) > 0 {
-		t.Errorf("workDir/controls holds %d entries after a 0-byte sujet failure, want 0", len(entries))
+	if entries, _ := os.ReadDir(filepath.Join(workDir, "controls")); len(entries) != 1 {
+		t.Errorf("workDir/controls holds %d entries after 0-byte sujet, want 1 (files stay for retry)", len(entries))
 	}
 }
 

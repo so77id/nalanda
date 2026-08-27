@@ -160,6 +160,29 @@ type CreateRequest struct {
 // versa — the "the row is committed and the files are on disk, or neither"
 // promise.
 func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error) {
+	control, err := s.PrepareControl(ctx, req)
+	if err != nil {
+		return Control{}, err
+	}
+	if err := s.GenerateAssets(ctx, control.ID); err != nil {
+		return Control{}, err
+	}
+	return control, nil
+}
+
+// PrepareControl is the sync half of Create (issue #249, S5): resolve
+// the pool, stage the input files on the shared volume, compile the
+// tex, write the pool snapshot, and commit the row. The AMC worker
+// call — Generator.Generate + sujet.pdf stat — is NOT run here; it
+// lives on the async GenerateAssets so the HTTP request returns fast.
+//
+// The rollback still covers this half's failures (a bad tex compile,
+// a bad write): if any step here fails the project directory is
+// removed. On the async side (GenerateAssets), a worker failure
+// leaves the row + input files intact so the operator can re-run the
+// generation without losing the pool snapshot — a follow-up WP adds
+// the explicit retry button (design's deferred list).
+func (s *Service) PrepareControl(ctx context.Context, req CreateRequest) (Control, error) {
 	pool, err := s.Bank.Get().Pool(req.RangeFrom, req.RangeTo)
 	if err != nil {
 		return Control{}, err
@@ -170,7 +193,7 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 
 	id, err := NewID()
 	if err != nil {
-		return Control{}, fmt.Errorf("controls.Create: %w", err)
+		return Control{}, fmt.Errorf("controls.PrepareControl: %w", err)
 	}
 	project := filepath.Join(projectPrefix, id)
 	projectDir := filepath.Join(s.WorkDir, project)
@@ -184,13 +207,13 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 	// no-op, so a MkdirAll that produced nothing costs nothing to clean.
 	rollback := func() {
 		if err := os.RemoveAll(projectDir); err != nil {
-			s.Log.Warn("controls.Create: rollback failed", "project", projectDir, "error", err)
+			s.Log.Warn("controls.PrepareControl: rollback failed", "project", projectDir, "error", err)
 		}
 	}
 
 	if err := os.MkdirAll(inputsDir, 0o755); err != nil {
 		rollback()
-		return Control{}, fmt.Errorf("controls.Create: prepare %s: %w", projectDir, err)
+		return Control{}, fmt.Errorf("controls.PrepareControl: prepare %s: %w", projectDir, err)
 	}
 
 	for _, q := range pool {
@@ -200,13 +223,10 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 		listingPath := filepath.Join(inputsDir, "question-"+q.ID+".txt")
 		if err := os.WriteFile(listingPath, []byte(q.Code.Source), 0o644); err != nil {
 			rollback()
-			return Control{}, fmt.Errorf("controls.Create: stage listing %s: %w", q.ID, err)
+			return Control{}, fmt.Errorf("controls.PrepareControl: stage listing %s: %w", q.ID, err)
 		}
 	}
 
-	// The tex generator writes an ABSOLUTE listing path — from the
-	// WORKER'S perspective, which is /work. The path here always begins
-	// with WorkerWorkDir, whatever the server's own mount is.
 	source, err := tex.Compile(tex.Input{
 		Name:             req.Name,
 		Pool:             pool,
@@ -215,52 +235,20 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 		Seed:             s.Seed,
 		ListingsDir:      workerPath(project, "inputs"),
 		DuplexPadding:    req.DuplexPadding,
-		// Issue #208, ADR-0043: same guard as the persisted field below.
-		Paper: string(paperOrDefault(req.Paper)),
+		Paper:            string(paperOrDefault(req.Paper)),
 	})
 	if err != nil {
 		rollback()
-		return Control{}, fmt.Errorf("controls.Create: compile tex: %w", err)
+		return Control{}, fmt.Errorf("controls.PrepareControl: compile tex: %w", err)
 	}
 	sourceHostPath := filepath.Join(inputsDir, "source.tex")
 	if err := os.WriteFile(sourceHostPath, []byte(source), 0o644); err != nil {
 		rollback()
-		return Control{}, fmt.Errorf("controls.Create: write source: %w", err)
+		return Control{}, fmt.Errorf("controls.PrepareControl: write source: %w", err)
 	}
-
-	// The pool snapshot (issue #198) goes down beside the source, inside
-	// the same guarded region: a failure below rolls it away with the rest
-	// of the project.
 	if err := writePoolSnapshot(filepath.Join(projectDir, "pool.json"), id, req, pool, s.Seed, s.Now()); err != nil {
 		rollback()
-		return Control{}, fmt.Errorf("controls.Create: write pool snapshot: %w", err)
-	}
-
-	// Worker paths are relative to /work: it prefixes them itself with
-	// its own mount (worker.py's under_work).
-	assets, err := s.Generator.Generate(ctx, GenerateRequest{
-		Project: project,
-		Source:  filepath.Join(project, "inputs", "source.tex"),
-		Copies:  req.Copies,
-	})
-	if err != nil {
-		rollback()
-		return Control{}, err
-	}
-
-	// The professor's headline deliverable exists on disk and has bytes.
-	// A 0-byte sujet.pdf reports "success" from the worker on paths where
-	// the compile crashed after opening the output file — measured in
-	// #138 review, and enough to redden the whole path here.
-	sujetPath := filepath.Join(s.WorkDir, assets.Sujet)
-	info, err := os.Stat(sujetPath)
-	if err != nil {
-		rollback()
-		return Control{}, fmt.Errorf("%w: stat %s: %v", ErrSujetMissing, sujetPath, err)
-	}
-	if info.Size() == 0 {
-		rollback()
-		return Control{}, fmt.Errorf("%w: %s is 0 bytes", ErrSujetMissing, sujetPath)
+		return Control{}, fmt.Errorf("controls.PrepareControl: write pool snapshot: %w", err)
 	}
 
 	control := Control{
@@ -272,18 +260,12 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 		QuestionsPerCopy: req.QuestionsPerCopy,
 		Copies:           req.Copies,
 		DuplexPadding:    req.DuplexPadding,
-		// Issue #208: honour the professor's choice, falling back to the
-		// default when a caller (a test, a future JSON API, a bug) sends
-		// an empty value — the schema CHECK would refuse "" and this
-		// resolves it to the operational default instead of failing loud.
-		Paper: paperOrDefault(req.Paper),
-		// Issue #197: the product defaults; the upload and reanalyse
-		// forms change them per batch afterwards.
-		Ticked:    DefaultTicked,
-		Unsure:    DefaultUnsure,
-		State:     Generated,
-		CreatedAt: s.Now(),
-		CreatedBy: req.CreatedBy,
+		Paper:            paperOrDefault(req.Paper),
+		Ticked:           DefaultTicked,
+		Unsure:           DefaultUnsure,
+		State:            Generated,
+		CreatedAt:        s.Now(),
+		CreatedBy:        req.CreatedBy,
 	}
 	entries := make([]PoolEntry, len(pool))
 	for i, q := range pool {
@@ -291,10 +273,45 @@ func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error
 	}
 	if err := s.Store.CreateControl(ctx, control, entries); err != nil {
 		rollback()
-		return Control{}, fmt.Errorf("controls.Create: persist: %w", err)
+		return Control{}, fmt.Errorf("controls.PrepareControl: persist: %w", err)
 	}
-
 	return control, nil
+}
+
+// GenerateAssets is the async half of Create (issue #249, S5): call
+// the AMC worker for the printable PDFs and verify sujet.pdf exists on
+// disk with bytes. Called by the generate job handler on the runner
+// goroutine; the row and input files must already exist (PrepareControl
+// committed them).
+//
+// A failure here does NOT delete the row: the pool snapshot and
+// source.tex are the professor's authored artefacts, and losing them
+// on a transient worker outage would force a re-choose of the pool.
+// The banner surfaces the failure; the operator's retry path (a future
+// WP) reads the same row and re-runs this method.
+func (s *Service) GenerateAssets(ctx context.Context, controlID string) error {
+	control, err := s.Store.ControlByID(ctx, controlID)
+	if err != nil {
+		return err
+	}
+	project := filepath.Join(projectPrefix, control.ID)
+	assets, err := s.Generator.Generate(ctx, GenerateRequest{
+		Project: project,
+		Source:  filepath.Join(project, "inputs", "source.tex"),
+		Copies:  control.Copies,
+	})
+	if err != nil {
+		return err
+	}
+	sujetPath := filepath.Join(s.WorkDir, assets.Sujet)
+	info, err := os.Stat(sujetPath)
+	if err != nil {
+		return fmt.Errorf("%w: stat %s: %v", ErrSujetMissing, sujetPath, err)
+	}
+	if info.Size() == 0 {
+		return fmt.Errorf("%w: %s is 0 bytes", ErrSujetMissing, sujetPath)
+	}
+	return nil
 }
 
 // List returns every control, delegating to the Store's own ordering

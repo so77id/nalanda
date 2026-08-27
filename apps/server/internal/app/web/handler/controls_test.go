@@ -144,6 +144,7 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 	runner := jobs.NewRunner(jstore, jobs.Handlers{
 		jobs.KindReanalyse: controls.NewReanalyseHandler(svc),
 		jobs.KindAnalyse:   controls.NewAnalyseHandler(svc),
+		jobs.KindGenerate:  controls.NewGenerateHandler(svc),
 	}, log, time.Now)
 	// Start the runner in the background so the async Submit path in
 	// ReanalyzeScans reaches its handler. Cleanup cancels the context
@@ -718,41 +719,54 @@ func TestCreateEchoesValuesOnRefusal(t *testing.T) {
 	}
 }
 
-func TestCreateRendersA500ThroughTheShellWhenTheWorkerRefuses(t *testing.T) {
+// Since issue #249 the worker call runs on the async generate job, so
+// a worker refusal no longer surfaces as a 500 on the HTTP POST. The
+// row is committed synchronously by PrepareControl; the runner records
+// the refusal on the job row for the banner to render.
+func TestCreateWorkerRefusalRecordsGenerateJobFailure(t *testing.T) {
 	f := newControlsFixture(t)
 	f.fake.Err = controls.ErrGeneratorRefused
 
 	rec := httptest.NewRecorder()
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
-
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want 500 (worker failure is not a form error)", rec.Code)
-	}
-	// The shell error page renders through view.RenderError — its
-	// Spanish message is what the professor reads.
-	if !strings.Contains(rec.Body.String(), "servidor") {
-		t.Error("body does not carry the shell error page's Spanish message")
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 (worker call is async now)", rec.Code)
 	}
 
 	rows, _ := f.service.List(context.Background())
-	if len(rows) != 0 {
-		t.Errorf("stored %d rows after a worker failure, want 0 (creation is all-or-nothing)", len(rows))
+	if len(rows) != 1 {
+		t.Fatalf("stored %d rows after PrepareControl, want 1", len(rows))
+	}
+	controlID := rows[0].ID
+	job := f.waitLatestJobTerminal(t, controlID)
+	if job.Status != jobs.StatusFailed {
+		t.Errorf("generate job status = %q, want failed", job.Status)
+	}
+	if !strings.Contains(job.Error, "generación") {
+		t.Errorf("job.Error = %q, want the Spanish generator refusal message", job.Error)
 	}
 }
 
-func TestCreateRendersA500WhenSujetIsMissing(t *testing.T) {
+func TestCreateSujetMissingRecordsGenerateJobFailure(t *testing.T) {
 	f := newControlsFixture(t)
-	f.fake.SujetSize = 0 // fake writes a 0-byte sujet.pdf
+	f.fake.SujetSize = 0
 
 	rec := httptest.NewRecorder()
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
-
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want 500", rec.Code)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", rec.Code)
 	}
 	rows, _ := f.service.List(context.Background())
-	if len(rows) != 0 {
-		t.Errorf("stored %d rows after a 0-byte sujet, want 0", len(rows))
+	if len(rows) != 1 {
+		t.Fatalf("stored %d rows after PrepareControl, want 1", len(rows))
+	}
+	controlID := rows[0].ID
+	job := f.waitLatestJobTerminal(t, controlID)
+	if job.Status != jobs.StatusFailed {
+		t.Errorf("generate job status = %q, want failed", job.Status)
+	}
+	if !strings.Contains(job.Error, "sujet") {
+		t.Errorf("job.Error = %q, want the sujet-missing message", job.Error)
 	}
 }
 
@@ -887,6 +901,9 @@ func TestSujetPDFStreamsTheFile(t *testing.T) {
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
 	loc := rec.Header().Get("Location")
 	id := strings.TrimPrefix(loc, handler.ControlsPath+"/")
+	// Issue #249: Create enqueues a generate job — wait for it before
+	// asking for the sujet.pdf the generate step is meant to produce.
+	f.waitLatestJobTerminal(t, id)
 
 	rec = httptest.NewRecorder()
 	req := f.authedRequest(t, http.MethodGet, loc+"/sujet.pdf", nil)

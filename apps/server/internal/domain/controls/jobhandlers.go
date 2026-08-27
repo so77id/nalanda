@@ -38,6 +38,13 @@ type AnalysePayload struct {
 	Unsure    float64 `json:"unsure"`
 }
 
+// GeneratePayload is what the POST /controls handler serialises before
+// Submit (issue #249, S5). Empty: the async GenerateAssets reads the
+// control row for Copies + the derived paths, so nothing needs to
+// ride on the payload. Kept as a named type so a future addition
+// (e.g. a per-run seed) has a home.
+type GeneratePayload struct{}
+
 // NewReanalyseHandler returns the jobs.Handler for KindReanalyse.
 // controlID comes from the job row; payload is the JSON-marshalled
 // ReanalysePayload the HTTP handler produced.
@@ -80,6 +87,43 @@ func NewAnalyseHandler(svc *Service) jobs.Handler {
 		}
 		return nil
 	}
+}
+
+// NewGenerateHandler returns the jobs.Handler for KindGenerate (issue
+// #249, S5). Payload is empty — the async GenerateAssets reads the
+// control row for what it needs.
+func NewGenerateHandler(svc *Service) jobs.Handler {
+	if svc == nil {
+		panic("controls.NewGenerateHandler: no service")
+	}
+	return func(ctx context.Context, controlID string, _ []byte) error {
+		if err := svc.GenerateAssets(ctx, controlID); err != nil {
+			return failureFromGenerateError(err)
+		}
+		return nil
+	}
+}
+
+// failureFromGenerateError translates a Service.GenerateAssets error
+// into the (banner, debug) pair. Same split shape as
+// failureFromAnalyzeError; kept separate because the sentinel set is
+// different (ErrGeneratorRefused / ErrGeneratorUnavailable /
+// ErrSujetMissing).
+func failureFromGenerateError(err error) error {
+	if err == nil {
+		return nil
+	}
+	switch {
+	case errors.Is(err, ErrControlNotFound):
+		return &jobs.Failure{Message: "ese control ya no existe", Detail: err.Error()}
+	case errors.Is(err, ErrGeneratorRefused):
+		return &jobs.Failure{Message: "el motor rechazó la generación", Detail: err.Error()}
+	case errors.Is(err, ErrGeneratorUnavailable):
+		return &jobs.Failure{Message: "el motor no está disponible", Detail: err.Error()}
+	case errors.Is(err, ErrSujetMissing):
+		return &jobs.Failure{Message: "la generación no produjo un sujet.pdf válido", Detail: err.Error()}
+	}
+	return &jobs.Failure{Message: err.Error(), Detail: ""}
 }
 
 // failureFromAnalyzeError translates a controls.Service error into the

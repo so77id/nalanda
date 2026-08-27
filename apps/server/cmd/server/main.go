@@ -197,6 +197,7 @@ func run(logger *slog.Logger) error {
 	jobRunner := jobs.NewRunner(jobStore, jobs.Handlers{
 		jobs.KindReanalyse: controls.NewReanalyseHandler(controlsService),
 		jobs.KindAnalyse:   controls.NewAnalyseHandler(controlsService),
+		jobs.KindGenerate:  controls.NewGenerateHandler(controlsService),
 	}, logger, time.Now)
 	if err := jobRunner.Sweep(ctx); err != nil {
 		return err

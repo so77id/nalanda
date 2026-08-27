@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -165,23 +166,40 @@ func (h *Controls) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	req.CreatedBy = acting.ID
 
-	control, err := h.Service.Create(r.Context(), req)
+	// Issue #249, S5: split the sync half (files staged + row committed)
+	// from the async half (worker call). The professor lands on the
+	// detail page immediately with a "Generando…" banner from the
+	// generate job; the row is safe for the sync-path validations
+	// (domain errors like a too-small pool still surface as form
+	// errors), and the worker outage is asynchronously visible on the
+	// banner rather than a 30-second-long POST.
+	control, err := h.Service.PrepareControl(r.Context(), req)
 	if err != nil {
 		fieldErr, ok := domainErrorToForm(err)
 		if !ok {
-			// A failure the professor cannot repair — worker down, sujet
-			// missing, disk full. Log it, render a 500 through the shell
-			// (§Failure modes: "Renders the shell's 500 page…").
 			h.Log.Error("creating a control", "error", err, "professor", acting.ID)
 			middleware.WriteError(w, r, http.StatusInternalServerError,
-				"El servidor no pudo generar el control. Vuelve a intentarlo en unos minutos; si el problema persiste, avisa a alguien de infraestructura.")
+				"El servidor no pudo preparar el control. Vuelve a intentarlo en unos minutos; si el problema persiste, avisa a alguien de infraestructura.")
 			return
 		}
 		h.rerenderNew(w, r, values, fieldErr, "")
 		return
 	}
-
-	flash.Set(w, h.secureCookie, "Control «"+control.Name+"» generado.")
+	payload, err := json.Marshal(controls.GeneratePayload{})
+	if err != nil {
+		h.Log.Error("controls: encode generate payload", "control", control.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"El servidor no pudo encolar la generación.")
+		return
+	}
+	if _, err := h.Runner.Submit(r.Context(), control.ID, jobs.KindGenerate, payload); err != nil {
+		h.Log.Error("controls: submit generate job", "control", control.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"El servidor no pudo encolar la generación.")
+		return
+	}
+	flash.Set(w, h.secureCookie,
+		"Control «"+control.Name+"» encolado para generación. Refresca cuando el aviso cambie.")
 	http.Redirect(w, r, controlDetailURL(control.ID), http.StatusSeeOther)
 }
 

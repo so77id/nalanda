@@ -109,6 +109,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 			runner := jobs.NewRunner(jstore, jobs.Handlers{
 				jobs.KindReanalyse: controls.NewReanalyseHandler(svc),
 				jobs.KindAnalyse:   controls.NewAnalyseHandler(svc),
+				jobs.KindGenerate:  controls.NewGenerateHandler(svc),
 			}, logger, time.Now)
 			return handler.NewControls(handler.Controls{
 				Service:            svc,
