@@ -12,6 +12,10 @@ function titles(slides: ReturnType<typeof computeSlides>) {
   return slides.map((s) => s.title);
 }
 
+function slugs(slides: ReturnType<typeof computeSlides>) {
+  return slides.map((s) => s.slug);
+}
+
 describe('computeSlides — auto mode', () => {
   it('returns only a cover slide for an empty document', () => {
     const slides = computeSlides([], DOC);
@@ -106,6 +110,48 @@ describe('computeSlides — auto mode', () => {
     );
     expect(titles(slides)).toEqual(['Mi documento', 'Unica']);
   });
+
+  it('gives each h2-derived slide a slug that matches its heading anchor', () => {
+    // The book renders these h2s with id="la-idea" / id="costo" via mdxHeading.
+    // The deep-link contract says both spines must resolve to the same slug —
+    // sharing slugify(textOf(...)) is what keeps them agreeing.
+    const slides = computeSlides(
+      [<H2 key="1">La idea</H2>, <p key="2">x</p>, <H2 key="3">Costo</H2>],
+      DOC,
+    );
+    expect(slugs(slides)).toEqual([undefined, 'la-idea', 'costo']);
+  });
+
+  it('slugs a <Slide title> the same way as an h2', () => {
+    const slides = computeSlides(
+      [
+        <Slide key="1" title="Búsqueda binaria">
+          <p>x</p>
+        </Slide>,
+      ],
+      DOC,
+    );
+    expect(slugs(slides)).toEqual([undefined, 'busqueda-binaria']);
+  });
+
+  it('leaves the cover and a SectionBreak group without a slug', () => {
+    const slides = computeSlides(
+      [<H2 key="1">Antes</H2>, <SectionBreak key="2" />, <p key="3">a</p>],
+      DOC,
+    );
+    // cover, "Antes", untitled post-break group.
+    expect(slugs(slides)).toEqual([undefined, 'antes', undefined]);
+  });
+
+  it('gives a titled slide with no sluggable text no slug (the # anchor is silent too)', () => {
+    // Same silent-fallback contract as mdxHeading.tsx: a heading whose content
+    // is entirely an element (`## $$\log_2 n$$`) has no text and gets no id.
+    // The slide-slug spine must not diverge from that. Prose after the heading
+    // keeps the slide from being dropped as empty-untitled, so the case can
+    // observe the slug rather than the parser's other silent behaviour.
+    const slides = computeSlides([<H2 key="1">{<span key="x" />}</H2>, <p key="2">x</p>], DOC);
+    expect(slugs(slides)).toEqual([undefined, undefined]);
+  });
 });
 
 describe('computeSlides — explicit mode', () => {
@@ -126,5 +172,19 @@ describe('computeSlides — explicit mode', () => {
     expect(titles(slides)).toEqual(['Doc', 'Uno', undefined]);
     expect(slides[0]!.content).toHaveLength(0);
     expect(slides[2]!.content).toHaveLength(1);
+  });
+
+  it('slugs the marked Slide and leaves the post-break group unslugged', () => {
+    const slides = computeSlides(
+      [
+        <Slide key="1" title="Uno">
+          <p>a</p>
+        </Slide>,
+        <SectionBreak key="2" />,
+        <p key="3">b</p>,
+      ],
+      { title: 'Doc', mode: 'explicit' },
+    );
+    expect(slugs(slides)).toEqual([undefined, 'uno', undefined]);
   });
 });
