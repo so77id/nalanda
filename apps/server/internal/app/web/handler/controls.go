@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -185,14 +184,7 @@ func (h *Controls) Create(w http.ResponseWriter, r *http.Request) {
 		h.rerenderNew(w, r, values, fieldErr, "")
 		return
 	}
-	payload, err := json.Marshal(controls.GeneratePayload{})
-	if err != nil {
-		h.Log.Error("controls: encode generate payload", "control", control.ID, "error", err)
-		middleware.WriteError(w, r, http.StatusInternalServerError,
-			"El servidor no pudo encolar la generación.")
-		return
-	}
-	if _, err := h.Runner.Submit(r.Context(), control.ID, jobs.KindGenerate, payload); err != nil {
+	if _, err := h.Runner.Submit(r.Context(), control.ID, jobs.KindGenerate, controls.EmptyPayload); err != nil {
 		h.Log.Error("controls: submit generate job", "control", control.ID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
 			"El servidor no pudo encolar la generación.")

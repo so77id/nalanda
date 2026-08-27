@@ -119,10 +119,10 @@ func (s *fakeStore) SetControlThresholds(_ context.Context, controlID string, ti
 }
 
 // fakeReadingStore is the do-nothing double the pre-WP-F cases use. The
-// WP-F flows are exercised through Service.UploadScan in scans_internal_test.go
-// with a real controlstore. readingsByCopy holds stored readings for the
-// annotate tests (issue #190); empty maps behave exactly like the old
-// do-nothing shape.
+// WP-F flows are exercised through SaveUploadedBatch + AnalyzeBatch in
+// scans_internal_test.go with a real controlstore. readingsByCopy holds
+// stored readings for the annotate tests (issue #190); empty maps behave
+// exactly like the old do-nothing shape.
 type fakeReadingStore struct {
 	readingsByCopy map[string]controls.Reading // key: <controlID>#<copyNumber>
 }
@@ -204,10 +204,41 @@ func req(mutate func(*controls.CreateRequest)) controls.CreateRequest {
 	return r
 }
 
+// createControlSync composes PrepareControl + GenerateAssets — the two
+// halves the runner picks up in production — so the tests exercise the
+// same shape production does. Since ARQ-1 (issue #249 review) the
+// Service.Create wrapper is gone; tests that need both halves in a row
+// call this helper directly.
+func createControlSync(ctx context.Context, svc *controls.Service, req controls.CreateRequest) (controls.Control, error) {
+	control, err := svc.PrepareControl(ctx, req)
+	if err != nil {
+		return controls.Control{}, err
+	}
+	if err := svc.GenerateAssets(ctx, control.ID); err != nil {
+		return controls.Control{}, err
+	}
+	return control, nil
+}
+
+// uploadScanSync composes SaveUploadedBatch + AnalyzeBatch — same
+// shape the runner picks up in production. Same reasoning as
+// createControlSync; ARQ-1 removed the Service.UploadScan wrapper.
+func uploadScanSync(ctx context.Context, svc *controls.Service, req controls.UploadRequest) (controls.SaveUploadedBatchResult, controls.Report, error) {
+	save, err := svc.SaveUploadedBatch(ctx, req)
+	if err != nil {
+		return controls.SaveUploadedBatchResult{}, controls.Report{}, err
+	}
+	report, err := svc.AnalyzeBatch(ctx, req.ControlID, save.BatchName, save.Ticked, save.Unsure)
+	if err != nil {
+		return save, controls.Report{}, err
+	}
+	return save, report, nil
+}
+
 func TestCreateWritesFilesAndPersistsTheControl(t *testing.T) {
 	svc, store, gen, workDir := newService(t)
 
-	got, err := svc.Create(context.Background(), req(nil))
+	got, err := createControlSync(context.Background(), svc, req(nil))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -289,7 +320,7 @@ func TestCreateSurfacesBankErrorsAsIs(t *testing.T) {
 
 	// Inverted range → ErrRangeInverted, no rollback needed because no
 	// files were staged.
-	_, err := svc.Create(context.Background(), req(func(r *controls.CreateRequest) {
+	_, err := createControlSync(context.Background(), svc, req(func(r *controls.CreateRequest) {
 		r.RangeFrom = bank.SectionRef{Document: "flujo", Section: "bucles"}
 		r.RangeTo = bank.SectionRef{Document: "welcome", Section: "hola"}
 	}))
@@ -298,7 +329,7 @@ func TestCreateSurfacesBankErrorsAsIs(t *testing.T) {
 	}
 
 	// Unknown section → ErrUnknownSection.
-	_, err = svc.Create(context.Background(), req(func(r *controls.CreateRequest) {
+	_, err = createControlSync(context.Background(), svc, req(func(r *controls.CreateRequest) {
 		r.RangeFrom = bank.SectionRef{Document: "welcome", Section: "no-existe"}
 	}))
 	if !errors.Is(err, bank.ErrUnknownSection) {
@@ -309,7 +340,7 @@ func TestCreateSurfacesBankErrorsAsIs(t *testing.T) {
 func TestCreateRefusesAPoolSmallerThanTheCopyAsksFor(t *testing.T) {
 	svc, _, _, _ := newService(t)
 
-	_, err := svc.Create(context.Background(), req(func(r *controls.CreateRequest) {
+	_, err := createControlSync(context.Background(), svc, req(func(r *controls.CreateRequest) {
 		r.QuestionsPerCopy = 8 // pool has 4
 	}))
 	if !errors.Is(err, controls.ErrPoolTooSmall) {
@@ -334,7 +365,7 @@ func TestGenerateAssetsRefusalLeavesTheRowAndFilesIntact(t *testing.T) {
 	svc, store, gen, workDir := newService(t)
 	gen.Err = controls.ErrGeneratorRefused
 
-	_, err := svc.Create(context.Background(), req(nil))
+	_, err := createControlSync(context.Background(), svc, req(nil))
 	if !errors.Is(err, controls.ErrGeneratorRefused) {
 		t.Fatalf("Create(worker refused): %v, want ErrGeneratorRefused", err)
 	}
@@ -351,7 +382,7 @@ func TestGenerateAssetsSujetMissingLeavesTheRowAndFilesIntact(t *testing.T) {
 	svc, store, gen, workDir := newService(t)
 	gen.SujetSize = 0
 
-	_, err := svc.Create(context.Background(), req(nil))
+	_, err := createControlSync(context.Background(), svc, req(nil))
 	if !errors.Is(err, controls.ErrSujetMissing) {
 		t.Fatalf("Create(0-byte sujet): %v, want ErrSujetMissing", err)
 	}
@@ -367,7 +398,7 @@ func TestCreateRollsBackWhenTheStoreFails(t *testing.T) {
 	svc, store, _, workDir := newService(t)
 	store.fail = errors.New("boom")
 
-	_, err := svc.Create(context.Background(), req(nil))
+	_, err := createControlSync(context.Background(), svc, req(nil))
 	if err == nil || !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("Create(store fails): %v, want error carrying 'boom'", err)
 	}
@@ -407,7 +438,7 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
-	control, err := svc.Create(context.Background(), controls.CreateRequest{
+	control, err := createControlSync(context.Background(), svc, controls.CreateRequest{
 		Name:             "c",
 		RangeFrom:        bank.SectionRef{Document: "arr", Section: "b"},
 		RangeTo:          bank.SectionRef{Document: "arr", Section: "b"},
@@ -439,7 +470,7 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 // as expected of a preserved counter derived from directory listing.
 func TestUploadScanPreservesTheBatchOnWorkerRefusal(t *testing.T) {
 	svc, _, gen, workDir := newService(t)
-	control, err := svc.Create(context.Background(), req(nil))
+	control, err := createControlSync(context.Background(), svc, req(nil))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
@@ -448,7 +479,7 @@ func TestUploadScanPreservesTheBatchOnWorkerRefusal(t *testing.T) {
 		Status: 400, Message: "scan not recognized",
 		Detail: "ERR: /work/controls/x/scans/0001.pdf scan not recognized",
 	}
-	_, err = svc.UploadScan(context.Background(), controls.UploadRequest{
+	_, _, err = uploadScanSync(context.Background(), svc, controls.UploadRequest{
 		ControlID: control.ID,
 		Filename:  "batch.pdf",
 		Content:   io.NopCloser(strings.NewReader("%PDF-fake")),
@@ -473,7 +504,7 @@ func TestUploadScanPreservesTheBatchOnWorkerRefusal(t *testing.T) {
 				ExpectedQuestions: 3, SeenQuestions: 3},
 		},
 	}}
-	result, err := svc.UploadScan(context.Background(), controls.UploadRequest{
+	save, _, err := uploadScanSync(context.Background(), svc, controls.UploadRequest{
 		ControlID: control.ID,
 		Filename:  "batch.pdf",
 		Content:   io.NopCloser(strings.NewReader("%PDF-fake-2")),
@@ -483,8 +514,8 @@ func TestUploadScanPreservesTheBatchOnWorkerRefusal(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second UploadScan: %v", err)
 	}
-	if result.BatchNumber != 2 {
-		t.Errorf("second BatchNumber = %d, want 2 (batch-1.pdf survived the refusal)", result.BatchNumber)
+	if save.BatchNumber != 2 {
+		t.Errorf("second BatchNumber = %d, want 2 (batch-1.pdf survived the refusal)", save.BatchNumber)
 	}
 	batch2 := filepath.Join(workDir, "controls", control.ID, "uploads", "batch-2.pdf")
 	if _, statErr := os.Stat(batch2); statErr != nil {
@@ -500,12 +531,12 @@ func TestUploadScanPreservesTheBatchOnWorkerRefusal(t *testing.T) {
 // analyzer is called and before the batch file touches the disk.
 func TestUploadScanRefusesAnInvalidPair(t *testing.T) {
 	svc, store, gen, workDir := newService(t)
-	control, err := svc.Create(context.Background(), req(nil))
+	control, err := createControlSync(context.Background(), svc, req(nil))
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
 
-	_, err = svc.UploadScan(context.Background(), controls.UploadRequest{
+	_, _, err = uploadScanSync(context.Background(), svc, controls.UploadRequest{
 		ControlID: control.ID,
 		Filename:  "batch.pdf",
 		Content:   io.NopCloser(strings.NewReader("%PDF-fake")),

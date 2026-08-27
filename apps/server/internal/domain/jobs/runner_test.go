@@ -31,7 +31,7 @@ func newFakeStore() *fakeStore {
 	}
 }
 
-func (s *fakeStore) Insert(_ context.Context, j jobs.NewJob) (int64, error) {
+func (s *fakeStore) Insert(_ context.Context, j jobs.NewJob, at time.Time) (int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.nextID++
@@ -42,7 +42,7 @@ func (s *fakeStore) Insert(_ context.Context, j jobs.NewJob) (int64, error) {
 		Kind:      j.Kind,
 		Status:    jobs.StatusQueued,
 		Payload:   append([]byte(nil), j.Payload...),
-		CreatedAt: s.newAtFn(),
+		CreatedAt: at,
 	}
 	return id, nil
 }
@@ -163,11 +163,20 @@ func (s *fakeStore) FailRunningWithMessage(_ context.Context, msg string, at tim
 	return n, nil
 }
 
-// stubHandlers returns a Handlers map with `handler` bound to `kind`.
-// Since NewRunner now allows partial registration (S3 wires only one
-// kind at first), the fixture registers only the one under test.
+// stubHandlers returns a Handlers map with `handler` bound to `kind`
+// and no-ops registered for the other ValidKinds — NewRunner refuses a
+// map missing any of the four kinds since ARQ-3.
 func stubHandlers(kind jobs.Kind, handler jobs.Handler) jobs.Handlers {
-	return jobs.Handlers{kind: handler}
+	noop := func(context.Context, string, []byte) error { return nil }
+	h := jobs.Handlers{}
+	for _, k := range jobs.ValidKinds {
+		if k == kind {
+			h[k] = handler
+		} else {
+			h[k] = noop
+		}
+	}
+	return h
 }
 
 func silentLogger() *slog.Logger {
@@ -331,7 +340,7 @@ func TestSweepRePushesQueuedRowsToTheRunner(t *testing.T) {
 	// wrote it but died before pushing to the in-memory channel).
 	id, err := store.Insert(context.Background(), jobs.NewJob{
 		ControlID: "CTRL001", Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	if err != nil {
 		t.Fatalf("seeding queued row: %v", err)
 	}
@@ -355,7 +364,7 @@ func TestSweepFailsRunningRowsFromABeforeCrashAsRestartMidJob(t *testing.T) {
 	// Seed a `running` row (previous server died mid-job).
 	id, err := store.Insert(context.Background(), jobs.NewJob{
 		ControlID: "CTRL001", Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	if err != nil {
 		t.Fatalf("seeding: %v", err)
 	}
@@ -382,45 +391,24 @@ func TestSweepFailsRunningRowsFromABeforeCrashAsRestartMidJob(t *testing.T) {
 	}
 }
 
-func TestSubmitRefusesAnUnregisteredKind(t *testing.T) {
+// ARQ-3 (issue #249): NewRunner refuses a Handlers map missing any of
+// the four ValidKinds — a wiring mistake is a panic at boot, matching
+// how NewService / NewControls / NewAuth already refuse a nil
+// dependency (apps/server/CLAUDE.md rules-for-Claude, §Errors).
+func TestNewRunnerPanicsWhenAKindHasNoHandler(t *testing.T) {
 	store := newFakeStore()
-	runner := jobs.NewRunner(store, stubHandlers(jobs.KindAnalyse,
-		func(context.Context, string, []byte) error { return nil }),
-		silentLogger(), time.Now)
-
-	// Only KindAnalyse is registered; a Submit for a different kind is
-	// refused rather than accepted and never run.
-	_, err := runner.Submit(context.Background(), "CTRL001", jobs.KindGenerate, []byte(`{}`))
-	if err == nil {
-		t.Errorf("Submit accepted an unregistered kind; want an error")
+	defer func() {
+		if r := recover(); r == nil {
+			t.Errorf("NewRunner accepted a Handlers map missing KindAnnotate; want a boot-time panic")
+		}
+	}()
+	// Handlers has three of the four kinds — KindAnnotate is missing.
+	handlers := jobs.Handlers{
+		jobs.KindReanalyse: func(context.Context, string, []byte) error { return nil },
+		jobs.KindAnalyse:   func(context.Context, string, []byte) error { return nil },
+		jobs.KindGenerate:  func(context.Context, string, []byte) error { return nil },
 	}
-}
-
-func TestRunnerFailsAQueuedRowWhoseKindHasNoHandler(t *testing.T) {
-	store := newFakeStore()
-	// Only KindAnalyse is registered — but a KindGenerate row is
-	// pre-seeded on the store (a previous binary wrote it, then this
-	// binary boots without that handler yet).
-	if _, err := store.Insert(context.Background(), jobs.NewJob{
-		ControlID: "CTRL001", Kind: jobs.KindGenerate, Payload: []byte(`{}`),
-	}); err != nil {
-		t.Fatalf("seeding: %v", err)
-	}
-	runner := jobs.NewRunner(store, stubHandlers(jobs.KindAnalyse,
-		func(context.Context, string, []byte) error { return nil }),
-		silentLogger(), time.Now)
-	if err := runner.Sweep(context.Background()); err != nil {
-		t.Fatalf("Sweep: %v", err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go runner.Start(ctx)
-
-	// It ends up failed rather than stuck queued.
-	final := waitForStatus(t, store, 1, jobs.StatusFailed)
-	if final.Error == "" {
-		t.Errorf("unknown-kind row has empty Error; want the operator-facing message")
-	}
+	jobs.NewRunner(store, handlers, silentLogger(), time.Now)
 }
 
 // mustLatestID reads back the store's latest job id — a helper for

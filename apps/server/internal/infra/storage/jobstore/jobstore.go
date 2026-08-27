@@ -37,14 +37,15 @@ var _ jobs.Store = (*Store)(nil)
 // scanJob below.
 const jobColumns = "id, control_id, kind, status, COALESCE(error, ''), COALESCE(detail, ''), payload_json, created_at, started_at, finished_at, viewed_at"
 
-// Insert creates a new job in `queued` and returns its id. created_at is
-// stamped by the store (unix seconds, matching every other table).
-func (s *Store) Insert(ctx context.Context, j jobs.NewJob) (int64, error) {
+// Insert creates a new job in `queued` and returns its id. createdAt
+// is the runner's clock (unix seconds on the wire, matching every
+// other table).
+func (s *Store) Insert(ctx context.Context, j jobs.NewJob, createdAt time.Time) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `
         INSERT INTO job (control_id, kind, status, payload_json, created_at)
         VALUES (?, ?, ?, ?, ?)`,
 		j.ControlID, string(j.Kind), string(jobs.StatusQueued),
-		string(j.Payload), time.Now().Unix(),
+		string(j.Payload), createdAt.Unix(),
 	)
 	if err != nil {
 		return 0, fmt.Errorf("jobstore.Insert: %w", err)
@@ -56,30 +57,37 @@ func (s *Store) Insert(ctx context.Context, j jobs.NewJob) (int64, error) {
 	return id, nil
 }
 
-// MarkRunning transitions a job to `running` and stamps started_at.
+// MarkRunning transitions a job from `queued` to `running` and stamps
+// started_at. The `status = 'queued'` guard is belt-and-braces: the
+// runner is a single goroutine so double-processing is impossible by
+// design, but the WHERE clause turns any future concurrency mistake
+// (a second Start goroutine, an accidental extra call) into a loud
+// ErrJobNotFound instead of a silent status corruption (COR-3).
 func (s *Store) MarkRunning(ctx context.Context, id int64, startedAt time.Time) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE job SET status = ?, started_at = ? WHERE id = ?`,
-		string(jobs.StatusRunning), startedAt.Unix(), id,
+		`UPDATE job SET status = ?, started_at = ? WHERE id = ? AND status = ?`,
+		string(jobs.StatusRunning), startedAt.Unix(), id, string(jobs.StatusQueued),
 	)
 	return checkOne(res, err, id, "MarkRunning")
 }
 
-// MarkDone transitions a job to `done` and stamps finished_at.
+// MarkDone transitions a job from `running` to `done` and stamps
+// finished_at. Same status guard as MarkRunning; see that comment.
 func (s *Store) MarkDone(ctx context.Context, id int64, finishedAt time.Time) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE job SET status = ?, finished_at = ? WHERE id = ?`,
-		string(jobs.StatusDone), finishedAt.Unix(), id,
+		`UPDATE job SET status = ?, finished_at = ? WHERE id = ? AND status = ?`,
+		string(jobs.StatusDone), finishedAt.Unix(), id, string(jobs.StatusRunning),
 	)
 	return checkOne(res, err, id, "MarkDone")
 }
 
-// MarkFailed transitions a job to `failed` with a short error message and
-// a long detail, and stamps finished_at.
+// MarkFailed transitions a job from `running` to `failed` with a short
+// error message and a long detail, and stamps finished_at. Same
+// status guard as MarkRunning; see that comment.
 func (s *Store) MarkFailed(ctx context.Context, id int64, msg, detail string, finishedAt time.Time) error {
 	res, err := s.db.ExecContext(ctx,
-		`UPDATE job SET status = ?, error = ?, detail = ?, finished_at = ? WHERE id = ?`,
-		string(jobs.StatusFailed), msg, detail, finishedAt.Unix(), id,
+		`UPDATE job SET status = ?, error = ?, detail = ?, finished_at = ? WHERE id = ? AND status = ?`,
+		string(jobs.StatusFailed), msg, detail, finishedAt.Unix(), id, string(jobs.StatusRunning),
 	)
 	return checkOne(res, err, id, "MarkFailed")
 }

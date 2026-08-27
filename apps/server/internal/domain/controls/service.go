@@ -150,31 +150,12 @@ type CreateRequest struct {
 	CreatedBy int64
 }
 
-// Create is the whole orchestration: resolve the range against the bank,
-// stage the inputs on the shared volume, ask the worker to compile, verify
-// the PDF exists, persist the row.
-//
-// All-or-nothing (§Failure modes). Every path past the directory creation
-// is guarded by a rollback that removes the whole project directory on
-// failure: a control never has files without a database row, and vice
-// versa — the "the row is committed and the files are on disk, or neither"
-// promise.
-func (s *Service) Create(ctx context.Context, req CreateRequest) (Control, error) {
-	control, err := s.PrepareControl(ctx, req)
-	if err != nil {
-		return Control{}, err
-	}
-	if err := s.GenerateAssets(ctx, control.ID); err != nil {
-		return Control{}, err
-	}
-	return control, nil
-}
-
-// PrepareControl is the sync half of Create (issue #249, S5): resolve
-// the pool, stage the input files on the shared volume, compile the
-// tex, write the pool snapshot, and commit the row. The AMC worker
-// call — Generator.Generate + sujet.pdf stat — is NOT run here; it
-// lives on the async GenerateAssets so the HTTP request returns fast.
+// PrepareControl is the sync half of the "create control" flow (issue
+// #249, S5): resolve the pool, stage the input files on the shared
+// volume, compile the tex, write the pool snapshot, and commit the
+// row. The AMC worker call — Generator.Generate + sujet.pdf stat —
+// is NOT run here; it lives on the async GenerateAssets so the HTTP
+// request returns fast.
 //
 // The rollback still covers this half's failures (a bad tex compile,
 // a bad write): if any step here fails the project directory is

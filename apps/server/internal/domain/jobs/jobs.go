@@ -76,9 +76,11 @@ type NewJob struct {
 // on the domain side, per backend-code-style.md §The dependency rule.
 // The jobstore package implements it over SQLite.
 type Store interface {
-	// Insert creates a new job in `queued` and returns its id. created_at
-	// is stamped by the store — the runner never handles clock skew.
-	Insert(ctx context.Context, j NewJob) (int64, error)
+	// Insert creates a new job in `queued`, stamps createdAt on the
+	// row and returns its id. The runner passes r.now() from its
+	// injected clock, so tests share the same clock the mark family
+	// already accepts.
+	Insert(ctx context.Context, j NewJob, createdAt time.Time) (int64, error)
 
 	// MarkRunning transitions a job to `running` and stamps started_at.
 	// Returns ErrJobNotFound when no row has that id.

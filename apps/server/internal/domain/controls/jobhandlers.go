@@ -38,17 +38,12 @@ type AnalysePayload struct {
 	Unsure    float64 `json:"unsure"`
 }
 
-// GeneratePayload is what the POST /controls handler serialises before
-// Submit (issue #249, S5). Empty: the async GenerateAssets reads the
-// control row for Copies + the derived paths, so nothing needs to
-// ride on the payload. Kept as a named type so a future addition
-// (e.g. a per-run seed) has a home.
-type GeneratePayload struct{}
-
-// AnnotatePayload is what the "Cerrar corrección" handler serialises
-// before Submit (issue #249, S6). Empty: the async
-// AnnotateAllCleanCopies walks the persisted readings on its own.
-type AnnotatePayload struct{}
+// EmptyPayload is the literal `{}` bytes the KindGenerate and
+// KindAnnotate submissions carry — both handlers ignore the payload
+// (their async methods read the control row for what they need).
+// Kept as a package-level constant so the two call sites share the
+// literal and a reader sees why nothing rides on the wire.
+var EmptyPayload = []byte("{}")
 
 // NewReanalyseHandler returns the jobs.Handler for KindReanalyse.
 // controlID comes from the job row; payload is the JSON-marshalled

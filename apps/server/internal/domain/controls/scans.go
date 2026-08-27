@@ -25,10 +25,10 @@ const (
 	scanFileExt    = ".pdf"
 )
 
-// UploadRequest is what a handler hands to Service.UploadScan. The bytes
-// are streamed to disk and never held whole in memory — a 40-copy batch
-// is ~10 MB and would work either way, but the upper bound in Config is
-// 100 MB.
+// UploadRequest is what a handler hands to Service.SaveUploadedBatch.
+// The bytes are streamed to disk and never held whole in memory — a
+// 40-copy batch is ~10 MB and would work either way, but the upper
+// bound in Config is 100 MB.
 type UploadRequest struct {
 	ControlID string
 	// Filename is the ORIGINAL filename from the multipart part, used only
@@ -44,60 +44,6 @@ type UploadRequest struct {
 	// calling, so a concrete pair always arrives here.
 	Ticked float64
 	Unsure float64
-}
-
-// UploadResult reports what the upload produced. Not consumed today, but a
-// handler that renders the result table wants to know which copies just
-// changed and by how many the total moved — a follow-up test hangs off
-// this.
-type UploadResult struct {
-	BatchNumber int
-	ScanPath    string // relative to WorkDir
-	Report      Report
-}
-
-// UploadScan is the whole scan pipeline: save the PDF to a batch file
-// under the control's uploads/ directory, call /analyse, persist the
-// report, mark missing copies as not_present, and flip the control to
-// InReview (unless it is already Graded — a re-upload after close still
-// updates the readings but does not un-close the correction).
-//
-// Failure modes:
-//   - No such control → ErrControlNotFound.
-//   - Copying the upload to disk failed → wraps the io error (the partial
-//     file, if any, is removed inside writeUpload).
-//   - /analyse refused or was unreachable → wraps ErrAnalyzer*. The
-//     uploaded PDF SURVIVES on disk (issue #210): the batch is the
-//     artefact an operator would inspect, and erasing it on refusal
-//     forced a re-scan when the printed sheets — not the file — were
-//     the problem (2026-08-19 incident). The DB is not touched on this
-//     branch — Analyzer.Analyze runs before any store write.
-//
-// DB-atomicity is scoped: the reading report itself is transactional
-// because UpsertReadingsFromReport opens a single tx around every insert
-// it does. The three post-analyse writes as a sequence are NOT — they go
-// through two different stores (Store.SetControlThresholds first, then
-// two ReadingStore calls) and there is no outer transaction wrapping
-// them. A failure in MarkMissingAsNotPresent (last step) leaves the
-// updated thresholds and the persisted report committed; a failure in
-// UpsertReadingsFromReport leaves the updated thresholds committed. In
-// operation this class of failure is a store outage and the professor
-// retries — a widened transactional shape (single-tx PersistReport) is
-// a follow-up, same as the SaveOverrides note below.
-func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResult, error) {
-	save, err := s.SaveUploadedBatch(ctx, req)
-	if err != nil {
-		return UploadResult{}, err
-	}
-	report, err := s.AnalyzeBatch(ctx, req.ControlID, save.BatchName, save.Ticked, save.Unsure)
-	if err != nil {
-		return UploadResult{}, err
-	}
-	return UploadResult{
-		BatchNumber: save.BatchNumber,
-		ScanPath:    filepath.Join(projectPrefix, req.ControlID, uploadsDir, save.BatchName),
-		Report:      report,
-	}, nil
 }
 
 // SaveUploadedBatch is the sync half of the upload flow (issue #249):
@@ -156,7 +102,7 @@ type SaveUploadedBatchResult struct {
 // Analyzer.Analyze onward. Called by the analyse job handler in the
 // runner goroutine; the batch file must already exist on disk.
 //
-// Failure modes match the pre-#249 UploadScan (same wrapped errors,
+// Failure modes match the pre-#249 sync path (same wrapped errors,
 // same batch-survives-failure contract). The three post-analyse writes
 // have the same non-atomic sequencing note: a mid-loop store outage
 // leaves the earlier writes committed — a follow-up widens the tx.

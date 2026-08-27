@@ -282,10 +282,7 @@ func (h *Controls) CloseCorrection(w http.ResponseWriter, r *http.Request) {
 	// since analyse and reanalyse both annotate as they go); the
 	// operator scenario is a control read while AnnotateEnabled was
 	// false — closing the correction back-fills the PDFs.
-	payload, err := json.Marshal(controls.AnnotatePayload{})
-	if err != nil {
-		h.Log.Error("close correction: encode annotate payload", "control", id, "error", err)
-	} else if _, err := h.Runner.Submit(r.Context(), id, jobs.KindAnnotate, payload); err != nil {
+	if _, err := h.Runner.Submit(r.Context(), id, jobs.KindAnnotate, controls.EmptyPayload); err != nil {
 		h.Log.Error("close correction: submit annotate job", "control", id, "error", err)
 	}
 	flash.Set(w, h.secureCookie, "Corrección cerrada.")

@@ -26,16 +26,20 @@ import (
 func (f *controlsFixture) createControl(t *testing.T, name string, copies int) string {
 	t.Helper()
 	ctx := context.Background()
-	c, err := f.service.Create(ctx, controls.CreateRequest{
+	req := controls.CreateRequest{
 		Name:             name,
 		RangeFrom:        bank.SectionRef{Document: "flujo", Section: "if-else"},
 		RangeTo:          bank.SectionRef{Document: "flujo", Section: "bucles"},
 		QuestionsPerCopy: 2,
 		Copies:           copies,
 		CreatedBy:        f.user.ID,
-	})
+	}
+	c, err := f.service.PrepareControl(ctx, req)
 	if err != nil {
-		t.Fatalf("Create: %v", err)
+		t.Fatalf("PrepareControl: %v", err)
+	}
+	if err := f.service.GenerateAssets(ctx, c.ID); err != nil {
+		t.Fatalf("GenerateAssets: %v", err)
 	}
 	return c.ID
 }

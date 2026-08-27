@@ -65,7 +65,7 @@ func TestInsertAndByIDRoundTripAJob(t *testing.T) {
 		ControlID: controlID,
 		Kind:      jobs.KindReanalyse,
 		Payload:   []byte(`{"ticked":0.5,"unsure":0.3}`),
-	})
+	}, time.Now())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
 	}
@@ -121,7 +121,7 @@ func TestMarkRunningStampsStartedAtAndFlipsStatus(t *testing.T) {
 
 	id, err := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	if err != nil {
 		t.Fatalf("Insert: %v", err)
 	}
@@ -148,7 +148,7 @@ func TestMarkDoneStampsFinishedAtAndFlipsStatus(t *testing.T) {
 
 	id, _ := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	_ = store.MarkRunning(ctx, id, time.Unix(1_735_000_000, 0))
 
 	finishedAt := time.Unix(1_735_000_030, 0)
@@ -170,7 +170,7 @@ func TestMarkFailedStoresBothMessages(t *testing.T) {
 
 	id, _ := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	_ = store.MarkRunning(ctx, id, time.Unix(1_735_000_000, 0))
 
 	finishedAt := time.Unix(1_735_000_010, 0)
@@ -199,7 +199,7 @@ func TestMarkDismissedStampsViewedAt(t *testing.T) {
 
 	id, _ := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	_ = store.MarkRunning(ctx, id, time.Unix(1_735_000_000, 0))
 	_ = store.MarkDone(ctx, id, time.Unix(1_735_000_030, 0))
 
@@ -217,15 +217,20 @@ func TestLatestForControlReturnsTheMostRecentJob(t *testing.T) {
 	ctx, db, controlID := migrated(t)
 	store := jobstore.New(db)
 
+	// Explicit distinct clocks: no time.Sleep needed since COR-2 moved
+	// createdAt into the Insert parameter — same shape the mark family
+	// already uses. LatestForControl orders by created_at DESC, then
+	// by id DESC as tie-breaker (see jobstore.go), so a same-second
+	// pair would still resolve deterministically; two visibly distinct
+	// timestamps here are the honest signal.
+	early := time.Unix(1_735_000_000, 0)
+	late := time.Unix(1_735_000_030, 0)
 	first, _ := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
-	})
-	// SQLite created_at is unixepoch() at INSERT — bump a second so ordering
-	// is unambiguous; two INSERTs in the same second would tie.
-	time.Sleep(1100 * time.Millisecond)
+	}, early)
 	second, _ := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
-	})
+	}, late)
 
 	got, err := store.LatestForControl(ctx, controlID)
 	if err != nil {
@@ -252,13 +257,13 @@ func TestQueuedIDsListsEveryQueuedJobOldestFirst(t *testing.T) {
 
 	first, _ := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	second, _ := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	third, _ := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindAnnotate, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	// Move `second` to `done`, so it drops out of QueuedIDs.
 	_ = store.MarkRunning(ctx, second, time.Unix(1_735_000_000, 0))
 	_ = store.MarkDone(ctx, second, time.Unix(1_735_000_030, 0))
@@ -280,18 +285,18 @@ func TestFailRunningWithMessageFlipsEveryRunningRow(t *testing.T) {
 	// Two `running` rows, one `queued` (untouched), one `done` (untouched).
 	running1, _ := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindAnalyse, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	_ = store.MarkRunning(ctx, running1, time.Unix(1_735_000_000, 0))
 	running2, _ := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	_ = store.MarkRunning(ctx, running2, time.Unix(1_735_000_000, 0))
 	queued, _ := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	done, _ := store.Insert(ctx, jobs.NewJob{
 		ControlID: controlID, Kind: jobs.KindAnnotate, Payload: []byte(`{}`),
-	})
+	}, time.Now())
 	_ = store.MarkRunning(ctx, done, time.Unix(1_735_000_000, 0))
 	_ = store.MarkDone(ctx, done, time.Unix(1_735_000_030, 0))
 
