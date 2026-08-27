@@ -815,3 +815,265 @@ matemático de Fibonacci es una función lineal de $$n$$ (lo hicimos en
 </Slide>
 
 <SectionBreak />
+
+<Slide title="Donald Michie y las 'memo functions' (1968)">
+La primera técnica se llama **memoización**. La idea, elemental una vez
+enunciada: **si una función va a ser llamada varias veces con el mismo
+argumento, guardá el resultado la primera vez y devolvelo cacheado las
+siguientes**.
+
+**Donald Michie** (Reino Unido, 1923–2007) — matemático, criptoanalista
+en Bletchley Park con Turing, y pionero de la inteligencia artificial —
+publica en 1968 en *Nature* el paper *["Memo functions and machine
+learning"](https://www.nature.com/articles/218019a0)* donde propone el
+concepto como técnica general para acelerar cualquier función pura.
+
+La cita clave del paper:
+
+> *"A memo function is one that both remembers its own past values and
+> can recompute them when necessary. It differs from an ordinary
+> function only in that its evaluation and its storage are indissolubly
+> linked."*
+
+**Por qué funciona con Fibonacci**: `fib` es una función **pura** — su
+salida depende solo de $$n$$, no hay estado externo. Y como vimos en el
+árbol de `fib(5)`, hay **muchísimos argumentos que se repiten**. Guardar
+cada resultado la primera vez que se calcula transforma cada llamada
+repetida en una lectura de tabla — trabajo constante — y la explosión
+exponencial desaparece.
+
+**Precondiciones para memoizar** (Michie, y sigue vigente):
+
+- La función tiene que ser **pura**: mismo argumento ⇒ mismo resultado.
+- El **espacio de argumentos** tiene que ser tratable (no podés memoizar
+  una función que recibe strings arbitrarios sin acotar la memoria).
+- El **beneficio** existe cuando hay **subproblemas repetidos** (misma
+  llamada aparece varias veces en el árbol). Sin repetición no hay nada
+  que ahorrar.
+
+Fibonacci cumple los tres. Vamos a escribir la versión memoizada.
+</Slide>
+
+<Slide title="Fibonacci memoizado (top-down)">
+Le agregamos una tabla `long[] cache` que guarda `fib(i)` para cada `i`
+ya calculado, y un `boolean[] hecho` que dice si esa celda ya fue
+computada. La estrategia es **top-down**: seguimos escribiendo la
+recursión, pero antes de recursar consultamos la tabla y solo bajamos si
+no está.
+
+```java
+class FibMemoizado {
+    static long[] cache;
+    static boolean[] hecho;
+
+    static long fib(int n) {
+        if (n < 2) return n;
+        if (hecho[n]) return cache[n];
+        long r = fib(n - 1) + fib(n - 2);
+        cache[n] = r;
+        hecho[n] = true;
+        return r;
+    }
+
+    public static void main(String[] args) {
+        int n = 40;
+        cache = new long[n + 1];
+        hecho = new boolean[n + 1];
+        System.out.println(fib(n));
+    }
+}
+```
+
+**Nota de estilo**: usamos `long[] cache` + `boolean[] hecho` en lugar de
+`HashMap<Integer, Long>` a propósito. Un `boolean[]` separado hace
+**explícito** que existe un estado *"todavía no calculado"* distinto de
+`0`, sin confiar en que un valor centinela no pueda aparecer legítimamente.
+Cuando en el futuro veamos estructuras más elaboradas usaremos `HashMap`;
+por ahora dos arreglos son la forma más honesta.
+
+**Lo que cambió respecto de la versión desnuda**: dos líneas.
+
+- **Línea 6**: *"si ya lo calculé antes, lo devuelvo directo"*. Es la
+  primera vez que un `fib(i)` se repite: la primera vez lo calcula y
+  guarda; la segunda vez lo lee.
+- **Líneas 8-9**: *"lo acabo de calcular, lo guardo para las próximas"*.
+
+Nada más. La recursión sigue siendo recursión; simplemente **recuerda**.
+</Slide>
+
+<Slide title="El costo del memoizado: $$T(n) = T(n-1) + O(1)$$ ⇒ $$\Theta(n)$$">
+La memoización cambia la forma de la recurrencia. Cada `fib(i)` distinto
+se **calcula una sola vez** — la segunda invocación con el mismo `i` sale
+del cache en tiempo constante.
+
+Sin memoización teníamos $$T(n) = T(n-1) + T(n-2) + c$$ — dos llamadas
+recursivas de tamaño no trivial. Con memoización, **de las dos llamadas
+solo una hace trabajo real**: `fib(n-1)` es la primera vez que se pide,
+y para llegar hasta ahí recorrió `fib(n-2)` también — así que cuando
+desde arriba llamamos a `fib(n-2)`, **ya está en el cache**. Devuelve
+constante:
+
+<ComplexityCounter
+  algorithm="fibMemoizado"
+  mode="recursion"
+  code={`static long fib(int n) {
+    if (n < 2) return n;
+    if (hecho[n]) return cache[n];
+    long r = fib(n - 1) + fib(n - 2);
+    cache[n] = r;
+    hecho[n] = true;
+    return r;
+}`}
+  data={{
+    annotations: {
+      2: { note: 'caso base ⇒ c' },
+      3: { note: 'cache hit ⇒ O(1)' },
+      4: { note: 'primera llamada real: T(n-1). Segunda: ya cacheada ⇒ O(1)' },
+    },
+    recurrence: 'T(n) = T(n-1) + O(1)',
+    base: { 'T(0)': 'c', 'T(1)': 'c' },
+    unroll: [
+      { form: 'T(n) = T(n-1) + O(1)', note: 'punto de partida' },
+      { form: 'T(n) = T(n-2) + O(1) + O(1)', note: 'sustituimos T(n-1)' },
+      { form: 'T(n) = T(n-3) + O(1) + O(1) + O(1)', note: 'sustituimos T(n-2)' },
+      { form: '⋮', note: 'cada nivel agrega una O(1) y baja n en uno' },
+      { form: 'T(n) = T(0) + n · O(1)', note: 'después de n sustituciones' },
+      { form: 'T(n) = c + n · O(1)', note: 'T(0) = c' },
+    ],
+    closedForm: 'T(n) = Θ(n)',
+  }}
+/>
+
+Pasamos de **$$\Theta(\varphi^n)$$ a $$\Theta(n)$$**. En números concretos,
+para $$n = 40$$: el recursivo naive hacía del orden de
+$$\varphi^{40} \approx 10^8$$ operaciones; el memoizado hace del orden
+de $$40$$. **Ocho órdenes de magnitud de mejora**, con dos líneas de
+código añadidas.
+
+**Trade-off en memoria**: el cache y el arreglo `hecho` ocupan $$n+1$$
+casillas cada uno, contra las **dos** variables del iterativo de
+[[arrays-y-funciones]]. Pagamos memoria para ahorrar tiempo. El análisis
+formal de M(n) para código iterativo vive en [[complejidad-espacial]];
+acá basta con reconocer que la mejora en $$T(n)$$ tiene un costo en
+$$M(n)$$ visible y que ese costo también es lineal.
+</Slide>
+
+<Slide title="Tabulación (bottom-up): la otra manera de arreglarlo">
+La memoización recorre el árbol de arriba hacia abajo y guarda cada
+resultado la primera vez que aparece. La **tabulación** hace lo mismo
+pero desde el otro extremo: **construye la tabla desde $$0$$ hacia
+arriba**, en orden, y cada valor se calcula una única vez usando los
+que ya están.
+
+```java
+class FibTabulado {
+    static long fib(int n) {
+        if (n < 2) return n;
+        long[] f = new long[n + 1];
+        f[0] = 0;
+        f[1] = 1;
+        for (int i = 2; i <= n; i++) {
+            f[i] = f[i - 1] + f[i - 2];
+        }
+        return f[n];
+    }
+
+    public static void main(String[] args) {
+        System.out.println(fib(40));
+    }
+}
+```
+
+**Sin recursión.** Sin pila de llamadas. Sin `boolean[] hecho` — la
+posición en el `for` es ella misma la evidencia de qué está calculado y
+qué no. El costo temporal es el mismo del memoizado: **$$\Theta(n)$$**
+— una pasada de $$n-1$$ iteraciones, cada una hace trabajo constante.
+
+Comparación con el memoizado top-down:
+
+| | Memoizado (top-down) | Tabulado (bottom-up) |
+|---|---|---|
+| Recursión | Sí, pero cada valor una vez | No |
+| Stack de llamadas | Sí, crece hasta $$n$$ | No |
+| Orden de cálculo | Perezoso: solo lo que se pide | Estricto: todo desde 0 hasta $$n$$ |
+| $$T(n)$$ | $$\Theta(n)$$ | $$\Theta(n)$$ |
+| $$M(n)$$ | $$\Theta(n)$$ (cache + hecho + stack) | $$\Theta(n)$$ (tabla) |
+
+Los dos son **el mismo algoritmo** desde el punto de vista asintótico
+— cambia solo la estrategia. Cuál elegir depende del problema: si querés
+calcular **un solo valor** de una tabla que podría ser enorme, el
+top-down te ahorra las celdas que no vas a mirar; si vas a calcular
+**todos los valores en orden**, el bottom-up es más simple y evita la
+recursión.
+</Slide>
+
+<Slide title="Micro-optimización: solo dos variables">
+La versión tabulada tiene un desperdicio: en cualquier iteración del
+`for`, para calcular `f[i]` solo mirás **los dos valores anteriores**
+`f[i-1]` y `f[i-2]`. Todo lo demás en el arreglo son celdas ya escritas
+que nunca se van a volver a leer.
+
+Si solo nos interesa el **último valor** — que es el caso típico:
+"calcular $$fib(40)$$", no "calcular todos los Fibonacci hasta el 40" —
+podemos tirar el arreglo entero y quedarnos con **dos variables**:
+
+```java
+static long fib(int n) {
+    if (n < 2) return n;
+    long anterior = 0;
+    long actual = 1;
+    for (int i = 2; i <= n; i++) {
+        long siguiente = anterior + actual;
+        anterior = actual;
+        actual = siguiente;
+    }
+    return actual;
+}
+```
+
+**Este es exactamente el `fib` iterativo que escribimos en
+[[arrays-y-funciones]]**. Ahora sabemos de dónde sale: es la
+**tabulación con memoria colapsada**, después de darnos cuenta de que
+la ventana de valores necesarios en cada paso tiene tamaño constante.
+
+El costo temporal sigue siendo **$$\Theta(n)$$** — misma cantidad de
+iteraciones, mismo trabajo constante por iteración. Lo que cambia es la
+memoria: en lugar de una tabla de tamaño $$n+1$$, mantenemos tres
+variables (`anterior`, `actual`, `siguiente`). El análisis formal
+vive en [[complejidad-espacial]]; el mecanismo es lo que importa acá.
+
+**Cuándo hacer esta micro-optimización**: cuando el patrón de acceso al
+cache es de **ventana móvil constante** — el próximo valor depende solo
+de los últimos $$k$$ valores, con $$k$$ constante. Si en cambio podés
+necesitar volver a leer cualquier celda anterior (como cuando calculás
+todas las respuestas a partir de una tabla llena), quedate con la
+tabulación completa.
+</Slide>
+
+<Slide title="Reencuentro con `arrays-y-funciones`">
+Cerramos el círculo. En [[arrays-y-funciones]] escribimos tres versiones
+de `fib` y las medimos. Ahora sabemos **por qué** cada una se comporta
+como se comporta:
+
+| Versión | Cómo la escribimos allá | Qué es en realidad | $$T(n)$$ |
+|---|---|---|---|
+| Con arreglo | `long[] f = new long[n+1]; f[0]=0; f[1]=1; for (…)` | **Tabulación bottom-up** | $$\Theta(n)$$ |
+| Iterativa | `anterior`, `actual`, `siguiente` en el for | **Tabulación con memoria colapsada** | $$\Theta(n)$$ |
+| Recursiva | `if (n<2) return n; return fib(n-1) + fib(n-2);` | **Recursión pura, sin memoria** — subproblemas repetidos | $$\Theta(\varphi^n)$$ |
+
+Las tres son **el mismo algoritmo matemático** — computan la sucesión de
+Fibonacci. Difieren en **cómo manejan la repetición**: la iterativa y la
+del arreglo la evitan (o la deduplican en una tabla); la recursiva sin
+memoria la abraza y paga la cuenta.
+
+**Nueva versión que agregamos hoy**: la **memoizada top-down**, que es
+un intermedio — mantiene la estructura recursiva y le agrega memoria.
+Corre en $$\Theta(n)$$ como las iterativas, pero con la sintaxis
+declarativa de la recursión.
+
+En síntesis: **la recursión no es lenta**; la recursión **sin memoria
+de lo ya calculado** es lenta cuando hay subproblemas repetidos. Con
+memoria es tan buena como cualquier iterativa.
+</Slide>
+
+<SectionBreak />
