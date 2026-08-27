@@ -14,7 +14,7 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
 ## Mandatory reading
 
 - `docs/standards/frontend-code-style.md` — the authoritative `src/` folder layout, naming, component rules and import direction (`app → features → lib`, plus the cross-feature edge allowlist). **Follow, don't innovate.**
-- `docs/standards/design-system.md` — the colour tokens, the legal pairings and the rules for using them. **Read before writing any UI.** A raw Tailwind colour class fails `src/architecture.test.ts`: it is correct in at most one of the two themes, and no jsdom test can see which (#109, ADR-0026).
+- `docs/standards/design-system.md` — the colour tokens, the legal pairings and the rules for using them. **Read before writing any UI.** `src/architecture.test.ts` runs two guards: a raw Tailwind colour class fails one (it is correct in at most one of the two themes, and no jsdom test can see which — #109, ADR-0026), and a colour-shaped class naming an unregistered semantic token (`text-ink-fain`, `bg-brand-primary`, an unaliased `--nl-*`) fails the other with a message that names the missing token (#247). The fix is to register `--color-<name>` in `styles/index.css` @theme with a value under both themes, or to correct the class name.
 - `docs/standards/testing-strategy.md` — the `apps/web` per-commit and pre-PR protocols. Nothing is committed in red.
 - `docs/standards/integration-guides.md` — index of the extension-point guides; read the matching guide before adding a component, a document, or an app.
 
