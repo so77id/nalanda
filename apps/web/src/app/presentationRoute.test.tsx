@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -684,6 +684,59 @@ describe('leaving the presentation from the deck', () => {
     await screen.findByRole('article');
     expect(lastLocation.pathname).toBe(`/d/${firstId}`);
     expect(lastLocation.hash).toBe('');
+  });
+
+  it('scrolls the h2 into view after Escape publishes #<slug>', async () => {
+    // Publishing #<slug> in the URL is not enough — react-router's programmatic
+    // navigate() sets location.hash but does NOT dispatch the browser's own
+    // fragment-scroll (unlike a native <a href="#slug">, which does). Verified
+    // in Chromium at 1440x900: after Escape from slide 2, windowY was 0 and
+    // the reader saw the top of the document, not the section they were
+    // watching. DocumentPage now scrolls the target itself once the article
+    // rehydrates — pin the call so the fix survives.
+    const scrollSpy = vi.fn();
+    // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollSpy;
+    try {
+      await renderAt(`/d/${explicitId}/present?slide=2`);
+      await screen.findByRole('heading', { name: 'Tipos primitivos' });
+
+      fireEvent.keyDown(window, { key: 'Escape' });
+      await screen.findByRole('article');
+      // Wait for MutationObserver in useSections to see the h2 and fire the
+      // scroll effect. `findBy*` retries — a raw `expect` wouldn't wait for the
+      // observer callback.
+      await waitFor(() =>
+        expect(
+          scrollSpy.mock.instances.some((el) => (el as HTMLElement).id === 'tipos-primitivos'),
+          'scrollIntoView was not called on the target h2 after Escape',
+        ).toBe(true),
+      );
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  it('scrolls to the h2 on direct entry to /d/:id#<slug>, once the article rehydrates', async () => {
+    // Same defect on the other axis: entering the book with a fragment while
+    // the document is behind React.lazy means the browser's initial fragment-
+    // scroll (which runs before the article renders) has no target to hit. The
+    // fix runs again when the article's h2 arrives.
+    const scrollSpy = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollSpy;
+    try {
+      await renderAt(`/d/${explicitId}#tipos-primitivos`);
+      await screen.findByRole('article');
+      await waitFor(() =>
+        expect(
+          scrollSpy.mock.instances.some((el) => (el as HTMLElement).id === 'tipos-primitivos'),
+        ).toBe(true),
+      );
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
   });
 
   it('leaves fullscreen on the way out, since the control goes with the deck', async () => {

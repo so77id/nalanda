@@ -1,7 +1,7 @@
 import { Menu, Presentation } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType, ReactNode } from 'react';
-import { Link, useNavigate, useParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 
 import { KnownSectionsProvider } from '../lib/knownSections';
 
@@ -112,6 +112,34 @@ export function DocumentPage({ notFound, presentableSectionsWrapper: Wrapper }: 
 
   // Navigating inside the drawer must not leave it covering the document.
   useEffect(() => setDrawerOpen(false), [id]);
+
+  // Scroll the h2 named by the URL fragment into view. `<a href="#slug">` in
+  // the book handles this natively — the browser scrolls on anchor-link
+  // navigation — but SlideDeck.leave() reaches the book via react-router's
+  // `navigate('/d/:id#<slug>')`, and programmatic navigation sets
+  // `location.hash` without dispatching the browser's own fragment scroll
+  // (verified in Chromium at 1440x900: `windowY` stayed at 0 after Escape,
+  // the reader saw the top of the document instead of the section they had
+  // been watching). The same defect affects a direct entry to `#<slug>` while
+  // the document is behind `React.lazy` — the browser's initial fragment
+  // scroll fires before the article has any h2 to hit.
+  //
+  // Depending on `sections` (populated by useSections' MutationObserver once
+  // the article rehydrates) is what makes this work across the Suspense
+  // boundary: on hash change the element may not exist yet; the effect re-runs
+  // when the spine appears and finds its target.
+  const location = useLocation();
+  useEffect(() => {
+    const slug = location.hash.slice(1);
+    if (!slug) return;
+    const target = article.current?.querySelector(`#${CSS.escape(slug)}`);
+    // typeof check: jsdom does not implement scrollIntoView on HTMLElement, so
+    // the call would throw during the test suite. In a real browser this branch
+    // is always taken.
+    if (target instanceof HTMLElement && typeof target.scrollIntoView === 'function') {
+      target.scrollIntoView();
+    }
+  }, [location.hash, sections]);
 
   // POC shortcut: p enters presentation from the book view (never while typing).
   useEffect(() => {
