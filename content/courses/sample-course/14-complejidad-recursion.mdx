@@ -91,16 +91,17 @@ recursivamente:
 
 ```java
 static long sum(int n) {
-    if (n == 0) return 0;
+    if (n == 1) return 1;
     return n + sum(n - 1);
 }
 ```
 
-Esta función devuelve $$1 + 2 + \ldots + N$$. Es la versión recursiva de
-la suma que normalmente escribiríamos con un `for`: en lugar de acumular
-en una variable a lo largo de un ciclo, cada llamada le pide a la
-siguiente que resuelva la suma hasta $$N-1$$, y le agrega su propio
-$$N$$.
+Esta función devuelve $$N + (N-1) + \ldots + 2 + 1$$ — la misma suma que
+$$1 + 2 + \ldots + N$$, pero acumulada en el orden en que la recursión
+la construye. Es la versión recursiva del `for` que normalmente
+usaríamos para lo mismo: en lugar de acumular en una variable a lo
+largo de un ciclo, cada llamada le pide a la siguiente que resuelva la
+suma hasta $$N-1$$, y le agrega su propio $$N$$.
 
 La distinción clave con un `for` o `while`: en un ciclo, la reducción
 del problema vive en el **cuerpo del loop** (`i++` o `i--`). En una
@@ -130,7 +131,7 @@ inspección:
 a cualquier recursión):
 
 1. **Identificar el argumento** con el que se llama recursivamente
-   (`n - 1`, `n / 2`, la lista sin su cabeza…).
+   (`n - 1`, `n / 2`, un subarreglo más corto…).
 2. **Comprobar que es estrictamente menor** que el argumento de la
    llamada actual, en la misma métrica que usa el caso base (un número,
    el tamaño de la lista, la cantidad de nodos del árbol).
@@ -161,8 +162,9 @@ Las funciones recursivas se clasifican por tres ejes; conocerlos permite
   memoria del stack.
 </Slide>
 
-<Slide title="Diseñando una función recursiva: factorial">
-El factorial matemático se define recursivamente:
+<Slide title="Diseñando una función recursiva">
+Tomemos como ejemplo el factorial. Su definición matemática es
+recursiva:
 $$
 n! = \begin{cases} 1 & \text{si } n = 0 \\ n \cdot (n-1)! & \text{si } n > 0 \end{cases}
 $$
@@ -170,8 +172,7 @@ $$
 **Identifiquemos las tres piezas del diseño en la definición** antes de
 escribir código:
 
-- **Caso base**: si $$n = 0$$, el resultado es $$1$$. Trabajo constante,
-  sin llamada.
+- **Caso base**: $$0! = 1$$. Sin llamada recursiva.
 - **Paso recursivo**: $$n \cdot (n-1)!$$ — el resultado se apoya en el
   factorial de un argumento más chico.
 - **Convergencia**: el argumento decrece de $$n$$ a $$n-1$$ en cada
