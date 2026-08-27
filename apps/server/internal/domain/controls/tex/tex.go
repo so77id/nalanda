@@ -18,6 +18,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"unicode"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 )
@@ -388,7 +389,146 @@ func escapeLatex(s string) string {
 // code, which the sheet renders as \texttt. A backtick without its pair is
 // not matched and stays where it was — it renders as a quote mark, which is
 // the same behaviour the sheet had before this transform existed.
+//
+// Backtick payloads are EXTRACTED before the emphasis / quote transforms
+// run so `*`, `"` and `**` inside code fragments cannot bleed into
+// \textit / \og / \textbf — see extractCodePayloads and issue #239 COR-2.
 var codeFontPattern = regexp.MustCompile("`([^`]+)`")
+
+// boldPattern matches an MDX-style bold marker `**text**` and renders as
+// \textbf. The inner class allows single `*` runes so a nested italic
+// (`**bold *italic* end**`) is captured whole and italicPattern can find its
+// pair inside the resulting `\textbf{…}`. `[^*]+(?:\*[^*]+)*` reads as "one
+// or more non-star runs, glued by single stars" — which forbids `**` inside
+// (each glue star is required to be followed by non-stars), keeping each
+// bold pair local.
+//
+// `\B` on both outer sides gates the marker to non-word-adjacent positions,
+// so author-typed arithmetic like `n**m**p` never fires as bold. `\B`
+// (opposite of `\b`) asserts "no word boundary here"; since `*` is itself
+// non-word, `\B` next to `*` forbids a word character on the outside — the
+// only way it matches is if the outer neighbour is start-of-string,
+// whitespace, or punctuation. Same gate is applied to italicPattern below
+// for the same reason (issue #239 COR-1). Runs BEFORE italicPattern so the
+// `**` pairs are consumed before the simpler italic regex sees the string.
+var boldPattern = regexp.MustCompile(`\B\*\*([^*]+(?:\*[^*]+)*)\*\*\B`)
+
+// mapItalic replaces MDX italic markers `*text*` with `\textit{text}`. A
+// `*` is treated as an italic marker only when the rune immediately outside
+// it (start-of-string counts as "outside") is neither a word character nor
+// another `*`. This gate blocks two arithmetic patterns from being read as
+// italic (issue #239 COR-1):
+//
+//   - `n*m*p`, `O(a*b*c*d)`, `5*3*2` — the `*` between word chars is
+//     multiplication, not emphasis;
+//   - `n**m es la potencia … 2**3` — bold left the `**` pairs alone
+//     because its own `\B` gate rejected them, and a pure-regex italic
+//     with `\B` would match the two inner `*`s across the whole span
+//     (both `*` chars are non-word, so `\B` between them is satisfied).
+//
+// A pure Go regex cannot express "no `*` on the outside" without
+// lookaround; a manual left-to-right scan handles both rules cleanly and
+// preserves adjacent-italic-pair cases like `*foo* *bar*` that a
+// boundary-consuming regex would drop the second half of.
+//
+// Content between the pair must not contain `*` and must be non-empty.
+// Safe to assume no `**` pairs remain in s: boldPattern runs first and
+// consumes them.
+func mapItalic(s string) string {
+	if !strings.ContainsRune(s, '*') {
+		return s
+	}
+	runes := []rune(s)
+	var b strings.Builder
+	b.Grow(len(s) + 16)
+	for i := 0; i < len(runes); {
+		if runes[i] != '*' || !italicBoundaryOK(runes, i-1) {
+			b.WriteRune(runes[i])
+			i++
+			continue
+		}
+		end := -1
+		for j := i + 1; j < len(runes); j++ {
+			if runes[j] != '*' {
+				continue
+			}
+			// A `*` inside `[^*]+` content is not allowed — bail.
+			// (No inner `*` here because we look for the FIRST `*`
+			// after i and check its right boundary.)
+			if j > i+1 && italicBoundaryOK(runes, j+1) {
+				end = j
+			}
+			break
+		}
+		if end < 0 {
+			b.WriteRune(runes[i])
+			i++
+			continue
+		}
+		b.WriteString(`\textit{`)
+		for k := i + 1; k < end; k++ {
+			b.WriteRune(runes[k])
+		}
+		b.WriteRune('}')
+		i = end + 1
+	}
+	return b.String()
+}
+
+// italicBoundaryOK reports whether the rune at position i in rs is safe as
+// the OUTSIDE neighbour of an italic `*` marker. Start-of-string
+// (i == -1) and end-of-string (i == len(rs)) both count as safe. A word
+// character (Unicode letter or digit) is unsafe — that is arithmetic /
+// intra-word `*`. Another `*` is unsafe — that would be an arithmetic
+// `**` pair or a stray triple that bold left alone.
+func italicBoundaryOK(rs []rune, i int) bool {
+	if i < 0 || i >= len(rs) {
+		return true
+	}
+	r := rs[i]
+	if r == '*' {
+		return false
+	}
+	return !unicode.IsLetter(r) && !unicode.IsDigit(r)
+}
+
+// mapAsciiQuotes replaces every ASCII `"` with a Spanish babel guillemet
+// macro. The first quote in the string opens (`\og `), the second closes
+// (`\fg{}`), and so on — a running toggle rather than a regex, because a
+// pair is defined by ordinal position, not by matching parentheses. The
+// preamble already loads `\usepackage[spanish]{babel}` so `\og` and `\fg`
+// are defined; no package change (issue #239).
+//
+// Why guillemets: `[T1]{fontenc}` makes a bare ASCII `"` a
+// diacritic-composition trigger — `"este"` on paper prints as an unintended
+// superscript-e on the `e`. Guillemets are also the Spanish typographic
+// convention for a quotation on the printed sheet.
+//
+// An odd number of quotes in one field (a stray `"` alone) still emits
+// legal LaTeX: the state machine opens, and without a partner the print
+// shows an unmatched open guillemet — visible on the sheet, but does not
+// break brace matching. Covered by TestUnbalancedQuoteStillProducesLegalTex.
+func mapAsciiQuotes(s string) string {
+	if !strings.ContainsRune(s, '"') {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	open := true
+	for _, r := range s {
+		if r != '"' {
+			b.WriteRune(r)
+			continue
+		}
+		if open {
+			b.WriteString(`\og `)
+		} else {
+			b.WriteString(`\fg{}`)
+		}
+		open = !open
+	}
+	return b.String()
+}
 
 // unicodeReplacer maps a Unicode math/greek/dash character to its LaTeX
 // escape. Applied in escapeBankText AFTER escapeLatex, so the `\` and `$`
@@ -582,29 +722,108 @@ func mapUnicodeToLatex(s string) string {
 	return unicodeReplacer.Replace(s)
 }
 
-// escapeBankText is the Statement / Alternatives pipeline: TeX specials
-// escaped, then Unicode math/greek/dash mapped to LaTeX (issue #237), then
-// backtick pairs rendered as code. Order is load-bearing, see the body.
-// Escaping runs FIRST so the \texttt command itself is not escaped, and
-// the pair pattern survives all three stages intact because backticks are
-// not special to TeX and are not in unicodeReplacer.
+// codePlaceholder is the sentinel form escapeBankText holds a backtick
+// payload behind while the emphasis / quote transforms run. Two null bytes
+// bracket a decimal index — null is not a rune any author types, is not
+// touched by any downstream transform, and never appears in valid UTF-8
+// text. Kept package-scoped so tests can pin the shape if they need to.
+const (
+	codePlaceholderOpen  = "\x00CODE"
+	codePlaceholderClose = "\x00"
+)
+
+// extractCodePayloads pulls every backtick pair out of s and replaces it
+// with a sentinel placeholder, returning the placeholderized string plus
+// the ordered list of payloads. The emphasis / quote pipeline that runs
+// downstream then cannot bleed into what the author wrote as code — the
+// pre-#239 pipeline processed “ `a*b*c` “ as `\texttt{a\textit{b}c}` and
+// “ `.equals("María")` “ as `\texttt{.equals(\og María\fg{})}` (issue
+// #239 COR-2, shipped bug in buscar-con-equals). MDX treats backticks as
+// inviolable on-screen, so the printed sheet needs the same guarantee.
 //
-// A raw backtick is a quote mark on paper: the sheet would read 'int' where
-// the author wrote `int`. The professor-typed control NAME goes through
-// escapeLatex alone — it is plain text, not MDX (issue #193 S3).
+// A backtick without its pair passes through — the pattern only matches
+// pairs, same behaviour as the pre-#239 codeFontPattern.
+func extractCodePayloads(s string) (string, []string) {
+	// Strip any NUL bytes already in s so the sentinel remains
+	// unambiguous. Normal MDX / YAML tooling rejects or strips NUL,
+	// so this is a defence for a case that should not happen — pdftex
+	// would refuse a NUL anyway, but the strip keeps restoreCodePayloads
+	// from binding its `strings.Replace` to an author-typed sentinel
+	// lookalike (issue #239 review recheck).
+	if strings.ContainsRune(s, '\x00') {
+		s = strings.ReplaceAll(s, "\x00", "")
+	}
+	if !strings.Contains(s, "`") {
+		return s, nil
+	}
+	var payloads []string
+	replaced := codeFontPattern.ReplaceAllStringFunc(s, func(match string) string {
+		// match includes the two backticks; the payload sits between them.
+		payloads = append(payloads, match[1:len(match)-1])
+		return codePlaceholderOpen + fmt.Sprintf("%d", len(payloads)-1) + codePlaceholderClose
+	})
+	return replaced, payloads
+}
+
+// restoreCodePayloads swaps each sentinel placeholder back for a
+// \texttt{…} wrapping the original code payload, with escapeLatex +
+// mapUnicodeToLatex applied to that payload — the same two transforms the
+// pre-#239 pipeline effectively ran on backtick content, since it ran the
+// whole pipeline on the raw string. Emphasis / quote transforms are
+// deliberately NOT applied: this is the whole point of the extraction.
+func restoreCodePayloads(s string, payloads []string) string {
+	if len(payloads) == 0 {
+		return s
+	}
+	for i, payload := range payloads {
+		placeholder := codePlaceholderOpen + fmt.Sprintf("%d", i) + codePlaceholderClose
+		escaped := mapUnicodeToLatex(escapeLatex(payload))
+		s = strings.Replace(s, placeholder, `\texttt{`+escaped+`}`, 1)
+	}
+	return s
+}
+
+// escapeBankText is the Statement / Alternatives pipeline. Six stages in a
+// load-bearing order; each stage names its "why here" in the body. The
+// professor-typed control NAME goes through escapeLatex alone — it is
+// plain text, not MDX (issue #193 S3).
 func escapeBankText(s string) string {
 	// Order is load-bearing:
-	//   1. escapeLatex — TeX specials in author text (`\`, `%`, `&`, …).
-	//   2. mapUnicodeToLatex — Θ, ², ≤, →, ∞, — … (issue #237). Runs
+	//   1. extractCodePayloads — pull every backtick pair aside behind a
+	//      sentinel placeholder so the emphasis / quote transforms
+	//      cannot bleed into `code` content (issue #239 COR-2). The
+	//      payload is restored last, wrapped in \texttt with only
+	//      escapeLatex + mapUnicodeToLatex applied to it.
+	//   2. escapeLatex — TeX specials in author text (`\`, `%`, `&`, …).
+	//      Runs on the placeholderized string; the placeholders survive
+	//      unchanged because null and `CODE<n>` are not TeX specials.
+	//   3. mapUnicodeToLatex — Θ, ², ≤, →, ∞, — … (issue #237). Runs
 	//      AFTER escapeLatex so the `\` and `$` we introduce
 	//      (`$\Theta$`, `$\leq$`) are NOT re-escaped as
 	//      `\textbackslash{}\$`.
-	//   3. codeFontPattern — backtick pairs → \texttt. Runs LAST because
-	//      its output (`\texttt{…}`) must not be re-escaped either, and
-	//      because the pair pattern survives the previous two intact
-	//      (backticks are not TeX-special and are not in the Unicode
-	//      map).
+	//   4. boldPattern — `**text**` → \textbf (issue #239). Runs BEFORE
+	//      italicPattern so the `**` pairs are consumed as a pair; if
+	//      italic ran first, its `\*(...)\*` would match the two
+	//      asterisks that open and close a `**bold**` marker and destroy
+	//      the bold. Gated with `\B` on both outer sides (see the
+	//      boldPattern doc) so `n**m**p` arithmetic is not read as bold.
+	//   5. mapItalic — `*text*` → \textit (issue #239). A manual scan
+	//      rather than a regex so the boundary check can also forbid an
+	//      adjacent `*` on the outside (which pure `\B` cannot), blocking
+	//      arithmetic like `n*m*p` and cross-`**` italic bleed in
+	//      strings like `n**m es la … 2**3` (issue #239 COR-1).
+	//   6. mapAsciiQuotes — `"..."` → `\og … \fg{}` (issue #239). Runs
+	//      AFTER the emphasis transforms so an author's `*"quoted"*` still
+	//      picks up italic on the whole span.
+	//   7. restoreCodePayloads — put each backtick payload back as
+	//      \texttt{escaped}. Restores the extraction from step 1, so
+	//      what the author wrote as code reaches the sheet as code — the
+	//      screen-vs-paper parity MDX already gives on-screen.
+	s, codes := extractCodePayloads(s)
 	s = escapeLatex(s)
 	s = mapUnicodeToLatex(s)
-	return codeFontPattern.ReplaceAllString(s, `\texttt{$1}`)
+	s = boldPattern.ReplaceAllString(s, `\textbf{$1}`)
+	s = mapItalic(s)
+	s = mapAsciiQuotes(s)
+	return restoreCodePayloads(s, codes)
 }

@@ -590,6 +590,448 @@ func TestBacktickPairsRenderAsTypewriterText(t *testing.T) {
 	}
 }
 
+// Issue #239: MDX authors write `**bold**` and `*italic*` in Statement and
+// Alternatives. Without translation, the double asterisks print verbatim on
+// paper (raw markers around the word), and a lone `*` renders as a low
+// asterisk with no emphasis at all. The fix wires two more transforms into
+// escapeBankText — boldPattern (`**text**` → `\textbf{text}`), then
+// italicPattern (`*text*` → `\textit{text}`) — with bold FIRST so the
+// simpler italic pattern does not eat the two asterisks of a bold marker.
+//
+// Scope in production (from the published bank at issue-time): 44 `**`
+// occurrences across 5 documents, mostly in `complejidad-de-hilbert-al-big-o`.
+func TestBoldMarkersRenderAsTextbf(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "bold", Document: "welcome", Anchor: "hola",
+				Type:      bank.TypeSimple,
+				Statement: "El algoritmo se ejecuta en vez de en **segundos**.",
+				Alternatives: []string{
+					"lineal **exacto**",
+					"cuadrático **peor caso**",
+					"nada",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	for _, want := range []string{
+		`en vez de en \textbf{segundos}`,
+		`\correctchoice{lineal \textbf{exacto}}`,
+		`\wrongchoice{cuadrático \textbf{peor caso}}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("bold marker was not translated to \\textbf: missing %q in output", want)
+		}
+	}
+	// The raw `**` must not survive into the .tex — that is the printed-sheet
+	// bug the WP was opened for.
+	if strings.Contains(out, "**segundos**") {
+		t.Error("raw **bold** survived into the .tex — the printed sheet would show the asterisks (issue #239)")
+	}
+	if strings.Contains(out, "**exacto**") || strings.Contains(out, "**peor caso**") {
+		t.Error("raw **bold** survived in a \\wrongchoice — the printed sheet would show the asterisks")
+	}
+}
+
+// A single `*text*` marker in an author-typed Statement or Alternative renders
+// as \textit on paper. The italic pipeline runs AFTER bold has consumed every
+// `**` pair, so its regex is the simple `\*([^*]+)\*` — no negative-context
+// gymnastics needed.
+func TestItalicMarkersRenderAsTextit(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "italic", Document: "welcome", Anchor: "hola",
+				Type:      bank.TypeSimple,
+				Statement: "*este algoritmo* corre en tiempo constante.",
+				Alternatives: []string{
+					"para *cada* caso",
+					"solo en el *peor* caso",
+					"nada",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	for _, want := range []string{
+		`\textit{este algoritmo} corre`,
+		`\correctchoice{para \textit{cada} caso}`,
+		`\wrongchoice{solo en el \textit{peor} caso}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("italic marker was not translated to \\textit: missing %q in output", want)
+		}
+	}
+	if strings.Contains(out, "*este algoritmo*") ||
+		strings.Contains(out, "*cada*") ||
+		strings.Contains(out, "*peor*") {
+		t.Error("raw *italic* survived into the .tex — on paper it renders as a bare asterisk (issue #239)")
+	}
+}
+
+// The bold pattern MUST run before the italic pattern: if italic ran first,
+// its `\*([^*]+)\*` would match the two asterisks that open and close a
+// `**bold**` marker, translating `**foo**` into `\textit{}foo\textit{}` (or
+// worse, matching across a following pair) and losing the bold entirely. The
+// order is the pin.
+func TestNestedItalicInsideBoldRendersAsBothInOrder(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "nested", Document: "welcome", Anchor: "hola",
+				Type: bank.TypeSimple,
+				// **bold *italic* end** exercises the interleaving: bold
+				// consumes the `**` pairs, leaving `bold *italic* end` for
+				// italic to translate.
+				Statement:    "es **bold *italic* end** del enunciado.",
+				Alternatives: []string{"única", "otra"},
+				Correct:      []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	want := `\textbf{bold \textit{italic} end}`
+	if !strings.Contains(out, want) {
+		t.Errorf("nested *italic* inside **bold** did not render as %q — bold-then-italic order is the pin (issue #239)", want)
+	}
+	if strings.Contains(out, "**bold") || strings.Contains(out, "end**") {
+		t.Error("raw ** survived alongside the nested marker — bold pattern did not consume the outer pair")
+	}
+}
+
+// Issue #239: straight ASCII double quotes in a Statement or Alternative
+// leak two bugs onto the printed sheet at once. First, with [T1]{fontenc}
+// the `"` glyph is a diacritic-composition trigger — the character
+// immediately after `"` prints with an unintended umlaut / superscript
+// artefact (`*"este algoritmo"*` prints as `*"ᵉste algoritmo*"` on paper).
+// Second, the raw ASCII quote is not the typographic convention for a
+// Spanish sheet anyway.
+//
+// The fix pairs each `"` with its partner and emits guillemets via the
+// babel-spanish macros `\og … \fg{}` — the standard Spanish typography, and
+// already covered by the preamble's `\usepackage[spanish]{babel}` (no
+// package change needed). A simple state machine toggles open/close on
+// every quote; an odd number of quotes in one field is a degenerate input
+// (the professor would have to have typed a stray `"` alone), covered by
+// the "unbalanced" test below.
+func TestAsciiQuotesRenderAsSpanishGuillemets(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "quotes", Document: "welcome", Anchor: "hola",
+				Type:      bank.TypeSimple,
+				Statement: `¿Qué significa "este algoritmo" en la clase?`,
+				Alternatives: []string{
+					`"correcto" según la definición`,
+					`también llamado "peor caso"`,
+					"nada",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	for _, want := range []string{
+		`\og este algoritmo\fg{}`,
+		`\correctchoice{\og correcto\fg{} según la definición}`,
+		`\wrongchoice{también llamado \og peor caso\fg{}}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("ASCII quote pair was not translated to babel guillemets: missing %q in output", want)
+		}
+	}
+	// The raw `"` must not survive into the .tex — that is the fontenc[T1]
+	// diacritic-composition bug the WP was opened for.
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block for scoped ASCII-quote absence check")
+	}
+	if strings.Contains(out[qStart:qEnd], `"`) {
+		t.Error(`a bare ASCII " survived into the question block — fontenc[T1] would compose a diacritic onto the next glyph (issue #239)`)
+	}
+}
+
+// An odd number of quotes in one field is degenerate input — the author
+// typed a stray `"` alone. The state machine still toggles: the first
+// stray opens (`\og`) and, without a close partner, prints as an open
+// guillemet with a trailing thin space (`\og`). No brace-balancing damage
+// downstream. Verified so a review does not have to reason about it.
+func TestUnbalancedQuoteStillProducesLegalTex(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "unbal", Document: "welcome", Anchor: "hola",
+				Type:         bank.TypeSimple,
+				Statement:    `mira "esto pero no cierra`,
+				Alternatives: []string{"única", "otra"},
+				Correct:      []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	if !strings.Contains(out, `mira \og esto pero no cierra`) {
+		t.Error("unbalanced open quote did not become \\og — the state machine must still fire on a lone quote")
+	}
+	// Scoped: the preamble's `\lstset{literate=…}` block legitimately
+	// contains `\"u` and friends, which include the ASCII `"` byte
+	// — a whole-output scan false-positives on them. The bug is bare `"`
+	// inside the question block.
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block for scoped ASCII-quote absence check")
+	}
+	if strings.Contains(out[qStart:qEnd], `"`) {
+		t.Error(`a bare ASCII " survived into the question block even on an unbalanced input`)
+	}
+}
+
+// Issue #239 integration: every transform in escapeBankText fires in the same
+// question, in the load-bearing order. This is the fixture that would go red
+// on a silent reorder of the pipeline (e.g. italic before bold, or quotes
+// before bold) — a single-transform test cannot see the interaction with the
+// others. The statement carries:
+//
+//   - author-typed `%` (must survive escapeLatex);
+//   - Unicode math `Θ` and `²` (must translate to `$\Theta$` and `$^{2}$`);
+//   - `**bold**` around the whole expression (must render as \textbf, wrapping
+//     the translated math);
+//   - `*italic*` and `**bold *italic* end**` (must nest correctly);
+//   - `"quoted"` (must render as `\og … \fg{}`);
+//   - a backtick pair (must render as \texttt, run LAST).
+//
+// The alternatives repeat the same interleaving on smaller strings so the
+// assertion set covers both regions the pipeline can touch (Statement and
+// Alternatives share escapeBankText but are emitted through different call
+// sites — writeQuestion vs. emitAlternative).
+func TestEmphasisPipelineHandlesMixedContentInOneQuestion(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "mixed", Document: "welcome", Anchor: "hola",
+				Type: bank.TypeSimple,
+				// bold(Θ(n²)) + author % + italic word + quoted phrase
+				// + backtick code. Every stage of escapeBankText has to
+				// fire, and their order has to hold.
+				Statement: "**Θ(n²)** es la cota *ajustada* del 100% en el \"peor caso\" con `for` loop.",
+				Alternatives: []string{
+					// bold with a nested italic AND a nested backtick.
+					"**bold *italic* con `code`**",
+					// quoted alternative with an author-escaped &.
+					"llamado \"peor caso\" & similares",
+					// unicode + emphasis mix.
+					"complejidad *Θ(n²)*",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+
+	// Positive assertions — every transform lands its output on the exact
+	// shape the printed sheet needs. Each assertion pins ONE decision (a
+	// transform, a run order, or a downstream survival) so a regression
+	// names the broken stage rather than the whole pipeline.
+	for _, want := range []string{
+		// Statement: bold wraps the translated math, italic runs on the
+		// residue, `%` survived escapeLatex, quotes became guillemets, the
+		// backtick pair became \texttt at the end.
+		"\\textbf{$\\Theta$(n$^{2}$)} es la cota \\textit{ajustada} del 100\\% en el \\og peor caso\\fg{} con \\texttt{for} loop.",
+		// Alternative 0: bold-then-italic pin holds, code inside bold runs
+		// because codeFontPattern comes last.
+		"\\correctchoice{\\textbf{bold \\textit{italic} con \\texttt{code}}}",
+		// Alternative 1: quotes translated inside a wrongchoice, `&` still
+		// escaped by escapeLatex.
+		"\\wrongchoice{llamado \\og peor caso\\fg{} \\& similares}",
+		// Alternative 2: italic wraps math after both transforms fire.
+		"\\wrongchoice{complejidad \\textit{$\\Theta$(n$^{2}$)}}",
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("mixed-content statement did not render as expected: missing %q in output", want)
+		}
+	}
+
+	// Negative assertions — no marker survives into the question block.
+	// Scoped: the preamble legitimately carries `%` (LaTeX comments) and
+	// `"` (`\lstset{literate={"u}...}`); the danger is bare markers inside
+	// what compiles as the question's own text.
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block for scoped absence checks")
+	}
+	region := out[qStart:qEnd]
+	for _, unwant := range []string{
+		"**", // bold pair
+		`"`,  // ASCII quote
+		"Θ",  // bare Unicode
+		"²",  // bare Unicode
+	} {
+		if strings.Contains(region, unwant) {
+			t.Errorf("raw marker %q survived into the question block — the pipeline failed to consume it (issue #239)", unwant)
+		}
+	}
+	// A stray `*` should not survive either — italic must have consumed
+	// every remaining pair after bold ran.
+	if strings.Contains(region, "*") {
+		t.Error(`a bare "*" survived into the question block — italic did not consume every remaining marker`)
+	}
+}
+
+// Issue #239 COR-1: an author-typed `*` between word characters is
+// multiplication (or any adjacency), NOT an italic marker. `n*m*p` must
+// survive verbatim. Same for the same shape wrapped in parentheses,
+// digits, and — since Miguel's imminent complexity-exercise batch is
+// exactly the authoring context — expressions like `O(a*b*c*d)` and
+// `5*3*2`. Pinned with `\B` on both outer sides of italicPattern
+// (regex asserts no word boundary at the outer `*` position, and since
+// `*` is itself non-word, a word char on the outside would create a
+// boundary and disqualify the match).
+func TestItalicDoesNotFireOnArithmeticAsterisks(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "arith", Document: "welcome", Anchor: "hola",
+				Type:      bank.TypeSimple,
+				Statement: "El costo es O(a*b*c*d) para n*m*p iteraciones y 5*3*2 elementos.",
+				Alternatives: []string{
+					"una vez",
+					"n*log(n) veces",
+					"depende",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	// The arithmetic must not become italic — the `*` runes stay literal
+	// asterisks on the printed sheet, which is how the author meant them.
+	for _, want := range []string{
+		"O(a*b*c*d) para n*m*p iteraciones y 5*3*2 elementos.",
+		`\wrongchoice{n*log(n) veces}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("arithmetic `*` was consumed by italic pattern: missing %q in output", want)
+		}
+	}
+	// And nothing in this question region should carry a stray \textit —
+	// there is no legitimate italic in the input.
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block")
+	}
+	if strings.Contains(out[qStart:qEnd], `\textit`) {
+		t.Errorf(`italic fired inside the arithmetic-only question: found \textit in the question block (issue #239 COR-1)`)
+	}
+}
+
+// The same gate must hold for boldPattern. `n**m**p` (Python-style
+// exponent, or an accidental double asterisk in a distractor) must not
+// become `n\textbf{m}p`. Same `\B` shape as italic.
+func TestBoldDoesNotFireOnDoubleAsteriskArithmetic(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "doubleast", Document: "welcome", Anchor: "hola",
+				Type:         bank.TypeSimple,
+				Statement:    "En Python n**m es la potencia; en Java 2**3 no compila.",
+				Alternatives: []string{"cierto", "falso"},
+				Correct:      []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	if !strings.Contains(out, "En Python n**m es la potencia; en Java 2**3 no compila.") {
+		t.Error("word-adjacent `**` was consumed by bold pattern: the arithmetic did not survive verbatim")
+	}
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block")
+	}
+	if strings.Contains(out[qStart:qEnd], `\textbf`) {
+		t.Errorf(`bold fired inside the arithmetic-only question: found \textbf in the question block (issue #239 COR-1)`)
+	}
+}
+
+// Issue #239 COR-2: content inside a backtick pair is CODE, and MDX
+// treats it as inviolable on-screen. The printed sheet must match — no
+// `*` becomes italic, no `"` becomes a guillemet, no `**` becomes bold
+// once the payload has entered its `\texttt{…}`. Live shipped case at
+// the time of this WP: buscar-con-equals in
+// `09-arrays-y-funciones.mdx` had alternatives like “ `.equals("María")` “
+// rendered as `\texttt{.equals(\og María\fg{})}` — «María» in monospace
+// on paper vs. the correct `.equals("María")` on screen.
+//
+// The fix extracts each backtick payload before the emphasis / quote
+// pipeline runs and restores it as `\texttt{escapeLatex(payload)}` at
+// the end.
+func TestCodeFragmentContentIsNotTouchedByEmphasisOrQuotes(t *testing.T) {
+	out := compile(t, func(in *tex.Input) {
+		in.Pool = []bank.Question{
+			{
+				ID: "javacode", Document: "welcome", Anchor: "hola",
+				Type: bank.TypeSimple,
+				// The exact shape that triggered the shipped bug.
+				Statement: "¿Cómo se compara `\"María\"` con otra cadena?",
+				Alternatives: []string{
+					"`.equals(\"María\")`",
+					"`== \"María\"`",
+					"`names == \"María\"`",
+					// And a code fragment whose payload contains
+					// authoring characters that used to bleed into it.
+					"`a*b*c` no aplica",
+					// A payload with `**` — must stay literal in
+					// monospace, not become bold.
+					"`**not bold**` tampoco",
+				},
+				Correct: []int{0},
+			},
+		}
+		in.QuestionsPerCopy = 1
+	})
+	// Positive: the emphasis / quote pipeline did NOT run inside the
+	// backtick payloads. `"María"` stays as `"María"`; `a*b*c` stays as
+	// `a*b*c`; `**not bold**` stays as `**not bold**`.
+	for _, want := range []string{
+		`\texttt{"María"}`,
+		`\texttt{.equals("María")}`,
+		`\texttt{== "María"}`,
+		`\texttt{names == "María"}`,
+		`\texttt{a*b*c}`,
+		`\texttt{**not bold**}`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("code payload was mutated by an emphasis or quote transform: missing %q in output (issue #239 COR-2)", want)
+		}
+	}
+	// Negative: no `\og` or `\fg{}` inside a `\texttt{…}`, no `\textit`
+	// or `\textbf` inside a `\texttt{…}`. Grep the question region for
+	// the pathological substrings the pre-fix pipeline emitted.
+	qStart := strings.Index(out, `\begin{question}`)
+	qEnd := strings.Index(out, `\end{question}`)
+	if qStart < 0 || qEnd <= qStart {
+		t.Fatalf("could not locate the question block")
+	}
+	region := out[qStart:qEnd]
+	for _, unwant := range []string{
+		`\texttt{\og`,      // guillemet macro started inside \texttt
+		`\og María`,        // pre-fix bleed
+		`\texttt{a\textit`, // pre-fix italic bleed
+		`\texttt{\textbf`,  // pre-fix bold bleed
+	} {
+		if strings.Contains(region, unwant) {
+			t.Errorf("emphasis or quote transform bled into a code payload: found %q in the question block (issue #239 COR-2)", unwant)
+		}
+	}
+}
+
 // Issue #185: the generator branches on Input.DuplexPadding.
 //
 //   - true (historical): emits \AMCcleardoublepage inside \onecopy so each
