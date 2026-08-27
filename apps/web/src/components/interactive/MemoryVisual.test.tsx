@@ -104,7 +104,7 @@ describe('MemoryVisual', () => {
   it('refuses a state that reuses an object id (authoring mistake)', () => {
     // The tracer used to enforce id uniqueness by construction (identityHashMap);
     // a hand-written state can accidentally reuse an id and silently draw two
-    // boxes as one. ADR-0043 §Decision-7 makes the author responsible for the
+    // boxes as one. ADR-0049 §Decision-7 makes the author responsible for the
     // picture being TRUE, but a cheap preflight is worth naming the mistake.
     const state: MemoryState = {
       frames: [],

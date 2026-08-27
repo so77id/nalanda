@@ -520,15 +520,15 @@ Six things worth knowing before you write one:
   `loadGrammar('java')`, same shape every other `java` fence on the site
   gets since #85), so `<StepShow>` ships behind a lazy wrapper — pages
   without a diagram pay none of it. `<MemoryVisual>` stays eager because it
-  is pure SVG code and pulls no third-party. ADR-0043 §Consequences carries
+  is pure SVG code and pulls no third-party. ADR-0049 §Consequences carries
   the measured deltas.
 - **Author-driven state has an author-catchable safety net.** `<MemoryVisual>`
   refuses two structural mistakes before rendering: two objects sharing an
   `id`, and a `{ kind: 'ref', id }` pointing at an `id` not in `objects`.
   You see an `AuthoringError` naming the frame/field, not a silently wrong
-  picture (ADR-0043 §Consequences).
+  picture (ADR-0049 §Consequences).
 
-Decisions behind all this: ADR-0043 (which supersedes ADR-0028, #209).
+Decisions behind all this: ADR-0049 (which supersedes ADR-0028, #209).
 Worked examples, live: `/catalog/c/StepShow` and `/catalog/c/MemoryVisual`.
 
 5e. **Predict before revealing (optional)**: `<PredictOutput>` shows a snippet

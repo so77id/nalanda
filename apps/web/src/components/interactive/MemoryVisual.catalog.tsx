@@ -81,7 +81,7 @@ export const memoryVisualCatalogEntry: CatalogEntry = {
       name: 'changed',
       type: 'number[]',
       description:
-        'Object ids to paint with a stronger border, so a reader following a walk sees what moved. Optional. Passed explicitly by the author on the specific <Step> where a box changes; there is no auto-diff between adjacent <Step>s today (ADR-0043 §Alternatives considered — deferred as future automation on top of the same prop).',
+        'Object ids to paint with a stronger border, so a reader following a walk sees what moved. Optional. Passed explicitly by the author on the specific <Step> where a box changes; there is no auto-diff between adjacent <Step>s today (ADR-0049 §Alternatives considered — deferred as future automation on top of the same prop).',
     },
   ],
   examples: [

@@ -1,4 +1,4 @@
-# ADR-0040: The corrected PDF is drawn by AMC, patched through its own manual channel
+# ADR-0048: The corrected PDF is drawn by AMC, patched through its own manual channel
 
 **Status:** Accepted
 **Date:** 2026-08-19

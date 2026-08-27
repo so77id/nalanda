@@ -18,7 +18,7 @@ class returns to the same widget across Acts 4 and 5, and any future class
 functions in the same shape.
 
 There is no math-plotting primitive in the repo today. `<Mermaid>` (ADR-0040)
-draws diagrams; `<RecursionTree>` draws a tree; `<MemoryVisual>` (ADR-0043)
+draws diagrams; `<RecursionTree>` draws a tree; `<MemoryVisual>` (ADR-0049)
 draws memory frames. None reaches a `y = f(x)` graph, and none should — the
 job is genuinely different.
 

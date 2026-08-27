@@ -1,4 +1,4 @@
-# ADR-0043: The memory diagram consumes author-written state, drawn beside code by a generic stepper
+# ADR-0049: The memory diagram consumes author-written state, drawn beside code by a generic stepper
 
 **Status:** Accepted
 **Date:** 2026-08-19

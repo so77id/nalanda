@@ -512,7 +512,7 @@ detail.
   `dangerouslySetInnerHTML` on **author** content are forbidden: verified in the
   #119 review that the content-image path uses neither. (Inline `<svg>` does exist
   elsewhere — `components/interactive/MemoryVisual.tsx` draws a diagram from an
-  author-written `state` prop, ADR-0043 — but the geometry itself is
+  author-written `state` prop, ADR-0049 — but the geometry itself is
   platform-computed by `memoryLayout.ts`, and the author-supplied text (variable
   names, field values, `String` contents) reaches the SVG as React `<text>`
   children, which React auto-escapes; there is no `dangerouslySetInnerHTML` on
@@ -598,12 +598,12 @@ for what. Two narrower residuals found in the #138 review and accepted with it:
   points back here so a future caller does not reach for `wrapped.Detail`
   from a log line by accident.
 - **`/annotate/copy` writes into AMC's private sqlite layout** (`capture_zone`
-  keyed by request data, #190 / ADR-0040). The payload is shape-validated
+  keyed by request data, #190 / ADR-0048). The payload is shape-validated
   before any write (integer copy, existing question names, 8-digit RUT) and
   the target files are the same project files a hostile caller could already
   delete outright — so this adds no new capability, only a narrower way to
   corrupt a project. **Review trigger**: an AMC upstream update changes the
-  schema; see ADR-0040 for the rollback.
+  schema; see ADR-0048 for the rollback.
 
 **Review trigger**: the worker is published on any interface other than
 loopback; a second component gains access to the compose network; the volume

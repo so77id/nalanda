@@ -8,7 +8,7 @@ import { Step, StepShow } from './StepShow';
 // not render in jsdom. `<CodeStepper>` (which StepShow mounts internally)
 // imports it, so the mock lives one level up here. The wrapper still carries
 // `data-highlight-lines` as a comma-separated 1-based list — the actual
-// per-line paint is confirmed in the browser check (ADR-0043 §Consequences).
+// per-line paint is confirmed in the browser check (ADR-0049 §Consequences).
 vi.mock('@uiw/react-codemirror', () => ({
   default: ({ value }: { value: string }) => (
     <textarea readOnly value={value} data-testid="code-listing" />
