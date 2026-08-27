@@ -237,7 +237,7 @@ func (f *controlsFixture) waitLatestJobTerminal(t *testing.T, controlID string) 
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		job, err := f.jstore.LatestForControl(ctx, controlID)
-		if err == nil && (job.Status == jobs.StatusDone || job.Status == jobs.StatusFailed) {
+		if err == nil && job.Status.IsTerminal() {
 			return job
 		}
 		if time.Now().After(deadline) {
@@ -878,8 +878,14 @@ func TestDetailRendersMetadataAndDownloadLinks(t *testing.T) {
 
 	// Issue #249: Create enqueues a generate job. Issue #257: download
 	// links are gated on the latest generate reaching `done`. Wait for
-	// the runner before asking Detail.
-	f.waitLatestJobTerminal(t, id)
+	// the runner AND pin the terminal state to done — if a future
+	// regression flips the fake generator to fail, the download links
+	// would legitimately hide (PDFsReady = false) and this test would
+	// red as "template broken" instead of "runner regression".
+	job := f.waitLatestJobTerminal(t, id)
+	if job.Status != jobs.StatusDone {
+		t.Fatalf("generate job = %q, want done — a failed generate would legitimately hide the download links; the failure is upstream", job.Status)
+	}
 
 	rec = httptest.NewRecorder()
 	req := f.authedRequest(t, http.MethodGet, loc, nil)

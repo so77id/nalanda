@@ -556,7 +556,7 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string) *view.Job
 		}
 		return nil
 	}
-	running := job.Status == jobs.StatusQueued || job.Status == jobs.StatusRunning
+	running := !job.Status.IsTerminal()
 	if !running && job.ViewedAt != nil {
 		return nil
 	}
@@ -672,7 +672,7 @@ func (h *Controls) DismissJob(w http.ResponseWriter, r *http.Request) {
 			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 		return
 	}
-	if job.Status == jobs.StatusQueued || job.Status == jobs.StatusRunning {
+	if !job.Status.IsTerminal() {
 		// "Refrescar" while the job is still working: reload the page
 		// and let the runner keep going. Stamping viewed_at here would
 		// mute the eventual terminal banner (issue #257).
