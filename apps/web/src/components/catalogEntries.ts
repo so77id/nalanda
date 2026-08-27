@@ -15,6 +15,7 @@ import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { complexityCounterCatalogEntry } from './interactive/ComplexityCounter.catalog';
 import { complexityExerciseCatalogEntry } from './interactive/ComplexityExercise.catalog';
 import { complexityHierarchyCatalogEntry } from './interactive/ComplexityHierarchy.catalog';
+import { hanoiPlaygroundCatalogEntry } from './interactive/HanoiPlayground.catalog';
 import { mathPlotCatalogEntry } from './interactive/MathPlot.catalog';
 import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
 import { explanationCatalogEntry } from './interactive/Explanation.catalog';
@@ -58,6 +59,7 @@ export const catalogEntries: CatalogEntry[] = [
   explanationCatalogEntry,
   recursionTreeCatalogEntry,
   callStackCatalogEntry,
+  hanoiPlaygroundCatalogEntry,
   stepShowCatalogEntry,
   stepCatalogEntry,
   memoryVisualCatalogEntry,

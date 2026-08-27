@@ -18,6 +18,10 @@ export { LazyBenchmark } from './interactive/lazyBenchmark';
 // CodeMirror in the entry chunk of every reader (ADR-0049). Guarded by
 // `src/architecture.test.ts` (per-name `callstack`).
 export { LazyCallStack } from './interactive/lazyCallStack';
+// Lazy for pattern consistency: HanoiPlayground carries lucide icons and
+// the tower/disc animation glue. Guarded by `src/architecture.test.ts`
+// (per-name `hanoiplayground`). ADR-0050.
+export { LazyHanoiPlayground } from './interactive/lazyHanoiPlayground';
 // Lazy for pattern consistency and for the CodeMirror-gutter future
 // extension the ADR anticipates (ADR-0045).
 export { LazyComplexityCounter } from './interactive/lazyComplexityCounter';
