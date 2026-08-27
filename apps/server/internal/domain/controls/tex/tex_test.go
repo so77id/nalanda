@@ -712,9 +712,13 @@ func TestNestedItalicInsideBoldRendersAsBothInOrder(t *testing.T) {
 // Spanish sheet anyway.
 //
 // The fix pairs each `"` with its partner and emits guillemets via the
-// babel-spanish macros `\og … \fg{}` — the standard Spanish typography, and
-// already covered by the preamble's `\usepackage[spanish]{babel}` (no
-// package change needed). A simple state machine toggles open/close on
+// T1-encoding macros `\guillemotleft{}` / `\guillemotright{}` — the
+// standard Spanish typography, and already covered by the preamble's
+// `\usepackage[T1]{fontenc}` (no package change needed). An earlier
+// revision used babel-spanish's `\og … \fg{}` shortcuts, which
+// `\usepackage[spanish]{babel}` does NOT define unless `activeacute` is
+// set — AMC compiled it into "! Undefined control sequence" (2026-08-27,
+// post-#240 regression). A simple state machine toggles open/close on
 // every quote; an odd number of quotes in one field is a degenerate input
 // (the professor would have to have typed a stray `"` alone), covered by
 // the "unbalanced" test below.
@@ -736,12 +740,12 @@ func TestAsciiQuotesRenderAsSpanishGuillemets(t *testing.T) {
 		in.QuestionsPerCopy = 1
 	})
 	for _, want := range []string{
-		`\og este algoritmo\fg{}`,
-		`\correctchoice{\og correcto\fg{} según la definición}`,
-		`\wrongchoice{también llamado \og peor caso\fg{}}`,
+		`\guillemotleft{}este algoritmo\guillemotright{}`,
+		`\correctchoice{\guillemotleft{}correcto\guillemotright{} según la definición}`,
+		`\wrongchoice{también llamado \guillemotleft{}peor caso\guillemotright{}}`,
 	} {
 		if !strings.Contains(out, want) {
-			t.Errorf("ASCII quote pair was not translated to babel guillemets: missing %q in output", want)
+			t.Errorf("ASCII quote pair was not translated to T1 guillemets: missing %q in output", want)
 		}
 	}
 	// The raw `"` must not survive into the .tex — that is the fontenc[T1]
@@ -758,8 +762,8 @@ func TestAsciiQuotesRenderAsSpanishGuillemets(t *testing.T) {
 
 // An odd number of quotes in one field is degenerate input — the author
 // typed a stray `"` alone. The state machine still toggles: the first
-// stray opens (`\og`) and, without a close partner, prints as an open
-// guillemet with a trailing thin space (`\og`). No brace-balancing damage
+// stray opens (`\guillemotleft{}`) and, without a close partner, prints
+// as a lone open guillemet on the sheet. No brace-balancing damage
 // downstream. Verified so a review does not have to reason about it.
 func TestUnbalancedQuoteStillProducesLegalTex(t *testing.T) {
 	out := compile(t, func(in *tex.Input) {
@@ -774,8 +778,8 @@ func TestUnbalancedQuoteStillProducesLegalTex(t *testing.T) {
 		}
 		in.QuestionsPerCopy = 1
 	})
-	if !strings.Contains(out, `mira \og esto pero no cierra`) {
-		t.Error("unbalanced open quote did not become \\og — the state machine must still fire on a lone quote")
+	if !strings.Contains(out, `mira \guillemotleft{}esto pero no cierra`) {
+		t.Error("unbalanced open quote did not become \\guillemotleft{} — the state machine must still fire on a lone quote")
 	}
 	// Scoped: the preamble's `\lstset{literate=…}` block legitimately
 	// contains `\"u` and friends, which include the ASCII `"` byte
@@ -802,7 +806,7 @@ func TestUnbalancedQuoteStillProducesLegalTex(t *testing.T) {
 //   - `**bold**` around the whole expression (must render as \textbf, wrapping
 //     the translated math);
 //   - `*italic*` and `**bold *italic* end**` (must nest correctly);
-//   - `"quoted"` (must render as `\og … \fg{}`);
+//   - `"quoted"` (must render as `\guillemotleft{}…\guillemotright{}`);
 //   - a backtick pair (must render as \texttt, run LAST).
 //
 // The alternatives repeat the same interleaving on smaller strings so the
@@ -841,14 +845,14 @@ func TestEmphasisPipelineHandlesMixedContentInOneQuestion(t *testing.T) {
 		// Statement: bold wraps the translated math, italic runs on the
 		// residue, `%` survived escapeLatex, quotes became guillemets, the
 		// backtick pair became \texttt at the end.
-		"\\textbf{$\\Theta$(n$^{2}$)} es la cota \\textit{ajustada} del 100\\% en el \\og peor caso\\fg{} con \\texttt{for} loop.",
+		"\\textbf{$\\Theta$(n$^{2}$)} es la cota \\textit{ajustada} del 100\\% en el \\guillemotleft{}peor caso\\guillemotright{} con \\texttt{for} loop.",
 		// Alternative 0: bold-then-italic pin holds, and code inside bold
 		// still wraps as \texttt because restoreCodePayloads rewrites the
 		// sentinel back to \texttt{…} at the end.
 		"\\correctchoice{\\textbf{bold \\textit{italic} con \\texttt{code}}}",
 		// Alternative 1: quotes translated inside a wrongchoice, `&` still
 		// escaped by escapeLatex.
-		"\\wrongchoice{llamado \\og peor caso\\fg{} \\& similares}",
+		"\\wrongchoice{llamado \\guillemotleft{}peor caso\\guillemotright{} \\& similares}",
 		// Alternative 2: italic wraps math after both transforms fire.
 		"\\wrongchoice{complejidad \\textit{$\\Theta$(n$^{2}$)}}",
 	} {
@@ -968,7 +972,7 @@ func TestBoldDoesNotFireOnDoubleAsteriskArithmetic(t *testing.T) {
 // once the payload has entered its `\texttt{…}`. Live shipped case at
 // the time of this WP: buscar-con-equals in
 // `09-arrays-y-funciones.mdx` had alternatives like “ `.equals("María")` “
-// rendered as `\texttt{.equals(\og María\fg{})}` — «María» in monospace
+// rendered as `\texttt{.equals(\guillemotleft{}María\guillemotright{})}` — «María» in monospace
 // on paper vs. the correct `.equals("María")` on screen.
 //
 // The fix extracts each backtick payload before the emphasis / quote
@@ -1013,7 +1017,7 @@ func TestCodeFragmentContentIsNotTouchedByEmphasisOrQuotes(t *testing.T) {
 			t.Errorf("code payload was mutated by an emphasis or quote transform: missing %q in output (issue #239 COR-2)", want)
 		}
 	}
-	// Negative: no `\og` or `\fg{}` inside a `\texttt{…}`, no `\textit`
+	// Negative: no guillemet macro inside a `\texttt{…}`, no `\textit`
 	// or `\textbf` inside a `\texttt{…}`. Grep the question region for
 	// the pathological substrings the pre-fix pipeline emitted.
 	qStart := strings.Index(out, `\begin{question}`)
@@ -1023,10 +1027,10 @@ func TestCodeFragmentContentIsNotTouchedByEmphasisOrQuotes(t *testing.T) {
 	}
 	region := out[qStart:qEnd]
 	for _, unwant := range []string{
-		`\texttt{\og`,      // guillemet macro started inside \texttt
-		`\og María`,        // pre-fix bleed
-		`\texttt{a\textit`, // pre-fix italic bleed
-		`\texttt{\textbf`,  // pre-fix bold bleed
+		`\texttt{\guillemotleft`, // guillemet macro started inside \texttt
+		`\guillemotleft{}María`,  // pre-fix bleed
+		`\texttt{a\textit`,       // pre-fix italic bleed
+		`\texttt{\textbf`,        // pre-fix bold bleed
 	} {
 		if strings.Contains(region, unwant) {
 			t.Errorf("emphasis or quote transform bled into a code payload: found %q in the question block (issue #239 COR-2)", unwant)

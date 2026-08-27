@@ -304,7 +304,7 @@ the server translates each one to LaTeX before the printed sheet is compiled
   (monospace). A backtick without its partner prints as a quote mark on paper
   and is not what any reader expects; pair them.
 - **Quotation** — an ASCII double quote pair, `"así"`, renders as
-  babel-spanish guillemets `«así»`. Straight ASCII quotes are NOT rendered
+  T1-encoding guillemets `«así»`. Straight ASCII quotes are NOT rendered
   as such: writing `"así"` on the page produces the Spanish typographic
   form, and the transform also sidesteps a `fontenc[T1]` diacritic-composition
   trap where a bare `"` before a vowel produced an unintended superscript

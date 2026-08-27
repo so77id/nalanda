@@ -392,7 +392,8 @@ func escapeLatex(s string) string {
 //
 // Backtick payloads are EXTRACTED before the emphasis / quote transforms
 // run so `*`, `"` and `**` inside code fragments cannot bleed into
-// \textit / \og / \textbf — see extractCodePayloads and issue #239 COR-2.
+// \textit / \guillemotleft / \textbf — see extractCodePayloads and issue
+// #239 COR-2.
 var codeFontPattern = regexp.MustCompile("`([^`]+)`")
 
 // boldPattern matches an MDX-style bold marker `**text**` and renders as
@@ -493,17 +494,25 @@ func italicBoundaryOK(rs []rune, i int) bool {
 	return !unicode.IsLetter(r) && !unicode.IsDigit(r)
 }
 
-// mapAsciiQuotes replaces every ASCII `"` with a Spanish babel guillemet
-// macro. The first quote in the string opens (`\og `), the second closes
-// (`\fg{}`), and so on — a running toggle rather than a regex, because a
-// pair is defined by ordinal position, not by matching parentheses. The
-// preamble already loads `\usepackage[spanish]{babel}` so `\og` and `\fg`
-// are defined; no package change (issue #239).
+// mapAsciiQuotes replaces every ASCII `"` with a T1-encoding guillemet
+// macro. The first quote in the string opens (`\guillemotleft{}`), the
+// second closes (`\guillemotright{}`), and so on — a running toggle rather
+// than a regex, because a pair is defined by ordinal position, not by
+// matching parentheses.
 //
-// Why guillemets: `[T1]{fontenc}` makes a bare ASCII `"` a
-// diacritic-composition trigger — `"este"` on paper prints as an unintended
-// superscript-e on the `e`. Guillemets are also the Spanish typographic
-// convention for a quotation on the printed sheet.
+// Why `\guillemotleft{}` / `\guillemotright{}` and not babel's
+// `\og`/`\fg{}`: those babel-spanish shortcuts are gated behind an
+// `activeacute` (or `es-noshorthands`) option that this preamble does
+// not set — `\usepackage[spanish]{babel}` alone leaves them undefined,
+// and AMC compiled a Complejidad control with them into "! Undefined
+// control sequence" (2026-08-27). `\guillemotleft{}` is a T1 encoding
+// macro; `[T1]{fontenc}` is already in the preamble, so it works with no
+// package change.
+//
+// Why guillemets at all: `[T1]{fontenc}` makes a bare ASCII `"` a
+// diacritic-composition trigger — `"este"` on paper prints as an
+// unintended superscript-e on the `e`. Guillemets are also the Spanish
+// typographic convention for a quotation on the printed sheet.
 //
 // An odd number of quotes in one field (a stray `"` alone) still emits
 // legal LaTeX: the state machine opens, and without a partner the print
@@ -522,9 +531,9 @@ func mapAsciiQuotes(s string) string {
 			continue
 		}
 		if open {
-			b.WriteString(`\og `)
+			b.WriteString(`\guillemotleft{}`)
 		} else {
-			b.WriteString(`\fg{}`)
+			b.WriteString(`\guillemotright{}`)
 		}
 		open = !open
 	}
@@ -738,8 +747,8 @@ const (
 // the ordered list of payloads. The emphasis / quote pipeline that runs
 // downstream then cannot bleed into what the author wrote as code — the
 // pre-#239 pipeline processed “ `a*b*c` “ as `\texttt{a\textit{b}c}` and
-// “ `.equals("María")` “ as `\texttt{.equals(\og María\fg{})}` (issue
-// #239 COR-2, shipped bug in buscar-con-equals). MDX treats backticks as
+// “ `.equals("María")` “ as `\texttt{.equals(\guillemotleft{}María\guillemotright{})}`
+// (issue #239 COR-2, shipped bug in buscar-con-equals). MDX treats backticks as
 // inviolable on-screen, so the printed sheet needs the same guarantee.
 //
 // A backtick without its pair passes through — the pattern only matches
@@ -813,7 +822,8 @@ func escapeBankText(s string) string {
 	//      adjacent `*` on the outside (which pure `\B` cannot), blocking
 	//      arithmetic like `n*m*p` and cross-`**` italic bleed in
 	//      strings like `n**m es la … 2**3` (issue #239 COR-1).
-	//   6. mapAsciiQuotes — `"..."` → `\og … \fg{}` (issue #239). Runs
+	//   6. mapAsciiQuotes — `"..."` → `\guillemotleft{}…\guillemotright{}`
+	//      (issue #239; babel-shortcut fixed post-#240). Runs
 	//      AFTER the emphasis transforms so an author's `*"quoted"*` still
 	//      picks up italic on the whole span.
 	//   7. restoreCodePayloads — put each backtick payload back as
