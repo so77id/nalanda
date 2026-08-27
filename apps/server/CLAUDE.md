@@ -246,10 +246,10 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   future WP adds the explicit retry button. Same rule shape as the
   UploadScan-survives bullet above.
 - **Hard-deleting a control requires an ARCHIVED row AND a typed name
-  match (issue #261).** Purge is a two-step gate; a hand-typed
-  `/controls/{id}/purge` on an active row must not delete grades. Both
-  gates are enforced INDEPENDENTLY at their own layer, and adding a new
-  path to the destructive step must respect both:
+  match (issue #261, ADR-0052).** Purge is a two-step gate; a hand-typed
+  `/controls/{id}/purge` on an active row must not delete grades. THREE
+  independent layers enforce it, and adding a new path to the destructive
+  step must respect all three:
   1. `Store.PurgeControl` runs `DELETE FROM control WHERE id = ? AND
      deleted_at IS NOT NULL`. The `AND` is the schema-level belt: even
      if a caller skips the Service gate, an active row is untouched.

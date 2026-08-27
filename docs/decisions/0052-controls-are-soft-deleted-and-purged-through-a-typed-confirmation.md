@@ -125,7 +125,7 @@ data.
 
 The operational forms (`/scans`, `/reanalyze`, `/close`,
 `/copies/{n}/review`) are NOT server-side blocked on an archived
-control. The banner is the fricción; adding server refusal to five
+control. The banner is the fricción; adding server refusal to four
 handlers would double the policy surface for no user-visible gain (the
 professor who reads "está archivado" and then intentionally re-runs
 `/reanalyze` is exercising an operator escape hatch, not defeating an
@@ -138,8 +138,8 @@ invariant).
   minute" one-step, a bulk purge, a scheduled auto-purge) must respect
   the three-gate purge and the two-step archive discipline. Removing
   any of the three purge gates is forbidden.
-- **The five active-only sections of the detail page keep working on
-  archived controls.** A future WP that adds a sixth operational form
+- **The four operational forms of the detail page keep working on
+  archived controls.** A future WP that adds a fifth operational form
   MUST NOT server-side-block on archived without discussing here; the
   rule is "banner is enough fricción".
 - **No audit log of who archived / restored / purged.** The HTTP

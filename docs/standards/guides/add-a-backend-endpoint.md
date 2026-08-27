@@ -253,6 +253,64 @@ before touching the disk — a per-row check that copy belongs to
 this control is preferable when the row is already loaded; the fixed
 cap is the fallback when it isn't.
 
+## A pattern the archive/purge flow adds — the destructive-confirm pair
+
+WP-#261 (ADR-0052) introduced a shape worth naming for the next
+irreversible endpoint: a **destructive-confirm pair**. The precondition
+is "the row is in a state that already declares intent to remove"
+(here: `deleted_at IS NOT NULL`); the endpoint is **two URLs plus
+three independent gates**:
+
+- `GET .../purge/confirm` — renders the confirmation form with a
+  free-text input that must contain the exact display name of the
+  row. **404 (not 403) on a row that fails the precondition** — an
+  active control's confirmation page never renders, so a hand-typed
+  URL cannot surface the destructive form.
+- `POST .../purge` — destroys. Refuses the same precondition with
+  the same 404, then re-checks the typed name against the row's
+  name **verbatim** (no trim, no case fold — the string on the
+  confirmation page is what the professor sees, and a match must be
+  what they type). Mismatch → 422 re-render with the typed value
+  echoed back (same shape as the create form's validation
+  re-render).
+
+The three gates enforce the same rule at three layers so a caller
+that bypasses one still hits the others:
+
+1. **Schema:** the `DELETE` guards `WHERE ... AND <precondition>`. A
+   caller that reaches directly into the store still cannot destroy
+   a row that fails the precondition. Removing this `AND` is
+   forbidden.
+2. **Service:** the domain method pre-fetches the row, checks the
+   same precondition and returns a **distinct sentinel** for the
+   "precondition failed" case — kept separate from `NotFound` so
+   the handler can render "you have to X first" rather than a bare
+   404 on a URL against a wrong-state row.
+3. **Handler:** verbatim string match on a form field the professor
+   typed. Mismatch → 422 re-render with the typed value echoed
+   back.
+
+Every layer of consequence beyond the DB row is **best-effort AFTER
+the load-bearing commit** — the DB `DELETE` commits, then
+`os.RemoveAll` (or its equivalent) drops the on-disk state, and a
+filesystem failure at that step is logged and swallowed. Forwarding
+the FS error would leave the caller believing the destructive
+operation failed when the row is already gone through the cascade
+and every referenced downstream is already unrecoverable. Same
+shape as `PrepareControl`'s rollback closure.
+
+Worked case: `handler.PurgeConfirm`/`handler.Purge` (both refuse
+`DeletedAt == nil` with 404), `Service.Purge` (returns
+`ErrCannotPurgeActive` vs `ErrControlNotFound`), `Store.PurgeControl`
+(`DELETE FROM control WHERE id = ? AND deleted_at IS NOT NULL`).
+
+The related soft-delete step is the same shape without the third
+gate: the state-flipping route is one POST, guarded by the schema's
+`WHERE ... AND deleted_at IS NULL` clause, and idempotent by
+returning `ErrControlNotFound` when the guard's `RowsAffected = 0`.
+The handler translates the sentinel into an "already X" flash rather
+than a 404 so a double-click is not a stack trace.
+
 ## Checklist
 
 - [ ] The endpoint is on the right surface, and neither surface imports the other.
