@@ -159,8 +159,10 @@ read path.
   the same reason.
 - **Manual escape hatch.** `POST /admin/bank/refresh` (session-gated, CSRF-
   verified) triggers an immediate `Reload` and flashes the outcome in
-  Spanish. A "Recargar banco" button in the backoffice top bar posts to it;
-  the professor stays on the page they clicked from when the `Referer` shares
+  Spanish. A "Recargar banco" button on the `/controls` index posts to it
+  (issue #254 moved it out of the navbar — refreshing the bank belongs to
+  the controls flow, not to a global backoffice action); the professor
+  stays on the page they clicked from when the `Referer` shares
   scheme+host with `NALANDA_PUBLIC_URL`, or lands on `/controls` otherwise
   (an off-origin Referer never steers the redirect).
 
@@ -205,8 +207,9 @@ read path.
   actually moved and a `question bank refresh failed` when a cycle fails —
   the last one is the signal an operator watches for.
 - **The manual endpoint sits inside `/admin/`.** Session-gated + CSRF-verified
-  like every other state-changing route on this surface; the button's
-  visibility follows the top bar's `.Professor` guard. Neither an anonymous
+  like every other state-changing route on this surface; the button lives on
+  the `/controls` index (issue #254) whose visibility follows the same
+  `.Professor` guard the whole backoffice does. Neither an anonymous
   visitor nor a signed-out browser tab can trigger a refresh.
 
 ## Amendment — 2026-08-25 (page-only annotations)

@@ -48,9 +48,11 @@ func NewAdminBank(deps AdminBank) *AdminBank {
 // off-origin.
 //
 // The redirect target is Referer-derived rather than a fixed constant
-// because the button appears in the top bar on every backoffice page,
-// and losing the professor's context (which control they were looking at)
-// on every refresh is a small paper cut with no upside. The
+// so the professor keeps their context (which control they were looking
+// at) after every refresh. The button lives on the /controls index
+// (issue #254 moved it there from the top bar) but the endpoint stays
+// generic — a future caller from a detail page still redirects back
+// where they came from. The
 // same-origin guard below is why an evil Referer can never become an
 // open redirect: PublicURL is the deployed origin (host + optional port,
 // no path — see config.Load's validation), and only a Referer whose
