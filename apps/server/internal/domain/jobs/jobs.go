@@ -105,6 +105,13 @@ type Store interface {
 	// The Detail handler renders the banner from this row.
 	LatestForControl(ctx context.Context, controlID string) (Job, error)
 
+	// LatestForControlByKind returns the most recent job of a specific
+	// Kind for a control (highest created_at where kind = ?). Returns
+	// ErrJobNotFound when the control has no job of that kind. Issue
+	// #257: the Detail handler asks for the latest KindGenerate to
+	// decide whether sujet.pdf / corrige.pdf / pool.json exist yet.
+	LatestForControlByKind(ctx context.Context, controlID string, kind Kind) (Job, error)
+
 	// QueuedIDs returns every `queued` job's id, oldest first. Sweep calls
 	// this once at boot to re-push them onto the runner's channel.
 	QueuedIDs(ctx context.Context) ([]int64, error)

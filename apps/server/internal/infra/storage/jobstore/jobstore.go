@@ -124,6 +124,21 @@ func (s *Store) LatestForControl(ctx context.Context, controlID string) (jobs.Jo
 	return got, err
 }
 
+// LatestForControlByKind returns the most recent job of one Kind for a
+// control. Uses the same `idx_job_by_control (control_id, created_at
+// DESC)` index — SQLite scans through it and filters by kind at the
+// row level, cheap for the small per-control result set.
+func (s *Store) LatestForControlByKind(ctx context.Context, controlID string, kind jobs.Kind) (jobs.Job, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT `+jobColumns+` FROM job WHERE control_id = ? AND kind = ? ORDER BY created_at DESC, id DESC LIMIT 1`,
+		controlID, string(kind))
+	got, err := scanJob(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return jobs.Job{}, jobs.ErrJobNotFound
+	}
+	return got, err
+}
+
 // QueuedIDs returns every queued job's id, oldest first.
 func (s *Store) QueuedIDs(ctx context.Context) ([]int64, error) {
 	rows, err := s.db.QueryContext(ctx,
