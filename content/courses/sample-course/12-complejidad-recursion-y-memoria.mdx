@@ -471,3 +471,347 @@ acto 3.
 </Slide>
 
 <SectionBreak />
+
+<Slide title="El misterio Fibonacci que quedó pendiente en `arrays-y-funciones`">
+En [[arrays-y-funciones|arrays-y-funciones]] hicimos correr tres versiones
+de Fibonacci — **con arreglo**, **iterativa**, **recursiva** — y medimos
+sus tiempos. El resultado fue vergonzoso para la recursión:
+
+- `fib(40)` recursivo: **varios segundos**
+- `fib(40)` iterativo: **microsegundos**
+- `fib(40)` con arreglo: **microsegundos**
+
+Las tres funciones calculan lo mismo. Todas están correctas. Y sin embargo
+una es cientos de miles de veces más lenta que las otras dos. En ese momento
+nos limitamos a decir *"pasa algo raro y lo entenderemos cuando estudiemos
+complejidad"*. Este acto explica **exactamente por qué** — con la
+vocabulario que construimos en [[complejidad-de-hilbert-al-big-o|Peli 1]] y
+las técnicas del acto 1 de este capítulo.
+
+El resumen es que la versión recursiva ejecuta un número de operaciones
+$$\Theta(\varphi^n)$$ donde $$\varphi \approx 1{,}618$$ — un crecimiento
+**exponencial**. Las iterativas son $$\Theta(n)$$. Al final del acto vamos
+a probarlo desde tres ángulos: la **recurrencia** que produce el código, la
+**resolución** por ecuación característica, y la **medición** con
+`<Benchmark>`.
+</Slide>
+
+<Slide title="Fibonacci recursivo: el árbol de llamadas">
+Vamos a la versión recursiva, exactamente como la escribimos en la clase
+pasada:
+
+```java
+long fib(int n) {
+    if (n < 2) return n;
+    return fib(n - 1) + fib(n - 2);
+}
+```
+
+Ya sabemos por el acto 2 que **la definición es correcta**: es literalmente
+la función μ-recursiva de Fibonacci escrita en Java. La pregunta no es
+"¿calcula bien?", es "¿cuántas invocaciones hace?"
+
+Para verlo, desplegamos el árbol de llamadas de `fib(5)`. Cada nodo es
+**una invocación real** al método; cliquea la raíz para ir abriendo
+niveles y observa que hay **argumentos que se repiten** — todos los
+`fib(3)` calculan lo mismo, todos los `fib(2)` calculan lo mismo, pero
+la recursión no se acuerda y los vuelve a hacer.
+
+<RecursionTree recipe="fib" arg={5} title="fib(5) — el árbol de llamadas" />
+
+**Contá los nodos**: `fib(5)` tiene 15 nodos en total. **Solo** dos son
+`fib(4)`; el resto son llamadas a `fib(3)`, `fib(2)`, `fib(1)` y
+`fib(0)` que se repiten. Ese es el desperdicio que estamos por
+cuantificar.
+</Slide>
+
+<Slide title="De código a recurrencia $$T(n)$$">
+El árbol nos muestra el fenómeno; ahora traducimos el código a una
+**recurrencia** que lo describa formalmente.
+
+Miramos las tres líneas de `fib`:
+
+```java
+long fib(int n) {
+    if (n < 2) return n;                       // caso base — trabajo constante c
+    return fib(n - 1) + fib(n - 2);            // una llamada + otra + suma + return
+}
+```
+
+- La **rama base** (`if (n < 2) return n`) hace un trabajo **constante**:
+  una comparación, un `return`. La llamamos $$c$$ (algún número positivo,
+  no nos importa cuánto exactamente).
+- La **rama recursiva** hace dos cosas: llama a `fib(n-1)`, cuyo costo es
+  **por definición** $$T(n-1)$$; llama a `fib(n-2)`, cuyo costo es
+  $$T(n-2)$$; y hace además un trabajo constante $$c$$ (la suma y el
+  `return`).
+
+Poniendo las dos ramas juntas:
+
+$$
+T(n) = \begin{cases} c & \text{si } n < 2 \\ T(n-1) + T(n-2) + c & \text{si } n \geq 2 \end{cases}
+$$
+
+Esta es **la recurrencia que produce el código**. Reconocela: es la
+recurrencia de Fibonacci más una constante $$c$$ que agrega a cada nivel el
+costo del `if`, la suma y el `return`.
+
+Como toda recurrencia, tiene tres piezas — condiciones iniciales
+($$T(0), T(1) = c$$), regla ($$T(n) = T(n-1) + T(n-2) + c$$), y una
+variable de índice ($$n$$). Ya la vimos así en el acto 1. Ahora la vamos a
+resolver con el widget del capítulo.
+</Slide>
+
+<Slide title="Desplegando la recurrencia paso a paso">
+El widget de abajo muestra la recurrencia, el desarrollo (los pasos de
+sustitución que la reducen), y la forma cerrada. La mecánica es
+**declarativa** — los pasos los escribimos a mano acá; el widget renderiza,
+no resuelve (ADR-0048).
+
+<ComplexityCounter
+  algorithm="fibRecursivo"
+  mode="recursion"
+  code={`long fib(int n) {
+    if (n < 2) return n;
+    return fib(n - 1) + fib(n - 2);
+}`}
+  data={{
+    annotations: {
+      2: { note: 'caso base ⇒ trabajo constante c' },
+      3: { note: 'dos llamadas recursivas + suma ⇒ T(n-1) + T(n-2) + c' },
+    },
+    recurrence: 'T(n) = T(n-1) + T(n-2) + c',
+    base: { 'T(0)': 'c', 'T(1)': 'c' },
+    unroll: [
+      { form: 'T(n) = T(n-1) + T(n-2) + c', note: 'punto de partida' },
+      {
+        form: 'T(n) = [T(n-2) + T(n-3) + c] + T(n-2) + c',
+        note: 'sustituimos T(n-1)',
+      },
+      {
+        form: 'T(n) = 2·T(n-2) + T(n-3) + 2c',
+        note: 'agrupamos las dos copias de T(n-2)',
+      },
+      {
+        form: 'T(n) = 2·[T(n-3) + T(n-4) + c] + T(n-3) + 2c',
+        note: 'sustituimos T(n-2)',
+      },
+      {
+        form: 'T(n) = 3·T(n-3) + 2·T(n-4) + 4c',
+        note: 'agrupamos otra vez',
+      },
+      {
+        form: '⋮',
+        note: 'cada paso casi duplica la cantidad de términos T(·)',
+      },
+      {
+        form: 'T(n) ≈ φ · T(n-1) para n grande',
+        note: 'la razón entre términos consecutivos tiende a φ',
+      },
+    ],
+    closedForm: 'T(n) = Θ(φⁿ)',
+  }}
+/>
+
+**Qué mirar**: en cada paso el número de términos $$T(\cdot)$$ crece — de 2
+a 3 a 5 a 8. Ese crecimiento no es lineal; es **la propia sucesión de
+Fibonacci**. Que la recurrencia del **costo** siga la sucesión de
+**Fibonacci** no es coincidencia: es una consecuencia mecánica de que la
+regla del costo sea idéntica a la regla del valor, salvo por la constante.
+</Slide>
+
+<Slide title="Contar hojas: hojas(fib $$n$$) = $$F(n+1)$$">
+Otra ruta al mismo resultado, más visual: en lugar de desplegar la
+recurrencia, **contamos las hojas** del árbol de llamadas.
+
+Las hojas del árbol son las llamadas $$fib(0)$$ y $$fib(1)$$ — las que no
+recursan. Cada una hace trabajo constante $$c$$; **cada nodo interno** (los
+que sí recursan) también hace trabajo constante $$c$$. El costo total es
+proporcional al número de nodos del árbol, y en un árbol binario el
+**número de nodos es a lo más el doble del número de hojas menos uno**.
+
+Contá las hojas del árbol de `fib(n)`:
+
+- `fib(0)` tiene 1 hoja (es hoja él mismo).
+- `fib(1)` tiene 1 hoja.
+- `fib(2)` = `fib(1)` + `fib(0)` → 2 hojas.
+- `fib(3)` = `fib(2)` + `fib(1)` → 3 hojas.
+- `fib(4)` = `fib(3)` + `fib(2)` → 5 hojas.
+- `fib(5)` = `fib(4)` + `fib(3)` → 8 hojas.
+
+$$
+\text{hojas}(fib\ n) = 1,\ 1,\ 2,\ 3,\ 5,\ 8,\ 13,\ \ldots = F(n+1)
+$$
+
+**La cantidad de hojas es un número de Fibonacci** — corrido un lugar. Y
+por lo que vimos en el acto 1, $$F(n+1)$$ crece como $$\varphi^{n+1}$$ —
+es decir, como $$\varphi^n$$ salvo una constante multiplicativa. Como el
+número de nodos totales está entre las hojas y el doble de las hojas,
+$$T(n) = \Theta(\varphi^n)$$.
+
+Es la misma conclusión que sacamos con la recurrencia. Dos caminos, mismo
+resultado. Esa redundancia es sana — cuando dos análisis independientes
+llegan a lo mismo, el resultado es más creíble que cualquiera de los dos
+solos.
+</Slide>
+
+<Slide title="Cerrando con la ecuación característica → $$\Theta(\varphi^n)$$">
+Si querés la ruta rigurosa, es la misma técnica del acto 1 (Euler 1748).
+
+La recurrencia es $$T(n) = T(n-1) + T(n-2) + c$$ — igual a la de
+Fibonacci más una constante. Su solución general es:
+
+$$
+T(n) = A\,\varphi^n + B\,\psi^n + T_p(n)
+$$
+
+donde:
+
+- $$\varphi = \dfrac{1 + \sqrt{5}}{2} \approx 1{,}618$$ y
+  $$\psi = \dfrac{1 - \sqrt{5}}{2} \approx -0{,}618$$ son las
+  raíces de la **ecuación característica homogénea** $$x^2 - x - 1 = 0$$
+  (misma que Fibonacci — la parte $$+c$$ no cambia las raíces).
+- $$T_p(n)$$ es una **solución particular** para el término no
+  homogéneo $$+c$$; como $$c$$ es constante, $$T_p(n)$$ también es
+  una constante. Sale $$T_p(n) = -c$$.
+- $$A$$ y $$B$$ se ajustan con las condiciones iniciales
+  $$T(0) = T(1) = c$$.
+
+**Recordatorio de $$\varphi$$ y $$\psi$$ para que este cierre sea
+auto-contenido** (boxout):
+
+> **$$\varphi$$ (razón áurea)** es el número positivo que satisface
+> $$\varphi^2 = \varphi + 1$$. Numéricamente $$\varphi \approx 1{,}618$$.
+> Aparece como cociente $$F(n+1) / F(n) \to \varphi$$ (Kepler 1608), como
+> razón extrema y media (Euclides ~300 aC), y como raíz mayor del
+> polinomio característico de Fibonacci (De Moivre 1730).
+>
+> **$$\psi$$** es la otra raíz del polinomio, $$\psi \approx -0{,}618$$.
+> Como $$|\psi| < 1$$, el término $$B\,\psi^n$$ **decae** a cero y no
+> importa asintóticamente.
+
+Poniendo todo junto, para $$n$$ grande el término dominante es
+$$A\,\varphi^n$$. La constante particular $$-c$$ queda opacada
+(constante $$\ll$$ exponencial), y $$\psi^n$$ también:
+
+$$
+T(n) = \Theta(\varphi^n)
+$$
+
+**Ese es el resultado técnico que buscábamos.** El desperdicio del árbol
+de llamadas no es solo *"la recursión repite trabajo"*; es
+**exponencial en la variable de entrada**. Cada vez que aumentás $$n$$ en
+uno, el costo se multiplica por $$\varphi \approx 1{,}618$$.
+</Slide>
+
+<Slide title="Verificar con `<Benchmark>`: es consistente con $$\Theta(\varphi^n)$$">
+Tenemos una **predicción teórica**: $$T(n) = \Theta(\varphi^n)$$.
+Comparémosla con la **realidad medida** — que ya conocemos en parte de
+`arrays-y-funciones`.
+
+<Benchmark
+  implementations={[
+    { name: "fibRecursivo", code: `import java.util.Scanner;
+
+public class FibRecursivo {
+    static long fib(int n) {
+        if (n < 2) return n;
+        return fib(n - 1) + fib(n - 2);
+    }
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        long t0 = System.nanoTime();
+        long r = fib(n);
+        long t1 = System.nanoTime();
+        System.out.println("time_ns:" + (t1 - t0));
+        System.out.println("result:" + r);
+    }
+}
+`, entryClass: "FibRecursivo" },
+    { name: "fibIterativo", code: `import java.util.Scanner;
+
+public class FibIterativo {
+    static long fib(int n) {
+        if (n == 0) return 0;
+        long anterior = 0, actual = 1;
+        for (int i = 2; i <= n; i++) {
+            long siguiente = anterior + actual;
+            anterior = actual;
+            actual = siguiente;
+        }
+        return actual;
+    }
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        long t0 = System.nanoTime();
+        long r = fib(n);
+        long t1 = System.nanoTime();
+        System.out.println("time_ns:" + (t1 - t0));
+        System.out.println("result:" + r);
+    }
+}
+`, entryClass: "FibIterativo" },
+  ]}
+  inputs={[10, 20, 30, 35, 38, 40]}
+  defaultInput={30}
+/>
+
+**Corré el recursivo con $$n = 30$$ y comparalo con $$n = 40$$**. Si el
+crecimiento fuera lineal, esperarías un factor $$40/30 \approx 1{,}33$$ de
+diferencia. **Vas a ver mucho más**: aproximadamente
+$$\varphi^{10} \approx 122$$ veces. La medición es **consistente con
+$$\Theta(\varphi^n)$$**.
+
+**Cuidado con lo que estás midiendo**: como discutimos en Peli 1, un
+cronómetro mide el **entorno** (JVM, hardware, JIT, procesos vecinos),
+no solo el algoritmo. La medición **no valida la teoría** por sí sola —
+solo la hace más creíble. La teoría vale porque la derivamos formalmente
+en las slides anteriores; el cronómetro solo constata que **la realidad
+no contradice a la teoría** en el rango que probamos.
+
+**El iterativo** con los mismos valores de $$n$$ termina en microsegundos.
+$$\Theta(n)$$ contra $$\Theta(\varphi^n)$$: la diferencia visible es la
+diferencia asintótica.
+</Slide>
+
+<Slide title="Visualizar la brecha: $$\Theta(n)$$ vs $$\Theta(\varphi^n)$$ en escala log">
+Una manera de ver **de un vistazo** la brecha entre las dos versiones es
+graficarlas juntas. En escala lineal el crecimiento exponencial se dispara
+y aplasta todo lo demás; en **escala logarítmica** en el eje Y las
+funciones exponenciales aparecen como **líneas rectas**, y podés comparar
+crecimientos leyendo pendientes.
+
+<MathPlot
+  title="Costo relativo: iterativo (lineal) vs recursivo (exponencial), escala log en Y"
+  functions={[
+    { label: "T(n) = n  (iterativo)", fn: (n) => Math.max(1, n), color: "blue" },
+    { label: "T(n) = φⁿ  (recursivo)", fn: (n) => Math.pow((1 + Math.sqrt(5)) / 2, n), color: "red" },
+  ]}
+  xRange={[1, 40]}
+  scale="log"
+  yRange={[1, 1e9]}
+/>
+
+- La curva azul ($$T(n) = n$$) crece **muy lentamente** en escala log —
+  aparece como una línea casi horizontal en el extremo superior.
+- La curva roja ($$T(n) = \varphi^n$$) es una **línea recta con
+  pendiente $$\log \varphi$$**. La pendiente es lo que la delata como
+  exponencial pura.
+- Para $$n = 40$$ la diferencia vertical entre las dos curvas es de
+  **siete a ocho órdenes de magnitud** — unas $$10^7$$ veces. Coincide
+  aproximadamente con lo que vas a ver en `<Benchmark>` de la slide
+  anterior si probás $$n = 40$$.
+
+**Cerramos el acto**: sabemos qué recurrencia produce el código
+($$T(n) = T(n-1) + T(n-2) + c$$), sabemos resolverla ($$\Theta(\varphi^n)$$
+por característica), y sabemos que la realidad medida es consistente. Ahora
+la pregunta pasa a ser: ¿cómo lo arreglamos, sabiendo que el resultado
+matemático de Fibonacci es una función lineal de $$n$$ (lo hicimos en
+[[arrays-y-funciones|arrays-y-funciones]] iterativo)? Es el acto 4.
+</Slide>
+
+<SectionBreak />
