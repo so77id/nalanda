@@ -208,10 +208,13 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      AND another `*` on the outside of a marker, so `n*m*p` arithmetic
      and cross-`**` italic bleed (`n**m es la … 2**3`) are both blocked
      (#239 COR-1).
-  6. `mapAsciiQuotes` — `"…"` → `\og … \fg{}` (babel-spanish
-     guillemets). State machine: first quote opens, second closes, so
-     on. `[T1]{fontenc}` would otherwise compose a diacritic onto the
-     next glyph on a bare `"` (#239).
+  6. `mapAsciiQuotes` — `"…"` → `\guillemotleft{}…\guillemotright{}`
+     (T1-encoding guillemets). State machine: first quote opens, second
+     closes, so on. `[T1]{fontenc}` would otherwise compose a diacritic
+     onto the next glyph on a bare `"` (#239). Uses T1 macros directly
+     rather than `\og`/`\fg{}` — the babel-spanish shortcuts require
+     `activeacute` to be set and produce "Undefined control sequence"
+     otherwise (2026-08-27 post-#240 regression).
   7. `restoreCodePayloads` — puts each backtick payload back as
      `\texttt{escapeLatex(mapUnicodeToLatex(payload))}`. Emphasis /
      quote transforms are deliberately NOT re-applied to code content.
