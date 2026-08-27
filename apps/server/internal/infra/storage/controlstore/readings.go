@@ -113,15 +113,29 @@ func upsertReading(ctx context.Context, tx *sql.Tx, controlID string, copyNumber
 	if c.RUT != "" {
 		rutRead = sql.NullString{String: c.RUT, Valid: true}
 	}
+	// #243: pages_json is the physical scan pages AMC captured for this
+	// copy. Persist verbatim from the report — the amcworker mapping
+	// already substituted [1] for a legacy worker that did not emit the
+	// field, so this write never records the empty-list shape a legacy
+	// row was backfilled to '[1]' from.
+	pages := c.Pages
+	if pages == nil {
+		pages = []int{}
+	}
+	pagesJSON, err := json.Marshal(pages)
+	if err != nil {
+		return 0, fmt.Errorf("controlstore.upsertReading: encode pages: %w", err)
+	}
 	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO reading (control_id, copy_number, rut_read, rut_status, copy_status, read_at)
-         VALUES (?, ?, ?, ?, ?, ?)
+		`INSERT INTO reading (control_id, copy_number, rut_read, rut_status, copy_status, read_at, pages_json)
+         VALUES (?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT (control_id, copy_number) DO UPDATE SET
              rut_read = excluded.rut_read,
              rut_status = excluded.rut_status,
              copy_status = excluded.copy_status,
-             read_at = excluded.read_at`,
-		controlID, copyNumber, rutRead, string(c.RUTStatus), string(c.Status), now.Unix(),
+             read_at = excluded.read_at,
+             pages_json = excluded.pages_json`,
+		controlID, copyNumber, rutRead, string(c.RUTStatus), string(c.Status), now.Unix(), string(pagesJSON),
 	); err != nil {
 		return 0, fmt.Errorf("controlstore.upsertReading: %s/%d: %w", controlID, copyNumber, err)
 	}
@@ -156,7 +170,7 @@ func (s *Store) MarkMissingAsNotPresent(ctx context.Context, controlID string, n
 // copy_number ascending, with overrides eagerly attached.
 func (s *Store) ReadingsByControl(ctx context.Context, controlID string) ([]controls.Reading, error) {
 	rows, err := s.db.QueryContext(ctx, `
-        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at
+        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json
         FROM reading
         WHERE control_id = ?
         ORDER BY copy_number ASC`, controlID)
@@ -186,7 +200,7 @@ func (s *Store) ReadingsByControl(ctx context.Context, controlID string) ([]cont
 // ErrReadingNotFound.
 func (s *Store) ReadingByCopy(ctx context.Context, controlID string, copyNumber int) (controls.Reading, error) {
 	row := s.db.QueryRowContext(ctx, `
-        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at
+        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json
         FROM reading
         WHERE control_id = ? AND copy_number = ?`, controlID, copyNumber)
 	r, err := scanReading(row)
@@ -419,8 +433,9 @@ func scanReading(row interface{ Scan(...any) error }) (controls.Reading, error) 
 		copyStatus      string
 		readAt          int64
 		lastEditedAtRaw sql.NullInt64
+		pagesJSON       string
 	)
-	if err := row.Scan(&r.ID, &r.ControlID, &r.CopyNumber, &rutRead, &rutStatus, &copyStatus, &readAt, &lastEditedAtRaw); err != nil {
+	if err := row.Scan(&r.ID, &r.ControlID, &r.CopyNumber, &rutRead, &rutStatus, &copyStatus, &readAt, &lastEditedAtRaw, &pagesJSON); err != nil {
 		return controls.Reading{}, err
 	}
 	r.RUTStatus = controls.RUTStatus(rutStatus)
@@ -433,6 +448,19 @@ func scanReading(row interface{ Scan(...any) error }) (controls.Reading, error) 
 	if lastEditedAtRaw.Valid {
 		t := time.Unix(lastEditedAtRaw.Int64, 0).UTC()
 		r.LastEditedAt = &t
+	}
+	// #243: pages_json is NOT NULL under migration 00011; a legacy row
+	// was backfilled to '[1]', a new write from a legacy worker landed
+	// as '[1]' via the amcworker fallback, and a new write from the
+	// current worker carries the AMC-captured list. Empty '[]' decodes
+	// to nil — the handler treats that identically to "no pages known"
+	// and lets the raw-scan fallback render nothing rather than an
+	// invented page 1 (COR: the domain does not silently paper over
+	// what the schema says is empty).
+	if pagesJSON != "" {
+		if err := json.Unmarshal([]byte(pagesJSON), &r.Pages); err != nil {
+			return controls.Reading{}, fmt.Errorf("controlstore.scanReading: decode pages: %w", err)
+		}
 	}
 	return r, nil
 }

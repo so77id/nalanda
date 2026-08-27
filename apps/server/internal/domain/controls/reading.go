@@ -106,6 +106,14 @@ type ReportCopy struct {
 	SeenQuestions     int
 	MissingQuestions  []string
 	Status            CopyStatus
+	// Pages is the 1-based physical page list AMC captured for this
+	// copy, in ascending order (issue #243). The review page's raw-scan
+	// fallback iterates it to render one <img> per page; a copy whose
+	// page 2 was scanned but rejected by AMC does not have `2` here and
+	// does not get an <img> for it. Empty when the analyzer predates the
+	// field — the reader then falls back to [1] to keep the pre-#243
+	// single-page render.
+	Pages []int
 }
 
 // Pages counts what got in.
@@ -268,6 +276,13 @@ type Reading struct {
 	ReadAt       time.Time
 	LastEditedAt *time.Time   // set on any manual override
 	RUTOverride  *RUTOverride // eagerly loaded by ReadingsByControl and ReadingByCopy
+	// Pages is the 1-based list of physical scan pages AMC captured
+	// for this copy, in ascending order (issue #243). The review
+	// page's raw-scan fallback iterates it to render one <img> per
+	// captured page. A legacy row from before migration 00011 comes
+	// back as [1] via the migration's backfill; a copy whose page 2
+	// was scanned but rejected by AMC does not have `2` here.
+	Pages []int
 }
 
 // Answer is one question of a Reading, with the engine's numbers beside

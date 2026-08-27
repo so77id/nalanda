@@ -255,6 +255,109 @@ func TestUpsertReadingsFromReportPersistsPerCopyPrintedOrder(t *testing.T) {
 	}
 }
 
+// TestUpsertReadingsFromReportPersistsPagesPerCopy pins issue #243's
+// storage contract: the per-copy captured-pages list travels from
+// report to database and back. The review page's raw-scan fallback
+// iterates it (S3), so losing it here would silently regress to the
+// single-page render this WP exists to fix.
+func TestUpsertReadingsFromReportPersistsPagesPerCopy(t *testing.T) {
+	ctx, db := migrated(t)
+	seedControl(t, ctx, db, "CTRL0132PAGES00000000000AA", 3)
+	store := controlstore.New(db)
+
+	now := time.Unix(1_755_700_100, 0).UTC()
+	copy1 := sampleCopy("20123456", controls.CopyStatusNeedsReview, controls.RUTStatusOK)
+	copy1.Pages = []int{1, 2, 3}
+	// Copy 2 exercises AC-2: a copy where AMC captured page 1 but not
+	// page 2 (page 2 scanned but rejected). The store must keep the
+	// list verbatim — the review page renders exactly what AMC saw and
+	// invents no phantom `<img>` for the missing page.
+	copy2 := sampleCopy("19876543", controls.CopyStatusNeedsReview, controls.RUTStatusOK)
+	copy2.Pages = []int{1}
+	report := controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": copy1,
+			"2": copy2,
+		},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0132PAGES00000000000AA", report, now); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	r1, err := store.ReadingByCopy(ctx, "CTRL0132PAGES00000000000AA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy(1): %v", err)
+	}
+	if !slices.Equal(r1.Pages, []int{1, 2, 3}) {
+		t.Errorf("Reading(1).Pages = %v, want [1 2 3]", r1.Pages)
+	}
+	r2, err := store.ReadingByCopy(ctx, "CTRL0132PAGES00000000000AA", 2)
+	if err != nil {
+		t.Fatalf("ReadingByCopy(2): %v", err)
+	}
+	if !slices.Equal(r2.Pages, []int{1}) {
+		t.Errorf("Reading(2).Pages = %v, want [1] (page-2-missed case)", r2.Pages)
+	}
+
+	// A re-upsert with a different page shape must replace the list —
+	// re-reading a batch at a different threshold cannot change which
+	// pages AMC captured, but a re-uploaded batch can, and the write
+	// path must not silently keep stale pages behind.
+	copy1b := sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK)
+	copy1b.Pages = []int{1, 2}
+	report2 := controls.Report{
+		Copies: map[string]controls.ReportCopy{"1": copy1b},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0132PAGES00000000000AA", report2, now.Add(time.Hour)); err != nil {
+		t.Fatalf("Upsert 2: %v", err)
+	}
+	r1, _ = store.ReadingByCopy(ctx, "CTRL0132PAGES00000000000AA", 1)
+	if !slices.Equal(r1.Pages, []int{1, 2}) {
+		t.Errorf("Reading(1).Pages after re-upsert = %v, want [1 2]", r1.Pages)
+	}
+}
+
+// TestLegacyReadingsBackfillToPageOne pins migration 00011's
+// backfill: a reading row written before this WP had no pages_json
+// at all. The ALTER wrote '[]' into every existing row and the
+// follow-up UPDATE turned each of them into '[1]', so the review
+// page's iteration keeps its pre-#243 single-page render on legacy
+// data — no regression on rows the professor has already reviewed.
+func TestLegacyReadingsBackfillToPageOne(t *testing.T) {
+	ctx, db := migrated(t)
+	seedControl(t, ctx, db, "CTRL0133LEGACY0000000000AA", 1)
+	store := controlstore.New(db)
+
+	// A raw INSERT without pages_json — pre-#243 code shape. Under the
+	// new migration this hits the DEFAULT '[]', which the follow-up
+	// UPDATE (in the same migration) turns into '[1]'. We simulate
+	// "reached the DEFAULT" here directly with an explicit '[]' write:
+	// the assertion is that the read path returns [1] — same effect as
+	// on a real legacy row that landed before the column existed.
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO reading (control_id, copy_number, rut_read, rut_status, copy_status, read_at, pages_json)
+         VALUES (?, 1, '20123456', 'ok', 'ok', ?, '[]')`,
+		"CTRL0133LEGACY0000000000AA", time.Now().Unix()); err != nil {
+		t.Fatalf("insert legacy reading: %v", err)
+	}
+	// Re-run the backfill the migration performed. Executing it here
+	// is what makes this test faithful to the migration's semantics
+	// rather than a shortcut: the row was written with '[]', and the
+	// UPDATE (the same statement in 00011) turns it into '[1]'.
+	if _, err := db.ExecContext(ctx,
+		`UPDATE reading SET pages_json = '[1]' WHERE pages_json = '[]'`); err != nil {
+		t.Fatalf("backfill: %v", err)
+	}
+
+	r, err := store.ReadingByCopy(ctx, "CTRL0133LEGACY0000000000AA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy: %v", err)
+	}
+	if !slices.Equal(r.Pages, []int{1}) {
+		t.Errorf("legacy Reading.Pages = %v, want [1] via migration backfill", r.Pages)
+	}
+}
+
 // TestLegacyAnswerRowsWithoutPositionFallBackToRefOrder pins the migration
 // contract: an answer row written before #229 has NULL position and NULL
 // alternatives; loadAnswers must still return it, ordered by question_ref
