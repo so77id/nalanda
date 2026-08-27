@@ -1,4 +1,4 @@
-# ADR-0050: Slide deep-linking by slug — `?section=<slug>` on entry, `#<slug>` on exit
+# ADR-0051: Slide deep-linking by slug — `?section=<slug>` on entry, `#<slug>` on exit
 
 **Status:** Accepted
 **Date:** 2026-08-27

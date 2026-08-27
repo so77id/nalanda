@@ -326,7 +326,7 @@ so a formula is read as mathematics rather than skipped as decoration.
    Slide cuts a slide but contributes no section.
 
    **Each `<Slide title>` is deep-linkable from the book, and returns the
-   reader to its title on exit** (ADR-0050). The h2 of a titled slide gets a
+   reader to its title on exit** (ADR-0051). The h2 of a titled slide gets a
    `Presentar` button next to its `#` anchor, linking to
    `/d/:id/present?section=<slug>`; leaving the deck from a slide with a
    title lands the reader on the same h2 via `#<slug>`. Both work off the
