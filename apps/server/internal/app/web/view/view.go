@@ -155,6 +155,23 @@ type ControlsArchivedPage struct {
 	Controls []ArchivedControl
 }
 
+// ControlPurgeConfirmPage is the confirmation screen for a hard delete
+// (issue #261). Renders "Eliminar {Name} permanentemente" and a form
+// that only submits when the professor typed the exact name into the
+// confirm_name field. The handler re-validates server-side.
+type ControlPurgeConfirmPage struct {
+	Page
+	Control  ArchivedControl
+	PurgeURL string
+	// NameMismatch renders below the input on a re-render after the
+	// professor typed the wrong name. Empty on the first GET.
+	NameMismatch string
+	// Typed carries the previous value of the confirm_name input so the
+	// form does not silently blank on refusal (the pattern the create
+	// form uses on validation refusal). Empty on the first GET.
+	Typed string
+}
+
 // ArchivedControl is one row of the archived listing. Same pre-formatted
 // shape as ListedControl plus the archived-at column and the two URLs the
 // two operations target.
@@ -663,6 +680,17 @@ func RenderControlsArchived(w http.ResponseWriter, page ControlsArchivedPage) er
 		page.Title = "Controles archivados"
 	}
 	return render(w, "controls_archived", http.StatusOK, page)
+}
+
+// RenderControlPurgeConfirm writes the purge confirmation page (issue #261).
+// status is 200 on the GET; 422 when re-rendered after a name mismatch, so
+// the HTTP layer signals the refusal instead of a green "ok" (same reason
+// as RenderControlsForm).
+func RenderControlPurgeConfirm(w http.ResponseWriter, status int, page ControlPurgeConfirmPage) error {
+	if page.Title == "" {
+		page.Title = "Eliminar " + page.Control.Name
+	}
+	return render(w, "controls_purge_confirm", status, page)
 }
 
 // RenderControlsForm writes the create form (S6).

@@ -273,6 +273,14 @@ func routes(deps Deps) []Route {
 			Method: http.MethodGet, Path: handler.ControlsArchivedPath,
 			Handler: deps.Controls.Archived,
 		},
+		{
+			Method: http.MethodGet, Path: handler.ControlPurgeConfirmPath,
+			Handler: deps.Controls.PurgeConfirm,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ControlPurgePath,
+			Handler: deps.Controls.Purge,
+		},
 	}
 }
 

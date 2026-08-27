@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -258,6 +259,141 @@ func TestListRendersLinkToArchivedPage(t *testing.T) {
 	body := rec.Body.String()
 	if !strings.Contains(body, `href="/controls/archived"`) {
 		t.Errorf("/controls list is missing the 'Ver archivados' link:\n%s", body)
+	}
+}
+
+// Issue #261: GET /controls/{id}/purge/confirm renders the confirmation
+// form with the control name and the POST target.
+func TestPurgeConfirmRendersFormForArchivedControl(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control purge", 1)
+	if err := f.service.Archive(context.Background(), controlID); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/purge/confirm", nil)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.PurgeConfirm(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body:\n%s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Control purge") {
+		t.Errorf("control name missing from confirm page")
+	}
+	if !strings.Contains(body, `action="/controls/`+controlID+`/purge"`) {
+		t.Errorf("purge form action missing:\n%s", body)
+	}
+	if !strings.Contains(body, `name="confirm_name"`) {
+		t.Errorf("confirm_name input missing")
+	}
+}
+
+// Issue #261: GET /controls/{id}/purge/confirm on an ACTIVE control
+// answers 404 without surfacing the destructive form. This is the
+// defense-in-depth against a hand-typed URL.
+func TestPurgeConfirmRefusesActiveControl(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control activo", 1)
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID+"/purge/confirm", nil)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.PurgeConfirm(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (active control refuses purge confirm)", rec.Code)
+	}
+}
+
+// Issue #261: POST /controls/{id}/purge with the WRONG confirm_name
+// re-renders the confirmation page with an error and DOES NOT delete
+// anything. This is the load-bearing gate against a slip-of-fingers
+// permanent delete.
+func TestPurgeWithWrongConfirmNameKeepsControlIntact(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control purge wrong", 1)
+	if err := f.service.Archive(context.Background(), controlID); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+
+	form := url.Values{"confirm_name": {"NOMBRE INCORRECTO"}}
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/purge", form)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.Purge(rec, req)
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422 for a name mismatch; body:\n%s", rec.Code, rec.Body.String())
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "El nombre no coincide") {
+		t.Errorf("mismatch aviso missing:\n%s", body)
+	}
+	// The typed value is echoed back so the professor sees what they wrote.
+	if !strings.Contains(body, "NOMBRE INCORRECTO") {
+		t.Errorf("typed value not echoed back:\n%s", body)
+	}
+	// The row is still there, still archived.
+	c, err := f.service.Get(context.Background(), controlID)
+	if err != nil {
+		t.Errorf("row was deleted after a name-mismatch: %v", err)
+	}
+	if c.DeletedAt == nil {
+		t.Errorf("row was restored by a name-mismatch: DeletedAt = nil")
+	}
+}
+
+// Issue #261: POST /controls/{id}/purge with the CORRECT name deletes the
+// row AND its project directory, and lands on /controls/archived with a
+// flash.
+func TestPurgeWithCorrectConfirmNameDeletesRowAndFiles(t *testing.T) {
+	f := newControlsFixture(t)
+	name := "Control purge success"
+	controlID := f.createControl(t, name, 1)
+	if err := f.service.Archive(context.Background(), controlID); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+	projectDir := f.service.ProjectDir(controlID)
+
+	form := url.Values{"confirm_name": {name}}
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/purge", form)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.Purge(rec, req)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+	if got := rec.Header().Get("Location"); got != handler.ControlsArchivedPath {
+		t.Errorf("Location = %q, want %q", got, handler.ControlsArchivedPath)
+	}
+
+	if _, err := f.service.Get(context.Background(), controlID); err == nil {
+		t.Errorf("row survived purge with the correct name")
+	}
+	if _, err := os.Stat(projectDir); !os.IsNotExist(err) {
+		t.Errorf("project dir survived purge: %v", err)
+	}
+}
+
+// Issue #261: POST /controls/{id}/purge on an ACTIVE control answers 404
+// without invoking Service.Purge. The active row is untouched.
+func TestPurgePOSTRefusesActiveControl(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control activo", 1)
+
+	form := url.Values{"confirm_name": {"Control activo"}}
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/purge", form)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.Purge(rec, req)
+
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404 (POST purge refuses active)", rec.Code)
+	}
+	if _, err := f.service.Get(context.Background(), controlID); err != nil {
+		t.Errorf("active row was deleted by a refused purge: %v", err)
 	}
 }
 
