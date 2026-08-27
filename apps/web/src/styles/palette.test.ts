@@ -65,7 +65,25 @@ const TEXT_TOKENS = ['ink', 'ink-soft', 'ink-faint', 'accent', 'flag', 'keep'] a
 /** WCAG's "large text / non-text UI" floor. Shared by `UI_TOKENS` (meaning-
  *  carrying non-text) and `CHROME_TOKENS` (large-text chrome). Two spellings
  *  would drift: a future author who tightens one would silently leave the
- *  other behind. Named because the error-message string benefits from it. */
+ *  other behind. Named because the error-message string benefits from it.
+ *
+ *  #247 attempted to raise this to 3.1 so a token nudge could not silently
+ *  consume the entire headroom. Three pairs failed the raise:
+ *    - light  `rule-strong` on `sunk`      3.05:1
+ *    - light  `accent-pop`  on `ground`    3.02:1
+ *    - dark   `rule-strong` on `sunk`      3.00:1
+ *  (`accent-pop` on `ground` is the surface the slide-title paints on since
+ *  #225 collapsed `--nl-deck-ground` into `--nl-ground` — the pair is
+ *  iterated as `[accent-pop, ground]` in `CHROME_SURFACES` directly, not
+ *  through the alias; the alias's role is why `accent-pop` needed that
+ *  surface at all.)
+ *
+ *  The raise was reverted per the WP's escape hatch: the current palette has
+ *  ~zero headroom on those three pairs and a nudge would need a new token
+ *  value, which is out of scope for a housekeeping WP (#247 non-goal: "Do not
+ *  change palette token VALUES"). The finding is the deliverable — a separate
+ *  WP (or a design-driven nudge under #109's successor) has to move those
+ *  pairs above 3.05 before the floor can rise. */
 const LARGE_TEXT_FLOOR = 3;
 
 /** Non-text UI that carries meaning: WCAG AA is 3:1. `rule` is absent on purpose
@@ -108,6 +126,13 @@ const PAIRS = [
   ['flag', 'flag-soft'],
   ['accent', 'accent-soft'],
   ['on-keep', 'keep'],
+  // #247 review, CORR-1: `text-on-accent` on `bg-accent` is the run/action
+  // button in <Benchmark> and <ComplexityExercise> (#218). Same class as
+  // `on-keep` on `keep` — inverts with the theme — so it belongs here, not
+  // in the surface loop. Without this pair, `--nl-on-accent` sits as a
+  // declared token whose contrast against `accent` is checked by nothing,
+  // and a future nudge to `--nl-accent` breaks the label silently.
+  ['on-accent', 'accent'],
 ] as const;
 
 const THEMES = [

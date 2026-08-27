@@ -193,7 +193,7 @@ and its per-copy identity. `apps/amc-worker` is the compilation engine
 (ADR-0030) and `questions.json` (ADR-0032) is the input.
 
 Since issue #190 the cycle CLOSES with an artefact per copy: an annotated
-PDF drawn by AMC that reflects the professor's corrections (ADR-0040). It
+PDF drawn by AMC that reflects the professor's corrections (ADR-0048). It
 is generated automatically for clean copies after an upload and re-generated
 on every review save; the review page renders it and falls back to the raw
 scan while none exists. `NALANDA_ANNOTATE_ENABLED=false` switches the whole

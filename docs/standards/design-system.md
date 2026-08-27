@@ -47,6 +47,7 @@ was found by looking at a screenshot.
 | `keep`                                | Success, passing cases, the run button   | Semantic                                                                             |
 | `accent-soft` `flag-soft` `keep-soft` | Tinted grounds for chips and callouts    | Only ever under their own foreground                                                 |
 | `on-keep`                             | The label on a filled `keep` button      | **Inverts** with the theme rather than following it                                  |
+| `on-accent`                           | The label on a filled `accent` button    | Same shape as `on-keep`: **inverts** with the theme. Used by `<Benchmark>` and `<ComplexityExercise>` (#218, added to the standard in #247) |
 | `focus`                               | The focus ring                           | One ring for the whole product                                                       |
 
 ## The pairing table
@@ -69,8 +70,12 @@ Contrast is a property of a **pair**, not of a token. These are the legal pairs;
   as text on `sunk`, mint a specific token for that use or promote
   `accent-pop` into the previous row.
 - **Tinted pairs** — `keep`/`keep-soft`, `flag`/`flag-soft`,
-  `accent`/`accent-soft`, and `on-keep`/`keep`. Floor **4.5:1**: a status chip
-  is text, and small text at that.
+  `accent`/`accent-soft`, `on-keep`/`keep`, and `on-accent`/`accent`. Floor
+  **4.5:1**: a status chip is text, and small text at that. `on-accent`
+  currently holds the same value as `on-keep` in each theme (see
+  `--color-on-accent`'s docstring in `styles/index.css`, added in #247);
+  the pair is iterated in `palette.test.ts` so a future `--nl-accent` nudge
+  cannot silently break the label.
 
 A soft ground is **not** a general-purpose surface. `ink` on `keep-soft` is not
 something to allow; it is something nobody should write.
@@ -81,10 +86,22 @@ something to allow; it is something nobody should write.
    `:root`, the media query, and `[data-theme='dark']`. A token missing from the
    bare `:root` is undefined for every reader who never chose a theme, which is
    most of them.
-2. Add it to the pairing table in `styles/palette.test.ts`. A completeness case
-   fails if you do not: the table has to describe the palette that ships, not the
-   one it was written for.
-3. Run the suite. If a ratio fails, change the colour — not the floor.
+2. Add its `--color-<name>: var(--nl-<name>);` alias to the `@theme` block above
+   the palette. Without the alias, the class produces no rule and the element
+   paints inherited body text — a defect jsdom cannot see. The alias
+   completeness case in `src/architecture.test.ts` (added in #247) walks every
+   `text-<token>` / `bg-<token>` / ... in `src/**/*.{ts,tsx}` and
+   `content/**/*.mdx` and fails on the missing alias with a message naming the
+   token.
+3. Add a row to the **Tokens** table above with the token's purpose and any
+   inversion / floor note. And — if the pair is not already covered by the
+   pairing-table families — add it to the appropriate §Pairing-table bullet.
+   The table and the bullets describe the palette that ships, not the one they
+   were written for; a well-followed step (1)+(2) still leaves the standard
+   incomplete without this one (#247 review).
+4. Add it to the pairing table in `styles/palette.test.ts`. A completeness case
+   fails if you do not.
+5. Run the suite. If a ratio fails, change the colour — not the floor.
 
 ## Rules that are not about contrast
 

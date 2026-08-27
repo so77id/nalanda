@@ -60,6 +60,6 @@ failures followed, both seen in production:
 ## References
 
 - ADR-0031 — the reading report contract (threshold reporting, `stale`).
-- ADR-0040 — the annotated PDF is drawn by AMC (the third consumer of the
+- ADR-0048 — the annotated PDF is drawn by AMC (the third consumer of the
   threshold).
 - Issue #197 — full spec, slices and the measurement that chose the values.

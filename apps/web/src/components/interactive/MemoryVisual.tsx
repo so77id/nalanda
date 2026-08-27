@@ -11,7 +11,7 @@ export interface MemoryVisualProps {
    * Object ids whose box the widget should paint with a stronger border, so a
    * reader following a walk sees what moved. Optional. The author passes this
    * explicitly on the specific `<Step>` where a box changes; there is no
-   * auto-diff between adjacent `<Step>`s today (ADR-0043 §Alternatives
+   * auto-diff between adjacent `<Step>`s today (ADR-0049 §Alternatives
    * considered — deferred as future automation on top of the same prop).
    */
   changed?: number[];
@@ -214,7 +214,7 @@ export function MemoryVisual({ state, changed = [] }: MemoryVisualProps) {
 /**
  * Two authoring mistakes the tracer prevented by construction; a hand-written
  * state cannot avoid them without a small preflight, and drawing the wrong
- * picture silently is exactly the pedagogical hazard ADR-0043 §Decision-7
+ * picture silently is exactly the pedagogical hazard ADR-0049 §Decision-7
  * hands the author (see also the trade-off recorded there — the JVM's
  * truth-guarantee is now the author's).
  *

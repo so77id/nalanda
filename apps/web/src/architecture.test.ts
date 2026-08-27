@@ -23,6 +23,79 @@ function walk(dir: string): string[] {
   });
 }
 
+// Course documents (MDX) are the second source the palette guards below scan —
+// an author can carry a className in a document without touching `src/`, and
+// the walk above never reaches them (#109 review). Kept at module scope so
+// the raw-colour ban and the JSX-walk alias guard read it from ONE place.
+const CONTENT = join(SRC, '../../../content/courses');
+
+function mdxFiles(dir: string): string[] {
+  return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory()
+      ? mdxFiles(join(dir, e.name))
+      : e.name.endsWith('.mdx')
+        ? [join(dir, e.name)]
+        : [],
+  );
+}
+
+// The production surface both palette guards below scan: every `.ts`/`.tsx`
+// under `src/` that is NOT a test file, plus every `.mdx` under `content/`.
+// The `.test.` filter lives here rather than in each caller (#247 review).
+function productionSources(): string[] {
+  return [...walk(SRC).filter((f) => !relative(SRC, f).includes('.test.')), ...mdxFiles(CONTENT)];
+}
+
+// Strip `/* ... */` block comments and full-line `//` line comments before
+// matching class-name-shaped patterns. Same recipe as the CodeMirror-theme
+// case (this file, below): a class name in a comment matches the same regex
+// as a class name in code and reads as a defect. Not a real comment parser:
+// a TRAILING `// text-...` on a code line survives the strip (#247 review,
+// CORR-2), which a proper tokeniser would fix but a naïve regex over the
+// source cannot without eating `//` inside strings (URLs, template
+// literals). The current tree does not trigger it — if a future line does,
+// the guidance is to move the comment to its own line rather than pretend
+// the strip is comprehensive.
+function stripComments(source: string): string {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('//'))
+    .join('\n');
+}
+
+// The Tailwind palette-family vocabulary the raw-colour ban forbids
+// (`bg-slate-800`, `text-emerald-400`, ...). Named once so the two colour
+// guards below share one source of truth: the raw-colour ban builds a regex
+// alternation from it (`PALETTE_FAMILIES.join('|')`), and the JSX-walk
+// alias guard uses the same set — plus `white`/`black` — to skip families
+// that fail the OTHER guard with a better message. Extending this list is
+// an architectural decision, same shape as `FEATURE_EDGES` above.
+const RAW_FAMILY_NAMES = [
+  'slate',
+  'zinc',
+  'gray',
+  'neutral',
+  'stone',
+  'sky',
+  'blue',
+  'emerald',
+  'green',
+  'teal',
+  'amber',
+  'yellow',
+  'orange',
+  'red',
+  'rose',
+  'violet',
+  'purple',
+  'indigo',
+  'cyan',
+  'lime',
+  'fuchsia',
+  'pink',
+] as const;
+
 function topSegmentOfImport(file: string, spec: string): string | null {
   if (!spec.startsWith('.')) return null; // external package
   const target = resolve(dirname(file), spec);
@@ -576,8 +649,10 @@ describe('architecture: colour goes through the palette', () => {
   //
   // Tests are exempt: several assert the token a component takes, and naming a
   // colour there is the point rather than the defect.
-  const PALETTE_FAMILIES =
-    'slate|zinc|gray|neutral|stone|sky|blue|emerald|green|teal|amber|yellow|orange|red|rose|violet|purple|indigo|cyan|lime|fuchsia|pink';
+  // Course documents are JSX and can carry className, so an author can break the
+  // light theme from `content/` without touching `src/` — and the walk above
+  // never reaches them (#109 review). They are published, so this is the same
+  // rule, not a stricter one. `productionSources()` covers both surfaces.
   const PROPS =
     'bg|text|border|ring|outline|divide|decoration|placeholder|from|via|to|shadow|accent|caret|fill|stroke';
   // Three shapes, because the codebase can express three and the first version
@@ -589,34 +664,14 @@ describe('architecture: colour goes through the palette', () => {
   // `text-[0.8em]` and friends must NOT match, so shape 3 requires a colour
   // opener rather than any bracket.
   const RAW_COLOUR = new RegExp(
-    String.raw`\b(?:${PROPS})-(?:(?:${PALETTE_FAMILIES})-\d{2,3}|white|black)(?:\/\d{1,3})?\b` +
+    String.raw`\b(?:${PROPS})-(?:(?:${RAW_FAMILY_NAMES.join('|')})-\d{2,3}|white|black)(?:\/\d{1,3})?\b` +
       String.raw`|\b(?:${PROPS})-\[\s*(?:#|rgba?\(|hsla?\(|oklch\(|color-mix\()`,
     'g',
   );
 
-  // Course documents are JSX and can carry className, so an author can break the
-  // light theme from `content/` without touching `src/` — and the walk above
-  // never reaches them (#109 review). They are published, so this is the same
-  // rule, not a stricter one.
-  const CONTENT = join(SRC, '../../../content/courses');
-
-  function mdxFiles(dir: string): string[] {
-    return readdirSync(dir, { withFileTypes: true }).flatMap((e) =>
-      e.isDirectory()
-        ? mdxFiles(join(dir, e.name))
-        : e.name.endsWith('.mdx')
-          ? [join(dir, e.name)]
-          : [],
-    );
-  }
-
   function rawColours(): string[] {
     const found: string[] = [];
-    const sources = [
-      ...walk(SRC).filter((f) => !relative(SRC, f).includes('.test.')),
-      ...mdxFiles(CONTENT),
-    ];
-    for (const file of sources) {
+    for (const file of productionSources()) {
       const label = relative(SRC, file).replace(/^(\.\.\/)+/, '');
       for (const hit of new Set(readFileSync(file, 'utf8').match(RAW_COLOUR) ?? [])) {
         found.push(`${label}: ${hit}`);
@@ -687,5 +742,196 @@ describe('architecture: colour goes through the palette', () => {
       pinned,
       'pass `theme={useResolvedTheme()}` instead — a pinned theme is correct in one theme and wrong in the other, and nothing else in the suite can see it',
     ).toEqual([]);
+  });
+});
+
+describe('architecture: every colour class resolves to a registered palette token', () => {
+  // #247. The raw-colour ban above stops a component from naming a Tailwind
+  // family (`bg-slate-800`, `text-white`). But it cannot see the *inverse*
+  // defect: a component that reaches for a SEMANTIC token which was renamed,
+  // typo'd, or never registered — `text-ink-fain`, `bg-accent-poop`, a
+  // resurrected `--color-brand-primary` after the palette moved on. Tailwind
+  // silently drops the class (no `--color-<name>` alias in @theme, no
+  // stylesheet rule generated) and the element paints nothing. jsdom cannot
+  // see paint, so the whole suite stays green over a colourless button.
+  //
+  // This case reads the SET of declared tokens out of `styles/index.css`
+  // (the same @theme block `palette.test.ts` reads for its contract) and
+  // fails when a `text-|bg-|border-|ring-|outline-|divide-|fill-|stroke-|
+  // placeholder-|accent-` class names anything else. False positives — every
+  // Tailwind non-colour utility that shares a prefix (`text-xs`, `bg-cover`,
+  // `border-solid`, `ring-2`, `outline-offset`, ...) — go through
+  // `NON_COLOUR_STARTERS` and the numeric guard, both narrow because ADR-0026
+  // forbids raw palette names in the same prefixes.
+  //
+  // The raw-colour ban owns family names (`slate`, `emerald`, ...) so we do
+  // not repeat that vocabulary here — a raw hit fails the OTHER case with a
+  // better message. This case owns the palette-only vocabulary.
+
+  const CSS = readFileSync(join(SRC, 'styles/index.css'), 'utf8');
+  const themeBlock = /@theme\s*\{([\s\S]*?)\n\}/m.exec(CSS);
+  const declared = new Set<string>();
+  if (themeBlock) {
+    for (const [, name] of themeBlock[1]!.matchAll(/--color-([a-z][a-z0-9-]*):/g)) {
+      declared.add(name!);
+    }
+  }
+
+  // The first segment of a Tailwind class token that names a NON-COLOUR
+  // utility on one of the colour-shaped prefixes. Kept small and stable
+  // because we own the palette vocabulary and raw families are already
+  // banned — the only reason this list exists is that Tailwind reuses
+  // `text-|bg-|border-|...` for sizes, alignment, and styles.
+  const NON_COLOUR_STARTERS = new Set<string>([
+    // typography sizes (`text-xs` ... `text-9xl`, plus the local `2xs`/`3xs`)
+    'xs',
+    '2xs',
+    '3xs',
+    'sm',
+    'base',
+    'lg',
+    'xl',
+    '2xl',
+    '3xl',
+    '4xl',
+    '5xl',
+    '6xl',
+    '7xl',
+    '8xl',
+    '9xl',
+    // alignment / wrap / transform
+    'left',
+    'right',
+    'center',
+    'justify',
+    'start',
+    'end',
+    'nowrap',
+    'wrap',
+    'balance',
+    'pretty',
+    // border sides
+    't',
+    'r',
+    'b',
+    'l',
+    'x',
+    'y',
+    's',
+    'e',
+    // border/outline/divide styles
+    'solid',
+    'dashed',
+    'dotted',
+    'double',
+    'hidden',
+    'none',
+    'collapse',
+    'separate',
+    'reverse',
+    // ring / outline extras
+    'inset',
+    'offset',
+    // background utilities that share the prefix
+    'cover',
+    'contain',
+    'fixed',
+    'local',
+    'scroll',
+    'top',
+    'bottom',
+    'auto',
+    'clip',
+    'no',
+    'origin',
+    'repeat',
+    // fill/stroke helpers
+    'current',
+    'inherit',
+    'transparent',
+    'width',
+  ]);
+
+  const CLASS_RE =
+    /\b(text|bg|border|ring|outline|divide|fill|stroke|placeholder|accent)-([a-z][a-z0-9-]*)\b/g;
+
+  // Some raw families would still land here (`slate`, `emerald`, ...); the
+  // raw-colour ban above catches those with a clearer message, so we do not
+  // re-flag them. Derived from RAW_FAMILY_NAMES (module scope) plus
+  // `white`/`black` — one vocabulary, two shapes.
+  const RAW_COLOUR_FIRST_SEGMENTS = new Set<string>([...RAW_FAMILY_NAMES, 'white', 'black']);
+
+  function classify(token: string): 'declared' | 'non-colour' | 'unknown' {
+    if (declared.has(token)) return 'declared';
+    const first = token.split('-')[0]!;
+    if (NON_COLOUR_STARTERS.has(first)) return 'non-colour';
+    if (/^\d/.test(first)) return 'non-colour';
+    if (RAW_COLOUR_FIRST_SEGMENTS.has(first)) return 'non-colour';
+    return 'unknown';
+  }
+
+  function unregisteredTokens(): Map<string, Set<string>> {
+    const out = new Map<string, Set<string>>();
+    for (const file of productionSources()) {
+      const source = stripComments(readFileSync(file, 'utf8'));
+      const label = relative(SRC, file).replace(/^(\.\.\/)+/, '');
+      for (const match of source.matchAll(CLASS_RE)) {
+        const token = match[2]!;
+        if (classify(token) !== 'unknown') continue;
+        if (!out.has(token)) out.set(token, new Set());
+        out.get(token)!.add(label);
+      }
+    }
+    return out;
+  }
+
+  it('reads at least one --color-<name> declaration out of the @theme block', () => {
+    // The whole check hinges on `declared` being populated. If the regex
+    // ever stops matching, every unknown token silently classifies as
+    // 'declared' (empty set never rejects) and the case below passes
+    // vacuously over a broken palette. Assert non-vacuity here.
+    expect(
+      declared.size,
+      'no --color-<name> declarations extracted from styles/index.css @theme block',
+    ).toBeGreaterThan(5);
+    // The core semantic tokens must be present — a bulwark against a
+    // future regex-refactor that harvests something else.
+    for (const name of ['ink', 'ground', 'accent-pop', 'rule-strong']) {
+      expect(declared, `${name} missing from extracted palette`).toContain(name);
+    }
+  });
+
+  it('every colour-shaped class in src/ and content/ resolves to --color-<name>', () => {
+    const unknown = unregisteredTokens();
+    expect(
+      [...unknown.entries()].map(([tok, files]) => `${tok} (${[...files].join(', ')})`),
+      'colour-shaped class names a token that is not declared as --color-<name> in styles/index.css @theme block. Register it there (with a value under both themes), or fix the typo.',
+    ).toEqual([]);
+  });
+
+  it('catches an unregistered token (guards against a silent-passing check)', () => {
+    // The check IS the test; if `classify` ever stops flagging, the case
+    // above passes over a broken codebase. Prove the regex + classifier
+    // still catch the shape we care about.
+    for (const token of ['nonexistent-palette-token', 'brand-primary', 'ink-fain']) {
+      expect(classify(token), `${token} should classify as unknown`).toBe('unknown');
+    }
+    // …and does not fire on the known-good shapes.
+    for (const token of [
+      'ink',
+      'accent-pop',
+      'rule-strong',
+      'xs',
+      'lg',
+      'left',
+      'solid',
+      'none',
+      'b',
+      'b-0',
+      'offset-2',
+      'slate-800',
+    ]) {
+      expect(classify(token), `${token} should NOT classify as unknown`).not.toBe('unknown');
+    }
   });
 });
