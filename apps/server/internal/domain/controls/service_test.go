@@ -78,7 +78,13 @@ func (s *fakeStore) ControlByID(_ context.Context, id string) (controls.Control,
 }
 
 func (s *fakeStore) ListControls(_ context.Context) ([]controls.Control, error) {
-	return append([]controls.Control(nil), s.controls...), nil
+	var out []controls.Control
+	for _, c := range s.controls {
+		if c.DeletedAt == nil {
+			out = append(out, c)
+		}
+	}
+	return out, nil
 }
 
 func (s *fakeStore) ControlPool(_ context.Context, id string) ([]controls.PoolEntry, error) {
@@ -605,4 +611,179 @@ func TestUploadScanRefusesAnInvalidPair(t *testing.T) {
 		t.Errorf("uploads dir exists after the refusal: %v — the batch file must not touch the disk", statErr)
 	}
 	_ = store
+}
+
+// Issue #261: Archive stamps the Service's clock — the runner's ordering
+// on /controls/archived is a wall-clock question ("what did I archive
+// last?") and the domain owns the answer through Service.Now.
+func TestArchiveStampsTheServiceClockAndListMovesTheRow(t *testing.T) {
+	svc, store, _, _ := newService(t)
+	ctx := context.Background()
+	control, err := createControlSync(ctx, svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	if err := svc.Archive(ctx, control.ID); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+
+	list, err := svc.List(ctx)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	for _, c := range list {
+		if c.ID == control.ID {
+			t.Errorf("List still contains archived control %s", control.ID)
+		}
+	}
+
+	arch, err := svc.ArchivedList(ctx)
+	if err != nil {
+		t.Fatalf("ArchivedList: %v", err)
+	}
+	if len(arch) != 1 || arch[0].ID != control.ID {
+		t.Fatalf("ArchivedList = %v, want the archived control only", arch)
+	}
+	if arch[0].DeletedAt == nil || !arch[0].DeletedAt.Equal(time.Unix(1_755_446_400, 0).UTC()) {
+		t.Errorf("DeletedAt = %v, want the Service clock", arch[0].DeletedAt)
+	}
+	_ = store
+}
+
+// Issue #261: Restore returns a soft-deleted control to the main listing.
+func TestRestoreMakesTheControlActiveAgain(t *testing.T) {
+	svc, _, _, _ := newService(t)
+	ctx := context.Background()
+	control, err := createControlSync(ctx, svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := svc.Archive(ctx, control.ID); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+	if err := svc.Restore(ctx, control.ID); err != nil {
+		t.Fatalf("Restore: %v", err)
+	}
+
+	list, err := svc.List(ctx)
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	found := false
+	for _, c := range list {
+		if c.ID == control.ID {
+			found = true
+			if c.DeletedAt != nil {
+				t.Errorf("DeletedAt = %v after Restore, want nil", c.DeletedAt)
+			}
+		}
+	}
+	if !found {
+		t.Errorf("Restored control %s not in List", control.ID)
+	}
+}
+
+// Issue #261: Purge on an active control returns ErrCannotPurgeActive
+// AND leaves the row and the on-disk project directory intact. This is
+// the defense-in-depth gate — a hand-typed /controls/{id}/purge URL
+// cannot destroy grades.
+func TestPurgeRefusesActiveControlsAndFilesSurvive(t *testing.T) {
+	svc, store, _, workDir := newService(t)
+	ctx := context.Background()
+	control, err := createControlSync(ctx, svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	projectDir := filepath.Join(workDir, "controls", control.ID)
+
+	err = svc.Purge(ctx, control.ID)
+	if !errors.Is(err, controls.ErrCannotPurgeActive) {
+		t.Errorf("Purge(active): %v, want ErrCannotPurgeActive", err)
+	}
+	if len(store.controls) != 1 || store.controls[0].ID != control.ID {
+		t.Errorf("row was removed by a refused purge: %+v", store.controls)
+	}
+	if _, statErr := os.Stat(projectDir); statErr != nil {
+		t.Errorf("project dir gone after a refused purge: %v", statErr)
+	}
+}
+
+// Issue #261: Purge on an archived control deletes the DB row AND the
+// on-disk project directory. RemoveAll is best-effort by design — the
+// happy path proves it runs; the FS-failure path (WARN, not returned) is
+// exercised by TestPurgeReturnsSuccessWhenTheFileCleanupFails.
+func TestPurgeArchivedControlDeletesRowAndFiles(t *testing.T) {
+	svc, store, _, workDir := newService(t)
+	ctx := context.Background()
+	control, err := createControlSync(ctx, svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	projectDir := filepath.Join(workDir, "controls", control.ID)
+	if _, statErr := os.Stat(projectDir); statErr != nil {
+		t.Fatalf("project dir setup: %v", statErr)
+	}
+	if err := svc.Archive(ctx, control.ID); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+
+	if err := svc.Purge(ctx, control.ID); err != nil {
+		t.Fatalf("Purge: %v", err)
+	}
+	if _, err := svc.Get(ctx, control.ID); !errors.Is(err, controls.ErrControlNotFound) {
+		t.Errorf("Get after Purge: %v, want ErrControlNotFound", err)
+	}
+	if len(store.controls) != 0 {
+		t.Errorf("store still holds %d row(s) after Purge", len(store.controls))
+	}
+	if _, statErr := os.Stat(projectDir); !os.IsNotExist(statErr) {
+		t.Errorf("project dir survived Purge: %v", statErr)
+	}
+}
+
+// Issue #261: a filesystem failure on the RemoveAll step must NOT reverse
+// the DB delete — the row is already gone via cascade, and returning an
+// error would leave the caller believing the purge failed while every
+// referenced grade is unrecoverable. The failure is logged and swallowed.
+// We provoke the FS failure by pre-purge replacing the project directory
+// with a regular file whose parent we chmod 0500 — RemoveAll cannot
+// unlink under an unwritable directory.
+func TestPurgeReturnsSuccessWhenTheFileCleanupFails(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("running as root, chmod 0500 does not block RemoveAll")
+	}
+	svc, _, _, workDir := newService(t)
+	ctx := context.Background()
+	control, err := createControlSync(ctx, svc, req(nil))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := svc.Archive(ctx, control.ID); err != nil {
+		t.Fatalf("Archive: %v", err)
+	}
+	// Lock the parent directory read-only so RemoveAll's rmdir call fails.
+	// Restored in the cleanup so the tempdir can be removed.
+	parent := filepath.Join(workDir, "controls")
+	if err := os.Chmod(parent, 0o500); err != nil {
+		t.Fatalf("chmod: %v", err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(parent, 0o755) })
+
+	if err := svc.Purge(ctx, control.ID); err != nil {
+		t.Fatalf("Purge should have swallowed the FS failure: %v", err)
+	}
+	if _, err := svc.Get(ctx, control.ID); !errors.Is(err, controls.ErrControlNotFound) {
+		t.Errorf("row still present after Purge: %v", err)
+	}
+}
+
+// Issue #261: Purge on an unknown id returns ErrControlNotFound (from
+// ControlByID); the FS is untouched.
+func TestPurgeOnMissingControlReturnsNotFound(t *testing.T) {
+	svc, _, _, _ := newService(t)
+	err := svc.Purge(context.Background(), "does-not-exist")
+	if !errors.Is(err, controls.ErrControlNotFound) {
+		t.Errorf("Purge(missing): %v, want ErrControlNotFound", err)
+	}
 }

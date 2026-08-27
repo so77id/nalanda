@@ -310,6 +310,72 @@ func (s *Service) Get(ctx context.Context, id string) (Control, error) {
 	return s.Store.ControlByID(ctx, id)
 }
 
+// ArchivedList returns every archived control, deleted_at DESC (issue #261).
+// One door into the domain for the same reason as List; a handler that
+// reached into Store for one and Service for the other would re-open the
+// WP-E ARQ-11 ambiguity.
+func (s *Service) ArchivedList(ctx context.Context) ([]Control, error) {
+	return s.Store.ListArchivedControls(ctx)
+}
+
+// Archive soft-deletes a control (issue #261). Stamps the current clock so
+// /controls/archived can order by "most recently archived first". The
+// runner (#249) is deliberately untouched: an in-flight job on this
+// control keeps running because nothing about its row moves (issue #261
+// §Async runner interaction).
+func (s *Service) Archive(ctx context.Context, id string) error {
+	return s.Store.SoftDeleteControl(ctx, id, s.Now())
+}
+
+// Restore clears the archived flag (issue #261). Store guards on
+// deleted_at IS NOT NULL, so a Restore on an already-active control
+// surfaces as ErrControlNotFound — the caller's list did not contain it
+// anyway.
+func (s *Service) Restore(ctx context.Context, id string) error {
+	return s.Store.RestoreControl(ctx, id)
+}
+
+// Purge is the hard-delete path: DB row + on-disk project directory
+// (issue #261). Two-step, defense-in-depth, best-effort on the
+// filesystem:
+//
+//  1. ControlByID confirms the row exists AND is archived. An active row
+//     surfaces as ErrCannotPurgeActive — kept distinct from
+//     ErrControlNotFound so the handler can render "you have to archive
+//     it first" rather than a bare 404 on a hand-typed URL.
+//  2. PurgeControl deletes the row; the FK cascades from ADR-0034
+//     §Consequences remove control_pregunta, copia, reading, answer,
+//     annotated_copy and job. This is the point of no return.
+//  3. RemoveAll drops the project directory. A filesystem failure here is
+//     LOGGED and NOT returned: the row and its dependents are already
+//     gone, and forwarding a cleanup problem would leave the caller
+//     believing the purge failed while every referenced grade is
+//     unrecoverable. Same "best-effort cleanup after the load-bearing
+//     commit" pattern as PrepareControl's `rollback` closure.
+//
+// A parallel in-flight async job for this id is possible (§Async runner
+// interaction); the runner's MarkRunning / MarkDone / MarkFailed will
+// fail with ErrJobNotFound (issue #257 COR-3) and log a warning. No
+// corruption.
+func (s *Service) Purge(ctx context.Context, id string) error {
+	control, err := s.Store.ControlByID(ctx, id)
+	if err != nil {
+		return err
+	}
+	if control.DeletedAt == nil {
+		return fmt.Errorf("controls.Purge %s: %w", id, ErrCannotPurgeActive)
+	}
+	if err := s.Store.PurgeControl(ctx, id); err != nil {
+		return fmt.Errorf("controls.Purge %s: %w", id, err)
+	}
+	projectDir := s.ProjectDir(id)
+	if err := os.RemoveAll(projectDir); err != nil {
+		s.Log.Warn("controls.Purge: file cleanup failed",
+			"control_id", id, "project", projectDir, "error", err)
+	}
+	return nil
+}
+
 // ProjectDir is the directory (on the SERVER's side) where a control's
 // files live. Handlers use it to serve the PDF downloads (S8).
 //
