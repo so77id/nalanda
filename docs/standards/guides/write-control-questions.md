@@ -10,6 +10,19 @@ Read it also before drafting questions with an agent. Every rule below carries
 its reason, and that is not decoration: a rule without its reason cannot be
 applied to a case it did not anticipate, and drafting always produces those.
 
+**The stem of a question is course prose**, so the voice, register, neutrality
+and cross-reference rules of
+[`course-content-style.md`](course-content-style.md) apply to it in full — no
+_tú/vos_, no argentinismos, no chat register (_fijate_, _mirá_), and no
+references to «the previous slide» or another section of the same document. This
+guide adds the rules that are specific to a **question**: four alternatives,
+one to three marked correct, no all/none-of-the-above, no negated stem, length
+of the correct alternative bounded relative to the distractors, unique `id`,
+anchor that resolves to an `h2`. Voice violates in the stem escape every
+automated gate (the suite cannot see prose voice — `course-content-style.md`
+§6), so this pointer is what keeps a stem from voseo or chattiness slipping
+into a printed sheet.
+
 ## What a control is, and what follows from it
 
 Four questions, five minutes, on paper, at the start of class, covering the
