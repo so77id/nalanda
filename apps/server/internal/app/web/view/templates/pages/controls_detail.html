@@ -1,6 +1,30 @@
 {{ define "content" }}
   <h1>{{ .Control.Name }}</h1>
 
+  {{ with .JobBanner }}
+    <section class="aviso" style="margin-bottom:1em">
+      {{ if .Running }}
+        <p><strong>Procesando {{ .Kind }}…</strong> ({{ .StartedAgo }}). Refrescá la página cuando el aviso cambie.</p>
+        <form method="post" action="{{ .DismissURL }}" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+          <button type="submit">Refrescar</button>
+        </form>
+      {{ else if .Done }}
+        <p><strong>{{ .Kind | printf "%s" }} lista.</strong></p>
+        <form method="post" action="{{ .DismissURL }}" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+          <button type="submit">Refrescar</button>
+        </form>
+      {{ else if .Failed }}
+        <p><strong>{{ .Kind | printf "%s" }} falló:</strong> {{ .Error }}</p>
+        <form method="post" action="{{ .DismissURL }}" style="display:inline">
+          <input type="hidden" name="csrf_token" value="{{ $.CSRFToken }}">
+          <button type="submit">Cerrar aviso</button>
+        </form>
+      {{ end }}
+    </section>
+  {{ end }}
+
   <section>
     <h2>Datos</h2>
     <table class="lista">

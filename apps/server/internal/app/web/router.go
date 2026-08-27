@@ -251,6 +251,13 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.AdminBankRefreshPath,
 			Handler: deps.AdminBank.Refresh,
 		},
+		// Issue #249: the "Refrescar" / "Cerrar aviso" button on the async
+		// job banner. Gated by default (no Public), CSRF enforced
+		// because the method is POST.
+		{
+			Method: http.MethodPost, Path: handler.JobDismissPath,
+			Handler: deps.Controls.DismissJob,
+		},
 	}
 }
 

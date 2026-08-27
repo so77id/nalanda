@@ -25,10 +25,10 @@ const (
 	scanFileExt    = ".pdf"
 )
 
-// UploadRequest is what a handler hands to Service.UploadScan. The bytes
-// are streamed to disk and never held whole in memory — a 40-copy batch
-// is ~10 MB and would work either way, but the upper bound in Config is
-// 100 MB.
+// UploadRequest is what a handler hands to Service.SaveUploadedBatch.
+// The bytes are streamed to disk and never held whole in memory — a
+// 40-copy batch is ~10 MB and would work either way, but the upper
+// bound in Config is 100 MB.
 type UploadRequest struct {
 	ControlID string
 	// Filename is the ORIGINAL filename from the multipart part, used only
@@ -46,87 +46,87 @@ type UploadRequest struct {
 	Unsure float64
 }
 
-// UploadResult reports what the upload produced. Not consumed today, but a
-// handler that renders the result table wants to know which copies just
-// changed and by how many the total moved — a follow-up test hangs off
-// this.
-type UploadResult struct {
-	BatchNumber int
-	ScanPath    string // relative to WorkDir
-	Report      Report
-}
-
-// UploadScan is the whole scan pipeline: save the PDF to a batch file
-// under the control's uploads/ directory, call /analyse, persist the
-// report, mark missing copies as not_present, and flip the control to
-// InReview (unless it is already Graded — a re-upload after close still
-// updates the readings but does not un-close the correction).
-//
-// Failure modes:
-//   - No such control → ErrControlNotFound.
-//   - Copying the upload to disk failed → wraps the io error (the partial
-//     file, if any, is removed inside writeUpload).
-//   - /analyse refused or was unreachable → wraps ErrAnalyzer*. The
-//     uploaded PDF SURVIVES on disk (issue #210): the batch is the
-//     artefact an operator would inspect, and erasing it on refusal
-//     forced a re-scan when the printed sheets — not the file — were
-//     the problem (2026-08-19 incident). The DB is not touched on this
-//     branch — Analyzer.Analyze runs before any store write.
-//
-// DB-atomicity is scoped: the reading report itself is transactional
-// because UpsertReadingsFromReport opens a single tx around every insert
-// it does. The three post-analyse writes as a sequence are NOT — they go
-// through two different stores (Store.SetControlThresholds first, then
-// two ReadingStore calls) and there is no outer transaction wrapping
-// them. A failure in MarkMissingAsNotPresent (last step) leaves the
-// updated thresholds and the persisted report committed; a failure in
-// UpsertReadingsFromReport leaves the updated thresholds committed. In
-// operation this class of failure is a store outage and the professor
-// retries — a widened transactional shape (single-tx PersistReport) is
-// a follow-up, same as the SaveOverrides note below.
-func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResult, error) {
+// SaveUploadedBatch is the sync half of the upload flow (issue #249):
+// validate the control, resolve thresholds, mkdir uploads/, pick the
+// next batch number and stream the PDF onto disk. Runs on the HTTP
+// handler's goroutine because the professor is uploading bytes — no
+// runner in the middle. Returns the batch name + resolved thresholds
+// the async AnalyzeBatch runs against.
+func (s *Service) SaveUploadedBatch(ctx context.Context, req UploadRequest) (SaveUploadedBatchResult, error) {
 	control, err := s.Store.ControlByID(ctx, req.ControlID)
 	if err != nil {
-		return UploadResult{}, err
+		return SaveUploadedBatchResult{}, err
 	}
-	// Issue #197: refuse a bad pair BEFORE writing anything so an invalid
-	// threshold submission never even creates a batch file. Note: unlike
-	// pre-#210, DOWNSTREAM failures do not clean the batch file up — see
-	// the UploadScan docstring above for the batch-survives-failure
-	// contract. This validation happens first, so it is the one branch
-	// where nothing on disk is left behind either way.
 	ticked, unsure := req.Ticked, req.Unsure
 	if ticked == 0 {
-		// The handler always resolves the form (optional fields fall back
-		// to the control's stored pair), but a caller that skips that step
-		// gets the stored pair rather than a refusal.
 		ticked, unsure = control.Ticked, control.Unsure
 	}
 	if !ThresholdsValid(ticked, unsure) {
-		return UploadResult{}, fmt.Errorf("%w: invalid thresholds (%v, %v)",
+		return SaveUploadedBatchResult{}, fmt.Errorf("%w: invalid thresholds (%v, %v)",
 			ErrAnalyzerRefused, ticked, unsure)
 	}
 
 	projectDir := s.ProjectDir(control.ID)
 	uploads := filepath.Join(projectDir, uploadsDir)
 	if err := os.MkdirAll(uploads, 0o755); err != nil {
-		return UploadResult{}, fmt.Errorf("controls.UploadScan: prepare %s: %w", uploads, err)
+		return SaveUploadedBatchResult{}, fmt.Errorf("controls.SaveUploadedBatch: prepare %s: %w", uploads, err)
 	}
 	batch, err := nextBatchNumber(uploads)
 	if err != nil {
-		return UploadResult{}, fmt.Errorf("controls.UploadScan: %w", err)
+		return SaveUploadedBatchResult{}, fmt.Errorf("controls.SaveUploadedBatch: %w", err)
 	}
 	batchName := fmt.Sprintf("%s%d%s", scanFilePrefix, batch, scanFileExt)
 	batchHostPath := filepath.Join(uploads, batchName)
 
 	if err := writeUpload(batchHostPath, req.Content); err != nil {
-		return UploadResult{}, fmt.Errorf("controls.UploadScan: %w", err)
+		return SaveUploadedBatchResult{}, fmt.Errorf("controls.SaveUploadedBatch: %w", err)
 	}
+	return SaveUploadedBatchResult{
+		BatchNumber: batch,
+		BatchName:   batchName,
+		Ticked:      ticked,
+		Unsure:      unsure,
+	}, nil
+}
 
-	// Issue #210: the batch file survives every downstream failure —
-	// the artefact on disk is what an operator inspects and what a
-	// re-upload cannot recreate. DB scoping below in the docstring.
+// SaveUploadedBatchResult is what SaveUploadedBatch returns to the HTTP
+// handler so it can then Submit an analyse job.
+type SaveUploadedBatchResult struct {
+	BatchNumber int
+	BatchName   string
+	Ticked      float64
+	Unsure      float64
+}
 
+// AnalyzeBatch is the async half of the upload flow (issue #249): from
+// Analyzer.Analyze onward. Called by the analyse job handler in the
+// runner goroutine; the batch file must already exist on disk.
+//
+// Failure modes:
+//   - The uploaded PDF survives every failure past SaveUploadedBatch
+//     (apps/server/CLAUDE.md §"The uploaded scan batch survives"). The
+//     batch file is the artefact an operator inspects and what the
+//     professor cannot re-scan.
+//   - Analyzer.Analyze refused / unreachable → wraps ErrAnalyzer*. The
+//     row + files stay intact (ADR-0050 §6, amending ADR-0034 §Failure
+//     modes); the runner records the failure on job.error / job.detail
+//     and the banner surfaces it.
+//
+// DB-atomicity is scoped: the reading report itself is transactional
+// because UpsertReadingsFromReport opens a single tx around every
+// insert it does. The three post-analyse writes as a sequence are NOT
+// — they go through two different stores (Store.SetControlThresholds
+// first, then Readings.UpsertReadingsFromReport, then
+// Readings.MarkMissingAsNotPresent) and there is no outer transaction
+// wrapping them. A mid-loop store failure leaves the earlier writes
+// committed; in operation this class of failure is a store outage and
+// the professor retries. A widened transactional shape (single-tx
+// PersistReport) is a follow-up.
+func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string, ticked, unsure float64) (Report, error) {
+	control, err := s.Store.ControlByID(ctx, controlID)
+	if err != nil {
+		return Report{}, err
+	}
 	project := filepath.Join(projectPrefix, control.ID)
 	report, err := s.Analyzer.Analyze(ctx, AnalyzeRequest{
 		Project: project,
@@ -136,39 +136,25 @@ func (s *Service) UploadScan(ctx context.Context, req UploadRequest) (UploadResu
 		Unsure:  unsure,
 	})
 	if err != nil {
-		return UploadResult{}, err
+		return Report{}, err
 	}
 	if err := s.Store.SetControlThresholds(ctx, control.ID, ticked, unsure); err != nil {
-		return UploadResult{}, fmt.Errorf("controls.UploadScan: persist thresholds: %w", err)
+		return Report{}, fmt.Errorf("controls.AnalyzeBatch: persist thresholds: %w", err)
 	}
-
 	now := s.Now()
 	if err := s.Readings.UpsertReadingsFromReport(ctx, control.ID, report, now); err != nil {
-		return UploadResult{}, fmt.Errorf("controls.UploadScan: persist: %w", err)
+		return Report{}, fmt.Errorf("controls.AnalyzeBatch: persist: %w", err)
 	}
 	if err := s.Readings.MarkMissingAsNotPresent(ctx, control.ID, now); err != nil {
-		return UploadResult{}, fmt.Errorf("controls.UploadScan: mark missing: %w", err)
+		return Report{}, fmt.Errorf("controls.AnalyzeBatch: mark missing: %w", err)
 	}
-
-	// Issue #190, ruta A: every copy the reader accepted as clean gets its
-	// annotated PDF right away, before any human touches the queue.
 	s.annotateCleanCopies(ctx, control, report)
-
-	// Move the control forward — but never backwards. A re-upload to a
-	// graded control leaves state=graded (S8 renders the "editing a closed
-	// correction" warning); the readings still land.
 	if control.State == Generated {
 		if err := s.Readings.SetControlState(ctx, control.ID, InReview); err != nil {
-			// The DB writes above already succeeded; this is a warning.
-			s.Log.Warn("controls.UploadScan: state transition failed", "control", control.ID, "error", err)
+			s.Log.Warn("controls.AnalyzeBatch: state transition failed", "control", control.ID, "error", err)
 		}
 	}
-
-	return UploadResult{
-		BatchNumber: batch,
-		ScanPath:    filepath.Join(projectPrefix, control.ID, uploadsDir, batchName),
-		Report:      report,
-	}, nil
+	return report, nil
 }
 
 // Reanalyze re-reads the existing captures at new thresholds. Fails cleanly
@@ -204,6 +190,32 @@ func (s *Service) Reanalyze(ctx context.Context, controlID string, ticked, unsur
 	}
 	s.annotateCleanCopies(ctx, control, report)
 	return report, nil
+}
+
+// AnnotateAllCleanCopies is the close-time defensive re-annotate
+// (issue #249, S6): walk the persisted readings and call
+// Service.Annotate for every copy in status ok. Per-copy failures are
+// logged and swallowed — same "annotate is best-effort" policy as
+// annotateCleanCopies below. Returns an error only when the whole
+// flow cannot start (control missing, readings unreadable).
+func (s *Service) AnnotateAllCleanCopies(ctx context.Context, controlID string) error {
+	if _, err := s.Store.ControlByID(ctx, controlID); err != nil {
+		return err
+	}
+	readings, err := s.Readings.ReadingsByControl(ctx, controlID)
+	if err != nil {
+		return err
+	}
+	for _, r := range readings {
+		if r.CopyStatus != CopyStatusOK {
+			continue
+		}
+		if _, err := s.Annotate(ctx, controlID, r.CopyNumber); err != nil {
+			s.Log.Warn("controls: annotate on close failed",
+				"control", controlID, "copy", r.CopyNumber, "error", err)
+		}
+	}
+	return nil
 }
 
 // annotateCleanCopies runs ruta A over a report: one Service.Annotate per

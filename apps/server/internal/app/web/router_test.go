@@ -20,11 +20,13 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
@@ -87,29 +89,39 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			PublicURL: "https://nalanda.test",
 			Log:       logger,
 		}),
-		Controls: handler.NewControls(handler.Controls{
-			Service: func() *controls.Service {
-				cstore := controlstore.New(db)
-				fake := &amctest.Fake{}
-				return controls.NewService(controls.Service{
-					Bank:            emptyBank(t),
-					Store:           cstore,
-					Generator:       fake,
-					Analyzer:        fake,
-					Readings:        cstore,
-					Annotator:       fake,
-					AnnotateEnabled: true,
-					WorkDir:         t.TempDir(),
-					Now:             time.Now,
-					Seed:            1,
-					Log:             logger,
-				})
-			}(),
-			Bank:               emptyBank(t),
-			PublicURL:          "https://nalanda.test",
-			OnCorrectionClosed: controls.NewNoopHook(logger),
-			Log:                logger,
-		}),
+		Controls: func() *handler.Controls {
+			cstore := controlstore.New(db)
+			fake := &amctest.Fake{}
+			svc := controls.NewService(controls.Service{
+				Bank:            emptyBank(t),
+				Store:           cstore,
+				Generator:       fake,
+				Analyzer:        fake,
+				Readings:        cstore,
+				Annotator:       fake,
+				AnnotateEnabled: true,
+				WorkDir:         t.TempDir(),
+				Now:             time.Now,
+				Seed:            1,
+				Log:             logger,
+			})
+			jstore := jobstore.New(db)
+			runner := jobs.NewRunner(jstore, jobs.Handlers{
+				jobs.KindReanalyse: controls.NewReanalyseHandler(svc),
+				jobs.KindAnalyse:   controls.NewAnalyseHandler(svc),
+				jobs.KindGenerate:  controls.NewGenerateHandler(svc),
+				jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
+			}, logger, time.Now)
+			return handler.NewControls(handler.Controls{
+				Service:            svc,
+				Bank:               emptyBank(t),
+				PublicURL:          "https://nalanda.test",
+				OnCorrectionClosed: controls.NewNoopHook(logger),
+				Jobs:               jstore,
+				Runner:             runner,
+				Log:                logger,
+			})
+		}(),
 		AdminBank: handler.NewAdminBank(handler.AdminBank{
 			Bank:      emptyBank(t),
 			PublicURL: "https://nalanda.test",

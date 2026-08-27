@@ -22,6 +22,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpserver"
@@ -30,6 +31,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
@@ -186,6 +188,23 @@ func run(logger *slog.Logger) error {
 		Log:  logger,
 	})
 
+	// Issue #249: the async job runner. One goroutine, one queue,
+	// jobs persisted so a Watchtower restart does not lose them.
+	// Handlers register per Kind as the WP migrates each operation
+	// off the sync path — this ships with KindReanalyse (S3); S4–S6
+	// add analyse, generate and annotate.
+	jobStore := jobstore.New(db)
+	jobRunner := jobs.NewRunner(jobStore, jobs.Handlers{
+		jobs.KindReanalyse: controls.NewReanalyseHandler(controlsService),
+		jobs.KindAnalyse:   controls.NewAnalyseHandler(controlsService),
+		jobs.KindGenerate:  controls.NewGenerateHandler(controlsService),
+		jobs.KindAnnotate:  controls.NewAnnotateHandler(controlsService),
+	}, logger, time.Now)
+	if err := jobRunner.Sweep(ctx); err != nil {
+		return err
+	}
+	go jobRunner.Start(ctx)
+
 	backoffice := web.Deps{
 		Database: storage.NewProber(db),
 		Gate: middleware.NewAuth(middleware.Auth{
@@ -215,7 +234,10 @@ func run(logger *slog.Logger) error {
 			// integration (email, Canvas) replaces it here without
 			// touching the flow (issue #190).
 			OnCorrectionClosed: controls.NewNoopHook(logger),
-			Log:                logger,
+			// Issue #249: the async job runner (banner + Submit calls).
+			Jobs:   jobStore,
+			Runner: jobRunner,
+			Log:    logger,
 		}),
 		AdminBank: handler.NewAdminBank(handler.AdminBank{
 			Bank:      liveBank,

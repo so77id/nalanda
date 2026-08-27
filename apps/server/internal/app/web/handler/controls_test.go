@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -21,10 +22,12 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
@@ -54,7 +57,11 @@ type controlsFixture struct {
 	// cstore is the real controlstore behind the service — tests that need
 	// to read rows back (annotated_copy since issue #190) query it instead
 	// of re-deriving the database path.
-	cstore  *controlstore.Store
+	cstore *controlstore.Store
+	// jstore is the real jobstore behind the runner — issue #249 tests
+	// (Submit path, banner, dismiss) query it directly.
+	jstore  *jobstore.Store
+	runner  *jobs.Runner
 	fake    *amctest.Fake
 	hook    *recordingHook
 	workDir string
@@ -133,13 +140,112 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		Now:     time.Now, Seed: 1, Log: log,
 	})
 	hook := &recordingHook{service: svc}
+	jstore := jobstore.New(db)
+	runner := jobs.NewRunner(jstore, jobs.Handlers{
+		jobs.KindReanalyse: controls.NewReanalyseHandler(svc),
+		jobs.KindAnalyse:   controls.NewAnalyseHandler(svc),
+		jobs.KindGenerate:  controls.NewGenerateHandler(svc),
+		jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
+	}, log, time.Now)
+	// Start the runner in the background so the async Submit path in
+	// ReanalyzeScans reaches its handler. Cleanup cancels the context
+	// so the goroutine drains at end-of-test.
+	runnerCtx, runnerCancel := context.WithCancel(context.Background())
+	t.Cleanup(runnerCancel)
+	go runner.Start(runnerCtx)
 	h := handler.NewControls(handler.Controls{
 		Service: svc, Bank: live,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
 		OnCorrectionClosed: hook,
+		Jobs:               jstore,
+		Runner:             runner,
 		Log:                log,
 	})
-	return &controlsFixture{handler: h, service: svc, cstore: cstore, fake: fake, hook: hook, workDir: workDir, user: prof, session: session, log: log}
+	return &controlsFixture{handler: h, service: svc, cstore: cstore, jstore: jstore, runner: runner, fake: fake, hook: hook, workDir: workDir, user: prof, session: session, log: log}
+}
+
+// jobCounts is what jstoreQueuedAndTerminalCount returns — the three
+// buckets a concurrent-serialisation test cares about.
+type jobCounts struct {
+	queued   int
+	running  int
+	terminal int
+}
+
+// jstoreQueuedAndTerminalCount reads every job for this control and
+// buckets by status. Used by the concurrent-reanalyze test to wait for
+// the runner to catch up without over-fitting to id order.
+func (f *controlsFixture) jstoreQueuedAndTerminalCount(ctx context.Context, controlID string) (jobCounts, error) {
+	rows, err := f.jstoreRawByControl(ctx, controlID)
+	if err != nil {
+		return jobCounts{}, err
+	}
+	c := jobCounts{}
+	for _, j := range rows {
+		switch j.Status {
+		case jobs.StatusQueued:
+			c.queued++
+		case jobs.StatusRunning:
+			c.running++
+		case jobs.StatusDone, jobs.StatusFailed:
+			c.terminal++
+		}
+	}
+	return c, nil
+}
+
+// jstoreRawByControl reads every job for the control via the fixture's
+// database — jobs.Store doesn't expose "list by control" (its readers
+// are LatestForControl and ByID by design), and the test does not need
+// a new method on the domain interface for one case.
+func (f *controlsFixture) jstoreRawByControl(ctx context.Context, controlID string) ([]jobs.Job, error) {
+	// LatestForControl + walking id backwards would need extra
+	// interface methods. The fixture cheats by hitting the same
+	// sql.DB — jstore is a thin adapter, and no domain state hangs
+	// off the walk.
+	rows, err := f.jstore.QueuedIDs(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// The list above only returns queued rows. Combine with a
+	// LatestForControl fan-out via the ByID contract: iterate
+	// increasing ids from 1 until ErrJobNotFound.
+	out := []jobs.Job{}
+	for id := int64(1); ; id++ {
+		j, err := f.jstore.ByID(ctx, id)
+		if err != nil {
+			if errors.Is(err, jobs.ErrJobNotFound) {
+				break
+			}
+			return nil, err
+		}
+		if j.ControlID == controlID {
+			out = append(out, j)
+		}
+	}
+	_ = rows
+	return out, nil
+}
+
+// waitLatestJobTerminal polls until the control's latest job is `done`
+// or `failed`. Handler tests that submit a job (reanalyze, analyse in
+// S4, etc.) call this after the POST so the runner has time to consume
+// the row before assertions read the resulting state.
+func (f *controlsFixture) waitLatestJobTerminal(t *testing.T, controlID string) jobs.Job {
+	t.Helper()
+	ctx := context.Background()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		job, err := f.jstore.LatestForControl(ctx, controlID)
+		if err == nil && (job.Status == jobs.StatusDone || job.Status == jobs.StatusFailed) {
+			return job
+		}
+		if time.Now().After(deadline) {
+			last, _ := f.jstore.LatestForControl(ctx, controlID)
+			t.Fatalf("no terminal job for %s after 3s (last: %+v, err: %v)", controlID, last, err)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
 }
 
 func (f *controlsFixture) authedRequest(t *testing.T, method, path string, body url.Values) *http.Request {
@@ -494,7 +600,9 @@ func TestCreateWritesAControlAndRedirectsToItsDetail(t *testing.T) {
 		t.Errorf("no flash cookie set, want one (POST/redirect/GET convention)")
 	}
 
-	// sujet.pdf is on disk.
+	// Issue #249: the worker call runs on the async generate job.
+	// Wait for it before checking sujet.pdf is on disk.
+	f.waitLatestJobTerminal(t, rows[0].ID)
 	if _, err := os.Stat(filepath.Join(f.workDir, "controls", rows[0].ID, "out", "sujet.pdf")); err != nil {
 		t.Errorf("sujet.pdf missing on disk: %v", err)
 	}
@@ -614,41 +722,54 @@ func TestCreateEchoesValuesOnRefusal(t *testing.T) {
 	}
 }
 
-func TestCreateRendersA500ThroughTheShellWhenTheWorkerRefuses(t *testing.T) {
+// Since issue #249 the worker call runs on the async generate job, so
+// a worker refusal no longer surfaces as a 500 on the HTTP POST. The
+// row is committed synchronously by PrepareControl; the runner records
+// the refusal on the job row for the banner to render.
+func TestCreateWorkerRefusalRecordsGenerateJobFailure(t *testing.T) {
 	f := newControlsFixture(t)
 	f.fake.Err = controls.ErrGeneratorRefused
 
 	rec := httptest.NewRecorder()
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
-
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want 500 (worker failure is not a form error)", rec.Code)
-	}
-	// The shell error page renders through view.RenderError — its
-	// Spanish message is what the professor reads.
-	if !strings.Contains(rec.Body.String(), "servidor") {
-		t.Error("body does not carry the shell error page's Spanish message")
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 (worker call is async now)", rec.Code)
 	}
 
 	rows, _ := f.service.List(context.Background())
-	if len(rows) != 0 {
-		t.Errorf("stored %d rows after a worker failure, want 0 (creation is all-or-nothing)", len(rows))
+	if len(rows) != 1 {
+		t.Fatalf("stored %d rows after PrepareControl, want 1", len(rows))
+	}
+	controlID := rows[0].ID
+	job := f.waitLatestJobTerminal(t, controlID)
+	if job.Status != jobs.StatusFailed {
+		t.Errorf("generate job status = %q, want failed", job.Status)
+	}
+	if !strings.Contains(job.Error, "generación") {
+		t.Errorf("job.Error = %q, want the Spanish generator refusal message", job.Error)
 	}
 }
 
-func TestCreateRendersA500WhenSujetIsMissing(t *testing.T) {
+func TestCreateSujetMissingRecordsGenerateJobFailure(t *testing.T) {
 	f := newControlsFixture(t)
-	f.fake.SujetSize = 0 // fake writes a 0-byte sujet.pdf
+	f.fake.SujetSize = 0
 
 	rec := httptest.NewRecorder()
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
-
-	if rec.Code != http.StatusInternalServerError {
-		t.Fatalf("status = %d, want 500", rec.Code)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", rec.Code)
 	}
 	rows, _ := f.service.List(context.Background())
-	if len(rows) != 0 {
-		t.Errorf("stored %d rows after a 0-byte sujet, want 0", len(rows))
+	if len(rows) != 1 {
+		t.Fatalf("stored %d rows after PrepareControl, want 1", len(rows))
+	}
+	controlID := rows[0].ID
+	job := f.waitLatestJobTerminal(t, controlID)
+	if job.Status != jobs.StatusFailed {
+		t.Errorf("generate job status = %q, want failed", job.Status)
+	}
+	if !strings.Contains(job.Error, "sujet") {
+		t.Errorf("job.Error = %q, want the sujet-missing message", job.Error)
 	}
 }
 
@@ -783,6 +904,9 @@ func TestSujetPDFStreamsTheFile(t *testing.T) {
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
 	loc := rec.Header().Get("Location")
 	id := strings.TrimPrefix(loc, handler.ControlsPath+"/")
+	// Issue #249: Create enqueues a generate job — wait for it before
+	// asking for the sujet.pdf the generate step is meant to produce.
+	f.waitLatestJobTerminal(t, id)
 
 	rec = httptest.NewRecorder()
 	req := f.authedRequest(t, http.MethodGet, loc+"/sujet.pdf", nil)

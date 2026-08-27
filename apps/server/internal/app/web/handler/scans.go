@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 )
 
 // ControlScansPath is POST target for the upload form on /controls/:id.
@@ -49,11 +51,18 @@ const uploadWriteWindow = 15 * time.Minute
 // scanFormField is the multipart field the upload form posts under.
 const scanFormField = "scan"
 
-// UploadScan reads the multipart form, streams the PDF onto disk through the
-// Service, and redirects back to /controls/:id with a flash message. Failure
-// modes are visible to the professor as a redirect + flash; the 500 shell is
-// reserved for the "operator has to look" ones (unknown control, worker
-// unreachable).
+// UploadScan reads the multipart form, streams the PDF onto disk
+// through Service.SaveUploadedBatch, enqueues an analyse job through
+// the runner, and redirects back to /controls/:id with a flash message.
+// The worker call runs on the async job (issue #249) — a refusal there
+// lands on job.error / job.detail and surfaces via the JobBanner, not
+// on the flash.
+//
+// Failure modes reachable synchronously are professor-repairable
+// (invalid form, threshold band, control unknown, PDF-shaped
+// pre-check) and surface as flash + redirect. The 500 shell is
+// reserved for "operator has to look" branches — disk write failure,
+// payload encode failure, Submit failure.
 func (h *Controls) UploadScan(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if !isValidControlID(id) {
@@ -142,7 +151,7 @@ func (h *Controls) UploadScan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.Service.UploadScan(r.Context(), controls.UploadRequest{
+	save, err := h.Service.SaveUploadedBatch(r.Context(), controls.UploadRequest{
 		ControlID: id,
 		Filename:  header.Filename,
 		Content:   file,
@@ -154,34 +163,48 @@ func (h *Controls) UploadScan(w http.ResponseWriter, r *http.Request) {
 		case errors.Is(err, controls.ErrControlNotFound):
 			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
 		case errors.Is(err, controls.ErrAnalyzerRefused):
-			h.Log.Warn("controls: worker refused scan", "control", id, "error", err)
-			flash.Set(w, h.secureCookie, refusedFlash(
-				"El motor de lectura rechazó el escaneo.",
-				err,
-				"Revisa que la impresión y el escaneo estén completos y no cortados en los bordes.",
-			))
+			// Only threshold validation reaches this branch on the sync
+			// side — the actual worker call lives on the async job now.
+			h.Log.Warn("controls: upload rejected", "control", id, "error", err)
+			flash.Set(w, h.secureCookie,
+				"Los umbrales deben cumplir 0 < inseguro < marcado < 1.")
 			http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
-		case errors.Is(err, controls.ErrAnalyzerUnavailable):
-			h.Log.Error("controls: worker unreachable", "control", id, "error", err)
-			middleware.WriteError(w, r, http.StatusInternalServerError,
-				"El motor de lectura no está disponible. Vuelve a intentarlo en unos minutos; si el problema persiste, avisa a infraestructura.")
 		default:
-			h.Log.Error("controls: upload failed", "control", id, "error", err)
+			h.Log.Error("controls: save uploaded batch failed", "control", id, "error", err)
 			middleware.WriteError(w, r, http.StatusInternalServerError,
-				"El servidor no pudo procesar el escaneo. Vuelve a intentarlo en unos minutos.")
+				"El servidor no pudo guardar el escaneo. Vuelve a intentarlo en unos minutos.")
 		}
 		return
 	}
-
+	payload, err := json.Marshal(controls.AnalysePayload{
+		BatchName: save.BatchName,
+		Ticked:    save.Ticked,
+		Unsure:    save.Unsure,
+	})
+	if err != nil {
+		h.Log.Error("controls: encode analyse payload", "control", id, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"El servidor no pudo encolar el análisis.")
+		return
+	}
+	if _, err := h.Runner.Submit(r.Context(), id, jobs.KindAnalyse, payload); err != nil {
+		h.Log.Error("controls: submit analyse job", "control", id, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"El servidor no pudo encolar el análisis.")
+		return
+	}
 	flash.Set(w, h.secureCookie,
-		fmt.Sprintf("Escaneo %d procesado (%d copias leídas).", result.BatchNumber, len(result.Report.Copies)))
+		fmt.Sprintf("Escaneo %d subido. Análisis encolado — refresca cuando el aviso cambie.", save.BatchNumber))
 	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 }
 
-// ReanalyzeScans handles POST /controls/:id/reanalyze. Reads ticked/unsure
-// from the form (prefilled with the control's stored pair), asks the
-// Service to re-read the captured project at those thresholds, and
-// redirects to detail with a flash.
+// ReanalyzeScans handles POST /controls/:id/reanalyze. Reads
+// ticked/unsure from the form (prefilled with the control's stored
+// pair) and enqueues an async job for the runner (issue #249) rather
+// than blocking the HTTP request. The professor is redirected to the
+// detail page whose banner (Detail's JobBanner) surfaces the running
+// job and the eventual done/failed state — no 502 from a slow proxy
+// while the worker chews on the batch.
 func (h *Controls) ReanalyzeScans(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
 	if !isValidControlID(id) {
@@ -212,41 +235,24 @@ func (h *Controls) ReanalyzeScans(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 		return
 	}
-
-	// Issue #197: the re-read now also re-runs note and re-annotates every
-	// clean copy — minutes-class work, so the route claims its own write
-	// deadline like the upload does.
-	controller := http.NewResponseController(w)
-	if err := controller.SetWriteDeadline(time.Now().Add(uploadWriteWindow)); err != nil &&
-		!errors.Is(err, http.ErrNotSupported) {
-		h.Log.Warn("controls: cannot extend the reanalyze write deadline", "error", err)
+	payload, err := json.Marshal(controls.ReanalysePayload{Ticked: ticked, Unsure: unsure})
+	if err != nil {
+		// Encoding two float64s does not fail in practice; the log line
+		// is honest belt-and-braces so a change to the payload does not
+		// pass unnoticed.
+		h.Log.Error("reanalyze: encode payload", "control", id, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"El servidor no pudo encolar el trabajo.")
+		return
 	}
-
-	if _, err := h.Service.Reanalyze(r.Context(), id, ticked, unsure); err != nil {
-		switch {
-		case errors.Is(err, controls.ErrControlNotFound):
-			middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
-		case errors.Is(err, controls.ErrAnalyzerRefused):
-			h.Log.Warn("controls: worker refused reanalyze", "control", id, "error", err)
-			flash.Set(w, h.secureCookie, refusedFlash(
-				"El motor rechazó re-leer.",
-				err,
-				"Puede que aún no haya escaneos subidos.",
-			))
-			http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
-		case errors.Is(err, controls.ErrAnalyzerUnavailable):
-			h.Log.Error("controls: worker unreachable during reanalyze", "control", id, "error", err)
-			middleware.WriteError(w, r, http.StatusInternalServerError,
-				"El motor no está disponible. Vuelve a intentarlo en unos minutos.")
-		default:
-			h.Log.Error("controls: reanalyze failed", "control", id, "error", err)
-			middleware.WriteError(w, r, http.StatusInternalServerError,
-				"El servidor no pudo re-leer el lote.")
-		}
+	if _, err := h.Runner.Submit(r.Context(), id, jobs.KindReanalyse, payload); err != nil {
+		h.Log.Error("reanalyze: submit job", "control", id, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"El servidor no pudo encolar el trabajo.")
 		return
 	}
 	flash.Set(w, h.secureCookie,
-		fmt.Sprintf("Lote re-leído (marcado: %.2f, inseguro: %.2f).", ticked, unsure))
+		fmt.Sprintf("Re-lectura encolada (marcado: %.2f, inseguro: %.2f). Refresca cuando el aviso cambie.", ticked, unsure))
 	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 }
 
@@ -277,6 +283,14 @@ func (h *Controls) CloseCorrection(w http.ResponseWriter, r *http.Request) {
 	// graded control. A hook failure is logged and does not undo the close.
 	if err := h.OnCorrectionClosed.Closed(r.Context(), id); err != nil {
 		h.Log.Error("close correction: hook failed", "control", id, "error", err)
+	}
+	// Issue #249, S6: defensive re-annotate pass over every ok copy.
+	// A no-op when every ok copy is already annotated (the usual case,
+	// since analyse and reanalyse both annotate as they go); the
+	// operator scenario is a control read while AnnotateEnabled was
+	// false — closing the correction back-fills the PDFs.
+	if _, err := h.Runner.Submit(r.Context(), id, jobs.KindAnnotate, controls.EmptyPayload); err != nil {
+		h.Log.Error("close correction: submit annotate job", "control", id, "error", err)
 	}
 	flash.Set(w, h.secureCookie, "Corrección cerrada.")
 	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
@@ -345,66 +359,6 @@ func parseFloatField(raw string, fallback float64) float64 {
 		return fallback
 	}
 	return v
-}
-
-// flashDetailMax caps the worker Detail excerpt embedded in the flash.
-// 500 chars fits a full "ERR: /work/…/scans/… scan not recognized" line
-// (~85 chars) with plenty of headroom, and keeps a runaway line from
-// blowing past the cookie payload the flash rides on (base64 of ~4 KiB
-// before the browser refuses it). The wrapped AnalyzerRefusedError keeps
-// the full Detail for a future consumer that needs it (issue #210).
-const flashDetailMax = 500
-
-// refusedFlash renders the flash for an ErrAnalyzerRefused branch:
-// verdict + (optional) worker Detail + hint. When the wrapped error
-// carries no usable detail — the detail was empty or only blank lines,
-// or the error is not an *AnalyzerRefusedError at all — the Detalle
-// clause is dropped and the verdict + hint stand on their own.
-//
-// Truncation keeps the FIRST non-empty line only, capped to flashDetailMax
-// runes; a truncation adds a trailing ellipsis. Callers own the verdict
-// and hint copy; this helper owns the shape.
-func refusedFlash(verdict string, err error, hint string) string {
-	detail := firstDetailLine(err)
-	if detail == "" {
-		return verdict + " " + hint
-	}
-	return verdict + " Detalle del motor: " + detail + ". " + hint
-}
-
-// firstDetailLine returns the first non-empty line of an
-// *AnalyzerRefusedError's Detail (trimmed), truncated to flashDetailMax
-// runes with a trailing ellipsis when it did not fit. Returns "" when
-// err does not carry a Detail — including when it is not an
-// *AnalyzerRefusedError.
-func firstDetailLine(err error) string {
-	var wrapped *controls.AnalyzerRefusedError
-	if !errors.As(err, &wrapped) || wrapped == nil {
-		return ""
-	}
-	for _, line := range strings.Split(wrapped.Detail, "\n") {
-		trimmed := strings.TrimSpace(line)
-		if trimmed == "" {
-			continue
-		}
-		return truncateRunes(trimmed, flashDetailMax)
-	}
-	return ""
-}
-
-// truncateRunes caps s to n runes, adding an ellipsis when it did not
-// fit. Rune-safe so a multi-byte character does not get cut mid-sequence.
-// n <= 0 returns the empty string — a caller asking for "no room" gets
-// nothing rather than a lone ellipsis (review-fix, WP-210).
-func truncateRunes(s string, n int) string {
-	if n <= 0 {
-		return ""
-	}
-	runes := []rune(s)
-	if len(runes) <= n {
-		return s
-	}
-	return string(runes[:n]) + "…"
 }
 
 // looksLikePDF is a defensive check the professor sees a nice message

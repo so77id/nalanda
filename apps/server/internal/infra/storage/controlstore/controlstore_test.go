@@ -57,7 +57,7 @@ func newControl(id string, userID int64, appDate *time.Time) controls.Control {
 		RangeTo:          bank.SectionRef{Document: "flujo", Section: "bucles"},
 		QuestionsPerCopy: 4,
 		Copies:           3,
-		// Issue #197: the product defaults, like Service.Create writes.
+		// Issue #197: the product defaults, like Service.PrepareControl writes.
 		Ticked: controls.DefaultTicked,
 		Unsure: controls.DefaultUnsure,
 		// Issue #208: the operational default (ADR-0043).

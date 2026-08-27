@@ -265,6 +265,46 @@ type ControlDetailPage struct {
 	// with State != Graded (or a Graded control with N = 0) shows no
 	// panel at all rather than a "no hay datos" empty state.
 	Stats *stats.Statistics
+
+	// JobBanner, when non-nil, renders the async job runner's status
+	// on the detail page: "Procesando re-lectura… (hace 15 s). Refrescá
+	// la página cuando el aviso cambie." for a running job,
+	// "re-lectura lista." for a done job, or "re-lectura falló: …" for
+	// a failed one. Every branch shows a "Refrescar" (running / done)
+	// or "Cerrar aviso" (failed) button that POSTs to
+	// /jobs/{JobID}/dismiss. Nil hides the banner entirely (issue
+	// #249). The runner drives the state — this struct only carries
+	// what the template needs to render one iteration.
+	JobBanner *JobBanner
+}
+
+// JobBanner is the summary of a control's most recent async job for the
+// detail page (issue #249). Composed by the handler from the latest
+// jobs.Job row — the template does no time arithmetic.
+type JobBanner struct {
+	JobID int64
+	// Kind is the Spanish label ("re-lectura", "análisis", "generación",
+	// "anotado") — the template renders it verbatim inside
+	// "Procesando {Kind}…".
+	Kind string
+	// Running is true while the runner is still working on the job.
+	// The template shows the "Procesando {Kind}…" line with StartedAgo.
+	Running bool
+	// Done is true when the job finished successfully AND has not yet
+	// been dismissed. Failed = true is the failure branch.
+	Done   bool
+	Failed bool
+	// StartedAgo is the human phrase for "hace 15 s" / "hace 2 min",
+	// rendered while Running.
+	StartedAgo string
+	// Error is the AnalyzerRefusedError.Message (or another short
+	// summary) the runner recorded. Only populated when Failed.
+	Error string
+	// DismissURL is POST /jobs/{id}/dismiss — the "Refrescar" (running /
+	// done) and "Cerrar aviso" (failed) button both target it. The
+	// professor re-submits the operation from the usual form after
+	// dismissing.
+	DismissURL string
 }
 
 // ReadingRow is one row of the results table. Everything is pre-formatted

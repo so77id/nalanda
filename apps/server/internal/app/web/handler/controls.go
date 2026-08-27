@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -16,6 +17,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls/stats"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 )
 
@@ -74,7 +76,13 @@ type Controls struct {
 	// (issue #190 §Hook para futuros integraciones). Required — the
 	// default is controls.NewNoopHook, wired in cmd/server.
 	OnCorrectionClosed controls.OnCorrectionClosed
-	Log                *slog.Logger
+	// Jobs is the async job runner's store (issue #249). Detail reads
+	// the latest job for the banner; DismissJob writes viewed_at.
+	Jobs jobs.Store
+	// Runner submits async jobs (issue #249). Handlers migrated to the
+	// runner call it here instead of the sync Service method.
+	Runner *jobs.Runner
+	Log    *slog.Logger
 
 	secureCookie bool
 }
@@ -90,6 +98,10 @@ func NewControls(deps Controls) *Controls {
 		panic("handler.NewControls: no public URL — the flash cookie's Secure attribute is derived from it")
 	case deps.OnCorrectionClosed == nil:
 		panic("handler.NewControls: no correction-closed hook — pass controls.NewNoopHook(log)")
+	case deps.Jobs == nil:
+		panic("handler.NewControls: no jobs store")
+	case deps.Runner == nil:
+		panic("handler.NewControls: no jobs runner")
 	case deps.Log == nil:
 		panic("handler.NewControls: no logger")
 	}
@@ -153,23 +165,33 @@ func (h *Controls) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	req.CreatedBy = acting.ID
 
-	control, err := h.Service.Create(r.Context(), req)
+	// Issue #249, S5: split the sync half (files staged + row committed)
+	// from the async half (worker call). The professor lands on the
+	// detail page immediately with a "Procesando generación…" banner from the
+	// generate job; the row is safe for the sync-path validations
+	// (domain errors like a too-small pool still surface as form
+	// errors), and the worker outage is asynchronously visible on the
+	// banner rather than a 30-second-long POST.
+	control, err := h.Service.PrepareControl(r.Context(), req)
 	if err != nil {
 		fieldErr, ok := domainErrorToForm(err)
 		if !ok {
-			// A failure the professor cannot repair — worker down, sujet
-			// missing, disk full. Log it, render a 500 through the shell
-			// (§Failure modes: "Renders the shell's 500 page…").
 			h.Log.Error("creating a control", "error", err, "professor", acting.ID)
 			middleware.WriteError(w, r, http.StatusInternalServerError,
-				"El servidor no pudo generar el control. Vuelve a intentarlo en unos minutos; si el problema persiste, avisa a alguien de infraestructura.")
+				"El servidor no pudo preparar el control. Vuelve a intentarlo en unos minutos; si el problema persiste, avisa a alguien de infraestructura.")
 			return
 		}
 		h.rerenderNew(w, r, values, fieldErr, "")
 		return
 	}
-
-	flash.Set(w, h.secureCookie, "Control «"+control.Name+"» generado.")
+	if _, err := h.Runner.Submit(r.Context(), control.ID, jobs.KindGenerate, controls.EmptyPayload); err != nil {
+		h.Log.Error("controls: submit generate job", "control", control.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"El servidor no pudo encolar la generación.")
+		return
+	}
+	flash.Set(w, h.secureCookie,
+		"Control «"+control.Name+"» encolado para generación. Refresca cuando el aviso cambie.")
 	http.Redirect(w, r, controlDetailURL(control.ID), http.StatusSeeOther)
 }
 
@@ -246,6 +268,7 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 			page.Stats = &computed
 		}
 	}
+	page.JobBanner = h.jobBannerFor(r.Context(), c.ID)
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 
 	if err := view.RenderControlDetail(w, page); err != nil {
@@ -466,9 +489,9 @@ func parsePositive(raw string, min, max int) (int, string) {
 	return n, ""
 }
 
-// domainErrorToForm maps a Service.Create failure onto (field errors,
-// ok). ok is false for errors the professor cannot repair; those bubble
-// up as a 500 in Create.
+// domainErrorToForm maps a Service.PrepareControl failure onto
+// (field errors, ok). ok is false for errors the professor cannot
+// repair; those bubble up as a 500 in Create.
 func domainErrorToForm(err error) (map[string]string, bool) {
 	switch {
 	case errors.Is(err, bank.ErrRangeInverted):
@@ -515,6 +538,114 @@ func sectionOptionsFromBank(b *bank.Bank) []view.DocumentSections {
 		})
 	}
 	return out
+}
+
+// jobBannerFor composes the Detail page's async-job banner (issue #249)
+// from the latest job on this control. Returns nil when there is no job
+// at all, or when the most recent one is done|failed AND has been
+// dismissed — the banner should hide, not tell the professor to
+// dismiss a message they already saw. A store outage returns nil too:
+// the banner is an aid, not a load-bearing part of the page, and a
+// missing banner is better than a 500 on the whole detail.
+func (h *Controls) jobBannerFor(ctx context.Context, controlID string) *view.JobBanner {
+	job, err := h.Jobs.LatestForControl(ctx, controlID)
+	if err != nil {
+		if !errors.Is(err, jobs.ErrJobNotFound) {
+			h.Log.Warn("jobs: reading banner", "control", controlID, "error", err)
+		}
+		return nil
+	}
+	running := job.Status == jobs.StatusQueued || job.Status == jobs.StatusRunning
+	if !running && job.ViewedAt != nil {
+		return nil
+	}
+	banner := &view.JobBanner{
+		JobID:      job.ID,
+		Kind:       spanishKind(job.Kind),
+		Running:    running,
+		Done:       job.Status == jobs.StatusDone,
+		Failed:     job.Status == jobs.StatusFailed,
+		Error:      job.Error,
+		DismissURL: jobDismissURL(job.ID),
+	}
+	if running {
+		start := job.CreatedAt
+		if job.StartedAt != nil {
+			start = *job.StartedAt
+		}
+		banner.StartedAgo = humanElapsed(time.Since(start))
+	}
+	return banner
+}
+
+// spanishKind is the human label the banner renders for a Kind.
+// Kept next to the field it decorates rather than in the view package
+// because the four values are handler-facing translation, not layout.
+func spanishKind(k jobs.Kind) string {
+	switch k {
+	case jobs.KindGenerate:
+		return "generación"
+	case jobs.KindAnalyse:
+		return "análisis"
+	case jobs.KindReanalyse:
+		return "re-lectura"
+	case jobs.KindAnnotate:
+		return "anotado"
+	default:
+		return string(k)
+	}
+}
+
+// humanElapsed renders a duration as "hace N s" / "hace N min" / "hace
+// N h" — the coarse buckets are enough for a banner that a professor
+// refreshes every few seconds.
+func humanElapsed(d time.Duration) string {
+	if d < time.Minute {
+		return fmt.Sprintf("hace %d s", int(d.Seconds()))
+	}
+	if d < time.Hour {
+		return fmt.Sprintf("hace %d min", int(d.Minutes()))
+	}
+	return fmt.Sprintf("hace %d h", int(d.Hours()))
+}
+
+// JobDismissPath is POST target for the "Refrescar" / "Cerrar aviso" button
+// on the banner (issue #249). The id lives in the URL segment; the
+// handler stamps viewed_at and redirects back to the control.
+const JobDismissPath = "/jobs/{id}/dismiss"
+
+// DismissJob stamps viewed_at on a job and redirects back to its
+// control. Idempotent — dismissing a running job is fine too (the
+// banner just hides on the next request; the runner keeps working).
+func (h *Controls) DismissJob(w http.ResponseWriter, r *http.Request) {
+	rawID := r.PathValue("id")
+	jobID, err := strconv.ParseInt(rawID, 10, 64)
+	if err != nil || jobID <= 0 {
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese trabajo no existe.")
+		return
+	}
+	job, err := h.Jobs.ByID(r.Context(), jobID)
+	if err != nil {
+		if errors.Is(err, jobs.ErrJobNotFound) {
+			middleware.WriteError(w, r, http.StatusNotFound, "Ese trabajo no existe.")
+			return
+		}
+		h.Log.Error("dismiss job: fetch", "id", jobID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+	if err := h.Jobs.MarkDismissed(r.Context(), jobID, time.Now()); err != nil {
+		h.Log.Error("dismiss job: mark", "id", jobID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"No se pudo cerrar el aviso.")
+		return
+	}
+	http.Redirect(w, r, controlDetailURL(job.ControlID), http.StatusSeeOther)
+}
+
+func jobDismissURL(id int64) string {
+	return "/jobs/" + strconv.FormatInt(id, 10) + "/dismiss"
 }
 
 // isValidControlID enforces the ID's shape at the URL boundary so a stray
