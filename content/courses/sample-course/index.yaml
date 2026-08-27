@@ -16,5 +16,5 @@ entries:
     levelName: Unidad
     children:
       - docId: complejidad-de-hilbert-al-big-o
-      - docId: complejidad-recursion-y-memoria
       - docId: complejidad-espacial
+      - docId: complejidad-recursion-y-memoria
