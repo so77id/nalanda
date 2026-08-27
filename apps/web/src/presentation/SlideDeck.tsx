@@ -89,8 +89,34 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
   // fractional array index (white-screen crash — review finding, issue #64).
   const raw = Number(searchParams.get('slide') ?? '1');
   const requested = Number.isFinite(raw) ? Math.trunc(raw) : 1;
-  const index = Math.min(Math.max(requested - 1, 0), slides.length - 1);
+
+  // ?section=<slug> is the deep-link form the book publishes on every h2
+  // (`content/mdxHeading.tsx` #256). It wins over ?slide when both come in
+  // together: an unknown slug falls back to slide 1 with the same tolerance
+  // as an out-of-range ?slide — never a white screen. The URL is then
+  // rewritten to the canonical `?slide=<N>` form in the effect below so the
+  // history holds ONE shape (ADR-0013) and a bookmark of the resolved URL
+  // still resolves after slides are renumbered.
+  const rawSection = searchParams.get('section');
+  const sectionIndex = rawSection !== null ? slides.findIndex((s) => s.slug === rawSection) : -1;
+  const initialIndex =
+    rawSection !== null
+      ? Math.max(sectionIndex, 0)
+      : Math.min(Math.max(requested - 1, 0), slides.length - 1);
+  const index = Math.min(Math.max(initialIndex, 0), slides.length - 1);
   const slide = slides[index]!;
+
+  useEffect(() => {
+    if (rawSection === null) return;
+    setSearchParams(
+      (prev) => {
+        prev.delete('section');
+        prev.set('slide', String(index + 1));
+        return prev;
+      },
+      { replace: true },
+    );
+  }, [index, rawSection, setSearchParams]);
 
   // Out of the keydown effect and shared, so the keyboard and the finger reach
   // the same clamping and the same ?slide contract (ADR-0013) — two paths to

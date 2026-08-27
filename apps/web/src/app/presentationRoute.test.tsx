@@ -1,10 +1,23 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { courseIndex, registry, walkIndex } from '../content';
 
 import { AppRoutes } from './AppRoutes';
+
+// The router owns the URL in a MemoryRouter (window.location never moves), so
+// URL-shape assertions read it through a hook probe rendered inside the router.
+let lastLocation: { search: string; hash: string; pathname: string } = {
+  search: '',
+  hash: '',
+  pathname: '',
+};
+function LocationProbe() {
+  const location = useLocation();
+  lastLocation = { search: location.search, hash: location.hash, pathname: location.pathname };
+  return null;
+}
 
 const ids = walkIndex(courseIndex);
 // The first PRESENTABLE document, not simply the first one (#108). These cases
@@ -32,6 +45,7 @@ async function renderAt(path: string): Promise<void> {
   await act(async () => {
     render(
       <MemoryRouter initialEntries={[path]}>
+        <LocationProbe />
         <AppRoutes />
       </MemoryRouter>,
     );
@@ -129,6 +143,49 @@ describe('PresentationPage viewer', () => {
   it('survives a crafted non-integer ?slide value', async () => {
     await renderAt(`/d/${firstId}/present?slide=1.5`);
     expect(await findCounter()).toHaveTextContent(/^1 \//);
+  });
+
+  // The book anchors every h2 with `#<slug>`, and the deep-link contract
+  // (ADR-0013 succession) says presentation should reach the same section
+  // through `?section=<slug>`. The slug spine is the fixture's second slide
+  // — the first h2 of `java-tipos-y-flujo`. Named through the registry so a
+  // future re-cut of the deck doesn't red these cases silently.
+  const EXPLICIT_FIXTURE = 'java-tipos-y-flujo';
+  const explicitId = registry.get(EXPLICIT_FIXTURE)?.meta.id;
+
+  it('deep-links to a slide via ?section=<slug>', async () => {
+    // `tipos-primitivos` is the slug of the first <Slide title> of the fixture,
+    // per its own MDX. If that slide is renamed the case fails loudly.
+    await renderAt(`/d/${explicitId}/present?section=tipos-primitivos`);
+    expect(await screen.findByRole('heading', { name: 'Tipos primitivos' })).toBeInTheDocument();
+  });
+
+  it('canonicalizes ?section=<slug> to ?slide=<N> so the back button behaves', async () => {
+    await renderAt(`/d/${explicitId}/present?section=tipos-primitivos`);
+    await screen.findByRole('heading', { name: 'Tipos primitivos' });
+    // The URL is the source of truth (ADR-0013); after resolving the slug the
+    // deck must publish the canonical `?slide=N` form so the browser history
+    // holds one shape only and a bookmark of the current URL stays valid.
+    const search = new URLSearchParams(lastLocation.search);
+    expect(search.get('section')).toBeNull();
+    expect(search.get('slide')).toMatch(/^\d+$/);
+  });
+
+  it('falls back to slide 1 for an unknown ?section slug (no white screen)', async () => {
+    await renderAt(`/d/${firstId}/present?section=this-slug-does-not-exist`);
+    expect(await findCounter()).toHaveTextContent(/^1 \//);
+    // …and the canonical form is published even in the fallback.
+    const search = new URLSearchParams(lastLocation.search);
+    expect(search.get('section')).toBeNull();
+    expect(search.get('slide')).toBe('1');
+  });
+
+  it('lets ?section win over a conflicting ?slide', async () => {
+    // section=tipos-primitivos → slide 2 of the fixture; slide=1 would keep
+    // the cover. If section had lost the race we would still see the doc
+    // title heading rather than "Tipos primitivos".
+    await renderAt(`/d/${explicitId}/present?slide=1&section=tipos-primitivos`);
+    expect(await screen.findByRole('heading', { name: 'Tipos primitivos' })).toBeInTheDocument();
   });
 
   it('returns to the book view on Escape', async () => {
