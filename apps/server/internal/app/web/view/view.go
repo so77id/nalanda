@@ -276,6 +276,16 @@ type ControlDetailPage struct {
 	// #249). The runner drives the state — this struct only carries
 	// what the template needs to render one iteration.
 	JobBanner *JobBanner
+
+	// PDFsReady gates the "Prueba a imprimir" section on the Detail
+	// page: sujet.pdf, corrige.pdf and pool.json are only offered as
+	// downloads when they can actually be served (issue #257). True
+	// when the latest generate job for this control is `done` — or
+	// when NO generate job row exists (pre-#249 rows, or rows created
+	// directly via PrepareControl+GenerateAssets in tests). False
+	// while the generate is queued/running/failed; the banner then
+	// tells the professor why.
+	PDFsReady bool
 }
 
 // JobBanner is the summary of a control's most recent async job for the

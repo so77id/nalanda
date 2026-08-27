@@ -876,6 +876,11 @@ func TestDetailRendersMetadataAndDownloadLinks(t *testing.T) {
 	loc := rec.Header().Get("Location")
 	id := strings.TrimPrefix(loc, handler.ControlsPath+"/")
 
+	// Issue #249: Create enqueues a generate job. Issue #257: download
+	// links are gated on the latest generate reaching `done`. Wait for
+	// the runner before asking Detail.
+	f.waitLatestJobTerminal(t, id)
+
 	rec = httptest.NewRecorder()
 	req := f.authedRequest(t, http.MethodGet, loc, nil)
 	req.SetPathValue("id", id)
@@ -895,6 +900,110 @@ func TestDetailRendersMetadataAndDownloadLinks(t *testing.T) {
 	// PDF. validForm() sends duplex_padding=on, so this control is padded.
 	if !strings.Contains(body, "dúplex") {
 		t.Errorf("detail body missing the print-layout row (\"dúplex\")")
+	}
+}
+
+// Issue #257: while the generate job is still queued/running/failed,
+// the "Prueba a imprimir" section is hidden — the PDFs don't exist
+// yet, and the three download links (sujet.pdf, corrige.pdf,
+// pool.json) would 404. The banner tells the professor what's going
+// on; hiding the section is honest.
+func TestDetailHidesDownloadLinksWhileGenerateJobIsRunning(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 257 generate running", 1)
+
+	// Seed a running generate job directly on the store. `createControl`
+	// (fixture helper) calls PrepareControl + GenerateAssets sync and
+	// does NOT submit through the runner, so the row starts without any
+	// job — reproduce the "generation in flight" state by hand.
+	ctx := context.Background()
+	id, err := f.jstore.Insert(ctx, jobs.NewJob{
+		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+	}, time.Now())
+	if err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+	if err := f.jstore.MarkRunning(ctx, id, time.Now()); err != nil {
+		t.Fatalf("MarkRunning: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID, nil)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.Detail(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Detail status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	for _, unwanted := range []string{"Descargar prueba", "Descargar clave", "Descargar respaldo", "Prueba a imprimir"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("detail body contains %q while generate job is running — should be hidden", unwanted)
+		}
+	}
+	// The banner must still surface the running state so the professor
+	// knows why the section is missing.
+	if !strings.Contains(body, "generación") {
+		t.Errorf("detail body missing the running-generate banner:\n%s", body)
+	}
+}
+
+// Same guard on failed. A failed generate is a control whose files may
+// not exist (or may be partial — a 0-byte sujet.pdf, which is exactly
+// what #249 §GenerateAssets refuses). Hide the links until the
+// professor resolves the failure.
+func TestDetailHidesDownloadLinksWhenLatestGenerateJobFailed(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 257 generate failed", 1)
+
+	ctx := context.Background()
+	id, err := f.jstore.Insert(ctx, jobs.NewJob{
+		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+	}, time.Now())
+	if err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+	if err := f.jstore.MarkRunning(ctx, id, time.Now()); err != nil {
+		t.Fatalf("MarkRunning: %v", err)
+	}
+	if err := f.jstore.MarkFailed(ctx, id, "worker refused", "AMC stderr line", time.Now()); err != nil {
+		t.Fatalf("MarkFailed: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID, nil)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.Detail(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Detail status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if strings.Contains(body, "Descargar prueba") {
+		t.Errorf("detail body shows download link while latest generate FAILED — should be hidden")
+	}
+	if !strings.Contains(body, "generación falló") {
+		t.Errorf("detail body missing the failure banner:\n%s", body)
+	}
+}
+
+// A control created via the fixture's createControl helper has NO
+// generate job row — that path calls PrepareControl + GenerateAssets
+// sync. Pre-#249 rows are the same shape (their creation predates the
+// runner). The gate must fall back to "show the links" so those
+// controls keep working.
+func TestDetailShowsDownloadLinksWhenNoGenerateJobExists(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 257 no generate row", 1)
+
+	req := f.authedRequest(t, http.MethodGet, "/controls/"+controlID, nil)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.Detail(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Detail status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Descargar prueba") {
+		t.Errorf("detail body missing 'Descargar prueba' with no generate row on the control")
 	}
 }
 

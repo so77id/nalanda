@@ -269,6 +269,7 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	page.JobBanner = h.jobBannerFor(r.Context(), c.ID)
+	page.PDFsReady = h.pdfsReadyFor(r.Context(), c.ID)
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 
 	if err := view.RenderControlDetail(w, page); err != nil {
@@ -576,6 +577,35 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string) *view.Job
 		banner.StartedAgo = humanElapsed(time.Since(start))
 	}
 	return banner
+}
+
+// pdfsReadyFor decides whether the Detail page shows the "Prueba a
+// imprimir" download links (sujet.pdf, corrige.pdf, pool.json). True
+// when the latest generate job for this control is `done` — the
+// worker produced the PDFs and they can be served. False while it is
+// queued/running/failed — the files may not exist, and clicking a
+// link would 404 (issue #257).
+//
+// Fallback for a control with no generate job row: true. Two paths
+// reach that state — pre-#249 rows created via the deleted
+// Service.Create sync path, and rows created directly via
+// PrepareControl+GenerateAssets (the test fixture's createControl
+// does exactly this). Both have their PDFs already; hiding the links
+// would break the pre-#249 rollback path and the direct-domain
+// callers.
+//
+// A store outage returns TRUE — same "aid, not load-bearing" policy
+// as jobBannerFor: a lost jobs.Store read shouldn't hide a
+// legitimately-there download.
+func (h *Controls) pdfsReadyFor(ctx context.Context, controlID string) bool {
+	job, err := h.Jobs.LatestForControlByKind(ctx, controlID, jobs.KindGenerate)
+	if err != nil {
+		if !errors.Is(err, jobs.ErrJobNotFound) {
+			h.Log.Warn("jobs: reading generate status", "control", controlID, "error", err)
+		}
+		return true
+	}
+	return job.Status == jobs.StatusDone
 }
 
 // spanishKind is the human label the banner renders for a Kind.
