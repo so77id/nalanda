@@ -43,6 +43,17 @@ const (
 	StatusFailed  Status = "failed"
 )
 
+// IsTerminal reports whether the status is a final state (done or
+// failed) — one the runner will no longer transition out of. The
+// complement (queued | running) is "still in flight". Callers gate
+// behavior on this rather than restating the pair: the banner hides
+// only on a terminal + dismissed row; DismissJob refuses to stamp on
+// a non-terminal row; the "wait for terminal" test helper polls on
+// it (issue #257 review, ARQ-2).
+func (s Status) IsTerminal() bool {
+	return s == StatusDone || s == StatusFailed
+}
+
 // RestartMidJobError is the marker error the Sweep pass writes into
 // job.error when it finds a `running` row on boot — the previous server
 // died mid-job, so the professor sees "server_restart_mid_job" on the
@@ -104,6 +115,13 @@ type Store interface {
 	// created_at). Returns ErrJobNotFound when the control has no jobs.
 	// The Detail handler renders the banner from this row.
 	LatestForControl(ctx context.Context, controlID string) (Job, error)
+
+	// LatestForControlByKind returns the most recent job of a specific
+	// Kind for a control (highest created_at where kind = ?). Returns
+	// ErrJobNotFound when the control has no job of that kind. Issue
+	// #257: the Detail handler asks for the latest KindGenerate to
+	// decide whether sujet.pdf / corrige.pdf / pool.json exist yet.
+	LatestForControlByKind(ctx context.Context, controlID string, kind Kind) (Job, error)
 
 	// QueuedIDs returns every `queued` job's id, oldest first. Sweep calls
 	// this once at boot to re-push them onto the runner's channel.

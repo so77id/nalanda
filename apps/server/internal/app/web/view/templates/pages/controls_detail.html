@@ -40,14 +40,16 @@
     </table>
   </section>
 
-  <section>
-    <h2>Prueba a imprimir</h2>
-    <p>
-      <a class="boton" href="{{ .SujetURL }}">Descargar prueba (sujet.pdf)</a>
-      <a class="boton" href="{{ .CorrigeURL }}">Descargar clave (corrige.pdf)</a>
-      <a class="boton" href="{{ .PoolJSONURL }}">Descargar respaldo de preguntas (pool.json)</a>
-    </p>
-  </section>
+  {{ if .PDFsReady }}
+    <section>
+      <h2>Prueba a imprimir</h2>
+      <p>
+        <a class="boton" href="{{ .SujetURL }}">Descargar prueba (sujet.pdf)</a>
+        <a class="boton" href="{{ .CorrigeURL }}">Descargar clave (corrige.pdf)</a>
+        <a class="boton" href="{{ .PoolJSONURL }}">Descargar respaldo de preguntas (pool.json)</a>
+      </p>
+    </section>
+  {{ end }}
 
   <section>
     <h2>Escaneos</h2>

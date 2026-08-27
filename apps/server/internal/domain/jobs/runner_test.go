@@ -129,6 +129,25 @@ func (s *fakeStore) LatestForControl(_ context.Context, controlID string) (jobs.
 	return *latest, nil
 }
 
+func (s *fakeStore) LatestForControlByKind(_ context.Context, controlID string, kind jobs.Kind) (jobs.Job, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	var latest *jobs.Job
+	for _, j := range s.jobs {
+		if j.ControlID != controlID || j.Kind != kind {
+			continue
+		}
+		if latest == nil || j.CreatedAt.After(latest.CreatedAt) ||
+			(j.CreatedAt.Equal(latest.CreatedAt) && j.ID > latest.ID) {
+			latest = j
+		}
+	}
+	if latest == nil {
+		return jobs.Job{}, jobs.ErrJobNotFound
+	}
+	return *latest, nil
+}
+
 func (s *fakeStore) QueuedIDs(_ context.Context) ([]int64, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -269,6 +269,7 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	page.JobBanner = h.jobBannerFor(r.Context(), c.ID)
+	page.PDFsReady = h.pdfsReadyFor(r.Context(), c.ID)
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 
 	if err := view.RenderControlDetail(w, page); err != nil {
@@ -555,7 +556,7 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string) *view.Job
 		}
 		return nil
 	}
-	running := job.Status == jobs.StatusQueued || job.Status == jobs.StatusRunning
+	running := !job.Status.IsTerminal()
 	if !running && job.ViewedAt != nil {
 		return nil
 	}
@@ -576,6 +577,35 @@ func (h *Controls) jobBannerFor(ctx context.Context, controlID string) *view.Job
 		banner.StartedAgo = humanElapsed(time.Since(start))
 	}
 	return banner
+}
+
+// pdfsReadyFor decides whether the Detail page shows the "Prueba a
+// imprimir" download links (sujet.pdf, corrige.pdf, pool.json). True
+// when the latest generate job for this control is `done` — the
+// worker produced the PDFs and they can be served. False while it is
+// queued/running/failed — the files may not exist, and clicking a
+// link would 404 (issue #257).
+//
+// Fallback for a control with no generate job row: true. Two paths
+// reach that state — pre-#249 rows created via the deleted
+// Service.Create sync path, and rows created directly via
+// PrepareControl+GenerateAssets (the test fixture's createControl
+// does exactly this). Both have their PDFs already; hiding the links
+// would break the pre-#249 rollback path and the direct-domain
+// callers.
+//
+// A store outage returns TRUE — same "aid, not load-bearing" policy
+// as jobBannerFor: a lost jobs.Store read shouldn't hide a
+// legitimately-there download.
+func (h *Controls) pdfsReadyFor(ctx context.Context, controlID string) bool {
+	job, err := h.Jobs.LatestForControlByKind(ctx, controlID, jobs.KindGenerate)
+	if err != nil {
+		if !errors.Is(err, jobs.ErrJobNotFound) {
+			h.Log.Warn("jobs: reading generate status", "control", controlID, "error", err)
+		}
+		return true
+	}
+	return job.Status == jobs.StatusDone
 }
 
 // spanishKind is the human label the banner renders for a Kind.
@@ -611,12 +641,21 @@ func humanElapsed(d time.Duration) string {
 
 // JobDismissPath is POST target for the "Refrescar" / "Cerrar aviso" button
 // on the banner (issue #249). The id lives in the URL segment; the
-// handler stamps viewed_at and redirects back to the control.
+// handler stamps viewed_at on TERMINAL jobs (done|failed) and redirects
+// back to the control. On a non-terminal job it just redirects — see
+// DismissJob's doc for why (issue #257).
 const JobDismissPath = "/jobs/{id}/dismiss"
 
-// DismissJob stamps viewed_at on a job and redirects back to its
-// control. Idempotent — dismissing a running job is fine too (the
-// banner just hides on the next request; the runner keeps working).
+// DismissJob stamps viewed_at on a TERMINAL job (done | failed) and
+// redirects back to its control. A dismiss on a queued / running job
+// is a plain page reload: no stamp, just the redirect. The distinction
+// matters because jobBannerFor hides the banner once viewed_at is set
+// on a non-running row — stamping while the job is still working would
+// silently mute the eventual "listo" / "falló" banner (issue #257,
+// discovered on the Jetson 2026-08-27).
+//
+// The store's MarkDismissed remains unconditional / idempotent; the
+// policy lives on this handler where the professor's click happens.
 func (h *Controls) DismissJob(w http.ResponseWriter, r *http.Request) {
 	rawID := r.PathValue("id")
 	jobID, err := strconv.ParseInt(rawID, 10, 64)
@@ -633,6 +672,13 @@ func (h *Controls) DismissJob(w http.ResponseWriter, r *http.Request) {
 		h.Log.Error("dismiss job: fetch", "id", jobID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
 			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+	if !job.Status.IsTerminal() {
+		// "Refrescar" while the job is still working: reload the page
+		// and let the runner keep going. Stamping viewed_at here would
+		// mute the eventual terminal banner (issue #257).
+		http.Redirect(w, r, controlDetailURL(job.ControlID), http.StatusSeeOther)
 		return
 	}
 	if err := h.Jobs.MarkDismissed(r.Context(), jobID, time.Now()); err != nil {

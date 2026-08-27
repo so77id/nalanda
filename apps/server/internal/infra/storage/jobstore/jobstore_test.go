@@ -251,6 +251,62 @@ func TestLatestForControlReturnsErrJobNotFoundWhenTheControlHasNoJobs(t *testing
 	}
 }
 
+// Issue #257: LatestForControlByKind ignores rows of other kinds. The
+// Detail handler asks specifically for the latest KindGenerate to
+// decide whether sujet.pdf / corrige.pdf / pool.json exist yet — a
+// later reanalyse row must not muddy that answer.
+func TestLatestForControlByKindReturnsTheMostRecentJobOfThatKind(t *testing.T) {
+	ctx, db, controlID := migrated(t)
+	store := jobstore.New(db)
+
+	early := time.Unix(1_735_000_000, 0)
+	mid := time.Unix(1_735_000_050, 0)
+	late := time.Unix(1_735_000_100, 0)
+
+	generateOld, _ := store.Insert(ctx, jobs.NewJob{
+		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+	}, early)
+	// A more recent reanalyse — this MUST NOT be picked up when we ask
+	// for the latest generate.
+	_, _ = store.Insert(ctx, jobs.NewJob{
+		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+	}, late)
+	// A generate that landed after the reanalyse (rare in practice —
+	// the design doesn't have a "regenerate" trigger yet — but a
+	// hand-inserted row must still be honored).
+	generateLatest, _ := store.Insert(ctx, jobs.NewJob{
+		ControlID: controlID, Kind: jobs.KindGenerate, Payload: []byte(`{}`),
+	}, mid)
+
+	got, err := store.LatestForControlByKind(ctx, controlID, jobs.KindGenerate)
+	if err != nil {
+		t.Fatalf("LatestForControlByKind: %v", err)
+	}
+	if got.Kind != jobs.KindGenerate {
+		t.Errorf("Kind = %q, want %q — a reanalyse row leaked through the filter", got.Kind, jobs.KindGenerate)
+	}
+	if got.ID != generateLatest {
+		t.Errorf("ID = %d, want the more recent generate (%d), got the older (%d)",
+			got.ID, generateLatest, generateOld)
+	}
+}
+
+func TestLatestForControlByKindReturnsErrJobNotFoundWhenNoJobOfThatKindExists(t *testing.T) {
+	ctx, db, controlID := migrated(t)
+	store := jobstore.New(db)
+
+	// Only a reanalyse row for this control — no generate ever ran.
+	if _, err := store.Insert(ctx, jobs.NewJob{
+		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+	}, time.Unix(1_735_000_000, 0)); err != nil {
+		t.Fatalf("seeding reanalyse: %v", err)
+	}
+
+	if _, err := store.LatestForControlByKind(ctx, controlID, jobs.KindGenerate); !errors.Is(err, jobs.ErrJobNotFound) {
+		t.Errorf("LatestForControlByKind(generate) with only reanalyse rows = %v, want ErrJobNotFound", err)
+	}
+}
+
 func TestQueuedIDsListsEveryQueuedJobOldestFirst(t *testing.T) {
 	ctx, db, controlID := migrated(t)
 	store := jobstore.New(db)

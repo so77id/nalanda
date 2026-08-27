@@ -891,6 +891,88 @@ func TestDismissJobStampsViewedAtAndRedirects(t *testing.T) {
 	}
 }
 
+// Issue #257: a dismiss click while the job is running MUST NOT stamp
+// viewed_at. Otherwise the eventual done/failed banner is muted the
+// moment the runner finishes — jobBannerFor sees ViewedAt != nil on a
+// non-running row and returns nil, and the professor never gets the
+// success signal. The endpoint still redirects (the button is a plain
+// "reload the page" while running); it just refuses to stamp.
+func TestDismissJobDoesNotStampViewedAtWhileRunning(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 257 running dismiss", 1)
+
+	// Seed a running job directly on the store — the "runner blocked in
+	// the middle of a handler call" state is what this test needs, and
+	// racing a real fake handler to catch it in-flight would be
+	// flaky. Same shape jobstore_test.go and runner_test.go already use.
+	ctx := context.Background()
+	id, err := f.jstore.Insert(ctx, jobs.NewJob{
+		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+	}, time.Now())
+	if err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+	if err := f.jstore.MarkRunning(ctx, id, time.Now()); err != nil {
+		t.Fatalf("MarkRunning: %v", err)
+	}
+
+	dismissPath := fmt.Sprintf("/jobs/%d/dismiss", id)
+	dismissReq := f.authedRequest(t, http.MethodPost, dismissPath, nil)
+	dismissReq.SetPathValue("id", fmt.Sprintf("%d", id))
+	dismissRec := httptest.NewRecorder()
+	f.handler.DismissJob(dismissRec, dismissReq)
+
+	if dismissRec.Code != http.StatusSeeOther {
+		t.Fatalf("dismiss status = %d, want 303 (running dismiss still redirects)", dismissRec.Code)
+	}
+	if got := dismissRec.Header().Get("Location"); got != "/controls/"+controlID {
+		t.Errorf("Location = %q, want /controls/%s", got, controlID)
+	}
+	after, err := f.jstore.ByID(ctx, id)
+	if err != nil {
+		t.Fatalf("ByID: %v", err)
+	}
+	if after.ViewedAt != nil {
+		t.Errorf("job.ViewedAt = %v, want nil — dismiss on running MUST NOT stamp", after.ViewedAt)
+	}
+	if after.Status != jobs.StatusRunning {
+		t.Errorf("job.Status = %q, want running (dismiss must not transition state)", after.Status)
+	}
+}
+
+// Same guard for `queued` — a job that hasn't been picked up by the
+// runner yet is dismissable-as-plain-reload, same as running.
+func TestDismissJobDoesNotStampViewedAtWhileQueued(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 257 queued dismiss", 1)
+
+	ctx := context.Background()
+	id, err := f.jstore.Insert(ctx, jobs.NewJob{
+		ControlID: controlID, Kind: jobs.KindReanalyse, Payload: []byte(`{}`),
+	}, time.Now())
+	if err != nil {
+		t.Fatalf("Insert: %v", err)
+	}
+	// Do NOT MarkRunning — leave it queued.
+
+	dismissPath := fmt.Sprintf("/jobs/%d/dismiss", id)
+	dismissReq := f.authedRequest(t, http.MethodPost, dismissPath, nil)
+	dismissReq.SetPathValue("id", fmt.Sprintf("%d", id))
+	dismissRec := httptest.NewRecorder()
+	f.handler.DismissJob(dismissRec, dismissReq)
+
+	if dismissRec.Code != http.StatusSeeOther {
+		t.Fatalf("dismiss status = %d, want 303", dismissRec.Code)
+	}
+	after, err := f.jstore.ByID(ctx, id)
+	if err != nil {
+		t.Fatalf("ByID: %v", err)
+	}
+	if after.ViewedAt != nil {
+		t.Errorf("job.ViewedAt = %v, want nil — dismiss on queued MUST NOT stamp", after.ViewedAt)
+	}
+}
+
 // DismissJob answers 404 for a job id that does not exist. The path is
 // URL-driven and public-ish (any professor can dismiss any job), so an
 // invalid id must not 500.
