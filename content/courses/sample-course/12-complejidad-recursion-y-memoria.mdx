@@ -148,7 +148,7 @@ Traducción directa a Java:
 
 <CodeEditor
   language="java"
-  code={`class Factorial {
+  defaultValue={`class Factorial {
     static long factorial(int n) {
         if (n == 0) return 1;         // base case
         return n * factorial(n - 1);  // recursive step
@@ -159,7 +159,6 @@ Traducción directa a Java:
     }
 }
 `}
-  entryClass="Factorial"
 />
 
 Identifiquemos las tres piezas del diseño:
@@ -401,7 +400,7 @@ paso recursivo):
 
 <CodeEditor
   language="java"
-  code={`class FibNaive {
+  defaultValue={`class FibNaive {
     static long fib(int n) {
         if (n < 2) return n;
         return fib(n - 1) + fib(n - 2);
@@ -417,7 +416,6 @@ paso recursivo):
     }
 }
 `}
-  entryClass="FibNaive"
 />
 
 Está correcto. Se ve simple. Y sin embargo, al correr `fib(40)` **la
@@ -654,7 +652,7 @@ antes de recursar consultamos la tabla y solo bajamos si no está.
 
 <CodeEditor
   language="java"
-  code={`class FibMemoized {
+  defaultValue={`class FibMemoized {
     static long[] memo;
     static boolean[] done;
 
@@ -675,7 +673,6 @@ antes de recursar consultamos la tabla y solo bajamos si no está.
     }
 }
 `}
-  entryClass="FibMemoized"
 />
 
 **Dos líneas nuevas** respecto de la versión desnuda:
@@ -752,7 +749,7 @@ desde $$0$$ hasta $$N$$ llenando la tabla en orden.
 
 <CodeEditor
   language="java"
-  code={`class FibTabulated {
+  defaultValue={`class FibTabulated {
     static long fib(int n) {
         if (n < 2) return n;
         long[] f = new long[n + 1];
@@ -769,7 +766,6 @@ desde $$0$$ hasta $$N$$ llenando la tabla en orden.
     }
 }
 `}
-  entryClass="FibTabulated"
 />
 
 **Sin recursión.** Sin stack. Sin `done` — la posición en el `for` es
@@ -802,7 +798,7 @@ tirar el arreglo entero y quedarnos con dos variables:
 
 <CodeEditor
   language="java"
-  code={`class FibIterative {
+  defaultValue={`class FibIterative {
     static long fib(int n) {
         if (n < 2) return n;
         long previous = 0, current = 1;
@@ -819,7 +815,6 @@ tirar el arreglo entero y quedarnos con dos variables:
     }
 }
 `}
-  entryClass="FibIterative"
 />
 
 **Este es el `fib` iterativo que ya escribimos en
@@ -869,7 +864,7 @@ Aplicando la receta de diseño (caso base + paso recursivo):
 
 <CodeEditor
   language="java"
-  code={`class Hanoi {
+  defaultValue={`class Hanoi {
     static void hanoi(int n, char from, char to, char aux) {
         if (n == 0) return;                                       // base case
         hanoi(n - 1, from, aux, to);                              // move N-1 to auxiliary
@@ -882,7 +877,6 @@ Aplicando la receta de diseño (caso base + paso recursivo):
     }
 }
 `}
-  entryClass="Hanoi"
 />
 
 Cuatro parámetros: **cuántos** discos mover, **de dónde**, **a dónde**,
