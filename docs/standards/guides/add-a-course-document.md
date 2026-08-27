@@ -35,6 +35,7 @@ content/courses/sample-course/
 ├── 08-referencias-null-igualdad.mdx  # presentation: explicit — uses <PredictOutput> + <StepShow>/<MemoryVisual> + <Exercise> + <CodeEditor>
 ├── 09-arrays-y-funciones.mdx  # presentation: explicit — uses <RecursionTree> + <Exercise> + <CodeEditor>
 ├── 10-objetos.mdx             # presentation: explicit — uses <Mermaid> (the only worked example) + <PredictOutput> + <Exercise> + <CodeEditor>
+├── 11-genericos-y-orden.mdx   # presentation: explicit — uses <PredictOutput> + <Exercise> + <CodeEditor>, questions: per-section
 ├── 11-complejidad-de-hilbert-al-big-o.mdx  # presentation: explicit — <ComplexityCounter> (all four modes incl. "abstract") + <ComplexityExercise> + <ComplexityHierarchy> + <MathPlot> + <Benchmark> + <VideoEmbed> + <Figure float=…> + <Question> with <Explanation>
 ├── eniac.jpg, gödel.jpg, hilbert.jpg, turing.jpg, turing-machine.gif, von-neumann.gif, von-neumann-architecture.svg   # assets for chapter 11
 ├── 13-complejidad-espacial.mdx  # presentation: explicit — <ComplexityCounter mode="space"> + <ComplexityExercise mode="space"|"cases"> + <Question> with <Explanation>
@@ -159,6 +160,12 @@ the frontmatter `id`, never the path. v0.1 supports exactly ONE course directory
 
 3. **Write prose in Markdown.** Headings h2–h4 get automatic slug anchors
    (deep-linkable). Code fences render book-style.
+
+   **How the prose reads — voice, register, titles, cross-reference discipline
+   — lives in [`course-content-style.md`](course-content-style.md).** Read it
+   before writing any paragraph. Same shape as the split between
+   [`write-control-questions.md`](write-control-questions.md) and this page:
+   mechanics here, wording there.
 
    **`h2` is also the section spine** (ADR-0021): every `h2` the page paints
    becomes an entry in the "En esta página" list — the rail from `2xl`, the
@@ -896,6 +903,19 @@ is not scaled at all.
      `cuatro-diferencias-con-c` — the `++` disappears entirely — and
      `¿Qué imprime esto?` as `que-imprime-esto`. **Do not guess it**: read it off
      the rendered heading's link, or off `headingSlugs()`.
+
+     **A title with `<` or `>` in it breaks silently.** `## Pair<T>` is parsed
+     by MDX as an opening JSX tag (no closing one nearby → build red or JSX
+     interpreter error), and the escape-hatch spelling `## Pair&lt;T&gt;`
+     makes the two slug readers disagree: the source reader sees the raw
+     entities and produces `pair-lt-t-gt`, while the DOM reader sees the
+     decoded characters and produces `pair-t` — `app/questionReaders.test.tsx`
+     reddens the suite when they diverge. The remediation is to keep `<` and
+     `>` out of headings entirely: an interpunct-separated title
+     (`## Pair · T`) slugs to `pair-t` on both sides and reads cleanly in the
+     book and on a slide. This is the convention `course-content-style.md` §5
+     prescribes; the concrete failure that motivates it lives here. Hit while
+     writing `11-genericos-y-orden.mdx` (#80).
    - **The answer is marked in place** with `- [x]`, never named from outside.
      Naming one by position means reordering the alternatives silently changes
      the answer.
@@ -1115,4 +1135,10 @@ is not scaled at all.
       document, both past a green build. Check the page still ends where you
       wrote its end, and check any slide carrying a formula in landscape.
 - [ ] Content language: Spanish is fine (user-facing course material).
+- [ ] Prose, slide titles, `<Exercise>` titles and question stems reviewed
+      against [`course-content-style.md`](course-content-style.md) §Checklist
+      (formal first-person plural, neutral Spanish, book register, no
+      cross-references between sections or slides, noun-phrase titles). The
+      suite cannot see any of this — a voice violation ships past a green
+      build unless a human catches it here (course-content-style.md §6).
 - [ ] Nothing here must stay private — merging publishes it at `/d/<id>`.

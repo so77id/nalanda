@@ -1,0 +1,1326 @@
+---
+id: genericos-y-orden
+title: Genéricos y orden
+presentation: explicit
+questions: per-section
+---
+
+{/* Declaración per-section (#139): cada sección lleva al menos una */}
+{/* pregunta anclada, o queda declarada en NO_QUESTION con su razón */}
+{/* (apps/web/src/content/architecture.test.ts). La flip y el banco */}
+{/* llegan en el mismo commit — regla dura (#144, */}
+{/* add-a-course-document.md §Step-by-step step 2, «Frontmatter»). */}
+{/* */}
+{/* Anclas de sección (llevarán pregunta, deben existir como h2): */}
+{/*   el-problema-combinatorio, pair-t, pair-a-b, comparable, */}
+{/*   tipos-acotados, comparator. */}
+{/* */}
+{/* Estilo del texto en este documento: voz formal plural inclusiva, español */}
+{/* neutro, registro libro, sin referencias cruzadas entre secciones o slides */}
+{/* — docs/standards/guides/course-content-style.md. Titulos como frase */}
+{/* sustantiva, con `·` cuando aporta un subtítulo. */}
+{/* */}
+{/* Sin ancla C++ en ninguna de las 6 secciones — decisión explícita del */}
+{/* refinamiento (2026-08-20). */}
+
+# Genéricos y orden
+
+La clase `Pair` que aparece en clases anteriores guarda dos enteros. El
+material que sigue la hace crecer hasta un punto en el que sirva para
+cualquier combinación de tipos y, además, se pueda ordenar por criterios
+distintos sin modificar la clase. El objeto central no cambia; cambian las
+capacidades que se le van agregando.
+
+## El problema combinatorio
+
+<Slide title="El punto de partida">
+La clase `Pair` disponible guarda dos enteros. Funciona en el caso concreto
+para el que se escribió: dos coordenadas, dos edades, dos cantidades. Basta
+con que uno de los dos valores deje de ser un entero para que la clase
+existente deje de aplicar y aparezca la pregunta que motiva todo el
+material que sigue: **¿cuántas clases `Pair` son necesarias en total?**
+
+La respuesta ingenua es una por combinación de tipos. Como un `Pair`
+distingue el orden entre el primer y el segundo campo, cada par ordenado
+`(A, B)` cuenta como una combinación distinta de cada `(B, A)`: con dos
+tipos posibles hacen falta cuatro clases (`IntInt`, `StringString`,
+`IntString`, `StringInt`); con tres tipos, nueve; con cuatro, dieciséis.
+El crecimiento es cuadrático en la cantidad de tipos —$n^2$ para $n$
+tipos disponibles—, y todas las clases comparten el mismo cuerpo: dos
+campos, un constructor, dos getters. Lo único que cambia entre una clase
+y la siguiente son los nombres de los tipos.
+</Slide>
+
+<Slide title="Una clase por combinación">
+Escribir a mano las clases para las combinaciones más pedidas hace visible
+el costo del enfoque:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class PairIntInt {
+    private int first;
+    private int second;
+    public PairIntInt(int a, int b) { this.first = a; this.second = b; }
+    public int first()  { return first; }
+    public int second() { return second; }
+}
+
+class PairStringString {
+    private String first;
+    private String second;
+    public PairStringString(String a, String b) { this.first = a; this.second = b; }
+    public String first()  { return first; }
+    public String second() { return second; }
+}
+
+class PairIntString {
+    private int first;
+    private String second;
+    public PairIntString(int a, String b) { this.first = a; this.second = b; }
+    public int first()     { return first; }
+    public String second() { return second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        PairIntInt edades      = new PairIntInt(20, 21);
+        PairStringString saludos = new PairStringString("hola", "chao");
+        PairIntString etiqueta = new PairIntString(12345, "Ana");
+        System.out.println(edades.first() + ", " + edades.second());
+        System.out.println(saludos.first() + ", " + saludos.second());
+        System.out.println(etiqueta.first() + ", " + etiqueta.second());
+    }
+}
+`}
+/>
+
+Tres clases con la misma estructura y una única diferencia sintáctica: los
+tipos de los campos. Cada combinación adicional exige una clase adicional,
+y el bloque de código que las contiene crece con la misma proporción que la
+cantidad de combinaciones cubiertas.
+</Slide>
+
+<Slide title="Object como salida · el precio del cast">
+Una alternativa habitual es reducir todas las variantes a una sola clase
+cuyos campos son de tipo `Object`, el ancestro común de todos los tipos por
+referencia. La escritura de la clase se simplifica; la lectura de los
+valores, no:
+
+```java
+class Pair {
+    private Object first;
+    private Object second;
+    public Pair(Object a, Object b) { this.first = a; this.second = b; }
+    public Object first()  { return first; }
+    public Object second() { return second; }
+}
+
+Pair p = new Pair(20, "Ana");
+int edad = (Integer) p.first();       // cast obligatorio al leer
+String s = (String) p.second();       // otro cast, otro tipo
+```
+
+El costo aparece en dos frentes. Primero, cada uso obliga a un cast
+explícito. Segundo, y de mayor gravedad, el compilador deja de rechazar
+casts incorrectos: la expresión `(String) p.first()` sobre una instancia
+cuyo primer campo es un `Integer` compila sin error y **falla en tiempo de
+ejecución** con `ClassCastException`. La verificación del compilador queda
+suspendida, y el error se traslada al usuario.
+
+Los **genéricos** son la construcción del lenguaje que resuelve la misma
+necesidad —una única clase para todas las combinaciones— sin renunciar a la
+verificación estática. La clase se declara con **parámetros de tipo**, y
+cada instanciación fija esos parámetros para ese objeto. Las siguientes
+secciones desarrollan la mecánica: primero con un parámetro, después con
+dos.
+</Slide>
+
+## Pair · T
+
+<Slide title="Un parámetro de tipo">
+El primer paso es una clase con **un** hueco para el tipo. La sintaxis
+declara el parámetro entre `<...>` a continuación del nombre de la clase, y
+lo emplea en el cuerpo como si fuera un tipo cualquiera:
+
+```java
+public class Pair<T> {
+    private T first;
+    private T second;
+
+    public Pair(T first, T second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    public T first()  { return first; }
+    public T second() { return second; }
+}
+```
+
+`T` no es un tipo concreto; es una **variable de tipo**, un placeholder.
+Las cuatro apariciones de `T` en el cuerpo se refieren al mismo tipo,
+cualquiera que resulte ser al instanciar la clase. Esta versión guarda dos
+valores **del mismo tipo**: dos enteros, dos textos, dos fechas — pero no
+un entero y un texto.
+</Slide>
+
+<Slide title="Instancias con distintos tipos">
+El hueco se rellena en el momento de instanciar. La expresión
+`new Pair<Integer>(20, 21)` liga `T` a `Integer` para esa instancia; una
+instancia distinta puede ligarlo a otro tipo, y las dos coexisten:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Pair<T> {
+    private T first;
+    private T second;
+    public Pair(T first, T second) {
+        this.first = first;
+        this.second = second;
+    }
+    public T first()  { return first; }
+    public T second() { return second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair<Integer> edades   = new Pair<Integer>(20, 21);
+        Pair<String>  saludos  = new Pair<String>("hola", "chao");
+
+        int sumaEdades         = edades.first() + edades.second();
+        String junto           = saludos.first() + " y " + saludos.second();
+
+        System.out.println(sumaEdades);
+        System.out.println(junto);
+    }
+}
+`}
+/>
+
+Dos consecuencias inmediatas. **La primera**: la lectura de los campos no
+exige cast. La expresión `edades.first() + edades.second()` compila como
+suma de enteros porque el compilador conoce la ligadura de `T` a `Integer`
+para esa instancia. **La segunda**: pasar `"hola"` a `new Pair<Integer>(...)`
+es rechazado en compilación, no en ejecución.
+
+Un detalle del lenguaje que aparece por primera vez acá: el parámetro de
+tipo sólo puede ligarse a tipos por referencia, no a primitivos. `T` no
+puede ser `int`, sólo `Integer` (su versión objeto, la clase envoltorio).
+Java realiza la conversión entre las dos formas de manera automática
+—**autoboxing** al pasar un `int` donde se espera un `Integer`, **unboxing**
+en el sentido inverso—, y por eso `new Pair<Integer>(20, 21)` funciona
+con literales `int` y `edades.first() + edades.second()` se asigna a un
+`int`.
+</Slide>
+
+## Pair · A, B
+
+<Slide title="Dos parámetros de tipo">
+La clase `Pair<T>` guarda dos valores del **mismo** tipo. Abrir el
+paréntesis angular a dos letras permite guardar valores de tipos
+**distintos**:
+
+```java
+public class Pair<A, B> {
+    private A first;
+    private B second;
+
+    public Pair(A first, B second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    public A first()  { return first; }
+    public B second() { return second; }
+}
+```
+
+`A` y `B` son parámetros **independientes**: cada uno se liga a su tipo al
+instanciar, y no existe restricción alguna que obligue a que coincidan. El
+cuerpo de la clase se lee igual — `first` es de tipo `A`, `second` es de
+tipo `B` — con la única diferencia de que ahora los dos huecos son
+visibles.
+
+El **orden** de los parámetros es significativo: el primero es `A`, y
+`first()` devuelve `A`. Reordenar la declaración a `<B, A>` no rompe la
+clase, pero cambia la firma que sus usuarios ven.
+</Slide>
+
+<Slide title="Un par de entero y texto">
+La instanciación `Pair<Integer, String>` liga `A` a `Integer` y `B` a
+`String` para esa instancia. Los métodos se leen sin cast, y el compilador
+rechaza construcciones con tipos incompatibles:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Pair<A, B> {
+    private A first;
+    private B second;
+    public Pair(A first, B second) {
+        this.first = first;
+        this.second = second;
+    }
+    public A first()  { return first; }
+    public B second() { return second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair<Integer, String> etiqueta = new Pair<Integer, String>(12345, "Ana");
+        Pair<String, Integer> otra     = new Pair<String, Integer>("Luis", 67890);
+
+        int rutEtiqueta    = etiqueta.first();
+        String nombreOtra  = otra.first();
+
+        System.out.println(nombreOtra + " tiene rut " + otra.second());
+        System.out.println(etiqueta.second() + " tiene rut " + rutEtiqueta);
+    }
+}
+`}
+/>
+
+Las dos instancias pertenecen a la **misma** clase (`Pair`), pero para el
+compilador constituyen tipos diferentes. `Pair<Integer, String>` no es
+`Pair<String, Integer>`; pasar una donde la firma exige la otra no compila.
+La verificación estática que se pierde con `Object` reaparece sin costo
+sintáctico adicional. En este documento la clase `Pair` genérica utiliza
+`<A, B>` como convención neutra: dos letras contiguas, sin significado
+adicional, tal como se usan en el resto del material.
+</Slide>
+
+## Comparable
+
+<Slide title="El ordenamiento como problema">
+Dado un arreglo cualquiera, un **algoritmo de ordenamiento** reorganiza
+sus elementos hasta dejarlos en un orden preestablecido — típicamente
+ascendente. Las familias clásicas —bubble sort, insertion sort, selection
+sort, merge sort, quicksort, heap sort— resuelven este problema con
+distintas complejidades, y forman parte del programa de unidades
+posteriores.
+
+Aquí el foco es distinto. En lugar de escribir un algoritmo, este
+documento se ocupa de cómo la biblioteca estándar de Java expone
+ordenamientos listos para usar sobre arreglos de cualquier tipo, y qué
+contrato exige del tipo para que la operación tenga sentido. Los detalles
+del algoritmo interno de `Arrays.sort` no importan para este material; sí
+importa el contrato con el que la función se comunica con los tipos que
+ordena.
+</Slide>
+
+<Slide title="Arrays.sort · el contrato con el tipo">
+La biblioteca estándar ofrece `Arrays.sort` para ordenar un arreglo. La
+firma —simplificada— sobre arreglos de tipos por referencia es:
+
+```java
+// java.util.Arrays
+public static void sort(Object[] a);
+```
+
+La firma recibe `Object[]`, no un parámetro de tipo: el algoritmo interno
+no conoce el tipo concreto de los elementos. Lo que exige es que los
+elementos del arreglo **sepan compararse entre sí**. Esa capacidad la
+aportan los tipos que implementan la interfaz `Comparable`, y el
+cumplimiento del contrato se verifica en **tiempo de ejecución**: si el
+arreglo contiene elementos que no implementan `Comparable`, la llamada
+lanza `ClassCastException`.
+
+Los tipos habituales de la biblioteca —`Integer`, `String`, `Double`,
+`LocalDate`— implementan `Comparable` de fábrica, y por eso llamadas como
+`Arrays.sort(new Integer[]{3, 1, 2})` o
+`Arrays.sort(new String[]{"b", "a"})` funcionan sin trabajo adicional del
+programador. El algoritmo interno del `sort` está construido para operar
+sobre cualquier tipo que respete el contrato de `Comparable`; el trabajo
+del programador consiste en implementar `Comparable` en el tipo que
+quiere ordenar.
+</Slide>
+
+<Slide title="El contrato de compareTo">
+`Comparable<T>` declara un único método:
+
+```java
+public interface Comparable<T> {
+    int compareTo(T other);
+}
+```
+
+El `int` devuelto no representa dos valores («menor» o «mayor»); representa
+**tres regiones**, definidas por el signo:
+
+- **Negativo** — `this` va antes que `other`.
+- **Cero** — `this` y `other` empatan según este criterio.
+- **Positivo** — `this` va después que `other`.
+
+Lo que importa es el **signo**, no la magnitud: `-1` y `-483` significan lo
+mismo para `Arrays.sort`. El contrato añade una condición implícita: el
+valor devuelto debe ser un `int` válido, sin desbordamientos silenciosos,
+condición cuya violación —silenciosa— es una fuente conocida de defectos
+en implementaciones de `compareTo`.
+</Slide>
+
+<Slide title="Un primer intento por resta">
+La forma más corta de implementar `compareTo` para ordenar por el segundo
+campo consiste en restarlo: el resultado es negativo cuando el `second`
+propio es menor, positivo cuando es mayor y cero cuando coinciden. Se lee
+natural y compila sin advertencias:
+
+```java
+public class Pair implements Comparable<Pair> {
+    private String first;
+    private int    second;
+
+    public Pair(String first, int second) {
+        this.first = first;
+        this.second = second;
+    }
+
+    public int compareTo(Pair other) {
+        return this.second - other.second;   // aparentemente correcto
+    }
+}
+```
+
+Sobre valores de magnitud moderada —edades, notas, cantidades pequeñas— el
+método ordena correctamente y sigue ordenando correctamente durante un
+tiempo largo. Ninguna herramienta emite alerta alguna. La aparición de un
+valor cercano a los extremos del rango de `int` cambia el escenario.
+</Slide>
+
+<Slide title="Overflow en la resta">
+<PredictOutput title="El desbordamiento del entero">
+
+El siguiente programa ordena tres pares por su segundo campo, usando el
+método `compareTo` de la variante que resta. Dos de los valores están
+cerca de los extremos del rango de `int`. Antes de ejecutar, la actividad
+consiste en anticipar por escrito **qué imprime cada línea de la salida y
+por qué**, y luego contrastar la predicción con lo que el runtime imprime
+al pulsar **Ejecutar**.
+
+```java predict
+class Pair implements Comparable<Pair> {
+    private String first;
+    private int second;
+    public Pair(String first, int second) {
+        this.first = first;
+        this.second = second;
+    }
+    public int compareTo(Pair other) {
+        return this.second - other.second;
+    }
+    public String toString() { return first + "=" + second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair a = new Pair("A", Integer.MAX_VALUE);
+        Pair b = new Pair("B", -Integer.MAX_VALUE + 100);
+        Pair c = new Pair("C", 0);
+
+        System.out.println("a.compareTo(b) = " + a.compareTo(b));
+        System.out.println("(esperado: positivo, porque " + Integer.MAX_VALUE
+                + " es mayor que " + (-Integer.MAX_VALUE + 100) + ")");
+
+        Pair[] pares = { a, b, c };
+        java.util.Arrays.sort(pares);
+        for (Pair p : pares) System.out.println(p);
+    }
+}
+```
+
+</PredictOutput>
+</Slide>
+
+<Slide title="Comparación segura con Integer.compare">
+La resta `MAX_VALUE - (-MAX_VALUE + 100)` produce un valor que no cabe en
+32 bits con signo. Java aplica aritmética modular sin emitir excepción:
+el resultado se pliega, y el valor devuelto por `compareTo` **pierde la
+garantía** de reflejar el orden real de los operandos — su signo puede
+resultar contrario al esperado, ser cero, o coincidir por casualidad con
+el correcto según los operandos concretos. El compilador y la máquina
+virtual no dan aviso alguno.
+
+La regla asociada a este fenómeno es directa: **la resta no es una
+comparación segura**. La biblioteca estándar provee `Integer.compare(a, b)`
+—junto con `Long.compare`, `Double.compare` y `Character.compare`— que
+implementa la semántica prometida por la resta sin realizar la resta, y
+por lo tanto sin exponerse al desbordamiento. Sustituir la resta por
+`Integer.compare` es la corrección directa del método `compareTo`
+mostrado en las slides previas:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Pair implements Comparable<Pair> {
+    private String first;
+    private int second;
+    public Pair(String first, int second) {
+        this.first = first;
+        this.second = second;
+    }
+    public int compareTo(Pair other) {
+        return Integer.compare(this.second, other.second);
+    }
+    public String toString() { return first + "=" + second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair a = new Pair("A", Integer.MAX_VALUE);
+        Pair b = new Pair("B", -Integer.MAX_VALUE + 100);
+        Pair c = new Pair("C", 0);
+
+        Pair[] pares = { a, b, c };
+        java.util.Arrays.sort(pares);
+        for (Pair p : pares) System.out.println(p);
+    }
+}
+`}
+/>
+
+El orden que imprime el programa corresponde al criterio declarado —
+ascendente por `second`— también sobre los valores cercanos a los
+extremos del rango de `int`.
+</Slide>
+
+<Slide title="Desempate en cascada">
+Un criterio de ordenación puede producir **empates**: dos elementos para
+los cuales el criterio principal devuelve cero. Cuando eso ocurre, el
+resultado del `sort` sobre esos elementos queda indefinido si el método
+no declara qué hacer en el empate. Un `compareTo` bien construido
+incorpora un criterio de **desempate**, aplicado únicamente cuando el
+criterio principal devuelve cero:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Pair implements Comparable<Pair> {
+    private String first;
+    private int second;
+    public Pair(String first, int second) {
+        this.first = first;
+        this.second = second;
+    }
+    public int compareTo(Pair other) {
+        int porSecond = Integer.compare(this.second, other.second);
+        if (porSecond != 0) return porSecond;
+        return this.first.compareTo(other.first);   // desempate por first
+    }
+    public String toString() { return first + "=" + second; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair a = new Pair("A", 0);
+        Pair b = new Pair("B", 0);   // empate en second con a
+        Pair c = new Pair("C", 5);
+
+        Pair[] pares = { c, b, a };
+        java.util.Arrays.sort(pares);
+        for (Pair p : pares) System.out.println(p);
+    }
+}
+`}
+/>
+
+Dos observaciones sobre el patrón. Primero, `String.compareTo` es una
+elección segura como criterio de desempate: su implementación interna
+resta, sí, pero sobre `char` (entero sin signo de 16 bits) y sobre
+longitudes no negativas, dos rangos donde la sustracción no desborda
+un `int`. Segundo, la forma `guardar el resultado, devolverlo si es no
+cero, comparar por el segundo criterio en caso contrario` es la
+expresión estándar en Java de comparadores compuestos, y produce una
+implementación **correcta**: el orden que declara es el que el programa
+respeta ante cualquier arreglo.
+</Slide>
+
+## Tipos acotados
+
+<Slide title="Ordenar un Pair genérico">
+La versión de `Pair` con `Comparable` implementado sirve para un caso
+concreto: `first` es `String`, `second` es `int`, y el método `compareTo`
+está escrito a mano contra esos dos tipos. Extender la propiedad de ser
+ordenable a **cualquier** `Pair<A, B>` requiere volver al `Pair` genérico
+con dos parámetros y agregarle la interfaz:
+
+```java
+public class Pair<A, B> implements Comparable<Pair<A, B>> {
+    private A first;
+    private B second;
+    public Pair(A first, B second) { this.first = first; this.second = second; }
+    public A first()  { return first; }
+    public B second() { return second; }
+
+    public int compareTo(Pair<A, B> other) {
+        return this.first.compareTo(other.first);   // no compila
+    }
+}
+```
+
+El compilador rechaza la expresión `this.first.compareTo(other.first)`. La
+razón es directa: `first` es de tipo `A`, y sobre un `A` cualquiera no
+existe garantía de que exista el método `compareTo`. `A` podría ligarse a
+un tipo definido por el usuario sin interfaz alguna. Para que la operación
+sea legítima, la declaración de la clase debe **prometer** al compilador
+que `A` sabe compararse.
+</Slide>
+
+<Slide title="La cota extends Comparable">
+Un parámetro de tipo puede llevar una **cota**: la promesa de que sólo
+aceptará tipos que satisfagan una condición determinada. La sintaxis es
+`<T extends X>`, donde `X` es un tipo que el parámetro debe respetar. Para
+tipos ordenables, la cota que se repite con frecuencia es
+`<T extends Comparable<T>>`, que se lee «cualquier `T` que sepa compararse
+con otro `T`».
+
+Con dos parámetros, la cota se repite dos veces:
+
+```java
+public class Pair<A extends Comparable<A>, B extends Comparable<B>>
+        implements Comparable<Pair<A, B>> {
+    private A first;
+    private B second;
+    public Pair(A first, B second) { this.first = first; this.second = second; }
+    public A first()  { return first; }
+    public B second() { return second; }
+
+    public int compareTo(Pair<A, B> other) {
+        int porFirst = this.first.compareTo(other.first);
+        if (porFirst != 0) return porFirst;
+        return this.second.compareTo(other.second);
+    }
+}
+```
+
+El `<T>` que aparece **dentro** de `Comparable<T>` no es decorativo.
+Escribir la cota sin él —`<T extends Comparable>`, usando la interfaz
+en su forma cruda— hace que `compareTo` reciba `Object` y no `T`, con
+lo cual la expresión `this.first.compareTo(other.first)` compila pero
+obliga a un cast interno y pierde la garantía estática de que `other`
+es del mismo tipo que `this`. Escribir `Comparable<T>` es lo que le
+comunica al compilador que la comparación es entre instancias del mismo
+tipo, y es la razón por la cual la cota se declara con la letra que
+repite el parámetro que la cota gobierna.
+
+Dos observaciones sobre la sintaxis. Primero, la palabra clave es
+`extends` aunque `Comparable` sea una interfaz — en las declaraciones
+genéricas, `extends` cubre tanto clases como interfaces. Segundo, la cota
+afecta al **compilador**, no al comportamiento en tiempo de ejecución: el
+objeto en el heap no cambia, y la promesa se verifica en el sitio donde se
+instancia la clase. `Pair<Integer, String>` compila porque tanto `Integer`
+como `String` implementan `Comparable`; `Pair<Object, String>` no compila,
+y el error aparece donde se escribe la instanciación.
+</Slide>
+
+<Slide title="Pair ordenable para cualquier tipo ordenable">
+La clase se escribió una única vez y ordena cualquier combinación de
+tipos que sepan compararse. `Pair<Integer, String>` y `Pair<String,
+Integer>` funcionan sin modificar la clase; `Arrays.sort` opera sobre las
+dos:
+
+<CodeEditor
+  language="java"
+  defaultValue={`class Pair<A extends Comparable<A>, B extends Comparable<B>>
+        implements Comparable<Pair<A, B>> {
+    private A first;
+    private B second;
+    public Pair(A first, B second) { this.first = first; this.second = second; }
+    public A first()  { return first; }
+    public B second() { return second; }
+
+    public int compareTo(Pair<A, B> other) {
+        int porFirst = this.first.compareTo(other.first);
+        if (porFirst != 0) return porFirst;
+        return this.second.compareTo(other.second);
+    }
+    public String toString() { return "(" + first + ", " + second + ")"; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair<Integer, String>[] numerados = new Pair[]{
+            new Pair<Integer, String>(3, "gamma"),
+            new Pair<Integer, String>(1, "beta"),
+            new Pair<Integer, String>(1, "alfa"),
+        };
+        java.util.Arrays.sort(numerados);
+        for (Pair<Integer, String> p : numerados) System.out.println(p);
+        System.out.println("---");
+
+        Pair<String, Integer>[] etiquetados = new Pair[]{
+            new Pair<String, Integer>("beta", 2),
+            new Pair<String, Integer>("alfa", 9),
+            new Pair<String, Integer>("alfa", 1),
+        };
+        java.util.Arrays.sort(etiquetados);
+        for (Pair<String, Integer> p : etiquetados) System.out.println(p);
+    }
+}
+`}
+/>
+
+La misma línea —`Arrays.sort(...)`— opera sobre los dos arreglos. El
+primer criterio es el `first`; ante empate, el `second` desempata. La
+clase carga la definición del orden una sola vez, y la exhibe sobre
+tantos tipos ordenables como el programa la instancie.
+</Slide>
+
+## Comparator
+
+<Slide title="Ordenar sin modificar la clase">
+La `Pair<A, B>` con la cota adecuada sabe ordenarse de **una** manera: por
+`first`, con `second` como desempate. Esa lógica vive en su `compareTo`, y
+`Arrays.sort` la usa automáticamente. Un mismo arreglo de pares, sin
+embargo, admite ser ordenado por criterios distintos: por `second`
+ascendente, por `second` descendente, por longitud del `first`. Modificar
+la clase cada vez que aparece un criterio nuevo es una respuesta costosa y
+frágil.
+
+La segunda firma de `Arrays.sort` recibe un **`Comparator`** como segundo
+argumento: un objeto que, para esa llamada, decide cómo comparar dos
+elementos. La clase original queda intacta; el criterio se declara fuera y
+puede cambiar en cada invocación.
+</Slide>
+
+<Slide title="Comparator como lambda">
+`Comparator<T>` es una interfaz con un único método:
+
+```java
+public interface Comparator<T> {
+    int compare(T a, T b);
+}
+```
+
+El contrato del `int` devuelto es el mismo que el de `compareTo`: tres
+regiones, definidas por el signo. Al ser una interfaz con un único
+método abstracto —Java llama a esta forma **interfaz funcional**—
+cualquier lambda cuya firma coincida con la del método (aquí,
+`(T, T) -> int`) es una implementación válida de la interfaz: el
+compilador construye por debajo una instancia anónima cuyo `compare`
+tiene el cuerpo de la lambda. Escribir un criterio a mano ocupa una
+única línea:
+
+```java
+// Orden por el segundo campo, ascendente.
+Arrays.sort(pares, (a, b) -> Integer.compare(a.second(), b.second()));
+
+// Orden por longitud del primer campo, ascendente.
+Arrays.sort(pares, (a, b) -> Integer.compare(a.first().length(), b.first().length()));
+```
+
+Las mismas precauciones aplican: la resta como comparación produce el
+desbordamiento descrito para `Comparable`, y `Integer.compare` la evita
+por construcción.
+
+La lambda puede guardarse en una variable de tipo
+`Comparator<Pair<String, Integer>>` cuando el criterio se usa más de una
+vez o cuando el comparador base sirve para derivar otros.
+</Slide>
+
+<Slide title="reversed y thenComparing">
+`Comparator` provee dos métodos default que combinan comparadores ya
+declarados. `.reversed()` invierte el signo devuelto por el comparador
+base, produciendo el orden opuesto:
+
+```java
+Comparator<Pair<String, Integer>> porSecond =
+    (a, b) -> Integer.compare(a.second(), b.second());
+
+Arrays.sort(pares, porSecond);              // ascendente
+Arrays.sort(pares, porSecond.reversed());   // descendente
+```
+
+`.thenComparing(otro)` encadena un segundo comparador que actúa como
+desempate: cuando el comparador base devuelve cero, la decisión pasa al
+segundo comparador:
+
+```java
+Comparator<Pair<String, Integer>> porFirst =
+    (a, b) -> a.first().compareTo(b.first());
+
+Comparator<Pair<String, Integer>> porFirstLuegoSecond =
+    porFirst.thenComparing((a, b) -> Integer.compare(a.second(), b.second()));
+
+Arrays.sort(pares, porFirstLuegoSecond);
+```
+
+La composición equivale al patrón `if (a != 0) return a; return b;` de un
+`compareTo` con desempate, expresado como cadena de llamadas en lugar de
+secuencia de declaraciones dentro del método.
+</Slide>
+
+<Slide title="Tres órdenes sobre un mismo arreglo">
+Un mismo arreglo de cinco pares `(nombre, edad)` se ordena por tres
+criterios distintos sin ninguna modificación de la clase `Pair`:
+
+<CodeEditor
+  language="java"
+  defaultValue={`import java.util.Arrays;
+import java.util.Comparator;
+
+class Pair<A, B> {
+    private A first;
+    private B second;
+    public Pair(A first, B second) { this.first = first; this.second = second; }
+    public A first()  { return first; }
+    public B second() { return second; }
+    public String toString() { return "(" + first + ", " + second + ")"; }
+}
+
+public class Main {
+    public static void main(String[] args) {
+        Pair<String, Integer>[] pares = new Pair[]{
+            new Pair<String, Integer>("Ana",   30),
+            new Pair<String, Integer>("Luis",  25),
+            new Pair<String, Integer>("Bea",   30),
+            new Pair<String, Integer>("Diego", 22),
+            new Pair<String, Integer>("Cami",  25),
+        };
+
+        Comparator<Pair<String, Integer>> porEdad =
+            (a, b) -> Integer.compare(a.second(), b.second());
+        Arrays.sort(pares, porEdad);
+        System.out.println("Por edad ascendente:");
+        for (Pair<String, Integer> p : pares) System.out.println("  " + p);
+
+        Arrays.sort(pares, porEdad.reversed());
+        System.out.println("Por edad descendente:");
+        for (Pair<String, Integer> p : pares) System.out.println("  " + p);
+
+        Comparator<Pair<String, Integer>> porNombre =
+            (a, b) -> a.first().compareTo(b.first());
+        Arrays.sort(pares, porNombre.thenComparing(porEdad));
+        System.out.println("Por nombre, desempate por edad:");
+        for (Pair<String, Integer> p : pares) System.out.println("  " + p);
+    }
+}
+`}
+/>
+
+La clase `Pair` se define una vez y el mismo arreglo se ordena tres
+veces. El criterio vive en el segundo argumento de `Arrays.sort`, no en
+la definición del tipo. Esta separación entre estructura de datos y
+criterio de comparación es el objeto de estudio central de este bloque
+del material.
+
+`Arrays.sort` reorganiza el arreglo **in-place**: cada llamada reordena
+el mismo objeto según su propio criterio, y el estado en que lo dejó la
+llamada anterior no altera el resultado de la siguiente cuando el
+criterio es un orden total sobre los elementos —como los tres empleados
+acá—. La salida que imprime cada bloque corresponde exclusivamente al
+criterio de ese `sort`.
+</Slide>
+
+<Slide title="Convenciones de nombres · T, E, K, V, R">
+El material recorrió varias clases genéricas —`Pair<T>`, `Pair<A, B>`,
+`Arrays`, `Comparator<T>`, `Comparator<Pair<String, Integer>>`— y en cada
+una la letra del parámetro de tipo se eligió por convención, no por
+regla del lenguaje. La convención del ecosistema Java asigna a cada letra
+un uso preferente:
+
+- **`T`** — «Type». Contenedor genérico sin significado adicional
+  (`Comparable<T>`, `Comparator<T>`).
+- **`E`** — «Element». Habitual en colecciones (`List<E>`, `Set<E>`).
+- **`K`, `V`** — «Key, Value». Habitual en mapas
+  (`Map<K, V>`, `HashMap<K, V>`).
+- **`R`** — «Result». Aparece en tipos que devuelven algo
+  (`Function<T, R>`: «Type in, Result out»).
+- **`A, B`** o **`T, U`** — dos parámetros sin significado específico.
+
+La letra no altera el comportamiento de la clase; sí altera cuánto
+trabajo cuesta al lector reconocer, sin abrir la documentación, qué
+guarda o produce el tipo. Un `HashMap<K, V>` se lee de un vistazo como
+«clave-valor»; un `Function<T, R>` como «entrada, salida».
+</Slide>
+
+## Ejercicios
+
+Cinco problemas para completar. Cada uno provee el esqueleto que debe
+rellenarse; al pulsar **Comprobar**, una batería de casos se compila
+junto con la implementación y reporta cuáles pasan. Los enunciados no
+requieren ciclos anidados de gran tamaño ni recursión, y ningún caso
+opera con arreglos de más de cien elementos.
+
+<Exercise title="1. Intercambio de parámetros">
+
+Implementar el método genérico `swap` que recibe un `Pair<A, B>` y
+devuelve un `Pair<B, A>` con los mismos valores en el orden opuesto: el
+`first` de la entrada se convierte en el `second` de la salida, y
+viceversa.
+
+La firma del método declara sus propios parámetros de tipo entre la
+palabra `static` y el tipo de retorno:
+`static <A, B> Pair<B, A> swap(Pair<A, B> p)`.
+
+```java starter
+class Pair<A, B> {
+    private A first;
+    private B second;
+    public Pair(A first, B second) { this.first = first; this.second = second; }
+    public A first()  { return first; }
+    public B second() { return second; }
+}
+
+class Solution {
+    static <A, B> Pair<B, A> swap(Pair<A, B> p) {
+        return null;
+    }
+}
+```
+
+```java test
+Pair<Integer, String> etiqueta = new Pair<Integer, String>(12345, "Ana");
+Pair<String, Integer> volteada = Solution.swap(etiqueta);
+check(volteada.first(), "Ana");
+check(volteada.second(), 12345);
+
+Pair<String, String> saludos = new Pair<String, String>("hola", "chao");
+Pair<String, String> vuelto  = Solution.swap(saludos);
+check(vuelto.first(), "chao");
+check(vuelto.second(), "hola");
+
+Pair<Integer, Integer> nums = new Pair<Integer, Integer>(1, 2);
+Pair<Integer, Integer> vueltaNums = Solution.swap(nums);
+check(vueltaNums.first(), 2);
+check(vueltaNums.second(), 1);
+```
+
+</Exercise>
+
+<Exercise title="2. compareTo · sin resta, con desempate">
+
+Implementar el método `compareTo` de la clase `PuntoDosD` para que ordene
+los puntos por `y` ascendente y desempate por `x` ascendente en caso de
+empate.
+
+Dos restricciones aplicables:
+
+- **La resta como comparación no está permitida.** Debe usarse
+  `Integer.compare(a, b)`.
+- **El desempate debe ser determinístico.** Sin criterio secundario, dos
+  puntos con el mismo `y` quedan en un orden que depende del algoritmo
+  interno de `Arrays.sort` y de los datos concretos, no del criterio de
+  la clase.
+
+```java starter
+class PuntoDosD implements Comparable<PuntoDosD> {
+    private int x;
+    private int y;
+
+    public PuntoDosD(int x, int y) {
+        this.x = x;
+        this.y = y;
+    }
+
+    public int getX() { return x; }
+    public int getY() { return y; }
+
+    @Override
+    public int compareTo(PuntoDosD other) {
+        return 0;
+    }
+}
+```
+
+```java test
+PuntoDosD a = new PuntoDosD(3, 7);
+PuntoDosD b = new PuntoDosD(1, 7);
+PuntoDosD c = new PuntoDosD(9, 2);
+PuntoDosD d = new PuntoDosD(0, 2);
+
+check(a.compareTo(b) > 0, true);
+check(b.compareTo(a) < 0, true);
+check(a.compareTo(a) == 0, true);
+check(c.compareTo(d) > 0, true);
+check(d.compareTo(a) < 0, true);
+
+PuntoDosD extremoAlto = new PuntoDosD(0, Integer.MAX_VALUE);
+PuntoDosD extremoBajo = new PuntoDosD(0, -Integer.MAX_VALUE + 100);
+check(extremoAlto.compareTo(extremoBajo) > 0, true);
+
+PuntoDosD[] puntos = { a, b, c, d };
+java.util.Arrays.sort(puntos);
+check(puntos[0].getY(), 2);
+check(puntos[0].getX(), 0);
+check(puntos[1].getY(), 2);
+check(puntos[1].getX(), 9);
+check(puntos[2].getY(), 7);
+check(puntos[2].getX(), 1);
+check(puntos[3].getY(), 7);
+check(puntos[3].getX(), 3);
+```
+
+</Exercise>
+
+<Exercise title="3. Método genérico · dos cotas">
+
+La clase `Pair<A, B>` provista **no** implementa `Comparable`, por lo que
+`Arrays.sort(arr)` no la acepta como argumento. Implementar un **método
+genérico** que reciba un `Pair<A, B>[]` y lo ordene por `first`
+ascendente, con `second` como desempate, invocando `.compareTo` sobre los
+campos.
+
+La firma del método declara sus propios parámetros de tipo con sus cotas,
+entre `static` y `void`:
+
+```java
+static <A extends Comparable<A>, B extends Comparable<B>> void ordenar(Pair<A, B>[] arr)
+```
+
+El cuerpo puede utilizar cualquier algoritmo cuadrático (insertion sort,
+selection sort). Los casos operan con arreglos de a lo sumo veinte
+elementos. Sin recursión y sin `Arrays.sort`.
+
+```java starter
+class Pair<A, B> {
+    A first;
+    B second;
+    Pair(A first, B second) { this.first = first; this.second = second; }
+}
+
+class Solution {
+    static <A extends Comparable<A>, B extends Comparable<B>> void ordenar(Pair<A, B>[] arr) {
+        // Implementación.
+    }
+}
+```
+
+```java test
+Pair<Integer, String>[] a = new Pair[]{
+    new Pair<Integer, String>(3, "z"),
+    new Pair<Integer, String>(1, "b"),
+    new Pair<Integer, String>(1, "a"),
+    new Pair<Integer, String>(2, "m"),
+};
+Solution.ordenar(a);
+check(a[0].first, 1); check(a[0].second, "a");
+check(a[1].first, 1); check(a[1].second, "b");
+check(a[2].first, 2); check(a[2].second, "m");
+check(a[3].first, 3); check(a[3].second, "z");
+
+Pair<String, Integer>[] b = new Pair[]{
+    new Pair<String, Integer>("gamma", 7),
+    new Pair<String, Integer>("alfa",  9),
+    new Pair<String, Integer>("alfa",  1),
+};
+Solution.ordenar(b);
+check(b[0].first, "alfa"); check(b[0].second, 1);
+check(b[1].first, "alfa"); check(b[1].second, 9);
+check(b[2].first, "gamma"); check(b[2].second, 7);
+
+Pair<Integer, Integer>[] uno = new Pair[]{ new Pair<Integer, Integer>(5, 5) };
+Solution.ordenar(uno);
+check(uno[0].first, 5);
+
+Pair<Integer, Integer>[] vacio = new Pair[0];
+Solution.ordenar(vacio);
+check(vacio.length, 0);
+```
+
+</Exercise>
+
+<Exercise title="4. Comparator invertido">
+
+Devolver un `Comparator<Pair<String, Integer>>` que ordene los pares por
+`second` **descendente** — el mayor `second` va primero.
+
+La ruta recomendada es escribir una lambda que compare por `second` en
+orden ascendente y aplicarle el método default `.reversed()` para
+invertirla. Con esa forma, el criterio ascendente queda declarado una sola
+vez y la inversión aparece explícita.
+
+Restricción: sin restas. Utilizar `Integer.compare`.
+
+```java starter
+import java.util.Comparator;
+
+class Pair<A, B> {
+    A first;
+    B second;
+    Pair(A first, B second) { this.first = first; this.second = second; }
+}
+
+class Solution {
+    static Comparator<Pair<String, Integer>> porSecondDescendente() {
+        return null;
+    }
+}
+```
+
+```java test
+Pair<String, Integer> a = new Pair<String, Integer>("Ana",   30);
+Pair<String, Integer> b = new Pair<String, Integer>("Luis",  25);
+Pair<String, Integer> c = new Pair<String, Integer>("Bea",   30);
+Pair<String, Integer> d = new Pair<String, Integer>("Diego", 22);
+
+Comparator<Pair<String, Integer>> cmp = Solution.porSecondDescendente();
+
+check(cmp.compare(a, b) < 0, true);
+check(cmp.compare(b, a) > 0, true);
+check(cmp.compare(a, c) == 0, true);
+check(cmp.compare(d, b) > 0, true);
+
+Pair<String, Integer>[] arr = new Pair[]{ d, a, b, c };
+java.util.Arrays.sort(arr, cmp);
+check(arr[0].second, 30);
+check(arr[1].second, 30);
+check(arr[2].second, 25);
+check(arr[3].second, 22);
+```
+
+</Exercise>
+
+<Exercise title="5. Orden por longitud del nombre">
+
+Ordenar in-place el arreglo `Pair<String, Integer>[]` por la **longitud
+del `first`** — el nombre más corto va primero. Ante empate en longitud, el
+que va antes es el de menor `second`.
+
+La ruta recomendada es una única invocación a `Arrays.sort(arr, ...)` con
+una lambda para el criterio principal (longitud del `first`) y
+`.thenComparing(...)` recibiendo una segunda lambda para el desempate
+(comparación por `second`).
+
+Restricción: sin restas. Utilizar `Integer.compare` en ambas comparaciones.
+
+```java starter
+import java.util.Arrays;
+import java.util.Comparator;
+
+class Pair<A, B> {
+    A first;
+    B second;
+    Pair(A first, B second) { this.first = first; this.second = second; }
+}
+
+class Solution {
+    static void ordenarPorLongitudNombre(Pair<String, Integer>[] arr) {
+        // Arrays.sort(arr, ...);
+    }
+}
+```
+
+```java test
+Pair<String, Integer>[] arr = new Pair[]{
+    new Pair<String, Integer>("Diego", 22),
+    new Pair<String, Integer>("Ana",   30),
+    new Pair<String, Integer>("Bea",   30),
+    new Pair<String, Integer>("Luis",  25),
+    new Pair<String, Integer>("Ana",    5),
+};
+Solution.ordenarPorLongitudNombre(arr);
+// Longitudes: Ana(3), Bea(3), Luis(4), Diego(5). Empate por 3 se resuelve por second: Ana(5) antes que Ana(30) y Bea(30).
+check(arr[0].first, "Ana");   check(arr[0].second, 5);
+check(arr[1].first, "Ana");   check(arr[1].second, 30);
+check(arr[2].first, "Bea");   check(arr[2].second, 30);
+check(arr[3].first, "Luis");  check(arr[3].second, 25);
+check(arr[4].first, "Diego"); check(arr[4].second, 22);
+
+Pair<String, Integer>[] vacio = new Pair[0];
+Solution.ordenarPorLongitudNombre(vacio);
+check(vacio.length, 0);
+```
+
+</Exercise>
+
+{/* Catorce preguntas, una anclada por sección (una a dos preguntas por */}
+{/* sección; §Comparable lleva cuatro por el arco compareTo → bug de resta */}
+{/* → Integer.compare → desempate). Las slides de contexto, ejemplo y */}
+{/* actividad no llevan pregunta propia — su exención vive en NO_QUESTION */}
+{/* (apps/web/src/content/architecture.test.ts) con la razón. */}
+<Questions>
+
+<Question id="motivo-combinatorio" anchor="el-problema-combinatorio">
+
+Sin genéricos, ¿por qué el número de clases `Pair` distintas necesarias
+para cubrir todas las combinaciones de dos tipos crece cuadráticamente en
+la cantidad de tipos disponibles?
+
+- [x] Porque cada par ordenado `(A, B)` es una combinación distinta de cada `(B, A)`, y con `n` tipos existen `n × n` pares ordenados
+- [ ] Porque cada clase `Pair` requiere el doble de memoria que la anterior
+- [ ] Porque el compilador genera dos versiones internas por cada clase declarada
+- [ ] Porque cada método de la clase se compila una vez por cada par de tipos posibles
+
+</Question>
+
+<Question id="parametro-de-tipo-t" anchor="pair-t">
+
+En la declaración `public class Pair<T>`, ¿qué representa la letra `T`
+dentro del cuerpo de la clase?
+
+- [x] Una variable de tipo que se liga a un tipo concreto en el momento de instanciar la clase
+- [ ] El tipo `Object`, empleado como caso general
+- [ ] Un tipo definido por Java exclusivamente para uso en clases genéricas
+- [ ] Una etiqueta de documentación sin efecto en el compilador
+
+</Question>
+
+<Question id="pair-t-instancia" anchor="pair-t">
+
+Dada la siguiente clase, ¿cuál de las instanciaciones es rechazada por el
+compilador?
+
+```java
+public class Pair<T> {
+    private T first;
+    private T second;
+    public Pair(T first, T second) { this.first = first; this.second = second; }
+}
+```
+
+- [x] `new Pair<Integer>(20, "hola")`
+- [ ] `new Pair<String>("hola", "chao")`
+- [ ] `new Pair<Integer>(20, 21)`
+- [ ] `new Pair<Double>(1.5, 2.5)`
+
+</Question>
+
+<Question id="pair-a-b-declaracion" anchor="pair-a-b">
+
+Al declarar `public class Pair<A, B>`, ¿qué relación existe entre los dos
+parámetros de tipo?
+
+- [x] Son independientes: cada uno se liga a su tipo al instanciar y no se exige que coincidan
+- [ ] Deben coincidir siempre, como en `Pair<T, T>`
+- [ ] El segundo (`B`) debe ser subtipo del primero (`A`)
+- [ ] Ambos comparten el mismo tipo en todas las instancias de la clase
+
+</Question>
+
+<Question id="pair-a-b-orden" anchor="pair-a-b">
+
+¿Cuál de las siguientes afirmaciones sobre los tipos
+`Pair<Integer, String>` y `Pair<String, Integer>` es cierta?
+
+- [x] Son tipos diferentes para el compilador: pasar uno donde la firma exige el otro no compila
+- [ ] Son el mismo tipo, porque provienen de la misma clase `Pair`
+- [ ] El compilador acepta el intercambio si los datos se pueden convertir en tiempo de ejecución
+- [ ] Sólo son distintos cuando la clase implementa `Comparable`
+
+</Question>
+
+<Question id="tres-regiones-compareto" anchor="comparable">
+
+El método `compareTo` de la interfaz `Comparable<T>` devuelve un `int`.
+¿Qué significan sus tres regiones?
+
+- [x] Negativo: `this` va antes que `other`. Cero: empatan. Positivo: `this` va después que `other`
+- [ ] Los tres valores posibles son `-1`, `0` y `1`, y otros valores rompen el contrato
+- [ ] La magnitud del valor devuelto indica el orden de preferencia entre los dos elementos
+- [ ] Negativo: los elementos no son comparables. Cero: son iguales. Positivo: son comparables
+
+</Question>
+
+<Question id="resta-como-comparacion" anchor="comparable">
+
+Un `compareTo(Pair other)` implementado como `return this.second - other.second;`
+sobre enteros cercanos a los extremos del rango de `int`, ¿qué
+comportamiento produce?
+
+- [x] Puede devolver un valor cuyo signo no corresponde al orden real de los operandos, porque la resta desborda silenciosamente
+- [ ] Lanza `ArithmeticException` al desbordarse
+- [ ] Devuelve siempre el signo correcto, porque el desbordamiento se compensa entre positivos y negativos
+- [ ] El compilador rechaza la resta entre enteros dentro de un método `compareTo`
+
+</Question>
+
+<Question id="integer-compare" anchor="comparable">
+
+¿Por qué `Integer.compare(a, b)` es una alternativa segura a `a - b` como
+implementación de `compareTo`?
+
+- [x] Compara los dos operandos internamente sin realizar la resta, evitando el desbordamiento
+- [ ] Realiza la resta con precisión extendida a 64 bits antes de truncar el resultado
+- [ ] Lanza una excepción cuando detecta un desbordamiento en la resta
+- [ ] Su resultado siempre es `-1`, `0` o `1`, en lugar de un `int` de magnitud arbitraria
+
+</Question>
+
+<Question id="desempate-patron" anchor="comparable">
+
+En un `compareTo` con desempate, el patrón estándar aplica el criterio
+secundario **sólo cuando el primero devuelve cero**. Dado el fragmento
+siguiente, ¿cuál de las expresiones respeta ese patrón?
+
+```java
+int porFirst = Integer.compare(this.first, other.first);
+int porSecond = Integer.compare(this.second, other.second);
+```
+
+- [x] `return porFirst != 0 ? porFirst : porSecond;`
+- [ ] `return porFirst + porSecond;`
+- [ ] `return porFirst * porSecond;`
+- [ ] `return Math.max(porFirst, porSecond);`
+
+</Question>
+
+<Question id="cuando-bounded" anchor="tipos-acotados">
+
+En la declaración `public class Pair<A, B> implements Comparable<Pair<A, B>>`,
+¿por qué el compilador rechaza `this.first.compareTo(other.first)` dentro
+del método `compareTo`?
+
+- [x] Porque `A` puede ligarse a cualquier tipo, y el compilador no tiene garantía de que ese tipo implemente `Comparable`
+- [ ] Porque `Comparable<T>` no puede aparecer con parámetros de tipo dentro de `implements`
+- [ ] Porque el método `compareTo` de la interfaz `Comparable` está declarado como `final`
+- [ ] Porque `this` y `other` deben ser del mismo tipo, y `A` no garantiza esa igualdad
+
+</Question>
+
+<Question id="sintaxis-bounded" anchor="tipos-acotados">
+
+¿Cuál es la declaración correcta de una clase `Pair` cuyos dos parámetros
+deben implementar `Comparable` sobre sí mismos?
+
+- [x] `class Pair<A extends Comparable<A>, B extends Comparable<B>>`
+- [ ] `class Pair<A implements Comparable<A>, B implements Comparable<B>>`
+- [ ] `class Pair<A, B> where A extends Comparable, B extends Comparable`
+- [ ] `class Pair<A: Comparable, B: Comparable>`
+
+</Question>
+
+<Question id="comparator-lambda" anchor="comparator">
+
+`Comparator<T>` declara un único método abstracto, `int compare(T a, T b)`.
+¿Qué relación tiene una lambda con esta interfaz?
+
+- [x] Una lambda con firma `(T, T) -> int` es implementación válida de la interfaz: su cuerpo se usa como método `compare`
+- [ ] Una lambda sólo puede implementar interfaces marcadas con `@FunctionalInterface`, anotación que `Comparator` no lleva
+- [ ] El compilador rechaza asignar una lambda a una variable de tipo interfaz; se requiere una clase anónima
+- [ ] Una lambda implementa `Comparator` únicamente si su cuerpo llama internamente a `Comparable.compareTo`
+
+</Question>
+
+<Question id="reversed-comparator" anchor="comparator">
+
+Dado el comparador
+`Comparator<Pair<String, Integer>> porSecond = (a, b) -> Integer.compare(a.second(), b.second());`,
+¿qué produce la llamada `Arrays.sort(pares, porSecond.reversed())`?
+
+- [x] El arreglo ordenado por `second` descendente
+- [ ] El arreglo con los elementos en el orden inverso al que tenían antes de la llamada
+- [ ] Una excepción, porque `.reversed()` sólo se puede aplicar a comparadores provenientes de `Comparator.comparing`
+- [ ] Una copia del arreglo original, ordenada por `second` ascendente
+
+</Question>
+
+<Question id="thencomparing-desempate" anchor="comparator">
+
+`porA.thenComparing(porB)` produce un comparador compuesto. ¿En qué caso
+entra en acción `porB` sobre un par de elementos comparados?
+
+- [x] Únicamente cuando `porA` devuelve cero para ese par
+- [ ] En todas las comparaciones, sumando su resultado con el de `porA`
+- [ ] Sólo cuando `porA` devuelve un valor positivo
+- [ ] En ninguna: `thenComparing` es una marca sintáctica sin efecto en tiempo de ejecución
+
+</Question>
+
+</Questions>
+
+## Lo que sigue
+
+El próximo documento del material aborda las **colecciones** de la
+biblioteca estándar de Java — listas, conjuntos, mapas, colas — como
+estructuras de datos construidas sobre la misma noción de parámetros de
+tipo que este documento presenta. El estudio del ordenamiento continúa
+también en unidades posteriores del programa, con el detalle de los
+algoritmos y el análisis de su complejidad.
+
+Próximo documento: [[collections|Collections]] (aún por venir).

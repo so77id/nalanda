@@ -254,6 +254,62 @@ describe('architecture: content invariants', () => {
       'lo-que-sigue':
         'cierre del documento: anuncia el siguiente (genéricos), no enseña nada propio',
     },
+    // WP #80: seis secciones (el-problema-combinatorio, pair-t, pair-a-b,
+    // comparable, tipos-acotados, comparator) llevan las catorce preguntas
+    // del banco. Las slides de detalle, ejemplo, actividad y cierre no
+    // llevan pregunta propia — lo que enseñan se mide en la pregunta
+    // anclada a la sección principal a la que pertenecen. Sin ancla C++
+    // en este documento, decisión explícita del refinamiento (§The unit).
+    'genericos-y-orden': {
+      'el-punto-de-partida':
+        'apertura narrativa de §1: introduce la pregunta central del documento; la lección se mide en la pregunta de "El problema combinatorio"',
+      'una-clase-por-combinacion':
+        'código del dolor combinatorio: tres clases Pair hardcodeadas ilustran el crecimiento; el mecanismo se mide en la pregunta de la sección',
+      'object-como-salida-el-precio-del-cast':
+        'alternativa descartada (Object + cast) que motiva genéricos; el costo del cast en runtime se mide en la pregunta de la sección',
+      'un-parametro-de-tipo':
+        'introducción de la sintaxis class Pair<T>: el hecho principal (T como variable de tipo, ligada al instanciar) se mide en la pregunta de "Pair · T"',
+      'instancias-con-distintos-tipos':
+        'actividad: instanciar Pair<Integer> y Pair<String>; también introduce autoboxing por primera vez, cuya mecánica se mide en la pregunta de la sección',
+      'dos-parametros-de-tipo':
+        'extensión natural de un parámetro a dos: la sintaxis se mide en la pregunta de "Pair · A, B"',
+      'un-par-de-entero-y-texto':
+        'ejemplo runnable con Pair<Integer, String> y Pair<String, Integer>: el hecho principal (son tipos distintos) se mide en la pregunta de orden de parámetros',
+      'el-ordenamiento-como-problema':
+        'contexto del tópico (nombra familias de algoritmos, ubica lo que este documento cubre y lo que queda para unidades posteriores); no enseña mecánica propia',
+      'arrays-sort-el-contrato-con-el-tipo':
+        'introducción a Arrays.sort y su exigencia de Comparable: el contrato se mide en la pregunta principal de la sección',
+      'el-contrato-de-compareto':
+        'la interfaz Comparable<T> y las tres regiones del int devuelto: se mide en la pregunta "tres regiones del compareTo"',
+      'un-primer-intento-por-resta':
+        'preparación del bug: se muestra el compareTo con resta que la actividad siguiente reventará; el mecanismo se mide en las preguntas de la sección',
+      'overflow-en-la-resta':
+        'actividad PredictOutput: el alumno anticipa la salida y descubre el overflow al ejecutar; la lección se mide en las preguntas de la sección',
+      'comparacion-segura-con-integer-compare':
+        'fix del bug con Integer.compare: se mide en la pregunta "Integer.compare como alternativa segura"',
+      'desempate-en-cascada':
+        'patrón if/return con desempate por segundo criterio: se mide en la pregunta "desempate en cascada"',
+      'ordenar-un-pair-generico':
+        'motivación de §5: el intento de compareTo sobre Pair<A, B> no compila; la razón se mide en la pregunta "cuándo bounded"',
+      'la-cota-extends-comparable':
+        'sintaxis <T extends Comparable<T>> con la justificación del <T> interior: la sintaxis correcta se mide en la pregunta de la sección',
+      'pair-ordenable-para-cualquier-tipo-ordenable':
+        'ejemplo runnable con Pair<Integer, String> y Pair<String, Integer> ordenables: la lección se mide en las preguntas de "Tipos acotados"',
+      'ordenar-sin-modificar-la-clase':
+        'motivación de §6: el criterio no vive en la clase; el mecanismo se mide en las preguntas de "Comparator"',
+      'comparator-como-lambda':
+        'introducción de Comparator<T> y su relación con lambdas: se mide en la pregunta "Comparator como lambda"',
+      'reversed-y-thencomparing':
+        'los dos métodos default de Comparator: se miden en las preguntas "reversed" y "thenComparing" ancladas a la sección',
+      'tres-ordenes-sobre-un-mismo-arreglo':
+        'ejemplo runnable con tres sorts consecutivos sobre el mismo arreglo: la lección se mide en las preguntas ancladas a "Comparator"',
+      'convenciones-de-nombres-t-e-k-v-r':
+        'referencia consolidada de convenciones (T, E, K, V, R, A/B): no introduce mecanismo propio, funciona como glosario al cierre de la sección',
+      ejercicios:
+        'actividad: cinco problemas para escribir; la materia se mide en las preguntas ancladas a las secciones que los preparan',
+      'lo-que-sigue':
+        'cierre del documento: anuncia el siguiente documento (collections) y remite el estudio de algoritmos a unidades posteriores, no enseña nada propio',
+    },
   };
 
   function sourceOf(key: string): string {

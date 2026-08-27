@@ -69,6 +69,14 @@ case: the deployed shape (#66).
    is a decision like any other: undocumented, the next author reads it off
    whichever neighbouring file they happen to open, which is how the product
    ended up with two neutral families nobody chose (#109).
+   **When a style rule is promoted from a per-WP note to a repo standard, the
+   mechanics guide that hosts the work also links from its `## Checklist` to
+   the new standard's own checklist** — otherwise the pre-PR walk a human runs
+   off the mechanics guide silently skips the style, and the only home of the
+   fact becomes the standard nobody was told to read. Worked case: #80
+   promoted course prose voice/register/titles into `course-content-style.md`
+   and added the corresponding Checklist bullet to
+   `add-a-course-document.md`.
 5. **English everywhere** in repo artifacts. Spanish for everything the _reader_
    perceives — course content, UI chrome, and accessible names — plus real-time
    conversation (root `CLAUDE.md` §Language). `/catalog` is the exception that
