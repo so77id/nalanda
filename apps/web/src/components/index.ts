@@ -47,6 +47,8 @@ export { LazyMermaid } from './interactive/lazyMermaid';
 // never write it, they write a fence. The shell maps it onto `pre`.
 export { MdxPre } from './MdxPre';
 export { Figure } from './media/Figure';
+export { Math } from './media/Math';
+export type { MathProps } from './media/Math';
 export { SheetEmbed } from './media/SheetEmbed';
 export { VideoEmbed } from './media/VideoEmbed';
 export { Explanation } from './interactive/Explanation';

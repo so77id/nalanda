@@ -901,114 +901,6 @@ De aquí sale la regla del capítulo:
 > lo baje.
 </Slide>
 
-## Ejercicio: contar los bits de N en binario
-
-Aplicamos la receta del capítulo a una función recursiva nueva:
-**contar cuántos bits necesita $$n$$ para escribirse en binario**. Por
-ejemplo, $$5 = 101_2$$ usa 3 bits; $$8 = 1000_2$$ usa 4 bits; $$0$$ usa
-0 bits.
-
-La forma recursiva de esta idea es: si $$n = 0$$, no hace falta ningún
-bit; si $$n > 0$$, hace falta un bit más que los que use $$n / 2$$
-(porque $$n / 2$$ es "el número sin su último bit").
-
-<Exercise title="countBits">
-
-Implementa `countBits(n)` de forma recursiva. Aplica la receta:
-identifica el caso base, el paso recursivo y el argumento con el que
-se llama.
-
-```java starter
-class Solution {
-    static int countBits(int n) {
-        return 0;
-    }
-}
-```
-
-```java test
-check(Solution.countBits(0), 0);
-check(Solution.countBits(1), 1);
-check(Solution.countBits(5), 3);
-check(Solution.countBits(8), 4);
-check(Solution.countBits(1023), 10);
-check(Solution.countBits(1024), 11);
-```
-
-</Exercise>
-
-Una vez que la solución pase todos los casos, escribe la recurrencia
-$$T(N)$$ que produce el código y resolvela por expansión. **Pista**:
-la estructura es idéntica a la de `power(x, e)` que analizamos antes.
-
-## Ejercicios
-
-Los siguientes ejercicios cubren lo que vimos: derivar la recurrencia
-$$T(N)$$ desde el código, resolverla por expansión, y diagnosticar
-recursiones que no terminan. Algunos parten de código Java, otros
-de una recurrencia pura.
-
-Cada ejercicio muestra el enunciado y una pregunta. Al apretar
-**"Ver desarrollo"** se despliega el análisis completo — recurrencia,
-expansión paso a paso y forma cerrada. **Regla de oro**: intenta
-primero con lápiz y papel. Compara tu respuesta con el desarrollo.
-Si difieres, mirá dónde perdiste (o ganaste) una potencia.
-
-### Ejercicio 1 — `sumHasta(N)`
-
-<ComplexityExercise
-  algorithm="sumHasta"
-  prompt="T(n)"
-  hint="Es una recursión por decremento — el argumento baja de a uno. Aplicá la receta del capítulo: caso base + paso recursivo + trabajo constante."
-  code={`static long sumHasta(int n) {
-    if (n == 1) return 1;
-    return n + sumHasta(n - 1);
-}`}
-  reveal={
-    <div className="space-y-3 text-sm">
-      <p>
-        <strong>Análisis por línea</strong>: el caso base <code>if (n == 1)</code>{' '}
-        cuesta un trabajo constante <em>c</em>. El paso recursivo es una llamada de
-        tamaño <em>N-1</em> más una suma y un <code>return</code>: trabajo constante{' '}
-        <em>c</em> más <em>T(N-1)</em> que aporta la llamada.
-      </p>
-      <p>
-        <strong>Recurrencia como función por partes</strong>:
-      </p>
-      <pre className="rounded bg-sunk px-3 py-2 font-mono text-xs">
-        {`T(N) = { c              si N = 1
-       { T(N-1) + c     si N > 1`}
-      </pre>
-      <p>
-        <strong>Expansión</strong>, sustituyendo el término recursivo un paso a la
-        vez:
-      </p>
-      <pre className="rounded bg-sunk px-3 py-2 font-mono text-xs">
-        {`T(N) = T(N-1) + c
-     = T(N-2) + 2c
-     = T(N-3) + 3c
-     ⋮
-     = T(N-k) + k·c`}
-      </pre>
-      <p>
-        Cuando <em>k = N-1</em>, llegamos a <em>T(1) = c</em>:
-      </p>
-      <pre className="rounded bg-sunk px-3 py-2 font-mono text-xs">
-        {`T(N) = T(1) + (N-1)·c
-     = c + (N-1)·c
-     = N·c
-T(N) ∈ Θ(N)`}
-      </pre>
-      <p>
-        <strong>Patrón</strong>: es idéntico al de <code>factorial</code> —
-        recursión por decremento con trabajo constante por paso, resultado lineal.
-        Cada llamada baja el argumento en uno, así que hay <em>N</em> llamadas y{' '}
-        <em>N</em> retornos.
-      </p>
-    </div>
-  }
-/>
-
 <SectionBreak />
 
 ## Epílogo: la recursión como objeto matemático viejo
@@ -1161,3 +1053,297 @@ iterativo ([[complejidad-de-hilbert-al-big-o|Complejidad I]]), el costo
 espacial ([[complejidad-espacial]]) y el costo temporal de uno recursivo
 (este capítulo). Tenemos las tres herramientas para comparar algoritmos
 con honestidad matemática.
+
+<SectionBreak />
+
+## Ejercicios
+
+Los siguientes ejercicios cubren lo que vimos: derivar la recurrencia
+$$T(N)$$ desde el código, resolverla por expansión, y diagnosticar
+recursiones que no terminan. Algunos parten de código Java, otros de
+una recurrencia pura.
+
+Cada ejercicio muestra el enunciado y una pregunta. Al apretar
+**"Ver desarrollo"** se despliega el análisis completo — recurrencia,
+expansión paso a paso y forma cerrada. **Regla de oro**: intenta
+primero con lápiz y papel. Compara tu respuesta con el desarrollo. Si
+difieres, mirá dónde perdiste (o ganaste) una potencia.
+
+### Ejercicio 1 — `sumHasta(N)`
+
+<ComplexityExercise
+  algorithm="sumHasta"
+  prompt="T(n)"
+  hint="Es una recursión por decremento — el argumento baja de a uno. Aplicá la receta del capítulo: caso base + paso recursivo + trabajo constante."
+  code={`static long sumHasta(int n) {
+    if (n == 1) return 1;
+    return n + sumHasta(n - 1);
+}`}
+  reveal={
+    <div className="space-y-3 text-sm">
+      <p>
+        <strong>Análisis por línea</strong>: el caso base <code>if (n == 1)</code>{' '}
+        cuesta un trabajo constante <Math>{'c'}</Math>. El paso recursivo es una
+        llamada de tamaño <Math>{'N-1'}</Math> más una suma y un{' '}
+        <code>return</code>: trabajo constante <Math>{'c'}</Math> más{' '}
+        <Math>{'T(N-1)'}</Math> que aporta la llamada.
+      </p>
+      <p><strong>Recurrencia como función por partes</strong>:</p>
+      <Math block>{`T(N) = \\begin{cases} c & \\text{si } N = 1 \\\\ T(N-1) + c & \\text{si } N > 1 \\end{cases}`}</Math>
+      <p><strong>Expansión</strong>, sustituyendo el término recursivo un paso a la vez:</p>
+      <Math block>{`\\begin{aligned} T(N) &= T(N-1) + c \\\\ &= T(N-2) + 2c \\\\ &= T(N-3) + 3c \\\\ &\\ \\ \\vdots \\\\ &= T(N-k) + kc \\end{aligned}`}</Math>
+      <p>Cuando <Math>{'k = N-1'}</Math>, llegamos a <Math>{'T(1) = c'}</Math>:</p>
+      <Math block>{`\\begin{aligned} T(N) &= T(1) + (N-1)c \\\\ T(N) &= Nc \\quad \\Rightarrow \\quad T(N) \\in \\Theta(N) \\end{aligned}`}</Math>
+      <p>
+        <strong>Patrón</strong>: es idéntico al de <code>factorial</code> —
+        recursión por decremento con trabajo constante por paso, resultado
+        lineal. Cada llamada baja el argumento en uno, así que hay{' '}
+        <Math>{'N'}</Math> llamadas y <Math>{'N'}</Math> retornos.
+      </p>
+    </div>
+  }
+/>
+
+### Ejercicio 2 — `countBits(N)`
+
+<ComplexityExercise
+  algorithm="countBits"
+  prompt="T(n)"
+  hint="Contar cuántos bits necesita N en binario. Cada llamada mira el último bit y baja al número sin ese último bit — que es N/2. Es recursión por división por 2."
+  code={`static int countBits(int n) {
+    if (n == 0) return 0;
+    return 1 + countBits(n / 2);
+}`}
+  reveal={
+    <div className="space-y-3 text-sm">
+      <p>
+        <strong>Análisis por línea</strong>: el caso base <code>if (n == 0)</code>{' '}
+        cuesta un trabajo constante <Math>{'c'}</Math>. El paso recursivo es una
+        llamada de tamaño <Math>{'N/2'}</Math> más una suma y un{' '}
+        <code>return</code>: trabajo constante <Math>{'c'}</Math> más{' '}
+        <Math>{'T(N/2)'}</Math> que aporta la llamada.
+      </p>
+      <p><strong>Recurrencia como función por partes</strong>:</p>
+      <Math block>{`T(N) = \\begin{cases} c & \\text{si } N = 0 \\\\ T(N/2) + c & \\text{si } N > 0 \\end{cases}`}</Math>
+      <p><strong>Expansión</strong>:</p>
+      <Math block>{`\\begin{aligned} T(N) &= T(N/2) + c \\\\ &= T(N/4) + 2c \\\\ &= T(N/8) + 3c \\\\ &\\ \\ \\vdots \\\\ &= T(N/2^k) + kc \\end{aligned}`}</Math>
+      <p>
+        Cuando <Math>{'N/2^k = 1'}</Math> tenemos <Math>{'k = \\log_2 N'}</Math>.
+        Una llamada más lleva a <Math>{'N = 0'}</Math> y cae en el caso base:
+      </p>
+      <Math block>{`T(N) = c + c\\log_2 N \\quad \\Rightarrow \\quad T(N) \\in \\Theta(\\log N)`}</Math>
+      <p>
+        <strong>Patrón</strong>: es idéntico al de <code>power(x, e)</code> —
+        recursión por división con trabajo constante por paso, resultado
+        logarítmico. Cada llamada halva el argumento, así que hacen falta{' '}
+        <Math>{'\\log_2 N'}</Math> llamadas para llegar al caso base.
+      </p>
+    </div>
+  }
+/>
+
+### Ejercicio 3 — `mergeCount(arr[])`
+
+<ComplexityExercise
+  algorithm="mergeCount"
+  prompt="T(n)"
+  hint="Divide el arreglo en dos mitades, cuenta cada una recursivamente y hace un trabajo lineal (recorrer las dos mitades) para combinar. Es el patrón de mergesort."
+  code={`static long mergeCount(int[] arr, int lo, int hi) {
+    if (hi - lo <= 1) return 0;                     // caso base: 0 o 1 elemento
+    int mid = (lo + hi) / 2;
+    long left = mergeCount(arr, lo, mid);            // T(N/2)
+    long right = mergeCount(arr, mid, hi);           // T(N/2)
+    long merged = combinarLineal(arr, lo, mid, hi);  // Θ(N) por nivel
+    return left + right + merged;
+}`}
+  reveal={
+    <div className="space-y-3 text-sm">
+      <p>
+        <strong>Análisis por línea</strong>: el caso base <code>if (hi - lo &lt;= 1)</code>{' '}
+        cuesta un trabajo constante <Math>{'c'}</Math>. El paso recursivo hace{' '}
+        <strong>dos</strong> llamadas de tamaño <Math>{'N/2'}</Math> más una
+        combinación lineal de las dos mitades, que recorre las{' '}
+        <Math>{'N'}</Math> celdas del rango — trabajo <Math>{'cN'}</Math>.
+      </p>
+      <p><strong>Recurrencia como función por partes</strong>:</p>
+      <Math block>{`T(N) = \\begin{cases} c & \\text{si } N \\leq 1 \\\\ 2\\,T(N/2) + cN & \\text{si } N > 1 \\end{cases}`}</Math>
+      <p>
+        <strong>Expansión</strong>, sustituyendo cada término recursivo:
+      </p>
+      <Math block>{`\\begin{aligned} T(N) &= 2\\,T(N/2) + cN \\\\ &= 2\\bigl[2\\,T(N/4) + cN/2\\bigr] + cN = 4\\,T(N/4) + 2cN \\\\ &= 8\\,T(N/8) + 3cN \\\\ &\\ \\ \\vdots \\\\ &= 2^k\\,T(N/2^k) + k\\,cN \\end{aligned}`}</Math>
+      <p>
+        Cuando <Math>{'N/2^k = 1'}</Math> tenemos <Math>{'k = \\log_2 N'}</Math>.
+        En ese nivel <Math>{'2^k = N'}</Math>, así que:
+      </p>
+      <Math block>{`\\begin{aligned} T(N) &= N\\,c + (\\log_2 N)\\,cN \\\\ T(N) &= cN\\,(1 + \\log_2 N) \\quad \\Rightarrow \\quad T(N) \\in \\Theta(N \\log N) \\end{aligned}`}</Math>
+      <p>
+        <strong>Patrón</strong>: es el patrón de <code>mergesort</code> — dos
+        llamadas de mitad y trabajo lineal por nivel de recursión. El árbol
+        tiene <Math>{'\\log_2 N'}</Math> niveles, y en cada nivel las
+        llamadas combinadas hacen <Math>{'\\Theta(N)'}</Math> trabajo. La
+        suma es <Math>{'\\Theta(N \\log N)'}</Math>.
+      </p>
+    </div>
+  }
+/>
+
+### Ejercicio 4 — Recurrencia pura $$T(N) = T(N-1) + N$$
+
+<ComplexityExercise
+  algorithm="T(N) = T(N-1) + N"
+  prompt="T(n)"
+  hint="A diferencia de los ejercicios anteriores, el trabajo del paso no es constante — crece con N. Sumá los trabajos que aparecen en la expansión antes de acotar."
+  code={`T(N) = T(N-1) + N       para N >= 1
+T(0) = c`}
+  reveal={
+    <div className="space-y-3 text-sm">
+      <p>
+        <strong>Expansión</strong>, sustituyendo el término recursivo y
+        acumulando el trabajo del paso:
+      </p>
+      <Math block>{`\\begin{aligned} T(N) &= T(N-1) + N \\\\ &= T(N-2) + (N-1) + N \\\\ &= T(N-3) + (N-2) + (N-1) + N \\\\ &\\ \\ \\vdots \\\\ &= T(N-k) + \\sum_{i=0}^{k-1}(N-i) \\end{aligned}`}</Math>
+      <p>
+        Cuando <Math>{'k = N'}</Math>, llegamos a <Math>{'T(0) = c'}</Math> y la
+        suma corre desde <Math>{'1'}</Math> hasta <Math>{'N'}</Math>:
+      </p>
+      <Math block>{`T(N) = c + \\sum_{i=1}^{N} i = c + \\frac{N(N+1)}{2}`}</Math>
+      <p>
+        El término dominante es <Math>{'N^2/2'}</Math>, así que:
+      </p>
+      <Math block>{`T(N) \\in \\Theta(N^2)`}</Math>
+      <p>
+        <strong>Lo interesante</strong>: la recursión es lineal (una sola
+        llamada por paso), pero el resultado es cuadrático porque el
+        trabajo del paso crece con <Math>{'N'}</Math>. Un ejemplo real con
+        esta forma es un <code>for</code> anidado escrito recursivamente:
+        el bucle externo son las <Math>{'N'}</Math> llamadas; el trabajo
+        del paso (que decrece de <Math>{'N'}</Math> a <Math>{'1'}</Math>)
+        suma la sumatoria triangular que ya vimos en Complejidad I.
+      </p>
+    </div>
+  }
+/>
+
+### Ejercicio 5 — Recurrencia pura $$T(N) = 3\,T(N/2) + N$$
+
+<ComplexityExercise
+  algorithm="T(N) = 3 T(N/2) + N"
+  prompt="T(n)"
+  hint="Es una recursión no lineal por división: TRES llamadas de tamaño N/2 más trabajo lineal por nivel. La potencia y la profundidad se enfrentan — expandí y mirá cuál gana."
+  code={`T(N) = 3 * T(N/2) + N   para N > 1
+T(1) = c`}
+  reveal={
+    <div className="space-y-3 text-sm">
+      <p><strong>Expansión</strong>:</p>
+      <Math block>{`\\begin{aligned} T(N) &= 3\\,T(N/2) + N \\\\ &= 3\\bigl[3\\,T(N/4) + N/2\\bigr] + N = 3^2\\,T(N/4) + N\\bigl(1 + \\tfrac{3}{2}\\bigr) \\\\ &= 3^3\\,T(N/8) + N\\bigl(1 + \\tfrac{3}{2} + \\tfrac{9}{4}\\bigr) \\\\ &\\ \\ \\vdots \\\\ &= 3^k\\,T(N/2^k) + N\\sum_{i=0}^{k-1}\\left(\\tfrac{3}{2}\\right)^i \\end{aligned}`}</Math>
+      <p>
+        Cuando <Math>{'N/2^k = 1'}</Math> tenemos <Math>{'k = \\log_2 N'}</Math>.
+        En ese nivel <Math>{'3^k = 3^{\\log_2 N} = N^{\\log_2 3}'}</Math>. La
+        suma geométrica con razón <Math>{'3/2 > 1'}</Math> también aporta{' '}
+        <Math>{'(3/2)^k = 3^k/2^k = N^{\\log_2 3}/N'}</Math>, así que:
+      </p>
+      <Math block>{`T(N) = N^{\\log_2 3}\\,c + N \\cdot O\\!\\left(N^{\\log_2 3 - 1}\\right) \\in \\Theta(N^{\\log_2 3})`}</Math>
+      <p>
+        Con <Math>{'\\log_2 3 \\approx 1{,}585'}</Math>, el resultado es
+        súper lineal pero por debajo de cuadrático:
+      </p>
+      <Math block>{`T(N) \\in \\Theta(N^{1{,}585})`}</Math>
+      <p>
+        <strong>Contexto</strong>: es la recurrencia del algoritmo de
+        <strong>Karatsuba</strong> para multiplicar dos números grandes,
+        que la aprovechó para bajar de <Math>{'\\Theta(N^2)'}</Math> (el
+        método escolar) a <Math>{'\\Theta(N^{1{,}585})'}</Math>. El mismo
+        truco lo vuelve a usar Strassen para multiplicar matrices, con
+        siete llamadas de tamaño <Math>{'N/2'}</Math> en lugar de las ocho
+        que da el método directo. Recursiones por división ganan cada
+        vez que sacrifican una llamada.
+      </p>
+    </div>
+  }
+/>
+
+### Ejercicio 6a — Diagnóstico: `f(n)` que no termina
+
+<ComplexityExercise
+  algorithm="f(n) rota"
+  prompt="O()"
+  hint="Aplicá la regla del capítulo: caso base, paso recursivo, y CONVERGENCIA — el argumento del paso recursivo tiene que empujar hacia el caso base. Miralo con lápiz para N = 3."
+  code={`static int f(int n) {
+    if (n == 0) return 1;
+    return f(n + 1);
+}`}
+  reveal={
+    <div className="space-y-3 text-sm">
+      <p>
+        <strong>Diagnóstico</strong>: la función tiene caso base
+        (<code>if (n == 0)</code>) y tiene paso recursivo
+        (<code>f(n + 1)</code>), pero la <strong>convergencia falla</strong>.
+        La regla del capítulo dice que el argumento de la llamada recursiva
+        tiene que ser <em>estrictamente menor</em> que el argumento actual,
+        en la misma métrica que usa el caso base — acá el argumento{' '}
+        <strong>crece</strong> en cada llamada.
+      </p>
+      <p>
+        <strong>Traza para <Math>{'N = 3'}</Math></strong>:
+      </p>
+      <Math block>{`f(3) \\to f(4) \\to f(5) \\to f(6) \\to \\ldots \\to \\text{StackOverflowError}`}</Math>
+      <p>
+        Nunca llega a <Math>{'n = 0'}</Math>. En la JVM, el stack se llena
+        y el programa termina con <code>StackOverflowError</code>. No hay
+        recurrencia <Math>{'T(N)'}</Math> que analizar porque la función
+        no es una recursión válida.
+      </p>
+      <p><strong>Arreglo</strong>: cambiar el paso recursivo para que el argumento decrezca hacia <Math>{'0'}</Math>:</p>
+      <pre className="rounded bg-sunk px-3 py-2 font-mono text-xs">
+        {`return f(n - 1);   // ahora T(N) = T(N-1) + c ∈ Θ(N)`}
+      </pre>
+    </div>
+  }
+/>
+
+### Ejercicio 6b — Diagnóstico: `g(n)` que sí termina… a veces
+
+<ComplexityExercise
+  algorithm="g(n) rota para pares"
+  prompt="O()"
+  hint="Tiene caso base y el argumento decrece. Pero la regla dice: el decrecer TIENE QUE ALCANZAR el caso base en un número finito de pasos, PARA TODO input válido. Corré la traza con N par y N impar."
+  code={`static long g(int n) {
+    if (n == 1) return 1;
+    return n * g(n - 2);
+}`}
+  reveal={
+    <div className="space-y-3 text-sm">
+      <p>
+        <strong>Diagnóstico</strong>: hay caso base (<code>n == 1</code>) y
+        el argumento decrece (baja de a dos). Pero el decrecer{' '}
+        <strong>no siempre alcanza</strong> el caso base — depende de la
+        <strong>paridad</strong> del input.
+      </p>
+      <p><strong>Traza para <Math>{'N = 5'}</Math> (impar)</strong>:</p>
+      <Math block>{`g(5) \\to g(3) \\to g(1) \\to 1 \\quad \\checkmark`}</Math>
+      <p><strong>Traza para <Math>{'N = 4'}</Math> (par)</strong>:</p>
+      <Math block>{`g(4) \\to g(2) \\to g(0) \\to g(-2) \\to g(-4) \\to \\ldots \\to \\text{StackOverflowError}`}</Math>
+      <p>
+        Salta el caso base porque <Math>{'0'}</Math> no es <Math>{'1'}</Math>{' '}
+        y el paso siguiente lo aleja aún más. Para inputs impares la
+        recurrencia es <Math>{'T(N) = T(N-2) + c \\in \\Theta(N)'}</Math>; para
+        pares no hay recurrencia porque la ejecución no termina.
+      </p>
+      <p><strong>Arreglos posibles</strong>:</p>
+      <ul className="ml-5 list-disc">
+        <li>
+          Cambiar el caso base a <code>if (n &lt;= 1) return 1;</code> —
+          cualquier <Math>{'N'}</Math> aterriza en <Math>{'0'}</Math> o{' '}
+          <Math>{'1'}</Math> y termina. Ahora{' '}
+          <Math>{'T(N) = T(N-2) + c \\in \\Theta(N)'}</Math> para todo{' '}
+          <Math>{'N \\geq 0'}</Math>.
+        </li>
+        <li>
+          O cambiar el paso a <code>g(n - 1)</code>, con lo cual{' '}
+          <Math>{'N'}</Math> baja de a uno y siempre alcanza{' '}
+          <Math>{'1'}</Math>.
+        </li>
+      </ul>
+    </div>
+  }
+/>

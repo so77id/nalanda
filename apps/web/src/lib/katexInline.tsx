@@ -10,10 +10,17 @@ import katex from 'katex';
  * rehype-katex, so this runtime path exists only for JSX attribute strings —
  * `<Slide title="...">` and any future component that receives a raw string.
  */
-export default function KatexInline({ math }: { math: string }) {
+export default function KatexInline({ math, block = false }: { math: string; block?: boolean }) {
   const html = katex.renderToString(math, {
     throwOnError: false,
     output: 'htmlAndMathml',
+    displayMode: block,
   });
-  return <span dangerouslySetInnerHTML={{ __html: html }} />;
+  // `<div>` for display mode so KaTeX's own display block is not wrapped
+  // inside an inline `<span>` (which would collapse its centring).
+  return block ? (
+    <div dangerouslySetInnerHTML={{ __html: html }} />
+  ) : (
+    <span dangerouslySetInnerHTML={{ __html: html }} />
+  );
 }

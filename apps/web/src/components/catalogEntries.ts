@@ -30,6 +30,7 @@ import { recursionTreeCatalogEntry } from './interactive/RecursionTree.catalog';
 import { memoryVisualCatalogEntry } from './interactive/MemoryVisual.catalog';
 import { stepCatalogEntry, stepShowCatalogEntry } from './interactive/StepShow.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
+import { mathCatalogEntry } from './media/Math.catalog';
 import { sheetEmbedCatalogEntry } from './media/SheetEmbed.catalog';
 import { videoEmbedCatalogEntry } from './media/VideoEmbed.catalog';
 import { mosaicCatalogEntry } from './structure/Mosaic.catalog';
@@ -46,6 +47,7 @@ export const catalogEntries: CatalogEntry[] = [
   splitCatalogEntry,
   mosaicCatalogEntry,
   figureCatalogEntry,
+  mathCatalogEntry,
   sheetEmbedCatalogEntry,
   videoEmbedCatalogEntry,
   codeEditorCatalogEntry,

@@ -16,6 +16,7 @@ import {
   LazyMermaid,
   LazyPredictOutput,
   LazyStepShow,
+  Math,
   MdxPre,
   MemoryVisual,
   Mosaic,
@@ -143,6 +144,12 @@ export const mdxComponents = {
   FibTabSteps: LazyFibTabSteps,
   // Lazy for the same reason as FibMemoSteps.
   FibIterSteps: LazyFibIterSteps,
+  // Not lazy at the wrapper level, but the component internally
+  // Suspense-loads KaTeX (~260 kB) via `React.lazy`. So the entry chunk
+  // pays for the Math shell (Suspense + a few lines of JSX); only pages
+  // that actually mount a <Math> pull the KaTeX chunk. Guarded by
+  // architecture.test.ts (the katex ban).
+  Math,
   // Not lazy: takes typed state, calls the pure `memoryLayout` algorithm and
   // paints SVG. No runtime seam, no CheerpJ, no CodeMirror — the whole reversal
   // #209 buys is that this component's cost is its own tiny chunk and nothing
