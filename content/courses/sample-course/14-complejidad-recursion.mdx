@@ -309,7 +309,7 @@ Traducida a Java y corrida en el stack:
 
 <CallStack recipe="power" arg={13} />
 
-Miren la profundidad: `power(2, 13)` alcanza solo **4 frames** en el
+Notemos la profundidad: `power(2, 13)` alcanza solo **4 frames** en el
 stack, no 13. Es porque cada llamada divide el exponente por 2 —
 $$13 \to 6 \to 3 \to 1 \to 0$$ — así que el número de llamadas es
 $$\log_2 e$$, no $$e$$.
@@ -324,10 +324,11 @@ Necesitamos una fórmula que hable de sí misma — una **recurrencia**.
 
 **Receta**, aplicable a cualquier recursión:
 
-1. Identificá el **caso base**. Cuesta un trabajo constante $$c$$ (una
-   comparación y un `return`).
-2. Identificá cada **llamada recursiva** y con qué argumento se llama.
-3. Escribí la recurrencia como:
+1. Identificamos el **caso base**. Cuesta un trabajo constante $$c$$
+   (una comparación y un `return`).
+2. Identificamos cada **llamada recursiva** y con qué argumento se
+   llama.
+3. Escribimos la recurrencia como:
 $$
 T(N) = \sum_i T(\text{arg}_i) + \text{trabajo constante del paso}
 $$
@@ -336,8 +337,11 @@ La recurrencia describe el costo total como **función de sí misma sobre
 entradas más chicas**. Escribimos primero, resolvemos después.
 </Slide>
 
-<Slide title="Factorial: $$T(N) = T(N-1) + c$$">
-Miramos `factorial` línea por línea:
+<Slide title="Recursión por decremento: `factorial`">
+Una recursión es **por decremento** cuando el argumento de la llamada
+recursiva se obtiene restando una cantidad fija al argumento actual
+(típicamente $$n - 1$$). Cada llamada baja el problema **de a uno**
+hasta llegar al caso base. `factorial` es el ejemplo canónico:
 
 ```java
 static long factorial(int n) {
@@ -347,13 +351,18 @@ static long factorial(int n) {
 ```
 
 - **L1** (`if (n == 1)`) → caso base, trabajo constante $$c_1$$.
-- **L2** (`return n * factorial(n-1)`) → una llamada recursiva de tamaño
-  $$N-1$$, más una multiplicación y un return: trabajo constante $$c_2$$
-  del paso, y $$T(N-1)$$ que aporta la llamada.
+- **L2** (`return n * factorial(n-1)`) → una llamada recursiva de
+  tamaño $$N-1$$, más una multiplicación y un `return`: trabajo
+  constante $$c_2$$ del paso, y $$T(N-1)$$ que aporta la llamada.
 
-Aplicando la receta:
+Aplicando la receta obtenemos la recurrencia, escrita como función
+por partes:
+
 $$
-T(N) = T(N-1) + c \qquad T(1) = c
+T(N) = \begin{cases}
+c & \text{si } N = 1 \\
+T(N-1) + c & \text{si } N > 1
+\end{cases}
 $$
 
 Esa es la recurrencia que produce el código. Ahora hay que resolverla.
@@ -374,8 +383,12 @@ T(N) &= T(N-1) + c \\
 $$
 
 Cuando $$k = N-1$$, llegamos a $$T(1) = c$$:
+
 $$
-T(N) = T(1) + (N-1)c = c + (N-1)c = Nc \in \Theta(N)
+\begin{aligned}
+T(N) &= T(1) + (N-1)c \\
+T(N) &= Nc \quad \Rightarrow \quad T(N) \in \Theta(N)
+\end{aligned}
 $$
 
 Existen otras técnicas — inducción matemática (postular una fórmula y
@@ -385,9 +398,12 @@ todas las recurrencias que vamos a resolver, y no requiere adivinar la
 solución.
 </Slide>
 
-<Slide title="Recursión por división: $$T(e) = T(e/2) + c \Rightarrow \Theta(\log e)$$">
-Un caso distinto: la función **divide el problema a la mitad** en cada
-llamada. Ya vimos un ejemplo — `power(x, e)`, la exponenciación rápida:
+<Slide title="Recursión por división">
+Una recursión es **por división** cuando el argumento de la llamada
+recursiva se obtiene dividiendo el argumento actual (típicamente por
+$$2$$). Cada llamada baja el problema **a la mitad** hasta llegar al
+caso base. `power(x, e)` — la exponenciación rápida que ya vimos
+correr en el stack — es el ejemplo canónico:
 
 ```java
 static long power(long x, int e) {
@@ -399,30 +415,51 @@ static long power(long x, int e) {
 ```
 
 Aplicando la receta:
-- Caso base `if (e == 0)` → trabajo $$c$$.
-- Paso recursivo — **una** llamada `power(x, e / 2)` guardada en `half`
-  y reusada dos veces, más multiplicaciones y `return`: la llamada
-  aporta $$T(e/2)$$ y el resto es trabajo constante $$c$$.
 
-Recurrencia:
+- **Caso base** `if (e == 0)` → trabajo constante $$c$$.
+- **Paso recursivo** — **una** llamada `power(x, e / 2)` guardada en
+  `half` y reusada dos veces, más multiplicaciones y `return`: la
+  llamada aporta $$T(e/2)$$ y el resto es trabajo constante $$c$$.
+</Slide>
+
+<Slide title="Recursión por división: resolver la recurrencia">
+La recurrencia que sale de `power`, escrita como función por partes:
+
 $$
-T(e) = T(e/2) + c \qquad T(0) = c
+T(e) = \begin{cases}
+c & \text{si } e = 0 \\
+T(e/2) + c & \text{si } e > 0
+\end{cases}
 $$
 
-Expansión:
+Aplicamos expansión, sustituyendo el término recursivo por su
+definición, un paso a la vez:
+
 $$
-T(e) = T(e/2) + c = T(e/4) + 2c = T(e/8) + 3c = \ldots = T(e/2^k) + kc
+\begin{aligned}
+T(e) &= T(e/2) + c \\
+     &= T(e/4) + 2c \\
+     &= T(e/8) + 3c \\
+     &\ \ \vdots \\
+     &= T(e/2^k) + kc
+\end{aligned}
 $$
 
-Cuando $$e/2^k = 1$$ tenemos $$k = \log_2 e$$, así que:
+Cuando $$e/2^k = 1$$ (llegamos al último nivel antes del caso base),
+tenemos $$k = \log_2 e$$. Sustituyendo:
+
 $$
-T(e) = c + c \log e \in \Theta(\log e)
+\begin{aligned}
+T(e) &= T(1) + (\log_2 e)\,c \\
+T(e) &= c + c\log_2 e \quad \Rightarrow \quad T(e) \in \Theta(\log e)
+\end{aligned}
 $$
 
 **Insight clave**: cuando cada llamada reduce el problema a la mitad,
-solo se necesitan $$\log_2 e$$ pasos hasta el caso base. Cuando aparece
-ese patrón en un algoritmo, conviene sospechar logarítmico. Lo veremos
-en búsqueda binaria y en muchas rutinas de las próximas unidades.
+solo se necesitan $$\log_2 e$$ pasos hasta el caso base. Cuando
+aparece ese patrón en un algoritmo, conviene sospechar logarítmico.
+Lo veremos en búsqueda binaria y en muchas rutinas de las próximas
+unidades.
 </Slide>
 
 <SectionBreak />
@@ -651,7 +688,7 @@ técnicas estándar para arreglarlo. Vamos a las dos.
 
 <Slide title="Memoization: guardar cada resultado la primera vez">
 Si una función va a ser llamada varias veces con el mismo argumento,
-**guardá el resultado la primera vez y devolvelo cacheado las
+**guardamos el resultado la primera vez y lo devolvemos cacheado las
 siguientes**. Esta técnica se llama **memoization**.
 
 **Donald Michie** (Reino Unido, 1923–2007) — matemático y pionero de la
@@ -983,8 +1020,8 @@ bit; si $$n > 0$$, hace falta un bit más que los que use $$n / 2$$
 
 <Exercise title="countBits">
 
-Implementá `countBits(n)` de forma recursiva. Aplicá la receta:
-identificá el caso base, el paso recursivo y el argumento con el que
+Implementa `countBits(n)` de forma recursiva. Aplica la receta:
+identifica el caso base, el paso recursivo y el argumento con el que
 se llama.
 
 ```java starter
@@ -1006,7 +1043,7 @@ check(Solution.countBits(1024), 11);
 
 </Exercise>
 
-Una vez que la solución pase todos los casos, escribí la recurrencia
+Una vez que la solución pase todos los casos, escribe la recurrencia
 $$T(N)$$ que produce el código y resolvela por expansión. **Pista**:
 la estructura es idéntica a la de `power(x, e)` que analizamos antes.
 </Slide>
