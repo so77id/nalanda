@@ -671,10 +671,7 @@ memoria de sus resultados.
 
 **Dos líneas nuevas** respecto de la versión desnuda: consulta al
 cache antes de recursar (si el valor ya está, se devuelve directo en
-tiempo constante) y guardado del resultado calculado. Recorremos
-paso a paso `fib(5)` para ver el stack, el `memo[]` y el `done[]`
-llenándose, y los dos cache hits que la versión sin memoria no
-tenía:
+tiempo constante) y guardado del resultado calculado.
 
 <FibMemoSteps target={5} />
 </Slide>
@@ -724,8 +721,8 @@ el memoized hace del orden de $$40$$. **Ocho órdenes de magnitud**
 con dos líneas de código agregadas.
 
 **Trade-off en memoria**: el cache + `done` ocupan $$N+1$$ casillas
-cada uno. Ganamos tiempo, pagamos memoria. El análisis formal del
-costo espacial vive en [[complejidad-espacial]].
+cada uno. Ganamos tiempo, pagamos memoria. Para más información del
+costo espacial visita [[complejidad-espacial]].
 </Slide>
 
 <Slide title="Tabulation (bottom-up)">
@@ -736,26 +733,7 @@ llama **bottom-up** porque partimos del **caso base más chico**
 llegar a `fib(N)`. En cada paso los valores que necesitamos
 (`f[i-1]` y `f[i-2]`) ya fueron calculados antes en el mismo `for`.
 
-<CodeEditor
-  language="java"
-  defaultValue={`class FibTabulated {
-    static long fib(int n) {
-        if (n < 2) return n;
-        long[] f = new long[n + 1];
-        f[0] = 0;
-        f[1] = 1;
-        for (int i = 2; i <= n; i++) {
-            f[i] = f[i - 1] + f[i - 2];
-        }
-        return f[n];
-    }
-
-    public static void main(String[] args) {
-        System.out.println("fib(40) = " + fib(40));
-    }
-}
-`}
-/>
+<FibTabSteps target={5} />
 
 Lo importante es que **eliminamos la recursión**. Es una solución
 porque:
@@ -768,11 +746,6 @@ porque:
   en `i`, todas las celdas $$0, 1, \ldots, i-1$$ ya están llenas.
 - **Mismo costo temporal $$\Theta(N)$$** que el memoized, sin el
   overhead de las llamadas.
-
-Recorremos paso a paso `fib(5)` para ver el arreglo `f[]` llenándose
-de izquierda a derecha, sin stack:
-
-<FibTabSteps target={5} />
 </Slide>
 
 <Slide title="Comparación: top-down vs bottom-up">
@@ -799,9 +772,7 @@ Observación: para calcular `f[i]` solo se necesitan **`f[i-1]` y
 a leer.
 
 Si solo nos interesa el **último valor** — que es el caso típico —
-tiramos el arreglo entero y nos quedamos con dos variables. Recorremos
-paso a paso `fib(5)` para ver la ventana de dos variables deslizarse
-sin arreglo ni stack:
+tiramos el arreglo entero y nos quedamos con dos variables.
 
 <FibIterSteps target={5} />
 

@@ -56,55 +56,94 @@ export function FibTabSteps({ target = 5, title }: FibTabStepsProps) {
 }
 
 function FibTabVisual({ snap }: { snap: Snapshot }) {
+  const size = snap.f.length;
   return (
     <div className="flex flex-col gap-3 font-mono text-xs" data-testid="fib-tab-visual">
       <div className="text-xs text-ink-soft">
         {snap.i === null ? 'Inicialización' : `Iteración: i = ${snap.i}`}
       </div>
 
-      <div>
-        <div className="mb-1 text-3xs uppercase tracking-wide text-ink-faint">f[]</div>
-        <div className="flex gap-1">
-          {snap.f.map((v, i) => {
-            const isRead = snap.reads?.includes(i);
-            const isWrite = snap.write === i;
+      <ArrayTable
+        size={size}
+        reads={snap.reads}
+        write={snap.write}
+        cells={snap.f.map((v) => (v === null ? '?' : String(v)))}
+      />
+
+      <p className="text-xs text-ink-soft">{snap.caption}</p>
+
+      <div className="flex gap-3 text-3xs text-ink-faint">
+        <span>
+          <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-flag bg-flag-soft" />
+          leídas
+        </span>
+        <span>
+          <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-accent bg-accent-soft" />
+          escrita
+        </span>
+      </div>
+
+      <div className="text-3xs text-ink-faint">
+        Sin stack de llamadas: la iteración vive en un frame único, sin recursión.
+      </div>
+    </div>
+  );
+}
+
+interface ArrayTableProps {
+  cells: string[];
+  size: number;
+  reads?: [number, number];
+  write?: number;
+}
+
+/**
+ * Single-row array visualization with shared indices below. Same
+ * layout as the ArrayTable in FibMemoSteps but with one row —
+ * indices tightly aligned column-by-column, cells 3rem wide, borders
+ * consistent. Kept local to this file to avoid another cross-file
+ * dependency; if a third widget needs the same shape, it graduates
+ * to a shared module.
+ */
+function ArrayTable({ cells, size, reads, write }: ArrayTableProps) {
+  return (
+    <div className="inline-flex flex-col gap-1">
+      <div className="flex items-center gap-2">
+        <div className="w-8 shrink-0 text-right text-3xs uppercase tracking-wide text-ink-faint">
+          f[]
+        </div>
+        <div className="flex gap-0.5">
+          {cells.map((v, i) => {
+            const isRead = reads?.includes(i) ?? false;
+            const isWrite = write === i;
+            const border = isWrite
+              ? 'border-accent bg-accent-soft text-accent'
+              : isRead
+                ? 'border-flag bg-flag-soft text-flag'
+                : v === '?'
+                  ? 'border-dashed border-rule/60 text-ink-faint'
+                  : 'border-rule bg-sunk/40 text-ink';
             return (
               <div
                 key={i}
                 data-testid="fib-tab-cell"
-                className={
-                  'flex h-10 w-10 flex-col items-center justify-center rounded border ' +
-                  (isWrite
-                    ? 'border-accent bg-accent-soft text-accent'
-                    : isRead
-                      ? 'border-flag bg-flag-soft text-flag'
-                      : v === null
-                        ? 'border-dashed border-rule/60 text-ink-faint'
-                        : 'border-rule bg-sunk/40 text-ink')
-                }
+                className={`flex h-10 w-12 items-center justify-center rounded border text-sm ${border}`}
               >
-                <span className="text-xs">{v === null ? '?' : v}</span>
-                <span className="text-3xs text-ink-faint">{i}</span>
+                {v}
               </div>
             );
           })}
         </div>
-        <div className="mt-1 flex gap-2 text-3xs text-ink-faint">
-          <span>
-            <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-flag bg-flag-soft" />
-            leídas
-          </span>
-          <span>
-            <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-accent bg-accent-soft" />
-            escrita
-          </span>
-        </div>
       </div>
-
-      <p className="text-xs text-ink-soft">{snap.caption}</p>
-
-      <div className="text-3xs text-ink-faint">
-        Sin stack de llamadas: la iteración vive en un frame único, sin recursión.
+      <div className="flex items-center gap-2">
+        <div className="w-8 shrink-0" />
+        <div className="flex gap-0.5">
+          {Array.from({ length: size }, (_, i) => (
+            <span key={i} className="w-12 text-center text-3xs text-ink-faint">
+              {i}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

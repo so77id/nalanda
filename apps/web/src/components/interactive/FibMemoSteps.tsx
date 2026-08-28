@@ -65,39 +65,34 @@ export function FibMemoSteps({ target = 5, title }: FibMemoStepsProps) {
 }
 
 function FibMemoVisual({ snap }: { snap: Snapshot }) {
+  const size = snap.memo.length;
   return (
     <div
       className="flex flex-col gap-4 font-mono text-xs md:flex-row"
       data-testid="fib-memo-visual"
     >
-      {/* Main area (~75%): memo[] + done[] + caption + legend. */}
+      {/* Main area (~75%): memo[] + done[] as a shared array, caption, legend. */}
       <div className="flex min-w-0 flex-1 flex-col gap-3 md:basis-3/4">
-        <CellRow
-          label="memo[]"
-          size="lg"
-          cells={snap.memo.map((v) => (v === null ? '?' : String(v)))}
+        <ArrayTable
+          rows={[
+            {
+              label: 'memo[]',
+              cellsTestId: 'fib-memo-cell',
+              cells: snap.memo.map((v) => (v === null ? '?' : String(v))),
+            },
+            {
+              label: 'done[]',
+              cellsTestId: 'fib-done-cell',
+              cells: snap.done.map((d) => (d ? 'T' : 'F')),
+              dim: (v) => v === 'F',
+            },
+          ]}
+          size={size}
           reads={snap.reads}
           write={snap.write}
-        />
-        <CellRow
-          label="done[]"
-          size="sm"
-          cells={snap.done.map((d) => (d ? 'T' : 'F'))}
-          reads={snap.reads}
-          write={snap.write}
-          dim={(v) => v === 'F'}
         />
         <p className="text-xs text-ink-soft">{snap.caption}</p>
-        <div className="flex gap-3 text-3xs text-ink-faint">
-          <span>
-            <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-flag bg-flag-soft" />
-            leídas
-          </span>
-          <span>
-            <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-accent bg-accent-soft" />
-            escrita
-          </span>
-        </div>
+        <ReadWriteLegend />
       </div>
 
       {/* Right column (~25%): stack, transversal, own scroll. Same shape as
@@ -148,56 +143,103 @@ function FibMemoVisual({ snap }: { snap: Snapshot }) {
   );
 }
 
-interface CellRowProps {
+interface ArrayRow {
   label: string;
-  size: 'lg' | 'sm';
+  cellsTestId: string;
   cells: string[];
-  reads?: number[];
-  write?: number;
-  /** Cells that should render dimmed (empty-slot styling) when the predicate returns true. */
+  /** Predicate for cells that render dimmed (empty-slot styling). */
   dim?: (v: string) => boolean;
 }
 
-function CellRow({ label, size, cells, reads, write, dim }: CellRowProps) {
-  const h = size === 'lg' ? 'h-10' : 'h-6';
+interface ArrayTableProps {
+  rows: ArrayRow[];
+  size: number;
+  reads?: number[];
+  write?: number;
+}
+
+/**
+ * A shared-index array visualization. All rows share the same column
+ * layout so a reader sees them as one 2D object (memo[] on top,
+ * done[] below), and a single row of indices at the bottom labels
+ * both. Each cell is 3rem wide, borders are solid on the outside so
+ * consecutive cells read as a contiguous strip.
+ */
+function ArrayTable({ rows, size, reads, write }: ArrayTableProps) {
   return (
-    <div>
-      <div className="mb-1 text-3xs uppercase tracking-wide text-ink-faint">{label}</div>
-      <div className="flex gap-1">
-        {cells.map((v, i) => {
-          const isWrite = write === i;
-          const isRead = reads?.includes(i) ?? false;
-          const dimmed = dim?.(v) ?? false;
-          return (
-            <div
-              key={i}
-              data-testid={label === 'memo[]' ? 'fib-memo-cell' : 'fib-done-cell'}
-              className={
-                `flex ${h} w-10 flex-col items-center justify-center rounded border ` +
-                (isWrite
-                  ? 'border-accent bg-accent-soft text-accent'
-                  : isRead
-                    ? 'border-flag bg-flag-soft text-flag'
-                    : dimmed
-                      ? 'border-dashed border-rule/60 text-ink-faint'
-                      : 'border-rule bg-sunk/40 text-ink')
-              }
-            >
-              <span className={size === 'lg' ? 'text-xs' : 'text-xs'}>{v}</span>
-              {size === 'lg' && <span className="text-3xs text-ink-faint">{i}</span>}
-            </div>
-          );
-        })}
-      </div>
-      {size === 'sm' && (
-        <div className="mt-0.5 flex gap-1 text-3xs text-ink-faint">
-          {cells.map((_, i) => (
-            <span key={i} className="w-10 text-center">
+    <div className="inline-flex flex-col gap-1">
+      {rows.map((row) => (
+        <div key={row.label} className="flex items-center gap-2">
+          <div className="w-16 shrink-0 text-right text-3xs uppercase tracking-wide text-ink-faint">
+            {row.label}
+          </div>
+          <div className="flex gap-0.5">
+            {row.cells.map((v, i) => (
+              <ArrayCell
+                key={i}
+                value={v}
+                index={i}
+                isRead={reads?.includes(i) ?? false}
+                isWrite={write === i}
+                dimmed={row.dim?.(v) ?? false}
+                testId={row.cellsTestId}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+      <div className="flex items-center gap-2">
+        <div className="w-16 shrink-0" />
+        <div className="flex gap-0.5">
+          {Array.from({ length: size }, (_, i) => (
+            <span key={i} className="w-12 text-center text-3xs text-ink-faint">
               {i}
             </span>
           ))}
         </div>
-      )}
+      </div>
+    </div>
+  );
+}
+
+interface ArrayCellProps {
+  value: string;
+  index: number;
+  isRead: boolean;
+  isWrite: boolean;
+  dimmed: boolean;
+  testId: string;
+}
+
+function ArrayCell({ value, isRead, isWrite, dimmed, testId }: ArrayCellProps) {
+  const border = isWrite
+    ? 'border-accent bg-accent-soft text-accent'
+    : isRead
+      ? 'border-flag bg-flag-soft text-flag'
+      : dimmed
+        ? 'border-dashed border-rule/60 text-ink-faint'
+        : 'border-rule bg-sunk/40 text-ink';
+  return (
+    <div
+      data-testid={testId}
+      className={`flex h-10 w-12 items-center justify-center rounded border text-sm ${border}`}
+    >
+      {value}
+    </div>
+  );
+}
+
+function ReadWriteLegend() {
+  return (
+    <div className="flex gap-3 text-3xs text-ink-faint">
+      <span>
+        <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-flag bg-flag-soft" />
+        leídas
+      </span>
+      <span>
+        <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-accent bg-accent-soft" />
+        escrita
+      </span>
     </div>
   );
 }
