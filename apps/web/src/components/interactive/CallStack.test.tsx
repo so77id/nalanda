@@ -212,15 +212,16 @@ describe('CallStack', () => {
     expect(paused[0]!).toHaveTextContent(/factorial\(2\)/);
   });
 
-  it('supports the power recipe with x, n, half locals', async () => {
+  it('supports the power recipe with x, e, half locals', async () => {
     render(<CallStack recipe="power" arg={4} />);
     const forward = screen.getByRole('button', { name: /paso adelante/i });
     await userEvent.click(forward);
-    // First event is a `call`: current context now shows power(2, 4) with x, n, return.
+    // First event is a `call`: current context now shows power(2, 4) with x, e, return.
     const current = screen.getByTestId('callstack-frame-current');
     expect(current).toHaveTextContent(/power\(2, 4\)/);
-    expect(current).toHaveTextContent(/x/);
-    expect(current).toHaveTextContent(/n/);
+    // Locals rendered as `name = value`: x = 2, e = 4.
+    expect(current).toHaveTextContent(/x=\s*2/);
+    expect(current).toHaveTextContent(/e=\s*4/);
   });
 
   it('supports the hanoi recipe with 4-argument locals', async () => {

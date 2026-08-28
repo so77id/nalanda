@@ -73,10 +73,10 @@ const RECIPES: Record<string, Recipe> = {
   },
   power: {
     language: 'java',
-    defaultCode: `static long power(long x, int n) {
-    if (n == 0) return 1;
-    long half = power(x, n / 2);
-    if (n % 2 == 0) return half * half;
+    defaultCode: `static long power(long x, int e) {
+    if (e == 0) return 1;
+    long half = power(x, e / 2);
+    if (e % 2 == 0) return half * half;
     return x * half * half;
 }`,
     trace: (arg, maxDepth) => tracePower(arg, maxDepth),
@@ -665,14 +665,14 @@ function tracePower(
   maxDepth: number,
 ): { events: TraceEvent[]; overflowedAt?: number } {
   const events: TraceEvent[] = [];
-  const walk = (n: number, depth: number): { overflow?: number; value?: number } => {
+  const walk = (e: number, depth: number): { overflow?: number; value?: number } => {
     if (maxDepth > 0 && depth > maxDepth) return { overflow: depth };
-    const label = `power(${POWER_BASE}, ${n})`;
+    const label = `power(${POWER_BASE}, ${e})`;
     events.push({
       type: 'call',
       label,
       line: 1,
-      locals: { x: String(POWER_BASE), n: String(n), return: '?' },
+      locals: { x: String(POWER_BASE), e: String(e), return: '?' },
       description: `invocando ${label}`,
     });
     events.push({
@@ -680,7 +680,7 @@ function tracePower(
       line: 2,
       description: `${label} — revisando caso base`,
     });
-    if (n === 0) {
+    if (e === 0) {
       events.push({
         type: 'return',
         returnValue: '1',
@@ -688,7 +688,7 @@ function tracePower(
       });
       return { value: 1 };
     }
-    const halfArg = Math.floor(n / 2);
+    const halfArg = Math.floor(e / 2);
     events.push({
       type: 'line',
       line: 3,
@@ -706,18 +706,18 @@ function tracePower(
     events.push({
       type: 'line',
       line: 4,
-      description: `${label} — n % 2 = ${n % 2}`,
+      description: `${label} — e % 2 = ${e % 2}`,
     });
-    const value = n % 2 === 0 ? halfVal * halfVal : POWER_BASE * halfVal * halfVal;
-    const returnLine = n % 2 === 0 ? 4 : 5;
+    const value = e % 2 === 0 ? halfVal * halfVal : POWER_BASE * halfVal * halfVal;
+    const returnLine = e % 2 === 0 ? 4 : 5;
     events.push({
       type: 'line',
       line: returnLine,
       locals: { return: String(value) },
       description:
-        n % 2 === 0
-          ? `${label} — n par: return ${halfVal} × ${halfVal} = ${value}`
-          : `${label} — n impar: return ${POWER_BASE} × ${halfVal} × ${halfVal} = ${value}`,
+        e % 2 === 0
+          ? `${label} — e par: return ${halfVal} × ${halfVal} = ${value}`
+          : `${label} — e impar: return ${POWER_BASE} × ${halfVal} × ${halfVal} = ${value}`,
     });
     events.push({
       type: 'return',

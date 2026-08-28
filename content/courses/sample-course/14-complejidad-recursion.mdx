@@ -286,22 +286,22 @@ casos hay tres caminos:
   máquina virtual. Es un parche: pospone el problema, no lo elimina.
 </Slide>
 
-<Slide title="Otro ejemplo en el stack: `power(2, 13)`">
-Calcular $$x^n$$ es un problema clásico. La forma **ingenua** — un
-`for` que multiplica $$x$$ por sí mismo $$n$$ veces — es lineal:
-$$\Theta(n)$$ multiplicaciones. Pero existe una **versión rápida**,
+<Slide title="`power(x, e)`: elevar cortando el exponente a la mitad">
+Calcular $$x^e$$ es un problema clásico. La forma **ingenua** — un
+`for` que multiplica $$x$$ por sí mismo $$e$$ veces — es lineal:
+$$\Theta(e)$$ multiplicaciones. Pero existe una **versión rápida**,
 recursiva, que se apoya en una observación aritmética: si conocemos
-$$x^{n/2}$$, obtenemos $$x^n$$ elevándolo al cuadrado. Cada llamada
-reduce el problema a la mitad, y la profundidad del stack crece con
-$$\log_2 n$$ en lugar de con $$n$$.
+$$x^{e/2}$$, obtenemos $$x^e$$ elevándolo al cuadrado. Cada llamada
+reduce el exponente a la mitad, y la profundidad del stack crece con
+$$\log_2 e$$ en lugar de con $$e$$.
 
 Su definición matemática es una función por partes:
 
 $$
-x^n = \begin{cases}
-1 & \text{si } n = 0 \\
-\left(x^{n/2}\right)^2 & \text{si } n \text{ es par} \\
-x \cdot \left(x^{n/2}\right)^2 & \text{si } n \text{ es impar}
+x^e = \begin{cases}
+1 & \text{si } e = 0 \\
+\left(x^{e/2}\right)^2 & \text{si } e \text{ es par} \\
+x \cdot \left(x^{e/2}\right)^2 & \text{si } e \text{ es impar}
 \end{cases}
 $$
 
@@ -310,7 +310,9 @@ Traducida a Java y corrida en el stack:
 <CallStack recipe="power" arg={13} />
 
 Miren la profundidad: `power(2, 13)` alcanza solo **4 frames** en el
-stack, no 13. Cada llamada halva el argumento.
+stack, no 13. Es porque cada llamada divide el exponente por 2 —
+$$13 \to 6 \to 3 \to 1 \to 0$$ — así que el número de llamadas es
+$$\log_2 e$$, no $$e$$.
 </Slide>
 
 <SectionBreak />
