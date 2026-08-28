@@ -12,6 +12,7 @@ import {
 import type { ReactNode, TouchEvent } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
+import { renderInlineTitle } from '../lib/inlineTitle';
 import { mdxChildrenOf } from './mdxChildren';
 import { computeSlides } from './parser';
 import { fitScale } from './fit';
@@ -294,8 +295,11 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
               // contrast on slide titles so the deck exception is retired.
               // `mt-8` kept from #218: gives long-titled slides breathing
               // room above so a two-line title doesn't hug the top edge.
+              // Inline title tokens (KaTeX + code) rendered through the
+              // shared helper — same string entering both surfaces (book h2
+              // and this deck heading) needs the same treatment (ADR-0057).
               <h2 className="text-accent-pop mt-8 mb-10 text-5xl font-bold tracking-tight">
-                {slide.title}
+                {renderInlineTitle(slide.title)}
               </h2>
             ) : null}
             <div className="prose prose-xl max-w-none">{slide.content}</div>

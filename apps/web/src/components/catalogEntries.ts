@@ -10,13 +10,18 @@
 import type { CatalogEntry } from '../lib/catalogEntry';
 
 import { benchmarkCatalogEntry } from './interactive/Benchmark.catalog';
+import { callStackCatalogEntry } from './interactive/CallStack.catalog';
 import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { complexityCounterCatalogEntry } from './interactive/ComplexityCounter.catalog';
 import { complexityExerciseCatalogEntry } from './interactive/ComplexityExercise.catalog';
 import { complexityHierarchyCatalogEntry } from './interactive/ComplexityHierarchy.catalog';
+import { hanoiPlaygroundCatalogEntry } from './interactive/HanoiPlayground.catalog';
 import { mathPlotCatalogEntry } from './interactive/MathPlot.catalog';
 import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
 import { explanationCatalogEntry } from './interactive/Explanation.catalog';
+import { fibIterStepsCatalogEntry } from './interactive/FibIterSteps.catalog';
+import { fibMemoStepsCatalogEntry } from './interactive/FibMemoSteps.catalog';
+import { fibTabStepsCatalogEntry } from './interactive/FibTabSteps.catalog';
 import { mermaidCatalogEntry } from './interactive/Mermaid.catalog';
 import { predictOutputCatalogEntry } from './interactive/PredictOutput.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
@@ -25,6 +30,7 @@ import { recursionTreeCatalogEntry } from './interactive/RecursionTree.catalog';
 import { memoryVisualCatalogEntry } from './interactive/MemoryVisual.catalog';
 import { stepCatalogEntry, stepShowCatalogEntry } from './interactive/StepShow.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
+import { mathTexCatalogEntry } from './media/Math.catalog';
 import { sheetEmbedCatalogEntry } from './media/SheetEmbed.catalog';
 import { videoEmbedCatalogEntry } from './media/VideoEmbed.catalog';
 import { mosaicCatalogEntry } from './structure/Mosaic.catalog';
@@ -41,6 +47,7 @@ export const catalogEntries: CatalogEntry[] = [
   splitCatalogEntry,
   mosaicCatalogEntry,
   figureCatalogEntry,
+  mathTexCatalogEntry,
   sheetEmbedCatalogEntry,
   videoEmbedCatalogEntry,
   codeEditorCatalogEntry,
@@ -56,7 +63,12 @@ export const catalogEntries: CatalogEntry[] = [
   questionCatalogEntry,
   explanationCatalogEntry,
   recursionTreeCatalogEntry,
+  callStackCatalogEntry,
+  hanoiPlaygroundCatalogEntry,
   stepShowCatalogEntry,
   stepCatalogEntry,
+  fibMemoStepsCatalogEntry,
+  fibTabStepsCatalogEntry,
+  fibIterStepsCatalogEntry,
   memoryVisualCatalogEntry,
 ];

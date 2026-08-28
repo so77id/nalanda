@@ -13,6 +13,15 @@ export { LazyPredictOutput } from './interactive/lazyPredictOutput';
 // Same rule, same two routes as PredictOutput: <Benchmark> wraps
 // LazyCodeEditor and drives the runtime through `useLoadedRuntime` (ADR-0044).
 export { LazyBenchmark } from './interactive/lazyBenchmark';
+// Lazy: composes <CodeStepper> (CodeMirror + java grammar) and lucide icons
+// for the playback controls. Registering the real one here would put
+// CodeMirror in the entry chunk of every reader (ADR-0054). Guarded by
+// `src/architecture.test.ts` (per-name `callstack`).
+export { LazyCallStack } from './interactive/lazyCallStack';
+// Lazy for pattern consistency: HanoiPlayground carries lucide icons and
+// the tower/disc animation glue. Guarded by `src/architecture.test.ts`
+// (per-name `hanoiplayground`). ADR-0055.
+export { LazyHanoiPlayground } from './interactive/lazyHanoiPlayground';
 // Lazy for pattern consistency and for the CodeMirror-gutter future
 // extension the ADR anticipates (ADR-0045).
 export { LazyComplexityCounter } from './interactive/lazyComplexityCounter';
@@ -38,6 +47,8 @@ export { LazyMermaid } from './interactive/lazyMermaid';
 // never write it, they write a fence. The shell maps it onto `pre`.
 export { MdxPre } from './MdxPre';
 export { Figure } from './media/Figure';
+export { MathTex } from './media/Math';
+export type { MathTexProps } from './media/Math';
 export { SheetEmbed } from './media/SheetEmbed';
 export { VideoEmbed } from './media/VideoEmbed';
 export { Explanation } from './interactive/Explanation';
@@ -56,6 +67,16 @@ export type { StepShowProps } from './interactive/lazyStepShow';
 // `child.type === Step` identity check in `<StepShow>` reads THIS export.
 export { Step } from './interactive/Step';
 export type { StepProps } from './interactive/Step';
+// Lazy for the same reason as LazyStepShow: these widgets compose it
+// internally, so they inherit the CodeMirror dependency the first time
+// they render. Documents that never touch fib memoization must not pay
+// for it in their entry chunk.
+export { LazyFibMemoSteps } from './interactive/lazyFibMemoSteps';
+export type { FibMemoStepsProps } from './interactive/lazyFibMemoSteps';
+export { LazyFibTabSteps } from './interactive/lazyFibTabSteps';
+export type { FibTabStepsProps } from './interactive/lazyFibTabSteps';
+export { LazyFibIterSteps } from './interactive/lazyFibIterSteps';
+export type { FibIterStepsProps } from './interactive/lazyFibIterSteps';
 export { MemoryVisual } from './interactive/MemoryVisual';
 export type {
   MemoryFrame,

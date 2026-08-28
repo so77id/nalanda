@@ -9,6 +9,17 @@ import { slugify } from '../lib/slug';
 
 interface HeadingProps {
   children?: ReactNode;
+  /**
+   * Raw source text to slug from, overriding what `textOf(children)` would
+   * see. Used by `<Slide title="...">` when the children are the rendered
+   * inline title tokens (spans, code, KaTeX HTML): `textOf` gets nothing
+   * from those elements and would yield no slug, no id, no rail entry.
+   * The Slide passes the raw title string as `slugSource` so the id matches
+   * what `headingSlugs` reads from the mdx source — that agreement is what
+   * `questionReaders.test.tsx > source reader and rendered reader agree`
+   * pins.
+   */
+  slugSource?: string;
 }
 
 /**
@@ -19,8 +30,8 @@ interface HeadingProps {
  */
 export function headingFor(level: 2 | 3 | 4) {
   const Tag = `h${level}` as const;
-  function MdxHeading({ children }: HeadingProps) {
-    const text = textOf(children);
+  function MdxHeading({ children, slugSource }: HeadingProps) {
+    const text = slugSource ?? textOf(children);
     const slug = slugify(text);
     // Only h2 opens a slide (parser.ts); h3/h4 live INSIDE one. The button
     // reads context regardless — the value is the default silence on other

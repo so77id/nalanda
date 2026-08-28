@@ -17,3 +17,4 @@ entries:
     children:
       - docId: complejidad-de-hilbert-al-big-o
       - docId: complejidad-espacial
+      - docId: complejidad-recursion

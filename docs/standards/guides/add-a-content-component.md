@@ -219,6 +219,30 @@ only need a CONSTANT from a feature (a list of ids, a union type), put it in
 whole feature (worked case: `lib/runtimeIds.ts`, #85, which took the eager
 payload from 1 chunk to 9 with every name-based guard green).
 
+### Composite of a heavy widget
+
+A widget that COMPOSES another heavy widget — reuses the primitive's chrome
+plus a scripted trace — is a special case of the rule above and needs two
+things, not one:
+
+1. **Its own `lazy<Name>.tsx`**, exactly like a leaf heavy component. That
+   is what keeps the composite (and everything the primitive drags with it)
+   out of the entry chunk. Add a per-name describe block in
+   `architecture.test.ts` that pins its own wrapper.
+2. **An entry in the primitive's ALLOWED list** in the primitive's own
+   describe block. The composite statically imports the primitive so their
+   chunks fuse — that is the point (fewer round-trips than a
+   composite-then-primitive Suspense waterfall). Extending ALLOWED is a
+   documented decision, not a bypass — add a line to the array's comment
+   naming the composite. Worked case:
+   `components/interactive/FibMemoSteps.tsx` /
+   `FibTabSteps.tsx` / `FibIterSteps.tsx` compose `<StepShow>` and appear
+   in the step-through guard's ALLOWED alongside `lazyStepShow.tsx`.
+
+Without both halves the composite fails one of the guards: without (1) it
+leaks CodeMirror into the entry chunk; without (2) the step-through guard
+rejects the static import as a bypass.
+
 ## Checklist
 
 - [ ] Family chosen; the contract points satisfied — including the `h2` one if

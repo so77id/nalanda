@@ -2,15 +2,21 @@ import {
   Explanation,
   Figure,
   LazyBenchmark,
+  LazyCallStack,
   LazyCodeEditor,
+  LazyHanoiPlayground,
   LazyComplexityCounter,
   LazyComplexityExercise,
   LazyComplexityHierarchy,
   LazyMathPlot,
   LazyExercise,
+  LazyFibIterSteps,
+  LazyFibMemoSteps,
+  LazyFibTabSteps,
   LazyMermaid,
   LazyPredictOutput,
   LazyStepShow,
+  MathTex,
   MdxPre,
   MemoryVisual,
   Mosaic,
@@ -110,6 +116,15 @@ export const mdxComponents = {
   // alternative and buys nothing scoped to one component). No CodeMirror, no
   // runtime seam: the eager-graph walk in architecture.test.ts stays happy.
   RecursionTree,
+  // Lazy: composes <CodeStepper> (CodeMirror + java grammar) and lucide
+  // icons for its controls. Registering the real one here would put
+  // CodeMirror in the entry chunk of every reader. Guarded by
+  // architecture.test.ts. ADR-0054.
+  CallStack: LazyCallStack,
+  // Lazy for pattern consistency; the tower/disc widget is lightweight but
+  // the boundary is uniform across interactive widgets. Guarded by
+  // architecture.test.ts. ADR-0055.
+  HanoiPlayground: LazyHanoiPlayground,
   // The lazy wrapper, not the widget itself: `<StepShow>` mounts a
   // `<CodeStepper>` that uses CodeMirror + `useGrammar` for the same syntax
   // highlighting every other `java` fence gets on the site. Registering the
@@ -120,6 +135,25 @@ export const mdxComponents = {
   // reads THIS reference.
   StepShow: LazyStepShow,
   Step,
+  // Lazy: composes <StepShow> (which itself pulls CodeStepper /
+  // CodeMirror + java grammar the first time it renders). Documents
+  // that never touch fib memoization must not pay for it in their
+  // entry chunk. Guarded by architecture.test.ts.
+  FibMemoSteps: LazyFibMemoSteps,
+  // Lazy for the same reason as FibMemoSteps.
+  FibTabSteps: LazyFibTabSteps,
+  // Lazy for the same reason as FibMemoSteps.
+  FibIterSteps: LazyFibIterSteps,
+  // Not lazy at the wrapper level, but the component internally
+  // Suspense-loads KaTeX (~260 kB) via `React.lazy`. So the entry chunk
+  // pays for the Math shell (Suspense + a few lines of JSX); only pages
+  // that actually mount a <Math> pull the KaTeX chunk. Guarded by
+  // architecture.test.ts (the katex ban).
+  //
+  // Exported name is `MathTex` (avoids shadowing the JS global `Math`
+  // in TypeScript modules) and re-aliased here as `Math` for MDX
+  // authors — the short name in course prose, the safe name in code.
+  Math: MathTex,
   // Not lazy: takes typed state, calls the pure `memoryLayout` algorithm and
   // paints SVG. No runtime seam, no CheerpJ, no CodeMirror — the whole reversal
   // #209 buys is that this component's cost is its own tiny chunk and nothing

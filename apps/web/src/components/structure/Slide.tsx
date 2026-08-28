@@ -2,6 +2,7 @@ import { useMDXComponents } from '@mdx-js/react';
 import type { ElementType, ReactNode } from 'react';
 
 import { withMeta } from '../../lib/componentMeta';
+import { renderInlineTitle } from '../../lib/inlineTitle';
 import { useMode } from '../../presentation';
 
 interface Props {
@@ -19,6 +20,14 @@ interface Props {
  * that stopped rendering this heading — or rendered a plain `<h2>` without the
  * mapped id — would silently empty the section rail. The only guard is
  * `app/documentSections.test.tsx`, three folders away from here.
+ *
+ * The title itself is a JSX attribute string, which does NOT enter the MDX
+ * pipeline — remark-math and rehype-katex only see body text. Without help,
+ * `<Slide title="Costo $$O(N)$$">` would project the literal `$$O(N)$$` on
+ * the deck. `renderInlineTitle` (ADR-0057) restores the two authoring
+ * needs that titles genuinely have — inline math and inline code — so an
+ * author can write the same `$$…$$` and `` `…` `` that already work in
+ * body prose.
  */
 export function Slide({ title, children }: Props) {
   const mode = useMode();
@@ -28,7 +37,7 @@ export function Slide({ title, children }: Props) {
   const H2 = (components['h2'] ?? 'h2') as ElementType;
   return (
     <>
-      {title ? <H2>{title}</H2> : null}
+      {title ? <H2 slugSource={title}>{renderInlineTitle(title)}</H2> : null}
       {children}
     </>
   );

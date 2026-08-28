@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 340 240" width="340" height="240">
+  <!-- Anatomy of a call stack frame: four labelled compartments inside one
+       container. This is the diagram the deck's "Un frame por llamada" slide
+       pairs with. The content is the labels, not the colours; the colour
+       choices clear 3:1 on both grounds so the picture stays legible in
+       either theme without inheriting currentColor. -->
+  <!-- Outer frame container. -->
+  <g stroke="#7c3aed" stroke-width="2" fill="#f5f3ff">
+    <rect x="20" y="30" width="300" height="200" rx="8" />
+  </g>
+  <!-- "Frame" label at the top edge of the container. -->
+  <g fill="#5b21b6" font-family="ui-monospace, monospace" font-size="13" font-weight="600">
+    <text x="34" y="52">Frame</text>
+  </g>
+  <!-- Four inner compartments in a 2x2 grid. -->
+  <g stroke="#7c3aed" stroke-width="1.2" fill="#ede9fe">
+    <rect x="36" y="70"  width="130" height="70" rx="6" />
+    <rect x="176" y="70"  width="128" height="70" rx="6" />
+    <rect x="36" y="150" width="130" height="70" rx="6" />
+    <rect x="176" y="150" width="128" height="70" rx="6" />
+  </g>
+  <!-- Compartment labels — two lines each so a wider label wraps naturally. -->
+  <g fill="#312e81" font-family="ui-sans-serif, sans-serif" font-size="13" text-anchor="middle">
+    <text x="101" y="100">nombre y</text>
+    <text x="101" y="118">parámetros</text>
+
+    <text x="240" y="100">variables</text>
+    <text x="240" y="118">locales</text>
+
+    <text x="101" y="180">valor de</text>
+    <text x="101" y="198">retorno</text>
+
+    <text x="240" y="180">dirección de</text>
+    <text x="240" y="198">retorno</text>
+  </g>
+</svg>

@@ -5,25 +5,68 @@ import { useResolvedTheme } from '../../lib/useResolvedTheme';
 import { AuthoringError } from '../AuthoringError';
 
 /**
+ * A node's state. For linear/tree-shaped numeric recursions (`fib`,
+ * `factorial`), the state is just `{ n }`. For recursions whose arguments
+ * carry more than the size — Hanoi's four-tower call `hanoi(n, from, to,
+ * aux)` — the extras array holds the additional non-numeric arguments that
+ * differentiate two calls with the same `n`. Extras is what makes Hanoi's
+ * tree distinct at every node even though `n` decreases the same way.
+ */
+export interface NodeState {
+  n: number;
+  extras?: string[];
+}
+
+/**
  * The recipes the tree knows how to unfold. Named rather than function-valued
  * because MDX props pass through the serializer, and a lambda in a fence would
- * be worse for the author than the two names actually used in the course.
+ * be worse for the author than the small set of names actually used in the
+ * course.
  */
 type Recipe = {
-  /** How each node reads: `label(arg)`. */
-  label: string;
-  /** The subcalls a node with this argument makes. Empty means base case. */
-  children: (arg: number) => number[];
+  /** How each node reads: `format(state)`. */
+  format: (state: NodeState) => string;
+  /** The subcalls a node with this state makes. Empty means base case. */
+  children: (state: NodeState) => NodeState[];
+  /** Convert the top-level `arg` number prop into the root state. */
+  seed: (arg: number) => NodeState;
+  /**
+   * How to colour nodes. `by-arg` cycles through hues by `n` — the visual
+   * signal that fib(3) appearing multiple times is the SAME call (ADR of
+   * the original widget). `uniform` paints every node with the same accent
+   * hue — the visual signal that in Hanoi no two calls repeat (ADR-0056).
+   */
+  colorStrategy: 'by-arg' | 'uniform';
 };
 
 const RECIPES: Record<string, Recipe> = {
   fib: {
-    label: 'fib',
-    children: (n) => (n < 2 ? [] : [n - 1, n - 2]),
+    format: ({ n }) => `fib(${n})`,
+    children: ({ n }) => (n < 2 ? [] : [{ n: n - 1 }, { n: n - 2 }]),
+    seed: (n) => ({ n }),
+    colorStrategy: 'by-arg',
   },
   factorial: {
-    label: 'factorial',
-    children: (n) => (n <= 1 ? [] : [n - 1]),
+    format: ({ n }) => `factorial(${n})`,
+    children: ({ n }) => (n <= 1 ? [] : [{ n: n - 1 }]),
+    seed: (n) => ({ n }),
+    colorStrategy: 'by-arg',
+  },
+  hanoi: {
+    format: ({ n, extras }) => {
+      const [from = 'A', to = 'C'] = extras ?? [];
+      return `hanoi(${n}, ${from}→${to})`;
+    },
+    children: ({ n, extras }) => {
+      if (n === 0) return [];
+      const [from = 'A', to = 'C', aux = 'B'] = extras ?? [];
+      return [
+        { n: n - 1, extras: [from, aux, to] },
+        { n: n - 1, extras: [aux, to, from] },
+      ];
+    },
+    seed: (n) => ({ n, extras: ['A', 'C', 'B'] }),
+    colorStrategy: 'uniform',
   },
 };
 
@@ -39,7 +82,7 @@ const RECIPES: Record<string, Recipe> = {
 const MAX_NODES = 300;
 
 function nodeCount(recipe: Recipe, arg: number): number {
-  const stack = [arg];
+  const stack: NodeState[] = [recipe.seed(arg)];
   let count = 0;
   while (stack.length > 0) {
     if (count > MAX_NODES) return count;
@@ -86,17 +129,17 @@ export function RecursionTree({ recipe, arg, title }: RecursionTreeProps) {
   const known = recipe === undefined ? undefined : RECIPES[recipe];
 
   if (recipe === undefined || known === undefined) {
+    const recipeNames = Object.keys(RECIPES);
     return (
       <AuthoringError component="RecursionTree">
         {recipe === undefined ? (
           <>
-            falta la prop <code>recipe</code>. Las recetas hoy son <code>fib</code> y{' '}
-            <code>factorial</code>.
+            falta la prop <code>recipe</code>. Recetas conocidas: {recipeNames.join(', ')}.
           </>
         ) : (
           <>
-            «{recipe}» no está entre las recetas conocidas. Hoy son <code>fib</code> y{' '}
-            <code>factorial</code>; agrégala en <code>RECIPES</code> si necesitas otra.
+            «{recipe}» no está entre las recetas conocidas. Hoy son {recipeNames.join(', ')};
+            agrégala en <code>RECIPES</code> si necesitas otra.
           </>
         )}
       </AuthoringError>
@@ -113,9 +156,10 @@ export function RecursionTree({ recipe, arg, title }: RecursionTreeProps) {
 
   const size = nodeCount(known, arg);
   if (size > MAX_NODES) {
+    const rootLabel = known.format(known.seed(arg));
     return (
       <AuthoringError component="RecursionTree">
-        el árbol de {known.label}({arg}) es demasiado grande ({size}+ nodos, tope {MAX_NODES}). Este
+        el árbol de {rootLabel} es demasiado grande ({size}+ nodos, tope {MAX_NODES}). Este
         componente es para ilustrar la duplicación de subcallas, no para dibujar el árbol completo —
         usa un <code>arg</code> menor (fib(5) es el ejemplo del curso) o mide el crecimiento con{' '}
         <code>&lt;CodeEditor&gt;</code>.
@@ -144,13 +188,13 @@ interface TreeBodyProps {
  */
 function allInteriorPaths(recipe: Recipe, arg: number): Set<string> {
   const paths = new Set<string>();
-  const walk = (a: number, path: string) => {
-    const kids = recipe.children(a);
+  const walk = (state: NodeState, path: string) => {
+    const kids = recipe.children(state);
     if (kids.length === 0) return;
     paths.add(path);
-    kids.forEach((childArg, i) => walk(childArg, `${path}.${i}`));
+    kids.forEach((child, i) => walk(child, `${path}.${i}`));
   };
-  walk(arg, 'r');
+  walk(recipe.seed(arg), 'r');
   return paths;
 }
 
@@ -167,7 +211,12 @@ function TreeBody({ recipe, arg, title }: TreeBodyProps) {
     });
   }, []);
 
-  const paint = useMemo(() => paintFor(theme), [theme]);
+  const paint = useMemo(() => paintFor(theme, recipe.colorStrategy), [theme, recipe.colorStrategy]);
+  const rootState = useMemo(() => recipe.seed(arg), [recipe, arg]);
+  const footer =
+    recipe.colorStrategy === 'uniform'
+      ? 'Cada llamada produce un efecto en el problema (mover un disco) — el trabajo es intrínseco a Hanoi y no se puede evitar cacheando. Cliquea un nodo para ocultar sus subcallas si quieres enfocarte en una parte.'
+      : 'Los nodos con el mismo argumento comparten color — la duplicación es lo que hace lento al recursivo. Cliquea un nodo para ocultar sus subcallas si quieres enfocarte en una parte.';
 
   return (
     <figure className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
@@ -181,7 +230,7 @@ function TreeBody({ recipe, arg, title }: TreeBodyProps) {
       <div className="flex justify-center overflow-x-auto px-3 py-6 font-mono text-sm">
         <Node
           recipe={recipe}
-          arg={arg}
+          state={rootState}
           path="r"
           expanded={expanded}
           toggle={toggle}
@@ -189,33 +238,30 @@ function TreeBody({ recipe, arg, title }: TreeBodyProps) {
         />
       </div>
 
-      <p className="border-t border-rule bg-sunk px-3 py-1.5 text-3xs text-ink-faint">
-        Los nodos con el mismo argumento comparten color — la duplicación es lo que hace lento al
-        recursivo. Cliquea un nodo para ocultar sus subcallas si quieres enfocarte en una parte.
-      </p>
+      <p className="border-t border-rule bg-sunk px-3 py-1.5 text-3xs text-ink-faint">{footer}</p>
     </figure>
   );
 }
 
 interface NodeProps {
   recipe: Recipe;
-  arg: number;
+  state: NodeState;
   path: string;
   expanded: Set<string>;
   toggle: (path: string) => void;
   paint: (arg: number) => { background: string; border: string; color: string };
 }
 
-function Node({ recipe, arg, path, expanded, toggle, paint }: NodeProps) {
-  const children = recipe.children(arg);
+function Node({ recipe, state, path, expanded, toggle, paint }: NodeProps) {
+  const children = recipe.children(state);
   const isBase = children.length === 0;
   const isOpen = expanded.has(path);
-  const label = `${recipe.label}(${arg})`;
-  const style = paint(arg);
+  const label = recipe.format(state);
+  const style = paint(state.n);
 
   const chip = isBase ? (
     <span
-      data-arg={arg}
+      data-arg={state.n}
       className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs whitespace-nowrap"
       style={style}
     >
@@ -224,7 +270,7 @@ function Node({ recipe, arg, path, expanded, toggle, paint }: NodeProps) {
   ) : (
     <button
       type="button"
-      data-arg={arg}
+      data-arg={state.n}
       onClick={() => toggle(path)}
       className="inline-flex items-center gap-1 rounded border px-2 py-0.5 text-xs whitespace-nowrap focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
       style={style}
@@ -254,7 +300,7 @@ function Node({ recipe, arg, path, expanded, toggle, paint }: NodeProps) {
         // making the concatenated ::before line unbroken from center of the
         // first child to center of the last.
         <div className="relative flex justify-center pt-6 before:absolute before:top-0 before:left-1/2 before:h-6 before:w-px before:bg-rule before:content-['']">
-          {children.map((childArg, i) => {
+          {children.map((childState, i) => {
             const only = children.length === 1;
             const first = i === 0;
             const last = i === children.length - 1;
@@ -272,7 +318,7 @@ function Node({ recipe, arg, path, expanded, toggle, paint }: NodeProps) {
               >
                 <Node
                   recipe={recipe}
-                  arg={childArg}
+                  state={childState}
                   path={`${path}.${i}`}
                   expanded={expanded}
                   toggle={toggle}
@@ -306,10 +352,13 @@ function Node({ recipe, arg, path, expanded, toggle, paint }: NodeProps) {
  * pairs land above 4.5:1 by inspection; the S7 browser check confirms them
  * against the live tokens.
  */
-function paintFor(theme: 'light' | 'dark') {
+function paintFor(theme: 'light' | 'dark', strategy: 'by-arg' | 'uniform') {
   const HUE_STEP = 60;
   return (arg: number) => {
-    const hue = (arg * HUE_STEP) % 360;
+    // Uniform strategy picks a fixed hue (blue-ish) for every node — the
+    // pedagogical signal that no two nodes carry the same call (e.g. Hanoi).
+    // by-arg cycles hues so duplicated arguments share a colour (fib).
+    const hue = strategy === 'uniform' ? 220 : (arg * HUE_STEP) % 360;
     if (theme === 'dark') {
       return {
         background: `hsl(${hue} 30% 22%)`,

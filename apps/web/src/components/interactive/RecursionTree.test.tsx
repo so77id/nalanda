@@ -105,4 +105,41 @@ describe('RecursionTree', () => {
     render(<RecursionTree recipe="fib" arg={30} />);
     expect(screen.getByText(/demasiado grande/i)).toBeInTheDocument();
   });
+
+  // ---------------------------------------------------------------------
+  // recipe="hanoi" — ADR-0056
+  // Multi-arg recipe with `from → to` in the label and uniform coloring
+  // (no repeated calls, so no color-sharing to signal).
+  // ---------------------------------------------------------------------
+
+  it('supports the hanoi recipe with 4-argument labels', () => {
+    render(<RecursionTree recipe="hanoi" arg={2} />);
+    // Root: hanoi(2, A→C). Two children: hanoi(1, A→B) and hanoi(1, B→C).
+    // Base cases: hanoi(0, ...) — several with distinct from/to pairs.
+    expect(screen.getByText('hanoi(2, A→C)')).toBeInTheDocument();
+    expect(screen.getByText('hanoi(1, A→B)')).toBeInTheDocument();
+    expect(screen.getByText('hanoi(1, B→C)')).toBeInTheDocument();
+  });
+
+  it('renders hanoi(2) with all three internal calls distinct', () => {
+    // hanoi(2) is small enough that the three internal calls (root + two
+    // children) are all unique. The pedagogical point stands even when a
+    // deeper tree eventually repeats an (n, from, to, aux) tuple — hanoi is
+    // void and its work is a side effect (a physical disc move) that cannot
+    // be cached anyway.
+    render(<RecursionTree recipe="hanoi" arg={2} />);
+    expect(screen.getByText('hanoi(2, A→C)')).toBeInTheDocument();
+    expect(screen.getByText('hanoi(1, A→B)')).toBeInTheDocument();
+    expect(screen.getByText('hanoi(1, B→C)')).toBeInTheDocument();
+  });
+
+  it('lists hanoi among the known recipes when the author picks an unknown one', () => {
+    render(<RecursionTree recipe="mystery" arg={3} />);
+    expect(screen.getByText(/hanoi/i)).toBeInTheDocument();
+  });
+
+  it('uses a hanoi-specific footer explaining why memoization does not help', () => {
+    render(<RecursionTree recipe="hanoi" arg={2} />);
+    expect(screen.getByText(/intrínseco a Hanoi/i)).toBeInTheDocument();
+  });
 });
