@@ -48,4 +48,18 @@ describe('FibIterSteps', () => {
     const cells = screen.getAllByTestId('fib-iter-cell');
     expect(cells).toHaveLength(3);
   });
+
+  it('honors the base case when target < 2 (target=0 shows fib(0)=0 explicitly)', () => {
+    render(<FibIterSteps target={0} />);
+    // The base-case snapshot names the direct return, not the two-variable
+    // init the code would never run.
+    expect(screen.getByText(/caso base:\s*n\s*=\s*0/i)).toBeInTheDocument();
+    expect(screen.getByText(/devuelve 0/i)).toBeInTheDocument();
+  });
+
+  it('honors the base case when target = 1', () => {
+    render(<FibIterSteps target={1} />);
+    expect(screen.getByText(/caso base:\s*n\s*=\s*1/i)).toBeInTheDocument();
+    expect(screen.getByText(/devuelve 1/i)).toBeInTheDocument();
+  });
 });

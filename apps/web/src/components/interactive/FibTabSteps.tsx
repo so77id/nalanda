@@ -1,3 +1,4 @@
+import { readWriteBorderClass, ReadWriteLegend } from './readWriteVocabulary';
 import { Step } from './Step';
 import { StepShow } from './StepShow';
 
@@ -72,16 +73,7 @@ function FibTabVisual({ snap }: { snap: Snapshot }) {
 
       <p className="text-xs text-ink-soft">{snap.caption}</p>
 
-      <div className="flex gap-3 text-3xs text-ink-faint">
-        <span>
-          <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-flag bg-flag-soft" />
-          leídas
-        </span>
-        <span>
-          <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-accent bg-accent-soft" />
-          escrita
-        </span>
-      </div>
+      <ReadWriteLegend />
 
       <div className="text-3xs text-ink-faint">
         Sin stack de llamadas: la iteración vive en un frame único, sin recursión.
@@ -99,11 +91,9 @@ interface ArrayTableProps {
 
 /**
  * Single-row array visualization with shared indices below. Same
- * layout as the ArrayTable in FibMemoSteps but with one row —
- * indices tightly aligned column-by-column, cells 3rem wide, borders
- * consistent. Kept local to this file to avoid another cross-file
- * dependency; if a third widget needs the same shape, it graduates
- * to a shared module.
+ * layout as the ArrayTable in FibMemoSteps but with one row. Colour
+ * semantics come from `readWriteVocabulary`, the shared
+ * read/write/dim rule the three fib-step widgets use.
  */
 function ArrayTable({ cells, size, reads, write }: ArrayTableProps) {
   return (
@@ -114,15 +104,11 @@ function ArrayTable({ cells, size, reads, write }: ArrayTableProps) {
         </div>
         <div className="flex gap-0.5">
           {cells.map((v, i) => {
-            const isRead = reads?.includes(i) ?? false;
-            const isWrite = write === i;
-            const border = isWrite
-              ? 'border-accent bg-accent-soft text-accent'
-              : isRead
-                ? 'border-flag bg-flag-soft text-flag'
-                : v === '?'
-                  ? 'border-dashed border-rule/60 text-ink-faint'
-                  : 'border-rule bg-sunk/40 text-ink';
+            const border = readWriteBorderClass({
+              isRead: reads?.includes(i) ?? false,
+              isWrite: write === i,
+              dimmed: v === '?',
+            });
             return (
               <div
                 key={i}
@@ -169,13 +155,22 @@ function buildTrace(target: number): Snapshot[] {
     });
   };
 
+  // Base case first — the Java shown above returns `n` directly when
+  // n < 2 (before allocating f[]). Without this branch the widget
+  // would trace an allocation + writes the code would never reach.
+  if (target < 2) {
+    snap(
+      2,
+      `Caso base: n = ${target} < 2, la función devuelve ${target} directamente sin llenar f[].`,
+    );
+    return events;
+  }
+
   snap(3, `Reservamos f[] con espacio para ${size} celdas.`);
   f[0] = 0;
   snap(4, `Inicializamos f[0] = 0.`, { write: 0 });
-  if (size > 1) {
-    f[1] = 1;
-    snap(5, `Inicializamos f[1] = 1.`, { write: 1 });
-  }
+  f[1] = 1;
+  snap(5, `Inicializamos f[1] = 1.`, { write: 1 });
 
   for (let i = 2; i <= target; i++) {
     snap(6, `Entramos al for con i = ${i}.`, { i });

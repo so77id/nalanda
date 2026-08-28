@@ -1,3 +1,4 @@
+import { readWriteBorderClass, ReadWriteLegend } from './readWriteVocabulary';
 import { Step } from './Step';
 import { StepShow } from './StepShow';
 
@@ -212,34 +213,13 @@ interface ArrayCellProps {
 }
 
 function ArrayCell({ value, isRead, isWrite, dimmed, testId }: ArrayCellProps) {
-  const border = isWrite
-    ? 'border-accent bg-accent-soft text-accent'
-    : isRead
-      ? 'border-flag bg-flag-soft text-flag'
-      : dimmed
-        ? 'border-dashed border-rule/60 text-ink-faint'
-        : 'border-rule bg-sunk/40 text-ink';
+  const border = readWriteBorderClass({ isRead, isWrite, dimmed });
   return (
     <div
       data-testid={testId}
       className={`flex h-10 w-12 items-center justify-center rounded border text-sm ${border}`}
     >
       {value}
-    </div>
-  );
-}
-
-function ReadWriteLegend() {
-  return (
-    <div className="flex gap-3 text-3xs text-ink-faint">
-      <span>
-        <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-flag bg-flag-soft" />
-        leídas
-      </span>
-      <span>
-        <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-accent bg-accent-soft" />
-        escrita
-      </span>
     </div>
   );
 }

@@ -49,4 +49,17 @@ describe('FibTabSteps', () => {
     const cells = screen.getAllByTestId('fib-tab-cell');
     expect(cells).toHaveLength(6);
   });
+
+  it('honors the base case when target < 2 (target=0 does not fake an allocation)', () => {
+    render(<FibTabSteps target={0} />);
+    // The Java shown returns before allocating f[]; the widget must
+    // name that path, not walk the allocation.
+    expect(screen.getByText(/caso base:\s*n\s*=\s*0/i)).toBeInTheDocument();
+    expect(screen.getByText(/sin llenar f\[\]/i)).toBeInTheDocument();
+  });
+
+  it('honors the base case when target = 1', () => {
+    render(<FibTabSteps target={1} />);
+    expect(screen.getByText(/caso base:\s*n\s*=\s*1/i)).toBeInTheDocument();
+  });
 });

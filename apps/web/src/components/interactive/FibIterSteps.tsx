@@ -1,3 +1,4 @@
+import { readWriteBorderClass, ReadWriteLegend } from './readWriteVocabulary';
 import { Step } from './Step';
 import { StepShow } from './StepShow';
 
@@ -85,16 +86,7 @@ function FibIterVisual({ snap }: { snap: Snapshot }) {
 
       <p className="text-xs text-ink-soft">{snap.caption}</p>
 
-      <div className="flex gap-3 text-3xs text-ink-faint">
-        <span>
-          <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-flag bg-flag-soft" />
-          leídas
-        </span>
-        <span>
-          <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-accent bg-accent-soft" />
-          escrita
-        </span>
-      </div>
+      <ReadWriteLegend />
 
       <div className="text-3xs text-ink-faint">
         Sin stack, sin arreglo: solo dos variables vivas por iteración.
@@ -111,13 +103,7 @@ interface VarCellProps {
 }
 
 function VarCell({ name, value, isRead, isWrite }: VarCellProps) {
-  const border = isWrite
-    ? 'border-accent bg-accent-soft text-accent'
-    : isRead
-      ? 'border-flag bg-flag-soft text-flag'
-      : value === null
-        ? 'border-dashed border-rule/60 text-ink-faint'
-        : 'border-rule bg-sunk/40 text-ink';
+  const border = readWriteBorderClass({ isRead, isWrite, dimmed: value === null });
   return (
     <div
       data-testid="fib-iter-cell"
@@ -157,6 +143,16 @@ function buildTrace(target: number): Snapshot[] {
       ...(extra.write ? { write: extra.write } : {}),
     });
   };
+
+  // Base case first — the Java shown above returns `n` directly when
+  // n < 2, so the widget has to honor that path too. Otherwise a
+  // teacher passing `target={0}` or `target={1}` would see the trace
+  // walk through the two-variable init (a lie about what the code
+  // does).
+  if (target < 2) {
+    snap(2, `Caso base: n = ${target} < 2, la función devuelve ${target} directamente.`);
+    return events;
+  }
 
   previous = 0;
   current = 1;

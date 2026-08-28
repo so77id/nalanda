@@ -16,7 +16,7 @@ import {
   LazyMermaid,
   LazyPredictOutput,
   LazyStepShow,
-  Math,
+  MathTex,
   MdxPre,
   MemoryVisual,
   Mosaic,
@@ -149,7 +149,11 @@ export const mdxComponents = {
   // pays for the Math shell (Suspense + a few lines of JSX); only pages
   // that actually mount a <Math> pull the KaTeX chunk. Guarded by
   // architecture.test.ts (the katex ban).
-  Math,
+  //
+  // Exported name is `MathTex` (avoids shadowing the JS global `Math`
+  // in TypeScript modules) and re-aliased here as `Math` for MDX
+  // authors — the short name in course prose, the safe name in code.
+  Math: MathTex,
   // Not lazy: takes typed state, calls the pure `memoryLayout` algorithm and
   // paints SVG. No runtime seam, no CheerpJ, no CodeMirror — the whole reversal
   // #209 buys is that this component's cost is its own tiny chunk and nothing
