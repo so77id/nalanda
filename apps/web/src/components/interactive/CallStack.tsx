@@ -92,7 +92,10 @@ static long broken(int n) {
 };
 
 const MAX_TRACE_LENGTH = 3000;
-const BROKEN_DEFAULT_DEPTH = 6;
+// 20 pushes before the runtime gives up on the broken recipe — the
+// deck talks about "20 llamadas y se llega al overflow", so the demo
+// has to land there.
+const BROKEN_DEFAULT_DEPTH = 20;
 
 export interface CallStackProps {
   recipe?: string;
@@ -187,7 +190,7 @@ export function CallStack({
     );
   }
 
-  const overflowed = traceResult.overflowedAt !== undefined;
+  const willOverflow = traceResult.overflowedAt !== undefined;
   const clampedStep = Math.min(step, traceResult.events.length);
   const state = replay(traceResult.events, clampedStep);
   const currentEventLabel = clampedStep > 0 ? traceResult.events[clampedStep - 1]!.description : '';
@@ -195,6 +198,11 @@ export function CallStack({
   const canStepBack = clampedStep > 0;
   const canStepForward = clampedStep < traceResult.events.length;
   const atEnd = !canStepForward;
+  // The red StackOverflowError signalling — banner, header chip,
+  // current-frame variant — only fires once the reader has stepped
+  // all the way through the trace and the overflow event actually
+  // lands. Before then the widget behaves as a normal execution.
+  const overflowed = willOverflow && atEnd;
 
   const currentFrame = state.frames.length > 0 ? state.frames[state.frames.length - 1]! : null;
   const pausedFrames = state.frames.slice(0, -1);

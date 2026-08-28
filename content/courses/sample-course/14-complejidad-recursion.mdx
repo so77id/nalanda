@@ -203,9 +203,7 @@ después de la llamada). Al correr `factorial(5)` debería imprimir
 </Slide>
 
 <Slide title="¿Qué es el stack de llamadas?">
-<Split ratio="60/40">
-
-<div>
+<Figure src="./lifo-stack.svg" alt="Pila con tres valores (1, 5, 0 de abajo hacia arriba). Una flecha entra con el valor -1 empujándolo a la cima; otra flecha sale con el valor 8 dejando la pila. Debajo, la etiqueta 'Last in, First out'." caption="Push y pop en una pila LIFO" float="right" width="sm" />
 
 El **stack de llamadas** es una región de memoria que el runtime (la
 JVM en nuestro caso) reserva para cada hilo de ejecución. Es la
@@ -222,19 +220,11 @@ corriendo, qué la llamó, y qué queda por hacer cuando termine.
   proceso: el heap almacena objetos de vida larga (creados con `new`);
   el stack almacena datos temporales asociados a la llamada actual.
 
-</div>
-
-<Figure src="./lifo-stack.svg" alt="Pila con tres valores (1, 5, 0 de abajo hacia arriba). Una flecha entra con el valor -1 empujándolo a la cima; otra flecha sale con el valor 8 dejando la pila. Debajo, la etiqueta 'Last in, First out'." caption="Push y pop en una pila LIFO" />
-
-</Split>
-
 Cada llamada a una función crea **un frame** en el stack.
 </Slide>
 
 <Slide title="Un frame por llamada">
-<Split ratio="60/40">
-
-<div>
+<Figure src="./frame-anatomy.svg" alt="Diagrama de un frame con cuatro cajas etiquetadas: 'nombre y parámetros' arriba, 'variables locales' y 'valor de retorno' en el medio, 'dirección de retorno' abajo." caption="Contenido de un frame" float="right" width="sm" />
 
 Cada vez que se llama a una función, el runtime **reserva un frame** en
 el stack con toda la información que la función necesita para
@@ -248,12 +238,6 @@ contiene:
   la función termina de calcularlo.
 - **Dirección de retorno** — la posición en el código a la que hay que
   volver cuando esta función termine.
-
-</div>
-
-<Figure src="./frame-anatomy.svg" alt="Diagrama de un frame con cuatro cajas etiquetadas: 'nombre y parámetros' arriba, 'variables locales' y 'valor de retorno' en el medio, 'dirección de retorno' abajo." caption="Contenido de un frame" />
-
-</Split>
 
 Cuando la función retorna, el frame **se elimina** del stack y su
 memoria vuelve a estar disponible. Todo lo que estaba en él (locales,
@@ -283,80 +267,50 @@ StackOverflowError, siempre.
 
 <Slide title="StackOverflowError: datos demasiado profundos">
 No solo la recursión mal diseñada revienta el stack. Una recursión
-**lineal bien planteada** sobre un input muy profundo — una lista de un
-millón de elementos, un árbol muy alto — también agota el stack:
+**lineal bien planteada** sobre un input muy profundo — una lista de
+un millón de elementos, un árbol muy alto — también agota el stack:
 
-<CallStack recipe="factorial" arg={20} maxDepth={4} />
+<CallStack recipe="factorial" arg={21} maxDepth={20} />
 
 Acá `factorial` está bien escrita, pero simulamos un stack pequeño
-(profundidad 4). El resultado es el mismo error: la recursión
-matemática existe, pero el hardware no la puede correr. Para esos casos
-hay que **convertir a iteración** o usar otra estructura de datos que
-gestione la memoria por nosotros.
+(profundidad 20). El resultado es el mismo error: la recursión
+matemática existe, pero el hardware no la puede correr. Para esos
+casos hay tres caminos:
+
+- **Convertir la recursión a iteración** — reescribir el algoritmo con
+  un `for` o `while` que no consume stack.
+- **Usar otra estructura de datos** — un `Deque` en el heap que emule
+  el stack de llamadas, gestionado por nosotros y sin el límite del
+  runtime.
+- **Agrandar el stack** — en la JVM, con el flag `-Xss` al arrancar la
+  máquina virtual. Es un parche: pospone el problema, no lo elimina.
 </Slide>
 
 <Slide title="Otro ejemplo en el stack: `power(2, 13)`">
-Una segunda función recursiva, con un patrón distinto: **exponenciación
-rápida**. En lugar de multiplicar $$x$$ por sí mismo $$n$$ veces, se
-apoya en la mitad — $$x^n = (x^{n/2})^2$$ cuando $$n$$ es par, y
-$$x^n = x \cdot (x^{n/2})^2$$ cuando es impar. El resultado es una
-recursión **por división**: la profundidad ya no crece con $$n$$ sino
-con $$\log_2 n$$.
+Calcular $$x^n$$ es un problema clásico. La forma **ingenua** — un
+`for` que multiplica $$x$$ por sí mismo $$n$$ veces — es lineal:
+$$\Theta(n)$$ multiplicaciones. Pero existe una **versión rápida**,
+recursiva, que se apoya en una observación aritmética: si conocemos
+$$x^{n/2}$$, obtenemos $$x^n$$ elevándolo al cuadrado. Cada llamada
+reduce el problema a la mitad, y la profundidad del stack crece con
+$$\log_2 n$$ en lugar de con $$n$$.
+
+Su definición matemática es una función por partes:
+
+$$
+x^n = \begin{cases}
+1 & \text{si } n = 0 \\
+\left(x^{n/2}\right)^2 & \text{si } n \text{ es par} \\
+x \cdot \left(x^{n/2}\right)^2 & \text{si } n \text{ es impar}
+\end{cases}
+$$
+
+Traducida a Java y corrida en el stack:
 
 <CallStack recipe="power" arg={13} />
 
 Miren la profundidad: `power(2, 13)` alcanza solo **4 frames** en el
-stack, no 13. Cada llamada halva el argumento. Esa es la firma de una
-recursión por división, y volveremos sobre ella en la próxima sección
-cuando le calculemos el $$T(N)$$.
-</Slide>
-
-<Slide title="Ejercicio: suma de los primeros N naturales">
-Repasamos la receta con un problema propuesto:
-
-<Exercise title="Suma de los primeros N naturales">
-
-El objetivo es implementar una función recursiva `sum` que reciba un
-entero $$N \geq 0$$ y devuelva la suma $$1 + 2 + 3 + \ldots + N$$. **No
-podemos usar la fórmula $$N(N+1)/2$$**; el ejercicio es diseñar la
-recursión.
-
-Guía de diseño (aplicamos la receta):
-
-1. ¿Cuál es el **caso base**? ¿Qué devuelve `sum(0)`?
-2. ¿Cuál es el **paso recursivo**? ¿Qué relación hay entre `sum(N)` y
-   `sum(N-1)`?
-3. ¿Cómo garantizamos **convergencia**? ¿El argumento decrece hacia el
-   caso base?
-
-```java starter
-class Solution {
-    static long sum(int n) {
-        return 0;
-    }
-}
-```
-
-```java test
-check(Solution.sum(0), 0L);
-check(Solution.sum(1), 1L);
-check(Solution.sum(5), 15L);
-check(Solution.sum(10), 55L);
-check(Solution.sum(100), 5050L);
-```
-
-</Exercise>
-
-Una vez que la solución pase todos los casos, la vemos corriendo en el
-stack:
-
-<CallStack recipe="sum" arg={5} />
-
-Reconocemos el patrón: es idéntico al de factorial. Ambas son recursiones
-lineales, ambas hacen un push por paso y devuelven combinando el
-resultado del sub-caso con un poco de trabajo local. Este es el patrón
-más simple de la recursión, y es el punto de partida del análisis formal
-que sigue.
+stack, no 13. Cada llamada halva el argumento.
 </Slide>
 
 <SectionBreak />

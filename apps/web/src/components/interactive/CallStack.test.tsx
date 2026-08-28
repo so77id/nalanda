@@ -109,7 +109,9 @@ describe('CallStack', () => {
   it('triggers StackOverflowError with the broken recipe at the default cap', async () => {
     render(<CallStack recipe="broken" arg={3} />);
     const forward = screen.getByRole('button', { name: /paso adelante/i });
-    for (let i = 0; i < 20; i++) {
+    // Broken default cap is 20 (~21 events). Loop generously so we
+    // reach the end of the trace where the overflow signalling fires.
+    for (let i = 0; i < 40; i++) {
       const btn = screen.getByRole('button', { name: /paso adelante/i }) as HTMLButtonElement;
       if (btn.disabled) break;
       await userEvent.click(forward);
@@ -117,6 +119,21 @@ describe('CallStack', () => {
     expect(screen.getAllByText(/StackOverflowError/i).length).toBeGreaterThan(0);
     // The top frame is painted with the overflow variant.
     expect(screen.getByTestId('callstack-frame-overflow')).toBeInTheDocument();
+  });
+
+  it('does not paint the StackOverflowError banner until the reader reaches the overflow event', async () => {
+    // With the broken recipe (default cap = 20) the overflow only lands
+    // at the last event. Mid-trace the banner and the flag chip stay
+    // silent — this is the invariant slide 11 relies on.
+    render(<CallStack recipe="broken" arg={3} />);
+    // Straight after render, before any step: banner is absent.
+    expect(screen.queryByTestId('callstack-frame-overflow')).not.toBeInTheDocument();
+    expect(screen.queryAllByText(/StackOverflowError/i)).toHaveLength(0);
+    // A couple of steps in — still not there.
+    const forward = screen.getByRole('button', { name: /paso adelante/i });
+    for (let i = 0; i < 3; i++) await userEvent.click(forward);
+    expect(screen.queryByTestId('callstack-frame-overflow')).not.toBeInTheDocument();
+    expect(screen.queryAllByText(/StackOverflowError/i)).toHaveLength(0);
   });
 
   it('triggers StackOverflowError on factorial when maxDepth is set low', async () => {
