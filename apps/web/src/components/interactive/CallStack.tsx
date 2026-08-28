@@ -110,7 +110,7 @@ export interface CallStackProps {
 
 /**
  * A widget that makes the JVM call stack visible during a recursive
- * execution (ADR-0049 · v4 layout 2026-08-27).
+ * execution (ADR-0054 · v4 layout 2026-08-27).
  *
  * Layout (two columns, transversal): the left column (~75%) is split
  * vertically — code on top, current context below. The right column

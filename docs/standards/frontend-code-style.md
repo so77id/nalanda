@@ -236,9 +236,28 @@ src/
   exception**: a pure helper may be extracted at its FIRST use when the real data
   cannot exercise all its branches. The extraction exists to make the unreachable
   case testable, not to anticipate reuse, and it belongs to its feature — not
-  `lib/` — unless it is feature-agnostic. Worked case (#87):
-  `catalog/componentCount.ts`, because no family holds exactly one component, so
-  `1 component` would ship unproven if the logic stayed inline.
+  `lib/` — unless it is feature-agnostic. Worked cases:
+  - `catalog/componentCount.ts` (#87), a pure numeric helper — no family holds
+    exactly one component, so `1 component` would ship unproven if the logic
+    stayed inline.
+  - `components/interactive/readWriteVocabulary.tsx` (#221), a shared JSX +
+    Tailwind helper across sibling widgets (`FibMemoSteps` / `FibTabSteps` /
+    `FibIterSteps` all paint cells with the same read/write/dim colour rule
+    and carry the same two-swatch legend). Colocates in the feature folder,
+    NOT `lib/`, because the vocabulary is specific to those siblings; stays
+    deliberately narrow — exports only the class-name formula and the legend,
+    not the surrounding cell shape (which diverges: `VarCell` vs `ArrayCell`).
+- **Never export a component under a name that shadows a JavaScript global**
+  (`Math`, `Object`, `Number`, `Function`, `Date`, `Map`, `Set`, `Array`,
+  `Promise`, `Error`, `Symbol`, `RegExp`). The identifier reaches every
+  TypeScript module that imports the `components/` seam, and a
+  `Math.floor(x)` in an unrelated module will silently resolve to the
+  component instead of the global. Export the component under a suffixed
+  name and alias it at the MDX layer if a shorter name is desired for
+  authors. Worked case: `components/media/Math.tsx` exports `MathTex`;
+  `app/mdxComponents.ts` re-registers it as `Math: MathTex` so course
+  authors keep the short `<Math>` in prose (#221 review — the naive export
+  `Math` clobbered the JS global for every TypeScript module downstream).
 - Fail fast at boundaries with clear messages: prefer explicit checks with
   descriptive errors over `!` non-null assertions at DOM/external boundaries
   (see `app/main.tsx` root check); user-facing failures render friendly UI,

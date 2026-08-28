@@ -7,7 +7,7 @@ export const recursionTreeCatalogEntry: CatalogEntry = {
   name: 'RecursionTree',
   family: 'interactive',
   description:
-    'A drawing of a recursive call that opens one click at a time. The root sits alone at first; a click on any interior node reveals its subcalls, a second click hides them again. Nodes with the same argument share a colour (fib, factorial), so the DUPLICATION that makes recursive Fibonacci slow becomes visible as the reader expands. The `hanoi` recipe uses uniform coloring instead — every call has distinct arguments, and the uniform paint carries the pedagogical signal that no two subproblems repeat (ADR-0051).',
+    'A drawing of a recursive call that opens one click at a time. The root sits alone at first; a click on any interior node reveals its subcalls, a second click hides them again. Nodes with the same argument share a colour (fib, factorial), so the DUPLICATION that makes recursive Fibonacci slow becomes visible as the reader expands. The `hanoi` recipe uses uniform coloring instead — every call has distinct arguments, and the uniform paint carries the pedagogical signal that no two subproblems repeat (ADR-0056).',
   whenToUse:
     'For a recursive pattern where the shape of the call tree is what the section is teaching — the Fibonacci case study, or the Torres de Hanoi counter-example where the tree without repetitions shows why memoization does not help. ' +
     'NOT for tracing a single execution to teach how it works — a linear recursion (factorial(4)) reads better in prose than as a click-through, and this component is not designed to replace that. Its power is showing REPETITION (or the lack of it). ' +

@@ -43,7 +43,7 @@ export interface LineAnnotation {
   sub?: SubOperation[];
   /**
    * Free-form pedagogical note about this line. Used ONLY by `mode="recursion"`
-   * (ADR-0048) to point out "esta llamada aporta T(n-1)"-style annotations
+   * (ADR-0053) to point out "esta llamada aporta T(n-1)"-style annotations
    * that are not algebraic contributions but recurrence-building observations.
    * The other modes ignore this field.
    */
@@ -54,7 +54,7 @@ export interface LineAnnotation {
  * One step in the recurrence unroll: the current form (as author-written
  * text — the widget does not parse or manipulate) plus an optional short
  * parenthetical note explaining what changed at this step. Used ONLY by
- * `mode="recursion"` (ADR-0048).
+ * `mode="recursion"` (ADR-0053).
  */
 export interface RecurrenceStep {
   /** Author-written text (`"T(n) = T(n-1) + T(n-2) + c"`). Rendered verbatim. */
@@ -91,7 +91,7 @@ export interface ComplexityCase {
    */
   skipped?: Array<{ line: number; note?: string }>;
   // ------------------------------------------------------------------
-  // Recursion-mode fields (ADR-0048) — required for `mode="recursion"`,
+  // Recursion-mode fields (ADR-0053) — required for `mode="recursion"`,
   // ignored elsewhere. The widget renders these verbatim; it does not
   // solve, parse or manipulate the recurrence.
   // ------------------------------------------------------------------
@@ -123,7 +123,7 @@ export interface ComplexityCounterProps {
    *   (e.g. `"por iteración"`). Used to introduce a code before any specific
    *   case has been derived; the same widget then re-appears in `'base'` mode
    *   for each concrete case.
-   * - `'recursion'` (ADR-0048): code + per-line free-form `note` annotations +
+   * - `'recursion'` (ADR-0053): code + per-line free-form `note` annotations +
    *   three static panels (Recurrencia, Desarrollo, Forma cerrada). No slider,
    *   no OE substitution, no algebraic parsing. Used to analyse the cost of
    *   a recursive algorithm.

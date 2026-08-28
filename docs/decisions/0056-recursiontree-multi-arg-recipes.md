@@ -1,4 +1,4 @@
-# ADR-0051: Multi-argument recipes in `<RecursionTree>` (Hanoi extension)
+# ADR-0056: Multi-argument recipes in `<RecursionTree>` (Hanoi extension)
 
 **Status:** Accepted
 **Date:** 2026-08-27
@@ -114,7 +114,7 @@ if the reader hovers or inspects, but not on the chip.
 
 **API-compatible for existing recipes.** `fib` and `factorial` render
 byte-identical to before: same colours, same labels, same tree. The
-existing 8 tests stay green without changes.
+pre-existing component tests stay green without changes.
 
 **Recipe surface grows by four properties.** Every recipe now declares
 `format`, `seed`, `children`, `colorStrategy` — up from `label` and

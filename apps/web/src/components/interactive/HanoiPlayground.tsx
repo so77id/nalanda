@@ -136,7 +136,7 @@ export interface HanoiPlaygroundProps {
 }
 
 /**
- * A widget that animates the Torres de Hanoi algorithm (ADR-0050).
+ * A widget that animates the Torres de Hanoi algorithm (ADR-0055).
  *
  * Three vertical pegs, colored discs stacked by size on the origin peg,
  * and a side panel showing the recursive call currently executing. Playback

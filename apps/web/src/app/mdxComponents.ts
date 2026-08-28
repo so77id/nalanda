@@ -119,11 +119,11 @@ export const mdxComponents = {
   // Lazy: composes <CodeStepper> (CodeMirror + java grammar) and lucide
   // icons for its controls. Registering the real one here would put
   // CodeMirror in the entry chunk of every reader. Guarded by
-  // architecture.test.ts. ADR-0049.
+  // architecture.test.ts. ADR-0054.
   CallStack: LazyCallStack,
   // Lazy for pattern consistency; the tower/disc widget is lightweight but
   // the boundary is uniform across interactive widgets. Guarded by
-  // architecture.test.ts. ADR-0050.
+  // architecture.test.ts. ADR-0055.
   HanoiPlayground: LazyHanoiPlayground,
   // The lazy wrapper, not the widget itself: `<StepShow>` mounts a
   // `<CodeStepper>` that uses CodeMirror + `useGrammar` for the same syntax

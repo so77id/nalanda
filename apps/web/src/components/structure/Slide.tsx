@@ -24,7 +24,7 @@ interface Props {
  * The title itself is a JSX attribute string, which does NOT enter the MDX
  * pipeline — remark-math and rehype-katex only see body text. Without help,
  * `<Slide title="Costo $$O(N)$$">` would project the literal `$$O(N)$$` on
- * the deck. `renderInlineTitle` (ADR-0052) restores the two authoring
+ * the deck. `renderInlineTitle` (ADR-0057) restores the two authoring
  * needs that titles genuinely have — inline math and inline code — so an
  * author can write the same `$$…$$` and `` `…` `` that already work in
  * body prose.

@@ -39,6 +39,8 @@ content/courses/sample-course/
 ├── 11-complejidad-de-hilbert-al-big-o.mdx  # presentation: explicit — <ComplexityCounter> (all four modes incl. "abstract") + <ComplexityExercise> + <ComplexityHierarchy> + <MathPlot> + <Benchmark> + <VideoEmbed> + <Figure float=…> + <Question> with <Explanation>
 ├── eniac.jpg, gödel.jpg, hilbert.jpg, turing.jpg, turing-machine.gif, von-neumann.gif, von-neumann-architecture.svg   # assets for chapter 11
 ├── 13-complejidad-espacial.mdx  # presentation: explicit — <ComplexityCounter mode="space"> + <ComplexityExercise mode="space"|"cases"> + <Question> with <Explanation>
+├── 14-complejidad-recursion.mdx # presentation: explicit — <ComplexityCounter mode="recursion"> + <CallStack> + <HanoiPlayground> + <RecursionTree> + <FibMemoSteps> + <FibTabSteps> + <FibIterSteps> + <Math> + <ComplexityExercise> + <Question> with <Explanation>
+├── lifo-stack.svg, frame-anatomy.svg  # assets for chapter 14
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -279,20 +281,31 @@ formula to read as mathematics rather than as a list.
 formula — gets no id, no anchor and no entry in the section list, silently.
 Write `## El costo, $$\log_2 n$$` instead.
 
-**A `<Slide title="...">` cannot hold a formula**: the title is a JSX
-attribute, so the `$$` ship to the reader as literal characters, projected.
-Put the formula in the slide **body** instead, with a blank line above and
-below the `$$` block like any markdown inside JSX, and keep the title plain:
+**`<Slide title="...">` DOES support inline math and inline code** — since
+ADR-0057, a small runtime tokenizer (`renderInlineTitle`) walks the string
+looking for `$$…$$` math and `` `…` `` code. Both work:
 
 ```mdx
-<Slide title="Cómo se calcula tu nota">
-
-$$
-N_p = 0{,}25\,S_1 + 0{,}25\,S_2
-$$
-
-</Slide>
+<Slide title="El costo del algoritmo: $$\Theta(N \log N)$$">
+<Slide title="`power(x, e)`: elevar cortando el exponente a la mitad">
+<Slide title="El widget `<StepShow>` para $$\log_2 n$$ pasos">
 ```
+
+Tokenizing rules: only the `$$` / `$$` pair (double delimiter) is math,
+so a single `$` in a title is left alone; a backtick pair marks inline
+code the same way it does in prose. Malformed markers (unmatched `$$` or
+lone `` ` ``) fall back to literal text — no build error, no crash. A
+title that is ONLY a formula still gets a valid section anchor: `<Slide>`
+passes the raw string to the heading's `slugSource` prop so the id is
+computed from the source, not the KaTeX HTML.
+
+While the KaTeX chunk loads (lazy, per ADR-0057), the raw LaTeX shows
+briefly as fallback text — subsecond on a warm cache. The math renders
+in the reader's theme automatically.
+
+**Body math still uses `$$…$$` in prose**: rehype-katex processes it at
+build time, so no runtime code loads for a page whose math is all in
+plain prose.
 
 Three things worth knowing, all measured rather than assumed:
 
@@ -314,6 +327,36 @@ Three things worth knowing, all measured rather than assumed:
 
 Screen readers are covered: KaTeX emits MathML beside the visual rendering,
 so a formula is read as mathematics rather than skipped as decoration.
+
+**`<Math>` for math inside JSX expressions**: when a formula has to live
+inside a JSX expression attribute (a widget prop like `reveal={...}`) or
+inside a JSX children expression that MDX has already interpreted, the
+`$$…$$` route doesn't reach — rehype-katex only runs on prose. Use the
+`<Math>` component:
+
+```mdx
+<ComplexityExercise
+  reveal={
+    <div>
+      <p>El costo del paso es <Math>{'T(N-1) + c'}</Math>.</p>
+      <Math block>{'T(N) = Nc \\Rightarrow T(N) \\in \\Theta(N)'}</Math>
+    </div>
+  }
+/>
+```
+
+Same KaTeX pipeline as prose math, but loaded lazily at runtime — pages
+that never mount a `<Math>` never fetch the KaTeX chunk. Two things worth
+knowing:
+
+- **Backslashes must be doubled inside JS string literals**: write
+  `{'\\Theta(N)'}` and `{'\\log_2 e'}`, not `{'\Theta(N)'}` (the JS
+  string parser eats the single `\`).
+- `<Math>` is inline by default (rendered in a `<span>`); pass `block`
+  for centered display math (`<Math block>{'…'}</Math>`).
+
+Prefer `$$…$$` in ordinary prose — it renders at build time and costs no
+runtime code. `<Math>` earns its cost only where prose math can't reach.
 
 4. **Mark slides (optional)**: `<Slide title="...">...</Slide>` and
    `<SectionBreak />` are available WITHOUT imports. In the book view a Slide

@@ -107,7 +107,7 @@ describe('RecursionTree', () => {
   });
 
   // ---------------------------------------------------------------------
-  // recipe="hanoi" — ADR-0051
+  // recipe="hanoi" — ADR-0056
   // Multi-arg recipe with `from → to` in the label and uniform coloring
   // (no repeated calls, so no color-sharing to signal).
   // ---------------------------------------------------------------------

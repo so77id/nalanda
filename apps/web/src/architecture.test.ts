@@ -354,6 +354,103 @@ describe('architecture: the complexityhierarchy widget stays out of the entry ch
   });
 });
 
+describe('architecture: the callstack widget stays out of the entry chunk', () => {
+  // CallStack composes <CodeStepper> (CodeMirror + java grammar) plus
+  // lucide icons for its controls. Registering the real component eagerly
+  // would pull CodeMirror into the entry chunk of every reader of every
+  // page. ADR-0054. Same shape as the other heavy-component guards — a
+  // single ALLOWED entry, no per-file exemptions.
+  const ALLOWED = ['components/interactive/lazyCallStack.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/callstack' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the hanoiplayground widget stays out of the entry chunk', () => {
+  // HanoiPlayground composes <CodeStepper> (CodeMirror + java grammar,
+  // for the code panel above the towers) plus lucide icons and the
+  // tower/disc animation glue. Registering the real component eagerly
+  // would pull CodeMirror into the entry chunk of every reader. ADR-0055.
+  const ALLOWED = ['components/interactive/lazyHanoiPlayground.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/hanoiplayground' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the fibmemosteps widget stays out of the entry chunk', () => {
+  // FibMemoSteps composes <StepShow> (which itself pulls CodeStepper +
+  // CodeMirror). It ships its own lazy wrapper AND appears in StepShow's
+  // ALLOWED list so the composite chunk contains both. This block guards
+  // the wrapper boundary — nobody else may import FibMemoSteps directly.
+  const ALLOWED = ['components/interactive/lazyFibMemoSteps.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/fibmemosteps' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the fibtabsteps widget stays out of the entry chunk', () => {
+  // Same rationale as FibMemoSteps: composite on top of StepShow, own
+  // lazy wrapper + ALLOWED entry in the step-through guard above.
+  const ALLOWED = ['components/interactive/lazyFibTabSteps.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/fibtabsteps' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the fibitersteps widget stays out of the entry chunk', () => {
+  // Same rationale as FibMemoSteps: composite on top of StepShow, own
+  // lazy wrapper + ALLOWED entry in the step-through guard above.
+  const ALLOWED = ['components/interactive/lazyFibIterSteps.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/fibitersteps' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: cross-feature dependencies', () => {
   it('only the allowed feature edges exist in production code', () => {
     // Test files may exercise any feature through its seam (they are consumers,

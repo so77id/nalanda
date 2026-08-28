@@ -15,12 +15,12 @@ export { LazyPredictOutput } from './interactive/lazyPredictOutput';
 export { LazyBenchmark } from './interactive/lazyBenchmark';
 // Lazy: composes <CodeStepper> (CodeMirror + java grammar) and lucide icons
 // for the playback controls. Registering the real one here would put
-// CodeMirror in the entry chunk of every reader (ADR-0049). Guarded by
+// CodeMirror in the entry chunk of every reader (ADR-0054). Guarded by
 // `src/architecture.test.ts` (per-name `callstack`).
 export { LazyCallStack } from './interactive/lazyCallStack';
 // Lazy for pattern consistency: HanoiPlayground carries lucide icons and
 // the tower/disc animation glue. Guarded by `src/architecture.test.ts`
-// (per-name `hanoiplayground`). ADR-0050.
+// (per-name `hanoiplayground`). ADR-0055.
 export { LazyHanoiPlayground } from './interactive/lazyHanoiPlayground';
 // Lazy for pattern consistency and for the CodeMirror-gutter future
 // extension the ADR anticipates (ADR-0045).
@@ -72,11 +72,11 @@ export type { StepProps } from './interactive/Step';
 // they render. Documents that never touch fib memoization must not pay
 // for it in their entry chunk.
 export { LazyFibMemoSteps } from './interactive/lazyFibMemoSteps';
-export type { FibMemoStepsProps } from './interactive/FibMemoSteps';
+export type { FibMemoStepsProps } from './interactive/lazyFibMemoSteps';
 export { LazyFibTabSteps } from './interactive/lazyFibTabSteps';
-export type { FibTabStepsProps } from './interactive/FibTabSteps';
+export type { FibTabStepsProps } from './interactive/lazyFibTabSteps';
 export { LazyFibIterSteps } from './interactive/lazyFibIterSteps';
-export type { FibIterStepsProps } from './interactive/FibIterSteps';
+export type { FibIterStepsProps } from './interactive/lazyFibIterSteps';
 export { MemoryVisual } from './interactive/MemoryVisual';
 export type {
   MemoryFrame,

@@ -34,7 +34,7 @@ const CODE = `static long fib(int n) {
 }`;
 
 /**
- * Step-by-step visualization of top-down memoized Fibonacci (ADR-0043,
+ * Step-by-step visualization of top-down memoized Fibonacci (ADR-0049,
  * on top of the `<StepShow>` primitive).
  *
  * Given a target n, the widget walks a real depth-first execution of

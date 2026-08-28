@@ -7,7 +7,7 @@ export const hanoiPlaygroundCatalogEntry: CatalogEntry = {
   name: 'HanoiPlayground',
   family: 'interactive',
   description:
-    'An animated Torres de Hanoi visualizer (ADR-0050). Three vertical pegs, colored discs with size numbers, and a side panel listing the recursive call chain currently executing. Playback is manual by default; controls Play / Pause / Step forward / Step back / Reset drive the walk.',
+    'An animated Torres de Hanoi visualizer (ADR-0055). Three vertical pegs, colored discs with size numbers, and a side panel listing the recursive call chain currently executing. Playback is manual by default; controls Play / Pause / Step forward / Step back / Reset drive the walk.',
   whenToUse:
     'When the class introduces or teaches Torres de Hanoi as a canonical recursive problem. Use it to show the algorithm executing move by move alongside the recursive call chain that produced each move. ' +
     'NOT for showing the recursion TREE — that is `<RecursionTree recipe="hanoi">`. ' +

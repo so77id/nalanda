@@ -1,4 +1,4 @@
-# ADR-0052: Inline math and code in `<Slide title>` (and other JSX attribute titles)
+# ADR-0057: Inline math and code in `<Slide title>` (and other JSX attribute titles)
 
 **Status:** Accepted
 **Date:** 2026-08-27

@@ -34,7 +34,7 @@ const CODE = `static long fib(int n) {
 }`;
 
 /**
- * Step-by-step visualization of bottom-up tabulated Fibonacci (ADR-0043,
+ * Step-by-step visualization of bottom-up tabulated Fibonacci (ADR-0049,
  * on top of the `<StepShow>` primitive).
  *
  * Simpler cousin of `<FibMemoSteps>`: no stack, no `done`. The trace

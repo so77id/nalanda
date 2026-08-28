@@ -1,6 +1,11 @@
 import { Suspense, lazy } from 'react';
 
 import type { FibMemoStepsProps } from './FibMemoSteps';
+// Re-export so consumers of the components seam can `import type
+// { FibMemoStepsProps } from '../components/lazyFibMemoSteps'` (or
+// through the seam) without statically pulling the real widget's
+// module — the arch guard for this widget requires that.
+export type { FibMemoStepsProps } from './FibMemoSteps';
 
 // Same rule as the other lazy wrappers: this widget composes <StepShow>,
 // which pulls the CodeStepper (CodeMirror + java grammar) the first

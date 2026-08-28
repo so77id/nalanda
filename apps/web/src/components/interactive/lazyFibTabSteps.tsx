@@ -1,6 +1,9 @@
 import { Suspense, lazy } from 'react';
 
 import type { FibTabStepsProps } from './FibTabSteps';
+// Re-export so consumers of the components seam import types from the
+// lazy wrapper, not the real widget — the arch guard requires it.
+export type { FibTabStepsProps } from './FibTabSteps';
 
 // Same rule as the other lazy wrappers: this widget composes <StepShow>,
 // which pulls the CodeStepper (CodeMirror + java grammar) the first

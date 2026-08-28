@@ -23,7 +23,7 @@ export const complexityCounterCatalogEntry: CatalogEntry = {
   description:
     'A widget that makes the process of counting operations visible (ADR-0045). Real CodeEditor on the left, side rail on the right. Rail rows are keyed by CODE LINE NUMBER — annotations line up with the source. Hovering a line in the editor highlights its annotation; hovering an annotation highlights its line. For-headers collapse under a chevron and display the aggregated OE total on the header row.',
   whenToUse:
-    'Anywhere the class teaches HOW to count operations, or HOW to analyse a recursive algorithm. Modes: "base" (one case, with slider + formula), "cases" (three tabs for best/worst/average), "space" (memory cells instead of OE; total labelled M(n)), "abstract" (code + per-line annotations without slider or derivation — used to introduce the code before any specific case has been derived, or per individual case with `skipped` lines dimmed), "recursion" (code + per-line notes + three panels — Recurrencia, Desarrollo, Forma cerrada — for linear-recurrence analyses; ADR-0048). ' +
+    'Anywhere the class teaches HOW to count operations, or HOW to analyse a recursive algorithm. Modes: "base" (one case, with slider + formula), "cases" (three tabs for best/worst/average), "space" (memory cells instead of OE; total labelled M(n)), "abstract" (code + per-line annotations without slider or derivation — used to introduce the code before any specific case has been derived, or per individual case with `skipped` lines dimmed), "recursion" (code + per-line notes + three panels — Recurrencia, Desarrollo, Forma cerrada — for linear-recurrence analyses; ADR-0053). ' +
     'NOT for showing the RESULT of running code — that is the Benchmark widget. ' +
     'NOT for Master-Theorem cases (a*T(n/b) + f(n)) — a future divide and conquer WP will add its own extension.',
   props: [
@@ -42,7 +42,7 @@ export const complexityCounterCatalogEntry: CatalogEntry = {
       name: 'mode',
       type: '"base" | "cases" | "space" | "abstract" | "recursion"',
       description:
-        'Layout mode. "base" (default): one case with slider + closed-form derivation. "cases": three tabs (best / worst / average), each carrying its own case. "space": base layout but the unit column is memory cells and the total is M(n). "abstract": code + per-line annotations only — no slider, no formula, no derivation panel; `times` is displayed as descriptive text (e.g. "per iteration") rather than an algebraic expression. In "abstract" mode `skipped` on the case dims listed code lines and renders a dedicated "does not execute" rail row for each. Added at ADR-0045 amendment 2026-08-25. "recursion" (ADR-0048): the widget renders three static panels — Recurrencia (T(n) = … plus base cases), Desarrollo (an ordered list of unroll steps with optional parentheticals) and Forma cerrada (emphasised) — plus per-line `note` annotations in the rail. No slider, no algebraic parsing.',
+        'Layout mode. "base" (default): one case with slider + closed-form derivation. "cases": three tabs (best / worst / average), each carrying its own case. "space": base layout but the unit column is memory cells and the total is M(n). "abstract": code + per-line annotations only — no slider, no formula, no derivation panel; `times` is displayed as descriptive text (e.g. "per iteration") rather than an algebraic expression. In "abstract" mode `skipped` on the case dims listed code lines and renders a dedicated "does not execute" rail row for each. Added at ADR-0045 amendment 2026-08-25. "recursion" (ADR-0053): the widget renders three static panels — Recurrencia (T(n) = … plus base cases), Desarrollo (an ordered list of unroll steps with optional parentheticals) and Forma cerrada (emphasised) — plus per-line `note` annotations in the rail. No slider, no algebraic parsing.',
     },
     {
       name: 'data',
@@ -113,7 +113,7 @@ export const complexityCounterCatalogEntry: CatalogEntry = {
       ),
     },
     {
-      title: 'fibNaive — recursion mode (ADR-0048): T(n) = T(n-1) + T(n-2) + c ⇒ Θ(φⁿ)',
+      title: 'fibNaive — recursion mode (ADR-0053): T(n) = T(n-1) + T(n-2) + c ⇒ Θ(φⁿ)',
       code: '<ComplexityCounter mode="recursion" code="..." data={{ annotations: { 2: { note: "..." }, 3: { note: "..." } }, recurrence: "T(n) = T(n-1) + T(n-2) + c", base: { "T(0)": "c", "T(1)": "c" }, unroll: [{form, note}, ...], closedForm: "T(n) = Θ(φⁿ)" }} />',
       render: () => (
         <ComplexityCounter

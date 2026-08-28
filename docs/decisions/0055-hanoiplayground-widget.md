@@ -1,4 +1,4 @@
-# ADR-0050: `<HanoiPlayground>` widget for animating Torres de Hanoi
+# ADR-0055: `<HanoiPlayground>` widget for animating Torres de Hanoi
 
 **Status:** Accepted
 **Date:** 2026-08-27
@@ -31,7 +31,7 @@ algorithm are worth teaching:
    effect.
 
 Existing widgets don't cover this together. `<RecursionTree recipe="hanoi">`
-(ADR-0051) shows the tree — a global view of every call — but not the
+(ADR-0056) shows the tree — a global view of every call — but not the
 towers or the disc sequence. `<CallStack recipe="hanoi">` shows the stack
 depth but not the puzzle state. Neither shows the algorithm EXECUTING on
 the puzzle it solves.
@@ -75,7 +75,7 @@ palpable. Authors get an authoring error above 6, redirecting them to
 `<RecursionTree recipe="hanoi">` for the structural view.
 
 **5. Playback is manual by default, autoplay is available.** Consistent
-with `<CallStack>` (ADR-0049). The professor drives the walk in class;
+with `<CallStack>` (ADR-0054). The professor drives the walk in class;
 the autodidacta reader can autoplay if they want. Manual playback with
 Step back gives the reader the ability to REVIEW a move they missed —
 autoplay alone would force restarting from the beginning.
@@ -127,7 +127,8 @@ tower CONFIGURATIONS, not the motion between them.
 
 **Sixth widget in the interactive family.** Registered lazily via
 `<LazyHanoiPlayground>` following the same pattern as the others.
-Architecture test pins the per-name chunk (`hanoiplayground`).
+Guarded by `apps/web/src/architecture.test.ts` per-component case for
+`hanoiplayground`.
 
 **The widget knows the algorithm.** Adding a variant of Hanoi (e.g.
 Frame–Stewart's four-peg problem) requires code changes here, not
@@ -150,11 +151,11 @@ tiene 1. 5 movimientos ejecutados.`) so a screen-reader user gets the
 same information as a sighted one. The call chain is an ordered list
 with an accessible name. Colour is never the only signal.
 
-**Test coverage covers the state machine directly.** 11 cases assert
-initial state, step forward/back/reset, movement counter, tower
-configurations at intermediate and final states, side-panel behaviour,
-and both authoring-error paths. Autoplay is not asserted (jsdom
-doesn't advance timers legibly).
+**Test coverage covers the state machine directly.** The component
+test suite asserts initial state, step forward/back/reset, movement
+counter, tower configurations at intermediate and final states,
+side-panel behaviour, and both authoring-error paths. Autoplay is not
+asserted (jsdom doesn't advance timers legibly).
 
 **No package.json change.** Uses lucide-react (already present),
 `useResolvedTheme` (already present), and standard React state.

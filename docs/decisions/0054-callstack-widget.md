@@ -1,4 +1,4 @@
-# ADR-0049: `<CallStack>` widget for visualizing recursive execution
+# ADR-0054: `<CallStack>` widget for visualizing recursive execution
 
 **Status:** Accepted
 **Date:** 2026-08-27
@@ -49,19 +49,24 @@ generate the trace for each supported recipe.
 **2. The trace is generated from a NAMED RECIPE — the widget does not run
 Java in the browser.** Same principle as `<RecursionTree>` (ADR of that
 widget): declarative recipes over live execution. The recipes reproduce the
-canonical implementations by hand — `factorial`, `sum` (linear), `fib`
-(non-linear), `hanoi` (non-linear with side-effecting args), and `broken`
-(no base case, for the StackOverflow demo). Extending to `custom` (arbitrary
-author-supplied trace) is future work — the recipes cover every case the
-chapter needs.
+canonical implementations by hand — `factorial`, `sum` (linear by
+decrement), `fib` (non-linear), `hanoi` (non-linear with side-effecting
+args), `power` (linear by division — `T(N) = T(N/2) + c`, the logarithmic
+counter-example to `sum`), and `broken` (no base case, for the
+StackOverflow demo). Extending to `custom` (arbitrary author-supplied
+trace) is future work — the recipes cover every case the chapter needs.
 
-**3. Layout — code left, stack right, controls below.** Consistent with
-`<ComplexityCounter>` and the design pattern for widgets that ATTACH state
-to source code. `CodeStepper` on the left renders the recipe's own
-reference implementation (or an author-supplied `code` prop) with the
-current frame's source line highlighted. The stack panel on the right
-grows upward: base abajo, cima arriba — matching Yerko's slide and the
-convention in systems and memory teaching where addresses climb.
+**3. Layout — v4 (2026-08-27): two-column transversal.** The left column
+(~75%) is split vertically — CodeStepper on top with the current line
+highlighted, current-context frame directly below. The right column
+(~25%) is the paused-stack column, running the full height of the left
+side; it scrolls internally so the outer widget never grows as the stack
+deepens. The paused stack anchors newest-first (the frame closest to the
+current context sits at the top). A controls footer captions each event.
+This shape was iterated in review to give the code the largest slot, keep
+the current context readable, and keep the stack legible independent of
+depth (earlier layouts either forced the stack to grow the widget or
+buried the code).
 
 **4. Playback is MANUAL by default; autoplay is available on demand.**
 Controls: Play/Pausa (toggles), Paso adelante, Paso atrás, Reset. The
@@ -74,8 +79,9 @@ useful, both ship:
 
 - The `broken` recipe (`static long broken(int n) { return 1 + broken(n - 1); }`)
   simulates a recursión mal diseñada. Every push adds a frame; the trace
-  never returns. By default `broken` caps at depth 8 so the demo is short
-  and legible on a slide.
+  never returns. By default `broken` caps at depth 20 — the number the
+  deck names ("20 llamadas y se llega al overflow") — so the demo lands
+  the error the slide claims it will land.
 - The `maxDepth` prop on any recipe simulates a finite stack for a
   normally-terminating recursion. `<CallStack recipe="factorial" arg={20}
   maxDepth={5} />` shows that even a well-formed recursion can overflow
@@ -133,30 +139,32 @@ grammar) and lucide icons for the controls, so eager registration would put
 CodeMirror in the entry chunk of every reader. Guarded by
 `apps/web/src/architecture.test.ts` per-component case for `callstack`.
 
-**Adds five recipe names** the author can call by. The recipe set is a
-BOUNDED authoring surface: adding a new recipe is a code change (test +
-catalog entry), not a document change. That is the cost of the declarative
-model, deliberately.
+**Adds six recipe names** the author can call by (`factorial`, `sum`,
+`fib`, `hanoi`, `power`, `broken`). The recipe set is a BOUNDED authoring
+surface: adding a new recipe is a code change (test + catalog entry),
+not a document change. That is the cost of the declarative model,
+deliberately.
 
 **Frame count grows with the size of the trace — no automatic sampling.**
-For fib(N) the trace has $$O(\varphi^N)$$ events; the widget caps at 2000
+For fib(N) the trace has $$O(\varphi^N)$$ events; the widget caps at 3000
 events with an authoring error and asks the author to reduce `arg`. This
 matches `<RecursionTree>`'s node cap. The cap is generous enough for every
 use in the chapter (`fib(10)` is 177 events, `hanoi(5)` is 62 events) and
 strict enough that a typo in the fence does not freeze the tab.
 
 **Test coverage covers the state machine directly.** Push, pop, back,
-reset, StackOverflow (both mechanisms), and the four label shapes
-(factorial, sum, fib, hanoi) are asserted in the component test suite.
-Autoplay is not asserted (jsdom doesn't advance timers legibly and the
-behavior is a thin timeout).
+reset, StackOverflow (both mechanisms — `broken` at the default cap of
+20 and `factorial` with a low `maxDepth`), and the label shapes of every
+recipe (factorial, sum, fib, hanoi, power) are asserted in the component
+test suite. Autoplay is not asserted (jsdom doesn't advance timers
+legibly and the behavior is a thin timeout).
 
 **Future extension paths without breaking the API**:
 - Recipe `custom` accepting an author-supplied trace array.
 - Frame extension for local variables when a recipe needs them.
 - Optional side panel showing the recursive call being executed (for
   Hanoi and similar) — this is the direction the `<HanoiPlayground>`
-  widget (ADR-0050) took as a dedicated component, but a future
+  widget (ADR-0055) took as a dedicated component, but a future
   `showRecursiveCall` prop could bring the pattern back into
   `<CallStack>`.
 

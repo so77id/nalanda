@@ -7,7 +7,7 @@ export const callStackCatalogEntry: CatalogEntry = {
   name: 'CallStack',
   family: 'interactive',
   description:
-    'A widget that makes the JVM call stack visible during a recursive execution (ADR-0049, v2 redesign). Three-column layout: code panel on the left (40%), current-context frame in the center (30%, dashed accent border), stack of paused frames on the right (30%, solid borders). Each frame shows its label plus its local variables with values (or `?` for pending). A footer legend describes each event in Spanish ("invocando factorial(2)", "return 6"). Playback is manual by default with Play / Pause / Step forward / Step back / Reset controls. The `broken` recipe demonstrates StackOverflowError.',
+    'A widget that makes the JVM call stack visible during a recursive execution (ADR-0054, v2 redesign). Three-column layout: code panel on the left (40%), current-context frame in the center (30%, dashed accent border), stack of paused frames on the right (30%, solid borders). Each frame shows its label plus its local variables with values (or `?` for pending). A footer legend describes each event in Spanish ("invocando factorial(2)", "return 6"). Playback is manual by default with Play / Pause / Step forward / Step back / Reset controls. The `broken` recipe demonstrates StackOverflowError.',
   whenToUse:
     'When the class teaches the memory of recursion — how a recursive call is executed by the runtime. Use it to show the stack growing during a linear or non-linear recursion (recipes `factorial`, `sum`, `fib`, `hanoi`) and to demonstrate StackOverflowError (recipe `broken` or any recipe with `maxDepth` set low). ' +
     'NOT for showing the TREE of a recursion — that is `<RecursionTree>`. ' +

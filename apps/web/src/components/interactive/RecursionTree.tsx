@@ -34,7 +34,7 @@ type Recipe = {
    * How to colour nodes. `by-arg` cycles through hues by `n` — the visual
    * signal that fib(3) appearing multiple times is the SAME call (ADR of
    * the original widget). `uniform` paints every node with the same accent
-   * hue — the visual signal that in Hanoi no two calls repeat (ADR-0051).
+   * hue — the visual signal that in Hanoi no two calls repeat (ADR-0056).
    */
   colorStrategy: 'by-arg' | 'uniform';
 };

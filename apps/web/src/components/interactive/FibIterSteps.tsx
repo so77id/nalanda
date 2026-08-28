@@ -39,7 +39,7 @@ const CODE = `static long fib(int n) {
 
 /**
  * Step-by-step visualization of the memory-collapsed bottom-up
- * Fibonacci (ADR-0043, on top of the `<StepShow>` primitive).
+ * Fibonacci (ADR-0049, on top of the `<StepShow>` primitive).
  *
  * The full table version lives in `<FibTabSteps>`; this widget shows
  * the sliding-window variant with only two live variables. Same

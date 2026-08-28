@@ -1,4 +1,4 @@
-# ADR-0048: `<ComplexityCounter mode="recursion">` for analyzing recursive algorithms
+# ADR-0053: `<ComplexityCounter mode="recursion">` for analyzing recursive algorithms
 
 **Status:** Accepted
 **Date:** 2026-08-26

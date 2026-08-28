@@ -289,7 +289,7 @@ export function SlideDeck({ docId, title, configMode = 'auto', children }: Props
               // room above so a two-line title doesn't hug the top edge.
               // Inline title tokens (KaTeX + code) rendered through the
               // shared helper — same string entering both surfaces (book h2
-              // and this deck heading) needs the same treatment (ADR-0052).
+              // and this deck heading) needs the same treatment (ADR-0057).
               <h2 className="text-accent-pop mt-8 mb-10 text-5xl font-bold tracking-tight">
                 {renderInlineTitle(slide.title)}
               </h2>

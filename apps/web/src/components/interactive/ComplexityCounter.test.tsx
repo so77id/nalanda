@@ -198,7 +198,7 @@ describe('ComplexityCounter', () => {
   });
 
   // ---------------------------------------------------------------
-  // mode="recursion" — ADR-0048
+  // mode="recursion" — ADR-0053
   // ---------------------------------------------------------------
 
   const FIB_NAIVE_CODE = `long fib(int n) {
