@@ -819,11 +819,11 @@ tiempo.
 </Slide>
 
 <Slide title="Solución y costo de Torres de Hanoi">
-El código del widget de la slide anterior — cuatro parámetros:
-**cuántos** discos mover, **de dónde**, **a dónde**, y **usando
-cuál** como auxiliar. Las dos llamadas recursivas **intercambian los
-roles** de las torres: el auxiliar del paso actual pasa a ser destino
-de una subllamada y origen de la otra.
+La función `hanoi` toma cuatro parámetros: **cuántos** discos mover,
+**de dónde**, **a dónde**, y **usando cuál** como auxiliar. Las dos
+llamadas recursivas **intercambian los roles** de las torres: el
+auxiliar del paso actual pasa a ser destino de una subllamada y
+origen de la otra.
 
 Aplicando la receta de análisis:
 
@@ -940,6 +940,74 @@ check(Solution.countBits(1024), 11);
 Una vez que la solución pase todos los casos, escribe la recurrencia
 $$T(N)$$ que produce el código y resolvela por expansión. **Pista**:
 la estructura es idéntica a la de `power(x, e)` que analizamos antes.
+
+## Ejercicios
+
+Los siguientes ejercicios cubren lo que vimos: derivar la recurrencia
+$$T(N)$$ desde el código, resolverla por expansión, y diagnosticar
+recursiones que no terminan. Algunos parten de código Java, otros
+de una recurrencia pura.
+
+Cada ejercicio muestra el enunciado y una pregunta. Al apretar
+**"Ver desarrollo"** se despliega el análisis completo — recurrencia,
+expansión paso a paso y forma cerrada. **Regla de oro**: intenta
+primero con lápiz y papel. Compara tu respuesta con el desarrollo.
+Si difieres, mirá dónde perdiste (o ganaste) una potencia.
+
+### Ejercicio 1 — `sumHasta(N)`
+
+<ComplexityExercise
+  algorithm="sumHasta"
+  prompt="T(n)"
+  hint="Es una recursión por decremento — el argumento baja de a uno. Aplicá la receta del capítulo: caso base + paso recursivo + trabajo constante."
+  code={`static long sumHasta(int n) {
+    if (n == 1) return 1;
+    return n + sumHasta(n - 1);
+}`}
+  reveal={
+    <div className="space-y-3 text-sm">
+      <p>
+        <strong>Análisis por línea</strong>: el caso base <code>if (n == 1)</code>{' '}
+        cuesta un trabajo constante <em>c</em>. El paso recursivo es una llamada de
+        tamaño <em>N-1</em> más una suma y un <code>return</code>: trabajo constante{' '}
+        <em>c</em> más <em>T(N-1)</em> que aporta la llamada.
+      </p>
+      <p>
+        <strong>Recurrencia como función por partes</strong>:
+      </p>
+      <pre className="rounded bg-sunk px-3 py-2 font-mono text-xs">
+        {`T(N) = { c              si N = 1
+       { T(N-1) + c     si N > 1`}
+      </pre>
+      <p>
+        <strong>Expansión</strong>, sustituyendo el término recursivo un paso a la
+        vez:
+      </p>
+      <pre className="rounded bg-sunk px-3 py-2 font-mono text-xs">
+        {`T(N) = T(N-1) + c
+     = T(N-2) + 2c
+     = T(N-3) + 3c
+     ⋮
+     = T(N-k) + k·c`}
+      </pre>
+      <p>
+        Cuando <em>k = N-1</em>, llegamos a <em>T(1) = c</em>:
+      </p>
+      <pre className="rounded bg-sunk px-3 py-2 font-mono text-xs">
+        {`T(N) = T(1) + (N-1)·c
+     = c + (N-1)·c
+     = N·c
+T(N) ∈ Θ(N)`}
+      </pre>
+      <p>
+        <strong>Patrón</strong>: es idéntico al de <code>factorial</code> —
+        recursión por decremento con trabajo constante por paso, resultado lineal.
+        Cada llamada baja el argumento en uno, así que hay <em>N</em> llamadas y{' '}
+        <em>N</em> retornos.
+      </p>
+    </div>
+  }
+/>
 
 <SectionBreak />
 
