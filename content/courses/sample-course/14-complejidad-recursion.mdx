@@ -624,39 +624,48 @@ Si una función va a ser llamada varias veces con el mismo argumento,
 **guardamos el resultado la primera vez y lo devolvemos cacheado las
 siguientes**. Esta técnica se llama **memoization**.
 
-**Donald Michie** (Reino Unido, 1923–2007) — matemático y pionero de la
-inteligencia artificial — publica esta idea en 1968 en *Nature*, en un
-paper corto titulado *["Memo functions and machine
-learning"](https://www.nature.com/articles/218019a0)*. La cita del
-paper:
+**Donald Michie** (Reino Unido, 1923–2007) — matemático y pionero de
+la inteligencia artificial — publica esta idea en 1968 en *Nature*,
+en un paper corto titulado *["Memo functions and machine
+learning"](https://www.nature.com/articles/218019a0)*. Su
+definición:
 
-> *"A memo function is one that both remembers its own past values and
-> can recompute them when necessary. It differs from an ordinary
-> function only in that its evaluation and its storage are indissolubly
-> linked."*
+> *"Una memo function es una función que recuerda sus propios valores
+> pasados y los puede recalcular cuando haga falta. Se diferencia de
+> una función ordinaria solo en que su evaluación y su almacenamiento
+> están indisolublemente ligados."*
 
-Traducido: *"Una memo function es una función que recuerda sus propios
-valores pasados y los puede recalcular cuando haga falta. Se diferencia
-de una función ordinaria solo en que su evaluación y su almacenamiento
-están indisolublemente ligados."*
+No cualquier función se puede memoizar. Hacen falta tres condiciones,
+y las tres tienen que cumplirse a la vez:
 
-**Precondiciones para memoizar**:
-- **Pura**: mismo argumento ⇒ mismo resultado. Sin dependencia de estado
-  externo, sin efectos secundarios.
-- **Espacio tratable**: la memoria del cache tiene que ser acotada. No se
-  puede memoizar una función que recibe strings arbitrarios sin acotar la
-  memoria.
-- **Subproblemas repetidos**: si cada llamada tiene argumentos distintos,
-  no hay nada que ahorrar.
+- **La función tiene que ser pura**: para el mismo argumento, siempre
+  devuelve el mismo resultado. Si depende de la hora, del azar o de
+  una variable global que alguien puede cambiar, el valor cacheado
+  puede quedar obsoleto y devolvernos una mentira. Sin pureza, la
+  memoria no es memoria: es una mentira almacenada.
+- **La memoria del cache tiene que caber**: si los argumentos posibles
+  son infinitos o gigantescos (por ejemplo, strings arbitrarios), el
+  cache crece sin control y termina siendo peor el remedio que la
+  enfermedad. En Fibonacci los argumentos son enteros $$0, 1, \ldots,
+  N$$: son $$N + 1$$ celdas, acotado.
+- **Los subproblemas se tienen que repetir**: si cada llamada usa un
+  argumento distinto, no hay nada que recordar. En Fibonacci
+  recursivo la pequeñísima diferencia entre `n-1` y `n-2` produce una
+  cantidad enorme de duplicados (`fib(k)` aparece una vez por cada
+  camino desde la raíz que llega a $$k$$), y ahí es donde
+  memoización paga.
 
-Fibonacci cumple las tres.
+`fib` cumple las tres, y por eso se puede rescatar del $$O(2^N)$$.
 </Slide>
 
 <Slide title="Fibonacci memoized (top-down)">
-Agregamos una tabla `long[] memo` que guarda `fib(i)` para cada `i` ya
-calculado, y un `boolean[] done` que dice si esa celda ya fue computada.
-La estrategia es **top-down**: seguimos escribiendo la recursión, pero
-antes de recursar consultamos la tabla y solo bajamos si no está.
+Agregamos una tabla `long[] memo` que guarda `fib(i)` para cada `i`
+ya calculado, y un `boolean[] done` que dice si esa celda ya fue
+computada. Se llama estrategia **top-down** porque partimos del
+problema **grande** (`fib(N)`, arriba) y bajamos recursivamente
+hacia los subproblemas más chicos, dejando anotado el resultado en
+la tabla en el camino de subida. Es la recursión de siempre, con
+memoria de sus resultados.
 
 <CodeEditor
   language="java"
@@ -691,69 +700,64 @@ antes de recursar consultamos la tabla y solo bajamos si no está.
   mismo argumento no tenga que rehacer el trabajo.
 
 La recursión sigue siendo recursión — simplemente **recuerda**.
-
-**Nota de estilo**: usamos `long[] memo` + `boolean[] done` en vez de
-`HashMap<Integer, Long>` para hacer **explícito** el estado "todavía no
-calculado" (distinto de `0`, que es un valor legítimo de `fib(0)`). El
-`HashMap` haría lo mismo con más ceremonia; en la próxima unidad, cuando
-veamos estructuras más elaboradas, cambiaremos a eso. Por ahora, dos
-arreglos son la forma más honesta.
 </Slide>
 
-<Slide title="El costo del memoized: $$T(N) = T(N-1) + O(1) \Rightarrow \Theta(N)$$">
-Sin memoization teníamos $$T(N) = T(N-1) + T(N-2) + c$$ — dos llamadas
-recursivas. Con memoization, **de las dos llamadas del paso recursivo,
-solo una hace trabajo real**: la primera vez que se pide `fib(n-1)`, la
-JVM recursa; para calcularla, baja hasta `fib(n-2)` y sigue. Cuando
-después, desde arriba, se llama a `fib(n-2)`, ya está en el cache.
-Devuelve en tiempo constante.
+<Slide title="El costo del memoized: de exponencial a lineal">
+Sin memoization teníamos $$T(N) = T(N-1) + T(N-2) + c$$ — dos
+llamadas recursivas. Con memoization, **de las dos llamadas del paso
+recursivo, solo una hace trabajo real**: la primera vez que se pide
+`fib(n-1)`, la función recursa hasta `fib(n-2)` y sigue bajando.
+Cuando después se llama a `fib(n-2)` desde arriba, ya está en el
+cache y devuelve en tiempo constante.
 
-Nueva recurrencia:
+La nueva recurrencia, escrita como función por partes:
 
-<ComplexityCounter
-  algorithm="fibMemoized"
-  mode="recursion"
-  code={`static long fib(int n) {
-    if (n < 2) return n;
-    if (done[n]) return memo[n];       // cache hit: O(1)
-    long r = fib(n - 1) + fib(n - 2);   // one real call + one cache hit
-    memo[n] = r;
-    done[n] = true;
-    return r;
-}`}
-  data={{
-    annotations: {
-      2: { note: 'caso base ⇒ c' },
-      3: { note: 'cache hit ⇒ O(1)' },
-      4: { note: 'primera llamada real: T(n-1). Segunda: cacheada ⇒ O(1)' },
-    },
-    recurrence: 'T(N) = T(N-1) + O(1)',
-    base: { 'T(0)': 'c', 'T(1)': 'c' },
-    unroll: [
-      { form: 'T(N) = T(N-1) + O(1)', note: 'punto de partida' },
-      { form: 'T(N) = T(N-2) + 2·O(1)', note: 'expandimos T(N-1)' },
-      { form: 'T(N) = T(N-3) + 3·O(1)', note: 'expandimos otra vez' },
-      { form: '⋮', note: 'cada nivel agrega una O(1) y baja N en uno' },
-      { form: 'T(N) = T(0) + N·O(1)', note: 'después de N sustituciones' },
-      { form: 'T(N) = c + N·O(1)', note: 'T(0) = c' },
-    ],
-    closedForm: 'T(N) ∈ Θ(N)',
-  }}
-/>
+$$
+T(N) = \begin{cases}
+c & \text{si } N \in \{0, 1\} \\
+T(N-1) + O(1) & \text{si } N \geq 2
+\end{cases}
+$$
 
-**Pasamos de exponencial a lineal.** Para $$N = 40$$: el recursivo naive
-hacía del orden de $$\varphi^{40} \approx 10^8$$ operaciones; el memoized
-hace del orden de $$40$$. **Ocho órdenes de magnitud** con dos líneas de
-código agregadas.
+Aplicamos expansión, sustituyendo el término recursivo por su
+definición, un paso a la vez:
 
-**Trade-off en memoria**: el cache + `done` ocupan $$N+1$$ casillas cada
-uno. Ganamos tiempo, pagamos memoria. El análisis formal del costo
-espacial vive en [[complejidad-espacial]].
+$$
+\begin{aligned}
+T(N) &= T(N-1) + O(1) \\
+     &= T(N-2) + 2\,O(1) \\
+     &= T(N-3) + 3\,O(1) \\
+     &\ \ \vdots \\
+     &= T(N-k) + k\,O(1)
+\end{aligned}
+$$
+
+Cuando $$k = N-1$$, llegamos a $$T(1) = c$$:
+
+$$
+\begin{aligned}
+T(N) &= T(1) + (N-1)\,O(1) \\
+T(N) &= c + (N-1)\,O(1) \quad \Rightarrow \quad T(N) \in \Theta(N)
+\end{aligned}
+$$
+
+**Pasamos de exponencial a lineal.** Para $$N = 40$$: el recursivo
+naive hacía del orden de $$\varphi^{40} \approx 10^8$$ operaciones;
+el memoized hace del orden de $$40$$. **Ocho órdenes de magnitud**
+con dos líneas de código agregadas.
+
+**Trade-off en memoria**: el cache + `done` ocupan $$N+1$$ casillas
+cada uno. Ganamos tiempo, pagamos memoria. El análisis formal del
+costo espacial vive en [[complejidad-espacial]].
 </Slide>
 
 <Slide title="Tabulation (bottom-up)">
-Otra forma de arreglarlo: en lugar de recursión con cache, **iteración**
-desde $$0$$ hasta $$N$$ llenando la tabla en orden.
+Otra forma de arreglarlo: en lugar de recursión con cache,
+**iteración** desde $$0$$ hasta $$N$$ llenando la tabla en orden. Se
+llama **bottom-up** porque partimos del **caso base más chico**
+(`fib(0)`, `fib(1)`, abajo) y subimos, llenando la tabla hasta
+llegar a `fib(N)`. En cada paso los valores que necesitamos
+(`f[i-1]` y `f[i-2]`) ya fueron calculados antes en el mismo `for`.
 
 <CodeEditor
   language="java"
@@ -776,11 +780,22 @@ desde $$0$$ hasta $$N$$ llenando la tabla en orden.
 `}
 />
 
-**Sin recursión.** Sin stack. Sin `done` — la posición en el `for` es
-ella misma la evidencia de qué está calculado y qué no. Mismo costo
-temporal $$\Theta(N)$$, sin costo de stack.
+Lo importante es que **eliminamos la recursión**. Es una solución
+porque:
 
-Comparación memoized top-down vs tabulated bottom-up:
+- **No hay stack** — todo el cálculo vive en el heap (el arreglo
+  `f`) y en el frame único de `fib`. El límite de $$N$$ frames que
+  teníamos con top-down desaparece.
+- **No hace falta `done`** — la posición en el `for` es ella misma
+  la evidencia de qué está calculado y qué no. Cuando el `for` va
+  en `i`, todas las celdas $$0, 1, \ldots, i-1$$ ya están llenas.
+- **Mismo costo temporal $$\Theta(N)$$** que el memoized, sin el
+  overhead de las llamadas.
+</Slide>
+
+<Slide title="Comparación: top-down vs bottom-up">
+Los dos enfoques resuelven el mismo problema con el mismo costo
+temporal. La diferencia está en cómo llegan al resultado.
 
 | | Memoized (top-down) | Tabulated (bottom-up) |
 |---|---|---|
@@ -790,13 +805,13 @@ Comparación memoized top-down vs tabulated bottom-up:
 | $$T(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
 | $$M(N)$$ | $$\Theta(N)$$ (tabla + stack) | $$\Theta(N)$$ (tabla) |
 
-Cuál elegir depende del problema. Si queremos **un solo valor** de una
-tabla que podría ser enorme, top-down nos ahorra las celdas no visitadas.
-Si vamos a calcular **todos los valores en orden**, bottom-up es más
-simple y sin stack.
+Cuál elegir depende del problema. Si queremos **un solo valor** de
+una tabla que podría ser enorme, top-down ahorra las celdas no
+visitadas. Si vamos a calcular **todos los valores en orden**,
+bottom-up es más simple y sin stack.
 </Slide>
 
-<Slide title="Micro-optimización: dos variables">
+<Slide title="Bottom-up mejorado: dos variables bastan">
 Observación: para calcular `f[i]` solo se necesitan **`f[i-1]` y
 `f[i-2]`**. Todo lo demás del arreglo es historia que nunca se vuelve a
 leer.
