@@ -513,12 +513,25 @@ El árbol de `fib(5)` tiene **15 nodos**. Los duplicados marcan
 **subproblemas solapados**: `fib(3)` aparece 2 veces, `fib(2)` 5
 veces, `fib(1)` 8 veces. La función recalcula los mismos valores una
 y otra vez.
+</Slide>
 
-Un detalle importante: aunque el **árbol** tiene $$O(2^N)$$ nodos, el
-**stack de llamadas** nunca tiene más de $$N$$ frames vivos a la vez
-— solo una rama del árbol está activa en cada momento. **Tiempo
-exponencial, espacio lineal**: son dos preguntas distintas con
-respuestas distintas.
+<Slide title="Tiempo y espacio de `fib`: dos preguntas distintas">
+El árbol de `fib` tiene $$O(2^N)$$ nodos, pero eso no significa que
+haya $$2^N$$ frames vivos al mismo tiempo. El árbol se **recorre en
+profundidad**: la ejecución termina una rama entera antes de abrir la
+siguiente, y cada frame que retorna deja libre su lugar en el stack.
+
+<CallStack recipe="fib" arg={6} />
+
+En cualquier momento hay a lo sumo $$N$$ frames apilados — los de la
+rama que se está resolviendo. El stack **no llega a desbordar** aunque
+el árbol sea gigantesco.
+
+**La lección**: tiempo y espacio son preguntas distintas y se
+responden con evidencias distintas. `fib` recursivo tiene **tiempo
+exponencial** ($$O(2^N)$$, uno por nodo del árbol) y **espacio
+lineal** ($$O(N)$$, uno por frame vivo). Un mismo algoritmo, dos
+costos que se leen del mismo código pero no de la misma estructura.
 </Slide>
 
 <Slide title="La recurrencia de Fibonacci">
@@ -586,79 +599,6 @@ reemplazamos cada $$T(N-a_i)$$ por $$T(N-1)$$ (el mayor de los
 argumentos), sumamos cuántas llamadas hay, obtenemos $$k \cdot
 T(N-1) + c$$, y expandimos. Sale $$O(k^N)$$ donde $$k$$ es el número
 de llamadas del paso recursivo.
-</Slide>
-
-<Slide title="Verificación empírica del costo exponencial">
-La teoría dice **exponencial**. Comparemos con la realidad medida.
-
-<Benchmark
-  implementations={[
-    {
-      name: 'fibRecursive',
-      code: `import java.util.Scanner;
-
-public class FibRecursive {
-    static long fib(int n) {
-        if (n < 2) return n;
-        return fib(n - 1) + fib(n - 2);
-    }
-
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        int n = sc.nextInt();
-        long t0 = System.nanoTime();
-        long r = fib(n);
-        long t1 = System.nanoTime();
-        System.out.println("time_ns:" + (t1 - t0));
-        System.out.println("result:" + r);
-    }
-}
-`,
-      entryClass: 'FibRecursive',
-    },
-    {
-      name: 'fibIterative',
-      code: `import java.util.Scanner;
-
-public class FibIterative {
-    static long fib(int n) {
-        if (n == 0) return 0;
-        long previous = 0, current = 1;
-        for (int i = 2; i <= n; i++) {
-            long next = previous + current;
-            previous = current;
-            current = next;
-        }
-        return current;
-    }
-
-    public static void main(String[] args) {
-        Scanner sc = new Scanner(System.in);
-        int n = sc.nextInt();
-        long t0 = System.nanoTime();
-        long r = fib(n);
-        long t1 = System.nanoTime();
-        System.out.println("time_ns:" + (t1 - t0));
-        System.out.println("result:" + r);
-    }
-}
-`,
-      entryClass: 'FibIterative',
-    },
-  ]}
-  inputs={[10, 20, 30, 35, 38, 40]}
-  defaultInput={30}
-/>
-
-**Corremos el recursivo con $$n=30$$ y después con $$n=40$$**. Si el
-crecimiento fuera lineal, esperaríamos un factor $$40/30 \approx
-1{,}33$$. Lo que vemos es que el tiempo **casi se duplica cada vez que
-$$n$$ aumenta en uno** — la firma clásica de un algoritmo $$O(2^N)$$. La
-medición es **consistente con exponencial**.
-
-El iterativo, con los mismos valores, termina en microsegundos siempre.
-$$\Theta(N)$$ contra $$\Theta(\varphi^N)$$: la diferencia asintótica se
-hace visible como una diferencia de escala.
 </Slide>
 
 <Slide title="Diagnóstico: subproblemas repetidos ⇒ exponencial">
