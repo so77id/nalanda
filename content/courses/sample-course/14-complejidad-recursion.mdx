@@ -1347,3 +1347,232 @@ T(1) = c`}
     </div>
   }
 />
+
+<Questions>
+
+<Question id="recursion-vs-iteracion" anchor="una-funcion-que-se-llama-a-si-misma">
+
+¿Cuál es la diferencia clave entre una **recursión** y un ciclo iterativo (`for`, `while`)?
+
+- [ ] La recursión siempre es más lenta que un ciclo iterativo equivalente.
+- [ ] Los ciclos no pueden resolver los mismos problemas que las recursiones.
+- [x] En una recursión, la reducción del problema vive en la **llamada** con otro argumento.
+- [ ] La recursión no usa memoria de trabajo; el ciclo sí la usa.
+
+<Explanation>
+Es la distinción canónica del capítulo. En un ciclo el estado cambia dentro del mismo frame (con `i++`, `i--`); en una recursión el cambio pasa por una llamada nueva, con su propio frame en el stack.
+</Explanation>
+
+</Question>
+
+<Question id="tres-condiciones-terminacion" anchor="dos-partes-obligatorias-caso-base-y-paso-recursivo">
+
+¿Qué garantiza que una recursión **termine** para todo input válido?
+
+- [ ] Que el compilador detecte las recursiones infinitas y las evite.
+- [ ] Un caso base bien escrito, aunque el input nunca llegue a él.
+- [ ] El paso recursivo, siempre que exista y llame a la misma función.
+- [x] Un caso base más un paso recursivo cuyo argumento **converge** hacia él.
+
+<Explanation>
+Caso base sin convergencia no termina (Ejercicio 6b — `g(n-2)` con base `n == 1` explota para inputs pares). Paso recursivo sin caso base tampoco (`broken` en la slide de StackOverflowError). Las tres piezas se necesitan juntas.
+</Explanation>
+
+</Question>
+
+<Question id="clasificacion-lineal-no-lineal" anchor="clasificacion-de-recursiones">
+
+Una función recursiva hace **dos** llamadas recursivas en su paso, cada una sobre un argumento más chico. Según las clasificaciones de este tipo de funciones, es:
+
+- [ ] Recursión lineal directa.
+- [x] Recursión no lineal directa.
+- [ ] Recursión indirecta.
+- [ ] Recursión final (*tail recursive*).
+
+<Explanation>
+**Lineal** = una llamada por paso; **no lineal** = dos o más. Es la distinción que predice el costo: las lineales suelen ser polinomiales o logarítmicas; las no lineales pueden explotar (Fibonacci naive).
+</Explanation>
+
+</Question>
+
+<Question id="convergencia" anchor="dos-partes-obligatorias-caso-base-y-paso-recursivo">
+
+Una recursión tiene caso base y paso recursivo, pero **no siempre termina**. ¿Qué condición adicional hace falta para garantizar la terminación?
+
+- [ ] Que el paso recursivo haga una sola llamada (recursión estrictamente lineal).
+- [x] Que el argumento del paso recursivo **decrezca** y alcance el caso base.
+- [ ] Que el paso recursivo no use `return` sino que escriba en una variable global.
+- [ ] Que el caso base esté en la primera línea del cuerpo de la función.
+
+<Explanation>
+La condición se llama **convergencia**. Sin ella, aunque exista el caso base, la recursión puede no alcanzarlo — como pasa con `g(n-2)` con base `n == 1` para inputs pares (Ejercicio 6b).
+</Explanation>
+
+</Question>
+
+<Question id="frames-en-el-stack" anchor="un-frame-por-llamada">
+
+En una recursión que hace muchas llamadas, ¿dónde se guardan los **parámetros y variables locales** de cada invocación?
+
+- [ ] En una variable global compartida entre todas las llamadas.
+- [ ] En el heap, como un objeto por llamada creado con `new`.
+- [x] En el **frame** de cada llamada, dentro del stack de llamadas del hilo.
+- [ ] En la caché del procesador.
+
+<Explanation>
+Cada llamada crea su propio frame en el stack con sus parámetros, variables locales, valor de retorno pendiente y dirección de retorno. Cuando la función retorna, el frame se elimina y todo lo que estaba en él desaparece. El heap almacena objetos de vida larga; el stack, datos temporales por invocación.
+</Explanation>
+
+</Question>
+
+<Question id="stackoverflow-causa" anchor="stackoverflowerror-falta-el-caso-base">
+
+Un programa Java lanza `StackOverflowError` en tiempo de ejecución. ¿Cuál de estas es una causa **típica** del error?
+
+- [ ] Un `ArrayList` que superó su capacidad.
+- [x] Una recursión sin caso base, o cuyo argumento no converge hacia él.
+- [ ] Un `HashMap` con demasiadas colisiones.
+- [ ] Un objeto muy grande creado en el heap con `new`.
+
+<Explanation>
+`StackOverflowError` viene del **stack de llamadas**, no del heap. Ocurre cuando el programa empuja más frames de los que caben — recursión sin caso base, convergencia rota, o una recursión bien diseñada sobre un input tan profundo que agota los ~$$10^4$$ frames que da el stack por defecto de la JVM. Un problema de heap (objetos gigantes, muchas colisiones) tira `OutOfMemoryError`, no `StackOverflowError`.
+</Explanation>
+
+</Question>
+
+<Question id="patron-por-argumento" anchor="recursion-por-decremento-factorial">
+
+Una recursión donde el argumento de la llamada recursiva se obtiene **restando una cantidad fija** al argumento actual (típicamente n - 1) se llama:
+
+- [ ] Recursión por división.
+- [x] Recursión por decremento.
+- [ ] Recursión indirecta.
+- [ ] Recursión final (*tail recursive*).
+
+<Explanation>
+**Por decremento** porque baja de a un paso fijo, no divide. Su recurrencia tiene la forma $$T(N) = T(N-1) + \text{trabajo}$$ y suele dar costos lineales o polinomiales. La contraparte — dividir el argumento por 2 o similar — se llama **recursión por división** y da costos logarítmicos.
+</Explanation>
+
+</Question>
+
+<Question id="resolver-decremento" anchor="resolver-por-expansion-sustituir-hasta-el-caso-base">
+
+La recurrencia T(N) = T(N-1) + c con T(1) = c tiene, resuelta por expansión, la forma cerrada:
+
+- [ ] T(N) ∈ Θ(log N)
+- [x] T(N) ∈ Θ(N)
+- [ ] T(N) ∈ Θ(N log N)
+- [ ] T(N) ∈ Θ(N²)
+
+<Explanation>
+Cada nivel aporta un $$c$$ y baja el argumento en uno. Con $$N-1$$ sustituciones llegamos a $$T(1) = c$$, quedando $$T(N) = Nc$$. Es la forma canónica de una recursión por decremento con trabajo constante — `factorial`, `sum`.
+</Explanation>
+
+</Question>
+
+<Question id="resolver-division" anchor="recursion-por-division-resolver-la-recurrencia">
+
+La recurrencia T(N) = T(N/2) + c con T(1) = c tiene, resuelta por expansión, la forma cerrada:
+
+- [ ] T(N) ∈ Θ(N)
+- [x] T(N) ∈ Θ(log N)
+- [ ] T(N) ∈ Θ(√N)
+- [ ] T(N) ∈ Θ(1)
+
+<Explanation>
+Cada paso divide el argumento por 2. Después de $$k = \log_2 N$$ divisiones llegamos a $$N/2^k = 1$$ y al caso base. La expansión da $$T(N) = c + c \log_2 N \in \Theta(\log N)$$. Es la firma de la búsqueda binaria y de la exponenciación rápida (`power(x, e)`).
+</Explanation>
+
+</Question>
+
+<Question id="fib-por-que-exponencial" anchor="el-arbol-de-llamadas-subproblemas-hechos-visibles">
+
+`fib(n)` recursivo (dos llamadas por paso, sin cache) tiene costo Θ(φ^N) — exponencial. ¿Cuál es la razón?
+
+- [ ] Cada llamada hace un `for` interno que recorre los N primeros naturales.
+- [ ] La JVM cobra un costo constante alto por cada nueva llamada recursiva.
+- [x] El árbol repite los mismos valores y la recursión los recalcula cada vez.
+- [ ] Es por el costo de crear un frame nuevo en el stack por cada llamada.
+
+<Explanation>
+El fenómeno se llama **subproblemas solapados**. Como el algoritmo no tiene memoria, cada `fib(k)` se recalcula una vez por cada camino desde la raíz que llega a él. En `fib(5)`: `fib(3)` aparece 2 veces, `fib(2)` 5 veces, `fib(1)` 8 veces — y esos caminos crecen exponencialmente con $$N$$.
+</Explanation>
+
+</Question>
+
+<Question id="tiempo-espacio-fib" anchor="tiempo-y-espacio-de-fib-dos-preguntas-distintas">
+
+`fib(n)` recursivo (naive) tiene tiempo O(2^N). ¿Cuánto **espacio** (frames vivos en el stack simultáneamente) usa como máximo?
+
+- [ ] O(2^N), un frame por cada nodo del árbol de llamadas.
+- [ ] O(N²), tantos frames como pares de nodos activos.
+- [x] O(N): solo una rama del árbol está viva a la vez.
+- [ ] O(1), la JVM reutiliza el mismo frame para todas las llamadas.
+
+<Explanation>
+El árbol se recorre en **profundidad**. La ejecución termina una rama entera antes de abrir la siguiente, y cada frame que retorna deja libre su lugar. Tiempo exponencial, espacio lineal — dos costos del mismo código que se leen de estructuras distintas.
+</Explanation>
+
+</Question>
+
+<Question id="memoization-precondiciones" anchor="cuando-se-puede-memoizar-tres-condiciones">
+
+¿Cuál de las siguientes funciones se puede memoizar **sin arruinar su comportamiento**?
+
+- [ ] Una función que devuelve un número aleatorio en cada llamada.
+- [ ] Una función cuyo resultado depende de la hora actual del sistema.
+- [x] Una función pura sobre enteros no negativos acotados, con subproblemas repetidos.
+- [ ] Una función que imprime en consola como efecto principal.
+
+<Explanation>
+La memoization requiere tres condiciones simultáneas — **pureza** (mismo argumento ⇒ mismo resultado, sin estado externo), **memoria acotada** (universo de argumentos que quepa en el cache) y **subproblemas repetidos** (algo que ahorrar). Las otras tres opciones violan una de ellas: azar y hora violan pureza; una función con efecto secundario (impresión) no se puede reemplazar por un valor cacheado sin perder el efecto.
+</Explanation>
+
+</Question>
+
+<Question id="costo-memoized" anchor="el-costo-del-memoized-de-exponencial-a-lineal">
+
+Al agregar memoization a `fib(n)` — cache `memo[]` con lookup antes de recursar — el costo baja de Θ(φ^N) a:
+
+- [ ] Θ(N log N)
+- [x] Θ(N)
+- [ ] Θ(√N)
+- [ ] Θ(log N)
+
+<Explanation>
+Con memoization, la segunda llamada del paso recursivo siempre acierta al cache y retorna en tiempo constante. La recurrencia se transforma en $$T(N) = T(N-1) + O(1)$$, que expandida da $$\Theta(N)$$. Cada `fib(k)` para $$k = 0, 1, \ldots, N$$ se calcula una única vez.
+</Explanation>
+
+</Question>
+
+<Question id="top-down-vs-bottom-up" anchor="comparacion-top-down-vs-bottom-up">
+
+Comparando **memoization top-down** con **tabulation bottom-up** para el mismo problema, con la misma recurrencia T(N) ∈ Θ(N): ¿cuál es la diferencia principal en uso de memoria?
+
+- [ ] Top-down usa menos memoria porque el cache se llena de forma perezosa.
+- [ ] Bottom-up siempre usa estrictamente más memoria que top-down.
+- [x] Bottom-up no usa stack de recursión; top-down sí, hasta N frames.
+- [ ] Ambas técnicas usan exactamente la misma cantidad de memoria.
+
+<Explanation>
+Top-down mantiene la recursión, así que paga el stack $$O(N)$$ **además** del cache. Bottom-up itera con un `for` — el frame único de `fib` y la tabla en el heap, sin frames anidados. Además cambia el orden de cálculo: top-down es perezoso (solo lo que se pide); bottom-up es estricto (todo de 0 a $$N$$). En **tiempo** ambos son $$\Theta(N)$$; la diferencia está en el espacio y en cuánto se calcula.
+</Explanation>
+
+</Question>
+
+<Question id="exponencial-intrinseco" anchor="memoization-no-salva-a-hanoi">
+
+`fib(N)` recursivo es O(φ^N) y la memoization lo baja a Θ(N). `hanoi(N)` también es Θ(2^N), pero la memoization **no** lo baja. ¿Por qué?
+
+- [ ] Porque `hanoi` es más difícil de implementar correctamente que `fib`.
+- [ ] Porque la JVM no permite cachear funciones con más de un parámetro.
+- [x] Porque el problema exige 2^N − 1 movimientos como salida — la exponencial es intrínseca al problema.
+- [ ] Porque `hanoi` es una recursión indirecta y el cache no sigue la cadena.
+
+<Explanation>
+En `fib` la exponencial es **de la recursión** — los mismos subresultados se recalculan, y memoization los guarda una vez. En `hanoi` la exponencial es **del problema mismo** — hay que producir $$2^N - 1$$ movimientos distintos y cada uno tiene que ejecutarse. Además `hanoi` es `void` (no devuelve un valor para cachear) y su trabajo es un **efecto secundario** (la impresión del movimiento) que memoization no puede reemplazar por un lookup.
+</Explanation>
+
+</Question>
+
+</Questions>
