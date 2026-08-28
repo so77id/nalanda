@@ -36,11 +36,12 @@ Este capítulo hace cinco cosas:
   memoria: hay problemas cuyo costo exponencial es intrínseco al
   problema mismo, y ninguna técnica lo baja.
 
-Al final, un epílogo histórico cierra el arco que dejamos abierto en
+Al final del libro (fuera del deck de clase) hay un **epílogo
+histórico** que cierra el arco que dejamos abierto en
 [[complejidad-de-hilbert-al-big-o|Complejidad I]]: de dónde viene la
 palabra "recursión", cómo se estudian las recurrencias antes de la
-computación, y por qué el `fib(n)` de Java es literalmente el mismo objeto
-matemático que Kleene formalizó en 1936.
+computación, y por qué el `fib(n)` de Java es literalmente el mismo
+objeto matemático que Kleene formalizó en 1936.
 
 <SectionBreak />
 
@@ -76,8 +77,8 @@ equivalente: las **funciones recursivas**. Una función que se llama a sí
 misma en Java no es una analogía de aquellas: es una de ellas, en el
 sentido matemático estricto.
 
-Toda esta historia la vamos a ver al final del capítulo. Primero vamos
-por lo técnico.
+El detalle histórico completo vive en el libro, al final del
+capítulo. En clase seguimos con lo técnico.
 </Slide>
 
 <SectionBreak />
@@ -942,7 +943,15 @@ la estructura es idéntica a la de `power(x, e)` que analizamos antes.
 
 <SectionBreak />
 
-<Slide title="Origen de la teoría de recursión (Gödel-Herbrand-Kleene)">
+## Epílogo: la recursión como objeto matemático viejo
+
+*Esta sección vive solo en el libro. Cierra el arco histórico que
+dejamos abierto en [[complejidad-de-hilbert-al-big-o|Complejidad I]] y
+conecta el `fib(n)` de Java con los objetos matemáticos que le dieron
+nombre.*
+
+### Origen de la teoría de recursión (Gödel-Herbrand-Kleene)
+
 En [[complejidad-de-hilbert-al-big-o|Complejidad I]] contamos que
 **David Hilbert** lanzó en los años 20 un programa para blindar toda la
 matemática: tres pilares — consistencia, completitud, decidibilidad.
@@ -956,10 +965,11 @@ Lo que dejamos abierto: **algo sobrevivió**. Ese algo es la **teoría de
 funciones recursivas**, construida en paralelo entre 1931 y 1936 por
 Gödel, Herbrand y Kleene. Es una definición formal de "función
 computable" completamente equivalente a la máquina de Turing — y es la
-que le da el nombre "recursión" al concepto que usaron todo el capítulo.
-</Slide>
+que le da el nombre "recursión" al concepto que usamos todo el
+capítulo.
 
-<Slide title="Las funciones μ-recursivas">
+### Las funciones μ-recursivas
+
 La clase se construye a partir de tres **funciones básicas** — cero,
 sucesor, proyección — y tres **reglas de composición** — composición,
 recursión primitiva y el operador $$\mu$$ (*"el menor $$y$$ tal
@@ -981,9 +991,9 @@ Kleene como
 $$F(n) = \begin{cases} n & \text{si } n < 2 \\ F(n-1) + F(n-2) & \text{si } n \geq 2 \end{cases}$$
 que es exactamente el `if (n < 2) return n; else return fib(n-1) +
 fib(n-2);` que hoy corremos en el navegador.
-</Slide>
 
-<Slide title="Ackermann y Péter: la recursión general es más potente que la iteración">
+### Ackermann y Péter: la recursión general es más potente que la iteración
+
 **Wilhelm Ackermann** (Alemania, 1928) planteó y respondió una pregunta
 técnica: *¿toda función razonable se puede definir con bucles anidados
 de contadores acotados?* La respuesta: **no**.
@@ -1022,9 +1032,9 @@ manualmente una pila auxiliar — es decir, reimplementar lo que la JVM ya
 hace por nosotros en el stack de llamadas. La recursión no es un
 capricho estilístico: es la manera de expresar una clase entera de
 algoritmos.
-</Slide>
 
-<Slide title="Fibonacci 1202, De Moivre 1730: la cota ajustada">
+### Fibonacci 1202, De Moivre 1730: la cota ajustada
+
 En el análisis de Fibonacci dejamos una cota pendiente. Dijimos
 $$O(2^N)$$ por acotamiento, pero prometimos que el resultado exacto es
 $$\Theta(\varphi^N)$$ con $$\varphi \approx 1{,}618$$ la razón áurea.
@@ -1060,9 +1070,9 @@ detrás del $$\varphi^N$$):
 Esa técnica es **matemática de 300 años**. Cuando resolvimos `fib` en
 Java le aplicamos, sin saberlo, la misma matemática que Fibonacci puso
 por escrito hace 800.
-</Slide>
 
-<Slide title="Cierre: la recursión como objeto matemático viejo">
+### Cierre: la recursión como objeto matemático viejo
+
 Cuando escribimos `fib(n)` en Java durante este capítulo, estuvimos
 simultáneamente:
 
@@ -1083,4 +1093,3 @@ iterativo ([[complejidad-de-hilbert-al-big-o|Complejidad I]]), el costo
 espacial ([[complejidad-espacial]]) y el costo temporal de uno recursivo
 (este capítulo). Tenemos las tres herramientas para comparar algoritmos
 con honestidad matemática.
-</Slide>
