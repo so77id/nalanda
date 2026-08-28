@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 240" width="320" height="240">
+  <!-- A LIFO stack diagram: three integers already stacked, one entering from
+       the top-left (push -1), one leaving to the top-right (pop 8). The
+       container's open top is the metaphor: nothing enters or leaves through
+       the sides or bottom, only the top. Numeric values carry the meaning,
+       colours are decoration only (never the only signal, per
+       docs/standards/design-system.md). Hand-picked to clear 3:1 on both
+       light and dark grounds without inheriting currentColor. -->
+  <!-- Container walls: two verticals + a base, no top edge (the stack is open). -->
+  <g stroke="#475569" stroke-width="2" fill="none">
+    <path d="M110 60 L110 220 L210 220 L210 60" />
+  </g>
+  <!-- Three stacked cells, bottom to top: 1, 5, 0. -->
+  <g fill="#dbeafe" stroke="#1d4ed8" stroke-width="1.5">
+    <rect x="118" y="180" width="84" height="32" rx="3" />
+    <rect x="118" y="144" width="84" height="32" rx="3" />
+    <rect x="118" y="108" width="84" height="32" rx="3" />
+  </g>
+  <g fill="#0f172a" font-family="ui-monospace, monospace" font-size="18" text-anchor="middle">
+    <text x="160" y="203">1</text>
+    <text x="160" y="167">5</text>
+    <text x="160" y="131">0</text>
+  </g>
+  <!-- Push arrow entering from top-left with value -1. Curved arrow ends at
+       the open top of the stack. -->
+  <g fill="none" stroke="#059669" stroke-width="2">
+    <path d="M40 40 Q80 40 130 90" marker-end="url(#arrow-push)" />
+  </g>
+  <g fill="#059669" font-family="ui-monospace, monospace" font-size="18">
+    <text x="20" y="46">-1</text>
+  </g>
+  <!-- Pop arrow leaving from top-right with value 8. -->
+  <g fill="none" stroke="#b91c1c" stroke-width="2">
+    <path d="M190 90 Q240 40 280 40" marker-end="url(#arrow-pop)" />
+  </g>
+  <g fill="#b91c1c" font-family="ui-monospace, monospace" font-size="18">
+    <text x="288" y="46">8</text>
+  </g>
+  <!-- Legend below the stack: reads as the label of the whole diagram. -->
+  <g fill="#334155" font-family="ui-sans-serif, sans-serif" font-size="14" text-anchor="middle">
+    <text x="160" y="16" font-weight="600">LIFO</text>
+    <text x="160" y="238" font-style="italic">Last in, First out</text>
+  </g>
+  <defs>
+    <marker id="arrow-push" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#059669" />
+    </marker>
+    <marker id="arrow-pop" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#b91c1c" />
+    </marker>
+  </defs>
+</svg>

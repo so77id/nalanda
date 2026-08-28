@@ -203,10 +203,14 @@ después de la llamada). Al correr `factorial(5)` debería imprimir
 </Slide>
 
 <Slide title="¿Qué es el stack de llamadas?">
-El **stack de llamadas** es una región de memoria que el runtime (la JVM
-en nuestro caso) reserva para cada hilo de ejecución. Es la estructura
-donde el runtime lleva la contabilidad de qué función está corriendo,
-qué la llamó, y qué queda por hacer cuando termine.
+<Split ratio="60/40">
+
+<div>
+
+El **stack de llamadas** es una región de memoria que el runtime (la
+JVM en nuestro caso) reserva para cada hilo de ejecución. Es la
+estructura donde el runtime lleva la contabilidad de qué función está
+corriendo, qué la llamó, y qué queda por hacer cuando termine.
 
 - Se gestiona **automáticamente**: nosotros no lo tocamos desde el
   código; la JVM lo empuja y lo saca cuando llamamos y retornamos.
@@ -214,87 +218,97 @@ qué la llamó, y qué queda por hacer cuando termine.
   primera en salir. No hay saltos al medio.
 - Tiene **tamaño finito** — el default de la JVM ronda los 512 KB por
   hilo. Cuando se llena, el runtime tira `StackOverflowError`.
-- Es distinto del **heap**, la otra región grande de memoria del proceso:
-  el heap almacena objetos de vida larga (creados con `new`); el stack
-  almacena datos temporales asociados a la llamada actual.
+- Es distinto del **heap**, la otra región grande de memoria del
+  proceso: el heap almacena objetos de vida larga (creados con `new`);
+  el stack almacena datos temporales asociados a la llamada actual.
 
-Cada llamada a una función crea **un frame** en el stack. Vamos al
-frame.
+</div>
+
+<Figure src="./lifo-stack.svg" alt="Pila con tres valores (1, 5, 0 de abajo hacia arriba). Una flecha entra con el valor -1 empujándolo a la cima; otra flecha sale con el valor 8 dejando la pila. Debajo, la etiqueta 'Last in, First out'." caption="Push y pop en una pila LIFO" />
+
+</Split>
+
+Cada llamada a una función crea **un frame** en el stack.
 </Slide>
 
 <Slide title="Un frame por llamada">
-Cada vez que se llama a una función, el runtime **reserva un frame** en
-el stack con toda la información que la función necesita para ejecutarse
-y para devolver el control cuando termine. Un frame contiene:
+<Split ratio="60/40">
 
-- El **nombre de la función** y sus **parámetros** — los argumentos con
-  los que fue invocada.
-- Sus **variables locales** — declaradas dentro del cuerpo. Viven solo
+<div>
+
+Cada vez que se llama a una función, el runtime **reserva un frame** en
+el stack con toda la información que la función necesita para
+ejecutarse y para devolver el control cuando termine. Un frame
+contiene:
+
+- **Nombre y parámetros** — los argumentos con los que fue invocada.
+- **Variables locales** — declaradas dentro del cuerpo. Viven solo
   hasta que la función retorna.
-- El **valor de retorno pendiente** — el `?` inicial, que se llena
-  cuando la función termina de calcularlo.
-- La **dirección de retorno** — la posición en el código a la que hay
-  que volver cuando esta función termine.
+- **Valor de retorno pendiente** — el `?` inicial, que se llena cuando
+  la función termina de calcularlo.
+- **Dirección de retorno** — la posición en el código a la que hay que
+  volver cuando esta función termine.
+
+</div>
+
+<Figure src="./frame-anatomy.svg" alt="Diagrama de un frame con cuatro cajas etiquetadas: 'nombre y parámetros' arriba, 'variables locales' y 'valor de retorno' en el medio, 'dirección de retorno' abajo." caption="Contenido de un frame" />
+
+</Split>
 
 Cuando la función retorna, el frame **se elimina** del stack y su
 memoria vuelve a estar disponible. Todo lo que estaba en él (locales,
 parámetros) desaparece.
 </Slide>
 
-<Slide title="Ejecución paso a paso: `factorial(3)` en el stack">
-Con el mecanismo del stack claro, miremos qué le pasa a `factorial(3)`
-mientras corre. Con clic en **Paso adelante** avanzamos un evento a la
-vez y observamos cómo el **contexto actual** (centro) se mueve contra
-el **stack de frames pausados** (derecha):
-
-<CallStack recipe="factorial" arg={3} />
-
-**Qué mirar**:
-- Cuando `factorial(3)` llama a `factorial(2)`, el frame de
-  `factorial(3)` se mueve al stack con `return = ?` (esperando el valor
-  que le devolverá la llamada); `factorial(2)` toma su lugar como
-  contexto actual.
-- El proceso se repite hasta `factorial(1)`, que hitea el caso base y
-  devuelve `1` sin recursar.
-- Al retornar, el frame se elimina y el que estaba en la cima del stack
-  vuelve al contexto actual — ahora sabiendo su `return`.
-
-**Regla operativa**: la memoria total del stack en una recursión es
-proporcional a la **profundidad**. Tres frames para `factorial(3)`, cien
-para `factorial(100)`, $$N$$ para $$factorial(N)$$. Ese costo espacial
-es nativo de la recursión: existe aunque el algoritmo no reserve
-ninguna variable extra.
+<Slide title="Cómo se ve el stack durante una recursión">
+<CallStack recipe="factorial" arg={3} stackSize={5} />
 </Slide>
 
-<Slide title="El stack no es infinito: StackOverflowError">
+<Slide title="StackOverflowError: falta el caso base">
 La JVM asigna un stack **finito** — el default es del orden de 512 KB,
 que da alrededor de $$10^4$$ frames dependiendo del contenido de cada
 uno. Cuando la recursión intenta empujar un frame más allá de ese
 límite, la JVM lanza un `StackOverflowError` y el programa termina.
 
-Dos maneras de llegar ahí:
+Veamos qué pasa cuando la recursión no tiene condición de término:
 
-**1. Bug de diseño — falta el caso base o no se alcanza.** Veamos qué
-pasa cuando la recursión no tiene condición de término:
-
-<CallStack recipe="broken" arg={3} />
+<CallStack recipe="broken" arg={3} stackSize={7} />
 
 Cada `Paso adelante` empuja un frame más; nunca hay pop. Limitamos la
 demo a un puñado de frames para que el error sea legible, pero en la
 JVM real la recursión seguiría hasta agotar el stack. **Por eso el
 caso base no es un adorno**: sin él, cualquier ejecución termina en
 StackOverflowError, siempre.
+</Slide>
 
-**2. Datos demasiado profundos — el diseño es correcto, pero el input
-excede el stack.** Una recursión lineal bien planteada sobre un
-millón de elementos también revienta:
+<Slide title="StackOverflowError: datos demasiado profundos">
+No solo la recursión mal diseñada revienta el stack. Una recursión
+**lineal bien planteada** sobre un input muy profundo — una lista de un
+millón de elementos, un árbol muy alto — también agota el stack:
 
-<CallStack recipe="factorial" arg={20} maxDepth={4} />
+<CallStack recipe="factorial" arg={20} maxDepth={4} stackSize={5} />
 
 Acá `factorial` está bien escrita, pero simulamos un stack pequeño
 (profundidad 4). El resultado es el mismo error: la recursión
 matemática existe, pero el hardware no la puede correr. Para esos casos
-hay que **convertir a iteración** o usar otra estructura de datos.
+hay que **convertir a iteración** o usar otra estructura de datos que
+gestione la memoria por nosotros.
+</Slide>
+
+<Slide title="Otro ejemplo en el stack: `power(2, 13)`">
+Una segunda función recursiva, con un patrón distinto: **exponenciación
+rápida**. En lugar de multiplicar $$x$$ por sí mismo $$n$$ veces, se
+apoya en la mitad — $$x^n = (x^{n/2})^2$$ cuando $$n$$ es par, y
+$$x^n = x \cdot (x^{n/2})^2$$ cuando es impar. El resultado es una
+recursión **por división**: la profundidad ya no crece con $$n$$ sino
+con $$\log_2 n$$.
+
+<CallStack recipe="power" arg={13} stackSize={5} />
+
+Miren la profundidad: `power(2, 13)` alcanza solo **4 frames** en el
+stack, no 13. Cada llamada halva el argumento. Esa es la firma de una
+recursión por división, y volveremos sobre ella en la próxima sección
+cuando le calculemos el $$T(N)$$.
 </Slide>
 
 <Slide title="Ejercicio: suma de los primeros N naturales">

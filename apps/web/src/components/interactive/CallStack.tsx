@@ -4,34 +4,10 @@ import { useEffect, useMemo, useState } from 'react';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 
-/**
- * A local variable slot on a frame, shown in the widget as
- * `name = value`. The value can be `'?'` when the variable is declared
- * but not yet assigned (`return = ?` while the paused frame waits for a
- * recursive call to bubble back a value).
- */
 export interface Locals {
   [name: string]: string;
 }
 
-/**
- * A single event in the execution trace. The widget replays events into
- * a `Frame[]` state (topmost frame is the "current context"), so the
- * three views (code line, current-context, paused stack) all derive from
- * the same source of truth.
- *
- * - `call` pushes a new frame with initial locals, a label, and the code
- *   line where its execution starts.
- * - `line` advances the current frame's active line and may update its
- *   locals (used for variable reassignment or `return` computation
- *   coming back from a recursion).
- * - `return` pops the current frame, carrying a value back to the caller
- *   (which becomes the current frame again).
- *
- * Every event carries a short Spanish `description` shown in the widget
- * footer — the "leyenda del evento" that names what just happened
- * pedagogically.
- */
 export type TraceEvent =
   | {
       type: 'call';
@@ -52,17 +28,13 @@ export type TraceEvent =
       description: string;
     };
 
-/**
- * A recipe knows how to generate its own execution trace. Named rather
- * than function-valued because MDX props pass through the serializer,
- * and a lambda in a fence would be worse for the author than the small
- * set of names the course actually uses.
- */
 type Recipe = {
   defaultCode: string;
   language: string;
   trace: (arg: number, maxDepth: number) => { events: TraceEvent[]; overflowedAt?: number };
 };
+
+const POWER_BASE = 2;
 
 const RECIPES: Record<string, Recipe> = {
   factorial: {
@@ -99,6 +71,16 @@ const RECIPES: Record<string, Recipe> = {
 }`,
     trace: (arg, maxDepth) => traceHanoi(arg, maxDepth),
   },
+  power: {
+    language: 'java',
+    defaultCode: `static long power(long x, int n) {
+    if (n == 0) return 1;
+    long half = power(x, n / 2);
+    if (n % 2 == 0) return half * half;
+    return x * half * half;
+}`,
+    trace: (arg, maxDepth) => tracePower(arg, maxDepth),
+  },
   broken: {
     language: 'java',
     defaultCode: `// Recursion without a base case: never terminates.
@@ -109,18 +91,9 @@ static long broken(int n) {
   },
 };
 
-/**
- * Ceiling on trace length. Even without a `maxDepth` request we clip so
- * a `fib(30)` fence cannot freeze the tab. `fib(10)` traces to well
- * under 2000 events with the new richer per-frame events.
- */
 const MAX_TRACE_LENGTH = 3000;
-
-/**
- * The `broken` recipe never terminates. Cap it at a small depth so the
- * StackOverflow demo shows something legible on a slide.
- */
 const BROKEN_DEFAULT_DEPTH = 6;
+const DEFAULT_STACK_SIZE = 8;
 
 export interface CallStackProps {
   recipe?: string;
@@ -131,25 +104,27 @@ export interface CallStackProps {
   title?: string;
   autoplay?: boolean;
   speed?: number;
+  /**
+   * Number of visible slots reserved for stacked (paused) frames. The
+   * widget draws the full column with `stackSize` slot placeholders so
+   * the layout does not shift as frames push and pop — filled slots
+   * render the frame, empty slots stay as dashed placeholders. Default
+   * 8. Increase for a demo that reaches deeper (e.g. hanoi(4) needs
+   * more), decrease for a compact slide.
+   */
+  stackSize?: number;
 }
 
 /**
  * A widget that makes the JVM call stack visible during a recursive
- * execution (ADR-0049 · v2 redesign 2026-08-27).
+ * execution (ADR-0049 · v3 layout 2026-08-27).
  *
- * Three-column layout, 40% / 30% / 30%:
- * - **Code (40%)**: the recipe's source with the active line marked.
- * - **Contexto actual (30%)**: the currently-executing frame, drawn
- *   with a dashed accent border. Shows its label, its local variables,
- *   and a "← ejecutando" caption.
- * - **Stack (30%)**: the frames pushed and paused, cima arriba, each
- *   drawn with a solid border and showing its name, its compact locals,
- *   and the line it's paused at.
- *
- * A footer bar carries the playback controls plus the short Spanish
- * description of the event just fired (`«invocando factorial(2)»`,
- * `«retornando 6 a factorial(3)»`), so the reader always sees a caption
- * for what changed.
+ * Layout (vertical): code panel on top, current context and paused
+ * stack side by side below. The current context floats vertically
+ * centered in its half; the paused stack column reserves `stackSize`
+ * slot placeholders (dashed empty boxes) so the widget's outer size
+ * stays constant as the stack pushes and pops. A footer legend
+ * captions each event.
  */
 export function CallStack({
   recipe,
@@ -160,6 +135,7 @@ export function CallStack({
   title,
   autoplay = false,
   speed = 1,
+  stackSize = DEFAULT_STACK_SIZE,
 }: CallStackProps) {
   const known = recipe === undefined ? undefined : RECIPES[recipe];
 
@@ -235,6 +211,17 @@ export function CallStack({
   const pausedFrames = state.frames.slice(0, -1);
   const highlightLines = currentFrame !== null ? [currentFrame.line] : [];
 
+  // Reserve exactly `stackSize` slots. Newest-paused frame goes at the top
+  // of the stack column (closest to the current context in the row below).
+  // Empty slots render as dashed placeholders so the outer widget size
+  // never shifts as the stack pushes and pops.
+  const slotCount = Math.max(1, stackSize);
+  const reversedPaused = [...pausedFrames].reverse();
+  const slots: ((typeof pausedFrames)[number] | null)[] = Array.from(
+    { length: slotCount },
+    (_, i) => reversedPaused[i] ?? null,
+  );
+
   return (
     <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
       <header className="flex flex-wrap items-center gap-2 bg-sunk px-3 py-1.5">
@@ -251,55 +238,59 @@ export function CallStack({
         </span>
       </header>
 
-      <div className="grid grid-cols-1 border-t border-rule md:grid-cols-[40%_30%_30%]">
-        <div className="min-w-0 overflow-hidden border-b border-rule md:border-b-0 md:border-r">
-          <CodeStepper
-            code={code ?? known.defaultCode}
-            language={language ?? known.language}
-            highlightLines={highlightLines}
-          />
-        </div>
+      <div className="border-t border-rule">
+        <CodeStepper
+          code={code ?? known.defaultCode}
+          language={language ?? known.language}
+          highlightLines={highlightLines}
+        />
+      </div>
 
-        <div className="min-h-[10rem] border-b border-rule bg-sunk/20 p-3 md:border-b-0 md:border-r">
+      <div className="grid grid-cols-1 border-t border-rule md:grid-cols-2">
+        <div className="flex min-h-[14rem] flex-col justify-center border-b border-rule bg-sunk/20 p-3 md:border-b-0 md:border-r">
           <div className="mb-2 font-mono text-3xs uppercase tracking-wide text-ink-faint">
             Contexto actual
           </div>
-          {currentFrame === null ? (
-            <p className="text-center font-mono text-xs text-ink-faint">
-              Stack vacío — click en <span className="font-semibold">Paso</span> para arrancar.
-            </p>
-          ) : (
-            <FrameCard
-              frame={currentFrame}
-              variant={overflowed ? 'overflow' : 'current'}
-              caption="← ejecutando"
-            />
-          )}
+          <div className="flex-1 flex items-center">
+            {currentFrame === null ? (
+              <p className="w-full text-center font-mono text-xs text-ink-faint">
+                Stack vacío — click en <span className="font-semibold">Paso</span> para arrancar.
+              </p>
+            ) : (
+              <div className="w-full">
+                <FrameCard
+                  frame={currentFrame}
+                  variant={overflowed ? 'overflow' : 'current'}
+                  caption="← ejecutando"
+                />
+              </div>
+            )}
+          </div>
         </div>
 
         <div
-          className="min-h-[10rem] flex flex-col gap-2 bg-sunk/30 p-3"
+          className="min-h-[14rem] flex flex-col gap-2 bg-sunk/30 p-3"
           role="list"
           aria-label="Frames pausados en el stack (cima arriba)"
         >
           <div className="font-mono text-3xs uppercase tracking-wide text-ink-faint">Stack</div>
-          {pausedFrames.length === 0 ? (
-            <p className="text-center font-mono text-xs text-ink-faint">(sin frames pausados)</p>
-          ) : (
-            // Reverse so the top of the stack (last pushed) sits at the top
-            // visually — closest to the current context, since a pop will bring
-            // it back to the middle.
-            [...pausedFrames]
-              .reverse()
-              .map((frame, i) => (
-                <FrameCard
-                  key={pausedFrames.length - 1 - i}
-                  frame={frame}
-                  variant="paused"
-                  caption={`pausada en L${frame.line}`}
-                  compact
-                />
-              ))
+          {slots.map((frame, i) =>
+            frame === null ? (
+              <div
+                key={`empty-${i}`}
+                data-testid="callstack-slot-empty"
+                aria-hidden="true"
+                className="min-h-[3rem] rounded border border-dashed border-rule/50 bg-transparent"
+              />
+            ) : (
+              <FrameCard
+                key={`frame-${i}`}
+                frame={frame}
+                variant="paused"
+                caption={`pausada en L${frame.line}`}
+                compact
+              />
+            ),
           )}
         </div>
       </div>
@@ -381,7 +372,6 @@ function replay(events: TraceEvent[], step: number): State {
     } else if (event.type === 'return') {
       frames.pop();
     } else {
-      // line event: update the topmost frame's line + optional locals
       const top = frames[frames.length - 1];
       if (top) {
         top.line = event.line;
@@ -436,9 +426,7 @@ function FrameCard({ frame, variant, caption, compact = false }: FrameCardProps)
 }
 
 // ---------------------------------------------------------------------
-// Recipe trace generators. Each emits a rich sequence of events with
-// per-frame locals, active line, and a short Spanish description of the
-// event's meaning (shown in the footer legend).
+// Recipe trace generators.
 // ---------------------------------------------------------------------
 
 function traceFactorial(
@@ -651,6 +639,87 @@ function traceHanoi(
   };
   walk(arg, 'A', 'C', 'B', 1);
   return overflowed !== undefined ? { events, overflowedAt: overflowed } : { events };
+}
+
+/**
+ * `power` — fast recursive exponentiation. `x^n` computed with the
+ * halving trick: `x^n = (x^(n/2))^2` for even `n`, `x^n = x · (x^(n/2))^2`
+ * for odd `n`. Depth is `log₂(n)`, so `power(13)` reaches depth 4.
+ *
+ * The base `x` is fixed at 2 for the trace so the widget only needs
+ * a single `arg` prop (the exponent). Locals shown: `x`, `n`, `half`,
+ * `return`. The `half` slot appears once the recursive call returns —
+ * the frame that was waiting on it now knows the value.
+ */
+function tracePower(
+  arg: number,
+  maxDepth: number,
+): { events: TraceEvent[]; overflowedAt?: number } {
+  const events: TraceEvent[] = [];
+  const walk = (n: number, depth: number): { overflow?: number; value?: number } => {
+    if (maxDepth > 0 && depth > maxDepth) return { overflow: depth };
+    const label = `power(${POWER_BASE}, ${n})`;
+    events.push({
+      type: 'call',
+      label,
+      line: 1,
+      locals: { x: String(POWER_BASE), n: String(n), return: '?' },
+      description: `invocando ${label}`,
+    });
+    events.push({
+      type: 'line',
+      line: 2,
+      description: `${label} — revisando caso base`,
+    });
+    if (n === 0) {
+      events.push({
+        type: 'return',
+        returnValue: '1',
+        description: `${label} — caso base, return 1`,
+      });
+      return { value: 1 };
+    }
+    const halfArg = Math.floor(n / 2);
+    events.push({
+      type: 'line',
+      line: 3,
+      description: `${label} — llamando power(${POWER_BASE}, ${halfArg})`,
+    });
+    const sub = walk(halfArg, depth + 1);
+    if (sub.overflow !== undefined) return sub;
+    const halfVal = sub.value!;
+    events.push({
+      type: 'line',
+      line: 3,
+      locals: { half: String(halfVal) },
+      description: `${label} — recibí half = ${halfVal}`,
+    });
+    events.push({
+      type: 'line',
+      line: 4,
+      description: `${label} — n % 2 = ${n % 2}`,
+    });
+    const value = n % 2 === 0 ? halfVal * halfVal : POWER_BASE * halfVal * halfVal;
+    const returnLine = n % 2 === 0 ? 4 : 5;
+    events.push({
+      type: 'line',
+      line: returnLine,
+      locals: { return: String(value) },
+      description:
+        n % 2 === 0
+          ? `${label} — n par: return ${halfVal} × ${halfVal} = ${value}`
+          : `${label} — n impar: return ${POWER_BASE} × ${halfVal} × ${halfVal} = ${value}`,
+    });
+    events.push({
+      type: 'return',
+      returnValue: String(value),
+      description: `${label} — return ${value}`,
+    });
+    return { value };
+  };
+  const result = walk(arg, 1);
+  if (result.overflow !== undefined) return { events, overflowedAt: result.overflow };
+  return { events };
 }
 
 function traceBroken(

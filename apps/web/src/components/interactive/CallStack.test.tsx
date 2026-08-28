@@ -166,6 +166,36 @@ describe('CallStack', () => {
     expect(screen.getByText(/return 2/i)).toBeInTheDocument();
   });
 
+  it('reserves stackSize slot placeholders that render empty by default', () => {
+    render(<CallStack recipe="factorial" arg={3} stackSize={5} />);
+    // 5 empty slots visible before any step is taken.
+    expect(screen.getAllByTestId('callstack-slot-empty')).toHaveLength(5);
+  });
+
+  it('fills slots as the stack grows without changing total slot count', async () => {
+    render(<CallStack recipe="factorial" arg={3} stackSize={5} />);
+    const forward = screen.getByRole('button', { name: /paso adelante/i });
+    // Push enough events so factorial(3) is in the stack and factorial(2)
+    // becomes the current context.
+    for (let i = 0; i < 4; i++) await userEvent.click(forward);
+    // 1 paused frame + 4 empty slots = 5 total on the right.
+    const paused = screen.getAllByTestId('callstack-frame-paused');
+    const empty = screen.getAllByTestId('callstack-slot-empty');
+    expect(paused.length + empty.length).toBe(5);
+    expect(paused.length).toBeGreaterThan(0);
+  });
+
+  it('supports the power recipe with x, n, half locals', async () => {
+    render(<CallStack recipe="power" arg={4} />);
+    const forward = screen.getByRole('button', { name: /paso adelante/i });
+    await userEvent.click(forward);
+    // First event is a `call`: current context now shows power(2, 4) with x, n, return.
+    const current = screen.getByTestId('callstack-frame-current');
+    expect(current).toHaveTextContent(/power\(2, 4\)/);
+    expect(current).toHaveTextContent(/x/);
+    expect(current).toHaveTextContent(/n/);
+  });
+
   it('supports the hanoi recipe with 4-argument locals', async () => {
     render(<CallStack recipe="hanoi" arg={1} />);
     const forward = screen.getByRole('button', { name: /paso adelante/i });
