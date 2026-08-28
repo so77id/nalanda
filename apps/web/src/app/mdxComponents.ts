@@ -10,6 +10,8 @@ import {
   LazyComplexityHierarchy,
   LazyMathPlot,
   LazyExercise,
+  LazyFibMemoSteps,
+  LazyFibTabSteps,
   LazyMermaid,
   LazyPredictOutput,
   LazyStepShow,
@@ -131,6 +133,13 @@ export const mdxComponents = {
   // reads THIS reference.
   StepShow: LazyStepShow,
   Step,
+  // Lazy: composes <StepShow> (which itself pulls CodeStepper /
+  // CodeMirror + java grammar the first time it renders). Documents
+  // that never touch fib memoization must not pay for it in their
+  // entry chunk. Guarded by architecture.test.ts.
+  FibMemoSteps: LazyFibMemoSteps,
+  // Lazy for the same reason as FibMemoSteps.
+  FibTabSteps: LazyFibTabSteps,
   // Not lazy: takes typed state, calls the pure `memoryLayout` algorithm and
   // paints SVG. No runtime seam, no CheerpJ, no CodeMirror — the whole reversal
   // #209 buys is that this component's cost is its own tiny chunk and nothing

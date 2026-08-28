@@ -219,9 +219,20 @@ describe('architecture: the step-through widget stays out of the entry chunk', (
   // <StepShow> mounts a <CodeStepper> that imports CodeMirror + `useGrammar`
   // for syntax-coloured listings (matching the pattern every other `java` fence
   // gets through `<MdxPre>` since #85). That is the CodeMirror hazard the four
-  // guards above cover, reached through this widget's route. Same shape: a
-  // single ALLOWED entry, no per-file exemptions.
-  const ALLOWED = ['components/interactive/lazyStepShow.tsx'];
+  // guards above cover, reached through this widget's route.
+  //
+  // ALLOWED covers the lazy wrapper AND the composite step widgets built on
+  // top of StepShow. The composites (FibMemoSteps, FibTabSteps) statically
+  // import StepShow so they can ship in the same chunk as their choreography,
+  // and each one carries its OWN lazy wrapper (lazyFibMemoSteps /
+  // lazyFibTabSteps) that keeps the whole chain out of the entry chunk. The
+  // eager-graph walk below reads THIS list — extending it is a decision, not
+  // a bypass.
+  const ALLOWED = [
+    'components/interactive/lazyStepShow.tsx',
+    'components/interactive/FibMemoSteps.tsx',
+    'components/interactive/FibTabSteps.tsx',
+  ];
 
   it('is imported only by its lazy wrapper', () => {
     expect(

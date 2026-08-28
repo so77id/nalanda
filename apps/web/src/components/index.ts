@@ -65,6 +65,14 @@ export type { StepShowProps } from './interactive/lazyStepShow';
 // `child.type === Step` identity check in `<StepShow>` reads THIS export.
 export { Step } from './interactive/Step';
 export type { StepProps } from './interactive/Step';
+// Lazy for the same reason as LazyStepShow: these widgets compose it
+// internally, so they inherit the CodeMirror dependency the first time
+// they render. Documents that never touch fib memoization must not pay
+// for it in their entry chunk.
+export { LazyFibMemoSteps } from './interactive/lazyFibMemoSteps';
+export type { FibMemoStepsProps } from './interactive/FibMemoSteps';
+export { LazyFibTabSteps } from './interactive/lazyFibTabSteps';
+export type { FibTabStepsProps } from './interactive/FibTabSteps';
 export { MemoryVisual } from './interactive/MemoryVisual';
 export type {
   MemoryFrame,

@@ -619,7 +619,7 @@ hay dos técnicas estándar para arreglarlo.
 
 <SectionBreak />
 
-<Slide title="Memoization: guardar cada resultado la primera vez">
+<Slide title="Memoization: recordar para no recalcular">
 Si una función va a ser llamada varias veces con el mismo argumento,
 **guardamos el resultado la primera vez y lo devolvemos cacheado las
 siguientes**. Esta técnica se llama **memoization**.
@@ -634,7 +634,9 @@ definición:
 > pasados y los puede recalcular cuando haga falta. Se diferencia de
 > una función ordinaria solo en que su evaluación y su almacenamiento
 > están indisolublemente ligados."*
+</Slide>
 
+<Slide title="Cuándo se puede memoizar: tres condiciones">
 No cualquier función se puede memoizar. Hacen falta tres condiciones,
 y las tres tienen que cumplirse a la vez:
 
@@ -667,39 +669,14 @@ hacia los subproblemas más chicos, dejando anotado el resultado en
 la tabla en el camino de subida. Es la recursión de siempre, con
 memoria de sus resultados.
 
-<CodeEditor
-  language="java"
-  defaultValue={`class FibMemoized {
-    static long[] memo;
-    static boolean[] done;
+**Dos líneas nuevas** respecto de la versión desnuda: consulta al
+cache antes de recursar (si el valor ya está, se devuelve directo en
+tiempo constante) y guardado del resultado calculado. Recorremos
+paso a paso `fib(5)` para ver el stack, el `memo[]` y el `done[]`
+llenándose, y los dos cache hits que la versión sin memoria no
+tenía:
 
-    static long fib(int n) {
-        if (n < 2) return n;
-        if (done[n]) return memo[n];       // cache hit: O(1)
-        long r = fib(n - 1) + fib(n - 2);
-        memo[n] = r;                        // store
-        done[n] = true;
-        return r;
-    }
-
-    public static void main(String[] args) {
-        int n = 40;
-        memo = new long[n + 1];
-        done = new boolean[n + 1];
-        System.out.println("fib(" + n + ") = " + fib(n));
-    }
-}
-`}
-/>
-
-**Dos líneas nuevas** respecto de la versión desnuda:
-
-- Consulta al cache antes de recursar: si el valor ya está, se devuelve
-  directo en tiempo constante.
-- Guardado del resultado calculado: para que la próxima llamada con el
-  mismo argumento no tenga que rehacer el trabajo.
-
-La recursión sigue siendo recursión — simplemente **recuerda**.
+<FibMemoSteps target={5} />
 </Slide>
 
 <Slide title="El costo del memoized: de exponencial a lineal">
@@ -791,6 +768,11 @@ porque:
   en `i`, todas las celdas $$0, 1, \ldots, i-1$$ ya están llenas.
 - **Mismo costo temporal $$\Theta(N)$$** que el memoized, sin el
   overhead de las llamadas.
+
+Recorremos paso a paso `fib(5)` para ver el arreglo `f[]` llenándose
+de izquierda a derecha, sin stack:
+
+<FibTabSteps target={5} />
 </Slide>
 
 <Slide title="Comparación: top-down vs bottom-up">
