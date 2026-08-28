@@ -3,6 +3,26 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { useResolvedTheme } from '../../lib/useResolvedTheme';
 import { AuthoringError } from '../AuthoringError';
+import { CodeStepper } from './CodeStepper';
+
+/**
+ * The Java source shown in the code panel above the towers. Line
+ * numbers are 1-indexed and land as follows:
+ *   1: static void hanoi(int n, char from, char to, char aux) {
+ *   2:     if (n == 0) return;
+ *   3:     hanoi(n - 1, from, aux, to);
+ *   4:     System.out.println("Disc " + n + ": " + from + " -> " + to);
+ *   5:     hanoi(n - 1, aux, to, from);
+ *   6: }
+ * The `line` field on each Event names which of those lines just
+ * fired to produce the state the widget is now showing.
+ */
+const HANOI_CODE = `static void hanoi(int n, char from, char to, char aux) {
+    if (n == 0) return;
+    hanoi(n - 1, from, aux, to);
+    System.out.println("Disc " + n + ": " + from + " -> " + to);
+    hanoi(n - 1, aux, to, from);
+}`;
 
 /**
  * The maximum number of discs the widget will render. hanoi(6) is 63 moves,
@@ -19,9 +39,9 @@ const MAX_DISCS = 6;
  * executing when a disc moves.
  */
 type Event =
-  | { type: 'call'; label: string; depth: number }
-  | { type: 'move'; disc: number; from: TowerId; to: TowerId; depth: number }
-  | { type: 'return'; depth: number };
+  | { type: 'call'; label: string; depth: number; line: number }
+  | { type: 'move'; disc: number; from: TowerId; to: TowerId; depth: number; line: number }
+  | { type: 'return'; depth: number; line: number };
 
 type TowerId = 'A' | 'B' | 'C';
 
@@ -35,18 +55,29 @@ function initialTowers(nDiscs: number): TowerState {
 
 function generateEvents(nDiscs: number): Event[] {
   const events: Event[] = [];
-  const walk = (n: number, from: TowerId, to: TowerId, aux: TowerId, depth: number) => {
-    events.push({ type: 'call', label: `hanoi(${n}, ${from} → ${to})`, depth });
+  // `callerLine` is the line in the PARENT function that fired to invoke
+  // this call — 3 for the first recursive call, 5 for the second, and 1
+  // for the root invocation (no parent, so we point at the function's
+  // entry line so the reader has SOMETHING lit up).
+  const walk = (
+    n: number,
+    from: TowerId,
+    to: TowerId,
+    aux: TowerId,
+    depth: number,
+    callerLine: number,
+  ) => {
+    events.push({ type: 'call', label: `hanoi(${n}, ${from} → ${to})`, depth, line: callerLine });
     if (n === 0) {
-      events.push({ type: 'return', depth });
+      events.push({ type: 'return', depth, line: 2 });
       return;
     }
-    walk(n - 1, from, aux, to, depth + 1);
-    events.push({ type: 'move', disc: n, from, to, depth });
-    walk(n - 1, aux, to, from, depth + 1);
-    events.push({ type: 'return', depth });
+    walk(n - 1, from, aux, to, depth + 1, 3);
+    events.push({ type: 'move', disc: n, from, to, depth, line: 4 });
+    walk(n - 1, aux, to, from, depth + 1, 5);
+    events.push({ type: 'return', depth, line: 6 });
   };
-  walk(nDiscs, 'A', 'C', 'B', 0);
+  walk(nDiscs, 'A', 'C', 'B', 0, 1);
   return events;
 }
 
@@ -184,6 +215,11 @@ export function HanoiPlayground({
   const canStepBack = clampedStep > 0;
   const canStepForward = clampedStep < events.length;
   const atEnd = !canStepForward;
+  // Line to highlight in the code panel: the `line` field of the event
+  // that just fired to produce the current state. Before any step has
+  // fired, no line is highlighted.
+  const currentLine = clampedStep > 0 ? events[clampedStep - 1]!.line : undefined;
+  const highlightLines = currentLine !== undefined ? [currentLine] : [];
 
   const towerHeight = MAX_DISCS + 1;
 
@@ -198,6 +234,13 @@ export function HanoiPlayground({
           movimiento: {state.moveCount} / {totalMoves}
         </span>
       </header>
+
+      {/* Code panel: source of the recursion, with the line that just
+          fired highlighted. Lets the reader connect the physical disc
+          movements to the exact line of Java driving them. */}
+      <div className="border-t border-rule">
+        <CodeStepper code={HANOI_CODE} language="java" highlightLines={highlightLines} />
+      </div>
 
       <div
         className={`grid grid-cols-1 border-t border-rule ${

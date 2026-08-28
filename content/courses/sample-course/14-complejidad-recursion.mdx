@@ -786,108 +786,121 @@ respuestas a partir de una tabla llena), conviene quedarse con la
 tabulation completa.
 </Slide>
 
-<Slide title="Torres de Hanoi: el problema">
-**Édouard Lucas** — matemático francés — inventa el juego de las
-**Torres de Hanoi** en 1883.
+<Slide title="Torres de Hanoi">
+En **1883**, el matemático francés **Édouard Lucas** vende en las
+jugueterías de París un juego con nombre exótico: las **Torres de
+Hanoi**. La caja trae tres varillas y ocho discos de distinto tamaño
+apilados en la primera, el más grande abajo. El objetivo es mover
+todos los discos a la tercera varilla siguiendo dos reglas:
 
-El problema:
+- Se mueve **un disco a la vez** (el que está arriba de una varilla).
+- Nunca se apoya un disco **grande sobre uno chico**.
 
-- **Tres varillas** (origen, auxiliar, destino) y **$$N$$ discos** de
-  distinto tamaño apilados por tamaño en la primera, el más grande abajo.
-- Objetivo: mover todos los discos al destino.
-- Reglas: (1) un disco a la vez, (2) nunca poner un disco grande sobre
-  uno chico.
+La segunda regla es la que hace el problema interesante: para mover
+el disco más grande a la varilla destino, primero hay que despejar
+todo lo que tiene encima, y ese "despejar" es un subproblema del
+mismo tipo — mover $$N-1$$ discos a la varilla auxiliar.
 
 <HanoiPlayground arg={4} title="hanoi(4) — 15 movimientos" />
 
-Es el **problema recursivo canónico** de la ciencia de la computación.
-Aparece en todos los textos de estructuras y algoritmos porque la
-solución **se define naturalmente en términos recursivos**: para mover
-$$N$$ discos de A a C, movemos $$N-1$$ a B, movemos el más grande a C, y
-movemos los $$N-1$$ de B a C. El paso recursivo hace **dos** llamadas de
-tamaño $$N-1$$.
+Esa estructura — resolver el problema de tamaño $$N$$ apoyándose en
+resolver el problema de tamaño $$N-1$$ **dos veces** — es el patrón
+recursivo puro. Por eso `hanoi` aparece en todos los textos de
+estructuras y algoritmos: es el ejemplo más limpio de una recursión
+no lineal que la matemática no puede acortar.
 
-**La leyenda** que popularizó Lucas: en un templo de Benarés hay 64
-discos siendo movidos por monjes a razón de uno por segundo. Cuando
-terminen, el mundo se acaba. $$2^{64} - 1 \approx 1{,}8 \times 10^{19}$$
-movimientos: **585 mil millones de años**.
+**La leyenda que popularizó Lucas** para vender la caja: en un templo
+de Benarés hay 64 discos siendo movidos por monjes a razón de uno por
+segundo, y cuando terminen se acaba el mundo. $$2^{64} - 1 \approx
+1{,}8 \times 10^{19}$$ movimientos: **585 mil millones de años**. El
+universo tiene 13.800 millones; la humanidad, unos 300.000. Sobra
+tiempo.
 </Slide>
 
-<Slide title="Solución recursiva de Torres de Hanoi">
-Aplicando la receta de diseño (caso base + paso recursivo):
-
-<CodeEditor
-  language="java"
-  defaultValue={`class Hanoi {
-    static void hanoi(int n, char from, char to, char aux) {
-        if (n == 0) return;                                       // base case
-        hanoi(n - 1, from, aux, to);                              // move N-1 to auxiliary
-        System.out.println("Disc " + n + ": " + from + " -> " + to);
-        hanoi(n - 1, aux, to, from);                              // move N-1 to destination
-    }
-
-    public static void main(String[] args) {
-        hanoi(4, 'A', 'C', 'B');
-    }
-}
-`}
-/>
-
-Cuatro parámetros: **cuántos** discos mover, **de dónde**, **a dónde**,
-y **usando cuál** como auxiliar. La belleza recursiva: las dos llamadas
-**intercambian los roles** de las torres — el auxiliar del paso pasa a
-ser destino de una subllamada y origen de la otra.
+<Slide title="Solución y costo de Torres de Hanoi">
+El código del widget de la slide anterior — cuatro parámetros:
+**cuántos** discos mover, **de dónde**, **a dónde**, y **usando
+cuál** como auxiliar. Las dos llamadas recursivas **intercambian los
+roles** de las torres: el auxiliar del paso actual pasa a ser destino
+de una subllamada y origen de la otra.
 
 Aplicando la receta de análisis:
-- Caso base `if (n == 0)` → trabajo constante $$c$$.
-- Paso recursivo: **dos** llamadas de tamaño $$N-1$$ + una impresión +
-  trabajo constante $$c$$.
 
-Recurrencia:
-$$
-T(N) = 2T(N-1) + c \qquad T(0) = c
-$$
-</Slide>
+- **Caso base** `if (n == 0)` → trabajo constante $$c$$.
+- **Paso recursivo**: **dos** llamadas de tamaño $$N-1$$ + una
+  impresión + trabajo constante $$c$$.
 
-<Slide title="$$\Theta(2^N)$$ intrínseco: memoization no lo salva">
-Como el paso recursivo tiene una sola forma recursiva ($$T(N-1)$$
-aparece dos veces con el **mismo argumento** — antes de contar torres),
-la expansión es directa:
+Recurrencia, escrita como función por partes:
+
+$$
+T(N) = \begin{cases}
+c & \text{si } N = 0 \\
+2\,T(N-1) + c & \text{si } N \geq 1
+\end{cases}
+$$
+
+Las dos llamadas se hacen con el **mismo argumento** $$N-1$$ (los
+parámetros que cambian son las torres, no el tamaño), así que
+podemos expandir directo, sustituyendo el término recursivo por su
+definición, un paso a la vez:
+
 $$
 \begin{aligned}
-T(N) &= 2T(N-1) + c \\
-     &= 2[2T(N-2) + c] + c = 2^2 T(N-2) + (2+1)c \\
-     &= 2^3 T(N-3) + (4+2+1)c \\
+T(N) &= 2\,T(N-1) + c \\
+     &= 2\bigl[2\,T(N-2) + c\bigr] + c = 2^2\,T(N-2) + (2 + 1)\,c \\
+     &= 2^3\,T(N-3) + (2^2 + 2 + 1)\,c \\
      &\ \ \vdots \\
-     &= 2^N T(0) + (2^N - 1)c \in \Theta(2^N)
+     &= 2^k\,T(N-k) + (2^k - 1)\,c
 \end{aligned}
 $$
 
-Es exponencial. **Y sin embargo, memoization no ayuda.**
+Cuando $$k = N$$, llegamos a $$T(0) = c$$:
+
+$$
+\begin{aligned}
+T(N) &= 2^N\,c + (2^N - 1)\,c \\
+T(N) &= (2 \cdot 2^N - 1)\,c \quad \Rightarrow \quad T(N) \in \Theta(2^N)
+\end{aligned}
+$$
+
+Es exponencial — la leyenda de los monjes no era exageración.
+</Slide>
+
+<Slide title="Memoization no salva a Hanoi">
+`fib` era exponencial y memoization lo bajó a $$\Theta(N)$$. La
+pregunta natural: ¿podemos hacer lo mismo con Hanoi? Miramos su
+árbol de llamadas:
 
 <RecursionTree recipe="hanoi" arg={3} title="hanoi(3)" />
 
-Miramos el árbol: cada nodo tiene argumentos distintos porque los roles
-de las torres cambian en cada llamada. `hanoi(1, A→C)` no es lo mismo que
-`hanoi(1, A→B)`: mueven un disco diferente en un contexto diferente. Y
-aunque los argumentos se repitieran, `hanoi` es **void** — no devuelve
-nada para cachear; su trabajo es un **efecto secundario** (la impresión
-del movimiento) que memoization no puede evitar.
+Cada nodo tiene argumentos **distintos** porque los roles de las
+torres cambian en cada llamada. `hanoi(1, A→C)` no es lo mismo que
+`hanoi(1, A→B)`: mueven un disco diferente en un contexto diferente.
+Ningún resultado se repite, así que no hay nada que cachear.
 
-**Contraste con Fibonacci**: en Fibonacci la exponencial era **de la
-recursión** (los mismos valores se recalculaban); el problema en sí es
-lineal. En Hanoi la exponencial es **del problema**: mover $$N$$ discos
-**requiere** $$2^N - 1$$ movimientos, no hay atajo matemático. Cada
-disco tiene que moverse.
+Y aunque los argumentos se repitieran, `hanoi` es **void** — no
+devuelve un valor para guardar en el cache. Su trabajo es un
+**efecto secundario** (la impresión del movimiento) que memoization
+no puede evitar por definición: aunque supiéramos que
+`hanoi(3, A→C)` ya se ejecutó una vez, tendríamos que ejecutarla de
+nuevo para que los movimientos vuelvan a salir.
 
-**Regla actualizada**:
+**El contraste con Fibonacci** cierra el capítulo: en `fib` la
+exponencial estaba **en la recursión** (los mismos valores se
+recalculaban); el problema en sí es lineal. En `hanoi` la
+exponencial está **en el problema mismo**: mover $$N$$ discos
+**requiere** $$2^N - 1$$ movimientos, y no hay atajo matemático
+posible — cada disco tiene que moverse.
 
-> **Recursión + subproblemas REPETIDOS ⇒ memoizar o tabular.**
-> Sin repetición, o con efectos secundarios, el costo exponencial es
-> **intrínseco al problema** y no hay técnica que lo baje.
+De aquí sale la regla del capítulo:
+
+> **Con subproblemas repetidos, memoization o tabulation bajan el
+> costo.** Sin repetición, o con efectos secundarios, el costo
+> exponencial es **intrínseco al problema** y no hay técnica que
+> lo baje.
 </Slide>
 
-## Ejercicio: contar los bits de $$n$$ en binario
+## Ejercicio: contar los bits de N en binario
 
 Aplicamos la receta del capítulo a una función recursiva nueva:
 **contar cuántos bits necesita $$n$$ para escribirse en binario**. Por
