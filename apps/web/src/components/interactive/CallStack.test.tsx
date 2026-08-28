@@ -172,17 +172,42 @@ describe('CallStack', () => {
     expect(screen.getAllByTestId('callstack-slot-empty')).toHaveLength(5);
   });
 
+  it('defaults to a 4-slot viewport when stackSize is not provided', () => {
+    render(<CallStack recipe="factorial" arg={3} />);
+    expect(screen.getAllByTestId('callstack-slot-empty')).toHaveLength(4);
+  });
+
   it('fills slots as the stack grows without changing total slot count', async () => {
     render(<CallStack recipe="factorial" arg={3} stackSize={5} />);
     const forward = screen.getByRole('button', { name: /paso adelante/i });
     // Push enough events so factorial(3) is in the stack and factorial(2)
     // becomes the current context.
     for (let i = 0; i < 4; i++) await userEvent.click(forward);
-    // 1 paused frame + 4 empty slots = 5 total on the right.
+    // 1 paused frame + 4 empty slots = 5 total on the right (viewport size).
     const paused = screen.getAllByTestId('callstack-frame-paused');
     const empty = screen.getAllByTestId('callstack-slot-empty');
     expect(paused.length + empty.length).toBe(5);
     expect(paused.length).toBeGreaterThan(0);
+  });
+
+  it('renders all paused frames when the stack overflows the viewport (they scroll)', async () => {
+    // stackSize=2 forces the third and later paused frames to overflow
+    // the viewport. All frames stay in the DOM (they scroll), no
+    // empty slots when stack.length >= stackSize.
+    render(<CallStack recipe="factorial" arg={5} stackSize={2} />);
+    const forward = screen.getByRole('button', { name: /paso adelante/i });
+    // Advance until at least 3 frames are paused.
+    for (let i = 0; i < 12; i++) {
+      const btn = screen.getByRole('button', { name: /paso adelante/i }) as HTMLButtonElement;
+      if (btn.disabled) break;
+      await userEvent.click(forward);
+    }
+    const paused = screen.queryAllByTestId('callstack-frame-paused');
+    const empty = screen.queryAllByTestId('callstack-slot-empty');
+    // At this point the stack should have more than 2 paused frames and
+    // all of them must be in the DOM (scrolling, not truncation).
+    expect(paused.length).toBeGreaterThan(2);
+    expect(empty.length).toBe(0);
   });
 
   it('supports the power recipe with x, n, half locals', async () => {

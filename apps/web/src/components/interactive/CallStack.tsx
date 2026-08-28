@@ -93,7 +93,14 @@ static long broken(int n) {
 
 const MAX_TRACE_LENGTH = 3000;
 const BROKEN_DEFAULT_DEPTH = 6;
-const DEFAULT_STACK_SIZE = 8;
+const DEFAULT_STACK_SIZE = 4;
+// Height (in rem) reserved for a single paused-frame slot. The stack
+// column's scroll viewport is sized as `stackSize` of these slots so
+// the widget does not grow when the stack pushes past that count —
+// newest paused frame stays anchored at the top, older frames scroll
+// out the bottom.
+const SLOT_HEIGHT_REM = 3;
+const SLOT_GAP_REM = 0.5;
 
 export interface CallStackProps {
   recipe?: string;
@@ -211,16 +218,22 @@ export function CallStack({
   const pausedFrames = state.frames.slice(0, -1);
   const highlightLines = currentFrame !== null ? [currentFrame.line] : [];
 
-  // Reserve exactly `stackSize` slots. Newest-paused frame goes at the top
-  // of the stack column (closest to the current context in the row below).
-  // Empty slots render as dashed placeholders so the outer widget size
-  // never shifts as the stack pushes and pops.
+  // The scroll viewport holds exactly `stackSize` slot-heights worth of
+  // space; when there are fewer paused frames, we pad with empty
+  // dashed placeholders. When there are more, we render them all and
+  // let the viewport scroll — the newest paused frame (closest to
+  // the current context) stays anchored at the top of the list so it
+  // is always visible, older frames scroll off the bottom.
   const slotCount = Math.max(1, stackSize);
   const reversedPaused = [...pausedFrames].reverse();
-  const slots: ((typeof pausedFrames)[number] | null)[] = Array.from(
-    { length: slotCount },
-    (_, i) => reversedPaused[i] ?? null,
-  );
+  const slots: ((typeof pausedFrames)[number] | null)[] =
+    reversedPaused.length >= slotCount
+      ? reversedPaused
+      : [
+          ...reversedPaused,
+          ...Array.from({ length: slotCount - reversedPaused.length }, () => null),
+        ];
+  const scrollHeightRem = slotCount * SLOT_HEIGHT_REM + (slotCount - 1) * SLOT_GAP_REM;
 
   return (
     <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
@@ -268,30 +281,36 @@ export function CallStack({
           </div>
         </div>
 
-        <div
-          className="min-h-[14rem] flex flex-col gap-2 bg-sunk/30 p-3"
-          role="list"
-          aria-label="Frames pausados en el stack (cima arriba)"
-        >
-          <div className="font-mono text-3xs uppercase tracking-wide text-ink-faint">Stack</div>
-          {slots.map((frame, i) =>
-            frame === null ? (
-              <div
-                key={`empty-${i}`}
-                data-testid="callstack-slot-empty"
-                aria-hidden="true"
-                className="min-h-[3rem] rounded border border-dashed border-rule/50 bg-transparent"
-              />
-            ) : (
-              <FrameCard
-                key={`frame-${i}`}
-                frame={frame}
-                variant="paused"
-                caption={`pausada en L${frame.line}`}
-                compact
-              />
-            ),
-          )}
+        <div className="flex flex-col bg-sunk/30 p-3">
+          <div className="mb-2 font-mono text-3xs uppercase tracking-wide text-ink-faint">
+            Stack
+          </div>
+          <div
+            className="flex flex-col gap-2 overflow-y-auto pr-1"
+            style={{ height: `${scrollHeightRem}rem` }}
+            role="list"
+            aria-label="Frames pausados en el stack (cima arriba)"
+          >
+            {slots.map((frame, i) =>
+              frame === null ? (
+                <div
+                  key={`empty-${i}`}
+                  data-testid="callstack-slot-empty"
+                  aria-hidden="true"
+                  className="shrink-0 rounded border border-dashed border-rule/50 bg-transparent"
+                  style={{ height: `${SLOT_HEIGHT_REM}rem` }}
+                />
+              ) : (
+                <FrameCard
+                  key={`frame-${i}`}
+                  frame={frame}
+                  variant="paused"
+                  caption={`pausada en L${frame.line}`}
+                  compact
+                />
+              ),
+            )}
+          </div>
         </div>
       </div>
 

@@ -261,7 +261,7 @@ parámetros) desaparece.
 </Slide>
 
 <Slide title="Cómo se ve el stack durante una recursión">
-<CallStack recipe="factorial" arg={3} stackSize={5} />
+<CallStack recipe="factorial" arg={3} />
 </Slide>
 
 <Slide title="StackOverflowError: falta el caso base">
@@ -272,7 +272,7 @@ límite, la JVM lanza un `StackOverflowError` y el programa termina.
 
 Veamos qué pasa cuando la recursión no tiene condición de término:
 
-<CallStack recipe="broken" arg={3} stackSize={7} />
+<CallStack recipe="broken" arg={3} stackSize={4} />
 
 Cada `Paso adelante` empuja un frame más; nunca hay pop. Limitamos la
 demo a un puñado de frames para que el error sea legible, pero en la
@@ -286,7 +286,7 @@ No solo la recursión mal diseñada revienta el stack. Una recursión
 **lineal bien planteada** sobre un input muy profundo — una lista de un
 millón de elementos, un árbol muy alto — también agota el stack:
 
-<CallStack recipe="factorial" arg={20} maxDepth={4} stackSize={5} />
+<CallStack recipe="factorial" arg={20} maxDepth={4} />
 
 Acá `factorial` está bien escrita, pero simulamos un stack pequeño
 (profundidad 4). El resultado es el mismo error: la recursión
@@ -303,7 +303,7 @@ $$x^n = x \cdot (x^{n/2})^2$$ cuando es impar. El resultado es una
 recursión **por división**: la profundidad ya no crece con $$n$$ sino
 con $$\log_2 n$$.
 
-<CallStack recipe="power" arg={13} stackSize={5} />
+<CallStack recipe="power" arg={13} />
 
 Miren la profundidad: `power(2, 13)` alcanza solo **4 frames** en el
 stack, no 13. Cada llamada halva el argumento. Esa es la firma de una
