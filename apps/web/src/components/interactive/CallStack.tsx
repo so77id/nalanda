@@ -93,14 +93,6 @@ static long broken(int n) {
 
 const MAX_TRACE_LENGTH = 3000;
 const BROKEN_DEFAULT_DEPTH = 6;
-const DEFAULT_STACK_SIZE = 4;
-// Height (in rem) reserved for a single paused-frame slot. The stack
-// column's scroll viewport is sized as `stackSize` of these slots so
-// the widget does not grow when the stack pushes past that count —
-// newest paused frame stays anchored at the top, older frames scroll
-// out the bottom.
-const SLOT_HEIGHT_REM = 3;
-const SLOT_GAP_REM = 0.5;
 
 export interface CallStackProps {
   recipe?: string;
@@ -111,27 +103,18 @@ export interface CallStackProps {
   title?: string;
   autoplay?: boolean;
   speed?: number;
-  /**
-   * Number of visible slots reserved for stacked (paused) frames. The
-   * widget draws the full column with `stackSize` slot placeholders so
-   * the layout does not shift as frames push and pop — filled slots
-   * render the frame, empty slots stay as dashed placeholders. Default
-   * 8. Increase for a demo that reaches deeper (e.g. hanoi(4) needs
-   * more), decrease for a compact slide.
-   */
-  stackSize?: number;
 }
 
 /**
  * A widget that makes the JVM call stack visible during a recursive
- * execution (ADR-0049 · v3 layout 2026-08-27).
+ * execution (ADR-0049 · v4 layout 2026-08-27).
  *
- * Layout (vertical): code panel on top, current context and paused
- * stack side by side below. The current context floats vertically
- * centered in its half; the paused stack column reserves `stackSize`
- * slot placeholders (dashed empty boxes) so the widget's outer size
- * stays constant as the stack pushes and pops. A footer legend
- * captions each event.
+ * Layout (two columns, transversal): the left column (~75%) is split
+ * vertically — code on top, current context below. The right column
+ * (~25%) is the paused-stack column, running the full height of the
+ * left side. All paused frames render there (newest anchored at the
+ * top); the column has its own scroll and the outer widget never
+ * grows to fit the stack. A footer legend captions each event.
  */
 export function CallStack({
   recipe,
@@ -142,7 +125,6 @@ export function CallStack({
   title,
   autoplay = false,
   speed = 1,
-  stackSize = DEFAULT_STACK_SIZE,
 }: CallStackProps) {
   const known = recipe === undefined ? undefined : RECIPES[recipe];
 
@@ -218,22 +200,11 @@ export function CallStack({
   const pausedFrames = state.frames.slice(0, -1);
   const highlightLines = currentFrame !== null ? [currentFrame.line] : [];
 
-  // The scroll viewport holds exactly `stackSize` slot-heights worth of
-  // space; when there are fewer paused frames, we pad with empty
-  // dashed placeholders. When there are more, we render them all and
-  // let the viewport scroll — the newest paused frame (closest to
-  // the current context) stays anchored at the top of the list so it
-  // is always visible, older frames scroll off the bottom.
-  const slotCount = Math.max(1, stackSize);
-  const reversedPaused = [...pausedFrames].reverse();
-  const slots: ((typeof pausedFrames)[number] | null)[] =
-    reversedPaused.length >= slotCount
-      ? reversedPaused
-      : [
-          ...reversedPaused,
-          ...Array.from({ length: slotCount - reversedPaused.length }, () => null),
-        ];
-  const scrollHeightRem = slotCount * SLOT_HEIGHT_REM + (slotCount - 1) * SLOT_GAP_REM;
+  // Newest paused frame goes at the top of the stack column so it is
+  // always visible; older frames scroll off the bottom. The stack
+  // column has its own scroll (see markup below), so we simply render
+  // every paused frame — the container never grows.
+  const stackFrames = [...pausedFrames].reverse();
 
   return (
     <div className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink">
@@ -251,65 +222,76 @@ export function CallStack({
         </span>
       </header>
 
-      <div className="border-t border-rule">
-        <CodeStepper
-          code={code ?? known.defaultCode}
-          language={language ?? known.language}
-          highlightLines={highlightLines}
-        />
-      </div>
-
-      <div className="grid grid-cols-1 border-t border-rule md:grid-cols-2">
-        <div className="flex min-h-[14rem] flex-col justify-center border-b border-rule bg-sunk/20 p-3 md:border-b-0 md:border-r">
-          <div className="mb-2 font-mono text-3xs uppercase tracking-wide text-ink-faint">
-            Contexto actual
-          </div>
-          <div className="flex-1 flex items-center">
-            {currentFrame === null ? (
-              <p className="w-full text-center font-mono text-xs text-ink-faint">
-                Stack vacío — click en <span className="font-semibold">Paso</span> para arrancar.
-              </p>
-            ) : (
-              <div className="w-full">
-                <FrameCard
-                  frame={currentFrame}
-                  variant={overflowed ? 'overflow' : 'current'}
-                  caption="← ejecutando"
-                />
-              </div>
-            )}
+      {/*
+       * Two-column body — the left column drives the widget's height,
+       * the right column stretches to that height and scrolls
+       * internally. In flexbox row layout with align-items: stretch
+       * (default), an item with `overflow: hidden` and its content
+       * positioned absolutely does not push the row taller — the
+       * container sizes to the left column, and the right column
+       * stretches into the space that leaves.
+       */}
+      <div className="flex flex-col border-t border-rule md:flex-row">
+        {/* Left column · code on top, current context below. */}
+        <div className="flex flex-col md:basis-3/4 md:min-w-0">
+          <CodeStepper
+            code={code ?? known.defaultCode}
+            language={language ?? known.language}
+            highlightLines={highlightLines}
+          />
+          <div className="flex min-h-[9rem] flex-1 flex-col border-t border-rule bg-sunk/20 p-3">
+            <div className="mb-2 font-mono text-3xs uppercase tracking-wide text-ink-faint">
+              Contexto actual
+            </div>
+            <div className="flex flex-1 items-center">
+              {currentFrame === null ? (
+                <p className="w-full text-center font-mono text-xs text-ink-faint">
+                  Stack vacío — click en <span className="font-semibold">Paso</span> para arrancar.
+                </p>
+              ) : (
+                <div className="w-full">
+                  <FrameCard
+                    frame={currentFrame}
+                    variant={overflowed ? 'overflow' : 'current'}
+                    caption="← ejecutando"
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
-        <div className="flex flex-col bg-sunk/30 p-3">
-          <div className="mb-2 font-mono text-3xs uppercase tracking-wide text-ink-faint">
-            Stack
-          </div>
-          <div
-            className="flex flex-col gap-2 overflow-y-auto pr-1"
-            style={{ height: `${scrollHeightRem}rem` }}
-            role="list"
-            aria-label="Frames pausados en el stack (cima arriba)"
-          >
-            {slots.map((frame, i) =>
-              frame === null ? (
-                <div
-                  key={`empty-${i}`}
-                  data-testid="callstack-slot-empty"
-                  aria-hidden="true"
-                  className="shrink-0 rounded border border-dashed border-rule/50 bg-transparent"
-                  style={{ height: `${SLOT_HEIGHT_REM}rem` }}
-                />
+        {/* Right column · paused stack, transversal to code+context. */}
+        <div className="relative border-t border-rule bg-sunk/30 md:basis-1/4 md:border-t-0 md:border-l md:overflow-hidden">
+          <div className="flex flex-col p-3 md:absolute md:inset-0">
+            <div className="mb-2 font-mono text-3xs uppercase tracking-wide text-ink-faint">
+              Stack
+            </div>
+            <div
+              className="flex flex-1 flex-col gap-2 overflow-y-auto pr-1 md:min-h-0"
+              role="list"
+              aria-label="Frames pausados en el stack (cima arriba)"
+              data-testid="callstack-stack-scroll"
+            >
+              {stackFrames.length === 0 ? (
+                <p
+                  className="text-center font-mono text-3xs text-ink-faint"
+                  data-testid="callstack-stack-empty"
+                >
+                  vacío
+                </p>
               ) : (
-                <FrameCard
-                  key={`frame-${i}`}
-                  frame={frame}
-                  variant="paused"
-                  caption={`pausada en L${frame.line}`}
-                  compact
-                />
-              ),
-            )}
+                stackFrames.map((frame, i) => (
+                  <FrameCard
+                    key={`frame-${i}`}
+                    frame={frame}
+                    variant="paused"
+                    caption={`pausada en L${frame.line}`}
+                    compact
+                  />
+                ))
+              )}
+            </div>
           </div>
         </div>
       </div>

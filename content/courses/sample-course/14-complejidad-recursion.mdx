@@ -272,7 +272,7 @@ límite, la JVM lanza un `StackOverflowError` y el programa termina.
 
 Veamos qué pasa cuando la recursión no tiene condición de término:
 
-<CallStack recipe="broken" arg={3} stackSize={4} />
+<CallStack recipe="broken" arg={3} />
 
 Cada `Paso adelante` empuja un frame más; nunca hay pop. Limitamos la
 demo a un puñado de frames para que el error sea legible, pero en la

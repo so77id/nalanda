@@ -25,6 +25,8 @@ describe('CallStack', () => {
     expect(screen.getByText(/click en/i)).toBeInTheDocument();
     expect(screen.queryByTestId('callstack-frame-current')).not.toBeInTheDocument();
     expect(screen.queryAllByTestId('callstack-frame-paused')).toHaveLength(0);
+    // Stack column shows the "vacío" placeholder when nothing is paused.
+    expect(screen.getByTestId('callstack-stack-empty')).toBeInTheDocument();
     expect(screen.getByText(/paso 0 \/ /i)).toBeInTheDocument();
   });
 
@@ -166,48 +168,31 @@ describe('CallStack', () => {
     expect(screen.getByText(/return 2/i)).toBeInTheDocument();
   });
 
-  it('reserves stackSize slot placeholders that render empty by default', () => {
-    render(<CallStack recipe="factorial" arg={3} stackSize={5} />);
-    // 5 empty slots visible before any step is taken.
-    expect(screen.getAllByTestId('callstack-slot-empty')).toHaveLength(5);
-  });
-
-  it('defaults to a 4-slot viewport when stackSize is not provided', () => {
+  it('shows a "vacío" placeholder in the stack column when nothing is paused', () => {
     render(<CallStack recipe="factorial" arg={3} />);
-    expect(screen.getAllByTestId('callstack-slot-empty')).toHaveLength(4);
+    expect(screen.getByTestId('callstack-stack-empty')).toBeInTheDocument();
+    expect(screen.queryAllByTestId('callstack-frame-paused')).toHaveLength(0);
   });
 
-  it('fills slots as the stack grows without changing total slot count', async () => {
-    render(<CallStack recipe="factorial" arg={3} stackSize={5} />);
+  it('renders every paused frame inside the stack scroll column (they scroll, not truncate)', async () => {
+    // factorial(5) at max depth pushes 4 frames onto the stack (with
+    // factorial(1) as current). All four must be present in the scroll
+    // column; the container never truncates.
+    render(<CallStack recipe="factorial" arg={5} />);
     const forward = screen.getByRole('button', { name: /paso adelante/i });
-    // Push enough events so factorial(3) is in the stack and factorial(2)
-    // becomes the current context.
-    for (let i = 0; i < 4; i++) await userEvent.click(forward);
-    // 1 paused frame + 4 empty slots = 5 total on the right (viewport size).
-    const paused = screen.getAllByTestId('callstack-frame-paused');
-    const empty = screen.getAllByTestId('callstack-slot-empty');
-    expect(paused.length + empty.length).toBe(5);
-    expect(paused.length).toBeGreaterThan(0);
-  });
-
-  it('renders all paused frames when the stack overflows the viewport (they scroll)', async () => {
-    // stackSize=2 forces the third and later paused frames to overflow
-    // the viewport. All frames stay in the DOM (they scroll), no
-    // empty slots when stack.length >= stackSize.
-    render(<CallStack recipe="factorial" arg={5} stackSize={2} />);
-    const forward = screen.getByRole('button', { name: /paso adelante/i });
-    // Advance until at least 3 frames are paused.
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 20; i++) {
       const btn = screen.getByRole('button', { name: /paso adelante/i }) as HTMLButtonElement;
       if (btn.disabled) break;
+      // Only advance while we still have room to keep pushing.
+      const paused = screen.queryAllByTestId('callstack-frame-paused');
+      if (paused.length >= 4) break;
       await userEvent.click(forward);
     }
-    const paused = screen.queryAllByTestId('callstack-frame-paused');
-    const empty = screen.queryAllByTestId('callstack-slot-empty');
-    // At this point the stack should have more than 2 paused frames and
-    // all of them must be in the DOM (scrolling, not truncation).
-    expect(paused.length).toBeGreaterThan(2);
-    expect(empty.length).toBe(0);
+    const scroll = screen.getByTestId('callstack-stack-scroll');
+    const paused = within(scroll).getAllByTestId('callstack-frame-paused');
+    expect(paused.length).toBeGreaterThanOrEqual(3);
+    // Newest paused frame anchored at the top of the scroll list.
+    expect(paused[0]!).toHaveTextContent(/factorial\(2\)/);
   });
 
   it('supports the power recipe with x, n, half locals', async () => {
