@@ -465,9 +465,14 @@ unidades.
 <SectionBreak />
 
 <Slide title="Fibonacci recursivo">
-Definición matemática de Fibonacci:
+Definición matemática de Fibonacci, escrita como función por partes:
+
 $$
-F(0) = 0, \qquad F(1) = 1, \qquad F(N) = F(N-1) + F(N-2)
+F(N) = \begin{cases}
+0 & \text{si } N = 0 \\
+1 & \text{si } N = 1 \\
+F(N-1) + F(N-2) & \text{si } N \geq 2
+\end{cases}
 $$
 
 Traducción directa a Java, aplicando la receta del capítulo (caso base +
@@ -504,19 +509,14 @@ chicas. El resultado es un árbol.
 
 <RecursionTree recipe="fib" arg={5} title="fib(5)" />
 
-Con clic en la raíz se abren `fib(4)` y `fib(3)`. Al abrir `fib(4)`
-aparecen `fib(3)` y `fib(2)`. Y acá aparece la palabra clave: ya hay
-**dos** `fib(3)`, pintados del mismo color porque son el mismo cálculo.
-Al seguir bajando: `fib(2)` aparece 5 veces. `fib(1)` aparece 8 veces.
-`fib(0)` aparece 3 veces.
+El árbol de `fib(5)` tiene **15 nodos**. Los duplicados marcan
+**subproblemas solapados**: `fib(3)` aparece 2 veces, `fib(2)` 5
+veces, `fib(1)` 8 veces. La función recalcula los mismos valores una
+y otra vez.
 
-El árbol de `fib(5)` tiene **15 nodos**. Cada nodo es una invocación real
-al método — la JVM está calculando los mismos valores **una y otra
-vez**. **Ese es el desperdicio.**
-
-Un detalle importante: aunque el ÁRBOL tiene $$O(2^N)$$ nodos, el
-**stack de llamadas** nunca tiene más de $$N$$ frames vivos a la vez —
-solo una rama del árbol está activa en cada momento. **Tiempo
+Un detalle importante: aunque el **árbol** tiene $$O(2^N)$$ nodos, el
+**stack de llamadas** nunca tiene más de $$N$$ frames vivos a la vez
+— solo una rama del árbol está activa en cada momento. **Tiempo
 exponencial, espacio lineal**: son dos preguntas distintas con
 respuestas distintas.
 </Slide>
@@ -529,9 +529,13 @@ Aplicando la receta al código:
   (con argumentos $$n-1$$ y $$n-2$$), más una suma y un return: trabajo
   constante $$c$$.
 
-Recurrencia:
+Recurrencia, escrita como función por partes:
+
 $$
-T(N) = T(N-1) + T(N-2) + c \qquad T(0) = T(1) = c
+T(N) = \begin{cases}
+c & \text{si } N \in \{0, 1\} \\
+T(N-1) + T(N-2) + c & \text{si } N \geq 2
+\end{cases}
 $$
 
 Este es un caso **no lineal** — dos llamadas por paso, no una. La
@@ -540,54 +544,48 @@ coeficientes que siguen la propia sucesión de Fibonacci). Usamos otro
 truco.
 </Slide>
 
-<Slide title="Resolver por acotamiento superior → $$O(2^N)$$">
-**Truco**: como $$T(N-1) > T(N-2)$$, podemos reemplazar $$T(N-2)$$ por
-$$T(N-1)$$ y acotar por arriba:
+<Slide title="Acotar por arriba: de dos términos a uno">
+**Truco**: como $$T(N-1) > T(N-2)$$, reemplazamos $$T(N-2)$$ por
+$$T(N-1)$$ y acotamos por arriba. Perdemos ajuste (queda un $$\leq$$,
+no una igualdad), pero ganamos una recurrencia con **un solo
+argumento**:
+
 $$
-T(N) \leq 2 T(N-1) + c
+T(N) \leq 2\,T(N-1) + c
 $$
 
-Perdemos ajuste (será un $$\leq$$, no una igualdad), pero ganamos una
-recurrencia con **un solo argumento**, que sí se expande limpio:
+Aplicamos expansión, sustituyendo el término recursivo por su
+definición, un paso a la vez:
 
-<ComplexityCounter
-  algorithm="fibRecursive"
-  mode="recursion"
-  code={`static long fib(int n) {
-    if (n < 2) return n;
-    return fib(n - 1) + fib(n - 2);
-}`}
-  data={{
-    annotations: {
-      2: { note: 'caso base ⇒ c' },
-      3: { note: 'dos llamadas: T(n-1) + T(n-2) + c' },
-    },
-    recurrence: 'T(N) = T(N-1) + T(N-2) + c',
-    base: { 'T(0)': 'c', 'T(1)': 'c' },
-    unroll: [
-      { form: 'T(N) ≤ 2·T(N-1) + c', note: 'acotamos T(N-2) por T(N-1)' },
-      { form: 'T(N) ≤ 2·(2·T(N-2) + c) + c = 2²·T(N-2) + (2+1)·c', note: 'expandimos T(N-1)' },
-      { form: 'T(N) ≤ 2³·T(N-3) + (4+2+1)·c', note: 'expandimos otra vez' },
-      { form: '⋮', note: 'la potencia de 2 acompaña la profundidad' },
-      { form: 'T(N) ≤ 2ᵏ·T(N-k) + (2ᵏ - 1)·c', note: 'después de k sustituciones' },
-      { form: 'T(N) ≤ 2ᴺ·T(0) + (2ᴺ - 1)·c', note: 'k = N llega al caso base' },
-    ],
-    closedForm: 'T(N) ∈ O(2ᴺ)',
-  }}
-/>
+$$
+\begin{aligned}
+T(N) &\leq 2\,T(N-1) + c \\
+     &\leq 2\bigl[2\,T(N-2) + c\bigr] + c = 2^2\,T(N-2) + (2 + 1)\,c \\
+     &\leq 2^3\,T(N-3) + (2^2 + 2 + 1)\,c \\
+     &\ \ \vdots \\
+     &\leq 2^k\,T(N-k) + (2^k - 1)\,c
+\end{aligned}
+$$
 
-**Con esto sabemos que es exponencial.** La cota exacta es más ajustada
-— $$\Theta(\varphi^N)$$ donde $$\varphi \approx 1{,}618$$ es la razón
-áurea. Llegar a esa cota requiere ecuación característica, técnica
-matemática que existe hace 300 años. Para nuestros efectos $$O(2^N)$$
-basta: es exponencial y punto. La historia completa la vemos al final del
-capítulo.
+Cuando $$k = N$$, llegamos a $$T(0) = c$$:
+
+$$
+\begin{aligned}
+T(N) &\leq 2^N\,c + (2^N - 1)\,c \\
+T(N) &\leq (2 \cdot 2^N - 1)\,c \quad \Rightarrow \quad T(N) \in O(2^N)
+\end{aligned}
+$$
+
+**Con esto sabemos que es exponencial.** La cota exacta es más
+ajustada — $$\Theta(\varphi^N)$$ donde $$\varphi \approx 1{,}618$$ es
+la razón áurea, y requiere la técnica de la ecuación característica.
+Para nuestros efectos $$O(2^N)$$ basta: es exponencial y punto.
 
 **Regla del método (aplicable a cualquier recursión no lineal)**:
 reemplazamos cada $$T(N-a_i)$$ por $$T(N-1)$$ (el mayor de los
-argumentos), sumamos cuántas llamadas hay, obtenemos $$k \cdot T(N-1) +
-c$$, y expandimos. Sale $$O(k^N)$$ donde $$k$$ es el número de llamadas
-del paso recursivo.
+argumentos), sumamos cuántas llamadas hay, obtenemos $$k \cdot
+T(N-1) + c$$, y expandimos. Sale $$O(k^N)$$ donde $$k$$ es el número
+de llamadas del paso recursivo.
 </Slide>
 
 <Slide title="Verificación empírica del costo exponencial">
@@ -661,11 +659,6 @@ medición es **consistente con exponencial**.
 El iterativo, con los mismos valores, termina en microsegundos siempre.
 $$\Theta(N)$$ contra $$\Theta(\varphi^N)$$: la diferencia asintótica se
 hace visible como una diferencia de escala.
-
-Un recordatorio de Complejidad I: la medición **no valida la teoría** por
-sí sola — solo la hace más creíble. La teoría vale porque la derivamos
-formalmente. El cronómetro solo confirma que la realidad no la
-contradice.
 </Slide>
 
 <Slide title="Diagnóstico: subproblemas repetidos ⇒ exponencial">
@@ -679,9 +672,9 @@ Ese es el diagnóstico:
 > **Recursión + subproblemas repetidos ⇒ costo exponencial.**
 
 Es la regla operativa que nos llevamos. Cada vez que aparece una
-recursión con dos o más llamadas donde los argumentos se cruzan, conviene
-sospechar recomputación. Cuando el diagnóstico se cumple, hay dos
-técnicas estándar para arreglarlo. Vamos a las dos.
+recursión con dos o más llamadas donde los argumentos se cruzan,
+conviene sospechar recomputación. Cuando el diagnóstico se cumple,
+hay dos técnicas estándar para arreglarlo.
 </Slide>
 
 <SectionBreak />
