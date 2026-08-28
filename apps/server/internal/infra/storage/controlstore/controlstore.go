@@ -32,7 +32,14 @@ func New(db *sql.DB) *Store {
 // Compile-time proof the shape here is the one the domain asked for.
 var _ controls.Store = (*Store)(nil)
 
-const controlColumns = "id, name, application_date, from_document, from_section, to_document, to_section, questions_per_copy, copies, duplex_padding, paper, ticked, unsure, state, created_at, created_by"
+// controlInsertColumns is what CreateControl writes: everything except
+// deleted_at, which lands NULL by default (a fresh control is active by
+// definition; issue #261).
+const controlInsertColumns = "id, name, application_date, from_document, from_section, to_document, to_section, questions_per_copy, copies, duplex_padding, paper, ticked, unsure, state, created_at, created_by"
+
+// controlColumns is what SELECTs read, including deleted_at so the
+// archived/active split is visible to callers.
+const controlColumns = controlInsertColumns + ", deleted_at"
 
 // CreateControl writes the control, its pool and its copies in one
 // transaction. Rolled back on any failure so a control never appears in the
@@ -53,7 +60,7 @@ func (s *Store) CreateControl(ctx context.Context, control controls.Control, poo
 	defer func() { _ = tx.Rollback() }()
 
 	if _, err := tx.ExecContext(ctx, `
-        INSERT INTO control (`+controlColumns+`)
+        INSERT INTO control (`+controlInsertColumns+`)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		control.ID,
 		control.Name,
@@ -108,12 +115,16 @@ func (s *Store) ControlByID(ctx context.Context, id string) (controls.Control, e
 	return c, nil
 }
 
-// ListControls returns every control, ordered by application date descending
-// with NULLs last, then by created_at descending as a tie-breaker.
+// ListControls returns every ACTIVE control, ordered by application date
+// descending with NULLs last, then by created_at descending as a tie-breaker.
+// Archived controls (deleted_at IS NOT NULL, issue #261) are hidden here and
+// surfaced only via ListArchivedControls — that split is what makes /controls
+// stay uncluttered while an operator's test controls accumulate.
 func (s *Store) ListControls(ctx context.Context) ([]controls.Control, error) {
 	rows, err := s.db.QueryContext(ctx, `
         SELECT `+controlColumns+`
         FROM control
+        WHERE deleted_at IS NULL
         ORDER BY application_date IS NULL, application_date DESC, created_at DESC`)
 	if err != nil {
 		return nil, fmt.Errorf("controlstore.ListControls: %w", err)
@@ -132,6 +143,105 @@ func (s *Store) ListControls(ctx context.Context) ([]controls.Control, error) {
 		return nil, fmt.Errorf("controlstore.ListControls: iterate: %w", err)
 	}
 	return out, nil
+}
+
+// ListArchivedControls returns every archived control (deleted_at IS NOT
+// NULL), ordered by deleted_at descending so the most recently archived is
+// on top of /controls/archived (issue #261). The idx_control_deleted_at
+// index (migration 00013) covers the WHERE and the primary sort; the
+// created_at DESC tie-breaker breaks ties for two rows archived in the
+// same unix second (Round-A COR-2), so a batch archive renders in a
+// deterministic order rather than depending on the row layout.
+func (s *Store) ListArchivedControls(ctx context.Context) ([]controls.Control, error) {
+	rows, err := s.db.QueryContext(ctx, `
+        SELECT `+controlColumns+`
+        FROM control
+        WHERE deleted_at IS NOT NULL
+        ORDER BY deleted_at DESC, created_at DESC`)
+	if err != nil {
+		return nil, fmt.Errorf("controlstore.ListArchivedControls: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []controls.Control
+	for rows.Next() {
+		c, err := scanControl(rows)
+		if err != nil {
+			return nil, fmt.Errorf("controlstore.ListArchivedControls: scan: %w", err)
+		}
+		out = append(out, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("controlstore.ListArchivedControls: iterate: %w", err)
+	}
+	return out, nil
+}
+
+// SoftDeleteControl stamps deleted_at, hiding the control from ListControls
+// while keeping every downstream row intact — the runner (issue #249) keeps
+// processing an in-flight job because nothing about the row moves (issue
+// #261 §Async runner interaction). Idempotent by guard: a second call on an
+// already-archived row updates 0 rows and returns ErrControlNotFound.
+func (s *Store) SoftDeleteControl(ctx context.Context, id string, at time.Time) error {
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE control SET deleted_at = ? WHERE id = ? AND deleted_at IS NULL`,
+		at.Unix(), id,
+	)
+	if err != nil {
+		return fmt.Errorf("controlstore.SoftDeleteControl %s: %w", id, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("controlstore.SoftDeleteControl %s: rows affected: %w", id, err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("controlstore.SoftDeleteControl %s: %w", id, controls.ErrControlNotFound)
+	}
+	return nil
+}
+
+// RestoreControl clears deleted_at, returning the control to ListControls.
+// Symmetric guard to SoftDeleteControl: only fires on rows with deleted_at
+// IS NOT NULL, so a call on an already-active control updates 0 rows and
+// returns ErrControlNotFound.
+func (s *Store) RestoreControl(ctx context.Context, id string) error {
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE control SET deleted_at = NULL WHERE id = ? AND deleted_at IS NOT NULL`,
+		id,
+	)
+	if err != nil {
+		return fmt.Errorf("controlstore.RestoreControl %s: %w", id, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("controlstore.RestoreControl %s: rows affected: %w", id, err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("controlstore.RestoreControl %s: %w", id, controls.ErrControlNotFound)
+	}
+	return nil
+}
+
+// PurgeControl hard-deletes an archived control (issue #261). Refuses to
+// touch an active row via the AND deleted_at IS NOT NULL guard — the
+// schema-level belt behind Service.Purge's ControlByID gate. Cascade
+// removes control_pregunta, copia, reading, answer, annotated_copy and job
+// rows (ADR-0034 §Consequences).
+func (s *Store) PurgeControl(ctx context.Context, id string) error {
+	result, err := s.db.ExecContext(ctx,
+		`DELETE FROM control WHERE id = ? AND deleted_at IS NOT NULL`, id,
+	)
+	if err != nil {
+		return fmt.Errorf("controlstore.PurgeControl %s: %w", id, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("controlstore.PurgeControl %s: rows affected: %w", id, err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("controlstore.PurgeControl %s: %w", id, controls.ErrControlNotFound)
+	}
+	return nil
 }
 
 // ControlPool returns the pool for a control, in the order it was drawn.
@@ -168,6 +278,7 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		paper           string
 		createdAt       int64
 		state           string
+		deletedAt       sql.NullInt64
 	)
 	if err := row.Scan(
 		&c.ID, &c.Name, &applicationDate,
@@ -178,6 +289,7 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		&paper,
 		&c.Ticked, &c.Unsure,
 		&state, &createdAt, &c.CreatedBy,
+		&deletedAt,
 	); err != nil {
 		return controls.Control{}, err
 	}
@@ -188,6 +300,10 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 	if applicationDate.Valid {
 		at := time.Unix(applicationDate.Int64, 0).UTC()
 		c.ApplicationDate = &at
+	}
+	if deletedAt.Valid {
+		at := time.Unix(deletedAt.Int64, 0).UTC()
+		c.DeletedAt = &at
 	}
 	return c, nil
 }

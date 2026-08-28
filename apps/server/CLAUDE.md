@@ -245,6 +245,43 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   (`Service.PrepareControl`). The banner surfaces the failure; a
   future WP adds the explicit retry button. Same rule shape as the
   UploadScan-survives bullet above.
+- **Hard-deleting a control requires an ARCHIVED row AND a typed name
+  match (issue #261, ADR-0052).** Purge is a two-step gate; a hand-typed
+  `/controls/{id}/purge` on an active row must not delete grades. THREE
+  independent layers enforce it, and adding a new path to the destructive
+  step must respect all three:
+  1. `Store.PurgeControl` runs `DELETE FROM control WHERE id = ? AND
+     deleted_at IS NOT NULL`. The `AND` is the schema-level belt: even
+     if a caller skips the Service gate, an active row is untouched.
+     Removing the guard is forbidden.
+  2. `Service.Purge` calls `ControlByID` first and returns
+     `ErrCannotPurgeActive` if `DeletedAt == nil`. Kept distinct from
+     `ErrControlNotFound` so the handler can render "archívalo primero"
+     rather than a bare 404 for a URL against an active id.
+  3. `handler.Purge` re-validates `confirm_name == control.Name`
+     verbatim (no trim, no case fold — the string on the confirmation
+     page is what the professor sees, and a match must be what they
+     type). Mismatch → 422 re-render, row untouched. And BOTH
+     `PurgeConfirm` (the GET) and `Purge` (the POST) refuse an active
+     row with 404 before the form is rendered or the delete is
+     attempted — the destructive form never surfaces for anything not
+     archived.
+
+  Post-DB the on-disk project directory is removed best-effort
+  (`os.RemoveAll` warning-not-erroring; §Service.Purge doc). Forwarding
+  the FS failure to the caller would leave the professor believing the
+  purge failed while every grade is already unrecoverable through the
+  cascade — same "best-effort cleanup after the load-bearing commit"
+  shape as `PrepareControl`'s rollback.
+
+  Related: the async runner is untouched by soft-delete.
+  `SoftDeleteControl` only stamps `deleted_at`; an in-flight job keeps
+  running, `MarkDone`/`MarkFailed` still find the row, and the runner
+  (#249) has no reason to look at the column. Blocking archive on
+  in-flight jobs is a follow-up deferred by design (§Async runner
+  interaction). Two rules — the soft-delete two-step and the purge
+  three-gate — one bullet.
+
 - **`DismissJob` refuses to stamp `viewed_at` on a non-terminal
   job, and the Detail page hides "Prueba a imprimir" until the
   latest generate reaches `done` (issue #257, Jetson 2026-08-27).**

@@ -406,3 +406,265 @@ func TestClearAnnotatedDeletesEveryRowOfOneControlOnly(t *testing.T) {
 		}
 	}
 }
+
+// Issue #261: ListControls filters out archived rows. A soft-deleted control
+// disappears from the main /controls listing but the row is still in the
+// table — ListArchivedControls sees it, and Restore brings it back.
+func TestListControlsHidesArchivedRowsAndArchivedListShowsThem(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+
+	pool := []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}
+	active := newControl("CTRLACTIVE0000000000000000", userID, nil)
+	archived := newControl("CTRLARCHIVED00000000000000", userID, nil)
+	for _, c := range []controls.Control{active, archived} {
+		if err := store.CreateControl(ctx, c, pool); err != nil {
+			t.Fatalf("CreateControl(%s): %v", c.ID, err)
+		}
+	}
+
+	archivedAt := time.Unix(1_787_500_000, 0).UTC()
+	if err := store.SoftDeleteControl(ctx, archived.ID, archivedAt); err != nil {
+		t.Fatalf("SoftDeleteControl: %v", err)
+	}
+
+	list, err := store.ListControls(ctx)
+	if err != nil {
+		t.Fatalf("ListControls: %v", err)
+	}
+	if len(list) != 1 || list[0].ID != active.ID {
+		ids := make([]string, len(list))
+		for i, c := range list {
+			ids[i] = c.ID
+		}
+		t.Fatalf("ListControls = %v, want [%s] only (archived rows must be hidden)", ids, active.ID)
+	}
+	if list[0].DeletedAt != nil {
+		t.Errorf("active row DeletedAt = %v, want nil", list[0].DeletedAt)
+	}
+
+	arch, err := store.ListArchivedControls(ctx)
+	if err != nil {
+		t.Fatalf("ListArchivedControls: %v", err)
+	}
+	if len(arch) != 1 || arch[0].ID != archived.ID {
+		t.Fatalf("ListArchivedControls = %+v, want the archived row only", arch)
+	}
+	if arch[0].DeletedAt == nil || !arch[0].DeletedAt.Equal(archivedAt) {
+		t.Errorf("archived row DeletedAt = %v, want %v", arch[0].DeletedAt, archivedAt)
+	}
+}
+
+// Issue #261: archived rows are surfaced newest-first, so what a professor
+// just archived is at the top of /controls/archived. Two rows archived in
+// the SAME unix second (a batch archive) are broken by created_at DESC —
+// Round-A COR-2 added the tie-breaker so this case is deterministic
+// rather than depending on the row layout.
+func TestListArchivedControlsOrdersByDeletedAtDescThenCreatedAtDesc(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+
+	pool := []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}
+	// Two rows archived in DIFFERENT seconds — the primary sort holds.
+	older := newControl("CTRLARCHOLDER00000000000AA", userID, nil)
+	newer := newControl("CTRLARCHNEWER00000000000AA", userID, nil)
+	// Two rows archived in the SAME second — the tie-breaker holds.
+	// tieOlderCreated has an earlier created_at; tieNewerCreated is later.
+	tieOlderCreated := newControl("CTRLARCHTIEOLD0000000000AA", userID, nil)
+	tieOlderCreated.CreatedAt = time.Unix(1_787_000_000, 0).UTC()
+	tieNewerCreated := newControl("CTRLARCHTIENEW0000000000AA", userID, nil)
+	tieNewerCreated.CreatedAt = time.Unix(1_787_050_000, 0).UTC()
+	for _, c := range []controls.Control{older, newer, tieOlderCreated, tieNewerCreated} {
+		if err := store.CreateControl(ctx, c, pool); err != nil {
+			t.Fatalf("CreateControl(%s): %v", c.ID, err)
+		}
+	}
+	sameSecond := time.Unix(1_787_600_000, 0).UTC()
+	if err := store.SoftDeleteControl(ctx, older.ID, time.Unix(1_787_100_000, 0).UTC()); err != nil {
+		t.Fatalf("SoftDeleteControl(older): %v", err)
+	}
+	if err := store.SoftDeleteControl(ctx, newer.ID, time.Unix(1_787_500_000, 0).UTC()); err != nil {
+		t.Fatalf("SoftDeleteControl(newer): %v", err)
+	}
+	if err := store.SoftDeleteControl(ctx, tieOlderCreated.ID, sameSecond); err != nil {
+		t.Fatalf("SoftDeleteControl(tieOlderCreated): %v", err)
+	}
+	if err := store.SoftDeleteControl(ctx, tieNewerCreated.ID, sameSecond); err != nil {
+		t.Fatalf("SoftDeleteControl(tieNewerCreated): %v", err)
+	}
+
+	arch, err := store.ListArchivedControls(ctx)
+	if err != nil {
+		t.Fatalf("ListArchivedControls: %v", err)
+	}
+	// Expected order: same-second-newer-created, same-second-older-created,
+	// then newer (deleted second), then older (deleted first).
+	want := []string{tieNewerCreated.ID, tieOlderCreated.ID, newer.ID, older.ID}
+	if len(arch) != len(want) {
+		t.Fatalf("ListArchivedControls returned %d rows, want %d", len(arch), len(want))
+	}
+	for i, w := range want {
+		if arch[i].ID != w {
+			got := make([]string, len(arch))
+			for j, a := range arch {
+				got[j] = a.ID
+			}
+			t.Fatalf("ListArchivedControls order = %v, want %v (deleted_at DESC, created_at DESC)", got, want)
+		}
+	}
+}
+
+// Issue #261: SoftDeleteControl guards on `deleted_at IS NULL`. A second call
+// on an already-archived row does NOT clobber the original archive timestamp;
+// it returns ErrControlNotFound (the row is invisible to the caller's list).
+func TestSoftDeleteControlIsIdempotentAndPreservesTheOriginalTimestamp(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+
+	c := newControl("CTRLSOFTIDEMP0000000000000", userID, nil)
+	if err := store.CreateControl(ctx, c, []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}); err != nil {
+		t.Fatalf("CreateControl: %v", err)
+	}
+
+	first := time.Unix(1_787_100_000, 0).UTC()
+	if err := store.SoftDeleteControl(ctx, c.ID, first); err != nil {
+		t.Fatalf("first SoftDeleteControl: %v", err)
+	}
+
+	second := time.Unix(1_787_900_000, 0).UTC()
+	err := store.SoftDeleteControl(ctx, c.ID, second)
+	if !errors.Is(err, controls.ErrControlNotFound) {
+		t.Errorf("second SoftDeleteControl on archived row: %v, want ErrControlNotFound", err)
+	}
+
+	got, err := store.ControlByID(ctx, c.ID)
+	if err != nil {
+		t.Fatalf("ControlByID: %v", err)
+	}
+	if got.DeletedAt == nil || !got.DeletedAt.Equal(first) {
+		t.Errorf("DeletedAt = %v, want the original %v (second call must not overwrite)", got.DeletedAt, first)
+	}
+}
+
+// Issue #261: RestoreControl guards symmetrically — a call on an already
+// active row returns ErrControlNotFound. Positive path clears deleted_at.
+func TestRestoreControlClearsDeletedAtAndRefusesActiveRows(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+
+	c := newControl("CTRLRESTORE000000000000000", userID, nil)
+	if err := store.CreateControl(ctx, c, []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}); err != nil {
+		t.Fatalf("CreateControl: %v", err)
+	}
+
+	// Restore on an already-active row is refused.
+	err := store.RestoreControl(ctx, c.ID)
+	if !errors.Is(err, controls.ErrControlNotFound) {
+		t.Errorf("RestoreControl(active): %v, want ErrControlNotFound", err)
+	}
+
+	if err := store.SoftDeleteControl(ctx, c.ID, time.Unix(1_787_100_000, 0).UTC()); err != nil {
+		t.Fatalf("SoftDeleteControl: %v", err)
+	}
+	if err := store.RestoreControl(ctx, c.ID); err != nil {
+		t.Fatalf("RestoreControl(archived): %v", err)
+	}
+	got, err := store.ControlByID(ctx, c.ID)
+	if err != nil {
+		t.Fatalf("ControlByID: %v", err)
+	}
+	if got.DeletedAt != nil {
+		t.Errorf("DeletedAt = %v after Restore, want nil", got.DeletedAt)
+	}
+}
+
+// Issue #261: PurgeControl refuses an active row (defense-in-depth behind
+// Service.Purge's ControlByID gate — a hand-typed URL that skipped Archive
+// cannot destroy grades). The row survives; the caller sees
+// ErrControlNotFound (nothing archived by that id).
+func TestPurgeControlRefusesActiveRowsAndTheRowSurvives(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+
+	c := newControl("CTRLPURGEACTIVE000000000AA", userID, nil)
+	if err := store.CreateControl(ctx, c, []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}); err != nil {
+		t.Fatalf("CreateControl: %v", err)
+	}
+
+	err := store.PurgeControl(ctx, c.ID)
+	if !errors.Is(err, controls.ErrControlNotFound) {
+		t.Errorf("PurgeControl(active): %v, want ErrControlNotFound", err)
+	}
+
+	if _, err := store.ControlByID(ctx, c.ID); err != nil {
+		t.Errorf("row survived guard? ControlByID: %v", err)
+	}
+}
+
+// Issue #261: PurgeControl on an archived row hard-deletes it and every
+// dependent — the FK cascades from ADR-0034 §Consequences do their job.
+// Covers control_pregunta and copia (populated by CreateControl), plus
+// job (populated here directly against the schema) so a future migration
+// that changes the ON DELETE clause on job.control_id fails HERE rather
+// than on the Jetson (Round-A COR-3).
+func TestPurgeControlDeletesArchivedRowAndCascades(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+
+	c := newControl("CTRLPURGEARCH000000000000A", userID, nil)
+	if err := store.CreateControl(ctx, c, []controls.PoolEntry{
+		{Ref: "q-if-1", Order: 0},
+		{Ref: "q-bucles-1", Order: 1},
+	}); err != nil {
+		t.Fatalf("CreateControl: %v", err)
+	}
+	// Seed a job row directly so the cascade assertion covers it. The
+	// jobstore package is not imported here on purpose — a raw INSERT
+	// against the schema is what pins the schema itself.
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO job (control_id, kind, status, payload_json, created_at)
+		 VALUES (?, 'generate', 'queued', '{}', ?)`,
+		c.ID, time.Unix(1_787_050_000, 0).Unix(),
+	); err != nil {
+		t.Fatalf("seed job row: %v", err)
+	}
+	if err := store.SoftDeleteControl(ctx, c.ID, time.Unix(1_787_100_000, 0).UTC()); err != nil {
+		t.Fatalf("SoftDeleteControl: %v", err)
+	}
+
+	if err := store.PurgeControl(ctx, c.ID); err != nil {
+		t.Fatalf("PurgeControl(archived): %v", err)
+	}
+
+	if _, err := store.ControlByID(ctx, c.ID); !errors.Is(err, controls.ErrControlNotFound) {
+		t.Errorf("ControlByID after Purge: %v, want ErrControlNotFound", err)
+	}
+	for _, table := range []string{"control_pregunta", "copia", "job"} {
+		var rows int
+		if err := db.QueryRowContext(ctx, "SELECT count(*) FROM "+table+" WHERE control_id = ?", c.ID).Scan(&rows); err != nil {
+			t.Fatalf("count %s: %v", table, err)
+		}
+		if rows != 0 {
+			t.Errorf("%s still holds %d row(s) after purge, want 0 (FK cascade)", table, rows)
+		}
+	}
+}
+
+// Issue #261: PurgeControl on an id that never existed also returns
+// ErrControlNotFound. Same shape as the active-row refusal — from the
+// caller's perspective, "nothing archived by that id" is the truth.
+func TestPurgeControlReturnsNotFoundForAnUnknownID(t *testing.T) {
+	ctx, db := migrated(t)
+	store := controlstore.New(db)
+
+	err := store.PurgeControl(ctx, "does-not-exist")
+	if !errors.Is(err, controls.ErrControlNotFound) {
+		t.Errorf("PurgeControl(missing): %v, want ErrControlNotFound", err)
+	}
+}

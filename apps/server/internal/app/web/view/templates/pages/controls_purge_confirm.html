@@ -1,0 +1,26 @@
+{{ define "content" }}
+  <h1>Eliminar {{ .Control.Name }} permanentemente</h1>
+
+  <section class="aviso">
+    <p><strong>Esta acción NO SE PUEDE DESHACER.</strong> Se borran la fila del
+      control, sus copias, las lecturas, las notas y los PDFs asociados.</p>
+    <p>El control fue archivado el {{ .Control.ArchivedAt }}. Si preferís conservarlo,
+      volvé al <a href="/controls/archived">listado archivado</a> y usá "Restaurar".</p>
+  </section>
+
+  <form method="post" action="{{ .PurgeURL }}" autocomplete="off">
+    <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+    <p>
+      <label>Escribí <code>{{ .Control.Name }}</code> para confirmar:<br>
+        <input type="text" name="confirm_name" value="{{ .Typed }}" required autocomplete="off" autofocus>
+      </label>
+    </p>
+    {{ if .NameMismatch }}
+      <p class="aviso">{{ .NameMismatch }}</p>
+    {{ end }}
+    <p>
+      <button type="submit">Eliminar permanentemente</button>
+      <a href="/controls/archived">Cancelar</a>
+    </p>
+  </form>
+{{ end }}

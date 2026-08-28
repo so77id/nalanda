@@ -146,6 +146,48 @@ type ListedControl struct {
 	DetailURL       string
 }
 
+// ControlsArchivedPage is what controls_archived.html renders (issue #261).
+// One row per archived control, deleted_at DESC. Each row carries the
+// Restore POST target and the Purge-confirm GET target — the destructive
+// step deliberately does not fit inline.
+type ControlsArchivedPage struct {
+	Page
+	Controls []ArchivedControl
+}
+
+// ControlPurgeConfirmPage is the confirmation screen for a hard delete
+// (issue #261). Renders "Eliminar {Name} permanentemente" and a form
+// that only submits when the professor typed the exact name into the
+// confirm_name field. The handler re-validates server-side.
+type ControlPurgeConfirmPage struct {
+	Page
+	Control  ArchivedControl
+	PurgeURL string
+	// NameMismatch renders below the input on a re-render after the
+	// professor typed the wrong name. Empty on the first GET.
+	NameMismatch string
+	// Typed carries the previous value of the confirm_name input so the
+	// form does not silently blank on refusal (the pattern the create
+	// form uses on validation refusal). Empty on the first GET.
+	Typed string
+}
+
+// ArchivedControl is one row of the archived listing. Same pre-formatted
+// shape as ListedControl plus the archived-at column and the two URLs the
+// two operations target.
+type ArchivedControl struct {
+	ID              string
+	Name            string
+	ApplicationDate string
+	Range           string
+	Shape           string
+	State           string
+	ArchivedAt      string // "26 de agosto, 2026"
+	DetailURL       string
+	RestoreURL      string
+	PurgeConfirmURL string
+}
+
 // ControlsFormPage is what controls_form.html renders. Same one-template-
 // for-three-purposes shape as ProfessorsFormPage (issue #151 §Form /
 // validation / errors): GET (empty), validation-failure re-render (values
@@ -286,6 +328,24 @@ type ControlDetailPage struct {
 	// while the generate is queued/running/failed; the banner then
 	// tells the professor why.
 	PDFsReady bool
+
+	// Archived is true when control.deleted_at IS NOT NULL (issue #261).
+	// The template surfaces a banner at the top of the page ("Este
+	// control está archivado…") with a Restore button, and hides the
+	// danger zone (Archive would fail anyway). Every other section stays
+	// visible so the professor can still consult the archived control's
+	// data, but the operational forms (upload scans, close, reanalyse)
+	// remain technically live — the banner is the fricción del profesor
+	// and the WP intentionally does not duplicate the policy on the
+	// server side (§Design > UI).
+	Archived bool
+	// ArchiveURL and RestoreURL are BOTH always populated; the template
+	// picks one via {{ if .Archived }} / {{ if not .Archived }}. Handled
+	// this way — rather than by leaving one empty per shape — so a
+	// template change that renders both branches under a different
+	// flag never dereferences a zero string (Round-A ARQ-2).
+	ArchiveURL string
+	RestoreURL string
 }
 
 // JobBanner is the summary of a control's most recent async job for the
@@ -613,6 +673,25 @@ func RenderControlsList(w http.ResponseWriter, page ControlsListPage) error {
 		page.Title = "Controles"
 	}
 	return render(w, "controls_list", http.StatusOK, page)
+}
+
+// RenderControlsArchived writes the archived-controls list page (issue #261).
+func RenderControlsArchived(w http.ResponseWriter, page ControlsArchivedPage) error {
+	if page.Title == "" {
+		page.Title = "Controles archivados"
+	}
+	return render(w, "controls_archived", http.StatusOK, page)
+}
+
+// RenderControlPurgeConfirm writes the purge confirmation page (issue #261).
+// status is 200 on the GET; 422 when re-rendered after a name mismatch, so
+// the HTTP layer signals the refusal instead of a green "ok" (same reason
+// as RenderControlsForm).
+func RenderControlPurgeConfirm(w http.ResponseWriter, status int, page ControlPurgeConfirmPage) error {
+	if page.Title == "" {
+		page.Title = "Eliminar " + page.Control.Name
+	}
+	return render(w, "controls_purge_confirm", status, page)
 }
 
 // RenderControlsForm writes the create form (S6).
