@@ -341,19 +341,19 @@ Miramos `factorial` línea por línea:
 
 ```java
 static long factorial(int n) {
-    if (n == 0) return 1;         // L1: caso base, trabajo c₁
+    if (n == 1) return 1;         // L1: caso base, trabajo c₁
     return n * factorial(n - 1);  // L2: una llamada + producto + return, trabajo c₂
 }
 ```
 
-- **L1** (`if (n == 0)`) → caso base, trabajo constante $$c_1$$.
+- **L1** (`if (n == 1)`) → caso base, trabajo constante $$c_1$$.
 - **L2** (`return n * factorial(n-1)`) → una llamada recursiva de tamaño
   $$N-1$$, más una multiplicación y un return: trabajo constante $$c_2$$
   del paso, y $$T(N-1)$$ que aporta la llamada.
 
 Aplicando la receta:
 $$
-T(N) = T(N-1) + c \qquad T(0) = c
+T(N) = T(N-1) + c \qquad T(1) = c
 $$
 
 Esa es la recurrencia que produce el código. Ahora hay que resolverla.
@@ -373,9 +373,9 @@ T(N) &= T(N-1) + c \\
 \end{aligned}
 $$
 
-Cuando $$k = N$$, llegamos a $$T(0) = c$$:
+Cuando $$k = N-1$$, llegamos a $$T(1) = c$$:
 $$
-T(N) = T(0) + Nc = c + Nc \in \Theta(N)
+T(N) = T(1) + (N-1)c = c + (N-1)c = Nc \in \Theta(N)
 $$
 
 Existen otras técnicas — inducción matemática (postular una fórmula y
@@ -385,39 +385,42 @@ todas las recurrencias que vamos a resolver, y no requiere adivinar la
 solución.
 </Slide>
 
-<Slide title="Recursión por división: $$T(N) = T(N/2) + c \Rightarrow \Theta(\log N)$$">
+<Slide title="Recursión por división: $$T(e) = T(e/2) + c \Rightarrow \Theta(\log e)$$">
 Un caso distinto: la función **divide el problema a la mitad** en cada
-llamada. Ejemplo — contar cuántos bits necesita $$n$$ en binario:
+llamada. Ya vimos un ejemplo — `power(x, e)`, la exponenciación rápida:
 
 ```java
-static int countBits(int n) {
-    if (n == 0) return 0;
-    return 1 + countBits(n / 2);
+static long power(long x, int e) {
+    if (e == 0) return 1;
+    long half = power(x, e / 2);
+    if (e % 2 == 0) return half * half;
+    return x * half * half;
 }
 ```
 
 Aplicando la receta:
-- Caso base `if (n == 0)` → trabajo $$c$$.
-- Paso recursivo `1 + countBits(n / 2)` → una llamada de tamaño $$N/2$$,
-  más trabajo constante $$c$$.
+- Caso base `if (e == 0)` → trabajo $$c$$.
+- Paso recursivo — **una** llamada `power(x, e / 2)` guardada en `half`
+  y reusada dos veces, más multiplicaciones y `return`: la llamada
+  aporta $$T(e/2)$$ y el resto es trabajo constante $$c$$.
 
 Recurrencia:
 $$
-T(N) = T(N/2) + c \qquad T(0) = c
+T(e) = T(e/2) + c \qquad T(0) = c
 $$
 
 Expansión:
 $$
-T(N) = T(N/2) + c = T(N/4) + 2c = T(N/8) + 3c = \ldots = T(N/2^k) + kc
+T(e) = T(e/2) + c = T(e/4) + 2c = T(e/8) + 3c = \ldots = T(e/2^k) + kc
 $$
 
-Cuando $$N/2^k = 1$$ tenemos $$k = \log_2 N$$, así que:
+Cuando $$e/2^k = 1$$ tenemos $$k = \log_2 e$$, así que:
 $$
-T(N) = c + c \log N \in \Theta(\log N)
+T(e) = c + c \log e \in \Theta(\log e)
 $$
 
 **Insight clave**: cuando cada llamada reduce el problema a la mitad,
-solo se necesitan $$\log_2 N$$ pasos hasta el caso base. Cuando aparece
+solo se necesitan $$\log_2 e$$ pasos hasta el caso base. Cuando aparece
 ese patrón en un algoritmo, conviene sospechar logarítmico. Lo veremos
 en búsqueda binaria y en muchas rutinas de las próximas unidades.
 </Slide>
@@ -966,6 +969,46 @@ disco tiene que moverse.
 > **Recursión + subproblemas REPETIDOS ⇒ memoizar o tabular.**
 > Sin repetición, o con efectos secundarios, el costo exponencial es
 > **intrínseco al problema** y no hay técnica que lo baje.
+</Slide>
+
+<Slide title="Ejercicio: contar los bits de $$n$$ en binario">
+Aplicamos la receta del capítulo a una función recursiva nueva:
+**contar cuántos bits necesita $$n$$ para escribirse en binario**. Por
+ejemplo, $$5 = 101_2$$ usa 3 bits; $$8 = 1000_2$$ usa 4 bits; $$0$$ usa
+0 bits.
+
+La forma recursiva de esta idea es: si $$n = 0$$, no hace falta ningún
+bit; si $$n > 0$$, hace falta un bit más que los que use $$n / 2$$
+(porque $$n / 2$$ es "el número sin su último bit").
+
+<Exercise title="countBits">
+
+Implementá `countBits(n)` de forma recursiva. Aplicá la receta:
+identificá el caso base, el paso recursivo y el argumento con el que
+se llama.
+
+```java starter
+class Solution {
+    static int countBits(int n) {
+        return 0;
+    }
+}
+```
+
+```java test
+check(Solution.countBits(0), 0);
+check(Solution.countBits(1), 1);
+check(Solution.countBits(5), 3);
+check(Solution.countBits(8), 4);
+check(Solution.countBits(1023), 10);
+check(Solution.countBits(1024), 11);
+```
+
+</Exercise>
+
+Una vez que la solución pase todos los casos, escribí la recurrencia
+$$T(N)$$ que produce el código y resolvela por expansión. **Pista**:
+la estructura es idéntica a la de `power(x, e)` que analizamos antes.
 </Slide>
 
 <SectionBreak />
