@@ -73,6 +73,8 @@ export { LazyFibMemoSteps } from './interactive/lazyFibMemoSteps';
 export type { FibMemoStepsProps } from './interactive/FibMemoSteps';
 export { LazyFibTabSteps } from './interactive/lazyFibTabSteps';
 export type { FibTabStepsProps } from './interactive/FibTabSteps';
+export { LazyFibIterSteps } from './interactive/lazyFibIterSteps';
+export type { FibIterStepsProps } from './interactive/FibIterSteps';
 export { MemoryVisual } from './interactive/MemoryVisual';
 export type {
   MemoryFrame,

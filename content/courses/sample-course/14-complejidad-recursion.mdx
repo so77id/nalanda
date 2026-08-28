@@ -795,32 +795,15 @@ bottom-up es más simple y sin stack.
 
 <Slide title="Bottom-up mejorado: dos variables bastan">
 Observación: para calcular `f[i]` solo se necesitan **`f[i-1]` y
-`f[i-2]`**. Todo lo demás del arreglo es historia que nunca se vuelve a
-leer.
+`f[i-2]`**. Todo lo demás del arreglo es historia que nunca se vuelve
+a leer.
 
-Si solo nos interesa el **último valor** — que es el caso típico — podemos
-tirar el arreglo entero y quedarnos con dos variables:
+Si solo nos interesa el **último valor** — que es el caso típico —
+tiramos el arreglo entero y nos quedamos con dos variables. Recorremos
+paso a paso `fib(5)` para ver la ventana de dos variables deslizarse
+sin arreglo ni stack:
 
-<CodeEditor
-  language="java"
-  defaultValue={`class FibIterative {
-    static long fib(int n) {
-        if (n < 2) return n;
-        long previous = 0, current = 1;
-        for (int i = 2; i <= n; i++) {
-            long next = previous + current;
-            previous = current;
-            current = next;
-        }
-        return current;
-    }
-
-    public static void main(String[] args) {
-        System.out.println("fib(40) = " + fib(40));
-    }
-}
-`}
-/>
+<FibIterSteps target={5} />
 
 **Este es el `fib` iterativo que ya escribimos en
 [[arrays-y-funciones]].** Ahora sabemos de dónde sale: es **tabulation

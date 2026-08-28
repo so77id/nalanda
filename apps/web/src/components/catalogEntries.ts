@@ -19,6 +19,7 @@ import { hanoiPlaygroundCatalogEntry } from './interactive/HanoiPlayground.catal
 import { mathPlotCatalogEntry } from './interactive/MathPlot.catalog';
 import { exerciseCatalogEntry } from './interactive/Exercise.catalog';
 import { explanationCatalogEntry } from './interactive/Explanation.catalog';
+import { fibIterStepsCatalogEntry } from './interactive/FibIterSteps.catalog';
 import { fibMemoStepsCatalogEntry } from './interactive/FibMemoSteps.catalog';
 import { fibTabStepsCatalogEntry } from './interactive/FibTabSteps.catalog';
 import { mermaidCatalogEntry } from './interactive/Mermaid.catalog';
@@ -66,5 +67,6 @@ export const catalogEntries: CatalogEntry[] = [
   stepCatalogEntry,
   fibMemoStepsCatalogEntry,
   fibTabStepsCatalogEntry,
+  fibIterStepsCatalogEntry,
   memoryVisualCatalogEntry,
 ];

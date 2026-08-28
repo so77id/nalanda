@@ -18,8 +18,8 @@ interface Snapshot {
   memo: (number | null)[];
   done: boolean[];
   caption: string;
-  changedMemo?: number;
-  changedDone?: number;
+  reads?: number[];
+  write?: number;
   cacheHit?: number;
 }
 
@@ -43,6 +43,12 @@ const CODE = `static long fib(int n) {
  * `<Step>` inside a `<StepShow>`, so the reader can walk it with the
  * arrow keys and see the cache hits land where the tree would have
  * recomputed.
+ *
+ * Visual layout (v2, following the CallStack v4 pattern): memo[] and
+ * done[] fill the main area on the left, and the call stack lives in
+ * a transversal column on the right that scrolls internally. Cells
+ * are painted with the same "read / write" vocabulary as the
+ * bottom-up widget: reads in flag, writes in accent.
  */
 export function FibMemoSteps({ target = 5, title }: FibMemoStepsProps) {
   const snapshots = buildTrace(target);
@@ -59,95 +65,139 @@ export function FibMemoSteps({ target = 5, title }: FibMemoStepsProps) {
 }
 
 function FibMemoVisual({ snap }: { snap: Snapshot }) {
-  const size = snap.memo.length;
   return (
-    <div className="flex flex-col gap-3 font-mono text-xs" data-testid="fib-memo-visual">
-      <div>
-        <div className="mb-1 text-3xs uppercase tracking-wide text-ink-faint">
-          Stack (llamadas activas)
+    <div
+      className="flex flex-col gap-4 font-mono text-xs md:flex-row"
+      data-testid="fib-memo-visual"
+    >
+      {/* Main area (~75%): memo[] + done[] + caption + legend. */}
+      <div className="flex min-w-0 flex-1 flex-col gap-3 md:basis-3/4">
+        <CellRow
+          label="memo[]"
+          size="lg"
+          cells={snap.memo.map((v) => (v === null ? '?' : String(v)))}
+          reads={snap.reads}
+          write={snap.write}
+        />
+        <CellRow
+          label="done[]"
+          size="sm"
+          cells={snap.done.map((d) => (d ? 'T' : 'F'))}
+          reads={snap.reads}
+          write={snap.write}
+          dim={(v) => v === 'F'}
+        />
+        <p className="text-xs text-ink-soft">{snap.caption}</p>
+        <div className="flex gap-3 text-3xs text-ink-faint">
+          <span>
+            <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-flag bg-flag-soft" />
+            leídas
+          </span>
+          <span>
+            <span className="mr-1 inline-block h-2 w-2 rounded-sm border border-accent bg-accent-soft" />
+            escrita
+          </span>
         </div>
-        {snap.stack.length === 0 ? (
-          <p className="text-3xs italic text-ink-faint">vacío</p>
-        ) : (
-          <div className="flex flex-col-reverse gap-1">
-            {snap.stack.map((label, i) => {
-              const isCacheHit =
-                snap.cacheHit !== undefined &&
-                i === snap.stack.length - 1 &&
-                label.endsWith(`(${snap.cacheHit})`);
-              return (
-                <div
-                  key={`${label}-${i}`}
-                  data-testid="fib-memo-frame"
-                  className={
-                    'rounded border px-2 py-1 ' +
-                    (isCacheHit
-                      ? 'border-accent bg-accent-soft text-accent'
-                      : 'border-rule bg-surface text-ink')
-                  }
-                >
-                  {label}
-                  {isCacheHit ? ' · cache hit' : ''}
-                </div>
-              );
-            })}
+      </div>
+
+      {/* Right column (~25%): stack, transversal, own scroll. Same shape as
+          the CallStack widget so a reader who has seen one recognizes the
+          other. */}
+      <div className="relative rounded border border-rule bg-sunk/30 md:basis-1/4 md:overflow-hidden">
+        <div className="flex flex-col p-3 md:absolute md:inset-0">
+          <div className="mb-2 text-3xs uppercase tracking-wide text-ink-faint">Stack</div>
+          <div
+            className="flex flex-1 flex-col gap-1 overflow-y-auto pr-1 md:min-h-0"
+            role="list"
+            aria-label="Frames pausados en el stack (cima arriba)"
+            data-testid="fib-memo-stack-scroll"
+          >
+            {snap.stack.length === 0 ? (
+              <p
+                className="text-center text-3xs italic text-ink-faint"
+                data-testid="fib-memo-stack-empty"
+              >
+                vacío
+              </p>
+            ) : (
+              [...snap.stack].reverse().map((label, i, reversed) => {
+                const isCacheHit =
+                  snap.cacheHit !== undefined && i === 0 && label.endsWith(`(${snap.cacheHit})`);
+                void reversed;
+                return (
+                  <div
+                    key={`${label}-${i}`}
+                    data-testid="fib-memo-frame"
+                    className={
+                      'shrink-0 rounded border px-2 py-1 ' +
+                      (isCacheHit
+                        ? 'border-accent bg-accent-soft text-accent'
+                        : 'border-rule bg-surface text-ink')
+                    }
+                  >
+                    {label}
+                    {isCacheHit ? ' · cache hit' : ''}
+                  </div>
+                );
+              })
+            )}
           </div>
-        )}
-      </div>
-
-      <div>
-        <div className="mb-1 text-3xs uppercase tracking-wide text-ink-faint">memo[]</div>
-        <div className="flex gap-1">
-          {snap.memo.map((v, i) => (
-            <div
-              key={i}
-              data-testid="fib-memo-cell"
-              className={
-                'flex h-10 w-10 flex-col items-center justify-center rounded border ' +
-                (snap.changedMemo === i
-                  ? 'border-accent bg-accent-soft text-accent'
-                  : v === null
-                    ? 'border-dashed border-rule/60 text-ink-faint'
-                    : 'border-rule bg-sunk/40 text-ink')
-              }
-            >
-              <span className="text-xs">{v === null ? '?' : v}</span>
-              <span className="text-3xs text-ink-faint">{i}</span>
-            </div>
-          ))}
         </div>
       </div>
+    </div>
+  );
+}
 
-      <div>
-        <div className="mb-1 text-3xs uppercase tracking-wide text-ink-faint">done[]</div>
-        <div className="flex gap-1">
-          {snap.done.map((d, i) => (
+interface CellRowProps {
+  label: string;
+  size: 'lg' | 'sm';
+  cells: string[];
+  reads?: number[];
+  write?: number;
+  /** Cells that should render dimmed (empty-slot styling) when the predicate returns true. */
+  dim?: (v: string) => boolean;
+}
+
+function CellRow({ label, size, cells, reads, write, dim }: CellRowProps) {
+  const h = size === 'lg' ? 'h-10' : 'h-6';
+  return (
+    <div>
+      <div className="mb-1 text-3xs uppercase tracking-wide text-ink-faint">{label}</div>
+      <div className="flex gap-1">
+        {cells.map((v, i) => {
+          const isWrite = write === i;
+          const isRead = reads?.includes(i) ?? false;
+          const dimmed = dim?.(v) ?? false;
+          return (
             <div
               key={i}
-              data-testid="fib-done-cell"
+              data-testid={label === 'memo[]' ? 'fib-memo-cell' : 'fib-done-cell'}
               className={
-                'flex h-6 w-10 items-center justify-center rounded border text-xs ' +
-                (snap.changedDone === i
+                `flex ${h} w-10 flex-col items-center justify-center rounded border ` +
+                (isWrite
                   ? 'border-accent bg-accent-soft text-accent'
-                  : d
-                    ? 'border-rule bg-sunk/40 text-ink'
-                    : 'border-dashed border-rule/60 text-ink-faint')
+                  : isRead
+                    ? 'border-flag bg-flag-soft text-flag'
+                    : dimmed
+                      ? 'border-dashed border-rule/60 text-ink-faint'
+                      : 'border-rule bg-sunk/40 text-ink')
               }
             >
-              {d ? 'T' : 'F'}
+              <span className={size === 'lg' ? 'text-xs' : 'text-xs'}>{v}</span>
+              {size === 'lg' && <span className="text-3xs text-ink-faint">{i}</span>}
             </div>
-          ))}
-        </div>
+          );
+        })}
+      </div>
+      {size === 'sm' && (
         <div className="mt-0.5 flex gap-1 text-3xs text-ink-faint">
-          {Array.from({ length: size }, (_, i) => (
+          {cells.map((_, i) => (
             <span key={i} className="w-10 text-center">
               {i}
             </span>
           ))}
         </div>
-      </div>
-
-      <p className="text-xs text-ink-soft">{snap.caption}</p>
+      )}
     </div>
   );
 }
@@ -162,7 +212,7 @@ function buildTrace(target: number): Snapshot[] {
   const snap = (
     line: number,
     caption: string,
-    extra: { changedMemo?: number; changedDone?: number; cacheHit?: number } = {},
+    extra: { reads?: number[]; write?: number; cacheHit?: number } = {},
   ) => {
     events.push({
       line,
@@ -170,7 +220,9 @@ function buildTrace(target: number): Snapshot[] {
       memo: [...memo],
       done: [...done],
       caption,
-      ...extra,
+      ...(extra.reads ? { reads: extra.reads } : {}),
+      ...(extra.write !== undefined ? { write: extra.write } : {}),
+      ...(extra.cacheHit !== undefined ? { cacheHit: extra.cacheHit } : {}),
     });
   };
 
@@ -182,10 +234,13 @@ function buildTrace(target: number): Snapshot[] {
       stack.pop();
       return n;
     }
-    snap(3, `fib(${n}) — miramos done[${n}].`);
+    snap(3, `fib(${n}) — miramos done[${n}].`, { reads: [n] });
     if (done[n]) {
       const v = memo[n]!;
-      snap(3, `fib(${n}) — CACHE HIT, devolvemos memo[${n}] = ${v} en O(1).`, { cacheHit: n });
+      snap(3, `fib(${n}) — CACHE HIT, devolvemos memo[${n}] = ${v} en O(1).`, {
+        reads: [n],
+        cacheHit: n,
+      });
       stack.pop();
       return v;
     }
@@ -194,9 +249,12 @@ function buildTrace(target: number): Snapshot[] {
     const b = fib(n - 2);
     const r = a + b;
     memo[n] = r;
-    snap(5, `fib(${n}) — guardamos memo[${n}] = ${r}.`, { changedMemo: n });
+    snap(5, `fib(${n}) — guardamos memo[${n}] = ${a} + ${b} = ${r}.`, {
+      reads: [n - 1, n - 2],
+      write: n,
+    });
     done[n] = true;
-    snap(6, `fib(${n}) — marcamos done[${n}] = true.`, { changedDone: n });
+    snap(6, `fib(${n}) — marcamos done[${n}] = true.`, { write: n });
     snap(7, `fib(${n}) — return ${r}.`);
     stack.pop();
     return r;

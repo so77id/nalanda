@@ -232,6 +232,7 @@ describe('architecture: the step-through widget stays out of the entry chunk', (
     'components/interactive/lazyStepShow.tsx',
     'components/interactive/FibMemoSteps.tsx',
     'components/interactive/FibTabSteps.tsx',
+    'components/interactive/FibIterSteps.tsx',
   ];
 
   it('is imported only by its lazy wrapper', () => {

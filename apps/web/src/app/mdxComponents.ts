@@ -10,6 +10,7 @@ import {
   LazyComplexityHierarchy,
   LazyMathPlot,
   LazyExercise,
+  LazyFibIterSteps,
   LazyFibMemoSteps,
   LazyFibTabSteps,
   LazyMermaid,
@@ -140,6 +141,8 @@ export const mdxComponents = {
   FibMemoSteps: LazyFibMemoSteps,
   // Lazy for the same reason as FibMemoSteps.
   FibTabSteps: LazyFibTabSteps,
+  // Lazy for the same reason as FibMemoSteps.
+  FibIterSteps: LazyFibIterSteps,
   // Not lazy: takes typed state, calls the pure `memoryLayout` algorithm and
   // paints SVG. No runtime seam, no CheerpJ, no CodeMirror — the whole reversal
   // #209 buys is that this component's cost is its own tiny chunk and nothing
