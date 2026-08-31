@@ -3,6 +3,7 @@ import {
   Figure,
   LazyBenchmark,
   LazyBinarySearchOnArray,
+  LazyMaxSubarrayViz,
   LazyCallStack,
   LazyCodeEditor,
   LazyHanoiPlayground,
@@ -128,6 +129,10 @@ export const mdxComponents = {
   // CodeMirror in the entry chunk of every reader. Guarded by
   // architecture.test.ts. ADR-0059.
   BinarySearchOnArray: LazyBinarySearchOnArray,
+  // Same lazy rule (composes <CodeStepper>). Traces the FULL D&C recursion —
+  // enter/return/cross-scan/winner — with a breadcrumb of the call path.
+  // ADR-0060.
+  MaxSubarrayViz: LazyMaxSubarrayViz,
   // Lazy: composes <CodeStepper> (CodeMirror + java grammar) and lucide
   // icons for its controls. Registering the real one here would put
   // CodeMirror in the entry chunk of every reader. Guarded by

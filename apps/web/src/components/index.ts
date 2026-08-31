@@ -62,6 +62,9 @@ export { RecursionTreeDivide } from './interactive/RecursionTreeDivide';
 // entry chunk of every reader of every page (guarded in
 // `src/architecture.test.ts`). ADR-0059.
 export { LazyBinarySearchOnArray } from './interactive/lazyBinarySearchOnArray';
+// Lazy for the same reason: composes <CodeStepper> (CodeMirror). ADR-0060,
+// guarded per-name in `src/architecture.test.ts`.
+export { LazyMaxSubarrayViz } from './interactive/lazyMaxSubarrayViz';
 // The lazy wrapper, not the widget itself: `<CodeStepper>` inside `<StepShow>`
 // imports CodeMirror + `useGrammar`, and the MDX map is evaluated eagerly.
 // Registering the real component here would put CodeMirror in the entry chunk

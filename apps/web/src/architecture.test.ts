@@ -375,6 +375,25 @@ describe('architecture: the binarysearchonarray widget stays out of the entry ch
   });
 });
 
+describe('architecture: the maxsubarrayviz widget stays out of the entry chunk', () => {
+  // MaxSubarrayViz composes <CodeStepper> (CodeMirror + java grammar) plus
+  // lucide icons for its controls. Same shape as the other lazy-widget guards.
+  // ADR-0060.
+  const ALLOWED = ['components/interactive/lazyMaxSubarrayViz.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/maxsubarrayviz' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: the callstack widget stays out of the entry chunk', () => {
   // CallStack composes <CodeStepper> (CodeMirror + java grammar) plus
   // lucide icons for its controls. Registering the real component eagerly

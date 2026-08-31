@@ -11,6 +11,7 @@ import type { CatalogEntry } from '../lib/catalogEntry';
 
 import { benchmarkCatalogEntry } from './interactive/Benchmark.catalog';
 import { binarySearchOnArrayCatalogEntry } from './interactive/BinarySearchOnArray.catalog';
+import { maxSubarrayVizCatalogEntry } from './interactive/MaxSubarrayViz.catalog';
 import { callStackCatalogEntry } from './interactive/CallStack.catalog';
 import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { complexityCounterCatalogEntry } from './interactive/ComplexityCounter.catalog';
@@ -67,6 +68,7 @@ export const catalogEntries: CatalogEntry[] = [
   recursionTreeCatalogEntry,
   recursionTreeDivideCatalogEntry,
   binarySearchOnArrayCatalogEntry,
+  maxSubarrayVizCatalogEntry,
   callStackCatalogEntry,
   hanoiPlaygroundCatalogEntry,
   stepShowCatalogEntry,
