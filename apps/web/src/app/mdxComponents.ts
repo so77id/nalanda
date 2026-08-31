@@ -23,6 +23,7 @@ import {
   Question,
   Questions,
   RecursionTree,
+  RecursionTreeDivide,
   SectionBreak,
   SheetEmbed,
   SideBySide,
@@ -116,6 +117,11 @@ export const mdxComponents = {
   // alternative and buys nothing scoped to one component). No CodeMirror, no
   // runtime seam: the eager-graph walk in architecture.test.ts stays happy.
   RecursionTree,
+  // Same shape as `<RecursionTree>` — SVG-free chips laid out with pseudo-elements
+  // for the connector lines, no CodeMirror, no runtime seam. Draws the D&C
+  // recursion tree plus the per-level cost rail (ADR-0058); five named recipes
+  // covering the five uses in the divide-y-vencerás deck.
+  RecursionTreeDivide,
   // Lazy: composes <CodeStepper> (CodeMirror + java grammar) and lucide
   // icons for its controls. Registering the real one here would put
   // CodeMirror in the entry chunk of every reader. Guarded by
