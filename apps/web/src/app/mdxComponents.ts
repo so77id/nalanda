@@ -2,6 +2,7 @@ import {
   Explanation,
   Figure,
   LazyBenchmark,
+  LazyBinarySearchOnArray,
   LazyCallStack,
   LazyCodeEditor,
   LazyHanoiPlayground,
@@ -122,6 +123,11 @@ export const mdxComponents = {
   // recursion tree plus the per-level cost rail (ADR-0058); five named recipes
   // covering the five uses in the divide-y-vencerás deck.
   RecursionTreeDivide,
+  // Lazy: composes <CodeStepper> (CodeMirror + java grammar) plus lucide
+  // icons for its controls. Registering the real component here would put
+  // CodeMirror in the entry chunk of every reader. Guarded by
+  // architecture.test.ts. ADR-0059.
+  BinarySearchOnArray: LazyBinarySearchOnArray,
   // Lazy: composes <CodeStepper> (CodeMirror + java grammar) and lucide
   // icons for its controls. Registering the real one here would put
   // CodeMirror in the entry chunk of every reader. Guarded by
