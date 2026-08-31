@@ -375,6 +375,24 @@ describe('architecture: the binarysearchonarray widget stays out of the entry ch
   });
 });
 
+describe('architecture: the karatsubaviz widget stays out of the entry chunk', () => {
+  // KaratsubaViz composes <CodeStepper> (CodeMirror + java grammar). Same
+  // shape as the other lazy-widget guards. ADR-0062.
+  const ALLOWED = ['components/interactive/lazyKaratsubaViz.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/karatsubaviz' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: the closestpairviz widget stays out of the entry chunk', () => {
   // ClosestPairViz composes <CodeStepper> (CodeMirror + java grammar). Same
   // shape as the other lazy-widget guards. ADR-0061.

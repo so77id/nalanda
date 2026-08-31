@@ -13,6 +13,7 @@ import { benchmarkCatalogEntry } from './interactive/Benchmark.catalog';
 import { binarySearchOnArrayCatalogEntry } from './interactive/BinarySearchOnArray.catalog';
 import { maxSubarrayVizCatalogEntry } from './interactive/MaxSubarrayViz.catalog';
 import { closestPairVizCatalogEntry } from './interactive/ClosestPairViz.catalog';
+import { karatsubaVizCatalogEntry } from './interactive/KaratsubaViz.catalog';
 import { callStackCatalogEntry } from './interactive/CallStack.catalog';
 import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { complexityCounterCatalogEntry } from './interactive/ComplexityCounter.catalog';
@@ -71,6 +72,7 @@ export const catalogEntries: CatalogEntry[] = [
   binarySearchOnArrayCatalogEntry,
   maxSubarrayVizCatalogEntry,
   closestPairVizCatalogEntry,
+  karatsubaVizCatalogEntry,
   callStackCatalogEntry,
   hanoiPlaygroundCatalogEntry,
   stepShowCatalogEntry,

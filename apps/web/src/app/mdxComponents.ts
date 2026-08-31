@@ -5,6 +5,7 @@ import {
   LazyBinarySearchOnArray,
   LazyMaxSubarrayViz,
   LazyClosestPairViz,
+  LazyKaratsubaViz,
   LazyCallStack,
   LazyCodeEditor,
   LazyHanoiPlayground,
@@ -137,6 +138,9 @@ export const mdxComponents = {
   // Same lazy rule (composes <CodeStepper>). Geometric D&C on a 2D plane —
   // division line, strip of width d, 7-position sweep visible. ADR-0061.
   ClosestPairViz: LazyClosestPairViz,
+  // Same lazy rule (composes <CodeStepper>). Algebraic reveal of the Karatsuba
+  // trick that turns 4 sub-multiplications into 3. ADR-0062.
+  KaratsubaViz: LazyKaratsubaViz,
   // Lazy: composes <CodeStepper> (CodeMirror + java grammar) and lucide
   // icons for its controls. Registering the real one here would put
   // CodeMirror in the entry chunk of every reader. Guarded by
