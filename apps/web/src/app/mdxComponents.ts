@@ -4,6 +4,7 @@ import {
   LazyBenchmark,
   LazyBinarySearchOnArray,
   LazyMaxSubarrayViz,
+  LazyClosestPairViz,
   LazyCallStack,
   LazyCodeEditor,
   LazyHanoiPlayground,
@@ -133,6 +134,9 @@ export const mdxComponents = {
   // enter/return/cross-scan/winner — with a breadcrumb of the call path.
   // ADR-0060.
   MaxSubarrayViz: LazyMaxSubarrayViz,
+  // Same lazy rule (composes <CodeStepper>). Geometric D&C on a 2D plane —
+  // division line, strip of width d, 7-position sweep visible. ADR-0061.
+  ClosestPairViz: LazyClosestPairViz,
   // Lazy: composes <CodeStepper> (CodeMirror + java grammar) and lucide
   // icons for its controls. Registering the real one here would put
   // CodeMirror in the entry chunk of every reader. Guarded by

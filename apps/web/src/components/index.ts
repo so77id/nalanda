@@ -65,6 +65,9 @@ export { LazyBinarySearchOnArray } from './interactive/lazyBinarySearchOnArray';
 // Lazy for the same reason: composes <CodeStepper> (CodeMirror). ADR-0060,
 // guarded per-name in `src/architecture.test.ts`.
 export { LazyMaxSubarrayViz } from './interactive/lazyMaxSubarrayViz';
+// Lazy for the same reason: composes <CodeStepper> (CodeMirror). ADR-0061,
+// guarded per-name in `src/architecture.test.ts`.
+export { LazyClosestPairViz } from './interactive/lazyClosestPairViz';
 // The lazy wrapper, not the widget itself: `<CodeStepper>` inside `<StepShow>`
 // imports CodeMirror + `useGrammar`, and the MDX map is evaluated eagerly.
 // Registering the real component here would put CodeMirror in the entry chunk
