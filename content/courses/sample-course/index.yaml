@@ -18,3 +18,7 @@ entries:
       - docId: complejidad-de-hilbert-al-big-o
       - docId: complejidad-espacial
       - docId: complejidad-recursion
+  - label: Diseño de Algoritmos
+    levelName: Unidad
+    children:
+      - docId: diseno-algoritmos-divide-y-venceras

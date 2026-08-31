@@ -1,0 +1,647 @@
+---
+id: diseno-algoritmos-divide-y-venceras
+title: Diseño de Algoritmos · Divide y Conquista
+presentation: explicit
+questions: none
+---
+
+# Diseño de Algoritmos · Divide y Conquista
+
+Primer capítulo de una nueva unidad — **Diseño de Algoritmos**. En las
+tres unidades anteriores aprendimos el lenguaje (Java), y desarrollamos
+la maquinaria para **analizar** el costo de un algoritmo:
+[[complejidad-de-hilbert-al-big-o|iterativos]] con la notación
+asintótica, [[complejidad-recursion|recursivos]] con recurrencias y
+árboles de llamadas. Con esas herramientas ya podemos leer un algoritmo
+y ponerle un $$\Theta(...)$$ al lado.
+
+Ahora damos el paso siguiente: **diseñar** algoritmos. En vez de recibir
+uno hecho y medirle el costo, aprender **patrones** que dan algoritmos
+buenos por construcción. La unidad recorre tres patrones clásicos —
+**divide y conquista**, **ordenamientos eficientes** (mergesort,
+quicksort) y **programación dinámica** — y esta clase abre el primero.
+
+**Divide y conquista** (D&C) es un patrón simple de enunciar y
+sorprendentemente potente: dividir el problema en subproblemas del mismo
+tipo, resolverlos recursivamente, combinar. Con ese esqueleto único los
+ingenieros de los años 60 mejoraron algoritmos que la humanidad usaba
+desde hacía siglos —  la multiplicación de enteros grandes, la
+transformada de Fourier, la búsqueda ordenada, la ordenación. Esta
+clase enseña a **reconocer** cuándo un problema es un buen candidato
+para D&C, a **diseñar** la solución, a **analizarla** con árbol de
+recursión y con el **teorema maestro** simplificado, y a **distinguir**
+D&C de sus vecinos que se parecen pero son otra cosa.
+
+<SectionBreak />
+
+<Slide title="Un ejemplo que ya vimos: `pow(x, n)` en tiempo logarítmico">
+En [[arrays-y-funciones|Arrays y funciones]] escribimos una función
+`pow(x, e)` que calcula $$x^e$$ **cortando el exponente por la mitad**
+en cada llamada:
+
+```java
+static long pow(long x, int e) {
+    if (e == 0) return 1;
+    long half = pow(x, e / 2);
+    if (e % 2 == 0) return half * half;
+    return x * half * half;
+}
+```
+
+Ahí lo vimos como un truco: en vez de multiplicar `x` por sí misma `e`
+veces (versión ingenua $$\Theta(e)$$), computamos `pow(x, e/2)` una sola
+vez y la reutilizamos. Con eso $$\text{pow}(2, 1024)$$ toma alrededor de
+**10 multiplicaciones** en vez de 1024.
+
+Lo que no dijimos entonces es que este truco tiene un **nombre**, tiene
+una **historia**, y forma parte de una **familia** de algoritmos que
+comparten la misma idea. Este capítulo es la clase de esa familia.
+</Slide>
+
+<Slide title="Divide y conquista: el patrón">
+**Divide y conquista** es una técnica algorítmica que resuelve un
+problema en tres pasos:
+
+1. **Divide** el problema en dos o más subproblemas **del mismo tipo**,
+   más pequeños.
+2. **Conquista** cada subproblema recursivamente. Cuando el problema es
+   suficientemente pequeño (el **caso base**), se resuelve directo.
+3. **Combina** las soluciones parciales para producir la solución del
+   problema original.
+
+En `pow(x, e)` se ve exactamente:
+
+- **Divide**: el subproblema es `pow(x, e/2)`, la mitad del original.
+- **Conquista**: una llamada recursiva.
+- **Combina**: `half * half` (y multiplicar por `x` si el exponente es
+  impar).
+
+La recurrencia que le corresponde es
+$$T(N) = T(N/2) + O(1)$$: una sola llamada recursiva sobre un
+subproblema de tamaño $$N/2$$, más un trabajo constante para combinar.
+Con el árbol de recursión que aprendimos en
+[[complejidad-recursion|Complejidad III]] esta recurrencia da
+$$\Theta(\log N)$$. Ese logaritmo es la firma del patrón — cuando lo
+veas aparecer, sospechá D&C.
+</Slide>
+
+<Slide title="Un poco de historia">
+La estrategia militar de "divide y vencerás" (`divide et impera`) se
+atribuye a **Julio César** y la comentó **Maquiavelo**. Como técnica
+algorítmica formal, el nombre se consolida en los años 70 gracias a
+Aho-Hopcroft-Ullman en *The Design and Analysis of Computer Algorithms*
+(**1974**). Pero los algoritmos concretos que hoy clasificamos como D&C
+son bastante anteriores:
+
+- **1945**: John von Neumann publica **mergesort** para el EDVAC. Es el
+  primer algoritmo D&C con análisis de costo escrito por su autor.
+- **1960**: un estudiante de 23 años, **Anatoly Karatsuba**, refuta a
+  su director **Andréi Kolmogórov**. Kolmogórov conjeturaba que
+  multiplicar dos números de $$N$$ dígitos requería $$\Omega(N^2)$$
+  operaciones — la fórmula que aprendemos en el colegio. Karatsuba
+  encontró un algoritmo mejor en **una semana**. Kolmogórov canceló
+  el resto del seminario y publicó él mismo el resultado, a nombre
+  de Karatsuba. **Vamos a volver a este ejemplo al final de la clase**.
+- **1965**: Cooley y Tukey publican la **FFT** (Fast Fourier Transform),
+  otro D&C, esta vez sobre señales.
+- **1980**: Bentley, Haken y Saxe publican el **teorema maestro**, una
+  receta cerrada para resolver las recurrencias de D&C. Es una
+  herramienta de análisis, no una invención del método — los algoritmos
+  ya se usaban desde hacía 35 años.
+
+Como pasa con casi todo en algoritmos: los objetos existen antes que el
+lenguaje para nombrarlos y clasificarlos.
+</Slide>
+
+<Slide title="La forma que va a repetirse toda la clase">
+Cinco algoritmos vamos a ver hoy — búsqueda binaria, máximo,
+max-subarray, closest-pair, Karatsuba — y los cinco caben en la misma
+plantilla:
+
+$$T(N) = a \cdot T(N/b) + f(N)$$
+
+donde:
+
+- $$a$$ = **cuántas** llamadas recursivas hace el paso divisorio.
+- $$b$$ = **cuánto** más chico es cada subproblema.
+- $$f(N)$$ = el **combine**: cuánto cuesta juntar las soluciones
+  parciales.
+
+Con estos tres números un algoritmo D&C queda caracterizado. Búsqueda
+binaria es $$a=1, b=2, f(N)=1$$; mergesort es $$a=2, b=2, f(N)=N$$;
+Karatsuba es $$a=3, b=2, f(N)=N$$. Distintos $$(a, b, f)$$ producen
+costos totales muy distintos, y el resto de la clase se dedica a
+entender esa relación.
+
+**Regla pedagógica de la clase**: cada algoritmo va a aparecer
+**primero en su forma ingenua**, con su costo. Recién ahí presentamos
+la versión D&C, comparamos, y calculamos el nuevo costo con el árbol.
+El pivote — el momento donde D&C gana — es lo interesante; sin la
+comparación se pierde.
+</Slide>
+
+<SectionBreak />
+
+<Slide title="Búsqueda binaria — versión ingenua">
+Problema: dado un arreglo **ordenado ascendentemente** de $$N$$ enteros
+y un `target`, decir si el `target` está en el arreglo (y en qué
+posición).
+
+**Versión ingenua** — búsqueda lineal:
+
+```java
+static int busquedaLineal(int[] a, int t) {
+    for (int i = 0; i < a.length; i++) {
+        if (a[i] == t) return i;
+    }
+    return -1;
+}
+```
+
+**Costo**: en el peor caso el `target` está al final o no está — hay que
+recorrer el arreglo entero. $$T(N) = \Theta(N)$$. No usa que el arreglo
+esté ordenado, así que el orden es información que estamos tirando.
+
+**¿Por qué es lineal?** Porque cada paso descarta **un solo elemento**.
+Con $$N$$ elementos para descartar, y descartando uno por vez, hacen
+falta $$N$$ pasos.
+</Slide>
+
+<Slide title="Búsqueda binaria — versión D&C">
+Si el arreglo está ordenado podemos **descartar la mitad en cada paso**
+en vez de un elemento. Comparamos con el elemento del **medio**: si es
+igual al target, terminamos; si `target` es menor, descartamos la mitad
+derecha; si es mayor, descartamos la mitad izquierda. Recursivamente.
+
+<BinarySearchOnArray values={[3, 7, 11, 14, 19, 22, 28, 31, 42, 55]} target={22} />
+
+**El patrón D&C**: dividimos el problema en dos subproblemas — la mitad
+izquierda y la mitad derecha — pero **solo recursamos en uno**. El
+combine es trivial (`O(1)`).
+
+Recurrencia: $$T(N) = T(N/2) + O(1)$$. $$a=1$$ porque hacemos una sola
+llamada recursiva, $$b=2$$ porque el subproblema es la mitad, $$f(N)=1$$
+porque el combine es constante.
+</Slide>
+
+<Slide title="Búsqueda binaria — análisis con árbol de recursión">
+El árbol de recursión de búsqueda binaria es una **cadena lineal**: un
+solo nodo por nivel, porque solo se explora una mitad.
+
+<RecursionTreeDivide recipe="binary-search" n={8} />
+
+Contando: **una llamada por nivel** ($$1 \cdot T(N/2^L)$$), y
+$$\log_2 N$$ niveles hasta llegar al caso base. Costo por nivel:
+$$O(1)$$. Costo total:
+
+$$T(N) = \underbrace{1}_{\text{llamadas por nivel}} \cdot \underbrace{\log_2 N}_{\text{niveles}} \cdot \underbrace{O(1)}_{\text{combine}} = \Theta(\log N)$$
+
+**Comparación**: la versión ingenua era $$\Theta(N)$$. Con D&C es
+$$\Theta(\log N)$$. Para $$N = 10^6$$ eso es la diferencia entre un
+millón de pasos y **veinte**.
+
+El precio: el arreglo tiene que estar ordenado. Ese cabo suelto lo
+resolvemos en la próxima clase de la unidad.
+</Slide>
+
+<Slide title="Máximo — versión ingenua y versión D&C">
+Problema: encontrar el máximo de un arreglo de $$N$$ enteros.
+
+**Versión ingenua**: un `for` que compara cada elemento contra un
+`max` acumulado. $$T(N) = \Theta(N)$$. Es la versión de siempre.
+
+**Versión D&C**:
+
+```java
+static int maximo(int[] a, int lo, int hi) {
+    if (lo == hi) return a[lo];
+    int mid = (lo + hi) / 2;
+    int izq = maximo(a, lo, mid);
+    int der = maximo(a, mid + 1, hi);
+    return Math.max(izq, der);
+}
+```
+
+Dividimos el arreglo en dos mitades, recursamos en cada una, combinamos
+con un `Math.max`. Ahora $$a=2$$ (dos llamadas recursivas), $$b=2$$
+(mitades) y $$f(N)=O(1)$$ (una comparación).
+
+Recurrencia: $$T(N) = 2T(N/2) + O(1)$$.
+</Slide>
+
+<Slide title="Máximo — el árbol muestra que sigue siendo lineal">
+<RecursionTreeDivide recipe="max-array" n={8} />
+
+**Contamos por niveles**. En cada nivel hay el doble de nodos que en el
+anterior, y cada nodo hace trabajo $$O(1)$$:
+
+- Nivel 0: 1 nodo × 1 = 1
+- Nivel 1: 2 nodos × 1 = 2
+- Nivel 2: 4 nodos × 1 = 4
+- Nivel 3: 8 nodos × 1 = 8
+
+Suma total: $$1 + 2 + 4 + 8 = 15$$, y en general $$1 + 2 + \ldots + N
+\approx 2N = \Theta(N)$$.
+
+**El máximo D&C es $$\Theta(N)$$, igual que el ingenuo.** El árbol tiene
+$$\log N$$ niveles pero cada nivel duplica los nodos, y las **hojas
+solas ya son $$N$$**. El combine constante no alcanza para bajar el
+orden.
+
+**Lección**: no toda aplicación de D&C mejora el costo. Cuando $$a$$
+es igual al factor de división $$b$$ y el combine es barato, D&C solo
+agrega overhead. Máximo es un ejemplo honesto de eso.
+</Slide>
+
+<Slide title="Max-subarray — el problema del combine no trivial">
+Problema: dado un arreglo de $$N$$ enteros (positivos y negativos),
+encontrar el sub-arreglo **contiguo** con la suma más grande.
+
+Ejemplo: en `[-2, 1, -3, 4, -1, 2, 1, -5]` el mejor sub-arreglo es
+`[4, -1, 2, 1]` con suma $$6$$.
+
+**Versión ingenua**: probar todos los sub-arreglos. Hay $$\Theta(N^2)$$
+sub-arreglos y computar la suma de cada uno cuesta $$\Theta(N)$$; sale
+$$\Theta(N^3)$$. Con un cachecito de sumas se puede bajar a
+$$\Theta(N^2)$$, todavía cuadrático.
+
+**Versión D&C**: dividir el arreglo por la mitad. El mejor sub-arreglo
+está en uno de **tres** lugares:
+
+1. Completamente en la **mitad izquierda** → llamada recursiva.
+2. Completamente en la **mitad derecha** → llamada recursiva.
+3. **Cruza el centro** → hay que calcularlo de otra manera.
+
+El caso 3 es lo interesante: para encontrar el mejor sub-arreglo que
+cruza el centro, arrancamos en `mid` y **barremos hacia la izquierda**
+acumulando la suma y guardando el mejor sufijo; y barremos hacia
+`mid+1` **hacia la derecha** guardando el mejor prefijo. El mejor
+sub-arreglo que cruza es la suma de ambos.
+
+Ese **barrido lineal del combine** es la diferencia con los ejemplos
+anteriores: por primera vez en D&C, $$f(N) \neq O(1)$$.
+</Slide>
+
+<Slide title="Max-subarray — el trace completo">
+<MaxSubarrayViz values={[-2, 1, -3, 4, -1, 2, 1, -5]} />
+
+El widget de arriba corre el D&C completo sobre el mismo arreglo del
+ejemplo. Cada llamada muestra su rango `[lo..hi]`, se divide en dos
+mitades (izquierda azul, derecha verde), recursa en cada una, hace el
+barrido cruzado desde `mid`, y anuncia el ganador del rango. La pila
+al pie muestra la profundidad de la recursión en cada paso.
+
+Lo que hay que observar:
+
+- Cada llamada **no hoja** hace $$O(N_{\text{sub}})$$ trabajo en el
+  combine — el barrido cruzado escanea todo su rango.
+- Cada nivel del árbol tiene $$2^L$$ llamadas de rango $$N / 2^L$$ cada
+  una, así que el trabajo total por nivel es
+  $$2^L \cdot O(N/2^L) = O(N)$$.
+- Hay $$\log_2 N$$ niveles.
+
+**Trabajo total: $$O(N) \cdot \log_2 N = O(N \log N)$$**. Un salto
+grande respecto al $$O(N^2)$$ ingenuo.
+</Slide>
+
+<Slide title="Max-subarray — el árbol confirma la cuenta">
+<RecursionTreeDivide recipe="max-subarray" n={8} />
+
+Cada fila del riel de la derecha lee lo mismo: **8 unidades de trabajo
+por nivel**. Cuatro niveles, 32 unidades. En general
+$$N \cdot \log_2 N$$ — el $$\Theta(N \log N)$$ que dijimos.
+
+**Vale la pena mirar dos veces el patrón "8 en cada nivel"**. Es el
+caso balanceado del teorema maestro: cada nivel hace la misma cantidad
+de trabajo, y el total es "nivel × niveles". Cuando ves esta forma en
+un árbol de recursión, sabés que el resultado es $$N \log N$$ (o
+$$f(N) \log N$$ para el $$f$$ del combine).
+
+**Vs. la ingenua**: para $$N = 10^6$$, $$N^2 = 10^{12}$$ (horas) y
+$$N \log N \approx 2 \cdot 10^7$$ (segundo). Un algoritmo cambia
+categorías con este truco.
+</Slide>
+
+<Slide title="Teorema Maestro simplificado">
+Después de ver tres ejemplos ($$T(N) = T(N/2) + O(1)$$, $$T(N) =
+2T(N/2) + O(1)$$, $$T(N) = 2T(N/2) + O(N)$$) empieza a emerger un
+patrón. Todas las recurrencias D&C tienen la forma:
+
+$$T(N) = a \cdot T(N/b) + O(N^c)$$
+
+Y su solución depende de **una sola comparación**: $$c$$ vs
+$$\log_b(a)$$.
+
+- **Caso 1**: $$c < \log_b(a)$$ → **las hojas dominan**. Total
+  $$\Theta(N^{\log_b a})$$.
+- **Caso 2**: $$c = \log_b(a)$$ → **balanceado**. Total
+  $$\Theta(N^c \log N)$$.
+- **Caso 3**: $$c > \log_b(a)$$ → **la raíz domina**. Total
+  $$\Theta(N^c)$$.
+
+Es el **teorema maestro simplificado** — la forma polinomial. Es la
+misma cuenta que hicimos con árbol para cada ejemplo, pero ahora
+condensada en una receta: identificás $$(a, b, c)$$, comparás $$c$$ con
+$$\log_b a$$, nombrás el caso, escribís la forma cerrada.
+
+Verificación rápida en los ejemplos:
+
+- **Búsqueda binaria** $$T = T(N/2) + O(1)$$: $$a=1, b=2, c=0$$;
+  $$\log_b a = 0 = c$$, caso 2 → $$\Theta(N^0 \log N) = \Theta(\log N)$$.
+  ✓
+- **Máximo** $$T = 2T(N/2) + O(1)$$: $$a=2, b=2, c=0$$; $$\log_b a = 1
+  > c$$, caso 1 → $$\Theta(N^1) = \Theta(N)$$. ✓
+- **Max-subarray** $$T = 2T(N/2) + O(N)$$: $$a=2, b=2, c=1$$;
+  $$\log_b a = 1 = c$$, caso 2 → $$\Theta(N \log N)$$. ✓
+</Slide>
+
+<Slide title="Closest-pair — el problema geométrico">
+Problema: dados $$N$$ puntos en el plano, encontrar los **dos puntos
+más cercanos** entre sí (distancia euclídea).
+
+**Versión ingenua**: comparar todos los pares. Hay $$\binom{N}{2} =
+\Theta(N^2)$$ pares. Es la solución obvia y en muchos contextos
+inaceptable — grafos con miles de puntos aparecen en simulaciones
+físicas, análisis geoespacial, machine learning.
+
+**Versión D&C** (Preparata-Shamos, 1975):
+
+1. Ordenar los puntos por coordenada $$x$$ (una vez, $$O(N \log N)$$).
+2. **Dividir** por la mediana de $$x$$: una mitad izquierda, una mitad
+   derecha.
+3. **Recursar** en cada mitad; obtenemos $$d_L$$ y $$d_R$$.
+4. **Combinar**: el par más cercano puede cruzar la línea divisoria.
+   Para no romper el orden, definimos $$d = \min(d_L, d_R)$$, tomamos
+   la **franja** de puntos cuya distancia a la línea divisoria es
+   menor que $$d$$, y buscamos ahí.
+
+El paso 4 parece cuadrático — todos los puntos del arreglo podrían
+estar en la franja. **La magia geométrica** es que dentro de la franja,
+cada punto necesita compararse **con a lo más 7 vecinos** (ordenando
+la franja por $$y$$). Eso es $$O(N)$$, no $$O(N^2)$$.
+</Slide>
+
+<Slide title="Closest-pair — el trace completo">
+<ClosestPairViz points={[
+  { x: 1, y: 3 },
+  { x: 2, y: 8 },
+  { x: 4, y: 2 },
+  { x: 5, y: 6 },
+  { x: 6, y: 4 },
+  { x: 8, y: 1 },
+  { x: 9, y: 7 },
+  { x: 10, y: 5 }
+]} />
+
+En el widget: la línea vertical punteada es la mediana de $$x$$ para la
+llamada actual; los puntos a la izquierda y a la derecha se pintan
+distinto; el rectángulo translúcido es la **franja** de ancho $$2d$$;
+las líneas punteadas rojas muestran cada par que se está comparando,
+con la distancia al medio. Al final, la línea sólida verde une el par
+ganador y su distancia queda anotada.
+
+**Aplicar el teorema maestro**: $$T(N) = 2T(N/2) + O(N)$$ (dos
+recursiones + barrido lineal en la franja). $$a=2, b=2, c=1$$, caso
+balanceado, total $$\Theta(N \log N)$$. Mismo perfil que max-subarray.
+</Slide>
+
+<SectionBreak />
+
+<Slide title="Ejercicios rápidos — resolver recurrencias con Master">
+Práctica: aplicar el teorema maestro simplificado a estas recurrencias
+sin problema atrás. Identificá $$(a, b, c)$$, comparate $$c$$ con
+$$\log_b a$$, nombrá el caso, escribí la forma cerrada.
+
+1. $$T(N) = 2T(N/2) + O(N^2)$$
+2. $$T(N) = 4T(N/2) + O(N)$$
+3. $$T(N) = 4T(N/2) + O(N^2)$$
+4. $$T(N) = 8T(N/2) + O(N^2)$$
+5. $$T(N) = 3T(N/2) + O(N)$$
+
+**Respuestas** (para chequear después):
+
+1. $$a=2, b=2, c=2$$; $$\log_b a = 1 < c$$ → caso 3, la raíz domina
+   → $$\Theta(N^2)$$.
+2. $$a=4, b=2, c=1$$; $$\log_b a = 2 > c$$ → caso 1, hojas dominan
+   → $$\Theta(N^2)$$.
+3. $$a=4, b=2, c=2$$; $$\log_b a = 2 = c$$ → caso 2, balanceado
+   → $$\Theta(N^2 \log N)$$.
+4. $$a=8, b=2, c=2$$; $$\log_b a = 3 > c$$ → caso 1, hojas dominan
+   → $$\Theta(N^3)$$.
+5. $$a=3, b=2, c=1$$; $$\log_b a \approx 1.585 > c$$ → caso 1, hojas
+   dominan → $$\Theta(N^{\log_2 3}) \approx \Theta(N^{1.585})$$.
+</Slide>
+
+<Slide title="Aviso sobre el teorema maestro completo">
+La versión que enseñamos acá — comparar $$c$$ con $$\log_b a$$ y
+nombrar el caso — es la **forma simplificada**. La versión completa que
+verán si siguen algoritmos avanzados (por ejemplo, CLRS §4.5) incluye
+dos matices más:
+
+- Los casos 1 y 3 se enuncian con un $$\varepsilon > 0$$: hojas
+  dominan si $$f(N) = O(N^{\log_b a - \varepsilon})$$, raíz domina si
+  $$f(N) = \Omega(N^{\log_b a + \varepsilon})$$. En polinomios "de
+  verdad" la diferencia siempre se puede escribir con un
+  $$\varepsilon$$, así que en la práctica del curso no cambia.
+- El caso 3 exige la **condición de regularidad**: $$a \cdot f(N/b)
+  \leq k \cdot f(N)$$ para algún $$k < 1$$ desde cierto punto. Se
+  cumple para todos los $$f$$ polinomiales que van a aparecer.
+
+La receta simplificada resuelve todas las recurrencias del curso; la
+completa aparece cuando el combine deja de ser polinomial (por
+ejemplo $$f(N) = N \log N$$), que no es nuestro caso.
+</Slide>
+
+<Slide title="Cómo leer una recurrencia y saber si D&C te sirvió">
+Cinco recurrencias, cinco veredictos:
+
+| Recurrencia | Cerrada | Vs. ingenuo |
+|---|---|---|
+| $$T = T(N/2) + O(1)$$ | $$\Theta(\log N)$$ | Ingenuo $$\Theta(N)$$ — **salto grande** |
+| $$T = 2T(N/2) + O(1)$$ | $$\Theta(N)$$ | Ingenuo $$\Theta(N)$$ — **empate, solo overhead** |
+| $$T = 2T(N/2) + O(N)$$ | $$\Theta(N \log N)$$ | Ingenuo $$\Theta(N^2)$$ — **salto grande** |
+| $$T = 3T(N/2) + O(N)$$ | $$\Theta(N^{1.585})$$ | Ingenuo $$\Theta(N^2)$$ — **salto menor pero real** |
+| $$T = 4T(N/2) + O(N)$$ | $$\Theta(N^2)$$ | Ingenuo $$\Theta(N^2)$$ — **empate** |
+
+Tres formas típicas de "victoria" de D&C:
+
+- **Salto asintótico grande** (BS, max-subarray): baja el exponente o
+  agrega un logaritmo.
+- **Baja del exponente** (Karatsuba, Strassen — luego): mismo tipo de
+  operación, exponente más chico.
+- **Empate con overhead** (máximo, o el caso donde $$a$$ crece igual
+  que el trabajo total): D&C no es peor pero no gana. **Válido
+  saberlo**: cuando el árbol lo dice, no hay que insistir con D&C.
+</Slide>
+
+<SectionBreak />
+
+<Slide title="Contra-ejemplo 1 — subproblemas solapados">
+No todo lo que parece D&C lo es. Primer contra-ejemplo: **Fibonacci
+recursivo**.
+
+```java
+static long fib(int n) {
+    if (n < 2) return n;
+    return fib(n - 1) + fib(n - 2);
+}
+```
+
+Se parece a D&C — divide el problema en dos subproblemas más chicos y
+combina. Pero cuando dibujamos el árbol (lo hicimos en
+[[complejidad-recursion|Complejidad III]] §Fibonacci), la propiedad
+crucial de D&C **falla**: los subproblemas **se solapan**. `fib(3)`
+aparece muchas veces en el árbol de `fib(5)`; `fib(5)` aparece muchas
+veces en el árbol de `fib(10)`.
+
+**El costo se explota**: $$T(N) = T(N-1) + T(N-2) + O(1) \approx
+\Theta(\varphi^N)$$ con $$\varphi \approx 1.618$$ — exponencial. Con
+memoización pasa a $$\Theta(N)$$ como vimos.
+
+La **regla D&C que Fibonacci rompe**: los subproblemas tienen que ser
+**disjuntos**. Si un subproblema aparece más de una vez, no es D&C, es
+una situación para **programación dinámica** (unidad que sigue).
+
+**Semilla para la próxima unidad**: DP es exactamente esta situación —
+subproblemas solapados. La memoización de Fibonacci fue el primer
+ejemplo.
+</Slide>
+
+<Slide title="Contra-ejemplo 2 — un solo subproblema">
+Segundo contra-ejemplo: `factorial`, un recorrido de lista, o la suma
+recursiva del capítulo anterior.
+
+```java
+static long factorial(int n) {
+    if (n == 1) return 1;
+    return n * factorial(n - 1);
+}
+```
+
+Se llama a sí misma con un argumento más chico, tiene caso base, tiene
+paso recursivo. Pero **solo hace UNA llamada recursiva**. Su
+recurrencia es $$T(N) = T(N-1) + O(1)$$, no una recurrencia D&C.
+
+**La distinción**: D&C tiene que dividir en subproblemas más chicos por
+un **factor multiplicativo** ($$N/2$$, $$N/3$$), no restar una
+constante. Y típicamente son **dos o más** subproblemas — cuando hay
+uno solo, aunque el factor sea multiplicativo (como en búsqueda
+binaria), lo llamamos "reducción" o "recursión lineal" más que D&C.
+Búsqueda binaria es la excepción histórica que se acepta bajo el
+paraguas D&C, pero factorial no.
+
+**Reconocer**: si la recurrencia tiene forma $$T(N) = T(N-1) + \ldots$$
+en vez de $$T(N/b)$$, no es D&C.
+</Slide>
+
+<Slide title="Contra-ejemplo 3 — problema ya lineal">
+Tercer contra-ejemplo: sumar los elementos de un arreglo con D&C.
+
+```java
+static long sumaDC(int[] a, int lo, int hi) {
+    if (lo == hi) return a[lo];
+    int mid = (lo + hi) / 2;
+    return sumaDC(a, lo, mid) + sumaDC(a, mid + 1, hi);
+}
+```
+
+Recurrencia: $$T(N) = 2T(N/2) + O(1)$$. Por el teorema maestro,
+$$\Theta(N)$$. **Igual que la versión iterativa**.
+
+Peor: la versión D&C ocupa **$$O(\log N)$$ de pila** por la recursión,
+la iterativa ocupa $$O(1)$$. Y el overhead de las llamadas hace que en
+la práctica sea **más lenta**.
+
+**La regla**: cuando el problema ya es lineal y tiene una solución
+iterativa simple, D&C **no ayuda** — solo agrega overhead. Es
+importante saber esto para **no aplicar D&C reflexivamente**.
+
+En general, si $$f(N) = \Omega(N \cdot a / b)$$ (el combine domina las
+recursiones), D&C empata con la iterativa o pierde. Sumar el arreglo
+cae exactamente ahí.
+</Slide>
+
+<Slide title="Karatsuba — el cierre histórico del arco">
+Volvamos a la anécdota que dejamos abierta al inicio: **1960,
+Kolmogórov conjetura que multiplicar dos números de $$N$$ dígitos
+requiere $$\Omega(N^2)$$**. En una semana, su estudiante **Karatsuba**
+trae el contraejemplo.
+
+La versión escolar hace **cuatro** sub-multiplicaciones al separar
+$$x = x_H \cdot 10^m + x_L$$ y $$y = y_H \cdot 10^m + y_L$$:
+
+$$x \cdot y = x_H y_H \cdot 10^{2m} + (x_H y_L + x_L y_H) \cdot 10^m + x_L y_L$$
+
+Cuatro productos: $$x_H y_H$$, $$x_H y_L$$, $$x_L y_H$$, $$x_L y_L$$.
+Recurrencia $$T(N) = 4T(N/2) + O(N)$$ → $$\Theta(N^2)$$, igual que la
+que se aprende en el colegio.
+
+**El truco de Karatsuba**: computar solo **tres** productos.
+
+$$P_1 = x_H y_H, \quad P_2 = x_L y_L, \quad P_3 = (x_H + x_L)(y_H + y_L)$$
+
+Y notar que $$P_3 - P_1 - P_2 = x_H y_L + x_L y_H$$ — el término del
+medio que necesitábamos. **Álgebra pura, sin multiplicación adicional**.
+
+<KaratsubaViz x={1234} y={5678} />
+
+Recurrencia: $$T(N) = 3T(N/2) + O(N)$$ → por el maestro, caso 1
+(hojas dominan): $$\Theta(N^{\log_2 3}) \approx \Theta(N^{1.585})$$.
+
+**Kolmogórov canceló el resto del seminario** y publicó él mismo el
+resultado a nombre de Karatsuba.
+</Slide>
+
+<Slide title="Karatsuba — el árbol muestra la baja de exponente">
+<RecursionTreeDivide recipe="karatsuba" n={8} />
+
+El árbol es **ternario** — tres hijos por nodo, porque Karatsuba hace
+tres subproductos por llamada. La cuenta:
+
+- Nivel 0: 1 nodo × $$O(N)$$ = $$N$$
+- Nivel 1: 3 nodos × $$O(N/2)$$ = $$3N/2$$
+- Nivel 2: 9 nodos × $$O(N/4)$$ = $$9N/4$$
+- Nivel L: $$3^L$$ nodos × $$O(N/2^L)$$ = $$N \cdot (3/2)^L$$
+
+Como $$3/2 > 1$$, cada nivel es **más grande** que el anterior — al
+revés de lo que pasaba en max-subarray. Las hojas dominan, y el árbol
+tiene $$3^{\log_2 N} = N^{\log_2 3}$$ hojas. El costo total es
+$$\Theta(N^{\log_2 3}) \approx \Theta(N^{1.585})$$.
+
+**Comparado con la escolar**: para $$N = 10^6$$ dígitos, $$N^2 = 10^{12}$$
+y $$N^{1.585} \approx 10^{9.5}$$. Casi tres órdenes de magnitud.
+
+**Nota histórica**: no era el fin. En 1965 **Cooley y Tukey** publicaron
+el algoritmo de la **FFT** para multiplicar señales (y por extensión,
+polinomios) en $$\Theta(N \log N)$$. Aplicado a la multiplicación de
+enteros, esto es aún mejor que Karatsuba — pero requiere mucha más
+maquinaria. Karatsuba sigue siendo el algoritmo elegido para tamaños
+medianos porque su constante es más chica.
+</Slide>
+
+<Slide title="Cierre y qué queda para la próxima clase">
+**Recapitulación**. Después de esta clase reconoces D&C, sabés
+diseñar la solución D&C para un problema nuevo, analizás el costo con
+árbol o con el teorema maestro simplificado, y distinguís D&C de sus
+vecinos.
+
+Lo que **cerramos**:
+
+- El patrón (dividir en subproblemas del mismo tipo, disjuntos,
+  combinar).
+- El teorema maestro simplificado (comparar $$c$$ con $$\log_b a$$).
+- Cinco algoritmos clásicos analizados con la misma receta.
+- Tres formas típicas de "victoria" (salto grande, baja de exponente,
+  logaritmo agregado).
+- Tres contra-ejemplos: solapamiento (Fibonacci → DP), subproblema
+  único (factorial), problema ya lineal (suma iterativa).
+
+Lo que **dejamos abierto**:
+
+- Búsqueda binaria requiere que el arreglo esté ordenado. **¿Cómo
+  ordenamos?** La respuesta es la próxima clase: **mergesort** y
+  **quicksort** — dos D&C aplicados al ordenamiento, cada uno con su
+  perfil.
+- **Programación dinámica**: qué hacer cuando los subproblemas se
+  solapan (Fibonacci ingenuo). Unidad que sigue.
+</Slide>
