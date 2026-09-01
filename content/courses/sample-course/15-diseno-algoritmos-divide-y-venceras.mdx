@@ -2,7 +2,7 @@
 id: diseno-algoritmos-divide-y-venceras
 title: Diseño de Algoritmos · Divide y Conquista
 presentation: explicit
-questions: none
+questions: pool
 ---
 
 # Diseño de Algoritmos · Divide y Conquista
@@ -523,3 +523,217 @@ donde $$a$$ es el número de subllamadas recursivas, $$b$$ el factor de
 división, y $$c$$ el exponente del combine.
 
 </Slide>
+
+<Questions>
+
+<Question id="dc-tres-pasos" anchor="divide-y-conquista-d-c">
+
+¿Cuáles son los tres pasos que define el patrón divide y conquista?
+
+- [x] Dividir en subproblemas del mismo tipo, conquistar recursivamente y combinar.
+- [ ] Ordenar los datos, dividir en dos e iterar sobre cada mitad.
+- [ ] Recorrer el arreglo, acumular un resultado y retornar.
+- [ ] Dividir por dos hasta llegar a uno, sumar los resultados.
+
+<Explanation>
+La slide del patrón lo enuncia directamente como *divide → conquista → combina*. Los subproblemas tienen que ser del mismo tipo que el original y más pequeños.
+</Explanation>
+
+</Question>
+
+<Question id="pow-tiempo-logaritmico" anchor="recordando-pow">
+
+En la implementación de `pow(x, e)` con D&C que vimos, ¿cuántas multiplicaciones aproximadas hace `pow(2, 1024)`?
+
+- [x] Alrededor de 10.
+- [ ] Alrededor de 100.
+- [ ] Alrededor de 512.
+- [ ] Alrededor de 1024.
+
+<Explanation>
+La slide indica que la versión que corta el exponente por la mitad termina en unas 10 multiplicaciones ($$\log_2 1024 = 10$$).
+</Explanation>
+
+</Question>
+
+<Question id="pow-caso-impar" anchor="recordando-pow">
+
+En la implementación de `pow(x, e)` que vimos, ¿qué hace la función cuando `e` es impar?
+
+- [ ] Redondea `e` al par más cercano y recursa.
+- [ ] Hace dos llamadas recursivas y multiplica los resultados.
+- [x] Devuelve `x * half * half`, multiplicando por `x` una vez más.
+- [ ] Cae al caso base directamente porque `e` impar no se puede dividir.
+
+<Explanation>
+Cuando `e` es impar, `e/2` (división entera) pierde un factor `x`; la línea `return x * half * half` lo compensa.
+</Explanation>
+
+</Question>
+
+<Question id="pow-una-sola-llamada" anchor="recordando-pow">
+
+¿Por qué esta implementación de `pow` corre en tiempo logarítmico y no lineal?
+
+- [ ] Hace dos llamadas recursivas sobre `e/2` y combina los resultados.
+- [x] Hace una sola llamada recursiva sobre `e/2` y reutiliza el resultado en `half`.
+- [ ] El compilador de Java transforma la recursión en un bucle.
+- [ ] Usa memoización para evitar recalcular llamadas repetidas.
+
+<Explanation>
+La clave está en `long half = pow(x, e / 2);` — una sola llamada, guardada en una variable, usada dos veces. Si fueran dos llamadas separadas, el árbol tendría $$2^k$$ nodos y el costo sería lineal.
+</Explanation>
+
+</Question>
+
+<Question id="maximo-caso-base" anchor="maximo-con-d-c-diseno">
+
+En el diseño D&C para encontrar el máximo, ¿cuál es el caso base?
+
+- [x] Un arreglo de un solo elemento — ese elemento es su máximo.
+- [ ] Un arreglo ordenado — el último elemento es el máximo.
+- [ ] Un arreglo de dos elementos — se compara y se devuelve el mayor.
+- [ ] Un arreglo vacío — se devuelve el valor mínimo posible.
+
+<Explanation>
+La slide de diseño identifica el caso base como un arreglo de un solo elemento, donde ese elemento *es* su máximo sin comparar nada.
+</Explanation>
+
+</Question>
+
+<Question id="maximo-por-que-n" anchor="maximo-con-d-c-analisis-y-conclusion">
+
+Según el análisis, ¿por qué el máximo con D&C sigue siendo Θ(N)?
+
+- [ ] Porque el combine `Math.max(izq, der)` cuesta O(N).
+- [x] Porque el árbol tiene N hojas, una por cada elemento del arreglo.
+- [ ] Porque D&C nunca puede mejorar un algoritmo lineal.
+- [ ] Porque el cálculo de `mid` cuesta O(N).
+
+<Explanation>
+La expansión da $$N \cdot T(1) + O(N)$$: el número de hojas iguala al tamaño del arreglo, y las hojas por sí solas ya suman $$N$$.
+</Explanation>
+
+</Question>
+
+<Question id="bs-invariante" anchor="busqueda-binaria-analisis-y-conclusion">
+
+¿Cuál es la invariante que hace correcta a la búsqueda binaria?
+
+- [x] El arreglo debe estar ordenado.
+- [ ] El arreglo debe tener tamaño potencia de dos.
+- [ ] El target debe estar presente en el arreglo.
+- [ ] El `mid` debe caer siempre en un índice par.
+
+<Explanation>
+La slide de análisis enuncia la invariante: el arreglo tiene que estar ordenado, o el algoritmo no funciona.
+</Explanation>
+
+</Question>
+
+<Question id="bs-por-que-log" anchor="busqueda-binaria-el-arbol-de-recursion">
+
+Según el árbol de recursión, ¿por qué la búsqueda binaria es Θ(log N)?
+
+- [ ] Porque el arreglo se ordena en tiempo logarítmico.
+- [x] Porque solo recorre una cadena de largo log N, no el árbol entero.
+- [ ] Porque hace log N comparaciones por nivel.
+- [ ] Porque el combine cuesta Θ(log N).
+
+<Explanation>
+La slide del árbol muestra la cadena tomada resaltada y las ramas grises no exploradas; el costo total es el largo de esa cadena, no el tamaño del árbol.
+</Explanation>
+
+</Question>
+
+<Question id="max-sub-tres-lugares" anchor="max-subarray-con-d-c-los-tres-lugares">
+
+En el algoritmo max-subarray con D&C, tras dividir el arreglo por la mitad, ¿en cuáles tres lugares posibles puede vivir el sub-arreglo de suma máxima?
+
+- [ ] En cualquiera de las N posiciones de inicio.
+- [ ] Solo en las dos mitades.
+- [x] Completamente en la izquierda, completamente en la derecha, o cruzando el centro.
+- [ ] En el medio, en un extremo, o en cualquier índice par.
+
+<Explanation>
+La slide "Los tres lugares" enumera exactamente esas tres opciones, y demuestra que son exhaustivas y disjuntas.
+</Explanation>
+
+</Question>
+
+<Question id="max-sub-sondeo" anchor="el-sondeo-desde-mid-a-los-extremos">
+
+En el algoritmo max-subarray con D&C, ¿qué valor produce el sondeo del sufijo desde `mid` hacia la izquierda?
+
+- [ ] La suma total de la mitad izquierda del arreglo activo.
+- [ ] La menor suma entre los prefijos que empiezan en `mid`.
+- [ ] La cantidad de elementos que caben en la mitad izquierda.
+- [x] La máxima suma acumulada al crecer desde `mid` hacia el extremo.
+
+<Explanation>
+La slide del sondeo lo dice: el sondeo devuelve el máximo acumulador visto al ir agregando cada celda desde `mid` hacia el extremo.
+</Explanation>
+
+</Question>
+
+<Question id="max-sub-combine-costo" anchor="el-sondeo-desde-mid-a-los-extremos">
+
+¿Por qué el combine de max-subarray cuesta O(N)?
+
+- [ ] Porque compara todos los pares de la mitad activa.
+- [ ] Porque recursa dos veces sobre cada mitad.
+- [x] Porque hace dos sondeos lineales desde `mid`, uno hacia cada extremo.
+- [ ] Porque construye un árbol binario de tamaño N.
+
+<Explanation>
+Los dos sondeos (sufijo y prefijo) recorren cada uno una mitad, así que su costo combinado es $$O(N/2) + O(N/2) = O(N)$$.
+</Explanation>
+
+</Question>
+
+<Question id="patron-plantilla-a" anchor="el-patron-que-emerge">
+
+¿Qué representa `a` en la plantilla `T(N) = a · T(N/b) + O(N^c)` que emerge de los ejemplos?
+
+- [ ] El tamaño del arreglo.
+- [ ] El exponente del combine.
+- [x] El número de subllamadas recursivas por nivel.
+- [ ] El factor por el que se divide el subproblema.
+
+<Explanation>
+La slide define $$a$$ como el número de subllamadas recursivas, $$b$$ como el factor de división del subproblema, y $$c$$ como el exponente del combine.
+</Explanation>
+
+</Question>
+
+<Question id="bs-descartar-mitad" anchor="busqueda-binaria-con-d-c-diseno">
+
+Al comparar `a[mid]` con `target` y no ser iguales, ¿qué hace la búsqueda binaria?
+
+- [x] Descarta la mitad donde `target` no puede estar y recursa sobre la otra.
+- [ ] Compara `target` con `a[mid-1]` y `a[mid+1]` para elegir dirección.
+- [ ] Recursa sobre las dos mitades y combina los resultados.
+- [ ] Reordena el arreglo alrededor de `mid` y recursa desde `0`.
+
+<Explanation>
+Como el arreglo está ordenado, sabemos con certeza en qué mitad podría estar `target`; la otra mitad queda descartada y no se explora.
+</Explanation>
+
+</Question>
+
+<Question id="maximo-arbol-completo" anchor="maximo-con-d-c-el-arbol-de-recursion">
+
+¿Por qué el árbol de recursión del máximo se recorre entero mientras que el de búsqueda binaria solo recorre una cadena?
+
+- [x] Porque el máximo necesita combinar las dos mitades, y BS descarta una.
+- [ ] Porque BS ordena el arreglo antes de recursar y el máximo no.
+- [ ] Porque el máximo usa una llamada por elemento y BS una por nivel.
+- [ ] Porque el árbol del máximo tiene más niveles que el de BS.
+
+<Explanation>
+El máximo necesita el resultado de las dos mitades para poder compararlos en el combine, así que ambos subárboles se expanden. BS, en cambio, sabe cuál mitad descartar y solo baja por una rama.
+</Explanation>
+
+</Question>
+
+</Questions>
