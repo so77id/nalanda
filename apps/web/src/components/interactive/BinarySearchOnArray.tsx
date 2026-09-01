@@ -229,16 +229,21 @@ interface BodyProps {
 }
 
 function Body({ values, target, title, speed, autoplay }: BodyProps) {
-  const trace = useMemo(() => tracesBinarySearch(values, target), [values, target]);
+  // Stable serialised key: MDX creates a new inline array reference on each
+  // parent re-render, and depending on `values` directly used to snap
+  // stepIndex back to 0 mid-run. Tie the reset — and the trace memo — to the
+  // actual contents. Parse from `valuesKey` (not `values`) so the memo hits
+  // across re-renders with the same content instead of recomputing every time.
+  const valuesKey = values.join(',');
+  const trace = useMemo(
+    () => tracesBinarySearch(valuesKey.split(',').map(Number), target),
+    [valuesKey, target],
+  );
   const totalSteps = trace.steps.length;
 
   const [stepIndex, setStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(autoplay);
 
-  // Stable serialised key: MDX creates a new inline array reference on each
-  // parent re-render, and depending on `values` directly used to snap
-  // stepIndex back to 0 mid-run. Tie the reset to the actual contents.
-  const valuesKey = values.join(',');
   useEffect(() => {
     setStepIndex(0);
     setIsPlaying(autoplay);

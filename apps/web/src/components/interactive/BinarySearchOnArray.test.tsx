@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -143,6 +143,31 @@ describe('BinarySearchOnArray', () => {
     // Back to step 1: all 10 cells active, no compare panel.
     expect(document.querySelectorAll('[data-active="true"]').length).toBe(10);
     expect(screen.queryByText('comparar')).toBeNull();
+  });
+
+  // Regression guard for the S7 stepper-reset bug: MDX creates a fresh
+  // `values` array literal on every parent render. A parent re-render with
+  // the same content must NOT reset progress.
+  it('survives a parent re-render with the same values without resetting stepIndex', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(
+      <BinarySearchOnArray values={[3, 7, 11, 14, 19, 22, 28, 31, 42, 55]} target={22} />,
+    );
+
+    // Advance to the compare step: 10 cells become 5 active + 5 discarded
+    // once we go past the enter, but at the compare step the compare panel is
+    // what the user sees.
+    await user.click(screen.getByRole('button', { name: /^paso$/i }));
+    expect(document.querySelector('[data-panel="compare"]')).not.toBeNull();
+
+    // Force a parent re-render with a NEW literal that has the same content.
+    await act(async () => {
+      rerender(<BinarySearchOnArray values={[3, 7, 11, 14, 19, 22, 28, 31, 42, 55]} target={22} />);
+    });
+
+    // Still on the compare step: if the reset effect fired, the compare panel
+    // would be gone (initial step has no compare).
+    expect(document.querySelector('[data-panel="compare"]')).not.toBeNull();
   });
 
   it('tells the author when values is missing or empty', () => {

@@ -1,5 +1,5 @@
 import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
@@ -354,38 +354,38 @@ export function ClosestPairViz({
     );
   }
 
-  const trace = tracesClosestPair(points);
-  if (trace.steps.length > MAX_STEPS) {
-    return (
-      <AuthoringError component="ClosestPairViz">
-        el trace de {points.length} puntos es demasiado grande ({trace.steps.length}+ pasos, tope{' '}
-        {MAX_STEPS}). Usa menos puntos — el punto pedagógico se ve bien con 8.
-      </AuthoringError>
-    );
-  }
-
-  return <Body trace={trace} title={title} speed={speed} autoplay={autoplay} />;
+  return <Body points={points} title={title} speed={speed} autoplay={autoplay} />;
 }
 
 interface BodyProps {
-  trace: ClosestPairTrace;
+  points: { x: number; y: number }[];
   title?: string;
   speed: number;
   autoplay: boolean;
 }
 
-function Body({ trace, title, speed, autoplay }: BodyProps) {
+function Body({ points, title, speed, autoplay }: BodyProps) {
+  // Parse the trace input from `pointsKey` (not `points` directly), because
+  // MDX creates a fresh `points` array literal on every parent render — using
+  // it as a memo dep would defeat the memoisation. The serialise/parse pair
+  // canonicalises the input so both the trace memo AND the reset effect
+  // stay in step with the actual contents.
+  const pointsKey = points.map((p) => `${p.x},${p.y}`).join(';');
+  const trace = useMemo(
+    () =>
+      tracesClosestPair(
+        pointsKey.split(';').map((s) => {
+          const [x, y] = s.split(',').map(Number);
+          return { x, y };
+        }),
+      ),
+    [pointsKey],
+  );
   const totalSteps = trace.steps.length;
 
   const [stepIndex, setStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(autoplay);
 
-  // Stable serialised key from the input points: the parent creates a new
-  // `trace` object reference on every re-render (tracesClosestPair is
-  // called unconditionally in the outer component), which used to reset
-  // stepIndex mid-run. Serialising the sorted points ties the reset to
-  // actual input changes.
-  const pointsKey = trace.sortedPoints.map((p) => `${p.x},${p.y}`).join(';');
   useEffect(() => {
     setStepIndex(0);
     setIsPlaying(autoplay);
@@ -425,6 +425,15 @@ function Body({ trace, title, speed, autoplay }: BodyProps) {
   }, [stepIndex, totalSteps]);
 
   const heading = title ?? `Par más cercano D&C · ${trace.sortedPoints.length} puntos`;
+
+  if (trace.steps.length > MAX_STEPS) {
+    return (
+      <AuthoringError component="ClosestPairViz">
+        el trace de {points.length} puntos es demasiado grande ({trace.steps.length}+ pasos, tope{' '}
+        {MAX_STEPS}). Usa menos puntos — el punto pedagógico se ve bien con 8.
+      </AuthoringError>
+    );
+  }
 
   return (
     <figure

@@ -1,5 +1,5 @@
 import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
@@ -334,41 +334,33 @@ export function MaxSubarrayViz({
     );
   }
 
-  const trace = tracesMaxSubarrayDivide(values);
-  if (trace.steps.length > MAX_STEPS) {
-    return (
-      <AuthoringError component="MaxSubarrayViz">
-        el trace del arreglo de {values.length} elementos es demasiado grande ({trace.steps.length}+
-        pasos, tope {MAX_STEPS}). Usa un arreglo menor — el punto pedagógico se ve bien con 8
-        elementos.
-      </AuthoringError>
-    );
-  }
-
-  return <Body trace={trace} title={title} speed={speed} autoplay={autoplay} values={values} />;
+  return <Body title={title} speed={speed} autoplay={autoplay} values={values} />;
 }
 
 interface BodyProps {
   values: number[];
-  trace: MaxSubarrayTrace;
   title?: string;
   speed: number;
   autoplay: boolean;
 }
 
-function Body({ values, trace, title, speed, autoplay }: BodyProps) {
+function Body({ values, title, speed, autoplay }: BodyProps) {
+  // Reset (and the trace memo) are keyed on a stable serialised key, not on
+  // the `values` reference: MDX creates a new inline array literal on every
+  // parent re-render, so depending on the reference used to snap stepIndex
+  // back to 0 mid-run and manifest as the widget "not advancing past step 18"
+  // in slide 19. Parsing the input from `valuesKey` inside the memo keeps
+  // both the trace object AND the reset in step with the actual contents.
+  const valuesKey = values.join(',');
+  const trace = useMemo(
+    () => tracesMaxSubarrayDivide(valuesKey.split(',').map(Number)),
+    [valuesKey],
+  );
   const totalSteps = trace.steps.length;
 
   const [stepIndex, setStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(autoplay);
 
-  // Reset only when the input truly changes — MDX creates a new inline
-  // array reference on every parent re-render, so depending on `values`
-  // directly triggered a reset every time the parent re-rendered, which
-  // manifested as the widget "not advancing past step 18" in slide 19
-  // (a re-render at that point kept snapping stepIndex back to 0). Using a
-  // stable serialised key ties the reset to the actual values.
-  const valuesKey = values.join(',');
   useEffect(() => {
     setStepIndex(0);
     setIsPlaying(autoplay);
@@ -408,6 +400,16 @@ function Body({ values, trace, title, speed, autoplay }: BodyProps) {
   }, [stepIndex, totalSteps]);
 
   const heading = title ?? `Max-subarray D&C · arreglo de ${values.length}`;
+
+  if (trace.steps.length > MAX_STEPS) {
+    return (
+      <AuthoringError component="MaxSubarrayViz">
+        el trace del arreglo de {values.length} elementos es demasiado grande ({trace.steps.length}+
+        pasos, tope {MAX_STEPS}). Usa un arreglo menor — el punto pedagógico se ve bien con 8
+        elementos.
+      </AuthoringError>
+    );
+  }
 
   return (
     <figure

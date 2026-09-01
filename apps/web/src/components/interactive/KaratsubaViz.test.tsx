@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -123,6 +123,30 @@ describe('KaratsubaViz', () => {
   // ---------------------------------------------------------------------
   // Authoring errors
   // ---------------------------------------------------------------------
+
+  // Regression guard for the stepper-reset bug: the trace is memoised on the
+  // primitive props `x` and `y`, so a parent re-render with the same values
+  // must NOT reset stepIndex.
+  it('survives a parent re-render with the same x/y without resetting stepIndex', async () => {
+    const user = userEvent.setup();
+    const { rerender } = render(<KaratsubaViz x={1234} y={5678} />);
+
+    // Advance twice so at least one new reveal line paints beyond the initial.
+    const initialLines = document.querySelectorAll('[data-reveal-line]').length;
+    await user.click(screen.getByRole('button', { name: /^paso$/i }));
+    await user.click(screen.getByRole('button', { name: /^paso$/i }));
+    const linesAfterAdvance = document.querySelectorAll('[data-reveal-line]').length;
+    expect(linesAfterAdvance).toBeGreaterThan(initialLines);
+
+    // Force a parent re-render with the same numeric props.
+    await act(async () => {
+      rerender(<KaratsubaViz x={1234} y={5678} />);
+    });
+
+    // Still advanced: if the reset effect fired, the line count would drop
+    // back to `initialLines`.
+    expect(document.querySelectorAll('[data-reveal-line]').length).toBe(linesAfterAdvance);
+  });
 
   it('tells the author when x or y is missing', () => {
     render(<KaratsubaViz x={1234} />);

@@ -1,5 +1,5 @@
 import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
@@ -266,12 +266,10 @@ export function KaratsubaViz({ x, y, title, speed = 1, autoplay = false }: Karat
     );
   }
 
-  const trace = tracesKaratsuba(x, y);
-  return <Body trace={trace} x={x} y={y} title={title} speed={speed} autoplay={autoplay} />;
+  return <Body x={x} y={y} title={title} speed={speed} autoplay={autoplay} />;
 }
 
 interface BodyProps {
-  trace: KaratsubaTrace;
   x: number;
   y: number;
   title?: string;
@@ -279,7 +277,12 @@ interface BodyProps {
   autoplay: boolean;
 }
 
-function Body({ trace, x, y, title, speed, autoplay }: BodyProps) {
+function Body({ x, y, title, speed, autoplay }: BodyProps) {
+  // Memoise the trace on the primitive inputs. If we called `tracesKaratsuba`
+  // in the outer component's render body (as the pre-review code did), every
+  // parent re-render passed a fresh object into Body and the reset effect
+  // below snapped stepIndex back to 0 mid-run.
+  const trace = useMemo(() => tracesKaratsuba(x, y), [x, y]);
   const totalSteps = trace.steps.length;
 
   const [stepIndex, setStepIndex] = useState(0);

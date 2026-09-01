@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -167,6 +167,33 @@ describe('MaxSubarrayViz', () => {
   it('tells the author when values is not all integers', () => {
     render(<MaxSubarrayViz values={[1, 2, 3.5, 4]} />);
     expect(screen.getByText(/enteros/i)).toBeInTheDocument();
+  });
+
+  // Regression guard for the S7 stepper-reset bug: MDX creates a fresh
+  // `values` array literal on every parent render, and depending the reset
+  // effect on `values` (or on a `trace` object derived from `values` without
+  // memoisation) used to snap stepIndex back to 0 mid-run. A parent re-render
+  // with the same content must NOT reset progress.
+  it('survives a parent re-render with the same values without resetting stepIndex', async () => {
+    const user = userEvent.setup();
+    const values = [-2, 1, -3, 4, -1, 2, 1, -5];
+    const { rerender } = render(<MaxSubarrayViz values={values} />);
+
+    // Advance once: enter root [0..7] mid=3 → enter left [0..3] mid=1.
+    await user.click(screen.getByRole('button', { name: /^paso$/i }));
+    expect(document.querySelector('[data-hi="3"]')).not.toBeNull();
+    expect(document.querySelector('[data-mid="1"]')).not.toBeNull();
+
+    // Force a parent re-render with a NEW array literal that has the same
+    // contents — this is exactly what MDX does when its parent re-renders.
+    await act(async () => {
+      rerender(<MaxSubarrayViz values={[-2, 1, -3, 4, -1, 2, 1, -5]} />);
+    });
+
+    // Still on the second step: the [0..3] mid=1 frame is what paints. If the
+    // reset effect fired, mid would be 3 (root call again).
+    expect(document.querySelector('[data-hi="3"]')).not.toBeNull();
+    expect(document.querySelector('[data-mid="1"]')).not.toBeNull();
   });
 
   it('refuses arrays that would produce a trace longer than the safety cap', () => {

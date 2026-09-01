@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -144,6 +144,48 @@ describe('ClosestPairViz', () => {
   // ---------------------------------------------------------------------
   // Authoring errors
   // ---------------------------------------------------------------------
+
+  // Regression guard for the S7 stepper-reset bug: MDX creates a fresh
+  // `points` array literal on every parent render. A parent re-render with
+  // the same content must NOT reset progress.
+  it('survives a parent re-render with the same points without resetting stepIndex', async () => {
+    const user = userEvent.setup();
+    const points = [
+      { x: 1, y: 3 },
+      { x: 2, y: 8 },
+      { x: 4, y: 2 },
+      { x: 5, y: 6 },
+    ];
+    const { rerender } = render(<ClosestPairViz points={points} />);
+
+    // Advance twice into the recursion so depth changes off the initial 1.
+    await user.click(screen.getByRole('button', { name: /^paso$/i }));
+    await user.click(screen.getByRole('button', { name: /^paso$/i }));
+    const depthBefore = document
+      .querySelector('[data-call-depth]')
+      ?.getAttribute('data-call-depth');
+    expect(depthBefore).not.toBe('1');
+
+    // Force a parent re-render with a NEW array literal (and new point
+    // objects) that carries the same content — this is exactly what MDX does.
+    await act(async () => {
+      rerender(
+        <ClosestPairViz
+          points={[
+            { x: 1, y: 3 },
+            { x: 2, y: 8 },
+            { x: 4, y: 2 },
+            { x: 5, y: 6 },
+          ]}
+        />,
+      );
+    });
+
+    // Still at the advanced step: if the reset effect fired, depth would be 1.
+    expect(document.querySelector('[data-call-depth]')?.getAttribute('data-call-depth')).toBe(
+      depthBefore ?? '',
+    );
+  });
 
   it('tells the author when points is missing or has fewer than 2', () => {
     render(<ClosestPairViz points={[{ x: 1, y: 1 }]} />);
