@@ -10,6 +10,10 @@
 import type { CatalogEntry } from '../lib/catalogEntry';
 
 import { benchmarkCatalogEntry } from './interactive/Benchmark.catalog';
+import { binarySearchOnArrayCatalogEntry } from './interactive/BinarySearchOnArray.catalog';
+import { maxSubarrayVizCatalogEntry } from './interactive/MaxSubarrayViz.catalog';
+import { closestPairVizCatalogEntry } from './interactive/ClosestPairViz.catalog';
+import { karatsubaVizCatalogEntry } from './interactive/KaratsubaViz.catalog';
 import { callStackCatalogEntry } from './interactive/CallStack.catalog';
 import { codeEditorCatalogEntry } from './interactive/CodeEditor.catalog';
 import { complexityCounterCatalogEntry } from './interactive/ComplexityCounter.catalog';
@@ -27,6 +31,7 @@ import { predictOutputCatalogEntry } from './interactive/PredictOutput.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
 import { questionsCatalogEntry } from './interactive/Questions.catalog';
 import { recursionTreeCatalogEntry } from './interactive/RecursionTree.catalog';
+import { divideCombineTreeCatalogEntry } from './interactive/DivideCombineTree.catalog';
 import { memoryVisualCatalogEntry } from './interactive/MemoryVisual.catalog';
 import { stepCatalogEntry, stepShowCatalogEntry } from './interactive/StepShow.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
@@ -63,6 +68,11 @@ export const catalogEntries: CatalogEntry[] = [
   questionCatalogEntry,
   explanationCatalogEntry,
   recursionTreeCatalogEntry,
+  divideCombineTreeCatalogEntry,
+  binarySearchOnArrayCatalogEntry,
+  maxSubarrayVizCatalogEntry,
+  closestPairVizCatalogEntry,
+  karatsubaVizCatalogEntry,
   callStackCatalogEntry,
   hanoiPlaygroundCatalogEntry,
   stepShowCatalogEntry,

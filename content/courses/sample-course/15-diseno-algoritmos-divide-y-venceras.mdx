@@ -1,0 +1,739 @@
+---
+id: diseno-algoritmos-divide-y-venceras
+title: Diseño de Algoritmos · Divide y Conquista
+presentation: explicit
+questions: pool
+---
+
+# Diseño de Algoritmos · Divide y Conquista
+
+Primer capítulo de una nueva unidad — **Diseño de Algoritmos**. En las
+tres unidades anteriores aprendimos el lenguaje (Java) y desarrollamos
+la maquinaria para **analizar** el costo de un algoritmo:
+[[complejidad-de-hilbert-al-big-o|iterativos]] con la notación
+asintótica, [[complejidad-recursion|recursivos]] con recurrencias y
+árboles de llamadas. Con esas herramientas ya podemos leer un algoritmo
+—por ejemplo, la función [[arrays-y-funciones|`pow(x, e)`]] que aparece
+en la unidad de Java— y ponerle un $$\Theta(...)$$ al lado.
+
+Ahora damos el paso siguiente: **diseñar** algoritmos. En vez de recibir
+uno hecho y medirle el costo, aprender **patrones** que dan algoritmos
+buenos por construcción. La unidad recorre tres patrones clásicos —
+**divide y conquista**, **ordenamientos eficientes** (mergesort,
+quicksort) y **programación dinámica** — y esta clase abre el primero.
+
+**Divide y conquista** (D&C) es un patrón simple de enunciar y
+sorprendentemente potente: dividir el problema en subproblemas del mismo
+tipo, resolverlos recursivamente, combinar. Con ese esqueleto único los
+ingenieros de los años 60 mejoraron algoritmos que la humanidad usaba
+desde hacía siglos —  la multiplicación de enteros grandes, la
+transformada de Fourier, la búsqueda ordenada, la ordenación. Esta
+clase enseña a **reconocer** cuándo un problema es un buen candidato
+para D&C, a **diseñar** la solución, a **analizarla** con árbol de
+recursión y con el **teorema maestro** simplificado, y a **distinguir**
+D&C de sus vecinos que se parecen pero son otra cosa.
+
+<SectionBreak />
+
+<Slide title="Recordando `pow`">
+Anteriormente escribimos una forma más eficiente de calcular
+`pow(x, e)` que consistía en cortar el exponente por la mitad en cada
+llamada:
+
+```java
+static long pow(long x, int e) {
+    if (e == 0) return 1;
+    long half = pow(x, e / 2);
+    if (e % 2 == 0) return half * half;
+    return x * half * half;
+}
+```
+
+En vez de multiplicar `x` por sí misma `e` veces ($$\Theta(e)$$), la
+función hace **una sola** llamada recursiva sobre `e/2`, guarda el
+resultado en `half`, y lo combina consigo mismo en tiempo constante.
+Con eso `pow(2, 1024)` termina en unas 10 multiplicaciones en vez de
+1024.
+
+Esta técnica que utilizamos —dividir el problema, resolver una parte
+recursivamente y combinar— se llama **divide y conquista**.
+</Slide>
+
+<Slide title="Divide y Conquista (D&C)">
+**Divide y conquista** es una técnica algorítmica.
+
+Resuelve un problema en tres pasos:
+
+1. **Divide** el problema en dos o más subproblemas **del mismo tipo**,
+   más pequeños.
+2. **Conquista** cada subproblema recursivamente. Cuando el problema es
+   suficientemente pequeño (el **caso base**), se resuelve directo.
+3. **Combina** las soluciones parciales para producir la solución del
+   problema original.
+
+<Figure src="./divide-y-conquista-patron.svg" alt="Reloj de arena del patrón divide y conquista. Arriba: un problema de tamaño N se divide con flechas hacia abajo en dos subproblemas de tamaño N/2, cada uno de los cuales se divide otra vez en casos base. Abajo: los casos base se combinan con flechas hacia arriba en soluciones parciales, y esas soluciones parciales se combinan en la solución del problema original." caption="Fase de división hacia abajo, fase de combinación hacia arriba." />
+
+Visualmente, la ejecución de un algoritmo D&C dibuja un **reloj de
+arena**: el problema original se abre hacia abajo dividiéndose en
+subproblemas cada vez más chicos hasta tocar los casos base, y después
+las soluciones parciales se van combinando hacia arriba hasta
+reconstruir la respuesta del problema original.
+
+La fase de división es la parte recursiva; la fase de combinación es el
+paso propio del algoritmo, donde vive la parte inteligente.
+</Slide>
+
+<Slide title="Un poco de historia">
+La expresión latina *divide et impera* —"divide y vencerás"— es una
+máxima política y militar antigua. Se atribuye habitualmente a
+**Julio César** por su forma de fragmentar y enfrentar por separado a
+las tribus galas durante la Guerra de las Galias (58-50 a.C.), aunque
+la formulación literal en latín es probablemente posterior.
+**Nicolás Maquiavelo** la retoma como principio de gobernanza en
+*El Príncipe* (**1513**).
+
+Como técnica algorítmica formal, el nombre se consolida cuatro siglos
+después. Los algoritmos concretos aparecen primero, y el marco
+conceptual llega después:
+
+- **1945** — von Neumann describe **mergesort** para el EDVAC. Primer
+  algoritmo D&C con análisis de costo escrito por su autor.
+- **1962** — Karatsuba y Ofman encuentran un método para **multiplicar
+  dos números grandes** en $$\Theta(N^{\log_2 3}) \approx \Theta(N^{1.585})$$
+  en vez del $$\Theta(N^2)$$ del algoritmo escolar.
+- **1965** — Cooley y Tukey publican la **FFT** (Fast Fourier
+  Transform): calcula la transformada de Fourier de una señal de $$N$$
+  puntos en $$\Theta(N \log N)$$ en vez de $$\Theta(N^2)$$. Es una de
+  las herramientas más consecuentes de la computación aplicada —
+  procesamiento de imagen y audio, resonancia magnética, radar,
+  compresión (JPEG, MP3), telecomunicaciones.
+- **1974** — Aho, Hopcroft y Ullman **consolidan el nombre** "divide
+  and conquer" como categoría algorítmica en el primer libro de texto
+  moderno de análisis de algoritmos.
+- **1980** — Bentley, Haken y Saxe publican el **teorema maestro**,
+  una receta cerrada para resolver las recurrencias de D&C.
+  Herramienta de análisis, no invención del método: los algoritmos ya
+  se usaban desde hacía 35 años.
+</Slide>
+
+<Slide title="FFT: el algoritmo que cambió el mundo">
+<VideoEmbed
+  src="https://www.youtube.com/watch?v=2Xkv-W9tOXU"
+  title="La FFT y su impacto en el mundo"
+  height={520}
+/>
+
+La FFT es probablemente el algoritmo D&C con más impacto práctico de
+la historia — está en cada foto que tomás, cada canción que escuchás,
+cada llamada, cada resonancia magnética. La misma receta que estamos
+aprendiendo hoy.
+</Slide>
+
+<SectionBreak />
+
+<Slide title="Máximo — versión naive">
+Problema: encontrar el máximo de un arreglo de $$N$$ enteros.
+
+La versión naive/ingenua — un `for` que compara cada elemento contra
+un `max` acumulado:
+
+```java
+static int maximo(int[] a) {
+    int best = a[0];
+    for (int i = 1; i < a.length; i++) {
+        if (a[i] > best) best = a[i];
+    }
+    return best;
+}
+```
+
+**Costo**: una comparación por elemento, $$T(N) = \Theta(N)$$.
+
+Ahora la pregunta interesante: **¿cómo se resuelve esto con D&C?**
+</Slide>
+
+<Slide title="Máximo con D&C — diseño">
+**¿Cómo aplicarías D&C al problema de encontrar el máximo?** Antes de
+mirar código, pensemos las tres piezas que todo algoritmo D&C tiene
+que tener:
+
+- **Caso base** — la instancia más pequeña posible, sin llamada
+  recursiva. Para máximo: **un arreglo de un solo elemento**. Ese
+  elemento *es* su máximo, no hay nada que comparar.
+- **Paso divisorio** — cómo partir el problema en subproblemas del
+  mismo tipo, más pequeños. Para máximo: **dos mitades del arreglo,
+  por el medio**. Cada mitad es a su vez "encontrar el máximo de un
+  arreglo".
+- **Combine** — cómo juntar las soluciones parciales para obtener la
+  solución del original. Para máximo: **`Math.max(izq, der)`**. El
+  máximo del arreglo entero es el máximo de los dos máximos parciales.
+
+Con esas tres decisiones, el código se escribe casi solo:
+
+```java
+static int maximo(int[] a, int lo, int hi) {
+    if (lo == hi) return a[lo];
+    int mid = (lo + hi) / 2;
+    int izq = maximo(a, lo, mid);
+    int der = maximo(a, mid + 1, hi);
+    return Math.max(izq, der);
+}
+```
+</Slide>
+
+<Slide title="Máximo con D&C — el árbol de recursión">
+De ese código sale la recurrencia — dos subllamadas de tamaño $$N/2$$
+más un combine de trabajo constante:
+
+$$T(N) = 2T(N/2) + O(1)$$
+
+Por ejemplo, para un arreglo como `[3, 7, 1, 5, 2, 8, 4, 6]`:
+
+<DivideCombineTree recipe="max" values={[3, 7, 1, 5, 2, 8, 4, 6]} />
+
+Cada llamada **baja** pasando su sub-arreglo como argumento, y **sube**
+devolviendo el máximo de ese sub-arreglo. Las **hojas** son los casos
+base — hay **una hoja por elemento** del arreglo original. La altura
+del árbol es $$\log_2 N$$, pero las hojas solas ya son $$N$$.
+</Slide>
+
+<Slide title="Máximo con D&C — análisis y conclusión">
+**Análisis por expansión**. Partimos de $$T(N) = 2\,T(N/2) + O(1)$$ y
+sustituimos $$T(N/2)$$ dentro de la propia recurrencia:
+
+$$
+\begin{aligned}
+T(N) &= 2\,T(N/2) + O(1) \\
+     &= 2\,\bigl[\, 2\,T(N/4) + O(1) \,\bigr] + O(1) \\
+     &= 4\,T(N/4) + 3\,O(1) \\
+     &= 8\,T(N/8) + 7\,O(1) \\
+     &\ \ \vdots \\
+     &= 2^{k}\,T(N/2^{k}) + (2^{k} - 1)\,O(1)
+\end{aligned}
+$$
+
+Cuando $$k = \log_2 N$$, el subproblema llega al caso base ($$N/2^k = 1$$
+y $$T(1) = O(1)$$). Sustituimos y sumamos:
+
+$$
+\begin{aligned}
+T(N) &= 2^{\log_2 N}\,T(1) + \bigl(2^{\log_2 N} - 1\bigr)\,O(1) \\
+     &= N \cdot O(1) + (N - 1)\,O(1) \\
+     &= \Theta(N)
+\end{aligned}
+$$
+
+**Conclusión honesta**: D&C nos da $$\Theta(N)$$ — **igual que la
+naive**. Acá D&C no gana; solo agrega overhead recursivo. Es un ejemplo
+importante para **no aplicar D&C reflexivamente** — a veces la
+estructura del problema no da margen para mejorar, y hay que
+reconocerlo.
+</Slide>
+
+<Slide title="Búsqueda en un arreglo ordenado">
+Problema: dado un arreglo **ordenado ascendentemente** de $$N$$ enteros
+y un `target`, decir si el `target` está en el arreglo (y en qué
+posición).
+
+La versión naive es la búsqueda lineal:
+
+```java
+static int busquedaLineal(int[] a, int t) {
+    for (int i = 0; i < a.length; i++) {
+        if (a[i] == t) return i;
+    }
+    return -1;
+}
+```
+
+**Costo**: en el peor caso el `target` está al final o no está — hay
+que recorrer el arreglo entero. $$T(N) = \Theta(N)$$. Cada paso
+descarta un solo elemento; con $$N$$ elementos para descartar y
+descartando uno por vez, hacen falta $$N$$ pasos.
+
+**Pero hay algo raro**: la búsqueda lineal **no usa que el arreglo
+esté ordenado**. Corre exactamente igual sobre un arreglo desordenado.
+Estamos tirando información valiosa.
+
+**¿Se puede más rápido si aprovechamos el orden?**
+</Slide>
+
+<Slide title="Búsqueda binaria con D&C — diseño">
+Sí. Si el arreglo está ordenado y comparamos con el elemento del
+**medio**, en una sola comparación podemos **descartar la mitad
+completa** del arreglo — no un elemento como en la búsqueda lineal.
+Esa observación es todo lo que necesitamos para diseñar D&C.
+
+Los tres pilares:
+
+- **Caso base** — un arreglo de tamaño 1: chequeamos si ese único
+  elemento es el target y devolvemos su índice o `-1`.
+- **Paso divisorio** — comparamos con `a[mid]`. Si es el target,
+  terminamos ahí mismo. Si no, elegimos **una** de las dos mitades — la
+  que puede contener el target — y descartamos la otra.
+- **Combine** — trivial: como solo hacemos **una** llamada recursiva,
+  su resultado es el resultado de la nuestra. No hay nada que combinar.
+
+Con esas tres decisiones, el código:
+
+```java
+static int bs(int[] a, int lo, int hi, int t) {
+    if (lo > hi) return -1;
+    int mid = (lo + hi) / 2;
+    if (a[mid] == t) return mid;
+    if (t < a[mid]) return bs(a, lo, mid - 1, t);
+    return bs(a, mid + 1, hi, t);
+}
+```
+</Slide>
+
+<Slide title="Búsqueda binaria — traza sobre datos">
+<BinarySearchOnArray values={[3, 7, 11, 14, 19, 22, 28, 31, 42, 55]} target={28} />
+
+Cada paso: el rango vivo se muestra sobre las celdas, `lo` y `hi`
+marcan sus extremos y `mid` el pivote de comparación. Cuando
+`a[mid]` no es el target, uno de los dos extremos salta al otro lado
+del pivote y el rango vivo se **reduce a la mitad**. En pocos pasos el
+rango colapsa hasta encontrar el target o quedar vacío.
+</Slide>
+
+<Slide title="Búsqueda binaria — el árbol de recursión">
+De ese código sale la recurrencia — **una** subllamada de tamaño
+$$N/2$$, combine constante:
+
+$$T(N) = T(N/2) + O(1)$$
+
+Y el árbol completo de todos los subrangos que la recursión
+**podría** explorar:
+
+<DivideCombineTree
+  recipe="binary-search"
+  values={[3, 7, 11, 14, 19, 22, 28, 31, 42, 55]}
+  target={28}
+/>
+
+La cadena resaltada es el camino que BS efectivamente recorre; las
+cajas en gris son las mitades que descartó sin visitar. El costo
+total es proporcional al **largo de esa cadena** — no al tamaño del
+árbol total — y por eso BS es $$\Theta(\log N)$$.
+</Slide>
+
+<Slide title="Búsqueda binaria — análisis y conclusión">
+**Análisis por expansión** de $$T(N) = T(N/2) + O(1)$$:
+
+$$
+\begin{aligned}
+T(N) &= T(N/2) + O(1) \\
+     &= \bigl[\, T(N/4) + O(1) \,\bigr] + O(1) \\
+     &= T(N/4) + 2\,O(1) \\
+     &= T(N/8) + 3\,O(1) \\
+     &\ \ \vdots \\
+     &= T(N/2^{k}) + k\,O(1)
+\end{aligned}
+$$
+
+Cuando $$k = \log_2 N$$, el subproblema llega al caso base
+($$N/2^k = 1$$ y $$T(1) = O(1)$$). Sustituimos:
+
+$$
+\begin{aligned}
+T(N) &= T(1) + \log_2 N \cdot O(1) \\
+     &= O(1) + O(\log N) \\
+     &= \Theta(\log N)
+\end{aligned}
+$$
+
+**Comparación con la búsqueda lineal**: $$\Theta(N)$$ vs
+$$\Theta(\log N)$$. Para $$N = 10^6$$ eso es la diferencia entre
+**un millón de pasos y veinte**.
+
+**El precio de la mejora**: el arreglo debe estar ordenado, o el
+algoritmo no funciona. Ésta es la **invariante** de búsqueda binaria.
+</Slide>
+
+<Slide title="Max-subarray — el problema">
+Problema: dado un arreglo de $$N$$ enteros (positivos y negativos),
+encontrar la **suma máxima** entre todos los sub-arreglos contiguos.
+
+Ejemplo: en `[-2, 1, -3, 4, -1, 2, 1, -5]` la suma máxima es
+$$6$$, alcanzada por el sub-arreglo `[4, -1, 2, 1]` (índices 3 a 6).
+
+La versión naive prueba **todos** los sub-arreglos:
+
+```java
+static int maxSubarrayNaive(int[] a) {
+    int best = Integer.MIN_VALUE;
+    for (int i = 0; i < a.length; i++) {
+        int sum = 0;
+        for (int j = i; j < a.length; j++) {
+            sum += a[j];
+            if (sum > best) best = sum;
+        }
+    }
+    return best;
+}
+```
+
+**Costo**: hay $$\Theta(N^2)$$ pares $$(i, j)$$ y cada pareja hace una
+suma en tiempo constante (aprovechando el `sum += a[j]` incremental).
+$$T(N) = \Theta(N^2)$$ — cuadrático.
+
+**¿Se puede más rápido con D&C?**
+</Slide>
+
+<Slide title="Max-subarray con D&C — los tres lugares">
+La observación de arranque: si dividimos el arreglo por la mitad, el
+mejor sub-arreglo está **necesariamente en uno de tres lugares**.
+
+<Figure src="./max-subarray-tres-lugares.svg" alt="Arreglo [-2, 1, -3, 4, -1, 2, 1, -5] partido por el medio (línea vertical punteada entre índices 3 y 4). Arriba: dos cajas coloreadas — una naranjo sobre las celdas 0 a 3 etiquetada 1 · Mitad izquierda, y otra verde sobre las celdas 4 a 7 etiquetada 2 · Mitad derecha. Abajo del arreglo: una tercera caja con borde punteado más fuerte que abarca los índices 2 a 5 etiquetada 3 · Cruza el centro." caption="Los tres lugares posibles donde puede vivir el mejor sub-arreglo tras dividir por el medio." />
+
+1. **Completamente en la mitad izquierda** — cae bajo el rango de la
+   llamada recursiva de la izquierda.
+2. **Completamente en la mitad derecha** — cae bajo la de la derecha.
+3. **Cruza el centro** — empieza en algún índice de la izquierda y
+   termina en algún índice de la derecha; ninguna llamada recursiva
+   lo ve entero.
+
+Los primeros dos casos los resuelven las recursiones. **El tercero no
+lo trae ninguna llamada** — hay que calcularlo aparte. Ese cómputo
+adicional es el "combine" del algoritmo.
+</Slide>
+
+<Slide title="Los dos casos gratis: recursión">
+Los casos 1 y 2 son **max-subarray sobre un arreglo más chico**. La
+recursión los resuelve automáticamente — llamamos a `maxSubarray`
+sobre cada mitad y cada llamada nos devuelve su mejor suma.
+
+<Figure src="./max-subarray-dos-casos-gratis.svg" alt="Arreglo original [-2, 1, -3, 4, -1, 2, 1, -5] arriba, con dos flechas hacia abajo. La flecha izquierda etiquetada 'maxSubarray(a, 0, 3)' apunta a un sub-arreglo con las primeras cuatro celdas [-2, 1, -3, 4] (índices 0 a 3) en color naranjo, con la etiqueta 'leftMax = 4' debajo. La flecha derecha etiquetada 'maxSubarray(a, 4, 7)' apunta a un sub-arreglo con las últimas cuatro celdas [-1, 2, 1, -5] (índices 4 a 7) en color verde, con la etiqueta 'rightMax = 3' debajo." caption="Los casos 1 y 2 son sub-problemas del mismo tipo — la recursión los cubre." />
+
+Por **inducción**, si estas dos llamadas están bien resueltas, ya
+tenemos `leftMax` y `rightMax`. Nos queda el **caso 3 (el cruce)**,
+que ninguna de las dos llamadas ve: cada una trata su mitad como un
+universo separado.
+</Slide>
+
+<Slide title="El caso del cruce">
+Buscamos el **sub-arreglo de suma máxima que necesariamente pasa por
+el centro** — es decir, incluye tanto `a[mid]` como `a[mid+1]`. Un
+sub-arreglo así tiene la forma `[i..j]` con `i ≤ mid < j`.
+
+<Figure src="./max-subarray-truco-cruce.svg" alt="Arreglo de 8 celdas con una línea vertical punteada en mid (entre índices 3 y 4). Las celdas 1 a 3 están resaltadas en naranjo (parte izquierda del cruce) y las celdas 4 a 6 en verde (parte derecha del cruce). Las celdas 0 y 7 fuera del cruce están en gris. Un bracket superior naranjo etiqueta las celdas 1-3 como 'parte izquierda'; otro bracket verde etiqueta las celdas 4-6 como 'parte derecha'. Abajo la ecuación: suma[i..j] = suma[i..mid] + suma[mid+1..j], con anotaciones que dicen 'depende SOLO de i' bajo la parte izquierda y 'depende SOLO de j' bajo la parte derecha." caption="La suma del sub-arreglo que cruza mid se parte en dos sumas independientes." />
+
+La observación clave: como el sub-arreglo pasa por el centro, su suma
+se puede **partir en dos**:
+
+$$\text{suma}[i..j] = \underbrace{\text{suma}[i..mid]}_{\text{crece desde mid a la izq}} + \underbrace{\text{suma}[mid+1..j]}_{\text{crece desde mid a la der}}$$
+
+Cada parte depende de **una sola variable** — `i` mueve solo el
+extremo izquierdo, `j` mueve solo el extremo derecho. Son
+**independientes**, así que podemos maximizar cada lado por
+separado y sumar los máximos.
+
+**En dos pasos**:
+
+1. **Máximo que crece desde `mid` hacia la izquierda** (mejor sufijo
+   terminando en `mid`).
+2. **Máximo que crece desde `mid+1` hacia la derecha** (mejor prefijo
+   empezando en `mid+1`).
+
+El mejor cruce es la suma de esos dos máximos.
+</Slide>
+
+<Slide title="El sondeo desde mid a los extremos">
+Cada uno de los dos máximos (izq y der) se encuentra con **un sondeo
+lineal desde `mid` hacia el extremo**: arrancamos con la celda más
+cercana a `mid` y vamos **creciendo** el sub-arreglo un paso a la vez,
+acumulando la suma. Nos quedamos con el **máximo acumulador** de todo
+el camino.
+
+<Figure src="./max-subarray-barrido.svg" alt="Arreglo de 8 celdas con línea vertical en mid (entre índices 3 y 4). Dos flechas apuntan HACIA AFUERA desde mid: una naranja hacia la izquierda etiquetada 'sondeo desde mid hacia la izq' y otra verde hacia la derecha etiquetada 'sondeo desde mid hacia la der'. Debajo de cada celda un acumulador: 0, 2, 1, 4 (lado izquierdo, arrancando en la celda 3 con valor 4 y creciendo hacia la izquierda) y -1, 1, 2, -3 (lado derecho, arrancando en la celda 4 con valor -1 y creciendo hacia la derecha). Los máximos alcanzados por cada lado se destacan: leftBest=4 en la celda 3, rightBest=2 en la celda 5. Dos cajas: 'leftBest = 4 (máx acum. izq)' y 'rightBest = 2 (máx acum. der)'. Debajo, una caja verde: 'mejor cruce = 4 + 2 = 6'. Al final, una segunda copia del arreglo con las celdas 3 a 6 resaltadas mostrando el sub-arreglo ganador [4, -1, 2, 1]." caption="Sondeo desde mid: cada acumulador crece un paso hacia afuera; el máximo alcanzado es lo que buscamos." />
+
+**Costo**: cada sondeo recorre una mitad → $$O(N)$$ total. Es la
+primera vez en la clase que el combine no es constante:
+$$f(N) = O(N)$$ en la recurrencia $$T(N) = 2T(N/2) + O(N)$$.
+</Slide>
+
+<Slide title="Max-subarray — el árbol completo sobre el ejemplo">
+Así se despliega la recursión sobre el arreglo `[-2, 1, -3, 4, -1, 2,
+1, -5]`. Cada chip es una llamada `maxSub(sub-arreglo)`; los nodos
+internos muestran los tres candidatos que compararon (`L` izquierdo,
+`R` derecho, `✕` cruce) y el ganador que devuelven. Las hojas son
+casos base — devuelven directamente el único elemento del sub-arreglo.
+
+<DivideCombineTree recipe="max-subarray" values={[-2, 1, -3, 4, -1, 2, 1, -5]} />
+</Slide>
+
+<Slide title="Max-subarray — el código que implementa el diseño">
+Acá está el código que sale directamente del diseño que armamos: la
+recursión principal `maxSubarray` con los tres candidatos, y la
+función `maxCross` con los dos sondeos.
+
+<MaxSubarrayViz values={[-2, 1, -3, 4, -1, 2, 1, -5]} />
+
+La pila al pie muestra la profundidad de la recursión en cada paso.
+</Slide>
+
+<Slide title="Max-subarray — análisis y conclusión">
+**Análisis por expansión** de $$T(N) = 2\,T(N/2) + O(N)$$:
+
+$$
+\begin{aligned}
+T(N) &= 2\,T(N/2) + N \\
+     &= 2\,\bigl[\, 2\,T(N/4) + N/2 \,\bigr] + N \\
+     &= 4\,T(N/4) + 2N \\
+     &= 8\,T(N/8) + 3N \\
+     &\ \ \vdots \\
+     &= 2^{k}\,T(N/2^{k}) + k\,N
+\end{aligned}
+$$
+
+Cuando $$k = \log_2 N$$, el subproblema llega al caso base:
+
+$$
+\begin{aligned}
+T(N) &= N \cdot T(1) + N \cdot \log_2 N \\
+     &= \Theta(N \log N)
+\end{aligned}
+$$
+
+**Comparación con la naive**: $$\Theta(N^2)$$ vs $$\Theta(N \log N)$$.
+Para $$N = 10^6$$, $$N^2 = 10^{12}$$ (horas) y $$N \log N \approx
+2 \cdot 10^7$$ (segundo). El algoritmo **cambia de categoría** con
+este truco.
+
+**El precio de la mejora**: nada exótico — el algoritmo funciona sobre
+cualquier arreglo de enteros. La ganancia sale del **barrido lineal
+del combine**, que aprovecha que las mitades ya trajeron el resultado
+propio y solo hace falta pegarlas en el centro.
+</Slide>
+
+<Slide title="El patrón que emerge">
+Después de tres ejemplos, tenemos tres recurrencias:
+
+- **Máximo**:           $$T(N) = 2 \cdot T(N/2) + O(1)$$
+- **Búsqueda binaria**: $$T(N) = 1 \cdot T(N/2) + O(1)$$
+- **Max-subarray**:     $$T(N) = 2 \cdot T(N/2) + O(N)$$
+
+La forma común salta a la vista. **Todas las recurrencias D&C** que
+vamos a analizar tienen esta plantilla:
+
+$$T(N) = a \cdot T(N/b) + O(N^c)$$
+
+donde $$a$$ es el número de subllamadas recursivas, $$b$$ el factor de
+división, y $$c$$ el exponente del combine.
+
+</Slide>
+
+<Questions>
+
+<Question id="dc-tres-pasos" anchor="divide-y-conquista-d-c">
+
+¿Cuáles son los tres pasos que define el patrón divide y conquista?
+
+- [x] Dividir en subproblemas del mismo tipo, conquistar recursivamente y combinar.
+- [ ] Ordenar los datos, dividir en dos e iterar sobre cada mitad.
+- [ ] Recorrer el arreglo, acumular un resultado y retornar.
+- [ ] Dividir por dos hasta llegar a uno, sumar los resultados.
+
+<Explanation>
+La slide del patrón lo enuncia directamente como *divide → conquista → combina*. Los subproblemas tienen que ser del mismo tipo que el original y más pequeños.
+</Explanation>
+
+</Question>
+
+<Question id="pow-tiempo-logaritmico" anchor="recordando-pow">
+
+En la implementación de `pow(x, e)` con D&C que vimos, ¿cuántas multiplicaciones aproximadas hace `pow(2, 1024)`?
+
+- [x] Alrededor de 10.
+- [ ] Alrededor de 100.
+- [ ] Alrededor de 512.
+- [ ] Alrededor de 1024.
+
+<Explanation>
+La slide indica que la versión que corta el exponente por la mitad termina en unas 10 multiplicaciones ($$\log_2 1024 = 10$$).
+</Explanation>
+
+</Question>
+
+<Question id="pow-caso-impar" anchor="recordando-pow">
+
+En la implementación de `pow(x, e)` que vimos, ¿qué hace la función cuando `e` es impar?
+
+- [ ] Redondea `e` al par más cercano y recursa.
+- [ ] Hace dos llamadas recursivas y multiplica los resultados.
+- [x] Devuelve `x * half * half`, multiplicando por `x` una vez más.
+- [ ] Cae al caso base directamente porque `e` impar no se puede dividir.
+
+<Explanation>
+Cuando `e` es impar, `e/2` (división entera) pierde un factor `x`; la línea `return x * half * half` lo compensa.
+</Explanation>
+
+</Question>
+
+<Question id="pow-una-sola-llamada" anchor="recordando-pow">
+
+¿Por qué esta implementación de `pow` corre en tiempo logarítmico y no lineal?
+
+- [ ] Hace dos llamadas recursivas sobre `e/2` y combina los resultados.
+- [x] Hace una sola llamada recursiva sobre `e/2` y reutiliza el resultado en `half`.
+- [ ] El compilador de Java transforma la recursión en un bucle.
+- [ ] Usa memoización para evitar recalcular llamadas repetidas.
+
+<Explanation>
+La clave está en `long half = pow(x, e / 2);` — una sola llamada, guardada en una variable, usada dos veces. Si fueran dos llamadas separadas, el árbol tendría $$2^k$$ nodos y el costo sería lineal.
+</Explanation>
+
+</Question>
+
+<Question id="maximo-caso-base" anchor="maximo-con-d-c-diseno">
+
+En el diseño D&C para encontrar el máximo, ¿cuál es el caso base?
+
+- [x] Un arreglo de un solo elemento — ese elemento es su máximo.
+- [ ] Un arreglo ordenado — el último elemento es el máximo.
+- [ ] Un arreglo de dos elementos — se compara y se devuelve el mayor.
+- [ ] Un arreglo vacío — se devuelve el valor mínimo posible.
+
+<Explanation>
+La slide de diseño identifica el caso base como un arreglo de un solo elemento, donde ese elemento *es* su máximo sin comparar nada.
+</Explanation>
+
+</Question>
+
+<Question id="maximo-por-que-n" anchor="maximo-con-d-c-analisis-y-conclusion">
+
+Según el análisis, ¿por qué el máximo con D&C sigue siendo Θ(N)?
+
+- [ ] Porque el combine `Math.max(izq, der)` cuesta O(N).
+- [x] Porque el árbol tiene N hojas, una por cada elemento del arreglo.
+- [ ] Porque D&C nunca puede mejorar un algoritmo lineal.
+- [ ] Porque el cálculo de `mid` cuesta O(N).
+
+<Explanation>
+La expansión da $$N \cdot T(1) + O(N)$$: el número de hojas iguala al tamaño del arreglo, y las hojas por sí solas ya suman $$N$$.
+</Explanation>
+
+</Question>
+
+<Question id="bs-invariante" anchor="busqueda-binaria-analisis-y-conclusion">
+
+¿Cuál es la invariante que hace correcta a la búsqueda binaria?
+
+- [x] El arreglo debe estar ordenado.
+- [ ] El arreglo debe tener tamaño potencia de dos.
+- [ ] El target debe estar presente en el arreglo.
+- [ ] El `mid` debe caer siempre en un índice par.
+
+<Explanation>
+La slide de análisis enuncia la invariante: el arreglo tiene que estar ordenado, o el algoritmo no funciona.
+</Explanation>
+
+</Question>
+
+<Question id="bs-por-que-log" anchor="busqueda-binaria-el-arbol-de-recursion">
+
+Según el árbol de recursión, ¿por qué la búsqueda binaria es Θ(log N)?
+
+- [ ] Porque el arreglo se ordena en tiempo logarítmico.
+- [x] Porque solo recorre una cadena de largo log N, no el árbol entero.
+- [ ] Porque hace log N comparaciones por nivel.
+- [ ] Porque el combine cuesta Θ(log N).
+
+<Explanation>
+La slide del árbol muestra la cadena tomada resaltada y las ramas grises no exploradas; el costo total es el largo de esa cadena, no el tamaño del árbol.
+</Explanation>
+
+</Question>
+
+<Question id="max-sub-tres-lugares" anchor="max-subarray-con-d-c-los-tres-lugares">
+
+En el algoritmo max-subarray con D&C, tras dividir el arreglo por la mitad, ¿en cuáles tres lugares posibles puede vivir el sub-arreglo de suma máxima?
+
+- [ ] En cualquiera de las N posiciones de inicio.
+- [ ] Solo en las dos mitades.
+- [x] Completamente en la izquierda, completamente en la derecha, o cruzando el centro.
+- [ ] En el medio, en un extremo, o en cualquier índice par.
+
+<Explanation>
+La slide "Los tres lugares" enumera exactamente esas tres opciones, y demuestra que son exhaustivas y disjuntas.
+</Explanation>
+
+</Question>
+
+<Question id="max-sub-sondeo" anchor="el-sondeo-desde-mid-a-los-extremos">
+
+En el algoritmo max-subarray con D&C, ¿qué valor produce el sondeo del sufijo desde `mid` hacia la izquierda?
+
+- [ ] La suma total de la mitad izquierda del arreglo activo.
+- [ ] La menor suma entre los prefijos que empiezan en `mid`.
+- [ ] La cantidad de elementos que caben en la mitad izquierda.
+- [x] La máxima suma acumulada al crecer desde `mid` hacia el extremo.
+
+<Explanation>
+La slide del sondeo lo dice: el sondeo devuelve el máximo acumulador visto al ir agregando cada celda desde `mid` hacia el extremo.
+</Explanation>
+
+</Question>
+
+<Question id="max-sub-combine-costo" anchor="el-sondeo-desde-mid-a-los-extremos">
+
+¿Por qué el combine de max-subarray cuesta O(N)?
+
+- [ ] Porque compara todos los pares de la mitad activa.
+- [ ] Porque recursa dos veces sobre cada mitad.
+- [x] Porque hace dos sondeos lineales desde `mid`, uno hacia cada extremo.
+- [ ] Porque construye un árbol binario de tamaño N.
+
+<Explanation>
+Los dos sondeos (sufijo y prefijo) recorren cada uno una mitad, así que su costo combinado es $$O(N/2) + O(N/2) = O(N)$$.
+</Explanation>
+
+</Question>
+
+<Question id="patron-plantilla-a" anchor="el-patron-que-emerge">
+
+¿Qué representa `a` en la plantilla `T(N) = a · T(N/b) + O(N^c)` que emerge de los ejemplos?
+
+- [ ] El tamaño del arreglo.
+- [ ] El exponente del combine.
+- [x] El número de subllamadas recursivas por nivel.
+- [ ] El factor por el que se divide el subproblema.
+
+<Explanation>
+La slide define $$a$$ como el número de subllamadas recursivas, $$b$$ como el factor de división del subproblema, y $$c$$ como el exponente del combine.
+</Explanation>
+
+</Question>
+
+<Question id="bs-descartar-mitad" anchor="busqueda-binaria-con-d-c-diseno">
+
+Al comparar `a[mid]` con `target` y no ser iguales, ¿qué hace la búsqueda binaria?
+
+- [x] Descarta la mitad donde `target` no puede estar y recursa sobre la otra.
+- [ ] Compara `target` con `a[mid-1]` y `a[mid+1]` para elegir dirección.
+- [ ] Recursa sobre las dos mitades y combina los resultados.
+- [ ] Reordena el arreglo alrededor de `mid` y recursa desde `0`.
+
+<Explanation>
+Como el arreglo está ordenado, sabemos con certeza en qué mitad podría estar `target`; la otra mitad queda descartada y no se explora.
+</Explanation>
+
+</Question>
+
+<Question id="maximo-arbol-completo" anchor="maximo-con-d-c-el-arbol-de-recursion">
+
+¿Por qué el árbol de recursión del máximo se recorre entero mientras que el de búsqueda binaria solo recorre una cadena?
+
+- [x] Porque el máximo necesita combinar las dos mitades, y BS descarta una.
+- [ ] Porque BS ordena el arreglo antes de recursar y el máximo no.
+- [ ] Porque el máximo usa una llamada por elemento y BS una por nivel.
+- [ ] Porque el árbol del máximo tiene más niveles que el de BS.
+
+<Explanation>
+El máximo necesita el resultado de las dos mitades para poder compararlos en el combine, así que ambos subárboles se expanden. BS, en cambio, sabe cuál mitad descartar y solo baja por una rama.
+</Explanation>
+
+</Question>
+
+</Questions>

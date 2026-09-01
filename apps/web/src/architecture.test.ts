@@ -354,6 +354,82 @@ describe('architecture: the complexityhierarchy widget stays out of the entry ch
   });
 });
 
+describe('architecture: the binarysearchonarray widget stays out of the entry chunk', () => {
+  // BinarySearchOnArray composes <CodeStepper> (CodeMirror + java grammar) plus
+  // lucide icons for its controls. Registering the real component eagerly
+  // would pull CodeMirror into the entry chunk of every reader of every page.
+  // ADR-0059. Same shape as the other heavy-component guards — a single
+  // ALLOWED entry, no per-file exemptions.
+  const ALLOWED = ['components/interactive/lazyBinarySearchOnArray.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/binarysearchonarray' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the karatsubaviz widget stays out of the entry chunk', () => {
+  // KaratsubaViz composes <CodeStepper> (CodeMirror + java grammar). Same
+  // shape as the other lazy-widget guards. ADR-0062.
+  const ALLOWED = ['components/interactive/lazyKaratsubaViz.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/karatsubaviz' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the closestpairviz widget stays out of the entry chunk', () => {
+  // ClosestPairViz composes <CodeStepper> (CodeMirror + java grammar). Same
+  // shape as the other lazy-widget guards. ADR-0061.
+  const ALLOWED = ['components/interactive/lazyClosestPairViz.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/closestpairviz' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the maxsubarrayviz widget stays out of the entry chunk', () => {
+  // MaxSubarrayViz composes <CodeStepper> (CodeMirror + java grammar) plus
+  // lucide icons for its controls. Same shape as the other lazy-widget guards.
+  // ADR-0060.
+  const ALLOWED = ['components/interactive/lazyMaxSubarrayViz.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/maxsubarrayviz' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: the callstack widget stays out of the entry chunk', () => {
   // CallStack composes <CodeStepper> (CodeMirror + java grammar) plus
   // lucide icons for its controls. Registering the real component eagerly

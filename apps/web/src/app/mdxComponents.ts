@@ -2,6 +2,10 @@ import {
   Explanation,
   Figure,
   LazyBenchmark,
+  LazyBinarySearchOnArray,
+  LazyMaxSubarrayViz,
+  LazyClosestPairViz,
+  LazyKaratsubaViz,
   LazyCallStack,
   LazyCodeEditor,
   LazyHanoiPlayground,
@@ -23,6 +27,7 @@ import {
   Question,
   Questions,
   RecursionTree,
+  DivideCombineTree,
   SectionBreak,
   SheetEmbed,
   SideBySide,
@@ -116,6 +121,26 @@ export const mdxComponents = {
   // alternative and buys nothing scoped to one component). No CodeMirror, no
   // runtime seam: the eager-graph walk in architecture.test.ts stays happy.
   RecursionTree,
+  // Same shape family as RecursionTree — SVG-free chips with pseudo-element
+  // connector lines, no CodeMirror, no runtime seam. Each chip has two rows
+  // (call args on top, return value on bottom). Two recipes: `max` (binary
+  // tree) and `binary-search` (linear chain). ADR-0063.
+  DivideCombineTree,
+  // Lazy: composes <CodeStepper> (CodeMirror + java grammar) plus lucide
+  // icons for its controls. Registering the real component here would put
+  // CodeMirror in the entry chunk of every reader. Guarded by
+  // architecture.test.ts. ADR-0059.
+  BinarySearchOnArray: LazyBinarySearchOnArray,
+  // Same lazy rule (composes <CodeStepper>). Traces the FULL D&C recursion —
+  // enter/return/cross-scan/winner — with a breadcrumb of the call path.
+  // ADR-0060.
+  MaxSubarrayViz: LazyMaxSubarrayViz,
+  // Same lazy rule (composes <CodeStepper>). Geometric D&C on a 2D plane —
+  // division line, strip of width d, 7-position sweep visible. ADR-0061.
+  ClosestPairViz: LazyClosestPairViz,
+  // Same lazy rule (composes <CodeStepper>). Algebraic reveal of the Karatsuba
+  // trick that turns 4 sub-multiplications into 3. ADR-0062.
+  KaratsubaViz: LazyKaratsubaViz,
   // Lazy: composes <CodeStepper> (CodeMirror + java grammar) and lucide
   // icons for its controls. Registering the real one here would put
   // CodeMirror in the entry chunk of every reader. Guarded by

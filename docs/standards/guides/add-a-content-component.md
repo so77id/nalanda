@@ -151,6 +151,34 @@ apps/web/src/components/structure/
      `draft.ts` — whose `saveDraft`
      must be called immediately _before_ a run, never after, because a Java loop
      that never ends is the case it exists for (ADR-0020 §2).
+   - **A stepper widget that reads an inline-authored data prop (an array of
+     numbers, a list of coordinates, an object) MUST memoise the derived trace
+     — and key every reset effect — on a primitive-derived string, not on the
+     prop reference.** MDX re-mints every inline literal on each parent
+     re-render, so `values`/`points` is a fresh reference every time. A memo
+     or an effect that depends on the reference recomputes/refires on every
+     parent re-render, and in the reset-effect case snaps `stepIndex` back to
+     `0` mid-run — an animation the user was walking through resets itself
+     silently (#266, S7 pivot: `MaxSubarrayViz` "did not advance past step
+     18", diagnosed via Playwright). The pattern that survives the runtime's
+     identity semantics:
+     1. Put the memo inside the hook-bearing inner component (`Body`), NOT
+        in the outer that carries the `<AuthoringError>` early returns —
+        `useMemo` after an early return violates rules-of-hooks.
+     2. Compute a stable key: `const valuesKey = values.join(',');` or
+        `const pointsKey = points.map((p) => \`${p.x},${p.y}\`).join(';');`.
+     3. Memoise on the KEY and parse the input back inside the memo:
+        `useMemo(() => trace(valuesKey.split(',').map(Number)), [valuesKey])`.
+        Depending on `values` directly would defeat the memo (fresh
+        reference); depending on `valuesKey` alone but reading `values`
+        inside would violate the exhaustive-deps rule.
+     4. Guard the invariant with a regression test that renders, advances
+        the stepper, then `rerender()`s with a NEW literal carrying the same
+        content, and asserts the step survives. Worked cases:
+        `BinarySearchOnArray.tsx` + `.test.tsx` (`survives a parent
+        re-render`), `MaxSubarrayViz`, `ClosestPairViz`, `KaratsubaViz` (the
+        last uses primitive `[x, y]` deps because its inputs are already
+        primitives — the pattern degenerates but stays inside `Body`).
 
 3. **Register it** in the shell MDX map (`apps/web/src/app/mdxComponents.ts`).
    Not optional: the catalog and the MDX map must be the same set, asserted in

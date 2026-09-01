@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 260" width="700" height="260" role="img" aria-label="Arreglo original de 8 elementos con dos flechas hacia abajo que apuntan a dos sub-arreglos más chicos, uno con la mitad izquierda y otro con la mitad derecha. Debajo de cada sub-arreglo se muestra el valor que devuelve la llamada recursiva de maxSubarray: leftMax=4 y rightMax=3.">
+  <style>
+    .cell        { fill: var(--color-surface, #fff); stroke: var(--color-rule-strong, #333); stroke-width: 1.5; }
+    .cell-active { fill: var(--color-accent-soft, #ffe4d4); stroke: var(--color-accent, #d97706); stroke-width: 1.5; }
+    .cell-right  { fill: var(--color-keep-soft, #ddf5dd); stroke: var(--color-keep, #2f8a2f); stroke-width: 1.5; }
+    .val         { fill: var(--color-ink, #111); font-family: ui-monospace, monospace; font-size: 14px; font-weight: 600; text-anchor: middle; }
+    .idx         { fill: var(--color-ink-faint, #666); font-family: ui-monospace, monospace; font-size: 10px; text-anchor: middle; }
+    .arrow       { stroke: var(--color-ink-faint, #666); stroke-width: 1.5; fill: none; }
+    .arrow-lbl   { fill: var(--color-ink-faint, #666); font-family: system-ui, sans-serif; font-size: 12px; font-style: italic; text-anchor: middle; }
+    .ret-lbl-l   { fill: var(--color-accent, #d97706); font-family: system-ui, sans-serif; font-size: 14px; font-weight: 700; text-anchor: middle; }
+    .ret-lbl-r   { fill: var(--color-keep, #2f8a2f); font-family: system-ui, sans-serif; font-size: 14px; font-weight: 700; text-anchor: middle; }
+  </style>
+  <defs>
+    <marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-ink-faint, #666)"/>
+    </marker>
+  </defs>
+
+  <!-- Full array (top): 8 cells 40px wide, centered around x=350 (x from 190 to 510) -->
+  <g id="full">
+    <text x="350" y="20" class="arrow-lbl">Arreglo original</text>
+    <g>
+      <rect x="190" y="30" width="40" height="40" rx="3" class="cell"/><text x="210" y="55" class="val">-2</text><text x="210" y="82" class="idx">0</text>
+      <rect x="230" y="30" width="40" height="40" rx="3" class="cell"/><text x="250" y="55" class="val">1</text><text x="250" y="82" class="idx">1</text>
+      <rect x="270" y="30" width="40" height="40" rx="3" class="cell"/><text x="290" y="55" class="val">-3</text><text x="290" y="82" class="idx">2</text>
+      <rect x="310" y="30" width="40" height="40" rx="3" class="cell"/><text x="330" y="55" class="val">4</text><text x="330" y="82" class="idx">3</text>
+      <rect x="350" y="30" width="40" height="40" rx="3" class="cell"/><text x="370" y="55" class="val">-1</text><text x="370" y="82" class="idx">4</text>
+      <rect x="390" y="30" width="40" height="40" rx="3" class="cell"/><text x="410" y="55" class="val">2</text><text x="410" y="82" class="idx">5</text>
+      <rect x="430" y="30" width="40" height="40" rx="3" class="cell"/><text x="450" y="55" class="val">1</text><text x="450" y="82" class="idx">6</text>
+      <rect x="470" y="30" width="40" height="40" rx="3" class="cell"/><text x="490" y="55" class="val">-5</text><text x="490" y="82" class="idx">7</text>
+    </g>
+  </g>
+
+  <!-- Arrows out to the two halves -->
+  <path d="M 250 95 Q 180 140 130 165" class="arrow" marker-end="url(#tri)"/>
+  <text x="150" y="128" class="arrow-lbl">maxSubarray(a, 0, 3)</text>
+
+  <path d="M 450 95 Q 520 140 570 165" class="arrow" marker-end="url(#tri)"/>
+  <text x="560" y="128" class="arrow-lbl">maxSubarray(a, 4, 7)</text>
+
+  <!-- Left half sub-array: cells at y=170-210, x from 50 to 210 -->
+  <g id="left">
+    <rect x="50"  y="170" width="40" height="40" rx="3" class="cell-active"/><text x="70"  y="195" class="val">-2</text><text x="70"  y="223" class="idx">0</text>
+    <rect x="90"  y="170" width="40" height="40" rx="3" class="cell-active"/><text x="110" y="195" class="val">1</text><text x="110" y="223" class="idx">1</text>
+    <rect x="130" y="170" width="40" height="40" rx="3" class="cell-active"/><text x="150" y="195" class="val">-3</text><text x="150" y="223" class="idx">2</text>
+    <rect x="170" y="170" width="40" height="40" rx="3" class="cell-active"/><text x="190" y="195" class="val">4</text><text x="190" y="223" class="idx">3</text>
+    <text x="130" y="250" class="ret-lbl-l">leftMax = 4</text>
+  </g>
+
+  <!-- Right half sub-array -->
+  <g id="right">
+    <rect x="490" y="170" width="40" height="40" rx="3" class="cell-right"/><text x="510" y="195" class="val">-1</text><text x="510" y="223" class="idx">4</text>
+    <rect x="530" y="170" width="40" height="40" rx="3" class="cell-right"/><text x="550" y="195" class="val">2</text><text x="550" y="223" class="idx">5</text>
+    <rect x="570" y="170" width="40" height="40" rx="3" class="cell-right"/><text x="590" y="195" class="val">1</text><text x="590" y="223" class="idx">6</text>
+    <rect x="610" y="170" width="40" height="40" rx="3" class="cell-right"/><text x="630" y="195" class="val">-5</text><text x="630" y="223" class="idx">7</text>
+    <text x="570" y="250" class="ret-lbl-r">rightMax = 3</text>
+  </g>
+</svg>

@@ -1,0 +1,234 @@
+# 15-diseno-algoritmos-divide-y-venceras — slides archivadas
+
+Slides eliminadas del deck vivo durante iteración de S7 (max-subarray
+restructurado; el resto de la clase quedó para futuras iteraciones).
+Guardadas acá como TEXTO PLANO — este archivo no lo carga ni MDX ni el
+content parser (extensión .txt). Cuando querramos volver a extender la
+clase, copiar los <Slide>...</Slide> que necesitemos de vuelta al .mdx.
+
+Contenido:
+  - Closest-pair — el problema geométrico
+  - Closest-pair — el trace completo
+  - Contra-ejemplo 1 — subproblemas solapados
+  - Contra-ejemplo 2 — un solo subproblema
+  - Contra-ejemplo 3 — problema ya lineal
+  - Karatsuba — el cierre histórico del arco
+  - Cierre y qué queda para la próxima clase
+
+═══════════════════════════════════════════════════════════════════════
+
+─────────────────────────────────────────────────────────────────────
+Slides guardadas para futuras iteraciones — no se renderizan en book
+ni en presentation por estar dentro de un comentario JSX. Retomarlas
+descomentando cuando querramos volver a extender esta clase.
+
+Contenido: closest-pair (problema + trace) · tres contra-ejemplos
+(Fibonacci solapamiento · factorial subproblema único · suma iterativa
+ya lineal) · Karatsuba · cierre y bridge a próxima clase.
+─────────────────────────────────────────────────────────────────────
+
+<Slide title="Closest-pair — el problema geométrico">
+Problema: dados $$N$$ puntos en el plano, encontrar los **dos puntos
+más cercanos** entre sí (distancia euclídea).
+
+**Versión ingenua**: comparar todos los pares. Hay $$\binom{N}{2} =
+\Theta(N^2)$$ pares. Es la solución obvia y en muchos contextos
+inaceptable — grafos con miles de puntos aparecen en simulaciones
+físicas, análisis geoespacial, machine learning.
+
+**Versión D&C** (Preparata-Shamos, 1975):
+
+1. Ordenar los puntos por coordenada $$x$$ (una vez, $$O(N \log N)$$).
+2. **Dividir** por la mediana de $$x$$: una mitad izquierda, una mitad
+   derecha.
+3. **Recursar** en cada mitad; obtenemos $$d_L$$ y $$d_R$$.
+4. **Combinar**: el par más cercano puede cruzar la línea divisoria.
+   Para no romper el orden, definimos $$d = \min(d_L, d_R)$$, tomamos
+   la **franja** de puntos cuya distancia a la línea divisoria es
+   menor que $$d$$, y buscamos ahí.
+
+El paso 4 parece cuadrático — todos los puntos del arreglo podrían
+estar en la franja. **La magia geométrica** es que dentro de la franja,
+cada punto necesita compararse **con a lo más 7 vecinos** (ordenando
+la franja por $$y$$). Eso es $$O(N)$$, no $$O(N^2)$$.
+</Slide>
+
+<Slide title="Closest-pair — el trace completo">
+<ClosestPairViz points={[
+  { x: 1, y: 3 },
+  { x: 2, y: 8 },
+  { x: 4, y: 2 },
+  { x: 5, y: 6 },
+  { x: 6, y: 4 },
+  { x: 8, y: 1 },
+  { x: 9, y: 7 },
+  { x: 10, y: 5 }
+]} />
+
+En el widget: la línea vertical punteada es la mediana de $$x$$ para la
+llamada actual; los puntos a la izquierda y a la derecha se pintan
+distinto; el rectángulo translúcido es la **franja** de ancho $$2d$$;
+las líneas punteadas rojas muestran cada par que se está comparando,
+con la distancia al medio. Al final, la línea sólida verde une el par
+ganador y su distancia queda anotada.
+
+**Recurrencia**: $$T(N) = 2T(N/2) + O(N)$$ (dos recursiones + barrido
+lineal en la franja). Se resuelve por expansión y da
+$$\Theta(N \log N)$$ — mismo perfil que max-subarray.
+</Slide>
+
+<SectionBreak />
+
+<Slide title="Contra-ejemplo 1 — subproblemas solapados">
+No todo lo que parece D&C lo es. Primer contra-ejemplo: **Fibonacci
+recursivo**.
+
+```java
+static long fib(int n) {
+    if (n < 2) return n;
+    return fib(n - 1) + fib(n - 2);
+}
+```
+
+Se parece a D&C — divide el problema en dos subproblemas más chicos y
+combina. Pero cuando dibujamos el árbol (lo hicimos en
+[[complejidad-recursion|Complejidad III]] §Fibonacci), la propiedad
+crucial de D&C **falla**: los subproblemas **se solapan**. `fib(3)`
+aparece muchas veces en el árbol de `fib(5)`; `fib(5)` aparece muchas
+veces en el árbol de `fib(10)`.
+
+**El costo se explota**: $$T(N) = T(N-1) + T(N-2) + O(1) \approx
+\Theta(\varphi^N)$$ con $$\varphi \approx 1.618$$ — exponencial. Con
+memoización pasa a $$\Theta(N)$$ como vimos.
+
+La **regla D&C que Fibonacci rompe**: los subproblemas tienen que ser
+**disjuntos**. Si un subproblema aparece más de una vez, no es D&C, es
+una situación para **programación dinámica** (unidad que sigue).
+
+**Semilla para la próxima unidad**: DP es exactamente esta situación —
+subproblemas solapados. La memoización de Fibonacci fue el primer
+ejemplo.
+</Slide>
+
+<Slide title="Contra-ejemplo 2 — un solo subproblema">
+Segundo contra-ejemplo: `factorial`, un recorrido de lista, o la suma
+recursiva del capítulo anterior.
+
+```java
+static long factorial(int n) {
+    if (n == 1) return 1;
+    return n * factorial(n - 1);
+}
+```
+
+Se llama a sí misma con un argumento más chico, tiene caso base, tiene
+paso recursivo. Pero **solo hace UNA llamada recursiva**. Su
+recurrencia es $$T(N) = T(N-1) + O(1)$$, no una recurrencia D&C.
+
+**La distinción**: D&C tiene que dividir en subproblemas más chicos por
+un **factor multiplicativo** ($$N/2$$, $$N/3$$), no restar una
+constante. Y típicamente son **dos o más** subproblemas — cuando hay
+uno solo, aunque el factor sea multiplicativo (como en búsqueda
+binaria), lo llamamos "reducción" o "recursión lineal" más que D&C.
+Búsqueda binaria es la excepción histórica que se acepta bajo el
+paraguas D&C, pero factorial no.
+
+**Reconocer**: si la recurrencia tiene forma $$T(N) = T(N-1) + \ldots$$
+en vez de $$T(N/b)$$, no es D&C.
+</Slide>
+
+<Slide title="Contra-ejemplo 3 — problema ya lineal">
+Tercer contra-ejemplo: sumar los elementos de un arreglo con D&C.
+
+```java
+static long sumaDC(int[] a, int lo, int hi) {
+    if (lo == hi) return a[lo];
+    int mid = (lo + hi) / 2;
+    return sumaDC(a, lo, mid) + sumaDC(a, mid + 1, hi);
+}
+```
+
+Recurrencia: $$T(N) = 2T(N/2) + O(1)$$. Por el teorema maestro,
+$$\Theta(N)$$. **Igual que la versión iterativa**.
+
+Peor: la versión D&C ocupa **$$O(\log N)$$ de pila** por la recursión,
+la iterativa ocupa $$O(1)$$. Y el overhead de las llamadas hace que en
+la práctica sea **más lenta**.
+
+**La regla**: cuando el problema ya es lineal y tiene una solución
+iterativa simple, D&C **no ayuda** — solo agrega overhead. Es
+importante saber esto para **no aplicar D&C reflexivamente**.
+
+En general, si $$f(N) = \Omega(N \cdot a / b)$$ (el combine domina las
+recursiones), D&C empata con la iterativa o pierde. Sumar el arreglo
+cae exactamente ahí.
+</Slide>
+
+<Slide title="Karatsuba — el cierre histórico del arco">
+Volvamos a la anécdota que dejamos abierta al inicio: **1960,
+Kolmogórov conjetura que multiplicar dos números de $$N$$ dígitos
+requiere $$\Omega(N^2)$$**. En una semana, su estudiante **Karatsuba**
+trae el contraejemplo.
+
+La versión escolar hace **cuatro** sub-multiplicaciones al separar
+$$x = x_H \cdot 10^m + x_L$$ y $$y = y_H \cdot 10^m + y_L$$:
+
+$$x \cdot y = x_H y_H \cdot 10^{2m} + (x_H y_L + x_L y_H) \cdot 10^m + x_L y_L$$
+
+Cuatro productos: $$x_H y_H$$, $$x_H y_L$$, $$x_L y_H$$, $$x_L y_L$$.
+Recurrencia $$T(N) = 4T(N/2) + O(N)$$ → $$\Theta(N^2)$$, igual que la
+que se aprende en el colegio.
+
+**El truco de Karatsuba**: computar solo **tres** productos.
+
+$$P_1 = x_H y_H, \quad P_2 = x_L y_L, \quad P_3 = (x_H + x_L)(y_H + y_L)$$
+
+Y notar que $$P_3 - P_1 - P_2 = x_H y_L + x_L y_H$$ — el término del
+medio que necesitábamos. **Álgebra pura, sin multiplicación adicional**.
+
+<KaratsubaViz x={1234} y={5678} />
+
+Recurrencia: $$T(N) = 3T(N/2) + O(N)$$. Se resuelve por expansión y
+da $$\Theta(N^{\log_2 3}) \approx \Theta(N^{1.585})$$ — un exponente
+más chico que el $$N^2$$ escolar. Para $$N = 10^6$$ dígitos, la
+diferencia entre $$10^{12}$$ y $$10^{9.5}$$: casi tres órdenes de
+magnitud.
+
+**Kolmogórov canceló el resto del seminario** y publicó él mismo el
+resultado a nombre de Karatsuba.
+
+**Nota histórica**: no fue el fin. En 1965 Cooley y Tukey publicaron
+la FFT (que ya vimos al principio), y aplicada a la multiplicación de
+enteros baja aún más el exponente — pero requiere mucha más
+maquinaria. Karatsuba sigue siendo el algoritmo elegido para tamaños
+medianos porque su constante es más chica.
+</Slide>
+
+<Slide title="Cierre y qué queda para la próxima clase">
+**Recapitulación**. Después de esta clase reconoces D&C, sabés
+diseñar la solución D&C para un problema nuevo, escribís su
+recurrencia $$T(N) = a T(N/b) + O(N^c)$$ y sabés qué complejidad
+cerrada le corresponde, y distinguís D&C de sus vecinos.
+
+Lo que **cerramos**:
+
+- El patrón (dividir en subproblemas del mismo tipo, disjuntos,
+  combinar).
+- La plantilla común $$T(N) = a T(N/b) + O(N^c)$$ y las tres
+  complejidades cerradas más comunes ($$\log N$$, $$N$$, $$N \log N$$,
+  $$N^{1.585}$$).
+- Cinco algoritmos clásicos: pow, búsqueda binaria, máximo,
+  max-subarray, closest-pair, Karatsuba.
+- Tres contra-ejemplos: solapamiento (Fibonacci → DP), subproblema
+  único (factorial), problema ya lineal (suma iterativa).
+
+Lo que **dejamos abierto**:
+
+- Búsqueda binaria requiere que el arreglo esté ordenado. **¿Cómo
+  ordenamos?** La respuesta es la próxima clase: **mergesort** y
+  **quicksort** — dos D&C aplicados al ordenamiento, cada uno con su
+  perfil.
+- **Programación dinámica**: qué hacer cuando los subproblemas se
+  solapan (Fibonacci ingenuo). Unidad que sigue.
+</Slide>
+

@@ -1,0 +1,103 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 700 420" width="700" height="420" role="img" aria-label="Arreglo de 8 celdas con mid marcado en el borde entre índices 3 y 4. Dos flechas apuntan hacia AFUERA desde el centro: una a la izquierda etiquetada 'sondeo desde mid hacia la izq' y otra a la derecha etiquetada 'sondeo desde mid hacia la der'. Debajo de cada celda un acumulador: 4, 1, 2, 0 (lado izquierdo, acumulando desde mid hacia atrás) y -1, 1, 2, -3 (lado derecho, acumulando desde mid+1 hacia adelante). Los máximos alcanzados por cada lado se destacan: leftBest=4 (celda 3) y rightBest=2 (celda 5). Al pie: mejor cruce = 4 + 2 = 6, y una segunda copia del arreglo con las celdas 3 a 6 resaltadas mostrando el sub-arreglo ganador [4, -1, 2, 1] con suma 6.">
+  <style>
+    .cell        { fill: var(--color-surface, #fff); stroke: var(--color-rule-strong, #333); stroke-width: 1.5; }
+    .cell-left   { fill: var(--color-accent-soft, #ffe4d4); stroke: var(--color-accent, #d97706); stroke-width: 1.5; }
+    .cell-right  { fill: var(--color-keep-soft, #ddf5dd); stroke: var(--color-keep, #2f8a2f); stroke-width: 1.5; }
+    .cell-winner { fill: var(--color-keep, #2f8a2f); stroke: var(--color-keep, #2f8a2f); stroke-width: 2; }
+    .val         { fill: var(--color-ink, #111); font-family: ui-monospace, monospace; font-size: 14px; font-weight: 600; text-anchor: middle; }
+    .val-winner  { fill: var(--color-surface, #fff); font-family: ui-monospace, monospace; font-size: 14px; font-weight: 700; text-anchor: middle; }
+    .idx         { fill: var(--color-ink-faint, #666); font-family: ui-monospace, monospace; font-size: 10px; text-anchor: middle; }
+    .mid-line    { stroke: var(--color-ink-faint, #666); stroke-width: 1.5; stroke-dasharray: 4 3; }
+    .mid-lbl     { fill: var(--color-ink-faint, #666); font-family: ui-monospace, monospace; font-size: 11px; font-style: italic; text-anchor: middle; }
+    .acum        { fill: var(--color-ink, #111); font-family: ui-monospace, monospace; font-size: 13px; text-anchor: middle; }
+    .acum-max    { fill: var(--color-accent-pop, #ea580c); font-family: ui-monospace, monospace; font-size: 15px; font-weight: 700; text-anchor: middle; }
+    .arrow-l     { stroke: var(--color-accent, #d97706); stroke-width: 2; fill: none; }
+    .arrow-r     { stroke: var(--color-keep, #2f8a2f); stroke-width: 2; fill: none; }
+    .lbl-l       { fill: var(--color-accent, #d97706); font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; text-anchor: middle; }
+    .lbl-r       { fill: var(--color-keep, #2f8a2f); font-family: system-ui, sans-serif; font-size: 13px; font-weight: 700; text-anchor: middle; }
+    .best-box    { fill: var(--color-accent-soft, #fff2e6); stroke: var(--color-accent-pop, #ea580c); stroke-width: 2; }
+    .best-lbl    { fill: var(--color-accent-pop, #ea580c); font-family: system-ui, sans-serif; font-size: 14px; font-weight: 700; text-anchor: middle; }
+    .final-box   { fill: var(--color-keep-soft, #e6f5e6); stroke: var(--color-keep, #2f8a2f); stroke-width: 2; }
+    .final-lbl   { fill: var(--color-keep, #2f8a2f); font-family: ui-monospace, monospace; font-size: 15px; font-weight: 700; text-anchor: middle; }
+    .row-lbl     { fill: var(--color-ink-faint, #666); font-family: system-ui, sans-serif; font-size: 11px; font-style: italic; text-anchor: end; }
+    .section-lbl { fill: var(--color-ink-faint, #666); font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-anchor: middle; text-transform: uppercase; letter-spacing: 0.05em; }
+  </style>
+  <defs>
+    <!-- Both markers draw a triangle pointing in the marker's +x direction
+         (tip at x=10). With orient="auto" the marker's +x aligns with the
+         line direction at the endpoint, so the arrow head points in the
+         same direction the line was going. -->
+    <marker id="triL" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-accent, #d97706)"/>
+    </marker>
+    <marker id="triR" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-keep, #2f8a2f)"/>
+    </marker>
+  </defs>
+
+  <!-- Sweep arrows above the array: originating at mid, pointing OUTWARD to
+       extremes. Line goes from mid to extreme; arrow tip lands at the
+       extreme, pointing away from mid. -->
+  <path d="M 347 30 L 180 30" class="arrow-l" marker-end="url(#triL)"/>
+  <text x="192" y="20" class="lbl-l">sufijo</text>
+
+  <path d="M 353 30 L 520 30" class="arrow-r" marker-end="url(#triR)"/>
+  <text x="507" y="20" class="lbl-r">prefijo</text>
+
+  <!-- Array cells: 8 cells 45px wide, contiguous, x=170 to x=530. mid divider between cell 3 (x=305-350) and cell 4 (x=350-395). -->
+  <g id="array">
+    <rect x="170" y="45" width="45" height="45" rx="3" class="cell-left"/> <text x="192" y="73" class="val">-2</text><text x="192" y="103" class="idx">0</text>
+    <rect x="215" y="45" width="45" height="45" rx="3" class="cell-left"/> <text x="237" y="73" class="val">1</text> <text x="237" y="103" class="idx">1</text>
+    <rect x="260" y="45" width="45" height="45" rx="3" class="cell-left"/> <text x="282" y="73" class="val">-3</text><text x="282" y="103" class="idx">2</text>
+    <rect x="305" y="45" width="45" height="45" rx="3" class="cell-left"/> <text x="327" y="73" class="val">4</text> <text x="327" y="103" class="idx">3</text>
+    <rect x="350" y="45" width="45" height="45" rx="3" class="cell-right"/><text x="372" y="73" class="val">-1</text><text x="372" y="103" class="idx">4</text>
+    <rect x="395" y="45" width="45" height="45" rx="3" class="cell-right"/><text x="417" y="73" class="val">2</text> <text x="417" y="103" class="idx">5</text>
+    <rect x="440" y="45" width="45" height="45" rx="3" class="cell-right"/><text x="462" y="73" class="val">1</text> <text x="462" y="103" class="idx">6</text>
+    <rect x="485" y="45" width="45" height="45" rx="3" class="cell-right"/><text x="507" y="73" class="val">-5</text><text x="507" y="103" class="idx">7</text>
+  </g>
+
+  <!-- Mid divider EXACTLY between cell 3 (x=350) and cell 4 (x=350) -->
+  <line x1="350" y1="40" x2="350" y2="115" class="mid-line"/>
+  <text x="350" y="127" class="mid-lbl">mid</text>
+
+  <!-- Accumulators row (below array) -->
+  <text x="160" y="147" class="row-lbl">acumulador:</text>
+  <!-- Left accumulators from mid backward: at cell 3 (nearest to mid) sum=4; at cell 2 sum=4+(-3)=1; at cell 1 sum=1+1=2; at cell 0 sum=2+(-2)=0 -->
+  <text x="192" y="147" class="acum">0</text>
+  <text x="237" y="147" class="acum">2</text>
+  <text x="282" y="147" class="acum">1</text>
+  <text x="327" y="147" class="acum-max">4</text>
+  <!-- Right accumulators from mid+1 forward: at cell 4 sum=-1; at cell 5 sum=-1+2=1; at cell 6 sum=1+1=2; at cell 7 sum=2+(-5)=-3 -->
+  <text x="372" y="147" class="acum">-1</text>
+  <text x="417" y="147" class="acum">1</text>
+  <text x="462" y="147" class="acum-max">2</text>
+  <text x="507" y="147" class="acum">-3</text>
+
+  <!-- Best boxes -->
+  <rect x="90" y="170" width="220" height="30" rx="5" class="best-box"/>
+  <text x="200" y="190" class="best-lbl">leftBest = 4  (máx acum. izq)</text>
+  <rect x="390" y="170" width="220" height="30" rx="5" class="best-box"/>
+  <text x="500" y="190" class="best-lbl">rightBest = 2  (máx acum. der)</text>
+
+  <!-- Final cross result box -->
+  <rect x="200" y="225" width="300" height="35" rx="5" class="final-box"/>
+  <text x="350" y="248" class="final-lbl">mejor cruce = 4 + 2 = 6</text>
+
+  <!-- Section label for the winner visual -->
+  <text x="350" y="290" class="section-lbl">Sub-arreglo ganador</text>
+
+  <!-- Winner array visualization: same 8 cells, cells 3..6 highlighted in winner color -->
+  <g id="winner">
+    <rect x="170" y="305" width="45" height="45" rx="3" class="cell"/>       <text x="192" y="333" class="val-muted">-2</text><text x="192" y="363" class="idx">0</text>
+    <rect x="215" y="305" width="45" height="45" rx="3" class="cell"/>       <text x="237" y="333" class="val-muted">1</text> <text x="237" y="363" class="idx">1</text>
+    <rect x="260" y="305" width="45" height="45" rx="3" class="cell"/>       <text x="282" y="333" class="val-muted">-3</text><text x="282" y="363" class="idx">2</text>
+    <rect x="305" y="305" width="45" height="45" rx="3" class="cell-winner"/><text x="327" y="333" class="val-winner">4</text> <text x="327" y="363" class="idx">3</text>
+    <rect x="350" y="305" width="45" height="45" rx="3" class="cell-winner"/><text x="372" y="333" class="val-winner">-1</text><text x="372" y="363" class="idx">4</text>
+    <rect x="395" y="305" width="45" height="45" rx="3" class="cell-winner"/><text x="417" y="333" class="val-winner">2</text> <text x="417" y="363" class="idx">5</text>
+    <rect x="440" y="305" width="45" height="45" rx="3" class="cell-winner"/><text x="462" y="333" class="val-winner">1</text> <text x="462" y="363" class="idx">6</text>
+    <rect x="485" y="305" width="45" height="45" rx="3" class="cell"/>       <text x="507" y="333" class="val-muted">-5</text><text x="507" y="363" class="idx">7</text>
+  </g>
+
+  <text x="350" y="392" class="row-lbl" style="text-anchor: middle;">[4, -1, 2, 1] · suma = 6 · atraviesa mid (índices 3 y 4 ambos incluidos)</text>
+  <text x="350" y="410" class="row-lbl" style="text-anchor: middle; font-style: italic;">Costo del combine: dos sondeos lineales = O(N)</text>
+</svg>
