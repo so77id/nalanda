@@ -362,10 +362,17 @@ function Body({ values, trace, title, speed, autoplay }: BodyProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(autoplay);
 
+  // Reset only when the input truly changes — MDX creates a new inline
+  // array reference on every parent re-render, so depending on `values`
+  // directly triggered a reset every time the parent re-rendered, which
+  // manifested as the widget "not advancing past step 18" in slide 19
+  // (a re-render at that point kept snapping stepIndex back to 0). Using a
+  // stable serialised key ties the reset to the actual values.
+  const valuesKey = values.join(',');
   useEffect(() => {
     setStepIndex(0);
     setIsPlaying(autoplay);
-  }, [values, autoplay]);
+  }, [valuesKey, autoplay]);
 
   useEffect(() => {
     if (!isPlaying) return;

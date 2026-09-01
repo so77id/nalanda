@@ -351,50 +351,160 @@ $$\Theta(\log N)$$. Para $$N = 10^6$$ eso es la diferencia entre
 algoritmo no funciona. Ésta es la **invariante** de búsqueda binaria.
 </Slide>
 
-<Slide title="Max-subarray — el problema del combine no trivial">
+<Slide title="Max-subarray — el problema">
 Problema: dado un arreglo de $$N$$ enteros (positivos y negativos),
-encontrar el sub-arreglo **contiguo** con la suma más grande.
+encontrar la **suma máxima** entre todos los sub-arreglos contiguos.
 
-Ejemplo: en `[-2, 1, -3, 4, -1, 2, 1, -5]` el mejor sub-arreglo es
-`[4, -1, 2, 1]` con suma $$6$$.
+Ejemplo: en `[-2, 1, -3, 4, -1, 2, 1, -5]` la suma máxima es
+$$6$$, alcanzada por el sub-arreglo `[4, -1, 2, 1]` (índices 3 a 6).
 
-**Versión ingenua**: probar todos los sub-arreglos. Hay $$\Theta(N^2)$$
-sub-arreglos y computar la suma de cada uno cuesta $$\Theta(N)$$; sale
-$$\Theta(N^3)$$. Con un cachecito de sumas se puede bajar a
-$$\Theta(N^2)$$, todavía cuadrático.
+La versión naive prueba **todos** los sub-arreglos:
 
-**Versión D&C**: dividir el arreglo por la mitad. El mejor sub-arreglo
-está en uno de **tres** lugares:
+```java
+static int maxSubarrayNaive(int[] a) {
+    int best = Integer.MIN_VALUE;
+    for (int i = 0; i < a.length; i++) {
+        int sum = 0;
+        for (int j = i; j < a.length; j++) {
+            sum += a[j];
+            if (sum > best) best = sum;
+        }
+    }
+    return best;
+}
+```
 
-1. Completamente en la **mitad izquierda** → llamada recursiva.
-2. Completamente en la **mitad derecha** → llamada recursiva.
-3. **Cruza el centro** → hay que calcularlo de otra manera.
+**Costo**: hay $$\Theta(N^2)$$ pares $$(i, j)$$ y cada pareja hace una
+suma en tiempo constante (aprovechando el `sum += a[j]` incremental).
+$$T(N) = \Theta(N^2)$$ — cuadrático.
 
-El caso 3 es lo interesante: para encontrar el mejor sub-arreglo que
-cruza el centro, arrancamos en `mid` y **barremos hacia la izquierda**
-acumulando la suma y guardando el mejor sufijo; y barremos hacia
-`mid+1` **hacia la derecha** guardando el mejor prefijo. El mejor
-sub-arreglo que cruza es la suma de ambos.
-
-Ese **barrido lineal del combine** es la diferencia con los ejemplos
-anteriores: por primera vez en D&C, $$f(N) \neq O(1)$$.
+**¿Se puede más rápido con D&C?**
 </Slide>
 
-<Slide title="Max-subarray — el trace completo">
+<Slide title="Max-subarray con D&C — los tres lugares">
+La observación de arranque: si dividimos el arreglo por la mitad, el
+mejor sub-arreglo está **necesariamente en uno de tres lugares**.
+
+<Figure src="./max-subarray-tres-lugares.svg" alt="Arreglo [-2, 1, -3, 4, -1, 2, 1, -5] partido por el medio (línea vertical punteada entre índices 3 y 4). Arriba: dos cajas coloreadas — una naranjo sobre las celdas 0 a 3 etiquetada 1 · Mitad izquierda, y otra verde sobre las celdas 4 a 7 etiquetada 2 · Mitad derecha. Abajo del arreglo: una tercera caja con borde punteado más fuerte que abarca los índices 2 a 5 etiquetada 3 · Cruza el centro." caption="Los tres lugares posibles donde puede vivir el mejor sub-arreglo tras dividir por el medio." />
+
+1. **Completamente en la mitad izquierda** — cae bajo el rango de la
+   llamada recursiva de la izquierda.
+2. **Completamente en la mitad derecha** — cae bajo la de la derecha.
+3. **Cruza el centro** — empieza en algún índice de la izquierda y
+   termina en algún índice de la derecha; ninguna llamada recursiva
+   lo ve entero.
+
+Los primeros dos casos los resuelven las recursiones. **El tercero no
+lo trae ninguna llamada** — hay que calcularlo aparte. Ese cómputo
+adicional es el "combine" del algoritmo.
+</Slide>
+
+<Slide title="Los dos casos gratis: recursión">
+Los casos 1 y 2 son **max-subarray sobre un arreglo más chico**. La
+recursión los resuelve automáticamente — llamamos a `maxSubarray`
+sobre cada mitad y cada llamada nos devuelve su mejor suma.
+
+<Figure src="./max-subarray-dos-casos-gratis.svg" alt="Arreglo original [-2, 1, -3, 4, -1, 2, 1, -5] arriba, con dos flechas hacia abajo. La flecha izquierda etiquetada 'maxSubarray(a, 0, 3)' apunta a un sub-arreglo con las primeras cuatro celdas [-2, 1, -3, 4] (índices 0 a 3) en color naranjo, con la etiqueta 'leftMax = 4' debajo. La flecha derecha etiquetada 'maxSubarray(a, 4, 7)' apunta a un sub-arreglo con las últimas cuatro celdas [-1, 2, 1, -5] (índices 4 a 7) en color verde, con la etiqueta 'rightMax = 3' debajo." caption="Los casos 1 y 2 son sub-problemas del mismo tipo — la recursión los cubre." />
+
+Por **inducción**, si estas dos llamadas están bien resueltas, ya
+tenemos `leftMax` y `rightMax`. Nos queda el **caso 3 (el cruce)**,
+que ninguna de las dos llamadas ve: cada una trata su mitad como un
+universo separado.
+</Slide>
+
+<Slide title="El caso del cruce">
+Buscamos el **sub-arreglo de suma máxima que necesariamente pasa por
+el centro** — es decir, incluye tanto `a[mid]` como `a[mid+1]`. Un
+sub-arreglo así tiene la forma `[i..j]` con `i ≤ mid < j`.
+
+<Figure src="./max-subarray-truco-cruce.svg" alt="Arreglo de 8 celdas con una línea vertical punteada en mid (entre índices 3 y 4). Las celdas 1 a 3 están resaltadas en naranjo (parte izquierda del cruce) y las celdas 4 a 6 en verde (parte derecha del cruce). Las celdas 0 y 7 fuera del cruce están en gris. Un bracket superior naranjo etiqueta las celdas 1-3 como 'parte izquierda'; otro bracket verde etiqueta las celdas 4-6 como 'parte derecha'. Abajo la ecuación: suma[i..j] = suma[i..mid] + suma[mid+1..j], con anotaciones que dicen 'depende SOLO de i' bajo la parte izquierda y 'depende SOLO de j' bajo la parte derecha." caption="La suma del sub-arreglo que cruza mid se parte en dos sumas independientes." />
+
+La observación clave: como el sub-arreglo pasa por el centro, su suma
+se puede **partir en dos**:
+
+$$\text{suma}[i..j] = \underbrace{\text{suma}[i..mid]}_{\text{crece desde mid a la izq}} + \underbrace{\text{suma}[mid+1..j]}_{\text{crece desde mid a la der}}$$
+
+Cada parte depende de **una sola variable** — `i` mueve solo el
+extremo izquierdo, `j` mueve solo el extremo derecho. Son
+**independientes**, así que podemos maximizar cada lado por
+separado y sumar los máximos.
+
+**En dos pasos**:
+
+1. **Máximo que crece desde `mid` hacia la izquierda** (mejor sufijo
+   terminando en `mid`).
+2. **Máximo que crece desde `mid+1` hacia la derecha** (mejor prefijo
+   empezando en `mid+1`).
+
+El mejor cruce es la suma de esos dos máximos.
+</Slide>
+
+<Slide title="El sondeo desde mid a los extremos">
+Cada uno de los dos máximos (izq y der) se encuentra con **un sondeo
+lineal desde `mid` hacia el extremo**: arrancamos con la celda más
+cercana a `mid` y vamos **creciendo** el sub-arreglo un paso a la vez,
+acumulando la suma. Nos quedamos con el **máximo acumulador** de todo
+el camino.
+
+<Figure src="./max-subarray-barrido.svg" alt="Arreglo de 8 celdas con línea vertical en mid (entre índices 3 y 4). Dos flechas apuntan HACIA AFUERA desde mid: una naranja hacia la izquierda etiquetada 'sondeo desde mid hacia la izq' y otra verde hacia la derecha etiquetada 'sondeo desde mid hacia la der'. Debajo de cada celda un acumulador: 0, 2, 1, 4 (lado izquierdo, arrancando en la celda 3 con valor 4 y creciendo hacia la izquierda) y -1, 1, 2, -3 (lado derecho, arrancando en la celda 4 con valor -1 y creciendo hacia la derecha). Los máximos alcanzados por cada lado se destacan: leftBest=4 en la celda 3, rightBest=2 en la celda 5. Dos cajas: 'leftBest = 4 (máx acum. izq)' y 'rightBest = 2 (máx acum. der)'. Debajo, una caja verde: 'mejor cruce = 4 + 2 = 6'. Al final, una segunda copia del arreglo con las celdas 3 a 6 resaltadas mostrando el sub-arreglo ganador [4, -1, 2, 1]." caption="Sondeo desde mid: cada acumulador crece un paso hacia afuera; el máximo alcanzado es lo que buscamos." />
+
+**Costo**: cada sondeo recorre una mitad → $$O(N)$$ total. Es la
+primera vez en la clase que el combine no es constante:
+$$f(N) = O(N)$$ en la recurrencia $$T(N) = 2T(N/2) + O(N)$$.
+</Slide>
+
+<Slide title="Max-subarray — el árbol completo sobre el ejemplo">
+Así se despliega la recursión sobre el arreglo `[-2, 1, -3, 4, -1, 2,
+1, -5]`. Cada chip es una llamada `maxSub(sub-arreglo)`; los nodos
+internos muestran los tres candidatos que compararon (`L` izquierdo,
+`R` derecho, `✕` cruce) y el ganador que devuelven. Las hojas son
+casos base — devuelven directamente el único elemento del sub-arreglo.
+
+<DivideCombineTree recipe="max-subarray" values={[-2, 1, -3, 4, -1, 2, 1, -5]} />
+</Slide>
+
+<Slide title="Max-subarray — el código que implementa el diseño">
+Acá está el código que sale directamente del diseño que armamos: la
+recursión principal `maxSubarray` con los tres candidatos, y la
+función `maxCross` con los dos sondeos.
+
 <MaxSubarrayViz values={[-2, 1, -3, 4, -1, 2, 1, -5]} />
 
-El widget de arriba corre el D&C completo sobre el mismo arreglo del
-ejemplo. Cada llamada muestra su rango `[lo..hi]`, se divide en dos
-mitades (izquierda azul, derecha verde), recursa en cada una, hace el
-barrido cruzado desde `mid`, y anuncia el ganador del rango.
+La pila al pie muestra la profundidad de la recursión en cada paso.
+</Slide>
 
-**Recurrencia**: $$T(N) = 2T(N/2) + O(N)$$. Dos subllamadas + el
-barrido lineal del combine. Se resuelve por expansión y da
-$$\Theta(N \log N)$$.
+<Slide title="Max-subarray — análisis y conclusión">
+**Análisis por expansión** de $$T(N) = 2\,T(N/2) + O(N)$$:
 
-**Vs. la ingenua**: para $$N = 10^6$$, $$N^2 = 10^{12}$$ (horas) y
-$$N \log N \approx 2 \cdot 10^7$$ (segundo). Un algoritmo cambia
-categorías con este truco.
+$$
+\begin{aligned}
+T(N) &= 2\,T(N/2) + N \\
+     &= 2\,\bigl[\, 2\,T(N/4) + N/2 \,\bigr] + N \\
+     &= 4\,T(N/4) + 2N \\
+     &= 8\,T(N/8) + 3N \\
+     &\ \ \vdots \\
+     &= 2^{k}\,T(N/2^{k}) + k\,N
+\end{aligned}
+$$
+
+Cuando $$k = \log_2 N$$, el subproblema llega al caso base:
+
+$$
+\begin{aligned}
+T(N) &= N \cdot T(1) + N \cdot \log_2 N \\
+     &= \Theta(N \log N)
+\end{aligned}
+$$
+
+**Comparación con la naive**: $$\Theta(N^2)$$ vs $$\Theta(N \log N)$$.
+Para $$N = 10^6$$, $$N^2 = 10^{12}$$ (horas) y $$N \log N \approx
+2 \cdot 10^7$$ (segundo). El algoritmo **cambia de categoría** con
+este truco.
+
+**El precio de la mejora**: nada exótico — el algoritmo funciona sobre
+cualquier arreglo de enteros. La ganancia sale del **barrido lineal
+del combine**, que aprovecha que las mitades ya trajeron el resultado
+propio y solo hace falta pegarlas en el centro.
 </Slide>
 
 <Slide title="El patrón que emerge">
@@ -412,217 +522,4 @@ $$T(N) = a \cdot T(N/b) + O(N^c)$$
 donde $$a$$ es el número de subllamadas recursivas, $$b$$ el factor de
 división, y $$c$$ el exponente del combine.
 
-Todas se resuelven **por expansión** (sustituís $$T(N/b)$$ dentro de
-la recurrencia, luego $$T(N/b^2)$$, hasta llegar al caso base y sumás)
-o **por árbol de recursión** (sumás el trabajo nivel por nivel). Y
-existe un atajo — el **Teorema Maestro** — que da la forma cerrada
-directamente comparando $$c$$ con $$\log_b(a)$$; lo pueden ver en
-Cormen-Leiserson-Rivest-Stein §4.5. En esta clase enunciamos las
-complejidades cerradas de cada algoritmo; la deducción vive en la
-bibliografía.
-</Slide>
-
-<Slide title="Closest-pair — el problema geométrico">
-Problema: dados $$N$$ puntos en el plano, encontrar los **dos puntos
-más cercanos** entre sí (distancia euclídea).
-
-**Versión ingenua**: comparar todos los pares. Hay $$\binom{N}{2} =
-\Theta(N^2)$$ pares. Es la solución obvia y en muchos contextos
-inaceptable — grafos con miles de puntos aparecen en simulaciones
-físicas, análisis geoespacial, machine learning.
-
-**Versión D&C** (Preparata-Shamos, 1975):
-
-1. Ordenar los puntos por coordenada $$x$$ (una vez, $$O(N \log N)$$).
-2. **Dividir** por la mediana de $$x$$: una mitad izquierda, una mitad
-   derecha.
-3. **Recursar** en cada mitad; obtenemos $$d_L$$ y $$d_R$$.
-4. **Combinar**: el par más cercano puede cruzar la línea divisoria.
-   Para no romper el orden, definimos $$d = \min(d_L, d_R)$$, tomamos
-   la **franja** de puntos cuya distancia a la línea divisoria es
-   menor que $$d$$, y buscamos ahí.
-
-El paso 4 parece cuadrático — todos los puntos del arreglo podrían
-estar en la franja. **La magia geométrica** es que dentro de la franja,
-cada punto necesita compararse **con a lo más 7 vecinos** (ordenando
-la franja por $$y$$). Eso es $$O(N)$$, no $$O(N^2)$$.
-</Slide>
-
-<Slide title="Closest-pair — el trace completo">
-<ClosestPairViz points={[
-  { x: 1, y: 3 },
-  { x: 2, y: 8 },
-  { x: 4, y: 2 },
-  { x: 5, y: 6 },
-  { x: 6, y: 4 },
-  { x: 8, y: 1 },
-  { x: 9, y: 7 },
-  { x: 10, y: 5 }
-]} />
-
-En el widget: la línea vertical punteada es la mediana de $$x$$ para la
-llamada actual; los puntos a la izquierda y a la derecha se pintan
-distinto; el rectángulo translúcido es la **franja** de ancho $$2d$$;
-las líneas punteadas rojas muestran cada par que se está comparando,
-con la distancia al medio. Al final, la línea sólida verde une el par
-ganador y su distancia queda anotada.
-
-**Recurrencia**: $$T(N) = 2T(N/2) + O(N)$$ (dos recursiones + barrido
-lineal en la franja). Se resuelve por expansión y da
-$$\Theta(N \log N)$$ — mismo perfil que max-subarray.
-</Slide>
-
-<SectionBreak />
-
-<Slide title="Contra-ejemplo 1 — subproblemas solapados">
-No todo lo que parece D&C lo es. Primer contra-ejemplo: **Fibonacci
-recursivo**.
-
-```java
-static long fib(int n) {
-    if (n < 2) return n;
-    return fib(n - 1) + fib(n - 2);
-}
-```
-
-Se parece a D&C — divide el problema en dos subproblemas más chicos y
-combina. Pero cuando dibujamos el árbol (lo hicimos en
-[[complejidad-recursion|Complejidad III]] §Fibonacci), la propiedad
-crucial de D&C **falla**: los subproblemas **se solapan**. `fib(3)`
-aparece muchas veces en el árbol de `fib(5)`; `fib(5)` aparece muchas
-veces en el árbol de `fib(10)`.
-
-**El costo se explota**: $$T(N) = T(N-1) + T(N-2) + O(1) \approx
-\Theta(\varphi^N)$$ con $$\varphi \approx 1.618$$ — exponencial. Con
-memoización pasa a $$\Theta(N)$$ como vimos.
-
-La **regla D&C que Fibonacci rompe**: los subproblemas tienen que ser
-**disjuntos**. Si un subproblema aparece más de una vez, no es D&C, es
-una situación para **programación dinámica** (unidad que sigue).
-
-**Semilla para la próxima unidad**: DP es exactamente esta situación —
-subproblemas solapados. La memoización de Fibonacci fue el primer
-ejemplo.
-</Slide>
-
-<Slide title="Contra-ejemplo 2 — un solo subproblema">
-Segundo contra-ejemplo: `factorial`, un recorrido de lista, o la suma
-recursiva del capítulo anterior.
-
-```java
-static long factorial(int n) {
-    if (n == 1) return 1;
-    return n * factorial(n - 1);
-}
-```
-
-Se llama a sí misma con un argumento más chico, tiene caso base, tiene
-paso recursivo. Pero **solo hace UNA llamada recursiva**. Su
-recurrencia es $$T(N) = T(N-1) + O(1)$$, no una recurrencia D&C.
-
-**La distinción**: D&C tiene que dividir en subproblemas más chicos por
-un **factor multiplicativo** ($$N/2$$, $$N/3$$), no restar una
-constante. Y típicamente son **dos o más** subproblemas — cuando hay
-uno solo, aunque el factor sea multiplicativo (como en búsqueda
-binaria), lo llamamos "reducción" o "recursión lineal" más que D&C.
-Búsqueda binaria es la excepción histórica que se acepta bajo el
-paraguas D&C, pero factorial no.
-
-**Reconocer**: si la recurrencia tiene forma $$T(N) = T(N-1) + \ldots$$
-en vez de $$T(N/b)$$, no es D&C.
-</Slide>
-
-<Slide title="Contra-ejemplo 3 — problema ya lineal">
-Tercer contra-ejemplo: sumar los elementos de un arreglo con D&C.
-
-```java
-static long sumaDC(int[] a, int lo, int hi) {
-    if (lo == hi) return a[lo];
-    int mid = (lo + hi) / 2;
-    return sumaDC(a, lo, mid) + sumaDC(a, mid + 1, hi);
-}
-```
-
-Recurrencia: $$T(N) = 2T(N/2) + O(1)$$. Por el teorema maestro,
-$$\Theta(N)$$. **Igual que la versión iterativa**.
-
-Peor: la versión D&C ocupa **$$O(\log N)$$ de pila** por la recursión,
-la iterativa ocupa $$O(1)$$. Y el overhead de las llamadas hace que en
-la práctica sea **más lenta**.
-
-**La regla**: cuando el problema ya es lineal y tiene una solución
-iterativa simple, D&C **no ayuda** — solo agrega overhead. Es
-importante saber esto para **no aplicar D&C reflexivamente**.
-
-En general, si $$f(N) = \Omega(N \cdot a / b)$$ (el combine domina las
-recursiones), D&C empata con la iterativa o pierde. Sumar el arreglo
-cae exactamente ahí.
-</Slide>
-
-<Slide title="Karatsuba — el cierre histórico del arco">
-Volvamos a la anécdota que dejamos abierta al inicio: **1960,
-Kolmogórov conjetura que multiplicar dos números de $$N$$ dígitos
-requiere $$\Omega(N^2)$$**. En una semana, su estudiante **Karatsuba**
-trae el contraejemplo.
-
-La versión escolar hace **cuatro** sub-multiplicaciones al separar
-$$x = x_H \cdot 10^m + x_L$$ y $$y = y_H \cdot 10^m + y_L$$:
-
-$$x \cdot y = x_H y_H \cdot 10^{2m} + (x_H y_L + x_L y_H) \cdot 10^m + x_L y_L$$
-
-Cuatro productos: $$x_H y_H$$, $$x_H y_L$$, $$x_L y_H$$, $$x_L y_L$$.
-Recurrencia $$T(N) = 4T(N/2) + O(N)$$ → $$\Theta(N^2)$$, igual que la
-que se aprende en el colegio.
-
-**El truco de Karatsuba**: computar solo **tres** productos.
-
-$$P_1 = x_H y_H, \quad P_2 = x_L y_L, \quad P_3 = (x_H + x_L)(y_H + y_L)$$
-
-Y notar que $$P_3 - P_1 - P_2 = x_H y_L + x_L y_H$$ — el término del
-medio que necesitábamos. **Álgebra pura, sin multiplicación adicional**.
-
-<KaratsubaViz x={1234} y={5678} />
-
-Recurrencia: $$T(N) = 3T(N/2) + O(N)$$. Se resuelve por expansión y
-da $$\Theta(N^{\log_2 3}) \approx \Theta(N^{1.585})$$ — un exponente
-más chico que el $$N^2$$ escolar. Para $$N = 10^6$$ dígitos, la
-diferencia entre $$10^{12}$$ y $$10^{9.5}$$: casi tres órdenes de
-magnitud.
-
-**Kolmogórov canceló el resto del seminario** y publicó él mismo el
-resultado a nombre de Karatsuba.
-
-**Nota histórica**: no fue el fin. En 1965 Cooley y Tukey publicaron
-la FFT (que ya vimos al principio), y aplicada a la multiplicación de
-enteros baja aún más el exponente — pero requiere mucha más
-maquinaria. Karatsuba sigue siendo el algoritmo elegido para tamaños
-medianos porque su constante es más chica.
-</Slide>
-
-<Slide title="Cierre y qué queda para la próxima clase">
-**Recapitulación**. Después de esta clase reconoces D&C, sabés
-diseñar la solución D&C para un problema nuevo, escribís su
-recurrencia $$T(N) = a T(N/b) + O(N^c)$$ y sabés qué complejidad
-cerrada le corresponde, y distinguís D&C de sus vecinos.
-
-Lo que **cerramos**:
-
-- El patrón (dividir en subproblemas del mismo tipo, disjuntos,
-  combinar).
-- La plantilla común $$T(N) = a T(N/b) + O(N^c)$$ y las tres
-  complejidades cerradas más comunes ($$\log N$$, $$N$$, $$N \log N$$,
-  $$N^{1.585}$$).
-- Cinco algoritmos clásicos: pow, búsqueda binaria, máximo,
-  max-subarray, closest-pair, Karatsuba.
-- Tres contra-ejemplos: solapamiento (Fibonacci → DP), subproblema
-  único (factorial), problema ya lineal (suma iterativa).
-
-Lo que **dejamos abierto**:
-
-- Búsqueda binaria requiere que el arreglo esté ordenado. **¿Cómo
-  ordenamos?** La respuesta es la próxima clase: **mergesort** y
-  **quicksort** — dos D&C aplicados al ordenamiento, cada uno con su
-  perfil.
-- **Programación dinámica**: qué hacer cuando los subproblemas se
-  solapan (Fibonacci ingenuo). Unidad que sigue.
 </Slide>

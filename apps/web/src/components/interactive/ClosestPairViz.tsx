@@ -380,10 +380,16 @@ function Body({ trace, title, speed, autoplay }: BodyProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(autoplay);
 
+  // Stable serialised key from the input points: the parent creates a new
+  // `trace` object reference on every re-render (tracesClosestPair is
+  // called unconditionally in the outer component), which used to reset
+  // stepIndex mid-run. Serialising the sorted points ties the reset to
+  // actual input changes.
+  const pointsKey = trace.sortedPoints.map((p) => `${p.x},${p.y}`).join(';');
   useEffect(() => {
     setStepIndex(0);
     setIsPlaying(autoplay);
-  }, [trace, autoplay]);
+  }, [pointsKey, autoplay]);
 
   useEffect(() => {
     if (!isPlaying) return;

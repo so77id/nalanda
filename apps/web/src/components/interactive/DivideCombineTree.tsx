@@ -20,6 +20,11 @@ interface TreeNode {
    * take" context without cluttering the tree with a full unexplored
    * subtree. */
   dimmed?: boolean;
+  /** Optional per-node intermediate values shown as a middle row on the
+   * chip. Used by `max-subarray` to expose left/right/cross candidates
+   * so the reader sees what the combine compared before choosing the
+   * winner. Not shown on base-case leaves. */
+  intermediates?: { label: string; value: string }[];
   /** Zero children = base case; one child = only-one-side (BS at leaf);
    * two children = binary tree (max always; BS at internal nodes, one
    * side of which is dimmed). */
@@ -28,6 +33,18 @@ interface TreeNode {
 
 type BuildInput = { values: number[]; target?: number };
 type Recipe = { build: (input: BuildInput) => TreeNode };
+
+/** Max subarray sum + which sub-range achieves it. */
+interface SubarrayResult {
+  sum: number;
+  from: number;
+  to: number;
+}
+function pickBest(...candidates: SubarrayResult[]): SubarrayResult {
+  let best = candidates[0]!;
+  for (const c of candidates) if (c.sum > best.sum) best = c;
+  return best;
+}
 
 /** Cap the total node count so an authoring typo can't freeze the tab. Max
  * on 32 elements is 63 nodes — comfortably under. On 64 elements it's 127,
@@ -55,6 +72,61 @@ const RECIPES: Record<string, Recipe> = {
         };
       }
       return build(0, values.length - 1);
+    },
+  },
+  'max-subarray': {
+    build: ({ values }) => {
+      function callLabel(lo: number, hi: number): string {
+        return `maxSub([${values.slice(lo, hi + 1).join(',')}])`;
+      }
+
+      function build(lo: number, hi: number): { node: TreeNode; result: SubarrayResult } {
+        const call = callLabel(lo, hi);
+        if (lo === hi) {
+          const result = { sum: values[lo]!, from: lo, to: lo };
+          return {
+            node: { call, returnValue: `${result.sum}`, isBase: true, children: [] },
+            result,
+          };
+        }
+        const mid = Math.floor((lo + hi) / 2);
+        const left = build(lo, mid);
+        const right = build(mid + 1, hi);
+        // Cross: best suffix ending at mid + best prefix starting at mid+1.
+        let sum = 0;
+        let leftBest: SubarrayResult = { sum: -Infinity, from: mid, to: mid };
+        for (let i = mid; i >= lo; i -= 1) {
+          sum += values[i]!;
+          if (sum > leftBest.sum) leftBest = { sum, from: i, to: mid };
+        }
+        sum = 0;
+        let rightBest: SubarrayResult = { sum: -Infinity, from: mid + 1, to: mid + 1 };
+        for (let j = mid + 1; j <= hi; j += 1) {
+          sum += values[j]!;
+          if (sum > rightBest.sum) rightBest = { sum, from: mid + 1, to: j };
+        }
+        const cross: SubarrayResult = {
+          sum: leftBest.sum + rightBest.sum,
+          from: leftBest.from,
+          to: rightBest.to,
+        };
+        const winner = pickBest(left.result, right.result, cross);
+        return {
+          node: {
+            call,
+            returnValue: `${winner.sum}`,
+            isBase: false,
+            intermediates: [
+              { label: 'L', value: `${left.result.sum}` },
+              { label: 'R', value: `${right.result.sum}` },
+              { label: '✕', value: `${cross.sum}` },
+            ],
+            children: [left.node, right.node],
+          },
+          result: winner,
+        };
+      }
+      return build(0, values.length - 1).node;
     },
   },
   'binary-search': {
@@ -259,6 +331,7 @@ function headingFor(recipe: string, n: number, target?: number): string {
   if (recipe === 'max') return `Árbol divide/combine · máximo sobre ${n} elementos`;
   if (recipe === 'binary-search')
     return `Árbol divide/combine · búsqueda binaria de ${target} sobre ${n} elementos`;
+  if (recipe === 'max-subarray') return `Árbol divide/combine · max-subarray sobre ${n} elementos`;
   return `Árbol divide/combine · ${recipe}`;
 }
 
@@ -323,6 +396,15 @@ function Chip({ node }: ChipProps) {
       className={`inline-flex flex-col items-stretch overflow-hidden rounded border ${affordance} font-mono text-[9px] leading-tight whitespace-nowrap`}
     >
       <div className="border-b border-rule/60 px-1 py-0.5 text-ink">{node.call}</div>
+      {node.intermediates && node.intermediates.length > 0 ? (
+        <div className="flex gap-2 border-b border-rule/40 bg-sunk px-1 py-0.5 text-ink-faint">
+          {node.intermediates.map((it) => (
+            <span key={it.label}>
+              {it.label}={it.value}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="bg-surface px-1 py-0.5 text-ink">
         {node.dimmed ? (
           <span className="text-ink-faint">—</span>

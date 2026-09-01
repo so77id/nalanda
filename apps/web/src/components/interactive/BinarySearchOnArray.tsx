@@ -235,10 +235,14 @@ function Body({ values, target, title, speed, autoplay }: BodyProps) {
   const [stepIndex, setStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(autoplay);
 
+  // Stable serialised key: MDX creates a new inline array reference on each
+  // parent re-render, and depending on `values` directly used to snap
+  // stepIndex back to 0 mid-run. Tie the reset to the actual contents.
+  const valuesKey = values.join(',');
   useEffect(() => {
     setStepIndex(0);
     setIsPlaying(autoplay);
-  }, [values, target, autoplay]);
+  }, [valuesKey, target, autoplay]);
 
   useEffect(() => {
     if (!isPlaying) return;
