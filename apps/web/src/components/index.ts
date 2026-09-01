@@ -55,7 +55,7 @@ export { Explanation } from './interactive/Explanation';
 export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { RecursionTree } from './interactive/RecursionTree';
-export { RecursionTreeDivide } from './interactive/RecursionTreeDivide';
+export { DivideCombineTree } from './interactive/DivideCombineTree';
 // The lazy wrapper, not the widget itself: <BinarySearchOnArray> composes
 // <CodeStepper> (CodeMirror + java grammar), and the MDX map is evaluated
 // eagerly. Registering the real component here would put CodeMirror in the

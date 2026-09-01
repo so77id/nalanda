@@ -31,7 +31,7 @@ import { predictOutputCatalogEntry } from './interactive/PredictOutput.catalog';
 import { questionCatalogEntry } from './interactive/Question.catalog';
 import { questionsCatalogEntry } from './interactive/Questions.catalog';
 import { recursionTreeCatalogEntry } from './interactive/RecursionTree.catalog';
-import { recursionTreeDivideCatalogEntry } from './interactive/RecursionTreeDivide.catalog';
+import { divideCombineTreeCatalogEntry } from './interactive/DivideCombineTree.catalog';
 import { memoryVisualCatalogEntry } from './interactive/MemoryVisual.catalog';
 import { stepCatalogEntry, stepShowCatalogEntry } from './interactive/StepShow.catalog';
 import { figureCatalogEntry } from './media/Figure.catalog';
@@ -68,7 +68,7 @@ export const catalogEntries: CatalogEntry[] = [
   questionCatalogEntry,
   explanationCatalogEntry,
   recursionTreeCatalogEntry,
-  recursionTreeDivideCatalogEntry,
+  divideCombineTreeCatalogEntry,
   binarySearchOnArrayCatalogEntry,
   maxSubarrayVizCatalogEntry,
   closestPairVizCatalogEntry,

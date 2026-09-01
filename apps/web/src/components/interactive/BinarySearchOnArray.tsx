@@ -5,49 +5,54 @@ import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 
 /**
- * The pseudocode the widget shows and traces against. The line numbers below
- * are 1-based and match the highlight-line targeting in `LINE`.
+ * The recursive binary-search pseudocode this widget traces against. Same
+ * shape as the code shown on the "BS con D&C · diseño" slide so the reader
+ * sees the same signature and the same body in both places.
  *
  * ```
- *   1  int busquedaBinaria(int[] a, int t) {
- *   2      int lo = 0, hi = a.length - 1;
- *   3      while (lo <= hi) {
- *   4          int mid = (lo + hi) / 2;
- *   5          if (a[mid] == t) return mid;
- *   6          if (a[mid] < t) lo = mid + 1;
- *   7          else hi = mid - 1;
- *   8      }
- *   9      return -1;
- *  10  }
+ *   1  int bs(int[] a, int lo, int hi, int t) {
+ *   2      if (lo > hi) return -1;
+ *   3      int mid = (lo + hi) / 2;
+ *   4      if (a[mid] == t) return mid;
+ *   5      if (t < a[mid]) return bs(a, lo, mid - 1, t);
+ *   6      return bs(a, mid + 1, hi, t);
+ *   7  }
  * ```
  */
-const CODE = `int busquedaBinaria(int[] a, int t) {
-    int lo = 0, hi = a.length - 1;
-    while (lo <= hi) {
-        int mid = (lo + hi) / 2;
-        if (a[mid] == t) return mid;
-        if (a[mid] < t) lo = mid + 1;
-        else hi = mid - 1;
-    }
-    return -1;
+const CODE = `int bs(int[] a, int lo, int hi, int t) {
+    if (lo > hi) return -1;
+    int mid = (lo + hi) / 2;
+    if (a[mid] == t) return mid;
+    if (t < a[mid]) return bs(a, lo, mid - 1, t);
+    return bs(a, mid + 1, hi, t);
 }`;
 
 const LINE = {
-  MID: 4,
-  CHECK_EQ: 5,
-  CHECK_LT: 6,
-  CHECK_GT: 7,
-  RETURN_NOT_FOUND: 9,
+  EMPTY_GUARD: 2,
+  MID: 3,
+  CHECK_EQ: 4,
+  RECURSE_LEFT: 5,
+  RECURSE_RIGHT: 6,
 } as const;
 
-/** One iteration of the loop, ready for playback. */
+export type BinarySearchStepKind =
+  | 'enter' // A new call is entered; lo, hi, mid computed.
+  | 'compare' // The comparison a[mid] vs target happens here.
+  | 'return-found' // a[mid] == target — return mid up the stack.
+  | 'return-not-found' // lo > hi — return -1.
+  | 'outcome'; // Cierre with the final result.
+
 export interface BinarySearchStep {
+  kind: BinarySearchStepKind;
   lo: number;
   hi: number;
-  mid: number;
-  /** How `a[mid]` compared to the target. */
-  comparison: 'equal' | 'less' | 'greater';
-  /** The reader-facing narration of what this step just decided. */
+  /** Set on enter/compare steps; null on the empty-range return. */
+  mid: number | null;
+  /** Only on compare steps: how a[mid] compares to the target. */
+  comparison?: 'less' | 'greater' | 'equal';
+  /** For return-found and outcome: the index the algorithm reports. */
+  returnValue?: number;
+  /** Human-readable description of what happened at this step. */
   description: string;
   /** 1-based lines to highlight in the code panel. */
   highlightLines: number[];
@@ -59,70 +64,127 @@ export interface BinarySearchTrace {
 }
 
 /**
- * Pure trace of the binary-search algorithm over a sorted array. Exported so
- * the test can pin the trace shape without touching the DOM, and so a course
- * document can (in principle) reuse the same events for a different
- * presentation.
+ * Pure trace of the recursive binary-search algorithm over a sorted array.
+ * Emits fine-grained steps — one enter per recursive call, one compare per
+ * a[mid] check, one return-found/return-not-found on the base case, and a
+ * closing 'outcome' step. Exported so tests can pin the shape without
+ * touching the DOM.
  */
 export function tracesBinarySearch(values: number[], target: number): BinarySearchTrace {
   const steps: BinarySearchStep[] = [];
-  let lo = 0;
-  let hi = values.length - 1;
 
-  while (lo <= hi) {
+  function recurse(
+    lo: number,
+    hi: number,
+  ): { kind: 'found'; index: number } | { kind: 'not-found' } {
+    if (lo > hi) {
+      steps.push({
+        kind: 'return-not-found',
+        lo,
+        hi,
+        mid: null,
+        description: `Rango vacío (lo=${lo} > hi=${hi}) — target no está en el arreglo. Retorna -1.`,
+        highlightLines: [LINE.EMPTY_GUARD],
+      });
+      return { kind: 'not-found' };
+    }
     const mid = Math.floor((lo + hi) / 2);
+    steps.push({
+      kind: 'enter',
+      lo,
+      hi,
+      mid,
+      description: `Llamada bs(a, lo=${lo}, hi=${hi}, t=${target}) — calcular mid = (${lo}+${hi})/2 = ${mid}.`,
+      highlightLines: [LINE.MID],
+    });
     const at = values[mid]!;
-    let comparison: BinarySearchStep['comparison'];
-    let description: string;
-    let highlightLines: number[];
-
     if (at === target) {
-      comparison = 'equal';
-      description = `a[${mid}] = ${at} = ${target} → encontrado en ${mid}`;
-      highlightLines = [LINE.MID, LINE.CHECK_EQ];
-      steps.push({ lo, hi, mid, comparison, description, highlightLines });
-      return { steps, outcome: { kind: 'found', index: mid } };
+      steps.push({
+        kind: 'compare',
+        lo,
+        hi,
+        mid,
+        comparison: 'equal',
+        description: `a[${mid}] = ${at}, target = ${target}. Coincidencia — return ${mid}.`,
+        highlightLines: [LINE.CHECK_EQ],
+      });
+      steps.push({
+        kind: 'return-found',
+        lo,
+        hi,
+        mid,
+        returnValue: mid,
+        description: `Devuelve ${mid}. La respuesta sube por la cadena de llamadas.`,
+        highlightLines: [LINE.CHECK_EQ],
+      });
+      return { kind: 'found', index: mid };
     }
-
-    if (at < target) {
-      comparison = 'less';
-      description = `a[${mid}] = ${at} < ${target} → lo = ${mid + 1}`;
-      highlightLines = [LINE.MID, LINE.CHECK_LT];
-      steps.push({ lo, hi, mid, comparison, description, highlightLines });
-      lo = mid + 1;
-    } else {
-      comparison = 'greater';
-      description = `a[${mid}] = ${at} > ${target} → hi = ${mid - 1}`;
-      highlightLines = [LINE.MID, LINE.CHECK_GT];
-      steps.push({ lo, hi, mid, comparison, description, highlightLines });
-      hi = mid - 1;
+    if (target < at) {
+      steps.push({
+        kind: 'compare',
+        lo,
+        hi,
+        mid,
+        comparison: 'greater',
+        description: `a[${mid}] = ${at}, target = ${target}. Como ${target} < ${at}, el target no puede estar en la mitad derecha ni en mid — recursamos en [${lo}..${mid - 1}].`,
+        highlightLines: [LINE.RECURSE_LEFT],
+      });
+      return recurse(lo, mid - 1);
     }
+    steps.push({
+      kind: 'compare',
+      lo,
+      hi,
+      mid,
+      comparison: 'less',
+      description: `a[${mid}] = ${at}, target = ${target}. Como ${at} < ${target}, el target no puede estar en la mitad izquierda ni en mid — recursamos en [${mid + 1}..${hi}].`,
+      highlightLines: [LINE.RECURSE_RIGHT],
+    });
+    return recurse(mid + 1, hi);
   }
 
-  return { steps, outcome: { kind: 'not-found' } };
+  const outcome = recurse(0, values.length - 1);
+  // Cierre step — always the last, shows the final result on the array.
+  const lastLo = steps[steps.length - 1]?.lo ?? 0;
+  const lastHi = steps[steps.length - 1]?.hi ?? values.length - 1;
+  if (outcome.kind === 'found') {
+    steps.push({
+      kind: 'outcome',
+      lo: lastLo,
+      hi: lastHi,
+      mid: outcome.index,
+      returnValue: outcome.index,
+      description: `✓ ${target} encontrado en índice ${outcome.index}. Buscar ${target} tomó ${countCompares(steps)} comparaciones.`,
+      highlightLines: [],
+    });
+  } else {
+    steps.push({
+      kind: 'outcome',
+      lo: lastLo,
+      hi: lastHi,
+      mid: null,
+      description: `✗ ${target} no está en el arreglo. Buscar ${target} tomó ${countCompares(steps)} comparaciones — igual que un caso encontrado.`,
+      highlightLines: [],
+    });
+  }
+
+  return { steps, outcome };
 }
 
+function countCompares(steps: BinarySearchStep[]): number {
+  return steps.filter((s) => s.kind === 'compare').length;
+}
+
+// ── Widget ──────────────────────────────────────────────────────────────────
+
 export interface BinarySearchOnArrayProps {
-  /** Sorted (strictly increasing) array of integers to search over. */
   values?: number[];
-  /** The integer to search for. May or may not be present. */
   target?: number;
-  /** Header override. */
   title?: string;
-  /** Playback speed multiplier: 0.5, 1, or 2. Defaults to 1. */
   speed?: number;
-  /** Auto-play from the start when mounted (single pass, does not loop). */
   autoplay?: boolean;
 }
 
-/**
- * Binary-search visualiser (ADR-0059) — code on top with the active line
- * highlighted, array below with `lo`, `mid` and `hi` markers, controls at the
- * foot. Steps through the same trace on every render; the panel of the
- * current step narrates what the algorithm just decided. On completion the
- * panel emphasises the STEP COUNT — found and not-found take the same number
- * of comparisons, and that is a pedagogical point of the deck.
- */
 export function BinarySearchOnArray({
   values,
   target,
@@ -137,7 +199,6 @@ export function BinarySearchOnArray({
       </AuthoringError>
     );
   }
-
   for (let i = 1; i < values.length; i += 1) {
     if (values[i]! <= values[i - 1]!) {
       return (
@@ -148,7 +209,6 @@ export function BinarySearchOnArray({
       );
     }
   }
-
   if (target === undefined || !Number.isInteger(target)) {
     return (
       <AuthoringError component="BinarySearchOnArray">
@@ -172,12 +232,6 @@ function Body({ values, target, title, speed, autoplay }: BodyProps) {
   const trace = useMemo(() => tracesBinarySearch(values, target), [values, target]);
   const totalSteps = trace.steps.length;
 
-  // Step index is 0..totalSteps. The value AFTER the last step is `totalSteps`
-  // itself, which the widget renders as "finished": the outcome panel shows,
-  // no lo/mid/hi remains highlighted. Sitting AT the last step (totalSteps - 1)
-  // is different: the last comparison is on screen, the outcome message also
-  // renders because the trace is finished but the reader is looking at the
-  // step that resolved it.
   const [stepIndex, setStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(autoplay);
 
@@ -197,8 +251,7 @@ function Body({ values, target, title, speed, autoplay }: BodyProps) {
     return () => window.clearTimeout(timeout);
   }, [isPlaying, stepIndex, speed, totalSteps]);
 
-  const currentStep = trace.steps[stepIndex];
-  const showOutcome = stepIndex === totalSteps - 1;
+  const step = trace.steps[stepIndex]!;
 
   const advance = useCallback(() => {
     setStepIndex((s) => Math.min(s + 1, totalSteps - 1));
@@ -234,28 +287,39 @@ function Body({ values, target, title, speed, autoplay }: BodyProps) {
       </header>
 
       <div className="border-b border-rule">
-        <CodeStepper
-          code={CODE}
-          highlightLines={currentStep?.highlightLines ?? []}
-          language="java"
-        />
+        <CodeStepper code={CODE} highlightLines={step.highlightLines} language="java" />
       </div>
 
       <div className="overflow-x-auto px-3 py-4">
-        <ArrayVisual values={values} step={currentStep} />
+        <ArrayVisual values={values} step={step} />
       </div>
 
+      {step.kind === 'compare' ? (
+        <ComparePanel values={values} target={target} step={step} />
+      ) : null}
+
       <div className="border-t border-rule bg-sunk px-3 py-2 text-sm text-ink">
-        {showOutcome ? (
-          <OutcomeMessage outcome={trace.outcome} target={target} steps={totalSteps} />
-        ) : (
-          <p className="m-0 font-mono text-xs">
-            <span className="text-ink-faint">
-              Paso {stepIndex + 1}/{totalSteps}:{' '}
-            </span>
-            {currentStep?.description}
+        <p className="m-0 font-mono text-xs">
+          <span className="text-ink-faint">
+            Paso {stepIndex + 1}/{totalSteps} ·{' '}
+          </span>
+          {step.description}
+        </p>
+        {step.kind === 'outcome' ? (
+          <p className="m-0 mt-1 font-mono text-xs">
+            {trace.outcome.kind === 'found' ? (
+              <>
+                <span className="text-keep">✓ </span>
+                <strong>{`${target} encontrado en índice ${trace.outcome.index}`}</strong>
+              </>
+            ) : (
+              <>
+                <span className="text-flag">✗ </span>
+                <strong>{`${target} no está en el arreglo`}</strong>
+              </>
+            )}
           </p>
-        )}
+        ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-rule bg-sunk px-3 py-1.5">
@@ -276,89 +340,124 @@ function Body({ values, target, title, speed, autoplay }: BodyProps) {
   );
 }
 
+// ── Array visualisation ─────────────────────────────────────────────────────
+
 interface ArrayVisualProps {
   values: number[];
-  step: BinarySearchStep | undefined;
+  step: BinarySearchStep;
 }
 
+/**
+ * Three-row visual: values on top, indices below, lo/mid/hi markers at the
+ * foot. Discarded cells (outside [lo..hi]) render as `·` — a stronger signal
+ * than opacity fading. On compare steps, mid is highlighted; on enter steps
+ * both extremes AND mid are highlighted so the new call frame is legible.
+ */
 function ArrayVisual({ values, step }: ArrayVisualProps) {
+  const inRange = (i: number) => i >= step.lo && i <= step.hi;
+  const isWinner = step.kind === 'outcome' && step.mid !== null;
+
   return (
-    <div className="flex min-w-fit flex-col items-start gap-2 font-mono text-sm">
-      <div className="flex items-end">
+    <div className="flex min-w-fit flex-col items-start gap-0.5 font-mono text-sm">
+      {/* Row 1: values (discarded shown as `·`) */}
+      <div className="flex" role="row" aria-label="valores">
         {values.map((v, i) => {
-          const isInRange = step !== undefined && i >= step.lo && i <= step.hi;
-          const isMid = step !== undefined && i === step.mid;
-          const cellClass = isMid
-            ? 'border-accent-pop bg-accent-soft text-ink font-semibold'
-            : isInRange
-              ? 'border-accent bg-surface text-ink'
-              : 'border-rule bg-sunk text-ink-faint opacity-50';
+          const cellClass = !inRange(i)
+            ? 'border-rule bg-sunk text-ink-faint'
+            : isWinner && i === step.mid
+              ? 'border-keep bg-keep-soft text-ink font-semibold'
+              : step.kind === 'compare' && i === step.mid
+                ? 'border-accent-pop bg-accent-soft text-ink font-semibold'
+                : i === step.mid
+                  ? 'border-accent-pop bg-surface text-ink font-medium'
+                  : 'border-accent bg-surface text-ink';
           return (
-            <div key={i} className="flex flex-col items-center px-0.5">
+            <div key={i} className="px-0.5">
               <span
-                data-lo={step !== undefined && i === step.lo ? step.lo : undefined}
-                data-mid={step !== undefined && i === step.mid ? step.mid : undefined}
-                data-hi={step !== undefined && i === step.hi ? step.hi : undefined}
                 data-index={i}
+                data-active={inRange(i) ? 'true' : undefined}
                 className={`inline-flex h-9 min-w-9 items-center justify-center rounded border px-2 ${cellClass}`}
               >
-                {v}
+                {inRange(i) ? v : <span aria-label={`descartado ${v}`}>·</span>}
               </span>
-              <span className="mt-0.5 font-mono text-3xs text-ink-faint">{i}</span>
             </div>
           );
         })}
       </div>
 
-      {step === undefined ? null : (
-        <div className="flex" aria-hidden>
-          {values.map((_, i) => {
-            const labels: string[] = [];
-            if (i === step.lo) labels.push('lo');
-            if (i === step.mid) labels.push('mid');
-            if (i === step.hi) labels.push('hi');
-            return (
-              <div key={i} className="flex flex-col items-center px-0.5">
-                <span className="min-w-9 text-center font-mono text-3xs text-accent">
-                  {labels.join(' / ') || ' '}
-                </span>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* Row 2: indices */}
+      <div className="flex" aria-label="índices">
+        {values.map((_, i) => (
+          <div key={i} className="px-0.5">
+            <span className="inline-flex min-w-9 justify-center font-mono text-3xs text-ink-faint">
+              {i}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {/* Row 3: lo/mid/hi markers */}
+      <div className="flex" aria-hidden>
+        {values.map((_, i) => {
+          const labels: string[] = [];
+          if (i === step.lo) labels.push('lo');
+          if (step.mid !== null && i === step.mid) labels.push('mid');
+          if (i === step.hi) labels.push('hi');
+          return (
+            <div key={i} className="px-0.5">
+              <span className="inline-flex min-w-9 justify-center font-mono text-3xs font-semibold text-accent">
+                {labels.join(' / ') || ' '}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-interface OutcomeMessageProps {
-  outcome: BinarySearchTrace['outcome'];
+// ── Compare panel ───────────────────────────────────────────────────────────
+
+interface ComparePanelProps {
+  values: number[];
   target: number;
-  steps: number;
+  step: BinarySearchStep;
 }
 
-function OutcomeMessage({ outcome, target, steps }: OutcomeMessageProps) {
-  if (outcome.kind === 'found') {
-    return (
-      <p className="m-0 font-mono text-xs">
-        <span className="text-keep">✓ </span>
-        <strong>{`${target} encontrado en índice ${outcome.index}`}</strong>
-        {` — buscar ${target} tomó `}
-        <strong>{`${steps} pasos`}</strong>
-        {'.'}
-      </p>
-    );
-  }
+/**
+ * Large, focused panel that shows the a[mid] vs target comparison as a
+ * headline — separate from the general narration so the pedagogical moment
+ * (the decision) is unmissable.
+ */
+function ComparePanel({ values, target, step }: ComparePanelProps) {
+  if (step.mid === null || step.comparison === undefined) return null;
+  const midValue = values[step.mid]!;
+  const symbol = step.comparison === 'equal' ? '==' : step.comparison === 'less' ? '<' : '>';
+  const conclusion =
+    step.comparison === 'equal'
+      ? '→ coincidencia'
+      : step.comparison === 'less'
+        ? '→ recursar a la derecha'
+        : '→ recursar a la izquierda';
   return (
-    <p className="m-0 font-mono text-xs">
-      <span className="text-flag">✗ </span>
-      <strong>{`${target} no está en el arreglo`}</strong>
-      {` — buscar ${target} requirió `}
-      <strong>{`${steps} pasos`}</strong>
-      {' igual que un caso encontrado.'}
-    </p>
+    <div
+      data-panel="compare"
+      className="flex flex-wrap items-baseline gap-x-3 gap-y-1 border-t border-rule bg-accent-soft px-3 py-2 font-mono text-sm text-ink"
+    >
+      <span className="text-3xs tracking-wide text-accent uppercase">comparar</span>
+      <span>
+        a[{step.mid}] = <strong>{midValue}</strong>
+      </span>
+      <span className="text-ink-faint">{symbol}</span>
+      <span>
+        target = <strong>{target}</strong>
+      </span>
+      <span className="text-accent-pop">{conclusion}</span>
+    </div>
   );
 }
+
+// ── Controls ────────────────────────────────────────────────────────────────
 
 interface ControlButtonProps {
   onClick: () => void;

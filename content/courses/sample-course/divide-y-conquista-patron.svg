@@ -1,0 +1,70 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" width="640" height="300" role="img" aria-label="Diagrama del patrón divide y conquista: un rombo que se abre desde un problema grande hasta subproblemas del caso base, y se cierra combinando soluciones hasta el resultado final.">
+  <style>
+    .box { fill: var(--color-surface, #fff); stroke: var(--color-rule-strong, #333); stroke-width: 1.5; }
+    .box-accent { fill: var(--color-accent-soft, #dceaff); stroke: var(--color-accent, #3a6ea5); stroke-width: 1.5; }
+    .box-base { fill: var(--color-keep-soft, #dff5df); stroke: var(--color-keep, #2f8a2f); stroke-width: 1.5; }
+    .arrow { fill: none; stroke: var(--color-ink-faint, #666); stroke-width: 1.2; marker-end: url(#tri); }
+    .arrow-back { fill: none; stroke: var(--color-keep, #2f8a2f); stroke-width: 1.2; marker-end: url(#triBack); }
+    .lbl { fill: var(--color-ink, #111); font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-anchor: middle; }
+    .lbl-small { fill: var(--color-ink-faint, #666); font-family: system-ui, sans-serif; font-size: 10px; text-anchor: middle; }
+    .lbl-side { fill: var(--color-ink-faint, #666); font-family: system-ui, sans-serif; font-size: 11px; font-style: italic; }
+  </style>
+  <defs>
+    <marker id="tri" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-ink-faint, #666)"/>
+    </marker>
+    <marker id="triBack" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="var(--color-keep, #2f8a2f)"/>
+    </marker>
+  </defs>
+
+  <!-- Left-side descending phase labels -->
+  <text x="30" y="25" class="lbl-side">Divide</text>
+  <text x="30" y="285" class="lbl-side">Combina</text>
+
+  <!-- Root problem -->
+  <rect x="270" y="10" width="100" height="30" rx="4" class="box-accent"/>
+  <text x="320" y="30" class="lbl">Problema N</text>
+
+  <!-- Level 1: two halves -->
+  <rect x="130" y="80" width="130" height="30" rx="4" class="box-accent"/>
+  <text x="195" y="100" class="lbl">Subproblema N/2</text>
+  <rect x="380" y="80" width="130" height="30" rx="4" class="box-accent"/>
+  <text x="445" y="100" class="lbl">Subproblema N/2</text>
+
+  <!-- Level 2: base cases -->
+  <rect x="60" y="150" width="80" height="28" rx="4" class="box-base"/>
+  <text x="100" y="168" class="lbl">Caso base</text>
+  <rect x="180" y="150" width="80" height="28" rx="4" class="box-base"/>
+  <text x="220" y="168" class="lbl">Caso base</text>
+  <rect x="380" y="150" width="80" height="28" rx="4" class="box-base"/>
+  <text x="420" y="168" class="lbl">Caso base</text>
+  <rect x="500" y="150" width="80" height="28" rx="4" class="box-base"/>
+  <text x="540" y="168" class="lbl">Caso base</text>
+
+  <!-- Combine level: back to two halves -->
+  <rect x="130" y="215" width="130" height="30" rx="4" class="box"/>
+  <text x="195" y="235" class="lbl">Solución N/2</text>
+  <rect x="380" y="215" width="130" height="30" rx="4" class="box"/>
+  <text x="445" y="235" class="lbl">Solución N/2</text>
+
+  <!-- Final combined result -->
+  <rect x="270" y="265" width="100" height="30" rx="4" class="box"/>
+  <text x="320" y="285" class="lbl">Solución N</text>
+
+  <!-- Divide arrows (down) -->
+  <path d="M 300 42 L 215 78" class="arrow"/>
+  <path d="M 340 42 L 425 78" class="arrow"/>
+  <path d="M 175 112 L 120 148" class="arrow"/>
+  <path d="M 215 112 L 230 148" class="arrow"/>
+  <path d="M 425 112 L 410 148" class="arrow"/>
+  <path d="M 465 112 L 530 148" class="arrow"/>
+
+  <!-- Combine arrows (up) -->
+  <path d="M 130 180 L 180 213" class="arrow-back"/>
+  <path d="M 220 180 L 210 213" class="arrow-back"/>
+  <path d="M 400 180 L 420 213" class="arrow-back"/>
+  <path d="M 550 180 L 470 213" class="arrow-back"/>
+  <path d="M 215 247 L 300 265" class="arrow-back"/>
+  <path d="M 425 247 L 340 265" class="arrow-back"/>
+</svg>

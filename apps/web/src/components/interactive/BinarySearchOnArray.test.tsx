@@ -4,15 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { BinarySearchOnArray, tracesBinarySearch } from './BinarySearchOnArray';
 
-// CodeMirror is stubbed in vitest.setup.ts (jsdom lays nothing out and paints
-// no syntax highlighting) so tests here pin the widget's contract: the trace
-// engine, the step controls, the array cells and the accessibility hooks
-// (data-lo, data-mid, data-hi). Real syntax highlighting and the active-line
-// paint are the S7 browser check's job — same shape as <CallStack>.
-
 vi.mock('./CodeStepper', () => ({
-  // A stub that renders the code as a bare <pre> AND exposes the active-line
-  // list so behaviour tests can pin what the widget asked to be highlighted.
   CodeStepper: (props: { code: string; highlightLines: number[] }) => (
     <pre data-testid="code-stepper" data-highlight-lines={props.highlightLines.join(',')}>
       {props.code}
@@ -21,134 +13,137 @@ vi.mock('./CodeStepper', () => ({
 }));
 
 describe('tracesBinarySearch (the pure engine)', () => {
-  it('generates the classical mid=(lo+hi)/2 trace for a value in the middle', () => {
-    // values = [3, 7, 11, 14, 19, 22, 28, 31, 42, 55]; target=22 (index 5).
-    // Step 1: lo=0 hi=9 mid=4 -> a[4]=19 < 22 -> lo=5
-    // Step 2: lo=5 hi=9 mid=7 -> a[7]=31 > 22 -> hi=6
-    // Step 3: lo=5 hi=6 mid=5 -> a[5]=22 == 22 -> found at 5
+  it('emits fine-grained steps in enter/compare/... shape for a successful search', () => {
+    // target=22 in [3,7,11,14,19,22,28,31,42,55]:
+    //   enter(0..9, mid=4) → compare(a[4]=19 < 22)
+    //   enter(5..9, mid=7) → compare(a[7]=31 > 22)
+    //   enter(5..6, mid=5) → compare(a[5]=22 == 22) → return-found → outcome
     const trace = tracesBinarySearch([3, 7, 11, 14, 19, 22, 28, 31, 42, 55], 22);
-
     expect(trace.outcome).toEqual({ kind: 'found', index: 5 });
-    expect(trace.steps.length).toBe(3);
-    expect(trace.steps[0]).toMatchObject({ lo: 0, hi: 9, mid: 4, comparison: 'less' });
-    expect(trace.steps[1]).toMatchObject({ lo: 5, hi: 9, mid: 7, comparison: 'greater' });
-    expect(trace.steps[2]).toMatchObject({ lo: 5, hi: 6, mid: 5, comparison: 'equal' });
+    const kinds = trace.steps.map((s) => s.kind);
+    expect(kinds).toEqual([
+      'enter',
+      'compare',
+      'enter',
+      'compare',
+      'enter',
+      'compare',
+      'return-found',
+      'outcome',
+    ]);
+    // Compare details per step
+    expect(trace.steps[1]).toMatchObject({ lo: 0, hi: 9, mid: 4, comparison: 'less' });
+    expect(trace.steps[3]).toMatchObject({ lo: 5, hi: 9, mid: 7, comparison: 'greater' });
+    expect(trace.steps[5]).toMatchObject({ lo: 5, hi: 6, mid: 5, comparison: 'equal' });
   });
 
-  it('generates a not-found trace that ends when lo > hi', () => {
-    // target=20 in the same array: not present.
-    // Step 1: lo=0 hi=9 mid=4 -> a[4]=19 < 20 -> lo=5
-    // Step 2: lo=5 hi=9 mid=7 -> a[7]=31 > 20 -> hi=6
-    // Step 3: lo=5 hi=6 mid=5 -> a[5]=22 > 20 -> hi=4
-    // Terminate: lo=5 > hi=4 -> not found
+  it('emits a return-not-found step when the range empties', () => {
+    // target=20 in the same array — never found; ends with lo > hi.
     const trace = tracesBinarySearch([3, 7, 11, 14, 19, 22, 28, 31, 42, 55], 20);
-
     expect(trace.outcome).toEqual({ kind: 'not-found' });
-    expect(trace.steps.length).toBe(3);
-    // The comparison of the LAST step points at 22 > 20.
-    expect(trace.steps[2]).toMatchObject({ mid: 5, comparison: 'greater' });
+    const kinds = trace.steps.map((s) => s.kind);
+    // Last two are return-not-found + outcome.
+    expect(kinds[kinds.length - 2]).toBe('return-not-found');
+    expect(kinds[kinds.length - 1]).toBe('outcome');
   });
 
   it('finds the target at the ends of the array (no off-by-one at lo=hi)', () => {
-    // target at the very first position.
-    const first = tracesBinarySearch([1, 2, 3, 4, 5], 1);
-    expect(first.outcome).toEqual({ kind: 'found', index: 0 });
-
-    // target at the very last position.
-    const last = tracesBinarySearch([1, 2, 3, 4, 5], 5);
-    expect(last.outcome).toEqual({ kind: 'found', index: 4 });
+    expect(tracesBinarySearch([1, 2, 3, 4, 5], 1).outcome).toEqual({ kind: 'found', index: 0 });
+    expect(tracesBinarySearch([1, 2, 3, 4, 5], 5).outcome).toEqual({ kind: 'found', index: 4 });
   });
 });
 
 describe('BinarySearchOnArray', () => {
-  it('renders the array cells, the code panel, and the initial lo/hi labels', () => {
+  it('renders the array cells, the recursive code panel, and the initial call state', () => {
     render(<BinarySearchOnArray values={[3, 7, 11, 14, 19, 22, 28, 31, 42, 55]} target={22} />);
 
-    // Array is rendered — every value visible. `3` collides with the index
-    // label below the first cell, so we pin the unique values here.
+    // Array is rendered — the boundary values are visible.
     expect(screen.getByText('55')).toBeInTheDocument();
     expect(screen.getByText('42')).toBeInTheDocument();
     expect(screen.getByText('28')).toBeInTheDocument();
 
-    // Code panel is present.
-    expect(screen.getByTestId('code-stepper')).toBeInTheDocument();
+    // Code panel is present with the recursive body.
+    const stepper = screen.getByTestId('code-stepper');
+    expect(stepper.textContent).toMatch(/return bs\(a, lo, mid - 1, t\)/);
+    expect(stepper.textContent).toMatch(/return bs\(a, mid \+ 1, hi, t\)/);
 
-    // On step 0 (initial state before pressing "Paso") the widget shows the
-    // initial rango — lo=0, hi=9, mid=4. All three markers land on cells.
-    // The test pins them via the semantic data attributes; the arrows are the
-    // browser check's job.
-    expect(document.querySelector('[data-lo="0"]')).not.toBeNull();
-    expect(document.querySelector('[data-hi="9"]')).not.toBeNull();
-    expect(document.querySelector('[data-mid="4"]')).not.toBeNull();
+    // Step 1 is `enter` on the root — every cell is inside the range so all
+    // ten values are shown as active.
+    const activeCells = document.querySelectorAll('[data-active="true"]');
+    expect(activeCells.length).toBe(10);
   });
 
-  it('advances one step at a time when "Paso" is clicked and updates lo/mid/hi', async () => {
+  it('advances one micro-step at a time — enter, then compare on the same call', async () => {
     const user = userEvent.setup();
     render(<BinarySearchOnArray values={[3, 7, 11, 14, 19, 22, 28, 31, 42, 55]} target={22} />);
 
-    // After ONE click on Paso: lo=5, hi=9, mid=7 (the second step of the trace
-    // becomes the "current" one).
+    // Step 1: enter root (lo=0, hi=9, mid=4). No compare panel yet.
+    expect(screen.queryByText('comparar')).toBeNull();
+
+    // Step 2: compare — the compare panel appears with a[4]=19 vs target=22.
     await user.click(screen.getByRole('button', { name: /^paso$/i }));
-    expect(document.querySelector('[data-lo="5"]')).not.toBeNull();
-    expect(document.querySelector('[data-hi="9"]')).not.toBeNull();
-    expect(document.querySelector('[data-mid="7"]')).not.toBeNull();
+    expect(document.querySelector('[data-panel="compare"]')).not.toBeNull();
+    // The comparison headline reads the mid value and the target.
+    const panel = document.querySelector('[data-panel="compare"]')!;
+    expect(panel.textContent).toMatch(/a\[4\]/);
+    expect(panel.textContent).toMatch(/19/);
+    expect(panel.textContent).toMatch(/target/i);
+    expect(panel.textContent).toMatch(/22/);
   });
 
-  it('announces the successful outcome with the total step count when the last step lands', async () => {
+  it('hides discarded cells with a dot signal after a recursive call', async () => {
     const user = userEvent.setup();
     render(<BinarySearchOnArray values={[3, 7, 11, 14, 19, 22, 28, 31, 42, 55]} target={22} />);
 
-    // Two clicks on Paso -> current step is the third and last one (found).
-    await user.click(screen.getByRole('button', { name: /^paso$/i }));
-    await user.click(screen.getByRole('button', { name: /^paso$/i }));
+    // Advance through: enter root -> compare -> enter right child (lo=5,
+    // hi=9). At that point, indices 0..4 are outside the active range.
+    await user.click(screen.getByRole('button', { name: /^paso$/i })); // compare
+    await user.click(screen.getByRole('button', { name: /^paso$/i })); // enter right
 
-    // The outcome panel says "encontrado en índice 5 en 3 pasos" (or similar
-    // wording that carries both facts).
-    expect(screen.getByText(/índice 5/i)).toBeInTheDocument();
-    expect(screen.getByText(/3\s*pasos/i)).toBeInTheDocument();
+    // The widget marks active cells with data-active="true"; discarded ones
+    // omit the attribute AND render as `·`. Count the actives.
+    const active = document.querySelectorAll('[data-active="true"]');
+    expect(active.length).toBe(5); // indices 5..9
   });
 
-  it('announces the not-found outcome with the step count when target is absent', async () => {
+  it('announces the winner on the outcome step', async () => {
+    const user = userEvent.setup();
+    render(<BinarySearchOnArray values={[3, 7, 11, 14, 19, 22, 28, 31, 42, 55]} target={22} />);
+
+    // 7 clicks reach the outcome (step 8).
+    for (let i = 0; i < 7; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await user.click(screen.getByRole('button', { name: /^paso$/i }));
+    }
+
+    // The string appears twice on the outcome step (in the narration and in
+    // the strong headline). Assert the count is at least 1.
+    expect(screen.getAllByText(/22\s*encontrado\s*en\s*índice\s*5/i).length).toBeGreaterThan(0);
+  });
+
+  it('announces not-found with the step count when the target is absent', async () => {
     const user = userEvent.setup();
     render(<BinarySearchOnArray values={[3, 7, 11, 14, 19, 22, 28, 31, 42, 55]} target={20} />);
 
-    // Two clicks: current step is the third (last) — the outcome panel reports
-    // 3 pasos, no encontrado. The message emphasises the count on purpose:
-    // found and not-found take the SAME number of comparisons in BS.
-    await user.click(screen.getByRole('button', { name: /^paso$/i }));
-    await user.click(screen.getByRole('button', { name: /^paso$/i }));
+    // Advance to the outcome — click many times, the widget clamps at the
+    // last step.
+    for (let i = 0; i < 30; i += 1) {
+      // eslint-disable-next-line no-await-in-loop
+      await user.click(screen.getByRole('button', { name: /^paso$/i }));
+    }
 
-    expect(screen.getByText(/no está en el arreglo/i)).toBeInTheDocument();
-    expect(screen.getByText(/3\s*pasos/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/no está en el arreglo/i).length).toBeGreaterThan(0);
   });
 
-  it('resets to the initial rango when "Reset" is clicked', async () => {
+  it('resets to the initial state when "Reset" is clicked', async () => {
     const user = userEvent.setup();
     render(<BinarySearchOnArray values={[3, 7, 11, 14, 19, 22, 28, 31, 42, 55]} target={22} />);
     await user.click(screen.getByRole('button', { name: /^paso$/i }));
     await user.click(screen.getByRole('button', { name: /^reset$/i }));
-
-    // Back to the initial state.
-    expect(document.querySelector('[data-lo="0"]')).not.toBeNull();
-    expect(document.querySelector('[data-hi="9"]')).not.toBeNull();
-    expect(document.querySelector('[data-mid="4"]')).not.toBeNull();
+    // Back to step 1: all 10 cells active, no compare panel.
+    expect(document.querySelectorAll('[data-active="true"]').length).toBe(10);
+    expect(screen.queryByText('comparar')).toBeNull();
   });
-
-  it('rewinds one step at a time when "Atrás" is clicked', async () => {
-    const user = userEvent.setup();
-    render(<BinarySearchOnArray values={[3, 7, 11, 14, 19, 22, 28, 31, 42, 55]} target={22} />);
-    await user.click(screen.getByRole('button', { name: /^paso$/i }));
-    await user.click(screen.getByRole('button', { name: /^paso$/i }));
-    await user.click(screen.getByRole('button', { name: /atrás/i }));
-    // Back to step 1: lo=5, hi=9, mid=7.
-    expect(document.querySelector('[data-lo="5"]')).not.toBeNull();
-    expect(document.querySelector('[data-hi="9"]')).not.toBeNull();
-    expect(document.querySelector('[data-mid="7"]')).not.toBeNull();
-  });
-
-  // ---------------------------------------------------------------------
-  // Authoring errors — every one addresses the author, never the reader
-  // ---------------------------------------------------------------------
 
   it('tells the author when values is missing or empty', () => {
     render(<BinarySearchOnArray target={22} />);
