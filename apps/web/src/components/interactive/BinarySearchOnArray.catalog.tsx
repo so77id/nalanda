@@ -10,7 +10,7 @@ export const binarySearchOnArrayCatalogEntry: CatalogEntry = {
     "The classical binary-search trace on a sorted array (ADR-0059). Code panel on top with the active line highlighted; array below with the current `lo`, `mid`, and `hi` markers over the cells and a narration panel that reads the step's decision aloud. On completion the panel emphasises the STEP COUNT — found and not-found take the same number of comparisons, a deliberate pedagogical point of the D&C deck.",
   whenToUse:
     'For the binary-search example in the divide and conquer class, and for any lesson that walks a reader through the algorithm on a specific array. ' +
-    "The `<RecursionTreeDivide recipe='binary-search'>` widget lives beside this one for the cost analysis; both are meant to be shown together — this widget is 'what the algorithm does on real data', the tree is 'why the cost is O(log n)'. " +
+    "The `<DivideCombineTree recipe='binary-search'>` widget lives beside this one for the cost analysis; both are meant to be shown together — this widget is 'what the algorithm does on real data', the tree is 'why the cost is O(log n)' (a full binary tree with the taken chain highlighted and the not-taken subtrees drawn in dimmed grey). " +
     'The array must be strictly increasing (the widget rejects a repeat or a descent as an authoring error, with the offending pair called out). ' +
     'Auto-play does not loop; the widget stops on the last step so the outcome panel is what the reader sees.',
   props: [

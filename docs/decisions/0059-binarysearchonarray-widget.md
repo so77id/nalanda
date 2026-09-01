@@ -20,12 +20,14 @@ line highlighted as each iteration decides.
 ## Context
 
 Binary search is the deck's simplest D&C example: one recursive subcall per
-call, constant combine work, `Θ(log n)` closed form. The `<RecursionTree
-Divide recipe="binary-search">` widget already draws the recursion tree and
-the cost breakdown. What is missing is the *other* half of the story — what
-the algorithm *does* on a real array. A reader looking at the tree learns
-why the cost is logarithmic; a reader looking at the trace learns how the
-loop actually shrinks the range at every step.
+call, constant combine work, `Θ(log n)` closed form. The
+`<DivideCombineTree recipe="binary-search">` widget (ADR-0063) already draws
+the recursion tree — a full binary tree with the taken chain highlighted and
+every not-taken subtree drawn in dimmed grey, so the "walks one path" idea
+lands visually. What is missing is the *other* half of the story — what the
+algorithm *does* on a real array. A reader looking at the tree learns why
+the cost is logarithmic; a reader looking at the trace learns how the loop
+actually shrinks the range at every step.
 
 The class also uses this widget to make a subtler point: binary search
 takes the same number of comparisons whether the target is present or
@@ -133,7 +135,10 @@ does better.
 ## Consequences
 
 **Widget count for issue #266.** This is the second of five new widgets;
-five ADRs (0058-0062). Same shape as the axis widget: five new files
+five ADRs (0059-0063; the earlier ADR-0058 for `<RecursionTreeDivide>` was
+authored during S1 and deleted mid-branch when the widget was superseded by
+`<DivideCombineTree>` — see ADR-0063 §7). Same shape as the axis widget
+(`<DivideCombineTree>`, ADR-0063): five new files
 (`.tsx`, `.test.tsx`, `.catalog.tsx`, `lazy*.tsx`, and this ADR).
 
 **Reader payload.** BS visualiser pulls CodeMirror + java grammar the

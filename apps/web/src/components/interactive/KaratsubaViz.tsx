@@ -85,8 +85,9 @@ function digits(n: number): number {
 /**
  * Pure Karatsuba step-by-step at the OUTER level. Does not recurse visually:
  * the three subproducts (P1, P2, P3) are shown as concrete values, and the
- * abstract recursion is left to `<RecursionTreeDivide recipe="karatsuba">`
- * which sits beside this widget in the deck (ADR-0061).
+ * abstract recurrence T(n) = 3T(n/2) + O(n) is stated as prose beside this
+ * widget in the deck (per ADR-0062; Karatsuba does not get a companion
+ * recursion-tree widget, per ADR-0063 §Deck simplification).
  */
 export function tracesKaratsuba(x: number, y: number): KaratsubaTrace {
   const n = Math.max(digits(x), digits(y), 1);

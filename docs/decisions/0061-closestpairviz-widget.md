@@ -93,9 +93,10 @@ silently missing pairs).
 ## Alternatives considered
 
 **Only the top-level call (option A).** Rejected on Miguel's call —
-same reasoning as `<MaxSubarrayViz>`. Hiding the recursion behind
-`<RecursionTreeDivide>` would collapse the widget to a "here's a strip"
-demo; the recursion IS the algorithm.
+same reasoning as `<MaxSubarrayViz>`. Collapsing the widget to a
+top-level "here's a strip" demo would hide the recursion, and per
+ADR-0063 closest-pair does not get a companion recursion-tree widget
+in the deck — the recursion IS what this widget carries.
 
 **Manhattan distance.** Rejected on Miguel's call — euclidean is what
 every algorithms textbook uses, and the algorithm's correctness bound
@@ -118,7 +119,9 @@ visible. Collapsing it hides the "7 neighbours per point" mechanism.
 ## Consequences
 
 **Widget count for issue #266.** Fourth of five new widgets; five ADRs,
-0058-0062. Same shape as the two D&C widgets before it: `.tsx`,
+0059-0063 (ADR-0058 for `<RecursionTreeDivide>` was authored during S1
+and deleted mid-branch — see ADR-0063 §7). Same shape as the two D&C
+widgets before it: `.tsx`,
 `.test.tsx`, `.catalog.tsx`, `lazy*.tsx`, this ADR.
 
 **Reader payload.** Pulls CodeMirror + java grammar the first time a

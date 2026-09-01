@@ -32,8 +32,8 @@ Two shapes for the trace were considered during design:
 
 - **Only the top-level call** (option A). One call frame, three
   sub-answers (left, right, cross), a single cross-scan visible. Fewer
-  than 20 steps. The recursion depth stays in `<RecursionTreeDivide>`
-  next to it.
+  than 20 steps. The recursion depth would have stayed in a companion
+  tree widget beside it (originally planned as `<RecursionTreeDivide>`).
 - **The full recursion** (option B). Every enter, every return, every
   cross-scan position, every winner across the whole tree. For 8
   elements: ~70-75 steps. The widget shows both the combine AND the
@@ -103,9 +103,11 @@ subject.
 
 **Only the top-level call (option A).** Rejected on Miguel's call — the
 recursion is what makes this the third D&C example after two with
-trivial combines, and hiding it would collapse the widget to something
-`<RecursionTreeDivide>` already shows. A single call would land the
-combine but not the recursive-D&C-in-action point.
+trivial combines. A single call would land the combine but not the
+recursive-D&C-in-action point. The S7 pivot later confirmed this: per
+ADR-0063, max-subarray is one of the algorithms that does NOT get a
+companion recursion-tree widget in the deck, so this widget alone
+carries both the recursion and the combine.
 
 **Show Kadane too.** Rejected: Kadane is not D&C; it would move the
 widget's focus off the pattern the whole deck is teaching. A future WP
@@ -126,7 +128,9 @@ The three-halves paint carries that story.
 ## Consequences
 
 **Widget count for issue #266.** This is the third of five new widgets
-(five ADRs, 0058-0062). Same shape as the two before: `.tsx`,
+(five ADRs, 0059-0063; ADR-0058 for `<RecursionTreeDivide>` was
+authored during S1 and deleted mid-branch — see ADR-0063 §7). Same
+shape as the two before: `.tsx`,
 `.test.tsx`, `.catalog.tsx`, `lazy*.tsx`, this ADR.
 
 **Reader payload.** Pulls CodeMirror + java grammar the first time a

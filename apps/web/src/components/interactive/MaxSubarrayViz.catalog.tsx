@@ -10,7 +10,7 @@ export const maxSubarrayVizCatalogEntry: CatalogEntry = {
     'The divide and conquer max-subarray visualiser (ADR-0060). Code panel on top with the active line highlighted; array below with the current call frame in focus and the two halves distinctly coloured; the cross-scan cursor visible as it sweeps out from mid; a breadcrumb of the call path so recursion depth is legible; a narration panel that describes each step and shows the running accumulators (leftBest, rightBest, crossMax); controls at the foot. Traces the FULL recursion — the reader sees every enter / return / cross-scan / winner in order.',
   whenToUse:
     'For the max-subarray section of the divide and conquer class, where the reader needs to see how the O(n) cross-scan gives the O(n log n) closed form. The recursion is traced in full; keep the input array small (up to ~8 elements) so the trace stays around 70 steps or fewer. ' +
-    'The `<RecursionTreeDivide recipe="max-subarray">` widget lives beside this one for the cost analysis; both are meant to be shown together — this widget is "what the algorithm does on real data", the tree is "why the cost is O(n log n)". ' +
+    'Max-subarray does NOT get a companion recursion-tree widget in the deck (per ADR-0063 §Deck simplification); the recurrence T(n) = 2T(n/2) + O(n) is stated as prose beside the widget. ' +
     'Kadane (the O(n) iterative alternative) is deliberately out of scope: this widget is about D&C.',
   props: [
     {

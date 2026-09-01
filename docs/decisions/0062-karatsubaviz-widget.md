@@ -36,16 +36,17 @@ considered:
   of the O(n^log_2 3) closed form, so this shape has genuine pedagogical
   value.
 - **Outer-level only.** Show one Karatsuba call with the three
-  subproducts as concrete integers. The recursion is left abstract — the
-  reader trusts that P1, P2, P3 are also Karatsuba calls, and the
-  abstract recurrence tree lives in `<RecursionTreeDivide
-  recipe="karatsuba">` beside this widget in the deck.
+  subproducts as concrete integers. The recursion is left abstract —
+  the reader trusts that P1, P2, P3 are also Karatsuba calls, and the
+  abstract recurrence `T(n) = 3T(n/2) + O(n)` is stated as prose beside
+  the widget in the deck (per ADR-0063 §Deck simplification, Karatsuba
+  does not get a companion recursion-tree widget).
 
 Miguel chose the outer-level shape: the widget's pedagogical target is
-the ALGEBRAIC TRICK, not the recursion. The recursion is what
-`<RecursionTreeDivide>` shows, and putting a full recursive
+the ALGEBRAIC TRICK, not the recursion. Putting a full recursive
 visualisation here would fight for the reader's attention with the
-algebra that this widget alone can make visible.
+algebra that this widget alone can make visible; the recurrence sits
+as prose beside it.
 
 ## Decision
 
@@ -97,9 +98,10 @@ base-case trace.
 ## Alternatives considered
 
 **Recursive visualisation of the whole tree.** Rejected on Miguel's
-call. Two reasons: (a) `<RecursionTreeDivide recipe="karatsuba">`
-already shows the recursion abstractly, and (b) the widget's job is the
-algebra, which the recursion would drown out.
+call. Two reasons: (a) the recurrence `T(n) = 3T(n/2) + O(n)` is
+stated as prose beside the widget in the deck (per ADR-0063 Karatsuba
+does not get a companion recursion-tree widget), and (b) the widget's
+job is the algebra, which the recursion would drown out.
 
 **A single "before / after" panel comparing 4 products to 3.** Rejected:
 the pivot moment — the reader watching the algebra derive `middle = ad +
@@ -125,7 +127,9 @@ slide.
 ## Consequences
 
 **Widget count for issue #266.** Fifth and last new widget; five ADRs
-(0058-0062). Same shape as the four before it: `.tsx`, `.test.tsx`,
+(0059-0063; ADR-0058 for `<RecursionTreeDivide>` was authored during
+S1 and deleted mid-branch — see ADR-0063 §7). Same shape as the four
+before it: `.tsx`, `.test.tsx`,
 `.catalog.tsx`, `lazy*.tsx`, this ADR.
 
 **Reader payload.** Pulls CodeMirror + java grammar the first time a

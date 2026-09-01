@@ -1127,7 +1127,9 @@ is not scaled at all.
 When you delete slides from a document but the copy is likely to come back in
 a later revision (a section you want to try differently, a widget you want to
 retire without losing the fixtures that fed it), save the removed `<Slide>`
-blocks in a sibling `.txt` file: `<slug>.archive.txt`. The `.txt` extension
+blocks in a sibling `.txt` file named after the `.mdx` filename stem
+(ordering prefix included) — e.g. `15-diseno-algoritmos-divide-y-venceras.mdx`
+→ `15-diseno-algoritmos-divide-y-venceras.archive.txt`. The `.txt` extension
 keeps every parser in this repo away from it — MDX does not compile it, the
 content integrity gate does not walk it, `contentRenders.test.tsx` does not
 mount it, and `questionReaders.test.tsx` does not scan it for question stems.
