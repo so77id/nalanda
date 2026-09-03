@@ -1,6 +1,7 @@
 import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { DivideCombineTree } from './DivideCombineTree';
@@ -42,10 +43,10 @@ const SPEED_MS: Record<'slow' | 'normal' | 'fast', number> = {
  * `<SortStepper>` — the axis widget of the "Ordenamiento" class (ADR-0065).
  *
  * Renders the code of the algorithm on top (`<CodeStepper>` with the current
- * line highlighted), the array as vertical bars with per-frame overlays, and
- * — for the D&C algorithms — the mergesort/quicksort tree via
- * `<DivideCombineTree>` (ADR-0064 hooks). Controls at the foot: reset, prev,
- * play/pause, next.
+ * line highlighted), the array as vertical bars whose HEIGHT is proportional
+ * to value (Sedgewick-style), with a pointer row below marking `i`, `j`,
+ * `min` or `pivot`, and — for the D&C algorithms — `<DivideCombineTree>`
+ * (ADR-0064 hooks) synchronised alongside. Controls at the foot.
  */
 export function SortStepper({
   algorithm,
@@ -110,6 +111,7 @@ interface BodyProps {
 }
 
 function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }: BodyProps) {
+  const mode = useMode();
   const valuesKey = values.join(',');
   const trace = useMemo(
     () => traceFor(algorithm, valuesKey.split(',').map(Number)),
@@ -160,19 +162,33 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
   const treeAlgo = algorithm === 'merge' ? 'mergesort' : algorithm === 'quick' ? 'quicksort' : null;
   const showTreePanel = showTree && treeAlgo !== null;
 
+  // Horizontal three-column layout in presentation mode; vertical stack in
+  // book mode — regardless of viewport width (per Miguel's rule).
+  const isPresentation = mode === 'presentation';
+  const bodyLayout =
+    isPresentation && showTreePanel
+      ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4'
+      : 'flex flex-col gap-4';
+
   const heading = title ?? headingFor(algorithm);
 
   return (
     <figure
       data-widget="sort-stepper"
       data-algorithm={algorithm}
+      data-mode={mode}
       className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink"
     >
-      <header className="flex items-center gap-2 bg-sunk px-3 py-1.5">
-        <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs tracking-wide text-accent uppercase">
-          sort
+      <header className="flex items-center justify-between gap-2 bg-sunk px-3 py-1.5">
+        <div className="flex items-center gap-2">
+          <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs tracking-wide text-accent uppercase">
+            sort
+          </span>
+          <h4 className="m-0 text-sm font-medium text-ink">{heading}</h4>
+        </div>
+        <span className="font-mono text-3xs text-ink-faint">
+          Paso {stepIndex + 1}/{totalSteps}
         </span>
-        <h4 className="m-0 text-sm font-medium text-ink">{heading}</h4>
       </header>
 
       {showCode ? (
@@ -185,17 +201,13 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
         </div>
       ) : null}
 
-      <div
-        className={`flex flex-col gap-4 px-3 py-4 ${
-          showTreePanel ? 'lg:flex-row lg:items-start' : ''
-        }`}
-      >
-        <div className={`flex flex-col gap-3 ${showTreePanel ? 'lg:flex-1' : ''}`}>
-          <BarChart values={values} step={step} />
+      <div className={`px-3 py-4 ${bodyLayout}`}>
+        <div className="flex min-w-0 flex-col gap-3">
+          <BarChart step={step} algorithm={algorithm} />
           {step.auxRail ? <AuxRail rail={step.auxRail} /> : null}
         </div>
         {showTreePanel && treeAlgo ? (
-          <div className="lg:w-1/2 lg:min-w-0">
+          <div className="min-w-0">
             <DivideCombineTree
               recipe={treeAlgo}
               values={values}
@@ -211,12 +223,7 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
       </div>
 
       <div className="border-t border-rule bg-sunk px-3 py-2 text-sm text-ink">
-        <p className="m-0 font-mono text-xs">
-          <span className="text-ink-faint">
-            Paso {stepIndex + 1}/{totalSteps} ·{' '}
-          </span>
-          {step.description}
-        </p>
+        <p className="m-0 font-mono text-xs">{step.description}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-rule bg-sunk px-3 py-1.5">
@@ -232,6 +239,14 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
         <ControlButton onClick={reset} label="Reset">
           <RotateCcw size={14} aria-hidden />
         </ControlButton>
+        <div className="ml-auto flex items-center gap-3 font-mono text-3xs text-ink-faint">
+          <LegendSwatch swatchClass="border-accent bg-surface" label="sin tocar" />
+          <LegendSwatch swatchClass="border-accent-pop bg-accent-soft" label="activo" />
+          {algorithm === 'quick' && (
+            <LegendSwatch swatchClass="border-accent-pop bg-accent-pop" label="pivot" />
+          )}
+          <LegendSwatch swatchClass="border-keep bg-keep-soft" label="ordenado" />
+        </div>
       </div>
     </figure>
   );
@@ -240,28 +255,35 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
 // ── Bar chart ────────────────────────────────────────────────────────────
 
 interface BarChartProps {
-  values: number[];
   step: SortStep;
+  algorithm: SortAlgorithm;
 }
 
 /**
- * Vertical bars, height proportional to value. Each bar carries semantic
- * `data-*` attributes so a browser check (and the suite) can identify what
- * the frame is showing — active / sorted / pivot / out-of-range — without
- * inspecting paint.
+ * Vertical bars — height proportional to value (Sedgewick-style). Each bar
+ * carries semantic `data-*` attributes for the browser check. Below the
+ * bars, an index row (0, 1, 2, …) and a pointer row that names the active
+ * indices per algorithm (`i`, `j`, `min`, `pivot`).
+ *
+ * Height is realised on the parent flex row (fixed rem) and each column is
+ * `h-full` so `height: N%` on the bar itself resolves against the row's
+ * real pixels — the reason the earlier version rendered flat.
  */
-function BarChart({ values, step }: BarChartProps) {
-  const max = Math.max(...values, ...step.array);
+function BarChart({ step, algorithm }: BarChartProps) {
+  const max = Math.max(...step.array);
   const activeSet = new Set(step.active);
   const inSubarray = (i: number) =>
     step.subarray === undefined || (i >= step.subarray[0] && i <= step.subarray[1]);
+  const pointers = pointersForFrame(step, algorithm);
+
   return (
     <div className="flex flex-col gap-1">
+      {/* Bar row — fixed height, so percentage heights on children resolve. */}
       <div
         className="flex min-w-fit items-end gap-1"
         role="row"
         aria-label="valores"
-        style={{ height: '10rem' }}
+        style={{ height: '11rem' }}
       >
         {step.array.map((v, i) => {
           const isActive = activeSet.has(i);
@@ -271,7 +293,7 @@ function BarChart({ values, step }: BarChartProps) {
             step.sortedSuffix !== undefined && i >= step.array.length - step.sortedSuffix;
           const isOutOfSubarray = !inSubarray(i);
           const barClass = isOutOfSubarray
-            ? 'border-rule bg-sunk opacity-40'
+            ? 'border-rule bg-sunk text-ink-faint opacity-50'
             : isPivot
               ? 'border-accent-pop bg-accent-pop text-surface'
               : isActive
@@ -279,7 +301,9 @@ function BarChart({ values, step }: BarChartProps) {
                 : isSortedPrefix || isSortedSuffix
                   ? 'border-keep bg-keep-soft text-ink'
                   : 'border-accent bg-surface text-ink';
-          const heightPct = (v / max) * 100;
+          // Minimum 12% so a value of 0 or 1 is still visible; scale the rest
+          // proportional to max.
+          const heightPct = Math.max(12, (v / Math.max(1, max)) * 100);
           const status = isPivot
             ? 'pivot'
             : isActive
@@ -290,33 +314,111 @@ function BarChart({ values, step }: BarChartProps) {
                   ? 'out-of-range'
                   : 'normal';
           return (
-            <div key={i} className="flex flex-col items-center" style={{ width: '1.75rem' }}>
+            <div key={i} className="flex h-full flex-col justify-end" style={{ width: '2.25rem' }}>
               <div
                 data-index={i}
                 data-value={v}
                 data-status={status}
-                className={`flex w-full items-end justify-center rounded border ${barClass} font-mono text-3xs`}
-                style={{ height: `${heightPct}%`, minHeight: '1rem' }}
+                className={`flex w-full items-end justify-center rounded border-2 font-mono text-xs font-semibold ${barClass}`}
+                style={{ height: `${heightPct}%` }}
               >
-                <span className="px-0.5 pb-0.5">{v}</span>
+                <span className="px-0.5 pb-1">{v}</span>
               </div>
             </div>
           );
         })}
       </div>
+      {/* Index row. */}
       <div className="flex min-w-fit gap-1" aria-label="índices">
         {step.array.map((_, i) => (
           <div
             key={i}
             className="flex justify-center font-mono text-3xs text-ink-faint"
-            style={{ width: '1.75rem' }}
+            style={{ width: '2.25rem' }}
           >
             {i}
           </div>
         ))}
       </div>
+      {/* Pointer row — i / j / min / pivot named under the active columns. */}
+      <div className="flex min-w-fit gap-1" aria-label="punteros">
+        {step.array.map((_, i) => {
+          const labels = pointers.get(i) ?? [];
+          return (
+            <div key={i} className="flex justify-center gap-0.5" style={{ width: '2.25rem' }}>
+              {labels.map((lbl) => (
+                <span
+                  key={lbl}
+                  data-pointer={lbl}
+                  className={`inline-flex min-w-4 items-center justify-center rounded border px-1 font-mono text-3xs font-semibold ${pointerClass(lbl)}`}
+                >
+                  {lbl}
+                </span>
+              ))}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
+}
+
+/** Which text labels ("i", "j", "min", "pivot") sit under each column for
+ * this frame — derived from the step's kind + `active` + `pivot`. Multiple
+ * labels can share a column (i and j may coincide). */
+function pointersForFrame(step: SortStep, algorithm: SortAlgorithm): Map<number, string[]> {
+  const out = new Map<number, string[]>();
+  const push = (i: number, lbl: string) => {
+    const arr = out.get(i) ?? [];
+    if (!arr.includes(lbl)) arr.push(lbl);
+    out.set(i, arr);
+  };
+  if (step.pivot !== undefined) push(step.pivot, 'pivot');
+  if (algorithm === 'selection') {
+    // active is [j, min] on compare frames, [i] on select-min updates, [i, min] on swap.
+    if (step.kind === 'compare' && step.active.length >= 2) {
+      push(step.active[0]!, 'j');
+      push(step.active[1]!, 'min');
+    } else if (step.kind === 'select-min') {
+      if (step.active.length === 2) {
+        push(step.active[0]!, 'i');
+        push(step.active[1]!, 'min');
+      } else if (step.active.length === 1) {
+        push(step.active[0]!, 'min');
+      }
+    } else if (step.kind === 'swap' && step.active.length === 2) {
+      push(step.active[0]!, 'i');
+      push(step.active[1]!, 'min');
+    }
+  } else if (algorithm === 'insertion') {
+    if (step.kind === 'select-min' && step.active.length === 1) {
+      push(step.active[0]!, 'i');
+    } else if (step.kind === 'compare' && step.active.length === 2) {
+      push(step.active[0]!, 'j');
+      push(step.active[1]!, 'i');
+    } else if (step.kind === 'shift' && step.active.length === 2) {
+      push(step.active[0]!, 'j');
+    } else if (step.kind === 'insert' && step.active.length === 1) {
+      push(step.active[0]!, 'v→');
+    }
+  } else if (algorithm === 'bubble') {
+    if ((step.kind === 'compare' || step.kind === 'swap') && step.active.length === 2) {
+      push(step.active[0]!, 'j');
+      push(step.active[1]!, 'j+1');
+    }
+  } else if (algorithm === 'quick') {
+    if (step.kind === 'partition-scan' && step.active.length === 1) {
+      push(step.active[0]!, 'i');
+    }
+  }
+  return out;
+}
+
+function pointerClass(label: string): string {
+  if (label === 'pivot') return 'border-accent-pop bg-accent-pop text-surface';
+  if (label === 'min') return 'border-keep bg-keep-soft text-ink';
+  if (label === 'v→') return 'border-accent-pop bg-accent-soft text-accent';
+  return 'border-accent bg-accent-soft text-accent';
 }
 
 // ── Aux rail (merge) ─────────────────────────────────────────────────────
@@ -324,19 +426,19 @@ function BarChart({ values, step }: BarChartProps) {
 function AuxRail({ rail }: { rail: (number | null)[] }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="font-mono text-3xs tracking-wide text-ink-faint uppercase">aux</span>
+      <span className="font-mono text-3xs tracking-wide text-ink-faint uppercase">buffer aux</span>
       <div className="flex min-w-fit gap-1" role="row" aria-label="buffer auxiliar">
         {rail.map((v, i) => (
           <div
             key={i}
             data-aux-index={i}
             data-aux-value={v ?? ''}
-            className={`inline-flex h-7 items-center justify-center rounded border font-mono text-xs ${
+            className={`inline-flex h-8 items-center justify-center rounded border font-mono text-sm ${
               v === null
                 ? 'border-rule bg-sunk text-ink-faint'
-                : 'border-keep bg-keep-soft text-ink'
+                : 'border-keep bg-keep-soft text-ink font-semibold'
             }`}
-            style={{ width: '1.75rem' }}
+            style={{ width: '2.25rem' }}
           >
             {v === null ? '·' : v}
           </div>
@@ -346,7 +448,7 @@ function AuxRail({ rail }: { rail: (number | null)[] }) {
   );
 }
 
-// ── Controls ─────────────────────────────────────────────────────────────
+// ── Controls + legend ────────────────────────────────────────────────────
 
 interface ControlButtonProps {
   onClick: () => void;
@@ -366,6 +468,15 @@ function ControlButton({ onClick, disabled, label, children }: ControlButtonProp
       {children}
       {label}
     </button>
+  );
+}
+
+function LegendSwatch({ swatchClass, label }: { swatchClass: string; label: string }) {
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span className={`inline-block h-3 w-3 rounded border ${swatchClass}`} aria-hidden />
+      {label}
+    </span>
   );
 }
 

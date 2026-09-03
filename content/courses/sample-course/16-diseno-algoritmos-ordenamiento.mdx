@@ -129,9 +129,9 @@ el interno recorre el arreglo comparando vecinos.
 </Slide>
 
 <Slide title="Bubble sort — en vivo">
-Mirá cómo el máximo "burbujea" al final en cada pasada. El sufijo
-verde marca los elementos que ya llegaron a su lugar y no se vuelven
-a tocar.
+El máximo "burbujea" al final en cada pasada, y el sufijo verde
+marca los elementos que ya llegaron a su lugar y no se vuelven a
+tocar.
 
 <SortStepper algorithm="bubble" values={[6, 3, 8, 2, 7, 5, 4, 1]} />
 
@@ -248,7 +248,8 @@ mayores hasta encontrar su lugar.
 
 Ese último es el **primer aviso del hilo teoría-práctica**: insertion
 es $$\Theta(N^2)$$ en general, **pero sobre datos casi-ordenados es
-lineal**. Vamos a volver a esto en un rato.
+lineal**. Esa propiedad reaparece cuando la biblioteca estándar la
+explota, en la sección de mergesort y quicksort.
 
 </Slide>
 
@@ -278,7 +279,9 @@ lineal**. Vamos a volver a esto en un rato.
    mergesort y quicksort en la práctica **cortan a insertion sort** en
    los subarreglos chicos justamente por (1).
 
-Se acuerdan de esta propiedad — en un rato la usamos.
+Esta propiedad — el comportamiento adaptivo sobre datos casi-ordenados
+— es la razón por la que insertion sort aparece adentro de la
+biblioteca estándar como estrategia para subarreglos chicos.
 
 </Slide>
 
@@ -346,7 +349,7 @@ cabeza más chica.
 $$T(N) = 2 \cdot T(N/2) + \Theta(N)$$
 
 Dos llamadas sobre la mitad, más un merge lineal. Con el método del
-[[complejidad-recursion|árbol de recursión]] que ya vimos: **altura
+[[complejidad-recursion|árbol de recursión]]: **altura
 $$\log_2 N$$**, y cada nivel hace $$\Theta(N)$$ trabajo (los merges
 del nivel suman $$N$$ elementos). Total: $$\Theta(N \log N)$$.
 
@@ -441,9 +444,9 @@ Suena mal: "un algoritmo cuyo peor caso es cuadrático". Pero…
 </Slide>
 
 <Slide title="Quicksort — el gap teoría-práctica en su versión más clara">
-Sedgewick lo dice así: **es más probable que te caiga un rayo mientras
-leés esto que enfrentar el peor caso de quicksort en un arreglo grande,
-si aplicaste los trucos correctos.**
+Sedgewick lo dice así: **es más probable que caiga un rayo mientras
+leemos esta clase que encontrar el peor caso de quicksort en un
+arreglo grande, si están aplicados los trucos correctos.**
 
 **Truco 1: random shuffle.** Antes de ordenar, mezclamos aleatoriamente
 el arreglo. El peor caso deja de estar ligado al **orden de entrada** y
@@ -596,8 +599,8 @@ este modelo.
 </Slide>
 
 <Slide title="Asumir cosas es ingeniería, no trampa">
-La cota que acabamos de argumentar dice: **$$N \log N$$ es lo mejor
-posible** para un ordenamiento **por comparación**. La palabra clave
+La cota anterior dice: **$$N \log N$$ es lo mejor posible** para un
+ordenamiento **por comparación**. La palabra clave
 es **"por comparación"** — si cambiamos el modelo, cambia la cota.
 
 **Counting sort** (para enteros en un rango chico): en vez de comparar,
@@ -615,7 +618,7 @@ estructura en dígitos. En ambos casos la mejora asintótica **no es
 gratis**: pagás con una **restricción sobre la entrada**.
 
 Este patrón — **asumir cosas sobre los datos para bajar el costo** —
-lo vieron antes: **búsqueda binaria** hace exactamente eso. Bajó
+apareció antes: **búsqueda binaria** hace exactamente eso. Bajó
 $$\Theta(N)$$ a $$\Theta(\log N)$$ **asumiendo que el arreglo está
 ordenado**. Counting y radix bajan $$\Theta(N \log N)$$ a
 $$\Theta(N)$$ asumiendo estructura en los valores. **Es la misma
@@ -630,8 +633,9 @@ Asumir cosas sobre los datos es **ingeniería**, no trampa.
 ## Java en producción
 
 <Slide title="`Comparable` — el orden natural">
-Hasta acá ordenamos `int[]`. Java ya sabe qué significa "menor" para
-un `int`, pero para tus propios objetos hay que decírselo. La forma
+Hasta aquí ordenamos `int[]`. Java ya sabe qué significa "menor"
+para un `int`, pero para objetos definidos por el programador hay
+que decírselo. La forma
 canónica es implementar la interfaz **`Comparable<T>`** — el objeto
 declara **cuál es su orden natural**.
 
@@ -790,13 +794,13 @@ que probablemente se hicieron desde el primer día que llamaron
 **Por qué dos algoritmos distintos.** Java elige por el **tipo** del
 arreglo, y ese tipo determina qué asunciones tiene sentido hacer:
 
-- Los primitivos **no llevan identidad** — un `5` es un `5`, dan igual
-  cuál copia. La **estabilidad** no significa nada; podés usar quicksort
-  agresivo sin cuidado por el orden relativo.
+- Los primitivos **no llevan identidad** — un `5` es un `5`, y da
+  igual cuál copia. La **estabilidad** no significa nada, así que se
+  puede usar quicksort agresivo sin cuidado por el orden relativo.
 - Los objetos **sí llevan identidad**: `p1.equals(p2)` puede ser
-  verdadero aunque `p1 != p2`. Al ordenar por edad, dos personas con
-  la misma edad quizás querés que queden en el orden en que estaban.
-  **Necesitás estabilidad** — y TimSort es estable, quicksort no.
+  verdadero aunque `p1 != p2`. Al ordenar personas por edad, dos con
+  la misma edad quizás deban quedar en el orden en que estaban.
+  **Hace falta estabilidad** — y TimSort es estable, quicksort no.
 
 **La corona del hilo teoría-práctica**: `Arrays.sort()` para
 referencias es **más rápido en la vida real** que cualquier mergesort
@@ -807,36 +811,36 @@ búsqueda binaria: **asumir para bajar el costo**.
 </Slide>
 
 <Slide title="Cuál usar, cuándo">
-Un decision-tree pragmático corto — el que aparece en la cabeza cuando
-alguien te pregunta *"qué sort uso"*:
+Un decision-tree pragmático corto para elegir un algoritmo de
+ordenamiento:
 
-1. **¿El lenguaje/biblioteca ya trae uno?** Sí → **usalo**. Punto.
+1. **¿La biblioteca del lenguaje ya trae uno?** Sí → se usa. Punto.
    `Arrays.sort()` de Java está afinado por décadas de trabajo con
-   trucos que no te vas a acordar en una entrevista.
+   trucos que rara vez sobreviven en la memoria del programador.
 
-2. **¿Podés asumir algo sobre los valores?**
+2. **¿Se puede asumir algo sobre los valores?**
    - Enteros en un rango chico → **counting sort** ($$\Theta(N + k)$$).
    - Enteros grandes o strings de longitud fija → **radix sort**
      ($$\Theta(d \cdot N)$$).
-   - Estos rompen la cota $$N \log N$$. **Si podés usarlos, usalos.**
+   - Estos rompen la cota $$N \log N$$. **Cuando se puede, se usan.**
 
-3. **¿Necesitás estabilidad?** Sí → **mergesort** (o TimSort si tenés).
-   Quicksort no es estable.
+3. **¿Hace falta estabilidad?** Sí → **mergesort** (o TimSort si el
+   lenguaje lo trae). Quicksort no es estable.
 
-4. **¿Necesitás memoria constante extra?** Sí → **quicksort in-place**
-   (no mergesort — su buffer aux pide $$\Theta(N)$$).
+4. **¿Hace falta memoria constante extra?** Sí → **quicksort in-place**
+   (no mergesort — su buffer auxiliar pide $$\Theta(N)$$).
 
 5. **¿$$N$$ es chico** ($$< 15$$)? → **insertion sort**. Las constantes
    ganan.
 
-Y sobre todo — **no ordenes lo que ya está ordenado**. La operación
+Y sobre todo — **no se ordena lo que ya está ordenado**. La operación
 más rápida es la que no se hace.
 
-**Con eso cierra la unidad hasta ahora**: en la clase pasada aprendieron
-D&C como técnica; en esta la vieron aplicada a los dos ordenamientos
-más importantes, aprendieron a leer las propiedades de un sort (estable,
-in-place, adaptivo) y a mapearlas a decisiones prácticas, y vieron por
-qué la biblioteca real elige lo que elige. La próxima clase abre el
-tercer patrón de la unidad: **programación dinámica**.
+**Con eso cerramos la unidad hasta ahora**: la clase anterior presentó
+D&C como técnica; esta la aplicó a los dos ordenamientos más
+importantes, expuso cómo leer las propiedades de un sort (estable,
+in-place, adaptivo) y cómo mapearlas a decisiones prácticas, y mostró
+por qué la biblioteca real elige lo que elige. La próxima clase abre
+el tercer patrón de la unidad: **programación dinámica**.
 
 </Slide>

@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 
+import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import {
   buildDecisionTree,
@@ -29,6 +30,7 @@ export interface DecisionTreeSortProps {
  */
 export function DecisionTreeSort({ n, showBound = true, title }: DecisionTreeSortProps) {
   const [worstCaseVisible, setWorstCaseVisible] = useState(false);
+  const mode = useMode();
   const validN = n === 2 || n === 3 || n === 4 ? n : null;
 
   // Hooks run unconditionally (rules-of-hooks). Falls back to n=2 while the
@@ -53,11 +55,19 @@ export function DecisionTreeSort({ n, showBound = true, title }: DecisionTreeSor
   const names = elementNames(validN);
 
   const heading = title ?? `Árbol de decisión · ordenamiento por comparación · n = ${validN}`;
+  const isPresentation = mode === 'presentation';
+  const bodyLayout = isPresentation
+    ? 'grid grid-cols-[minmax(0,1fr)_auto] gap-4 items-start'
+    : 'flex flex-col gap-4';
+  const panelClass = isPresentation
+    ? 'w-72 flex flex-col gap-2 rounded border border-rule bg-sunk px-3 py-2 font-mono text-xs text-ink'
+    : 'flex flex-col gap-2 rounded border border-rule bg-sunk px-3 py-2 font-mono text-xs text-ink';
 
   return (
     <figure
       data-widget="decision-tree-sort"
       data-n={validN}
+      data-mode={mode}
       className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink"
     >
       <header className="flex items-center gap-2 bg-sunk px-3 py-1.5">
@@ -67,8 +77,8 @@ export function DecisionTreeSort({ n, showBound = true, title }: DecisionTreeSor
         <h4 className="m-0 text-sm font-medium text-ink">{heading}</h4>
       </header>
 
-      <div className="flex flex-col gap-4 px-3 py-4 lg:flex-row lg:items-start">
-        <div className="lg:flex-1 lg:min-w-0 overflow-x-auto">
+      <div className={`px-3 py-4 ${bodyLayout}`}>
+        <div className="min-w-0 overflow-x-auto">
           <div className="flex justify-center">
             <Node
               node={tree}
@@ -79,7 +89,7 @@ export function DecisionTreeSort({ n, showBound = true, title }: DecisionTreeSor
           </div>
         </div>
         {showBound ? (
-          <aside className="lg:w-64 lg:shrink-0 flex flex-col gap-2 rounded border border-rule bg-sunk px-3 py-2 font-mono text-xs text-ink">
+          <aside className={panelClass}>
             <div className="flex justify-between gap-2">
               <span className="text-ink-faint">hojas</span>
               <span data-panel="leaves">
@@ -160,9 +170,9 @@ function Node({ node, names, worstCasePath, pathSoFar }: NodeProps) {
         depth={node.depth}
         highlighted={onWorstPath || isWorstLeaf}
       />
-      <div className="relative flex justify-center gap-2 pt-6 before:absolute before:top-0 before:left-1/2 before:h-6 before:w-px before:bg-rule before:content-['']">
-        <BranchLabel label="sí" />
-        <BranchLabel label="no" />
+      <div className="relative flex justify-center gap-6 pt-6 before:absolute before:top-0 before:left-1/2 before:h-6 before:w-px before:bg-rule before:content-['']">
+        <BranchLabel kind="yes" />
+        <BranchLabel kind="no" />
       </div>
       <div className="flex gap-4 pt-1">
         <Node
@@ -235,8 +245,17 @@ function Leaf({
   );
 }
 
-function BranchLabel({ label }: { label: string }) {
-  return <span className="font-mono text-3xs tracking-wide text-ink-faint uppercase">{label}</span>;
+function BranchLabel({ kind }: { kind: 'yes' | 'no' }) {
+  const label = kind === 'yes' ? 'sí' : 'no';
+  const cls =
+    kind === 'yes' ? 'border-keep bg-keep-soft text-keep' : 'border-flag bg-flag-soft text-flag';
+  return (
+    <span
+      className={`inline-flex min-w-6 items-center justify-center rounded border px-1 font-mono text-3xs font-semibold tracking-wide uppercase ${cls}`}
+    >
+      {label}
+    </span>
+  );
 }
 
 // ── Path helper ──────────────────────────────────────────────────────────
