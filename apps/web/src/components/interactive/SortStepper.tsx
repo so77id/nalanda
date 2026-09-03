@@ -162,22 +162,34 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
   const treeAlgo = algorithm === 'merge' ? 'mergesort' : algorithm === 'quick' ? 'quicksort' : null;
   const showTreePanel = showTree && treeAlgo !== null;
 
-  // Horizontal three-column layout in presentation mode; vertical stack in
-  // book mode — regardless of viewport width (per Miguel's rule).
   const isPresentation = mode === 'presentation';
-  const bodyLayout =
-    isPresentation && showTreePanel
-      ? 'grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-4'
-      : 'flex flex-col gap-4';
 
+  // In presentation mode, break out of the slide's prose max-width and use
+  // the whole viewport (the pedagogical use case wants the widget to breathe).
+  // The trick: position:relative with left:50% + translate:-50% + w:100vw
+  // makes the element span the viewport regardless of its parent's width.
+  const outerClass = isPresentation
+    ? 'not-prose my-6 relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] overflow-hidden rounded-lg border border-rule bg-surface text-ink'
+    : 'not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink';
+
+  // Presentation lays out code | bars | tree in three columns (or code | bars
+  // for n² sorts, since there is no tree). Book stacks vertically — code on
+  // top full-width, then bars, then tree (D&C only).
   const heading = title ?? headingFor(algorithm);
+
+  // Shared "column card" wrapper — used only in the presentation grid so
+  // each of the three panels reads as its own bounded box with a matching
+  // heading strip.
+  const columnCard = 'flex min-w-0 min-h-0 flex-col rounded border border-rule bg-surface';
+  const columnLabel =
+    'flex items-center gap-2 border-b border-rule bg-sunk px-2 py-1 font-mono text-3xs uppercase tracking-wide text-ink-faint';
 
   return (
     <figure
       data-widget="sort-stepper"
       data-algorithm={algorithm}
       data-mode={mode}
-      className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink"
+      className={outerClass}
     >
       <header className="flex items-center justify-between gap-2 bg-sunk px-3 py-1.5">
         <div className="flex items-center gap-2">
@@ -191,36 +203,99 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
         </span>
       </header>
 
-      {showCode ? (
-        <div className="border-b border-rule">
-          <CodeStepper
-            code={CODE[algorithm]}
-            highlightLines={step.highlightLines}
-            language="java"
-          />
-        </div>
-      ) : null}
-
-      <div className={`px-3 py-4 ${bodyLayout}`}>
-        <div className="flex min-w-0 flex-col gap-3">
-          <BarChart step={step} algorithm={algorithm} />
-          {step.auxRail ? <AuxRail rail={step.auxRail} /> : null}
-        </div>
-        {showTreePanel && treeAlgo ? (
-          <div className="min-w-0">
-            <DivideCombineTree
-              recipe={treeAlgo}
-              values={values}
-              highlightNode={step.callNode}
-              nodeAnnotations={
-                step.callNode !== undefined && step.callAnnotation !== undefined
-                  ? { [step.callNode]: step.callAnnotation }
-                  : undefined
-              }
-            />
+      {isPresentation ? (
+        // Presentation grid: 3 (or 2) equal columns, each capped at the
+        // same height so the reader's eye can compare the three panels
+        // side by side. `min-h-0` on children lets the internal scroll
+        // areas actually scroll.
+        <div
+          className={`grid gap-2 px-3 py-3 ${
+            showTreePanel
+              ? 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
+              : 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'
+          }`}
+          style={{ height: 'min(70vh, 720px)' }}
+        >
+          {showCode ? (
+            <div className={columnCard}>
+              <div className={columnLabel}>
+                <span>1 · código</span>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto">
+                <CodeStepper
+                  code={CODE[algorithm]}
+                  highlightLines={step.highlightLines}
+                  language="java"
+                />
+              </div>
+            </div>
+          ) : null}
+          <div className={columnCard}>
+            <div className={columnLabel}>
+              <span>{showCode ? '2' : '1'} · arreglo</span>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto p-3">
+              <BarChart step={step} algorithm={algorithm} tallInPresentation />
+              {step.auxRail ? (
+                <div className="mt-3">
+                  <AuxRail rail={step.auxRail} />
+                </div>
+              ) : null}
+            </div>
           </div>
-        ) : null}
-      </div>
+          {showTreePanel && treeAlgo ? (
+            <div className={columnCard}>
+              <div className={columnLabel}>
+                <span>{showCode ? '3' : '2'} · árbol</span>
+              </div>
+              <div className="min-h-0 flex-1 overflow-auto p-3">
+                <DivideCombineTree
+                  recipe={treeAlgo}
+                  values={values}
+                  highlightNode={step.callNode}
+                  nodeAnnotations={
+                    step.callNode !== undefined && step.callAnnotation !== undefined
+                      ? { [step.callNode]: step.callAnnotation }
+                      : undefined
+                  }
+                />
+              </div>
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <>
+          {showCode ? (
+            <div className="border-b border-rule">
+              <CodeStepper
+                code={CODE[algorithm]}
+                highlightLines={step.highlightLines}
+                language="java"
+              />
+            </div>
+          ) : null}
+          <div className="flex flex-col gap-4 px-3 py-4">
+            <div className="flex min-w-0 flex-col gap-3">
+              <BarChart step={step} algorithm={algorithm} />
+              {step.auxRail ? <AuxRail rail={step.auxRail} /> : null}
+            </div>
+            {showTreePanel && treeAlgo ? (
+              <div className="min-w-0">
+                <DivideCombineTree
+                  recipe={treeAlgo}
+                  values={values}
+                  highlightNode={step.callNode}
+                  nodeAnnotations={
+                    step.callNode !== undefined && step.callAnnotation !== undefined
+                      ? { [step.callNode]: step.callAnnotation }
+                      : undefined
+                  }
+                />
+              </div>
+            ) : null}
+          </div>
+        </>
+      )}
 
       <div className="border-t border-rule bg-sunk px-3 py-2 text-sm text-ink">
         <p className="m-0 font-mono text-xs">{step.description}</p>
@@ -257,6 +332,8 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
 interface BarChartProps {
   step: SortStep;
   algorithm: SortAlgorithm;
+  /** In presentation mode, give the bar row generous vertical space. */
+  tallInPresentation?: boolean;
 }
 
 /**
@@ -269,7 +346,7 @@ interface BarChartProps {
  * `h-full` so `height: N%` on the bar itself resolves against the row's
  * real pixels — the reason the earlier version rendered flat.
  */
-function BarChart({ step, algorithm }: BarChartProps) {
+function BarChart({ step, algorithm, tallInPresentation = false }: BarChartProps) {
   const max = Math.max(...step.array);
   const activeSet = new Set(step.active);
   const inSubarray = (i: number) =>
@@ -310,7 +387,7 @@ function BarChart({ step, algorithm }: BarChartProps) {
         className="flex min-w-fit items-end gap-1"
         role="row"
         aria-label="valores"
-        style={{ height: '11rem' }}
+        style={{ height: tallInPresentation ? '22rem' : '11rem' }}
       >
         {step.array.map((v, i) => {
           const isActive = activeSet.has(i);
