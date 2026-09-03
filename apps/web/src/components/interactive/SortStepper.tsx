@@ -121,6 +121,9 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
 
   const [stepIndex, setStepIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(autoplay);
+  const [liveSpeed, setLiveSpeed] = useState<'slow' | 'normal' | 'fast'>(speed);
+  // Keep the local speed in sync if the author re-authors the prop.
+  useEffect(() => setLiveSpeed(speed), [speed]);
 
   useEffect(() => {
     setStepIndex(0);
@@ -133,10 +136,10 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
       setIsPlaying(false);
       return;
     }
-    const delay = SPEED_MS[speed];
+    const delay = SPEED_MS[liveSpeed];
     const timeout = window.setTimeout(() => setStepIndex((s) => s + 1), delay);
     return () => window.clearTimeout(timeout);
-  }, [isPlaying, stepIndex, speed, totalSteps]);
+  }, [isPlaying, stepIndex, liveSpeed, totalSteps]);
 
   const step = trace.steps[stepIndex]!;
 
@@ -270,7 +273,7 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
       <header className="flex items-center justify-between gap-3 bg-sunk px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs tracking-wide text-accent uppercase">
-            sort · {algorithm}
+            sort · {fullAlgorithmName(algorithm)}
           </span>
           <h4 className="m-0 text-sm font-medium text-ink">{heading}</h4>
         </div>
@@ -312,7 +315,13 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
         >
           {showCode ? (
             <div className={columnCard}>
-              <PanelLabel index={1} label="código" />
+              <PanelLabel
+                index={1}
+                label="código"
+                hint={
+                  step.highlightLines.length > 0 ? `Java · línea ${step.highlightLines[0]}` : 'Java'
+                }
+              />
               <div className="min-h-0 flex-1 overflow-auto">
                 <CodeStepper
                   code={CODE[algorithm]}
@@ -323,7 +332,11 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
             </div>
           ) : null}
           <div className={columnCard}>
-            <PanelLabel index={showCode ? 2 : 1} label="arreglo" />
+            <PanelLabel
+              index={showCode ? 2 : 1}
+              label="arreglo"
+              hint={arrayHint(step, algorithm)}
+            />
             <div className="min-h-0 flex-1 overflow-auto p-3">
               <BarChart step={step} algorithm={algorithm} tallInPresentation />
               {step.auxRail ? (
@@ -335,7 +348,11 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
           </div>
           {showTreePanel && treeAlgo ? (
             <div className={columnCard}>
-              <PanelLabel index={showCode ? 3 : 2} label="árbol" />
+              <PanelLabel
+                index={showCode ? 3 : 2}
+                label="árbol"
+                hint={`${treeAlgo} · ${values.length} elementos`}
+              />
               <div className="min-h-0 flex-1 overflow-auto p-3">
                 <DivideCombineTree
                   recipe={treeAlgo}
@@ -408,6 +425,21 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
         <ControlButton onClick={reset} label="Reset">
           <RotateCcw size={14} aria-hidden />
         </ControlButton>
+        <label className="ml-1 inline-flex items-center gap-1 rounded border border-rule bg-surface px-2 py-1 text-xs text-ink">
+          <span className="font-mono text-3xs text-ink-faint uppercase tracking-wide">
+            velocidad
+          </span>
+          <select
+            value={liveSpeed}
+            onChange={(e) => setLiveSpeed(e.target.value as 'slow' | 'normal' | 'fast')}
+            className="bg-transparent outline-none text-xs text-ink"
+            aria-label="Velocidad de reproducción"
+          >
+            <option value="slow">lenta</option>
+            <option value="normal">normal</option>
+            <option value="fast">rápida</option>
+          </select>
+        </label>
         <div className="ml-auto flex items-center gap-3 font-mono text-3xs text-ink-faint">
           <LegendSwatch swatchClass="border-accent bg-surface" label="sin tocar" />
           <LegendSwatch swatchClass="border-accent-pop bg-accent-soft" label="activo" />
@@ -447,6 +479,9 @@ function BarChart({ step, algorithm, tallInPresentation = false }: BarChartProps
     step.subarray === undefined || (i >= step.subarray[0] && i <= step.subarray[1]);
   const pointers = pointersForFrame(step, algorithm);
   const carry = step.carry;
+  // Column width: chunkier bars in presentation so they read at classroom
+  // distance; slim bars in book mode where the widget shares a page.
+  const barCol = tallInPresentation ? '3.5rem' : '2.25rem';
 
   return (
     <div className="flex flex-col gap-1">
@@ -455,7 +490,7 @@ function BarChart({ step, algorithm, tallInPresentation = false }: BarChartProps
        * the bar row does not jump between frames. */}
       <div className="flex min-w-fit gap-1" aria-label="carta">
         {step.array.map((_, i) => (
-          <div key={i} className="flex justify-center" style={{ width: '2.25rem' }}>
+          <div key={i} className="flex justify-center" style={{ width: barCol }}>
             {carry && carry.index === i ? (
               <span
                 data-carry
@@ -512,7 +547,7 @@ function BarChart({ step, algorithm, tallInPresentation = false }: BarChartProps
                   ? 'out-of-range'
                   : 'normal';
           return (
-            <div key={i} className="flex h-full flex-col justify-end" style={{ width: '2.25rem' }}>
+            <div key={i} className="flex h-full flex-col justify-end" style={{ width: barCol }}>
               <div
                 data-index={i}
                 data-value={v}
@@ -532,7 +567,7 @@ function BarChart({ step, algorithm, tallInPresentation = false }: BarChartProps
           <div
             key={i}
             className="flex justify-center font-mono text-3xs text-ink-faint"
-            style={{ width: '2.25rem' }}
+            style={{ width: barCol }}
           >
             {i}
           </div>
@@ -543,7 +578,7 @@ function BarChart({ step, algorithm, tallInPresentation = false }: BarChartProps
         {step.array.map((_, i) => {
           const labels = pointers.get(i) ?? [];
           return (
-            <div key={i} className="flex justify-center gap-0.5" style={{ width: '2.25rem' }}>
+            <div key={i} className="flex justify-center gap-0.5" style={{ width: barCol }}>
               {labels.map((lbl) => (
                 <span
                   key={lbl}
@@ -623,8 +658,10 @@ function pointerClass(label: string): string {
 
 function AuxRail({ rail }: { rail: (number | null)[] }) {
   return (
-    <div className="flex flex-col gap-0.5">
-      <span className="font-mono text-3xs tracking-wide text-ink-faint uppercase">buffer aux</span>
+    <div className="flex flex-col gap-1 border-t border-dashed border-rule pt-3">
+      <span className="font-mono text-3xs tracking-wide text-ink-faint uppercase">
+        buffer aux · destino
+      </span>
       <div className="flex min-w-fit gap-1" role="row" aria-label="buffer auxiliar">
         {rail.map((v, i) => (
           <div
@@ -633,10 +670,10 @@ function AuxRail({ rail }: { rail: (number | null)[] }) {
             data-aux-value={v ?? ''}
             className={`inline-flex h-8 items-center justify-center rounded border font-mono text-sm ${
               v === null
-                ? 'border-rule bg-sunk text-ink-faint'
-                : 'border-keep bg-keep-soft text-ink font-semibold'
+                ? 'border-dashed border-rule bg-sunk text-ink-faint'
+                : 'border-keep bg-keep-soft font-semibold text-ink'
             }`}
-            style={{ width: '2.25rem' }}
+            style={{ width: '2.75rem' }}
           >
             {v === null ? '·' : v}
           </div>
@@ -671,16 +708,75 @@ function ControlButton({ onClick, disabled, label, children }: ControlButtonProp
 
 /** Numbered panel header used in presentation mode. The filled orange badge
  * makes the reader's scanning order explicit: 1 (código) → 2 (arreglo) → 3
- * (árbol). */
-function PanelLabel({ index, label }: { index: number; label: string }) {
+ * (árbol). An optional `hint` (right-aligned) names the sub-context of the
+ * panel — the active code line, the current merge / partition annotation,
+ * the tree's algorithm + size. */
+function PanelLabel({ index, label, hint }: { index: number; label: string; hint?: string }) {
   return (
     <div className="flex items-center gap-2 border-b border-rule bg-sunk px-3 py-1.5 font-mono text-3xs uppercase tracking-wide text-ink-faint">
       <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-accent font-bold text-on-accent">
         {index}
       </span>
       <span className="font-bold text-ink-soft">{label}</span>
+      {hint ? (
+        <span className="ml-auto normal-case tracking-normal text-ink-faint truncate">{hint}</span>
+      ) : null}
     </div>
   );
+}
+
+/** Human-readable name of the algorithm — used in the header badge so the
+ * reader identifies the algorithm at a glance ("MERGESORT" beats "merge"). */
+function fullAlgorithmName(algorithm: SortAlgorithm): string {
+  switch (algorithm) {
+    case 'bubble':
+      return 'bubble sort';
+    case 'selection':
+      return 'selection sort';
+    case 'insertion':
+      return 'insertion sort';
+    case 'merge':
+      return 'mergesort';
+    case 'quick':
+      return 'quicksort';
+  }
+}
+
+/** Compact sub-context for the arreglo panel header. Uses the step's
+ * `callAnnotation` when the algorithm frames it (merge, quick); otherwise
+ * a short phase label. */
+function arrayHint(step: SortStep, algorithm: SortAlgorithm): string {
+  if (step.callAnnotation) return step.callAnnotation;
+  switch (step.kind) {
+    case 'compare':
+      return 'comparando';
+    case 'swap':
+      return 'intercambiando';
+    case 'shift':
+      return 'corriendo';
+    case 'insert':
+      return 'insertando v';
+    case 'select-min':
+      return algorithm === 'insertion'
+        ? 'tomando la carta'
+        : algorithm === 'quick'
+          ? 'eligiendo pivot'
+          : 'buscando el mínimo';
+    case 'partition-scan':
+      return 'particionando';
+    case 'partition-done':
+      return 'partición lista';
+    case 'merge-take':
+      return 'combinando';
+    case 'merge-done':
+      return 'merge listo';
+    case 'enter':
+      return 'entrando en la llamada';
+    case 'return':
+      return 'retornando';
+    case 'done':
+      return 'listo';
+  }
 }
 
 function LegendSwatch({ swatchClass, label }: { swatchClass: string; label: string }) {
