@@ -56,6 +56,12 @@ export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { RecursionTree } from './interactive/RecursionTree';
 export { DivideCombineTree } from './interactive/DivideCombineTree';
+// The lazy wrapper, not the widget itself: <SortStepper> composes <CodeStepper>
+// (CodeMirror + java grammar) plus <DivideCombineTree> for merge/quick.
+// Registering the real component here would put CodeMirror in the entry chunk
+// of every reader of every page (guarded in `src/architecture.test.ts`).
+// ADR-0065.
+export { LazySortStepper } from './interactive/lazySortStepper';
 // The lazy wrapper, not the widget itself: <BinarySearchOnArray> composes
 // <CodeStepper> (CodeMirror + java grammar), and the MDX map is evaluated
 // eagerly. Registering the real component here would put CodeMirror in the

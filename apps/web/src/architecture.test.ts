@@ -375,6 +375,27 @@ describe('architecture: the binarysearchonarray widget stays out of the entry ch
   });
 });
 
+describe('architecture: the sortstepper widget stays out of the entry chunk', () => {
+  // SortStepper composes <CodeStepper> (CodeMirror + java grammar) plus
+  // <DivideCombineTree> for merge/quick. Registering the real component
+  // eagerly would pull CodeMirror into the entry chunk of every reader of
+  // every page. ADR-0065. Same shape as the other heavy-component guards —
+  // a single ALLOWED entry, no per-file exemptions.
+  const ALLOWED = ['components/interactive/lazySortStepper.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/sortstepper' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: the karatsubaviz widget stays out of the entry chunk', () => {
   // KaratsubaViz composes <CodeStepper> (CodeMirror + java grammar). Same
   // shape as the other lazy-widget guards. ADR-0062.
