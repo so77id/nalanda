@@ -508,7 +508,20 @@ primitivos.
 Puestos a correr, así se ven los cinco:
 
 <Benchmark
-  autoplay
+  seededResults={{
+    // Números pre-medidos por Miguel en su máquina (una corrida). Aparecen
+    // al cargar la página sin llamar a CheerpJ — el reader los ve
+    // inmediatamente. "Re-run" los reemplaza con una medición fresca.
+    // TODO: pegar los tiempos reales aquí después de correr una vez.
+    n: 50,
+    results: {
+      bubble: { medianMs: 0.05, minMs: 0.04, maxMs: 0.06 },
+      selection: { medianMs: 0.05, minMs: 0.04, maxMs: 0.06 },
+      insertion: { medianMs: 0.03, minMs: 0.02, maxMs: 0.04 },
+      mergesort: { medianMs: 0.08, minMs: 0.07, maxMs: 0.09 },
+      quicksort: { medianMs: 0.05, minMs: 0.04, maxMs: 0.06 },
+    },
+  }}
   implementations={[
     { name: "bubble", code: `import java.util.Scanner;
 import java.util.Random;
