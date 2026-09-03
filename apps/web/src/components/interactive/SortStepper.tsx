@@ -190,6 +190,11 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
     // Reading `scale` off the ancestor's transform matrix keeps this
     // synchronised with the Slide's auto-fit logic without knowing its
     // implementation.
+    // Widgets with a tree (mergesort, quicksort) fill the viewport in
+    // presentation — the tree needs the room. Widgets without a tree
+    // (bubble, selection, insertion) take 75 %: enough for code + array
+    // side by side, but not the visual bloat of an empty third of screen.
+    const widthFraction = showTreePanel ? 1 : 0.75;
     const update = () => {
       // Reset first so measurements reflect the natural flow position.
       el.style.width = '';
@@ -211,19 +216,19 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
         }
         scaleHost = scaleHost.parentElement;
       }
-      // The widget's rect uses ANCESTOR-SCALED coordinates; the natural (pre-
-      // scale) x-in-parent is `rect.left / scale` when scale is uniform. But
-      // we don't need the actual value — we just need to size the widget so
-      // that AFTER scaling it fills the viewport, AND to null out the
-      // horizontal offset the parent's centering imposes.
+      // The widget's rect uses ANCESTOR-SCALED coordinates; the natural
+      // (pre-scale) x-in-parent is `rect.left / scale` when scale is
+      // uniform. Size the widget so that AFTER scaling it takes the
+      // desired fraction of the viewport, then shift it so its centre
+      // lines up with the viewport centre.
       const vw = document.documentElement.clientWidth;
-      const authored = Math.round(vw / scale);
+      const displayedWidth = vw * widthFraction;
+      const authored = Math.round(displayedWidth / scale);
       el.style.width = `${authored}px`;
-      // Cancel the parent's centering: after we set width to `authored`,
-      // measure again and subtract the resulting left position (in scaled
-      // coordinates) via a negative margin-left in AUTHORED units.
       const rect = el.getBoundingClientRect();
-      const shiftAuthored = Math.round(rect.left / scale);
+      // Target left (in viewport coords) that centres the widget:
+      const targetLeft = (vw - displayedWidth) / 2;
+      const shiftAuthored = Math.round((rect.left - targetLeft) / scale);
       el.style.marginLeft = `-${shiftAuthored}px`;
     };
     // Run on next frame — the parent's transform may not have been applied
@@ -244,7 +249,7 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
       el.style.width = '';
       el.style.marginLeft = '';
     };
-  }, [isPresentation, algorithm, valuesKey]);
+  }, [isPresentation, algorithm, valuesKey, showTreePanel]);
 
   const outerClass = isPresentation
     ? 'not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink'
