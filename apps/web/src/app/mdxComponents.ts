@@ -29,6 +29,7 @@ import {
   Questions,
   RecursionTree,
   DivideCombineTree,
+  DecisionTreeSort,
   SectionBreak,
   SheetEmbed,
   SideBySide,
@@ -129,6 +130,10 @@ export const mdxComponents = {
   // with `mergesort`/`quicksort` recipes and the `highlightNode` +
   // `nodeAnnotations` hooks the sort-stepper composes.
   DivideCombineTree,
+  // Same shape family — SVG-free chips with pseudo-element connector lines,
+  // no CodeMirror, no runtime seam. One interactive toggle ("Mostrar peor
+  // caso"). ADR-0066.
+  DecisionTreeSort,
   // Lazy: composes <CodeStepper> (CodeMirror + java grammar) plus
   // <DivideCombineTree> for merge/quick. Registering the real component here
   // would put CodeMirror in the entry chunk of every reader. Guarded by

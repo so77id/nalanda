@@ -56,6 +56,10 @@ export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { RecursionTree } from './interactive/RecursionTree';
 export { DivideCombineTree } from './interactive/DivideCombineTree';
+// SVG-free chip layout, no CodeMirror, no runtime seam — same eager-import
+// shape as `<DivideCombineTree>`. Static tree with one interactive toggle.
+// ADR-0066.
+export { DecisionTreeSort } from './interactive/DecisionTreeSort';
 // The lazy wrapper, not the widget itself: <SortStepper> composes <CodeStepper>
 // (CodeMirror + java grammar) plus <DivideCombineTree> for merge/quick.
 // Registering the real component here would put CodeMirror in the entry chunk
