@@ -133,21 +133,31 @@ describe('SortStepper', () => {
   });
 
   describe('aux rail (merge)', () => {
-    it('renders no aux rail on the initial frame (nothing merged yet)', () => {
+    it('renders the aux rail from the initial frame (empty slots) so the layout does not jump', () => {
       const { container } = render(<SortStepper algorithm="merge" values={[3, 7, 1, 5]} />);
-      expect(container.querySelector('[data-aux-index]')).toBeNull();
+      // 4 empty slots visible from the first frame.
+      const slots = container.querySelectorAll('[data-aux-index]');
+      expect(slots.length).toBe(4);
+      for (const slot of slots) {
+        expect(slot.getAttribute('data-aux-value')).toBe('');
+      }
     });
 
-    it('renders the aux rail once the first merge-take frame arrives', () => {
+    it('fills the aux rail once merge-take frames arrive', () => {
       const { container } = render(<SortStepper algorithm="merge" values={[3, 7]} />);
-      // Merge on [3,7]: enter, return-base-left, enter-right, return-base-right,
-      // then the first merge-take on the parent. Advance until it appears.
       const paso = screen.getByRole('button', { name: /Paso/ });
+      // Walk forward until at least one slot has a value.
       for (let i = 0; i < 20; i += 1) {
-        if (container.querySelector('[data-aux-index]')) break;
+        const filled = container.querySelector('[data-aux-value]:not([data-aux-value=""])');
+        if (filled) break;
         fireEvent.click(paso);
       }
-      expect(container.querySelector('[data-aux-index]')).not.toBeNull();
+      expect(container.querySelector('[data-aux-value]:not([data-aux-value=""])')).not.toBeNull();
+    });
+
+    it('never renders the aux rail for n² algorithms', () => {
+      const { container } = render(<SortStepper algorithm="bubble" values={[3, 1, 2]} />);
+      expect(container.querySelector('[data-aux-index]')).toBeNull();
     });
   });
 });

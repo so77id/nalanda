@@ -308,7 +308,10 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
         <div
           className={`grid gap-2 px-3 py-3 ${
             showTreePanel
-              ? 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]'
+              ? // 40 / 20 / 40 — the array panel is narrower (per Miguel):
+                // its content (barras + aux buffer) fits well in 20 %, and
+                // the code + tree panels get the room they need.
+                'grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,2fr)]'
               : 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'
           }`}
           style={{ height: 'min(70vh, 720px)' }}
@@ -339,9 +342,18 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
             />
             <div className="min-h-0 flex-1 overflow-auto p-3">
               <BarChart step={step} algorithm={algorithm} tallInPresentation />
-              {step.auxRail ? (
+              {/* Aux buffer: always visible for mergesort so the reader can
+               * see "how much extra memory this needs" between frames — not
+               * just during merge-take. Empty slots reserve the space so
+               * the layout does not jump when a merge starts. */}
+              {algorithm === 'merge' ? (
                 <div className="mt-3">
-                  <AuxRail rail={step.auxRail} />
+                  <AuxRail
+                    rail={
+                      step.auxRail ??
+                      (Array.from({ length: values.length }, () => null) as (number | null)[])
+                    }
+                  />
                 </div>
               ) : null}
             </div>
@@ -363,6 +375,7 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
                       ? { [step.callNode]: step.callAnnotation }
                       : undefined
                   }
+                  bare
                 />
               </div>
             </div>
@@ -382,7 +395,14 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
           <div className="flex flex-col gap-4 px-3 py-4">
             <div className="flex min-w-0 flex-col gap-3">
               <BarChart step={step} algorithm={algorithm} />
-              {step.auxRail ? <AuxRail rail={step.auxRail} /> : null}
+              {algorithm === 'merge' ? (
+                <AuxRail
+                  rail={
+                    step.auxRail ??
+                    (Array.from({ length: values.length }, () => null) as (number | null)[])
+                  }
+                />
+              ) : null}
             </div>
             {showTreePanel && treeAlgo ? (
               <div className="min-w-0">

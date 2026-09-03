@@ -335,6 +335,11 @@ export interface DivideCombineTreeProps {
    * middle row (which otherwise carries the recipe's default: pivot for
    * quicksort, nothing for mergesort, L/R/✕ for max-subarray). */
   nodeAnnotations?: Record<string, string>;
+  /** When true, render only the tree chips — no `<figure>` chrome (header,
+   * border, footer). For host widgets that render the tree inside their
+   * own frame (e.g. `<SortStepper>`), so the reader does not see "a widget
+   * inside a widget". */
+  bare?: boolean;
 }
 
 /**
@@ -355,6 +360,7 @@ export function DivideCombineTree({
   title,
   highlightNode,
   nodeAnnotations,
+  bare = false,
 }: DivideCombineTreeProps) {
   const known = recipe === undefined ? undefined : RECIPES[recipe];
   const recipeNames = Object.keys(RECIPES);
@@ -413,6 +419,17 @@ export function DivideCombineTree({
   }
 
   const heading = title ?? headingFor(recipe, values.length, target);
+
+  if (bare) {
+    // Chrome-less: host widget provides the frame (header, border,
+    // footer). Emitting the chips alone keeps `<SortStepper>` from
+    // reading as "a widget inside a widget".
+    return (
+      <div data-recipe={recipe} className="flex justify-center overflow-x-auto">
+        <Node node={root} highlightNode={highlightNode} nodeAnnotations={nodeAnnotations} />
+      </div>
+    );
+  }
 
   return (
     <figure
