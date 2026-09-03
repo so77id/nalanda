@@ -51,6 +51,39 @@ function pickBest(...candidates: SubarrayResult[]): SubarrayResult {
  * which blows the cap. */
 const MAX_NODES = 100;
 
+/** Parse `"[3,7,1]"` back into `[3, 7, 1]`. Used by mergesort/quicksort
+ * recipes to walk the sorted returnValues their children emit. */
+function parseArray(s: string): number[] {
+  const inner = s.slice(1, -1);
+  if (inner.length === 0) return [];
+  return inner.split(',').map((x) => Number(x));
+}
+
+/** Classic O(n+m) merge of two sorted arrays. */
+function merge(a: number[], b: number[]): number[] {
+  const out: number[] = [];
+  let i = 0;
+  let j = 0;
+  while (i < a.length && j < b.length) {
+    if (a[i]! <= b[j]!) {
+      out.push(a[i]!);
+      i += 1;
+    } else {
+      out.push(b[j]!);
+      j += 1;
+    }
+  }
+  while (i < a.length) {
+    out.push(a[i]!);
+    i += 1;
+  }
+  while (j < b.length) {
+    out.push(b[j]!);
+    j += 1;
+  }
+  return out;
+}
+
 const RECIPES: Record<string, Recipe> = {
   max: {
     build: ({ values }) => {
@@ -127,6 +160,71 @@ const RECIPES: Record<string, Recipe> = {
         };
       }
       return build(0, values.length - 1).node;
+    },
+  },
+  mergesort: {
+    build: ({ values }) => {
+      function build(lo: number, hi: number): TreeNode {
+        const slice = values.slice(lo, hi + 1);
+        const call = `mergesort([${slice.join(',')}])`;
+        if (lo === hi) {
+          return {
+            call,
+            returnValue: `[${values[lo]}]`,
+            isBase: true,
+            children: [],
+          };
+        }
+        const mid = Math.floor((lo + hi) / 2);
+        const left = build(lo, mid);
+        const right = build(mid + 1, hi);
+        // Merge the two sorted subarrays returned by children.
+        const leftSorted = parseArray(left.returnValue);
+        const rightSorted = parseArray(right.returnValue);
+        const merged = merge(leftSorted, rightSorted);
+        return {
+          call,
+          returnValue: `[${merged.join(',')}]`,
+          isBase: false,
+          children: [left, right],
+        };
+      }
+      return build(0, values.length - 1);
+    },
+  },
+  quicksort: {
+    build: ({ values }) => {
+      // Deterministic pedagogical pivot: first element of the subarray.
+      // The class explains that shuffle + median-of-3 are the practical
+      // trick used by stdlib; the tree here shows the PATTERN, not the
+      // production choice.
+      function build(slice: number[]): TreeNode {
+        const call = `quicksort([${slice.join(',')}])`;
+        if (slice.length <= 1) {
+          return {
+            call,
+            returnValue: `[${slice.join(',')}]`,
+            isBase: true,
+            children: [],
+          };
+        }
+        const pivot = slice[0]!;
+        const rest = slice.slice(1);
+        const left = rest.filter((x) => x < pivot);
+        const right = rest.filter((x) => x >= pivot);
+        const leftNode = build(left);
+        const rightNode = build(right);
+        const leftSorted = parseArray(leftNode.returnValue);
+        const rightSorted = parseArray(rightNode.returnValue);
+        return {
+          call,
+          returnValue: `[${[...leftSorted, pivot, ...rightSorted].join(',')}]`,
+          isBase: false,
+          intermediates: [{ label: 'pivot', value: `${pivot}` }],
+          children: [leftNode, rightNode],
+        };
+      }
+      return build(values);
     },
   },
   'binary-search': {
@@ -216,8 +314,8 @@ function isStrictlyIncreasing(a: number[]): boolean {
 }
 
 export interface DivideCombineTreeProps {
-  /** Which recipe to draw. Two today: `max` (binary tree over the whole
-   * array) and `binary-search` (linear chain along the path taken). */
+  /** Which recipe to draw. Today: `max`, `max-subarray`, `binary-search`,
+   * `mergesort`, `quicksort`. */
   recipe?: string;
   /** The input array. For `binary-search`, must be strictly increasing. */
   values?: number[];
@@ -225,6 +323,15 @@ export interface DivideCombineTreeProps {
   target?: number;
   /** Header override. */
   title?: string;
+  /** When set, the chip whose `call` matches this string is rendered with a
+   * focus ring and exposes `data-highlighted="true"`. Used by `<SortStepper>`
+   * to point at the call the stepper is currently executing. */
+  highlightNode?: string;
+  /** Optional per-chip middle-row overrides, keyed by the chip's `call`.
+   * When a chip's call is a key, the given string replaces the chip's
+   * middle row (which otherwise carries the recipe's default: pivot for
+   * quicksort, nothing for mergesort, L/R/✕ for max-subarray). */
+  nodeAnnotations?: Record<string, string>;
 }
 
 /**
@@ -238,7 +345,14 @@ export interface DivideCombineTreeProps {
  * (one call per level, only the path taken) — the "cadena logarítmica" that
  * gives BS its Θ(log N).
  */
-export function DivideCombineTree({ recipe, values, target, title }: DivideCombineTreeProps) {
+export function DivideCombineTree({
+  recipe,
+  values,
+  target,
+  title,
+  highlightNode,
+  nodeAnnotations,
+}: DivideCombineTreeProps) {
   const known = recipe === undefined ? undefined : RECIPES[recipe];
   const recipeNames = Object.keys(RECIPES);
 
@@ -315,7 +429,7 @@ export function DivideCombineTree({ recipe, values, target, title }: DivideCombi
       </header>
 
       <div className="flex justify-center overflow-x-auto px-3 py-6">
-        <Node node={root} />
+        <Node node={root} highlightNode={highlightNode} nodeAnnotations={nodeAnnotations} />
       </div>
 
       <p className="border-t border-rule bg-sunk px-3 py-1.5 text-3xs text-ink-faint">
@@ -332,15 +446,19 @@ function headingFor(recipe: string, n: number, target?: number): string {
   if (recipe === 'binary-search')
     return `Árbol divide/combine · búsqueda binaria de ${target} sobre ${n} elementos`;
   if (recipe === 'max-subarray') return `Árbol divide/combine · max-subarray sobre ${n} elementos`;
+  if (recipe === 'mergesort') return `Árbol divide/combine · mergesort sobre ${n} elementos`;
+  if (recipe === 'quicksort') return `Árbol divide/combine · quicksort sobre ${n} elementos`;
   return `Árbol divide/combine · ${recipe}`;
 }
 
 interface NodeProps {
   node: TreeNode;
+  highlightNode?: string;
+  nodeAnnotations?: Record<string, string>;
 }
 
-function Node({ node }: NodeProps) {
-  const chip = <Chip node={node} />;
+function Node({ node, highlightNode, nodeAnnotations }: NodeProps) {
+  const chip = <Chip node={node} highlightNode={highlightNode} nodeAnnotations={nodeAnnotations} />;
 
   if (node.children.length === 0) {
     return <div className="flex flex-col items-center">{chip}</div>;
@@ -369,7 +487,7 @@ function Node({ node }: NodeProps) {
               key={i}
               className={`relative flex flex-col items-center px-1 pt-6 before:absolute before:top-0 before:h-px before:bg-rule before:content-[''] after:absolute after:top-0 after:left-1/2 after:h-6 after:w-px after:bg-rule after:content-[''] ${barSide}`}
             >
-              <Node node={child} />
+              <Node node={child} highlightNode={highlightNode} nodeAnnotations={nodeAnnotations} />
             </div>
           );
         })}
@@ -380,28 +498,40 @@ function Node({ node }: NodeProps) {
 
 interface ChipProps {
   node: TreeNode;
+  highlightNode?: string;
+  nodeAnnotations?: Record<string, string>;
 }
 
-function Chip({ node }: ChipProps) {
+function Chip({ node, highlightNode, nodeAnnotations }: ChipProps) {
+  const highlighted = highlightNode !== undefined && node.call === highlightNode;
   const affordance = node.dimmed
     ? 'border-rule bg-sunk opacity-40'
     : node.isBase
       ? 'border-keep bg-keep-soft'
       : 'border-accent bg-accent-soft';
+  // A stepper marks its current call with the focus token; the ring reads
+  // in both themes because focus is a registered semantic.
+  const highlightRing = highlighted ? 'ring-2 ring-focus ring-offset-1 ring-offset-surface' : '';
+  const annotation = nodeAnnotations?.[node.call];
+  const middleSlots: { label: string; value: string }[] | undefined =
+    annotation !== undefined
+      ? [{ label: '', value: annotation }]
+      : node.intermediates && node.intermediates.length > 0
+        ? node.intermediates
+        : undefined;
   return (
     <div
       data-call={node.call}
       data-return={node.returnValue}
       data-dimmed={node.dimmed ? 'true' : undefined}
-      className={`inline-flex flex-col items-stretch overflow-hidden rounded border ${affordance} font-mono text-[9px] leading-tight whitespace-nowrap`}
+      data-highlighted={highlighted ? 'true' : undefined}
+      className={`inline-flex flex-col items-stretch overflow-hidden rounded border ${affordance} ${highlightRing} font-mono text-[9px] leading-tight whitespace-nowrap`}
     >
       <div className="border-b border-rule/60 px-1 py-0.5 text-ink">{node.call}</div>
-      {node.intermediates && node.intermediates.length > 0 ? (
+      {middleSlots ? (
         <div className="flex gap-2 border-b border-rule/40 bg-sunk px-1 py-0.5 text-ink-faint">
-          {node.intermediates.map((it) => (
-            <span key={it.label}>
-              {it.label}={it.value}
-            </span>
+          {middleSlots.map((it, i) => (
+            <span key={`${it.label}-${i}`}>{it.label ? `${it.label}=${it.value}` : it.value}</span>
           ))}
         </div>
       ) : null}

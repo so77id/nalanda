@@ -140,4 +140,106 @@ describe('DivideCombineTree', () => {
     render(<DivideCombineTree recipe="max" values={big} />);
     expect(screen.getByText(/demasiado grande/i)).toBeInTheDocument();
   });
+
+  // ---------------------------------------------------------------------
+  // recipe="mergesort"
+  // ---------------------------------------------------------------------
+
+  it('draws mergesort as a binary tree with a sorted subarray on every chip', () => {
+    render(<DivideCombineTree recipe="mergesort" values={[3, 7, 1, 5]} />);
+
+    // Root call.
+    const root = document.querySelector('[data-call="mergesort([3,7,1,5])"]');
+    expect(root?.getAttribute('data-return')).toBe('[1,3,5,7]');
+
+    // Two children: left half [3,7], right half [1,5].
+    expect(
+      document.querySelector('[data-call="mergesort([3,7])"]')?.getAttribute('data-return'),
+    ).toBe('[3,7]');
+    expect(
+      document.querySelector('[data-call="mergesort([1,5])"]')?.getAttribute('data-return'),
+    ).toBe('[1,5]');
+
+    // Four leaves, one per element.
+    expect(document.querySelector('[data-call="mergesort([3])"]')).not.toBeNull();
+    expect(document.querySelector('[data-call="mergesort([7])"]')).not.toBeNull();
+    expect(document.querySelector('[data-call="mergesort([1])"]')).not.toBeNull();
+    expect(document.querySelector('[data-call="mergesort([5])"]')).not.toBeNull();
+  });
+
+  // ---------------------------------------------------------------------
+  // recipe="quicksort"
+  // ---------------------------------------------------------------------
+
+  it('draws quicksort with pivot=a[0] and exposes pivot as an intermediate on internal chips', () => {
+    // Pivot policy: first element of the subarray.
+    // quicksort([3,7,1,5]): pivot=3 → left=[1], right=[7,5]
+    //   left  quicksort([1]) base
+    //   right quicksort([7,5]): pivot=7 → left=[5], right=[] → base+base
+    render(<DivideCombineTree recipe="quicksort" values={[3, 7, 1, 5]} />);
+
+    const root = document.querySelector('[data-call="quicksort([3,7,1,5])"]');
+    expect(root?.getAttribute('data-return')).toBe('[1,3,5,7]');
+    // Middle row of the root chip carries pivot=3.
+    expect(root?.textContent).toMatch(/pivot=3/);
+
+    // Right subtree — pivot 7, right child empty.
+    expect(document.querySelector('[data-call="quicksort([7,5])"]')?.textContent).toMatch(
+      /pivot=7/,
+    );
+    expect(document.querySelector('[data-call="quicksort([])"]')?.getAttribute('data-return')).toBe(
+      '[]',
+    );
+  });
+
+  // ---------------------------------------------------------------------
+  // highlightNode + nodeAnnotations (used by <SortStepper>)
+  // ---------------------------------------------------------------------
+
+  it('marks the chip whose call matches highlightNode with data-highlighted', () => {
+    render(
+      <DivideCombineTree
+        recipe="mergesort"
+        values={[3, 7, 1, 5]}
+        highlightNode="mergesort([3,7])"
+      />,
+    );
+    const highlighted = document.querySelector('[data-highlighted="true"]');
+    expect(highlighted).not.toBeNull();
+    expect(highlighted?.getAttribute('data-call')).toBe('mergesort([3,7])');
+    // No other chip is highlighted.
+    expect(document.querySelectorAll('[data-highlighted="true"]').length).toBe(1);
+  });
+
+  it('renders no highlight when highlightNode is absent or matches no chip', () => {
+    const { rerender } = render(<DivideCombineTree recipe="mergesort" values={[3, 7]} />);
+    expect(document.querySelectorAll('[data-highlighted="true"]').length).toBe(0);
+
+    rerender(
+      <DivideCombineTree recipe="mergesort" values={[3, 7]} highlightNode="mergesort([9,9])" />,
+    );
+    expect(document.querySelectorAll('[data-highlighted="true"]').length).toBe(0);
+  });
+
+  it('overrides the middle row of a chip when nodeAnnotations names its call', () => {
+    render(
+      <DivideCombineTree
+        recipe="mergesort"
+        values={[3, 7, 1, 5]}
+        nodeAnnotations={{ 'mergesort([3,7,1,5])': 'combinando [3,7]+[1,5]' }}
+      />,
+    );
+    const root = document.querySelector('[data-call="mergesort([3,7,1,5])"]');
+    expect(root?.textContent).toMatch(/combinando \[3,7\]\+\[1,5\]/);
+  });
+
+  it('leaves existing recipes unchanged when the new props are absent', () => {
+    // Regression guard for ADR-0063 recipes: max still renders and picks the
+    // winner, no data-highlighted anywhere.
+    render(<DivideCombineTree recipe="max" values={[3, 7, 1, 5]} />);
+    expect(document.querySelectorAll('[data-highlighted="true"]').length).toBe(0);
+    expect(
+      document.querySelector('[data-call="max([3,7,1,5])"]')?.getAttribute('data-return'),
+    ).toBe('7');
+  });
 });
