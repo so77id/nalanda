@@ -1,0 +1,842 @@
+---
+id: diseno-algoritmos-ordenamiento
+title: Diseño de Algoritmos · Ordenamiento
+presentation: explicit
+questions: none
+---
+
+# Diseño de Algoritmos · Ordenamiento
+
+Segundo capítulo de la unidad **Diseño de Algoritmos**. En la clase
+anterior — [[diseno-algoritmos-divide-y-venceras|Divide y Conquista]]
+— cerramos con una pieza que quedó suelta: la **búsqueda binaria**
+solamente funciona si el arreglo está ordenado, y en ese momento
+dijimos "cómo se ordena rápido se ve en la próxima clase". Esa
+próxima clase es esta.
+
+Ordenar es el mejor problema para tener esta conversación. El
+enunciado se explica en una frase ("dado un arreglo, dejalo en orden
+creciente"), pero adentro cabe **el zoológico asintótico completo**:
+$$\Theta(N^2)$$ con los sorts elementales, $$\Theta(N \log N)$$ con
+los sorts D&C, y — como puerta que solo nombramos al final —
+$$\Theta(N)$$ cuando asumís algo sobre los datos. También es el mejor
+lugar para encontrarnos por **primera vez** con el **gap entre la
+teoría y la práctica**: hay algoritmos asintóticamente peores que
+ganan en tamaños chicos, y la biblioteca estándar de Java lo sabe y
+lo explota.
+
+La clase recorre cinco algoritmos (bubble, selection, insertion,
+mergesort, quicksort) con la misma regla pedagógica —**idea → código
+→ widget → análisis → propiedades**—, cierra con la **cota inferior
+$$N \log N$$** para cualquier ordenamiento por comparación, y termina
+mostrando qué hace **`Arrays.sort()`** por dentro.
+
+<SectionBreak />
+
+<Slide title="El cabo suelto de la clase pasada">
+En [[diseno-algoritmos-divide-y-venceras|Divide y Conquista]] vimos
+la **búsqueda binaria**:
+
+```java
+static int bs(int[] a, int lo, int hi, int t) {
+    if (lo > hi) return -1;
+    int mid = (lo + hi) / 2;
+    if (a[mid] == t) return mid;
+    if (t < a[mid]) return bs(a, lo, mid - 1, t);
+    return bs(a, mid + 1, hi, t);
+}
+```
+
+Buscar en $$\Theta(\log N)$$ en vez de $$\Theta(N)$$ es un cambio
+enorme — para un millón de elementos, 20 comparaciones contra un
+millón. **Pero solo funciona si el arreglo está ordenado.**
+
+La pregunta natural: **¿cuánto cuesta ordenarlo?** Si ordenar cuesta
+$$\Theta(N \log N)$$, entonces ordenar-una-vez-y-buscar-muchas es un
+buen negocio. Si cuesta $$\Theta(N^2)$$, ordenar es más caro que
+buscar linealmente y la búsqueda binaria no compensa.
+
+Esta clase responde esa pregunta.
+
+</Slide>
+
+<Slide title="El gap entre la teoría y la práctica">
+Antes de empezar, un hilo que vamos a tirar en cada algoritmo.
+
+En complejidad enseñamos que $$\Theta$$ describe cómo escala el costo
+cuando $$N$$ se hace grande. Pero **en la vida real las bibliotecas
+no siempre eligen el algoritmo asintóticamente óptimo**. Java, por
+ejemplo, usa **mezclas híbridas**: mergesort cuando conviene,
+quicksort cuando conviene, insertion sort adentro cuando el subarreglo
+es chico, TimSort cuando los datos vienen casi-ordenados. La razón:
+las constantes escondidas detrás del $$\Theta$$ importan cuando $$N$$
+es chico, y en la práctica muchos $$N$$ son chicos.
+
+Para cada algoritmo vamos a ver **dónde el análisis asintótico se
+queda corto**, y al final vamos a ver cómo la biblioteca real explota
+todos esos huecos. Es la lección más útil que se llevan de la clase:
+**el $$\Theta$$ no es la última palabra**, es la primera.
+
+</Slide>
+
+<SectionBreak />
+
+## Los ordenamientos elementales
+
+<Slide title="El problema">
+**Dado** un arreglo `a` de `n` enteros, **producir** el mismo arreglo
+con los elementos en orden creciente.
+
+Ejemplo:
+
+```
+entrada: [6, 3, 8, 2, 7, 5, 4, 1]
+salida:  [1, 2, 3, 4, 5, 6, 7, 8]
+```
+
+Los tres primeros algoritmos son la manera **directa** de resolver
+esto — no piden mucho ingenio, solo paciencia. Los tres cuestan
+$$\Theta(N^2)$$. Los llamamos **elementales** porque son los que
+inventaría cualquiera si le dieran el problema y le pidieran una
+solución la próxima mañana.
+
+Vamos a verlos en el orden en que aparecen en cualquier libro:
+**bubble**, **selection**, **insertion**.
+
+</Slide>
+
+<Slide title="Bubble sort — la idea">
+La idea de **bubble sort** es la más simple posible: **recorrer el
+arreglo comparando vecinos, y si están fuera de orden, intercambiarlos.**
+Después de una pasada, el elemento más grande "burbujea" hasta el
+final. Repetir $$n$$ veces y el arreglo queda ordenado.
+
+```java
+static void bubble(int[] a) {
+    for (int i = a.length - 1; i > 0; i--) {
+        for (int j = 0; j < i; j++) {
+            if (a[j] > a[j + 1]) {
+                int t = a[j]; a[j] = a[j + 1]; a[j + 1] = t;
+            }
+        }
+    }
+}
+```
+
+Dos ciclos anidados. El externo controla **cuántos pasos** hacemos;
+el interno recorre el arreglo comparando vecinos.
+
+</Slide>
+
+<Slide title="Bubble sort — en vivo">
+Mirá cómo el máximo "burbujea" al final en cada pasada. El sufijo
+verde marca los elementos que ya llegaron a su lugar y no se vuelven
+a tocar.
+
+<SortStepper algorithm="bubble" values={[6, 3, 8, 2, 7, 5, 4, 1]} />
+
+**Análisis.** El ciclo externo hace $$n$$ pasadas. El interno recorre
+el arreglo. En el peor caso — arreglo ordenado al revés — hace
+$$\Theta(N^2)$$ comparaciones y $$\Theta(N^2)$$ swaps.
+
+**Propiedades.**
+
+- **Estable**: nunca intercambia dos elementos iguales (la comparación
+  es `>`, no `>=`).
+- **In-place**: solo usa una variable temporal para el swap; no pide
+  memoria extra.
+- **Adaptivo**: si le agregamos una bandera que detecta que una pasada
+  no hizo ningún swap y corta el ciclo, sobre un arreglo ya ordenado
+  hace $$\Theta(N)$$ comparaciones y $$0$$ swaps.
+
+</Slide>
+
+<Slide title="Selection sort — la idea">
+En **selection sort** la lógica cambia: en vez de intercambiar
+vecinos, **buscamos el mínimo** de la parte no-ordenada del arreglo y
+lo colocamos en su lugar.
+
+```java
+static void selection(int[] a) {
+    for (int i = 0; i < a.length - 1; i++) {
+        int min = i;
+        for (int j = i + 1; j < a.length; j++) {
+            if (a[j] < a[min]) min = j;
+        }
+        int t = a[i]; a[i] = a[min]; a[min] = t;
+    }
+}
+```
+
+En cada pasada del ciclo externo, el interno **escanea el resto** y
+guarda el índice del mínimo. Un swap al final coloca el mínimo en la
+posición `i`. Ese prefijo `[0..i]` queda ordenado para siempre.
+
+</Slide>
+
+<Slide title="Selection sort — en vivo">
+El prefijo verde a la izquierda es la parte del arreglo que ya está
+ordenada; a la derecha vamos buscando el mínimo del resto.
+
+<SortStepper algorithm="selection" values={[6, 3, 8, 2, 7, 5, 4, 1]} />
+
+**Análisis.** Igual estructura de ciclos anidados que bubble: el
+ciclo externo hace $$n$$ pasadas, el interno recorre lo que queda.
+$$\Theta(N^2)$$ comparaciones en **todos los casos** (siempre escanea
+el resto completo, no puede cortar antes). Pero hace muchos menos
+swaps: **exactamente $$n - 1$$ swaps**, uno por pasada.
+
+**Propiedades.**
+
+- **In-place**: sí, igual que bubble.
+- **Estable**: **no**. El swap con el mínimo puede cruzar por encima
+  de un elemento igual al que está en la posición `i`, cambiándole el
+  orden relativo.
+- **Adaptivo**: **no**. Hace las mismas comparaciones sobre un arreglo
+  ordenado que sobre uno desordenado.
+
+Selection tiene un solo mérito frente a bubble: **el mínimo número de
+escrituras posible**. Si escribir es caro (memoria flash, discos, red
+lenta) y comparar barato, selection puede convenir. Fuera de eso —
+casi nunca.
+
+</Slide>
+
+<Slide title="Insertion sort — la idea">
+En **insertion sort** la metáfora es la que hace un jugador de cartas:
+**tomar la próxima carta del mazo e insertarla en la mano ya ordenada,
+corriendo las cartas mayores un lugar a la derecha.**
+
+```java
+static void insertion(int[] a) {
+    for (int i = 1; i < a.length; i++) {
+        int v = a[i];
+        int j = i - 1;
+        while (j >= 0 && a[j] > v) {
+            a[j + 1] = a[j];
+            j--;
+        }
+        a[j + 1] = v;
+    }
+}
+```
+
+En cada paso, el prefijo `[0..i-1]` está ordenado. Tomamos `v = a[i]`,
+lo levantamos, corremos hacia la derecha todos los elementos del
+prefijo que son mayores que `v`, y encajamos `v` en el hueco.
+
+</Slide>
+
+<Slide title="Insertion sort — en vivo">
+El prefijo verde es "la mano ya ordenada". La "carta" que se levanta
+es el elemento que se va a insertar; se corren hacia la derecha los
+mayores hasta encontrar su lugar.
+
+<SortStepper algorithm="insertion" values={[6, 3, 8, 2, 7, 5, 4, 1]} />
+
+**Análisis.**
+
+- **Peor caso** (arreglo al revés): cada elemento nuevo se corre hasta
+  el principio. $$\Theta(N^2)$$.
+- **Caso promedio**: cada elemento se corre en promedio la mitad del
+  prefijo. Sigue siendo $$\Theta(N^2)$$ (las constantes cambian, no
+  la clase).
+- **Mejor caso** (arreglo ya ordenado): cada elemento hace exactamente
+  **una** comparación (con su predecesor, comprueba que ya está en
+  orden, no se corre nada). Total: $$N - 1$$ comparaciones, cero
+  shifts. **$$\Theta(N)$$.**
+
+Ese último es el **primer aviso del hilo teoría-práctica**: insertion
+es $$\Theta(N^2)$$ en general, **pero sobre datos casi-ordenados es
+lineal**. Vamos a volver a esto en un rato.
+
+</Slide>
+
+<Slide title="Insertion sort — propiedades">
+**Propiedades.**
+
+- **Estable**: sí. La comparación es `>`, no `>=`, así que dos
+  elementos iguales nunca se pasan por encima.
+- **In-place**: sí. Una variable temporal (`v`) y un puntero (`j`);
+  no pide memoria proporcional a $$n$$.
+- **Adaptivo**: sí, y esta es su virtud central. Sobre entradas
+  casi-ordenadas hace **$$\Theta(N + d)$$** donde $$d$$ es el número
+  de inversiones (pares fuera de orden). Sobre un arreglo con
+  $$k$$ elementos desordenados alrededor de una base ordenada, hace
+  del orden de $$\Theta(N \cdot k)$$ trabajo, no $$\Theta(N^2)$$.
+
+**Cuándo usar insertion sort:**
+
+1. **Arreglos chicos** ($$N < 15$$ o así). Las constantes escondidas en
+   el $$\Theta$$ son bajísimas: dos comparaciones y una asignación por
+   posición. Los sorts $$\Theta(N \log N)$$ hacen recursión, llamadas a
+   funciones, alocación de buffers — pesan más cuando $$N$$ es chico.
+2. **Datos casi-ordenados**. Streams de sensores, listas ya-ordenadas
+   con algunos elementos nuevos insertados, journals de eventos que
+   llegan casi en orden temporal.
+3. **Adentro** de un ordenamiento más grande. Vamos a ver que
+   mergesort y quicksort en la práctica **cortan a insertion sort** en
+   los subarreglos chicos justamente por (1).
+
+Se acuerdan de esta propiedad — en un rato la usamos.
+
+</Slide>
+
+<Slide title="Los tres, uno al lado del otro">
+| Algoritmo | Peor caso | Mejor caso | Estable | Adaptivo | Escrituras |
+|---|---|---|---|---|---|
+| **bubble**     | $$\Theta(N^2)$$ | $$\Theta(N)$$ con bandera | sí | sí (con bandera) | $$\Theta(N^2)$$ |
+| **selection**  | $$\Theta(N^2)$$ | $$\Theta(N^2)$$          | no | no | $$\Theta(N)$$ |
+| **insertion**  | $$\Theta(N^2)$$ | $$\Theta(N)$$            | sí | sí | $$\Theta(N^2)$$ (con shifts) |
+
+Los tres son $$\Theta(N^2)$$ en el peor caso, así que en ese sentido
+son la misma clase. Pero **las propiedades marcan la diferencia**: si
+te importa estabilidad, insertion. Si te importa escribir poco,
+selection. Si te importa el peor caso, ninguno — pasás al próximo
+grupo.
+
+</Slide>
+
+<SectionBreak />
+
+## El salto con Divide y Conquista
+
+<Slide title="Mergesort — la idea">
+**Mergesort** es el primer algoritmo D&C que von Neumann describió
+para el EDVAC en **1945**. La idea es la receta pura de D&C:
+
+1. **Divide**: partí el arreglo por la mitad.
+2. **Conquista**: ordená cada mitad recursivamente.
+3. **Combina** (`merge`): junta las dos mitades ordenadas en una sola,
+   comparando cabezas.
+
+```java
+static void merge(int[] a, int lo, int hi) {
+    if (lo >= hi) return;
+    int mid = (lo + hi) / 2;
+    merge(a, lo, mid);
+    merge(a, mid + 1, hi);
+    mergeArrays(a, lo, mid, hi);
+}
+```
+
+El `mergeArrays` toma los dos subarreglos ya ordenados y camina las
+dos cabezas comparando el mínimo, escribiendo en un buffer auxiliar.
+Luego copia el buffer de vuelta al arreglo original. La parte
+"inteligente" es el `mergeArrays`: **combinar dos arreglos ordenados
+en tiempo lineal**.
+
+</Slide>
+
+<Slide title="Mergesort — en vivo">
+El árbol a la derecha es el que vimos en Divide y Conquista: cada
+chip muestra la llamada (`mergesort([...])`) y su valor de retorno
+(el subarreglo ordenado). El chip que se está ejecutando ahora tiene
+el borde resaltado.
+
+Abajo del arreglo aparece el **buffer auxiliar** cuando estamos en
+plena combinación: los elementos se van escribiendo ahí uno a uno,
+tomándolos siempre del bloque izquierdo o derecho según cuál tenga la
+cabeza más chica.
+
+<SortStepper algorithm="merge" values={[3, 7, 1, 5]} />
+
+**Análisis.** La recurrencia:
+
+$$T(N) = 2 \cdot T(N/2) + \Theta(N)$$
+
+Dos llamadas sobre la mitad, más un merge lineal. Con el método del
+[[complejidad-recursion|árbol de recursión]] que ya vimos: **altura
+$$\log_2 N$$**, y cada nivel hace $$\Theta(N)$$ trabajo (los merges
+del nivel suman $$N$$ elementos). Total: $$\Theta(N \log N)$$.
+
+</Slide>
+
+<Slide title="Mergesort — propiedades y lo que hace la stdlib">
+**Propiedades.**
+
+- **Estable**: sí. Al combinar, cuando dos cabezas empatan tomamos la
+  del bloque izquierdo (`<=`, no `<`) — así los iguales conservan su
+  orden relativo.
+- **In-place**: **no**. El `mergeArrays` necesita un buffer auxiliar
+  de tamaño proporcional al subarreglo. Espacio total $$\Theta(N)$$.
+- **Adaptivo**: no en su forma pura (siempre parte y combina), pero
+  la stdlib le agrega un par de trucos que lo hacen adaptivo en la
+  práctica.
+
+**Lo que hace `Arrays.sort` para referencias en Java**, sobre este
+esqueleto:
+
+1. **Cutoff a insertion sort** en subarreglos chicos (Java usa un
+   corte alrededor de $$N = 7$$). Debajo de ese tamaño, no vale la
+   pena la recursión y las alocaciones de mergesort — insertion es
+   más rápido en las constantes.
+2. **Terminación temprana**: antes de llamar a `mergeArrays`, se
+   verifica si `a[mid] <= a[mid + 1]`. Si es así, los dos subarreglos
+   ya están ordenados entre sí — no hace falta merge. Esto vuelve a
+   mergesort **adaptivo** sobre datos ordenados o casi-ordenados.
+
+Segundo aviso del hilo teoría-práctica: el mergesort de la stdlib
+**no es** el mergesort del libro. Le agregaron dos vías de escape que
+lo hacen sensiblemente mejor sobre las entradas que aparecen en la
+vida real.
+
+</Slide>
+
+<Slide title="Quicksort — la idea">
+**Quicksort** lo inventó **Tony Hoare** en **1961**, mientras
+trabajaba en un traductor de ruso al inglés. La idea es diferente a
+la de mergesort: en vez de dividir por la mitad geométrica, se
+**divide por un valor pivote**.
+
+1. **Elegí un pivote** (por simplicidad: el primer elemento del
+   subarreglo).
+2. **Particioná** el resto en dos grupos: los menores que el pivote a
+   la izquierda, los mayores o iguales a la derecha.
+3. **Ordená recursivamente** cada grupo.
+
+```java
+static void quick(int[] a) {
+    if (a.length <= 1) return;
+    int p = a[0];
+    int[] left  = { x en a[1..] : x < p };
+    int[] right = { x en a[1..] : x >= p };
+    quick(left);
+    quick(right);
+    a = concat(left, [p], right);
+}
+```
+
+(Escrito así por claridad — en la práctica se hace **in-place** con
+dos punteros que se cruzan; el efecto es el mismo.)
+
+La parte "inteligente" es la **partición**: el trabajo lineal que
+divide el arreglo alrededor del pivote. Después de particionar, el
+pivote **ya está en su posición final** — no se vuelve a tocar.
+
+</Slide>
+
+<Slide title="Quicksort — en vivo">
+El pivote aparece resaltado en un color distinto. A medida que el
+stepper avanza, cada elemento se clasifica en la partición izquierda
+(`< pivot`) o derecha (`>= pivot`). El árbol muestra la estructura
+recursiva: pivotes distintos en cada llamada.
+
+<SortStepper algorithm="quick" values={[3, 7, 1, 5]} />
+
+**Análisis.** La recurrencia depende de qué tan **equilibrada** sea
+la partición.
+
+- **Caso promedio** (pivote más o menos en el medio):
+  $$T(N) = 2 \cdot T(N/2) + \Theta(N)$$, igual que mergesort:
+  **$$\Theta(N \log N)$$**.
+- **Peor caso** (pivote siempre el mínimo o el máximo — por ejemplo,
+  si el arreglo ya está ordenado y elegimos siempre `a[0]`):
+  $$T(N) = T(N - 1) + \Theta(N)$$, que se resuelve en
+  **$$\Theta(N^2)$$**.
+
+El peor caso es el que **hace hablar** a la gente sobre quicksort.
+Suena mal: "un algoritmo cuyo peor caso es cuadrático". Pero…
+
+</Slide>
+
+<Slide title="Quicksort — el gap teoría-práctica en su versión más clara">
+Sedgewick lo dice así: **es más probable que te caiga un rayo mientras
+leés esto que enfrentar el peor caso de quicksort en un arreglo grande,
+si aplicaste los trucos correctos.**
+
+**Truco 1: random shuffle.** Antes de ordenar, mezclamos aleatoriamente
+el arreglo. El peor caso deja de estar ligado al **orden de entrada** y
+pasa a depender de la elección aleatoria del pivote. Probabilidad de
+elegir siempre el mínimo o el máximo: astronómicamente baja.
+
+**Truco 2: mediana de tres.** En vez de tomar `a[0]` como pivote,
+tomamos la **mediana** entre `a[0]`, `a[mid]`, `a[hi]`. Con eso, la
+partición está garantizada de dividir en al menos un cuarto y tres
+cuartos — nada de $$T(N-1)$$ patológico.
+
+**Truco 3: cutoff a insertion sort.** Igual que en mergesort — para
+subarreglos chicos ($$N < 15$$ o así), insertion es más rápido en
+constantes. Java lo usa en la implementación primitiva.
+
+**Truco 4: partición en tres vías (Bentley-McIlroy 1993).** Cuando hay
+muchos elementos iguales, la partición clásica desperdicia trabajo. La
+versión en tres vías separa `< pivot`, `= pivot`, `> pivot` — y ese
+grupo del medio no se vuelve a tocar. Java usa esta variante para
+primitivos.
+
+**Propiedades del quicksort en su forma pura:**
+
+- **Estable**: **no**. La partición reordena elementos iguales.
+- **In-place**: sí (en la forma con dos punteros; nuestra versión
+  didáctica con `left`/`right` no lo es, pero la implementación real sí).
+- **Adaptivo**: no directamente, pero los trucos anteriores lo vuelven
+  muy adaptivo en la práctica.
+
+</Slide>
+
+<Slide title="Los cinco, midiendo de verdad">
+Puestos a correr, así se ven los cinco:
+
+<Benchmark
+  implementations={[
+    { name: "insertion", code: `import java.util.Scanner;
+import java.util.Random;
+
+public class Insertion {
+static void insertion(int[] a) {
+for (int i = 1; i < a.length; i++) {
+int v = a[i], j = i - 1;
+while (j >= 0 && a[j] > v) { a[j + 1] = a[j]; j--; }
+a[j + 1] = v;
+}
+}
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        Random rng = new Random(42);
+        int[] a = new int[n];
+        for (int i = 0; i < n; i++) a[i] = rng.nextInt();
+        long t0 = System.nanoTime();
+        insertion(a);
+        long t1 = System.nanoTime();
+        System.out.println("time_ns:" + (t1 - t0));
+    }
+
+}
+`, entryClass: "Insertion" },
+    { name: "bubble", code: `import java.util.Scanner;
+import java.util.Random;
+
+public class Bubble {
+static void bubble(int[] a) {
+for (int i = a.length - 1; i > 0; i--)
+for (int j = 0; j < i; j++)
+if (a[j] > a[j + 1]) { int t = a[j]; a[j] = a[j + 1]; a[j + 1] = t; }
+}
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        Random rng = new Random(42);
+        int[] a = new int[n];
+        for (int i = 0; i < n; i++) a[i] = rng.nextInt();
+        long t0 = System.nanoTime();
+        bubble(a);
+        long t1 = System.nanoTime();
+        System.out.println("time_ns:" + (t1 - t0));
+    }
+
+}
+`, entryClass: "Bubble" },
+    { name: "stdlib (quicksort 3-way)", code: `import java.util.Scanner;
+import java.util.Random;
+import java.util.Arrays;
+
+public class Stdlib {
+public static void main(String[] args) {
+Scanner sc = new Scanner(System.in);
+int n = sc.nextInt();
+Random rng = new Random(42);
+int[] a = new int[n];
+for (int i = 0; i < n; i++) a[i] = rng.nextInt();
+long t0 = System.nanoTime();
+Arrays.sort(a);
+long t1 = System.nanoTime();
+System.out.println("time_ns:" + (t1 - t0));
+}
+}
+`, entryClass: "Stdlib" },
+]}
+inputs={[15, 100, 500, 2000]}
+defaultInput={100}
+/>
+
+Lo que vamos a ver: los **elementales** ($$\Theta(N^2)$$) suben con
+$$N^2$$; los D&C se aplanan con $$N \log N$$. Los tiempos son
+**consistentes con** las clases asintóticas correspondientes, no una
+demostración de las mismas — la medición no valida su causa.
+
+**Y — la parte importante para el hilo teoría-práctica —** en
+$$N = 15$$ **insertion sort le gana a mergesort y a quicksort**. En
+$$N$$ grande el orden se invierte. Ese es el gap: el $$\Theta$$ dice
+**cómo escalan**, no **quién gana ahora**.
+
+</Slide>
+
+<Slide title="¿Se puede hacer mejor que $$N \log N$$?">
+Todos los algoritmos que vimos —los $$\Theta(N^2)$$ y los
+$$\Theta(N \log N)$$— comparten un mismo **modelo de cómputo**:
+**deciden qué hacer con el arreglo solamente a partir de comparaciones
+`<` entre pares de elementos**. No miran los bits del número, no
+suman, no cuentan — solo comparan.
+
+Para cualquier algoritmo que trabaje así, podemos dibujar su **árbol
+de decisión**: cada nodo interno es una comparación (_"¿a < b?"_),
+cada rama es la respuesta (sí/no), y cada hoja es un posible orden
+final. Aquí está el árbol para $$n = 3$$:
+
+<DecisionTreeSort n={3} />
+
+Dos hechos que se cuentan mirando:
+
+1. **El árbol necesita al menos $$N!$$ hojas** — una por cada posible
+   orden inicial del arreglo, porque el algoritmo debe distinguirlos
+   para producir la salida correcta.
+2. **Un árbol binario con $$N!$$ hojas tiene altura al menos
+   $$\lceil \log_2(N!) \rceil$$.**
+
+Y por la aproximación de Stirling,
+$$\log_2(N!) \approx N \log N$$. Es decir: **cualquier algoritmo de
+ordenamiento por comparación necesita $$\Omega(N \log N)$$ comparaciones
+en el peor caso.** Mergesort ya alcanza esa cota — es **óptimo** en
+este modelo.
+
+</Slide>
+
+<Slide title="Asumir cosas es ingeniería, no trampa">
+La cota que acabamos de argumentar dice: **$$N \log N$$ es lo mejor
+posible** para un ordenamiento **por comparación**. La palabra clave
+es **"por comparación"** — si cambiamos el modelo, cambia la cota.
+
+**Counting sort** (para enteros en un rango chico): en vez de comparar,
+**cuenta cuántos elementos hay de cada valor** y los coloca en orden.
+Costo: $$\Theta(N + k)$$ donde $$k$$ es el tamaño del rango.
+**Lineal** si $$k = O(N)$$.
+
+**Radix sort** (para enteros o strings): ordena **dígito por dígito**
+usando counting sort estable. Costo: $$\Theta(d \cdot N)$$ donde $$d$$
+es el número de dígitos. **Lineal** en $$N$$ si $$d$$ es constante.
+
+Los dos rompen la cota $$N \log N$$ **asumiendo cosas sobre los datos**
+—counting asume que hay pocos valores distintos, radix asume una
+estructura en dígitos. En ambos casos la mejora asintótica **no es
+gratis**: pagás con una **restricción sobre la entrada**.
+
+Este patrón — **asumir cosas sobre los datos para bajar el costo** —
+lo vieron antes: **búsqueda binaria** hace exactamente eso. Bajó
+$$\Theta(N)$$ a $$\Theta(\log N)$$ **asumiendo que el arreglo está
+ordenado**. Counting y radix bajan $$\Theta(N \log N)$$ a
+$$\Theta(N)$$ asumiendo estructura en los valores. **Es la misma
+técnica**.
+
+Asumir cosas sobre los datos es **ingeniería**, no trampa.
+
+</Slide>
+
+<SectionBreak />
+
+## Java en producción
+
+<Slide title="`Comparable` — el orden natural">
+Hasta acá ordenamos `int[]`. Java ya sabe qué significa "menor" para
+un `int`, pero para tus propios objetos hay que decírselo. La forma
+canónica es implementar la interfaz **`Comparable<T>`** — el objeto
+declara **cuál es su orden natural**.
+
+<CodeEditor language="java">
+{`import java.util.Arrays;
+
+class Persona implements Comparable<Persona> {
+String nombre;
+int edad;
+
+    Persona(String nombre, int edad) {
+        this.nombre = nombre;
+        this.edad = edad;
+    }
+
+    // Orden natural: por edad ascendente.
+    public int compareTo(Persona otra) {
+        return Integer.compare(this.edad, otra.edad);
+    }
+
+    public String toString() {
+        return nombre + "(" + edad + ")";
+    }
+
+}
+
+public class Main {
+public static void main(String[] args) {
+Persona[] p = {
+new Persona("Ana", 34),
+new Persona("Beto", 21),
+new Persona("Carla", 45)
+};
+Arrays.sort(p);
+for (Persona x : p) System.out.println(x);
+}
+}`}
+
+</CodeEditor>
+
+**Regla del contrato de `compareTo`**: devuelve negativo si
+`this < otra`, cero si son iguales, positivo si `this > otra`. Usar
+**`Integer.compare(a, b)`** en vez de `a - b` para no romperse con
+overflow en enteros grandes.
+
+</Slide>
+
+<Slide title="`Comparator` — otros órdenes">
+El `compareTo` de `Comparable` define **un** orden — el natural del
+objeto. ¿Y si queremos ordenar la misma lista de **otro modo** —por
+nombre, por longitud, por lo que sea? Para eso está **`Comparator<T>`**:
+un objeto separado del elemento, que define **cómo comparar dos
+elementos** desde afuera.
+
+<CodeEditor language="java">
+{`import java.util.Arrays;
+import java.util.Comparator;
+
+class Persona {
+String nombre;
+int edad;
+
+    Persona(String nombre, int edad) {
+        this.nombre = nombre;
+        this.edad = edad;
+    }
+
+    public String toString() { return nombre + "(" + edad + ")"; }
+
+}
+
+public class Main {
+public static void main(String[] args) {
+Persona[] p = {
+new Persona("Ana", 34),
+new Persona("Beto", 21),
+new Persona("Carla", 45)
+};
+
+        // Ordenar por nombre (alfabético).
+        Arrays.sort(p, Comparator.comparing(x -> x.nombre));
+        System.out.println("por nombre: " + Arrays.toString(p));
+
+        // Ordenar por edad descendente.
+        Arrays.sort(p, Comparator.comparingInt((Persona x) -> x.edad).reversed());
+        System.out.println("por edad desc: " + Arrays.toString(p));
+    }
+
+}`}
+
+</CodeEditor>
+
+**`Comparator.comparing(keyExtractor)`** crea un comparator a partir
+de una función que extrae la clave; **`.reversed()`**, **`.thenComparing(...)`**
+lo componen. Es el vocabulario que se usa en la práctica —limpio,
+declarativo, encadenable.
+
+</Slide>
+
+<Slide title="`Collator` — comparar texto con locale">
+Ordenar strings con `String.compareTo` funciona por Unicode, no por
+las reglas de un idioma. Para **texto localizado** —donde `á` debe
+ordenarse cerca de `a`, `ñ` entre `n` y `o`, etc.— Java tiene
+**`Collator`**.
+
+<CodeEditor language="java">
+{`import java.text.Collator;
+import java.util.Arrays;
+import java.util.Locale;
+
+public class Main {
+public static void main(String[] args) {
+String[] palabras = { "arbol", "ñandu", "ámbar", "casa", "año" };
+
+        // Orden Unicode "crudo" con String.compareTo (el default).
+        String[] crudo = palabras.clone();
+        Arrays.sort(crudo);
+        System.out.println("unicode: " + Arrays.toString(crudo));
+
+        // Orden localizado (español).
+        String[] es = palabras.clone();
+        Collator es_ES = Collator.getInstance(new Locale("es", "ES"));
+        Arrays.sort(es, es_ES);
+        System.out.println("es_ES:   " + Arrays.toString(es));
+    }
+
+}`}
+
+</CodeEditor>
+
+La diferencia se ve inmediatamente: con el orden Unicode `ñ` aparece
+después de `z` (porque el codepoint es alto); con `Collator` en
+español `ñ` cae entre `n` y `o` como corresponde.
+
+</Slide>
+
+<Slide title="¿Qué usa `Arrays.sort()` por dentro?">
+Con todo lo anterior en la mano, esta es la respuesta a la pregunta
+que probablemente se hicieron desde el primer día que llamaron
+`Arrays.sort()`:
+
+- **Para arreglos de tipos primitivos (`int[]`, `long[]`, `double[]`, …):**
+  **quicksort** — específicamente **Dual-Pivot Quicksort** (Yaroslavskiy,
+  2009), una variante de tres vías con dos pivotes. Es un quicksort con
+  todos los trucos: mediana de tres para el pivote, cutoff a insertion
+  sort para subarreglos chicos ($$N < 47$$ en la implementación actual),
+  partición en tres vías para duplicados.
+
+- **Para arreglos de referencias (`Object[]`, `Persona[]`, `String[]`, …):**
+  **TimSort** (Peters, 2002 para Python; adoptado por Java en la
+  versión 7, 2011). Es un mergesort **adaptivo**: reconoce corridas
+  ordenadas o inversamente ordenadas ya presentes en el arreglo y las
+  aprovecha, combinándolas. Sobre datos totalmente aleatorios es
+  $$\Theta(N \log N)$$; sobre datos casi-ordenados baja a $$\Theta(N)$$.
+
+**Por qué dos algoritmos distintos.** Java elige por el **tipo** del
+arreglo, y ese tipo determina qué asunciones tiene sentido hacer:
+
+- Los primitivos **no llevan identidad** — un `5` es un `5`, dan igual
+  cuál copia. La **estabilidad** no significa nada; podés usar quicksort
+  agresivo sin cuidado por el orden relativo.
+- Los objetos **sí llevan identidad**: `p1.equals(p2)` puede ser
+  verdadero aunque `p1 != p2`. Al ordenar por edad, dos personas con
+  la misma edad quizás querés que queden en el orden en que estaban.
+  **Necesitás estabilidad** — y TimSort es estable, quicksort no.
+
+**La corona del hilo teoría-práctica**: `Arrays.sort()` para
+referencias es **más rápido en la vida real** que cualquier mergesort
+de libro porque **explota una asunción sobre los datos reales** —que
+suelen venir casi-ordenados. Lo mismo que hicieron counting/radix y
+búsqueda binaria: **asumir para bajar el costo**.
+
+</Slide>
+
+<Slide title="Cuál usar, cuándo">
+Un decision-tree pragmático corto — el que aparece en la cabeza cuando
+alguien te pregunta *"qué sort uso"*:
+
+1. **¿El lenguaje/biblioteca ya trae uno?** Sí → **usalo**. Punto.
+   `Arrays.sort()` de Java está afinado por décadas de trabajo con
+   trucos que no te vas a acordar en una entrevista.
+
+2. **¿Podés asumir algo sobre los valores?**
+   - Enteros en un rango chico → **counting sort** ($$\Theta(N + k)$$).
+   - Enteros grandes o strings de longitud fija → **radix sort**
+     ($$\Theta(d \cdot N)$$).
+   - Estos rompen la cota $$N \log N$$. **Si podés usarlos, usalos.**
+
+3. **¿Necesitás estabilidad?** Sí → **mergesort** (o TimSort si tenés).
+   Quicksort no es estable.
+
+4. **¿Necesitás memoria constante extra?** Sí → **quicksort in-place**
+   (no mergesort — su buffer aux pide $$\Theta(N)$$).
+
+5. **¿$$N$$ es chico** ($$< 15$$)? → **insertion sort**. Las constantes
+   ganan.
+
+Y sobre todo — **no ordenes lo que ya está ordenado**. La operación
+más rápida es la que no se hace.
+
+**Con eso cierra la unidad hasta ahora**: en la clase pasada aprendieron
+D&C como técnica; en esta la vieron aplicada a los dos ordenamientos
+más importantes, aprendieron a leer las propiedades de un sort (estable,
+in-place, adaptivo) y a mapearlas a decisiones prácticas, y vieron por
+qué la biblioteca real elige lo que elige. La próxima clase abre el
+tercer patrón de la unidad: **programación dinámica**.
+
+</Slide>

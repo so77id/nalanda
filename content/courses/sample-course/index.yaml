@@ -22,3 +22,4 @@ entries:
     levelName: Unidad
     children:
       - docId: diseno-algoritmos-divide-y-venceras
+      - docId: diseno-algoritmos-ordenamiento

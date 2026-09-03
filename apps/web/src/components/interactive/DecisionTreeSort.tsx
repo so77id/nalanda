@@ -29,8 +29,16 @@ export interface DecisionTreeSortProps {
  */
 export function DecisionTreeSort({ n, showBound = true, title }: DecisionTreeSortProps) {
   const [worstCaseVisible, setWorstCaseVisible] = useState(false);
+  const validN = n === 2 || n === 3 || n === 4 ? n : null;
 
-  if (n === undefined || (n !== 2 && n !== 3 && n !== 4)) {
+  // Hooks run unconditionally (rules-of-hooks). Falls back to n=2 while the
+  // guard message is being rendered; the fallback output is discarded.
+  const effectiveN = validN ?? 2;
+  const tree = useMemo(() => buildDecisionTree(effectiveN), [effectiveN]);
+  const worst = useMemo(() => worstCaseLeaf(tree), [tree]);
+  const worstCasePath = useMemo(() => pathToLeaf(tree, worst.sorted), [tree, worst.sorted]);
+
+  if (validN === null) {
     return (
       <AuthoringError component="DecisionTreeSort">
         la prop <code>n</code> tiene que ser 2, 3 o 4 (recibí <code>{String(n)}</code>). Con más
@@ -39,23 +47,17 @@ export function DecisionTreeSort({ n, showBound = true, title }: DecisionTreeSor
     );
   }
 
-  const tree = useMemo(() => buildDecisionTree(n), [n]);
   const height = treeHeight(tree);
-  const nFactorial = factorial(n);
-  const bound = log2FactorialCeil(n);
-  const worst = useMemo(() => worstCaseLeaf(tree), [tree]);
-  const names = elementNames(n);
+  const nFactorial = factorial(validN);
+  const bound = log2FactorialCeil(validN);
+  const names = elementNames(validN);
 
-  // Path from root to worst-case leaf, as a set of node IDs (indexes in a
-  // DFS numbering) — small enough for a Set lookup during render.
-  const worstCasePath = useMemo(() => pathToLeaf(tree, worst.sorted), [tree, worst.sorted]);
-
-  const heading = title ?? `Árbol de decisión · ordenamiento por comparación · n = ${n}`;
+  const heading = title ?? `Árbol de decisión · ordenamiento por comparación · n = ${validN}`;
 
   return (
     <figure
       data-widget="decision-tree-sort"
-      data-n={n}
+      data-n={validN}
       className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink"
     >
       <header className="flex items-center gap-2 bg-sunk px-3 py-1.5">
@@ -81,7 +83,7 @@ export function DecisionTreeSort({ n, showBound = true, title }: DecisionTreeSor
             <div className="flex justify-between gap-2">
               <span className="text-ink-faint">hojas</span>
               <span data-panel="leaves">
-                <strong>{nFactorial}</strong> = {n}!
+                <strong>{nFactorial}</strong> = {validN}!
               </span>
             </div>
             <div className="flex justify-between gap-2">
@@ -93,13 +95,13 @@ export function DecisionTreeSort({ n, showBound = true, title }: DecisionTreeSor
             <div className="flex justify-between gap-2">
               <span className="text-ink-faint">cota inf.</span>
               <span data-panel="bound">
-                ⌈log₂({n}!)⌉ = <strong>{bound}</strong>
+                ⌈log₂({validN}!)⌉ = <strong>{bound}</strong>
               </span>
             </div>
             <p className="m-0 border-t border-rule pt-2 text-3xs text-ink-faint">
-              Cualquier árbol binario con {n}! hojas tiene altura ≥ ⌈log₂({n}!)⌉. Por Stirling,
-              ⌈log₂(N!)⌉ ≈ N log N — la <strong>cota inferior</strong> de cualquier ordenamiento por
-              comparación.
+              Cualquier árbol binario con {validN}! hojas tiene altura ≥ ⌈log₂({validN}!)⌉. Por
+              Stirling, ⌈log₂(N!)⌉ ≈ N log N — la <strong>cota inferior</strong> de cualquier
+              ordenamiento por comparación.
             </p>
           </aside>
         ) : null}
