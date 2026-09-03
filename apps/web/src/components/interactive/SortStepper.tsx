@@ -130,8 +130,29 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
     setIsPlaying(autoplay);
   }, [algorithm, valuesKey, autoplay]);
 
+  // In book mode a page may host FIVE steppers (one per algorithm). Every
+  // one that has been played and left mid-run keeps firing setTimeouts on
+  // its own schedule, and CodeMirror + tree + bar chart re-render on each
+  // tick — five parallel loops together lock the tab. Pause playback for
+  // any widget the reader has scrolled away from; resume when it comes
+  // back into view.
+  const [isVisible, setIsVisible] = useState(true);
+  useEffect(() => {
+    const el = outerRef.current;
+    if (!el || typeof IntersectionObserver !== 'function') return undefined;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) setIsVisible(entry.isIntersecting);
+      },
+      { threshold: 0.2 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
   useEffect(() => {
     if (!isPlaying) return;
+    if (!isVisible) return;
     if (stepIndex >= totalSteps - 1) {
       setIsPlaying(false);
       return;
@@ -139,7 +160,7 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
     const delay = SPEED_MS[liveSpeed];
     const timeout = window.setTimeout(() => setStepIndex((s) => s + 1), delay);
     return () => window.clearTimeout(timeout);
-  }, [isPlaying, stepIndex, liveSpeed, totalSteps]);
+  }, [isPlaying, isVisible, stepIndex, liveSpeed, totalSteps]);
 
   const step = trace.steps[stepIndex]!;
 
@@ -330,7 +351,13 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
                   step.highlightLines.length > 0 ? `Java · línea ${step.highlightLines[0]}` : 'Java'
                 }
               />
-              <div className="min-h-0 flex-1 overflow-auto">
+              {/* Stretch the CodeStepper (and every layer CodeMirror
+               * nests inside it) to fill the panel's vertical space —
+               * otherwise Java snippets of ~9 lines leave a big empty
+               * area below reading as visual void. `!` uses Tailwind's
+               * important prefix so we win against CodeMirror's inline
+               * heights. */}
+              <div className="min-h-0 flex-1 overflow-hidden bg-surface [&>div]:!h-full [&_.cm-theme-light]:!h-full [&_.cm-theme-dark]:!h-full [&_.cm-editor]:!h-full [&_.cm-scroller]:!h-full [&_.cm-content]:!min-h-full">
                 <CodeStepper
                   code={CODE[algorithm]}
                   highlightLines={step.highlightLines}
