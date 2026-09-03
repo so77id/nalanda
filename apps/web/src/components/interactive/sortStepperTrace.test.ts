@@ -155,15 +155,15 @@ describe('sortStepperTrace', () => {
       expect(rootDone?.pivot).toBe(1);
     });
 
-    it('recurses on the SAME subarrays the DivideCombineTree recipe draws', () => {
-      // Cross-widget contract: the tree's chips carry `quicksort([1])` and
-      // `quicksort([7,5])` for the two children of `quicksort([3,7,1,5])`.
-      // The stepper must emit `enter` frames with exactly those callNodes so
-      // `highlightNode` lands on the matching chip.
+    it('recurses on the SAME subarrays the DivideCombineTree recipe draws (Lomuto)', () => {
+      // Cross-widget contract: the tree recipe uses in-place Lomuto with
+      // pivot=a[lo]. Trace must produce exactly the same call labels so
+      // `highlightNode` lands on the matching chip. For [3,7,1,5]:
+      //   root partition (pivot=3): [1,3,5,7], recurse on [0..0]=[1] and [2..3]=[5,7]
       const { steps } = traceQuick([3, 7, 1, 5]);
       const enters = steps.filter((s) => s.kind === 'enter').map((s) => s.callNode);
       expect(enters).toContain('quicksort([1])');
-      expect(enters).toContain('quicksort([7,5])');
+      expect(enters).toContain('quicksort([5,7])');
     });
   });
 });

@@ -171,21 +171,28 @@ describe('DivideCombineTree', () => {
   // recipe="quicksort"
   // ---------------------------------------------------------------------
 
-  it('draws quicksort with pivot=a[0] and exposes pivot as an intermediate on internal chips', () => {
-    // Pivot policy: first element of the subarray.
-    // quicksort([3,7,1,5]): pivot=3 → left=[1], right=[7,5]
-    //   left  quicksort([1]) base
-    //   right quicksort([7,5]): pivot=7 → left=[5], right=[] → base+base
+  it('draws quicksort with in-place Lomuto (pivot=a[lo]) and exposes pivot on internal chips', () => {
+    // Lomuto partition (pivot=a[lo]) on [3,7,1,5]:
+    //   pivot=3, park to end → [5,7,1,3], scan j=0..2:
+    //     j=0: 5<3? no
+    //     j=1: 7<3? no
+    //     j=2: 1<3? yes → swap a[0] a[2]: [1,7,5,3], store=1
+    //   swap a[1] a[3]: [1,3,5,7], pivot at index 1.
+    //   LEFT: quicksort on a[0..0] = [1] (base)
+    //   RIGHT: quicksort on a[2..3] = [5,7]
+    //     pivot=5, park to end → [7,5], scan j=0: 7<5? no
+    //     swap a[0] a[1]: [5,7], pivot at index 0.
+    //     LEFT: quicksort on a[2..1] = [] (base)
+    //     RIGHT: quicksort on a[3..3] = [7] (base)
     render(<DivideCombineTree recipe="quicksort" values={[3, 7, 1, 5]} />);
 
     const root = document.querySelector('[data-call="quicksort([3,7,1,5])"]');
     expect(root?.getAttribute('data-return')).toBe('[1,3,5,7]');
-    // Middle row of the root chip carries pivot=3.
     expect(root?.textContent).toMatch(/pivot=3/);
 
-    // Right subtree — pivot 7, right child empty.
-    expect(document.querySelector('[data-call="quicksort([7,5])"]')?.textContent).toMatch(
-      /pivot=7/,
+    // Right subtree — pivot 5, one child empty.
+    expect(document.querySelector('[data-call="quicksort([5,7])"]')?.textContent).toMatch(
+      /pivot=5/,
     );
     expect(document.querySelector('[data-call="quicksort([])"]')?.getAttribute('data-return')).toBe(
       '[]',

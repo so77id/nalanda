@@ -15,6 +15,9 @@
  * - `callNode` names the divide/combine tree chip the frame corresponds to;
  *   the widget passes it as `highlightNode` to `<DivideCombineTree>`.
  * - `callAnnotation` is the in-flight middle-row text for that chip.
+ * - `carry` is the value held OUTSIDE the array (insertion sort's `v`,
+ *   quicksort's pivot while parked at the end). The widget draws it as a
+ *   floating chip above the bar at `carry.index`.
  */
 
 export type SortAlgorithm = 'bubble' | 'selection' | 'insertion' | 'merge' | 'quick';
@@ -57,6 +60,9 @@ export interface SortStep {
   callAnnotation?: string;
   /** For merge: the auxiliary rail (values placed so far, or null slots). */
   auxRail?: (number | null)[];
+  /** A value held OUTSIDE the array: insertion sort's `v` while shifting.
+   * The widget draws a floating chip above the bar at `index`. */
+  carry?: { value: number; index: number; label: string };
   /** Human-readable description of what happened. */
   description: string;
 }
@@ -210,12 +216,15 @@ export function traceInsertion(input: number[]): SortTrace {
   for (let i = 1; i < a.length; i += 1) {
     const v = a[i]!;
     let j = i - 1;
+    // Lift `v` out of the array conceptually — the carry chip appears
+    // above position i and stays visible while j decrements.
     steps.push({
       kind: 'select-min',
       array: [...a],
       highlightLines: [3],
       active: [i],
       sortedPrefix: i,
+      carry: { value: v, index: i, label: 'v' },
       description: `Tomar v = a[${i}] = ${v} como la "carta" a insertar en el prefijo ordenado [0..${j}].`,
     });
     while (j >= 0 && a[j]! > v) {
@@ -223,9 +232,10 @@ export function traceInsertion(input: number[]): SortTrace {
         kind: 'compare',
         array: [...a],
         highlightLines: [4],
-        active: [j, i],
+        active: [j],
         sortedPrefix: i,
-        description: `a[${j}] = ${a[j]} > ${v} — hay que correr un lugar a la derecha.`,
+        carry: { value: v, index: j + 1, label: 'v' },
+        description: `a[${j}] = ${a[j]} > v = ${v} — hay que correr a[${j}] a la derecha.`,
       });
       a[j + 1] = a[j]!;
       steps.push({
@@ -234,7 +244,8 @@ export function traceInsertion(input: number[]): SortTrace {
         highlightLines: [5],
         active: [j, j + 1],
         sortedPrefix: i,
-        description: `Copiar a[${j}] en a[${j + 1}].`,
+        carry: { value: v, index: j, label: 'v' },
+        description: `Copiar a[${j}] en a[${j + 1}]. v = ${v} sigue en la carta.`,
       });
       j -= 1;
     }
@@ -243,9 +254,10 @@ export function traceInsertion(input: number[]): SortTrace {
         kind: 'compare',
         array: [...a],
         highlightLines: [4],
-        active: [j, i],
+        active: [j],
         sortedPrefix: i,
-        description: `a[${j}] = ${a[j]} ≤ ${v} — la carta se detiene aquí.`,
+        carry: { value: v, index: j + 1, label: 'v' },
+        description: `a[${j}] = ${a[j]} ≤ v = ${v} — la carta se detiene aquí.`,
       });
     }
     a[j + 1] = v;
@@ -278,6 +290,18 @@ export function traceInsertion(input: number[]): SortTrace {
 //   5      merge(a, mid + 1, hi);
 //   6      mergeArrays(a, lo, mid, hi);
 //   7  }
+//   8
+//   9  static void mergeArrays(int[] a, int lo, int mid, int hi) {
+//  10      int[] aux = new int[hi - lo + 1];
+//  11      for (int k = lo; k <= hi; k++) aux[k - lo] = a[k];
+//  12      int i = 0, j = mid - lo + 1;
+//  13      for (int k = lo; k <= hi; k++) {
+//  14          if      (i > mid - lo)      a[k] = aux[j++];
+//  15          else if (j > hi - lo)       a[k] = aux[i++];
+//  16          else if (aux[i] <= aux[j])  a[k] = aux[i++];
+//  17          else                        a[k] = aux[j++];
+//  18      }
+//  19  }
 
 export function traceMerge(input: number[]): SortTrace {
   const a = [...input];
@@ -313,7 +337,8 @@ export function traceMerge(input: number[]): SortTrace {
     const mid = Math.floor((lo + hi) / 2);
     recurse(lo, mid);
     recurse(mid + 1, hi);
-    // Merge in place using an aux buffer for [lo..hi].
+    // Merge in place using an aux buffer for [lo..hi] — matches the
+    // Java code shown to the reader.
     const aux = a.slice(lo, hi + 1);
     const rail: (number | null)[] = Array.from({ length: aux.length }, () => null);
     let i = 0;
@@ -322,13 +347,13 @@ export function traceMerge(input: number[]): SortTrace {
     steps.push({
       kind: 'merge-take',
       array: [...a],
-      highlightLines: [6],
+      highlightLines: [10, 11],
       active: [],
       subarray: [lo, hi],
       callNode: call,
       callAnnotation: `combinando [${aux.slice(0, mid - lo + 1).join(',')}]+[${aux.slice(mid - lo + 1).join(',')}]`,
       auxRail: [...rail],
-      description: `Combinar los dos subarreglos ya ordenados [${aux.slice(0, mid - lo + 1).join(',')}] y [${aux.slice(mid - lo + 1).join(',')}].`,
+      description: `Copiar el subarreglo a un buffer auxiliar y combinar las dos mitades ya ordenadas.`,
     });
     while (i <= mid - lo && j <= hi - lo) {
       const takeLeft = aux[i]! <= aux[j]!;
@@ -338,11 +363,11 @@ export function traceMerge(input: number[]): SortTrace {
       steps.push({
         kind: 'merge-take',
         array: [...a],
-        highlightLines: [6],
+        highlightLines: takeLeft ? [16] : [17],
         active: [lo + k],
         subarray: [lo, hi],
         callNode: call,
-        callAnnotation: `combinando · aux=[${rail.map((x) => (x === null ? '_' : x)).join(',')}]`,
+        callAnnotation: `aux=[${rail.map((x) => (x === null ? '_' : x)).join(',')}]`,
         auxRail: [...rail],
         description: takeLeft
           ? `${aux[i]} ≤ ${aux[j]} — tomar del bloque izquierdo.`
@@ -358,11 +383,11 @@ export function traceMerge(input: number[]): SortTrace {
       steps.push({
         kind: 'merge-take',
         array: [...a],
-        highlightLines: [6],
+        highlightLines: [15],
         active: [lo + k],
         subarray: [lo, hi],
         callNode: call,
-        callAnnotation: `combinando · aux=[${rail.map((x) => (x === null ? '_' : x)).join(',')}]`,
+        callAnnotation: `aux=[${rail.map((x) => (x === null ? '_' : x)).join(',')}]`,
         auxRail: [...rail],
         description: `Bloque derecho agotado — copiar restos del izquierdo.`,
       });
@@ -375,11 +400,11 @@ export function traceMerge(input: number[]): SortTrace {
       steps.push({
         kind: 'merge-take',
         array: [...a],
-        highlightLines: [6],
+        highlightLines: [14],
         active: [lo + k],
         subarray: [lo, hi],
         callNode: call,
-        callAnnotation: `combinando · aux=[${rail.map((x) => (x === null ? '_' : x)).join(',')}]`,
+        callAnnotation: `aux=[${rail.map((x) => (x === null ? '_' : x)).join(',')}]`,
         auxRail: [...rail],
         description: `Bloque izquierdo agotado — copiar restos del derecho.`,
       });
@@ -417,131 +442,212 @@ export function traceMerge(input: number[]): SortTrace {
   return { steps, sorted: a };
 }
 
-// ── quick (out-of-place, pivot = first element — matches DivideCombineTree
-//    recipe so `highlightNode` lands on the same chip) ──────────────────
+// ── quick (in-place Lomuto with pivot = a[lo] — matches DivideCombineTree
+//    quicksort recipe so `highlightNode` lands on the same chip) ─────────
 //
-//   1  void quick(int[] a) {
-//   2      if (a.length <= 1) return;
-//   3      int p = a[0];
-//   4      int[] left  = { x in a[1..] : x <  p };
-//   5      int[] right = { x in a[1..] : x >= p };
-//   6      quick(left);
-//   7      quick(right);
-//   8      a = concat(left, [p], right);
-//   9  }
+//   1  void quick(int[] a, int lo, int hi) {
+//   2      if (lo >= hi) return;
+//   3      int p = partition(a, lo, hi);
+//   4      quick(a, lo, p - 1);
+//   5      quick(a, p + 1, hi);
+//   6  }
+//   7
+//   8  static int partition(int[] a, int lo, int hi) {
+//   9      int pivot = a[lo];
+//  10      swap(a, lo, hi);
+//  11      int store = lo;
+//  12      for (int j = lo; j < hi; j++) {
+//  13          if (a[j] < pivot) { swap(a, store, j); store++; }
+//  14      }
+//  15      swap(a, store, hi);
+//  16      return store;
+//  17  }
+
+/** Deterministic Lomuto partition used by BOTH the trace and the tree
+ * recipe so the tree's chip labels match the stepper's subarrays exactly.
+ * Returns the pivot's final index. Modifies `a` in place. */
+export function lomutoPartition(a: number[], lo: number, hi: number): number {
+  const pivot = a[lo]!;
+  // Park the pivot at the end.
+  [a[lo], a[hi]] = [a[hi]!, a[lo]!];
+  let store = lo;
+  for (let j = lo; j < hi; j += 1) {
+    if (a[j]! < pivot) {
+      [a[store], a[j]] = [a[j]!, a[store]!];
+      store += 1;
+    }
+  }
+  // Pivot to its final resting position.
+  [a[store], a[hi]] = [a[hi]!, a[store]!];
+  return store;
+}
+
+/** Pure subarray-snapshot builder for the divide/combine tree's quicksort
+ * recipe. Runs the SAME Lomuto partition on a copy of the input; at each
+ * recursive step, records the subarray input to the call. Exported so the
+ * tree recipe can build labels that agree with the stepper trace. */
+export function quicksortCallTree(input: number[]): {
+  call: string;
+  slice: number[];
+  children: ReturnType<typeof quicksortCallTree>[];
+} {
+  const a = [...input];
+
+  function build(
+    lo: number,
+    hi: number,
+  ): { call: string; slice: number[]; children: ReturnType<typeof build>[] } {
+    const slice = a.slice(lo, hi + 1);
+    const call = `quicksort([${slice.join(',')}])`;
+    if (lo >= hi) return { call, slice, children: [] };
+    const p = lomutoPartition(a, lo, hi);
+    const left = build(lo, p - 1);
+    const right = build(p + 1, hi);
+    return { call, slice, children: [left, right] };
+  }
+
+  return build(0, a.length - 1);
+}
 
 export function traceQuick(input: number[]): SortTrace {
+  const a = [...input];
   const steps: SortStep[] = [];
 
   function callLabel(slice: number[]): string {
     return `quicksort([${slice.join(',')}])`;
   }
 
-  // Track where the SUBARRAY currently lives inside the visualization
-  // array — we render on a full-length canvas with the slice occupying
-  // [offset..offset+slice.length-1]. Elements outside the current subarray
-  // stay in place; children write back to their offset on return.
-  const canvas = [...input];
-
-  function recurse(slice: number[], offset: number): number[] {
-    const call = callLabel(slice);
+  function recurse(lo: number, hi: number): void {
+    // Snapshot BEFORE partition — the chip label matches the tree recipe.
+    const call = callLabel(a.slice(lo, hi + 1));
     steps.push({
       kind: 'enter',
-      array: [...canvas],
+      array: [...a],
       highlightLines: [1],
       active: [],
-      subarray: [offset, offset + slice.length - 1],
+      subarray: [lo, hi],
       callNode: call,
-      description: `Llamar quicksort sobre [${slice.join(',')}] (índices ${offset}..${offset + slice.length - 1}).`,
+      description: `Llamar quicksort sobre a[${lo}..${hi}] = [${a.slice(lo, hi + 1).join(',')}].`,
     });
-    if (slice.length <= 1) {
+    if (lo >= hi) {
       steps.push({
         kind: 'return',
-        array: [...canvas],
+        array: [...a],
         highlightLines: [2],
-        active: slice.length === 1 ? [offset] : [],
-        subarray: [offset, offset + slice.length - 1],
+        active: lo === hi ? [lo] : [],
+        subarray: [lo, hi],
         callNode: call,
-        description: `Caso base: ${slice.length === 0 ? 'subarreglo vacío' : '1 elemento'} — ya está ordenado.`,
+        description: `Caso base: ${lo > hi ? 'rango vacío' : '1 elemento'} — ya está ordenado.`,
       });
-      return slice;
+      return;
     }
-    const pivot = slice[0]!;
+
+    // ── Partition (Lomuto, pivot = a[lo]) ────────────────────────────────
+    const pivot = a[lo]!;
     steps.push({
       kind: 'select-min',
-      array: [...canvas],
-      highlightLines: [3],
-      active: [offset],
-      pivot: offset,
-      subarray: [offset, offset + slice.length - 1],
+      array: [...a],
+      highlightLines: [9],
+      active: [lo],
+      pivot: lo,
+      subarray: [lo, hi],
       callNode: call,
       callAnnotation: `pivot = ${pivot}`,
-      description: `Tomar el pivot p = a[${offset}] = ${pivot} (primer elemento del subarreglo).`,
+      description: `Elegir el pivot p = a[${lo}] = ${pivot}.`,
     });
-    const left: number[] = [];
-    const right: number[] = [];
-    for (let k = 1; k < slice.length; k += 1) {
-      const x = slice[k]!;
-      const goesLeft = x < pivot;
-      if (goesLeft) left.push(x);
-      else right.push(x);
+    // Swap pivot to the end (parked). Now the pivot lives at index `hi`.
+    [a[lo], a[hi]] = [a[hi]!, a[lo]!];
+    steps.push({
+      kind: 'swap',
+      array: [...a],
+      highlightLines: [10],
+      active: [lo, hi],
+      pivot: hi,
+      subarray: [lo, hi],
+      callNode: call,
+      callAnnotation: `pivot = ${pivot} (aparcado en el borde)`,
+      description: `Aparcar el pivot al final del rango: swap a[${lo}] ↔ a[${hi}].`,
+    });
+    let store = lo;
+    for (let j = lo; j < hi; j += 1) {
+      const smaller = a[j]! < pivot;
       steps.push({
         kind: 'partition-scan',
-        array: [...canvas],
-        highlightLines: goesLeft ? [4] : [5],
-        active: [offset + k],
-        pivot: offset,
-        subarray: [offset, offset + slice.length - 1],
+        array: [...a],
+        highlightLines: [12],
+        active: [j],
+        pivot: hi,
+        subarray: [lo, hi],
         callNode: call,
-        callAnnotation: `pivot = ${pivot} · < : [${left.join(',')}] · ≥ : [${right.join(',')}]`,
-        description: `${x} ${goesLeft ? '<' : '≥'} ${pivot} — cae en la partición ${goesLeft ? 'izquierda' : 'derecha'}.`,
+        callAnnotation: `pivot = ${pivot} · store = ${store} · < : ${store - lo}, ≥ : ${j - store}`,
+        description: `Comparar a[${j}] = ${a[j]} con pivot = ${pivot}.`,
       });
+      if (smaller) {
+        if (store !== j) {
+          [a[store], a[j]] = [a[j]!, a[store]!];
+          steps.push({
+            kind: 'swap',
+            array: [...a],
+            highlightLines: [13],
+            active: [store, j],
+            pivot: hi,
+            subarray: [lo, hi],
+            callNode: call,
+            callAnnotation: `pivot = ${pivot} · store = ${store + 1}`,
+            description: `${a[store]} < ${pivot} — swap a[${store}] ↔ a[${j}] y store++.`,
+          });
+        } else {
+          steps.push({
+            kind: 'partition-scan',
+            array: [...a],
+            highlightLines: [13],
+            active: [store],
+            pivot: hi,
+            subarray: [lo, hi],
+            callNode: call,
+            callAnnotation: `pivot = ${pivot} · store = ${store + 1}`,
+            description: `${a[j]} < ${pivot} — ya está en su lugar, store++.`,
+          });
+        }
+        store += 1;
+      }
     }
-    // Materialise the partition on the canvas: left first, pivot in the
-    // middle, right after. The reader sees the three zones separated by
-    // the pivot on its final position.
-    for (let k = 0; k < left.length; k += 1) canvas[offset + k] = left[k]!;
-    canvas[offset + left.length] = pivot;
-    for (let k = 0; k < right.length; k += 1) canvas[offset + left.length + 1 + k] = right[k]!;
+    // Move the pivot from `hi` to its final position `store`.
+    [a[store], a[hi]] = [a[hi]!, a[store]!];
     steps.push({
       kind: 'partition-done',
-      array: [...canvas],
-      highlightLines: [4, 5],
-      active: [offset + left.length],
-      pivot: offset + left.length,
-      subarray: [offset, offset + slice.length - 1],
+      array: [...a],
+      highlightLines: [15],
+      active: [store, hi],
+      pivot: store,
+      subarray: [lo, hi],
       callNode: call,
-      description: `Partición terminada: [${left.join(',')}] | ${pivot} | [${right.join(',')}]. El pivot ya está en su lugar final.`,
+      description: `Devolver el pivot a su lugar: swap a[${store}] ↔ a[${hi}]. Pivot p = ${pivot} ya está en su posición final ${store}.`,
     });
-    const leftSorted = recurse(left, offset);
-    const rightSorted = recurse(right, offset + left.length + 1);
-    // Write the sorted subarrays back to the canvas (in case children
-    // materialised different orderings on top of them).
-    for (let k = 0; k < leftSorted.length; k += 1) canvas[offset + k] = leftSorted[k]!;
-    canvas[offset + leftSorted.length] = pivot;
-    for (let k = 0; k < rightSorted.length; k += 1)
-      canvas[offset + leftSorted.length + 1 + k] = rightSorted[k]!;
+
+    // ── Recurse ──────────────────────────────────────────────────────────
+    recurse(lo, store - 1);
+    recurse(store + 1, hi);
     steps.push({
       kind: 'return',
-      array: [...canvas],
-      highlightLines: [8],
+      array: [...a],
+      highlightLines: [6],
       active: [],
-      subarray: [offset, offset + slice.length - 1],
+      subarray: [lo, hi],
       callNode: call,
-      description: `Retornar del quicksort sobre índices ${offset}..${offset + slice.length - 1}.`,
+      description: `Retornar del quicksort sobre a[${lo}..${hi}].`,
     });
-    return [...leftSorted, pivot, ...rightSorted];
   }
 
-  const sorted = recurse([...input], 0);
+  recurse(0, a.length - 1);
   steps.push({
     kind: 'done',
-    array: [...canvas],
+    array: [...a],
     highlightLines: [],
     active: [],
     description: 'Arreglo ordenado.',
   });
-  return { steps, sorted };
+  return { steps, sorted: a };
 }
 
 /** Dispatcher used by the widget. */
@@ -597,14 +703,34 @@ export const CODE: Record<SortAlgorithm, string> = {
     merge(a, lo, mid);
     merge(a, mid + 1, hi);
     mergeArrays(a, lo, mid, hi);
+}
+
+static void mergeArrays(int[] a, int lo, int mid, int hi) {
+    int[] aux = new int[hi - lo + 1];
+    for (int k = lo; k <= hi; k++) aux[k - lo] = a[k];
+    int i = 0, j = mid - lo + 1;
+    for (int k = lo; k <= hi; k++) {
+        if      (i > mid - lo)      a[k] = aux[j++];
+        else if (j > hi - lo)       a[k] = aux[i++];
+        else if (aux[i] <= aux[j])  a[k] = aux[i++];
+        else                        a[k] = aux[j++];
+    }
 }`,
-  quick: `void quick(int[] a) {
-    if (a.length <= 1) return;
-    int p = a[0];
-    int[] left  = { x in a[1..] : x <  p };
-    int[] right = { x in a[1..] : x >= p };
-    quick(left);
-    quick(right);
-    a = concat(left, [p], right);
+  quick: `void quick(int[] a, int lo, int hi) {
+    if (lo >= hi) return;
+    int p = partition(a, lo, hi);
+    quick(a, lo, p - 1);
+    quick(a, p + 1, hi);
+}
+
+static int partition(int[] a, int lo, int hi) {
+    int pivot = a[lo];
+    swap(a, lo, hi);
+    int store = lo;
+    for (int j = lo; j < hi; j++) {
+        if (a[j] < pivot) { swap(a, store, j); store++; }
+    }
+    swap(a, store, hi);
+    return store;
 }`,
 };

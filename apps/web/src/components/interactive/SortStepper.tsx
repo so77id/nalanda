@@ -275,9 +275,36 @@ function BarChart({ step, algorithm }: BarChartProps) {
   const inSubarray = (i: number) =>
     step.subarray === undefined || (i >= step.subarray[0] && i <= step.subarray[1]);
   const pointers = pointersForFrame(step, algorithm);
+  const carry = step.carry;
 
   return (
     <div className="flex flex-col gap-1">
+      {/* Carry row — the value held OUTSIDE the array (insertion sort's `v`).
+       * When there's no carry, the row is invisible but keeps its height so
+       * the bar row does not jump between frames. */}
+      <div className="flex min-w-fit gap-1" aria-label="carta">
+        {step.array.map((_, i) => (
+          <div key={i} className="flex justify-center" style={{ width: '2.25rem' }}>
+            {carry && carry.index === i ? (
+              <span
+                data-carry
+                data-carry-value={carry.value}
+                data-carry-index={i}
+                className="inline-flex flex-col items-center"
+              >
+                <span className="rounded border-2 border-accent-pop bg-accent-soft px-1.5 py-0.5 font-mono text-xs font-bold text-accent shadow-sm">
+                  {carry.value}
+                </span>
+                <span className="font-mono text-3xs font-semibold text-accent leading-none mt-0.5">
+                  ↓ {carry.label}
+                </span>
+              </span>
+            ) : (
+              <span className="block h-9" aria-hidden />
+            )}
+          </div>
+        ))}
+      </div>
       {/* Bar row — fixed height, so percentage heights on children resolve. */}
       <div
         className="flex min-w-fit items-end gap-1"

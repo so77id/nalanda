@@ -1,5 +1,5 @@
 import { Loader, Play } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { RuntimeId } from '../../lib/runtimeIds';
 import { RunAbandonedError } from '../../runtime';
@@ -44,6 +44,10 @@ export interface BenchmarkProps {
   measuredRuns?: number;
   /** Hard cap per single execution (ms). Exceeded → marked TIMEOUT, next implementation. */
   timeoutMs?: number;
+  /** When true, kick off the measurement automatically once the runtime is
+   * ready, so the reader lands on populated numbers. The Run button remains,
+   * so the reader can re-measure at the same or a different N. Default false. */
+  autoplay?: boolean;
 }
 
 interface RunResult {
@@ -92,6 +96,7 @@ export function Benchmark({
   warmupRuns = DEFAULT_WARMUP,
   measuredRuns = DEFAULT_MEASURED,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  autoplay = false,
 }: BenchmarkProps) {
   const { run, ready, failure: loadFailure } = useLoadedRuntime(language);
 
@@ -184,6 +189,18 @@ export function Benchmark({
     setProgress('');
     setRunning(false);
   }, [implementations, run, selectedN, warmupRuns, measuredRuns, timeoutMs]);
+
+  // Autoplay: kick off the measurement once the runtime is ready. Guarded by
+  // a ref so a re-render (e.g. the reader hits Run themselves later) does not
+  // launch a second auto-run in parallel.
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (!autoplay) return;
+    if (!ready || running || results !== null || autoStartedRef.current) return;
+    if (implementations === undefined || implementations.length === 0) return;
+    autoStartedRef.current = true;
+    void runAll();
+  }, [autoplay, ready, running, results, implementations, runAll]);
 
   if (implementations === undefined || implementations.length === 0) {
     return (

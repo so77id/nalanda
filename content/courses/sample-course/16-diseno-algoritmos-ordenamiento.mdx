@@ -321,13 +321,26 @@ static void merge(int[] a, int lo, int hi) {
     merge(a, mid + 1, hi);
     mergeArrays(a, lo, mid, hi);
 }
+
+static void mergeArrays(int[] a, int lo, int mid, int hi) {
+    int[] aux = new int[hi - lo + 1];
+    for (int k = lo; k <= hi; k++) aux[k - lo] = a[k];
+    int i = 0, j = mid - lo + 1;
+    for (int k = lo; k <= hi; k++) {
+        if      (i > mid - lo)      a[k] = aux[j++];
+        else if (j > hi - lo)       a[k] = aux[i++];
+        else if (aux[i] <= aux[j])  a[k] = aux[i++];
+        else                        a[k] = aux[j++];
+    }
+}
 ```
 
-El `mergeArrays` toma los dos subarreglos ya ordenados y camina las
-dos cabezas comparando el mínimo, escribiendo en un buffer auxiliar.
-Luego copia el buffer de vuelta al arreglo original. La parte
-"inteligente" es el `mergeArrays`: **combinar dos arreglos ordenados
-en tiempo lineal**.
+`mergeArrays` copia el rango `[lo..hi]` a un **buffer auxiliar** del
+mismo tamaño y luego camina las dos cabezas — un puntero `i` sobre la
+mitad izquierda del buffer, un puntero `j` sobre la mitad derecha —
+comparando y escribiendo el más chico de vuelta en `a`. La parte
+"inteligente" del algoritmo vive acá: **combinar dos arreglos
+ordenados en tiempo lineal** con un buffer temporal.
 
 </Slide>
 
@@ -342,7 +355,7 @@ plena combinación: los elementos se van escribiendo ahí uno a uno,
 tomándolos siempre del bloque izquierdo o derecho según cuál tenga la
 cabeza más chica.
 
-<SortStepper algorithm="merge" values={[3, 7, 1, 5]} />
+<SortStepper algorithm="merge" values={[6, 3, 8, 2, 7, 5, 4, 1]} />
 
 **Análisis.** La recurrencia:
 
@@ -399,23 +412,36 @@ la de mergesort: en vez de dividir por la mitad geométrica, se
 3. **Ordená recursivamente** cada grupo.
 
 ```java
-static void quick(int[] a) {
-    if (a.length <= 1) return;
-    int p = a[0];
-    int[] left  = { x en a[1..] : x < p };
-    int[] right = { x en a[1..] : x >= p };
-    quick(left);
-    quick(right);
-    a = concat(left, [p], right);
+static void quick(int[] a, int lo, int hi) {
+    if (lo >= hi) return;
+    int p = partition(a, lo, hi);
+    quick(a, lo, p - 1);
+    quick(a, p + 1, hi);
+}
+
+static int partition(int[] a, int lo, int hi) {
+    int pivot = a[lo];
+    swap(a, lo, hi);             // aparcar el pivot al final
+    int store = lo;
+    for (int j = lo; j < hi; j++) {
+        if (a[j] < pivot) { swap(a, store, j); store++; }
+    }
+    swap(a, store, hi);          // pivot a su lugar final
+    return store;
 }
 ```
 
-(Escrito así por claridad — en la práctica se hace **in-place** con
-dos punteros que se cruzan; el efecto es el mismo.)
+Esta implementación es **in-place** — no aloca arreglos nuevos, solo
+intercambia elementos dentro de `a`. La partición **Lomuto**
+funciona así: apartamos el pivote al borde del rango, escaneamos con
+`j`, y todo elemento estrictamente menor que el pivote lo llevamos a
+`store` (que crece de a uno). Al final, hacemos un último swap para
+poner el pivote donde tiene que quedar — el índice `store`, que es
+exactamente el lugar donde hay tantos elementos menores a la
+izquierda.
 
-La parte "inteligente" es la **partición**: el trabajo lineal que
-divide el arreglo alrededor del pivote. Después de particionar, el
-pivote **ya está en su posición final** — no se vuelve a tocar.
+Después de particionar, el pivote **ya está en su posición final** —
+no se vuelve a tocar.
 
 </Slide>
 
@@ -425,7 +451,7 @@ stepper avanza, cada elemento se clasifica en la partición izquierda
 (`< pivot`) o derecha (`>= pivot`). El árbol muestra la estructura
 recursiva: pivotes distintos en cada llamada.
 
-<SortStepper algorithm="quick" values={[3, 7, 1, 5]} />
+<SortStepper algorithm="quick" values={[6, 3, 8, 2, 7, 5, 4, 1]} />
 
 **Análisis.** La recurrencia depende de qué tan **equilibrada** sea
 la partición.
@@ -482,7 +508,58 @@ primitivos.
 Puestos a correr, así se ven los cinco:
 
 <Benchmark
+  autoplay
   implementations={[
+    { name: "bubble", code: `import java.util.Scanner;
+import java.util.Random;
+
+public class Bubble {
+static void bubble(int[] a) {
+for (int i = a.length - 1; i > 0; i--)
+for (int j = 0; j < i; j++)
+if (a[j] > a[j + 1]) { int t = a[j]; a[j] = a[j + 1]; a[j + 1] = t; }
+}
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        Random rng = new Random(42);
+        int[] a = new int[n];
+        for (int i = 0; i < n; i++) a[i] = rng.nextInt();
+        long t0 = System.nanoTime();
+        bubble(a);
+        long t1 = System.nanoTime();
+        System.out.println("time_ns:" + (t1 - t0));
+    }
+
+}
+`, entryClass: "Bubble" },
+    { name: "selection", code: `import java.util.Scanner;
+import java.util.Random;
+
+public class Selection {
+static void selection(int[] a) {
+for (int i = 0; i < a.length - 1; i++) {
+int min = i;
+for (int j = i + 1; j < a.length; j++) if (a[j] < a[min]) min = j;
+int t = a[i]; a[i] = a[min]; a[min] = t;
+}
+}
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        Random rng = new Random(42);
+        int[] a = new int[n];
+        for (int i = 0; i < n; i++) a[i] = rng.nextInt();
+        long t0 = System.nanoTime();
+        selection(a);
+        long t1 = System.nanoTime();
+        System.out.println("time_ns:" + (t1 - t0));
+    }
+
+}
+`, entryClass: "Selection" },
     { name: "insertion", code: `import java.util.Scanner;
 import java.util.Random;
 
@@ -509,15 +586,29 @@ a[j + 1] = v;
 
 }
 `, entryClass: "Insertion" },
-    { name: "bubble", code: `import java.util.Scanner;
+    { name: "mergesort", code: `import java.util.Scanner;
 import java.util.Random;
 
-public class Bubble {
-static void bubble(int[] a) {
-for (int i = a.length - 1; i > 0; i--)
-for (int j = 0; j < i; j++)
-if (a[j] > a[j + 1]) { int t = a[j]; a[j] = a[j + 1]; a[j + 1] = t; }
+public class Mergesort {
+static void merge(int[] a, int lo, int hi) {
+if (lo >= hi) return;
+int mid = (lo + hi) / 2;
+merge(a, lo, mid);
+merge(a, mid + 1, hi);
+mergeArrays(a, lo, mid, hi);
 }
+
+    static void mergeArrays(int[] a, int lo, int mid, int hi) {
+        int[] aux = new int[hi - lo + 1];
+        for (int k = lo; k <= hi; k++) aux[k - lo] = a[k];
+        int i = 0, j = mid - lo + 1;
+        for (int k = lo; k <= hi; k++) {
+            if      (i > mid - lo)      a[k] = aux[j++];
+            else if (j > hi - lo)       a[k] = aux[i++];
+            else if (aux[i] <= aux[j])  a[k] = aux[i++];
+            else                        a[k] = aux[j++];
+        }
+    }
 
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
@@ -526,34 +617,54 @@ if (a[j] > a[j + 1]) { int t = a[j]; a[j] = a[j + 1]; a[j + 1] = t; }
         int[] a = new int[n];
         for (int i = 0; i < n; i++) a[i] = rng.nextInt();
         long t0 = System.nanoTime();
-        bubble(a);
+        merge(a, 0, a.length - 1);
         long t1 = System.nanoTime();
         System.out.println("time_ns:" + (t1 - t0));
     }
 
 }
-`, entryClass: "Bubble" },
-    { name: "stdlib (quicksort 3-way)", code: `import java.util.Scanner;
+`, entryClass: "Mergesort" },
+    { name: "quicksort", code: `import java.util.Scanner;
 import java.util.Random;
-import java.util.Arrays;
 
-public class Stdlib {
-public static void main(String[] args) {
-Scanner sc = new Scanner(System.in);
-int n = sc.nextInt();
-Random rng = new Random(42);
-int[] a = new int[n];
-for (int i = 0; i < n; i++) a[i] = rng.nextInt();
-long t0 = System.nanoTime();
-Arrays.sort(a);
-long t1 = System.nanoTime();
-System.out.println("time_ns:" + (t1 - t0));
+public class Quicksort {
+static void quick(int[] a, int lo, int hi) {
+if (lo >= hi) return;
+int p = partition(a, lo, hi);
+quick(a, lo, p - 1);
+quick(a, p + 1, hi);
 }
+
+    static int partition(int[] a, int lo, int hi) {
+        int pivot = a[lo];
+        int t = a[lo]; a[lo] = a[hi]; a[hi] = t;
+        int store = lo;
+        for (int j = lo; j < hi; j++) {
+            if (a[j] < pivot) {
+                int s = a[store]; a[store] = a[j]; a[j] = s; store++;
+            }
+        }
+        int f = a[store]; a[store] = a[hi]; a[hi] = f;
+        return store;
+    }
+
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        Random rng = new Random(42);
+        int[] a = new int[n];
+        for (int i = 0; i < n; i++) a[i] = rng.nextInt();
+        long t0 = System.nanoTime();
+        quick(a, 0, a.length - 1);
+        long t1 = System.nanoTime();
+        System.out.println("time_ns:" + (t1 - t0));
+    }
+
 }
-`, entryClass: "Stdlib" },
+`, entryClass: "Quicksort" },
 ]}
-inputs={[15, 100, 500, 2000]}
-defaultInput={100}
+inputs={[15, 50, 200, 800]}
+defaultInput={50}
 />
 
 Lo que vamos a ver: los **elementales** ($$\Theta(N^2)$$) suben con

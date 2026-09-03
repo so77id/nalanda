@@ -1,4 +1,5 @@
 import { AuthoringError } from '../AuthoringError';
+import { lomutoPartition } from './sortStepperTrace';
 
 /**
  * A recursion-tree node with two flows visible: the CALL (arguments going
@@ -194,13 +195,19 @@ const RECIPES: Record<string, Recipe> = {
   },
   quicksort: {
     build: ({ values }) => {
-      // Deterministic pedagogical pivot: first element of the subarray.
-      // The class explains that shuffle + median-of-3 are the practical
-      // trick used by stdlib; the tree here shows the PATTERN, not the
-      // production choice.
-      function build(slice: number[]): TreeNode {
+      // Uses the SAME Lomuto in-place partition the SortStepper trace does,
+      // so the tree's chip labels match the stepper's subarrays exactly
+      // (see sortStepperTrace.ts §quicksortCallTree). Deterministic pivot =
+      // first element of the subarray, the pedagogical choice explained in
+      // the deck (stdlib uses shuffle + median-of-3 as a practical fix; the
+      // widget shows the PATTERN of partitioning, not the production
+      // choice).
+      const a = [...values];
+
+      function build(lo: number, hi: number): TreeNode {
+        const slice = a.slice(lo, hi + 1);
         const call = `quicksort([${slice.join(',')}])`;
-        if (slice.length <= 1) {
+        if (lo >= hi) {
           return {
             call,
             returnValue: `[${slice.join(',')}]`,
@@ -208,23 +215,19 @@ const RECIPES: Record<string, Recipe> = {
             children: [],
           };
         }
-        const pivot = slice[0]!;
-        const rest = slice.slice(1);
-        const left = rest.filter((x) => x < pivot);
-        const right = rest.filter((x) => x >= pivot);
-        const leftNode = build(left);
-        const rightNode = build(right);
-        const leftSorted = parseArray(leftNode.returnValue);
-        const rightSorted = parseArray(rightNode.returnValue);
+        const pivot = a[lo]!;
+        const p = lomutoPartition(a, lo, hi);
+        const leftNode = build(lo, p - 1);
+        const rightNode = build(p + 1, hi);
         return {
           call,
-          returnValue: `[${[...leftSorted, pivot, ...rightSorted].join(',')}]`,
+          returnValue: `[${a.slice(lo, hi + 1).join(',')}]`,
           isBase: false,
           intermediates: [{ label: 'pivot', value: `${pivot}` }],
           children: [leftNode, rightNode],
         };
       }
-      return build(values);
+      return build(0, a.length - 1);
     },
   },
   'binary-search': {
