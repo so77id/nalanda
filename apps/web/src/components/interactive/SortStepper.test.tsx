@@ -58,8 +58,12 @@ describe('SortStepper', () => {
     });
 
     it('shows the paso counter and description', () => {
-      render(<SortStepper algorithm="bubble" values={[3, 1, 2]} />);
-      expect(screen.getByText(/Paso 1\//)).toBeInTheDocument();
+      const { container } = render(<SortStepper algorithm="bubble" values={[3, 1, 2]} />);
+      // The counter is split across nested spans ("paso", "1", " / 3"); check
+      // the concatenated text.
+      expect(container.textContent).toMatch(/paso\s*1\s*\/ /);
+      // Progress bar is exposed via aria for browser checks.
+      expect(container.querySelector('[role="progressbar"]')).not.toBeNull();
     });
   });
 
@@ -68,13 +72,13 @@ describe('SortStepper', () => {
       const { container } = render(<SortStepper algorithm="bubble" values={[3, 1, 2]} />);
       const paso = screen.getByRole('button', { name: /Paso/ });
       const atras = screen.getByRole('button', { name: /Atrás/ });
-      expect(container.textContent).toMatch(/Paso 1\//);
+      expect(container.textContent).toMatch(/paso\s*1\s*\/ /);
       fireEvent.click(paso);
-      expect(container.textContent).toMatch(/Paso 2\//);
+      expect(container.textContent).toMatch(/paso\s*2\s*\/ /);
       fireEvent.click(paso);
-      expect(container.textContent).toMatch(/Paso 3\//);
+      expect(container.textContent).toMatch(/paso\s*3\s*\/ /);
       fireEvent.click(atras);
-      expect(container.textContent).toMatch(/Paso 2\//);
+      expect(container.textContent).toMatch(/paso\s*2\s*\/ /);
     });
 
     it('Reset returns to frame 1', () => {
@@ -85,7 +89,7 @@ describe('SortStepper', () => {
       fireEvent.click(paso);
       const reset = screen.getByRole('button', { name: /Reset/ });
       fireEvent.click(reset);
-      expect(container.textContent).toMatch(/Paso 1\//);
+      expect(container.textContent).toMatch(/paso\s*1\s*\/ /);
     });
 
     it('Atrás is disabled at the first frame', () => {

@@ -181,8 +181,8 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
   // each of the three panels reads as its own bounded box with a matching
   // heading strip.
   const columnCard = 'flex min-w-0 min-h-0 flex-col rounded border border-rule bg-surface';
-  const columnLabel =
-    'flex items-center gap-2 border-b border-rule bg-sunk px-2 py-1 font-mono text-3xs uppercase tracking-wide text-ink-faint';
+
+  const progressPct = totalSteps > 1 ? ((stepIndex + 1) / totalSteps) * 100 : 100;
 
   return (
     <figure
@@ -191,16 +191,34 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
       data-mode={mode}
       className={outerClass}
     >
-      <header className="flex items-center justify-between gap-2 bg-sunk px-3 py-1.5">
+      <header className="flex items-center justify-between gap-3 bg-sunk px-3 py-2">
         <div className="flex items-center gap-2">
           <span className="rounded bg-accent-soft px-1.5 py-0.5 font-mono text-3xs tracking-wide text-accent uppercase">
-            sort
+            sort · {algorithm}
           </span>
           <h4 className="m-0 text-sm font-medium text-ink">{heading}</h4>
         </div>
-        <span className="font-mono text-3xs text-ink-faint">
-          Paso {stepIndex + 1}/{totalSteps}
-        </span>
+        {/* Big step counter — the reader's anchor for "where are we in this
+         * algo run" (pedagogical mockup ANCLA · qué significa). */}
+        <div className="flex items-center gap-2.5">
+          <span className="font-mono text-xs text-ink-faint">paso</span>
+          <span className="font-mono text-lg font-bold leading-none text-ink">
+            {stepIndex + 1}
+            <span className="font-medium text-ink-faint"> / {totalSteps}</span>
+          </span>
+          <div
+            className="h-2 w-24 overflow-hidden rounded border border-rule bg-surface"
+            role="progressbar"
+            aria-valuenow={stepIndex + 1}
+            aria-valuemin={1}
+            aria-valuemax={totalSteps}
+          >
+            <div
+              className="h-full rounded-sm bg-accent-pop transition-[width] duration-200"
+              style={{ width: `${progressPct}%` }}
+            />
+          </div>
+        </div>
       </header>
 
       {isPresentation ? (
@@ -218,9 +236,7 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
         >
           {showCode ? (
             <div className={columnCard}>
-              <div className={columnLabel}>
-                <span>1 · código</span>
-              </div>
+              <PanelLabel index={1} label="código" />
               <div className="min-h-0 flex-1 overflow-auto">
                 <CodeStepper
                   code={CODE[algorithm]}
@@ -231,9 +247,7 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
             </div>
           ) : null}
           <div className={columnCard}>
-            <div className={columnLabel}>
-              <span>{showCode ? '2' : '1'} · arreglo</span>
-            </div>
+            <PanelLabel index={showCode ? 2 : 1} label="arreglo" />
             <div className="min-h-0 flex-1 overflow-auto p-3">
               <BarChart step={step} algorithm={algorithm} tallInPresentation />
               {step.auxRail ? (
@@ -245,9 +259,7 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
           </div>
           {showTreePanel && treeAlgo ? (
             <div className={columnCard}>
-              <div className={columnLabel}>
-                <span>{showCode ? '3' : '2'} · árbol</span>
-              </div>
+              <PanelLabel index={showCode ? 3 : 2} label="árbol" />
               <div className="min-h-0 flex-1 overflow-auto p-3">
                 <DivideCombineTree
                   recipe={treeAlgo}
@@ -297,8 +309,14 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
         </>
       )}
 
-      <div className="border-t border-rule bg-sunk px-3 py-2 text-sm text-ink">
-        <p className="m-0 font-mono text-xs">{step.description}</p>
+      {/* Narration strip — the current frame in plain Spanish, prefaced by
+       * a turquoise "qué está pasando" badge (pedagogical anchor: a verbal
+       * frame every reader can hold onto while scanning the visual). */}
+      <div className="flex items-center gap-3 border-t border-rule bg-sunk px-3 py-2">
+        <span className="rounded border border-focus/40 bg-focus/10 px-2 py-0.5 font-mono text-3xs font-bold tracking-wide text-focus uppercase whitespace-nowrap">
+          qué está pasando
+        </span>
+        <p className="m-0 font-mono text-xs text-ink">{step.description}</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-t border-rule bg-sunk px-3 py-1.5">
@@ -572,6 +590,20 @@ function ControlButton({ onClick, disabled, label, children }: ControlButtonProp
       {children}
       {label}
     </button>
+  );
+}
+
+/** Numbered panel header used in presentation mode. The filled orange badge
+ * makes the reader's scanning order explicit: 1 (código) → 2 (arreglo) → 3
+ * (árbol). */
+function PanelLabel({ index, label }: { index: number; label: string }) {
+  return (
+    <div className="flex items-center gap-2 border-b border-rule bg-sunk px-3 py-1.5 font-mono text-3xs uppercase tracking-wide text-ink-faint">
+      <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-accent font-bold text-on-accent">
+        {index}
+      </span>
+      <span className="font-bold text-ink-soft">{label}</span>
+    </div>
   );
 }
 
