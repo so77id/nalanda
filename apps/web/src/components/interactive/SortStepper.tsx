@@ -308,10 +308,10 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
         <div
           className={`grid gap-2 px-3 py-3 ${
             showTreePanel
-              ? // 40 / 20 / 40 — the array panel is narrower (per Miguel):
-                // its content (barras + aux buffer) fits well in 20 %, and
-                // the code + tree panels get the room they need.
-                'grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,2fr)]'
+              ? // 35 / 30 / 35 — the array panel needs a bit more room than
+                // 20 % so the barras and the aux buffer breathe; the code and
+                // tree panels shrink slightly.
+                'grid-cols-[minmax(0,7fr)_minmax(0,6fr)_minmax(0,7fr)]'
               : 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'
           }`}
           style={{ height: 'min(70vh, 720px)' }}
@@ -340,21 +340,23 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
               label="arreglo"
               hint={arrayHint(step, algorithm)}
             />
-            <div className="min-h-0 flex-1 overflow-auto p-3">
+            {/* Center the array (bars + aux buffer) both horizontally and
+             * vertically in the panel — the arreglo is the eye's focal
+             * point of the frame, so it should sit in the middle of its
+             * column instead of hugging the top-left corner. */}
+            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto p-3">
               <BarChart step={step} algorithm={algorithm} tallInPresentation />
               {/* Aux buffer: always visible for mergesort so the reader can
                * see "how much extra memory this needs" between frames — not
                * just during merge-take. Empty slots reserve the space so
                * the layout does not jump when a merge starts. */}
               {algorithm === 'merge' ? (
-                <div className="mt-3">
-                  <AuxRail
-                    rail={
-                      step.auxRail ??
-                      (Array.from({ length: values.length }, () => null) as (number | null)[])
-                    }
-                  />
-                </div>
+                <AuxRail
+                  rail={
+                    step.auxRail ??
+                    (Array.from({ length: values.length }, () => null) as (number | null)[])
+                  }
+                />
               ) : null}
             </div>
           </div>
@@ -415,6 +417,7 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
                       ? { [step.callNode]: step.callAnnotation }
                       : undefined
                   }
+                  bare
                 />
               </div>
             ) : null}
