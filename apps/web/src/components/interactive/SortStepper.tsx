@@ -1,5 +1,5 @@
 import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
@@ -166,10 +166,85 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
 
   // In presentation mode, break out of the slide's prose max-width and use
   // the whole viewport (the pedagogical use case wants the widget to breathe).
-  // The trick: position:relative with left:50% + translate:-50% + w:100vw
-  // makes the element span the viewport regardless of its parent's width.
+  // The presentation Slide wraps every child in a chain of centered / padded
+  // / overflow-hidden containers, so the pure-CSS trick
+  // (`left-1/2 -translate-x-1/2 w-screen`) does NOT actually escape the
+  // padding: the widget lands at the parent's centered position with the
+  // parent's width. Instead: measure the widget's natural left-in-viewport
+  // AFTER first paint, then set `width: <viewport>` and
+  // `marginLeft: -<naturalLeft>` on the outer element to push it to x=0.
+  const outerRef = useRef<HTMLElement | null>(null);
+  useLayoutEffect(() => {
+    if (!isPresentation) return undefined;
+    const el = outerRef.current;
+    if (!el) return undefined;
+    // The presentation Slide wraps every child in `.w-full.max-w-4xl` (896
+    // px cap) inside a stage that applies `transform: scale(<fit>)` to fit
+    // the slide's authored size into the viewport. So the widget's natural
+    // width is capped at 896px AND then scaled DOWN by the stage's fit
+    // factor. To render at true viewport width in the SCALED result, the
+    // widget's authored width must be `viewport_width / fit_scale`.
+    // Reading `scale` off the ancestor's transform matrix keeps this
+    // synchronised with the Slide's auto-fit logic without knowing its
+    // implementation.
+    const update = () => {
+      // Reset first so measurements reflect the natural flow position.
+      el.style.width = '';
+      el.style.marginLeft = '';
+      // Walk up until we find the transformed ancestor (the AnimatePresence
+      // motion.div carrying the fit-scale) — its inline transform is a
+      // uniform scale(X) matrix.
+      let scale = 1;
+      let scaleHost: HTMLElement | null = el.parentElement;
+      while (scaleHost && scaleHost !== document.body) {
+        const t = window.getComputedStyle(scaleHost).transform;
+        if (t && t !== 'none') {
+          const m = t.match(/matrix\(([^,]+),/);
+          const parsed = m ? parseFloat(m[1]!) : NaN;
+          if (Number.isFinite(parsed) && parsed > 0) {
+            scale = parsed;
+            break;
+          }
+        }
+        scaleHost = scaleHost.parentElement;
+      }
+      // The widget's rect uses ANCESTOR-SCALED coordinates; the natural (pre-
+      // scale) x-in-parent is `rect.left / scale` when scale is uniform. But
+      // we don't need the actual value — we just need to size the widget so
+      // that AFTER scaling it fills the viewport, AND to null out the
+      // horizontal offset the parent's centering imposes.
+      const vw = document.documentElement.clientWidth;
+      const authored = Math.round(vw / scale);
+      el.style.width = `${authored}px`;
+      // Cancel the parent's centering: after we set width to `authored`,
+      // measure again and subtract the resulting left position (in scaled
+      // coordinates) via a negative margin-left in AUTHORED units.
+      const rect = el.getBoundingClientRect();
+      const shiftAuthored = Math.round(rect.left / scale);
+      el.style.marginLeft = `-${shiftAuthored}px`;
+    };
+    // Run on next frame — the parent's transform may not have been applied
+    // yet on the very first layout pass right after mount.
+    const raf = window.requestAnimationFrame(update);
+    window.addEventListener('resize', update);
+    // Also observe the parent's size (the Slide auto-fit may re-measure).
+    const parent = el.parentElement;
+    let observer: ResizeObserver | null = null;
+    if (parent && typeof ResizeObserver === 'function') {
+      observer = new ResizeObserver(update);
+      observer.observe(parent);
+    }
+    return () => {
+      window.cancelAnimationFrame(raf);
+      window.removeEventListener('resize', update);
+      if (observer) observer.disconnect();
+      el.style.width = '';
+      el.style.marginLeft = '';
+    };
+  }, [isPresentation, algorithm, valuesKey]);
+
   const outerClass = isPresentation
-    ? 'not-prose my-6 relative left-1/2 -translate-x-1/2 w-screen max-w-[100vw] overflow-hidden rounded-lg border border-rule bg-surface text-ink'
+    ? 'not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink'
     : 'not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink';
 
   // Presentation lays out code | bars | tree in three columns (or code | bars
@@ -186,6 +261,7 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
 
   return (
     <figure
+      ref={outerRef}
       data-widget="sort-stepper"
       data-algorithm={algorithm}
       data-mode={mode}
