@@ -99,6 +99,45 @@ type ProfessorFormValues struct {
 	Name  string
 }
 
+// ProfilePage is what profile.html renders: the professor's own account and
+// the state of their Canvas integration.
+//
+// Three states, and the template branches on them in this order, because
+// they are not independent:
+//
+//  1. !SecretsConfigured — the deployment has no master key, so there is
+//     nothing to show a form for (ADR-0068 §Decision 3).
+//  2. Connected — a token is stored. The form becomes "replace", and a
+//     second form offers to forget it.
+//  3. neither — the empty state, with the instructions for generating a
+//     token in Canvas.
+//
+// There is deliberately NO field carrying the token. The page cannot render
+// it back even by accident: the value is not in this struct, and the input's
+// `value` is the empty string in every branch (issue #271 AC-6).
+type ProfilePage struct {
+	Page
+	Email string
+	Name  string
+
+	// SecretsConfigured is canvas.Service.Configured() — whether the
+	// deployment can store a secret at all.
+	SecretsConfigured bool
+	// Connected is whether THIS professor has a token stored.
+	Connected bool
+
+	// Action is where the save/replace form posts; ForgetAction is where
+	// the delete form posts. Passed in rather than written in the template
+	// so the route constants have one home.
+	Action       string
+	ForgetAction string
+
+	// Errors is field-keyed like every other form on this surface — a
+	// single blob would make a two-error submission read as "something
+	// went wrong" (§Form / validation / errors).
+	Errors map[string]string
+}
+
 // ProfessorsListPage is what professors_list.html renders. The row values
 // are pre-formatted by the handler; see handler/professors.go for why.
 type ProfessorsListPage struct {
@@ -641,6 +680,19 @@ func RenderLogin(w http.ResponseWriter, page LoginPage) error {
 		}
 	}
 	return render(w, "login", http.StatusOK, page)
+}
+
+// RenderProfile writes the professor's own profile page.
+//
+// status is a parameter for the same reason RenderProfessorsForm's is: the
+// same template renders a fresh GET (200) and the re-render after a refused
+// token (422). A refusal rendered as 200 would look right in a browser and
+// hide the rejection from anything reading the HTTP layer.
+func RenderProfile(w http.ResponseWriter, status int, page ProfilePage) error {
+	if page.Title == "" {
+		page.Title = "Mi perfil"
+	}
+	return render(w, "profile", status, page)
 }
 
 // RenderProfessorsList writes the CRUD's list page.

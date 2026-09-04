@@ -17,6 +17,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/oauthstate"
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
+	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
@@ -122,6 +123,15 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 				Log:                logger,
 			})
 		}(),
+		// Issue #271: the profile screen. Wired with a nil secret store —
+		// the "no master key" branch — because these cases are about the
+		// router's table (gating, CSRF, composition), not about Canvas.
+		// canvas.Service renders that state; it does not refuse it.
+		Profile: handler.NewProfile(handler.Profile{
+			Canvas:    canvas.NewService(nil, unreachableCanvas{}),
+			PublicURL: "https://nalanda.test",
+			Log:       logger,
+		}),
 		AdminBank: handler.NewAdminBank(handler.AdminBank{
 			Bank:      emptyBank(t),
 			PublicURL: "https://nalanda.test",
@@ -435,4 +445,14 @@ func TestEveryStateChangingRouteVerifiesCSRF(t *testing.T) {
 	if checked == 0 {
 		t.Fatal("no state-changing route in the table, so this test verified nothing")
 	}
+}
+
+// unreachableCanvas is a canvas.API that must never be called. The router
+// fixtures wire canvas.Service with no secret store, so no code path in
+// these cases can reach Canvas; a call would mean the "not configured"
+// branch stopped short-circuiting, which is worth failing loudly for.
+type unreachableCanvas struct{}
+
+func (unreachableCanvas) Verify(context.Context, string) error {
+	panic("router tests must not reach Canvas")
 }

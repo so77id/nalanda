@@ -100,6 +100,10 @@ services:
       # Empty is legal and means the Canvas integration reports itself
       # unconfigured; a present-but-malformed value is a startup error.
       NALANDA_SECRETS_MASTER_KEY: "${NALANDA_SECRETS_MASTER_KEY:-}"
+
+      # The Canvas GraphQL endpoint (issue #271). Empty uses the client's
+      # own default, https://udp.instructure.com/api/graphql.
+      NALANDA_CANVAS_GRAPHQL_URL: "${NALANDA_CANVAS_GRAPHQL_URL:-}"
     volumes:
       - server-data:/data
       # Shared with the amc-worker service below. The server writes a

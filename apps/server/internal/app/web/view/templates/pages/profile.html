@@ -1,0 +1,84 @@
+{{ define "content" }}
+  <h1>Mi perfil</h1>
+
+  <p>{{ .Email }}{{ if .Name }} · {{ .Name }}{{ end }}</p>
+
+  <h2>Integración con Canvas</h2>
+
+  {{ if not .SecretsConfigured }}
+    {{/*
+      The deployment has no NALANDA_SECRETS_MASTER_KEY, so nothing can be
+      stored encrypted and no form is shown. This is a legal state
+      (ADR-0068 §Decision 3): the server boots without the key so a merge
+      never takes production down. The message names the variable because
+      the person who can fix it is the operator, and here that is usually
+      the professor reading this page.
+    */}}
+    <section class="aviso">
+      <p>
+        La integración con Canvas no está configurada en este servidor:
+        falta la variable <code>NALANDA_SECRETS_MASTER_KEY</code>, que es
+        la que permite guardar el token cifrado. Mientras no esté, no se
+        puede pegar ningún token.
+      </p>
+    </section>
+  {{ else if .Connected }}
+    <p>
+      Token configurado. Nalanda puede leer tus cursos y sus listas de
+      estudiantes en Canvas.
+    </p>
+    <section class="aviso">
+      <p>
+        El token no se muestra de vuelta: queda cifrado y nadie —tampoco
+        esta página— puede volver a leerlo. Si lo perdiste o quieres
+        cambiarlo, pega uno nuevo y reemplaza el anterior.
+      </p>
+    </section>
+
+    <form class="form" method="post" action="{{ .Action }}">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <p class="field">
+        <label for="token">Reemplazar el token</label>
+        <input id="token" type="password" name="token" value=""
+               autocomplete="off" spellcheck="false" required />
+        {{ with index .Errors "token" }}
+          <span class="error">{{ . }}</span>
+        {{ end }}
+      </p>
+      <p>
+        <button type="submit">Reemplazar</button>
+      </p>
+    </form>
+
+    <form class="form" method="post" action="{{ .ForgetAction }}">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <p><button type="submit">Eliminar el token</button></p>
+    </form>
+  {{ else }}
+    <p>
+      Para importar la lista de estudiantes de un curso, Nalanda necesita
+      un token de acceso tuyo de Canvas. Lo generas en Canvas, en
+      <em>Cuenta → Configuración → Nuevo token de acceso</em>, y lo pegas
+      aquí.
+    </p>
+    <section class="aviso">
+      <p>
+        Queda guardado cifrado y no vuelve a mostrarse. Puedes revocarlo en
+        Canvas cuando quieras; Nalanda dejará de poder leer tus cursos.
+      </p>
+    </section>
+
+    <form class="form" method="post" action="{{ .Action }}">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <p class="field">
+        <label for="token">Token de Canvas</label>
+        <input id="token" type="password" name="token" value=""
+               autocomplete="off" spellcheck="false" required />
+        {{ with index .Errors "token" }}
+          <span class="error">{{ . }}</span>
+        {{ end }}
+      </p>
+      <p><button type="submit">Guardar</button></p>
+    </form>
+  {{ end }}
+{{ end }}

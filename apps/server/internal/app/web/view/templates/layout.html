@@ -236,6 +236,7 @@
           <summary>{{ .Professor.Email }}</summary>
           <div class="menu-panel">
             {{ if .Professor.Name }}<p>{{ .Professor.Name }}</p>{{ end }}
+            <p><a href="/profile">Mi perfil</a></p>
             <form method="post" action="/logout">
               <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
               <button type="submit">Cerrar sesión</button>

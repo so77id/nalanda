@@ -1,0 +1,65 @@
+// Package canvas is the professor's Canvas integration: the policy around
+// their API token, and the vocabulary the HTTP adapter speaks.
+//
+// It exists because the roster the entrance controls need (issue #271, epic
+// #270) already lives in Canvas, and the only way in without UDP IT is a
+// personal access token the professor generates themselves (Canvas →
+// Account → Settings → New Access Token). This package owns what happens to
+// that token: it is verified against Canvas before it is believed, sealed by
+// internal/domain/secret before it is stored, and never handed back to a
+// reader.
+//
+// The HTTP client lives in internal/infra/canvas and satisfies API, which is
+// declared HERE because this is where it is consumed — the health.Prober
+// shape (backend-code-style.md §The dependency rule).
+package canvas
+
+import (
+	"context"
+	"errors"
+)
+
+// The namespace and key this package stores its secret under. Wrappers over
+// secret's own constants so a caller cannot reach the wrong row by spelling
+// one of the two strings differently.
+const (
+	secretNamespace = "canvas"
+	secretKey       = "token"
+)
+
+// Sentinel errors callers branch on.
+var (
+	// ErrNotConfigured is what every method returns when the deployment has
+	// no NALANDA_SECRETS_MASTER_KEY. Distinct from "no token stored"
+	// because the professor cannot fix it: the operator has to set the key
+	// before any token can be sealed at all (ADR-0068 §Decision 3).
+	ErrNotConfigured = errors.New("canvas: the secrets master key is not configured")
+
+	// ErrNoToken is "this professor has not connected Canvas yet". The
+	// ordinary empty state, rendered as a form.
+	ErrNoToken = errors.New("canvas: no token stored for this professor")
+
+	// ErrTokenRejected is Canvas answering that the token is not valid —
+	// mistyped, revoked, or expired. The professor fixes this by pasting a
+	// new one, so it is a field error on the form, never a 500.
+	ErrTokenRejected = errors.New("canvas: the token was rejected by Canvas")
+
+	// ErrUnavailable is Canvas not answering, or answering with something
+	// this client cannot read. Nothing about the token is known, so the
+	// caller must NOT store it and must not tell the professor it is wrong.
+	ErrUnavailable = errors.New("canvas: Canvas could not be reached")
+)
+
+// API is what this domain needs from Canvas. Implemented by
+// internal/infra/canvas over Canvas's GraphQL endpoint.
+//
+// The token is a PARAMETER of every call rather than state on the client:
+// the client is a process-wide singleton, and a professor's credential must
+// not outlive the request that decrypted it.
+type API interface {
+	// Verify reports whether the token authenticates against Canvas. It
+	// returns nil when Canvas accepts it, ErrTokenRejected when Canvas
+	// refuses it, and ErrUnavailable when the answer says nothing about the
+	// token either way.
+	Verify(ctx context.Context, token string) error
+}

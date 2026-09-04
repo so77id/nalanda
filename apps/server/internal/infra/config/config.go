@@ -105,6 +105,15 @@ const (
 	// user_secrets (internal/domain/secret, ADR-0068). Base64 of exactly 32
 	// random bytes: `openssl rand -base64 32`.
 	KeySecretsMasterKey = "NALANDA_SECRETS_MASTER_KEY"
+	// KeyCanvasGraphQLURL is the Canvas GraphQL endpoint the roster import
+	// talks to. Optional: empty means the client's own default, UDP's
+	// https://udp.instructure.com/api/graphql. It exists so a test can
+	// point at an httptest server and a second institution costs no code.
+	//
+	// The default lives on canvas.Client rather than here so the literal
+	// is written once; this package only refuses a value that is set and
+	// unusable.
+	KeyCanvasGraphQLURL = "NALANDA_CANVAS_GRAPHQL_URL"
 )
 
 // defaultMaxScanMB is what an unset KeyMaxScanMB resolves to.
@@ -227,6 +236,10 @@ type Config struct {
 	// Never logged. LogValue and String report only whether it is set —
 	// this key opens every professor's Canvas token.
 	SecretsMasterKey []byte
+
+	// CanvasGraphQLURL is the Canvas GraphQL endpoint, or "" for the
+	// client's own default (UDP's). Validated when set.
+	CanvasGraphQLURL string
 }
 
 // SecretsConfigured reports whether a usable master key was configured, and
@@ -248,7 +261,7 @@ func Keys() []string {
 		KeyQuestionsJSONURL, KeyAmcWorkerURL, KeyWorkDir,
 		KeyMaxScanMB, KeyAnnotateEnabled,
 		KeyBankRefreshInterval,
-		KeySecretsMasterKey,
+		KeySecretsMasterKey, KeyCanvasGraphQLURL,
 	}
 }
 
@@ -380,6 +393,26 @@ func Load(lookup LookupFunc) (Config, error) {
 	}
 	cfg.SecretsMasterKey = masterKey
 
+	// Validated only when set, because empty means "use the client's
+	// default" rather than "unconfigured". A value that IS set and is not
+	// an absolute http(s) URL would otherwise fail on the first professor
+	// who pastes a token, with an error about Canvas rather than about
+	// this variable.
+	cfg.CanvasGraphQLURL = l.optional(KeyCanvasGraphQLURL, "")
+	if cfg.CanvasGraphQLURL != "" {
+		parsed, err := url.Parse(cfg.CanvasGraphQLURL)
+		switch {
+		case err != nil:
+			return Config{}, fmt.Errorf("%s=%q is not a URL: %w", KeyCanvasGraphQLURL, cfg.CanvasGraphQLURL, err)
+		case parsed.Scheme != "http" && parsed.Scheme != "https":
+			return Config{}, fmt.Errorf(
+				"%s=%q has scheme %q; it must be an absolute http or https URL",
+				KeyCanvasGraphQLURL, cfg.CanvasGraphQLURL, parsed.Scheme)
+		case parsed.Host == "":
+			return Config{}, fmt.Errorf("%s=%q names no host", KeyCanvasGraphQLURL, cfg.CanvasGraphQLURL)
+		}
+	}
+
 	return cfg, nil
 }
 
@@ -480,6 +513,7 @@ func (c Config) LogValue() slog.Value {
 		slog.Bool("annotate_enabled", c.AnnotateEnabled),
 		slog.String("bank_refresh_interval", c.BankRefreshInterval.String()),
 		slog.Bool("secrets_master_key_set", c.SecretsConfigured()),
+		slog.String("canvas_graphql_url", c.CanvasGraphQLURL),
 	)
 }
 
@@ -488,11 +522,11 @@ func (c Config) LogValue() slog.Value {
 // either.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s annotate_enabled:%t bank_refresh_interval:%s secrets_master_key_set:%t}",
+		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s annotate_enabled:%t bank_refresh_interval:%s secrets_master_key_set:%t canvas_graphql_url:%s}",
 		c.Addr, c.SafeDatabaseURL(), c.LogLevel, c.PublicURL, c.GoogleClientID,
 		c.SessionTTL, c.BootstrapProfessorEmail != "", c.TrustProxyHeaders,
 		c.QuestionsJSONURL, c.AmcWorkerURL, c.WorkDir, c.AnnotateEnabled,
-		c.BankRefreshInterval, c.SecretsConfigured(),
+		c.BankRefreshInterval, c.SecretsConfigured(), c.CanvasGraphQLURL,
 	)
 }
 

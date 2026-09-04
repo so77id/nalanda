@@ -48,6 +48,7 @@ Environment variables, read once at boot. A required variable that is absent
 | `NALANDA_ANNOTATE_ENABLED` | no (`true`) | The annotate loop's master switch (issue #190). `false` turns the whole flow off: no `/annotate/copy` calls, no `annotated_copy` rows, the review page serves the raw scan — the escape hatch if the AMC-patching approach breaks against a real batch. Only `true`/`false`; a misspelling is a startup error |
 | `NALANDA_BANK_REFRESH_INTERVAL` | no (`5m`) | How often LiveBank polls `NALANDA_QUESTIONS_JSON_URL` for a fresh `questions.json` (issue #230). A Go duration; matches the Watchtower poll cadence on the Jetson so the server refreshes at the same rhythm as the container. `0s` disables the ticker — the manual admin button is then the only refresh path. A negative value is a startup error |
 | `NALANDA_SECRETS_MASTER_KEY` | no | The AES-256 key sealing `user_secrets` — today the professor's Canvas API token (issue #271, ADR-0068). Base64 of exactly 32 bytes (`openssl rand -base64 32`). **Absent or empty is legal**: the server boots and the Canvas integration reports itself unconfigured, so a deploy that has not been given a key yet stays up instead of refusing to start (the Jetson restarts within five minutes of a merge, ADR-0038 — a required variable here would take production down in that window). **Present but not 32 bytes after decoding is a startup error** naming the variable; a typo must not read as "not configured". Never printed: `config.Config` reports only whether it is set. WP-1 of epic #270 |
+| `NALANDA_CANVAS_GRAPHQL_URL` | no | The Canvas GraphQL endpoint the roster import talks to (issue #271). Empty uses the client's own default, `https://udp.instructure.com/api/graphql` — the literal lives on `canvas.Client` so it is written once. When it **is** set it must be an absolute http/https URL; a malformed value is a startup error rather than a failure on the first professor who pastes a token |
 
 ## Commands
 
@@ -264,6 +265,9 @@ Routes today:
 | `GET /controls/{id}/copies/{copy}/annotated.pdf` | Streams the corrected PDF from the shared volume; 404 while none exists (issue #190) |
 | `GET /controls/{id}/uploads/{batch}.pdf` | Downloads an uploaded scan batch (`batch-N.pdf`) from the shared volume; the detail page links every batch (issue #204) |
 | `GET /static/vendor/pdfjs/pdf.mjs` · `GET /static/vendor/pdfjs/pdf.worker.mjs` | Vendored PDF.js served by the `static` package. Public (issue #231, ADR-0047) — a browser fetching an ES module over a stale session would 302-redirect to login HTML the browser then refuses as JS. Directory-shaped requests answer 404 (no listing, no bare-name redirect); anything else under `/static/` that is not on the embed list is 404 too |
+| `GET /profile` | The professor's own account, reached from their menu in the bar. Today it holds the Canvas integration: the empty state with the instructions for generating a token, "Token configurado" with a Reemplazar form once one is stored, or — on a deployment with no `NALANDA_SECRETS_MASTER_KEY` — an explanation naming the variable instead of a form. The stored token is never rendered back (issue #271, ADR-0068) |
+| `POST /profile/canvas-token` | Verifies the pasted token against Canvas, then seals and stores it. One route for the first token and for a replacement — the store upserts. A token Canvas refuses is a 422 with a field error and nothing stored; a Canvas that cannot be reached is a 422 that says so and stores nothing either, because an outage is not evidence about a token (issue #271) |
+| `POST /profile/canvas-token/forget` | Removes the stored token. Idempotent all the way down (issue #271) |
 | `GET /professors` | The list: address, name, state, created, last sign-in |
 | `GET /professors/new` · `POST /professors` | Create by address and name — the `Authenticate` path (2) round trip |
 | `GET /professors/{id}/edit` · `POST /professors/{id}` | Rename. The address is not editable |
@@ -295,13 +299,14 @@ Deliberately, and each with an owner:
 
 | Missing | Arrives with |
 |---|---|
-| Courses, students, enrolment — any domain table | WP-D |
+| A course row linked to a `control` — the controls still have no `curso_id` | WP-2 of epic #270 (#272). The `course` / `student` / `enrollment` tables themselves landed with #271 |
 | JSON contracts, CORS, WebSocket on `/api` | with a consumer (ADR-0008) |
 | A per-control upload quota (batches per control, or total bytes) — today `NALANDA_MAX_SCAN_MB` bounds ONE upload | when an operator wants a ceiling on abuse by an authenticated professor |
 | Publishing grades (CSV export, Canvas, email) | WP-G |
 | Bulk download of annotated PDFs as a ZIP | when the pile is large enough — captured in #167 §Notes |
 | Regenerating the annotated PDF after a manual override | #167 §Non-goals; the annotated stays a view of what AMC read, overrides live in the DB |
-| Roster / student names, isolation between professors | V2 / #163 |
+| Matching a reading's RUT to a student, and any student name on a control screen | WP-2 of epic #270 (#272) — #271 loads the roster and deliberately changes no control screen |
+| Isolation between professors | V2 / #163 |
 | Deleting or re-addressing a professor who has never signed in | WP that reopens the mistyped-address debt (#151 §Notes) |
 | An audit trail of who did what | The WP that gains a second class of actor (#151 §Non-goals) |
 
