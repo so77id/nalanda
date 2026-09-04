@@ -430,6 +430,50 @@ export function DivideCombineTree({
     }
   }
 
+  return (
+    <Body
+      recipe={recipe}
+      known={known}
+      values={values}
+      target={target}
+      title={title}
+      highlightNode={highlightNode}
+      nodeAnnotations={nodeAnnotations}
+      activeStack={activeStack}
+      doneNodes={doneNodes}
+      chipSize={chipSize}
+      bare={bare}
+    />
+  );
+}
+
+interface BodyProps {
+  recipe: string;
+  known: (typeof RECIPES)[keyof typeof RECIPES];
+  values: number[];
+  target?: number;
+  title?: string;
+  highlightNode?: string;
+  nodeAnnotations?: Record<string, string>;
+  activeStack?: string[];
+  doneNodes?: string[];
+  chipSize: 'md' | 'sm';
+  bare: boolean;
+}
+
+function Body({
+  recipe,
+  known,
+  values,
+  target,
+  title,
+  highlightNode,
+  nodeAnnotations,
+  activeStack,
+  doneNodes,
+  chipSize,
+  bare,
+}: BodyProps) {
   // Memoise: the parent (SortStepper) re-renders per playback tick with new
   // activeStack/doneNodes identities, but the tree shape depends only on
   // (recipe, values, target) — rebuilding it every tick is wasted work.
