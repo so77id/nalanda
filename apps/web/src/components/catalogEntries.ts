@@ -33,6 +33,8 @@ import { questionsCatalogEntry } from './interactive/Questions.catalog';
 import { recursionTreeCatalogEntry } from './interactive/RecursionTree.catalog';
 import { divideCombineTreeCatalogEntry } from './interactive/DivideCombineTree.catalog';
 import { sortStepperCatalogEntry } from './interactive/SortStepper.catalog';
+import { mergeStepperCatalogEntry } from './interactive/MergeStepper.catalog';
+import { partitionStepperCatalogEntry } from './interactive/PartitionStepper.catalog';
 import { decisionTreeSortCatalogEntry } from './interactive/DecisionTreeSort.catalog';
 import { memoryVisualCatalogEntry } from './interactive/MemoryVisual.catalog';
 import { stepCatalogEntry, stepShowCatalogEntry } from './interactive/StepShow.catalog';
@@ -43,6 +45,7 @@ import { videoEmbedCatalogEntry } from './media/VideoEmbed.catalog';
 import { mosaicCatalogEntry } from './structure/Mosaic.catalog';
 import { sectionBreakCatalogEntry } from './structure/SectionBreak.catalog';
 import { sideBySideCatalogEntry } from './structure/SideBySide.catalog';
+import { presentationWideCatalogEntry } from './structure/PresentationWide.catalog';
 import { slideCatalogEntry } from './structure/Slide.catalog';
 import { splitCatalogEntry } from './structure/Split.catalog';
 
@@ -51,6 +54,7 @@ export const catalogEntries: CatalogEntry[] = [
   slideCatalogEntry,
   sectionBreakCatalogEntry,
   sideBySideCatalogEntry,
+  presentationWideCatalogEntry,
   splitCatalogEntry,
   mosaicCatalogEntry,
   figureCatalogEntry,
@@ -72,6 +76,8 @@ export const catalogEntries: CatalogEntry[] = [
   recursionTreeCatalogEntry,
   divideCombineTreeCatalogEntry,
   sortStepperCatalogEntry,
+  mergeStepperCatalogEntry,
+  partitionStepperCatalogEntry,
   decisionTreeSortCatalogEntry,
   binarySearchOnArrayCatalogEntry,
   maxSubarrayVizCatalogEntry,

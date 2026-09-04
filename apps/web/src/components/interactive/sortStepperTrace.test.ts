@@ -142,7 +142,9 @@ describe('sortStepperTrace', () => {
     it('emits the top-level callNode as the root of the quicksort tree', () => {
       const { steps } = traceQuick([3, 7, 1, 5]);
       const enter = steps.find((s) => s.kind === 'enter');
-      expect(enter?.callNode).toBe('quicksort([3,7,1,5])');
+      // Labels include `lo..hi` as a disambiguating suffix so empty
+      // sub-ranges do not collide (see quicksortCallLabel).
+      expect(enter?.callNode).toBe('quicksort([3,7,1,5] · 0..3)');
     });
 
     it('exposes the pivot on scan frames and lands it on partition-done', () => {
@@ -150,7 +152,7 @@ describe('sortStepperTrace', () => {
       // At the root: pivot=3 → left=[1], right=[7,5]. partition-done places
       // the pivot at index 1 (after left of length 1).
       const rootDone = steps.find(
-        (s) => s.kind === 'partition-done' && s.callNode === 'quicksort([3,7,1,5])',
+        (s) => s.kind === 'partition-done' && s.callNode === 'quicksort([3,7,1,5] · 0..3)',
       );
       expect(rootDone?.pivot).toBe(1);
     });
@@ -162,8 +164,8 @@ describe('sortStepperTrace', () => {
       //   root partition (pivot=3): [1,3,5,7], recurse on [0..0]=[1] and [2..3]=[5,7]
       const { steps } = traceQuick([3, 7, 1, 5]);
       const enters = steps.filter((s) => s.kind === 'enter').map((s) => s.callNode);
-      expect(enters).toContain('quicksort([1])');
-      expect(enters).toContain('quicksort([5,7])');
+      expect(enters).toContain('quicksort([1] · 0..0)');
+      expect(enters).toContain('quicksort([5,7] · 2..3)');
     });
   });
 });

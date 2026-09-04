@@ -58,6 +58,22 @@ export interface SortStep {
   callNode?: string;
   /** For merge/quick: middle-row annotation for the highlighted chip. */
   callAnnotation?: string;
+  /** For merge/quick: the recursion stack at this frame, deepest last.
+   * The last entry is the currently executing call (== `callNode`);
+   * anything else is "waiting on children" (on the stack but not the
+   * top). Used by `<DivideCombineTree>` to paint chips by state. */
+  callStack?: string[];
+  /** For merge/quick: chip labels that have already returned (are done).
+   * The tree paints these in the "listo" style, with their return value
+   * visible. */
+  doneNodes?: string[];
+  /** Array indices that have reached their FINAL sorted position. For
+   * quicksort, this grows monotonically as sub-calls return (their
+   * [lo..hi] is fully sorted once the call ends). For mergesort the same
+   * rule applies — a returned call's range is a sorted subarray. The
+   * widget paints these cells in green (`keep-soft`) so the reader sees
+   * the sorted region grow as playback advances. */
+  sortedIndices?: number[];
   /** For merge: the auxiliary rail (values placed so far, or null slots). */
   auxRail?: (number | null)[];
   /** A value held OUTSIDE the array: insertion sort's `v` while shifting.
@@ -311,12 +327,18 @@ export function traceMerge(input: number[]): SortTrace {
     return `mergesort([${slice.join(',')}])`;
   }
 
-  function recurse(lo: number, hi: number): void {
+  // `fromLine` names the line in the code panel that triggered this
+  // call. For recursive descents we highlight THAT line (the reader
+  // sees the call site light up as we jump into a new frame) instead
+  // of the function header — the header adds no pedagogical value once
+  // the reader has read the function once. The initial (root) call has
+  // no caller in the shown code, so we fall back to line 1.
+  function recurse(lo: number, hi: number, fromLine?: number): void {
     const call = callLabel(a.slice(lo, hi + 1));
     steps.push({
       kind: 'enter',
       array: [...a],
-      highlightLines: [1],
+      highlightLines: [fromLine ?? 1],
       active: [],
       subarray: [lo, hi],
       callNode: call,
@@ -335,12 +357,22 @@ export function traceMerge(input: number[]): SortTrace {
       return;
     }
     const mid = Math.floor((lo + hi) / 2);
-    recurse(lo, mid);
-    recurse(mid + 1, hi);
+    // Left child is called from line 4, right child from line 5 — see
+    // CODE.merge below for the numbered listing.
+    recurse(lo, mid, 4);
+    recurse(mid + 1, hi, 5);
     // Merge in place using an aux buffer for [lo..hi] — matches the
     // Java code shown to the reader.
+    //
+    // The `rail` visualization has N slots (always the full-array
+    // shape, so the reader sees the SAME 8-slot buffer at every frame)
+    // BUT it fills from position 0 regardless of which sub-range is
+    // being merged — matching the Java code which indexes aux from 0
+    // (`aux[k - lo] = a[k]`) and reuses the same buffer positions
+    // across merges. Values "stack from the left" up to the sub-range
+    // size; the tail beyond that stays empty.
     const aux = a.slice(lo, hi + 1);
-    const rail: (number | null)[] = Array.from({ length: aux.length }, () => null);
+    const rail: (number | null)[] = Array.from({ length: a.length }, () => null);
     let i = 0;
     let j = mid - lo + 1;
     let k = 0;
@@ -439,7 +471,62 @@ export function traceMerge(input: number[]): SortTrace {
     active: [],
     description: 'Arreglo ordenado.',
   });
-  return { steps, sorted: a };
+  return { steps: annotateCallStack(steps), sorted: a };
+}
+
+/**
+ * Post-processes a `SortStep[]` from `traceMerge` / `traceQuick`, walking
+ * `kind: 'enter'` / `kind: 'return'` markers to reconstruct the recursion
+ * stack and the set of chips that have returned at each frame. Emitted as
+ * `callStack` and `doneNodes` on every step, so `<DivideCombineTree>` can
+ * paint each chip by state (pending / on-stack / active / done) as
+ * playback advances.
+ *
+ * The rules are exactly what a single-threaded interpreter does:
+ * - on `enter`: push the call onto the stack BEFORE snapshotting (the
+ *   entering call is the active one during its `enter` frame);
+ * - on `return`: snapshot first (the returning call still counts as
+ *   executing during its `return` frame), then pop and mark as done;
+ * - every other kind: snapshot with the stack as-is.
+ */
+function annotateCallStack(rawSteps: SortStep[]): SortStep[] {
+  const stack: string[] = [];
+  const done: string[] = [];
+  const sorted = new Set<number>();
+  return rawSteps.map((s) => {
+    if (s.kind === 'enter' && s.callNode) {
+      stack.push(s.callNode);
+    }
+    const annotated: SortStep = {
+      ...s,
+      callStack: [...stack],
+      doneNodes: [...done],
+      sortedIndices: [...sorted],
+    };
+    if (s.kind === 'return' && s.callNode) {
+      // Pop after snapshotting — the return frame belongs to the still-
+      // executing call.
+      const idx = stack.lastIndexOf(s.callNode);
+      if (idx >= 0) stack.splice(idx, 1);
+      done.push(s.callNode);
+      // Base case (single-element range) is trivially sorted — mark that
+      // one index. Without this, a subarray that never runs a partition
+      // (size 1) leaves its cell grey forever, and inputs like 2, 4, or
+      // 8 elements always land some cells in size-1 base cases.
+      if (s.subarray && s.subarray[0] === s.subarray[1]) {
+        sorted.add(s.subarray[0]);
+      }
+    }
+    // Quicksort: the pivot's final position is set at `partition-done`,
+    // and once set it NEVER moves again (the recursion only touches the
+    // left [lo..p-1] and right [p+1..hi] sub-ranges). Mark that index as
+    // sorted here — it stays green from this frame onwards for the rest
+    // of playback.
+    if (s.kind === 'partition-done' && s.pivot !== undefined) {
+      sorted.add(s.pivot);
+    }
+    return annotated;
+  });
 }
 
 // ── quick (in-place Lomuto with pivot = a[lo] — matches DivideCombineTree
@@ -498,7 +585,7 @@ export function quicksortCallTree(input: number[]): {
     hi: number,
   ): { call: string; slice: number[]; children: ReturnType<typeof build>[] } {
     const slice = a.slice(lo, hi + 1);
-    const call = `quicksort([${slice.join(',')}])`;
+    const call = quicksortCallLabel(slice, lo, hi);
     if (lo >= hi) return { call, slice, children: [] };
     const p = lomutoPartition(a, lo, hi);
     const left = build(lo, p - 1);
@@ -509,21 +596,37 @@ export function quicksortCallTree(input: number[]): {
   return build(0, a.length - 1);
 }
 
+/**
+ * Canonical label for a quicksort recursion node. Includes `lo..hi` as a
+ * disambiguating suffix — without it, empty sub-ranges all collapsed to
+ * `quicksort([])` and the state-tracking tree lit up multiple chips at
+ * once. Shared by the tree recipe (`DivideCombineTree` §RECIPES.quicksort)
+ * and by `traceQuick` so both agree on chip identity.
+ */
+export function quicksortCallLabel(slice: number[], lo: number, hi: number): string {
+  return `quicksort([${slice.join(',')}] · ${lo}..${hi})`;
+}
+
 export function traceQuick(input: number[]): SortTrace {
   const a = [...input];
   const steps: SortStep[] = [];
 
-  function callLabel(slice: number[]): string {
-    return `quicksort([${slice.join(',')}])`;
+  function callLabel(slice: number[], lo: number, hi: number): string {
+    return quicksortCallLabel(slice, lo, hi);
   }
 
-  function recurse(lo: number, hi: number): void {
+  // `fromLine` names the line in the code panel that triggered this
+  // call. Recursive descents highlight the call site (line 4 for the
+  // left half, line 5 for the right) — same pedagogical choice as
+  // traceMerge. The root call has no caller in the shown code, so we
+  // fall back to line 1.
+  function recurse(lo: number, hi: number, fromLine?: number): void {
     // Snapshot BEFORE partition — the chip label matches the tree recipe.
-    const call = callLabel(a.slice(lo, hi + 1));
+    const call = callLabel(a.slice(lo, hi + 1), lo, hi);
     steps.push({
       kind: 'enter',
       array: [...a],
-      highlightLines: [1],
+      highlightLines: [fromLine ?? 1],
       active: [],
       subarray: [lo, hi],
       callNode: call,
@@ -626,8 +729,10 @@ export function traceQuick(input: number[]): SortTrace {
     });
 
     // ── Recurse ──────────────────────────────────────────────────────────
-    recurse(lo, store - 1);
-    recurse(store + 1, hi);
+    // Left child is called from line 4, right child from line 5 —
+    // see CODE.quick below for the numbered listing.
+    recurse(lo, store - 1, 4);
+    recurse(store + 1, hi, 5);
     steps.push({
       kind: 'return',
       array: [...a],
@@ -647,7 +752,7 @@ export function traceQuick(input: number[]): SortTrace {
     active: [],
     description: 'Arreglo ordenado.',
   });
-  return { steps, sorted: a };
+  return { steps: annotateCallStack(steps), sorted: a };
 }
 
 /** Dispatcher used by the widget. */
@@ -697,15 +802,15 @@ export const CODE: Record<SortAlgorithm, string> = {
         a[j+1] = v;
     }
 }`,
-  merge: `void merge(int[] a, int lo, int hi) {
+  merge: `static void mergesort(int[] a, int lo, int hi) {
     if (lo >= hi) return;
     int mid = (lo + hi) / 2;
-    merge(a, lo, mid);
-    merge(a, mid + 1, hi);
-    mergeArrays(a, lo, mid, hi);
+    mergesort(a, lo, mid);
+    mergesort(a, mid + 1, hi);
+    merge(a, lo, mid, hi);
 }
 
-static void mergeArrays(int[] a, int lo, int mid, int hi) {
+static void merge(int[] a, int lo, int mid, int hi) {
     int[] aux = new int[hi - lo + 1];
     for (int k = lo; k <= hi; k++) aux[k - lo] = a[k];
     int i = 0, j = mid - lo + 1;
@@ -716,11 +821,11 @@ static void mergeArrays(int[] a, int lo, int mid, int hi) {
         else                        a[k] = aux[j++];
     }
 }`,
-  quick: `void quick(int[] a, int lo, int hi) {
+  quick: `static void quicksort(int[] a, int lo, int hi) {
     if (lo >= hi) return;
     int p = partition(a, lo, hi);
-    quick(a, lo, p - 1);
-    quick(a, p + 1, hi);
+    quicksort(a, lo, p - 1);
+    quicksort(a, p + 1, hi);
 }
 
 static int partition(int[] a, int lo, int hi) {

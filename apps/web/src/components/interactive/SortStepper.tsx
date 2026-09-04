@@ -1,11 +1,12 @@
 import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { DivideCombineTree } from './DivideCombineTree';
 import { CODE, traceFor, type SortAlgorithm, type SortStep } from './sortStepperTrace';
+import { useViewportBreakout } from './useViewportBreakout';
 
 export interface SortStepperProps {
   /** Which sorting algorithm to trace. */
@@ -188,89 +189,22 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
 
   const isPresentation = mode === 'presentation';
 
-  // In presentation mode, break out of the slide's prose max-width and use
-  // the whole viewport (the pedagogical use case wants the widget to breathe).
-  // The presentation Slide wraps every child in a chain of centered / padded
-  // / overflow-hidden containers, so the pure-CSS trick
-  // (`left-1/2 -translate-x-1/2 w-screen`) does NOT actually escape the
-  // padding: the widget lands at the parent's centered position with the
-  // parent's width. Instead: measure the widget's natural left-in-viewport
-  // AFTER first paint, then set `width: <viewport>` and
-  // `marginLeft: -<naturalLeft>` on the outer element to push it to x=0.
+  // Widgets with a tree (mergesort, quicksort) fill the viewport in
+  // presentation — the tree needs the room. Widgets without a tree (bubble,
+  // selection, insertion) take 75%: enough for code + array side by side,
+  // but not the visual bloat of an empty third of screen. The measurement
+  // dance itself is shared with any other widget that needs to breathe in
+  // presentation (see `useViewportBreakout`).
   const outerRef = useRef<HTMLElement | null>(null);
-  useLayoutEffect(() => {
-    if (!isPresentation) return undefined;
-    const el = outerRef.current;
-    if (!el) return undefined;
-    // The presentation Slide wraps every child in `.w-full.max-w-4xl` (896
-    // px cap) inside a stage that applies `transform: scale(<fit>)` to fit
-    // the slide's authored size into the viewport. So the widget's natural
-    // width is capped at 896px AND then scaled DOWN by the stage's fit
-    // factor. To render at true viewport width in the SCALED result, the
-    // widget's authored width must be `viewport_width / fit_scale`.
-    // Reading `scale` off the ancestor's transform matrix keeps this
-    // synchronised with the Slide's auto-fit logic without knowing its
-    // implementation.
-    // Widgets with a tree (mergesort, quicksort) fill the viewport in
-    // presentation — the tree needs the room. Widgets without a tree
-    // (bubble, selection, insertion) take 75 %: enough for code + array
-    // side by side, but not the visual bloat of an empty third of screen.
-    const widthFraction = showTreePanel ? 1 : 0.75;
-    const update = () => {
-      // Reset first so measurements reflect the natural flow position.
-      el.style.width = '';
-      el.style.marginLeft = '';
-      // Walk up until we find the transformed ancestor (the AnimatePresence
-      // motion.div carrying the fit-scale) — its inline transform is a
-      // uniform scale(X) matrix.
-      let scale = 1;
-      let scaleHost: HTMLElement | null = el.parentElement;
-      while (scaleHost && scaleHost !== document.body) {
-        const t = window.getComputedStyle(scaleHost).transform;
-        if (t && t !== 'none') {
-          const m = t.match(/matrix\(([^,]+),/);
-          const parsed = m ? parseFloat(m[1]!) : NaN;
-          if (Number.isFinite(parsed) && parsed > 0) {
-            scale = parsed;
-            break;
-          }
-        }
-        scaleHost = scaleHost.parentElement;
-      }
-      // The widget's rect uses ANCESTOR-SCALED coordinates; the natural
-      // (pre-scale) x-in-parent is `rect.left / scale` when scale is
-      // uniform. Size the widget so that AFTER scaling it takes the
-      // desired fraction of the viewport, then shift it so its centre
-      // lines up with the viewport centre.
-      const vw = document.documentElement.clientWidth;
-      const displayedWidth = vw * widthFraction;
-      const authored = Math.round(displayedWidth / scale);
-      el.style.width = `${authored}px`;
-      const rect = el.getBoundingClientRect();
-      // Target left (in viewport coords) that centres the widget:
-      const targetLeft = (vw - displayedWidth) / 2;
-      const shiftAuthored = Math.round((rect.left - targetLeft) / scale);
-      el.style.marginLeft = `-${shiftAuthored}px`;
-    };
-    // Run on next frame — the parent's transform may not have been applied
-    // yet on the very first layout pass right after mount.
-    const raf = window.requestAnimationFrame(update);
-    window.addEventListener('resize', update);
-    // Also observe the parent's size (the Slide auto-fit may re-measure).
-    const parent = el.parentElement;
-    let observer: ResizeObserver | null = null;
-    if (parent && typeof ResizeObserver === 'function') {
-      observer = new ResizeObserver(update);
-      observer.observe(parent);
-    }
-    return () => {
-      window.cancelAnimationFrame(raf);
-      window.removeEventListener('resize', update);
-      if (observer) observer.disconnect();
-      el.style.width = '';
-      el.style.marginLeft = '';
-    };
-  }, [isPresentation, algorithm, valuesKey, showTreePanel]);
+  // 75 % of the viewport in presentation — even the D&C widget with a tree
+  // fits at that width thanks to the two-row layout below (code + arreglo
+  // top, tree full-widget-width bottom). Full-viewport was overkill and
+  // pushed the widget's frame beyond the slide's visual margins.
+  useViewportBreakout(outerRef, {
+    enabled: isPresentation,
+    fraction: 0.75,
+    deps: [algorithm, valuesKey],
+  });
 
   const outerClass = isPresentation
     ? 'not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink'
@@ -327,90 +261,129 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
       </header>
 
       {isPresentation ? (
-        // Presentation grid: 3 (or 2) equal columns, each capped at the
-        // same height so the reader's eye can compare the three panels
-        // side by side. `min-h-0` on children lets the internal scroll
-        // areas actually scroll.
-        <div
-          className={`grid gap-2 px-3 py-3 ${
-            showTreePanel
-              ? // 35 / 30 / 35 — the array panel needs a bit more room than
-                // 20 % so the barras and the aux buffer breathe; the code and
-                // tree panels shrink slightly.
-                'grid-cols-[minmax(0,7fr)_minmax(0,6fr)_minmax(0,7fr)]'
-              : 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'
-          }`}
-          style={{ height: 'min(70vh, 720px)' }}
-        >
-          {showCode ? (
-            <div className={columnCard}>
-              <PanelLabel
-                index={1}
-                label="código"
-                hint={
-                  step.highlightLines.length > 0 ? `Java · línea ${step.highlightLines[0]}` : 'Java'
-                }
-              />
-              {/* Stretch the CodeStepper (and every layer CodeMirror
-               * nests inside it) to fill the panel's vertical space —
-               * otherwise Java snippets of ~9 lines leave a big empty
-               * area below reading as visual void. `!` uses Tailwind's
-               * important prefix so we win against CodeMirror's inline
-               * heights. */}
-              <div className="min-h-0 flex-1 overflow-hidden bg-surface [&>div]:!h-full [&_.cm-theme-light]:!h-full [&_.cm-theme-dark]:!h-full [&_.cm-editor]:!h-full [&_.cm-scroller]:!h-full [&_.cm-content]:!min-h-full">
-                <CodeStepper
-                  code={CODE[algorithm]}
-                  highlightLines={step.highlightLines}
-                  language="java"
-                />
-              </div>
-            </div>
-          ) : null}
-          <div className={columnCard}>
-            <PanelLabel
-              index={showCode ? 2 : 1}
-              label="arreglo"
-              hint={arrayHint(step, algorithm)}
-            />
-            {/* Center the array (bars + aux buffer) both horizontally and
-             * vertically in the panel — the arreglo is the eye's focal
-             * point of the frame, so it should sit in the middle of its
-             * column instead of hugging the top-left corner. */}
-            <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto p-3">
-              <BarChart step={step} algorithm={algorithm} tallInPresentation />
-              {/* Aux buffer: always visible for mergesort so the reader can
-               * see "how much extra memory this needs" between frames — not
-               * just during merge-take. Empty slots reserve the space so
-               * the layout does not jump when a merge starts. */}
-              {algorithm === 'merge' ? (
-                <AuxRail
-                  rail={
-                    step.auxRail ??
-                    (Array.from({ length: values.length }, () => null) as (number | null)[])
+        // Presentation layout: for D&C sorts the tree needs the full
+        // viewport width (a mergesort/quicksort of 8 chips at text-sm is
+        // ~1200 px wide, which no 3-column grid can honour). We therefore
+        // split into TWO ROWS: code + arreglo up top (55/45), tree
+        // full-width below. For n² sorts (no tree) we fall back to one
+        // row of two equal columns. The container height is fixed so
+        // annotations / aux rail / carry chips do not visibly re-flow the
+        // widget between frames.
+        <div className="flex flex-col gap-2 px-3 py-3" style={{ height: 'min(90vh, 900px)' }}>
+          <div
+            className={`grid min-h-0 gap-2 ${
+              showTreePanel
+                ? // Top row when a tree follows below: code slightly wider
+                  // (55/45) so the widest merge signature fits without
+                  // clipping (`static void merge(int[] a, int lo, int
+                  // mid, int hi) {` = ~55 chars ≈ 620 px at text-sm) while
+                  // still leaving the arreglo enough room for 8 bars.
+                  'grid-cols-[minmax(0,11fr)_minmax(0,9fr)]'
+                : 'grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'
+            }`}
+            // Top row takes 40 % of the widget height; the tree gets the
+            // remaining 60 % since it is the pedagogical focus of D&C.
+            // For n² sorts (no tree row) the top row grows to fill.
+            style={{ flex: showTreePanel ? '0 0 40%' : '1 1 auto' }}
+          >
+            {showCode ? (
+              <div className={columnCard}>
+                <PanelLabel
+                  index={1}
+                  label="código"
+                  hint={
+                    step.highlightLines.length > 0
+                      ? `Java · línea ${step.highlightLines[0]}`
+                      : 'Java'
                   }
                 />
-              ) : null}
+                {/* Stretch the CodeStepper (and every layer CodeMirror
+                 * nests inside it) to fill the panel's vertical space —
+                 * otherwise Java snippets of ~9 lines leave a big empty
+                 * area below reading as visual void. `!` uses Tailwind's
+                 * important prefix so we win against CodeMirror's inline
+                 * heights. Code size scales with the array bucket: n²
+                 * sorts (no tree, `pres-large`) get `text-base` because
+                 * the code panel owns half the widget with no tree below
+                 * competing for room; D&C sorts stay at `text-xs` so the
+                 * top row's compact code + arreglo leaves height for the
+                 * tree below. */}
+                <div
+                  className={`min-h-0 flex-1 overflow-hidden bg-surface [&>div]:!h-full [&_.cm-content]:!min-h-full [&_.cm-editor]:!h-full [&_.cm-scroller]:!h-full [&_.cm-theme-dark]:!h-full [&_.cm-theme-light]:!h-full ${
+                    showTreePanel
+                      ? 'text-xs [&_.cm-editor]:!text-xs'
+                      : 'text-base [&_.cm-editor]:!text-base'
+                  }`}
+                >
+                  <CodeStepper
+                    code={CODE[algorithm]}
+                    highlightLines={step.highlightLines}
+                    language="java"
+                  />
+                </div>
+              </div>
+            ) : null}
+            <div className={columnCard}>
+              <PanelLabel
+                index={showCode ? 2 : 1}
+                label="arreglo"
+                hint={arrayHint(step, algorithm)}
+              />
+              {/* Center the array (bars + aux buffer) both horizontally
+               * and vertically in the panel — the arreglo is the eye's
+               * focal point of the frame, so it should sit in the middle
+               * of its column instead of hugging the top-left corner. */}
+              <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-3 overflow-auto p-3">
+                <BarChart
+                  step={step}
+                  algorithm={algorithm}
+                  size={showTreePanel ? 'pres-small' : 'pres-large'}
+                />
+                {/* Aux buffer: always visible for mergesort so the reader
+                 * can see "how much extra memory this needs" between
+                 * frames — not just during merge-take. Empty slots
+                 * reserve the space so the layout does not jump when a
+                 * merge starts. */}
+                {algorithm === 'merge' ? (
+                  <AuxRail
+                    rail={
+                      step.auxRail ??
+                      (Array.from({ length: values.length }, () => null) as (number | null)[])
+                    }
+                  />
+                ) : null}
+              </div>
             </div>
           </div>
           {showTreePanel && treeAlgo ? (
-            <div className={columnCard}>
+            <div className={`${columnCard} flex-1`}>
               <PanelLabel
                 index={showCode ? 3 : 2}
                 label="árbol"
                 hint={`${treeAlgo} · ${values.length} elementos`}
               />
+              {/* Full-width bottom row for the tree — the whole viewport
+               * fits a mergesort/quicksort of 8 chips at text-sm without
+               * cropping. Overflow-auto kept as a safety net; min-w-max
+               * on the inner wrapper guarantees the scroll fires if a
+               * bigger example ever exceeds even the full width. */}
               <div className="min-h-0 flex-1 overflow-auto p-3">
-                <DivideCombineTree
-                  recipe={treeAlgo}
-                  values={values}
-                  highlightNode={step.callNode}
-                  nodeAnnotations={
-                    step.callNode !== undefined && step.callAnnotation !== undefined
-                      ? { [step.callNode]: step.callAnnotation }
-                      : undefined
-                  }
-                  bare
-                />
+                <div className="flex min-h-full min-w-max items-center justify-center">
+                  <DivideCombineTree
+                    recipe={treeAlgo}
+                    values={values}
+                    highlightNode={step.callNode}
+                    nodeAnnotations={
+                      step.callNode !== undefined && step.callAnnotation !== undefined
+                        ? { [step.callNode]: step.callAnnotation }
+                        : undefined
+                    }
+                    activeStack={step.callStack}
+                    doneNodes={step.doneNodes}
+                    chipSize="sm"
+                    bare
+                  />
+                </div>
               </div>
             </div>
           ) : null}
@@ -428,7 +401,7 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
           ) : null}
           <div className="flex flex-col gap-4 px-3 py-4">
             <div className="flex min-w-0 flex-col gap-3">
-              <BarChart step={step} algorithm={algorithm} />
+              <BarChart step={step} algorithm={algorithm} size="book" />
               {algorithm === 'merge' ? (
                 <AuxRail
                   rail={
@@ -439,7 +412,11 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
               ) : null}
             </div>
             {showTreePanel && treeAlgo ? (
-              <div className="min-w-0">
+              // Book-mode tree: with the bigger chips (text-sm + px-3
+              // py-1.5) the mergesort/quicksort tree of 8 elements is
+              // wider than the book column, so we pan horizontally
+              // rather than crop at the sides.
+              <div className="min-w-0 overflow-x-auto">
                 <DivideCombineTree
                   recipe={treeAlgo}
                   values={values}
@@ -449,6 +426,8 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
                       ? { [step.callNode]: step.callAnnotation }
                       : undefined
                   }
+                  activeStack={step.callStack}
+                  doneNodes={step.doneNodes}
                   bare
                 />
               </div>
@@ -513,8 +492,13 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
 interface BarChartProps {
   step: SortStep;
   algorithm: SortAlgorithm;
-  /** In presentation mode, give the bar row generous vertical space. */
-  tallInPresentation?: boolean;
+  /** Sizing bucket for the bar chart:
+   *  - `book`: the widget shares a page (natural width, small bars).
+   *  - `pres-small`: presentation with tree panel below (bars share the
+   *    top row with the code panel, so they stay compact).
+   *  - `pres-large`: presentation, no tree — the array IS the entire
+   *    right-hand panel and can afford much bigger bars. */
+  size?: 'book' | 'pres-small' | 'pres-large';
 }
 
 /**
@@ -527,16 +511,17 @@ interface BarChartProps {
  * `h-full` so `height: N%` on the bar itself resolves against the row's
  * real pixels — the reason the earlier version rendered flat.
  */
-function BarChart({ step, algorithm, tallInPresentation = false }: BarChartProps) {
+function BarChart({ step, algorithm, size = 'book' }: BarChartProps) {
   const max = Math.max(...step.array);
   const activeSet = new Set(step.active);
   const inSubarray = (i: number) =>
     step.subarray === undefined || (i >= step.subarray[0] && i <= step.subarray[1]);
   const pointers = pointersForFrame(step, algorithm);
   const carry = step.carry;
-  // Column width: chunkier bars in presentation so they read at classroom
-  // distance; slim bars in book mode where the widget shares a page.
-  const barCol = tallInPresentation ? '3.5rem' : '2.25rem';
+  // Column width per size bucket — pres-large gets chunkier bars so the
+  // n² sorts (which own the whole array panel) do not read as a row of
+  // tiny sticks in a huge white space.
+  const barCol = size === 'pres-large' ? '3rem' : size === 'pres-small' ? '1.5rem' : '1.75rem';
 
   return (
     <div className="flex flex-col gap-1">
@@ -571,7 +556,9 @@ function BarChart({ step, algorithm, tallInPresentation = false }: BarChartProps
         className="flex min-w-fit items-end gap-1"
         role="row"
         aria-label="valores"
-        style={{ height: tallInPresentation ? '22rem' : '11rem' }}
+        style={{
+          height: size === 'pres-large' ? '22rem' : size === 'pres-small' ? '9.5rem' : '9rem',
+        }}
       >
         {step.array.map((v, i) => {
           const isActive = activeSet.has(i);
@@ -579,19 +566,30 @@ function BarChart({ step, algorithm, tallInPresentation = false }: BarChartProps
           const isSortedPrefix = step.sortedPrefix !== undefined && i < step.sortedPrefix;
           const isSortedSuffix =
             step.sortedSuffix !== undefined && i >= step.array.length - step.sortedSuffix;
+          // Indices whose FINAL sorted position has been established
+          // (quicksort's `partition-done` moment). Once set, an index
+          // stays sorted forever — subsequent recursions never touch it
+          // — so the green state OVERRIDES every other state (including
+          // out-of-subarray and pivot/active flashes on the very frame
+          // the pivot lands home). See sortStepperTrace §annotateCallStack.
+          const isSortedIndex = step.sortedIndices?.includes(i) ?? false;
           const isOutOfSubarray = !inSubarray(i);
-          const barClass = isOutOfSubarray
-            ? 'border-rule bg-sunk text-ink-faint opacity-50'
-            : isPivot
-              ? 'border-accent-pop bg-accent-pop text-surface'
-              : isActive
-                ? 'border-accent-pop bg-accent-soft text-ink'
-                : isSortedPrefix || isSortedSuffix
-                  ? 'border-keep bg-keep-soft text-ink'
-                  : 'border-accent bg-surface text-ink';
-          // Minimum 12% so a value of 0 or 1 is still visible; scale the rest
-          // proportional to max.
-          const heightPct = Math.max(12, (v / Math.max(1, max)) * 100);
+          const barClass = isSortedIndex
+            ? 'border-keep bg-keep-soft text-ink'
+            : isOutOfSubarray
+              ? 'border-rule bg-sunk text-ink-faint opacity-50'
+              : isPivot
+                ? 'border-accent-pop bg-accent-pop text-surface'
+                : isActive
+                  ? 'border-accent-pop bg-accent-soft text-ink'
+                  : isSortedPrefix || isSortedSuffix
+                    ? 'border-keep bg-keep-soft text-ink'
+                    : 'border-accent bg-surface text-ink';
+          // 20 % baseline + 80 % proportional — keeps the ratio monotonic
+          // (smaller values stay smaller) while giving the "1" bar enough
+          // vertical room that the value label reads above the border,
+          // not on top of it.
+          const heightPct = 20 + (v / Math.max(1, max)) * 80;
           const status = isPivot
             ? 'pivot'
             : isActive
@@ -661,7 +659,9 @@ function pointersForFrame(step: SortStep, algorithm: SortAlgorithm): Map<number,
     if (!arr.includes(lbl)) arr.push(lbl);
     out.set(i, arr);
   };
-  if (step.pivot !== undefined) push(step.pivot, 'pivot');
+  // Short label ("p" not "pivot") so the badge fits inside the narrow bar
+  // column — the legend at the bottom of the widget still spells "pivot".
+  if (step.pivot !== undefined) push(step.pivot, 'p');
   if (algorithm === 'selection') {
     // active is [j, min] on compare frames, [i] on select-min updates, [i, min] on swap.
     if (step.kind === 'compare' && step.active.length >= 2) {
@@ -703,7 +703,7 @@ function pointersForFrame(step: SortStep, algorithm: SortAlgorithm): Map<number,
 }
 
 function pointerClass(label: string): string {
-  if (label === 'pivot') return 'border-accent-pop bg-accent-pop text-surface';
+  if (label === 'p') return 'border-accent-pop bg-accent-pop text-surface';
   if (label === 'min') return 'border-keep bg-keep-soft text-ink';
   if (label === 'v→') return 'border-accent-pop bg-accent-soft text-accent';
   return 'border-accent bg-accent-soft text-accent';

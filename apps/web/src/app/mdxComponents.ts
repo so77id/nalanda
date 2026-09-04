@@ -20,6 +20,8 @@ import {
   LazyMermaid,
   LazyPredictOutput,
   LazySortStepper,
+  LazyMergeStepper,
+  LazyPartitionStepper,
   LazyStepShow,
   MathTex,
   MdxPre,
@@ -33,6 +35,7 @@ import {
   SectionBreak,
   SheetEmbed,
   SideBySide,
+  PresentationWide,
   Slide,
   Split,
   Step,
@@ -55,6 +58,7 @@ export const mdxComponents = {
   Slide,
   SectionBreak,
   SideBySide,
+  PresentationWide,
   Split,
   Mosaic,
   Figure,
@@ -139,6 +143,14 @@ export const mdxComponents = {
   // would put CodeMirror in the entry chunk of every reader. Guarded by
   // architecture.test.ts. ADR-0065.
   SortStepper: LazySortStepper,
+  // Lazy: composes <StepShow> (which composes <CodeStepper> → CodeMirror).
+  // Same reason as SortStepper for lazyness. Teaches the `merge` operation
+  // in isolation before mergesort's recursion.
+  MergeStepper: LazyMergeStepper,
+  // Lazy: same reason as MergeStepper. Teaches the Lomuto `partition`
+  // operation in isolation before quicksort's recursion. Uses the shared
+  // lomutoPartition so both widgets agree on behaviour.
+  PartitionStepper: LazyPartitionStepper,
   // Lazy: composes <CodeStepper> (CodeMirror + java grammar) plus lucide
   // icons for its controls. Registering the real component here would put
   // CodeMirror in the entry chunk of every reader. Guarded by

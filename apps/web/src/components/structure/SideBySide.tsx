@@ -18,10 +18,15 @@ export interface SideBySideProps {
    * prompt and side-by-side would compress both. Default preserves
    * backward-compat: existing usages need no changes.
    *
+   * `mode-aware`: horizontal in presentation, vertical in book. Used
+   * when a comparison needs the horizontal footprint that a slide gives
+   * but is better read as two stacked figures at reading-column width
+   * (e.g. two divide/combine trees in Drama del Pivote).
+   *
    * The `<SideBySide direction="vertical">` reading is a known
    * awkwardness (Discussion #220 tracks a rename).
    */
-  direction?: 'horizontal' | 'vertical';
+  direction?: 'horizontal' | 'vertical' | 'mode-aware';
 }
 
 const LABEL = 'bg-sunk px-3 py-1 font-mono text-3xs uppercase tracking-wide text-ink-faint';
@@ -41,7 +46,14 @@ const SCALE = { book: 'text-[0.8em]', presentation: 'text-[0.72em]' } as const;
 function Column({ label, children }: { label?: string; children: ReactNode }) {
   const mode = useMode();
   return (
-    <div className="min-w-0 overflow-hidden rounded-lg border border-rule">
+    // `flex-col` + `flex-1` on the content div lets a child figure that
+    // knows how to stretch (e.g. `<DivideCombineTree>`, which is
+    // `flex-col` internally) fill the taller sibling's height. Two
+    // divide/combine trees of very different sizes (balanced vs
+    // degenerate — Drama del Pivote) now centre vertically instead of
+    // hugging the top of their column. Benign for every other use: the
+    // content div grows to fill only if the child itself opts in.
+    <div className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-rule">
       {label === undefined ? null : <h4 className={LABEL}>{label}</h4>}
       {/* Each column still scrolls on its own: a long line in one must not widen
           the page, which is what a two-column layout would otherwise do.
@@ -50,7 +62,7 @@ function Column({ label, children }: { label?: string; children: ReactNode }) {
           became a component is told instead: a CSS selector cannot reach inside
           one, and the column would end up with two headers and two borders. */}
       <div
-        className={`overflow-x-auto ${SCALE[mode]} [&_pre]:my-0 [&_pre]:rounded-none [&_pre]:border-0`}
+        className={`flex flex-1 flex-col overflow-x-auto ${SCALE[mode]} [&_pre]:my-0 [&_pre]:rounded-none [&_pre]:border-0`}
       >
         <EmbeddedProvider value={true}>{children}</EmbeddedProvider>
       </div>
@@ -67,6 +79,7 @@ function Column({ label, children }: { label?: string; children: ReactNode }) {
  * while reading the second.
  */
 export function SideBySide({ left, right, children, direction = 'horizontal' }: SideBySideProps) {
+  const mode = useMode();
   // MDX contributes whitespace between blocks; it is not a column.
   const columns = Children.toArray(children).filter(
     (child) => typeof child !== 'string' || child.trim() !== '',
@@ -80,12 +93,16 @@ export function SideBySide({ left, right, children, direction = 'horizontal' }: 
     );
   }
 
+  // Resolve `mode-aware`: horizontal in presentation, vertical in book.
+  const effectiveDirection =
+    direction === 'mode-aware' ? (mode === 'presentation' ? 'horizontal' : 'vertical') : direction;
+
   // `horizontal` keeps the previous responsive behaviour (two columns on
   // desktop, stacked on narrow). `vertical` stacks unconditionally.
-  const gridClass = direction === 'vertical' ? 'grid-cols-1' : 'md:grid-cols-2';
+  const gridClass = effectiveDirection === 'vertical' ? 'grid-cols-1' : 'md:grid-cols-2';
 
   return (
-    <div className={`not-prose my-6 grid gap-3 ${gridClass}`} data-direction={direction}>
+    <div className={`not-prose my-6 grid gap-3 ${gridClass}`} data-direction={effectiveDirection}>
       <Column label={left}>{columns[0]}</Column>
       <Column label={right}>{columns[1]}</Column>
     </div>

@@ -14,6 +14,10 @@ export { HARNESS_CLASS };
 // the guide and every document — and a typo in any of them is silent.
 /** Seeds the editor. */
 export const STARTER_FENCE = 'starter';
+/** Reference solution fence — read only by the "Ver solución" button in
+ * `<Exercise>`, never inlined into the harness. Optional per exercise;
+ * absent → the button is hidden. */
+export const SOLUTION_FENCE = 'solution';
 /** Becomes the body of the generated harness. */
 export const TEST_FENCE = 'test';
 

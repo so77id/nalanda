@@ -1,5 +1,5 @@
 import CodeMirror from '@uiw/react-codemirror';
-import { Check, Loader, Play, RotateCcw, X } from 'lucide-react';
+import { Check, Eye, EyeOff, Loader, Play, RotateCcw, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useMemo, useState } from 'react';
 
@@ -13,7 +13,7 @@ import { RunAbandonedError } from '../../runtime';
 import { useGrammar } from './useGrammar';
 import { useLoadedRuntime } from './useLoadedRuntime';
 import type { RunReading } from './harness';
-import { STARTER_FENCE, TEST_FENCE, buildHarness, readRun } from './harness';
+import { SOLUTION_FENCE, STARTER_FENCE, TEST_FENCE, buildHarness, readRun } from './harness';
 import { useRunShortcut } from './useRunShortcut';
 
 export interface ExerciseProps {
@@ -96,6 +96,7 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
   const statement = useMemo(() => withoutFences(children), [children]);
   const starter = fences[STARTER_FENCE] ?? '';
   const cases = fences[TEST_FENCE] ?? '';
+  const solution = fences[SOLUTION_FENCE] ?? '';
 
   // Scoped by title as well as page: keyed on the starting source alone, two
   // exercises built from the same template shared one draft and the last one run
@@ -111,6 +112,10 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
   const [compileLog, setCompileLog] = useState('');
   const [failure, setFailure] = useState<string | null>(null);
   const [revealed, setRevealed] = useState(false);
+  // "Ver solución" is a separate reveal from the test cases: the student
+  // may want the solution WITHOUT running first. Their own draft in
+  // `code` is never touched — this only opens a read-only panel below.
+  const [solutionShown, setSolutionShown] = useState(false);
 
   const { run, warm, queued, ready, failure: loadFailure } = useLoadedRuntime(language);
   // Separately from the runtime, and earlier: an exercise highlights before —
@@ -205,6 +210,12 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
         </Panel>
       ) : null}
 
+      {solutionShown && solution !== '' ? (
+        <Panel label="solución de referencia">
+          <pre className={`${OUTPUT} max-h-80 bg-sunk text-ink-soft`}>{solution.trim()}</pre>
+        </Panel>
+      ) : null}
+
       <footer className="flex items-center gap-3 border-t border-rule bg-sunk px-3 py-2">
         <button
           type="button"
@@ -229,6 +240,18 @@ export function Exercise({ title, language = 'java', children }: ExerciseProps) 
           <RotateCcw size={13} />
           Reiniciar
         </button>
+
+        {solution === '' ? null : (
+          <button
+            type="button"
+            onClick={() => setSolutionShown((v) => !v)}
+            className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-2xs text-ink-soft hover:bg-sunk"
+            aria-pressed={solutionShown}
+          >
+            {solutionShown ? <EyeOff size={13} /> : <Eye size={13} />}
+            {solutionShown ? 'Ocultar solución' : 'Ver solución'}
+          </button>
+        )}
 
         {/* Two silences, two honest explanations. Booting is the runtime's
             fault; queueing is the editor above this one holding the single JVM

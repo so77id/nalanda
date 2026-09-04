@@ -162,6 +162,16 @@ function Node({ node, names, worstCasePath, pathSoFar }: NodeProps) {
   }
 
   const [i, j] = node.compare;
+  // Layout: internal chip on top, one connector line to the horizontal
+  // bar, that bar spans across both children, and one vertical drop-line
+  // from the bar to each child. The Y/N branch labels sit on the two
+  // drop-lines so the reader can tell which side is which. Same recipe
+  // `<DivideCombineTree>` uses (`Node` vertical branch), plus the
+  // branch labels overlaid on the drop-lines.
+  const kids: Array<{ label: 'yes' | 'no'; child: DecisionNode; suffix: 'Y' | 'N' }> = [
+    { label: 'yes', child: node.yes, suffix: 'Y' },
+    { label: 'no', child: node.no, suffix: 'N' },
+  ];
   return (
     <div className="flex flex-col items-center">
       <Internal
@@ -170,23 +180,38 @@ function Node({ node, names, worstCasePath, pathSoFar }: NodeProps) {
         depth={node.depth}
         highlighted={onWorstPath || isWorstLeaf}
       />
-      <div className="relative flex justify-center gap-6 pt-6 before:absolute before:top-0 before:left-1/2 before:h-6 before:w-px before:bg-rule before:content-['']">
-        <BranchLabel kind="yes" />
-        <BranchLabel kind="no" />
-      </div>
-      <div className="flex gap-4 pt-1">
-        <Node
-          node={node.yes}
-          names={names}
-          worstCasePath={worstCasePath}
-          pathSoFar={`${pathSoFar}Y`}
-        />
-        <Node
-          node={node.no}
-          names={names}
-          worstCasePath={worstCasePath}
-          pathSoFar={`${pathSoFar}N`}
-        />
+      {/* Trunk from the internal chip down to the horizontal bar. */}
+      <div className="relative flex justify-center pt-6 before:absolute before:top-0 before:left-1/2 before:h-6 before:w-px before:bg-rule before:content-['']">
+        {kids.map((k, idx) => {
+          const first = idx === 0;
+          const last = idx === kids.length - 1;
+          // Horizontal bar segment: reaches from the trunk's centre out to
+          // this child's centre (`before:`). Vertical drop from the bar to
+          // the child's top (`after:`).
+          const barSide = first
+            ? 'before:left-1/2 before:right-0'
+            : last
+              ? 'before:left-0 before:right-1/2'
+              : 'before:left-0 before:right-0';
+          return (
+            <div
+              key={idx}
+              className={`relative flex flex-col items-center px-4 pt-8 before:absolute before:top-0 before:h-px before:bg-rule before:content-[''] after:absolute after:top-0 after:left-1/2 after:h-8 after:w-px after:bg-rule after:content-[''] ${barSide}`}
+            >
+              {/* Y/N label on the drop-line so the reader sees which
+               * branch this is BEFORE the child chip. */}
+              <div className="absolute top-1 left-1/2 -translate-x-1/2 bg-surface">
+                <BranchLabel kind={k.label} />
+              </div>
+              <Node
+                node={k.child}
+                names={names}
+                worstCasePath={worstCasePath}
+                pathSoFar={`${pathSoFar}${k.suffix}`}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

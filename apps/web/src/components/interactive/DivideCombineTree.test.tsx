@@ -186,17 +186,21 @@ describe('DivideCombineTree', () => {
     //     RIGHT: quicksort on a[3..3] = [7] (base)
     render(<DivideCombineTree recipe="quicksort" values={[3, 7, 1, 5]} />);
 
-    const root = document.querySelector('[data-call="quicksort([3,7,1,5])"]');
+    // Labels include `lo..hi` as a disambiguating suffix so empty
+    // sub-ranges do not collide (see quicksortCallLabel).
+    const root = document.querySelector('[data-call="quicksort([3,7,1,5] · 0..3)"]');
     expect(root?.getAttribute('data-return')).toBe('[1,3,5,7]');
     expect(root?.textContent).toMatch(/pivot=3/);
 
     // Right subtree — pivot 5, one child empty.
-    expect(document.querySelector('[data-call="quicksort([5,7])"]')?.textContent).toMatch(
+    expect(document.querySelector('[data-call="quicksort([5,7] · 2..3)"]')?.textContent).toMatch(
       /pivot=5/,
     );
-    expect(document.querySelector('[data-call="quicksort([])"]')?.getAttribute('data-return')).toBe(
-      '[]',
-    );
+    // One of the empty sub-ranges (there are TWO in this tree: 2..1 and
+    // 4..3 — both would have collided under the old label).
+    expect(
+      document.querySelector('[data-call="quicksort([] · 2..1)"]')?.getAttribute('data-return'),
+    ).toBe('[]');
   });
 
   // ---------------------------------------------------------------------
