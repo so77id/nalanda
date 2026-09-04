@@ -12,7 +12,7 @@ import {
   useStepPlayback,
   type StepSpeed,
 } from './stepperShell';
-import { useViewportBreakout } from './useViewportBreakout';
+import { useViewportBreakout } from '../useViewportBreakout';
 
 export interface MergeStepperProps {
   /**

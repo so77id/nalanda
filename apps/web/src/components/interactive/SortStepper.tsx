@@ -6,7 +6,7 @@ import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { DivideCombineTree } from './DivideCombineTree';
 import { CODE, traceFor, type SortAlgorithm, type SortStep } from './sortStepperTrace';
-import { useViewportBreakout } from './useViewportBreakout';
+import { useViewportBreakout } from '../useViewportBreakout';
 
 export interface SortStepperProps {
   /** Which sorting algorithm to trace. */
@@ -206,9 +206,8 @@ function Body({ algorithm, values, autoplay, speed, showCode, showTree, title }:
     deps: [algorithm, valuesKey],
   });
 
-  const outerClass = isPresentation
-    ? 'not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink'
-    : 'not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink';
+  const outerClass =
+    'not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink';
 
   // Presentation lays out code | bars | tree in three columns (or code | bars
   // for n² sorts, since there is no tree). Book stacks vertically — code on
@@ -590,15 +589,20 @@ function BarChart({ step, algorithm, size = 'book' }: BarChartProps) {
           // vertical room that the value label reads above the border,
           // not on top of it.
           const heightPct = 20 + (v / Math.max(1, max)) * 80;
-          const status = isPivot
-            ? 'pivot'
-            : isActive
-              ? 'active'
-              : isSortedPrefix || isSortedSuffix
-                ? 'sorted'
-                : isOutOfSubarray
-                  ? 'out-of-range'
-                  : 'normal';
+          // Order MUST mirror the barClass ternary above so DOM status agrees
+          // with the paint. `isSortedIndex` (D&C algorithms) beats every other
+          // state — same precedence as the visual green.
+          const status = isSortedIndex
+            ? 'sorted'
+            : isPivot
+              ? 'pivot'
+              : isActive
+                ? 'active'
+                : isSortedPrefix || isSortedSuffix
+                  ? 'sorted'
+                  : isOutOfSubarray
+                    ? 'out-of-range'
+                    : 'normal';
           return (
             <div key={i} className="flex h-full flex-col justify-end" style={{ width: barCol }}>
               <div

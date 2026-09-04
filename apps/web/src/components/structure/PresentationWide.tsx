@@ -1,7 +1,7 @@
 import { useRef, type ReactNode } from 'react';
 
 import { useMode } from '../../presentation';
-import { useViewportBreakout } from '../interactive/useViewportBreakout';
+import { useViewportBreakout } from '../useViewportBreakout';
 
 export interface PresentationWideProps {
   /**

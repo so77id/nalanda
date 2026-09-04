@@ -396,6 +396,42 @@ describe('architecture: the sortstepper widget stays out of the entry chunk', ()
   });
 });
 
+describe('architecture: the mergestepper widget stays out of the entry chunk', () => {
+  // MergeStepper composes <CodeStepper> (CodeMirror + java grammar). Same
+  // shape as the other lazy-widget guards.
+  const ALLOWED = ['components/interactive/lazyMergeStepper.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/mergestepper' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
+describe('architecture: the partitionstepper widget stays out of the entry chunk', () => {
+  // PartitionStepper composes <CodeStepper> (CodeMirror + java grammar). Same
+  // shape as the other lazy-widget guards.
+  const ALLOWED = ['components/interactive/lazyPartitionStepper.tsx'];
+
+  it('is imported only by its lazy wrapper', () => {
+    expect(
+      violations(
+        (_fileTop, _importTop, importRel, file) =>
+          importRel.toLowerCase().replace(/\.(ts|tsx|js|jsx|mjs|cjs)$/, '') ===
+            'components/interactive/partitionstepper' &&
+          !file.includes('.test.') &&
+          !ALLOWED.includes(file),
+      ),
+    ).toEqual([]);
+  });
+});
+
 describe('architecture: the karatsubaviz widget stays out of the entry chunk', () => {
   // KaratsubaViz composes <CodeStepper> (CodeMirror + java grammar). Same
   // shape as the other lazy-widget guards. ADR-0062.

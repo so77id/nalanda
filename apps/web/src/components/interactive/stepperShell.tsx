@@ -227,12 +227,16 @@ export function ControlButton({
   label: string;
   children: ReactNode;
 }) {
+  // aria-disabled + guarded onClick (never native `disabled`) so a keyboard
+  // reader who clicked "skip forward" on the last step is not stranded on the
+  // button that just disabled itself. Invariant earned in #116 for StepShow;
+  // shared here so every stepper composed on this shell inherits it.
   return (
     <button
       type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className="inline-flex items-center gap-1 rounded border border-rule bg-surface px-2 py-1 text-xs text-ink hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
+      onClick={disabled ? undefined : onClick}
+      aria-disabled={disabled}
+      className="inline-flex items-center gap-1 rounded border border-rule bg-surface px-2 py-1 text-xs text-ink hover:bg-accent-soft aria-disabled:cursor-not-allowed aria-disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus"
     >
       {children}
       {label}

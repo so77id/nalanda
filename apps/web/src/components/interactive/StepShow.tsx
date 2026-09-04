@@ -7,7 +7,7 @@ import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { Step } from './Step';
 import type { StepProps } from './Step';
-import { useViewportBreakout } from './useViewportBreakout';
+import { useViewportBreakout } from '../useViewportBreakout';
 
 export interface StepShowProps {
   /** The listing shown on the code side, constant across steps. */

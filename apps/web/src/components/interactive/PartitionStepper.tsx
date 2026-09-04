@@ -3,7 +3,6 @@ import { useMemo, useRef } from 'react';
 
 import { useMode } from '../../presentation';
 import { CodeStepper } from './CodeStepper';
-import { lomutoPartition } from './sortStepperTrace';
 import {
   ControlButton,
   LegendSwatch,
@@ -13,7 +12,7 @@ import {
   useStepPlayback,
   type StepSpeed,
 } from './stepperShell';
-import { useViewportBreakout } from './useViewportBreakout';
+import { useViewportBreakout } from '../useViewportBreakout';
 
 export interface PartitionStepperProps {
   /**
@@ -455,7 +454,3 @@ export function buildTrace(input: number[]): Snapshot[] {
 
   return events;
 }
-
-// Re-export the shared primitive so external callers (widgets, tests) can
-// verify our trace lands on the SAME result as the shared Lomuto partition.
-export { lomutoPartition };

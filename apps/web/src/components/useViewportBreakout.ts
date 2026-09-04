@@ -1,4 +1,4 @@
-import { useLayoutEffect, type RefObject } from 'react';
+import { useLayoutEffect, useRef, type RefObject } from 'react';
 
 /**
  * Break a widget out of the presentation Slide's prose max-width and re-anchor
@@ -41,39 +41,52 @@ export function useViewportBreakout(
   } = {},
 ): void {
   const { fraction = 1, enabled = true, deps = [] } = options;
+  const lastAppliedRef = useRef<{ scale: number; vw: number } | null>(null);
 
   useLayoutEffect(() => {
     if (!enabled) return undefined;
     const el = ref.current;
     if (!el) return undefined;
 
-    const update = () => {
-      // Reset first so measurements reflect the natural flow position.
-      el.style.width = '';
-      el.style.marginLeft = '';
-      // Walk up until we find the transformed ancestor (the AnimatePresence
-      // motion.div carrying the fit-scale) — its inline transform is a
-      // uniform scale(X) matrix.
-      let scale = 1;
-      let scaleHost: HTMLElement | null = el.parentElement;
-      while (scaleHost && scaleHost !== document.body) {
-        const t = window.getComputedStyle(scaleHost).transform;
+    const readScale = (): number => {
+      let s = 1;
+      let host: HTMLElement | null = el.parentElement;
+      while (host && host !== document.body) {
+        const t = window.getComputedStyle(host).transform;
         if (t && t !== 'none') {
           const m = t.match(/matrix\(([^,]+),/);
           const parsed = m ? parseFloat(m[1]!) : NaN;
           if (Number.isFinite(parsed) && parsed > 0) {
-            scale = parsed;
+            s = parsed;
             break;
           }
         }
-        scaleHost = scaleHost.parentElement;
+        host = host.parentElement;
       }
+      return s;
+    };
+
+    const update = () => {
+      // Short-circuit: the framer-motion `<motion.div>` ancestor rewrites its
+      // inline `style` on every RAF of a slide's opacity transition, and
+      // MutationObserver fires each time. Skipping when neither the ancestor
+      // scale nor the viewport width has actually changed cuts ~24·N forced
+      // layouts per slide swap to zero for the transition frames.
+      const currentScale = readScale();
+      const currentVw = document.documentElement.clientWidth;
+      const last = lastAppliedRef.current;
+      if (last !== null && last.scale === currentScale && last.vw === currentVw) return;
+
+      // Reset first so measurements reflect the natural flow position.
+      el.style.width = '';
+      el.style.marginLeft = '';
+      const scale = currentScale;
       // The widget's rect uses ANCESTOR-SCALED coordinates; the natural
       // (pre-scale) x-in-parent is `rect.left / scale` when scale is uniform.
       // Size the widget so that AFTER scaling it takes `fraction` of the
       // viewport, then shift it so its centre lines up with the viewport
       // centre.
-      const vw = document.documentElement.clientWidth;
+      const vw = currentVw;
       const displayedWidth = vw * fraction;
       const authored = Math.round(displayedWidth / scale);
       el.style.width = `${authored}px`;
@@ -81,6 +94,7 @@ export function useViewportBreakout(
       const targetLeft = (vw - displayedWidth) / 2;
       const shiftAuthored = Math.round((rect.left - targetLeft) / scale);
       el.style.marginLeft = `-${shiftAuthored}px`;
+      lastAppliedRef.current = { scale: currentScale, vw: currentVw };
     };
 
     // Run on next frame — the parent's transform may not have been
@@ -91,7 +105,13 @@ export function useViewportBreakout(
     // when the reader hit refresh; noticed on the Merge and Partition
     // slides where the ancestor is the presentation stage.
     const raf1 = window.requestAnimationFrame(update);
-    const raf2 = window.requestAnimationFrame(() => window.requestAnimationFrame(update));
+    // Nested rAF: track the inner id in a ref-like local so cleanup can
+    // cancel it after the outer has already fired. Without this the inner
+    // frame runs against a potentially-unmounted element.
+    let raf2Inner: number | null = null;
+    const raf2 = window.requestAnimationFrame(() => {
+      raf2Inner = window.requestAnimationFrame(update);
+    });
     const timers = [window.setTimeout(update, 50), window.setTimeout(update, 200)];
     window.addEventListener('resize', update);
     const parent = el.parentElement;
@@ -121,12 +141,14 @@ export function useViewportBreakout(
     return () => {
       window.cancelAnimationFrame(raf1);
       window.cancelAnimationFrame(raf2);
+      if (raf2Inner !== null) window.cancelAnimationFrame(raf2Inner);
       timers.forEach((t) => window.clearTimeout(t));
       window.removeEventListener('resize', update);
       if (observer) observer.disconnect();
       if (scaleAncestorMO) scaleAncestorMO.disconnect();
       el.style.width = '';
       el.style.marginLeft = '';
+      lastAppliedRef.current = null;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ref, enabled, fraction, ...deps]);

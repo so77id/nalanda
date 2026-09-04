@@ -1,3 +1,5 @@
+import { useMemo } from 'react';
+
 import { AuthoringError } from '../AuthoringError';
 import { lomutoPartition, quicksortCallLabel } from './sortStepperTrace';
 
@@ -358,14 +360,6 @@ export interface DivideCombineTreeProps {
    * own frame (e.g. `<SortStepper>`), so the reader does not see "a widget
    * inside a widget". */
   bare?: boolean;
-  /** Tree growth axis. `vertical` (default) = root on top, children fan
-   * out below — classic textbook layout for `max`, `max-subarray`,
-   * `binary-search`. `horizontal` = root on the left, children stack
-   * vertically on the right — used for the deep `mergesort` /
-   * `quicksort` trees whose vertical layout is too wide for a slide;
-   * the reader's eye follows depth left-to-right and each level occupies
-   * a column instead of a row. */
-  orientation?: 'vertical' | 'horizontal';
 }
 
 /**
@@ -390,9 +384,7 @@ export function DivideCombineTree({
   doneNodes,
   chipSize = 'md',
   bare = false,
-  orientation = 'vertical',
 }: DivideCombineTreeProps) {
-  const effectiveOrientation = orientation;
   const known = recipe === undefined ? undefined : RECIPES[recipe];
   const recipeNames = Object.keys(RECIPES);
 
@@ -438,8 +430,16 @@ export function DivideCombineTree({
     }
   }
 
-  const root = known.build({ values, target });
-  const size = countNodes(root);
+  // Memoise: the parent (SortStepper) re-renders per playback tick with new
+  // activeStack/doneNodes identities, but the tree shape depends only on
+  // (recipe, values, target) — rebuilding it every tick is wasted work.
+  const valuesKey = values.join(',');
+  const root = useMemo(
+    () => known.build({ values, target }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- valuesKey stands in for values
+    [known, valuesKey, target],
+  );
+  const size = useMemo(() => countNodes(root), [root]);
   if (size > MAX_NODES) {
     return (
       <AuthoringError component="DivideCombineTree">
@@ -464,7 +464,6 @@ export function DivideCombineTree({
           activeStack={activeStack}
           doneNodes={doneNodes}
           chipSize={chipSize}
-          orientation={effectiveOrientation}
         />
       </div>
     );
@@ -502,7 +501,6 @@ export function DivideCombineTree({
           activeStack={activeStack}
           doneNodes={doneNodes}
           chipSize={chipSize}
-          orientation={effectiveOrientation}
         />
       </div>
 
@@ -532,12 +530,6 @@ interface NodeProps {
   activeStack?: string[];
   doneNodes?: string[];
   chipSize?: 'md' | 'sm';
-  /** Tree growth axis. `vertical` = root on top, children fan out below
-   * (classic textbook layout — max/max-subarray/binary-search).
-   * `horizontal` = root on the left, children stack vertically on the
-   * right (used for the deep mergesort/quicksort trees, where vertical
-   * layout is too wide for the slide). */
-  orientation?: 'vertical' | 'horizontal';
 }
 
 function Node({
@@ -547,7 +539,6 @@ function Node({
   activeStack,
   doneNodes,
   chipSize = 'md',
-  orientation = 'vertical',
 }: NodeProps) {
   const chip = (
     <Chip
@@ -561,60 +552,11 @@ function Node({
   );
 
   if (node.children.length === 0) {
-    return (
-      <div
-        className={
-          orientation === 'horizontal' ? 'flex flex-row items-center' : 'flex flex-col items-center'
-        }
-      >
-        {chip}
-      </div>
-    );
+    return <div className="flex flex-col items-center">{chip}</div>;
   }
 
-  if (orientation === 'horizontal') {
-    // Horizontal layout: chip on the left, subcalls stack vertically on
-    // the right, and CSS pseudo-elements draw the connector lines
-    // (vertical trunk between siblings, horizontal branch from parent).
-    return (
-      <div className="flex flex-row items-center">
-        {chip}
-        <div className="relative flex flex-col justify-center pl-6 before:absolute before:top-1/2 before:left-0 before:h-px before:w-6 before:bg-rule before:content-['']">
-          {node.children.map((child, i) => {
-            const only = node.children.length === 1;
-            const first = i === 0;
-            const last = i === node.children.length - 1;
-            const barSide = only
-              ? 'before:hidden'
-              : first
-                ? 'before:top-1/2 before:bottom-0'
-                : last
-                  ? 'before:top-0 before:bottom-1/2'
-                  : 'before:top-0 before:bottom-0';
-            return (
-              <div
-                key={i}
-                className={`relative flex flex-row items-center py-1 pl-6 before:absolute before:left-0 before:w-px before:bg-rule before:content-[''] after:absolute after:top-1/2 after:left-0 after:h-px after:w-6 after:bg-rule after:content-[''] ${barSide}`}
-              >
-                <Node
-                  node={child}
-                  highlightNode={highlightNode}
-                  nodeAnnotations={nodeAnnotations}
-                  activeStack={activeStack}
-                  doneNodes={doneNodes}
-                  chipSize={chipSize}
-                  orientation={orientation}
-                />
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  }
-
-  // Vertical (default): chip centred on top, subcalls fan out in a row
-  // below — same recipe RecursionTree uses.
+  // Chip centred on top, subcalls fan out in a row below — same recipe
+  // RecursionTree uses.
   return (
     <div className="flex flex-col items-center">
       {chip}
@@ -642,7 +584,6 @@ function Node({
                 activeStack={activeStack}
                 doneNodes={doneNodes}
                 chipSize={chipSize}
-                orientation={orientation}
               />
             </div>
           );
