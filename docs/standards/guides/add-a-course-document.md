@@ -41,6 +41,10 @@ content/courses/sample-course/
 ├── 13-complejidad-espacial.mdx  # presentation: explicit — <ComplexityCounter mode="space"> + <ComplexityExercise mode="space"|"cases"> + <Question> with <Explanation>
 ├── 14-complejidad-recursion.mdx # presentation: explicit — <ComplexityCounter mode="recursion"> + <CallStack> + <HanoiPlayground> + <RecursionTree> + <FibMemoSteps> + <FibTabSteps> + <FibIterSteps> + <Math> + <ComplexityExercise> + <Question> with <Explanation>
 ├── lifo-stack.svg, frame-anatomy.svg  # assets for chapter 14
+├── 15-diseno-algoritmos-divide-y-venceras.mdx      # presentation: explicit — <DivideCombineTree> (5 recipes) + <BinarySearchOnArray> + <MaxSubarrayViz> + <ClosestPairViz> + <KaratsubaViz> + <StepShow>
+├── 15-diseno-algoritmos-divide-y-venceras.archive.txt  # sibling archive of superseded slides (see "Archiving slides" below)
+├── divide-y-conquista-patron.svg, max-subarray-*.svg   # assets for chapter 15
+├── 16-diseno-algoritmos-ordenamiento.mdx           # presentation: explicit, questions: pool — <SortStepper> (bubble/selection/insertion/merge/quick) + <MergeStepper> + <PartitionStepper> + <DivideCombineTree> + <DecisionTreeSort> + <PresentationWide> + <Exercise> with the new `solution` fence
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -409,7 +413,8 @@ runtime code. `<Math>` earns its cost only where prose math can't reach.
 
 5b. **Add an exercise (optional)**: `<Exercise>` gives the reader a problem to
 solve, checked automatically in their browser. The statement is ordinary
-prose; two annotated fences carry the rest:
+prose; up to three annotated fences carry the rest (`starter` and `test` are
+required, `solution` is optional):
 
 ````mdx
 <Exercise title="¿Es par?">
@@ -427,6 +432,14 @@ class Solution {
 ```java test
 check(Solution.esPar(4), true);
 check(Solution.esPar(7), false);
+```
+
+```java solution
+class Solution {
+    static boolean esPar(int n) {
+        return n % 2 == 0;
+    }
+}
 ```
 
 </Exercise>
@@ -465,6 +478,16 @@ spills into the compilation unit, and if what spills is a reserved name the
 exercise is refused **for every reader**, with a message telling them the fault
 is the document's and not theirs. If a student sends you that screenshot, count
 your braces.
+
+The `solution` fence is **optional and display-only**: nothing about it ever
+reaches the compiler. The widget shows a "Ver solución" button under the
+exercise that toggles a read-only panel with the fence content; omitting the
+fence hides the button entirely. Because nothing is compiled from `solution`,
+the reserved-name rules above do not apply to it — reuse the same class name
+you seeded in `starter`, and let the reader compare shape for shape. Put it
+AFTER `test` so the source order matches what the reader sees. The panel
+appears on demand alongside the student's own draft; their code is never
+overwritten by the solution.
 
 Editing a shipped `starter` fence changes the key its drafts are stored
 under: every student's saved attempt at that exercise becomes unreachable
@@ -752,6 +775,18 @@ the room from the text it illustrates.
 draws a border and a language chip and shrinks type, all measured for a `<pre>`
 (ADR-0022). A picture inside one renders in something that looks like a
 listing. Two code fences → `SideBySide`. Anything else → `Split`.
+
+**`<PresentationWide>` widens a block past the slide's prose column.** In
+presentation mode the `<Slide>` centres and caps its children at a reading
+column; a wide visual — a comparison table, two side-by-side diagrams — gets
+compressed and reads worse than the same block does in the book. Wrap the block
+in `<PresentationWide>` (or `<PresentationWide fraction={0.75}>` for a
+centred, narrower breakout) and it re-anchors to a fraction of the viewport in
+presentation, book mode unchanged. Do NOT wrap widgets that already break out
+on their own — `<SortStepper>`, `<StepShow>`, `<MergeStepper>`,
+`<PartitionStepper>` — that would double the breakout and land the block off
+centre. Worked cases: chapter 16 (the sorting document) uses it around two
+`<DivideCombineTree>`s side by side and around wide MDX tables.
 
 6c. **A wall of pictures**: `<Mosaic columns={2|3|4} description="...">` lays its
 cells out in a grid. It carries **one** accessible description for the whole

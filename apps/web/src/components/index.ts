@@ -56,6 +56,27 @@ export { Question } from './interactive/Question';
 export { Questions } from './interactive/Questions';
 export { RecursionTree } from './interactive/RecursionTree';
 export { DivideCombineTree } from './interactive/DivideCombineTree';
+// SVG-free chip layout, no CodeMirror, no runtime seam — same eager-import
+// shape as `<DivideCombineTree>`. Static tree with one interactive toggle.
+// ADR-0066.
+export { DecisionTreeSort } from './interactive/DecisionTreeSort';
+// The lazy wrapper, not the widget itself: <SortStepper> composes <CodeStepper>
+// (CodeMirror + java grammar) plus <DivideCombineTree> for merge/quick.
+// Registering the real component here would put CodeMirror in the entry chunk
+// of every reader of every page (guarded in `src/architecture.test.ts`).
+// ADR-0065.
+export { LazySortStepper } from './interactive/lazySortStepper';
+// The lazy wrapper, not the widget itself: <MergeStepper> composes <StepShow>
+// (which composes <CodeStepper> → CodeMirror). Registering the real component
+// here would put CodeMirror in the entry chunk of every reader of every page
+// (guarded in `src/architecture.test.ts`).
+export { LazyMergeStepper } from './interactive/lazyMergeStepper';
+export type { MergeStepperProps } from './interactive/lazyMergeStepper';
+// The lazy wrapper, not the widget itself: <PartitionStepper> composes
+// <StepShow> (which composes <CodeStepper> → CodeMirror). Same lazy discipline
+// as its siblings.
+export { LazyPartitionStepper } from './interactive/lazyPartitionStepper';
+export type { PartitionStepperProps } from './interactive/lazyPartitionStepper';
 // The lazy wrapper, not the widget itself: <BinarySearchOnArray> composes
 // <CodeStepper> (CodeMirror + java grammar), and the MDX map is evaluated
 // eagerly. Registering the real component here would put CodeMirror in the
@@ -104,6 +125,7 @@ export type {
 export { Mosaic } from './structure/Mosaic';
 export { SectionBreak } from './structure/SectionBreak';
 export { SideBySide } from './structure/SideBySide';
+export { PresentationWide } from './structure/PresentationWide';
 export { Slide } from './structure/Slide';
 export { Split } from './structure/Split';
 

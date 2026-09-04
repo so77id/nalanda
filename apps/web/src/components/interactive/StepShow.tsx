@@ -1,11 +1,13 @@
-import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react';
-import { Children, isValidElement, useState } from 'react';
+import { Pause, Play, RotateCcw, SkipBack, SkipForward } from 'lucide-react';
+import { Children, isValidElement, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactElement, ReactNode } from 'react';
 
+import { useMode } from '../../presentation';
 import { AuthoringError } from '../AuthoringError';
 import { CodeStepper } from './CodeStepper';
 import { Step } from './Step';
 import type { StepProps } from './Step';
+import { useViewportBreakout } from '../useViewportBreakout';
 
 export interface StepShowProps {
   /** The listing shown on the code side, constant across steps. */
@@ -17,34 +19,139 @@ export interface StepShowProps {
   language?: string;
   /** Optional heading, rendered above the panels. */
   title?: string;
+  /**
+   * Start playing on mount. Default `false` — pedagogical widgets should not
+   * autoplay unless the author explicitly asks. Matches `<SortStepper>`
+   * behaviour (rule Peli 1/2). When true, playback still pauses when the
+   * widget scrolls out of view.
+   */
+  autoplay?: boolean;
+  /**
+   * Playback speed. `slow` ≈ 1200ms/step, `normal` ≈ 700ms, `fast` ≈ 300ms.
+   * Default `normal`. The reader can override in the UI.
+   */
+  speed?: 'slow' | 'normal' | 'fast';
   /** `<Step>` elements. Order is step order; anything else is ignored. */
   children?: ReactNode;
 }
 
+const SPEED_MS: Record<'slow' | 'normal' | 'fast', number> = {
+  slow: 1200,
+  normal: 700,
+  fast: 300,
+};
+
 /**
  * Code on one side, arbitrary JSX on the other, both synced to a single step
- * index — the primitive `<MemoryVisual>` sits inside, and other future visuals
- * (call stacks, trees, queues, sequence diagrams) will too.
+ * index — the primitive `<MemoryVisual>` sits inside, and every other
+ * step-based widget (the Fibonacci trio, `<MergeStepper>`, `<PartitionStepper>`)
+ * builds on top.
  *
  * State is scoped to this instance: two `<StepShow>`s on one page step
- * independently. Prev / next / reset control the index; ArrowLeft and
- * ArrowRight walk it from the focused group. Two accessibility invariants are
- * load-bearing and were paid for once (in #116, on the widget this one
- * supersedes): the group is focusable, and prev/next expose `aria-disabled`
- * rather than `disabled`, so the keyboard reader is not stranded when the
- * button that stranded them is the one that just disabled itself.
+ * independently. Controls: skip-back / skip-forward / play-pause / reset,
+ * plus a speed selector — same shape as `<SortStepper>` so the reader learns
+ * one control layout that works across the site. ArrowLeft / ArrowRight also
+ * walk the index from the focused group.
+ *
+ * Two accessibility invariants are load-bearing and were paid for once
+ * (in #116, on the widget this one supersedes): the group is focusable, and
+ * skip / play controls expose `aria-disabled` rather than `disabled`, so the
+ * keyboard reader is not stranded when the button that stranded them is the
+ * one that just disabled itself.
+ *
+ * Playback pauses when the widget scrolls out of view — a book-mode reader
+ * often has many step widgets on one page, and every one that keeps firing
+ * setTimeouts contributes to freezing the tab.
  *
  * Introduced in #209 as the reversal of ADR-0028: a memory picture used to be
  * drawn from an execution trace (a Java compile + JVM per diagram); it now
  * consumes author-written state through `<MemoryVisual>`, at a fraction of the
- * bundle. The trade-off is documented in the ADR that supersedes 0028.
+ * bundle. Play controls added in #268 so `<MergeStepper>` and
+ * `<PartitionStepper>` — and the Fibonacci trio — get the same playback UX
+ * as `<SortStepper>` without duplicating the machinery.
  */
-export function StepShow({ code, language, title, children }: StepShowProps) {
+export function StepShow({
+  code,
+  language,
+  title,
+  autoplay = false,
+  speed = 'normal',
+  children,
+}: StepShowProps) {
   const steps = Children.toArray(children).filter(
     (child): child is ReactElement<StepProps> => isValidElement(child) && child.type === Step,
   );
 
   const [index, setIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(autoplay);
+  const [liveSpeed, setLiveSpeed] = useState<'slow' | 'normal' | 'fast'>(speed);
+  useEffect(() => setLiveSpeed(speed), [speed]);
+
+  // In presentation the widget breaks out of the Slide's prose max-width
+  // and takes 75 % of the viewport — same rationale as `<SortStepper>` with
+  // no tree: enough for code + panel side-by-side, but not the visual bloat
+  // of an empty third of screen. Book mode leaves it alone. The measurement
+  // dance is shared with `<SortStepper>` (`useViewportBreakout`).
+  const mode = useMode();
+  const isPresentation = mode === 'presentation';
+
+  // Pause playback when the widget is not intersecting the viewport. Book
+  // mode may host many step widgets on one page; without this, every one
+  // that has been played and left mid-run keeps firing setTimeouts and their
+  // combined tick rate can lock the tab.
+  const outerRef = useRef<HTMLDivElement | null>(null);
+  useViewportBreakout(outerRef, {
+    enabled: isPresentation,
+    fraction: 0.75,
+  });
+  const [isVisible, setIsVisible] = useState(true);
+  useEffect(() => {
+    const el = outerRef.current;
+    if (!el || typeof IntersectionObserver !== 'function') return undefined;
+    const io = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) setIsVisible(entry.isIntersecting);
+      },
+      { threshold: 0.2 },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+
+  const count = steps.length;
+  const clamped = Math.min(index, Math.max(count - 1, 0));
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    if (!isVisible) return;
+    if (count === 0) return;
+    if (clamped >= count - 1) {
+      setIsPlaying(false);
+      return;
+    }
+    const delay = SPEED_MS[liveSpeed];
+    const timeout = window.setTimeout(() => setIndex((s) => s + 1), delay);
+    return () => window.clearTimeout(timeout);
+  }, [isPlaying, isVisible, clamped, liveSpeed, count]);
+
+  const advance = useCallback(() => {
+    setIndex((s) => Math.min(s + 1, count - 1));
+  }, [count]);
+  const retreat = useCallback(() => {
+    setIndex((s) => Math.max(s - 1, 0));
+  }, []);
+  const reset = useCallback(() => {
+    setIndex(0);
+    setIsPlaying(false);
+  }, []);
+  const togglePlay = useCallback(() => {
+    if (clamped >= count - 1) {
+      setIndex(0);
+      setIsPlaying(true);
+    } else {
+      setIsPlaying((p) => !p);
+    }
+  }, [clamped, count]);
 
   if (code === undefined) {
     return (
@@ -65,24 +172,15 @@ export function StepShow({ code, language, title, children }: StepShowProps) {
     );
   }
 
-  const clamped = Math.min(index, steps.length - 1);
   const current = steps[clamped]!;
   const currentLines = current.props.lines ?? [];
   const currentVisual = current.props.children;
   const first = clamped === 0;
-  const last = clamped === steps.length - 1;
-  const count = steps.length;
-
-  const advance = () => {
-    if (!last) setIndex(clamped + 1);
-  };
-  const retreat = () => {
-    if (!first) setIndex(clamped - 1);
-  };
-  const reset = () => setIndex(0);
+  const last = clamped === count - 1;
 
   return (
     <div
+      ref={outerRef}
       // `role="group"` + focusable, so the arrows work from anywhere inside —
       // and keep working at both ends, where the button that had focus is the
       // one that just became unavailable. Earned in #116 by the widget this
@@ -121,47 +219,45 @@ export function StepShow({ code, language, title, children }: StepShowProps) {
         <div className="max-h-96 overflow-auto bg-surface p-3">{currentVisual}</div>
       </div>
 
-      <footer className="flex items-center gap-2 border-t border-rule bg-sunk px-3 py-2">
-        {/*
-          `aria-disabled` rather than `disabled`, at both ends. A `disabled`
-          button loses focus, so walking to the last step with the keyboard
-          threw focus to the body and the reader could no longer walk back —
-          the control that stranded them being the one they had just used.
-          Announced as unavailable, still focusable, inert on click.
-          Earned in #116 by the widget this one supersedes.
-        */}
-        <button
-          type="button"
-          aria-label="Paso anterior"
-          aria-disabled={first}
-          onClick={retreat}
-          className={`inline-flex items-center rounded border border-rule p-1 text-ink-soft hover:bg-surface ${
-            first ? 'opacity-40' : ''
-          }`}
-        >
-          <ChevronLeft size={15} />
-        </button>
-        <button
-          type="button"
-          aria-label="Paso siguiente"
-          aria-disabled={last}
-          onClick={advance}
-          className={`inline-flex items-center rounded border border-rule p-1 text-ink-soft hover:bg-surface ${
-            last ? 'opacity-40' : ''
-          }`}
-        >
-          <ChevronRight size={15} />
-        </button>
-        <button
-          type="button"
-          aria-label="Reiniciar"
-          onClick={reset}
-          className="inline-flex items-center rounded border border-rule p-1 text-ink-soft hover:bg-surface"
-        >
-          <RotateCcw size={13} />
-        </button>
+      {/*
+        Controls row — same shape as `<SortStepper>`: skip-back, skip-forward,
+        play/pause, reset, speed, counter. `aria-disabled` rather than
+        `disabled`, at both ends (a `disabled` button loses focus, so walking
+        to the last step with the keyboard threw focus to the body and the
+        reader could no longer walk back — the control that stranded them
+        being the one they had just used). Announced as unavailable, still
+        focusable, inert on click. Earned in #116.
+      */}
+      <footer className="flex flex-wrap items-center gap-2 border-t border-rule bg-sunk px-3 py-2">
+        <ControlButton onClick={retreat} disabled={first} label="Paso anterior">
+          <SkipBack size={14} aria-hidden />
+        </ControlButton>
+        <ControlButton onClick={advance} disabled={last} label="Paso siguiente">
+          <SkipForward size={14} aria-hidden />
+        </ControlButton>
+        <ControlButton onClick={togglePlay} label={isPlaying ? 'Pausar' : 'Reproducir'}>
+          {isPlaying ? <Pause size={14} aria-hidden /> : <Play size={14} aria-hidden />}
+        </ControlButton>
+        <ControlButton onClick={reset} label="Reiniciar">
+          <RotateCcw size={13} aria-hidden />
+        </ControlButton>
+        <label className="ml-1 inline-flex items-center gap-1 rounded border border-rule bg-surface px-2 py-1 text-xs text-ink">
+          <span className="font-mono text-3xs text-ink-faint uppercase tracking-wide">
+            velocidad
+          </span>
+          <select
+            value={liveSpeed}
+            onChange={(e) => setLiveSpeed(e.target.value as 'slow' | 'normal' | 'fast')}
+            className="bg-transparent outline-none text-xs text-ink"
+            aria-label="Velocidad de reproducción"
+          >
+            <option value="slow">lenta</option>
+            <option value="normal">normal</option>
+            <option value="fast">rápida</option>
+          </select>
+        </label>
 
-        <span className="font-mono text-3xs text-ink-faint">
+        <span className="ml-auto font-mono text-3xs text-ink-faint">
           paso {clamped + 1} de {count}
         </span>
 
@@ -176,6 +272,32 @@ export function StepShow({ code, language, title, children }: StepShowProps) {
         </span>
       </footer>
     </div>
+  );
+}
+
+function ControlButton({
+  onClick,
+  disabled = false,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  label: string;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-disabled={disabled}
+      onClick={disabled ? undefined : onClick}
+      className={`inline-flex items-center rounded border border-rule bg-surface p-1 text-ink-soft hover:bg-surface ${
+        disabled ? 'opacity-40' : ''
+      }`}
+    >
+      {children}
+    </button>
   );
 }
 

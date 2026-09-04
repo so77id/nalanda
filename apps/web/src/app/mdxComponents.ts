@@ -19,6 +19,9 @@ import {
   LazyFibTabSteps,
   LazyMermaid,
   LazyPredictOutput,
+  LazySortStepper,
+  LazyMergeStepper,
+  LazyPartitionStepper,
   LazyStepShow,
   MathTex,
   MdxPre,
@@ -28,9 +31,11 @@ import {
   Questions,
   RecursionTree,
   DivideCombineTree,
+  DecisionTreeSort,
   SectionBreak,
   SheetEmbed,
   SideBySide,
+  PresentationWide,
   Slide,
   Split,
   Step,
@@ -53,6 +58,7 @@ export const mdxComponents = {
   Slide,
   SectionBreak,
   SideBySide,
+  PresentationWide,
   Split,
   Mosaic,
   Figure,
@@ -124,8 +130,27 @@ export const mdxComponents = {
   // Same shape family as RecursionTree — SVG-free chips with pseudo-element
   // connector lines, no CodeMirror, no runtime seam. Each chip has two rows
   // (call args on top, return value on bottom). Two recipes: `max` (binary
-  // tree) and `binary-search` (linear chain). ADR-0063.
+  // tree) and `binary-search` (linear chain). ADR-0063; ADR-0064 amends it
+  // with `mergesort`/`quicksort` recipes and the `highlightNode` +
+  // `nodeAnnotations` hooks the sort-stepper composes.
   DivideCombineTree,
+  // Same shape family — SVG-free chips with pseudo-element connector lines,
+  // no CodeMirror, no runtime seam. One interactive toggle ("Mostrar peor
+  // caso"). ADR-0066.
+  DecisionTreeSort,
+  // Lazy: composes <CodeStepper> (CodeMirror + java grammar) plus
+  // <DivideCombineTree> for merge/quick. Registering the real component here
+  // would put CodeMirror in the entry chunk of every reader. Guarded by
+  // architecture.test.ts. ADR-0065.
+  SortStepper: LazySortStepper,
+  // Lazy: composes <StepShow> (which composes <CodeStepper> → CodeMirror).
+  // Same reason as SortStepper for lazyness. Teaches the `merge` operation
+  // in isolation before mergesort's recursion.
+  MergeStepper: LazyMergeStepper,
+  // Lazy: same reason as MergeStepper. Teaches the Lomuto `partition`
+  // operation in isolation before quicksort's recursion. Uses the shared
+  // lomutoPartition so both widgets agree on behaviour.
+  PartitionStepper: LazyPartitionStepper,
   // Lazy: composes <CodeStepper> (CodeMirror + java grammar) plus lucide
   // icons for its controls. Registering the real component here would put
   // CodeMirror in the entry chunk of every reader. Guarded by

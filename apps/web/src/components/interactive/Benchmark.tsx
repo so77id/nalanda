@@ -1,5 +1,5 @@
 import { Loader, Play } from 'lucide-react';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import type { RuntimeId } from '../../lib/runtimeIds';
 import { RunAbandonedError } from '../../runtime';
@@ -44,6 +44,28 @@ export interface BenchmarkProps {
   measuredRuns?: number;
   /** Hard cap per single execution (ms). Exceeded → marked TIMEOUT, next implementation. */
   timeoutMs?: number;
+  /** When true, kick off the measurement automatically once the runtime is
+   * ready, so the reader lands on populated numbers. The Run button remains,
+   * so the reader can re-measure at the same or a different N. Default false.
+   * NOTE: autoplay saturates the browser's main thread when the page hosts
+   * other CheerpJ-adjacent widgets — prefer `seededResults` when you want
+   * the reader to land on numbers without paying that cost. */
+  autoplay?: boolean;
+  /** Pre-baked measurements the author supplies from ONE run on their own
+   * machine. When present, the widget seeds the results table on mount
+   * (no CheerpJ compilation, no main-thread cost) and the reader sees
+   * numbers immediately. The Run button remains, and pressing it discards
+   * the seed and re-measures live. Only applies when the reader is on
+   * `seededFor` N (the N those numbers were taken at); switching to a
+   * different N clears the table and prompts a Run. */
+  seededResults?: {
+    /** The N the author's numbers were measured at. */
+    n: number;
+    /** Per-implementation timings (name → { medianMs, minMs, maxMs }).
+     * Any implementation missing from this map appears as "—" in the table
+     * until the reader runs. */
+    results: Record<string, { medianMs: number; minMs: number; maxMs: number }>;
+  };
 }
 
 interface RunResult {
@@ -92,6 +114,8 @@ export function Benchmark({
   warmupRuns = DEFAULT_WARMUP,
   measuredRuns = DEFAULT_MEASURED,
   timeoutMs = DEFAULT_TIMEOUT_MS,
+  autoplay = false,
+  seededResults,
 }: BenchmarkProps) {
   const { run, ready, failure: loadFailure } = useLoadedRuntime(language);
 
@@ -103,7 +127,31 @@ export function Benchmark({
   const [selectedN, setSelectedN] = useState<number>(chosenDefault);
   const [running, setRunning] = useState(false);
   const [progress, setProgress] = useState<string>('');
-  const [results, setResults] = useState<Map<string, RunResult> | null>(null);
+  // Seeded results: when the author passed them AND the reader is on the
+  // matching N, show them on first render as a live measurement would. The
+  // Run button will replace them with real timings.
+  const seedMap = useMemo(() => {
+    if (!seededResults || seededResults.n !== selectedN) return null;
+    const m = new Map<string, RunResult>();
+    for (const [name, r] of Object.entries(seededResults.results)) {
+      m.set(name, {
+        medianMs: r.medianMs,
+        minMs: r.minMs,
+        maxMs: r.maxMs,
+        timedOut: false,
+        failure: null,
+      });
+    }
+    return m;
+  }, [seededResults, selectedN]);
+  const [results, setResults] = useState<Map<string, RunResult> | null>(seedMap);
+  // If the reader switches N (or the author edits seededResults), refresh the
+  // seeded state — but do NOT clobber real measurements the reader ran.
+  const [hasMeasured, setHasMeasured] = useState(false);
+  useEffect(() => {
+    if (hasMeasured) return;
+    setResults(seedMap);
+  }, [seedMap, hasMeasured]);
   const [activeImplIndex, setActiveImplIndex] = useState<number>(0);
 
   const runAll = useCallback(async () => {
@@ -181,9 +229,24 @@ export function Benchmark({
       }
     }
     setResults(collected);
+    // Once we've measured live, do not let a re-render re-seed from the
+    // author's pre-baked numbers.
+    setHasMeasured(true);
     setProgress('');
     setRunning(false);
   }, [implementations, run, selectedN, warmupRuns, measuredRuns, timeoutMs]);
+
+  // Autoplay: kick off the measurement once the runtime is ready. Guarded by
+  // a ref so a re-render (e.g. the reader hits Run themselves later) does not
+  // launch a second auto-run in parallel.
+  const autoStartedRef = useRef(false);
+  useEffect(() => {
+    if (!autoplay) return;
+    if (!ready || running || results !== null || autoStartedRef.current) return;
+    if (implementations === undefined || implementations.length === 0) return;
+    autoStartedRef.current = true;
+    void runAll();
+  }, [autoplay, ready, running, results, implementations, runAll]);
 
   if (implementations === undefined || implementations.length === 0) {
     return (
