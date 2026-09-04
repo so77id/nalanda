@@ -6,6 +6,11 @@
 **Source:** Issue #119. Extends ADR-0003 (MDX format) and ADR-0010 (component
 contract); applies ADR-0002 (content model), ADR-0013 (presentation), ADR-0022
 (the reading measure) and ADR-0026 (colour).
+**Amended by:** #268 (2026-09-04) — SideBySide gains `direction: 'mode-aware'`,
+which resolves to `horizontal` in presentation and `vertical` in book. This is
+the first structural container that branches on `useMode()`; the earlier
+"SideBySide is untouched" claim in §3 is retained as historical context but no
+longer describes the current API.
 
 ## Context
 

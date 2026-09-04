@@ -13,6 +13,15 @@ algorithms so the recursion tree and the array visualisation stay in
 sync · the algorithm-specific overlays (sorted prefix / suffix,
 active pair, pivot zone, aux rail) rendered on a shared bar chart ·
 the pivot policy for quicksort that aligns with the tree recipe
+**Amended by:** #268 review-fixes (2026-09-04) — the step-through family is
+composed on a shared `stepperShell` (`components/interactive/stepperShell.tsx`):
+`useStepPlayback` + `StepperHeader` + `PanelLabel` + `NarrationStrip` +
+`ControlButton` + `LegendSwatch`. `<MergeStepper>` and `<PartitionStepper>`
+already build on it; `<SortStepper>` still carries its own copy of the
+playback machinery — an adoption follow-up is filed to consolidate. The
+shell's `ControlButton` uses `aria-disabled` + guarded onClick (never native
+`disabled`), so the a11y invariant earned in #116 becomes a compile-time
+expectation for any stepper composed on top.
 **Source:** Issue #268 — Course document "Diseño de Algoritmos ·
 Ordenamiento". The class walks the reader through five algorithms
 with the pedagogical rule *idea → código → widget → análisis →

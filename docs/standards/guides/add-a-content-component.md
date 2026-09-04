@@ -50,7 +50,7 @@ apps/web/src/components/structure/
    (presentation seam); if a parser must recognize it, declare metadata with
    `withMeta` (`lib/componentMeta.ts`) — never expect identity imports.
 
-   Eight seams worth knowing before writing your own:
+   Nine seams worth knowing before writing your own:
 
    - **Labelled code fences.** A component whose children carry code the author
      marks — ` ```java starter ` — reads them with `fencesByMeta` /
@@ -179,6 +179,22 @@ apps/web/src/components/structure/
         re-render`), `MaxSubarrayViz`, `ClosestPairViz`, `KaratsubaViz` (the
         last uses primitive `[x, y]` deps because its inputs are already
         primitives — the pattern degenerates but stays inside `Body`).
+   - **Breaking a block out of the Slide's prose column in presentation.** A
+     wide widget (two side-by-side visuals, a table, a diagram) does not fit
+     the slide's authored prose max-width, and the pure-CSS
+     `w-screen -translate-x-1/2` trick does NOT escape the presentation
+     `<Slide>`'s centred/padded/`transform: scale(fit)` chain. Reach for
+     `useViewportBreakout` at `components/useViewportBreakout.ts`: it measures
+     the ancestor's scale after paint and rewrites the outer element's `width`
+     + negative `marginLeft` so the post-scale footprint lands at
+     `fraction * viewport` centred (default `fraction = 1`; comparisons of two
+     visuals side-by-side usually read better at `0.75`). Gate on
+     `enabled: useMode() === 'presentation'` — book mode leaves the widget
+     alone. Worked cases: `<SortStepper>`, `<StepShow>`, `<MergeStepper>`,
+     `<PartitionStepper>` (all reach it directly), and the MDX wrapper
+     `<PresentationWide>` that lets a course author widen any block from the
+     document itself. Widgets that ALREADY break out on their own should NOT
+     be wrapped a second time.
 
 3. **Register it** in the shell MDX map (`apps/web/src/app/mdxComponents.ts`).
    Not optional: the catalog and the MDX map must be the same set, asserted in

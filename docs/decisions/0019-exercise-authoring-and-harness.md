@@ -10,7 +10,13 @@ Extends ADR-0012 (content pipeline) and ADR-0010/0014 (component contract and ca
 relies on ADR-0017 (Java execution) and is constrained by ADR-0020.
 **Amended by:** #116/ADR-0028 §7 (2026-08-14) — §3b: a third reserved name;
 #123 (2026-08-16) — §3b: the guard reads every top-level declaration rather than
-the entry class, after decoding what the compiler decodes (see the notes inline)
+the entry class, after decoding what the compiler decodes (see the notes inline);
+#268 (2026-09-04) — §1: a third annotated fence, `solution`, becomes part of the
+authoring surface. It is a reference implementation revealed by a "Ver solución"
+toggle in the widget; never inlined into the harness, never compiled, absent →
+button hidden. So the reserved-name rules of §3b do NOT apply to it (nothing is
+compiled from this fence). Author-facing coverage in
+`docs/standards/guides/add-a-course-document.md` §5b.
 
 ## Context
 

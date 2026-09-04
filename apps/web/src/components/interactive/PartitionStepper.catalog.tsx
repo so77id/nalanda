@@ -22,6 +22,16 @@ export const partitionStepperCatalogEntry: CatalogEntry = {
       type: 'string',
       description: 'Optional title shown above the panels by `<StepShow>`.',
     },
+    {
+      name: 'autoplay',
+      type: 'boolean',
+      description: 'Autoplay on mount. Off by default (rule Peli 1/2).',
+    },
+    {
+      name: 'speed',
+      type: '"slow" | "normal" | "fast"',
+      description: 'Playback speed. Default `normal`.',
+    },
   ],
   examples: [
     {

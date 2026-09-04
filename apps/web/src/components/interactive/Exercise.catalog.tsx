@@ -33,6 +33,13 @@ check(Solution.esPar(7), false);
 check(Solution.esPar(0), true);
 `;
 
+const SOLUTION = `class Solution {
+    static boolean esPar(int n) {
+        return n % 2 == 0;
+    }
+}
+`;
+
 /** Catalog entry (ADR-0010) — colocated with the component, aggregated in catalogEntries.ts. */
 export const exerciseCatalogEntry: CatalogEntry = {
   name: 'Exercise',
@@ -40,7 +47,7 @@ export const exerciseCatalogEntry: CatalogEntry = {
   description:
     "A problem the student solves in place, checked automatically in their own browser. The cases are compiled into a separate harness class that calls the student's method, so what is verified is the method rather than what the program printed — nobody fails for formatting their output differently.",
   whenToUse:
-    'When a page asks the student to write code rather than read it. Author the statement as ordinary prose and add two annotated fences: ```java starter``` seeds the editor, and ```java test``` is inlined as the body of the harness’s `main` — statements only, no method declarations, and `check(obtenido, esperado)` in that order or the feedback reads backwards. ' +
+    'When a page asks the student to write code rather than read it. Author the statement as ordinary prose and add annotated fences: ```java starter``` seeds the editor, ```java test``` is inlined as the body of the harness’s `main` — statements only, no method declarations, and `check(obtenido, esperado)` in that order or the feedback reads backwards. Optional: ```java solution``` — a reference implementation revealed by a toggle button. It is display-only and never inlined into the harness, so nothing about it constrains the class name or reserved-name rules. Its absence hides the button. ' +
     'The cases stay hidden until the first run — that is pacing, not secrecy: everything under `content/` is published, so the page source reveals them to anyone who looks. Never author an exercise whose cases must stay private. ' +
     'A verdict is feedback, never evidence: it travels in-band on stdout, so a student who prints the markers themselves gets a green board. That is fine for practice and disqualifying for anything a mark depends on. ' +
     'Only Java validates today; Python and C++ reject a harness rather than pretend to check one. The class name in the starter and the one the cases call must agree — if a student renames their class the harness stops resolving it, which surfaces as a compile error. ' +
@@ -63,7 +70,7 @@ export const exerciseCatalogEntry: CatalogEntry = {
       name: 'children',
       type: 'MDX',
       description:
-        'The statement as prose, plus a fence marked `starter` (seeds the editor) and one marked `test` (the harness body). Prose renders; the fences do not — they would show the code twice and spoil the cases.',
+        'The statement as prose, plus a fence marked `starter` (seeds the editor), one marked `test` (the harness body), and optionally one marked `solution` (a reference implementation the reader can reveal). Prose renders; the fences do not — they would show the code twice and spoil the cases.',
     },
   ],
   examples: [
@@ -96,6 +103,46 @@ check(Solution.esPar(0), true);
           </p>
           {fence('starter', STARTER)}
           {fence('test', CASES)}
+        </Exercise>
+      ),
+    },
+    {
+      title: 'With a reference solution (revealed by a toggle button)',
+      code: `<Exercise title="¿Es par?">
+
+Escribe \`esPar\`, que recibe un entero y devuelve \`true\` si es par.
+
+\`\`\`java starter
+class Solution {
+    static boolean esPar(int n) {
+        // tu código aquí
+        return false;
+    }
+}
+\`\`\`
+
+\`\`\`java test
+check(Solution.esPar(4), true);
+check(Solution.esPar(7), false);
+\`\`\`
+
+\`\`\`java solution
+class Solution {
+    static boolean esPar(int n) {
+        return n % 2 == 0;
+    }
+}
+\`\`\`
+
+</Exercise>`,
+      render: () => (
+        <Exercise title="¿Es par?">
+          <p>
+            Escribe <code>esPar</code>, que recibe un entero y devuelve <code>true</code> si es par.
+          </p>
+          {fence('starter', STARTER)}
+          {fence('test', CASES)}
+          {fence('solution', SOLUTION)}
         </Exercise>
       ),
     },
