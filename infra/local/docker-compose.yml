@@ -94,6 +94,12 @@ services:
       # Jetson); "0s" disables the ticker and leaves the manual admin
       # button as the only refresh path.
       NALANDA_BANK_REFRESH_INTERVAL: "${NALANDA_BANK_REFRESH_INTERVAL:-5m}"
+
+      # The AES-256 master key sealing `user_secrets` (issue #271,
+      # ADR-0068). Base64 of 32 bytes: `openssl rand -base64 32`.
+      # Empty is legal and means the Canvas integration reports itself
+      # unconfigured; a present-but-malformed value is a startup error.
+      NALANDA_SECRETS_MASTER_KEY: "${NALANDA_SECRETS_MASTER_KEY:-}"
     volumes:
       - server-data:/data
       # Shared with the amc-worker service below. The server writes a

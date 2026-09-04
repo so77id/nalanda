@@ -8,6 +8,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -17,6 +18,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/so77id/nalanda/apps/server/internal/domain/secret"
 )
 
 // The environment variable names, exported so that the operator-facing
@@ -93,6 +96,15 @@ const (
 	// container updates. "0s" disables the ticker, and then the manual
 	// admin button is the only refresh path.
 	KeyBankRefreshInterval = "NALANDA_BANK_REFRESH_INTERVAL"
+)
+
+// The roster / Canvas block (#271, WP-1 of epic #270). One variable, and it
+// is OPTIONAL on purpose — see the doc comment on Config.SecretsMasterKey.
+const (
+	// KeySecretsMasterKey is the AES-256 key that seals every row of
+	// user_secrets (internal/domain/secret, ADR-0068). Base64 of exactly 32
+	// random bytes: `openssl rand -base64 32`.
+	KeySecretsMasterKey = "NALANDA_SECRETS_MASTER_KEY"
 )
 
 // defaultMaxScanMB is what an unset KeyMaxScanMB resolves to.
@@ -193,6 +205,36 @@ type Config struct {
 	// disables the ticker; a positive Go duration overrides the 5-minute
 	// default.
 	BankRefreshInterval time.Duration
+
+	// SecretsMasterKey is the decoded 32-byte AES-256 key that seals
+	// user_secrets, or nil when the operator has not configured one
+	// (issue #271, ADR-0068).
+	//
+	// This is the only OPTIONAL-BUT-STRICTLY-VALIDATED variable in the
+	// struct, and the asymmetry is deliberate:
+	//
+	//   - Absent (or empty) → nil, and the Canvas integration reports
+	//     itself unconfigured. Making it required would take production
+	//     down between a merge and the moment the operator edits the
+	//     Jetson's .env: the CD workflow rebuilds the image and Watchtower
+	//     restarts the container within five minutes (ADR-0038), so the
+	//     window is not one an operator can stand in front of.
+	//   - Present but not base64 of exactly 32 bytes → Load fails naming
+	//     the variable. A typo must not read as "not configured", because
+	//     that is a deployment that silently stores nothing while looking
+	//     healthy.
+	//
+	// Never logged. LogValue and String report only whether it is set —
+	// this key opens every professor's Canvas token.
+	SecretsMasterKey []byte
+}
+
+// SecretsConfigured reports whether a usable master key was configured, and
+// therefore whether anything that stores a per-professor secret can work.
+// Callers render "integración no configurada" rather than a form when it is
+// false; nothing panics.
+func (c Config) SecretsConfigured() bool {
+	return len(c.SecretsMasterKey) == secret.MasterKeySize
 }
 
 // Keys lists every variable this package reads, in the order an operator would
@@ -206,6 +248,7 @@ func Keys() []string {
 		KeyQuestionsJSONURL, KeyAmcWorkerURL, KeyWorkDir,
 		KeyMaxScanMB, KeyAnnotateEnabled,
 		KeyBankRefreshInterval,
+		KeySecretsMasterKey,
 	}
 }
 
@@ -331,7 +374,39 @@ func Load(lookup LookupFunc) (Config, error) {
 		cfg.BankRefreshInterval = interval
 	}
 
+	masterKey, err := parseMasterKey(l.optional(KeySecretsMasterKey, ""))
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.SecretsMasterKey = masterKey
+
 	return cfg, nil
+}
+
+// parseMasterKey decodes the base64 master key. An empty value is "not
+// configured" and yields nil; anything else must decode to exactly
+// secret.MasterKeySize bytes.
+//
+// No error here ever echoes the value, because the value IS the key: an
+// error string reaches stderr, and stderr reaches whatever collects
+// container logs. Same rule, and the same reason, as SafeDatabaseURL and
+// Config.LogValue.
+func parseMasterKey(raw string) ([]byte, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	key, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"%s is not valid base64; generate it with `openssl rand -base64 32`", KeySecretsMasterKey)
+	}
+	if len(key) != secret.MasterKeySize {
+		return nil, fmt.Errorf(
+			"%s decodes to %d bytes; AES-256 needs exactly %d (`openssl rand -base64 32`)",
+			KeySecretsMasterKey, len(key), secret.MasterKeySize)
+	}
+	return key, nil
 }
 
 // parsePositiveInt returns the value or the default (when raw is empty). A
@@ -404,6 +479,7 @@ func (c Config) LogValue() slog.Value {
 		slog.String("work_dir", c.WorkDir),
 		slog.Bool("annotate_enabled", c.AnnotateEnabled),
 		slog.String("bank_refresh_interval", c.BankRefreshInterval.String()),
+		slog.Bool("secrets_master_key_set", c.SecretsConfigured()),
 	)
 }
 
@@ -412,11 +488,11 @@ func (c Config) LogValue() slog.Value {
 // either.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s annotate_enabled:%t bank_refresh_interval:%s}",
+		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s annotate_enabled:%t bank_refresh_interval:%s secrets_master_key_set:%t}",
 		c.Addr, c.SafeDatabaseURL(), c.LogLevel, c.PublicURL, c.GoogleClientID,
 		c.SessionTTL, c.BootstrapProfessorEmail != "", c.TrustProxyHeaders,
 		c.QuestionsJSONURL, c.AmcWorkerURL, c.WorkDir, c.AnnotateEnabled,
-		c.BankRefreshInterval,
+		c.BankRefreshInterval, c.SecretsConfigured(),
 	)
 }
 
