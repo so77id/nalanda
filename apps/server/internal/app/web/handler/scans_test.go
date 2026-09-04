@@ -778,18 +778,27 @@ func TestTwoConcurrentReanalyzesProduceTwoJobs(t *testing.T) {
 
 	// Wait for BOTH to reach terminal — the second's completion means
 	// the runner already finished the first.
+	//
+	// Counted BY KIND, not by status alone: this control already carries a
+	// terminal `generate` (from createControl) and a terminal `analyse`
+	// (from uploadOnce), so a total of two proves nothing about the two
+	// rows this case submitted. See jstoreTerminalCountByKind.
 	deadline := time.Now().Add(3 * time.Second)
 	for {
-		ids, err := f.jstoreQueuedAndTerminalCount(context.Background(), controlID)
+		terminal, err := f.jstoreTerminalCountByKind(context.Background(), controlID, jobs.KindReanalyse)
 		if err != nil {
 			t.Fatalf("counting jobs: %v", err)
 		}
-		if ids.terminal == 2 {
+		if terminal == 2 {
 			return
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("jobs after 3s: queued=%d running=%d terminal=%d (want terminal=2)",
-				ids.queued, ids.running, ids.terminal)
+			all, err := f.jstoreQueuedAndTerminalCount(context.Background(), controlID)
+			if err != nil {
+				t.Fatalf("counting jobs for the failure message: %v", err)
+			}
+			t.Fatalf("after 3s: %d terminal reanalyse jobs (want 2); all kinds: queued=%d running=%d terminal=%d",
+				terminal, all.queued, all.running, all.terminal)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
