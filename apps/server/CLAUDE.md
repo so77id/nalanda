@@ -320,6 +320,31 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   `StatusDone || StatusFailed` inline (issue #257 review, ARQ-2).
   Same rule shape as the UploadScan-survives / LiveBank-survives /
   Reading.Pages two-boundary bullets.
+- **A roster import UPSERTS and WITHDRAWS; it never deletes, and it never
+  applies a partial answer (issue #271, ADR-0069).** Three invariants, one
+  reason each, all in `coursestore.SaveRoster`:
+  1. **A student Canvas no longer lists is stamped `withdrawn`, never
+     DELETEd.** Their grades hang off the RUT match WP-2 adds, and a
+     student who dropped the course still sat the controls they sat.
+     Re-appearing in a later import puts them back to `enrolled`.
+  2. **The upsert keys on `student.canvas_user_id`, never on `rut`.** The
+     RUT is nullable by design (Canvas may hold none), and keying on it
+     would insert a second person row for every RUT-less student on every
+     import. Two students with no RUT coexist because SQLite lets NULLs
+     coexist under a UNIQUE — which is also why the schema refuses the
+     empty string that would NOT.
+  3. **The whole roster lands in ONE transaction.** A half-applied import
+     looks exactly like a class where some students vanished, and the
+     professor cannot tell which half arrived. Two different Canvas users
+     carrying one RUT abort the whole import rather than resolving it: that
+     column is the key grades are matched on, and choosing between two
+     people silently delivers somebody's grade to somebody else.
+
+  And above the store: **`Service.Import` calls `SaveRoster` only on a
+  successful Canvas answer.** Handing it an empty roster on an outage would
+  withdraw the entire class — the silent version of this whole bullet.
+  Same rule shape and same reason as the UploadScan-survives and
+  LiveBank-survives bullets.
 - **The LiveBank in-memory snapshot survives every Reload failure
   (issue #230).** Reintroducing a code path that clears the
   `atomic.Pointer[Bank]` on a fetch/parse failure is forbidden — a
