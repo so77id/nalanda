@@ -38,9 +38,13 @@ const canvasToken = "1234~AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"
 // stubCanvas is the API seam. The real UDP Canvas is a human's check (S8),
 // for the same reason GOOGLE-CHECK.md exists.
 type stubCanvas struct {
-	err     error
-	seen    []string
-	courses []canvas.Course
+	err      error
+	seen     []string
+	courses  []canvas.Course
+	students []canvas.Student
+	// seenRosterCourse records which Canvas course the roster was asked
+	// about, so a case can prove the id came from the STORED course.
+	seenRosterCourse string
 }
 
 func (s *stubCanvas) Verify(_ context.Context, token string) error {
@@ -48,25 +52,27 @@ func (s *stubCanvas) Verify(_ context.Context, token string) error {
 	return s.err
 }
 
-// The profile screen does not list courses or import a roster yet — S5 and
-// S6 add those. Present so the stub satisfies canvas.API.
+// Since S5 and S6 the screen does list courses and import a roster; the
+// scripted answers below are what the cases set up.
 func (s *stubCanvas) Courses(context.Context, string) ([]canvas.Course, error) {
 	return s.courses, s.err
 }
 
-func (s *stubCanvas) Roster(context.Context, string, string) ([]canvas.Student, error) {
-	return nil, s.err
+func (s *stubCanvas) Roster(_ context.Context, _ string, canvasCourseID string) ([]canvas.Student, error) {
+	s.seenRosterCourse = canvasCourseID
+	return s.students, s.err
 }
 
 type profileFixture struct {
-	handler    *handler.Profile
-	middleware *middleware.Auth
-	store      *authstore.Store
-	secrets    secret.Store
-	api        *stubCanvas
-	courses    *coursestore.Store
-	logs       *bytes.Buffer
-	now        time.Time
+	handler        *handler.Profile
+	middleware     *middleware.Auth
+	store          *authstore.Store
+	secrets        secret.Store
+	api            *stubCanvas
+	courses        *coursestore.Store
+	coursesHandler *handler.Courses
+	logs           *bytes.Buffer
+	now            time.Time
 }
 
 // newProfileFixture wires the screen. masterKey nil is the "no
@@ -106,9 +112,19 @@ func newProfileFixture(t *testing.T, masterKey []byte) *profileFixture {
 	// about what the professor sees after a course is actually stored, and
 	// the UNIQUE that refuses a second click lives in the schema.
 	f.courses = coursestore.New(db)
+	rosterService := roster.NewService(f.courses, roster.NewCanvasSource(canvasService))
 	f.handler = handler.NewProfile(handler.Profile{
 		Canvas:    canvasService,
-		Roster:    roster.NewService(f.courses, roster.NewCanvasSource(canvasService)),
+		Roster:    rosterService,
+		PublicURL: publicURL,
+		Log:       log,
+	})
+	// The courses handler shares this fixture rather than getting its own:
+	// it is built from the same database, the same Canvas stub and the same
+	// session, and a second copy of all that would only be a second place
+	// for the wiring to drift.
+	f.coursesHandler = handler.NewCourses(handler.Courses{
+		Roster:    rosterService,
 		PublicURL: publicURL,
 		Log:       log,
 	})

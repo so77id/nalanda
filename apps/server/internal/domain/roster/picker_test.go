@@ -15,9 +15,14 @@ import (
 const professor = int64(7)
 
 type fakeSource struct {
-	courses []roster.SourceCourse
-	err     error
-	calls   int
+	courses  []roster.SourceCourse
+	students []roster.SourceStudent
+	err      error
+	calls    int
+	// seenCanvasCourse records which Canvas course RosterFor was asked
+	// about, so a case can prove the id came from the STORED course rather
+	// than from the request.
+	seenCanvasCourse string
 }
 
 func (f *fakeSource) CoursesFor(context.Context, int64) ([]roster.SourceCourse, error) {
@@ -25,10 +30,20 @@ func (f *fakeSource) CoursesFor(context.Context, int64) ([]roster.SourceCourse, 
 	return f.courses, f.err
 }
 
+func (f *fakeSource) RosterFor(_ context.Context, _ int64, canvasCourseID string) ([]roster.SourceStudent, error) {
+	f.calls++
+	f.seenCanvasCourse = canvasCourseID
+	return f.students, f.err
+}
+
 type memStore struct {
 	rows    []roster.Course
 	nextID  int64
 	listErr error
+	// saved records what SaveRoster was handed, per course.
+	saved     map[int64][]roster.SourceStudent
+	saveErr   error
+	saveCalls int
 }
 
 func (m *memStore) CreateCourse(_ context.Context, c roster.Course) (roster.Course, error) {
@@ -48,6 +63,29 @@ func (m *memStore) ListCourses(context.Context) ([]roster.Course, error) {
 		return nil, m.listErr
 	}
 	return m.rows, nil
+}
+
+func (m *memStore) SaveRoster(_ context.Context, courseID int64, students []roster.SourceStudent) (roster.ImportResult, error) {
+	m.saveCalls++
+	if m.saveErr != nil {
+		return roster.ImportResult{}, m.saveErr
+	}
+	if m.saved == nil {
+		m.saved = map[int64][]roster.SourceStudent{}
+	}
+	m.saved[courseID] = students
+
+	result := roster.ImportResult{Added: len(students)}
+	for _, st := range students {
+		if st.RUT == "" {
+			result.WithoutRUT++
+		}
+	}
+	return result, nil
+}
+
+func (m *memStore) ListEnrollments(context.Context, int64) ([]roster.Enrollment, error) {
+	return nil, nil
 }
 
 func (m *memStore) CourseByID(_ context.Context, id int64) (roster.Course, error) {
@@ -256,5 +294,73 @@ func TestChoicesOnAProfessorWithNoCanvasCoursesIsEmpty(t *testing.T) {
 	}
 	if !choices.Empty() {
 		t.Errorf("Empty() is false for %+v", choices)
+	}
+}
+
+// --- Import (S6) ---------------------------------------------------------
+
+// The Canvas course id the import asks about comes from the STORED course,
+// never from the request. A handler that passed one through would let a
+// hand-typed POST point a course at somebody else's roster.
+func TestImportAsksCanvasAboutTheStoredCoursesCanvasID(t *testing.T) {
+	store := &memStore{}
+	source := &fakeSource{
+		courses:  canvasCourses(),
+		students: []roster.SourceStudent{{CanvasUserID: "900001", RUT: "11222333", RUTDV: "5"}},
+	}
+	svc := roster.NewService(store, source)
+
+	course, err := svc.AddCourse(context.Background(), professor, "44779")
+	if err != nil {
+		t.Fatalf("AddCourse: %v", err)
+	}
+
+	result, err := svc.Import(context.Background(), professor, course.ID)
+	if err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+	if source.seenCanvasCourse != "44779" {
+		t.Errorf("Canvas was asked about %q, want the stored course's Canvas id", source.seenCanvasCourse)
+	}
+	if result.Added != 1 {
+		t.Errorf("result = %+v, want the one student", result)
+	}
+	if len(store.saved[course.ID]) != 1 {
+		t.Errorf("the store was handed %d students", len(store.saved[course.ID]))
+	}
+}
+
+func TestImportRefusesACourseThisServerDoesNotHave(t *testing.T) {
+	store := &memStore{}
+	svc := roster.NewService(store, &fakeSource{courses: canvasCourses()})
+
+	_, err := svc.Import(context.Background(), professor, 4242)
+	if !errors.Is(err, roster.ErrCourseNotFound) {
+		t.Errorf("Import returned %v, want ErrCourseNotFound", err)
+	}
+	if store.saveCalls != 0 {
+		t.Error("the store was written to for a course that does not exist")
+	}
+}
+
+// Canvas failing means nothing is saved. Passing an empty roster to the
+// store on an outage would withdraw the entire class.
+func TestImportSavesNothingWhenCanvasFails(t *testing.T) {
+	boom := errors.New("canvas: Canvas could not be reached")
+	store := &memStore{}
+	source := &fakeSource{courses: canvasCourses()}
+	svc := roster.NewService(store, source)
+
+	course, err := svc.AddCourse(context.Background(), professor, "44779")
+	if err != nil {
+		t.Fatalf("AddCourse: %v", err)
+	}
+
+	source.err = boom
+	if _, err := svc.Import(context.Background(), professor, course.ID); !errors.Is(err, boom) {
+		t.Errorf("Import returned %v, want the source's own error", err)
+	}
+	if store.saveCalls != 0 {
+		t.Error("the store was written to despite Canvas failing; an empty roster would withdraw the whole class")
 	}
 }

@@ -174,3 +174,52 @@ func (s *Service) AddCourse(ctx context.Context, userID int64, canvasCourseID st
 	}
 	return Course{}, fmt.Errorf("%w: %s", ErrNotInCanvas, canvasCourseID)
 }
+
+// Import fetches the course's roster from Canvas and applies it.
+//
+// Upsert, never replace: a student Canvas still lists is updated in place,
+// one it no longer lists is stamped withdrawn rather than deleted. Deleting
+// would take the enrolment out from under grades that already exist — WP-2
+// matches a reading's RUT to a person, and a student who dropped the course
+// still sat the controls they sat.
+//
+// The whole roster is applied atomically by the store. A half-applied
+// import looks exactly like a class where some students vanished, and the
+// professor would have no way to tell which half arrived.
+func (s *Service) Import(ctx context.Context, userID, courseID int64) (ImportResult, error) {
+	course, err := s.Store.CourseByID(ctx, courseID)
+	if err != nil {
+		return ImportResult{}, err
+	}
+
+	students, err := s.Source.RosterFor(ctx, userID, course.CanvasCourseID)
+	if err != nil {
+		// Passed through with its sentinel: the handler says something
+		// different for a revoked token than for an outage.
+		return ImportResult{}, err
+	}
+
+	result, err := s.Store.SaveRoster(ctx, courseID, students)
+	if err != nil {
+		return ImportResult{}, err
+	}
+	return result, nil
+}
+
+// Enrollments returns one course and the people on it.
+func (s *Service) Enrollments(ctx context.Context, courseID int64) (Course, []Enrollment, error) {
+	course, err := s.Store.CourseByID(ctx, courseID)
+	if err != nil {
+		return Course{}, nil, err
+	}
+	enrollments, err := s.Store.ListEnrollments(ctx, courseID)
+	if err != nil {
+		return Course{}, nil, err
+	}
+	return course, enrollments, nil
+}
+
+// Courses returns every stored course, most recently added first.
+func (s *Service) Courses(ctx context.Context) ([]Course, error) {
+	return s.Store.ListCourses(ctx)
+}

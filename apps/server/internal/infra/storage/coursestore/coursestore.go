@@ -137,3 +137,213 @@ func isDuplicateCanvasCourse(err error) bool {
 	return strings.Contains(text, "UNIQUE constraint failed") &&
 		strings.Contains(text, "course.canvas_course_id")
 }
+
+// SaveRoster applies one import to one course, in ONE transaction.
+//
+// Atomic on purpose. A half-applied roster looks exactly like a class where
+// some students vanished, and the professor has no way to tell which half
+// arrived — so either the whole import lands or none of it does, and a
+// failure leaves the previous roster intact to be re-imported.
+//
+// Three steps, in this order:
+//
+//  1. Upsert each PERSON on canvas_user_id. That key, not the RUT: the RUT
+//     may be absent (ADR-0069 §Decision 1), and keying on it would insert a
+//     second row for every student Canvas has no RUT for, on every import.
+//  2. Upsert each ENROLMENT on (course_id, student_id), always as enrolled
+//     — this is what brings a student who came back off `withdrawn`.
+//  3. Stamp `withdrawn` on every enrolment of this course that step 2 did
+//     not touch. Never DELETE: their grades hang off the RUT match in WP-2,
+//     and a student who dropped still sat the controls they sat.
+func (s *Store) SaveRoster(ctx context.Context, courseID int64, students []roster.SourceStudent) (roster.ImportResult, error) {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return roster.ImportResult{}, fmt.Errorf("coursestore: begin the roster transaction: %w", err)
+	}
+	// Rolls back unless Commit already succeeded, in which case it is a
+	// no-op returning sql.ErrTxDone — which is why the error is discarded
+	// deliberately rather than ignored (backend-code-style.md §Errors).
+	defer func() { _ = tx.Rollback() }()
+
+	result := roster.ImportResult{}
+	keep := make([]any, 0, len(students))
+
+	for _, incoming := range students {
+		studentID, err := upsertStudent(ctx, tx, incoming)
+		if err != nil {
+			return roster.ImportResult{}, err
+		}
+		if incoming.RUT == "" {
+			result.WithoutRUT++
+		}
+
+		// Whether this is a new enrolment or a refreshed one is decided
+		// BEFORE the upsert: afterwards the row exists either way, and
+		// "added" and "updated" would be indistinguishable.
+		var existing int
+		if err := tx.QueryRowContext(ctx,
+			`SELECT count(*) FROM enrollment WHERE course_id = ? AND student_id = ?`,
+			courseID, studentID,
+		).Scan(&existing); err != nil {
+			return roster.ImportResult{}, fmt.Errorf("coursestore: look for an existing enrolment: %w", err)
+		}
+
+		if _, err := tx.ExecContext(ctx, `
+            INSERT INTO enrollment (course_id, student_id, state, canvas_enrollment_id)
+            VALUES (?, ?, ?, ?)
+            ON CONFLICT (course_id, student_id) DO UPDATE SET
+                state = excluded.state,
+                canvas_enrollment_id = excluded.canvas_enrollment_id,
+                updated_at = unixepoch()`,
+			courseID, studentID, roster.StateEnrolled, nullableText(incoming.CanvasEnrollmentID),
+		); err != nil {
+			return roster.ImportResult{}, fmt.Errorf("coursestore: upsert an enrolment: %w", err)
+		}
+
+		if existing == 0 {
+			result.Added++
+		} else {
+			result.Updated++
+		}
+		keep = append(keep, studentID)
+	}
+
+	withdrawn, err := withdrawAbsent(ctx, tx, courseID, keep)
+	if err != nil {
+		return roster.ImportResult{}, err
+	}
+	result.Withdrawn = withdrawn
+
+	if err := tx.Commit(); err != nil {
+		return roster.ImportResult{}, fmt.Errorf("coursestore: commit the roster: %w", err)
+	}
+	return result, nil
+}
+
+// upsertStudent inserts or refreshes one person and returns their id.
+//
+// The conflict target is canvas_user_id — see SaveRoster's step 1 on why
+// not the RUT. A UNIQUE violation on the RUT means two DIFFERENT Canvas
+// users carry the same one, which is refused rather than resolved: that
+// column is the key WP-2 matches grades on, and picking one of the two
+// silently would deliver somebody's grade to somebody else.
+func upsertStudent(ctx context.Context, tx *sql.Tx, in roster.SourceStudent) (int64, error) {
+	_, err := tx.ExecContext(ctx, `
+        INSERT INTO student (first_name, last_name, email, rut, rut_dv, canvas_user_id)
+        VALUES (?, ?, ?, ?, ?, ?)
+        ON CONFLICT (canvas_user_id) DO UPDATE SET
+            first_name = excluded.first_name,
+            last_name  = excluded.last_name,
+            email      = excluded.email,
+            rut        = excluded.rut,
+            rut_dv     = excluded.rut_dv,
+            updated_at = unixepoch()`,
+		in.FirstName, in.LastName, in.Email,
+		nullableText(in.RUT), nullableText(in.RUTDV), in.CanvasUserID)
+	if err != nil {
+		if isDuplicateRUT(err) {
+			return 0, fmt.Errorf("%w: canvas user %s", roster.ErrDuplicateRUT, in.CanvasUserID)
+		}
+		return 0, fmt.Errorf("coursestore: upsert a student: %w", err)
+	}
+
+	// Read the id back rather than using LastInsertId: on the UPDATE branch
+	// of an upsert that value is not the row's.
+	var id int64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT id FROM student WHERE canvas_user_id = ?`, in.CanvasUserID).Scan(&id); err != nil {
+		return 0, fmt.Errorf("coursestore: read the upserted student's id: %w", err)
+	}
+	return id, nil
+}
+
+// withdrawAbsent stamps every enrolment of the course that this import did
+// not touch, and returns how many changed.
+//
+// Scoped to rows that are currently `enrolled`, so re-importing twice does
+// not re-count the same people as newly withdrawn — the count in the flash
+// has to mean "this import withdrew N", not "N are withdrawn".
+func withdrawAbsent(ctx context.Context, tx *sql.Tx, courseID int64, keep []any) (int, error) {
+	query := `UPDATE enrollment SET state = ?, updated_at = unixepoch()
+              WHERE course_id = ? AND state = ?`
+	args := []any{roster.StateWithdrawn, courseID, roster.StateEnrolled}
+
+	if len(keep) > 0 {
+		// Built from a counted list of placeholders, never from the ids
+		// themselves: the values travel as parameters, so no identifier
+		// reaches the SQL text.
+		query += ` AND student_id NOT IN (?` + strings.Repeat(", ?", len(keep)-1) + `)`
+		args = append(args, keep...)
+	}
+
+	result, err := tx.ExecContext(ctx, query, args...)
+	if err != nil {
+		return 0, fmt.Errorf("coursestore: withdraw the absent enrolments: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("coursestore: count the withdrawn enrolments: %w", err)
+	}
+	return int(affected), nil
+}
+
+// ListEnrollments returns the course's people, enrolled first and then by
+// surname — the order a professor reads a class list in.
+func (s *Store) ListEnrollments(ctx context.Context, courseID int64) ([]roster.Enrollment, error) {
+	rows, err := s.db.QueryContext(ctx, `
+        SELECT e.id, e.course_id, e.state, e.canvas_enrollment_id,
+               s.id, s.first_name, s.last_name, s.email, s.rut, s.rut_dv, s.canvas_user_id
+        FROM enrollment e
+        JOIN student s ON s.id = e.student_id
+        WHERE e.course_id = ?
+        ORDER BY (e.state = ?) DESC, s.last_name, s.first_name`,
+		courseID, roster.StateEnrolled)
+	if err != nil {
+		return nil, fmt.Errorf("coursestore: list the enrolments: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	enrollments := []roster.Enrollment{}
+	for rows.Next() {
+		var (
+			e           roster.Enrollment
+			canvasEnrol sql.NullString
+			rut, rutDV  sql.NullString
+		)
+		if err := rows.Scan(&e.ID, &e.CourseID, &e.State, &canvasEnrol,
+			&e.Student.ID, &e.Student.FirstName, &e.Student.LastName, &e.Student.Email,
+			&rut, &rutDV, &e.Student.CanvasUserID); err != nil {
+			return nil, fmt.Errorf("coursestore: scan an enrolment: %w", err)
+		}
+		e.CanvasEnrollmentID = canvasEnrol.String
+		e.Student.RUT = rut.String
+		e.Student.RUTDV = rutDV.String
+		enrollments = append(enrollments, e)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("coursestore: read the enrolments: %w", err)
+	}
+	return enrollments, nil
+}
+
+// nullableText maps "" onto SQL NULL.
+//
+// Load-bearing for the RUT pair: the schema's CHECK admits NULL or eight
+// digits, never the empty string, precisely so an "unknown" value cannot
+// collide with another unknown under the UNIQUE (ADR-0069 §Decision 1).
+// Writing "" here would fail every import that meets a student Canvas has
+// no RUT for.
+func nullableText(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
+}
+
+// isDuplicateRUT matches the UNIQUE violation on student.rut. Named by
+// column for the same reason isDuplicateCanvasCourse is.
+func isDuplicateRUT(err error) bool {
+	text := err.Error()
+	return strings.Contains(text, "UNIQUE constraint failed") &&
+		strings.Contains(text, "student.rut")
+}

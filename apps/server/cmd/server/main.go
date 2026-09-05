@@ -277,6 +277,11 @@ func run(logger *slog.Logger) error {
 			PublicURL: cfg.PublicURL,
 			Log:       logger,
 		}),
+		Courses: handler.NewCourses(handler.Courses{
+			Roster:    rosterService,
+			PublicURL: cfg.PublicURL,
+			Log:       logger,
+		}),
 		AdminBank: handler.NewAdminBank(handler.AdminBank{
 			Bank:      liveBank,
 			PublicURL: cfg.PublicURL,

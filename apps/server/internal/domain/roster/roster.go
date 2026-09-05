@@ -35,6 +35,25 @@ var (
 	// not list. Reached by a hand-typed POST, or by a course that
 	// disappeared between the page render and the click.
 	ErrNotInCanvas = errors.New("roster: Canvas does not list that course for this professor")
+
+	// ErrDuplicateRUT is two DIFFERENT Canvas users carrying the same RUT.
+	// The import refuses rather than picking one: `student.rut` is the key
+	// WP-2 matches grades on, and a silent choice between two people is a
+	// grade delivered to the wrong one. Not observed in the S4 spike (25
+	// distinct RUTs on 25 students) — which is why it is an error and not
+	// a policy.
+	ErrDuplicateRUT = errors.New("roster: two Canvas users carry the same RUT")
+)
+
+// Enrollment states. The two the schema's CHECK admits.
+const (
+	// StateEnrolled is a student Canvas currently lists on the course.
+	StateEnrolled = "enrolled"
+	// StateWithdrawn is a student who WAS on the course and is no longer
+	// listed by Canvas. The row is never deleted: their grades hang off
+	// the RUT match in WP-2, and deleting the enrolment would orphan a
+	// control they actually sat.
+	StateWithdrawn = "withdrawn"
 )
 
 // Course is one course this server knows about, as stored.
@@ -64,7 +83,66 @@ type Store interface {
 
 	// CourseByID returns one course, or ErrCourseNotFound.
 	CourseByID(ctx context.Context, id int64) (Course, error)
+
+	// SaveRoster applies one import to one course, ATOMICALLY: every
+	// student is upserted, every enrolment is upserted as enrolled, and
+	// every enrolment Canvas no longer lists is stamped withdrawn — all of
+	// it, or none of it.
+	//
+	// Atomic because a half-applied roster is worse than no roster: it
+	// looks like a class where some students vanished, and the professor
+	// has no way to tell which half arrived. The result counts what it
+	// did, for the flash.
+	SaveRoster(ctx context.Context, courseID int64, students []SourceStudent) (ImportResult, error)
+
+	// ListEnrollments returns the course's people, enrolled first.
+	ListEnrollments(ctx context.Context, courseID int64) ([]Enrollment, error)
 }
+
+// Student is one person, as stored. The RUT is split into the eight-digit
+// body the printed sheet reads and the verifier Canvas attaches — ADR-0069
+// §Decision 1 has the whole reasoning. Both are empty together when Canvas
+// held no readable RUT.
+type Student struct {
+	ID           int64
+	FirstName    string
+	LastName     string
+	Email        string
+	RUT          string
+	RUTDV        string
+	CanvasUserID string
+}
+
+// HasRUT reports whether this student can be matched to a reading at all.
+func (s Student) HasRUT() bool { return s.RUT != "" }
+
+// Enrollment is one person's membership of one course.
+type Enrollment struct {
+	ID                 int64
+	CourseID           int64
+	Student            Student
+	State              string
+	CanvasEnrollmentID string
+}
+
+// ImportResult is what one roster import did, for the flash the professor
+// reads afterwards.
+type ImportResult struct {
+	// Added is students who had no enrolment on this course before.
+	Added int
+	// Updated is students already enrolled whose row was refreshed.
+	Updated int
+	// Withdrawn is enrolments Canvas no longer lists, stamped withdrawn
+	// rather than deleted.
+	Withdrawn int
+	// WithoutRUT is students imported with no RUT, and therefore
+	// unmatchable by WP-2. Surfaced because it is the one outcome that
+	// looks like success and is not.
+	WithoutRUT int
+}
+
+// Total is how many students Canvas listed.
+func (r ImportResult) Total() int { return r.Added + r.Updated }
 
 // CourseSource is the Canvas end: "which courses does this professor have,
 // according to Canvas".
@@ -75,6 +153,11 @@ type Store interface {
 // decrypts it.
 type CourseSource interface {
 	CoursesFor(ctx context.Context, userID int64) ([]SourceCourse, error)
+
+	// RosterFor returns the students of one Canvas course, already
+	// normalised — the RUT split, the names taken off sortableName, staff
+	// skipped (ADR-0069).
+	RosterFor(ctx context.Context, userID int64, canvasCourseID string) ([]SourceStudent, error)
 }
 
 // SourceCourse is one course as the source describes it. A shape of this
@@ -88,4 +171,15 @@ type SourceCourse struct {
 	// TermStart orders the picker. RFC 3339 as Canvas sends it, compared as
 	// a string, which is correct for that format.
 	TermStart string
+}
+
+// SourceStudent is one student as the source describes them, normalised.
+type SourceStudent struct {
+	FirstName          string
+	LastName           string
+	Email              string
+	RUT                string
+	RUTDV              string
+	CanvasUserID       string
+	CanvasEnrollmentID string
 }

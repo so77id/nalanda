@@ -53,6 +53,10 @@ type Deps struct {
 	// Professors is the CRUD over OTHER professors and this one is only
 	// ever about the caller.
 	Profile *handler.Profile
+	// Courses is the course screens (issue #271): the roster and its
+	// Canvas import. Separate from Profile because Profile is about the
+	// professor's own account and this is about the courses themselves.
+	Courses *handler.Courses
 	// AdminBank is the manual bank-refresh endpoint (issue #230). Small
 	// enough to warrant its own handler struct rather than a method on
 	// Controls: the CRUD lives inside the controls domain, the bank
@@ -271,6 +275,10 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.ProfileAddCoursePath,
 			Handler: deps.Profile.AddCourse,
 		},
+		{
+			Method: http.MethodPost, Path: handler.CourseImportPath,
+			Handler: deps.Courses.ImportCanvas,
+		},
 		// Issue #230: the manual bank-refresh endpoint. Gated by default
 		// (no Public), CSRF enforced because the method is POST.
 		{
@@ -347,6 +355,8 @@ func Router(deps Deps) http.Handler {
 		panic("web.Router: no controls handlers")
 	case deps.Profile == nil:
 		panic("web.Router: no profile handlers")
+	case deps.Courses == nil:
+		panic("web.Router: no courses handlers")
 	case deps.AdminBank == nil:
 		panic("web.Router: no admin bank handler")
 	case deps.Log == nil:

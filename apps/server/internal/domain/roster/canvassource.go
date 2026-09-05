@@ -54,3 +54,27 @@ func (s *CanvasSource) CoursesFor(ctx context.Context, userID int64) ([]SourceCo
 	}
 	return courses, nil
 }
+
+// RosterFor translates canvas.Student into SourceStudent. The RUT arrives
+// already split and the names already taken off sortableName — that
+// normalisation belongs to the package that knows Canvas's shapes
+// (ADR-0069), not to this translation.
+func (s *CanvasSource) RosterFor(ctx context.Context, userID int64, canvasCourseID string) ([]SourceStudent, error) {
+	fromCanvas, err := s.Canvas.RosterFor(ctx, userID, canvasCourseID)
+	if err != nil {
+		return nil, err
+	}
+	students := make([]SourceStudent, 0, len(fromCanvas))
+	for _, st := range fromCanvas {
+		students = append(students, SourceStudent{
+			FirstName:          st.FirstName,
+			LastName:           st.LastName,
+			Email:              st.Email,
+			RUT:                st.RUT,
+			RUTDV:              st.RUTDV,
+			CanvasUserID:       st.CanvasUserID,
+			CanvasEnrollmentID: st.CanvasEnrollmentID,
+		})
+	}
+	return students, nil
+}

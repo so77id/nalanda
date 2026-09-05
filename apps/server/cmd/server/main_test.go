@@ -140,6 +140,14 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				Log:       logger,
 			})
 		}(),
+		Courses: handler.NewCourses(handler.Courses{
+			Roster: roster.NewService(
+				emptyCourseStore{},
+				roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{})),
+			),
+			PublicURL: "https://nalanda.test",
+			Log:       logger,
+		}),
 		AdminBank: handler.NewAdminBank(handler.AdminBank{
 			Bank:      emptyBank(t),
 			PublicURL: "https://nalanda.test",
@@ -442,4 +450,12 @@ func (emptyCourseStore) ListCourses(context.Context) ([]roster.Course, error) {
 
 func (emptyCourseStore) CourseByID(context.Context, int64) (roster.Course, error) {
 	return roster.Course{}, roster.ErrCourseNotFound
+}
+
+func (emptyCourseStore) SaveRoster(context.Context, int64, []roster.SourceStudent) (roster.ImportResult, error) {
+	return roster.ImportResult{}, roster.ErrCourseNotFound
+}
+
+func (emptyCourseStore) ListEnrollments(context.Context, int64) ([]roster.Enrollment, error) {
+	return nil, nil
 }
