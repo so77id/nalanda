@@ -276,6 +276,14 @@ func routes(deps Deps) []Route {
 			Handler: deps.Profile.AddCourse,
 		},
 		{
+			Method: http.MethodGet, Path: handler.CoursesPath,
+			Handler: deps.Courses.List,
+		},
+		{
+			Method: http.MethodGet, Path: handler.CoursePath,
+			Handler: deps.Courses.Show,
+		},
+		{
 			Method: http.MethodPost, Path: handler.CourseImportPath,
 			Handler: deps.Courses.ImportCanvas,
 		},

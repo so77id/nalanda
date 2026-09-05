@@ -144,9 +144,7 @@
     <td>{{ .Name }}</td>
     <td>
       {{ if .Added }}
-        {{/* Plain text, not a link: /courses/{id} arrives with S7, and a
-             link to it now would be a link to a 404. */}}
-        Ya agregado
+        <a href="/courses/{{ .CourseID }}">Ver el curso</a>
       {{ else }}
         <form class="inline" method="post" action="{{ .Action }}">
           <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />

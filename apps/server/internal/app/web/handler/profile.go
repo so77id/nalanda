@@ -245,12 +245,12 @@ func (p *Profile) AddCourse(w http.ResponseWriter, r *http.Request) {
 	course, err := p.Roster.AddCourse(r.Context(), professor.ID, r.PostForm.Get("canvas_course_id"))
 	switch {
 	case err == nil:
-		// Back to the profile, where the picker now shows the course as
-		// added. S7 adds /courses/{id} and this redirect becomes a landing
-		// on the course itself, which is where the professor goes next —
-		// the roster is empty there and the import button is on it.
-		// Redirecting there NOW would be a 303 to a 404.
+		// Straight to the course, which is where the professor goes next:
+		// the roster is empty there and "Cargar desde Canvas" is the whole
+		// page.
 		flash.Set(w, p.secureCookie, "Curso "+course.Code+" agregado.")
+		http.Redirect(w, r, CoursePathFor(course.ID), http.StatusSeeOther)
+		return
 
 	case errors.Is(err, roster.ErrAlreadyAdded):
 		// Two clicks on the same button, or two tabs. Idempotent from the

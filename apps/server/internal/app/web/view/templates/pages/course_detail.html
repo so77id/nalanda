@@ -1,0 +1,62 @@
+{{ define "content" }}
+  <h1>{{ .Course.Code }}</h1>
+
+  <p>{{ .Course.Name }} · período {{ .Course.Term }}</p>
+
+  <h2>Estudiantes</h2>
+
+  {{ if not .Enrollments }}
+    {{/*
+      The empty state IS the import affordance. A course with no roster has
+      nothing else worth showing, so the button is the page rather than a
+      control tucked beside a table of nothing.
+    */}}
+    <p>Este curso todavía no tiene su lista de estudiantes.</p>
+    <form method="post" action="{{ .ImportAction }}">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <button type="submit">Cargar desde Canvas</button>
+    </form>
+  {{ else }}
+    <p>
+      {{ .EnrolledCount }} inscritos{{ if .WithdrawnCount }},
+      {{ .WithdrawnCount }} retirados{{ end }}.
+      {{ if .WithoutRUTCount }}
+        <strong>{{ .WithoutRUTCount }} sin RUT</strong>: esos no se van a
+        poder emparejar con sus controles.
+      {{ end }}
+    </p>
+
+    <table class="lista">
+      <thead>
+        <tr>
+          <th>Apellidos</th>
+          <th>Nombres</th>
+          <th>RUT</th>
+          <th>Correo</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Enrollments }}
+          <tr>
+            <td>{{ .LastName }}</td>
+            <td>{{ .FirstName }}</td>
+            {{/*
+              Empty when Canvas held no readable RUT. Rendered as a dash
+              rather than blank so a professor scanning the column sees the
+              gap instead of missing it (ADR-0069 §Decision 2).
+            */}}
+            <td>{{ if .RUT }}{{ .RUT }}{{ else }}—{{ end }}</td>
+            <td>{{ .Email }}</td>
+            <td>{{ .State }}</td>
+          </tr>
+        {{ end }}
+      </tbody>
+    </table>
+
+    <form method="post" action="{{ .ImportAction }}">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <button type="submit">Reimportar desde Canvas</button>
+    </form>
+  {{ end }}
+{{ end }}

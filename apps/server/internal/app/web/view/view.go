@@ -100,6 +100,55 @@ type ProfessorFormValues struct {
 	Name  string
 }
 
+// CoursesListPage is what courses_list.html renders. Row values are
+// pre-formatted by the handler, like ProfessorsListPage's.
+type CoursesListPage struct {
+	Page
+	Courses []ListedCourse
+}
+
+// ListedCourse is one row of the course list.
+type ListedCourse struct {
+	Code string
+	Name string
+	Term string
+	URL  string
+	// Enrolled is the count as a STRING, already worded ("25 inscritos",
+	// "sin lista"), because "0" and "no roster yet" mean different things
+	// to a professor and a bare number cannot say which one this is.
+	Enrolled string
+}
+
+// CourseDetailPage is what course_detail.html renders: one course and the
+// people on it.
+type CourseDetailPage struct {
+	Page
+	Course      ListedCourse
+	Enrollments []ListedEnrollment
+	// ImportAction is where both import forms post — the empty state's
+	// "Cargar desde Canvas" and the populated state's "Reimportar".
+	ImportAction string
+
+	EnrolledCount  int
+	WithdrawnCount int
+	// WithoutRUTCount is how many of these people cannot be matched to a
+	// control. Surfaced on the page as well as in the import flash,
+	// because the flash is gone on the next reload and this fact is not.
+	WithoutRUTCount int
+}
+
+// ListedEnrollment is one row of the roster table.
+type ListedEnrollment struct {
+	FirstName string
+	LastName  string
+	// RUT is already formatted with its verifier ("11.222.333-5"), or
+	// empty when Canvas held none.
+	RUT   string
+	Email string
+	// State is the Spanish word, not the stored enum.
+	State string
+}
+
 // ProfilePage is what profile.html renders: the professor's own account and
 // the state of their Canvas integration.
 //
@@ -749,6 +798,22 @@ func RenderProfile(w http.ResponseWriter, status int, page ProfilePage) error {
 		page.Title = "Mi perfil"
 	}
 	return render(w, "profile", status, page)
+}
+
+// RenderCoursesList writes the course list.
+func RenderCoursesList(w http.ResponseWriter, page CoursesListPage) error {
+	if page.Title == "" {
+		page.Title = "Cursos"
+	}
+	return render(w, "courses_list", http.StatusOK, page)
+}
+
+// RenderCourseDetail writes one course and its roster.
+func RenderCourseDetail(w http.ResponseWriter, page CourseDetailPage) error {
+	if page.Title == "" {
+		page.Title = page.Course.Code
+	}
+	return render(w, "course_detail", http.StatusOK, page)
 }
 
 // RenderProfessorsList writes the CRUD's list page.

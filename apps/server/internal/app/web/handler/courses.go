@@ -6,9 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
@@ -53,6 +55,152 @@ func NewCourses(deps Courses) *Courses {
 	}
 	deps.secureCookie = config.SecureFor(deps.PublicURL)
 	return &deps
+}
+
+// List renders every stored course.
+func (c *Courses) List(w http.ResponseWriter, r *http.Request) {
+	courses, err := c.Roster.Courses(r.Context())
+	if err != nil {
+		c.Log.Error("listing the courses", "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	page := view.CoursesListPage{Page: middleware.PageFor(r, "Cursos")}
+	for _, course := range courses {
+		enrollments, err := c.Roster.Store.ListEnrollments(r.Context(), course.ID)
+		if err != nil {
+			c.Log.Error("counting a course's enrolments", "course", course.ID, "error", err)
+			middleware.WriteError(w, r, http.StatusInternalServerError,
+				"Algo se rompió al leer las listas de los cursos.")
+			return
+		}
+		page.Courses = append(page.Courses, view.ListedCourse{
+			Code:     course.Code,
+			Name:     course.Name,
+			Term:     course.Term,
+			URL:      CoursePathFor(course.ID),
+			Enrolled: enrolledLabel(enrollments),
+		})
+	}
+
+	if err := view.RenderCoursesList(w, page); err != nil {
+		c.Log.Error("rendering the course list", "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+	}
+}
+
+// enrolledLabel words the count for the list.
+//
+// "sin lista" rather than "0 inscritos" for a course nobody has imported
+// yet: zero students and no roster at all are different situations, and the
+// number alone cannot say which one this is — the first needs a look at
+// Canvas, the second needs a click.
+func enrolledLabel(enrollments []roster.Enrollment) string {
+	if len(enrollments) == 0 {
+		return "sin lista"
+	}
+	enrolled := 0
+	for _, e := range enrollments {
+		if e.State == roster.StateEnrolled {
+			enrolled++
+		}
+	}
+	return fmt.Sprintf("%d inscritos", enrolled)
+}
+
+// Show renders one course and its roster.
+func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
+	courseID, ok := c.courseIDFrom(w, r)
+	if !ok {
+		return
+	}
+
+	course, enrollments, err := c.Roster.Enrollments(r.Context(), courseID)
+	switch {
+	case errors.Is(err, roster.ErrCourseNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese curso no existe.")
+		return
+	case err != nil:
+		c.Log.Error("reading a course", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al leer el curso. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	page := view.CourseDetailPage{
+		Page: middleware.PageFor(r, course.Code),
+		Course: view.ListedCourse{
+			Code: course.Code,
+			Name: course.Name,
+			Term: course.Term,
+			URL:  CoursePathFor(course.ID),
+		},
+		ImportAction: CourseImportPathFor(course.ID),
+	}
+	for _, e := range enrollments {
+		switch e.State {
+		case roster.StateEnrolled:
+			page.EnrolledCount++
+		case roster.StateWithdrawn:
+			page.WithdrawnCount++
+		}
+		if !e.Student.HasRUT() {
+			page.WithoutRUTCount++
+		}
+		page.Enrollments = append(page.Enrollments, view.ListedEnrollment{
+			FirstName: e.Student.FirstName,
+			LastName:  e.Student.LastName,
+			RUT:       FormatRUT(e.Student.RUT, e.Student.RUTDV),
+			Email:     e.Student.Email,
+			State:     enrollmentStateLabel(e.State),
+		})
+	}
+
+	if err := view.RenderCourseDetail(w, page); err != nil {
+		c.Log.Error("rendering a course", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+	}
+}
+
+// FormatRUT writes the stored pair the way a Chilean reader expects it:
+// 11222333 + "5" becomes "11.222.333-5". An absent RUT stays empty, and the
+// template renders a dash — a professor scanning the column has to SEE the
+// gap rather than miss a blank cell.
+//
+// Exported because WP-2's screens and WP-3's emails will want the same
+// spelling, and a second implementation would be a second answer to "how is
+// a RUT written".
+func FormatRUT(rut, dv string) string {
+	if rut == "" || dv == "" {
+		return ""
+	}
+	// Grouped from the RIGHT, which is what makes 9876543 read as
+	// "9.876.543" rather than "987.654.3".
+	var groups []string
+	for end := len(rut); end > 0; end -= 3 {
+		start := max(end-3, 0)
+		groups = append([]string{rut[start:end]}, groups...)
+	}
+	return strings.Join(groups, ".") + "-" + dv
+}
+
+// enrollmentStateLabel is the Spanish word for a stored state. The page a
+// professor reads is Spanish; the column is not (apps/server/CLAUDE.md
+// §Language).
+func enrollmentStateLabel(state string) string {
+	if state == roster.StateWithdrawn {
+		return "Retirado"
+	}
+	return "Inscrito"
+}
+
+// CourseImportPathFor builds one course's import URL.
+func CourseImportPathFor(id int64) string {
+	return CoursePathFor(id) + "/import-canvas"
 }
 
 // ImportCanvas fetches the course's roster from Canvas and applies it.
@@ -111,9 +259,9 @@ func (c *Courses) ImportCanvas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Back to the profile for now: /courses/{id} arrives with S7, and a 303
-	// to it today would be a redirect to a 404.
-	http.Redirect(w, r, ProfilePath, http.StatusSeeOther)
+	// Back to the course, where the roster the import just wrote is what
+	// the professor wants to look at.
+	http.Redirect(w, r, CoursePathFor(courseID), http.StatusSeeOther)
 }
 
 // importFlash is the Spanish sentence describing what an import did.

@@ -531,8 +531,11 @@ func TestAddingACourseStoresItAndThePickerThenShowsItAsAdded(t *testing.T) {
 	}
 
 	body := f.get(t, session).Body.String()
-	if !strings.Contains(body, "Ya agregado") {
+	if !strings.Contains(body, "Ver el curso") {
 		t.Errorf("the picker does not show the course as added:\n%s", body)
+	}
+	if !strings.Contains(body, handler.CoursePathFor(stored[0].ID)) {
+		t.Errorf("the picker does not link to the stored course:\n%s", body)
 	}
 	// And it no longer offers to add that one a second time.
 	if strings.Contains(body, `value="44779"`) {

@@ -1,0 +1,31 @@
+{{ define "content" }}
+  <h1>Cursos</h1>
+
+  <p>Los cursos cuya lista de estudiantes vive en Nalanda. Se agregan desde
+    Canvas, en <a href="/profile">tu perfil</a>.</p>
+
+  {{ if not .Courses }}
+    <p>Todavía no hay ninguno.</p>
+  {{ else }}
+    <table class="lista">
+      <thead>
+        <tr>
+          <th>Código</th>
+          <th>Curso</th>
+          <th>Período</th>
+          <th>Estudiantes</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Courses }}
+          <tr>
+            <td><a href="{{ .URL }}">{{ .Code }}</a></td>
+            <td>{{ .Name }}</td>
+            <td>{{ .Term }}</td>
+            <td>{{ .Enrolled }}</td>
+          </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  {{ end }}
+{{ end }}

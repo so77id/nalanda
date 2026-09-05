@@ -215,3 +215,210 @@ func TestReimportingDoesNotDuplicateTheClass(t *testing.T) {
 		t.Errorf("two imports produced %d enrolments, want 2", len(enrollments))
 	}
 }
+
+// --- The course pages (S7) -----------------------------------------------
+
+func (f *profileFixture) getCourse(t *testing.T, session string, courseID int64) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, handler.CoursePathFor(courseID), nil)
+	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: session})
+	req.SetPathValue("id", strconv.FormatInt(courseID, 10))
+
+	rec := httptest.NewRecorder()
+	f.middleware.Resolve(f.middleware.RequireProfessor(http.HandlerFunc(f.coursesHandler.Show))).
+		ServeHTTP(rec, req)
+	return rec
+}
+
+func (f *profileFixture) getCourses(t *testing.T, session string) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, handler.CoursesPath, nil)
+	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: session})
+
+	rec := httptest.NewRecorder()
+	f.middleware.Resolve(f.middleware.RequireProfessor(http.HandlerFunc(f.coursesHandler.List))).
+		ServeHTTP(rec, req)
+	return rec
+}
+
+// The empty state IS the import affordance: a course with no roster has
+// nothing else worth showing, so the button is the page.
+func TestACourseWithNoRosterOffersTheImportButton(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	rec := f.getCourse(t, session, courseID)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "Cargar desde Canvas") {
+		t.Errorf("the empty course does not offer the import:\n%s", body)
+	}
+	if strings.Contains(body, "Reimportar") {
+		t.Error("a course with no roster offers Reimportar")
+	}
+	if !strings.Contains(body, "csrf_token") {
+		t.Error("the import form carries no CSRF token; the router's guard would refuse the POST")
+	}
+}
+
+func TestAPopulatedCourseShowsTheRosterAndOffersAReimport(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+		aCanvasStudent("900002", "11222444", "K", "MUÑOZ ÁVILA"),
+	}
+	f.importPost(t, session, courseID)
+
+	body := f.getCourse(t, session, courseID).Body.String()
+	for _, want := range []string{"PEREZ SOTO", "MUÑOZ ÁVILA", "2 inscritos", "Reimportar"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the course page does not carry %q:\n%s", want, body)
+		}
+	}
+	// The RUT is written the way a Chilean reader expects it, verifier and
+	// all — the whole reason rut_dv is stored (ADR-0069 §Decision 1).
+	if !strings.Contains(body, "11.222.333-5") {
+		t.Errorf("the RUT is not formatted:\n%s", body)
+	}
+	if !strings.Contains(body, "11.222.444-K") {
+		t.Errorf("the K verifier is not rendered:\n%s", body)
+	}
+	if strings.Contains(body, "Cargar desde Canvas") {
+		t.Error("a populated course still offers the first-import wording")
+	}
+}
+
+// A student with no RUT is visible AS such: a dash in the column and a
+// count on the page. The import flash says it once and is gone; this fact
+// is not.
+func TestAStudentWithNoRutIsVisibleOnTheCoursePage(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+		aCanvasStudent("99999", "", "", "EXTRANJERA"),
+	}
+	f.importPost(t, session, courseID)
+
+	body := f.getCourse(t, session, courseID).Body.String()
+	if !strings.Contains(body, "1 sin RUT") {
+		t.Errorf("the page does not count the RUT-less student:\n%s", body)
+	}
+	if !strings.Contains(body, "—") {
+		t.Errorf("the empty RUT cell is blank rather than a dash:\n%s", body)
+	}
+}
+
+// Withdrawn students stay on the page, marked. They are not deleted, so
+// hiding them would make the roster disagree with the database.
+func TestAWithdrawnStudentIsShownAsWithdrawn(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+		aCanvasStudent("900002", "11222444", "K", "MUÑOZ ÁVILA"),
+	}
+	f.importPost(t, session, courseID)
+
+	f.api.students = f.api.students[:1]
+	f.importPost(t, session, courseID)
+
+	body := f.getCourse(t, session, courseID).Body.String()
+	if !strings.Contains(body, "Retirado") {
+		t.Errorf("the withdrawn student is not marked:\n%s", body)
+	}
+	if !strings.Contains(body, "MUÑOZ ÁVILA") {
+		t.Error("the withdrawn student disappeared from the page")
+	}
+	if !strings.Contains(body, "1 inscritos") {
+		t.Errorf("the enrolled count includes the withdrawn student:\n%s", body)
+	}
+}
+
+func TestTheCourseListDistinguishesNoRosterFromNoStudents(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	// Never imported.
+	if body := f.getCourses(t, session).Body.String(); !strings.Contains(body, "sin lista") {
+		t.Errorf("a course that was never imported does not say so:\n%s", body)
+	}
+
+	f.api.students = []canvas.Student{aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO")}
+	f.importPost(t, session, courseID)
+
+	body := f.getCourses(t, session).Body.String()
+	if !strings.Contains(body, "1 inscritos") {
+		t.Errorf("the list does not report the count:\n%s", body)
+	}
+	if !strings.Contains(body, handler.CoursePathFor(courseID)) {
+		t.Errorf("the list does not link to the course:\n%s", body)
+	}
+}
+
+func TestACourseThatDoesNotExistIs404(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+
+	if rec := f.getCourse(t, session, 4242); rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rec.Code)
+	}
+}
+
+// The import lands on the course, not back on the profile: the roster it
+// just wrote is what the professor wants to look at.
+func TestTheImportRedirectsToTheCourse(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	rec := f.importPost(t, session, courseID)
+	if got, want := rec.Header().Get("Location"), handler.CoursePathFor(courseID); got != want {
+		t.Errorf("Location = %q, want %q", got, want)
+	}
+}
+
+func TestFormatRUTGroupsFromTheRight(t *testing.T) {
+	for _, c := range []struct {
+		rut, dv, want string
+	}{
+		// The measured shape: eight digits.
+		{"11222333", "5", "11.222.333-5"},
+		{"11222444", "K", "11.222.444-K"},
+		// A seven-digit RUT reaches the schema zero-padded, so this is what
+		// a short one looks like once stored.
+		{"09876543", "2", "09.876.543-2"},
+		// Absent: the template renders a dash, not this.
+		{"", "", ""},
+		{"11222333", "", ""},
+	} {
+		if got := handler.FormatRUT(c.rut, c.dv); got != c.want {
+			t.Errorf("FormatRUT(%q, %q) = %q, want %q", c.rut, c.dv, got, c.want)
+		}
+	}
+}
