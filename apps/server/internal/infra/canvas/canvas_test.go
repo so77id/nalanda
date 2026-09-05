@@ -529,11 +529,14 @@ func TestRosterStopsAtThePageCapRatherThanLoopingForever(t *testing.T) {
 	}
 }
 
-// COR-5. The enrolment's Canvas `state` was fetched and never read, so a
-// student Canvas had marked `completed` or `deleted` was imported as
-// enrolled — and would have become a grade recipient in WP-2. Only `active`
-// and `invited` mean "on the course"; everything else is a person the
-// import must leave out, which is what lets the withdraw step stamp them.
+// COR-5, corrected by the recheck's measurement (COR-NEW-1). The states
+// were counted across all 16 of the professor's real courses:
+// completed 297, active 188, invited 89, rejected 8.
+//
+// `completed` is the dominant state and the first fix excluded it, which
+// made a past-term course import as an EMPTY roster — and an empty roster
+// withdraws the whole class. `rejected` is the one measured state that
+// genuinely means "not on the course".
 func TestRosterKeepsOnlyTheEnrolmentStatesThatMeanOnTheCourse(t *testing.T) {
 	node := func(id, state string) string {
 		return `{"_id":"e` + id + `","type":"StudentEnrollment","state":"` + state + `",
@@ -550,12 +553,23 @@ func TestRosterKeepsOnlyTheEnrolmentStatesThatMeanOnTheCourse(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Roster: %v", err)
 	}
-	if len(students) != 2 {
-		t.Fatalf("got %d students, want the active and the invited one only: %+v", len(students), students)
+	if len(students) != 3 {
+		t.Fatalf("got %d students, want active + invited + completed: %+v", len(students), students)
 	}
+	kept := map[string]bool{}
 	for _, s := range students {
-		if s.CanvasUserID != "u1" && s.CanvasUserID != "u2" {
-			t.Errorf("%s was imported; only active and invited enrolments are on the course", s.CanvasUserID)
+		kept[s.CanvasUserID] = true
+	}
+	for _, want := range []string{"u1", "u2", "u3"} {
+		if !kept[want] {
+			t.Errorf("%s was dropped; active, invited and completed are all on the course", want)
+		}
+	}
+	// A past-term course is ENTIRELY completed. Excluding that state made
+	// such a course import as an empty roster, which withdraws everyone.
+	for _, gone := range []string{"u4", "u5", "u6"} {
+		if kept[gone] {
+			t.Errorf("%s was imported; deleted, inactive and rejected are not on the course", gone)
 		}
 	}
 }

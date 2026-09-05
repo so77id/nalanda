@@ -478,6 +478,19 @@ func TestPastingANewTokenRecoversFromARotatedKey(t *testing.T) {
 	rotated[0] ^= 0xff
 	f.rekey(t, rotated)
 
+	// The intermediate GET is asserted on purpose. Without it this case
+	// passes with the old 500 restored — SaveCanvasToken's success path
+	// redirects without ever rendering the failing branch, so the recovery
+	// alone proves nothing about SEC-1 (#271 recheck, SEC-1b). The
+	// professor has to REACH the form before they can use it.
+	before := f.get(t, session)
+	if before.Code != http.StatusOK {
+		t.Fatalf("the page the professor must reach to re-paste answered %d", before.Code)
+	}
+	if !strings.Contains(before.Body.String(), "ya no se puede descifrar") {
+		t.Fatal("the page does not say the stored token is unreadable")
+	}
+
 	if rec := f.post(t, session, handler.ProfileCanvasTokenPath, f.handler.SaveCanvasToken,
 		url.Values{"token": {canvasToken}}); rec.Code != http.StatusSeeOther {
 		t.Fatalf("re-pasting: status = %d, want 303", rec.Code)

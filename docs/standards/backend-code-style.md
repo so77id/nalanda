@@ -60,7 +60,8 @@ apps/server/
 
 ### The dependency rule
 
-Three edges, all enforced:
+Four edges. The first three are enforced by `internal/architecture_test.go`;
+the fourth is review-only, and says so:
 
 1. **`internal/domain` imports neither `internal/app` nor `internal/infra`, and
    no third-party package at all.**
@@ -71,10 +72,27 @@ Three edges, all enforced:
    share lives in the domain, or in `internal/infra` when it is transport
    machinery.
 
+4. **A delivery surface depends on a domain SERVICE, never on the store
+   behind it.** Reads and writes both go through the service; a handler that
+   needs a shape the service does not expose gets a service METHOD, not the
+   store field. Check: `grep -rn '\.Store\.' internal/app/**/handler/*.go`
+   returns nothing.
+
+   This one is not enforced by `architecture_test.go` — the package graph
+   cannot see it, because handler and store are already allowed to share a
+   package graph through the domain. It is written down because it has been
+   violated and re-fixed TWICE, and both times the rule lived only in a code
+   comment: WP-E's review (ARQ-11) removed a second injected `Store` field
+   from a handler struct, and #271's review (ARQ-1) removed a
+   `c.Roster.Store.ListEnrollments` reach-through that also ran one query
+   per row of a list page. The second time, the comment recording the first
+   fix was four files away from the new violation.
+
 Edge 2 was missing from both this document and the guard for the length of one
 WP, and `internal/infra/storage` could import `internal/app/web` in full green
 (#149 review). It is written down here because a rule a test enforces and no
-document states is a rule the next reader will treat as an accident.
+document states is a rule the next reader will treat as an accident. Edge 4 is
+the converse case: a rule NO test enforces, written down for the same reason.
 
 This is not advice. `internal/architecture_test.go` walks the package graph and
 fails on a violation, including a transitive one. It is the rule DocumentBuddy's

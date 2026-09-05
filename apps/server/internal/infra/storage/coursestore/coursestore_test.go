@@ -700,80 +700,22 @@ func TestAnEmptyRosterWithdrawsTheWholeClassAndOneReimportUndoesIt(t *testing.T)
 	}
 }
 
-// COR-7. SQLite's BINARY collation sorted every accented surname after
-// every unaccented one, so ÁVILA landed after ZUNIGA on a real roster. The
-// ordering moved into roster.SortEnrollments; this is the case that would
-// go red if it moved back into the SQL.
-func TestTheRosterSortsAccentedSurnamesWhereAReaderExpectsThem(t *testing.T) {
-	ctx, _, s := store(t)
-	course, err := s.CreateCourse(ctx, aCourse("44779"))
-	if err != nil {
-		t.Fatalf("CreateCourse: %v", err)
-	}
-
-	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{
-		aStudent("1", "11111111", "1", "ZUNIGA PEREZ"),
-		aStudent("2", "22222222", "2", "ÁVILA MUÑOZ"),
-		aStudent("3", "33333333", "3", "BRAVO SOTO"),
-		aStudent("4", "44444444", "4", "MUÑOZ ÁVILA"),
-	}); err != nil {
-		t.Fatalf("SaveRoster: %v", err)
-	}
-
-	enrollments, err := s.ListEnrollments(ctx, course.ID)
-	if err != nil {
-		t.Fatalf("ListEnrollments: %v", err)
-	}
-	var got []string
-	for _, e := range enrollments {
-		got = append(got, e.Student.LastName)
-	}
-	want := []string{"ÁVILA MUÑOZ", "BRAVO SOTO", "MUÑOZ ÁVILA", "ZUNIGA PEREZ"}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Fatalf("order = %v, want %v — an accented surname must not sort after Z", got, want)
-		}
-	}
-}
-
-// And the withdrawn still come after the enrolled, whatever their surname.
-func TestTheRosterPutsEveryEnrolledStudentBeforeEveryWithdrawnOne(t *testing.T) {
-	ctx, _, s := store(t)
-	course, err := s.CreateCourse(ctx, aCourse("44779"))
-	if err != nil {
-		t.Fatalf("CreateCourse: %v", err)
-	}
-	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{
-		aStudent("1", "11111111", "1", "ÁVILA MUÑOZ"),
-		aStudent("2", "22222222", "2", "ZUNIGA PEREZ"),
-	}); err != nil {
-		t.Fatalf("SaveRoster: %v", err)
-	}
-	// ÁVILA drops; alphabetically first, but no longer in the class.
-	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{
-		aStudent("2", "22222222", "2", "ZUNIGA PEREZ"),
-	}); err != nil {
-		t.Fatalf("SaveRoster (after the drop): %v", err)
-	}
-
-	enrollments, err := s.ListEnrollments(ctx, course.ID)
-	if err != nil {
-		t.Fatalf("ListEnrollments: %v", err)
-	}
-	if enrollments[0].Student.LastName != "ZUNIGA PEREZ" || enrollments[0].State != roster.StateEnrolled {
-		t.Errorf("first row = %q/%q, want the enrolled student first",
-			enrollments[0].Student.LastName, enrollments[0].State)
-	}
-	if enrollments[1].State != roster.StateWithdrawn {
-		t.Errorf("second row state = %q, want withdrawn", enrollments[1].State)
-	}
-}
+// The ordering the roster page shows is NOT this store's: ListEnrollments
+// returns rows in any order and roster.Service.Enrollments sorts them
+// (#271 review, ARQ-9). The cases that pin the accent fold and the
+// enrolled-first rule live in internal/domain/roster/sort_test.go, where
+// the policy does — applied from here it was an obligation every future
+// implementer of roster.Store had to remember, and deleting the call left
+// the whole domain package green.
 
 // COR-8. One person listed twice in a single import — two sections of the
 // same course, or a Relay page boundary over a shifting set — was counted
 // twice, so the flash told the professor their class had one more student
-// than it does. De-duplication happens in the Canvas client; this pins the
-// store's half: even handed a duplicate, it produces one enrolment.
+// than it does. De-duplication happens HERE, in SaveRoster, because this is
+// where ImportResult is computed; the Canvas client passes duplicates
+// through on purpose, and its own test says so. An earlier version of this
+// comment claimed the opposite and would have sent a reader to delete the
+// `seen` map (#271 review, COR-NEW-2).
 func TestOnePersonListedTwiceProducesOneEnrolment(t *testing.T) {
 	ctx, _, s := store(t)
 	course, err := s.CreateCourse(ctx, aCourse("44779"))

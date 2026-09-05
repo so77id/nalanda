@@ -97,10 +97,10 @@ type Store interface {
 	// did, for the flash.
 	SaveRoster(ctx context.Context, courseID int64, students []SourceStudent) (ImportResult, error)
 
-	// ListEnrollments returns the course's people, enrolled first and then
-	// by surname. The ORDER is the store's to produce but NOT the store's to
-	// decide: see SortEnrollments, which the store applies, on why SQLite's
-	// collation cannot do it.
+	// ListEnrollments returns the course's people, in ANY ORDER. Ordering is
+	// Service.Enrollments's job — see SortEnrollments on why SQLite's
+	// collation cannot do it, and #271 review ARQ-9 on why an implementer
+	// must not be trusted to remember.
 	ListEnrollments(ctx context.Context, courseID int64) ([]Enrollment, error)
 
 	// EnrollmentCounts returns, per course id, how many people are enrolled
@@ -240,7 +240,15 @@ func SortEnrollments(enrollments []Enrollment) {
 		if key := foldForSort(a.Student.LastName); key != foldForSort(b.Student.LastName) {
 			return key < foldForSort(b.Student.LastName)
 		}
-		return foldForSort(a.Student.FirstName) < foldForSort(b.Student.FirstName)
+		if key := foldForSort(a.Student.FirstName); key != foldForSort(b.Student.FirstName) {
+			return key < foldForSort(b.Student.FirstName)
+		}
+		// The final tie-break makes the order TOTAL. Without it two people
+		// whose folded names are equal — MUÑOZ and MUNOZ, say — keep
+		// whatever order SQLite's scan produced, and the withdraw UPDATE
+		// rewrites rows, so a tied pair could swap between page loads
+		// (#271 review, COR-NEW-3).
+		return a.Student.ID < b.Student.ID
 	})
 }
 

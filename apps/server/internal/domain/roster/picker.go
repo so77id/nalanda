@@ -216,12 +216,10 @@ func (s *Service) Enrollments(ctx context.Context, courseID int64) (Course, []En
 	if err != nil {
 		return Course{}, nil, err
 	}
+	// The ordering is this layer's rule, applied here rather than left to
+	// the store to remember (#271 review, ARQ-9).
+	SortEnrollments(enrollments)
 	return course, enrollments, nil
-}
-
-// Courses returns every stored course, most recently added first.
-func (s *Service) Courses(ctx context.Context) ([]Course, error) {
-	return s.Store.ListCourses(ctx)
 }
 
 // CoursesWithCounts is what the list screen renders: every course, each

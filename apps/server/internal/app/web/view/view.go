@@ -173,7 +173,12 @@ type ProfilePage struct {
 	// SecretsConfigured is canvas.Service.Configured() — whether the
 	// deployment can store a secret at all.
 	SecretsConfigured bool
-	// Connected is whether THIS professor has a token stored.
+	// Connected gates the "a token exists" branch: the Reemplazar form and
+	// the Eliminar button. It is true when a token IS stored — and also
+	// when one is stored but cannot be READ, which is the state TokenNotice
+	// explains. Those are the two cases that need the same two forms, and
+	// naming it after the forms rather than after the storage is what keeps
+	// the comment honest (#271 review, ARQ-11).
 	Connected bool
 	// TokenNotice is a message about the STORED token, rendered above its
 	// forms — today only "the stored token no longer decrypts". Separate

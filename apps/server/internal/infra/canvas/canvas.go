@@ -207,26 +207,38 @@ query($courseId: ID!, $after: String) {
 // (ADR-0069 §Decision 4).
 const studentEnrollmentType = "StudentEnrollment"
 
-// activeEnrollmentStates are the Canvas enrolment states that mean "this
-// person is on the course".
+// enrolledStates are the Canvas enrolment states that mean "this person is,
+// or was, on the course".
 //
 // The field used to be fetched and never read (#271 review, COR-5), so every
-// StudentEnrollment node became an `enrolled` row whatever Canvas said —
-// a student whose enrolment Canvas had marked `completed` or `deleted` was
-// imported as Inscrito and would have become a grade recipient in WP-2.
+// StudentEnrollment node became an `enrolled` row whatever Canvas said. The
+// first fix for that admitted only `active` and `invited` — and the recheck
+// asked whether that could wrongly exclude somebody real, so the states were
+// MEASURED across all 16 of the professor's courses rather than argued:
 //
-// `invited` counts as on the course: it means the student has been enrolled
-// but has not yet accepted in Canvas, and they will still sit the control.
-// Everything else — `completed`, `inactive`, `deleted`, `rejected`,
-// `creation_pending` — is a person the import must NOT list, and leaving
-// them out is what lets `withdrawAbsent` stamp them withdrawn.
+//	completed  297      active  188      invited  89      rejected  8
 //
-// ADR-0069 measured `active` on 25 of 25, so this branch has never been
-// exercised against real data. That is a reason to be conservative about
-// which states count as present, not a reason to skip the check.
-var activeEnrollmentStates = map[string]bool{
-	"active":  true,
-	"invited": true,
+// `completed` is the DOMINANT state, and excluding it was a real defect, not
+// a hypothetical one: a course from a past term returns nothing but
+// `completed` enrolments, so importing it yielded an empty roster — and an
+// empty roster withdraws the whole class (coursestore.SaveRoster). Importing
+// CIT3360_CA01 would have retired all 29 of its students.
+//
+// It is also wrong on the merits: a student who COMPLETED the course sat its
+// entrance controls, and WP-2 has to match their grades. "Completed" is not
+// "withdrew".
+//
+// `invited` counts too — 89 of them exist, a student enrolled but not yet
+// accepted in Canvas, who will still sit the control.
+//
+// What stays out is anyone Canvas says is NOT on the course: `rejected` (8
+// measured — the student declined), `deleted`, `inactive` and
+// `creation_pending`. Leaving them out is what lets `withdrawAbsent` stamp
+// them withdrawn.
+var enrolledStates = map[string]bool{
+	"active":    true,
+	"invited":   true,
+	"completed": true,
 }
 
 // maxRosterPages bounds the pagination loop.
@@ -300,7 +312,7 @@ func (c *Client) Roster(ctx context.Context, token, canvasCourseID string) ([]do
 
 		conn := answer.Data.Course.EnrollmentsConnection
 		for _, n := range conn.Nodes {
-			if n.Type != studentEnrollmentType || !activeEnrollmentStates[n.State] {
+			if n.Type != studentEnrollmentType || !enrolledStates[n.State] {
 				continue
 			}
 

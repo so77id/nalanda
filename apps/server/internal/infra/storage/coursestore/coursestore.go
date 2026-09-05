@@ -300,15 +300,20 @@ func withdrawAbsent(ctx context.Context, tx *sql.Tx, courseID int64, keep []any)
 	return int(affected), nil
 }
 
-// ListEnrollments returns the course's people, enrolled first and then by
-// surname — the order a professor reads a class list in.
+// ListEnrollments returns the course's people, in NO PARTICULAR ORDER.
 //
-// The ORDER BY is deliberately not in the SQL. SQLite's BINARY collation
-// sorts every accented surname after every unaccented one, so `ÁVILA MUÑOZ`
-// came after `ZUNIGA PEREZ` on a real roster (#271 review, COR-7). The
-// ordering rule lives in roster.SortEnrollments, which folds the accents;
-// this method fetches and applies it. Putting it back in the SQL would
-// silently reintroduce the bug, because the query LOOKS correct.
+// The ordering is roster.Service.Enrollments's job, not this method's, and
+// the port says so. It was briefly applied here, which made "enrolled
+// first, then by folded surname" an obligation every future implementer of
+// roster.Store had to remember: deleting the call left the whole domain
+// package green, guarded only by this adapter's own two cases (#271 review,
+// ARQ-9). A policy the domain owns belongs where the domain can test it.
+//
+// What must NOT come back is an ORDER BY in the SQL. SQLite's BINARY
+// collation sorts every accented surname after every unaccented one, so
+// `ÁVILA MUÑOZ` came after `ZUNIGA PEREZ` on a real roster (COR-7) — and
+// the query LOOKS correct, which is what made it survive review the first
+// time.
 func (s *Store) ListEnrollments(ctx context.Context, courseID int64) ([]roster.Enrollment, error) {
 	rows, err := s.db.QueryContext(ctx, `
         SELECT e.id, e.course_id, e.state, e.canvas_enrollment_id,
@@ -342,7 +347,6 @@ func (s *Store) ListEnrollments(ctx context.Context, courseID int64) ([]roster.E
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("coursestore: read the enrolments: %w", err)
 	}
-	roster.SortEnrollments(enrollments)
 	return enrollments, nil
 }
 

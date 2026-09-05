@@ -60,7 +60,7 @@ func NewProfile(deps Profile) *Profile {
 
 // Show renders the profile page.
 func (p *Profile) Show(w http.ResponseWriter, r *http.Request) {
-	p.render(w, r, http.StatusOK, nil, true)
+	p.render(w, r, http.StatusOK, nil)
 }
 
 // SaveCanvasToken verifies the pasted token against Canvas and stores it
@@ -82,7 +82,7 @@ func (p *Profile) SaveCanvasToken(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseForm(); err != nil {
 		p.render(w, r, http.StatusUnprocessableEntity, map[string]string{
 			"token": "No se pudo leer el formulario. Vuelve a intentarlo.",
-		}, false)
+		})
 		return
 	}
 
@@ -102,7 +102,7 @@ func (p *Profile) SaveCanvasToken(w http.ResponseWriter, r *http.Request) {
 		p.render(w, r, http.StatusUnprocessableEntity, map[string]string{
 			"token": "Canvas rechazó este token. Revisa que lo hayas copiado " +
 				"completo y que no lo hayas revocado.",
-		}, false)
+		})
 		return
 
 	case errors.Is(err, canvas.ErrUnavailable):
@@ -112,14 +112,14 @@ func (p *Profile) SaveCanvasToken(w http.ResponseWriter, r *http.Request) {
 		p.render(w, r, http.StatusUnprocessableEntity, map[string]string{
 			"token": "No se pudo contactar a Canvas para verificar el token. " +
 				"No se guardó nada; inténtalo de nuevo en un momento.",
-		}, false)
+		})
 		return
 
 	case errors.Is(err, canvas.ErrNotConfigured):
 		// The form should not have been rendered at all in this state. It
 		// can still be reached by a hand-typed POST, and the page's own
 		// explanation is the honest answer.
-		p.render(w, r, http.StatusUnprocessableEntity, nil, false)
+		p.render(w, r, http.StatusUnprocessableEntity, nil)
 		return
 	}
 
@@ -155,10 +155,13 @@ func (p *Profile) ForgetCanvasToken(w http.ResponseWriter, r *http.Request) {
 // request, so the page after a save reflects what is actually stored rather
 // than what the handler believes it stored.
 //
-// fetchCourses is false on every refusal re-render: those already spent one
-// Canvas round trip on Verify, and a second one for a course list the
-// professor did not ask for doubled the wait on a rejected paste.
-func (p *Profile) render(w http.ResponseWriter, r *http.Request, status int, fieldErrors map[string]string, fetchCourses bool) {
+// The course list is fetched only on a 200. Every refusal re-render already
+// spent one Canvas round trip on Verify, and a second one for a list the
+// professor did not ask for doubled the wait on a rejected paste (#271
+// review, PER-3). It is DERIVED from the status rather than passed in: an
+// unlabelled `false` at four call sites carried no information the function
+// did not already have (ARQ-12).
+func (p *Profile) render(w http.ResponseWriter, r *http.Request, status int, fieldErrors map[string]string) {
 	page := view.ProfilePage{
 		Page:              middleware.PageFor(r, "Mi perfil"),
 		SecretsConfigured: p.Canvas.Configured(),
@@ -199,7 +202,7 @@ func (p *Profile) render(w http.ResponseWriter, r *http.Request, status int, fie
 		// on those paths its answer is either stale by definition or
 		// impossible to fetch — the professor is on the page to fix the
 		// token, not to read a course list (#271 review, PER-3).
-		if page.Connected && fetchCourses && page.TokenNotice == "" {
+		if page.Connected && status == http.StatusOK && page.TokenNotice == "" {
 			page.Courses, page.CoursesNotice = p.coursesFor(r, professor.ID)
 		}
 	}

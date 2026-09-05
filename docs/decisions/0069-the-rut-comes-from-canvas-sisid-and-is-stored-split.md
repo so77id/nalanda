@@ -118,11 +118,38 @@ Split on the first `", "`: what precedes it is `last_name`, what follows is
 `last_name` and `first_name` empty — wrong-but-visible beats a guessed
 boundary between two surnames.
 
-### 4. Only `StudentEnrollment` rows become students
+### 4. Only `StudentEnrollment` rows become students, in a measured set of states
 
 `TeacherEnrollment` and `TaEnrollment` are skipped. The professor and their
 TAs are not people whose entrance controls get graded, and importing them
 would put them in the roster and, later, in the mailing.
+
+**The enrolment STATE also decides, and the accepted set was measured** —
+across all 16 of the professor's courses, not the one this spike started
+from (#271 review, COR-5 and its recheck):
+
+| state | count | on the course? |
+|---|---:|---|
+| `completed` | 297 | **yes** — finished the course, and sat its controls |
+| `active` | 188 | yes |
+| `invited` | 89 | yes — enrolled, not yet accepted in Canvas |
+| `rejected` | 8 | no — declined the invitation |
+
+So the accepted set is `{active, invited, completed}`, and `rejected`,
+`deleted`, `inactive` and `creation_pending` are left out — which is what
+lets the import's withdraw step stamp them.
+
+Two things this correction is worth recording for:
+
+- **The first version of the filter admitted only `active` and `invited`,
+  and that was a real defect.** `completed` is the dominant state: a course
+  from a past term returns nothing else, so importing one yielded an EMPTY
+  roster — and an empty roster withdraws the whole class. Importing
+  `CIT3360_CA01` would have retired all 29 of its students.
+- **The original spike could not have seen it.** §Context measures one
+  course, the current one, where 25 of 25 are `active`. A single course is
+  evidence about a single course; the review is what asked the question
+  again, and the answer came from counting all sixteen.
 
 ### 5. The course picker shows the most recent term first, not all sixteen
 
