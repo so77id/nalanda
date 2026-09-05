@@ -126,3 +126,33 @@ func (s *Service) Forget(ctx context.Context, userID int64) error {
 	}
 	return nil
 }
+
+// CoursesFor lists the professor's Canvas courses, spending their stored
+// token on one request.
+//
+// The token is fetched, used and dropped inside this call: nothing above
+// holds it, and nothing below stores it on the client (see
+// internal/infra/canvas's package doc on why the client is stateless).
+//
+// The three failure modes reach the caller distinguishable, because the
+// screen renders three different things: ErrNotConfigured (the operator has
+// set no master key), ErrNoToken (this professor has not connected Canvas),
+// and whatever the API returns — ErrTokenRejected for a token revoked since
+// it was stored, ErrUnavailable for an outage.
+func (s *Service) CoursesFor(ctx context.Context, userID int64) ([]Course, error) {
+	token, err := s.Token(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.API.Courses(ctx, token)
+}
+
+// RosterFor returns the students of one Canvas course, on the same terms as
+// CoursesFor.
+func (s *Service) RosterFor(ctx context.Context, userID int64, canvasCourseID string) ([]Student, error) {
+	token, err := s.Token(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.API.Roster(ctx, token, canvasCourseID)
+}

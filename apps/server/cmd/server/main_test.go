@@ -28,6 +28,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
@@ -127,11 +128,18 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 		// the "no master key" branch — because these cases are about the
 		// router's table (gating, CSRF, composition), not about Canvas.
 		// canvas.Service renders that state; it does not refuse it.
-		Profile: handler.NewProfile(handler.Profile{
-			Canvas:    canvas.NewService(nil, unreachableCanvas{}),
-			PublicURL: "https://nalanda.test",
-			Log:       logger,
-		}),
+		Profile: func() *handler.Profile {
+			canvasService := canvas.NewService(nil, unreachableCanvas{})
+			return handler.NewProfile(handler.Profile{
+				Canvas: canvasService,
+				Roster: roster.NewService(
+					emptyCourseStore{},
+					roster.NewCanvasSource(canvasService),
+				),
+				PublicURL: "https://nalanda.test",
+				Log:       logger,
+			})
+		}(),
 		AdminBank: handler.NewAdminBank(handler.AdminBank{
 			Bank:      emptyBank(t),
 			PublicURL: "https://nalanda.test",
@@ -417,4 +425,21 @@ func (unreachableCanvas) Courses(context.Context, string) ([]canvas.Course, erro
 
 func (unreachableCanvas) Roster(context.Context, string, string) ([]canvas.Student, error) {
 	panic("composition tests must not reach Canvas")
+}
+
+// emptyCourseStore is a roster.Store holding nothing — same reasoning as
+// the router test's twin: nothing here reaches it, and roster.NewService
+// refuses a nil store.
+type emptyCourseStore struct{}
+
+func (emptyCourseStore) CreateCourse(context.Context, roster.Course) (roster.Course, error) {
+	panic("composition tests must not create a course")
+}
+
+func (emptyCourseStore) ListCourses(context.Context) ([]roster.Course, error) {
+	return nil, nil
+}
+
+func (emptyCourseStore) CourseByID(context.Context, int64) (roster.Course, error) {
+	return roster.Course{}, roster.ErrCourseNotFound
 }

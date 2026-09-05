@@ -30,6 +30,7 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls/stats"
+	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 )
 
 //go:embed templates/layout.html templates/pages/*.html
@@ -136,6 +137,61 @@ type ProfilePage struct {
 	// single blob would make a two-error submission read as "something
 	// went wrong" (§Form / validation / errors).
 	Errors map[string]string
+
+	// AddCourseAction is where the picker's forms post.
+	AddCourseAction string
+	// Courses is the picker: the professor's Canvas courses, split into
+	// the current term and the rest (roster.CourseChoices, ADR-0069
+	// §Decision 5). Empty when no token is stored, or when Canvas could
+	// not be reached — CoursesNotice then says which.
+	Courses roster.CourseChoices
+	// CoursesNotice is the Spanish sentence shown INSTEAD of the picker
+	// when the list could not be fetched. A separate field from Errors
+	// because it belongs to no form field, the same reason
+	// ProfessorsFormPage.Notice exists (COR-1, WP-C3 review).
+	CoursesNotice string
+}
+
+// CoursePickRow is one row of the picker, with the two page-level values
+// its form needs already attached.
+//
+// It exists so both tables can share ONE row template. A `{{ template }}`
+// call replaces `$` with its own argument, so a shared row could otherwise
+// only reach the CSRF token through a generic `dict` helper — a func that
+// makes any template able to build any structure, which is a bigger door
+// than this needs. Zipping the two values in here keeps the FuncMap narrow
+// (every entry in it today does one arithmetic or lookup job) and keeps the
+// "already added" state written once.
+type CoursePickRow struct {
+	roster.CoursePick
+	CSRFToken string
+	Action    string
+	// ShowTerm is true in the older-periods table, where the term is what
+	// tells two years of the same course apart.
+	ShowTerm bool
+}
+
+// CurrentRows is the current term's picker rows.
+func (p ProfilePage) CurrentRows() []CoursePickRow {
+	return p.pickRows(p.Courses.Current, false)
+}
+
+// OlderRows is every other term's, for the disclosure.
+func (p ProfilePage) OlderRows() []CoursePickRow {
+	return p.pickRows(p.Courses.Older, true)
+}
+
+func (p ProfilePage) pickRows(picks []roster.CoursePick, showTerm bool) []CoursePickRow {
+	rows := make([]CoursePickRow, 0, len(picks))
+	for _, pick := range picks {
+		rows = append(rows, CoursePickRow{
+			CoursePick: pick,
+			CSRFToken:  p.CSRFToken,
+			Action:     p.AddCourseAction,
+			ShowTerm:   showTerm,
+		})
+	}
+	return rows
 }
 
 // ProfessorsListPage is what professors_list.html renders. The row values

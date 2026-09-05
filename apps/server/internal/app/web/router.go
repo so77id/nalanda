@@ -267,6 +267,10 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.ProfileCanvasForgetPath,
 			Handler: deps.Profile.ForgetCanvasToken,
 		},
+		{
+			Method: http.MethodPost, Path: handler.ProfileAddCoursePath,
+			Handler: deps.Profile.AddCourse,
+		},
 		// Issue #230: the manual bank-refresh endpoint. Gated by default
 		// (no Public), CSRF enforced because the method is POST.
 		{

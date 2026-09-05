@@ -17,9 +17,11 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
+	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/secret"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/coursestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/secretstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
@@ -62,6 +64,7 @@ type profileFixture struct {
 	store      *authstore.Store
 	secrets    secret.Store
 	api        *stubCanvas
+	courses    *coursestore.Store
 	logs       *bytes.Buffer
 	now        time.Time
 }
@@ -98,8 +101,14 @@ func newProfileFixture(t *testing.T, masterKey []byte) *profileFixture {
 		f.secrets = s
 	}
 
+	canvasService := canvas.NewService(f.secrets, f.api)
+	// A REAL course store over the same database: the picker's cases are
+	// about what the professor sees after a course is actually stored, and
+	// the UNIQUE that refuses a second click lives in the schema.
+	f.courses = coursestore.New(db)
 	f.handler = handler.NewProfile(handler.Profile{
-		Canvas:    canvas.NewService(f.secrets, f.api),
+		Canvas:    canvasService,
+		Roster:    roster.NewService(f.courses, roster.NewCanvasSource(canvasService)),
 		PublicURL: publicURL,
 		Log:       log,
 	})
@@ -396,5 +405,211 @@ func TestAnEmptySubmissionIsRefusedWithoutAskingCanvas(t *testing.T) {
 	}
 	if len(f.api.seen) != 0 {
 		t.Errorf("Canvas was asked about an empty token: %v", f.api.seen)
+	}
+}
+
+// --- The course picker (S5) ----------------------------------------------
+
+// canvasCourses is the professor's real listing, trimmed to four: two
+// sections of the current term, one older, and one in Canvas's default term
+// with no start (the shape ADR-0069 records).
+func canvasCourses() []canvas.Course {
+	return []canvas.Course{
+		{CanvasID: "23334", Name: "ESTRUCTURAS DE DATOS Y ALGORITMOS", Code: "CIT2006_CA01",
+			Term: "2023-2", TermStart: "2023-07-19T00:00:00-04:00"},
+		{CanvasID: "47743", Name: "Inducción a la docencia", Code: "Segundo semestre 2026",
+			Term: "Período predeterminado"},
+		{CanvasID: "44779", Name: "ESTRUCTURAS DE DATOS Y ALGORITMOS", Code: "CIT2006_CA01",
+			Term: "2026-2", TermStart: "2026-07-14T00:00:00-04:00"},
+		{CanvasID: "44780", Name: "ESTRUCTURAS DE DATOS Y ALGORITMOS", Code: "CIT2006_CA02",
+			Term: "2026-2", TermStart: "2026-07-14T00:00:00-04:00"},
+	}
+}
+
+// connect saves a token so the page renders its connected branch.
+func (f *profileFixture) connect(t *testing.T, session string) {
+	t.Helper()
+	if rec := f.post(t, session, handler.ProfileCanvasTokenPath, f.handler.SaveCanvasToken,
+		url.Values{"token": {canvasToken}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("connecting: status = %d, want 303", rec.Code)
+	}
+}
+
+func TestThePickerLeadsWithTheCurrentTermAndHidesTheRest(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+
+	body := f.get(t, session).Body.String()
+
+	if !strings.Contains(body, "Período 2026-2") {
+		t.Errorf("the page does not lead with the current term:\n%s", body)
+	}
+	// Both sections of the current semester are in the open table, so a
+	// professor teaching two does not have to open the disclosure.
+	current := body[strings.Index(body, "Período 2026-2"):]
+	if idx := strings.Index(current, "<details>"); idx >= 0 {
+		current = current[:idx]
+	}
+	for _, code := range []string{"CIT2006_CA01", "CIT2006_CA02"} {
+		if !strings.Contains(current, code) {
+			t.Errorf("%s is not in the current-term table", code)
+		}
+	}
+	// The older ones are present but behind the disclosure.
+	if !strings.Contains(body, "Otros períodos (2)") {
+		t.Errorf("the disclosure does not report the two older courses:\n%s", body)
+	}
+	if strings.Contains(current, "Inducción a la docencia") {
+		t.Error("the default-term course was rendered as part of the current term")
+	}
+	if !strings.Contains(body, "Inducción a la docencia") {
+		t.Error("the default-term course is unreachable — it should be behind the disclosure")
+	}
+}
+
+// The form posts the Canvas id and nothing else. A hidden field carrying
+// the name or the code would let a hand-typed request invent a course, or
+// name one course while carrying another's id.
+func TestThePickerFormPostsOnlyTheCanvasID(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+
+	body := f.get(t, session).Body.String()
+	if !strings.Contains(body, `name="canvas_course_id" value="44779"`) {
+		t.Errorf("the picker does not post the Canvas id:\n%s", body)
+	}
+	for _, leaked := range []string{`name="name"`, `name="code"`, `name="term"`} {
+		if strings.Contains(body, leaked) {
+			t.Errorf("the picker posts %s; every field must come from Canvas", leaked)
+		}
+	}
+}
+
+func TestAddingACourseStoresItAndThePickerThenShowsItAsAdded(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+
+	rec := f.post(t, session, handler.ProfileAddCoursePath, f.handler.AddCourse,
+		url.Values{"canvas_course_id": {"44779"}})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303", rec.Code)
+	}
+
+	stored, err := f.courses.ListCourses(context.Background())
+	if err != nil {
+		t.Fatalf("ListCourses: %v", err)
+	}
+	if len(stored) != 1 {
+		t.Fatalf("the store holds %d courses, want 1", len(stored))
+	}
+	// Every field is Canvas's, none of them the request's.
+	if stored[0].Code != "CIT2006_CA01" || stored[0].Term != "2026-2" ||
+		stored[0].Name != "ESTRUCTURAS DE DATOS Y ALGORITMOS" || stored[0].CanvasCourseID != "44779" {
+		t.Errorf("stored %+v, want the fields Canvas reported", stored[0])
+	}
+
+	body := f.get(t, session).Body.String()
+	if !strings.Contains(body, "Ya agregado") {
+		t.Errorf("the picker does not show the course as added:\n%s", body)
+	}
+	// And it no longer offers to add that one a second time.
+	if strings.Contains(body, `value="44779"`) {
+		t.Error("the picker still offers to add a course it already has")
+	}
+}
+
+// Two clicks, or two tabs. From the professor's side the outcome is the
+// same both times: a message and the course still there — not a failure for
+// something that is already true.
+func TestAddingTheSameCourseTwiceSaysSoInsteadOfFailing(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+
+	for i := range 2 {
+		rec := f.post(t, session, handler.ProfileAddCoursePath, f.handler.AddCourse,
+			url.Values{"canvas_course_id": {"44779"}})
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("click %d: status = %d, want 303", i+1, rec.Code)
+		}
+	}
+
+	stored, err := f.courses.ListCourses(context.Background())
+	if err != nil {
+		t.Fatalf("ListCourses: %v", err)
+	}
+	if len(stored) != 1 {
+		t.Errorf("two clicks produced %d courses, want 1", len(stored))
+	}
+}
+
+// A hand-typed POST for a course this professor's Canvas does not list
+// stores nothing.
+func TestAddingACourseCanvasDoesNotListStoresNothing(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+
+	rec := f.post(t, session, handler.ProfileAddCoursePath, f.handler.AddCourse,
+		url.Values{"canvas_course_id": {"999999"}})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303 with a flash", rec.Code)
+	}
+
+	stored, err := f.courses.ListCourses(context.Background())
+	if err != nil {
+		t.Fatalf("ListCourses: %v", err)
+	}
+	if len(stored) != 0 {
+		t.Errorf("a course Canvas does not list was stored: %+v", stored)
+	}
+}
+
+// Canvas being down must not take the page down with it: the token section
+// is the professor's way out of most of these states, and a 500 would take
+// it away exactly when they need it.
+func TestAnUnreachableCanvasLeavesTheRestOfTheProfileUsable(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+
+	f.api.err = canvas.ErrUnavailable
+	rec := f.get(t, session)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — an outage is a notice, not a broken page", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "No se pudo contactar a Canvas") {
+		t.Errorf("the page does not name the outage:\n%s", body)
+	}
+	if !strings.Contains(body, "Token configurado") {
+		t.Error("the token section disappeared with the course list")
+	}
+}
+
+// A token revoked in Canvas since it was stored says so, and says it
+// differently from an outage: the fix is a new token, not waiting.
+func TestARevokedTokenTellsTheProfessorToPasteANewOne(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+
+	f.api.err = canvas.ErrTokenRejected
+	body := f.get(t, session).Body.String()
+	if !strings.Contains(body, "Canvas ya no acepta tu token") {
+		t.Errorf("the page does not say the token was rejected:\n%s", body)
+	}
+	if strings.Contains(body, "No se pudo contactar a Canvas") {
+		t.Error("a revoked token was rendered as an outage; the fix differs")
 	}
 }

@@ -24,6 +24,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/secret"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker"
 	// Aliased because the domain package one import above owns the name:
@@ -37,6 +38,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/coursestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/secretstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
@@ -233,6 +235,7 @@ func run(logger *slog.Logger) error {
 			"effect", "professors cannot store a Canvas token")
 	}
 	canvasService := canvas.NewService(canvasSecrets, canvasapi.New(cfg.CanvasGraphQLURL))
+	rosterService := roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvasService))
 
 	backoffice := web.Deps{
 		Database: storage.NewProber(db),
@@ -270,6 +273,7 @@ func run(logger *slog.Logger) error {
 		}),
 		Profile: handler.NewProfile(handler.Profile{
 			Canvas:    canvasService,
+			Roster:    rosterService,
 			PublicURL: cfg.PublicURL,
 			Log:       logger,
 		}),

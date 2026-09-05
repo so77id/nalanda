@@ -54,6 +54,51 @@
       <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
       <p><button type="submit">Eliminar el token</button></p>
     </form>
+
+    <h2>Tus cursos en Canvas</h2>
+
+    {{ if .CoursesNotice }}
+      <section class="aviso"><p>{{ .CoursesNotice }}</p></section>
+    {{ else if .Courses.Empty }}
+      <p>Canvas no muestra ningún curso para tu cuenta.</p>
+    {{ else }}
+      {{ if .Courses.Current }}
+        <p>Período {{ .Courses.CurrentTerm }}:</p>
+        <table class="lista">
+          <thead>
+            <tr><th>Código</th><th>Curso</th><th></th></tr>
+          </thead>
+          <tbody>
+            {{ range .CurrentRows }}
+              {{ template "cursoFila" . }}
+            {{ end }}
+          </tbody>
+        </table>
+      {{ end }}
+
+      {{ if .Courses.Older }}
+        {{/*
+          Collapsed on purpose. Canvas lists every course the professor has
+          ever been enrolled in — sixteen for the one measured in S4, back
+          to 2020 — and the one they want is almost always the current
+          semester's. Behind a disclosure rather than dropped, so an old
+          course stays reachable (ADR-0069 §Decision 5).
+        */}}
+        <details>
+          <summary>Otros períodos ({{ len .Courses.Older }})</summary>
+          <table class="lista">
+            <thead>
+              <tr><th>Período</th><th>Código</th><th>Curso</th><th></th></tr>
+            </thead>
+            <tbody>
+              {{ range .OlderRows }}
+                {{ template "cursoFila" . }}
+              {{ end }}
+            </tbody>
+          </table>
+        </details>
+      {{ end }}
+    {{ end }}
   {{ else }}
     <p>
       Para importar la lista de estudiantes de un curso, Nalanda necesita
@@ -81,4 +126,34 @@
       <p><button type="submit">Guardar</button></p>
     </form>
   {{ end }}
+{{ end }}
+
+{{/*
+  One row of the picker. Defined once and used by both tables, so the
+  "already added" state and the button cannot drift between them.
+
+  The form posts ONLY the Canvas id: every other field is looked up in the
+  professor's own Canvas listing by roster.Service.AddCourse. A hidden
+  field carrying the name or the code would let a hand-typed request invent
+  a course, or name one course while carrying another's id.
+*/}}
+{{ define "cursoFila" }}
+  <tr>
+    {{ if .ShowTerm }}<td>{{ .Term }}</td>{{ end }}
+    <td>{{ .Code }}</td>
+    <td>{{ .Name }}</td>
+    <td>
+      {{ if .Added }}
+        {{/* Plain text, not a link: /courses/{id} arrives with S7, and a
+             link to it now would be a link to a 404. */}}
+        Ya agregado
+      {{ else }}
+        <form class="inline" method="post" action="{{ .Action }}">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+          <input type="hidden" name="canvas_course_id" value="{{ .CanvasID }}" />
+          <button type="submit">Agregar a Nalanda</button>
+        </form>
+      {{ end }}
+    </td>
+  </tr>
 {{ end }}
