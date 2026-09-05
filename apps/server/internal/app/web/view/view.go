@@ -30,6 +30,7 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls/stats"
+	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 )
 
 //go:embed templates/layout.html templates/pages/*.html
@@ -97,6 +98,157 @@ type ProfessorsFormPage struct {
 type ProfessorFormValues struct {
 	Email string
 	Name  string
+}
+
+// CoursesListPage is what courses_list.html renders. Row values are
+// pre-formatted by the handler, like ProfessorsListPage's.
+type CoursesListPage struct {
+	Page
+	Courses []ListedCourse
+}
+
+// ListedCourse is one row of the course list.
+type ListedCourse struct {
+	Code string
+	Name string
+	Term string
+	URL  string
+	// Enrolled is the count as a STRING, already worded ("25 inscritos",
+	// "sin lista"), because "0" and "no roster yet" mean different things
+	// to a professor and a bare number cannot say which one this is.
+	Enrolled string
+}
+
+// CourseDetailPage is what course_detail.html renders: one course and the
+// people on it.
+type CourseDetailPage struct {
+	Page
+	Course      ListedCourse
+	Enrollments []ListedEnrollment
+	// ImportAction is where both import forms post — the empty state's
+	// "Cargar desde Canvas" and the populated state's "Reimportar".
+	ImportAction string
+
+	EnrolledCount  int
+	WithdrawnCount int
+	// WithoutRUTCount is how many of these people cannot be matched to a
+	// control. Surfaced on the page as well as in the import flash,
+	// because the flash is gone on the next reload and this fact is not.
+	WithoutRUTCount int
+}
+
+// ListedEnrollment is one row of the roster table.
+type ListedEnrollment struct {
+	FirstName string
+	LastName  string
+	// RUT is already formatted with its verifier ("11.222.333-5"), or
+	// empty when Canvas held none.
+	RUT   string
+	Email string
+	// State is the Spanish word, not the stored enum.
+	State string
+}
+
+// ProfilePage is what profile.html renders: the professor's own account and
+// the state of their Canvas integration.
+//
+// Three states, and the template branches on them in this order, because
+// they are not independent:
+//
+//  1. !SecretsConfigured — the deployment has no master key, so there is
+//     nothing to show a form for (ADR-0068 §Decision 3).
+//  2. Connected — a token is stored. The form becomes "replace", and a
+//     second form offers to forget it.
+//  3. neither — the empty state, with the instructions for generating a
+//     token in Canvas.
+//
+// There is deliberately NO field carrying the token. The page cannot render
+// it back even by accident: the value is not in this struct, and the input's
+// `value` is the empty string in every branch (issue #271 AC-6).
+type ProfilePage struct {
+	Page
+	Email string
+	Name  string
+
+	// SecretsConfigured is canvas.Service.Configured() — whether the
+	// deployment can store a secret at all.
+	SecretsConfigured bool
+	// Connected gates the "a token exists" branch: the Reemplazar form and
+	// the Eliminar button. It is true when a token IS stored — and also
+	// when one is stored but cannot be READ, which is the state TokenNotice
+	// explains. Those are the two cases that need the same two forms, and
+	// naming it after the forms rather than after the storage is what keeps
+	// the comment honest (#271 review, ARQ-11).
+	Connected bool
+	// TokenNotice is a message about the STORED token, rendered above its
+	// forms — today only "the stored token no longer decrypts". Separate
+	// from Errors because it belongs to no field the professor filled in,
+	// and separate from CoursesNotice because the forms it explains stay on
+	// screen (#271 review, SEC-1).
+	TokenNotice string
+
+	// Action is where the save/replace form posts; ForgetAction is where
+	// the delete form posts. Passed in rather than written in the template
+	// so the route constants have one home.
+	Action       string
+	ForgetAction string
+
+	// Errors is field-keyed like every other form on this surface — a
+	// single blob would make a two-error submission read as "something
+	// went wrong" (§Form / validation / errors).
+	Errors map[string]string
+
+	// AddCourseAction is where the picker's forms post.
+	AddCourseAction string
+	// Courses is the picker: the professor's Canvas courses, split into
+	// the current term and the rest (roster.CourseChoices, ADR-0069
+	// §Decision 5). Empty when no token is stored, or when Canvas could
+	// not be reached — CoursesNotice then says which.
+	Courses roster.CourseChoices
+	// CoursesNotice is the Spanish sentence shown INSTEAD of the picker
+	// when the list could not be fetched. A separate field from Errors
+	// because it belongs to no form field, the same reason
+	// ProfessorsFormPage.Notice exists (COR-1, WP-C3 review).
+	CoursesNotice string
+}
+
+// CoursePickRow is one row of the picker, with the two page-level values
+// its form needs already attached.
+//
+// It exists so both tables can share ONE row template. A `{{ template }}`
+// call replaces `$` with its own argument, so a shared row could otherwise
+// only reach the CSRF token through a generic `dict` helper — a func that
+// makes any template able to build any structure, which is a bigger door
+// than this needs. Zipping the two values in here keeps the FuncMap narrow
+// (every entry in it today does one arithmetic or lookup job) and keeps the
+// "already added" state written once.
+type CoursePickRow struct {
+	roster.CoursePick
+	CSRFToken string
+	Action    string
+	// ShowTerm is unused today: the picker only ever renders one term, and
+	// its name is the table's heading. Kept because the row template is the
+	// one place a second table would reuse.
+	ShowTerm bool
+}
+
+// CurrentRows is the picker's rows — the current term's courses, which is
+// all the picker offers (roster.CourseChoices).
+func (p ProfilePage) CurrentRows() []CoursePickRow {
+	return p.pickRows(p.Courses.Current, false)
+}
+
+func (p ProfilePage) pickRows(picks []roster.CoursePick, showTerm bool) []CoursePickRow {
+	rows := make([]CoursePickRow, 0, len(picks))
+	for _, pick := range picks {
+		rows = append(rows, CoursePickRow{
+			CoursePick: pick,
+			CSRFToken:  p.CSRFToken,
+			Action:     p.AddCourseAction,
+			ShowTerm:   showTerm,
+		})
+	}
+	return rows
 }
 
 // ProfessorsListPage is what professors_list.html renders. The row values
@@ -641,6 +793,35 @@ func RenderLogin(w http.ResponseWriter, page LoginPage) error {
 		}
 	}
 	return render(w, "login", http.StatusOK, page)
+}
+
+// RenderProfile writes the professor's own profile page.
+//
+// status is a parameter for the same reason RenderProfessorsForm's is: the
+// same template renders a fresh GET (200) and the re-render after a refused
+// token (422). A refusal rendered as 200 would look right in a browser and
+// hide the rejection from anything reading the HTTP layer.
+func RenderProfile(w http.ResponseWriter, status int, page ProfilePage) error {
+	if page.Title == "" {
+		page.Title = "Mi perfil"
+	}
+	return render(w, "profile", status, page)
+}
+
+// RenderCoursesList writes the course list.
+func RenderCoursesList(w http.ResponseWriter, page CoursesListPage) error {
+	if page.Title == "" {
+		page.Title = "Cursos"
+	}
+	return render(w, "courses_list", http.StatusOK, page)
+}
+
+// RenderCourseDetail writes one course and its roster.
+func RenderCourseDetail(w http.ResponseWriter, page CourseDetailPage) error {
+	if page.Title == "" {
+		page.Title = page.Course.Code
+	}
+	return render(w, "course_detail", http.StatusOK, page)
 }
 
 // RenderProfessorsList writes the CRUD's list page.

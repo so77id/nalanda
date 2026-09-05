@@ -65,11 +65,15 @@ fact.
   all three; there is no shared constant on purpose (see the router
   entry's comment).
 - `README.md` §"What is not here yet" — before adding anything, check whether
-  the work belongs to WP-D (roster) or WP-G (publish grades). **WP-C1,
-  WP-C2, WP-C3, WP-E and WP-F are closed**: the layered layout (#149), the
-  login round trip + session gate (#150), the backoffice shell + professor
-  CRUD (#151), control creation with the PDF pipeline (#166) and the
-  scans + review flow (#167) all live here.
+  the work belongs to **WP-2 of epic #270 (#272)** — linking a course to a
+  control, matching a reading's RUT to a student, student names on the
+  control screens — or to **WP-G** (publishing grades). **WP-C1, WP-C2,
+  WP-C3, WP-E, WP-F and WP-1 of epic #270 are closed**: the layered layout
+  (#149), the login round trip + session gate (#150), the backoffice shell +
+  professor CRUD (#151), control creation with the PDF pipeline (#166), the
+  scans + review flow (#167) and the Canvas roster — `course` / `student` /
+  `enrollment` / `user_secrets`, `/profile`, `/courses` (#271) — all live
+  here. What #271 deliberately did NOT touch is any control screen.
 
 ## Language
 
@@ -86,8 +90,8 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
 
 ## Rules for Claude
 
-- **The dependency rule has THREE edges**, all enforced by
-  `internal/architecture_test.go`, transitively:
+- **The dependency rule has FOUR edges; `internal/architecture_test.go`
+  enforces the first three**, transitively:
   1. `internal/domain` imports neither `internal/app` nor `internal/infra`, nor
      any third-party package.
   2. **`internal/infra` does not import `internal/app`.** Adapters sit beneath
@@ -97,6 +101,20 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      them. The OAuth redirect URI is passed IN from the handler for exactly this
      reason — an adapter reading it from the surface would invert the layering.
   3. Neither delivery surface imports the other.
+
+  4. **A delivery surface depends on a domain SERVICE, never on the store
+     behind it.** Reads and writes both go through the service; a handler
+     that needs a shape the service does not expose gets a service METHOD,
+     not the store field. **NOT enforced by the guard** — the package graph
+     cannot see it, because handler and store are already allowed to share
+     one through the domain. It is a review item, and its check is
+     `grep -rn '\.Store\.' internal/app/**/handler/*.go` returning nothing.
+     Violated and re-fixed twice: WP-E's review (ARQ-11) removed a second
+     injected `Store` field from a handler struct, and #271's review (ARQ-1)
+     removed a `c.Roster.Store.ListEnrollments` reach-through that also ran
+     one query per row of a list page. Both times the rule lived only in a
+     code comment, and the second time that comment was four files away
+     from the new violation.
 
   When the domain needs something from outside, it declares the interface and
   infra implements it — `health.Prober`, implemented by `storage.Prober`, is the
@@ -180,6 +198,19 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   `oidctest.Provider`; the real round trip is `GOOGLE-CHECK.md`, and a change to
   the login path is unfinished while a human has not run it. Same rule, and the
   same reason, as `apps/amc-worker/PAPER-CHECK.md`.
+- **Nothing here can test Canvas, either (issue #271).** The suite drives
+  `httptest` fakes in `internal/infra/canvas`, the way it drives
+  `oidctest.Provider` for Google. What no test can see: whether the GraphQL
+  queries match Canvas's real schema, whether `user.sisId` still carries the
+  RUT, and whether the token survives the round trip without reaching a log.
+  Any change to the queries in `internal/infra/canvas`, the normalisation in
+  `internal/domain/canvas/roster.go`, the `/profile` token path, or
+  `NALANDA_CANVAS_GRAPHQL_URL` is unfinished while a human has not run
+  [`CANVAS-CHECK.md`](CANVAS-CHECK.md). Same rule, and the same reason, as
+  the Google and paper bullets. The measured contract lives in ADR-0069;
+  `student.rut` holds the eight digits the sheet prints and `student.rut_dv`
+  the verifier Canvas attaches, and a caller that stores `sisId` whole would
+  match nobody in WP-2 while looking correct on every roster screen.
 - **Nothing here can test paper, either.** The tex generator lives in
   `internal/domain/controls/tex/**`, and the suite pins tokens
   (`TestPreambleDeclaresLetterPaperWhenInputSaysLetter` and its A4/empty
@@ -307,6 +338,40 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   `StatusDone || StatusFailed` inline (issue #257 review, ARQ-2).
   Same rule shape as the UploadScan-survives / LiveBank-survives /
   Reading.Pages two-boundary bullets.
+- **A roster import UPSERTS and WITHDRAWS; it never deletes, and it never
+  applies a partial answer (issue #271, ADR-0069).** Three invariants, one
+  reason each, all in `coursestore.SaveRoster`:
+  1. **A student Canvas no longer lists is stamped `withdrawn`, never
+     DELETEd.** Their grades hang off the RUT match WP-2 adds, and a
+     student who dropped the course still sat the controls they sat.
+     Re-appearing in a later import puts them back to `enrolled`.
+  2. **The upsert keys on `student.canvas_user_id`, never on `rut`.** The
+     RUT is nullable by design (Canvas may hold none), and keying on it
+     would insert a second person row for every RUT-less student on every
+     import. Two students with no RUT coexist because SQLite lets NULLs
+     coexist under a UNIQUE — which is also why the schema refuses the
+     empty string that would NOT.
+  3. **One person becomes one row however many times the source listed
+     them.** Canvas returns a node per ENROLMENT, so a student in two
+     sections arrives twice; the dedupe on `canvas_user_id` lives in
+     `SaveRoster`, not in the adapter, so a future source (a CSV, another
+     LMS) inherits it. Without it the upsert was still correct but the
+     per-student `existing` probe saw the enrolment the first pass had just
+     created, so the second landed in `Updated` and the flash told the
+     professor the class had one more student than it does (#271 review,
+     COR-8).
+  4. **The whole roster lands in ONE transaction.** A half-applied import
+     looks exactly like a class where some students vanished, and the
+     professor cannot tell which half arrived. Two different Canvas users
+     carrying one RUT abort the whole import rather than resolving it: that
+     column is the key grades are matched on, and choosing between two
+     people silently delivers somebody's grade to somebody else.
+
+  And above the store: **`Service.Import` calls `SaveRoster` only on a
+  successful Canvas answer.** Handing it an empty roster on an outage would
+  withdraw the entire class — the silent version of this whole bullet.
+  Same rule shape and same reason as the UploadScan-survives and
+  LiveBank-survives bullets.
 - **The LiveBank in-memory snapshot survives every Reload failure
   (issue #230).** Reintroducing a code path that clears the
   `atomic.Pointer[Bank]` on a fetch/parse failure is forbidden — a

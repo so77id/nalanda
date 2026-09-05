@@ -17,10 +17,12 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/oauthstate"
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
+	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
@@ -122,6 +124,30 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 				Log:                logger,
 			})
 		}(),
+		// Issue #271: the profile screen. Wired with a nil secret store —
+		// the "no master key" branch — because these cases are about the
+		// router's table (gating, CSRF, composition), not about Canvas.
+		// canvas.Service renders that state; it does not refuse it.
+		Profile: func() *handler.Profile {
+			canvasService := canvas.NewService(nil, unreachableCanvas{})
+			return handler.NewProfile(handler.Profile{
+				Canvas: canvasService,
+				Roster: roster.NewService(
+					emptyCourseStore{},
+					roster.NewCanvasSource(canvasService),
+				),
+				PublicURL: "https://nalanda.test",
+				Log:       logger,
+			})
+		}(),
+		Courses: handler.NewCourses(handler.Courses{
+			Roster: roster.NewService(
+				emptyCourseStore{},
+				roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{})),
+			),
+			PublicURL: "https://nalanda.test",
+			Log:       logger,
+		}),
 		AdminBank: handler.NewAdminBank(handler.AdminBank{
 			Bank:      emptyBank(t),
 			PublicURL: "https://nalanda.test",
@@ -435,4 +461,53 @@ func TestEveryStateChangingRouteVerifiesCSRF(t *testing.T) {
 	if checked == 0 {
 		t.Fatal("no state-changing route in the table, so this test verified nothing")
 	}
+}
+
+// unreachableCanvas is a canvas.API that must never be called. The router
+// fixtures wire canvas.Service with no secret store, so no code path in
+// these cases can reach Canvas; a call would mean the "not configured"
+// branch stopped short-circuiting, which is worth failing loudly for.
+type unreachableCanvas struct{}
+
+func (unreachableCanvas) Verify(context.Context, string) error {
+	panic("router tests must not reach Canvas")
+}
+
+func (unreachableCanvas) Courses(context.Context, string) ([]canvas.Course, error) {
+	panic("router tests must not reach Canvas")
+}
+
+func (unreachableCanvas) Roster(context.Context, string, string) ([]canvas.Student, error) {
+	panic("router tests must not reach Canvas")
+}
+
+// emptyCourseStore is a roster.Store holding nothing. The router fixtures
+// never reach it — canvas.Service is wired with no secret store, so
+// CoursesFor fails before the store is consulted — but roster.NewService
+// refuses a nil one, and rightly: a nil store in production is a nil
+// dereference inside a request.
+type emptyCourseStore struct{}
+
+func (emptyCourseStore) CreateCourse(context.Context, roster.Course) (roster.Course, error) {
+	panic("router tests must not create a course")
+}
+
+func (emptyCourseStore) ListCourses(context.Context) ([]roster.Course, error) {
+	return nil, nil
+}
+
+func (emptyCourseStore) CourseByID(context.Context, int64) (roster.Course, error) {
+	return roster.Course{}, roster.ErrCourseNotFound
+}
+
+func (emptyCourseStore) SaveRoster(context.Context, int64, []roster.SourceStudent) (roster.ImportResult, error) {
+	return roster.ImportResult{}, roster.ErrCourseNotFound
+}
+
+func (emptyCourseStore) ListEnrollments(context.Context, int64) ([]roster.Enrollment, error) {
+	return nil, nil
+}
+
+func (emptyCourseStore) EnrollmentCounts(context.Context) (map[int64]roster.EnrollmentCounts, error) {
+	return nil, nil
 }

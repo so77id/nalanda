@@ -1,6 +1,7 @@
 package storage_test
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"path/filepath"
@@ -493,5 +494,382 @@ func TestControlThresholdsDefaultAndRoundTrip(t *testing.T) {
 		"CTRLTHRESH0000000000000000",
 	); err == nil {
 		t.Error("ticked = 1.5 accepted, want the CHECK to refuse it")
+	}
+}
+
+// --- The roster schema (issue #271, migration 00014) ----------------------
+//
+// Same premise as the auth cases above: every rule these tables carry fails
+// SILENTLY when it is absent. A missing UNIQUE on student.canvas_user_id
+// turns the second import of a course into a second copy of every student;
+// a missing cascade leaves an enrollment pointing at a deleted course, and
+// WP-2's join then reports a grade for a course that no longer exists.
+
+// insertCourse adds a row to course and returns its id.
+func insertCourse(t *testing.T, ctx context.Context, db *sql.DB, code, canvasCourseID string) int64 {
+	t.Helper()
+
+	result, err := db.ExecContext(ctx,
+		`INSERT INTO course (name, code, term, canvas_course_id) VALUES (?, ?, ?, ?)`,
+		"Estructuras de Datos", code, "2026-2", canvasCourseID)
+	if err != nil {
+		t.Fatalf("inserting the course %s: %v", code, err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("reading the inserted course id: %v", err)
+	}
+	return id
+}
+
+// insertStudent adds a row to student and returns its id. rut and rutDV are
+// passed as any so a case can hand them nil for "Canvas had no RUT for this
+// person" — the two are constrained to be null together.
+func insertStudent(t *testing.T, ctx context.Context, db *sql.DB, canvasUserID string, rut, rutDV any) int64 {
+	t.Helper()
+
+	result, err := db.ExecContext(ctx,
+		`INSERT INTO student (first_name, last_name, email, rut, rut_dv, canvas_user_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+		"Ana", "Pérez", "ana@example.com", rut, rutDV, canvasUserID)
+	if err != nil {
+		t.Fatalf("inserting the student %s: %v", canvasUserID, err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("reading the inserted student id: %v", err)
+	}
+	return id
+}
+
+func TestTheRosterSchemaAcceptsACourseWithAnEnrolledStudent(t *testing.T) {
+	ctx, db := migrated(t)
+
+	courseID := insertCourse(t, ctx, db, "CIT2006-03", "12345")
+	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO enrollment (course_id, student_id, state, canvas_enrollment_id)
+         VALUES (?, ?, ?, ?)`,
+		courseID, studentID, "enrolled", "canvas-enr-1",
+	); err != nil {
+		t.Fatalf("inserting the enrollment: %v", err)
+	}
+
+	var (
+		name, code, term, canvasCourse  string
+		firstName, lastName, rut, rutDV string
+		state                           string
+	)
+	if err := db.QueryRowContext(ctx, `
+        SELECT c.name, c.code, c.term, c.canvas_course_id,
+               s.first_name, s.last_name, s.rut, s.rut_dv,
+               e.state
+        FROM enrollment e
+        JOIN course  c ON c.id = e.course_id
+        JOIN student s ON s.id = e.student_id`,
+	).Scan(&name, &code, &term, &canvasCourse, &firstName, &lastName, &rut, &rutDV, &state); err != nil {
+		t.Fatalf("reading the roster back: %v", err)
+	}
+	if code != "CIT2006-03" || term != "2026-2" || canvasCourse != "12345" ||
+		firstName != "Ana" || rut != "12345678" || rutDV != "5" || state != "enrolled" {
+		t.Errorf("round-trip mismatch: code=%q term=%q canvas=%q first=%q rut=%q rut_dv=%q state=%q",
+			code, term, canvasCourse, firstName, rut, rutDV, state)
+	}
+}
+
+// The RUT is the join key WP-2 matches readings against, so two students
+// cannot share one. Three rules, all measured against real Canvas data in
+// the S4 spike (ADR-0069):
+//
+//   - the body is exactly eight digits, because that is what
+//     \AMCcode{rut}{8} prints and therefore what a reading can hold;
+//   - the verifier is a digit or K, and travels with the body or not at all;
+//   - both may be NULL together, and NULLs do not collide under the UNIQUE,
+//     so one student Canvas has no RUT for costs one unmatchable row rather
+//     than the rest of the import.
+func TestStudentRutIsUniqueWhenPresentAndAbsentRutsDoNotCollide(t *testing.T) {
+	ctx, db := migrated(t)
+
+	insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO student (first_name, last_name, email, rut, rut_dv, canvas_user_id)
+         VALUES ('Otra', 'Persona', 'otra@example.com', '12345678', '5', 'canvas-user-2')`,
+	); err == nil {
+		t.Error("a second student with the same RUT was accepted, want a UNIQUE conflict")
+	}
+
+	insertStudent(t, ctx, db, "canvas-user-3", nil, nil)
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO student (first_name, last_name, email, rut, rut_dv, canvas_user_id)
+         VALUES ('Sin', 'Rut', 'sinrut@example.com', NULL, NULL, 'canvas-user-4')`,
+	); err != nil {
+		t.Errorf("a second student without a RUT was refused (%v); NULLs must not collide", err)
+	}
+}
+
+// The shape of the two columns, refused at the schema rather than trusted to
+// the importer. Each of these is a row that would look like data and join
+// against nothing.
+func TestStudentRutRefusesEveryShapeAReadingCouldNotMatch(t *testing.T) {
+	ctx, db := migrated(t)
+
+	for _, c := range []struct {
+		name  string
+		rut   any
+		rutDV any
+	}{
+		{"an empty body", "", "5"},
+		{"seven digits, unpadded — the sheet prints eight", "1234567", "5"},
+		{"nine digits — the verifier left on the body", "123456785", "5"},
+		{"a body with the verifier's K in it", "1234567K", "5"},
+		{"a body that is not digits", "1234-567", "5"},
+		{"a lowercase verifier", "12345678", "k"},
+		{"a two-character verifier", "12345678", "5K"},
+		{"a body with no verifier", "12345678", nil},
+		{"a verifier with no body", nil, "5"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := db.ExecContext(ctx,
+				`INSERT INTO student (first_name, last_name, email, rut, rut_dv, canvas_user_id)
+                 VALUES ('X', 'Y', 'x@example.com', ?, ?, ?)`,
+				c.rut, c.rutDV, "canvas-"+c.name)
+			if err == nil {
+				t.Fatal("the row was accepted, want a CHECK constraint failure")
+			}
+			// Naming the constraint matters, for the same reason the
+			// foreign-key case above does it: rejected-for-another-reason
+			// is how a guard goes green while verifying nothing. Every row
+			// here carries a distinct canvas_user_id precisely so a UNIQUE
+			// violation cannot stand in for the CHECK.
+			if !strings.Contains(err.Error(), "CHECK") {
+				t.Errorf("rejected with %v, want a CHECK constraint failure", err)
+			}
+		})
+	}
+}
+
+// K is a real verifier, not a theoretical branch: four of the twenty-five
+// students on the course measured in S4 had one.
+func TestStudentRutAcceptsAVerifierOfK(t *testing.T) {
+	ctx, db := migrated(t)
+
+	insertStudent(t, ctx, db, "canvas-user-k", "11222444", "K")
+
+	var rut, dv string
+	if err := db.QueryRowContext(ctx,
+		`SELECT rut, rut_dv FROM student WHERE canvas_user_id = ?`, "canvas-user-k",
+	).Scan(&rut, &dv); err != nil {
+		t.Fatalf("reading the K-verifier student back: %v", err)
+	}
+	if rut != "11222444" || dv != "K" {
+		t.Errorf("round-trip = %q/%q, want 11222444/K", rut, dv)
+	}
+}
+
+// The upsert key of the import (S6). Without this UNIQUE a re-import adds a
+// second row for every person whose RUT Canvas does not carry — the exact
+// case the nullable RUT above makes possible.
+func TestStudentCanvasUserIDIsUnique(t *testing.T) {
+	ctx, db := migrated(t)
+
+	insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO student (first_name, last_name, email, rut, rut_dv, canvas_user_id)
+         VALUES ('Otra', 'Persona', 'otra@example.com', '87654321', '9', 'canvas-user-1')`,
+	); err == nil {
+		t.Error("a second student with the same canvas_user_id was accepted, want a UNIQUE conflict")
+	}
+}
+
+// One Nalanda course per Canvas course. The picker (S5) refuses to offer a
+// course twice, and this is the schema-level belt behind that policy.
+func TestCourseCanvasCourseIDIsUnique(t *testing.T) {
+	ctx, db := migrated(t)
+
+	insertCourse(t, ctx, db, "CIT2006-03", "12345")
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO course (name, code, term, canvas_course_id)
+         VALUES ('Otro nombre', 'CIT2006-04', '2026-2', '12345')`,
+	); err == nil {
+		t.Error("a second course with the same canvas_course_id was accepted, want a UNIQUE conflict")
+	}
+}
+
+func TestEnrollmentIsUniquePerCourseAndStudent(t *testing.T) {
+	ctx, db := migrated(t)
+
+	courseID := insertCourse(t, ctx, db, "CIT2006-03", "12345")
+	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO enrollment (course_id, student_id, state) VALUES (?, ?, 'enrolled')`,
+		courseID, studentID,
+	); err != nil {
+		t.Fatalf("inserting the enrollment: %v", err)
+	}
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO enrollment (course_id, student_id, state) VALUES (?, ?, 'withdrawn')`,
+		courseID, studentID,
+	); err == nil {
+		t.Error("a second enrollment for the same (course, student) was accepted, want a UNIQUE conflict")
+	}
+}
+
+// The two states are exhaustive by design (issue #271 §Entities); the CHECK
+// is what keeps a typo in a future writer from inventing a third.
+func TestEnrollmentStateRefusesAnUnknownValue(t *testing.T) {
+	ctx, db := migrated(t)
+
+	courseID := insertCourse(t, ctx, db, "CIT2006-03", "12345")
+	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO enrollment (course_id, student_id, state) VALUES (?, ?, 'retirado')`,
+		courseID, studentID,
+	); err == nil {
+		t.Error("state = 'retirado' was accepted, want the CHECK to refuse it")
+	}
+}
+
+func TestTheRosterSchemaEnforcesItsReferences(t *testing.T) {
+	ctx, db := migrated(t)
+
+	courseID := insertCourse(t, ctx, db, "CIT2006-03", "12345")
+	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
+
+	for _, c := range []struct {
+		name  string
+		query string
+		args  []any
+	}{
+		{
+			name:  "enrollment in an unknown course",
+			query: `INSERT INTO enrollment (course_id, student_id, state) VALUES (?, ?, 'enrolled')`,
+			args:  []any{int64(4242), studentID},
+		},
+		{
+			name:  "enrollment of an unknown student",
+			query: `INSERT INTO enrollment (course_id, student_id, state) VALUES (?, ?, 'enrolled')`,
+			args:  []any{courseID, int64(4242)},
+		},
+		{
+			name:  "secret of an unknown professor",
+			query: `INSERT INTO user_secrets (user_id, namespace, key, ciphertext) VALUES (?, ?, ?, ?)`,
+			args:  []any{int64(4242), "canvas", "token", []byte("blob")},
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := db.ExecContext(ctx, c.query, c.args...)
+			if err == nil {
+				t.Fatal("the row was accepted, want a foreign-key error")
+			}
+			// Naming the constraint matters: before the schema existed, this
+			// case passed on "no such table" — an error for the wrong reason
+			// is how a guard goes green while verifying nothing.
+			if !strings.Contains(err.Error(), "FOREIGN KEY") {
+				t.Errorf("rejected with %v, want a FOREIGN KEY constraint failure", err)
+			}
+		})
+	}
+}
+
+// Deleting a course takes its enrollments and LEAVES the students: a person
+// is not a member of one course (§Entities, "a student is one person"), and
+// cascading through the join to the person would delete someone still
+// enrolled elsewhere.
+func TestDeletingACourseRemovesItsEnrollmentsAndLeavesTheStudent(t *testing.T) {
+	ctx, db := migrated(t)
+
+	courseID := insertCourse(t, ctx, db, "CIT2006-03", "12345")
+	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO enrollment (course_id, student_id, state) VALUES (?, ?, 'enrolled')`,
+		courseID, studentID,
+	); err != nil {
+		t.Fatalf("inserting the enrollment: %v", err)
+	}
+
+	if _, err := db.ExecContext(ctx, `DELETE FROM course WHERE id = ?`, courseID); err != nil {
+		t.Fatalf("deleting the course: %v", err)
+	}
+
+	var enrollments, students int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM enrollment`).Scan(&enrollments); err != nil {
+		t.Fatalf("counting enrollments: %v", err)
+	}
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM student`).Scan(&students); err != nil {
+		t.Fatalf("counting students: %v", err)
+	}
+	if enrollments != 0 {
+		t.Errorf("enrollment still holds %d row(s) after the course was deleted, want 0", enrollments)
+	}
+	if students != 1 {
+		t.Errorf("student holds %d row(s) after the course was deleted, want the person to survive", students)
+	}
+}
+
+// One ciphertext per (professor, namespace, key) — the triple the AAD binds
+// in S2. The cascade matters because a deleted professor's encrypted Canvas
+// token has no owner left to decrypt it.
+func TestUserSecretsIsUniquePerTripleAndCascadesWithTheProfessor(t *testing.T) {
+	ctx, db := migrated(t)
+
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO user_secrets (user_id, namespace, key, ciphertext) VALUES (?, ?, ?, ?)`,
+		userID, "canvas", "token", []byte("sealed"),
+	); err != nil {
+		t.Fatalf("inserting the secret: %v", err)
+	}
+
+	// A different key under the same namespace is a different row.
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO user_secrets (user_id, namespace, key, ciphertext) VALUES (?, ?, ?, ?)`,
+		userID, "canvas", "refresh", []byte("sealed-2"),
+	); err != nil {
+		t.Errorf("a second key under the same namespace was refused: %v", err)
+	}
+
+	if _, err := db.ExecContext(ctx,
+		`INSERT INTO user_secrets (user_id, namespace, key, ciphertext) VALUES (?, ?, ?, ?)`,
+		userID, "canvas", "token", []byte("otro"),
+	); err == nil {
+		t.Error("a second secret for the same (user, namespace, key) was accepted, want a UNIQUE conflict")
+	}
+
+	// The blob round-trips as bytes, not as text: a BLOB column that silently
+	// became TEXT would corrupt every ciphertext at the first non-UTF-8 byte.
+	sealed := []byte{0x00, 0xff, 0x10, 0x80}
+	if _, err := db.ExecContext(ctx,
+		`UPDATE user_secrets SET ciphertext = ? WHERE user_id = ? AND namespace = ? AND key = ?`,
+		sealed, userID, "canvas", "token",
+	); err != nil {
+		t.Fatalf("updating the ciphertext: %v", err)
+	}
+	var back []byte
+	if err := db.QueryRowContext(ctx,
+		`SELECT ciphertext FROM user_secrets WHERE user_id = ? AND namespace = ? AND key = ?`,
+		userID, "canvas", "token",
+	).Scan(&back); err != nil {
+		t.Fatalf("reading the ciphertext back: %v", err)
+	}
+	if !bytes.Equal(back, sealed) {
+		t.Errorf("ciphertext round-tripped as %v, want %v", back, sealed)
+	}
+
+	if _, err := db.ExecContext(ctx, `DELETE FROM users WHERE user_id = ?`, userID); err != nil {
+		t.Fatalf("deleting the professor: %v", err)
+	}
+	var rows int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM user_secrets`).Scan(&rows); err != nil {
+		t.Fatalf("counting user_secrets: %v", err)
+	}
+	if rows != 0 {
+		t.Errorf("user_secrets still holds %d row(s) after the professor was deleted, want 0", rows)
 	}
 }

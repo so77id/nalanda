@@ -47,6 +47,16 @@ type Deps struct {
 	// piecemeal so a request to /controls/new does not 404 while the row
 	// exists.
 	Controls *handler.Controls
+	// Profile is the professor's own account screen (issue #271): the
+	// Canvas token they paste, and — from S5 — the courses they add. Its
+	// own handler struct rather than a method on Professors, because
+	// Professors is the CRUD over OTHER professors and this one is only
+	// ever about the caller.
+	Profile *handler.Profile
+	// Courses is the course screens (issue #271): the roster and its
+	// Canvas import. Separate from Profile because Profile is about the
+	// professor's own account and this is about the courses themselves.
+	Courses *handler.Courses
 	// AdminBank is the manual bank-refresh endpoint (issue #230). Small
 	// enough to warrant its own handler struct rather than a method on
 	// Controls: the CRUD lives inside the controls domain, the bank
@@ -245,6 +255,38 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.ProfessorReactivatePath,
 			Handler: deps.Professors.Reactivate,
 		},
+		// Issue #271: the professor's own profile. Gated by default (no
+		// Public) — it shows their address and the state of their Canvas
+		// integration — and the two POSTs carry CSRF for the same reason
+		// every other state-changing route does.
+		{
+			Method: http.MethodGet, Path: handler.ProfilePath,
+			Handler: deps.Profile.Show,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ProfileCanvasTokenPath,
+			Handler: deps.Profile.SaveCanvasToken,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ProfileCanvasForgetPath,
+			Handler: deps.Profile.ForgetCanvasToken,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ProfileAddCoursePath,
+			Handler: deps.Profile.AddCourse,
+		},
+		{
+			Method: http.MethodGet, Path: handler.CoursesPath,
+			Handler: deps.Courses.List,
+		},
+		{
+			Method: http.MethodGet, Path: handler.CoursePath,
+			Handler: deps.Courses.Show,
+		},
+		{
+			Method: http.MethodPost, Path: handler.CourseImportPath,
+			Handler: deps.Courses.ImportCanvas,
+		},
 		// Issue #230: the manual bank-refresh endpoint. Gated by default
 		// (no Public), CSRF enforced because the method is POST.
 		{
@@ -319,6 +361,10 @@ func Router(deps Deps) http.Handler {
 		panic("web.Router: no professors handlers")
 	case deps.Controls == nil:
 		panic("web.Router: no controls handlers")
+	case deps.Profile == nil:
+		panic("web.Router: no profile handlers")
+	case deps.Courses == nil:
+		panic("web.Router: no courses handlers")
 	case deps.AdminBank == nil:
 		panic("web.Router: no admin bank handler")
 	case deps.Log == nil:

@@ -1,6 +1,19 @@
 # ADR-0050: The controls runner is in-process, single-goroutine, and does not retry
 
 **Status:** Accepted
+**Amended by:** #271 (2026-09-05) — the async rule is scoped to the AMC
+worker's minutes-class operations. A bounded outbound call the professor is
+waiting on stays SYNCHRONOUS under a deadline it imposes itself: the Canvas
+roster import (`handler.ImportCanvas`) is a handful of GraphQL round trips
+over a class of tens, and adding a `Kind`, a banner and a polling page to
+hide roughly one second would have been worse. Two things that decision
+turned on, for whoever writes the next slow handler: `http.Server`'s
+`WriteTimeout` neither aborts a handler nor cancels `r.Context()` — measured
+in the #271 review — so a long third-party call inside a handler must carry
+its own `context.WithTimeout` below it; and §Consequences below names "a
+Canvas grade poster in WP-G" as a future inheritor of the runner, which
+remains true for anything minutes-class and is not true of this import.
+
 **Date:** 2026-08-27
 **Decision-makers:** Miguel Rodriguez
 **Source:** #249 (async job runner for the four minutes-class AMC operations),

@@ -8,6 +8,7 @@
 package config
 
 import (
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -17,6 +18,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/so77id/nalanda/apps/server/internal/domain/secret"
 )
 
 // The environment variable names, exported so that the operator-facing
@@ -93,6 +96,24 @@ const (
 	// container updates. "0s" disables the ticker, and then the manual
 	// admin button is the only refresh path.
 	KeyBankRefreshInterval = "NALANDA_BANK_REFRESH_INTERVAL"
+)
+
+// The roster / Canvas block (#271, WP-1 of epic #270). One variable, and it
+// is OPTIONAL on purpose — see the doc comment on Config.SecretsMasterKey.
+const (
+	// KeySecretsMasterKey is the AES-256 key that seals every row of
+	// user_secrets (internal/domain/secret, ADR-0068). Base64 of exactly 32
+	// random bytes: `openssl rand -base64 32`.
+	KeySecretsMasterKey = "NALANDA_SECRETS_MASTER_KEY"
+	// KeyCanvasGraphQLURL is the Canvas GraphQL endpoint the roster import
+	// talks to. Optional: empty means the client's own default, UDP's
+	// https://udp.instructure.com/api/graphql. It exists so a test can
+	// point at an httptest server and a second institution costs no code.
+	//
+	// The default lives on canvas.Client rather than here so the literal
+	// is written once; this package only refuses a value that is set and
+	// unusable.
+	KeyCanvasGraphQLURL = "NALANDA_CANVAS_GRAPHQL_URL"
 )
 
 // defaultMaxScanMB is what an unset KeyMaxScanMB resolves to.
@@ -193,6 +214,40 @@ type Config struct {
 	// disables the ticker; a positive Go duration overrides the 5-minute
 	// default.
 	BankRefreshInterval time.Duration
+
+	// SecretsMasterKey is the decoded 32-byte AES-256 key that seals
+	// user_secrets, or nil when the operator has not configured one
+	// (issue #271, ADR-0068).
+	//
+	// This is the only OPTIONAL-BUT-STRICTLY-VALIDATED variable in the
+	// struct, and the asymmetry is deliberate:
+	//
+	//   - Absent (or empty) → nil, and the Canvas integration reports
+	//     itself unconfigured. Making it required would take production
+	//     down between a merge and the moment the operator edits the
+	//     Jetson's .env: the CD workflow rebuilds the image and Watchtower
+	//     restarts the container within five minutes (ADR-0038), so the
+	//     window is not one an operator can stand in front of.
+	//   - Present but not base64 of exactly 32 bytes → Load fails naming
+	//     the variable. A typo must not read as "not configured", because
+	//     that is a deployment that silently stores nothing while looking
+	//     healthy.
+	//
+	// Never logged. LogValue and String report only whether it is set —
+	// this key opens every professor's Canvas token.
+	SecretsMasterKey []byte
+
+	// CanvasGraphQLURL is the Canvas GraphQL endpoint, or "" for the
+	// client's own default (UDP's). Validated when set.
+	CanvasGraphQLURL string
+}
+
+// SecretsConfigured reports whether a usable master key was configured, and
+// therefore whether anything that stores a per-professor secret can work.
+// Callers render "integración no configurada" rather than a form when it is
+// false; nothing panics.
+func (c Config) SecretsConfigured() bool {
+	return len(c.SecretsMasterKey) == secret.MasterKeySize
 }
 
 // Keys lists every variable this package reads, in the order an operator would
@@ -206,6 +261,7 @@ func Keys() []string {
 		KeyQuestionsJSONURL, KeyAmcWorkerURL, KeyWorkDir,
 		KeyMaxScanMB, KeyAnnotateEnabled,
 		KeyBankRefreshInterval,
+		KeySecretsMasterKey, KeyCanvasGraphQLURL,
 	}
 }
 
@@ -331,7 +387,88 @@ func Load(lookup LookupFunc) (Config, error) {
 		cfg.BankRefreshInterval = interval
 	}
 
+	masterKey, err := parseMasterKey(l.optional(KeySecretsMasterKey, ""))
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.SecretsMasterKey = masterKey
+
+	// Validated only when set, because empty means "use the client's
+	// default" rather than "unconfigured". A value that IS set and is not
+	// an absolute http(s) URL would otherwise fail on the first professor
+	// who pastes a token, with an error about Canvas rather than about
+	// this variable.
+	cfg.CanvasGraphQLURL = l.optional(KeyCanvasGraphQLURL, "")
+	if cfg.CanvasGraphQLURL != "" {
+		parsed, err := url.Parse(cfg.CanvasGraphQLURL)
+		switch {
+		case err != nil:
+			return Config{}, fmt.Errorf("%s=%q is not a URL: %w", KeyCanvasGraphQLURL, cfg.CanvasGraphQLURL, err)
+		case parsed.Scheme != "http" && parsed.Scheme != "https":
+			return Config{}, fmt.Errorf(
+				"%s=%q has scheme %q; it must be an absolute http or https URL",
+				KeyCanvasGraphQLURL, cfg.CanvasGraphQLURL, parsed.Scheme)
+		case parsed.Host == "":
+			return Config{}, fmt.Errorf("%s=%q names no host", KeyCanvasGraphQLURL, cfg.CanvasGraphQLURL)
+		case parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()):
+			// A Canvas token is a full-permission credential and it travels
+			// in an Authorization header on every profile load and every
+			// import. Over http that is a credential in clear on the wire,
+			// from a typo the server would otherwise boot healthy with
+			// (#271 review, SEC-2). Same reasoning as SecureCookie's, which
+			// exists because "a non-Secure cookie over https is a session
+			// token travelling in clear" — applied one variable over.
+			//
+			// Loopback stays legal so a local stub and the httptest servers
+			// in the suite keep working.
+			return Config{}, fmt.Errorf(
+				"%s=%q is http against a non-loopback host; a Canvas token would travel in clear. "+
+					"Use https, or a loopback host for a local stub",
+				KeyCanvasGraphQLURL, cfg.CanvasGraphQLURL)
+		}
+	}
+
 	return cfg, nil
+}
+
+// parseMasterKey decodes the base64 master key. An empty value is "not
+// configured" and yields nil; anything else must decode to exactly
+// secret.MasterKeySize bytes.
+//
+// No error here ever echoes the value, because the value IS the key: an
+// error string reaches stderr, and stderr reaches whatever collects
+// container logs. Same rule, and the same reason, as SafeDatabaseURL and
+// Config.LogValue.
+func parseMasterKey(raw string) ([]byte, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+	key, err := base64.StdEncoding.DecodeString(raw)
+	if err != nil {
+		return nil, fmt.Errorf(
+			"%s is not valid base64; generate it with `openssl rand -base64 32`", KeySecretsMasterKey)
+	}
+	if len(key) != secret.MasterKeySize {
+		return nil, fmt.Errorf(
+			"%s decodes to %d bytes; AES-256 needs exactly %d (`openssl rand -base64 32`)",
+			KeySecretsMasterKey, len(key), secret.MasterKeySize)
+	}
+	return key, nil
+}
+
+// isLoopbackHost reports whether a hostname names this machine.
+//
+// It checks the NAME rather than resolving it: resolution at boot would make
+// configuration validation depend on DNS, and a hostile resolver could turn
+// a loopback-looking name into a route off the machine. The three spellings
+// below are the ones a developer actually types.
+func isLoopbackHost(host string) bool {
+	switch strings.ToLower(host) {
+	case "localhost", "127.0.0.1", "::1", "[::1]":
+		return true
+	}
+	return false
 }
 
 // parsePositiveInt returns the value or the default (when raw is empty). A
@@ -404,6 +541,8 @@ func (c Config) LogValue() slog.Value {
 		slog.String("work_dir", c.WorkDir),
 		slog.Bool("annotate_enabled", c.AnnotateEnabled),
 		slog.String("bank_refresh_interval", c.BankRefreshInterval.String()),
+		slog.Bool("secrets_master_key_set", c.SecretsConfigured()),
+		slog.String("canvas_graphql_url", c.CanvasGraphQLURL),
 	)
 }
 
@@ -412,11 +551,11 @@ func (c Config) LogValue() slog.Value {
 // either.
 func (c Config) String() string {
 	return fmt.Sprintf(
-		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s annotate_enabled:%t bank_refresh_interval:%s}",
+		"config{addr:%s database:%s log_level:%s public_url:%s google_client_id:%s session_ttl:%s bootstrap_email_set:%t trust_proxy_headers:%t questions_json_url:%s amc_worker_url:%s work_dir:%s annotate_enabled:%t bank_refresh_interval:%s secrets_master_key_set:%t canvas_graphql_url:%s}",
 		c.Addr, c.SafeDatabaseURL(), c.LogLevel, c.PublicURL, c.GoogleClientID,
 		c.SessionTTL, c.BootstrapProfessorEmail != "", c.TrustProxyHeaders,
 		c.QuestionsJSONURL, c.AmcWorkerURL, c.WorkDir, c.AnnotateEnabled,
-		c.BankRefreshInterval,
+		c.BankRefreshInterval, c.SecretsConfigured(), c.CanvasGraphQLURL,
 	)
 }
 

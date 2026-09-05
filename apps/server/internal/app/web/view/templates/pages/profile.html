@@ -1,0 +1,150 @@
+{{ define "content" }}
+  <h1>Mi perfil</h1>
+
+  <p>{{ .Email }}{{ if .Name }} · {{ .Name }}{{ end }}</p>
+
+  <h2>Integración con Canvas</h2>
+
+  {{ if not .SecretsConfigured }}
+    {{/*
+      The deployment has no NALANDA_SECRETS_MASTER_KEY, so nothing can be
+      stored encrypted and no form is shown. This is a legal state
+      (ADR-0068 §Decision 3): the server boots without the key so a merge
+      never takes production down. The message names the variable because
+      the person who can fix it is the operator, and here that is usually
+      the professor reading this page.
+    */}}
+    <section class="aviso">
+      <p>
+        La integración con Canvas no está configurada en este servidor:
+        falta la variable <code>NALANDA_SECRETS_MASTER_KEY</code>, que es
+        la que permite guardar el token cifrado. Mientras no esté, no se
+        puede pegar ningún token.
+      </p>
+    </section>
+  {{ else if .Connected }}
+    {{ if .TokenNotice }}
+      {{/*
+        The stored token no longer decrypts — the server's master key
+        changed. Both forms below stay on screen on purpose: this page is
+        the only place a professor can replace or forget a token, and a
+        500 here would make ADR-0068's own rotation mitigation unreachable
+        (#271 review, SEC-1).
+      */}}
+      <section class="aviso"><p>{{ .TokenNotice }}</p></section>
+    {{ else }}
+      <p>
+        Token configurado. Nalanda puede leer tus cursos y sus listas de
+        estudiantes en Canvas.
+      </p>
+    {{ end }}
+    {{ if not .TokenNotice }}
+      <section class="aviso">
+        <p>
+          El token no se muestra de vuelta: queda cifrado y nadie —tampoco
+          esta página— puede volver a leerlo. Si lo perdiste o quieres
+          cambiarlo, pega uno nuevo y reemplaza el anterior.
+        </p>
+      </section>
+    {{ end }}
+
+    <form class="form" method="post" action="{{ .Action }}">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <p class="field">
+        <label for="token">Reemplazar el token</label>
+        <input id="token" type="password" name="token" value=""
+               autocomplete="off" spellcheck="false" required />
+        {{ with index .Errors "token" }}
+          <span class="error">{{ . }}</span>
+        {{ end }}
+      </p>
+      <p>
+        <button type="submit">Reemplazar</button>
+      </p>
+    </form>
+
+    <form class="form" method="post" action="{{ .ForgetAction }}">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <p><button type="submit">Eliminar el token</button></p>
+    </form>
+
+    {{ if not .TokenNotice }}
+    <h2>Tus cursos en Canvas</h2>
+
+    {{ if .CoursesNotice }}
+      <section class="aviso"><p>{{ .CoursesNotice }}</p></section>
+    {{ else if .Courses.Empty }}
+      <p>Canvas no muestra ningún curso para tu cuenta.</p>
+    {{ else }}
+      {{ if .Courses.Current }}
+        <p>Período {{ .Courses.CurrentTerm }}:</p>
+        <table class="lista">
+          <thead>
+            <tr><th>Código</th><th>Curso</th><th></th></tr>
+          </thead>
+          <tbody>
+            {{ range .CurrentRows }}
+              {{ template "coursePickRow" . }}
+            {{ end }}
+          </tbody>
+        </table>
+      {{ end }}
+
+    {{ end }}
+    {{ end }}
+  {{ else }}
+    <p>
+      Para importar la lista de estudiantes de un curso, Nalanda necesita
+      un token de acceso tuyo de Canvas. Lo generas en Canvas, en
+      <em>Cuenta → Configuración → Nuevo token de acceso</em>, y lo pegas
+      aquí.
+    </p>
+    <section class="aviso">
+      <p>
+        Queda guardado cifrado y no vuelve a mostrarse. Puedes revocarlo en
+        Canvas cuando quieras; Nalanda dejará de poder leer tus cursos.
+      </p>
+    </section>
+
+    <form class="form" method="post" action="{{ .Action }}">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <p class="field">
+        <label for="token">Token de Canvas</label>
+        <input id="token" type="password" name="token" value=""
+               autocomplete="off" spellcheck="false" required />
+        {{ with index .Errors "token" }}
+          <span class="error">{{ . }}</span>
+        {{ end }}
+      </p>
+      <p><button type="submit">Guardar</button></p>
+    </form>
+  {{ end }}
+{{ end }}
+
+{{/*
+  One row of the picker. Defined once and used by both tables, so the
+  "already added" state and the button cannot drift between them.
+
+  The form posts ONLY the Canvas id: every other field is looked up in the
+  professor's own Canvas listing by roster.Service.AddCourse. A hidden
+  field carrying the name or the code would let a hand-typed request invent
+  a course, or name one course while carrying another's id.
+*/}}
+{{ define "coursePickRow" }}
+  <tr>
+    {{ if .ShowTerm }}<td>{{ .Term }}</td>{{ end }}
+    <td>{{ .Code }}</td>
+    <td>{{ .Name }}</td>
+    <td>
+      {{ if .Added }}
+        <a href="/courses/{{ .CourseID }}">Ver el curso</a>
+      {{ else }}
+        <form class="inline" method="post" action="{{ .Action }}">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+          <input type="hidden" name="canvas_course_id" value="{{ .CanvasID }}" />
+          <button type="submit">Agregar a Nalanda</button>
+        </form>
+      {{ end }}
+    </td>
+  </tr>
+{{ end }}

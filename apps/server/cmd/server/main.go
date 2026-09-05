@@ -19,11 +19,18 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/oauthstate"
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
+	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
+	"github.com/so77id/nalanda/apps/server/internal/domain/secret"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker"
+	// Aliased because the domain package one import above owns the name:
+	// the domain is what the rest of this file talks about, and the
+	// adapter appears exactly once, in the constructor below.
+	canvasapi "github.com/so77id/nalanda/apps/server/internal/infra/canvas"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpserver"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc"
@@ -31,7 +38,9 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/coursestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/secretstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
 
@@ -205,6 +214,29 @@ func run(logger *slog.Logger) error {
 	}
 	go jobRunner.Start(ctx)
 
+	// Issue #271: the Canvas integration. The secret store is nil when the
+	// operator has not set NALANDA_SECRETS_MASTER_KEY — a legal, boot-able
+	// state (ADR-0068 §Decision 3), and canvas.Service renders it as
+	// "no configurada" rather than refusing to start. A key that IS set and
+	// malformed never reaches here: config.Load already failed the boot.
+	var canvasSecrets secret.Store
+	if cfg.SecretsConfigured() {
+		secrets, err := secretstore.New(db, cfg.SecretsMasterKey)
+		if err != nil {
+			// Unreachable for a key config.Load accepted; a panic at wiring
+			// time is what §Errors allows here, and silence would be a
+			// deployment that stores nothing while looking healthy.
+			panic("wiring the secret store: " + err.Error())
+		}
+		canvasSecrets = secrets
+	} else {
+		logger.Warn("the Canvas integration is disabled",
+			"reason", "no "+config.KeySecretsMasterKey+" is set",
+			"effect", "professors cannot store a Canvas token")
+	}
+	canvasService := canvas.NewService(canvasSecrets, canvasapi.New(cfg.CanvasGraphQLURL))
+	rosterService := roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvasService))
+
 	backoffice := web.Deps{
 		Database: storage.NewProber(db),
 		Gate: middleware.NewAuth(middleware.Auth{
@@ -238,6 +270,17 @@ func run(logger *slog.Logger) error {
 			Jobs:   jobStore,
 			Runner: jobRunner,
 			Log:    logger,
+		}),
+		Profile: handler.NewProfile(handler.Profile{
+			Canvas:    canvasService,
+			Roster:    rosterService,
+			PublicURL: cfg.PublicURL,
+			Log:       logger,
+		}),
+		Courses: handler.NewCourses(handler.Courses{
+			Roster:    rosterService,
+			PublicURL: cfg.PublicURL,
+			Log:       logger,
 		}),
 		AdminBank: handler.NewAdminBank(handler.AdminBank{
 			Bank:      liveBank,

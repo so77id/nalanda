@@ -207,6 +207,33 @@ func (f *controlsFixture) jstoreQueuedAndTerminalCount(ctx context.Context, cont
 	return c, nil
 }
 
+// jstoreTerminalCountByKind counts the control's TERMINAL jobs of one
+// kind.
+//
+// It exists because bucketing by status alone counts every kind at once,
+// and a control that has been created and uploaded to already carries a
+// terminal `generate` and a terminal `analyse` before the case under test
+// submits anything. A wait loop written as "terminal == 2" then passes
+// only if it happens to SAMPLE the instant the total is two — with the
+// analyse job standing in for one of the two rows the case is actually
+// about. It did, until migration 00014 (#271) shifted per-test setup by a
+// few milliseconds and the sampling window closed. The bug was in the
+// assertion, not in the runner: nothing about enqueue or dispatch
+// changed.
+func (f *controlsFixture) jstoreTerminalCountByKind(ctx context.Context, controlID string, kind jobs.Kind) (int, error) {
+	rows, err := f.jstoreRawByControl(ctx, controlID)
+	if err != nil {
+		return 0, err
+	}
+	n := 0
+	for _, j := range rows {
+		if j.Kind == kind && j.Status.IsTerminal() {
+			n++
+		}
+	}
+	return n, nil
+}
+
 // jstoreRawByControl reads every job for the control via the fixture's
 // database — jobs.Store doesn't expose "list by control" (its readers
 // are LatestForControl and ByID by design), and the test does not need

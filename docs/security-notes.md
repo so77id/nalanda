@@ -1014,3 +1014,94 @@ carries the full RUT (`"RUT actualizado a XXXXXXXX."`) — that is intended
 feedback to the same authenticated user who typed it, not a log or third-
 party sink; `flash.Set` scopes it to the session and it is cleared on the
 next render.
+
+### Real student identifiers were committed to this public repository (INCIDENT, 2026-09-05, #271)
+
+**What happened.** The S4 spike of #271 measured the Canvas contract against
+the real UDP instance, and the measured values were written into the
+repository as examples: the RUT, surname and institutional email address of
+**four** students of `CIT2006_CA01` (2026-2) reached `docs/decisions/0069-*.md`,
+`apps/server/CANVAS-CHECK.md` and roughly forty test fixtures across six Go
+files. `so77id/nalanda` is a **public** repository, and the branch was pushed.
+
+Not the whole roster — four people, not twenty-five — but a Chilean RUT is
+personal data under Ley 21.719, and it travelled with the name and the
+address that identify its owner.
+
+The same PR wrote the rule it broke. `CANVAS-CHECK.md` §Notes says: *"A
+course id is not a secret, but a roster is: the JSON from step 3 carries real
+students' names, addresses and national identifiers. Do not paste it into an
+issue, a PR, or a chat."* It was written fifty lines below a document that
+already carried two of those identifiers.
+
+**How it was found.** Not by review of the code, and not by any test. The
+documentation-accuracy lens of the review pipeline checked whether the
+repository was public rather than assuming it, ran
+`gh repo view so77id/nalanda --json visibility`, and then grepped the tree
+for the identifiers the same PR's own documents forbade.
+
+**Correction.** Every real value was replaced with a synthetic one that keeps
+the SHAPE the measurement established — eight digits plus a verifier, one `K`
+case, `"APELLIDOS, NOMBRES"` with accents, a `@mail.udp.cl` address — so
+every test still asserts exactly what it asserted before. The branch history
+was then rewritten and force-pushed, so no referenced commit carries the
+values. GitHub keeps unreferenced objects reachable by exact SHA until it
+collects them; that residual is accepted.
+
+**The rule this incident buys, and it is the point of the entry:**
+
+> **A measurement taken against real personal data is SYNTHESISED before it
+> is written down.** Keep the shape — the length, the alphabet, the
+> separators, the edge case that made the measurement worth taking — and
+> change the values. Say in the document that the examples are synthesised
+> from a measurement rather than copied from one, so the next reader does
+> not restore "realism" that was removed on purpose.
+
+It applies to ADRs, to CHECK procedures, to test fixtures and to commit
+messages equally. The spike that produces the numbers is exactly the moment
+the temptation is strongest, because the real values are what prove the
+measurement happened — and a synthetic value with the same shape proves it
+just as well.
+
+**Review trigger:** any future spike that measures against production data —
+the Canvas roster, a scanned control, a grade export. Also the first time
+`CANVAS-CHECK.md` is run by someone who is not the professor whose students
+these are.
+
+**Related:** ADR-0068 §Consequences (the roster's own PII, unencrypted and
+in every nightly off-host backup), and the §"Logs and personal data" entry
+above, whose masking rule covers log lines and did not reach documents.
+
+### The roster is personal data, unencrypted, and leaves the host nightly (accepted 2026-09-05, #271)
+
+From #271 the server stores, for every student of every imported course:
+given names, surnames, institutional email address, and the RUT split into
+its eight-digit body and its verifier. Twenty-five rows on the first real
+import.
+
+**Where it goes.** `infra/deploy/jetson/backup.sh` runs `sqlite3 .backup`
+over the whole database and `aws s3 cp`s it off-host on a nightly cron, so
+the roster leaves the Jetson every night — the same path ADR-0068 §Context
+invokes as the reason the Canvas token is encrypted at all.
+
+**What covers it.** At the backup layer only, and it is real:
+`infra/deploy/jetson/provision-jetson-iam.sh` sets SSE-S3 encryption at rest,
+blocks public access in all four dimensions and grants least-privilege IAM;
+`infra/deploy/jetson/nalanda-jetson-bucket-lifecycle.json` expires everything
+under `backups/` after 30 days.
+
+**What does not.** There is no application-layer deletion path: no route and
+no store method deletes a course, a student or an enrolment. `withdrawn` is
+a state, not a deletion, and ADR-0069 §Decision 4 explains why the enrolment
+must survive — a student who dropped still sat the controls they sat. **A
+student who asks to be removed cannot be, today.**
+
+Accepted because the fields are the working data of every query WP-2 and
+WP-3 run, and encrypting a join key would end the feature. The masking rule
+in §"Logs and personal data" continues to hold for the new `slog` callers in
+`handler/courses.go` and `handler/profile.go`: they log professor ids and
+error chains, never a RUT.
+
+**Review trigger:** epic #270's WP-3 (#273), the first WP that emails these
+people — and the first deletion request, whichever arrives first. That WP
+owes the deletion path this entry records as missing.

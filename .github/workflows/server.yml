@@ -120,6 +120,8 @@ jobs:
             -e NALANDA_MAX_SCAN_MB=100 \
             -e NALANDA_ANNOTATE_ENABLED=true \
             -e NALANDA_BANK_REFRESH_INTERVAL=5m \
+            -e NALANDA_SECRETS_MASTER_KEY= \
+            -e NALANDA_CANVAS_GRAPHQL_URL= \
             -v "$GITHUB_WORKSPACE/ci-work:/work:ro" \
             -p 127.0.0.1:8081:8081 \
             nalanda/server:ci
