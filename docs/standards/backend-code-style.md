@@ -53,10 +53,20 @@ apps/server/
   internal/domain/   business types and the interfaces they need — PURE
   internal/app/web/  the professor's backoffice (server-rendered)
   internal/app/api/  the JSON/WS surface for anonymous students
-  internal/infra/    adapters: config, storage (+ authstore), httpserver,
-                     httpjson, selfcheck, oidc
+  internal/infra/    adapters, one directory per outside thing. A store goes
+                     under internal/infra/storage/<area>store/ (and only that
+                     family may name a driver); a client for someone else's
+                     HTTP API gets its own internal/infra/<service>/ —
+                     amcworker (ADR-0030), oidc (ADR-0036) and canvas
+                     (ADR-0069) are the three shapes to copy. Cross-cutting
+                     machinery (config, httpserver, httpjson, selfcheck)
+                     sits beside them.
   migrations/        goose SQL migrations, embedded
 ```
+
+This tree states the RULE; `ls internal/infra` is the current list, and
+nothing keeps the two in sync. An enumeration here drifted for three WPs
+running before it was replaced with the rule above (#271 review, AGR-9).
 
 ### The dependency rule
 

@@ -3,7 +3,7 @@
 **Status:** Accepted
 **Date:** 2026-08-16
 **Decision-makers:** Miguel Rodriguez
-**Amended by:** #150 (2026-08-16) — the empty `00001_init.sql` was deleted and the auth schema numbered `00002`; the image measured 12.2 MB after the port · #166 (2026-08-17) — WP-E landed and the server now shares the `amc-work` named volume with `apps/amc-worker`; the two-container seeding-order rule is recorded in §Consequences · #249 (2026-08-27) — the "row is committed AND files are on disk, or neither" atomicity of `Service.Create` and `Service.UploadScan` is now bounded to their SYNC halves (`Service.PrepareControl`, `Service.SaveUploadedBatch`); the async halves (`Service.GenerateAssets`, `Service.AnalyzeBatch`) deliberately preserve the row + files on worker refusal so the professor does not lose the pool snapshot to a transient outage. The full runner design lives in ADR-0050 · #261 (2026-08-27) — deleting a control is now a two-step archive → purge, with soft-delete on `deleted_at` (migration `00013`) and a typed-name confirmation on the destructive step; the ON DELETE CASCADEs this ADR §Consequences left on `control_pregunta`, `copia`, `reading`, `answer`, `annotated_copy` and `job` are what makes the purge one statement. Full three-gate design in ADR-0052.
+**Amended by:** #150 (2026-08-16) — the empty `00001_init.sql` was deleted and the auth schema numbered `00002`; the image measured 12.2 MB after the port · #166 (2026-08-17) — WP-E landed and the server now shares the `amc-work` named volume with `apps/amc-worker`; the two-container seeding-order rule is recorded in §Consequences · #249 (2026-08-27) — the "row is committed AND files are on disk, or neither" atomicity of `Service.Create` and `Service.UploadScan` is now bounded to their SYNC halves (`Service.PrepareControl`, `Service.SaveUploadedBatch`); the async halves (`Service.GenerateAssets`, `Service.AnalyzeBatch`) deliberately preserve the row + files on worker refusal so the professor does not lose the pool snapshot to a transient outage. The full runner design lives in ADR-0050 · #261 (2026-08-27) — deleting a control is now a two-step archive → purge, with soft-delete on `deleted_at` (migration `00013`) and a typed-name confirmation on the destructive step; the ON DELETE CASCADEs this ADR §Consequences left on `control_pregunta`, `copia`, `reading`, `answer`, `annotated_copy` and `job` are what makes the purge one statement. Full three-gate design in ADR-0052. · #271 (2026-09-05)
 **Source:** #149 (WP-C1), design `docs/design/2026-08-controles.md` §C10, §C11
 
 ## Context
@@ -61,7 +61,29 @@ migrations/        goose SQL migrations, embedded
 Both surfaces are drawn now, before there is traffic across either, so the
 boundary is a starting condition rather than a refactor.
 
-**The dependency rule is enforced by a test, not by good intentions.** Three
+**The dependency rule is enforced by a test, not by good intentions — for the
+three edges a package graph can see.
+
+**Amendment (#271, 2026-09-05): there is a FOURTH edge, and it is
+review-only.** "A delivery surface depends on a domain SERVICE, never on the
+store behind it." The guard cannot see it: handler and store are already
+allowed to share a package graph through the domain, so no walk of that
+graph distinguishes `deps.Roster.CoursesWithCounts()` from
+`deps.Roster.Store.ListEnrollments()`. Its check is a grep
+(`grep -rn '\.Store\.' internal/app/**/handler/*.go` returns nothing), and
+`backend-code-style.md` §The dependency rule states it.
+
+This amendment exists because the edge has now been violated and re-fixed
+TWICE — WP-E's review removed a second injected `Store` field from a handler
+struct, and #271's review removed a `c.Roster.Store.ListEnrollments`
+reach-through — and both times the rule lived only in a code comment, four
+files away from the next violation. §Alternatives below rejects "documenting
+the dependency rule instead of testing it", and that rejection stands for
+the three edges a test CAN hold. Accepting a review-only fourth edge is a
+narrowing of it, taken deliberately: the cheaper alternative, a
+source-scanning test in the shape of `TestEveryVariableReachesAllFourHomes`,
+is the one a future WP should reach for if this edge is broken a third
+time.** Three
 edges: `internal/domain` imports neither `internal/app` nor `internal/infra` nor
 any third-party package; `internal/infra` does not import `internal/app`, since
 adapters sit beneath the surfaces rather than beside them; and the two surfaces

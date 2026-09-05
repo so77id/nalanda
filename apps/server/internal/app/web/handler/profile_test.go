@@ -489,7 +489,7 @@ func (f *profileFixture) connect(t *testing.T, session string) {
 	}
 }
 
-func TestThePickerLeadsWithTheCurrentTermAndHidesTheRest(t *testing.T) {
+func TestThePickerOffersOnlyTheCurrentTerm(t *testing.T) {
 	f := newProfileFixture(t, profileKey())
 	_, session := f.signIn(t)
 	f.api.courses = canvasCourses()
@@ -498,28 +498,26 @@ func TestThePickerLeadsWithTheCurrentTermAndHidesTheRest(t *testing.T) {
 	body := f.get(t, session).Body.String()
 
 	if !strings.Contains(body, "Período 2026-2") {
-		t.Errorf("the page does not lead with the current term:\n%s", body)
+		t.Errorf("the page does not name the current term:\n%s", body)
 	}
-	// Both sections of the current semester are in the open table, so a
-	// professor teaching two does not have to open the disclosure.
-	current := body[strings.Index(body, "Período 2026-2"):]
-	if idx := strings.Index(current, "<details>"); idx >= 0 {
-		current = current[:idx]
-	}
+	// Both sections of the current semester, so a professor teaching two
+	// sees both.
 	for _, code := range []string{"CIT2006_CA01", "CIT2006_CA02"} {
-		if !strings.Contains(current, code) {
-			t.Errorf("%s is not in the current-term table", code)
+		if !strings.Contains(body, code) {
+			t.Errorf("%s is not offered", code)
 		}
 	}
-	// The older ones are present but behind the disclosure.
-	if !strings.Contains(body, "Otros períodos (2)") {
-		t.Errorf("the disclosure does not report the two older courses:\n%s", body)
+	// And nothing else. The professor's stated need is the course being
+	// taught now; a finished course is not something to offer by one click,
+	// and importing one writes a roster nobody will use.
+	if strings.Contains(body, "Inducción a la docencia") {
+		t.Error("a course from Canvas's default term is offered")
 	}
-	if strings.Contains(current, "Inducción a la docencia") {
-		t.Error("the default-term course was rendered as part of the current term")
+	if strings.Contains(body, "2023-2") {
+		t.Error("a course from a past term is offered")
 	}
-	if !strings.Contains(body, "Inducción a la docencia") {
-		t.Error("the default-term course is unreachable — it should be behind the disclosure")
+	if strings.Contains(body, "Otros períodos") {
+		t.Error("the older-terms disclosure is back")
 	}
 }
 

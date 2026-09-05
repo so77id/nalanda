@@ -49,9 +49,11 @@ func TestSortEnrollmentsFoldsAccentsRatherThanSortingThemAfterZ(t *testing.T) {
 	}
 	roster.SortEnrollments(got)
 
+	// Folded, the order is A, B, M, N, O, Z — the accents change nothing,
+	// which is the whole point.
 	want := []string{
-		"ÁVILA MUÑOZ", "BRAVO SOTO", "ÑUÑEZ ROJAS",
-		"ORDÓÑEZ LARA", "MUÑOZ ÁVILA", "ZUNIGA PEREZ",
+		"ÁVILA MUÑOZ", "BRAVO SOTO", "MUÑOZ ÁVILA",
+		"ÑUÑEZ ROJAS", "ORDÓÑEZ LARA", "ZUNIGA PEREZ",
 	}
 	for i := range want {
 		if surnames(got)[i] != want[i] {

@@ -144,14 +144,13 @@ func TestChoicesPutsTheCurrentTermFirstAndTheRestBehind(t *testing.T) {
 		t.Errorf("Current = %q, %q; want the two sections in code order",
 			choices.Current[0].Code, choices.Current[1].Code)
 	}
-	if len(choices.Older) != 2 {
-		t.Fatalf("Older has %d courses, want 2: %+v", len(choices.Older), choices.Older)
-	}
-	// The 2023 course before the one with no term start at all: an absent
-	// date sorts last, never first.
-	if choices.Older[0].CanvasID != "23334" || choices.Older[1].CanvasID != "47743" {
-		t.Errorf("Older = %q, %q; want the 2023 course before the one with no term start",
-			choices.Older[0].CanvasID, choices.Older[1].CanvasID)
+	// And NOTHING else is offered. The professor's stated need is the course
+	// being taught now; an old course is not something to make reachable by
+	// one click.
+	for _, c := range choices.Current {
+		if c.Term != "2026-2" {
+			t.Errorf("%s (%s) is offered and is not in the current term", c.CanvasID, c.Term)
+		}
 	}
 }
 
@@ -172,9 +171,9 @@ func TestACourseWithNoTermStartNeverBecomesTheCurrentTerm(t *testing.T) {
 	}
 }
 
-// When nothing has a term start, there is no "current" to speak of and
-// everything is reachable through the disclosure rather than lost.
-func TestWithNoTermStartsAtAllEverythingIsOlder(t *testing.T) {
+// When nothing has a term start, there is no "current" to narrow to and
+// everything is offered rather than nothing.
+func TestWithNoTermStartsAtAllEveryCourseIsOffered(t *testing.T) {
 	svc := roster.NewService(&memStore{}, &fakeSource{courses: []roster.SourceCourse{
 		{CanvasID: "1", Code: "A", Term: "Período predeterminado"},
 		{CanvasID: "2", Code: "B", Term: "Período predeterminado"},
@@ -184,11 +183,14 @@ func TestWithNoTermStartsAtAllEverythingIsOlder(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Choices: %v", err)
 	}
-	if len(choices.Current) != 0 || choices.CurrentTerm != "" {
-		t.Errorf("Current = %+v with term %q, want empty", choices.Current, choices.CurrentTerm)
+	// The FALLBACK: with no term start anywhere there is no "most recent"
+	// to narrow to, so everything is offered rather than nothing. An empty
+	// picker with no explanation would be worse than a long one.
+	if choices.CurrentTerm != "" {
+		t.Errorf("CurrentTerm = %q, want empty when no course carries a term start", choices.CurrentTerm)
 	}
-	if len(choices.Older) != 2 {
-		t.Errorf("Older has %d, want both courses reachable", len(choices.Older))
+	if len(choices.Current) != 2 {
+		t.Errorf("Current has %d, want both courses offered by the fallback", len(choices.Current))
 	}
 	if choices.Empty() {
 		t.Error("Empty() is true while two courses are listed")

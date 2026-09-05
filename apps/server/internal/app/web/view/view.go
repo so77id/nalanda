@@ -226,19 +226,16 @@ type CoursePickRow struct {
 	roster.CoursePick
 	CSRFToken string
 	Action    string
-	// ShowTerm is true in the older-periods table, where the term is what
-	// tells two years of the same course apart.
+	// ShowTerm is unused today: the picker only ever renders one term, and
+	// its name is the table's heading. Kept because the row template is the
+	// one place a second table would reuse.
 	ShowTerm bool
 }
 
-// CurrentRows is the current term's picker rows.
+// CurrentRows is the picker's rows — the current term's courses, which is
+// all the picker offers (roster.CourseChoices).
 func (p ProfilePage) CurrentRows() []CoursePickRow {
 	return p.pickRows(p.Courses.Current, false)
-}
-
-// OlderRows is every other term's, for the disclosure.
-func (p ProfilePage) OlderRows() []CoursePickRow {
-	return p.pickRows(p.Courses.Older, true)
 }
 
 func (p ProfilePage) pickRows(picks []roster.CoursePick, showTerm bool) []CoursePickRow {

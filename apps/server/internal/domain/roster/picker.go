@@ -21,24 +21,29 @@ type CoursePick struct {
 	CourseID int64
 }
 
-// CourseChoices is what the picker renders.
+// CourseChoices is what the picker renders: the courses of the most recent
+// term, and nothing else.
 //
-// Split rather than one long list because the professor's stated need is
-// one course — the current semester's — and `allCourses` returns every
-// course they have ever been enrolled in (16 for the professor measured in
-// S4, back to 2020). Current carries the most recent term; Older carries
-// the rest, behind a disclosure so nothing is unreachable (ADR-0069
-// §Decision 5).
+// `allCourses` returns every course the professor has ever been enrolled in
+// — 16 for the one measured in S4, back to 2020 — and the stated need is the
+// course being taught now. An earlier revision kept the rest behind a
+// disclosure; it was dropped because an old course is not something to make
+// reachable by one click, it is something to make unreachable: importing a
+// finished course writes a roster nobody will use, and its students are all
+// `completed`, which is exactly the state that turned out to be dangerous
+// (ADR-0069 §Decision 4).
+//
+// A professor teaching two sections in one term sees both — the grouping key
+// is the term NAME, not the course.
 type CourseChoices struct {
 	// CurrentTerm is the term Current belongs to, for the heading. Empty
-	// when Canvas listed no course with a term start at all.
+	// when no course carries a term start at all — see split.
 	CurrentTerm string
 	Current     []CoursePick
-	Older       []CoursePick
 }
 
-// Empty reports whether Canvas listed nothing at all.
-func (c CourseChoices) Empty() bool { return len(c.Current) == 0 && len(c.Older) == 0 }
+// Empty reports whether the picker has nothing to offer.
+func (c CourseChoices) Empty() bool { return len(c.Current) == 0 }
 
 // Service is the policy over the roster.
 type Service struct {
@@ -81,20 +86,21 @@ func (s *Service) Choices(ctx context.Context, userID int64) (CourseChoices, err
 	return split(fromCanvas, added), nil
 }
 
-// split turns the source's courses into the picker's two groups.
+// split returns the courses of the most recent term.
 //
 // "Most recent" is decided by the term's start, descending, with a course
-// whose term has no start sorting LAST: Canvas's default term carries a
-// null start (2 of the 16 courses measured in S4), and treating an absent
-// date as the beginning of time would put those two at the top, above the
-// course the professor actually wants.
+// whose term has no start sorting LAST: Canvas's default term carries a null
+// start (2 of the 16 courses measured in S4), and treating an absent date as
+// the beginning of time would put "Inducción a la docencia" at the top,
+// above the course the professor actually came for.
 //
 // The grouping key is the TERM NAME, so every course of the current
-// semester travels together — a professor teaching two sections sees both.
+// semester travels together.
 //
-// It builds each CoursePick from its own SourceCourse rather than zipping
-// two slices by index: the two would silently drift apart the first time
-// either list is filtered.
+// FALLBACK: when NO course carries a term start, there is no "most recent"
+// to narrow to, and every course is offered. Otherwise a professor whose
+// courses all sit in Canvas's default term would meet an empty picker with
+// nothing to click and no way to tell why.
 func split(sources []SourceCourse, added map[string]Course) CourseChoices {
 	ordered := make([]SourceCourse, len(sources))
 	copy(ordered, sources)
@@ -102,8 +108,6 @@ func split(sources []SourceCourse, added map[string]Course) CourseChoices {
 	sort.SliceStable(ordered, func(i, j int) bool {
 		a, b := ordered[i], ordered[j]
 		if (a.TermStart == "") != (b.TermStart == "") {
-			// A term with no start goes after one that has a start,
-			// whatever the dates say.
 			return b.TermStart == ""
 		}
 		if a.TermStart != b.TermStart {
@@ -125,13 +129,9 @@ func split(sources []SourceCourse, added map[string]Course) CourseChoices {
 	if len(ordered) == 0 {
 		return choices
 	}
-
-	// The first row after sorting names the current term — unless nothing
-	// has a term start at all, in which case there is no "current" to speak
-	// of and everything is Older.
 	if ordered[0].TermStart == "" {
 		for _, c := range ordered {
-			choices.Older = append(choices.Older, pickOf(c))
+			choices.Current = append(choices.Current, pickOf(c))
 		}
 		return choices
 	}
@@ -140,9 +140,7 @@ func split(sources []SourceCourse, added map[string]Course) CourseChoices {
 	for _, c := range ordered {
 		if c.Term == choices.CurrentTerm {
 			choices.Current = append(choices.Current, pickOf(c))
-			continue
 		}
-		choices.Older = append(choices.Older, pickOf(c))
 	}
 	return choices
 }

@@ -2,6 +2,7 @@ package secret_test
 
 import (
 	"bytes"
+	"encoding/hex"
 	"strings"
 	"testing"
 
@@ -212,4 +213,53 @@ func flip(blob []byte, i int) []byte {
 	out := bytes.Clone(blob)
 	out[i] ^= 0x01
 	return out
+}
+
+// The frozen vector, and the reason it exists.
+//
+// ADR-0068 §Decision 1 calls the on-disk layout LOCKED and says the two
+// tests above pin it. They do not: they pin the ARITHMETIC (12 + n + 16),
+// and reordering the envelope to `tag || ciphertext || nonce` in both Seal
+// and Open keeps the whole suite green while making every ciphertext
+// already on disk unopenable — the exact failure the ADR claims is caught
+// (#271 review, DAC-8). "Never let a comment claim what the suite does not
+// verify" is this repo's rule, so here is the verification.
+//
+// The blob below was produced ONCE, by Seal, under the key and AAD named
+// here, and is frozen. It is not regenerated: a test that re-seals and
+// re-opens proves the code agrees with itself, which is what the round-trip
+// case already does. What this proves is that TODAY's code can still open
+// YESTERDAY's bytes.
+//
+// If this case fails, do not update the constant. It means the layout
+// changed, and the question to answer first is what happens to the
+// ciphertexts already in production.
+const frozenBlobHex = "14392a76a49f16d2b9cddc86dd09897d1ea66567d35df77e93b05aa7ab5ff59b" +
+	"598d74d20b4d9bb02adbb5057afe1a42"
+
+const frozenPlaintext = "1234~elTokenDePrueba"
+
+func TestTodaysCodeStillOpensAFrozenBlob(t *testing.T) {
+	blob, err := hex.DecodeString(frozenBlobHex)
+	if err != nil {
+		t.Fatalf("decoding the frozen vector: %v", err)
+	}
+
+	got, err := secret.Open(blob, key32(1), secret.AAD(7, "canvas", "token"))
+	if err != nil {
+		t.Fatalf("the frozen blob no longer opens: %v\n\n"+
+			"The on-disk layout or the AAD encoding changed. Every ciphertext "+
+			"already stored is now unopenable — decide what happens to those "+
+			"before touching this constant (ADR-0068 §Decision 1).", err)
+	}
+	if string(got) != frozenPlaintext {
+		t.Errorf("the frozen blob opened to %q, want %q", got, frozenPlaintext)
+	}
+
+	// Non-vacuity: the vector must be tied to its AAD, not merely
+	// decryptable. A test that passed under any AAD would say nothing about
+	// the binding this package exists for.
+	if _, err := secret.Open(blob, key32(1), secret.AAD(8, "canvas", "token")); err == nil {
+		t.Error("the frozen blob opened under another professor's AAD")
+	}
 }

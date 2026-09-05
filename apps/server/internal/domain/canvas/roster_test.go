@@ -18,10 +18,10 @@ func TestSplitSISIDTakesTheVerifierOffTheBody(t *testing.T) {
 		wantDV  string
 	}{
 		// The four shapes actually observed on course CIT2006_CA01, 2026-2.
-		{"a measured student", "112223335", "11222333", "5"},
-		{"another measured student", "115556667", "11555666", "3"},
-		{"a measured student with a K verifier", "11222444K", "11222444", "K"},
-		{"a measured student ending in 2", "116667778", "11666777", "2"},
+		{"the shape measured on 25 of 25 students", "112223335", "11222333", "5"},
+		{"another synthetic student", "115556667", "11555666", "7"},
+		{"the K verifier, 4 of 25 measured", "11222444K", "11222444", "K"},
+		{"a synthetic student ending in 8", "116667778", "11666777", "8"},
 
 		// Shapes the importer must handle rather than pass through.
 		{"a lowercase k is folded", "11222444k", "11222444", "K"},

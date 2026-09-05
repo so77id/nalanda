@@ -330,3 +330,47 @@ than a 404 so a double-click is not a stack trace.
 - [ ] Docs the change obligated ship in the same PR
       (`documentation.md`), and an ADR exists if the change was architectural
       (`documentation.md` §Rules 2).
+
+## A pattern the Canvas import adds — the third-party call inside the request
+
+Born with issue #271. The chain, worked:
+
+```
+handler.Courses.ImportCanvas          the surface
+  → roster.Service.Import             the policy, and the only thing it calls
+    → roster.CourseSource (port)      declared in roster, where it is consumed
+      → canvas.Service.RosterFor      reads and decrypts the professor's token
+        → infra/canvas.Client.Roster  the HTTP adapter, stateless
+    → roster.Store.SaveRoster         one transaction, all or nothing
+```
+
+Three rules, each bought by a review finding:
+
+1. **Synchronous is allowed when the call is bounded and the professor is
+   waiting** — but the handler imposes its OWN deadline. ADR-0050's
+   async-by-construction rule is scoped to the AMC worker's minutes-class
+   work (amended by #271); a handful of GraphQL round trips is not that. The
+   deadline is not optional and it cannot be inherited: `http.Server`'s
+   `WriteTimeout` **neither aborts a handler nor cancels `r.Context()`** —
+   measured in the #271 review — so without a `context.WithTimeout` below it
+   a slow third party commits its work into a connection nobody is
+   listening to. Worked case: `importDeadline` in `handler/courses.go`.
+2. **A per-professor credential is read through `secret.Store`, and its
+   unconfigured state is a RENDERED page, never a 500.** The deployment may
+   legitimately have no master key (ADR-0068 §Decision 3), and a stored
+   secret may stop decrypting after a key rotation — in which case the page
+   must still carry the forms that fix it. A 500 there made the ADR's own
+   rotation mitigation unreachable (#271 review, SEC-1).
+3. **The third party's failures reach the professor distinguishable.**
+   "Canvas said no" and "Canvas did not answer" are different sentences and
+   different actions: one means paste a new token, the other means wait. A
+   handler that flattens them tells a professor with a working token to go
+   and generate another one.
+
+And the guide's own checklist gains two lines:
+
+- [ ] A handler that reaches a third party imposes its own
+      `context.WithTimeout`, below `httpserver`'s `WriteTimeout`.
+- [ ] The handler holds the domain **Service**, never `Service.Store` —
+      `grep -rn '\.Store\.' internal/app/**/handler/*.go` returns nothing
+      (`backend-code-style.md` §The dependency rule, edge 4).

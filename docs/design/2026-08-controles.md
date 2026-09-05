@@ -185,7 +185,7 @@ next to RUTs; step 7 grows email delivery and Canvas grade posting.
 | F ✅ | V1 | [#167](https://github.com/so77id/nalanda/issues/167) | **Read scans, manual review queue** — the Escaneos box turns live, `/analyse` runs from a PDF upload, readings/answers/overrides persist through `controls.ReadingStore`, the results table + side-by-side review page ship, and *Cerrar corrección* moves the control to `graded`. Grades indexed by `rut_leido`; the review queue exists for RUTs the scanner cannot read (no roster to match against in V1). Rider on the paper check (§Not yet proven) — the reader is not confirmed. | E, **+ paper check** |
 | #190 ✅ | V1 | [#190](https://github.com/so77id/nalanda/issues/190) | **Every copy ends with its corrected PDF** — AMC annotates one copy per call (`/annotate/copy`), patched through `capture_zone.manual` so the PDF reflects the professor's overrides (ADR-0048). Auto after upload for `ok` copies, re-generated on every review save; the review page embeds it and falls back to the raw scan. `OnCorrectionClosed` hook fires on close (no-op today). Files named `copy-N.pdf` — NO roster involved; the per-student naming stays in G | E, F |
 | #251 ✅ | V1 | [#251](https://github.com/so77id/nalanda/issues/251) | **Statistics panel** — once `Cerrar corrección` moves a control to `graded`, `/controles/{id}` grows a statistics panel: N rendidos vs Y copias, promedio / mediana / moda / desviación / mín-máx / rango, % aprobación (≥ 4,0) / excelencia (≥ 6,0) / reprobación grave (< 3,0), histogram by decimal, boxplot with outliers, and per-question item analysis (dificultad, distribución de alternativas A/B/C/D/E, biserial-punto discrimination, % blanco vs % errada). Pure read: no persistence, no worker call, no cache. Grade math flows through `controls.NumericGrade`, the numeric back door of `TotalAndGrade`, so the panel and the readings table cannot disagree. Course-model comparatives (agrupación por tema, comparativas entre controles) and per-control cut are non-goals until the curso-vivo epic lands | F |
-| D | V2 | [Discussion #163](https://github.com/so77id/nalanda/discussions/163) | **Course and roster, Canvas import** — the roster tables, the Canvas GraphQL fetch, and the migration that populates `student_id` retroactively on V1's historical readings | C1, and a Canvas token (Miguel generates one in his UDP account) |
+| D | **#271 ✅ (parcial)** | [#271](https://github.com/so77id/nalanda/issues/271) · épica [#270](https://github.com/so77id/nalanda/issues/270) | **Curso y roster, importación desde Canvas.** #271 entregó las tablas (`course`, `student`, `enrollment`, `user_secrets`), el cliente de Canvas, el token cifrado del profesor y las pantallas `/profile` y `/courses`. Queda para [#272](https://github.com/so77id/nalanda/issues/272): el cruce `reading.rut_read` ↔ `student.rut` y la migración que rellena `student_id` retroactivamente sobre las lecturas históricas de V1 | C1, y un token de Canvas |
 | G | V2 | [Discussion #163](https://github.com/so77id/nalanda/discussions/163) | **Publish grades and per-student annotated PDFs** — CSV export, email, Canvas grade posting; and **one annotated PDF per student**, invoking `apps/amc-worker`'s `/annotate` with the real roster D provides (files nombrados por alumno, no por `copy-N`). The copy-numbered annotated PDF shipped in #190 (ADR-0048) without a roster; what remains for G is the per-STUDENT naming plus delivery. Runs retroactively over V1 readings the day D lands, because `readings.rut_read` + `rut_override` already carry the identity `/annotate` needs. Moved to V2 (2026-08-17): V1 grades live in the database and on the web table; if Miguel needs to move them somewhere else before V2, a query against the SQLite file gets them out. Per-student annotated PDF confirmed as V2 (2026-08-17, refinement conversation) — /annotate needs a roster, WP-D delivers it, doing it in V1 would be a synthesised roster hack | D, F |
 
 **C was split into three** in the design conversation of 2026-08-16, and the
@@ -272,12 +272,17 @@ and the permanent choice is still open.
 
 ## Open questions
 
-- **Where the RUT lives in UDP's Canvas.** In Chilean universities `sis_user_id`
-  is often the RUT, but that depends on the institution's SIS integration and
-  must be verified against the real instance, not assumed. Needs a personal
-  access token generated in `https://udp.instructure.com/` → Account →
-  Settings → New Access Token, then explored in `/graphiql`. **V2** — blocks
-  WP-D, does not block V1.
+- **Where the RUT lives in UDP's Canvas — ANSWERED (2026-09-04, #271,
+ADR-0069).** It is `user.sisId`, and it carries the verifier: nine
+characters, no separators (`112223335`, `11222444K`), measured on 25 of 25
+students of the live 2026-2 course. Not `loginId`, which is the email
+address for all 25. The printed sheet reads `\AMCcode{rut}{8}` — eight
+digits, no verifier — so the two are NOT the same string, which is the
+collision the spike existed to find; `student.rut` stores the eight-digit
+body and `student.rut_dv` the verifier. Full contract, including the
+enrolment states a past-term course returns, in ADR-0069.
+
+
 - **V1's grade export shape.** CSV is decided (C19); the exact columns and
   whether it also lands as a Google Sheet the professor keeps open in another
   tab is a WP-G decision. Email and Canvas grade posting are V2.

@@ -48,10 +48,19 @@ changes.
 - **Master key** from the environment, 32 bytes.
 
 The layout is **locked**: changing it invalidates every ciphertext already
-written, and nothing in this repository would notice before a professor's
-token stopped decrypting.
-`TestTheSealedBlobCarriesItsNonceAndTagAroundTheCiphertext` and
-`TestAADSeparatesItsThreeFieldsUnambiguously` are what pin it.
+written. Three cases hold it, and it is worth being exact about which does
+what, because the first version of this paragraph over-claimed (#271 review,
+DAC-8):
+
+- `TestTheSealedBlobCarriesItsNonceAndTagAroundTheCiphertext` pins the
+  ARITHMETIC — 12 + n + 16 — and nothing about the ORDER.
+- `TestAADSeparatesItsThreeFieldsUnambiguously` pins the AAD encoding.
+- `TestTodaysCodeStillOpensAFrozenBlob` pins the layout itself: a blob
+  sealed once, frozen in the test, that today's `Open` must still read.
+  Without it, swapping the envelope to `tag || ciphertext || nonce` in both
+  `Seal` and `Open` left the whole suite green while making every stored
+  ciphertext unopenable — which is precisely the failure this paragraph
+  claimed was caught.
 
 ### 2. The SQLite adapter moves out of the domain
 

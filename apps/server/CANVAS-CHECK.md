@@ -11,11 +11,21 @@ Nothing in this repository can test Canvas. The suite drives a fake
 
 "The Canvas path" means: the GraphQL queries in
 `internal/infra/canvas/canvas.go`, the normalisation in
-`internal/domain/canvas/roster.go`, the token round trip on `/profile`, or
-`NALANDA_CANVAS_GRAPHQL_URL`.
+`internal/domain/canvas/roster.go`, **the import — `handler.ImportCanvas`,
+`roster.Service.Import` and `coursestore.SaveRoster`** — the token round trip
+on `/profile`, or `NALANDA_CANVAS_GRAPHQL_URL`.
 
-Last run: **2026-09-04**, issue #271 S4, against course `44779`
-(`CIT2006_CA01`, term `2026-2`). Results in ADR-0069.
+The import was NOT in this list when the procedure was written at S4, and
+that omission had a cost: the enrolment-state defect the review found — a
+past-term course importing as an empty roster, which withdraws the whole
+class — sat outside the declared scope by construction, and the fake-driven
+suite cannot see it either (#271 review, DCO-4).
+
+Last run: **2026-09-04**, issue #271 S4, at commit `3bc0090`, against a live
+course of 29 enrolments. Results in ADR-0069. §6, §7 and §8 were ADDED after
+that run by the #271 review and have not been executed yet — the attestation
+names a commit precisely so a procedure written at one slice cannot keep a
+green mark through later changes to the path it covers.
 
 ## 0 · What you need
 
@@ -113,21 +123,83 @@ With the server running (`README.md` §Commands) and signed in:
 
 ## 5 · The sensitive-value sweep
 
-With the server's stderr captured to a file during step 4:
+Set the two paths once — `<…>` in a command is a shell redirect, not a
+placeholder, so a pasted `grep … <the log file` fails with "no such file or
+directory: the" rather than telling you to substitute (#271 review, DAC-10):
 
 ```bash
-grep -c "$NALANDA_CANVAS_TOKEN_DEV" <the log file>   # expect 0
+LOG=/path/to/the/server.log      # where you captured stderr in step 4
+DB=/data/nalanda.db              # the compose volume's path inside the container
 ```
 
-And against the database, which is where a bug would put it in the clear:
+With the server's stderr captured during step 4:
 
 ```bash
-sqlite3 <the .db file> 'SELECT hex(ciphertext) FROM user_secrets;' \
-  | python3 -c 'import sys,binascii;print(binascii.unhexlify(sys.stdin.read().strip()))'
+grep -c "$NALANDA_CANVAS_TOKEN_DEV" "$LOG"   # expect 0
+```
+
+And against the database, which is where a bug would put it in the clear —
+written per ROW, because `user_secrets` holds one per professor per secret
+and ADR-0068 anticipates a second namespace for WP-3's Resend key. The
+single-row version concatenated two hex lines and died on
+`binascii.Error: Odd-length string` (#271 review, DAC-9):
+
+```bash
+sqlite3 "$DB" "SELECT user_id, namespace, key, hex(ciphertext) FROM user_secrets;" \
+  | python3 -c 'import sys, binascii
+for line in sys.stdin:
+    *meta, blob = line.strip().split("|")
+    print(meta, binascii.unhexlify(blob))'
 ```
 
 **Expect bytes that are not your token.** A readable token here means the
 sealing is not happening, whatever the tests say.
+
+## 6 · The import, end to end
+
+The step the procedure did not have, and the one that covers the path the
+review found a class-wiping defect in.
+
+1. On `/profile`, with the token saved, pick the current course and press
+   **Agregar a Nalanda**. You land on `/courses/{id}`, empty, with **Cargar
+   desde Canvas** as the whole page.
+2. Press it. **Expect** the roster: surnames sorted with accents in their
+   right place (`ÁVILA` before `BRAVO`, not after `ZUNIGA`), RUTs written
+   `11.222.333-5`, and a count that matches what step 3's `curl` returned.
+3. **Press Reimportar.** Expect the same count, `0` withdrawn, and no
+   duplicate rows. That is the idempotence the store's tests assert against
+   fixtures and this asserts against Canvas.
+4. **Check the "sin RUT" line.** If Canvas gave any student no readable
+   `sisId`, the page says how many. Those students will never match a
+   control — worth knowing before the semester, not after.
+
+## 7 · A past-term course (the case that found the bug)
+
+If you have a course from a finished semester, import it too. **Expect a
+full roster, not an empty one.** Every enrolment of a past course is
+`completed`, and an earlier filter excluded that state — which made the
+import return zero students and mark the entire class as withdrawn
+(ADR-0069 §Decision 4). Nothing in the suite can see this: the fixtures say
+`active` because that is what the one measured course said.
+
+## 8 · How long it took
+
+The synchronous-import decision and the 20-second deadline rest on a
+duration nobody had measured. Add `-w '\n%{time_total}s\n'` to the `curl`s
+in §2 and §3 and record both, plus the wall clock of the full import from
+§6, against the number of students:
+
+```bash
+curl -sS -w '\n%{time_total}s\n' -X POST "${NALANDA_CANVAS_GRAPHQL_URL:-https://udp.instructure.com/api/graphql}" \
+  -H "Authorization: Bearer $NALANDA_CANVAS_TOKEN_DEV" \
+  -H 'Content-Type: application/json' \
+  -d '{"query":"query { __typename }"}' -o /dev/null
+```
+
+Write the numbers into `importDeadline`'s comment in
+`internal/app/web/handler/courses.go` with their date and the class size, so
+the constant carries the measurement it came from rather than only its
+relationship to `WriteTimeout` (#271 review, DCO-5).
 
 ## Notes
 
@@ -136,3 +208,12 @@ sealing is not happening, whatever the tests say.
 - **A course id is not a secret**, but a roster is: the JSON from step 3
   carries real students' names, addresses and national identifiers. Do not
   paste it into an issue, a PR, or a chat.
+- **And do not commit it.** Every example in this document and in the
+  repository's tests is SYNTHETIC — the right shape, nobody's data. That is
+  a rule bought the hard way: #271 measured against a real course and wrote
+  four students' RUTs, surnames and addresses into an ADR, into this file
+  and into forty test fixtures, in a public repository, fifty lines below
+  the paragraph above. `docs/security-notes.md` §"Real student identifiers
+  were committed to this public repository" carries the incident and the
+  rule. When you measure something here, keep the shape and change the
+  values.

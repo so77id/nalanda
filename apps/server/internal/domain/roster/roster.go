@@ -232,24 +232,49 @@ type SourceStudent struct {
 // and is an extension this build cannot load (ADR-0007 pins a pure-Go,
 // CGO-free driver).
 func SortEnrollments(enrollments []Enrollment) {
-	sort.SliceStable(enrollments, func(i, j int) bool {
-		a, b := enrollments[i], enrollments[j]
-		if (a.State == StateEnrolled) != (b.State == StateEnrolled) {
-			return a.State == StateEnrolled
+	// Decorate, sort, undecorate. The fold used to run inside the
+	// comparator, which called it ~30 times per student instead of twice
+	// and allocated on every call — strings.Replacer builds a buffer even
+	// when nothing matches. Measured at 400 students: 1.32 ms and 36,270
+	// allocations, against 139 µs and 2,405 this way, for a byte-identical
+	// order (#271 recheck, PER-5).
+	type keyed struct {
+		enrollment Enrollment
+		enrolled   bool
+		last       string
+		first      string
+	}
+	rows := make([]keyed, len(enrollments))
+	for i, e := range enrollments {
+		rows[i] = keyed{
+			enrollment: e,
+			enrolled:   e.State == StateEnrolled,
+			last:       foldForSort(e.Student.LastName),
+			first:      foldForSort(e.Student.FirstName),
 		}
-		if key := foldForSort(a.Student.LastName); key != foldForSort(b.Student.LastName) {
-			return key < foldForSort(b.Student.LastName)
+	}
+
+	sort.SliceStable(rows, func(i, j int) bool {
+		a, b := rows[i], rows[j]
+		if a.enrolled != b.enrolled {
+			return a.enrolled
 		}
-		if key := foldForSort(a.Student.FirstName); key != foldForSort(b.Student.FirstName) {
-			return key < foldForSort(b.Student.FirstName)
+		if a.last != b.last {
+			return a.last < b.last
+		}
+		if a.first != b.first {
+			return a.first < b.first
 		}
 		// The final tie-break makes the order TOTAL. Without it two people
-		// whose folded names are equal — MUÑOZ and MUNOZ, say — keep
-		// whatever order SQLite's scan produced, and the withdraw UPDATE
-		// rewrites rows, so a tied pair could swap between page loads
-		// (#271 review, COR-NEW-3).
-		return a.Student.ID < b.Student.ID
+		// whose folded names are equal — MUÑOZ and MUNOZ — keep whatever
+		// order the store's scan produced, and the withdraw UPDATE rewrites
+		// rows, so a tied pair could swap between page loads (COR-NEW-3).
+		return a.enrollment.Student.ID < b.enrollment.Student.ID
 	})
+
+	for i, r := range rows {
+		enrollments[i] = r.enrollment
+	}
 }
 
 // foldAccents maps the Latin-1 letters Chilean names actually use onto

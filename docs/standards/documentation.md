@@ -259,3 +259,37 @@ each invent their own spelling from whichever neighbour they open first.
 ## References
 
 - ADR-0005 (dev standards) · ADR-0010 (catalog) · `docs/conventions.md`
+
+## The CHECK-document contract
+
+Three of these exist now — `apps/amc-worker/PAPER-CHECK.md` (#138),
+`apps/server/GOOGLE-CHECK.md` (#150) and `apps/server/CANVAS-CHECK.md`
+(#271) — so the shape is a pattern rather than three one-offs. A CHECK
+document is what stands in for a test that cannot exist: it verifies
+something no code in this repository can reach.
+
+Every one of them carries five things:
+
+1. **A scope sentence naming the code paths** whose change re-triggers the
+   procedure. Not "the Canvas integration" — the files. #271's first version
+   omitted the import path, and the class-wiping defect its review later
+   found sat outside the declared scope by construction.
+2. **A last-run attestation with a DATE and a COMMIT.** The commit is the
+   load-bearing half: a procedure written at one slice otherwise keeps its
+   green mark through every later change to the path it covers, which is
+   exactly what happened to CANVAS-CHECK between S4 and its review.
+3. **Its setup as something the reader runs**, not as prose they
+   reconstruct — the lesson PAPER-CHECK learned after two review rounds
+   found its command list wrong twice.
+4. **At least one step that MEASURES something no test can** — a duration, a
+   count against the real source, a distribution. A procedure that only
+   checks "did it answer" leaves every empirical claim in the code unbacked.
+5. **A sensitive-data note**, and synthetic examples. A CHECK document is
+   held open beside real data by definition, which makes it the likeliest
+   file in the repository to have real values copied into it — see
+   `docs/security-notes.md` §"Real student identifiers were committed to
+   this public repository".
+
+And it is registered in three places or an agent will not find it:
+`integration-guides.md`, `testing-strategy.md` §L8, and the app's own
+§"Before you open a PR" checklist.

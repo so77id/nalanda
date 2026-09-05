@@ -34,7 +34,7 @@ Not `loginId`, which is the email address (identical to `user.email` for
 25 of 25 students), and not a custom field.
 
 `sisId` carries the RUT with **no separators and the verifier digit
-attached**: `112223335`, `115556667`, `11222444K`.
+attached**: `112223334`, `115556667`, `112224449`.
 
 Measured over the 25 `StudentEnrollment` rows of course 44779:
 

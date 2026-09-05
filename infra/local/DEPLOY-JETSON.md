@@ -23,6 +23,24 @@ credentials themselves.
    - Miguel runs it with AWS admin credentials in the shell, from a laptop:
      ```bash
      NALANDA_S3_BUCKET=nalanda-backups-<something> \
+
+# The Canvas integration (#271, ADR-0068). OPTIONAL, deliberately: with it
+# empty the server boots and /profile reports the integration "no
+# configurada", so a deploy that reaches the Jetson before the key does
+# stays up instead of refusing to start. A value that IS set and is not 32
+# bytes after base64-decoding is a startup error.
+#
+# Generate it ON the Jetson and put a copy in the password manager:
+#     openssl rand -base64 32
+#
+# It is NOT in the database. A backup restored without this exact key leaves
+# every user_secrets row unopenable, and every professor has to paste their
+# Canvas token again.
+NALANDA_SECRETS_MASTER_KEY=
+
+# The Canvas GraphQL endpoint. Empty means the client's own default,
+# https://udp.instructure.com/api/graphql.
+NALANDA_CANVAS_GRAPHQL_URL=
      AWS_REGION=us-east-1 \
        ./infra/deploy/jetson/provision-jetson-iam.sh
      ```
@@ -391,3 +409,19 @@ review, SEC-2).
   ```
   Same result as waiting for Watchtower, minus the wait.
 - Rollback recipes are in §Rollback above.
+
+## The master key is not in the backup
+
+`NALANDA_SECRETS_MASTER_KEY` lives in the Jetson's `.env`, never in the
+database (#271, ADR-0068). Two consequences the backup/restore steps above
+depend on and do not state:
+
+- A **restore is only complete if the same key comes back with it.** The
+  `user_secrets` rows in a restored `.db` are sealed to whatever key was
+  current when they were written; under a different one they do not
+  decrypt, `/profile` says the stored token can no longer be read, and every
+  professor pastes their Canvas token again.
+- The restored `.db` now carries the **roster** — names, institutional
+  addresses and RUTs. Delete the scratch copy when the test restore is
+  done, and do not leave it outside the host's own storage
+  (`docs/security-notes.md` §"The roster is personal data").
