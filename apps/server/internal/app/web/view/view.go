@@ -175,6 +175,12 @@ type ProfilePage struct {
 	SecretsConfigured bool
 	// Connected is whether THIS professor has a token stored.
 	Connected bool
+	// TokenNotice is a message about the STORED token, rendered above its
+	// forms — today only "the stored token no longer decrypts". Separate
+	// from Errors because it belongs to no field the professor filled in,
+	// and separate from CoursesNotice because the forms it explains stay on
+	// screen (#271 review, SEC-1).
+	TokenNotice string
 
 	// Action is where the save/replace form posts; ForgetAction is where
 	// the delete form posts. Passed in rather than written in the template

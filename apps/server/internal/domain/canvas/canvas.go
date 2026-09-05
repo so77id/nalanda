@@ -17,14 +17,24 @@ package canvas
 import (
 	"context"
 	"errors"
+
+	"github.com/so77id/nalanda/apps/server/internal/domain/secret"
 )
 
-// The namespace and key this package stores its secret under. Wrappers over
-// secret's own constants so a caller cannot reach the wrong row by spelling
-// one of the two strings differently.
+// The namespace and key this package stores its secret under.
+//
+// They REFERENCE secret's own constants rather than repeating the strings.
+// An earlier revision declared bare literals under a comment claiming they
+// were wrappers, which was false: a review mutation renamed both exported
+// constants and the whole suite stayed green, so the two sides could drift
+// with nothing noticing (#271 review, ARQ-2/COR-9). Set and Get read the
+// same private constant so they could not desynchronise from each other —
+// what the literals actually cost was that the exported constants had no
+// production reader, and secretstore's tests asserted a triple production
+// never wrote.
 const (
-	secretNamespace = "canvas"
-	secretKey       = "token"
+	secretNamespace = secret.NamespaceCanvas
+	secretKey       = secret.KeyToken
 )
 
 // Sentinel errors callers branch on.

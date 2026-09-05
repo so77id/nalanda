@@ -23,17 +23,30 @@
       </p>
     </section>
   {{ else if .Connected }}
-    <p>
-      Token configurado. Nalanda puede leer tus cursos y sus listas de
-      estudiantes en Canvas.
-    </p>
-    <section class="aviso">
+    {{ if .TokenNotice }}
+      {{/*
+        The stored token no longer decrypts — the server's master key
+        changed. Both forms below stay on screen on purpose: this page is
+        the only place a professor can replace or forget a token, and a
+        500 here would make ADR-0068's own rotation mitigation unreachable
+        (#271 review, SEC-1).
+      */}}
+      <section class="aviso"><p>{{ .TokenNotice }}</p></section>
+    {{ else }}
       <p>
-        El token no se muestra de vuelta: queda cifrado y nadie —tampoco
-        esta página— puede volver a leerlo. Si lo perdiste o quieres
-        cambiarlo, pega uno nuevo y reemplaza el anterior.
+        Token configurado. Nalanda puede leer tus cursos y sus listas de
+        estudiantes en Canvas.
       </p>
-    </section>
+    {{ end }}
+    {{ if not .TokenNotice }}
+      <section class="aviso">
+        <p>
+          El token no se muestra de vuelta: queda cifrado y nadie —tampoco
+          esta página— puede volver a leerlo. Si lo perdiste o quieres
+          cambiarlo, pega uno nuevo y reemplaza el anterior.
+        </p>
+      </section>
+    {{ end }}
 
     <form class="form" method="post" action="{{ .Action }}">
       <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
@@ -55,6 +68,7 @@
       <p><button type="submit">Eliminar el token</button></p>
     </form>
 
+    {{ if not .TokenNotice }}
     <h2>Tus cursos en Canvas</h2>
 
     {{ if .CoursesNotice }}
@@ -70,7 +84,7 @@
           </thead>
           <tbody>
             {{ range .CurrentRows }}
-              {{ template "cursoFila" . }}
+              {{ template "coursePickRow" . }}
             {{ end }}
           </tbody>
         </table>
@@ -92,12 +106,13 @@
             </thead>
             <tbody>
               {{ range .OlderRows }}
-                {{ template "cursoFila" . }}
+                {{ template "coursePickRow" . }}
               {{ end }}
             </tbody>
           </table>
         </details>
       {{ end }}
+    {{ end }}
     {{ end }}
   {{ else }}
     <p>
@@ -137,7 +152,7 @@
   field carrying the name or the code would let a hand-typed request invent
   a course, or name one course while carrying another's id.
 */}}
-{{ define "cursoFila" }}
+{{ define "coursePickRow" }}
   <tr>
     {{ if .ShowTerm }}<td>{{ .Term }}</td>{{ end }}
     <td>{{ .Code }}</td>

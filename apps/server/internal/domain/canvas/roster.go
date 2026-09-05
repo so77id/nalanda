@@ -58,9 +58,32 @@ func (s Student) HasRUT() bool { return s.RUT != "" }
 // eight digits because AMC's code field is fixed width and a seven-digit
 // RUT reaches the sheet as `09876543`.
 //
-// Anything that does not fit returns two empty strings. It does NOT return
-// a partial result: a body without its verifier is a half-record, and the
-// schema refuses the pair anyway.
+// WHAT IT REFUSES, and what it does not. A body that is not digits, longer
+// than eight digits, or a verifier that is neither a digit nor K, returns
+// two empty strings — never a partial result, since a body without its
+// verifier is a half-record the schema refuses anyway.
+//
+// It does NOT refuse a SHORT numeric id, and that is a known gap rather
+// than an oversight (#271 review, COR-3). `"15"` becomes `00000001-5` and
+// `"20231234"` becomes `02023123-4`: well-formed RUTs that no person owns.
+// Worse, `"10"` and `"11"` both yield the body `00000001`, so two such ids
+// in one course collide on `student.rut`'s UNIQUE and abort the whole
+// import — the one outcome ADR-0069 §Consequences promises cannot happen.
+//
+// No length floor closes it. A minimum body of seven keeps ADR-0069's
+// zero-padding case (`sisId "98765432"` → `09876543`) but still admits
+// `"20231234"`, whose body is also seven digits; a minimum of eight catches
+// that one and breaks both the ADR and the test pinning it. The only guard
+// that actually discriminates is a modulus-11 check of the verifier against
+// the body, which is a design decision this WP did not take — ADR-0069
+// rejected COMPUTING the verifier instead of storing it, which is a
+// different question from validating it.
+//
+// Left as a documented gap because no short `sisId` has ever been observed:
+// all 25 measured are nine characters, a passport identifier carries
+// letters and is already refused, and Canvas's own Test Student arrives as
+// a `StudentViewEnrollment` and never reaches here. The WP that adds the
+// mod-11 check inherits this paragraph.
 func SplitSISID(sisID string) (rut, dv string) {
 	// Separators are tolerated on the way in — a Canvas that starts
 	// sending "11.222.333-5" would otherwise silently produce a roster

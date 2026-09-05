@@ -459,3 +459,7 @@ func (emptyCourseStore) SaveRoster(context.Context, int64, []roster.SourceStuden
 func (emptyCourseStore) ListEnrollments(context.Context, int64) ([]roster.Enrollment, error) {
 	return nil, nil
 }
+
+func (emptyCourseStore) EnrollmentCounts(context.Context) (map[int64]roster.EnrollmentCounts, error) {
+	return nil, nil
+}

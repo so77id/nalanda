@@ -140,8 +140,19 @@ CREATE TABLE enrollment (
     UNIQUE (course_id, student_id)
 );
 
--- The roster page's read shape is "the people in this course, enrolled
--- first" — (course_id, state) covers it.
+-- The IMPORT's withdraw step is what reads this index:
+--     UPDATE enrollment SET state = 'withdrawn'
+--     WHERE course_id = ? AND state = 'enrolled' AND student_id NOT IN (…)
+-- EXPLAIN QUERY PLAN attributes it exactly — "SEARCH enrollment USING INDEX
+-- idx_enrollment_by_course (course_id=? AND state=?)".
+--
+-- An earlier revision of this comment claimed the ROSTER PAGE's read was the
+-- reader. It is not: the planner picks the autoindex from UNIQUE (course_id,
+-- student_id) for that query and then sorts in a temp B-tree (#271 review,
+-- PER-4, measured). The index is load-bearing either way — the point of
+-- correcting it is that an index justified by a query the plan disowns is an
+-- index somebody drops later after checking the stated reason and finding it
+-- false.
 CREATE INDEX idx_enrollment_by_course ON enrollment (course_id, state);
 
 -- Per-professor secrets at rest, encrypted with AES-256-GCM by

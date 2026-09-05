@@ -577,3 +577,262 @@ func TestListEnrollmentsOnACourseWithNoRosterIsEmptyRatherThanNil(t *testing.T) 
 		t.Errorf("got %d enrolments on a fresh course", len(enrollments))
 	}
 }
+
+// --- Review fixes (#271 review) ------------------------------------------
+
+// COR-1. The RUT refresh had no pin: deleting `rut = excluded.rut,
+// rut_dv = excluded.rut_dv` from the upsert left the whole suite green, and
+// it is the one column WP-2 delivers grades on. Both transitions ADR-0069
+// makes possible are covered — a RUT that ARRIVES after the first import,
+// and one that is CORRECTED.
+//
+// first_name is asserted here too. The review found it equally unpinned;
+// the difference is only that nobody's grade depends on it.
+func TestSaveRosterRefreshesTheRutAndTheGivenName(t *testing.T) {
+	ctx, _, s := store(t)
+	course, err := s.CreateCourse(ctx, aCourse("44779"))
+	if err != nil {
+		t.Fatalf("CreateCourse: %v", err)
+	}
+
+	// Canvas had no RUT for this person on the first import.
+	withoutRUT := aStudent("900001", "", "", "PEREZ SOTO")
+	withoutRUT.FirstName = "ANA"
+	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{withoutRUT}); err != nil {
+		t.Fatalf("SaveRoster (no RUT): %v", err)
+	}
+	if got := onlyStudent(t, ctx, s, course.ID); got.HasRUT() {
+		t.Fatalf("the first import stored a RUT it was not given: %q", got.RUT)
+	}
+
+	// The registrar fills it in; the next import must pick it up.
+	arrived := aStudent("900001", "11222333", "5", "PEREZ SOTO")
+	arrived.FirstName = "ANA MARÍA"
+	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{arrived}); err != nil {
+		t.Fatalf("SaveRoster (RUT arrived): %v", err)
+	}
+	got := onlyStudent(t, ctx, s, course.ID)
+	if got.RUT != "11222333" || got.RUTDV != "5" {
+		t.Errorf("RUT after it arrived = %q-%q, want 11222333-5", got.RUT, got.RUTDV)
+	}
+	if got.FirstName != "ANA MARÍA" {
+		t.Errorf("FirstName = %q, want the refreshed value", got.FirstName)
+	}
+
+	// And a corrected RUT replaces the stored one rather than sticking.
+	corrected := aStudent("900001", "11222444", "K", "PEREZ SOTO")
+	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{corrected}); err != nil {
+		t.Fatalf("SaveRoster (RUT corrected): %v", err)
+	}
+	got = onlyStudent(t, ctx, s, course.ID)
+	if got.RUT != "11222444" || got.RUTDV != "K" {
+		t.Errorf("RUT after correction = %q-%q, want 11222444-K", got.RUT, got.RUTDV)
+	}
+}
+
+// onlyStudent reads the single student of a course, failing if there is not
+// exactly one.
+func onlyStudent(t *testing.T, ctx context.Context, s *coursestore.Store, courseID int64) roster.Student {
+	t.Helper()
+
+	enrollments, err := s.ListEnrollments(ctx, courseID)
+	if err != nil {
+		t.Fatalf("ListEnrollments: %v", err)
+	}
+	if len(enrollments) != 1 {
+		t.Fatalf("got %d enrolments, want exactly 1", len(enrollments))
+	}
+	return enrollments[0].Student
+}
+
+// COR-2. An EMPTY roster withdraws the whole class, and that is the
+// intended behaviour — pinned here because neither it nor its opposite was
+// asserted, so a mutation flipping it stayed green.
+//
+// The policy was deliberately NOT changed to "refuse an empty roster". The
+// outcome is announced (the flash reads "0 estudiantes. N … retirados") and
+// one re-import undoes it, whereas refusing would leave a silently stale
+// roster that WP-3 would later email to people who dropped. What protects
+// the class from an OUTAGE is one layer up: roster.Service.Import never
+// reaches this method unless Canvas answered successfully
+// (TestImportSavesNothingWhenCanvasFails).
+func TestAnEmptyRosterWithdrawsTheWholeClassAndOneReimportUndoesIt(t *testing.T) {
+	ctx, _, s := store(t)
+	course, err := s.CreateCourse(ctx, aCourse("44779"))
+	if err != nil {
+		t.Fatalf("CreateCourse: %v", err)
+	}
+	class := []roster.SourceStudent{
+		aStudent("900001", "11222333", "5", "PEREZ SOTO"),
+		aStudent("900002", "11222444", "K", "MUÑOZ ÁVILA"),
+	}
+	if _, err := s.SaveRoster(ctx, course.ID, class); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+
+	result, err := s.SaveRoster(ctx, course.ID, nil)
+	if err != nil {
+		t.Fatalf("SaveRoster (empty): %v", err)
+	}
+	if result.Withdrawn != 2 || result.Added != 0 || result.Updated != 0 {
+		t.Errorf("result = %+v, want 2 withdrawn and nothing else", result)
+	}
+
+	counts, err := s.EnrollmentCounts(ctx)
+	if err != nil {
+		t.Fatalf("EnrollmentCounts: %v", err)
+	}
+	if counts[course.ID].Enrolled != 0 || counts[course.ID].Withdrawn != 2 {
+		t.Errorf("counts = %+v, want everyone withdrawn", counts[course.ID])
+	}
+
+	// Reversible: the students are still there, and one real import brings
+	// them back.
+	if _, err := s.SaveRoster(ctx, course.ID, class); err != nil {
+		t.Fatalf("SaveRoster (restored): %v", err)
+	}
+	counts, err = s.EnrollmentCounts(ctx)
+	if err != nil {
+		t.Fatalf("EnrollmentCounts: %v", err)
+	}
+	if counts[course.ID].Enrolled != 2 || counts[course.ID].Withdrawn != 0 {
+		t.Errorf("counts after the re-import = %+v, want both enrolled again", counts[course.ID])
+	}
+}
+
+// COR-7. SQLite's BINARY collation sorted every accented surname after
+// every unaccented one, so ÁVILA landed after ZUNIGA on a real roster. The
+// ordering moved into roster.SortEnrollments; this is the case that would
+// go red if it moved back into the SQL.
+func TestTheRosterSortsAccentedSurnamesWhereAReaderExpectsThem(t *testing.T) {
+	ctx, _, s := store(t)
+	course, err := s.CreateCourse(ctx, aCourse("44779"))
+	if err != nil {
+		t.Fatalf("CreateCourse: %v", err)
+	}
+
+	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{
+		aStudent("1", "11111111", "1", "ZUNIGA PEREZ"),
+		aStudent("2", "22222222", "2", "ÁVILA MUÑOZ"),
+		aStudent("3", "33333333", "3", "BRAVO SOTO"),
+		aStudent("4", "44444444", "4", "MUÑOZ ÁVILA"),
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+
+	enrollments, err := s.ListEnrollments(ctx, course.ID)
+	if err != nil {
+		t.Fatalf("ListEnrollments: %v", err)
+	}
+	var got []string
+	for _, e := range enrollments {
+		got = append(got, e.Student.LastName)
+	}
+	want := []string{"ÁVILA MUÑOZ", "BRAVO SOTO", "MUÑOZ ÁVILA", "ZUNIGA PEREZ"}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("order = %v, want %v — an accented surname must not sort after Z", got, want)
+		}
+	}
+}
+
+// And the withdrawn still come after the enrolled, whatever their surname.
+func TestTheRosterPutsEveryEnrolledStudentBeforeEveryWithdrawnOne(t *testing.T) {
+	ctx, _, s := store(t)
+	course, err := s.CreateCourse(ctx, aCourse("44779"))
+	if err != nil {
+		t.Fatalf("CreateCourse: %v", err)
+	}
+	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{
+		aStudent("1", "11111111", "1", "ÁVILA MUÑOZ"),
+		aStudent("2", "22222222", "2", "ZUNIGA PEREZ"),
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	// ÁVILA drops; alphabetically first, but no longer in the class.
+	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{
+		aStudent("2", "22222222", "2", "ZUNIGA PEREZ"),
+	}); err != nil {
+		t.Fatalf("SaveRoster (after the drop): %v", err)
+	}
+
+	enrollments, err := s.ListEnrollments(ctx, course.ID)
+	if err != nil {
+		t.Fatalf("ListEnrollments: %v", err)
+	}
+	if enrollments[0].Student.LastName != "ZUNIGA PEREZ" || enrollments[0].State != roster.StateEnrolled {
+		t.Errorf("first row = %q/%q, want the enrolled student first",
+			enrollments[0].Student.LastName, enrollments[0].State)
+	}
+	if enrollments[1].State != roster.StateWithdrawn {
+		t.Errorf("second row state = %q, want withdrawn", enrollments[1].State)
+	}
+}
+
+// COR-8. One person listed twice in a single import — two sections of the
+// same course, or a Relay page boundary over a shifting set — was counted
+// twice, so the flash told the professor their class had one more student
+// than it does. De-duplication happens in the Canvas client; this pins the
+// store's half: even handed a duplicate, it produces one enrolment.
+func TestOnePersonListedTwiceProducesOneEnrolment(t *testing.T) {
+	ctx, _, s := store(t)
+	course, err := s.CreateCourse(ctx, aCourse("44779"))
+	if err != nil {
+		t.Fatalf("CreateCourse: %v", err)
+	}
+
+	twice := aStudent("900001", "11222333", "5", "PEREZ SOTO")
+	result, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{twice, twice})
+	if err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+
+	counts, err := s.EnrollmentCounts(ctx)
+	if err != nil {
+		t.Fatalf("EnrollmentCounts: %v", err)
+	}
+	if counts[course.ID].Enrolled != 1 {
+		t.Errorf("one person listed twice produced %d enrolments, want 1", counts[course.ID].Enrolled)
+	}
+	if result.Total() != 1 {
+		t.Errorf("the import reported %d students for one person (%+v); the flash would overcount the class",
+			result.Total(), result)
+	}
+}
+
+// The list screen's counts, in one statement. The "no entry" case is what
+// keeps "sin lista" distinguishable from "0 inscritos".
+func TestEnrollmentCountsHasNoEntryForACourseWithNoRoster(t *testing.T) {
+	ctx, _, s := store(t)
+	imported, err := s.CreateCourse(ctx, aCourse("44779"))
+	if err != nil {
+		t.Fatalf("CreateCourse: %v", err)
+	}
+	untouched, err := s.CreateCourse(ctx, aCourse("44780"))
+	if err != nil {
+		t.Fatalf("CreateCourse: %v", err)
+	}
+	if _, err := s.SaveRoster(ctx, imported.ID, []roster.SourceStudent{
+		aStudent("1", "11111111", "1", "UNA"),
+		aStudent("2", "22222222", "2", "OTRA"),
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	// One of them drops, so the course has a roster AND a withdrawn row.
+	if _, err := s.SaveRoster(ctx, imported.ID, []roster.SourceStudent{
+		aStudent("1", "11111111", "1", "UNA"),
+	}); err != nil {
+		t.Fatalf("SaveRoster (after the drop): %v", err)
+	}
+
+	counts, err := s.EnrollmentCounts(ctx)
+	if err != nil {
+		t.Fatalf("EnrollmentCounts: %v", err)
+	}
+	if got := counts[imported.ID]; got.Enrolled != 1 || got.Withdrawn != 1 {
+		t.Errorf("the imported course = %+v, want 1 enrolled and 1 withdrawn", got)
+	}
+	if _, present := counts[untouched.ID]; present {
+		t.Error("a course with no roster has an entry; the list cannot then say 'sin lista'")
+	}
+}

@@ -87,33 +87,13 @@ const verifyQuery = `query { __typename }`
 //     those says anything about the token, and the caller must not store it
 //     on the strength of a maybe.
 func (c *Client) Verify(ctx context.Context, token string) error {
-	status, body, err := c.post(ctx, token, verifyQuery, nil)
-	switch {
-	case err != nil:
-		return fmt.Errorf("%w: %v", domaincanvas.ErrUnavailable, err)
-	case status == http.StatusUnauthorized || status == http.StatusForbidden:
-		return fmt.Errorf("%w: Canvas answered %d", domaincanvas.ErrTokenRejected, status)
-	case status < 200 || status > 299:
-		return fmt.Errorf("%w: Canvas answered %d", domaincanvas.ErrUnavailable, status)
-	}
-
-	var answer struct {
-		Errors []struct {
-			Message string `json:"message"`
-		} `json:"errors"`
-	}
-	if err := json.Unmarshal(body, &answer); err != nil {
-		return fmt.Errorf("%w: Canvas answered %d with a body this client cannot read", domaincanvas.ErrUnavailable, status)
-	}
-	if len(answer.Errors) > 0 {
-		// A 200 carrying GraphQL errors is an answer about the QUERY, not
-		// about the token — Canvas rejects a bad token with a status, not
-		// with an error entry. Reporting this as a rejection would tell a
-		// professor their working token is invalid.
-		return fmt.Errorf("%w: Canvas answered 200 with %d GraphQL error(s), the first being %q",
-			domaincanvas.ErrUnavailable, len(answer.Errors), answer.Errors[0].Message)
-	}
-	return nil
+	// Delegates to query rather than repeating its four branches. The two
+	// carried identical status-and-GraphQL-error mappings for one WP — Verify
+	// landed in S3, query in S4 — and a change to the mapping could have
+	// applied to one caller and missed the other (#271 review, ARQ-3). The
+	// answer is discarded: what proves the token is the STATUS, not the body.
+	var discarded struct{}
+	return c.query(ctx, token, verifyQuery, nil, &discarded)
 }
 
 // post sends one GraphQL query and returns the status and the body.
@@ -227,6 +207,28 @@ query($courseId: ID!, $after: String) {
 // (ADR-0069 §Decision 4).
 const studentEnrollmentType = "StudentEnrollment"
 
+// activeEnrollmentStates are the Canvas enrolment states that mean "this
+// person is on the course".
+//
+// The field used to be fetched and never read (#271 review, COR-5), so every
+// StudentEnrollment node became an `enrolled` row whatever Canvas said —
+// a student whose enrolment Canvas had marked `completed` or `deleted` was
+// imported as Inscrito and would have become a grade recipient in WP-2.
+//
+// `invited` counts as on the course: it means the student has been enrolled
+// but has not yet accepted in Canvas, and they will still sit the control.
+// Everything else — `completed`, `inactive`, `deleted`, `rejected`,
+// `creation_pending` — is a person the import must NOT list, and leaving
+// them out is what lets `withdrawAbsent` stamp them withdrawn.
+//
+// ADR-0069 measured `active` on 25 of 25, so this branch has never been
+// exercised against real data. That is a reason to be conservative about
+// which states count as present, not a reason to skip the check.
+var activeEnrollmentStates = map[string]bool{
+	"active":  true,
+	"invited": true,
+}
+
 // maxRosterPages bounds the pagination loop.
 //
 // A `hasNextPage` that never turns false — a Canvas bug, a proxy rewriting
@@ -240,6 +242,14 @@ const maxRosterPages = 100
 
 // Roster returns the students of one Canvas course, following Relay
 // pagination to the end.
+//
+// It reports what Canvas said, INCLUDING a person listed twice: Canvas
+// returns a node per ENROLMENT, so a student in two sections of one course
+// arrives twice, and so does anyone straddling a page boundary while the
+// underlying set shifts. De-duplication is deliberately not done here — it
+// belongs where the roster becomes a set of people and where ImportResult
+// is computed, which is coursestore.SaveRoster (#271 review, COR-8). Two
+// answers to "is this one person or two" is how the two drift apart.
 func (c *Client) Roster(ctx context.Context, token, canvasCourseID string) ([]domaincanvas.Student, error) {
 	type node struct {
 		ID    string `json:"_id"`
@@ -290,9 +300,10 @@ func (c *Client) Roster(ctx context.Context, token, canvasCourseID string) ([]do
 
 		conn := answer.Data.Course.EnrollmentsConnection
 		for _, n := range conn.Nodes {
-			if n.Type != studentEnrollmentType {
+			if n.Type != studentEnrollmentType || !activeEnrollmentStates[n.State] {
 				continue
 			}
+
 			first, last := domaincanvas.SplitSortableName(n.User.SortableName)
 			rut, dv := domaincanvas.SplitSISID(n.User.SISID)
 			students = append(students, domaincanvas.Student{

@@ -138,14 +138,54 @@ The variable lives in all four homes
 - **Key rotation is manual and undocumented.** Rotating requires re-pasting
   every stored token. Declared debt, same posture as DocumentBuddy; a
   runbook is future work, not part of #271.
+
+  The mitigation is at least REACHABLE, which it was not in the first
+  revision of this WP: a ciphertext that no longer decrypts used to make
+  `/profile` a 500, and `/profile` is the only page carrying the
+  "Reemplazar" form and the "Eliminar el token" button — so the fix this
+  bullet prescribes could not be applied through the interface at all
+  (#271 review, SEC-1). The page now renders with both forms and says the
+  stored token cannot be read.
+  `TestAStoredTokenThatNoLongerDecryptsLeavesBothWaysOutOnScreen` and
+  `TestPastingANewTokenRecoversFromARotatedKey` are what keep it that way.
 - **Losing the key loses every stored secret**, silently until a professor
   next uses the integration. Mitigated only by the "keep it in your password
   manager" instruction in `.env.example` and the README.
-- **The rest of the roster is not encrypted.** Student names, RUTs and
-  email addresses land in `student` in the clear. That is deliberate: they
-  are the working data of every query WP-2 and WP-3 run, and encrypting a
-  join key would end the feature. It is the same gap DocumentBuddy's
-  ADR-012 records for its own PII.
+- **The rest of the roster is not encrypted, and it leaves the host.**
+  Student names, RUTs and email addresses land in `student` in the clear.
+  That much is deliberate: they are the working data of every query WP-2 and
+  WP-3 run, and encrypting a join key would end the feature. It is the same
+  gap DocumentBuddy's ADR-012 records for its own PII.
+
+  What the first version of this bullet left out is the consequence
+  §Context spends itself establishing about the token (#271 review, SEC-4).
+  **The same nightly backup reaches the roster.**
+  `infra/deploy/jetson/backup.sh` runs `sqlite3 .backup` over the whole
+  database and `aws s3 cp`s it off-host at 03:00, so from this WP onward
+  Nalanda collects Chilean **national identifiers** for every student of
+  every imported course — 25 on the first real import — and ships them to a
+  third-party cloud every night. Framing that as "in `student`" rather than
+  "in every off-host backup" was exactly the framing this ADR refused one
+  bullet earlier for the token.
+
+  Three things are true about it, and a reader deserves all three:
+
+  1. **It is covered at the backup layer**, which the first version failed
+     to cross-reference: `infra/deploy/jetson/provision-jetson-iam.sh` sets
+     SSE-S3 encryption at rest, blocks public access in all four dimensions
+     and grants least-privilege IAM;
+     `infra/deploy/jetson/nalanda-jetson-bucket-lifecycle.json` expires
+     everything under `backups/` after 30 days.
+  2. **It is NOT covered at the application layer.** There is no route, and
+     no store method, that deletes a course, a student or an enrolment —
+     `withdrawn` is a state, not a deletion (ADR-0069 §Decision 4 explains
+     why the enrolment must survive). A student who asks to be removed
+     cannot be, today.
+  3. **The deletion path is owed by a named WP.** Epic #270's WP-3 is the
+     one that starts emailing these people, and it is the natural place for
+     "remove a student" to arrive with it. Until then this paragraph is the
+     honest statement of where the data is and what does and does not
+     protect it.
 - **An operator can run a deploy that silently cannot store secrets**, which
   is the price of the optional key. The profile page saying "integración no
   configurada" is what makes that state visible instead of mysterious.

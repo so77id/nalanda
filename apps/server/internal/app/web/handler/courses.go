@@ -1,12 +1,14 @@
 package handler
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
@@ -59,7 +61,7 @@ func NewCourses(deps Courses) *Courses {
 
 // List renders every stored course.
 func (c *Courses) List(w http.ResponseWriter, r *http.Request) {
-	courses, err := c.Roster.Courses(r.Context())
+	courses, err := c.Roster.CoursesWithCounts(r.Context())
 	if err != nil {
 		c.Log.Error("listing the courses", "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
@@ -69,19 +71,12 @@ func (c *Courses) List(w http.ResponseWriter, r *http.Request) {
 
 	page := view.CoursesListPage{Page: middleware.PageFor(r, "Cursos")}
 	for _, course := range courses {
-		enrollments, err := c.Roster.Store.ListEnrollments(r.Context(), course.ID)
-		if err != nil {
-			c.Log.Error("counting a course's enrolments", "course", course.ID, "error", err)
-			middleware.WriteError(w, r, http.StatusInternalServerError,
-				"Algo se rompió al leer las listas de los cursos.")
-			return
-		}
 		page.Courses = append(page.Courses, view.ListedCourse{
-			Code:     course.Code,
-			Name:     course.Name,
-			Term:     course.Term,
-			URL:      CoursePathFor(course.ID),
-			Enrolled: enrolledLabel(enrollments),
+			Code:     course.Course.Code,
+			Name:     course.Course.Name,
+			Term:     course.Course.Term,
+			URL:      CoursePathFor(course.Course.ID),
+			Enrolled: enrolledLabel(course),
 		})
 	}
 
@@ -95,20 +90,16 @@ func (c *Courses) List(w http.ResponseWriter, r *http.Request) {
 // enrolledLabel words the count for the list.
 //
 // "sin lista" rather than "0 inscritos" for a course nobody has imported
-// yet: zero students and no roster at all are different situations, and the
-// number alone cannot say which one this is — the first needs a look at
-// Canvas, the second needs a click.
-func enrolledLabel(enrollments []roster.Enrollment) string {
-	if len(enrollments) == 0 {
+// yet: zero students and no roster at all are different situations — the
+// first wants a look at Canvas, the second wants a click — and the number
+// alone cannot say which one this is. That is why HasRoster is a separate
+// field and not `Enrolled == 0`: a course whose whole class withdrew has a
+// roster and zero enrolled, and must not read as never-imported.
+func enrolledLabel(course roster.CourseWithCounts) string {
+	if !course.HasRoster {
 		return "sin lista"
 	}
-	enrolled := 0
-	for _, e := range enrollments {
-		if e.State == roster.StateEnrolled {
-			enrolled++
-		}
-	}
-	return fmt.Sprintf("%d inscritos", enrolled)
+	return fmt.Sprintf("%d inscritos", course.Counts.Enrolled)
 }
 
 // Show renders one course and its roster.
@@ -147,7 +138,11 @@ func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 		case roster.StateWithdrawn:
 			page.WithdrawnCount++
 		}
-		if !e.Student.HasRUT() {
+		// Scoped to the people still enrolled. A withdrawn student with no
+		// RUT cannot be matched to a control, and does not need to be: they
+		// are not sitting one. Counting them would put a warning on the page
+		// that no action can clear (#271 review, COR-6).
+		if e.State == roster.StateEnrolled && !e.Student.HasRUT() {
 			page.WithoutRUTCount++
 		}
 		page.Enrollments = append(page.Enrollments, view.ListedEnrollment{
@@ -198,6 +193,13 @@ func enrollmentStateLabel(state string) string {
 	return "Inscrito"
 }
 
+// importDeadline bounds one roster import end to end.
+//
+// Twenty seconds, below httpserver's 30-second WriteTimeout, so the handler
+// gives up while the professor's connection is still alive rather than
+// committing into a socket the server has already abandoned.
+const importDeadline = 20 * time.Second
+
 // CourseImportPathFor builds one course's import URL.
 func CourseImportPathFor(id int64) string {
 	return CoursePathFor(id) + "/import-canvas"
@@ -214,9 +216,19 @@ func CourseImportPathFor(id int64) string {
 // see the list. Making it async would add a job kind, a banner and a
 // polling page to save a second.
 //
-// The bound is real rather than assumed: the Canvas client carries a
-// 15-second timeout per request and caps the pagination, so the worst case
-// is bounded even if Canvas hangs.
+// The bound is IMPOSED here, not inherited. An earlier revision of this
+// comment claimed the client's own 15-second per-request timeout and its
+// 100-page cap bounded the worst case; multiplied out that is 25 minutes,
+// fifty times the server's own 30-second WriteTimeout (#271 review, PER-1 /
+// SEC-6). And WriteTimeout does not rescue anything: a review probe showed
+// it neither aborts the handler nor cancels r.Context() — the client gets an
+// EOF while the handler runs on and the roster commits to a connection
+// nobody is listening to.
+//
+// So the whole import carries one explicit deadline, below the write
+// timeout, and the professor gets a flash instead of a dead page. Same shape
+// as the upload window in scans.go. A timed-out import applies nothing (the
+// store's transaction rolls back) and the retry is idempotent.
 func (c *Courses) ImportCanvas(w http.ResponseWriter, r *http.Request) {
 	professor, ok := middleware.ProfessorFrom(r.Context())
 	if !ok {
@@ -228,7 +240,10 @@ func (c *Courses) ImportCanvas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := c.Roster.Import(r.Context(), professor.ID, courseID)
+	ctx, cancel := context.WithTimeout(r.Context(), importDeadline)
+	defer cancel()
+
+	result, err := c.Roster.Import(ctx, professor.ID, courseID)
 	switch {
 	case err == nil:
 		flash.Set(w, c.secureCookie, importFlash(result))

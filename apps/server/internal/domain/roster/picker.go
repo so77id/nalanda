@@ -223,3 +223,28 @@ func (s *Service) Enrollments(ctx context.Context, courseID int64) (Course, []En
 func (s *Service) Courses(ctx context.Context) ([]Course, error) {
 	return s.Store.ListCourses(ctx)
 }
+
+// CoursesWithCounts is what the list screen renders: every course, each
+// with its tally and whether it has a roster at all.
+//
+// Two queries total, whatever the number of courses. The screen used to run
+// one enrolment query per course THROUGH this service's store field, which
+// was both a boundary the handler package breaks nowhere else and a read of
+// every student row to produce a number (#271 review, ARQ-1).
+func (s *Service) CoursesWithCounts(ctx context.Context) ([]CourseWithCounts, error) {
+	courses, err := s.Store.ListCourses(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("roster: list the courses: %w", err)
+	}
+	counts, err := s.Store.EnrollmentCounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("roster: count the enrolments: %w", err)
+	}
+
+	out := make([]CourseWithCounts, 0, len(courses))
+	for _, course := range courses {
+		tally, hasRoster := counts[course.ID]
+		out = append(out, CourseWithCounts{Course: course, Counts: tally, HasRoster: hasRoster})
+	}
+	return out, nil
+}

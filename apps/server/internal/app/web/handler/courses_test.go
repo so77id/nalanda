@@ -422,3 +422,171 @@ func TestFormatRUTGroupsFromTheRight(t *testing.T) {
 		}
 	}
 }
+
+// --- Review fixes (#271 review) ------------------------------------------
+
+// SEC-1. A rotated master key — or a backup restored on a host with a
+// regenerated .env — leaves a ciphertext that no longer decrypts. That used
+// to make /profile a hard 500, and /profile is the ONLY page carrying the
+// Reemplazar form and the Eliminar button: ADR-0068 §Consequences names
+// "re-pasting every stored token" as the mitigation for a rotation, and the
+// 500 made that mitigation unreachable without hand-crafting a POST or
+// running sqlite3 on the host.
+//
+// The page must render, say what is wrong, and keep both ways out.
+func TestAStoredTokenThatNoLongerDecryptsLeavesBothWaysOutOnScreen(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+
+	// The operator rotates the key: same database, different master key.
+	rotated := profileKey()
+	rotated[0] ^= 0xff
+	f.rekey(t, rotated)
+
+	rec := f.get(t, session)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — a rotated key must not lock the professor out of the page", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, "ya no se puede descifrar") {
+		t.Errorf("the page does not say the stored token is unreadable:\n%s", body)
+	}
+	// Both ways out, which is the whole point.
+	if !strings.Contains(body, handler.ProfileCanvasTokenPath) {
+		t.Error("the Reemplazar form is gone; the professor cannot paste a new token")
+	}
+	if !strings.Contains(body, handler.ProfileCanvasForgetPath) {
+		t.Error("the Eliminar form is gone; the professor cannot clear the unreadable token")
+	}
+	// And it does not pretend the integration is healthy.
+	if strings.Contains(body, "Nalanda puede leer tus cursos") {
+		t.Error("the page claims the integration works while the token cannot be read")
+	}
+}
+
+// And the way out actually works: pasting a new token under the new key
+// recovers the integration.
+func TestPastingANewTokenRecoversFromARotatedKey(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+
+	rotated := profileKey()
+	rotated[0] ^= 0xff
+	f.rekey(t, rotated)
+
+	if rec := f.post(t, session, handler.ProfileCanvasTokenPath, f.handler.SaveCanvasToken,
+		url.Values{"token": {canvasToken}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("re-pasting: status = %d, want 303", rec.Code)
+	}
+
+	body := f.get(t, session).Body.String()
+	if !strings.Contains(body, "Token configurado") {
+		t.Errorf("the integration did not recover after re-pasting:\n%s", body)
+	}
+	if strings.Contains(body, "ya no se puede descifrar") {
+		t.Error("the page still reports the old unreadable token")
+	}
+}
+
+// PER-3. A rejected paste already spent one Canvas round trip on Verify.
+// The re-render used to spend a second one listing courses the professor
+// did not ask for — doubling the wait on the one screen they are on
+// precisely because something went wrong.
+func TestARejectedTokenDoesNotAlsoFetchTheCourseList(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+
+	f.api.courseCalls = 0
+	f.api.err = canvas.ErrTokenRejected
+
+	rec := f.post(t, session, handler.ProfileCanvasTokenPath, f.handler.SaveCanvasToken,
+		url.Values{"token": {canvasToken}})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", rec.Code)
+	}
+	if f.api.courseCalls != 0 {
+		t.Errorf("the refusal re-render made %d course listing call(s), want 0", f.api.courseCalls)
+	}
+	// The message the professor came for is still there.
+	if !strings.Contains(rec.Body.String(), "Canvas rechazó este token") {
+		t.Error("the refusal message is missing from the re-render")
+	}
+}
+
+// COR-6. The list's "N inscritos" must count only the enrolled. Replacing
+// the state filter with an unconditional count left the suite green,
+// because the only fixture had nobody withdrawn.
+func TestTheCourseListCountsOnlyTheEnrolled(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+		aCanvasStudent("900002", "11222444", "K", "MUÑOZ ÁVILA"),
+	}
+	f.importPost(t, session, courseID)
+
+	// One drops.
+	f.api.students = f.api.students[:1]
+	f.importPost(t, session, courseID)
+
+	body := f.getCourses(t, session).Body.String()
+	if !strings.Contains(body, "1 inscritos") {
+		t.Errorf("the list does not count only the enrolled:\n%s", body)
+	}
+	if strings.Contains(body, "2 inscritos") {
+		t.Error("the list counts a withdrawn student as enrolled")
+	}
+	// And a course with a roster whose students ALL withdrew still reads as
+	// having a roster — "sin lista" means nobody ever imported it.
+	f.api.students = nil
+	f.importPost(t, session, courseID)
+	body = f.getCourses(t, session).Body.String()
+	if !strings.Contains(body, "0 inscritos") {
+		t.Errorf("a course whose class all withdrew does not read as 0 inscritos:\n%s", body)
+	}
+	if strings.Contains(body, "sin lista") {
+		t.Error("a course that WAS imported reads as never imported")
+	}
+}
+
+// COR-6's other half: the "sin RUT" warning is about the current class. A
+// withdrawn student with no RUT is not sitting a control, and counting them
+// would put a warning on the page that no action can clear.
+func TestTheRutWarningCountsOnlyTheEnrolled(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+		aCanvasStudent("99999", "", "", "EXTRANJERA"),
+	}
+	f.importPost(t, session, courseID)
+	if body := f.getCourse(t, session, courseID).Body.String(); !strings.Contains(body, "1 sin RUT") {
+		t.Fatalf("the warning is missing while the RUT-less student is enrolled:\n%s", body)
+	}
+
+	// The RUT-less student drops; the warning goes with them.
+	f.api.students = f.api.students[:1]
+	f.importPost(t, session, courseID)
+
+	body := f.getCourse(t, session, courseID).Body.String()
+	if strings.Contains(body, "sin RUT") {
+		t.Errorf("the warning survives the student's withdrawal, so nothing can clear it:\n%s", body)
+	}
+	if !strings.Contains(body, "EXTRANJERA") {
+		t.Error("the withdrawn student disappeared from the roster table")
+	}
+}

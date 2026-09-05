@@ -497,3 +497,86 @@ func TestCoursesAndRosterReportARevokedTokenAsRejected(t *testing.T) {
 		t.Errorf("Roster returned %v, want ErrTokenRejected", err)
 	}
 }
+
+// --- Review fixes (#271 review) ------------------------------------------
+
+// COR-4. The pagination cap had no test at all: setting it to 1<<40 left
+// the whole suite green. Its job is to stop an infinite loop inside a
+// request a professor is waiting on, which is exactly the class of guard
+// that must be exercised — an off-by-one here stays invisible up to the
+// moment a misbehaving Canvas hangs a handler.
+//
+// The call count is asserted as well as the error: without it, an
+// off-by-one in the cap would still pass.
+func TestRosterStopsAtThePageCapRatherThanLoopingForever(t *testing.T) {
+	forever := `{"data":{"course":{"enrollmentsConnection":{
+      "pageInfo":{"hasNextPage":true,"endCursor":"always-another"},
+      "nodes":[{"_id":"1","type":"StudentEnrollment","state":"active",
+        "user":{"_id":"1","sortableName":"A, B","email":"x@y","sisId":"112223335"}}]}}}}`
+
+	bodies := make([]string, 200)
+	for i := range bodies {
+		bodies[i] = forever
+	}
+	fake := &jsonCanvas{bodies: bodies}
+
+	_, err := canvas.New(fake.start(t)).Roster(context.Background(), token, "44779")
+	if !errors.Is(err, domaincanvas.ErrUnavailable) {
+		t.Fatalf("Roster returned %v, want ErrUnavailable at the cap", err)
+	}
+	if fake.calls != 100 {
+		t.Errorf("made %d requests before giving up, want exactly the 100-page cap", fake.calls)
+	}
+}
+
+// COR-5. The enrolment's Canvas `state` was fetched and never read, so a
+// student Canvas had marked `completed` or `deleted` was imported as
+// enrolled — and would have become a grade recipient in WP-2. Only `active`
+// and `invited` mean "on the course"; everything else is a person the
+// import must leave out, which is what lets the withdraw step stamp them.
+func TestRosterKeepsOnlyTheEnrolmentStatesThatMeanOnTheCourse(t *testing.T) {
+	node := func(id, state string) string {
+		return `{"_id":"e` + id + `","type":"StudentEnrollment","state":"` + state + `",
+          "user":{"_id":"u` + id + `","sortableName":"APELLIDO` + id + `, NOMBRE",
+                  "email":"x@mail.udp.cl","sisId":"2231706` + id + `5"}}`
+	}
+	fake := &jsonCanvas{bodies: []string{`{"data":{"course":{"enrollmentsConnection":{
+      "pageInfo":{"hasNextPage":false,"endCursor":null},
+      "nodes":[` + node("1", "active") + `,` + node("2", "invited") + `,` +
+		node("3", "completed") + `,` + node("4", "deleted") + `,` +
+		node("5", "inactive") + `,` + node("6", "rejected") + `]}}}}`}}
+
+	students, err := canvas.New(fake.start(t)).Roster(context.Background(), token, "44779")
+	if err != nil {
+		t.Fatalf("Roster: %v", err)
+	}
+	if len(students) != 2 {
+		t.Fatalf("got %d students, want the active and the invited one only: %+v", len(students), students)
+	}
+	for _, s := range students {
+		if s.CanvasUserID != "u1" && s.CanvasUserID != "u2" {
+			t.Errorf("%s was imported; only active and invited enrolments are on the course", s.CanvasUserID)
+		}
+	}
+}
+
+// COR-8's other half: the client reports what Canvas said, duplicates
+// included. De-duplication lives in coursestore.SaveRoster, where the
+// roster becomes a set of people and where ImportResult is computed — two
+// answers to "is this one person or two" is how the two drift apart.
+func TestRosterReportsAPersonCanvasListedTwice(t *testing.T) {
+	node := `{"_id":"e1","type":"StudentEnrollment","state":"active",
+      "user":{"_id":"900001","sortableName":"PEREZ SOTO, ANA",
+              "email":"x@mail.udp.cl","sisId":"112223335"}}`
+	fake := &jsonCanvas{bodies: []string{`{"data":{"course":{"enrollmentsConnection":{
+      "pageInfo":{"hasNextPage":false,"endCursor":null},
+      "nodes":[` + node + `,` + node + `]}}}}`}}
+
+	students, err := canvas.New(fake.start(t)).Roster(context.Background(), token, "44779")
+	if err != nil {
+		t.Fatalf("Roster: %v", err)
+	}
+	if len(students) != 2 {
+		t.Errorf("got %d students; this layer passes duplicates through on purpose", len(students))
+	}
+}

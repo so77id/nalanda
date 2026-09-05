@@ -410,6 +410,21 @@ func Load(lookup LookupFunc) (Config, error) {
 				KeyCanvasGraphQLURL, cfg.CanvasGraphQLURL, parsed.Scheme)
 		case parsed.Host == "":
 			return Config{}, fmt.Errorf("%s=%q names no host", KeyCanvasGraphQLURL, cfg.CanvasGraphQLURL)
+		case parsed.Scheme == "http" && !isLoopbackHost(parsed.Hostname()):
+			// A Canvas token is a full-permission credential and it travels
+			// in an Authorization header on every profile load and every
+			// import. Over http that is a credential in clear on the wire,
+			// from a typo the server would otherwise boot healthy with
+			// (#271 review, SEC-2). Same reasoning as SecureCookie's, which
+			// exists because "a non-Secure cookie over https is a session
+			// token travelling in clear" — applied one variable over.
+			//
+			// Loopback stays legal so a local stub and the httptest servers
+			// in the suite keep working.
+			return Config{}, fmt.Errorf(
+				"%s=%q is http against a non-loopback host; a Canvas token would travel in clear. "+
+					"Use https, or a loopback host for a local stub",
+				KeyCanvasGraphQLURL, cfg.CanvasGraphQLURL)
 		}
 	}
 
@@ -440,6 +455,20 @@ func parseMasterKey(raw string) ([]byte, error) {
 			KeySecretsMasterKey, len(key), secret.MasterKeySize)
 	}
 	return key, nil
+}
+
+// isLoopbackHost reports whether a hostname names this machine.
+//
+// It checks the NAME rather than resolving it: resolution at boot would make
+// configuration validation depend on DNS, and a hostile resolver could turn
+// a loopback-looking name into a route off the machine. The three spellings
+// below are the ones a developer actually types.
+func isLoopbackHost(host string) bool {
+	switch strings.ToLower(host) {
+	case "localhost", "127.0.0.1", "::1", "[::1]":
+		return true
+	}
+	return false
 }
 
 // parsePositiveInt returns the value or the default (when raw is empty). A

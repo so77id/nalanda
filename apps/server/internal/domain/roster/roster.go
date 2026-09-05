@@ -17,6 +17,8 @@ package roster
 import (
 	"context"
 	"errors"
+	"sort"
+	"strings"
 	"time"
 )
 
@@ -95,8 +97,28 @@ type Store interface {
 	// did, for the flash.
 	SaveRoster(ctx context.Context, courseID int64, students []SourceStudent) (ImportResult, error)
 
-	// ListEnrollments returns the course's people, enrolled first.
+	// ListEnrollments returns the course's people, enrolled first and then
+	// by surname. The ORDER is the store's to produce but NOT the store's to
+	// decide: see SortEnrollments, which the store applies, on why SQLite's
+	// collation cannot do it.
 	ListEnrollments(ctx context.Context, courseID int64) ([]Enrollment, error)
+
+	// EnrollmentCounts returns, per course id, how many people are enrolled
+	// and how many withdrew. A course with NO roster at all has no entry —
+	// which is what lets the list say "sin lista" rather than "0 inscritos",
+	// two states a bare number cannot tell apart.
+	//
+	// It exists so the list screen asks one question instead of one per
+	// course. The screen previously reached through this domain into the
+	// store and loaded every student row to count them (#271 review, ARQ-1);
+	// the cost was negligible and the boundary was not.
+	EnrollmentCounts(ctx context.Context) (map[int64]EnrollmentCounts, error)
+}
+
+// EnrollmentCounts is one course's tally.
+type EnrollmentCounts struct {
+	Enrolled  int
+	Withdrawn int
 }
 
 // Student is one person, as stored. The RUT is split into the eight-digit
@@ -123,6 +145,15 @@ type Enrollment struct {
 	Student            Student
 	State              string
 	CanvasEnrollmentID string
+}
+
+// CourseWithCounts is a course and its tally, for the list screen.
+type CourseWithCounts struct {
+	Course Course
+	// Counts is the tally; HasRoster says whether the course has been
+	// imported at all, which is the distinction Counts alone cannot carry.
+	Counts    EnrollmentCounts
+	HasRoster bool
 }
 
 // ImportResult is what one roster import did, for the flash the professor
@@ -182,4 +213,53 @@ type SourceStudent struct {
 	RUTDV              string
 	CanvasUserID       string
 	CanvasEnrollmentID string
+}
+
+// SortEnrollments orders a course's people the way a professor reads a
+// class list: those still enrolled first, then by surname, then by given
+// name.
+//
+// It sorts in Go rather than in SQL because SQLite's default BINARY
+// collation puts every accented surname after every unaccented one — Á is
+// 0xC3 0x81 and Z is 0x5A, so `ÁVILA MUÑOZ` sorted after `ZUNIGA PEREZ`
+// (#271 review, COR-7, measured). ADR-0069 recorded that Canvas hands names
+// uppercase WITH their accents, and ÁLVAREZ, ÁVILA and ÓRDENES are ordinary
+// Chilean surnames, so this was not a corner case — it was most of the
+// alphabet's tail landing in the wrong place on every roster page.
+//
+// SQLite's `COLLATE NOCASE` would not have helped: it folds ASCII case
+// only, and this is a diacritic problem, not a case problem. `ICU` would,
+// and is an extension this build cannot load (ADR-0007 pins a pure-Go,
+// CGO-free driver).
+func SortEnrollments(enrollments []Enrollment) {
+	sort.SliceStable(enrollments, func(i, j int) bool {
+		a, b := enrollments[i], enrollments[j]
+		if (a.State == StateEnrolled) != (b.State == StateEnrolled) {
+			return a.State == StateEnrolled
+		}
+		if key := foldForSort(a.Student.LastName); key != foldForSort(b.Student.LastName) {
+			return key < foldForSort(b.Student.LastName)
+		}
+		return foldForSort(a.Student.FirstName) < foldForSort(b.Student.FirstName)
+	})
+}
+
+// foldAccents maps the Latin-1 letters Chilean names actually use onto
+// their unaccented equivalents. Deliberately small: a general Unicode
+// normalisation would be a dependency (golang.org/x/text), and go.mod is a
+// PR discussion in this repo.
+var foldAccents = strings.NewReplacer(
+	"Á", "A", "á", "a",
+	"É", "E", "é", "e",
+	"Í", "I", "í", "i",
+	"Ó", "O", "ó", "o",
+	"Ú", "U", "ú", "u",
+	"Ü", "U", "ü", "u",
+	"Ñ", "N", "ñ", "n",
+)
+
+// foldForSort is the sort key: accents folded and case flattened, so
+// "ÁVILA", "Ávila" and "avila" sort together.
+func foldForSort(s string) string {
+	return strings.ToUpper(foldAccents.Replace(s))
 }

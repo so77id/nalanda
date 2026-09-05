@@ -3,6 +3,7 @@ package handler_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -42,6 +43,9 @@ type stubCanvas struct {
 	seen     []string
 	courses  []canvas.Course
 	students []canvas.Student
+	// courseCalls counts Courses() calls, so a case can assert a code path
+	// did NOT reach Canvas (#271 review, PER-3).
+	courseCalls int
 	// seenRosterCourse records which Canvas course the roster was asked
 	// about, so a case can prove the id came from the STORED course.
 	seenRosterCourse string
@@ -55,6 +59,7 @@ func (s *stubCanvas) Verify(_ context.Context, token string) error {
 // Since S5 and S6 the screen does list courses and import a roster; the
 // scripted answers below are what the cases set up.
 func (s *stubCanvas) Courses(context.Context, string) ([]canvas.Course, error) {
+	s.courseCalls++
 	return s.courses, s.err
 }
 
@@ -73,6 +78,37 @@ type profileFixture struct {
 	coursesHandler *handler.Courses
 	logs           *bytes.Buffer
 	now            time.Time
+	// db and log are kept so rekey can rebuild the handlers over the SAME
+	// database under a different master key.
+	db  *sql.DB
+	log *slog.Logger
+}
+
+// rekey rebuilds the handlers over the same database with a DIFFERENT
+// master key — what a rotation, or a backup restored onto a host with a
+// regenerated .env, looks like from the code's side. Every ciphertext
+// already stored then fails to authenticate (#271 review, SEC-1).
+func (f *profileFixture) rekey(t *testing.T, masterKey []byte) {
+	t.Helper()
+
+	secrets, err := secretstore.New(f.db, masterKey)
+	if err != nil {
+		t.Fatalf("secretstore.New: %v", err)
+	}
+	f.secrets = secrets
+	canvasService := canvas.NewService(secrets, f.api)
+	rosterService := roster.NewService(f.courses, roster.NewCanvasSource(canvasService))
+	f.handler = handler.NewProfile(handler.Profile{
+		Canvas:    canvasService,
+		Roster:    rosterService,
+		PublicURL: publicURL,
+		Log:       f.log,
+	})
+	f.coursesHandler = handler.NewCourses(handler.Courses{
+		Roster:    rosterService,
+		PublicURL: publicURL,
+		Log:       f.log,
+	})
 }
 
 // newProfileFixture wires the screen. masterKey nil is the "no
@@ -112,6 +148,8 @@ func newProfileFixture(t *testing.T, masterKey []byte) *profileFixture {
 	// about what the professor sees after a course is actually stored, and
 	// the UNIQUE that refuses a second click lives in the schema.
 	f.courses = coursestore.New(db)
+	f.db = db
+	f.log = log
 	rosterService := roster.NewService(f.courses, roster.NewCanvasSource(canvasService))
 	f.handler = handler.NewProfile(handler.Profile{
 		Canvas:    canvasService,

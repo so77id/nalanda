@@ -99,3 +99,42 @@ func TestHasRUTReportsWhetherAStudentCanBeMatched(t *testing.T) {
 		t.Error("a student without a RUT reports HasRUT() true")
 	}
 }
+
+// COR-3. The known gap, pinned so it is VISIBLE rather than merely absent:
+// a short numeric sisId becomes a well-formed RUT that no person owns, and
+// two of them can collide on `student.rut`'s UNIQUE and abort a whole
+// import — the one outcome ADR-0069 §Consequences promises cannot happen.
+//
+// The behaviour is asserted as it IS, not as it should be, because no
+// length rule fixes it: a minimum body of seven keeps the ADR's pinned
+// zero-padding case and still admits "20231234"; a minimum of eight catches
+// that one and breaks the ADR. The guard that would discriminate is a
+// modulus-11 check of the verifier, which is a design decision this WP did
+// not take. The WP that takes it inherits this test and inverts it.
+func TestSplitSISIDCurrentlyFabricatesARutFromAShortNumericID(t *testing.T) {
+	for _, c := range []struct {
+		sisID   string
+		wantRUT string
+		wantDV  string
+	}{
+		{"00", "00000000", "0"},
+		{"15", "00000001", "5"},
+		{"12345", "00001234", "5"},
+		{"20231234", "02023123", "4"},
+	} {
+		rut, dv := canvas.SplitSISID(c.sisID)
+		if rut != c.wantRUT || dv != c.wantDV {
+			t.Errorf("SplitSISID(%q) = (%q, %q), want (%q, %q) — this pins the KNOWN GAP, "+
+				"so a change here means somebody closed it and should invert this case",
+				c.sisID, rut, dv, c.wantRUT, c.wantDV)
+		}
+	}
+
+	// The collision the gap produces: two different ids, one body.
+	first, _ := canvas.SplitSISID("10")
+	second, _ := canvas.SplitSISID("11")
+	if first != second {
+		t.Errorf("SplitSISID(\"10\") = %q and SplitSISID(\"11\") = %q no longer collide; "+
+			"if that is deliberate, this case and the doc comment both need updating", first, second)
+	}
+}

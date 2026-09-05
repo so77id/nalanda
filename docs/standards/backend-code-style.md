@@ -392,6 +392,19 @@ The extension point born with this app. Registered in `integration-guides.md`.
    only case that starts from a database rather than from an empty file.
 6. Run the pre-PR protocol: `sqlite_test.go` applies the embedded set to a fresh
    temp file and asserts a second boot applies nothing.
+7. **A case asserting that a row is REFUSED must name the constraint that
+   refused it, and must vary every other key so no other constraint can
+   have been the one that fired.** Both halves are load-bearing. Without the
+   name, an error for the wrong reason reads as a pass — the foreign-key
+   cases in `schema_test.go` carry the scar in their own comment ("before
+   the schema existed, this case passed on `no such table`"). Without the
+   variation, a `UNIQUE` violation stands in for the `CHECK` the case is
+   about and the guard verifies nothing. Worked case:
+   `TestStudentRutRefusesEveryShapeAReadingCouldNotMatch` (#271) gives every
+   row of its nine-case table a distinct `canvas_user_id` for exactly that
+   reason, and asserts `strings.Contains(err.Error(), "CHECK")`. This is the
+   cheapest defence against the most common way a database test goes green
+   for the wrong reason (#271 review, PAT-1).
 
 ## Naming
 

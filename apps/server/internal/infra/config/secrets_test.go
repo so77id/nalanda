@@ -150,3 +150,39 @@ func TestTheSecretsMasterKeyIsNeverPrinted(t *testing.T) {
 		}
 	})
 }
+
+// SEC-2. A Canvas token is a full-permission credential travelling in an
+// Authorization header on every profile load and every import. Over http to
+// a non-loopback host that is a credential in clear, from a typo the server
+// would otherwise boot healthy with. Loopback stays legal so a local stub
+// and the suite's httptest servers keep working.
+func TestTheCanvasEndpointRefusesPlainHTTPExceptOnLoopback(t *testing.T) {
+	for _, c := range []struct {
+		name    string
+		value   string
+		refused bool
+	}{
+		{"https anywhere", "https://udp.instructure.com/api/graphql", false},
+		{"http to a real host", "http://udp.instructure.com/api/graphql", true},
+		{"http to another real host", "http://canvas.example.com/api/graphql", true},
+		{"http to localhost", "http://localhost:8099/api/graphql", false},
+		{"http to 127.0.0.1", "http://127.0.0.1:8099/api/graphql", false},
+		{"http to ::1", "http://[::1]:8099/api/graphql", false},
+		{"empty, meaning the client default", "", false},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			e := env()
+			e["NALANDA_CANVAS_GRAPHQL_URL"] = c.value
+
+			_, err := config.Load(lookupFrom(e))
+			switch {
+			case c.refused && err == nil:
+				t.Error("Load accepted plain http to a non-loopback host; a Canvas token would travel in clear")
+			case c.refused && !strings.Contains(err.Error(), "NALANDA_CANVAS_GRAPHQL_URL"):
+				t.Errorf("the refusal does not name the variable: %v", err)
+			case !c.refused && err != nil:
+				t.Errorf("Load refused %q: %v", c.value, err)
+			}
+		})
+	}
+}

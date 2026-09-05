@@ -44,6 +44,7 @@ type memStore struct {
 	saved     map[int64][]roster.SourceStudent
 	saveErr   error
 	saveCalls int
+	countsErr error
 }
 
 func (m *memStore) CreateCourse(_ context.Context, c roster.Course) (roster.Course, error) {
@@ -86,6 +87,17 @@ func (m *memStore) SaveRoster(_ context.Context, courseID int64, students []rost
 
 func (m *memStore) ListEnrollments(context.Context, int64) ([]roster.Enrollment, error) {
 	return nil, nil
+}
+
+func (m *memStore) EnrollmentCounts(context.Context) (map[int64]roster.EnrollmentCounts, error) {
+	if m.countsErr != nil {
+		return nil, m.countsErr
+	}
+	counts := map[int64]roster.EnrollmentCounts{}
+	for courseID, students := range m.saved {
+		counts[courseID] = roster.EnrollmentCounts{Enrolled: len(students)}
+	}
+	return counts, nil
 }
 
 func (m *memStore) CourseByID(_ context.Context, id int64) (roster.Course, error) {
@@ -362,5 +374,66 @@ func TestImportSavesNothingWhenCanvasFails(t *testing.T) {
 	}
 	if store.saveCalls != 0 {
 		t.Error("the store was written to despite Canvas failing; an empty roster would withdraw the whole class")
+	}
+}
+
+// --- CoursesWithCounts (review fix ARQ-1) --------------------------------
+
+// The list screen's whole question in two queries, and — the part that
+// matters — "no roster at all" stays distinguishable from "a roster whose
+// students all withdrew". A bare count cannot tell those apart, and the
+// screen words them differently.
+func TestCoursesWithCountsSeparatesNoRosterFromAnEmptyOne(t *testing.T) {
+	store := &memStore{}
+	source := &fakeSource{
+		courses:  canvasCourses(),
+		students: []roster.SourceStudent{{CanvasUserID: "900001", RUT: "11222333", RUTDV: "5"}},
+	}
+	svc := roster.NewService(store, source)
+
+	imported, err := svc.AddCourse(context.Background(), professor, "44779")
+	if err != nil {
+		t.Fatalf("AddCourse: %v", err)
+	}
+	untouched, err := svc.AddCourse(context.Background(), professor, "44780")
+	if err != nil {
+		t.Fatalf("AddCourse: %v", err)
+	}
+	if _, err := svc.Import(context.Background(), professor, imported.ID); err != nil {
+		t.Fatalf("Import: %v", err)
+	}
+
+	withCounts, err := svc.CoursesWithCounts(context.Background())
+	if err != nil {
+		t.Fatalf("CoursesWithCounts: %v", err)
+	}
+	if len(withCounts) != 2 {
+		t.Fatalf("got %d courses, want 2", len(withCounts))
+	}
+
+	byID := map[int64]roster.CourseWithCounts{}
+	for _, c := range withCounts {
+		byID[c.Course.ID] = c
+	}
+	if got := byID[imported.ID]; !got.HasRoster || got.Counts.Enrolled != 1 {
+		t.Errorf("the imported course = %+v, want a roster with 1 enrolled", got)
+	}
+	if got := byID[untouched.ID]; got.HasRoster {
+		t.Errorf("the never-imported course reports a roster: %+v", got)
+	}
+}
+
+// A store failure on either query is surfaced, not rendered as an empty
+// list — a course list that silently loses its counts reads as "nobody is
+// enrolled anywhere".
+func TestCoursesWithCountsSurfacesAStoreFailure(t *testing.T) {
+	store := &memStore{countsErr: errors.New("disk is gone")}
+	svc := roster.NewService(store, &fakeSource{courses: canvasCourses()})
+
+	if _, err := svc.AddCourse(context.Background(), professor, "44779"); err != nil {
+		t.Fatalf("AddCourse: %v", err)
+	}
+	if _, err := svc.CoursesWithCounts(context.Background()); err == nil {
+		t.Error("CoursesWithCounts returned no error for a store that failed")
 	}
 }

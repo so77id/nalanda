@@ -167,8 +167,21 @@ func (s *Store) SaveRoster(ctx context.Context, courseID int64, students []roste
 
 	result := roster.ImportResult{}
 	keep := make([]any, 0, len(students))
+	seen := make(map[string]bool, len(students))
 
 	for _, incoming := range students {
+		// One person, one row, however many times the source listed them.
+		// Canvas returns a node per ENROLMENT, so a student in two sections
+		// of one course arrives twice; without this the upsert wrote them
+		// once (correctly) but the per-student `existing` probe then saw the
+		// enrolment the first pass had just created, so the second landed in
+		// Updated and the flash told the professor their class had one more
+		// student than it does (#271 review, COR-8).
+		if seen[incoming.CanvasUserID] {
+			continue
+		}
+		seen[incoming.CanvasUserID] = true
+
 		studentID, err := upsertStudent(ctx, tx, incoming)
 		if err != nil {
 			return roster.ImportResult{}, err
@@ -289,15 +302,21 @@ func withdrawAbsent(ctx context.Context, tx *sql.Tx, courseID int64, keep []any)
 
 // ListEnrollments returns the course's people, enrolled first and then by
 // surname — the order a professor reads a class list in.
+//
+// The ORDER BY is deliberately not in the SQL. SQLite's BINARY collation
+// sorts every accented surname after every unaccented one, so `ÁVILA MUÑOZ`
+// came after `ZUNIGA PEREZ` on a real roster (#271 review, COR-7). The
+// ordering rule lives in roster.SortEnrollments, which folds the accents;
+// this method fetches and applies it. Putting it back in the SQL would
+// silently reintroduce the bug, because the query LOOKS correct.
 func (s *Store) ListEnrollments(ctx context.Context, courseID int64) ([]roster.Enrollment, error) {
 	rows, err := s.db.QueryContext(ctx, `
         SELECT e.id, e.course_id, e.state, e.canvas_enrollment_id,
                s.id, s.first_name, s.last_name, s.email, s.rut, s.rut_dv, s.canvas_user_id
         FROM enrollment e
         JOIN student s ON s.id = e.student_id
-        WHERE e.course_id = ?
-        ORDER BY (e.state = ?) DESC, s.last_name, s.first_name`,
-		courseID, roster.StateEnrolled)
+        WHERE e.course_id = ?`,
+		courseID)
 	if err != nil {
 		return nil, fmt.Errorf("coursestore: list the enrolments: %w", err)
 	}
@@ -323,6 +342,7 @@ func (s *Store) ListEnrollments(ctx context.Context, courseID int64) ([]roster.E
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("coursestore: read the enrolments: %w", err)
 	}
+	roster.SortEnrollments(enrollments)
 	return enrollments, nil
 }
 
@@ -346,4 +366,48 @@ func isDuplicateRUT(err error) bool {
 	text := err.Error()
 	return strings.Contains(text, "UNIQUE constraint failed") &&
 		strings.Contains(text, "student.rut")
+}
+
+// EnrollmentCounts tallies every course's enrolments in one statement.
+//
+// GROUP BY (course_id, state) rather than a count per course: it answers the
+// list screen's whole question in one round trip, and a course with no rows
+// simply has no entry — which is what preserves the "sin lista" vs "0
+// inscritos" distinction the screen depends on.
+//
+// The plan is a covering-index scan of idx_enrollment_by_course, so it never
+// touches the enrollment table itself.
+func (s *Store) EnrollmentCounts(ctx context.Context) (map[int64]roster.EnrollmentCounts, error) {
+	rows, err := s.db.QueryContext(ctx, `
+        SELECT course_id, state, count(*)
+        FROM enrollment
+        GROUP BY course_id, state`)
+	if err != nil {
+		return nil, fmt.Errorf("coursestore: count the enrolments: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	counts := map[int64]roster.EnrollmentCounts{}
+	for rows.Next() {
+		var (
+			courseID int64
+			state    string
+			n        int
+		)
+		if err := rows.Scan(&courseID, &state, &n); err != nil {
+			return nil, fmt.Errorf("coursestore: scan an enrolment count: %w", err)
+		}
+		tally := counts[courseID]
+		switch state {
+		case roster.StateEnrolled:
+			tally.Enrolled = n
+		case roster.StateWithdrawn:
+			tally.Withdrawn = n
+		}
+		counts[courseID] = tally
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("coursestore: read the enrolment counts: %w", err)
+	}
+	return counts, nil
 }
