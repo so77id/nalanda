@@ -180,6 +180,19 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   `oidctest.Provider`; the real round trip is `GOOGLE-CHECK.md`, and a change to
   the login path is unfinished while a human has not run it. Same rule, and the
   same reason, as `apps/amc-worker/PAPER-CHECK.md`.
+- **Nothing here can test Canvas, either (issue #271).** The suite drives
+  `httptest` fakes in `internal/infra/canvas`, the way it drives
+  `oidctest.Provider` for Google. What no test can see: whether the GraphQL
+  queries match Canvas's real schema, whether `user.sisId` still carries the
+  RUT, and whether the token survives the round trip without reaching a log.
+  Any change to the queries in `internal/infra/canvas`, the normalisation in
+  `internal/domain/canvas/roster.go`, the `/profile` token path, or
+  `NALANDA_CANVAS_GRAPHQL_URL` is unfinished while a human has not run
+  [`CANVAS-CHECK.md`](CANVAS-CHECK.md). Same rule, and the same reason, as
+  the Google and paper bullets. The measured contract lives in ADR-0069;
+  `student.rut` holds the eight digits the sheet prints and `student.rut_dv`
+  the verifier Canvas attaches, and a caller that stores `sisId` whole would
+  match nobody in WP-2 while looking correct on every roster screen.
 - **Nothing here can test paper, either.** The tex generator lives in
   `internal/domain/controls/tex/**`, and the suite pins tokens
   (`TestPreambleDeclaresLetterPaperWhenInputSaysLetter` and its A4/empty

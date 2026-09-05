@@ -26,6 +26,19 @@ func (f *fakeAPI) Verify(_ context.Context, token string) error {
 	return f.err
 }
 
+// The service does not call these — its cases are about the token policy —
+// but the interface is what it is. Returning the configured error keeps a
+// stray call visible rather than silently succeeding.
+func (f *fakeAPI) Courses(context.Context, string) ([]canvas.Course, error) {
+	f.called++
+	return nil, f.err
+}
+
+func (f *fakeAPI) Roster(context.Context, string, string) ([]canvas.Student, error) {
+	f.called++
+	return nil, f.err
+}
+
 // memStore is an in-memory secret.Store. It stores PLAINTEXT on purpose:
 // what this package's cases are about is the policy (verify before store,
 // never store on an unknown answer), and the encryption itself is pinned one

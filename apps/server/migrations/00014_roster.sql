@@ -69,24 +69,51 @@ CREATE TABLE student (
     -- Canvas's, and refusing an import because two rows share a shared
     -- address would fail the whole class over one person's data.
     email          TEXT    NOT NULL DEFAULT '' COLLATE NOCASE,
-    -- 8 digits, no verifier digit — the same shape `reading.rut_read` holds,
-    -- because WP-2 joins the two.
+    -- The RUT, SPLIT: `rut` is the 8-digit body and `rut_dv` the verifier.
     --
-    -- NULLABLE, and that is deliberate. Canvas may hold no RUT for a person
-    -- (the spike in S4 says how often). SQLite lets any number of NULLs
+    -- The split is what the S4 spike found, measured against the real UDP
+    -- Canvas (ADR-0069). Canvas puts the RUT in `user.sisId` WITH its
+    -- verifier and no separators — `112223335`, `11222444K` — while the
+    -- printed sheet reads `\AMCcode{rut}{8}`, eight digits and no verifier.
+    -- So the body is the only part that can join `reading.rut_read`, and
+    -- the verifier is the part a person needs to see a RUT written
+    -- correctly. Keeping both costs one column; dropping the verifier now
+    -- would cost a migration and a re-import the first time WP-3 puts a
+    -- RUT in an email.
+    --
+    -- Exactly eight digits, enforced by GLOB rather than left to the
+    -- importer. A seven-digit RUT reaches the sheet zero-padded, because
+    -- AMC's code field is fixed-width — so a row storing `9876543` could
+    -- never match the `09876543` a reading holds, and would be an
+    -- unmatchable student nobody could explain. The CHECK makes the
+    -- normaliser pad instead of the join silently missing.
+    --
+    -- NULLABLE, and that is deliberate. Canvas may hold no RUT for a
+    -- person: 25 of 25 had one on the course measured in S4, which is
+    -- evidence and not a guarantee. SQLite lets any number of NULLs
     -- coexist under a UNIQUE, so an unknown RUT costs exactly one
     -- unmatchable student instead of failing the import of everyone after
-    -- the first. The CHECK refuses the empty string, which would otherwise
-    -- become the "unknown" value that DOES collide — the one shape that
-    -- turns this column's nullability back into a bug.
-    rut            TEXT    UNIQUE CHECK (rut IS NULL OR rut <> ''),
+    -- the first. The GLOB also refuses the empty string, which would
+    -- otherwise become the "unknown" value that DOES collide.
+    rut            TEXT    UNIQUE
+                       CHECK (rut IS NULL OR rut GLOB '[0-9][0-9][0-9][0-9][0-9][0-9][0-9][0-9]'),
+    -- The verifier: a digit, or K. Uppercase — the normaliser folds it, so
+    -- the CHECK does not have to accept both cases and the column cannot
+    -- hold two spellings of one RUT. Four of the 25 students measured in
+    -- S4 had K, so this is not a theoretical branch.
+    rut_dv         TEXT    CHECK (rut_dv IS NULL OR rut_dv GLOB '[0-9K]'),
     -- The import's upsert key, which is why it is UNIQUE and NOT NULL: with
     -- a nullable RUT above, `rut` alone cannot identify a returning person,
     -- and a re-import would add a second row for everyone Canvas has no RUT
     -- for. Same TEXT-not-INTEGER reasoning as course.canvas_course_id.
     canvas_user_id TEXT    NOT NULL UNIQUE,
     created_at     INTEGER NOT NULL DEFAULT (unixepoch()),
-    updated_at     INTEGER NOT NULL DEFAULT (unixepoch())
+    updated_at     INTEGER NOT NULL DEFAULT (unixepoch()),
+    -- The two halves travel together or not at all. A body without its
+    -- verifier is a RUT nothing can render, and a verifier without a body
+    -- is a row the join can never reach — both are half-records that would
+    -- read as data.
+    CHECK ((rut IS NULL) = (rut_dv IS NULL))
 );
 
 CREATE TABLE enrollment (

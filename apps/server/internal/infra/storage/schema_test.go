@@ -522,15 +522,16 @@ func insertCourse(t *testing.T, ctx context.Context, db *sql.DB, code, canvasCou
 	return id
 }
 
-// insertStudent adds a row to student and returns its id. rut is passed as
-// any so a case can hand it nil for "Canvas had no RUT for this person".
-func insertStudent(t *testing.T, ctx context.Context, db *sql.DB, canvasUserID string, rut any) int64 {
+// insertStudent adds a row to student and returns its id. rut and rutDV are
+// passed as any so a case can hand them nil for "Canvas had no RUT for this
+// person" — the two are constrained to be null together.
+func insertStudent(t *testing.T, ctx context.Context, db *sql.DB, canvasUserID string, rut, rutDV any) int64 {
 	t.Helper()
 
 	result, err := db.ExecContext(ctx,
-		`INSERT INTO student (first_name, last_name, email, rut, canvas_user_id)
-         VALUES (?, ?, ?, ?, ?)`,
-		"Ana", "Pérez", "ana@example.com", rut, canvasUserID)
+		`INSERT INTO student (first_name, last_name, email, rut, rut_dv, canvas_user_id)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+		"Ana", "Pérez", "ana@example.com", rut, rutDV, canvasUserID)
 	if err != nil {
 		t.Fatalf("inserting the student %s: %v", canvasUserID, err)
 	}
@@ -545,7 +546,7 @@ func TestTheRosterSchemaAcceptsACourseWithAnEnrolledStudent(t *testing.T) {
 	ctx, db := migrated(t)
 
 	courseID := insertCourse(t, ctx, db, "CIT2006-03", "12345")
-	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678")
+	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
 
 	if _, err := db.ExecContext(ctx,
 		`INSERT INTO enrollment (course_id, student_id, state, canvas_enrollment_id)
@@ -556,58 +557,114 @@ func TestTheRosterSchemaAcceptsACourseWithAnEnrolledStudent(t *testing.T) {
 	}
 
 	var (
-		name, code, term, canvasCourse string
-		firstName, lastName, rut       string
-		state                          string
+		name, code, term, canvasCourse  string
+		firstName, lastName, rut, rutDV string
+		state                           string
 	)
 	if err := db.QueryRowContext(ctx, `
         SELECT c.name, c.code, c.term, c.canvas_course_id,
-               s.first_name, s.last_name, s.rut,
+               s.first_name, s.last_name, s.rut, s.rut_dv,
                e.state
         FROM enrollment e
         JOIN course  c ON c.id = e.course_id
         JOIN student s ON s.id = e.student_id`,
-	).Scan(&name, &code, &term, &canvasCourse, &firstName, &lastName, &rut, &state); err != nil {
+	).Scan(&name, &code, &term, &canvasCourse, &firstName, &lastName, &rut, &rutDV, &state); err != nil {
 		t.Fatalf("reading the roster back: %v", err)
 	}
 	if code != "CIT2006-03" || term != "2026-2" || canvasCourse != "12345" ||
-		firstName != "Ana" || rut != "12345678" || state != "enrolled" {
-		t.Errorf("round-trip mismatch: code=%q term=%q canvas=%q first=%q rut=%q state=%q",
-			code, term, canvasCourse, firstName, rut, state)
+		firstName != "Ana" || rut != "12345678" || rutDV != "5" || state != "enrolled" {
+		t.Errorf("round-trip mismatch: code=%q term=%q canvas=%q first=%q rut=%q rut_dv=%q state=%q",
+			code, term, canvasCourse, firstName, rut, rutDV, state)
 	}
 }
 
 // The RUT is the join key WP-2 matches readings against, so two students
-// cannot share one. It is NULLABLE on purpose — Canvas may hold no RUT for
-// a person, and SQLite's UNIQUE lets any number of NULLs coexist, so an
-// unknown RUT costs an unmatchable student rather than a failed import of
-// everyone after the first. The empty string is refused by a CHECK: it
-// would otherwise be the "unknown" value that DOES collide.
+// cannot share one. Three rules, all measured against real Canvas data in
+// the S4 spike (ADR-0069):
+//
+//   - the body is exactly eight digits, because that is what
+//     \AMCcode{rut}{8} prints and therefore what a reading can hold;
+//   - the verifier is a digit or K, and travels with the body or not at all;
+//   - both may be NULL together, and NULLs do not collide under the UNIQUE,
+//     so one student Canvas has no RUT for costs one unmatchable row rather
+//     than the rest of the import.
 func TestStudentRutIsUniqueWhenPresentAndAbsentRutsDoNotCollide(t *testing.T) {
 	ctx, db := migrated(t)
 
-	insertStudent(t, ctx, db, "canvas-user-1", "12345678")
+	insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
 
 	if _, err := db.ExecContext(ctx,
-		`INSERT INTO student (first_name, last_name, email, rut, canvas_user_id)
-         VALUES ('Otra', 'Persona', 'otra@example.com', '12345678', 'canvas-user-2')`,
+		`INSERT INTO student (first_name, last_name, email, rut, rut_dv, canvas_user_id)
+         VALUES ('Otra', 'Persona', 'otra@example.com', '12345678', '5', 'canvas-user-2')`,
 	); err == nil {
 		t.Error("a second student with the same RUT was accepted, want a UNIQUE conflict")
 	}
 
-	insertStudent(t, ctx, db, "canvas-user-3", nil)
+	insertStudent(t, ctx, db, "canvas-user-3", nil, nil)
 	if _, err := db.ExecContext(ctx,
-		`INSERT INTO student (first_name, last_name, email, rut, canvas_user_id)
-         VALUES ('Sin', 'Rut', 'sinrut@example.com', NULL, 'canvas-user-4')`,
+		`INSERT INTO student (first_name, last_name, email, rut, rut_dv, canvas_user_id)
+         VALUES ('Sin', 'Rut', 'sinrut@example.com', NULL, NULL, 'canvas-user-4')`,
 	); err != nil {
 		t.Errorf("a second student without a RUT was refused (%v); NULLs must not collide", err)
 	}
+}
 
-	if _, err := db.ExecContext(ctx,
-		`INSERT INTO student (first_name, last_name, email, rut, canvas_user_id)
-         VALUES ('Rut', 'Vacío', 'vacio@example.com', '', 'canvas-user-5')`,
-	); err == nil {
-		t.Error("a student with an empty-string RUT was accepted, want the CHECK to refuse it")
+// The shape of the two columns, refused at the schema rather than trusted to
+// the importer. Each of these is a row that would look like data and join
+// against nothing.
+func TestStudentRutRefusesEveryShapeAReadingCouldNotMatch(t *testing.T) {
+	ctx, db := migrated(t)
+
+	for _, c := range []struct {
+		name  string
+		rut   any
+		rutDV any
+	}{
+		{"an empty body", "", "5"},
+		{"seven digits, unpadded — the sheet prints eight", "1234567", "5"},
+		{"nine digits — the verifier left on the body", "123456785", "5"},
+		{"a body with the verifier's K in it", "1234567K", "5"},
+		{"a body that is not digits", "1234-567", "5"},
+		{"a lowercase verifier", "12345678", "k"},
+		{"a two-character verifier", "12345678", "5K"},
+		{"a body with no verifier", "12345678", nil},
+		{"a verifier with no body", nil, "5"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			_, err := db.ExecContext(ctx,
+				`INSERT INTO student (first_name, last_name, email, rut, rut_dv, canvas_user_id)
+                 VALUES ('X', 'Y', 'x@example.com', ?, ?, ?)`,
+				c.rut, c.rutDV, "canvas-"+c.name)
+			if err == nil {
+				t.Fatal("the row was accepted, want a CHECK constraint failure")
+			}
+			// Naming the constraint matters, for the same reason the
+			// foreign-key case above does it: rejected-for-another-reason
+			// is how a guard goes green while verifying nothing. Every row
+			// here carries a distinct canvas_user_id precisely so a UNIQUE
+			// violation cannot stand in for the CHECK.
+			if !strings.Contains(err.Error(), "CHECK") {
+				t.Errorf("rejected with %v, want a CHECK constraint failure", err)
+			}
+		})
+	}
+}
+
+// K is a real verifier, not a theoretical branch: four of the twenty-five
+// students on the course measured in S4 had one.
+func TestStudentRutAcceptsAVerifierOfK(t *testing.T) {
+	ctx, db := migrated(t)
+
+	insertStudent(t, ctx, db, "canvas-user-k", "11222444", "K")
+
+	var rut, dv string
+	if err := db.QueryRowContext(ctx,
+		`SELECT rut, rut_dv FROM student WHERE canvas_user_id = ?`, "canvas-user-k",
+	).Scan(&rut, &dv); err != nil {
+		t.Fatalf("reading the K-verifier student back: %v", err)
+	}
+	if rut != "11222444" || dv != "K" {
+		t.Errorf("round-trip = %q/%q, want 11222444/K", rut, dv)
 	}
 }
 
@@ -617,11 +674,11 @@ func TestStudentRutIsUniqueWhenPresentAndAbsentRutsDoNotCollide(t *testing.T) {
 func TestStudentCanvasUserIDIsUnique(t *testing.T) {
 	ctx, db := migrated(t)
 
-	insertStudent(t, ctx, db, "canvas-user-1", "12345678")
+	insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
 
 	if _, err := db.ExecContext(ctx,
-		`INSERT INTO student (first_name, last_name, email, rut, canvas_user_id)
-         VALUES ('Otra', 'Persona', 'otra@example.com', '87654321', 'canvas-user-1')`,
+		`INSERT INTO student (first_name, last_name, email, rut, rut_dv, canvas_user_id)
+         VALUES ('Otra', 'Persona', 'otra@example.com', '87654321', '9', 'canvas-user-1')`,
 	); err == nil {
 		t.Error("a second student with the same canvas_user_id was accepted, want a UNIQUE conflict")
 	}
@@ -646,7 +703,7 @@ func TestEnrollmentIsUniquePerCourseAndStudent(t *testing.T) {
 	ctx, db := migrated(t)
 
 	courseID := insertCourse(t, ctx, db, "CIT2006-03", "12345")
-	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678")
+	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
 
 	if _, err := db.ExecContext(ctx,
 		`INSERT INTO enrollment (course_id, student_id, state) VALUES (?, ?, 'enrolled')`,
@@ -668,7 +725,7 @@ func TestEnrollmentStateRefusesAnUnknownValue(t *testing.T) {
 	ctx, db := migrated(t)
 
 	courseID := insertCourse(t, ctx, db, "CIT2006-03", "12345")
-	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678")
+	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
 
 	if _, err := db.ExecContext(ctx,
 		`INSERT INTO enrollment (course_id, student_id, state) VALUES (?, ?, 'retirado')`,
@@ -682,7 +739,7 @@ func TestTheRosterSchemaEnforcesItsReferences(t *testing.T) {
 	ctx, db := migrated(t)
 
 	courseID := insertCourse(t, ctx, db, "CIT2006-03", "12345")
-	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678")
+	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
 
 	for _, c := range []struct {
 		name  string
@@ -728,7 +785,7 @@ func TestDeletingACourseRemovesItsEnrollmentsAndLeavesTheStudent(t *testing.T) {
 	ctx, db := migrated(t)
 
 	courseID := insertCourse(t, ctx, db, "CIT2006-03", "12345")
-	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678")
+	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
 	if _, err := db.ExecContext(ctx,
 		`INSERT INTO enrollment (course_id, student_id, state) VALUES (?, ?, 'enrolled')`,
 		courseID, studentID,

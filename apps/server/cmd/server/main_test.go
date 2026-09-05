@@ -410,3 +410,11 @@ type unreachableCanvas struct{}
 func (unreachableCanvas) Verify(context.Context, string) error {
 	panic("composition tests must not reach Canvas")
 }
+
+func (unreachableCanvas) Courses(context.Context, string) ([]canvas.Course, error) {
+	panic("composition tests must not reach Canvas")
+}
+
+func (unreachableCanvas) Roster(context.Context, string, string) ([]canvas.Student, error) {
+	panic("composition tests must not reach Canvas")
+}

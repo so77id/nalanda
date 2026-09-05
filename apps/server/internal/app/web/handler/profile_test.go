@@ -36,13 +36,24 @@ const canvasToken = "1234~AbCdEfGhIjKlMnOpQrStUvWxYz0123456789"
 // stubCanvas is the API seam. The real UDP Canvas is a human's check (S8),
 // for the same reason GOOGLE-CHECK.md exists.
 type stubCanvas struct {
-	err  error
-	seen []string
+	err     error
+	seen    []string
+	courses []canvas.Course
 }
 
 func (s *stubCanvas) Verify(_ context.Context, token string) error {
 	s.seen = append(s.seen, token)
 	return s.err
+}
+
+// The profile screen does not list courses or import a roster yet — S5 and
+// S6 add those. Present so the stub satisfies canvas.API.
+func (s *stubCanvas) Courses(context.Context, string) ([]canvas.Course, error) {
+	return s.courses, s.err
+}
+
+func (s *stubCanvas) Roster(context.Context, string, string) ([]canvas.Student, error) {
+	return nil, s.err
 }
 
 type profileFixture struct {

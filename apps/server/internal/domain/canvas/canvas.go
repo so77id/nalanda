@@ -44,6 +44,11 @@ var (
 	// new one, so it is a field error on the form, never a 500.
 	ErrTokenRejected = errors.New("canvas: the token was rejected by Canvas")
 
+	// ErrCourseNotFound is Canvas answering 200 with a null course: an id
+	// this token cannot see, or one that was deleted. Kept apart from an
+	// EMPTY roster, which is a real course that has no students yet.
+	ErrCourseNotFound = errors.New("canvas: Canvas knows no such course for this token")
+
 	// ErrUnavailable is Canvas not answering, or answering with something
 	// this client cannot read. Nothing about the token is known, so the
 	// caller must NOT store it and must not tell the professor it is wrong.
@@ -62,4 +67,20 @@ type API interface {
 	// refuses it, and ErrUnavailable when the answer says nothing about the
 	// token either way.
 	Verify(ctx context.Context, token string) error
+
+	// Courses lists every course the token's owner is enrolled in, in any
+	// role. Canvas offers no role filter on that query and Course has no
+	// `enrollments` field, so narrowing to "courses I teach" would cost one
+	// round trip per course; the picker orders and discloses instead
+	// (ADR-0069 §Decision 5).
+	Courses(ctx context.Context, token string) ([]Course, error)
+
+	// Roster returns the STUDENTS of one Canvas course, normalised into the
+	// shape the schema stores. Teachers and TAs are not students and are
+	// skipped (ADR-0069 §Decision 4).
+	//
+	// It follows Relay pagination to the end: a course larger than one page
+	// must not come back truncated, which would look exactly like a class
+	// where half the students dropped out.
+	Roster(ctx context.Context, token, canvasCourseID string) ([]Student, error)
 }
