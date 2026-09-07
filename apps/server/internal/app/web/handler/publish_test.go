@@ -587,3 +587,38 @@ func TestTheUnpublishWarningSaysHowManyAlreadyReceivedIt(t *testing.T) {
 		t.Errorf("an unknown count is reported as if it were zero:\n%s", body)
 	}
 }
+
+// The branch that inverted the decision (#273 review, NEW-2). A staging
+// publication delivers to the PROFESSOR, so `published_sent` counts
+// messages that reached nobody in the class — and reading the count alone
+// told the professor those people would get a second copy when none had
+// received a first.
+func TestTheUnpublishWarningKnowsAStagingRunReachedNoStudent(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	if rec := f.publish(t, controlID, url.Values{"mode": {"staging"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("publish: %d", rec.Code)
+	}
+	f.waitLatestJobTerminal(t, controlID)
+
+	// A count that would otherwise trigger the "they will get it twice"
+	// wording, so the case cannot pass merely because nothing was sent.
+	if _, err := f.db.ExecContext(context.Background(),
+		"UPDATE control SET published_sent = 38 WHERE id = ?", controlID); err != nil {
+		t.Fatalf("setting the count: %v", err)
+	}
+
+	body := f.detailBody(t, controlID)
+	if strings.Contains(body, "por segunda vez") {
+		t.Errorf("the warning says students would receive a second copy after a run that "+
+			"reached only the professor:\n%s", body)
+	}
+	if !strings.Contains(body, "ningún estudiante recibió nada") {
+		t.Errorf("the warning does not say a staging run reached no student:\n%s", body)
+	}
+	// And the published line agrees with it rather than claiming delivery.
+	if strings.Contains(body, "salieron 38 correos a los estudiantes") {
+		t.Error("the published line credits a staging run with reaching the class")
+	}
+}
