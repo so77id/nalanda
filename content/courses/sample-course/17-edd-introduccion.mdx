@@ -332,7 +332,301 @@ sí, y cambia una sola cosa de la segunda salida.
 
 ## El arreglo dinámico
 
-{/* S4 — doubling, análisis amortizado, la regla del cuarto. */}
+<Slide title="Duplicar en vez de agrandar de a uno">
+La estrategia que falla y la que funciona se diferencian en una sola
+línea. Las dos crean un arreglo nuevo cuando el actual se llena, las dos
+copian los elementos, las dos siguen adelante. Lo único distinto es
+**cuánto más grande** es el arreglo nuevo.
+
+- **Crecer de a uno.** Capacidad nueva $$=$$ capacidad $$+\,1$$. Cada
+  inserción a partir de la primera copia todo lo que había, así que la
+  inserción número $$k$$ cuesta $$k$$ y las $$N$$ juntas cuestan
+  $$1 + 2 + \dots + N = N(N+1)/2 \in \Theta(N^2)$$.
+- **Duplicar.** Capacidad nueva $$= 2 \times$$ capacidad. Copiar sigue
+  costando $$\Theta(N)$$ cada vez que ocurre, pero ocurre cada vez menos
+  seguido: entre una duplicación y la siguiente hay el doble de
+  inserciones baratas que entre las dos anteriores.
+
+La segunda estrategia es el **arreglo dinámico**, y es lo que hay
+adentro de `ArrayList` en Java, de `vector` en C++ y de `list` en
+Python.
+
+El invariante nuevo que aparece es el que hace posible todo esto:
+**mientras solo se inserta, la capacidad nunca pasa del doble del
+largo**. Gracias a él, la memoria reservada y no usada está acotada por
+$$N$$, y el arreglo no se vuelve un desperdicio a cambio de no
+llenarse.
+
+</Slide>
+
+<Slide title="El arreglo dinámico en Java">
+La operación completa. Las tres líneas del `if` son toda la diferencia
+con el arreglo de capacidad fija.
+
+<CodeEditor
+  language="java"
+  defaultValue={`class ArregloDinamico {
+    private int[] datos = new int[1];
+    private int size = 0;
+
+    void insertLast(int x) {
+        if (size == datos.length) {          // se llenó
+            int[] nuevo = new int[2 * datos.length];   // duplicar
+            for (int j = 0; j < size; j++) {
+                nuevo[j] = datos[j];                   // copiar
+            }
+            datos = nuevo;
+            System.out.println("  duplica -> capacidad " + nuevo.length
+                               + ", copia " + size + " elementos");
+        }
+        datos[size] = x;
+        size++;
+    }
+
+    public static void main(String[] args) {
+        ArregloDinamico a = new ArregloDinamico();
+        for (int i = 1; i <= 16; i++) {
+            System.out.println("insertLast(" + i + ")");
+            a.insertLast(i);
+        }
+        System.out.println("largo final: " + a.size
+                           + ", capacidad final: " + a.datos.length);
+    }
+}
+`}
+/>
+
+Al ejecutarlo aparecen exactamente cuatro duplicaciones en dieciséis
+inserciones — en la 2, la 3, la 5 y la 9 —, y las otras doce no copian
+nada. El costo total de la secuencia es lo que estudiamos a
+continuación.
+
+</Slide>
+
+<Slide title="El análisis ingenuo">
+Mirada operación por operación, la conclusión es incómoda:
+
+**`insert_last` es $$\Theta(N)$$ en el peor caso.** Es verdad. Cuando la
+inserción cae justo en una duplicación, copia los $$N$$ elementos que
+ya estaban.
+
+Si el análisis terminara ahí, el arreglo dinámico sería una mala
+estructura: una operación que promete ser barata y a veces cuesta
+$$\Theta(N)$$ es lo mismo que una operación cara. Pero el peor caso de
+una operación aislada no es la pregunta correcta cuando lo que hace el
+programa es una **secuencia** de operaciones.
+
+La pregunta correcta es: **¿cuánto cuestan $$N$$ inserciones en total?**
+Esta es la tabla de las primeras dieciséis, empezando con capacidad 1,
+contando una unidad por escritura y una por copia:
+
+| Inserción | ¿Duplica? | Capacidad después | Copias | Costo |
+|---|---|---|---|---|
+| 1 | — | 1 | 0 | 1 |
+| 2 | sí | 2 | 1 | 2 |
+| 3 | sí | 4 | 2 | 3 |
+| 4 | no | 4 | 0 | 1 |
+| 5 | sí | 8 | 4 | 5 |
+| 6, 7, 8 | no | 8 | 0 | 1 cada una |
+| 9 | sí | 16 | 8 | 9 |
+| 10 … 16 | no | 16 | 0 | 1 cada una |
+
+Las filas caras existen, y son las que el análisis ingenuo mira. Las
+filas baratas son la mayoría, y son las que el análisis ingenuo ignora.
+
+</Slide>
+
+<Slide title="Análisis amortizado · la suma total">
+El **análisis amortizado** no promedia sobre entradas al azar ni supone
+nada sobre el uso. Es una garantía de peor caso sobre la **secuencia
+completa**:
+
+> Una operación cuesta $$\Theta(1)$$ **amortizado** cuando cualquier
+> secuencia de $$N$$ operaciones cuesta a lo más $$c \cdot N$$ en total,
+> para una constante $$c$$ que no depende de $$N$$.
+
+Hagamos la cuenta para las dieciséis inserciones. Las copias son las
+duplicaciones, y las duplicaciones ocurren en las potencias de dos:
+
+$$
+\text{copias} = 1 + 2 + 4 + 8 = 15
+$$
+
+Las escrituras son una por inserción: $$16$$. El total de la secuencia es
+
+$$
+16 + 15 = 31 < 2 \times 16
+$$
+
+Menos de dos operaciones elementales por inserción. En general, para
+$$N$$ inserciones las copias son
+
+$$
+1 + 2 + 4 + \dots + \frac{N}{2} = N - 1 < N
+$$
+
+— la suma de una progresión geométrica de razón 2 es menor que su
+último término duplicado —, así que el costo total es
+
+$$
+\underbrace{N}_{\text{escrituras}} + \underbrace{(N-1)}_{\text{copias}} < 2N \in \Theta(N)
+$$
+
+y cada inserción cuesta $$\Theta(1)$$ **amortizado**. Las operaciones
+caras siguen existiendo y siguen costando $$\Theta(N)$$; lo que el
+análisis demuestra es que son tan raras que su costo, repartido en la
+secuencia, es constante.
+
+El nombre y la técnica vienen de Robert Tarjan, *Amortized Computational
+Complexity* (1985), donde quedan formalizados los métodos que permiten
+hacer esta cuenta en casos mucho menos evidentes que este.
+
+</Slide>
+
+<Slide title="La medición">
+La cuenta dice que duplicar convierte $$\Theta(N^2)$$ en $$\Theta(N)$$.
+Las dos implementaciones difieren en un solo número — `+ 1` contra
+`* 2` — y esa diferencia se puede cronometrar.
+
+<Benchmark
+  implementations={[
+    {
+      name: 'crece de a uno',
+      code: `import java.util.Scanner;
+
+public class CreceDeAUno {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        long t0 = System.nanoTime();
+        int[] datos = new int[1];
+        int size = 0;
+        for (int i = 0; i < n; i++) {
+            if (size == datos.length) {
+                int[] nuevo = new int[datos.length + 1];
+                for (int j = 0; j < size; j++) nuevo[j] = datos[j];
+                datos = nuevo;
+            }
+            datos[size] = i;
+            size++;
+        }
+        long t1 = System.nanoTime();
+        System.out.println("time_ns:" + (t1 - t0));
+        System.out.println("largo:" + size);
+    }
+}
+`,
+    },
+    {
+      name: 'duplica',
+      code: `import java.util.Scanner;
+
+public class Duplica {
+    public static void main(String[] args) {
+        Scanner sc = new Scanner(System.in);
+        int n = sc.nextInt();
+        long t0 = System.nanoTime();
+        int[] datos = new int[1];
+        int size = 0;
+        for (int i = 0; i < n; i++) {
+            if (size == datos.length) {
+                int[] nuevo = new int[2 * datos.length];
+                for (int j = 0; j < size; j++) nuevo[j] = datos[j];
+                datos = nuevo;
+            }
+            datos[size] = i;
+            size++;
+        }
+        long t1 = System.nanoTime();
+        System.out.println("time_ns:" + (t1 - t0));
+        System.out.println("largo:" + size);
+    }
+}
+`,
+    },
+  ]}
+  inputs={[1000, 4000, 10000]}
+  defaultInput={4000}
+  warmupRuns={1}
+  measuredRuns={3}
+/>
+
+Lo que se busca en los números no es cuál es más rápida — eso ya lo
+sabemos — sino **cómo crece cada una** al multiplicar $$N$$. De 1000 a
+4000 hay un factor de 4: la versión que duplica debería tardar unas 4
+veces más, y la que crece de a uno unas 16, porque $$4^2 = 16$$. El
+cronómetro mide también la máquina y el navegador, así que los factores
+salen aproximados; la forma de la curva es lo que se sostiene.
+
+</Slide>
+
+<Slide title="Achicar sin thrashing · la regla del cuarto">
+Al borrar elementos, el arreglo dinámico queda con capacidad de sobra y
+convendría devolverla. La regla obvia — **achicar a la mitad cuando el
+arreglo queda medio vacío** — es un error, y su falla tiene nombre:
+*thrashing*.
+
+Con esa regla, un arreglo lleno de capacidad $$C$$ sufre esto:
+
+1. `insert_last` → se llena, duplica a $$2C$$ y copia $$C$$ elementos.
+2. `delete_last` → el largo vuelve a $$C$$, que es la mitad de $$2C$$:
+   achica a $$C$$ y copia $$C$$ elementos.
+3. `insert_last` → se llena otra vez, duplica a $$2C$$ y copia $$C$$.
+
+Cada operación de una secuencia alternada cuesta $$\Theta(N)$$, y el
+costo amortizado se pierde por completo. El problema es que las dos
+fronteras — la de crecer y la de achicar — están pegadas.
+
+La solución es separarlas:
+
+> **Duplicar cuando el arreglo se llena; achicar a la mitad cuando el
+> largo baja a un cuarto de la capacidad.**
+
+Después de cualquiera de las dos operaciones, el arreglo queda a la
+mitad de su capacidad nueva. Llamemos $$K$$ a esa capacidad: desde ahí
+hacen falta $$K/2$$ inserciones para volver a llenarlo, o $$K/4$$
+eliminaciones para bajar al cuarto. En los dos casos son
+$$\Omega(N)$$ operaciones baratas antes del siguiente
+redimensionamiento, y son ellas las que pagan su costo. El resultado
+amortizado se mantiene para cualquier mezcla de inserciones y
+eliminaciones.
+
+El invariante que la regla sostiene se escribe en una línea:
+**largo $$\le$$ capacidad $$\le 4 \times$$ largo**. La cota de arriba es
+lo que impide desperdiciar memoria; la de abajo, lo que impide quedarse
+sin espacio.
+
+La regla del cuarto es la que usan Sedgewick y Wayne en *Algorithms*
+(4.ª edición, Princeton) por exactamente esta razón.
+
+</Slide>
+
+<Slide title="Costos del arreglo dinámico">
+La tabla del arreglo dinámico tiene una columna más que la del arreglo
+de capacidad fija, y esa columna es la novedad de este acto.
+
+| Operación | Peor caso | Amortizado | Invariante que restaura |
+|---|---|---|---|
+| `get_at(i)`, `set_at(i, x)` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguno: no cambian el largo |
+| `insert_last(x)` | $$\Theta(N)$$ (si duplica) | $$\Theta(1)$$ | Deja capacidad $$\ge$$ largo, sin pasar de $$4 \times$$ largo |
+| `delete_last()` | $$\Theta(N)$$ (si achica) | $$\Theta(1)$$ | Deja largo $$\ge$$ capacidad$$/4$$, sin bajar de la capacidad mínima |
+| `insert_at(i, x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | Los válidos juntos desde 0, con `x` en `i` |
+| `insert_first(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | Igual que `insert_at(0, x)` |
+| `delete_at(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ | Cierra el hueco: los válidos vuelven a quedar juntos |
+| `delete_first()` | $$\Theta(N)$$ | $$\Theta(N)$$ | Igual que `delete_at(0)` |
+
+Dos lecturas importan. La primera: solo las operaciones **en el extremo
+final** ganan algo con el análisis amortizado, porque solo ellas tienen
+un costo caro que es raro. Insertar al principio es $$\Theta(N)$$
+siempre, duplicando o no, porque el corrimiento no depende de la
+capacidad.
+
+La segunda: el arreglo dinámico **no cambió ninguna complejidad del
+arreglo de capacidad fija**. Lo que hizo fue quitar la limitación de que
+la capacidad se decida antes de saber cuántos elementos van a entrar, y
+lo hizo sin pagar por ello más que un factor constante.
+
+</Slide>
 
 <SectionBreak />
 
