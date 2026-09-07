@@ -873,3 +873,267 @@ func TestUserSecretsIsUniquePerTripleAndCascadesWithTheProfessor(t *testing.T) {
 		t.Errorf("user_secrets still holds %d row(s) after the professor was deleted, want 0", rows)
 	}
 }
+
+// --- Issue #272 (WP-2 of epic #270): the matching layer's two columns. ---
+//
+// Both are NULLABLE and both are asserted here rather than trusted to
+// review, for the reason the file's header gives: every rule a schema
+// carries fails silently when it is absent. A foreign key SQLite is not
+// enforcing accepts a `student_id` pointing at nobody, and the screens
+// would render a blank name instead of an error.
+
+// insertControlRow adds a control and returns its id, which is the caller's
+// own opaque string. `courseID` is `any` so a case can pass nil for the
+// column this WP adds — the historical state every control on the Jetson
+// is in until a professor assigns one.
+func insertControlRow(t *testing.T, ctx context.Context, db *sql.DB, id string, userID int64, courseID any) string {
+	t.Helper()
+
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO control (
+            id, name, application_date,
+            from_document, from_section, to_document, to_section,
+            questions_per_copy, copies, state, created_at, created_by, course_id
+        ) VALUES (?, 'Control 1', NULL, 'flujo', 'if-else', 'flujo', 'bucles', 4, 3, 'generated', 0, ?, ?)`,
+		id, userID, courseID,
+	); err != nil {
+		t.Fatalf("inserting the control %s: %v", id, err)
+	}
+	return id
+}
+
+// insertReadingRow adds one reading of one copy and returns its id.
+// `studentID` is `any` for the same reason `courseID` is above.
+func insertReadingRow(t *testing.T, ctx context.Context, db *sql.DB, controlID string, copyNumber int, studentID any) int64 {
+	t.Helper()
+
+	result, err := db.ExecContext(ctx, `
+        INSERT INTO reading (control_id, copy_number, rut_read, rut_status, copy_status, read_at, student_id)
+        VALUES (?, ?, '12345678', 'ok', 'ok', 0, ?)`,
+		controlID, copyNumber, studentID,
+	)
+	if err != nil {
+		t.Fatalf("inserting the reading of copy %d: %v", copyNumber, err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("reading the inserted reading id: %v", err)
+	}
+	return id
+}
+
+// A control belongs to a course, or to none at all.
+//
+// NULL is not a placeholder here, it is the state every control created
+// before this WP is in: migration 00004 shipped with no course column at
+// all ("V1 has one implicit course, so no curso_id column"), and the
+// professor assigns one from the detail page (S1b). Matching SKIPS a
+// control with no course rather than failing on it — there is no roster to
+// match against — so the nullability is what keeps the pre-#272 controls
+// readable exactly as they are today.
+func TestControlCourseIDIsNullableAndReferencesACourse(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	courseID := insertCourse(t, ctx, db, "CIT2006-03", "canvas-course-1")
+
+	t.Run("omitted reads back as NULL", func(t *testing.T) {
+		if _, err := db.ExecContext(ctx, `
+            INSERT INTO control (
+                id, name, application_date,
+                from_document, from_section, to_document, to_section,
+                questions_per_copy, copies, state, created_at, created_by
+            ) VALUES (?, 'x', NULL, 'flujo', 'if-else', 'flujo', 'bucles', 4, 3, 'generated', 0, ?)`,
+			"CTRLNOCOURSE00000000000000", userID,
+		); err != nil {
+			t.Fatalf("insert without course_id: %v", err)
+		}
+
+		var course sql.NullInt64
+		if err := db.QueryRowContext(ctx,
+			`SELECT course_id FROM control WHERE id = ?`, "CTRLNOCOURSE00000000000000",
+		).Scan(&course); err != nil {
+			t.Fatalf("read back course_id: %v", err)
+		}
+		if course.Valid {
+			t.Errorf("course_id = %d, want NULL for a control created without one", course.Int64)
+		}
+	})
+
+	t.Run("a real course round-trips", func(t *testing.T) {
+		insertControlRow(t, ctx, db, "CTRLWITHCOURSE000000000000", userID, courseID)
+
+		var got sql.NullInt64
+		if err := db.QueryRowContext(ctx,
+			`SELECT course_id FROM control WHERE id = ?`, "CTRLWITHCOURSE000000000000",
+		).Scan(&got); err != nil {
+			t.Fatalf("read back course_id: %v", err)
+		}
+		if !got.Valid || got.Int64 != courseID {
+			t.Errorf("course_id = %v, want %d", got, courseID)
+		}
+	})
+
+	t.Run("a course that does not exist is refused", func(t *testing.T) {
+		_, err := db.ExecContext(ctx, `
+            INSERT INTO control (
+                id, name, application_date,
+                from_document, from_section, to_document, to_section,
+                questions_per_copy, copies, state, created_at, created_by, course_id
+            ) VALUES (?, 'x', NULL, 'flujo', 'if-else', 'flujo', 'bucles', 4, 3, 'generated', 0, ?, ?)`,
+			"CTRLGHOSTCOURSE00000000000", userID, int64(4242),
+		)
+		if err == nil {
+			t.Fatal("the control table accepted a course that does not exist, want a foreign-key error")
+		}
+		// Named, per backend-code-style.md §Adding a migration rule 7: an
+		// error for the wrong reason reads as a pass. Every other key here
+		// is distinct from the two rows above, so no UNIQUE can be what
+		// fired.
+		if !strings.Contains(err.Error(), "FOREIGN KEY") {
+			t.Errorf("rejected with %v, want a FOREIGN KEY constraint failure", err)
+		}
+	})
+}
+
+// A reading is matched to a student, or to nobody.
+//
+// NULL is the reconciliation case and the ordinary one on entry: AMC reads
+// the RUT boxes off the sheet, and a RUT that is unreadable, or readable
+// and not on the roster, matches nobody. The column is the WHOLE of the
+// association — there is no `nota` and no `archivo` table (the grade is
+// computed in Go, `internal/domain/controls/grade.go`), so this is the one
+// place the join lives.
+func TestReadingStudentIDIsNullableAndReferencesAStudent(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	controlID := insertControlRow(t, ctx, db, "CTRLREADINGS00000000000000", userID, nil)
+	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
+
+	t.Run("omitted reads back as NULL", func(t *testing.T) {
+		if _, err := db.ExecContext(ctx, `
+            INSERT INTO reading (control_id, copy_number, rut_read, rut_status, copy_status, read_at)
+            VALUES (?, 1, NULL, 'unreadable', 'needs_review', 0)`,
+			controlID,
+		); err != nil {
+			t.Fatalf("insert without student_id: %v", err)
+		}
+
+		var student sql.NullInt64
+		if err := db.QueryRowContext(ctx,
+			`SELECT student_id FROM reading WHERE control_id = ? AND copy_number = 1`, controlID,
+		).Scan(&student); err != nil {
+			t.Fatalf("read back student_id: %v", err)
+		}
+		if student.Valid {
+			t.Errorf("student_id = %d, want NULL for an unmatched reading", student.Int64)
+		}
+	})
+
+	t.Run("a real student round-trips", func(t *testing.T) {
+		insertReadingRow(t, ctx, db, controlID, 2, studentID)
+
+		var got sql.NullInt64
+		if err := db.QueryRowContext(ctx,
+			`SELECT student_id FROM reading WHERE control_id = ? AND copy_number = 2`, controlID,
+		).Scan(&got); err != nil {
+			t.Fatalf("read back student_id: %v", err)
+		}
+		if !got.Valid || got.Int64 != studentID {
+			t.Errorf("student_id = %v, want %d", got, studentID)
+		}
+	})
+
+	t.Run("a student that does not exist is refused", func(t *testing.T) {
+		_, err := db.ExecContext(ctx, `
+            INSERT INTO reading (control_id, copy_number, rut_read, rut_status, copy_status, read_at, student_id)
+            VALUES (?, 3, '12345678', 'ok', 'ok', 0, ?)`,
+			controlID, int64(4242),
+		)
+		if err == nil {
+			t.Fatal("the reading table accepted a student that does not exist, want a foreign-key error")
+		}
+		if !strings.Contains(err.Error(), "FOREIGN KEY") {
+			t.Errorf("rejected with %v, want a FOREIGN KEY constraint failure", err)
+		}
+	})
+}
+
+// Deleting a student LEAVES their readings and drops only the pointer.
+//
+// ON DELETE SET NULL, not CASCADE and not RESTRICT. A reading is what AMC
+// read off paper — the answers, the score, the captured pages — and it is
+// the artefact the professor cannot reproduce without re-scanning. The
+// association is DERIVED from `rut_read` and can be rebuilt at any time by
+// the retroactive command (S5). So the load-bearing half survives and the
+// recomputable half goes: CASCADE would delete a control's grades because
+// somebody's person row went away, and RESTRICT would make the deletion
+// fail with nothing a professor could do about it.
+//
+// The path is not one the roster takes today — an import stamps `withdrawn`
+// and never DELETEs (apps/server/CLAUDE.md, #271 invariant 1) — which is
+// exactly why the behaviour is pinned rather than left to whoever writes
+// the first delete.
+func TestDeletingAStudentLeavesTheirReadingsWithNoMatch(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	controlID := insertControlRow(t, ctx, db, "CTRLORPHANREAD000000000000", userID, nil)
+	studentID := insertStudent(t, ctx, db, "canvas-user-1", "12345678", "5")
+	insertReadingRow(t, ctx, db, controlID, 1, studentID)
+
+	if _, err := db.ExecContext(ctx, `DELETE FROM student WHERE id = ?`, studentID); err != nil {
+		t.Fatalf("deleting the student: %v", err)
+	}
+
+	var readings int
+	if err := db.QueryRowContext(ctx, `SELECT count(*) FROM reading`).Scan(&readings); err != nil {
+		t.Fatalf("counting readings: %v", err)
+	}
+	if readings != 1 {
+		t.Fatalf("reading holds %d row(s) after the student was deleted, want the reading to survive", readings)
+	}
+
+	var student sql.NullInt64
+	if err := db.QueryRowContext(ctx,
+		`SELECT student_id FROM reading WHERE control_id = ?`, controlID,
+	).Scan(&student); err != nil {
+		t.Fatalf("read back student_id: %v", err)
+	}
+	if student.Valid {
+		t.Errorf("student_id = %d after the student was deleted, want NULL", student.Int64)
+	}
+}
+
+// A course with controls on it cannot be deleted.
+//
+// ON DELETE RESTRICT, the same choice and the same reason as
+// `control.created_by` in migration 00004: the grades hang off the control,
+// so removing the course under it is data loss no cascade should perform
+// quietly. Note the asymmetry with `enrollment`, which CASCADEs from the
+// course (00014) — an enrolment is a membership and is re-importable, a
+// control's readings are not.
+//
+// Nothing deletes a course today; the refusal is pinned so that the first
+// thing that tries has to confront the decision instead of inheriting
+// SQLite's permissive default (NO ACTION, which for an unenforced column
+// would have silently orphaned every control).
+func TestACourseWithControlsCannotBeDeleted(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	courseID := insertCourse(t, ctx, db, "CIT2006-03", "canvas-course-1")
+	insertControlRow(t, ctx, db, "CTRLONACOURSE0000000000000", userID, courseID)
+
+	_, err := db.ExecContext(ctx, `DELETE FROM course WHERE id = ?`, courseID)
+	if err == nil {
+		t.Fatal("the course was deleted with a control on it, want a foreign-key error")
+	}
+	if !strings.Contains(err.Error(), "FOREIGN KEY") {
+		t.Errorf("refused with %v, want a FOREIGN KEY constraint failure", err)
+	}
+
+	// And a course with NO controls still deletes, so the case above is
+	// about the reference and not about courses being undeletable.
+	empty := insertCourse(t, ctx, db, "CIT2006-04", "canvas-course-2")
+	if _, err := db.ExecContext(ctx, `DELETE FROM course WHERE id = ?`, empty); err != nil {
+		t.Errorf("deleting a course with no controls: %v, want it to succeed", err)
+	}
+}

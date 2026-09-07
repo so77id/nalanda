@@ -27,5 +27,23 @@
         {{ end }}
       </tbody>
     </table>
+
+    {{ if .ShowRematchAll }}
+      {{/*
+        Issue #272 S5, the `--all-courses` half. Gated on there being more
+        than one course: with a single course this button and the one on
+        that course's page do the same work, and two names for one action
+        is a question the professor has to stop and answer.
+      */}}
+      <h2>Reasociar todo</h2>
+      <p>
+        Vuelve a emparejar el RUT de cada copia con su estudiante, en los
+        controles activos de todos los cursos.
+      </p>
+      <form method="post" action="{{ .RematchAllAction }}">
+        <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+        <button type="submit">Reasociar todos los cursos</button>
+      </form>
+    {{ end }}
   {{ end }}
 {{ end }}

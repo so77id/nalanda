@@ -420,7 +420,23 @@ The extension point born with this app. Registered in `integration-guides.md`.
    only case that starts from a database rather than from an empty file.
 6. Run the pre-PR protocol: `sqlite_test.go` applies the embedded set to a fresh
    temp file and asserts a second boot applies nothing.
-7. **A case asserting that a row is REFUSED must name the constraint that
+7. **An index ships in the migration of the slice that has its READER, and
+   that migration carries the measurement.** Not in the slice that adds the
+   column — at that point there is no query to attribute it to, and "an
+   index justified by a query the plan disowns is an index somebody drops
+   later after checking the stated reason and finding it false"
+   (`00014_roster.sql`'s own comment, from #271 review PER-4).
+
+   The migration that adds one carries: the reader's query VERBATIM, both
+   `EXPLAIN QUERY PLAN` outputs (with and without), the date they were
+   measured, and — the part that is easy to skip — what the index does NOT
+   fix, so the next reader does not find the leftover and assume the index
+   is broken. Worked case: `00016_reading_by_student.sql`, whose two plans
+   differ in which table the query DRIVES FROM and which says plainly that
+   the temp B-tree survives either way. `00015_matching.sql` is the
+   deferral that made it possible — it adds two columns and states why it
+   adds no index.
+8. **A case asserting that a row is REFUSED must name the constraint that
    refused it, and must vary every other key so no other constraint can
    have been the one that fired.** Both halves are load-bearing. Without the
    name, an error for the wrong reason reads as a pass — the foreign-key

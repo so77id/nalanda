@@ -1,0 +1,100 @@
+-- Issue #272 (WP-2 of epic #270): the matching layer's two columns. The
+-- roster arrived with 00014; this is what joins it to what the controls
+-- subsystem already reads.
+--
+--   control.course_id    which course this control belongs to
+--   reading.student_id   which person sat this copy
+--
+-- Both NULLABLE, and both nullable for a reason the next reader should not
+-- have to reconstruct.
+--
+-- WHAT THIS MIGRATION DELIBERATELY DOES NOT TOUCH
+--
+-- The issue's §Entities asked for a `student_id` on `nota` and on `archivo`
+-- as well. Neither table exists, and neither is missing:
+--
+--   * The grade is COMPUTED, never stored. `internal/domain/controls/grade.go`
+--     derives it from the `answer` rows through a single `rawTotal` shared by
+--     `TotalAndGrade` and `NumericGrade`; 00005_readings.sql says so in its
+--     own words ("computing them here would freeze the arithmetic in the
+--     schema"). There is nothing to hang a student off.
+--   * The per-copy file is `annotated_copy` (00007), keyed by
+--     (control_id, copy_number) — the same key `reading` carries. Its
+--     student is one join away through the reading. Giving it a second
+--     `student_id` would be a second place asserting one fact, free to
+--     drift from the first: the failure mode apps/server/CLAUDE.md names in
+--     the Reading.Pages two-boundary rule.
+--
+-- So the association lives on exactly ONE table, and the issue body was
+-- corrected to say so before this file was written.
+--
+-- NO INDEXES HERE, ON PURPOSE. `control.course_id` and `reading.student_id`
+-- both get read by screens this WP adds later (the course page's control
+-- list, S6; the student page's grades, S8), and an index belongs in the
+-- slice that has the query — with EXPLAIN QUERY PLAN attributing it. 00014
+-- carries the scar in its own comment: an index there was justified by a
+-- query the planner disowned, and "an index justified by a query the plan
+-- disowns is an index somebody drops later after checking the stated reason
+-- and finding it false" (#271 review, PER-4).
+--
+-- Numbered 00015, after 00014_roster.sql. Numbers are never reused, even
+-- deleted ones — the scar is written out in 00002_auth.sql.
+
+-- +goose Up
+
+-- Which course this control belongs to. NULL is not a placeholder: it is
+-- the state EVERY control on the Jetson is in the moment this migration
+-- applies. 00004_controls.sql shipped without the column on purpose ("V1
+-- has one implicit course, so no curso_id column: WP-D adds it"), so there
+-- is no value to backfill from — nothing on the row, and nothing anywhere
+-- else, records which course a 2026-08 control belonged to.
+--
+-- The professor supplies it: a required select on the creation form for new
+-- controls, and an "Asignar curso" form on the detail page for the ones
+-- that predate this WP. Matching SKIPS a control that still has none rather
+-- than failing on it — with no course there is no roster to match against,
+-- and the copies keep reading exactly as they do today.
+--
+-- ON DELETE RESTRICT, the same choice and the same reason as
+-- control.created_by in 00004: a control's readings are the grades, and
+-- removing the course out from under them is data loss no cascade should
+-- perform quietly. Note the asymmetry with `enrollment`, which CASCADEs
+-- from the course (00014) — an enrolment is a membership and a re-import
+-- rebuilds it; a scanned control is paper that has already been collected.
+--
+-- Nothing deletes a course today. The refusal is stated here so the first
+-- thing that tries has to confront the decision, rather than inherit
+-- SQLite's permissive default and orphan every control silently.
+ALTER TABLE control ADD COLUMN course_id INTEGER REFERENCES course(id) ON DELETE RESTRICT;
+
+-- Which person sat this copy. NULL is the reconciliation case, and it is
+-- also the ordinary state on entry: AMC reads the RUT boxes off the sheet,
+-- and a RUT that is unreadable — or readable and not on the roster — matches
+-- nobody. The existing queue (00005's rut_status / copy_status, and the
+-- review page above them) is what surfaces those; this column adds no state
+-- of its own to it.
+--
+-- ON DELETE SET NULL, neither CASCADE nor RESTRICT. A reading is what AMC
+-- read off paper: the answers, the score, the pages captured. It cannot be
+-- reproduced without re-scanning, so it must survive. The association, by
+-- contrast, is DERIVED from rut_read and can be rebuilt at any time by the
+-- retroactive command (S5). Keep the load-bearing half, drop the
+-- recomputable half.
+--
+-- CASCADE would delete a control's grades because somebody's person row went
+-- away; RESTRICT would make that deletion fail with nothing a professor
+-- could do about it. Neither is a trade this table should make.
+--
+-- The roster never takes this path — an import stamps `withdrawn` and never
+-- DELETEs (#271 invariant 1, apps/server/CLAUDE.md) — which is precisely
+-- why the behaviour is pinned in schema_test.go rather than left to
+-- whoever writes the first delete.
+ALTER TABLE reading ADD COLUMN student_id INTEGER REFERENCES student(id) ON DELETE SET NULL;
+
+-- +goose Down
+
+-- Documentation of the inverse, never executed: ADR-0034 §Consequences
+-- records that rolling a binary back over an applied migration is not
+-- supported (backend-code-style.md §Adding a migration, rule 2).
+ALTER TABLE reading DROP COLUMN student_id;
+ALTER TABLE control DROP COLUMN course_id;

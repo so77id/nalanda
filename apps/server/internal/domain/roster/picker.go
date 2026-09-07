@@ -220,6 +220,30 @@ func (s *Service) Enrollments(ctx context.Context, courseID int64) (Course, []En
 	return course, enrollments, nil
 }
 
+// Courses is every stored course, most recently created first.
+//
+// The plain list, without the enrolment tally CoursesWithCounts joins on.
+// Its reader is a dropdown — the control form's course select and the
+// detail page's "Asignar curso" (issue #272) — which needs a name and an
+// id and would pay for a second query to render a number nobody reads
+// there.
+func (s *Service) Courses(ctx context.Context) ([]Course, error) {
+	courses, err := s.Store.ListCourses(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("roster: list the courses: %w", err)
+	}
+	return courses, nil
+}
+
+// Student returns one person (issue #272 S8).
+func (s *Service) Student(ctx context.Context, id int64) (Student, error) {
+	student, err := s.Store.StudentByID(ctx, id)
+	if err != nil {
+		return Student{}, err
+	}
+	return student, nil
+}
+
 // CoursesWithCounts is what the list screen renders: every course, each
 // with its tally and whether it has a roster at all.
 //

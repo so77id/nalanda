@@ -28,12 +28,14 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/coursestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
@@ -64,6 +66,31 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 
 	store := authstore.New(db)
 	logger := testLogger()
+	// Issue #272: ONE controls service, shared by the Controls handler and
+	// by the Courses handler's retroactive pass (handler.CourseControls).
+	// Two services over one database would be two places for the wiring
+	// these cases exist to check to drift apart.
+	cstore := controlstore.New(db)
+	amcFake := &amctest.Fake{}
+	sharedControls := controls.NewService(controls.Service{
+		// A real matcher over the same database. These cases are about
+		// the router's table, and an empty `student` table is the right
+		// answer for them — what matters is that the wiring the binary
+		// does is the wiring the test does.
+		Matcher:         matching.NewService(coursestore.New(db)),
+		Bank:            emptyBank(t),
+		Store:           cstore,
+		Generator:       amcFake,
+		Analyzer:        amcFake,
+		Readings:        cstore,
+		Annotator:       amcFake,
+		AnnotateEnabled: true,
+		WorkDir:         t.TempDir(),
+		Now:             time.Now,
+		Seed:            1,
+		Log:             logger,
+	})
+
 	return rootHandler(web.Deps{
 		Database: prober,
 		Gate: middleware.NewAuth(middleware.Auth{
@@ -92,21 +119,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 			Log:       logger,
 		}),
 		Controls: func() *handler.Controls {
-			cstore := controlstore.New(db)
-			fake := &amctest.Fake{}
-			svc := controls.NewService(controls.Service{
-				Bank:            emptyBank(t),
-				Store:           cstore,
-				Generator:       fake,
-				Analyzer:        fake,
-				Readings:        cstore,
-				Annotator:       fake,
-				AnnotateEnabled: true,
-				WorkDir:         t.TempDir(),
-				Now:             time.Now,
-				Seed:            1,
-				Log:             logger,
-			})
+			svc := sharedControls
 			jstore := jobstore.New(db)
 			runner := jobs.NewRunner(jstore, jobs.Handlers{
 				jobs.KindReanalyse: controls.NewReanalyseHandler(svc),
@@ -115,7 +128,15 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
 			}, logger, time.Now)
 			return handler.NewControls(handler.Controls{
-				Service:            svc,
+				Service: svc,
+				// Issue #272: the roster these screens read. Wired over
+				// emptyCourseStore like the two handlers below — these
+				// cases are about the router's table, not about which
+				// courses exist.
+				Roster: roster.NewService(
+					emptyCourseStore{},
+					roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{})),
+				),
 				Bank:               emptyBank(t),
 				PublicURL:          "https://nalanda.test",
 				OnCorrectionClosed: controls.NewNoopHook(logger),
@@ -140,11 +161,26 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				Log:       logger,
 			})
 		}(),
+		// Issue #272 S8: one person's record. Wired like the binary
+		// wires it — the route table's guard walks every entry, and an
+		// unwired handler would be a nil call the moment it does.
+		Students: handler.NewStudents(handler.Students{
+			Roster: roster.NewService(
+				emptyCourseStore{},
+				roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{})),
+			),
+			Record: sharedControls,
+			Log:    logger,
+		}),
 		Courses: handler.NewCourses(handler.Courses{
 			Roster: roster.NewService(
 				emptyCourseStore{},
 				roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{})),
 			),
+			// Issue #272 S5: the retroactive pass. These cases are about
+			// the router's table, so the real controls service is what
+			// the binary wires and what the table has to accept.
+			Controls:  sharedControls,
 			PublicURL: "https://nalanda.test",
 			Log:       logger,
 		}),
@@ -462,4 +498,10 @@ func (emptyCourseStore) ListEnrollments(context.Context, int64) ([]roster.Enroll
 
 func (emptyCourseStore) EnrollmentCounts(context.Context) (map[int64]roster.EnrollmentCounts, error) {
 	return nil, nil
+}
+
+// StudentByID answers nothing: these cases are about the router's table
+// (issue #272 S8).
+func (emptyCourseStore) StudentByID(context.Context, int64) (roster.Student, error) {
+	return roster.Student{}, roster.ErrStudentNotFound
 }

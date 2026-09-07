@@ -21,7 +21,11 @@ past-term course importing as an empty roster, which withdraws the whole
 class — sat outside the declared scope by construction, and the fake-driven
 suite cannot see it either (#271 review, DCO-4).
 
-Last run: **2026-09-04**, issue #271 S4, at commit `3bc0090`, against a live
+Last run: **NOT RUN against this commit.** The procedure below was last
+completed on **2026-09-04**, issue #271 S4, at commit `3bc0090` — before
+issue #272 moved the roster off `/courses/{id}` to `/courses/{id}/alumnos`,
+so §6's steps changed and the attestation does not carry over. The previous
+run was against a live
 course of 29 enrolments. Results in ADR-0069. §6, §7 and §8 were ADDED after
 that run by the #271 review and have not been executed yet — the attestation
 names a commit precisely so a procedure written at one slice cannot keep a
@@ -161,17 +165,59 @@ The step the procedure did not have, and the one that covers the path the
 review found a class-wiping defect in.
 
 1. On `/profile`, with the token saved, pick the current course and press
-   **Agregar a Nalanda**. You land on `/courses/{id}`, empty, with **Cargar
-   desde Canvas** as the whole page.
-2. Press it. **Expect** the roster: surnames sorted with accents in their
-   right place (`ÁVILA` before `BRAVO`, not after `ZUNIGA`), RUTs written
-   `11.222.333-5`, and a count that matches what step 3's `curl` returned.
+   **Agregar a Nalanda**. You land on `/courses/{id}` — which since issue
+   #272 is the course's **controls** page. Under **Alumnos** it says the
+   course has no list yet, with **Cargarla desde Canvas** as the link.
+2. Follow it to `/courses/{id}/alumnos` and press the button. **Expect** the
+   roster: surnames sorted with accents in their right place (`ÁVILA` before
+   `BRAVO`, not after `ZUNIGA`), RUTs written `11.222.333-5`, and a count
+   that matches what step 3's `curl` returned. Go back to `/courses/{id}`
+   and check the same count appears under **Alumnos** — the two pages share
+   one tally and a disagreement is a defect.
 3. **Press Reimportar.** Expect the same count, `0` withdrawn, and no
    duplicate rows. That is the idempotence the store's tests assert against
    fixtures and this asserts against Canvas.
 4. **Check the "sin RUT" line.** If Canvas gave any student no readable
    `sisId`, the page says how many. Those students will never match a
    control — worth knowing before the semester, not after.
+
+## 6b · The join, end to end (issue #272)
+
+**What no test in this repository can reach.** The suite drives `httptest`
+fakes for Canvas and fixture RUTs for readings, so nothing anywhere proves
+that the eight digits AMC reads off a real printed sheet equal the eight
+digits `user.sisId` yields for the same real person. ADR-0069 measured one
+side, `\AMCcode{rut}{8}` prints the other, and only paper closes the gap.
+
+Run this after §6, with a real scanned batch for the same course.
+
+1. Create a control on the course you just imported. The form's **Curso**
+   select is required since #272 — confirm the course is in it.
+2. Print, mark and scan as `PAPER-CHECK.md` describes, and upload the batch.
+3. On `/controls/{id}`, **expect the Alumno column to carry NAMES**, not
+   RUTs, for the copies whose RUT is on the roster, each with an
+   `asociado` badge. **Record how many of the batch matched.** That number
+   is the measurement this section exists for: if it is zero while the
+   roster is full, the two RUT spellings do not agree and nothing else in
+   the system will tell you.
+4. Take one copy AMC could not read, open its review page, type the RUT off
+   the scan and save. **Expect** the row to gain that student's name. A copy
+   whose RUT is legible but absent from the roster shows *"no está en la
+   lista"* instead — an illegible one must NOT (#272 review, COR-1).
+5. Press **Reasociar controles de este curso** on `/courses/{id}`. **Expect**
+   the flash to report the same matched count and *"ninguna cambió"* — that
+   sentence is the only reading of "idempotent" available without a database
+   client.
+6. Open `/courses/{id}/matriz` and `/students/{id}` for one matched student.
+   **Expect** the same grade in both places and on the control page: they
+   all call `controls.TotalAndGrade`, and a disagreement means somebody
+   added a second computation.
+
+**Record here:** the date, the commit, the course, the batch size, and the
+matched / unmatched counts from step 3.
+
+Last run: **NOT RUN.** Issue #272 shipped without it; its S10 is the slice
+that owes it.
 
 ## 7 · A past-term course (the case that found the bug)
 

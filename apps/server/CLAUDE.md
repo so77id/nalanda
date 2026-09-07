@@ -48,6 +48,14 @@ fact.
   `POST /controls/{id}/reanalyze`, `POST /controls/{id}/close`). Records
   single-goroutine + SQLite persistence + Sweep-on-boot + no retry + the
   atomicity split that amends ADR-0034 §Failure modes.
+- `docs/security-notes.md` §"Logs and personal data" — read before adding any
+  `slog` call on a path that holds a RUT, a name or a student address. The
+  rule is that the identifier stays OUT of the line; the `_action` /
+  `_changed` fields carry the diagnostic value. Worked cases:
+  `handler/review.go`'s `maskRUT`, and `matching.MatchByRUT`, whose error
+  names the course id and never the RUT — it did carry it once, and a
+  cancelled rematch would have written one person's RUT per copy into the
+  Jetson's log rotation (#272 review, SEC-1).
 - `docs/standards/guides/add-a-backend-endpoint.md` — read before adding ANY
   route here: which surface it belongs to, the handler → domain → repository
   chain, and the middleware a state-changing route needs.
@@ -65,15 +73,21 @@ fact.
   all three; there is no shared constant on purpose (see the router
   entry's comment).
 - `README.md` §"What is not here yet" — before adding anything, check whether
-  the work belongs to **WP-2 of epic #270 (#272)** — linking a course to a
-  control, matching a reading's RUT to a student, student names on the
-  control screens — or to **WP-G** (publishing grades). **WP-C1, WP-C2,
-  WP-C3, WP-E, WP-F and WP-1 of epic #270 are closed**: the layered layout
-  (#149), the login round trip + session gate (#150), the backoffice shell +
-  professor CRUD (#151), control creation with the PDF pipeline (#166), the
-  scans + review flow (#167) and the Canvas roster — `course` / `student` /
-  `enrollment` / `user_secrets`, `/profile`, `/courses` (#271) — all live
-  here. What #271 deliberately did NOT touch is any control screen.
+  the work belongs to **WP-3 of epic #270 (#273)** — publishing corrections,
+  emailing the annotated PDFs, and the deletion path `security-notes.md`
+  records as missing — or to **WP-G** (publishing grades). **WP-C1, WP-C2,
+  WP-C3, WP-E, WP-F, and WP-1 and WP-2 of epic #270 are closed**: the
+  layered layout (#149), the login round trip + session gate (#150), the
+  backoffice shell + professor CRUD (#151), control creation with the PDF
+  pipeline (#166), the scans + review flow (#167), the Canvas roster —
+  `course` / `student` / `enrollment` / `user_secrets`, `/profile`,
+  `/courses` (#271) — and the matching layer (#272) all live here.
+
+  **Reuse #272's entry points rather than rebuilding them**: the join is
+  `matching.MatchByRUT` (+ `matching.NormalizeRUT`); the reads are
+  `controls.Service.ControlsForCourse`, `MatrixForCourse` and
+  `ControlsForStudent`; the repair passes are `RematchCourse` /
+  `RematchAllCourses`. The policy behind all of them is ADR-0071.
 
 ## Language
 
@@ -372,6 +386,60 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   withdraw the entire class — the silent version of this whole bullet.
   Same rule shape and same reason as the UploadScan-survives and
   LiveBank-survives bullets.
+- **Matching never guesses, and an unanswerable lookup is not an absence
+  (issue #272, ADR-0071).** Three parts, one reason each:
+  1. `matching.MatchByRUT` returns `(nil, nil)` for everything it cannot
+     answer confidently — a RUT it cannot normalise, a control with no
+     course, a RUT nobody enrolled carries — and the caller writes NULL so
+     the copy stays in the reconciliation queue a human already watches.
+     An unmatched copy is a copy somebody looks at; a WRONGLY matched one
+     is a grade delivered to the wrong person and nothing downstream
+     notices.
+  2. **The scope is the control's course only.** `student.rut` is globally
+     UNIQUE, so matching a person enrolled ELSEWHERE — or one who withdrew
+     from this course — is available and forbidden (AC2). "These digits
+     belong to this person" and "this person sat this control" are
+     different claims.
+  3. **A store error means the question could not be ASKED**, which is not
+     "nobody". `controls.matchOne` leaves `reading.student_id` exactly as
+     it is and counts the reading in `RematchResult.Errored`; a control
+     that could not be walked at all counts in `ControlsFailed`, whose
+     unit is CONTROLS, not copies. Folding either into `Unmatched` tells
+     the professor a smaller problem than they have (#272 review, ARQ-4).
+- **Anything that changes a copy's effective RUT, or a control's course,
+  rematches in the SAME operation (issue #272).** The four seams are
+  `AnalyzeBatch`, `Reanalyze`, `SaveOverrides` (only when `RUTAction !=
+  RUTActionUnchanged`) and `AssignCourse`; the repair path is
+  `RematchCourse` / `RematchAllCourses`, reached from
+  `POST /courses/{id}/rematch` and `POST /admin/rematch`.
+
+  All of them are BEST-EFFORT after the load-bearing write
+  (`rematchQuietly`): the association is recomputable, the read and the
+  edit are not. `AssignCourse` is the one that was missed first time —
+  stamping the column without rematching left a control reassigned from
+  course A to B with every reading pointing at somebody enrolled on A
+  (#272 review, COR-3). Last-wins is only safe if the consequences move
+  with it. A new path that alters `rut_override`, `rut_read` or
+  `control.course_id` without rematching leaves copies filed under people
+  the current reading no longer names.
+- **The student association ANNOTATES; it never GATES (issue #272,
+  ADR-0071 §5).** `estadoFor`, `summarise` and `closeGate` do not read
+  `Reading.StudentID`, on purpose: a copy nobody could match is still a
+  copy that was read and graded, and blocking *Cerrar corrección* on the
+  roster would make a paper flow that has worked since WP-F depend on a
+  Canvas import that may not have happened. The association surfaces as
+  the "Asociación" badge on the control page (hidden entirely when the
+  control has no course), the review page's "no está en la lista" note,
+  and `/courses/{id}/matriz` — nowhere else.
+- **Two RUT parsers exist and must stay two (issue #272).**
+  `matching.NormalizeRUT` reads eight bare digits as the BODY — what
+  `\AMCcode{rut}{8}` prints and what the review field asks for.
+  `canvas.SplitSISID` reads the LAST character of `user.sisId` as the
+  verifier, measured against the real Canvas in ADR-0069. They look like
+  duplicates and are deliberate inverses: deduplicating them shifts every
+  AMC reading one digit and matches a different person, silently
+  (`11222333` → body `01122233`).
+  `TestEightDigitsAreTheBodyUnlikeCanvasSISIDs` is the pin.
 - **The LiveBank in-memory snapshot survives every Reload failure
   (issue #230).** Reintroducing a code path that clears the
   `atomic.Pointer[Bank]` on a fetch/parse failure is forbidden — a

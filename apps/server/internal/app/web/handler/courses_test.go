@@ -3,6 +3,8 @@ package handler_test
 import (
 	"context"
 	"encoding/base64"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -14,6 +16,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
+	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 )
 
@@ -220,14 +223,29 @@ func TestReimportingDoesNotDuplicateTheClass(t *testing.T) {
 
 func (f *profileFixture) getCourse(t *testing.T, session string, courseID int64) *httptest.ResponseRecorder {
 	t.Helper()
+	return f.getCoursePage(t, session, courseID,
+		handler.CoursePathFor(courseID), f.coursesHandler.Show)
+}
 
-	req := httptest.NewRequest(http.MethodGet, handler.CoursePathFor(courseID), nil)
+// getStudents renders the roster page. Since issue #272 S6 the roster
+// table lives here rather than on the course page — the #271 cases below
+// that assert on names, RUTs and the import button follow it, because
+// what they check is still true and only moved.
+func (f *profileFixture) getStudents(t *testing.T, session string, courseID int64) *httptest.ResponseRecorder {
+	t.Helper()
+	return f.getCoursePage(t, session, courseID,
+		handler.CourseStudentsPathFor(courseID), f.coursesHandler.Students)
+}
+
+func (f *profileFixture) getCoursePage(t *testing.T, session string, courseID int64, path string, h http.HandlerFunc) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, path, nil)
 	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: session})
 	req.SetPathValue("id", strconv.FormatInt(courseID, 10))
 
 	rec := httptest.NewRecorder()
-	f.middleware.Resolve(f.middleware.RequireProfessor(http.HandlerFunc(f.coursesHandler.Show))).
-		ServeHTTP(rec, req)
+	f.middleware.Resolve(f.middleware.RequireProfessor(h)).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -252,7 +270,7 @@ func TestACourseWithNoRosterOffersTheImportButton(t *testing.T) {
 	f.connect(t, session)
 	courseID := f.addCourse(t, session, "44779")
 
-	rec := f.getCourse(t, session, courseID)
+	rec := f.getStudents(t, session, courseID)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
@@ -281,7 +299,7 @@ func TestAPopulatedCourseShowsTheRosterAndOffersAReimport(t *testing.T) {
 	}
 	f.importPost(t, session, courseID)
 
-	body := f.getCourse(t, session, courseID).Body.String()
+	body := f.getStudents(t, session, courseID).Body.String()
 	for _, want := range []string{"PEREZ SOTO", "MUÑOZ ÁVILA", "2 inscritos", "Reimportar"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the course page does not carry %q:\n%s", want, body)
@@ -303,7 +321,7 @@ func TestAPopulatedCourseShowsTheRosterAndOffersAReimport(t *testing.T) {
 // A student with no RUT is visible AS such: a dash in the column and a
 // count on the page. The import flash says it once and is gone; this fact
 // is not.
-func TestAStudentWithNoRutIsVisibleOnTheCoursePage(t *testing.T) {
+func TestAStudentWithNoRutIsVisibleOnTheRosterPage(t *testing.T) {
 	f := newProfileFixture(t, profileKey())
 	_, session := f.signIn(t)
 	f.api.courses = canvasCourses()
@@ -316,7 +334,7 @@ func TestAStudentWithNoRutIsVisibleOnTheCoursePage(t *testing.T) {
 	}
 	f.importPost(t, session, courseID)
 
-	body := f.getCourse(t, session, courseID).Body.String()
+	body := f.getStudents(t, session, courseID).Body.String()
 	if !strings.Contains(body, "1 sin RUT") {
 		t.Errorf("the page does not count the RUT-less student:\n%s", body)
 	}
@@ -343,7 +361,7 @@ func TestAWithdrawnStudentIsShownAsWithdrawn(t *testing.T) {
 	f.api.students = f.api.students[:1]
 	f.importPost(t, session, courseID)
 
-	body := f.getCourse(t, session, courseID).Body.String()
+	body := f.getStudents(t, session, courseID).Body.String()
 	if !strings.Contains(body, "Retirado") {
 		t.Errorf("the withdrawn student is not marked:\n%s", body)
 	}
@@ -587,7 +605,7 @@ func TestTheRutWarningCountsOnlyTheEnrolled(t *testing.T) {
 		aCanvasStudent("99999", "", "", "EXTRANJERA"),
 	}
 	f.importPost(t, session, courseID)
-	if body := f.getCourse(t, session, courseID).Body.String(); !strings.Contains(body, "1 sin RUT") {
+	if body := f.getStudents(t, session, courseID).Body.String(); !strings.Contains(body, "1 sin RUT") {
 		t.Fatalf("the warning is missing while the RUT-less student is enrolled:\n%s", body)
 	}
 
@@ -595,11 +613,623 @@ func TestTheRutWarningCountsOnlyTheEnrolled(t *testing.T) {
 	f.api.students = f.api.students[:1]
 	f.importPost(t, session, courseID)
 
-	body := f.getCourse(t, session, courseID).Body.String()
+	body := f.getStudents(t, session, courseID).Body.String()
 	if strings.Contains(body, "sin RUT") {
 		t.Errorf("the warning survives the student's withdrawal, so nothing can clear it:\n%s", body)
 	}
 	if !strings.Contains(body, "EXTRANJERA") {
 		t.Error("the withdrawn student disappeared from the roster table")
+	}
+}
+
+// --- Issue #272 S5: the retroactive pass, from the browser. ---
+
+// fakeRematcher is the course screens' controls double. It records what
+// it was asked and answers with fixed values.
+//
+// The pass itself is covered against a real reading store in
+// internal/domain/controls; what is left for this level is the parse, the
+// flash and the redirect. Named for the first thing it did (issue #272
+// S5); S6 gave it the control list too.
+type fakeRematcher struct {
+	result   controls.RematchResult
+	fail     error
+	courses  []int64
+	allCalls int
+	// controlsForCourse is what the course page lists, and listFail is
+	// how a case makes that read break (issue #272 S6).
+	controlsForCourse []controls.Control
+	listFail          error
+	// matrix is the grid the matrix page renders (issue #272 S9).
+	matrix     controls.CourseMatrix
+	matrixFail error
+}
+
+func (m *fakeRematcher) ControlsForCourse(_ context.Context, _ int64) ([]controls.Control, error) {
+	return m.controlsForCourse, m.listFail
+}
+
+func (m *fakeRematcher) MatrixForCourse(_ context.Context, _ int64) (controls.CourseMatrix, error) {
+	return m.matrix, m.matrixFail
+}
+
+func (m *fakeRematcher) RematchCourse(_ context.Context, courseID int64) (controls.RematchResult, error) {
+	m.courses = append(m.courses, courseID)
+	return m.result, m.fail
+}
+
+func (m *fakeRematcher) RematchAllCourses(context.Context) (controls.RematchResult, error) {
+	m.allCalls++
+	return m.result, m.fail
+}
+
+// The button reports what the pass did, in numbers the professor can act
+// on, and comes back to the course.
+func TestRematchReportsTheCountsAndReturnsToTheCourse(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.result = controls.RematchResult{Controls: 2, Matched: 27, Unmatched: 3, Changed: 27}
+
+	rec := f.rematchPost(t, session, courseID)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+	if loc := rec.Header().Get("Location"); loc != handler.CoursePathFor(courseID) {
+		t.Errorf("Location = %q, want the course page", loc)
+	}
+	if len(f.rematcher.courses) != 1 || f.rematcher.courses[0] != courseID {
+		t.Errorf("the rematcher was asked for %v, want course %d once", f.rematcher.courses, courseID)
+	}
+
+	msg := flashOf(t, rec)
+	for _, want := range []string{"2 controles", "27 copias emparejadas", "3 copias sin alumno"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("flash %q does not carry %q", msg, want)
+		}
+	}
+}
+
+// A pass that changed nothing says so, rather than leaving the professor
+// to guess whether the button worked.
+//
+// This is what a second press looks like, and it is the reading of
+// "idempotent" a professor can actually perform.
+func TestRematchSaysWhenNothingChanged(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.result = controls.RematchResult{Controls: 1, Matched: 30, Changed: 0}
+
+	msg := flashOf(t, f.rematchPost(t, session, courseID))
+	if !strings.Contains(msg, "ninguna cambió") {
+		t.Errorf("flash %q does not say that nothing changed", msg)
+	}
+}
+
+// Zero counts stay out of the message.
+//
+// The professor is scanning for what needs attention; a line of zeroes is
+// three things to read past to find the one that is not zero.
+func TestRematchLeavesZeroCountsOutOfTheFlash(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.result = controls.RematchResult{Controls: 1, Matched: 30, Changed: 30}
+
+	msg := flashOf(t, f.rematchPost(t, session, courseID))
+	for _, unwanted := range []string{"sin alumno", "sin curso asignado", "no se pudo consultar"} {
+		if strings.Contains(msg, unwanted) {
+			t.Errorf("flash %q carries %q for a count of zero", msg, unwanted)
+		}
+	}
+}
+
+// Controls with no course get their own line, because their fix is
+// different from every other one: assign them a course.
+func TestRematchNamesTheControlsThatHaveNoCourse(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.result = controls.RematchResult{Controls: 1, Skipped: 2, Matched: 10, Changed: 10}
+
+	msg := flashOf(t, f.rematchPost(t, session, courseID))
+	if !strings.Contains(msg, "sin curso asignado") {
+		t.Errorf("flash %q does not name the controls with no course", msg)
+	}
+}
+
+// A failed pass is a 500 the professor can retry, not a flash claiming
+// success.
+func TestRematchSurfacesAFailure(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.fail = errors.New("the database is gone")
+
+	rec := f.rematchPost(t, session, courseID)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", rec.Code)
+	}
+	if flashOf(t, rec) != "" {
+		t.Error("a failed pass set a flash; nothing happened worth reporting as done")
+	}
+}
+
+// rematchPost drives POST /courses/{id}/rematch with the path value bound
+// the way the mux binds it.
+func (f *profileFixture) rematchPost(t *testing.T, session string, courseID int64) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodPost, handler.CourseRematchPathFor(courseID), strings.NewReader(""))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: session})
+	req.SetPathValue("id", strconv.FormatInt(courseID, 10))
+
+	rec := httptest.NewRecorder()
+	f.middleware.Resolve(f.middleware.RequireProfessor(http.HandlerFunc(f.coursesHandler.Rematch))).
+		ServeHTTP(rec, req)
+	return rec
+}
+
+// --- Issue #272 S6: the course page's two sections. ---
+
+// AC7: the course page carries both sections, the link to the roster, and
+// both counts.
+func TestTheCoursePageShowsItsControlsAndLinksToTheRoster(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+		aCanvasStudent("900002", "11222444", "K", "MUÑOZ ÁVILA"),
+	}
+	f.importPost(t, session, courseID)
+
+	f.rematcher.controlsForCourse = []controls.Control{
+		{ID: "CTRLUNO0000000000000000AA", Name: "Control 1", QuestionsPerCopy: 4, Copies: 30, State: controls.Graded},
+		{ID: "CTRLDOS0000000000000000AA", Name: "Control 2", QuestionsPerCopy: 4, Copies: 30, State: controls.Generated},
+	}
+
+	body := f.getCourse(t, session, courseID).Body.String()
+
+	for _, want := range []string{
+		"Controles",              // the section
+		"Control 1", "Control 2", // the list
+		"/controls/CTRLUNO0000000000000000AA",   // each row links to its control
+		"Alumnos",                               // the other section
+		"2 inscritos",                           // the roster count
+		handler.CourseStudentsPathFor(courseID), // the link to it
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the course page does not carry %q:\n%s", want, body)
+		}
+	}
+
+	// The roster TABLE is not here any more — that is the point of the
+	// split. A name on this page would mean it came back.
+	if strings.Contains(body, "PEREZ SOTO") {
+		t.Error("the roster table is still rendered on the course page; S6 moved it to /alumnos")
+	}
+}
+
+// A course with no controls says so instead of rendering an empty table.
+//
+// It is the ordinary state of a course just added, not a problem, and the
+// useful thing to show is the way to create the first one.
+func TestACourseWithNoControlsSaysSoAndPointsAtNewControl(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	body := f.getCourse(t, session, courseID).Body.String()
+	if !strings.Contains(body, "Todavía no hay ningún control") {
+		t.Errorf("the empty state is missing:\n%s", body)
+	}
+	if !strings.Contains(body, "/controls/new") {
+		t.Error("the empty state does not point at the create form")
+	}
+}
+
+// The course page links to the matrix (issue #272 S9).
+//
+// This case was the inverse one slice ago: S6 asserted the link's
+// ABSENCE, because a link to a 404 is worse than a link that arrives one
+// slice later, and the failing assertion is what told the S9 author to
+// come here. Flipped rather than deleted, so the page keeps a guard
+// either way.
+func TestTheCoursePageLinksToTheMatrix(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.controlsForCourse = []controls.Control{
+		{ID: "CTRLUNO0000000000000000AA", Name: "Control 1", QuestionsPerCopy: 4, Copies: 30, State: controls.Graded},
+	}
+
+	body := f.getCourse(t, session, courseID).Body.String()
+	if !strings.Contains(body, handler.CourseMatrixPathFor(courseID)) {
+		t.Errorf("the course page does not link to the matrix:\n%s", body)
+	}
+}
+
+// The two pages agree on the counts.
+//
+// The course page's "2 inscritos" is a promise about what the roster page
+// shows; a professor who clicks through to find a different number has
+// been lied to by whichever one drifted. One tally function serves both,
+// and this is what pins that.
+func TestTheCourseAndRosterPagesAgreeOnTheCounts(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+		aCanvasStudent("900002", "11222444", "K", "MUÑOZ ÁVILA"),
+		aCanvasStudent("900003", "", "", "SIN RUT"),
+	}
+	f.importPost(t, session, courseID)
+
+	course := f.getCourse(t, session, courseID).Body.String()
+	roster := f.getStudents(t, session, courseID).Body.String()
+
+	for _, want := range []string{"3 inscritos", "1 sin RUT"} {
+		if !strings.Contains(course, want) {
+			t.Errorf("the course page does not say %q:\n%s", want, course)
+		}
+		if !strings.Contains(roster, want) {
+			t.Errorf("the roster page does not say %q:\n%s", want, roster)
+		}
+	}
+}
+
+// A failure to read the controls is a 500, not a course page rendered
+// with an empty Controles section.
+//
+// The two look identical to a professor and mean opposite things: one is
+// "you have no controls", the other is "nobody could ask". Rendering the
+// first for the second would send them to create a control that already
+// exists.
+func TestACoursePageWhoseControlsCannotBeReadIs500(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.listFail = errors.New("the database is gone")
+
+	rec := f.getCourse(t, session, courseID)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "Todavía no hay ningún control") {
+		t.Error("a failed read rendered as 'you have no controls'")
+	}
+}
+
+// The roster page is reachable and carries its way back.
+func TestTheRosterPageNamesTheCourseAndLinksBack(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	rec := f.getStudents(t, session, courseID)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), handler.CoursePathFor(courseID)) {
+		t.Error("the roster page has no way back to its course")
+	}
+}
+
+// A roster page for a course that does not exist is a 404, like the
+// course page it hangs off.
+func TestARosterPageForACourseThatDoesNotExistIs404(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+
+	if rec := f.getStudents(t, session, 4242); rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rec.Code)
+	}
+}
+
+// --- Issue #272 S9: the student × control matrix. ---
+
+// matrixPost renders the grid.
+func (f *profileFixture) getMatrix(t *testing.T, session string, courseID int64) *httptest.ResponseRecorder {
+	t.Helper()
+	return f.getCoursePage(t, session, courseID,
+		handler.CourseMatrixPathFor(courseID), f.coursesHandler.Matrix)
+}
+
+// AC10: rows are the roster, columns are the controls, cells are grades,
+// and a copy nobody sat is empty rather than zero.
+func TestTheMatrixRendersOneRowPerStudentAndOneColumnPerControl(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+		aCanvasStudent("900002", "11222444", "K", "MUÑOZ ÁVILA"),
+	}
+	f.importPost(t, session, courseID)
+
+	ana := f.studentIDByCanvasID(t, "900001")
+	first := controls.Control{ID: "CTRLUNO0000000000000000AAA", Name: "Control 1", QuestionsPerCopy: 4, Copies: 30, State: controls.Graded}
+	second := controls.Control{ID: "CTRLDOS0000000000000000AAA", Name: "Control 2", QuestionsPerCopy: 4, Copies: 30, State: controls.Graded}
+	f.rematcher.matrix = controls.CourseMatrix{
+		Controls: []controls.Control{first, second},
+		Grades: map[int64]map[string]controls.Reading{
+			// Ana sat the first only. Muñoz sat neither, and must still
+			// have a row — a professor scanning for who is missing a
+			// grade needs to see exactly that person.
+			ana: {first.ID: gradedReading(first.ID, 1, 4, 4)},
+		},
+	}
+
+	body := f.getMatrix(t, session, courseID).Body.String()
+
+	for _, want := range []string{"Control 1", "Control 2", "PEREZ SOTO", "MUÑOZ ÁVILA"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the matrix does not carry %q:\n%s", want, body)
+		}
+	}
+	// Ana's grade for the control she sat, computed the one way.
+	_, grade := controls.TotalAndGrade(first.QuestionsPerCopy, gradedReading(first.ID, 1, 4, 4))
+	if !strings.Contains(body, grade) {
+		t.Errorf("the matrix does not show the grade %q:\n%s", grade, body)
+	}
+	// And nothing anywhere claims a 1.0 nobody earned.
+	if strings.Contains(body, "1.0") {
+		t.Errorf("the matrix rendered a grade for a copy nobody sat:\n%s", body)
+	}
+}
+
+// A student who sat nothing is a row of dashes, not an absent row.
+//
+// This is the case the grid exists for: the professor is looking for who
+// has no grade. Building rows out of readings would make exactly those
+// people invisible.
+func TestTheMatrixKeepsARowForAStudentWhoSatNothing(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900002", "11222444", "K", "MUÑOZ ÁVILA"),
+	}
+	f.importPost(t, session, courseID)
+
+	f.rematcher.matrix = controls.CourseMatrix{
+		Controls: []controls.Control{
+			{ID: "CTRLUNO0000000000000000AAA", Name: "Control 1", QuestionsPerCopy: 4, Copies: 30, State: controls.Graded},
+		},
+		Grades: map[int64]map[string]controls.Reading{},
+	}
+
+	body := f.getMatrix(t, session, courseID).Body.String()
+	if !strings.Contains(body, "MUÑOZ ÁVILA") {
+		t.Errorf("the student who sat nothing has no row:\n%s", body)
+	}
+	if !strings.Contains(body, "—") {
+		t.Error("the empty cell is blank rather than a visible gap")
+	}
+}
+
+// A withdrawn student keeps their row, marked.
+//
+// They sat the controls they sat, and their grades did not stop existing
+// when Canvas stopped listing them (#271 invariant 1). The state is shown
+// so the row reads as history rather than as a gap.
+func TestTheMatrixKeepsWithdrawnStudentsAndMarksThem(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+		aCanvasStudent("900002", "11222444", "K", "MUÑOZ ÁVILA"),
+	}
+	f.importPost(t, session, courseID)
+	// The second import drops Muñoz, which stamps them withdrawn.
+	f.api.students = f.api.students[:1]
+	f.importPost(t, session, courseID)
+
+	f.rematcher.matrix = controls.CourseMatrix{
+		Controls: []controls.Control{
+			{ID: "CTRLUNO0000000000000000AAA", Name: "Control 1", QuestionsPerCopy: 4, Copies: 30, State: controls.Graded},
+		},
+		Grades: map[int64]map[string]controls.Reading{},
+	}
+
+	body := f.getMatrix(t, session, courseID).Body.String()
+	if !strings.Contains(body, "MUÑOZ ÁVILA") {
+		t.Errorf("the withdrawn student vanished from the matrix:\n%s", body)
+	}
+	if !strings.Contains(body, "Retirado") {
+		t.Error("the withdrawn student's row is not marked, so it reads as a current gap")
+	}
+}
+
+// A course with no controls, and one with no roster, each say so instead
+// of rendering a table with one axis.
+func TestTheMatrixSaysWhenItHasNoAxis(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	t.Run("no controls", func(t *testing.T) {
+		f.rematcher.matrix = controls.CourseMatrix{}
+		body := f.getMatrix(t, session, courseID).Body.String()
+		if !strings.Contains(body, "no tiene controles") {
+			t.Errorf("the empty-controls state is missing:\n%s", body)
+		}
+	})
+
+	t.Run("no roster", func(t *testing.T) {
+		f.rematcher.matrix = controls.CourseMatrix{
+			Controls: []controls.Control{
+				{ID: "CTRLUNO0000000000000000AAA", Name: "Control 1", QuestionsPerCopy: 4, Copies: 30},
+			},
+		}
+		body := f.getMatrix(t, session, courseID).Body.String()
+		if !strings.Contains(body, "no tiene su lista") {
+			t.Errorf("the empty-roster state is missing:\n%s", body)
+		}
+	})
+}
+
+// AC10 asks for 20+ students and 3+ controls: the grid renders whole.
+func TestTheMatrixRendersAFullClass(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	students := make([]canvas.Student, 0, 24)
+	for i := range 24 {
+		students = append(students, aCanvasStudent(
+			fmt.Sprintf("9000%02d", i), fmt.Sprintf("110000%02d", i), "5",
+			fmt.Sprintf("APELLIDO%02d", i)))
+	}
+	f.api.students = students
+	f.importPost(t, session, courseID)
+
+	cols := make([]controls.Control, 0, 4)
+	for i := range 4 {
+		cols = append(cols, controls.Control{
+			ID:   fmt.Sprintf("CTRL%022d", i),
+			Name: fmt.Sprintf("Control %d", i+1), QuestionsPerCopy: 4, Copies: 30, State: controls.Graded,
+		})
+	}
+	grades := map[int64]map[string]controls.Reading{}
+	for i := range 24 {
+		id := f.studentIDByCanvasID(t, fmt.Sprintf("9000%02d", i))
+		grades[id] = map[string]controls.Reading{
+			cols[0].ID: gradedReading(cols[0].ID, 1, 4, i%5),
+		}
+	}
+	f.rematcher.matrix = controls.CourseMatrix{Controls: cols, Grades: grades}
+
+	body := f.getMatrix(t, session, courseID).Body.String()
+	for i := range 24 {
+		if want := fmt.Sprintf("APELLIDO%02d", i); !strings.Contains(body, want) {
+			t.Errorf("the matrix is missing %q", want)
+		}
+	}
+	for i := range 4 {
+		if want := fmt.Sprintf("Control %d", i+1); !strings.Contains(body, want) {
+			t.Errorf("the matrix is missing column %q", want)
+		}
+	}
+	// The wide table scrolls inside its own container, so the page never
+	// scrolls horizontally — a term with eight controls is wider than a
+	// laptop.
+	if !strings.Contains(body, "overflow-x:auto") {
+		t.Error("the wide table has no horizontal scroll container")
+	}
+}
+
+// gradedReading is a reading of `questions` questions with `correct` of
+// them right, scored the way AMC scores a simple question.
+func gradedReading(controlID string, copyNumber, questions, correct int) controls.Reading {
+	r := controls.Reading{
+		ID: int64(copyNumber), ControlID: controlID, CopyNumber: copyNumber,
+		RUTStatus: controls.RUTStatusOK, CopyStatus: controls.CopyStatusOK,
+	}
+	for i := range questions {
+		score := 0.0
+		if i < correct {
+			score = 1
+		}
+		r.Answers = append(r.Answers, controls.Answer{
+			QuestionRef:  fmt.Sprintf("q%d", i+1),
+			QuestionType: controls.QuestionSimple,
+			Status:       controls.AnswerStatusOK,
+			Score:        score, Max: 1,
+		})
+	}
+	return r
+}
+
+// studentIDByCanvasID reads back the id the roster import assigned.
+func (f *profileFixture) studentIDByCanvasID(t *testing.T, canvasUserID string) int64 {
+	t.Helper()
+	var id int64
+	if err := f.db.QueryRowContext(context.Background(),
+		`SELECT id FROM student WHERE canvas_user_id = ?`, canvasUserID).Scan(&id); err != nil {
+		t.Fatalf("reading the student id for %s: %v", canvasUserID, err)
+	}
+	return id
+}
+
+// A course whose whole class withdrew still HAS a roster, and still
+// offers the rematch button.
+//
+// Both halves were wrong (#272 review, COR-11). S6 gated the "Alumnos"
+// copy on the ENROLLED count, so a course everybody left claimed to have
+// no list at all — false, and it sent the professor to re-import a roster
+// they already have. The same gate hid "Reasociar controles" from exactly
+// the course most likely to need it: the one whose students' grades
+// outlive their enrolment (#271 invariant 1).
+func TestACourseWhoseClassAllWithdrewStillHasARosterAndOffersRematch(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+	}
+	f.importPost(t, session, courseID)
+
+	// An import Canvas answers with nobody withdraws the whole class —
+	// the roster never deletes.
+	f.api.students = nil
+	f.importPost(t, session, courseID)
+
+	body := f.getCourse(t, session, courseID).Body.String()
+	if strings.Contains(body, "todavía no tiene su lista") {
+		t.Errorf("a course with a fully withdrawn class claims to have no roster:\n%s", body)
+	}
+	if !strings.Contains(body, "Reasociar controles") {
+		t.Errorf("the rematch button is hidden from a course whose students all withdrew, "+
+			"which is where their grades still live:\n%s", body)
+	}
+	if !strings.Contains(body, "1 retirados") {
+		t.Errorf("the withdrawn count is not shown:\n%s", body)
 	}
 }

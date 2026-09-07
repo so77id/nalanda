@@ -149,6 +149,11 @@ func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string,
 		return Report{}, fmt.Errorf("controls.AnalyzeBatch: mark missing: %w", err)
 	}
 	s.annotateCleanCopies(ctx, control, report)
+	// Issue #272: every RUT this read produced is offered to the roster.
+	// After the upsert, because it reads the persisted rows; best-effort,
+	// because the readings are already committed and a roster outage must
+	// not fail a read that succeeded.
+	s.rematchQuietly(ctx, control.ID, "AnalyzeBatch")
 	if control.State == Generated {
 		if err := s.Readings.SetControlState(ctx, control.ID, InReview); err != nil {
 			s.Log.Warn("controls.AnalyzeBatch: state transition failed", "control", control.ID, "error", err)
@@ -189,6 +194,14 @@ func (s *Service) Reanalyze(ctx context.Context, controlID string, ticked, unsur
 		return Report{}, fmt.Errorf("controls.Reanalyze: clear annotated: %w", err)
 	}
 	s.annotateCleanCopies(ctx, control, report)
+	// Issue #272. A re-read at a different sensitivity produces different
+	// RUTs — that is the whole point of "re-leer con otra sensibilidad" —
+	// so the associations have to move with them. The issue's S3 names
+	// only /analyse; leaving this seam out would mean a copy whose RUT
+	// went from illegible to readable stays unmatched forever, and one
+	// whose RUT changed stays filed under the person the OLD reading
+	// named. Both are the failure this WP exists to remove.
+	s.rematchQuietly(ctx, control.ID, "Reanalyze")
 	return report, nil
 }
 
@@ -367,6 +380,28 @@ func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) (
 		}
 	}
 
+	// Issue #272: the corrected RUT is the one the copy is filed under.
+	// Only when the RUT actually MOVED — an answer-only save must not pay
+	// for a roster lookup, and re-resolving an unchanged RUT could only
+	// produce the association the row already has.
+	//
+	// result.RUTTo rather than a re-read of the reading: it is exactly
+	// what the branches above made effective, and the in-memory `reading`
+	// is stale by now.
+	if result.RUTAction != RUTActionUnchanged {
+		control, err := s.Store.ControlByID(ctx, req.ControlID)
+		if err != nil {
+			// The RUT edit is already persisted and is what the professor
+			// asked for. Failing here would report a save that happened
+			// as a failure; the association is recomputable by the next
+			// read or by S5's command.
+			s.Log.Warn("controls.SaveOverrides: control unreadable for rematch",
+				"control", req.ControlID, "copy", req.CopyNumber, "error", err)
+		} else {
+			_ = s.matchOne(ctx, control, reading.ID, reading.CopyNumber, result.RUTTo, reading.StudentID)
+		}
+	}
+
 	// Per question — clear when the submission matches what AMC read,
 	// upsert otherwise.
 	for _, edit := range req.Answers {
@@ -399,6 +434,419 @@ func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) (
 		}
 	}
 	return result, nil
+}
+
+// RematchReadings recomputes the student behind every reading of one
+// control, from the RUT each copy currently carries.
+//
+// Exported because three callers need it and they are not all in this
+// file: the two read paths above, the manual RUT edit (S4), and the
+// retroactive command that rebuilds the associations of controls read
+// before this WP (S5).
+//
+// AUTHORITATIVE, per reading: whatever the effective RUT resolves to now
+// is what gets written, INCLUDING nil. A reading whose RUT stopped
+// matching has its student cleared, because a stale association keeps a
+// copy filed under somebody the current reading no longer names — and
+// that is how a grade reaches the wrong person after a re-read nobody
+// thought had changed anything.
+//
+// A control with no course is skipped without asking anything. Every
+// control that predates migration 00015 is in that state; matching
+// refuses course 0 on its own, and not asking keeps a 30-copy control
+// from producing 30 pointless lookups on every analyse.
+//
+// Returns an error only when the control or its readings cannot be read
+// at all. A per-reading failure is logged and skipped — see
+// rematchQuietly for why the read paths do not surface even that.
+func (s *Service) RematchReadings(ctx context.Context, controlID string) (RematchResult, error) {
+	control, err := s.Store.ControlByID(ctx, controlID)
+	if err != nil {
+		return RematchResult{}, err
+	}
+	if control.CourseID == nil {
+		return RematchResult{Skipped: 1}, nil
+	}
+	readings, err := s.Readings.ReadingsByControl(ctx, controlID)
+	if err != nil {
+		return RematchResult{}, fmt.Errorf("controls.RematchReadings %s: %w", controlID, err)
+	}
+
+	result := RematchResult{Controls: 1}
+	for _, r := range readings {
+		// A copy that was printed and never handed in has no RUT and
+		// never will. Counting it as "unmatched" would put the size of
+		// the absent half into a number whose whole purpose is to say
+		// how many RUTs need looking at.
+		if r.CopyStatus == CopyStatusNotPresent {
+			continue
+		}
+		result.add(s.matchOne(ctx, control, r.ID, r.CopyNumber, effectiveRUT(r), r.StudentID))
+	}
+	return result, nil
+}
+
+// RematchResult is what one rematch pass did, for the professor to read
+// afterwards.
+//
+// Changed is the number that answers "did this do anything": a second run
+// over an unchanged roster reports zero, which is what idempotent means
+// here in a form somebody can check without a database client.
+type RematchResult struct {
+	// Controls is how many controls were walked (those with a course).
+	Controls int
+	// Skipped is how many were passed over for having no course. They are
+	// not failures — nobody has told the server which class sat them —
+	// and they are counted so the total adds up and a professor can see
+	// that the reason some controls did nothing is assignable.
+	Skipped int
+	// Matched and Unmatched are the readings that ended the pass with and
+	// without a student. Copies never handed in are in neither.
+	Matched   int
+	Unmatched int
+	// Changed is how many readings actually MOVED — the rest already
+	// carried the association this pass computed.
+	Changed int
+	// Errored is READINGS whose lookup or write failed, and whose
+	// association is therefore unknown rather than absent.
+	Errored int
+	// ControlsFailed is CONTROLS that could not be walked at all — the
+	// row or its readings were unreadable, so an unknown NUMBER of copies
+	// have an unknown association.
+	//
+	// Its own field because the unit is different. An earlier version
+	// folded these into Errored, which is reading-scoped and rendered as
+	// "N copias no se pudieron consultar" — so one unreadable control
+	// reported as one copy, and the professor was told a smaller problem
+	// than they had (#272 review, ARQ-4).
+	ControlsFailed int
+}
+
+// Readings is how many copies the pass considered.
+func (r RematchResult) Readings() int { return r.Matched + r.Unmatched + r.Errored }
+
+// Failed reports whether anything at all went unanswered — either
+// readings whose lookup failed, or whole controls that could not be
+// walked. The flash uses it to decide whether to say so.
+func (r RematchResult) Failed() bool { return r.Errored > 0 || r.ControlsFailed > 0 }
+
+func (r *RematchResult) add(o matchOutcome) {
+	switch o.kind {
+	case matchedTo:
+		r.Matched++
+	case matchedNobody:
+		r.Unmatched++
+	case matchFailed:
+		r.Errored++
+	}
+	if o.changed {
+		r.Changed++
+	}
+}
+
+// merge folds another pass's counts in, for the whole-course walk.
+func (r *RematchResult) merge(o RematchResult) {
+	r.Controls += o.Controls
+	r.Skipped += o.Skipped
+	r.Matched += o.Matched
+	r.Unmatched += o.Unmatched
+	r.Changed += o.Changed
+	r.Errored += o.Errored
+	r.ControlsFailed += o.ControlsFailed
+}
+
+// matchOutcome is what happened to one reading.
+type matchOutcome struct {
+	kind    matchOutcomeKind
+	changed bool
+}
+
+type matchOutcomeKind int
+
+const (
+	matchedNobody matchOutcomeKind = iota
+	matchedTo
+	matchFailed
+)
+
+// RematchCourse rebuilds the associations of every ACTIVE control of one
+// course (issue #272 S5).
+//
+// This is the retroactive pass: the controls read before this WP have
+// readings whose RUTs were never offered to a roster, and this is what
+// offers them. It is also the repair path for a roster imported after a
+// control was corrected, which is the ordinary case rather than a
+// migration one — a professor who adds a missing student in Canvas runs
+// this to pick them up.
+//
+// IDEMPOTENT: it computes each association from the RUT the copy carries
+// now and writes only what differs, so a second run reports Changed = 0
+// and touches nothing.
+//
+// ARCHIVED CONTROLS ARE NOT WALKED. Archiving is the professor saying
+// "put this away"; reaching into it from a course-wide button would be
+// the button deciding otherwise. Restoring the control and running again
+// is the path, and it is one click.
+//
+// A per-control failure does not abort the pass: the remaining controls
+// are still worth rebuilding, and the count of what failed is in the
+// result rather than in an error nobody can act on halfway through.
+func (s *Service) RematchCourse(ctx context.Context, courseID int64) (RematchResult, error) {
+	if courseID <= 0 {
+		return RematchResult{}, fmt.Errorf("controls.RematchCourse: course id must be positive, got %d", courseID)
+	}
+	forCourse, err := s.ControlsForCourse(ctx, courseID)
+	if err != nil {
+		return RematchResult{}, fmt.Errorf("controls.RematchCourse %d: %w", courseID, err)
+	}
+
+	var total RematchResult
+	for _, c := range forCourse {
+		one, err := s.RematchReadings(ctx, c.ID)
+		if err != nil {
+			s.Log.Warn("controls.RematchCourse: control failed", "control", c.ID, "error", err)
+			// NOT total.Controls++: a control nobody could read was not
+			// reviewed, and counting it would put it in the "N controles
+			// revisados" the professor reads as work done.
+			total.ControlsFailed++
+			continue
+		}
+		total.merge(one)
+	}
+	return total, nil
+}
+
+// ControlsForStudent returns every control this student sat, newest
+// first, each with the reading of their copy (issue #272 S8).
+//
+// Two layers of query rather than one join that returns everything: the
+// store locates the copies, and each is resolved through ReadingByCopy,
+// which already assembles the answers and the overrides a grade depends
+// on. Reproducing that assembly in a second query would be a second place
+// for the override rules to live, and the grade a professor reads here
+// has to be the same number the control page shows.
+//
+// The cost is one statement plus one per control the student sat — five
+// or six for a semester, which is the shape of this page.
+func (s *Service) ControlsForStudent(ctx context.Context, studentID int64) ([]StudentControl, error) {
+	if studentID <= 0 {
+		return nil, fmt.Errorf("controls.ControlsForStudent: student id must be positive, got %d", studentID)
+	}
+	copies, err := s.Readings.CopiesForStudent(ctx, studentID)
+	if err != nil {
+		return nil, fmt.Errorf("controls.ControlsForStudent %d: %w", studentID, err)
+	}
+
+	out := make([]StudentControl, 0, len(copies))
+	for _, c := range copies {
+		control, err := s.Store.ControlByID(ctx, c.ControlID)
+		if err != nil {
+			return nil, fmt.Errorf("controls.ControlsForStudent %d: control %s: %w", studentID, c.ControlID, err)
+		}
+		reading, err := s.Readings.ReadingByCopy(ctx, c.ControlID, c.CopyNumber)
+		if err != nil {
+			return nil, fmt.Errorf("controls.ControlsForStudent %d: copy %s/%d: %w",
+				studentID, c.ControlID, c.CopyNumber, err)
+		}
+		out = append(out, StudentControl{Control: control, Reading: reading})
+	}
+	return out, nil
+}
+
+// CourseMatrix is the student x control grid (issue #272 S9): the course's
+// active controls, oldest first, and the grade each matched copy earned.
+type CourseMatrix struct {
+	// Controls are the columns, chronological — a term reads left to
+	// right, unlike the course page's list which reads newest first
+	// because that is where the professor's attention is.
+	Controls []Control
+	// Grades is keyed by student id then by control id. A student with no
+	// matched copy of a control has no entry, which is what lets the
+	// screen render an empty cell rather than a zero — "did not sit it"
+	// and "got nothing right" are different facts about a person.
+	Grades map[int64]map[string]Reading
+}
+
+// MatrixForCourse assembles the grid (issue #272 S9).
+//
+// One readings query per control, not per cell: a 30-student, 5-control
+// course is five statements, and the alternative — asking per (student,
+// control) — is a hundred and fifty. The rows themselves come from the
+// roster, which this domain does not know about; the caller joins the two,
+// which is also what keeps a student with no copies visible as an empty
+// row instead of vanishing from a grid built out of readings.
+func (s *Service) MatrixForCourse(ctx context.Context, courseID int64) (CourseMatrix, error) {
+	forCourse, err := s.ControlsForCourse(ctx, courseID)
+	if err != nil {
+		return CourseMatrix{}, err
+	}
+	// Chronological, and sorted HERE rather than inherited. The obvious
+	// version was `slices.Reverse` over ControlsForCourse's newest-first
+	// order, which is correct against today's store and silently reads
+	// backwards the day that order changes — the invariant this grid
+	// depends on is "left to right in time", so it is stated where it is
+	// depended on.
+	//
+	// An undated control sorts LAST, the same place it sits in every
+	// other listing: it has no position in the term.
+	sort.SliceStable(forCourse, func(i, j int) bool {
+		a, b := forCourse[i], forCourse[j]
+		if (a.ApplicationDate == nil) != (b.ApplicationDate == nil) {
+			return b.ApplicationDate == nil
+		}
+		if a.ApplicationDate != nil && !a.ApplicationDate.Equal(*b.ApplicationDate) {
+			return a.ApplicationDate.Before(*b.ApplicationDate)
+		}
+		if !a.CreatedAt.Equal(b.CreatedAt) {
+			return a.CreatedAt.Before(b.CreatedAt)
+		}
+		// A total order, so two controls created in the same second do
+		// not swap columns between page loads.
+		return a.ID < b.ID
+	})
+
+	matrix := CourseMatrix{Controls: forCourse, Grades: map[int64]map[string]Reading{}}
+	for _, c := range forCourse {
+		readings, err := s.Readings.ReadingsByControl(ctx, c.ID)
+		if err != nil {
+			return CourseMatrix{}, fmt.Errorf("controls.MatrixForCourse %d: control %s: %w", courseID, c.ID, err)
+		}
+		for _, r := range readings {
+			if r.StudentID == nil {
+				// An unmatched copy belongs to no row. It is not lost —
+				// the control page lists it as "reconciliar" — and
+				// putting it somewhere in the grid would mean guessing
+				// whose row it goes in, which is the one thing this
+				// subsystem must not do.
+				continue
+			}
+			if matrix.Grades[*r.StudentID] == nil {
+				matrix.Grades[*r.StudentID] = map[string]Reading{}
+			}
+			matrix.Grades[*r.StudentID][c.ID] = r
+		}
+	}
+	return matrix, nil
+}
+
+// ControlsForCourse returns the ACTIVE controls that belong to one
+// course, in the order the list screens use (issue #272 S6).
+//
+// Filters ListControls in Go rather than asking for a course-scoped
+// query: it is one statement this store already answers, the set is tens
+// of rows, and a new index would have to be justified by an EXPLAIN QUERY
+// PLAN this WP has no reader for (#271 review, PER-4). It also inherits
+// ListControls's hiding of archived rows, which is the set both callers
+// want — the course page does not list what the professor put away, and
+// the retroactive pass does not reach into it.
+func (s *Service) ControlsForCourse(ctx context.Context, courseID int64) ([]Control, error) {
+	if courseID <= 0 {
+		return nil, fmt.Errorf("controls.ControlsForCourse: course id must be positive, got %d", courseID)
+	}
+	all, err := s.Store.ListControls(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("controls.ControlsForCourse %d: %w", courseID, err)
+	}
+	out := make([]Control, 0, len(all))
+	for _, c := range all {
+		if c.CourseID != nil && *c.CourseID == courseID {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+// RematchAllCourses is RematchCourse over every course that has one.
+//
+// The `--all-courses` half of the retroactive pass. It walks the controls
+// once and groups by whatever course each carries, rather than asking the
+// roster for the course list and looping — the answer is the same and it
+// does not need a roster port on this domain.
+func (s *Service) RematchAllCourses(ctx context.Context) (RematchResult, error) {
+	all, err := s.Store.ListControls(ctx)
+	if err != nil {
+		return RematchResult{}, fmt.Errorf("controls.RematchAllCourses: %w", err)
+	}
+
+	var total RematchResult
+	for _, c := range all {
+		one, err := s.RematchReadings(ctx, c.ID)
+		if err != nil {
+			s.Log.Warn("controls.RematchAllCourses: control failed", "control", c.ID, "error", err)
+			// NOT total.Controls++: a control nobody could read was not
+			// reviewed, and counting it would put it in the "N controles
+			// revisados" the professor reads as work done.
+			total.ControlsFailed++
+			continue
+		}
+		total.merge(one)
+	}
+	return total, nil
+}
+
+// matchOne resolves one RUT against the control's course and writes the
+// result, unless the answer is unknown.
+//
+// `current` is what the reading already carries, so an unchanged
+// association costs no write. `rut` is passed in rather than read off a
+// Reading because the RUT-edit caller knows what the save just made
+// effective and would otherwise have to re-read the row to find out.
+//
+// Silent on failure by design — every caller is enriching something
+// already committed, and the log line is the operator's record. See
+// rematchQuietly.
+func (s *Service) matchOne(ctx context.Context, control Control, readingID int64, copyNumber int, rut string, current *int64) matchOutcome {
+	if control.CourseID == nil {
+		return matchOutcome{kind: matchedNobody}
+	}
+	studentID, err := s.Matcher.MatchByRUT(ctx, rut, *control.CourseID)
+	if err != nil {
+		// The lookup failed, so the answer is UNKNOWN — which is not the
+		// same as "nobody". Leave the row exactly as it is: an unmatched
+		// copy stays in reconciliation, and a matched one keeps the
+		// association a working lookup established. Writing nil here
+		// would un-file a copy because a database blinked.
+		s.Log.Warn("controls: match lookup failed",
+			"control", control.ID, "copy", copyNumber, "error", err)
+		return matchOutcome{kind: matchFailed}
+	}
+
+	outcome := matchOutcome{kind: matchedNobody}
+	if studentID != nil {
+		outcome.kind = matchedTo
+	}
+	if sameStudent(current, studentID) {
+		return outcome
+	}
+	if err := s.Readings.SetReadingStudent(ctx, readingID, studentID); err != nil {
+		s.Log.Warn("controls: match write failed",
+			"control", control.ID, "copy", copyNumber, "error", err)
+		return matchOutcome{kind: matchFailed}
+	}
+	outcome.changed = true
+	return outcome
+}
+
+// rematchQuietly runs RematchReadings and logs whatever it returns.
+//
+// The read paths call this rather than RematchReadings directly because
+// by the time it runs the readings are COMMITTED, and they are the
+// artefact a professor cannot reproduce without re-scanning. Failing the
+// analyse over an enrichment would turn a roster outage into a re-scan.
+// Same policy, and the same reason, as annotateCleanCopies.
+func (s *Service) rematchQuietly(ctx context.Context, controlID, caller string) {
+	if _, err := s.RematchReadings(ctx, controlID); err != nil {
+		s.Log.Warn("controls."+caller+": rematch failed", "control", controlID, "error", err)
+	}
+}
+
+// sameStudent compares two optional student ids, so an unchanged
+// association costs no write.
+func sameStudent(a, b *int64) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 // effectiveRUT is what the review page would display for the reading:

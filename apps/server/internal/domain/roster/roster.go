@@ -38,6 +38,12 @@ var (
 	// disappeared between the page render and the click.
 	ErrNotInCanvas = errors.New("roster: Canvas does not list that course for this professor")
 
+	// ErrStudentNotFound is a student id nothing answers to (issue #272
+	// S8). Distinct from ErrCourseNotFound because the student page is
+	// reachable by a hand-typed URL and "that person is not here" is a
+	// different 404 from "that course is not here".
+	ErrStudentNotFound = errors.New("roster: no such student")
+
 	// ErrDuplicateRUT is two DIFFERENT Canvas users carrying the same RUT.
 	// The import refuses rather than picking one: `student.rut` is the key
 	// WP-2 matches grades on, and a silent choice between two people is a
@@ -102,6 +108,12 @@ type Store interface {
 	// collation cannot do it, and #271 review ARQ-9 on why an implementer
 	// must not be trusted to remember.
 	ListEnrollments(ctx context.Context, courseID int64) ([]Enrollment, error)
+
+	// StudentByID returns one person, or ErrStudentNotFound (issue #272
+	// S8). Not scoped to a course: a student is a PERSON here, shared
+	// across the courses they take (00014's own comment), and the page
+	// that reads this shows their grades across all of them.
+	StudentByID(ctx context.Context, id int64) (Student, error)
 
 	// EnrollmentCounts returns, per course id, how many people are enrolled
 	// and how many withdrew. A course with NO roster at all has no entry —

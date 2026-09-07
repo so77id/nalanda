@@ -14,6 +14,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
+	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 )
@@ -24,6 +25,23 @@ const (
 	CoursesPath      = "/courses"
 	CoursePath       = "/courses/{id}"
 	CourseImportPath = "/courses/{id}/import-canvas"
+	// CourseRematchPath rebuilds the RUT-to-student associations of every
+	// active control of one course (issue #272 S5). POST because it
+	// writes, on the course page because that is where the roster it
+	// matches against lives.
+	CourseRematchPath = "/courses/{id}/rematch"
+	// CourseStudentsPath is the roster, moved off the course page in
+	// issue #272 S6 so the controls are what a professor lands on.
+	CourseStudentsPath = "/courses/{id}/alumnos"
+	// CourseMatrixPath is the student × control grid (issue #272 S9).
+	// Spanish segment, like /alumnos above.
+	CourseMatrixPath = "/courses/{id}/matriz"
+	// AdminRematchPath is the same pass over every course — the
+	// `--all-courses` half. Under /admin/ beside the bank refresh
+	// (issue #230) rather than under /courses/, because it belongs to no
+	// single course and a path like /courses/rematch-all would sit in the
+	// same segment as an {id}.
+	AdminRematchPath = "/admin/rematch"
 )
 
 // CoursePathFor builds the URL of one course. Exported so the templates and
@@ -33,10 +51,34 @@ func CoursePathFor(id int64) string {
 	return CoursesPath + "/" + strconv.FormatInt(id, 10)
 }
 
+// CourseControls is everything the course screens need from the controls
+// domain (issue #272). Satisfied by controls.Service.
+//
+// Named for the collaborator rather than for one action, because it grew
+// a third method one slice after it was born: S5 added the retroactive
+// pass and S6 the list the course page renders. An interface rather than
+// a *controls.Service field, the same shape and the same reason as
+// handler.RosterReader in controls.go — the screens need three answers, not
+// the controls domain's whole surface, which would drag an AMC worker, a
+// work directory and a question bank into a fixture that renders a
+// roster.
+type CourseControls interface {
+	// ControlsForCourse is the list the course page renders (S6).
+	ControlsForCourse(ctx context.Context, courseID int64) ([]controls.Control, error)
+	// MatrixForCourse is the student × control grid (S9).
+	MatrixForCourse(ctx context.Context, courseID int64) (controls.CourseMatrix, error)
+	// RematchCourse and RematchAllCourses are the retroactive pass (S5).
+	RematchCourse(ctx context.Context, courseID int64) (controls.RematchResult, error)
+	RematchAllCourses(ctx context.Context) (controls.RematchResult, error)
+}
+
 // Courses holds the course screens: the list, one course's roster, and the
 // Canvas import. Same shape as Professors and Profile.
 type Courses struct {
-	Roster    *roster.Service
+	Roster *roster.Service
+	// Controls is the controls domain, as these screens need it
+	// (issue #272): the list on the course page and the retroactive pass.
+	Controls  CourseControls
 	PublicURL string
 	Log       *slog.Logger
 
@@ -50,6 +92,8 @@ func NewCourses(deps Courses) *Courses {
 	switch {
 	case deps.Roster == nil:
 		panic("handler.NewCourses: no roster service")
+	case deps.Controls == nil:
+		panic("handler.NewCourses: no controls service")
 	case deps.PublicURL == "":
 		panic("handler.NewCourses: no public URL — the flash cookie's Secure attribute is derived from it")
 	case deps.Log == nil:
@@ -69,7 +113,13 @@ func (c *Courses) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page := view.CoursesListPage{Page: middleware.PageFor(r, "Cursos")}
+	page := view.CoursesListPage{
+		Page:             middleware.PageFor(r, "Cursos"),
+		RematchAllAction: AdminRematchPath,
+		// See CoursesListPage.RematchAllAction for why one course does
+		// not get this button.
+		ShowRematchAll: len(courses) > 1,
+	}
 	for _, course := range courses {
 		page.Courses = append(page.Courses, view.ListedCourse{
 			Code:     course.Course.Code,
@@ -102,7 +152,13 @@ func enrolledLabel(course roster.CourseWithCounts) string {
 	return fmt.Sprintf("%d inscritos", course.Counts.Enrolled)
 }
 
-// Show renders one course and its roster.
+// Show renders one course: the controls sat on it, and the way to its
+// roster (issue #272 S6).
+//
+// The roster TABLE moved to Students. This is the page a professor lands
+// on and what they land to do is look at a control; thirty rows of names
+// above them buried the thing they came for. The counts stay, because a
+// count is what you read on the way past.
 func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 	courseID, ok := c.courseIDFrom(w, r)
 	if !ok {
@@ -121,6 +177,14 @@ func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rows, err := c.Controls.ControlsForCourse(r.Context(), courseID)
+	if err != nil {
+		c.Log.Error("listing a course's controls", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al leer los controles del curso. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
 	page := view.CourseDetailPage{
 		Page: middleware.PageFor(r, course.Code),
 		Course: view.ListedCourse{
@@ -129,36 +193,120 @@ func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 			Term: course.Term,
 			URL:  CoursePathFor(course.ID),
 		},
-		ImportAction: CourseImportPathFor(course.ID),
+		Controls:      listedCourseControls(rows),
+		StudentsURL:   CourseStudentsPathFor(course.ID),
+		MatrixURL:     CourseMatrixPathFor(course.ID),
+		RematchAction: CourseRematchPathFor(course.ID),
 	}
-	for _, e := range enrollments {
-		switch e.State {
-		case roster.StateEnrolled:
-			page.EnrolledCount++
-		case roster.StateWithdrawn:
-			page.WithdrawnCount++
-		}
-		// Scoped to the people still enrolled. A withdrawn student with no
-		// RUT cannot be matched to a control, and does not need to be: they
-		// are not sitting one. Counting them would put a warning on the page
-		// that no action can clear (#271 review, COR-6).
-		if e.State == roster.StateEnrolled && !e.Student.HasRUT() {
-			page.WithoutRUTCount++
-		}
-		page.Enrollments = append(page.Enrollments, view.ListedEnrollment{
-			FirstName: e.Student.FirstName,
-			LastName:  e.Student.LastName,
-			RUT:       FormatRUT(e.Student.RUT, e.Student.RUTDV),
-			Email:     e.Student.Email,
-			State:     enrollmentStateLabel(e.State),
-		})
-	}
+	page.EnrolledCount, page.WithdrawnCount, page.WithoutRUTCount = enrollmentTally(enrollments)
+	// A roster exists once anybody is on it in any state — see
+	// CourseDetailPage.HasRoster for why this is not the enrolled count.
+	page.HasRoster = len(enrollments) > 0
 
 	if err := view.RenderCourseDetail(w, page); err != nil {
 		c.Log.Error("rendering a course", "course", courseID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
 			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 	}
+}
+
+// Students renders one course's roster (issue #272 S6) — the table that
+// used to be the whole of the course page.
+func (c *Courses) Students(w http.ResponseWriter, r *http.Request) {
+	courseID, ok := c.courseIDFrom(w, r)
+	if !ok {
+		return
+	}
+
+	course, enrollments, err := c.Roster.Enrollments(r.Context(), courseID)
+	switch {
+	case errors.Is(err, roster.ErrCourseNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese curso no existe.")
+		return
+	case err != nil:
+		c.Log.Error("reading a course's roster", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al leer la lista. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	page := view.CourseStudentsPage{
+		Page: middleware.PageFor(r, course.Code+" · alumnos"),
+		Course: view.ListedCourse{
+			Code: course.Code,
+			Name: course.Name,
+			Term: course.Term,
+			URL:  CoursePathFor(course.ID),
+		},
+		ImportAction: CourseImportPathFor(course.ID),
+		CourseURL:    CoursePathFor(course.ID),
+	}
+	page.EnrolledCount, page.WithdrawnCount, page.WithoutRUTCount = enrollmentTally(enrollments)
+	for _, e := range enrollments {
+		page.Enrollments = append(page.Enrollments, view.ListedEnrollment{
+			FirstName: e.Student.FirstName,
+			LastName:  e.Student.LastName,
+			RUT:       FormatRUT(e.Student.RUT, e.Student.RUTDV),
+			Email:     e.Student.Email,
+			State:     enrollmentStateLabel(e.State),
+			URL:       StudentPathFor(e.Student.ID),
+		})
+	}
+
+	if err := view.RenderCourseStudents(w, page); err != nil {
+		c.Log.Error("rendering a course's roster", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+	}
+}
+
+// enrollmentTally counts the three numbers both course screens show.
+//
+// One function rather than two loops, because the two pages must agree:
+// the course page's "25 inscritos" is a promise about what the roster
+// page shows, and a professor who clicks through to find 24 has been lied
+// to by whichever one drifted.
+//
+// WithoutRUT is scoped to the people still ENROLLED. A withdrawn student
+// with no RUT cannot be matched to a control and does not need to be:
+// they are not sitting one. Counting them would put a warning on the page
+// that no action can clear (#271 review, COR-6).
+func enrollmentTally(enrollments []roster.Enrollment) (enrolled, withdrawn, withoutRUT int) {
+	for _, e := range enrollments {
+		switch e.State {
+		case roster.StateEnrolled:
+			enrolled++
+			if !e.Student.HasRUT() {
+				withoutRUT++
+			}
+		case roster.StateWithdrawn:
+			withdrawn++
+		}
+	}
+	return enrolled, withdrawn, withoutRUT
+}
+
+// listedCourseControls renders the course page's control rows.
+//
+// A narrower shape than handler.Controls.toListedControls, and
+// deliberately not a call to it: that one resolves each control's section
+// range against the live question bank to render "Bienvenida/hola →
+// Flujo/bucles", and this table has no range column. Reusing it would
+// make the course page depend on the bank to render four columns that
+// never mention it.
+func listedCourseControls(rows []controls.Control) []view.ListedControl {
+	out := make([]view.ListedControl, 0, len(rows))
+	for _, c := range rows {
+		out = append(out, view.ListedControl{
+			ID:              c.ID,
+			Name:            c.Name,
+			ApplicationDate: formatOptionalDate(c.ApplicationDate),
+			Shape:           fmt.Sprintf("%d preguntas × %d copias", c.QuestionsPerCopy, c.Copies),
+			State:           stateWordControl(c.State),
+			DetailURL:       controlDetailURL(c.ID),
+		})
+	}
+	return out
 }
 
 // FormatRUT writes the stored pair the way a Chilean reader expects it:
@@ -302,6 +450,219 @@ func importFlash(r roster.ImportResult) string {
 			r.WithoutRUT)
 	}
 	return line
+}
+
+// CourseStudentsPathFor builds one course's roster URL.
+//
+// The segment is Spanish because it is part of what a person reads in the
+// address bar of a page that is entirely Spanish, unlike /controls and
+// /courses which predate this WP and are not worth renaming for
+// consistency's sake alone.
+func CourseStudentsPathFor(id int64) string {
+	return CoursePathFor(id) + "/alumnos"
+}
+
+// CourseMatrixPathFor builds one course's matrix URL.
+func CourseMatrixPathFor(id int64) string {
+	return CoursePathFor(id) + "/matriz"
+}
+
+// CourseRematchPathFor builds one course's rematch URL.
+func CourseRematchPathFor(id int64) string {
+	return CoursePathFor(id) + "/rematch"
+}
+
+// Rematch rebuilds the RUT-to-student associations of one course's active
+// controls (issue #272 S5).
+//
+// This is the retroactive pass, and it is a button rather than a CLI
+// subcommand for a reason worth writing down: the production image is
+// built FROM scratch (ADR-0034), so there is no shell to run a command
+// in, and the professor who needs to read the counts is the one holding a
+// browser. /admin/bank/refresh (issue #230) is the same shape.
+//
+// It is also the ordinary repair path, not only a migration one: a
+// professor who adds a missing student in Canvas re-imports the roster and
+// presses this to pick up the copies that student already sat.
+//
+// Idempotent, so a double-click costs a second pass that changes nothing.
+func (c *Courses) Rematch(w http.ResponseWriter, r *http.Request) {
+	courseID, ok := c.courseIDFrom(w, r)
+	if !ok {
+		return
+	}
+
+	result, err := c.Controls.RematchCourse(r.Context(), courseID)
+	if err != nil {
+		c.Log.Error("rematching a course", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al reasociar los controles. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	flash.Set(w, c.secureCookie, rematchFlash(result))
+	http.Redirect(w, r, CoursePathFor(courseID), http.StatusSeeOther)
+}
+
+// RematchAll is Rematch over every course — the `--all-courses` half.
+func (c *Courses) RematchAll(w http.ResponseWriter, r *http.Request) {
+	result, err := c.Controls.RematchAllCourses(r.Context())
+	if err != nil {
+		c.Log.Error("rematching every course", "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al reasociar los controles. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	flash.Set(w, c.secureCookie, rematchFlash(result))
+	http.Redirect(w, r, CoursesPath, http.StatusSeeOther)
+}
+
+// rematchFlash is the Spanish sentence describing what a pass did.
+//
+// Every count that is zero is left OUT rather than printed as a zero: the
+// professor is looking for what needs their attention, and a line of
+// zeroes is four things to read past to find the one that is not. The
+// first sentence always renders, so a pass that did nothing still says so
+// instead of leaving the page silent.
+func rematchFlash(r controls.RematchResult) string {
+	if r.Controls == 0 && r.Skipped == 0 {
+		return "No hay controles que reasociar en este curso."
+	}
+
+	line := fmt.Sprintf("Reasociación lista: %d %s revisad%s, %d copias emparejadas",
+		r.Controls, plural(r.Controls, "control", "controles"), plural(r.Controls, "o", "os"), r.Matched)
+	if r.Changed > 0 {
+		line += fmt.Sprintf(" (%d cambiaron)", r.Changed)
+	} else {
+		line += " (ninguna cambió)"
+	}
+	line += "."
+
+	if r.Unmatched > 0 {
+		// A separate line: the layout renders a multi-line flash as a
+		// list (§Flash), and this is something to look at rather than
+		// something that happened.
+		line += fmt.Sprintf("\nOjo: %d %s sin alumno. Revisa el RUT en la copia, o agrega al alumno en Canvas y vuelve a importar la lista.",
+			r.Unmatched, plural(r.Unmatched, "copia", "copias"))
+	}
+	if r.Skipped > 0 {
+		line += fmt.Sprintf("\n%d %s sin curso asignado. Ábrelo y asígnale uno para que sus copias se emparejen.",
+			r.Skipped, plural(r.Skipped, "control quedó", "controles quedaron"))
+	}
+	if r.Errored > 0 {
+		line += fmt.Sprintf("\n%d %s no se pudo consultar. Su asociación quedó como estaba; vuelve a intentarlo.",
+			r.Errored, plural(r.Errored, "copia", "copias"))
+	}
+	if r.ControlsFailed > 0 {
+		// Its own line and its own unit: a control that could not be
+		// walked leaves an unknown NUMBER of copies unresolved, which is
+		// a bigger statement than "N copias" and must not be folded into
+		// it (#272 review, ARQ-4).
+		line += fmt.Sprintf("\n%d %s no se pudo revisar. Vuelve a intentarlo; si sigue fallando, avisa a alguien de infraestructura.",
+			r.ControlsFailed, plural(r.ControlsFailed, "control", "controles"))
+	}
+	return line
+}
+
+// plural picks the singular or the plural form. Spanish agreement is what
+// the professor reads; getting "1 controles" onto the screen is the kind
+// of detail that makes a tool feel unfinished.
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
+}
+
+// Matrix renders the student × control grid (issue #272 S9, AC10).
+//
+// READ-ONLY in this WP, deliberately: bulk grade edits from a grid are a
+// deferred minor (§Future work), and a screen that shows a hundred and
+// fifty numbers is the wrong place to learn that one of them is editable.
+//
+// ROWS COME FROM THE ROSTER, not from the readings. A student who sat
+// nothing — newly enrolled, or every copy unmatched — is an empty ROW
+// rather than an absence, because a professor scanning for who is missing
+// a grade needs to see them. Building the grid out of readings alone
+// would make exactly those people invisible.
+func (c *Courses) Matrix(w http.ResponseWriter, r *http.Request) {
+	courseID, ok := c.courseIDFrom(w, r)
+	if !ok {
+		return
+	}
+
+	course, enrollments, err := c.Roster.Enrollments(r.Context(), courseID)
+	switch {
+	case errors.Is(err, roster.ErrCourseNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese curso no existe.")
+		return
+	case err != nil:
+		c.Log.Error("reading a course for the matrix", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al leer el curso. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	matrix, err := c.Controls.MatrixForCourse(r.Context(), courseID)
+	if err != nil {
+		c.Log.Error("building the matrix", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al armar la matriz. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	page := view.CourseMatrixPage{
+		Page: middleware.PageFor(r, course.Code+" · matriz"),
+		Course: view.ListedCourse{
+			Code: course.Code, Name: course.Name, Term: course.Term,
+			URL: CoursePathFor(course.ID),
+		},
+		CourseURL: CoursePathFor(course.ID),
+	}
+	for _, one := range matrix.Controls {
+		page.Controls = append(page.Controls, view.MatrixColumn{
+			Name:            one.Name,
+			ApplicationDate: formatOptionalDate(one.ApplicationDate),
+			URL:             controlDetailURL(one.ID),
+		})
+	}
+
+	for _, e := range enrollments {
+		// Withdrawn students keep their row: they sat the controls they
+		// sat, and their grades did not stop existing when Canvas stopped
+		// listing them (#271 invariant 1). The state is shown so the row
+		// reads as history rather than as a gap.
+		row := view.MatrixRow{
+			Name:  studentName(e.Student),
+			URL:   StudentPathFor(e.Student.ID),
+			State: enrollmentStateLabel(e.State),
+			Cells: make([]view.MatrixCell, 0, len(matrix.Controls)),
+		}
+		for _, one := range matrix.Controls {
+			reading, sat := matrix.Grades[e.Student.ID][one.ID]
+			if !sat {
+				// Empty, not zero. "Did not sit it" and "got nothing
+				// right" are different facts about a person, and a 1.0
+				// in a cell nobody earned is the kind of number that
+				// reaches an email in WP-3.
+				row.Cells = append(row.Cells, view.MatrixCell{})
+				continue
+			}
+			_, grade := controls.TotalAndGrade(one.QuestionsPerCopy, reading)
+			row.Cells = append(row.Cells, view.MatrixCell{
+				Grade: grade,
+				URL:   controlReviewURL(one.ID, reading.CopyNumber),
+			})
+		}
+		page.Rows = append(page.Rows, row)
+	}
+
+	if err := view.RenderCourseMatrix(w, page); err != nil {
+		c.Log.Error("rendering the matrix", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+	}
 }
 
 // courseIDFrom reads and validates the {id} path segment, writing the

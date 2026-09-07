@@ -86,6 +86,11 @@ type Service struct {
 	// the escape hatch that turns the whole flow off in production.
 	Annotator       Annotator
 	AnnotateEnabled bool
+	// Matcher resolves a reading's RUT to a student on the control's
+	// course (issue #272). Required — a nil one would make every copy
+	// silently unmatched, which looks exactly like a class nobody is
+	// enrolled in.
+	Matcher Matcher
 	// WorkDir is what the SERVER sees as the root of the shared volume.
 	// In compose it is bind-mounted onto /work in the worker; in
 	// development it may be any path the operator chose (see
@@ -96,6 +101,22 @@ type Service struct {
 	// re-compile is reproducible; a per-control seed is a future decision.
 	Seed int64
 	Log  *slog.Logger
+}
+
+// Matcher resolves a RUT to the student who sat the copy, scoped to a
+// course. Satisfied by internal/domain/matching's Service.
+//
+// Declared HERE rather than imported from there, the health.Prober shape:
+// this domain needs the answer, not the package. It keeps the controls
+// tests free of a roster and a course table to render the one thing they
+// care about, and it keeps "how a RUT is spelled" — which is genuinely
+// intricate, see matching.NormalizeRUT — on the other side of a boundary
+// this domain never has to reason about.
+//
+// nil, nil means "no match", which is an ordinary answer and not a
+// failure. An error means the question could not be asked.
+type Matcher interface {
+	MatchByRUT(ctx context.Context, rut string, courseID int64) (*int64, error)
 }
 
 // NewService returns a Service, refusing a set it cannot serve with — same
@@ -116,6 +137,8 @@ func NewService(deps Service) *Service {
 		panic("controls.NewService: no reading store")
 	case deps.Annotator == nil:
 		panic("controls.NewService: no annotator")
+	case deps.Matcher == nil:
+		panic("controls.NewService: no matcher")
 	case deps.WorkDir == "":
 		panic("controls.NewService: no work directory")
 	case deps.Now == nil:
@@ -149,6 +172,12 @@ type CreateRequest struct {
 	// schema CHECK. Issue #208, ADR-0043.
 	Paper     Paper
 	CreatedBy int64
+	// CourseID is the course the new control belongs to (issue #272).
+	// A pointer for the same reason Control.CourseID is one, and the
+	// handler is what makes the form field required — the domain accepts
+	// nil so a fixture, a test, or a future non-form caller is not forced
+	// to invent a course.
+	CourseID *int64
 }
 
 // PrepareControl is the sync half of the "create control" flow (issue
@@ -248,6 +277,7 @@ func (s *Service) PrepareControl(ctx context.Context, req CreateRequest) (Contro
 		State:            Generated,
 		CreatedAt:        s.Now(),
 		CreatedBy:        req.CreatedBy,
+		CourseID:         req.CourseID,
 	}
 	entries := make([]PoolEntry, len(pool))
 	for i, q := range pool {
@@ -373,6 +403,37 @@ func (s *Service) Purge(ctx context.Context, id string) error {
 		s.Log.Warn("controls.Purge: file cleanup failed",
 			"control_id", id, "project", projectDir, "error", err)
 	}
+	return nil
+}
+
+// AssignCourse sets the course a control belongs to and rebuilds its
+// associations against that course's roster (issue #272).
+//
+// THE REMATCH IS PART OF THE WRITE, not a follow-up the caller may
+// forget. An earlier version only stamped the column, on the reasoning
+// that a fresh control has no readings yet and S5's button covers the
+// rest. That is false in the one case the operation exists for: a
+// control REASSIGNED from course A to course B keeps every
+// `reading.student_id` pointing at a person enrolled on A — which is
+// precisely "a copy filed under somebody who was never on this course",
+// the failure matching's strict scope exists to prevent (#272 review,
+// COR-3). Last-wins is only safe if the consequences move with it.
+//
+// Best-effort on the rematch half, and the split matters: the column is
+// committed by the time it runs, and a roster outage must not report an
+// assignment that happened as a failure. The associations are
+// recomputable — S5's button is the retry — and the log line is the
+// operator's record. Same policy, and the same reason, as the read
+// paths' rematchQuietly.
+//
+// The caller is expected to have validated that courseID names a real
+// course; the schema's foreign key is the belt behind that, and a bogus
+// id surfaces here as a driver error rather than a domain sentinel.
+func (s *Service) AssignCourse(ctx context.Context, controlID string, courseID int64) error {
+	if err := s.Store.SetControlCourse(ctx, controlID, courseID); err != nil {
+		return fmt.Errorf("controls.AssignCourse %s: %w", controlID, err)
+	}
+	s.rematchQuietly(ctx, controlID, "AssignCourse")
 	return nil
 }
 

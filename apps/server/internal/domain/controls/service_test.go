@@ -124,6 +124,20 @@ func (s *fakeStore) SetControlThresholds(_ context.Context, controlID string, ti
 	return nil
 }
 
+// SetControlCourse mirrors the real store's guard (issue #272): the write
+// only lands on a row that exists, and an unknown id is the domain's
+// absence sentinel rather than a silent no-op.
+func (s *fakeStore) SetControlCourse(_ context.Context, controlID string, courseID int64) error {
+	for i := range s.controls {
+		if s.controls[i].ID == controlID {
+			id := courseID
+			s.controls[i].CourseID = &id
+			return nil
+		}
+	}
+	return controls.ErrControlNotFound
+}
+
 // Archive/restore/purge stubs (issue #261). ListArchivedControls is the read
 // side; the three mutating methods share the same guard shape the real
 // controlstore encodes — SoftDelete only fires on active rows, Restore only
@@ -176,6 +190,14 @@ func (s *fakeStore) PurgeControl(_ context.Context, id string) error {
 	return controls.ErrControlNotFound
 }
 
+// noMatcher is the inert Matcher the cases that are not about matching
+// use: it matches nobody and never fails, so a control's readings come
+// out of an analyse exactly as they did before issue #272. The cases that
+// ARE about matching use fakeMatcher (rematch_test.go).
+type noMatcher struct{}
+
+func (noMatcher) MatchByRUT(context.Context, string, int64) (*int64, error) { return nil, nil }
+
 // fakeReadingStore is the do-nothing double the pre-WP-F cases use. The
 // WP-F flows are exercised through SaveUploadedBatch + AnalyzeBatch in
 // scans_internal_test.go with a real controlstore. readingsByCopy holds
@@ -213,6 +235,18 @@ func (fakeReadingStore) SetRUTOverride(context.Context, int64, string, time.Time
 	return nil
 }
 func (fakeReadingStore) ClearRUTOverride(context.Context, int64) error { return nil }
+
+// SetReadingStudent is inert here like the rest of this double: the
+// rematch cases use matchingReadingStore (rematch_test.go), which
+// remembers what was written.
+// CopiesForStudent is inert here like the rest of this double; the
+// student-record cases use matchingReadingStore (rematch_test.go).
+func (fakeReadingStore) CopiesForStudent(context.Context, int64) ([]controls.StudentCopy, error) {
+	return nil, nil
+}
+
+func (fakeReadingStore) SetReadingStudent(context.Context, int64, *int64) error { return nil }
+
 func (fakeReadingStore) SetControlState(context.Context, string, controls.State) error {
 	return nil
 }
@@ -234,6 +268,7 @@ func newService(t *testing.T) (*controls.Service, *fakeStore, *amctest.Fake, str
 		Store:     store,
 		Generator: gen,
 		Analyzer:  gen,
+		Matcher:   noMatcher{},
 		Readings:  newFakeReadingStore(),
 		Annotator: gen,
 		// The production default (config default true, issue #190). Tests
@@ -490,7 +525,7 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 	store := newFakeStore()
 	svc := controls.NewService(controls.Service{
 		Bank: bank.NewStaticLive(b), Store: store, Generator: gen, Analyzer: gen, Readings: newFakeReadingStore(),
-		Annotator: gen, AnnotateEnabled: true,
+		Annotator: gen, AnnotateEnabled: true, Matcher: noMatcher{},
 		WorkDir: workDir,
 		Now:     func() time.Time { return time.Now() }, Seed: 1,
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -785,5 +820,95 @@ func TestPurgeOnMissingControlReturnsNotFound(t *testing.T) {
 	err := svc.Purge(context.Background(), "does-not-exist")
 	if !errors.Is(err, controls.ErrControlNotFound) {
 		t.Errorf("Purge(missing): %v, want ErrControlNotFound", err)
+	}
+}
+
+// Issue #272: a control created without a course gets one from the detail
+// page, and a control created with one carries it from the start.
+//
+// The two halves are one case because they are one invariant seen from
+// both ends: CourseID round-trips through Create, and AssignCourse is the
+// only other thing that writes it. Splitting them would let a Create that
+// silently dropped the field pass while the assignment case stayed green.
+func TestAssignCourseSetsTheCourseAndCreateCarriesIt(t *testing.T) {
+	svc, _, _, _ := newService(t)
+	ctx := context.Background()
+
+	t.Run("created without a course, then assigned", func(t *testing.T) {
+		control, err := createControlSync(ctx, svc, req(nil))
+		if err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+		if control.CourseID != nil {
+			t.Fatalf("CourseID = %d on a control created without one, want nil", *control.CourseID)
+		}
+
+		if err := svc.AssignCourse(ctx, control.ID, 7); err != nil {
+			t.Fatalf("AssignCourse: %v", err)
+		}
+
+		got, err := svc.Get(ctx, control.ID)
+		if err != nil {
+			t.Fatalf("Get: %v", err)
+		}
+		if got.CourseID == nil {
+			t.Fatal("CourseID = nil after AssignCourse, want 7")
+		}
+		if *got.CourseID != 7 {
+			t.Errorf("CourseID = %d, want 7", *got.CourseID)
+		}
+
+		// Last-wins: the professor who picked the wrong course has no
+		// other way to correct it.
+		if err := svc.AssignCourse(ctx, control.ID, 9); err != nil {
+			t.Fatalf("AssignCourse again: %v", err)
+		}
+		got, err = svc.Get(ctx, control.ID)
+		if err != nil {
+			t.Fatalf("Get: %v", err)
+		}
+		if got.CourseID == nil || *got.CourseID != 9 {
+			t.Errorf("CourseID = %v after reassignment, want 9", got.CourseID)
+		}
+	})
+
+	t.Run("created with a course", func(t *testing.T) {
+		courseID := int64(3)
+		r := req(nil)
+		r.CourseID = &courseID
+		control, err := createControlSync(ctx, svc, r)
+		if err != nil {
+			t.Fatalf("Create: %v", err)
+		}
+		if control.CourseID == nil {
+			t.Fatal("CourseID = nil on a control created with one, want 3")
+		}
+		if *control.CourseID != courseID {
+			t.Errorf("CourseID = %d, want %d", *control.CourseID, courseID)
+		}
+
+		// And it survives the round trip through the store, not just the
+		// value PrepareControl returned.
+		got, err := svc.Get(ctx, control.ID)
+		if err != nil {
+			t.Fatalf("Get: %v", err)
+		}
+		if got.CourseID == nil || *got.CourseID != courseID {
+			t.Errorf("stored CourseID = %v, want %d", got.CourseID, courseID)
+		}
+	})
+}
+
+// A control id nothing answers to is the absence sentinel, not a success.
+//
+// The handler flashes "curso asignado" on a nil error, so a store that
+// no-opped on a hand-typed URL would tell the professor a control they
+// cannot see had just been filed under a course.
+func TestAssignCourseOnAnUnknownControlIsNotFound(t *testing.T) {
+	svc, _, _, _ := newService(t)
+
+	err := svc.AssignCourse(context.Background(), "CTRLGHOST00000000000000000", 7)
+	if !errors.Is(err, controls.ErrControlNotFound) {
+		t.Errorf("AssignCourse on an unknown control = %v, want ErrControlNotFound", err)
 	}
 }

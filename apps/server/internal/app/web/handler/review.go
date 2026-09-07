@@ -14,6 +14,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 )
 
 // The review routes.
@@ -66,7 +67,7 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 		Pages:      buildReviewImages(id, copyNumber, reading.Pages),
 		SaveURL:    controlReviewURL(id, copyNumber),
 		Graded:     control.State == controls.Graded,
-		RUT:        toReviewRUT(reading),
+		RUT:        toReviewRUT(reading, control),
 		Questions:  toReviewQuestions(reading, h.Bank.Get()),
 	}
 	// Issue #190: the corrected PDF replaces the raw scan once it exists.
@@ -547,10 +548,33 @@ func controlAnnotatedURL(id string, copyNumber int) string {
 	return fmt.Sprintf("%s/copies/%d/annotated.pdf", controlDetailURL(id), copyNumber)
 }
 
-func toReviewRUT(r controls.Reading) view.ReviewRUT {
+func toReviewRUT(r controls.Reading, c controls.Control) view.ReviewRUT {
 	rut := view.ReviewRUT{
 		Status:  string(r.RUTStatus),
 		WasRead: r.RUTRead != nil,
+		// Issue #272. Three conditions, and the third is the one that was
+		// wrong first time round (#272 review, COR-1).
+		//
+		// The control must HAVE a course — without one there is no roster
+		// this RUT could be absent from. The copy must be unmatched. And
+		// the RUT must be one the MATCHER could actually read: this
+		// message sends the professor to Canvas to add a missing student,
+		// which is the wrong errand entirely when the real problem is
+		// smudged boxes.
+		//
+		// The first version tested `effectiveReviewRUT(r) != ""`, on the
+		// belief that an illegible read arrives empty. It does not — AMC
+		// sends the partial digits with `_` / `[…]` sentinels
+		// (`read_capture.py`, and upsertReading's own comment says both
+		// shapes are stored verbatim), so `2011111_` is non-empty and
+		// every illegible copy on a course-bearing control was told its
+		// student was missing from Canvas.
+		//
+		// Asking NormalizeRUT is what makes the page's question identical
+		// to the matcher's: if the matcher could read it and found
+		// nobody, "not on the roster" is true; if it could not read it,
+		// this is the other reason and the page says nothing here.
+		NotInRoster: c.CourseID != nil && r.StudentID == nil && matchableRUT(r),
 	}
 	if r.RUTOverride != nil {
 		rut.Value = r.RUTOverride.RUT
@@ -562,6 +586,33 @@ func toReviewRUT(r controls.Reading) view.ReviewRUT {
 		rut.OriginalRead = *r.RUTRead
 	}
 	return rut
+}
+
+// matchableRUT reports whether this copy carries a RUT the matcher could
+// resolve — which is the precondition for "not on the roster" being a
+// statement about the ROSTER rather than about the scan.
+//
+// It calls the same normaliser the matcher does, deliberately: a second
+// opinion about what counts as a readable RUT is a second place for the
+// two to disagree, and the disagreement would show up as advice pointing
+// at the wrong fix.
+func matchableRUT(r controls.Reading) bool {
+	_, ok := matching.NormalizeRUT(effectiveReviewRUT(r))
+	return ok
+}
+
+// effectiveReviewRUT is the RUT the page displays: the professor's
+// override if any, else what AMC read, else empty. The domain's
+// effectiveRUT is unexported, and this surface needs the same answer to
+// decide whether "not on the roster" is even a statement it can make.
+func effectiveReviewRUT(r controls.Reading) string {
+	if r.RUTOverride != nil {
+		return r.RUTOverride.RUT
+	}
+	if r.RUTRead != nil {
+		return *r.RUTRead
+	}
+	return ""
 }
 
 func toReviewQuestions(r controls.Reading, b *bank.Bank) []view.ReviewQuestion {

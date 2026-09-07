@@ -122,6 +122,17 @@ internal/domain/   business types and the interfaces they need — PURE
   health/          the /health prober seam
   jobs/            the async job runner (issue #249, ADR-0050): types +
                    single-goroutine Runner
+  canvas/          the Canvas policy: token custody + roster normalisation
+                   (issue #271, ADR-0069/0070)
+  matching/        the RUT → student seam (issue #272, ADR-0071):
+                   NormalizeRUT + MatchByRUT, with its own Store port. Its
+                   OWN package because it is the seam BETWEEN roster and
+                   controls — in roster it would make the roster know about
+                   readings, in controls it would make the controls domain
+                   know how a RUT is spelled
+  roster/          courses, students, enrolments, and the import policy
+                   (issue #271)
+  secret/          per-professor secrets sealed with AES-GCM (ADR-0068)
 internal/app/web/  the professor's backoffice
   handler/         the login round trip and the professor CRUD
   middleware/      cookie → professor, the gate, CSRF, and the surface-agnostic request log
@@ -138,6 +149,9 @@ internal/infra/    adapters: config, storage, httpserver, httpjson, selfcheck
   oidc/            the Google client — standard library, no OIDC dependency
   storage/authstore/     the SQLite side of the auth domain
   storage/controlstore/  the SQLite side of the controls domain
+  storage/coursestore/   the SQLite side of the roster domain — and of
+                         matching.Store, since it owns `student` and
+                         `enrollment` (issues #271, #272)
   storage/jobstore/      the SQLite side of the jobs domain (issue #249)
 migrations/        goose SQL migrations, embedded into the binary
 ```
@@ -242,13 +256,33 @@ when `Control.State == graded` AND at least one reading has a defined
 grade; the SVG chrome is inline `currentColor` and lands in both
 themes without a stylesheet, matching the rest of the backoffice.
 
+Since issue #272 a control **belongs to a course**, and the copies know
+whose they are. The create form carries a required course select; a control
+that predates migration `00015` gets one from an "Asignar curso" form on its
+own page. Every RUT AMC reads — and every RUT a professor corrects — is
+resolved against that course's roster, so the Resultados table shows *Ana
+Pérez* where it used to show `20100001`, with an "Asociación" badge beside
+it. Two new screens read the association: `/students/{id}`, one person's
+grades across every control they sat, and `/courses/{id}/matriz`, the
+student × control grid.
+
+**It annotates; it does not gate.** A copy nobody could match is still a
+copy that was read and graded: it does not count as needing review and does
+not block *Cerrar corrección*. A control with no course reads and grades
+exactly as it did before, with no Asociación column at all. The review
+page's "no está en la lista" note is advice about the roster, and it is
+shown only when the RUT is one the matcher could actually read — an
+illegible one is the other problem and needs the opposite fix (#272 review,
+COR-1).
+
 Routes today:
 
 | Route | What |
 |---|---|
 | `GET /` | Redirects to `/controls` (an anonymous request lands in `/login` first, via the gate). Superseded #151's redirect to `/professors` when WP-E landed |
 | `GET /controls` | The list, ordered by application_date desc with nulls last |
-| `GET /controls/new` · `POST /controls` | Pick a section range; POST prepares the row + input files synchronously and enqueues a `generate` job for the worker call. The professor lands on the detail page with the banner showing "Procesando generación…" until the runner finishes (issue #249) |
+| `GET /controls/new` · `POST /controls` | Pick a **course** (required since #272) and a section range; POST prepares the row + input files synchronously and enqueues a `generate` job for the worker call. The professor lands on the detail page with the banner showing "Procesando generación…" until the runner finishes (issue #249). The course is validated against the stored courses, so a stale dropdown or a hand-typed id is a 422 field error rather than the driver's foreign-key 500; a professor with NO courses gets a pointer to `/courses` instead of an empty select, and the submission is refused (issue #272) |
+| `POST /controls/{id}/course` | Assigns the course a control belongs to. The form is offered on the detail page only while `course_id IS NULL` — the shape every control that predates migration `00015` is in. The write REMATCHES: last-wins is only safe if the associations move with the course (#272 review, COR-3) |
 | `GET /controls/{id}` | Detail: metadata, PDF downloads (gated on the latest generate job reaching `done` — hidden while queued/running/failed since #257, so no button 404s), the Escaneos upload form, the Resultados table, (after upload) the *Cerrar corrección* button, and (once graded) the statistics panel — globals, histogram, boxplot, item analysis (issue #251) |
 | `GET /controls/{id}/sujet.pdf` · `GET /controls/{id}/corrige.pdf` | Streamed from the shared volume |
 | `GET /controls/{id}/pool.json` | The pool snapshot written at Create time (issue #198) — attachment |
@@ -269,7 +303,12 @@ Routes today:
 | `POST /profile/canvas-token` | Verifies the pasted token against Canvas, then seals and stores it. One route for the first token and for a replacement — the store upserts. A token Canvas refuses is a 422 with a field error and nothing stored; a Canvas that cannot be reached is a 422 that says so and stores nothing either, because an outage is not evidence about a token (issue #271) |
 | `POST /profile/canvas-token/forget` | Removes the stored token. Idempotent all the way down (issue #271) |
 | `GET /courses` | The courses whose roster lives here, with each one's enrolled count. A course nobody has imported yet reads "sin lista" rather than "0 inscritos" — zero students and no roster at all are different situations and a bare number cannot say which (issue #271) |
-| `GET /courses/{id}` | One course and its people, **sorted with accents folded** — SQLite's BINARY collation put every accented surname after every unaccented one, so `ÁVILA MUÑOZ` came after `ZUNIGA PEREZ` (#271 review, COR-7); the rule lives in `roster.SortEnrollments`, not in the SQL. Surname, given names, RUT (formatted with its verifier, `11.222.333-5`), address, and enrolled/withdrawn. A student Canvas held no RUT for shows a dash and is counted on the page — the import flash says it once and is gone, this does not. Withdrawn students stay visible and marked, because they are not deleted. With no roster the page IS the "Cargar desde Canvas" button; with one it offers "Reimportar desde Canvas" (issue #271, ADR-0069) |
+| `GET /courses/{id}` | The course a professor lands on: its **controls** first (that is what they came for), then the roster as counts and a link, then "Reasociar controles". The roster TABLE moved to `/courses/{id}/alumnos` in #272 — thirty rows of names above the control list buried it. Both pages share one tally, so the count here is a promise about what that page shows. The empty-roster wording is gated on the roster EXISTING, not on anyone being enrolled: a course whose whole class withdrew has a roster and zero enrolled (#272 review, COR-11) |
+| `GET /courses/{id}/alumnos` | The roster, **sorted with accents folded** — SQLite's BINARY collation put every accented surname after every unaccented one, so `ÁVILA MUÑOZ` came after `ZUNIGA PEREZ` (#271 review, COR-7); the rule lives in `roster.SortEnrollments`, not in the SQL. Surname (linking to the student's own page), given names, RUT (formatted with its verifier, `11.222.333-5`), address, and enrolled/withdrawn. A student Canvas held no RUT for shows a dash and is counted — the import flash says it once and is gone, this does not. Withdrawn students stay visible and marked, because they are not deleted. With no roster the page IS the "Cargar desde Canvas" button; with one it offers "Reimportar desde Canvas" (issue #271, ADR-0069; moved here by #272) |
+| `GET /courses/{id}/matriz` | The student × control grid. Rows come from the ROSTER, not from the readings, so a student who sat nothing is an empty ROW rather than an absent one — that is who the professor is scanning for. Empty cells render a dash, never a zero: "did not sit it" and "got nothing right" are different facts. Columns are chronological. Read-only in #272 (issue #272 S9) |
+| `POST /courses/{id}/rematch` | Rebuilds the RUT→student associations of every ACTIVE control of this course, idempotently, and flashes the counts (controls reviewed, copies matched, how many CHANGED, copies with no student, controls with no course, and failures — each with a different fix). A button rather than a CLI subcommand because the production image is `FROM scratch` and has no shell (ADR-0034 §Consequences); same shape as `/admin/bank/refresh`. Archived controls are not walked (issue #272 S5) |
+| `POST /admin/rematch` | The same pass over every course. Offered on `/courses` only when there are two or more, since with one it and the button above do the same work (issue #272 S5) |
+| `GET /students/{id}` | One person and every control they sat, newest first, with the grade `controls.TotalAndGrade` computes — the same function the control page's table calls, so the two cannot disagree. NOT nested under a course: a student is a person shared across the courses they take (migration `00014`), and this page spans all of them. Links to each control, to the copy's review page and to its annotated PDF (issue #272 S8) |
 | `POST /courses/{id}/import-canvas` | Fetches the course's roster from Canvas and applies it: new students inserted, existing ones refreshed, and anyone Canvas no longer lists stamped `withdrawn`. Only enrolments Canvas says are on the course count — `active`, `invited` and `completed`. `completed` is the DOMINANT state (297 of 582 measured across the professor's 16 courses), and a past-term course returns nothing else, so excluding it made importing one an empty roster — and an empty roster withdraws the whole class. `rejected`, `deleted`, `inactive` and `creation_pending` stay out: those are the people the withdraw step is for. Reasoning and the measurement: ADR-0069 §Decision 4. One person listed twice by Canvas (two sections, or a page boundary over a shifting set) becomes one enrolment and counts once (COR-8). The whole import carries a 20-second deadline, below the server's own write timeout, because `WriteTimeout` neither aborts a handler nor cancels its context — without it a slow Canvas would commit a roster into a connection nobody is listening to (PER-1) — never deleted, because their grades hang off the RUT match in WP-2 and a student who dropped still sat the controls they sat. Idempotent: running it twice yields the same state. The whole roster is applied in ONE transaction, so a failure leaves the previous one intact rather than half-applied. Synchronous rather than an async job (ADR-0050's rule is about the AMC worker, whose operations take minutes; a roster is a handful of GraphQL round trips over a class of tens, and the client's own timeout bounds it). The flash reports added / updated / withdrawn, and warns separately about students Canvas has no RUT for — the outcome that looks like success and is not (issue #271, ADR-0069) |
 | `POST /profile/courses` | Creates the `course` row for one of the professor's Canvas courses. The form posts **only** the Canvas id; name, code and term are looked up in the professor's own Canvas listing, so a hand-typed request cannot invent a course or name one course while carrying another's id. Adding the same course twice says so and stays at one row — the schema's `UNIQUE (canvas_course_id)` is what decides, with no preflight SELECT to race against (issue #271) |
 | `GET /professors` | The list: address, name, state, created, last sign-in |
@@ -303,13 +342,15 @@ Deliberately, and each with an owner:
 
 | Missing | Arrives with |
 |---|---|
-| A course row linked to a `control` — the controls still have no `curso_id` | WP-2 of epic #270 (#272). The `course` / `student` / `enrollment` tables themselves landed with #271 |
 | JSON contracts, CORS, WebSocket on `/api` | with a consumer (ADR-0008) |
 | A per-control upload quota (batches per control, or total bytes) — today `NALANDA_MAX_SCAN_MB` bounds ONE upload | when an operator wants a ceiling on abuse by an authenticated professor |
 | Publishing grades (CSV export, Canvas, email) | WP-G |
+| Emailing a corrected copy to its student, and the deletion path `security-notes.md` books | WP-3 of epic #270 (#273). #272 supplies the association it needs |
+| A control created before migration `00015` carries no course until a professor assigns one on its detail page, and its copies stay unmatched meanwhile | by hand, per control — there is nothing to backfill from, since `00004` never recorded a course |
+| A seven-digit RUT typed with its verifier and NO separator (`11222335`) is read as an eight-digit body | deliberately unguessed — `matching.NormalizeRUT` refuses to guess rather than risk matching a stranger; a mod-11 check is the WP that would close it |
+| Two copies of one control matched to the SAME student collapse in the matrix (the last one wins) and are flagged nowhere | reachable by typing one RUT into two copies; needs a cell state, deferred from #272 |
 | Bulk download of annotated PDFs as a ZIP | when the pile is large enough — captured in #167 §Notes |
 | Regenerating the annotated PDF after a manual override | #167 §Non-goals; the annotated stays a view of what AMC read, overrides live in the DB |
-| Matching a reading's RUT to a student, and any student name on a control screen | WP-2 of epic #270 (#272) — #271 loads the roster and deliberately changes no control screen |
 | Isolation between professors | V2 / #163 |
 | Deleting or re-addressing a professor who has never signed in | WP that reopens the mistyped-address debt (#151 §Notes) |
 | An audit trail of who did what | The WP that gains a second class of actor (#151 §Non-goals) |

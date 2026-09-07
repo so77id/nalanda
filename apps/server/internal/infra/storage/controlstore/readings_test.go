@@ -571,3 +571,178 @@ func TestSetControlStateUpdatesTheRow(t *testing.T) {
 		t.Errorf("SetControlState(missing): %v, want ErrControlNotFound", err)
 	}
 }
+
+// --- Issue #272 S8: one student's copies. ---
+
+// The copies of one person, newest control first, and nobody else's.
+func TestCopiesForStudentReturnsTheirCopiesNewestControlFirst(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+	pool := []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}
+
+	ana := insertStudentRow(t, ctx, db, "canvas-ana", "11222333", "5")
+	bruno := insertStudentRow(t, ctx, db, "canvas-bruno", "22333444", "1")
+
+	// Two dated controls and one with no date. The undated one sorts
+	// LAST, like it does in ListControls: it has no position in the term.
+	older := time.Unix(1_750_000_000, 0).UTC()
+	newer := time.Unix(1_755_000_000, 0).UTC()
+	first := newControl("CTRLOLDER00000000000000AAA", userID, &older)
+	second := newControl("CTRLNEWER00000000000000AAA", userID, &newer)
+	undated := newControl("CTRLUNDATED000000000000AAA", userID, nil)
+	for _, c := range []controls.Control{first, second, undated} {
+		if err := store.CreateControl(ctx, c, pool); err != nil {
+			t.Fatalf("CreateControl %s: %v", c.ID, err)
+		}
+	}
+
+	// Ana sat all three; Bruno sat one, so a leak would be visible.
+	insertReadingFor(t, ctx, db, first.ID, 1, ana)
+	insertReadingFor(t, ctx, db, second.ID, 1, ana)
+	insertReadingFor(t, ctx, db, undated.ID, 1, ana)
+	insertReadingFor(t, ctx, db, second.ID, 2, bruno)
+
+	got, err := store.CopiesForStudent(ctx, ana)
+	if err != nil {
+		t.Fatalf("CopiesForStudent: %v", err)
+	}
+	want := []controls.StudentCopy{
+		{ControlID: second.ID, CopyNumber: 1},
+		{ControlID: first.ID, CopyNumber: 1},
+		{ControlID: undated.ID, CopyNumber: 1},
+	}
+	if len(got) != len(want) {
+		t.Fatalf("CopiesForStudent returned %d copies, want %d: %+v", len(got), len(want), got)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("copy %d = %+v, want %+v (full: %+v)", i, got[i], want[i], got)
+		}
+	}
+}
+
+// An archived control is not part of a person's record.
+//
+// Archiving is the professor saying "put this away"; a student page
+// bringing it back would be the page deciding otherwise. Same rule, and
+// the same reason, as the retroactive pass in S5.
+func TestCopiesForStudentSkipsArchivedControls(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	store := controlstore.New(db)
+	pool := []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}
+
+	ana := insertStudentRow(t, ctx, db, "canvas-ana", "11222333", "5")
+	active := newControl("CTRLACTIVE0000000000000AAA", userID, nil)
+	archived := newControl("CTRLARCHIVED00000000000AAA", userID, nil)
+	for _, c := range []controls.Control{active, archived} {
+		if err := store.CreateControl(ctx, c, pool); err != nil {
+			t.Fatalf("CreateControl %s: %v", c.ID, err)
+		}
+	}
+	insertReadingFor(t, ctx, db, active.ID, 1, ana)
+	insertReadingFor(t, ctx, db, archived.ID, 1, ana)
+
+	if err := store.SoftDeleteControl(ctx, archived.ID, time.Unix(1_755_500_000, 0).UTC()); err != nil {
+		t.Fatalf("SoftDeleteControl: %v", err)
+	}
+
+	got, err := store.CopiesForStudent(ctx, ana)
+	if err != nil {
+		t.Fatalf("CopiesForStudent: %v", err)
+	}
+	if len(got) != 1 || got[0].ControlID != active.ID {
+		t.Errorf("CopiesForStudent = %+v, want only the active control", got)
+	}
+}
+
+// A student who sat nothing gets an empty list, not an error.
+func TestCopiesForStudentIsEmptyForSomebodyWhoSatNothing(t *testing.T) {
+	ctx, db := migrated(t)
+	store := controlstore.New(db)
+	ana := insertStudentRow(t, ctx, db, "canvas-ana", "11222333", "5")
+
+	got, err := store.CopiesForStudent(ctx, ana)
+	if err != nil {
+		t.Fatalf("CopiesForStudent: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("CopiesForStudent = %+v, want nothing", got)
+	}
+}
+
+// The index migration 00016 adds is the one the planner actually uses.
+//
+// This is the guard 00014's comment asks for and 00015 promised: an index
+// justified by a query the plan disowns is an index somebody drops later
+// after checking the stated reason and finding it false (#271 review,
+// PER-4). The measurement is IN the migration; this is what keeps it
+// true.
+//
+// What it pins is the DRIVING TABLE. Without the index the plan enters at
+// `control`, walks every active one and probes its readings — so asking
+// for one person's copies reads every copy of every control. The
+// assertion is on `SEARCH reading USING INDEX idx_reading_by_student`
+// being present, not on the whole plan text, so an unrelated planner
+// improvement does not fail a case about this index.
+func TestCopiesForStudentDrivesFromTheStudentIndex(t *testing.T) {
+	ctx, db := migrated(t)
+
+	// The PRODUCTION statement, not a copy of it (#272 review, COR-9).
+	rows, err := db.QueryContext(ctx, "EXPLAIN QUERY PLAN "+controlstore.CopiesForStudentSQL, 1)
+	if err != nil {
+		t.Fatalf("EXPLAIN QUERY PLAN: %v", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var plan []string
+	for rows.Next() {
+		var id, parent, notused int
+		var detail string
+		if err := rows.Scan(&id, &parent, &notused, &detail); err != nil {
+			t.Fatalf("scan: %v", err)
+		}
+		plan = append(plan, detail)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("rows: %v", err)
+	}
+
+	joined := strings.Join(plan, "\n")
+	if !strings.Contains(joined, "idx_reading_by_student") {
+		t.Errorf("the plan does not use idx_reading_by_student, so migration 00016's stated reason is false:\n%s", joined)
+	}
+	// And it drives FROM reading: the index is only worth its write cost
+	// if it is the entry point, not a probe the planner reaches second.
+	if !strings.HasPrefix(plan[0], "SEARCH reading") {
+		t.Errorf("the plan drives from %q, want reading — the whole point of the index:\n%s", plan[0], joined)
+	}
+}
+
+// insertStudentRow adds a person and returns their id.
+func insertStudentRow(t *testing.T, ctx context.Context, db *sql.DB, canvasUserID, rut, dv string) int64 {
+	t.Helper()
+	result, err := db.ExecContext(ctx, `
+        INSERT INTO student (first_name, last_name, email, rut, rut_dv, canvas_user_id)
+        VALUES ('Ana', 'Pérez', 'ana@example.com', ?, ?, ?)`, rut, dv, canvasUserID)
+	if err != nil {
+		t.Fatalf("insert student %s: %v", canvasUserID, err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("last insert id: %v", err)
+	}
+	return id
+}
+
+// insertReadingFor adds a reading of one copy already matched to a student.
+func insertReadingFor(t *testing.T, ctx context.Context, db *sql.DB, controlID string, copyNumber int, studentID int64) {
+	t.Helper()
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO reading (control_id, copy_number, rut_read, rut_status, copy_status, read_at, student_id)
+        VALUES (?, ?, '11222333', 'ok', 'ok', 0, ?)`,
+		controlID, copyNumber, studentID); err != nil {
+		t.Fatalf("insert reading %s/%d: %v", controlID, copyNumber, err)
+	}
+}

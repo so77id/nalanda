@@ -57,6 +57,11 @@ type Deps struct {
 	// Canvas import. Separate from Profile because Profile is about the
 	// professor's own account and this is about the courses themselves.
 	Courses *handler.Courses
+	// Students is one person's record across every control they sat
+	// (issue #272 S8). Its own handler struct rather than a method on
+	// Courses, because a student is a person shared across courses and
+	// this page is not scoped to one.
+	Students *handler.Students
 	// AdminBank is the manual bank-refresh endpoint (issue #230). Small
 	// enough to warrant its own handler struct rather than a method on
 	// Controls: the CRUD lives inside the controls domain, the bank
@@ -283,9 +288,37 @@ func routes(deps Deps) []Route {
 			Method: http.MethodGet, Path: handler.CoursePath,
 			Handler: deps.Courses.Show,
 		},
+		// Issue #272 S6: the roster, moved off the course page so the
+		// controls are what a professor lands on. Gated by default.
+		{
+			Method: http.MethodGet, Path: handler.CourseStudentsPath,
+			Handler: deps.Courses.Students,
+		},
+		// Issue #272 S9: the student × control grid. Gated by default.
+		{
+			Method: http.MethodGet, Path: handler.CourseMatrixPath,
+			Handler: deps.Courses.Matrix,
+		},
+		// Issue #272 S8: one person's record across every control they
+		// sat. Gated by default — it is somebody's grades.
+		{
+			Method: http.MethodGet, Path: handler.StudentPath,
+			Handler: deps.Students.Show,
+		},
 		{
 			Method: http.MethodPost, Path: handler.CourseImportPath,
 			Handler: deps.Courses.ImportCanvas,
+		},
+		// Issue #272 S5: the retroactive pass, per course and over every
+		// course. Gated by default (no Public), CSRF enforced because
+		// both methods are POST.
+		{
+			Method: http.MethodPost, Path: handler.CourseRematchPath,
+			Handler: deps.Courses.Rematch,
+		},
+		{
+			Method: http.MethodPost, Path: handler.AdminRematchPath,
+			Handler: deps.Courses.RematchAll,
 		},
 		// Issue #230: the manual bank-refresh endpoint. Gated by default
 		// (no Public), CSRF enforced because the method is POST.
@@ -322,6 +355,13 @@ func routes(deps Deps) []Route {
 		{
 			Method: http.MethodPost, Path: handler.ControlPurgePath,
 			Handler: deps.Controls.Purge,
+		},
+		// Issue #272: "Asignar curso" on the detail page of a control
+		// that has none. Gated by default (no Public), CSRF enforced
+		// because the method is POST.
+		{
+			Method: http.MethodPost, Path: handler.ControlCoursePath,
+			Handler: deps.Controls.AssignCourse,
 		},
 	}
 }
@@ -365,6 +405,8 @@ func Router(deps Deps) http.Handler {
 		panic("web.Router: no profile handlers")
 	case deps.Courses == nil:
 		panic("web.Router: no courses handlers")
+	case deps.Students == nil:
+		panic("web.Router: no students handler")
 	case deps.AdminBank == nil:
 		panic("web.Router: no admin bank handler")
 	case deps.Log == nil:

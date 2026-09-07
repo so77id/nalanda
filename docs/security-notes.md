@@ -1102,6 +1102,30 @@ in §"Logs and personal data" continues to hold for the new `slog` callers in
 `handler/courses.go` and `handler/profile.go`: they log professor ids and
 error chains, never a RUT.
 
-**Review trigger:** epic #270's WP-3 (#273), the first WP that emails these
-people — and the first deletion request, whichever arrives first. That WP
-owes the deletion path this entry records as missing.
+**Amended 2026-09-07 (#272) — the trigger fired early.** This entry named
+WP-3 as the moment the exposure changes. WP-2 got there first: it publishes
+`/students/{id}`, a one-URL-per-person dossier carrying the name,
+institutional address, formatted RUT, every grade the person has earned and
+links to their annotated copies — at a sequential, guessable id — plus
+`/courses/{id}/alumnos` and `/courses/{id}/matriz`, and a whole-server write
+at `POST /admin/rematch`.
+
+**None of those routes is scoped to the professor asking.** All six are
+behind the shared professor session (ADR-0009) and nothing more, so any
+signed-in professor can walk `/students/1..N`. That is INHERITED rather than
+introduced — there is no owner column anywhere in `00014_roster.sql`, and
+`/courses/{id}` and `/controls/{id}` have always worked this way (ADR-0052
+§Context records the same absence for #261) — but WP-2 is the first WP to
+turn it into a per-person dossier at a guessable URL, so the shape of the
+exposure changed even though the model did not.
+
+Accepted for the same reason the rest of this entry is: the Jetson runs one
+professor's account on a tailnet (ADR-0038), and building an ownership model
+here would be half a feature landing inside a WP about matching. Recorded so
+it is a decision on the record rather than something inherited without
+anyone looking.
+
+**Review trigger:** the SECOND professor account created on the Jetson, or
+epic #270's WP-3 (#273) — the first WP that emails these people — or the
+first deletion request, whichever arrives first. WP-3 still owes the
+deletion path this entry records as missing.

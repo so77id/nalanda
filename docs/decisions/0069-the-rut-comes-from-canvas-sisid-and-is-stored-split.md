@@ -2,6 +2,17 @@
 
 **Status:** Accepted
 **Date:** 2026-09-04
+**Amended by:** #272 (2026-09-07) — the READING side of the same contract.
+`matching.NormalizeRUT` reads eight bare digits as the BODY, the deliberate
+inverse of §Decision 2's Canvas rule, because that is what `\AMCcode{rut}{8}`
+prints and what the review page's field asks for; a verifier is dropped only
+where it is unambiguous (after a `-`, as a trailing K, or as the ninth digit
+of nine). Applying this ADR's rule to an AMC reading would turn `11222333`
+into the body `01122233` — a different person's RUT, or nobody's — and
+`TestEightDigitsAreTheBodyUnlikeCanvasSISIDs` pins the two apart against a
+future deduplication. §Consequences' "a plain equality … with no
+normalisation at query time" still describes the SQL exactly; the
+normalisation happens in the domain above it. Full policy: ADR-0071.
 
 ## Context
 

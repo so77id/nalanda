@@ -3,15 +3,18 @@ package handler_test
 import (
 	"context"
 	"encoding/base64"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
+	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 )
 
 // flashFromResponse decodes the flash cookie the handler set on rec.
@@ -512,5 +515,293 @@ func TestSaveReviewBlankButtonAlsoReportsOtherMovedAnswers(t *testing.T) {
 	want := "Pregunta q3 marcada en blanco.\nCambios en 1 respuesta."
 	if got != want {
 		t.Errorf("flash = %q, want %q — COR-5: the mid-blank submission must still report the other move", got, want)
+	}
+}
+
+// --- Issue #272 S4: the manual RUT edit rematches. ---
+
+// Correcting a misread RUT to one that IS on the roster files the copy
+// under that student, without a second click.
+//
+// This is the flow the whole reconciliation queue exists for: AMC could
+// not read the boxes, the professor reads them off the scan and types
+// them, and the copy stops being anonymous. Leaving the association to a
+// later re-read would mean the queue never empties by working it.
+func TestSavingACorrectedRUTMatchesTheCopyToItsStudent(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	controlID := f.createControlOnCourse(t, "Control con curso", 1, &f.courseID)
+
+	// AMC read the RUT wrongly: eight legible digits belonging to nobody.
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100999")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	readings, err := f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor: %v", err)
+	}
+	if got := readings[0].StudentID; got != nil {
+		t.Fatalf("precondition: copy 1 student = %d, want nil", *got)
+	}
+
+	f.saveReviewRUT(t, controlID, 1, "20100001")
+
+	readings, err = f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor after the edit: %v", err)
+	}
+	anaID := f.studentID(t, "canvas-ana")
+	if got := readings[0].StudentID; got == nil || *got != anaID {
+		t.Errorf("copy 1 student = %v after correcting the RUT, want Ana (%d)", got, anaID)
+	}
+}
+
+// And the reverse: editing a RUT away from a student unfiles the copy.
+//
+// The write is authoritative, so a professor who corrected the wrong copy
+// can undo it by correcting the RUT back. A one-way association would
+// leave the first mistake in place with no way to see or reach it.
+func TestSavingARUTThatMatchesNobodyClearsTheStudent(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	controlID := f.createControlOnCourse(t, "Control con curso", 1, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	readings, err := f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor: %v", err)
+	}
+	if got := readings[0].StudentID; got == nil {
+		t.Fatal("precondition: copy 1 matched nobody, want Ana")
+	}
+
+	f.saveReviewRUT(t, controlID, 1, "20100999")
+
+	readings, err = f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor after the edit: %v", err)
+	}
+	if got := readings[0].StudentID; got != nil {
+		t.Errorf("copy 1 student = %d after the RUT stopped matching, want nil", *got)
+	}
+}
+
+// The review page says WHICH kind of unresolved RUT this is.
+//
+// Before this WP a copy needing attention had one reason: AMC could not
+// read the boxes. There are two now, they look identical in the RUT
+// field, and they need opposite actions — an illegible RUT is fixed by
+// reading the scan and typing it, a RUT that is simply not on the roster
+// is fixed in Canvas and re-imported. Rendering both as a bare input is
+// how a professor retypes the same correct digits three times.
+func TestTheReviewPageNamesWhyAReadableRUTIsUnmatched(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	controlID := f.createControlOnCourse(t, "Control con curso", 2, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{
+			"1": okCopy("20100001"), // on the roster
+			"2": okCopy("20100999"), // legible, on no roster
+		}},
+	}
+	uploadOnce(t, f, controlID)
+
+	unmatched := f.reviewBody(t, controlID, 2)
+	if !strings.Contains(unmatched, "no está en la lista") {
+		t.Errorf("the review page of an unmatched copy does not say the RUT is not on the roster:\n%s", unmatched)
+	}
+
+	matched := f.reviewBody(t, controlID, 1)
+	if strings.Contains(matched, "no está en la lista") {
+		t.Error("the review page of a MATCHED copy claims the RUT is not on the roster")
+	}
+}
+
+// A control with no course says nothing at all.
+//
+// Every copy of such a control is unmatched, and it is unmatched because
+// nobody has told the server which class sat it — not because the RUT is
+// wrong. Rendering "no está en la lista" on all of them would send the
+// professor to Canvas to fix data that is already correct.
+func TestTheReviewPageSaysNothingAboutTheRosterWhenTheControlHasNoCourse(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	controlID := f.createControlOnCourse(t, "Control histórico", 1, nil)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100999")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	body := f.reviewBody(t, controlID, 1)
+	if strings.Contains(body, "no está en la lista") {
+		t.Error("a control with no course claims the RUT is not on the roster; " +
+			"it has no roster to be absent from")
+	}
+}
+
+// saveReviewRUT posts the review form with a corrected RUT, the way the
+// browser does.
+func (f *controlsFixture) saveReviewRUT(t *testing.T, controlID string, copyNumber int, rut string) {
+	t.Helper()
+	form := url.Values{"rut": {rut}, "csrf_token": {"csrf-1"}}
+	req := f.authedRequest(t, http.MethodPost,
+		fmt.Sprintf("/controls/%s/copies/%d/review", controlID, copyNumber), form)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", strconv.Itoa(copyNumber))
+	rec := httptest.NewRecorder()
+	f.handler.SaveReview(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("SaveReview status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+}
+
+// reviewBody renders one copy's review page and returns the HTML.
+func (f *controlsFixture) reviewBody(t *testing.T, controlID string, copyNumber int) string {
+	t.Helper()
+	req := f.authedRequest(t, http.MethodGet,
+		fmt.Sprintf("/controls/%s/copies/%d/review", controlID, copyNumber), nil)
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", strconv.Itoa(copyNumber))
+	rec := httptest.NewRecorder()
+	f.handler.Review(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Review status = %d, want 200; body:\n%s", rec.Code, rec.Body.String())
+	}
+	return rec.Body.String()
+}
+
+// An ILLEGIBLE RUT is not an off-roster RUT, and the page must not
+// confuse the two.
+//
+// This is the case the first version of NotInRoster got wrong (#272
+// review, COR-1). The gate tested `effectiveReviewRUT(r) != ""` on the
+// belief that an unreadable read arrives empty — it does not. AMC sends
+// the partial digits with `_` / `[…]` sentinels (`read_capture.py`; the
+// store's own upsertReading comment says both shapes are persisted
+// verbatim), so `2011111_` is non-empty and every smudged copy on a
+// course-bearing control was told its student was missing from Canvas.
+//
+// The two need OPPOSITE actions: an illegible RUT is fixed by reading
+// the scan and typing it, an off-roster RUT is fixed in Canvas and
+// re-imported. Sending a professor to Canvas over a smudge is the worst
+// of the two mistakes, because nothing there is wrong to find.
+func TestAnIllegibleRUTIsNotReportedAsMissingFromTheRoster(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	controlID := f.createControlOnCourse(t, "Control con curso", 2, &f.courseID)
+
+	// Copy 1: AMC could not read the boxes, and says so the way it
+	// actually says it — partial digits plus a sentinel, NOT an empty
+	// string. Copy 2: eight clean digits belonging to nobody.
+	illegible := okCopy("2010000_")
+	illegible.RUTStatus = controls.RUTStatusUnreadable
+	illegible.Status = controls.CopyStatusNeedsReview
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{
+			"1": illegible,
+			"2": okCopy("20100999"),
+		}},
+	}
+	uploadOnce(t, f, controlID)
+
+	if body := f.reviewBody(t, controlID, 1); strings.Contains(body, "no está en la lista") {
+		t.Errorf("an illegible RUT is reported as missing from the roster, which sends the "+
+			"professor to Canvas over a smudge:\n%s", body)
+	}
+	// The legible-but-unknown copy still gets the message — the fix must
+	// not silence the case the field exists for.
+	if body := f.reviewBody(t, controlID, 2); !strings.Contains(body, "no está en la lista") {
+		t.Errorf("a legible off-roster RUT lost its message:\n%s", body)
+	}
+}
+
+// Clearing an override by retyping what AMC read re-files the copy under
+// the AMC read's student.
+//
+// This is SaveOverrides's `matched_read` branch, and it MOVES the
+// effective RUT — from the override's value back to AMC's — so it has to
+// rematch. Nothing drove it before (#272 review, COR-6): narrowing the
+// gate to RUTActionUpdated left the whole suite green, and would have
+// left the copy filed under the person the deleted override named.
+func TestClearingAnOverrideRefilesTheCopyUnderTheAMCRead(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	// Two students, both on the roster: AMC read one, the professor
+	// overrode to the other, and then changes their mind.
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+		{FirstName: "Bruno", LastName: "Soto", RUT: "20100002", RUTDV: "1", CanvasUserID: "canvas-bruno"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	controlID := f.createControlOnCourse(t, "Control con curso", 1, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}}, // AMC read Ana
+	}
+	uploadOnce(t, f, controlID)
+
+	anaID := f.studentID(t, "canvas-ana")
+	brunoID := f.studentID(t, "canvas-bruno")
+
+	// The professor overrides to Bruno.
+	f.saveReviewRUT(t, controlID, 1, "20100002")
+	readings, err := f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor: %v", err)
+	}
+	if got := readings[0].StudentID; got == nil || *got != brunoID {
+		t.Fatalf("precondition: copy 1 student = %v, want Bruno (%d)", got, brunoID)
+	}
+
+	// And then puts back exactly what AMC read, which CLEARS the
+	// override rather than storing a new one.
+	f.saveReviewRUT(t, controlID, 1, "20100001")
+
+	readings, err = f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor after clearing the override: %v", err)
+	}
+	if readings[0].RUTOverride != nil {
+		t.Errorf("the override survived a submission equal to the AMC read: %+v", readings[0].RUTOverride)
+	}
+	if got := readings[0].StudentID; got == nil || *got != anaID {
+		t.Errorf("copy 1 student = %v after the override was cleared, want Ana (%d) — "+
+			"the effective RUT moved and the association did not follow", got, anaID)
 	}
 }

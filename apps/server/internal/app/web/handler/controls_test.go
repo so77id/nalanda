@@ -3,8 +3,10 @@ package handler_test
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -23,10 +26,13 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
+	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/coursestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
@@ -60,7 +66,10 @@ type controlsFixture struct {
 	cstore *controlstore.Store
 	// jstore is the real jobstore behind the runner — issue #249 tests
 	// (Submit path, banner, dismiss) query it directly.
-	jstore  *jobstore.Store
+	jstore *jobstore.Store
+	// db is the handle behind every store above — the course seeding of
+	// issue #272 inserts through it rather than re-deriving the path.
+	db      *sql.DB
 	runner  *jobs.Runner
 	fake    *amctest.Fake
 	hook    *recordingHook
@@ -68,6 +77,34 @@ type controlsFixture struct {
 	user    auth.User
 	session auth.Session
 	log     *slog.Logger
+	// courseID is the course the fixture seeds, or 0 when it seeded none
+	// (issue #272). Every control the form creates belongs to it.
+	courseID int64
+	// bank is the live bank the handler renders forms from — kept so a
+	// case can rebuild the handler over a different roster (issue #272 S7).
+	bank *bank.LiveBank
+	// roster is the real roster service behind the handler's RosterReader
+	// — a real coursestore over the same database, and a Canvas source
+	// that is never reached. The dropdown asks the store, not Canvas.
+	roster *roster.Service
+}
+
+// stubCourseSource satisfies roster.CourseSource without a Canvas.
+//
+// roster.NewService refuses a nil source (it panics at wiring time, by
+// design), and nothing on the controls screens goes near Canvas: the
+// course dropdown is a read of the `course` table. Both methods fail
+// loudly rather than returning empty, so a future test that accidentally
+// reaches Canvas through this path is told so instead of seeing an empty
+// roster.
+type stubCourseSource struct{}
+
+func (stubCourseSource) CoursesFor(context.Context, int64) ([]roster.SourceCourse, error) {
+	return nil, errors.New("stubCourseSource: the controls screens must not reach Canvas")
+}
+
+func (stubCourseSource) RosterFor(context.Context, int64, string) ([]roster.SourceStudent, error) {
+	return nil, errors.New("stubCourseSource: the controls screens must not reach Canvas")
 }
 
 // recordingHook is the test double for controls.OnCorrectionClosed: it
@@ -89,7 +126,83 @@ func (h *recordingHook) Closed(ctx context.Context, controlID string) error {
 func newControlsFixture(t *testing.T) *controlsFixture {
 	t.Helper()
 	// The production default (config default true, issue #190).
+	f := newControlsFixtureWith(t, true)
+	f.courseID = f.seedCourse(t, "CIT2006-03", "canvas-course-1")
+	return f
+}
+
+// newControlsFixtureWithoutCourse is the fresh-install shape: a professor
+// who has imported no course at all (issue #272). Only the cases about
+// that state use it — every other one needs a course, because the create
+// form's course field is required.
+func newControlsFixtureWithoutCourse(t *testing.T) *controlsFixture {
+	t.Helper()
 	return newControlsFixtureWith(t, true)
+}
+
+// seedCourse inserts a course and returns its id.
+func (f *controlsFixture) seedCourse(t *testing.T, code, canvasCourseID string) int64 {
+	t.Helper()
+	result, err := f.db.ExecContext(context.Background(),
+		`INSERT INTO course (name, code, term, canvas_course_id) VALUES (?, ?, ?, ?)`,
+		"Estructuras de Datos", code, "2026-2", canvasCourseID)
+	if err != nil {
+		t.Fatalf("insert course %s: %v", code, err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("last insert id: %v", err)
+	}
+	return id
+}
+
+// validForm is the create form as the browser would submit it, including
+// the required course (issue #272). A method rather than the package-level
+// function it replaced, because the course id is the fixture's and an
+// autoincrement value is not something to hardcode.
+func (f *controlsFixture) validForm() url.Values {
+	form := validForm()
+	form.Set("course_id", strconv.FormatInt(f.courseID, 10))
+	return form
+}
+
+// createControlWithoutCourse writes a control straight through the service,
+// bypassing the form — the shape every control that predates migration
+// 00015 is in, and the one the detail page's "Asignar curso" exists for.
+func (f *controlsFixture) createControlWithoutCourse(t *testing.T) controls.Control {
+	t.Helper()
+	control, err := f.service.PrepareControl(context.Background(), controls.CreateRequest{
+		Name:             "Control histórico",
+		RangeFrom:        bank.SectionRef{Document: "welcome", Section: "hola"},
+		RangeTo:          bank.SectionRef{Document: "flujo", Section: "bucles"},
+		QuestionsPerCopy: 3,
+		Copies:           2,
+		Paper:            controls.DefaultPaper,
+		CreatedBy:        f.user.ID,
+	})
+	if err != nil {
+		t.Fatalf("PrepareControl: %v", err)
+	}
+	if control.CourseID != nil {
+		t.Fatalf("the fixture control has a course (%d); it must have none", *control.CourseID)
+	}
+	return control
+}
+
+// detailRequest is a GET of one control's detail page.
+func (f *controlsFixture) detailRequest(t *testing.T, controlID string) *http.Request {
+	t.Helper()
+	req := f.authedRequest(t, http.MethodGet, handler.ControlsPath+"/"+controlID, nil)
+	req.SetPathValue("id", controlID)
+	return req
+}
+
+// assignRequest is a POST to one control's course-assignment endpoint.
+func (f *controlsFixture) assignRequest(t *testing.T, controlID string, form url.Values) *http.Request {
+	t.Helper()
+	req := f.authedRequest(t, http.MethodPost, handler.ControlCoursePathFor(controlID), form)
+	req.SetPathValue("id", controlID)
+	return req
 }
 
 // newControlsFixtureWith builds the fixture with the annotate loop on or
@@ -132,9 +245,15 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	cstore := controlstore.New(db)
+	courseStore := coursestore.New(db)
+	rosterService := roster.NewService(courseStore, stubCourseSource{})
 	live := bank.NewStaticLive(b)
 	svc := controls.NewService(controls.Service{
 		Bank: live, Store: cstore, Generator: fake, Analyzer: fake, Readings: cstore,
+		// Issue #272: the real matcher over the real course tables, so
+		// the scans cases below see the association the binary would
+		// write rather than a double's answer.
+		Matcher:   matching.NewService(courseStore),
 		Annotator: fake, AnnotateEnabled: annotateEnabled,
 		WorkDir: workDir,
 		Now:     time.Now, Seed: 1, Log: log,
@@ -168,13 +287,14 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 	}()
 	h := handler.NewControls(handler.Controls{
 		Service: svc, Bank: live,
+		Roster:    rosterService,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
 		OnCorrectionClosed: hook,
 		Jobs:               jstore,
 		Runner:             runner,
 		Log:                log,
 	})
-	return &controlsFixture{handler: h, service: svc, cstore: cstore, jstore: jstore, runner: runner, fake: fake, hook: hook, workDir: workDir, user: prof, session: session, log: log}
+	return &controlsFixture{handler: h, service: svc, cstore: cstore, jstore: jstore, runner: runner, fake: fake, hook: hook, workDir: workDir, user: prof, session: session, log: log, db: db, roster: rosterService, bank: live}
 }
 
 // jobCounts is what jstoreQueuedAndTerminalCount returns — the three
@@ -301,6 +421,8 @@ func (f *controlsFixture) authedRequest(t *testing.T, method, path string, body 
 	return req.WithContext(ctx)
 }
 
+// validForm is the shared base; callers go through (*controlsFixture).validForm,
+// which adds the required course_id (issue #272).
 func validForm() url.Values {
 	return url.Values{
 		"name":               {"Control 1"},
@@ -353,7 +475,7 @@ func TestNewRendersTheDuplexPaddingCheckboxCheckedByDefault(t *testing.T) {
 func TestCreateStoresDuplexPaddingTrueWhenTheCheckboxIsOn(t *testing.T) {
 	f := newControlsFixture(t)
 	rec := httptest.NewRecorder()
-	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, f.validForm()))
 
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
@@ -373,7 +495,7 @@ func TestCreateStoresDuplexPaddingTrueWhenTheCheckboxIsOn(t *testing.T) {
 // re-render.
 func TestNewDoesNotRenderCheckedWhenTheFormValueIsFalse(t *testing.T) {
 	f := newControlsFixture(t)
-	form := validForm()
+	form := f.validForm()
 	form.Del("duplex_padding")
 	form.Del("name") // force a refusal so the same form is re-rendered
 	rec := httptest.NewRecorder()
@@ -389,7 +511,7 @@ func TestNewDoesNotRenderCheckedWhenTheFormValueIsFalse(t *testing.T) {
 
 func TestCreateStoresDuplexPaddingFalseWhenTheCheckboxIsUnchecked(t *testing.T) {
 	f := newControlsFixture(t)
-	form := validForm()
+	form := f.validForm()
 	form.Del("duplex_padding") // HTML omits unchecked checkboxes entirely
 	rec := httptest.NewRecorder()
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
@@ -452,7 +574,7 @@ func TestNewRendersThePaperRadioWithLetterCheckedByDefault(t *testing.T) {
 
 func TestCreateStoresPaperLetterByDefault(t *testing.T) {
 	f := newControlsFixture(t)
-	form := validForm()
+	form := f.validForm()
 	form.Del("paper") // simulate a submission with the `<details>` never opened
 	rec := httptest.NewRecorder()
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
@@ -474,7 +596,7 @@ func TestCreateStoresPaperLetterByDefault(t *testing.T) {
 
 func TestCreateStoresPaperA4WhenTheRadioIsA4(t *testing.T) {
 	f := newControlsFixture(t)
-	form := validForm()
+	form := f.validForm()
 	form.Set("paper", "a4")
 	rec := httptest.NewRecorder()
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
@@ -507,7 +629,7 @@ func TestCreateStoresPaperA4WhenTheRadioIsA4(t *testing.T) {
 // layer this test claims to guard (Round A COR-4).
 func TestCreateRefusesAnUnknownPaperValue(t *testing.T) {
 	f := newControlsFixture(t)
-	form := validForm()
+	form := f.validForm()
 	form.Set("paper", "legal")
 	rec := httptest.NewRecorder()
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
@@ -532,7 +654,7 @@ func TestCreateRefusesAnUnknownPaperValue(t *testing.T) {
 // ValueIsFalse for the checkbox.
 func TestFormRefusalEchoesBackTheA4Choice(t *testing.T) {
 	f := newControlsFixture(t)
-	form := validForm()
+	form := f.validForm()
 	form.Set("paper", "a4")
 	form.Del("name") // force a refusal
 	rec := httptest.NewRecorder()
@@ -613,7 +735,7 @@ func TestNewFormCarriesTheCascadePickerMarkers(t *testing.T) {
 func TestCreateWritesAControlAndRedirectsToItsDetail(t *testing.T) {
 	f := newControlsFixture(t)
 	rec := httptest.NewRecorder()
-	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, f.validForm()))
 
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
@@ -650,7 +772,7 @@ func TestCreateWritesAControlAndRedirectsToItsDetail(t *testing.T) {
 
 func TestCreateRefusesMissingNameWith422(t *testing.T) {
 	f := newControlsFixture(t)
-	form := validForm()
+	form := f.validForm()
 	form.Del("name")
 	rec := httptest.NewRecorder()
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
@@ -675,7 +797,7 @@ func TestCreateRefusesMissingNameWith422(t *testing.T) {
 
 func TestCreateRefusesAnUnknownRangeWith422(t *testing.T) {
 	f := newControlsFixture(t)
-	form := validForm()
+	form := f.validForm()
 	form.Set("from", "no-such-doc:no-such-section")
 	rec := httptest.NewRecorder()
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
@@ -690,7 +812,7 @@ func TestCreateRefusesAnUnknownRangeWith422(t *testing.T) {
 
 func TestCreateRefusesAPoolTooSmallForCopyWithSpanishNumbers(t *testing.T) {
 	f := newControlsFixture(t)
-	form := validForm()
+	form := f.validForm()
 	form.Set("from", "welcome:hola")
 	form.Set("to", "welcome:hola")      // one question in the range
 	form.Set("questions_per_copy", "3") // ask for 3
@@ -713,7 +835,7 @@ func TestCreateRefusesAPoolTooSmallForCopyWithSpanishNumbers(t *testing.T) {
 
 func TestCreateRefusesInvertedRangeWith422(t *testing.T) {
 	f := newControlsFixture(t)
-	form := validForm()
+	form := f.validForm()
 	form.Set("from", "flujo:bucles")
 	form.Set("to", "welcome:hola")
 	rec := httptest.NewRecorder()
@@ -729,7 +851,7 @@ func TestCreateRefusesInvertedRangeWith422(t *testing.T) {
 
 func TestCreateRefusesInvalidDateWith422(t *testing.T) {
 	f := newControlsFixture(t)
-	form := validForm()
+	form := f.validForm()
 	form.Set("application_date", "August 25")
 	rec := httptest.NewRecorder()
 	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
@@ -746,7 +868,7 @@ func TestCreateRefusesInvalidDateWith422(t *testing.T) {
 // "The values the professor typed come back on refusal").
 func TestCreateEchoesValuesOnRefusal(t *testing.T) {
 	f := newControlsFixture(t)
-	form := validForm()
+	form := f.validForm()
 	form.Set("name", "") // trigger refusal on the name field
 	form.Set("application_date", "2026-09-05")
 	form.Set("copies", "17")
@@ -771,7 +893,7 @@ func TestCreateWorkerRefusalRecordsGenerateJobFailure(t *testing.T) {
 	f.fake.Err = controls.ErrGeneratorRefused
 
 	rec := httptest.NewRecorder()
-	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, f.validForm()))
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303 (worker call is async now)", rec.Code)
 	}
@@ -795,7 +917,7 @@ func TestCreateSujetMissingRecordsGenerateJobFailure(t *testing.T) {
 	f.fake.SujetSize = 0
 
 	rec := httptest.NewRecorder()
-	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, f.validForm()))
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("status = %d, want 303", rec.Code)
 	}
@@ -817,7 +939,7 @@ func TestListRendersEveryControl(t *testing.T) {
 	f := newControlsFixture(t)
 	// Land one control.
 	rec := httptest.NewRecorder()
-	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, f.validForm()))
 	if rec.Code != http.StatusSeeOther {
 		t.Fatalf("Create failed setting up: %d — %s", rec.Code, rec.Body.String())
 	}
@@ -912,7 +1034,7 @@ func TestDetailReturnsA404OnAnUnknownID(t *testing.T) {
 func TestDetailRendersMetadataAndDownloadLinks(t *testing.T) {
 	f := newControlsFixture(t)
 	rec := httptest.NewRecorder()
-	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, f.validForm()))
 	loc := rec.Header().Get("Location")
 	id := strings.TrimPrefix(loc, handler.ControlsPath+"/")
 
@@ -943,7 +1065,7 @@ func TestDetailRendersMetadataAndDownloadLinks(t *testing.T) {
 	}
 	// Issue #185: the detail page surfaces the print layout so the professor
 	// can tell duplex-padded controls from simplex ones without opening the
-	// PDF. validForm() sends duplex_padding=on, so this control is padded.
+	// PDF. f.validForm() sends duplex_padding=on, so this control is padded.
 	if !strings.Contains(body, "dúplex") {
 		t.Errorf("detail body missing the print-layout row (\"dúplex\")")
 	}
@@ -1056,7 +1178,7 @@ func TestDetailShowsDownloadLinksWhenNoGenerateJobExists(t *testing.T) {
 func TestSujetPDFStreamsTheFile(t *testing.T) {
 	f := newControlsFixture(t)
 	rec := httptest.NewRecorder()
-	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, f.validForm()))
 	loc := rec.Header().Get("Location")
 	id := strings.TrimPrefix(loc, handler.ControlsPath+"/")
 	// Issue #249: Create enqueues a generate job — wait for it before
@@ -1105,7 +1227,7 @@ func TestSujetPDF404sWhenTheControlIsUnknown(t *testing.T) {
 func TestPoolJSONStreamsTheSnapshot(t *testing.T) {
 	f := newControlsFixture(t)
 	rec := httptest.NewRecorder()
-	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, validForm()))
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, f.validForm()))
 	loc := rec.Header().Get("Location")
 	id := strings.TrimPrefix(loc, handler.ControlsPath+"/")
 
@@ -1154,5 +1276,535 @@ func TestPoolJSON404sWhenTheControlIsUnknown(t *testing.T) {
 	f.handler.PoolJSON(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status(bad shape) = %d, want 404", rec.Code)
+	}
+}
+
+// --- Issue #272 S1b-b: the control's course, on the two screens. ---
+
+// The course select is pinned against the SELECT element rather than a
+// stray "course_id" anywhere in the page, so the hidden input of some
+// other form could not keep these green.
+var courseSelectRe = regexp.MustCompile(`<select[^>]*name="course_id"[^>]*>`)
+
+// The create form offers the professor's courses and marks the field
+// required.
+//
+// Required is the whole point of the field: a control with no course
+// matches nobody, which is the state every pre-#272 control is stuck in
+// and the one this WP exists to stop reproducing. The HTML attribute is
+// the browser's half; TestCreateRefusesAControlWithNoCourse is the
+// server's, and the server's is the one that counts.
+func TestTheCreateFormOffersTheCoursesAsARequiredSelect(t *testing.T) {
+	f := newControlsFixture(t)
+	rec := httptest.NewRecorder()
+	f.handler.New(rec, f.authedRequest(t, http.MethodGet, handler.ControlsNewPath, nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if !courseSelectRe.MatchString(body) {
+		t.Fatal("the form has no <select name=\"course_id\">")
+	}
+	if !strings.Contains(body, "CIT2006-03") {
+		t.Error("the course the professor has is not offered as an option")
+	}
+	if !regexp.MustCompile(`<select[^>]*name="course_id"[^>]*\brequired\b`).MatchString(body) {
+		t.Error("the course select is not marked required")
+	}
+}
+
+// A professor with no courses at all is told what to do instead of being
+// handed an empty dropdown.
+//
+// This is the fresh-install case, and it is the one where a bare required
+// select is a dead end: nothing in it to pick, no way to submit, and no
+// hint that the missing piece lives on another screen. The form says so
+// and points at /courses.
+func TestTheCreateFormSaysToAddACourseFirstWhenThereAreNone(t *testing.T) {
+	f := newControlsFixtureWithoutCourse(t)
+	rec := httptest.NewRecorder()
+	f.handler.New(rec, f.authedRequest(t, http.MethodGet, handler.ControlsNewPath, nil))
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if courseSelectRe.MatchString(body) {
+		t.Error("an empty course select was rendered; want the 'add a course first' message instead")
+	}
+	if !strings.Contains(body, "/courses") {
+		t.Error("the message does not link to /courses, so the professor has nowhere to go")
+	}
+}
+
+// The chosen course reaches the row.
+func TestCreateStoresTheChosenCourse(t *testing.T) {
+	f := newControlsFixture(t)
+	rec := httptest.NewRecorder()
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, f.validForm()))
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+	rows, err := f.service.List(context.Background())
+	if err != nil {
+		t.Fatalf("List: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("stored %d rows, want 1", len(rows))
+	}
+	if rows[0].CourseID == nil {
+		t.Fatal("CourseID = nil, want the course the form carried")
+	}
+	if *rows[0].CourseID != f.courseID {
+		t.Errorf("CourseID = %d, want %d", *rows[0].CourseID, f.courseID)
+	}
+}
+
+// The server refuses a submission with no course, whatever the browser
+// did. Nothing is stored.
+func TestCreateRefusesAControlWithNoCourseWith422(t *testing.T) {
+	f := newControlsFixture(t)
+	form := f.validForm()
+	form.Del("course_id")
+	rec := httptest.NewRecorder()
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422", rec.Code)
+	}
+	if rec.Header().Get("Location") != "" {
+		t.Error("a 422 refusal must not carry a Location header")
+	}
+	rows, _ := f.service.List(context.Background())
+	if len(rows) != 0 {
+		t.Errorf("stored %d rows after a refusal, want 0", len(rows))
+	}
+}
+
+// A course id nothing answers to is a form refusal, not a 500.
+//
+// The schema's foreign key would refuse it too, but as a driver error the
+// handler cannot word — the professor would get "algo se rompió" for a
+// stale dropdown or a hand-typed POST. Validating against the list the
+// form itself rendered keeps the refusal in the form's own vocabulary,
+// and leaves the FK as the belt underneath.
+func TestCreateRefusesACourseThatDoesNotExistWith422(t *testing.T) {
+	f := newControlsFixture(t)
+	form := f.validForm()
+	form.Set("course_id", "4242")
+	rec := httptest.NewRecorder()
+	f.handler.Create(rec, f.authedRequest(t, http.MethodPost, handler.ControlsPath, form))
+
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422; body:\n%s", rec.Code, rec.Body.String())
+	}
+	rows, _ := f.service.List(context.Background())
+	if len(rows) != 0 {
+		t.Errorf("stored %d rows after a refusal, want 0", len(rows))
+	}
+}
+
+// The detail page offers the assignment form ONLY while the control has
+// no course, and shows the course itself once it has one.
+//
+// One case rather than two because the two halves are one invariant: the
+// form appearing beside an already-assigned course would invite a
+// professor to re-file a control they are only looking at, and the form
+// NOT appearing on an unassigned one is the dead end this slice exists to
+// remove.
+func TestTheDetailPageOffersToAssignACourseOnlyWhileItHasNone(t *testing.T) {
+	f := newControlsFixture(t)
+	control := f.createControlWithoutCourse(t)
+
+	rec := httptest.NewRecorder()
+	f.handler.Detail(rec, f.detailRequest(t, control.ID))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, handler.ControlCoursePathFor(control.ID)) {
+		t.Error("the detail page of a control with no course has no assignment form")
+	}
+	if !courseSelectRe.MatchString(body) {
+		t.Error("the assignment form has no <select name=\"course_id\">")
+	}
+
+	if err := f.service.AssignCourse(context.Background(), control.ID, f.courseID); err != nil {
+		t.Fatalf("AssignCourse: %v", err)
+	}
+
+	rec = httptest.NewRecorder()
+	f.handler.Detail(rec, f.detailRequest(t, control.ID))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body = rec.Body.String()
+	// The HEADING, not just the select. The section has two branches —
+	// the form, and a "you have no courses" message — so asserting only
+	// on <select name="course_id"> lets the whole section render through
+	// its other branch with the test still green. Rendering it against an
+	// assigned control was a surviving mutant before this line existed.
+	if strings.Contains(body, "Asignar curso") {
+		t.Error("the assignment section is still rendered for a control that already has a course")
+	}
+	if courseSelectRe.MatchString(body) {
+		t.Error("the assignment form is still rendered for a control that already has a course")
+	}
+	if !strings.Contains(body, "CIT2006-03") {
+		t.Error("the detail page does not name the course the control belongs to")
+	}
+}
+
+// Assigning writes the row and comes back to the control.
+func TestAssignCourseWritesTheCourseAndRedirectsToTheControl(t *testing.T) {
+	f := newControlsFixture(t)
+	control := f.createControlWithoutCourse(t)
+
+	form := url.Values{"course_id": {strconv.FormatInt(f.courseID, 10)}, "csrf_token": {"csrf-1"}}
+	rec := httptest.NewRecorder()
+	f.handler.AssignCourse(rec, f.assignRequest(t, control.ID, form))
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+	if loc := rec.Header().Get("Location"); loc != handler.ControlsPath+"/"+control.ID {
+		t.Errorf("Location = %q, want the control's detail page", loc)
+	}
+
+	got, err := f.service.Get(context.Background(), control.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.CourseID == nil || *got.CourseID != f.courseID {
+		t.Errorf("CourseID = %v, want %d", got.CourseID, f.courseID)
+	}
+}
+
+// A course the professor does not have is refused, and the control keeps
+// whatever it had. Reached by a stale form or a hand-typed POST.
+func TestAssignCourseRefusesACourseThatDoesNotExist(t *testing.T) {
+	f := newControlsFixture(t)
+	control := f.createControlWithoutCourse(t)
+
+	form := url.Values{"course_id": {"4242"}, "csrf_token": {"csrf-1"}}
+	rec := httptest.NewRecorder()
+	f.handler.AssignCourse(rec, f.assignRequest(t, control.ID, form))
+
+	if rec.Code == http.StatusSeeOther {
+		t.Fatalf("status = 303, want a refusal; the control was filed under a course that does not exist")
+	}
+	got, err := f.service.Get(context.Background(), control.ID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.CourseID != nil {
+		t.Errorf("CourseID = %d after a refused assignment, want nil", *got.CourseID)
+	}
+}
+
+// A control id nothing answers to is a 404, not a 500 and not a silent
+// success — Service.AssignCourse returns ErrControlNotFound and the
+// handler has to word it.
+func TestAssignCourseOnAnUnknownControlIs404(t *testing.T) {
+	f := newControlsFixture(t)
+
+	form := url.Values{"course_id": {strconv.FormatInt(f.courseID, 10)}, "csrf_token": {"csrf-1"}}
+	rec := httptest.NewRecorder()
+	f.handler.AssignCourse(rec, f.assignRequest(t, "CTRLGHOST00000000000000000", form))
+
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rec.Code)
+	}
+}
+
+// --- Issue #272 S7: the control page shows people, not RUTs. ---
+
+// AC8: a matched copy shows the student's NAME, an unmatched one falls
+// back to the RUT, and each row carries its association badge.
+func TestTheControlPageShowsNamesAndAssociationBadges(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	controlID := f.createControlOnCourse(t, "Control con curso", 2, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{
+			"1": okCopy("20100001"), // Ana
+			"2": okCopy("20100999"), // nobody
+		}},
+	}
+	uploadOnce(t, f, controlID)
+
+	body := f.detailBody(t, controlID)
+
+	if !strings.Contains(body, "Ana Pérez") {
+		t.Errorf("the matched copy does not show the student's name:\n%s", body)
+	}
+	// The unmatched copy keeps its RUT: eight digits are more than
+	// nothing, and they are what the professor checks against the scan.
+	if !strings.Contains(body, "20100999") {
+		t.Error("the unmatched copy lost its RUT instead of falling back to it")
+	}
+	for _, want := range []string{"Asociación", "asociado", "reconciliar"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the results table does not carry %q:\n%s", want, body)
+		}
+	}
+}
+
+// A control with no course renders no Asociación column at all.
+//
+// Every copy of one is unmatched for a single reason that has nothing to
+// do with any of them — nobody has said which class sat it. Thirty amber
+// badges would say "look at these thirty copies" when the whole fix is
+// one dropdown further up the same page.
+func TestAControlWithNoCourseHasNoAssociationColumn(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControlOnCourse(t, "Control histórico", 1, nil)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	body := f.detailBody(t, controlID)
+	for _, unwanted := range []string{"Asociación", "reconciliar", "asociado"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("a control with no course renders %q; it has no roster to associate against:\n%s",
+				unwanted, body)
+		}
+	}
+	// And the RUT is still there — the page kept working exactly as it
+	// did before this WP.
+	if !strings.Contains(body, "20100001") {
+		t.Error("the RUT disappeared from a control with no course")
+	}
+}
+
+// A copy nobody handed in is not something to go and reconcile.
+//
+// It has no RUT and never will. "reconciliar" would put it on a list of
+// things to fix, next to the copies that genuinely need a human.
+func TestACopyThatWasNeverHandedInIsNotMarkedForReconciliation(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	// Two copies printed, one scanned: the other lands as not_present.
+	controlID := f.createControlOnCourse(t, "Control con ausente", 2, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	readings, err := f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor: %v", err)
+	}
+	var absent int
+	for _, r := range readings {
+		if r.CopyStatus == controls.CopyStatusNotPresent {
+			absent++
+		}
+	}
+	if absent != 1 {
+		t.Fatalf("precondition: %d not_present copies, want 1", absent)
+	}
+
+	body := f.detailBody(t, controlID)
+	if strings.Count(body, "reconciliar") != 0 {
+		t.Errorf("the copy nobody handed in is marked for reconciliation:\n%s", body)
+	}
+	if !strings.Contains(body, "asociado") {
+		t.Error("the copy that WAS handed in lost its badge")
+	}
+}
+
+// The names cost ONE query, whatever the number of copies.
+//
+// A reading's student is by construction enrolled on the control's
+// course, so the course's roster is exactly the set needed. Asking per
+// row would be thirty statements to render thirty cells — the mistake
+// #271's review caught one screen over (ARQ-1).
+func TestTheControlPageReadsTheRosterOnceForEveryCopy(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	students := make([]roster.SourceStudent, 0, 5)
+	copies := map[string]controls.ReportCopy{}
+	for i := 1; i <= 5; i++ {
+		rut := fmt.Sprintf("2010000%d", i)
+		students = append(students, roster.SourceStudent{
+			FirstName: fmt.Sprintf("Alumno%d", i), LastName: "Pérez",
+			RUT: rut, RUTDV: "5", CanvasUserID: fmt.Sprintf("canvas-%d", i),
+		})
+		copies[strconv.Itoa(i)] = okCopy(rut)
+	}
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, students); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+
+	controlID := f.createControlOnCourse(t, "Control lleno", 5, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{{Copies: copies}}
+	uploadOnce(t, f, controlID)
+
+	counter := &countingRoster{RosterReader: f.roster}
+	f.handler = handler.NewControls(handler.Controls{
+		Service: f.service, Bank: f.bank, Roster: counter,
+		PublicURL: publicURL, MaxScanBytes: 5 << 20,
+		OnCorrectionClosed: f.hook, Jobs: f.jstore, Runner: f.runner, Log: f.log,
+	})
+
+	body := f.detailBody(t, controlID)
+	for i := 1; i <= 5; i++ {
+		if want := fmt.Sprintf("Alumno%d Pérez", i); !strings.Contains(body, want) {
+			t.Errorf("the table does not name %q", want)
+		}
+	}
+	if counter.enrollmentCalls != 1 {
+		t.Errorf("Enrollments was called %d times for 5 copies, want 1", counter.enrollmentCalls)
+	}
+}
+
+// countingRoster counts the per-course roster reads a page performs.
+type countingRoster struct {
+	handler.RosterReader
+	enrollmentCalls int
+}
+
+func (c *countingRoster) Enrollments(ctx context.Context, courseID int64) (roster.Course, []roster.Enrollment, error) {
+	c.enrollmentCalls++
+	return c.RosterReader.Enrollments(ctx, courseID)
+}
+
+// A roster read that fails leaves the page working with RUTs.
+//
+// The names are an enrichment over a table that rendered perfectly well
+// before this WP. Failing the whole correction screen because a roster
+// lookup blinked would make a working page unreachable over a column.
+func TestAFailedRosterReadStillRendersTheControlPage(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	controlID := f.createControlOnCourse(t, "Control con curso", 1, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	f.handler = handler.NewControls(handler.Controls{
+		Service: f.service, Bank: f.bank,
+		Roster:    &failingRoster{RosterReader: f.roster},
+		PublicURL: publicURL, MaxScanBytes: 5 << 20,
+		OnCorrectionClosed: f.hook, Jobs: f.jstore, Runner: f.runner, Log: f.log,
+	})
+
+	req := f.detailRequest(t, controlID)
+	rec := httptest.NewRecorder()
+	f.handler.Detail(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — the names are an enrichment, not the page", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "20100001") {
+		t.Error("the RUT fallback is missing, so the row names nobody at all")
+	}
+}
+
+// failingRoster answers the course list and breaks on the per-course read.
+type failingRoster struct {
+	handler.RosterReader
+}
+
+func (failingRoster) Enrollments(context.Context, int64) (roster.Course, []roster.Enrollment, error) {
+	return roster.Course{}, nil, errors.New("the roster database is gone")
+}
+
+// detailBody renders one control's detail page and returns the HTML.
+func (f *controlsFixture) detailBody(t *testing.T, controlID string) string {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	f.handler.Detail(rec, f.detailRequest(t, controlID))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Detail status = %d, want 200; body:\n%s", rec.Code, rec.Body.String())
+	}
+	return rec.Body.String()
+}
+
+// Reassigning a control to another course re-files its copies, instead of
+// leaving them under people who were never on the new course.
+//
+// This is the case AssignCourse exists for and the one that was broken
+// (#272 review, COR-3): the write stamped the column and recomputed
+// nothing, so every reading kept a student_id pointing at course A while
+// the control claimed to belong to course B — "a copy filed under
+// somebody who was never on this course", which is the exact failure
+// matching's strict scope is built to prevent.
+func TestReassigningAControlToAnotherCourseRefilesItsCopies(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	// Ana sits on the fixture's course; Bruno on a second one. The same
+	// RUT is on BOTH rosters, so the copy is matchable either way and the
+	// only thing that decides whose it is, is the control's course.
+	other := f.seedCourse(t, "CIT2006-04", "canvas-course-2")
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster (course A): %v", err)
+	}
+	if _, err := f.roster.Store.SaveRoster(ctx, other, []roster.SourceStudent{
+		{FirstName: "Bruno", LastName: "Soto", RUT: "20100002", RUTDV: "1", CanvasUserID: "canvas-bruno"},
+	}); err != nil {
+		t.Fatalf("SaveRoster (course B): %v", err)
+	}
+
+	controlID := f.createControlOnCourse(t, "Control mal asignado", 1, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	anaID := f.studentID(t, "canvas-ana")
+	readings, err := f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor: %v", err)
+	}
+	if got := readings[0].StudentID; got == nil || *got != anaID {
+		t.Fatalf("precondition: copy 1 student = %v, want Ana (%d)", got, anaID)
+	}
+
+	// The professor realises it was the other course all along.
+	form := url.Values{"course_id": {strconv.FormatInt(other, 10)}, "csrf_token": {"csrf-1"}}
+	rec := httptest.NewRecorder()
+	f.handler.AssignCourse(rec, f.assignRequest(t, controlID, form))
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("AssignCourse status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+
+	readings, err = f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor after reassignment: %v", err)
+	}
+	if got := readings[0].StudentID; got != nil && *got == anaID {
+		t.Errorf("copy 1 is still filed under Ana (%d), who is not on the control's new course", anaID)
+	}
+	// 20100001 is on no roster of course B, so the honest outcome is
+	// unmatched — reconciliation, not a wrong person.
+	if got := readings[0].StudentID; got != nil {
+		t.Errorf("copy 1 student = %d after reassignment, want nil", *got)
 	}
 }

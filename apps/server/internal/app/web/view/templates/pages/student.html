@@ -1,0 +1,51 @@
+{{ define "content" }}
+  <h1>{{ .Name }}</h1>
+
+  <p>
+    {{ if .HasRUT }}{{ .RUT }}{{ else }}<strong>sin RUT</strong>{{ end }}
+    {{ if .Email }}· {{ .Email }}{{ end }}
+  </p>
+
+  <h2>Controles</h2>
+
+  {{ if not .Controls }}
+    {{/*
+      Two situations produce this and both are worth naming: the person
+      has not sat a control yet, or their copies never matched their RUT.
+      An empty table would say neither.
+    */}}
+    <p>
+      Todavía no hay ninguna copia asociada a esta persona. O no ha rendido
+      ningún control, o el RUT de sus copias no se ha emparejado con el suyo
+      — en ese caso revisa la copia en el control correspondiente.
+    </p>
+  {{ else }}
+    <table class="lista">
+      <thead>
+        <tr>
+          <th>Control</th>
+          <th>Aplicación</th>
+          <th>Total</th>
+          <th>Nota</th>
+          <th>Estado</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Controls }}
+          <tr>
+            <td><a href="{{ .ControlURL }}">{{ .ControlName }}</a></td>
+            <td>{{ .ApplicationDate }}</td>
+            <td>{{ .TotalRaw }}</td>
+            <td>{{ .Grade }}</td>
+            <td>{{ .State }}</td>
+            <td>
+              <a href="{{ .ReviewURL }}">[revisar]</a>
+              <a href="{{ .AnnotatedURL }}">[corregida]</a>
+            </td>
+          </tr>
+        {{ end }}
+      </tbody>
+    </table>
+  {{ end }}
+{{ end }}

@@ -105,6 +105,15 @@ type ProfessorFormValues struct {
 type CoursesListPage struct {
 	Page
 	Courses []ListedCourse
+	// RematchAllAction is the POST target of the whole-server retroactive
+	// pass (issue #272 S5) — the `--all-courses` half. Rendered only when
+	// there are at least two courses: with one, the button on that
+	// course's own page does exactly the same thing and naming it twice
+	// invites the reader to wonder what the difference is.
+	RematchAllAction string
+	// ShowRematchAll gates that button, so the template does not have to
+	// know the rule.
+	ShowRematchAll bool
 }
 
 // ListedCourse is one row of the course list.
@@ -119,15 +128,60 @@ type ListedCourse struct {
 	Enrolled string
 }
 
-// CourseDetailPage is what course_detail.html renders: one course and the
-// people on it.
+// CourseDetailPage is what course_detail.html renders: one course, the
+// controls sat on it, and the way to its roster.
+//
+// Since issue #272 S6 the roster TABLE is not here — it moved to
+// CourseStudentsPage at /courses/{id}/alumnos. This page is the place a
+// professor lands, and what they land to do is look at controls; a
+// thirty-row table of names above them buried the thing they came for.
+// The counts stay, because a count is what you read on the way past.
 type CourseDetailPage struct {
+	Page
+	Course ListedCourse
+	// Controls is every ACTIVE control sat on this course, most recent
+	// first. Empty renders an explanatory line rather than a bare table
+	// head — a course with no controls yet is the ordinary state of a
+	// course just added, not a problem.
+	Controls []ListedControl
+	// StudentsURL is the roster page; MatrixURL is the student × control
+	// grid. Both are always populated — the pages behind them shipped in
+	// this same WP (S6 and S9).
+	StudentsURL string
+	MatrixURL   string
+	// RematchAction is the POST target of "Reasociar controles"
+	// (issue #272 S5).
+	RematchAction string
+
+	EnrolledCount  int
+	WithdrawnCount int
+	// WithoutRUTCount is how many of these people cannot be matched to a
+	// control. Surfaced on the page as well as in the import flash,
+	// because the flash is gone on the next reload and this fact is not.
+	WithoutRUTCount int
+	// HasRoster says whether this course has been imported AT ALL, which
+	// is what gates the "Alumnos" copy and the rematch button.
+	//
+	// Not `EnrolledCount > 0`: a course whose whole class withdrew has a
+	// roster and zero enrolled, and the two need opposite words — one
+	// wants an import, the other does not. Gating the rematch button on
+	// the enrolled count also hid it from exactly the course most likely
+	// to need it (#272 review, COR-11; #271 review COR-6 is the same
+	// distinction one screen over).
+	HasRoster bool
+}
+
+// CourseStudentsPage is what course_students.html renders: one course's
+// roster, moved off the course page in issue #272 S6.
+type CourseStudentsPage struct {
 	Page
 	Course      ListedCourse
 	Enrollments []ListedEnrollment
 	// ImportAction is where both import forms post — the empty state's
 	// "Cargar desde Canvas" and the populated state's "Reimportar".
 	ImportAction string
+	// CourseURL is the way back to the course this roster belongs to.
+	CourseURL string
 
 	EnrolledCount  int
 	WithdrawnCount int
@@ -147,6 +201,10 @@ type ListedEnrollment struct {
 	Email string
 	// State is the Spanish word, not the stored enum.
 	State string
+	// URL is this person's own page (issue #272 S8) — their grades across
+	// every control they sat. The roster is where a professor is already
+	// looking at names, so it is where the link belongs.
+	URL string
 }
 
 // ProfilePage is what profile.html renders: the professor's own account and
@@ -356,6 +414,21 @@ type ControlsFormPage struct {
 	// publishes, in reading order, so the two range dropdowns can render
 	// them. Grouped by document so an <optgroup> renders per document.
 	SectionOptions []DocumentSections
+	// Courses is what the required course select offers (issue #272).
+	// Empty means the professor has no courses at all, which the template
+	// renders as a pointer to /courses rather than as an empty dropdown —
+	// a required select with nothing in it is a dead end with no hint
+	// that the missing piece lives on another screen.
+	Courses []CourseOption
+}
+
+// CourseOption is one entry of a course dropdown: the create form's
+// required select and the detail page's "Asignar curso" both render it
+// (issue #272). Value is the course id as a decimal string, which is what
+// the form submits.
+type CourseOption struct {
+	Value string
+	Label string
 }
 
 // ControlFormValues holds what the user typed. Values are echoed back on
@@ -381,6 +454,11 @@ type ControlFormValues struct {
 	// avanzadas` so the default requires no interaction. Issue #208,
 	// ADR-0043.
 	Paper string
+	// CourseID echoes the selected course so a refusal does not make the
+	// professor pick it again (§Form: "the values the professor typed
+	// come back on refusal"). The course id as a decimal string, empty
+	// when nothing was chosen. Issue #272.
+	CourseID string
 }
 
 // DocumentSections carries one document's sections for the range
@@ -417,6 +495,30 @@ type ControlDetailPage struct {
 	PoolJSONURL string
 	// ScansURL is the POST target of the upload form.
 	ScansURL string
+	// ShowAssociation gates the "Asociación" column (issue #272 S7).
+	//
+	// False for a control with no course, where every copy is unmatched
+	// for one reason that has nothing to do with any of them — nobody has
+	// said which class sat it. Thirty amber badges would say "look at
+	// these thirty copies" when the whole fix is one dropdown further up
+	// the page.
+	ShowAssociation bool
+	// CourseLabel names the course this control belongs to, empty when it
+	// has none (issue #272). Non-empty renders a row in the Datos table
+	// linking to CourseURL; empty renders the "Asignar curso" form below
+	// instead, and the two are mutually exclusive by construction — a
+	// form beside an assigned course would invite a professor to re-file
+	// a control they are only looking at.
+	CourseLabel string
+	// CourseURL is the course's own page, set only when CourseLabel is.
+	CourseURL string
+	// AssignCourseURL is the POST target of the "Asignar curso" form,
+	// rendered only while the control has no course.
+	AssignCourseURL string
+	// CourseOptions is what that form's select offers. Empty with no
+	// CourseLabel means the professor has no courses at all — the
+	// template says so and points at /courses.
+	CourseOptions []CourseOption
 	// MaxScanMB is what the Spanish "máximo N MB" hint says on the
 	// form. The unit is megabytes — the handler enforces the byte
 	// value.
@@ -544,6 +646,21 @@ type ReadingRow struct {
 	TotalRaw string
 	// Grade is like "6.5" or "—".
 	Grade string
+	// Student is the name of the person this copy was matched to, empty
+	// when it matched nobody (issue #272 S7). The template shows it in
+	// place of the RUT — a professor recognises "Ana Pérez" and has to
+	// look up 11222333 — and falls back to the RUT when there is no name,
+	// because eight digits are still more than nothing.
+	Student string
+	// Association is the badge: "asociado", "reconciliar", or "—" for a
+	// copy nobody handed in. AssociationClass is the CSS class.
+	//
+	// It ANNOTATES; it does not gate. An unmatched copy is not a copy
+	// that needs review, does not change the "N requieren revisión" count
+	// and does not block "Cerrar corrección" — the correction flow keeps
+	// exactly the meaning it had (#272 §Non-goals).
+	Association      string
+	AssociationClass string
 	// Estado is the Spanish estado word / phrase per §The results
 	// table's collapse rules.
 	Estado string
@@ -632,6 +749,21 @@ type ReviewRUT struct {
 	Status       string
 	Overridden   bool
 	WasRead      bool
+	// NotInRoster is true when the copy carries a readable RUT that
+	// belongs to nobody enrolled on the control's course (issue #272).
+	//
+	// It is the SECOND reason a copy can need attention, and it needs the
+	// opposite action from the first: an illegible RUT is fixed by
+	// reading the scan and typing it, a RUT that is simply not on the
+	// roster is fixed in Canvas and re-imported. Rendering both as a bare
+	// input is how a professor retypes the same correct digits three
+	// times.
+	//
+	// False for a control with no course at all: every copy of one is
+	// unmatched, and it is unmatched because nobody has said which class
+	// sat it — sending the professor to Canvas would be sending them to
+	// fix data that is already right.
+	NotInRoster bool
 }
 
 // ReviewQuestion is one row of the review form.
@@ -822,6 +954,105 @@ func RenderCourseDetail(w http.ResponseWriter, page CourseDetailPage) error {
 		page.Title = page.Course.Code
 	}
 	return render(w, "course_detail", http.StatusOK, page)
+}
+
+// RenderCourseStudents writes one course's roster (issue #272 S6).
+func RenderCourseStudents(w http.ResponseWriter, page CourseStudentsPage) error {
+	if page.Title == "" {
+		page.Title = page.Course.Code + " · alumnos"
+	}
+	return render(w, "course_students", http.StatusOK, page)
+}
+
+// StudentPage is what student.html renders: one person and every control
+// they sat (issue #272 S8).
+type StudentPage struct {
+	Page
+	Name  string
+	Email string
+	// RUT is already formatted ("11.222.333-5"), empty when Canvas held
+	// none. HasRUT says which, because an empty string on a page is a
+	// gap a reader can miss and a stated "sin RUT" is not.
+	RUT    string
+	HasRUT bool
+	// Controls is every control this person sat, newest first. Empty
+	// renders an explanatory line: a student with no copies is either
+	// newly enrolled or never matched, and both are worth saying out
+	// loud rather than showing an empty table.
+	Controls []StudentControlRow
+}
+
+// StudentControlRow is one control on a student's record, with every
+// value already as a string a person reads.
+type StudentControlRow struct {
+	ControlName     string
+	ApplicationDate string
+	State           string
+	TotalRaw        string
+	Grade           string
+	ControlURL      string
+	ReviewURL       string
+	AnnotatedURL    string
+}
+
+// RenderStudent writes one student's record.
+func RenderStudent(w http.ResponseWriter, page StudentPage) error {
+	if page.Title == "" {
+		page.Title = page.Name
+	}
+	return render(w, "student", http.StatusOK, page)
+}
+
+// CourseMatrixPage is what course_matrix.html renders: the student ×
+// control grid (issue #272 S9). Read-only in this WP.
+type CourseMatrixPage struct {
+	Page
+	Course    ListedCourse
+	CourseURL string
+	// Controls are the columns, chronological — a term reads left to
+	// right, unlike the course page's list which reads newest first.
+	Controls []MatrixColumn
+	// Rows come from the ROSTER, one per enrolled or withdrawn person,
+	// ordered the way SortEnrollments orders a class list. A student who
+	// sat nothing is an empty row rather than an absence: a professor
+	// scanning for who is missing a grade needs to see them, and a grid
+	// built out of readings alone would make exactly those people
+	// invisible.
+	Rows []MatrixRow
+}
+
+// MatrixColumn is one control's header cell.
+type MatrixColumn struct {
+	Name            string
+	ApplicationDate string
+	URL             string
+}
+
+// MatrixRow is one person's line across every control.
+type MatrixRow struct {
+	Name  string
+	URL   string
+	State string
+	Cells []MatrixCell
+}
+
+// MatrixCell is one (student, control) intersection.
+//
+// An empty Grade is a copy this person has no matched reading for, and
+// the template renders nothing rather than a zero: "did not sit it" and
+// "got nothing right" are different facts about a person, and a 1.0 in a
+// cell nobody earned is the kind of number that reaches an email in WP-3.
+type MatrixCell struct {
+	Grade string
+	URL   string
+}
+
+// RenderCourseMatrix writes the student × control grid.
+func RenderCourseMatrix(w http.ResponseWriter, page CourseMatrixPage) error {
+	if page.Title == "" {
+		page.Title = page.Course.Code + " · matriz"
+	}
+	return render(w, "course_matrix", http.StatusOK, page)
 }
 
 // RenderProfessorsList writes the CRUD's list page.

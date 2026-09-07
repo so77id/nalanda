@@ -668,3 +668,169 @@ func TestPurgeControlReturnsNotFoundForAnUnknownID(t *testing.T) {
 		t.Errorf("PurgeControl(missing): %v, want ErrControlNotFound", err)
 	}
 }
+
+// --- Issue #272 S1b: the control's course. ---
+
+// insertCourseRow creates the row course_id will reference.
+func insertCourseRow(t *testing.T, ctx context.Context, db *sql.DB, code, canvasCourseID string) int64 {
+	t.Helper()
+	result, err := db.ExecContext(ctx,
+		`INSERT INTO course (name, code, term, canvas_course_id) VALUES (?, ?, ?, ?)`,
+		"Estructuras de Datos", code, "2026-2", canvasCourseID)
+	if err != nil {
+		t.Fatalf("insert course %s: %v", code, err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("last insert id: %v", err)
+	}
+	return id
+}
+
+// A control created with a course keeps it, and one created without reads
+// back nil rather than zero.
+//
+// The nil case is the one that matters: `*int64` and not `int64` precisely
+// so "no course" is a value the type can hold. An int64 zero would be
+// indistinguishable from a course whose id happens to be 0, and — worse —
+// would make every pre-#272 control look like it pointed at one.
+func TestCreateControlPersistsTheCourseAndItsAbsence(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	courseID := insertCourseRow(t, ctx, db, "CIT2006-03", "canvas-course-1")
+	store := controlstore.New(db)
+	pool := []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}
+
+	withCourse := newControl("CTRLCOURSE000000000000000A", userID, nil)
+	withCourse.CourseID = &courseID
+	if err := store.CreateControl(ctx, withCourse, pool); err != nil {
+		t.Fatalf("CreateControl with a course: %v", err)
+	}
+
+	without := newControl("CTRLNOCOURSE0000000000000A", userID, nil)
+	if err := store.CreateControl(ctx, without, pool); err != nil {
+		t.Fatalf("CreateControl without a course: %v", err)
+	}
+
+	got, err := store.ControlByID(ctx, withCourse.ID)
+	if err != nil {
+		t.Fatalf("ControlByID: %v", err)
+	}
+	if got.CourseID == nil {
+		t.Fatalf("CourseID = nil, want %d", courseID)
+	}
+	if *got.CourseID != courseID {
+		t.Errorf("CourseID = %d, want %d", *got.CourseID, courseID)
+	}
+
+	got, err = store.ControlByID(ctx, without.ID)
+	if err != nil {
+		t.Fatalf("ControlByID: %v", err)
+	}
+	if got.CourseID != nil {
+		t.Errorf("CourseID = %d, want nil for a control created without a course", *got.CourseID)
+	}
+}
+
+// The list screens read the column too. Asserted separately from
+// ControlByID because ListControls and ListArchivedControls build their
+// own SELECT: a column added to the read set of one and not the others is
+// exactly the drift `controlColumns` exists to prevent, and it would show
+// up as a course that vanishes when a control is archived.
+func TestListControlsCarriesTheCourseThroughBothListings(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	courseID := insertCourseRow(t, ctx, db, "CIT2006-03", "canvas-course-1")
+	store := controlstore.New(db)
+	pool := []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}
+
+	c := newControl("CTRLLISTCOURSE00000000000A", userID, nil)
+	c.CourseID = &courseID
+	if err := store.CreateControl(ctx, c, pool); err != nil {
+		t.Fatalf("CreateControl: %v", err)
+	}
+
+	active, err := store.ListControls(ctx)
+	if err != nil {
+		t.Fatalf("ListControls: %v", err)
+	}
+	if len(active) != 1 {
+		t.Fatalf("ListControls returned %d rows, want 1", len(active))
+	}
+	if active[0].CourseID == nil || *active[0].CourseID != courseID {
+		t.Errorf("ListControls CourseID = %v, want %d", active[0].CourseID, courseID)
+	}
+
+	if err := store.SoftDeleteControl(ctx, c.ID, time.Unix(1_755_500_000, 0).UTC()); err != nil {
+		t.Fatalf("SoftDeleteControl: %v", err)
+	}
+	archived, err := store.ListArchivedControls(ctx)
+	if err != nil {
+		t.Fatalf("ListArchivedControls: %v", err)
+	}
+	if len(archived) != 1 {
+		t.Fatalf("ListArchivedControls returned %d rows, want 1", len(archived))
+	}
+	if archived[0].CourseID == nil || *archived[0].CourseID != courseID {
+		t.Errorf("ListArchivedControls CourseID = %v, want %d", archived[0].CourseID, courseID)
+	}
+}
+
+// SetControlCourse is how a control that predates this WP gets a course:
+// the professor picks one on the detail page and this is the write.
+//
+// Last-wins rather than write-once. A professor who assigned the wrong
+// course has no other way to correct it, and the association S3 and S5
+// derive from it is recomputable — nothing downstream is invalidated by a
+// second call that a re-run of the retroactive command would not fix.
+func TestSetControlCourseAssignsAndReassigns(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "p@example.com")
+	first := insertCourseRow(t, ctx, db, "CIT2006-03", "canvas-course-1")
+	second := insertCourseRow(t, ctx, db, "CIT2006-04", "canvas-course-2")
+	store := controlstore.New(db)
+
+	c := newControl("CTRLASSIGN0000000000000000", userID, nil)
+	if err := store.CreateControl(ctx, c, []controls.PoolEntry{{Ref: "q-if-1", Order: 0}}); err != nil {
+		t.Fatalf("CreateControl: %v", err)
+	}
+
+	if err := store.SetControlCourse(ctx, c.ID, first); err != nil {
+		t.Fatalf("SetControlCourse: %v", err)
+	}
+	got, err := store.ControlByID(ctx, c.ID)
+	if err != nil {
+		t.Fatalf("ControlByID: %v", err)
+	}
+	if got.CourseID == nil || *got.CourseID != first {
+		t.Fatalf("CourseID = %v after the first assignment, want %d", got.CourseID, first)
+	}
+
+	if err := store.SetControlCourse(ctx, c.ID, second); err != nil {
+		t.Fatalf("SetControlCourse again: %v", err)
+	}
+	got, err = store.ControlByID(ctx, c.ID)
+	if err != nil {
+		t.Fatalf("ControlByID: %v", err)
+	}
+	if got.CourseID == nil || *got.CourseID != second {
+		t.Errorf("CourseID = %v after reassignment, want %d", got.CourseID, second)
+	}
+}
+
+// A control id nothing answers to comes back as the domain's absence
+// sentinel, not as a silent no-op.
+//
+// UPDATE ... WHERE id = ? affects zero rows for a URL a professor typed by
+// hand, and a store that returned nil there would hand the handler a
+// success to flash. Same shape as SoftDeleteControl's guard (#261).
+func TestSetControlCourseOnAnUnknownControlIsNotFound(t *testing.T) {
+	ctx, db := migrated(t)
+	courseID := insertCourseRow(t, ctx, db, "CIT2006-03", "canvas-course-1")
+	store := controlstore.New(db)
+
+	err := store.SetControlCourse(ctx, "CTRLGHOST00000000000000000", courseID)
+	if !errors.Is(err, controls.ErrControlNotFound) {
+		t.Errorf("SetControlCourse on an unknown control = %v, want ErrControlNotFound", err)
+	}
+}

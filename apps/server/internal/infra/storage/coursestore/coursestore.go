@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 )
 
@@ -33,9 +34,94 @@ func New(db *sql.DB) *Store {
 	return &Store{db: db}
 }
 
-// The domain's interface, satisfied at compile time — the storage.Prober
-// shape.
-var _ roster.Store = (*Store)(nil)
+// The domain's interfaces, satisfied at compile time — the storage.Prober
+// shape. Two of them: this store owns `course`, `student` and
+// `enrollment`, so it answers both the roster's questions and the one
+// matching asks of the same three tables (issue #272).
+var (
+	_ roster.Store   = (*Store)(nil)
+	_ matching.Store = (*Store)(nil)
+)
+
+// StudentByID returns one person (issue #272 S8).
+//
+// Not scoped to a course, and not a join: `student` is a table of PEOPLE,
+// shared across the courses they take (00014). The page that reads this
+// shows their grades across every control they sat, which is a set no
+// single course defines.
+func (s *Store) StudentByID(ctx context.Context, id int64) (roster.Student, error) {
+	var (
+		student roster.Student
+		rut     sql.NullString
+		rutDV   sql.NullString
+	)
+	err := s.db.QueryRowContext(ctx, `
+        SELECT id, first_name, last_name, email, rut, rut_dv, canvas_user_id
+        FROM student WHERE id = ?`, id,
+	).Scan(&student.ID, &student.FirstName, &student.LastName, &student.Email,
+		&rut, &rutDV, &student.CanvasUserID)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return roster.Student{}, fmt.Errorf("coursestore.StudentByID %d: %w", id, roster.ErrStudentNotFound)
+	case err != nil:
+		return roster.Student{}, fmt.Errorf("coursestore.StudentByID %d: %w", id, err)
+	}
+	// The two halves travel together or not at all — the schema's own
+	// CHECK says so — so reading them into empty strings loses nothing
+	// and keeps Student.HasRUT the single answer to "can this person be
+	// matched".
+	student.RUT = rut.String
+	student.RUTDV = rutDV.String
+	return student, nil
+}
+
+// EnrolledStudentByRUT resolves an eight-digit RUT body to the student who
+// carries it AND has an enrolment on this course (issue #272).
+//
+// EITHER STATE. A student who withdrew still matches, because they still
+// sat the controls they sat: #271 keeps their `enrollment` row precisely
+// so that "their grades hang off the RUT match WP-2 adds"
+// (apps/server/CLAUDE.md, roster invariant 1), and an enrolled-only
+// filter falsified that — a withdrawal erased the association of a
+// control the person had already handed in, on the next rematch (#272
+// Round B, DCO-3, measured). The scope that matters is the COURSE: a
+// student enrolled elsewhere never matches, whatever their state.
+//
+// At most one row can satisfy it, and that is a schema property rather
+// than a hope: `student.rut` is UNIQUE and `enrollment` is UNIQUE per
+// (course_id, student_id), so the join cannot produce two. QueryRow is
+// therefore the honest shape — there is no "first of several" being
+// silently picked.
+//
+// The two ways to get `found=false` — a RUT nobody carries, a student
+// enrolled on a different course — are deliberately NOT distinguished
+// here. They are one answer to the caller ("no match, leave it for a
+// human"), and separating them would be a second query to produce a
+// distinction the reconciliation queue does not act on.
+//
+// The RUT is compared VERBATIM. Normalisation is
+// internal/domain/matching's, and a store that started tolerating
+// "11.222.333-5" would make the domain's normalisation dead code and let
+// the two disagree about what a RUT is
+// (TestEnrolledStudentByRUTComparesTheStoredEightDigitsVerbatim).
+func (s *Store) EnrolledStudentByRUT(ctx context.Context, rut string, courseID int64) (int64, bool, error) {
+	var studentID int64
+	err := s.db.QueryRowContext(ctx, `
+        SELECT student.id
+        FROM student
+        JOIN enrollment ON enrollment.student_id = student.id
+        WHERE student.rut = ?
+          AND enrollment.course_id = ?`,
+		rut, courseID,
+	).Scan(&studentID)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return 0, false, nil
+	case err != nil:
+		return 0, false, fmt.Errorf("coursestore.EnrolledStudentByRUT on course %d: %w", courseID, err)
+	}
+	return studentID, true, nil
+}
 
 // CreateCourse inserts the row and returns it with its id.
 //

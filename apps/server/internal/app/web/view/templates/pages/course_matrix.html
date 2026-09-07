@@ -1,0 +1,48 @@
+{{ define "content" }}
+  <h1>{{ .Course.Code }} · matriz</h1>
+
+  <p>{{ .Course.Name }} · período {{ .Course.Term }} · <a href="{{ .CourseURL }}">volver al curso</a></p>
+
+  {{ if not .Controls }}
+    <p>Este curso todavía no tiene controles, así que no hay matriz que mostrar.</p>
+  {{ else if not .Rows }}
+    <p>Este curso todavía no tiene su lista de estudiantes, así que la matriz no tiene filas.</p>
+  {{ else }}
+    {{/*
+      Wide by construction: one column per control plus the name. The
+      wrapper scrolls horizontally so the page itself never does — a term
+      with eight controls is wider than a laptop and the alternative is a
+      layout that breaks silently at the ninth.
+    */}}
+    <div style="overflow-x:auto">
+      <table class="lista">
+        <thead>
+          <tr>
+            <th>Alumno</th>
+            {{ range .Controls }}
+              <th><a href="{{ .URL }}">{{ .Name }}</a><br><small>{{ .ApplicationDate }}</small></th>
+            {{ end }}
+          </tr>
+        </thead>
+        <tbody>
+          {{ range .Rows }}
+            <tr>
+              <td>
+                <a href="{{ .URL }}">{{ .Name }}</a>
+                {{ if ne .State "Inscrito" }} <small>({{ .State }})</small>{{ end }}
+              </td>
+              {{ range .Cells }}
+                {{/*
+                  Empty, not zero, for a copy with no matched reading.
+                  The dash is what a reader SEES as a gap; a blank cell is
+                  one they can scan past.
+                */}}
+                <td>{{ if .Grade }}<a href="{{ .URL }}">{{ .Grade }}</a>{{ else }}—{{ end }}</td>
+              {{ end }}
+            </tr>
+          {{ end }}
+        </tbody>
+      </table>
+    </div>
+  {{ end }}
+{{ end }}

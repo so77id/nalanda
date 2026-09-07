@@ -119,6 +119,37 @@ create/edit form shape (with `Notice` for form-wide messages), §Flash
 covers the POST/redirect/GET message cookie, §Error pages covers 404 /
 403 / 500.
 
+### Which shape the handler's dependencies take (issue #272)
+
+A handler holds **its own** domain's service concretely — `*controls.Service`
+on `handler.Controls`, `*roster.Service` on `handler.Courses`.
+
+For a **second** domain it only reads from, it declares a narrow interface in
+the handler package, named for the collaborator rather than for one action,
+with a compile-time assertion beside it:
+
+```go
+type RosterReader interface {
+    Courses(ctx context.Context) ([]roster.Course, error)
+    Enrollments(ctx context.Context, courseID int64) (roster.Course, []roster.Enrollment, error)
+}
+
+var _ RosterReader = (*roster.Service)(nil)
+```
+
+The port exists to keep the OTHER domain's constructor dependencies out of
+this handler's fixtures: injecting `*roster.Service` into `handler.Controls`
+would drag a Canvas `CourseSource` into every controls test, to render a
+dropdown that never talks to Canvas.
+
+Either way it is a domain **service**, never a store — edge 4 of the
+dependency rule is unchanged, and its check is still
+`grep -rn '\.Store\.' internal/app/**/handler/*.go` returning nothing.
+Name the port for the collaborator (`RosterReader`, `CourseControls`), not
+for the first method it carries: #272 shipped `CourseLister` and
+`CourseRematcher` and had to rename both within two slices when each grew a
+second method.
+
 ### 5. The handler
 
 A closure over its dependencies, **returned by a small constructor**
@@ -150,6 +181,20 @@ request, which §Errors forbids.
 - Never `panic` in a request path.
 
 ### 6. The route and its middleware
+
+#### URL segments are English
+
+Like identifiers. The address bar is not rendered copy, and the rule #150 set
+with `/login` holds: **English path, Spanish page**.
+
+The two Spanish segments on this surface — `/courses/{id}/alumnos` and
+`/courses/{id}/matriz` (#272) — are the exception and not the pattern to
+copy. They were shipped in the same PR as `/controls/{id}/course`,
+`/courses/{id}/rematch` and `/students/{id}`, which are English, and the two
+files justified opposite conventions to each other; the rule is written here
+so the next author does not have to pick by whichever file they opened
+(#272 review, AGR-9 / DCO-14).
+
 
 In the surface's `router.go`. On `web`, `Resolve` already wraps everything; the
 decision you are making is what else the route needs:
