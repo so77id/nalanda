@@ -222,14 +222,29 @@ func TestReimportingDoesNotDuplicateTheClass(t *testing.T) {
 
 func (f *profileFixture) getCourse(t *testing.T, session string, courseID int64) *httptest.ResponseRecorder {
 	t.Helper()
+	return f.getCoursePage(t, session, courseID,
+		handler.CoursePathFor(courseID), f.coursesHandler.Show)
+}
 
-	req := httptest.NewRequest(http.MethodGet, handler.CoursePathFor(courseID), nil)
+// getStudents renders the roster page. Since issue #272 S6 the roster
+// table lives here rather than on the course page — the #271 cases below
+// that assert on names, RUTs and the import button follow it, because
+// what they check is still true and only moved.
+func (f *profileFixture) getStudents(t *testing.T, session string, courseID int64) *httptest.ResponseRecorder {
+	t.Helper()
+	return f.getCoursePage(t, session, courseID,
+		handler.CourseStudentsPathFor(courseID), f.coursesHandler.Students)
+}
+
+func (f *profileFixture) getCoursePage(t *testing.T, session string, courseID int64, path string, h http.HandlerFunc) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodGet, path, nil)
 	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: session})
 	req.SetPathValue("id", strconv.FormatInt(courseID, 10))
 
 	rec := httptest.NewRecorder()
-	f.middleware.Resolve(f.middleware.RequireProfessor(http.HandlerFunc(f.coursesHandler.Show))).
-		ServeHTTP(rec, req)
+	f.middleware.Resolve(f.middleware.RequireProfessor(h)).ServeHTTP(rec, req)
 	return rec
 }
 
@@ -254,7 +269,7 @@ func TestACourseWithNoRosterOffersTheImportButton(t *testing.T) {
 	f.connect(t, session)
 	courseID := f.addCourse(t, session, "44779")
 
-	rec := f.getCourse(t, session, courseID)
+	rec := f.getStudents(t, session, courseID)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200", rec.Code)
 	}
@@ -283,7 +298,7 @@ func TestAPopulatedCourseShowsTheRosterAndOffersAReimport(t *testing.T) {
 	}
 	f.importPost(t, session, courseID)
 
-	body := f.getCourse(t, session, courseID).Body.String()
+	body := f.getStudents(t, session, courseID).Body.String()
 	for _, want := range []string{"PEREZ SOTO", "MUÑOZ ÁVILA", "2 inscritos", "Reimportar"} {
 		if !strings.Contains(body, want) {
 			t.Errorf("the course page does not carry %q:\n%s", want, body)
@@ -305,7 +320,7 @@ func TestAPopulatedCourseShowsTheRosterAndOffersAReimport(t *testing.T) {
 // A student with no RUT is visible AS such: a dash in the column and a
 // count on the page. The import flash says it once and is gone; this fact
 // is not.
-func TestAStudentWithNoRutIsVisibleOnTheCoursePage(t *testing.T) {
+func TestAStudentWithNoRutIsVisibleOnTheRosterPage(t *testing.T) {
 	f := newProfileFixture(t, profileKey())
 	_, session := f.signIn(t)
 	f.api.courses = canvasCourses()
@@ -318,7 +333,7 @@ func TestAStudentWithNoRutIsVisibleOnTheCoursePage(t *testing.T) {
 	}
 	f.importPost(t, session, courseID)
 
-	body := f.getCourse(t, session, courseID).Body.String()
+	body := f.getStudents(t, session, courseID).Body.String()
 	if !strings.Contains(body, "1 sin RUT") {
 		t.Errorf("the page does not count the RUT-less student:\n%s", body)
 	}
@@ -345,7 +360,7 @@ func TestAWithdrawnStudentIsShownAsWithdrawn(t *testing.T) {
 	f.api.students = f.api.students[:1]
 	f.importPost(t, session, courseID)
 
-	body := f.getCourse(t, session, courseID).Body.String()
+	body := f.getStudents(t, session, courseID).Body.String()
 	if !strings.Contains(body, "Retirado") {
 		t.Errorf("the withdrawn student is not marked:\n%s", body)
 	}
@@ -589,7 +604,7 @@ func TestTheRutWarningCountsOnlyTheEnrolled(t *testing.T) {
 		aCanvasStudent("99999", "", "", "EXTRANJERA"),
 	}
 	f.importPost(t, session, courseID)
-	if body := f.getCourse(t, session, courseID).Body.String(); !strings.Contains(body, "1 sin RUT") {
+	if body := f.getStudents(t, session, courseID).Body.String(); !strings.Contains(body, "1 sin RUT") {
 		t.Fatalf("the warning is missing while the RUT-less student is enrolled:\n%s", body)
 	}
 
@@ -597,7 +612,7 @@ func TestTheRutWarningCountsOnlyTheEnrolled(t *testing.T) {
 	f.api.students = f.api.students[:1]
 	f.importPost(t, session, courseID)
 
-	body := f.getCourse(t, session, courseID).Body.String()
+	body := f.getStudents(t, session, courseID).Body.String()
 	if strings.Contains(body, "sin RUT") {
 		t.Errorf("the warning survives the student's withdrawal, so nothing can clear it:\n%s", body)
 	}
@@ -608,15 +623,26 @@ func TestTheRutWarningCountsOnlyTheEnrolled(t *testing.T) {
 
 // --- Issue #272 S5: the retroactive pass, from the browser. ---
 
-// fakeRematcher records what it was asked and answers with a fixed
-// result. The pass itself is covered against a real reading store in
-// internal/domain/controls; what is left for this level is the parse,
-// the flash and the redirect.
+// fakeRematcher is the course screens' controls double. It records what
+// it was asked and answers with fixed values.
+//
+// The pass itself is covered against a real reading store in
+// internal/domain/controls; what is left for this level is the parse, the
+// flash and the redirect. Named for the first thing it did (issue #272
+// S5); S6 gave it the control list too.
 type fakeRematcher struct {
 	result   controls.RematchResult
 	fail     error
 	courses  []int64
 	allCalls int
+	// controlsForCourse is what the course page lists, and listFail is
+	// how a case makes that read break (issue #272 S6).
+	controlsForCourse []controls.Control
+	listFail          error
+}
+
+func (m *fakeRematcher) ControlsForCourse(_ context.Context, _ int64) ([]controls.Control, error) {
+	return m.controlsForCourse, m.listFail
 }
 
 func (m *fakeRematcher) RematchCourse(_ context.Context, courseID int64) (controls.RematchResult, error) {
@@ -747,4 +773,173 @@ func (f *profileFixture) rematchPost(t *testing.T, session string, courseID int6
 	f.middleware.Resolve(f.middleware.RequireProfessor(http.HandlerFunc(f.coursesHandler.Rematch))).
 		ServeHTTP(rec, req)
 	return rec
+}
+
+// --- Issue #272 S6: the course page's two sections. ---
+
+// AC7: the course page carries both sections, the link to the roster, and
+// both counts.
+func TestTheCoursePageShowsItsControlsAndLinksToTheRoster(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+		aCanvasStudent("900002", "11222444", "K", "MUÑOZ ÁVILA"),
+	}
+	f.importPost(t, session, courseID)
+
+	f.rematcher.controlsForCourse = []controls.Control{
+		{ID: "CTRLUNO0000000000000000AA", Name: "Control 1", QuestionsPerCopy: 4, Copies: 30, State: controls.Graded},
+		{ID: "CTRLDOS0000000000000000AA", Name: "Control 2", QuestionsPerCopy: 4, Copies: 30, State: controls.Generated},
+	}
+
+	body := f.getCourse(t, session, courseID).Body.String()
+
+	for _, want := range []string{
+		"Controles",              // the section
+		"Control 1", "Control 2", // the list
+		"/controls/CTRLUNO0000000000000000AA",   // each row links to its control
+		"Alumnos",                               // the other section
+		"2 inscritos",                           // the roster count
+		handler.CourseStudentsPathFor(courseID), // the link to it
+	} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the course page does not carry %q:\n%s", want, body)
+		}
+	}
+
+	// The roster TABLE is not here any more — that is the point of the
+	// split. A name on this page would mean it came back.
+	if strings.Contains(body, "PEREZ SOTO") {
+		t.Error("the roster table is still rendered on the course page; S6 moved it to /alumnos")
+	}
+}
+
+// A course with no controls says so instead of rendering an empty table.
+//
+// It is the ordinary state of a course just added, not a problem, and the
+// useful thing to show is the way to create the first one.
+func TestACourseWithNoControlsSaysSoAndPointsAtNewControl(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	body := f.getCourse(t, session, courseID).Body.String()
+	if !strings.Contains(body, "Todavía no hay ningún control") {
+		t.Errorf("the empty state is missing:\n%s", body)
+	}
+	if !strings.Contains(body, "/controls/new") {
+		t.Error("the empty state does not point at the create form")
+	}
+}
+
+// The matrix link is absent until S9 builds the page behind it.
+//
+// A link to a 404 is worse than a link that arrives one slice later, and
+// this case is what makes the S9 author notice they have to add it.
+func TestTheCoursePageDoesNotLinkToAMatrixThatDoesNotExistYet(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.controlsForCourse = []controls.Control{
+		{ID: "CTRLUNO0000000000000000AA", Name: "Control 1", QuestionsPerCopy: 4, Copies: 30, State: controls.Graded},
+	}
+
+	body := f.getCourse(t, session, courseID).Body.String()
+	if strings.Contains(body, "matriz") || strings.Contains(body, "Matriz") {
+		t.Error("the course page links to the matrix, which S9 has not built yet")
+	}
+}
+
+// The two pages agree on the counts.
+//
+// The course page's "2 inscritos" is a promise about what the roster page
+// shows; a professor who clicks through to find a different number has
+// been lied to by whichever one drifted. One tally function serves both,
+// and this is what pins that.
+func TestTheCourseAndRosterPagesAgreeOnTheCounts(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+		aCanvasStudent("900002", "11222444", "K", "MUÑOZ ÁVILA"),
+		aCanvasStudent("900003", "", "", "SIN RUT"),
+	}
+	f.importPost(t, session, courseID)
+
+	course := f.getCourse(t, session, courseID).Body.String()
+	roster := f.getStudents(t, session, courseID).Body.String()
+
+	for _, want := range []string{"3 inscritos", "1 sin RUT"} {
+		if !strings.Contains(course, want) {
+			t.Errorf("the course page does not say %q:\n%s", want, course)
+		}
+		if !strings.Contains(roster, want) {
+			t.Errorf("the roster page does not say %q:\n%s", want, roster)
+		}
+	}
+}
+
+// A failure to read the controls is a 500, not a course page rendered
+// with an empty Controles section.
+//
+// The two look identical to a professor and mean opposite things: one is
+// "you have no controls", the other is "nobody could ask". Rendering the
+// first for the second would send them to create a control that already
+// exists.
+func TestACoursePageWhoseControlsCannotBeReadIs500(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.listFail = errors.New("the database is gone")
+
+	rec := f.getCourse(t, session, courseID)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "Todavía no hay ningún control") {
+		t.Error("a failed read rendered as 'you have no controls'")
+	}
+}
+
+// The roster page is reachable and carries its way back.
+func TestTheRosterPageNamesTheCourseAndLinksBack(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	rec := f.getStudents(t, session, courseID)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), handler.CoursePathFor(courseID)) {
+		t.Error("the roster page has no way back to its course")
+	}
+}
+
+// A roster page for a course that does not exist is a 404, like the
+// course page it hangs off.
+func TestARosterPageForACourseThatDoesNotExistIs404(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+
+	if rec := f.getStudents(t, session, 4242); rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rec.Code)
+	}
 }

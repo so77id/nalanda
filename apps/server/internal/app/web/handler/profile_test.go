@@ -110,7 +110,7 @@ func (f *profileFixture) rekey(t *testing.T, masterKey []byte) {
 	})
 	f.coursesHandler = handler.NewCourses(handler.Courses{
 		Roster:    rosterService,
-		Rematcher: f.rematcher,
+		Controls:  f.rematcher,
 		PublicURL: publicURL,
 		Log:       f.log,
 	})
@@ -169,7 +169,7 @@ func newProfileFixture(t *testing.T, masterKey []byte) *profileFixture {
 	f.rematcher = &fakeRematcher{}
 	f.coursesHandler = handler.NewCourses(handler.Courses{
 		Roster:    rosterService,
-		Rematcher: f.rematcher,
+		Controls:  f.rematcher,
 		PublicURL: publicURL,
 		Log:       log,
 	})

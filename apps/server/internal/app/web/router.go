@@ -283,6 +283,12 @@ func routes(deps Deps) []Route {
 			Method: http.MethodGet, Path: handler.CoursePath,
 			Handler: deps.Courses.Show,
 		},
+		// Issue #272 S6: the roster, moved off the course page so the
+		// controls are what a professor lands on. Gated by default.
+		{
+			Method: http.MethodGet, Path: handler.CourseStudentsPath,
+			Handler: deps.Courses.Students,
+		},
 		{
 			Method: http.MethodPost, Path: handler.CourseImportPath,
 			Handler: deps.Courses.ImportCanvas,

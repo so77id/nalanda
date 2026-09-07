@@ -128,18 +128,54 @@ type ListedCourse struct {
 	Enrolled string
 }
 
-// CourseDetailPage is what course_detail.html renders: one course and the
-// people on it.
+// CourseDetailPage is what course_detail.html renders: one course, the
+// controls sat on it, and the way to its roster.
+//
+// Since issue #272 S6 the roster TABLE is not here — it moved to
+// CourseStudentsPage at /courses/{id}/alumnos. This page is the place a
+// professor lands, and what they land to do is look at controls; a
+// thirty-row table of names above them buried the thing they came for.
+// The counts stay, because a count is what you read on the way past.
 type CourseDetailPage struct {
 	Page
-	Course      ListedCourse
-	Enrollments []ListedEnrollment
+	Course ListedCourse
+	// Controls is every ACTIVE control sat on this course, most recent
+	// first. Empty renders an explanatory line rather than a bare table
+	// head — a course with no controls yet is the ordinary state of a
+	// course just added, not a problem.
+	Controls []ListedControl
+	// StudentsURL is the roster page; MatrixURL is the student × control
+	// grid. MatrixURL is empty until S9 builds it, and the template
+	// renders no link for an empty one — a link to a 404 is worse than a
+	// link that arrives one slice later.
+	StudentsURL string
+	MatrixURL   string
 	// ImportAction is where both import forms post — the empty state's
 	// "Cargar desde Canvas" and the populated state's "Reimportar".
 	ImportAction string
 	// RematchAction is the POST target of "Reasociar controles"
 	// (issue #272 S5).
 	RematchAction string
+
+	EnrolledCount  int
+	WithdrawnCount int
+	// WithoutRUTCount is how many of these people cannot be matched to a
+	// control. Surfaced on the page as well as in the import flash,
+	// because the flash is gone on the next reload and this fact is not.
+	WithoutRUTCount int
+}
+
+// CourseStudentsPage is what course_students.html renders: one course's
+// roster, moved off the course page in issue #272 S6.
+type CourseStudentsPage struct {
+	Page
+	Course      ListedCourse
+	Enrollments []ListedEnrollment
+	// ImportAction is where both import forms post — the empty state's
+	// "Cargar desde Canvas" and the populated state's "Reimportar".
+	ImportAction string
+	// CourseURL is the way back to the course this roster belongs to.
+	CourseURL string
 
 	EnrolledCount  int
 	WithdrawnCount int
@@ -885,6 +921,14 @@ func RenderCourseDetail(w http.ResponseWriter, page CourseDetailPage) error {
 		page.Title = page.Course.Code
 	}
 	return render(w, "course_detail", http.StatusOK, page)
+}
+
+// RenderCourseStudents writes one course's roster (issue #272 S6).
+func RenderCourseStudents(w http.ResponseWriter, page CourseStudentsPage) error {
+	if page.Title == "" {
+		page.Title = page.Course.Code + " · alumnos"
+	}
+	return render(w, "course_students", http.StatusOK, page)
 }
 
 // RenderProfessorsList writes the CRUD's list page.

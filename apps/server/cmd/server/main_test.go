@@ -169,7 +169,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 			// Issue #272 S5: the retroactive pass. These cases are about
 			// the router's table, so the real controls service is what
 			// the binary wires and what the table has to accept.
-			Rematcher: sharedControls,
+			Controls:  sharedControls,
 			PublicURL: "https://nalanda.test",
 			Log:       logger,
 		}),

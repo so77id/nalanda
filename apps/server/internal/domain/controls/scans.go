@@ -579,21 +579,13 @@ func (s *Service) RematchCourse(ctx context.Context, courseID int64) (RematchRes
 	if courseID <= 0 {
 		return RematchResult{}, fmt.Errorf("controls.RematchCourse: course id must be positive, got %d", courseID)
 	}
-	// ListControls rather than a course-scoped query: it is one statement
-	// this store already answers, the set is tens of rows, and a new
-	// index would have to be justified by an EXPLAIN QUERY PLAN this slice
-	// has no reader for (#271 review, PER-4). It also hides archived rows,
-	// which is exactly the set this method wants.
-	all, err := s.Store.ListControls(ctx)
+	forCourse, err := s.ControlsForCourse(ctx, courseID)
 	if err != nil {
 		return RematchResult{}, fmt.Errorf("controls.RematchCourse %d: %w", courseID, err)
 	}
 
 	var total RematchResult
-	for _, c := range all {
-		if c.CourseID == nil || *c.CourseID != courseID {
-			continue
-		}
+	for _, c := range forCourse {
 		one, err := s.RematchReadings(ctx, c.ID)
 		if err != nil {
 			s.Log.Warn("controls.RematchCourse: control failed", "control", c.ID, "error", err)
@@ -604,6 +596,33 @@ func (s *Service) RematchCourse(ctx context.Context, courseID int64) (RematchRes
 		total.merge(one)
 	}
 	return total, nil
+}
+
+// ControlsForCourse returns the ACTIVE controls that belong to one
+// course, in the order the list screens use (issue #272 S6).
+//
+// Filters ListControls in Go rather than asking for a course-scoped
+// query: it is one statement this store already answers, the set is tens
+// of rows, and a new index would have to be justified by an EXPLAIN QUERY
+// PLAN this WP has no reader for (#271 review, PER-4). It also inherits
+// ListControls's hiding of archived rows, which is the set both callers
+// want — the course page does not list what the professor put away, and
+// the retroactive pass does not reach into it.
+func (s *Service) ControlsForCourse(ctx context.Context, courseID int64) ([]Control, error) {
+	if courseID <= 0 {
+		return nil, fmt.Errorf("controls.ControlsForCourse: course id must be positive, got %d", courseID)
+	}
+	all, err := s.Store.ListControls(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("controls.ControlsForCourse %d: %w", courseID, err)
+	}
+	out := make([]Control, 0, len(all))
+	for _, c := range all {
+		if c.CourseID != nil && *c.CourseID == courseID {
+			out = append(out, c)
+		}
+	}
+	return out, nil
 }
 
 // RematchAllCourses is RematchCourse over every course that has one.

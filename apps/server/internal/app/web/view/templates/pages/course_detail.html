@@ -3,69 +3,68 @@
 
   <p>{{ .Course.Name }} · período {{ .Course.Term }}</p>
 
-  <h2>Estudiantes</h2>
-
-  {{ if not .Enrollments }}
-    {{/*
-      The empty state IS the import affordance. A course with no roster has
-      nothing else worth showing, so the button is the page rather than a
-      control tucked beside a table of nothing.
-    */}}
-    <p>Este curso todavía no tiene su lista de estudiantes.</p>
-    <form method="post" action="{{ .ImportAction }}">
-      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
-      <button type="submit">Cargar desde Canvas</button>
-    </form>
-  {{ else }}
+  {{/*
+    Controls first, and deliberately. This is the page a professor lands
+    on, and what they land to do is look at a control — the roster is
+    something they check occasionally and re-import rarely. Before issue
+    #272 S6 a thirty-row table of names sat above everything and buried
+    the thing they came for.
+  */}}
+  <h2>Controles</h2>
+  {{ if not .Controls }}
     <p>
+      Todavía no hay ningún control en este curso. Crea uno desde
+      <a href="/controls/new">Nuevo control</a>.
+    </p>
+  {{ else }}
+    <p>{{ len .Controls }} control{{ if ne (len .Controls) 1 }}es{{ end }}.</p>
+    <table class="lista">
+      <thead>
+        <tr>
+          <th>Control</th>
+          <th>Aplicación</th>
+          <th>Formato</th>
+          <th>Estado</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{ range .Controls }}
+          <tr>
+            <td><a href="{{ .DetailURL }}">{{ .Name }}</a></td>
+            <td>{{ .ApplicationDate }}</td>
+            <td>{{ .Shape }}</td>
+            <td>{{ .State }}</td>
+          </tr>
+        {{ end }}
+      </tbody>
+    </table>
+    {{ if .MatrixURL }}
+      <p><a href="{{ .MatrixURL }}">Ver matriz alumno × control</a></p>
+    {{ end }}
+  {{ end }}
+
+  <h2>Alumnos</h2>
+  <p>
+    {{ if .EnrolledCount }}
       {{ .EnrolledCount }} inscritos{{ if .WithdrawnCount }},
       {{ .WithdrawnCount }} retirados{{ end }}.
       {{ if .WithoutRUTCount }}
         <strong>{{ .WithoutRUTCount }} sin RUT</strong>: esos no se van a
         poder emparejar con sus controles.
       {{ end }}
-    </p>
+      <a href="{{ .StudentsURL }}">Ver la lista</a>
+    {{ else }}
+      Este curso todavía no tiene su lista de estudiantes.
+      <a href="{{ .StudentsURL }}">Cargarla desde Canvas</a>
+    {{ end }}
+  </p>
 
-    <table class="lista">
-      <thead>
-        <tr>
-          <th>Apellidos</th>
-          <th>Nombres</th>
-          <th>RUT</th>
-          <th>Correo</th>
-          <th>Estado</th>
-        </tr>
-      </thead>
-      <tbody>
-        {{ range .Enrollments }}
-          <tr>
-            <td>{{ .LastName }}</td>
-            <td>{{ .FirstName }}</td>
-            {{/*
-              Empty when Canvas held no readable RUT. Rendered as a dash
-              rather than blank so a professor scanning the column sees the
-              gap instead of missing it (ADR-0069 §Decision 2).
-            */}}
-            <td>{{ if .RUT }}{{ .RUT }}{{ else }}—{{ end }}</td>
-            <td>{{ .Email }}</td>
-            <td>{{ .State }}</td>
-          </tr>
-        {{ end }}
-      </tbody>
-    </table>
-
-    <form method="post" action="{{ .ImportAction }}">
-      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
-      <button type="submit">Reimportar desde Canvas</button>
-    </form>
-
-    {{/*
-      Issue #272 S5. Only rendered once a roster exists: with no students
-      the pass would walk every copy to match nobody, and the button would
-      be an invitation to do nothing. Sits beside the reimport because the
-      two are one habit — add the missing student in Canvas, reimport,
-      then pick up the copies they already sat.
-    */}}
+  {{/*
+    Issue #272 S5. Only offered once a roster exists: with no students the
+    pass would walk every copy to match nobody, and the button would be an
+    invitation to do nothing.
+  */}}
+  {{ if .EnrolledCount }}
     <h2>Reasociar controles</h2>
     <p>
       Vuelve a emparejar el RUT de cada copia con su estudiante, en todos los

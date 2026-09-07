@@ -30,6 +30,9 @@ const (
 	// writes, on the course page because that is where the roster it
 	// matches against lives.
 	CourseRematchPath = "/courses/{id}/rematch"
+	// CourseStudentsPath is the roster, moved off the course page in
+	// issue #272 S6 so the controls are what a professor lands on.
+	CourseStudentsPath = "/courses/{id}/alumnos"
 	// AdminRematchPath is the same pass over every course — the
 	// `--all-courses` half. Under /admin/ beside the bank refresh
 	// (issue #230) rather than under /courses/, because it belongs to no
@@ -45,15 +48,21 @@ func CoursePathFor(id int64) string {
 	return CoursesPath + "/" + strconv.FormatInt(id, 10)
 }
 
-// CourseRematcher is the retroactive pass, as this surface needs it
-// (issue #272 S5). Satisfied by controls.Service.
+// CourseControls is everything the course screens need from the controls
+// domain (issue #272). Satisfied by controls.Service.
 //
-// An interface rather than a *controls.Service field, the same shape and
-// the same reason as handler.CourseLister next door: the screen needs two
-// answers, not the controls domain's whole surface — which would drag an
-// AMC worker, a work directory and a question bank into a fixture that
-// renders a roster.
-type CourseRematcher interface {
+// Named for the collaborator rather than for one action, because it grew
+// a third method one slice after it was born: S5 added the retroactive
+// pass and S6 the list the course page renders. An interface rather than
+// a *controls.Service field, the same shape and the same reason as
+// handler.CourseLister next door — the screens need three answers, not
+// the controls domain's whole surface, which would drag an AMC worker, a
+// work directory and a question bank into a fixture that renders a
+// roster.
+type CourseControls interface {
+	// ControlsForCourse is the list the course page renders (S6).
+	ControlsForCourse(ctx context.Context, courseID int64) ([]controls.Control, error)
+	// RematchCourse and RematchAllCourses are the retroactive pass (S5).
 	RematchCourse(ctx context.Context, courseID int64) (controls.RematchResult, error)
 	RematchAllCourses(ctx context.Context) (controls.RematchResult, error)
 }
@@ -62,11 +71,9 @@ type CourseRematcher interface {
 // Canvas import. Same shape as Professors and Profile.
 type Courses struct {
 	Roster *roster.Service
-	// Rematcher rebuilds RUT-to-student associations (issue #272 S5).
-	// Named for the collaborator rather than the action, because the two
-	// handler METHODS below are Rematch and RematchAll and a field cannot
-	// share a name with a method.
-	Rematcher CourseRematcher
+	// Controls is the controls domain, as these screens need it
+	// (issue #272): the list on the course page and the retroactive pass.
+	Controls  CourseControls
 	PublicURL string
 	Log       *slog.Logger
 
@@ -80,8 +87,8 @@ func NewCourses(deps Courses) *Courses {
 	switch {
 	case deps.Roster == nil:
 		panic("handler.NewCourses: no roster service")
-	case deps.Rematcher == nil:
-		panic("handler.NewCourses: no rematcher")
+	case deps.Controls == nil:
+		panic("handler.NewCourses: no controls service")
 	case deps.PublicURL == "":
 		panic("handler.NewCourses: no public URL — the flash cookie's Secure attribute is derived from it")
 	case deps.Log == nil:
@@ -140,7 +147,13 @@ func enrolledLabel(course roster.CourseWithCounts) string {
 	return fmt.Sprintf("%d inscritos", course.Counts.Enrolled)
 }
 
-// Show renders one course and its roster.
+// Show renders one course: the controls sat on it, and the way to its
+// roster (issue #272 S6).
+//
+// The roster TABLE moved to Students. This is the page a professor lands
+// on and what they land to do is look at a control; thirty rows of names
+// above them buried the thing they came for. The counts stay, because a
+// count is what you read on the way past.
 func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 	courseID, ok := c.courseIDFrom(w, r)
 	if !ok {
@@ -159,6 +172,14 @@ func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	rows, err := c.Controls.ControlsForCourse(r.Context(), courseID)
+	if err != nil {
+		c.Log.Error("listing a course's controls", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al leer los controles del curso. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
 	page := view.CourseDetailPage{
 		Page: middleware.PageFor(r, course.Code),
 		Course: view.ListedCourse{
@@ -167,23 +188,54 @@ func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 			Term: course.Term,
 			URL:  CoursePathFor(course.ID),
 		},
-		ImportAction:  CourseImportPathFor(course.ID),
+		Controls:      listedCourseControls(rows),
+		StudentsURL:   CourseStudentsPathFor(course.ID),
 		RematchAction: CourseRematchPathFor(course.ID),
+		// MatrixURL is filled by S9. Empty renders no link at all — a
+		// link to a 404 is worse than a link that arrives one slice later.
 	}
+	page.EnrolledCount, page.WithdrawnCount, page.WithoutRUTCount = enrollmentTally(enrollments)
+
+	if err := view.RenderCourseDetail(w, page); err != nil {
+		c.Log.Error("rendering a course", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+	}
+}
+
+// Students renders one course's roster (issue #272 S6) — the table that
+// used to be the whole of the course page.
+func (c *Courses) Students(w http.ResponseWriter, r *http.Request) {
+	courseID, ok := c.courseIDFrom(w, r)
+	if !ok {
+		return
+	}
+
+	course, enrollments, err := c.Roster.Enrollments(r.Context(), courseID)
+	switch {
+	case errors.Is(err, roster.ErrCourseNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese curso no existe.")
+		return
+	case err != nil:
+		c.Log.Error("reading a course's roster", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al leer la lista. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	page := view.CourseStudentsPage{
+		Page: middleware.PageFor(r, course.Code+" · alumnos"),
+		Course: view.ListedCourse{
+			Code: course.Code,
+			Name: course.Name,
+			Term: course.Term,
+			URL:  CoursePathFor(course.ID),
+		},
+		ImportAction: CourseImportPathFor(course.ID),
+		CourseURL:    CoursePathFor(course.ID),
+	}
+	page.EnrolledCount, page.WithdrawnCount, page.WithoutRUTCount = enrollmentTally(enrollments)
 	for _, e := range enrollments {
-		switch e.State {
-		case roster.StateEnrolled:
-			page.EnrolledCount++
-		case roster.StateWithdrawn:
-			page.WithdrawnCount++
-		}
-		// Scoped to the people still enrolled. A withdrawn student with no
-		// RUT cannot be matched to a control, and does not need to be: they
-		// are not sitting one. Counting them would put a warning on the page
-		// that no action can clear (#271 review, COR-6).
-		if e.State == roster.StateEnrolled && !e.Student.HasRUT() {
-			page.WithoutRUTCount++
-		}
 		page.Enrollments = append(page.Enrollments, view.ListedEnrollment{
 			FirstName: e.Student.FirstName,
 			LastName:  e.Student.LastName,
@@ -193,11 +245,60 @@ func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
-	if err := view.RenderCourseDetail(w, page); err != nil {
-		c.Log.Error("rendering a course", "course", courseID, "error", err)
+	if err := view.RenderCourseStudents(w, page); err != nil {
+		c.Log.Error("rendering a course's roster", "course", courseID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
 			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
 	}
+}
+
+// enrollmentTally counts the three numbers both course screens show.
+//
+// One function rather than two loops, because the two pages must agree:
+// the course page's "25 inscritos" is a promise about what the roster
+// page shows, and a professor who clicks through to find 24 has been lied
+// to by whichever one drifted.
+//
+// WithoutRUT is scoped to the people still ENROLLED. A withdrawn student
+// with no RUT cannot be matched to a control and does not need to be:
+// they are not sitting one. Counting them would put a warning on the page
+// that no action can clear (#271 review, COR-6).
+func enrollmentTally(enrollments []roster.Enrollment) (enrolled, withdrawn, withoutRUT int) {
+	for _, e := range enrollments {
+		switch e.State {
+		case roster.StateEnrolled:
+			enrolled++
+			if !e.Student.HasRUT() {
+				withoutRUT++
+			}
+		case roster.StateWithdrawn:
+			withdrawn++
+		}
+	}
+	return enrolled, withdrawn, withoutRUT
+}
+
+// listedCourseControls renders the course page's control rows.
+//
+// A narrower shape than handler.Controls.toListedControls, and
+// deliberately not a call to it: that one resolves each control's section
+// range against the live question bank to render "Bienvenida/hola →
+// Flujo/bucles", and this table has no range column. Reusing it would
+// make the course page depend on the bank to render four columns that
+// never mention it.
+func listedCourseControls(rows []controls.Control) []view.ListedControl {
+	out := make([]view.ListedControl, 0, len(rows))
+	for _, c := range rows {
+		out = append(out, view.ListedControl{
+			ID:              c.ID,
+			Name:            c.Name,
+			ApplicationDate: formatOptionalDate(c.ApplicationDate),
+			Shape:           fmt.Sprintf("%d preguntas × %d copias", c.QuestionsPerCopy, c.Copies),
+			State:           stateWordControl(c.State),
+			DetailURL:       controlDetailURL(c.ID),
+		})
+	}
+	return out
 }
 
 // FormatRUT writes the stored pair the way a Chilean reader expects it:
@@ -343,6 +444,16 @@ func importFlash(r roster.ImportResult) string {
 	return line
 }
 
+// CourseStudentsPathFor builds one course's roster URL.
+//
+// The segment is Spanish because it is part of what a person reads in the
+// address bar of a page that is entirely Spanish, unlike /controls and
+// /courses which predate this WP and are not worth renaming for
+// consistency's sake alone.
+func CourseStudentsPathFor(id int64) string {
+	return CoursePathFor(id) + "/alumnos"
+}
+
 // CourseRematchPathFor builds one course's rematch URL.
 func CourseRematchPathFor(id int64) string {
 	return CoursePathFor(id) + "/rematch"
@@ -368,7 +479,7 @@ func (c *Courses) Rematch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := c.Rematcher.RematchCourse(r.Context(), courseID)
+	result, err := c.Controls.RematchCourse(r.Context(), courseID)
 	if err != nil {
 		c.Log.Error("rematching a course", "course", courseID, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
@@ -382,7 +493,7 @@ func (c *Courses) Rematch(w http.ResponseWriter, r *http.Request) {
 
 // RematchAll is Rematch over every course — the `--all-courses` half.
 func (c *Courses) RematchAll(w http.ResponseWriter, r *http.Request) {
-	result, err := c.Rematcher.RematchAllCourses(r.Context())
+	result, err := c.Controls.RematchAllCourses(r.Context())
 	if err != nil {
 		c.Log.Error("rematching every course", "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
