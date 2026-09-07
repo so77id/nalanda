@@ -86,7 +86,7 @@ type Service struct {
 	// the escape hatch that turns the whole flow off in production.
 	Annotator       Annotator
 	AnnotateEnabled bool
-	// Matcher resolves a reading'''s RUT to a student on the control'''s
+	// Matcher resolves a reading's RUT to a student on the control's
 	// course (issue #272). Required — a nil one would make every copy
 	// silently unmatched, which looks exactly like a class nobody is
 	// enrolled in.
@@ -103,10 +103,6 @@ type Service struct {
 	Log  *slog.Logger
 }
 
-// NewService returns a Service, refusing a set it cannot serve with — same
-// reasoning as the other constructors in this app: a wiring mistake is a
-// panic at boot rather than a nil dereference inside a request
-// (backend-code-style.md §Errors).
 // Matcher resolves a RUT to the student who sat the copy, scoped to a
 // course. Satisfied by internal/domain/matching's Service.
 //
@@ -123,6 +119,10 @@ type Matcher interface {
 	MatchByRUT(ctx context.Context, rut string, courseID int64) (*int64, error)
 }
 
+// NewService returns a Service, refusing a set it cannot serve with — same
+// reasoning as the other constructors in this app: a wiring mistake is a
+// panic at boot rather than a nil dereference inside a request
+// (backend-code-style.md §Errors).
 func NewService(deps Service) *Service {
 	switch {
 	case deps.Bank == nil:
@@ -387,27 +387,6 @@ func (s *Service) Restore(ctx context.Context, id string) error {
 // interaction); the runner's MarkRunning / MarkDone / MarkFailed will
 // fail with ErrJobNotFound (issue #257 COR-3) and log a warning. No
 // corruption.
-// AssignCourse sets the course a control belongs to (issue #272).
-//
-// The whole of the write: no state transition, no job, nothing
-// recomputed. What it unblocks is read later — S3 matches a new scan
-// against this course's roster, and S5's retroactive command scopes by
-// it — so assigning a course to a control that already has readings
-// changes nothing on its own. Re-running the retroactive command is what
-// applies it to what is already there, which is also why this is
-// last-wins: a mis-assignment is correctable and its consequences are
-// recomputable.
-//
-// The caller is expected to have validated that courseID names a real
-// course; the schema's foreign key is the belt behind that, and a bogus
-// id surfaces here as a driver error rather than a domain sentinel.
-func (s *Service) AssignCourse(ctx context.Context, controlID string, courseID int64) error {
-	if err := s.Store.SetControlCourse(ctx, controlID, courseID); err != nil {
-		return fmt.Errorf("controls.AssignCourse %s: %w", controlID, err)
-	}
-	return nil
-}
-
 func (s *Service) Purge(ctx context.Context, id string) error {
 	control, err := s.Store.ControlByID(ctx, id)
 	if err != nil {
@@ -424,6 +403,37 @@ func (s *Service) Purge(ctx context.Context, id string) error {
 		s.Log.Warn("controls.Purge: file cleanup failed",
 			"control_id", id, "project", projectDir, "error", err)
 	}
+	return nil
+}
+
+// AssignCourse sets the course a control belongs to and rebuilds its
+// associations against that course's roster (issue #272).
+//
+// THE REMATCH IS PART OF THE WRITE, not a follow-up the caller may
+// forget. An earlier version only stamped the column, on the reasoning
+// that a fresh control has no readings yet and S5's button covers the
+// rest. That is false in the one case the operation exists for: a
+// control REASSIGNED from course A to course B keeps every
+// `reading.student_id` pointing at a person enrolled on A — which is
+// precisely "a copy filed under somebody who was never on this course",
+// the failure matching's strict scope exists to prevent (#272 review,
+// COR-3). Last-wins is only safe if the consequences move with it.
+//
+// Best-effort on the rematch half, and the split matters: the column is
+// committed by the time it runs, and a roster outage must not report an
+// assignment that happened as a failure. The associations are
+// recomputable — S5's button is the retry — and the log line is the
+// operator's record. Same policy, and the same reason, as the read
+// paths' rematchQuietly.
+//
+// The caller is expected to have validated that courseID names a real
+// course; the schema's foreign key is the belt behind that, and a bogus
+// id surfaces here as a driver error rather than a domain sentinel.
+func (s *Service) AssignCourse(ctx context.Context, controlID string, courseID int64) error {
+	if err := s.Store.SetControlCourse(ctx, controlID, courseID); err != nil {
+		return fmt.Errorf("controls.AssignCourse %s: %w", controlID, err)
+	}
+	s.rematchQuietly(ctx, controlID, "AssignCourse")
 	return nil
 }
 

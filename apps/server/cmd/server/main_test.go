@@ -67,7 +67,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 	store := authstore.New(db)
 	logger := testLogger()
 	// Issue #272: ONE controls service, shared by the Controls handler and
-	// by the Courses handler's retroactive pass (handler.CourseRematcher).
+	// by the Courses handler's retroactive pass (handler.CourseControls).
 	// Two services over one database would be two places for the wiring
 	// these cases exist to check to drift apart.
 	cstore := controlstore.New(db)

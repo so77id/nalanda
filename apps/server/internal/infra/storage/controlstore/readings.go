@@ -373,7 +373,22 @@ func (s *Store) ClearAnswerOverride(ctx context.Context, readingID int64, questi
 	return nil
 }
 
-// SetRUTOverride upserts the RUT override.
+// CopiesForStudentSQL is the statement CopiesForStudent runs.
+//
+// Exported so the index guard can EXPLAIN the query production actually
+// executes. The guard used to restate the SQL as its own literal, which
+// made it a second place asserting one fact: an edit to either left the
+// other silently authoritative, and the guard would have kept passing
+// over a query that no longer used the index migration 00016 exists for
+// (#272 review, COR-9). Same one-text reasoning as controlInsertColumns.
+const CopiesForStudentSQL = `
+        SELECT reading.control_id, reading.copy_number
+        FROM reading
+        JOIN control ON control.id = reading.control_id
+        WHERE reading.student_id = ?
+          AND control.deleted_at IS NULL
+        ORDER BY control.application_date IS NULL, control.application_date DESC, control.created_at DESC`
+
 // CopiesForStudent locates every copy one student is matched to, across
 // every ACTIVE control, newest control first (issue #272 S8).
 //
@@ -385,14 +400,7 @@ func (s *Store) ClearAnswerOverride(ctx context.Context, readingID int64, questi
 // Archived controls are excluded. Archiving is the professor saying "put
 // this away", and a person's record is not the place to bring it back.
 func (s *Store) CopiesForStudent(ctx context.Context, studentID int64) ([]controls.StudentCopy, error) {
-	rows, err := s.db.QueryContext(ctx, `
-        SELECT reading.control_id, reading.copy_number
-        FROM reading
-        JOIN control ON control.id = reading.control_id
-        WHERE reading.student_id = ?
-          AND control.deleted_at IS NULL
-        ORDER BY control.application_date IS NULL, control.application_date DESC, control.created_at DESC`,
-		studentID)
+	rows, err := s.db.QueryContext(ctx, CopiesForStudentSQL, studentID)
 	if err != nil {
 		return nil, fmt.Errorf("controlstore.CopiesForStudent %d: %w", studentID, err)
 	}
@@ -440,6 +448,7 @@ func (s *Store) SetReadingStudent(ctx context.Context, readingID int64, studentI
 	return nil
 }
 
+// SetRUTOverride upserts the RUT override.
 func (s *Store) SetRUTOverride(ctx context.Context, readingID int64, rut string, editedAt time.Time) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {

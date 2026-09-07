@@ -507,13 +507,28 @@ type RematchResult struct {
 	// Changed is how many readings actually MOVED — the rest already
 	// carried the association this pass computed.
 	Changed int
-	// Errored is readings whose lookup or write failed, and whose
+	// Errored is READINGS whose lookup or write failed, and whose
 	// association is therefore unknown rather than absent.
 	Errored int
+	// ControlsFailed is CONTROLS that could not be walked at all — the
+	// row or its readings were unreadable, so an unknown NUMBER of copies
+	// have an unknown association.
+	//
+	// Its own field because the unit is different. An earlier version
+	// folded these into Errored, which is reading-scoped and rendered as
+	// "N copias no se pudieron consultar" — so one unreadable control
+	// reported as one copy, and the professor was told a smaller problem
+	// than they had (#272 review, ARQ-4).
+	ControlsFailed int
 }
 
 // Readings is how many copies the pass considered.
 func (r RematchResult) Readings() int { return r.Matched + r.Unmatched + r.Errored }
+
+// Failed reports whether anything at all went unanswered — either
+// readings whose lookup failed, or whole controls that could not be
+// walked. The flash uses it to decide whether to say so.
+func (r RematchResult) Failed() bool { return r.Errored > 0 || r.ControlsFailed > 0 }
 
 func (r *RematchResult) add(o matchOutcome) {
 	switch o.kind {
@@ -537,6 +552,7 @@ func (r *RematchResult) merge(o RematchResult) {
 	r.Unmatched += o.Unmatched
 	r.Changed += o.Changed
 	r.Errored += o.Errored
+	r.ControlsFailed += o.ControlsFailed
 }
 
 // matchOutcome is what happened to one reading.
@@ -589,8 +605,10 @@ func (s *Service) RematchCourse(ctx context.Context, courseID int64) (RematchRes
 		one, err := s.RematchReadings(ctx, c.ID)
 		if err != nil {
 			s.Log.Warn("controls.RematchCourse: control failed", "control", c.ID, "error", err)
-			total.Controls++
-			total.Errored++
+			// NOT total.Controls++: a control nobody could read was not
+			// reviewed, and counting it would put it in the "N controles
+			// revisados" the professor reads as work done.
+			total.ControlsFailed++
 			continue
 		}
 		total.merge(one)
@@ -755,8 +773,10 @@ func (s *Service) RematchAllCourses(ctx context.Context) (RematchResult, error) 
 		one, err := s.RematchReadings(ctx, c.ID)
 		if err != nil {
 			s.Log.Warn("controls.RematchAllCourses: control failed", "control", c.ID, "error", err)
-			total.Controls++
-			total.Errored++
+			// NOT total.Controls++: a control nobody could read was not
+			// reviewed, and counting it would put it in the "N controles
+			// revisados" the professor reads as work done.
+			total.ControlsFailed++
 			continue
 		}
 		total.merge(one)

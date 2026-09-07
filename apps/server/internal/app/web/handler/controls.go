@@ -67,14 +67,6 @@ const (
 	minNameLength           = 3
 )
 
-// Controls holds the CRUD's handlers. Same shape as Professors, same
-// reasoning: several handlers sharing dependencies, refused when the set
-// is incomplete so a wiring mistake is a panic at boot rather than a nil
-// dereference inside a request (backend-code-style.md §Errors).
-//
-// Only Service is here on the domain side — reads and writes both go
-// through it (WP-E review, ARQ-11: the earlier shape held both Service
-// and Store and reviewers could not tell which was canonical for reads).
 // RosterReader is the slice of the roster these screens need (issue
 // #272): the course list that fills the create form's required select and
 // the detail page's "Asignar curso" (S1b-b), and the people on one course
@@ -101,6 +93,15 @@ type RosterReader interface {
 
 var _ RosterReader = (*roster.Service)(nil)
 
+// Controls holds the CRUD's handlers. Same shape as Professors, same
+// reasoning: several handlers sharing dependencies, refused when the set
+// is incomplete so a wiring mistake is a panic at boot rather than a nil
+// dereference inside a request (backend-code-style.md §Errors).
+//
+// Only Service is here on the CONTROLS domain side — reads and writes
+// both go through it (WP-E review, ARQ-11: the earlier shape held both
+// Service and Store and reviewers could not tell which was canonical for
+// reads). Roster is a second domain, behind its own narrow port.
 type Controls struct {
 	Service *controls.Service
 	// Roster is the course list and the people on one course (issue #272).
@@ -385,13 +386,14 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 // when the control has one, and the options for the "Asignar curso" form
 // when it does not.
 //
-// The courses are read ONLY in the unassigned branch. A control that
-// already belongs to a course needs a label, and the label is on the row
-// the caller already has — asking the roster again would be a query per
-// detail page render to answer a question nobody asked. The assigned
-// branch resolves the name from the same list only because there is no
-// cheaper way to turn an id into a code; that read is what the branch is
-// for.
+// The course list is read on EVERY render, assigned or not, and that is
+// the cost of turning a course id into the code a professor reads: the
+// control row carries the id and nothing else. An earlier version of this
+// comment claimed the read happened only in the unassigned branch, which
+// was false about the line directly beneath it (#272 review, ARQ-2) —
+// apps/server/CLAUDE.md's "never let a comment claim what the suite does
+// not verify" cuts both ways, and a comment contradicted by its own
+// function is the cheaper half to get wrong.
 func (h *Controls) fillCourse(r *http.Request, page *view.ControlDetailPage, c controls.Control) error {
 	courses, err := h.Roster.Courses(r.Context())
 	if err != nil {

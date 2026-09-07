@@ -1194,3 +1194,42 @@ func (f *profileFixture) studentIDByCanvasID(t *testing.T, canvasUserID string) 
 	}
 	return id
 }
+
+// A course whose whole class withdrew still HAS a roster, and still
+// offers the rematch button.
+//
+// Both halves were wrong (#272 review, COR-11). S6 gated the "Alumnos"
+// copy on the ENROLLED count, so a course everybody left claimed to have
+// no list at all — false, and it sent the professor to re-import a roster
+// they already have. The same gate hid "Reasociar controles" from exactly
+// the course most likely to need it: the one whose students' grades
+// outlive their enrolment (#271 invariant 1).
+func TestACourseWhoseClassAllWithdrewStillHasARosterAndOffersRematch(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+
+	f.api.students = []canvas.Student{
+		aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+	}
+	f.importPost(t, session, courseID)
+
+	// An import Canvas answers with nobody withdraws the whole class —
+	// the roster never deletes.
+	f.api.students = nil
+	f.importPost(t, session, courseID)
+
+	body := f.getCourse(t, session, courseID).Body.String()
+	if strings.Contains(body, "todavía no tiene su lista") {
+		t.Errorf("a course with a fully withdrawn class claims to have no roster:\n%s", body)
+	}
+	if !strings.Contains(body, "Reasociar controles") {
+		t.Errorf("the rematch button is hidden from a course whose students all withdrew, "+
+			"which is where their grades still live:\n%s", body)
+	}
+	if !strings.Contains(body, "1 retirados") {
+		t.Errorf("the withdrawn count is not shown:\n%s", body)
+	}
+}

@@ -48,8 +48,24 @@ func TestNormalizeRUT(t *testing.T) {
 		{"a letter that is not K", "11222444X", "", false},
 		{"ten characters is too long", "1122233345", "", false},
 		{"a separator in the wrong place", "11-222-333", "", false},
+		// The verifier-SHAPE guard, which the docstring names by example
+		// and which no case reached: deleting the three lines that
+		// enforce it left the whole suite green (#272 review, COR-5).
+		{"a two-character verifier is not a verifier", "11222333-99", "", false},
+		{"a two-character verifier with a K", "11222333-KK", "", false},
+		{"a verifier that is a letter other than K", "11222333-X", "", false},
 		{"a verifier with no body", "-5", "", false},
 		{"only a verifier", "K", "", false},
+
+		// THE ACCEPTED GAP, pinned as a decision rather than left in a
+		// paragraph (#272 review, COR-5). A seven-digit RUT typed with
+		// its verifier and NO separator is indistinguishable from an
+		// eight-digit body, and this function reads it as the body. The
+		// trade is deliberate — see NormalizeRUT's docstring — and the
+		// consequence is a copy that matches the owner of those eight
+		// digits or nobody, never a guess. A future change that starts
+		// stripping here has to come through this row.
+		{"seven digits plus an unseparated verifier read as the body", "11222335", "11222335", true},
 	} {
 		t.Run(c.name, func(t *testing.T) {
 			got, ok := matching.NormalizeRUT(c.in)

@@ -101,7 +101,19 @@ func (s *Service) MatchByRUT(ctx context.Context, rut string, courseID int64) (*
 
 	studentID, found, err := s.Store.EnrolledStudentByRUT(ctx, normalized, courseID)
 	if err != nil {
-		return nil, fmt.Errorf("matching.MatchByRUT %s on course %d: %w", normalized, courseID, err)
+		// The RUT is deliberately NOT in this error. It is Ley 21.719
+		// personal data, and docs/security-notes.md §"Logs and personal
+		// data" (recorded 2026-08-26, #228) says any log line that would
+		// touch one keeps the identifier out — the caller
+		// (controls.matchOne) logs this error verbatim, and a cancelled
+		// rematch pass would otherwise write one person's RUT per copy
+		// into the Jetson's docker log rotation.
+		//
+		// Nothing is lost diagnostically: the caller already logs the
+		// control id and the copy number, which is what correlates two
+		// lines about the same sheet. coursestore's own error makes the
+		// same choice one layer down.
+		return nil, fmt.Errorf("matching.MatchByRUT on course %d: %w", courseID, err)
 	}
 	if !found {
 		return nil, nil

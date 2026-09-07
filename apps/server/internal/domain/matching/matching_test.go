@@ -3,6 +3,7 @@ package matching_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
@@ -197,5 +198,38 @@ func TestMatchByRUTRefusesAnAbsentCourseWithoutTouchingTheStore(t *testing.T) {
 	}
 	if len(store.asked) != 0 {
 		t.Errorf("the store was asked %v for a control with no course, want no query at all", store.asked)
+	}
+}
+
+// The RUT never reaches the error text, and therefore never reaches the
+// operator log.
+//
+// `docs/security-notes.md` §"Logs and personal data" (recorded
+// 2026-08-26, #228) is explicit: any log line that would touch a RUT
+// keeps the identifier out, because the Jetson's docker log rotation is
+// where it would persist. This error is logged VERBATIM by
+// controls.matchOne, and a rematch pass cancelled halfway — a closed tab
+// is enough — would otherwise write one person's RUT per remaining copy.
+//
+// The case exists because the first version of this code did exactly
+// that (#272 review, SEC-1). Nothing diagnostic is lost: the caller logs
+// the control id and the copy number, which is what correlates two lines
+// about one sheet.
+func TestAStoreFailureNeverPutsTheRUTInTheError(t *testing.T) {
+	const rut = "11222333"
+	store := &fakeStore{fail: errors.New("database is locked")}
+	svc := matching.NewService(store)
+
+	_, err := svc.MatchByRUT(context.Background(), rut, 7)
+	if err == nil {
+		t.Fatal("MatchByRUT succeeded over a broken store")
+	}
+	if strings.Contains(err.Error(), rut) {
+		t.Errorf("the error carries the RUT and will be logged verbatim: %q", err)
+	}
+	// The course id IS wanted — it is not personal data and it is what
+	// tells an operator which roster the lookup was against.
+	if !strings.Contains(err.Error(), "course 7") {
+		t.Errorf("the error lost the course id, which is the diagnostic half: %q", err)
 	}
 }

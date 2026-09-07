@@ -58,7 +58,7 @@ func CoursePathFor(id int64) string {
 // a third method one slice after it was born: S5 added the retroactive
 // pass and S6 the list the course page renders. An interface rather than
 // a *controls.Service field, the same shape and the same reason as
-// handler.CourseLister next door — the screens need three answers, not
+// handler.RosterReader in controls.go — the screens need three answers, not
 // the controls domain's whole surface, which would drag an AMC worker, a
 // work directory and a question bank into a fixture that renders a
 // roster.
@@ -199,6 +199,9 @@ func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 		RematchAction: CourseRematchPathFor(course.ID),
 	}
 	page.EnrolledCount, page.WithdrawnCount, page.WithoutRUTCount = enrollmentTally(enrollments)
+	// A roster exists once anybody is on it in any state — see
+	// CourseDetailPage.HasRoster for why this is not the enrolled count.
+	page.HasRoster = len(enrollments) > 0
 
 	if err := view.RenderCourseDetail(w, page); err != nil {
 		c.Log.Error("rendering a course", "course", courseID, "error", err)
@@ -550,6 +553,14 @@ func rematchFlash(r controls.RematchResult) string {
 	if r.Errored > 0 {
 		line += fmt.Sprintf("\n%d %s no se pudo consultar. Su asociación quedó como estaba; vuelve a intentarlo.",
 			r.Errored, plural(r.Errored, "copia", "copias"))
+	}
+	if r.ControlsFailed > 0 {
+		// Its own line and its own unit: a control that could not be
+		// walked leaves an unknown NUMBER of copies unresolved, which is
+		// a bigger statement than "N copias" and must not be folded into
+		// it (#272 review, ARQ-4).
+		line += fmt.Sprintf("\n%d %s no se pudo revisar. Vuelve a intentarlo; si sigue fallando, avisa a alguien de infraestructura.",
+			r.ControlsFailed, plural(r.ControlsFailed, "control", "controles"))
 	}
 	return line
 }

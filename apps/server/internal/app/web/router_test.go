@@ -67,7 +67,7 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 	store := authstore.New(db)
 	logger := testLogger()
 	// Issue #272: ONE controls service, shared by the Controls handler and
-	// by the Courses handler's retroactive pass (handler.CourseRematcher).
+	// by the Courses handler's retroactive pass (handler.CourseControls).
 	// Two services over one database would be two places for the wiring
 	// these cases exist to check to drift apart.
 	cstore := controlstore.New(db)
@@ -552,4 +552,36 @@ func (emptyCourseStore) EnrollmentCounts(context.Context) (map[int64]roster.Enro
 // (issue #272 S8).
 func (emptyCourseStore) StudentByID(context.Context, int64) (roster.Student, error) {
 	return roster.Student{}, roster.ErrStudentNotFound
+}
+
+// Every handler Deps carries is refused at WIRING time when it is nil.
+//
+// The point is the FAILURE MODE, not the panic: a router built over a nil
+// handler compiles, boots, serves every other route, and crashes inside
+// the one request that reaches the missing one. Deps.Students was added
+// in issue #272 and missed this switch (#272 review, SEC-2); the case is
+// a table so the next field added to Deps is caught by the same shape.
+func TestRouterRefusesAnIncompleteDepsAtWiringTime(t *testing.T) {
+	for _, c := range []struct {
+		name  string
+		blank func(*web.Deps)
+	}{
+		{"no students", func(d *web.Deps) { d.Students = nil }},
+		{"no courses", func(d *web.Deps) { d.Courses = nil }},
+		{"no controls", func(d *web.Deps) { d.Controls = nil }},
+		{"no profile", func(d *web.Deps) { d.Profile = nil }},
+		{"no admin bank", func(d *web.Deps) { d.AdminBank = nil }},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			d := deps(t, reachable)
+			c.blank(&d)
+
+			defer func() {
+				if recover() == nil {
+					t.Error("Router built over an incomplete Deps; the failure moves into a request instead")
+				}
+			}()
+			_ = web.Router(d)
+		})
+	}
 }

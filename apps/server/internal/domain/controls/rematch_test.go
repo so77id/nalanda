@@ -21,6 +21,10 @@ import (
 type matchingReadingStore struct {
 	rows map[string][]controls.Reading // key: controlID
 	next int64
+	// failFor breaks ReadingsByControl for one control, so a case can
+	// reach the per-control failure branch of the course-wide walks
+	// (issue #272 review, ARQ-4).
+	failFor map[string]error
 }
 
 func newMatchingReadingStore() *matchingReadingStore {
@@ -102,6 +106,9 @@ func (s *matchingReadingStore) setRUT(controlID string, copyNumber int, rut stri
 }
 
 func (s *matchingReadingStore) ReadingsByControl(_ context.Context, controlID string) ([]controls.Reading, error) {
+	if err := s.failFor[controlID]; err != nil {
+		return nil, err
+	}
 	out := make([]controls.Reading, len(s.rows[controlID]))
 	copy(out, s.rows[controlID])
 	return out, nil
@@ -670,6 +677,113 @@ func stampDate(s *fakeStore, controlID string, at time.Time) {
 		if s.controls[i].ID == controlID {
 			d := at
 			s.controls[i].ApplicationDate = &d
+		}
+	}
+}
+
+// A control that cannot be walked is counted in CONTROLS, not in copies,
+// and is not counted as reviewed.
+//
+// The two units matter to the sentence the professor reads. Errored is
+// rendered as "N copias no se pudieron consultar"; a whole unreadable
+// control leaves an unknown NUMBER of copies unresolved, so reporting it
+// as one copy tells them a smaller problem than they have. And counting
+// it in Controls would put it inside "N controles revisados", which is
+// the number they read as work done (#272 review, ARQ-4).
+func TestRematchCourseCountsAnUnreadableControlInItsOwnUnit(t *testing.T) {
+	matcher := &fakeMatcher{byRUT: map[string]int64{"11222333": 42}}
+	svc, _, readings, courseID := newMatchingService(t, matcher)
+	ctx := context.Background()
+
+	good := seedControlWithReadings(t, ctx, svc, readings, courseID, map[int]string{1: "11222333"})
+	broken := seedControlWithReadings(t, ctx, svc, readings, courseID, map[int]string{1: "11222333"})
+	readings.failFor = map[string]error{broken.ID: errors.New("the readings table is gone")}
+
+	got, err := svc.RematchCourse(ctx, courseID)
+	if err != nil {
+		t.Fatalf("RematchCourse returned an error: %v; a per-control failure belongs in the counts", err)
+	}
+
+	if got.ControlsFailed != 1 {
+		t.Errorf("ControlsFailed = %d, want 1 (%+v)", got.ControlsFailed, got)
+	}
+	if got.Errored != 0 {
+		t.Errorf("Errored = %d, want 0 — that field counts COPIES, and no copy lookup failed", got.Errored)
+	}
+	if got.Controls != 1 {
+		t.Errorf("Controls = %d, want 1 — the unreadable control was not reviewed", got.Controls)
+	}
+	if got.Matched != 1 {
+		t.Errorf("Matched = %d, want 1 from the control that DID walk", got.Matched)
+	}
+	if s := readings.studentOf(good.ID, 1); s == nil || *s != 42 {
+		t.Errorf("the readable control was not matched: %v", s)
+	}
+	if !got.Failed() {
+		t.Error("Failed() = false while a control could not be walked")
+	}
+}
+
+// The matrix's column order is total, and every branch of it is reached.
+//
+// The dated pair covers the date comparison; the undated pair covers
+// "undated sorts last" AND the created-at and id tiebreakers beneath it.
+// Inverting all three of those at once left the suite green before this
+// case existed (#272 review, COR-7), which is the shape
+// apps/server/CLAUDE.md's "never let a comment claim what the suite does
+// not verify" exists to catch — each branch carries a comment asserting
+// exactly what it does.
+func TestMatrixColumnOrderIsTotalAcrossEveryBranch(t *testing.T) {
+	svc, store, readings, courseID := newMatchingService(t, &fakeMatcher{})
+	ctx := context.Background()
+
+	older := seedControlWithReadings(t, ctx, svc, readings, courseID, map[int]string{1: "11222333"})
+	newer := seedControlWithReadings(t, ctx, svc, readings, courseID, map[int]string{1: "11222333"})
+	undatedA := seedControlWithReadings(t, ctx, svc, readings, courseID, map[int]string{1: "11222333"})
+	undatedB := seedControlWithReadings(t, ctx, svc, readings, courseID, map[int]string{1: "11222333"})
+
+	stampDate(store, older.ID, time.Unix(1_750_000_000, 0).UTC())
+	stampDate(store, newer.ID, time.Unix(1_755_000_000, 0).UTC())
+	// The two undated ones share a CreatedAt, so only the id tiebreaker
+	// can order them — and it must, or the columns swap between loads.
+	stampCreatedAt(store, undatedA.ID, time.Unix(1_752_000_000, 0).UTC())
+	stampCreatedAt(store, undatedB.ID, time.Unix(1_752_000_000, 0).UTC())
+
+	matrix, err := svc.MatrixForCourse(ctx, courseID)
+	if err != nil {
+		t.Fatalf("MatrixForCourse: %v", err)
+	}
+	if len(matrix.Controls) != 4 {
+		t.Fatalf("Controls = %d, want 4", len(matrix.Controls))
+	}
+
+	got := []string{matrix.Controls[0].ID, matrix.Controls[1].ID, matrix.Controls[2].ID, matrix.Controls[3].ID}
+	if got[0] != older.ID || got[1] != newer.ID {
+		t.Errorf("dated columns = %v, want %s then %s (chronological)", got[:2], older.ID, newer.ID)
+	}
+	// Undated last, whatever their creation order.
+	for _, id := range got[2:] {
+		if id != undatedA.ID && id != undatedB.ID {
+			t.Errorf("a dated control sorted after an undated one: %v", got)
+		}
+	}
+	// And between the two undated ones, ascending id — the total order.
+	lo, hi := undatedA.ID, undatedB.ID
+	if lo > hi {
+		lo, hi = hi, lo
+	}
+	if got[2] != lo || got[3] != hi {
+		t.Errorf("undated columns = %v, want %s then %s (ascending id, so they cannot swap between page loads)",
+			got[2:], lo, hi)
+	}
+}
+
+// stampCreatedAt sets a control's creation time on the fake store, so the
+// ordering tiebreakers these cases depend on are reachable.
+func stampCreatedAt(s *fakeStore, controlID string, at time.Time) {
+	for i := range s.controls {
+		if s.controls[i].ID == controlID {
+			s.controls[i].CreatedAt = at
 		}
 	}
 }

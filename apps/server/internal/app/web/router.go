@@ -405,6 +405,8 @@ func Router(deps Deps) http.Handler {
 		panic("web.Router: no profile handlers")
 	case deps.Courses == nil:
 		panic("web.Router: no courses handlers")
+	case deps.Students == nil:
+		panic("web.Router: no students handler")
 	case deps.AdminBank == nil:
 		panic("web.Router: no admin bank handler")
 	case deps.Log == nil:

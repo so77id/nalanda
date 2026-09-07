@@ -1743,3 +1743,68 @@ func (f *controlsFixture) detailBody(t *testing.T, controlID string) string {
 	}
 	return rec.Body.String()
 }
+
+// Reassigning a control to another course re-files its copies, instead of
+// leaving them under people who were never on the new course.
+//
+// This is the case AssignCourse exists for and the one that was broken
+// (#272 review, COR-3): the write stamped the column and recomputed
+// nothing, so every reading kept a student_id pointing at course A while
+// the control claimed to belong to course B — "a copy filed under
+// somebody who was never on this course", which is the exact failure
+// matching's strict scope is built to prevent.
+func TestReassigningAControlToAnotherCourseRefilesItsCopies(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	// Ana sits on the fixture's course; Bruno on a second one. The same
+	// RUT is on BOTH rosters, so the copy is matchable either way and the
+	// only thing that decides whose it is, is the control's course.
+	other := f.seedCourse(t, "CIT2006-04", "canvas-course-2")
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster (course A): %v", err)
+	}
+	if _, err := f.roster.Store.SaveRoster(ctx, other, []roster.SourceStudent{
+		{FirstName: "Bruno", LastName: "Soto", RUT: "20100002", RUTDV: "1", CanvasUserID: "canvas-bruno"},
+	}); err != nil {
+		t.Fatalf("SaveRoster (course B): %v", err)
+	}
+
+	controlID := f.createControlOnCourse(t, "Control mal asignado", 1, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	anaID := f.studentID(t, "canvas-ana")
+	readings, err := f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor: %v", err)
+	}
+	if got := readings[0].StudentID; got == nil || *got != anaID {
+		t.Fatalf("precondition: copy 1 student = %v, want Ana (%d)", got, anaID)
+	}
+
+	// The professor realises it was the other course all along.
+	form := url.Values{"course_id": {strconv.FormatInt(other, 10)}, "csrf_token": {"csrf-1"}}
+	rec := httptest.NewRecorder()
+	f.handler.AssignCourse(rec, f.assignRequest(t, controlID, form))
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("AssignCourse status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+
+	readings, err = f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor after reassignment: %v", err)
+	}
+	if got := readings[0].StudentID; got != nil && *got == anaID {
+		t.Errorf("copy 1 is still filed under Ana (%d), who is not on the control's new course", anaID)
+	}
+	// 20100001 is on no roster of course B, so the honest outcome is
+	// unmatched — reconciliation, not a wrong person.
+	if got := readings[0].StudentID; got != nil {
+		t.Errorf("copy 1 student = %d after reassignment, want nil", *got)
+	}
+}

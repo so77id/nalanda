@@ -689,15 +689,8 @@ func TestCopiesForStudentIsEmptyForSomebodyWhoSatNothing(t *testing.T) {
 func TestCopiesForStudentDrivesFromTheStudentIndex(t *testing.T) {
 	ctx, db := migrated(t)
 
-	rows, err := db.QueryContext(ctx, `
-        EXPLAIN QUERY PLAN
-        SELECT reading.control_id, reading.copy_number
-        FROM reading
-        JOIN control ON control.id = reading.control_id
-        WHERE reading.student_id = ?
-          AND control.deleted_at IS NULL
-        ORDER BY control.application_date IS NULL, control.application_date DESC, control.created_at DESC`,
-		1)
+	// The PRODUCTION statement, not a copy of it (#272 review, COR-9).
+	rows, err := db.QueryContext(ctx, "EXPLAIN QUERY PLAN "+controlstore.CopiesForStudentSQL, 1)
 	if err != nil {
 		t.Fatalf("EXPLAIN QUERY PLAN: %v", err)
 	}

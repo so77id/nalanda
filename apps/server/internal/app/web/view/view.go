@@ -145,14 +145,10 @@ type CourseDetailPage struct {
 	// course just added, not a problem.
 	Controls []ListedControl
 	// StudentsURL is the roster page; MatrixURL is the student × control
-	// grid. MatrixURL is empty until S9 builds it, and the template
-	// renders no link for an empty one — a link to a 404 is worse than a
-	// link that arrives one slice later.
+	// grid. Both are always populated — the pages behind them shipped in
+	// this same WP (S6 and S9).
 	StudentsURL string
 	MatrixURL   string
-	// ImportAction is where both import forms post — the empty state's
-	// "Cargar desde Canvas" and the populated state's "Reimportar".
-	ImportAction string
 	// RematchAction is the POST target of "Reasociar controles"
 	// (issue #272 S5).
 	RematchAction string
@@ -163,6 +159,16 @@ type CourseDetailPage struct {
 	// control. Surfaced on the page as well as in the import flash,
 	// because the flash is gone on the next reload and this fact is not.
 	WithoutRUTCount int
+	// HasRoster says whether this course has been imported AT ALL, which
+	// is what gates the "Alumnos" copy and the rematch button.
+	//
+	// Not `EnrolledCount > 0`: a course whose whole class withdrew has a
+	// roster and zero enrolled, and the two need opposite words — one
+	// wants an import, the other does not. Gating the rematch button on
+	// the enrolled count also hid it from exactly the course most likely
+	// to need it (#272 review, COR-11; #271 review COR-6 is the same
+	// distinction one screen over).
+	HasRoster bool
 }
 
 // CourseStudentsPage is what course_students.html renders: one course's

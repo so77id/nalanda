@@ -38,14 +38,21 @@
         {{ end }}
       </tbody>
     </table>
-    {{ if .MatrixURL }}
-      <p><a href="{{ .MatrixURL }}">Ver matriz alumno × control</a></p>
-    {{ end }}
+    <p><a href="{{ .MatrixURL }}">Ver matriz alumno × control</a></p>
   {{ end }}
 
   <h2>Alumnos</h2>
   <p>
-    {{ if .EnrolledCount }}
+    {{/*
+      Gated on the roster EXISTING, not on anyone being enrolled. A course
+      whose whole class withdrew has a roster and zero enrolled — two
+      different situations that the enrolled count alone cannot tell apart
+      (the same distinction the course LIST draws with "sin lista", and
+      the one #271's COR-6 already paid for once). Reading "todavía no
+      tiene su lista" there is false, and it sent the professor to
+      re-import a roster they already have (#272 review, COR-11).
+    */}}
+    {{ if .HasRoster }}
       {{ .EnrolledCount }} inscritos{{ if .WithdrawnCount }},
       {{ .WithdrawnCount }} retirados{{ end }}.
       {{ if .WithoutRUTCount }}
@@ -64,7 +71,7 @@
     pass would walk every copy to match nobody, and the button would be an
     invitation to do nothing.
   */}}
-  {{ if .EnrolledCount }}
+  {{ if .HasRoster }}
     <h2>Reasociar controles</h2>
     <p>
       Vuelve a emparejar el RUT de cada copia con su estudiante, en todos los
