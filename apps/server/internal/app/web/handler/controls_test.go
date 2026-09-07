@@ -256,7 +256,7 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		// the scans cases below see the association the binary would
 		// write rather than a double's answer.
 		Matcher:    matching.NewService(courseStore),
-		Dispatcher: email.NewStubDispatcher(),
+		Dispatcher: deliveringStub{email.NewStubDispatcher()},
 		Roster:     courseStore,
 		Senders:    authstore.New(db),
 		Annotator:  fake, AnnotateEnabled: annotateEnabled,
@@ -1746,6 +1746,13 @@ func (failingRoster) Enrollments(context.Context, int64) (roster.Course, []roste
 // rebuildWithGmail swaps the handler's Gmail port, so a case can put the
 // professor in the unconnected state — or in the state where the lookup
 // itself fails — without a second fixture.
+// rebuildWithDispatcher swaps the SERVICE's transport, so a case can put
+// the process in a mode that delivers nothing.
+func (f *controlsFixture) rebuildWithDispatcher(t *testing.T, d controls.Dispatcher) {
+	t.Helper()
+	f.service.Dispatcher = d
+}
+
 func (f *controlsFixture) rebuildWithGmail(t *testing.T, connection handler.GmailConnection) {
 	t.Helper()
 
@@ -1857,3 +1864,15 @@ func (c connectedGmail) Connection(context.Context, int64) (gmail.Connection, er
 	}
 	return gmail.Connection{Address: address}, nil
 }
+
+// deliveringStub is email.StubDispatcher answering Delivers() == true.
+//
+// The route cases are about the ROUTE, and since #273's review a
+// non-delivering transport is refused before the handler reaches anything
+// interesting — so a rig built on the bare stub would test the mode gate
+// forty times and the route never. The mode gate has its own case
+// (TestPublishIsRefusedWhenThisServerCannotDeliver), which is where that
+// behaviour belongs.
+type deliveringStub struct{ *email.StubDispatcher }
+
+func (deliveringStub) Delivers() bool { return true }

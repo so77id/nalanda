@@ -177,6 +177,15 @@ func (p *Profile) GmailCallback(w http.ResponseWriter, r *http.Request) {
 	address, err := p.Gmail.Complete(r.Context(), professor.ID, code, p.gmailCallbackURI())
 	switch {
 	case err == nil:
+	case errors.Is(err, gmail.ErrScopeNotGranted):
+		// The one refusal a professor causes by accident and cannot
+		// diagnose: the send permission is a separate tick-box on Google's
+		// screen, and approving the screen with it unticked looks like
+		// approving the screen.
+		p.Log.Warn("the Gmail consent did not grant the send permission", "professor", professor.ID)
+		p.gmailFailed(w, r, "Diste el acceso pero dejaste sin marcar el permiso para enviar "+
+			"correo. Vuelve a conectar y asegúrate de dejar marcada esa casilla.")
+		return
 	case errors.Is(err, gmail.ErrNoRefreshToken):
 		// The one failure whose message has to explain something the
 		// professor cannot see. Google withholds the long-lived half when

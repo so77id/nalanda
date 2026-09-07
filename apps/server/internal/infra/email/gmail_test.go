@@ -165,11 +165,24 @@ func TestTheSentMessageParsesAsMailWithTheSubjectAndTheAttachment(t *testing.T) 
 		t.Fatalf("what was sent is not a parseable message: %v", err)
 	}
 
-	if got := parsed.Header.Get("From"); got != msg.From {
-		t.Errorf("From = %q, want the professor's connected address %q", got, msg.From)
+	// PARSED, not compared raw — the header carries the RFC 5322 angle-addr
+	// form (`<a@b>`), which is what `mail.Address.String` produces and what
+	// closes the injection class. Comparing the raw string would pin the
+	// serialisation rather than the address, and would have to change again
+	// the next time the encoder does something correct.
+	fromAddr, err := mail.ParseAddress(parsed.Header.Get("From"))
+	if err != nil {
+		t.Fatalf("the From header does not parse as an address: %v", err)
 	}
-	if got := parsed.Header.Get("To"); got != msg.To {
-		t.Errorf("To = %q", got)
+	if fromAddr.Address != msg.From {
+		t.Errorf("From = %q, want the professor's connected address %q", fromAddr.Address, msg.From)
+	}
+	toAddr, err := mail.ParseAddress(parsed.Header.Get("To"))
+	if err != nil {
+		t.Fatalf("the To header does not parse as an address: %v", err)
+	}
+	if toAddr.Address != msg.To {
+		t.Errorf("To = %q", toAddr.Address)
 	}
 
 	// DECODED, not compared raw: the header on the wire is Q-encoded, and
@@ -378,5 +391,114 @@ func TestNoSendErrorEverCarriesTheAccessToken(t *testing.T) {
 		if strings.Contains(err.Error(), "ya29.access") {
 			t.Errorf("the error from a %d carries the access token: %v", status, err)
 		}
+	}
+}
+
+// The injection class, closed by #273's review (SEC-1). The attack was
+// executed against the previous encoder, which interpolated From and To
+// with fmt.Fprintf and no escaping: a CR or LF injected an arbitrary header
+// — a `Bcc:` that Gmail's message/rfc822 upload honours, sending one
+// student's grade and corrected PDF out of the professor's own mailbox — or
+// terminated the header block and injected a body.
+//
+// Subject and the attachment filename were never vulnerable (mime.QEncoding
+// encodes every character below U+0020) and are asserted here anyway, so a
+// future encoder change cannot quietly move them into the vulnerable set.
+func TestNoControlCharacterCanReachAHeader(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		break_  func(*controls.Message)
+		refused bool
+	}{
+		{"CRLF in To", func(m *controls.Message) {
+			m.To = "alumna@example.com\r\nBcc: attacker@evil.com"
+		}, true},
+		{"a bare LF in To", func(m *controls.Message) {
+			m.To = "alumna@example.com\nBcc: attacker@evil.com"
+		}, true},
+		{"a body injected through To", func(m *controls.Message) {
+			m.To = "alumna@example.com\r\n\r\nPAGA A ESTA CUENTA"
+		}, true},
+		{"CRLF in From", func(m *controls.Message) {
+			m.From = "profesora@gmail.com\r\nBcc: attacker@evil.com"
+		}, true},
+		{"CRLF in the attachment's content type", func(m *controls.Message) {
+			m.Attachment.ContentType = "application/pdf\r\nX-Injected: yes"
+		}, true},
+		// These two are encoded rather than refused, which is the correct
+		// answer for them: a Subject and a filename are free text a
+		// professor may legitimately write anything into.
+		{"CRLF in the Subject is encoded", func(m *controls.Message) {
+			m.Subject = "nota 7\r\nBcc: attacker@evil.com"
+		}, false},
+		{"CRLF in the filename is encoded", func(m *controls.Message) {
+			m.Attachment.Filename = "a.pdf\r\nX-Injected: yes"
+		}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rig := newGmailRig(t)
+			msg := spanishMessage()
+			tc.break_(&msg)
+
+			_, err := rig.dispatcher(liveCredentials()).Send(context.Background(), 7, msg)
+
+			if tc.refused {
+				if err == nil {
+					t.Fatalf("the message was SENT; the wire carried:\n%s", rig.gotBody)
+				}
+				if !errors.Is(err, email.ErrHeaderInjection) {
+					t.Errorf("Send returned %v, want ErrHeaderInjection", err)
+				}
+				if rig.requests != 0 {
+					t.Error("an injected message reached Gmail")
+				}
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Send: %v", err)
+			}
+			// PARSED, not grepped. The encoded form legitimately contains
+			// the literal text `X-Injected:` inside a `=?utf-8?q?…?=` word
+			// on a single line, where it is inert — a substring search
+			// calls that an injection and is wrong. What matters is
+			// whether a mail parser sees a HEADER, so ask one.
+			parsed, err := mail.ReadMessage(strings.NewReader(string(rig.gotBody)))
+			if err != nil {
+				t.Fatalf("what was sent is not a parseable message: %v", err)
+			}
+			for _, injected := range []string{"Bcc", "X-Injected"} {
+				if got := parsed.Header.Get(injected); got != "" {
+					t.Errorf("the encoding produced a real %s header (%q):\n%s",
+						injected, got, rig.gotBody)
+				}
+			}
+		})
+	}
+}
+
+// The other half of the same class, and the one the test-send route walks
+// into: net/mail.ParseAddress ACCEPTS `"a@evil.com,b"@x.com` and un-quotes
+// the local part, so writing the parsed address raw would put two
+// recipients in a header the professor typed one address into (#273 review,
+// SEC-2). mail.Address.String re-quotes it.
+func TestAnAddressThatUnquotesIntoTwoStaysOneRecipient(t *testing.T) {
+	rig := newGmailRig(t)
+	msg := spanishMessage()
+	msg.To = `a@evil.com,b@x.com`
+
+	if _, err := rig.dispatcher(liveCredentials()).Send(context.Background(), 7, msg); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	parsed, err := mail.ReadMessage(strings.NewReader(string(rig.gotBody)))
+	if err != nil {
+		t.Fatalf("the message does not parse: %v", err)
+	}
+	list, err := mail.ParseAddressList(parsed.Header.Get("To"))
+	if err != nil {
+		t.Fatalf("the To header does not parse: %v", err)
+	}
+	if len(list) != 1 {
+		t.Errorf("the To header carries %d recipients, want 1: %q", len(list), parsed.Header.Get("To"))
 	}
 }

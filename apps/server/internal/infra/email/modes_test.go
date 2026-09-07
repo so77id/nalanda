@@ -26,6 +26,8 @@ type recorder struct {
 	calls int
 }
 
+func (r *recorder) Delivers() bool { return true }
+
 func (r *recorder) Send(_ context.Context, _ int64, msg controls.Message) (string, error) {
 	r.calls++
 	if r.err != nil {
@@ -200,4 +202,35 @@ func TestBothWrappersSatisfyTheDispatcherPort(t *testing.T) {
 	var _ controls.Dispatcher = email.NewStagingDispatcher(&recorder{})
 	dispatcher, _ := newDryRun(t, liveCredentials())
 	var _ controls.Dispatcher = dispatcher
+}
+
+// The boolean that decides whether a publication may stamp a control. The
+// two non-delivering transports are the whole reason it exists: under
+// either of them every Send "succeeds", so a publication counted forty
+// successes over nobody (#273 review, PUB-2).
+func TestOnlyTheTransportsThatReachAPersonSayTheyDeliver(t *testing.T) {
+	dryRun, _ := newDryRun(t, liveCredentials())
+	rig := newGmailRig(t)
+
+	for _, tc := range []struct {
+		name string
+		d    controls.Dispatcher
+		want bool
+	}{
+		{"stub", email.NewStubDispatcher(), false},
+		{"dryrun", dryRun, false},
+		{"gmail", rig.dispatcher(liveCredentials()), true},
+		{"staging over gmail", email.NewStagingDispatcher(rig.dispatcher(liveCredentials())), true},
+		// Staging DEFERS rather than answering true: wrapped over a
+		// transport that delivers nothing it delivers nothing either, and
+		// hard-coding true here would put the stub's forty fake successes
+		// back on a stamped control by the longer route.
+		{"staging over stub", email.NewStagingDispatcher(email.NewStubDispatcher()), false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.d.Delivers(); got != tc.want {
+				t.Errorf("Delivers() = %v, want %v", got, tc.want)
+			}
+		})
+	}
 }

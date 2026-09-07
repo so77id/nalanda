@@ -51,8 +51,12 @@ type Grant struct {
 	// allowed to differ, and it is THIS one that appears as the From.
 	Address string
 	// Access is the short-lived token the same exchange already produced.
-	// Carried so a connect-then-send does not immediately spend a refresh
-	// on a token it was just handed.
+	//
+	// Carried for a caller that wants it; Service.Complete deliberately
+	// does NOT keep it. Storing or caching an access token would break the
+	// property the per-message refresh exists for — see
+	// email.GmailDispatcher.Send — and ADR-0072 §3 records that access
+	// tokens are never stored.
 	Access Access
 }
 
@@ -68,9 +72,12 @@ type Access struct {
 // The margin is not decoration: a token that passes an exact check can
 // still expire in flight, between this call and Google reading the header
 // on the far side of a request carrying a multi-megabyte attachment.
-// Treating the last minute as already expired costs one refresh and
-// removes the whole class of "it worked in the test and 401'd on the
-// Jetson".
+//
+// NOTHING IN PRODUCTION CALLS THIS. It is kept for a caller that holds an
+// Access and wants to know, and the honest statement is that this server
+// is not one: Service.AccessToken refreshes on every message on purpose
+// (email.GmailDispatcher.Send says why). An earlier version of this
+// comment implied a cache consulted it (#273 review, CACHE-1).
 func (a Access) Valid(now time.Time) bool {
 	return a.Token != "" && now.Add(time.Minute).Before(a.Expiry)
 }
@@ -107,10 +114,21 @@ var (
 	// a key, and no amount of clicking by the professor helps.
 	ErrNotConfigured = errors.New("gmail: this deployment cannot store credentials")
 
-	// ErrConsentDenied is the professor pressing "Cancelar" on Google's
-	// screen, or dismissing it. An ordinary answer, not a fault: the
-	// handler says so and offers the button again.
-	ErrConsentDenied = errors.New("gmail: the professor did not grant consent")
+	// ErrScopeNotGranted is a consent that completed WITHOUT the send
+	// permission. Google presents `gmail.send` as a granular checkbox
+	// beside the identity scopes, so a professor can approve the screen
+	// with it unticked — and the response still carries a refresh token and
+	// an id_token, which is what makes this failure invisible without an
+	// explicit check.
+	//
+	// Left unchecked it is the worst shape available here (#273 review,
+	// SCOPE-1): the connection completes, the profile page says
+	// "Conectado como …", and the first publication stamps the control
+	// before discovering that every send 403s — which the transport reads
+	// as a message refusal and words as "puede ser la cuota diaria",
+	// pointing the professor at a quota that is not the problem, on a
+	// control that is one-way.
+	ErrScopeNotGranted = errors.New("gmail: the consent did not grant permission to send")
 
 	// ErrNoRefreshToken is a consent that came back without the long-lived
 	// half. Google omits it when the account has already granted this

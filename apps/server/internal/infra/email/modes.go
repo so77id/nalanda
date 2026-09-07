@@ -48,6 +48,12 @@ var _ controls.Dispatcher = (*StagingDispatcher)(nil)
 // careful. Failing the send is recoverable; delivering it is not.
 var ErrNoStagingRecipient = errors.New("email: staging has no address to redirect to")
 
+// Delivers defers to the transport underneath: a staging run really does
+// put the message in a mailbox — the professor's. It is a rehearsal in
+// intent, not in effect, and the control it stamps was genuinely published
+// to somebody.
+func (d *StagingDispatcher) Delivers() bool { return d.inner.Delivers() }
+
 // Send redirects and delegates.
 func (d *StagingDispatcher) Send(ctx context.Context, professorID int64, msg controls.Message) (string, error) {
 	if msg.ProfessorEmail == "" {
@@ -87,6 +93,9 @@ func NewDryRunDispatcher(creds Credentials, log *slog.Logger) *DryRunDispatcher 
 }
 
 var _ controls.Dispatcher = (*DryRunDispatcher)(nil)
+
+// Delivers is false: a dry run withholds every message by definition.
+func (d *DryRunDispatcher) Delivers() bool { return false }
 
 // Send validates, logs and withholds.
 func (d *DryRunDispatcher) Send(ctx context.Context, professorID int64, msg controls.Message) (string, error) {

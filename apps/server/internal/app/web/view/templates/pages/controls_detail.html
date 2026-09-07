@@ -164,8 +164,27 @@
         <section style="margin-top:1em">
           <h3>Enviar las correcciones</h3>
 
-          {{ if .Published }}
+          {{ if .PublishedLine }}
             <p class="aviso">{{ .PublishedLine }}</p>
+            {{/*
+              The escape hatch (#273 review). It does not unsend anything,
+              and the warning says how many people already have their
+              correction — the one judgement a machine cannot make is
+              whether those people may receive it twice.
+            */}}
+            <details>
+              <summary>Deshacer la publicación</summary>
+              <form method="post" action="{{ .UnpublishURL }}">
+                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+                <p>{{ .UnpublishWarning }}</p>
+                <p>
+                  Deshacerla no recupera ningún correo que ya haya salido: sólo
+                  deja el control como si no se hubiera publicado, para que
+                  puedas volver a hacerlo.
+                </p>
+                <p><button type="submit">Deshacer la publicación</button></p>
+              </form>
+            </details>
           {{ else }}
             <form method="post" action="{{ .PublishURL }}">
               <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">

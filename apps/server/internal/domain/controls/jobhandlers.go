@@ -277,6 +277,12 @@ func failureFromPublishError(err error) error {
 			Message: "este control no está asignado a un curso",
 			Detail:  "Asígnale un curso para saber a quién enviarle las correcciones.",
 		}
+	case errors.Is(err, ErrCannotDeliver):
+		return &jobs.Failure{
+			Message: "este servidor no está configurado para enviar correo",
+			Detail: "NALANDA_EMAIL_MODE no está en `real`, así que no se envió nada y el " +
+				"control quedó sin publicar. El envío de prueba sí funciona.",
+		}
 	case errors.Is(err, ErrAlreadyPublished):
 		return &jobs.Failure{
 			Message: "este control ya fue publicado",

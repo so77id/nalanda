@@ -603,8 +603,16 @@ type ControlDetailPage struct {
 	// picks by flag rather than guessing.
 	PublishURL  string
 	TestSendURL string
-	// Published is true once the corrections went out.
-	Published bool
+	// UnpublishURL is the POST target of the escape hatch, set only on a
+	// published control (issue #273 review). PublishedLine gates the whole
+	// block, so `Published` was dropped: two fields for one fact are two
+	// fields a future caller can set inconsistently.
+	UnpublishURL string
+	// UnpublishWarning is what the professor weighs before undoing — how
+	// many people already have their correction, and therefore how many
+	// would get it twice. Three different sentences for none, one, several
+	// and unknown.
+	UnpublishWarning string
 	// PublishedLine is the Spanish sentence a published control shows —
 	// when it happened and in which mode. Pre-formatted, like every other
 	// string this struct hands the template.

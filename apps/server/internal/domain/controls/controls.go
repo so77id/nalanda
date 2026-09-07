@@ -93,6 +93,14 @@ type Control struct {
 	// (the close gate, the stats panel, the review page) means the
 	// correction rather than the distribution.
 	PublishedAt *time.Time
+	// PublishedSent is how many messages that publication actually
+	// delivered, or nil when it is not known — a control published before
+	// the count existed, or one whose run died between the stamp and the
+	// bookkeeping write. Nil is NOT zero: it means "unknown", and the
+	// unpublish confirmation words the two differently because telling a
+	// professor nobody received a correction forty people are holding is
+	// the mistake this whole field exists to prevent.
+	PublishedSent *int
 	// PublicationMode records which per-publication mode the run used —
 	// PublishModeReal or PublishModeStaging — and is empty on a control
 	// that was never published. It exists so the page can say afterwards
@@ -259,6 +267,17 @@ type Store interface {
 	// guard shape as SetControlCourse: the UPDATE would otherwise affect
 	// zero rows and hand the caller a success to act on.
 	MarkPublished(ctx context.Context, controlID string, at time.Time, mode string) error
+
+	// RecordPublishedSent stores how many messages a publication actually
+	// delivered (issue #273 review). Bookkeeping written after the loop;
+	// a failure is logged, never forwarded.
+	RecordPublishedSent(ctx context.Context, controlID string, sent int) error
+
+	// ClearPublished undoes a publication so the control can be published
+	// again (issue #273 review, PUB-1/2/3). Clears all three columns —
+	// leaving publication_mode or published_sent behind would describe a
+	// publication that no longer exists.
+	ClearPublished(ctx context.Context, controlID string) error
 
 	// PurgeControl hard-deletes an archived control (issue #261).
 	// Refuses to touch an active row (WHERE deleted_at IS NOT NULL) — the

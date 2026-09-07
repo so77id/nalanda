@@ -52,6 +52,8 @@ type capturingDispatcher struct {
 	// failOn maps a recipient to the error its send returns, so a case can
 	// break one copy of a batch and watch the others land.
 	failOn map[string]error
+	// doesNotDeliver makes this stand in for stub or dryrun.
+	doesNotDeliver bool
 	// onFirstSend runs before the first message is accepted, so a case can
 	// observe the world AS IT IS at that instant. This is the only way to
 	// pin the stamp-before-send ordering: the loop never returns early, so
@@ -61,6 +63,11 @@ type capturingDispatcher struct {
 	// green.
 	onFirstSend func()
 }
+
+// delivers defaults to TRUE via the zero value being inverted: a case that
+// wants a non-delivering transport says so explicitly, so the ordinary rig
+// reads as the ordinary deployment.
+func (d *capturingDispatcher) Delivers() bool { return !d.doesNotDeliver }
 
 func (d *capturingDispatcher) Send(_ context.Context, _ int64, msg controls.Message) (string, error) {
 	if d.onFirstSend != nil {
@@ -445,6 +452,19 @@ func TestCopiesWithNothingToSendAreSkippedRatherThanFailed(t *testing.T) {
 		}},
 		{"the grade is not defined", func(_ *publishRig, r *publishReadings) {
 			r.readings[1].Answers[0].Status = controls.AnswerStatusDoubtful
+		}},
+		// The fourth skip, and the one whose mutation survived the whole
+		// suite before the review (#273, COR-7). Reachable rather than
+		// theoretical: 00014_roster.sql declares `email TEXT NOT NULL
+		// DEFAULT ''`, so any Canvas import missing an address produces
+		// exactly this row. The "no longer enrolled" case masks it,
+		// because a missing map entry also yields an empty Email.
+		{"the matched person has no address on file", func(rig *publishRig, r *publishReadings) {
+			rig.svc.Roster = fakeRoster{code: "CIT2006-03", recipients: map[int64]controls.Recipient{
+				10: {Name: "Ana", Email: "ana@udp.cl"},
+				20: {Name: "Bruno", Email: ""},
+				30: {Name: "Carla", Email: "carla@udp.cl"},
+			}}
 		}},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

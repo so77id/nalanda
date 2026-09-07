@@ -5,12 +5,15 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"mime"
 	"mime/multipart"
 	"net/http"
+	"net/mail"
 	"net/textproto"
+	"strings"
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
@@ -88,19 +91,26 @@ func NewGmailDispatcher(cfg GmailConfig) *GmailDispatcher {
 
 var _ controls.Dispatcher = (*GmailDispatcher)(nil)
 
+// Delivers is true: this is the transport that actually sends.
+func (d *GmailDispatcher) Delivers() bool { return true }
+
 // Send delivers one message and returns Gmail's id for it.
 func (d *GmailDispatcher) Send(ctx context.Context, professorID int64, msg controls.Message) (string, error) {
 	if msg.To == "" {
 		return "", fmt.Errorf("%w", ErrNoRecipient)
 	}
 
-	// The token is fetched per message rather than per batch. It looks
-	// wasteful and is not: gmail.Service holds no cache, but the refresh
-	// only happens when the stored access token has expired, and a
-	// publication of forty copies runs inside one token's hour. What this
-	// DOES buy is that a credential revoked halfway through a batch stops
-	// the batch at the next copy instead of failing thirty-nine sends with
-	// a stale token.
+	// One credential fetch per MESSAGE, and it really is one refresh per
+	// message — there is no cache anywhere, and an earlier version of this
+	// comment claimed there was (#273 review, CACHE-1, found by three
+	// lenses independently).
+	//
+	// It is the deliberate cost, not an oversight. A cache would save ~40
+	// keep-alive POSTs to Google beside 40 multi-megabyte uploads, which is
+	// noise — and it would BREAK the property that makes the per-message
+	// fetch worth having: a credential revoked halfway through a batch
+	// stops the batch at the next copy, instead of failing the remaining
+	// thirty-nine against a token this process is still holding.
 	access, err := d.cfg.Credentials.AccessToken(ctx, professorID)
 	if err != nil {
 		return "", err
@@ -108,7 +118,13 @@ func (d *GmailDispatcher) Send(ctx context.Context, professorID int64, msg contr
 
 	raw, err := buildMIME(msg)
 	if err != nil {
-		return "", fmt.Errorf("%w: build the message: %v", controls.ErrSendRefused, err)
+		// TWO %w, so both sentinels stay reachable: ErrSendRefused is what
+		// the publication loop branches on to record a per-copy failure and
+		// carry on, and the wrapped cause is what says WHICH refusal it was
+		// — ErrHeaderInjection in particular, which an operator needs to
+		// see because it means the roster is carrying something nobody
+		// should be able to write.
+		return "", fmt.Errorf("%w: build the message: %w", controls.ErrSendRefused, err)
 	}
 
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, d.cfg.Endpoint, bytes.NewReader(raw))
@@ -181,30 +197,29 @@ func (d *GmailDispatcher) failure(response *http.Response) error {
 	}
 }
 
-// errorReason extracts the short reason from Gmail's error envelope and
-// nothing else.
+// errorReason extracts the CLOSED-VOCABULARY status from Gmail's error
+// envelope, and nothing else.
 //
-// The whole body is deliberately not reported: it answers a request that
-// carried a bearer token, and it is on the path most likely to be logged.
-// Same reasoning as oidc.oauthErrorCode.
+// `status` only. The envelope's `message` is provider-controlled free text
+// on a path that answers a request carrying a bearer token and that ends in
+// a log line, and the earlier version of this function fell back to it when
+// `status` was absent — so the one branch that echoed an arbitrary
+// provider string was also the one branch the test fixture never reached
+// (#273 review, TEST-2). Reading only the bounded field is the same rule,
+// and the same reason, as oidc.oauthErrorCode reading only `error`.
 func errorReason(body io.Reader) string {
 	var envelope struct {
 		Error struct {
-			Status  string `json:"status"`
-			Message string `json:"message"`
+			Status string `json:"status"`
 		} `json:"error"`
 	}
 	if err := json.NewDecoder(io.LimitReader(body, 8<<10)).Decode(&envelope); err != nil {
 		return "unreadable"
 	}
-	switch {
-	case envelope.Error.Status != "":
+	if envelope.Error.Status != "" {
 		return envelope.Error.Status
-	case envelope.Error.Message != "":
-		return envelope.Error.Message
-	default:
-		return "no reason given"
 	}
+	return "no reason given"
 }
 
 // buildMIME assembles the RFC 5322 message.
@@ -215,14 +230,23 @@ func errorReason(body io.Reader) string {
 // mojibake — on the one line they read before deciding whether to open it.
 // The filename gets the same treatment for the same reason.
 func buildMIME(msg controls.Message) ([]byte, error) {
+	from, err := headerAddress(msg.From)
+	if err != nil {
+		return nil, fmt.Errorf("from: %w", err)
+	}
+	to, err := headerAddress(msg.To)
+	if err != nil {
+		return nil, fmt.Errorf("to: %w", err)
+	}
+
 	var out bytes.Buffer
 	body := multipart.NewWriter(&out)
 
 	header := func(name, value string) {
 		fmt.Fprintf(&out, "%s: %s\r\n", name, value)
 	}
-	header("From", msg.From)
-	header("To", msg.To)
+	header("From", from)
+	header("To", to)
 	header("Subject", mime.QEncoding.Encode("utf-8", msg.Subject))
 	header("MIME-Version", "1.0")
 	header("Content-Type", "multipart/mixed; boundary="+body.Boundary())
@@ -247,6 +271,9 @@ func buildMIME(msg controls.Message) ([]byte, error) {
 		if contentType == "" {
 			contentType = "application/octet-stream"
 		}
+		if strings.ContainsAny(contentType, "\r\n") {
+			return nil, fmt.Errorf("%w: the attachment's content type", ErrHeaderInjection)
+		}
 		name := mime.QEncoding.Encode("utf-8", msg.Attachment.Filename)
 		file, err := body.CreatePart(textproto.MIMEHeader{
 			"Content-Type":              {contentType},
@@ -265,6 +292,39 @@ func buildMIME(msg controls.Message) ([]byte, error) {
 		return nil, fmt.Errorf("close the message: %w", err)
 	}
 	return out.Bytes(), nil
+}
+
+// ErrHeaderInjection is a value that cannot go in an RFC 5322 header.
+//
+// It exists because the previous version of buildMIME interpolated From and
+// To with fmt.Fprintf and no escaping, so a CR or LF in either injected an
+// arbitrary header — a `Bcc:` that Gmail's message/rfc822 upload honours,
+// exfiltrating one student's grade and corrected PDF from the professor's
+// own mailbox — or terminated the header block and injected a body
+// (#273 review, SEC-1; the attack was executed, not argued).
+//
+// Subject and the attachment filename were never vulnerable: they go
+// through mime.QEncoding, which encodes every character below U+0020.
+var ErrHeaderInjection = errors.New("email: a header value carries a control character")
+
+// headerAddress renders one address safely for a To or From header.
+//
+// mail.Address.String rather than a hand-rolled check, because it does two
+// things at once: it refuses nothing silently, and it QUOTES a local part
+// that needs quoting. That second half is what closes the other half of the
+// same class — net/mail.ParseAddress accepts `"a@evil.com,b"@x.com` and
+// un-quotes it, so writing parsed.Address raw would put TWO recipients in a
+// header the professor typed one address into (#273 review, SEC-2).
+//
+// The explicit CR/LF refusal comes first anyway. String() strips them, and
+// a silently stripped injection attempt is a thing this server should
+// refuse rather than sanitise: it means the roster, or Canvas, is handing
+// us something nobody should be able to write.
+func headerAddress(address string) (string, error) {
+	if strings.ContainsAny(address, "\r\n") {
+		return "", fmt.Errorf("%w", ErrHeaderInjection)
+	}
+	return (&mail.Address{Address: address}).String(), nil
 }
 
 // writeBase64 writes content as base64 wrapped at 76 columns.

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -114,6 +115,18 @@ func (g *GmailAuthorizer) Exchange(ctx context.Context, code, redirectURI string
 			"%w: the token response carries no id_token, so the connected account is unknown",
 			domaingmail.ErrUnavailable)
 	}
+	// The granted scope, not the requested one. Asking for `gmail.send` and
+	// checking that it came back are two different things, and the second
+	// is the one that matters: Google returns a refresh token either way,
+	// so without this the connection looks complete and the failure surfaces
+	// at the first publication — on a control that is already stamped.
+	//
+	// Same class as access_type and prompt above, which this file's own
+	// doc-comment calls "the three parameters that fail SILENTLY when
+	// wrong". This is the fourth.
+	if !slices.Contains(strings.Fields(body.Scope), domaingmail.Scope) {
+		return domaingmail.Grant{}, fmt.Errorf("%w", domaingmail.ErrScopeNotGranted)
+	}
 
 	// VERIFIED, not decoded. The address this returns becomes the From on
 	// mail sent to students; a reader that trusted the payload would let
@@ -163,6 +176,11 @@ type tokenResponse struct {
 	RefreshToken string `json:"refresh_token"`
 	IDToken      string `json:"id_token"`
 	ExpiresIn    int64  `json:"expires_in"`
+	// Scope is what Google ACTUALLY granted, which is not what was asked
+	// for: `gmail.send` is a granular permission the professor can untick
+	// on the consent screen while still approving it. Reading it is the
+	// only way to tell (#273 review, SCOPE-1).
+	Scope string `json:"scope"`
 }
 
 // access turns the response's relative lifetime into an absolute expiry.

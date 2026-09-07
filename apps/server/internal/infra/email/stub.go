@@ -78,6 +78,13 @@ func (d *StubDispatcher) Send(_ context.Context, professorID int64, msg controls
 	return stubID(msg), nil
 }
 
+// Delivers is false: this transport reaches no network and no person.
+//
+// It is what stops a publication under the default mode from stamping a
+// control and reporting a class that was never written to (#273 review,
+// PUB-2).
+func (d *StubDispatcher) Delivers() bool { return false }
+
 // Sent returns the calls recorded so far, oldest first.
 //
 // A COPY, not the slice itself: handing out the backing array would let a
@@ -88,14 +95,6 @@ func (d *StubDispatcher) Sent() []StubSend {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 	return append([]StubSend(nil), d.sent...)
-}
-
-// Reset drops the recorded history, for a test that reuses one dispatcher
-// across sub-cases.
-func (d *StubDispatcher) Reset() {
-	d.mu.Lock()
-	d.sent = nil
-	d.mu.Unlock()
 }
 
 // stubID derives the fabricated id from the message.

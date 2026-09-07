@@ -41,7 +41,7 @@ const controlInsertColumns = "id, name, application_date, from_document, from_se
 // archived/active split is visible to callers.
 // Issue #273 appends the publication pair, so every read of a control
 // carries whether it was published without a second query.
-const controlColumns = controlInsertColumns + ", deleted_at, published_at, publication_mode"
+const controlColumns = controlInsertColumns + ", deleted_at, published_at, publication_mode, published_sent"
 
 // CreateControl writes the control, its pool and its copies in one
 // transaction. Rolled back on any failure so a control never appears in the
@@ -285,6 +285,7 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		courseID        sql.NullInt64
 		publishedAt     sql.NullInt64
 		publicationMode sql.NullString
+		publishedSent   sql.NullInt64
 	)
 	if err := row.Scan(
 		&c.ID, &c.Name, &applicationDate,
@@ -297,7 +298,7 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		&state, &createdAt, &c.CreatedBy,
 		&courseID,
 		&deletedAt,
-		&publishedAt, &publicationMode,
+		&publishedAt, &publicationMode, &publishedSent,
 	); err != nil {
 		return controls.Control{}, err
 	}
@@ -322,6 +323,10 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		c.PublishedAt = &at
 	}
 	c.PublicationMode = controls.PublishMode(publicationMode.String)
+	if publishedSent.Valid {
+		sent := int(publishedSent.Int64)
+		c.PublishedSent = &sent
+	}
 	return c, nil
 }
 
@@ -472,6 +477,55 @@ func (s *Store) MarkPublished(ctx context.Context, controlID string, at time.Tim
 	}
 	if affected == 0 {
 		return controls.ErrControlNotFound
+	}
+	return nil
+}
+
+// RecordPublishedSent stores how many messages a publication delivered
+// (issue #273 review).
+//
+// Guarded on `published_at IS NOT NULL`, so a count can never appear on a
+// control nothing was published for — the pair would describe a delivery
+// that never happened. A zero-row update is NOT an error here: this is
+// best-effort bookkeeping written after the load-bearing stamp, and the
+// caller logs rather than fails.
+func (s *Store) RecordPublishedSent(ctx context.Context, controlID string, sent int) error {
+	if _, err := s.db.ExecContext(ctx, `
+        UPDATE control SET published_sent = ?
+        WHERE id = ? AND published_at IS NOT NULL`,
+		sent, controlID,
+	); err != nil {
+		return fmt.Errorf("record how many were sent for control %s: %w", controlID, err)
+	}
+	return nil
+}
+
+// ClearPublished undoes a publication (issue #273 review).
+//
+// All THREE columns together, in one statement. Leaving publication_mode or
+// published_sent behind would describe a publication that no longer exists,
+// and the next publication would then overwrite two of the three and
+// inherit the stale one.
+//
+// Guarded on `published_at IS NOT NULL` — the schema-level belt behind
+// Service.Unpublish's own check, the shape SoftDeleteControl, PurgeControl
+// and MarkPublished all have. A hand-typed URL against a control that was
+// never published changes nothing and says so.
+func (s *Store) ClearPublished(ctx context.Context, controlID string) error {
+	result, err := s.db.ExecContext(ctx, `
+        UPDATE control SET published_at = NULL, publication_mode = NULL, published_sent = NULL
+        WHERE id = ? AND published_at IS NOT NULL`,
+		controlID,
+	)
+	if err != nil {
+		return fmt.Errorf("clear the publication of control %s: %w", controlID, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("clear the publication of control %s: %w", controlID, err)
+	}
+	if affected == 0 {
+		return controls.ErrNotPublished
 	}
 	return nil
 }

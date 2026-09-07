@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 )
@@ -122,6 +121,15 @@ type PublishFailure struct {
 	Reason string
 }
 
+// DeliversMail reports whether this process can actually put mail in front
+// of a student.
+//
+// Exposed as a SERVICE method rather than letting a handler read
+// s.Dispatcher, because a delivery surface depends on a domain service and
+// never on what sits behind it (backend-code-style.md §The dependency
+// rule, edge 4).
+func (s *Service) DeliversMail() bool { return s.Dispatcher.Delivers() }
+
 // The refusals Publish makes before sending anything.
 var (
 	// ErrNotGraded is a control whose correction is not closed. Publishing
@@ -131,8 +139,26 @@ var (
 	// is no roster to address.
 	ErrNoCourse = errors.New("controls: the control belongs to no course")
 	// ErrAlreadyPublished is a second publication of the same control.
-	// Publication is one-way in v1 (issue #273 §Non-goals).
+	// Publication is one-way unless the professor explicitly unpublishes
+	// (issue #273 §Non-goals, amended by the WP's own review).
 	ErrAlreadyPublished = errors.New("controls: the control was already published")
+
+	// ErrNotPublished is an unpublish of a control that never went out.
+	// Distinct from ErrControlNotFound so a hand-typed URL against a real
+	// control says what is actually wrong.
+	ErrNotPublished = errors.New("controls: the control was never published")
+
+	// ErrCannotDeliver is a process whose transport sends nothing —
+	// NALANDA_EMAIL_MODE is `stub` or `dryrun`.
+	//
+	// A REFUSAL rather than a silent no-stamp, because the professor is
+	// standing in front of the button and the honest answer is that this
+	// server cannot mail anybody. Before this existed the publication ran,
+	// counted every suppressed message as a success, stamped the control
+	// and said the class had been written to (#273 review, PUB-2) — and
+	// since `stub` is the default and the deploy document did not list the
+	// variable, that was the documented production path.
+	ErrCannotDeliver = errors.New("controls: this server is not configured to send mail")
 )
 
 // Publish sends one email per deliverable copy.
@@ -165,6 +191,12 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 		return PublishResult{}, fmt.Errorf("%w", ErrNoCourse)
 	case control.PublishedAt != nil && !rehearsal:
 		return PublishResult{}, fmt.Errorf("%w", ErrAlreadyPublished)
+	case !rehearsal && !s.Dispatcher.Delivers():
+		// Checked BEFORE the stamp, so a server in stub or dryrun leaves the
+		// control exactly as it found it. A rehearsal is still allowed —
+		// rehearsing under a transport that delivers nothing is a coherent
+		// thing to do, and it changes no state either way.
+		return PublishResult{}, fmt.Errorf("%w", ErrCannotDeliver)
 	}
 
 	sender, err := s.Senders.SenderFor(ctx, req.ProfessorID)
@@ -215,7 +247,44 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 		}
 		result.Sent++
 	}
+
+	if !rehearsal {
+		// Bookkeeping, AFTER the loop and best-effort. The stamp above is
+		// the load-bearing write and its ordering is the contract; this
+		// number only makes the unpublish confirmation honest ("nobody
+		// received anything" versus "38 people already have this"). A crash
+		// between the two leaves it NULL, which the page words as "no se
+		// sabe cuántos llegaron" — the truthful answer, and the reason the
+		// column is nullable rather than defaulted to zero.
+		if err := s.Store.RecordPublishedSent(ctx, controlID, result.Sent); err != nil {
+			s.Log.Warn("controls.Publish: could not record how many were sent",
+				"control", controlID, "sent", result.Sent, "error", err)
+		}
+	}
 	return result, nil
+}
+
+// Unpublish clears the publication so the control can be published again.
+//
+// The escape hatch the review asked for, and the reason it is a hatch
+// rather than a rule: "do not stamp when nothing was delivered" only
+// reaches one of the three failure shapes, because under a staging run
+// every send genuinely succeeds. What covers all three is letting the
+// professor undo a publication — and putting the one judgement a machine
+// cannot make in front of the person who can, which is whether the people
+// who already received their correction may receive it twice.
+//
+// It does NOT unsend anything, and the page that offers it says so, using
+// the count this records to say how many are affected.
+func (s *Service) Unpublish(ctx context.Context, controlID string) error {
+	control, err := s.Store.ControlByID(ctx, controlID)
+	if err != nil {
+		return err
+	}
+	if control.PublishedAt == nil {
+		return fmt.Errorf("%w", ErrNotPublished)
+	}
+	return s.Store.ClearPublished(ctx, controlID)
 }
 
 // messageFor assembles one copy's message, or reports that there is
@@ -326,8 +395,3 @@ func publishFailureReason(err error) string {
 		return "no se pudo enviar"
 	}
 }
-
-// PublishedAtOrNil is a small helper the handler uses to render the
-// published line. Kept here so the zero-value convention — nil means never
-// published — is stated once.
-func PublishedAtOrNil(c Control) *time.Time { return c.PublishedAt }

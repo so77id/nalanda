@@ -81,6 +81,23 @@ type Message struct {
 // every call.
 type Dispatcher interface {
 	Send(ctx context.Context, professorID int64, msg Message) (string, error)
+
+	// Delivers reports whether this transport actually puts messages in
+	// front of people.
+	//
+	// It exists because the domain otherwise CANNOT KNOW, and a publication
+	// that cannot know is a publication that lies. The transport is chosen
+	// once at boot from NALANDA_EMAIL_MODE, which defaults to `stub`; under
+	// stub every Send succeeds, so a publication counted forty successes,
+	// stamped the control, and told the professor "las correcciones se
+	// enviaron a los estudiantes" over nothing — irreversibly, because
+	// publication is one-way (#273 review, PUB-2).
+	//
+	// The alternative was passing the config mode down into the domain,
+	// which would make every caller of Publish carry a deployment concern.
+	// One boolean on the port it already holds is smaller and puts the
+	// answer with the only thing that knows it.
+	Delivers() bool
 }
 
 // The failure modes a caller branches on.

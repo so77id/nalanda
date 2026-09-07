@@ -1428,3 +1428,42 @@ func TestTheJobKindRebuildPreservesTheRowsAndTheConstraints(t *testing.T) {
 		t.Errorf("%d job rows survived their control, want the cascade to have removed them", remaining)
 	}
 }
+
+// Issue #273 review: how many messages a publication actually delivered.
+//
+// NULL is not zero, and that is the whole reason the column is nullable.
+// NULL means "the count was never written" — a control published before
+// this column existed, or a run that died between the stamp and the
+// bookkeeping write — and the unpublish confirmation words it as "no se
+// sabe cuántos llegaron". Defaulting it to 0 would assert that nobody
+// received a correction that forty people may be holding, which is the
+// exact claim this column exists to stop anybody making.
+func TestPublishedSentIsNullableAndDistinguishesZeroFromUnknown(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	id := insertControlRow(t, ctx, db, "CTRLSENT00000000000000001", userID, nil)
+
+	var sent sql.NullInt64
+	if err := db.QueryRowContext(ctx,
+		"SELECT published_sent FROM control WHERE id = ?", id).Scan(&sent); err != nil {
+		t.Fatalf("reading published_sent back: %v", err)
+	}
+	if sent.Valid {
+		t.Errorf("a control that was never published reads published_sent=%d, want NULL", sent.Int64)
+	}
+
+	// Zero is a real, storable answer that means something different from
+	// NULL: the publication ran and delivered nothing.
+	if _, err := db.ExecContext(ctx,
+		"UPDATE control SET published_at = 1, publication_mode = 'real', published_sent = 0 WHERE id = ?",
+		id); err != nil {
+		t.Fatalf("stamping a publication that delivered nothing: %v", err)
+	}
+	if err := db.QueryRowContext(ctx,
+		"SELECT published_sent FROM control WHERE id = ?", id).Scan(&sent); err != nil {
+		t.Fatalf("re-reading published_sent: %v", err)
+	}
+	if !sent.Valid || sent.Int64 != 0 {
+		t.Errorf("published_sent = %v, want a stored 0 distinguishable from NULL", sent)
+	}
+}

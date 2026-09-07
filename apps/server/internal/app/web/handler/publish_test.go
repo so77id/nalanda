@@ -11,6 +11,7 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 )
 
 // The route runs the same gates the domain runs, and the duplication is the
@@ -423,5 +424,149 @@ func TestTheRehearsalStaysAvailableAfterPublication(t *testing.T) {
 	}
 	if strings.Contains(body, "disabled>Enviar prueba") {
 		t.Error("the rehearsal is disabled on a published control")
+	}
+}
+
+// The gate the review added (PUB-2). Under `stub` or `dryrun` every send
+// "succeeds", so before this the publication stamped the control, showed a
+// green banner and told the professor the class had been written to — over
+// nothing, irreversibly, and on the DEFAULT mode.
+func TestPublishIsRefusedWhenThisServerCannotDeliver(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+	f.rebuildWithDispatcher(t, email.NewStubDispatcher())
+
+	rec := f.publish(t, controlID, url.Values{"mode": {"real"}})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422\n%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "NALANDA_EMAIL_MODE") {
+		t.Errorf("the message does not name the variable an operator has to change:\n%s",
+			rec.Body.String())
+	}
+
+	control, err := f.service.Get(context.Background(), controlID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if control.PublishedAt != nil {
+		t.Error("a server that cannot send mail still stamped the control published")
+	}
+}
+
+// And the rehearsal is still allowed under it: rehearsing on a server that
+// delivers nothing is a coherent thing to do, and it changes no state.
+func TestATestSendStillWorksWhenThisServerCannotDeliver(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+	f.rebuildWithDispatcher(t, email.NewStubDispatcher())
+
+	rec := f.testSend(t, controlID, url.Values{"to": {"miguel@gmail.com"}})
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want the rehearsal to proceed\n%s", rec.Code, rec.Body.String())
+	}
+}
+
+// The escape hatch. Publication was one-way with no exceptions, so any run
+// that stamped without delivering left the class permanently unreachable
+// through the app.
+func TestUnpublishLetsAControlBePublishedAgain(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	if rec := f.publish(t, controlID, url.Values{"mode": {"real"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("publish: %d", rec.Code)
+	}
+	f.waitLatestJobTerminal(t, controlID)
+
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/unpublish", url.Values{})
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.Unpublish(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("unpublish status = %d, want 303\n%s", rec.Code, rec.Body.String())
+	}
+
+	control, err := f.service.Get(context.Background(), controlID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if control.PublishedAt != nil || control.PublicationMode != "" || control.PublishedSent != nil {
+		t.Errorf("the publication survived the unpublish: %+v", control)
+	}
+
+	// And the whole point: it can be published again.
+	if rec := f.publish(t, controlID, url.Values{"mode": {"real"}}); rec.Code != http.StatusSeeOther {
+		t.Errorf("republish status = %d, want 303\n%s", rec.Code, rec.Body.String())
+	}
+}
+
+func TestUnpublishRefusesAControlThatWasNeverPublished(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/unpublish", url.Values{})
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.Unpublish(rec, req)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("status = %d, want 422", rec.Code)
+	}
+}
+
+// The number that makes the confirmation honest. Telling a professor nobody
+// received a correction that forty people are holding is the mistake
+// published_sent exists to prevent, so the three states get three sentences.
+func TestTheUnpublishWarningSaysHowManyAlreadyReceivedIt(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	if rec := f.publish(t, controlID, url.Values{"mode": {"real"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("publish: %d", rec.Code)
+	}
+	f.waitLatestJobTerminal(t, controlID)
+
+	// This fixture's single copy is matched to nobody, so the publication
+	// delivered NOTHING — which is the branch that matters most here, and
+	// the one the professor most needs to be told about: republishing is
+	// free, because nobody has anything yet.
+	body := f.detailBody(t, controlID)
+	if !strings.Contains(body, "Deshacer la publicación") {
+		t.Fatalf("the page offers no way to undo the publication:\n%s", body)
+	}
+	if !strings.Contains(body, "sin que nadie") {
+		t.Errorf("a publication that delivered nothing does not say republishing is free:\n%s", body)
+	}
+	if !strings.Contains(body, "no recupera") {
+		t.Error("the confirmation does not say that undoing recovers no mail")
+	}
+
+	// And the other branch, driven from the count itself: telling a
+	// professor nobody received a correction that thirty-eight people are
+	// holding is the mistake published_sent exists to prevent.
+	if _, err := f.db.ExecContext(context.Background(),
+		"UPDATE control SET published_sent = 38 WHERE id = ?", controlID); err != nil {
+		t.Fatalf("setting the count: %v", err)
+	}
+	body = f.detailBody(t, controlID)
+	if !strings.Contains(body, "Ya salieron 38 correos") {
+		t.Errorf("the warning does not say how many already went out:\n%s", body)
+	}
+	if !strings.Contains(body, "por segunda vez") {
+		t.Errorf("the warning does not say those people would receive it again:\n%s", body)
+	}
+	if strings.Contains(body, "sin que nadie") {
+		t.Error("the page still claims republishing is free after 38 people received it")
+	}
+
+	// And the unknown case, which is neither: a control published before
+	// the count existed, or one whose run died between the stamp and the
+	// bookkeeping write.
+	if _, err := f.db.ExecContext(context.Background(),
+		"UPDATE control SET published_sent = NULL WHERE id = ?", controlID); err != nil {
+		t.Fatalf("clearing the count: %v", err)
+	}
+	if body = f.detailBody(t, controlID); !strings.Contains(body, "No se registró") {
+		t.Errorf("an unknown count is reported as if it were zero:\n%s", body)
 	}
 }

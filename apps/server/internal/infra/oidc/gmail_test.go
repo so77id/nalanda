@@ -104,6 +104,7 @@ func TestGmailAuthCodeURLAsksForOfflineConsentOnTheSendScope(t *testing.T) {
 func TestGmailExchangeReturnsTheRefreshTokenAndTheConnectedAddress(t *testing.T) {
 	f := newFixture(t)
 	f.tokenBody = `{"refresh_token":"1//refresh-abc","access_token":"ya29.access","expires_in":3599,` +
+		`"scope":"https://www.googleapis.com/auth/gmail.send openid email",` +
 		`"id_token":` + jsonString(f.signedToken()) + `}`
 
 	grant, err := f.gmailAuthorizer().Exchange(context.Background(), "code-1", "https://nalanda.test/cb")
@@ -133,6 +134,7 @@ func TestGmailExchangeReturnsTheRefreshTokenAndTheConnectedAddress(t *testing.T)
 func TestGmailExchangeRefusesAConsentThatCarriesNoRefreshToken(t *testing.T) {
 	f := newFixture(t)
 	f.tokenBody = `{"access_token":"ya29.access","expires_in":3599,` +
+		`"scope":"https://www.googleapis.com/auth/gmail.send openid email",` +
 		`"id_token":` + jsonString(f.signedToken()) + `}`
 
 	_, err := f.gmailAuthorizer().Exchange(context.Background(), "code-1", "https://nalanda.test/cb")
@@ -147,6 +149,7 @@ func TestGmailExchangeVerifiesTheIDTokenRatherThanReadingIt(t *testing.T) {
 	// decoded the payload would happily report the address inside it.
 	f.signWith = otherKey(t)
 	f.tokenBody = `{"refresh_token":"1//refresh-abc","access_token":"ya29.access","expires_in":3599,` +
+		`"scope":"https://www.googleapis.com/auth/gmail.send openid email",` +
 		`"id_token":` + jsonString(f.signedToken()) + `}`
 
 	grant, err := f.gmailAuthorizer().Exchange(context.Background(), "code-1", "https://nalanda.test/cb")
@@ -275,4 +278,58 @@ func contains(haystack []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+// The fourth parameter that fails silently when wrong. Google presents
+// `gmail.send` as a granular checkbox, so a professor can approve the
+// consent screen with it unticked — and the response still carries a
+// refresh token and an id_token. Without this check the connection
+// completes, the profile page says "Conectado como …", and the failure
+// surfaces at the first publication, on a control that is already stamped
+// (#273 review, SCOPE-1).
+func TestGmailExchangeRefusesAConsentThatDidNotGrantTheSendScope(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		granted string
+	}{
+		{"the box was unticked", "openid email"},
+		{"nothing was granted", ""},
+		{"a near-miss scope", "https://www.googleapis.com/auth/gmail.readonly openid email"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t)
+			f.tokenBody = `{"refresh_token":"1//refresh-abc","access_token":"ya29.access",` +
+				`"expires_in":3599,"scope":` + jsonString(tc.granted) + `,` +
+				`"id_token":` + jsonString(f.signedToken()) + `}`
+
+			grant, err := f.gmailAuthorizer().Exchange(
+				context.Background(), "code-1", "https://nalanda.test/cb")
+			if !errors.Is(err, domaingmail.ErrScopeNotGranted) {
+				t.Fatalf("Exchange returned %v, want ErrScopeNotGranted", err)
+			}
+			if grant.RefreshToken != "" {
+				t.Error("a credential was returned from a consent that cannot send")
+			}
+		})
+	}
+}
+
+// And the pair: the scope that IS granted is accepted, whatever else rides
+// along and whatever order they arrive in.
+func TestGmailExchangeAcceptsTheSendScopeAmongOthers(t *testing.T) {
+	for _, granted := range []string{
+		"https://www.googleapis.com/auth/gmail.send openid email",
+		"openid email https://www.googleapis.com/auth/gmail.send",
+		"https://www.googleapis.com/auth/gmail.send",
+	} {
+		f := newFixture(t)
+		f.tokenBody = `{"refresh_token":"1//refresh-abc","access_token":"ya29.access",` +
+			`"expires_in":3599,"scope":` + jsonString(granted) + `,` +
+			`"id_token":` + jsonString(f.signedToken()) + `}`
+
+		if _, err := f.gmailAuthorizer().Exchange(
+			context.Background(), "code-1", "https://nalanda.test/cb"); err != nil {
+			t.Errorf("Exchange refused %q: %v", granted, err)
+		}
+	}
 }

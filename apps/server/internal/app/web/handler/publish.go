@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/mail"
 	"strings"
@@ -29,12 +30,26 @@ import (
 const (
 	ControlPublishPath  = "/controls/{id}/publish"
 	ControlTestSendPath = "/controls/{id}/test-send"
+	// ControlUnpublishPath undoes a publication (issue #273 review).
+	//
+	// The escape hatch three review lenses converged on. Publication was
+	// one-way with no exceptions, so any run that stamped the control
+	// without delivering — every send failing, a non-delivering transport,
+	// or a `staging` choice used as a rehearsal — left the class
+	// permanently unable to receive their corrections through the app.
+	//
+	// It is a hatch rather than a rule because the one judgement a machine
+	// cannot make is whether the people who ALREADY received a correction
+	// may receive it twice. The confirmation page puts that number in front
+	// of the professor and lets them decide.
+	ControlUnpublishPath = "/controls/{id}/unpublish"
 )
 
 // controlPublishURL and controlTestSendURL build the two POST targets, so
 // the template and the redirects name each pattern once.
-func controlPublishURL(id string) string  { return ControlsPath + "/" + id + "/publish" }
-func controlTestSendURL(id string) string { return ControlsPath + "/" + id + "/test-send" }
+func controlPublishURL(id string) string   { return ControlsPath + "/" + id + "/publish" }
+func controlTestSendURL(id string) string  { return ControlsPath + "/" + id + "/test-send" }
+func controlUnpublishURL(id string) string { return ControlsPath + "/" + id + "/unpublish" }
 
 // GmailConnection is the slice of the Gmail domain these screens need: can
 // the professor at the keyboard send at all.
@@ -88,6 +103,19 @@ func (h *Controls) Publish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !h.canSend(w, r, professor.ID) {
+		return
+	}
+	if !h.Service.DeliversMail() {
+		// Refused HERE, on the page with the button, rather than by the job
+		// three minutes later — and refused at all rather than run
+		// silently. Under stub or dryrun every send "succeeds", so the old
+		// behaviour stamped the control, showed a green banner and said the
+		// class had been written to over nothing (#273 review, PUB-2). Since
+		// stub is the default, that was the documented production path.
+		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
+			"Este servidor no está configurado para enviar correo de verdad "+
+				"(NALANDA_EMAIL_MODE), así que no se publicó nada. "+
+				"Puedes usar el envío de prueba para ver qué saldría.")
 		return
 	}
 
@@ -263,6 +291,38 @@ func parseTestAddress(raw string) (string, bool) {
 	return parsed.Address, true
 }
 
+// Unpublish clears the publication so the control can be published again.
+//
+// It does NOT unsend anything, and every string on the path says so. What
+// it buys is that a control which was stamped without reaching anybody — or
+// which reached only the professor — stops being a dead end.
+func (h *Controls) Unpublish(w http.ResponseWriter, r *http.Request) {
+	id, _, ok := h.publishPreamble(w, r)
+	if !ok {
+		return
+	}
+
+	switch err := h.Service.Unpublish(r.Context(), id); {
+	case err == nil:
+	case errors.Is(err, controls.ErrControlNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+		return
+	case errors.Is(err, controls.ErrNotPublished):
+		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
+			"Este control no está publicado, así que no hay nada que deshacer.")
+		return
+	default:
+		h.Log.Error("unpublish", "control", id, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al deshacer la publicación. Vuelve a intentarlo.")
+		return
+	}
+
+	flash.Set(w, h.secureCookie,
+		"Se deshizo la publicación. Los correos que ya salieron no se pueden recuperar.")
+	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+}
+
 // fillPublication populates the detail page's publication half.
 //
 // The three gates are the same ones the POST enforces, worded for a person
@@ -295,9 +355,10 @@ func (h *Controls) fillPublication(r *http.Request, page *view.ControlDetailPage
 		}
 	}
 
-	page.Published = c.PublishedAt != nil
-	if page.Published {
+	if c.PublishedAt != nil {
 		page.PublishedLine = publishedLine(c)
+		page.UnpublishURL = controlUnpublishURL(c.ID)
+		page.UnpublishWarning = unpublishWarning(c)
 	}
 
 	// A rehearsal survives the real publication; only the account and the
@@ -305,11 +366,14 @@ func (h *Controls) fillPublication(r *http.Request, page *view.ControlDetailPage
 	page.CanTestSend = connected && c.CourseID != nil
 
 	switch {
-	case page.Published:
+	case c.PublishedAt != nil:
 		// No reason rendered: the published line above already says what
 		// happened, and "ya fue publicado" beside it would be the same
 		// sentence twice.
 		page.CanPublish = false
+	case !h.Service.DeliversMail():
+		page.PublishBlockedReason = "Este servidor no está configurado para enviar correo " +
+			"de verdad. El envío de prueba sí funciona."
 	case c.CourseID == nil:
 		page.PublishBlockedReason = "Asígnale un curso para saber a quién enviarle las correcciones."
 	case !connected:
@@ -332,4 +396,31 @@ func publishedLine(c controls.Control) string {
 			"no a los estudiantes."
 	}
 	return "Publicado el " + when + ": las correcciones se enviaron a los estudiantes."
+}
+
+// unpublishWarning is what the professor weighs before undoing a
+// publication, and the whole reason `published_sent` exists.
+//
+// Three different sentences for three genuinely different situations. A
+// control nobody received can be republished for free; one that reached
+// thirty-eight people cannot, and the professor is the only one who can
+// decide whether those thirty-eight may get a second copy. NIL is not zero
+// — an unknown count is its own answer, and telling somebody nobody
+// received a correction that forty people are holding is the mistake this
+// whole field exists to prevent.
+func unpublishWarning(c controls.Control) string {
+	switch {
+	case c.PublishedSent == nil:
+		return "No se registró cuántos correos llegaron a salir. Si vuelves a publicar, " +
+			"quien ya haya recibido su corrección la recibirá de nuevo."
+	case *c.PublishedSent == 0:
+		return "No salió ningún correo, así que puedes volver a publicar sin que nadie " +
+			"reciba nada dos veces."
+	case *c.PublishedSent == 1:
+		return "Ya salió 1 correo. Si vuelves a publicar, esa persona recibirá su " +
+			"corrección por segunda vez."
+	default:
+		return fmt.Sprintf("Ya salieron %d correos. Si vuelves a publicar, esas personas "+
+			"recibirán su corrección por segunda vez.", *c.PublishedSent)
+	}
 }

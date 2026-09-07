@@ -387,6 +387,13 @@ func routes(deps Deps) []Route {
 			Handler: deps.Controls.Publish,
 		},
 		{
+			// The escape hatch of the WP's own review: publication was
+			// one-way with no exceptions, so a run that stamped without
+			// delivering left the class permanently unreachable.
+			Method: http.MethodPost, Path: handler.ControlUnpublishPath,
+			Handler: deps.Controls.Unpublish,
+		},
+		{
 			// The rehearsal. Same gates as Publish minus the
 			// already-published one: rehearsing a control that already went
 			// out is exactly what a professor does when a student says
