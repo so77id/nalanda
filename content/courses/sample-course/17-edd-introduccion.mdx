@@ -20,7 +20,161 @@ ambos cumplen.
 
 ## Vocabulario · TDA, EDA e invariante
 
-{/* S2 — definiciones formales y ejemplos ancla. */}
+<Slide title="Del algoritmo al dato">
+Un algoritmo describe **qué hacemos** con los datos. Una estructura de
+datos describe **cómo están guardados** para que ese "qué" sea posible
+— y barato.
+
+Los dos lados se necesitan. La búsqueda binaria de
+[[diseno-algoritmos-divide-y-venceras|Divide y Conquista]] cuesta
+$$\Theta(\log N)$$ solamente si llegar a la posición `i` cuesta
+$$\Theta(1)$$. Sobre los mismos datos guardados de otra manera, el
+mismo algoritmo es lento, o directamente imposible.
+
+Hasta aquí estudiamos el primer lado. Esta unidad estudia el segundo:
+qué organizaciones de datos existen, qué operaciones ofrece cada una,
+y cuánto cuesta cada operación.
+
+Empezamos por el vocabulario, porque las tres palabras que siguen se
+usan en todas las clases de la unidad.
+
+</Slide>
+
+<Slide title="Tipo de dato abstracto · el contrato">
+Un **tipo de dato abstracto** (TDA) es un **contrato**: la lista de
+operaciones que una colección ofrece, con el significado de cada una,
+y sin decir nada sobre cómo están guardados los elementos.
+
+> La interfaz es una **especificación** — el problema. La estructura de
+> datos es una **representación** — la solución.
+>
+> — Erik Demaine, *MIT 6.006 · Introduction to Algorithms*, 2020
+> ("interface is a specification — the problem; data structure is a
+> representation — the solution")
+
+Un TDA se lee entero sin abrir ningún archivo de implementación. Dice
+**qué se puede pedir**, nunca **cómo se responde**.
+
+El contrato más pequeño que ya conocemos es
+[[diseno-algoritmos-ordenamiento|`Comparable`]]: una sola operación,
+un significado preciso, y ninguna palabra sobre representación.
+
+```java
+public interface Comparable<T> {
+    // Negativo si this va antes que o, cero si van en la misma
+    // posición del orden, positivo si this va después.
+    int compareTo(T o);
+}
+```
+
+Ningún algoritmo de ordenamiento pregunta cómo está implementado
+`compareTo`. Le basta el contrato.
+
+</Slide>
+
+<Slide title="Estructura de datos · la representación">
+Una **estructura de datos** (EDA) es una **representación**: la manera
+concreta de guardar los elementos en memoria, más los algoritmos que
+implementan cada operación del contrato.
+
+Donde el TDA dice _"se puede pedir el elemento de la posición `i`"_, la
+EDA dice _"los elementos están en posiciones consecutivas de memoria, y
+el elemento `i` está en `base + i × tamaño`"_.
+
+De ahí sale la afirmación que ordena toda la unidad:
+
+**Un TDA admite muchas EDA, y cada una tiene costos distintos.**
+
+Elegir entre ellas es el trabajo de ingeniería: el contrato ya está
+decidido por el problema, y lo que queda por decidir es cuál
+representación tiene baratas justamente las operaciones que el programa
+va a pedir más veces. La misma elección aparece en cada clase de esta
+unidad.
+
+</Slide>
+
+<Slide title="Invariante · la propiedad que se preserva">
+Un **invariante** es una propiedad que se cumple **antes y después de
+cada operación**. Adentro de una operación puede romperse; cuando la
+operación termina, vuelve a valer.
+
+El invariante es lo que hace que una operación sea correcta sin
+revisar todo el dato: si la propiedad valía al empezar y la operación
+la restaura al terminar, cada operación siguiente puede confiar en
+ella.
+
+Dos invariantes que ya usamos, aunque no los llamamos así:
+
+**Búsqueda binaria** — _si `t` está en el arreglo, está en
+`a[lo..hi]`_. Cada iteración achica el rango a la mitad y vuelve a
+dejar el invariante en pie; por eso descartar media entrada no pierde
+la respuesta.
+
+```java
+static int bs(int[] a, int lo, int hi, int t) {
+    if (lo > hi) return -1;              // rango vacío: t no está
+    int mid = (lo + hi) / 2;
+    if (a[mid] == t) return mid;
+    if (t < a[mid]) return bs(a, lo, mid - 1, t);
+    return bs(a, mid + 1, hi, t);
+}
+```
+
+**Partición de quicksort** — _en `a[lo..store-1]` todo es menor que el
+pivote, y en `a[store..j-1]` todo es mayor o igual_. La operación lo
+mantiene en cada vuelta del bucle, y por eso al terminar el pivote
+queda en su posición definitiva.
+
+```java
+static int partition(int[] a, int lo, int hi) {
+    int pivote = a[lo];
+    swap(a, lo, hi);
+    int store = lo;
+    for (int j = lo; j < hi; j++) {
+        // a[lo..store-1] < pivote  y  a[store..j-1] >= pivote
+        if (a[j] < pivote) { swap(a, store, j); store++; }
+    }
+    swap(a, store, hi);
+    return store;
+}
+```
+
+</Slide>
+
+<Slide title="Contrato, representación e invariante">
+Las tres palabras describen tres capas distintas del mismo objeto, y se
+encadenan en una sola dirección:
+
+1. El **TDA** fija las operaciones y su significado.
+2. Una **EDA** elige una representación e implementa esas operaciones.
+3. Los **invariantes** de esa representación son lo que hace que las
+   implementaciones sean correctas y tengan el costo que declaran.
+
+La dependencia va hacia abajo y no hacia arriba. El TDA no sabe nada de
+los invariantes; los invariantes son asunto privado de cada
+representación. Dos estructuras que cumplen el mismo contrato pueden
+mantener invariantes completamente distintos, y esa es exactamente la
+libertad que las hace tener costos distintos.
+
+Por eso, en el resto de la unidad, cada estructura se presenta en el
+mismo orden: primero la idea, después los invariantes, después las
+operaciones con su costo, después las limitaciones.
+
+</Slide>
+
+<Slide title="El vocabulario, en una tabla">
+| Palabra | Qué es | Responde a | Ejemplo conocido |
+|---|---|---|---|
+| **TDA** | Un contrato | ¿Qué operaciones ofrece? | `Comparable`, con `compareTo` |
+| **Estructura de datos** | Una representación | ¿Cómo están guardados los elementos? | El arreglo, en memoria consecutiva |
+| **Invariante** | Una propiedad preservada | ¿Qué sigue valiendo entre operaciones? | Si `t` está, está en `a[lo..hi]` |
+
+Las tres palabras vuelven a aparecer, nombradas, en cada estructura de
+la unidad. El costo de una operación siempre se lee junto al invariante
+que esa operación tiene que restaurar: cuando una operación es cara, la
+razón es casi siempre el trabajo de dejar el invariante en pie.
+
+</Slide>
 
 <SectionBreak />
 
