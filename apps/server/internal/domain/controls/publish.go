@@ -83,26 +83,20 @@ type Dispatcher interface {
 	Send(ctx context.Context, professorID int64, msg Message) (string, error)
 }
 
-// The failure modes a caller branches on. Kept apart because the publish
-// job handler words each of them differently to the professor, and because
-// only the second one is repaired by reconnecting an account.
+// The failure modes a caller branches on.
+//
+// Only TWO, and the absence of the other two is deliberate. "The professor
+// connected no account" and "the provider disowned the stored credential"
+// are gmail.ErrNotConnected and gmail.ErrRejected, and the publish job
+// handler branches on those directly — a domain may import a domain (the
+// jobs precedent, apps/server/CLAUDE.md). Re-declaring them here would put
+// one fact in two packages, free to drift, and the drift would be silent:
+// a dispatcher returning one spelling and a handler testing the other
+// compiles and renders the generic failure.
+//
+// What remains here is what the AUTHORIZATION package does not model,
+// because it is about a message rather than a credential.
 var (
-	// ErrNotConnected is a professor who has authorised no Gmail account.
-	// Reached by a hand-typed POST — the control page refuses "Publicar"
-	// before offering it — and by a publication started before a
-	// "Desconectar".
-	ErrNotConnected = errors.New("controls: the professor has not connected a Gmail account")
-
-	// ErrCredentialRejected is a stored refresh token the provider will no
-	// longer honour: revoked from the Google account page, expired under
-	// the app's Testing publishing status, or invalidated by a password
-	// change. The credential is cleared and the professor reconnects.
-	//
-	// Kept distinct from ErrUnavailable because the repairs are opposite:
-	// this one needs a human at a consent screen, and retrying it forever
-	// would never succeed.
-	ErrCredentialRejected = errors.New("controls: the provider rejected the stored credential")
-
 	// ErrSendRefused is the provider refusing this particular message — a
 	// quota, a malformed address, an attachment over the limit. The
 	// credential is fine and the other copies of the batch still go.

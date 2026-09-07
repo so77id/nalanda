@@ -11,6 +11,9 @@ import (
 const (
 	// NamespaceCanvas is the professor's Canvas integration (issue #271).
 	NamespaceCanvas = "canvas"
+	// NamespaceGmail is the professor's authorisation to let this server
+	// send mail as them (issue #273).
+	NamespaceGmail = "gmail"
 )
 
 // Key values inside a namespace. Named rather than inlined for the same
@@ -18,6 +21,12 @@ const (
 const (
 	// KeyToken is the API token the professor pastes on their profile page.
 	KeyToken = "token"
+	// KeyRefreshToken is the OAuth refresh token a consent yields
+	// (issue #273). The ACCESS token is deliberately not stored beside it:
+	// it lives about an hour, a stored one would be stale more often than
+	// not, and refreshing costs one request against a credential this row
+	// already holds.
+	KeyRefreshToken = "refresh_token"
 )
 
 // ErrNotFound is what a lookup returns when the triple holds no secret.

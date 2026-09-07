@@ -384,3 +384,51 @@ func (s *Store) DeleteUserSessions(ctx context.Context, userID int64) error {
 	}
 	return nil
 }
+
+// SetGmailAddress records the Gmail account a professor connected, or
+// clears it when address is empty (issue #273).
+//
+// The empty string is stored as NULL rather than as ”: the schema's
+// "connected" question is `gmail_address IS NOT NULL`, and a row holding ”
+// would answer it yes while naming nobody. Same reason 00014's student.rut
+// refuses the empty string it would otherwise let past a UNIQUE.
+//
+// No RETURNING and no not-found guard, unlike UpdateUser: the caller is
+// always a professor resolved from their own session, so a zero-row update
+// would mean the session outlived the row — which the gate upstream has
+// already refused. Adding an error nobody can reach would be a branch no
+// test could cover honestly.
+func (s *Store) SetGmailAddress(ctx context.Context, userID int64, address string) error {
+	var value any
+	if address != "" {
+		value = address
+	}
+	if _, err := s.db.ExecContext(ctx,
+		"UPDATE users SET gmail_address = ? WHERE user_id = ?", value, userID,
+	); err != nil {
+		return fmt.Errorf("record the connected Gmail address for professor %d: %w", userID, err)
+	}
+	return nil
+}
+
+// GmailAddress returns the connected account, or "" for a professor who
+// has connected none (issue #273).
+//
+// Absence is an ordinary answer rather than an error — most professors
+// have connected nothing — so NULL and "no such row" both come back as the
+// empty string. The second cannot happen behind the session gate, and
+// making the caller branch on it would put a case in every profile render
+// that only a deleted-mid-request professor could reach.
+func (s *Store) GmailAddress(ctx context.Context, userID int64) (string, error) {
+	var address sql.NullString
+	err := s.db.QueryRowContext(ctx,
+		"SELECT gmail_address FROM users WHERE user_id = ?", userID,
+	).Scan(&address)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return "", nil
+	case err != nil:
+		return "", fmt.Errorf("read the connected Gmail address for professor %d: %w", userID, err)
+	}
+	return address.String, nil
+}

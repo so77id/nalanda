@@ -96,6 +96,11 @@ type Authorizer interface {
 // one is repaired differently, and because only ErrRejected justifies
 // throwing a stored credential away.
 var (
+	// ErrNotConnected is a professor who has authorised no account at all.
+	// An ordinary state — most professors are in it — and the answer the
+	// control page uses to refuse "Publicar" before offering it.
+	ErrNotConnected = errors.New("gmail: the professor has not connected an account")
+
 	// ErrConsentDenied is the professor pressing "Cancelar" on Google's
 	// screen, or dismissing it. An ordinary answer, not a fault: the
 	// handler says so and offers the button again.
