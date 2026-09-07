@@ -575,3 +575,101 @@ func TestRematchCourseRefusesANonCourse(t *testing.T) {
 		}
 	}
 }
+
+// --- Issue #272 S9: assembling the grid. ---
+
+// The columns are chronological and the grades are keyed by (student,
+// control).
+//
+// Chronological is the opposite of the course page's list, which reads
+// newest first because that is where the professor's attention is. A grid
+// is read left to right in time, so the order is reversed here — and the
+// case pins that, because "the order is whatever ListControls gave us" is
+// how a grid ends up reading backwards.
+func TestMatrixForCourseOrdersColumnsChronologicallyAndKeysGradesByStudent(t *testing.T) {
+	matcher := &fakeMatcher{byRUT: map[string]int64{"11222333": 42, "22333444": 43}}
+	svc, store, readings, courseID := newMatchingService(t, matcher)
+	ctx := context.Background()
+
+	older := seedControlWithReadings(t, ctx, svc, readings, courseID, map[int]string{
+		1: "11222333",
+		2: "22333444",
+	})
+	newer := seedControlWithReadings(t, ctx, svc, readings, courseID, map[int]string{
+		1: "11222333",
+	})
+	// The fake store keeps controls in creation order and ListControls
+	// returns newest first, so give them dates the way the real one
+	// sorts by.
+	stampDate(store, older.ID, time.Unix(1_750_000_000, 0).UTC())
+	stampDate(store, newer.ID, time.Unix(1_755_000_000, 0).UTC())
+
+	if _, err := svc.RematchCourse(ctx, courseID); err != nil {
+		t.Fatalf("RematchCourse: %v", err)
+	}
+
+	matrix, err := svc.MatrixForCourse(ctx, courseID)
+	if err != nil {
+		t.Fatalf("MatrixForCourse: %v", err)
+	}
+
+	if len(matrix.Controls) != 2 {
+		t.Fatalf("Controls = %d, want 2", len(matrix.Controls))
+	}
+	if matrix.Controls[0].ID != older.ID {
+		t.Errorf("the first column is %s, want the OLDER control %s — a grid reads left to right in time",
+			matrix.Controls[0].ID, older.ID)
+	}
+
+	// Ana (42) sat both; Bruno (43) sat only the older one.
+	if _, ok := matrix.Grades[42][older.ID]; !ok {
+		t.Error("student 42 has no grade for the older control")
+	}
+	if _, ok := matrix.Grades[42][newer.ID]; !ok {
+		t.Error("student 42 has no grade for the newer control")
+	}
+	if _, ok := matrix.Grades[43][newer.ID]; ok {
+		t.Error("student 43 has a grade for a control they did not sit")
+	}
+}
+
+// An unmatched copy belongs to no row, and is not put in one.
+//
+// Guessing whose row it goes in is the single thing this whole subsystem
+// must not do. The copy is not lost — the control page lists it as
+// "reconciliar" — it simply has no place in a grid keyed by person.
+func TestMatrixForCourseLeavesUnmatchedCopiesOutOfTheGrid(t *testing.T) {
+	matcher := &fakeMatcher{byRUT: map[string]int64{"11222333": 42}}
+	svc, _, readings, courseID := newMatchingService(t, matcher)
+	ctx := context.Background()
+
+	control := seedControlWithReadings(t, ctx, svc, readings, courseID, map[int]string{
+		1: "11222333", // matches
+		2: "99999999", // matches nobody
+	})
+	if _, err := svc.RematchCourse(ctx, courseID); err != nil {
+		t.Fatalf("RematchCourse: %v", err)
+	}
+
+	matrix, err := svc.MatrixForCourse(ctx, courseID)
+	if err != nil {
+		t.Fatalf("MatrixForCourse: %v", err)
+	}
+	if len(matrix.Grades) != 1 {
+		t.Errorf("Grades holds %d students, want 1 — the unmatched copy was filed under somebody", len(matrix.Grades))
+	}
+	if _, ok := matrix.Grades[42][control.ID]; !ok {
+		t.Error("the matched copy is missing from the grid")
+	}
+}
+
+// stampDate sets a control's application date on the fake store, so the
+// list order these cases depend on is the one the real store produces.
+func stampDate(s *fakeStore, controlID string, at time.Time) {
+	for i := range s.controls {
+		if s.controls[i].ID == controlID {
+			d := at
+			s.controls[i].ApplicationDate = &d
+		}
+	}
+}

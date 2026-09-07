@@ -997,6 +997,58 @@ func RenderStudent(w http.ResponseWriter, page StudentPage) error {
 	return render(w, "student", http.StatusOK, page)
 }
 
+// CourseMatrixPage is what course_matrix.html renders: the student ×
+// control grid (issue #272 S9). Read-only in this WP.
+type CourseMatrixPage struct {
+	Page
+	Course    ListedCourse
+	CourseURL string
+	// Controls are the columns, chronological — a term reads left to
+	// right, unlike the course page's list which reads newest first.
+	Controls []MatrixColumn
+	// Rows come from the ROSTER, one per enrolled or withdrawn person,
+	// ordered the way SortEnrollments orders a class list. A student who
+	// sat nothing is an empty row rather than an absence: a professor
+	// scanning for who is missing a grade needs to see them, and a grid
+	// built out of readings alone would make exactly those people
+	// invisible.
+	Rows []MatrixRow
+}
+
+// MatrixColumn is one control's header cell.
+type MatrixColumn struct {
+	Name            string
+	ApplicationDate string
+	URL             string
+}
+
+// MatrixRow is one person's line across every control.
+type MatrixRow struct {
+	Name  string
+	URL   string
+	State string
+	Cells []MatrixCell
+}
+
+// MatrixCell is one (student, control) intersection.
+//
+// An empty Grade is a copy this person has no matched reading for, and
+// the template renders nothing rather than a zero: "did not sit it" and
+// "got nothing right" are different facts about a person, and a 1.0 in a
+// cell nobody earned is the kind of number that reaches an email in WP-3.
+type MatrixCell struct {
+	Grade string
+	URL   string
+}
+
+// RenderCourseMatrix writes the student × control grid.
+func RenderCourseMatrix(w http.ResponseWriter, page CourseMatrixPage) error {
+	if page.Title == "" {
+		page.Title = page.Course.Code + " · matriz"
+	}
+	return render(w, "course_matrix", http.StatusOK, page)
+}
+
 // RenderProfessorsList writes the CRUD's list page.
 func RenderProfessorsList(w http.ResponseWriter, page ProfessorsListPage) error {
 	if page.Title == "" {

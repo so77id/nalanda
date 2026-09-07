@@ -294,6 +294,11 @@ func routes(deps Deps) []Route {
 			Method: http.MethodGet, Path: handler.CourseStudentsPath,
 			Handler: deps.Courses.Students,
 		},
+		// Issue #272 S9: the student × control grid. Gated by default.
+		{
+			Method: http.MethodGet, Path: handler.CourseMatrixPath,
+			Handler: deps.Courses.Matrix,
+		},
 		// Issue #272 S8: one person's record across every control they
 		// sat. Gated by default — it is somebody's grades.
 		{

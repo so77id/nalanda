@@ -635,6 +635,82 @@ func (s *Service) ControlsForStudent(ctx context.Context, studentID int64) ([]St
 	return out, nil
 }
 
+// CourseMatrix is the student x control grid (issue #272 S9): the course's
+// active controls, oldest first, and the grade each matched copy earned.
+type CourseMatrix struct {
+	// Controls are the columns, chronological — a term reads left to
+	// right, unlike the course page's list which reads newest first
+	// because that is where the professor's attention is.
+	Controls []Control
+	// Grades is keyed by student id then by control id. A student with no
+	// matched copy of a control has no entry, which is what lets the
+	// screen render an empty cell rather than a zero — "did not sit it"
+	// and "got nothing right" are different facts about a person.
+	Grades map[int64]map[string]Reading
+}
+
+// MatrixForCourse assembles the grid (issue #272 S9).
+//
+// One readings query per control, not per cell: a 30-student, 5-control
+// course is five statements, and the alternative — asking per (student,
+// control) — is a hundred and fifty. The rows themselves come from the
+// roster, which this domain does not know about; the caller joins the two,
+// which is also what keeps a student with no copies visible as an empty
+// row instead of vanishing from a grid built out of readings.
+func (s *Service) MatrixForCourse(ctx context.Context, courseID int64) (CourseMatrix, error) {
+	forCourse, err := s.ControlsForCourse(ctx, courseID)
+	if err != nil {
+		return CourseMatrix{}, err
+	}
+	// Chronological, and sorted HERE rather than inherited. The obvious
+	// version was `slices.Reverse` over ControlsForCourse's newest-first
+	// order, which is correct against today's store and silently reads
+	// backwards the day that order changes — the invariant this grid
+	// depends on is "left to right in time", so it is stated where it is
+	// depended on.
+	//
+	// An undated control sorts LAST, the same place it sits in every
+	// other listing: it has no position in the term.
+	sort.SliceStable(forCourse, func(i, j int) bool {
+		a, b := forCourse[i], forCourse[j]
+		if (a.ApplicationDate == nil) != (b.ApplicationDate == nil) {
+			return b.ApplicationDate == nil
+		}
+		if a.ApplicationDate != nil && !a.ApplicationDate.Equal(*b.ApplicationDate) {
+			return a.ApplicationDate.Before(*b.ApplicationDate)
+		}
+		if !a.CreatedAt.Equal(b.CreatedAt) {
+			return a.CreatedAt.Before(b.CreatedAt)
+		}
+		// A total order, so two controls created in the same second do
+		// not swap columns between page loads.
+		return a.ID < b.ID
+	})
+
+	matrix := CourseMatrix{Controls: forCourse, Grades: map[int64]map[string]Reading{}}
+	for _, c := range forCourse {
+		readings, err := s.Readings.ReadingsByControl(ctx, c.ID)
+		if err != nil {
+			return CourseMatrix{}, fmt.Errorf("controls.MatrixForCourse %d: control %s: %w", courseID, c.ID, err)
+		}
+		for _, r := range readings {
+			if r.StudentID == nil {
+				// An unmatched copy belongs to no row. It is not lost —
+				// the control page lists it as "reconciliar" — and
+				// putting it somewhere in the grid would mean guessing
+				// whose row it goes in, which is the one thing this
+				// subsystem must not do.
+				continue
+			}
+			if matrix.Grades[*r.StudentID] == nil {
+				matrix.Grades[*r.StudentID] = map[string]Reading{}
+			}
+			matrix.Grades[*r.StudentID][c.ID] = r
+		}
+	}
+	return matrix, nil
+}
+
 // ControlsForCourse returns the ACTIVE controls that belong to one
 // course, in the order the list screens use (issue #272 S6).
 //

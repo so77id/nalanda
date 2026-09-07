@@ -33,6 +33,9 @@ const (
 	// CourseStudentsPath is the roster, moved off the course page in
 	// issue #272 S6 so the controls are what a professor lands on.
 	CourseStudentsPath = "/courses/{id}/alumnos"
+	// CourseMatrixPath is the student × control grid (issue #272 S9).
+	// Spanish segment, like /alumnos above.
+	CourseMatrixPath = "/courses/{id}/matriz"
 	// AdminRematchPath is the same pass over every course — the
 	// `--all-courses` half. Under /admin/ beside the bank refresh
 	// (issue #230) rather than under /courses/, because it belongs to no
@@ -62,6 +65,8 @@ func CoursePathFor(id int64) string {
 type CourseControls interface {
 	// ControlsForCourse is the list the course page renders (S6).
 	ControlsForCourse(ctx context.Context, courseID int64) ([]controls.Control, error)
+	// MatrixForCourse is the student × control grid (S9).
+	MatrixForCourse(ctx context.Context, courseID int64) (controls.CourseMatrix, error)
 	// RematchCourse and RematchAllCourses are the retroactive pass (S5).
 	RematchCourse(ctx context.Context, courseID int64) (controls.RematchResult, error)
 	RematchAllCourses(ctx context.Context) (controls.RematchResult, error)
@@ -190,9 +195,8 @@ func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 		},
 		Controls:      listedCourseControls(rows),
 		StudentsURL:   CourseStudentsPathFor(course.ID),
+		MatrixURL:     CourseMatrixPathFor(course.ID),
 		RematchAction: CourseRematchPathFor(course.ID),
-		// MatrixURL is filled by S9. Empty renders no link at all — a
-		// link to a 404 is worse than a link that arrives one slice later.
 	}
 	page.EnrolledCount, page.WithdrawnCount, page.WithoutRUTCount = enrollmentTally(enrollments)
 
@@ -455,6 +459,11 @@ func CourseStudentsPathFor(id int64) string {
 	return CoursePathFor(id) + "/alumnos"
 }
 
+// CourseMatrixPathFor builds one course's matrix URL.
+func CourseMatrixPathFor(id int64) string {
+	return CoursePathFor(id) + "/matriz"
+}
+
 // CourseRematchPathFor builds one course's rematch URL.
 func CourseRematchPathFor(id int64) string {
 	return CoursePathFor(id) + "/rematch"
@@ -553,6 +562,96 @@ func plural(n int, one, many string) string {
 		return one
 	}
 	return many
+}
+
+// Matrix renders the student × control grid (issue #272 S9, AC10).
+//
+// READ-ONLY in this WP, deliberately: bulk grade edits from a grid are a
+// deferred minor (§Future work), and a screen that shows a hundred and
+// fifty numbers is the wrong place to learn that one of them is editable.
+//
+// ROWS COME FROM THE ROSTER, not from the readings. A student who sat
+// nothing — newly enrolled, or every copy unmatched — is an empty ROW
+// rather than an absence, because a professor scanning for who is missing
+// a grade needs to see them. Building the grid out of readings alone
+// would make exactly those people invisible.
+func (c *Courses) Matrix(w http.ResponseWriter, r *http.Request) {
+	courseID, ok := c.courseIDFrom(w, r)
+	if !ok {
+		return
+	}
+
+	course, enrollments, err := c.Roster.Enrollments(r.Context(), courseID)
+	switch {
+	case errors.Is(err, roster.ErrCourseNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese curso no existe.")
+		return
+	case err != nil:
+		c.Log.Error("reading a course for the matrix", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al leer el curso. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	matrix, err := c.Controls.MatrixForCourse(r.Context(), courseID)
+	if err != nil {
+		c.Log.Error("building the matrix", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al armar la matriz. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	page := view.CourseMatrixPage{
+		Page: middleware.PageFor(r, course.Code+" · matriz"),
+		Course: view.ListedCourse{
+			Code: course.Code, Name: course.Name, Term: course.Term,
+			URL: CoursePathFor(course.ID),
+		},
+		CourseURL: CoursePathFor(course.ID),
+	}
+	for _, one := range matrix.Controls {
+		page.Controls = append(page.Controls, view.MatrixColumn{
+			Name:            one.Name,
+			ApplicationDate: formatOptionalDate(one.ApplicationDate),
+			URL:             controlDetailURL(one.ID),
+		})
+	}
+
+	for _, e := range enrollments {
+		// Withdrawn students keep their row: they sat the controls they
+		// sat, and their grades did not stop existing when Canvas stopped
+		// listing them (#271 invariant 1). The state is shown so the row
+		// reads as history rather than as a gap.
+		row := view.MatrixRow{
+			Name:  studentName(e.Student),
+			URL:   StudentPathFor(e.Student.ID),
+			State: enrollmentStateLabel(e.State),
+			Cells: make([]view.MatrixCell, 0, len(matrix.Controls)),
+		}
+		for _, one := range matrix.Controls {
+			reading, sat := matrix.Grades[e.Student.ID][one.ID]
+			if !sat {
+				// Empty, not zero. "Did not sit it" and "got nothing
+				// right" are different facts about a person, and a 1.0
+				// in a cell nobody earned is the kind of number that
+				// reaches an email in WP-3.
+				row.Cells = append(row.Cells, view.MatrixCell{})
+				continue
+			}
+			_, grade := controls.TotalAndGrade(one.QuestionsPerCopy, reading)
+			row.Cells = append(row.Cells, view.MatrixCell{
+				Grade: grade,
+				URL:   controlReviewURL(one.ID, reading.CopyNumber),
+			})
+		}
+		page.Rows = append(page.Rows, row)
+	}
+
+	if err := view.RenderCourseMatrix(w, page); err != nil {
+		c.Log.Error("rendering the matrix", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió en el servidor. Vuelve a intentarlo en unos segundos.")
+	}
 }
 
 // courseIDFrom reads and validates the {id} path segment, writing the
