@@ -632,4 +632,145 @@ lo hizo sin pagar por ello más que un factor constante.
 
 ## El TDA Sequence
 
-{/* S5 — el contrato común y la bisagra a la clase siguiente. */}
+<Slide title="Dos representaciones, un mismo conjunto de operaciones">
+El arreglo de capacidad fija y el arreglo dinámico son representaciones
+distintas. Guardan cosas distintas — uno guarda un arreglo y un largo, el
+otro guarda además la política de crecimiento — y mantienen invariantes
+distintos.
+
+Y sin embargo ofrecen exactamente **las mismas operaciones**, con los
+mismos nombres y el mismo significado: pedir el elemento de una
+posición, reemplazarlo, insertar en una posición, borrar de una
+posición, y los cuatro atajos para los extremos.
+
+Un programa escrito contra esas operaciones funciona igual con
+cualquiera de las dos. Cambiar de una a otra no cambia una sola línea
+del programa que las usa: cambia solamente cuánto tarda.
+
+Eso que las dos cumplen tiene nombre.
+
+</Slide>
+
+<Slide title="El TDA Sequence · el contrato">
+Una **secuencia** es una colección de elementos **en un orden que el
+programa decide** — el orden extrínseco, el de las posiciones 0, 1, 2,
+…, y no el que resulte de comparar los elementos entre sí.
+
+El TDA Sequence es el contrato de esa colección:
+
+```java
+public interface Sequence<T> {
+    // Contenedor
+    int len();                  // cuántos elementos hay
+
+    // Acceso por posición
+    T getAt(int i);             // el elemento que está en la posición i
+    void setAt(int i, T x);     // reemplaza el de la posición i por x
+
+    // Modificación por posición
+    void insertAt(int i, T x);  // mete x en la posición i, corriendo el resto
+    T deleteAt(int i);          // saca el de la posición i y lo devuelve
+
+    // Atajos para los extremos
+    void insertFirst(T x);
+    T deleteFirst();
+    void insertLast(T x);
+    T deleteLast();
+}
+```
+
+Los cuatro atajos existen porque los extremos son los casos frecuentes,
+y porque muchas representaciones los resuelven mucho más rápido que una
+posición cualquiera. En el contrato son abreviaturas de `insertAt(0, x)`,
+`deleteAt(0)`, `insertAt(len(), x)` y `deleteAt(len()-1)`; en una
+implementación pueden tener costos completamente distintos.
+
+Lo que el contrato **no** dice es tan importante como lo que dice: no
+menciona memoria consecutiva, ni capacidad, ni duplicación, ni
+corrimientos. Todo eso es asunto de la representación.
+
+</Slide>
+
+<Slide title="Dos implementaciones del mismo contrato">
+| Operación | Arreglo de capacidad fija | Arreglo dinámico |
+|---|---|---|
+| `getAt(i)`, `setAt(i, x)` | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| `insertLast(x)`, `deleteLast()` | $$\Theta(1)$$; falla si está lleno | $$\Theta(1)$$ amortizado |
+| `insertFirst(x)`, `deleteFirst()` | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| `insertAt(i, x)`, `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| Capacidad | fija, decidida al construir | crece y se achica sola |
+| Memoria usada | la reservada, se use o no | entre $$N$$ y $$4N$$ |
+
+Las dos brillan en lo mismo y sufren en lo mismo, porque comparten la
+decisión de representación de fondo: memoria consecutiva. De ahí sale
+que llegar a una posición sea gratis y que abrir o cerrar un hueco en el
+medio cueste $$\Theta(N)$$.
+
+La diferencia entre ellas es de otra naturaleza: no está en la tabla de
+costos asintóticos, está en **qué hay que saber de antemano**. El
+arreglo de capacidad fija exige una cota antes de guardar el primer
+elemento; el dinámico no exige nada, y paga por eso un factor constante
+y algo de memoria de más.
+
+</Slide>
+
+<Slide title="El ciclo completo">
+Esta clase recorrió una vez el camino que va a repetirse en cada
+estructura de la unidad:
+
+1. **Un TDA** fija el contrato. Aquí, Sequence: los elementos ocupan
+   posiciones y el programa pide por posición.
+2. **Una EDA** elige la representación. Aquí, memoria consecutiva más un
+   largo — y luego la misma memoria consecutiva con una política de
+   crecimiento.
+3. **Los invariantes** de esa representación se declaran. Aquí, que los
+   válidos son `datos[0..size-1]` y que la capacidad acompaña al largo.
+4. **Los costos** se leen del invariante, no del código. Insertar al
+   principio es $$\Theta(N)$$ porque dejar los válidos juntos desde 0
+   obliga a mover $$N$$ elementos.
+
+El mismo esquema explica algo conocido que no habíamos nombrado así:
+`compareTo` es un contrato de una sola operación, y cada clase que lo
+implementa elige su propia manera de cumplirlo. Un TDA con muchas
+operaciones no es una cosa distinta — es lo mismo, con más filas.
+
+Lo que cambia de una estructura a otra es el paso 2. Y como los costos
+salen del paso 3, que sale del paso 2, **cambiar la representación
+cambia la tabla de costos sin tocar el contrato**.
+
+</Slide>
+
+<Slide title="El cabo suelto">
+Queda una pregunta sin responder, y es la que abre la próxima clase.
+
+Las dos implementaciones de arreglo comparten una debilidad: insertar
+o borrar al principio cuesta $$\Theta(N)$$. La razón es el invariante de
+memoria consecutiva — para que la posición `i` esté en `base + i ×
+tamaño`, no puede haber huecos, y no tener huecos obliga a correr
+elementos.
+
+¿Y si renunciamos a la memoria consecutiva?
+
+Si cada elemento supiera dónde está el siguiente, insertar al principio
+sería cambiar un solo puntero: $$\Theta(1)$$. El precio sería el otro
+lado de la tabla — sin aritmética de direcciones, llegar a la posición
+`i` obligaría a caminar `i` pasos, y `getAt` dejaría de ser
+$$\Theta(1)$$.
+
+Esa estructura es la **lista enlazada**, cumple el mismo TDA Sequence
+que los dos arreglos, y su tabla de costos es casi la imagen espejo de
+la del arreglo. Es la estructura de la próxima clase.
+
+</Slide>
+
+## Lo que sigue
+
+La próxima clase estudia la **lista enlazada** como la segunda
+implementación del TDA Sequence: sus invariantes, sus costos por
+operación y sus variantes — simplemente enlazada, doblemente enlazada,
+circular.
+
+Con dos implementaciones distintas del mismo contrato en la mano, la
+unidad puede pasar a lo que viene después: los TDA Stack, Queue y Deque,
+que son contratos más chicos que Sequence y que se pueden construir
+sobre cualquiera de las dos.
