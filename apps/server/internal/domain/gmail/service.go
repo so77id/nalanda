@@ -59,8 +59,6 @@ func NewService(deps Service) *Service {
 	switch {
 	case deps.Authorizer == nil:
 		panic("gmail.NewService: no authorizer")
-	case deps.Secrets == nil:
-		panic("gmail.NewService: no secret store")
 	case deps.Accounts == nil:
 		panic("gmail.NewService: no account store")
 	case deps.Log == nil:
@@ -68,6 +66,15 @@ func NewService(deps Service) *Service {
 	}
 	return &deps
 }
+
+// Configured reports whether a credential can be stored at all.
+//
+// False means the operator set no NALANDA_SECRETS_MASTER_KEY, which is a
+// legal, boot-able state (ADR-0068 §Decision 3) — the same one that
+// disables the Canvas integration, and for the same reason: a deployment
+// missing the key must start and say so rather than refuse. Secrets is
+// therefore allowed to be nil here, unlike every other dependency.
+func (s *Service) Configured() bool { return s.Secrets != nil }
 
 // ConnectURL is where the professor's browser goes to grant consent.
 func (s *Service) ConnectURL(state, redirectURI string) string {
@@ -93,6 +100,10 @@ func (s *Service) ConnectURL(state, redirectURI string) string {
 // logged and not forwarded. Same "best-effort cleanup after the
 // load-bearing decision" shape as Service.Purge's directory removal.
 func (s *Service) Complete(ctx context.Context, professorID int64, code, redirectURI string) (string, error) {
+	if !s.Configured() {
+		return "", fmt.Errorf("%w", ErrNotConfigured)
+	}
+
 	grant, err := s.Authorizer.Exchange(ctx, code, redirectURI)
 	if err != nil {
 		return "", err
@@ -126,6 +137,12 @@ func (s *Service) Complete(ctx context.Context, professorID int64, code, redirec
 func (s *Service) Disconnect(ctx context.Context, professorID int64) error {
 	if err := s.Accounts.SetGmailAddress(ctx, professorID, ""); err != nil {
 		return fmt.Errorf("gmail: clear the connected address: %w", err)
+	}
+	if !s.Configured() {
+		// Nothing could have been sealed, so clearing the address is the
+		// whole of the disconnect. Returning an error here would leave a
+		// professor unable to tidy up a state a key rotation put them in.
+		return nil
 	}
 	if err := s.Secrets.Delete(ctx, professorID, secret.NamespaceGmail, secret.KeyRefreshToken); err != nil {
 		return fmt.Errorf("gmail: remove the sealed token: %w", err)
@@ -164,6 +181,10 @@ func (s *Service) Connection(ctx context.Context, professorID int64) (Connection
 // The asymmetry between the last two is the whole point, and it is why the
 // authorizer keeps invalid_grant apart from every other failure.
 func (s *Service) AccessToken(ctx context.Context, professorID int64) (Access, error) {
+	if !s.Configured() {
+		return Access{}, fmt.Errorf("%w", ErrNotConfigured)
+	}
+
 	refresh, err := s.Secrets.Get(ctx, professorID, secret.NamespaceGmail, secret.KeyRefreshToken)
 	switch {
 	case errors.Is(err, secret.ErrNotFound):

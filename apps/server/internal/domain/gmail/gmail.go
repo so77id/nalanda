@@ -101,6 +101,12 @@ var (
 	// control page uses to refuse "Publicar" before offering it.
 	ErrNotConnected = errors.New("gmail: the professor has not connected an account")
 
+	// ErrNotConfigured is a deployment with no NALANDA_SECRETS_MASTER_KEY,
+	// which can store no credential at all. Distinct from ErrNotConnected
+	// because the repair belongs to a different person: the operator sets
+	// a key, and no amount of clicking by the professor helps.
+	ErrNotConfigured = errors.New("gmail: this deployment cannot store credentials")
+
 	// ErrConsentDenied is the professor pressing "Cancelar" on Google's
 	// screen, or dismissing it. An ordinary answer, not a fault: the
 	// handler says so and offers the button again.

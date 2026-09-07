@@ -268,6 +268,27 @@ type ProfilePage struct {
 	// because it belongs to no form field, the same reason
 	// ProfessorsFormPage.Notice exists (COR-1, WP-C3 review).
 	CoursesNotice string
+
+	// GmailAddress is the account this professor authorised this server to
+	// send mail as, empty when there is none (issue #273). Non-empty
+	// renders the connected state and the "Desconectar" button; empty
+	// renders the "Conectar Gmail" button. The two are mutually exclusive
+	// by construction.
+	//
+	// It is the AUTHORITATIVE connected signal rather than a display
+	// convenience: gmail.Service.Complete writes it last, precisely so
+	// nothing can read it as connected over a credential that was never
+	// stored.
+	GmailAddress string
+	// GmailNotice is a Spanish sentence shown INSTEAD of the section's
+	// normal state when the connection could not be read at all. Separate
+	// from Errors for the same reason CoursesNotice is: it belongs to no
+	// field the professor filled in.
+	GmailNotice string
+	// GmailConnectAction and GmailDisconnectAction are the two POST
+	// targets, passed in so the route constants keep one home.
+	GmailConnectAction    string
+	GmailDisconnectAction string
 }
 
 // CoursePickRow is one row of the picker, with the two page-level values

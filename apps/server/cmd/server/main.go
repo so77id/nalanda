@@ -22,6 +22,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
@@ -246,6 +247,23 @@ func run(logger *slog.Logger) error {
 			"effect", "professors cannot store a Canvas token")
 	}
 	canvasService := canvas.NewService(canvasSecrets, canvasapi.New(cfg.CanvasGraphQLURL))
+	// Issue #273: the professor's Gmail authorisation, on the SAME OAuth
+	// client as the login. It shares the client id and secret and nothing
+	// else — its own scopes, its own grant, its own nonce store.
+	//
+	// canvasSecrets is passed deliberately, nil and all: without a master
+	// key this deployment can store no credential of any kind, and
+	// gmail.Service renders that as "no configurada" rather than refusing
+	// to start. Same state, same handling, as the Canvas line above.
+	gmailService := gmail.NewService(gmail.Service{
+		Authorizer: oidc.NewGmailAuthorizer(oidc.GoogleConfig{
+			ClientID:     cfg.GoogleClientID,
+			ClientSecret: cfg.GoogleClientSecret,
+		}),
+		Secrets:  canvasSecrets,
+		Accounts: store,
+		Log:      logger,
+	})
 	rosterService := roster.NewService(courseStore, roster.NewCanvasSource(canvasService))
 
 	backoffice := web.Deps{
@@ -289,10 +307,16 @@ func run(logger *slog.Logger) error {
 			Log:    logger,
 		}),
 		Profile: handler.NewProfile(handler.Profile{
-			Canvas:    canvasService,
-			Roster:    rosterService,
-			PublicURL: cfg.PublicURL,
-			Log:       logger,
+			Canvas: canvasService,
+			Roster: rosterService,
+			Gmail:  gmailService,
+			// A SECOND nonce store, never the login's. Sharing it would
+			// let a nonce issued for one grant be spent on the other, and
+			// the two grants carry different scopes
+			// (handler.GmailStateCookieName says the rest).
+			GmailState: oauthstate.New(oauthstate.DefaultTTL, time.Now),
+			PublicURL:  cfg.PublicURL,
+			Log:        logger,
 		}),
 		Courses: handler.NewCourses(handler.Courses{
 			Roster: rosterService,

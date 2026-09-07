@@ -277,6 +277,24 @@ func routes(deps Deps) []Route {
 			Handler: deps.Profile.ForgetCanvasToken,
 		},
 		{
+			// Issue #273. The connect and disconnect are POSTs, so the
+			// router's own rule gives them the CSRF check; the callback is
+			// a GET because Google chooses the method, and what defends it
+			// is the double-submit state cookie the handler checks. All
+			// three are gated: unlike the LOGIN callback, this one
+			// identifies the professor from the session they already hold.
+			Method: http.MethodPost, Path: handler.ProfileGmailConnectPath,
+			Handler: deps.Profile.ConnectGmail,
+		},
+		{
+			Method: http.MethodGet, Path: handler.ProfileGmailCallbackPath,
+			Handler: deps.Profile.GmailCallback,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ProfileGmailDisconnectPath,
+			Handler: deps.Profile.DisconnectGmail,
+		},
+		{
 			Method: http.MethodPost, Path: handler.ProfileAddCoursePath,
 			Handler: deps.Profile.AddCourse,
 		},

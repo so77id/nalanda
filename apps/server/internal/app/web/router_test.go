@@ -20,6 +20,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
@@ -157,8 +158,18 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 					emptyCourseStore{},
 					roster.NewCanvasSource(canvasService),
 				),
-				PublicURL: "https://nalanda.test",
-				Log:       logger,
+				// Issue #273: same "no master key" branch as the Canvas
+				// line above — gmail.Service renders that state rather
+				// than refusing it, and these cases are about the router's
+				// table, not about Google.
+				Gmail: gmail.NewService(gmail.Service{
+					Authorizer: unreachableGmail{},
+					Accounts:   noGmailAccount{},
+					Log:        logger,
+				}),
+				GmailState: oauthstate.New(oauthstate.DefaultTTL, time.Now),
+				PublicURL:  "https://nalanda.test",
+				Log:        logger,
 			})
 		}(),
 		// Issue #272 S8: one person's record. Wired like the binary
@@ -585,3 +596,28 @@ func TestRouterRefusesAnIncompleteDepsAtWiringTime(t *testing.T) {
 		})
 	}
 }
+
+// unreachableGmail is a gmail.Authorizer no case here calls. The router's
+// table is what is under test; a request that got as far as Google would
+// mean the gate let it through, which is the failure these cases exist to
+// catch.
+type unreachableGmail struct{}
+
+func (unreachableGmail) AuthCodeURL(state, redirectURI string) string {
+	return "https://provider.test/auth?state=" + state
+}
+
+func (unreachableGmail) Exchange(context.Context, string, string) (gmail.Grant, error) {
+	return gmail.Grant{}, gmail.ErrUnavailable
+}
+
+func (unreachableGmail) Refresh(context.Context, string) (gmail.Access, error) {
+	return gmail.Access{}, gmail.ErrUnavailable
+}
+
+// noGmailAccount is a professor who has connected nothing, which is the
+// state every case in this file renders.
+type noGmailAccount struct{}
+
+func (noGmailAccount) SetGmailAddress(context.Context, int64, string) error { return nil }
+func (noGmailAccount) GmailAddress(context.Context, int64) (string, error)  { return "", nil }
