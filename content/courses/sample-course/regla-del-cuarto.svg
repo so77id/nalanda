@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 330" width="620" height="330" role="img" aria-label="Dos barras que representan la capacidad de un arreglo, con las fronteras que disparan un redimensionamiento y el punto donde queda el largo justo después de uno. En la regla mala, achicar se dispara en la mitad y el largo cae exactamente ahí tras duplicar, así que la operación siguiente vuelve a redimensionar. En la regla del cuarto, achicar se dispara en el cuarto y el largo cae en la mitad, a un cuarto de capacidad de distancia de las dos fronteras.">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 330" width="620" height="330" role="img" aria-label="Dos barras que representan la capacidad de un arreglo, con las fronteras que disparan un redimensionamiento y el punto donde queda el largo justo después de uno. En la regla mala, achicar se dispara en la mitad y el largo cae exactamente ahí tras duplicar, así que la operación siguiente vuelve a redimensionar. En la regla del cuarto, achicar se dispara en el cuarto y el largo cae en la mitad, a media capacidad de la frontera de crecer y a un cuarto de la de achicar.">
   <title>La regla del cuarto contra el thrashing</title>
   <style>
     .panel { fill: #fdfbf9; stroke: #8e817c; stroke-width: 1; }
@@ -33,7 +33,7 @@
   <text x="24" y="176" class="t">la de crecer: cada una copia N elementos y el costo amortizado se pierde.</text>
 
   <text x="24" y="212" class="paso">✓ Achicar cuando el largo baja al cuarto</text>
-  <text x="24" y="230" class="bien">el largo cae en la mitad, a un cuarto de capacidad de cada frontera</text>
+  <text x="24" y="230" class="bien">el largo cae en la mitad: media capacidad hasta crecer, un cuarto hasta achicar</text>
 
   <rect x="250" y="255" width="300" height="30" class="franja"/>
   <rect x="150" y="255" width="400" height="30" fill="none" stroke="#493d37" stroke-width="1.4"/>

@@ -266,7 +266,7 @@ export function Benchmark({
           benchmark
         </span>
         <span className="text-sm font-medium text-ink">
-          {implementations.length} implementaciones · elige N y presiona Run
+          {implementations.length} implementaciones · elige N y presiona Medir
         </span>
       </header>
 

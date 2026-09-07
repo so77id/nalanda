@@ -499,8 +499,9 @@ completa**:
 > secuencia de $$N$$ operaciones cuesta a lo más $$c \cdot N$$ en total,
 > para una constante $$c$$ que no depende de $$N$$.
 
-Hagamos la cuenta para las dieciséis inserciones. Las copias son las
-duplicaciones, y las duplicaciones ocurren en las potencias de dos:
+Hagamos la cuenta para las dieciséis inserciones. Cada duplicación copia
+el largo que había en ese momento, y esos largos son las potencias de
+dos:
 
 $$
 \text{copias} = 1 + 2 + 4 + 8 = 15
@@ -512,18 +513,20 @@ $$
 16 + 15 = 31 < 2 \times 16
 $$
 
-Menos de dos operaciones elementales por inserción. En general, para
-$$N$$ inserciones las copias son
+Menos de dos operaciones elementales por inserción. Para un $$N$$
+cualquiera la cuenta es la misma: las copias son la suma de las
+potencias de dos que no superan a $$N$$, y esa suma es menor que el
+doble de la última,
 
 $$
-1 + 2 + 4 + \dots + \frac{N}{2} = N - 1 < N
+1 + 2 + 4 + \dots + 2^{k} < 2^{k+1} \le 2N
 $$
 
 — la suma de una progresión geométrica de razón 2 es menor que su
-último término duplicado —, así que el costo total es
+último término duplicado —, así que el costo total de la secuencia es
 
 $$
-\underbrace{N}_{\text{escrituras}} + \underbrace{(N-1)}_{\text{copias}} < 2N \in \Theta(N)
+\underbrace{N}_{\text{escrituras}} + \underbrace{\text{copias}}_{<\,2N} < 3N \in \Theta(N)
 $$
 
 y cada inserción cuesta $$\Theta(1)$$ **amortizado**. Las operaciones
@@ -612,20 +615,24 @@ cualquiera dio unas 15 veces para $$N = 1000$$, unas 75 para
 $$N = 4000$$ y unas 340 para $$N = 10\,000$$. Multiplicar $$N$$ por 10
 multiplicó la distancia por más de 20.
 
-Dos advertencias sobre lo que **no** conviene leer en la tabla. La
-columna de `duplica` queda por debajo del milisegundo en los tres
-tamaños, es decir en el piso de resolución del cronómetro, así que su
-crecimiento propio no se puede medir aquí. Y la primera medición de
-`crece de a uno` sale más barata de lo que predice $$N^2$$, porque a esa
-escala pesan más el arranque de la máquina virtual y su compilación al
-vuelo que el algoritmo. Entre los dos tamaños más grandes, donde el
-algoritmo ya domina, el factor medido sí se parece al que predice
-$$N^2$$.
+</Slide>
+
+Hay dos cosas que en cambio **no** conviene leer en esa tabla, y en las
+dos el que habla es el cronómetro y no el algoritmo.
+
+La columna de `duplica` se mueve en centésimas de milisegundo, donde el
+costo fijo de cada corrida y la cuantización del reloj pesan tanto como
+el algoritmo: su crecimiento propio no se puede leer ahí. Y la primera
+medición de `crece de a uno` sale más **cara** de lo que extrapola
+$$N^2$$ desde el tamaño más grande — unos 3 ms contra los 2 que predice
+—, porque a esa escala pesan más el arranque de la máquina virtual y su
+compilación al vuelo que el algoritmo. Ese punto inflado es la razón de
+que el salto de 1000 a 4000 se quede en unas 10 veces y no en 16. Entre
+los dos tamaños más grandes, donde el algoritmo ya domina, el factor
+medido sí se parece al que predice $$N^2$$.
 
 Es el mismo cuidado de siempre: el cronómetro mide el algoritmo **más
 todo el ambiente que lo rodea**.
-
-</Slide>
 
 <Slide title="Achicar sin thrashing · la regla del cuarto">
 Al borrar elementos, el arreglo dinámico queda con capacidad de sobra y
@@ -655,28 +662,31 @@ crecimiento de la que dispara un achicamiento:
 
 <Figure
   src="./regla-del-cuarto.svg"
-  alt="Dos barras de capacidad. En la de arriba, marcada con una cruz, la frontera de achicar y la de crecer caen las dos en la mitad, de modo que insertar y borrar alternadamente redimensiona en cada operación. En la de abajo, marcada con un visto, achicar cae en el cuarto y crecer al llenarse, y entre las dos queda media capacidad donde no se redimensiona nada."
-  caption="Separar las dos fronteras deja media capacidad de operaciones baratas entre redimensionamientos"
+  alt="Dos barras de capacidad, cada una con sus dos fronteras de redimensionamiento y con el punto donde queda el largo justo después de una. En la de arriba, marcada con una cruz, achicar se dispara en la mitad y tras duplicar el largo cae exactamente sobre esa frontera, así que la operación siguiente vuelve a redimensionar. En la de abajo, marcada con un visto, achicar se dispara en el cuarto y crecer al llenarse; el largo cae en la mitad, a media capacidad de la frontera de crecer y a un cuarto de la de achicar."
+  caption="Separar las dos fronteras deja al menos un cuarto de la capacidad en operaciones baratas antes del siguiente redimensionamiento"
 />
 
-Después de cualquiera de las dos operaciones, el arreglo queda a la
-mitad de su capacidad nueva. Llamemos $$K$$ a esa capacidad: desde ahí
-hacen falta $$K/2$$ inserciones para volver a llenarlo, o $$K/4$$
-eliminaciones para bajar al cuarto. En los dos casos son
-$$\Omega(N)$$ operaciones baratas antes del siguiente
-redimensionamiento, y son ellas las que pagan su costo. El resultado
-amortizado se mantiene para cualquier mezcla de inserciones y
-eliminaciones.
+Tras cualquiera de las dos operaciones el arreglo queda cerca de la
+mitad de su capacidad nueva: justo en la mitad al achicar, en la mitad
+más uno al duplicar. Llamando $$K$$ a esa capacidad, desde ahí hacen
+falta unas $$K/2$$ inserciones para volver a llenarlo, o $$K/4$$
+eliminaciones para bajar al cuarto — en los dos casos, $$\Omega(N)$$
+operaciones baratas que pagan el costo del siguiente redimensionamiento.
 
-El invariante que la regla sostiene se escribe en una línea:
-**largo $$\le$$ capacidad $$\le 4 \times$$ largo**. La cota de arriba es
-lo que impide desperdiciar memoria; la de abajo, lo que impide quedarse
-sin espacio.
+El invariante que la regla sostiene, mientras el largo esté por encima de
+la capacidad mínima: **largo $$\le$$ capacidad $$\le 4 \times$$ largo**.
+La cota de arriba impide desperdiciar memoria; la de abajo, quedarse sin
+espacio.
+
+</Slide>
+
+Por debajo de esa capacidad mínima — un arreglo recién creado, o vacío —
+solo vale la cota de arriba: la estructura conserva unas pocas casillas y
+no las devuelve. Es el motivo por el que el invariante se enuncia con esa
+salvedad y no como una igualdad limpia.
 
 La regla del cuarto es la que usan Sedgewick y Wayne en *Algorithms*
 (4.ª edición, Princeton) por exactamente esta razón.
-
-</Slide>
 
 <Slide title="Costos del arreglo dinámico">
 La tabla del arreglo dinámico tiene una columna más que la del arreglo
@@ -731,7 +741,7 @@ del programa que las usa: cambia solamente cuánto tarda.
 <Figure
   src="./un-tda-dos-edas.svg"
   alt="Un recuadro superior con el TDA Sequence y sus operaciones. Dos flechas bajan a dos recuadros: el arreglo de capacidad fija y el arreglo dinámico. Cada uno declara su propio invariante y su propia lista de costos, y los dos responden las mismas operaciones."
-  caption="Un contrato, dos representaciones, dos tablas de costos"
+  caption="Un contrato, dos representaciones, dos tablas de costos. La cota size ≤ cap ≤ 4 × size del arreglo dinámico vale mientras el largo supere la capacidad mínima."
 />
 
 Eso que las dos cumplen tiene nombre.
@@ -788,7 +798,7 @@ corrimientos. Todo eso es asunto de la representación.
 | `insertFirst(x)`, `deleteFirst()` | $$\Theta(N)$$ | $$\Theta(N)$$ |
 | `insertAt(i, x)`, `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ |
 | Capacidad | fija, decidida al construir | crece y se achica sola |
-| Memoria usada | la reservada, se use o no | entre $$N$$ y $$4N$$ |
+| Memoria usada | la reservada, se use o no | entre $$N$$ y $$4N$$, salvo en arreglos muy chicos |
 
 </PresentationWide>
 

@@ -302,4 +302,22 @@ describe('Benchmark', () => {
     // The picked N reaches the JVM.
     expect(worker.posted[0]!.stdin).toBe('10000\n');
   });
+
+  /**
+   * The header tells the reader which control to press, and the footer button
+   * is that control. Nothing structural ties the two strings together, so they
+   * drifted once already: #277 renamed the button to Spanish and left the
+   * header naming the old English label. Pin the coupling rather than the
+   * wording — this fails for any future rename that touches only one of them.
+   */
+  it('names the run control in the header exactly as the button announces itself', () => {
+    render(<Benchmark implementations={IMPLS} inputs={[100]} defaultInput={100} />);
+
+    const button = screen.getByRole('button', { name: /^medir$/i });
+    const label = button.textContent?.trim() ?? '';
+    expect(label).not.toBe('');
+
+    const header = screen.getByText(/implementaciones ·/);
+    expect(header.textContent).toContain(label);
+  });
 });
