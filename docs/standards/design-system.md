@@ -201,6 +201,31 @@ The two invariants that keep this honest, and the guard:
   against the live tokens. Contrast measurements land here when the check
   runs against the shipped build.
 
+**A static figure served through `<img>` is the fifth exemption** (#277). A
+drawn asset under `content/` is loaded through `<img src>`, so it sees neither
+`currentColor` nor any `--nl-*` token — `fill: var(--color-surface, #fff)`
+resolves to `#fff` in both themes, which is why chapter 15's figures are
+theme-blind rather than theme-aware. It paints one fixed set of values on both
+grounds, and no single ink can serve both: 4.5:1 against `ground` needs a
+relative luminance ≤ 0.160 on light and ≥ 0.200 on dark, which is
+unsatisfiable. So such a figure **paints its own opaque panel and draws all
+text on it**, and the panel is the ground its pairs are measured against:
+
+- `#fdfbf9` panel with a `#8e817c` border — the figure's own ground, the only
+  surface its text is ever measured on.
+- `#2b221d` body text on it: **15.1:1**. `#493d37` for secondary text.
+- `#3a6ea5` accent, `#2f8a2f` "correct", `#b3261e` "wrong" (**6.3:1**) — all
+  three used as strokes and heading ink, never as small body text.
+
+Colour is never the only signal here either (§The one rule's companion): a
+dashed border marks a garbage cell, a `✗`/`✓` marks the two halves of a
+comparison, and every region carries a word. **`architecture.test.ts` cannot
+see any of this** — it greps our class names, not the contents of an `.svg`
+asset — so this note and the render-and-look check are the only guards.
+Decision and scope: ADR-0026 §Addendum — #277; the authoring rule is
+`guides/add-a-course-document.md` §6e-bis. The ~20 pre-existing figures still
+carry the old pattern and their conversion is a separate WP.
+
 Adding a second component-scoped categorical palette records it here with
 the same shape, or converges on shared cycle tokens if two components would
 share them meaningfully. Do not extend this exemption to a hue whose meaning

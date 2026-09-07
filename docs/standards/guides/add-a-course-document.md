@@ -10,6 +10,13 @@ ADR-0013 (presentation).
 You are writing course material: a new sección/presentación, an exercise page,
 any content unit. No app code is involved — everything happens under `content/`.
 
+**If the document is a class of the Estructuras de Datos unit, read
+[`teach-a-data-structure.md`](teach-a-data-structure.md) BEFORE drafting.** It
+fixes the shape — four acts, TDA-as-contract, the invariant list, the cost
+table with its invariant column, the cabo suelto — that this guide only
+supplies the mechanics for, and meeting it at the pre-PR checklist is meeting
+it too late.
+
 ## Worked example
 
 The seed course `content/courses/sample-course/` exercises most of the authoring
@@ -791,10 +798,13 @@ listing. Two code fences → `SideBySide`. Anything else → `Split`.
 presentation mode the `<Slide>` centres and caps its children at a reading
 column; a wide visual — a comparison table, two side-by-side diagrams — gets
 compressed and reads worse than the same block does in the book. Wrap the block
-in `<PresentationWide fraction={0.8}>` and it re-anchors to that fraction of
-the viewport in presentation, book mode unchanged. **Pass the fraction**: it
+in `<PresentationWide fraction={…}>` and it re-anchors to that fraction of the
+viewport in presentation, book mode unchanged. **Pass the fraction**: it
 defaults to `1` (`PresentationWide.tsx`), which is the full viewport, and a
-table at full bleed runs flush to both slide edges with its columns touching. Do NOT wrap widgets that already break out
+table at full bleed runs flush to both slide edges with its columns touching.
+`0.8` for a wide markdown table; `0.75`–`0.85` for a comparison of two visuals
+side by side, which is the case ADR-0067 §Decision recommends and chapter 16
+ships. Do NOT wrap widgets that already break out
 on their own — `<SortStepper>`, `<StepShow>`, `<MergeStepper>`,
 `<PartitionStepper>` — that would double the breakout and land the block off
 centre. Worked cases: chapter 16 (the sorting document) uses it around a
@@ -846,11 +856,29 @@ carrying it in JavaScript: measured, inlining one 1.2KB SVG added 2.4KB to the
 entry chunk that _every_ page loads, and nine logos would have added twenty.
 
 Two more things a drawn asset must do, because an `<img>` cannot inherit them:
-**fix its own colours** (it never sees the page's `currentColor`, so pick
-values that clear 3:1 on both the light and the dark ground — or, in a
-`<Mosaic plate>` cell, against the white plate, which is the ground the
-container supplies) and **never let colour be the only signal** — the cost curves are one solid line and one
+**fix its own colours** (it never sees the page's `currentColor` — and it never
+sees a CSS variable either, so `fill: var(--color-surface, #fff)` always paints
+the fallback and nothing else; pick values that clear 3:1 on both the light and
+the dark ground — or, in a `<Mosaic plate>` cell, against the white plate, which
+is the ground the container supplies) and **never let colour be the only signal** — the cost curves are one solid line and one
 dashed for exactly that reason (ADR-0026).
+
+6e-bis. **A figure with text in it paints its own opaque panel, and draws the
+text on that panel.** The 3:1 above is the *graphical* floor; text is held to
+4.5:1, and against the light ground `#f8f2ef` that needs a relative luminance
+**≤ 0.160** while against the dark ground `#0d1117` it needs **≥ 0.200**. No
+single value satisfies both, so text drawn straight on the page ground is wrong
+in one theme by construction — this is arithmetic, not taste. A panel of the
+figure's own removes the problem, because then you control the ground the text
+sits on.
+
+The registered palette and its measured pairs live in
+[`../design-system.md`](../design-system.md) §"A static figure served through
+`<img>`" (the fifth exemption from §The one rule); the decision and the reason
+the pre-existing figures do not yet follow it are ADR-0026 §Addendum — #277.
+Worked cases: the seven figures of chapter 17. **Nothing in the build or the
+suite can see a figure**, so the check is rendering it over both grounds and
+looking at it.
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the
@@ -1160,7 +1188,9 @@ is not scaled at all.
    so nothing disappears and instead everything shrinks. Measured on a phone in
    landscape (2026-08-13, iPhone 13 at 750x342): below roughly half scale the
    body text stops being readable. If a slide gets there, the fix is yours and
-   not the viewer's — split it at a `<SectionBreak/>`, or shorten the listing.
+   not the viewer's — split it into two titled `<Slide title="…">` blocks, or
+   shorten the listing. **Not a `<SectionBreak/>`**: that adds an untitled
+   slide instead (§4), which is a second defect rather than a fix.
    The same applies to width: an over-wide `<SideBySide>` column now shrinks
    the ENTIRE slide rather than overflowing on its own.
 

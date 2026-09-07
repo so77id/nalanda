@@ -11,6 +11,8 @@ extraction of the viewport-breakout dance into a shared hook
 `<SortStepper>`, `<StepShow>`, `<MergeStepper>` and `<PartitionStepper>` ·
 the split between "widgets that already break out on their own" and
 "blocks that need the wrapper" so the two never compose
+**Amended by:** #277 (2026-09-07) — the fraction is not optional for a wide
+markdown table, and `0.8` is its value (§Addendum below).
 **Source:** Issue #268 — Course document "Diseño de Algoritmos ·
 Ordenamiento". Two of its slides carry a `<SideBySide>` of two
 `<DivideCombineTree>`s and a wide MDX comparison table that the slide's
@@ -112,3 +114,45 @@ and the misuse fails visibly in the browser).
   "delete first, extract second" applies here too. Today the wrapper +
   the existing structural containers cover every case in the sorting
   chapter.
+
+## Addendum — #277 (2026-09-07): the fraction is not optional for a table
+
+**Context.** This ADR's §Decision presents `fraction = 1` as the default and
+recommends `0.75` for a two-visual comparison; its example block shows
+`<PresentationWide fraction={0.75}>…wide table…</PresentationWide>`. Two
+surfaces disagreed with it and with each other: `PresentationWide.catalog.tsx`
+shipped an example titled *"Full-viewport wide table"* whose code was a **bare**
+wrapper around a table, and `add-a-course-document.md` §6b named chapter 16 as
+the worked case for a wide MDX table — a case chapter 16 does not contain.
+Chapter 17 (#277) is the first shipped markdown table inside the wrapper, and
+looking at it in a browser produced the fact none of the three surfaces had:
+**a table at fraction 1 runs flush to both slide edges with its columns
+touching.**
+
+**Decision.** For a wide markdown table the fraction is **not optional**, and
+its value is `0.8`. `0.75`–`0.85` remains right for a comparison of two visuals
+side by side, which is the case this ADR originally described and the one
+chapter 16 ships. The component's default stays `1`, because a full-bleed block
+with no internal columns — a single wide visual — is a legitimate use; what
+changes is that a *table* must never take it.
+
+**Evidence.** Measured at 1440x900 on chapter 17's cost table, `/present`:
+unwrapped the table renders 640px wide and the slide is scaled to **0.71**;
+wrapped at `fraction={0.8}` it renders 1058px and the slide is scaled to
+**1.0**. Wrapping the five wide tables of that document took five of its slides
+off the shrink list. The scale is the `transform` on the `motion.div` inside
+`[data-testid="slide-stage"]` (`presentation/SlideDeck.tsx`).
+
+**Consequences.**
+
+- `PresentationWide.catalog.tsx` now demonstrates `fraction={0.8}` for the
+  table case and its `fraction` prop description carries the measurement — the
+  catalog is what an author reads (`add-a-course-document.md` §Worked example),
+  so it was the surface teaching the defect.
+- `add-a-course-document.md` §6b carries the rule, both values and chapter 17
+  as the table worked case.
+- **Open question this ADR does not settle:** whether the component's default
+  should move from `1` to `0.8`. Every shipped call site overrides it (0.85 and
+  0.75 in chapter 16, 0.8 five times in chapter 17), which is the argument for
+  changing it; a full-bleed single visual is the argument against. Left as it
+  is rather than changed silently.

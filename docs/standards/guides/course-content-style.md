@@ -13,6 +13,11 @@ happens INSIDE that scaffolding: how the prose reads. Question stems have their
 own home in [`write-control-questions.md`](write-control-questions.md),
 because a question is a measurement and its wording rules follow from that.
 
+The **shape** of a class in the Estructuras de Datos unit — the four acts, the
+TDA contract, the invariant list, the cost table, the cabo suelto — is a third
+layer, in [`teach-a-data-structure.md`](teach-a-data-structure.md). It decides
+what a section contains; this file decides how each of those is worded.
+
 ## When to use
 
 You are writing or editing course prose: any paragraph of a `.mdx` document,

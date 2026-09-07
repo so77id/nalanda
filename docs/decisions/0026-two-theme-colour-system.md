@@ -5,7 +5,7 @@
 **Decision-makers:** Miguel Rodriguez
 **Source:** Issue #109. Extends ADR-0004 (frontend stack) and ADR-0010 (component
 contract); the usage rules live in `docs/standards/design-system.md`.
-**Amended by:** #222 (2026-08-24) — Seed provenance + accent-pop token + CHROME_TOKENS category + deck exception (§Addendum below); #225 (2026-08-24) — Deck exception reversed, `--nl-deck-ground` unified with `--nl-ground` (§Reversal below).
+**Amended by:** #222 (2026-08-24) — Seed provenance + accent-pop token + CHROME_TOKENS category + deck exception (§Addendum below); #225 (2026-08-24) — Deck exception reversed, `--nl-deck-ground` unified with `--nl-ground` (§Reversal below); #277 (2026-09-07) — a content figure paints its own ground (§Addendum — the figure panel).
 
 ## Context
 
@@ -275,3 +275,48 @@ shape #222 → #225 fixed.
     `--tw-prose-headings` reroute so the between-commit "invalid var"
     window disappears (would require rebasing shipped commits; the cost
     outweighed the benefit at this stage).
+
+## Addendum — #277 (2026-09-07): a content figure paints its own ground
+
+**Context.** §What is NOT changed deferred "the 27 hand-drawn SVGs under
+`content/`… visual review is a follow-up". #277 drew seven new ones and, in
+doing so, found the reason the deferral could not be closed by re-palettifying:
+**a figure served through `<img>` never sees a CSS variable.** Chapter 15's
+`divide-y-conquista-patron.svg` is written as
+`.box { fill: var(--color-surface, #fff) }` — through an `<img>` only the `#fff`
+fallback ever paints, so the token reference is decorative and the asset shows
+one fixed set of values on both grounds.
+
+That would be survivable if some single ink worked on both. It does not, and
+the impossibility is arithmetic rather than aesthetic: against the light ground
+`#f8f2ef` a 4.5:1 text contrast requires relative luminance **≤ 0.160**, and
+against the dark ground `#0d1117` it requires **≥ 0.200**. No value satisfies
+both, so figure text drawn on the page ground is wrong in one theme by
+construction. (`add-a-course-document.md` §6e's existing rule asks only for 3:1,
+which is the *graphical* floor and is satisfiable — it does not cover text.)
+
+**Decision.** Every standalone figure under `content/` **paints its own opaque
+panel and draws all of its text on that panel**. The `var(--token, #fallback)`
+pattern is retired for these assets: it promises a theme response an `<img>`
+cannot deliver. Colour remains never the only signal (§Decision 3) — dashed
+borders, a `✗`/`✓`, and a word in every region.
+
+The palette #277 uses, measured against its own panel: panel `#fdfbf9` with a
+`#8e817c` border; text `#2b221d` (15.1:1) and `#493d37`; accent `#3a6ea5`;
+"correct" `#2f8a2f` and "wrong" `#b3261e` (6.3:1), both strokes rather than
+text.
+
+**Consequences.**
+
+- The normative rule lives in `add-a-course-document.md` §6e — the file every
+  figure author reads — and the palette with its measured pairs is registered
+  in `design-system.md` as a fifth exemption from §The one rule.
+  `teach-a-data-structure.md` points at both rather than restating them.
+- **The pre-existing figures are now non-conforming**, and this addendum does
+  not convert them: seven of the ~27 follow the new rule, the rest still carry
+  the token-var pattern. That conversion is its own WP, and this is the record
+  that it is owed.
+- `architecture.test.ts`'s raw-colour ban greps our class names, not the
+  contents of an SVG asset, so **nothing mechanical guards this**. The check is
+  rendering the figure over `#f8f2ef` and `#0d1117` and looking at it — the
+  same human gate §Consequences already assigns to every colour decision.

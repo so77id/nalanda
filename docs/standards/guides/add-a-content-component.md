@@ -289,6 +289,15 @@ rejects the static import as a bypass.
 
 ## Checklist
 
+
+- [ ] **Every string the widget DRAWS is Spanish** — button labels, status text,
+      empty states, `aria-label`, live-region text (root `CLAUDE.md` §Language,
+      `documentation.md` Rule 5). **No test can see this.** The catalog's
+      orthography guards cover registry prose and the family pages, and
+      `/catalog/c/:name` is excluded from them by design; an English word
+      carries no accented character, so no regex would match it either. Worked
+      case: `<Benchmark>` shipped `Run` / `Run de nuevo` beside a Spanish
+      `Corriendo…` from #218 all the way to #277, past every gate.
 - [ ] Family chosen; the contract points satisfied — including the `h2` one if
 - [ ] If the change adds or alters a prop a COURSE author writes, update
       that component's section in `guides/add-a-course-document.md` in the

@@ -15,7 +15,7 @@ export const presentationWideCatalogEntry: CatalogEntry = {
       name: 'fraction',
       type: 'number',
       description:
-        'Fraction of the viewport width. `1` = full viewport, `0.75` = 75% centred. Default `1`. Comparisons of two visuals side-by-side usually read better at `0.75`.',
+        'Fraction of the viewport width. `1` = full viewport, `0.75` = 75% centred. Default `1`. Comparisons of two visuals side-by-side usually read better at `0.75`; a wide markdown table wants `0.8` — at the default `1` its columns run flush to both slide edges (#277, measured at 1440x900: 640px and slide scale 0.71 unwrapped, 1058px and scale 1.0 wrapped).',
     },
   ],
   examples: [
@@ -32,12 +32,13 @@ export const presentationWideCatalogEntry: CatalogEntry = {
       ),
     },
     {
-      title: 'Full-viewport wide table',
-      code: '<PresentationWide>\n  <table>… wide comparison table …</table>\n</PresentationWide>',
+      title: 'Wide table at 80 % of the viewport',
+      code: '<PresentationWide fraction={0.8}>\n  <table>… wide comparison table …</table>\n</PresentationWide>',
       render: () => (
-        <PresentationWide>
+        <PresentationWide fraction={0.8}>
           <div className="rounded border border-rule bg-surface p-6 text-center text-sm text-ink-soft">
-            (Default fraction 1 = the block re-anchors to the full viewport width in presentation.)
+            (In presentation this table re-anchors to 80&nbsp;% of the viewport. At the default
+            fraction 1 its columns would run flush to both slide edges.)
           </div>
         </PresentationWide>
       ),

@@ -44,8 +44,12 @@ This file holds **monorepo-shared** instructions only. Each app has its own
 - `docs/standards/guides/add-a-course-document.md` — **read before editing
   anything under `content/`**: the frontmatter contract, the slide markers, the
   fact that everything there is published (the index controls navigation,
-  never visibility), and the pointer to `course-content-style.md` (voice,
-  register, titles, cross-reference discipline) that governs the prose itself.
+  never visibility), and the pointers to `course-content-style.md` (voice,
+  register, titles, cross-reference discipline) that governs the prose itself
+  and — for a class of the **Estructuras de Datos** unit —
+  `docs/standards/guides/teach-a-data-structure.md` (shape: the four acts,
+  TDA-as-contract, the cost table with its invariant column, the cabo suelto).
+  The three are read together, before drafting.
 
 The original POC is archived in `proof-of-concept/` (runnable, reference only —
 port pieces from it as WPs require, refactoring to current standards on entry).

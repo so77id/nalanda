@@ -77,8 +77,9 @@ heading becomes a **title-only divider slide** — which is what a lecture wants
 between acts. Chapter 16 ships the same shape.
 
 **Never put a `<SectionBreak />` before `## Lo que sigue`.** The same mechanism
-would project the closing navigation as a slide, which is the defect #79
-shipped and #108 named. Without a break, `open` is null and the closing prose
+would project the closing navigation as a slide — the defect #79 shipped
+(`add-a-course-document.md` §4), and the same class of unchosen slide that
+#108 exists to prevent. Without a break, `open` is null and the closing prose
 stays book-only.
 
 ### 2. Define a TDA in one shape
@@ -86,8 +87,12 @@ stays book-only.
 A TDA is introduced as a **contract**, always in this order:
 
 1. One sentence saying what the collection IS, and what orders its elements.
-2. A ` ```java ` fence with an `interface`, one operation per line, each with a
-   trailing comment giving its meaning — never its cost.
+2. A ` ```java ` fence with an `interface`, one operation per line. Each
+   operation whose meaning is not obvious from its name carries a comment
+   giving that meaning — trailing where it fits, above the line where it does
+   not — and **never its cost**. Shortcuts the prose defines immediately below
+   may stay bare: #277 leaves the four `*First`/`*Last` uncommented for exactly
+   that reason.
 3. One paragraph on what the contract deliberately does **not** say (memory
    layout, capacity, growth), because that is what makes many implementations
    possible.
@@ -114,10 +119,12 @@ Two rules:
 - **State the property before the consequence.** The reader has to be able to
   check the property against a picture; a sentence that opens with the
   consequence hides what is being claimed.
-- **Close the list with the one invariant that costs money.** Every structure
-  has one property that is simultaneously the source of its cheap operation
-  and of its expensive one. Naming it here is what makes the cost table of the
-  next act readable instead of memorised.
+- **Name the one invariant that costs money, and name it last.** Every
+  structure has one property that is simultaneously the source of its cheap
+  operation and of its expensive one. Either close the list with it, or close
+  with a paragraph right after the list — #277 uses the paragraph, because its
+  expensive invariant is also the one its figure illustrates. Naming it is what
+  makes the cost table of the next act readable instead of memorised.
 
 Worked case: #277, slide *Los invariantes del arreglo* — three invariants, and
 a closing paragraph naming contiguity as both the cheap and the expensive one.
@@ -192,20 +199,14 @@ A step-by-step that does not fit a widget becomes a static SVG beside the
 follow one more, and it is forced rather than stylistic:
 
 **Every figure paints an opaque panel and draws all of its text on that
-panel.** An `<img>` never sees the page's tokens, so a figure paints the same
-values on both grounds — and no single ink can clear the 4.5:1 text floor
-against both: light `#f8f2ef` requires a relative luminance ≤ 0.160 and dark
-`#0d1117` requires ≥ 0.200. The requirement is unsatisfiable, so text on the
-page ground is wrong in one theme by construction. A panel of the figure's own
-removes the problem.
-
-The values #277 uses, all measured against that panel: panel `#fdfbf9` with a
-`#8e817c` border, text `#2b221d` (15.1:1) and `#493d37`, accent `#3a6ea5`,
-"correct" `#2f8a2f`, "wrong" `#b3261e` (6.3:1).
-
-And, per ADR-0026, **colour is never the only signal**: dashed borders mark
-casillas that hold garbage, a `✗`/`✓` marks the two rules of a comparison, and
-every region carries a word.
+panel** — and that is a repo-wide rule, not a habit of this unit, because its
+cause is that every course figure is served through `<img>`. The rule and the
+arithmetic that forces it are in
+[`add-a-course-document.md`](add-a-course-document.md) §6e-bis; the registered
+palette with its measured pairs is in
+[`../design-system.md`](../design-system.md) §"A static figure served through
+`<img>`"; the decision is ADR-0026 §Addendum — #277. Follow those; this guide
+adds nothing to them.
 
 **Render every figure over both grounds and look at it.** Nothing in the build
 or the suite can see a figure at all. #277 found four defects this way that no
@@ -255,11 +256,19 @@ reusing `<CodeEditor>` and `<Benchmark>`.
       (copies, doublings, totals) reproduced by simulation **including one
       non-power-of-two N**. Nothing in the build or the suite executes a
       snippet, and #277 shipped a bound that held for N = 16 and failed for
-      N = 1000 — a value its own widget offers the reader.
+      N = 1000 — a value its own widget offers the reader. **There is no JVM on
+      the dev host** (`java`/`javac` are the macOS stubs and fail), so the
+      browser widget under `npm run preview` is the only place Java actually
+      runs; do the arithmetic simulation in `python3 -c` or `node -e` instead.
 - [ ] Every slide's scale measured in the deck at 1440x900, not eyeballed.
       A slide that fits is reported at scale 1.0; anything under ~0.7 is
       splitting into two titled `<Slide>`s, never a `<SectionBreak />`
-      (which would add an untitled slide instead).
+      (which would add an untitled slide instead). **How to read it**: under
+      `npm run build && npm run preview`, on `/nalanda/d/<id>/present?slide=<n>`,
+      the scale is the `transform` on the `motion.div` inside
+      `[data-testid="slide-stage"]` (`presentation/SlideDeck.tsx`) — in
+      Playwright, `getComputedStyle(el).transform` and read the first number of
+      the `matrix(...)`; `none` or `matrix(1, 0, 0, 1, 0, 0)` means 1.0.
 - [ ] The checklists of [`add-a-course-document.md`](add-a-course-document.md)
       and [`course-content-style.md`](course-content-style.md) both pass — this
       guide adds to them and replaces neither.
