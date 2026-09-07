@@ -408,7 +408,12 @@ func TestACourseThatDoesNotExistIs404(t *testing.T) {
 
 // The import lands on the course, not back on the profile: the roster it
 // just wrote is what the professor wants to look at.
-func TestTheImportRedirectsToTheCourse(t *testing.T) {
+// The import comes back to the page its button is on.
+//
+// Since #272 S6 that is the ROSTER page, not the course page: the button
+// moved there with the table, and landing on /courses/{id} would put the
+// professor one click away from the list they just asked to see.
+func TestTheImportRedirectsToTheRoster(t *testing.T) {
 	f := newProfileFixture(t, profileKey())
 	_, session := f.signIn(t)
 	f.api.courses = canvasCourses()
@@ -416,7 +421,7 @@ func TestTheImportRedirectsToTheCourse(t *testing.T) {
 	courseID := f.addCourse(t, session, "44779")
 
 	rec := f.importPost(t, session, courseID)
-	if got, want := rec.Header().Get("Location"), handler.CoursePathFor(courseID); got != want {
+	if got, want := rec.Header().Get("Location"), handler.CourseStudentsPathFor(courseID); got != want {
 		t.Errorf("Location = %q, want %q", got, want)
 	}
 }
@@ -1232,4 +1237,123 @@ func TestACourseWhoseClassAllWithdrewStillHasARosterAndOffersRematch(t *testing.
 	if !strings.Contains(body, "1 retirados") {
 		t.Errorf("the withdrawn count is not shown:\n%s", body)
 	}
+}
+
+// A flash a handler SETS is a flash the next page SHOWS.
+//
+// This is the case that did not exist, and its absence cost a shipped
+// bug: every flash on /profile, /courses and /courses/{id} was set into
+// the cookie and never rendered, because none of those handlers called
+// flash.Consume. Miguel found it in production by pressing "Reasociar
+// controles" three times and getting no message at all.
+//
+// The whole existing family of flash assertions reads `flashOf(rec)` —
+// the COOKIE on the POST response — which is green whether or not a
+// human ever sees the words. This one follows the redirect and asserts
+// the text is in the HTML the browser gets, which is the only thing the
+// professor experiences.
+func TestEveryFlashOnTheCourseScreensReachesThePage(t *testing.T) {
+	for _, c := range []struct {
+		name string
+		// do performs the POST and hands back its response, which
+		// carries both the Location and the flash cookie.
+		do   func(t *testing.T, f *profileFixture, session string, courseID int64) *httptest.ResponseRecorder
+		want string
+	}{
+		{
+			name: "the roster import",
+			do: func(t *testing.T, f *profileFixture, session string, courseID int64) *httptest.ResponseRecorder {
+				f.api.students = []canvas.Student{
+					aCanvasStudent("900001", "11222333", "5", "PEREZ SOTO"),
+				}
+				return f.importPost(t, session, courseID)
+			},
+			want: "Lista importada",
+		},
+		{
+			name: "the retroactive rematch",
+			do: func(t *testing.T, f *profileFixture, session string, courseID int64) *httptest.ResponseRecorder {
+				f.rematcher.result = controls.RematchResult{Controls: 2, Matched: 27, Changed: 27}
+				return f.rematchPost(t, session, courseID)
+			},
+			want: "Reasociación lista",
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			f := newProfileFixture(t, profileKey())
+			_, session := f.signIn(t)
+			f.api.courses = canvasCourses()
+			f.connect(t, session)
+			courseID := f.addCourse(t, session, "44779")
+
+			posted := c.do(t, f, session, courseID)
+			location := posted.Header().Get("Location")
+			if location == "" {
+				t.Fatal("the handler did not redirect, so there is no page to carry the flash")
+			}
+
+			// Follow the redirect the way a browser does, carrying the
+			// cookie the POST set.
+			body := f.followWithFlash(t, session, location, posted)
+			if !strings.Contains(body, c.want) {
+				t.Errorf("the page at %s does not show the flash %q — it was set into the cookie "+
+					"and nobody rendered it:\n%s", location, c.want, body)
+			}
+		})
+	}
+}
+
+// followWithFlash issues the GET a browser would make after a redirect,
+// carrying the session and the flash cookie, and returns the HTML.
+func (f *profileFixture) followWithFlash(t *testing.T, session, location string, posted *httptest.ResponseRecorder) string {
+	t.Helper()
+
+	var flashCookie string
+	for _, ck := range posted.Result().Cookies() {
+		if ck.Name == flash.CookieName && ck.Value != "" {
+			flashCookie = ck.Value
+		}
+	}
+	if flashCookie == "" {
+		t.Fatal("the POST set no flash cookie at all")
+	}
+
+	// Which handler serves it, and what {id} it needs.
+	var (
+		h  http.HandlerFunc
+		id string
+	)
+	switch {
+	case strings.HasSuffix(location, "/alumnos"):
+		h, id = f.coursesHandler.Students, courseIDFromPath(location)
+	case location == handler.CoursesPath:
+		h = f.coursesHandler.List
+	case location == handler.ProfilePath:
+		h = f.handler.Show
+	default:
+		h, id = f.coursesHandler.Show, courseIDFromPath(location)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, location, nil)
+	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: session})
+	req.AddCookie(&http.Cookie{Name: flash.CookieName, Value: flashCookie})
+	if id != "" {
+		req.SetPathValue("id", id)
+	}
+
+	rec := httptest.NewRecorder()
+	f.middleware.Resolve(f.middleware.RequireProfessor(h)).ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("following the redirect to %s: status = %d", location, rec.Code)
+	}
+	return rec.Body.String()
+}
+
+// courseIDFromPath pulls the {id} out of /courses/{id}[/...].
+func courseIDFromPath(p string) string {
+	parts := strings.Split(strings.TrimPrefix(p, "/"), "/")
+	if len(parts) >= 2 && parts[0] == "courses" {
+		return parts[1]
+	}
+	return ""
 }

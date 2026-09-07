@@ -130,6 +130,12 @@ func (c *Courses) List(w http.ResponseWriter, r *http.Request) {
 		})
 	}
 
+	// The one-shot message from whatever redirected here — POST
+	// /admin/rematch is the one that lands on this page. Every page that
+	// is a redirect TARGET has to consume, or the cookie survives to
+	// surprise somebody on a later navigation.
+	page.Flash = flash.Consume(w, r, c.secureCookie)
+
 	if err := view.RenderCoursesList(w, page); err != nil {
 		c.Log.Error("rendering the course list", "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
@@ -202,6 +208,8 @@ func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 	// A roster exists once anybody is on it in any state — see
 	// CourseDetailPage.HasRoster for why this is not the enrolled count.
 	page.HasRoster = len(enrollments) > 0
+	// POST /courses/{id}/rematch and POST /profile/courses both land here.
+	page.Flash = flash.Consume(w, r, c.secureCookie)
 
 	if err := view.RenderCourseDetail(w, page); err != nil {
 		c.Log.Error("rendering a course", "course", courseID, "error", err)
@@ -252,6 +260,10 @@ func (c *Courses) Students(w http.ResponseWriter, r *http.Request) {
 			URL:       StudentPathFor(e.Student.ID),
 		})
 	}
+
+	// POST /courses/{id}/import-canvas lands here — the import button is
+	// on this page, so its "Lista importada: N estudiantes" belongs here.
+	page.Flash = flash.Consume(w, r, c.secureCookie)
 
 	if err := view.RenderCourseStudents(w, page); err != nil {
 		c.Log.Error("rendering a course's roster", "course", courseID, "error", err)
@@ -422,9 +434,11 @@ func (c *Courses) ImportCanvas(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Back to the course, where the roster the import just wrote is what
-	// the professor wants to look at.
-	http.Redirect(w, r, CoursePathFor(courseID), http.StatusSeeOther)
+	// Back to the ROSTER page, which since #272 S6 is where the import
+	// button lives and where the list it just wrote is shown. Redirecting
+	// to /courses/{id} would land the professor on the controls page,
+	// one click away from the thing they asked for.
+	http.Redirect(w, r, CourseStudentsPathFor(courseID), http.StatusSeeOther)
 }
 
 // importFlash is the Spanish sentence describing what an import did.

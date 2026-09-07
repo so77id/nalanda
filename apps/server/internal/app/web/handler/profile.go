@@ -207,6 +207,11 @@ func (p *Profile) render(w http.ResponseWriter, r *http.Request, status int, fie
 		}
 	}
 
+	// The token save/forget and the add-course refusals all redirect here.
+	// Consumed on every render, including the 422 re-renders: a flash left
+	// in the cookie reappears on an unrelated page later.
+	page.Flash = flash.Consume(w, r, p.secureCookie)
+
 	if err := view.RenderProfile(w, status, page); err != nil {
 		p.Log.Error("rendering the profile page", "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
