@@ -26,6 +26,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
@@ -79,6 +80,7 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 		// answer for them — what matters is that the wiring the binary
 		// does is the wiring the test does.
 		Matcher:         matching.NewService(coursestore.New(db)),
+		Dispatcher:      email.NewStubDispatcher(),
 		Bank:            emptyBank(t),
 		Store:           cstore,
 		Generator:       amcFake,

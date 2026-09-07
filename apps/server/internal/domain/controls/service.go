@@ -91,6 +91,11 @@ type Service struct {
 	// silently unmatched, which looks exactly like a class nobody is
 	// enrolled in.
 	Matcher Matcher
+	// Dispatcher delivers a publication's messages (issue #273). Required
+	// — which of the four transports it is was decided at boot, and a nil
+	// one would make "Publicar" a button that reports success and sends
+	// nothing.
+	Dispatcher Dispatcher
 	// WorkDir is what the SERVER sees as the root of the shared volume.
 	// In compose it is bind-mounted onto /work in the worker; in
 	// development it may be any path the operator chose (see
@@ -139,6 +144,8 @@ func NewService(deps Service) *Service {
 		panic("controls.NewService: no annotator")
 	case deps.Matcher == nil:
 		panic("controls.NewService: no matcher")
+	case deps.Dispatcher == nil:
+		panic("controls.NewService: no mail dispatcher")
 	case deps.WorkDir == "":
 		panic("controls.NewService: no work directory")
 	case deps.Now == nil:

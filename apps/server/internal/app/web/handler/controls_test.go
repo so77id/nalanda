@@ -29,6 +29,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
@@ -253,8 +254,9 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		// Issue #272: the real matcher over the real course tables, so
 		// the scans cases below see the association the binary would
 		// write rather than a double's answer.
-		Matcher:   matching.NewService(courseStore),
-		Annotator: fake, AnnotateEnabled: annotateEnabled,
+		Matcher:    matching.NewService(courseStore),
+		Dispatcher: email.NewStubDispatcher(),
+		Annotator:  fake, AnnotateEnabled: annotateEnabled,
 		WorkDir: workDir,
 		Now:     time.Now, Seed: 1, Log: log,
 	})

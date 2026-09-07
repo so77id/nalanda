@@ -264,13 +264,14 @@ func newService(t *testing.T) (*controls.Service, *fakeStore, *amctest.Fake, str
 	store := newFakeStore()
 	gen := &amctest.Fake{WorkDir: workDir, SujetSize: 42}
 	svc := controls.NewService(controls.Service{
-		Bank:      bank.NewStaticLive(b),
-		Store:     store,
-		Generator: gen,
-		Analyzer:  gen,
-		Matcher:   noMatcher{},
-		Readings:  newFakeReadingStore(),
-		Annotator: gen,
+		Bank:       bank.NewStaticLive(b),
+		Store:      store,
+		Generator:  gen,
+		Analyzer:   gen,
+		Matcher:    noMatcher{},
+		Dispatcher: noDispatcher{},
+		Readings:   newFakeReadingStore(),
+		Annotator:  gen,
 		// The production default (config default true, issue #190). Tests
 		// that exercise the off switch build their own Service.
 		AnnotateEnabled: true,
@@ -526,8 +527,9 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 	svc := controls.NewService(controls.Service{
 		Bank: bank.NewStaticLive(b), Store: store, Generator: gen, Analyzer: gen, Readings: newFakeReadingStore(),
 		Annotator: gen, AnnotateEnabled: true, Matcher: noMatcher{},
-		WorkDir: workDir,
-		Now:     func() time.Time { return time.Now() }, Seed: 1,
+		Dispatcher: noDispatcher{},
+		WorkDir:    workDir,
+		Now:        func() time.Time { return time.Now() }, Seed: 1,
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
@@ -911,4 +913,14 @@ func TestAssignCourseOnAnUnknownControlIsNotFound(t *testing.T) {
 	if !errors.Is(err, controls.ErrControlNotFound) {
 		t.Errorf("AssignCourse on an unknown control = %v, want ErrControlNotFound", err)
 	}
+}
+
+// noDispatcher is a mail transport no case in this package sends through.
+// Publication has its own tests; every case here is about generation,
+// analysis or matching, and a Service that refused to be built without a
+// dispatcher would make all of them carry one.
+type noDispatcher struct{}
+
+func (noDispatcher) Send(context.Context, int64, controls.Message) (string, error) {
+	return "", errors.New("controls: no case in this file publishes")
 }

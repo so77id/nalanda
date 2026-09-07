@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -32,6 +33,8 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/config"
+	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
@@ -79,6 +82,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 		// answer for them — what matters is that the wiring the binary
 		// does is the wiring the test does.
 		Matcher:         matching.NewService(coursestore.New(db)),
+		Dispatcher:      email.NewStubDispatcher(),
 		Bank:            emptyBank(t),
 		Store:           cstore,
 		Generator:       amcFake,
@@ -541,3 +545,51 @@ type noGmailAccount struct{}
 
 func (noGmailAccount) SetGmailAddress(context.Context, int64, string) error { return nil }
 func (noGmailAccount) GmailAddress(context.Context, int64) (string, error)  { return "", nil }
+
+// Issue #273: the boot-time transport selection. What makes this worth a
+// test rather than a read is that every wrong answer is silent — a `real`
+// deployment that got the stub reports success and sends nothing, and a
+// `stub` one that got the real transport mails a class.
+func TestEachMailModeSelectsItsOwnTransport(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	creds := unreachableCredentials{}
+
+	for _, tc := range []struct {
+		mode config.EmailMode
+		want string
+	}{
+		{config.EmailModeStub, "*email.StubDispatcher"},
+		{config.EmailModeDryRun, "*email.DryRunDispatcher"},
+		{config.EmailModeStaging, "*email.StagingDispatcher"},
+		{config.EmailModeReal, "*email.GmailDispatcher"},
+	} {
+		t.Run(string(tc.mode), func(t *testing.T) {
+			got := fmt.Sprintf("%T", buildDispatcher(tc.mode, creds, log))
+			if got != tc.want {
+				t.Errorf("%s selected %s, want %s", tc.mode, got, tc.want)
+			}
+		})
+	}
+}
+
+// config.Load is what refuses an unknown mode, so reaching the default of
+// that switch means somebody added a fifth constant and did not come back
+// here. A panic is the failure that gets noticed; falling through to stub
+// would be a deployment that looks healthy and sends nothing.
+func TestAnUnhandledMailModePanicsRatherThanFallingBackToStub(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("buildDispatcher returned a transport for a mode it does not handle")
+		}
+	}()
+	buildDispatcher(config.EmailMode("carrier-pigeon"), unreachableCredentials{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)))
+}
+
+// unreachableCredentials satisfies email.Credentials without a network. No
+// case above sends, so no case above needs a token.
+type unreachableCredentials struct{}
+
+func (unreachableCredentials) AccessToken(context.Context, int64) (gmail.Access, error) {
+	return gmail.Access{}, gmail.ErrNotConnected
+}

@@ -34,6 +34,7 @@ import (
 	// adapter appears exactly once, in the constructor below.
 	canvasapi "github.com/so77id/nalanda/apps/server/internal/infra/canvas"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
+	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpserver"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc"
 	"github.com/so77id/nalanda/apps/server/internal/infra/selfcheck"
@@ -182,49 +183,6 @@ func run(logger *slog.Logger) error {
 	// handle, so a second instance would be harmless — one is simply the
 	// honest statement that they are the same tables.
 	courseStore := coursestore.New(db)
-	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL})
-	controlsService := controls.NewService(controls.Service{
-		Bank:      liveBank,
-		Store:     controlStore,
-		Generator: amcClient,
-		Analyzer:  amcClient,
-		Readings:  controlStore,
-		Annotator: amcClient,
-		// Issue #272: what turns a RUT off the sheet into a student on
-		// the control's course. The controls domain declares the port
-		// (controls.Matcher) and this is what satisfies it.
-		Matcher: matching.NewService(courseStore),
-		// The annotate loop's master switch (NALANDA_ANNOTATE_ENABLED,
-		// issue #190 §Reversibility): defaults to true, the operator can
-		// turn the whole flow off without a deploy.
-		AnnotateEnabled: cfg.AnnotateEnabled,
-		WorkDir:         cfg.WorkDir,
-		Now:             time.Now,
-		// Constant seed for reproducibility (tex.Compile refuses zero).
-		// A per-control seed is a future decision: today every control
-		// runs the same shuffle, and re-generating one produces the same
-		// pool — which the four traps of ADR-0030 need to be testable
-		// against.
-		Seed: 4242,
-		Log:  logger,
-	})
-
-	// Issue #249: the async job runner. One goroutine, one queue,
-	// jobs persisted so a Watchtower restart does not lose them.
-	// Handlers register per Kind as the WP migrates each operation
-	// off the sync path — this ships with KindReanalyse (S3); S4–S6
-	// add analyse, generate and annotate.
-	jobStore := jobstore.New(db)
-	jobRunner := jobs.NewRunner(jobStore, jobs.Handlers{
-		jobs.KindReanalyse: controls.NewReanalyseHandler(controlsService),
-		jobs.KindAnalyse:   controls.NewAnalyseHandler(controlsService),
-		jobs.KindGenerate:  controls.NewGenerateHandler(controlsService),
-		jobs.KindAnnotate:  controls.NewAnnotateHandler(controlsService),
-	}, logger, time.Now)
-	if err := jobRunner.Sweep(ctx); err != nil {
-		return err
-	}
-	go jobRunner.Start(ctx)
 
 	// Issue #271: the Canvas integration. The secret store is nil when the
 	// operator has not set NALANDA_SECRETS_MASTER_KEY — a legal, boot-able
@@ -266,6 +224,69 @@ func run(logger *slog.Logger) error {
 	})
 	rosterService := roster.NewService(courseStore, roster.NewCanvasSource(canvasService))
 
+	// Issue #273: the mail transport, selected ONCE at boot and logged in
+	// one line — the "select don't describe" shape of DocumentBuddy's
+	// ADR-021. Nothing downstream branches on the mode, so no caller can be
+	// in one mode while its neighbour is in another, and an operator
+	// reading the first lines of the log knows whether this process can
+	// reach a student.
+	dispatcher := buildDispatcher(cfg.EmailMode, gmailService, logger)
+	logger.Info("email dispatcher", "mode", cfg.EmailMode)
+
+	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL})
+	controlsService := controls.NewService(controls.Service{
+		Bank:      liveBank,
+		Store:     controlStore,
+		Generator: amcClient,
+		Analyzer:  amcClient,
+		Readings:  controlStore,
+		Annotator: amcClient,
+		// Issue #272: what turns a RUT off the sheet into a student on
+		// the control's course. The controls domain declares the port
+		// (controls.Matcher) and this is what satisfies it.
+		Matcher: matching.NewService(courseStore),
+		// Issue #273: what a publication sends through. Which of the four
+		// transports this is was decided at boot, above; nothing in the
+		// domain asks which one it got.
+		Dispatcher: dispatcher,
+		// The annotate loop's master switch (NALANDA_ANNOTATE_ENABLED,
+		// issue #190 §Reversibility): defaults to true, the operator can
+		// turn the whole flow off without a deploy.
+		AnnotateEnabled: cfg.AnnotateEnabled,
+		WorkDir:         cfg.WorkDir,
+		Now:             time.Now,
+		// Constant seed for reproducibility (tex.Compile refuses zero).
+		// A per-control seed is a future decision: today every control
+		// runs the same shuffle, and re-generating one produces the same
+		// pool — which the four traps of ADR-0030 need to be testable
+		// against.
+		Seed: 4242,
+		Log:  logger,
+	})
+
+	// Issue #249: the async job runner. One goroutine, one queue,
+	// jobs persisted so a Watchtower restart does not lose them.
+	// Handlers register per Kind as the WP migrates each operation
+	// off the sync path — this ships with KindReanalyse (S3); S4–S6
+	// add analyse, generate and annotate.
+	jobStore := jobstore.New(db)
+	jobRunner := jobs.NewRunner(jobStore, jobs.Handlers{
+		jobs.KindReanalyse: controls.NewReanalyseHandler(controlsService),
+		jobs.KindAnalyse:   controls.NewAnalyseHandler(controlsService),
+		jobs.KindGenerate:  controls.NewGenerateHandler(controlsService),
+		jobs.KindAnnotate:  controls.NewAnnotateHandler(controlsService),
+	}, logger, time.Now)
+	if err := jobRunner.Sweep(ctx); err != nil {
+		return err
+	}
+	go jobRunner.Start(ctx)
+
+	// Issue #273: the mail transport, selected ONCE at boot and logged in
+	// one line — the "select don't describe" shape of DocumentBuddy's
+	// ADR-021. Nothing downstream branches on the mode, so no caller can be
+	// in one mode while its neighbour is in another, and an operator
+	// reading the first ten lines of the log knows whether this process can
+	// reach a student.
 	backoffice := web.Deps{
 		Database: storage.NewProber(db),
 		Gate: middleware.NewAuth(middleware.Auth{
@@ -382,4 +403,33 @@ func warnIfNobodyCanLogIn(ctx context.Context, users auth.UserStore, cfg config.
 			"set", config.KeyBootstrapProfessorEmail)
 	}
 	return nil
+}
+
+// buildDispatcher picks the transport for the selected mode.
+//
+// The switch is exhaustive over config's closed set and still ends in a
+// panic, which is not belt-and-braces theatre: config.Load is what refuses
+// an unknown mode, so reaching the default here means somebody added a
+// fifth EmailMode constant and did not come back to this function. A panic
+// at wiring time is the failure that gets noticed; a silent fall-through to
+// stub is a deployment that looks healthy and sends nothing
+// (backend-code-style.md §Errors — never in a request path, right here).
+func buildDispatcher(mode config.EmailMode, creds email.Credentials, log *slog.Logger) controls.Dispatcher {
+	switch mode {
+	case config.EmailModeStub:
+		return email.NewStubDispatcher()
+	case config.EmailModeDryRun:
+		return email.NewDryRunDispatcher(creds, log)
+	case config.EmailModeStaging:
+		return email.NewStagingDispatcher(email.NewGmailDispatcher(email.GmailConfig{Credentials: creds}))
+	case config.EmailModeReal:
+		// `real` does NOT mean "always send to the student": it means the
+		// per-publication choice the professor made on the form is
+		// honoured, and the staging half of that choice is applied by the
+		// publish job, which is the only layer that knows what was asked
+		// for. This transport is the one that actually delivers.
+		return email.NewGmailDispatcher(email.GmailConfig{Credentials: creds})
+	default:
+		panic("main.buildDispatcher: no transport for mail mode " + string(mode))
+	}
 }

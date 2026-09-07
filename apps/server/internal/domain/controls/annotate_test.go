@@ -37,6 +37,7 @@ func newAnnotateFixture(t *testing.T, annotateEnabled bool) *annotateFixture {
 	fake := &amctest.Fake{}
 	svc := controls.NewService(controls.Service{
 		Matcher:         noMatcher{},
+		Dispatcher:      noDispatcher{},
 		Bank:            bank.NewStaticLive(b),
 		Store:           store,
 		Generator:       fake,

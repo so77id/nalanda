@@ -116,6 +116,48 @@ const (
 	KeyCanvasGraphQLURL = "NALANDA_CANVAS_GRAPHQL_URL"
 )
 
+// The publication block (#273, WP-3 of epic #270). One variable, and it
+// decides whether a professor pressing "Publicar" reaches real students.
+const (
+	// KeyEmailMode selects the mail transport: real | staging | dryrun |
+	// stub. Optional, and its DEFAULT IS stub — see defaultEmailMode.
+	KeyEmailMode = "NALANDA_EMAIL_MODE"
+)
+
+// EmailMode is the selected transport. A named type rather than a bare
+// string so a caller cannot pass a mode this package never validated.
+type EmailMode string
+
+const (
+	// EmailModeReal honours the per-publication choice the professor made:
+	// their `real` sends to the student, their `staging` to themselves.
+	EmailModeReal EmailMode = "real"
+	// EmailModeStaging overrides the request — every message goes to the
+	// professor, whatever the form said.
+	EmailModeStaging EmailMode = "staging"
+	// EmailModeDryRun resolves the credential, builds the message, logs
+	// what it would have sent, and delivers nothing.
+	EmailModeDryRun EmailMode = "dryrun"
+	// EmailModeStub reaches no network at all.
+	EmailModeStub EmailMode = "stub"
+)
+
+// emailModes is the closed set, in the order an operator meets them in the
+// documentation.
+var emailModes = []EmailMode{EmailModeReal, EmailModeStaging, EmailModeDryRun, EmailModeStub}
+
+// defaultEmailMode is what an unset KeyEmailMode resolves to.
+//
+// `stub`, and the direction of that default is the decision. Every other
+// optional variable in this package defaults to what production wants;
+// this one defaults to what production does NOT, because the cost of the
+// two mistakes is not symmetric. An operator who deploys without choosing
+// and gets `stub` finds out when a publication sends nothing, and fixes it
+// by setting one variable. An operator who deploys without choosing and
+// gets `real` finds out when forty students receive mail that cannot be
+// recalled. Opt in to sending.
+const defaultEmailMode = EmailModeStub
+
 // defaultMaxScanMB is what an unset KeyMaxScanMB resolves to.
 const defaultMaxScanMB = 100
 
@@ -240,6 +282,11 @@ type Config struct {
 	// CanvasGraphQLURL is the Canvas GraphQL endpoint, or "" for the
 	// client's own default (UDP's). Validated when set.
 	CanvasGraphQLURL string
+
+	// EmailMode is the transport a publication uses (issue #273). Always
+	// one of the four; an unset variable resolves to EmailModeStub and an
+	// unknown one fails the boot.
+	EmailMode EmailMode
 }
 
 // SecretsConfigured reports whether a usable master key was configured, and
@@ -262,6 +309,7 @@ func Keys() []string {
 		KeyMaxScanMB, KeyAnnotateEnabled,
 		KeyBankRefreshInterval,
 		KeySecretsMasterKey, KeyCanvasGraphQLURL,
+		KeyEmailMode,
 	}
 }
 
@@ -428,7 +476,36 @@ func Load(lookup LookupFunc) (Config, error) {
 		}
 	}
 
+	cfg.EmailMode = EmailMode(strings.TrimSpace(l.optional(KeyEmailMode, string(defaultEmailMode))))
+	if !slices.Contains(emailModes, cfg.EmailMode) {
+		// An ERROR from Load rather than a panic at the selector, although
+		// the issue asked for a panic. The operator experience is the same
+		// — the process refuses to start, naming the variable and the legal
+		// set — and this is the contract every other variable in this file
+		// already holds to (see the log-level branch above). A panic would
+		// also land in a different place from every other configuration
+		// failure, which is a worse thing to debug at 8am on the Jetson.
+		//
+		// The failure is LOUD rather than a fall back to the default,
+		// because a typo silently resolving to `stub` is a professor
+		// pressing "Publicar" and nobody receiving anything, with a
+		// success message on screen.
+		return Config{}, fmt.Errorf(
+			"%s=%q is not a mail mode; expected one of %s",
+			KeyEmailMode, cfg.EmailMode, joinModes(emailModes),
+		)
+	}
+
 	return cfg, nil
+}
+
+// joinModes renders the closed set for an error message.
+func joinModes(modes []EmailMode) string {
+	out := make([]string, 0, len(modes))
+	for _, m := range modes {
+		out = append(out, string(m))
+	}
+	return strings.Join(out, ", ")
 }
 
 // parseMasterKey decodes the base64 master key. An empty value is "not
