@@ -348,7 +348,7 @@ Deliberately, and each with an owner:
 | Emailing a corrected copy to its student, and the deletion path `security-notes.md` books | WP-3 of epic #270 (#273). #272 supplies the association it needs |
 | A control created before migration `00015` carries no course until a professor assigns one on its detail page, and its copies stay unmatched meanwhile | by hand, per control — there is nothing to backfill from, since `00004` never recorded a course |
 | A seven-digit RUT typed with its verifier and NO separator (`11222335`) is read as an eight-digit body | deliberately unguessed — `matching.NormalizeRUT` refuses to guess rather than risk matching a stranger; a mod-11 check is the WP that would close it |
-| Two copies of one control matched to the SAME student collapse in the matrix (the last one wins) and are flagged nowhere | reachable by typing one RUT into two copies; needs a cell state, deferred from #272 |
+| Two copies of one control matched to the SAME student collapse in the matrix (the last one wins) and are flagged nowhere | [#280](https://github.com/so77id/nalanda/issues/280) — reachable by typing one RUT into two copies; deferred from #272 because the fix needs a design call, not a patch |
 | Bulk download of annotated PDFs as a ZIP | when the pile is large enough — captured in #167 §Notes |
 | Regenerating the annotated PDF after a manual override | #167 §Non-goals; the annotated stays a view of what AMC read, overrides live in the DB |
 | Isolation between professors | V2 / #163 |
