@@ -35,7 +35,7 @@ var _ controls.Store = (*Store)(nil)
 // controlInsertColumns is what CreateControl writes: everything except
 // deleted_at, which lands NULL by default (a fresh control is active by
 // definition; issue #261).
-const controlInsertColumns = "id, name, application_date, from_document, from_section, to_document, to_section, questions_per_copy, copies, duplex_padding, paper, ticked, unsure, state, created_at, created_by"
+const controlInsertColumns = "id, name, application_date, from_document, from_section, to_document, to_section, questions_per_copy, copies, duplex_padding, paper, ticked, unsure, state, created_at, created_by, course_id"
 
 // controlColumns is what SELECTs read, including deleted_at so the
 // archived/active split is visible to callers.
@@ -61,7 +61,7 @@ func (s *Store) CreateControl(ctx context.Context, control controls.Control, poo
 
 	if _, err := tx.ExecContext(ctx, `
         INSERT INTO control (`+controlInsertColumns+`)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		control.ID,
 		control.Name,
 		nullableUnixSeconds(control.ApplicationDate),
@@ -74,6 +74,7 @@ func (s *Store) CreateControl(ctx context.Context, control controls.Control, poo
 		string(control.State),
 		control.CreatedAt.Unix(),
 		control.CreatedBy,
+		nullableID(control.CourseID),
 	); err != nil {
 		return fmt.Errorf("controlstore.CreateControl: insert control %s: %w", control.ID, err)
 	}
@@ -279,6 +280,7 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		createdAt       int64
 		state           string
 		deletedAt       sql.NullInt64
+		courseID        sql.NullInt64
 	)
 	if err := row.Scan(
 		&c.ID, &c.Name, &applicationDate,
@@ -289,6 +291,7 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		&paper,
 		&c.Ticked, &c.Unsure,
 		&state, &createdAt, &c.CreatedBy,
+		&courseID,
 		&deletedAt,
 	); err != nil {
 		return controls.Control{}, err
@@ -304,6 +307,10 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 	if deletedAt.Valid {
 		at := time.Unix(deletedAt.Int64, 0).UTC()
 		c.DeletedAt = &at
+	}
+	if courseID.Valid {
+		id := courseID.Int64
+		c.CourseID = &id
 	}
 	return c, nil
 }
@@ -331,6 +338,15 @@ func nullableUnixSeconds(t *time.Time) sql.NullInt64 {
 		return sql.NullInt64{}
 	}
 	return sql.NullInt64{Int64: t.Unix(), Valid: true}
+}
+
+// nullableID turns an optional row id into a sql.NullInt64. Nil becomes
+// NULL — the "no course" state control.course_id carries (issue #272).
+func nullableID(id *int64) sql.NullInt64 {
+	if id == nil {
+		return sql.NullInt64{}
+	}
+	return sql.NullInt64{Int64: *id, Valid: true}
 }
 
 // RecordAnnotated writes the anotado PDF record for one copia. Idempotent
@@ -385,6 +401,29 @@ func (s *Store) SetControlThresholds(ctx context.Context, controlID string, tick
 		ticked, unsure, controlID,
 	); err != nil {
 		return fmt.Errorf("controlstore.SetControlThresholds %s: %w", controlID, err)
+	}
+	return nil
+}
+
+// SetControlCourse assigns the course a control belongs to (issue #272).
+//
+// Checks RowsAffected rather than trusting the UPDATE: `WHERE id = ?`
+// against an id nothing carries succeeds and touches nothing, and a nil
+// return there would let the handler flash "curso asignado" for a control
+// that does not exist. Same guard, and the same reason, as
+// SoftDeleteControl (#261).
+func (s *Store) SetControlCourse(ctx context.Context, controlID string, courseID int64) error {
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE control SET course_id = ? WHERE id = ?`, courseID, controlID)
+	if err != nil {
+		return fmt.Errorf("controlstore.SetControlCourse %s: %w", controlID, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("controlstore.SetControlCourse %s: rows affected: %w", controlID, err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("controlstore.SetControlCourse %s: %w", controlID, controls.ErrControlNotFound)
 	}
 	return nil
 }

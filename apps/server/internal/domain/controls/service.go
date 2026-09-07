@@ -149,6 +149,12 @@ type CreateRequest struct {
 	// schema CHECK. Issue #208, ADR-0043.
 	Paper     Paper
 	CreatedBy int64
+	// CourseID is the course the new control belongs to (issue #272).
+	// A pointer for the same reason Control.CourseID is one, and the
+	// handler is what makes the form field required — the domain accepts
+	// nil so a fixture, a test, or a future non-form caller is not forced
+	// to invent a course.
+	CourseID *int64
 }
 
 // PrepareControl is the sync half of the "create control" flow (issue
@@ -248,6 +254,7 @@ func (s *Service) PrepareControl(ctx context.Context, req CreateRequest) (Contro
 		State:            Generated,
 		CreatedAt:        s.Now(),
 		CreatedBy:        req.CreatedBy,
+		CourseID:         req.CourseID,
 	}
 	entries := make([]PoolEntry, len(pool))
 	for i, q := range pool {
@@ -357,6 +364,27 @@ func (s *Service) Restore(ctx context.Context, id string) error {
 // interaction); the runner's MarkRunning / MarkDone / MarkFailed will
 // fail with ErrJobNotFound (issue #257 COR-3) and log a warning. No
 // corruption.
+// AssignCourse sets the course a control belongs to (issue #272).
+//
+// The whole of the write: no state transition, no job, nothing
+// recomputed. What it unblocks is read later — S3 matches a new scan
+// against this course's roster, and S5's retroactive command scopes by
+// it — so assigning a course to a control that already has readings
+// changes nothing on its own. Re-running the retroactive command is what
+// applies it to what is already there, which is also why this is
+// last-wins: a mis-assignment is correctable and its consequences are
+// recomputable.
+//
+// The caller is expected to have validated that courseID names a real
+// course; the schema's foreign key is the belt behind that, and a bogus
+// id surfaces here as a driver error rather than a domain sentinel.
+func (s *Service) AssignCourse(ctx context.Context, controlID string, courseID int64) error {
+	if err := s.Store.SetControlCourse(ctx, controlID, courseID); err != nil {
+		return fmt.Errorf("controls.AssignCourse %s: %w", controlID, err)
+	}
+	return nil
+}
+
 func (s *Service) Purge(ctx context.Context, id string) error {
 	control, err := s.Store.ControlByID(ctx, id)
 	if err != nil {

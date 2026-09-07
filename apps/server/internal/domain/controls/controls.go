@@ -68,6 +68,19 @@ type Control struct {
 	State     State
 	CreatedAt time.Time
 	CreatedBy int64 // users.user_id
+	// CourseID is the course this control belongs to, or nil for one that
+	// has none yet (issue #272). A POINTER rather than an int64 so
+	// "unassigned" is a value the type can hold: a zero would be
+	// indistinguishable from a real id and would make every control that
+	// predates this WP look like it pointed at one.
+	//
+	// Nil is the state of every control created before migration 00015 —
+	// 00004 shipped with no course column at all — and the professor
+	// resolves it from the detail page. Matching SKIPS a control with no
+	// course rather than failing on it: with no course there is no roster
+	// to match against, and the copies keep reading exactly as they do
+	// today.
+	CourseID *int64
 	// DeletedAt is when the control was archived (soft-deleted), or nil if
 	// still active (issue #261). Active rows have deleted_at IS NULL in the
 	// schema; ListControls hides non-nil rows, ListArchivedControls shows
@@ -189,6 +202,17 @@ type Store interface {
 	// Reanalyze re-reads at new thresholds and invalidates the old
 	// drawings).
 	ClearAnnotated(ctx context.Context, controlID string) error
+
+	// SetControlCourse assigns (or reassigns) the course a control belongs
+	// to (issue #272). Returns ErrControlNotFound when no row carries the
+	// id — the UPDATE would otherwise affect zero rows and hand the caller
+	// a success to flash for a hand-typed URL. Same guard shape as
+	// SoftDeleteControl.
+	//
+	// Last-wins, not write-once: a professor who picked the wrong course
+	// has no other way to correct it, and everything derived from the
+	// association is recomputable by the retroactive command.
+	SetControlCourse(ctx context.Context, controlID string, courseID int64) error
 
 	// SetControlThresholds persists the darkness pair a batch was read
 	// at (issue #197). Last-wins: each upload and each reanalyse writes
