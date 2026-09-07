@@ -818,6 +818,7 @@ func TestEnrolledStudentByRUT(t *testing.T) {
 	}
 
 	anaID := mustStudentID(t, ctx, db, "canvas-ana")
+	brunoID := mustStudentID(t, ctx, db, "canvas-bruno")
 
 	for _, c := range []struct {
 		name      string
@@ -831,17 +832,21 @@ func TestEnrolledStudentByRUT(t *testing.T) {
 			wantID: anaID, wantFound: true,
 		},
 		{
-			// Strict scope, half one: he sat controls on this course and
-			// his readings survive, but he is no longer enrolled and a
-			// new reading must not be filed under him without a human
-			// looking (issue #272 AC2).
-			name: "a withdrawn student", rut: "22333444", courseID: course.ID,
-			wantFound: false,
+			// A withdrawn student DOES match, and this is the half that
+			// was wrong first time round (#272 Round B, DCO-3). They sat
+			// the controls they sat; #271 keeps their enrolment row for
+			// exactly that reason ("their grades hang off the RUT match
+			// WP-2 adds"), and an enrolled-only filter erased the
+			// association of a control already handed in as soon as the
+			// next Canvas import stamped them withdrawn.
+			name: "a withdrawn student still matches", rut: "22333444", courseID: course.ID,
+			wantID: brunoID, wantFound: true,
 		},
 		{
-			// Strict scope, half two. `student.rut` is UNIQUE globally,
-			// so the person IS unambiguously identified — and is still
-			// not a match, because she was never on this course.
+			// The scope that IS strict: the course. `student.rut` is
+			// UNIQUE globally, so this person is unambiguously
+			// identified — and is still not a match, because she was
+			// never on this course in any state (issue #272 AC2).
 			name: "a student enrolled on another course", rut: "33444555", courseID: course.ID,
 			wantFound: false,
 		},

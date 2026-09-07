@@ -76,7 +76,16 @@ func (s *Store) StudentByID(ctx context.Context, id int64) (roster.Student, erro
 }
 
 // EnrolledStudentByRUT resolves an eight-digit RUT body to the student who
-// carries it AND is currently enrolled on this course (issue #272).
+// carries it AND has an enrolment on this course (issue #272).
+//
+// EITHER STATE. A student who withdrew still matches, because they still
+// sat the controls they sat: #271 keeps their `enrollment` row precisely
+// so that "their grades hang off the RUT match WP-2 adds"
+// (apps/server/CLAUDE.md, roster invariant 1), and an enrolled-only
+// filter falsified that — a withdrawal erased the association of a
+// control the person had already handed in, on the next rematch (#272
+// Round B, DCO-3, measured). The scope that matters is the COURSE: a
+// student enrolled elsewhere never matches, whatever their state.
 //
 // At most one row can satisfy it, and that is a schema property rather
 // than a hope: `student.rut` is UNIQUE and `enrollment` is UNIQUE per
@@ -84,11 +93,11 @@ func (s *Store) StudentByID(ctx context.Context, id int64) (roster.Student, erro
 // therefore the honest shape — there is no "first of several" being
 // silently picked.
 //
-// The three ways to get `found=false` — a RUT nobody carries, a student
-// who withdrew, a student enrolled elsewhere — are deliberately NOT
-// distinguished here. They are one answer to the caller ("no match, leave
-// it for a human"), and separating them would be a second query to
-// produce a distinction the reconciliation queue does not act on.
+// The two ways to get `found=false` — a RUT nobody carries, a student
+// enrolled on a different course — are deliberately NOT distinguished
+// here. They are one answer to the caller ("no match, leave it for a
+// human"), and separating them would be a second query to produce a
+// distinction the reconciliation queue does not act on.
 //
 // The RUT is compared VERBATIM. Normalisation is
 // internal/domain/matching's, and a store that started tolerating
@@ -102,9 +111,8 @@ func (s *Store) EnrolledStudentByRUT(ctx context.Context, rut string, courseID i
         FROM student
         JOIN enrollment ON enrollment.student_id = student.id
         WHERE student.rut = ?
-          AND enrollment.course_id = ?
-          AND enrollment.state = ?`,
-		rut, courseID, roster.StateEnrolled,
+          AND enrollment.course_id = ?`,
+		rut, courseID,
 	).Scan(&studentID)
 	switch {
 	case errors.Is(err, sql.ErrNoRows):

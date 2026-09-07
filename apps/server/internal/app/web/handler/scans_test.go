@@ -1226,3 +1226,101 @@ func TestReanalyzeRematchesTheReadingsAgainstTheRoster(t *testing.T) {
 		t.Errorf("copy 1 student = %v after the re-read made the RUT legible, want Ana (%d)", got, anaID)
 	}
 }
+
+// A student who withdraws AFTER sitting a control keeps their grade.
+//
+// The scenario end to end, because the units below it each looked right
+// on their own: Ana sits Control 1 in August and matches; in September
+// she drops the course, so Canvas stops listing her and the re-import
+// stamps her `withdrawn` — it never deletes, precisely because #271
+// decided "their grades hang off the RUT match WP-2 adds". Then anything
+// that rematches — the retroactive button, or simply re-reading the batch
+// at another sensitivity — must NOT un-file the copy she handed in.
+//
+// The first version of the matcher filtered `state = 'enrolled'`, so it
+// did exactly that: her grade for a control she actually sat went
+// anonymous, falsifying an invariant three documents state (#272 Round B,
+// DCO-3, measured with a probe before this case existed).
+func TestAStudentWhoWithdrawsAfterSittingAControlKeepsTheirGrade(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	ana := []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, ana); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+
+	controlID := f.createControlOnCourse(t, "Control de agosto", 1, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	anaID := f.studentID(t, "canvas-ana")
+	readings, err := f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor: %v", err)
+	}
+	if got := readings[0].StudentID; got == nil || *got != anaID {
+		t.Fatalf("precondition: copy 1 student = %v, want Ana (%d)", got, anaID)
+	}
+
+	// September. Canvas answers with nobody, which withdraws the class.
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, nil); err != nil {
+		t.Fatalf("SaveRoster (withdrawing Ana): %v", err)
+	}
+	if _, err := f.service.RematchCourse(ctx, f.courseID); err != nil {
+		t.Fatalf("RematchCourse: %v", err)
+	}
+
+	readings, err = f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor after the withdrawal: %v", err)
+	}
+	if got := readings[0].StudentID; got == nil || *got != anaID {
+		t.Errorf("copy 1 student = %v after Ana withdrew, want Ana (%d) — she still sat it, "+
+			"and #271 keeps her enrolment row for exactly this reason", got, anaID)
+	}
+
+	// And the control page still names her, so the row reads as a person
+	// rather than as eight digits.
+	if body := f.detailBody(t, controlID); !strings.Contains(body, "Ana Pérez") {
+		t.Errorf("the control page lost the withdrawn student's name:\n%s", body)
+	}
+}
+
+// A student on ANOTHER course is still never matched, whatever their
+// state — the half of the scope that stayed strict.
+func TestAStudentOnAnotherCourseNeverMatchesInAnyState(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	other := f.seedCourse(t, "CIT2006-04", "canvas-course-2")
+	if _, err := f.roster.Store.SaveRoster(ctx, other, []roster.SourceStudent{
+		{FirstName: "Bruno", LastName: "Soto", RUT: "20100002", RUTDV: "1", CanvasUserID: "canvas-bruno"},
+	}); err != nil {
+		t.Fatalf("SaveRoster (other course): %v", err)
+	}
+	// The control's own course has a roster that does not include him.
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+
+	controlID := f.createControlOnCourse(t, "Control con curso", 1, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100002")}}, // Bruno's RUT
+	}
+	uploadOnce(t, f, controlID)
+
+	readings, err := f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor: %v", err)
+	}
+	if got := readings[0].StudentID; got != nil {
+		t.Errorf("copy 1 student = %d — Bruno is enrolled on a DIFFERENT course and must never match", *got)
+	}
+}

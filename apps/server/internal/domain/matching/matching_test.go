@@ -104,7 +104,7 @@ func TestMatchByRUTReturnsNilWithoutAnErrorWhenNobodyMatches(t *testing.T) {
 	}
 }
 
-// The scope is the CONTROL'S course, and it is strict.
+// The scope is the CONTROL'S COURSE, and it is strict about THAT.
 //
 // A student enrolled on a different course does not match, even though
 // student.rut is globally UNIQUE and the person is therefore
@@ -112,6 +112,10 @@ func TestMatchByRUTReturnsNilWithoutAnErrorWhenNobodyMatches(t *testing.T) {
 // WP-3's emails, and a copy filed under someone who was never on this
 // course is a grade delivered on the strength of a coincidence nobody
 // checked.
+//
+// The enrolment STATE is a different question and the store answers it —
+// a withdrawn student on this course still matches (#272 Round B,
+// DCO-3). This domain never sees the state at all.
 func TestMatchByRUTDoesNotReachIntoAnotherCourse(t *testing.T) {
 	svc, _ := newService(map[string]map[int64]int64{
 		// The same person, enrolled on course 9 and not on course 7.

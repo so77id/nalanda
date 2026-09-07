@@ -34,13 +34,13 @@ import (
 // `enrollment` tables.
 type Store interface {
 	// EnrolledStudentByRUT returns the id of the student whose `rut` is
-	// exactly this eight-digit body AND whose enrolment on this course is
-	// `enrolled`.
+	// exactly this eight-digit body AND who has an enrolment on this
+	// course, in EITHER state.
 	//
 	// found=false is an ordinary answer, not a failure: the RUT belongs to
-	// nobody, or to somebody who withdrew, or to somebody on another
-	// course. At most one row can satisfy it — `student.rut` is UNIQUE and
-	// `enrollment` is UNIQUE per (course, student).
+	// nobody, or to somebody on another course. At most one row can
+	// satisfy it — `student.rut` is UNIQUE and `enrollment` is UNIQUE per
+	// (course, student).
 	//
 	// The RUT arrives already normalised. A store comparing a raw
 	// "11.222.333-5" against a column that holds "11222333" would find
@@ -76,13 +76,21 @@ func NewService(store Store) *Service {
 // two would write NULL on an outage and record "this student is not on
 // the roster" as a fact about a query that never ran.
 //
-// The scope is strict. A student enrolled on a DIFFERENT course does not
-// match, and neither does one who withdrew from this one, even though
+// The scope is the CONTROL'S COURSE, and it is strict about that: a
+// student enrolled on a DIFFERENT course does not match, even though
 // `student.rut` is globally UNIQUE and the person is therefore
 // unambiguously identified (decided 2026-09-06, issue #272 AC2). The
 // association is what WP-3 addresses an email by; a copy filed under
 // somebody who was never on this course is a grade delivered on the
 // strength of a coincidence nobody checked.
+//
+// It is NOT strict about the enrolment STATE. A student who withdrew from
+// this course still matches, because they still sat the controls they
+// sat — #271 keeps their row for exactly that reason, and an
+// enrolled-only filter erased the association of a control already handed
+// in as soon as the next re-import stamped them withdrawn (#272 Round B,
+// DCO-3, measured). The screens mark them "Retirado" so the row reads as
+// history rather than as a current enrolment.
 func (s *Service) MatchByRUT(ctx context.Context, rut string, courseID int64) (*int64, error) {
 	// A control with no course has no roster to match against. Every
 	// control that predates migration 00015 is in this state, and it is
