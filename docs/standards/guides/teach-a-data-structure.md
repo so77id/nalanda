@@ -130,11 +130,23 @@ memorised numbers into a table the reader can derive: `insert_first` is
 $$\Theta(N)$$ *because* leaving the valid elements contiguous from 0 forces
 $$N$$ moves.
 
-**Write it as a bare markdown table inside the `<Slide>`.** That is the shape
-chapter 16 ships and the one with evidence behind it; `<PresentationWide>`
-around a table is described in `add-a-course-document.md` but exercised
-nowhere in `content/`, and nothing in the build or the suite can see a table
-that fails to parse.
+**Wrap it in `<PresentationWide fraction={0.8}>`, and pass the fraction.**
+A slide caps its children at a reading column, so a bare table gets squeezed
+and — being tall — drags the whole slide down with it. Measured at 1440x900
+on the cost table of #277: bare, the table is 640px wide and the slide is
+scaled to **0.71**; wrapped, it is 1058px wide and the slide is scaled to
+**1.0**. Wrapping the four wide tables of #277 took five of its slides off the
+shrink list.
+
+**The `fraction` is not optional.** A bare `<PresentationWide>` re-anchors to
+the full viewport, and a table then runs flush to both slide edges with its
+columns touching — looked at, in the browser. `0.8` clears the edges and
+still buys most of the width.
+
+Note that `add-a-course-document.md` §6b names chapter 16 as the worked case
+for this "around wide MDX tables". It is not: chapter 16 wraps only widgets
+(`<DivideCombineTree>`, `<SideBySide>`). #277 is the first worked case of a
+markdown table, and the numbers above are why it is worth doing.
 
 **There is no colour coding in these tables, and that is a constraint rather
 than a choice.** An MDX markdown table has no per-cell styling hook, and a raw
@@ -215,12 +227,17 @@ reusing `<CodeEditor>` and `<Benchmark>`.
       the expensive one named as such.
 - [ ] Every operation in the cost table carries the invariant it restores.
       An `Amortizado` column only where a row actually differs.
-- [ ] Cost tables are bare markdown inside the `<Slide>`.
+- [ ] Wide tables wrapped in `<PresentationWide fraction={0.8}>` — never
+      bare, and checked on the slide rather than in the book.
 - [ ] The class closes on a cabo suelto with a named trade, not a promise, and
       no forward wiki-link to a document that does not exist.
 - [ ] Every figure has an opaque panel, all text on it, a second signal beside
       colour, and was rendered over `#f8f2ef` and `#0d1117` and looked at.
 - [ ] No new widget invented for a single class of the unit.
+- [ ] Every slide's scale measured in the deck at 1440x900, not eyeballed.
+      A slide that fits is reported at scale 1.0; anything under ~0.7 is
+      splitting into two titled `<Slide>`s, never a `<SectionBreak />`
+      (which would add an untitled slide instead).
 - [ ] The checklists of [`add-a-course-document.md`](add-a-course-document.md)
       and [`course-content-style.md`](course-content-style.md) both pass — this
       guide adds to them and replaces neither.

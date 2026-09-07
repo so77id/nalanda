@@ -103,7 +103,10 @@ revisar todo el dato: si la propiedad valía al empezar y la operación
 la restaura al terminar, cada operación siguiente puede confiar en
 ella.
 
-Dos invariantes que ya usamos, aunque no los llamamos así:
+</Slide>
+
+<Slide title="Dos invariantes conocidos">
+Dos propiedades preservadas que ya usamos, aunque no las llamamos así.
 
 **Búsqueda binaria** — _si `t` está en el arreglo, está en
 `a[lo..hi]`_. Cada iteración achica el rango a la mitad y vuelve a
@@ -169,11 +172,15 @@ operaciones con su costo, después las limitaciones.
 </Slide>
 
 <Slide title="El vocabulario, en una tabla">
+<PresentationWide fraction={0.8}>
+
 | Palabra | Qué es | Responde a | Ejemplo conocido |
 |---|---|---|---|
 | **TDA** | Un contrato | ¿Qué operaciones ofrece? | `Comparable`, con `compareTo` |
 | **Estructura de datos** | Una representación | ¿Cómo están guardados los elementos? | El arreglo, en memoria consecutiva |
 | **Invariante** | Una propiedad preservada | ¿Qué sigue valiendo entre operaciones? | Si `t` está, está en `a[lo..hi]` |
+
+</PresentationWide>
 
 Las tres palabras vuelven a aparecer, nombradas, en cada estructura de
 la unidad. El costo de una operación siempre se lee junto al invariante
@@ -208,9 +215,12 @@ Una multiplicación y una suma, sin importar si `i` es 3 o 3 millones.
 El acceso cuesta $$\Theta(1)$$ y esa es la razón por la que la búsqueda
 binaria puede ser $$\Theta(\log N)$$.
 
-Un arreglo de Java, sin embargo, no es todavía un contenedor: `datos.length`
-dice cuántas casillas se reservaron, no cuántas están usadas. La
-estructura que estudiamos aquí es el arreglo **más un entero**:
+</Slide>
+
+<Slide title="Capacidad y largo">
+Un arreglo de Java no es todavía un contenedor: `datos.length` dice
+cuántas casillas se reservaron, no cuántas están usadas. La estructura
+que estudiamos aquí es el arreglo **más un entero**:
 
 ```java
 class Arreglo {
@@ -264,6 +274,8 @@ Cada fila lee igual: qué invariante deja en pie la operación, y qué
 cuesta dejarlo en pie. La notación asintótica es la de
 [[complejidad-de-hilbert-al-big-o|Complejidad]], sobre $$N$$ = `size`, el número de elementos guardados.
 
+<PresentationWide fraction={0.8}>
+
 | Operación | Peor caso | Invariante que restaura |
 |---|---|---|
 | `get_at(i)`, `set_at(i, x)` | $$\Theta(1)$$ | Ninguno: no cambian `size` ni el orden |
@@ -275,11 +287,12 @@ cuesta dejarlo en pie. La notación asintótica es la de
 | `delete_first()` | $$\Theta(N)$$ | Igual que `delete_at(0)`: el caso más caro |
 | Construir con capacidad `c` | $$\Theta(c)$$ | Establece los tres invariantes por primera vez |
 
-Los dos extremos del arreglo no son simétricos, y la tabla lo muestra:
-trabajar al final es $$\Theta(1)$$ y trabajar al principio es
-$$\Theta(N)$$. La diferencia no viene del hardware sino del segundo
-invariante — al final no hay nada a la derecha que mover, al principio
-hay todo.
+</PresentationWide>
+
+Los dos extremos no son simétricos: trabajar al final es $$\Theta(1)$$ y
+trabajar al principio es $$\Theta(N)$$. La diferencia no viene del
+hardware sino del invariante — al final no hay nada a la derecha que
+mover; al principio, todo.
 
 </Slide>
 
@@ -304,6 +317,13 @@ void insertAt(int i, int x) {
 
 El bucle recorre de derecha a izquierda a propósito: de izquierda a
 derecha, cada copia pisaría el elemento que todavía falta mover.
+
+</Slide>
+
+<Slide title="El corrimiento, paso a paso">
+Insertar en la posición `i` ocurre en dos tiempos: primero se abre el
+hueco corriendo hacia la derecha lo que está en `[i..size-1]`, y recién
+después se escribe.
 
 <Figure
   src="./arreglo-corrimiento.svg"
@@ -450,6 +470,8 @@ La pregunta correcta es: **¿cuánto cuestan $$N$$ inserciones en total?**
 Esta es la tabla de las primeras dieciséis, empezando con capacidad 1,
 contando una unidad por escritura y una por copia:
 
+<PresentationWide fraction={0.8}>
+
 | Inserción | ¿Duplica? | Capacidad después | Copias | Costo |
 |---|---|---|---|---|
 | 1 | — | 1 | 0 | 1 |
@@ -460,6 +482,8 @@ contando una unidad por escritura y una por copia:
 | 6, 7, 8 | no | 8 | 0 | 1 cada una |
 | 9 | sí | 16 | 8 | 9 |
 | 10 … 16 | no | 16 | 0 | 1 cada una |
+
+</PresentationWide>
 
 Las filas caras existen, y son las que el análisis ingenuo mira. Las
 filas baratas son la mayoría, y son las que el análisis ingenuo ignora.
@@ -582,11 +606,24 @@ public class Duplica {
 />
 
 Lo que se busca en los números no es cuál es más rápida — eso ya lo
-sabemos — sino **cómo crece cada una** al multiplicar $$N$$. De 1000 a
-4000 hay un factor de 4: la versión que duplica debería tardar unas 4
-veces más, y la que crece de a uno unas 16, porque $$4^2 = 16$$. El
-cronómetro mide también la máquina y el navegador, así que los factores
-salen aproximados; la forma de la curva es lo que se sostiene.
+sabemos — sino **cuánto se separan al crecer $$N$$**. La distancia entre
+las dos columnas se abre muy rápido: en una medición sobre una máquina
+cualquiera dio unas 15 veces para $$N = 1000$$, unas 75 para
+$$N = 4000$$ y unas 340 para $$N = 10\,000$$. Multiplicar $$N$$ por 10
+multiplicó la distancia por más de 20.
+
+Dos advertencias sobre lo que **no** conviene leer en la tabla. La
+columna de `duplica` queda por debajo del milisegundo en los tres
+tamaños, es decir en el piso de resolución del cronómetro, así que su
+crecimiento propio no se puede medir aquí. Y la primera medición de
+`crece de a uno` sale más barata de lo que predice $$N^2$$, porque a esa
+escala pesan más el arranque de la máquina virtual y su compilación al
+vuelo que el algoritmo. Entre los dos tamaños más grandes, donde el
+algoritmo ya domina, el factor medido sí se parece al que predice
+$$N^2$$.
+
+Es el mismo cuidado de siempre: el cronómetro mide el algoritmo **más
+todo el ambiente que lo rodea**.
 
 </Slide>
 
@@ -607,7 +644,11 @@ Cada operación de una secuencia alternada cuesta $$\Theta(N)$$, y el
 costo amortizado se pierde por completo. El problema es que las dos
 fronteras — la de crecer y la de achicar — están pegadas.
 
-La solución es separarlas:
+</Slide>
+
+<Slide title="La regla del cuarto">
+La manera de evitar el thrashing es separar la frontera que dispara un
+crecimiento de la que dispara un achicamiento:
 
 > **Duplicar cuando el arreglo se llena; achicar a la mitad cuando el
 > largo baja a un cuarto de la capacidad.**
@@ -641,6 +682,8 @@ La regla del cuarto es la que usan Sedgewick y Wayne en *Algorithms*
 La tabla del arreglo dinámico tiene una columna más que la del arreglo
 de capacidad fija, y esa columna es la novedad de este acto.
 
+<PresentationWide fraction={0.8}>
+
 | Operación | Peor caso | Amortizado | Invariante que restaura |
 |---|---|---|---|
 | `get_at(i)`, `set_at(i, x)` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguno: no cambian el largo |
@@ -650,6 +693,8 @@ de capacidad fija, y esa columna es la novedad de este acto.
 | `insert_first(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | Igual que `insert_at(0, x)` |
 | `delete_at(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ | Cierra el hueco: los válidos vuelven a quedar juntos |
 | `delete_first()` | $$\Theta(N)$$ | $$\Theta(N)$$ | Igual que `delete_at(0)` |
+
+</PresentationWide>
 
 Dos lecturas importan. La primera: solo las operaciones **en el extremo
 final** ganan algo con el análisis amortizado, porque solo ellas tienen
@@ -666,7 +711,7 @@ lo hizo sin pagar por ello más que un factor constante.
 
 <SectionBreak />
 
-## El TDA Sequence
+## Un contrato para los dos arreglos
 
 <Slide title="Dos representaciones, un mismo conjunto de operaciones">
 El arreglo de capacidad fija y el arreglo dinámico son representaciones
@@ -734,6 +779,8 @@ corrimientos. Todo eso es asunto de la representación.
 </Slide>
 
 <Slide title="Dos implementaciones del mismo contrato">
+<PresentationWide fraction={0.8}>
+
 | Operación | Arreglo de capacidad fija | Arreglo dinámico |
 |---|---|---|
 | `getAt(i)`, `setAt(i, x)` | $$\Theta(1)$$ | $$\Theta(1)$$ |
@@ -742,6 +789,8 @@ corrimientos. Todo eso es asunto de la representación.
 | `insertAt(i, x)`, `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ |
 | Capacidad | fija, decidida al construir | crece y se achica sola |
 | Memoria usada | la reservada, se use o no | entre $$N$$ y $$4N$$ |
+
+</PresentationWide>
 
 Las dos brillan en lo mismo y sufren en lo mismo, porque comparten la
 decisión de representación de fondo: memoria consecutiva. De ahí sale
