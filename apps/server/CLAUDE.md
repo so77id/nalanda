@@ -444,6 +444,23 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   the "Asociación" badge on the control page (hidden entirely when the
   control has no course), the review page's "no está en la lista" note,
   and `/courses/{id}/matriz` — nowhere else.
+- **Nothing may reach an RFC 5322 header without going through
+  `email.headerAddress` or `mime.QEncoding` (issue #273 review, SEC-1).**
+  `buildMIME` refuses any address carrying a control character and
+  serialises through `mail.Address`; Subject and the attachment filename go
+  through `mime.QEncoding`, which encodes everything below U+0020.
+  Interpolating a value into a header with `fmt.Fprintf` is how a CR/LF
+  injected a `Bcc:` that Gmail's `message/rfc822` upload honours — sending
+  one student's grade and corrected PDF out of the professor's own mailbox
+  — and how `net/mail.ParseAddress`'s un-quoting of
+  `"a@evil.com,b"@x.com` put two recipients in a header somebody typed one
+  address into.
+
+  The guard is at the ENCODER, not at the roster, on purpose:
+  `student.email` reaches the header verbatim from Canvas with no
+  validation in any layer between, and every future source of an address
+  would otherwise need its own copy. Same "one sink, one guard" shape as
+  `escapeBankText` two bullets down.
 - **Two RUT parsers exist and must stay two (issue #272).**
   `matching.NormalizeRUT` reads eight bare digits as the BODY — what
   `\AMCcode{rut}{8}` prints and what the review field asks for.
@@ -579,6 +596,26 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   eagerly makes a professor reconnect every time Google hiccups, and it is
   unrecoverable in the direction that matters — this server cannot
   re-consent on their behalf.
+- **A publication is REFUSED under a transport that does not deliver, and
+  can be UNDONE when it did not reach anybody (issue #273 review, ADR-0072
+  §5).** Two rules, one reason: `published_at` must never assert a delivery
+  that did not happen.
+  1. `Dispatcher.Delivers()` is what the domain asks before stamping.
+     Under `stub` or `dryrun` every `Send` succeeds, so without it a
+     publication counted forty successes over nobody, stamped the control
+     and told the professor the class had been written to — on the DEFAULT
+     mode, by the deploy path `DEPLOY-JETSON.md` documents. Adding a fifth
+     transport means answering this honestly; a wrapper DEFERS to what it
+     wraps (`StagingDispatcher`) rather than hard-coding true.
+  2. `Service.Unpublish` clears all three publication columns so the
+     control can be published again. It is the escape hatch, not a rule
+     the code applies for itself: "do not stamp when Sent == 0" was the
+     tempting single rule and reaches only one of the three failure shapes,
+     because under `staging` every send genuinely succeeds. The judgement a
+     machine cannot make — may the people who already received their
+     correction receive it twice — belongs to the professor, and
+     `control.published_sent` is what lets the confirmation put the number
+     in front of them. **NULL there is not zero.**
 - **The publication stamps the control BEFORE it sends (issue #273).**
   `Service.Publish` calls `MarkPublished` above the loop, never below it.
   An unstamped control with twenty students already emailed is a control

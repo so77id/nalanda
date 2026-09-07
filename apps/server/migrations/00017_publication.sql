@@ -131,12 +131,18 @@ CREATE INDEX idx_job_by_control ON job (control_id, created_at DESC);
 -- records that rolling a binary back over an applied migration is not
 -- supported (backend-code-style.md §Adding a migration, rule 2).
 --
--- Written out rather than left empty because the rebuild is the one step
--- here whose inverse is not obvious: it is another rebuild, and it would
--- have to DELETE every `publish` row before narrowing the CHECK, since the
--- rows the forward migration allowed are exactly what the narrower
--- constraint refuses.
-DROP INDEX idx_job_by_control;
+-- The three ALTERs below are the inverse of the three above. THE JOB
+-- REBUILD IS DELIBERATELY NOT INVERTED, and saying so is the point: its
+-- inverse is another rebuild that would first have to DELETE every
+-- `publish` row, because the rows this migration made legal are exactly
+-- what the narrower CHECK refuses. Destroying a professor's job history to
+-- satisfy a rollback nobody supports is worse than leaving the wider CHECK
+-- in place, which costs nothing on a binary that no longer emits the value.
+--
+-- An earlier version of this comment described that rebuild as though the
+-- block performed it, and the block only dropped an index (#273 review,
+-- ARQ-8). The index is left alone here too — it belongs to `job`, which
+-- this Down does not touch.
 ALTER TABLE users DROP COLUMN gmail_address;
 ALTER TABLE control DROP COLUMN publication_mode;
 ALTER TABLE control DROP COLUMN published_at;

@@ -119,6 +119,19 @@ NALANDA_GOOGLE_CLIENT_ID=<the client id>
 NALANDA_GOOGLE_CLIENT_SECRET=<the client secret>
 NALANDA_BOOTSTRAP_PROFESSOR_EMAIL=<Miguel's address>
 
+# Which mail transport a publication uses (#273). OPTIONAL to the loader
+# and NOT optional in practice: unset means `stub`, which sends nothing.
+# Its absence from this block is how the documented deploy path produced a
+# server that could not mail anybody — a publication is now refused
+# outright under `stub`, so the failure is loud rather than silent, but
+# this is still the line that makes publishing work at all.
+#
+#   real     to the students — what production wants
+#   staging  everything to the professor's own address
+#   dryrun   resolve the credential, log what would go, deliver nothing
+#   stub     no network at all
+NALANDA_EMAIL_MODE=real
+
 # Backups (S7, S8): from provision-jetson-iam.sh's output.
 NALANDA_S3_BUCKET=<the bucket name it created>
 AWS_REGION=<the region>

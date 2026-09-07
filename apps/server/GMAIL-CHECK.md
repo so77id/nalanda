@@ -57,6 +57,12 @@ integration is unavailable rather than offering the button.
 
 ## 2. The refusals
 
+- [ ] Press **Conectar Gmail** and, on Google's screen, **untick the
+      "Enviar correo electrónico en tu nombre" checkbox** while still
+      approving everything else. Google returns a refresh token either way,
+      so this is the failure that used to complete silently and surface
+      weeks later as a wrong diagnosis. Nalanda must refuse it and say the
+      send permission was left unmarked. **No account is connected.**
 - [ ] Press **Conectar Gmail** and then **Cancelar** on Google's screen.
       Back on `/profile`, the message says no account was connected. No
       account is shown as connected.
@@ -108,13 +114,17 @@ Set `NALANDA_EMAIL_MODE=real` and restart. The boot log carries
 **Only on a control Miguel has nominated.** This one cannot be undone.
 
 - [ ] Choose the mode **"mi propia dirección (prueba)"** first and press
-      **Publicar**. Everything goes to you, and the control IS stamped —
-      this is the last rehearsal, and it is one-way.
+      **Publicar**. Everything goes to you, and the control IS stamped.
 - [ ] The page now shows `Publicado el … en modo prueba: los correos fueron
       a tu propia dirección, no a los estudiantes.`
 - [ ] **Publicar** is gone from the page; **Envío de prueba** is still
       there.
 - [ ] Pressing the same URL again by hand answers **409**.
+- [ ] Open **Deshacer la publicación**. It says how many correos already
+      went out — for this run, the number you just received — and that
+      undoing recovers none of them.
+- [ ] Undo it. The control is publishable again, and this is what stops a
+      rehearsal-by-dropdown from burning the one-shot.
 
 Then, on a second nominated control, for real:
 
@@ -125,6 +135,16 @@ Then, on a second nominated control, for real:
       addressing.
 - [ ] The page shows `Publicado el …: las correcciones se enviaron a los
       estudiantes.`
+
+## 5b. The mode gate
+
+- [ ] Set `NALANDA_EMAIL_MODE=stub` and restart. On a graded control,
+      **Publicar** is disabled and says this server is not configured to
+      send. Pressing the URL by hand answers **422** naming the variable,
+      and **the control is not stamped**.
+- [ ] **Envío de prueba** still works under `stub` — a rehearsal on a
+      server that delivers nothing is a coherent thing to do.
+- [ ] Put the mode back to `real`.
 
 ## 6. The seven-day question
 

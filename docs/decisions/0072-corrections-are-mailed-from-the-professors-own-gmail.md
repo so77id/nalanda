@@ -130,10 +130,16 @@ one mode while its neighbour is in another.
 
 **The default is `stub`.** It is the only optional variable in `config`
 whose default is not what production wants, and the asymmetry is the point:
-an operator who deploys without choosing and gets `stub` finds out when a
-publication sends nothing and fixes it by setting one line; one who got
-`real` finds out when a class receives mail that cannot be recalled. You
-opt IN to sending.
+the two mistakes do not cost the same. An operator who deploys without
+choosing and gets `stub` is told so; one who got `real` finds out when a
+class receives mail that cannot be recalled. You opt IN to sending.
+
+That defence was originally written as "finds out when a publication sends
+nothing", and the review falsified it (#273, PUB-2): the publication ran,
+counted every suppressed message as a success, stamped the control and
+showed a green banner. It is true now because §5 refuses a publication
+outright under a transport that does not deliver — the default is safe
+because the gate makes it loud, not because it was ever self-announcing.
 
 `dryrun` holds `Credentials` rather than wrapping a transport. There is
 nothing meaningful left to suppress a send *after*: the interesting half of
@@ -144,6 +150,22 @@ success for a professor whose authorisation was revoked last week.
 address to redirect to. Falling through would deliver to the student in the
 mode selected to make that impossible, on the run where somebody was being
 careful.
+
+### 4b. The consent's GRANTED scope is checked, not just requested
+
+Google presents `gmail.send` as a granular checkbox beside the identity
+scopes, and a professor can approve the consent screen with it unticked.
+The response still carries a refresh token and an ID token, so without an
+explicit check the connection completes, `/profile` reports the account as
+connected, and the failure surfaces only at the first publication — as a
+Gmail 403 that the transport reads as a message refusal and words as "puede
+ser la cuota diaria", pointing at a quota that is not the problem.
+
+So `Exchange` reads the `scope` the response actually granted and refuses
+with `ErrScopeNotGranted` when the send permission is not in it. It is the
+fourth parameter of that flow which fails silently when wrong, beside
+`access_type`, `prompt` and the scopes requested — and it was missed in the
+first implementation (#273 review, SCOPE-1).
 
 ### 5. Publication is async, one-way, and stamped before it sends
 
@@ -157,8 +179,35 @@ control with twenty students already emailed is a control the professor
 publishes again, and the twenty receive a second copy of a grade. Stamping
 first makes a crash cost the un-sent half, which the failure list names.
 
-Publication is one-way in v1: a second publish answers 409. There is no
+Publication is one-way: a second publish answers 409. There is no automatic
 republish and no bulk unpublish.
+
+**But it is not a dead end, and the first implementation made it one
+(#273 review, PUB-1/2/3).** The stamp fired whether or not anybody received
+anything, so three situations left a class permanently unreachable through
+the app: every send failing (a refresh token Google revoked after seven
+days is the case §Consequences names), a transport that delivers nothing,
+and a `staging` run used as a rehearsal. Two changes:
+
+- **A publication is REFUSED under a transport that does not deliver.**
+  `Dispatcher` answers `Delivers()`, and the domain will not stamp what
+  cannot be sent. This is what makes the `publication_mode` CHECK's own
+  comment true. It was the critical one, because `stub` is the default and
+  `DEPLOY-JETSON.md` did not list the variable — so the documented deploy
+  path produced a green banner over an empty mailbox.
+- **An UNPUBLISH the professor can reach**, which is what covers all three
+  shapes. "Do not stamp when nothing was sent" was the tempting single rule
+  and it fixes only the first: under `stub` and `staging` every send
+  succeeds. The stamp-first ordering is untouched — a compensating clear
+  placed after the loop simply never runs on the crash it defends against —
+  and the one judgement a machine cannot make goes to the professor:
+  whether the people who ALREADY have their correction may receive it
+  twice.
+
+`control.published_sent` (migration 00018) is what lets that confirmation
+tell the truth. It is nullable, and NULL is not zero: telling somebody
+nobody received a correction that forty people are holding is the mistake
+the column exists to prevent.
 
 `published_at` is a timestamp and NOT a fourth `control.state` value.
 `state` is a position in the *correction* lifecycle, and every reader of it
@@ -243,6 +292,21 @@ to reconnect by hand, the second is the recoverable mistake.
   (ADR-0068 §Decision 3).
 - A personal Gmail account sends to roughly 500 recipients a day. A class
   of forty is not close; several courses in one day are not either.
+
+### The header sink is at the encoder, not at the source
+
+`buildMIME` refuses any address carrying a control character and serialises
+through `mail.Address`. Both halves matter and both were missing: a CR/LF in
+a `To` injected a `Bcc:` that Gmail's `message/rfc822` upload honours —
+sending a student's grade and corrected PDF out of the professor's own
+mailbox — and `net/mail.ParseAddress` un-quotes `"a@evil.com,b"@x.com`, so
+writing a parsed address raw put two recipients in a header somebody typed
+one into (#273 review, SEC-1, SEC-2; the attack was executed).
+
+The refusal lives at the ENCODER rather than at the roster, deliberately.
+`student.email` reaches the header verbatim from Canvas's GraphQL with no
+validation in any layer between, and every future source of an address —
+another LMS, a CSV, a form — would need its own guard. One sink needs one.
 
 ### What no test can see
 

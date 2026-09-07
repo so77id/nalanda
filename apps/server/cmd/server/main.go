@@ -288,12 +288,6 @@ func run(logger *slog.Logger) error {
 	}
 	go jobRunner.Start(ctx)
 
-	// Issue #273: the mail transport, selected ONCE at boot and logged in
-	// one line — the "select don't describe" shape of DocumentBuddy's
-	// ADR-021. Nothing downstream branches on the mode, so no caller can be
-	// in one mode while its neighbour is in another, and an operator
-	// reading the first ten lines of the log knows whether this process can
-	// reach a student.
 	backoffice := web.Deps{
 		Database: storage.NewProber(db),
 		Gate: middleware.NewAuth(middleware.Auth{
