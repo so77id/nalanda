@@ -18,6 +18,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 )
 
 // createControl runs the domain Service to make a real control with N
@@ -993,5 +994,235 @@ func TestDismissJobAnswers404ForAnUnknownID(t *testing.T) {
 	f.handler.DismissJob(rec, req)
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404 for a missing job id", rec.Code)
+	}
+}
+
+// AC3, end to end and through the real stores: import a roster, upload a
+// scan, and the readings whose RUT is on that roster come back carrying
+// their student.
+//
+// The domain cases in rematch_test.go drive Service.RematchReadings
+// directly, which proves the policy and NOT the wiring. This one goes in
+// through the HTTP handler and comes out at `reading.student_id` in
+// SQLite, so a future edit that deletes the rematch call from
+// AnalyzeBatch fails here rather than shipping a subsystem that quietly
+// matches nobody.
+func TestUploadScanMatchesTheReadingsAgainstTheRoster(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	// Ana is on the roster; the RUT on copy 2 belongs to nobody.
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20123456", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+
+	controlID := f.createControlOnCourse(t, "Control con curso", 2, &f.courseID)
+
+	answers := []controls.ReportAnswer{
+		{Question: 1, Name: "q3", Type: controls.QuestionSimple,
+			Marked: []int{1}, Status: controls.AnswerStatusOK, Score: 1, Max: 1},
+		{Question: 2, Name: "q4", Type: controls.QuestionMultiple,
+			Marked: []int{1}, Status: controls.AnswerStatusOK, Score: 4, Max: 4},
+	}
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{
+			"1": {RUT: "20123456", RUTStatus: controls.RUTStatusOK, Status: controls.CopyStatusOK,
+				ExpectedQuestions: 2, SeenQuestions: 2, Answers: answers},
+			"2": {RUT: "99999999", RUTStatus: controls.RUTStatusOK, Status: controls.CopyStatusOK,
+				ExpectedQuestions: 2, SeenQuestions: 2, Answers: answers},
+		}},
+	}
+
+	f.uploadScan(t, controlID)
+	f.waitLatestJobTerminal(t, controlID)
+
+	readings, err := f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor: %v", err)
+	}
+	byCopy := map[int]controls.Reading{}
+	for _, r := range readings {
+		byCopy[r.CopyNumber] = r
+	}
+
+	anaID := f.studentID(t, "canvas-ana")
+	if got := byCopy[1].StudentID; got == nil || *got != anaID {
+		t.Errorf("copy 1 student = %v, want Ana (%d)", got, anaID)
+	}
+	if got := byCopy[2].StudentID; got != nil {
+		t.Errorf("copy 2 student = %d, want nil — that RUT is on no roster", *got)
+	}
+}
+
+// A control with no course comes out of an analyse exactly as it did
+// before this WP: readings persisted, nobody matched, nothing failed.
+//
+// This is every control on the Jetson at the moment migration 00015
+// applies, so it is the compatibility case rather than a corner one.
+func TestUploadScanOnAControlWithNoCourseMatchesNobodyAndStillSucceeds(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20123456", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+
+	controlID := f.createControlOnCourse(t, "Control histórico", 1, nil)
+
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{
+			"1": {RUT: "20123456", RUTStatus: controls.RUTStatusOK, Status: controls.CopyStatusOK,
+				ExpectedQuestions: 2, SeenQuestions: 2,
+				Answers: []controls.ReportAnswer{
+					{Question: 1, Name: "q3", Type: controls.QuestionSimple,
+						Marked: []int{1}, Status: controls.AnswerStatusOK, Score: 1, Max: 1},
+					{Question: 2, Name: "q4", Type: controls.QuestionMultiple,
+						Marked: []int{1}, Status: controls.AnswerStatusOK, Score: 4, Max: 4},
+				}},
+		}},
+	}
+
+	f.uploadScan(t, controlID)
+	job := f.waitLatestJobTerminal(t, controlID)
+	if job.Status != jobs.StatusDone {
+		t.Fatalf("analyse job = %s (%s), want done — a control with no course must still analyse",
+			job.Status, job.Error)
+	}
+
+	readings, err := f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor: %v", err)
+	}
+	if len(readings) == 0 {
+		t.Fatal("no readings persisted")
+	}
+	if got := readings[0].StudentID; got != nil {
+		t.Errorf("copy 1 student = %d on a control with no course, want nil", *got)
+	}
+}
+
+// createControlOnCourse is createControl with an explicit course (nil for
+// none) — the two shapes issue #272 has to keep working.
+func (f *controlsFixture) createControlOnCourse(t *testing.T, name string, copies int, courseID *int64) string {
+	t.Helper()
+	ctx := context.Background()
+	c, err := f.service.PrepareControl(ctx, controls.CreateRequest{
+		Name:             name,
+		RangeFrom:        bank.SectionRef{Document: "flujo", Section: "if-else"},
+		RangeTo:          bank.SectionRef{Document: "flujo", Section: "bucles"},
+		QuestionsPerCopy: 2,
+		Copies:           copies,
+		CreatedBy:        f.user.ID,
+		CourseID:         courseID,
+	})
+	if err != nil {
+		t.Fatalf("PrepareControl: %v", err)
+	}
+	if err := f.service.GenerateAssets(ctx, c.ID); err != nil {
+		t.Fatalf("GenerateAssets: %v", err)
+	}
+	return c.ID
+}
+
+// uploadScan POSTs one PDF through the handler, the way the browser does.
+func (f *controlsFixture) uploadScan(t *testing.T, controlID string) {
+	t.Helper()
+	body, ct := buildScanUpload(t, "batch.pdf", "application/pdf", []byte("%PDF-fake"))
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/scans", nil)
+	req.Body = io.NopCloser(body)
+	req.Header.Set("Content-Type", ct)
+	req.ContentLength = int64(body.Len())
+	req.SetPathValue("id", controlID)
+
+	rec := httptest.NewRecorder()
+	f.handler.UploadScan(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("UploadScan status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+}
+
+// studentID reads back the id the roster import assigned.
+func (f *controlsFixture) studentID(t *testing.T, canvasUserID string) int64 {
+	t.Helper()
+	var id int64
+	if err := f.db.QueryRowContext(context.Background(),
+		`SELECT id FROM student WHERE canvas_user_id = ?`, canvasUserID,
+	).Scan(&id); err != nil {
+		t.Fatalf("reading the student id for %s: %v", canvasUserID, err)
+	}
+	return id
+}
+
+// A re-read at a different sensitivity moves the associations with it.
+//
+// "Re-leer con otra sensibilidad" exists precisely because a first pass
+// can misread the RUT boxes, so a copy that matched nobody on the first
+// analyse is exactly the copy the professor re-reads. Wiring the rematch
+// into AnalyzeBatch and not into Reanalyze would leave that copy
+// unmatched forever, with a readable RUT sitting in the column and
+// nothing to explain the gap.
+//
+// The issue's S3 names only /analyse; this seam was added with it because
+// it is the same invariant, and this case is what stops the extra call
+// from being untested code.
+func TestReanalyzeRematchesTheReadingsAgainstTheRoster(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	controlID := f.createControlOnCourse(t, "Control re-leído", 1, &f.courseID)
+
+	// First pass: the boxes come back unreadable, so nobody matches.
+	unreadable := okCopy("")
+	unreadable.RUTStatus = controls.RUTStatusUnreadable
+	unreadable.Status = controls.CopyStatusNeedsReview
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": unreadable}},
+	}
+	uploadOnce(t, f, controlID)
+
+	readings, err := f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor: %v", err)
+	}
+	if len(readings) == 0 {
+		t.Fatal("no readings persisted by the first analyse")
+	}
+	if got := readings[0].StudentID; got != nil {
+		t.Fatalf("precondition: copy 1 student = %d after an unreadable RUT, want nil", *got)
+	}
+
+	// Second pass at a different sensitivity: the RUT is legible now.
+	f.fake.ReanalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	values := url.Values{"ticked": {"0.20"}, "unsure": {"0.05"}}
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/reanalyze", values)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.ReanalyzeScans(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("ReanalyzeScans status = %d\nbody: %s", rec.Code, rec.Body.String())
+	}
+	job := f.waitLatestJobTerminal(t, controlID)
+	if job.Status != jobs.StatusDone {
+		t.Fatalf("reanalyse job = %s (%s), want done", job.Status, job.Error)
+	}
+
+	readings, err = f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor after reanalyse: %v", err)
+	}
+	anaID := f.studentID(t, "canvas-ana")
+	if got := readings[0].StudentID; got == nil || *got != anaID {
+		t.Errorf("copy 1 student = %v after the re-read made the RUT legible, want Ana (%d)", got, anaID)
 	}
 }

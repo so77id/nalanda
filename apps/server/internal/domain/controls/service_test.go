@@ -190,6 +190,14 @@ func (s *fakeStore) PurgeControl(_ context.Context, id string) error {
 	return controls.ErrControlNotFound
 }
 
+// noMatcher is the inert Matcher the cases that are not about matching
+// use: it matches nobody and never fails, so a control's readings come
+// out of an analyse exactly as they did before issue #272. The cases that
+// ARE about matching use fakeMatcher (rematch_test.go).
+type noMatcher struct{}
+
+func (noMatcher) MatchByRUT(context.Context, string, int64) (*int64, error) { return nil, nil }
+
 // fakeReadingStore is the do-nothing double the pre-WP-F cases use. The
 // WP-F flows are exercised through SaveUploadedBatch + AnalyzeBatch in
 // scans_internal_test.go with a real controlstore. readingsByCopy holds
@@ -227,6 +235,12 @@ func (fakeReadingStore) SetRUTOverride(context.Context, int64, string, time.Time
 	return nil
 }
 func (fakeReadingStore) ClearRUTOverride(context.Context, int64) error { return nil }
+
+// SetReadingStudent is inert here like the rest of this double: the
+// rematch cases use matchingReadingStore (rematch_test.go), which
+// remembers what was written.
+func (fakeReadingStore) SetReadingStudent(context.Context, int64, *int64) error { return nil }
+
 func (fakeReadingStore) SetControlState(context.Context, string, controls.State) error {
 	return nil
 }
@@ -248,6 +262,7 @@ func newService(t *testing.T) (*controls.Service, *fakeStore, *amctest.Fake, str
 		Store:     store,
 		Generator: gen,
 		Analyzer:  gen,
+		Matcher:   noMatcher{},
 		Readings:  newFakeReadingStore(),
 		Annotator: gen,
 		// The production default (config default true, issue #190). Tests
@@ -504,7 +519,7 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 	store := newFakeStore()
 	svc := controls.NewService(controls.Service{
 		Bank: bank.NewStaticLive(b), Store: store, Generator: gen, Analyzer: gen, Readings: newFakeReadingStore(),
-		Annotator: gen, AnnotateEnabled: true,
+		Annotator: gen, AnnotateEnabled: true, Matcher: noMatcher{},
 		WorkDir: workDir,
 		Now:     func() time.Time { return time.Now() }, Seed: 1,
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),

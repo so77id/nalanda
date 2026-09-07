@@ -22,12 +22,14 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
+	"github.com/so77id/nalanda/apps/server/internal/infra/storage/coursestore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/jobstore"
 	"github.com/so77id/nalanda/apps/server/migrations"
 )
@@ -95,6 +97,12 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			cstore := controlstore.New(db)
 			fake := &amctest.Fake{}
 			svc := controls.NewService(controls.Service{
+				// Issue #272: a real matcher over the same database.
+				// These cases are about the router's table, and an
+				// empty `student` table is the right answer for them —
+				// what matters is that the wiring the binary does is
+				// the wiring the test does.
+				Matcher:         matching.NewService(coursestore.New(db)),
 				Bank:            emptyBank(t),
 				Store:           cstore,
 				Generator:       fake,

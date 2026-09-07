@@ -276,6 +276,16 @@ type Reading struct {
 	ReadAt       time.Time
 	LastEditedAt *time.Time   // set on any manual override
 	RUTOverride  *RUTOverride // eagerly loaded by ReadingsByControl and ReadingByCopy
+	// StudentID is the person this copy was matched to, or nil when the
+	// RUT matched nobody enrolled on the control's course (issue #272).
+	//
+	// DERIVED, never authored: it is recomputed from the effective RUT by
+	// Service.RematchReadings after every read and after every manual RUT
+	// edit, and S5's retroactive command rebuilds it for controls read
+	// before this WP. Nothing else writes it, which is what lets a wrong
+	// association be fixed by correcting the RUT rather than by editing
+	// the link.
+	StudentID *int64
 	// Pages is the 1-based list of physical scan pages AMC captured
 	// for this copy, in ascending order (issue #243). The review
 	// page's raw-scan fallback iterates it to render one <img> per
@@ -367,6 +377,16 @@ type ReadingStore interface {
 
 	// ClearRUTOverride deletes the RUT override, if any.
 	ClearRUTOverride(ctx context.Context, readingID int64) error
+
+	// SetReadingStudent writes (or clears) the student a reading is
+	// matched to (issue #272). A nil studentID stores NULL.
+	//
+	// Authoritative rather than additive: the caller passes what the
+	// CURRENT effective RUT resolves to, including nil, because a re-read
+	// at a different sensitivity can turn a confident RUT into an
+	// illegible one and a stale association would keep the copy filed
+	// under somebody the reading no longer names.
+	SetReadingStudent(ctx context.Context, readingID int64, studentID *int64) error
 
 	// SetControlState updates control.state. Named on this interface
 	// because the reading half is where the state moves — WP-F flips

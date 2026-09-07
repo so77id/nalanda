@@ -169,7 +169,7 @@ func (s *Store) MarkMissingAsNotPresent(ctx context.Context, controlID string, n
 // copy_number ascending, with overrides eagerly attached.
 func (s *Store) ReadingsByControl(ctx context.Context, controlID string) ([]controls.Reading, error) {
 	rows, err := s.db.QueryContext(ctx, `
-        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json
+        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json, student_id
         FROM reading
         WHERE control_id = ?
         ORDER BY copy_number ASC`, controlID)
@@ -199,7 +199,7 @@ func (s *Store) ReadingsByControl(ctx context.Context, controlID string) ([]cont
 // ErrReadingNotFound.
 func (s *Store) ReadingByCopy(ctx context.Context, controlID string, copyNumber int) (controls.Reading, error) {
 	row := s.db.QueryRowContext(ctx, `
-        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json
+        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json, student_id
         FROM reading
         WHERE control_id = ? AND copy_number = ?`, controlID, copyNumber)
 	r, err := scanReading(row)
@@ -374,6 +374,34 @@ func (s *Store) ClearAnswerOverride(ctx context.Context, readingID int64, questi
 }
 
 // SetRUTOverride upserts the RUT override.
+// SetReadingStudent writes (or clears) the student a reading is matched
+// to (issue #272).
+//
+// Deliberately does NOT stamp last_edited_at, unlike SetRUTOverride and
+// SetAnswerOverride next to it. That column means "a human touched this
+// copy", and it is what the review queue uses to tell a copy somebody
+// decided about from one nobody has looked at. Matching is derived: it
+// runs on every analyse and every re-read, and stamping it would mark
+// every copy in the batch as reviewed the moment a roster was imported.
+//
+// Checks RowsAffected for the same reason SetControlCourse does: an
+// UPDATE against an id nothing carries succeeds and touches nothing.
+func (s *Store) SetReadingStudent(ctx context.Context, readingID int64, studentID *int64) error {
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE reading SET student_id = ? WHERE id = ?`, nullableID(studentID), readingID)
+	if err != nil {
+		return fmt.Errorf("controlstore.SetReadingStudent %d: %w", readingID, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("controlstore.SetReadingStudent %d: rows affected: %w", readingID, err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("controlstore.SetReadingStudent %d: %w", readingID, controls.ErrReadingNotFound)
+	}
+	return nil
+}
+
 func (s *Store) SetRUTOverride(ctx context.Context, readingID int64, rut string, editedAt time.Time) error {
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
@@ -433,9 +461,14 @@ func scanReading(row interface{ Scan(...any) error }) (controls.Reading, error) 
 		readAt          int64
 		lastEditedAtRaw sql.NullInt64
 		pagesJSON       string
+		studentID       sql.NullInt64
 	)
-	if err := row.Scan(&r.ID, &r.ControlID, &r.CopyNumber, &rutRead, &rutStatus, &copyStatus, &readAt, &lastEditedAtRaw, &pagesJSON); err != nil {
+	if err := row.Scan(&r.ID, &r.ControlID, &r.CopyNumber, &rutRead, &rutStatus, &copyStatus, &readAt, &lastEditedAtRaw, &pagesJSON, &studentID); err != nil {
 		return controls.Reading{}, err
+	}
+	if studentID.Valid {
+		id := studentID.Int64
+		r.StudentID = &id
 	}
 	r.RUTStatus = controls.RUTStatus(rutStatus)
 	r.CopyStatus = controls.CopyStatus(copyStatus)

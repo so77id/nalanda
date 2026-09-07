@@ -149,6 +149,11 @@ func (s *Service) AnalyzeBatch(ctx context.Context, controlID, batchName string,
 		return Report{}, fmt.Errorf("controls.AnalyzeBatch: mark missing: %w", err)
 	}
 	s.annotateCleanCopies(ctx, control, report)
+	// Issue #272: every RUT this read produced is offered to the roster.
+	// After the upsert, because it reads the persisted rows; best-effort,
+	// because the readings are already committed and a roster outage must
+	// not fail a read that succeeded.
+	s.rematchQuietly(ctx, control.ID, "AnalyzeBatch")
 	if control.State == Generated {
 		if err := s.Readings.SetControlState(ctx, control.ID, InReview); err != nil {
 			s.Log.Warn("controls.AnalyzeBatch: state transition failed", "control", control.ID, "error", err)
@@ -189,6 +194,14 @@ func (s *Service) Reanalyze(ctx context.Context, controlID string, ticked, unsur
 		return Report{}, fmt.Errorf("controls.Reanalyze: clear annotated: %w", err)
 	}
 	s.annotateCleanCopies(ctx, control, report)
+	// Issue #272. A re-read at a different sensitivity produces different
+	// RUTs — that is the whole point of "re-leer con otra sensibilidad" —
+	// so the associations have to move with them. The issue's S3 names
+	// only /analyse; leaving this seam out would mean a copy whose RUT
+	// went from illegible to readable stays unmatched forever, and one
+	// whose RUT changed stays filed under the person the OLD reading
+	// named. Both are the failure this WP exists to remove.
+	s.rematchQuietly(ctx, control.ID, "Reanalyze")
 	return report, nil
 }
 
@@ -399,6 +412,88 @@ func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) (
 		}
 	}
 	return result, nil
+}
+
+// RematchReadings recomputes the student behind every reading of one
+// control, from the RUT each copy currently carries.
+//
+// Exported because three callers need it and they are not all in this
+// file: the two read paths above, the manual RUT edit (S4), and the
+// retroactive command that rebuilds the associations of controls read
+// before this WP (S5).
+//
+// AUTHORITATIVE, per reading: whatever the effective RUT resolves to now
+// is what gets written, INCLUDING nil. A reading whose RUT stopped
+// matching has its student cleared, because a stale association keeps a
+// copy filed under somebody the current reading no longer names — and
+// that is how a grade reaches the wrong person after a re-read nobody
+// thought had changed anything.
+//
+// A control with no course is skipped without asking anything. Every
+// control that predates migration 00015 is in that state; matching
+// refuses course 0 on its own, and not asking keeps a 30-copy control
+// from producing 30 pointless lookups on every analyse.
+//
+// Returns an error only when the control or its readings cannot be read
+// at all. A per-reading failure is logged and skipped — see
+// rematchQuietly for why the read paths do not surface even that.
+func (s *Service) RematchReadings(ctx context.Context, controlID string) error {
+	control, err := s.Store.ControlByID(ctx, controlID)
+	if err != nil {
+		return err
+	}
+	if control.CourseID == nil {
+		return nil
+	}
+	readings, err := s.Readings.ReadingsByControl(ctx, controlID)
+	if err != nil {
+		return fmt.Errorf("controls.RematchReadings %s: %w", controlID, err)
+	}
+
+	for _, r := range readings {
+		studentID, err := s.Matcher.MatchByRUT(ctx, effectiveRUT(r), *control.CourseID)
+		if err != nil {
+			// The lookup failed, so the answer is UNKNOWN — which is not
+			// the same as "nobody". Leave the row exactly as it is: an
+			// unmatched copy stays in reconciliation, and a matched one
+			// keeps the association a working lookup established. Writing
+			// nil here would un-file a whole control because a database
+			// blinked.
+			s.Log.Warn("controls.RematchReadings: lookup failed",
+				"control", controlID, "copy", r.CopyNumber, "error", err)
+			continue
+		}
+		if sameStudent(r.StudentID, studentID) {
+			continue
+		}
+		if err := s.Readings.SetReadingStudent(ctx, r.ID, studentID); err != nil {
+			s.Log.Warn("controls.RematchReadings: write failed",
+				"control", controlID, "copy", r.CopyNumber, "error", err)
+		}
+	}
+	return nil
+}
+
+// rematchQuietly runs RematchReadings and logs whatever it returns.
+//
+// The read paths call this rather than RematchReadings directly because
+// by the time it runs the readings are COMMITTED, and they are the
+// artefact a professor cannot reproduce without re-scanning. Failing the
+// analyse over an enrichment would turn a roster outage into a re-scan.
+// Same policy, and the same reason, as annotateCleanCopies.
+func (s *Service) rematchQuietly(ctx context.Context, controlID, caller string) {
+	if err := s.RematchReadings(ctx, controlID); err != nil {
+		s.Log.Warn("controls."+caller+": rematch failed", "control", controlID, "error", err)
+	}
+}
+
+// sameStudent compares two optional student ids, so an unchanged
+// association costs no write.
+func sameStudent(a, b *int64) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
 }
 
 // effectiveRUT is what the review page would display for the reading:

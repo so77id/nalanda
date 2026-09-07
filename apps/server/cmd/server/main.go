@@ -24,6 +24,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/secret"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker"
@@ -174,6 +175,12 @@ func run(logger *slog.Logger) error {
 	go liveBank.Watch(ctx, cfg.BankRefreshInterval)
 
 	controlStore := controlstore.New(db)
+	// One coursestore for the three things that read `course`, `student`
+	// and `enrollment`: the roster service below, and the matcher the
+	// controls service needs (issue #272). The type is stateless over the
+	// handle, so a second instance would be harmless — one is simply the
+	// honest statement that they are the same tables.
+	courseStore := coursestore.New(db)
 	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL})
 	controlsService := controls.NewService(controls.Service{
 		Bank:      liveBank,
@@ -182,6 +189,10 @@ func run(logger *slog.Logger) error {
 		Analyzer:  amcClient,
 		Readings:  controlStore,
 		Annotator: amcClient,
+		// Issue #272: what turns a RUT off the sheet into a student on
+		// the control's course. The controls domain declares the port
+		// (controls.Matcher) and this is what satisfies it.
+		Matcher: matching.NewService(courseStore),
 		// The annotate loop's master switch (NALANDA_ANNOTATE_ENABLED,
 		// issue #190 §Reversibility): defaults to true, the operator can
 		// turn the whole flow off without a deploy.
@@ -235,7 +246,7 @@ func run(logger *slog.Logger) error {
 			"effect", "professors cannot store a Canvas token")
 	}
 	canvasService := canvas.NewService(canvasSecrets, canvasapi.New(cfg.CanvasGraphQLURL))
-	rosterService := roster.NewService(coursestore.New(db), roster.NewCanvasSource(canvasService))
+	rosterService := roster.NewService(courseStore, roster.NewCanvasSource(canvasService))
 
 	backoffice := web.Deps{
 		Database: storage.NewProber(db),

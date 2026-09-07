@@ -25,6 +25,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
@@ -240,10 +241,15 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	cstore := controlstore.New(db)
-	rosterService := roster.NewService(coursestore.New(db), stubCourseSource{})
+	courseStore := coursestore.New(db)
+	rosterService := roster.NewService(courseStore, stubCourseSource{})
 	live := bank.NewStaticLive(b)
 	svc := controls.NewService(controls.Service{
 		Bank: live, Store: cstore, Generator: fake, Analyzer: fake, Readings: cstore,
+		// Issue #272: the real matcher over the real course tables, so
+		// the scans cases below see the association the binary would
+		// write rather than a double's answer.
+		Matcher:   matching.NewService(courseStore),
 		Annotator: fake, AnnotateEnabled: annotateEnabled,
 		WorkDir: workDir,
 		Now:     time.Now, Seed: 1, Log: log,

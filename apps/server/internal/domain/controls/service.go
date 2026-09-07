@@ -86,6 +86,11 @@ type Service struct {
 	// the escape hatch that turns the whole flow off in production.
 	Annotator       Annotator
 	AnnotateEnabled bool
+	// Matcher resolves a reading'''s RUT to a student on the control'''s
+	// course (issue #272). Required — a nil one would make every copy
+	// silently unmatched, which looks exactly like a class nobody is
+	// enrolled in.
+	Matcher Matcher
 	// WorkDir is what the SERVER sees as the root of the shared volume.
 	// In compose it is bind-mounted onto /work in the worker; in
 	// development it may be any path the operator chose (see
@@ -102,6 +107,22 @@ type Service struct {
 // reasoning as the other constructors in this app: a wiring mistake is a
 // panic at boot rather than a nil dereference inside a request
 // (backend-code-style.md §Errors).
+// Matcher resolves a RUT to the student who sat the copy, scoped to a
+// course. Satisfied by internal/domain/matching's Service.
+//
+// Declared HERE rather than imported from there, the health.Prober shape:
+// this domain needs the answer, not the package. It keeps the controls
+// tests free of a roster and a course table to render the one thing they
+// care about, and it keeps "how a RUT is spelled" — which is genuinely
+// intricate, see matching.NormalizeRUT — on the other side of a boundary
+// this domain never has to reason about.
+//
+// nil, nil means "no match", which is an ordinary answer and not a
+// failure. An error means the question could not be asked.
+type Matcher interface {
+	MatchByRUT(ctx context.Context, rut string, courseID int64) (*int64, error)
+}
+
 func NewService(deps Service) *Service {
 	switch {
 	case deps.Bank == nil:
@@ -116,6 +137,8 @@ func NewService(deps Service) *Service {
 		panic("controls.NewService: no reading store")
 	case deps.Annotator == nil:
 		panic("controls.NewService: no annotator")
+	case deps.Matcher == nil:
+		panic("controls.NewService: no matcher")
 	case deps.WorkDir == "":
 		panic("controls.NewService: no work directory")
 	case deps.Now == nil:
