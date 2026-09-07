@@ -26,87 +26,89 @@ el arreglo dinámico y cierra con el contrato que ambos cumplen.
 
 ## Vocabulario · TDA, EDA e invariante
 
-<Slide title="Del algoritmo al dato">
-Para buscar un número en un arreglo ordenado de un millón de elementos,
-la búsqueda binaria hace 20 comparaciones. Sobre los **mismos** datos
-guardados como una lista de nodos, el mismo algoritmo no funciona.
+<Slide title="Lo mismo, dos veces">
+Estas dos líneas declaran lo mismo y construyen cosas distintas:
 
-El algoritmo no cambió. Cambió dónde estaban los datos.
+```java
+List<Integer> a = new ArrayList<>();
+List<Integer> b = new LinkedList<>();
 
-Esta unidad estudia ese lado: qué formas hay de guardar una colección,
-qué operaciones ofrece cada una, y cuánto cuesta cada operación.
+a.add(0, 7);   b.add(0, 7);      // insertar al principio
+a.get(3);      b.get(3);         // pedir el de la posición 3
+```
+
+Las dos responden `add`, `get`, `remove`, `size`. Un método que reciba un
+`List` funciona con cualquiera de las dos sin enterarse de cuál le
+tocó.
+
+Algo se está separando ahí: **qué se le puede pedir** a una colección,
+por un lado, y **cómo lo resuelve**, por el otro. Esta clase le pone
+nombre a los dos lados, y a lo que los conecta.
 
 </Slide>
 
 <Slide title="Tipo de dato abstracto · el contrato">
-Un **tipo de dato abstracto** (TDA) es la lista de operaciones que una
-colección ofrece, con el significado de cada una y sin decir nada sobre
-cómo están guardados los elementos.
+Un **tipo de dato abstracto** (TDA) es un conjunto de operaciones **con
+su significado**, sin decir nada sobre cómo están guardados los
+elementos.
+
+`List` es un TDA. Dice que los elementos ocupan posiciones `0..n-1`, que
+`get(i)` devuelve el que está en la posición `i`, que `add(i, e)` mete a
+`e` ahí y corre el resto. No dice dónde vive ninguno de ellos.
+
+```java
+public interface List<E> {
+    int size();
+    E get(int index);            // el elemento de la posición index
+    E set(int index, E e);       // reemplaza el de esa posición
+    void add(int index, E e);    // inserta e y corre el resto
+    E remove(int index);         // saca el de index y lo devuelve
+}
+```
+
+**Cuidado con una confusión fácil: no toda interfaz es un TDA.**
+`Comparable` es un contrato — declara que un tipo tiene orden — pero no
+describe ninguna colección, y no hay dos maneras de implementarlo que
+cuesten distinto. Lo mismo vale para `Runnable` o `Serializable`.
+
+Un TDA se reconoce porque **admite varias representaciones y elegir
+entre ellas importa**.
+
+</Slide>
+
+<Slide title="Estructura de datos · la representación">
+Una **estructura de datos** es la decisión que el contrato dejó
+abierta: dónde están los elementos y cómo se implementa cada operación.
+
+`ArrayList` los guarda en **memoria consecutiva**. `LinkedList` los
+guarda en **nodos enlazados**, cada uno sabiendo dónde está el
+siguiente. Mismo contrato, distinta máquina.
 
 > La interfaz es una **especificación** — el problema. La estructura de
 > datos es una **representación** — la solución.
 >
 > — Erik Demaine, MIT 6.006, 2020
 
-El TDA más chico que ya conocemos es
-[[diseno-algoritmos-ordenamiento|Comparable]]: una operación, un
-significado preciso, ni una palabra sobre representación.
+Demaine dice _interfaz_ donde nosotros venimos diciendo _contrato_: la
+palabra está sobrecargada. En Java, `interface` es un mecanismo del
+lenguaje; en la literatura de algoritmos, la interfaz de una estructura
+es su TDA. Son cosas distintas y conviene no mezclarlas.
 
-```java
-public interface Comparable<T> {
-    // Negativo si this va antes que o; cero si empatan;
-    // positivo si this va después.
-    int compareTo(T o);
-}
-```
-
-Ningún algoritmo de ordenamiento pregunta cómo está implementado
-`compareTo`. Le basta el contrato.
+Lo que importa es la consecuencia: **los costos no salen del contrato,
+salen de la representación.** Sobre un millón de elementos, `get(500000)`
+es inmediato en un `ArrayList` y camina medio millón de nodos en un
+`LinkedList`. Ninguna de las dos es mejor; son distintas, y esta unidad
+estudia esa diferencia.
 
 </Slide>
 
-<Slide title="Estructura de datos · la representación">
-Una **estructura de datos** es la manera concreta de guardar los
-elementos en memoria, más los algoritmos que implementan cada operación
-del contrato.
+<Slide title="Invariante · lo que se mantiene">
+Falta la pieza que conecta las dos anteriores, y aparece con una
+pregunta sobre código conocido.
 
-Donde el TDA dice _"se puede pedir el elemento de la posición `i`"_, la
-estructura dice _"los elementos están en posiciones consecutivas, y el
-elemento `i` está en `base + i × tamaño`"_.
-
-De ahí sale la frase que ordena toda la unidad:
-
-**Un TDA admite muchas estructuras, y cada una tiene costos distintos.**
-
-El contrato lo fija el problema. Elegir la representación es la decisión
-de ingeniería: cuál tiene baratas justamente las operaciones que el
-programa va a pedir más veces.
-
-</Slide>
-
-<Slide title="Invariante · la propiedad que se preserva">
-Un **invariante** es una propiedad que vale antes y después de cada
-operación. Durante la operación puede romperse; al terminar, vuelve a
-valer.
-
-Sirve para dos cosas. Permite que una operación sea correcta sin revisar
-todo el dato, porque puede confiar en lo que la anterior dejó en pie. Y
-explica los costos: cuando una operación es cara, casi siempre lo caro
-es restaurar el invariante.
-
-La búsqueda binaria tiene uno, aunque no lo llamamos así:
-
-**Si `t` está en el arreglo, está en `a[lo..hi]`.**
-
-Cada iteración achica el rango a la mitad y vuelve a dejar esa propiedad
-en pie. Por eso descartar media entrada no pierde la respuesta.
-
-</Slide>
-
-<Slide title="Dos invariantes conocidos">
 ```java
 static int bs(int[] a, int lo, int hi, int t) {
-    if (lo > hi) return -1;              // rango vacío: t no está
+    if (lo > hi) return -1;
     int mid = (lo + hi) / 2;
     if (a[mid] == t) return mid;
     if (t < a[mid]) return bs(a, lo, mid - 1, t);
@@ -114,8 +116,24 @@ static int bs(int[] a, int lo, int hi, int t) {
 }
 ```
 
-**Invariante.** Si `t` está, está en `a[lo..hi]`. Las dos llamadas
-recursivas lo restauran sobre un rango la mitad de grande.
+**¿Por qué está permitido tirar media entrada sin mirarla?**
+
+Porque hay una propiedad que valía antes del paso y sigue valiendo
+después: **si `t` está en el arreglo, está en `a[lo..hi]`**. Cada
+llamada la deja en pie sobre un rango la mitad de grande, así que lo
+que se descarta no podía contener la respuesta.
+
+Una propiedad así se llama **invariante**: vale antes y después de cada
+operación, aunque durante la operación se rompa.
+
+Y con eso se cierra la cadena: **una operación es barata cuando puede
+confiar en el invariante, y cara cuando tiene que restaurarlo.**
+
+</Slide>
+
+<Slide title="Un invariante que ya usamos">
+El invariante casi nunca está escrito. En `partition` sí, y quizá pasó
+desapercibido:
 
 ```java
 static int partition(int[] a, int lo, int hi) {
@@ -131,12 +149,13 @@ static int partition(int[] a, int lo, int hi) {
 }
 ```
 
-**Invariante.** El comentario del bucle. Se mantiene en cada vuelta, y
-por eso al terminar el pivote queda en su posición definitiva.
+Ese comentario es el invariante del bucle. Se cumple en cada vuelta, y
+es lo único que garantiza que al terminar el pivote quede en su posición
+definitiva — sin él, quicksort no sería correcto.
 
 </Slide>
 
-<Slide title="Contrato, representación e invariante">
+<Slide title="La cadena completa">
 <Figure
   src="./tda-eda-invariante.svg"
   alt="Tres capas apiladas. Arriba, el TDA con las operaciones y su significado; en el medio, la estructura de datos con la representación elegida; abajo, los invariantes de esa representación, señalados como el lugar de donde salen los costos. Las flechas bajan de capa en capa."
@@ -144,17 +163,9 @@ por eso al terminar el pivote queda en su posición definitiva.
 
 La dependencia baja y nunca sube: el contrato no sabe nada de los
 invariantes, y los invariantes son asunto privado de cada
-representación. Esa libertad es la que hace que dos estructuras con el
-mismo contrato tengan costos distintos.
-
-</Slide>
-
-<Slide title="El vocabulario, en una tabla">
-| Palabra | Qué es | Responde a | Ejemplo conocido |
-|---|---|---|---|
-| **TDA** | Un contrato | ¿Qué operaciones ofrece? | `Comparable` |
-| **Estructura de datos** | Una representación | ¿Cómo están guardados? | El arreglo |
-| **Invariante** | Una propiedad preservada | ¿Qué sigue valiendo? | Si `t` está, está en `a[lo..hi]` |
+representación. Esa libertad es la que permite que dos estructuras con
+el mismo contrato tengan costos distintos — y el resto de la unidad es
+recorrer esta cadena, una estructura por vez.
 
 </Slide>
 

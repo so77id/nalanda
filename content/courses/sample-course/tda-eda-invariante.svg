@@ -19,21 +19,21 @@
 
   <rect x="40" y="24" width="420" height="66" rx="6" class="capa"/>
   <text x="56" y="48" class="t">1 · TDA — el contrato</text>
-  <text x="56" y="70" class="s">Qué operaciones existen y qué significan. Sequence, Comparable.</text>
+  <text x="56" y="70" class="s">Qué operaciones existen y qué significan. List, Sequence.</text>
 
   <path d="M 250 92 L 250 118" class="flecha"/>
   <text x="262" y="110" class="n">elige una</text>
 
   <rect x="40" y="122" width="420" height="66" rx="6" class="capa"/>
   <text x="56" y="146" class="t">2 · Estructura de datos — la representación</text>
-  <text x="56" y="168" class="s">Cómo se guardan los elementos. Memoria consecutiva más un largo.</text>
+  <text x="56" y="168" class="s">Cómo se guardan. Memoria consecutiva, o nodos enlazados.</text>
 
   <path d="M 250 190 L 250 216" class="flecha"/>
   <text x="262" y="208" class="n">declara sus</text>
 
   <rect x="40" y="220" width="420" height="66" rx="6" class="capa-inv"/>
   <text x="56" y="244" class="t">3 · Invariantes — lo que se preserva</text>
-  <text x="56" y="266" class="s">Los válidos son datos[0..size-1]; la capacidad acompaña al largo.</text>
+  <text x="56" y="266" class="s">Lo que la representación sostiene entre dos operaciones.</text>
 
   <path d="M 466 253 L 500 253" class="flecha"/>
   <text x="506" y="243" class="s">de aquí</text>
