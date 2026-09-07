@@ -23,3 +23,7 @@ entries:
     children:
       - docId: diseno-algoritmos-divide-y-venceras
       - docId: diseno-algoritmos-ordenamiento
+  - label: Estructuras de Datos
+    levelName: Unidad
+    children:
+      - docId: edd-introduccion
