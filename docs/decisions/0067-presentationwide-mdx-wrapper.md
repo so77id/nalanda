@@ -115,44 +115,29 @@ and the misuse fails visibly in the browser).
   the existing structural containers cover every case in the sorting
   chapter.
 
-## Addendum — #277 (2026-09-07): the fraction is not optional for a table
+## Addendum — #277 (2026-09-07): NOT for a markdown table
 
-**Context.** This ADR's §Decision presents `fraction = 1` as the default and
-recommends `0.75` for a two-visual comparison; its example block shows
-`<PresentationWide fraction={0.75}>…wide table…</PresentationWide>`. Two
-surfaces disagreed with it and with each other: `PresentationWide.catalog.tsx`
-shipped an example titled *"Full-viewport wide table"* whose code was a **bare**
-wrapper around a table, and `add-a-course-document.md` §6b named chapter 16 as
-the worked case for a wide MDX table — a case chapter 16 does not contain.
-Chapter 17 (#277) is the first shipped markdown table inside the wrapper, and
-looking at it in a browser produced the fact none of the three surfaces had:
-**a table at fraction 1 runs flush to both slide edges with its columns
-touching.**
+**Context.** #277 wrapped five markdown tables in `<PresentationWide>` to stop
+the slide scaling down, and measured the scale going from 0.71 to 1.0. The
+measurement was real and the conclusion was wrong: the tables came out **wider
+and unstyled**, with their columns touching, in the book as well as on the
+slide.
 
-**Decision.** For a wide markdown table the fraction is **not optional**, and
-its value is `0.8`. `0.75`–`0.85` remains right for a comparison of two visuals
-side by side, which is the case this ADR originally described and the one
-chapter 16 ships. The component's default stays `1`, because a full-bleed block
-with no internal columns — a single wide visual — is a legitimate use; what
-changes is that a *table* must never take it.
+**Cause.** The wrapper renders `className="not-prose w-full"`. `not-prose`
+removes the Tailwind Typography styles, and a markdown table has no styling of
+its own — it is entirely prose-styled. Measured on the built site: a `td`
+inside the wrapper computes `padding: 0px`; the same table unwrapped, and every
+table in chapter 16, computes `padding: 8px 8px 8px 0`.
 
-**Evidence.** Measured at 1440x900 on chapter 17's cost table, `/present`:
-unwrapped the table renders 640px wide and the slide is scaled to **0.71**;
-wrapped at `fraction={0.8}` it renders 1058px and the slide is scaled to
-**1.0**. Wrapping the five wide tables of that document took five of its slides
-off the shrink list. The scale is the `transform` on the `motion.div` inside
-`[data-testid="slide-stage"]` (`presentation/SlideDeck.tsx`).
+**Decision.** **Do not wrap a markdown table in `<PresentationWide>`.** The
+wrapper is for blocks that style themselves — a `<SideBySide>`, a widget, an
+inline SVG — which is what every shipped call site actually wraps. A wide table
+stays a bare markdown table inside its `<Slide>`, the shape chapter 16 ships;
+if it makes the slide shrink too far, the fix is to split the slide or cut
+columns, not to widen it into a wrapper that strips its styling.
 
-**Consequences.**
-
-- `PresentationWide.catalog.tsx` now demonstrates `fraction={0.8}` for the
-  table case and its `fraction` prop description carries the measurement — the
-  catalog is what an author reads (`add-a-course-document.md` §Worked example),
-  so it was the surface teaching the defect.
-- `add-a-course-document.md` §6b carries the rule, both values and chapter 17
-  as the table worked case.
-- **Open question this ADR does not settle:** whether the component's default
-  should move from `1` to `0.8`. Every shipped call site overrides it (0.85 and
-  0.75 in chapter 16, 0.8 five times in chapter 17), which is the argument for
-  changing it; a full-bleed single visual is the argument against. Left as it
-  is rather than changed silently.
+**Consequences.** `fraction` guidance is unchanged for the cases the ADR
+originally described. Nothing in the build or the suite can see this — a table
+with no padding renders, it just renders badly — so the check is looking at the
+page. #277 shipped the defect through a full review pipeline because it
+measured slide scale rather than legibility.

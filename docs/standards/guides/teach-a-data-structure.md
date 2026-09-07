@@ -149,18 +149,16 @@ memorised numbers into a table the reader can derive: `insert_first` is
 $$\Theta(N)$$ *because* leaving the valid elements contiguous from 0 forces
 $$N$$ moves.
 
-**Wrap it in `<PresentationWide fraction={0.8}>`, and pass the fraction.**
-A slide caps its children at a reading column, so a bare table gets squeezed
-and — being tall — drags the whole slide down with it. Measured at 1440x900
-on the cost table of #277: bare, the table is 640px wide and the slide is
-scaled to **0.71**; wrapped, it is 1058px wide and the slide is scaled to
-**1.0**. Wrapping the five wide tables of #277 took five of its slides off the
-shrink list.
+**Write it as a bare markdown table inside the `<Slide>`** — the shape chapter
+16 ships. Do **not** reach for `<PresentationWide>` to widen it. That wrapper
+carries `not-prose`, which strips the Tailwind Typography styles a markdown
+table depends on entirely: measured on the built site, a `td` inside it
+computes `padding: 0px` against `8px` for a bare one, so the columns touch —
+in the book as well as on the slide. #277 shipped exactly that defect through a
+full review pipeline, because it measured slide scale and not legibility
+(ADR-0067 §Addendum — #277).
 
-**The `fraction` is not optional.** A bare `<PresentationWide>` re-anchors to
-the full viewport, and a table then runs flush to both slide edges with its
-columns touching — looked at, in the browser. `0.8` clears the edges and
-still buys most of the width.
+If a table makes its slide shrink too far, cut columns or split the slide.
 
 **There is no colour coding in these tables, and that is a constraint rather
 than a choice.** An MDX markdown table has no per-cell styling hook, and a raw
@@ -244,8 +242,9 @@ reusing `<CodeEditor>` and `<Benchmark>`.
       the expensive one named as such.
 - [ ] Every operation in the cost table carries the invariant it restores.
       An `Amortizado` column only where a row actually differs.
-- [ ] Wide tables wrapped in `<PresentationWide fraction={0.8}>` — never
-      bare, and checked on the slide rather than in the book.
+- [ ] Wide tables left as bare markdown inside the `<Slide>`, never wrapped in
+      `<PresentationWide>` (it strips their styling), and **looked at** on the
+      slide rather than measured.
 - [ ] The class closes on a cabo suelto with a named trade, not a promise, and
       no forward wiki-link to a document that does not exist.
 - [ ] Every figure has an opaque panel, all text on it, a second signal beside

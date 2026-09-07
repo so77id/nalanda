@@ -13,62 +13,49 @@ questions: none
 
 # Estructuras de Datos · Introducción
 
-Hasta aquí estudiamos **algoritmos**: cómo resolver un problema y
-cuánto cuesta resolverlo. Desde aquí estudiamos **dónde viven los
-datos** sobre los que esos algoritmos trabajan.
+Hasta aquí estudiamos algoritmos. Esta unidad estudia dónde viven los
+datos sobre los que esos algoritmos trabajan: qué formas hay de guardar
+una colección, qué operaciones ofrece cada una y cuánto cuesta cada
+operación.
 
-Esta clase abre la unidad con tres palabras — **TDA**, **estructura de
-datos** e **invariante** —, formaliza el arreglo que ya conocemos,
-lo hace crecer hasta el arreglo dinámico y cierra con el contrato que
-ambos cumplen.
+Esta clase abre la unidad con tres palabras — TDA, estructura de datos e
+invariante —, formaliza el arreglo que ya usamos, lo hace crecer hasta
+el arreglo dinámico y cierra con el contrato que ambos cumplen.
 
 <SectionBreak />
 
 ## Vocabulario · TDA, EDA e invariante
 
 <Slide title="Del algoritmo al dato">
-Un algoritmo describe **qué hacemos** con los datos. Una estructura de
-datos describe **cómo están guardados** para que ese "qué" sea posible
-— y barato.
+Para buscar un número en un arreglo ordenado de un millón de elementos,
+la búsqueda binaria hace 20 comparaciones. Sobre los **mismos** datos
+guardados como una lista de nodos, el mismo algoritmo no funciona.
 
-Los dos lados se necesitan. La búsqueda binaria de
-[[diseno-algoritmos-divide-y-venceras|Divide y Conquista]] cuesta
-$$\Theta(\log N)$$ solamente si llegar a la posición `i` cuesta
-$$\Theta(1)$$. Sobre los mismos datos guardados de otra manera, el
-mismo algoritmo es lento, o directamente imposible.
+El algoritmo no cambió. Cambió dónde estaban los datos.
 
-Hasta aquí estudiamos el primer lado. Esta unidad estudia el segundo:
-qué organizaciones de datos existen, qué operaciones ofrece cada una,
-y cuánto cuesta cada operación.
-
-Empezamos por el vocabulario, porque las tres palabras que siguen se
-usan en todas las clases de la unidad.
+Esta unidad estudia ese lado: qué formas hay de guardar una colección,
+qué operaciones ofrece cada una, y cuánto cuesta cada operación.
 
 </Slide>
 
 <Slide title="Tipo de dato abstracto · el contrato">
-Un **tipo de dato abstracto** (TDA) es un **contrato**: la lista de
-operaciones que una colección ofrece, con el significado de cada una,
-y sin decir nada sobre cómo están guardados los elementos.
+Un **tipo de dato abstracto** (TDA) es la lista de operaciones que una
+colección ofrece, con el significado de cada una y sin decir nada sobre
+cómo están guardados los elementos.
 
 > La interfaz es una **especificación** — el problema. La estructura de
 > datos es una **representación** — la solución.
 >
-> — Erik Demaine, *MIT 6.006 · Introduction to Algorithms*, 2020
-> ("interface is a specification — the problem; data structure is a
-> representation — the solution")
+> — Erik Demaine, MIT 6.006, 2020
 
-Un TDA se lee entero sin abrir ningún archivo de implementación. Dice
-**qué se puede pedir**, nunca **cómo se responde**.
-
-El contrato más pequeño que ya conocemos es
-[[diseno-algoritmos-ordenamiento|`Comparable`]]: una sola operación,
-un significado preciso, y ninguna palabra sobre representación.
+El TDA más chico que ya conocemos es
+[[diseno-algoritmos-ordenamiento|Comparable]]: una operación, un
+significado preciso, ni una palabra sobre representación.
 
 ```java
 public interface Comparable<T> {
-    // Negativo si this va antes que o, cero si van en la misma
-    // posición del orden, positivo si this va después.
+    // Negativo si this va antes que o; cero si empatan;
+    // positivo si this va después.
     int compareTo(T o);
 }
 ```
@@ -79,46 +66,44 @@ Ningún algoritmo de ordenamiento pregunta cómo está implementado
 </Slide>
 
 <Slide title="Estructura de datos · la representación">
-Una **estructura de datos** (EDA) es una **representación**: la manera
-concreta de guardar los elementos en memoria, más los algoritmos que
-implementan cada operación del contrato.
+Una **estructura de datos** es la manera concreta de guardar los
+elementos en memoria, más los algoritmos que implementan cada operación
+del contrato.
 
 Donde el TDA dice _"se puede pedir el elemento de la posición `i`"_, la
-EDA dice _"los elementos están en posiciones consecutivas de memoria, y
-el elemento `i` está en `base + i × tamaño`"_.
+estructura dice _"los elementos están en posiciones consecutivas, y el
+elemento `i` está en `base + i × tamaño`"_.
 
-De ahí sale la afirmación que ordena toda la unidad:
+De ahí sale la frase que ordena toda la unidad:
 
-**Un TDA admite muchas EDA, y cada una tiene costos distintos.**
+**Un TDA admite muchas estructuras, y cada una tiene costos distintos.**
 
-Elegir entre ellas es el trabajo de ingeniería: el contrato ya está
-decidido por el problema, y lo que queda por decidir es cuál
-representación tiene baratas justamente las operaciones que el programa
-va a pedir más veces. La misma elección aparece en cada clase de esta
-unidad.
+El contrato lo fija el problema. Elegir la representación es la decisión
+de ingeniería: cuál tiene baratas justamente las operaciones que el
+programa va a pedir más veces.
 
 </Slide>
 
 <Slide title="Invariante · la propiedad que se preserva">
-Un **invariante** es una propiedad que se cumple **antes y después de
-cada operación**. Adentro de una operación puede romperse; cuando la
-operación termina, vuelve a valer.
+Un **invariante** es una propiedad que vale antes y después de cada
+operación. Durante la operación puede romperse; al terminar, vuelve a
+valer.
 
-El invariante es lo que hace que una operación sea correcta sin
-revisar todo el dato: si la propiedad valía al empezar y la operación
-la restaura al terminar, cada operación siguiente puede confiar en
-ella.
+Sirve para dos cosas. Permite que una operación sea correcta sin revisar
+todo el dato, porque puede confiar en lo que la anterior dejó en pie. Y
+explica los costos: cuando una operación es cara, casi siempre lo caro
+es restaurar el invariante.
+
+La búsqueda binaria tiene uno, aunque no lo llamamos así:
+
+**Si `t` está en el arreglo, está en `a[lo..hi]`.**
+
+Cada iteración achica el rango a la mitad y vuelve a dejar esa propiedad
+en pie. Por eso descartar media entrada no pierde la respuesta.
 
 </Slide>
 
 <Slide title="Dos invariantes conocidos">
-Dos propiedades preservadas que ya usamos, aunque no las llamamos así.
-
-**Búsqueda binaria** — _si `t` está en el arreglo, está en
-`a[lo..hi]`_. Cada iteración achica el rango a la mitad y vuelve a
-dejar el invariante en pie; por eso descartar media entrada no pierde
-la respuesta.
-
 ```java
 static int bs(int[] a, int lo, int hi, int t) {
     if (lo > hi) return -1;              // rango vacío: t no está
@@ -129,69 +114,47 @@ static int bs(int[] a, int lo, int hi, int t) {
 }
 ```
 
-**Partición de quicksort** — _en `a[lo..store-1]` todo es menor que el
-pivote, y en `a[store..j-1]` todo es mayor o igual_. La operación lo
-mantiene en cada vuelta del bucle, y por eso al terminar el pivote
-queda en su posición definitiva.
+**Invariante.** Si `t` está, está en `a[lo..hi]`. Las dos llamadas
+recursivas lo restauran sobre un rango la mitad de grande.
 
 ```java
 static int partition(int[] a, int lo, int hi) {
-    int pivote = a[lo];
+    int pivot = a[lo];
     swap(a, lo, hi);
     int store = lo;
     for (int j = lo; j < hi; j++) {
-        // a[lo..store-1] < pivote  y  a[store..j-1] >= pivote
-        if (a[j] < pivote) { swap(a, store, j); store++; }
+        // a[lo..store-1] < pivot  y  a[store..j-1] >= pivot
+        if (a[j] < pivot) { swap(a, store, j); store++; }
     }
     swap(a, store, hi);
     return store;
 }
 ```
 
+**Invariante.** El comentario del bucle. Se mantiene en cada vuelta, y
+por eso al terminar el pivote queda en su posición definitiva.
+
 </Slide>
 
 <Slide title="Contrato, representación e invariante">
-Las tres palabras describen tres capas distintas del mismo objeto, y se
-encadenan en una sola dirección:
-
-1. El **TDA** fija las operaciones y su significado.
-2. Una **EDA** elige una representación e implementa esas operaciones.
-3. Los **invariantes** de esa representación son lo que hace que las
-   implementaciones sean correctas y tengan el costo que declaran.
-
 <Figure
   src="./tda-eda-invariante.svg"
   alt="Tres capas apiladas. Arriba, el TDA con las operaciones y su significado; en el medio, la estructura de datos con la representación elegida; abajo, los invariantes de esa representación, señalados como el lugar de donde salen los costos. Las flechas bajan de capa en capa."
-  caption="Cada capa elige la de abajo; los costos se leen en la última"
 />
 
-La dependencia va hacia abajo y no hacia arriba. El TDA no sabe nada de
-los invariantes; los invariantes son asunto privado de cada
-representación. Dos estructuras que cumplen el mismo contrato pueden
-mantener invariantes completamente distintos, y esa es exactamente la
-libertad que las hace tener costos distintos.
-
-Por eso, en el resto de la unidad, cada estructura se presenta en el
-mismo orden: primero la idea, después los invariantes, después las
-operaciones con su costo, después las limitaciones.
+La dependencia baja y nunca sube: el contrato no sabe nada de los
+invariantes, y los invariantes son asunto privado de cada
+representación. Esa libertad es la que hace que dos estructuras con el
+mismo contrato tengan costos distintos.
 
 </Slide>
 
 <Slide title="El vocabulario, en una tabla">
-<PresentationWide fraction={0.8}>
-
 | Palabra | Qué es | Responde a | Ejemplo conocido |
 |---|---|---|---|
-| **TDA** | Un contrato | ¿Qué operaciones ofrece? | `Comparable`, con `compareTo` |
-| **Estructura de datos** | Una representación | ¿Cómo están guardados los elementos? | El arreglo, en memoria consecutiva |
-| **Invariante** | Una propiedad preservada | ¿Qué sigue valiendo entre operaciones? | Si `t` está, está en `a[lo..hi]` |
-
-</PresentationWide>
-
-Las tres palabras vuelven a aparecer, nombradas, en cada estructura de
-la unidad. El costo de una operación siempre se lee junto al invariante
-que esa operación tiene que restaurar: cuando una operación es cara, la
-razón es casi siempre el trabajo de dejar el invariante en pie.
+| **TDA** | Un contrato | ¿Qué operaciones ofrece? | `Comparable` |
+| **Estructura de datos** | Una representación | ¿Cómo están guardados? | El arreglo |
+| **Invariante** | Una propiedad preservada | ¿Qué sigue valiendo? | Si `t` está, está en `a[lo..hi]` |
 
 </Slide>
 
@@ -199,152 +162,193 @@ razón es casi siempre el trabajo de dejar el invariante en pie.
 
 ## La EDA Arreglo
 
-<Slide title="El arreglo, ahora como estructura de datos">
-El arreglo de [[arrays-y-funciones|Arreglos y funciones]] es la
-representación más directa que existe: los elementos están en
-**posiciones consecutivas de memoria**, todas del mismo tamaño.
-
-Esa decisión de representación da la propiedad que hace famoso al
-arreglo. Para llegar al elemento `i` no hay que recorrer nada:
+<Slide title="El arreglo en memoria">
+El arreglo de [[arrays-y-funciones|Arreglos y funciones]] guarda los
+elementos en **posiciones consecutivas**, todas del mismo tamaño. Esa
+sola decisión da la propiedad que lo hace famoso:
 
 $$
-\text{dirección}(i) = \text{base} + i \times \text{tamaño del elemento}
+\text{dirección}(i) = \text{base} + i \times \text{tamaño}
 $$
 
 <Figure
   src="./arreglo-memoria.svg"
   alt="Ocho casillas consecutivas numeradas de 0 a 7 con valores adentro. Una flecha marca la dirección base sobre la casilla 0 y otra la casilla 3, rotulada base más 3 por el tamaño del elemento. Ninguna casilla intermedia se recorre."
-  caption="Llegar a la posición 3 y a la 3 000 000 cuesta lo mismo"
 />
 
-Una multiplicación y una suma, sin importar si `i` es 3 o 3 millones.
-El acceso cuesta $$\Theta(1)$$ y esa es la razón por la que la búsqueda
-binaria puede ser $$\Theta(\log N)$$.
+Una multiplicación y una suma. Llegar a la posición 3 y a la 3 000 000
+cuesta lo mismo: $$\Theta(1)$$.
 
 </Slide>
 
 <Slide title="Capacidad y largo">
-Un arreglo de Java no es todavía un contenedor: `datos.length` dice
-cuántas casillas se reservaron, no cuántas están usadas. La estructura
-que estudiamos aquí es el arreglo **más un entero**:
+Un arreglo de Java todavía no es un contenedor: `data.length` dice
+cuántas casillas se reservaron, no cuántas se están usando. La
+estructura que estudiamos es el arreglo **más un entero**.
 
 ```java
-class Arreglo {
-    private int[] datos;  // la representación: N casillas consecutivas
-    private int size;     // cuántas de esas casillas son válidas
+class StaticArray {
+    private int[] data;   // la representación
+    private int size;     // cuántas casillas son válidas
 
-    Arreglo(int capacidad) {
-        datos = new int[capacidad];
+    StaticArray(int capacity) {
+        data = new int[capacity];
         size = 0;
     }
 }
 ```
 
-`datos.length` es la **capacidad** — casillas reservadas. `size` es el
-**largo** — casillas ocupadas. Los dos números son distintos, y la
-distancia entre ellos es de lo que trata el resto de la clase.
+`data.length` es la **capacidad**: casillas reservadas. `size` es el
+**largo**: casillas ocupadas. Son dos números distintos, y la distancia
+entre ellos es de lo que trata el resto de la clase.
 
 </Slide>
 
 <Slide title="Los invariantes del arreglo">
-Tres propiedades se cumplen antes y después de cada operación. Ninguna
-está escrita en el lenguaje: son responsabilidad de la estructura.
-
-1. **`0 ≤ size ≤ datos.length`.** El largo nunca es negativo y nunca
-   supera la capacidad reservada. Si esta propiedad se rompe, cualquier
-   recorrido sale del arreglo.
-2. **Los elementos del contenedor son exactamente `datos[0..size-1]`.**
-   Están juntos y empiezan en la posición 0: no hay huecos en el medio.
-   Esta propiedad es la que permite recorrer con un `for` de `0` a
-   `size - 1` y no revisar nada más.
-3. **`datos[size..datos.length-1]` es basura.** Esas casillas existen y
-   tienen algún valor — el cero por omisión, o un elemento borrado que
-   quedó ahí —, pero no pertenecen al contenedor y no se leen nunca.
-
 <Figure
   src="./arreglo-invariantes.svg"
   alt="Un arreglo de capacidad diez con largo seis. Las casillas 0 a 5 tienen borde sólido y valores; las casillas 6 a 9 tienen borde punteado y un signo de interrogación. Una llave superior abarca las diez y dice capacidad; dos llaves inferiores separan los seis válidos de las cuatro casillas de basura."
-  caption="El contenedor son los seis primeros; las otras cuatro están reservadas y nunca se leen"
 />
 
-La segunda propiedad es la cara y la barata al mismo tiempo. Es barata
-porque hace que el acceso sea aritmética pura. Es cara porque cualquier
-operación que agregue o quite un elemento del medio tiene que volver a
-dejar todo junto antes de terminar, y "volver a dejar todo junto"
-significa mover elementos.
+1. **`0 ≤ size ≤ data.length`.** El largo nunca supera la capacidad.
+2. **Los elementos son exactamente `data[0..size-1]`.** Juntos y desde
+   la posición 0, sin huecos en el medio.
+3. **`data[size..]` es basura.** Existe, tiene algún valor, y no se lee.
+
+El segundo es el caro y el barato a la vez: hace que el acceso sea
+aritmética pura, y obliga a mover elementos cada vez que algo entra o
+sale del medio.
 
 </Slide>
 
 <Slide title="Operaciones y sus costos">
-Cada fila lee igual: qué invariante deja en pie la operación, y qué
-cuesta dejarlo en pie. La notación asintótica es la de
-[[complejidad-de-hilbert-al-big-o|Complejidad]], sobre $$N$$ = `size`, el número de elementos guardados.
-
-<PresentationWide fraction={0.8}>
+Sobre $$N$$ = `size`, con la notación de
+[[complejidad-de-hilbert-al-big-o|Complejidad]]:
 
 | Operación | Peor caso | Invariante que restaura |
 |---|---|---|
-| `get_at(i)`, `set_at(i, x)` | $$\Theta(1)$$ | Ninguno: no cambian `size` ni el orden |
-| `insert_last(x)` | $$\Theta(1)$$ con capacidad libre; **imposible** si `size == datos.length` | Los válidos siguen siendo `datos[0..size-1]` |
-| `delete_last()` | $$\Theta(1)$$ | Los válidos siguen siendo `datos[0..size-1]` |
-| `insert_at(i, x)` | $$\Theta(N)$$ | Deja los válidos juntos desde 0, con `x` en la posición `i` |
-| `insert_first(x)` | $$\Theta(N)$$ | Igual que `insert_at(0, x)`: el caso más caro |
-| `delete_at(i)` | $$\Theta(N)$$ | Cierra el hueco: los válidos vuelven a quedar juntos |
-| `delete_first()` | $$\Theta(N)$$ | Igual que `delete_at(0)`: el caso más caro |
-| Construir con capacidad `c` | $$\Theta(c)$$ | Establece los tres invariantes por primera vez |
+| `getAt(i)`, `setAt(i, x)` | $$\Theta(1)$$ | Ninguno: no cambian el largo |
+| `insertLast(x)`, `deleteLast()` | $$\Theta(1)$$ | Los válidos siguen juntos desde 0 |
+| `insertAt(i, x)`, `deleteAt(i)` | $$\Theta(N)$$ | Los válidos vuelven a quedar juntos |
+| `insertFirst(x)`, `deleteFirst()` | $$\Theta(N)$$ | El caso más caro de los anteriores |
 
-</PresentationWide>
-
-Los dos extremos no son simétricos: trabajar al final es $$\Theta(1)$$ y
-trabajar al principio es $$\Theta(N)$$. La diferencia no viene del
-hardware sino del invariante — al final no hay nada a la derecha que
-mover; al principio, todo.
+Los dos extremos no son simétricos: al final no hay nada a la derecha
+que mover, al principio hay todo. La diferencia no viene del hardware,
+viene del segundo invariante.
 
 </Slide>
 
 <Slide title="Insertar en el medio · el corrimiento">
-Insertar en la posición `i` no puede simplemente escribir en `datos[i]`:
-eso pisaría el elemento que ya estaba ahí y rompería el invariante que
-dice que los válidos son `datos[0..size-1]`. Hay que abrir el hueco
-primero, moviendo hacia la derecha todo lo que está en `[i..size-1]`.
-
-```java
-void insertAt(int i, int x) {
-    if (size == datos.length) {
-        throw new IllegalStateException("arreglo lleno");
+<StepShow
+  language="java"
+  title="insertAt(2, 9) sobre [4, 7, 1, 3]"
+  code={`void insertAt(int i, int x) {
+    if (size == data.length) throw new IllegalStateException();
+    for (int j = size; j > i; j--) {
+        data[j] = data[j - 1];       // corre a la derecha
     }
-    for (int j = size; j > i; j--) {  // de derecha a izquierda
-        datos[j] = datos[j - 1];
-    }
-    datos[i] = x;
+    data[i] = x;
     size++;
-}
-```
+}`}
+>
+  <Step lines={[3]}>
+    <svg viewBox="0 0 332 92" width="332" height="92" role="img" aria-label="Estado inicial: size = 4, capacidad 6.">
+      <rect x="10" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="34.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>4</text>
+      <text x="34.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
+      <rect x="62" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="86.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>7</text>
+      <text x="86.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>1</text>
+      <rect x="114" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="138.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>1</text>
+      <text x="138.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>2</text>
+      <rect x="166" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="190.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>3</text>
+      <text x="190.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>3</text>
+      <rect x="218" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="242.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>4</text>
+      <rect x="270" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="294.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>5</text>
+    </svg>
 
-El bucle recorre de derecha a izquierda a propósito: de izquierda a
-derecha, cada copia pisaría el elemento que todavía falta mover.
+    Estado inicial: size = 4, capacidad 6.
 
-</Slide>
+  </Step>
+  <Step lines={[4]}>
+    <svg viewBox="0 0 332 92" width="332" height="92" role="img" aria-label="j = 4: el 3 se copia una casilla a la derecha.">
+      <rect x="10" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="34.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>4</text>
+      <text x="34.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
+      <rect x="62" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="86.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>7</text>
+      <text x="86.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>1</text>
+      <rect x="114" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="138.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>1</text>
+      <text x="138.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>2</text>
+      <rect x="166" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="190.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>3</text>
+      <rect x="218" y="14" width="48" height="44" fill="none" strokeWidth="2.8" style={{ stroke: 'var(--color-accent)' }} />
+      <text x="242.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>3</text>
+      <text x="242.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>4</text>
+      <rect x="270" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="294.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>5</text>
+    </svg>
 
-<Slide title="El corrimiento, paso a paso">
-Insertar en la posición `i` ocurre en dos tiempos: primero se abre el
-hueco corriendo hacia la derecha lo que está en `[i..size-1]`, y recién
-después se escribe.
+    j = 4: el 3 se copia una casilla a la derecha.
 
-<Figure
-  src="./arreglo-corrimiento.svg"
-  alt="Tres filas con el mismo arreglo. En la primera, el estado inicial 4, 7, 1, 3 con dos casillas libres. En la segunda, los elementos 1 y 3 aparecen corridos una casilla a la derecha, con flechas que van de derecha a izquierda y la posición 2 libre. En la tercera, el 9 escrito en la posición 2 y el largo en cinco."
-  caption="Dos copias para abrir el hueco, después la escritura"
-/>
+  </Step>
+  <Step lines={[4]}>
+    <svg viewBox="0 0 332 92" width="332" height="92" role="img" aria-label="j = 3: el 1 lo sigue. La posición 2 queda libre.">
+      <rect x="10" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="34.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>4</text>
+      <text x="34.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
+      <rect x="62" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="86.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>7</text>
+      <text x="86.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>1</text>
+      <rect x="114" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="138.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>2</text>
+      <rect x="166" y="14" width="48" height="44" fill="none" strokeWidth="2.8" style={{ stroke: 'var(--color-accent)' }} />
+      <text x="190.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>1</text>
+      <text x="190.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>3</text>
+      <rect x="218" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="242.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>3</text>
+      <text x="242.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>4</text>
+      <rect x="270" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="294.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>5</text>
+    </svg>
 
-El costo son $$N - i$$ copias, con $$N$$ = `size`. Para `i = N` no hay ninguna —
-insertar al final es gratis. Para `i = 0` son $$N$$ — insertar al
-principio mueve el arreglo entero. El invariante que la operación tiene
-que restaurar es exactamente lo que se está pagando.
+    j = 3: el 1 lo sigue. La posición 2 queda libre.
 
-Borrar es la misma historia al revés: `delete_at(i)` corre hacia la
-izquierda los elementos de `[i+1..size-1]` para cerrar el hueco, y
-después baja `size` en uno.
+  </Step>
+  <Step lines={[6, 7]}>
+    <svg viewBox="0 0 332 92" width="332" height="92" role="img" aria-label="Se escribe el 9 y el largo pasa a 5.">
+      <rect x="10" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="34.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>4</text>
+      <text x="34.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
+      <rect x="62" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="86.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>7</text>
+      <text x="86.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>1</text>
+      <rect x="114" y="14" width="48" height="44" strokeWidth="2.8" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} />
+      <text x="138.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>9</text>
+      <text x="138.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>2</text>
+      <rect x="166" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="190.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>1</text>
+      <text x="190.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>3</text>
+      <rect x="218" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="242.0" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>3</text>
+      <text x="242.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>4</text>
+      <rect x="270" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="294.0" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>5</text>
+    </svg>
+
+    Se escribe el 9 y el largo pasa a 5.
+
+  </Step>
+</StepShow>
+
+El bucle va de derecha a izquierda a propósito: al revés, cada copia
+pisaría el elemento que todavía falta mover. El costo son $$N - i$$
+copias — ninguna al final, todas al principio.
 
 </Slide>
 
@@ -353,28 +357,18 @@ Todo lo anterior asume que hay capacidad libre. Cuando no la hay, el
 arreglo no se pone lento: se acaba.
 
 ```java
-Arreglo a = new Arreglo(100);
+StaticArray a = new StaticArray(100);
 // ... 100 insertLast ...
-a.insertLast(x);  // IllegalStateException: arreglo lleno
+a.insertLast(x);   // IllegalStateException
 ```
 
-La capacidad se decide **al construir la estructura**, y a esa altura
-casi nunca sabemos cuántos elementos van a entrar. Las dos salidas
-obvias son malas las dos:
+La capacidad se decide al construir la estructura, y a esa altura casi
+nunca sabemos cuántos elementos van a entrar. Reservar de más
+desperdicia memoria y sigue sin dar garantías. Reservar lo justo y
+copiar a un arreglo nuevo en cada inserción cuesta
+$$1 + 2 + \dots + N \in \Theta(N^2)$$.
 
-- **Reservar de más.** Un arreglo de un millón de casillas para guardar
-  veinte elementos desperdicia memoria proporcional a lo que no se usó,
-  y sigue sin dar ninguna garantía: el elemento un millón uno tampoco
-  entra.
-- **Reservar lo justo y volver a empezar cuando se llena.** Crear un
-  arreglo más grande y copiar cuesta $$\Theta(N)$$. Si esto pasa en cada
-  inserción, agregar $$N$$ elementos cuesta
-  $$1 + 2 + \dots + N = N(N+1)/2 \in \Theta(N^2)$$, que para un millón
-  de elementos son unas $$5 \times 10^{11}$$ copias.
-
-La pregunta que queda abierta es concreta: **¿existe una manera de
-crecer que no pague $$\Theta(N)$$ por elemento?** La respuesta es que
-sí, y cambia una sola cosa de la segunda salida.
+**¿Hay una manera de crecer que no pague $$\Theta(N)$$ por elemento?**
 
 </Slide>
 
@@ -382,103 +376,174 @@ sí, y cambia una sola cosa de la segunda salida.
 
 ## El arreglo dinámico
 
-<Slide title="Duplicar en vez de agrandar de a uno">
-La estrategia que falla y la que funciona se diferencian en una sola
-línea. Las dos crean un arreglo nuevo cuando el actual se llena, las dos
-copian los elementos, las dos siguen adelante. Lo único distinto es
-**cuánto más grande** es el arreglo nuevo.
+<Slide title="Duplicar en vez de crecer de a uno">
+La estrategia que funciona cambia una sola cosa: **cuánto** más grande
+es el arreglo nuevo. En vez de una casilla más, el doble.
 
-- **Crecer de a uno.** Capacidad nueva $$=$$ capacidad $$+\,1$$. Cada
-  inserción a partir de la primera copia todo lo que había, así que la
-  inserción número $$k$$ cuesta $$k$$ y las $$N$$ juntas cuestan
-  $$1 + 2 + \dots + N = N(N+1)/2 \in \Theta(N^2)$$.
-- **Duplicar.** Capacidad nueva $$= 2 \times$$ capacidad. Copiar sigue
-  costando $$\Theta(N)$$ cada vez que ocurre, pero ocurre cada vez menos
-  seguido: entre una duplicación y la siguiente hay el doble de
-  inserciones baratas que entre las dos anteriores.
+<StepShow
+  language="java"
+  title="insertLast(e) sobre un arreglo lleno"
+  code={`void insertLast(int x) {
+    if (size == data.length) {
+        int[] bigger = new int[2 * data.length];
+        for (int j = 0; j < size; j++) {
+            bigger[j] = data[j];
+        }
+        data = bigger;
+    }
+    data[size] = x;
+    size++;
+}`}
+>
+  <Step lines={[2]}>
+    <svg viewBox="0 0 228 92" width="228" height="92" role="img" aria-label="Lleno: size = 4 = capacidad 4. No cabe uno más.">
+      <rect x="10" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="34" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>a</text>
+      <text x="34" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
+      <rect x="62" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="86" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>b</text>
+      <text x="86" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>1</text>
+      <rect x="114" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="138" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>c</text>
+      <text x="138" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>2</text>
+      <rect x="166" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="190" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>d</text>
+      <text x="190" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>3</text>
+    </svg>
 
-La segunda estrategia es el **arreglo dinámico**, y es lo que hay
-adentro de `ArrayList` en Java, de `vector` en C++ y de `list` en
-Python.
+    Lleno: size = 4 = capacidad 4. No cabe uno más.
 
-<Figure
-  src="./arreglo-duplicacion.svg"
-  alt="Arriba, un arreglo lleno de capacidad cuatro con los elementos a, b, c, d. Una flecha hacia abajo dice reservar el doble y copiar los cuatro. Abajo, un arreglo de capacidad ocho con los cuatro elementos copiados marcados con borde grueso, el quinto elemento recién escrito y tres casillas libres."
-  caption="La copia se paga una vez y la reparten las inserciones baratas que siguen"
-/>
+  </Step>
+  <Step lines={[3]}>
+    <svg viewBox="0 0 436 92" width="436" height="92" role="img" aria-label="Se reserva un arreglo nuevo del doble: capacidad 8, vacío.">
+      <rect x="10" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="34" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
+      <rect x="62" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="86" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>1</text>
+      <rect x="114" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="138" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>2</text>
+      <rect x="166" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="190" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>3</text>
+      <rect x="218" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="242" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>4</text>
+      <rect x="270" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="294" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>5</text>
+      <rect x="322" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="346" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>6</text>
+      <rect x="374" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="398" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>7</text>
+    </svg>
 
-El invariante nuevo que aparece es el que hace posible todo esto:
-**mientras solo se inserta, la capacidad nunca pasa del doble del
-largo**. Gracias a él, la memoria reservada y no usada está acotada por
-$$N$$, y el arreglo no se vuelve un desperdicio a cambio de no
-llenarse.
+    Se reserva un arreglo nuevo del doble: capacidad 8, vacío.
+
+  </Step>
+  <Step lines={[4, 5, 6]}>
+    <svg viewBox="0 0 436 92" width="436" height="92" role="img" aria-label="Se copian los cuatro elementos. Estas son las 4 copias que cuesta la duplicación.">
+      <rect x="10" y="14" width="48" height="44" fill="none" strokeWidth="2.8" style={{ stroke: 'var(--color-accent)' }} />
+      <text x="34" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>a</text>
+      <text x="34" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
+      <rect x="62" y="14" width="48" height="44" fill="none" strokeWidth="2.8" style={{ stroke: 'var(--color-accent)' }} />
+      <text x="86" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>b</text>
+      <text x="86" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>1</text>
+      <rect x="114" y="14" width="48" height="44" fill="none" strokeWidth="2.8" style={{ stroke: 'var(--color-accent)' }} />
+      <text x="138" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>c</text>
+      <text x="138" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>2</text>
+      <rect x="166" y="14" width="48" height="44" fill="none" strokeWidth="2.8" style={{ stroke: 'var(--color-accent)' }} />
+      <text x="190" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>d</text>
+      <text x="190" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>3</text>
+      <rect x="218" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="242" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>4</text>
+      <rect x="270" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="294" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>5</text>
+      <rect x="322" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="346" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>6</text>
+      <rect x="374" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="398" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>7</text>
+    </svg>
+
+    Se copian los cuatro elementos. Estas son las 4 copias que cuesta la duplicación.
+
+  </Step>
+  <Step lines={[8, 9]}>
+    <svg viewBox="0 0 436 92" width="436" height="92" role="img" aria-label="Recién ahora se escribe el quinto. size = 5, capacidad 8.">
+      <rect x="10" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="34" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>a</text>
+      <text x="34" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>0</text>
+      <rect x="62" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="86" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>b</text>
+      <text x="86" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>1</text>
+      <rect x="114" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="138" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>c</text>
+      <text x="138" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>2</text>
+      <rect x="166" y="14" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
+      <text x="190" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>d</text>
+      <text x="190" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>3</text>
+      <rect x="218" y="14" width="48" height="44" strokeWidth="2.8" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} />
+      <text x="242" y="43" textAnchor="middle" fontSize="17" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>e</text>
+      <text x="242" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>4</text>
+      <rect x="270" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="294" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>5</text>
+      <rect x="322" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="346" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>6</text>
+      <rect x="374" y="14" width="48" height="44" fill="none" strokeWidth="1.4" strokeDasharray="4 3" style={{ stroke: 'var(--color-rule)' }} />
+      <text x="398" y="74" textAnchor="middle" fontSize="11" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>7</text>
+    </svg>
+
+    Recién ahora se escribe el quinto. size = 5, capacidad 8.
+
+  </Step>
+</StepShow>
+
+Copiar sigue costando $$\Theta(N)$$, pero ocurre cada vez menos seguido:
+entre una duplicación y la siguiente hay el doble de inserciones baratas
+que entre las dos anteriores. Es lo que hay adentro de `ArrayList` en
+Java, de `vector` en C++ y de `list` en Python.
 
 </Slide>
 
 <Slide title="El arreglo dinámico en Java">
-La operación completa. Las tres líneas del `if` son toda la diferencia
-con el arreglo de capacidad fija.
+El programa completo. Al ejecutarlo, cada duplicación se anuncia sola.
 
 <CodeEditor
   language="java"
-  defaultValue={`class ArregloDinamico {
-    private int[] datos = new int[1];
+  defaultValue={`class DynamicArray {
+    private int[] data = new int[1];
     private int size = 0;
 
     void insertLast(int x) {
-        if (size == datos.length) {          // se llenó
-            int[] nuevo = new int[2 * datos.length];   // duplicar
-            for (int j = 0; j < size; j++) {
-                nuevo[j] = datos[j];                   // copiar
-            }
-            datos = nuevo;
-            System.out.println("  duplica -> capacidad " + nuevo.length
-                               + ", copia " + size + " elementos");
+        if (size == data.length) {
+            int[] bigger = new int[2 * data.length];
+            for (int j = 0; j < size; j++) bigger[j] = data[j];
+            data = bigger;
+            System.out.println("  duplica en la insercion " + (size + 1)
+                               + ": capacidad " + bigger.length
+                               + ", copia " + size);
         }
-        datos[size] = x;
+        data[size] = x;
         size++;
     }
 
     public static void main(String[] args) {
-        ArregloDinamico a = new ArregloDinamico();
-        for (int i = 1; i <= 16; i++) {
-            System.out.println("insertLast(" + i + ")");
-            a.insertLast(i);
-        }
-        System.out.println("largo final: " + a.size
-                           + ", capacidad final: " + a.datos.length);
+        DynamicArray a = new DynamicArray();
+        for (int i = 1; i <= 16; i++) a.insertLast(i);
+        System.out.println("largo " + a.size + ", capacidad " + a.data.length);
     }
 }
 `}
 />
 
-Al ejecutarlo aparecen exactamente cuatro duplicaciones en dieciséis
-inserciones — en la 2, la 3, la 5 y la 9 —, y las otras doce no copian
-nada. El costo total de la secuencia es lo que estudiamos a
-continuación.
-
 </Slide>
 
 <Slide title="El análisis ingenuo">
-Mirada operación por operación, la conclusión es incómoda:
+Operación por operación, la conclusión es incómoda: **`insertLast` es
+$$\Theta(N)$$ en el peor caso**, porque cuando toca duplicar copia todo
+lo que había.
 
-**`insert_last` es $$\Theta(N)$$ en el peor caso.** Es verdad. Cuando la
-inserción cae justo en una duplicación, copia los $$N$$ elementos que
-ya estaban.
+Si el análisis terminara ahí, la estructura sería mala. Pero el peor
+caso de una operación aislada no es la pregunta correcta cuando el
+programa hace una **secuencia** de operaciones.
 
-Si el análisis terminara ahí, el arreglo dinámico sería una mala
-estructura: una operación que promete ser barata y a veces cuesta
-$$\Theta(N)$$ es lo mismo que una operación cara. Pero el peor caso de
-una operación aislada no es la pregunta correcta cuando lo que hace el
-programa es una **secuencia** de operaciones.
-
-La pregunta correcta es: **¿cuánto cuestan $$N$$ inserciones en total?**
-Esta es la tabla de las primeras dieciséis, empezando con capacidad 1,
-contando una unidad por escritura y una por copia:
-
-<PresentationWide fraction={0.8}>
-
-| Inserción | ¿Duplica? | Capacidad después | Copias | Costo |
+| Inserción | ¿Duplica? | Capacidad | Copias | Costo |
 |---|---|---|---|---|
 | 1 | — | 1 | 0 | 1 |
 | 2 | sí | 2 | 1 | 2 |
@@ -489,67 +554,54 @@ contando una unidad por escritura y una por copia:
 | 9 | sí | 16 | 8 | 9 |
 | 10 … 16 | no | 16 | 0 | 1 cada una |
 
-</PresentationWide>
-
-Las filas caras existen, y son las que el análisis ingenuo mira. Las
-filas baratas son la mayoría, y son las que el análisis ingenuo ignora.
+Cuatro filas caras, doce baratas.
 
 </Slide>
 
-<Slide title="Análisis amortizado · la suma total">
-El **análisis amortizado** no promedia sobre entradas al azar ni supone
-nada sobre el uso. Es una garantía de peor caso sobre la **secuencia
-completa**:
-
-> Una operación cuesta $$\Theta(1)$$ **amortizado** cuando cualquier
-> secuencia de $$N$$ operaciones cuesta a lo más $$c \cdot N$$ en total,
-> para una constante $$c$$ que no depende de $$N$$.
-
-Hagamos la cuenta para las dieciséis inserciones. Cada duplicación copia
-el largo que había en ese momento, y esos largos son las potencias de
-dos:
+<Slide title="La cuenta de dieciséis inserciones">
+Cada duplicación copia el largo que había en ese momento, y esos largos
+son potencias de dos:
 
 $$
 \text{copias} = 1 + 2 + 4 + 8 = 15
 $$
 
-Las escrituras son una por inserción: $$16$$. El total de la secuencia es
+Las escrituras son una por inserción, $$16$$. El total de la secuencia
+completa es
 
 $$
 16 + 15 = 31 < 2 \times 16
 $$
 
-Menos de dos operaciones elementales por inserción. Para un $$N$$
-cualquiera la cuenta es la misma: las copias son la suma de las
-potencias de dos que no superan a $$N$$, y esa suma es menor que el
-doble de la última,
+Menos de dos operaciones elementales por inserción — contando las caras.
+
+</Slide>
+
+<Slide title="Costo amortizado">
+Una operación cuesta $$\Theta(1)$$ **amortizado** cuando cualquier
+secuencia de $$N$$ operaciones cuesta a lo más $$c \cdot N$$ en total.
+No es un promedio sobre entradas al azar: es una garantía de peor caso
+sobre la secuencia entera.
+
+Para un $$N$$ cualquiera, las copias son la suma de las potencias de dos
+que no superan a $$N$$, y esa suma es menor que el doble de la última:
 
 $$
 1 + 2 + 4 + \dots + 2^{k} < 2^{k+1} \le 2N
 $$
 
-— la suma de una progresión geométrica de razón 2 es menor que su
-último término duplicado —, así que el costo total de la secuencia es
-
 $$
 \underbrace{N}_{\text{escrituras}} + \underbrace{\text{copias}}_{<\,2N} < 3N \in \Theta(N)
 $$
 
-y cada inserción cuesta $$\Theta(1)$$ **amortizado**. Las operaciones
-caras siguen existiendo y siguen costando $$\Theta(N)$$; lo que el
-análisis demuestra es que son tan raras que su costo, repartido en la
-secuencia, es constante.
-
-El nombre y la técnica vienen de Robert Tarjan, *Amortized Computational
-Complexity* (1985), donde quedan formalizados los métodos que permiten
-hacer esta cuenta en casos mucho menos evidentes que este.
+Las operaciones caras siguen costando $$\Theta(N)$$. Son tan raras que,
+repartidas en la secuencia, salen constantes.
 
 </Slide>
 
 <Slide title="La medición">
-La cuenta dice que duplicar convierte $$\Theta(N^2)$$ en $$\Theta(N)$$.
-Las dos implementaciones difieren en un solo número — `+ 1` contra
-`* 2` — y esa diferencia se puede cronometrar.
+Las dos estrategias difieren en un número — `+ 1` contra `* 2` — y esa
+diferencia se puede cronometrar.
 
 <Benchmark
   implementations={[
@@ -557,25 +609,24 @@ Las dos implementaciones difieren en un solo número — `+ 1` contra
       name: 'crece de a uno',
       code: `import java.util.Scanner;
 
-public class CreceDeAUno {
+public class GrowByOne {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
         int n = sc.nextInt();
         long t0 = System.nanoTime();
-        int[] datos = new int[1];
+        int[] data = new int[1];
         int size = 0;
         for (int i = 0; i < n; i++) {
-            if (size == datos.length) {
-                int[] nuevo = new int[datos.length + 1];
-                for (int j = 0; j < size; j++) nuevo[j] = datos[j];
-                datos = nuevo;
+            if (size == data.length) {
+                int[] bigger = new int[data.length + 1];
+                for (int j = 0; j < size; j++) bigger[j] = data[j];
+                data = bigger;
             }
-            datos[size] = i;
+            data[size] = i;
             size++;
         }
         long t1 = System.nanoTime();
         System.out.println("time_ns:" + (t1 - t0));
-        System.out.println("largo:" + size);
     }
 }
 `,
@@ -584,25 +635,24 @@ public class CreceDeAUno {
       name: 'duplica',
       code: `import java.util.Scanner;
 
-public class Duplica {
+public class Doubling {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
         int n = sc.nextInt();
         long t0 = System.nanoTime();
-        int[] datos = new int[1];
+        int[] data = new int[1];
         int size = 0;
         for (int i = 0; i < n; i++) {
-            if (size == datos.length) {
-                int[] nuevo = new int[2 * datos.length];
-                for (int j = 0; j < size; j++) nuevo[j] = datos[j];
-                datos = nuevo;
+            if (size == data.length) {
+                int[] bigger = new int[2 * data.length];
+                for (int j = 0; j < size; j++) bigger[j] = data[j];
+                data = bigger;
             }
-            datos[size] = i;
+            data[size] = i;
             size++;
         }
         long t1 = System.nanoTime();
         System.out.println("time_ns:" + (t1 - t0));
-        System.out.println("largo:" + size);
     }
 }
 `,
@@ -614,114 +664,49 @@ public class Duplica {
   measuredRuns={3}
 />
 
-Lo que se busca en los números no es cuál es más rápida — eso ya lo
-sabemos — sino **cuánto se separan al crecer $$N$$**. La distancia entre
-las dos columnas se abre muy rápido: en una medición sobre una máquina
-cualquiera dio unas 15 veces para $$N = 1000$$, unas 75 para
-$$N = 4000$$ y unas 340 para $$N = 10\,000$$. Multiplicar $$N$$ por 10
-multiplicó la distancia por más de 20.
+La distancia entre las dos columnas se abre rápido al subir $$N$$: en
+una máquina cualquiera dio unas 15 veces para $$N = 1000$$ y unas 340
+para $$N = 10\,000$$.
 
 </Slide>
-
-Hay dos cosas que en cambio **no** conviene leer en esa tabla, y en las
-dos el que habla es el cronómetro y no el algoritmo.
-
-La columna de `duplica` se mueve en centésimas de milisegundo, donde el
-costo fijo de cada corrida y la cuantización del reloj pesan tanto como
-el algoritmo: su crecimiento propio no se puede leer ahí. Y la primera
-medición de `crece de a uno` sale más **cara** de lo que extrapola
-$$N^2$$ desde el tamaño más grande — unos 3 ms contra los 2 que predice
-—, porque a esa escala pesan más el arranque de la máquina virtual y su
-compilación al vuelo que el algoritmo. Ese punto inflado es la razón de
-que el salto de 1000 a 4000 se quede en unas 10 veces y no en 16. Entre
-los dos tamaños más grandes, donde el algoritmo ya domina, el factor
-medido sí se parece al que predice $$N^2$$.
-
-Es el mismo cuidado de siempre: el cronómetro mide el algoritmo **más
-todo el ambiente que lo rodea**.
 
 <Slide title="Achicar sin thrashing · la regla del cuarto">
-Al borrar elementos, el arreglo dinámico queda con capacidad de sobra y
-convendría devolverla. La regla obvia — **achicar a la mitad cuando el
-arreglo queda medio vacío** — es un error, y su falla tiene nombre:
-*thrashing*.
-
-Con esa regla, un arreglo lleno de capacidad $$C$$ sufre esto:
-
-1. `insert_last` → se llena, duplica a $$2C$$ y copia $$C$$ elementos.
-2. `delete_last` → el largo vuelve a $$C$$, que es la mitad de $$2C$$:
-   achica a $$C$$ y copia $$C$$ elementos.
-3. `insert_last` → se llena otra vez, duplica a $$2C$$ y copia $$C$$.
-
-Cada operación de una secuencia alternada cuesta $$\Theta(N)$$, y el
-costo amortizado se pierde por completo. El problema es que las dos
-fronteras — la de crecer y la de achicar — están pegadas.
-
-</Slide>
-
-<Slide title="La regla del cuarto">
-La manera de evitar el thrashing es separar la frontera que dispara un
-crecimiento de la que dispara un achicamiento:
-
-> **Duplicar cuando el arreglo se llena; achicar a la mitad cuando el
-> largo baja a un cuarto de la capacidad.**
+Al borrar elementos conviene devolver capacidad. La regla obvia —
+achicar a la mitad cuando el arreglo queda medio vacío — es un error, y
+su falla tiene nombre: *thrashing*.
 
 <Figure
   src="./regla-del-cuarto.svg"
   alt="Dos barras de capacidad, cada una con sus dos fronteras de redimensionamiento y con el punto donde queda el largo justo después de una. En la de arriba, marcada con una cruz, achicar se dispara en la mitad y tras duplicar el largo cae exactamente sobre esa frontera, así que la operación siguiente vuelve a redimensionar. En la de abajo, marcada con un visto, achicar se dispara en el cuarto y crecer al llenarse; el largo cae en la mitad, a media capacidad de la frontera de crecer y a un cuarto de la de achicar."
-  caption="Separar las dos fronteras deja al menos un cuarto de la capacidad en operaciones baratas antes del siguiente redimensionamiento"
 />
 
-Tras cualquiera de las dos operaciones el arreglo queda cerca de la
-mitad de su capacidad nueva: justo en la mitad al achicar, en la mitad
-más uno al duplicar. Llamando $$K$$ a esa capacidad, desde ahí hacen
-falta unas $$K/2$$ inserciones para volver a llenarlo, o $$K/4$$
-eliminaciones para bajar al cuarto — en los dos casos, $$\Omega(N)$$
-operaciones baratas que pagan el costo del siguiente redimensionamiento.
-
-El invariante que la regla sostiene, mientras el largo esté por encima de
-la capacidad mínima: **largo $$\le$$ capacidad $$\le 4 \times$$ largo**.
-La cota de arriba impide desperdiciar memoria; la de abajo, quedarse sin
-espacio.
+Con la regla mala, tras duplicar el largo queda **justo sobre** la
+frontera de achicar: insertar y borrar alternadamente copia $$N$$
+elementos en cada operación. Separando las fronteras —
+**duplicar al llenarse, achicar a la mitad cuando el largo baja al
+cuarto** — entre dos redimensionamientos siempre quedan $$\Omega(N)$$
+operaciones baratas que pagan el siguiente. Es la regla de Sedgewick y
+Wayne en *Algorithms*.
 
 </Slide>
 
-Por debajo de esa capacidad mínima — un arreglo recién creado, o vacío —
-solo vale la cota de arriba: la estructura conserva unas pocas casillas y
-no las devuelve. Es el motivo por el que el invariante se enuncia con esa
-salvedad y no como una igualdad limpia.
-
-La regla del cuarto es la que usan Sedgewick y Wayne en *Algorithms*
-(4.ª edición, Princeton) por exactamente esta razón.
-
 <Slide title="Costos del arreglo dinámico">
-La tabla del arreglo dinámico tiene una columna más que la del arreglo
-de capacidad fija, y esa columna es la novedad de este acto.
-
-<PresentationWide fraction={0.8}>
-
 | Operación | Peor caso | Amortizado | Invariante que restaura |
 |---|---|---|---|
-| `get_at(i)`, `set_at(i, x)` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguno: no cambian el largo |
-| `insert_last(x)` | $$\Theta(N)$$ (si duplica) | $$\Theta(1)$$ | Deja capacidad $$\ge$$ largo, sin pasar de $$4 \times$$ largo |
-| `delete_last()` | $$\Theta(N)$$ (si achica) | $$\Theta(1)$$ | Deja largo $$\ge$$ capacidad$$/4$$, sin bajar de la capacidad mínima |
-| `insert_at(i, x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | Los válidos juntos desde 0, con `x` en `i` |
-| `insert_first(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | Igual que `insert_at(0, x)` |
-| `delete_at(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ | Cierra el hueco: los válidos vuelven a quedar juntos |
-| `delete_first()` | $$\Theta(N)$$ | $$\Theta(N)$$ | Igual que `delete_at(0)` |
+| `getAt(i)`, `setAt(i, x)` | $$\Theta(1)$$ | $$\Theta(1)$$ | Ninguno |
+| `insertLast(x)` | $$\Theta(N)$$ | $$\Theta(1)$$ | Capacidad $$\ge$$ largo |
+| `deleteLast()` | $$\Theta(N)$$ | $$\Theta(1)$$ | Largo $$\ge$$ capacidad$$/4$$ |
+| `insertAt(i, x)`, `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ | Los válidos juntos desde 0 |
+| `insertFirst(x)`, `deleteFirst()` | $$\Theta(N)$$ | $$\Theta(N)$$ | El caso más caro |
 
-</PresentationWide>
+Solo las operaciones **en el extremo final** ganan algo con el análisis
+amortizado, porque solo ellas tienen un costo caro que es raro.
+Insertar al principio es $$\Theta(N)$$ siempre: el corrimiento no
+depende de la capacidad.
 
-Dos lecturas importan. La primera: solo las operaciones **en el extremo
-final** ganan algo con el análisis amortizado, porque solo ellas tienen
-un costo caro que es raro. Insertar al principio es $$\Theta(N)$$
-siempre, duplicando o no, porque el corrimiento no depende de la
-capacidad.
-
-La segunda: el arreglo dinámico **no cambió ninguna complejidad del
-arreglo de capacidad fija**. Lo que hizo fue quitar la limitación de que
-la capacidad se decida antes de saber cuántos elementos van a entrar, y
-lo hizo sin pagar por ello más que un factor constante.
+El arreglo dinámico no cambió ninguna complejidad. Quitó la obligación
+de decidir la capacidad de antemano, y cobró por eso un factor
+constante.
 
 </Slide>
 
@@ -729,52 +714,37 @@ lo hizo sin pagar por ello más que un factor constante.
 
 ## Un contrato para los dos arreglos
 
-<Slide title="Dos representaciones, un mismo conjunto de operaciones">
-El arreglo de capacidad fija y el arreglo dinámico son representaciones
-distintas. Guardan cosas distintas — uno guarda un arreglo y un largo, el
-otro guarda además la política de crecimiento — y mantienen invariantes
-distintos.
-
-Y sin embargo ofrecen exactamente **las mismas operaciones**, con los
-mismos nombres y el mismo significado: pedir el elemento de una
-posición, reemplazarlo, insertar en una posición, borrar de una
-posición, y los cuatro atajos para los extremos.
-
-Un programa escrito contra esas operaciones funciona igual con
-cualquiera de las dos. Cambiar de una a otra no cambia una sola línea
-del programa que las usa: cambia solamente cuánto tarda.
+<Slide title="Dos representaciones, las mismas operaciones">
+El arreglo de capacidad fija y el arreglo dinámico guardan cosas
+distintas y mantienen invariantes distintos. Y sin embargo responden
+exactamente las mismas preguntas: dame el de la posición `i`,
+reemplazarlo, insertar en la posición `i`, borrar la posición `i`, y los
+cuatro atajos para los extremos.
 
 <Figure
   src="./un-tda-dos-edas.svg"
   alt="Un recuadro superior con el TDA Sequence y sus operaciones. Dos flechas bajan a dos recuadros: el arreglo de capacidad fija y el arreglo dinámico. Cada uno declara su propio invariante y su propia lista de costos, y los dos responden las mismas operaciones."
-  caption="Un contrato, dos representaciones, dos tablas de costos. La cota size ≤ cap ≤ 4 × size del arreglo dinámico vale mientras el largo supere la capacidad mínima."
 />
 
-Eso que las dos cumplen tiene nombre.
+Un programa escrito contra esas operaciones no cambia una línea al
+cambiar de una a la otra. Cambia cuánto tarda.
 
 </Slide>
 
 <Slide title="El TDA Sequence · el contrato">
-Una **secuencia** es una colección de elementos **en un orden que el
-programa decide** — el orden extrínseco, el de las posiciones 0, 1, 2,
-…, y no el que resulte de comparar los elementos entre sí.
-
-El TDA Sequence es el contrato de esa colección:
+Una **secuencia** es una colección en un orden que el programa decide —
+el de las posiciones 0, 1, 2, … — y no el que resulte de comparar los
+elementos entre sí.
 
 ```java
 public interface Sequence<T> {
-    // Contenedor
     int len();                  // cuántos elementos hay
+    T getAt(int i);             // el de la posición i
+    void setAt(int i, T x);     // reemplaza el de la posición i
 
-    // Acceso por posición
-    T getAt(int i);             // el elemento que está en la posición i
-    void setAt(int i, T x);     // reemplaza el de la posición i por x
+    void insertAt(int i, T x);  // mete x en i, corriendo el resto
+    T deleteAt(int i);          // saca el de i y lo devuelve
 
-    // Modificación por posición
-    void insertAt(int i, T x);  // mete x en la posición i, corriendo el resto
-    T deleteAt(int i);          // saca el de la posición i y lo devuelve
-
-    // Atajos para los extremos
     void insertFirst(T x);
     T deleteFirst();
     void insertLast(T x);
@@ -782,91 +752,49 @@ public interface Sequence<T> {
 }
 ```
 
-Los cuatro atajos existen porque los extremos son los casos frecuentes,
-y porque muchas representaciones los resuelven mucho más rápido que una
-posición cualquiera. En el contrato son abreviaturas de `insertAt(0, x)`,
-`deleteAt(0)`, `insertAt(len(), x)` y `deleteAt(len()-1)`; en una
-implementación pueden tener costos completamente distintos.
+Los cuatro atajos son abreviaturas de `insertAt(0, x)`, `deleteAt(0)`,
+`insertAt(len(), x)` y `deleteAt(len()-1)`. Existen porque los extremos
+son los casos frecuentes y muchas representaciones los resuelven mucho
+más rápido.
 
-Lo que el contrato **no** dice es tan importante como lo que dice: no
-menciona memoria consecutiva, ni capacidad, ni duplicación, ni
-corrimientos. Todo eso es asunto de la representación.
+Lo que el contrato **no** dice importa tanto como lo que dice: ni
+memoria consecutiva, ni capacidad, ni duplicación, ni corrimientos.
 
 </Slide>
 
-<Slide title="Dos implementaciones del mismo contrato">
-<PresentationWide fraction={0.8}>
-
-| Operación | Arreglo de capacidad fija | Arreglo dinámico |
+<Slide title="Dos implementaciones, dos tablas de costos">
+| Operación | Capacidad fija | Dinámico |
 |---|---|---|
-| `getAt(i)`, `setAt(i, x)` | $$\Theta(1)$$ | $$\Theta(1)$$ |
-| `insertLast(x)`, `deleteLast()` | $$\Theta(1)$$; falla si está lleno | $$\Theta(1)$$ amortizado |
-| `insertFirst(x)`, `deleteFirst()` | $$\Theta(N)$$ | $$\Theta(N)$$ |
-| `insertAt(i, x)`, `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ |
-| Capacidad | fija, decidida al construir | crece y se achica sola |
-| Memoria usada | la reservada, se use o no | entre $$N$$ y $$4N$$, salvo en arreglos muy chicos |
+| `getAt`, `setAt` | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| `insertLast`, `deleteLast` | $$\Theta(1)$$, falla si está lleno | $$\Theta(1)$$ amortizado |
+| `insertFirst`, `deleteFirst` | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| `insertAt`, `deleteAt` | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| Capacidad | fija al construir | crece y se achica sola |
 
-</PresentationWide>
+Las dos brillan y sufren en lo mismo, porque comparten la decisión de
+fondo: memoria consecutiva. De ahí sale que llegar a una posición sea
+gratis y que abrir un hueco en el medio cueste $$\Theta(N)$$.
 
-Las dos brillan en lo mismo y sufren en lo mismo, porque comparten la
-decisión de representación de fondo: memoria consecutiva. De ahí sale
-que llegar a una posición sea gratis y que abrir o cerrar un hueco en el
-medio cueste $$\Theta(N)$$.
-
-La diferencia entre ellas es de otra naturaleza: no está en la tabla de
-costos asintóticos, está en **qué hay que saber de antemano**. El
-arreglo de capacidad fija exige una cota antes de guardar el primer
-elemento; el dinámico no exige nada, y paga por eso un factor constante
-y algo de memoria de más.
-
-</Slide>
-
-<Slide title="El ciclo completo">
-Esta clase recorrió una vez el camino que va a repetirse en cada
-estructura de la unidad:
-
-1. **Un TDA** fija el contrato. Aquí, Sequence: los elementos ocupan
-   posiciones y el programa pide por posición.
-2. **Una EDA** elige la representación. Aquí, memoria consecutiva más un
-   largo — y luego la misma memoria consecutiva con una política de
-   crecimiento.
-3. **Los invariantes** de esa representación se declaran. Aquí, que los
-   válidos son `datos[0..size-1]` y que la capacidad acompaña al largo.
-4. **Los costos** se leen del invariante, no del código. Insertar al
-   principio es $$\Theta(N)$$ porque dejar los válidos juntos desde 0
-   obliga a mover $$N$$ elementos.
-
-El mismo esquema explica algo conocido que no habíamos nombrado así:
-`compareTo` es un contrato de una sola operación, y cada clase que lo
-implementa elige su propia manera de cumplirlo. Un TDA con muchas
-operaciones no es una cosa distinta — es lo mismo, con más filas.
-
-Lo que cambia de una estructura a otra es el paso 2. Y como los costos
-salen del paso 3, que sale del paso 2, **cambiar la representación
-cambia la tabla de costos sin tocar el contrato**.
+La diferencia real no está en la tabla: está en **qué hay que saber de
+antemano**.
 
 </Slide>
 
 <Slide title="El cabo suelto">
-Queda una pregunta sin responder, y es la que abre la próxima clase.
+Las dos implementaciones comparten una debilidad: insertar o borrar al
+principio cuesta $$\Theta(N)$$. La culpa es del invariante de memoria
+consecutiva — para que la posición `i` esté en `base + i × tamaño` no
+puede haber huecos, y no tener huecos obliga a correr elementos.
 
-Las dos implementaciones de arreglo comparten una debilidad: insertar
-o borrar al principio cuesta $$\Theta(N)$$. La razón es el invariante de
-memoria consecutiva — para que la posición `i` esté en `base + i ×
-tamaño`, no puede haber huecos, y no tener huecos obliga a correr
-elementos.
-
-¿Y si renunciamos a la memoria consecutiva?
+**¿Y si renunciamos a la memoria consecutiva?**
 
 Si cada elemento supiera dónde está el siguiente, insertar al principio
-sería cambiar un solo puntero: $$\Theta(1)$$. El precio sería el otro
-lado de la tabla — sin aritmética de direcciones, llegar a la posición
-`i` obligaría a caminar `i` pasos, y `getAt` dejaría de ser
-$$\Theta(1)$$.
+sería cambiar un puntero: $$\Theta(1)$$. El precio sería el otro lado de
+la tabla: sin aritmética de direcciones, llegar a la posición `i`
+obligaría a caminar `i` pasos, y `getAt` dejaría de ser $$\Theta(1)$$.
 
-Esa estructura es la **lista enlazada**, cumple el mismo TDA Sequence
-que los dos arreglos, y su tabla de costos es casi la imagen espejo de
-la del arreglo. Es la estructura de la próxima clase.
+Esa estructura es la **lista enlazada**, cumple el mismo TDA Sequence, y
+su tabla de costos es casi la imagen espejo. Es la clase que viene.
 
 </Slide>
 
@@ -878,6 +806,5 @@ operación y sus variantes — simplemente enlazada, doblemente enlazada,
 circular.
 
 Con dos implementaciones distintas del mismo contrato en la mano, la
-unidad puede pasar a lo que viene después: los TDA Stack, Queue y Deque,
-que son contratos más chicos que Sequence y que se pueden construir
-sobre cualquiera de las dos.
+unidad puede pasar a los TDA Stack, Queue y Deque, que son contratos más
+chicos que Sequence y se construyen sobre cualquiera de las dos.

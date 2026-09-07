@@ -798,20 +798,18 @@ listing. Two code fences → `SideBySide`. Anything else → `Split`.
 presentation mode the `<Slide>` centres and caps its children at a reading
 column; a wide visual — a comparison table, two side-by-side diagrams — gets
 compressed and reads worse than the same block does in the book. Wrap the block
-in `<PresentationWide fraction={…}>` and it re-anchors to that fraction of the
-viewport in presentation, book mode unchanged. **Pass the fraction**: it
-defaults to `1` (`PresentationWide.tsx`), which is the full viewport, and a
-table at full bleed runs flush to both slide edges with its columns touching.
-`0.8` for a wide markdown table; `0.75`–`0.85` for a comparison of two visuals
-side by side, which is the case ADR-0067 §Decision recommends and chapter 16
-ships. Do NOT wrap widgets that already break out
-on their own — `<SortStepper>`, `<StepShow>`, `<MergeStepper>`,
-`<PartitionStepper>` — that would double the breakout and land the block off
-centre. Worked cases: chapter 16 (the sorting document) uses it around a
-`<DivideCombineTree>` and around a `<SideBySide>` of two more; **chapter 17
-(`17-edd-introduccion.mdx`) is the worked case for a wide MDX table**, and it
-is worth the trouble — measured at 1440x900, its cost table is 640px wide and
-scales the whole slide to 0.71 unwrapped, 1058px and scale 1.0 wrapped (#277).
+in `<PresentationWide fraction={0.75}>` and it re-anchors to that fraction of
+the viewport in presentation, book mode unchanged. Do NOT wrap widgets that
+already break out on their own — `<SortStepper>`, `<StepShow>`,
+`<MergeStepper>`, `<PartitionStepper>` — that would double the breakout and
+land the block off centre. Worked cases: chapter 16 wraps a
+`<DivideCombineTree>` and a `<SideBySide>` of two more.
+
+**Never wrap a markdown table in it.** The wrapper carries `not-prose`, which
+strips the Tailwind Typography styles a markdown table depends on entirely: its
+cells come out with `padding: 0` and the columns touch, in the book as well as
+on the slide. A wide table stays bare inside its `<Slide>` (ADR-0067
+§Addendum — #277, which is the WP that shipped the defect and measured it).
 
 6c. **A wall of pictures**: `<Mosaic columns={2|3|4} description="...">` lays its
 cells out in a grid. It carries **one** accessible description for the whole
