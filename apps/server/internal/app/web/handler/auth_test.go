@@ -953,3 +953,39 @@ func TestAFullStateStoreTellsTheVisitorToTryAgain(t *testing.T) {
 		t.Errorf("the login page does not show the notice:\n%s", page.Body.String())
 	}
 }
+
+// AC3's SECOND direction, and it lives here because this is where the login
+// callback's fixture is (#273 review, DAC-2).
+//
+// It exists because two documents claimed "both directions are pinned" when
+// only the first was — a Gmail callback refusing a login nonce. Overclaiming
+// coverage is worse than having none: it stops the next reader from checking.
+//
+// The login must not be completable with the OTHER flow's cookie. It reads
+// only `StateCookieName`, so a `__Host-nalanda_gmail_state` cookie is
+// invisible to it however well-formed the nonce inside is — and the callback
+// refuses before it reaches the provider.
+func TestAGmailStateCookieCannotCompleteALogin(t *testing.T) {
+	f := newFixture(t, "")
+
+	// A REAL, live nonce from the login's own store, re-presented under the
+	// GMAIL flow's cookie name. Using a valid nonce is the point: the
+	// refusal has to come from the cookie's NAME, not from the value being
+	// unrecognised.
+	nonce, _ := f.start(t)
+
+	recorder := f.callback(t, nonce, "code-1", &http.Cookie{
+		Name:  handler.GmailStateCookieName(true),
+		Value: nonce,
+	})
+
+	if sessionCookie(recorder) != nil {
+		t.Fatal("a session was issued from a callback carrying the other flow's cookie")
+	}
+	if location := recorder.Header().Get("Location"); !strings.Contains(location, "fallo") {
+		t.Errorf("the login did not refuse the Gmail flow's cookie; redirected to %q", location)
+	}
+	if f.provider.Exchanges() != 0 {
+		t.Error("the callback reached the provider with a cookie the login does not read")
+	}
+}

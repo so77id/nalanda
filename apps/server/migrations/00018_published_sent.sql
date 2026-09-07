@@ -36,10 +36,10 @@
 -- NULLABLE, and NULL is not zero. NULL means "this control was published
 -- before the count existed, or the count was never written back" — the
 -- honest answer for a row migrated in from 00017, and the one the
--- confirmation page words as "no se sabe cuántos llegaron". Defaulting it
--- to 0 would assert that nobody received a correction that forty people
--- may be holding, which is the exact claim this column exists to stop
--- anyone making.
+-- confirmation page words as "No se registró cuántos correos llegaron a
+-- salir". Defaulting it to 0 would assert that nobody received a correction
+-- that forty people may be holding, which is the exact claim this column
+-- exists to stop anyone making.
 --
 -- Numbered 00018, after 00017_publication.sql. Numbers are never reused,
 -- even deleted ones — the scar is written out in 00002_auth.sql.

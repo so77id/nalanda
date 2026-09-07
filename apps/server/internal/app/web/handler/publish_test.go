@@ -399,11 +399,28 @@ func TestAPublishedControlShowsWhatHappenedInsteadOfTheButton(t *testing.T) {
 	if strings.Contains(body, `action="/controls/`+controlID+`/publish"`) {
 		t.Error("the publish form is still on the page after the control was published")
 	}
-	// The mode is named, because a professor who rehearsed against
-	// themselves and one who mailed forty students are in very different
-	// situations and "Publicado" alone reads the same to both.
-	if !strings.Contains(body, "se enviaron a los estudiantes") {
-		t.Errorf("the published line does not say where the mail went:\n%s", body)
+	// The line reads the COUNT, not just the mode. This fixture's copy is
+	// matched to nobody, so the publication delivered nothing — and the
+	// first version of this page told the professor "las correcciones se
+	// enviaron a los estudiantes" permanently, with the zero sitting on the
+	// same row (#273 review, NEW-3). The job banner said so once; this is
+	// what they see every time afterwards.
+	if !strings.Contains(body, "no salió ningún correo") {
+		t.Errorf("the published line claims delivery over a publication that delivered "+
+			"nothing:\n%s", body)
+	}
+	if strings.Contains(body, "se enviaron a los estudiantes") {
+		t.Error("the page says the students were written to over zero deliveries")
+	}
+
+	// And with a real count it says the number, so the fix above cannot
+	// have been "always say nothing arrived".
+	if _, err := f.db.ExecContext(context.Background(),
+		"UPDATE control SET published_sent = 38 WHERE id = ?", controlID); err != nil {
+		t.Fatalf("setting the count: %v", err)
+	}
+	if body = f.detailBody(t, controlID); !strings.Contains(body, "salieron 38 correos") {
+		t.Errorf("the published line does not say how many went out:\n%s", body)
 	}
 }
 

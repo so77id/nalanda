@@ -144,7 +144,9 @@ grep -c "$NALANDA_CANVAS_TOKEN_DEV" "$LOG"   # expect 0
 
 And against the database, which is where a bug would put it in the clear —
 written per ROW, because `user_secrets` holds one per professor per secret
-and ADR-0068 anticipates a second namespace for WP-3's Resend key. The
+and and since #273 a professor who has connected Gmail has TWO rows
+(`canvas`/`token` and `gmail`/`refresh_token`, ADR-0072) — both must come
+back sealed. The
 single-row version concatenated two hex lines and died on
 `binascii.Error: Odd-length string` (#271 review, DAC-9):
 

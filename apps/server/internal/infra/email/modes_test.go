@@ -28,6 +28,8 @@ type recorder struct {
 
 func (r *recorder) Delivers() bool { return true }
 
+func (r *recorder) RedirectsToSender() bool { return false }
+
 func (r *recorder) Send(_ context.Context, _ int64, msg controls.Message) (string, error) {
 	r.calls++
 	if r.err != nil {

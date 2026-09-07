@@ -94,6 +94,10 @@ var _ controls.Dispatcher = (*GmailDispatcher)(nil)
 // Delivers is true: this is the transport that actually sends.
 func (d *GmailDispatcher) Delivers() bool { return true }
 
+// RedirectsToSender is false: this transport addresses whoever the
+// message names.
+func (d *GmailDispatcher) RedirectsToSender() bool { return false }
+
 // Send delivers one message and returns Gmail's id for it.
 func (d *GmailDispatcher) Send(ctx context.Context, professorID int64, msg controls.Message) (string, error) {
 	if msg.To == "" {
@@ -166,13 +170,19 @@ func (d *GmailDispatcher) Send(ctx context.Context, professorID int64, msg contr
 
 // failure maps a non-200 onto the sentinels a caller branches on.
 //
-// The load-bearing decision here is what does NOT map to gmail.ErrRejected,
-// because that sentinel deletes the professor's stored credential and only
-// a human at a consent screen can restore it.
+// gmail.ErrRejected is the one that says "the grant is gone, a human must
+// re-consent", so the load-bearing decision is what does NOT map to it.
 //
-//   - 401 does. The token was refreshed moments ago, so an unauthenticated
-//     answer means the grant was withdrawn between the refresh and this
-//     send. That is exactly the state re-consent repairs.
+// **It does not itself clear anything.** The only site that clears a stored
+// credential is gmail.Service.AccessToken, on an `invalid_grant` from the
+// REFRESH — an earlier version of this comment said the send path deleted
+// it, which was never true (#273 review, DAC-4). A send-time rejection
+// tells the professor to reconnect; the next publication's refresh is what
+// finds the credential dead and removes it.
+//
+//   - 401 maps to it. The token was refreshed moments ago, so an
+//     unauthenticated answer means the grant was withdrawn between the
+//     refresh and this send. That is exactly the state re-consent repairs.
 //   - 403 does NOT, although it can mean "insufficient permission" as well
 //     as "daily limit exceeded". Gmail spells both 403 and only
 //     distinguishes them inside an error `reason` whose vocabulary is not

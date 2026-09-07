@@ -54,6 +54,13 @@ var ErrNoStagingRecipient = errors.New("email: staging has no address to redirec
 // to somebody.
 func (d *StagingDispatcher) Delivers() bool { return d.inner.Delivers() }
 
+// RedirectsToSender is TRUE, and this is the whole reason the method
+// exists. A deployment-wide staging run delivers — so Delivers() says yes —
+// but it delivers to the professor, and a control stamped
+// `publication_mode = 'real'` after one would assert a class was written to
+// (#273 review, DAC-8).
+func (d *StagingDispatcher) RedirectsToSender() bool { return true }
+
 // Send redirects and delegates.
 func (d *StagingDispatcher) Send(ctx context.Context, professorID int64, msg controls.Message) (string, error) {
 	if msg.ProfessorEmail == "" {
@@ -96,6 +103,10 @@ var _ controls.Dispatcher = (*DryRunDispatcher)(nil)
 
 // Delivers is false: a dry run withholds every message by definition.
 func (d *DryRunDispatcher) Delivers() bool { return false }
+
+// RedirectsToSender is false: it delivers to nobody at all, so there is no
+// recipient to have redirected.
+func (d *DryRunDispatcher) RedirectsToSender() bool { return false }
 
 // Send validates, logs and withholds.
 func (d *DryRunDispatcher) Send(ctx context.Context, professorID int64, msg controls.Message) (string, error) {

@@ -220,7 +220,17 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 	}
 
 	if !rehearsal {
-		if err := s.Store.MarkPublished(ctx, controlID, s.Now(), string(req.Mode)); err != nil {
+		// The EFFECTIVE mode, not the one the form asked for. A
+		// deployment-wide `staging` transport rewrites every recipient to
+		// the professor, so a run requested as `real` reached nobody in the
+		// class — and stamping it `real` would make the page say the
+		// students were written to (#273 review, DAC-8). The column exists
+		// to record what HAPPENED.
+		effective := req.Mode
+		if s.Dispatcher.RedirectsToSender() {
+			effective = PublishModeStaging
+		}
+		if err := s.Store.MarkPublished(ctx, controlID, s.Now(), string(effective)); err != nil {
 			return PublishResult{}, fmt.Errorf("controls.Publish: stamp the control: %w", err)
 		}
 	}

@@ -277,3 +277,42 @@ func TestThePublicationRecordsHowManyItActuallyDelivered(t *testing.T) {
 		t.Errorf("recorded %d delivered, want the 2 that actually went out", *control.PublishedSent)
 	}
 }
+
+// `publication_mode` records what HAPPENED, not what the form asked for.
+//
+// The same lie as PUB-2, one layer up and found by the docs lens rather
+// than the code one (#273 review, DAC-8): a deployment-wide `staging`
+// transport DELIVERS — so `Delivers()` is true and the publication is
+// allowed — but it delivers to the professor. Stamping the form's `real`
+// there makes the page say the class was written to.
+func TestADeploymentWideStagingRunIsRecordedAsStagingWhateverTheFormAsked(t *testing.T) {
+	rig := newPublishRig(t)
+	rig.dispatcher.redirects = true
+
+	if _, err := rig.svc.Publish(context.Background(), rig.controlID,
+		controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal}); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+
+	control, _ := rig.store.ControlByID(context.Background(), rig.controlID)
+	if control.PublicationMode != controls.PublishModeStaging {
+		t.Errorf("publication_mode = %q after a run that reached nobody in the class, want %q — "+
+			"the page words `real` as \"las correcciones se enviaron a los estudiantes\"",
+			control.PublicationMode, controls.PublishModeStaging)
+	}
+}
+
+// And the ordinary case still records what it did, so the fix above cannot
+// have been "always say staging".
+func TestARealRunIsRecordedAsReal(t *testing.T) {
+	rig := newPublishRig(t)
+
+	if _, err := rig.svc.Publish(context.Background(), rig.controlID,
+		controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal}); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	control, _ := rig.store.ControlByID(context.Background(), rig.controlID)
+	if control.PublicationMode != controls.PublishModeReal {
+		t.Errorf("publication_mode = %q, want %q", control.PublicationMode, controls.PublishModeReal)
+	}
+}

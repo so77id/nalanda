@@ -85,6 +85,10 @@ func (d *StubDispatcher) Send(_ context.Context, professorID int64, msg controls
 // PUB-2).
 func (d *StubDispatcher) Delivers() bool { return false }
 
+// RedirectsToSender is false — it redirects nowhere, because it sends
+// nowhere. Only meaningful beside Delivers(), which is already false.
+func (d *StubDispatcher) RedirectsToSender() bool { return false }
+
 // Sent returns the calls recorded so far, oldest first.
 //
 // A COPY, not the slice itself: handing out the backing array would let a

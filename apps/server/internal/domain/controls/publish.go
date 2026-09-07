@@ -98,6 +98,19 @@ type Dispatcher interface {
 	// One boolean on the port it already holds is smaller and puts the
 	// answer with the only thing that knows it.
 	Delivers() bool
+
+	// RedirectsToSender reports whether this transport rewrites every
+	// recipient to the professor, whatever the message said.
+	//
+	// `Delivers()` answers "does anything reach a person"; this answers
+	// "does it reach the person the record claims". They are different
+	// questions and conflating them was the same lie one layer up: under a
+	// deployment-wide `staging` mode, a publication asked for as `real`
+	// delivers — to the professor — so `Delivers()` is true, and without
+	// this the control was stamped `publication_mode = 'real'` and the page
+	// said "las correcciones se enviaron a los estudiantes" (#273 review,
+	// DAC-8). `Service.Publish` records the EFFECTIVE mode instead.
+	RedirectsToSender() bool
 }
 
 // The failure modes a caller branches on.

@@ -2,6 +2,10 @@
 
 **Status:** Accepted
 **Date:** 2026-09-07
+**Decision-makers:** Miguel Rodriguez
+**Source:** #273 (WP-3 of epic #270); the refinement conversation that reversed
+the Resend design before any code was written; and the WP's own review — findings
+PUB-1/2/3, SCOPE-1, SEC-1/2, and the NEW-1/2/3 regressions the fixes introduced
 
 ## Context
 
@@ -61,8 +65,9 @@ What that buys, in the order it matters:
 - **No account, no cost, no third party.** The OAuth client already exists
   for the login.
 
-The scope is `https://www.googleapis.com/auth/gmail.send` and nothing
-wider. It permits sending and nothing else — it cannot read a message, list
+The only GMAIL permission is `https://www.googleapis.com/auth/gmail.send`;
+the flow also asks for `openid email` so the exchange names WHICH account
+was connected. Nothing wider. It permits sending and nothing else — it cannot read a message, list
 a thread, or change a setting.
 
 **Verified 2026-09-07, and this is the fact the decision turns on:**
@@ -227,8 +232,8 @@ latter takes the whole message base64url'd inside a JSON `raw` field and
 caps the request at 5 MB, and base64 inflates by a third — a 3.8 MB
 annotated PDF becomes a 5.1 MB request refused with a message about the
 request rather than the attachment. The media endpoint takes the RFC 5322
-message as the body, reaches 35 MB, and skips a base64 pass over the whole
-envelope.
+message as the body, reaches 35 MB (same source, same date), and skips a base64 pass over the
+whole envelope.
 
 ## Alternatives considered
 
@@ -239,7 +244,8 @@ around with a `no-reply@` From plus reply-to.
 **Gmail SMTP with an App Password.** Dramatically less code — `net/smtp`,
 a 16-character credential pasted into `/profile` exactly like the Canvas
 token, no OAuth, no verification, no seven-day question. Rejected because
-Google is retiring App Passwords during 2026, so it is building on an
+Google has ANNOUNCED the retirement of App Passwords during 2026
+(announcement consulted 2026-09-07), so it is building on an
 announced end date; and because an app password is a long-lived credential
 with no scope, where `gmail.send` is scoped to sending.
 
@@ -262,6 +268,18 @@ clock does not apply once the app is **In production**; a third-party
 source claims it follows "unverified" regardless of publishing status.
 **The two disagree and documentation did not settle it** (both consulted
 2026-09-07).
+
+> **Measurement to fill in (owner: Miguel Rodriguez, deadline: eight days
+> after the first real connection, tracked in the issue GMAIL-CHECK §6
+> opens):** does a refresh token issued at publishing status
+> `<Testing | In production>` still send on day eight, and under which
+> status? `apps/server/GMAIL-CHECK.md` §6 is the procedure; the answer
+> replaces this paragraph's uncertainty with a number.
+>
+> Written as a block rather than as prose because documentation.md requires
+> it: "without the block, 'measure later' degrades into no measurement at
+> all, and the decision stays hypothesis-shaped forever." This ADR shipped
+> the prose version first.
 
 The WP therefore degrades honestly rather than assuming either reading. A
 refresh that comes back `invalid_grant` is neither a 500 nor a silent
@@ -290,7 +308,8 @@ to reconnect by hand, the second is the recoverable mistake.
   is sealed. Without it the profile page says so and the server still boots
   — the same state, and the same handling, as the Canvas integration
   (ADR-0068 §Decision 3).
-- A personal Gmail account sends to roughly 500 recipients a day. A class
+- A personal Gmail account sends to roughly 500 recipients a day (Google
+  Workspace sending-limits documentation, consulted 2026-09-07). A class
   of forty is not close; several courses in one day are not either.
 
 ### The header sink is at the encoder, not at the source

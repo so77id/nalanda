@@ -419,3 +419,82 @@ And the guide's own checklist gains two lines:
 - [ ] The handler holds the domain **Service**, never `Service.Store` —
       `grep -rn '\.Store\.' internal/app/**/handler/*.go` returns nothing
       (`backend-code-style.md` §The dependency rule, edge 4).
+
+## A pattern the publication adds — the capability-gated route
+
+Issue #273. Some routes are gated by a third question the two in §6 do not
+cover: not *who are you* and not *does this change state*, but **can this
+deployment perform the effect at all**. A mail route on a host configured to
+send nothing, a Canvas grade poster with no token, an export with no bucket
+— all the same shape.
+
+The rule that shape earned, and the incident that earned it:
+
+1. **The domain asks a PORT, not the config.** `controls.Dispatcher` grew
+   `Delivers()`; `Service.Publish` refuses before committing anything.
+   Passing the deployment mode into the domain would make every caller carry
+   a hosting concern.
+2. **Refuse BEFORE the state change, not after.** Publication stamps the
+   control before it sends (so a crash cannot cause a duplicate mailing), so
+   the capability check has to come first or the stamp lands on a run that
+   reached nobody.
+3. **A wrapper DEFERS to what it wraps.** `StagingDispatcher.Delivers()`
+   returns the inner transport's answer. Hard-coding `true` puts the
+   suppressed-transport bug back by the longer route.
+4. **Ask a second question if the effect can be redirected.**
+   `RedirectsToSender()` exists because `Delivers()` answers "does anything
+   reach a person" and not "does it reach the person the record claims" —
+   conflating them let a staging deployment stamp a control `real`.
+5. **The handler renders a DISABLED control naming the variable**, and a
+   hand-typed POST answers 422. A missing button teaches nothing; a disabled
+   one that says why is an instruction.
+6. **If the state change is not undoable, ship the undo.** Publication is
+   one-way, so a run that stamped without delivering was a dead end until
+   `POST /controls/{id}/unpublish` existed. The judgement a machine cannot
+   make — may the people who already received this receive it twice — goes
+   to the professor, with the count in front of them.
+
+**The companion configuration rule.** A variable that gates an irreversible
+effect defaults to the SAFE value even when that is not what production
+wants, and an unknown value fails the boot rather than falling back.
+`NALANDA_EMAIL_MODE` defaults to `stub`. The incident: it did,
+`DEPLOY-JETSON.md` did not list it, and the documented deploy path produced
+a server that stamped controls as published and mailed nobody — with a green
+banner (ADR-0072 §5).
+
+Worked cases: `controls.Dispatcher.Delivers` / `RedirectsToSender`,
+`Service.Publish` / `Service.Unpublish`, `handler.Controls.Publish`,
+`NALANDA_EMAIL_MODE`.
+
+## A pattern the Gmail grant adds — a second OAuth authorization
+
+Issue #273 put a second Google grant beside the login. A third is
+foreseeable (WP-G's Canvas grade posting), so the six coordinated pieces are
+written down rather than reconstructed from whichever neighbour is opened
+first:
+
+1. **Its own callback path**, registered with the provider character for
+   character (`/profile/gmail/callback`).
+2. **Its own cookie NAME, through a helper** —
+   `handler.GmailStateCookieName(secure)`, `__Host-`-prefixed in production.
+   Never a literal.
+3. **Its own `oauthstate.Store` instance.** Sharing the login's would let a
+   nonce issued for one grant be spent on the other, and the grants carry
+   different scopes.
+4. **A GATED callback.** Unlike the login's — which is how a session begins
+   and therefore cannot require one — a second grant attaches a credential
+   to a session that already exists, and identifies the professor from it
+   rather than from the token it is about to receive.
+5. **A check on the GRANTED scope, not the requested one.** Google's
+   granular consent lets a professor approve the screen with the permission
+   unticked, and the response still carries a refresh token — so without the
+   check the connection completes and the failure surfaces at the first real
+   use.
+6. **The credential split.** The refresh token sealed in `user_secrets`
+   (ADR-0068); the human-readable half (which account) in the clear, because
+   it is what the page prints. Write the clear half LAST, so the observable
+   "connected" signal is never true over a credential that was never stored.
+
+Both directions of (2) and (3) are pinned by tests: a login nonce cannot
+complete the second grant, and its cookie cannot complete a login. Policy:
+ADR-0072 §2.

@@ -450,6 +450,30 @@ The extension point born with this app. Registered in `integration-guides.md`.
    cheapest defence against the most common way a database test goes green
    for the wrong reason (#271 review, PAT-1).
 
+**Extending a CHECK enum means REBUILDING the table, and the rebuild has a
+shape.** SQLite cannot `ALTER` a constraint, so admitting a new value is:
+create the replacement, copy, drop, rename, recreate every index. Four
+things are load-bearing and each has been got wrong somewhere:
+
+- **The copy names its columns.** `SELECT *` is correct today and silently
+  wrong the day somebody adds a column to one side of the pair.
+- **Every index on the dropped table is recreated.** It goes with the table,
+  and a rebuild that forgets it leaves every row intact and every query
+  slow — which no test that counts rows notices.
+- **The FK direction is stated in the comment.** A child table fires no
+  cascade when dropped; a parent does, and that is the difference between a
+  migration and a data loss.
+- **The Down DOCUMENTS the inverse rather than performing it, when the
+  inverse would delete rows the Up made legal.** Narrowing the CHECK back
+  would first have to `DELETE` every row carrying the new value, and
+  destroying history to satisfy a rollback nobody supports is worse than
+  leaving a wider constraint on a binary that no longer emits the value.
+
+Worked case: `apps/server/migrations/00017_publication.sql` and
+`TestTheJobKindRebuildPreservesTheRowsAndTheConstraints`, which asserts the
+rows, the index AND the cascade — the first two pass over a rebuild that
+dropped the third (issue #273).
+
 ## Naming
 
 - Package names are short, lower-case, single words, and never `util`, `common`

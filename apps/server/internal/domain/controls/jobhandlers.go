@@ -281,12 +281,13 @@ func failureFromPublishError(err error) error {
 		return &jobs.Failure{
 			Message: "este servidor no está configurado para enviar correo",
 			Detail: "NALANDA_EMAIL_MODE no está en `real`, así que no se envió nada y el " +
-				"control quedó sin publicar. El envío de prueba sí funciona.",
+				"control quedó sin publicar.",
 		}
 	case errors.Is(err, ErrAlreadyPublished):
 		return &jobs.Failure{
 			Message: "este control ya fue publicado",
-			Detail:  "La publicación es de una sola vez.",
+			Detail: "Si hace falta volver a enviarlo, deshaz la publicación desde la página " +
+				"del control: ahí verás cuántos correos llegaron a salir antes de decidir.",
 		}
 	default:
 		return &jobs.Failure{

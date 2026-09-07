@@ -19,7 +19,10 @@ annotate) run through an in-process async job runner
 (`internal/domain/jobs`), so an HTTP POST returns immediately and the
 detail page's `JobBanner` surfaces the running / done / failed state; the
 routes table in `README.md` is the current inventory and ADR-0050
-records the design.
+records the design. Since #271/#272 the courses, the Canvas roster and
+the RUT→student join live here (ADR-0069/0070/0071); since #273 a closed
+correction is PUBLISHED — one mail per student, sent as the professor
+from their own Gmail account, through a fifth `jobs.Kind` (ADR-0072).
 
 Commands, stack, configuration and layout live in `README.md` — one home per
 fact.
@@ -44,8 +47,9 @@ fact.
 - `docs/decisions/0050-the-controls-runner-is-in-process-single-goroutine.md`
   — the async job runner design. Read before touching
   `internal/domain/jobs`, `internal/infra/storage/jobstore`, or any of the
-  four minutes-class AMC handlers (`POST /controls`, `POST /controls/{id}/scans`,
-  `POST /controls/{id}/reanalyze`, `POST /controls/{id}/close`). Records
+  five async handlers (`POST /controls`, `POST /controls/{id}/scans`,
+  `POST /controls/{id}/reanalyze`, `POST /controls/{id}/close`, and
+  `POST /controls/{id}/publish` + `/test-send`). Records
   single-goroutine + SQLite persistence + Sweep-on-boot + no retry + the
   atomicity split that amends ADR-0034 §Failure modes.
 - `docs/decisions/0072-corrections-are-mailed-from-the-professors-own-gmail.md`
@@ -189,8 +193,11 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
 - **Cookie names are computed, not literal.** Since #162 (ADR-0038) both the
   session and OAuth-state cookies carry the `__Host-` prefix when
   `config.SecureCookie()` is true (production, https). Read and write them
-  ONLY through `middleware.SessionCookieName(secure)` and
-  `handler.StateCookieName(secure)`. A bare literal (`"nalanda_session"`,
+  ONLY through `middleware.SessionCookieName(secure)`,
+  `handler.StateCookieName(secure)` and — since #273 —
+  `handler.GmailStateCookieName(secure)`, whose store and nonce are the
+  login flow's deliberately separate twin (see the two-OAuth-flows rule
+  below). A bare literal (`"nalanda_session"`,
   `"nalanda_oauth_state"`) is dev-only correct — production stops reading it
   and the login breaks silently on the deployed URL.
   `TestSessionCookieNameCarriesHostPrefixInProductionAndNotInDev` and its
@@ -212,6 +219,8 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   case: `NALANDA_TRUST_PROXY_HEADERS` landed in all four homes in the same
   commit at #162; `TestEveryVariableReachesAllFourHomes` was what caught the
   early revision that had it missing from `.github/workflows/server.yml`.
+
+  **And a FIFTH home no test can reach: if the JETSON needs the variable, `infra/local/DEPLOY-JETSON.md`'s `.env` block.** The guard reads only the four in-repo homes; the Jetson's `.env` is typed by hand from that block. `NALANDA_EMAIL_MODE` was missing from it in #273, so the DOCUMENTED deploy path produced a server that could mail nobody — and the shape that bites is exactly a variable the loader treats as optional but production does not, because the guard cannot tell those apart (ADR-0072 §5).
 - **The migration numbering carries a scar worth knowing.** #150 deleted #149's
   empty `00001_init.sql` as planned, and still numbered the auth schema `00002`:
   goose keys applied migrations by VERSION, so a file reusing number 1 counts as
@@ -280,13 +289,20 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      silent drop of that class of work.
   3. A handler factory in `internal/domain/controls/jobhandlers.go`
      (mirror `controls.NewReanalyseHandler` / `NewAnalyseHandler` /
-     `NewGenerateHandler` / `NewAnnotateHandler`) that translates
+     `NewGenerateHandler` / `NewAnnotateHandler` / `NewPublishHandler`,
+     the last being the only non-AMC one and therefore the one a new
+     non-worker Kind should copy) that translates
      domain sentinels into `jobs.Failure{Message, Detail}` for the
      banner + debug pair.
   4. Its registration in `cmd/server/main.go`'s `jobs.Handlers` map.
-  The related operating rule: any AMC-worker-touching operation is
-  async by construction (do NOT add a synchronous handler that calls
-  `amcworker.Client` from the HTTP goroutine — split the sync half
+  The related operating rule, as ADR-0072 amended it: **the shape of the
+  WORK decides, not who it talks to.** An AMC-worker call is async by
+  construction, and so is any loop the professor cannot wait on —
+  `publish` is the worked non-worker case (forty Gmail calls plus forty
+  PDFs off the shared volume, against `httpserver.writeTimeout`'s 30 s).
+  A bounded third-party call the professor waits on stays synchronous
+  under its own deadline (#271). Concretely: do NOT add a synchronous
+  handler that calls `amcworker.Client` from the HTTP goroutine — split the sync half
   from the async half, as `PrepareControl`/`GenerateAssets` and
   `SaveUploadedBatch`/`AnalyzeBatch` already do). ADR-0050 has the
   full reasoning.
@@ -444,11 +460,24 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   the "Asociación" badge on the control page (hidden entirely when the
   control has no course), the review page's "no está en la lista" note,
   and `/courses/{id}/matriz` — nowhere else.
-- **Nothing may reach an RFC 5322 header without going through
-  `email.headerAddress` or `mime.QEncoding` (issue #273 review, SEC-1).**
-  `buildMIME` refuses any address carrying a control character and
-  serialises through `mail.Address`; Subject and the attachment filename go
-  through `mime.QEncoding`, which encodes everything below U+0020.
+- **No value reaches an RFC 5322 header un-neutralised, and `buildMIME` is
+  the only place that decides how (issue #273 review, SEC-1 and NEW-6).**
+  Three mechanisms, one per kind of value, and a new header picks the one
+  that fits rather than inventing a fourth:
+  1. **Addresses** (`From`, `To`) — `headerAddress`, which REFUSES a control
+     character and then serialises through `mail.Address`. Both halves are
+     load-bearing: `mail.Address.String()` alone does not neutralise
+     `\r\n\r\n`, measured by mutation in the review.
+  2. **Free text** (`Subject`, the attachment filename) — `mime.QEncoding`,
+     which encodes everything below U+0020. These are values a professor may
+     legitimately write anything into, so they are encoded rather than
+     refused.
+  3. **Values from a closed set** (the attachment's `Content-Type`, the
+     multipart boundary) — refused on a control character, because one there
+     is a caller bug rather than user input.
+
+  An earlier version of this rule named only the first two and was violated
+  by the very function it governs.
   Interpolating a value into a header with `fmt.Fprintf` is how a CR/LF
   injected a `Bcc:` that Gmail's `message/rfc822` upload honours — sending
   one student's grade and corrected PDF out of the professor's own mailbox
@@ -459,8 +488,8 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   The guard is at the ENCODER, not at the roster, on purpose:
   `student.email` reaches the header verbatim from Canvas with no
   validation in any layer between, and every future source of an address
-  would otherwise need its own copy. Same "one sink, one guard" shape as
-  `escapeBankText` two bullets down.
+  would otherwise need its own copy. Same "one sink, one guard" shape as the
+  `escapeBankText` bullet below.
 - **Two RUT parsers exist and must stay two (issue #272).**
   `matching.NormalizeRUT` reads eight bare digits as the BODY — what
   `\AMCcode{rut}{8}` prints and what the review field asks for.
@@ -659,10 +688,10 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   helpers, the same rule the session cookie carries.
 - **`NALANDA_EMAIL_MODE` defaults to `stub` (issue #273).** It is the only
   optional variable in `config` whose default is not what production wants,
-  and reversing it is forbidden. An operator who deploys without choosing
-  and gets `stub` finds out when a publication sends nothing and fixes it
-  by setting one line; one who got `real` finds out when a class receives
-  mail that cannot be recalled. An unknown value fails the boot naming the
+  and reversing it is forbidden. A publication is REFUSED under a
+  non-delivering transport, so an operator who deploys without choosing
+  finds out the first time they press "Publicar"; one who got `real` finds
+  out when a class receives mail that cannot be recalled. An unknown value fails the boot naming the
   legal set and never falls back — a typo resolving quietly to `stub` is a
   professor pressing "Publicar", reading a success message, and nobody
   receiving anything.

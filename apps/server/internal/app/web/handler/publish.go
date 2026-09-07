@@ -99,7 +99,9 @@ func (h *Controls) Publish(w http.ResponseWriter, r *http.Request) {
 		// allowed to make it — the resource is simply already in the state
 		// they asked for, and publication is one-way in v1.
 		middleware.WriteError(w, r, http.StatusConflict,
-			"Este control ya fue publicado. La publicación es de una sola vez.")
+			"Este control ya fue publicado. Si hace falta volver a enviarlo, primero deshaz "+
+				"la publicación desde la página del control — ahí verás cuántos correos "+
+				"llegaron a salir antes de decidir.")
 		return
 	}
 	if !h.canSend(w, r, professor.ID) {
@@ -114,8 +116,7 @@ func (h *Controls) Publish(w http.ResponseWriter, r *http.Request) {
 		// stub is the default, that was the documented production path.
 		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
 			"Este servidor no está configurado para enviar correo de verdad "+
-				"(NALANDA_EMAIL_MODE), así que no se publicó nada. "+
-				"Puedes usar el envío de prueba para ver qué saldría.")
+				"(NALANDA_EMAIL_MODE), así que no se publicó nada.")
 		return
 	}
 
@@ -271,8 +272,18 @@ func (h *Controls) TestSend(w http.ResponseWriter, r *http.Request) {
 	// The address is echoed back because the professor just typed it and
 	// this is the only chance to notice a typo before waiting for mail that
 	// went somewhere else.
-	flash.Set(w, h.secureCookie,
-		"Empezó el envío de prueba a "+to+". Nadie del curso recibirá nada.")
+	// The flash says what this server will actually DO, not what the button
+	// is called. Under a non-delivering transport a rehearsal reports three
+	// successes and puts nothing in anybody's inbox — the same "green over
+	// nothing" the publication gate exists to prevent, and three documents
+	// used to tell the professor to rely on it (#273 review, NEW-1).
+	message := "Empezó el envío de prueba a " + to + ". Nadie del curso recibirá nada."
+	if !h.Service.DeliversMail() {
+		message = "Este servidor está configurado para no enviar correo de verdad " +
+			"(NALANDA_EMAIL_MODE), así que no llegará nada a " + to +
+			". El aviso dirá que terminó igualmente."
+	}
+	flash.Set(w, h.secureCookie, message)
 	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
 }
 
@@ -385,17 +396,35 @@ func (h *Controls) fillPublication(r *http.Request, page *view.ControlDetailPage
 
 // publishedLine words what a published control shows instead of the button.
 //
-// The MODE is named, and that is the load-bearing half: a professor who
-// rehearsed against themselves and one who mailed forty students are in
-// very different situations, and a line saying only "Publicado" would read
-// the same to both.
+// It reads BOTH the mode and the count, and needs both. The mode alone
+// cannot tell a professor whether anything arrived — a `real` publication
+// in which every send failed is stamped `real`, and the first version of
+// this function told that professor "las correcciones se enviaron a los
+// estudiantes" permanently, with the zero sitting on the same row (#273
+// review, NEW-3). The job banner said so once; this line is what they see
+// every time afterwards.
+//
+// A nil count is a control published before the count existed, or one whose
+// run died between the stamp and the bookkeeping write. It is NOT zero, and
+// the sentence says so rather than guessing in either direction.
 func publishedLine(c controls.Control) string {
-	when := c.PublishedAt.Format("02-01-2006 15:04")
+	when := "Publicado el " + c.PublishedAt.Format("02-01-2006 15:04")
+
 	if c.PublicationMode == controls.PublishModeStaging {
-		return "Publicado el " + when + " en modo prueba: los correos fueron a tu propia dirección, " +
+		return when + " en modo prueba: los correos fueron a tu propia dirección, " +
 			"no a los estudiantes."
 	}
-	return "Publicado el " + when + ": las correcciones se enviaron a los estudiantes."
+
+	switch {
+	case c.PublishedSent == nil:
+		return when + ", pero no se registró cuántos correos llegaron a salir."
+	case *c.PublishedSent == 0:
+		return when + ", pero no salió ningún correo: nadie del curso recibió su corrección."
+	case *c.PublishedSent == 1:
+		return when + ": salió 1 correo."
+	default:
+		return fmt.Sprintf("%s: salieron %d correos a los estudiantes.", when, *c.PublishedSent)
+	}
 }
 
 // unpublishWarning is what the professor weighs before undoing a
@@ -409,6 +438,17 @@ func publishedLine(c controls.Control) string {
 // received a correction that forty people are holding is the mistake this
 // whole field exists to prevent.
 func unpublishWarning(c controls.Control) string {
+	// A STAGING publication delivered to the professor, so `published_sent`
+	// counts messages that reached nobody in the class. Reading the count
+	// alone inverted the decision this whole column exists to inform: it
+	// told a professor that three students would receive a second copy when
+	// none had received a first (#273 review, NEW-2).
+	if c.PublicationMode == controls.PublishModeStaging {
+		return "Esa publicación fue en modo prueba: los correos fueron a tu propia dirección " +
+			"y ningún estudiante recibió nada, así que puedes volver a publicar sin que nadie " +
+			"reciba nada dos veces."
+	}
+
 	switch {
 	case c.PublishedSent == nil:
 		return "No se registró cuántos correos llegaron a salir. Si vuelves a publicar, " +

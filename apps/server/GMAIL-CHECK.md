@@ -14,6 +14,10 @@ about whether a real consent screen grants the scope, whether the redirect
 URI matches character for character, or whether a message this server
 considers well-formed arrives readable in a real inbox.
 
+**Last run: NOT RUN against this commit.** Written at `37bf476` (#273). The
+commit is the load-bearing half of this line: without it a procedure keeps
+its green mark through every later change to the path it covers.
+
 Everything below runs against the **https** URL, never `localhost`. The
 state cookie carries the `__Host-` prefix in production and the OAuth
 redirect URI is matched by Google exactly — both are things only the
@@ -45,8 +49,9 @@ integration is unavailable rather than offering the button.
 - [ ] Sign in at `<NALANDA_PUBLIC_URL>` and open `/profile`.
 - [ ] The section **"Envío de correcciones"** offers **Conectar Gmail**.
 - [ ] Press it. Google shows a consent screen that says, in words, that the
-      app wants to **send email on your behalf** — and asks for nothing
-      else. If it asks to READ mail, stop: the scope is wrong.
+      app wants to **send email on your behalf**, plus your identity
+      (`openid`, `email`) so Nalanda learns which account you picked — and
+      nothing more. **If it asks to READ mail, stop: the scope is wrong.**
 - [ ] Approve. You land back on `/profile`.
 - [ ] The page now names the connected account
       (`Conectado como <dirección>`) and offers **Desconectar**.
@@ -69,9 +74,25 @@ integration is unavailable rather than offering the button.
 - [ ] **Desconectar**. The page returns to the invitation, and says you
       will not be able to publish until you connect one.
 
+## How to switch modes
+
+Every section below that names a mode means these three commands on the
+Jetson, stated once here rather than reconstructed at each step:
+
+```bash
+ssh jetson
+cd /opt/nalanda/repo/infra/local
+sed -i 's/^NALANDA_EMAIL_MODE=.*/NALANDA_EMAIL_MODE=<mode>/' .env
+docker-compose up -d server            # v1, hyphenated — not `docker compose`
+docker-compose logs server | grep 'email dispatcher'
+```
+
+The last line is the confirmation: `email dispatcher mode=<mode>`. If it
+says anything else, the container did not restart on the new `.env`.
+
 ## 3. A rehearsal that sends nothing
 
-With `NALANDA_EMAIL_MODE=dryrun` on the host:
+In `dryrun`:
 
 - [ ] Open a control whose correction is **closed** and which has a course.
 - [ ] Under **Enviar las correcciones → Envío de prueba**, type your own
@@ -85,8 +106,7 @@ With `NALANDA_EMAIL_MODE=dryrun` on the host:
 
 ## 4. A rehearsal that really sends
 
-Set `NALANDA_EMAIL_MODE=real` and restart. The boot log carries
-`email dispatcher mode=real`.
+In `real`.
 
 - [ ] On the same control, **Envío de prueba** to your own address.
 - [ ] Every deliverable copy arrives in **your** inbox, one message per
@@ -138,7 +158,7 @@ Then, on a second nominated control, for real:
 
 ## 5b. The mode gate
 
-- [ ] Set `NALANDA_EMAIL_MODE=stub` and restart. On a graded control,
+- [ ] In `stub`. On a graded control,
       **Publicar** is disabled and says this server is not configured to
       send. Pressing the URL by hand answers **422** naming the variable,
       and **the control is not stamped**.
@@ -172,3 +192,20 @@ the open question with the measurement.
 - [ ] Grep the container log for the connected account's refresh token
       prefix (`1//`) and for `ya29.` — an access token. Neither appears.
 - [ ] Grep it for a student's full address. It does not appear.
+
+---
+
+## Notes — what may be written down
+
+**Nothing from §5 goes into this file, into a commit, or into an issue.**
+That section has you standing in front of three students' names, addresses
+and grades. Record the OUTCOME as counts — "3 de 3 confirmaron, PDF
+correcto" — and never the people.
+
+Same rule and the same reason as `docs/security-notes.md` §"Real student
+identifiers were committed to this public repository". Every example in this
+document is synthetic (`m…z@udp.cl`, `profesora@gmail.com`) and the ones you
+add should be too.
+
+The one thing that IS worth writing down, in ADR-0072 rather than here, is
+§6's measurement — it is the answer to a question the ADR could not settle.

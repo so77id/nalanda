@@ -151,11 +151,19 @@ var emailModes = []EmailMode{EmailModeReal, EmailModeStaging, EmailModeDryRun, E
 // `stub`, and the direction of that default is the decision. Every other
 // optional variable in this package defaults to what production wants;
 // this one defaults to what production does NOT, because the cost of the
-// two mistakes is not symmetric. An operator who deploys without choosing
-// and gets `stub` finds out when a publication sends nothing, and fixes it
-// by setting one variable. An operator who deploys without choosing and
-// gets `real` finds out when forty students receive mail that cannot be
-// recalled. Opt in to sending.
+// two mistakes is not symmetric.
+//
+// An operator who deploys without choosing and gets `stub` finds out the
+// first time they press "Publicar": the button is disabled and the POST
+// answers 422 naming this variable, with nothing stamped
+// (controls.ErrCannotDeliver). One who got `real` finds out when forty
+// students receive mail that cannot be recalled. Opt in to sending.
+//
+// That defence used to read "finds out when a publication sends nothing",
+// which the WP's own review falsified: under `stub` every send SUCCEEDS, so
+// the publication stamped the control and showed a green banner over an
+// empty mailbox. The default is safe because the refusal makes it loud, not
+// because it was ever self-announcing (#273 review, PUB-2).
 const defaultEmailMode = EmailModeStub
 
 // defaultMaxScanMB is what an unset KeyMaxScanMB resolves to.

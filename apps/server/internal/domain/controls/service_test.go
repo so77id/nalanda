@@ -970,6 +970,8 @@ func (noDispatcher) Send(context.Context, int64, controls.Message) (string, erro
 
 func (noDispatcher) Delivers() bool { return true }
 
+func (noDispatcher) RedirectsToSender() bool { return false }
+
 // noRoster and noSenders are the publication's two ports, unused by every
 // case in this package — publication has its own test file, and a Service
 // that refused to be built without them would make every generation and

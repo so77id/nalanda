@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-// Kind names the four operation types the runner accepts. Enumerated
+// Kind names the five operation types the runner accepts. Enumerated
 // rather than free-form: the SQLite CHECK on job.kind refuses anything
 // else, and having the enum here means a caller cannot write a typo that
 // only fails at INSERT time.

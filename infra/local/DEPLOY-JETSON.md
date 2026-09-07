@@ -67,6 +67,25 @@ NALANDA_CANVAS_GRAPHQL_URL=
 
 Once each is done, keep the outputs handy for the `.env` step below.
 
+
+   **And, for publishing corrections (#273, ADR-0072), on the SAME OAuth
+   client:**
+
+   - a THIRD redirect URI, character for character:
+     `https://<host>.<tailnet>.ts.net:8443/profile/gmail/callback`
+   - `https://www.googleapis.com/auth/gmail.send` added to the consent
+     screen's scopes. It is a *sensitive* scope, not a *restricted* one, so
+     it needs Google's app review and NOT the annual CASA security
+     assessment — written down here so nobody re-researches it (ADR-0072 §1,
+     verified 2026-09-07).
+   - note the app's **publishing status** (Testing / In production): it
+     decides the refresh-token question `apps/server/GMAIL-CHECK.md` §6
+     exists to measure.
+
+   Neither is code, and without them the "Conectar Gmail" button answers
+   `redirect_uri_mismatch` or `invalid_scope`. Verification is
+   [`apps/server/GMAIL-CHECK.md`](../../apps/server/GMAIL-CHECK.md) §0-§1.
+
 ## The Funnel — port 8443, not 443
 
 DocumentBuddy already holds port 443 on the same Jetson via its own Funnel

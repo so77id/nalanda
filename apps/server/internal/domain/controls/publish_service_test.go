@@ -54,6 +54,8 @@ type capturingDispatcher struct {
 	failOn map[string]error
 	// doesNotDeliver makes this stand in for stub or dryrun.
 	doesNotDeliver bool
+	// redirects makes it stand in for a deployment-wide staging run.
+	redirects bool
 	// onFirstSend runs before the first message is accepted, so a case can
 	// observe the world AS IT IS at that instant. This is the only way to
 	// pin the stamp-before-send ordering: the loop never returns early, so
@@ -68,6 +70,10 @@ type capturingDispatcher struct {
 // wants a non-delivering transport says so explicitly, so the ordinary rig
 // reads as the ordinary deployment.
 func (d *capturingDispatcher) Delivers() bool { return !d.doesNotDeliver }
+
+// redirectsToSender stands in for a deployment-wide `staging` transport:
+// it DELIVERS, and it delivers to the professor whatever the message said.
+func (d *capturingDispatcher) RedirectsToSender() bool { return d.redirects }
 
 func (d *capturingDispatcher) Send(_ context.Context, _ int64, msg controls.Message) (string, error) {
 	if d.onFirstSend != nil {
