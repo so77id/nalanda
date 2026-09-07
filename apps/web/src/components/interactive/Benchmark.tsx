@@ -389,7 +389,7 @@ export function Benchmark({
           className="inline-flex items-center gap-1.5 rounded bg-keep px-3 py-1 text-xs font-medium text-on-keep disabled:opacity-50"
         >
           {running ? <Loader size={14} className="animate-spin" /> : <Play size={14} />}
-          {running ? 'Corriendo…' : results === null ? 'Run' : 'Run de nuevo'}
+          {running ? 'Midiendo…' : results === null ? 'Medir' : 'Medir de nuevo'}
         </button>
         {running && progress !== '' && (
           <span className="font-mono text-3xs text-ink-faint">{progress}</span>

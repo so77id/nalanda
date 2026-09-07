@@ -81,7 +81,7 @@ async function runAndReplyPerImpl(
   timings: Array<number | 'compile-error'>,
   runsPerImpl: number,
 ): Promise<FakeWorker> {
-  const button = screen.getByRole('button', { name: /^run$/i });
+  const button = screen.getByRole('button', { name: /^medir$/i });
   await waitFor(() => expect(button).toBeEnabled());
   await userEvent.click(button);
   await waitFor(() => expect(workers).toHaveLength(1));
@@ -124,7 +124,7 @@ async function runAndReplyPerImpl(
   // Wait for the Run button to be enabled again — the widget's own signal that
   // it has finished collecting results and rendered the table.
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: /run|run de nuevo/i })).toBeEnabled(),
+    expect(screen.getByRole('button', { name: /medir|medir de nuevo/i })).toBeEnabled(),
   );
   return worker;
 }
@@ -138,7 +138,7 @@ describe('Benchmark', () => {
   it('shows an authoring error when implementations is missing', () => {
     render(<Benchmark />);
     expect(screen.getByText(/falta la prop/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^run$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^medir$/i })).not.toBeInTheDocument();
   });
 
   it('shows an authoring error when implementations is empty', () => {
@@ -230,7 +230,7 @@ describe('Benchmark', () => {
       />,
     );
 
-    const button = screen.getByRole('button', { name: /^run$/i });
+    const button = screen.getByRole('button', { name: /^medir$/i });
     await waitFor(() => expect(button).toBeEnabled());
     await userEvent.click(button);
     await waitFor(() => expect(workers).toHaveLength(1));
