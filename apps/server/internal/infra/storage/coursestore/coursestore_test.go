@@ -778,3 +778,150 @@ func TestEnrollmentCountsHasNoEntryForACourseWithNoRoster(t *testing.T) {
 		t.Error("a course with no roster has an entry; the list cannot then say 'sin lista'")
 	}
 }
+
+// --- Issue #272 S2: the matching query. ---
+
+// EnrolledStudentByRUT answers the one question internal/domain/matching
+// asks, and the four cases below are the four answers the schema can
+// produce. Three of them are "nobody", and telling them apart is not this
+// query's job — the domain gets `found=false` for all three and leaves the
+// copy in reconciliation. What matters here is that none of them
+// accidentally answers with a person.
+func TestEnrolledStudentByRUT(t *testing.T) {
+	ctx, db, s := store(t)
+
+	course := mustCreateCourse(t, ctx, s, "CIT2006-03", "canvas-course-1")
+	other := mustCreateCourse(t, ctx, s, "CIT2006-04", "canvas-course-2")
+
+	// Ana is enrolled here. Bruno withdrew from here. Carla is enrolled
+	// on the other course only. Every RUT is distinct, so a case that
+	// passes cannot be passing on somebody else's row.
+	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "11222333", RUTDV: "5", CanvasUserID: "canvas-ana"},
+		{FirstName: "Bruno", LastName: "Soto", RUT: "22333444", RUTDV: "1", CanvasUserID: "canvas-bruno"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	// A second import without Bruno is what stamps him withdrawn — the
+	// roster never deletes (#271 invariant 1), so this is the only way to
+	// reach that state, and going through it keeps the case honest about
+	// what production produces.
+	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "11222333", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster (withdrawing Bruno): %v", err)
+	}
+	if _, err := s.SaveRoster(ctx, other.ID, []roster.SourceStudent{
+		{FirstName: "Carla", LastName: "Díaz", RUT: "33444555", RUTDV: "9", CanvasUserID: "canvas-carla"},
+	}); err != nil {
+		t.Fatalf("SaveRoster (other course): %v", err)
+	}
+
+	anaID := mustStudentID(t, ctx, db, "canvas-ana")
+
+	for _, c := range []struct {
+		name      string
+		rut       string
+		courseID  int64
+		wantID    int64
+		wantFound bool
+	}{
+		{
+			name: "an enrolled student", rut: "11222333", courseID: course.ID,
+			wantID: anaID, wantFound: true,
+		},
+		{
+			// Strict scope, half one: he sat controls on this course and
+			// his readings survive, but he is no longer enrolled and a
+			// new reading must not be filed under him without a human
+			// looking (issue #272 AC2).
+			name: "a withdrawn student", rut: "22333444", courseID: course.ID,
+			wantFound: false,
+		},
+		{
+			// Strict scope, half two. `student.rut` is UNIQUE globally,
+			// so the person IS unambiguously identified — and is still
+			// not a match, because she was never on this course.
+			name: "a student enrolled on another course", rut: "33444555", courseID: course.ID,
+			wantFound: false,
+		},
+		{
+			name: "a RUT nobody carries", rut: "99999999", courseID: course.ID,
+			wantFound: false,
+		},
+		{
+			name: "a course that does not exist", rut: "11222333", courseID: 4242,
+			wantFound: false,
+		},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got, found, err := s.EnrolledStudentByRUT(ctx, c.rut, c.courseID)
+			if err != nil {
+				t.Fatalf("EnrolledStudentByRUT: %v", err)
+			}
+			if found != c.wantFound {
+				t.Fatalf("found = %v, want %v (id %d)", found, c.wantFound, got)
+			}
+			if found && got != c.wantID {
+				t.Errorf("studentID = %d, want %d", got, c.wantID)
+			}
+			if !found && got != 0 {
+				t.Errorf("studentID = %d alongside found=false, want 0", got)
+			}
+		})
+	}
+}
+
+// The column holds eight digits and nothing else, so the query compares
+// against eight digits and nothing else.
+//
+// Normalisation belongs to internal/domain/matching and this case is what
+// stops it drifting down here: a store that started tolerating
+// "11.222.333-5" would make the domain's normalisation dead code, and the
+// two would then be free to disagree about what a RUT is.
+func TestEnrolledStudentByRUTComparesTheStoredEightDigitsVerbatim(t *testing.T) {
+	ctx, _, s := store(t)
+	course := mustCreateCourse(t, ctx, s, "CIT2006-03", "canvas-course-1")
+
+	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "11222333", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+
+	for _, unnormalised := range []string{"11.222.333-5", "11222333-5", "112223335", " 11222333"} {
+		t.Run(unnormalised, func(t *testing.T) {
+			_, found, err := s.EnrolledStudentByRUT(ctx, unnormalised, course.ID)
+			if err != nil {
+				t.Fatalf("EnrolledStudentByRUT: %v", err)
+			}
+			if found {
+				t.Errorf("%q matched; the store must compare verbatim and leave normalisation to the domain", unnormalised)
+			}
+		})
+	}
+}
+
+// mustCreateCourse inserts a course or fails the test.
+func mustCreateCourse(t *testing.T, ctx context.Context, s *coursestore.Store, code, canvasID string) roster.Course {
+	t.Helper()
+	course, err := s.CreateCourse(ctx, roster.Course{
+		Name: "Estructuras de Datos", Code: code, Term: "2026-2", CanvasCourseID: canvasID,
+	})
+	if err != nil {
+		t.Fatalf("CreateCourse %s: %v", code, err)
+	}
+	return course
+}
+
+// mustStudentID reads back the id the roster import assigned.
+func mustStudentID(t *testing.T, ctx context.Context, db *sql.DB, canvasUserID string) int64 {
+	t.Helper()
+	var id int64
+	if err := db.QueryRowContext(ctx,
+		`SELECT id FROM student WHERE canvas_user_id = ?`, canvasUserID,
+	).Scan(&id); err != nil {
+		t.Fatalf("reading the student id for %s: %v", canvasUserID, err)
+	}
+	return id
+}
