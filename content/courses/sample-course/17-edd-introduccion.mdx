@@ -180,7 +180,153 @@ razón es casi siempre el trabajo de dejar el invariante en pie.
 
 ## La EDA Arreglo
 
-{/* S3 — invariantes, tabla de complejidades, la capacidad fija. */}
+<Slide title="El arreglo, ahora como estructura de datos">
+El arreglo de [[arrays-y-funciones|Arreglos y funciones]] es la
+representación más directa que existe: los elementos están en
+**posiciones consecutivas de memoria**, todas del mismo tamaño.
+
+Esa decisión de representación da la propiedad que hace famoso al
+arreglo. Para llegar al elemento `i` no hay que recorrer nada:
+
+$$
+\text{dirección}(i) = \text{base} + i \times \text{tamaño del elemento}
+$$
+
+Una multiplicación y una suma, sin importar si `i` es 3 o 3 millones.
+El acceso cuesta $$\Theta(1)$$ y esa es la razón por la que la búsqueda
+binaria puede ser $$\Theta(\log N)$$.
+
+Un arreglo de Java, sin embargo, no es todavía un contenedor: `datos.length`
+dice cuántas casillas se reservaron, no cuántas están usadas. La
+estructura que estudiamos aquí es el arreglo **más un entero**:
+
+```java
+class Arreglo {
+    private int[] datos;  // la representación: N casillas consecutivas
+    private int size;     // cuántas de esas casillas son válidas
+
+    Arreglo(int capacidad) {
+        datos = new int[capacidad];
+        size = 0;
+    }
+}
+```
+
+`datos.length` es la **capacidad** — casillas reservadas. `size` es el
+**largo** — casillas ocupadas. Los dos números son distintos, y la
+distancia entre ellos es de lo que trata el resto de la clase.
+
+</Slide>
+
+<Slide title="Los invariantes del arreglo">
+Tres propiedades se cumplen antes y después de cada operación. Ninguna
+está escrita en el lenguaje: son responsabilidad de la estructura.
+
+1. **`0 ≤ size ≤ datos.length`.** El largo nunca es negativo y nunca
+   supera la capacidad reservada. Si esta propiedad se rompe, cualquier
+   recorrido sale del arreglo.
+2. **Los elementos del contenedor son exactamente `datos[0..size-1]`.**
+   Están juntos y empiezan en la posición 0: no hay huecos en el medio.
+   Esta propiedad es la que permite recorrer con un `for` de `0` a
+   `size - 1` y no revisar nada más.
+3. **`datos[size..datos.length-1]` es basura.** Esas casillas existen y
+   tienen algún valor — el cero por omisión, o un elemento borrado que
+   quedó ahí —, pero no pertenecen al contenedor y no se leen nunca.
+
+La segunda propiedad es la cara y la barata al mismo tiempo. Es barata
+porque hace que el acceso sea aritmética pura. Es cara porque cualquier
+operación que agregue o quite un elemento del medio tiene que volver a
+dejar todo junto antes de terminar, y "volver a dejar todo junto"
+significa mover elementos.
+
+</Slide>
+
+<Slide title="Operaciones y sus costos">
+Cada fila lee igual: qué invariante deja en pie la operación, y qué
+cuesta dejarlo en pie. La notación asintótica es la de
+[[complejidad-de-hilbert-al-big-o|Complejidad]], sobre $$N$$ = `size`, el número de elementos guardados.
+
+| Operación | Peor caso | Invariante que restaura |
+|---|---|---|
+| `get_at(i)`, `set_at(i, x)` | $$\Theta(1)$$ | Ninguno: no cambian `size` ni el orden |
+| `insert_last(x)` | $$\Theta(1)$$ con capacidad libre; **imposible** si `size == datos.length` | Los válidos siguen siendo `datos[0..size-1]` |
+| `delete_last()` | $$\Theta(1)$$ | Los válidos siguen siendo `datos[0..size-1]` |
+| `insert_at(i, x)` | $$\Theta(N)$$ | Deja los válidos juntos desde 0, con `x` en la posición `i` |
+| `insert_first(x)` | $$\Theta(N)$$ | Igual que `insert_at(0, x)`: el caso más caro |
+| `delete_at(i)` | $$\Theta(N)$$ | Cierra el hueco: los válidos vuelven a quedar juntos |
+| `delete_first()` | $$\Theta(N)$$ | Igual que `delete_at(0)`: el caso más caro |
+| Construir con capacidad `c` | $$\Theta(c)$$ | Establece los tres invariantes por primera vez |
+
+Los dos extremos del arreglo no son simétricos, y la tabla lo muestra:
+trabajar al final es $$\Theta(1)$$ y trabajar al principio es
+$$\Theta(N)$$. La diferencia no viene del hardware sino del segundo
+invariante — al final no hay nada a la derecha que mover, al principio
+hay todo.
+
+</Slide>
+
+<Slide title="Insertar en el medio · el corrimiento">
+Insertar en la posición `i` no puede simplemente escribir en `datos[i]`:
+eso pisaría el elemento que ya estaba ahí y rompería el invariante que
+dice que los válidos son `datos[0..size-1]`. Hay que abrir el hueco
+primero, moviendo hacia la derecha todo lo que está en `[i..size-1]`.
+
+```java
+void insertAt(int i, int x) {
+    if (size == datos.length) {
+        throw new IllegalStateException("arreglo lleno");
+    }
+    for (int j = size; j > i; j--) {  // de derecha a izquierda
+        datos[j] = datos[j - 1];
+    }
+    datos[i] = x;
+    size++;
+}
+```
+
+El bucle recorre de derecha a izquierda a propósito: de izquierda a
+derecha, cada copia pisaría el elemento que todavía falta mover.
+
+El costo son $$N - i$$ copias, con $$N$$ = `size`. Para `i = N` no hay ninguna —
+insertar al final es gratis. Para `i = 0` son $$N$$ — insertar al
+principio mueve el arreglo entero. El invariante que la operación tiene
+que restaurar es exactamente lo que se está pagando.
+
+Borrar es la misma historia al revés: `delete_at(i)` corre hacia la
+izquierda los elementos de `[i+1..size-1]` para cerrar el hueco, y
+después baja `size` en uno.
+
+</Slide>
+
+<Slide title="La limitación · capacidad fija">
+Todo lo anterior asume que hay capacidad libre. Cuando no la hay, el
+arreglo no se pone lento: se acaba.
+
+```java
+Arreglo a = new Arreglo(100);
+// ... 100 insertLast ...
+a.insertLast(x);  // IllegalStateException: arreglo lleno
+```
+
+La capacidad se decide **al construir la estructura**, y a esa altura
+casi nunca sabemos cuántos elementos van a entrar. Las dos salidas
+obvias son malas las dos:
+
+- **Reservar de más.** Un arreglo de un millón de casillas para guardar
+  veinte elementos desperdicia memoria proporcional a lo que no se usó,
+  y sigue sin dar ninguna garantía: el elemento un millón uno tampoco
+  entra.
+- **Reservar lo justo y volver a empezar cuando se llena.** Crear un
+  arreglo más grande y copiar cuesta $$\Theta(N)$$. Si esto pasa en cada
+  inserción, agregar $$N$$ elementos cuesta
+  $$1 + 2 + \dots + N = N(N+1)/2 \in \Theta(N^2)$$, que para un millón
+  de elementos son unas $$5 \times 10^{11}$$ copias.
+
+La pregunta que queda abierta es concreta: **¿existe una manera de
+crecer que no pague $$\Theta(N)$$ por elemento?** La respuesta es que
+sí, y cambia una sola cosa de la segunda salida.
+
+</Slide>
 
 <SectionBreak />
 
