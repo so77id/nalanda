@@ -1,6 +1,7 @@
 # ADR-0050: The controls runner is in-process, single-goroutine, and does not retry
 
 **Status:** Accepted
+**Amended by:** ADR-0072 (issue #273) — a fifth `jobs.Kind`, `publish`, for a minutes-class operation that touches no AMC worker. The four coordinated places and the boot panic are unchanged; what it shows is that "async by construction" is about the WORK's shape, not about who it talks to.
 **Amended by:** #271 (2026-09-05) — the async rule is scoped to the AMC
 worker's minutes-class operations. A bounded outbound call the professor is
 waiting on stays SYNCHRONOUS under a deadline it imposes itself: the Canvas

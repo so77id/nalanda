@@ -48,6 +48,13 @@ fact.
   `POST /controls/{id}/reanalyze`, `POST /controls/{id}/close`). Records
   single-goroutine + SQLite persistence + Sweep-on-boot + no retry + the
   atomicity split that amends ADR-0034 §Failure modes.
+- `docs/decisions/0072-corrections-are-mailed-from-the-professors-own-gmail.md`
+  — the publication path. Read before touching `internal/domain/gmail`,
+  `internal/infra/email`, `Service.Publish`, or the `/profile` connect
+  flow. Records why the mail goes out as the PROFESSOR rather than through
+  a transactional API, why the Gmail grant is a second authorization and
+  not a wider login, the four dispatch modes, and the one question it
+  could not settle (§Consequences, "the seven-day question").
 - `docs/security-notes.md` §"Logs and personal data" — read before adding any
   `slog` call on a path that holds a RUT, a name or a student address. The
   rule is that the identifier stays OUT of the line; the `_action` /
@@ -73,21 +80,27 @@ fact.
   all three; there is no shared constant on purpose (see the router
   entry's comment).
 - `README.md` §"What is not here yet" — before adding anything, check whether
-  the work belongs to **WP-3 of epic #270 (#273)** — publishing corrections,
-  emailing the annotated PDFs, and the deletion path `security-notes.md`
-  records as missing — or to **WP-G** (publishing grades). **WP-C1, WP-C2,
-  WP-C3, WP-E, WP-F, and WP-1 and WP-2 of epic #270 are closed**: the
+  the work belongs to **WP-G** (publishing grades) or to the deletion path
+  `security-notes.md` records as missing. **WP-C1, WP-C2,
+  WP-C3, WP-E, WP-F, and ALL THREE WPs of epic #270 are closed**: the
   layered layout (#149), the login round trip + session gate (#150), the
   backoffice shell + professor CRUD (#151), control creation with the PDF
   pipeline (#166), the scans + review flow (#167), the Canvas roster —
   `course` / `student` / `enrollment` / `user_secrets`, `/profile`,
-  `/courses` (#271) — and the matching layer (#272) all live here.
+  `/courses` (#271) — the matching layer (#272), and publication with the
+  mail path (#273) all live here.
 
   **Reuse #272's entry points rather than rebuilding them**: the join is
   `matching.MatchByRUT` (+ `matching.NormalizeRUT`); the reads are
   `controls.Service.ControlsForCourse`, `MatrixForCourse` and
   `ControlsForStudent`; the repair passes are `RematchCourse` /
   `RematchAllCourses`. The policy behind all of them is ADR-0071.
+
+  **And reuse #273's rather than rebuilding them**: the mail port is
+  `controls.Dispatcher` (four transports in `internal/infra/email`), the
+  authorisation is `gmail.Service` (`Complete` / `Disconnect` /
+  `Connection` / `AccessToken`), and the sending loop is
+  `controls.Service.Publish`. The policy behind all of them is ADR-0072.
 
 ## Language
 
@@ -551,6 +564,82 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   (`coverage_test.go`) — plus `TestPctErradaCountsOKWrongsEvenWith
   Overrides` (`item_test.go`), added after the review caught the
   pre-fix double-subtraction of the override bucket.
+- **Only `invalid_grant` throws a stored Gmail credential away (issue
+  #273, ADR-0072).** `gmail.Service.AccessToken` clears the sealed refresh
+  token and the connected address on `gmail.ErrRejected` and on NOTHING
+  else — not on a 5xx, not on a transport failure, not on a 400 that is
+  some other OAuth error, and not on a secret that will not unseal (which
+  is a wrong master key, a deployment fault, and a row a correct key would
+  still open). A Gmail **403** is likewise not a rejection: it covers
+  "insufficient permission" AND "daily limit exceeded", Google separates
+  them only inside an error `reason` whose vocabulary is not contractual,
+  and between deleting a working credential over a quota and leaving a
+  broken one for the professor to reconnect by hand, the second is the
+  recoverable mistake. The asymmetry is the whole design: clearing too
+  eagerly makes a professor reconnect every time Google hiccups, and it is
+  unrecoverable in the direction that matters — this server cannot
+  re-consent on their behalf.
+- **The publication stamps the control BEFORE it sends (issue #273).**
+  `Service.Publish` calls `MarkPublished` above the loop, never below it.
+  An unstamped control with twenty students already emailed is a control
+  the professor publishes again, and the twenty receive a second copy of a
+  grade; stamping first makes a crash cost the un-sent half, which the
+  failure list names. Moving the stamp below the loop is forbidden.
+
+  **A test that only checks the end state cannot see this** — the loop
+  never returns early, so both orders finish in the same place, and the
+  first version of that case survived the mutation. The pin asks the
+  DISPATCHER what the world looks like at the first send
+  (`TestTheControlIsAlreadyStampedWhenTheFirstMessageGoesOut`). Same rule
+  shape as the UploadScan-survives and LiveBank-survives bullets.
+- **A publication skips; it does not fail (issue #273).** A copy nobody was
+  matched to, a matched person no longer enrolled, a grade that is not
+  defined, a missing annotated PDF — all ORDINARY, all counted in
+  `PublishResult.Skipped`. A class where two people missed the control is a
+  normal class, and folding those into `Failures` reports a problem the
+  professor does not have. `Failures` is what they are asked to ACT on: a
+  send that was attempted and refused, with the copy number and a reason.
+  Same distinction, and the same reason, as #272's Unmatched / Errored /
+  ControlsFailed split.
+
+  And a copy with no annotated PDF is skipped rather than sent without it:
+  "adjunto la corrección" with nothing attached is worse than no message,
+  because the student now has to ask.
+- **`staging` refuses; it never falls back to the student (issue #273).**
+  `email.StagingDispatcher` returns `ErrNoStagingRecipient` when
+  `Message.ProfessorEmail` is empty. Sending to `msg.To` there would
+  deliver to the student in the mode selected to make that impossible, on
+  the run where somebody was deliberately being careful. Failing the send
+  is recoverable; delivering it is not. Verified by mutation, not by
+  reading.
+- **The two OAuth flows must stay unable to complete each other (issue
+  #273).** The login and the Gmail grant have separate state cookie names
+  (`middleware`-adjacent `handler.StateCookieName` vs
+  `handler.GmailStateCookieName`) and separate `oauthstate.Store`
+  instances. Sharing either half would let a nonce issued for one grant be
+  spent on the other, and the two grants carry different scopes. Both
+  directions are pinned; read and write those cookies ONLY through their
+  helpers, the same rule the session cookie carries.
+- **`NALANDA_EMAIL_MODE` defaults to `stub` (issue #273).** It is the only
+  optional variable in `config` whose default is not what production wants,
+  and reversing it is forbidden. An operator who deploys without choosing
+  and gets `stub` finds out when a publication sends nothing and fixes it
+  by setting one line; one who got `real` finds out when a class receives
+  mail that cannot be recalled. An unknown value fails the boot naming the
+  legal set and never falls back — a typo resolving quietly to `stub` is a
+  professor pressing "Publicar", reading a success message, and nobody
+  receiving anything.
+- **Nothing here can test the mail path, either (issue #273).** The suite
+  drives an `httptest` provider and an `httptest` stand-in for Gmail's send
+  endpoint. What no test can see: whether the real consent screen grants
+  the scope, whether the redirect URI matches character for character,
+  whether a refresh token survives a week, and whether a message this
+  server considers well-formed arrives readable in a real inbox. Any change
+  to `internal/infra/oidc/gmail.go`, the `/profile` connect flow,
+  `internal/infra/email/`, the message builder or `NALANDA_EMAIL_MODE` is
+  unfinished while a human has not run
+  [`GMAIL-CHECK.md`](GMAIL-CHECK.md). Same rule, and the same reason, as
+  the Google, Canvas and paper bullets.
 - **The two surfaces do not share an auth gate** (§C12). Everything auth-shaped
   is mounted inside `internal/app/web`; `internal/app/api` is anonymous by
   construction, and `/health` sits deliberately outside the gate because the
