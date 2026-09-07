@@ -380,6 +380,7 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 			page.Stats = &computed
 		}
 	}
+	h.fillPublication(r, &page, c)
 	page.JobBanner = h.jobBannerFor(r.Context(), c.ID)
 	page.PDFsReady = h.pdfsReadyFor(r.Context(), c.ID)
 	page.Flash = flash.Consume(w, r, h.secureCookie)
@@ -944,6 +945,8 @@ func spanishKind(k jobs.Kind) string {
 		return "re-lectura"
 	case jobs.KindAnnotate:
 		return "anotado"
+	case jobs.KindPublish:
+		return "envío de correcciones"
 	default:
 		return string(k)
 	}

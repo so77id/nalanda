@@ -149,6 +149,74 @@
         </form>
       {{ end }}
 
+      {{/*
+        Issue #273. Rendered only on a graded control — CanTestSend and
+        CanPublish are both false before that, and a permanently disabled
+        button on every fresh control teaches a professor to ignore
+        disabled buttons.
+
+        Publicar and the published line are mutually exclusive by
+        construction: a published control is a finished fact, and offering
+        the button beside it would invite a second mailing the route
+        refuses anyway.
+      */}}
+      {{ if .Graded }}
+        <section style="margin-top:1em">
+          <h3>Enviar las correcciones</h3>
+
+          {{ if .Published }}
+            <p class="aviso">{{ .PublishedLine }}</p>
+          {{ else }}
+            <form method="post" action="{{ .PublishURL }}">
+              <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+              <p>
+                <label>
+                  Enviar a
+                  <select name="mode">
+                    <option value="real">los estudiantes</option>
+                    <option value="staging">mi propia dirección (prueba)</option>
+                  </select>
+                </label>
+                {{ if .CanPublish }}
+                  <button type="submit">Publicar</button>
+                {{ else }}
+                  <button type="submit" disabled>Publicar</button>
+                {{ end }}
+              </p>
+              {{ if .PublishBlockedReason }}
+                <p><small>{{ .PublishBlockedReason }}</small></p>
+              {{ end }}
+            </form>
+          {{ end }}
+
+          {{/*
+            The rehearsal stays available AFTER the real publication: that
+            is exactly when a professor needs it, because a student has
+            just told them nothing arrived.
+          */}}
+          <details style="margin-top:0.5em">
+            <summary>Envío de prueba</summary>
+            <form method="post" action="{{ .TestSendURL }}">
+              <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+              <p>
+                Manda todas las correcciones a una sola dirección, sin cambiar
+                nada. Nadie del curso recibe nada.
+              </p>
+              <p>
+                <label>Enviar todo a
+                  <input type="email" name="to" placeholder="tu@correo.cl" required>
+                </label>
+                {{ if .CanTestSend }}
+                  <button type="submit">Enviar prueba</button>
+                {{ else }}
+                  <button type="submit" disabled>Enviar prueba</button>
+                {{ end }}
+              </p>
+            </form>
+          </details>
+        </section>
+      {{ end }}
+
       <details style="margin-top:0.5em">
         <summary>Re-leer con otra sensibilidad</summary>
         <form method="post" action="{{ .ReanalyzeURL }}">

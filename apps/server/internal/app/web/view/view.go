@@ -594,6 +594,33 @@ type ControlDetailPage struct {
 	// what the template needs to render one iteration.
 	JobBanner *JobBanner
 
+	// The publication section (issue #273). Exactly one of PublishedLine
+	// and the two forms renders: a published control is a finished fact,
+	// and offering "Publicar" beside it would invite a second mailing the
+	// route refuses anyway.
+	//
+	// PublishURL and TestSendURL are always populated, so the template
+	// picks by flag rather than guessing.
+	PublishURL  string
+	TestSendURL string
+	// Published is true once the corrections went out.
+	Published bool
+	// PublishedLine is the Spanish sentence a published control shows —
+	// when it happened and in which mode. Pre-formatted, like every other
+	// string this struct hands the template.
+	PublishedLine string
+	// CanPublish gates the button. False renders it disabled with
+	// PublishBlockedReason beside it, the shape CanClose /
+	// CloseBlockedReason already have one section up: a button that is
+	// present-but-disabled and says why is what turns "nothing happens
+	// when I click" into an instruction.
+	CanPublish           bool
+	PublishBlockedReason string
+	// CanTestSend is looser than CanPublish on purpose — a rehearsal stays
+	// available after the real publication, because that is when a student
+	// says nothing arrived.
+	CanTestSend bool
+
 	// PDFsReady gates the "Prueba a imprimir" section on the Detail
 	// page: sujet.pdf, corrige.pdf and pool.json are only offered as
 	// downloads when they can actually be served (issue #257). True

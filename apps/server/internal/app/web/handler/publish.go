@@ -10,6 +10,7 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
@@ -260,4 +261,75 @@ func parseTestAddress(raw string) (string, bool) {
 		return "", false
 	}
 	return parsed.Address, true
+}
+
+// fillPublication populates the detail page's publication half.
+//
+// The three gates are the same ones the POST enforces, worded for a person
+// rather than for a status code — and they are computed here rather than in
+// the template because "why can I not press this" is policy, and a template
+// that decided it would be a second place for the rule to live.
+//
+// A control that has NOT been graded shows nothing at all: publication is
+// not something a professor is thinking about while copies are still under
+// review, and a permanently disabled button on every fresh control is noise
+// that teaches them to ignore disabled buttons.
+func (h *Controls) fillPublication(r *http.Request, page *view.ControlDetailPage, c controls.Control) {
+	page.PublishURL = controlPublishURL(c.ID)
+	page.TestSendURL = controlTestSendURL(c.ID)
+
+	if c.State != controls.Graded {
+		return
+	}
+
+	connected := true
+	if professor, ok := middleware.ProfessorFrom(r.Context()); ok {
+		if connection, err := h.Gmail.Connection(r.Context(), professor.ID); err == nil {
+			connected = connection.Connected()
+		} else {
+			// Same policy as the POST's canSend, and the same reason: a
+			// lookup that blinked must not present a working account as a
+			// missing one. The POST checks again.
+			h.Log.Warn("detail: reading the Gmail connection",
+				"professor", professor.ID, "error", err)
+		}
+	}
+
+	page.Published = c.PublishedAt != nil
+	if page.Published {
+		page.PublishedLine = publishedLine(c)
+	}
+
+	// A rehearsal survives the real publication; only the account and the
+	// course gate it.
+	page.CanTestSend = connected && c.CourseID != nil
+
+	switch {
+	case page.Published:
+		// No reason rendered: the published line above already says what
+		// happened, and "ya fue publicado" beside it would be the same
+		// sentence twice.
+		page.CanPublish = false
+	case c.CourseID == nil:
+		page.PublishBlockedReason = "Asígnale un curso para saber a quién enviarle las correcciones."
+	case !connected:
+		page.PublishBlockedReason = "Conecta una cuenta de Gmail en tu perfil para poder enviar."
+	default:
+		page.CanPublish = true
+	}
+}
+
+// publishedLine words what a published control shows instead of the button.
+//
+// The MODE is named, and that is the load-bearing half: a professor who
+// rehearsed against themselves and one who mailed forty students are in
+// very different situations, and a line saying only "Publicado" would read
+// the same to both.
+func publishedLine(c controls.Control) string {
+	when := c.PublishedAt.Format("02-01-2006 15:04")
+	if c.PublicationMode == controls.PublishModeStaging {
+		return "Publicado el " + when + " en modo prueba: los correos fueron a tu propia dirección, " +
+			"no a los estudiantes."
+	}
+	return "Publicado el " + when + ": las correcciones se enviaron a los estudiantes."
 }

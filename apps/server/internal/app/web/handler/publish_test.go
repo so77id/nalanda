@@ -311,3 +311,117 @@ func TestATestSendRefusesAnOpenCorrection(t *testing.T) {
 		t.Errorf("status = %d, want 422", rec.Code)
 	}
 }
+
+// The page. Every case here is about what a professor can and cannot press,
+// because that is the whole of this slice — the POST already refuses what
+// it must, and a button that is present-but-disabled and says why is what
+// turns "nothing happens when I click" into an instruction.
+
+func TestTheDetailPageOffersPublishOnAGradedControl(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	body := f.detailBody(t, controlID)
+	if !strings.Contains(body, "/publish") {
+		t.Error("the page offers no way to publish")
+	}
+	if !strings.Contains(body, "/test-send") {
+		t.Error("the page offers no rehearsal")
+	}
+	if strings.Contains(body, "disabled>Publicar") {
+		t.Error("Publicar is disabled on a control that is ready to publish")
+	}
+}
+
+// Publication is not something a professor is thinking about while copies
+// are still under review, and a permanently disabled button on every fresh
+// control teaches them to ignore disabled buttons.
+func TestAnUngradedControlShowsNoPublicationSection(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 2", 2)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	body := f.detailBody(t, controlID)
+	if strings.Contains(body, "Enviar las correcciones") {
+		t.Error("the publication section renders before the correction is closed")
+	}
+}
+
+// The pair the testing strategy asks of an enum-valued input: the chosen
+// value is offered AND the other one is too, in the same case — a
+// presence-only check passes over a select with one option, which is a
+// dropdown that silently removes the professor's choice.
+func TestThePublishFormOffersBothModes(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	body := f.detailBody(t, controlID)
+	for _, mode := range []string{`value="real"`, `value="staging"`} {
+		if !strings.Contains(body, mode) {
+			t.Errorf("the mode selector does not offer %s", mode)
+		}
+	}
+}
+
+func TestPublicarIsDisabledWithAReasonWhenNoAccountIsConnected(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+	f.rebuildWithGmail(t, connectedGmail{disconnected: true})
+
+	body := f.detailBody(t, controlID)
+	if !strings.Contains(body, "disabled>Publicar") {
+		t.Error("Publicar is live for a professor who cannot send")
+	}
+	if !strings.Contains(body, "perfil") {
+		t.Errorf("the disabled button gives no reason:\n%s", body)
+	}
+}
+
+// A published control shows what happened INSTEAD of the button. Offering
+// both would invite a second mailing the route refuses anyway.
+func TestAPublishedControlShowsWhatHappenedInsteadOfTheButton(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	if rec := f.publish(t, controlID, url.Values{"mode": {"real"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("publish: %d", rec.Code)
+	}
+	f.waitLatestJobTerminal(t, controlID)
+
+	body := f.detailBody(t, controlID)
+	if !strings.Contains(body, "Publicado el") {
+		t.Errorf("the page does not say the control was published:\n%s", body)
+	}
+	if strings.Contains(body, `action="/controls/`+controlID+`/publish"`) {
+		t.Error("the publish form is still on the page after the control was published")
+	}
+	// The mode is named, because a professor who rehearsed against
+	// themselves and one who mailed forty students are in very different
+	// situations and "Publicado" alone reads the same to both.
+	if !strings.Contains(body, "se enviaron a los estudiantes") {
+		t.Errorf("the published line does not say where the mail went:\n%s", body)
+	}
+}
+
+// And the rehearsal survives it, because that is exactly when a professor
+// needs it: a student has just said nothing arrived.
+func TestTheRehearsalStaysAvailableAfterPublication(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	if rec := f.publish(t, controlID, url.Values{"mode": {"real"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("publish: %d", rec.Code)
+	}
+	f.waitLatestJobTerminal(t, controlID)
+
+	body := f.detailBody(t, controlID)
+	if !strings.Contains(body, "/test-send") {
+		t.Error("the rehearsal disappeared once the control was published")
+	}
+	if strings.Contains(body, "disabled>Enviar prueba") {
+		t.Error("the rehearsal is disabled on a published control")
+	}
+}
