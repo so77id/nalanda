@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -79,7 +80,10 @@ type controlsFixture struct {
 	// courseID is the course the fixture seeds, or 0 when it seeded none
 	// (issue #272). Every control the form creates belongs to it.
 	courseID int64
-	// roster is the real roster service behind the handler's CourseLister
+	// bank is the live bank the handler renders forms from — kept so a
+	// case can rebuild the handler over a different roster (issue #272 S7).
+	bank *bank.LiveBank
+	// roster is the real roster service behind the handler's RosterReader
 	// — a real coursestore over the same database, and a Canvas source
 	// that is never reached. The dropdown asks the store, not Canvas.
 	roster *roster.Service
@@ -283,14 +287,14 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 	}()
 	h := handler.NewControls(handler.Controls{
 		Service: svc, Bank: live,
-		Courses:   rosterService,
+		Roster:    rosterService,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
 		OnCorrectionClosed: hook,
 		Jobs:               jstore,
 		Runner:             runner,
 		Log:                log,
 	})
-	return &controlsFixture{handler: h, service: svc, cstore: cstore, jstore: jstore, runner: runner, fake: fake, hook: hook, workDir: workDir, user: prof, session: session, log: log, db: db, roster: rosterService}
+	return &controlsFixture{handler: h, service: svc, cstore: cstore, jstore: jstore, runner: runner, fake: fake, hook: hook, workDir: workDir, user: prof, session: session, log: log, db: db, roster: rosterService, bank: live}
 }
 
 // jobCounts is what jstoreQueuedAndTerminalCount returns — the three
@@ -1513,4 +1517,229 @@ func TestAssignCourseOnAnUnknownControlIs404(t *testing.T) {
 	if rec.Code != http.StatusNotFound {
 		t.Errorf("status = %d, want 404", rec.Code)
 	}
+}
+
+// --- Issue #272 S7: the control page shows people, not RUTs. ---
+
+// AC8: a matched copy shows the student's NAME, an unmatched one falls
+// back to the RUT, and each row carries its association badge.
+func TestTheControlPageShowsNamesAndAssociationBadges(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	controlID := f.createControlOnCourse(t, "Control con curso", 2, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{
+			"1": okCopy("20100001"), // Ana
+			"2": okCopy("20100999"), // nobody
+		}},
+	}
+	uploadOnce(t, f, controlID)
+
+	body := f.detailBody(t, controlID)
+
+	if !strings.Contains(body, "Ana Pérez") {
+		t.Errorf("the matched copy does not show the student's name:\n%s", body)
+	}
+	// The unmatched copy keeps its RUT: eight digits are more than
+	// nothing, and they are what the professor checks against the scan.
+	if !strings.Contains(body, "20100999") {
+		t.Error("the unmatched copy lost its RUT instead of falling back to it")
+	}
+	for _, want := range []string{"Asociación", "asociado", "reconciliar"} {
+		if !strings.Contains(body, want) {
+			t.Errorf("the results table does not carry %q:\n%s", want, body)
+		}
+	}
+}
+
+// A control with no course renders no Asociación column at all.
+//
+// Every copy of one is unmatched for a single reason that has nothing to
+// do with any of them — nobody has said which class sat it. Thirty amber
+// badges would say "look at these thirty copies" when the whole fix is
+// one dropdown further up the same page.
+func TestAControlWithNoCourseHasNoAssociationColumn(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControlOnCourse(t, "Control histórico", 1, nil)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	body := f.detailBody(t, controlID)
+	for _, unwanted := range []string{"Asociación", "reconciliar", "asociado"} {
+		if strings.Contains(body, unwanted) {
+			t.Errorf("a control with no course renders %q; it has no roster to associate against:\n%s",
+				unwanted, body)
+		}
+	}
+	// And the RUT is still there — the page kept working exactly as it
+	// did before this WP.
+	if !strings.Contains(body, "20100001") {
+		t.Error("the RUT disappeared from a control with no course")
+	}
+}
+
+// A copy nobody handed in is not something to go and reconcile.
+//
+// It has no RUT and never will. "reconciliar" would put it on a list of
+// things to fix, next to the copies that genuinely need a human.
+func TestACopyThatWasNeverHandedInIsNotMarkedForReconciliation(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	// Two copies printed, one scanned: the other lands as not_present.
+	controlID := f.createControlOnCourse(t, "Control con ausente", 2, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	readings, err := f.service.ReadingsFor(ctx, controlID)
+	if err != nil {
+		t.Fatalf("ReadingsFor: %v", err)
+	}
+	var absent int
+	for _, r := range readings {
+		if r.CopyStatus == controls.CopyStatusNotPresent {
+			absent++
+		}
+	}
+	if absent != 1 {
+		t.Fatalf("precondition: %d not_present copies, want 1", absent)
+	}
+
+	body := f.detailBody(t, controlID)
+	if strings.Count(body, "reconciliar") != 0 {
+		t.Errorf("the copy nobody handed in is marked for reconciliation:\n%s", body)
+	}
+	if !strings.Contains(body, "asociado") {
+		t.Error("the copy that WAS handed in lost its badge")
+	}
+}
+
+// The names cost ONE query, whatever the number of copies.
+//
+// A reading's student is by construction enrolled on the control's
+// course, so the course's roster is exactly the set needed. Asking per
+// row would be thirty statements to render thirty cells — the mistake
+// #271's review caught one screen over (ARQ-1).
+func TestTheControlPageReadsTheRosterOnceForEveryCopy(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	students := make([]roster.SourceStudent, 0, 5)
+	copies := map[string]controls.ReportCopy{}
+	for i := 1; i <= 5; i++ {
+		rut := fmt.Sprintf("2010000%d", i)
+		students = append(students, roster.SourceStudent{
+			FirstName: fmt.Sprintf("Alumno%d", i), LastName: "Pérez",
+			RUT: rut, RUTDV: "5", CanvasUserID: fmt.Sprintf("canvas-%d", i),
+		})
+		copies[strconv.Itoa(i)] = okCopy(rut)
+	}
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, students); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+
+	controlID := f.createControlOnCourse(t, "Control lleno", 5, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{{Copies: copies}}
+	uploadOnce(t, f, controlID)
+
+	counter := &countingRoster{RosterReader: f.roster}
+	f.handler = handler.NewControls(handler.Controls{
+		Service: f.service, Bank: f.bank, Roster: counter,
+		PublicURL: publicURL, MaxScanBytes: 5 << 20,
+		OnCorrectionClosed: f.hook, Jobs: f.jstore, Runner: f.runner, Log: f.log,
+	})
+
+	body := f.detailBody(t, controlID)
+	for i := 1; i <= 5; i++ {
+		if want := fmt.Sprintf("Alumno%d Pérez", i); !strings.Contains(body, want) {
+			t.Errorf("the table does not name %q", want)
+		}
+	}
+	if counter.enrollmentCalls != 1 {
+		t.Errorf("Enrollments was called %d times for 5 copies, want 1", counter.enrollmentCalls)
+	}
+}
+
+// countingRoster counts the per-course roster reads a page performs.
+type countingRoster struct {
+	handler.RosterReader
+	enrollmentCalls int
+}
+
+func (c *countingRoster) Enrollments(ctx context.Context, courseID int64) (roster.Course, []roster.Enrollment, error) {
+	c.enrollmentCalls++
+	return c.RosterReader.Enrollments(ctx, courseID)
+}
+
+// A roster read that fails leaves the page working with RUTs.
+//
+// The names are an enrichment over a table that rendered perfectly well
+// before this WP. Failing the whole correction screen because a roster
+// lookup blinked would make a working page unreachable over a column.
+func TestAFailedRosterReadStillRendersTheControlPage(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+
+	if _, err := f.roster.Store.SaveRoster(ctx, f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5", CanvasUserID: "canvas-ana"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	controlID := f.createControlOnCourse(t, "Control con curso", 1, &f.courseID)
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	f.handler = handler.NewControls(handler.Controls{
+		Service: f.service, Bank: f.bank,
+		Roster:    &failingRoster{RosterReader: f.roster},
+		PublicURL: publicURL, MaxScanBytes: 5 << 20,
+		OnCorrectionClosed: f.hook, Jobs: f.jstore, Runner: f.runner, Log: f.log,
+	})
+
+	req := f.detailRequest(t, controlID)
+	rec := httptest.NewRecorder()
+	f.handler.Detail(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 — the names are an enrichment, not the page", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "20100001") {
+		t.Error("the RUT fallback is missing, so the row names nobody at all")
+	}
+}
+
+// failingRoster answers the course list and breaks on the per-course read.
+type failingRoster struct {
+	handler.RosterReader
+}
+
+func (failingRoster) Enrollments(context.Context, int64) (roster.Course, []roster.Enrollment, error) {
+	return roster.Course{}, nil, errors.New("the roster database is gone")
+}
+
+// detailBody renders one control's detail page and returns the HTML.
+func (f *controlsFixture) detailBody(t *testing.T, controlID string) string {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	f.handler.Detail(rec, f.detailRequest(t, controlID))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Detail status = %d, want 200; body:\n%s", rec.Code, rec.Body.String())
+	}
+	return rec.Body.String()
 }

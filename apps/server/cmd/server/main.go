@@ -270,11 +270,12 @@ func run(logger *slog.Logger) error {
 		}),
 		Controls: handler.NewControls(handler.Controls{
 			Service: controlsService,
-			// Issue #272: the courses a control can belong to. The same
-			// rosterService the Courses and Profile handlers hold — it
-			// satisfies handler.CourseLister, which is the one read this
-			// handler needs from it.
-			Courses:      rosterService,
+			// Issue #272: the roster, as these screens need it — the
+			// course list for the create form's select, and the people
+			// on one course so a copy shows a name. The same
+			// rosterService the Courses and Profile handlers hold;
+			// it satisfies handler.RosterReader.
+			Roster:       rosterService,
 			Bank:         liveBank,
 			PublicURL:    cfg.PublicURL,
 			MaxScanBytes: cfg.MaxScanBytes,

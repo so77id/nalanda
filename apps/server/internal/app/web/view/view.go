@@ -485,6 +485,14 @@ type ControlDetailPage struct {
 	PoolJSONURL string
 	// ScansURL is the POST target of the upload form.
 	ScansURL string
+	// ShowAssociation gates the "Asociación" column (issue #272 S7).
+	//
+	// False for a control with no course, where every copy is unmatched
+	// for one reason that has nothing to do with any of them — nobody has
+	// said which class sat it. Thirty amber badges would say "look at
+	// these thirty copies" when the whole fix is one dropdown further up
+	// the page.
+	ShowAssociation bool
 	// CourseLabel names the course this control belongs to, empty when it
 	// has none (issue #272). Non-empty renders a row in the Datos table
 	// linking to CourseURL; empty renders the "Asignar curso" form below
@@ -628,6 +636,21 @@ type ReadingRow struct {
 	TotalRaw string
 	// Grade is like "6.5" or "—".
 	Grade string
+	// Student is the name of the person this copy was matched to, empty
+	// when it matched nobody (issue #272 S7). The template shows it in
+	// place of the RUT — a professor recognises "Ana Pérez" and has to
+	// look up 11222333 — and falls back to the RUT when there is no name,
+	// because eight digits are still more than nothing.
+	Student string
+	// Association is the badge: "asociado", "reconciliar", or "—" for a
+	// copy nobody handed in. AssociationClass is the CSS class.
+	//
+	// It ANNOTATES; it does not gate. An unmatched copy is not a copy
+	// that needs review, does not change the "N requieren revisión" count
+	// and does not block "Cerrar corrección" — the correction flow keeps
+	// exactly the meaning it had (#272 §Non-goals).
+	Association      string
+	AssociationClass string
 	// Estado is the Spanish estado word / phrase per §The results
 	// table's collapse rules.
 	Estado string

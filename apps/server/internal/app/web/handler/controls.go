@@ -75,27 +75,36 @@ const (
 // Only Service is here on the domain side — reads and writes both go
 // through it (WP-E review, ARQ-11: the earlier shape held both Service
 // and Store and reviewers could not tell which was canonical for reads).
-// CourseLister is the slice of the roster this handler needs: the list
-// that fills the create form's required course select and the detail
-// page's "Asignar curso" (issue #272).
+// RosterReader is the slice of the roster these screens need (issue
+// #272): the course list that fills the create form's required select and
+// the detail page's "Asignar curso" (S1b-b), and the people on one course
+// so a copy can be shown under a name instead of eight digits (S7).
 //
-// An interface rather than a *roster.Service field because the whole of
-// the need is one read. Injecting the service itself would drag its
-// Canvas CourseSource into every controls test to render a dropdown that
-// never talks to Canvas. It is still a dependency on a domain SERVICE and
-// not on a store — *roster.Service is what satisfies it, as the assertion
-// below states at compile time (backend-code-style.md §The dependency
-// rule, edge 4).
-type CourseLister interface {
+// Named for the collaborator rather than for one action, because it grew
+// a second method two slices after it was born. An interface rather than
+// a *roster.Service field because the whole of the need is two reads:
+// injecting the service itself would drag its Canvas CourseSource into
+// every controls test to render a dropdown that never talks to Canvas. It
+// is still a dependency on a domain SERVICE and not on a store —
+// *roster.Service is what satisfies it, as the assertion below states at
+// compile time (backend-code-style.md §The dependency rule, edge 4).
+type RosterReader interface {
 	Courses(ctx context.Context) ([]roster.Course, error)
+
+	// Enrollments is how a matched reading gets a NAME. The control page
+	// resolves ids against this one list rather than asking per row: a
+	// reading's student is by construction enrolled on the control's
+	// course, so the set is exactly right, the query already exists, and
+	// it is one statement for thirty copies instead of thirty.
+	Enrollments(ctx context.Context, courseID int64) (roster.Course, []roster.Enrollment, error)
 }
 
-var _ CourseLister = (*roster.Service)(nil)
+var _ RosterReader = (*roster.Service)(nil)
 
 type Controls struct {
 	Service *controls.Service
-	// Courses lists the courses a control can belong to (issue #272).
-	Courses CourseLister
+	// Roster is the course list and the people on one course (issue #272).
+	Roster RosterReader
 	// Bank is the live wrapper around the published question bank
 	// (ADR-0032, issue #230). Handler methods call h.Bank.Get() to pick
 	// up the current snapshot; each call resolves independently, so a
@@ -132,8 +141,8 @@ func NewControls(deps Controls) *Controls {
 	switch {
 	case deps.Service == nil:
 		panic("handler.NewControls: no service")
-	case deps.Courses == nil:
-		panic("handler.NewControls: no course lister")
+	case deps.Roster == nil:
+		panic("handler.NewControls: no roster reader")
 	case deps.Bank == nil:
 		panic("handler.NewControls: no bank")
 	case deps.PublicURL == "":
@@ -202,7 +211,7 @@ func (h *Controls) Create(w http.ResponseWriter, r *http.Request) {
 	// dropdown or a hand-typed POST is a field error like any other —
 	// leaving it to the schema's foreign key would surface as a 500 the
 	// professor cannot act on.
-	courses, err := h.Courses.Courses(r.Context())
+	courses, err := h.Roster.Courses(r.Context())
 	if err != nil {
 		h.Log.Error("listing the courses to create a control", "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
@@ -337,8 +346,18 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(readings) > 0 {
+		names, err := h.studentNamesFor(r.Context(), c)
+		if err != nil {
+			// The names are an enrichment over a table that renders
+			// perfectly well without them — the RUT column is what it
+			// showed before this WP. Failing the whole page over a
+			// roster read would make a working correction screen
+			// unreachable because a lookup blinked.
+			h.Log.Warn("controls: reading the roster for names", "control", c.ID, "error", err)
+		}
 		page.QuestionColumns = perQuestionColumns(c.QuestionsPerCopy)
-		page.Readings = toReadingRows(c, readings)
+		page.ShowAssociation = c.CourseID != nil
+		page.Readings = toReadingRows(c, readings, names)
 		page.Summary = summarise(readings)
 		page.CanClose, page.CloseBlockedReason = closeGate(c, readings)
 	}
@@ -374,7 +393,7 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 // cheaper way to turn an id into a code; that read is what the branch is
 // for.
 func (h *Controls) fillCourse(r *http.Request, page *view.ControlDetailPage, c controls.Control) error {
-	courses, err := h.Courses.Courses(r.Context())
+	courses, err := h.Roster.Courses(r.Context())
 	if err != nil {
 		return err
 	}
@@ -401,6 +420,47 @@ func (h *Controls) fillCourse(r *http.Request, page *view.ControlDetailPage, c c
 	// as "no course" and offer no way to notice the inconsistency.
 	page.CourseLabel = "Curso #" + strconv.FormatInt(*c.CourseID, 10)
 	return nil
+}
+
+// studentNamesFor maps student id to the name the results table shows.
+//
+// One query for the whole table: a matched reading's student is by
+// construction enrolled on the control's course, so the course's own
+// roster is exactly the set needed, and asking per row would be thirty
+// statements to render thirty cells (#271 review, ARQ-1, is the same
+// mistake one screen over).
+//
+// Returns nil for a control with no course, which every caller handles as
+// "no names" — the map read of a nil map is the zero string.
+func (h *Controls) studentNamesFor(ctx context.Context, c controls.Control) (map[int64]string, error) {
+	if c.CourseID == nil {
+		return nil, nil
+	}
+	_, enrollments, err := h.Roster.Enrollments(ctx, *c.CourseID)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[int64]string, len(enrollments))
+	for _, e := range enrollments {
+		names[e.Student.ID] = studentName(e.Student)
+	}
+	return names, nil
+}
+
+// studentName is how a person is named on a screen that lists copies:
+// given names first, the way somebody is addressed rather than the way a
+// class list is sorted. The roster page sorts by surname and shows the
+// two in separate columns; here it is one cell in a row about a copy.
+func studentName(s roster.Student) string {
+	switch {
+	case s.FirstName == "" && s.LastName == "":
+		return ""
+	case s.FirstName == "":
+		return s.LastName
+	case s.LastName == "":
+		return s.FirstName
+	}
+	return s.FirstName + " " + s.LastName
 }
 
 // SujetPDF, CorrigePDF and PoolJSON stream the control's files from the
@@ -508,7 +568,7 @@ func (h *Controls) newFormPage(w http.ResponseWriter, r *http.Request, values vi
 // asked at all. Rendering the first for the second would tell a professor
 // with a full roster to go and create it.
 func (h *Controls) courseOptions(w http.ResponseWriter, r *http.Request) ([]view.CourseOption, bool) {
-	courses, err := h.Courses.Courses(r.Context())
+	courses, err := h.Roster.Courses(r.Context())
 	if err != nil {
 		h.Log.Error("listing the courses for a control form", "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
@@ -563,7 +623,7 @@ func (h *Controls) AssignCourse(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	courses, err := h.Courses.Courses(r.Context())
+	courses, err := h.Roster.Courses(r.Context())
 	if err != nil {
 		h.Log.Error("listing the courses to assign one", "control", id, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
@@ -1044,15 +1104,15 @@ func perQuestionColumns(n int) []string {
 // toReadingRows turns each Reading into the pre-formatted table row.
 // Grade math and the estado collapse live here so the template does no
 // arithmetic.
-func toReadingRows(c controls.Control, readings []controls.Reading) []view.ReadingRow {
+func toReadingRows(c controls.Control, readings []controls.Reading, names map[int64]string) []view.ReadingRow {
 	out := make([]view.ReadingRow, 0, len(readings))
 	for _, r := range readings {
-		out = append(out, toReadingRow(c, r))
+		out = append(out, toReadingRow(c, r, names))
 	}
 	return out
 }
 
-func toReadingRow(c controls.Control, r controls.Reading) view.ReadingRow {
+func toReadingRow(c controls.Control, r controls.Reading, names map[int64]string) view.ReadingRow {
 	row := view.ReadingRow{
 		CopyNumber:  r.CopyNumber,
 		PerQuestion: renderPerQuestion(c.QuestionsPerCopy, r),
@@ -1061,7 +1121,30 @@ func toReadingRow(c controls.Control, r controls.Reading) view.ReadingRow {
 	row.RUT, row.Edited = renderRUT(r)
 	row.Estado, row.EstadoClass = estadoFor(r)
 	row.TotalRaw, row.Grade = controls.TotalAndGrade(c.QuestionsPerCopy, r)
+	if r.StudentID != nil {
+		row.Student = names[*r.StudentID]
+	}
+	row.Association, row.AssociationClass = associationFor(c, r)
 	return row
+}
+
+// associationFor is the "Asociación" badge (issue #272 S7).
+//
+// Empty for a control with no course — the template hides the whole
+// column there, and a badge would be answering a question nobody asked.
+// "—" for a copy nobody handed in: it has no RUT and never will, so
+// "reconciliar" would put it on a list of things to go and fix.
+func associationFor(c controls.Control, r controls.Reading) (string, string) {
+	if c.CourseID == nil {
+		return "", ""
+	}
+	if r.CopyStatus == controls.CopyStatusNotPresent {
+		return "—", "asoc-na"
+	}
+	if r.StudentID != nil {
+		return "asociado", "asoc-ok"
+	}
+	return "reconciliar", "asoc-pendiente"
 }
 
 // controlReviewURL is the URL of one copy's review page (S5).

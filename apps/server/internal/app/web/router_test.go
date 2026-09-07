@@ -129,11 +129,11 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 			}, logger, time.Now)
 			return handler.NewControls(handler.Controls{
 				Service: svc,
-				// Issue #272: the course dropdown's source. Wired over
+				// Issue #272: the roster these screens read. Wired over
 				// emptyCourseStore like the two handlers below — these
 				// cases are about the router's table, not about which
 				// courses exist.
-				Courses: roster.NewService(
+				Roster: roster.NewService(
 					emptyCourseStore{},
 					roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{})),
 				),

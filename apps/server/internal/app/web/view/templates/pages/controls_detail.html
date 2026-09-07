@@ -164,7 +164,15 @@
       <table class="lista">
         <thead>
           <tr>
-            <th>RUT</th>
+            {{/*
+              Issue #272 S7: "Alumno", not "RUT". A professor recognises
+              "Ana Pérez" and has to look up 11222333. The RUT is still
+              what shows when the copy matched nobody — eight digits are
+              more than nothing — so the column holds whichever of the two
+              this row actually has.
+            */}}
+            <th>Alumno</th>
+            {{ if .ShowAssociation }}<th>Asociación</th>{{ end }}
             {{ range .QuestionColumns }}<th>{{ . }}</th>{{ end }}
             <th>Total</th>
             <th>Nota</th>
@@ -175,7 +183,19 @@
         <tbody>
           {{ range .Readings }}
             <tr class="{{ .EstadoClass }}">
-              <td>{{ if .RUT }}{{ .RUT }}{{ else }}—{{ end }}{{ if .Edited }} <small>(editado)</small>{{ end }}</td>
+              <td>
+                {{ if .Student }}
+                  {{ .Student }}
+                {{ else if .RUT }}
+                  {{ .RUT }}
+                {{ else }}
+                  —
+                {{ end }}
+                {{ if .Edited }} <small>(editado)</small>{{ end }}
+              </td>
+              {{ if $.ShowAssociation }}
+                <td class="{{ .AssociationClass }}">{{ .Association }}</td>
+              {{ end }}
               {{ range .PerQuestion }}<td>{{ . }}</td>{{ end }}
               <td>{{ .TotalRaw }}</td>
               <td>{{ .Grade }}</td>
