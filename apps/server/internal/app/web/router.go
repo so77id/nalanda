@@ -323,6 +323,13 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.ControlPurgePath,
 			Handler: deps.Controls.Purge,
 		},
+		// Issue #272: "Asignar curso" on the detail page of a control
+		// that has none. Gated by default (no Public), CSRF enforced
+		// because the method is POST.
+		{
+			Method: http.MethodPost, Path: handler.ControlCoursePath,
+			Handler: deps.Controls.AssignCourse,
+		},
 	}
 }
 

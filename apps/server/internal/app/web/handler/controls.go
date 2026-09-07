@@ -18,6 +18,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls/stats"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 )
 
@@ -43,7 +44,17 @@ const (
 	ControlsArchivedPath    = "/controls/archived"
 	ControlPurgeConfirmPath = "/controls/{id}/purge/confirm"
 	ControlPurgePath        = "/controls/{id}/purge"
+	// ControlCoursePath assigns the course a control belongs to (issue
+	// #272). POST-only: it is the write half of the detail page's
+	// "Asignar curso" form, and the read half is the detail page itself.
+	ControlCoursePath = "/controls/{id}/course"
 )
+
+// ControlCoursePathFor builds one control's course-assignment URL.
+// Exported so the template and the redirect name the pattern once.
+func ControlCoursePathFor(id string) string {
+	return ControlsPath + "/" + id + "/course"
+}
 
 // Defaults for the form fields. §C17: a control is four questions under a
 // five-minute clock. 30 copies is a reasonable class size.
@@ -64,8 +75,27 @@ const (
 // Only Service is here on the domain side — reads and writes both go
 // through it (WP-E review, ARQ-11: the earlier shape held both Service
 // and Store and reviewers could not tell which was canonical for reads).
+// CourseLister is the slice of the roster this handler needs: the list
+// that fills the create form's required course select and the detail
+// page's "Asignar curso" (issue #272).
+//
+// An interface rather than a *roster.Service field because the whole of
+// the need is one read. Injecting the service itself would drag its
+// Canvas CourseSource into every controls test to render a dropdown that
+// never talks to Canvas. It is still a dependency on a domain SERVICE and
+// not on a store — *roster.Service is what satisfies it, as the assertion
+// below states at compile time (backend-code-style.md §The dependency
+// rule, edge 4).
+type CourseLister interface {
+	Courses(ctx context.Context) ([]roster.Course, error)
+}
+
+var _ CourseLister = (*roster.Service)(nil)
+
 type Controls struct {
 	Service *controls.Service
+	// Courses lists the courses a control can belong to (issue #272).
+	Courses CourseLister
 	// Bank is the live wrapper around the published question bank
 	// (ADR-0032, issue #230). Handler methods call h.Bank.Get() to pick
 	// up the current snapshot; each call resolves independently, so a
@@ -102,6 +132,8 @@ func NewControls(deps Controls) *Controls {
 	switch {
 	case deps.Service == nil:
 		panic("handler.NewControls: no service")
+	case deps.Courses == nil:
+		panic("handler.NewControls: no course lister")
 	case deps.Bank == nil:
 		panic("handler.NewControls: no bank")
 	case deps.PublicURL == "":
@@ -143,7 +175,10 @@ func (h *Controls) List(w http.ResponseWriter, r *http.Request) {
 
 // New renders the empty create form.
 func (h *Controls) New(w http.ResponseWriter, r *http.Request) {
-	page := h.newFormPage(r, defaultFormValues(), nil, "")
+	page, ok := h.newFormPage(w, r, defaultFormValues(), nil, "")
+	if !ok {
+		return
+	}
 	if err := view.RenderControlsForm(w, http.StatusOK, page); err != nil {
 		h.Log.Error("rendering the controls create form", "error", err)
 	}
@@ -160,6 +195,29 @@ func (h *Controls) Create(w http.ResponseWriter, r *http.Request) {
 
 	values := valuesFromRequest(r)
 	errs, req := validateCreate(values, h.Bank.Get())
+
+	// The course is validated HERE and not in validateCreate, which is a
+	// pure function over the form and the bank: deciding whether a
+	// submitted id names a real course needs a database read. A stale
+	// dropdown or a hand-typed POST is a field error like any other —
+	// leaving it to the schema's foreign key would surface as a 500 the
+	// professor cannot act on.
+	courses, err := h.Courses.Courses(r.Context())
+	if err != nil {
+		h.Log.Error("listing the courses to create a control", "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al leer los cursos. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+	switch courseID, ok := courseIDFromForm(values.CourseID, courses); {
+	case ok:
+		req.CourseID = &courseID
+	case values.CourseID == "":
+		errs["course_id"] = "Elige el curso al que pertenece este control."
+	default:
+		errs["course_id"] = "Ese curso no existe. Elige uno de la lista."
+	}
+
 	if len(errs) > 0 {
 		h.rerenderNew(w, r, values, errs, "")
 		return
@@ -253,6 +311,17 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 		Archived:   c.DeletedAt != nil,
 		ArchiveURL: controlArchiveURL(c.ID),
 		RestoreURL: controlRestoreURL(c.ID),
+		// Issue #272: exactly one of the two renders. A control that has
+		// a course shows it (and links to it); one that has none gets the
+		// form that gives it one. Both at once would invite re-filing a
+		// control from a page the professor is only reading.
+		AssignCourseURL: ControlCoursePathFor(c.ID),
+	}
+	if err := h.fillCourse(r, &page, c); err != nil {
+		h.Log.Error("reading the courses for a control", "control", c.ID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al leer los cursos. Vuelve a intentarlo en unos segundos.")
+		return
 	}
 	for _, name := range uploads {
 		page.Uploads = append(page.Uploads, view.UploadedBatch{
@@ -291,6 +360,47 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 	if err := view.RenderControlDetail(w, page); err != nil {
 		h.Log.Error("rendering the control detail", "error", err)
 	}
+}
+
+// fillCourse populates the detail page's course half: the named course
+// when the control has one, and the options for the "Asignar curso" form
+// when it does not.
+//
+// The courses are read ONLY in the unassigned branch. A control that
+// already belongs to a course needs a label, and the label is on the row
+// the caller already has — asking the roster again would be a query per
+// detail page render to answer a question nobody asked. The assigned
+// branch resolves the name from the same list only because there is no
+// cheaper way to turn an id into a code; that read is what the branch is
+// for.
+func (h *Controls) fillCourse(r *http.Request, page *view.ControlDetailPage, c controls.Control) error {
+	courses, err := h.Courses.Courses(r.Context())
+	if err != nil {
+		return err
+	}
+	if c.CourseID == nil {
+		page.CourseOptions = make([]view.CourseOption, 0, len(courses))
+		for _, course := range courses {
+			page.CourseOptions = append(page.CourseOptions, view.CourseOption{
+				Value: strconv.FormatInt(course.ID, 10),
+				Label: courseLabel(course),
+			})
+		}
+		return nil
+	}
+	for _, course := range courses {
+		if course.ID == *c.CourseID {
+			page.CourseLabel = courseLabel(course)
+			page.CourseURL = CoursePathFor(course.ID)
+			return nil
+		}
+	}
+	// The row points at a course the list does not carry. Unreachable
+	// through the UI — the foreign key refuses a delete — so the honest
+	// rendering is the id itself rather than a blank cell that would read
+	// as "no course" and offer no way to notice the inconsistency.
+	page.CourseLabel = "Curso #" + strconv.FormatInt(*c.CourseID, 10)
+	return nil
 }
 
 // SujetPDF, CorrigePDF and PoolJSON stream the control's files from the
@@ -358,13 +468,24 @@ func (h *Controls) serveControlFile(w http.ResponseWriter, r *http.Request, path
 
 // rerenderNew re-renders the form after a validation refusal (422).
 func (h *Controls) rerenderNew(w http.ResponseWriter, r *http.Request, values view.ControlFormValues, errs map[string]string, notice string) {
-	page := h.newFormPage(r, values, errs, notice)
+	page, ok := h.newFormPage(w, r, values, errs, notice)
+	if !ok {
+		return
+	}
 	if err := view.RenderControlsForm(w, http.StatusUnprocessableEntity, page); err != nil {
 		h.Log.Error("rendering the controls form after validation", "error", err)
 	}
 }
 
-func (h *Controls) newFormPage(r *http.Request, values view.ControlFormValues, errs map[string]string, notice string) view.ControlsFormPage {
+// newFormPage assembles the create form. It reads the courses, so it can
+// fail — and it writes its own 500 and reports false when it does, rather
+// than rendering a form whose required select is empty for a reason the
+// professor would read as "you have no courses".
+func (h *Controls) newFormPage(w http.ResponseWriter, r *http.Request, values view.ControlFormValues, errs map[string]string, notice string) (view.ControlsFormPage, bool) {
+	options, ok := h.courseOptions(w, r)
+	if !ok {
+		return view.ControlsFormPage{}, false
+	}
 	return view.ControlsFormPage{
 		Page:           middleware.PageFor(r, "Nuevo control"),
 		Action:         ControlsPath,
@@ -374,7 +495,119 @@ func (h *Controls) newFormPage(r *http.Request, values view.ControlFormValues, e
 		Errors:         errs,
 		Notice:         notice,
 		SectionOptions: sectionOptionsFromBank(h.Bank.Get()),
+		Courses:        options,
+	}, true
+}
+
+// courseOptions reads the courses into dropdown entries, writing the
+// refusal itself on a failure.
+//
+// An empty slice and a failure are deliberately different outcomes: empty
+// means "this professor has no courses", which the templates word as a
+// pointer to /courses, and a failure means the question could not be
+// asked at all. Rendering the first for the second would tell a professor
+// with a full roster to go and create it.
+func (h *Controls) courseOptions(w http.ResponseWriter, r *http.Request) ([]view.CourseOption, bool) {
+	courses, err := h.Courses.Courses(r.Context())
+	if err != nil {
+		h.Log.Error("listing the courses for a control form", "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al leer los cursos. Vuelve a intentarlo en unos segundos.")
+		return nil, false
 	}
+	options := make([]view.CourseOption, 0, len(courses))
+	for _, c := range courses {
+		options = append(options, view.CourseOption{
+			Value: strconv.FormatInt(c.ID, 10),
+			Label: courseLabel(c),
+		})
+	}
+	return options, true
+}
+
+// courseLabel is how a course is named in a dropdown and on the detail
+// page: the section code first, because that is what a professor
+// disambiguates two sections of one course by.
+func courseLabel(c roster.Course) string {
+	label := c.Code
+	if c.Name != "" {
+		label += " · " + c.Name
+	}
+	if c.Term != "" {
+		label += " (" + c.Term + ")"
+	}
+	return label
+}
+
+// AssignCourse files a control under a course (issue #272).
+//
+// This is how every control that predates migration 00015 gets one: the
+// detail page renders the form only while course_id IS NULL, and this is
+// its POST target. Last-wins at the store level, but the form is not
+// offered for a control that already has a course — re-filing is a
+// deliberate act, not something to invite from a page a professor is only
+// reading.
+//
+// The submitted id is validated against the courses this professor's
+// server actually has, so a stale dropdown or a hand-typed POST is a
+// refusal the form can word rather than the driver's foreign-key error.
+func (h *Controls) AssignCourse(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !isValidControlID(id) {
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		middleware.WriteError(w, r, http.StatusBadRequest,
+			"No se pudo leer el formulario. Inténtalo de nuevo.")
+		return
+	}
+
+	courses, err := h.Courses.Courses(r.Context())
+	if err != nil {
+		h.Log.Error("listing the courses to assign one", "control", id, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al leer los cursos. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+	courseID, ok := courseIDFromForm(r.PostFormValue("course_id"), courses)
+	if !ok {
+		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
+			"Ese curso no existe. Vuelve al control y elige uno de la lista.")
+		return
+	}
+
+	switch err := h.Service.AssignCourse(r.Context(), id, courseID); {
+	case err == nil:
+	case errors.Is(err, controls.ErrControlNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+		return
+	default:
+		h.Log.Error("assigning a course to a control", "control", id, "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al asignar el curso. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	flash.Set(w, h.secureCookie, "Control asignado al curso.")
+	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+}
+
+// courseIDFromForm parses a submitted course id and checks it is one of
+// the courses offered. Membership, not just shape: the schema's foreign
+// key would refuse an unknown id too, but as a driver error no handler
+// can word.
+func courseIDFromForm(raw string, courses []roster.Course) (int64, bool) {
+	id, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil || id <= 0 {
+		return 0, false
+	}
+	for _, c := range courses {
+		if c.ID == id {
+			return id, true
+		}
+	}
+	return 0, false
 }
 
 // defaultFormValues returns the values the empty GET form starts from.
@@ -414,6 +647,11 @@ func valuesFromRequest(r *http.Request) view.ControlFormValues {
 		// never opened `<details>` — validateCreate resolves that to the
 		// default; anything outside {"letter","a4"} is refused there.
 		Paper: strings.TrimSpace(r.PostFormValue("paper")),
+		// Issue #272: the course id as submitted. Validated against the
+		// courses this server has, in Create — validateCreate cannot do
+		// it, because the check needs a database read and this whole
+		// function is deliberately pure.
+		CourseID: strings.TrimSpace(r.PostFormValue("course_id")),
 	}
 }
 

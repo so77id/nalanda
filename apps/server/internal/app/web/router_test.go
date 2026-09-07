@@ -115,7 +115,15 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 				jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
 			}, logger, time.Now)
 			return handler.NewControls(handler.Controls{
-				Service:            svc,
+				Service: svc,
+				// Issue #272: the course dropdown's source. Wired over
+				// emptyCourseStore like the two handlers below — these
+				// cases are about the router's table, not about which
+				// courses exist.
+				Courses: roster.NewService(
+					emptyCourseStore{},
+					roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{})),
+				),
 				Bank:               emptyBank(t),
 				PublicURL:          "https://nalanda.test",
 				OnCorrectionClosed: controls.NewNoopHook(logger),

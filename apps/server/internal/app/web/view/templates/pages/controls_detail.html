@@ -40,6 +40,16 @@
     <h2>Datos</h2>
     <table class="lista">
       <tbody>
+        <tr>
+          <th>Curso</th>
+          <td>
+            {{ if .CourseLabel }}
+              {{ if .CourseURL }}<a href="{{ .CourseURL }}">{{ .CourseLabel }}</a>{{ else }}{{ .CourseLabel }}{{ end }}
+            {{ else }}
+              Sin curso asignado
+            {{ end }}
+          </td>
+        </tr>
         <tr><th>Aplicación</th><td>{{ .Control.ApplicationDate }}</td></tr>
         <tr><th>Rango</th><td>{{ .Control.Range }}</td></tr>
         <tr><th>Formato</th><td>{{ .Control.Shape }}</td></tr>
@@ -50,6 +60,36 @@
       </tbody>
     </table>
   </section>
+
+  {{ if not .CourseLabel }}
+    <section>
+      <h2>Asignar curso</h2>
+      {{ if .CourseOptions }}
+        <p>
+          Este control no pertenece a ningún curso, así que sus copias no se
+          emparejan con ningún estudiante. Elige el curso al que se rindió.
+        </p>
+        <form class="form" method="post" action="{{ .AssignCourseURL }}">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+          <p class="field">
+            <label for="assign_course_id">Curso</label>
+            <select id="assign_course_id" name="course_id" required>
+              <option value="">— elige un curso —</option>
+              {{ range .CourseOptions }}
+                <option value="{{ .Value }}">{{ .Label }}</option>
+              {{ end }}
+            </select>
+          </p>
+          <p><button type="submit">Asignar curso</button></p>
+        </form>
+      {{ else }}
+        <p>
+          Este control no pertenece a ningún curso y todavía no tienes ninguno.
+          Agrega uno desde <a href="/courses">Cursos</a> y vuelve aquí.
+        </p>
+      {{ end }}
+    </section>
+  {{ end }}
 
   {{ if .PDFsReady }}
     <section>

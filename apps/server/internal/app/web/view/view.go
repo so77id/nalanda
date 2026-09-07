@@ -356,6 +356,21 @@ type ControlsFormPage struct {
 	// publishes, in reading order, so the two range dropdowns can render
 	// them. Grouped by document so an <optgroup> renders per document.
 	SectionOptions []DocumentSections
+	// Courses is what the required course select offers (issue #272).
+	// Empty means the professor has no courses at all, which the template
+	// renders as a pointer to /courses rather than as an empty dropdown —
+	// a required select with nothing in it is a dead end with no hint
+	// that the missing piece lives on another screen.
+	Courses []CourseOption
+}
+
+// CourseOption is one entry of a course dropdown: the create form's
+// required select and the detail page's "Asignar curso" both render it
+// (issue #272). Value is the course id as a decimal string, which is what
+// the form submits.
+type CourseOption struct {
+	Value string
+	Label string
 }
 
 // ControlFormValues holds what the user typed. Values are echoed back on
@@ -381,6 +396,11 @@ type ControlFormValues struct {
 	// avanzadas` so the default requires no interaction. Issue #208,
 	// ADR-0043.
 	Paper string
+	// CourseID echoes the selected course so a refusal does not make the
+	// professor pick it again (§Form: "the values the professor typed
+	// come back on refusal"). The course id as a decimal string, empty
+	// when nothing was chosen. Issue #272.
+	CourseID string
 }
 
 // DocumentSections carries one document's sections for the range
@@ -417,6 +437,22 @@ type ControlDetailPage struct {
 	PoolJSONURL string
 	// ScansURL is the POST target of the upload form.
 	ScansURL string
+	// CourseLabel names the course this control belongs to, empty when it
+	// has none (issue #272). Non-empty renders a row in the Datos table
+	// linking to CourseURL; empty renders the "Asignar curso" form below
+	// instead, and the two are mutually exclusive by construction — a
+	// form beside an assigned course would invite a professor to re-file
+	// a control they are only looking at.
+	CourseLabel string
+	// CourseURL is the course's own page, set only when CourseLabel is.
+	CourseURL string
+	// AssignCourseURL is the POST target of the "Asignar curso" form,
+	// rendered only while the control has no course.
+	AssignCourseURL string
+	// CourseOptions is what that form's select offers. Empty with no
+	// CourseLabel means the professor has no courses at all — the
+	// template says so and points at /courses.
+	CourseOptions []CourseOption
 	// MaxScanMB is what the Spanish "máximo N MB" hint says on the
 	// form. The unit is megabytes — the handler enforces the byte
 	// value.

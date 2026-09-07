@@ -18,6 +18,27 @@
     </p>
 
     <p class="field">
+      <label for="course_id">Curso</label>
+      {{ if .Courses }}
+        <select id="course_id" name="course_id" required>
+          <option value="">— elige un curso —</option>
+          {{ range .Courses }}
+            <option value="{{ .Value }}"{{ if eq .Value $.Values.CourseID }} selected{{ end }}>{{ .Label }}</option>
+          {{ end }}
+        </select>
+      {{ else }}
+        <span class="error">
+          Todavía no tienes ningún curso. Agrega uno desde
+          <a href="/courses">Cursos</a> antes de crear un control: sin curso,
+          las copias no se pueden emparejar con tus estudiantes.
+        </span>
+      {{ end }}
+      {{ with index .Errors "course_id" }}
+        <span class="error">{{ . }}</span>
+      {{ end }}
+    </p>
+
+    <p class="field">
       <label for="application_date">Fecha de aplicación <small>(opcional)</small></label>
       <input id="application_date" type="date" name="application_date"
              value="{{ .Values.ApplicationDate }}" />

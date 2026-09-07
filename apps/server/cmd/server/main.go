@@ -258,7 +258,12 @@ func run(logger *slog.Logger) error {
 			Log:       logger,
 		}),
 		Controls: handler.NewControls(handler.Controls{
-			Service:      controlsService,
+			Service: controlsService,
+			// Issue #272: the courses a control can belong to. The same
+			// rosterService the Courses and Profile handlers hold — it
+			// satisfies handler.CourseLister, which is the one read this
+			// handler needs from it.
+			Courses:      rosterService,
 			Bank:         liveBank,
 			PublicURL:    cfg.PublicURL,
 			MaxScanBytes: cfg.MaxScanBytes,
