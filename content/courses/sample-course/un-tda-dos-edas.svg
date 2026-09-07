@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 360" width="620" height="360" role="img" aria-label="Un solo contrato, el TDA Sequence, con dos implementaciones colgando de él: el arreglo de capacidad fija y el arreglo dinámico. Cada una declara su propio invariante y su propia tabla de costos, y las dos responden las mismas operaciones. El programa que las usa no cambia; solo cambia cuánto tarda.">
+  <title>Un TDA, dos estructuras de datos</title>
+  <style>
+    .panel { fill: #fdfbf9; stroke: #8e817c; stroke-width: 1; }
+    .contrato { fill: #eef4fb; stroke: #3a6ea5; stroke-width: 2; }
+    .impl { fill: #ffffff; stroke: #493d37; stroke-width: 1.5; }
+    .t { fill: #2b221d; font-family: system-ui, sans-serif; font-size: 14px; font-weight: 600; }
+    .tc { fill: #2b221d; font-family: system-ui, sans-serif; font-size: 14px; font-weight: 600; text-anchor: middle; }
+    .s { fill: #493d37; font-family: system-ui, sans-serif; font-size: 12px; }
+    .sc { fill: #493d37; font-family: system-ui, sans-serif; font-size: 12px; text-anchor: middle; }
+    .m { fill: #2b221d; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; }
+    .n { fill: #493d37; font-family: system-ui, sans-serif; font-size: 12px; font-style: italic; text-anchor: middle; }
+    .flecha { fill: none; stroke: #3a6ea5; stroke-width: 2; marker-end: url(#p5); }
+  </style>
+  <defs>
+    <marker id="p5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3a6ea5"/>
+    </marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="619" height="359" rx="8" class="panel"/>
+
+  <rect x="140" y="20" width="340" height="66" rx="6" class="contrato"/>
+  <text x="310" y="44" class="tc">TDA Sequence — el contrato</text>
+  <text x="310" y="66" class="sc">getAt · setAt · insertAt · deleteAt · los cuatro extremos</text>
+
+  <path d="M 250 88 L 165 122" class="flecha"/>
+  <path d="M 370 88 L 455 122" class="flecha"/>
+  <text x="310" y="112" class="n">lo implementan</text>
+
+  <rect x="30" y="126" width="260" height="178" rx="6" class="impl"/>
+  <text x="46" y="150" class="t">Arreglo de capacidad fija</text>
+  <text x="46" y="174" class="s">Invariante propio</text>
+  <text x="46" y="192" class="m">size ≤ datos.length, fija</text>
+  <text x="46" y="218" class="s">Costos</text>
+  <text x="46" y="236" class="m">getAt Θ(1) · setAt Θ(1)</text>
+  <text x="46" y="254" class="m">insertLast Θ(1)</text>
+  <text x="46" y="272" class="m">insertFirst Θ(N)</text>
+  <text x="46" y="294" class="s">Exige saber la cota de antemano.</text>
+
+  <rect x="330" y="126" width="260" height="178" rx="6" class="impl"/>
+  <text x="346" y="150" class="t">Arreglo dinámico</text>
+  <text x="346" y="174" class="s">Invariante propio</text>
+  <text x="346" y="192" class="m">size ≤ cap ≤ 4 × size</text>
+  <text x="346" y="218" class="s">Costos</text>
+  <text x="346" y="236" class="m">getAt Θ(1) · setAt Θ(1)</text>
+  <text x="346" y="254" class="m">insertLast Θ(1) amortizado</text>
+  <text x="346" y="272" class="m">insertFirst Θ(N)</text>
+  <text x="346" y="294" class="s">No exige saber nada de antemano.</text>
+
+  <text x="310" y="330" class="n">El programa que usa el contrato no cambia al cambiar de implementación.</text>
+  <text x="310" y="348" class="n">Lo único que cambia es cuánto tarda.</text>
+</svg>

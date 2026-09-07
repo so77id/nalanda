@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 210" width="620" height="210" role="img" aria-label="Ocho casillas consecutivas de memoria numeradas de 0 a 7. Una flecha marca la dirección base en la casilla 0 y otra la casilla 3, cuya dirección se calcula como base más 3 por el tamaño del elemento, sin recorrer las casillas intermedias.">
+  <title>El arreglo en memoria: dirección por aritmética</title>
+  <style>
+    .panel { fill: #fdfbf9; stroke: #8e817c; stroke-width: 1; }
+    .celda { fill: #ffffff; stroke: #493d37; stroke-width: 1.4; }
+    .celda-dest { fill: #eef4fb; stroke: #3a6ea5; stroke-width: 2.4; }
+    .val { fill: #2b221d; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 15px; text-anchor: middle; }
+    .idx { fill: #493d37; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; text-anchor: middle; }
+    .t { fill: #2b221d; font-family: system-ui, sans-serif; font-size: 13px; }
+    .tb { fill: #2b221d; font-family: system-ui, sans-serif; font-size: 13px; font-weight: 600; }
+    .flecha { fill: none; stroke: #3a6ea5; stroke-width: 2; marker-end: url(#p2); }
+  </style>
+  <defs>
+    <marker id="p2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#3a6ea5"/>
+    </marker>
+  </defs>
+
+  <rect x="0.5" y="0.5" width="619" height="209" rx="8" class="panel"/>
+
+  <rect x="60" y="76" width="60" height="46" class="celda"/>
+  <rect x="120" y="76" width="60" height="46" class="celda"/>
+  <rect x="180" y="76" width="60" height="46" class="celda"/>
+  <rect x="240" y="76" width="60" height="46" class="celda-dest"/>
+  <rect x="300" y="76" width="60" height="46" class="celda"/>
+  <rect x="360" y="76" width="60" height="46" class="celda"/>
+  <rect x="420" y="76" width="60" height="46" class="celda"/>
+  <rect x="480" y="76" width="60" height="46" class="celda"/>
+
+  <text x="90" y="106" class="val">12</text>
+  <text x="150" y="106" class="val">7</text>
+  <text x="210" y="106" class="val">31</text>
+  <text x="270" y="106" class="val">5</text>
+  <text x="330" y="106" class="val">88</text>
+  <text x="390" y="106" class="val">2</text>
+  <text x="450" y="106" class="val">64</text>
+  <text x="510" y="106" class="val">19</text>
+
+  <text x="90" y="140" class="idx">0</text>
+  <text x="150" y="140" class="idx">1</text>
+  <text x="210" y="140" class="idx">2</text>
+  <text x="270" y="140" class="idx">3</text>
+  <text x="330" y="140" class="idx">4</text>
+  <text x="390" y="140" class="idx">5</text>
+  <text x="450" y="140" class="idx">6</text>
+  <text x="510" y="140" class="idx">7</text>
+
+  <text x="60" y="34" class="tb">base</text>
+  <path d="M 74 40 L 82 70" class="flecha"/>
+
+  <text x="240" y="34" class="tb">base + 3 × tamaño</text>
+  <path d="M 268 40 L 268 70" class="flecha"/>
+
+  <text x="60" y="176" class="t">Una multiplicación y una suma. No se recorre ninguna casilla intermedia:</text>
+  <text x="60" y="194" class="t">llegar a la posición 3 y llegar a la posición 3 000 000 cuestan lo mismo.</text>
+</svg>

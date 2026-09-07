@@ -150,6 +150,12 @@ encadenan en una sola dirección:
 3. Los **invariantes** de esa representación son lo que hace que las
    implementaciones sean correctas y tengan el costo que declaran.
 
+<Figure
+  src="./tda-eda-invariante.svg"
+  alt="Tres capas apiladas. Arriba, el TDA con las operaciones y su significado; en el medio, la estructura de datos con la representación elegida; abajo, los invariantes de esa representación, señalados como el lugar de donde salen los costos. Las flechas bajan de capa en capa."
+  caption="Cada capa elige la de abajo; los costos se leen en la última"
+/>
+
 La dependencia va hacia abajo y no hacia arriba. El TDA no sabe nada de
 los invariantes; los invariantes son asunto privado de cada
 representación. Dos estructuras que cumplen el mismo contrato pueden
@@ -192,6 +198,12 @@ $$
 \text{dirección}(i) = \text{base} + i \times \text{tamaño del elemento}
 $$
 
+<Figure
+  src="./arreglo-memoria.svg"
+  alt="Ocho casillas consecutivas numeradas de 0 a 7 con valores adentro. Una flecha marca la dirección base sobre la casilla 0 y otra la casilla 3, rotulada base más 3 por el tamaño del elemento. Ninguna casilla intermedia se recorre."
+  caption="Llegar a la posición 3 y a la 3 000 000 cuesta lo mismo"
+/>
+
 Una multiplicación y una suma, sin importar si `i` es 3 o 3 millones.
 El acceso cuesta $$\Theta(1)$$ y esa es la razón por la que la búsqueda
 binaria puede ser $$\Theta(\log N)$$.
@@ -232,6 +244,12 @@ está escrita en el lenguaje: son responsabilidad de la estructura.
 3. **`datos[size..datos.length-1]` es basura.** Esas casillas existen y
    tienen algún valor — el cero por omisión, o un elemento borrado que
    quedó ahí —, pero no pertenecen al contenedor y no se leen nunca.
+
+<Figure
+  src="./arreglo-invariantes.svg"
+  alt="Un arreglo de capacidad diez con largo seis. Las casillas 0 a 5 tienen borde sólido y valores; las casillas 6 a 9 tienen borde punteado y un signo de interrogación. Una llave superior abarca las diez y dice capacidad; dos llaves inferiores separan los seis válidos de las cuatro casillas de basura."
+  caption="El contenedor son los seis primeros; las otras cuatro están reservadas y nunca se leen"
+/>
 
 La segunda propiedad es la cara y la barata al mismo tiempo. Es barata
 porque hace que el acceso sea aritmética pura. Es cara porque cualquier
@@ -286,6 +304,12 @@ void insertAt(int i, int x) {
 
 El bucle recorre de derecha a izquierda a propósito: de izquierda a
 derecha, cada copia pisaría el elemento que todavía falta mover.
+
+<Figure
+  src="./arreglo-corrimiento.svg"
+  alt="Tres filas con el mismo arreglo. En la primera, el estado inicial 4, 7, 1, 3 con dos casillas libres. En la segunda, los elementos 1 y 3 aparecen corridos una casilla a la derecha, con flechas que van de derecha a izquierda y la posición 2 libre. En la tercera, el 9 escrito en la posición 2 y el largo en cinco."
+  caption="Dos copias para abrir el hueco, después la escritura"
+/>
 
 El costo son $$N - i$$ copias, con $$N$$ = `size`. Para `i = N` no hay ninguna —
 insertar al final es gratis. Para `i = 0` son $$N$$ — insertar al
@@ -350,6 +374,12 @@ copian los elementos, las dos siguen adelante. Lo único distinto es
 La segunda estrategia es el **arreglo dinámico**, y es lo que hay
 adentro de `ArrayList` en Java, de `vector` en C++ y de `list` en
 Python.
+
+<Figure
+  src="./arreglo-duplicacion.svg"
+  alt="Arriba, un arreglo lleno de capacidad cuatro con los elementos a, b, c, d. Una flecha hacia abajo dice reservar el doble y copiar los cuatro. Abajo, un arreglo de capacidad ocho con los cuatro elementos copiados marcados con borde grueso, el quinto elemento recién escrito y tres casillas libres."
+  caption="La copia se paga una vez y la reparten las inserciones baratas que siguen"
+/>
 
 El invariante nuevo que aparece es el que hace posible todo esto:
 **mientras solo se inserta, la capacidad nunca pasa del doble del
@@ -582,6 +612,12 @@ La solución es separarlas:
 > **Duplicar cuando el arreglo se llena; achicar a la mitad cuando el
 > largo baja a un cuarto de la capacidad.**
 
+<Figure
+  src="./regla-del-cuarto.svg"
+  alt="Dos barras de capacidad. En la de arriba, marcada con una cruz, la frontera de achicar y la de crecer caen las dos en la mitad, de modo que insertar y borrar alternadamente redimensiona en cada operación. En la de abajo, marcada con un visto, achicar cae en el cuarto y crecer al llenarse, y entre las dos queda media capacidad donde no se redimensiona nada."
+  caption="Separar las dos fronteras deja media capacidad de operaciones baratas entre redimensionamientos"
+/>
+
 Después de cualquiera de las dos operaciones, el arreglo queda a la
 mitad de su capacidad nueva. Llamemos $$K$$ a esa capacidad: desde ahí
 hacen falta $$K/2$$ inserciones para volver a llenarlo, o $$K/4$$
@@ -646,6 +682,12 @@ posición, y los cuatro atajos para los extremos.
 Un programa escrito contra esas operaciones funciona igual con
 cualquiera de las dos. Cambiar de una a otra no cambia una sola línea
 del programa que las usa: cambia solamente cuánto tarda.
+
+<Figure
+  src="./un-tda-dos-edas.svg"
+  alt="Un recuadro superior con el TDA Sequence y sus operaciones. Dos flechas bajan a dos recuadros: el arreglo de capacidad fija y el arreglo dinámico. Cada uno declara su propio invariante y su propia lista de costos, y los dos responden las mismas operaciones."
+  caption="Un contrato, dos representaciones, dos tablas de costos"
+/>
 
 Eso que las dos cumplen tiene nombre.
 
