@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 230" width="620" height="230" role="img" aria-label="Un arreglo de capacidad diez con largo seis. Las seis primeras casillas, de la 0 a la 5, están llenas y son los elementos válidos; las cuatro últimas, de la 6 a la 9, están reservadas pero contienen basura y nunca se leen. La capacidad abarca las diez casillas.">
-  <title>Los invariantes del arreglo: válidos, basura y capacidad</title>
+  <title>Las invariantes del arreglo: válidos, basura y capacidad</title>
   <style>
     .panel { fill: #fdfbf9; stroke: #8e817c; stroke-width: 1; }
     .valida { fill: #eef4fb; stroke: #3a6ea5; stroke-width: 1.6; }

@@ -35,52 +35,57 @@ a.add(0, 7);   b.add(0, 7);      // insertar al principio
 a.get(3);      b.get(3);         // pedir el de la posición 3
 ```
 
-Las dos aceptan los mismos pedidos: `add`, `get`, `remove`, `size`. Un
+Las dos aceptan las mismas operaciones: `add`, `get`, `remove`, `size`. Un
 método que reciba un `List` funciona con cualquiera de las dos sin
 enterarse de cuál le tocó. Por dentro, sin embargo, guardan los números
 de maneras completamente distintas.
 
-Ahí hay dos cosas separadas, y cada una tiene nombre:
+Ahí hay dos cosas separadas, y cada una tiene nombre.
 
-- El **tipo de dato abstracto** (TDA) es el conjunto de pedidos que se
-  pueden hacer y qué significa cada uno. Acá, `List`.
-- La **estructura de datos** es la manera concreta de cumplirlos. Acá,
-  `ArrayList` por un lado y `LinkedList` por el otro.
+**Tipo de dato abstracto (TDA) — la abstracción.** El *qué*: qué
+operaciones ofrece la colección y qué significa cada una.
 
-**Un mismo TDA puede ser implementado por más de una estructura de
-datos.** Esa es la idea que sostiene toda la unidad.
+**Estructura de datos — la implementación.** El *cómo*: cómo se cumple
+cada operación y dónde quedan guardados los elementos.
+
+`List` es la abstracción; `ArrayList` y `LinkedList`, dos
+implementaciones de ella. **Un mismo TDA puede ser implementado por más
+de una estructura de datos.**
 
 </Slide>
 
 <Slide title="Tipo de dato abstracto · TDA">
-**Tipo de dato abstracto** (TDA); en inglés, *abstract data type* (ADT).
+**Tipo de dato abstracto** (TDA), *abstract data type* (ADT) en inglés.
+Responde una sola pregunta: **qué le puedo pedir a esta colección y qué
+obtengo a cambio.** No dice dónde están guardados los elementos ni cómo
+se llega a ellos.
 
-Un TDA responde una sola pregunta: **qué le puedo pedir a esta
-colección, y qué obtengo a cambio.** Nada más. No dice dónde están
-guardados los elementos, ni cómo los recorre por dentro, ni qué pasa en
-la memoria.
-
-Para `List`, los pedidos son estos:
+`List` es como Java llama al TDA **Sequence**. Estas son sus operaciones:
 
 ```java
 public interface List<E> {
     int size();                  // cuántos elementos hay
-    E get(int index);            // devuelve el de la posición index
+    E get(int index);            // el de la posición index
     E set(int index, E e);       // reemplaza el de esa posición
     void add(int index, E e);    // inserta e y corre el resto
     E remove(int index);         // saca el de index y lo devuelve
 }
 ```
 
-Y junto con los pedidos vienen las **reglas** que promete cumplir: las
-posiciones van de `0` a `size()-1`; después de `add(0, x)`, `get(0)`
-devuelve `x` y todo lo demás quedó corrido una posición. Esas reglas son
-parte del TDA tanto como los nombres de los métodos.
+Con las operaciones vienen las **reglas**, que son parte del TDA tanto
+como sus nombres y obligan a cualquiera que lo implemente:
 
-**No toda interfaz de Java es un TDA.** `Comparable` declara que un tipo
-tiene orden, pero no describe ninguna colección ni admite dos
-implementaciones que cuesten distinto. Un TDA se reconoce porque
-**varias estructuras pueden cumplirlo, y elegir entre ellas importa**.
+- Las posiciones válidas van de `0` a `size()-1`.
+- `get(i)` devuelve el elemento de la posición `i` y no modifica nada.
+- Después de `add(i, x)`, `get(i)` devuelve `x` y todo lo que estaba de
+  `i` en adelante quedó corrido un lugar.
+- Después de `remove(i)`, `size()` baja en uno y lo que venía después
+  quedó corrido un lugar hacia atrás.
+
+**Cuidado — no toda interfaz es un TDA.** `Comparable` declara que un
+tipo tiene orden, pero no describe ninguna colección ni admite dos
+implementaciones que cuesten distinto. Un TDA se reconoce porque varias
+estructuras pueden cumplirlo y elegir entre ellas importa.
 
 </Slide>
 
@@ -89,103 +94,110 @@ La estructura de datos elige **cómo se guardan y cómo se manipulan** los
 datos. El TDA solo dice **cómo se usa** y **qué reglas** hay que
 respetar.
 
-Dicho de otro modo: el TDA es lo que ve quien usa la colección; la
-estructura es lo que hay adentro, y quien la usa nunca necesita mirarlo.
+Dos estructuras que implementan Sequence (`List`):
 
-Las dos que ya aparecieron cumplen el mismo contrato de maneras
-opuestas:
-
-- **`ArrayList`** guarda los elementos en **memoria consecutiva**, uno
-  al lado del otro. Sabe llegar a la posición `i` con una cuenta.
-- **`LinkedList`** guarda cada elemento en un **nodo suelto** que apunta
-  al siguiente. Para llegar a la posición `i` tiene que caminar `i`
+- **Arreglo** — los elementos en **memoria consecutiva**, uno al lado
+  del otro. Llegar a la posición `i` es una cuenta:
+  `base + i × tamaño`. Insertar o borrar en el medio obliga a correr
+  todo lo que sigue.
+- **Lista enlazada** — cada elemento en un **nodo suelto** que guarda
+  dónde está el siguiente. Insertar o borrar donde ya estamos parados es
+  cambiar un puntero. Llegar a la posición `i` obliga a caminar `i`
   nodos.
 
-De ahí sale la consecuencia que ordena la unidad entera: **los costos no
-salen del contrato, salen de la estructura.** Sobre un millón de
-elementos, `get(500000)` es inmediato en un `ArrayList` y recorre medio
-millón de nodos en un `LinkedList`. Ninguna de las dos es mejor; sirven
-para cosas distintas, y saber cuál elegir es de lo que trata la unidad.
+Sobre un millón de elementos, `get(500000)` es inmediato en el arreglo y
+recorre medio millón de nodos en la lista. `add(0, x)` es al revés:
+mueve un millón de elementos en el arreglo y cambia un puntero en la
+lista.
+
+Y hay una tercera cosa que la estructura decide y nadie ve desde afuera.
+Para que `get(i)` sea correcto, el arreglo necesita que sus elementos
+estén realmente juntos desde la posición `0`; la lista necesita que la
+cadena de punteros no esté cortada. Esa condición que la representación
+tiene que cumplir siempre se llama **invariante de representación**.
 
 </Slide>
 
-<Slide title="Invariante · lo que se mantiene">
-Una operación puede ser rápida solo si tiene permitido **dar algo por
-sentado** sobre el estado que recibe.
+<Slide title="Invariante de representación">
+Supongamos que una operación deja los cuatro elementos del arreglo en
+las posiciones `0`, `1`, `2` y `5`, con dos casillas vacías en el medio.
+Nada se queja: la memoria es válida, el programa compila y construir el
+arreglo funciona.
 
-```java
-static int bs(int[] a, int lo, int hi, int t) {
-    if (lo > hi) return -1;
-    int mid = (lo + hi) / 2;
-    if (a[mid] == t) return mid;
-    if (t < a[mid]) return bs(a, lo, mid - 1, t);   // descarta la mitad derecha
-    return bs(a, mid + 1, hi, t);                   // descarta la mitad izquierda
-}
-```
+<Figure
+  src="./arreglo-invariante-valido.svg"
+  alt="Dos arreglos con los mismos cuatro elementos. En el válido ocupan las posiciones 0 a 3, juntos desde el principio. En el inválido quedaron en las posiciones 0, 1, 2 y 5, con dos casillas vacías en el medio: recorrerlo de principio a fin devuelve basura en la posición 3 y nunca llega al cuarto elemento."
+/>
 
-`bs` tira media entrada sin mirarla. Puede hacerlo porque confía en que
-el arreglo está ordenado y en que, **si `t` está, está en `a[lo..hi]`**.
-Esa promesa vale al entrar a cada llamada y sigue valiendo al salir,
-sobre un rango la mitad de grande.
+Y sin embargo la estructura quedó rota. `get(3)` devuelve un valor que
+nadie guardó, y recorrerla de principio a fin nunca llega al cuarto
+elemento. El compilador no puede avisar, porque lo que se rompió no es
+una regla del lenguaje sino una **regla sobre qué formas de guardar los
+datos son válidas**. Cada estructura tiene la suya:
 
-Una promesa así se llama **invariante**: una propiedad cierta **antes y
-después** de cada operación.
+- **Arreglo** — los elementos están juntos desde la posición `0`, sin
+  huecos.
+- **Lista enlazada** — la cadena llega del primer nodo al último, sin
+  cortes ni vueltas atrás.
 
-La parte que importa es la del medio: **durante** una operación el
-invariante puede romperse. Mientras un arreglo corre sus elementos para
-abrir un hueco, hay un instante en que un mismo valor está copiado en
-dos casillas y el contenido no es válido. Eso está permitido. Lo que no
-está permitido es **terminar** dejándolo roto: quien venga después tiene
-derecho a encontrarlo en pie.
+La invariante traza una frontera: de un lado, los datos con los que las
+operaciones pueden trabajar; del otro, los que el código no sabe
+interpretar. Todo lo que la estructura hace supone que está del lado
+bueno.
 
 </Slide>
 
-<Slide title="Un invariante que ya usamos">
-Los invariantes casi nunca aparecen escritos: viven en la cabeza de
-quien programó. `partition` es una excepción — el suyo quedó anotado en
-un comentario, y es el que hace funcionar a quicksort.
+<Slide title="Los tres momentos de la invariante">
+La invariante no se cumple sola. Hay tres momentos en que alguien tiene
+que hacerse cargo de ella.
 
-```java
-static int partition(int[] a, int lo, int hi) {
-    int pivot = a[lo];
-    swap(a, lo, hi);
-    int store = lo;
-    for (int j = lo; j < hi; j++) {
-        // a[lo..store-1] < pivot  y  a[store..j-1] >= pivot
-        if (a[j] < pivot) { swap(a, store, j); store++; }
-    }
-    swap(a, store, hi);
-    return store;
-}
-```
+**Al construir.** El constructor tiene que dejar la estructura
+cumpliéndola desde el primer instante. Un arreglo recién creado, vacío,
+ya la cumple: cero elementos juntos desde la `0`.
 
-El comentario dice que, en cada vuelta, todo lo que quedó a la izquierda
-de `store` es menor que el pivote y todo lo que va de `store` a `j-1` es
-mayor o igual. De `j` en adelante todavía no se miró nada. El `if`
-mantiene esa promesa: cada elemento que resulta menor se manda al bloque
-de los menores.
+**Al modificar.** Una operación que cambia los datos puede romperla
+mientras trabaja — al insertar al principio, mientras los elementos se
+corren hay un instante en que un mismo valor está copiado en dos
+casillas — pero tiene que dejarla en pie al terminar.
 
-Cuando el bucle termina, `j` llegó a `hi` y ya no queda nada sin
-clasificar. El último `swap` mete el pivote en `store`, justo entre los
-dos bloques — **y esa es su posición definitiva en el arreglo
-ordenado**.
+**Al consultar.** Las operaciones que solo leen **confían** en ella y no
+la verifican. `get(i)` no revisa si el arreglo está bien formado: da por
+hecho que sí, y por eso puede ser una sola cuenta en vez de una
+búsqueda.
 
-Por eso quicksort funciona: después de `partition` el pivote ya está en
-su lugar para siempre, y las dos mitades se pueden ordenar por separado
-sin volver a tocarlo nunca.
+Escribir una estructura de datos es, en buena medida, hacerse cargo de
+sus invariantes: son ellas las que la hacen funcionar, y ninguna
+operación puede delegar en otra el trabajo de dejarlas en pie.
+
+Ese trabajo es el que se paga. Insertar al principio de un arreglo es
+caro justamente porque restaurar la invariante obliga a mover todos los
+elementos que siguen.
 
 </Slide>
 
 <Slide title="La cadena completa">
 <Figure
   src="./tda-eda-invariante.svg"
-  alt="Tres capas apiladas. Arriba, el TDA con las operaciones y su significado; en el medio, la estructura de datos con la representación elegida; abajo, los invariantes de esa representación, señalados como el lugar de donde salen los costos. Las flechas bajan de capa en capa."
+  alt="Tres capas apiladas. Arriba, el TDA con las operaciones y su significado; en el medio, la estructura de datos con la representación elegida; abajo, las invariantes de esa representación, señalados como el lugar de donde salen los costos. Las flechas bajan de capa en capa."
 />
 
-La dependencia baja y nunca sube: el contrato no sabe nada de los
-invariantes, y los invariantes son asunto privado de cada
+La dependencia baja y nunca sube: el contrato no sabe nada de las
+invariantes, y las invariantes son asunto privado de cada
 representación. Esa libertad es la que permite que dos estructuras con
 el mismo contrato tengan costos distintos.
+
+La invariante es también de donde sale la **ventaja** de cada una. La
+que sostiene el arreglo — todo junto desde la `0` — es lo que le permite
+llegar a cualquier posición con una sola cuenta. La que sostiene la
+lista — la cadena sin cortes — es lo que le permite insertar sin mover
+nada. Cada estructura es buena exactamente en lo que su invariante le
+regala.
+
+Por eso el costo de una operación tiene **dos partes**: el trabajo
+propio de la operación, y el trabajo de dejar la invariante otra vez en
+pie. `add(0, x)` sobre un arreglo escribe un elemento — eso es barato —
+y después reacomoda todos los que estaban, que es lo caro. La misma
+operación sobre una lista escribe un nodo y no reacomoda nada.
 
 </Slide>
 
@@ -235,7 +247,7 @@ entre ellos es de lo que trata el resto de la clase.
 
 </Slide>
 
-<Slide title="Los invariantes del arreglo">
+<Slide title="Las invariantes del arreglo">
 <Figure
   src="./arreglo-invariantes.svg"
   alt="Un arreglo de capacidad diez con largo seis. Las casillas 0 a 5 tienen borde sólido y valores; las casillas 6 a 9 tienen borde punteado y un signo de interrogación. Una llave superior abarca las diez y dice capacidad; dos llaves inferiores separan los seis válidos de las cuatro casillas de basura."
@@ -265,7 +277,7 @@ Sobre $$N$$ = `size`, con la notación de
 
 Los dos extremos no son simétricos: al final no hay nada a la derecha
 que mover, al principio hay todo. La diferencia no viene del hardware,
-viene del segundo invariante.
+viene del segunda invariante.
 
 </Slide>
 
@@ -747,7 +759,7 @@ constante.
 
 <Slide title="Dos representaciones, las mismas operaciones">
 El arreglo de capacidad fija y el arreglo dinámico guardan cosas
-distintas y mantienen invariantes distintos. Y sin embargo responden
+distintas y mantienen invariantes distintas. Y sin embargo responden
 exactamente las mismas preguntas: dame el de la posición `i`,
 reemplazarlo, insertar en la posición `i`, borrar la posición `i`, y los
 cuatro atajos para los extremos.
@@ -813,7 +825,7 @@ antemano**.
 
 <Slide title="El cabo suelto">
 Las dos implementaciones comparten una debilidad: insertar o borrar al
-principio cuesta $$\Theta(N)$$. La culpa es del invariante de memoria
+principio cuesta $$\Theta(N)$$. La culpa es de la invariante de memoria
 consecutiva — para que la posición `i` esté en `base + i × tamaño` no
 puede haber huecos, y no tener huecos obliga a correr elementos.
 
