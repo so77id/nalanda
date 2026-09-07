@@ -146,6 +146,7 @@ func deps(t *testing.T, prober health.Prober) web.Deps {
 				Bank:               emptyBank(t),
 				PublicURL:          "https://nalanda.test",
 				OnCorrectionClosed: controls.NewNoopHook(logger),
+				Gmail:              connectedGmail{},
 				Jobs:               jstore,
 				Runner:             runner,
 				Log:                logger,
@@ -626,3 +627,22 @@ type noGmailAccount struct{}
 
 func (noGmailAccount) SetGmailAddress(context.Context, int64, string) error { return nil }
 func (noGmailAccount) GmailAddress(context.Context, int64) (string, error)  { return "", nil }
+
+// connectedGmail is a professor who HAS connected an account, which is the
+// state every case that reaches a publication button needs. Cases about the
+// unconnected state set their own.
+type connectedGmail struct {
+	address string
+	err     error
+}
+
+func (c connectedGmail) Connection(context.Context, int64) (gmail.Connection, error) {
+	if c.err != nil {
+		return gmail.Connection{}, c.err
+	}
+	address := c.address
+	if address == "" {
+		address = "profesora@gmail.com"
+	}
+	return gmail.Connection{Address: address}, nil
+}

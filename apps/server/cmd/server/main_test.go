@@ -148,6 +148,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				Bank:               emptyBank(t),
 				PublicURL:          "https://nalanda.test",
 				OnCorrectionClosed: controls.NewNoopHook(logger),
+				Gmail:              connectedGmail{},
 				Jobs:               jstore,
 				Runner:             runner,
 				Log:                logger,
@@ -595,4 +596,23 @@ type unreachableCredentials struct{}
 
 func (unreachableCredentials) AccessToken(context.Context, int64) (gmail.Access, error) {
 	return gmail.Access{}, gmail.ErrNotConnected
+}
+
+// connectedGmail is a professor who HAS connected an account, which is the
+// state every case that reaches a publication button needs. Cases about the
+// unconnected state set their own.
+type connectedGmail struct {
+	address string
+	err     error
+}
+
+func (c connectedGmail) Connection(context.Context, int64) (gmail.Connection, error) {
+	if c.err != nil {
+		return gmail.Connection{}, c.err
+	}
+	address := c.address
+	if address == "" {
+		address = "profesora@gmail.com"
+	}
+	return gmail.Connection{Address: address}, nil
 }

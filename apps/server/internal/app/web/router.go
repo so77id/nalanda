@@ -378,6 +378,15 @@ func routes(deps Deps) []Route {
 		// that has none. Gated by default (no Public), CSRF enforced
 		// because the method is POST.
 		{
+			// Issue #273. The publication routes live HERE, on the
+			// professor's surface behind the gate and CSRF, and not under
+			// /api/ as the issue's design wrote them: internal/app/api is
+			// anonymous by construction, so a publish endpoint there would
+			// let any unauthenticated caller email an entire class.
+			Method: http.MethodPost, Path: handler.ControlPublishPath,
+			Handler: deps.Controls.Publish,
+		},
+		{
 			Method: http.MethodPost, Path: handler.ControlCoursePath,
 			Handler: deps.Controls.AssignCourse,
 		},

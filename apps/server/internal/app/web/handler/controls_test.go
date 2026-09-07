@@ -25,6 +25,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
@@ -295,6 +296,7 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		Roster:    rosterService,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
 		OnCorrectionClosed: hook,
+		Gmail:              connectedGmail{},
 		Jobs:               jstore,
 		Runner:             runner,
 		Log:                log,
@@ -1666,7 +1668,8 @@ func TestTheControlPageReadsTheRosterOnceForEveryCopy(t *testing.T) {
 	f.handler = handler.NewControls(handler.Controls{
 		Service: f.service, Bank: f.bank, Roster: counter,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
-		OnCorrectionClosed: f.hook, Jobs: f.jstore, Runner: f.runner, Log: f.log,
+		OnCorrectionClosed: f.hook, Gmail: connectedGmail{},
+		Jobs: f.jstore, Runner: f.runner, Log: f.log,
 	})
 
 	body := f.detailBody(t, controlID)
@@ -1715,7 +1718,8 @@ func TestAFailedRosterReadStillRendersTheControlPage(t *testing.T) {
 		Service: f.service, Bank: f.bank,
 		Roster:    &failingRoster{RosterReader: f.roster},
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
-		OnCorrectionClosed: f.hook, Jobs: f.jstore, Runner: f.runner, Log: f.log,
+		OnCorrectionClosed: f.hook, Gmail: connectedGmail{},
+		Jobs: f.jstore, Runner: f.runner, Log: f.log,
 	})
 
 	req := f.detailRequest(t, controlID)
@@ -1739,6 +1743,20 @@ func (failingRoster) Enrollments(context.Context, int64) (roster.Course, []roste
 }
 
 // detailBody renders one control's detail page and returns the HTML.
+// rebuildWithGmail swaps the handler's Gmail port, so a case can put the
+// professor in the unconnected state — or in the state where the lookup
+// itself fails — without a second fixture.
+func (f *controlsFixture) rebuildWithGmail(t *testing.T, connection handler.GmailConnection) {
+	t.Helper()
+
+	f.handler = handler.NewControls(handler.Controls{
+		Service: f.service, Roster: f.roster, Bank: f.bank,
+		PublicURL: publicURL, MaxScanBytes: 5 << 20,
+		OnCorrectionClosed: f.hook, Gmail: connection,
+		Jobs: f.jstore, Runner: f.runner, Log: f.log,
+	})
+}
+
 func (f *controlsFixture) detailBody(t *testing.T, controlID string) string {
 	t.Helper()
 	rec := httptest.NewRecorder()
@@ -1812,4 +1830,30 @@ func TestReassigningAControlToAnotherCourseRefilesItsCopies(t *testing.T) {
 	if got := readings[0].StudentID; got != nil {
 		t.Errorf("copy 1 student = %d after reassignment, want nil", *got)
 	}
+}
+
+// connectedGmail is a professor who HAS connected an account, which is the
+// state every case that reaches a publication button needs. Cases about the
+// unconnected state set their own.
+type connectedGmail struct {
+	address string
+	err     error
+	// disconnected is an EXPLICIT flag rather than an empty address,
+	// because the zero value of this struct has to mean "connected" — it
+	// is what every case that merely needs the button to work passes.
+	disconnected bool
+}
+
+func (c connectedGmail) Connection(context.Context, int64) (gmail.Connection, error) {
+	if c.err != nil {
+		return gmail.Connection{}, c.err
+	}
+	if c.disconnected {
+		return gmail.Connection{}, nil
+	}
+	address := c.address
+	if address == "" {
+		address = "profesora@gmail.com"
+	}
+	return gmail.Connection{Address: address}, nil
 }

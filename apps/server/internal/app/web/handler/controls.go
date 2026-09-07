@@ -126,6 +126,11 @@ type Controls struct {
 	// (issue #190 §Hook para futuros integraciones). Required — the
 	// default is controls.NewNoopHook, wired in cmd/server.
 	OnCorrectionClosed controls.OnCorrectionClosed
+	// Gmail answers whether the professor at the keyboard can send at all
+	// (issue #273). A narrow port for the same reason RosterReader is one:
+	// these screens ask one question, and the service would drag an OAuth
+	// client and a secret store into every controls test.
+	Gmail GmailConnection
 	// Jobs is the async job runner's store (issue #249). Detail reads
 	// the latest job for the banner; DismissJob writes viewed_at.
 	Jobs jobs.Store
@@ -150,6 +155,8 @@ func NewControls(deps Controls) *Controls {
 		panic("handler.NewControls: no public URL — the flash cookie's Secure attribute is derived from it")
 	case deps.OnCorrectionClosed == nil:
 		panic("handler.NewControls: no correction-closed hook — pass controls.NewNoopHook(log)")
+	case deps.Gmail == nil:
+		panic("handler.NewControls: no Gmail connection reader")
 	case deps.Jobs == nil:
 		panic("handler.NewControls: no jobs store")
 	case deps.Runner == nil:
