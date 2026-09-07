@@ -313,9 +313,16 @@ text.
   in `design-system.md` as a fifth exemption from §The one rule.
   `teach-a-data-structure.md` points at both rather than restating them.
 - **The pre-existing figures are now non-conforming**, and this addendum does
-  not convert them: seven of the ~27 follow the new rule, the rest still carry
-  the token-var pattern. That conversion is its own WP, and this is the record
-  that it is owed.
+  not convert them. Counted from the tree at the time of writing
+  (`find content -iname '*.svg' | grep -v /logos/`): **20** hand-drawn figures,
+  of which **7** follow the new rule — the ones #277 drew — and **13** still
+  carry the token-var pattern. That conversion is its own WP, and this is the
+  record that it is owed. (The 22 brand marks under `content/**/logos/` are a
+  different category: third-party art served on the `plate` ground, §The one
+  rule's second exemption.) Note that §What is NOT changed above says "the 27
+  hand-drawn SVGs", a figure written in #222 that does not match the tree
+  today; 20 is the count that reproduces, and the discrepancy is recorded here
+  rather than edited into the original text.
 - `architecture.test.ts`'s raw-colour ban greps our class names, not the
   contents of an SVG asset, so **nothing mechanical guards this**. The check is
   rendering the figure over `#f8f2ef` and `#0d1117` and looking at it — the

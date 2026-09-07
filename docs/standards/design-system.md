@@ -223,8 +223,11 @@ comparison, and every region carries a word. **`architecture.test.ts` cannot
 see any of this** — it greps our class names, not the contents of an `.svg`
 asset — so this note and the render-and-look check are the only guards.
 Decision and scope: ADR-0026 §Addendum — #277; the authoring rule is
-`guides/add-a-course-document.md` §6e-bis. The ~20 pre-existing figures still
-carry the old pattern and their conversion is a separate WP.
+`guides/add-a-course-document.md` §6e-bis. Counted from the tree
+(`find content -iname '*.svg' | grep -v /logos/`): 20 hand-drawn figures, of
+which 7 follow this rule and **13 still carry the old pattern**; their
+conversion is a separate WP. The 22 brand marks under `logos/` are not in this
+category — they are third-party art, covered by the `plate` exemption above.
 
 Adding a second component-scoped categorical palette records it here with
 the same shape, or converges on shared cycle tokens if two components would
