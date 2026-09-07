@@ -66,6 +66,31 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 
 	store := authstore.New(db)
 	logger := testLogger()
+	// Issue #272: ONE controls service, shared by the Controls handler and
+	// by the Courses handler's retroactive pass (handler.CourseRematcher).
+	// Two services over one database would be two places for the wiring
+	// these cases exist to check to drift apart.
+	cstore := controlstore.New(db)
+	amcFake := &amctest.Fake{}
+	sharedControls := controls.NewService(controls.Service{
+		// A real matcher over the same database. These cases are about
+		// the router's table, and an empty `student` table is the right
+		// answer for them — what matters is that the wiring the binary
+		// does is the wiring the test does.
+		Matcher:         matching.NewService(coursestore.New(db)),
+		Bank:            emptyBank(t),
+		Store:           cstore,
+		Generator:       amcFake,
+		Analyzer:        amcFake,
+		Readings:        cstore,
+		Annotator:       amcFake,
+		AnnotateEnabled: true,
+		WorkDir:         t.TempDir(),
+		Now:             time.Now,
+		Seed:            1,
+		Log:             logger,
+	})
+
 	return rootHandler(web.Deps{
 		Database: prober,
 		Gate: middleware.NewAuth(middleware.Auth{
@@ -94,27 +119,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 			Log:       logger,
 		}),
 		Controls: func() *handler.Controls {
-			cstore := controlstore.New(db)
-			fake := &amctest.Fake{}
-			svc := controls.NewService(controls.Service{
-				// Issue #272: a real matcher over the same database.
-				// These cases are about the router's table, and an
-				// empty `student` table is the right answer for them —
-				// what matters is that the wiring the binary does is
-				// the wiring the test does.
-				Matcher:         matching.NewService(coursestore.New(db)),
-				Bank:            emptyBank(t),
-				Store:           cstore,
-				Generator:       fake,
-				Analyzer:        fake,
-				Readings:        cstore,
-				Annotator:       fake,
-				AnnotateEnabled: true,
-				WorkDir:         t.TempDir(),
-				Now:             time.Now,
-				Seed:            1,
-				Log:             logger,
-			})
+			svc := sharedControls
 			jstore := jobstore.New(db)
 			runner := jobs.NewRunner(jstore, jobs.Handlers{
 				jobs.KindReanalyse: controls.NewReanalyseHandler(svc),
@@ -161,6 +166,10 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				emptyCourseStore{},
 				roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{})),
 			),
+			// Issue #272 S5: the retroactive pass. These cases are about
+			// the router's table, so the real controls service is what
+			// the binary wires and what the table has to accept.
+			Rematcher: sharedControls,
 			PublicURL: "https://nalanda.test",
 			Log:       logger,
 		}),

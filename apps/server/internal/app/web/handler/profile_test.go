@@ -76,8 +76,12 @@ type profileFixture struct {
 	api            *stubCanvas
 	courses        *coursestore.Store
 	coursesHandler *handler.Courses
-	logs           *bytes.Buffer
-	now            time.Time
+	// rematcher is the double behind the retroactive pass (issue #272
+	// S5). The pass itself is covered against a real reading store in
+	// internal/domain/controls; here it only has to answer.
+	rematcher *fakeRematcher
+	logs      *bytes.Buffer
+	now       time.Time
 	// db and log are kept so rekey can rebuild the handlers over the SAME
 	// database under a different master key.
 	db  *sql.DB
@@ -106,6 +110,7 @@ func (f *profileFixture) rekey(t *testing.T, masterKey []byte) {
 	})
 	f.coursesHandler = handler.NewCourses(handler.Courses{
 		Roster:    rosterService,
+		Rematcher: f.rematcher,
 		PublicURL: publicURL,
 		Log:       f.log,
 	})
@@ -161,8 +166,10 @@ func newProfileFixture(t *testing.T, masterKey []byte) *profileFixture {
 	// it is built from the same database, the same Canvas stub and the same
 	// session, and a second copy of all that would only be a second place
 	// for the wiring to drift.
+	f.rematcher = &fakeRematcher{}
 	f.coursesHandler = handler.NewCourses(handler.Courses{
 		Roster:    rosterService,
+		Rematcher: f.rematcher,
 		PublicURL: publicURL,
 		Log:       log,
 	})

@@ -14,6 +14,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
+	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 )
@@ -24,6 +25,17 @@ const (
 	CoursesPath      = "/courses"
 	CoursePath       = "/courses/{id}"
 	CourseImportPath = "/courses/{id}/import-canvas"
+	// CourseRematchPath rebuilds the RUT-to-student associations of every
+	// active control of one course (issue #272 S5). POST because it
+	// writes, on the course page because that is where the roster it
+	// matches against lives.
+	CourseRematchPath = "/courses/{id}/rematch"
+	// AdminRematchPath is the same pass over every course — the
+	// `--all-courses` half. Under /admin/ beside the bank refresh
+	// (issue #230) rather than under /courses/, because it belongs to no
+	// single course and a path like /courses/rematch-all would sit in the
+	// same segment as an {id}.
+	AdminRematchPath = "/admin/rematch"
 )
 
 // CoursePathFor builds the URL of one course. Exported so the templates and
@@ -33,10 +45,28 @@ func CoursePathFor(id int64) string {
 	return CoursesPath + "/" + strconv.FormatInt(id, 10)
 }
 
+// CourseRematcher is the retroactive pass, as this surface needs it
+// (issue #272 S5). Satisfied by controls.Service.
+//
+// An interface rather than a *controls.Service field, the same shape and
+// the same reason as handler.CourseLister next door: the screen needs two
+// answers, not the controls domain's whole surface — which would drag an
+// AMC worker, a work directory and a question bank into a fixture that
+// renders a roster.
+type CourseRematcher interface {
+	RematchCourse(ctx context.Context, courseID int64) (controls.RematchResult, error)
+	RematchAllCourses(ctx context.Context) (controls.RematchResult, error)
+}
+
 // Courses holds the course screens: the list, one course's roster, and the
 // Canvas import. Same shape as Professors and Profile.
 type Courses struct {
-	Roster    *roster.Service
+	Roster *roster.Service
+	// Rematcher rebuilds RUT-to-student associations (issue #272 S5).
+	// Named for the collaborator rather than the action, because the two
+	// handler METHODS below are Rematch and RematchAll and a field cannot
+	// share a name with a method.
+	Rematcher CourseRematcher
 	PublicURL string
 	Log       *slog.Logger
 
@@ -50,6 +80,8 @@ func NewCourses(deps Courses) *Courses {
 	switch {
 	case deps.Roster == nil:
 		panic("handler.NewCourses: no roster service")
+	case deps.Rematcher == nil:
+		panic("handler.NewCourses: no rematcher")
 	case deps.PublicURL == "":
 		panic("handler.NewCourses: no public URL — the flash cookie's Secure attribute is derived from it")
 	case deps.Log == nil:
@@ -69,7 +101,13 @@ func (c *Courses) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	page := view.CoursesListPage{Page: middleware.PageFor(r, "Cursos")}
+	page := view.CoursesListPage{
+		Page:             middleware.PageFor(r, "Cursos"),
+		RematchAllAction: AdminRematchPath,
+		// See CoursesListPage.RematchAllAction for why one course does
+		// not get this button.
+		ShowRematchAll: len(courses) > 1,
+	}
 	for _, course := range courses {
 		page.Courses = append(page.Courses, view.ListedCourse{
 			Code:     course.Course.Code,
@@ -129,7 +167,8 @@ func (c *Courses) Show(w http.ResponseWriter, r *http.Request) {
 			Term: course.Term,
 			URL:  CoursePathFor(course.ID),
 		},
-		ImportAction: CourseImportPathFor(course.ID),
+		ImportAction:  CourseImportPathFor(course.ID),
+		RematchAction: CourseRematchPathFor(course.ID),
 	}
 	for _, e := range enrollments {
 		switch e.State {
@@ -302,6 +341,106 @@ func importFlash(r roster.ImportResult) string {
 			r.WithoutRUT)
 	}
 	return line
+}
+
+// CourseRematchPathFor builds one course's rematch URL.
+func CourseRematchPathFor(id int64) string {
+	return CoursePathFor(id) + "/rematch"
+}
+
+// Rematch rebuilds the RUT-to-student associations of one course's active
+// controls (issue #272 S5).
+//
+// This is the retroactive pass, and it is a button rather than a CLI
+// subcommand for a reason worth writing down: the production image is
+// built FROM scratch (ADR-0034), so there is no shell to run a command
+// in, and the professor who needs to read the counts is the one holding a
+// browser. /admin/bank/refresh (issue #230) is the same shape.
+//
+// It is also the ordinary repair path, not only a migration one: a
+// professor who adds a missing student in Canvas re-imports the roster and
+// presses this to pick up the copies that student already sat.
+//
+// Idempotent, so a double-click costs a second pass that changes nothing.
+func (c *Courses) Rematch(w http.ResponseWriter, r *http.Request) {
+	courseID, ok := c.courseIDFrom(w, r)
+	if !ok {
+		return
+	}
+
+	result, err := c.Rematcher.RematchCourse(r.Context(), courseID)
+	if err != nil {
+		c.Log.Error("rematching a course", "course", courseID, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al reasociar los controles. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	flash.Set(w, c.secureCookie, rematchFlash(result))
+	http.Redirect(w, r, CoursePathFor(courseID), http.StatusSeeOther)
+}
+
+// RematchAll is Rematch over every course — the `--all-courses` half.
+func (c *Courses) RematchAll(w http.ResponseWriter, r *http.Request) {
+	result, err := c.Rematcher.RematchAllCourses(r.Context())
+	if err != nil {
+		c.Log.Error("rematching every course", "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al reasociar los controles. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	flash.Set(w, c.secureCookie, rematchFlash(result))
+	http.Redirect(w, r, CoursesPath, http.StatusSeeOther)
+}
+
+// rematchFlash is the Spanish sentence describing what a pass did.
+//
+// Every count that is zero is left OUT rather than printed as a zero: the
+// professor is looking for what needs their attention, and a line of
+// zeroes is four things to read past to find the one that is not. The
+// first sentence always renders, so a pass that did nothing still says so
+// instead of leaving the page silent.
+func rematchFlash(r controls.RematchResult) string {
+	if r.Controls == 0 && r.Skipped == 0 {
+		return "No hay controles que reasociar en este curso."
+	}
+
+	line := fmt.Sprintf("Reasociación lista: %d %s revisad%s, %d copias emparejadas",
+		r.Controls, plural(r.Controls, "control", "controles"), plural(r.Controls, "o", "os"), r.Matched)
+	if r.Changed > 0 {
+		line += fmt.Sprintf(" (%d cambiaron)", r.Changed)
+	} else {
+		line += " (ninguna cambió)"
+	}
+	line += "."
+
+	if r.Unmatched > 0 {
+		// A separate line: the layout renders a multi-line flash as a
+		// list (§Flash), and this is something to look at rather than
+		// something that happened.
+		line += fmt.Sprintf("\nOjo: %d %s sin alumno. Revisa el RUT en la copia, o agrega al alumno en Canvas y vuelve a importar la lista.",
+			r.Unmatched, plural(r.Unmatched, "copia", "copias"))
+	}
+	if r.Skipped > 0 {
+		line += fmt.Sprintf("\n%d %s sin curso asignado. Ábrelo y asígnale uno para que sus copias se emparejen.",
+			r.Skipped, plural(r.Skipped, "control quedó", "controles quedaron"))
+	}
+	if r.Errored > 0 {
+		line += fmt.Sprintf("\n%d %s no se pudo consultar. Su asociación quedó como estaba; vuelve a intentarlo.",
+			r.Errored, plural(r.Errored, "copia", "copias"))
+	}
+	return line
+}
+
+// plural picks the singular or the plural form. Spanish agreement is what
+// the professor reads; getting "1 controles" onto the screen is the kind
+// of detail that makes a tool feel unfinished.
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }
 
 // courseIDFrom reads and validates the {id} path segment, writing the

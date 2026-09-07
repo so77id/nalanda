@@ -105,6 +105,15 @@ type ProfessorFormValues struct {
 type CoursesListPage struct {
 	Page
 	Courses []ListedCourse
+	// RematchAllAction is the POST target of the whole-server retroactive
+	// pass (issue #272 S5) — the `--all-courses` half. Rendered only when
+	// there are at least two courses: with one, the button on that
+	// course's own page does exactly the same thing and naming it twice
+	// invites the reader to wonder what the difference is.
+	RematchAllAction string
+	// ShowRematchAll gates that button, so the template does not have to
+	// know the rule.
+	ShowRematchAll bool
 }
 
 // ListedCourse is one row of the course list.
@@ -128,6 +137,9 @@ type CourseDetailPage struct {
 	// ImportAction is where both import forms post — the empty state's
 	// "Cargar desde Canvas" and the populated state's "Reimportar".
 	ImportAction string
+	// RematchAction is the POST target of "Reasociar controles"
+	// (issue #272 S5).
+	RematchAction string
 
 	EnrolledCount  int
 	WithdrawnCount int

@@ -294,7 +294,10 @@ func run(logger *slog.Logger) error {
 			Log:       logger,
 		}),
 		Courses: handler.NewCourses(handler.Courses{
-			Roster:    rosterService,
+			Roster: rosterService,
+			// Issue #272 S5: the retroactive pass. controls.Service is
+			// what satisfies handler.CourseRematcher.
+			Rematcher: controlsService,
 			PublicURL: cfg.PublicURL,
 			Log:       logger,
 		}),

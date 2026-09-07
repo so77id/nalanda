@@ -3,6 +3,7 @@ package handler_test
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
+	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 )
 
@@ -602,4 +604,147 @@ func TestTheRutWarningCountsOnlyTheEnrolled(t *testing.T) {
 	if !strings.Contains(body, "EXTRANJERA") {
 		t.Error("the withdrawn student disappeared from the roster table")
 	}
+}
+
+// --- Issue #272 S5: the retroactive pass, from the browser. ---
+
+// fakeRematcher records what it was asked and answers with a fixed
+// result. The pass itself is covered against a real reading store in
+// internal/domain/controls; what is left for this level is the parse,
+// the flash and the redirect.
+type fakeRematcher struct {
+	result   controls.RematchResult
+	fail     error
+	courses  []int64
+	allCalls int
+}
+
+func (m *fakeRematcher) RematchCourse(_ context.Context, courseID int64) (controls.RematchResult, error) {
+	m.courses = append(m.courses, courseID)
+	return m.result, m.fail
+}
+
+func (m *fakeRematcher) RematchAllCourses(context.Context) (controls.RematchResult, error) {
+	m.allCalls++
+	return m.result, m.fail
+}
+
+// The button reports what the pass did, in numbers the professor can act
+// on, and comes back to the course.
+func TestRematchReportsTheCountsAndReturnsToTheCourse(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.result = controls.RematchResult{Controls: 2, Matched: 27, Unmatched: 3, Changed: 27}
+
+	rec := f.rematchPost(t, session, courseID)
+
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303; body:\n%s", rec.Code, rec.Body.String())
+	}
+	if loc := rec.Header().Get("Location"); loc != handler.CoursePathFor(courseID) {
+		t.Errorf("Location = %q, want the course page", loc)
+	}
+	if len(f.rematcher.courses) != 1 || f.rematcher.courses[0] != courseID {
+		t.Errorf("the rematcher was asked for %v, want course %d once", f.rematcher.courses, courseID)
+	}
+
+	msg := flashOf(t, rec)
+	for _, want := range []string{"2 controles", "27 copias emparejadas", "3 copias sin alumno"} {
+		if !strings.Contains(msg, want) {
+			t.Errorf("flash %q does not carry %q", msg, want)
+		}
+	}
+}
+
+// A pass that changed nothing says so, rather than leaving the professor
+// to guess whether the button worked.
+//
+// This is what a second press looks like, and it is the reading of
+// "idempotent" a professor can actually perform.
+func TestRematchSaysWhenNothingChanged(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.result = controls.RematchResult{Controls: 1, Matched: 30, Changed: 0}
+
+	msg := flashOf(t, f.rematchPost(t, session, courseID))
+	if !strings.Contains(msg, "ninguna cambió") {
+		t.Errorf("flash %q does not say that nothing changed", msg)
+	}
+}
+
+// Zero counts stay out of the message.
+//
+// The professor is scanning for what needs attention; a line of zeroes is
+// three things to read past to find the one that is not zero.
+func TestRematchLeavesZeroCountsOutOfTheFlash(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.result = controls.RematchResult{Controls: 1, Matched: 30, Changed: 30}
+
+	msg := flashOf(t, f.rematchPost(t, session, courseID))
+	for _, unwanted := range []string{"sin alumno", "sin curso asignado", "no se pudo consultar"} {
+		if strings.Contains(msg, unwanted) {
+			t.Errorf("flash %q carries %q for a count of zero", msg, unwanted)
+		}
+	}
+}
+
+// Controls with no course get their own line, because their fix is
+// different from every other one: assign them a course.
+func TestRematchNamesTheControlsThatHaveNoCourse(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.result = controls.RematchResult{Controls: 1, Skipped: 2, Matched: 10, Changed: 10}
+
+	msg := flashOf(t, f.rematchPost(t, session, courseID))
+	if !strings.Contains(msg, "sin curso asignado") {
+		t.Errorf("flash %q does not name the controls with no course", msg)
+	}
+}
+
+// A failed pass is a 500 the professor can retry, not a flash claiming
+// success.
+func TestRematchSurfacesAFailure(t *testing.T) {
+	f := newProfileFixture(t, profileKey())
+	_, session := f.signIn(t)
+	f.api.courses = canvasCourses()
+	f.connect(t, session)
+	courseID := f.addCourse(t, session, "44779")
+	f.rematcher.fail = errors.New("the database is gone")
+
+	rec := f.rematchPost(t, session, courseID)
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500", rec.Code)
+	}
+	if flashOf(t, rec) != "" {
+		t.Error("a failed pass set a flash; nothing happened worth reporting as done")
+	}
+}
+
+// rematchPost drives POST /courses/{id}/rematch with the path value bound
+// the way the mux binds it.
+func (f *profileFixture) rematchPost(t *testing.T, session string, courseID int64) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(http.MethodPost, handler.CourseRematchPathFor(courseID), strings.NewReader(""))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.AddCookie(&http.Cookie{Name: middleware.SessionCookieName(true), Value: session})
+	req.SetPathValue("id", strconv.FormatInt(courseID, 10))
+
+	rec := httptest.NewRecorder()
+	f.middleware.Resolve(f.middleware.RequireProfessor(http.HandlerFunc(f.coursesHandler.Rematch))).
+		ServeHTTP(rec, req)
+	return rec
 }

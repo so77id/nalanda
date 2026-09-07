@@ -287,6 +287,17 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.CourseImportPath,
 			Handler: deps.Courses.ImportCanvas,
 		},
+		// Issue #272 S5: the retroactive pass, per course and over every
+		// course. Gated by default (no Public), CSRF enforced because
+		// both methods are POST.
+		{
+			Method: http.MethodPost, Path: handler.CourseRematchPath,
+			Handler: deps.Courses.Rematch,
+		},
+		{
+			Method: http.MethodPost, Path: handler.AdminRematchPath,
+			Handler: deps.Courses.RematchAll,
+		},
 		// Issue #230: the manual bank-refresh endpoint. Gated by default
 		// (no Public), CSRF enforced because the method is POST.
 		{

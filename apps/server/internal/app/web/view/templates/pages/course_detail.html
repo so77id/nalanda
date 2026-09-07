@@ -58,5 +58,23 @@
       <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
       <button type="submit">Reimportar desde Canvas</button>
     </form>
+
+    {{/*
+      Issue #272 S5. Only rendered once a roster exists: with no students
+      the pass would walk every copy to match nobody, and the button would
+      be an invitation to do nothing. Sits beside the reimport because the
+      two are one habit — add the missing student in Canvas, reimport,
+      then pick up the copies they already sat.
+    */}}
+    <h2>Reasociar controles</h2>
+    <p>
+      Vuelve a emparejar el RUT de cada copia con su estudiante, en todos los
+      controles activos de este curso. Úsalo después de reimportar la lista, o
+      para los controles que corregiste antes de tener el curso cargado.
+    </p>
+    <form method="post" action="{{ .RematchAction }}">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <button type="submit">Reasociar controles de este curso</button>
+    </form>
   {{ end }}
 {{ end }}

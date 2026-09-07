@@ -398,7 +398,7 @@ func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) (
 			s.Log.Warn("controls.SaveOverrides: control unreadable for rematch",
 				"control", req.ControlID, "copy", req.CopyNumber, "error", err)
 		} else {
-			s.matchOne(ctx, control, reading.ID, reading.CopyNumber, result.RUTTo, reading.StudentID)
+			_ = s.matchOne(ctx, control, reading.ID, reading.CopyNumber, result.RUTTo, reading.StudentID)
 		}
 	}
 
@@ -459,23 +459,177 @@ func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) (
 // Returns an error only when the control or its readings cannot be read
 // at all. A per-reading failure is logged and skipped — see
 // rematchQuietly for why the read paths do not surface even that.
-func (s *Service) RematchReadings(ctx context.Context, controlID string) error {
+func (s *Service) RematchReadings(ctx context.Context, controlID string) (RematchResult, error) {
 	control, err := s.Store.ControlByID(ctx, controlID)
 	if err != nil {
-		return err
+		return RematchResult{}, err
 	}
 	if control.CourseID == nil {
-		return nil
+		return RematchResult{Skipped: 1}, nil
 	}
 	readings, err := s.Readings.ReadingsByControl(ctx, controlID)
 	if err != nil {
-		return fmt.Errorf("controls.RematchReadings %s: %w", controlID, err)
+		return RematchResult{}, fmt.Errorf("controls.RematchReadings %s: %w", controlID, err)
 	}
 
+	result := RematchResult{Controls: 1}
 	for _, r := range readings {
-		s.matchOne(ctx, control, r.ID, r.CopyNumber, effectiveRUT(r), r.StudentID)
+		// A copy that was printed and never handed in has no RUT and
+		// never will. Counting it as "unmatched" would put the size of
+		// the absent half into a number whose whole purpose is to say
+		// how many RUTs need looking at.
+		if r.CopyStatus == CopyStatusNotPresent {
+			continue
+		}
+		result.add(s.matchOne(ctx, control, r.ID, r.CopyNumber, effectiveRUT(r), r.StudentID))
 	}
-	return nil
+	return result, nil
+}
+
+// RematchResult is what one rematch pass did, for the professor to read
+// afterwards.
+//
+// Changed is the number that answers "did this do anything": a second run
+// over an unchanged roster reports zero, which is what idempotent means
+// here in a form somebody can check without a database client.
+type RematchResult struct {
+	// Controls is how many controls were walked (those with a course).
+	Controls int
+	// Skipped is how many were passed over for having no course. They are
+	// not failures — nobody has told the server which class sat them —
+	// and they are counted so the total adds up and a professor can see
+	// that the reason some controls did nothing is assignable.
+	Skipped int
+	// Matched and Unmatched are the readings that ended the pass with and
+	// without a student. Copies never handed in are in neither.
+	Matched   int
+	Unmatched int
+	// Changed is how many readings actually MOVED — the rest already
+	// carried the association this pass computed.
+	Changed int
+	// Errored is readings whose lookup or write failed, and whose
+	// association is therefore unknown rather than absent.
+	Errored int
+}
+
+// Readings is how many copies the pass considered.
+func (r RematchResult) Readings() int { return r.Matched + r.Unmatched + r.Errored }
+
+func (r *RematchResult) add(o matchOutcome) {
+	switch o.kind {
+	case matchedTo:
+		r.Matched++
+	case matchedNobody:
+		r.Unmatched++
+	case matchFailed:
+		r.Errored++
+	}
+	if o.changed {
+		r.Changed++
+	}
+}
+
+// merge folds another pass's counts in, for the whole-course walk.
+func (r *RematchResult) merge(o RematchResult) {
+	r.Controls += o.Controls
+	r.Skipped += o.Skipped
+	r.Matched += o.Matched
+	r.Unmatched += o.Unmatched
+	r.Changed += o.Changed
+	r.Errored += o.Errored
+}
+
+// matchOutcome is what happened to one reading.
+type matchOutcome struct {
+	kind    matchOutcomeKind
+	changed bool
+}
+
+type matchOutcomeKind int
+
+const (
+	matchedNobody matchOutcomeKind = iota
+	matchedTo
+	matchFailed
+)
+
+// RematchCourse rebuilds the associations of every ACTIVE control of one
+// course (issue #272 S5).
+//
+// This is the retroactive pass: the controls read before this WP have
+// readings whose RUTs were never offered to a roster, and this is what
+// offers them. It is also the repair path for a roster imported after a
+// control was corrected, which is the ordinary case rather than a
+// migration one — a professor who adds a missing student in Canvas runs
+// this to pick them up.
+//
+// IDEMPOTENT: it computes each association from the RUT the copy carries
+// now and writes only what differs, so a second run reports Changed = 0
+// and touches nothing.
+//
+// ARCHIVED CONTROLS ARE NOT WALKED. Archiving is the professor saying
+// "put this away"; reaching into it from a course-wide button would be
+// the button deciding otherwise. Restoring the control and running again
+// is the path, and it is one click.
+//
+// A per-control failure does not abort the pass: the remaining controls
+// are still worth rebuilding, and the count of what failed is in the
+// result rather than in an error nobody can act on halfway through.
+func (s *Service) RematchCourse(ctx context.Context, courseID int64) (RematchResult, error) {
+	if courseID <= 0 {
+		return RematchResult{}, fmt.Errorf("controls.RematchCourse: course id must be positive, got %d", courseID)
+	}
+	// ListControls rather than a course-scoped query: it is one statement
+	// this store already answers, the set is tens of rows, and a new
+	// index would have to be justified by an EXPLAIN QUERY PLAN this slice
+	// has no reader for (#271 review, PER-4). It also hides archived rows,
+	// which is exactly the set this method wants.
+	all, err := s.Store.ListControls(ctx)
+	if err != nil {
+		return RematchResult{}, fmt.Errorf("controls.RematchCourse %d: %w", courseID, err)
+	}
+
+	var total RematchResult
+	for _, c := range all {
+		if c.CourseID == nil || *c.CourseID != courseID {
+			continue
+		}
+		one, err := s.RematchReadings(ctx, c.ID)
+		if err != nil {
+			s.Log.Warn("controls.RematchCourse: control failed", "control", c.ID, "error", err)
+			total.Controls++
+			total.Errored++
+			continue
+		}
+		total.merge(one)
+	}
+	return total, nil
+}
+
+// RematchAllCourses is RematchCourse over every course that has one.
+//
+// The `--all-courses` half of the retroactive pass. It walks the controls
+// once and groups by whatever course each carries, rather than asking the
+// roster for the course list and looping — the answer is the same and it
+// does not need a roster port on this domain.
+func (s *Service) RematchAllCourses(ctx context.Context) (RematchResult, error) {
+	all, err := s.Store.ListControls(ctx)
+	if err != nil {
+		return RematchResult{}, fmt.Errorf("controls.RematchAllCourses: %w", err)
+	}
+
+	var total RematchResult
+	for _, c := range all {
+		one, err := s.RematchReadings(ctx, c.ID)
+		if err != nil {
+			s.Log.Warn("controls.RematchAllCourses: control failed", "control", c.ID, "error", err)
+			total.Controls++
+			total.Errored++
+			continue
+		}
+		total.merge(one)
+	}
+	return total, nil
 }
 
 // matchOne resolves one RUT against the control's course and writes the
@@ -489,9 +643,9 @@ func (s *Service) RematchReadings(ctx context.Context, controlID string) error {
 // Silent on failure by design — every caller is enriching something
 // already committed, and the log line is the operator's record. See
 // rematchQuietly.
-func (s *Service) matchOne(ctx context.Context, control Control, readingID int64, copyNumber int, rut string, current *int64) {
+func (s *Service) matchOne(ctx context.Context, control Control, readingID int64, copyNumber int, rut string, current *int64) matchOutcome {
 	if control.CourseID == nil {
-		return
+		return matchOutcome{kind: matchedNobody}
 	}
 	studentID, err := s.Matcher.MatchByRUT(ctx, rut, *control.CourseID)
 	if err != nil {
@@ -502,15 +656,23 @@ func (s *Service) matchOne(ctx context.Context, control Control, readingID int64
 		// would un-file a copy because a database blinked.
 		s.Log.Warn("controls: match lookup failed",
 			"control", control.ID, "copy", copyNumber, "error", err)
-		return
+		return matchOutcome{kind: matchFailed}
+	}
+
+	outcome := matchOutcome{kind: matchedNobody}
+	if studentID != nil {
+		outcome.kind = matchedTo
 	}
 	if sameStudent(current, studentID) {
-		return
+		return outcome
 	}
 	if err := s.Readings.SetReadingStudent(ctx, readingID, studentID); err != nil {
 		s.Log.Warn("controls: match write failed",
 			"control", control.ID, "copy", copyNumber, "error", err)
+		return matchOutcome{kind: matchFailed}
 	}
+	outcome.changed = true
+	return outcome
 }
 
 // rematchQuietly runs RematchReadings and logs whatever it returns.
@@ -521,7 +683,7 @@ func (s *Service) matchOne(ctx context.Context, control Control, readingID int64
 // analyse over an enrichment would turn a roster outage into a re-scan.
 // Same policy, and the same reason, as annotateCleanCopies.
 func (s *Service) rematchQuietly(ctx context.Context, controlID, caller string) {
-	if err := s.RematchReadings(ctx, controlID); err != nil {
+	if _, err := s.RematchReadings(ctx, controlID); err != nil {
 		s.Log.Warn("controls."+caller+": rematch failed", "control", controlID, "error", err)
 	}
 }
