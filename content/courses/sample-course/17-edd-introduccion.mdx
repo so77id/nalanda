@@ -24,7 +24,7 @@ el arreglo dinámico y cierra con el contrato que ambos cumplen.
 
 <SectionBreak />
 
-## Vocabulario · TDA, EDA e invariante
+## Qué se puede pedir y cómo se resuelve
 
 <Slide title="Lo mismo, dos veces">
 Estas dos líneas declaran lo mismo y construyen cosas distintas:
@@ -37,103 +37,115 @@ a.add(0, 7);   b.add(0, 7);      // insertar al principio
 a.get(3);      b.get(3);         // pedir el de la posición 3
 ```
 
-Las dos responden `add`, `get`, `remove`, `size`. Un método que reciba un
-`List` funciona con cualquiera de las dos sin enterarse de cuál le
-tocó.
+Las dos aceptan los mismos pedidos: `add`, `get`, `remove`, `size`. Un
+método que reciba un `List` funciona con cualquiera de las dos sin
+enterarse de cuál le tocó. Por dentro, sin embargo, guardan los números
+de maneras completamente distintas.
 
-Algo se está separando ahí: **qué se le puede pedir** a una colección,
-por un lado, y **cómo lo resuelve**, por el otro. Esta clase le pone
-nombre a los dos lados, y a lo que los conecta.
+Ahí hay dos cosas separadas, y cada una tiene nombre:
+
+- El **tipo de dato abstracto** (TDA) es el conjunto de pedidos que se
+  pueden hacer y qué significa cada uno. Acá, `List`.
+- La **estructura de datos** es la manera concreta de cumplirlos. Acá,
+  `ArrayList` por un lado y `LinkedList` por el otro.
+
+**Un mismo TDA puede ser implementado por más de una estructura de
+datos.** Esa es la idea que sostiene toda la unidad.
 
 </Slide>
 
-<Slide title="Tipo de dato abstracto · el contrato">
-Un **tipo de dato abstracto** (TDA) es un conjunto de operaciones **con
-su significado**, sin decir nada sobre cómo están guardados los
-elementos.
+<Slide title="Tipo de dato abstracto · TDA">
+**Tipo de dato abstracto** (TDA); en inglés, *abstract data type* (ADT).
 
-`List` es un TDA. Dice que los elementos ocupan posiciones `0..n-1`, que
-`get(i)` devuelve el que está en la posición `i`, que `add(i, e)` mete a
-`e` ahí y corre el resto. No dice dónde vive ninguno de ellos.
+Un TDA responde una sola pregunta: **qué le puedo pedir a esta
+colección, y qué obtengo a cambio.** Nada más. No dice dónde están
+guardados los elementos, ni cómo los recorre por dentro, ni qué pasa en
+la memoria.
+
+Para `List`, los pedidos son estos:
 
 ```java
 public interface List<E> {
-    int size();
-    E get(int index);            // el elemento de la posición index
+    int size();                  // cuántos elementos hay
+    E get(int index);            // devuelve el de la posición index
     E set(int index, E e);       // reemplaza el de esa posición
     void add(int index, E e);    // inserta e y corre el resto
     E remove(int index);         // saca el de index y lo devuelve
 }
 ```
 
-**Cuidado con una confusión fácil: no toda interfaz es un TDA.**
-`Comparable` es un contrato — declara que un tipo tiene orden — pero no
-describe ninguna colección, y no hay dos maneras de implementarlo que
-cuesten distinto. Lo mismo vale para `Runnable` o `Serializable`.
+Y junto con los pedidos vienen las **reglas** que promete cumplir: las
+posiciones van de `0` a `size()-1`; después de `add(0, x)`, `get(0)`
+devuelve `x` y todo lo demás quedó corrido una posición. Esas reglas son
+parte del TDA tanto como los nombres de los métodos.
 
-Un TDA se reconoce porque **admite varias representaciones y elegir
-entre ellas importa**.
+**No toda interfaz de Java es un TDA.** `Comparable` declara que un tipo
+tiene orden, pero no describe ninguna colección ni admite dos
+implementaciones que cuesten distinto. Un TDA se reconoce porque
+**varias estructuras pueden cumplirlo, y elegir entre ellas importa**.
 
 </Slide>
 
-<Slide title="Estructura de datos · la representación">
-Una **estructura de datos** es la decisión que el contrato dejó
-abierta: dónde están los elementos y cómo se implementa cada operación.
+<Slide title="Estructura de datos">
+La estructura de datos elige **cómo se guardan y cómo se manipulan** los
+datos. El TDA solo dice **cómo se usa** y **qué reglas** hay que
+respetar.
 
-`ArrayList` los guarda en **memoria consecutiva**. `LinkedList` los
-guarda en **nodos enlazados**, cada uno sabiendo dónde está el
-siguiente. Mismo contrato, distinta máquina.
+Dicho de otro modo: el TDA es lo que ve quien usa la colección; la
+estructura es lo que hay adentro, y quien la usa nunca necesita mirarlo.
 
-> La interfaz es una **especificación** — el problema. La estructura de
-> datos es una **representación** — la solución.
->
-> — Erik Demaine, MIT 6.006, 2020
+Las dos que ya aparecieron cumplen el mismo contrato de maneras
+opuestas:
 
-Demaine dice _interfaz_ donde nosotros venimos diciendo _contrato_: la
-palabra está sobrecargada. En Java, `interface` es un mecanismo del
-lenguaje; en la literatura de algoritmos, la interfaz de una estructura
-es su TDA. Son cosas distintas y conviene no mezclarlas.
+- **`ArrayList`** guarda los elementos en **memoria consecutiva**, uno
+  al lado del otro. Sabe llegar a la posición `i` con una cuenta.
+- **`LinkedList`** guarda cada elemento en un **nodo suelto** que apunta
+  al siguiente. Para llegar a la posición `i` tiene que caminar `i`
+  nodos.
 
-Lo que importa es la consecuencia: **los costos no salen del contrato,
-salen de la representación.** Sobre un millón de elementos, `get(500000)`
-es inmediato en un `ArrayList` y camina medio millón de nodos en un
-`LinkedList`. Ninguna de las dos es mejor; son distintas, y esta unidad
-estudia esa diferencia.
+De ahí sale la consecuencia que ordena la unidad entera: **los costos no
+salen del contrato, salen de la estructura.** Sobre un millón de
+elementos, `get(500000)` es inmediato en un `ArrayList` y recorre medio
+millón de nodos en un `LinkedList`. Ninguna de las dos es mejor; sirven
+para cosas distintas, y saber cuál elegir es de lo que trata la unidad.
 
 </Slide>
 
 <Slide title="Invariante · lo que se mantiene">
-Falta la pieza que conecta las dos anteriores, y aparece con una
-pregunta sobre código conocido.
+Una operación puede ser rápida solo si tiene permitido **dar algo por
+sentado** sobre el estado que recibe.
 
 ```java
 static int bs(int[] a, int lo, int hi, int t) {
     if (lo > hi) return -1;
     int mid = (lo + hi) / 2;
     if (a[mid] == t) return mid;
-    if (t < a[mid]) return bs(a, lo, mid - 1, t);
-    return bs(a, mid + 1, hi, t);
+    if (t < a[mid]) return bs(a, lo, mid - 1, t);   // descarta la mitad derecha
+    return bs(a, mid + 1, hi, t);                   // descarta la mitad izquierda
 }
 ```
 
-**¿Por qué está permitido tirar media entrada sin mirarla?**
+`bs` tira media entrada sin mirarla. Puede hacerlo porque confía en que
+el arreglo está ordenado y en que, **si `t` está, está en `a[lo..hi]`**.
+Esa promesa vale al entrar a cada llamada y sigue valiendo al salir,
+sobre un rango la mitad de grande.
 
-Porque hay una propiedad que valía antes del paso y sigue valiendo
-después: **si `t` está en el arreglo, está en `a[lo..hi]`**. Cada
-llamada la deja en pie sobre un rango la mitad de grande, así que lo
-que se descarta no podía contener la respuesta.
+Una promesa así se llama **invariante**: una propiedad cierta **antes y
+después** de cada operación.
 
-Una propiedad así se llama **invariante**: vale antes y después de cada
-operación, aunque durante la operación se rompa.
-
-Y con eso se cierra la cadena: **una operación es barata cuando puede
-confiar en el invariante, y cara cuando tiene que restaurarlo.**
+La parte que importa es la del medio: **durante** una operación el
+invariante puede romperse. Mientras un arreglo corre sus elementos para
+abrir un hueco, hay un instante en que un mismo valor está copiado en
+dos casillas y el contenido no es válido. Eso está permitido. Lo que no
+está permitido es **terminar** dejándolo roto: quien venga después tiene
+derecho a encontrarlo en pie.
 
 </Slide>
 
 <Slide title="Un invariante que ya usamos">
-El invariante casi nunca está escrito. En `partition` sí, y quizá pasó
-desapercibido:
+Los invariantes casi nunca aparecen escritos: viven en la cabeza de
+quien programó. `partition` es una excepción — el suyo quedó anotado en
+un comentario, y es el que hace funcionar a quicksort.
 
 ```java
 static int partition(int[] a, int lo, int hi) {
@@ -149,9 +161,20 @@ static int partition(int[] a, int lo, int hi) {
 }
 ```
 
-Ese comentario es el invariante del bucle. Se cumple en cada vuelta, y
-es lo único que garantiza que al terminar el pivote quede en su posición
-definitiva — sin él, quicksort no sería correcto.
+El comentario dice que, en cada vuelta, todo lo que quedó a la izquierda
+de `store` es menor que el pivote y todo lo que va de `store` a `j-1` es
+mayor o igual. De `j` en adelante todavía no se miró nada. El `if`
+mantiene esa promesa: cada elemento que resulta menor se manda al bloque
+de los menores.
+
+Cuando el bucle termina, `j` llegó a `hi` y ya no queda nada sin
+clasificar. El último `swap` mete el pivote en `store`, justo entre los
+dos bloques — **y esa es su posición definitiva en el arreglo
+ordenado**.
+
+Por eso quicksort funciona: después de `partition` el pivote ya está en
+su lugar para siempre, y las dos mitades se pueden ordenar por separado
+sin volver a tocarlo nunca.
 
 </Slide>
 
@@ -164,8 +187,7 @@ definitiva — sin él, quicksort no sería correcto.
 La dependencia baja y nunca sube: el contrato no sabe nada de los
 invariantes, y los invariantes son asunto privado de cada
 representación. Esa libertad es la que permite que dos estructuras con
-el mismo contrato tengan costos distintos — y el resto de la unidad es
-recorrer esta cadena, una estructura por vez.
+el mismo contrato tengan costos distintos.
 
 </Slide>
 
