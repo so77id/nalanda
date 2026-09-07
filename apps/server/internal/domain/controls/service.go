@@ -96,6 +96,13 @@ type Service struct {
 	// one would make "Publicar" a button that reports success and sends
 	// nothing.
 	Dispatcher Dispatcher
+	// Roster and Senders are the two things a publication needs that the
+	// controls tables do not hold: who is on the course, and who the mail
+	// goes out as (issue #273). Narrow ports rather than the roster and
+	// auth packages, the Matcher reasoning — this domain needs the
+	// answers, not the packages.
+	Roster  PublishRoster
+	Senders SenderReader
 	// WorkDir is what the SERVER sees as the root of the shared volume.
 	// In compose it is bind-mounted onto /work in the worker; in
 	// development it may be any path the operator chose (see
@@ -146,6 +153,10 @@ func NewService(deps Service) *Service {
 		panic("controls.NewService: no matcher")
 	case deps.Dispatcher == nil:
 		panic("controls.NewService: no mail dispatcher")
+	case deps.Roster == nil:
+		panic("controls.NewService: no publication roster")
+	case deps.Senders == nil:
+		panic("controls.NewService: no sender reader")
 	case deps.WorkDir == "":
 		panic("controls.NewService: no work directory")
 	case deps.Now == nil:

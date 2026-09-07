@@ -83,6 +83,8 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 		// does is the wiring the test does.
 		Matcher:         matching.NewService(coursestore.New(db)),
 		Dispatcher:      email.NewStubDispatcher(),
+		Roster:          coursestore.New(db),
+		Senders:         authstore.New(db),
 		Bank:            emptyBank(t),
 		Store:           cstore,
 		Generator:       amcFake,
@@ -131,6 +133,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				jobs.KindAnalyse:   controls.NewAnalyseHandler(svc),
 				jobs.KindGenerate:  controls.NewGenerateHandler(svc),
 				jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
+				jobs.KindPublish:   controls.NewPublishHandler(svc),
 			}, logger, time.Now)
 			return handler.NewControls(handler.Controls{
 				Service: svc,

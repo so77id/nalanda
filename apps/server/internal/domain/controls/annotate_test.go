@@ -38,6 +38,8 @@ func newAnnotateFixture(t *testing.T, annotateEnabled bool) *annotateFixture {
 	svc := controls.NewService(controls.Service{
 		Matcher:         noMatcher{},
 		Dispatcher:      noDispatcher{},
+		Roster:          noRoster{},
+		Senders:         noSenders{},
 		Bank:            bank.NewStaticLive(b),
 		Store:           store,
 		Generator:       fake,

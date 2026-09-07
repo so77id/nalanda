@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
+	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 )
 
 // Store is the adapter. One type rather than three, because there is one
@@ -431,4 +432,35 @@ func (s *Store) GmailAddress(ctx context.Context, userID int64) (string, error) 
 		return "", fmt.Errorf("read the connected Gmail address for professor %d: %w", userID, err)
 	}
 	return address.String, nil
+}
+
+// SenderFor returns the professor a publication goes out as, satisfying
+// controls.SenderReader (issue #273).
+//
+// One statement for the three facts a message needs, because they live in
+// one row: the name that signs it, the address a staging run redirects to,
+// and the connected account that becomes the From. A NULL gmail_address
+// comes back as the empty string, which is what Service.Publish reads as
+// "this professor has connected nothing" and refuses on before stamping
+// anything.
+func (s *Store) SenderFor(ctx context.Context, userID int64) (controls.Sender, error) {
+	var (
+		name    string
+		email   string
+		address sql.NullString
+	)
+	err := s.db.QueryRowContext(ctx,
+		"SELECT name, email, gmail_address FROM users WHERE user_id = ?", userID,
+	).Scan(&name, &email, &address)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return controls.Sender{}, auth.ErrNotFound
+	case err != nil:
+		return controls.Sender{}, fmt.Errorf("read the sender %d: %w", userID, err)
+	}
+	return controls.Sender{
+		Name:         name,
+		Email:        email,
+		GmailAddress: address.String,
+	}, nil
 }

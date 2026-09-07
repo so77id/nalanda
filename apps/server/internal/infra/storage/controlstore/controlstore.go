@@ -39,7 +39,9 @@ const controlInsertColumns = "id, name, application_date, from_document, from_se
 
 // controlColumns is what SELECTs read, including deleted_at so the
 // archived/active split is visible to callers.
-const controlColumns = controlInsertColumns + ", deleted_at"
+// Issue #273 appends the publication pair, so every read of a control
+// carries whether it was published without a second query.
+const controlColumns = controlInsertColumns + ", deleted_at, published_at, publication_mode"
 
 // CreateControl writes the control, its pool and its copies in one
 // transaction. Rolled back on any failure so a control never appears in the
@@ -281,6 +283,8 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		state           string
 		deletedAt       sql.NullInt64
 		courseID        sql.NullInt64
+		publishedAt     sql.NullInt64
+		publicationMode sql.NullString
 	)
 	if err := row.Scan(
 		&c.ID, &c.Name, &applicationDate,
@@ -293,6 +297,7 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		&state, &createdAt, &c.CreatedBy,
 		&courseID,
 		&deletedAt,
+		&publishedAt, &publicationMode,
 	); err != nil {
 		return controls.Control{}, err
 	}
@@ -312,6 +317,11 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		id := courseID.Int64
 		c.CourseID = &id
 	}
+	if publishedAt.Valid {
+		at := time.Unix(publishedAt.Int64, 0).UTC()
+		c.PublishedAt = &at
+	}
+	c.PublicationMode = controls.PublishMode(publicationMode.String)
 	return c, nil
 }
 
@@ -435,6 +445,33 @@ func (s *Store) ClearAnnotated(ctx context.Context, controlID string) error {
 	if _, err := s.db.ExecContext(ctx, `
         DELETE FROM annotated_copy WHERE control_id = ?`, controlID); err != nil {
 		return fmt.Errorf("controlstore.ClearAnnotated %s: %w", controlID, err)
+	}
+	return nil
+}
+
+// MarkPublished stamps published_at and publication_mode (issue #273).
+//
+// The `AND published_at IS NULL` is the schema-level belt behind
+// Service.Publish's own gate, the shape SoftDeleteControl and PurgeControl
+// already have: even a caller that skipped the service cannot re-stamp a
+// published control and re-date somebody's publication. It also makes the
+// not-found answer mean two things at once — no such control, or one
+// already published — which is exactly what the caller does about both.
+func (s *Store) MarkPublished(ctx context.Context, controlID string, at time.Time, mode string) error {
+	result, err := s.db.ExecContext(ctx, `
+        UPDATE control SET published_at = ?, publication_mode = ?
+        WHERE id = ? AND published_at IS NULL`,
+		at.Unix(), mode, controlID,
+	)
+	if err != nil {
+		return fmt.Errorf("stamp the control %s published: %w", controlID, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("stamp the control %s published: %w", controlID, err)
+	}
+	if affected == 0 {
+		return controls.ErrControlNotFound
 	}
 	return nil
 }

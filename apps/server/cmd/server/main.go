@@ -245,6 +245,12 @@ func run(logger *slog.Logger) error {
 		// the control's course. The controls domain declares the port
 		// (controls.Matcher) and this is what satisfies it.
 		Matcher: matching.NewService(courseStore),
+		// Issue #273: the two facts a publication needs that the controls
+		// tables do not hold. coursestore owns the roster's tables and
+		// authstore owns `users`, so each satisfies the port over the data
+		// it already keeps — the health.Prober shape.
+		Roster:  courseStore,
+		Senders: store,
 		// Issue #273: what a publication sends through. Which of the four
 		// transports this is was decided at boot, above; nothing in the
 		// domain asks which one it got.
@@ -275,6 +281,7 @@ func run(logger *slog.Logger) error {
 		jobs.KindAnalyse:   controls.NewAnalyseHandler(controlsService),
 		jobs.KindGenerate:  controls.NewGenerateHandler(controlsService),
 		jobs.KindAnnotate:  controls.NewAnnotateHandler(controlsService),
+		jobs.KindPublish:   controls.NewPublishHandler(controlsService),
 	}, logger, time.Now)
 	if err := jobRunner.Sweep(ctx); err != nil {
 		return err

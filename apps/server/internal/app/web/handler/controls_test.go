@@ -256,6 +256,8 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		// write rather than a double's answer.
 		Matcher:    matching.NewService(courseStore),
 		Dispatcher: email.NewStubDispatcher(),
+		Roster:     courseStore,
+		Senders:    authstore.New(db),
 		Annotator:  fake, AnnotateEnabled: annotateEnabled,
 		WorkDir: workDir,
 		Now:     time.Now, Seed: 1, Log: log,
@@ -267,6 +269,7 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		jobs.KindAnalyse:   controls.NewAnalyseHandler(svc),
 		jobs.KindGenerate:  controls.NewGenerateHandler(svc),
 		jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
+		jobs.KindPublish:   controls.NewPublishHandler(svc),
 	}, log, time.Now)
 	// Start the runner in the background so the async Submit path in
 	// ReanalyzeScans reaches its handler. Cleanup cancels the context

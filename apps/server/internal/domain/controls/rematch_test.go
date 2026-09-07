@@ -193,6 +193,8 @@ func newMatchingService(t *testing.T, matcher controls.Matcher) (*controls.Servi
 		Annotator:  gen,
 		Matcher:    matcher,
 		Dispatcher: noDispatcher{},
+		Roster:     noRoster{},
+		Senders:    noSenders{},
 		WorkDir:    workDir,
 		Now:        func() time.Time { return time.Unix(1_755_446_400, 0).UTC() },
 		Seed:       1,

@@ -173,6 +173,22 @@ func (s *fakeStore) RestoreControl(_ context.Context, id string) error {
 	return controls.ErrControlNotFound
 }
 
+// MarkPublished stamps the pair, with the same "only if not already
+// published" guard the real store enforces in SQL — a fake that let a
+// second stamp through would hide the very idempotency Service.Publish
+// depends on.
+func (s *fakeStore) MarkPublished(_ context.Context, id string, at time.Time, mode string) error {
+	for i := range s.controls {
+		if s.controls[i].ID == id && s.controls[i].PublishedAt == nil {
+			when := at
+			s.controls[i].PublishedAt = &when
+			s.controls[i].PublicationMode = controls.PublishMode(mode)
+			return nil
+		}
+	}
+	return controls.ErrControlNotFound
+}
+
 func (s *fakeStore) PurgeControl(_ context.Context, id string) error {
 	for i := range s.controls {
 		if s.controls[i].ID == id && s.controls[i].DeletedAt != nil {
@@ -270,6 +286,8 @@ func newService(t *testing.T) (*controls.Service, *fakeStore, *amctest.Fake, str
 		Analyzer:   gen,
 		Matcher:    noMatcher{},
 		Dispatcher: noDispatcher{},
+		Roster:     noRoster{},
+		Senders:    noSenders{},
 		Readings:   newFakeReadingStore(),
 		Annotator:  gen,
 		// The production default (config default true, issue #190). Tests
@@ -528,6 +546,8 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 		Bank: bank.NewStaticLive(b), Store: store, Generator: gen, Analyzer: gen, Readings: newFakeReadingStore(),
 		Annotator: gen, AnnotateEnabled: true, Matcher: noMatcher{},
 		Dispatcher: noDispatcher{},
+		Roster:     noRoster{},
+		Senders:    noSenders{},
 		WorkDir:    workDir,
 		Now:        func() time.Time { return time.Now() }, Seed: 1,
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
@@ -923,4 +943,20 @@ type noDispatcher struct{}
 
 func (noDispatcher) Send(context.Context, int64, controls.Message) (string, error) {
 	return "", errors.New("controls: no case in this file publishes")
+}
+
+// noRoster and noSenders are the publication's two ports, unused by every
+// case in this package — publication has its own test file, and a Service
+// that refused to be built without them would make every generation and
+// analysis case carry a class list.
+type noRoster struct{}
+
+func (noRoster) CourseForPublication(context.Context, int64) (string, map[int64]controls.Recipient, error) {
+	return "", nil, errors.New("controls: no case in this file publishes")
+}
+
+type noSenders struct{}
+
+func (noSenders) SenderFor(context.Context, int64) (controls.Sender, error) {
+	return controls.Sender{}, errors.New("controls: no case in this file publishes")
 }
