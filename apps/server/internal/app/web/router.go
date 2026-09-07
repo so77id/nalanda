@@ -387,6 +387,14 @@ func routes(deps Deps) []Route {
 			Handler: deps.Controls.Publish,
 		},
 		{
+			// The rehearsal. Same gates as Publish minus the
+			// already-published one: rehearsing a control that already went
+			// out is exactly what a professor does when a student says
+			// nothing arrived.
+			Method: http.MethodPost, Path: handler.ControlTestSendPath,
+			Handler: deps.Controls.TestSend,
+		},
+		{
 			Method: http.MethodPost, Path: handler.ControlCoursePath,
 			Handler: deps.Controls.AssignCourse,
 		},

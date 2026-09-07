@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"net/mail"
 	"strings"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
@@ -182,4 +183,81 @@ func (h *Controls) canSend(w http.ResponseWriter, r *http.Request, professorID i
 		return false
 	}
 	return true
+}
+
+// TestSend runs the whole batch to one address and changes nothing.
+//
+// The gates are Publish's, MINUS the already-published one, and the
+// omission is the point of the route: rehearsing a control that has already
+// gone out is exactly what a professor does when a student says nothing
+// arrived. It stamps nothing, so it can be run as often as they like.
+func (h *Controls) TestSend(w http.ResponseWriter, r *http.Request) {
+	id, professor, ok := h.publishPreamble(w, r)
+	if !ok {
+		return
+	}
+	if err := r.ParseForm(); err != nil {
+		middleware.WriteError(w, r, http.StatusBadRequest,
+			"No se pudo leer el formulario. Inténtalo de nuevo.")
+		return
+	}
+
+	to, ok := parseTestAddress(r.PostFormValue("to"))
+	if !ok {
+		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
+			"Esa dirección no parece un correo. Revísala y vuelve a intentarlo.")
+		return
+	}
+
+	if _, ok := h.publishableControl(w, r, id); !ok {
+		return
+	}
+	if !h.canSend(w, r, professor.ID) {
+		return
+	}
+
+	payload, err := json.Marshal(controls.PublishPayload{
+		ProfessorID: professor.ID,
+		// A rehearsal is always addressed by TestTo, so the per-publication
+		// mode is moot — it is recorded as `real` because that is what the
+		// transport does with the message it is handed, and a `staging`
+		// rehearsal would redirect the rehearsal away from the address the
+		// professor just typed.
+		Mode:   string(controls.PublishModeReal),
+		TestTo: to,
+	})
+	if err != nil {
+		h.Log.Error("test-send: encode the payload", "control", id, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al preparar el envío de prueba. Vuelve a intentarlo.")
+		return
+	}
+	if _, err := h.Runner.Submit(r.Context(), id, jobs.KindPublish, payload); err != nil {
+		h.Log.Error("test-send: submit the job", "control", id, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"No se pudo encolar el envío de prueba. Vuelve a intentarlo en unos segundos.")
+		return
+	}
+
+	// The address is echoed back because the professor just typed it and
+	// this is the only chance to notice a typo before waiting for mail that
+	// went somewhere else.
+	flash.Set(w, h.secureCookie,
+		"Empezó el envío de prueba a "+to+". Nadie del curso recibirá nada.")
+	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+}
+
+// parseTestAddress validates the typed address.
+//
+// net/mail.ParseAddress rather than a regex, because the grammar it
+// implements is RFC 5322's and a hand-rolled pattern is either wrong about
+// a real address or permissive about a broken one. It also accepts the
+// `Nombre <a@b>` form, which is why only the bare Address is kept — the
+// display name would travel into a To header the professor did not intend.
+func parseTestAddress(raw string) (string, bool) {
+	parsed, err := mail.ParseAddress(strings.TrimSpace(raw))
+	if err != nil || parsed.Address == "" {
+		return "", false
+	}
+	return parsed.Address, true
 }

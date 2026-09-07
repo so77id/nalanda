@@ -203,3 +203,111 @@ func TestPublishRefusesAControlThatDoesNotExist(t *testing.T) {
 		t.Errorf("status = %d, want 404", rec.Code)
 	}
 }
+
+// The rehearsal. Its whole point is that nothing about the control moves,
+// so that is what every case here measures.
+
+func (f *controlsFixture) testSend(t *testing.T, controlID string, form url.Values) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/test-send", form)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.TestSend(rec, req)
+	return rec
+}
+
+func TestATestSendEnqueuesTheJobAndStampsNothing(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	rec := f.testSend(t, controlID, url.Values{"to": {"miguel@gmail.com"}})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303\n%s", rec.Code, rec.Body.String())
+	}
+	f.waitLatestJobTerminal(t, controlID)
+
+	control, err := f.service.Get(context.Background(), controlID)
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if control.PublishedAt != nil {
+		t.Error("a rehearsal stamped the control published")
+	}
+
+	// The address is echoed because the professor just typed it, and this
+	// is the only chance to catch a typo before waiting for mail that went
+	// somewhere else.
+	if message := flashFromResponse(t, rec); !strings.Contains(message, "miguel@gmail.com") {
+		t.Errorf("the flash %q does not name where the rehearsal went", message)
+	}
+}
+
+// Repeatable, and repeatable on a control that has ALREADY been published —
+// which is exactly the state a professor is in when a student says nothing
+// arrived.
+func TestATestSendRepeatsEvenAfterTheRealPublication(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	if rec := f.publish(t, controlID, url.Values{"mode": {"real"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("the publication: %d", rec.Code)
+	}
+	f.waitLatestJobTerminal(t, controlID)
+
+	for range 3 {
+		rec := f.testSend(t, controlID, url.Values{"to": {"miguel@gmail.com"}})
+		if rec.Code != http.StatusSeeOther {
+			t.Fatalf("a rehearsal after publication: %d\n%s", rec.Code, rec.Body.String())
+		}
+		f.waitLatestJobTerminal(t, controlID)
+	}
+}
+
+func TestATestSendRefusesAnAddressThatIsNotOne(t *testing.T) {
+	for _, to := range []string{"", "   ", "miguel", "miguel@", "@gmail.com", "a b@c.cl"} {
+		t.Run("to="+to, func(t *testing.T) {
+			f := newControlsFixture(t)
+			controlID := gradedControl(t, f)
+
+			rec := f.testSend(t, controlID, url.Values{"to": {to}})
+			if rec.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("status = %d, want 422", rec.Code)
+			}
+			if _, err := f.jstore.LatestForControlByKind(
+				context.Background(), controlID, jobs.KindPublish); err == nil {
+				t.Error("a job was enqueued for an address nobody can receive at")
+			}
+		})
+	}
+}
+
+// `Nombre <a@b.cl>` parses, and only the bare address is kept: the display
+// name would otherwise travel into a To header the professor did not intend
+// to write.
+func TestATestSendKeepsOnlyTheAddressFromANamedForm(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	rec := f.testSend(t, controlID, url.Values{"to": {"Miguel Rodríguez <miguel@gmail.com>"}})
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303\n%s", rec.Code, rec.Body.String())
+	}
+	message := flashFromResponse(t, rec)
+	if strings.Contains(message, "Miguel Rodríguez") {
+		t.Errorf("the display name survived into %q", message)
+	}
+	if !strings.Contains(message, "miguel@gmail.com") {
+		t.Errorf("the address did not survive into %q", message)
+	}
+}
+
+func TestATestSendRefusesAnOpenCorrection(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 2", 2)
+
+	rec := f.testSend(t, controlID, url.Values{"to": {"miguel@gmail.com"}})
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Errorf("status = %d, want 422", rec.Code)
+	}
+}
