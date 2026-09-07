@@ -37,7 +37,7 @@
       <tbody>
         {{ range .Enrollments }}
           <tr>
-            <td>{{ .LastName }}</td>
+            <td><a href="{{ .URL }}">{{ .LastName }}</a></td>
             <td>{{ .FirstName }}</td>
             {{/*
               Empty when Canvas held no readable RUT. Rendered as a dash

@@ -239,6 +239,12 @@ func (fakeReadingStore) ClearRUTOverride(context.Context, int64) error { return 
 // SetReadingStudent is inert here like the rest of this double: the
 // rematch cases use matchingReadingStore (rematch_test.go), which
 // remembers what was written.
+// CopiesForStudent is inert here like the rest of this double; the
+// student-record cases use matchingReadingStore (rematch_test.go).
+func (fakeReadingStore) CopiesForStudent(context.Context, int64) ([]controls.StudentCopy, error) {
+	return nil, nil
+}
+
 func (fakeReadingStore) SetReadingStudent(context.Context, int64, *int64) error { return nil }
 
 func (fakeReadingStore) SetControlState(context.Context, string, controls.State) error {

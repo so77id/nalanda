@@ -57,6 +57,11 @@ type Deps struct {
 	// Canvas import. Separate from Profile because Profile is about the
 	// professor's own account and this is about the courses themselves.
 	Courses *handler.Courses
+	// Students is one person's record across every control they sat
+	// (issue #272 S8). Its own handler struct rather than a method on
+	// Courses, because a student is a person shared across courses and
+	// this page is not scoped to one.
+	Students *handler.Students
 	// AdminBank is the manual bank-refresh endpoint (issue #230). Small
 	// enough to warrant its own handler struct rather than a method on
 	// Controls: the CRUD lives inside the controls domain, the bank
@@ -288,6 +293,12 @@ func routes(deps Deps) []Route {
 		{
 			Method: http.MethodGet, Path: handler.CourseStudentsPath,
 			Handler: deps.Courses.Students,
+		},
+		// Issue #272 S8: one person's record across every control they
+		// sat. Gated by default — it is somebody's grades.
+		{
+			Method: http.MethodGet, Path: handler.StudentPath,
+			Handler: deps.Students.Show,
 		},
 		{
 			Method: http.MethodPost, Path: handler.CourseImportPath,

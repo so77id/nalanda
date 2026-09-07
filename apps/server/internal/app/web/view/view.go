@@ -195,6 +195,10 @@ type ListedEnrollment struct {
 	Email string
 	// State is the Spanish word, not the stored enum.
 	State string
+	// URL is this person's own page (issue #272 S8) — their grades across
+	// every control they sat. The roster is where a professor is already
+	// looking at names, so it is where the link belongs.
+	URL string
 }
 
 // ProfilePage is what profile.html renders: the professor's own account and
@@ -952,6 +956,45 @@ func RenderCourseStudents(w http.ResponseWriter, page CourseStudentsPage) error 
 		page.Title = page.Course.Code + " · alumnos"
 	}
 	return render(w, "course_students", http.StatusOK, page)
+}
+
+// StudentPage is what student.html renders: one person and every control
+// they sat (issue #272 S8).
+type StudentPage struct {
+	Page
+	Name  string
+	Email string
+	// RUT is already formatted ("11.222.333-5"), empty when Canvas held
+	// none. HasRUT says which, because an empty string on a page is a
+	// gap a reader can miss and a stated "sin RUT" is not.
+	RUT    string
+	HasRUT bool
+	// Controls is every control this person sat, newest first. Empty
+	// renders an explanatory line: a student with no copies is either
+	// newly enrolled or never matched, and both are worth saying out
+	// loud rather than showing an empty table.
+	Controls []StudentControlRow
+}
+
+// StudentControlRow is one control on a student's record, with every
+// value already as a string a person reads.
+type StudentControlRow struct {
+	ControlName     string
+	ApplicationDate string
+	State           string
+	TotalRaw        string
+	Grade           string
+	ControlURL      string
+	ReviewURL       string
+	AnnotatedURL    string
+}
+
+// RenderStudent writes one student's record.
+func RenderStudent(w http.ResponseWriter, page StudentPage) error {
+	if page.Title == "" {
+		page.Title = page.Name
+	}
+	return render(w, "student", http.StatusOK, page)
 }
 
 // RenderProfessorsList writes the CRUD's list page.

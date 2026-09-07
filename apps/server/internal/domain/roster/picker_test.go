@@ -89,6 +89,12 @@ func (m *memStore) ListEnrollments(context.Context, int64) ([]roster.Enrollment,
 	return nil, nil
 }
 
+// StudentByID is inert here: these cases are about the picker and the
+// import, not about the student page (issue #272 S8).
+func (m *memStore) StudentByID(context.Context, int64) (roster.Student, error) {
+	return roster.Student{}, roster.ErrStudentNotFound
+}
+
 func (m *memStore) EnrollmentCounts(context.Context) (map[int64]roster.EnrollmentCounts, error) {
 	if m.countsErr != nil {
 		return nil, m.countsErr

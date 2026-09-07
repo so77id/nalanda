@@ -161,6 +161,17 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				Log:       logger,
 			})
 		}(),
+		// Issue #272 S8: one person's record. Wired like the binary
+		// wires it — the route table's guard walks every entry, and an
+		// unwired handler would be a nil call the moment it does.
+		Students: handler.NewStudents(handler.Students{
+			Roster: roster.NewService(
+				emptyCourseStore{},
+				roster.NewCanvasSource(canvas.NewService(nil, unreachableCanvas{})),
+			),
+			Record: sharedControls,
+			Log:    logger,
+		}),
 		Courses: handler.NewCourses(handler.Courses{
 			Roster: roster.NewService(
 				emptyCourseStore{},
@@ -487,4 +498,10 @@ func (emptyCourseStore) ListEnrollments(context.Context, int64) ([]roster.Enroll
 
 func (emptyCourseStore) EnrollmentCounts(context.Context) (map[int64]roster.EnrollmentCounts, error) {
 	return nil, nil
+}
+
+// StudentByID answers nothing: these cases are about the router's table
+// (issue #272 S8).
+func (emptyCourseStore) StudentByID(context.Context, int64) (roster.Student, error) {
+	return roster.Student{}, roster.ErrStudentNotFound
 }

@@ -242,6 +242,7 @@ func (c *Courses) Students(w http.ResponseWriter, r *http.Request) {
 			RUT:       FormatRUT(e.Student.RUT, e.Student.RUTDV),
 			Email:     e.Student.Email,
 			State:     enrollmentStateLabel(e.State),
+			URL:       StudentPathFor(e.Student.ID),
 		})
 	}
 

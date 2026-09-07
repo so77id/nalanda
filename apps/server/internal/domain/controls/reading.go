@@ -327,6 +327,19 @@ type AnswerOverride struct {
 	EditedAt time.Time
 }
 
+// StudentCopy is one copy a student sat, as the store locates it.
+type StudentCopy struct {
+	ControlID  string
+	CopyNumber int
+}
+
+// StudentControl is one control a student sat and the reading of their
+// copy of it (issue #272 S8).
+type StudentControl struct {
+	Control Control
+	Reading Reading
+}
+
 // RUTOverride is the professor's typed RUT for a copy whose RUT block was
 // unreadable (or one the professor decided to correct).
 type RUTOverride struct {
@@ -377,6 +390,18 @@ type ReadingStore interface {
 
 	// ClearRUTOverride deletes the RUT override, if any.
 	ClearRUTOverride(ctx context.Context, readingID int64) error
+
+	// CopiesForStudent returns which copies one student is matched to,
+	// across every ACTIVE control, newest control first (issue #272 S8).
+	//
+	// Returns the (control, copy) pairs rather than whole readings: the
+	// caller resolves each through ReadingByCopy, which already loads the
+	// answers and overrides a grade needs, and duplicating that assembly
+	// here would be a second place for the override rules to live.
+	//
+	// Archived controls are excluded, for the same reason the retroactive
+	// pass skips them: archiving is the professor saying "put this away".
+	CopiesForStudent(ctx context.Context, studentID int64) ([]StudentCopy, error)
 
 	// SetReadingStudent writes (or clears) the student a reading is
 	// matched to (issue #272). A nil studentID stores NULL.

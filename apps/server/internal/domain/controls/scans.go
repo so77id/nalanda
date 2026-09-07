@@ -598,6 +598,43 @@ func (s *Service) RematchCourse(ctx context.Context, courseID int64) (RematchRes
 	return total, nil
 }
 
+// ControlsForStudent returns every control this student sat, newest
+// first, each with the reading of their copy (issue #272 S8).
+//
+// Two layers of query rather than one join that returns everything: the
+// store locates the copies, and each is resolved through ReadingByCopy,
+// which already assembles the answers and the overrides a grade depends
+// on. Reproducing that assembly in a second query would be a second place
+// for the override rules to live, and the grade a professor reads here
+// has to be the same number the control page shows.
+//
+// The cost is one statement plus one per control the student sat — five
+// or six for a semester, which is the shape of this page.
+func (s *Service) ControlsForStudent(ctx context.Context, studentID int64) ([]StudentControl, error) {
+	if studentID <= 0 {
+		return nil, fmt.Errorf("controls.ControlsForStudent: student id must be positive, got %d", studentID)
+	}
+	copies, err := s.Readings.CopiesForStudent(ctx, studentID)
+	if err != nil {
+		return nil, fmt.Errorf("controls.ControlsForStudent %d: %w", studentID, err)
+	}
+
+	out := make([]StudentControl, 0, len(copies))
+	for _, c := range copies {
+		control, err := s.Store.ControlByID(ctx, c.ControlID)
+		if err != nil {
+			return nil, fmt.Errorf("controls.ControlsForStudent %d: control %s: %w", studentID, c.ControlID, err)
+		}
+		reading, err := s.Readings.ReadingByCopy(ctx, c.ControlID, c.CopyNumber)
+		if err != nil {
+			return nil, fmt.Errorf("controls.ControlsForStudent %d: copy %s/%d: %w",
+				studentID, c.ControlID, c.CopyNumber, err)
+		}
+		out = append(out, StudentControl{Control: control, Reading: reading})
+	}
+	return out, nil
+}
+
 // ControlsForCourse returns the ACTIVE controls that belong to one
 // course, in the order the list screens use (issue #272 S6).
 //

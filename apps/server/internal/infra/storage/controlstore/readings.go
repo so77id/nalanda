@@ -374,6 +374,44 @@ func (s *Store) ClearAnswerOverride(ctx context.Context, readingID int64, questi
 }
 
 // SetRUTOverride upserts the RUT override.
+// CopiesForStudent locates every copy one student is matched to, across
+// every ACTIVE control, newest control first (issue #272 S8).
+//
+// The ORDER is the control list's, not the reading's: a professor reading
+// somebody's record reads it down the calendar, and a control with no
+// declared date sorts last for the same reason it does in ListControls —
+// it has no position in the term.
+//
+// Archived controls are excluded. Archiving is the professor saying "put
+// this away", and a person's record is not the place to bring it back.
+func (s *Store) CopiesForStudent(ctx context.Context, studentID int64) ([]controls.StudentCopy, error) {
+	rows, err := s.db.QueryContext(ctx, `
+        SELECT reading.control_id, reading.copy_number
+        FROM reading
+        JOIN control ON control.id = reading.control_id
+        WHERE reading.student_id = ?
+          AND control.deleted_at IS NULL
+        ORDER BY control.application_date IS NULL, control.application_date DESC, control.created_at DESC`,
+		studentID)
+	if err != nil {
+		return nil, fmt.Errorf("controlstore.CopiesForStudent %d: %w", studentID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var out []controls.StudentCopy
+	for rows.Next() {
+		var c controls.StudentCopy
+		if err := rows.Scan(&c.ControlID, &c.CopyNumber); err != nil {
+			return nil, fmt.Errorf("controlstore.CopiesForStudent %d: scan: %w", studentID, err)
+		}
+		out = append(out, c)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("controlstore.CopiesForStudent %d: %w", studentID, err)
+	}
+	return out, nil
+}
+
 // SetReadingStudent writes (or clears) the student a reading is matched
 // to (issue #272).
 //

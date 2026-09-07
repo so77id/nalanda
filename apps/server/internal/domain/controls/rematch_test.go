@@ -107,6 +107,25 @@ func (s *matchingReadingStore) ReadingsByControl(_ context.Context, controlID st
 	return out, nil
 }
 
+// CopiesForStudent walks the seeded rows for the student-record cases.
+func (s *matchingReadingStore) CopiesForStudent(_ context.Context, studentID int64) ([]controls.StudentCopy, error) {
+	var out []controls.StudentCopy
+	for controlID := range s.rows {
+		for _, r := range s.rows[controlID] {
+			if r.StudentID != nil && *r.StudentID == studentID {
+				out = append(out, controls.StudentCopy{ControlID: controlID, CopyNumber: r.CopyNumber})
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].ControlID != out[j].ControlID {
+			return out[i].ControlID < out[j].ControlID
+		}
+		return out[i].CopyNumber < out[j].CopyNumber
+	})
+	return out, nil
+}
+
 func (s *matchingReadingStore) SetReadingStudent(_ context.Context, readingID int64, studentID *int64) error {
 	for controlID := range s.rows {
 		for i := range s.rows[controlID] {

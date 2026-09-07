@@ -302,6 +302,14 @@ func run(logger *slog.Logger) error {
 			PublicURL: cfg.PublicURL,
 			Log:       logger,
 		}),
+		Students: handler.NewStudents(handler.Students{
+			// Issue #272 S8. Two ports over the two services that
+			// already exist: the person from the roster, their copies
+			// from the controls domain.
+			Roster: rosterService,
+			Record: controlsService,
+			Log:    logger,
+		}),
 		AdminBank: handler.NewAdminBank(handler.AdminBank{
 			Bank:      liveBank,
 			PublicURL: cfg.PublicURL,

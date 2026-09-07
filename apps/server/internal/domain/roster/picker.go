@@ -235,6 +235,15 @@ func (s *Service) Courses(ctx context.Context) ([]Course, error) {
 	return courses, nil
 }
 
+// Student returns one person (issue #272 S8).
+func (s *Service) Student(ctx context.Context, id int64) (Student, error) {
+	student, err := s.Store.StudentByID(ctx, id)
+	if err != nil {
+		return Student{}, err
+	}
+	return student, nil
+}
+
 // CoursesWithCounts is what the list screen renders: every course, each
 // with its tally and whether it has a roster at all.
 //

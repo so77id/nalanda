@@ -43,6 +43,38 @@ var (
 	_ matching.Store = (*Store)(nil)
 )
 
+// StudentByID returns one person (issue #272 S8).
+//
+// Not scoped to a course, and not a join: `student` is a table of PEOPLE,
+// shared across the courses they take (00014). The page that reads this
+// shows their grades across every control they sat, which is a set no
+// single course defines.
+func (s *Store) StudentByID(ctx context.Context, id int64) (roster.Student, error) {
+	var (
+		student roster.Student
+		rut     sql.NullString
+		rutDV   sql.NullString
+	)
+	err := s.db.QueryRowContext(ctx, `
+        SELECT id, first_name, last_name, email, rut, rut_dv, canvas_user_id
+        FROM student WHERE id = ?`, id,
+	).Scan(&student.ID, &student.FirstName, &student.LastName, &student.Email,
+		&rut, &rutDV, &student.CanvasUserID)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return roster.Student{}, fmt.Errorf("coursestore.StudentByID %d: %w", id, roster.ErrStudentNotFound)
+	case err != nil:
+		return roster.Student{}, fmt.Errorf("coursestore.StudentByID %d: %w", id, err)
+	}
+	// The two halves travel together or not at all — the schema's own
+	// CHECK says so — so reading them into empty strings loses nothing
+	// and keeps Student.HasRUT the single answer to "can this person be
+	// matched".
+	student.RUT = rut.String
+	student.RUTDV = rutDV.String
+	return student, nil
+}
+
 // EnrolledStudentByRUT resolves an eight-digit RUT body to the student who
 // carries it AND is currently enrolled on this course (issue #272).
 //
