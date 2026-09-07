@@ -128,6 +128,13 @@
             {{ if and .RUT.WasRead .RUT.Overridden }}
               <br><small>AMC leyó: {{ .RUT.OriginalRead }}</small>
             {{ end }}
+            {{ if .RUT.NotInRoster }}
+              <br><small class="error">
+                Este RUT no está en la lista del curso. Revisa los dígitos contra
+                el escaneo; si están bien, el alumno falta en Canvas — agrégalo
+                allá y vuelve a importar la lista del curso.
+              </small>
+            {{ end }}
           </p>
         </fieldset>
 

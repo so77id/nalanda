@@ -380,6 +380,28 @@ func (s *Service) SaveOverrides(ctx context.Context, req SaveOverridesRequest) (
 		}
 	}
 
+	// Issue #272: the corrected RUT is the one the copy is filed under.
+	// Only when the RUT actually MOVED — an answer-only save must not pay
+	// for a roster lookup, and re-resolving an unchanged RUT could only
+	// produce the association the row already has.
+	//
+	// result.RUTTo rather than a re-read of the reading: it is exactly
+	// what the branches above made effective, and the in-memory `reading`
+	// is stale by now.
+	if result.RUTAction != RUTActionUnchanged {
+		control, err := s.Store.ControlByID(ctx, req.ControlID)
+		if err != nil {
+			// The RUT edit is already persisted and is what the professor
+			// asked for. Failing here would report a save that happened
+			// as a failure; the association is recomputable by the next
+			// read or by S5's command.
+			s.Log.Warn("controls.SaveOverrides: control unreadable for rematch",
+				"control", req.ControlID, "copy", req.CopyNumber, "error", err)
+		} else {
+			s.matchOne(ctx, control, reading.ID, reading.CopyNumber, result.RUTTo, reading.StudentID)
+		}
+	}
+
 	// Per question — clear when the submission matches what AMC read,
 	// upsert otherwise.
 	for _, edit := range req.Answers {
@@ -451,27 +473,44 @@ func (s *Service) RematchReadings(ctx context.Context, controlID string) error {
 	}
 
 	for _, r := range readings {
-		studentID, err := s.Matcher.MatchByRUT(ctx, effectiveRUT(r), *control.CourseID)
-		if err != nil {
-			// The lookup failed, so the answer is UNKNOWN — which is not
-			// the same as "nobody". Leave the row exactly as it is: an
-			// unmatched copy stays in reconciliation, and a matched one
-			// keeps the association a working lookup established. Writing
-			// nil here would un-file a whole control because a database
-			// blinked.
-			s.Log.Warn("controls.RematchReadings: lookup failed",
-				"control", controlID, "copy", r.CopyNumber, "error", err)
-			continue
-		}
-		if sameStudent(r.StudentID, studentID) {
-			continue
-		}
-		if err := s.Readings.SetReadingStudent(ctx, r.ID, studentID); err != nil {
-			s.Log.Warn("controls.RematchReadings: write failed",
-				"control", controlID, "copy", r.CopyNumber, "error", err)
-		}
+		s.matchOne(ctx, control, r.ID, r.CopyNumber, effectiveRUT(r), r.StudentID)
 	}
 	return nil
+}
+
+// matchOne resolves one RUT against the control's course and writes the
+// result, unless the answer is unknown.
+//
+// `current` is what the reading already carries, so an unchanged
+// association costs no write. `rut` is passed in rather than read off a
+// Reading because the RUT-edit caller knows what the save just made
+// effective and would otherwise have to re-read the row to find out.
+//
+// Silent on failure by design — every caller is enriching something
+// already committed, and the log line is the operator's record. See
+// rematchQuietly.
+func (s *Service) matchOne(ctx context.Context, control Control, readingID int64, copyNumber int, rut string, current *int64) {
+	if control.CourseID == nil {
+		return
+	}
+	studentID, err := s.Matcher.MatchByRUT(ctx, rut, *control.CourseID)
+	if err != nil {
+		// The lookup failed, so the answer is UNKNOWN — which is not the
+		// same as "nobody". Leave the row exactly as it is: an unmatched
+		// copy stays in reconciliation, and a matched one keeps the
+		// association a working lookup established. Writing nil here
+		// would un-file a copy because a database blinked.
+		s.Log.Warn("controls: match lookup failed",
+			"control", control.ID, "copy", copyNumber, "error", err)
+		return
+	}
+	if sameStudent(current, studentID) {
+		return
+	}
+	if err := s.Readings.SetReadingStudent(ctx, readingID, studentID); err != nil {
+		s.Log.Warn("controls: match write failed",
+			"control", control.ID, "copy", copyNumber, "error", err)
+	}
 }
 
 // rematchQuietly runs RematchReadings and logs whatever it returns.

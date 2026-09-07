@@ -668,6 +668,21 @@ type ReviewRUT struct {
 	Status       string
 	Overridden   bool
 	WasRead      bool
+	// NotInRoster is true when the copy carries a readable RUT that
+	// belongs to nobody enrolled on the control's course (issue #272).
+	//
+	// It is the SECOND reason a copy can need attention, and it needs the
+	// opposite action from the first: an illegible RUT is fixed by
+	// reading the scan and typing it, a RUT that is simply not on the
+	// roster is fixed in Canvas and re-imported. Rendering both as a bare
+	// input is how a professor retypes the same correct digits three
+	// times.
+	//
+	// False for a control with no course at all: every copy of one is
+	// unmatched, and it is unmatched because nobody has said which class
+	// sat it — sending the professor to Canvas would be sending them to
+	// fix data that is already right.
+	NotInRoster bool
 }
 
 // ReviewQuestion is one row of the review form.

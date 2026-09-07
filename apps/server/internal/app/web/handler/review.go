@@ -66,7 +66,7 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 		Pages:      buildReviewImages(id, copyNumber, reading.Pages),
 		SaveURL:    controlReviewURL(id, copyNumber),
 		Graded:     control.State == controls.Graded,
-		RUT:        toReviewRUT(reading),
+		RUT:        toReviewRUT(reading, control),
 		Questions:  toReviewQuestions(reading, h.Bank.Get()),
 	}
 	// Issue #190: the corrected PDF replaces the raw scan once it exists.
@@ -547,10 +547,15 @@ func controlAnnotatedURL(id string, copyNumber int) string {
 	return fmt.Sprintf("%s/copies/%d/annotated.pdf", controlDetailURL(id), copyNumber)
 }
 
-func toReviewRUT(r controls.Reading) view.ReviewRUT {
+func toReviewRUT(r controls.Reading, c controls.Control) view.ReviewRUT {
 	rut := view.ReviewRUT{
 		Status:  string(r.RUTStatus),
 		WasRead: r.RUTRead != nil,
+		// Issue #272. Gated on the control HAVING a course: without one
+		// there is no roster this RUT could be absent from. Gated on a
+		// RUT being present at all, because an illegible one is the other
+		// reason and the page already names it.
+		NotInRoster: c.CourseID != nil && r.StudentID == nil && effectiveReviewRUT(r) != "",
 	}
 	if r.RUTOverride != nil {
 		rut.Value = r.RUTOverride.RUT
@@ -562,6 +567,20 @@ func toReviewRUT(r controls.Reading) view.ReviewRUT {
 		rut.OriginalRead = *r.RUTRead
 	}
 	return rut
+}
+
+// effectiveReviewRUT is the RUT the page displays: the professor's
+// override if any, else what AMC read, else empty. The domain's
+// effectiveRUT is unexported, and this surface needs the same answer to
+// decide whether "not on the roster" is even a statement it can make.
+func effectiveReviewRUT(r controls.Reading) string {
+	if r.RUTOverride != nil {
+		return r.RUTOverride.RUT
+	}
+	if r.RUTRead != nil {
+		return *r.RUTRead
+	}
+	return ""
 }
 
 func toReviewQuestions(r controls.Reading, b *bank.Bank) []view.ReviewQuestion {
