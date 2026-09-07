@@ -45,6 +45,8 @@ content/courses/sample-course/
 ├── 15-diseno-algoritmos-divide-y-venceras.archive.txt  # sibling archive of superseded slides (see "Archiving slides" below)
 ├── divide-y-conquista-patron.svg, max-subarray-*.svg   # assets for chapter 15
 ├── 16-diseno-algoritmos-ordenamiento.mdx           # presentation: explicit, questions: pool — <SortStepper> (bubble/selection/insertion/merge/quick) + <MergeStepper> + <PartitionStepper> + <DivideCombineTree> + <DecisionTreeSort> + <PresentationWide> + <Exercise> with the new `solution` fence
+├── 17-edd-introduccion.mdx    # presentation: explicit, questions: none — <PresentationWide> around wide markdown tables (the worked case) + <CodeEditor> + <Benchmark> + <Figure>
+├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-invariantes.svg, arreglo-corrimiento.svg, arreglo-duplicacion.svg, regla-del-cuarto.svg, un-tda-dos-edas.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -389,6 +391,15 @@ runtime code. `<Math>` earns its cost only where prose math can't reach.
    the heading is swallowed into one untitled slide and the deck gains a slide
    nobody chose. #79 shipped exactly that extra slide; only the `/present`
    walk finds it. Where you want a titled cut, write `<Slide title="…">`.
+
+   **The same mechanism is a deliberate pattern when the swallowed `h2` IS the
+   slide you want.** A break followed by an act heading and nothing else
+   produces a title-only divider slide, which is what a lecture wants between
+   acts — chapters 16 and 17 both ship it. The defect is an *unchosen* slide,
+   not the mechanism; the test is whether you walked `/present` and wanted what
+   you saw. See [`teach-a-data-structure.md`](teach-a-data-structure.md) §1,
+   which also records the other half of the rule: never put a break before
+   `## Lo que sigue`, or the closing navigation gets projected.
 
 5. **Add runnable code (optional)**: `<CodeEditor language="java" />` is
    likewise available without imports — Java, C++ or Python, compiled and run in
@@ -780,13 +791,17 @@ listing. Two code fences → `SideBySide`. Anything else → `Split`.
 presentation mode the `<Slide>` centres and caps its children at a reading
 column; a wide visual — a comparison table, two side-by-side diagrams — gets
 compressed and reads worse than the same block does in the book. Wrap the block
-in `<PresentationWide>` (or `<PresentationWide fraction={0.75}>` for a
-centred, narrower breakout) and it re-anchors to a fraction of the viewport in
-presentation, book mode unchanged. Do NOT wrap widgets that already break out
+in `<PresentationWide fraction={0.8}>` and it re-anchors to that fraction of
+the viewport in presentation, book mode unchanged. **Pass the fraction**: it
+defaults to `1` (`PresentationWide.tsx`), which is the full viewport, and a
+table at full bleed runs flush to both slide edges with its columns touching. Do NOT wrap widgets that already break out
 on their own — `<SortStepper>`, `<StepShow>`, `<MergeStepper>`,
 `<PartitionStepper>` — that would double the breakout and land the block off
-centre. Worked cases: chapter 16 (the sorting document) uses it around two
-`<DivideCombineTree>`s side by side and around wide MDX tables.
+centre. Worked cases: chapter 16 (the sorting document) uses it around a
+`<DivideCombineTree>` and around a `<SideBySide>` of two more; **chapter 17
+(`17-edd-introduccion.mdx`) is the worked case for a wide MDX table**, and it
+is worth the trouble — measured at 1440x900, its cost table is 640px wide and
+scales the whole slide to 0.71 unwrapped, 1058px and scale 1.0 wrapped (#277).
 
 6c. **A wall of pictures**: `<Mosaic columns={2|3|4} description="...">` lays its
 cells out in a grid. It carries **one** accessible description for the whole
@@ -1247,4 +1262,11 @@ last block, so no stale copies accumulate.
       cross-references between sections or slides, noun-phrase titles). The
       suite cannot see any of this — a voice violation ships past a green
       build unless a human catches it here (course-content-style.md §6).
+- [ ] If the document belongs to the **Estructuras de Datos** unit, its shape
+      checked against
+      [`teach-a-data-structure.md`](teach-a-data-structure.md) §Checklist —
+      the four acts, TDA-as-contract, the invariant list, the cost table with
+      its invariant column, the cabo suelto, and the figure-panel rule. Same
+      shape as the `course-content-style.md` bullet above, and required by
+      `documentation.md` Rule 4.
 - [ ] Nothing here must stay private — merging publishes it at `/d/<id>`.

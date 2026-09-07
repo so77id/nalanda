@@ -32,7 +32,11 @@ arc and its worked cases are chapters 15 and 16.
 `content/courses/sample-course/17-edd-introduccion.mdx` — *Estructuras de
 Datos · Introducción*. It establishes the vocabulary, formalises the array,
 evolves it into the dynamic array, and closes on the Sequence contract. Four
-acts, 23 authored slides, seven static SVG figures, zero new widgets.
+acts, 27 authored slides plus four act dividers, seven static SVG figures,
+zero new widgets. (Counts re-derived with
+`grep -c '^<Slide title=' 17-edd-introduccion.mdx` and
+`grep -c '<PresentationWide' …` — an earlier draft of this guide carried
+hand-written numbers that went stale the moment slides were split.)
 
 Its seven figures sit beside it in the same directory
 (`tda-eda-invariante.svg`, `arreglo-memoria.svg`, `arreglo-invariantes.svg`,
@@ -45,7 +49,15 @@ Its seven figures sit beside it in the same directory
 ### 1. Lay out the acts
 
 Each act is a markdown `h2` preceded by a `<SectionBreak />`, with the act's
-slides inside it. A class about one structure runs to four acts:
+slides inside it.
+
+**The act table below is a hypothesis, not yet a prescription.** It is
+generalised from a single class — and one that deviates from it — so it
+records the four questions the unit means to answer in the same order every
+time, not a mapping to `h2`s that has been observed twice. Settle the mapping
+in the WP that writes the linked-list class, where a second data point makes
+the shared shape visible; for now, follow it where it fits and say so where it
+does not.
 
 | Acto | Contenido |
 |---|---|
@@ -135,18 +147,13 @@ A slide caps its children at a reading column, so a bare table gets squeezed
 and — being tall — drags the whole slide down with it. Measured at 1440x900
 on the cost table of #277: bare, the table is 640px wide and the slide is
 scaled to **0.71**; wrapped, it is 1058px wide and the slide is scaled to
-**1.0**. Wrapping the four wide tables of #277 took five of its slides off the
+**1.0**. Wrapping the five wide tables of #277 took five of its slides off the
 shrink list.
 
 **The `fraction` is not optional.** A bare `<PresentationWide>` re-anchors to
 the full viewport, and a table then runs flush to both slide edges with its
 columns touching — looked at, in the browser. `0.8` clears the edges and
 still buys most of the width.
-
-Note that `add-a-course-document.md` §6b names chapter 16 as the worked case
-for this "around wide MDX tables". It is not: chapter 16 wraps only widgets
-(`<DivideCombineTree>`, `<SideBySide>`). #277 is the first worked case of a
-markdown table, and the numbers above are why it is worth doing.
 
 **There is no colour coding in these tables, and that is a constraint rather
 than a choice.** An MDX markdown table has no per-cell styling hook, and a raw
@@ -206,6 +213,15 @@ gate could have — text clipped past the right edge, two arrows that read as
 one stub, a cost line overflowing its box, and a caption that named a colour
 instead of naming the thing.
 
+**A step-by-step may stay a static figure, and #277 chose that deliberately.**
+The `insertAt` shift is a listing plus a three-panel SVG — the pair
+`<StepShow>` exists to fuse, and `<StepShow>` is an existing widget, so reuse
+would have been allowed. It was not taken because the sequence is projected in
+a lecture, where a figure the whole room reads at once beats a control the
+professor has to drive, and because this unit defers its widget decisions to
+the point where the animations of every class are on the table (§7). Revisit
+it there rather than per class.
+
 ### 7. Decide widgets last, and for the unit rather than the class
 
 Do not build a widget for one class of this unit. The structures share visual
@@ -234,6 +250,12 @@ reusing `<CodeEditor>` and `<Benchmark>`.
 - [ ] Every figure has an opaque panel, all text on it, a second signal beside
       colour, and was rendered over `#f8f2ef` and `#0d1117` and looked at.
 - [ ] No new widget invented for a single class of the unit.
+- [ ] Every `<CodeEditor>` / `<Benchmark>` snippet RUN in the browser and its
+      output quoted in the commit, and every arithmetic claim about a sequence
+      (copies, doublings, totals) reproduced by simulation **including one
+      non-power-of-two N**. Nothing in the build or the suite executes a
+      snippet, and #277 shipped a bound that held for N = 16 and failed for
+      N = 1000 — a value its own widget offers the reader.
 - [ ] Every slide's scale measured in the deck at 1440x900, not eyeballed.
       A slide that fits is reported at scale 1.0; anything under ~0.7 is
       splitting into two titled `<Slide>`s, never a `<SectionBreak />`
