@@ -24,7 +24,7 @@ export const LIST_GAP = 34;
 /** Vertical room above the structure for the head / tail / cursor arrows. */
 export const POINTER_BAND = 46;
 /** Vertical room below for the index rail (arrays) and the ring (circular). */
-export const FOOT_BAND = 26;
+export const FOOT_BAND = 36;
 /** Extra room under a circular list, where the closing arc is drawn. */
 export const RING_BAND = 34;
 

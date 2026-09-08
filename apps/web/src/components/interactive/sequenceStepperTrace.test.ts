@@ -161,6 +161,96 @@ describe('sequenceStepperTrace · the outcomes', () => {
   });
 });
 
+describe('sequenceStepperTrace · what the last frame is allowed to still say', () => {
+  // The final frame is what stays on screen when playback ends, so it is
+  // where the lesson has to be legible: which node was inserted, which one
+  // was found. Only the "the algorithm is looking here right now" states are
+  // cleared. Regression guard — an earlier `settle` wiped `new` too, and the
+  // inserted node lost its colour the moment it landed.
+  it('keeps the inserted node marked as new', () => {
+    for (const recipe of RECIPES) {
+      const trace = traceFor(recipe, 'insert-first', { values, value: 9 });
+      const last = trace.steps.at(-1)!;
+      expect(
+        last.cells.filter((c) => c.state === 'new').map((c) => c.value),
+        recipe,
+      ).toEqual([9]);
+    }
+  });
+
+  it('keeps the found node marked, and clears everything in flight', () => {
+    const trace = traceFor('linked-list-singly', 'search', { values, target: 1 });
+    const last = trace.steps.at(-1)!;
+    expect(last.cells.filter((c) => c.state === 'found')).toHaveLength(1);
+    expect(last.cells.some((c) => c.state === 'active' || c.state === 'leaving')).toBe(false);
+  });
+
+  it('narrates without markdown the strip cannot render', () => {
+    for (const recipe of RECIPES) {
+      for (const operation of OPERATIONS) {
+        if (!isValidCombination(recipe, operation)) continue;
+        const trace = traceFor(recipe, operation, {
+          values: operation === 'insert-ordered' ? [1, 3, 7, 9] : values,
+          value: 9,
+          index: 2,
+          target: operation === 'insert-ordered' ? 5 : 1,
+          tail: true,
+        });
+        for (const step of trace.steps) {
+          expect(step.description, `${recipe} × ${operation}`).not.toContain('`');
+        }
+      }
+    }
+  });
+});
+
+describe('sequenceStepperTrace · the array block, slot by slot', () => {
+  // The cost of an array insertion is N copies, and a reader has to SEE them.
+  // The first version of this trace kept only the live elements, so a shift
+  // changed nothing on screen and the Theta(N) was a claim rather than a
+  // picture. These cases pin the hole.
+  it('opens a hole that travels as insert-first copies right', () => {
+    const trace = traceFor('array', 'insert-first', { values, value: 9 });
+    const shifts = trace.steps.filter((s) => s.kind === 'shift');
+    expect(shifts).toHaveLength(values.length);
+    for (const step of shifts) {
+      // Mid-shift the block always holds exactly one hole among the occupied
+      // range — the slot the last copy vacated.
+      const occupied = step.slots!.map((s) => s !== null);
+      const lastFull = occupied.lastIndexOf(true);
+      const holes = occupied.slice(0, lastFull).filter((o) => !o).length;
+      expect(holes).toBe(1);
+    }
+  });
+
+  it('leaves no hole once the value is written', () => {
+    const trace = traceFor('array', 'insert-first', { values, value: 9 });
+    const slots = trace.steps.at(-1)!.slots!;
+    const lastFull = slots.map((s) => s !== null).lastIndexOf(true);
+    expect(slots.slice(0, lastFull + 1).every((s) => s !== null)).toBe(true);
+    expect(slots.slice(0, lastFull + 1).map((s) => s!.value)).toEqual([9, 7, 3, 1, 5]);
+  });
+
+  it('closes the hole again when removing from the middle', () => {
+    const trace = traceFor('array', 'remove-at', { values, index: 1 });
+    const slots = trace.steps.at(-1)!.slots!;
+    const lastFull = slots.map((s) => s !== null).lastIndexOf(true);
+    expect(slots.slice(0, lastFull + 1).map((s) => s!.value)).toEqual([7, 1, 5]);
+  });
+
+  it('draws free capacity beyond the live elements', () => {
+    const trace = traceFor('array', 'search', { values, target: 7 });
+    const slots = trace.steps[0]!.slots!;
+    expect(slots.length).toBeGreaterThan(values.length);
+    expect(slots.at(-1)).toBeNull();
+  });
+
+  it('gives a list no slots at all — the block is an array idea', () => {
+    const trace = traceFor('linked-list-singly', 'insert-first', { values, value: 9 });
+    expect(trace.steps.every((s) => s.slots === undefined)).toBe(true);
+  });
+});
+
 describe('sequenceStepperTrace · the pointers the reader follows', () => {
   it('every list frame carries a head pointer', () => {
     const trace = traceFor('linked-list-singly', 'insert-at', { values, value: 9, index: 2 });

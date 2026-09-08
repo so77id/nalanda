@@ -73,6 +73,14 @@ export interface SequenceStep {
   description: string;
   /** Array recipes only: the reserved block size. */
   capacity?: number;
+  /**
+   * Array recipes only: the block slot by slot, `null` where a slot holds
+   * nothing. This is what makes a shift VISIBLE — the element leaves its slot
+   * and the hole travels — and a shift the reader cannot see is a
+   * $$\Theta(N)$$ the reader has to take on faith. `cells` stays the live
+   * elements in order, so everything reading it is unaffected.
+   */
+  slots?: (SequenceCell | null)[];
   /** A value held outside the structure — the node being built. */
   carry?: { value: number; label: string };
   /** Circular recipe: the chain closes back on its first node. */
@@ -132,9 +140,16 @@ const cellsFrom = (values: number[]): SequenceCell[] =>
 
 const snapshot = (cells: SequenceCell[]): SequenceCell[] => cells.map((c) => ({ ...c }));
 
-/** Clears every transient paint state — used to settle the final frame. */
+/**
+ * Clears the IN-FLIGHT paint states on the final frame — the ones that mean
+ * "the algorithm is looking at this right now". `new` and `found` survive: the
+ * last frame of an insertion is exactly where the reader should still see
+ * which node was added, and the last frame of a search where the hit was.
+ */
 const settle = (cells: SequenceCell[]): SequenceCell[] =>
-  cells.map((c) => ({ ...c, state: c.state === 'found' ? 'found' : ('idle' as const) }));
+  cells.map((c) =>
+    c.state === 'new' || c.state === 'found' ? { ...c } : { ...c, state: 'idle' as const },
+  );
 
 function requireIndex(input: SequenceInput, length: number, inclusive: boolean): number {
   const i = input.index;
@@ -260,8 +275,25 @@ function traceArray(
   // The static array is drawn with room to spare — its capacity is fixed at
   // creation and the class's point is that it can run out. The dynamic array
   // is drawn FULL, so that a single insertion shows the resize it exists for.
-  const cells = cellsFrom(input.values);
   let capacity = grows ? Math.max(input.values.length, 1) : input.values.length + 2;
+
+  // The block, slot by slot. A move empties the slot it came from, so the
+  // reader watches the hole travel and counts the copies — which is the whole
+  // lesson of an array insertion.
+  const slots: (SequenceCell | null)[] = Array.from({ length: capacity }, () => null);
+  cellsFrom(input.values).forEach((cell, i) => {
+    slots[i] = cell;
+  });
+  const live = (): SequenceCell[] => slots.filter((s): s is SequenceCell => s !== null);
+  /** Index of the last occupied slot, + 1 — the array's `size`. */
+  const size = (): number => {
+    let n = 0;
+    slots.forEach((s, i) => {
+      if (s !== null) n = i + 1;
+    });
+    return n;
+  };
+
   const steps: SequenceStep[] = [];
   let cost = 0;
   const push = (
@@ -272,7 +304,8 @@ function traceArray(
   ) => {
     steps.push({
       kind,
-      cells: snapshot(cells),
+      cells: snapshot(live()),
+      slots: slots.map((s) => (s === null ? null : { ...s })),
       pointers: [],
       highlightLines,
       description,
@@ -282,15 +315,23 @@ function traceArray(
     });
   };
 
+  const clearTransient = () => {
+    slots.forEach((s, i) => {
+      if (s !== null && s.state === 'active') slots[i] = { ...s, state: 'idle' };
+    });
+  };
+
   const growIfNeeded = (): number => {
     // Only the dynamic array grows, and only when the block is actually full.
-    if (!grows || cells.length < capacity) return 0;
+    if (!grows || live().length < capacity) return 0;
+    const copied = live().length;
     capacity = capacity * 2;
-    cost += cells.length;
+    while (slots.length < capacity) slots.push(null);
+    cost += copied;
     push(
       'grow',
       [2, 3],
-      `El bloque está lleno: se reserva uno del doble (${capacity}) y se copian los ${cells.length} elementos.`,
+      `El bloque está lleno: se reserva uno del doble (${capacity}) y se copian los ${copied} elementos.`,
     );
     return 3;
   };
@@ -304,37 +345,34 @@ function traceArray(
         operation === 'insert-first'
           ? 0
           : operation === 'insert-last'
-            ? cells.length
-            : requireIndex(input, cells.length, true);
+            ? size()
+            : requireIndex(input, size(), true);
       const offset = growIfNeeded();
-      push(
-        'start',
-        [1],
-        `Insertamos ${x} en la posición ${at} de un arreglo de ${cells.length} elementos.`,
-        {
-          carry: { value: x, label: 'x' },
-        },
-      );
-      // Shift right, from the tail down to the insertion point.
+      const n = size();
+      push('start', [1], `Insertamos ${x} en la posición ${at} de un arreglo de ${n} elementos.`, {
+        carry: { value: x, label: 'x' },
+      });
+      // Copy right, from the last element down to the insertion point. Each
+      // copy vacates its source, so a hole opens at `at`.
       const shiftLines = operation === 'insert-last' ? [] : [2 + offset, 3 + offset];
-      for (let j = cells.length; j > at; j -= 1) {
+      for (let j = n; j > at; j -= 1) {
         cost += 1;
-        const moved = cells[j - 1]!;
-        cells.splice(j, 0, { ...moved, state: 'active' });
-        cells.splice(j - 1, 1);
-        push('shift', shiftLines, `Corremos ${moved.value} de la posición ${j - 1} a la ${j}.`, {
+        const moved = slots[j - 1]!;
+        slots[j] = { ...moved, state: 'active' };
+        slots[j - 1] = null;
+        push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j - 1} a la ${j}.`, {
           pointers: [{ name: 'j', index: j }],
           carry: { value: x, label: 'x' },
         });
+        clearTransient();
       }
       cost += 1;
-      const fresh: SequenceCell = { id: (nextId += 1), value: x, state: 'new' };
-      cells.splice(at, 0, fresh);
+      slots[at] = { id: (nextId += 1), value: x, state: 'new' };
       const writeLine = operation === 'insert-last' ? 2 + offset : 5 + offset;
       push(
         'link',
         [writeLine],
-        `Escribimos ${x} en la posición ${at}. El largo pasa a ${cells.length}.`,
+        `Escribimos ${x} en la posición ${at}. El largo pasa a ${size()}.`,
         {
           pointers: [{ name: 'i', index: at }],
         },
@@ -345,52 +383,53 @@ function traceArray(
     case 'remove-last':
     case 'remove-at': {
       requireNonEmpty(input.values);
+      const n = size();
       const at =
         operation === 'remove-first'
           ? 0
           : operation === 'remove-last'
-            ? cells.length - 1
-            : requireIndex(input, cells.length, false);
-      const removed = cells[at]!;
-      cells[at] = { ...removed, state: 'leaving' };
+            ? n - 1
+            : requireIndex(input, n, false);
+      const removed = slots[at]!;
+      slots[at] = { ...removed, state: 'leaving' };
       cost += 1;
       push('start', [1, 2], `Guardamos ${removed.value}, el elemento de la posición ${at}.`, {
         pointers: [{ name: 'i', index: at }],
       });
-      cells.splice(at, 1);
+      slots[at] = null;
+      // Copy left, closing the hole the removal opened.
       const shiftLines = operation === 'remove-last' ? [] : [3, 4];
-      for (let j = at; j < cells.length; j += 1) {
+      for (let j = at; j < n - 1; j += 1) {
         cost += 1;
-        cells[j] = { ...cells[j]!, state: 'active' };
-        push(
-          'shift',
-          shiftLines,
-          `Corremos ${cells[j]!.value} de la posición ${j + 1} a la ${j}.`,
-          {
-            pointers: [{ name: 'j', index: j }],
-          },
-        );
-        cells[j] = { ...cells[j]!, state: 'idle' };
+        const moved = slots[j + 1]!;
+        slots[j] = { ...moved, state: 'active' };
+        slots[j + 1] = null;
+        push('shift', shiftLines, `Copiamos ${moved.value} de la posición ${j + 1} a la ${j}.`, {
+          pointers: [{ name: 'j', index: j }],
+        });
+        clearTransient();
       }
       push(
         'done',
         [operation === 'remove-last' ? 3 : 5],
-        `El largo pasa a ${cells.length}. Devolvemos ${removed.value}.`,
+        `El largo pasa a ${size()}. Devolvemos ${removed.value}.`,
       );
       break;
     }
     case 'search': {
       const target = requireTarget(input);
+      const n = size();
       push('start', [1], `Buscamos ${target} recorriendo el arreglo desde la posición 0.`);
       let found = -1;
-      for (let j = 0; j < cells.length; j += 1) {
+      for (let j = 0; j < n; j += 1) {
         cost += 1;
-        const hit = cells[j]!.value === target;
-        cells[j] = { ...cells[j]!, state: hit ? 'found' : 'active' };
+        const cell = slots[j]!;
+        const hit = cell.value === target;
+        slots[j] = { ...cell, state: hit ? 'found' : 'active' };
         push(
           'compare',
           [2, 3],
-          `¿datos[${j}] = ${cells[j]!.value} es ${target}? ${hit ? 'Sí.' : 'No.'}`,
+          `¿datos[${j}] = ${cell.value} es ${target}? ${hit ? 'Sí.' : 'No.'}`,
           {
             pointers: [{ name: 'j', index: j }],
           },
@@ -399,14 +438,14 @@ function traceArray(
           found = j;
           break;
         }
-        cells[j] = { ...cells[j]!, state: 'idle' };
+        clearTransient();
       }
       push(
         found >= 0 ? 'found' : 'done',
         found >= 0 ? [4] : [7],
         found >= 0
           ? `Encontramos ${target} en la posición ${found}.`
-          : `Recorrimos las ${cells.length} posiciones: ${target} no está en el arreglo.`,
+          : `Recorrimos las ${n} posiciones: ${target} no está en el arreglo.`,
       );
       break;
     }
@@ -415,7 +454,11 @@ function traceArray(
   }
 
   const last = steps.at(-1)!;
-  steps[steps.length - 1] = { ...last, cells: settle(last.cells) };
+  steps[steps.length - 1] = {
+    ...last,
+    cells: settle(last.cells),
+    slots: (last.slots ?? []).map((s) => (s === null ? null : settle([s])[0]!)),
+  };
   return { steps, code };
 }
 
@@ -620,7 +663,7 @@ function traceList(
       push(
         'link',
         doubly ? [5] : [4],
-        `\`head\` pasa a apuntar a ${x}. El largo pasa a ${cells.length}.`,
+        `head pasa a apuntar a ${x}. El largo pasa a ${cells.length}.`,
       );
       break;
     }
@@ -630,7 +673,7 @@ function traceList(
       push('build', [2], `Creamos el nodo ${x}.`, { carry: { value: x, label: 'nuevo' } });
       if (tail) {
         cost += 1;
-        push('link', [3], `\`tail\` ya apunta al último: enlazamos ${x} sin recorrer nada.`, {
+        push('link', [3], `tail ya apunta al último: enlazamos ${x} sin recorrer nada.`, {
           carry: { value: x, label: 'nuevo' },
         });
       } else {
@@ -708,7 +751,7 @@ function traceList(
       push(
         'unlink',
         [3],
-        `\`head\` pasa a apuntar al segundo nodo${cells.length > 0 ? ` (${cells[0]!.value})` : ' (null: la lista queda vacía)'}.`,
+        `head pasa a apuntar al segundo nodo${cells.length > 0 ? ` (${cells[0]!.value})` : ' (null: la lista queda vacía)'}.`,
       );
       push(
         'done',
@@ -723,9 +766,9 @@ function traceList(
       if (doubly && tail) {
         // The only O(1) delete-last in the family: `prev` is already there.
         cost += 1;
-        push('start', [2], `\`tail\` apunta al último nodo (${removed.value}).`);
+        push('start', [2], `tail apunta al último nodo (${removed.value}).`);
         cost += 1;
-        push('unlink', [3], `\`tail\` retrocede por \`prev\` — sin recorrer la cadena.`);
+        push('unlink', [3], `tail retrocede por prev — sin recorrer la cadena.`);
       } else {
         // Every other recipe needs the node BEFORE the last one, and only a
         // walk can produce it: `tail` alone is not enough.
@@ -740,7 +783,7 @@ function traceList(
       push(
         'unlink',
         doubly && tail ? [4] : [6],
-        `El nuevo último apunta a ${circular ? '`head`' : '`null`'}. El largo pasa a ${cells.length}.`,
+        `El nuevo último apunta a ${circular ? 'head' : 'null'}. El largo pasa a ${cells.length}.`,
       );
       push('done', doubly && tail ? [6] : [8], `Devolvemos ${removed.value}.`);
       break;
@@ -770,7 +813,7 @@ function traceList(
       push(
         'start',
         [2, 3],
-        `Buscamos ${target} desde \`head\`: la lista no tiene aritmética de posiciones.`,
+        `Buscamos ${target} desde head: la lista no tiene aritmética de posiciones.`,
       );
       let found = -1;
       for (let j = 0; j < cells.length; j += 1) {

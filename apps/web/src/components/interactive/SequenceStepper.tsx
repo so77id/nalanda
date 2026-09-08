@@ -157,8 +157,8 @@ export function SequenceStepper({
   if (values.length > MAX_VALUES) {
     return (
       <AuthoringError component="SequenceStepper">
-        <code>values</code> trae {values.length} elementos. El dibujo se lee bien hasta {MAX_VALUES}
-        ; con más, los nodos quedan ilegibles en la proyección.
+        <code>values</code> trae {values.length} elementos. El dibujo se lee bien hasta {MAX_VALUES}{' '}
+        elementos; con más, los nodos quedan ilegibles en la proyección.
       </AuthoringError>
     );
   }
@@ -258,7 +258,10 @@ function Body({
   }
 
   const step = trace.steps[Math.min(playback.stepIndex, totalSteps - 1)]!;
-  const heading = title ?? `${OPERATION_LABEL[operation]} · ${RECIPE_LABEL[recipe]}`;
+  // The chip beside it already names the structure, so the heading names only
+  // the operation — repeating the recipe pushed the step counter onto a second
+  // line at 1440px.
+  const heading = title ?? OPERATION_LABEL[operation];
   const atEnd = playback.stepIndex >= totalSteps - 1;
   const panelCard = 'flex min-w-0 min-h-0 flex-col rounded border border-rule bg-surface';
 
@@ -393,9 +396,26 @@ const CELL_STROKE: Record<SequenceCell['state'], string> = {
  */
 const CELL_NOTE: Partial<Record<SequenceCell['state'], string>> = {
   new: 'nuevo',
-  found: '✓ es este',
+  found: '✓ este',
   leaving: 'sale',
 };
+
+/**
+ * The note sits UNDER its box and is left-aligned to it, never centred above
+ * it: a pointer arrow lands on the box's centre from above, and a centred note
+ * was drawn straight through by it ("nu|evo"). Left-aligning also keeps it
+ * clear of the vertical leg of the circular recipe's closing arc, which rises
+ * to the same centre from below.
+ */
+function CellNote({ cell, x, y }: { cell: SequenceCell; x: number; y: number }) {
+  const note = CELL_NOTE[cell.state];
+  if (note === undefined) return null;
+  return (
+    <text x={x} y={y} textAnchor="start" fontSize="9" fill="var(--color-ink-soft)">
+      {note}
+    </text>
+  );
+}
 
 function StructureView({ step, recipe }: { step: SequenceStep; recipe: SequenceRecipe }) {
   const isList = recipe.startsWith('linked-list');
@@ -448,8 +468,11 @@ function ArrayPicture({
   return (
     <g>
       {layout.boxes.map((box, i) => {
-        const cell = step.cells[i];
-        const free = cell === undefined;
+        // Read the BLOCK, not the live elements: a slot the algorithm just
+        // vacated is empty and must draw empty, which is what makes a copy
+        // visible as a move rather than as a colour change.
+        const cell = step.slots?.[i] ?? undefined;
+        const free = cell === null || cell === undefined;
         return (
           <g key={i}>
             <rect
@@ -462,7 +485,7 @@ function ArrayPicture({
               stroke={free ? 'var(--color-rule)' : CELL_STROKE[cell.state]}
               strokeWidth={!free && (cell.state === 'active' || cell.state === 'found') ? 2.5 : 1.2}
               strokeDasharray={free ? '3 3' : undefined}
-              opacity={cell?.state === 'leaving' ? 0.5 : 1}
+              opacity={!free && cell.state === 'leaving' ? 0.5 : 1}
             />
             {free ? null : (
               <text
@@ -485,17 +508,7 @@ function ArrayPicture({
             >
               {i}
             </text>
-            {cell && CELL_NOTE[cell.state] ? (
-              <text
-                x={box.centerX}
-                y={box.y - 6}
-                textAnchor="middle"
-                fontSize="9"
-                fill="var(--color-ink-soft)"
-              >
-                {CELL_NOTE[cell.state]}
-              </text>
-            ) : null}
+            {free ? null : <CellNote cell={cell} x={box.x} y={box.y + box.h + 26} />}
           </g>
         );
       })}
@@ -569,17 +582,7 @@ function ListPicture({
             >
               {cell.value}
             </text>
-            {CELL_NOTE[cell.state] ? (
-              <text
-                x={box.centerX}
-                y={box.y - 6}
-                textAnchor="middle"
-                fontSize="9"
-                fill="var(--color-ink-soft)"
-              >
-                {CELL_NOTE[cell.state]}
-              </text>
-            ) : null}
+            <CellNote cell={cell} x={box.x} y={box.y + box.h + 14} />
 
             {/* next arrow — to the following node, or to the null marker */}
             {!isLast || !circular ? (
