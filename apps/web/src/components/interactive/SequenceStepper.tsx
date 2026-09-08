@@ -306,7 +306,12 @@ function Body({
       className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink"
     >
       <StepperHeader
-        kind={`eda · ${RECIPE_LABEL[recipe]}`}
+        // "estructura", not "eda": the course names the concept in full and
+        // never defines the acronym (#277 uses "estructura de datos"
+        // throughout), so a chip reading "eda" would show the student a
+        // shorthand no slide introduces. The PROP stays `eda` — that is an
+        // author-facing identifier, not something the reader sees.
+        kind={`estructura · ${RECIPE_LABEL[recipe]}`}
         title={heading}
         stepIndex={playback.stepIndex}
         totalSteps={totalSteps}
