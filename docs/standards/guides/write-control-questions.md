@@ -40,6 +40,24 @@ Three consequences shape every rule here:
 - **The copies differ.** Two students answer different questions for the same
   grade, so no question may be much harder than its neighbours in the same pool.
 
+## No mathematics in a stem or an alternative
+
+**Write costs in words — "costo constante", "lineal", "cuadrático" — never as
+`$$\Theta(1)$$.** A question is not prose: it leaves the page for
+`questions.json` and ends up on a printed sheet, where nothing renders LaTeX.
+
+This is enforced, but by a test whose failure does not mention mathematics:
+`app/questionReaders.test.tsx` compares what the SOURCE reader sees with what
+the RENDERED reader sees, and rehype-katex turns `$$\Theta(1)$$` in the DOM
+into `Θ(1)\Theta(1)Θ(1)` — the visual rendering, the raw LaTeX and the MathML
+concatenated. The two readers disagree and the suite reddens with a diff of two
+statements that look identical at a glance. Hit while writing #288's bank; #277
+had already avoided it by writing every cost in words, which is the convention
+this section now records.
+
+The same applies to the alternatives, and for the stronger reason: a printed
+alternative reading `Θ(1)\Theta(1)Θ(1)` is a question nobody can answer.
+
 ## The rules the suite enforces
 
 Break one and `npm run test` goes red, naming the question. They are mechanical

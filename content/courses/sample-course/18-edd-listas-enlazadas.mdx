@@ -2,14 +2,16 @@
 id: edd-listas-enlazadas
 title: Estructuras de Datos · Listas Enlazadas
 presentation: explicit
-questions: none
+questions: pool
 ---
 
-{/* `questions: none` es una promesa pendiente, no una decisión: el banco de */}
-{/* esta clase se escribe como WP aparte, después de que el material cierre. */}
-{/* Cuando se escriba, las preguntas y el cambio de esta declaración van en */}
-{/* el MISMO commit — declararlo antes deja la suite roja por construcción */}
-{/* (add-a-course-document.md §2). */}
+{/* `pool`: un conjunto de preguntas sin expectativa por sección. No */}
+{/* `per-section`, porque cada <Slide> es un h2 y exigir una pregunta por */}
+{/* slide serían más de cuarenta. Lo que el pool garantiza es densidad por */}
+{/* RANGO: un control se pide sobre un rango de secciones, así que cada */}
+{/* bloque tiene que poder llenar una copia de cuatro. Hoy: 4 en la apertura, */}
+{/* 4 en la EDA lista, 5 en las operaciones, 5 en las variantes, 4 en la */}
+{/* comparación y 4 en los ejercicios. */}
 
 # Estructuras de Datos · Listas Enlazadas
 
@@ -1162,6 +1164,317 @@ class Solution {
 ```
 
 </Exercise>
+
+<Questions>
+
+<Question id="lista-que-deja-libre-sequence" anchor="dos-maneras-de-guardar-una-secuencia">
+
+¿Qué deja libre el TDA Sequence?
+
+- [x] Dónde viven los elementos en memoria
+- [ ] Qué significa insertar en una posición
+- [ ] Cuántos elementos puede guardar la colección
+- [ ] En qué orden se devuelven los elementos
+
+<Explanation>
+El contrato fija qué se puede pedir y qué significa cada pedido. La
+representación en memoria queda abierta, y por eso el mismo contrato admite el
+arreglo y la lista.
+</Explanation>
+
+</Question>
+
+<Question id="lista-que-guarda-un-nodo" anchor="el-nodo-un-valor-y-un-enlace">
+
+¿Qué guarda un nodo de una lista enlazada?
+
+- [x] El dato y una referencia al nodo siguiente
+- [ ] El dato y su posición dentro de la lista
+- [ ] El dato y una copia del nodo siguiente
+- [ ] El dato y la dirección donde empieza la lista
+
+</Question>
+
+<Question id="lista-next-de-un-nodo-nuevo" anchor="el-nodo-un-valor-y-un-enlace">
+
+Un nodo recién creado tiene su campo `next` en `null`. ¿Qué significa eso?
+
+- [x] Que después de ese nodo no hay ningún otro
+- [ ] Que el nodo todavía no guarda ningún dato
+- [ ] Que el nodo es el primero de la cadena
+- [ ] Que el nodo ocupa la última casilla de memoria
+
+</Question>
+
+<Question id="lista-para-que-sirve-head" anchor="de-head-a-null">
+
+¿Para qué alcanza guardar solamente `head`?
+
+- [x] Para llegar a todos los nodos siguiendo enlaces
+- [ ] Para saber cuántos nodos tiene la lista
+- [ ] Para llegar a cualquier posición con una cuenta
+- [ ] Para recorrer la cadena en los dos sentidos
+
+</Question>
+
+<Question id="lista-por-que-se-guarda-size" anchor="la-clase-lista-head-y-size">
+
+¿Por qué la clase guarda `size` en vez de contar los nodos cuando se lo piden?
+
+- [x] Porque contarlos obliga a recorrer la cadena entera
+- [ ] Porque sin `size` no se puede insertar al final
+- [ ] Porque `head` no alcanza para llegar al último nodo
+- [ ] Porque el contrato exige guardar el largo
+
+<Explanation>
+Mantener `size` al día cuesta una suma o una resta por operación, y a cambio
+`len()` pasa a ser una lectura en vez de un recorrido.
+</Explanation>
+
+</Question>
+
+<Question id="lista-head-al-medio" anchor="las-invariantes-de-la-lista">
+
+Si `head` queda apuntando a un nodo del medio de la cadena, ¿qué ocurre?
+
+- [x] Los nodos anteriores quedan inalcanzables
+- [ ] La cadena se recorre igual, empezando por el medio
+- [ ] El programa falla en la siguiente operación
+- [ ] Los nodos anteriores pasan al final de la cadena
+
+</Question>
+
+<Question id="lista-operaciones-constantes" anchor="operaciones-y-sus-costos">
+
+¿Cuáles operaciones de la lista simplemente enlazada tienen costo constante?
+
+- [x] `insertFirst(x)`
+- [x] `deleteFirst()`
+- [ ] `insertLast(x)`
+- [ ] `deleteAt(i)`
+
+<Explanation>
+Las dos operan sobre el principio de la cadena, que es el único punto al que se
+llega sin caminar porque `head` ya está ahí.
+</Explanation>
+
+</Question>
+
+<Question id="lista-de-donde-sale-el-costo" anchor="donde-vive-el-costo">
+
+En una lista, ¿qué es lo que hace que una operación cueste lineal?
+
+- [x] Llegar al nodo donde hay que operar
+- [ ] Cambiar los enlaces del nodo
+- [ ] Reservar la memoria del nodo nuevo
+- [ ] Actualizar el valor de `size`
+
+</Question>
+
+<Question id="lista-insertfirst-no-mueve" anchor="insertfirst-el-enlace-que-no-mueve-nada">
+
+Al insertar al principio de una lista, ¿qué pasa con los nodos que ya estaban?
+
+- [x] Ninguno cambia de lugar ni de contenido
+- [ ] Cada uno avanza una posición en la cadena
+- [ ] Solo el primero cambia, para apuntar al nuevo
+- [ ] Todos actualizan su índice dentro de la lista
+
+</Question>
+
+<Question id="lista-arreglo-corre-elementos" anchor="insertfirst-en-un-arreglo-el-mismo-pedido-otro-precio">
+
+¿Por qué insertar al principio de un arreglo obliga a copiar todos los elementos?
+
+- [x] Porque la posición `i` vive en `base + i × tamaño` y no puede haber huecos
+- [ ] Porque el arreglo guarda los elementos en desorden
+- [ ] Porque hay que reservar un bloque más grande
+- [ ] Porque cada casilla guarda dónde está la siguiente
+
+</Question>
+
+<Question id="lista-insertlast-que-es-caro" anchor="insertlast-caminar-hasta-el-final">
+
+Al insertar al final de una lista sin `tail`, ¿qué es lo caro?
+
+- [x] Recorrer la cadena para encontrar el último nodo
+- [ ] Enlazar el nodo nuevo al final
+- [ ] Crear el nodo nuevo en memoria
+- [ ] Comparar el valor nuevo con los que ya están
+
+</Question>
+
+<Question id="lista-deletelast-que-nodo" anchor="deletelast-el-costo-de-no-mirar-atras">
+
+Para eliminar el último nodo, ¿qué nodo hay que modificar?
+
+- [x] El anteúltimo, que pasa a apuntar a `null`
+- [ ] El último, que pasa a apuntar a `null`
+- [ ] El primero, para que la cadena se acorte
+- [ ] Ninguno: alcanza con restar uno a `size`
+
+</Question>
+
+<Question id="lista-orden-de-los-enlaces" anchor="insertat-encontrar-al-previo">
+
+Al insertar en una posición, ¿por qué el nodo nuevo toma el enlace del previo antes de que el previo apunte al nuevo?
+
+- [x] Porque al revés se pierde el acceso al resto de la cadena
+- [ ] Porque el nodo nuevo debe existir antes que el previo
+- [ ] Porque el orden inverso deja `size` desactualizado
+- [ ] Porque el previo no puede apuntar a dos nodos a la vez
+
+</Question>
+
+<Question id="lista-invariante-de-tail" anchor="la-lista-con-tail-un-puntero-mas">
+
+¿Qué invariante agrega la variante con `tail`?
+
+- [x] Que `tail` apunta al último nodo, o a `null` si la lista está vacía
+- [ ] Que la cadena termina en `null` en vez de en `head`
+- [ ] Que todos los nodos guardan también el nodo anterior
+- [ ] Que el largo de la cadena coincide con `size`
+
+</Question>
+
+<Question id="lista-por-que-tail-no-baja-deletelast" anchor="deletelast-con-tail-el-que-no-baja">
+
+¿Por qué `tail` no hace que eliminar el último nodo tenga costo constante?
+
+- [x] Porque el nodo que hay que modificar es el anterior, y no se puede retroceder
+- [ ] Porque `tail` deja de ser válido apenas se elimina un nodo
+- [ ] Porque hay que actualizar `size` recorriendo la cadena
+- [ ] Porque `tail` solo se puede usar para insertar
+
+</Question>
+
+<Question id="lista-invariante-doble-enlace" anchor="la-lista-doblemente-enlazada-el-enlace-de-vuelta">
+
+En una lista doblemente enlazada, si `a.next` es `b`, ¿qué debe valer?
+
+- [x] Que `b.prev` es `a`
+- [ ] Que `b.next` es `a`
+- [ ] Que `a.prev` es `b`
+- [ ] Que `a` y `b` están juntos en memoria
+
+</Question>
+
+<Question id="lista-ordenada-y-el-contrato" anchor="la-lista-ordenada-una-invariante-en-vez-de-un-puntero">
+
+¿Por qué una lista ordenada deja de cumplir el TDA Sequence?
+
+- [x] Porque `insertAt` pondría cualquier valor en cualquier posición
+- [ ] Porque no puede implementar `getAt` sobre sus nodos
+- [ ] Porque necesita guardar un puntero más por nodo
+- [ ] Porque sus operaciones cambian de costo asintótico
+
+<Explanation>
+La invariante de orden prohíbe justamente lo que `insertAt` permite: elegir la
+posición. Por eso la inserción pasa a ser una sola y no recibe posición.
+</Explanation>
+
+</Question>
+
+<Question id="lista-circular-recorrido" anchor="la-lista-circular-el-ultimo-vuelve-al-primero">
+
+En una lista circular, ¿qué hace un recorrido escrito como `while (actual != null)`?
+
+- [x] No se detiene nunca
+- [ ] Se detiene al llegar al último nodo
+- [ ] Se detiene al volver al primer nodo
+- [ ] Recorre la cadena una sola vez
+
+</Question>
+
+<Question id="lista-comparacion-espejo" anchor="arreglo-y-lista-la-tabla-completa">
+
+Según la tabla comparativa, ¿qué operación tiene costo constante en el arreglo y lineal en la lista simple?
+
+- [x] `getAt(i)`
+- [ ] `insertFirst(x)`
+- [ ] `deleteFirst()`
+- [ ] `buscar(x)`
+
+</Question>
+
+<Question id="lista-cuando-conviene-lista" anchor="cuando-conviene-cada-una">
+
+¿Para qué mezcla de operaciones conviene una lista?
+
+- [x] Insertar y eliminar seguido en los extremos, sin pedir posiciones arbitrarias
+- [ ] Leer muchas veces por posición y modificar poco la forma
+- [ ] Comparar `datos[i]` con `datos[j]` dentro de un algoritmo
+- [ ] Recorrer la colección de principio a fin una sola vez
+
+</Question>
+
+<Question id="lista-lo-que-la-tabla-no-dice" anchor="lo-que-la-tabla-no-dice">
+
+¿Qué costos reales quedan fuera de una tabla de complejidades?
+
+- [x] La memoria extra que gasta cada nodo en sus referencias
+- [x] Que los elementos juntos en memoria se leen más rápido que los dispersos
+- [ ] El peor caso de cada operación
+- [ ] La cantidad de operaciones elementales de un recorrido
+
+</Question>
+
+<Question id="lista-getat-en-un-bucle" anchor="un-metodo-dos-estructuras">
+
+Un bucle que llama a `getAt(i)` para cada posición resulta cuadrático sobre una lista. ¿Por qué?
+
+- [x] Porque cada `getAt` vuelve a caminar desde `head`
+- [ ] Porque el contrato obliga a copiar la lista en cada paso
+- [ ] Porque `len()` recorre la cadena en cada vuelta
+- [ ] Porque la lista reordena sus nodos al ser recorrida
+
+</Question>
+
+<Question id="lista-invertir-tercera-referencia" anchor="invertir-la-lista-dar-vuelta-cada-enlace">
+
+Al invertir una lista con tres referencias, ¿para qué sirve la que guarda el siguiente?
+
+- [x] Para no perder el resto de la cadena al cambiar un enlace
+- [ ] Para recordar cuál era la cabeza original
+- [ ] Para contar cuántos nodos se invirtieron
+- [ ] Para comparar el orden viejo con el nuevo
+
+</Question>
+
+<Question id="lista-floyd-que-compara" anchor="detectar-un-ciclo-dos-velocidades">
+
+En la detección de ciclos con dos velocidades, ¿qué compara `lento == rapido`?
+
+- [x] Si las dos referencias apuntan al mismo nodo
+- [ ] Si los dos nodos guardan el mismo valor
+- [ ] Si las dos referencias avanzaron la misma cantidad
+- [ ] Si los dos nodos están juntos en memoria
+
+</Question>
+
+<Question id="lista-medio-en-una-pasada" anchor="el-nodo-del-medio-en-una-pasada">
+
+¿Por qué el puntero lento queda en el medio cuando el rápido llega al final?
+
+- [x] Porque el rápido avanzó el doble que el lento
+- [ ] Porque el lento se detiene al llegar a `size / 2`
+- [ ] Porque el rápido cuenta los nodos mientras avanza
+- [ ] Porque el lento retrocede cuando el rápido termina
+
+</Question>
+
+<Question id="lista-fusionar-nodo-de-mentira" anchor="fusionar-dos-listas-ordenadas">
+
+Al fusionar dos listas ordenadas, ¿para qué sirve el nodo de mentira del principio?
+
+- [x] Para no escribir aparte el caso del primer elemento
+- [ ] Para guardar el largo de la lista resultante
+- [ ] Para separar los elementos de una lista y de la otra
+- [ ] Para recordar dónde empezaba cada lista original
+
+</Question>
+
+</Questions>
 
 ## Lo que sigue
 
