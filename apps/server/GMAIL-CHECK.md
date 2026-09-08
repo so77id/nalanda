@@ -18,12 +18,34 @@ about whether a real consent screen grants the scope, whether the redirect
 URI matches character for character, or whether a message this server
 considers well-formed arrives readable in a real inbox.
 
-**Last run: PARTIAL, 2026-09-07, at `599690c` (#284 on the Jetson).** §1
-connect and a §4 send to Miguel's own address both passed — the grant, the
-refresh token, the From, the attachment and the Sent copy are real. §4's
-BODY checks below were rewritten afterwards (the whole name, no footer),
-so they have not been read against a delivered message, and §§2, 3, 5, 6
-and 7 have not run at all.
+**Last run: PARTIAL, 2026-09-08, at `b3ed8b5` (#287 on the Jetson).** §5's
+real publication ran for the first time, and it ran five times: five
+controls to their classes, **110 messages, zero send failures**, students
+confirming receipt. The publication path is real end to end — the grant,
+the refresh token, the From, the attachment, the Sent copy, and now the
+addressing of a whole class.
+
+What that run does NOT cover, and what remains:
+
+- **§4's grade comparison** was not performed as a step. It has strong
+  indirect evidence — the grades actually delivered spread across
+  1,0 · 2,5 · 4,0 · 5,5 · 7,0 with intermediates (5,9 · 3,6 · 6,2), which is
+  what a correct four-question scale produces and not what the #287 defect
+  produced — but nobody put a message beside the readings table and
+  compared. Do it on the next rehearsal; it needs no students.
+- **§4's BODY checks** were rewritten after the 2026-09-07 run (the whole
+  name, no footer) and have still not been read against a delivered
+  message.
+- **§§2, 3, 5b, 5bb, 5c, 5d, 5e, 6 and 7 have not run at all.** §5c (the
+  resume) and §5d (the per-student send) are the two ADR-0073 names as its
+  own verification, which is why that ADR's status still says outstanding.
+
+Recorded from the Jetson's own logs and database on 2026-09-08 rather than
+from an operator working down this file: five `publish` jobs, all `done`
+with no `error` and no `detail`, and `reading.published_at` stamped on every
+deliverable copy of all five controls. That is weaker evidence than somebody
+reading the list — it proves the sends were accepted, not that the messages
+were right — and the two bullets above are exactly the gap.
 
 The commit is the load-bearing half of this line: without it a procedure
 keeps its green mark through every later change to the path it covers.
