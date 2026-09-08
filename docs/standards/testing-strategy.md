@@ -306,6 +306,21 @@ headers the source had gained twenty minutes earlier, because the build and the
 `up` had raced. That is the same "green for the wrong reason" this document
 hunts elsewhere, in the one step whose whole job is to see what the suite cannot.
 
+**RUNNING it means running it with ENOUGH ENVIRONMENT to reach the wiring.**
+`docker run` with no variables exits inside `config.Load`, which proves the
+binary executes on `scratch` and NOTHING about whether it boots: every
+constructor panic — the shape `NewControls`, `NewProfile`, `NewService` and
+`jobs.NewRunner` all use to refuse an incomplete dependency set — lives past
+that point. Worked case: #273's pre-PR run did exactly this, reported "the
+binary starts on scratch", and CI then caught `panic: handler.NewControls: no
+Gmail connection reader` — a port wired into all three test rigs and never
+into `cmd/server/main.go`, which no `go test` can see because every rig
+supplies its own. The check that would have caught it locally is the compose
+path below, or a `docker run` carrying the eight required variables and a
+minimal `{"version":1,"documents":[]}` bank; the evidence to look for is
+`server listening` plus a 200 from both health routes, never merely a
+non-zero exit.
+
 **The image is built and RUN, not only built.** `CGO_ENABLED=0` is what lets the
 binary run on `scratch`; a dependency that needs CGO produces a build that
 succeeds and a container that cannot start, and no compile step notices. CI runs

@@ -323,6 +323,10 @@ func run(logger *slog.Logger) error {
 			// integration (email, Canvas) replaces it here without
 			// touching the flow (issue #190).
 			OnCorrectionClosed: controls.NewNoopHook(logger),
+			// Issue #273: whether the professor at the keyboard can send at
+			// all — the control page gates "Publicar" on it, and the POST
+			// refuses on it. *gmail.Service satisfies the narrow port.
+			Gmail: gmailService,
 			// Issue #249: the async job runner (banner + Submit calls).
 			Jobs:   jobStore,
 			Runner: jobRunner,
