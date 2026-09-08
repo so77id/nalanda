@@ -376,13 +376,34 @@ which is what its Status says.
 Writing the resume cases surfaced a bug in #273's own message builder:
 `Service.Publish` composed `FormatGrade(NumericGrade(…))`, and the two do
 not compose. `NumericGrade` already returns the 1,0–7,0 grade; `FormatGrade`
-maps a RAW TOTAL onto that scale. The second re-scaled the first's answer
-and saturated at 7,0 as soon as the real grade reached the control's
-QUESTION COUNT: a fraction of (Q−1)/6, which is a sixth of a two-question
-control, a third of a three-question one, half of a four-question one. A
-copy with 1 of 2 correct read 4,0 in the readings table and was EMAILED
-7,0. (The first version of this ADR said "~28%", a number no control can
-produce — measured and corrected in the WP's own review, DAC-7.) **That shipped in #273 and
+maps a RAW TOTAL onto that scale. The second therefore re-scaled the true
+grade as though it were a raw score out of the control's question count,
+and **the direction of the error depends on how many questions the control
+has**:
+
+| Questions | true grade → grade emailed |
+|---|---|
+| 2 | 2,0 → **7,0** · 4,0 → **7,0** |
+| 4 | 3,0 → **5,5** · 4,0 → **7,0** |
+| 6 | 3,0 → **4,0** · 5,0 → **6,0** |
+| 8 | 5,0 → **4,8** · 7,0 → **6,2** |
+| 10 | 5,0 → **4,0** · 7,0 → **5,2** |
+| 12 | 6,0 → **4,0** · 7,0 → **4,5** |
+
+On a SHORT control the emailed grade is too high and saturates at 7,0 once
+the true grade reaches the question count; on a LONG one it is too low, and
+a student who passed can read a 4,0. Exactly one grade per control lands
+right by accident — `g = Q/(Q−6)`, so 4,0 on an eight-question control —
+and on a control of six questions or fewer, none does.
+
+A copy with 1 of 2 correct read 4,0 in the readings table and was EMAILED
+7,0. That is the case this WP measured first, and stating only it is how
+two earlier versions of this paragraph went wrong: the first said "~28%",
+a figure no control can produce, and the second described only the
+saturating half. Both were corrected in the WP's own review (DAC-7), which
+is the second reason the pin is `TestTheGradeAMessageCarriesIsTheOneThe
+ReadingsTableShows` — it compares the two surfaces rather than either
+against a number somebody wrote down. **That shipped in #273 and
 went out to a real class on 2026-09-08.**
 
 `controls.GradeFor` is now the one function both the table and the message

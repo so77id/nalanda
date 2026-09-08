@@ -204,10 +204,15 @@ func TestASentCopyThatStoppedBeingDeliverableIsStillReportedSent(t *testing.T) {
 // composing two functions that are not composable: NumericGrade already
 // returns the 1,0–7,0 grade and FormatGrade maps a RAW TOTAL onto that
 // scale, so the second re-scaled the first's answer and clamped everything
-// saturating at 7,0 as soon as the real grade reached the question count —
-// a fraction of (Q−1)/6. A copy with 1 of 2 correct read 4,0 in the readings
-// table and was EMAILED 7,0. It shipped in #273 and went out to a real
-// class on 2026-09-08.
+// re-scaling the true grade as though it were a raw score out of the
+// question count: too HIGH on a short control (a copy with 1 of 2 correct
+// read 4,0 in the readings table and was EMAILED 7,0) and too LOW on a long
+// one (a real 7,0 emails as 5,2 out of ten questions). It shipped in #273
+// and went out to a real class on 2026-09-08.
+//
+// The case below asserts the two surfaces AGREE rather than asserting a
+// number, deliberately: two earlier attempts to state the threshold in
+// prose were both wrong, in opposite directions.
 //
 // The assertion is against TotalAndGrade rather than against a literal,
 // because the claim is not "the grade is 4,0" — it is that the professor's

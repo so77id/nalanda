@@ -47,8 +47,9 @@ func TotalAndGrade(questions int, r Reading) (string, string) {
 // returns the 1,0–7,0 grade, and FormatGrade maps a RAW TOTAL onto that
 // scale. Feeding the second the first's answer re-scaled it — a copy with
 // 1 of 2 correct read 4,0 in the readings table and was EMAILED 7,0, and
-// the message saturated at 7,0 as soon as the real grade reached the
-// question count — a fraction of (Q−1)/6. That shipped in
+// the message carried the true grade re-scaled as though it were a raw
+// score out of the question count — too HIGH on a short control
+// (saturating at 7,0), too LOW on a long one. That shipped in
 // #273 and went out to a real class on 2026-09-08.
 //
 // The pair NumericGrade/FormatGrade is not the trap; taking the two names
@@ -125,10 +126,11 @@ func rawTotal(questions int, r Reading) (float64, bool) {
 
 // FormatGrade takes a RAW TOTAL, not a grade. It is NOT the second half of
 // a pipeline with NumericGrade, which already returns the 1,0–7,0 value:
-// composing them re-scales, and saturates at 7,0 as soon as the real grade
-// reaches `questions` — a fraction of (Q−1)/6, so a sixth of a two-question
-// control. That is what mailed a 7,0 to a real class on 2026-09-08 (#287).
-// A caller holding a Reading wants GradeFor.
+// composing them re-scales the grade as though it were a raw score out of
+// `questions`: too HIGH on a short control (saturating at 7,0), too LOW on
+// a long one — a real 7,0 emails as 5,2 out of ten questions. That is what
+// reached a real class on 2026-09-08 (#287). A caller holding a Reading
+// wants GradeFor.
 //
 // FormatGrade maps a fraction onto the 1,0–7,0 scale: 4,0 at 50%,
 // linear on either side (§C7). Rounded to one decimal. Negative or >1

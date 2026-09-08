@@ -618,7 +618,7 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   statistics only.** A caller holding a `Reading` and showing a PERSON a
   grade calls `controls.GradeFor` (its own bullet below): `NumericGrade` and
   `FormatGrade` are not a pipeline, and composing them re-scales the grade
-  and mails a 7,0 to every copy whose real grade reaches the question count — a fraction of (Q−1)/6 (#287).** `internal/domain/controls/stats/`
+  and mails a grade re-scaled by the question count — too high on a short control, too low on a long one (#287).** `internal/domain/controls/stats/`
   computes the panel out of the readings, the current bank snapshot and
   `Control.QuestionsPerCopy` — no writes to the DB, no worker call, no
   cache. The panel is only rendered on `Control.State == Graded` AND
@@ -796,11 +796,13 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   their names as one is how #273's message builder shipped
   `FormatGrade(NumericGrade(…))`: `NumericGrade` already returns the 1,0–7,0
   grade and `FormatGrade` maps a RAW TOTAL onto that scale, so the second
-  re-scaled the first's answer and saturated at 7,0 as soon as the real
-  grade reached the control's QUESTION COUNT — a fraction of (Q−1)/6, which
-  is a sixth of a two-question control, a third of a three-question one and
-  half of a four-question one. A copy with 1 of 2 correct read 4,0 in the
-  readings table and was EMAILED 7,0 — to a real class, on 2026-09-08. `NumericGrade` is the float back
+  re-scaled the true grade as though it were a raw score out of the control's question count. The direction of the error
+  depends on the question count: on a SHORT control the emailed grade is too
+  high and saturates at 7,0 (a copy with 1 of 2 correct read 4,0 in the
+  readings table and was EMAILED 7,0); on a LONG one it is too LOW — a real
+  7,0 arrives as 5,2 on a ten-question control, and a real 5,0 as 4,0. Only
+  `g = Q/(Q−6)` lands right by accident, and on six questions or fewer
+  nothing does. It went to a real class on 2026-09-08. `NumericGrade` is the float back
   door for the statistics panel and `FormatGrade` is the raw-total renderer;
   neither is "the grade of this reading", which is what a caller holding a
   `Reading` wants. That is `GradeFor`, and it is what makes the comment

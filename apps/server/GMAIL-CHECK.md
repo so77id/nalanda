@@ -191,10 +191,11 @@ Then, on a second nominated control, for real:
       addressing.
 - [ ] **Ask one of them what grade the message says**, and compare it to
       the readings table. They must be the same number. This is the #273
-      defect #287 fixed: the message re-scaled the grade, saturating at 7,0
-      as soon as the real grade reached the control's QUESTION COUNT — a
-      sixth of the answers right on a two-question control, a third on a
-      three-question one, half on a four-question one.
+      defect #287 fixed: the message re-scaled the grade as though it were
+      a raw score out of the question count — too HIGH on a short control
+      (saturating at 7,0), too LOW on a long one, where a real 7,0 arrives
+      as 5,2 out of ten questions. Check a HIGH grade and a LOW one: on a
+      long control the error hides in the middle of the scale.
 - [ ] The page shows `Publicado el …: N copias figuran como enviadas a los
       estudiantes.` (or `1 copia figura como enviada al estudiante.`)
 - [ ] The **controls list** shows `N/M enviadas` on that row, and nothing on
