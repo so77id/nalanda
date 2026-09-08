@@ -423,9 +423,14 @@ function StructureView({ step, recipe }: { step: SequenceStep; recipe: SequenceR
   const layout = layoutSequence(step.cells.length, recipe, slots);
   const summary = describe(step, recipe);
 
+  // A short structure can be narrower than the carry chip parked above it, so
+  // the canvas takes the wider of the two — otherwise the chip is drawn
+  // outside the viewBox and is clipped away.
+  const canvasW = step.carry === undefined ? layout.width : Math.max(layout.width, 140);
+
   return (
     <svg
-      viewBox={`0 0 ${layout.width} ${layout.height}`}
+      viewBox={`0 0 ${canvasW} ${layout.height}`}
       className="h-auto w-full"
       style={{ maxHeight: '100%' }}
       role="img"
@@ -451,7 +456,7 @@ function StructureView({ step, recipe }: { step: SequenceStep; recipe: SequenceR
       {isList ? <ListPicture step={step} layout={layout} recipe={recipe} /> : null}
       {!isList ? <ArrayPicture step={step} layout={layout} slots={slots} /> : null}
       <Pointers step={step} layout={layout} />
-      {step.carry ? <Carry carry={step.carry} layout={layout} /> : null}
+      {step.carry ? <Carry carry={step.carry} canvasW={canvasW} /> : null}
     </svg>
   );
 }
@@ -693,21 +698,20 @@ function Pointers({ step, layout }: { step: SequenceStep; layout: SequenceLayout
   );
 }
 
-function Carry({
-  carry,
-  layout,
-}: {
-  carry: NonNullable<SequenceStep['carry']>;
-  layout: SequenceLayout;
-}) {
+function Carry({ carry, canvasW }: { carry: NonNullable<SequenceStep['carry']>; canvasW: number }) {
   // The node that exists but is not linked yet — parked above the structure.
-  const x = Math.max(layout.width - BOX_W - 4, 0);
+  // The box is sized to its LABEL, not to a node: "nuevo = 9" is wider than a
+  // cell, and a box of one cell's width clipped the value against the panel
+  // edge (found in the browser check, on the circular slide).
+  const label = `${carry.label} = ${carry.value}`;
+  const width = Math.max(BOX_W, label.length * 7.1 + 12);
+  const x = Math.max(canvasW - width, 0);
   return (
     <g>
       <rect
         x={x}
         y={0}
-        width={BOX_W}
+        width={width}
         height={22}
         rx={3}
         fill="var(--color-keep-soft)"
@@ -716,14 +720,14 @@ function Carry({
         strokeDasharray="3 2"
       />
       <text
-        x={x + BOX_W / 2}
+        x={x + width / 2}
         y={15}
         textAnchor="middle"
         fontSize="12"
         fontWeight="600"
         fill="var(--color-ink)"
       >
-        {carry.label} = {carry.value}
+        {label}
       </text>
     </g>
   );
