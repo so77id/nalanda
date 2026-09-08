@@ -122,6 +122,23 @@ func (*publishReadings) SetControlState(context.Context, string, controls.State)
 	return nil
 }
 
+// MarkCopyPublished writes the stamp back onto the held reading, so a case
+// can ask what the world looks like part-way through a loop rather than
+// only at the end (issue #287). The real store does exactly this; a double
+// that dropped the write would let a resume case pass over a Publish that
+// never stamped anything.
+func (r *publishReadings) MarkCopyPublished(_ context.Context, readingID int64, at time.Time, grade string) error {
+	for i := range r.readings {
+		if r.readings[i].ID == readingID {
+			stamped := at
+			r.readings[i].PublishedAt = &stamped
+			r.readings[i].PublishedGrade = grade
+			return nil
+		}
+	}
+	return controls.ErrReadingNotFound
+}
+
 // publishRig is a graded control with three matched, gradeable copies and
 // an annotated PDF for each — the state a professor is in when they press
 // "Publicar", and the baseline every case below breaks one thing in.

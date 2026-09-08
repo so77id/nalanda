@@ -166,6 +166,13 @@ func (*matchingReadingStore) SetRUTOverride(context.Context, int64, string, time
 	return nil
 }
 func (*matchingReadingStore) ClearRUTOverride(context.Context, int64) error { return nil }
+
+// MarkCopyPublished is inert here: these cases are about the RUT→student
+// join, and nothing in a rematch publishes.
+func (*matchingReadingStore) MarkCopyPublished(context.Context, int64, time.Time, string) error {
+	return nil
+}
+
 func (*matchingReadingStore) SetControlState(context.Context, string, controls.State) error {
 	return nil
 }

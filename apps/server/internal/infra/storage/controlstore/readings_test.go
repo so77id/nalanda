@@ -746,3 +746,147 @@ func insertReadingFor(t *testing.T, ctx context.Context, db *sql.DB, controlID s
 		t.Fatalf("insert reading %s/%d: %v", controlID, copyNumber, err)
 	}
 }
+
+// Issue #287: the per-copy publication round-trips through both reads.
+//
+// Both readers matter and neither stands in for the other: the copies table
+// renders ReadingsByControl and the review page renders ReadingByCopy, so a
+// column added to one SELECT and forgotten in the other shows the professor
+// two different answers about the same copy on two screens.
+func TestMarkCopyPublishedRoundTripsThroughBothReads(t *testing.T) {
+	ctx, db := migrated(t)
+	seedControl(t, ctx, db, "CTRL0287PUBLISH00000AAAAA", 2)
+	store := controlstore.New(db)
+
+	now := time.Unix(1_757_260_800, 0).UTC()
+	report := controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+			"2": sampleCopy("20999999", controls.CopyStatusOK, controls.RUTStatusOK),
+		},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0287PUBLISH00000AAAAA", report, now); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	before, err := store.ReadingByCopy(ctx, "CTRL0287PUBLISH00000AAAAA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy(1): %v", err)
+	}
+	if before.PublishedAt != nil || before.PublishedGrade != "" {
+		t.Errorf("a freshly read copy carries PublishedAt=%v grade=%q, want the zero pair",
+			before.PublishedAt, before.PublishedGrade)
+	}
+
+	sentAt := time.Unix(1_757_264_400, 0).UTC()
+	if err := store.MarkCopyPublished(ctx, before.ID, sentAt, "5.7"); err != nil {
+		t.Fatalf("MarkCopyPublished: %v", err)
+	}
+
+	one, err := store.ReadingByCopy(ctx, "CTRL0287PUBLISH00000AAAAA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy(1) after the stamp: %v", err)
+	}
+	if one.PublishedAt == nil || !one.PublishedAt.Equal(sentAt) || one.PublishedGrade != "5.7" {
+		t.Errorf("ReadingByCopy reads PublishedAt=%v grade=%q, want %v and \"5.7\"",
+			one.PublishedAt, one.PublishedGrade, sentAt)
+	}
+
+	all, err := store.ReadingsByControl(ctx, "CTRL0287PUBLISH00000AAAAA")
+	if err != nil {
+		t.Fatalf("ReadingsByControl: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("ReadingsByControl returned %d readings, want 2", len(all))
+	}
+	if all[0].PublishedAt == nil || all[0].PublishedGrade != "5.7" {
+		t.Errorf("copy 1 in the list reads PublishedAt=%v grade=%q, want the stamp",
+			all[0].PublishedAt, all[0].PublishedGrade)
+	}
+	// The stamp is per COPY, so the copy nobody wrote to must stay unstamped.
+	// A statement missing its WHERE passes every assertion above.
+	if all[1].PublishedAt != nil || all[1].PublishedGrade != "" {
+		t.Errorf("copy 2 reads PublishedAt=%v grade=%q, want it untouched",
+			all[1].PublishedAt, all[1].PublishedGrade)
+	}
+}
+
+// MarkCopyPublished against a reading id nothing carries is an error, not a
+// silent success.
+//
+// Same guard, and the same reason, as SetReadingStudent and
+// SetControlCourse: an UPDATE whose WHERE matches nothing succeeds, and a
+// nil return would let a publication count a copy as sent that no row
+// records.
+func TestMarkCopyPublishedRefusesAnUnknownReading(t *testing.T) {
+	ctx, db := migrated(t)
+	store := controlstore.New(db)
+
+	err := store.MarkCopyPublished(ctx, 4242, time.Unix(1_757_264_400, 0).UTC(), "5.7")
+	if !errors.Is(err, controls.ErrReadingNotFound) {
+		t.Errorf("MarkCopyPublished on an unknown reading returned %v, want ErrReadingNotFound", err)
+	}
+}
+
+// THE PROPERTY THE WHOLE FEATURE RESTS ON (issue #287).
+//
+// A re-analysis re-upserts every reading of the control. If that wiped the
+// per-copy publication, one "re-leer con otra sensibilidad" would tell the
+// professor that nobody had received anything — and the next Publicar would
+// mail the entire class a second copy.
+//
+// It survives because upsertReading's ON CONFLICT DO UPDATE SET names its
+// columns explicitly, so a column it does not name is left alone. That is a
+// property of a statement somebody could edit, which is why it is pinned
+// here rather than left to the migration's comment.
+func TestUpsertingAReportPreservesThePerCopyPublication(t *testing.T) {
+	ctx, db := migrated(t)
+	seedControl(t, ctx, db, "CTRL0287REREAD000000AAAAA", 2)
+	store := controlstore.New(db)
+
+	first := time.Unix(1_757_260_800, 0).UTC()
+	report := controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+		},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0287REREAD000000AAAAA", report, first); err != nil {
+		t.Fatalf("Upsert first: %v", err)
+	}
+	reading, err := store.ReadingByCopy(ctx, "CTRL0287REREAD000000AAAAA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy: %v", err)
+	}
+	sentAt := time.Unix(1_757_264_400, 0).UTC()
+	if err := store.MarkCopyPublished(ctx, reading.ID, sentAt, "5.7"); err != nil {
+		t.Fatalf("MarkCopyPublished: %v", err)
+	}
+
+	// The re-read: a different sensitivity produced a different status for
+	// the same copy, which is exactly what a re-analysis is for.
+	second := time.Unix(1_757_270_000, 0).UTC()
+	reread := controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": sampleCopy("20123456", controls.CopyStatusNeedsReview, controls.RUTStatusOK),
+		},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0287REREAD000000AAAAA", reread, second); err != nil {
+		t.Fatalf("Upsert second: %v", err)
+	}
+
+	after, err := store.ReadingByCopy(ctx, "CTRL0287REREAD000000AAAAA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy after the re-read: %v", err)
+	}
+	// Non-vacuity: the re-read must actually have landed, or "the columns
+	// survived" says nothing at all.
+	if !after.ReadAt.Equal(second) || after.CopyStatus != controls.CopyStatusNeedsReview {
+		t.Fatalf("the re-read did not land (ReadAt=%v status=%q), so nothing below is about it",
+			after.ReadAt, after.CopyStatus)
+	}
+	if after.PublishedAt == nil || !after.PublishedAt.Equal(sentAt) || after.PublishedGrade != "5.7" {
+		t.Errorf("after a re-read the copy carries PublishedAt=%v grade=%q, want %v and \"5.7\" — "+
+			"a re-read that erases this makes the next publication mail the class twice",
+			after.PublishedAt, after.PublishedGrade, sentAt)
+	}
+}

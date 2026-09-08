@@ -286,6 +286,38 @@ type Reading struct {
 	// association be fixed by correcting the RUT rather than by editing
 	// the link.
 	StudentID *int64
+	// PublishedAt is when THIS COPY's corrected PDF was emailed to its
+	// student, or nil for a copy no publication has written to (issue
+	// #287). It is the whole of the per-copy "enviado" state: nil means
+	// "no enviado", and everything else about a copy's publication is
+	// derived from the pair below rather than stored.
+	//
+	// Recorded per copy rather than per control because the control-level
+	// stamp of #273 could not answer the three questions a real
+	// publication raised: who received their correction when a run died
+	// mid-loop, which single copy to re-send after a re-correction, and
+	// which copies a second Publicar may skip.
+	//
+	// It SURVIVES a re-analysis. upsertReading names the columns it
+	// overwrites and this is not one of them, which is what stops a
+	// "re-leer con otra sensibilidad" from making the next publication
+	// mail the whole class a second time
+	// (TestUpsertingAReportPreservesThePerCopyPublication).
+	PublishedAt *time.Time
+	// PublishedGrade is the grade that WENT OUT, exactly as FormatGrade
+	// wrote it into the message, and empty for a copy that was never
+	// sent (issue #287).
+	//
+	// A string rather than a float because FormatGrade is the single
+	// source of that arithmetic (ADR-0031, #251's cannot-disagree rule),
+	// and the only question this field answers is whether what would be
+	// sent now equals what was sent then. Comparing the two canonical
+	// strings is the version of that question with one answer.
+	//
+	// Written together with PublishedAt, in one statement, so a non-nil
+	// PublishedAt beside an empty grade is not a state the store can
+	// produce.
+	PublishedGrade string
 	// Pages is the 1-based list of physical scan pages AMC captured
 	// for this copy, in ascending order (issue #243). The review
 	// page's raw-scan fallback iterates it to render one <img> per
@@ -412,6 +444,21 @@ type ReadingStore interface {
 	// illegible one and a stale association would keep the copy filed
 	// under somebody the reading no longer names.
 	SetReadingStudent(ctx context.Context, readingID int64, studentID *int64) error
+
+	// MarkCopyPublished stamps one copy with the moment its own message
+	// went out and the grade that message carried (issue #287).
+	//
+	// Called immediately AFTER that copy's send succeeds, one copy at a
+	// time, which is what makes a publication resumable: a run that dies
+	// mid-loop leaves every copy already sent stamped and every copy not
+	// yet sent untouched, so the next Publicar picks up exactly where it
+	// stopped.
+	//
+	// Returns ErrReadingNotFound when no row carries the id, the same
+	// guard shape as SetReadingStudent: an UPDATE whose WHERE matches
+	// nothing succeeds, and a nil return would count a copy as sent that
+	// no row records.
+	MarkCopyPublished(ctx context.Context, readingID int64, at time.Time, grade string) error
 
 	// SetControlState updates control.state. Named on this interface
 	// because the reading half is where the state moves — WP-F flips

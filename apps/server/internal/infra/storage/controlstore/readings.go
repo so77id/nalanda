@@ -169,7 +169,7 @@ func (s *Store) MarkMissingAsNotPresent(ctx context.Context, controlID string, n
 // copy_number ascending, with overrides eagerly attached.
 func (s *Store) ReadingsByControl(ctx context.Context, controlID string) ([]controls.Reading, error) {
 	rows, err := s.db.QueryContext(ctx, `
-        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json, student_id
+        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json, student_id, published_at, published_grade
         FROM reading
         WHERE control_id = ?
         ORDER BY copy_number ASC`, controlID)
@@ -199,7 +199,7 @@ func (s *Store) ReadingsByControl(ctx context.Context, controlID string) ([]cont
 // ErrReadingNotFound.
 func (s *Store) ReadingByCopy(ctx context.Context, controlID string, copyNumber int) (controls.Reading, error) {
 	row := s.db.QueryRowContext(ctx, `
-        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json, student_id
+        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json, student_id, published_at, published_grade
         FROM reading
         WHERE control_id = ? AND copy_number = ?`, controlID, copyNumber)
 	r, err := scanReading(row)
@@ -448,6 +448,39 @@ func (s *Store) SetReadingStudent(ctx context.Context, readingID int64, studentI
 	return nil
 }
 
+// MarkCopyPublished stamps one copy with when its message went out and the
+// grade that went with it (issue #287).
+//
+// Both columns in ONE statement: they are one fact, and a row carrying a
+// timestamp without the grade it sent would make every staleness comparison
+// downstream read "the grade changed" for a copy nothing changed about.
+//
+// Deliberately does NOT stamp last_edited_at, for the same reason
+// SetReadingStudent does not: that column means "a human decided something
+// about this copy", and it is what the review queue uses to tell a copy
+// somebody looked at from one nobody has. Sending mail is not a correction.
+//
+// Checks RowsAffected for the reason SetReadingStudent and SetControlCourse
+// do: an UPDATE against an id nothing carries succeeds and touches nothing,
+// and a publication would then count a copy as sent that no row records —
+// which is precisely the copy the next resume would skip.
+func (s *Store) MarkCopyPublished(ctx context.Context, readingID int64, at time.Time, grade string) error {
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE reading SET published_at = ?, published_grade = ? WHERE id = ?`,
+		at.Unix(), grade, readingID)
+	if err != nil {
+		return fmt.Errorf("controlstore.MarkCopyPublished %d: %w", readingID, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("controlstore.MarkCopyPublished %d: rows affected: %w", readingID, err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("controlstore.MarkCopyPublished %d: %w", readingID, controls.ErrReadingNotFound)
+	}
+	return nil
+}
+
 // SetRUTOverride upserts the RUT override.
 func (s *Store) SetRUTOverride(ctx context.Context, readingID int64, rut string, editedAt time.Time) error {
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -509,10 +542,22 @@ func scanReading(row interface{ Scan(...any) error }) (controls.Reading, error) 
 		lastEditedAtRaw sql.NullInt64
 		pagesJSON       string
 		studentID       sql.NullInt64
+		publishedAtRaw  sql.NullInt64
+		publishedGrade  sql.NullString
 	)
-	if err := row.Scan(&r.ID, &r.ControlID, &r.CopyNumber, &rutRead, &rutStatus, &copyStatus, &readAt, &lastEditedAtRaw, &pagesJSON, &studentID); err != nil {
+	if err := row.Scan(&r.ID, &r.ControlID, &r.CopyNumber, &rutRead, &rutStatus, &copyStatus, &readAt, &lastEditedAtRaw, &pagesJSON, &studentID, &publishedAtRaw, &publishedGrade); err != nil {
 		return controls.Reading{}, err
 	}
+	// #287: the pair is written together, so a NULL published_at is the
+	// whole of "never sent" and the grade beside it is NULL too. Read
+	// independently anyway — the scan describes what the columns hold, and
+	// inferring one from the other here would put the invariant in a second
+	// place.
+	if publishedAtRaw.Valid {
+		at := time.Unix(publishedAtRaw.Int64, 0).UTC()
+		r.PublishedAt = &at
+	}
+	r.PublishedGrade = publishedGrade.String
 	if studentID.Valid {
 		id := studentID.Int64
 		r.StudentID = &id

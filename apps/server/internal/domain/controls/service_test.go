@@ -290,6 +290,13 @@ func (fakeReadingStore) SetControlState(context.Context, string, controls.State)
 	return nil
 }
 
+// MarkCopyPublished is inert here like the rest of this double; the
+// publication cases use publishReadings (publish_service_test.go), which
+// remembers what was stamped.
+func (fakeReadingStore) MarkCopyPublished(context.Context, int64, time.Time, string) error {
+	return nil
+}
+
 // newService returns a Service against a fixture bank, a fake store, a
 // fake generator that succeeds (SujetSize > 0), and a work dir under t's
 // tempdir.
