@@ -60,7 +60,7 @@ const SURFACES = ['ground', 'surface', 'sunk', 'deck-ground'] as const;
 /** Text: WCAG AA is 4.5:1. `ink-faint` is deliberately included — it carries the
  *  smallest type in the product, so it is the one that must not be waved through
  *  at the 3:1 "large text" allowance. */
-const TEXT_TOKENS = ['ink', 'ink-soft', 'ink-faint', 'accent', 'flag', 'keep'] as const;
+const TEXT_TOKENS = ['ink', 'ink-soft', 'ink-faint', 'accent', 'flag', 'keep', 'mark'] as const;
 
 /** WCAG's "large text / non-text UI" floor. Shared by `UI_TOKENS` (meaning-
  *  carrying non-text) and `CHROME_TOKENS` (large-text chrome). Two spellings
@@ -124,6 +124,9 @@ const CHROME_SURFACES = ['ground', 'surface'] as const;
 const PAIRS = [
   ['keep', 'keep-soft'],
   ['flag', 'flag-soft'],
+  // #288: the "look here now" pair — a node the operation just inserted or
+  // changed. Not a status, so neither `keep` nor `flag` could carry it.
+  ['mark', 'mark-soft'],
   ['accent', 'accent-soft'],
   ['on-keep', 'keep'],
   // #247 review, CORR-1: `text-on-accent` on `bg-accent` is the run/action

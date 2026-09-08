@@ -88,17 +88,23 @@ still carries its own copy of that machinery (ADR-0065 §Amended by); this
 widget is built on the shell instead, which is the direction that ADR's
 follow-up points.
 
-**The palette is the registered one, and deliberately not the design
-reference's.** The refinement conversation proposed coral + emerald + amber,
-with amber meaning "new or changed". Amber's nearest registered token is
+**The palette registers the meaning it needed.** The refinement conversation
+proposed amber for "new or changed", and amber's nearest EXISTING token was
 `flag`, which `design-system.md` reserves for *errors, warnings, diagnostics —
-semantic, never decorative*; painting a freshly inserted node with it would
-say "something went wrong". So a new or found cell is `keep` / `keep-soft`
-(the success pair), a cell under the algorithm's attention is outlined in
-`focus` — the same token the narration chip and `<CodeStepper>`'s active line
-already use — and `accent` stays on the widget's own chrome, never on data
-state. Adopting the reference's palette is a job for the branding WP the issue
-files, which would move the TOKENS rather than misuse one here.
+semantic, never decorative*. The first draft therefore used `keep`, and that
+was wrong in the other direction: `keep` is success, and a node an insertion
+just linked did not succeed, it is simply the one the frame is about.
+
+So a fourth semantic token was registered — `mark` / `mark-soft`, "look here
+now" — with its values chosen by measurement and iterated by
+`styles/palette.test.ts` (ADR-0026 §Addendum — #288). The widget now uses:
+`mark` for a cell just inserted or changed, `keep` for a search hit (which IS
+a success, so both tokens ship and they mean different things), `focus` for
+the cell under the algorithm's attention — the same token the narration chip
+and `<CodeStepper>`'s active line already use — and `accent` for the widget's
+own chrome, never for data state. The reference's full coral + emerald + amber
+rebrand of the unit remains the separate WP the issue files; this registers
+one token with one meaning, not a palette.
 
 **Colour is never the only signal** (`design-system.md` §Rules that are not
 about contrast): every painted state also prints a word — `nuevo`, `✓ es

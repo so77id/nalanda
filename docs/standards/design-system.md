@@ -44,6 +44,7 @@ was found by looking at a screenshot.
 | `accent`                              | Links, active state, emphasis            | AA-legal luminance of the seed hue; held to 4.5:1                                    |
 | `accent-pop`                          | Section titles, filled buttons, chips    | The raw seed hue; large-text / non-text UI floor (3:1 on `ground` and `surface`)     |
 | `flag`                                | Errors, warnings, diagnostics            | Semantic, never decorative                                                           |
+| `mark`                                | The element the reader should look at NOW: just inserted, just changed | Semantic, and NOT a status. `flag` says something is wrong and `keep` says something succeeded; a freshly inserted node is neither (#288, ADR-0026 §Addendum) |
 | `keep`                                | Success, passing cases, the run button   | Semantic                                                                             |
 | `accent-soft` `flag-soft` `keep-soft` | Tinted grounds for chips and callouts    | Only ever under their own foreground                                                 |
 | `on-keep`                             | The label on a filled `keep` button      | **Inverts** with the theme rather than following it                                  |
@@ -56,7 +57,8 @@ Contrast is a property of a **pair**, not of a token. These are the legal pairs;
 `styles/palette.test.ts` iterates them, reading the values out of `index.css`.
 
 - **Text on a surface** — `ink`, `ink-soft`, `ink-faint`, `accent`, `flag`,
-  `keep` on `ground`, `surface`, `sunk`, `deck-ground`. Floor **4.5:1**.
+  `keep`, `mark` on `ground`, `surface`, `sunk`, `deck-ground`. Floor
+  **4.5:1**.
 - **Meaning-carrying non-text** — `rule-strong`, `focus` on the same four
   surfaces. Floor **3:1**.
 - **Chrome on the page surfaces** — `accent-pop` on `ground` and `surface`
@@ -70,7 +72,8 @@ Contrast is a property of a **pair**, not of a token. These are the legal pairs;
   as text on `sunk`, mint a specific token for that use or promote
   `accent-pop` into the previous row.
 - **Tinted pairs** — `keep`/`keep-soft`, `flag`/`flag-soft`,
-  `accent`/`accent-soft`, `on-keep`/`keep`, and `on-accent`/`accent`. Floor
+  `mark`/`mark-soft`, `accent`/`accent-soft`, `on-keep`/`keep`, and
+  `on-accent`/`accent`. Floor
   **4.5:1**: a status chip is text, and small text at that. `on-accent`
   currently holds the same value as `on-keep` in each theme (see
   `--color-on-accent`'s docstring in `styles/index.css`, added in #247);

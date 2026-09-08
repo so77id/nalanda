@@ -334,3 +334,50 @@ text.
   contents of an SVG asset, so **nothing mechanical guards this**. The check is
   rendering the figure over `#f8f2ef` and `#0d1117` and looking at it — the
   same human gate §Consequences already assigns to every colour decision.
+
+## Addendum — #288: a fourth semantic token, `mark`
+
+**Date:** 2026-09-08 · **Source:** Issue #288 (Estructuras de Datos · Listas
+Enlazadas) and its widget, ADR-0074.
+
+The palette shipped three semantic colours — `accent` (emphasis), `keep`
+(success) and `flag` (error) — plus `focus` (the ring). `<SequenceStepper>`
+needs a fourth meaning that none of them carries: **the element the reader
+should look at right now, because the operation just inserted or changed it.**
+
+`keep` was used for it in the widget's first draft and is wrong for the same
+reason `flag` would be: both are STATUS. A node that an insertion just linked
+did not succeed and did not fail — it is simply the one the frame is about.
+Painting it green quietly told the reader "this worked", and in a class whose
+whole subject is *what an operation costs*, the states worth distinguishing
+are "new", "under the algorithm's attention" and "leaving", none of which is
+a status.
+
+The refinement conversation for #288 proposed amber for exactly this role,
+and this addendum is what makes that legal: amber's nearest EXISTING token was
+`flag`, which the Tokens table reserves for errors and diagnostics, so the
+design reference could not be followed without either misusing `flag` or
+registering something new. Registering it is the honest option.
+
+**The values**, chosen by measurement rather than by eye, per §Adding a token
+step 5 (change the colour, never the floor):
+
+| Token | Light | Dark |
+|---|---|---|
+| `mark` | `#8a5300` | `#f0b429` |
+| `mark-soft` | `#fdf0d9` | `#2a1f08` |
+
+Measured against the four surfaces at the 4.5:1 text floor: light ranges
+5.13–6.06, dark 8.68–10.15. The tinted pair `mark` on `mark-soft` is 5.62
+light and 8.68 dark. All of it is iterated by `styles/palette.test.ts`, which
+now carries `mark` in `TEXT_TOKENS` and `['mark', 'mark-soft']` in `PAIRS`.
+
+**What did NOT change.** `keep` keeps the search hit, which genuinely is a
+success, so the widget uses both tokens and they mean different things. The
+rest of the design reference's proposal — a full coral + emerald + amber
+rebrand of the unit's widgets — is still a separate WP; this addendum
+registers one token with one meaning, not a palette.
+
+**Colour is still never the only signal** (§Rules that are not about
+contrast): every `mark`ed cell also prints the word `nuevo` under it, and the
+widget's legend names all three states in text.
