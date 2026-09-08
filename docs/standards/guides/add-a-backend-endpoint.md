@@ -448,11 +448,22 @@ The rule that shape earned, and the incident that earned it:
 5. **The handler renders a DISABLED control naming the variable**, and a
    hand-typed POST answers 422. A missing button teaches nothing; a disabled
    one that says why is an instruction.
-6. **If the state change is not undoable, ship the undo.** Publication is
-   one-way, so a run that stamped without delivering was a dead end until
-   `POST /controls/{id}/unpublish` existed. The judgement a machine cannot
-   make — may the people who already received this receive it twice — goes
-   to the professor, with the count in front of them.
+6. **If the state change is not undoable, ship the way FORWARD — and
+   prefer a smaller unit of work to an undo.** Publication was one-way, so
+   a run that stamped without delivering was a dead end, and #273 answered
+   it with `POST /controls/{id}/unpublish`. #287 deleted that route and the
+   dead end with it, by recording the effect PER COPY instead of per batch:
+   a second Publicar writes only to the copies that have not gone out, so
+   there is nothing to undo and nothing to refuse. The undo was the right
+   fix for the schema it had; the better fix was a schema where the
+   irreversible step is small enough to repeat safely.
+
+   What survives from #273's version is the judgement rule: the one thing a
+   machine cannot decide — may the people who already received this receive
+   it twice — goes to the professor, with the count in front of them. That
+   is now `POST /controls/{id}/resend-all`, which clears the record and
+   deliberately does NOT send, so the count and the consequence are two
+   separate presses (ADR-0073 §5).
 
 **The companion configuration rule.** A variable that gates an irreversible
 effect defaults to the SAFE value even when that is not what production
@@ -463,8 +474,8 @@ a server that stamped controls as published and mailed nobody — with a green
 banner (ADR-0072 §5).
 
 Worked cases: `controls.Dispatcher.Delivers` / `RedirectsToSender`,
-`Service.Publish` / `Service.Unpublish`, `handler.Controls.Publish`,
-`NALANDA_EMAIL_MODE`.
+`Service.Publish` / `Service.PublishOne` / `Service.ResendToWholeCourse`,
+`handler.Controls.Publish`, `NALANDA_EMAIL_MODE`.
 
 ## A pattern the Gmail grant adds — a second OAuth authorization
 

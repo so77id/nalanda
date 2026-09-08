@@ -141,20 +141,25 @@ In `real`.
 
 ## 5. The real publication
 
-**Only on a control Miguel has nominated.** This one cannot be undone.
+**Only on a control Miguel has nominated.** The mail cannot be recalled;
+since #287 the app itself is no longer a dead end.
 
 - [ ] Choose the mode **"mi propia dirección (prueba)"** first and press
       **Publicar**. Everything goes to you, and the control IS stamped.
 - [ ] The page now shows `Publicado el … en modo prueba: los correos fueron
       a tu propia dirección, no a los estudiantes.`
-- [ ] **Publicar** is gone from the page; **Envío de prueba** is still
-      there.
-- [ ] Pressing the same URL again by hand answers **409**.
-- [ ] Open **Deshacer la publicación**. It says how many correos already
-      went out — for this run, the number you just received — and that
-      undoing recovers none of them.
-- [ ] Undo it. The control is publishable again, and this is what stops a
-      rehearsal-by-dropdown from burning the one-shot.
+- [ ] **Publicar** is still on the page beside that line, and **Envío de
+      prueba** is too. Since #287 the button is how you finish a run that
+      died half way or send a re-corrected copy — it is not "already done".
+- [ ] Press **Publicar** again. It answers **303**, not 409, and **nobody
+      receives a second copy**: check your inbox and count. The copies table
+      says `enviada` for every one of them.
+- [ ] Open **Reenviar a todo el curso**. It names how many people already
+      have their correction — for this run, the number you just received —
+      and says it sends nothing by itself.
+- [ ] Use it, then press **Publicar**. Everything arrives again. This is
+      the "the PDFs were wrong and the grades were not" path, and it is what
+      replaced the old undo.
 
 Then, on a second nominated control, for real:
 
@@ -163,8 +168,52 @@ Then, on a second nominated control, for real:
 - [ ] Ask **three students** to confirm they received it, and that the PDF
       is theirs. Not one — one arrival proves the path, three prove the
       addressing.
-- [ ] The page shows `Publicado el …: las correcciones se enviaron a los
-      estudiantes.`
+- [ ] **Ask one of them what grade the message says**, and compare it to
+      the readings table. They must be the same number. This is the #273
+      defect #287 fixed: the message re-scaled the grade and mailed a 7,0
+      to anybody above ~28%.
+- [ ] The page shows `Publicado el …: salieron N correos a los estudiantes.`
+- [ ] The **controls list** shows `N/M enviadas` on that row, and nothing on
+      a control you have not published.
+
+## 5c. The resume (issue #287)
+
+The case no test can see: a real interrupted run leaving the mailbox in the
+state the columns claim. Everything below is on a nominated control with at
+least four deliverable copies.
+
+- [ ] Press **Publicar**, and while the job is running,
+      `docker compose stop server` on the Jetson (or `docker stop` the
+      container). Do it within the first few seconds — the whole class took
+      thirty-four seconds on 2026-09-08, so a class of thirty gives you
+      about one second per student.
+- [ ] Start it again. The banner reports the job as failed or stuck; that is
+      the runner's no-retry rule (ADR-0050) and is expected.
+- [ ] Open the control. The copies table shows some copies `enviada` **with
+      a date and a grade**, and the rest `no enviada`. Write down which.
+- [ ] **Count the messages in your Sent folder.** It must equal the number
+      of copies marked `enviada`. This is the whole check: the columns claim
+      a fact about a mailbox nothing in the suite can see.
+- [ ] Press **Publicar** again.
+- [ ] The copies that were already `enviada` **receive nothing** — verify by
+      asking one of those students, or by publishing in `staging` mode to
+      yourself and counting. The rest arrive.
+- [ ] The `Publicado el …` line still carries the FIRST publication's date,
+      not the resume's.
+
+## 5d. The per-student send (issue #287)
+
+- [ ] Open one copy's **revisar** page on a graded control. It offers
+      **Enviar la corrección a esta persona**.
+- [ ] Change that copy's grade (mark an answer differently) and press it.
+      The student receives the corrected version, and the review page says
+      `Enviada el …, con un <the new grade>`.
+- [ ] Back on the control page, that copy reads `enviada` with the new
+      grade — not `desactualizada`.
+- [ ] Press the same button again. It sends again: it is the manual
+      override, and it does not refuse on state.
+- [ ] On a copy matched to nobody, it answers **422** and says the copy is
+      not associated with anyone on the course — not a generic failure.
 
 ## 5b. The mode gate
 

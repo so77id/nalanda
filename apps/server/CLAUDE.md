@@ -23,6 +23,9 @@ records the design. Since #271/#272 the courses, the Canvas roster and
 the RUT→student join live here (ADR-0069/0070/0071); since #273 a closed
 correction is PUBLISHED — one mail per student, sent as the professor
 from their own Gmail account, through a fifth `jobs.Kind` (ADR-0072).
+Since #287 that publication is recorded PER COPY and is therefore
+resumable, with a per-student send beside it (ADR-0073, which supersedes
+ADR-0072 §5).
 
 Commands, stack, configuration and layout live in `README.md` — one home per
 fact.
@@ -58,7 +61,10 @@ fact.
   flow. Records why the mail goes out as the PROFESSOR rather than through
   a transactional API, why the Gmail grant is a second authorization and
   not a wider login, the four dispatch modes, and the one question it
-  could not settle (§Consequences, "the seven-day question").
+  could not settle (§Consequences, "the seven-day question"). **Read
+  `0073-publication-is-recorded-per-copy-and-is-resumable.md` with it**:
+  it supersedes §5 and is what `Service.Publish`, `Service.PublishOne`
+  and the two publication screens actually implement.
 - `docs/security-notes.md` §"Logs and personal data" — read before adding any
   `slog` call on a path that holds a RUT, a name or a student address. The
   rule is that the identifier stays OUT of the line; the `_action` /
@@ -105,6 +111,12 @@ fact.
   authorisation is `gmail.Service` (`Complete` / `Disconnect` /
   `Connection` / `AccessToken`), and the sending loop is
   `controls.Service.Publish`. The policy behind all of them is ADR-0072.
+
+  **And #287's**: one copy's state is `controls.CopyPublicationFor` (with
+  `deliverableCopy` behind it), the per-student send is
+  `Service.PublishOne`, the bulk reset is `Service.ResendToWholeCourse`,
+  and the list's counts are `Service.PublicationCounts`. The policy is
+  ADR-0073.
 
 ## Language
 
@@ -625,52 +637,108 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   eagerly makes a professor reconnect every time Google hiccups, and it is
   unrecoverable in the direction that matters — this server cannot
   re-consent on their behalf.
-- **A publication is REFUSED under a transport that does not deliver, and
-  can be UNDONE when it did not reach anybody (issue #273 review, ADR-0072
-  §5).** Two rules, one reason: `published_at` must never assert a delivery
-  that did not happen.
-  1. `Dispatcher.Delivers()` is what the domain asks before stamping.
-     Under `stub` or `dryrun` every `Send` succeeds, so without it a
-     publication counted forty successes over nobody, stamped the control
-     and told the professor the class had been written to — on the DEFAULT
-     mode, by the deploy path `DEPLOY-JETSON.md` documents. Adding a fifth
-     transport means answering this honestly; a wrapper DEFERS to what it
-     wraps (`StagingDispatcher`) rather than hard-coding true.
-  2. `Service.Unpublish` clears all three publication columns so the
-     control can be published again. It is the escape hatch, not a rule
-     the code applies for itself: "do not stamp when Sent == 0" was the
-     tempting single rule and reaches only one of the three failure shapes,
-     because under `staging` every send genuinely succeeds. The judgement a
-     machine cannot make — may the people who already received their
-     correction receive it twice — belongs to the professor, and
-     `control.published_sent` is what lets the confirmation put the number
-     in front of them. **NULL there is not zero.**
-- **The publication stamps the control BEFORE it sends (issue #273).**
-  `Service.Publish` calls `MarkPublished` above the loop, never below it.
-  An unstamped control with twenty students already emailed is a control
-  the professor publishes again, and the twenty receive a second copy of a
-  grade; stamping first makes a crash cost the un-sent half, which the
-  failure list names. Moving the stamp below the loop is forbidden.
+- **A publication is REFUSED under a transport that does not deliver
+  (issue #273 review, ADR-0072 §5).** `Dispatcher.Delivers()` is what the
+  domain asks before it stamps anything. Under `stub` or `dryrun` every
+  `Send` succeeds, so without it a publication counted forty successes over
+  nobody, stamped the control and told the professor the class had been
+  written to — on the DEFAULT mode, by the deploy path
+  `DEPLOY-JETSON.md` documents. Adding a fifth transport means answering
+  this honestly; a wrapper DEFERS to what it wraps (`StagingDispatcher`)
+  rather than hard-coding true.
 
-  **A test that only checks the end state cannot see this** — the loop
-  never returns early, so both orders finish in the same place, and the
-  first version of that case survived the mutation. The pin asks the
-  DISPATCHER what the world looks like at the first send
-  (`TestTheControlIsAlreadyStampedWhenTheFirstMessageGoesOut`). Same rule
-  shape as the UploadScan-survives and LiveBank-survives bullets.
-- **A publication skips; it does not fail (issue #273).** A copy nobody was
-  matched to, a matched person no longer enrolled, a grade that is not
-  defined, a missing annotated PDF — all ORDINARY, all counted in
-  `PublishResult.Skipped`. A class where two people missed the control is a
-  normal class, and folding those into `Failures` reports a problem the
-  professor does not have. `Failures` is what they are asked to ACT on: a
-  send that was attempted and refused, with the copy number and a reason.
-  Same distinction, and the same reason, as #272's Unmatched / Errored /
-  ControlsFailed split.
+  **The UNDO that used to sit beside this rule is gone (issue #287,
+  ADR-0073).** `Service.Unpublish`, `Store.ClearPublished` and
+  `POST …/unpublish` existed because publication was one-way, so any run
+  that stamped without reaching anybody left the class permanently
+  unreachable. Publishing is resumable now, so the dead end cannot happen
+  and there is nothing to escape from. What replaced it in the same slot on
+  the page is **"Reenviar a todo el curso"** (`Service.ResendToWholeCourse`),
+  which is a different thing wearing the same button: a DELIBERATE bulk
+  resend for the case the staleness rule cannot see — the annotated PDFs
+  were wrong and the grades were not. It clears the stamps and sends
+  nothing; the professor presses Publicar afterwards, having read how many
+  people would receive a second copy.
+- **Each COPY is stamped immediately AFTER its own send succeeds (issue
+  #287, ADR-0073 — supersedes ADR-0072 §5).** `Service.Publish` calls
+  `Readings.MarkCopyPublished` inside the loop, right after the dispatcher
+  accepted that copy's message. Batching the stamps at the end, or stamping
+  ahead of the send, is forbidden.
+
+  **The rule this reverses was correct, and knowing why is the point.**
+  #273 stamped the CONTROL above the loop, because with no per-copy record a
+  crash halfway through a batch is a choice between two failures: stamp
+  after and the professor republishes to twenty people who already have
+  their grade, stamp before and the un-sent half is unreachable through the
+  app. It chose the second, since a duplicate mailing cannot be recalled.
+  Migration 00019 gives each copy its own `published_at`/`published_grade`,
+  and the choice disappears — a crash costs nothing, because the next
+  Publicar sends exactly what did not go out. Anybody re-deriving the #273
+  trade-off from first principles will re-introduce it; the per-copy record
+  is the premise that makes it obsolete.
+
+  `control.published_at` is still stamped ONCE, on the first run, and a
+  resume must not re-date it: "when was this class published" is not a
+  question re-sending one copy changes the answer to.
+
+  **A test that only checks the end state cannot see either ordering** — the
+  loop never returns early, so every order finishes in the same place, and
+  #273's first version of that case survived the mutation. The pin asks the
+  DISPATCHER what the world looks like at the SECOND send
+  (`TestEachCopyIsStampedBeforeTheNextMessageGoesOut`), by which time copy 1
+  must already be stamped. Same rule shape as the UploadScan-survives and
+  LiveBank-survives bullets.
+
+  **And the per-copy record must survive a re-analysis.** `upsertReading`'s
+  `ON CONFLICT DO UPDATE SET` names the columns it overwrites and these are
+  not among them. Adding them would make one "re-leer con otra sensibilidad"
+  report that nobody had received anything, and the next Publicar would mail
+  the whole class a second time.
+  `TestUpsertingAReportPreservesThePerCopyPublication` is the pin.
+- **A publication skips; it does not fail — and since #287 it says so out
+  loud (issue #273, extended by #287).** A copy nobody was matched to, a
+  matched person no longer enrolled, a grade that is not defined, a missing
+  annotated PDF — all ORDINARY, all counted in `PublishResult.Skipped`. A
+  class where two people missed the control is a normal class, and folding
+  those into `Failures` reports a problem the professor does not have.
+  `Failures` is what they are asked to ACT on: a send that was attempted and
+  refused, with the copy number and a reason. Same distinction, and the same
+  reason, as #272's Unmatched / Errored / ControlsFailed split.
+
+  `Skipped` was a number nobody could see for the whole of #273's life,
+  which left the professor comparing "salieron N correos" against their own
+  class list. Since #287 the copies table renders the reason per copy, and
+  the loop grew a fourth outcome: `AlreadySent`, copies skipped because
+  their student already holds the current correction. Keep the two apart —
+  Skipped is "nobody got this and here is why", AlreadySent is "this one is
+  finished", and it is what makes pressing Publicar twice safe rather than a
+  mistake to refuse.
+
+  **ONE function decides deliverability**, `controls.deliverableCopy`, and
+  both the screen (`CopyPublicationFor`) and the loop (`messageFor`) go
+  through it. A page offering "Enviar" for a copy the publication would
+  skip, or a loop skipping one the page called ready, is two answers to one
+  question — the shape #251's cannot-disagree rule refuses. The four states
+  it feeds are DERIVED on every render, never stored: a fifth column would
+  need invalidating on every re-read, re-annotation, override and roster
+  import.
 
   And a copy with no annotated PDF is skipped rather than sent without it:
   "adjunto la corrección" with nothing attached is worse than no message,
   because the student now has to ask.
+- **Every grade a person reads goes through `controls.GradeFor` (issue
+  #287).** `NumericGrade` and `FormatGrade` are NOT a pipeline, and reading
+  their names as one is how #273's message builder shipped
+  `FormatGrade(NumericGrade(…))`: `NumericGrade` already returns the 1,0–7,0
+  grade and `FormatGrade` maps a RAW TOTAL onto that scale, so the second
+  re-scaled the first's answer and clamped everything above ~28% to 7,0. A
+  copy with 1 of 2 correct read 4,0 in the readings table and was EMAILED
+  7,0 — to a real class, on 2026-09-08. `NumericGrade` is the float back
+  door for the statistics panel and `FormatGrade` is the raw-total renderer;
+  neither is "the grade of this reading", which is what a caller holding a
+  `Reading` wants. That is `GradeFor`, and it is what makes the comment
+  above `rawTotal` true. Same shared-core rule as the statistics bullet
+  above.
 - **`staging` refuses; it never falls back to the student (issue #273).**
   `email.StagingDispatcher` returns `ErrNoStagingRecipient` when
   `Message.ProfessorEmail` is empty. Sending to `msg.To` there would
