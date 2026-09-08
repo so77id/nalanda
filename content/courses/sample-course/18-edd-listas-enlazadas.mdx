@@ -23,7 +23,73 @@ Presentamos la lista simplemente enlazada con todas sus operaciones, sus
 cuatro variantes, la comparación completa contra el arreglo y los cuatro
 ejercicios que la vuelven una herramienta de trabajo.
 
-{/* S3 — apertura: la promesa del arreglo, los nodos enlazados, el mapa. */}
+<Slide title="Dos maneras de guardar una secuencia">
+El TDA Sequence de [[edd-introduccion|Estructuras de Datos · Introducción]]
+fija qué se le puede pedir a una colección ordenada por posición: cuántos
+elementos tiene, cuál está en la posición `i`, insertar, eliminar. No dice
+nada sobre dónde viven esos elementos.
+
+Esa libertad admite dos decisiones opuestas:
+
+- **Todos juntos.** Un bloque de casillas consecutivas en memoria. La
+  posición `i` está en `base + i × tamaño`, así que llegar a ella es una
+  cuenta. A cambio, abrir un hueco en el medio obliga a correr todo lo que
+  viene después.
+- **Cada uno por su lado.** Elementos dispersos, donde cada uno guarda dónde
+  está el siguiente. Insertar donde ya estamos parados es cambiar un enlace.
+  A cambio, no hay ninguna cuenta que lleve a la posición `i`: hay que
+  caminar hasta ella.
+
+La segunda decisión define la **lista enlazada**. Cumple el mismo contrato y
+su tabla de costos es casi la imagen espejo.
+
+</Slide>
+
+<Slide title="El nodo · un valor y un enlace">
+La pieza de la que está hecha una lista es el **nodo**: una cajita con dos
+cosas adentro, el dato que guardamos y la dirección del nodo que sigue.
+
+```java
+class Nodo {
+    int valor;
+    Nodo next;
+
+    Nodo(int valor) {
+        this.valor = valor;
+        this.next = null;
+    }
+}
+```
+
+El campo `next` no es una copia del siguiente nodo: es una **referencia** a
+él. Un nodo recién creado tiene `next` en `null`, que es la manera de decir
+«después de mí no hay nadie».
+
+Nada obliga a que dos nodos consecutivos estén cerca en memoria. Pueden
+haberse creado en momentos distintos y quedar en direcciones sin relación
+entre sí. Lo único que los mantiene en orden es el enlace.
+
+</Slide>
+
+<Slide title="De head a null">
+Una lista es un nodo que conoce al siguiente, que conoce al siguiente, hasta
+que alguno apunta a `null`. Para tener la cadena entera basta con guardar
+dónde empieza: esa referencia se llama `head`.
+
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="search"
+  values={[7, 3, 1, 5]}
+  target={5}
+  showCode={false}
+/>
+
+Dos consecuencias salen de este dibujo, y las dos ordenan el resto de la
+clase. La primera: llegar al elemento de la posición `i` cuesta `i` saltos,
+porque no hay otra forma de llegar que siguiendo enlaces. La segunda:
+cambiar dónde apunta un enlace reordena la cadena sin mover ningún dato.
+
+</Slide>
 
 <SectionBreak />
 
