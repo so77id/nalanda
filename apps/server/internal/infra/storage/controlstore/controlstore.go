@@ -407,6 +407,45 @@ func (s *Store) AnnotatedByCopy(ctx context.Context, controlID string, copyNumbe
 	return a, true, nil
 }
 
+// AnnotatedCopiesForControl reads every anotado record of a control at once,
+// keyed by copy number (issue #287).
+//
+// The set-shaped read beside AnnotatedByCopy's single one, for the callers
+// that need the whole control: the copies table derives a publication state
+// per row and the publication loop derives one per copy, and both would
+// otherwise run a query per copy — the N+1 #271's review removed from the
+// course list and apps/server/CLAUDE.md names as a standing rule.
+//
+// idx_annotated_copy is the table's own PRIMARY KEY (control_id,
+// copy_number), so the WHERE is a range scan of it.
+func (s *Store) AnnotatedCopiesForControl(ctx context.Context, controlID string) (map[int]controls.AnnotatedCopy, error) {
+	rows, err := s.db.QueryContext(ctx, `
+        SELECT control_id, copy_number, generated_at, path
+        FROM annotated_copy
+        WHERE control_id = ?`, controlID)
+	if err != nil {
+		return nil, fmt.Errorf("controlstore.AnnotatedCopiesForControl %s: %w", controlID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	out := map[int]controls.AnnotatedCopy{}
+	for rows.Next() {
+		var (
+			a         controls.AnnotatedCopy
+			generated int64
+		)
+		if err := rows.Scan(&a.ControlID, &a.CopyNumber, &generated, &a.Path); err != nil {
+			return nil, fmt.Errorf("controlstore.AnnotatedCopiesForControl %s: scan: %w", controlID, err)
+		}
+		a.GeneratedAt = time.Unix(generated, 0).UTC()
+		out[a.CopyNumber] = a
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("controlstore.AnnotatedCopiesForControl %s: iterate: %w", controlID, err)
+	}
+	return out, nil
+}
+
 // SetControlThresholds persists the darkness pair a batch was read at
 // (issue #197). Last-wins: each upload and each reanalyse writes the pair
 // it used, and Annotate reads it back so the PDFs agree.

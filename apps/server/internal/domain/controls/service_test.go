@@ -99,6 +99,16 @@ func (s *fakeStore) RecordAnnotated(_ context.Context, a controls.AnnotatedCopy)
 	return nil
 }
 
+func (s *fakeStore) AnnotatedCopiesForControl(_ context.Context, controlID string) (map[int]controls.AnnotatedCopy, error) {
+	out := map[int]controls.AnnotatedCopy{}
+	for _, a := range s.annotated {
+		if a.ControlID == controlID {
+			out[a.CopyNumber] = a
+		}
+	}
+	return out, nil
+}
+
 func (s *fakeStore) AnnotatedByCopy(_ context.Context, controlID string, copyNumber int) (controls.AnnotatedCopy, bool, error) {
 	a, ok := s.annotated[fmt.Sprintf("%s#%d", controlID, copyNumber)]
 	return a, ok, nil

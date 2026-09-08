@@ -217,6 +217,17 @@ type Store interface {
 	// page's cue to fall back to the raw scan (issue #190).
 	AnnotatedByCopy(ctx context.Context, controlID string, copyNumber int) (AnnotatedCopy, bool, error)
 
+	// AnnotatedCopiesForControl returns every anotado record of a control,
+	// keyed by copy number (issue #287). ONE statement for the whole
+	// control: both readers derive a per-copy publication state for every
+	// copy at once — the copies table for a page render, the publication
+	// for a run — and asking AnnotatedByCopy per row is the N+1 #271's
+	// review removed from the course list.
+	//
+	// An empty map is the honest answer for a control nothing has been
+	// annotated for; only a read failure is an error.
+	AnnotatedCopiesForControl(ctx context.Context, controlID string) (map[int]AnnotatedCopy, error)
+
 	// ClearAnnotated deletes every anotado record for a control. The
 	// review page then falls back to the raw scan everywhere; used when
 	// the stored PDFs can no longer agree with the readings (issue #190:

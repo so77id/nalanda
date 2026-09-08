@@ -235,6 +235,16 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 		return PublishResult{}, fmt.Errorf("controls.Publish: read the copies: %w", err)
 	}
 
+	// ONE query for the whole control, above the loop. The pre-#287 shape
+	// asked AnnotatedByCopy per copy, which is a query per student on a
+	// path that already makes one Gmail call each — the N+1 #271's review
+	// removed from the course list, in the one place where it was hiding
+	// behind a slower thing.
+	annotated, err := s.Store.AnnotatedCopiesForControl(ctx, controlID)
+	if err != nil {
+		return PublishResult{}, fmt.Errorf("controls.Publish: read the corrected PDFs: %w", err)
+	}
+
 	if !rehearsal {
 		// The EFFECTIVE mode, not the one the form asked for. A
 		// deployment-wide `staging` transport rewrites every recipient to
@@ -253,7 +263,7 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 
 	result := PublishResult{}
 	for _, reading := range readings {
-		message, ok := s.messageFor(ctx, control, code, sender, req, recipients, reading)
+		message, ok := s.messageFor(control, code, sender, req, recipients, annotated, reading)
 		if !ok {
 			result.Skipped++
 			continue
@@ -316,34 +326,27 @@ func (s *Service) Unpublish(ctx context.Context, controlID string) error {
 // messageFor assembles one copy's message, or reports that there is
 // nothing to send.
 //
-// The three skip reasons are all ORDINARY — a class where two people
-// missed the control and one has no RUT on file is a normal class — so
-// they are counted rather than reported as failures. Folding them into
-// Failures would tell the professor about a problem they do not have, and
-// the review page is already where an unmatched copy is looked at.
+// It does not decide WHETHER there is: deliverableCopy does, and
+// CopyPublicationFor asks the same function to render the state on the
+// page. That is the whole point of the split — a screen that offered
+// "Enviar" for a copy this loop skips, or a loop that skipped one the
+// screen called ready, would be two answers to one question, which is the
+// shape #251's cannot-disagree rule refuses.
+//
+// The three skip reasons are all ORDINARY — a class where two people missed
+// the control and one has no RUT on file is a normal class — so they are
+// counted rather than reported as failures. Folding them into Failures
+// would tell the professor about a problem they do not have, and the review
+// page is already where an unmatched copy is looked at.
 func (s *Service) messageFor(
-	ctx context.Context, control Control, code string, sender Sender, req PublishRequest,
-	recipients map[int64]Recipient, reading Reading,
+	control Control, code string, sender Sender, req PublishRequest,
+	recipients map[int64]Recipient, annotated map[int]AnnotatedCopy, reading Reading,
 ) (Message, bool) {
-	if reading.StudentID == nil {
-		return Message{}, false
-	}
-	recipient, enrolled := recipients[*reading.StudentID]
-	if !enrolled || recipient.Email == "" {
-		return Message{}, false
-	}
-	// NumericGrade, not a second computation. It is the numeric back door
-	// of TotalAndGrade and both share one rawTotal, which is what makes
-	// the email and the readings table unable to disagree (issue #251).
-	// ok=false is a copy whose grade is genuinely unknown — doubtful
-	// answers nobody resolved, an unreadable RUT, a copy never handed in —
-	// and mailing "tu nota es —" would be worse than mailing nothing.
-	total, ok := NumericGrade(control.QuestionsPerCopy, reading)
+	recipient, grade, _, ok := deliverableCopy(control, reading, recipients, annotated)
 	if !ok {
 		return Message{}, false
 	}
-
-	attachment, ok := s.annotatedFor(ctx, control.ID, reading.CopyNumber)
+	attachment, ok := s.attachmentFor(annotated[reading.CopyNumber])
 	if !ok {
 		return Message{}, false
 	}
@@ -351,7 +354,7 @@ func (s *Service) messageFor(
 	message := BuildMessage(MessageInput{
 		CourseCode:     code,
 		ControlName:    control.Name,
-		Grade:          FormatGrade(total, control.QuestionsPerCopy),
+		Grade:          grade,
 		StudentName:    recipient.FullName(),
 		StudentEmail:   recipient.Email,
 		ProfessorName:  sender.Name,
@@ -374,27 +377,25 @@ func (s *Service) messageFor(
 	return message, true
 }
 
-// annotatedFor reads one copy's corrected PDF off the shared volume.
+// attachmentFor reads one copy's corrected PDF off the shared volume.
 //
-// A copy with no annotated row, or a file that is gone, is SKIPPED rather
-// than sent without its attachment. The attachment is the thing the email
-// exists to deliver: a message saying "adjunto la corrección" with nothing
-// attached is worse than no message, because the student now has to ask.
-func (s *Service) annotatedFor(ctx context.Context, controlID string, copyNumber int) (Attachment, bool) {
-	record, exists, err := s.Store.AnnotatedByCopy(ctx, controlID, copyNumber)
-	if err != nil || !exists {
-		return Attachment{}, false
-	}
+// The RECORD's existence is deliverableCopy's question; this one is whether
+// the bytes are actually there. A file that is gone or empty means the copy
+// is SKIPPED rather than sent without its attachment: the attachment is the
+// thing the email exists to deliver, and a message saying "adjunto la
+// corrección" with nothing attached is worse than no message, because the
+// student now has to ask.
+func (s *Service) attachmentFor(record AnnotatedCopy) (Attachment, bool) {
 	content, err := os.ReadFile(filepath.Join(s.WorkDir, record.Path))
 	if err != nil || len(content) == 0 {
 		s.Log.Warn("controls.Publish: the annotated PDF is unreadable",
-			"control", controlID, "copy", copyNumber, "error", err)
+			"control", record.ControlID, "copy", record.CopyNumber, "error", err)
 		return Attachment{}, false
 	}
 	return Attachment{
 		// Spanish, like everything the reader perceives — this is a
 		// filename in a student's downloads folder.
-		Filename:    fmt.Sprintf("correccion-copia-%d.pdf", copyNumber),
+		Filename:    fmt.Sprintf("correccion-copia-%d.pdf", record.CopyNumber),
 		ContentType: "application/pdf",
 		Content:     content,
 	}, true
