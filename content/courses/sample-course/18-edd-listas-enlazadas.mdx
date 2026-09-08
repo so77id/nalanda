@@ -208,8 +208,199 @@ enlaces hay que seguir antes de poder trabajar**.
 
 ## Las operaciones de la lista
 
-{/* S5 — cada operación con <SequenceStepper>: insertar y eliminar al */}
-{/* principio, al final y en una posición; buscar; vacía. */}
+<Slide title="insertFirst · el enlace que no mueve nada">
+Insertar al principio se resuelve con tres asignaciones y ninguna depende de
+cuántos elementos haya en la lista.
+
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-first"
+  values={[7, 3, 1, 5]}
+  value={9}
+/>
+
+El nodo nuevo apunta a quien era el primero, y `head` pasa a apuntar al nodo
+nuevo. Los demás nodos no se enteran: ninguno cambió de lugar ni de
+contenido. La invariante que se restaura es la primera —`head` apunta al
+primer nodo— y restaurarla cuesta $$\Theta(1)$$.
+
+</Slide>
+
+<Slide title="insertFirst en un arreglo · el mismo pedido, otro precio">
+El arreglo cumple el mismo contrato y tiene que hacer algo completamente
+distinto para cumplirlo.
+
+<SequenceStepper eda="array" operation="insert-first" values={[7, 3, 1, 5]} value={9} />
+
+Para que la posición `i` siga estando en `base + i × tamaño` no puede haber
+huecos, así que abrir espacio en la posición 0 obliga a copiar cada elemento
+una casilla a la derecha. Con $$N$$ elementos son $$N$$ copias: la operación
+es $$\Theta(N)$$, y lo es por la invariante de memoria consecutiva.
+
+Una llamada idéntica, `insertFirst(9)`, cuesta tres asignaciones en la lista y
+$$N$$ copias en el arreglo.
+
+</Slide>
+
+<Slide title="insertLast · caminar hasta el final">
+Insertar al final invierte la comparación anterior.
+
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-last"
+  values={[7, 3, 1, 5]}
+  value={9}
+/>
+
+Enlazar el nodo nuevo cuesta una asignación, igual que antes. Lo caro es
+llegar: el único nodo autorizado a apuntar al nuevo es el último, y la única
+forma de saber cuál es consiste en recorrer la cadena hasta encontrar al que
+tiene `next == null`. Son $$N - 1$$ saltos, y el total queda en
+$$\Theta(N)$$.
+
+En un arreglo, en cambio, insertar al final es escribir en `datos[size]`: una
+sola asignación, sin recorrer nada.
+
+</Slide>
+
+<Slide title="insertAt · encontrar al previo">
+Insertar en una posición cualquiera se hace en dos tiempos: primero llegar,
+después enlazar.
+
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-at"
+  values={[7, 3, 1, 5]}
+  value={9}
+  index={2}
+/>
+
+El nodo que hay que modificar no es el de la posición `i`, sino el de la
+posición `i - 1`: es el que tiene que dejar de apuntar a su siguiente para
+apuntar al nodo nuevo. Por eso el recorrido se detiene un paso antes.
+
+El orden de las dos asignaciones no es libre. Primero el nodo nuevo toma el
+enlace del previo, y solo después el previo apunta al nuevo. Al revés se
+pierde la referencia al resto de la cadena y todo lo que venía después queda
+inalcanzable.
+
+</Slide>
+
+<Slide title="deleteFirst · soltar la puerta de entrada">
+Eliminar el primer nodo es el reflejo de insertarlo.
+
+<SequenceStepper eda="linked-list-singly" operation="remove-first" values={[7, 3, 1, 5]} />
+
+`head` pasa a apuntar al segundo nodo y la cadena queda completa desde ahí.
+El nodo que salió ya no es alcanzable desde ninguna parte, y el recolector de
+basura de Java se encarga del resto.
+
+Sobre un arreglo la misma operación cuesta $$\Theta(N)$$: eliminar la
+posición 0 deja un hueco que la memoria consecutiva no admite, así que hay
+que copiar todo lo demás una casilla a la izquierda.
+
+</Slide>
+
+<Slide title="deleteLast · el costo de no mirar atrás">
+Eliminar el último nodo es la operación que mejor muestra qué le falta a esta
+estructura.
+
+<SequenceStepper eda="linked-list-singly" operation="remove-last" values={[7, 3, 1, 5]} />
+
+El nodo que hay que modificar es el **anteúltimo**: es quien debe pasar a
+apuntar a `null` para que la cadena vuelva a terminar bien. Y un nodo no
+guarda quién lo apunta, solo a quién apunta: desde el último no hay manera de
+retroceder un paso. La única salida es volver a `head` y recorrer.
+
+Sobre un arreglo esta operación es $$\Theta(1)$$ —basta con restar uno a
+`size`—, exactamente al revés que `insertFirst`.
+
+</Slide>
+
+<Slide title="deleteAt · saltar por encima">
+Eliminar una posición cualquiera repite el patrón: llegar al previo, y
+después una sola asignación.
+
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="remove-at"
+  values={[7, 3, 1, 5]}
+  index={2}
+/>
+
+El previo pasa a apuntar al siguiente del nodo que sale, que queda fuera de
+la cadena sin haber movido ningún otro dato. La invariante que se restaura es
+la segunda: desde `head` se sigue llegando a todos los nodos y se sigue
+terminando en `null`.
+
+Notemos la asimetría con el arreglo. Ahí eliminar del medio cuesta
+$$\Theta(N)$$ **copias de datos**; aquí cuesta $$\Theta(N)$$ **saltos** y una
+sola asignación. El orden asintótico coincide, pero lo que se hace $$N$$
+veces no es lo mismo.
+
+</Slide>
+
+<Slide title="buscar · sin atajos">
+Buscar un valor recorre la cadena preguntando nodo por nodo.
+
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="search"
+  values={[7, 3, 1, 5]}
+  target={1}
+/>
+
+En el peor caso —el valor no está— se visitan los $$N$$ nodos:
+$$\Theta(N)$$. Un arreglo desordenado cuesta lo mismo, y por una vez las dos
+estructuras empatan.
+
+El empate se rompe cuando los datos están ordenados. Sobre un arreglo
+ordenado la búsqueda binaria baja a $$\Theta(\log N)$$ porque puede saltar
+al elemento del medio con una cuenta. Sobre una lista ordenada no puede: para
+llegar al nodo del medio hay que caminar hasta él, y entonces ya se recorrió
+media cadena. La lista se queda en $$\Theta(N)$$ aunque esté ordenada.
+
+</Slide>
+
+<Slide title="La lista vacía y el largo">
+Dos operaciones que no recorren nada:
+
+```java
+public boolean isEmpty() {
+    return head == null;
+}
+
+public int len() {
+    return size;
+}
+```
+
+`isEmpty()` lee la primera invariante directamente: una lista está vacía
+exactamente cuando `head` es `null`. No hace falta contar.
+
+`len()` es $$\Theta(1)$$ porque `size` se mantiene al día en cada inserción y
+cada eliminación. Ese es el trato: pagamos una suma o una resta en cada
+operación que cambia la cadena, y a cambio preguntar el largo nunca cuesta
+recorrerla.
+
+</Slide>
+
+<Slide title="Los casos de borde">
+Tres situaciones rompen el código de estas operaciones si no se escriben con
+cuidado, y las tres aparecen en los extremos de la cadena.
+
+- **La lista vacía.** `insertFirst` sobre `head == null` funciona sin cambios:
+  el nodo nuevo apunta a `null` y pasa a ser la cadena entera. `deleteFirst`,
+  en cambio, no tiene nada que sacar y debe rechazar la llamada.
+- **Un solo nodo.** `deleteLast` no tiene anteúltimo al que pedirle que
+  apunte a `null`; lo que corresponde es dejar `head` en `null`.
+- **Insertar en la posición `size`.** Es válido —significa insertar al
+  final— y el recorrido debe detenerse en el último nodo, no pasarse.
+
+En los tres, quien se rompe primero es una invariante, no el programa: el
+error aparece más tarde, en una operación que sí confiaba en ella.
+
+</Slide>
 
 <SectionBreak />
 
