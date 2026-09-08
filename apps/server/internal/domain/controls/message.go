@@ -2,8 +2,8 @@ package controls
 
 import (
 	"fmt"
-	"hash/fnv"
 	"strings"
+	"unicode"
 )
 
 // The message a student receives (issue #273). Spanish, like everything a
@@ -28,8 +28,12 @@ type MessageInput struct {
 	// (ADR-0031, issue #251's cannot-disagree rule) and a second
 	// formatting here would be a second place for it to round differently.
 	Grade string
-	// StudentName is the given name — the message greets a person, not a
-	// row. Empty falls back to a nameless greeting rather than "Hola ,".
+	// StudentName is the student's WHOLE name — given names and both
+	// surnames, exactly as the roster holds them, casing included. The
+	// greeting is presentation and belongs to the builder (see
+	// formatStudentName), so the caller passes the row through rather
+	// than deciding what a person is called. Empty falls back to a
+	// nameless greeting rather than "Hola ,".
 	StudentName  string
 	StudentEmail string
 	// ProfessorName signs the message; ProfessorEmail is where a staging
@@ -38,10 +42,7 @@ type MessageInput struct {
 	ProfessorName  string
 	ProfessorEmail string
 	FromAddress    string
-	// ControlID and CopyNumber seed the footer. See pickJoke.
-	ControlID  string
-	CopyNumber int
-	Attachment Attachment
+	Attachment     Attachment
 }
 
 // BuildMessage renders one student's email.
@@ -73,31 +74,107 @@ func buildSubject(in MessageInput) string {
 }
 
 // buildBody renders the plaintext.
+//
+// Four short blocks and nothing else. The message had a rotating footer —
+// a joke drawn from a twelve-line pool, plus two lines disclosing that a
+// machine had written it — and Miguel removed both after the first live
+// send (2026-09-07): a student opening their grade wants the grade and a
+// way to answer back, and the covering note is his whether a program
+// typed it or he did.
 func buildBody(in MessageInput) string {
 	var b strings.Builder
 
 	fmt.Fprintf(&b, "Hola%s,\n\n", greetingName(in.StudentName))
 	fmt.Fprintf(&b, "Adjunto la corrección del %s. Tu nota es %s.\n\n",
 		in.ControlName, spanishDecimal(in.Grade))
+	// The reply invitation is only TRUE because of ADR-0072 §1: the
+	// message goes out as the professor's own Gmail account, so a reply
+	// lands in their inbox with no Reply-To trick and no shared mailbox
+	// to watch. A transactional sender would make this line a lie.
+	b.WriteString("Si necesitas alguna corrección, responde este mismo correo.\n\n")
 	b.WriteString("Saludos,\n")
-	fmt.Fprintf(&b, "%s\n\n", in.ProfessorName)
-	b.WriteString("---\n")
-	fmt.Fprintf(&b, "%s\n", pickJoke(in.ControlID, in.CopyNumber))
-	fmt.Fprintf(&b,
-		"Este mensaje fue generado automáticamente por la IA que trabaja para %s.\n",
-		in.ProfessorName)
+	fmt.Fprintf(&b, "%s\n", in.ProfessorName)
 
 	return b.String()
 }
 
-// greetingName returns " María" or "", so a student the roster holds no
-// given name for is greeted "Hola," rather than "Hola ,".
+// greetingName returns " María Paz Soto Vera" or "", so a student the
+// roster holds no name for is greeted "Hola," rather than "Hola ,".
 func greetingName(name string) string {
-	name = strings.TrimSpace(name)
-	if name == "" {
+	formatted := formatStudentName(name)
+	if formatted == "" {
 		return ""
 	}
-	return " " + name
+	return " " + formatted
+}
+
+// formatStudentName renders a roster name the way a person writes it.
+//
+// Canvas hands this roster names in CAPITALS — on 2026-09-07 all 25 rows
+// of the live course, given names and surnames alike — and "Hola BENJAMIN
+// MATIAS PEREZ GONZALEZ," reads as shouting at somebody who has just been
+// handed a grade. The fix belongs HERE and not in the import: the roster
+// screens show what Canvas holds, and rewriting the stored row would make
+// the two disagree about the same person.
+//
+// Hand-written rather than borrowed. strings.Title is deprecated for
+// exactly this use, and golang.org/x/text/cases would be a new dependency
+// (root CLAUDE.md). unicode.ToUpper / ToLower already carry the accented
+// Latin letters this roster actually holds — 15 of those 25 rows — so the
+// whole operation is a rune walk over the standard library.
+//
+// What it deliberately does NOT do: preserve a capital INSIDE a word.
+// "McDonald" comes back "Mcdonald". Trusting the source's case instead
+// would send the CAPITALS through untouched for all 25, which is the
+// louder mistake.
+func formatStudentName(name string) string {
+	var out strings.Builder
+	for i, word := range strings.Fields(name) {
+		if i > 0 {
+			out.WriteByte(' ')
+			if particles[strings.ToLower(word)] {
+				out.WriteString(strings.ToLower(word))
+				continue
+			}
+		}
+		out.WriteString(capitalizeWord(word))
+	}
+	return out.String()
+}
+
+// particles are the connectors a Spanish surname keeps lower case when
+// they are not the first word: "Ana de la Fuente", never "Ana De La
+// Fuente". Never applied to the FIRST word, which is a given name
+// whatever it is spelled like.
+//
+// No row of the live roster carries one today. They are here because the
+// next import will, and because a mangled surname is the first thing its
+// owner notices.
+var particles = map[string]bool{
+	"de": true, "del": true, "la": true, "las": true, "los": true,
+	"y": true, "da": true, "das": true, "do": true, "dos": true,
+}
+
+// capitalizeWord uppercases the first letter of every letter RUN, so the
+// separators inside a name survive it: JEAN-PAUL becomes Jean-Paul and
+// O'HIGGINS becomes O'Higgins. Capitalising only rune zero would give
+// "Jean-paul", which is a different mistake rather than a smaller one.
+func capitalizeWord(word string) string {
+	out := make([]rune, 0, len(word))
+	atStart := true
+	for _, r := range word {
+		switch {
+		case !unicode.IsLetter(r):
+			atStart = true
+			out = append(out, r)
+		case atStart:
+			atStart = false
+			out = append(out, unicode.ToUpper(r))
+		default:
+			out = append(out, unicode.ToLower(r))
+		}
+	}
+	return string(out)
 }
 
 // spanishDecimal turns Go's 5.7 into the 5,7 a Chilean student reads.
@@ -107,48 +184,4 @@ func greetingName(name string) string {
 // back out by anything that wanted to compute with it.
 func spanishDecimal(grade string) string {
 	return strings.ReplaceAll(grade, ".", ",")
-}
-
-// jokes is the rotating footer. Spanish, one line each, self-aware about
-// the machine that sent the message and never about the student or their
-// grade — the reader may have just opened a 2,1, and a joke that lands
-// badly there is worse than no joke at all.
-//
-// Extending the pool is a two-line change. Removing or REORDERING one is
-// not free: pickJoke maps a copy onto an index, so a student who re-reads
-// an old email would find a different joke under the same message. That
-// costs nothing to anybody, but the surprise is worth one sentence here
-// rather than a puzzled question later.
-var jokes = []string{
-	"La IA redactó esto mientras el profesor tomaba café.",
-	"Ningún profesor fue molestado durante el envío de este correo.",
-	"Esto se armó solo: el profesor únicamente apretó un botón.",
-	"La corrección la hizo una máquina; la responsabilidad sigue siendo del profesor.",
-	"Escrito por una IA que nunca ha rendido un control.",
-	"Enviado automáticamente, revisado humanamente. En ese orden.",
-	"Una IA leyó tu hoja y prometió no comentarla con nadie.",
-	"Este correo se envió sin intervención humana. El control no.",
-	"La máquina cuenta las respuestas; el profesor decide qué significan.",
-	"Generado por una IA con estricta política de no opinar sobre notas.",
-	"Ninguna hoja fue dañada en la elaboración de esta corrección.",
-	"Automático de punta a punta, salvo la parte difícil.",
-}
-
-// pickJoke chooses deterministically from (control, copy).
-//
-// DETERMINISTIC, not random, and the reason is a support conversation
-// nobody wants to have: a professor re-runs a publication after fixing one
-// student's grade, and the student compares the two emails. With a random
-// pick the footer changes, which invites "did you send me a different
-// correction?" about a message whose only difference is a joke. Seeding on
-// the copy also spreads the pool across a class rather than sending forty
-// people the same line.
-//
-// FNV-1a rather than a cryptographic hash: this picks a joke. It needs to
-// be stable across processes and architectures, which a Go map iteration or
-// a pointer would not be, and nothing more.
-func pickJoke(controlID string, copyNumber int) string {
-	h := fnv.New32a()
-	_, _ = fmt.Fprintf(h, "%s|%d", controlID, copyNumber)
-	return jokes[int(h.Sum32()%uint32(len(jokes)))]
 }
