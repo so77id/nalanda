@@ -5,13 +5,16 @@ presentation: explicit
 questions: pool
 ---
 
-{/* `pool`: un conjunto de preguntas sin expectativa por sección. No */}
-{/* `per-section`, porque cada <Slide> es un h2 y exigir una pregunta por */}
-{/* slide serían cuarenta, con treinta exenciones declaradas que no dicen */}
-{/* nada. Lo que el pool debe garantizar es densidad por RANGO: un control */}
-{/* se pide sobre un rango de secciones (bank.Pool), así que cada acto tiene */}
-{/* que poder llenar una copia de cuatro. Hoy: 5 en el acto 1, 5 en el 2, */}
-{/* 6 en el 3. */}
+{/* `pool`, not `per-section`: every <Slide> is an h2, so per-section would */}
+{/* demand forty questions and thirty declared exemptions that say nothing. */}
+{/* What a pool owes instead is density per RANGE — a control is requested  */}
+{/* over a range of sections (bank.Pool), so each ACT must be able to fill  */}
+{/* a four-question copy: 5 in act 1, 5 in act 2, 6 in act 3.               */}
+{/* CAVEAT (review #277): a range is chosen per SECTION, not per act, and   */}
+{/* the eleven-slide operations block carries none — a control taken from   */}
+{/* `las-operaciones-que-hay-que-implementar` to `operaciones-y-sus-costos` */}
+{/* yields fewer than four and fails with PoolTooSmallErr. Take ranges at   */}
+{/* act boundaries while that block has no questions of its own.            */}
 
 # Estructuras de Datos · Introducción
 
@@ -796,7 +799,7 @@ y por la misma razón: ningún elemento se mueve.
     j = 2: el 7 también. La posición 1 queda libre para pisar.
 
   </Step>
-  <Step lines={[8, 9]}>
+  <Step lines={[7, 8]}>
     <svg viewBox="0 0 332 144" width="332" height="144" role="img" aria-label="Se escribe el 9 en la posición 1 y size pasa a 5. Tres copias para insertar uno. La llave de arriba abarca las 6 casillas de data.length; la de abajo, las 5 que cuenta size.">
       <text x="164" y="14" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>data.length = 6</text>
       <path d="M 10 32 L 10 22 L 318 22 L 318 32" fill="none" strokeWidth="1.2" style={{ stroke: 'var(--color-rule-strong)' }} />
@@ -938,7 +941,7 @@ Insertar al principio es el peor caso de esta operación.
     j = 2: el 3 lo sigue. La copia vieja queda duplicada al final.
 
   </Step>
-  <Step lines={[9, 10]}>
+  <Step lines={[8, 9]}>
     <svg viewBox="0 0 332 144" width="332" height="144" role="img" aria-label="size-- deja el duplicado afuera, como basura, y se devuelve el 7. Largo 3. La llave de arriba abarca las 6 casillas de data.length; la de abajo, las 3 que cuenta size.">
       <text x="164" y="14" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>data.length = 6</text>
       <path d="M 10 32 L 10 22 L 318 22 L 318 32" fill="none" strokeWidth="1.2" style={{ stroke: 'var(--color-rule-strong)' }} />
@@ -1838,7 +1841,7 @@ es el costo que se siente.
 
   </Step>
   <Step lines={[4, 5]}>
-    <svg viewBox="0 0 436 144" width="436" height="144" role="img" aria-label="Inserción 8: sin copiar. Cuatro inserciones seguidas sin tocar la memoria. La llave de arriba abarca las 8 casillas de data.length; la de abajo, las 8 que cuenta size.">
+    <svg viewBox="0 0 436 144" width="436" height="144" role="img" aria-label="Inserción 8: sin copiar. Tres inserciones seguidas sin tocar la memoria. La llave de arriba abarca las 8 casillas de data.length; la de abajo, las 8 que cuenta size.">
       <text x="216" y="14" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>data.length = 8</text>
       <path d="M 10 32 L 10 22 L 422 22 L 422 32" fill="none" strokeWidth="1.2" style={{ stroke: 'var(--color-rule-strong)' }} />
       <rect x="10" y="40" width="48" height="44" fill="none" strokeWidth="1.4" style={{ stroke: 'var(--color-rule-strong)' }} />
@@ -1869,7 +1872,7 @@ es el costo que se siente.
       <text x="216" y="134" textAnchor="middle" fontSize="12" fontWeight="600" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>size = 8</text>
     </svg>
 
-    Inserción 8: sin copiar. Cuatro inserciones seguidas sin tocar la memoria.
+    Inserción 8: sin copiar. Tres inserciones seguidas sin tocar la memoria.
 
   </Step>
 </StepShow>
@@ -2543,7 +2546,7 @@ elementos, reserva capacidad para mil. `size()` sigue siendo `0`. Son
 los dos números de siempre, y Java también los mantiene separados.
 
 Lo que `ArrayList` **no** hace es achicarse sola al borrar: la capacidad
-solo baja si se lo pedís con `trimToSize()`.
+solo baja si se le pide con `trimToSize()`.
 
 </Slide>
 <Slide title="El precio de la memoria consecutiva">
@@ -2590,12 +2593,12 @@ su tabla de costos es casi la imagen espejo.
 
 <Question id="edd-afirmacion-falsa-sobre-la-invariante" anchor="los-tres-momentos-de-la-invariante">
 
-¿Cuál de estas afirmaciones sobre la invariante es falsa?
+¿Qué hacen las operaciones de consulta con la invariante?
 
-- [x] Verificarla en cada lectura es lo que hace barato el acceso
-- [ ] Una operación que modifica puede romperla mientras trabaja
-- [ ] Las operaciones que solo leen confían en ella y no la verifican
-- [ ] El constructor la deja cumpliéndose desde el primer instante
+- [x] Confían en ella y no la verifican
+- [ ] La verifican en cada lectura, y por eso son baratas
+- [ ] La restauran si la encuentran rota
+- [ ] La vuelven a calcular a partir de los datos
 
 </Question>
 

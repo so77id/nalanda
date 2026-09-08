@@ -1,7 +1,16 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { useViewportBreakout } from '../useViewportBreakout';
 import { Step, StepShow } from './StepShow';
+
+// The breakout writes width/marginLeft after MEASURING an ancestor transform,
+// which jsdom cannot produce — so the hook is stubbed and what the test pins
+// is the number handed to it. Reviewed in #277: the fraction went 0.75 -> 0.5
+// and nothing in the suite could see it, in a component three published
+// documents mount (chapters 08, 14 and 17). The paint itself stays a browser
+// check; this is the gate the next tweak of the number has to pass.
+vi.mock('../useViewportBreakout', () => ({ useViewportBreakout: vi.fn() }));
 
 // Same reason CodeEditor / Exercise / PredictOutput mock CodeMirror: the
 // editing surface is not the contract under test here, and CodeMirror does
@@ -41,6 +50,19 @@ function highlightedLines(container: HTMLElement): number[] {
 }
 
 describe('StepShow', () => {
+  it('asks for half the viewport in presentation, not three quarters', () => {
+    render(
+      <StepShow code={CODE}>
+        <Step lines={[1]}>uno</Step>
+      </StepShow>,
+    );
+
+    expect(vi.mocked(useViewportBreakout)).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ fraction: 0.5 }),
+    );
+  });
+
   it('renders the code, the first step, and highlights that step’s lines', () => {
     const { container } = render(
       <StepShow code={CODE} language="java">

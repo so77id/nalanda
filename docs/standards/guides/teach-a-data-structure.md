@@ -283,14 +283,21 @@ gate could have — text clipped past the right edge, two arrows that read as
 one stub, a cost line overflowing its box, and a caption that named a colour
 instead of naming the thing.
 
-**A step-by-step may stay a static figure, and #277 chose that deliberately.**
-The `insertAt` shift is a listing plus a three-panel SVG — the pair
-`<StepShow>` exists to fuse, and `<StepShow>` is an existing widget, so reuse
-would have been allowed. It was not taken because the sequence is projected in
-a lecture, where a figure the whole room reads at once beats a control the
-professor has to drive, and because this unit defers its widget decisions to
-the point where the animations of every class are on the table (§7). Revisit
-it there rather than per class.
+**A step-by-step is a `<StepShow>`, and #277 reversed itself on this.** Its
+first draft made the `insertAt` shift a listing plus a static three-panel SVG,
+reasoning that a figure the whole room reads at once beats a control the
+professor has to drive. The shipped class uses ten `<StepShow>` steppers
+instead, because a projected figure cannot answer *when* — the whole point of
+the shift is the order the copies happen in, and a static panel makes the
+reader reconstruct it. Drive the stepper in the lecture; the frames are also
+readable one by one in the book.
+
+What the frames hold is hand-written inline SVG, and `add-a-course-document.md`
+§5d sanctions it in one line: "Any JSX inside a `<Step>`." Reach for
+`<MemoryVisual>` when the picture is a memory diagram — it draws stack frames
+and heap boxes with vertically stacked rows, and it can NOT draw a horizontal
+strip of cells with index labels, braces over a sub-range, or dashed garbage
+cells, so an array frame is not one of its shapes.
 
 ### 7. Decide widgets last, and for the unit rather than the class
 
@@ -299,7 +306,17 @@ vocabulary — cells, indices, pointers, a resize — so a widget invented for t
 first class is a widget designed against one example. Sketch the animations
 the whole unit wants, look for the shared pattern, and only then decide
 whether to build, extend or reuse. #277 shipped zero new widgets on purpose,
-reusing `<CodeEditor>` and `<Benchmark>`.
+reusing `<StepShow>` ten times.
+
+**Check every `<Step lines={[…]}>` against its own fence, in the browser.**
+`lines` is unvalidated data: `CodeStepper` silently drops an out-of-range
+number, so a wrong-but-in-range one is invisible to every gate, to the build
+and to the suite. #277 shipped two off-by-ones this way — both introduced by
+re-wrapping a guard onto two lines and renumbering the steps by hand — and
+what found them was the cheapest possible check: **when two steppers share a
+listing, their `lines` arrays must agree.** The fixed-capacity `insertAt` said
+`[8, 9]` where its dynamic twin said `[7, 8]`. Print each step's lines against
+its fence text and read the result next to the step's own caption.
 
 ## Checklist
 
