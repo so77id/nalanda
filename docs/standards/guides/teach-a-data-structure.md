@@ -127,6 +127,16 @@ stays book-only.
 
 ### 2. Define a TDA in one shape
 
+**Vocabulary note — TDA and EDA.** The unit runs on a pair of acronyms:
+**TDA** is the contract (what can be asked) and **EDA** the implementation
+(how it is stored and what each request costs). #277 introduces "tipo de dato
+abstracto (TDA)" and spells the other half out in full; **#288 is where EDA
+gets introduced and defined**, in its opening act, precisely because it is the
+first class where a reader has two implementations of one contract to tell
+apart. From there on both are available and neither needs re-defining — but a
+class that uses `<SequenceStepper>` is putting the string "eda" on screen in
+the widget's own chip, so it inherits the obligation to have introduced it.
+
 **Vocabulary note — "colección".** The course uses it as the general umbrella
 word ("a group of elements stored together"), which is the theory's sense and
 the one five earlier chapters already use — chapter 8 writes "las colecciones —

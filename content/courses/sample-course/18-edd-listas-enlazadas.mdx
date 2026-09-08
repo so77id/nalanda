@@ -40,9 +40,14 @@ Esa libertad admite dos decisiones opuestas:
   A cambio, no hay ninguna cuenta que lleve a la posición `i`: hay que
   caminar hasta ella.
 
-La segunda decisión define la **lista enlazada**, la estructura de datos de
-esta clase. Cumple el mismo contrato que el arreglo y su tabla de costos es
-casi la imagen espejo.
+La segunda decisión define la **lista enlazada**: la estructura de datos
+—**EDA**— de esta clase. Cumple el mismo contrato que el arreglo, y su tabla
+de costos es casi la imagen espejo.
+
+El par de siglas ordena todo lo que sigue. El **TDA** es el contrato: qué se
+puede pedir. La **EDA** es la implementación: cómo se guarda y cuánto cuesta
+cada pedido. Un TDA admite muchas EDA, y elegir entre ellas es elegir qué
+operaciones queremos baratas.
 
 </Slide>
 
@@ -94,7 +99,7 @@ cambiar dónde apunta un enlace reordena la cadena sin mover ningún dato.
 
 <SectionBreak />
 
-## La lista simplemente enlazada
+## La EDA lista simplemente enlazada
 
 <Slide title="La clase Lista · head y size">
 La estructura completa se sostiene con dos atributos:
@@ -147,8 +152,8 @@ siguiente.
 </Slide>
 
 <Slide title="El contrato, implementado">
-Las operaciones del TDA Sequence se escriben sobre esta estructura de datos
-sin cambiar sus nombres ni su significado:
+Las operaciones del TDA Sequence se escriben sobre esta EDA sin cambiar sus
+nombres ni su significado:
 
 ```java
 public class Lista implements Sequence {
