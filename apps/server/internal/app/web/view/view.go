@@ -776,6 +776,29 @@ type ReviewPage struct {
 	AnnotatedURL string
 	RUT          ReviewRUT
 	Questions    []ReviewQuestion
+
+	// The per-student send (issue #287). It lives here, on the page where
+	// a professor has just finished re-correcting somebody, because that
+	// is when they want to know the corrected version went out — and it is
+	// the manual override for the case the grade comparison cannot see, a
+	// re-annotation that moved the marks without moving the total.
+	//
+	// PublishCopyURL is always populated; ShowPublishCopy gates whether
+	// the block renders at all, the same way CanPublish gates the batch
+	// button one screen up.
+	PublishCopyURL string
+	// ShowPublishCopy is false while the correction is still open. There
+	// is no corrected PDF to attach then and no settled grade to quote,
+	// and a permanently disabled button on every copy of every open
+	// control is noise that teaches a professor to ignore disabled
+	// buttons.
+	ShowPublishCopy bool
+	// CopyPublishedLine is what this copy's own publication reads as:
+	// "Enviada el 08-09-2026 15:20, con un 5,7", or empty for a copy
+	// nobody has written to. Derived from the reading's own two columns —
+	// no roster lookup — because "what did this person receive" is a
+	// question the copy answers by itself.
+	CopyPublishedLine string
 }
 
 // ReviewImage is one page of a copy's raw scan (issue #243). The

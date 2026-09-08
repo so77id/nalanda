@@ -172,6 +172,36 @@
           <button type="submit" name="save" value="1">Guardar cambios</button>
         </p>
       </form>
+
+      {{/*
+        Issue #287. OUTSIDE the form above, and that is not a layout
+        choice: nesting a second form inside the review form is invalid
+        HTML, and a browser that recovers from it does so by dropping one
+        of the two.
+
+        Offered whatever state the copy is in — including one already
+        sent — because this is the override for the re-correction the
+        grade comparison cannot see. The professor knows whose marks they
+        just fixed.
+      */}}
+      {{ if .ShowPublishCopy }}
+        <form method="post" action="{{ .PublishCopyURL }}" style="margin-top:1em">
+          <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+          <h3>Enviar esta corrección</h3>
+          {{ if .CopyPublishedLine }}
+            <p class="aviso">{{ .CopyPublishedLine }}</p>
+          {{ end }}
+          <p>
+            <button type="submit">Enviar la corrección a esta persona</button>
+          </p>
+          <p>
+            <small>
+              Manda el PDF corregido y la nota actual sólo a quien rindió esta
+              copia. Si ya la había recibido, la recibe de nuevo.
+            </small>
+          </p>
+        </form>
+      {{ end }}
     </section>
   </div>
 {{ end }}

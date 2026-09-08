@@ -116,7 +116,17 @@ func (r *publishReadings) UpsertReadingsFromReport(context.Context, string, cont
 func (r *publishReadings) MarkMissingAsNotPresent(context.Context, string, time.Time) error {
 	return nil
 }
-func (r *publishReadings) ReadingByCopy(context.Context, string, int) (controls.Reading, error) {
+
+// ReadingByCopy answers off the same held slice ReadingsByControl does,
+// so a case that stamps through one reader sees it through the other —
+// which is what PublishOne (issue #287) reads and what the copies table
+// renders.
+func (r *publishReadings) ReadingByCopy(_ context.Context, _ string, copyNumber int) (controls.Reading, error) {
+	for _, reading := range r.readings {
+		if reading.CopyNumber == copyNumber {
+			return reading, nil
+		}
+	}
 	return controls.Reading{}, controls.ErrReadingNotFound
 }
 func (*publishReadings) SetAnswerOverride(context.Context, int64, string, controls.AnswerOverride) error {
@@ -750,5 +760,219 @@ func TestACopyWithNoAnnotatedPDFIsSkippedRatherThanSentEmpty(t *testing.T) {
 		if len(msg.Attachment.Content) == 0 {
 			t.Error("a message promising a correction went out with nothing attached")
 		}
+	}
+}
+
+// PublishOne: the per-student send (issue #287 §6).
+//
+// The case Miguel raised first and the one that is routine rather than
+// exceptional: a professor fixes one grade after publishing, and there was
+// no way to send that student the corrected version. The rehearsal mailed
+// the whole batch to one address; publishing was a 409.
+
+func TestPublishOneSendsThatCopyAndStampsIt(t *testing.T) {
+	rig := newPublishRig(t)
+
+	if err := rig.svc.PublishOne(context.Background(), rig.controlID, 2, 7); err != nil {
+		t.Fatalf("PublishOne: %v", err)
+	}
+	if len(rig.dispatcher.sent) != 1 || rig.dispatcher.sent[0].To != "bruno@udp.cl" {
+		t.Fatalf("PublishOne wrote to %+v, want bruno@udp.cl alone", rig.dispatcher.sent)
+	}
+	if len(rig.dispatcher.sent[0].Attachment.Content) == 0 {
+		t.Error("the message went out with no correction attached")
+	}
+	copy2 := rig.readings.readings[1]
+	if copy2.PublishedAt == nil || copy2.PublishedGrade != "7.0" {
+		t.Errorf("copy 2 is stamped %v/%q, want the moment and the grade that went out",
+			copy2.PublishedAt, copy2.PublishedGrade)
+	}
+	// And nobody else was written to. A loop that ignored the copy number
+	// would pass every assertion above.
+	if rig.readings.readings[0].PublishedAt != nil || rig.readings.readings[2].PublishedAt != nil {
+		t.Error("PublishOne stamped a copy it was not asked about")
+	}
+}
+
+// AC8: it sends WHATEVER STATE the copy is in, including one already sent
+// with the grade it still has.
+//
+// That is the whole point of the button. The staleness rule watches the
+// GRADE, so a re-annotation that moved the marks without moving the total
+// is invisible to it (§3) — and the professor, who knows whose marks they
+// just fixed, is the override.
+func TestPublishOneSendsACopyThatAlreadyWentOutUnchanged(t *testing.T) {
+	rig := newPublishRig(t)
+
+	if err := rig.svc.PublishOne(context.Background(), rig.controlID, 2, 7); err != nil {
+		t.Fatalf("the first send: %v", err)
+	}
+	rig.dispatcher.sent = nil
+
+	if err := rig.svc.PublishOne(context.Background(), rig.controlID, 2, 7); err != nil {
+		t.Fatalf("the second send returned %v, want it to go out anyway", err)
+	}
+	if len(rig.dispatcher.sent) != 1 {
+		t.Errorf("%d messages went out on the second press, want 1", len(rig.dispatcher.sent))
+	}
+}
+
+// It does NOT stamp the control. "Publicado el 8 de septiembre" is a claim
+// about a CLASS, and one student receiving their correction is not that.
+func TestPublishOneDoesNotStampTheControlAsPublished(t *testing.T) {
+	rig := newPublishRig(t)
+
+	if err := rig.svc.PublishOne(context.Background(), rig.controlID, 1, 7); err != nil {
+		t.Fatalf("PublishOne: %v", err)
+	}
+	control, err := rig.store.ControlByID(context.Background(), rig.controlID)
+	if err != nil {
+		t.Fatalf("ControlByID: %v", err)
+	}
+	if control.PublishedAt != nil {
+		t.Error("one hand-sent copy stamped the whole class published")
+	}
+}
+
+// Every refusal, one per row, each breaking exactly ONE thing in the rig.
+//
+// The three not-deliverable reasons are distinguished rather than collapsed
+// because each has a different repair and all three are reached from the
+// same button — the same reasoning publishFailureReason carries one layer
+// down.
+func TestPublishOneRefusesWithTheReasonThatFits(t *testing.T) {
+	notDeliverable := func(reason controls.CopySkipReason) func(*testing.T, error) {
+		return func(t *testing.T, err error) {
+			t.Helper()
+			if !errors.Is(err, controls.ErrCopyNotDeliverable) {
+				t.Fatalf("PublishOne returned %v, want ErrCopyNotDeliverable", err)
+			}
+			var refusal *controls.CopyNotDeliverableError
+			if !errors.As(err, &refusal) {
+				t.Fatalf("the refusal carries no reason: %v", err)
+			}
+			if refusal.Reason != reason {
+				t.Errorf("reason = %q, want %q", refusal.Reason, reason)
+			}
+		}
+	}
+
+	cases := []struct {
+		name   string
+		copyNo int
+		setUp  func(*publishRig)
+		check  func(*testing.T, error)
+	}{
+		{
+			name:   "the correction is still open",
+			copyNo: 1,
+			setUp:  func(r *publishRig) { r.store.controls[0].State = controls.InReview },
+			check: func(t *testing.T, err error) {
+				t.Helper()
+				if !errors.Is(err, controls.ErrNotGraded) {
+					t.Errorf("got %v, want ErrNotGraded", err)
+				}
+			},
+		},
+		{
+			name:   "the control belongs to no course",
+			copyNo: 1,
+			setUp:  func(r *publishRig) { r.store.controls[0].CourseID = nil },
+			check: func(t *testing.T, err error) {
+				t.Helper()
+				if !errors.Is(err, controls.ErrNoCourse) {
+					t.Errorf("got %v, want ErrNoCourse", err)
+				}
+			},
+		},
+		{
+			name:   "this server sends no mail",
+			copyNo: 1,
+			setUp:  func(r *publishRig) { r.dispatcher.doesNotDeliver = true },
+			check: func(t *testing.T, err error) {
+				t.Helper()
+				if !errors.Is(err, controls.ErrCannotDeliver) {
+					t.Errorf("got %v, want ErrCannotDeliver", err)
+				}
+			},
+		},
+		{
+			name:   "the copy is matched to nobody",
+			copyNo: 1,
+			setUp:  func(r *publishRig) { r.readings.readings[0].StudentID = nil },
+			check:  notDeliverable(controls.SkipNoStudent),
+		},
+		{
+			name:   "the copy has no defined grade",
+			copyNo: 1,
+			setUp: func(r *publishRig) {
+				r.readings.readings[0].CopyStatus = controls.CopyStatusNotPresent
+			},
+			check: notDeliverable(controls.SkipNoGrade),
+		},
+		{
+			name:   "the copy has no corrected PDF",
+			copyNo: 1,
+			setUp: func(r *publishRig) {
+				if err := r.store.ClearAnnotated(context.Background(), r.controlID); err != nil {
+					panic(err)
+				}
+			},
+			check: notDeliverable(controls.SkipNoAnnotated),
+		},
+	}
+
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			rig := newPublishRig(t)
+			c.setUp(rig)
+
+			err := rig.svc.PublishOne(context.Background(), rig.controlID, c.copyNo, 7)
+			c.check(t, err)
+
+			if len(rig.dispatcher.sent) != 0 {
+				t.Errorf("%d messages went out over a refusal", len(rig.dispatcher.sent))
+			}
+			if rig.readings.readings[c.copyNo-1].PublishedAt != nil {
+				t.Error("a refused copy was stamped as sent")
+			}
+		})
+	}
+}
+
+// A copy nobody has read is a 404-shaped refusal, not a panic on a zero
+// Reading — the hand-typed URL case.
+func TestPublishOneRefusesACopyWithNoReading(t *testing.T) {
+	rig := newPublishRig(t)
+
+	err := rig.svc.PublishOne(context.Background(), rig.controlID, 99, 7)
+	if !errors.Is(err, controls.ErrReadingNotFound) {
+		t.Errorf("PublishOne on an unread copy returned %v, want ErrReadingNotFound", err)
+	}
+}
+
+// A send the provider refuses leaves the copy UNSTAMPED, so the professor
+// can press the button again and the next Publicar picks it up.
+func TestPublishOneLeavesARefusedCopyUnstamped(t *testing.T) {
+	rig := newPublishRig(t)
+	rig.dispatcher.failOn["ana@udp.cl"] = controls.ErrSendRefused
+
+	if err := rig.svc.PublishOne(context.Background(), rig.controlID, 1, 7); !errors.Is(err, controls.ErrSendRefused) {
+		t.Fatalf("PublishOne returned %v, want the provider's refusal", err)
+	}
+	if rig.readings.readings[0].PublishedAt != nil {
+		t.Error("a copy whose send was refused was stamped anyway")
+	}
+}
+
+// The professor with no connected Gmail account is refused BEFORE anything
+// is sent, with the sentinel the handler renders as "conéctala en tu
+// perfil".
+func TestPublishOneRefusesAProfessorWithNoConnectedAccount(t *testing.T) {
+	rig := newPublishRig(t)
+	rig.svc.Senders = fakeSenders{sender: controls.Sender{Name: "Miguel", Email: "miguel@udp.cl"}}
+
+	if err := rig.svc.PublishOne(context.Background(), rig.controlID, 1, 7); !errors.Is(err, gmail.ErrNotConnected) {
+		t.Errorf("PublishOne returned %v, want gmail.ErrNotConnected", err)
 	}
 }

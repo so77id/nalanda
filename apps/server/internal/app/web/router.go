@@ -384,6 +384,14 @@ func routes(deps Deps) []Route {
 			Handler: deps.Controls.Publish,
 		},
 		{
+			// Issue #287: one copy, synchronously, from the review page.
+			// Same surface and same gate as the batch — internal/app/api is
+			// anonymous by construction, so a send endpoint there would let
+			// anyone on the internet mail a student their grade.
+			Method: http.MethodPost, Path: handler.CopyPublishPath,
+			Handler: deps.Controls.PublishCopy,
+		},
+		{
 			// The rehearsal. Same gates as Publish minus the
 			// already-published one: rehearsing a control that already went
 			// out is exactly what a professor does when a student says

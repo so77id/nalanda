@@ -30,12 +30,24 @@ import (
 const (
 	ControlPublishPath  = "/controls/{id}/publish"
 	ControlTestSendPath = "/controls/{id}/test-send"
+	// CopyPublishPath sends ONE copy's correction (issue #287).
+	//
+	// On the review page rather than the control page, because that is
+	// where the professor already is when they finish re-correcting
+	// somebody — and it is the manual override the staleness rule cannot
+	// replace, for a re-annotation that moved the marks without moving the
+	// total.
+	CopyPublishPath = "/controls/{id}/copies/{copy}/publish"
 )
 
 // controlPublishURL and controlTestSendURL build the two POST targets, so
 // the template and the redirects name each pattern once.
 func controlPublishURL(id string) string  { return ControlsPath + "/" + id + "/publish" }
 func controlTestSendURL(id string) string { return ControlsPath + "/" + id + "/test-send" }
+
+func copyPublishURL(id string, copyNumber int) string {
+	return fmt.Sprintf("%s/%s/copies/%d/publish", ControlsPath, id, copyNumber)
+}
 
 // GmailConnection is the slice of the Gmail domain these screens need: can
 // the professor at the keyboard send at all.
@@ -282,6 +294,99 @@ func parseTestAddress(raw string) (string, bool) {
 		return "", false
 	}
 	return parsed.Address, true
+}
+
+// PublishCopy sends one copy's correction, synchronously, and comes back
+// to the review page the professor pressed it from.
+//
+// SYNCHRONOUS, unlike Publish, and the split is the rule in
+// apps/server/CLAUDE.md rather than an exception to it: the shape of the
+// WORK decides. One Gmail call plus one PDF is bounded and the professor is
+// standing in front of it; forty of each is the loop nobody can wait on.
+//
+// It sends whatever state the copy is in. That is deliberate — it is the
+// override for the case the grade comparison cannot see, a re-annotation
+// that changed the marks without changing the total — and it is why there
+// is no "ya está enviado" refusal here.
+func (h *Controls) PublishCopy(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	copyNumber, ok := parseCopyPathValue(r.PathValue("copy"))
+	if !isValidControlID(id) || !ok {
+		middleware.WriteError(w, r, http.StatusNotFound, "Esa página no existe.")
+		return
+	}
+	professor, ok := middleware.ProfessorFrom(r.Context())
+	if !ok {
+		// Unreachable behind RequireProfessor; a 403 rather than a panic is
+		// what §Errors asks of a request path.
+		middleware.WriteError(w, r, http.StatusForbidden, "Tu sesión no está activa.")
+		return
+	}
+	// The courtesy gate, the same reason Publish carries one: the domain
+	// checks again with the authority, but a professor with no connected
+	// account is better told here than by a 500-shaped surprise.
+	if !h.canSend(w, r, professor.ID) {
+		return
+	}
+
+	err := h.Service.PublishOne(r.Context(), id, copyNumber, professor.ID)
+	switch {
+	case err == nil:
+		flash.Set(w, h.secureCookie, "Se envió la corrección de esta copia.")
+		http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
+		return
+	case errors.Is(err, controls.ErrControlNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+	case errors.Is(err, controls.ErrReadingNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound,
+			"Aún no hay una lectura para esta copia. Sube el escaneo primero.")
+	case errors.Is(err, controls.ErrNotGraded):
+		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
+			"Todavía no se puede enviar: cierra la corrección primero.")
+	case errors.Is(err, controls.ErrNoCourse):
+		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
+			"Este control no está asignado a un curso, así que no hay a quién enviarle nada.")
+	case errors.Is(err, controls.ErrCannotDeliver):
+		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
+			"Este servidor no está configurado para enviar correo de verdad "+
+				"(NALANDA_EMAIL_MODE), así que no se envió nada.")
+	case errors.Is(err, gmail.ErrNotConnected):
+		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
+			"No tienes una cuenta de Gmail conectada, así que no se puede enviar nada. "+
+				"Conéctala en tu perfil y vuelve a intentarlo.")
+	case errors.Is(err, controls.ErrCopyNotDeliverable):
+		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
+			copyNotDeliverableMessage(err))
+	default:
+		h.Log.Error("publish copy", "control", id, "copy", copyNumber, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"No se pudo enviar la corrección. Vuelve a intentarlo en unos segundos.")
+	}
+}
+
+// copyNotDeliverableMessage names WHICH of the three reasons stopped the
+// send, because each has a different repair and all three are reached from
+// the same button. "No se pudo enviar" for all of them would send the
+// professor to the wrong screen — the same reasoning as
+// publishFailureReason one layer down.
+func copyNotDeliverableMessage(err error) string {
+	var refusal *controls.CopyNotDeliverableError
+	if !errors.As(err, &refusal) {
+		return "No hay nada que enviar para esta copia."
+	}
+	switch refusal.Reason {
+	case controls.SkipNoStudent:
+		return "Esta copia no está asociada a nadie del curso, así que no hay a quién enviarle " +
+			"la corrección. Corrige el RUT aquí arriba, o revisa la lista del curso."
+	case controls.SkipNoGrade:
+		return "Esta copia no tiene una nota definida, así que no hay qué enviar. Resuelve las " +
+			"respuestas dudosas aquí arriba y vuelve a intentarlo."
+	case controls.SkipNoAnnotated:
+		return "Esta copia todavía no tiene su PDF corregido, así que el correo iría sin el " +
+			"adjunto. Cierra la corrección para generarlo."
+	default:
+		return "No hay nada que enviar para esta copia."
+	}
 }
 
 // fillPublication populates the detail page's publication half.

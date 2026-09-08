@@ -69,6 +69,12 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 		Graded:     control.State == controls.Graded,
 		RUT:        toReviewRUT(reading, control),
 		Questions:  toReviewQuestions(reading, h.Bank.Get()),
+		// Issue #287: the per-student send. Gated on the same state the
+		// batch button is — a correction that is still open has no
+		// corrected PDF to attach and no settled grade to quote.
+		PublishCopyURL:    copyPublishURL(id, copyNumber),
+		ShowPublishCopy:   control.State == controls.Graded,
+		CopyPublishedLine: copyPublishedLine(reading),
 	}
 	// Issue #190: the corrected PDF replaces the raw scan once it exists.
 	// The lookup failure is a 500 — same convention as the reading list on
@@ -87,6 +93,29 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 	if err := view.RenderReview(w, page); err != nil {
 		h.Log.Error("rendering review", "error", err)
 	}
+}
+
+// copyPublishedLine words what this one copy's student is holding.
+//
+// Read off the reading's own two columns and nothing else: "what did this
+// person receive" is a question the copy answers by itself, and a roster
+// lookup here would make the review page depend on a Canvas import to
+// render a sentence about mail that already went out.
+//
+// The grade is rendered exactly as it is stored, dot and all, because
+// that is how every other grade on the professor's screens reads — the
+// Chilean comma is the MESSAGE's convention (controls.spanishDecimal),
+// applied at the text a student sees. Two conventions on one screen would
+// be worse than the one that is already there.
+func copyPublishedLine(r controls.Reading) string {
+	if r.PublishedAt == nil {
+		return ""
+	}
+	when := "Enviada el " + r.PublishedAt.Format("02-01-2006 15:04")
+	if r.PublishedGrade == "" {
+		return when + "."
+	}
+	return when + ", con un " + r.PublishedGrade + "."
 }
 
 // SaveReview handles POST /controls/:id/copies/:copy/review. Reads the

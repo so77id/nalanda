@@ -165,6 +165,19 @@ var (
 	// ErrNoCourse is a control nobody has filed under a course, so there
 	// is no roster to address.
 	ErrNoCourse = errors.New("controls: the control belongs to no course")
+	// ErrCopyNotDeliverable is one copy PublishOne has nothing to send
+	// about: nobody matched, no defined grade, or no annotated PDF (issue
+	// #287). Wrapped by CopyNotDeliverableError, which carries WHICH of
+	// the three it is so the review page can say what to fix.
+	//
+	// A distinct sentinel rather than reusing the batch's silence: a
+	// publication SKIPS such a copy because a class where two people
+	// missed the control is a normal class, but a professor who pressed
+	// "Enviar la corrección" on one copy asked about THAT copy, and
+	// answering them with a success flash over nothing is the "green over
+	// nothing" #273's review spent itself removing.
+	ErrCopyNotDeliverable = errors.New("controls: there is nothing to send for this copy")
+
 	// ErrCannotDeliver is a process whose transport sends nothing —
 	// NALANDA_EMAIL_MODE is `stub` or `dryrun`.
 	//
@@ -350,6 +363,116 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 	// column and its writer go in the slice that removes the last of its
 	// readers.
 	return result, nil
+}
+
+// CopyNotDeliverableError names WHICH of the three reasons stopped one
+// copy, so the review page can say what to fix rather than "no se pudo".
+//
+// A typed error beside the sentinel, the AnalyzerRefusedError shape: the
+// caller branches on errors.Is(err, ErrCopyNotDeliverable) and reads the
+// Reason off the concrete value when it wants to be specific.
+type CopyNotDeliverableError struct {
+	CopyNumber int
+	Reason     CopySkipReason
+}
+
+func (e *CopyNotDeliverableError) Error() string {
+	return fmt.Sprintf("controls: copy %d cannot be published (%s)", e.CopyNumber, e.Reason)
+}
+
+func (e *CopyNotDeliverableError) Unwrap() error { return ErrCopyNotDeliverable }
+
+// PublishOne sends ONE copy's correction, synchronously, whatever state
+// that copy is in (issue #287).
+//
+// WHY SYNCHRONOUS, when Publish is a job. `apps/server/CLAUDE.md`'s rule is
+// that the shape of the WORK decides, not who it talks to: async is for the
+// loop nobody can wait on — forty Gmail calls plus forty PDFs off the
+// shared volume against a 30 s write timeout. One Gmail call and one PDF is
+// a bounded third-party call the professor waits on, the same shape as
+// #271's Canvas lookups, and it is pressed from the review page where they
+// have just finished re-correcting somebody and want to know it went.
+//
+// WHATEVER STATE: it does not consult NeedsSending. That is the whole point
+// — it is the manual override for the case the staleness rule cannot see
+// (§3), a re-annotation that moved the marks without moving the total. The
+// professor knows whose marks they just fixed; the machine does not.
+//
+// It does NOT stamp the control. `control.published_at` means "this class
+// was published", and one student receiving their correction is not that.
+// A control that has only ever been written to one copy at a time shows no
+// "Publicado el …" line, which is the truth.
+func (s *Service) PublishOne(ctx context.Context, controlID string, copyNumber int, professorID int64) error {
+	control, err := s.Store.ControlByID(ctx, controlID)
+	if err != nil {
+		return err
+	}
+	switch {
+	case control.State != Graded:
+		return fmt.Errorf("%w", ErrNotGraded)
+	case control.CourseID == nil:
+		return fmt.Errorf("%w", ErrNoCourse)
+	case !s.Dispatcher.Delivers():
+		return fmt.Errorf("%w", ErrCannotDeliver)
+	}
+
+	sender, err := s.Senders.SenderFor(ctx, professorID)
+	if err != nil {
+		return fmt.Errorf("controls.PublishOne: read the sender: %w", err)
+	}
+	if sender.GmailAddress == "" {
+		return fmt.Errorf("%w", gmail.ErrNotConnected)
+	}
+
+	reading, err := s.Readings.ReadingByCopy(ctx, controlID, copyNumber)
+	if err != nil {
+		return err
+	}
+	code, recipients, err := s.Roster.CourseForPublication(ctx, *control.CourseID)
+	if err != nil {
+		return fmt.Errorf("controls.PublishOne: read the course: %w", err)
+	}
+	// One copy, so one lookup — not the whole control's map. The map shape
+	// exists for the loops; building it here would read thirty rows to use
+	// one.
+	annotated := map[int]AnnotatedCopy{}
+	if record, exists, err := s.Store.AnnotatedByCopy(ctx, controlID, copyNumber); err != nil {
+		return fmt.Errorf("controls.PublishOne: read the corrected PDF: %w", err)
+	} else if exists {
+		annotated[copyNumber] = record
+	}
+
+	if _, _, reason, ok := deliverableCopy(control, reading, recipients, annotated); !ok {
+		return &CopyNotDeliverableError{CopyNumber: copyNumber, Reason: reason}
+	}
+
+	message, ok := s.messageFor(control, code, sender, PublishRequest{
+		ProfessorID: professorID,
+		Mode:        PublishModeReal,
+	}, recipients, annotated, reading)
+	if !ok {
+		// deliverableCopy said yes and the bytes are not there: the record
+		// exists and the file on the volume does not.
+		return &CopyNotDeliverableError{CopyNumber: copyNumber, Reason: SkipNoAnnotated}
+	}
+
+	if _, err := s.Dispatcher.Send(ctx, professorID, message); err != nil {
+		// The copy NUMBER, never the address (docs/security-notes.md
+		// §"Logs and personal data").
+		s.Log.Error("controls.PublishOne: send failed",
+			"control", controlID, "copy", copyNumber, "error", err)
+		return err
+	}
+
+	// After the send, like the loop's — and here the professor is waiting,
+	// so a stamp that fails is worth returning rather than logging: they
+	// would otherwise be told it went, and the next Publicar would send it
+	// again.
+	publication := CopyPublicationFor(control, reading, recipients, annotated)
+	if err := s.Readings.MarkCopyPublished(ctx, reading.ID, s.Now(), publication.Grade); err != nil {
+		return fmt.Errorf("controls.PublishOne: record that the copy was sent: %w", err)
+	}
+	return nil
 }
 
 // messageFor assembles one copy's message, or reports that there is

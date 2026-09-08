@@ -3,9 +3,11 @@ package handler_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -532,5 +534,155 @@ func TestThePublishedLineDoesNotCreditAStagingRunWithReachingTheClass(t *testing
 	}
 	if strings.Contains(body, "correos a los estudiantes") {
 		t.Error("the published line credits a staging run with reaching the class")
+	}
+}
+
+// The per-student send, from the review page (issue #287 §6).
+//
+// SYNCHRONOUS, unlike Publicar: one Gmail call and one PDF is a bounded
+// third-party call the professor waits on, and they press it having just
+// finished re-correcting somebody.
+
+func (f *controlsFixture) publishCopy(t *testing.T, controlID string, copyNumber int) *httptest.ResponseRecorder {
+	t.Helper()
+
+	target := fmt.Sprintf("/controls/%s/copies/%d/publish", controlID, copyNumber)
+	req := f.authedRequest(t, http.MethodPost, target, url.Values{})
+	req.SetPathValue("id", controlID)
+	req.SetPathValue("copy", strconv.Itoa(copyNumber))
+	rec := httptest.NewRecorder()
+	f.handler.PublishCopy(rec, req)
+	return rec
+}
+
+// The fixture's single copy is matched to nobody, so the send is refused —
+// with the reason, which is the whole point of distinguishing the three.
+func TestPublishingOneCopyNamesWhyWhenThereIsNobodyToWriteTo(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	rec := f.publishCopy(t, controlID, 1)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422\n%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "no está asociada") {
+		t.Errorf("the refusal does not say the copy is matched to nobody:\n%s", rec.Body.String())
+	}
+}
+
+func TestPublishingOneCopyRefusesAnOpenCorrection(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 2", 2)
+	if err := f.service.AssignCourse(context.Background(), controlID, f.courseID); err != nil {
+		t.Fatalf("AssignCourse: %v", err)
+	}
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	rec := f.publishCopy(t, controlID, 1)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422\n%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "cierra la corrección") {
+		t.Errorf("the refusal does not say to close the correction first:\n%s", rec.Body.String())
+	}
+}
+
+// AC9: refused under a transport that delivers nothing, the same gate the
+// batch carries and for the same reason — under `stub` every send
+// "succeeds", so without it the professor is told a student was written to
+// over nothing.
+func TestPublishingOneCopyIsRefusedWhenThisServerCannotDeliver(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+	f.rebuildWithDispatcher(t, email.NewStubDispatcher())
+
+	rec := f.publishCopy(t, controlID, 1)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422\n%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "NALANDA_EMAIL_MODE") {
+		t.Errorf("the refusal does not name the variable:\n%s", rec.Body.String())
+	}
+}
+
+func TestPublishingOneCopyRefusesAProfessorWithNoConnectedAccount(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+	f.rebuildWithGmail(t, connectedGmail{disconnected: true})
+
+	rec := f.publishCopy(t, controlID, 1)
+	if rec.Code != http.StatusUnprocessableEntity {
+		t.Fatalf("status = %d, want 422\n%s", rec.Code, rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), "cuenta de Gmail") {
+		t.Errorf("the refusal does not mention the missing account:\n%s", rec.Body.String())
+	}
+}
+
+func TestPublishingACopyThatDoesNotExistIs404(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	rec := f.publishCopy(t, controlID, 99)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404\n%s", rec.Code, rec.Body.String())
+	}
+}
+
+// The review page offers the button once the correction is closed, and not
+// before: an open correction has no corrected PDF to attach and no settled
+// grade to quote.
+func TestTheReviewPageOffersThePerStudentSendOnlyOnAClosedCorrection(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 2", 2)
+	if err := f.service.AssignCourse(context.Background(), controlID, f.courseID); err != nil {
+		t.Fatalf("AssignCourse: %v", err)
+	}
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	target := fmt.Sprintf("/controls/%s/copies/1/publish", controlID)
+	if body := reviewBody(t, f, controlID, 1); strings.Contains(body, target) {
+		t.Error("the review page offers the per-student send while the correction is still open")
+	}
+
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/close", nil)
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.CloseCorrection(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("close status = %d, want 303", rec.Code)
+	}
+
+	body := reviewBody(t, f, controlID, 1)
+	if !strings.Contains(body, `action="`+target+`"`) {
+		t.Errorf("the review page does not offer the per-student send once closed:\n%s", body)
+	}
+	if !strings.Contains(body, "Enviar la corrección a esta persona") {
+		t.Errorf("the button has no label a professor can read:\n%s", body)
+	}
+}
+
+// And once a copy has gone out, the page says so — read off the copy's own
+// two columns, with no roster lookup: "what did this person receive" is a
+// question the copy answers by itself.
+func TestTheReviewPageSaysWhenThisCopyWentOut(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	if _, err := f.db.ExecContext(context.Background(),
+		"UPDATE reading SET published_at = 1757264400, published_grade = '5.7' "+
+			"WHERE control_id = ? AND copy_number = 1", controlID); err != nil {
+		t.Fatalf("stamping the copy: %v", err)
+	}
+
+	body := reviewBody(t, f, controlID, 1)
+	if !strings.Contains(body, "Enviada el") || !strings.Contains(body, "5.7") {
+		t.Errorf("the review page does not say what this copy was sent with:\n%s", body)
 	}
 }
