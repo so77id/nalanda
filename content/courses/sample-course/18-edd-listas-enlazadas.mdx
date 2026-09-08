@@ -406,8 +406,255 @@ error aparece más tarde, en una operación que sí confiaba en ella.
 
 ## Las variantes de la lista
 
-{/* S6 — con tail, doblemente enlazada, ordenada, circular. Cada una agrega */}
-{/* una pieza y cambia una fila de la tabla. */}
+<Slide title="La lista con tail · un puntero más">
+La primera variante agrega un solo atributo:
+
+```java
+public class Lista {
+    private Nodo head;
+    private Nodo tail;
+    private int size;
+}
+```
+
+`tail` guarda una referencia al último nodo. Con eso aparece una cuarta
+invariante, y mantenerla es trabajo de cada operación:
+
+4. **`tail` apunta al último nodo de la cadena, o a `null` si está vacía.**
+   Si queda apuntando a un nodo que ya salió de la lista, insertar al final
+   enlaza contra un nodo inalcanzable y lo insertado se pierde.
+
+Las tres invariantes anteriores no cambian. Lo único nuevo es esta, y todo lo
+que sigue se explica por ella.
+
+</Slide>
+
+<Slide title="insertLast con tail · llegar sin caminar">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-last"
+  values={[7, 3, 1, 5]}
+  value={9}
+  tail
+/>
+
+El recorrido desapareció. `tail` ya tiene en la mano el nodo que hay que
+modificar, así que enlazar el nodo nuevo y actualizar `tail` son dos
+asignaciones: la operación baja de $$\Theta(N)$$ a $$\Theta(1)$$.
+
+Es el patrón que se repite en toda la unidad: guardar un dato de más
+—un puntero— convierte un recorrido en una lectura.
+
+</Slide>
+
+<Slide title="deleteLast con tail · el que no baja">
+La simetría invita a esperar que eliminar al final también baje a
+$$\Theta(1)$$. No lo hace.
+
+<SequenceStepper eda="linked-list-singly" operation="remove-last" values={[7, 3, 1, 5]} tail />
+
+`tail` entrega el último nodo de inmediato, pero el nodo que hay que
+modificar es el **anteúltimo**: alguien tiene que pasar a apuntar a `null`, y
+ese alguien no es el que sale. Después de eliminar, además, `tail` tiene que
+apuntar al anteúltimo, así que hace falta igual.
+
+Un enlace apunta en una sola dirección. Desde el último nodo no se puede
+retroceder, y `tail` da acceso al final, no al camino de vuelta. La operación
+sigue costando $$\Theta(N)$$.
+
+</Slide>
+
+<Slide title="La lista doblemente enlazada · el enlace de vuelta">
+La segunda variante ataca exactamente esa carencia. Cada nodo gana un
+segundo enlace:
+
+```java
+class Nodo {
+    int valor;
+    Nodo next;
+    Nodo prev;
+}
+```
+
+Con eso aparece la invariante que le da sentido:
+
+5. **Si `a.next` es `b`, entonces `b.prev` es `a`.** Los dos enlaces
+   describen la misma cadena en sentidos opuestos. Si se desincronizan,
+   recorrer hacia adelante y hacia atrás da dos listas distintas, y las dos
+   parecen correctas por separado.
+
+El primer nodo tiene `prev == null` y el último `next == null`, igual que
+antes.
+
+</Slide>
+
+<Slide title="deleteLast en la doblemente enlazada">
+<SequenceStepper eda="linked-list-doubly" operation="remove-last" values={[7, 3, 1, 5]} tail />
+
+Ahora sí. `tail` da el último nodo y `tail.prev` da el anteúltimo sin
+recorrer nada: la operación baja a $$\Theta(1)$$.
+
+Lo mismo vale para eliminar cualquier nodo que ya tengamos en la mano. En una
+lista simplemente enlazada, tener el nodo no alcanza —hay que buscar quién lo
+apunta—; en una doblemente enlazada, `nodo.prev` y `nodo.next` son
+suficientes para sacarlo de la cadena con dos asignaciones.
+
+</Slide>
+
+<Slide title="El precio del enlace de vuelta">
+Nada de esto es gratis, y el costo se paga en dos monedas.
+
+- **Memoria.** Cada nodo guarda una referencia más. Sobre $$N$$ nodos son
+  $$N$$ referencias extra, así que el espacio adicional es $$\Theta(N)$$.
+- **Trabajo en cada modificación.** Toda operación que cambia la cadena tiene
+  que dejar consistentes los dos enlaces. Donde antes había una asignación
+  ahora hay dos, y olvidar una rompe la quinta invariante sin que nada avise
+  en el momento.
+
+El orden asintótico de las operaciones no empeora: siguen siendo las mismas
+constantes o los mismos recorridos. Lo que crece es el trabajo por paso y la
+cantidad de casos que hay que escribir bien.
+
+</Slide>
+
+<Slide title="La lista ordenada · una invariante en vez de un puntero">
+La tercera variante no agrega ningún campo. Agrega una promesa:
+
+6. **Recorriendo la cadena desde `head`, los valores no decrecen.** El orden
+   de la lista deja de ser el orden en que se insertó cada elemento y pasa a
+   ser el orden de los valores.
+
+Es la primera variante que cambia el **contrato** y no la representación. Una
+lista ordenada ya no cumple el TDA Sequence: `insertAt(i, x)` permitiría
+poner cualquier valor en cualquier posición, que es justamente lo que esta
+invariante prohíbe. La operación de inserción pasa a ser una sola, y no
+recibe posición.
+
+</Slide>
+
+<Slide title="insertOrdenado · la posición la decide el valor">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-ordered"
+  values={[1, 3, 7, 9]}
+  target={5}
+/>
+
+El recorrido avanza mientras el valor del nodo siguiente sea menor que el que
+insertamos, y se detiene en cuanto deja de serlo: ahí está el lugar. Enlazar
+es lo de siempre, dos asignaciones.
+
+El costo es $$\Theta(N)$$ en el peor caso —el valor va al final—, igual que
+`insertAt`. La diferencia no está en el costo sino en quién elige la
+posición: aquí la elige el valor, y por eso la invariante se mantiene sola.
+
+</Slide>
+
+<Slide title="Qué gana la lista ordenada">
+La ganancia aparece en las búsquedas que **fracasan**.
+
+Sobre una lista sin ordenar, buscar un valor que no está obliga a recorrer
+los $$N$$ nodos: hasta el último no se puede descartar. Sobre una lista
+ordenada, el recorrido puede abandonar apenas encuentra un valor mayor que el
+buscado, porque todo lo que sigue es todavía mayor.
+
+En el peor caso sigue siendo $$\Theta(N)$$ —el valor buscado podría ser mayor
+que todos—, y esa es la parte que conviene no perder de vista: el orden
+mejora el promedio, no la cota. Lo que la lista ordenada **no** consigue es
+la búsqueda binaria, porque llegar al nodo del medio sigue costando recorrer
+media cadena.
+
+</Slide>
+
+<Slide title="La lista circular · el último vuelve al primero">
+La cuarta variante cambia una sola referencia: la del último nodo, que en
+vez de `null` apunta a `head`.
+
+<SequenceStepper
+  eda="linked-list-circular"
+  operation="insert-first"
+  values={[7, 3, 1, 5]}
+  value={9}
+/>
+
+La invariante de terminación se reemplaza:
+
+7. **El `next` del último nodo apunta a `head`.** Ningún nodo tiene `next` en
+   `null`. Desde cualquier nodo se llega a todos los demás.
+
+Es un cambio pequeño con una consecuencia grande: **ningún recorrido termina
+solo**. Un `while (actual != null)` sobre una lista circular no se detiene
+nunca. La condición de corte pasa a ser haber vuelto al punto de partida,
+`actual.next != head`, y hay que escribirla a propósito en cada recorrido.
+
+</Slide>
+
+<Slide title="Dónde sirve que no haya final">
+La lista circular resuelve un problema concreto: recorrer una colección de
+manera indefinida sin tratar el final como un caso especial.
+
+- **Turnos rotativos.** Un planificador que reparte tiempo entre procesos
+  avanza un nodo por turno; cuando se acaban, ya está en el primero otra vez
+  sin ninguna comprobación.
+- **Listas de reproducción en repetición.** El siguiente del último tema es
+  el primero, y esa regla vive en la estructura en vez de en el código que la
+  usa.
+- **Buffers circulares.** Un espacio fijo donde lo nuevo sobrescribe lo más
+  viejo, como el registro de los últimos eventos de un sistema.
+
+En los tres, la alternativa sería preguntar «¿llegué al final?» en cada paso.
+La estructura hace que la pregunta no exista.
+
+</Slide>
+
+<Slide title="Las piezas se combinan">
+Las cuatro variantes son independientes y se acumulan. Lo habitual es
+encontrarlas juntas:
+
+- **Doblemente enlazada con tail** es la combinación más frecuente, y es la
+  que usa `LinkedList` de Java. Con ella, insertar y eliminar en cualquiera
+  de los dos extremos cuesta $$\Theta(1)$$.
+- **Circular y doblemente enlazada** permite recorrer en los dos sentidos sin
+  final, que es lo que quiere un carrusel.
+- **Ordenada con tail** deja insertar el máximo sin recorrer, y es útil
+  cuando los valores tienden a llegar en orden.
+
+Cada pieza se paga por separado: `tail` cuesta una referencia por lista,
+`prev` cuesta una por nodo, el orden cuesta perder `insertAt`, y el ciclo
+cuesta escribir cada recorrido con su corte explícito.
+
+</Slide>
+
+<Slide title="Insertar, por variante">
+| Operación | Simple | Con tail | Doble con tail | Ordenada |
+|---|---|---|---|---|
+| `insertFirst(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ | $$\Theta(1)$$ | no aplica |
+| `insertLast(x)` | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | no aplica |
+| `insertAt(i, x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | no aplica |
+| `insertOrdenado(x)` | — | — | — | $$\Theta(N)$$ |
+
+La única fila que se mueve al agregar `tail` es `insertLast`, y se mueve
+porque `tail` es exactamente el nodo que esa operación necesitaba encontrar.
+`insertAt` no mejora en ninguna variante: el nodo previo a una posición
+arbitraria no lo guarda nadie.
+
+</Slide>
+
+<Slide title="Eliminar y buscar, por variante">
+| Operación | Simple | Con tail | Doble con tail | Ordenada |
+|---|---|---|---|---|
+| `deleteFirst()` | $$\Theta(1)$$ | $$\Theta(1)$$ | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| `deleteLast()` | $$\Theta(N)$$ | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | $$\Theta(N)$$ |
+| `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| `buscar(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+
+`deleteLast` es la fila que distingue las variantes entre sí. Con `tail` no
+baja, porque lo que falta es el nodo anterior; con `prev` sí baja, porque es
+justamente el nodo anterior lo que `prev` guarda. Es la mejor prueba de que
+la pieza que hay que agregar se deduce de qué nodo necesita la operación, y
+no de dónde ocurre.
+
+</Slide>
 
 <SectionBreak />
 
