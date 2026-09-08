@@ -169,7 +169,7 @@ func (s *Store) MarkMissingAsNotPresent(ctx context.Context, controlID string, n
 // copy_number ascending, with overrides eagerly attached.
 func (s *Store) ReadingsByControl(ctx context.Context, controlID string) ([]controls.Reading, error) {
 	rows, err := s.db.QueryContext(ctx, `
-        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json, student_id
+        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json, student_id, published_at, published_grade
         FROM reading
         WHERE control_id = ?
         ORDER BY copy_number ASC`, controlID)
@@ -199,7 +199,7 @@ func (s *Store) ReadingsByControl(ctx context.Context, controlID string) ([]cont
 // ErrReadingNotFound.
 func (s *Store) ReadingByCopy(ctx context.Context, controlID string, copyNumber int) (controls.Reading, error) {
 	row := s.db.QueryRowContext(ctx, `
-        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json, student_id
+        SELECT id, control_id, copy_number, rut_read, rut_status, copy_status, read_at, last_edited_at, pages_json, student_id, published_at, published_grade
         FROM reading
         WHERE control_id = ? AND copy_number = ?`, controlID, copyNumber)
 	r, err := scanReading(row)
@@ -448,6 +448,126 @@ func (s *Store) SetReadingStudent(ctx context.Context, readingID int64, studentI
 	return nil
 }
 
+// MarkCopyPublished stamps one copy with when its message went out and the
+// grade that went with it (issue #287).
+//
+// Both columns in ONE statement: they are one fact, and a row carrying a
+// timestamp without the grade it sent would make every staleness comparison
+// downstream read "the grade changed" for a copy nothing changed about.
+//
+// Deliberately does NOT stamp last_edited_at, for the same reason
+// SetReadingStudent does not: that column means "a human decided something
+// about this copy", and it is what the review queue uses to tell a copy
+// somebody looked at from one nobody has. Sending mail is not a correction.
+//
+// Checks RowsAffected for the reason SetReadingStudent and SetControlCourse
+// do: an UPDATE against an id nothing carries succeeds and touches nothing,
+// and a publication would then count a copy as sent that no row records —
+// which is precisely the copy the next resume would skip.
+func (s *Store) MarkCopyPublished(ctx context.Context, readingID int64, at time.Time, grade string) error {
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE reading SET published_at = ?, published_grade = ? WHERE id = ?`,
+		at.Unix(), grade, readingID)
+	if err != nil {
+		return fmt.Errorf("controlstore.MarkCopyPublished %d: %w", readingID, err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("controlstore.MarkCopyPublished %d: rows affected: %w", readingID, err)
+	}
+	if affected == 0 {
+		return fmt.Errorf("controlstore.MarkCopyPublished %d: %w", readingID, controls.ErrReadingNotFound)
+	}
+	return nil
+}
+
+// PublicationCountsSQL is the statement PublicationCounts runs.
+//
+// Exported so TestPublicationCountsRunsAsOneStatementOverTheIndexes can
+// EXPLAIN the statement production actually executes rather than restating
+// it — the one-text reasoning CopiesForStudentSQL carries, and the reason
+// #272's review found a guard EXPLAINing a query nothing ran any more
+// (COR-9).
+//
+// ONE statement for the whole page, in the shape of
+// coursestore.EnrollmentCounts. A count per row is the N+1 #271's review
+// removed from the course list and apps/server/CLAUDE.md names as a
+// standing rule; a list of controls is exactly where it would come back.
+//
+// The LEFT JOIN is what makes "has a corrected PDF" answerable in SQL. The
+// two facts this query can see — a matched student and an annotated record
+// — are a SUBSET of what CopyPublicationFor tests, so `deliverable` can
+// only be too big: see PublicationProgress.Deliverable for why that is the
+// right direction to be wrong in.
+//
+// Archived controls are excluded for the same reason ListControls hides
+// them: the list this feeds does not show them.
+const PublicationCountsSQL = `
+        SELECT reading.control_id,
+               COUNT(*) FILTER (WHERE reading.published_at IS NOT NULL),
+               COUNT(*) FILTER (WHERE reading.student_id IS NOT NULL
+                                  AND annotated_copy.control_id IS NOT NULL)
+        FROM reading
+        JOIN control ON control.id = reading.control_id
+        LEFT JOIN annotated_copy
+               ON annotated_copy.control_id = reading.control_id
+              AND annotated_copy.copy_number = reading.copy_number
+        WHERE control.deleted_at IS NULL
+        GROUP BY reading.control_id`
+
+// PublicationCounts tallies every active control's publication in one
+// statement (issue #287 §8).
+func (s *Store) PublicationCounts(ctx context.Context) (map[string]controls.PublicationProgress, error) {
+	rows, err := s.db.QueryContext(ctx, PublicationCountsSQL)
+	if err != nil {
+		return nil, fmt.Errorf("controlstore.PublicationCounts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	out := map[string]controls.PublicationProgress{}
+	for rows.Next() {
+		var (
+			controlID string
+			progress  controls.PublicationProgress
+		)
+		if err := rows.Scan(&controlID, &progress.Sent, &progress.Deliverable); err != nil {
+			return nil, fmt.Errorf("controlstore.PublicationCounts: scan: %w", err)
+		}
+		out[controlID] = progress
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("controlstore.PublicationCounts: iterate: %w", err)
+	}
+	return out, nil
+}
+
+// ClearCopyPublications removes every per-copy publication stamp of one
+// control and returns how many it removed (issue #287).
+//
+// The `WHERE published_at IS NOT NULL` is not an optimisation: RowsAffected
+// is what the flash quotes back to the professor, and without the guard it
+// would count every copy of the control including the ones nobody ever
+// wrote to — telling somebody that thirty people will receive a second copy
+// when three did.
+//
+// Deliberately does NOT stamp last_edited_at, the same reason
+// MarkCopyPublished and SetReadingStudent do not: that column means a human
+// decided something ABOUT THE CORRECTION, and re-sending mail is not a
+// correction.
+func (s *Store) ClearCopyPublications(ctx context.Context, controlID string) (int, error) {
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE reading SET published_at = NULL, published_grade = NULL
+         WHERE control_id = ? AND published_at IS NOT NULL`, controlID)
+	if err != nil {
+		return 0, fmt.Errorf("controlstore.ClearCopyPublications %s: %w", controlID, err)
+	}
+	cleared, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("controlstore.ClearCopyPublications %s: rows affected: %w", controlID, err)
+	}
+	return int(cleared), nil
+}
+
 // SetRUTOverride upserts the RUT override.
 func (s *Store) SetRUTOverride(ctx context.Context, readingID int64, rut string, editedAt time.Time) error {
 	tx, err := s.db.BeginTx(ctx, nil)
@@ -509,10 +629,22 @@ func scanReading(row interface{ Scan(...any) error }) (controls.Reading, error) 
 		lastEditedAtRaw sql.NullInt64
 		pagesJSON       string
 		studentID       sql.NullInt64
+		publishedAtRaw  sql.NullInt64
+		publishedGrade  sql.NullString
 	)
-	if err := row.Scan(&r.ID, &r.ControlID, &r.CopyNumber, &rutRead, &rutStatus, &copyStatus, &readAt, &lastEditedAtRaw, &pagesJSON, &studentID); err != nil {
+	if err := row.Scan(&r.ID, &r.ControlID, &r.CopyNumber, &rutRead, &rutStatus, &copyStatus, &readAt, &lastEditedAtRaw, &pagesJSON, &studentID, &publishedAtRaw, &publishedGrade); err != nil {
 		return controls.Reading{}, err
 	}
+	// #287: the pair is written together, so a NULL published_at is the
+	// whole of "never sent" and the grade beside it is NULL too. Read
+	// independently anyway — the scan describes what the columns hold, and
+	// inferring one from the other here would put the invariant in a second
+	// place.
+	if publishedAtRaw.Valid {
+		at := time.Unix(publishedAtRaw.Int64, 0).UTC()
+		r.PublishedAt = &at
+	}
+	r.PublishedGrade = publishedGrade.String
 	if studentID.Valid {
 		id := studentID.Int64
 		r.StudentID = &id

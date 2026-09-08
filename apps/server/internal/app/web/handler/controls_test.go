@@ -1764,6 +1764,25 @@ func (f *controlsFixture) rebuildWithGmail(t *testing.T, connection handler.Gmai
 	})
 }
 
+// rebuildWithReadings swaps the SERVICE's ReadingStore, so a case can
+// count what a page asks of it (issue #287).
+func (f *controlsFixture) rebuildWithReadings(t *testing.T, readings controls.ReadingStore) {
+	t.Helper()
+	f.service.Readings = readings
+}
+
+// controlsListBody renders /controls and returns the page (issue #287).
+func (f *controlsFixture) controlsListBody(t *testing.T) string {
+	t.Helper()
+	req := f.authedRequest(t, http.MethodGet, "/controls", nil)
+	rec := httptest.NewRecorder()
+	f.handler.List(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("List status = %d, want 200; body:\n%s", rec.Code, rec.Body.String())
+	}
+	return rec.Body.String()
+}
+
 func (f *controlsFixture) detailBody(t *testing.T, controlID string) string {
 	t.Helper()
 	rec := httptest.NewRecorder()

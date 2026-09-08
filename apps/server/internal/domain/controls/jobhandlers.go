@@ -239,9 +239,46 @@ func NewPublishHandler(svc *Service) jobs.Handler {
 }
 
 // publishSummary is the one line the banner renders.
+//
+// It names EVERY outcome the run produced, not only the sends. A resume
+// that writes to nobody is a finished job, and "se enviaron 0 correcciones
+// y 0 fallaron" reads as a broken one — which is what made the staging bug
+// (#287 review, COR-1) silent rather than loud. AlreadySent and Skipped
+// were both computed and surfaced nowhere, which is the same defect issue
+// #287 opens by naming about Skipped.
+//
+// Zero terms are omitted rather than printed: "y 0 fallaron" on a clean run
+// invites the professor to look for a failure there is none of.
 func publishSummary(r PublishResult) string {
-	return fmt.Sprintf("se enviaron %d correcciones y %d fallaron",
-		r.Sent, len(r.Failures))
+	// Every term agrees in number, like the three sibling functions on the
+	// publication screens. "1 se omitieron" is the kind of string a
+	// professor reads as a bug in the count (#287 review, COR-10).
+	parts := []string{plural(r.Sent, "se envió 1 corrección", "se enviaron %d correcciones")}
+	if r.AlreadySent > 0 {
+		parts = append(parts, plural(r.AlreadySent, "1 ya estaba al día", "%d ya estaban al día"))
+	}
+	if r.Skipped > 0 {
+		parts = append(parts, plural(r.Skipped, "1 se omitió", "%d se omitieron"))
+	}
+	if len(r.Failures) > 0 {
+		parts = append(parts, plural(len(r.Failures), "1 falló", "%d fallaron"))
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return strings.Join(parts[:len(parts)-1], ", ") + " y " + parts[len(parts)-1]
+}
+
+// plural picks the singular sentence or formats the plural one.
+//
+// Spanish, in the domain, for the same reason publishFailureReason is: the
+// banner's text is assembled here, and splitting the number agreement from
+// the sentence it agrees with would put one fact in two packages.
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return fmt.Sprintf(many, n)
 }
 
 // publishDetail lists the copies that did not go out, so the professor
@@ -282,12 +319,6 @@ func failureFromPublishError(err error) error {
 			Message: "este servidor no está configurado para enviar correo",
 			Detail: "NALANDA_EMAIL_MODE no está en `real`, así que no se envió nada y el " +
 				"control quedó sin publicar.",
-		}
-	case errors.Is(err, ErrAlreadyPublished):
-		return &jobs.Failure{
-			Message: "este control ya fue publicado",
-			Detail: "Si hace falta volver a enviarlo, deshaz la publicación desde la página " +
-				"del control: ahí verás cuántos correos llegaron a salir antes de decidir.",
 		}
 	default:
 		return &jobs.Failure{

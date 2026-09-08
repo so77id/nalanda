@@ -90,8 +90,12 @@ type Dispatcher interface {
 	// once at boot from NALANDA_EMAIL_MODE, which defaults to `stub`; under
 	// stub every Send succeeds, so a publication counted forty successes,
 	// stamped the control, and told the professor "las correcciones se
-	// enviaron a los estudiantes" over nothing — irreversibly, because
-	// publication is one-way (#273 review, PUB-2).
+	// enviaron a los estudiantes" over nothing (#273 review, PUB-2).
+	//
+	// That was unrecoverable at the time because publication was one-way;
+	// since #287 it is resumable (ADR-0073), and the rule is UNCHANGED for
+	// the reason that always carried it: a stamp must never assert a
+	// delivery that did not happen.
 	//
 	// The alternative was passing the config mode down into the domain,
 	// which would make every caller of Publish carry a deployment concern.

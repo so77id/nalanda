@@ -746,3 +746,440 @@ func insertReadingFor(t *testing.T, ctx context.Context, db *sql.DB, controlID s
 		t.Fatalf("insert reading %s/%d: %v", controlID, copyNumber, err)
 	}
 }
+
+// Issue #287: the per-copy publication round-trips through both reads.
+//
+// Both readers matter and neither stands in for the other: the copies table
+// renders ReadingsByControl and the review page renders ReadingByCopy, so a
+// column added to one SELECT and forgotten in the other shows the professor
+// two different answers about the same copy on two screens.
+func TestMarkCopyPublishedRoundTripsThroughBothReads(t *testing.T) {
+	ctx, db := migrated(t)
+	seedControl(t, ctx, db, "CTRL0287PUBLISH00000AAAAA", 2)
+	store := controlstore.New(db)
+
+	now := time.Unix(1_757_260_800, 0).UTC()
+	report := controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+			"2": sampleCopy("20999999", controls.CopyStatusOK, controls.RUTStatusOK),
+		},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0287PUBLISH00000AAAAA", report, now); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+
+	before, err := store.ReadingByCopy(ctx, "CTRL0287PUBLISH00000AAAAA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy(1): %v", err)
+	}
+	if before.PublishedAt != nil || before.PublishedGrade != "" {
+		t.Errorf("a freshly read copy carries PublishedAt=%v grade=%q, want the zero pair",
+			before.PublishedAt, before.PublishedGrade)
+	}
+
+	sentAt := time.Unix(1_757_264_400, 0).UTC()
+	if err := store.MarkCopyPublished(ctx, before.ID, sentAt, "5.7"); err != nil {
+		t.Fatalf("MarkCopyPublished: %v", err)
+	}
+
+	one, err := store.ReadingByCopy(ctx, "CTRL0287PUBLISH00000AAAAA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy(1) after the stamp: %v", err)
+	}
+	if one.PublishedAt == nil || !one.PublishedAt.Equal(sentAt) || one.PublishedGrade != "5.7" {
+		t.Errorf("ReadingByCopy reads PublishedAt=%v grade=%q, want %v and \"5.7\"",
+			one.PublishedAt, one.PublishedGrade, sentAt)
+	}
+
+	all, err := store.ReadingsByControl(ctx, "CTRL0287PUBLISH00000AAAAA")
+	if err != nil {
+		t.Fatalf("ReadingsByControl: %v", err)
+	}
+	if len(all) != 2 {
+		t.Fatalf("ReadingsByControl returned %d readings, want 2", len(all))
+	}
+	if all[0].PublishedAt == nil || all[0].PublishedGrade != "5.7" {
+		t.Errorf("copy 1 in the list reads PublishedAt=%v grade=%q, want the stamp",
+			all[0].PublishedAt, all[0].PublishedGrade)
+	}
+	// The stamp is per COPY, so the copy nobody wrote to must stay unstamped.
+	// A statement missing its WHERE passes every assertion above.
+	if all[1].PublishedAt != nil || all[1].PublishedGrade != "" {
+		t.Errorf("copy 2 reads PublishedAt=%v grade=%q, want it untouched",
+			all[1].PublishedAt, all[1].PublishedGrade)
+	}
+}
+
+// MarkCopyPublished against a reading id nothing carries is an error, not a
+// silent success.
+//
+// Same guard, and the same reason, as SetReadingStudent and
+// SetControlCourse: an UPDATE whose WHERE matches nothing succeeds, and a
+// nil return would let a publication count a copy as sent that no row
+// records.
+func TestMarkCopyPublishedRefusesAnUnknownReading(t *testing.T) {
+	ctx, db := migrated(t)
+	store := controlstore.New(db)
+
+	err := store.MarkCopyPublished(ctx, 4242, time.Unix(1_757_264_400, 0).UTC(), "5.7")
+	if !errors.Is(err, controls.ErrReadingNotFound) {
+		t.Errorf("MarkCopyPublished on an unknown reading returned %v, want ErrReadingNotFound", err)
+	}
+}
+
+// THE PROPERTY THE WHOLE FEATURE RESTS ON (issue #287).
+//
+// A re-analysis re-upserts every reading of the control. If that wiped the
+// per-copy publication, one "re-leer con otra sensibilidad" would tell the
+// professor that nobody had received anything — and the next Publicar would
+// mail the entire class a second copy.
+//
+// It survives because upsertReading's ON CONFLICT DO UPDATE SET names its
+// columns explicitly, so a column it does not name is left alone. That is a
+// property of a statement somebody could edit, which is why it is pinned
+// here rather than left to the migration's comment.
+func TestUpsertingAReportPreservesThePerCopyPublication(t *testing.T) {
+	ctx, db := migrated(t)
+	seedControl(t, ctx, db, "CTRL0287REREAD000000AAAAA", 2)
+	store := controlstore.New(db)
+
+	first := time.Unix(1_757_260_800, 0).UTC()
+	report := controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+		},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0287REREAD000000AAAAA", report, first); err != nil {
+		t.Fatalf("Upsert first: %v", err)
+	}
+	reading, err := store.ReadingByCopy(ctx, "CTRL0287REREAD000000AAAAA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy: %v", err)
+	}
+	sentAt := time.Unix(1_757_264_400, 0).UTC()
+	if err := store.MarkCopyPublished(ctx, reading.ID, sentAt, "5.7"); err != nil {
+		t.Fatalf("MarkCopyPublished: %v", err)
+	}
+
+	// The re-read: a different sensitivity produced a different status for
+	// the same copy, which is exactly what a re-analysis is for.
+	second := time.Unix(1_757_270_000, 0).UTC()
+	reread := controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": sampleCopy("20123456", controls.CopyStatusNeedsReview, controls.RUTStatusOK),
+		},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0287REREAD000000AAAAA", reread, second); err != nil {
+		t.Fatalf("Upsert second: %v", err)
+	}
+
+	after, err := store.ReadingByCopy(ctx, "CTRL0287REREAD000000AAAAA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy after the re-read: %v", err)
+	}
+	// Non-vacuity: the re-read must actually have landed, or "the columns
+	// survived" says nothing at all.
+	if !after.ReadAt.Equal(second) || after.CopyStatus != controls.CopyStatusNeedsReview {
+		t.Fatalf("the re-read did not land (ReadAt=%v status=%q), so nothing below is about it",
+			after.ReadAt, after.CopyStatus)
+	}
+	if after.PublishedAt == nil || !after.PublishedAt.Equal(sentAt) || after.PublishedGrade != "5.7" {
+		t.Errorf("after a re-read the copy carries PublishedAt=%v grade=%q, want %v and \"5.7\" — "+
+			"a re-read that erases this makes the next publication mail the class twice",
+			after.PublishedAt, after.PublishedGrade, sentAt)
+	}
+}
+
+// ClearCopyPublications counts what it CLEARED, not what it touched (issue
+// #287).
+//
+// The number is what the flash quotes back to the professor, and a
+// statement without its `published_at IS NOT NULL` guard would count every
+// copy of the control — telling somebody that thirty people will receive a
+// second copy when three did.
+func TestClearCopyPublicationsCountsOnlyTheCopiesThatHadGoneOut(t *testing.T) {
+	ctx, db := migrated(t)
+	seedControl(t, ctx, db, "CTRL0287RESEND000000AAAAA", 3)
+	store := controlstore.New(db)
+
+	now := time.Unix(1_757_260_800, 0).UTC()
+	report := controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+			"2": sampleCopy("20999999", controls.CopyStatusOK, controls.RUTStatusOK),
+			"3": sampleCopy("20888888", controls.CopyStatusOK, controls.RUTStatusOK),
+		},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0287RESEND000000AAAAA", report, now); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	readings, err := store.ReadingsByControl(ctx, "CTRL0287RESEND000000AAAAA")
+	if err != nil {
+		t.Fatalf("ReadingsByControl: %v", err)
+	}
+	for _, reading := range readings[:2] {
+		if err := store.MarkCopyPublished(ctx, reading.ID, now, "5.7"); err != nil {
+			t.Fatalf("MarkCopyPublished: %v", err)
+		}
+	}
+
+	cleared, err := store.ClearCopyPublications(ctx, "CTRL0287RESEND000000AAAAA")
+	if err != nil {
+		t.Fatalf("ClearCopyPublications: %v", err)
+	}
+	if cleared != 2 {
+		t.Errorf("cleared = %d, want the 2 copies that had gone out", cleared)
+	}
+
+	after, err := store.ReadingsByControl(ctx, "CTRL0287RESEND000000AAAAA")
+	if err != nil {
+		t.Fatalf("ReadingsByControl after: %v", err)
+	}
+	for _, reading := range after {
+		if reading.PublishedAt != nil || reading.PublishedGrade != "" {
+			t.Errorf("copy %d kept its stamp (%v/%q)",
+				reading.CopyNumber, reading.PublishedAt, reading.PublishedGrade)
+		}
+	}
+}
+
+// And it reaches only the control it was asked about. A statement missing
+// its control_id would pass every assertion above.
+func TestClearCopyPublicationsLeavesOtherControlsAlone(t *testing.T) {
+	ctx, db := migrated(t)
+	store := controlstore.New(db)
+	for _, id := range []string{"CTRL0287RESENDA00000AAAAA", "CTRL0287RESENDB00000AAAAA"} {
+		seedControl(t, ctx, db, id, 1)
+		report := controls.Report{
+			Copies: map[string]controls.ReportCopy{
+				"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+			},
+		}
+		now := time.Unix(1_757_260_800, 0).UTC()
+		if err := store.UpsertReadingsFromReport(ctx, id, report, now); err != nil {
+			t.Fatalf("Upsert %s: %v", id, err)
+		}
+		reading, err := store.ReadingByCopy(ctx, id, 1)
+		if err != nil {
+			t.Fatalf("ReadingByCopy %s: %v", id, err)
+		}
+		if err := store.MarkCopyPublished(ctx, reading.ID, now, "5.7"); err != nil {
+			t.Fatalf("MarkCopyPublished %s: %v", id, err)
+		}
+	}
+
+	if _, err := store.ClearCopyPublications(ctx, "CTRL0287RESENDA00000AAAAA"); err != nil {
+		t.Fatalf("ClearCopyPublications: %v", err)
+	}
+
+	other, err := store.ReadingByCopy(ctx, "CTRL0287RESENDB00000AAAAA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy: %v", err)
+	}
+	if other.PublishedAt == nil {
+		t.Error("clearing one control's stamps cleared another control's too")
+	}
+}
+
+// PublicationCounts (issue #287 §8): the whole page's numbers in one
+// statement, in the shape of coursestore.EnrollmentCounts.
+func TestPublicationCountsTalliesEveryControlInOnePass(t *testing.T) {
+	ctx, db := migrated(t)
+	store := controlstore.New(db)
+
+	// Two controls, so a query missing its GROUP BY — or keyed on the
+	// wrong column — folds them together and fails here.
+	for _, id := range []string{"CTRL0287COUNTA000000AAAAA", "CTRL0287COUNTB000000AAAAA"} {
+		seedControl(t, ctx, db, id, 2)
+		report := controls.Report{
+			Copies: map[string]controls.ReportCopy{
+				"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+				"2": sampleCopy("20999999", controls.CopyStatusOK, controls.RUTStatusOK),
+			},
+		}
+		if err := store.UpsertReadingsFromReport(ctx, id, report, time.Unix(1_757_260_800, 0).UTC()); err != nil {
+			t.Fatalf("Upsert %s: %v", id, err)
+		}
+	}
+
+	// Control A: both copies matched and annotated, one of them sent.
+	studentID := insertStudentForCounts(t, ctx, db)
+	for copyNumber := 1; copyNumber <= 2; copyNumber++ {
+		reading, err := store.ReadingByCopy(ctx, "CTRL0287COUNTA000000AAAAA", copyNumber)
+		if err != nil {
+			t.Fatalf("ReadingByCopy: %v", err)
+		}
+		if err := store.SetReadingStudent(ctx, reading.ID, &studentID); err != nil {
+			t.Fatalf("SetReadingStudent: %v", err)
+		}
+		if err := store.RecordAnnotated(ctx, controls.AnnotatedCopy{
+			ControlID: "CTRL0287COUNTA000000AAAAA", CopyNumber: copyNumber,
+			GeneratedAt: time.Unix(0, 0).UTC(), Path: "anotado.pdf",
+		}); err != nil {
+			t.Fatalf("RecordAnnotated: %v", err)
+		}
+		if copyNumber == 1 {
+			if err := store.MarkCopyPublished(ctx, reading.ID, time.Unix(1, 0).UTC(), "5.7"); err != nil {
+				t.Fatalf("MarkCopyPublished: %v", err)
+			}
+		}
+	}
+
+	counts, err := store.PublicationCounts(ctx)
+	if err != nil {
+		t.Fatalf("PublicationCounts: %v", err)
+	}
+	a := counts["CTRL0287COUNTA000000AAAAA"]
+	if a.Sent != 1 || a.Deliverable != 2 {
+		t.Errorf("control A = %+v, want Sent 1 of Deliverable 2", a)
+	}
+	// A THIRD copy, matched to somebody and with NO annotated record: it is
+	// what makes the annotated half of the filter load-bearing. Without it
+	// the `student_id IS NOT NULL` conjunct alone produces every expected
+	// number in this file, and deleting `AND annotated_copy.control_id IS
+	// NOT NULL` leaves the entire suite green (#287 review, COR-3/F3).
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO reading (control_id, copy_number, rut_read, rut_status, copy_status, read_at, student_id)
+        VALUES (?, 3, '20777777', 'ok', 'ok', 0, ?)`,
+		"CTRL0287COUNTA000000AAAAA", studentID); err != nil {
+		t.Fatalf("inserting the un-annotated copy: %v", err)
+	}
+	counts, err = store.PublicationCounts(ctx)
+	if err != nil {
+		t.Fatalf("PublicationCounts after the third copy: %v", err)
+	}
+	if a = counts["CTRL0287COUNTA000000AAAAA"]; a.Deliverable != 2 {
+		t.Errorf("control A = %+v with three matched copies of which two are annotated, "+
+			"want Deliverable 2 — a copy with no corrected PDF cannot be sent", a)
+	}
+	// Control B has readings but nothing matched and nothing annotated, so
+	// nothing has gone out and nothing could.
+	b := counts["CTRL0287COUNTB000000AAAAA"]
+	if b.Sent != 0 || b.Deliverable != 0 {
+		t.Errorf("control B = %+v, want a zero pair", b)
+	}
+}
+
+// An ARCHIVED control is not on the list this feeds, so it is not in the
+// counts either — the same exclusion ListControls makes, for the same
+// reason.
+func TestPublicationCountsSkipsArchivedControls(t *testing.T) {
+	ctx, db := migrated(t)
+	store := controlstore.New(db)
+	seedControl(t, ctx, db, "CTRL0287COUNTARCH000AAAAA", 1)
+	report := controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+		},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0287COUNTARCH000AAAAA", report,
+		time.Unix(1_757_260_800, 0).UTC()); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	if counts, err := store.PublicationCounts(ctx); err != nil {
+		t.Fatalf("PublicationCounts: %v", err)
+	} else if _, present := counts["CTRL0287COUNTARCH000AAAAA"]; !present {
+		t.Fatal("the active control is missing, so the archived assertion below is vacuous")
+	}
+
+	if err := store.SoftDeleteControl(ctx, "CTRL0287COUNTARCH000AAAAA", time.Unix(2, 0).UTC()); err != nil {
+		t.Fatalf("SoftDeleteControl: %v", err)
+	}
+	counts, err := store.PublicationCounts(ctx)
+	if err != nil {
+		t.Fatalf("PublicationCounts after archiving: %v", err)
+	}
+	if _, present := counts["CTRL0287COUNTARCH000AAAAA"]; present {
+		t.Error("an archived control is counted for a list that does not show it")
+	}
+}
+
+// insertStudentForCounts adds one enrolled person a reading can point at.
+func insertStudentForCounts(t *testing.T, ctx context.Context, db *sql.DB) int64 {
+	t.Helper()
+
+	result, err := db.ExecContext(ctx, `
+        INSERT INTO student (canvas_user_id, first_name, last_name, email, rut, rut_dv)
+        VALUES ('canvas-counts', 'Ana', 'Pérez', 'ana@udp.cl', '20123456', '5')`)
+	if err != nil {
+		t.Fatalf("inserting the student: %v", err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("reading the student id: %v", err)
+	}
+	return id
+}
+
+// The plan PublicationCounts actually runs (#287 review, COR-3/F3).
+//
+// It EXPLAINs the exported const rather than a restated copy, which is the
+// whole reason the const is exported — and the reason #272's review found a
+// guard EXPLAINing a query nothing ran any more (COR-9).
+//
+// What the plan IS, measured rather than assumed (the first version of this
+// comment described one SQLite does not produce, #287 review ARQ-2):
+//
+//	SEARCH control USING INDEX idx_control_deleted_at (deleted_at=?)
+//	SEARCH reading USING INDEX idx_reading_by_control (control_id=?)
+//	SEARCH annotated_copy USING COVERING INDEX … (LEFT-JOIN)
+//	USE TEMP B-TREE FOR GROUP BY
+//
+// It drives from `control`, not from `reading`: the WHERE is on
+// `control.deleted_at`, so the planner walks the active controls and looks
+// each one's readings up by index. Every table is SEARCHed, never SCANned,
+// which is what "one statement instead of a count per row" means here.
+//
+// What it does NOT fix: the temp B-tree. Rows arrive in control order but
+// the planner does not prove it, so the GROUP BY sorts anyway. An index
+// would not remove it while `control` is the outer loop, and it costs one
+// sort of one row per control — which is the size of the page.
+func TestPublicationCountsRunsAsOneStatementOverTheIndexes(t *testing.T) {
+	ctx, db := migrated(t)
+
+	rows, err := db.QueryContext(ctx, "EXPLAIN QUERY PLAN "+controlstore.PublicationCountsSQL)
+	if err != nil {
+		t.Fatalf("EXPLAIN QUERY PLAN: %v", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var plan []string
+	for rows.Next() {
+		var id, parent, notUsed int
+		var detail string
+		if err := rows.Scan(&id, &parent, &notUsed, &detail); err != nil {
+			t.Fatalf("scanning the plan: %v", err)
+		}
+		plan = append(plan, detail)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("reading the plan: %v", err)
+	}
+	if len(plan) == 0 {
+		t.Fatal("the planner returned nothing, so nothing below is about the query")
+	}
+
+	joined := strings.Join(plan, "\n")
+	// Every table is reached by a key. A SCAN of `reading` is the whole
+	// failure this pins: it is what a query that lost its join condition —
+	// or a per-control subquery — looks like in a plan.
+	for _, want := range []string{
+		"SEARCH reading",
+		"SEARCH annotated_copy",
+		"SEARCH control",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("the plan has no %q:\n%s", want, joined)
+		}
+	}
+	if strings.Contains(joined, "SCAN reading") {
+		t.Errorf("the plan SCANS reading, so the tally reads the whole table:\n%s", joined)
+	}
+	// And no correlated subquery: a plan naming one is the per-row count
+	// this statement exists to avoid, wearing a different hat.
+	if strings.Contains(joined, "CORRELATED") {
+		t.Errorf("the tally runs a correlated subquery, which is the per-row count "+
+			"this statement exists to avoid:\n%s", joined)
+	}
+}

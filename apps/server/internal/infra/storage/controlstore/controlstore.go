@@ -40,8 +40,11 @@ const controlInsertColumns = "id, name, application_date, from_document, from_se
 // controlColumns is what SELECTs read, including deleted_at so the
 // archived/active split is visible to callers.
 // Issue #273 appends the publication pair, so every read of a control
-// carries whether it was published without a second query.
-const controlColumns = controlInsertColumns + ", deleted_at, published_at, publication_mode, published_sent"
+// carries whether it was published without a second query. Issue #287
+// dropped the third, published_sent: how many people hold their
+// correction is the count of stamped readings, and a stored copy of a
+// derivable number is a second place for it to disagree.
+const controlColumns = controlInsertColumns + ", deleted_at, published_at, publication_mode"
 
 // CreateControl writes the control, its pool and its copies in one
 // transaction. Rolled back on any failure so a control never appears in the
@@ -285,7 +288,6 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		courseID        sql.NullInt64
 		publishedAt     sql.NullInt64
 		publicationMode sql.NullString
-		publishedSent   sql.NullInt64
 	)
 	if err := row.Scan(
 		&c.ID, &c.Name, &applicationDate,
@@ -298,7 +300,7 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		&state, &createdAt, &c.CreatedBy,
 		&courseID,
 		&deletedAt,
-		&publishedAt, &publicationMode, &publishedSent,
+		&publishedAt, &publicationMode,
 	); err != nil {
 		return controls.Control{}, err
 	}
@@ -323,10 +325,6 @@ func scanControl(row interface{ Scan(...any) error }) (controls.Control, error) 
 		c.PublishedAt = &at
 	}
 	c.PublicationMode = controls.PublishMode(publicationMode.String)
-	if publishedSent.Valid {
-		sent := int(publishedSent.Int64)
-		c.PublishedSent = &sent
-	}
 	return c, nil
 }
 
@@ -407,6 +405,45 @@ func (s *Store) AnnotatedByCopy(ctx context.Context, controlID string, copyNumbe
 	return a, true, nil
 }
 
+// AnnotatedCopiesForControl reads every anotado record of a control at once,
+// keyed by copy number (issue #287).
+//
+// The set-shaped read beside AnnotatedByCopy's single one, for the callers
+// that need the whole control: the copies table derives a publication state
+// per row and the publication loop derives one per copy, and both would
+// otherwise run a query per copy — the N+1 #271's review removed from the
+// course list and apps/server/CLAUDE.md names as a standing rule.
+//
+// idx_annotated_copy is the table's own PRIMARY KEY (control_id,
+// copy_number), so the WHERE is a range scan of it.
+func (s *Store) AnnotatedCopiesForControl(ctx context.Context, controlID string) (map[int]controls.AnnotatedCopy, error) {
+	rows, err := s.db.QueryContext(ctx, `
+        SELECT control_id, copy_number, generated_at, path
+        FROM annotated_copy
+        WHERE control_id = ?`, controlID)
+	if err != nil {
+		return nil, fmt.Errorf("controlstore.AnnotatedCopiesForControl %s: %w", controlID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	out := map[int]controls.AnnotatedCopy{}
+	for rows.Next() {
+		var (
+			a         controls.AnnotatedCopy
+			generated int64
+		)
+		if err := rows.Scan(&a.ControlID, &a.CopyNumber, &generated, &a.Path); err != nil {
+			return nil, fmt.Errorf("controlstore.AnnotatedCopiesForControl %s: scan: %w", controlID, err)
+		}
+		a.GeneratedAt = time.Unix(generated, 0).UTC()
+		out[a.CopyNumber] = a
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("controlstore.AnnotatedCopiesForControl %s: iterate: %w", controlID, err)
+	}
+	return out, nil
+}
+
 // SetControlThresholds persists the darkness pair a batch was read at
 // (issue #197). Last-wins: each upload and each reanalyse writes the pair
 // it used, and Annotate reads it back so the PDFs agree.
@@ -462,6 +499,11 @@ func (s *Store) ClearAnnotated(ctx context.Context, controlID string) error {
 // published control and re-date somebody's publication. It also makes the
 // not-found answer mean two things at once — no such control, or one
 // already published — which is exactly what the caller does about both.
+//
+// That guard carries more weight since #287 made publishing resumable:
+// a resume calls Publish again on a control that IS stamped, and the only
+// thing standing between it and a re-dated "Publicado el …" is this WHERE
+// plus the service's own `PublishedAt == nil` check.
 func (s *Store) MarkPublished(ctx context.Context, controlID string, at time.Time, mode string) error {
 	result, err := s.db.ExecContext(ctx, `
         UPDATE control SET published_at = ?, publication_mode = ?
@@ -477,55 +519,6 @@ func (s *Store) MarkPublished(ctx context.Context, controlID string, at time.Tim
 	}
 	if affected == 0 {
 		return controls.ErrControlNotFound
-	}
-	return nil
-}
-
-// RecordPublishedSent stores how many messages a publication delivered
-// (issue #273 review).
-//
-// Guarded on `published_at IS NOT NULL`, so a count can never appear on a
-// control nothing was published for — the pair would describe a delivery
-// that never happened. A zero-row update is NOT an error here: this is
-// best-effort bookkeeping written after the load-bearing stamp, and the
-// caller logs rather than fails.
-func (s *Store) RecordPublishedSent(ctx context.Context, controlID string, sent int) error {
-	if _, err := s.db.ExecContext(ctx, `
-        UPDATE control SET published_sent = ?
-        WHERE id = ? AND published_at IS NOT NULL`,
-		sent, controlID,
-	); err != nil {
-		return fmt.Errorf("record how many were sent for control %s: %w", controlID, err)
-	}
-	return nil
-}
-
-// ClearPublished undoes a publication (issue #273 review).
-//
-// All THREE columns together, in one statement. Leaving publication_mode or
-// published_sent behind would describe a publication that no longer exists,
-// and the next publication would then overwrite two of the three and
-// inherit the stale one.
-//
-// Guarded on `published_at IS NOT NULL` — the schema-level belt behind
-// Service.Unpublish's own check, the shape SoftDeleteControl, PurgeControl
-// and MarkPublished all have. A hand-typed URL against a control that was
-// never published changes nothing and says so.
-func (s *Store) ClearPublished(ctx context.Context, controlID string) error {
-	result, err := s.db.ExecContext(ctx, `
-        UPDATE control SET published_at = NULL, publication_mode = NULL, published_sent = NULL
-        WHERE id = ? AND published_at IS NOT NULL`,
-		controlID,
-	)
-	if err != nil {
-		return fmt.Errorf("clear the publication of control %s: %w", controlID, err)
-	}
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("clear the publication of control %s: %w", controlID, err)
-	}
-	if affected == 0 {
-		return controls.ErrNotPublished
 	}
 	return nil
 }

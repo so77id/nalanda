@@ -240,7 +240,7 @@ ADRs live in `docs/decisions/<NNNN>-<kebab-title>.md`, numbered sequentially:
 # ADR-NNNN: <title>
 
 **Status:** Proposed | Accepted | Accepted — <verification> outstanding |
-Archived | Superseded by ADR-MMMM
+Archived | Superseded by ADR-MMMM | Accepted; §N superseded by ADR-MMMM | Accepted; §N superseded by ADR-MMMM
 **Date:** YYYY-MM-DD
 **Decision-makers:** <who>
 **Source:** <conversation/issue/PR that produced it>
@@ -248,6 +248,46 @@ Archived | Superseded by ADR-MMMM
 
 ## Context · ## Decision · ## Alternatives considered · ## Consequences
 ```
+
+**A SECTION can be superseded without the ADR being superseded**, and the
+spelling is written down for the same reason `Amended by:` is — parallel
+branches otherwise each invent one. Three parts, all required:
+
+1. The superseded ADR's status becomes `Accepted; §N superseded by ADR-MMMM`.
+   The rest of it is still in force, and a bare `Superseded by` would retire
+   decisions nobody reversed.
+2. The superseding ADR's header carries `**Supersedes:** ADR-NNNN §N
+   ("<the section's title>")`, followed by which sections still stand.
+3. **A blockquote banner at the head of the superseded section itself**,
+   naming which of its claims stopped being true, and — the part that is
+   easy to skip — WHY the reasoning below it is not wrong but conditional
+   on something that changed. That is the falsification-stays-visible rule
+   applied to a supersession: a reader who only sees "superseded"
+   re-derives the original trade-off, because the original trade-off was
+   correct under its own premise.
+
+Worked case: ADR-0072 §5 / ADR-0073 (#287), where the premise that changed
+was "there is no per-copy record".
+
+**A SECTION can be superseded without the ADR being superseded**, and the
+spelling is written down for the same reason `Amended by:` is — parallel
+branches otherwise each invent one. Three parts, all required:
+
+1. The superseded ADR's status becomes `Accepted; §N superseded by ADR-MMMM`.
+   The rest of it is still in force, and a bare `Superseded by` would retire
+   decisions nobody reversed.
+2. The superseding ADR's header carries `**Supersedes:** ADR-NNNN §N
+   ("<the section's title>")`, followed by which sections still stand.
+3. **A blockquote banner at the head of the superseded section itself**,
+   naming which of its claims stopped being true, and — the part that is
+   easy to skip — WHY the reasoning below it is not wrong but conditional
+   on something that changed. That is the falsification-stays-visible rule
+   applied to a supersession: a reader who only sees "superseded"
+   re-derives the original trade-off, because the original trade-off was
+   correct under its own premise.
+
+Worked case: ADR-0072 §5 / ADR-0073 (#287), where the premise that changed
+was "there is no per-copy record".
 
 **`Amended by:`** is for an accepted ADR that gains material without being
 superseded — the decision still holds, and something was added to it. Several

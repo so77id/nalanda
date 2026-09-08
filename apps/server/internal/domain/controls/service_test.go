@@ -99,6 +99,16 @@ func (s *fakeStore) RecordAnnotated(_ context.Context, a controls.AnnotatedCopy)
 	return nil
 }
 
+func (s *fakeStore) AnnotatedCopiesForControl(_ context.Context, controlID string) (map[int]controls.AnnotatedCopy, error) {
+	out := map[int]controls.AnnotatedCopy{}
+	for _, a := range s.annotated {
+		if a.ControlID == controlID {
+			out[a.CopyNumber] = a
+		}
+	}
+	return out, nil
+}
+
 func (s *fakeStore) AnnotatedByCopy(_ context.Context, controlID string, copyNumber int) (controls.AnnotatedCopy, bool, error) {
 	a, ok := s.annotated[fmt.Sprintf("%s#%d", controlID, copyNumber)]
 	return a, ok, nil
@@ -189,29 +199,6 @@ func (s *fakeStore) MarkPublished(_ context.Context, id string, at time.Time, mo
 	return controls.ErrControlNotFound
 }
 
-func (s *fakeStore) RecordPublishedSent(_ context.Context, id string, sent int) error {
-	for i := range s.controls {
-		if s.controls[i].ID == id && s.controls[i].PublishedAt != nil {
-			n := sent
-			s.controls[i].PublishedSent = &n
-			return nil
-		}
-	}
-	return nil
-}
-
-func (s *fakeStore) ClearPublished(_ context.Context, id string) error {
-	for i := range s.controls {
-		if s.controls[i].ID == id && s.controls[i].PublishedAt != nil {
-			s.controls[i].PublishedAt = nil
-			s.controls[i].PublicationMode = ""
-			s.controls[i].PublishedSent = nil
-			return nil
-		}
-	}
-	return controls.ErrNotPublished
-}
-
 func (s *fakeStore) PurgeControl(_ context.Context, id string) error {
 	for i := range s.controls {
 		if s.controls[i].ID == id && s.controls[i].DeletedAt != nil {
@@ -287,6 +274,24 @@ func (fakeReadingStore) CopiesForStudent(context.Context, int64) ([]controls.Stu
 func (fakeReadingStore) SetReadingStudent(context.Context, int64, *int64) error { return nil }
 
 func (fakeReadingStore) SetControlState(context.Context, string, controls.State) error {
+	return nil
+}
+
+// PublicationCounts is inert here like the rest of this double; the list
+// cases use a counting double of their own (handler tests).
+func (fakeReadingStore) PublicationCounts(context.Context) (map[string]controls.PublicationProgress, error) {
+	return nil, nil
+}
+
+// ClearCopyPublications is inert here like the rest of this double.
+func (fakeReadingStore) ClearCopyPublications(context.Context, string) (int, error) {
+	return 0, nil
+}
+
+// MarkCopyPublished is inert here like the rest of this double; the
+// publication cases use publishReadings (publish_service_test.go), which
+// remembers what was stamped.
+func (fakeReadingStore) MarkCopyPublished(context.Context, int64, time.Time, string) error {
 	return nil
 }
 

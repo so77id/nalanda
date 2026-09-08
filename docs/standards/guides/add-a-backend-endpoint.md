@@ -319,6 +319,25 @@ three independent gates**:
   echoed back (same shape as the create form's validation
   re-render).
 
+**When the pair does NOT apply, say why in three answers (#287).** The
+first justified exception is `POST /controls/{id}/resend-all`, which
+destroys the only record that a student was mailed and when, behind one
+button. The test it passed, and the one to reuse:
+
+1. **Does it touch anything the person on the other side holds?** Here, no
+   — the mail is in the student's inbox and in the professor's own Sent
+   folder, which is the authoritative record this server only ever observed
+   second-hand.
+2. **Does the consequence need a SECOND, separate press?** Here, yes —
+   clearing sends nothing, and the count of who would receive a duplicate
+   is named above the button that does.
+3. **Is what is lost recoverable in the direction that matters?** Here,
+   yes — pressing Publicar re-sends and re-stamps, and the cost of a
+   mistaken clear is one duplicate message per student.
+
+Three yeses buy a `<details>` and a button. Anything less is the pair.
+Full reasoning, and the retention gap it leaves: ADR-0073 §5.
+
 The three gates enforce the same rule at three layers so a caller
 that bypasses one still hits the others:
 
@@ -448,11 +467,35 @@ The rule that shape earned, and the incident that earned it:
 5. **The handler renders a DISABLED control naming the variable**, and a
    hand-typed POST answers 422. A missing button teaches nothing; a disabled
    one that says why is an instruction.
-6. **If the state change is not undoable, ship the undo.** Publication is
-   one-way, so a run that stamped without delivering was a dead end until
-   `POST /controls/{id}/unpublish` existed. The judgement a machine cannot
-   make — may the people who already received this receive it twice — goes
-   to the professor, with the count in front of them.
+6. **If the state change is not undoable, ship the way FORWARD — and
+   prefer a smaller unit of work to an undo.** Publication was one-way, so
+   a run that stamped without delivering was a dead end, and #273 answered
+   it with `POST /controls/{id}/unpublish`. #287 deleted that route and the
+   dead end with it, by recording the effect PER COPY instead of per batch:
+   a second Publicar writes only to the copies that have not gone out, so
+   there is nothing to undo and nothing to refuse. The undo was the right
+   fix for the schema it had; the better fix was a schema where the
+   irreversible step is small enough to repeat safely.
+
+   What survives from #273's version is the judgement rule: the one thing a
+   machine cannot decide — may the people who already received this receive
+   it twice — goes to the professor, with the count in front of them. That
+   is now `POST /controls/{id}/resend-all`, which clears the record and
+   deliberately does NOT send, so the count and the consequence are two
+   separate presses (ADR-0073 §5).
+
+**A fourth rule the publication added (#287, ADR-0073 §5).** A synchronous
+route that mutates rows an async `jobs.Kind` also mutates **must refuse
+while that job is queued or running**. The runner serialises jobs against
+each other (ADR-0050); it cannot serialise them against the request
+goroutine, so both readers see the same row and both act on it. Read the
+latest job for the resource (`jobs.Store.LatestForControlByKind` +
+`jobs.Status.IsTerminal()`) and answer flash + 303, never a 4xx. A READ
+FAILURE answers "not in flight": a lookup that blinked must not block a
+professor standing in front of the button. Worked case:
+`handler.publishJobInFlight`, guarding the per-student send against a
+`publish` batch; the residual window it cannot close, and why no lock, are
+in ADR-0073 §5.
 
 **The companion configuration rule.** A variable that gates an irreversible
 effect defaults to the SAFE value even when that is not what production
@@ -463,8 +506,8 @@ a server that stamped controls as published and mailed nobody — with a green
 banner (ADR-0072 §5).
 
 Worked cases: `controls.Dispatcher.Delivers` / `RedirectsToSender`,
-`Service.Publish` / `Service.Unpublish`, `handler.Controls.Publish`,
-`NALANDA_EMAIL_MODE`.
+`Service.Publish` / `Service.PublishOne` / `Service.ResendToWholeCourse`,
+`handler.Controls.Publish`, `NALANDA_EMAIL_MODE`.
 
 ## A pattern the Gmail grant adds — a second OAuth authorization
 

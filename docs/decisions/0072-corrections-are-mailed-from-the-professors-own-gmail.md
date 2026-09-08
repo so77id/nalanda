@@ -1,6 +1,6 @@
 # ADR-0072: Corrections are mailed from the professor's own Gmail
 
-**Status:** Accepted
+**Status:** Accepted; **§5 superseded by ADR-0073**
 **Date:** 2026-09-07
 **Decision-makers:** Miguel Rodriguez
 **Source:** #273 (WP-3 of epic #270); the refinement conversation that reversed
@@ -173,6 +173,25 @@ fourth parameter of that flow which fails silently when wrong, beside
 first implementation (#273 review, SCOPE-1).
 
 ### 5. Publication is async, one-way, and stamped before it sends
+
+> **SUPERSEDED BY [ADR-0073](0073-publication-is-recorded-per-copy-and-is-resumable.md)
+> (2026-09-08, issue #287).** Two of the three claims in this heading are no
+> longer true: publication is **resumable** rather than one-way, and each
+> COPY is stamped **after its own send** rather than the control before the
+> loop. It is still async.
+>
+> The reasoning below is not wrong; it is conditional on something that
+> changed. Everything in this section follows from there being no per-copy
+> record, which made a crash halfway through a batch a choice between losing
+> the un-sent half and mailing half a class twice. Migration 00019 gives
+> each copy its own `published_at` and `published_grade`, and the choice
+> disappears. Read it for WHY the rule existed; read ADR-0073 for what
+> replaced it.
+>
+> `control.published_sent`, described at the end of this section, is dropped
+> by migration 00020: the count is the stamped readings.
+>
+> §§1–4b and 6 of this ADR stand unchanged.
 
 It is a fifth `jobs.Kind` (ADR-0050, amended), for the timeout reason
 above. One Kind covers both a real publication and an "envío de prueba":

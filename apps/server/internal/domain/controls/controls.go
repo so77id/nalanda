@@ -86,21 +86,18 @@ type Control struct {
 	// schema; ListControls hides non-nil rows, ListArchivedControls shows
 	// only them. Purge is a hard delete gated on non-nil at the Store level.
 	DeletedAt *time.Time
-	// PublishedAt is when the corrections were emailed, or nil for a
-	// control that never was (issue #273). It is the whole of the
+	// PublishedAt is when the corrections were FIRST emailed, or nil for a
+	// control that never was (issue #273; stamped once since #287, which
+	// made publishing resumable — a resume finds it set and leaves the
+	// date alone, because "when was this class published" is not a
+	// question a re-send of one copy changes the answer to). How many
+	// people hold their correction is per-copy since #287
+	// (reading.published_at) and derived, never stored. It is the whole of the
 	// "publicado" state: no fourth `State` value was added, because state
 	// is a position in the CORRECTION lifecycle and every reader of it
 	// (the close gate, the stats panel, the review page) means the
 	// correction rather than the distribution.
 	PublishedAt *time.Time
-	// PublishedSent is how many messages that publication actually
-	// delivered, or nil when it is not known — a control published before
-	// the count existed, or one whose run died between the stamp and the
-	// bookkeeping write. Nil is NOT zero: it means "unknown", and the
-	// unpublish confirmation words the two differently because telling a
-	// professor nobody received a correction forty people are holding is
-	// the mistake this whole field exists to prevent.
-	PublishedSent *int
 	// PublicationMode records which per-publication mode the run used —
 	// PublishModeReal or PublishModeStaging — and is empty on a control
 	// that was never published. It exists so the page can say afterwards
@@ -217,6 +214,17 @@ type Store interface {
 	// page's cue to fall back to the raw scan (issue #190).
 	AnnotatedByCopy(ctx context.Context, controlID string, copyNumber int) (AnnotatedCopy, bool, error)
 
+	// AnnotatedCopiesForControl returns every anotado record of a control,
+	// keyed by copy number (issue #287). ONE statement for the whole
+	// control: both readers derive a per-copy publication state for every
+	// copy at once — the copies table for a page render, the publication
+	// for a run — and asking AnnotatedByCopy per row is the N+1 #271's
+	// review removed from the course list.
+	//
+	// An empty map is the honest answer for a control nothing has been
+	// annotated for; only a read failure is an error.
+	AnnotatedCopiesForControl(ctx context.Context, controlID string) (map[int]AnnotatedCopy, error)
+
 	// ClearAnnotated deletes every anotado record for a control. The
 	// review page then falls back to the raw scan everywhere; used when
 	// the stored PDFs can no longer agree with the readings (issue #190:
@@ -259,25 +267,16 @@ type Store interface {
 	RestoreControl(ctx context.Context, id string) error
 
 	// MarkPublished stamps published_at and publication_mode (issue
-	// #273). Called BEFORE the sending loop, not after — see
-	// Service.Publish for why a crash mid-batch must cost the un-sent
-	// half rather than a duplicate mailing.
+	// #273), ONCE, on a control that has neither (issue #287). Its own
+	// `AND published_at IS NULL` makes a second call a no-op reported as
+	// ErrControlNotFound, and Service.Publish only calls it on the first
+	// run — a resume must not re-date somebody's publication.
 	//
-	// Returns ErrControlNotFound when no row carries the id, the same
-	// guard shape as SetControlCourse: the UPDATE would otherwise affect
-	// zero rows and hand the caller a success to act on.
+	// It no longer says anything about how many people were written to.
+	// That is per copy since #287 and derived from the stamped readings,
+	// because a stored copy of a derivable number is a second place for
+	// it to disagree.
 	MarkPublished(ctx context.Context, controlID string, at time.Time, mode string) error
-
-	// RecordPublishedSent stores how many messages a publication actually
-	// delivered (issue #273 review). Bookkeeping written after the loop;
-	// a failure is logged, never forwarded.
-	RecordPublishedSent(ctx context.Context, controlID string, sent int) error
-
-	// ClearPublished undoes a publication so the control can be published
-	// again (issue #273 review, PUB-1/2/3). Clears all three columns —
-	// leaving publication_mode or published_sent behind would describe a
-	// publication that no longer exists.
-	ClearPublished(ctx context.Context, controlID string) error
 
 	// PurgeControl hard-deletes an archived control (issue #261).
 	// Refuses to touch an active row (WHERE deleted_at IS NOT NULL) — the

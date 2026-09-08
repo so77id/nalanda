@@ -392,6 +392,35 @@ they can leave the 404 by clicking Profesores rather than the back button.
 - **Migrations are embedded and applied at boot**, so the binary and the schema
   it expects ship together.
 
+### A list-level aggregate may APPROXIMATE a per-row domain rule
+
+A screen that shows a per-row fact for a whole list has two bad options: a
+query per row (the N+1 #271's review removed from the course list, and a
+standing rule in `apps/server/CLAUDE.md`), or an aggregate that cannot
+express the rule the domain applies. There is a third, and it is legitimate
+under three conditions — all of them, and all of them written down (issue
+#287, ADR-0073 §6):
+
+1. **The aggregate's predicate is a stated SUBSET of the domain
+   function's.** Not "roughly the same": the SQL asks a strictly weaker
+   question, so the two can never disagree in an unpredictable direction.
+2. **The direction of the error is named on the type that carries it**, not
+   only in the query. A caller reading the struct has to learn that the
+   number can be too big without going to find the SQL.
+3. **The renderer clamps**, so the impossible reading never reaches a
+   person. A denominator smaller than its numerator reads as a bug and
+   destroys trust in the whole column.
+
+Worked case: `controls.PublicationProgress.Deliverable`, filled by
+`controlstore.PublicationCountsSQL` (one statement for the page, in the
+shape of `coursestore.EnrollmentCounts`) and rendered by
+`handler.publicationProgressWord`, whose `max(p.Deliverable, p.Sent)` is
+condition 3. The SQL can see a matched student and an annotated record; it
+cannot see a student who withdrew after the match, nor a grade left
+undefined by doubtful answers — both of which make the number too big and
+never too small. The exact answer is one click away, on the copies table,
+and the list's job is only to say which control is worth opening.
+
 ### Adding a migration
 
 The extension point born with this app. Registered in `integration-guides.md`.
@@ -436,7 +465,16 @@ The extension point born with this app. Registered in `integration-guides.md`.
    the temp B-tree survives either way. `00015_matching.sql` is the
    deferral that made it possible — it adds two columns and states why it
    adds no index.
-8. **A case asserting that a row is REFUSED must name the constraint that
+8. **A migration that DROPs or rebuilds anything is deployed UNATTENDED,
+   so ask for a snapshot before merging it.** Squash-merging to `main`
+   reaches the Jetson within ~5 minutes and applies at container boot
+   (`infra/local/DEPLOY-JETSON.md`), against a backup taken at 03:00 UTC
+   that may therefore be a day old. Ask Miguel to run
+   `docker compose exec backup /usr/local/bin/backup.sh` (§Backups) and say
+   so in the PR. And read §Rollback first: a `git revert` cannot undo it,
+   because goose never runs the Down block — the reverted binary meets a
+   schema it does not know.
+9. **A case asserting that a row is REFUSED must name the constraint that
    refused it, and must vary every other key so no other constraint can
    have been the one that fired.** Both halves are load-bearing. Without the
    name, an error for the wrong reason reads as a pass — the foreign-key
@@ -473,6 +511,30 @@ Worked case: `apps/server/migrations/00017_publication.sql` and
 `TestTheJobKindRebuildPreservesTheRowsAndTheConstraints`, which asserts the
 rows, the index AND the cascade — the first two pass over a rebuild that
 dropped the third (issue #273).
+
+**THE RECIPE ABOVE IS FOR A CHILD TABLE. Rebuilding a PARENT of
+`ON DELETE CASCADE` children deletes every child row, and there is no escape
+under goose** (issue #287). `DROP TABLE` under enforced foreign keys performs
+an implicit `DELETE FROM` first, which fires every cascade — so rebuilding
+`control`, the parent of `control_pregunta`, `copia`, `reading`,
+`annotated_copy` and `job`, empties the database in the statement whose
+purpose was to change one column. The usual answer, `PRAGMA foreign_keys=OFF`
+around the rebuild, is **unavailable**: that pragma is a no-op inside a
+transaction and goose applies each migration inside one. Both halves were
+measured in #287's review, not reasoned about — `PRAGMA foreign_keys` still
+reads `1` inside the transaction after being set to `OFF`, and the `DROP`
+then leaves `reading` and `copia` empty.
+
+Before writing a rebuild, ask which side of the foreign keys the table is
+on. If it is the parent, prefer **`ALTER TABLE … DROP COLUMN`**, supported
+since SQLite 3.35 and needing no rebuild at all. Its restrictions are on the
+COLUMN, and a column that is nullable, unindexed, and named by no PRIMARY
+KEY, UNIQUE, CHECK, partial index, generated column, view or trigger trips
+none of them. Worked case: `00020_drop_published_sent.sql`, whose guard
+`TestDroppingPublishedSentKeepsTheControlItsChildrenAndItsCascades` seeds one
+row in each of the five child tables before migrating, precisely so a
+migration that got this wrong fails loudly instead of passing cleanly over an
+empty test database.
 
 ## Naming
 

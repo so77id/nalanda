@@ -33,7 +33,38 @@ func TotalAndGrade(questions int, r Reading) (string, string) {
 	if !ok {
 		return "—", "—"
 	}
-	return fmt.Sprintf("%.2f/%d", total, questions), FormatGrade(total, questions)
+	grade, _ := GradeFor(questions, r)
+	return fmt.Sprintf("%.2f/%d", total, questions), grade
+}
+
+// GradeFor is the 1,0–7,0 grade of one reading AS A STRING, with ok=false
+// when the reading has no defined grade. The one function every caller that
+// shows a person a grade goes through.
+//
+// It exists because the publication did not have one and improvised
+// (issue #287). Service.Publish called FormatGrade(NumericGrade(…)), which
+// composes two functions that are NOT composable: NumericGrade already
+// returns the 1,0–7,0 grade, and FormatGrade maps a RAW TOTAL onto that
+// scale. Feeding the second the first's answer re-scaled it — a copy with
+// 1 of 2 correct read 4,0 in the readings table and was EMAILED 7,0, and
+// the message carried the true grade re-scaled as though it were a raw
+// score out of the question count — too HIGH on a short control
+// (saturating at 7,0), too LOW on a long one. That shipped in
+// #273 and went out to a real class on 2026-09-08.
+//
+// The pair NumericGrade/FormatGrade is not the trap; taking the two names
+// as a pipeline is. NumericGrade is the float back door for the statistics
+// panel, FormatGrade is the raw-total renderer, and neither is "the grade
+// of this reading" — which is what a caller with a Reading in hand
+// actually wants. That is now this, and the comment above rawTotal
+// claiming the email and the table cannot disagree is true again because
+// they call one function rather than two spellings of one idea.
+func GradeFor(questions int, r Reading) (string, bool) {
+	total, ok := rawTotal(questions, r)
+	if !ok {
+		return "", false
+	}
+	return FormatGrade(total, questions), true
 }
 
 // NumericGrade returns the 1.0–7.0 grade for r drawn over `questions`
@@ -93,6 +124,14 @@ func rawTotal(questions int, r Reading) (float64, bool) {
 	return total, true
 }
 
+// FormatGrade takes a RAW TOTAL, not a grade. It is NOT the second half of
+// a pipeline with NumericGrade, which already returns the 1,0–7,0 value:
+// composing them re-scales the grade as though it were a raw score out of
+// `questions`: too HIGH on a short control (saturating at 7,0), too LOW on
+// a long one — a real 7,0 emails as 5,2 out of ten questions. That is what
+// reached a real class on 2026-09-08 (#287). A caller holding a Reading
+// wants GradeFor.
+//
 // FormatGrade maps a fraction onto the 1,0–7,0 scale: 4,0 at 50%,
 // linear on either side (§C7). Rounded to one decimal. Negative or >1
 // fractions are clamped — either would only appear from a scoring bug

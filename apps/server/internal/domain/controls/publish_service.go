@@ -118,8 +118,19 @@ func ValidPublishMode(m PublishMode) bool {
 
 // PublishResult is what one run did.
 type PublishResult struct {
-	// Sent is how many messages the transport accepted.
+	// Sent is how many messages the transport accepted ON THIS RUN. Since
+	// issue #287 that is not the same as how many people hold their
+	// correction — a resume that writes to one copy of a class of forty
+	// reports 1 — which is why the page derives its count from the stamped
+	// readings rather than from here.
 	Sent int
+	// AlreadySent is copies this run skipped because their student already
+	// holds the current correction (issue #287). Deliberately NOT folded
+	// into Skipped: the two mean opposite things to a professor. Skipped is
+	// "nobody got this and here is why"; AlreadySent is "this one is
+	// finished", and it is what makes pressing Publicar twice a safe thing
+	// to do rather than a mistake the app has to refuse.
+	AlreadySent int
 	// Skipped is copies the publication had nothing to say about: no
 	// matched student, no defined grade, or a matched student who is no
 	// longer enrolled. NOT a failure — these are the ordinary state of a
@@ -154,15 +165,29 @@ var (
 	// ErrNoCourse is a control nobody has filed under a course, so there
 	// is no roster to address.
 	ErrNoCourse = errors.New("controls: the control belongs to no course")
-	// ErrAlreadyPublished is a second publication of the same control.
-	// Publication is one-way unless the professor explicitly unpublishes
-	// (issue #273 §Non-goals, amended by the WP's own review).
-	ErrAlreadyPublished = errors.New("controls: the control was already published")
+	// ErrCopyNotDeliverable is one copy PublishOne has nothing to send
+	// about: nobody matched, no defined grade, or no annotated PDF (issue
+	// #287). Wrapped by CopyNotDeliverableError, which carries WHICH of
+	// the three it is so the review page can say what to fix.
+	//
+	// A distinct sentinel rather than reusing the batch's silence: a
+	// publication SKIPS such a copy because a class where two people
+	// missed the control is a normal class, but a professor who pressed
+	// "Enviar la corrección" on one copy asked about THAT copy, and
+	// answering them with a success flash over nothing is the "green over
+	// nothing" #273's review spent itself removing.
+	ErrCopyNotDeliverable = errors.New("controls: there is nothing to send for this copy")
 
-	// ErrNotPublished is an unpublish of a control that never went out.
-	// Distinct from ErrControlNotFound so a hand-typed URL against a real
-	// control says what is actually wrong.
-	ErrNotPublished = errors.New("controls: the control was never published")
+	// ErrSentButNotRecorded is a per-student send the provider ACCEPTED and
+	// this server then failed to write down (issue #287 review, COR-5).
+	//
+	// Its own sentinel because the honest sentence is the opposite of a
+	// failure's: the student is holding their correction, and it is the
+	// record that is missing. "No se pudo enviar" would invite the
+	// professor to press again and mail them twice — and the next Publicar
+	// will pick the copy up anyway, since an unstamped copy is exactly what
+	// a resume looks for.
+	ErrSentButNotRecorded = errors.New("controls: the copy was sent but the send could not be recorded")
 
 	// ErrCannotDeliver is a process whose transport sends nothing —
 	// NALANDA_EMAIL_MODE is `stub` or `dryrun`.
@@ -177,19 +202,45 @@ var (
 	ErrCannotDeliver = errors.New("controls: this server is not configured to send mail")
 )
 
-// Publish sends one email per deliverable copy.
+// Publish sends one email per copy that needs one, and is RESUMABLE.
 //
-// THE ORDER OF THE TWO SIDE EFFECTS IS THE CONTRACT. The control is
-// stamped published BEFORE the loop runs, not after, and the reason is
-// what a crash halfway through would otherwise mean: an unstamped control
-// with twenty students already emailed is a control the professor will
-// publish again, and the twenty receive a second copy. Stamping first
-// makes a crash cost the un-sent half — which the failure list names, and
-// which a future resend endpoint can pick up — rather than a duplicate
-// mailing nobody can recall.
+// THE ORDER OF THE SIDE EFFECTS IS THE CONTRACT, and issue #287 reversed
+// the half of it #273 wrote. Each copy is stamped IMMEDIATELY AFTER its own
+// send succeeds — never before, never in a batch at the end — because that
+// is what makes a process that dies mid-loop leave the truth behind it: the
+// copies already written to are on record, the rest are untouched, and the
+// next Publicar picks up exactly where this one stopped.
 //
-// A REHEARSAL (TestTo set) stamps nothing, and can therefore be run as
-// often as the professor likes.
+// #273 stamped the CONTROL above the loop and nothing per copy, and it was
+// right to: with no per-copy record the choice was between losing the
+// un-sent half of a crashed run and mailing half a class twice, and it took
+// the first. The per-copy stamp removes the choice, so the rule it bought
+// goes with it (ADR-0073 supersedes ADR-0072 §5).
+//
+// WHICH COPIES: the ones that have not gone out, and the ones that went out
+// with a grade that has since moved. Everything else is left alone, which is
+// why pressing Publicar twice is harmless BY CONSTRUCTION rather than by
+// refusal. CopyPublication.NeedsSending is the rule, and the copies table
+// renders the same states from the same function, so the page and the loop
+// cannot disagree about what a second press would do.
+//
+// The control's own published_at is still stamped ONCE, on the first run.
+// It answers a question no per-copy row answers — when was this class
+// published, and for real or as a rehearsal — and re-dating it on every
+// resume would move "Publicado el 8 de septiembre" forward each time a
+// professor re-sent one copy.
+//
+// A COPY IS STAMPED ONLY BY A RUN THAT REACHED ITS STUDENT. A rehearsal
+// (TestTo set), a `staging` publication and a deployment-wide redirecting
+// transport all put the message in the professor's own mailbox, so none of
+// them records anything about the student — and all three send EVERYTHING,
+// whatever state each copy is in, because they exist to put the real batch
+// in front of the professor and filtering would rehearse something other
+// than the thing being rehearsed.
+//
+// Getting that wrong is how the first draft let a run of "mi propia
+// dirección (prueba)" consume the real publication that followed it
+// (#287 review, COR-1 / SEC-1).
 //
 // One student's bounce does not stop the other thirty-nine: every send is
 // attempted, failures are collected, and the run reports what happened.
@@ -199,14 +250,38 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 		return PublishResult{}, err
 	}
 	rehearsal := req.TestTo != ""
+	// WHOSE MAILBOX THIS RUN ACTUALLY REACHES (issue #287 review, COR-1 /
+	// SEC-1). Three ways a run's messages do NOT reach the student the
+	// record would claim: a rehearsal addresses one typed address, a
+	// `staging` publication redirects to the professor, and a
+	// deployment-wide redirecting transport does the same to a run that
+	// asked for `real`.
+	//
+	// The first draft of this WP tested only the first, so a publication in
+	// "mi propia dirección (prueba)" stamped every copy — and the next REAL
+	// Publicar then skipped the entire class while the copies table said
+	// "enviada" and the list said "25/25". That is the same lie #273's own
+	// review spent itself removing (PUB-2, DAC-8), re-entered through the
+	// door the per-copy stamp opened. The worst shape of it: a staging
+	// rehearsal on an ALREADY published control consumed the one
+	// re-corrected copy, so the student kept the old PDF, and nothing on
+	// any screen said "prueba" because MarkPublished never ran a second
+	// time.
+	//
+	// A SEPARATE predicate from `rehearsal`, deliberately: it must gate the
+	// per-copy stamp and the resume filter, and NOT the control-level
+	// MarkPublished below — that call is what records the EFFECTIVE mode,
+	// which is exactly the signal a redirecting deployment needs to leave
+	// behind (#273 review, DAC-8).
+	addressesStudents := !rehearsal &&
+		req.Mode != PublishModeStaging &&
+		!s.Dispatcher.RedirectsToSender()
 
 	switch {
 	case control.State != Graded:
 		return PublishResult{}, fmt.Errorf("%w", ErrNotGraded)
 	case control.CourseID == nil:
 		return PublishResult{}, fmt.Errorf("%w", ErrNoCourse)
-	case control.PublishedAt != nil && !rehearsal:
-		return PublishResult{}, fmt.Errorf("%w", ErrAlreadyPublished)
 	case !rehearsal && !s.Dispatcher.Delivers():
 		// Checked BEFORE the stamp, so a server in stub or dryrun leaves the
 		// control exactly as it found it. A rehearsal is still allowed —
@@ -235,7 +310,20 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 		return PublishResult{}, fmt.Errorf("controls.Publish: read the copies: %w", err)
 	}
 
-	if !rehearsal {
+	// ONE query for the whole control, above the loop. The pre-#287 shape
+	// asked AnnotatedByCopy per copy, which is a query per student on a
+	// path that already makes one Gmail call each — the N+1 #271's review
+	// removed from the course list, in the one place where it was hiding
+	// behind a slower thing.
+	annotated, err := s.Store.AnnotatedCopiesForControl(ctx, controlID)
+	if err != nil {
+		return PublishResult{}, fmt.Errorf("controls.Publish: read the corrected PDFs: %w", err)
+	}
+
+	if !rehearsal && control.PublishedAt == nil {
+		// ONCE, on the first publication only. A resume finds the control
+		// already stamped and leaves the date alone.
+		//
 		// The EFFECTIVE mode, not the one the form asked for. A
 		// deployment-wide `staging` transport rewrites every recipient to
 		// the professor, so a run requested as `real` reached nobody in the
@@ -253,8 +341,31 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 
 	result := PublishResult{}
 	for _, reading := range readings {
-		message, ok := s.messageFor(ctx, control, code, sender, req, recipients, reading)
+		publication := CopyPublicationFor(control, reading, recipients, annotated)
+		switch {
+		case publication.State == CopySkipped:
+			// Ordinary, not a failure: a class where two people missed the
+			// control is a normal class. Since #287 the professor can see
+			// WHICH copies and why, on the control page.
+			result.Skipped++
+			continue
+		case addressesStudents && !publication.NeedsSending():
+			// This student already holds the current correction. The whole
+			// resume rule, in one branch.
+			//
+			// Gated on addressesStudents rather than on `!rehearsal`: a run
+			// that redirects everything to the professor is a rehearsal in
+			// all but name, and filtering it would show them a batch
+			// missing exactly the copies they most want to look at.
+			result.AlreadySent++
+			continue
+		}
+
+		message, ok := s.messageFor(control, code, sender, req, recipients, annotated, reading)
 		if !ok {
+			// Deliverable on paper, and the corrected PDF is unreadable on
+			// the volume — the one refusal CopyPublicationFor cannot see,
+			// because it does not touch the filesystem.
 			result.Skipped++
 			continue
 		}
@@ -272,78 +383,309 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 			continue
 		}
 		result.Sent++
-	}
 
-	if !rehearsal {
-		// Bookkeeping, AFTER the loop and best-effort. The stamp above is
-		// the load-bearing write and its ordering is the contract; this
-		// number only makes the unpublish confirmation honest ("nobody
-		// received anything" versus "38 people already have this"). A crash
-		// between the two leaves it NULL, which the page words as "no se
-		// sabe cuántos llegaron" — the truthful answer, and the reason the
-		// column is nullable rather than defaulted to zero.
-		if err := s.Store.RecordPublishedSent(ctx, controlID, result.Sent); err != nil {
-			s.Log.Warn("controls.Publish: could not record how many were sent",
-				"control", controlID, "sent", result.Sent, "error", err)
+		if !addressesStudents {
+			// A run that did not reach the student records nothing about
+			// them. A rehearsal can then be repeated as often as the
+			// professor likes, and — the part the first draft got wrong — a
+			// `staging` run cannot consume the real publication that
+			// follows it.
+			continue
+		}
+		// IMMEDIATELY after this copy's own send, with the grade that
+		// actually went out. Everything the resume knows, it knows from
+		// here.
+		if err := s.Readings.MarkCopyPublished(ctx, reading.ID, s.Now(), publication.Grade); err != nil {
+			// Logged and not returned: the message is already in the
+			// student's mailbox and the other thirty-nine still have to go.
+			// The cost of the lost stamp is one duplicate on the next run,
+			// which is the smaller of the two failures — and the copy
+			// NUMBER never the address (docs/security-notes.md §"Logs and
+			// personal data").
+			s.Log.Error("controls.Publish: could not record that the copy was sent",
+				"control", controlID, "copy", reading.CopyNumber, "error", err)
 		}
 	}
+
+	// NOTHING is written back after the loop. #273 recorded result.Sent
+	// into control.published_sent here; since #287 that number is "how
+	// many went out on THIS run", which a resume makes smaller than the
+	// class, and the count a page wants is the stamped readings. The
+	// column and its writer go in the slice that removes the last of its
+	// readers.
 	return result, nil
 }
 
-// Unpublish clears the publication so the control can be published again.
+// CopyNotDeliverableError names WHICH of the three reasons stopped one
+// copy, so the review page can say what to fix rather than "no se pudo".
 //
-// The escape hatch the review asked for, and the reason it is a hatch
-// rather than a rule: "do not stamp when nothing was delivered" only
-// reaches one of the three failure shapes, because under a staging run
-// every send genuinely succeeds. What covers all three is letting the
-// professor undo a publication — and putting the one judgement a machine
-// cannot make in front of the person who can, which is whether the people
-// who already received their correction may receive it twice.
+// A typed error beside the sentinel, the AnalyzerRefusedError shape: the
+// caller branches on errors.Is(err, ErrCopyNotDeliverable) and reads the
+// Reason off the concrete value when it wants to be specific.
+type CopyNotDeliverableError struct {
+	CopyNumber int
+	Reason     CopySkipReason
+}
+
+func (e *CopyNotDeliverableError) Error() string {
+	return fmt.Sprintf("controls: copy %d cannot be published (%s)", e.CopyNumber, e.Reason)
+}
+
+func (e *CopyNotDeliverableError) Unwrap() error { return ErrCopyNotDeliverable }
+
+// PublishOne sends ONE copy's correction, synchronously, whatever state
+// that copy is in (issue #287).
 //
-// It does NOT unsend anything, and the page that offers it says so, using
-// the count this records to say how many are affected.
-func (s *Service) Unpublish(ctx context.Context, controlID string) error {
+// WHY SYNCHRONOUS, when Publish is a job. `apps/server/CLAUDE.md`'s rule is
+// that the shape of the WORK decides, not who it talks to: async is for the
+// loop nobody can wait on — forty Gmail calls plus forty PDFs off the
+// shared volume against a 30 s write timeout. One Gmail call and one PDF is
+// a bounded third-party call the professor waits on, the same shape as
+// #271's Canvas lookups, and it is pressed from the review page where they
+// have just finished re-correcting somebody and want to know it went.
+//
+// WHATEVER STATE: it does not consult NeedsSending. That is the whole point
+// — it is the manual override for the case the staleness rule cannot see
+// (§3), a re-annotation that moved the marks without moving the total. The
+// professor knows whose marks they just fixed; the machine does not.
+//
+// It does NOT stamp the control. `control.published_at` means "this class
+// was published", and one student receiving their correction is not that.
+// A control that has only ever been written to one copy at a time shows no
+// "Publicado el …" line, which is the truth.
+func (s *Service) PublishOne(ctx context.Context, controlID string, copyNumber int, professorID int64) error {
 	control, err := s.Store.ControlByID(ctx, controlID)
 	if err != nil {
 		return err
 	}
-	if control.PublishedAt == nil {
-		return fmt.Errorf("%w", ErrNotPublished)
+	switch {
+	case control.State != Graded:
+		return fmt.Errorf("%w", ErrNotGraded)
+	case control.CourseID == nil:
+		return fmt.Errorf("%w", ErrNoCourse)
+	case !s.Dispatcher.Delivers():
+		return fmt.Errorf("%w", ErrCannotDeliver)
 	}
-	return s.Store.ClearPublished(ctx, controlID)
+
+	sender, err := s.Senders.SenderFor(ctx, professorID)
+	if err != nil {
+		return fmt.Errorf("controls.PublishOne: read the sender: %w", err)
+	}
+	if sender.GmailAddress == "" {
+		return fmt.Errorf("%w", gmail.ErrNotConnected)
+	}
+
+	reading, err := s.Readings.ReadingByCopy(ctx, controlID, copyNumber)
+	if err != nil {
+		return err
+	}
+	code, recipients, err := s.Roster.CourseForPublication(ctx, *control.CourseID)
+	if err != nil {
+		return fmt.Errorf("controls.PublishOne: read the course: %w", err)
+	}
+	// One copy, so one lookup — not the whole control's map. The map shape
+	// exists for the loops; building it here would read thirty rows to use
+	// one.
+	annotated := map[int]AnnotatedCopy{}
+	if record, exists, err := s.Store.AnnotatedByCopy(ctx, controlID, copyNumber); err != nil {
+		return fmt.Errorf("controls.PublishOne: read the corrected PDF: %w", err)
+	} else if exists {
+		annotated[copyNumber] = record
+	}
+
+	// THE DECISION, asked directly — not CopyPublicationFor, and that
+	// distinction is a defect this WP's review caught after the first
+	// attempt at deduplicating these calls (#287 review, ARQ-6).
+	//
+	// CopyPublicationFor deliberately MASKS non-deliverability on a copy
+	// that was already sent: it reports CopySent, because the student is
+	// holding the mail whatever the roster says now (§2). That is right for
+	// a screen and wrong here — PublishOne is being asked to send AGAIN, so
+	// what it needs is whether the copy is deliverable NOW, and which of the
+	// three reasons it is not. Routing the refusal through the display state
+	// made a published copy whose student withdrew report "falta el PDF
+	// corregido".
+	//
+	// The grade comes back from the same call, so the decision is evaluated
+	// once here rather than once for the refusal and again for the stamp.
+	_, grade, reason, deliverable := deliverableCopy(control, reading, recipients, annotated)
+	if !deliverable {
+		return &CopyNotDeliverableError{CopyNumber: copyNumber, Reason: reason}
+	}
+
+	message, ok := s.messageFor(control, code, sender, PublishRequest{
+		ProfessorID: professorID,
+		Mode:        PublishModeReal,
+	}, recipients, annotated, reading)
+	if !ok {
+		// deliverableCopy said yes and the bytes are not there: the record
+		// exists and the file on the volume does not.
+		return &CopyNotDeliverableError{CopyNumber: copyNumber, Reason: SkipNoAnnotated}
+	}
+
+	if _, err := s.Dispatcher.Send(ctx, professorID, message); err != nil {
+		// The copy NUMBER, never the address (docs/security-notes.md
+		// §"Logs and personal data").
+		s.Log.Error("controls.PublishOne: send failed",
+			"control", controlID, "copy", copyNumber, "error", err)
+		return err
+	}
+
+	if s.Dispatcher.RedirectsToSender() {
+		// The message went to the professor, not to the student, so nothing
+		// is recorded about the student — the same rule Publish applies,
+		// and for the same reason (#287 review, COR-1 / SEC-1). PublishOne
+		// hardcodes PublishModeReal, so a redirecting deployment is the
+		// only way it can happen here.
+		return nil
+	}
+
+	// After the send, like the loop's — and here the professor is waiting,
+	// so a stamp that fails is worth returning rather than logging: they
+	// would otherwise be told it went, and the next Publicar would send it
+	// again.
+	if err := s.Readings.MarkCopyPublished(ctx, reading.ID, s.Now(), grade); err != nil {
+		// A DISTINCT sentinel, because the honest sentence is not "no se
+		// pudo enviar": the message is already in the student's mailbox and
+		// only the record of it is missing. Telling the professor the send
+		// failed invites them to press again, which mails the student twice
+		// (#287 review, COR-5).
+		s.Log.Error("controls.PublishOne: could not record that the copy was sent",
+			"control", controlID, "copy", copyNumber, "error", err)
+		return fmt.Errorf("%w", ErrSentButNotRecorded)
+	}
+	return nil
+}
+
+// ResendToWholeCourse forgets that any copy went out, so the next Publicar
+// writes to the whole class (issue #287 §5).
+//
+// It replaces #273's "Deshacer la publicación", and the rename is the
+// point: that button never undid anything — it cleared three columns and
+// told the professor the mail it could not recall was still out there. This
+// one is named for what it does.
+//
+// It is NOT redundant with the staleness rule. Stale covers "the grades
+// changed"; this covers "the annotated PDFs were wrong and the grades were
+// not" — a real case the grade comparison cannot see (§3), and one that
+// would otherwise cost twenty-five individual clicks.
+//
+// It does not send. Clearing and sending are two decisions, and a professor
+// who has just been told twenty-five people will receive a second copy
+// should get to press the second button themselves.
+//
+// control.published_at is left alone: the class WAS published on the day it
+// was, and forgetting that would lose the one fact no per-copy row carries.
+func (s *Service) ResendToWholeCourse(ctx context.Context, controlID string) (int, error) {
+	if _, err := s.Store.ControlByID(ctx, controlID); err != nil {
+		return 0, err
+	}
+	return s.Readings.ClearCopyPublications(ctx, controlID)
+}
+
+// PublicationProgress is how far one control's publication has got: how
+// many copies have been written to, out of how many could be (issue #287
+// §8).
+//
+// It exists because the controls list renders ListedControl.State, which
+// stays `graded` after a publication — so a published control looked
+// exactly like an unpublished one there, which was the first thing Miguel
+// noticed after the real send. A boolean would have answered "was this
+// published"; the question a professor scanning the list actually has is
+// "where is there still somebody pending", and only the pair answers that.
+type PublicationProgress struct {
+	// Sent is how many copies carry a publication stamp.
+	Sent int
+	// Deliverable is how many copies could receive one, AS FAR AS ONE
+	// AGGREGATE QUERY CAN SEE: a copy is counted when it is matched to a
+	// student and has a corrected PDF on record.
+	//
+	// That is deliberately not the full test CopyPublicationFor applies —
+	// it cannot see a student who withdrew after the match, nor a grade
+	// left undefined by doubtful answers nobody resolved. Both make this
+	// number too BIG, never too small, so the list can say 23/25 for a
+	// control the detail page shows as finished. Erring that way is the
+	// point: the list's job is to send the professor to a control worth
+	// opening, and the copies table is where the answer is exact.
+	Deliverable int
+}
+
+// PublicationCounts tallies every control's publication in ONE query.
+//
+// The service method the list handler calls, so the surface never reaches
+// past it into a store (backend-code-style.md §The dependency rule, edge
+// 4) — and one round trip for the whole page rather than one per row, which
+// is the N+1 #271's review already removed once from the course list.
+func (s *Service) PublicationCounts(ctx context.Context) (map[string]PublicationProgress, error) {
+	counts, err := s.Readings.PublicationCounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("controls.PublicationCounts: %w", err)
+	}
+	return counts, nil
+}
+
+// CopyPublications derives every copy's publication state in one pass
+// (issue #287 §7).
+//
+// The SERVICE method behind the copies table, so the surface never reaches
+// past it into the stores (backend-code-style.md §The dependency rule,
+// edge 4): a handler that needed a shape the service does not expose gets a
+// method, not a store field.
+//
+// TWO queries for the whole page, whatever the copy count. The states need
+// the roster and the corrected-PDF records, and asking per row is the N+1
+// #271's review already removed once from the course list —
+// apps/server/CLAUDE.md names it as a standing rule and a table of thirty
+// copies is exactly where it would come back.
+//
+// A control with NO COURSE gets no roster read and every copy comes back
+// skipped for want of somebody to write to, which is the truth: nobody has
+// said which class sat it. That is also why the failure is not fatal —
+// see the caller.
+func (s *Service) CopyPublications(ctx context.Context, c Control, readings []Reading) (map[int]CopyPublication, error) {
+	recipients := map[int64]Recipient{}
+	if c.CourseID != nil {
+		var err error
+		if _, recipients, err = s.Roster.CourseForPublication(ctx, *c.CourseID); err != nil {
+			return nil, fmt.Errorf("controls.CopyPublications: read the course: %w", err)
+		}
+	}
+	annotated, err := s.Store.AnnotatedCopiesForControl(ctx, c.ID)
+	if err != nil {
+		return nil, fmt.Errorf("controls.CopyPublications: read the corrected PDFs: %w", err)
+	}
+
+	out := make(map[int]CopyPublication, len(readings))
+	for _, reading := range readings {
+		out[reading.CopyNumber] = CopyPublicationFor(c, reading, recipients, annotated)
+	}
+	return out, nil
 }
 
 // messageFor assembles one copy's message, or reports that there is
 // nothing to send.
 //
-// The three skip reasons are all ORDINARY — a class where two people
-// missed the control and one has no RUT on file is a normal class — so
-// they are counted rather than reported as failures. Folding them into
-// Failures would tell the professor about a problem they do not have, and
-// the review page is already where an unmatched copy is looked at.
+// It does not decide WHETHER there is: deliverableCopy does, and
+// CopyPublicationFor asks the same function to render the state on the
+// page. That is the whole point of the split — a screen that offered
+// "Enviar" for a copy this loop skips, or a loop that skipped one the
+// screen called ready, would be two answers to one question, which is the
+// shape #251's cannot-disagree rule refuses.
+//
+// The three skip reasons are all ORDINARY — a class where two people missed
+// the control and one has no RUT on file is a normal class — so they are
+// counted rather than reported as failures. Folding them into Failures
+// would tell the professor about a problem they do not have, and the review
+// page is already where an unmatched copy is looked at.
 func (s *Service) messageFor(
-	ctx context.Context, control Control, code string, sender Sender, req PublishRequest,
-	recipients map[int64]Recipient, reading Reading,
+	control Control, code string, sender Sender, req PublishRequest,
+	recipients map[int64]Recipient, annotated map[int]AnnotatedCopy, reading Reading,
 ) (Message, bool) {
-	if reading.StudentID == nil {
-		return Message{}, false
-	}
-	recipient, enrolled := recipients[*reading.StudentID]
-	if !enrolled || recipient.Email == "" {
-		return Message{}, false
-	}
-	// NumericGrade, not a second computation. It is the numeric back door
-	// of TotalAndGrade and both share one rawTotal, which is what makes
-	// the email and the readings table unable to disagree (issue #251).
-	// ok=false is a copy whose grade is genuinely unknown — doubtful
-	// answers nobody resolved, an unreadable RUT, a copy never handed in —
-	// and mailing "tu nota es —" would be worse than mailing nothing.
-	total, ok := NumericGrade(control.QuestionsPerCopy, reading)
+	recipient, grade, _, ok := deliverableCopy(control, reading, recipients, annotated)
 	if !ok {
 		return Message{}, false
 	}
-
-	attachment, ok := s.annotatedFor(ctx, control.ID, reading.CopyNumber)
+	attachment, ok := s.attachmentFor(annotated[reading.CopyNumber])
 	if !ok {
 		return Message{}, false
 	}
@@ -351,7 +693,7 @@ func (s *Service) messageFor(
 	message := BuildMessage(MessageInput{
 		CourseCode:     code,
 		ControlName:    control.Name,
-		Grade:          FormatGrade(total, control.QuestionsPerCopy),
+		Grade:          grade,
 		StudentName:    recipient.FullName(),
 		StudentEmail:   recipient.Email,
 		ProfessorName:  sender.Name,
@@ -374,27 +716,25 @@ func (s *Service) messageFor(
 	return message, true
 }
 
-// annotatedFor reads one copy's corrected PDF off the shared volume.
+// attachmentFor reads one copy's corrected PDF off the shared volume.
 //
-// A copy with no annotated row, or a file that is gone, is SKIPPED rather
-// than sent without its attachment. The attachment is the thing the email
-// exists to deliver: a message saying "adjunto la corrección" with nothing
-// attached is worse than no message, because the student now has to ask.
-func (s *Service) annotatedFor(ctx context.Context, controlID string, copyNumber int) (Attachment, bool) {
-	record, exists, err := s.Store.AnnotatedByCopy(ctx, controlID, copyNumber)
-	if err != nil || !exists {
-		return Attachment{}, false
-	}
+// The RECORD's existence is deliverableCopy's question; this one is whether
+// the bytes are actually there. A file that is gone or empty means the copy
+// is SKIPPED rather than sent without its attachment: the attachment is the
+// thing the email exists to deliver, and a message saying "adjunto la
+// corrección" with nothing attached is worse than no message, because the
+// student now has to ask.
+func (s *Service) attachmentFor(record AnnotatedCopy) (Attachment, bool) {
 	content, err := os.ReadFile(filepath.Join(s.WorkDir, record.Path))
 	if err != nil || len(content) == 0 {
 		s.Log.Warn("controls.Publish: the annotated PDF is unreadable",
-			"control", controlID, "copy", copyNumber, "error", err)
+			"control", record.ControlID, "copy", record.CopyNumber, "error", err)
 		return Attachment{}, false
 	}
 	return Attachment{
 		// Spanish, like everything the reader perceives — this is a
 		// filename in a student's downloads folder.
-		Filename:    fmt.Sprintf("correccion-copia-%d.pdf", copyNumber),
+		Filename:    fmt.Sprintf("correccion-copia-%d.pdf", record.CopyNumber),
 		ContentType: "application/pdf",
 		Content:     content,
 	}, true

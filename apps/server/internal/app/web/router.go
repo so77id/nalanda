@@ -384,11 +384,19 @@ func routes(deps Deps) []Route {
 			Handler: deps.Controls.Publish,
 		},
 		{
-			// The escape hatch of the WP's own review: publication was
-			// one-way with no exceptions, so a run that stamped without
-			// delivering left the class permanently unreachable.
-			Method: http.MethodPost, Path: handler.ControlUnpublishPath,
-			Handler: deps.Controls.Unpublish,
+			// Issue #287: the deliberate bulk resend that replaced the
+			// undo. It clears stamps and sends nothing; the professor
+			// presses Publicar afterwards.
+			Method: http.MethodPost, Path: handler.ControlResendAllPath,
+			Handler: deps.Controls.ResendAll,
+		},
+		{
+			// Issue #287: one copy, synchronously, from the review page.
+			// Same surface and same gate as the batch — internal/app/api is
+			// anonymous by construction, so a send endpoint there would let
+			// anyone on the internet mail a student their grade.
+			Method: http.MethodPost, Path: handler.CopyPublishPath,
+			Handler: deps.Controls.PublishCopy,
 		},
 		{
 			// The rehearsal. Same gates as Publish minus the

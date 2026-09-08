@@ -2,8 +2,12 @@
 
 **Run this whenever the publication path changes**: the Gmail authorization
 adapter (`internal/infra/oidc/gmail.go`), the `/profile` connect flow, the
-transports in `internal/infra/email/`, the message builder, or
-`NALANDA_EMAIL_MODE`.
+transports in `internal/infra/email/`, the message builder,
+`NALANDA_EMAIL_MODE` — or, since #287, the publication
+loop and the per-copy record: `internal/domain/controls/publish_service.go`,
+`publication_state.go`, `internal/infra/storage/controlstore/readings.go`'s
+publication columns, and the publication routes in
+`internal/app/web/handler/publish.go`. §5c and §5d are their steps.
 
 It is an L8 manual procedure, in the same family and for the same reason as
 [`GOOGLE-CHECK.md`](GOOGLE-CHECK.md), [`CANVAS-CHECK.md`](CANVAS-CHECK.md)
@@ -133,6 +137,12 @@ In `real`.
             joke, and no line about a machine having written it.
       - [ ] **The PDF is attached, opens, and is the annotated copy** —
             marks drawn, correct answers, per-question score.
+- [ ] **Open the readings table beside these messages and compare the
+      grade.** For at least three copies, including one below 4,0, the
+      number in the subject and body must equal the "Nota" column. This is
+      the cheap guard for the #287 grade defect — it needs no students, and
+      §4 was green over that defect on 2026-09-07 precisely because it only
+      checked the grade's FORMAT.
 - [ ] Check your **Sent** folder: the messages are there.
 - [ ] Reply to one of them from another account. The reply reaches your
       inbox with no reply-to trick.
@@ -141,20 +151,36 @@ In `real`.
 
 ## 5. The real publication
 
-**Only on a control Miguel has nominated.** This one cannot be undone.
+**Only on a control Miguel has nominated.** The mail cannot be recalled;
+since #287 the app itself is no longer a dead end.
 
-- [ ] Choose the mode **"mi propia dirección (prueba)"** first and press
-      **Publicar**. Everything goes to you, and the control IS stamped.
-- [ ] The page now shows `Publicado el … en modo prueba: los correos fueron
-      a tu propia dirección, no a los estudiantes.`
-- [ ] **Publicar** is gone from the page; **Envío de prueba** is still
-      there.
-- [ ] Pressing the same URL again by hand answers **409**.
-- [ ] Open **Deshacer la publicación**. It says how many correos already
-      went out — for this run, the number you just received — and that
-      undoing recovers none of them.
-- [ ] Undo it. The control is publishable again, and this is what stops a
-      rehearsal-by-dropdown from burning the one-shot.
+> ⚠️ **The mode dropdown resets to "los estudiantes" on every page load.**
+> It has no `selected` attribute, so the first option wins. Every step below
+> that says "prueba" means: re-open the select and pick **"mi propia
+> dirección (prueba)"** again, immediately before pressing. Pressing
+> Publicar without doing that mails the real class.
+
+- [ ] Pick **"mi propia dirección (prueba)"** and press **Publicar**.
+      Everything goes to you, and the CONTROL is stamped — the copies are
+      not.
+- [ ] The page now shows `Publicado el … en modo prueba: esa primera
+      publicación fue a tu propia dirección. Ninguna copia figura como
+      enviada…`
+- [ ] **The copies table says `no enviada` for every copy.** A rehearsal
+      records nothing about a student, which is what stops it from
+      consuming the real publication (ADR-0073 §4). **If any copy reads
+      `enviada` here, STOP** — the next real Publicar will skip that person,
+      and that is the defect #287's own review found.
+- [ ] **Publicar** is still on the page beside that line, and **Envío de
+      prueba** is too. Since #287 the button is how you finish a run that
+      died half way or send a re-corrected copy — it is not "already done".
+- [ ] Re-pick **"mi propia dirección (prueba)"** and press **Publicar**
+      again. It answers **303**, not 409, and you receive the WHOLE batch a
+      second time — because a rehearsal stamped nothing, so there is nothing
+      to skip. That is the point of the check above, not a bug.
+- [ ] Open **Reenviar a todo el curso**. After a rehearsal it reads
+      `Ninguna copia figura como enviada, así que esto no cambia nada` —
+      the count only appears once a REAL run has written to somebody.
 
 Then, on a second nominated control, for real:
 
@@ -163,8 +189,20 @@ Then, on a second nominated control, for real:
 - [ ] Ask **three students** to confirm they received it, and that the PDF
       is theirs. Not one — one arrival proves the path, three prove the
       addressing.
-- [ ] The page shows `Publicado el …: las correcciones se enviaron a los
-      estudiantes.`
+- [ ] **Ask one of them what grade the message says**, and compare it to
+      the readings table. They must be the same number. This is the #273
+      defect #287 fixed: the message re-scaled the grade as though it were
+      a raw score out of the question count — too HIGH on a short control
+      (saturating at 7,0), too LOW on a long one, where a real 7,0 arrives
+      as 5,2 out of ten questions. Check a HIGH grade and a LOW one: on a
+      long control the error hides in the middle of the scale.
+- [ ] The page shows `Publicado el …: N copias figuran como enviadas a los
+      estudiantes.` (or `1 copia figura como enviada al estudiante.`)
+- [ ] The **controls list** shows `N/M enviadas` on that row, and nothing on
+      a control you have not published.
+- [ ] Open **Reenviar a todo el curso** NOW, on this control: it names how
+      many people already have their correction. Do NOT use it here unless
+      you mean to mail the class again.
 
 ## 5b. The mode gate
 
@@ -175,6 +213,84 @@ Then, on a second nominated control, for real:
 - [ ] **Envío de prueba** still works under `stub` — a rehearsal on a
       server that delivers nothing is a coherent thing to do.
 - [ ] Put the mode back to `real`.
+
+## 5bb. What the deploy does to the class already published
+
+**Read this before pressing anything on the control published on
+2026-09-08.** Migration `00019` adds the per-copy columns with **no
+backfill**, and there is nothing to backfill from — `control.published_sent`
+was a count, not a list. So that control comes up with every copy
+`no enviada` and `0/N enviadas` on the list, although twenty-five students
+are holding mail.
+
+- [ ] Confirm that is what you see, rather than assuming the deploy failed.
+- [ ] **Pressing Publicar on it mails the whole class again.** For THAT
+      control that is very likely what you want — #273 mailed the wrong
+      grade (see §5's grade step) — but it is a decision, not a resume, and
+      nothing in the app will warn you.
+
+## 5c. The resume (issue #287)
+
+The case no test can see: a real interrupted run leaving the mailbox in the
+state the columns claim. Everything below is on a nominated control with at
+least four deliverable copies.
+
+- [ ] Press **Publicar**, and while the job is running,
+      `docker compose stop server` on the Jetson (or `docker stop` the
+      container). Do it within the first few seconds — the whole class took
+      thirty-four seconds on 2026-09-08, so a class of thirty gives you
+      about one second per student.
+- [ ] Start it again. The banner reports the job as failed or stuck; that is
+      the runner's no-retry rule (ADR-0050) and is expected.
+- [ ] Open the control. The copies table shows some copies `enviada` **with
+      a date and a grade**, and the rest `no enviada`. Write down which.
+- [ ] **Count the messages in your Sent folder.** Note the count BEFORE
+      pressing Publicar and again after: the DIFFERENCE must equal the
+      number of copies now marked `enviada`. An absolute count will not do
+      — §4 and §5 put whole batches in the same folder. (Or search Sent by
+      the control's name.) This is the whole check: the columns claim a fact
+      about a mailbox nothing in the suite can see.
+- [ ] Press **Publicar** again.
+- [ ] The copies that were already `enviada` **receive nothing**. Verify by
+      asking one of those students — **not** by publishing in `staging`
+      mode, which sends you the WHOLE batch on purpose and tells you
+      nothing about who the real run skipped.
+- [ ] The `Publicado el …` line still carries the FIRST publication's date,
+      not the resume's.
+
+## 5d. The per-student send (issue #287)
+
+- [ ] Open one copy's **revisar** page on a graded control. It offers
+      **Enviar la corrección a esta persona**.
+- [ ] Change that copy's grade (mark an answer differently) and press it.
+      The student receives the corrected version, and the review page says
+      `Enviada el …, con un <the new grade>`.
+- [ ] Back on the control page, that copy reads `enviada` with the new
+      grade — not `desactualizada`.
+- [ ] Press the same button again. It sends again: it is the manual
+      override, and it does not refuse on state.
+- [ ] On a copy matched to nobody the button is **disabled**, with the
+      reason beside it ("no está asociada a nadie del curso"). You cannot
+      reach the refusal by clicking; a hand-typed POST answers **303** back
+      to this page and says the same sentence as a flash.
+
+## 5e. Staleness and the skip reasons (issue #287)
+
+The two behaviours §5c and §5d do not reach. Both on a nominated control
+that has been published for real.
+
+- [ ] Open one student's copy, change an answer so the GRADE moves, save.
+- [ ] The copies table now reads `desactualizada` for that copy, with both
+      numbers: `salió con un X, ahora tiene un Y`.
+- [ ] Press **Publicar**. **That student receives a second message with the
+      new grade, and nobody else receives anything** — ask two others to
+      confirm they got nothing. That is the half no test can see: the suite
+      can prove the loop skipped them, not that their inbox stayed quiet.
+- [ ] The copy is back to `enviada`, with the new grade.
+- [ ] On a control with an unmatched copy and a copy with no corrected PDF,
+      the table names the reason per copy (`no está asociada a nadie del
+      curso`, `no tiene su PDF corregido`) — this is the information that
+      was computed and thrown away for the whole of #273's life.
 
 ## 6. The seven-day question
 

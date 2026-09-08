@@ -1160,6 +1160,48 @@ What covers it today:
   the `To` header with no validation in any layer between, which remains
   true and is why the refusal is at the sink (#273 review, SEC-1).
 
+**Amended 2026-09-08 (#287) — two more egress routes, and one refusal
+removed.** Publication is recorded per COPY now (ADR-0073), which changes
+the shape of this entry in three ways:
+
+- **Two new state-changing routes reach the same egress.**
+  `POST /controls/{id}/copies/{copy}/publish` sends ONE student's
+  correction, synchronously, from the review page; `POST
+  /controls/{id}/resend-all` clears every copy's stamp so the next Publicar
+  writes to the class again. Both are on the professor's surface behind the
+  session gate and CSRF, and neither exists on `internal/app/api`. The
+  per-student send runs the same `Delivers()` and connected-account gates as
+  the batch;
+  **resend-all runs neither, because it delivers nothing** — it clears
+  stamps, and the gates that matter are on the Publicar that follows. Nothing
+  new leaves the Jetson that the batch did not already send; what is new is
+  that it can leave one student at a time.
+- **The one-shot refusal is gone, and the duplicate-prevention moved.** #273
+  answered a second publish with 409 and offered an undo. #287 accepts the
+  second press and prevents duplicates structurally instead: a copy already
+  holding the current correction is skipped, and a copy is stamped ONLY by a
+  run that actually addressed its student (so a rehearsal cannot make the
+  real publication skip anybody). The per-student route additionally refuses
+  while a batch job is in flight, since it runs outside the job runner's
+  single-goroutine ordering.
+- **A delivery record is now destroyable from the UI.** "Reenviar a todo el
+  curso" nulls `reading.published_at` / `published_grade` for a whole
+  control — the only record this server keeps of who was written to and
+  when. It is behind a `<details>` and one button rather than the
+  destructive-confirm pair, and ADR-0073 §5 states why: nothing a student
+  holds is touched, the professor's own Sent folder is the authoritative
+  record, and the consequence (duplicate mail) needs a second, separate
+  press. **What this app does not keep is a history** — only a last-wins
+  pair per copy — so "who received what, when, across every re-send" is not
+  answerable here and would be a table rather than a column.
+
+**Publication is still not scoped to the professor asking.** `control.created_by`
+exists (`00004_controls.sql`), so control-level scoping IS expressible today
+in a way the course-level scoping this entry discusses is not — and it was
+not added, because the deployment has one account (ADR-0038) and a second
+professor is already this entry's review trigger. Recorded so the next
+reader does not have to re-derive that it was considered.
+
 **The deletion path is still owed, and is now owed harder.** Before this WP
 a deletion request meant rows on one host; it now also means mail already
 delivered, which cannot be recalled, and a copy in a Google account this

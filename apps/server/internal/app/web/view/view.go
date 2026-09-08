@@ -374,7 +374,17 @@ type ListedControl struct {
 	Range           string // "Bienvenida/hola → Flujo/bucles"
 	Shape           string // "4 preguntas × 30 copias"
 	State           string // Spanish word matching the domain State
-	DetailURL       string
+	// Publication is "23/25 enviadas", or EMPTY when nothing has gone out
+	// (issue #287). The list renders State, which stays `graded` after a
+	// publication, so a published control was indistinguishable from an
+	// unpublished one here — and a checkmark would have answered "was this
+	// published" rather than "where is there still somebody pending".
+	//
+	// Empty on the course page's narrower listing, which does not carry
+	// the counts: the field is optional and the template renders nothing
+	// for it.
+	Publication string
+	DetailURL   string
 }
 
 // ControlsArchivedPage is what controls_archived.html renders (issue #261).
@@ -550,6 +560,13 @@ type ControlDetailPage struct {
 	// Summary is the "N impresas · M corregidas · K requieren revisión · L no rendidas"
 	// line under the table. Empty when Readings is empty.
 	Summary string
+	// ShowPublication gates the "Envío" column (issue #287).
+	//
+	// False while the correction is open, where every copy would read
+	// "omitida: todavía no tiene su PDF corregido" — thirty cells saying
+	// the same thing about a step the professor has not reached yet. The
+	// column appears with the publication section, on the same condition.
+	ShowPublication bool
 	// QuestionColumns is the header row for the per-question columns
 	// (P1, P2, …), sized to control.QuestionsPerCopy.
 	QuestionColumns []string
@@ -594,25 +611,21 @@ type ControlDetailPage struct {
 	// what the template needs to render one iteration.
 	JobBanner *JobBanner
 
-	// The publication section (issue #273). Exactly one of PublishedLine
-	// and the two forms renders: a published control is a finished fact,
-	// and offering "Publicar" beside it would invite a second mailing the
-	// route refuses anyway.
-	//
-	// PublishURL and TestSendURL are always populated, so the template
-	// picks by flag rather than guessing.
+	// The publication section (issue #273, reshaped by #287). PublishedLine
+	// and the Publicar form now render TOGETHER: since publishing is
+	// resumable, pressing the button on a published control is how a
+	// professor finishes a partial run or sends a re-corrected copy, and
+	// every student already holding the current correction is skipped.
 	PublishURL  string
 	TestSendURL string
-	// UnpublishURL is the POST target of the escape hatch, set only on a
-	// published control (issue #273 review). PublishedLine gates the whole
-	// block, so `Published` was dropped: two fields for one fact are two
-	// fields a future caller can set inconsistently.
-	UnpublishURL string
-	// UnpublishWarning is what the professor weighs before undoing — how
-	// many people already have their correction, and therefore how many
-	// would get it twice. Three different sentences for none, one, several
-	// and unknown.
-	UnpublishWarning string
+	// ResendAllURL is the POST target of "Reenviar a todo el curso" (issue
+	// #287), which forgets every copy's stamp so the next Publicar writes
+	// to the class again. It occupies the slot "Deshacer la publicación"
+	// had and is named for what it does, which that button was not.
+	ResendAllURL string
+	// ResendAllWarning is what the professor weighs first: how many people
+	// already have their correction and would receive a second copy.
+	ResendAllWarning string
 	// PublishedLine is the Spanish sentence a published control shows —
 	// when it happened and in which mode. Pre-formatted, like every other
 	// string this struct hands the template.
@@ -621,7 +634,8 @@ type ControlDetailPage struct {
 	// PublishBlockedReason beside it, the shape CanClose /
 	// CloseBlockedReason already have one section up: a button that is
 	// present-but-disabled and says why is what turns "nothing happens
-	// when I click" into an instruction.
+	// when I click" into an instruction. Since #287 "ya fue publicado" is
+	// no longer one of the reasons.
 	CanPublish           bool
 	PublishBlockedReason string
 	// CanTestSend is looser than CanPublish on purpose — a rehearsal stays
@@ -722,6 +736,20 @@ type ReadingRow struct {
 	Estado string
 	// EstadoClass is the CSS class the row applies for coloring.
 	EstadoClass string
+	// Publication is this copy's publication state, already as the words a
+	// professor reads: "no enviada", "enviada", "desactualizada", or
+	// "omitida" (issue #287). Empty on a control whose correction is not
+	// closed, where the column does not render at all.
+	Publication string
+	// PublicationClass is the CSS class the cell applies, the shape
+	// EstadoClass and AssociationClass already have.
+	PublicationClass string
+	// PublicationDetail is the second line of the cell: WHY a copy was
+	// skipped, or WHAT a sent copy went out with. Copy numbers, grades and
+	// reasons only — never a name and never an address
+	// (docs/security-notes.md §"Logs and personal data"), the same rule
+	// publishDetail follows one layer down.
+	PublicationDetail string
 	// ReviewURL is the "[revisar]" link — always present, WP-F allows
 	// review of any row.
 	ReviewURL string
@@ -787,6 +815,38 @@ type ReviewPage struct {
 	AnnotatedURL string
 	RUT          ReviewRUT
 	Questions    []ReviewQuestion
+
+	// The per-student send (issue #287). It lives here, on the page where
+	// a professor has just finished re-correcting somebody, because that
+	// is when they want to know the corrected version went out — and it is
+	// the manual override for the case the grade comparison cannot see, a
+	// re-annotation that moved the marks without moving the total.
+	//
+	// PublishCopyURL is always populated; ShowPublishCopy gates whether
+	// the block renders at all, the same way CanPublish gates the batch
+	// button one screen up.
+	PublishCopyURL string
+	// ShowPublishCopy is false while the correction is still open. There
+	// is no corrected PDF to attach then and no settled grade to quote,
+	// and a permanently disabled button on every copy of every open
+	// control is noise that teaches a professor to ignore disabled
+	// buttons.
+	ShowPublishCopy bool
+	// CanPublishCopy gates the button itself. False renders it disabled
+	// with PublishCopyBlockedReason beside it — the shape CanPublish /
+	// PublishBlockedReason has on the control page, and the shape a live
+	// button whose press answers a refusal deliberately does not: "a
+	// disabled one that says why is an instruction" (#287 review, F5).
+	CanPublishCopy bool
+	// PublishCopyBlockedReason is the Spanish sentence explaining what
+	// stops this copy from being sent, empty when CanPublishCopy is true.
+	PublishCopyBlockedReason string
+	// CopyPublishedLine is what this copy's own publication reads as:
+	// "Enviada el 08-09-2026 15:20, con un 5.7", or empty for a copy
+	// nobody has written to. Derived from the reading's own two columns —
+	// no roster lookup — because "what did this person receive" is a
+	// question the copy answers by itself.
+	CopyPublishedLine string
 }
 
 // ReviewImage is one page of a copy's raw scan (issue #243). The

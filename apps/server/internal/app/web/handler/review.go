@@ -69,6 +69,12 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 		Graded:     control.State == controls.Graded,
 		RUT:        toReviewRUT(reading, control),
 		Questions:  toReviewQuestions(reading, h.Bank.Get()),
+		// Issue #287: the per-student send. Gated on the same state the
+		// batch button is — a correction that is still open has no
+		// corrected PDF to attach and no settled grade to quote.
+		PublishCopyURL:    copyPublishURL(id, copyNumber),
+		ShowPublishCopy:   control.State == controls.Graded,
+		CopyPublishedLine: copyPublishedLine(reading),
 	}
 	// Issue #190: the corrected PDF replaces the raw scan once it exists.
 	// The lookup failure is a 500 — same convention as the reading list on
@@ -83,10 +89,74 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 		page.HasAnnotated = true
 		page.AnnotatedURL = controlAnnotatedURL(id, copyNumber)
 	}
+	// Issue #287 review (F5): why this copy cannot be sent, computed from
+	// what the page already holds. Three of the four skip reasons cost
+	// NOTHING here — the reading carries StudentID, GradeFor reads the
+	// answers already loaded, and HasAnnotated was just resolved — so the
+	// button is disabled with an instruction rather than live over a
+	// refusal.
+	//
+	// The fourth (matched to somebody the roster no longer carries, or who
+	// has no address) needs the course, which this page does not read; it
+	// stays a server-side refusal, and PublishOne answers it with a flash
+	// on this same screen.
+	page.CanPublishCopy, page.PublishCopyBlockedReason = copySendGate(control, reading, page.HasAnnotated)
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 	if err := view.RenderReview(w, page); err != nil {
 		h.Log.Error("rendering review", "error", err)
 	}
+}
+
+// copySendGate answers "can this copy be sent, and if not, what does the
+// professor do about it" — for the reasons visible without a roster read.
+//
+// It deliberately does NOT re-implement controls.deliverableCopy: it asks
+// the same questions IN THE SAME ORDER (student, then grade, then the
+// annotated record) and leaves the one it cannot see — a match the roster
+// no longer carries — to the domain, which refuses with the same three
+// sentences from the same function.
+//
+// THE ORDER IS THE CONTRACT, not a detail. deliverableCopy states it: the
+// checks run in the order the professor would fix them, and "reporting the
+// innermost failure of a copy that fails several would send them to the
+// wrong screen". The first version of this gate asked for the PDF before
+// the grade, so a copy missing both told the professor "falta el PDF" here
+// and "sin nota" in the copies table — the disagreement #251's rule
+// refuses, one screen apart (#287 review, ARQ-3).
+func copySendGate(c controls.Control, r controls.Reading, hasAnnotated bool) (bool, string) {
+	if r.StudentID == nil {
+		return false, copySkipMessage(controls.SkipNoStudent)
+	}
+	if _, ok := controls.GradeFor(c.QuestionsPerCopy, r); !ok {
+		return false, copySkipMessage(controls.SkipNoGrade)
+	}
+	if !hasAnnotated {
+		return false, copySkipMessage(controls.SkipNoAnnotated)
+	}
+	return true, ""
+}
+
+// copyPublishedLine words what this one copy's student is holding.
+//
+// Read off the reading's own two columns and nothing else: "what did this
+// person receive" is a question the copy answers by itself, and a roster
+// lookup here would make the review page depend on a Canvas import to
+// render a sentence about mail that already went out.
+//
+// The grade is rendered exactly as it is stored, dot and all, because
+// that is how every other grade on the professor's screens reads — the
+// Chilean comma is the MESSAGE's convention (controls.spanishDecimal),
+// applied at the text a student sees. Two conventions on one screen would
+// be worse than the one that is already there.
+func copyPublishedLine(r controls.Reading) string {
+	if r.PublishedAt == nil {
+		return ""
+	}
+	when := "Enviada el " + r.PublishedAt.Format("02-01-2006 15:04")
+	if r.PublishedGrade == "" {
+		return when + "."
+	}
+	return when + ", con un " + r.PublishedGrade + "."
 }
 
 // SaveReview handles POST /controls/:id/copies/:copy/review. Reads the
