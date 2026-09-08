@@ -660,8 +660,91 @@ no de dónde ocurre.
 
 ## El arreglo y la lista
 
-{/* S7 — la tabla comparativa completa, cuándo elegir cada una, el patrón */}
-{/* polimórfico sobre Sequence. */}
+<Slide title="Arreglo y lista · la tabla completa">
+| Operación | Arreglo | Arreglo dinámico | Lista simple | Lista doble con tail |
+|---|---|---|---|---|
+| `getAt(i)` · `setAt(i, x)` | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| `insertFirst(x)` · `deleteFirst()` | $$\Theta(N)$$ | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> |
+| `insertLast(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ amortizado | $$\Theta(N)$$ | $$\Theta(1)$$ |
+| `deleteLast()` | $$\Theta(1)$$ | $$\Theta(1)$$ amortizado | $$\Theta(N)$$ | $$\Theta(1)$$ |
+| `insertAt(i, x)` · `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| `buscar(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| Capacidad | fija | crece | crece | crece |
+
+La primera fila y la segunda son la imagen espejo, y resumen toda la
+comparación: el arreglo llega a cualquier posición con una cuenta y paga por
+abrir hueco al principio; la lista abre hueco al principio con una asignación
+y paga por llegar a cualquier posición.
+
+</Slide>
+
+<Slide title="Cuándo conviene cada una">
+La elección no se hace por la estructura sino por la mezcla de operaciones
+que el programa va a pedir.
+
+**Conviene un arreglo** cuando se lee mucho por posición y se modifica poco
+la forma: una tabla que se llena una vez y después se consulta, cualquier
+recorrido por índice, cualquier algoritmo que compare `datos[i]` con
+`datos[j]`. La búsqueda binaria y los algoritmos de ordenamiento sobre
+arreglos viven de esta propiedad.
+
+**Conviene una lista** cuando se inserta y se elimina seguido en los
+extremos, y casi nunca se pide una posición arbitraria: una cola de tareas
+por atender, un historial al que se le agrega adelante, cualquier colección
+que crece y se achica todo el tiempo por los bordes.
+
+Cuando el programa pide de las dos cosas, la respuesta suele ser el arreglo
+dinámico: pierde solo en las inserciones al principio, y gana en todo lo que
+se lee por posición.
+
+</Slide>
+
+<Slide title="Lo que la tabla no dice">
+Dos cosas quedan fuera de una tabla de complejidades y a veces deciden la
+elección.
+
+**La memoria que se gasta de más.** Un arreglo guarda los datos y nada más,
+aunque reserve casillas de sobra. Una lista guarda, por cada dato, una
+referencia al siguiente —y dos en la doblemente enlazada—, más el costo de
+cada objeto en sí. Para elementos chicos, como enteros, la estructura puede
+ocupar varias veces lo que ocupan los datos.
+
+**Dónde caen los datos en memoria.** Los elementos de un arreglo están
+juntos, y los procesadores están construidos para eso: leer una posición
+trae también a sus vecinas. Los nodos de una lista pueden estar dispersos, y
+cada salto puede caer lejos del anterior. Dos recorridos que la tabla llama
+igual, ambos $$\Theta(N)$$, pueden medir tiempos muy distintos.
+
+Ninguna de las dos contradice la tabla: las constantes que el orden
+asintótico deja fuera son reales, y se notan cuando $$N$$ es chico o cuando
+las dos opciones tienen el mismo orden.
+
+</Slide>
+
+<Slide title="Un método, dos estructuras">
+El contrato compartido es lo que permite escribir código que no elige.
+
+```java
+public static int sumar(Sequence s) {
+    int total = 0;
+    for (int i = 0; i < s.len(); i++) {
+        total += s.getAt(i);
+    }
+    return total;
+}
+```
+
+Este método funciona con un arreglo y con una lista, sin cambiar una línea y
+sin saber cuál recibió. Eso es el TDA cumpliendo su promesa.
+
+También muestra el otro lado. Sobre un arreglo el recorrido cuesta
+$$\Theta(N)$$; sobre una lista, cada `getAt(i)` vuelve a caminar desde
+`head`, así que el mismo código cuesta $$\Theta(N^2)$$. El contrato garantiza
+que compila y que da el resultado correcto, y no garantiza nada sobre el
+tiempo: por eso conviene recorrer una lista siguiendo sus enlaces una sola
+vez, en lugar de pedirle posiciones.
+
+</Slide>
 
 <SectionBreak />
 
