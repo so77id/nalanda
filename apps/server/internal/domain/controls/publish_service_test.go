@@ -189,9 +189,9 @@ func newPublishRig(t *testing.T) *publishRig {
 		Analyzer: gen, Readings: readings, Annotator: gen,
 		Matcher: noMatcher{}, Dispatcher: dispatcher,
 		Roster: fakeRoster{code: "CIT2006-03", recipients: map[int64]controls.Recipient{
-			10: {Name: "Ana", Email: "ana@udp.cl"},
-			20: {Name: "Bruno", Email: "bruno@udp.cl"},
-			30: {Name: "Carla", Email: "carla@udp.cl"},
+			10: {FirstName: "ANA", LastName: "SOTO VERA", Email: "ana@udp.cl"},
+			20: {FirstName: "BRUNO", LastName: "PÉREZ DÍAZ", Email: "bruno@udp.cl"},
+			30: {FirstName: "CARLA", LastName: "MUÑOZ LEÓN", Email: "carla@udp.cl"},
 		}},
 		Senders: fakeSenders{sender: controls.Sender{
 			Name: "Miguel", Email: "miguel@udp.cl", GmailAddress: "miguel@gmail.com",
@@ -467,9 +467,9 @@ func TestCopiesWithNothingToSendAreSkippedRatherThanFailed(t *testing.T) {
 		// because a missing map entry also yields an empty Email.
 		{"the matched person has no address on file", func(rig *publishRig, r *publishReadings) {
 			rig.svc.Roster = fakeRoster{code: "CIT2006-03", recipients: map[int64]controls.Recipient{
-				10: {Name: "Ana", Email: "ana@udp.cl"},
-				20: {Name: "Bruno", Email: ""},
-				30: {Name: "Carla", Email: "carla@udp.cl"},
+				10: {FirstName: "ANA", LastName: "SOTO VERA", Email: "ana@udp.cl"},
+				20: {FirstName: "BRUNO", LastName: "PÉREZ DÍAZ", Email: ""},
+				30: {FirstName: "CARLA", LastName: "MUÑOZ LEÓN", Email: "carla@udp.cl"},
 			}}
 		}},
 	} {

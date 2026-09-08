@@ -14,9 +14,15 @@ about whether a real consent screen grants the scope, whether the redirect
 URI matches character for character, or whether a message this server
 considers well-formed arrives readable in a real inbox.
 
-**Last run: NOT RUN against this commit.** Written at `37bf476` (#273). The
-commit is the load-bearing half of this line: without it a procedure keeps
-its green mark through every later change to the path it covers.
+**Last run: PARTIAL, 2026-09-07, at `599690c` (#284 on the Jetson).** §1
+connect and a §4 send to Miguel's own address both passed — the grant, the
+refresh token, the From, the attachment and the Sent copy are real. §4's
+BODY checks below were rewritten afterwards (the whole name, no footer),
+so they have not been read against a delivered message, and §§2, 3, 5, 6
+and 7 have not run at all.
+
+The commit is the load-bearing half of this line: without it a procedure
+keeps its green mark through every later change to the path it covers.
 
 Everything below runs against the **https** URL, never `localhost`. The
 state cookie carries the `__Host-` prefix in production and the OAuth
@@ -117,10 +123,14 @@ In `real`.
       - [ ] The subject reads `[<código>] Corrección <control> — nota <X>`,
             with the accents intact and the grade written with a **comma**
             (`5,7`). Mojibake here means the header encoding is broken.
-      - [ ] The body greets by name, states the grade, and is signed with
-            your name.
-      - [ ] The footer carries a joke and the line saying the message was
-            generated automatically.
+      - [ ] The body greets the student by their **whole** name — given
+            names AND both surnames — written the way a person writes it
+            (`Benjamin Matias Perez Gonzalez`, never the CAPITALS Canvas
+            stores). Half a name here means the roster query lost a
+            column.
+      - [ ] It states the grade, invites a reply to that same message,
+            and is signed with your name. There is **no footer**: no
+            joke, and no line about a machine having written it.
       - [ ] **The PDF is attached, opens, and is the annotated copy** —
             marks drawn, correct answers, per-question score.
 - [ ] Check your **Sent** folder: the messages are there.

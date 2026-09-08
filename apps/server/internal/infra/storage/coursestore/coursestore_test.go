@@ -930,3 +930,49 @@ func mustStudentID(t *testing.T, ctx context.Context, db *sql.DB, canvasUserID s
 	}
 	return id
 }
+
+// The publication roster carries BOTH name columns (issue #273 follow-up).
+//
+// The first live publication greeted twenty-five students by their given
+// name alone, because this statement selected `first_name` and nothing
+// else. Nothing above could see it: no other case reads this method, and
+// the domain's own tests hand the service a fake roster. So the pin is
+// here, at the statement, where the column list actually lives.
+func TestTheRosterForAPublicationCarriesBothHalvesOfEveryName(t *testing.T) {
+	ctx, _, s := store(t)
+	course, err := s.CreateCourse(ctx, aCourse("44779"))
+	if err != nil {
+		t.Fatalf("CreateCourse: %v", err)
+	}
+	if _, err := s.SaveRoster(ctx, course.ID, []roster.SourceStudent{{
+		FirstName: "BENJAMIN MATIAS", LastName: "PEREZ GONZALEZ",
+		Email: "benjamin@mail.udp.cl", RUT: "11222333", RUTDV: "5",
+		CanvasUserID: "900001", CanvasEnrollmentID: "e900001",
+	}}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+
+	code, recipients, err := s.CourseForPublication(ctx, course.ID)
+	if err != nil {
+		t.Fatalf("CourseForPublication: %v", err)
+	}
+	if code != "CIT2006_CA01" {
+		t.Errorf("code = %q, want the course's own", code)
+	}
+	if len(recipients) != 1 {
+		t.Fatalf("got %d recipients, want 1", len(recipients))
+	}
+	for _, got := range recipients {
+		if got.FirstName != "BENJAMIN MATIAS" {
+			t.Errorf("FirstName = %q", got.FirstName)
+		}
+		// The half that was missing. Asserted on its own line rather
+		// than through FullName so a failure names the column.
+		if got.LastName != "PEREZ GONZALEZ" {
+			t.Errorf("LastName = %q, want the surnames the roster holds", got.LastName)
+		}
+		if got.Email != "benjamin@mail.udp.cl" {
+			t.Errorf("Email = %q", got.Email)
+		}
+	}
+}

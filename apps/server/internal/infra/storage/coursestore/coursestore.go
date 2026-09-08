@@ -510,6 +510,11 @@ func (s *Store) EnrollmentCounts(ctx context.Context) (map[int64]roster.Enrollme
 // resolves forty readings against this map, and asking per row would be
 // the N+1 #271's review already removed once from the course list.
 //
+// BOTH name columns, not just the given name. The greeting says the whole
+// name a person is called by — first names and both surnames — and
+// reading one column here is how the first live publication greeted
+// twenty-five students by half their name.
+//
 // `state = 'enrolled'` is load-bearing, not tidiness. A withdrawn student
 // still SAT the control they sat — their grade is real and stays on the
 // matrix — but they have dropped the course and have not asked to keep
@@ -527,7 +532,7 @@ func (s *Store) CourseForPublication(ctx context.Context, courseID int64) (strin
 	}
 
 	rows, err := s.db.QueryContext(ctx, `
-        SELECT student.id, student.first_name, student.email
+        SELECT student.id, student.first_name, student.last_name, student.email
         FROM student
         JOIN enrollment ON enrollment.student_id = student.id
         WHERE enrollment.course_id = ? AND enrollment.state = 'enrolled'`,
@@ -541,14 +546,17 @@ func (s *Store) CourseForPublication(ctx context.Context, courseID int64) (strin
 	recipients := map[int64]controls.Recipient{}
 	for rows.Next() {
 		var (
-			id    int64
-			name  string
-			email string
+			id        int64
+			firstName string
+			lastName  string
+			email     string
 		)
-		if err := rows.Scan(&id, &name, &email); err != nil {
+		if err := rows.Scan(&id, &firstName, &lastName, &email); err != nil {
 			return "", nil, fmt.Errorf("scan a roster row of course %d: %w", courseID, err)
 		}
-		recipients[id] = controls.Recipient{Name: name, Email: email}
+		recipients[id] = controls.Recipient{
+			FirstName: firstName, LastName: lastName, Email: email,
+		}
 	}
 	if err := rows.Err(); err != nil {
 		return "", nil, fmt.Errorf("walk the roster of course %d: %w", courseID, err)

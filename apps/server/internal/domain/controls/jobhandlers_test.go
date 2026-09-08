@@ -96,7 +96,14 @@ func TestThePublishFailureDetailNamesCopiesAndNeverPeople(t *testing.T) {
 	})
 	failure := failureFrom(t, err)
 
-	for _, person := range []string{"ana@udp.cl", "bruno@udp.cl", "carla@udp.cl", "Ana", "Bruno", "Carla"} {
+	for _, person := range []string{
+		"ana@udp.cl", "bruno@udp.cl", "carla@udp.cl",
+		"Ana", "Bruno", "Carla",
+		// The surnames too, since #273's follow-up: the greeting now
+		// carries the whole name, so a detail line that echoed the
+		// message would leak more of a person than it used to.
+		"Soto", "Pérez", "Muñoz", "SOTO", "PÉREZ", "MUÑOZ",
+	} {
 		if strings.Contains(failure.Detail, person) || strings.Contains(failure.Message, person) {
 			t.Errorf("the job row carries %q; it must name copies, not people", person)
 		}

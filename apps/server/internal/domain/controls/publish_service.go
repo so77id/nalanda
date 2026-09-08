@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 )
@@ -23,10 +24,25 @@ import (
 // package. It keeps the publication tests free of a course table, and it
 // keeps "what a person is" on the other side of a boundary.
 type Recipient struct {
-	// Name is the given name the message greets. May be empty; the
-	// builder handles that.
-	Name  string
-	Email string
+	// FirstName and LastName are the roster's own two columns, passed
+	// through exactly as Canvas wrote them — which is CAPITALS, for
+	// every row of the live course. Turning that into a greeting is the
+	// message builder's job (controls.formatStudentName), not this
+	// struct's and not the store's.
+	FirstName string
+	LastName  string
+	Email     string
+}
+
+// FullName is the whole name the message greets, given names first, in
+// the order a Chilean writes them.
+//
+// TrimSpace rather than a plain join: a roster row may carry one half and
+// not the other, since 00014_roster.sql defaults both name columns to the
+// empty string — and "Hola Benjamín ," is the shape of a bug reaching a
+// person.
+func (r Recipient) FullName() string {
+	return strings.TrimSpace(r.FirstName + " " + r.LastName)
 }
 
 // PublishRoster is what a publication needs to know about the class.
@@ -336,13 +352,11 @@ func (s *Service) messageFor(
 		CourseCode:     code,
 		ControlName:    control.Name,
 		Grade:          FormatGrade(total, control.QuestionsPerCopy),
-		StudentName:    recipient.Name,
+		StudentName:    recipient.FullName(),
 		StudentEmail:   recipient.Email,
 		ProfessorName:  sender.Name,
 		ProfessorEmail: sender.Email,
 		FromAddress:    sender.GmailAddress,
-		ControlID:      control.ID,
-		CopyNumber:     reading.CopyNumber,
 		Attachment:     attachment,
 	})
 
