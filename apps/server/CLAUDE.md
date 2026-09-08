@@ -681,6 +681,40 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   resume must not re-date it: "when was this class published" is not a
   question re-sending one copy changes the answer to.
 
+  **A COPY IS STAMPED ONLY BY A RUN THAT REACHED ITS STUDENT, and this is
+  the half that was got wrong first (#287 review, COR-1/SEC-1).** Three
+  kinds of run put the message in the professor's own mailbox instead: an
+  "envío de prueba" to one typed address, a publication in `staging` mode,
+  and ANY run under a deployment-wide redirecting transport. `Service.Publish`
+  asks `addressesStudents` — a predicate deliberately SEPARATE from
+  `rehearsal`, because it gates the per-copy stamp and the resume filter and
+  must NOT gate the control-level `MarkPublished`, which is what records the
+  EFFECTIVE mode a redirecting deployment has to leave behind (#273's
+  DAC-8). It gates BOTH of its two sites: a redirected run also sends the
+  whole batch, whatever state each copy is in, because filtering a rehearsal
+  would rehearse something other than the thing being rehearsed.
+
+  What testing only `TestTo` cost: a publication in "mi propia dirección
+  (prueba)" stamped every copy, so the next real Publicar skipped the entire
+  class while the copies table said "enviada". Its worst shape is the case
+  this WP exists for — a staging rehearsal on an already-published control
+  consumes the one re-corrected copy, and NO screen says "prueba", because
+  `MarkPublished` never runs a second time. Adding a fifth transport, or a
+  third per-publication mode, means answering "does this reach the student
+  the record would claim" as honestly as `Delivers()` answers its own
+  question. `PublishOne` carries the same guard.
+
+  A consequence worth knowing before touching `publishedLine`:
+  `publication_mode` is written once, so it says `staging` forever after a
+  rehearsal-first control. The line therefore asks the COUNT first — a
+  stamped copy proves a student was written to — and falls through to the
+  mode only when nothing is stamped. **And its zero asserts nothing**: a
+  cleared control ("Reenviar a todo el curso") and a publication that
+  delivered nothing reach the same zero, and the row cannot tell them
+  apart. Wording it as "nadie recibió su corrección" is the "NULL is not
+  zero" mistake `00018_published_sent.sql` names, re-entered through the
+  derived count (#287 review, COR-2).
+
   **A test that only checks the end state cannot see either ordering** — the
   loop never returns early, so every order finishes in the same place, and
   #273's first version of that case survived the mutation. The pin asks the
@@ -726,6 +760,16 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   And a copy with no annotated PDF is skipped rather than sent without it:
   "adjunto la corrección" with nothing attached is worse than no message,
   because the student now has to ask.
+- **A synchronous route imposes its OWN deadline, and the transport's is
+  not one (issue #287 review, ARQ-1).** `handler.copyPublishDeadline` is
+  25 s against `httpserver`'s 30 s `WriteTimeout`, beside `importDeadline`'s
+  20 s and for the same reason `add-a-backend-endpoint.md` gives: Go's write
+  deadline neither aborts a handler nor cancels `r.Context()`. The trap here
+  was that the transports underneath ARE bounded — 60 s on the Gmail client,
+  10 s on the token refresh — which reads like a bound and is not one: the
+  handler outlives the professor's connection, the send completes, the copy
+  is stamped, and the professor is told nothing. They press again and the
+  student gets two identical messages.
 - **Every grade a person reads goes through `controls.GradeFor` (issue
   #287).** `NumericGrade` and `FormatGrade` are NOT a pipeline, and reading
   their names as one is how #273's message builder shipped

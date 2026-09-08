@@ -152,8 +152,12 @@ since #287 the app itself is no longer a dead end.
       prueba** is too. Since #287 the button is how you finish a run that
       died half way or send a re-corrected copy — it is not "already done".
 - [ ] Press **Publicar** again. It answers **303**, not 409, and **nobody
-      receives a second copy**: check your inbox and count. The copies table
-      says `enviada` for every one of them.
+      receives a second copy**: check your inbox and count.
+- [ ] **The copies table still says `no enviada` for every copy**, and the
+      line above says the correos went to your own address. A rehearsal
+      records nothing about a student, which is what stops it from
+      consuming the real publication (ADR-0073 §4). If any copy reads
+      `enviada` here, stop: the next real Publicar will skip that person.
 - [ ] Open **Reenviar a todo el curso**. It names how many people already
       have their correction — for this run, the number you just received —
       and says it sends nothing by itself.
@@ -176,6 +180,16 @@ Then, on a second nominated control, for real:
 - [ ] The **controls list** shows `N/M enviadas` on that row, and nothing on
       a control you have not published.
 
+## 5b. The mode gate
+
+- [ ] In `stub`. On a graded control,
+      **Publicar** is disabled and says this server is not configured to
+      send. Pressing the URL by hand answers **422** naming the variable,
+      and **the control is not stamped**.
+- [ ] **Envío de prueba** still works under `stub` — a rehearsal on a
+      server that delivers nothing is a coherent thing to do.
+- [ ] Put the mode back to `real`.
+
 ## 5c. The resume (issue #287)
 
 The case no test can see: a real interrupted run leaving the mailbox in the
@@ -195,9 +209,10 @@ least four deliverable copies.
       of copies marked `enviada`. This is the whole check: the columns claim
       a fact about a mailbox nothing in the suite can see.
 - [ ] Press **Publicar** again.
-- [ ] The copies that were already `enviada` **receive nothing** — verify by
-      asking one of those students, or by publishing in `staging` mode to
-      yourself and counting. The rest arrive.
+- [ ] The copies that were already `enviada` **receive nothing**. Verify by
+      asking one of those students — **not** by publishing in `staging`
+      mode, which sends you the WHOLE batch on purpose and tells you
+      nothing about who the real run skipped.
 - [ ] The `Publicado el …` line still carries the FIRST publication's date,
       not the resume's.
 
@@ -214,16 +229,6 @@ least four deliverable copies.
       override, and it does not refuse on state.
 - [ ] On a copy matched to nobody, it answers **422** and says the copy is
       not associated with anyone on the course — not a generic failure.
-
-## 5b. The mode gate
-
-- [ ] In `stub`. On a graded control,
-      **Publicar** is disabled and says this server is not configured to
-      send. Pressing the URL by hand answers **422** naming the variable,
-      and **the control is not stamped**.
-- [ ] **Envío de prueba** still works under `stub` — a rehearsal on a
-      server that delivers nothing is a coherent thing to do.
-- [ ] Put the mode back to `real`.
 
 ## 6. The seven-day question
 

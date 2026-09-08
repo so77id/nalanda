@@ -5,7 +5,8 @@
 **Decision-makers:** Miguel Rodriguez
 **Source:** #287, from the first real publication to students (2026-09-08, the
 day #273 shipped). Every item below is a defect or a gap Miguel hit while using
-it on a live class, not a review finding.
+it on a live class, not a review finding — except §4's rehearsal rule and §5's
+retention note, which the WP's own review added (COR-1/SEC-1, SEC-2).
 **Supersedes:** ADR-0072 §5 ("Publication is async, one-way, and stamped before
 it sends"). §§1–4b and 6 of ADR-0072 stand unchanged.
 
@@ -143,6 +144,40 @@ manual override for the rest.
 The loop skips a copy whose state is **Enviada**, sends the rest, and stamps
 each copy **immediately after its own send succeeds**.
 
+**A COPY IS STAMPED ONLY BY A RUN THAT REACHED ITS STUDENT**, and that rule
+is load-bearing rather than tidy. Three kinds of run put the message in the
+professor's own mailbox instead: an "envío de prueba" to one typed address,
+a publication in `staging` mode, and any run at all under a deployment-wide
+redirecting transport (`NALANDA_EMAIL_MODE=staging`). None of them records
+anything about the student, and all three send the WHOLE batch whatever
+state each copy is in — they exist to put the real batch in front of the
+professor, and filtering would rehearse something other than the thing being
+rehearsed.
+
+The first draft of this WP tested only the first of the three, and the
+review measured what that costs: a publication in "mi propia dirección
+(prueba)" stamped every copy, so the next REAL Publicar skipped the entire
+class while the copies table said "enviada" and the list said "25/25". The
+worst shape the verifier found is the one this WP exists for — a staging
+rehearsal on an ALREADY published control consumes the single re-corrected
+copy, so that student keeps the out-of-date PDF and **no screen says
+"prueba"**, because `MarkPublished` only ever runs on the first
+publication. This is #273's own PUB-2/DAC-8 defect class re-entering
+through the door the per-copy stamp opened.
+
+The predicate is deliberately SEPARATE from "is this a rehearsal": it gates
+the per-copy stamp and the resume filter, and must NOT gate the
+control-level `MarkPublished`, which is what records the EFFECTIVE mode and
+is precisely the signal a redirecting deployment has to leave behind
+(#273 review, DAC-8).
+
+One consequence on the page: `publication_mode` is written once, on the
+first publication, so a professor who rehearses in `staging` and then
+publishes for real leaves it saying `staging` forever. `publishedLine`
+therefore asks the COUNT first — a stamped copy proves a student was
+written to, whatever the column says — and only falls through to the mode's
+sentence when nothing is stamped.
+
 `control.published_at` is still stamped once, on the first run. A resume
 finds it set and leaves the date alone: re-dating it would move "Publicado
 el 8 de septiembre" forward every time a professor re-sent one copy.
@@ -181,6 +216,41 @@ It is NOT redundant with §3. Stale covers "the grades changed"; this covers
 **"the annotated PDFs were wrong and the grades were not"** — a real case
 the grade comparison cannot see, and one that would otherwise cost one click
 per student.
+
+**Why it does NOT carry the destructive-confirm pair** (`add-a-backend-endpoint.md`
+§"A pattern the archive/purge flow adds"), which asks the next irreversible
+endpoint to justify departing from it. It destroys the record that a
+student was mailed and when — real data, and the evidence for the one
+dispute this feature creates ("nunca me llegó mi corrección"). Three
+reasons it is still a `<details>` and a button rather than a typed name:
+
+- Nothing a student holds is touched. The mail is in their inbox and in the
+  professor's own **Sent** folder, which is the authoritative record of a
+  delivery this server only ever observed second-hand — Gmail accepting a
+  message was never proof it arrived (§Non-goals).
+- The consequence needs a SECOND, separate press. Clearing sends nothing;
+  the warning names how many people would receive a duplicate, and Publicar
+  is where they say yes to it. The purge flow's typed name exists because
+  its single press is the whole of the destruction.
+- What is lost is recoverable in the direction that matters. Pressing
+  Publicar re-sends and re-stamps; the cost of a mistaken clear is one
+  duplicate message per student, which the warning quotes in advance.
+
+A retention question this does NOT answer: the app keeps no history of
+publications, only a last-wins pair per copy. If a future WP needs "who
+received what, when, across every re-send", that is a table and not a
+column, and this decision is the reason it does not exist yet.
+
+**The per-student send is not serialised against the batch**, and that is
+an accepted risk rather than an oversight (#287 review, SEC-3). It runs on
+the request goroutine, outside the runner's single-goroutine ordering
+(ADR-0050), so a professor pressing it while a Publicar job is mid-loop
+could have both readers see the same unstamped row. The handler refuses
+while a `publish` job is queued or running, which closes the window a
+person can actually hit; the residual race — the job starting between that
+check and the send — costs one duplicate message, and paying for it with a
+lock across two goroutines and a job runner is more machinery than one
+duplicate email is worth.
 
 ### 6. The skipped copies become visible, and the list shows progress
 
@@ -256,6 +326,23 @@ See §6. A control can read `23/25` while the copies table shows the two
 remaining as unsendable. The alternative was five joins and a Go-level grade
 computation per row, or a per-row query — and the exact answer is one click
 away.
+
+### The synchronous send has its own deadline, below the write timeout
+
+`copyPublishDeadline` is 25 s against `httpserver`'s 30 s `WriteTimeout`,
+because `http.Server`'s write deadline neither aborts a handler nor cancels
+`r.Context()` (`add-a-backend-endpoint.md` §"A pattern the Canvas import
+adds"). The transports underneath are bounded — 60 s on the Gmail client,
+10 s on the token refresh — so without it the worst case was ~70 s of work
+writing into a socket abandoned at 30, with the copy stamped and the
+professor told nothing: they press again and the student gets two identical
+messages.
+
+The cost of a number below the transport's: on a slow uplink the
+per-student send can give up where the batch job would have succeeded. That
+is the right trade, because the copy is left unstamped and the next press —
+or the next Publicar — picks it up, while the other way round loses the
+professor's answer entirely.
 
 ### What no test can see
 
