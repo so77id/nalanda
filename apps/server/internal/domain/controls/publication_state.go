@@ -82,8 +82,10 @@ type CopyPublication struct {
 	Grade string
 	// SentGrade is what the student is holding: the grade that went out,
 	// empty for a copy that never did. On a CopyStale it differs from
-	// Grade, and both are worth showing — "salió con un 4,0 y ahora tiene
-	// un 5,7" is the sentence the professor needs.
+	// Grade, and both are worth showing — "salió con un 4.0, ahora tiene un
+	// 5.7" is the sentence the professor needs (handler.publicationCell
+	// builds it; the dot is the professor's screen convention, and the comma
+	// belongs to the message a student reads).
 	SentGrade string
 	// PublishedAt is when this copy's own message went out, nil when it
 	// never did.

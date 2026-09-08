@@ -493,13 +493,24 @@ func (s *Service) PublishOne(ctx context.Context, controlID string, copyNumber i
 		annotated[copyNumber] = record
 	}
 
-	// ONCE, and reused for both the refusal and the stamp below. The first
-	// draft evaluated the decision three times for one copy — here, again
-	// inside messageFor, and a third time after the send purely to recover
-	// the grade this call already produced.
-	publication := CopyPublicationFor(control, reading, recipients, annotated)
-	if publication.State == CopySkipped {
-		return &CopyNotDeliverableError{CopyNumber: copyNumber, Reason: publication.SkipReason}
+	// THE DECISION, asked directly — not CopyPublicationFor, and that
+	// distinction is a defect this WP's review caught after the first
+	// attempt at deduplicating these calls (#287 review, ARQ-6).
+	//
+	// CopyPublicationFor deliberately MASKS non-deliverability on a copy
+	// that was already sent: it reports CopySent, because the student is
+	// holding the mail whatever the roster says now (§2). That is right for
+	// a screen and wrong here — PublishOne is being asked to send AGAIN, so
+	// what it needs is whether the copy is deliverable NOW, and which of the
+	// three reasons it is not. Routing the refusal through the display state
+	// made a published copy whose student withdrew report "falta el PDF
+	// corregido".
+	//
+	// The grade comes back from the same call, so the decision is evaluated
+	// once here rather than once for the refusal and again for the stamp.
+	_, grade, reason, deliverable := deliverableCopy(control, reading, recipients, annotated)
+	if !deliverable {
+		return &CopyNotDeliverableError{CopyNumber: copyNumber, Reason: reason}
 	}
 
 	message, ok := s.messageFor(control, code, sender, PublishRequest{
@@ -533,7 +544,7 @@ func (s *Service) PublishOne(ctx context.Context, controlID string, copyNumber i
 	// so a stamp that fails is worth returning rather than logging: they
 	// would otherwise be told it went, and the next Publicar would send it
 	// again.
-	if err := s.Readings.MarkCopyPublished(ctx, reading.ID, s.Now(), publication.Grade); err != nil {
+	if err := s.Readings.MarkCopyPublished(ctx, reading.ID, s.Now(), grade); err != nil {
 		// A DISTINCT sentinel, because the honest sentence is not "no se
 		// pudo enviar": the message is already in the student's mailbox and
 		// only the record of it is missing. Telling the professor the send

@@ -328,7 +328,7 @@ func TestThePublishBannerNamesTheCopiesAlreadySent(t *testing.T) {
 	if !strings.Contains(failure.Message, "2 ya estaban al día") {
 		t.Errorf("the banner does not say the other copies were already sent: %q", failure.Message)
 	}
-	if !strings.Contains(failure.Message, "1 fallaron") {
+	if !strings.Contains(failure.Message, "1 falló") {
 		t.Errorf("the banner lost the failure it exists to report: %q", failure.Message)
 	}
 }

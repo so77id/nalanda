@@ -1116,15 +1116,25 @@ func insertStudentForCounts(t *testing.T, ctx context.Context, db *sql.DB) int64
 //
 // It EXPLAINs the exported const rather than a restated copy, which is the
 // whole reason the const is exported — and the reason #272's review found a
-// guard EXPLAINing a query nothing ran any more (COR-9). Asserting the plan
-// rather than the timing keeps it a statement about the schema.
+// guard EXPLAINing a query nothing ran any more (COR-9).
 //
-// What it pins: ONE statement for the whole page, driving from `reading`
-// and reaching `control` and `annotated_copy` by their own keys. What it
-// does NOT fix: the temp B-tree for the GROUP BY, which survives either
-// way — a control_id index on `reading` would remove it, and
-// `idx_reading_by_control` already leads with that column, so the plan is
-// as good as this shape gets.
+// What the plan IS, measured rather than assumed (the first version of this
+// comment described one SQLite does not produce, #287 review ARQ-2):
+//
+//	SEARCH control USING INDEX idx_control_deleted_at (deleted_at=?)
+//	SEARCH reading USING INDEX idx_reading_by_control (control_id=?)
+//	SEARCH annotated_copy USING COVERING INDEX … (LEFT-JOIN)
+//	USE TEMP B-TREE FOR GROUP BY
+//
+// It drives from `control`, not from `reading`: the WHERE is on
+// `control.deleted_at`, so the planner walks the active controls and looks
+// each one's readings up by index. Every table is SEARCHed, never SCANned,
+// which is what "one statement instead of a count per row" means here.
+//
+// What it does NOT fix: the temp B-tree. Rows arrive in control order but
+// the planner does not prove it, so the GROUP BY sorts anyway. An index
+// would not remove it while `control` is the outer loop, and it costs one
+// sort of one row per control — which is the size of the page.
 func TestPublicationCountsRunsAsOneStatementOverTheIndexes(t *testing.T) {
 	ctx, db := migrated(t)
 
@@ -1150,20 +1160,26 @@ func TestPublicationCountsRunsAsOneStatementOverTheIndexes(t *testing.T) {
 		t.Fatal("the planner returned nothing, so nothing below is about the query")
 	}
 
-	joined := strings.Join(plan, " | ")
-	// No correlated subquery per row: a plan naming a scan of `reading`
-	// under a parent per control is the N+1 in disguise.
+	joined := strings.Join(plan, "\n")
+	// Every table is reached by a key. A SCAN of `reading` is the whole
+	// failure this pins: it is what a query that lost its join condition —
+	// or a per-control subquery — looks like in a plan.
+	for _, want := range []string{
+		"SEARCH reading",
+		"SEARCH annotated_copy",
+		"SEARCH control",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("the plan has no %q:\n%s", want, joined)
+		}
+	}
+	if strings.Contains(joined, "SCAN reading") {
+		t.Errorf("the plan SCANS reading, so the tally reads the whole table:\n%s", joined)
+	}
+	// And no correlated subquery: a plan naming one is the per-row count
+	// this statement exists to avoid, wearing a different hat.
 	if strings.Contains(joined, "CORRELATED") {
 		t.Errorf("the tally runs a correlated subquery, which is the per-row count "+
 			"this statement exists to avoid:\n%s", joined)
-	}
-	// Both joined tables are reached by a key rather than scanned per row.
-	for _, want := range []string{"control", "annotated_copy"} {
-		if !strings.Contains(joined, want) {
-			t.Errorf("the plan does not mention %s:\n%s", want, joined)
-		}
-	}
-	if !strings.Contains(joined, "USING INDEX") && !strings.Contains(joined, "USING PRIMARY KEY") {
-		t.Errorf("the plan uses no index at all:\n%s", joined)
 	}
 }

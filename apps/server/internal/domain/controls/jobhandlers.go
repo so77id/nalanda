@@ -250,20 +250,35 @@ func NewPublishHandler(svc *Service) jobs.Handler {
 // Zero terms are omitted rather than printed: "y 0 fallaron" on a clean run
 // invites the professor to look for a failure there is none of.
 func publishSummary(r PublishResult) string {
-	parts := []string{fmt.Sprintf("se enviaron %d correcciones", r.Sent)}
+	// Every term agrees in number, like the three sibling functions on the
+	// publication screens. "1 se omitieron" is the kind of string a
+	// professor reads as a bug in the count (#287 review, COR-10).
+	parts := []string{plural(r.Sent, "se envió 1 corrección", "se enviaron %d correcciones")}
 	if r.AlreadySent > 0 {
-		parts = append(parts, fmt.Sprintf("%d ya estaban al día", r.AlreadySent))
+		parts = append(parts, plural(r.AlreadySent, "1 ya estaba al día", "%d ya estaban al día"))
 	}
 	if r.Skipped > 0 {
-		parts = append(parts, fmt.Sprintf("%d se omitieron", r.Skipped))
+		parts = append(parts, plural(r.Skipped, "1 se omitió", "%d se omitieron"))
 	}
 	if len(r.Failures) > 0 {
-		parts = append(parts, fmt.Sprintf("%d fallaron", len(r.Failures)))
+		parts = append(parts, plural(len(r.Failures), "1 falló", "%d fallaron"))
 	}
 	if len(parts) == 1 {
 		return parts[0]
 	}
 	return strings.Join(parts[:len(parts)-1], ", ") + " y " + parts[len(parts)-1]
+}
+
+// plural picks the singular sentence or formats the plural one.
+//
+// Spanish, in the domain, for the same reason publishFailureReason is: the
+// banner's text is assembled here, and splitting the number agreement from
+// the sentence it agrees with would put one fact in two packages.
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return fmt.Sprintf(many, n)
 }
 
 // publishDetail lists the copies that did not go out, so the professor

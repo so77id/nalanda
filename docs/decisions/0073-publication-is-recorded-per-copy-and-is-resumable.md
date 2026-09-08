@@ -1,6 +1,6 @@
 # ADR-0073: Publication is recorded per copy, and is therefore resumable
 
-**Status:** Accepted
+**Status:** Accepted — `apps/server/GMAIL-CHECK.md` §5c/§5d outstanding
 **Date:** 2026-09-08
 **Decision-makers:** Miguel Rodriguez
 **Source:** #287, from the first real publication to students (2026-09-08, the
@@ -99,12 +99,18 @@ afterwards.
 
 ### 2. Four states per copy, derived and never stored
 
-| State | Condition | Offered |
+| State | Condition | What the professor sees |
 |---|---|---|
-| **No enviada** | `published_at IS NULL` | Enviar |
-| **Enviada** | stamped, and `published_grade` == the current grade | — |
-| **Enviada, desactualizada** | stamped, and the grade has changed since | Reenviar |
-| **Omitida** | not deliverable: no matched student, no defined grade, no annotated PDF | the reason |
+| **No enviada** | `published_at IS NULL` | `no enviada` · "iría con un 5.7" |
+| **Enviada** | stamped, and `published_grade` == the current grade | `enviada` · when it went out, and with what |
+| **Enviada, desactualizada** | stamped, and the grade has changed since | `desactualizada` · "salió con un 4.0, ahora tiene un 7.0" |
+| **Omitida** | not deliverable: no matched student, no defined grade, no annotated PDF | `omitida` · the reason |
+
+There is **no per-state button**. The copies table is text; the only
+per-copy send is the review page's "Enviar la corrección a esta persona",
+which is offered on every state including **Enviada** — deliberately, since
+that is the manual override §5 exists for. What the state changes is what
+the batch does on the next Publicar, not what the professor is offered.
 
 Derived, never stored: a fifth column holding the state would need
 invalidating on every re-read, re-annotation, override and roster import,
@@ -118,12 +124,21 @@ dash — stays "enviada". None of that un-sends the mail they are holding, and
 reporting it as skipped would tell the professor nobody wrote to somebody
 who has the correction in their inbox.
 
-**One function decides.** `deliverableCopy` answers "can this copy be mailed,
-and with what grade", and BOTH the screen (`CopyPublicationFor`) and the loop
-(`Service.messageFor`) go through it. A page that offered "Enviar" for a copy
-the publication would skip, or a loop that skipped one the page called ready,
-would be two answers to one question — the shape #251's cannot-disagree rule
-refuses.
+**One function decides, and the one approximation of it is deliberate.**
+`deliverableCopy` answers "can this copy be mailed, and with what grade";
+the loop (`Service.messageFor`), the copies table (`CopyPublicationFor`) and
+`PublishOne`'s refusal all go through it. A loop that skipped a copy the
+table called ready would be two answers to one question — the shape #251's
+cannot-disagree rule refuses.
+
+The review page's button gate (`handler.copySendGate`) is the exception, and
+it is bounded: it asks the same three questions **in the same order**, using
+only what that page already holds, and leaves the fourth — a match the
+roster no longer carries — to the domain. So the button CAN be live over a
+refusal for a copy whose student left the course, and `PublishOne` then
+answers with the same sentence from the same function (`copySkipMessage`).
+Ordering it differently is what made one screen say "falta el PDF" while the
+other said "sin nota" for one copy (#287 review, ARQ-3/COR-11).
 
 ### 3. Staleness is detected on the GRADE, not on the PDF
 
@@ -217,17 +232,19 @@ It is NOT redundant with §3. Stale covers "the grades changed"; this covers
 the grade comparison cannot see, and one that would otherwise cost one click
 per student.
 
-**Why it does NOT carry the destructive-confirm pair** (`add-a-backend-endpoint.md`
-§"A pattern the archive/purge flow adds"), which asks the next irreversible
-endpoint to justify departing from it. It destroys the record that a
-student was mailed and when — real data, and the evidence for the one
-dispute this feature creates ("nunca me llegó mi corrección"). Three
-reasons it is still a `<details>` and a button rather than a typed name:
+**Why it does NOT carry the destructive-confirm pair**
+(`add-a-backend-endpoint.md` §"A pattern the archive/purge flow adds", whose
+departure test this WP contributed). It destroys the record that a student
+was mailed and when — real data, and the evidence for the one dispute this
+feature creates ("nunca me llegó mi corrección"). Three reasons it is still
+a `<details>` and a button rather than a typed name:
 
 - Nothing a student holds is touched. The mail is in their inbox and in the
   professor's own **Sent** folder, which is the authoritative record of a
   delivery this server only ever observed second-hand — Gmail accepting a
-  message was never proof it arrived (§Non-goals).
+  message was never proof it arrived (#287 §Non-goals: per-copy delivery
+  confirmation is out of scope, because Gmail accepting a message is not the
+  student reading it).
 - The consequence needs a SECOND, separate press. Clearing sends nothing;
   the warning names how many people would receive a duplicate, and Publicar
   is where they say yes to it. The purge flow's typed name exists because
@@ -350,8 +367,9 @@ The same boundary as #273: nothing here reaches Gmail. The resume case IS
 verifiable in the suite (a dispatcher that fails mid-loop, and readings
 stamped as a crashed run would have left them); what is not is whether a
 real interrupted run leaves the mailbox in the state the columns claim.
-That is `GMAIL-CHECK.md` §8's new step, and this ADR's decision is not
-verified while a human has not run it.
+That is `GMAIL-CHECK.md` §5c (the resume) and §5d (the per-student send),
+and this ADR's decision is not verified while a human has not run them —
+which is what its Status says.
 
 ### A live defect found on the way, and fixed here
 
@@ -359,8 +377,12 @@ Writing the resume cases surfaced a bug in #273's own message builder:
 `Service.Publish` composed `FormatGrade(NumericGrade(…))`, and the two do
 not compose. `NumericGrade` already returns the 1,0–7,0 grade; `FormatGrade`
 maps a RAW TOTAL onto that scale. The second re-scaled the first's answer
-and clamped everything above ~28% to 7,0 — a copy with 1 of 2 correct read
-4,0 in the readings table and was EMAILED 7,0. **That shipped in #273 and
+and saturated at 7,0 as soon as the real grade reached the control's
+QUESTION COUNT: a fraction of (Q−1)/6, which is a sixth of a two-question
+control, a third of a three-question one, half of a four-question one. A
+copy with 1 of 2 correct read 4,0 in the readings table and was EMAILED
+7,0. (The first version of this ADR said "~28%", a number no control can
+produce — measured and corrected in the WP's own review, DAC-7.) **That shipped in #273 and
 went out to a real class on 2026-09-08.**
 
 `controls.GradeFor` is now the one function both the table and the message

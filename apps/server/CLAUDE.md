@@ -61,10 +61,15 @@ fact.
   flow. Records why the mail goes out as the PROFESSOR rather than through
   a transactional API, why the Gmail grant is a second authorization and
   not a wider login, the four dispatch modes, and the one question it
-  could not settle (§Consequences, "the seven-day question"). **Read
-  `0073-publication-is-recorded-per-copy-and-is-resumable.md` with it**:
-  it supersedes §5 and is what `Service.Publish`, `Service.PublishOne`
-  and the two publication screens actually implement.
+  could not settle (§Consequences, "the seven-day question").
+- `docs/decisions/0073-publication-is-recorded-per-copy-and-is-resumable.md`
+  — it supersedes ADR-0072 §5, and it has its own trigger: read it before
+  touching anything that decides WHICH copies go out, stamps one, or
+  renders a copy's state. Concretely
+  `internal/domain/controls/publication_state.go`, `Service.Publish` /
+  `PublishOne` / `ResendToWholeCourse` / `PublicationCounts`, and
+  `upsertReading`'s `ON CONFLICT` column list in
+  `internal/infra/storage/controlstore/readings.go`.
 - `docs/security-notes.md` §"Logs and personal data" — read before adding any
   `slog` call on a path that holds a RUT, a name or a student address. The
   rule is that the identifier stays OUT of the line; the `_action` /
@@ -113,10 +118,12 @@ fact.
   `controls.Service.Publish`. The policy behind all of them is ADR-0072.
 
   **And #287's**: one copy's state is `controls.CopyPublicationFor` (with
-  `deliverableCopy` behind it), the per-student send is
-  `Service.PublishOne`, the bulk reset is `Service.ResendToWholeCourse`,
-  and the list's counts are `Service.PublicationCounts`. The policy is
-  ADR-0073.
+  `deliverableCopy` behind it) and a whole page's worth is
+  `Service.CopyPublications` — use the second from a screen, never a loop
+  over the first. The per-student send is `Service.PublishOne`, the bulk
+  reset is `Service.ResendToWholeCourse`, the list's counts are
+  `Service.PublicationCounts`, and the grade any of them shows a person is
+  `controls.GradeFor`. The policy is ADR-0073.
 
 ## Language
 
@@ -170,6 +177,16 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   `jobs`, implemented by `jobstore` under `internal/infra`) and `jobs.Handler`
   (declared in `jobs`, implemented from `controls`) are two more shapes to copy
   alongside `health.Prober`.
+- **A LIST PAGE GETS ONE AGGREGATE QUERY, NEVER A QUERY PER ROW.** The
+  shape is `GROUP BY` into a map the handler indexes by id; the two worked
+  cases are `coursestore.EnrollmentCounts` (#271) and
+  `controlstore.PublicationCountsSQL` (#287). #271's review removed the
+  per-row version from the course list (ARQ-1) and it came back as a
+  temptation on the controls list a WP later, because nothing about the
+  rendered page looks different when it is wrong. When the aggregate cannot
+  express the per-row rule exactly, it may APPROXIMATE it under the three
+  conditions in `backend-code-style.md` §"A list-level aggregate may
+  APPROXIMATE a per-row domain rule" — never by asking per row instead.
 - **Never add a dependency without discussing it.** `go.mod` is a manifest and
   the root `CLAUDE.md` rule applies to it unchanged. The direct set is exactly
   `modernc.org/sqlite` and `github.com/pressly/goose/v3`; there is deliberately
@@ -597,7 +614,11 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
     symbols" and §"Text emphasis" — both get a matching update in the
     same PR (documentation.md Rule 1).
 - **The statistics panel is a pure read and every grade flows through
-  `controls.NumericGrade` (issue #251).** `internal/domain/controls/stats/`
+  `controls.NumericGrade` (issue #251) — which is the FLOAT back door, for
+  statistics only.** A caller holding a `Reading` and showing a PERSON a
+  grade calls `controls.GradeFor` (its own bullet below): `NumericGrade` and
+  `FormatGrade` are not a pipeline, and composing them re-scales the grade
+  and mails a 7,0 to every copy whose real grade reaches the question count — a fraction of (Q−1)/6 (#287).** `internal/domain/controls/stats/`
   computes the panel out of the readings, the current bank snapshot and
   `Control.QuestionsPerCopy` — no writes to the DB, no worker call, no
   cache. The panel is only rendered on `Control.State == Graded` AND
@@ -775,9 +796,11 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   their names as one is how #273's message builder shipped
   `FormatGrade(NumericGrade(…))`: `NumericGrade` already returns the 1,0–7,0
   grade and `FormatGrade` maps a RAW TOTAL onto that scale, so the second
-  re-scaled the first's answer and clamped everything above ~28% to 7,0. A
-  copy with 1 of 2 correct read 4,0 in the readings table and was EMAILED
-  7,0 — to a real class, on 2026-09-08. `NumericGrade` is the float back
+  re-scaled the first's answer and saturated at 7,0 as soon as the real
+  grade reached the control's QUESTION COUNT — a fraction of (Q−1)/6, which
+  is a sixth of a two-question control, a third of a three-question one and
+  half of a four-question one. A copy with 1 of 2 correct read 4,0 in the
+  readings table and was EMAILED 7,0 — to a real class, on 2026-09-08. `NumericGrade` is the float back
   door for the statistics panel and `FormatGrade` is the raw-total renderer;
   neither is "the grade of this reading", which is what a caller holding a
   `Reading` wants. That is `GradeFor`, and it is what makes the comment
@@ -814,7 +837,11 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   whether a refresh token survives a week, and whether a message this
   server considers well-formed arrives readable in a real inbox. Any change
   to `internal/infra/oidc/gmail.go`, the `/profile` connect flow,
-  `internal/infra/email/`, the message builder or `NALANDA_EMAIL_MODE` is
+  `internal/infra/email/`, the message builder, `NALANDA_EMAIL_MODE` — or,
+  since #287, anything that decides WHICH copies go out or stamps them
+  (`Service.Publish`'s resume filter, `Service.PublishOne`,
+  `ResendToWholeCourse`, `controls.deliverableCopy`, and the
+  `published_at`/`published_grade` writes; §5c and §5d are their steps) — is
   unfinished while a human has not run
   [`GMAIL-CHECK.md`](GMAIL-CHECK.md). Same rule, and the same reason, as
   the Google, Canvas and paper bullets.

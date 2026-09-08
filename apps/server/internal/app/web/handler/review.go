@@ -76,7 +76,6 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 		ShowPublishCopy:   control.State == controls.Graded,
 		CopyPublishedLine: copyPublishedLine(reading),
 	}
-	page.CanPublishCopy = true
 	// Issue #190: the corrected PDF replaces the raw scan once it exists.
 	// The lookup failure is a 500 — same convention as the reading list on
 	// the detail page: if the store is broken for this query, the page it
@@ -112,20 +111,27 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 // professor do about it" — for the reasons visible without a roster read.
 //
 // It deliberately does NOT re-implement controls.deliverableCopy: it asks
-// the same questions the same way (StudentID, GradeFor, an annotated
-// record) and leaves the one it cannot see to the domain, which refuses
-// with the same three sentences. A fourth spelling of the rule is what
-// #251's cannot-disagree rule refuses, and the sentences themselves live in
-// one place (copyNotDeliverableMessage).
+// the same questions IN THE SAME ORDER (student, then grade, then the
+// annotated record) and leaves the one it cannot see — a match the roster
+// no longer carries — to the domain, which refuses with the same three
+// sentences from the same function.
+//
+// THE ORDER IS THE CONTRACT, not a detail. deliverableCopy states it: the
+// checks run in the order the professor would fix them, and "reporting the
+// innermost failure of a copy that fails several would send them to the
+// wrong screen". The first version of this gate asked for the PDF before
+// the grade, so a copy missing both told the professor "falta el PDF" here
+// and "sin nota" in the copies table — the disagreement #251's rule
+// refuses, one screen apart (#287 review, ARQ-3).
 func copySendGate(c controls.Control, r controls.Reading, hasAnnotated bool) (bool, string) {
-	switch {
-	case r.StudentID == nil:
+	if r.StudentID == nil {
 		return false, copySkipMessage(controls.SkipNoStudent)
-	case !hasAnnotated:
-		return false, copySkipMessage(controls.SkipNoAnnotated)
 	}
 	if _, ok := controls.GradeFor(c.QuestionsPerCopy, r); !ok {
 		return false, copySkipMessage(controls.SkipNoGrade)
+	}
+	if !hasAnnotated {
+		return false, copySkipMessage(controls.SkipNoAnnotated)
 	}
 	return true, ""
 }

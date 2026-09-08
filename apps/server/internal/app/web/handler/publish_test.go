@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"testing"
@@ -31,12 +33,30 @@ func matchedGradedControl(t *testing.T, f *controlsFixture) string {
 		t.Fatalf("SaveRoster: %v", err)
 	}
 	controlID := gradedControl(t, f)
-	// The corrected PDF, which the publication state asks about and which
-	// the fake annotator does not put on the volume.
+
+	// The corrected PDF: the ROW **and the bytes on the volume**, which the
+	// fake annotator writes neither of.
+	//
+	// The file half is not decoration (#287 review, COR-9). Service.publish
+	// reads it, so a row with no file makes messageFor fail and every copy
+	// counts as Skipped — which meant a publication through this fixture
+	// stamped NOTHING, and the case asserting that a staging run stamps
+	// nothing passed with the staging bug reinstated. An assertion that
+	// cannot fail is the scar this repo already carries twice (#273 S9,
+	// #149 S5).
+	name := filepath.Join("controls", controlID, "anotado-1.pdf")
+	full := filepath.Join(f.workDir, name)
+	if err := os.MkdirAll(filepath.Dir(full), 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	if err := os.WriteFile(full, []byte("%PDF fake"), 0o644); err != nil {
+		t.Fatalf("writing the annotated PDF: %v", err)
+	}
 	if _, err := f.db.ExecContext(context.Background(), `
         INSERT INTO annotated_copy (control_id, copy_number, generated_at, path)
-        VALUES (?, 1, 0, 'anotado-1.pdf')
-        ON CONFLICT (control_id, copy_number) DO NOTHING`, controlID); err != nil {
+        VALUES (?, 1, 0, ?)
+        ON CONFLICT (control_id, copy_number) DO UPDATE SET path = excluded.path`,
+		controlID, name); err != nil {
 		t.Fatalf("recording the annotated copy: %v", err)
 	}
 	return controlID
@@ -562,10 +582,11 @@ func TestAStagingRunLeavesEveryCopyUnstampedAndSaysSo(t *testing.T) {
 	}
 
 	body := f.detailBody(t, controlID)
-	if !strings.Contains(body, "no a los estudiantes") {
+	if !strings.Contains(body, "en modo prueba: esa primera publicación fue a tu propia dirección") {
 		t.Errorf("the published line does not say a staging run reached no student:\n%s", body)
 	}
-	if strings.Contains(body, "figuran como enviadas a los estudiantes") {
+	if strings.Contains(body, "figura como enviada") &&
+		!strings.Contains(body, "Ninguna copia figura como enviada") {
 		t.Error("the published line credits a staging run with reaching the class")
 	}
 }
@@ -1155,5 +1176,54 @@ func TestThePerStudentSendRefusesWhileABatchIsRunning(t *testing.T) {
 	}
 	if message := flashFromResponse(t, rec); !strings.Contains(message, "envío en curso") {
 		t.Errorf("the refusal does not say a batch is running: %q", message)
+	}
+}
+
+// ARQ-3 (#287 review): the review page and the copies table name the SAME
+// reason for a copy that fails more than one check.
+//
+// The gate on the review page and controls.deliverableCopy ask the same
+// three questions, and the ORDER is the contract: the professor is sent to
+// what they would fix first. The first version asked for the PDF before the
+// grade, so a copy missing both read "falta el PDF" on one screen and "sin
+// nota" on the other — the disagreement #251's rule refuses, one screen
+// apart.
+//
+// The state is built by hand because the close gate will not produce it: a
+// professor cannot close a correction over an unresolved doubtful answer,
+// so a copy that has BOTH problems arrives by a later edit, which is
+// exactly when they would be looking at this screen.
+func TestBothScreensNameTheSameReasonForACopyFailingSeveralChecks(t *testing.T) {
+	f := newControlsFixture(t)
+	ctx := context.Background()
+	controlID := matchedGradedControl(t, f)
+
+	// No corrected PDF, and no defined grade — the copy fails the second
+	// and third checks at once.
+	if _, err := f.db.ExecContext(ctx,
+		"DELETE FROM annotated_copy WHERE control_id = ?", controlID); err != nil {
+		t.Fatalf("removing the annotated record: %v", err)
+	}
+	if _, err := f.db.ExecContext(ctx, `
+        UPDATE answer SET status = 'doubtful'
+        WHERE reading_id IN (SELECT id FROM reading WHERE control_id = ? AND copy_number = 1)`,
+		controlID); err != nil {
+		t.Fatalf("making the grade undefined: %v", err)
+	}
+
+	review := reviewBody(t, f, controlID, 1)
+	detail := f.detailBody(t, controlID)
+
+	// Both must name the GRADE, which is what the professor fixes first.
+	if !strings.Contains(review, "no tiene una nota definida") {
+		t.Errorf("the review page does not name the grade as the reason:\n%s", review)
+	}
+	if !strings.Contains(detail, "no tiene nota definida") {
+		t.Errorf("the copies table does not name the grade as the reason:\n%s", detail)
+	}
+	// The annotation sentence, not the button's own blurb, which always
+	// mentions the PDF.
+	if strings.Contains(review, "todavía no tiene su PDF corregido") {
+		t.Error("the review page sends the professor to the annotation before the grade")
 	}
 }

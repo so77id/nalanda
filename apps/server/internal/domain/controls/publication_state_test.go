@@ -204,7 +204,8 @@ func TestASentCopyThatStoppedBeingDeliverableIsStillReportedSent(t *testing.T) {
 // composing two functions that are not composable: NumericGrade already
 // returns the 1,0–7,0 grade and FormatGrade maps a RAW TOTAL onto that
 // scale, so the second re-scaled the first's answer and clamped everything
-// above ~28% to 7,0. A copy with 1 of 2 correct read 4,0 in the readings
+// saturating at 7,0 as soon as the real grade reached the question count —
+// a fraction of (Q−1)/6. A copy with 1 of 2 correct read 4,0 in the readings
 // table and was EMAILED 7,0. It shipped in #273 and went out to a real
 // class on 2026-09-08.
 //

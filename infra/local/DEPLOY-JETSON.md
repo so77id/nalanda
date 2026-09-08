@@ -264,9 +264,28 @@ after editing `.env`.
 
 ## Rollback
 
-- **Preferred**: `git revert <bad-sha> && git push origin main`. CI
-  rebuilds against the reverted code, tags `:latest`, Watchtower pulls
-  within its poll interval. Same shape as merging any other PR.
+**FIRST, ask whether the bad SHA carried a migration that DROPPED or
+rebuilt anything:**
+
+```bash
+git show <bad-sha> --stat -- apps/server/migrations/
+```
+
+If it did, **`git revert` is not available**. goose never runs a Down block
+(`backend-code-style.md` §Adding a migration, rule 2), so the migration
+stays applied and the reverted binary meets a schema it does not know: it
+boots, applies nothing, and every page that reads the missing column
+answers 500. Use the emergency pin below and fix forward instead.
+
+Worked case: `00020_drop_published_sent.sql` (#287). It drops
+`control.published_sent`, which every binary before that commit still names
+in its `SELECT` — so reverting the publication WP would turn a mail bug
+into a backoffice outage.
+
+- **Preferred, when no migration dropped or rebuilt anything**:
+  `git revert <bad-sha> && git push origin main`. CI rebuilds against the
+  reverted code, tags `:latest`, Watchtower pulls within its poll interval.
+  Same shape as merging any other PR.
 - **Emergency pin to a specific past image, without a git push**:
   ```bash
   # On the Jetson:

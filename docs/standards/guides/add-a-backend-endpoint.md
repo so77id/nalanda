@@ -319,6 +319,25 @@ three independent gates**:
   echoed back (same shape as the create form's validation
   re-render).
 
+**When the pair does NOT apply, say why in three answers (#287).** The
+first justified exception is `POST /controls/{id}/resend-all`, which
+destroys the only record that a student was mailed and when, behind one
+button. The test it passed, and the one to reuse:
+
+1. **Does it touch anything the person on the other side holds?** Here, no
+   — the mail is in the student's inbox and in the professor's own Sent
+   folder, which is the authoritative record this server only ever observed
+   second-hand.
+2. **Does the consequence need a SECOND, separate press?** Here, yes —
+   clearing sends nothing, and the count of who would receive a duplicate
+   is named above the button that does.
+3. **Is what is lost recoverable in the direction that matters?** Here,
+   yes — pressing Publicar re-sends and re-stamps, and the cost of a
+   mistaken clear is one duplicate message per student.
+
+Three yeses buy a `<details>` and a button. Anything less is the pair.
+Full reasoning, and the retention gap it leaves: ADR-0073 §5.
+
 The three gates enforce the same rule at three layers so a caller
 that bypasses one still hits the others:
 
@@ -464,6 +483,19 @@ The rule that shape earned, and the incident that earned it:
    is now `POST /controls/{id}/resend-all`, which clears the record and
    deliberately does NOT send, so the count and the consequence are two
    separate presses (ADR-0073 §5).
+
+**A fourth rule the publication added (#287, ADR-0073 §5).** A synchronous
+route that mutates rows an async `jobs.Kind` also mutates **must refuse
+while that job is queued or running**. The runner serialises jobs against
+each other (ADR-0050); it cannot serialise them against the request
+goroutine, so both readers see the same row and both act on it. Read the
+latest job for the resource (`jobs.Store.LatestForControlByKind` +
+`jobs.Status.IsTerminal()`) and answer flash + 303, never a 4xx. A READ
+FAILURE answers "not in flight": a lookup that blinked must not block a
+professor standing in front of the button. Worked case:
+`handler.publishJobInFlight`, guarding the per-student send against a
+`publish` batch; the residual window it cannot close, and why no lock, are
+in ADR-0073 §5.
 
 **The companion configuration rule.** A variable that gates an irreversible
 effect defaults to the SAFE value even when that is not what production

@@ -1169,10 +1169,13 @@ the shape of this entry in three ways:
   correction, synchronously, from the review page; `POST
   /controls/{id}/resend-all` clears every copy's stamp so the next Publicar
   writes to the class again. Both are on the professor's surface behind the
-  session gate and CSRF, both run the same `Delivers()` and connected-account
-  gates as the batch, and neither exists on `internal/app/api`. Nothing new
-  leaves the Jetson that the batch did not already send; what is new is that
-  it can leave one student at a time.
+  session gate and CSRF, and neither exists on `internal/app/api`. The
+  per-student send runs the same `Delivers()` and connected-account gates as
+  the batch;
+  **resend-all runs neither, because it delivers nothing** — it clears
+  stamps, and the gates that matter are on the Publicar that follows. Nothing
+  new leaves the Jetson that the batch did not already send; what is new is
+  that it can leave one student at a time.
 - **The one-shot refusal is gone, and the duplicate-prevention moved.** #273
   answered a second publish with 409 and offered an undo. #287 accepts the
   second press and prevents duplicates structurally instead: a copy already

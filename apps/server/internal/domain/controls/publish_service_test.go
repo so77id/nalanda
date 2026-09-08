@@ -1237,3 +1237,37 @@ func TestPublishOneSaysTheSendLandedWhenOnlyTheRecordFailed(t *testing.T) {
 		t.Error("the case did not actually send anything, so it says nothing about the ordering")
 	}
 }
+
+// ARQ-6 (#287 review): PublishOne names the reason the DECISION gives, not
+// the one the display state implies.
+//
+// CopyPublicationFor masks non-deliverability on an already-sent copy — it
+// says CopySent, because the student is holding the mail whatever the
+// roster says now. Routing the refusal through it made a published copy
+// whose grade went undefined report "falta el PDF corregido", which sends
+// the professor to the wrong screen. The rule deliverableCopy states is
+// that the innermost failure must not be the one reported.
+func TestPublishOneNamesTheRightReasonOnAnAlreadySentCopy(t *testing.T) {
+	rig := newPublishRig(t)
+
+	if err := rig.svc.PublishOne(context.Background(), rig.controlID, 1, 7); err != nil {
+		t.Fatalf("the first send: %v", err)
+	}
+
+	// The professor reopens the copy and one answer becomes doubtful, so
+	// the grade is no longer defined. The copy IS still stamped.
+	rig.readings.readings[0].Answers[0].Status = controls.AnswerStatusDoubtful
+	if rig.readings.readings[0].PublishedAt == nil {
+		t.Fatal("the first send did not stamp the copy, so this case is vacuous")
+	}
+
+	err := rig.svc.PublishOne(context.Background(), rig.controlID, 1, 7)
+	var refusal *controls.CopyNotDeliverableError
+	if !errors.As(err, &refusal) {
+		t.Fatalf("PublishOne returned %v, want a CopyNotDeliverableError", err)
+	}
+	if refusal.Reason != controls.SkipNoGrade {
+		t.Errorf("reason = %q, want %q — the copy has a corrected PDF and no grade",
+			refusal.Reason, controls.SkipNoGrade)
+	}
+}

@@ -465,7 +465,16 @@ The extension point born with this app. Registered in `integration-guides.md`.
    the temp B-tree survives either way. `00015_matching.sql` is the
    deferral that made it possible — it adds two columns and states why it
    adds no index.
-8. **A case asserting that a row is REFUSED must name the constraint that
+8. **A migration that DROPs or rebuilds anything is deployed UNATTENDED,
+   so ask for a snapshot before merging it.** Squash-merging to `main`
+   reaches the Jetson within ~5 minutes and applies at container boot
+   (`infra/local/DEPLOY-JETSON.md`), against a backup taken at 03:00 UTC
+   that may therefore be a day old. Ask Miguel to run
+   `docker compose exec backup /usr/local/bin/backup.sh` (§Backups) and say
+   so in the PR. And read §Rollback first: a `git revert` cannot undo it,
+   because goose never runs the Down block — the reverted binary meets a
+   schema it does not know.
+9. **A case asserting that a row is REFUSED must name the constraint that
    refused it, and must vary every other key so no other constraint can
    have been the one that fired.** Both halves are load-bearing. Without the
    name, an error for the wrong reason reads as a pass — the foreign-key

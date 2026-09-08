@@ -136,8 +136,11 @@ func (h *Controls) Publish(w http.ResponseWriter, r *http.Request) {
 		// three minutes later — and refused at all rather than run
 		// silently. Under stub or dryrun every send "succeeds", so the old
 		// behaviour stamped the control, showed a green banner and said the
-		// class had been written to over nothing (#273 review, PUB-2). Since
-		// stub is the default, that was the documented production path.
+		// class had been written to over nothing (#273 review, PUB-2) —
+		// unrecoverably at the time, because publication WAS one-way until
+		// #287 made it resumable per copy (ADR-0073). The gate stays: a
+		// message still cannot be recalled. Since stub is the default, that
+		// was the documented production path.
 		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
 			"Este servidor no está configurado para enviar correo de verdad "+
 				"(NALANDA_EMAIL_MODE), así que no se publicó nada.")
@@ -241,10 +244,13 @@ func (h *Controls) canSend(w http.ResponseWriter, r *http.Request, professorID i
 
 // TestSend runs the whole batch to one address and changes nothing.
 //
-// The gates are Publish's, MINUS the already-published one, and the
-// omission is the point of the route: rehearsing a control that has already
-// gone out is exactly what a professor does when a student says nothing
-// arrived. It stamps nothing, so it can be run as often as they like.
+// The gates are Publish's MINUS the delivers gate: rehearsing on a server
+// that delivers nothing is coherent and changes no state either way, though
+// the flash says so. (It used to say "minus the already-published one";
+// since #287 Publish has no such gate to subtract — pressing it twice is
+// harmless by construction.) Rehearsing a control that has already gone out
+// is exactly what a professor does when a student says nothing arrived, and
+// it stamps nothing, so it can be run as often as they like.
 func (h *Controls) TestSend(w http.ResponseWriter, r *http.Request) {
 	id, professor, ok := h.publishPreamble(w, r)
 	if !ok {
@@ -508,9 +514,11 @@ func resendAllFlash(cleared int) string {
 // get a second copy.
 //
 // The number is derived from the stamped readings, so it cannot be the
-// stale count #273's column could become. A staging publication is the one
-// case it would overstate — those copies are stamped and reached only the
-// professor — which is why the published line above it says so.
+// stale count #273's column could become — and since a copy is stamped only
+// by a run that reached its student (ADR-0073 §4), it counts nobody a
+// rehearsal wrote to. A `staging` publication would have overstated it
+// while staging still stamped, which is the defect this WP's own review
+// caught (#287, COR-1/SEC-1).
 func resendAllWarning(sent int) string {
 	switch sent {
 	case 0:
@@ -676,16 +684,24 @@ func countSent(readings []controls.Reading) int {
 func publishedLine(c controls.Control, sent int) string {
 	when := "Publicado el " + c.PublishedAt.Format("02-01-2006 15:04")
 
+	none := ". Ninguna copia figura como enviada: o no salió ningún correo, " +
+		"o las marcaste todas como no enviadas para reenviarlas."
+
 	switch {
 	case sent > 1:
 		return fmt.Sprintf("%s: %d copias figuran como enviadas a los estudiantes.", when, sent)
 	case sent == 1:
 		return when + ": 1 copia figura como enviada al estudiante."
 	case c.PublicationMode == controls.PublishModeStaging:
-		return when + " en modo prueba: los correos fueron a tu propia dirección, " +
-			"no a los estudiantes."
+		// The mode is HISTORY here, not a claim about today. It records the
+		// FIRST publication and is never rewritten, so a control that was
+		// rehearsed, then published for real, then cleared by "Reenviar a
+		// todo el curso" would otherwise be told its students received
+		// nothing — over a class that is holding the correction (#287
+		// review, COR-8). It says what it knows and nothing more.
+		return when + " en modo prueba: esa primera publicación fue a tu propia " +
+			"dirección" + none
 	default:
-		return when + ". Ninguna copia figura como enviada: o no salió ningún correo, " +
-			"o las marcaste todas como no enviadas para reenviarlas."
+		return when + none
 	}
 }
