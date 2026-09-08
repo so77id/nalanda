@@ -119,6 +119,47 @@
       <p><button type="submit">Guardar</button></p>
     </form>
   {{ end }}
+
+  {{/*
+    Issue #273. Its own section rather than a row in the Canvas one: they
+    are two different accounts on two different services, and the only
+    thing they share is this page.
+
+    The three states are mutually exclusive by construction — a notice
+    means the connection could not be READ, so neither button can honestly
+    be offered; otherwise an address renders the connected state and no
+    address renders the invitation. Showing "Conectar" beside a connected
+    account would invite a professor to re-consent for no reason.
+  */}}
+  <h2>Envío de correcciones</h2>
+
+  {{ if .GmailNotice }}
+    <section class="aviso"><p>{{ .GmailNotice }}</p></section>
+  {{ else if .GmailAddress }}
+    <p>
+      Conectado como <strong>{{ .GmailAddress }}</strong>. Las correcciones que
+      publiques saldrán desde esa dirección, y las respuestas de tus estudiantes
+      llegarán a su bandeja.
+    </p>
+    <form method="post" action="{{ .GmailDisconnectAction }}">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <p><button type="submit">Desconectar</button></p>
+    </form>
+  {{ else }}
+    <p>
+      Para publicar correcciones necesitas conectar una cuenta de Gmail. Nalanda
+      pedirá permiso solo para <em>enviar</em> correo en tu nombre: no puede leer
+      tu bandeja, ni tus mensajes, ni cambiar nada en tu cuenta.
+    </p>
+    <p>
+      Puede ser la misma cuenta con la que entras aquí, o una distinta — la que
+      elijas será la que vean tus estudiantes como remitente.
+    </p>
+    <form method="post" action="{{ .GmailConnectAction }}">
+      <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}" />
+      <p><button type="submit">Conectar Gmail</button></p>
+    </form>
+  {{ end }}
 {{ end }}
 
 {{/*

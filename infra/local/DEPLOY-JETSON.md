@@ -67,6 +67,25 @@ NALANDA_CANVAS_GRAPHQL_URL=
 
 Once each is done, keep the outputs handy for the `.env` step below.
 
+
+   **And, for publishing corrections (#273, ADR-0072), on the SAME OAuth
+   client:**
+
+   - a THIRD redirect URI, character for character:
+     `https://<host>.<tailnet>.ts.net:8443/profile/gmail/callback`
+   - `https://www.googleapis.com/auth/gmail.send` added to the consent
+     screen's scopes. It is a *sensitive* scope, not a *restricted* one, so
+     it needs Google's app review and NOT the annual CASA security
+     assessment — written down here so nobody re-researches it (ADR-0072 §1,
+     verified 2026-09-07).
+   - note the app's **publishing status** (Testing / In production): it
+     decides the refresh-token question `apps/server/GMAIL-CHECK.md` §6
+     exists to measure.
+
+   Neither is code, and without them the "Conectar Gmail" button answers
+   `redirect_uri_mismatch` or `invalid_scope`. Verification is
+   [`apps/server/GMAIL-CHECK.md`](../../apps/server/GMAIL-CHECK.md) §0-§1.
+
 ## The Funnel — port 8443, not 443
 
 DocumentBuddy already holds port 443 on the same Jetson via its own Funnel
@@ -118,6 +137,19 @@ NALANDA_PUBLIC_URL=https://<host>.<tailnet>.ts.net:8443
 NALANDA_GOOGLE_CLIENT_ID=<the client id>
 NALANDA_GOOGLE_CLIENT_SECRET=<the client secret>
 NALANDA_BOOTSTRAP_PROFESSOR_EMAIL=<Miguel's address>
+
+# Which mail transport a publication uses (#273). OPTIONAL to the loader
+# and NOT optional in practice: unset means `stub`, which sends nothing.
+# Its absence from this block is how the documented deploy path produced a
+# server that could not mail anybody — a publication is now refused
+# outright under `stub`, so the failure is loud rather than silent, but
+# this is still the line that makes publishing work at all.
+#
+#   real     to the students — what production wants
+#   staging  everything to the professor's own address
+#   dryrun   resolve the credential, log what would go, deliver nothing
+#   stub     no network at all
+NALANDA_EMAIL_MODE=real
 
 # Backups (S7, S8): from provision-jetson-iam.sh's output.
 NALANDA_S3_BUCKET=<the bucket name it created>

@@ -25,10 +25,12 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/controlstore"
@@ -253,8 +255,11 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		// Issue #272: the real matcher over the real course tables, so
 		// the scans cases below see the association the binary would
 		// write rather than a double's answer.
-		Matcher:   matching.NewService(courseStore),
-		Annotator: fake, AnnotateEnabled: annotateEnabled,
+		Matcher:    matching.NewService(courseStore),
+		Dispatcher: deliveringStub{email.NewStubDispatcher()},
+		Roster:     courseStore,
+		Senders:    authstore.New(db),
+		Annotator:  fake, AnnotateEnabled: annotateEnabled,
 		WorkDir: workDir,
 		Now:     time.Now, Seed: 1, Log: log,
 	})
@@ -265,6 +270,7 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		jobs.KindAnalyse:   controls.NewAnalyseHandler(svc),
 		jobs.KindGenerate:  controls.NewGenerateHandler(svc),
 		jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
+		jobs.KindPublish:   controls.NewPublishHandler(svc),
 	}, log, time.Now)
 	// Start the runner in the background so the async Submit path in
 	// ReanalyzeScans reaches its handler. Cleanup cancels the context
@@ -290,6 +296,7 @@ func newControlsFixtureWith(t *testing.T, annotateEnabled bool) *controlsFixture
 		Roster:    rosterService,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
 		OnCorrectionClosed: hook,
+		Gmail:              connectedGmail{},
 		Jobs:               jstore,
 		Runner:             runner,
 		Log:                log,
@@ -1661,7 +1668,8 @@ func TestTheControlPageReadsTheRosterOnceForEveryCopy(t *testing.T) {
 	f.handler = handler.NewControls(handler.Controls{
 		Service: f.service, Bank: f.bank, Roster: counter,
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
-		OnCorrectionClosed: f.hook, Jobs: f.jstore, Runner: f.runner, Log: f.log,
+		OnCorrectionClosed: f.hook, Gmail: connectedGmail{},
+		Jobs: f.jstore, Runner: f.runner, Log: f.log,
 	})
 
 	body := f.detailBody(t, controlID)
@@ -1710,7 +1718,8 @@ func TestAFailedRosterReadStillRendersTheControlPage(t *testing.T) {
 		Service: f.service, Bank: f.bank,
 		Roster:    &failingRoster{RosterReader: f.roster},
 		PublicURL: publicURL, MaxScanBytes: 5 << 20,
-		OnCorrectionClosed: f.hook, Jobs: f.jstore, Runner: f.runner, Log: f.log,
+		OnCorrectionClosed: f.hook, Gmail: connectedGmail{},
+		Jobs: f.jstore, Runner: f.runner, Log: f.log,
 	})
 
 	req := f.detailRequest(t, controlID)
@@ -1734,6 +1743,27 @@ func (failingRoster) Enrollments(context.Context, int64) (roster.Course, []roste
 }
 
 // detailBody renders one control's detail page and returns the HTML.
+// rebuildWithGmail swaps the handler's Gmail port, so a case can put the
+// professor in the unconnected state — or in the state where the lookup
+// itself fails — without a second fixture.
+// rebuildWithDispatcher swaps the SERVICE's transport, so a case can put
+// the process in a mode that delivers nothing.
+func (f *controlsFixture) rebuildWithDispatcher(t *testing.T, d controls.Dispatcher) {
+	t.Helper()
+	f.service.Dispatcher = d
+}
+
+func (f *controlsFixture) rebuildWithGmail(t *testing.T, connection handler.GmailConnection) {
+	t.Helper()
+
+	f.handler = handler.NewControls(handler.Controls{
+		Service: f.service, Roster: f.roster, Bank: f.bank,
+		PublicURL: publicURL, MaxScanBytes: 5 << 20,
+		OnCorrectionClosed: f.hook, Gmail: connection,
+		Jobs: f.jstore, Runner: f.runner, Log: f.log,
+	})
+}
+
 func (f *controlsFixture) detailBody(t *testing.T, controlID string) string {
 	t.Helper()
 	rec := httptest.NewRecorder()
@@ -1808,3 +1838,41 @@ func TestReassigningAControlToAnotherCourseRefilesItsCopies(t *testing.T) {
 		t.Errorf("copy 1 student = %d after reassignment, want nil", *got)
 	}
 }
+
+// connectedGmail is a professor who HAS connected an account, which is the
+// state every case that reaches a publication button needs. Cases about the
+// unconnected state set their own.
+type connectedGmail struct {
+	address string
+	err     error
+	// disconnected is an EXPLICIT flag rather than an empty address,
+	// because the zero value of this struct has to mean "connected" — it
+	// is what every case that merely needs the button to work passes.
+	disconnected bool
+}
+
+func (c connectedGmail) Connection(context.Context, int64) (gmail.Connection, error) {
+	if c.err != nil {
+		return gmail.Connection{}, c.err
+	}
+	if c.disconnected {
+		return gmail.Connection{}, nil
+	}
+	address := c.address
+	if address == "" {
+		address = "profesora@gmail.com"
+	}
+	return gmail.Connection{Address: address}, nil
+}
+
+// deliveringStub is email.StubDispatcher answering Delivers() == true.
+//
+// The route cases are about the ROUTE, and since #273's review a
+// non-delivering transport is refused before the handler reaches anything
+// interesting — so a rig built on the bare stub would test the mode gate
+// forty times and the route never. The mode gate has its own case
+// (TestPublishIsRefusedWhenThisServerCannotDeliver), which is where that
+// behaviour belongs.
+type deliveringStub struct{ *email.StubDispatcher }
+
+func (deliveringStub) Delivers() bool { return true }

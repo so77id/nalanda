@@ -277,6 +277,24 @@ func routes(deps Deps) []Route {
 			Handler: deps.Profile.ForgetCanvasToken,
 		},
 		{
+			// Issue #273. The connect and disconnect are POSTs, so the
+			// router's own rule gives them the CSRF check; the callback is
+			// a GET because Google chooses the method, and what defends it
+			// is the double-submit state cookie the handler checks. All
+			// three are gated: unlike the LOGIN callback, this one
+			// identifies the professor from the session they already hold.
+			Method: http.MethodPost, Path: handler.ProfileGmailConnectPath,
+			Handler: deps.Profile.ConnectGmail,
+		},
+		{
+			Method: http.MethodGet, Path: handler.ProfileGmailCallbackPath,
+			Handler: deps.Profile.GmailCallback,
+		},
+		{
+			Method: http.MethodPost, Path: handler.ProfileGmailDisconnectPath,
+			Handler: deps.Profile.DisconnectGmail,
+		},
+		{
 			Method: http.MethodPost, Path: handler.ProfileAddCoursePath,
 			Handler: deps.Profile.AddCourse,
 		},
@@ -356,10 +374,34 @@ func routes(deps Deps) []Route {
 			Method: http.MethodPost, Path: handler.ControlPurgePath,
 			Handler: deps.Controls.Purge,
 		},
-		// Issue #272: "Asignar curso" on the detail page of a control
-		// that has none. Gated by default (no Public), CSRF enforced
-		// because the method is POST.
 		{
+			// Issue #273. The publication routes live HERE, on the
+			// professor's surface behind the gate and CSRF, and not under
+			// /api/ as the issue's design wrote them: internal/app/api is
+			// anonymous by construction, so a publish endpoint there would
+			// let any unauthenticated caller email an entire class.
+			Method: http.MethodPost, Path: handler.ControlPublishPath,
+			Handler: deps.Controls.Publish,
+		},
+		{
+			// The escape hatch of the WP's own review: publication was
+			// one-way with no exceptions, so a run that stamped without
+			// delivering left the class permanently unreachable.
+			Method: http.MethodPost, Path: handler.ControlUnpublishPath,
+			Handler: deps.Controls.Unpublish,
+		},
+		{
+			// The rehearsal. Same gates as Publish minus the
+			// already-published one: rehearsing a control that already went
+			// out is exactly what a professor does when a student says
+			// nothing arrived.
+			Method: http.MethodPost, Path: handler.ControlTestSendPath,
+			Handler: deps.Controls.TestSend,
+		},
+		{
+			// Issue #272: "Asignar curso" on the detail page of a control
+			// that has none. Gated by default (no Public), CSRF enforced
+			// because the method is POST.
 			Method: http.MethodPost, Path: handler.ControlCoursePath,
 			Handler: deps.Controls.AssignCourse,
 		},

@@ -1125,7 +1125,47 @@ here would be half a feature landing inside a WP about matching. Recorded so
 it is a decision on the record rather than something inherited without
 anyone looking.
 
-**Review trigger:** the SECOND professor account created on the Jetson, or
-epic #270's WP-3 (#273) — the first WP that emails these people — or the
-first deletion request, whichever arrives first. WP-3 still owes the
-deletion path this entry records as missing.
+**Amended 2026-09-07 (#273) — the trigger fired, and this is what changed.**
+This entry named WP-3 as "the first WP that emails these people". It does,
+and the exposure it adds is a new EGRESS: until now every piece of this data
+stayed on the Jetson. A publication sends, per student, their given name,
+their institutional address, their grade and their annotated copy — through
+the professor's own Google account, which means Google now holds all four,
+and a copy sits in that professor's Sent folder under Google's retention
+rather than this server's.
+
+It also adds a new credential class to `user_secrets`: an OAuth refresh
+token that lets this server send mail as the professor until they revoke it.
+Sealed with AES-GCM like the Canvas token (ADR-0068); the connected ADDRESS
+sits in the clear on `users.gmail_address`, deliberately, because it is what
+the profile page prints and what every From is built from.
+
+What covers it today:
+
+- **Withdrawn students are not written to.** `CourseForPublication` filters
+  on `state = 'enrolled'`, so somebody who dropped the course stops
+  receiving its mail even though their grade stays on the matrix.
+- **Sending is opt-in twice over.** `NALANDA_EMAIL_MODE` defaults to `stub`
+  and a publication is refused outright under any transport that does not
+  deliver; and the professor must have connected an account, which is a
+  separate consent from the login (ADR-0072 §2).
+- **No student identifier reaches a log line.** The dry-run transport masks
+  the recipient (`m…z@udp.cl`), and the publication's failure records name
+  copy NUMBERS only — asserted, not assumed, in
+  `TestThePublishFailureDetailNamesCopiesAndNeverPeople` and
+  `TestDryRunDoesNotWriteStudentAddressesIntoTheLog`.
+- **A header cannot be injected into a message.** `buildMIME` refuses any
+  address carrying a control character, closing the path by which a CR/LF in
+  Canvas's `user.email` could have added a `Bcc:` — Canvas's value reaches
+  the `To` header with no validation in any layer between, which remains
+  true and is why the refusal is at the sink (#273 review, SEC-1).
+
+**The deletion path is still owed, and is now owed harder.** Before this WP
+a deletion request meant rows on one host; it now also means mail already
+delivered, which cannot be recalled, and a copy in a Google account this
+server does not control. Nothing in the app deletes a student, and nothing
+in the app can unsend.
+
+**Review trigger:** the SECOND professor account created on the Jetson, the
+first deletion request, or the first time a publication goes to a class that
+is not Miguel's own — whichever arrives first.

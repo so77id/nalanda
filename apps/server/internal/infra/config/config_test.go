@@ -498,3 +498,77 @@ func TestAnnotateEnabled(t *testing.T) {
 		}
 	})
 }
+
+// withMailMode returns the complete environment with one mode set, so a
+// case that breaks this variable does not also fail on a missing one.
+func withMailMode(mode string) map[string]string {
+	m := env()
+	m[config.KeyEmailMode] = mode
+	return m
+}
+
+// Issue #273: the mail mode. The one optional variable in this package
+// whose default is NOT what production wants, and the one whose wrong
+// value is unrecoverable — a class that received mail cannot un-receive it.
+
+func TestAnUnsetMailModeIsStubRatherThanReal(t *testing.T) {
+	cfg, err := config.Load(lookupFrom(env()))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.EmailMode != config.EmailModeStub {
+		t.Errorf("an unset %s resolved to %q; it must be %q, because the two mistakes do not "+
+			"cost the same — a deployment that silently sends nothing is fixed by setting one "+
+			"line, and one that silently sends is not fixed at all",
+			config.KeyEmailMode, cfg.EmailMode, config.EmailModeStub)
+	}
+}
+
+func TestEveryMailModeInTheClosedSetIsAccepted(t *testing.T) {
+	for _, mode := range []config.EmailMode{
+		config.EmailModeReal, config.EmailModeStaging,
+		config.EmailModeDryRun, config.EmailModeStub,
+	} {
+		t.Run(string(mode), func(t *testing.T) {
+			cfg, err := config.Load(lookupFrom(withMailMode(string(mode))))
+			if err != nil {
+				t.Fatalf("Load with %s=%s: %v", config.KeyEmailMode, mode, err)
+			}
+			if cfg.EmailMode != mode {
+				t.Errorf("EmailMode = %q, want %q", cfg.EmailMode, mode)
+			}
+		})
+	}
+}
+
+// The pair the closed-set rule asks for: legal values accepted above AND an
+// illegal one refused here. Either half alone passes over a loader that
+// accepts everything, or one that accepts nothing.
+func TestAnUnknownMailModeFailsTheBootAndNamesTheLegalSet(t *testing.T) {
+	_, err := config.Load(lookupFrom(withMailMode("produccion")))
+	if err == nil {
+		t.Fatal("Load accepted an unknown mail mode; a typo would resolve to something, and the " +
+			"quiet outcome is a professor pressing Publicar, seeing success, and nobody receiving")
+	}
+	message := err.Error()
+	if !strings.Contains(message, config.KeyEmailMode) {
+		t.Errorf("the error does not name the variable: %v", err)
+	}
+	for _, mode := range []string{"real", "staging", "dryrun", "stub"} {
+		if !strings.Contains(message, mode) {
+			t.Errorf("the error does not name %q as a legal value: %v", mode, err)
+		}
+	}
+}
+
+// A mode is a value an operator types into a .env file, and a trailing
+// space in one is not a different mode.
+func TestAMailModeIsTrimmed(t *testing.T) {
+	cfg, err := config.Load(lookupFrom(withMailMode("  staging \n")))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.EmailMode != config.EmailModeStaging {
+		t.Errorf("EmailMode = %q, want staging", cfg.EmailMode)
+	}
+}

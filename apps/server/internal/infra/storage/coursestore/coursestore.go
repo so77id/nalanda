@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 )
@@ -500,4 +501,57 @@ func (s *Store) EnrollmentCounts(ctx context.Context) (map[int64]roster.Enrollme
 		return nil, fmt.Errorf("coursestore: read the enrolment counts: %w", err)
 	}
 	return counts, nil
+}
+
+// CourseForPublication returns the course's code and its ENROLLED students
+// by id, satisfying controls.PublishRoster (issue #273).
+//
+// One statement for a whole class rather than one per copy: a publication
+// resolves forty readings against this map, and asking per row would be
+// the N+1 #271's review already removed once from the course list.
+//
+// `state = 'enrolled'` is load-bearing, not tidiness. A withdrawn student
+// still SAT the control they sat — their grade is real and stays on the
+// matrix — but they have dropped the course and have not asked to keep
+// receiving its mail. Leaving them in would mail somebody who left, which
+// is the kind of thing a person notices.
+func (s *Store) CourseForPublication(ctx context.Context, courseID int64) (string, map[int64]controls.Recipient, error) {
+	var code string
+	if err := s.db.QueryRowContext(ctx,
+		"SELECT code FROM course WHERE id = ?", courseID,
+	).Scan(&code); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil, roster.ErrCourseNotFound
+		}
+		return "", nil, fmt.Errorf("read the course %d: %w", courseID, err)
+	}
+
+	rows, err := s.db.QueryContext(ctx, `
+        SELECT student.id, student.first_name, student.email
+        FROM student
+        JOIN enrollment ON enrollment.student_id = student.id
+        WHERE enrollment.course_id = ? AND enrollment.state = 'enrolled'`,
+		courseID,
+	)
+	if err != nil {
+		return "", nil, fmt.Errorf("read the roster of course %d: %w", courseID, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	recipients := map[int64]controls.Recipient{}
+	for rows.Next() {
+		var (
+			id    int64
+			name  string
+			email string
+		)
+		if err := rows.Scan(&id, &name, &email); err != nil {
+			return "", nil, fmt.Errorf("scan a roster row of course %d: %w", courseID, err)
+		}
+		recipients[id] = controls.Recipient{Name: name, Email: email}
+	}
+	if err := rows.Err(); err != nil {
+		return "", nil, fmt.Errorf("walk the roster of course %d: %w", courseID, err)
+	}
+	return code, recipients, nil
 }

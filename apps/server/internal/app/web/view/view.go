@@ -268,6 +268,27 @@ type ProfilePage struct {
 	// because it belongs to no form field, the same reason
 	// ProfessorsFormPage.Notice exists (COR-1, WP-C3 review).
 	CoursesNotice string
+
+	// GmailAddress is the account this professor authorised this server to
+	// send mail as, empty when there is none (issue #273). Non-empty
+	// renders the connected state and the "Desconectar" button; empty
+	// renders the "Conectar Gmail" button. The two are mutually exclusive
+	// by construction.
+	//
+	// It is the AUTHORITATIVE connected signal rather than a display
+	// convenience: gmail.Service.Complete writes it last, precisely so
+	// nothing can read it as connected over a credential that was never
+	// stored.
+	GmailAddress string
+	// GmailNotice is a Spanish sentence shown INSTEAD of the section's
+	// normal state when the connection could not be read at all. Separate
+	// from Errors for the same reason CoursesNotice is: it belongs to no
+	// field the professor filled in.
+	GmailNotice string
+	// GmailConnectAction and GmailDisconnectAction are the two POST
+	// targets, passed in so the route constants keep one home.
+	GmailConnectAction    string
+	GmailDisconnectAction string
 }
 
 // CoursePickRow is one row of the picker, with the two page-level values
@@ -572,6 +593,41 @@ type ControlDetailPage struct {
 	// #249). The runner drives the state — this struct only carries
 	// what the template needs to render one iteration.
 	JobBanner *JobBanner
+
+	// The publication section (issue #273). Exactly one of PublishedLine
+	// and the two forms renders: a published control is a finished fact,
+	// and offering "Publicar" beside it would invite a second mailing the
+	// route refuses anyway.
+	//
+	// PublishURL and TestSendURL are always populated, so the template
+	// picks by flag rather than guessing.
+	PublishURL  string
+	TestSendURL string
+	// UnpublishURL is the POST target of the escape hatch, set only on a
+	// published control (issue #273 review). PublishedLine gates the whole
+	// block, so `Published` was dropped: two fields for one fact are two
+	// fields a future caller can set inconsistently.
+	UnpublishURL string
+	// UnpublishWarning is what the professor weighs before undoing — how
+	// many people already have their correction, and therefore how many
+	// would get it twice. Three different sentences for none, one, several
+	// and unknown.
+	UnpublishWarning string
+	// PublishedLine is the Spanish sentence a published control shows —
+	// when it happened and in which mode. Pre-formatted, like every other
+	// string this struct hands the template.
+	PublishedLine string
+	// CanPublish gates the button. False renders it disabled with
+	// PublishBlockedReason beside it, the shape CanClose /
+	// CloseBlockedReason already have one section up: a button that is
+	// present-but-disabled and says why is what turns "nothing happens
+	// when I click" into an instruction.
+	CanPublish           bool
+	PublishBlockedReason string
+	// CanTestSend is looser than CanPublish on purpose — a rehearsal stays
+	// available after the real publication, because that is when a student
+	// says nothing arrived.
+	CanTestSend bool
 
 	// PDFsReady gates the "Prueba a imprimir" section on the Detail
 	// page: sujet.pdf, corrige.pdf and pool.json are only offered as

@@ -185,17 +185,20 @@ func newMatchingService(t *testing.T, matcher controls.Matcher) (*controls.Servi
 	readings := newMatchingReadingStore()
 	gen := &amctest.Fake{WorkDir: workDir, SujetSize: 42}
 	svc := controls.NewService(controls.Service{
-		Bank:      bank.NewStaticLive(b),
-		Store:     store,
-		Generator: gen,
-		Analyzer:  gen,
-		Readings:  readings,
-		Annotator: gen,
-		Matcher:   matcher,
-		WorkDir:   workDir,
-		Now:       func() time.Time { return time.Unix(1_755_446_400, 0).UTC() },
-		Seed:      1,
-		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Bank:       bank.NewStaticLive(b),
+		Store:      store,
+		Generator:  gen,
+		Analyzer:   gen,
+		Readings:   readings,
+		Annotator:  gen,
+		Matcher:    matcher,
+		Dispatcher: noDispatcher{},
+		Roster:     noRoster{},
+		Senders:    noSenders{},
+		WorkDir:    workDir,
+		Now:        func() time.Time { return time.Unix(1_755_446_400, 0).UTC() },
+		Seed:       1,
+		Log:        slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 	return svc, store, readings, 7
 }

@@ -104,6 +104,10 @@ services:
       # The Canvas GraphQL endpoint (issue #271). Empty uses the client's
       # own default, https://udp.instructure.com/api/graphql.
       NALANDA_CANVAS_GRAPHQL_URL: "${NALANDA_CANVAS_GRAPHQL_URL:-}"
+      # Issue #273. Defaults to stub here as well as in the loader: a
+      # developer running `docker compose up` must not be one typo away
+      # from mailing a real class.
+      NALANDA_EMAIL_MODE: "${NALANDA_EMAIL_MODE:-stub}"
     volumes:
       - server-data:/data
       # Shared with the amc-worker service below. The server writes a

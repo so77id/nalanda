@@ -40,7 +40,7 @@ the add-new-app checklist in `repository-structure.md`).
 | L5 Browser smoke       | The real app boots; key flows render in a real browser                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | **Playwright** (decided 2026-08-06; introduced with the first real smoke, WP2+) | Pre-PR + CI                               |
 | L6 Backend integration | Go handlers against real SQLite: the composed root mux over both surfaces and the §C12 seam in both directions — the API answers with no session, the backoffice's state-changing route does not (`cmd/server/main_test.go`); `/health` through the real prober and a database that goes away (`internal/app/web/health_integration_test.go`); migrations applied and re-applied over a temp file, plus the upgrade over a database that ran #149's placeholder (`internal/infra/storage/sqlite_test.go`, `schema_test.go`); the auth repositories against a real file, including a sweep proving the raw session token is in no column (`internal/infra/storage/authstore/`); the cookie → professor resolution and the CSRF refusal (`internal/app/web/middleware/`); the whole login round trip against a mock provider (`internal/app/web/handler/`, `internal/domain/auth/login_test.go`)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Go testing                                                                      | Every commit + pre-PR (`-race -count=1`)  |
 | L7 Cross-app e2e       | browser → web → server                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Top-level `e2e/`                                                                | v0.3+                                     |
-| L8 Manual              | Human visual/functional verification. Three procedures no agent can run: `apps/amc-worker/PAPER-CHECK.md` (print, mark, scan), `apps/server/GOOGLE-CHECK.md` (a real Google login) and `apps/server/CANVAS-CHECK.md` (a real Canvas instance, #271; §6b adds the real RUT join a real scan produces, #272)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | PR checklist                                                                    | Pre-PR                                    |
+| L8 Manual              | Human visual/functional verification. Four procedures no agent can run: `apps/amc-worker/PAPER-CHECK.md` (print, mark, scan), `apps/server/GOOGLE-CHECK.md` (a real Google login) and `apps/server/CANVAS-CHECK.md` (a real Canvas instance, #271; §6b adds the real RUT join a real scan produces, #272), and `apps/server/GMAIL-CHECK.md` (a real Google account sending real mail, #273)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | PR checklist                                                                    | Pre-PR                                    |
 
 **TDD is the default working mode**: for any slice with logic, the test comes
 first (red), then the implementation (green). Internal refactors lean on the
@@ -306,6 +306,21 @@ headers the source had gained twenty minutes earlier, because the build and the
 `up` had raced. That is the same "green for the wrong reason" this document
 hunts elsewhere, in the one step whose whole job is to see what the suite cannot.
 
+**RUNNING it means running it with ENOUGH ENVIRONMENT to reach the wiring.**
+`docker run` with no variables exits inside `config.Load`, which proves the
+binary executes on `scratch` and NOTHING about whether it boots: every
+constructor panic — the shape `NewControls`, `NewProfile`, `NewService` and
+`jobs.NewRunner` all use to refuse an incomplete dependency set — lives past
+that point. Worked case: #273's pre-PR run did exactly this, reported "the
+binary starts on scratch", and CI then caught `panic: handler.NewControls: no
+Gmail connection reader` — a port wired into all three test rigs and never
+into `cmd/server/main.go`, which no `go test` can see because every rig
+supplies its own. The check that would have caught it locally is the compose
+path below, or a `docker run` carrying the eight required variables and a
+minimal `{"version":1,"documents":[]}` bank; the evidence to look for is
+`server listening` plus a 200 from both health routes, never merely a
+non-zero exit.
+
 **The image is built and RUN, not only built.** `CGO_ENABLED=0` is what lets the
 binary run on `scratch`; a dependency that needs CGO produces a build that
 succeeds and a container that cannot start, and no compile step notices. CI runs
@@ -319,6 +334,23 @@ one step in this protocol whose status lies.
 is deliberately NOT in its path filters: the file is shared with
 `apps/amc-worker` and the job does not run it — the compose path is the human's
 L8 check.
+
+**What this level cannot see — the mail path (added by #273).** Nothing in
+`go test`, in either protocol or in CI reaches Google's mail. The suite
+drives an `httptest` provider for the authorization the way it drives
+`oidctest.Provider` for the login, and an `httptest` stand-in for Gmail's
+send endpoint — which verifies the verifier and the encoder, and says
+nothing about whether the real consent screen grants the scope, whether the
+redirect URI matches character for character, whether a refresh token
+survives a week, or whether a message this server considers well-formed
+arrives readable in a real inbox. The procedure is
+`apps/server/GMAIL-CHECK.md` and it is **required whenever the publication
+path changes** — the Gmail adapter, the `/profile` connect flow, the
+transports in `internal/infra/email/`, the message builder, or
+`NALANDA_EMAIL_MODE`. Its §6 is unusual for a check: it exists to MEASURE
+an open question ADR-0072 could not settle from documentation, and to write
+the answer back into the ADR. Same rule and same reason as the Google,
+Canvas and paper bullets.
 
 **What this level cannot see — the second half, added by #150.** Nothing in
 `go test`, in the pre-PR protocol or in CI reaches Google. The suite drives

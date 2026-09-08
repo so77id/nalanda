@@ -262,7 +262,7 @@ each invent their own spelling from whichever neighbour they open first.
 
 ## The CHECK-document contract
 
-Three of these exist now — `apps/amc-worker/PAPER-CHECK.md` (#138),
+Four of these exist now — `apps/amc-worker/PAPER-CHECK.md` (#138), `apps/server/GOOGLE-CHECK.md` (#150), `apps/server/CANVAS-CHECK.md` (#271) and `apps/server/GMAIL-CHECK.md` (#273) — so the shape is a pattern rather than a handful of one-offs. #273's adds something the others do not have: a §6 whose job is to MEASURE a question its ADR could not settle from documentation, and to write the answer back into the ADR.md` (#138),
 `apps/server/GOOGLE-CHECK.md` (#150) and `apps/server/CANVAS-CHECK.md`
 (#271) — so the shape is a pattern rather than three one-offs. A CHECK
 document is what stands in for a test that cannot exist: it verifies

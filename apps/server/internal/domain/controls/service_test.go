@@ -173,6 +173,45 @@ func (s *fakeStore) RestoreControl(_ context.Context, id string) error {
 	return controls.ErrControlNotFound
 }
 
+// MarkPublished stamps the pair, with the same "only if not already
+// published" guard the real store enforces in SQL — a fake that let a
+// second stamp through would hide the very idempotency Service.Publish
+// depends on.
+func (s *fakeStore) MarkPublished(_ context.Context, id string, at time.Time, mode string) error {
+	for i := range s.controls {
+		if s.controls[i].ID == id && s.controls[i].PublishedAt == nil {
+			when := at
+			s.controls[i].PublishedAt = &when
+			s.controls[i].PublicationMode = controls.PublishMode(mode)
+			return nil
+		}
+	}
+	return controls.ErrControlNotFound
+}
+
+func (s *fakeStore) RecordPublishedSent(_ context.Context, id string, sent int) error {
+	for i := range s.controls {
+		if s.controls[i].ID == id && s.controls[i].PublishedAt != nil {
+			n := sent
+			s.controls[i].PublishedSent = &n
+			return nil
+		}
+	}
+	return nil
+}
+
+func (s *fakeStore) ClearPublished(_ context.Context, id string) error {
+	for i := range s.controls {
+		if s.controls[i].ID == id && s.controls[i].PublishedAt != nil {
+			s.controls[i].PublishedAt = nil
+			s.controls[i].PublicationMode = ""
+			s.controls[i].PublishedSent = nil
+			return nil
+		}
+	}
+	return controls.ErrNotPublished
+}
+
 func (s *fakeStore) PurgeControl(_ context.Context, id string) error {
 	for i := range s.controls {
 		if s.controls[i].ID == id && s.controls[i].DeletedAt != nil {
@@ -264,13 +303,16 @@ func newService(t *testing.T) (*controls.Service, *fakeStore, *amctest.Fake, str
 	store := newFakeStore()
 	gen := &amctest.Fake{WorkDir: workDir, SujetSize: 42}
 	svc := controls.NewService(controls.Service{
-		Bank:      bank.NewStaticLive(b),
-		Store:     store,
-		Generator: gen,
-		Analyzer:  gen,
-		Matcher:   noMatcher{},
-		Readings:  newFakeReadingStore(),
-		Annotator: gen,
+		Bank:       bank.NewStaticLive(b),
+		Store:      store,
+		Generator:  gen,
+		Analyzer:   gen,
+		Matcher:    noMatcher{},
+		Dispatcher: noDispatcher{},
+		Roster:     noRoster{},
+		Senders:    noSenders{},
+		Readings:   newFakeReadingStore(),
+		Annotator:  gen,
 		// The production default (config default true, issue #190). Tests
 		// that exercise the off switch build their own Service.
 		AnnotateEnabled: true,
@@ -526,8 +568,11 @@ func TestCreatePassesTheCorrectAbsoluteListingPathForCodeQuestions(t *testing.T)
 	svc := controls.NewService(controls.Service{
 		Bank: bank.NewStaticLive(b), Store: store, Generator: gen, Analyzer: gen, Readings: newFakeReadingStore(),
 		Annotator: gen, AnnotateEnabled: true, Matcher: noMatcher{},
-		WorkDir: workDir,
-		Now:     func() time.Time { return time.Now() }, Seed: 1,
+		Dispatcher: noDispatcher{},
+		Roster:     noRoster{},
+		Senders:    noSenders{},
+		WorkDir:    workDir,
+		Now:        func() time.Time { return time.Now() }, Seed: 1,
 		Log: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	})
 
@@ -911,4 +956,34 @@ func TestAssignCourseOnAnUnknownControlIsNotFound(t *testing.T) {
 	if !errors.Is(err, controls.ErrControlNotFound) {
 		t.Errorf("AssignCourse on an unknown control = %v, want ErrControlNotFound", err)
 	}
+}
+
+// noDispatcher is a mail transport no case in this package sends through.
+// Publication has its own tests; every case here is about generation,
+// analysis or matching, and a Service that refused to be built without a
+// dispatcher would make all of them carry one.
+type noDispatcher struct{}
+
+func (noDispatcher) Send(context.Context, int64, controls.Message) (string, error) {
+	return "", errors.New("controls: no case in this file publishes")
+}
+
+func (noDispatcher) Delivers() bool { return true }
+
+func (noDispatcher) RedirectsToSender() bool { return false }
+
+// noRoster and noSenders are the publication's two ports, unused by every
+// case in this package — publication has its own test file, and a Service
+// that refused to be built without them would make every generation and
+// analysis case carry a class list.
+type noRoster struct{}
+
+func (noRoster) CourseForPublication(context.Context, int64) (string, map[int64]controls.Recipient, error) {
+	return "", nil, errors.New("controls: no case in this file publishes")
+}
+
+type noSenders struct{}
+
+func (noSenders) SenderFor(context.Context, int64) (controls.Sender, error) {
+	return controls.Sender{}, errors.New("controls: no case in this file publishes")
 }

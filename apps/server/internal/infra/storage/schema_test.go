@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"io/fs"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -1135,5 +1136,334 @@ func TestACourseWithControlsCannotBeDeleted(t *testing.T) {
 	empty := insertCourse(t, ctx, db, "CIT2006-04", "canvas-course-2")
 	if _, err := db.ExecContext(ctx, `DELETE FROM course WHERE id = ?`, empty); err != nil {
 		t.Errorf("deleting a course with no controls: %v, want it to succeed", err)
+	}
+}
+
+// Issue #273 (WP-3 of epic #270): publication, the professor's Gmail
+// address, and the `publish` job kind.
+//
+// Asserted here rather than trusted to review for the reason the file's
+// header gives: a CHECK that was never updated fails silently — the runner
+// would emit a `publish` job the schema refuses, and ADR-0050's "a Kind
+// satisfying one but not the other is a silent drop of that class of work"
+// is exactly this failure.
+
+// insertJobRow adds one job and returns its id.
+func insertJobRow(t *testing.T, ctx context.Context, db *sql.DB, controlID, kind string) int64 {
+	t.Helper()
+
+	result, err := db.ExecContext(ctx, `
+        INSERT INTO job (control_id, kind, status, payload_json, created_at)
+        VALUES (?, ?, 'queued', '{}', 0)`,
+		controlID, kind,
+	)
+	if err != nil {
+		t.Fatalf("inserting a %s job: %v", kind, err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("reading the inserted job id: %v", err)
+	}
+	return id
+}
+
+// migrationsUpTo builds a filesystem holding the shipped migrations whose
+// names sort before `exclusive`, so a case can put a database in the state
+// an earlier release left it in and then apply the rest.
+//
+// Reads the real files rather than reproducing their SQL: a copy would
+// drift from what the binary ships, and the whole point of the case below
+// is to run the real migration over real data.
+func migrationsUpTo(t *testing.T, exclusive string) fs.FS {
+	t.Helper()
+
+	entries, err := fs.ReadDir(migrations.FS, ".")
+	if err != nil {
+		t.Fatalf("reading the migration set: %v", err)
+	}
+	out := fstest.MapFS{}
+	for _, entry := range entries {
+		if entry.Name() >= exclusive {
+			continue
+		}
+		data, err := fs.ReadFile(migrations.FS, entry.Name())
+		if err != nil {
+			t.Fatalf("reading %s: %v", entry.Name(), err)
+		}
+		out[entry.Name()] = &fstest.MapFile{Data: data}
+	}
+	if len(out) == 0 {
+		t.Fatalf("no migration sorts before %s; the filter is wrong", exclusive)
+	}
+	return out
+}
+
+// A control carries when it was published and in which mode, or neither.
+//
+// NULL is the state of every control that exists today, and the pair is
+// what "publicado" is derived from: the design deliberately adds no fourth
+// `control.state` value, so one fact lives in one place.
+func TestControlPublicationColumnsAreNullableAndRoundTrip(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	id := insertControlRow(t, ctx, db, "CTRLPUB000000000000000001", userID, nil)
+
+	var publishedAt, mode sql.NullString
+	if err := db.QueryRowContext(ctx,
+		"SELECT published_at, publication_mode FROM control WHERE id = ?", id,
+	).Scan(&publishedAt, &mode); err != nil {
+		t.Fatalf("reading the publication columns back: %v", err)
+	}
+	if publishedAt.Valid || mode.Valid {
+		t.Errorf("a freshly inserted control reads published_at=%v mode=%v, want both NULL",
+			publishedAt, mode)
+	}
+
+	if _, err := db.ExecContext(ctx,
+		"UPDATE control SET published_at = ?, publication_mode = ? WHERE id = ?",
+		1757260800, "staging", id,
+	); err != nil {
+		t.Fatalf("stamping the control published: %v", err)
+	}
+
+	var at int64
+	var got string
+	if err := db.QueryRowContext(ctx,
+		"SELECT published_at, publication_mode FROM control WHERE id = ?", id,
+	).Scan(&at, &got); err != nil {
+		t.Fatalf("reading the stamped values back: %v", err)
+	}
+	if at != 1757260800 || got != "staging" {
+		t.Errorf("round-tripped published_at=%d mode=%q, want 1757260800 and \"staging\"", at, got)
+	}
+}
+
+// The pair test the testing strategy asks of an enum-valued column: both
+// legal values are accepted AND an illegal one is refused, in one case.
+// Either half alone passes over a dropped CHECK or over one that admits
+// nothing.
+func TestControlPublicationModeAcceptsBothModesAndRefusesAnythingElse(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	id := insertControlRow(t, ctx, db, "CTRLPUBMODE00000000000001", userID, nil)
+
+	for _, mode := range []string{"real", "staging"} {
+		if _, err := db.ExecContext(ctx,
+			"UPDATE control SET publication_mode = ? WHERE id = ?", mode, id,
+		); err != nil {
+			t.Errorf("publication_mode = %q refused, want it accepted: %v", mode, err)
+		}
+	}
+
+	_, err := db.ExecContext(ctx,
+		"UPDATE control SET publication_mode = ? WHERE id = ?", "dryrun", id)
+	if err == nil {
+		t.Fatal("publication_mode = 'dryrun' accepted; the column records what a publication DID, " +
+			"and dryrun and stub never publish")
+	}
+	if !strings.Contains(err.Error(), "CHECK constraint failed") {
+		t.Errorf("rejected with %v, want a CHECK constraint failure", err)
+	}
+}
+
+// The professor's connected Gmail address: not a secret (the refresh token
+// is, and lives sealed in user_secrets), so it sits in the clear where the
+// profile page and the From builder can read it without decrypting.
+func TestUserGmailAddressIsNullableAndRoundTrips(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+
+	var address sql.NullString
+	if err := db.QueryRowContext(ctx,
+		"SELECT gmail_address FROM users WHERE user_id = ?", userID,
+	).Scan(&address); err != nil {
+		t.Fatalf("reading gmail_address back: %v", err)
+	}
+	if address.Valid {
+		t.Errorf("a professor who never connected Gmail reads gmail_address=%q, want NULL", address.String)
+	}
+
+	if _, err := db.ExecContext(ctx,
+		"UPDATE users SET gmail_address = ? WHERE user_id = ?", "profesora@gmail.com", userID,
+	); err != nil {
+		t.Fatalf("stamping the connected address: %v", err)
+	}
+	if err := db.QueryRowContext(ctx,
+		"SELECT gmail_address FROM users WHERE user_id = ?", userID,
+	).Scan(&address); err != nil {
+		t.Fatalf("re-reading gmail_address: %v", err)
+	}
+	if address.String != "profesora@gmail.com" {
+		t.Errorf("round-tripped %q, want \"profesora@gmail.com\"", address.String)
+	}
+}
+
+// ADR-0050's closed set, extended. The pair matters more here than
+// anywhere else in this file: the SQLite CHECK and the Go `ValidKinds`
+// enum enforce the same set from two sides, and a Kind that satisfies one
+// but not the other is a silent drop of that whole class of work.
+func TestJobKindAcceptsPublishAndStillRefusesAnUnknownKind(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	id := insertControlRow(t, ctx, db, "CTRLJOBKIND00000000000001", userID, nil)
+
+	insertJobRow(t, ctx, db, id, "publish")
+
+	// And every kind that existed before this WP still does — the rebuild
+	// this migration performs replaces the table, so a dropped value would
+	// look exactly like a successful migration.
+	for _, kind := range []string{"generate", "analyse", "reanalyse", "annotate"} {
+		insertJobRow(t, ctx, db, id, kind)
+	}
+
+	_, err := db.ExecContext(ctx, `
+        INSERT INTO job (control_id, kind, status, payload_json, created_at)
+        VALUES (?, 'publicar', 'queued', '{}', 0)`, id)
+	if err == nil {
+		t.Fatal("job.kind accepted 'publicar'; the CHECK must stay a closed set")
+	}
+	if !strings.Contains(err.Error(), "CHECK constraint failed") {
+		t.Errorf("rejected with %v, want a CHECK constraint failure", err)
+	}
+}
+
+// SQLite cannot ALTER a CHECK, so admitting `publish` means rebuilding the
+// table. This is the case that says the rebuild is a migration rather than
+// a data loss: a job row written by the running Jetson survives it with
+// every column intact, the index comes back, and the foreign key still
+// cascades from control.
+//
+// Nothing else in this file can see it — every other case starts from an
+// empty database, where a rebuild that drops all rows passes.
+func TestTheJobKindRebuildPreservesTheRowsAndTheConstraints(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "nalanda.db")
+
+	db, err := storage.Open(ctx, path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if _, err := storage.Migrate(ctx, db, migrationsUpTo(t, "00017")); err != nil {
+		t.Fatalf("applying the set as it shipped before this WP: %v", err)
+	}
+
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	controlID := insertControlRow(t, ctx, db, "CTRLJOBKEEP00000000000001", userID, nil)
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO job (control_id, kind, status, error, detail, payload_json,
+                         created_at, started_at, finished_at, viewed_at)
+        VALUES (?, 'analyse', 'failed', 'el worker se negó', 'stderr completo',
+                '{"batch":"lote-1"}', 100, 110, 120, 130)`,
+		controlID,
+	); err != nil {
+		t.Fatalf("inserting the pre-migration job: %v", err)
+	}
+	_ = db.Close()
+
+	reopened, err := storage.Open(ctx, path)
+	if err != nil {
+		t.Fatalf("reopening: %v", err)
+	}
+	defer func() { _ = reopened.Close() }()
+
+	applied, err := storage.Migrate(ctx, reopened, migrations.FS)
+	if err != nil {
+		t.Fatalf("applying the rebuild over a database holding a job row: %v", err)
+	}
+	// Non-vacuity. Everything below passes trivially over a database that
+	// was already fully migrated, so without this the case would go green
+	// on the day the rebuild is missing entirely — which is precisely the
+	// day it has something to say.
+	if applied == 0 {
+		t.Fatal("the shipped set applied nothing over the pre-WP database, " +
+			"so the rebuild never ran and every assertion below is vacuous")
+	}
+
+	var (
+		gotControl, kind, status, errMsg, detail, payload string
+		created, started, finished, viewed                int64
+	)
+	if err := reopened.QueryRowContext(ctx, `
+        SELECT control_id, kind, status, error, detail, payload_json,
+               created_at, started_at, finished_at, viewed_at
+        FROM job`,
+	).Scan(&gotControl, &kind, &status, &errMsg, &detail, &payload,
+		&created, &started, &finished, &viewed); err != nil {
+		t.Fatalf("the job row did not survive the rebuild: %v", err)
+	}
+	switch {
+	case gotControl != controlID:
+		t.Errorf("control_id = %q, want %q", gotControl, controlID)
+	case kind != "analyse" || status != "failed":
+		t.Errorf("kind/status = %q/%q, want analyse/failed", kind, status)
+	case errMsg != "el worker se negó" || detail != "stderr completo":
+		t.Errorf("error/detail = %q/%q, want them carried across verbatim", errMsg, detail)
+	case payload != `{"batch":"lote-1"}`:
+		t.Errorf("payload_json = %q, want it carried across verbatim", payload)
+	case created != 100 || started != 110 || finished != 120 || viewed != 130:
+		t.Errorf("timestamps = %d/%d/%d/%d, want 100/110/120/130",
+			created, started, finished, viewed)
+	}
+
+	// The index the Detail handler's "latest job on this control" query
+	// needs. A rebuild that forgot it leaves every assertion above green.
+	var indexName string
+	if err := reopened.QueryRowContext(ctx,
+		"SELECT name FROM sqlite_master WHERE type = 'index' AND name = 'idx_job_by_control'",
+	).Scan(&indexName); err != nil {
+		t.Errorf("idx_job_by_control did not come back from the rebuild: %v", err)
+	}
+
+	// And the foreign key: dropping the control must still take its jobs
+	// with it. A rebuilt table that lost `REFERENCES control(id) ON DELETE
+	// CASCADE` orphans every job the next purge leaves behind.
+	if _, err := reopened.ExecContext(ctx, "DELETE FROM control WHERE id = ?", controlID); err != nil {
+		t.Fatalf("deleting the control: %v", err)
+	}
+	var remaining int
+	if err := reopened.QueryRowContext(ctx, "SELECT COUNT(*) FROM job").Scan(&remaining); err != nil {
+		t.Fatalf("counting the jobs left behind: %v", err)
+	}
+	if remaining != 0 {
+		t.Errorf("%d job rows survived their control, want the cascade to have removed them", remaining)
+	}
+}
+
+// Issue #273 review: how many messages a publication actually delivered.
+//
+// NULL is not zero, and that is the whole reason the column is nullable.
+// NULL means "the count was never written" — a control published before
+// this column existed, or a run that died between the stamp and the
+// bookkeeping write — and the unpublish confirmation words it as "no se
+// sabe cuántos llegaron". Defaulting it to 0 would assert that nobody
+// received a correction that forty people may be holding, which is the
+// exact claim this column exists to stop anybody making.
+func TestPublishedSentIsNullableAndDistinguishesZeroFromUnknown(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	id := insertControlRow(t, ctx, db, "CTRLSENT00000000000000001", userID, nil)
+
+	var sent sql.NullInt64
+	if err := db.QueryRowContext(ctx,
+		"SELECT published_sent FROM control WHERE id = ?", id).Scan(&sent); err != nil {
+		t.Fatalf("reading published_sent back: %v", err)
+	}
+	if sent.Valid {
+		t.Errorf("a control that was never published reads published_sent=%d, want NULL", sent.Int64)
+	}
+
+	// Zero is a real, storable answer that means something different from
+	// NULL: the publication ran and delivered nothing.
+	if _, err := db.ExecContext(ctx,
+		"UPDATE control SET published_at = 1, publication_mode = 'real', published_sent = 0 WHERE id = ?",
+		id); err != nil {
+		t.Fatalf("stamping a publication that delivered nothing: %v", err)
+	}
+	if err := db.QueryRowContext(ctx,
+		"SELECT published_sent FROM control WHERE id = ?", id).Scan(&sent); err != nil {
+		t.Fatalf("re-reading published_sent: %v", err)
+	}
+	if !sent.Valid || sent.Int64 != 0 {
+		t.Errorf("published_sent = %v, want a stored 0 distinguishable from NULL", sent)
 	}
 }

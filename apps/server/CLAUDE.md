@@ -19,7 +19,10 @@ annotate) run through an in-process async job runner
 (`internal/domain/jobs`), so an HTTP POST returns immediately and the
 detail page's `JobBanner` surfaces the running / done / failed state; the
 routes table in `README.md` is the current inventory and ADR-0050
-records the design.
+records the design. Since #271/#272 the courses, the Canvas roster and
+the RUT→student join live here (ADR-0069/0070/0071); since #273 a closed
+correction is PUBLISHED — one mail per student, sent as the professor
+from their own Gmail account, through a fifth `jobs.Kind` (ADR-0072).
 
 Commands, stack, configuration and layout live in `README.md` — one home per
 fact.
@@ -44,10 +47,18 @@ fact.
 - `docs/decisions/0050-the-controls-runner-is-in-process-single-goroutine.md`
   — the async job runner design. Read before touching
   `internal/domain/jobs`, `internal/infra/storage/jobstore`, or any of the
-  four minutes-class AMC handlers (`POST /controls`, `POST /controls/{id}/scans`,
-  `POST /controls/{id}/reanalyze`, `POST /controls/{id}/close`). Records
+  five async handlers (`POST /controls`, `POST /controls/{id}/scans`,
+  `POST /controls/{id}/reanalyze`, `POST /controls/{id}/close`, and
+  `POST /controls/{id}/publish` + `/test-send`). Records
   single-goroutine + SQLite persistence + Sweep-on-boot + no retry + the
   atomicity split that amends ADR-0034 §Failure modes.
+- `docs/decisions/0072-corrections-are-mailed-from-the-professors-own-gmail.md`
+  — the publication path. Read before touching `internal/domain/gmail`,
+  `internal/infra/email`, `Service.Publish`, or the `/profile` connect
+  flow. Records why the mail goes out as the PROFESSOR rather than through
+  a transactional API, why the Gmail grant is a second authorization and
+  not a wider login, the four dispatch modes, and the one question it
+  could not settle (§Consequences, "the seven-day question").
 - `docs/security-notes.md` §"Logs and personal data" — read before adding any
   `slog` call on a path that holds a RUT, a name or a student address. The
   rule is that the identifier stays OUT of the line; the `_action` /
@@ -73,21 +84,27 @@ fact.
   all three; there is no shared constant on purpose (see the router
   entry's comment).
 - `README.md` §"What is not here yet" — before adding anything, check whether
-  the work belongs to **WP-3 of epic #270 (#273)** — publishing corrections,
-  emailing the annotated PDFs, and the deletion path `security-notes.md`
-  records as missing — or to **WP-G** (publishing grades). **WP-C1, WP-C2,
-  WP-C3, WP-E, WP-F, and WP-1 and WP-2 of epic #270 are closed**: the
+  the work belongs to **WP-G** (publishing grades) or to the deletion path
+  `security-notes.md` records as missing. **WP-C1, WP-C2,
+  WP-C3, WP-E, WP-F, and ALL THREE WPs of epic #270 are closed**: the
   layered layout (#149), the login round trip + session gate (#150), the
   backoffice shell + professor CRUD (#151), control creation with the PDF
   pipeline (#166), the scans + review flow (#167), the Canvas roster —
   `course` / `student` / `enrollment` / `user_secrets`, `/profile`,
-  `/courses` (#271) — and the matching layer (#272) all live here.
+  `/courses` (#271) — the matching layer (#272), and publication with the
+  mail path (#273) all live here.
 
   **Reuse #272's entry points rather than rebuilding them**: the join is
   `matching.MatchByRUT` (+ `matching.NormalizeRUT`); the reads are
   `controls.Service.ControlsForCourse`, `MatrixForCourse` and
   `ControlsForStudent`; the repair passes are `RematchCourse` /
   `RematchAllCourses`. The policy behind all of them is ADR-0071.
+
+  **And reuse #273's rather than rebuilding them**: the mail port is
+  `controls.Dispatcher` (four transports in `internal/infra/email`), the
+  authorisation is `gmail.Service` (`Complete` / `Disconnect` /
+  `Connection` / `AccessToken`), and the sending loop is
+  `controls.Service.Publish`. The policy behind all of them is ADR-0072.
 
 ## Language
 
@@ -176,8 +193,11 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
 - **Cookie names are computed, not literal.** Since #162 (ADR-0038) both the
   session and OAuth-state cookies carry the `__Host-` prefix when
   `config.SecureCookie()` is true (production, https). Read and write them
-  ONLY through `middleware.SessionCookieName(secure)` and
-  `handler.StateCookieName(secure)`. A bare literal (`"nalanda_session"`,
+  ONLY through `middleware.SessionCookieName(secure)`,
+  `handler.StateCookieName(secure)` and — since #273 —
+  `handler.GmailStateCookieName(secure)`, whose store and nonce are the
+  login flow's deliberately separate twin (see the two-OAuth-flows rule
+  below). A bare literal (`"nalanda_session"`,
   `"nalanda_oauth_state"`) is dev-only correct — production stops reading it
   and the login breaks silently on the deployed URL.
   `TestSessionCookieNameCarriesHostPrefixInProductionAndNotInDev` and its
@@ -199,6 +219,8 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   case: `NALANDA_TRUST_PROXY_HEADERS` landed in all four homes in the same
   commit at #162; `TestEveryVariableReachesAllFourHomes` was what caught the
   early revision that had it missing from `.github/workflows/server.yml`.
+
+  **And a FIFTH home no test can reach: if the JETSON needs the variable, `infra/local/DEPLOY-JETSON.md`'s `.env` block.** The guard reads only the four in-repo homes; the Jetson's `.env` is typed by hand from that block. `NALANDA_EMAIL_MODE` was missing from it in #273, so the DOCUMENTED deploy path produced a server that could mail nobody — and the shape that bites is exactly a variable the loader treats as optional but production does not, because the guard cannot tell those apart (ADR-0072 §5).
 - **The migration numbering carries a scar worth knowing.** #150 deleted #149's
   empty `00001_init.sql` as planned, and still numbered the auth schema `00002`:
   goose keys applied migrations by VERSION, so a file reusing number 1 counts as
@@ -267,13 +289,20 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
      silent drop of that class of work.
   3. A handler factory in `internal/domain/controls/jobhandlers.go`
      (mirror `controls.NewReanalyseHandler` / `NewAnalyseHandler` /
-     `NewGenerateHandler` / `NewAnnotateHandler`) that translates
+     `NewGenerateHandler` / `NewAnnotateHandler` / `NewPublishHandler`,
+     the last being the only non-AMC one and therefore the one a new
+     non-worker Kind should copy) that translates
      domain sentinels into `jobs.Failure{Message, Detail}` for the
      banner + debug pair.
   4. Its registration in `cmd/server/main.go`'s `jobs.Handlers` map.
-  The related operating rule: any AMC-worker-touching operation is
-  async by construction (do NOT add a synchronous handler that calls
-  `amcworker.Client` from the HTTP goroutine — split the sync half
+  The related operating rule, as ADR-0072 amended it: **the shape of the
+  WORK decides, not who it talks to.** An AMC-worker call is async by
+  construction, and so is any loop the professor cannot wait on —
+  `publish` is the worked non-worker case (forty Gmail calls plus forty
+  PDFs off the shared volume, against `httpserver.writeTimeout`'s 30 s).
+  A bounded third-party call the professor waits on stays synchronous
+  under its own deadline (#271). Concretely: do NOT add a synchronous
+  handler that calls `amcworker.Client` from the HTTP goroutine — split the sync half
   from the async half, as `PrepareControl`/`GenerateAssets` and
   `SaveUploadedBatch`/`AnalyzeBatch` already do). ADR-0050 has the
   full reasoning.
@@ -431,6 +460,36 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   the "Asociación" badge on the control page (hidden entirely when the
   control has no course), the review page's "no está en la lista" note,
   and `/courses/{id}/matriz` — nowhere else.
+- **No value reaches an RFC 5322 header un-neutralised, and `buildMIME` is
+  the only place that decides how (issue #273 review, SEC-1 and NEW-6).**
+  Three mechanisms, one per kind of value, and a new header picks the one
+  that fits rather than inventing a fourth:
+  1. **Addresses** (`From`, `To`) — `headerAddress`, which REFUSES a control
+     character and then serialises through `mail.Address`. Both halves are
+     load-bearing: `mail.Address.String()` alone does not neutralise
+     `\r\n\r\n`, measured by mutation in the review.
+  2. **Free text** (`Subject`, the attachment filename) — `mime.QEncoding`,
+     which encodes everything below U+0020. These are values a professor may
+     legitimately write anything into, so they are encoded rather than
+     refused.
+  3. **Values from a closed set** (the attachment's `Content-Type`, the
+     multipart boundary) — refused on a control character, because one there
+     is a caller bug rather than user input.
+
+  An earlier version of this rule named only the first two and was violated
+  by the very function it governs.
+  Interpolating a value into a header with `fmt.Fprintf` is how a CR/LF
+  injected a `Bcc:` that Gmail's `message/rfc822` upload honours — sending
+  one student's grade and corrected PDF out of the professor's own mailbox
+  — and how `net/mail.ParseAddress`'s un-quoting of
+  `"a@evil.com,b"@x.com` put two recipients in a header somebody typed one
+  address into.
+
+  The guard is at the ENCODER, not at the roster, on purpose:
+  `student.email` reaches the header verbatim from Canvas with no
+  validation in any layer between, and every future source of an address
+  would otherwise need its own copy. Same "one sink, one guard" shape as the
+  `escapeBankText` bullet below.
 - **Two RUT parsers exist and must stay two (issue #272).**
   `matching.NormalizeRUT` reads eight bare digits as the BODY — what
   `\AMCcode{rut}{8}` prints and what the review field asks for.
@@ -551,6 +610,102 @@ the `avisoNo*` / `flash.Set(…)` string literals in `internal/app/web/handler/`
   (`coverage_test.go`) — plus `TestPctErradaCountsOKWrongsEvenWith
   Overrides` (`item_test.go`), added after the review caught the
   pre-fix double-subtraction of the override bucket.
+- **Only `invalid_grant` throws a stored Gmail credential away (issue
+  #273, ADR-0072).** `gmail.Service.AccessToken` clears the sealed refresh
+  token and the connected address on `gmail.ErrRejected` and on NOTHING
+  else — not on a 5xx, not on a transport failure, not on a 400 that is
+  some other OAuth error, and not on a secret that will not unseal (which
+  is a wrong master key, a deployment fault, and a row a correct key would
+  still open). A Gmail **403** is likewise not a rejection: it covers
+  "insufficient permission" AND "daily limit exceeded", Google separates
+  them only inside an error `reason` whose vocabulary is not contractual,
+  and between deleting a working credential over a quota and leaving a
+  broken one for the professor to reconnect by hand, the second is the
+  recoverable mistake. The asymmetry is the whole design: clearing too
+  eagerly makes a professor reconnect every time Google hiccups, and it is
+  unrecoverable in the direction that matters — this server cannot
+  re-consent on their behalf.
+- **A publication is REFUSED under a transport that does not deliver, and
+  can be UNDONE when it did not reach anybody (issue #273 review, ADR-0072
+  §5).** Two rules, one reason: `published_at` must never assert a delivery
+  that did not happen.
+  1. `Dispatcher.Delivers()` is what the domain asks before stamping.
+     Under `stub` or `dryrun` every `Send` succeeds, so without it a
+     publication counted forty successes over nobody, stamped the control
+     and told the professor the class had been written to — on the DEFAULT
+     mode, by the deploy path `DEPLOY-JETSON.md` documents. Adding a fifth
+     transport means answering this honestly; a wrapper DEFERS to what it
+     wraps (`StagingDispatcher`) rather than hard-coding true.
+  2. `Service.Unpublish` clears all three publication columns so the
+     control can be published again. It is the escape hatch, not a rule
+     the code applies for itself: "do not stamp when Sent == 0" was the
+     tempting single rule and reaches only one of the three failure shapes,
+     because under `staging` every send genuinely succeeds. The judgement a
+     machine cannot make — may the people who already received their
+     correction receive it twice — belongs to the professor, and
+     `control.published_sent` is what lets the confirmation put the number
+     in front of them. **NULL there is not zero.**
+- **The publication stamps the control BEFORE it sends (issue #273).**
+  `Service.Publish` calls `MarkPublished` above the loop, never below it.
+  An unstamped control with twenty students already emailed is a control
+  the professor publishes again, and the twenty receive a second copy of a
+  grade; stamping first makes a crash cost the un-sent half, which the
+  failure list names. Moving the stamp below the loop is forbidden.
+
+  **A test that only checks the end state cannot see this** — the loop
+  never returns early, so both orders finish in the same place, and the
+  first version of that case survived the mutation. The pin asks the
+  DISPATCHER what the world looks like at the first send
+  (`TestTheControlIsAlreadyStampedWhenTheFirstMessageGoesOut`). Same rule
+  shape as the UploadScan-survives and LiveBank-survives bullets.
+- **A publication skips; it does not fail (issue #273).** A copy nobody was
+  matched to, a matched person no longer enrolled, a grade that is not
+  defined, a missing annotated PDF — all ORDINARY, all counted in
+  `PublishResult.Skipped`. A class where two people missed the control is a
+  normal class, and folding those into `Failures` reports a problem the
+  professor does not have. `Failures` is what they are asked to ACT on: a
+  send that was attempted and refused, with the copy number and a reason.
+  Same distinction, and the same reason, as #272's Unmatched / Errored /
+  ControlsFailed split.
+
+  And a copy with no annotated PDF is skipped rather than sent without it:
+  "adjunto la corrección" with nothing attached is worse than no message,
+  because the student now has to ask.
+- **`staging` refuses; it never falls back to the student (issue #273).**
+  `email.StagingDispatcher` returns `ErrNoStagingRecipient` when
+  `Message.ProfessorEmail` is empty. Sending to `msg.To` there would
+  deliver to the student in the mode selected to make that impossible, on
+  the run where somebody was deliberately being careful. Failing the send
+  is recoverable; delivering it is not. Verified by mutation, not by
+  reading.
+- **The two OAuth flows must stay unable to complete each other (issue
+  #273).** The login and the Gmail grant have separate state cookie names
+  (`middleware`-adjacent `handler.StateCookieName` vs
+  `handler.GmailStateCookieName`) and separate `oauthstate.Store`
+  instances. Sharing either half would let a nonce issued for one grant be
+  spent on the other, and the two grants carry different scopes. Both
+  directions are pinned; read and write those cookies ONLY through their
+  helpers, the same rule the session cookie carries.
+- **`NALANDA_EMAIL_MODE` defaults to `stub` (issue #273).** It is the only
+  optional variable in `config` whose default is not what production wants,
+  and reversing it is forbidden. A publication is REFUSED under a
+  non-delivering transport, so an operator who deploys without choosing
+  finds out the first time they press "Publicar"; one who got `real` finds
+  out when a class receives mail that cannot be recalled. An unknown value fails the boot naming the
+  legal set and never falls back — a typo resolving quietly to `stub` is a
+  professor pressing "Publicar", reading a success message, and nobody
+  receiving anything.
+- **Nothing here can test the mail path, either (issue #273).** The suite
+  drives an `httptest` provider and an `httptest` stand-in for Gmail's send
+  endpoint. What no test can see: whether the real consent screen grants
+  the scope, whether the redirect URI matches character for character,
+  whether a refresh token survives a week, and whether a message this
+  server considers well-formed arrives readable in a real inbox. Any change
+  to `internal/infra/oidc/gmail.go`, the `/profile` connect flow,
+  `internal/infra/email/`, the message builder or `NALANDA_EMAIL_MODE` is
+  unfinished while a human has not run
+  [`GMAIL-CHECK.md`](GMAIL-CHECK.md). Same rule, and the same reason, as
+  the Google, Canvas and paper bullets.
 - **The two surfaces do not share an auth gate** (§C12). Everything auth-shaped
   is mounted inside `internal/app/web`; `internal/app/api` is anonymous by
   construction, and `/health` sits deliberately outside the gate because the

@@ -16,7 +16,7 @@ import (
 	"time"
 )
 
-// Kind names the four operation types the runner accepts. Enumerated
+// Kind names the five operation types the runner accepts. Enumerated
 // rather than free-form: the SQLite CHECK on job.kind refuses anything
 // else, and having the enum here means a caller cannot write a typo that
 // only fails at INSERT time.
@@ -27,10 +27,19 @@ const (
 	KindAnalyse   Kind = "analyse"
 	KindReanalyse Kind = "reanalyse"
 	KindAnnotate  Kind = "annotate"
+	// KindPublish emails one control's corrections (issue #273). Async for
+	// the same reason as the four above, though it touches no AMC worker:
+	// forty Gmail calls plus forty PDFs read off the shared volume do not
+	// fit inside the 30 s write timeout an HTTP handler answers under.
+	//
+	// ONE Kind covers both a real publication and an "envío de prueba" —
+	// they differ only in the recipient and in whether state moved, and the
+	// payload carries that. A second Kind would duplicate the loop.
+	KindPublish Kind = "publish"
 )
 
 // ValidKinds is the closed set the schema CHECK enforces.
-var ValidKinds = []Kind{KindGenerate, KindAnalyse, KindReanalyse, KindAnnotate}
+var ValidKinds = []Kind{KindGenerate, KindAnalyse, KindReanalyse, KindAnnotate, KindPublish}
 
 // Status names the four states a row can be in. Same CHECK-enum shape as
 // Kind, same reasoning.

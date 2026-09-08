@@ -16,8 +16,10 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/handler"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/oauthstate"
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
+	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/domain/secret"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
@@ -69,6 +71,10 @@ func (s *stubCanvas) Roster(_ context.Context, _ string, canvasCourseID string) 
 }
 
 type profileFixture struct {
+	// The Gmail half (issue #273): the authorizer the callback drives and
+	// the nonce store a case has to issue from before it can present one.
+	gmailAuth      *stubGmail
+	gmailState     *oauthstate.Store
 	handler        *handler.Profile
 	middleware     *middleware.Auth
 	store          *authstore.Store
@@ -103,10 +109,17 @@ func (f *profileFixture) rekey(t *testing.T, masterKey []byte) {
 	canvasService := canvas.NewService(secrets, f.api)
 	rosterService := roster.NewService(f.courses, roster.NewCanvasSource(canvasService))
 	f.handler = handler.NewProfile(handler.Profile{
-		Canvas:    canvasService,
-		Roster:    rosterService,
-		PublicURL: publicURL,
-		Log:       f.log,
+		Canvas: canvasService,
+		Roster: rosterService,
+		Gmail: gmail.NewService(gmail.Service{
+			Authorizer: f.gmailAuth,
+			Secrets:    secrets,
+			Accounts:   f.store,
+			Log:        f.log,
+		}),
+		GmailState: f.gmailState,
+		PublicURL:  publicURL,
+		Log:        f.log,
 	})
 	f.coursesHandler = handler.NewCourses(handler.Courses{
 		Roster:    rosterService,
@@ -156,11 +169,24 @@ func newProfileFixture(t *testing.T, masterKey []byte) *profileFixture {
 	f.db = db
 	f.log = log
 	rosterService := roster.NewService(f.courses, roster.NewCanvasSource(canvasService))
+	// Issue #273. The account store is the REAL authstore over the same
+	// database, because the ordering contract Complete holds to is about
+	// two writes landing in a schema — a fake would assert the order this
+	// test already believes.
+	f.gmailAuth = &stubGmail{}
+	f.gmailState = oauthstate.New(oauthstate.DefaultTTL, func() time.Time { return f.now })
 	f.handler = handler.NewProfile(handler.Profile{
-		Canvas:    canvasService,
-		Roster:    rosterService,
-		PublicURL: publicURL,
-		Log:       log,
+		Canvas: canvasService,
+		Roster: rosterService,
+		Gmail: gmail.NewService(gmail.Service{
+			Authorizer: f.gmailAuth,
+			Secrets:    f.secrets,
+			Accounts:   f.store,
+			Log:        log,
+		}),
+		GmailState: f.gmailState,
+		PublicURL:  publicURL,
+		Log:        log,
 	})
 	// The courses handler shares this fixture rather than getting its own:
 	// it is built from the same database, the same Canvas stub and the same
@@ -674,4 +700,41 @@ func TestARevokedTokenTellsTheProfessorToPasteANewOne(t *testing.T) {
 	if strings.Contains(body, "No se pudo contactar a Canvas") {
 		t.Error("a revoked token was rendered as an outage; the fix differs")
 	}
+}
+
+// stubGmail is a gmail.Authorizer a case configures. It records the
+// redirect URI it was handed on both legs, because Google matches that
+// value character for character and a mismatch is the failure a professor
+// cannot act on.
+type stubGmail struct {
+	grant    gmail.Grant
+	exchange error
+	access   gmail.Access
+	refresh  error
+
+	lastState       string
+	lastRedirectURI string
+	exchanges       int
+}
+
+func (s *stubGmail) AuthCodeURL(state, redirectURI string) string {
+	s.lastState = state
+	s.lastRedirectURI = redirectURI
+	return "https://provider.test/auth?state=" + state
+}
+
+func (s *stubGmail) Exchange(_ context.Context, _, redirectURI string) (gmail.Grant, error) {
+	s.exchanges++
+	s.lastRedirectURI = redirectURI
+	if s.exchange != nil {
+		return gmail.Grant{}, s.exchange
+	}
+	return s.grant, nil
+}
+
+func (s *stubGmail) Refresh(context.Context, string) (gmail.Access, error) {
+	if s.refresh != nil {
+		return gmail.Access{}, s.refresh
+	}
+	return s.access, nil
 }

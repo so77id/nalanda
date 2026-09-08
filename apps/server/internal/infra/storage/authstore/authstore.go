@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/auth"
+	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 )
 
 // Store is the adapter. One type rather than three, because there is one
@@ -383,4 +384,83 @@ func (s *Store) DeleteUserSessions(ctx context.Context, userID int64) error {
 		return fmt.Errorf("delete the sessions of the professor %d: %w", userID, err)
 	}
 	return nil
+}
+
+// SetGmailAddress records the Gmail account a professor connected, or
+// clears it when address is empty (issue #273).
+//
+// The empty string is stored as NULL rather than as ”: the schema's
+// "connected" question is `gmail_address IS NOT NULL`, and a row holding ”
+// would answer it yes while naming nobody. Same reason 00014's student.rut
+// refuses the empty string it would otherwise let past a UNIQUE.
+//
+// No RETURNING and no not-found guard, unlike UpdateUser: the caller is
+// always a professor resolved from their own session, so a zero-row update
+// would mean the session outlived the row — which the gate upstream has
+// already refused. Adding an error nobody can reach would be a branch no
+// test could cover honestly.
+func (s *Store) SetGmailAddress(ctx context.Context, userID int64, address string) error {
+	var value any
+	if address != "" {
+		value = address
+	}
+	if _, err := s.db.ExecContext(ctx,
+		"UPDATE users SET gmail_address = ? WHERE user_id = ?", value, userID,
+	); err != nil {
+		return fmt.Errorf("record the connected Gmail address for professor %d: %w", userID, err)
+	}
+	return nil
+}
+
+// GmailAddress returns the connected account, or "" for a professor who
+// has connected none (issue #273).
+//
+// Absence is an ordinary answer rather than an error — most professors
+// have connected nothing — so NULL and "no such row" both come back as the
+// empty string. The second cannot happen behind the session gate, and
+// making the caller branch on it would put a case in every profile render
+// that only a deleted-mid-request professor could reach.
+func (s *Store) GmailAddress(ctx context.Context, userID int64) (string, error) {
+	var address sql.NullString
+	err := s.db.QueryRowContext(ctx,
+		"SELECT gmail_address FROM users WHERE user_id = ?", userID,
+	).Scan(&address)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return "", nil
+	case err != nil:
+		return "", fmt.Errorf("read the connected Gmail address for professor %d: %w", userID, err)
+	}
+	return address.String, nil
+}
+
+// SenderFor returns the professor a publication goes out as, satisfying
+// controls.SenderReader (issue #273).
+//
+// One statement for the three facts a message needs, because they live in
+// one row: the name that signs it, the address a staging run redirects to,
+// and the connected account that becomes the From. A NULL gmail_address
+// comes back as the empty string, which is what Service.Publish reads as
+// "this professor has connected nothing" and refuses on before stamping
+// anything.
+func (s *Store) SenderFor(ctx context.Context, userID int64) (controls.Sender, error) {
+	var (
+		name    string
+		email   string
+		address sql.NullString
+	)
+	err := s.db.QueryRowContext(ctx,
+		"SELECT name, email, gmail_address FROM users WHERE user_id = ?", userID,
+	).Scan(&name, &email, &address)
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		return controls.Sender{}, auth.ErrNotFound
+	case err != nil:
+		return controls.Sender{}, fmt.Errorf("read the sender %d: %w", userID, err)
+	}
+	return controls.Sender{
+		Name:         name,
+		Email:        email,
+		GmailAddress: address.String,
+	}, nil
 }

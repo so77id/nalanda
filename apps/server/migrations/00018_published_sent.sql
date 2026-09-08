@@ -1,0 +1,55 @@
+-- Issue #273 review (PUB-1 / PUB-2 / PUB-3): how many messages a
+-- publication actually delivered, so that undoing one is a decision a
+-- professor can make with the facts in front of them.
+--
+-- WHY THIS COLUMN EXISTS
+--
+-- 00017 recorded that a publication HAPPENED (`published_at`) and which
+-- mode it asked for (`publication_mode`). Three independent review lenses
+-- found the same gap underneath that: neither column says whether anybody
+-- received anything, while `publishedLine` and 00017's own CHECK comment
+-- both read as though they did.
+--
+-- Three shapes of the same defect:
+--
+--   * A publication in which every send failed — a refresh token Google
+--     revoked after seven days is the case the code itself names — stamped
+--     the control anyway. Publication is one-way, so the class never got
+--     their corrections and nothing in the app could deliver them.
+--   * A publication under `NALANDA_EMAIL_MODE=stub` reported every send as
+--     a success. That is the DEFAULT, and `infra/local/DEPLOY-JETSON.md`
+--     did not list the variable, so the documented deploy path produced it
+--     in production: a green banner, a page saying "las correcciones se
+--     enviaron a los estudiantes", and nothing sent.
+--   * A `staging` publication delivered to the professor and burned the
+--     one-shot the same way.
+--
+-- The fix is NOT "do not stamp when nothing was sent" — that only reaches
+-- the first shape, because under `stub` and `staging` every send succeeds.
+-- It is an unpublish the professor can reach, plus a refusal to stamp at
+-- all under a transport that does not deliver. This column is what lets
+-- the unpublish confirmation tell the truth: "nobody received anything,
+-- publishing again is free" reads very differently from "38 people already
+-- have this, publishing again sends it twice", and a professor cannot
+-- weigh that without the number.
+--
+-- NULLABLE, and NULL is not zero. NULL means "this control was published
+-- before the count existed, or the count was never written back" — the
+-- honest answer for a row migrated in from 00017, and the one the
+-- confirmation page words as "No se registró cuántos correos llegaron a
+-- salir". Defaulting it to 0 would assert that nobody received a correction
+-- that forty people may be holding, which is the exact claim this column
+-- exists to stop anyone making.
+--
+-- Numbered 00018, after 00017_publication.sql. Numbers are never reused,
+-- even deleted ones — the scar is written out in 00002_auth.sql.
+
+-- +goose Up
+ALTER TABLE control ADD COLUMN published_sent INTEGER;
+
+-- +goose Down
+
+-- Documentation of the inverse, never executed: ADR-0034 §Consequences
+-- records that rolling a binary back over an applied migration is not
+-- supported (backend-code-style.md §Adding a migration, rule 2).
+ALTER TABLE control DROP COLUMN published_sent;

@@ -22,6 +22,7 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
@@ -33,6 +34,7 @@ import (
 	// adapter appears exactly once, in the constructor below.
 	canvasapi "github.com/so77id/nalanda/apps/server/internal/infra/canvas"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
+	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 	"github.com/so77id/nalanda/apps/server/internal/infra/httpserver"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc"
 	"github.com/so77id/nalanda/apps/server/internal/infra/selfcheck"
@@ -181,6 +183,56 @@ func run(logger *slog.Logger) error {
 	// handle, so a second instance would be harmless — one is simply the
 	// honest statement that they are the same tables.
 	courseStore := coursestore.New(db)
+
+	// Issue #271: the Canvas integration. The secret store is nil when the
+	// operator has not set NALANDA_SECRETS_MASTER_KEY — a legal, boot-able
+	// state (ADR-0068 §Decision 3), and canvas.Service renders it as
+	// "no configurada" rather than refusing to start. A key that IS set and
+	// malformed never reaches here: config.Load already failed the boot.
+	var canvasSecrets secret.Store
+	if cfg.SecretsConfigured() {
+		secrets, err := secretstore.New(db, cfg.SecretsMasterKey)
+		if err != nil {
+			// Unreachable for a key config.Load accepted; a panic at wiring
+			// time is what §Errors allows here, and silence would be a
+			// deployment that stores nothing while looking healthy.
+			panic("wiring the secret store: " + err.Error())
+		}
+		canvasSecrets = secrets
+	} else {
+		logger.Warn("the Canvas integration is disabled",
+			"reason", "no "+config.KeySecretsMasterKey+" is set",
+			"effect", "professors cannot store a Canvas token")
+	}
+	canvasService := canvas.NewService(canvasSecrets, canvasapi.New(cfg.CanvasGraphQLURL))
+	// Issue #273: the professor's Gmail authorisation, on the SAME OAuth
+	// client as the login. It shares the client id and secret and nothing
+	// else — its own scopes, its own grant, its own nonce store.
+	//
+	// canvasSecrets is passed deliberately, nil and all: without a master
+	// key this deployment can store no credential of any kind, and
+	// gmail.Service renders that as "no configurada" rather than refusing
+	// to start. Same state, same handling, as the Canvas line above.
+	gmailService := gmail.NewService(gmail.Service{
+		Authorizer: oidc.NewGmailAuthorizer(oidc.GoogleConfig{
+			ClientID:     cfg.GoogleClientID,
+			ClientSecret: cfg.GoogleClientSecret,
+		}),
+		Secrets:  canvasSecrets,
+		Accounts: store,
+		Log:      logger,
+	})
+	rosterService := roster.NewService(courseStore, roster.NewCanvasSource(canvasService))
+
+	// Issue #273: the mail transport, selected ONCE at boot and logged in
+	// one line — the "select don't describe" shape of DocumentBuddy's
+	// ADR-021. Nothing downstream branches on the mode, so no caller can be
+	// in one mode while its neighbour is in another, and an operator
+	// reading the first lines of the log knows whether this process can
+	// reach a student.
+	dispatcher := buildDispatcher(cfg.EmailMode, gmailService, logger)
+	logger.Info("email dispatcher", "mode", cfg.EmailMode)
+
 	amcClient := amcworker.New(amcworker.Config{BaseURL: cfg.AmcWorkerURL})
 	controlsService := controls.NewService(controls.Service{
 		Bank:      liveBank,
@@ -193,6 +245,16 @@ func run(logger *slog.Logger) error {
 		// the control's course. The controls domain declares the port
 		// (controls.Matcher) and this is what satisfies it.
 		Matcher: matching.NewService(courseStore),
+		// Issue #273: the two facts a publication needs that the controls
+		// tables do not hold. coursestore owns the roster's tables and
+		// authstore owns `users`, so each satisfies the port over the data
+		// it already keeps — the health.Prober shape.
+		Roster:  courseStore,
+		Senders: store,
+		// Issue #273: what a publication sends through. Which of the four
+		// transports this is was decided at boot, above; nothing in the
+		// domain asks which one it got.
+		Dispatcher: dispatcher,
 		// The annotate loop's master switch (NALANDA_ANNOTATE_ENABLED,
 		// issue #190 §Reversibility): defaults to true, the operator can
 		// turn the whole flow off without a deploy.
@@ -219,34 +281,12 @@ func run(logger *slog.Logger) error {
 		jobs.KindAnalyse:   controls.NewAnalyseHandler(controlsService),
 		jobs.KindGenerate:  controls.NewGenerateHandler(controlsService),
 		jobs.KindAnnotate:  controls.NewAnnotateHandler(controlsService),
+		jobs.KindPublish:   controls.NewPublishHandler(controlsService),
 	}, logger, time.Now)
 	if err := jobRunner.Sweep(ctx); err != nil {
 		return err
 	}
 	go jobRunner.Start(ctx)
-
-	// Issue #271: the Canvas integration. The secret store is nil when the
-	// operator has not set NALANDA_SECRETS_MASTER_KEY — a legal, boot-able
-	// state (ADR-0068 §Decision 3), and canvas.Service renders it as
-	// "no configurada" rather than refusing to start. A key that IS set and
-	// malformed never reaches here: config.Load already failed the boot.
-	var canvasSecrets secret.Store
-	if cfg.SecretsConfigured() {
-		secrets, err := secretstore.New(db, cfg.SecretsMasterKey)
-		if err != nil {
-			// Unreachable for a key config.Load accepted; a panic at wiring
-			// time is what §Errors allows here, and silence would be a
-			// deployment that stores nothing while looking healthy.
-			panic("wiring the secret store: " + err.Error())
-		}
-		canvasSecrets = secrets
-	} else {
-		logger.Warn("the Canvas integration is disabled",
-			"reason", "no "+config.KeySecretsMasterKey+" is set",
-			"effect", "professors cannot store a Canvas token")
-	}
-	canvasService := canvas.NewService(canvasSecrets, canvasapi.New(cfg.CanvasGraphQLURL))
-	rosterService := roster.NewService(courseStore, roster.NewCanvasSource(canvasService))
 
 	backoffice := web.Deps{
 		Database: storage.NewProber(db),
@@ -283,16 +323,26 @@ func run(logger *slog.Logger) error {
 			// integration (email, Canvas) replaces it here without
 			// touching the flow (issue #190).
 			OnCorrectionClosed: controls.NewNoopHook(logger),
+			// Issue #273: whether the professor at the keyboard can send at
+			// all — the control page gates "Publicar" on it, and the POST
+			// refuses on it. *gmail.Service satisfies the narrow port.
+			Gmail: gmailService,
 			// Issue #249: the async job runner (banner + Submit calls).
 			Jobs:   jobStore,
 			Runner: jobRunner,
 			Log:    logger,
 		}),
 		Profile: handler.NewProfile(handler.Profile{
-			Canvas:    canvasService,
-			Roster:    rosterService,
-			PublicURL: cfg.PublicURL,
-			Log:       logger,
+			Canvas: canvasService,
+			Roster: rosterService,
+			Gmail:  gmailService,
+			// A SECOND nonce store, never the login's. Sharing it would
+			// let a nonce issued for one grant be spent on the other, and
+			// the two grants carry different scopes
+			// (handler.GmailStateCookieName says the rest).
+			GmailState: oauthstate.New(oauthstate.DefaultTTL, time.Now),
+			PublicURL:  cfg.PublicURL,
+			Log:        logger,
 		}),
 		Courses: handler.NewCourses(handler.Courses{
 			Roster: rosterService,
@@ -358,4 +408,33 @@ func warnIfNobodyCanLogIn(ctx context.Context, users auth.UserStore, cfg config.
 			"set", config.KeyBootstrapProfessorEmail)
 	}
 	return nil
+}
+
+// buildDispatcher picks the transport for the selected mode.
+//
+// The switch is exhaustive over config's closed set and still ends in a
+// panic, which is not belt-and-braces theatre: config.Load is what refuses
+// an unknown mode, so reaching the default here means somebody added a
+// fifth EmailMode constant and did not come back to this function. A panic
+// at wiring time is the failure that gets noticed; a silent fall-through to
+// stub is a deployment that looks healthy and sends nothing
+// (backend-code-style.md §Errors — never in a request path, right here).
+func buildDispatcher(mode config.EmailMode, creds email.Credentials, log *slog.Logger) controls.Dispatcher {
+	switch mode {
+	case config.EmailModeStub:
+		return email.NewStubDispatcher()
+	case config.EmailModeDryRun:
+		return email.NewDryRunDispatcher(creds, log)
+	case config.EmailModeStaging:
+		return email.NewStagingDispatcher(email.NewGmailDispatcher(email.GmailConfig{Credentials: creds}))
+	case config.EmailModeReal:
+		// `real` does NOT mean "always send to the student": it means the
+		// per-publication choice the professor made on the form is
+		// honoured, and the staging half of that choice is applied by the
+		// publish job, which is the only layer that knows what was asked
+		// for. This transport is the one that actually delivers.
+		return email.NewGmailDispatcher(email.GmailConfig{Credentials: creds})
+	default:
+		panic("main.buildDispatcher: no transport for mail mode " + string(mode))
+	}
 }

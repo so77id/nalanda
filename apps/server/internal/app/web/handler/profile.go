@@ -7,8 +7,10 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
+	"github.com/so77id/nalanda/apps/server/internal/app/web/oauthstate"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/view"
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
+	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/config"
 )
@@ -22,6 +24,9 @@ const (
 	ProfileAddCoursePath    = "/profile/courses"
 )
 
+// The Gmail connection's routes live in gmail.go, beside the handlers that
+// serve them.
+
 // Profile holds the professor's own account screen: today, the Canvas
 // token. Same shape as Professors — several handlers over shared
 // dependencies, constructed once, refused when the set is incomplete so a
@@ -31,9 +36,17 @@ type Profile struct {
 	Canvas *canvas.Service
 	// Roster is the course picker's policy (issue #271 S5): which Canvas
 	// courses this professor has, which are already added, and adding one.
-	Roster    *roster.Service
-	PublicURL string
-	Log       *slog.Logger
+	Roster *roster.Service
+	// Gmail is the professor's authorisation to let this server send mail
+	// as them (issue #273). Its handlers live in gmail.go; the dependency
+	// is here because it is the same screen.
+	Gmail *gmail.Service
+	// GmailState holds this flow's nonces. A store of its OWN, never the
+	// login's: see GmailStateCookieName for why sharing either half would
+	// let a nonce issued for one grant be spent on the other.
+	GmailState *oauthstate.Store
+	PublicURL  string
+	Log        *slog.Logger
 
 	// secureCookie is DERIVED from PublicURL by NewProfile, never passed in
 	// — same reasoning as Professors.secureCookie: false is a legal value,
@@ -49,6 +62,10 @@ func NewProfile(deps Profile) *Profile {
 		panic("handler.NewProfile: no Canvas service")
 	case deps.Roster == nil:
 		panic("handler.NewProfile: no roster service")
+	case deps.Gmail == nil:
+		panic("handler.NewProfile: no Gmail service")
+	case deps.GmailState == nil:
+		panic("handler.NewProfile: no Gmail state store")
 	case deps.PublicURL == "":
 		panic("handler.NewProfile: no public URL — the flash cookie's Secure attribute is derived from it")
 	case deps.Log == nil:
@@ -163,12 +180,14 @@ func (p *Profile) ForgetCanvasToken(w http.ResponseWriter, r *http.Request) {
 // did not already have (ARQ-12).
 func (p *Profile) render(w http.ResponseWriter, r *http.Request, status int, fieldErrors map[string]string) {
 	page := view.ProfilePage{
-		Page:              middleware.PageFor(r, "Mi perfil"),
-		SecretsConfigured: p.Canvas.Configured(),
-		Action:            ProfileCanvasTokenPath,
-		ForgetAction:      ProfileCanvasForgetPath,
-		AddCourseAction:   ProfileAddCoursePath,
-		Errors:            fieldErrors,
+		Page:                  middleware.PageFor(r, "Mi perfil"),
+		SecretsConfigured:     p.Canvas.Configured(),
+		Action:                ProfileCanvasTokenPath,
+		ForgetAction:          ProfileCanvasForgetPath,
+		AddCourseAction:       ProfileAddCoursePath,
+		Errors:                fieldErrors,
+		GmailConnectAction:    ProfileGmailConnectPath,
+		GmailDisconnectAction: ProfileGmailDisconnectPath,
 	}
 	if professor, ok := middleware.ProfessorFrom(r.Context()); ok {
 		page.Email = professor.Email
@@ -195,6 +214,19 @@ func (p *Profile) render(w http.ResponseWriter, r *http.Request, status int, fie
 			page.Connected = true
 			page.TokenNotice = "El token guardado ya no se puede descifrar: la llave del servidor " +
 				"cambió. Pega uno nuevo para reemplazarlo, o elimínalo."
+		}
+
+		// The Gmail half (issue #273). A failure here does NOT fail the
+		// page: the Canvas token, its forms and the course picker are all
+		// still usable, and refusing to render a working screen because
+		// one section could not be read is the mistake the Canvas branch
+		// above already refuses to make. The section says so instead.
+		switch connection, err := p.Gmail.Connection(r.Context(), professor.ID); {
+		case err == nil:
+			page.GmailAddress = connection.Address
+		default:
+			p.Log.Error("reading the Gmail connection state", "professor", professor.ID, "error", err)
+			page.GmailNotice = "No se pudo leer el estado de la conexión con Gmail."
 		}
 
 		// Not on the refusal re-renders, and not when the stored token is

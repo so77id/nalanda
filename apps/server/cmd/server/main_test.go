@@ -7,6 +7,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -26,11 +27,14 @@ import (
 	"github.com/so77id/nalanda/apps/server/internal/domain/canvas"
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/course/bank"
+	"github.com/so77id/nalanda/apps/server/internal/domain/gmail"
 	"github.com/so77id/nalanda/apps/server/internal/domain/health"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
 	"github.com/so77id/nalanda/apps/server/internal/domain/matching"
 	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/amcworker/amctest"
+	"github.com/so77id/nalanda/apps/server/internal/infra/config"
+	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 	"github.com/so77id/nalanda/apps/server/internal/infra/oidc/oidctest"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage"
 	"github.com/so77id/nalanda/apps/server/internal/infra/storage/authstore"
@@ -78,6 +82,9 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 		// answer for them — what matters is that the wiring the binary
 		// does is the wiring the test does.
 		Matcher:         matching.NewService(coursestore.New(db)),
+		Dispatcher:      email.NewStubDispatcher(),
+		Roster:          coursestore.New(db),
+		Senders:         authstore.New(db),
 		Bank:            emptyBank(t),
 		Store:           cstore,
 		Generator:       amcFake,
@@ -126,6 +133,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				jobs.KindAnalyse:   controls.NewAnalyseHandler(svc),
 				jobs.KindGenerate:  controls.NewGenerateHandler(svc),
 				jobs.KindAnnotate:  controls.NewAnnotateHandler(svc),
+				jobs.KindPublish:   controls.NewPublishHandler(svc),
 			}, logger, time.Now)
 			return handler.NewControls(handler.Controls{
 				Service: svc,
@@ -140,6 +148,7 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 				Bank:               emptyBank(t),
 				PublicURL:          "https://nalanda.test",
 				OnCorrectionClosed: controls.NewNoopHook(logger),
+				Gmail:              connectedGmail{},
 				Jobs:               jstore,
 				Runner:             runner,
 				Log:                logger,
@@ -157,8 +166,18 @@ func composed(t *testing.T, prober health.Prober) (http.Handler, *authstore.Stor
 					emptyCourseStore{},
 					roster.NewCanvasSource(canvasService),
 				),
-				PublicURL: "https://nalanda.test",
-				Log:       logger,
+				// Issue #273: same "no master key" branch as the Canvas
+				// line above — gmail.Service renders that state rather
+				// than refusing it, and these cases are about the router's
+				// table, not about Google.
+				Gmail: gmail.NewService(gmail.Service{
+					Authorizer: unreachableGmail{},
+					Accounts:   noGmailAccount{},
+					Log:        logger,
+				}),
+				GmailState: oauthstate.New(oauthstate.DefaultTTL, time.Now),
+				PublicURL:  "https://nalanda.test",
+				Log:        logger,
 			})
 		}(),
 		// Issue #272 S8: one person's record. Wired like the binary
@@ -504,4 +523,96 @@ func (emptyCourseStore) EnrollmentCounts(context.Context) (map[int64]roster.Enro
 // (issue #272 S8).
 func (emptyCourseStore) StudentByID(context.Context, int64) (roster.Student, error) {
 	return roster.Student{}, roster.ErrStudentNotFound
+}
+
+// unreachableGmail is a gmail.Authorizer no case here calls. The router's
+// table is what is under test; a request that got as far as Google would
+// mean the gate let it through, which is the failure these cases exist to
+// catch.
+type unreachableGmail struct{}
+
+func (unreachableGmail) AuthCodeURL(state, redirectURI string) string {
+	return "https://provider.test/auth?state=" + state
+}
+
+func (unreachableGmail) Exchange(context.Context, string, string) (gmail.Grant, error) {
+	return gmail.Grant{}, gmail.ErrUnavailable
+}
+
+func (unreachableGmail) Refresh(context.Context, string) (gmail.Access, error) {
+	return gmail.Access{}, gmail.ErrUnavailable
+}
+
+// noGmailAccount is a professor who has connected nothing, which is the
+// state every case in this file renders.
+type noGmailAccount struct{}
+
+func (noGmailAccount) SetGmailAddress(context.Context, int64, string) error { return nil }
+func (noGmailAccount) GmailAddress(context.Context, int64) (string, error)  { return "", nil }
+
+// Issue #273: the boot-time transport selection. What makes this worth a
+// test rather than a read is that every wrong answer is silent — a `real`
+// deployment that got the stub reports success and sends nothing, and a
+// `stub` one that got the real transport mails a class.
+func TestEachMailModeSelectsItsOwnTransport(t *testing.T) {
+	log := slog.New(slog.NewTextHandler(io.Discard, nil))
+	creds := unreachableCredentials{}
+
+	for _, tc := range []struct {
+		mode config.EmailMode
+		want string
+	}{
+		{config.EmailModeStub, "*email.StubDispatcher"},
+		{config.EmailModeDryRun, "*email.DryRunDispatcher"},
+		{config.EmailModeStaging, "*email.StagingDispatcher"},
+		{config.EmailModeReal, "*email.GmailDispatcher"},
+	} {
+		t.Run(string(tc.mode), func(t *testing.T) {
+			got := fmt.Sprintf("%T", buildDispatcher(tc.mode, creds, log))
+			if got != tc.want {
+				t.Errorf("%s selected %s, want %s", tc.mode, got, tc.want)
+			}
+		})
+	}
+}
+
+// config.Load is what refuses an unknown mode, so reaching the default of
+// that switch means somebody added a fifth constant and did not come back
+// here. A panic is the failure that gets noticed; falling through to stub
+// would be a deployment that looks healthy and sends nothing.
+func TestAnUnhandledMailModePanicsRatherThanFallingBackToStub(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("buildDispatcher returned a transport for a mode it does not handle")
+		}
+	}()
+	buildDispatcher(config.EmailMode("carrier-pigeon"), unreachableCredentials{},
+		slog.New(slog.NewTextHandler(io.Discard, nil)))
+}
+
+// unreachableCredentials satisfies email.Credentials without a network. No
+// case above sends, so no case above needs a token.
+type unreachableCredentials struct{}
+
+func (unreachableCredentials) AccessToken(context.Context, int64) (gmail.Access, error) {
+	return gmail.Access{}, gmail.ErrNotConnected
+}
+
+// connectedGmail is a professor who HAS connected an account, which is the
+// state every case that reaches a publication button needs. Cases about the
+// unconnected state set their own.
+type connectedGmail struct {
+	address string
+	err     error
+}
+
+func (c connectedGmail) Connection(context.Context, int64) (gmail.Connection, error) {
+	if c.err != nil {
+		return gmail.Connection{}, c.err
+	}
+	address := c.address
+	if address == "" {
+		address = "profesora@gmail.com"
+	}
+	return gmail.Connection{Address: address}, nil
 }
