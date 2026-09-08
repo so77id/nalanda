@@ -95,7 +95,114 @@ cambiar dónde apunta un enlace reordena la cadena sin mover ningún dato.
 
 ## La lista simplemente enlazada
 
-{/* S4 — nodos y punteros, head y size, las invariantes, la tabla de costos. */}
+<Slide title="La clase Lista · head y size">
+La estructura completa se sostiene con dos atributos:
+
+```java
+public class Lista {
+    private Nodo head;
+    private int size;
+
+    public Lista() {
+        this.head = null;
+        this.size = 0;
+    }
+}
+```
+
+`head` es la puerta de entrada: desde ahí se llega a todos los demás nodos
+siguiendo enlaces. Una lista vacía es exactamente `head == null`.
+
+`size` no es indispensable —se podría contar la cadena cada vez— pero
+contarla cuesta recorrerla entera. Guardar el número y mantenerlo al día en
+cada inserción y cada eliminación convierte `len()` en una lectura.
+
+</Slide>
+
+<Slide title="Las invariantes de la lista">
+Tres propiedades tienen que valer antes y después de cada operación. Si
+alguna se rompe, las demás operaciones dejan de funcionar aunque su código
+sea correcto.
+
+1. **`head` apunta al primer nodo, o a `null` si la lista está vacía.** Es el
+   único punto de entrada a la cadena. Si `head` queda apuntando a un nodo
+   del medio, todo lo anterior se vuelve inalcanzable: sigue en memoria y no
+   hay manera de llegar.
+
+2. **Desde `head`, siguiendo `next`, se llega a todos los nodos y se termina
+   en `null`.** La cadena no tiene cortes ni ciclos. Un corte pierde la cola;
+   un ciclo hace que cualquier recorrido no termine nunca.
+
+3. **`size` es la cantidad de nodos de esa cadena.** Cada operación que
+   agrega o saca un nodo lo actualiza. Un `size` desfasado convierte en
+   válidos índices que no existen.
+
+La segunda es la que cuesta dinero. Es la que permite que insertar al
+principio sea cambiar un enlace, sin tocar ningún otro nodo; y es también la
+razón de que llegar a la posición `i` obligue a dar `i` saltos, porque la
+única forma de avanzar en la cadena es preguntarle a cada nodo por el
+siguiente.
+
+</Slide>
+
+<Slide title="El contrato, implementado">
+Las operaciones del TDA Sequence se escriben sobre esta representación sin
+cambiar sus nombres ni su significado:
+
+```java
+public class Lista implements Sequence {
+    public int len()                     { ... }
+    public int getAt(int i)              { ... }
+    public void setAt(int i, int x)      { ... }
+    public void insertAt(int i, int x)   { ... }
+    public int deleteAt(int i)           { ... }
+    public void insertFirst(int x)       { ... }
+    public void insertLast(int x)        { ... }
+    public int deleteFirst()             { ... }
+    public int deleteLast()              { ... }
+}
+```
+
+El contrato es idéntico al que cumple el arreglo. Un método que reciba un
+`Sequence` funciona con cualquiera de las dos sin enterarse de cuál recibió.
+Lo que cambia por completo es cuánto tarda cada llamada.
+
+</Slide>
+
+<Slide title="Operaciones y sus costos">
+| Operación | Peor caso | Invariante que restaura |
+|---|---|---|
+| `len()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| `getAt(i)` · `setAt(i, x)` | $$\Theta(N)$$ | Ninguna: no cambian la cadena |
+| <code style={{ color: 'var(--color-keep)' }}>insertFirst(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: el nodo nuevo enlaza al que lo era |
+| `insertLast(x)` | $$\Theta(N)$$ | La cadena termina en `null`: hay que encontrar quién lo hace |
+| `insertAt(i, x)` | $$\Theta(N)$$ | La cadena queda completa: el previo enlaza al nuevo, el nuevo al que seguía |
+| <code style={{ color: 'var(--color-keep)' }}>deleteFirst()</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: pasa a ser el segundo |
+| `deleteLast()` | $$\Theta(N)$$ | La cadena termina en `null`: el nuevo último debe apuntar ahí |
+| `deleteAt(i)` | $$\Theta(N)$$ | La cadena no se corta: el previo salta al siguiente |
+| `buscar(x)` | $$\Theta(N)$$ | Ninguna: no cambia nada |
+
+Las dos filas destacadas son las únicas de costo constante, y las dos operan
+sobre el mismo lugar: el principio de la cadena. Es el único punto al que se
+llega sin caminar, porque `head` ya está ahí.
+
+</Slide>
+
+<Slide title="Dónde vive el costo">
+Todo lo que cuesta $$\Theta(N)$$ en esta tabla lo cuesta por la misma razón, y
+no es la operación en sí: es **llegar** al lugar donde hay que operar.
+
+Enlazar un nodo cuesta lo mismo en cualquier parte de la cadena —una
+asignación—, pero para enlazarlo en la posición `i` primero hay que tener en
+la mano el nodo `i - 1`, y para tenerlo hay que dar `i - 1` saltos desde
+`head`.
+
+El vocabulario asintótico que ordena estas cifras está en
+[[complejidad-de-hilbert-al-big-o|De Hilbert al Big O]]. Aquí interesa una
+sola lectura: en una lista, el costo de una operación se mide en **cuántos
+enlaces hay que seguir antes de poder trabajar**.
+
+</Slide>
 
 <SectionBreak />
 
