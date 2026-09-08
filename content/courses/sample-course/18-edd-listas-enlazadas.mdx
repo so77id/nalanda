@@ -171,21 +171,23 @@ Lo que cambia por completo es cuánto tarda cada llamada.
 </Slide>
 
 <Slide title="Operaciones y sus costos">
-| Operación | Peor caso | Invariante que restaura |
-|---|---|---|
-| `len()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
-| `getAt(i)` · `setAt(i, x)` | $$\Theta(N)$$ | Ninguna: no cambian la cadena |
-| <code style={{ color: 'var(--color-keep)' }}>insertFirst(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: el nodo nuevo enlaza al que lo era |
-| `insertLast(x)` | $$\Theta(N)$$ | La cadena termina en `null`: hay que encontrar quién lo hace |
-| `insertAt(i, x)` | $$\Theta(N)$$ | La cadena queda completa: el previo enlaza al nuevo, el nuevo al que seguía |
-| <code style={{ color: 'var(--color-keep)' }}>deleteFirst()</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: pasa a ser el segundo |
-| `deleteLast()` | $$\Theta(N)$$ | La cadena termina en `null`: el nuevo último debe apuntar ahí |
-| `deleteAt(i)` | $$\Theta(N)$$ | La cadena no se corta: el previo salta al siguiente |
-| `buscar(x)` | $$\Theta(N)$$ | Ninguna: no cambia nada |
+| Molde | Operación | Peor caso | Invariante que restaura |
+|---|---|---|---|
+| consultar | `len()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| consultar | `getAt(i)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
+| consultar | `buscar(x)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
+| modificar | `setAt(i, x)` | $$\Theta(N)$$ | Ninguna: cambia un valor, no la forma |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>insertFirst(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: el nodo nuevo enlaza al que lo era |
+| modificar | `insertLast(x)` | $$\Theta(N)$$ | La cadena termina en `null`: hay que encontrar quién lo hace |
+| modificar | `insertAt(i, x)` | $$\Theta(N)$$ | La cadena queda completa: el previo enlaza al nuevo, el nuevo al que seguía |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>deleteFirst()</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: pasa a ser el segundo |
+| modificar | `deleteLast()` | $$\Theta(N)$$ | La cadena termina en `null`: el nuevo último debe apuntar ahí |
+| modificar | `deleteAt(i)` | $$\Theta(N)$$ | La cadena no se corta: el previo salta al siguiente |
 
-Las dos filas destacadas son las únicas de costo constante, y las dos operan
-sobre el mismo lugar: el principio de la cadena. Es el único punto al que se
-llega sin caminar, porque `head` ya está ahí.
+No hay fila de `crear`: construir la lista es insertar, y esas filas ya están.
+Las dos destacadas son las únicas de costo constante, y las dos operan sobre
+el mismo lugar: el principio de la cadena. Es el único punto al que se llega
+sin caminar, porque `head` ya está ahí.
 
 </Slide>
 

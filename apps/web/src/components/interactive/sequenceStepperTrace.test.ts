@@ -251,6 +251,55 @@ describe('sequenceStepperTrace · the array block, slot by slot', () => {
   });
 });
 
+describe('sequenceStepperTrace · the counts the prose claims', () => {
+  // teach-a-data-structure.md's checklist: every arithmetic claim about a
+  // sequence is reproduced by simulation, INCLUDING one non-power-of-two N.
+  // 18-edd-listas-enlazadas.mdx makes these claims in prose; the widget is
+  // what the reader watches, so the two must agree.
+  const sizes = [4, 7, 13]; // 7 and 13 are not powers of two
+
+  it.each(sizes)('insertLast without a tail walks N-1 nodes (N=%i)', (n) => {
+    const values = Array.from({ length: n }, (_, i) => i + 1);
+    const trace = traceFor('linked-list-singly', 'insert-last', { values, value: 99 });
+    expect(trace.steps.filter((s) => s.kind === 'walk')).toHaveLength(n - 1);
+  });
+
+  it.each(sizes)('insertFirst on an array copies N elements (N=%i)', (n) => {
+    const values = Array.from({ length: n }, (_, i) => i + 1);
+    const trace = traceFor('array', 'insert-first', { values, value: 99 });
+    expect(trace.steps.filter((s) => s.kind === 'shift')).toHaveLength(n);
+  });
+
+  it.each(sizes)('insertFirst on a chain never walks, whatever N is (N=%i)', (n) => {
+    const values = Array.from({ length: n }, (_, i) => i + 1);
+    const trace = traceFor('linked-list-singly', 'insert-first', { values, value: 99 });
+    expect(trace.steps.filter((s) => s.kind === 'walk')).toHaveLength(0);
+  });
+
+  it.each(sizes)('deleteLast walks N-2 nodes even with a tail (N=%i)', (n) => {
+    const values = Array.from({ length: n }, (_, i) => i + 1);
+    const trace = traceFor('linked-list-singly', 'remove-last', { values, tail: true });
+    expect(trace.steps.filter((s) => s.kind === 'walk')).toHaveLength(n - 2);
+  });
+
+  it.each(sizes)('visiting every position from head costs N(N+1)/2 nodes (N=%i)', (n) => {
+    // The Theta(N^2) claim of the "Un método, dos estructuras" slide: a loop
+    // calling getAt(i) restarts at head every time. Counted with the widget's
+    // OWN elementary-operation counter — the number the reader watches — so
+    // the prose, the picture and the counter cannot drift apart. Reaching
+    // position i visits i+1 nodes, and the sum over i is N(N+1)/2, which is
+    // quadratic. (The count of HOPS is one less per position, N(N-1)/2; both
+    // are Theta(N^2), and the slide claims the order, not the constant.)
+    const values = Array.from({ length: n }, (_, i) => i + 1);
+    let visited = 0;
+    for (const target of values) {
+      const trace = traceFor('linked-list-singly', 'search', { values, target });
+      visited += trace.steps.at(-1)!.cost;
+    }
+    expect(visited).toBe((n * (n + 1)) / 2);
+  });
+});
+
 describe('sequenceStepperTrace · the pointers the reader follows', () => {
   it('every list frame carries a head pointer', () => {
     const trace = traceFor('linked-list-singly', 'insert-at', { values, value: 9, index: 2 });
