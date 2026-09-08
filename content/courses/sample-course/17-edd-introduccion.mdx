@@ -2,14 +2,16 @@
 id: edd-introduccion
 title: Estructuras de Datos · Introducción
 presentation: explicit
-questions: none
+questions: pool
 ---
 
-{/* `questions: none` es una promesa pendiente, no una decisión: el banco de */}
-{/* esta clase se escribe DESPUÉS de que el material cierre, como WP aparte */}
-{/* (convención de Peli 1/2, #266 y #268). Cuando se escriba, las preguntas */}
-{/* y el cambio de esta declaración van en el MISMO commit — declararlo antes */}
-{/* deja la suite roja por construcción (add-a-course-document.md §2). */}
+{/* `pool`: un conjunto de preguntas sin expectativa por sección. No */}
+{/* `per-section`, porque cada <Slide> es un h2 y exigir una pregunta por */}
+{/* slide serían cuarenta, con treinta exenciones declaradas que no dicen */}
+{/* nada. Lo que el pool debe garantizar es densidad por RANGO: un control */}
+{/* se pide sobre un rango de secciones (bank.Pool), así que cada acto tiene */}
+{/* que poder llenar una copia de cuatro. Hoy: 5 en el acto 1, 5 en el 2, */}
+{/* 6 en el 3. */}
 
 # Estructuras de Datos · Introducción
 
@@ -22,8 +24,6 @@ Esta clase abre la unidad con tres palabras — TDA, estructura de datos e
 invariante —, presenta el TDA Sequence, formaliza el arreglo que ya
 usamos como su primera implementación y lo hace crecer hasta el arreglo
 dinámico.
-
-## Qué se puede pedir y cómo se resuelve
 
 <Slide title="Lo mismo, dos veces">
 Estas dos líneas declaran lo mismo y construyen cosas distintas:
@@ -657,7 +657,7 @@ instrucciones y no depende de cuántos elementos ya haya.
   </Step>
 </StepShow>
 
-Fijate en lo que **no** pasa: nada se borra. El 9 sigue escrito en la
+Observemos lo que **no** pasa: nada se borra. El 9 sigue escrito en la
 misma casilla; lo único que cambió es la llave de abajo. Al quedar fuera
 de `size`, esa casilla vuelve a ser **basura** — la tercera invariante
 dice que de `size` en adelante hay valores pero no elementos, y nadie
@@ -1116,9 +1116,9 @@ el arreglo es solo el bloque enmarcado.
       <text x="124" y="128" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>capacidad 4</text>
       <rect x="20" y="8" width="58" height="26" rx="3" strokeWidth="1.4" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} />
       <text x="49" y="26" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>data</text>
-      <path d="M 49 36 L 49 54 L 84 54 L 84 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp)" style={{ stroke: 'var(--color-keep)' }} />
+      <path d="M 49 36 L 49 54 L 84 54 L 84 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp1)" style={{ stroke: 'var(--color-keep)' }} />
       <defs>
-        <marker id="mp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id="mp1" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: 'var(--color-keep)' }} />
         </marker>
       </defs>
@@ -1162,9 +1162,9 @@ el arreglo es solo el bloque enmarcado.
       <text x="358" y="128" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>capacidad 8</text>
       <rect x="20" y="8" width="58" height="26" rx="3" strokeWidth="1.4" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} />
       <text x="49" y="26" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>data</text>
-      <path d="M 49 36 L 49 54 L 84 54 L 84 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp)" style={{ stroke: 'var(--color-keep)' }} />
+      <path d="M 49 36 L 49 54 L 84 54 L 84 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp2)" style={{ stroke: 'var(--color-keep)' }} />
       <defs>
-        <marker id="mp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id="mp2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: 'var(--color-keep)' }} />
         </marker>
       </defs>
@@ -1209,9 +1209,9 @@ el arreglo es solo el bloque enmarcado.
       <text x="358" y="128" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>capacidad 8</text>
       <rect x="20" y="8" width="58" height="26" rx="3" strokeWidth="1.4" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} />
       <text x="49" y="26" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>data</text>
-      <path d="M 49 36 L 49 54 L 84 54 L 84 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp)" style={{ stroke: 'var(--color-keep)' }} />
+      <path d="M 49 36 L 49 54 L 84 54 L 84 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp3)" style={{ stroke: 'var(--color-keep)' }} />
       <defs>
-        <marker id="mp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id="mp3" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: 'var(--color-keep)' }} />
         </marker>
       </defs>
@@ -1257,9 +1257,9 @@ el arreglo es solo el bloque enmarcado.
       <text x="358" y="128" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>capacidad 8</text>
       <rect x="20" y="8" width="58" height="26" rx="3" strokeWidth="1.4" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} />
       <text x="49" y="26" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>data</text>
-      <path d="M 49 36 L 49 54 L 84 54 L 84 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp)" style={{ stroke: 'var(--color-keep)' }} />
+      <path d="M 49 36 L 49 54 L 84 54 L 84 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp4)" style={{ stroke: 'var(--color-keep)' }} />
       <defs>
-        <marker id="mp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id="mp4" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: 'var(--color-keep)' }} />
         </marker>
       </defs>
@@ -1306,9 +1306,9 @@ el arreglo es solo el bloque enmarcado.
       <text x="358" y="128" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>capacidad 8</text>
       <rect x="20" y="8" width="58" height="26" rx="3" strokeWidth="1.4" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} />
       <text x="49" y="26" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>data</text>
-      <path d="M 49 36 L 49 54 L 84 54 L 84 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp)" style={{ stroke: 'var(--color-keep)' }} />
+      <path d="M 49 36 L 49 54 L 84 54 L 84 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp5)" style={{ stroke: 'var(--color-keep)' }} />
       <defs>
-        <marker id="mp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id="mp5" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: 'var(--color-keep)' }} />
         </marker>
       </defs>
@@ -1356,9 +1356,9 @@ el arreglo es solo el bloque enmarcado.
       <text x="358" y="128" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>capacidad 8</text>
       <rect x="20" y="8" width="58" height="26" rx="3" strokeWidth="1.4" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} />
       <text x="49" y="26" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>data</text>
-      <path d="M 49 36 L 49 54 L 84 54 L 84 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp)" style={{ stroke: 'var(--color-keep)' }} />
+      <path d="M 49 36 L 49 54 L 84 54 L 84 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp6)" style={{ stroke: 'var(--color-keep)' }} />
       <defs>
-        <marker id="mp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id="mp6" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: 'var(--color-keep)' }} />
         </marker>
       </defs>
@@ -1406,9 +1406,9 @@ el arreglo es solo el bloque enmarcado.
       <text x="358" y="128" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>capacidad 8</text>
       <rect x="20" y="8" width="58" height="26" rx="3" strokeWidth="1.4" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} />
       <text x="49" y="26" textAnchor="middle" fontSize="14" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink)' }}>data</text>
-      <path d="M 49 36 L 49 54 L 266 54 L 266 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp)" style={{ stroke: 'var(--color-keep)' }} />
+      <path d="M 49 36 L 49 54 L 266 54 L 266 64" fill="none" strokeWidth="1.8" markerEnd="url(#mp7)" style={{ stroke: 'var(--color-keep)' }} />
       <defs>
-        <marker id="mp" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+        <marker id="mp7" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
           <path d="M 0 0 L 10 5 L 0 10 z" style={{ fill: 'var(--color-keep)' }} />
         </marker>
       </defs>
@@ -1443,7 +1443,7 @@ los dos.
 
 </Slide>
 
-<Slide title="Operación de modificación · insertar al final">
+<Slide title="Operación de modificación · insertar al final con resize">
 <StepShow
   language="java"
   title="insertLast(e) sobre un arreglo lleno"
@@ -1584,7 +1584,7 @@ costaba $$\Theta(1)$$ siempre. Ahora, cuando le toca duplicar, copia
 todo lo que había: en el peor caso cuesta $$\Theta(N)$$.
 
 Pero el peor caso dice qué tan cara puede ser **una** llamada, no cada
-cuánto pasa. Y acá eso importa: después de duplicar quedan tantas
+cuánto pasa. Y aquí eso importa: después de duplicar quedan tantas
 casillas libres como elementos había, así que esa copia no se va a
 repetir en un buen rato.
 
@@ -2563,6 +2563,186 @@ Esa estructura es la **lista enlazada**, cumple el mismo TDA Sequence, y
 su tabla de costos es casi la imagen espejo.
 
 </Slide>
+
+<Questions>
+
+<Question id="edd-tda-contra-estructura" anchor="lo-mismo-dos-veces">
+
+¿Qué distingue a un tipo de dato abstracto de una estructura de datos?
+
+- [x] El TDA dice qué operaciones existen; la estructura, cómo se cumplen
+- [ ] El TDA es la interfaz y la estructura es cualquier clase que la use
+- [ ] El TDA describe el costo y la estructura describe el resultado
+- [ ] El TDA guarda los elementos y la estructura los recorre
+
+</Question>
+
+<Question id="edd-que-es-la-invariante-de-representacion" anchor="invariante-de-representacion">
+
+¿Qué es una invariante de representación?
+
+- [x] Una condición sobre los datos guardados que la estructura mantiene siempre
+- [ ] Una condición que el compilador verifica en cada asignación
+- [ ] Una propiedad del TDA que todas sus implementaciones comparten
+- [ ] Un valor que no cambia mientras el programa se ejecuta
+
+</Question>
+
+<Question id="edd-afirmacion-falsa-sobre-la-invariante" anchor="los-tres-momentos-de-la-invariante">
+
+¿Cuál de estas afirmaciones sobre la invariante es falsa?
+
+- [x] Verificarla en cada lectura es lo que hace barato el acceso
+- [ ] Una operación que modifica puede romperla mientras trabaja
+- [ ] Las operaciones que solo leen confían en ella y no la verifican
+- [ ] El constructor la deja cumpliéndose desde el primer instante
+
+</Question>
+
+<Question id="edd-cuando-puede-no-cumplirse-la-invariante" anchor="los-tres-momentos-de-la-invariante">
+
+¿En qué momento está permitido que la invariante no se cumpla?
+
+- [x] Mientras una operación de modificación está trabajando
+- [ ] Mientras una operación de consulta lee un elemento
+- [ ] Entre el constructor y la primera operación
+- [ ] En ningún momento: si se rompe, el programa falla
+
+</Question>
+
+<Question id="edd-de-donde-salen-los-costos" anchor="la-cadena-completa">
+
+¿De dónde salen los costos de una operación?
+
+- [x] De la representación elegida y de la invariante que hay que restaurar
+- [ ] Del contrato del TDA, que fija cuánto puede tardar cada operación
+- [ ] Del lenguaje de programación en que está escrita la estructura
+- [ ] De la cantidad de operaciones que declara el TDA
+
+</Question>
+
+<Question id="edd-que-ordena-una-secuencia" anchor="el-tda-sequence">
+
+En una secuencia, ¿qué determina el orden de los elementos?
+
+- [x] La posición en que fue insertado cada uno
+- [ ] El valor de cada elemento, de menor a mayor
+- [ ] El orden en que se los consulta con `getAt`
+- [ ] La cantidad de memoria que ocupa cada uno
+
+</Question>
+
+<Question id="edd-que-es-list-en-java" anchor="el-contrato-en-java-list">
+
+¿Qué es `List` en Java?
+
+- [x] El nombre que Java le da al contrato del TDA Sequence
+- [ ] Una estructura de datos que implementa Sequence
+- [ ] Una clase con memoria consecutiva adentro
+- [ ] Un TDA distinto de Sequence, con orden por valor
+
+</Question>
+
+<Question id="edd-capacidad-contra-largo" anchor="capacidad-y-largo">
+
+¿Qué distingue a `data.length` de `size`?
+
+- [x] `data.length` cuenta casillas reservadas y `size`, casillas ocupadas
+- [ ] `data.length` cuenta elementos y `size` cuenta bytes
+- [ ] Son iguales mientras el arreglo no se llene
+- [ ] `size` lo calcula Java y `data.length` lo mantiene la estructura
+
+</Question>
+
+<Question id="edd-que-hay-despues-de-size" anchor="las-invariantes-del-arreglo">
+
+En el arreglo, ¿qué contienen las casillas de `size` en adelante?
+
+- [x] Valores que existen pero que la estructura no lee
+- [ ] Ceros que Java escribe cada vez que se borra un elemento
+- [ ] Nada: esas casillas todavía no están reservadas
+- [ ] Copias del último elemento válido
+
+</Question>
+
+<Question id="edd-arreglo-lleno-que-pasa" anchor="la-limitacion-capacidad-fija">
+
+¿Qué ocurre al insertar en un arreglo de capacidad fija que está lleno?
+
+- [x] La operación falla con una excepción
+- [ ] La operación se vuelve más lenta pero funciona
+- [ ] Java agranda el arreglo automáticamente
+- [ ] Se sobrescribe el primer elemento
+
+</Question>
+
+<Question id="edd-que-hace-resize" anchor="el-resize-en-la-memoria">
+
+¿Qué hace `resize` para agrandar el arreglo?
+
+- [x] Pide un bloque nuevo en otro lugar y copia los elementos
+- [ ] Extiende el bloque actual con las casillas que siguen
+- [ ] Mueve los elementos hacia atrás para liberar espacio al final
+- [ ] Reserva memoria adicional dentro del mismo bloque
+
+</Question>
+
+<Question id="edd-que-afirma-el-amortizado" anchor="costo-amortizado">
+
+¿Qué afirma el costo amortizado de `insertLast`?
+
+- [x] Que cualquier secuencia de N inserciones cuesta a lo más un múltiplo de N
+- [ ] Que ninguna inserción individual copia elementos
+- [ ] Que en promedio, sobre entradas al azar, no copia
+- [ ] Que el peor caso de una inserción aislada es constante
+
+</Question>
+
+<Question id="edd-que-costo-reparte-el-amortizado" anchor="insertat-donde-el-amortizado-no-alcanza">
+
+¿Cuál de los dos costos de `insertAt` reparte el análisis amortizado?
+
+- [x] La duplicación, porque solo ocurre cuando el arreglo está lleno
+- [ ] El corrimiento, porque mueve menos elementos a medida que crece
+- [ ] Los dos, porque los dos copian elementos
+- [ ] `insertAt` no llama a `resize`, así que no hay nada que repartir
+
+</Question>
+
+<Question id="edd-invariante-del-arreglo-dinamico" anchor="la-invariante-que-falta">
+
+¿Qué promete la invariante que agrega el arreglo dinámico?
+
+- [x] Que la capacidad nunca supera cuatro veces el largo
+- [ ] Que la capacidad siempre es mayor que el largo
+- [ ] Que el largo nunca baja de la mitad de la capacidad
+- [ ] Que la capacidad solo puede crecer, nunca bajar
+
+</Question>
+
+<Question id="edd-quien-gana-con-el-amortizado" anchor="costos-del-arreglo-dinamico">
+
+¿Qué operaciones del arreglo dinámico mejoran su costo con el análisis amortizado?
+
+- [x] Las que insertan o borran en el extremo final
+- [ ] Todas las que modifican el arreglo
+- [ ] Las que solo consultan, como `getAt`
+- [ ] Las que insertan o borran en la primera posición
+
+</Question>
+
+<Question id="edd-arraylist-con-capacidad-inicial" anchor="arraylist-el-arreglo-dinamico-de-java">
+
+¿Qué hace `new ArrayList<>(1000)`?
+
+- [x] Reserva capacidad para mil elementos, con `size()` en cero
+- [ ] Crea una lista que ya contiene mil ceros
+- [ ] Limita la lista a un máximo de mil elementos
+- [ ] Reserva mil bytes de memoria
+
+</Question>
+
+</Questions>
 
 ## Lo que sigue
 

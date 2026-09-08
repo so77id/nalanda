@@ -81,10 +81,13 @@ page: the contract in act 2, each table at the end of its own act. Only the
 trade survived, as the last slide of act 3. Prefer that: a recap act is the
 default place for a class to repeat itself.
 
-**The first act's `h2` carries no `<SectionBreak />`, on purpose.** A divider
-slide between the cover and the opening slide is a beat with nothing in it —
-the reader has not been given anything to be divided from yet. Breaks start at
-the second act.
+**The first act carries no heading at all.** #277 opens straight from the
+cover into its first slide. A divider between the cover and the opening slide
+is a beat with nothing in it — the reader has not been given anything to be
+divided from yet — and a bare `h2` there only adds a book section whose title
+repeats what the document's own lead paragraph just said. Headings, and the
+`<SectionBreak />` that turns them into divider slides, start at the second
+act.
 
 **The `<SectionBreak />` before an act heading is deliberate and it is a
 decision, not decoration.** In `explicit` mode a break opens a group and the
