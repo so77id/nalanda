@@ -22,6 +22,18 @@
           <th>Rango</th>
           <th>Formato</th>
           <th>Estado</th>
+          {{/*
+            Issue #287. The list renders State, which stays `graded` after
+            a publication — so a published control looked exactly like an
+            unpublished one here, which was the first thing Miguel noticed
+            after the real send.
+
+            A checkmark would have answered "was this published". The pair
+            answers the question a professor scanning the list actually
+            has: where is there still somebody pending. An empty cell says
+            "not started", which is its own answer.
+          */}}
+          <th>Envío</th>
           <th></th>
         </tr>
       </thead>
@@ -33,6 +45,7 @@
             <td>{{ .Range }}</td>
             <td>{{ .Shape }}</td>
             <td>{{ .State }}</td>
+            <td>{{ .Publication }}</td>
             <td><a href="{{ .DetailURL }}">Ver</a></td>
           </tr>
         {{ end }}

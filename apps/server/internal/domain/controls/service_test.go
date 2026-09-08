@@ -277,6 +277,12 @@ func (fakeReadingStore) SetControlState(context.Context, string, controls.State)
 	return nil
 }
 
+// PublicationCounts is inert here like the rest of this double; the list
+// cases use a counting double of their own (handler tests).
+func (fakeReadingStore) PublicationCounts(context.Context) (map[string]controls.PublicationProgress, error) {
+	return nil, nil
+}
+
 // ClearCopyPublications is inert here like the rest of this double.
 func (fakeReadingStore) ClearCopyPublications(context.Context, string) (int, error) {
 	return 0, nil

@@ -481,6 +481,65 @@ func (s *Store) MarkCopyPublished(ctx context.Context, readingID int64, at time.
 	return nil
 }
 
+// PublicationCountsSQL is the statement PublicationCounts runs.
+//
+// Exported so a test can assert the shape production actually executes
+// rather than restating it — the one-text reasoning CopiesForStudentSQL
+// carries, and the reason #272's review found a guard EXPLAINing a query
+// nothing ran any more.
+//
+// ONE statement for the whole page, in the shape of
+// coursestore.EnrollmentCounts. A count per row is the N+1 #271's review
+// removed from the course list and apps/server/CLAUDE.md names as a
+// standing rule; a list of controls is exactly where it would come back.
+//
+// The LEFT JOIN is what makes "has a corrected PDF" answerable in SQL. The
+// two facts this query can see — a matched student and an annotated record
+// — are a SUBSET of what CopyPublicationFor tests, so `deliverable` can
+// only be too big: see PublicationProgress.Deliverable for why that is the
+// right direction to be wrong in.
+//
+// Archived controls are excluded for the same reason ListControls hides
+// them: the list this feeds does not show them.
+const PublicationCountsSQL = `
+        SELECT reading.control_id,
+               COUNT(*) FILTER (WHERE reading.published_at IS NOT NULL),
+               COUNT(*) FILTER (WHERE reading.student_id IS NOT NULL
+                                  AND annotated_copy.control_id IS NOT NULL)
+        FROM reading
+        JOIN control ON control.id = reading.control_id
+        LEFT JOIN annotated_copy
+               ON annotated_copy.control_id = reading.control_id
+              AND annotated_copy.copy_number = reading.copy_number
+        WHERE control.deleted_at IS NULL
+        GROUP BY reading.control_id`
+
+// PublicationCounts tallies every active control's publication in one
+// statement (issue #287 §8).
+func (s *Store) PublicationCounts(ctx context.Context) (map[string]controls.PublicationProgress, error) {
+	rows, err := s.db.QueryContext(ctx, PublicationCountsSQL)
+	if err != nil {
+		return nil, fmt.Errorf("controlstore.PublicationCounts: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	out := map[string]controls.PublicationProgress{}
+	for rows.Next() {
+		var (
+			controlID string
+			progress  controls.PublicationProgress
+		)
+		if err := rows.Scan(&controlID, &progress.Sent, &progress.Deliverable); err != nil {
+			return nil, fmt.Errorf("controlstore.PublicationCounts: scan: %w", err)
+		}
+		out[controlID] = progress
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("controlstore.PublicationCounts: iterate: %w", err)
+	}
+	return out, nil
+}
+
 // ClearCopyPublications removes every per-copy publication stamp of one
 // control and returns how many it removed (issue #287).
 //

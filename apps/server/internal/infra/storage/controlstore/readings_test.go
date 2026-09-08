@@ -981,3 +981,114 @@ func TestClearCopyPublicationsLeavesOtherControlsAlone(t *testing.T) {
 		t.Error("clearing one control's stamps cleared another control's too")
 	}
 }
+
+// PublicationCounts (issue #287 §8): the whole page's numbers in one
+// statement, in the shape of coursestore.EnrollmentCounts.
+func TestPublicationCountsTalliesEveryControlInOnePass(t *testing.T) {
+	ctx, db := migrated(t)
+	store := controlstore.New(db)
+
+	// Two controls, so a query missing its GROUP BY — or keyed on the
+	// wrong column — folds them together and fails here.
+	for _, id := range []string{"CTRL0287COUNTA000000AAAAA", "CTRL0287COUNTB000000AAAAA"} {
+		seedControl(t, ctx, db, id, 2)
+		report := controls.Report{
+			Copies: map[string]controls.ReportCopy{
+				"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+				"2": sampleCopy("20999999", controls.CopyStatusOK, controls.RUTStatusOK),
+			},
+		}
+		if err := store.UpsertReadingsFromReport(ctx, id, report, time.Unix(1_757_260_800, 0).UTC()); err != nil {
+			t.Fatalf("Upsert %s: %v", id, err)
+		}
+	}
+
+	// Control A: both copies matched and annotated, one of them sent.
+	studentID := insertStudentForCounts(t, ctx, db)
+	for copyNumber := 1; copyNumber <= 2; copyNumber++ {
+		reading, err := store.ReadingByCopy(ctx, "CTRL0287COUNTA000000AAAAA", copyNumber)
+		if err != nil {
+			t.Fatalf("ReadingByCopy: %v", err)
+		}
+		if err := store.SetReadingStudent(ctx, reading.ID, &studentID); err != nil {
+			t.Fatalf("SetReadingStudent: %v", err)
+		}
+		if err := store.RecordAnnotated(ctx, controls.AnnotatedCopy{
+			ControlID: "CTRL0287COUNTA000000AAAAA", CopyNumber: copyNumber,
+			GeneratedAt: time.Unix(0, 0).UTC(), Path: "anotado.pdf",
+		}); err != nil {
+			t.Fatalf("RecordAnnotated: %v", err)
+		}
+		if copyNumber == 1 {
+			if err := store.MarkCopyPublished(ctx, reading.ID, time.Unix(1, 0).UTC(), "5.7"); err != nil {
+				t.Fatalf("MarkCopyPublished: %v", err)
+			}
+		}
+	}
+
+	counts, err := store.PublicationCounts(ctx)
+	if err != nil {
+		t.Fatalf("PublicationCounts: %v", err)
+	}
+	a := counts["CTRL0287COUNTA000000AAAAA"]
+	if a.Sent != 1 || a.Deliverable != 2 {
+		t.Errorf("control A = %+v, want Sent 1 of Deliverable 2", a)
+	}
+	// Control B has readings but nothing matched and nothing annotated, so
+	// nothing has gone out and nothing could.
+	b := counts["CTRL0287COUNTB000000AAAAA"]
+	if b.Sent != 0 || b.Deliverable != 0 {
+		t.Errorf("control B = %+v, want a zero pair", b)
+	}
+}
+
+// An ARCHIVED control is not on the list this feeds, so it is not in the
+// counts either — the same exclusion ListControls makes, for the same
+// reason.
+func TestPublicationCountsSkipsArchivedControls(t *testing.T) {
+	ctx, db := migrated(t)
+	store := controlstore.New(db)
+	seedControl(t, ctx, db, "CTRL0287COUNTARCH000AAAAA", 1)
+	report := controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+		},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0287COUNTARCH000AAAAA", report,
+		time.Unix(1_757_260_800, 0).UTC()); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	if counts, err := store.PublicationCounts(ctx); err != nil {
+		t.Fatalf("PublicationCounts: %v", err)
+	} else if _, present := counts["CTRL0287COUNTARCH000AAAAA"]; !present {
+		t.Fatal("the active control is missing, so the archived assertion below is vacuous")
+	}
+
+	if err := store.SoftDeleteControl(ctx, "CTRL0287COUNTARCH000AAAAA", time.Unix(2, 0).UTC()); err != nil {
+		t.Fatalf("SoftDeleteControl: %v", err)
+	}
+	counts, err := store.PublicationCounts(ctx)
+	if err != nil {
+		t.Fatalf("PublicationCounts after archiving: %v", err)
+	}
+	if _, present := counts["CTRL0287COUNTARCH000AAAAA"]; present {
+		t.Error("an archived control is counted for a list that does not show it")
+	}
+}
+
+// insertStudentForCounts adds one enrolled person a reading can point at.
+func insertStudentForCounts(t *testing.T, ctx context.Context, db *sql.DB) int64 {
+	t.Helper()
+
+	result, err := db.ExecContext(ctx, `
+        INSERT INTO student (canvas_user_id, first_name, last_name, email, rut, rut_dv)
+        VALUES ('canvas-counts', 'Ana', 'Pérez', 'ana@udp.cl', '20123456', '5')`)
+	if err != nil {
+		t.Fatalf("inserting the student: %v", err)
+	}
+	id, err := result.LastInsertId()
+	if err != nil {
+		t.Fatalf("reading the student id: %v", err)
+	}
+	return id
+}

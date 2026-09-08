@@ -179,9 +179,23 @@ func (h *Controls) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Issue #287: how far each control's publication has got. ONE query
+	// for the whole page — a count per row is the N+1 #271's review
+	// removed from the course list, and a list of controls is exactly
+	// where it would come back.
+	//
+	// A failure is a WARNING, not a 500: the column is an enrichment over
+	// a list that renders perfectly well without it, and refusing to show
+	// a professor their controls because a count blinked is a worse
+	// answer than showing them the list.
+	progress, err := h.Service.PublicationCounts(r.Context())
+	if err != nil {
+		h.Log.Warn("controls: counting the publications", "error", err)
+	}
+
 	page := view.ControlsListPage{
 		Page:     middleware.PageFor(r, "Controles"),
-		Controls: h.toListedControls(rows),
+		Controls: h.toListedControls(rows, progress),
 	}
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 
@@ -1369,10 +1383,12 @@ func summarise(readings []controls.Reading) string {
 
 // toListedControls turns domain values into rows the template can render
 // without formatting. Same reasoning as toListedProfessors.
-func (h *Controls) toListedControls(rows []controls.Control) []view.ListedControl {
+func (h *Controls) toListedControls(rows []controls.Control,
+	progress map[string]controls.PublicationProgress) []view.ListedControl {
 	out := make([]view.ListedControl, 0, len(rows))
 	for _, c := range rows {
 		out = append(out, view.ListedControl{
+			Publication:     publicationProgressWord(c, progress[c.ID]),
 			ID:              c.ID,
 			Name:            c.Name,
 			ApplicationDate: formatOptionalDate(c.ApplicationDate),
@@ -1383,6 +1399,31 @@ func (h *Controls) toListedControls(rows []controls.Control) []view.ListedContro
 		})
 	}
 	return out
+}
+
+// publicationProgressWord is the list's "23/25 enviadas" (issue #287 §8).
+//
+// EMPTY for a control nothing has gone out of, and that is the whole
+// design: the list stayed identical before and after a publication because
+// it renders State, which stays `graded`. A checkmark would have fixed
+// that and answered the wrong question. The pair answers the one a
+// professor scanning the list actually has — where is there still somebody
+// pending — and an empty cell says "not started", which is its own answer.
+//
+// Keyed on ANY copy having gone out rather than on control.published_at,
+// because a professor who has been sending copies one at a time from the
+// review page has made real progress the control row does not record: the
+// per-student send deliberately does not stamp the class as published.
+func publicationProgressWord(c controls.Control, p controls.PublicationProgress) string {
+	if p.Sent == 0 {
+		return ""
+	}
+	// Deliverable can only be too big (PublicationProgress.Deliverable),
+	// never too small — but a copy sent before its student withdrew makes
+	// Sent exceed it, and "26/25" reads as a bug rather than as the edge
+	// case it is.
+	total := max(p.Deliverable, p.Sent)
+	return fmt.Sprintf("%d/%d enviadas", p.Sent, total)
 }
 
 func toDetailedControl(c controls.Control, b *bank.Bank) view.DetailedControl {

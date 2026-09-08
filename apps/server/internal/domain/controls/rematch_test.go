@@ -167,6 +167,11 @@ func (*matchingReadingStore) SetRUTOverride(context.Context, int64, string, time
 }
 func (*matchingReadingStore) ClearRUTOverride(context.Context, int64) error { return nil }
 
+// PublicationCounts is inert here: nothing in a rematch publishes.
+func (*matchingReadingStore) PublicationCounts(context.Context) (map[string]controls.PublicationProgress, error) {
+	return nil, nil
+}
+
 // ClearCopyPublications is inert here: nothing in a rematch publishes.
 func (*matchingReadingStore) ClearCopyPublications(context.Context, string) (int, error) {
 	return 0, nil

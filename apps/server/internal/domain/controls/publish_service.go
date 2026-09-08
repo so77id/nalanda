@@ -501,6 +501,47 @@ func (s *Service) ResendToWholeCourse(ctx context.Context, controlID string) (in
 	return s.Readings.ClearCopyPublications(ctx, controlID)
 }
 
+// PublicationProgress is how far one control's publication has got: how
+// many copies have been written to, out of how many could be (issue #287
+// §8).
+//
+// It exists because the controls list renders ListedControl.State, which
+// stays `graded` after a publication — so a published control looked
+// exactly like an unpublished one there, which was the first thing Miguel
+// noticed after the real send. A boolean would have answered "was this
+// published"; the question a professor scanning the list actually has is
+// "where is there still somebody pending", and only the pair answers that.
+type PublicationProgress struct {
+	// Sent is how many copies carry a publication stamp.
+	Sent int
+	// Deliverable is how many copies could receive one, AS FAR AS ONE
+	// AGGREGATE QUERY CAN SEE: a copy is counted when it is matched to a
+	// student and has a corrected PDF on record.
+	//
+	// That is deliberately not the full test CopyPublicationFor applies —
+	// it cannot see a student who withdrew after the match, nor a grade
+	// left undefined by doubtful answers nobody resolved. Both make this
+	// number too BIG, never too small, so the list can say 23/25 for a
+	// control the detail page shows as finished. Erring that way is the
+	// point: the list's job is to send the professor to a control worth
+	// opening, and the copies table is where the answer is exact.
+	Deliverable int
+}
+
+// PublicationCounts tallies every control's publication in ONE query.
+//
+// The service method the list handler calls, so the surface never reaches
+// past it into a store (backend-code-style.md §The dependency rule, edge
+// 4) — and one round trip for the whole page rather than one per row, which
+// is the N+1 #271's review already removed once from the course list.
+func (s *Service) PublicationCounts(ctx context.Context) (map[string]PublicationProgress, error) {
+	counts, err := s.Readings.PublicationCounts(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("controls.PublicationCounts: %w", err)
+	}
+	return counts, nil
+}
+
 // CopyPublications derives every copy's publication state in one pass
 // (issue #287 §7).
 //

@@ -374,7 +374,17 @@ type ListedControl struct {
 	Range           string // "Bienvenida/hola → Flujo/bucles"
 	Shape           string // "4 preguntas × 30 copias"
 	State           string // Spanish word matching the domain State
-	DetailURL       string
+	// Publication is "23/25 enviadas", or EMPTY when nothing has gone out
+	// (issue #287). The list renders State, which stays `graded` after a
+	// publication, so a published control was indistinguishable from an
+	// unpublished one here — and a checkmark would have answered "was this
+	// published" rather than "where is there still somebody pending".
+	//
+	// Empty on the course page's narrower listing, which does not carry
+	// the counts: the field is optional and the template renders nothing
+	// for it.
+	Publication string
+	DetailURL   string
 }
 
 // ControlsArchivedPage is what controls_archived.html renders (issue #261).

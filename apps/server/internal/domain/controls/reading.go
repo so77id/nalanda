@@ -460,6 +460,12 @@ type ReadingStore interface {
 	// no row records.
 	MarkCopyPublished(ctx context.Context, readingID int64, at time.Time, grade string) error
 
+	// PublicationCounts tallies every ACTIVE control's publication in one
+	// statement, keyed by control id (issue #287). A control with no
+	// readings simply has no entry, which is what keeps "nothing to show"
+	// distinct from "0 of 0".
+	PublicationCounts(ctx context.Context) (map[string]PublicationProgress, error)
+
 	// ClearCopyPublications forgets that any copy of this control was ever
 	// sent, and reports how many stamps it removed (issue #287).
 	//

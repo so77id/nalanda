@@ -145,6 +145,23 @@ func (*publishReadings) SetControlState(context.Context, string, controls.State)
 	return nil
 }
 
+// PublicationCounts tallies the held readings the way the store's one
+// statement tallies rows, so a case can assert the pair without a database.
+func (r *publishReadings) PublicationCounts(context.Context) (map[string]controls.PublicationProgress, error) {
+	out := map[string]controls.PublicationProgress{}
+	for _, reading := range r.readings {
+		progress := out[reading.ControlID]
+		if reading.PublishedAt != nil {
+			progress.Sent++
+		}
+		if reading.StudentID != nil {
+			progress.Deliverable++
+		}
+		out[reading.ControlID] = progress
+	}
+	return out, nil
+}
+
 // ClearCopyPublications forgets every stamp on the held readings and
 // reports how many it removed, exactly as the store's statement does — the
 // count is what the flash quotes back, so a double returning len(readings)

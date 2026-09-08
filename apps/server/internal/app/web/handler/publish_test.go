@@ -912,3 +912,93 @@ func TestResendAllOnAControlThatDoesNotExistIs404(t *testing.T) {
 		t.Errorf("status = %d, want 404", rec.Code)
 	}
 }
+
+// The controls list's "23/25 enviadas" (issue #287 §8).
+//
+// The list renders State, which stays `graded` after a publication, so a
+// published control looked exactly like an unpublished one here — the first
+// thing Miguel noticed after the real send.
+
+func TestTheControlsListShowsHowFarEachPublicationHasGot(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := matchedGradedControl(t, f)
+
+	// Nothing has gone out: the cell is empty rather than "0/1", which
+	// would put a number on a control nobody has started publishing.
+	body := f.controlsListBody(t)
+	if !strings.Contains(body, "<th>Envío</th>") {
+		t.Fatalf("the controls list has no publication column:\n%s", body)
+	}
+	if strings.Contains(body, "enviadas") {
+		t.Errorf("the list puts a count on a control nothing has gone out of:\n%s", body)
+	}
+
+	if _, err := f.db.ExecContext(context.Background(),
+		"UPDATE reading SET published_at = 1757264400, published_grade = '7.0' "+
+			"WHERE control_id = ? AND copy_number = 1", controlID); err != nil {
+		t.Fatalf("stamping the copy: %v", err)
+	}
+	if body = f.controlsListBody(t); !strings.Contains(body, "1/1 enviadas") {
+		t.Errorf("the list does not show the publication progress:\n%s", body)
+	}
+}
+
+// AC14: the whole page's counts cost ONE call, whatever the row count.
+//
+// A count per row is the N+1 #271's review removed from the course list
+// (ARQ-1) and apps/server/CLAUDE.md names as a standing rule; a list of
+// controls is exactly where it would come back, and nothing about the
+// rendered page would look different if it did. The store test beside this
+// one pins that the single call is a single statement.
+func TestTheControlsListCountsEveryPublicationInOneCall(t *testing.T) {
+	f := newControlsFixture(t)
+	for i := range 3 {
+		f.createControl(t, fmt.Sprintf("Control %d", i+1), 2)
+	}
+
+	counter := &countingReadings{ReadingStore: f.cstore}
+	f.rebuildWithReadings(t, counter)
+
+	body := f.controlsListBody(t)
+	if !strings.Contains(body, "Control 3") {
+		t.Fatalf("the list did not render the three controls, so the count below is vacuous:\n%s", body)
+	}
+	if counter.publicationCountsCalls != 1 {
+		t.Errorf("PublicationCounts was called %d times for 3 controls, want 1",
+			counter.publicationCountsCalls)
+	}
+}
+
+// countingReadings counts the publication tallies a page performs.
+type countingReadings struct {
+	controls.ReadingStore
+	publicationCountsCalls int
+}
+
+func (c *countingReadings) PublicationCounts(ctx context.Context) (map[string]controls.PublicationProgress, error) {
+	c.publicationCountsCalls++
+	return c.ReadingStore.PublicationCounts(ctx)
+}
+
+// A failed count still renders the list. The column is an enrichment over a
+// page that worked without it, and refusing to show a professor their
+// controls because a tally blinked is a worse answer than showing them the
+// list.
+func TestAFailedPublicationCountStillRendersTheControlsList(t *testing.T) {
+	f := newControlsFixture(t)
+	f.createControl(t, "Control 2", 2)
+	f.rebuildWithReadings(t, &failingCounts{ReadingStore: f.cstore})
+
+	body := f.controlsListBody(t)
+	if !strings.Contains(body, "Control 2") {
+		t.Errorf("a failed publication count took the whole list down:\n%s", body)
+	}
+}
+
+type failingCounts struct {
+	controls.ReadingStore
+}
+
+func (failingCounts) PublicationCounts(context.Context) (map[string]controls.PublicationProgress, error) {
+	return nil, errors.New("the database blinked")
+}
