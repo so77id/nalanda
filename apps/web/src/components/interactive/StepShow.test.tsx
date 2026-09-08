@@ -9,7 +9,10 @@ import { Step, StepShow } from './StepShow';
 // is the number handed to it. Reviewed in #277: the fraction went 0.75 -> 0.5
 // and nothing in the suite could see it, in a component three published
 // documents mount (chapters 08, 14 and 17). The paint itself stays a browser
-// check; this is the gate the next tweak of the number has to pass.
+// check; this is the gate the next tweak of the number has to pass. It pins
+// the NUMBER, not the wiring: the case renders in book mode, so the recorded
+// call is `{ enabled: false, fraction: 0.5 }` and unwiring the breakout from
+// presentation would still pass here.
 vi.mock('../useViewportBreakout', () => ({ useViewportBreakout: vi.fn() }));
 
 // Same reason CodeEditor / Exercise / PredictOutput mock CodeMirror: the

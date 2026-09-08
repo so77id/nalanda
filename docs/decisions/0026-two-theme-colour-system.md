@@ -308,16 +308,23 @@ text.
 
 **Consequences.**
 
-- The normative rule lives in `add-a-course-document.md` §6e — the file every
+- The normative rule lives in `add-a-course-document.md` §6e-bis — the file every
   figure author reads — and the palette with its measured pairs is registered
   in `design-system.md` as a fifth exemption from §The one rule.
   `teach-a-data-structure.md` points at both rather than restating them.
 - **The pre-existing figures are now non-conforming**, and this addendum does
   not convert them. Counted from the tree at the time of writing
   (`find content -iname '*.svg' | grep -v /logos/`): **20** hand-drawn figures,
-  of which **7** follow the new rule — the ones #277 drew — and **13** still
-  carry the token-var pattern. That conversion is its own WP, and this is the
-  record that it is owed. (The 22 brand marks under `content/**/logos/` are a
+  of which **7** follow the new rule — the ones #277 drew — and **13** do not.
+  Re-measured in #277's review (2026-09-08), the remaining 13 split two ways:
+  **5** carry the token-var pattern (`divide-y-conquista-patron.svg` and the
+  four `max-subarray-*.svg`) and **8** already hardcode their colours but were
+  never checked against the panel rule. The sentence originally said all 13
+  carried the pattern; that half did not reproduce
+  (`grep -l 'var(--' $(find content -iname '*.svg' | grep -v /logos/)`), and
+  the correction stays visible here rather than being edited away. The
+  conversion is its own WP, and this is the record that it is owed — now with
+  the right shape: 5 files to re-palettify, 8 to audit. (The 22 brand marks under `content/**/logos/` are a
   different category: third-party art served on the `plate` ground, §The one
   rule's second exemption.) Note that §What is NOT changed above says "the 27
   hand-drawn SVGs", a figure written in #222 that does not match the tree

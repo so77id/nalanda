@@ -225,7 +225,7 @@ asset — so this note and the render-and-look check are the only guards.
 Decision and scope: ADR-0026 §Addendum — #277; the authoring rule is
 `guides/add-a-course-document.md` §6e-bis. Counted from the tree
 (`find content -iname '*.svg' | grep -v /logos/`): 20 hand-drawn figures, of
-which 7 follow this rule and **13 still carry the old pattern**; their
+which 7 follow this rule and **5 still carry the old pattern; the other 8 hardcode their colours already**; their
 conversion is a separate WP. The 22 brand marks under `logos/` are not in this
 category — they are third-party art, covered by the `plate` exemption above.
 
@@ -297,3 +297,23 @@ green suite proves nothing about this; the paint has to be looked at.
 
 The full browser recipe, including how to stop a preview server without killing
 other agents', is in `testing-strategy.md` §Conventions.
+
+## The TDA card's moulds (#277)
+
+The Estructuras de Datos unit introduces every TDA on one card whose groups
+are the three moulds — CREAR, CONSULTAR, MODIFICAR — and each group label
+carries a token: `--color-ink-faint` for CREAR, `--color-keep` for CONSULTAR,
+`--color-accent` for MODIFICAR. The reader is meant to recognise the same
+three groups in the next class of the unit, so the mapping is fixed.
+
+Two things this is NOT. It is not a new product meaning for `keep` or
+`accent` — inside the unit's cards they read as "does not change the
+structure" and "changes it", and that reading is scoped to the card. And it is
+not load-bearing: the group label spells the mould out in words, which is the
+second signal §Colour is never the only signal asks for, so the card survives
+a reader who cannot tell the two apart.
+
+The card is inline JSX copied per TDA today, with no component. At the third
+copy it becomes a content component with a catalog entry (ADR-0010); the
+authoring rule lives in `guides/teach-a-data-structure.md` §2 and points here
+for the tokens rather than restating them.

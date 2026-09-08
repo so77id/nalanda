@@ -132,12 +132,27 @@ names for the same contract get their own slide afterwards.
    rather than in prose after it — it is part of the contract.
 
 **Build the card with inline `style` and palette tokens, never Tailwind
-classes**: Tailwind does not scan `content/`, so a class used only in an
-`.mdx` is never generated (`add-a-course-document.md` §6). Colour the group
+classes**: Tailwind's scanner is rooted at `apps/web`, and `content/` sits
+outside it, so a utility class written only in an `.mdx` is never generated
+and the element paints unstyled past a green build
+(`add-a-course-document.md` §5, which is the fact's home). Colour the group
 labels — `--color-ink-faint` for CREAR, `--color-keep` for CONSULTAR,
 `--color-accent` for MODIFICAR — so the reader recognises the same three
 moulds in the next class. Avoid `--color-accent-soft`: the `accent-` prefix
 trips the colour guard in `apps/web/src/architecture.test.ts`.
+
+**There is no `<TdaCard>` component — the card is copied.** Take the block
+from the slide *El TDA Sequence* in
+`content/courses/sample-course/17-edd-introduccion.mdx`, keep its structure
+and change only the rows. What has to survive the copy: the frame is
+`border: 1px solid var(--color-rule)` + `borderRadius: 8px` +
+`overflow: hidden`; the body is one `display: grid` with
+`gridTemplateColumns: 'max-content 1fr'` so the meanings line up across ALL
+the groups; each mould label is a `gridColumn: '1 / -1'` row at
+`fontSize: 0.7rem` / `letterSpacing: 0.08em` / `fontWeight: 700`, separated
+from the group above by `borderTop: 1px solid var(--color-rule)`; signature
+cells are `<code>` with `whiteSpace: 'nowrap'`. Extract a component at the
+third copy, not before, and record it here when you do.
 
 Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction
@@ -299,6 +314,52 @@ and heap boxes with vertically stacked rows, and it can NOT draw a horizontal
 strip of cells with index labels, braces over a sub-range, or dashed garbage
 cells, so an array frame is not one of its shapes.
 
+### 6bis. The frame vocabulary
+
+Everything in §6 above is about a figure served through `<img>`. **A `<Step>`
+frame is not one.** Inline SVG lives in the page's own DOM, so it sees
+`--color-*` and must use it: no opaque panel, no hard-coded hex, never the
+`#fdfbf9`/`#2b221d` values of the `<img>` exemption — those paint a
+theme-blind rectangle inside a themed page. Both grounds still get looked at.
+
+The ten steppers of #277 share one drawing vocabulary, and a second class that
+invents its own makes the unit look like two courses. Copy the frame from the
+slide *Operación de modificación · insertar al final* and keep:
+
+- **Geometry.** `viewBox="0 0 <20 + 52·n> 144"`. Cells are `48 × 44` on a
+  52 px pitch from `x=10`, `y=40`. The value sits at `fontSize 17`, the index
+  under it at `fontSize 11`.
+- **The two braces.** Above, `data.length` in `--color-rule-strong`; below,
+  `size` in `--color-ink`, spanning only the valid cells. They are what makes
+  the frontier visible while it moves, and they are the reason a reader can
+  see `insertLast` write outside the length before `size++` catches up.
+- **A token per cell state.** Live cell: `--color-rule-strong`, solid.
+  Garbage: `--color-rule`, `strokeDasharray="4 3"`, value in
+  `--color-ink-faint` when it is a value nobody reads any more. Just written:
+  `--color-keep` on `--color-keep-soft`. Being moved: `--color-accent`,
+  `strokeWidth 2.8`.
+- **Colours go in `style={{ fill }}` / `style={{ stroke }}`**, never in a
+  `fill=` attribute — an attribute cannot hold `var(--color-*)` through the
+  MDX pipeline the way the style object can.
+- **JSX means camelCase**: `textAnchor`, `strokeWidth`, `strokeDasharray`,
+  `markerEnd`. A kebab-case attribute is silently dropped.
+- **Every frame carries `role="img"` and a Spanish `aria-label`** that says
+  what the caption says. Nothing in the build or the suite checks this —
+  `contentRenders` enforces `alt` on `<Figure>`, not on a raw `<svg>`.
+
+**Every `id` inside a frame is document-global.** All the frames of all the
+steppers on a page live in one DOM, so a `<marker id="arrow">` repeated across
+frames makes every `url(#arrow)` resolve to whichever copy comes first —
+silently correct only while the definitions are identical. #277 shipped seven
+`<marker id="mp">` this way and had to number them per frame. Suffix them
+(`arrow1`, `arrow2`, …) and prefix them per stepper. No gate sees this.
+
+**Keep every line of a `<StepShow>` fence under ~60 columns.** In presentation
+the widget takes half the viewport and stacks code over panel; a longer line
+clips at the right edge and nothing in the build or the suite sees it. Wrap
+long guards BEFORE writing any `lines={[…]}` — wrapping afterwards renumbers
+every step below, which is how #277 shipped two off-by-ones.
+
 ### 7. Decide widgets last, and for the unit rather than the class
 
 Do not build a widget for one class of this unit. The structures share visual
@@ -307,6 +368,14 @@ first class is a widget designed against one example. Sketch the animations
 the whole unit wants, look for the shared pattern, and only then decide
 whether to build, extend or reuse. #277 shipped zero new widgets on purpose,
 reusing `<StepShow>` ten times.
+
+**And that is where it got decided.** #288, the linked-list class, is the
+unit's second data point, and it concluded that the shared shape IS real: it
+writes a `SequenceStepper` with a pure trace module rather than a third class
+of copy-paste frames. So a class after it does not repeat §6bis by hand —
+it uses that widget, and §6bis stays as the record of what the frames looked
+like when they were written out, and of the traps that come with hand-writing
+them.
 
 **Check every `<Step lines={[…]}>` against its own fence, in the browser.**
 `lines` is unvalidated data: `CodeStepper` silently drops an out-of-range
@@ -320,16 +389,27 @@ its fence text and read the result next to the step's own caption.
 
 ## Checklist
 
-- [ ] Four acts, each an `h2` behind a `<SectionBreak />`, each producing a
-      title-only divider slide in the deck.
+- [ ] Every act after the first is an `h2` behind a `<SectionBreak />`,
+      producing a title-only divider slide. The FIRST act carries no heading
+      at all — the class opens straight from the cover. The number of acts
+      follows §1, and a class that deviates says so.
+- [ ] No recap act. Restating the contract and the cost tables at the end
+      repeats what each act already carried; only the closing trade survives.
 - [ ] **No** `<SectionBreak />` before `## Lo que sigue` — check the deck, not
       only the book.
-- [ ] Every TDA introduced as an `interface` fence whose comments give meaning
-      and never cost.
+- [ ] Every TDA introduced on ONE slide as the CREAR / CONSULTAR / MODIFICAR
+      card of §2, built with inline `style` + palette tokens and closing on a
+      `LO QUE NO DICE` block. No cost anywhere in it. Java's names for the
+      same contract, if the class needs them, on the slide after.
 - [ ] Invariants as a numbered list, property first, consequence second, and
       the expensive one named as such.
-- [ ] Every operation in the cost table carries the invariant it restores.
-      An `Amortizado` column only where a row actually differs.
+- [ ] Every operation in the cost table carries the invariant it restores,
+      and the table leads with a `Molde` column grouping the operations by
+      crear / consultar / modificar. An `Amortizado` column only where a row
+      actually differs — and a SECOND table, for a structure derived from the
+      first, may spend the invariant column's width on `Amortizado` instead,
+      because the first act already taught the invariants. #277's dynamic
+      array does exactly that.
 - [ ] Wide tables left as bare markdown inside the `<Slide>`, never wrapped in
       `<PresentationWide>` (it strips their styling), and **looked at** on the
       slide rather than measured.
@@ -337,11 +417,21 @@ its fence text and read the result next to the step's own caption.
       no forward wiki-link to a document that does not exist.
 - [ ] Every figure has an opaque panel, all text on it, a second signal beside
       colour, and was rendered over `#f8f2ef` and `#0d1117` and looked at.
+- [ ] Every `<Step lines={[…]}>` read back against its own fence — counting
+      from 1, blank lines included — and against the step's caption AND its
+      drawing: the line lit must be the line the caption says just ran.
+      `CodeStepper` drops an out-of-range number silently, so a
+      wrong-but-in-range one survives the build, the suite, the preview and
+      the `sr-only` live region alike. When two steppers share a listing,
+      their `lines` arrays must agree.
 - [ ] No new widget invented for a single class of the unit.
-- [ ] Every `<CodeEditor>` / `<Benchmark>` snippet RUN in the browser and its
-      output quoted in the commit, and every arithmetic claim about a sequence
-      (copies, doublings, totals) reproduced by simulation **including one
-      non-power-of-two N**. Nothing in the build or the suite executes a
+- [ ] Every arithmetic claim about a sequence (copies, doublings, totals,
+      free cells) reproduced by simulation **including one non-power-of-two
+      N** — including the claims that appear only in a stepper caption or an
+      `aria-label`. #277 shipped a caption saying four where its own drawing
+      showed three.
+- [ ] If the class carries a `<CodeEditor>` or `<Benchmark>`, its snippet RUN
+      in the browser and its output quoted in the commit. Nothing in the build or the suite executes a
       snippet, and #277 shipped a bound that held for N = 16 and failed for
       N = 1000 — a value its own widget offers the reader. **There is no JVM on
       the dev host** (`java`/`javac` are the macOS stubs and fail), so the

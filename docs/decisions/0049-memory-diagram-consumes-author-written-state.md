@@ -1,6 +1,8 @@
 # ADR-0049: The memory diagram consumes author-written state, drawn beside code by a generic stepper
 
 **Status:** Accepted
+**Amended by:** #277 (2026-09-08) — the hand-written volume this ADR priced,
+and the failure mode the price did not cover (§Addendum — #277).
 **Date:** 2026-08-19
 **Decision-makers:** Miguel Rodriguez
 **Covers:** `<StepShow>` + `<Step>` + `<CodeStepper>` as the generic "code
@@ -282,3 +284,35 @@ elsewhere in the repo. Rejected on ergonomics.
   today. The first follow-up widget to land after this WP validates the
   contract in practice; if it needs a shape this decision did not
   anticipate, this ADR gets an amendment naming what changed and why.
+
+## Addendum — #277 (2026-09-08)
+
+**What was claimed.** §Alternatives, rejecting the live JVM tracer: *"The
+pedagogy gain is small at the volumes here — hand-written states get one
+visual review round with the professor and ship. Two mounted diagrams per doc,
+one doc today, six in the roadmap."* Author judgement replaces the JVM
+(§Decision-7) BECAUSE the hand-written surface is two pictures per document.
+
+**What is true now.** Chapter 17 alone ships **49** author-written inline
+`<svg>` frames across **10** `<StepShow>` steppers, and none of them is a
+`<MemoryVisual>` — the shapes it needs (a horizontal strip of cells, braces
+over a sub-range, dashed garbage cells, per-cell highlight) are not shapes
+that component draws. Measured at this commit with
+`grep -c '<svg' content/courses/sample-course/17-edd-introduccion.mdx`.
+
+**The case that does not hold.** §Decision-7's "author judgement" covers
+whether the PICTURE is true, and a professor reviewing slide by slide does
+catch a wrong drawing. It covers nothing about `lines`, which `CodeStepper`
+silently truncates when out of range: #277 shipped **two** in-range
+off-by-ones — the last step of two steppers lit the closing brace instead of
+the assignment its own caption described — past the build, the full suite and
+a slide-by-slide review. They were found by a review lens driving the widget
+in a browser, and only because a twin stepper elsewhere in the document
+numbered the same listing correctly.
+
+**The boundary that survives.** Hand-written SVG inside a `<Step>` remains
+legitimate per §Decision-1 ("any JSX goes on the visual side") at figure
+scale. Above it the answer is a widget with a pure trace module, which is what
+#288 decides for the same unit in ADR-0074 (`SequenceStepper`). Read the two
+together: 0049 says the author writes the state, 0074 says that stops scaling
+somewhere and names where.

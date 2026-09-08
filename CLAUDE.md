@@ -48,7 +48,8 @@ This file holds **monorepo-shared** instructions only. Each app has its own
   register, titles, cross-reference discipline) that governs the prose itself
   and — for a class of the **Estructuras de Datos** unit —
   `docs/standards/guides/teach-a-data-structure.md` (shape: the four acts,
-  TDA-as-contract, the cost table with its invariant column, the cabo suelto).
+  the TDA card, the invariant list, the cost table with its invariant column,
+  and the closing trade).
   The three are read together, before drafting.
 
 The original POC is archived in `proof-of-concept/` (runnable, reference only —

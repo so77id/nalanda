@@ -90,10 +90,23 @@ export function StepShow({
   // In presentation the widget breaks out of the Slide's prose max-width
   // and takes 50 % of the viewport. It stacks code over panel rather than
   // sitting them side-by-side (unlike `<SortStepper>`, which needs the extra
-  // width for its tree), so half a 1440px screen already gives the code pane
-  // more columns than the snippets use, and the leftover width only pushed
-  // the surrounding prose apart. Book mode leaves it alone. The measurement
-  // dance is shared with `<SortStepper>` (`useViewportBreakout`).
+  // width for its tree), so the width only has to hold the code.
+  //
+  // Measured (#277, 2026-09-08): 0.5 x 1440 = 720 CSS px fits ~60 monospace
+  // columns, and the longest fence chapter 17 ships is 58. That is the case
+  // that breaks if the fraction drops further — a longer line clips at the
+  // right edge and nothing in the build or the suite sees it. Chapters 08 and
+  // 14, which also mount this widget, were measured at both values: widget
+  // 1080 -> 720 px, everything else byte-identical (heights, code font-size,
+  // zero wrapped lines, no scroll), and at 0.5 the widget aligns with the
+  // prose column instead of jutting 140 px left of it.
+  //
+  // Rejected: leaving 0.75 and letting the stacked layout keep an empty band,
+  // and making `fraction` a prop set per call site — three documents want the
+  // same answer, so a prop would be three copies of one decision.
+  //
+  // Book mode leaves it alone. The measurement dance is shared with
+  // `<SortStepper>` (`useViewportBreakout`).
   const mode = useMode();
   const isPresentation = mode === 'presentation';
 

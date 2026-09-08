@@ -12,8 +12,9 @@ any content unit. No app code is involved — everything happens under `content/
 
 **If the document is a class of the Estructuras de Datos unit, read
 [`teach-a-data-structure.md`](teach-a-data-structure.md) BEFORE drafting.** It
-fixes the shape — four acts, TDA-as-contract, the invariant list, the cost
-table with its invariant column, the cabo suelto — that this guide only
+fixes the shape — the acts and the four questions they answer, the TDA card,
+the invariant list, the cost table with its invariant column, the closing
+trade — that this guide only
 supplies the mechanics for, and meeting it at the pre-PR checklist is meeting
 it too late.
 
@@ -599,6 +600,20 @@ Six things worth knowing before you write one:
   (`lines={[8, 9]}` lights lines 8 and 9 of the listing; numbers are 1-based
   and blank lines count). Empty is legal — a step whose lesson is what
   appears beside the code, not which line is running, passes `lines={[]}`.
+- **A wrong `lines` is invisible to every gate.** `CodeStepper` drops an
+  out-of-range number silently, so an in-range but wrong one survives the
+  build, the suite, the preview and the `sr-only` live region alike. Read each
+  step's lit line against its own caption in the browser; when two steppers
+  share a listing, their `lines` arrays must agree. #277 shipped two
+  off-by-ones this way, both from re-wrapping a guard onto two lines and
+  renumbering the steps by hand afterwards — so wrap the fence FIRST, then
+  write the arrays.
+- **Style with inline `style` and `var(--color-*)`, never a Tailwind class.**
+  Tailwind's scanner is rooted at `apps/web`; `content/` sits outside it, so a
+  utility class that appears only in an `.mdx` is never generated and the
+  element paints with inherited styling past a green build. Verified against
+  the published stylesheet: `space-y-3`, `leading-relaxed` and `font-sans`,
+  used only under `content/`, are absent from it.
 - **Any JSX inside a `<Step>`.** For memory pictures, `<MemoryVisual>`; for a
   call-stack, tree, hash-table or sequence-diagram widget as they land, the
   same shape.
@@ -1032,6 +1047,14 @@ is not scaled at all.
      (`apps/web/src/lib/slug.ts`). So `Cuatro diferencias con C++` anchors as
      `cuatro-diferencias-con-c` — the `++` disappears entirely — and
      `¿Qué imprime esto?` as `que-imprime-esto`. **Do not guess it**: read it off
+
+**Two `<Slide title>`s with the same title in one document is a bug.**
+`slugFor` does not de-duplicate, so both `h2`s render the same `id`: invalid
+HTML, `#slug` resolving to the first, and two entries in the section list
+pointing at one place. No gate catches it. A class that walks the same
+operation for two structures is where it happens — disambiguate in the title
+(#277: `insertar al final` and `insertar al final con resize`).
+
      the rendered heading's link, or off `headingSlugs()`.
 
      **A title with `<` or `>` in it breaks silently.** `## Pair<T>` is parsed
@@ -1293,8 +1316,8 @@ last block, so no stale copies accumulate.
 - [ ] If the document belongs to the **Estructuras de Datos** unit, its shape
       checked against
       [`teach-a-data-structure.md`](teach-a-data-structure.md) §Checklist —
-      the four acts, TDA-as-contract, the invariant list, the cost table with
-      its invariant column, the cabo suelto, and the figure-panel rule. Same
+      the act shape, the TDA card, the invariant list, the cost table with
+      its invariant column, the closing trade, and the figure-panel rule. Same
       shape as the `course-content-style.md` bullet above, and required by
       `documentation.md` Rule 4.
 - [ ] Nothing here must stay private — merging publishes it at `/d/<id>`.

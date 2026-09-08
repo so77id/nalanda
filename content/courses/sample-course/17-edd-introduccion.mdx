@@ -6,12 +6,12 @@ questions: pool
 ---
 
 {/* `pool`, not `per-section`: every <Slide> is an h2, so per-section would */}
-{/* demand forty questions and thirty declared exemptions that say nothing. */}
+{/* demand one for each of the 41 sections, with 26 declared exemptions.   */}
 {/* What a pool owes instead is density per RANGE — a control is requested  */}
 {/* over a range of sections (bank.Pool), so each ACT must be able to fill  */}
 {/* a four-question copy: 5 in act 1, 5 in act 2, 6 in act 3.               */}
 {/* CAVEAT (review #277): a range is chosen per SECTION, not per act, and   */}
-{/* the eleven-slide operations block carries none — a control taken from   */}
+{/* the seven-slide operations block carries none — a control taken from   */}
 {/* `las-operaciones-que-hay-que-implementar` to `operaciones-y-sus-costos` */}
 {/* yields fewer than four and fails with PoolTooSmallErr. Take ranges at   */}
 {/* act boundaries while that block has no questions of its own.            */}
@@ -1666,7 +1666,7 @@ es el costo que se siente.
 }`}
 >
   <Step lines={[4, 5]}>
-    <svg viewBox="0 0 128 144" width="128" height="144" role="img" aria-label="Inserción 1: hay lugar. Escribe y listo. La llave de arriba abarca las 1 casillas de data.length; la de abajo, las 1 que cuenta size.">
+    <svg viewBox="0 0 128 144" width="128" height="144" role="img" aria-label="Inserción 1: hay lugar. Escribe y listo. La llave de arriba abarca la única casilla de data.length; la de abajo, la única que cuenta size.">
       <text x="56" y="14" textAnchor="middle" fontSize="12" fontFamily="ui-monospace, monospace" style={{ fill: 'var(--color-ink-faint)' }}>data.length = 1</text>
       <path d="M 10 32 L 10 22 L 58 22 L 58 32" fill="none" strokeWidth="1.2" style={{ stroke: 'var(--color-rule-strong)' }} />
       <rect x="10" y="40" width="48" height="44" strokeWidth="2.8" style={{ fill: 'var(--color-keep-soft)', stroke: 'var(--color-keep)' }} />
@@ -2591,7 +2591,7 @@ su tabla de costos es casi la imagen espejo.
 
 </Question>
 
-<Question id="edd-afirmacion-falsa-sobre-la-invariante" anchor="los-tres-momentos-de-la-invariante">
+<Question id="edd-que-hacen-las-consultas-con-la-invariante" anchor="los-tres-momentos-de-la-invariante">
 
 ¿Qué hacen las operaciones de consulta con la invariante?
 

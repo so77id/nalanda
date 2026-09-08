@@ -11,8 +11,9 @@ extraction of the viewport-breakout dance into a shared hook
 `<SortStepper>`, `<StepShow>`, `<MergeStepper>` and `<PartitionStepper>` ·
 the split between "widgets that already break out on their own" and
 "blocks that need the wrapper" so the two never compose
-**Amended by:** #277 (2026-09-07) — the fraction is not optional for a wide
-markdown table, and `0.8` is its value (§Addendum below).
+**Amended by:** #277 (2026-09-07) — a markdown table is never wrapped in
+`<PresentationWide>`; `not-prose` strips the styling it depends on
+(§Addendum below).
 **Source:** Issue #268 — Course document "Diseño de Algoritmos ·
 Ordenamiento". Two of its slides carry a `<SideBySide>` of two
 `<DivideCombineTree>`s and a wide MDX comparison table that the slide's
