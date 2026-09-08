@@ -506,7 +506,18 @@ page-only, invisible to every other gate.
   component surfaces the argument that the hue is keyed on as a `data-arg`
   attribute on every node — the unit suite asserts that two duplicated
   arguments carry the same `data-arg`, which is a stand-in for "same hue" no
-  browser is needed to see. A refactor that silently rewrites the seed
+  browser is needed to see.
+
+  **Two shapes, and the choice is not free.** When the value reaches the DOM,
+  surface it as a data attribute and assert that — `RecursionTree`'s
+  `data-arg`, `<PresentationWide>`'s `data-fraction`. When it is handed to a
+  HOOK and never painted, mock the hook module and assert the argument — the
+  `<StepShow>` shape (#277), where the breakout writes `width`/`marginLeft`
+  only after measuring an ancestor transform jsdom cannot produce, so there is
+  no attribute to read. Both pin the deterministic input; neither replaces the
+  browser check, and the second pins the NUMBER without pinning the wiring —
+  a case that renders in book mode records `enabled: false` and would still
+  pass if the hook were unwired from presentation. A refactor that silently rewrites the seed
   reddens the unit test even though every node still paints something; the
   paint itself is confirmed against the live tokens at the S7 browser check,
   in both themes. The alternative — faking `getComputedStyle` or the resolved

@@ -10,6 +10,14 @@ ADR-0013 (presentation).
 You are writing course material: a new sección/presentación, an exercise page,
 any content unit. No app code is involved — everything happens under `content/`.
 
+**If the document is a class of the Estructuras de Datos unit, read
+[`teach-a-data-structure.md`](teach-a-data-structure.md) BEFORE drafting.** It
+fixes the shape — the acts and the four questions they answer, the TDA card,
+the invariant list, the cost table with its invariant column, the closing
+trade — that this guide only
+supplies the mechanics for, and meeting it at the pre-PR checklist is meeting
+it too late.
+
 ## Worked example
 
 The seed course `content/courses/sample-course/` exercises most of the authoring
@@ -45,6 +53,8 @@ content/courses/sample-course/
 ├── 15-diseno-algoritmos-divide-y-venceras.archive.txt  # sibling archive of superseded slides (see "Archiving slides" below)
 ├── divide-y-conquista-patron.svg, max-subarray-*.svg   # assets for chapter 15
 ├── 16-diseno-algoritmos-ordenamiento.mdx           # presentation: explicit, questions: pool — <SortStepper> (bubble/selection/insertion/merge/quick) + <MergeStepper> + <PartitionStepper> + <DivideCombineTree> + <DecisionTreeSort> + <PresentationWide> + <Exercise> with the new `solution` fence
+├── 17-edd-introduccion.mdx    # presentation: explicit, questions: pool — <StepShow> (ten steppers, hand-written inline SVG frames) + <Figure>
+├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```
 
@@ -390,6 +400,15 @@ runtime code. `<Math>` earns its cost only where prose math can't reach.
    nobody chose. #79 shipped exactly that extra slide; only the `/present`
    walk finds it. Where you want a titled cut, write `<Slide title="…">`.
 
+   **The same mechanism is a deliberate pattern when the swallowed `h2` IS the
+   slide you want.** A break followed by an act heading and nothing else
+   produces a title-only divider slide, which is what a lecture wants between
+   acts — chapters 16 and 17 both ship it. The defect is an *unchosen* slide,
+   not the mechanism; the test is whether you walked `/present` and wanted what
+   you saw. See [`teach-a-data-structure.md`](teach-a-data-structure.md) §1,
+   which also records the other half of the rule: never put a break before
+   `## Lo que sigue`, or the closing navigation gets projected.
+
 5. **Add runnable code (optional)**: `<CodeEditor language="java" />` is
    likewise available without imports — Java, C++ or Python, compiled and run in
    the reader's own browser. Worked example: `07-java-tipos-y-flujo.mdx`, which
@@ -581,6 +600,20 @@ Six things worth knowing before you write one:
   (`lines={[8, 9]}` lights lines 8 and 9 of the listing; numbers are 1-based
   and blank lines count). Empty is legal — a step whose lesson is what
   appears beside the code, not which line is running, passes `lines={[]}`.
+- **A wrong `lines` is invisible to every gate.** `CodeStepper` drops an
+  out-of-range number silently, so an in-range but wrong one survives the
+  build, the suite, the preview and the `sr-only` live region alike. Read each
+  step's lit line against its own caption in the browser; when two steppers
+  share a listing, their `lines` arrays must agree. #277 shipped two
+  off-by-ones this way, both from re-wrapping a guard onto two lines and
+  renumbering the steps by hand afterwards — so wrap the fence FIRST, then
+  write the arrays.
+- **Style with inline `style` and `var(--color-*)`, never a Tailwind class.**
+  Tailwind's scanner is rooted at `apps/web`; `content/` sits outside it, so a
+  utility class that appears only in an `.mdx` is never generated and the
+  element paints with inherited styling past a green build. Verified against
+  the published stylesheet: `space-y-3`, `leading-relaxed` and `font-sans`,
+  used only under `content/`, are absent from it.
 - **Any JSX inside a `<Step>`.** For memory pictures, `<MemoryVisual>`; for a
   call-stack, tree, hash-table or sequence-diagram widget as they land, the
   same shape.
@@ -780,13 +813,18 @@ listing. Two code fences → `SideBySide`. Anything else → `Split`.
 presentation mode the `<Slide>` centres and caps its children at a reading
 column; a wide visual — a comparison table, two side-by-side diagrams — gets
 compressed and reads worse than the same block does in the book. Wrap the block
-in `<PresentationWide>` (or `<PresentationWide fraction={0.75}>` for a
-centred, narrower breakout) and it re-anchors to a fraction of the viewport in
-presentation, book mode unchanged. Do NOT wrap widgets that already break out
-on their own — `<SortStepper>`, `<StepShow>`, `<MergeStepper>`,
-`<PartitionStepper>` — that would double the breakout and land the block off
-centre. Worked cases: chapter 16 (the sorting document) uses it around two
-`<DivideCombineTree>`s side by side and around wide MDX tables.
+in `<PresentationWide fraction={0.75}>` and it re-anchors to that fraction of
+the viewport in presentation, book mode unchanged. Do NOT wrap widgets that
+already break out on their own — `<SortStepper>`, `<StepShow>`,
+`<MergeStepper>`, `<PartitionStepper>` — that would double the breakout and
+land the block off centre. Worked cases: chapter 16 wraps a
+`<DivideCombineTree>` and a `<SideBySide>` of two more.
+
+**Never wrap a markdown table in it.** The wrapper carries `not-prose`, which
+strips the Tailwind Typography styles a markdown table depends on entirely: its
+cells come out with `padding: 0` and the columns touch, in the book as well as
+on the slide. A wide table stays bare inside its `<Slide>` (ADR-0067
+§Addendum — #277, which is the WP that shipped the defect and measured it).
 
 6c. **A wall of pictures**: `<Mosaic columns={2|3|4} description="...">` lays its
 cells out in a grid. It carries **one** accessible description for the whole
@@ -831,11 +869,29 @@ carrying it in JavaScript: measured, inlining one 1.2KB SVG added 2.4KB to the
 entry chunk that _every_ page loads, and nine logos would have added twenty.
 
 Two more things a drawn asset must do, because an `<img>` cannot inherit them:
-**fix its own colours** (it never sees the page's `currentColor`, so pick
-values that clear 3:1 on both the light and the dark ground — or, in a
-`<Mosaic plate>` cell, against the white plate, which is the ground the
-container supplies) and **never let colour be the only signal** — the cost curves are one solid line and one
+**fix its own colours** (it never sees the page's `currentColor` — and it never
+sees a CSS variable either, so `fill: var(--color-surface, #fff)` always paints
+the fallback and nothing else; pick values that clear 3:1 on both the light and
+the dark ground — or, in a `<Mosaic plate>` cell, against the white plate, which
+is the ground the container supplies) and **never let colour be the only signal** — the cost curves are one solid line and one
 dashed for exactly that reason (ADR-0026).
+
+6e-bis. **A figure with text in it paints its own opaque panel, and draws the
+text on that panel.** The 3:1 above is the *graphical* floor; text is held to
+4.5:1, and against the light ground `#f8f2ef` that needs a relative luminance
+**≤ 0.160** while against the dark ground `#0d1117` it needs **≥ 0.200**. No
+single value satisfies both, so text drawn straight on the page ground is wrong
+in one theme by construction — this is arithmetic, not taste. A panel of the
+figure's own removes the problem, because then you control the ground the text
+sits on.
+
+The registered palette and its measured pairs live in
+[`../design-system.md`](../design-system.md) §"A static figure served through
+`<img>`" (the fifth exemption from §The one rule); the decision and the reason
+the pre-existing figures do not yet follow it are ADR-0026 §Addendum — #277.
+Worked cases: the seven figures of chapter 17. **Nothing in the build or the
+suite can see a figure**, so the check is rendering it over both grounds and
+looking at it.
 
 6f. **An authoring error does not fail the build**, on purpose: writing the
 slides before drawing the diagrams is a real order of work, and gating the
@@ -991,6 +1047,14 @@ is not scaled at all.
      (`apps/web/src/lib/slug.ts`). So `Cuatro diferencias con C++` anchors as
      `cuatro-diferencias-con-c` — the `++` disappears entirely — and
      `¿Qué imprime esto?` as `que-imprime-esto`. **Do not guess it**: read it off
+
+**Two `<Slide title>`s with the same title in one document is a bug.**
+`slugFor` does not de-duplicate, so both `h2`s render the same `id`: invalid
+HTML, `#slug` resolving to the first, and two entries in the section list
+pointing at one place. No gate catches it. A class that walks the same
+operation for two structures is where it happens — disambiguate in the title
+(#277: `insertar al final` and `insertar al final con resize`).
+
      the rendered heading's link, or off `headingSlugs()`.
 
      **A title with `<` or `>` in it breaks silently.** `## Pair<T>` is parsed
@@ -1145,7 +1209,9 @@ is not scaled at all.
    so nothing disappears and instead everything shrinks. Measured on a phone in
    landscape (2026-08-13, iPhone 13 at 750x342): below roughly half scale the
    body text stops being readable. If a slide gets there, the fix is yours and
-   not the viewer's — split it at a `<SectionBreak/>`, or shorten the listing.
+   not the viewer's — split it into two titled `<Slide title="…">` blocks, or
+   shorten the listing. **Not a `<SectionBreak/>`**: that adds an untitled
+   slide instead (§4), which is a second defect rather than a fix.
    The same applies to width: an over-wide `<SideBySide>` column now shrinks
    the ENTIRE slide rather than overflowing on its own.
 
@@ -1247,4 +1313,11 @@ last block, so no stale copies accumulate.
       cross-references between sections or slides, noun-phrase titles). The
       suite cannot see any of this — a voice violation ships past a green
       build unless a human catches it here (course-content-style.md §6).
+- [ ] If the document belongs to the **Estructuras de Datos** unit, its shape
+      checked against
+      [`teach-a-data-structure.md`](teach-a-data-structure.md) §Checklist —
+      the act shape, the TDA card, the invariant list, the cost table with
+      its invariant column, the closing trade, and the figure-panel rule. Same
+      shape as the `course-content-style.md` bullet above, and required by
+      `documentation.md` Rule 4.
 - [ ] Nothing here must stay private — merging publishes it at `/d/<id>`.

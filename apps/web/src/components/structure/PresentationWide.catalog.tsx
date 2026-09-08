@@ -15,7 +15,7 @@ export const presentationWideCatalogEntry: CatalogEntry = {
       name: 'fraction',
       type: 'number',
       description:
-        'Fraction of the viewport width. `1` = full viewport, `0.75` = 75% centred. Default `1`. Comparisons of two visuals side-by-side usually read better at `0.75`.',
+        'Fraction of the viewport width. `1` = full viewport, `0.75` = 75% centred. Default `1`. Comparisons of two visuals side-by-side usually read better at `0.75`. NOT for a markdown table: the wrapper carries `not-prose`, which strips the styling a table depends on — its cells lose their padding and the columns touch (ADR-0067 §Addendum — #277).',
     },
   ],
   examples: [
@@ -32,12 +32,14 @@ export const presentationWideCatalogEntry: CatalogEntry = {
       ),
     },
     {
-      title: 'Full-viewport wide table',
-      code: '<PresentationWide>\n  <table>… wide comparison table …</table>\n</PresentationWide>',
+      title: 'A wide visual at the full viewport',
+      code: '<PresentationWide>\n  <svg>… a wide diagram that styles itself …</svg>\n</PresentationWide>',
       render: () => (
         <PresentationWide>
           <div className="rounded border border-rule bg-surface p-6 text-center text-sm text-ink-soft">
-            (Default fraction 1 = the block re-anchors to the full viewport width in presentation.)
+            (A block that carries its own styling — a diagram, a widget — re-anchors to the full
+            viewport in presentation. A markdown table must NOT be wrapped: `not-prose` would strip
+            its cell padding.)
           </div>
         </PresentationWide>
       ),

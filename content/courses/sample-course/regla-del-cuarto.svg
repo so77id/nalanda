@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 352" width="620" height="352" role="img" aria-label="Dos barras de capacidad comparadas. En la regla mala, achicar se dispara en la mitad y el largo, despues de duplicar, queda exactamente sobre esa frontera: cero borrados de margen, asi que una eliminacion copia N elementos y la insercion siguiente vuelve a copiarlos. En la regla del cuarto, achicar se dispara en el cuarto y el largo queda en la mitad, con un cuarto de la capacidad de margen para borrar y la mitad para insertar.">
+  <title>Por que la frontera de achicar va en el cuarto y no en la mitad</title>
+  <style>
+    .panel { fill: #fdfbf9; stroke: #8e817c; stroke-width: 1; }
+    .barra { fill: none; stroke: #493d37; stroke-width: 1.4; }
+    .lleno { fill: #eef4fb; }
+    .tick  { stroke: #8e817c; stroke-width: 1; }
+    .mala  { stroke: #b3261e; stroke-width: 2.4; }
+    .buena { stroke: #2f8a2f; stroke-width: 2.4; }
+    .medida { fill: none; stroke: #493d37; stroke-width: 1.2; }
+    .tope   { fill: none; stroke: #493d37; stroke-width: 1.6; }
+    .t   { fill: #493d37; font-family: system-ui, sans-serif; font-size: 12px; }
+    .tc  { fill: #493d37; font-family: system-ui, sans-serif; font-size: 12px; text-anchor: middle; }
+    .tr  { fill: #493d37; font-family: system-ui, sans-serif; font-size: 12px; text-anchor: end; }
+    .dentro { fill: #2b221d; font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-anchor: middle; }
+    .h   { fill: #2b221d; font-family: system-ui, sans-serif; font-size: 13.5px; font-weight: 600; }
+    .mal { fill: #8a1c16; font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-anchor: middle; }
+    .sep { stroke: #ded5d0; stroke-width: 1; }
+  </style>
+  <rect x="0.5" y="0.5" width="619" height="351" rx="8" class="panel"/>
+  <text x="24" y="28" class="h">✗ achicar cuando queda medio vacío</text>
+  <rect x="120" y="76" width="220" height="30" class="lleno"/>
+  <rect x="120" y="76" width="440" height="30" class="barra"/>
+  <line x1="230" y1="99" x2="230" y2="106" class="tick"/>
+  <line x1="340" y1="99" x2="340" y2="106" class="tick"/>
+  <line x1="450" y1="99" x2="450" y2="106" class="tick"/>
+  <text x="132" y="96" class="dentro" style="text-anchor:start">largo = C/2</text>
+  <line x1="340" y1="70" x2="340" y2="112" class="mala"/>
+  <text x="340" y="62" class="tc">achicar · C/2</text>
+  <line x1="560" y1="70" x2="560" y2="112" class="mala"/>
+  <text x="560" y="62" class="tr">crecer · lleno</text>
+  <text x="24" y="96" class="t">capacidad C</text>
+  <path d="M 340 146 L 560 146" class="medida"/>
+  <path d="M 340 142 L 340 150" class="tope"/>
+  <path d="M 560 142 L 560 150" class="tope"/>
+  <text x="450" y="164" class="tc">C/2 inserciones hasta crecer</text>
+  <text x="340" y="136" class="mal">margen 0 para borrar</text>
+  <text x="310" y="180" class="mal">el largo cae justo encima de la frontera: una eliminación ya copia N, y la inserción siguiente otra vez</text>
+  <line x1="24" y1="200" x2="596" y2="200" class="sep"/>
+  <text x="24" y="226" class="h">✓ achicar cuando el largo baja al cuarto</text>
+  <rect x="120" y="258" width="220" height="30" class="lleno"/>
+  <rect x="120" y="258" width="440" height="30" class="barra"/>
+  <line x1="230" y1="281" x2="230" y2="288" class="tick"/>
+  <line x1="340" y1="281" x2="340" y2="288" class="tick"/>
+  <line x1="450" y1="281" x2="450" y2="288" class="tick"/>
+  <text x="132" y="278" class="dentro" style="text-anchor:start">largo = C/2</text>
+  <line x1="230" y1="252" x2="230" y2="294" class="buena"/>
+  <text x="230" y="244" class="tc">achicar · C/4</text>
+  <line x1="560" y1="252" x2="560" y2="294" class="buena"/>
+  <text x="560" y="244" class="tr">crecer · lleno</text>
+  <text x="24" y="278" class="t">capacidad C</text>
+  <path d="M 230 316 L 340 316" class="medida"/>
+  <path d="M 230 312 L 230 320" class="tope"/>
+  <path d="M 340 312 L 340 320" class="tope"/>
+  <text x="285" y="334" class="tc">C/4 borrados</text>
+  <path d="M 340 316 L 560 316" class="medida"/>
+  <path d="M 340 312 L 340 320" class="tope"/>
+  <path d="M 560 312 L 560 320" class="tope"/>
+  <text x="450" y="334" class="tc">C/2 inserciones</text>
+</svg>

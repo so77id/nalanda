@@ -249,6 +249,20 @@ gate stayed green.
 No maximum. A control draws four from whatever the range offers, so a bigger
 pool means more variety between copies and nothing else.
 
+**There IS a minimum, and it is per RANGE rather than per document.** A
+control is requested over a range of consecutive SECTIONS and every copy draws
+four from it, so a range that resolves to fewer than four is refused —
+`ErrPoolTooSmall`, `apps/server/internal/domain/controls/service.go`. A
+document can therefore hold plenty of questions and still be unusable over the
+range a professor actually picks: what matters is the longest run of
+question-free sections, not the total. Walk your anchors in document order and
+look at the gaps.
+
+Worked case: #277 carries sixteen questions, but its seven consecutive
+operation slides carry none, so a control asked over exactly that block fails.
+Where a block must stay uncovered, say so in an MDX comment at the top of the
+bank and name the ranges that do work.
+
 There is no difficulty balancing and none is planned (design C6): an entrance
 control measures whether the student read, and levelling it would hide exactly
 that. What you owe instead is questions that are all *about the same thing* —

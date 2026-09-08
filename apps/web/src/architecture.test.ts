@@ -1094,6 +1094,14 @@ describe('architecture: every colour class resolves to a registered palette toke
     'width',
   ]);
 
+  // Blind spot, #277 (2026-09-08): this walks CLASS NAMES. Course documents now
+  // colour with inline `style={{ fill: 'var(--color-keep)' }}`, which this
+  // regex cannot see at all — a misspelt `var(--color-kepp)` paints inherited
+  // text and every gate stays green. The regex also false-positives the other
+  // way: `var(--color-accent-soft)` matches as the class `accent-soft`, which
+  // is why the authoring guide tells authors to avoid a legitimate token.
+  // Fixing either means stripping `var(--color-…)` before matching and adding a
+  // separate walk that checks the names inside them against the @theme block.
   const CLASS_RE =
     /\b(text|bg|border|ring|outline|divide|fill|stroke|placeholder|accent)-([a-z][a-z0-9-]*)\b/g;
 

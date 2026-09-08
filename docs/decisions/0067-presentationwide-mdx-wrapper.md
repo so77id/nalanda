@@ -11,6 +11,9 @@ extraction of the viewport-breakout dance into a shared hook
 `<SortStepper>`, `<StepShow>`, `<MergeStepper>` and `<PartitionStepper>` ·
 the split between "widgets that already break out on their own" and
 "blocks that need the wrapper" so the two never compose
+**Amended by:** #277 (2026-09-07) — a markdown table is never wrapped in
+`<PresentationWide>`; `not-prose` strips the styling it depends on
+(§Addendum below).
 **Source:** Issue #268 — Course document "Diseño de Algoritmos ·
 Ordenamiento". Two of its slides carry a `<SideBySide>` of two
 `<DivideCombineTree>`s and a wide MDX comparison table that the slide's
@@ -112,3 +115,30 @@ and the misuse fails visibly in the browser).
   "delete first, extract second" applies here too. Today the wrapper +
   the existing structural containers cover every case in the sorting
   chapter.
+
+## Addendum — #277 (2026-09-07): NOT for a markdown table
+
+**Context.** #277 wrapped five markdown tables in `<PresentationWide>` to stop
+the slide scaling down, and measured the scale going from 0.71 to 1.0. The
+measurement was real and the conclusion was wrong: the tables came out **wider
+and unstyled**, with their columns touching, in the book as well as on the
+slide.
+
+**Cause.** The wrapper renders `className="not-prose w-full"`. `not-prose`
+removes the Tailwind Typography styles, and a markdown table has no styling of
+its own — it is entirely prose-styled. Measured on the built site: a `td`
+inside the wrapper computes `padding: 0px`; the same table unwrapped, and every
+table in chapter 16, computes `padding: 8px 8px 8px 0`.
+
+**Decision.** **Do not wrap a markdown table in `<PresentationWide>`.** The
+wrapper is for blocks that style themselves — a `<SideBySide>`, a widget, an
+inline SVG — which is what every shipped call site actually wraps. A wide table
+stays a bare markdown table inside its `<Slide>`, the shape chapter 16 ships;
+if it makes the slide shrink too far, the fix is to split the slide or cut
+columns, not to widen it into a wrapper that strips its styling.
+
+**Consequences.** `fraction` guidance is unchanged for the cases the ADR
+originally described. Nothing in the build or the suite can see this — a table
+with no padding renders, it just renders badly — so the check is looking at the
+page. #277 shipped the defect through a full review pipeline because it
+measured slide scale rather than legibility.

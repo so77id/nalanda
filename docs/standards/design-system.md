@@ -201,6 +201,34 @@ The two invariants that keep this honest, and the guard:
   against the live tokens. Contrast measurements land here when the check
   runs against the shipped build.
 
+**A static figure served through `<img>` is the fifth exemption** (#277). A
+drawn asset under `content/` is loaded through `<img src>`, so it sees neither
+`currentColor` nor any `--nl-*` token — `fill: var(--color-surface, #fff)`
+resolves to `#fff` in both themes, which is why chapter 15's figures are
+theme-blind rather than theme-aware. It paints one fixed set of values on both
+grounds, and no single ink can serve both: 4.5:1 against `ground` needs a
+relative luminance ≤ 0.160 on light and ≥ 0.200 on dark, which is
+unsatisfiable. So such a figure **paints its own opaque panel and draws all
+text on it**, and the panel is the ground its pairs are measured against:
+
+- `#fdfbf9` panel with a `#8e817c` border — the figure's own ground, the only
+  surface its text is ever measured on.
+- `#2b221d` body text on it: **15.1:1**. `#493d37` for secondary text.
+- `#3a6ea5` accent, `#2f8a2f` "correct", `#b3261e` "wrong" (**6.3:1**) — all
+  three used as strokes and heading ink, never as small body text.
+
+Colour is never the only signal here either (§The one rule's companion): a
+dashed border marks a garbage cell, a `✗`/`✓` marks the two halves of a
+comparison, and every region carries a word. **`architecture.test.ts` cannot
+see any of this** — it greps our class names, not the contents of an `.svg`
+asset — so this note and the render-and-look check are the only guards.
+Decision and scope: ADR-0026 §Addendum — #277; the authoring rule is
+`guides/add-a-course-document.md` §6e-bis. Counted from the tree
+(`find content -iname '*.svg' | grep -v /logos/`): 20 hand-drawn figures, of
+which 7 follow this rule and **5 still carry the old pattern; the other 8 hardcode their colours already**; their
+conversion is a separate WP. The 22 brand marks under `logos/` are not in this
+category — they are third-party art, covered by the `plate` exemption above.
+
 Adding a second component-scoped categorical palette records it here with
 the same shape, or converges on shared cycle tokens if two components would
 share them meaningfully. Do not extend this exemption to a hue whose meaning
@@ -269,3 +297,23 @@ green suite proves nothing about this; the paint has to be looked at.
 
 The full browser recipe, including how to stop a preview server without killing
 other agents', is in `testing-strategy.md` §Conventions.
+
+## The TDA card's moulds (#277)
+
+The Estructuras de Datos unit introduces every TDA on one card whose groups
+are the three moulds — CREAR, CONSULTAR, MODIFICAR — and each group label
+carries a token: `--color-ink-faint` for CREAR, `--color-keep` for CONSULTAR,
+`--color-accent` for MODIFICAR. The reader is meant to recognise the same
+three groups in the next class of the unit, so the mapping is fixed.
+
+Two things this is NOT. It is not a new product meaning for `keep` or
+`accent` — inside the unit's cards they read as "does not change the
+structure" and "changes it", and that reading is scoped to the card. And it is
+not load-bearing: the group label spells the mould out in words, which is the
+second signal §Colour is never the only signal asks for, so the card survives
+a reader who cannot tell the two apart.
+
+The card is inline JSX copied per TDA today, with no component. At the third
+copy it becomes a content component with a catalog entry (ADR-0010); the
+authoring rule lives in `guides/teach-a-data-structure.md` §2 and points here
+for the tokens rather than restating them.

@@ -88,10 +88,25 @@ export function StepShow({
   useEffect(() => setLiveSpeed(speed), [speed]);
 
   // In presentation the widget breaks out of the Slide's prose max-width
-  // and takes 75 % of the viewport — same rationale as `<SortStepper>` with
-  // no tree: enough for code + panel side-by-side, but not the visual bloat
-  // of an empty third of screen. Book mode leaves it alone. The measurement
-  // dance is shared with `<SortStepper>` (`useViewportBreakout`).
+  // and takes 50 % of the viewport. It stacks code over panel rather than
+  // sitting them side-by-side (unlike `<SortStepper>`, which needs the extra
+  // width for its tree), so the width only has to hold the code.
+  //
+  // Measured (#277, 2026-09-08): 0.5 x 1440 = 720 CSS px fits ~60 monospace
+  // columns, and the longest fence chapter 17 ships is 58. That is the case
+  // that breaks if the fraction drops further — a longer line clips at the
+  // right edge and nothing in the build or the suite sees it. Chapters 08 and
+  // 14, which also mount this widget, were measured at both values: widget
+  // 1080 -> 720 px, everything else byte-identical (heights, code font-size,
+  // zero wrapped lines, no scroll), and at 0.5 the widget aligns with the
+  // prose column instead of jutting 140 px left of it.
+  //
+  // Rejected: leaving 0.75 and letting the stacked layout keep an empty band,
+  // and making `fraction` a prop set per call site — three documents want the
+  // same answer, so a prop would be three copies of one decision.
+  //
+  // Book mode leaves it alone. The measurement dance is shared with
+  // `<SortStepper>` (`useViewportBreakout`).
   const mode = useMode();
   const isPresentation = mode === 'presentation';
 
@@ -102,7 +117,7 @@ export function StepShow({
   const outerRef = useRef<HTMLDivElement | null>(null);
   useViewportBreakout(outerRef, {
     enabled: isPresentation,
-    fraction: 0.75,
+    fraction: 0.5,
   });
   const [isVisible, setIsVisible] = useState(true);
   useEffect(() => {

@@ -81,7 +81,7 @@ async function runAndReplyPerImpl(
   timings: Array<number | 'compile-error'>,
   runsPerImpl: number,
 ): Promise<FakeWorker> {
-  const button = screen.getByRole('button', { name: /^run$/i });
+  const button = screen.getByRole('button', { name: /^medir$/i });
   await waitFor(() => expect(button).toBeEnabled());
   await userEvent.click(button);
   await waitFor(() => expect(workers).toHaveLength(1));
@@ -124,7 +124,7 @@ async function runAndReplyPerImpl(
   // Wait for the Run button to be enabled again — the widget's own signal that
   // it has finished collecting results and rendered the table.
   await waitFor(() =>
-    expect(screen.getByRole('button', { name: /run|run de nuevo/i })).toBeEnabled(),
+    expect(screen.getByRole('button', { name: /medir|medir de nuevo/i })).toBeEnabled(),
   );
   return worker;
 }
@@ -138,7 +138,7 @@ describe('Benchmark', () => {
   it('shows an authoring error when implementations is missing', () => {
     render(<Benchmark />);
     expect(screen.getByText(/falta la prop/i)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^run$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^medir$/i })).not.toBeInTheDocument();
   });
 
   it('shows an authoring error when implementations is empty', () => {
@@ -230,7 +230,7 @@ describe('Benchmark', () => {
       />,
     );
 
-    const button = screen.getByRole('button', { name: /^run$/i });
+    const button = screen.getByRole('button', { name: /^medir$/i });
     await waitFor(() => expect(button).toBeEnabled());
     await userEvent.click(button);
     await waitFor(() => expect(workers).toHaveLength(1));
@@ -301,5 +301,23 @@ describe('Benchmark', () => {
     const worker = await runAndReplyPerImpl([1_000_000], 1);
     // The picked N reaches the JVM.
     expect(worker.posted[0]!.stdin).toBe('10000\n');
+  });
+
+  /**
+   * The header tells the reader which control to press, and the footer button
+   * is that control. Nothing structural ties the two strings together, so they
+   * drifted once already: #277 renamed the button to Spanish and left the
+   * header naming the old English label. Pin the coupling rather than the
+   * wording — this fails for any future rename that touches only one of them.
+   */
+  it('names the run control in the header exactly as the button announces itself', () => {
+    render(<Benchmark implementations={IMPLS} inputs={[100]} defaultInput={100} />);
+
+    const button = screen.getByRole('button', { name: /^medir$/i });
+    const label = button.textContent?.trim() ?? '';
+    expect(label).not.toBe('');
+
+    const header = screen.getByText(/implementaciones ·/);
+    expect(header.textContent).toContain(label);
   });
 });
