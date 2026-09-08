@@ -380,7 +380,7 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 			page.Stats = &computed
 		}
 	}
-	h.fillPublication(r, &page, c)
+	h.fillPublication(r, &page, c, readings)
 	page.JobBanner = h.jobBannerFor(r.Context(), c.ID)
 	page.PDFsReady = h.pdfsReadyFor(r.Context(), c.ID)
 	page.Flash = flash.Consume(w, r, h.secureCookie)

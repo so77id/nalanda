@@ -150,15 +150,17 @@
       {{ end }}
 
       {{/*
-        Issue #273. Rendered only on a graded control — CanTestSend and
-        CanPublish are both false before that, and a permanently disabled
-        button on every fresh control teaches a professor to ignore
-        disabled buttons.
+        Issue #273, reshaped by #287. Rendered only on a graded control —
+        CanTestSend and CanPublish are both false before that, and a
+        permanently disabled button on every fresh control teaches a
+        professor to ignore disabled buttons.
 
-        Publicar and the published line are mutually exclusive by
-        construction: a published control is a finished fact, and offering
-        the button beside it would invite a second mailing the route
-        refuses anyway.
+        The published line and the Publicar form render TOGETHER since
+        #287. They were mutually exclusive while publishing was one-way;
+        now pressing the button on a published control is how a professor
+        finishes a run that died half way and how they send a re-corrected
+        copy to the one person whose grade moved. Everybody already holding
+        the current correction is skipped, so it is safe to press.
       */}}
       {{ if .Graded }}
         <section style="margin-top:1em">
@@ -166,47 +168,35 @@
 
           {{ if .PublishedLine }}
             <p class="aviso">{{ .PublishedLine }}</p>
-            {{/*
-              The escape hatch (#273 review). It does not unsend anything,
-              and the warning says how many people already have their
-              correction — the one judgement a machine cannot make is
-              whether those people may receive it twice.
-            */}}
-            <details>
-              <summary>Deshacer la publicación</summary>
-              <form method="post" action="{{ .UnpublishURL }}">
-                <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-                <p>{{ .UnpublishWarning }}</p>
-                <p>
-                  Deshacerla no recupera ningún correo que ya haya salido: sólo
-                  deja el control como si no se hubiera publicado, para que
-                  puedas volver a hacerlo.
-                </p>
-                <p><button type="submit">Deshacer la publicación</button></p>
-              </form>
-            </details>
-          {{ else }}
-            <form method="post" action="{{ .PublishURL }}">
-              <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
-              <p>
-                <label>
-                  Enviar a
-                  <select name="mode">
-                    <option value="real">los estudiantes</option>
-                    <option value="staging">mi propia dirección (prueba)</option>
-                  </select>
-                </label>
-                {{ if .CanPublish }}
-                  <button type="submit">Publicar</button>
-                {{ else }}
-                  <button type="submit" disabled>Publicar</button>
-                {{ end }}
-              </p>
-              {{ if .PublishBlockedReason }}
-                <p><small>{{ .PublishBlockedReason }}</small></p>
-              {{ end }}
-            </form>
           {{ end }}
+
+          <form method="post" action="{{ .PublishURL }}">
+            <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+            <p>
+              <label>
+                Enviar a
+                <select name="mode">
+                  <option value="real">los estudiantes</option>
+                  <option value="staging">mi propia dirección (prueba)</option>
+                </select>
+              </label>
+              {{ if .CanPublish }}
+                <button type="submit">Publicar</button>
+              {{ else }}
+                <button type="submit" disabled>Publicar</button>
+              {{ end }}
+            </p>
+            <p>
+              <small>
+                Sólo se envía a quienes todavía no recibieron su corrección y a
+                quienes les cambió la nota después de recibirla. Nadie recibe
+                dos veces lo mismo.
+              </small>
+            </p>
+            {{ if .PublishBlockedReason }}
+              <p><small>{{ .PublishBlockedReason }}</small></p>
+            {{ end }}
+          </form>
 
           {{/*
             The rehearsal stays available AFTER the real publication: that

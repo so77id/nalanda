@@ -118,8 +118,19 @@ func ValidPublishMode(m PublishMode) bool {
 
 // PublishResult is what one run did.
 type PublishResult struct {
-	// Sent is how many messages the transport accepted.
+	// Sent is how many messages the transport accepted ON THIS RUN. Since
+	// issue #287 that is not the same as how many people hold their
+	// correction — a resume that writes to one copy of a class of forty
+	// reports 1 — which is why the page derives its count from the stamped
+	// readings rather than from here.
 	Sent int
+	// AlreadySent is copies this run skipped because their student already
+	// holds the current correction (issue #287). Deliberately NOT folded
+	// into Skipped: the two mean opposite things to a professor. Skipped is
+	// "nobody got this and here is why"; AlreadySent is "this one is
+	// finished", and it is what makes pressing Publicar twice a safe thing
+	// to do rather than a mistake the app has to refuse.
+	AlreadySent int
 	// Skipped is copies the publication had nothing to say about: no
 	// matched student, no defined grade, or a matched student who is no
 	// longer enrolled. NOT a failure — these are the ordinary state of a
@@ -154,16 +165,6 @@ var (
 	// ErrNoCourse is a control nobody has filed under a course, so there
 	// is no roster to address.
 	ErrNoCourse = errors.New("controls: the control belongs to no course")
-	// ErrAlreadyPublished is a second publication of the same control.
-	// Publication is one-way unless the professor explicitly unpublishes
-	// (issue #273 §Non-goals, amended by the WP's own review).
-	ErrAlreadyPublished = errors.New("controls: the control was already published")
-
-	// ErrNotPublished is an unpublish of a control that never went out.
-	// Distinct from ErrControlNotFound so a hand-typed URL against a real
-	// control says what is actually wrong.
-	ErrNotPublished = errors.New("controls: the control was never published")
-
 	// ErrCannotDeliver is a process whose transport sends nothing —
 	// NALANDA_EMAIL_MODE is `stub` or `dryrun`.
 	//
@@ -177,19 +178,38 @@ var (
 	ErrCannotDeliver = errors.New("controls: this server is not configured to send mail")
 )
 
-// Publish sends one email per deliverable copy.
+// Publish sends one email per copy that needs one, and is RESUMABLE.
 //
-// THE ORDER OF THE TWO SIDE EFFECTS IS THE CONTRACT. The control is
-// stamped published BEFORE the loop runs, not after, and the reason is
-// what a crash halfway through would otherwise mean: an unstamped control
-// with twenty students already emailed is a control the professor will
-// publish again, and the twenty receive a second copy. Stamping first
-// makes a crash cost the un-sent half — which the failure list names, and
-// which a future resend endpoint can pick up — rather than a duplicate
-// mailing nobody can recall.
+// THE ORDER OF THE SIDE EFFECTS IS THE CONTRACT, and issue #287 reversed
+// the half of it #273 wrote. Each copy is stamped IMMEDIATELY AFTER its own
+// send succeeds — never before, never in a batch at the end — because that
+// is what makes a process that dies mid-loop leave the truth behind it: the
+// copies already written to are on record, the rest are untouched, and the
+// next Publicar picks up exactly where this one stopped.
 //
-// A REHEARSAL (TestTo set) stamps nothing, and can therefore be run as
-// often as the professor likes.
+// #273 stamped the CONTROL above the loop and nothing per copy, and it was
+// right to: with no per-copy record the choice was between losing the
+// un-sent half of a crashed run and mailing half a class twice, and it took
+// the first. The per-copy stamp removes the choice, so the rule it bought
+// goes with it (ADR-0074 supersedes ADR-0072 §5).
+//
+// WHICH COPIES: the ones that have not gone out, and the ones that went out
+// with a grade that has since moved. Everything else is left alone, which is
+// why pressing Publicar twice is harmless BY CONSTRUCTION rather than by
+// refusal. CopyPublication.NeedsSending is the rule, and the copies table
+// renders the same states from the same function, so the page and the loop
+// cannot disagree about what a second press would do.
+//
+// The control's own published_at is still stamped ONCE, on the first run.
+// It answers a question no per-copy row answers — when was this class
+// published, and for real or as a rehearsal — and re-dating it on every
+// resume would move "Publicado el 8 de septiembre" forward each time a
+// professor re-sent one copy.
+//
+// A REHEARSAL (TestTo set) stamps nothing and sends EVERYTHING, whatever
+// state each copy is in: it exists to put the real batch in front of the
+// professor, and filtering it would rehearse something other than the
+// thing being rehearsed.
 //
 // One student's bounce does not stop the other thirty-nine: every send is
 // attempted, failures are collected, and the run reports what happened.
@@ -205,8 +225,6 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 		return PublishResult{}, fmt.Errorf("%w", ErrNotGraded)
 	case control.CourseID == nil:
 		return PublishResult{}, fmt.Errorf("%w", ErrNoCourse)
-	case control.PublishedAt != nil && !rehearsal:
-		return PublishResult{}, fmt.Errorf("%w", ErrAlreadyPublished)
 	case !rehearsal && !s.Dispatcher.Delivers():
 		// Checked BEFORE the stamp, so a server in stub or dryrun leaves the
 		// control exactly as it found it. A rehearsal is still allowed —
@@ -245,7 +263,10 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 		return PublishResult{}, fmt.Errorf("controls.Publish: read the corrected PDFs: %w", err)
 	}
 
-	if !rehearsal {
+	if !rehearsal && control.PublishedAt == nil {
+		// ONCE, on the first publication only. A resume finds the control
+		// already stamped and leaves the date alone.
+		//
 		// The EFFECTIVE mode, not the one the form asked for. A
 		// deployment-wide `staging` transport rewrites every recipient to
 		// the professor, so a run requested as `real` reached nobody in the
@@ -263,8 +284,26 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 
 	result := PublishResult{}
 	for _, reading := range readings {
+		publication := CopyPublicationFor(control, reading, recipients, annotated)
+		switch {
+		case publication.State == CopySkipped:
+			// Ordinary, not a failure: a class where two people missed the
+			// control is a normal class. Since #287 the professor can see
+			// WHICH copies and why, on the control page.
+			result.Skipped++
+			continue
+		case !rehearsal && !publication.NeedsSending():
+			// This student already holds the current correction. The whole
+			// resume rule, in one branch.
+			result.AlreadySent++
+			continue
+		}
+
 		message, ok := s.messageFor(control, code, sender, req, recipients, annotated, reading)
 		if !ok {
+			// Deliverable on paper, and the corrected PDF is unreadable on
+			// the volume — the one refusal CopyPublicationFor cannot see,
+			// because it does not touch the filesystem.
 			result.Skipped++
 			continue
 		}
@@ -282,45 +321,35 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 			continue
 		}
 		result.Sent++
-	}
 
-	if !rehearsal {
-		// Bookkeeping, AFTER the loop and best-effort. The stamp above is
-		// the load-bearing write and its ordering is the contract; this
-		// number only makes the unpublish confirmation honest ("nobody
-		// received anything" versus "38 people already have this"). A crash
-		// between the two leaves it NULL, which the page words as "no se
-		// sabe cuántos llegaron" — the truthful answer, and the reason the
-		// column is nullable rather than defaulted to zero.
-		if err := s.Store.RecordPublishedSent(ctx, controlID, result.Sent); err != nil {
-			s.Log.Warn("controls.Publish: could not record how many were sent",
-				"control", controlID, "sent", result.Sent, "error", err)
+		if rehearsal {
+			// A rehearsal records nothing: it can be run as often as the
+			// professor likes, and stamping would make the second one skip
+			// the class it exists to show them.
+			continue
+		}
+		// IMMEDIATELY after this copy's own send, with the grade that
+		// actually went out. Everything the resume knows, it knows from
+		// here.
+		if err := s.Readings.MarkCopyPublished(ctx, reading.ID, s.Now(), publication.Grade); err != nil {
+			// Logged and not returned: the message is already in the
+			// student's mailbox and the other thirty-nine still have to go.
+			// The cost of the lost stamp is one duplicate on the next run,
+			// which is the smaller of the two failures — and the copy
+			// NUMBER never the address (docs/security-notes.md §"Logs and
+			// personal data").
+			s.Log.Error("controls.Publish: could not record that the copy was sent",
+				"control", controlID, "copy", reading.CopyNumber, "error", err)
 		}
 	}
-	return result, nil
-}
 
-// Unpublish clears the publication so the control can be published again.
-//
-// The escape hatch the review asked for, and the reason it is a hatch
-// rather than a rule: "do not stamp when nothing was delivered" only
-// reaches one of the three failure shapes, because under a staging run
-// every send genuinely succeeds. What covers all three is letting the
-// professor undo a publication — and putting the one judgement a machine
-// cannot make in front of the person who can, which is whether the people
-// who already received their correction may receive it twice.
-//
-// It does NOT unsend anything, and the page that offers it says so, using
-// the count this records to say how many are affected.
-func (s *Service) Unpublish(ctx context.Context, controlID string) error {
-	control, err := s.Store.ControlByID(ctx, controlID)
-	if err != nil {
-		return err
-	}
-	if control.PublishedAt == nil {
-		return fmt.Errorf("%w", ErrNotPublished)
-	}
-	return s.Store.ClearPublished(ctx, controlID)
+	// NOTHING is written back after the loop. #273 recorded result.Sent
+	// into control.published_sent here; since #287 that number is "how
+	// many went out on THIS run", which a resume makes smaller than the
+	// class, and the count a page wants is the stamped readings. The
+	// column and its writer go in the slice that removes the last of its
+	// readers.
+	return result, nil
 }
 
 // messageFor assembles one copy's message, or reports that there is

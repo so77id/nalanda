@@ -239,6 +239,12 @@ func NewPublishHandler(svc *Service) jobs.Handler {
 }
 
 // publishSummary is the one line the banner renders.
+//
+// It names what this RUN did, which since issue #287 is not the same as
+// what the class holds: a resume that writes to one copy of forty says so,
+// and the control page's "N/M enviadas" is where the whole picture lives.
+// Saying "se enviaron 1 correcciones" after a resume without that context
+// would read as a failure rather than as the finished job it is.
 func publishSummary(r PublishResult) string {
 	return fmt.Sprintf("se enviaron %d correcciones y %d fallaron",
 		r.Sent, len(r.Failures))
@@ -282,12 +288,6 @@ func failureFromPublishError(err error) error {
 			Message: "este servidor no está configurado para enviar correo",
 			Detail: "NALANDA_EMAIL_MODE no está en `real`, así que no se envió nada y el " +
 				"control quedó sin publicar.",
-		}
-	case errors.Is(err, ErrAlreadyPublished):
-		return &jobs.Failure{
-			Message: "este control ya fue publicado",
-			Detail: "Si hace falta volver a enviarlo, deshaz la publicación desde la página " +
-				"del control: ahí verás cuántos correos llegaron a salir antes de decidir.",
 		}
 	default:
 		return &jobs.Failure{

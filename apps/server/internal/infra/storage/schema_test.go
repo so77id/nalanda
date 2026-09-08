@@ -1429,45 +1429,6 @@ func TestTheJobKindRebuildPreservesTheRowsAndTheConstraints(t *testing.T) {
 	}
 }
 
-// Issue #273 review: how many messages a publication actually delivered.
-//
-// NULL is not zero, and that is the whole reason the column is nullable.
-// NULL means "the count was never written" — a control published before
-// this column existed, or a run that died between the stamp and the
-// bookkeeping write — and the unpublish confirmation words it as "no se
-// sabe cuántos llegaron". Defaulting it to 0 would assert that nobody
-// received a correction that forty people may be holding, which is the
-// exact claim this column exists to stop anybody making.
-func TestPublishedSentIsNullableAndDistinguishesZeroFromUnknown(t *testing.T) {
-	ctx, db := migrated(t)
-	userID := insertProfessor(t, ctx, db, "profesora@example.com")
-	id := insertControlRow(t, ctx, db, "CTRLSENT00000000000000001", userID, nil)
-
-	var sent sql.NullInt64
-	if err := db.QueryRowContext(ctx,
-		"SELECT published_sent FROM control WHERE id = ?", id).Scan(&sent); err != nil {
-		t.Fatalf("reading published_sent back: %v", err)
-	}
-	if sent.Valid {
-		t.Errorf("a control that was never published reads published_sent=%d, want NULL", sent.Int64)
-	}
-
-	// Zero is a real, storable answer that means something different from
-	// NULL: the publication ran and delivered nothing.
-	if _, err := db.ExecContext(ctx,
-		"UPDATE control SET published_at = 1, publication_mode = 'real', published_sent = 0 WHERE id = ?",
-		id); err != nil {
-		t.Fatalf("stamping a publication that delivered nothing: %v", err)
-	}
-	if err := db.QueryRowContext(ctx,
-		"SELECT published_sent FROM control WHERE id = ?", id).Scan(&sent); err != nil {
-		t.Fatalf("re-reading published_sent: %v", err)
-	}
-	if !sent.Valid || sent.Int64 != 0 {
-		t.Errorf("published_sent = %v, want a stored 0 distinguishable from NULL", sent)
-	}
-}
-
 // Issue #287: publication is recorded per COPY, so the reading carries when
 // its own message went out and which grade it carried.
 //
@@ -1512,5 +1473,144 @@ func TestReadingPublicationColumnsAreNullableAndRoundTrip(t *testing.T) {
 	if publishedAt.Int64 != 1757260800 || publishedGrade.String != "5.7" {
 		t.Errorf("round-tripped published_at=%v grade=%v, want 1757260800 and \"5.7\"",
 			publishedAt, publishedGrade)
+	}
+}
+
+// Issue #287: `control.published_sent` is DERIVABLE from the stamped
+// readings, so it goes — a stored copy of a derivable number is a second
+// place for it to disagree.
+//
+// The case runs over a database that already holds a published control with
+// every child row hanging off it, because dropping a column from `control`
+// is the operation in this schema with the widest blast radius: it is the
+// PARENT of control_pregunta, copia, reading, annotated_copy and job, all
+// ON DELETE CASCADE, and foreign keys are enforced (storage.Open sets
+// `foreign_keys(1)`). A migration that reached the same end state by
+// dropping and recreating the table would take every one of those rows with
+// it, and the row count is the only thing that says so.
+func TestDroppingPublishedSentKeepsTheControlItsChildrenAndItsCascades(t *testing.T) {
+	ctx := context.Background()
+	path := filepath.Join(t.TempDir(), "nalanda.db")
+
+	db, err := storage.Open(ctx, path)
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	if _, err := storage.Migrate(ctx, db, migrationsUpTo(t, "00020")); err != nil {
+		t.Fatalf("applying the set as it shipped before this WP: %v", err)
+	}
+
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	controlID := insertControlRow(t, ctx, db, "CTRLDROPSENT000000000001", userID, nil)
+	if _, err := db.ExecContext(ctx, `
+        UPDATE control SET published_at = 1757260800, publication_mode = 'real',
+                           published_sent = 23, application_date = 1757260800
+        WHERE id = ?`, controlID,
+	); err != nil {
+		t.Fatalf("publishing the pre-migration control: %v", err)
+	}
+	insertReadingRow(t, ctx, db, controlID, 1, nil)
+	insertJobRow(t, ctx, db, controlID, "publish")
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO copia (control_id, numero) VALUES (?, 1)", controlID); err != nil {
+		t.Fatalf("inserting the copia: %v", err)
+	}
+	if _, err := db.ExecContext(ctx,
+		"INSERT INTO control_pregunta (control_id, pregunta_ref, orden) VALUES (?, 'flujo/if', 0)",
+		controlID); err != nil {
+		t.Fatalf("inserting the pool entry: %v", err)
+	}
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO annotated_copy (control_id, copy_number, generated_at, path)
+        VALUES (?, 1, 0, 'anotado/1.pdf')`, controlID); err != nil {
+		t.Fatalf("inserting the annotated record: %v", err)
+	}
+	_ = db.Close()
+
+	reopened, err := storage.Open(ctx, path)
+	if err != nil {
+		t.Fatalf("reopening: %v", err)
+	}
+	defer func() { _ = reopened.Close() }()
+
+	applied, err := storage.Migrate(ctx, reopened, migrations.FS)
+	if err != nil {
+		t.Fatalf("dropping the column over a database holding a published control: %v", err)
+	}
+	// Non-vacuity, the same guard the job rebuild carries: every assertion
+	// below passes trivially over an already-migrated database, so without
+	// this the case goes green on the day the migration is missing.
+	if applied == 0 {
+		t.Fatal("the shipped set applied nothing over the pre-WP database, " +
+			"so nothing below is about this migration")
+	}
+
+	if _, err := reopened.ExecContext(ctx, "SELECT published_sent FROM control"); err == nil {
+		t.Error("control.published_sent still resolves; the count must come from the stamped readings")
+	}
+
+	// The control itself, unchanged. A rebuild that copied the columns
+	// positionally, or that lost the publication pair, reads back here.
+	var (
+		name, state, mode string
+		publishedAt       int64
+	)
+	if err := reopened.QueryRowContext(ctx,
+		"SELECT name, state, published_at, publication_mode FROM control WHERE id = ?", controlID,
+	).Scan(&name, &state, &publishedAt, &mode); err != nil {
+		t.Fatalf("the control did not survive: %v", err)
+	}
+	if name != "Control 1" || state != "generated" || publishedAt != 1757260800 || mode != "real" {
+		t.Errorf("the control reads back as %q/%q/%d/%q, want it carried across verbatim",
+			name, state, publishedAt, mode)
+	}
+
+	// Every child of the control. This is the assertion the whole case
+	// exists for: they are what a DROP TABLE would have cascaded away.
+	for _, child := range []struct {
+		table string
+		want  int
+	}{
+		{"reading", 1},
+		{"job", 1},
+		{"copia", 1},
+		{"control_pregunta", 1},
+		{"annotated_copy", 1},
+	} {
+		var n int
+		if err := reopened.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM "+child.table+" WHERE control_id = ?", controlID).Scan(&n); err != nil {
+			t.Fatalf("counting %s: %v", child.table, err)
+		}
+		if n != child.want {
+			t.Errorf("%d rows left in %s, want %d — the control's children were cascaded away",
+				n, child.table, child.want)
+		}
+	}
+
+	// Both indexes on `control`. They go with the table if it is replaced,
+	// and a migration that forgot to recreate one leaves every row intact
+	// and every list query slow — which no row count notices.
+	for _, index := range []string{"idx_control_by_application_date", "idx_control_deleted_at"} {
+		var name string
+		if err := reopened.QueryRowContext(ctx,
+			"SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?", index,
+		).Scan(&name); err != nil {
+			t.Errorf("%s is gone after the migration: %v", index, err)
+		}
+	}
+
+	// And the cascades still fire in the direction they always did.
+	if _, err := reopened.ExecContext(ctx, "DELETE FROM control WHERE id = ?", controlID); err != nil {
+		t.Fatalf("deleting the control: %v", err)
+	}
+	for _, table := range []string{"reading", "job", "copia", "control_pregunta", "annotated_copy"} {
+		var n int
+		if err := reopened.QueryRowContext(ctx, "SELECT COUNT(*) FROM "+table).Scan(&n); err != nil {
+			t.Fatalf("counting %s after the delete: %v", table, err)
+		}
+		if n != 0 {
+			t.Errorf("%d rows survived their control in %s, want the cascade to have removed them", n, table)
+		}
 	}
 }

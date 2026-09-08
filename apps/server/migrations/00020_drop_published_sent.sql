@@ -1,0 +1,66 @@
+-- Issue #287: `control.published_sent` goes.
+--
+-- 00018 stored how many messages a publication delivered because nothing
+-- else could answer it. Since 00019 the stamped readings answer it exactly,
+-- and a stored copy of a derivable number is a second place for it to
+-- disagree — the shape #251 names for grades and #271's review removed from
+-- the course list. It could disagree in both directions: a run that died
+-- before the bookkeeping write left NULL over a class that had been mailed,
+-- and it could not move at all when one copy was re-sent afterwards.
+--
+-- `control.published_at` and `publication_mode` STAY. They answer "when was
+-- this class published, and for real or as a rehearsal", which no per-copy
+-- row answers: a copy knows when its own message went out, not whether the
+-- run it belonged to was addressed at the class or at the professor.
+--
+-- Its own migration rather than a third statement in 00019, because the
+-- readers were still standing when 00019 landed and a migration that
+-- removes a column the shipped binary still SELECTs is a boot that works
+-- and a page that 500s.
+--
+-- Numbered 00020, after 00019_publication_per_copy.sql. Numbers are never
+-- reused, even deleted ones — the scar is written out in 00002_auth.sql.
+
+-- +goose Up
+
+-- WHY `ALTER TABLE … DROP COLUMN` AND NOT A TABLE REBUILD.
+--
+-- The WP's design said rebuild, on 00017's `job.kind` precedent. It is the
+-- wrong precedent, and the difference is the one `backend-code-style.md`
+-- §"Extending a CHECK enum" names in its third bullet: `job` is a CHILD
+-- table, so dropping it fires no cascade onto anything. `control` is the
+-- PARENT of five tables — control_pregunta, copia, reading, annotated_copy
+-- and job — every one of them ON DELETE CASCADE, and `storage.Open` sets
+-- `foreign_keys(1)`. A `DROP TABLE control` under enforced foreign keys
+-- performs the implicit DELETE first: every pool entry, every copy, every
+-- reading, every annotated PDF record and every job of every control, gone,
+-- in the statement whose purpose was to remove one unused integer. The
+-- rebuild recipe's usual answer (`PRAGMA foreign_keys=OFF` around it) is
+-- unavailable here, because that pragma is a no-op inside a transaction and
+-- goose applies a migration inside one.
+--
+-- SQLite has supported dropping a column since 3.35 and modernc.org/sqlite
+-- v1.56 is well past it. The restrictions are on the COLUMN, and
+-- published_sent trips none of them: it is nullable, unindexed, in no
+-- PRIMARY KEY, UNIQUE, CHECK, partial index or generated column, and named
+-- by no view or trigger. Nothing else about the table moves, which is why
+-- the rows, both indexes and all five cascades come through untouched —
+-- asserted rather than assumed by
+-- TestDroppingPublishedSentKeepsTheControlItsChildrenAndItsCascades, which
+-- puts a published control with one row in each of the five child tables in
+-- front of the migration precisely so a rebuild that got this wrong would
+-- fail loudly instead of migrating cleanly over an empty database.
+ALTER TABLE control DROP COLUMN published_sent;
+
+-- +goose Down
+
+-- Documentation of the inverse, never executed: ADR-0034 §Consequences
+-- records that rolling a binary back over an applied migration is not
+-- supported (backend-code-style.md §Adding a migration, rule 2).
+--
+-- Re-adding the column restores it and not its values: the counts are not
+-- recoverable from anywhere, and every row would read NULL — which the
+-- pre-#287 code already words as "no se registró cuántos correos llegaron
+-- a salir", so a rolled-back binary would tell the truth rather than a
+-- smaller number.
+ALTER TABLE control ADD COLUMN published_sent INTEGER;

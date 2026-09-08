@@ -168,15 +168,17 @@ func deliverableCopy(c Control, r Reading, recipients map[int64]Recipient, annot
 	if !enrolled || recipient.Email == "" {
 		return Recipient{}, "", SkipNoStudent, false
 	}
-	// NumericGrade, not a second computation: it is the numeric back door
-	// of TotalAndGrade and both share one rawTotal, which is what makes the
-	// email, the readings table and this state unable to disagree (#251).
-	total, ok := NumericGrade(c.QuestionsPerCopy, r)
+	// GradeFor, which is the SAME function the readings table renders
+	// through — not a second spelling of it. ok=false is a copy whose grade
+	// is genuinely unknown: doubtful answers nobody resolved, an unreadable
+	// RUT, a copy never handed in. Mailing "tu nota es —" would be worse
+	// than mailing nothing.
+	grade, ok := GradeFor(c.QuestionsPerCopy, r)
 	if !ok {
 		return Recipient{}, "", SkipNoGrade, false
 	}
 	if _, exists := annotated[r.CopyNumber]; !exists {
 		return Recipient{}, "", SkipNoAnnotated, false
 	}
-	return recipient, FormatGrade(total, c.QuestionsPerCopy), "", true
+	return recipient, grade, "", true
 }

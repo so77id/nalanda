@@ -199,29 +199,6 @@ func (s *fakeStore) MarkPublished(_ context.Context, id string, at time.Time, mo
 	return controls.ErrControlNotFound
 }
 
-func (s *fakeStore) RecordPublishedSent(_ context.Context, id string, sent int) error {
-	for i := range s.controls {
-		if s.controls[i].ID == id && s.controls[i].PublishedAt != nil {
-			n := sent
-			s.controls[i].PublishedSent = &n
-			return nil
-		}
-	}
-	return nil
-}
-
-func (s *fakeStore) ClearPublished(_ context.Context, id string) error {
-	for i := range s.controls {
-		if s.controls[i].ID == id && s.controls[i].PublishedAt != nil {
-			s.controls[i].PublishedAt = nil
-			s.controls[i].PublicationMode = ""
-			s.controls[i].PublishedSent = nil
-			return nil
-		}
-	}
-	return controls.ErrNotPublished
-}
-
 func (s *fakeStore) PurgeControl(_ context.Context, id string) error {
 	for i := range s.controls {
 		if s.controls[i].ID == id && s.controls[i].DeletedAt != nil {

@@ -158,17 +158,23 @@ func TestEachRefusalGetsItsOwnBannerMessage(t *testing.T) {
 
 // A second publication of the same control, reached through the runner
 // rather than through the route.
-func TestARepublishThroughTheRunnerIsReportedNotRetried(t *testing.T) {
+// A second run through the RUNNER is a clean `done`, not a failure banner
+// (issue #287).
+//
+// It used to report "este control ya fue publicado" and point the professor
+// at an undo. That message was the visible end of the dead end this WP came
+// out of: a partial run could not be finished from the page that showed it.
+// Now the second run finds every copy already holding its correction, sends
+// nothing, and says so by succeeding.
+func TestASecondRunThroughTheRunnerIsHarmlessAndSaysSoBySucceeding(t *testing.T) {
 	rig := newPublishRig(t)
 	payload := controls.PublishPayload{ProfessorID: 7, Mode: string(controls.PublishModeReal)}
 
 	if err := runPublishJob(t, rig.svc, rig.controlID, payload); err != nil {
 		t.Fatalf("the first run: %v", err)
 	}
-	failure := failureFrom(t, runPublishJob(t, rig.svc, rig.controlID, payload))
-	if !strings.Contains(failure.Message, "publicado") {
-		t.Errorf("the banner says %q, want it to say the control was already published",
-			failure.Message)
+	if err := runPublishJob(t, rig.svc, rig.controlID, payload); err != nil {
+		t.Fatalf("the second run returned %v, want it to be harmless", err)
 	}
 	if len(rig.dispatcher.sent) != 3 {
 		t.Errorf("%d messages went out across two runs, want 3", len(rig.dispatcher.sent))
@@ -230,44 +236,15 @@ func TestARehearsalIsAllowedWhenTheTransportDeliversNothing(t *testing.T) {
 // The escape hatch, at the domain. Publication was one-way with no
 // exceptions, so any run that stamped without delivering left the class
 // permanently unreachable through the app.
-func TestUnpublishClearsAllThreeColumnsAndAllowsAnotherPublication(t *testing.T) {
-	rig := newPublishRig(t)
-	req := controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal}
-
-	if _, err := rig.svc.Publish(context.Background(), rig.controlID, req); err != nil {
-		t.Fatalf("Publish: %v", err)
-	}
-	if err := rig.svc.Unpublish(context.Background(), rig.controlID); err != nil {
-		t.Fatalf("Unpublish: %v", err)
-	}
-
-	control, _ := rig.store.ControlByID(context.Background(), rig.controlID)
-	switch {
-	case control.PublishedAt != nil:
-		t.Error("published_at survived the unpublish")
-	case control.PublicationMode != "":
-		t.Error("publication_mode survived, describing a publication that no longer exists")
-	case control.PublishedSent != nil:
-		t.Error("published_sent survived, describing a delivery that no longer exists")
-	}
-
-	if _, err := rig.svc.Publish(context.Background(), rig.controlID, req); err != nil {
-		t.Errorf("the control could not be published again: %v", err)
-	}
-}
-
-func TestUnpublishRefusesAControlThatWasNeverPublished(t *testing.T) {
-	rig := newPublishRig(t)
-
-	if err := rig.svc.Unpublish(context.Background(), rig.controlID); !errors.Is(err, controls.ErrNotPublished) {
-		t.Fatalf("Unpublish returned %v, want ErrNotPublished", err)
-	}
-}
-
-// The count that makes the unpublish confirmation honest. It is written
-// AFTER the loop, so it records what actually went out rather than what was
-// attempted.
-func TestThePublicationRecordsHowManyItActuallyDelivered(t *testing.T) {
+// How many people hold their correction is DERIVED from the stamped
+// readings (issue #287), which is why control.published_sent went away.
+//
+// The column was written once after the loop and could disagree with
+// reality in both directions: a run that died before the bookkeeping write
+// left NULL over a class that had been mailed, and it could not move at all
+// when one copy was re-sent afterwards. Counting the stamps cannot be wrong
+// — and this case is what says the stamps are actually there to count.
+func TestOnlyTheCopiesThatWentOutAreStamped(t *testing.T) {
 	rig := newPublishRig(t)
 	rig.dispatcher.failOn["bruno@udp.cl"] = controls.ErrSendRefused
 
@@ -276,12 +253,17 @@ func TestThePublicationRecordsHowManyItActuallyDelivered(t *testing.T) {
 		t.Fatalf("Publish: %v", err)
 	}
 
-	control, _ := rig.store.ControlByID(context.Background(), rig.controlID)
-	if control.PublishedSent == nil {
-		t.Fatal("the publication recorded no count, so the unpublish page cannot tell the truth")
+	stamped := 0
+	for _, reading := range rig.readings.readings {
+		if reading.PublishedAt != nil {
+			stamped++
+		}
 	}
-	if *control.PublishedSent != 2 {
-		t.Errorf("recorded %d delivered, want the 2 that actually went out", *control.PublishedSent)
+	if stamped != 2 {
+		t.Errorf("%d copies are stamped, want the 2 that actually went out", stamped)
+	}
+	if rig.readings.readings[1].PublishedAt != nil {
+		t.Error("the copy whose send was refused is stamped; the next run would skip it")
 	}
 }
 

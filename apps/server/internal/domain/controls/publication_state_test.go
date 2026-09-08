@@ -197,3 +197,47 @@ func TestASentCopyThatStoppedBeingDeliverableIsStillReportedSent(t *testing.T) {
 		t.Errorf("SentGrade = %q, want the grade that went out", got.SentGrade)
 	}
 }
+
+// THE REGRESSION (issue #287, found while writing the resume cases).
+//
+// Service.Publish built its message with FormatGrade(NumericGrade(…)),
+// composing two functions that are not composable: NumericGrade already
+// returns the 1,0–7,0 grade and FormatGrade maps a RAW TOTAL onto that
+// scale, so the second re-scaled the first's answer and clamped everything
+// above ~28% to 7,0. A copy with 1 of 2 correct read 4,0 in the readings
+// table and was EMAILED 7,0. It shipped in #273 and went out to a real
+// class on 2026-09-08.
+//
+// The assertion is against TotalAndGrade rather than against a literal,
+// because the claim is not "the grade is 4,0" — it is that the professor's
+// table and the student's email cannot disagree, which is what #251's rule
+// says and what the comment on rawTotal already claimed.
+func TestTheGradeAMessageCarriesIsTheOneTheReadingsTableShows(t *testing.T) {
+	control, recipients, annotated := stateRig()
+
+	for _, correct := range []struct {
+		name  string
+		score float64
+	}{
+		{"nothing right", 0},
+		{"half right", 1},
+		{"everything right", 2},
+	} {
+		t.Run(correct.name, func(t *testing.T) {
+			reading := gradedReading()
+			reading.Answers[0].Score = 0
+			reading.Answers[1].Score = 0
+			for i := 0; i < int(correct.score); i++ {
+				reading.Answers[i].Score = 1
+			}
+
+			_, onTheTable := controls.TotalAndGrade(control.QuestionsPerCopy, reading)
+			got := controls.CopyPublicationFor(control, reading, recipients, annotated)
+
+			if got.Grade != onTheTable {
+				t.Errorf("the message would carry %q while the readings table shows %q",
+					got.Grade, onTheTable)
+			}
+		})
+	}
+}

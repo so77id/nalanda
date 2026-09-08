@@ -594,25 +594,13 @@ type ControlDetailPage struct {
 	// what the template needs to render one iteration.
 	JobBanner *JobBanner
 
-	// The publication section (issue #273). Exactly one of PublishedLine
-	// and the two forms renders: a published control is a finished fact,
-	// and offering "Publicar" beside it would invite a second mailing the
-	// route refuses anyway.
-	//
-	// PublishURL and TestSendURL are always populated, so the template
-	// picks by flag rather than guessing.
+	// The publication section (issue #273, reshaped by #287). PublishedLine
+	// and the Publicar form now render TOGETHER: since publishing is
+	// resumable, pressing the button on a published control is how a
+	// professor finishes a partial run or sends a re-corrected copy, and
+	// every student already holding the current correction is skipped.
 	PublishURL  string
 	TestSendURL string
-	// UnpublishURL is the POST target of the escape hatch, set only on a
-	// published control (issue #273 review). PublishedLine gates the whole
-	// block, so `Published` was dropped: two fields for one fact are two
-	// fields a future caller can set inconsistently.
-	UnpublishURL string
-	// UnpublishWarning is what the professor weighs before undoing — how
-	// many people already have their correction, and therefore how many
-	// would get it twice. Three different sentences for none, one, several
-	// and unknown.
-	UnpublishWarning string
 	// PublishedLine is the Spanish sentence a published control shows —
 	// when it happened and in which mode. Pre-formatted, like every other
 	// string this struct hands the template.
@@ -621,7 +609,8 @@ type ControlDetailPage struct {
 	// PublishBlockedReason beside it, the shape CanClose /
 	// CloseBlockedReason already have one section up: a button that is
 	// present-but-disabled and says why is what turns "nothing happens
-	// when I click" into an instruction.
+	// when I click" into an instruction. Since #287 "ya fue publicado" is
+	// no longer one of the reasons.
 	CanPublish           bool
 	PublishBlockedReason string
 	// CanTestSend is looser than CanPublish on purpose — a rehearsal stays

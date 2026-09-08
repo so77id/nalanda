@@ -110,10 +110,15 @@ func TestPublishRefusesAModeThatIsNotOneOfTheTwo(t *testing.T) {
 	}
 }
 
-// 409, not 422: the request is well-formed and the professor is allowed to
-// make it. The resource is already in the state they asked for, and
-// publication is one-way in v1.
-func TestASecondPublishAnswers409(t *testing.T) {
+// AC5: pressing Publicar a second time is ACCEPTED, and sends nobody a
+// second copy (issue #287).
+//
+// It used to answer 409 and tell the professor to undo the publication
+// first. That refusal is the dead end this WP came out of: a run that died
+// half way could not be finished, and a re-corrected copy could not be
+// re-sent to the one person whose grade moved. With a per-copy record the
+// second press is harmless by construction, so there is nothing to refuse.
+func TestASecondPublishIsAcceptedRatherThanRefused(t *testing.T) {
 	f := newControlsFixture(t)
 	controlID := gradedControl(t, f)
 
@@ -123,8 +128,8 @@ func TestASecondPublishAnswers409(t *testing.T) {
 	f.waitLatestJobTerminal(t, controlID)
 
 	rec := f.publish(t, controlID, url.Values{"mode": {"real"}})
-	if rec.Code != http.StatusConflict {
-		t.Errorf("status = %d, want 409\n%s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusSeeOther {
+		t.Errorf("status = %d, want 303\n%s", rec.Code, rec.Body.String())
 	}
 }
 
@@ -381,9 +386,15 @@ func TestPublicarIsDisabledWithAReasonWhenNoAccountIsConnected(t *testing.T) {
 	}
 }
 
-// A published control shows what happened INSTEAD of the button. Offering
-// both would invite a second mailing the route refuses anyway.
-func TestAPublishedControlShowsWhatHappenedInsteadOfTheButton(t *testing.T) {
+// A published control says what happened AND keeps the button (issue
+// #287).
+//
+// The two were mutually exclusive while publishing was one-way. Now the
+// button is how a professor finishes a partial run or re-sends a
+// re-corrected copy, and removing it would leave them exactly where #273
+// left Miguel: looking at a page that says a class was published and
+// offering no way to write to the two people it missed.
+func TestAPublishedControlShowsWhatHappenedAndKeepsTheButton(t *testing.T) {
 	f := newControlsFixture(t)
 	controlID := gradedControl(t, f)
 
@@ -396,15 +407,15 @@ func TestAPublishedControlShowsWhatHappenedInsteadOfTheButton(t *testing.T) {
 	if !strings.Contains(body, "Publicado el") {
 		t.Errorf("the page does not say the control was published:\n%s", body)
 	}
-	if strings.Contains(body, `action="/controls/`+controlID+`/publish"`) {
-		t.Error("the publish form is still on the page after the control was published")
+	if !strings.Contains(body, `action="/controls/`+controlID+`/publish"`) {
+		t.Error("the publish form disappeared once the control was published; a partial run " +
+			"can then never be finished")
 	}
 	// The line reads the COUNT, not just the mode. This fixture's copy is
 	// matched to nobody, so the publication delivered nothing — and the
 	// first version of this page told the professor "las correcciones se
 	// enviaron a los estudiantes" permanently, with the zero sitting on the
-	// same row (#273 review, NEW-3). The job banner said so once; this is
-	// what they see every time afterwards.
+	// same row (#273 review, NEW-3).
 	if !strings.Contains(body, "no salió ningún correo") {
 		t.Errorf("the published line claims delivery over a publication that delivered "+
 			"nothing:\n%s", body)
@@ -413,14 +424,17 @@ func TestAPublishedControlShowsWhatHappenedInsteadOfTheButton(t *testing.T) {
 		t.Error("the page says the students were written to over zero deliveries")
 	}
 
-	// And with a real count it says the number, so the fix above cannot
-	// have been "always say nothing arrived".
+	// And the count comes from the STAMPED READINGS, not from a column
+	// somebody wrote once (issue #287). Stamping the copy is what a real
+	// send does; the line must follow it.
 	if _, err := f.db.ExecContext(context.Background(),
-		"UPDATE control SET published_sent = 38 WHERE id = ?", controlID); err != nil {
-		t.Fatalf("setting the count: %v", err)
+		"UPDATE reading SET published_at = 1757264400, published_grade = '5.7' "+
+			"WHERE control_id = ? AND copy_number = 1",
+		controlID); err != nil {
+		t.Fatalf("stamping the copy: %v", err)
 	}
-	if body = f.detailBody(t, controlID); !strings.Contains(body, "salieron 38 correos") {
-		t.Errorf("the published line does not say how many went out:\n%s", body)
+	if body = f.detailBody(t, controlID); !strings.Contains(body, "salió 1 correo") {
+		t.Errorf("the published line does not count the stamped copies:\n%s", body)
 	}
 }
 
@@ -487,113 +501,14 @@ func TestATestSendStillWorksWhenThisServerCannotDeliver(t *testing.T) {
 // The escape hatch. Publication was one-way with no exceptions, so any run
 // that stamped without delivering left the class permanently unreachable
 // through the app.
-func TestUnpublishLetsAControlBePublishedAgain(t *testing.T) {
-	f := newControlsFixture(t)
-	controlID := gradedControl(t, f)
-
-	if rec := f.publish(t, controlID, url.Values{"mode": {"real"}}); rec.Code != http.StatusSeeOther {
-		t.Fatalf("publish: %d", rec.Code)
-	}
-	f.waitLatestJobTerminal(t, controlID)
-
-	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/unpublish", url.Values{})
-	req.SetPathValue("id", controlID)
-	rec := httptest.NewRecorder()
-	f.handler.Unpublish(rec, req)
-	if rec.Code != http.StatusSeeOther {
-		t.Fatalf("unpublish status = %d, want 303\n%s", rec.Code, rec.Body.String())
-	}
-
-	control, err := f.service.Get(context.Background(), controlID)
-	if err != nil {
-		t.Fatalf("Get: %v", err)
-	}
-	if control.PublishedAt != nil || control.PublicationMode != "" || control.PublishedSent != nil {
-		t.Errorf("the publication survived the unpublish: %+v", control)
-	}
-
-	// And the whole point: it can be published again.
-	if rec := f.publish(t, controlID, url.Values{"mode": {"real"}}); rec.Code != http.StatusSeeOther {
-		t.Errorf("republish status = %d, want 303\n%s", rec.Code, rec.Body.String())
-	}
-}
-
-func TestUnpublishRefusesAControlThatWasNeverPublished(t *testing.T) {
-	f := newControlsFixture(t)
-	controlID := gradedControl(t, f)
-
-	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/unpublish", url.Values{})
-	req.SetPathValue("id", controlID)
-	rec := httptest.NewRecorder()
-	f.handler.Unpublish(rec, req)
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Errorf("status = %d, want 422", rec.Code)
-	}
-}
-
-// The number that makes the confirmation honest. Telling a professor nobody
-// received a correction that forty people are holding is the mistake
-// published_sent exists to prevent, so the three states get three sentences.
-func TestTheUnpublishWarningSaysHowManyAlreadyReceivedIt(t *testing.T) {
-	f := newControlsFixture(t)
-	controlID := gradedControl(t, f)
-
-	if rec := f.publish(t, controlID, url.Values{"mode": {"real"}}); rec.Code != http.StatusSeeOther {
-		t.Fatalf("publish: %d", rec.Code)
-	}
-	f.waitLatestJobTerminal(t, controlID)
-
-	// This fixture's single copy is matched to nobody, so the publication
-	// delivered NOTHING — which is the branch that matters most here, and
-	// the one the professor most needs to be told about: republishing is
-	// free, because nobody has anything yet.
-	body := f.detailBody(t, controlID)
-	if !strings.Contains(body, "Deshacer la publicación") {
-		t.Fatalf("the page offers no way to undo the publication:\n%s", body)
-	}
-	if !strings.Contains(body, "sin que nadie") {
-		t.Errorf("a publication that delivered nothing does not say republishing is free:\n%s", body)
-	}
-	if !strings.Contains(body, "no recupera") {
-		t.Error("the confirmation does not say that undoing recovers no mail")
-	}
-
-	// And the other branch, driven from the count itself: telling a
-	// professor nobody received a correction that thirty-eight people are
-	// holding is the mistake published_sent exists to prevent.
-	if _, err := f.db.ExecContext(context.Background(),
-		"UPDATE control SET published_sent = 38 WHERE id = ?", controlID); err != nil {
-		t.Fatalf("setting the count: %v", err)
-	}
-	body = f.detailBody(t, controlID)
-	if !strings.Contains(body, "Ya salieron 38 correos") {
-		t.Errorf("the warning does not say how many already went out:\n%s", body)
-	}
-	if !strings.Contains(body, "por segunda vez") {
-		t.Errorf("the warning does not say those people would receive it again:\n%s", body)
-	}
-	if strings.Contains(body, "sin que nadie") {
-		t.Error("the page still claims republishing is free after 38 people received it")
-	}
-
-	// And the unknown case, which is neither: a control published before
-	// the count existed, or one whose run died between the stamp and the
-	// bookkeeping write.
-	if _, err := f.db.ExecContext(context.Background(),
-		"UPDATE control SET published_sent = NULL WHERE id = ?", controlID); err != nil {
-		t.Fatalf("clearing the count: %v", err)
-	}
-	if body = f.detailBody(t, controlID); !strings.Contains(body, "No se registró") {
-		t.Errorf("an unknown count is reported as if it were zero:\n%s", body)
-	}
-}
-
-// The branch that inverted the decision (#273 review, NEW-2). A staging
-// publication delivers to the PROFESSOR, so `published_sent` counts
-// messages that reached nobody in the class — and reading the count alone
-// told the professor those people would get a second copy when none had
-// received a first.
-func TestTheUnpublishWarningKnowsAStagingRunReachedNoStudent(t *testing.T) {
+// A staging run reached only the professor, and the published line must
+// not credit it with reaching the class (#273 review, NEW-2).
+//
+// The count cannot tell the two apart — under `staging` every send genuinely
+// succeeds, so the copies are stamped exactly as a real run stamps them —
+// which is why the mode is read FIRST and the number never reaches this
+// sentence.
+func TestThePublishedLineDoesNotCreditAStagingRunWithReachingTheClass(t *testing.T) {
 	f := newControlsFixture(t)
 	controlID := gradedControl(t, f)
 
@@ -602,23 +517,20 @@ func TestTheUnpublishWarningKnowsAStagingRunReachedNoStudent(t *testing.T) {
 	}
 	f.waitLatestJobTerminal(t, controlID)
 
-	// A count that would otherwise trigger the "they will get it twice"
-	// wording, so the case cannot pass merely because nothing was sent.
+	// A stamped copy, so the case cannot pass merely because nothing was
+	// sent: the wording must come from the MODE and not from the count.
 	if _, err := f.db.ExecContext(context.Background(),
-		"UPDATE control SET published_sent = 38 WHERE id = ?", controlID); err != nil {
-		t.Fatalf("setting the count: %v", err)
+		"UPDATE reading SET published_at = 1757264400, published_grade = '5.7' "+
+			"WHERE control_id = ? AND copy_number = 1",
+		controlID); err != nil {
+		t.Fatalf("stamping the copy: %v", err)
 	}
 
 	body := f.detailBody(t, controlID)
-	if strings.Contains(body, "por segunda vez") {
-		t.Errorf("the warning says students would receive a second copy after a run that "+
-			"reached only the professor:\n%s", body)
+	if !strings.Contains(body, "no a los estudiantes") {
+		t.Errorf("the published line does not say a staging run reached no student:\n%s", body)
 	}
-	if !strings.Contains(body, "ningún estudiante recibió nada") {
-		t.Errorf("the warning does not say a staging run reached no student:\n%s", body)
-	}
-	// And the published line agrees with it rather than claiming delivery.
-	if strings.Contains(body, "salieron 38 correos a los estudiantes") {
+	if strings.Contains(body, "correos a los estudiantes") {
 		t.Error("the published line credits a staging run with reaching the class")
 	}
 }

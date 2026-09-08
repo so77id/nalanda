@@ -49,6 +49,10 @@ func (f fakeSenders) SenderFor(context.Context, int64) (controls.Sender, error) 
 
 type capturingDispatcher struct {
 	sent []controls.Message
+	// refused holds the messages failOn turned away, so onSend can number
+	// the attempts rather than the successes — a case that watches the
+	// world at the second SEND must count the second attempt.
+	refused []controls.Message
 	// failOn maps a recipient to the error its send returns, so a case can
 	// break one copy of a batch and watch the others land.
 	failOn map[string]error
@@ -64,6 +68,11 @@ type capturingDispatcher struct {
 	// MarkPublished below the loop left the previous version of that case
 	// green.
 	onFirstSend func()
+	// onSend runs before EVERY message is accepted, numbered from 1, for
+	// the same reason onFirstSend exists one contract down: the per-copy
+	// stamp of issue #287 happens between two sends, so the only instant
+	// it is observable is while the loop is between them.
+	onSend func(n int)
 }
 
 // delivers defaults to TRUE via the zero value being inverted: a case that
@@ -80,7 +89,11 @@ func (d *capturingDispatcher) Send(_ context.Context, _ int64, msg controls.Mess
 		d.onFirstSend()
 		d.onFirstSend = nil
 	}
+	if d.onSend != nil {
+		d.onSend(len(d.sent) + len(d.refused) + 1)
+	}
 	if err, bad := d.failOn[msg.To]; bad {
+		d.refused = append(d.refused, msg)
 		return "", err
 	}
 	d.sent = append(d.sent, msg)
@@ -174,6 +187,11 @@ func newPublishRig(t *testing.T) *publishRig {
 	for copyNumber := 1; copyNumber <= 3; copyNumber++ {
 		studentID := int64(copyNumber * 10)
 		readings.readings = append(readings.readings, controls.Reading{
+			// A distinct id per copy: MarkCopyPublished addresses one
+			// reading, and three rows sharing the zero id would let a
+			// stamp meant for copy 3 land on copy 1 with every count
+			// still correct (issue #287).
+			ID:        int64(copyNumber),
 			ControlID: publishControlID, CopyNumber: copyNumber,
 			StudentID: &studentID, RUTStatus: controls.RUTStatusOK,
 			CopyStatus: controls.CopyStatusOK,
@@ -314,19 +332,214 @@ func TestARehearsalHasNotStampedTheControlWhenItSends(t *testing.T) {
 	}
 }
 
-func TestPublishRefusesASecondPublication(t *testing.T) {
+// THE ORDERING CONTRACT OF ISSUE #287, measured where it is observable.
+//
+// #273 stamped the CONTROL before the loop and nothing per copy, which
+// bought "nobody is mailed twice" at the price of "nobody knows who was
+// mailed at all". With a per-copy stamp the trade disappears — but only if
+// each copy is stamped IMMEDIATELY after its own send, so that a process
+// that dies between two sends leaves the truth behind it.
+//
+// A test that only checks the end state cannot fail: the loop never returns
+// early, so stamping everything afterwards ends in the same place. The
+// dispatcher is therefore asked what the world looks like at the SECOND
+// send — by which time copy 1 must already be stamped.
+func TestEachCopyIsStampedBeforeTheNextMessageGoesOut(t *testing.T) {
+	rig := newPublishRig(t)
+
+	var firstStampedAtSecondSend bool
+	var observed bool
+	rig.dispatcher.onSend = func(n int) {
+		if n != 2 {
+			return
+		}
+		observed = true
+		firstStampedAtSecondSend = rig.readings.readings[0].PublishedAt != nil
+	}
+
+	if _, err := rig.svc.Publish(context.Background(), rig.controlID,
+		controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal}); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	if !observed {
+		t.Fatal("a second message never went out, so the ordering was never observed")
+	}
+	if !firstStampedAtSecondSend {
+		t.Error("copy 1 was still unstamped when copy 2's message went out; a process that " +
+			"died between the two would leave no record that copy 1 had been written to")
+	}
+}
+
+// AC4: a publication that died mid-loop resumes from where it stopped.
+//
+// The world is set up as a crashed run left it — two copies stamped with
+// the grade that went out, one untouched — and the next Publicar must write
+// to exactly the third. This is the whole point of the WP: before it, the
+// only recovery was to unpublish and mail the entire class again, so
+// everybody who already had their correction got a second copy.
+func TestAPublicationResumesTheCopiesThatDidNotGoOut(t *testing.T) {
+	rig := newPublishRig(t)
+
+	crashedAt := time.Unix(1_757_260_000, 0).UTC()
+	for i := range 2 {
+		rig.readings.readings[i].PublishedAt = &crashedAt
+		rig.readings.readings[i].PublishedGrade = "7.0"
+	}
+	// The control was stamped before the loop, exactly as the crashed run
+	// left it: a resume must not read that as "already done".
+	if err := rig.store.MarkPublished(context.Background(), rig.controlID,
+		crashedAt, string(controls.PublishModeReal)); err != nil {
+		t.Fatalf("stamping the control as the crashed run left it: %v", err)
+	}
+
+	result, err := rig.svc.Publish(context.Background(), rig.controlID,
+		controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal})
+	if err != nil {
+		t.Fatalf("the resume: %v", err)
+	}
+	if result.Sent != 1 {
+		t.Errorf("the resume sent %d messages, want exactly the one copy that did not go out", result.Sent)
+	}
+	if result.AlreadySent != 2 {
+		t.Errorf("AlreadySent = %d, want the two copies the crashed run had written to", result.AlreadySent)
+	}
+	if len(rig.dispatcher.sent) != 1 || rig.dispatcher.sent[0].To != "carla@udp.cl" {
+		t.Fatalf("the resume wrote to %+v, want carla@udp.cl alone", rig.dispatcher.sent)
+	}
+}
+
+// AC5 at the domain level: pressing Publicar twice sends nobody a second
+// copy, and does not refuse.
+//
+// ErrAlreadyPublished existed only because there was no per-copy record.
+// With one, a second publication is harmless BY CONSTRUCTION rather than by
+// refusal — which is what lets the professor press the button after a
+// partial run without having to reason about it first.
+func TestASecondPublicationSendsNobodyASecondCopy(t *testing.T) {
 	rig := newPublishRig(t)
 	req := controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal}
 
 	if _, err := rig.svc.Publish(context.Background(), rig.controlID, req); err != nil {
 		t.Fatalf("the first Publish: %v", err)
 	}
-	_, err := rig.svc.Publish(context.Background(), rig.controlID, req)
-	if !errors.Is(err, controls.ErrAlreadyPublished) {
-		t.Fatalf("the second Publish returned %v, want ErrAlreadyPublished", err)
+	result, err := rig.svc.Publish(context.Background(), rig.controlID, req)
+	if err != nil {
+		t.Fatalf("the second Publish returned %v, want it to be harmless", err)
+	}
+	if result.Sent != 0 || result.AlreadySent != 3 {
+		t.Errorf("the second run reports Sent=%d AlreadySent=%d, want 0 and 3",
+			result.Sent, result.AlreadySent)
 	}
 	if len(rig.dispatcher.sent) != 3 {
 		t.Errorf("%d messages went out across two publications, want 3", len(rig.dispatcher.sent))
+	}
+}
+
+// AC6 and AC7 together, because each is only meaningful beside the other: a
+// re-corrected copy is re-sent with its new grade, and every copy nobody
+// touched is left alone. Either assertion alone passes over an
+// implementation that mails the whole class again.
+func TestOnlyTheCopyWhoseGradeMovedIsReSent(t *testing.T) {
+	rig := newPublishRig(t)
+	req := controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal}
+
+	if _, err := rig.svc.Publish(context.Background(), rig.controlID, req); err != nil {
+		t.Fatalf("the first Publish: %v", err)
+	}
+	rig.dispatcher.sent = nil
+
+	// The professor re-corrects Bruno's copy: one answer he was marked
+	// wrong on is now right — which is what moves a 4.0 to a 7.0.
+	bruno := &rig.readings.readings[1]
+	bruno.Answers[0].Score = 0
+	bruno.PublishedGrade = "7.0" // what he was actually mailed
+
+	result, err := rig.svc.Publish(context.Background(), rig.controlID, req)
+	if err != nil {
+		t.Fatalf("the re-publication: %v", err)
+	}
+	if result.Sent != 1 || result.AlreadySent != 2 {
+		t.Fatalf("result = %+v, want exactly the re-corrected copy sent", result)
+	}
+	if len(rig.dispatcher.sent) != 1 || rig.dispatcher.sent[0].To != "bruno@udp.cl" {
+		t.Fatalf("the re-publication wrote to %+v, want bruno@udp.cl alone", rig.dispatcher.sent)
+	}
+	// And it carried the NEW grade, which is the reason to re-send at all.
+	if bruno.PublishedGrade != "4.0" {
+		t.Errorf("the re-sent copy is stamped %q, want the grade that just went out", bruno.PublishedGrade)
+	}
+}
+
+// A copy whose send FAILED is not stamped, so the next Publicar picks it up
+// (issue #287 §Problem 2).
+//
+// Before this, the banner named the copy numbers that failed and that was
+// the end of the system's help: publishing was one-shot and the rehearsal
+// mailed the whole batch to one address.
+func TestAFailedCopyIsNotStampedAndTheNextRunPicksItUp(t *testing.T) {
+	rig := newPublishRig(t)
+	req := controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal}
+	rig.dispatcher.failOn["bruno@udp.cl"] = controls.ErrSendUnavailable
+
+	first, err := rig.svc.Publish(context.Background(), rig.controlID, req)
+	if err != nil {
+		t.Fatalf("the first Publish: %v", err)
+	}
+	if first.Sent != 2 || len(first.Failures) != 1 {
+		t.Fatalf("first result = %+v, want two sent and one failure", first)
+	}
+	if rig.readings.readings[1].PublishedAt != nil {
+		t.Fatal("a copy whose send was refused was stamped anyway; the next run would skip it")
+	}
+
+	delete(rig.dispatcher.failOn, "bruno@udp.cl")
+	rig.dispatcher.sent = nil
+
+	second, err := rig.svc.Publish(context.Background(), rig.controlID, req)
+	if err != nil {
+		t.Fatalf("the retry: %v", err)
+	}
+	if second.Sent != 1 || len(rig.dispatcher.sent) != 1 || rig.dispatcher.sent[0].To != "bruno@udp.cl" {
+		t.Errorf("the retry sent %+v, want bruno@udp.cl alone", rig.dispatcher.sent)
+	}
+}
+
+// The control keeps ONE publication timestamp, stamped on the first run.
+//
+// It answers a question no per-copy row answers — when was this class
+// published, and for real or as a rehearsal — so a resume must not re-date
+// it. Re-stamping would move "Publicado el 8 de septiembre" forward every
+// time a professor re-sent one copy.
+func TestAResumeDoesNotReDateTheControlsPublication(t *testing.T) {
+	rig := newPublishRig(t)
+	req := controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal}
+	rig.dispatcher.failOn["carla@udp.cl"] = controls.ErrSendUnavailable
+
+	if _, err := rig.svc.Publish(context.Background(), rig.controlID, req); err != nil {
+		t.Fatalf("the first Publish: %v", err)
+	}
+	control, err := rig.store.ControlByID(context.Background(), rig.controlID)
+	if err != nil {
+		t.Fatalf("ControlByID: %v", err)
+	}
+	if control.PublishedAt == nil {
+		t.Fatal("the first publication did not stamp the control")
+	}
+	first := *control.PublishedAt
+
+	delete(rig.dispatcher.failOn, "carla@udp.cl")
+	rig.svc.Now = func() time.Time { return first.Add(2 * time.Hour) }
+	if _, err := rig.svc.Publish(context.Background(), rig.controlID, req); err != nil {
+		t.Fatalf("the resume: %v", err)
+	}
+
+	control, err = rig.store.ControlByID(context.Background(), rig.controlID)
+	if err != nil {
+		t.Fatalf("ControlByID after the resume: %v", err)
+	}
+	if !control.PublishedAt.Equal(first) {
+		t.Errorf("the resume re-dated the publication to %v, want it left at %v",
+			control.PublishedAt, first)
 	}
 }
 
