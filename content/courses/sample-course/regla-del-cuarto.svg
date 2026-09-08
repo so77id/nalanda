@@ -1,48 +1,60 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 330" width="620" height="330" role="img" aria-label="Dos barras que representan la capacidad de un arreglo, con las fronteras que disparan un redimensionamiento y el punto donde queda el largo justo después de uno. En la regla mala, achicar se dispara en la mitad y el largo cae exactamente ahí tras duplicar, así que la operación siguiente vuelve a redimensionar. En la regla del cuarto, achicar se dispara en el cuarto y el largo cae en la mitad, a media capacidad de la frontera de crecer y a un cuarto de la de achicar.">
-  <title>La regla del cuarto contra el thrashing</title>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 620 352" width="620" height="352" role="img" aria-label="Dos barras de capacidad comparadas. En la regla mala, achicar se dispara en la mitad y el largo, despues de duplicar, queda exactamente sobre esa frontera: cero borrados de margen, asi que una eliminacion copia N elementos y la insercion siguiente vuelve a copiarlos. En la regla del cuarto, achicar se dispara en el cuarto y el largo queda en la mitad, con un cuarto de la capacidad de margen para borrar y la mitad para insertar.">
+  <title>Por que la frontera de achicar va en el cuarto y no en la mitad</title>
   <style>
     .panel { fill: #fdfbf9; stroke: #8e817c; stroke-width: 1; }
-    .barra { fill: #ffffff; stroke: #493d37; stroke-width: 1.4; }
-    .franja { fill: #eaf6ea; stroke: none; }
-    .marca { stroke: #b3261e; stroke-width: 2.2; }
-    .marca-ok { stroke: #2f8a2f; stroke-width: 2.2; }
-    .aguja { fill: #2b221d; }
-    .t { fill: #493d37; font-family: system-ui, sans-serif; font-size: 12.5px; }
-    .tc { fill: #493d37; font-family: system-ui, sans-serif; font-size: 12px; text-anchor: middle; }
-    .tcb { fill: #2b221d; font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-anchor: middle; }
-    .paso { fill: #2b221d; font-family: system-ui, sans-serif; font-size: 13.5px; font-weight: 600; }
-    .mal { fill: #8a1c16; font-family: system-ui, sans-serif; font-size: 12.5px; font-weight: 600; }
-    .bien { fill: #1f6b1f; font-family: system-ui, sans-serif; font-size: 12.5px; font-weight: 600; }
+    .barra { fill: none; stroke: #493d37; stroke-width: 1.4; }
+    .lleno { fill: #eef4fb; }
+    .tick  { stroke: #8e817c; stroke-width: 1; }
+    .mala  { stroke: #b3261e; stroke-width: 2.4; }
+    .buena { stroke: #2f8a2f; stroke-width: 2.4; }
+    .medida { fill: none; stroke: #493d37; stroke-width: 1.2; }
+    .tope   { fill: none; stroke: #493d37; stroke-width: 1.6; }
+    .t   { fill: #493d37; font-family: system-ui, sans-serif; font-size: 12px; }
+    .tc  { fill: #493d37; font-family: system-ui, sans-serif; font-size: 12px; text-anchor: middle; }
+    .tr  { fill: #493d37; font-family: system-ui, sans-serif; font-size: 12px; text-anchor: end; }
+    .dentro { fill: #2b221d; font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-anchor: middle; }
+    .h   { fill: #2b221d; font-family: system-ui, sans-serif; font-size: 13.5px; font-weight: 600; }
+    .mal { fill: #8a1c16; font-family: system-ui, sans-serif; font-size: 12px; font-weight: 600; text-anchor: middle; }
+    .sep { stroke: #ded5d0; stroke-width: 1; }
   </style>
-
-  <rect x="0.5" y="0.5" width="619" height="329" rx="8" class="panel"/>
-
-  <text x="24" y="28" class="paso">✗ Achicar cuando el arreglo queda medio vacío</text>
-  <text x="24" y="46" class="mal">tras duplicar, el largo cae justo sobre la frontera de achicar</text>
-
-  <rect x="150" y="70" width="400" height="30" class="barra"/>
-  <line x1="350" y1="62" x2="350" y2="108" class="marca"/>
-  <line x1="550" y1="62" x2="550" y2="108" class="marca"/>
-  <text x="350" y="58" class="tc">achicar · capacidad/2</text>
-  <text x="550" y="58" class="tc">crecer · lleno</text>
-  <path d="M 357 118 L 351 106 L 363 106 z" class="aguja"/>
-  <text x="392" y="130" class="tcb">el largo queda aquí tras duplicar</text>
-  <text x="24" y="90" class="t">capacidad</text>
-
-  <text x="24" y="158" class="t">Una eliminación cruza la frontera de achicar y la inserción siguiente vuelve a cruzar</text>
-  <text x="24" y="176" class="t">la de crecer: cada una copia N elementos y el costo amortizado se pierde.</text>
-
-  <text x="24" y="212" class="paso">✓ Achicar cuando el largo baja al cuarto</text>
-  <text x="24" y="230" class="bien">el largo cae en la mitad: media capacidad hasta crecer, un cuarto hasta achicar</text>
-
-  <rect x="250" y="255" width="300" height="30" class="franja"/>
-  <rect x="150" y="255" width="400" height="30" fill="none" stroke="#493d37" stroke-width="1.4"/>
-  <line x1="250" y1="247" x2="250" y2="293" class="marca-ok"/>
-  <line x1="550" y1="247" x2="550" y2="293" class="marca-ok"/>
-  <text x="250" y="243" class="tc">achicar · capacidad/4</text>
-  <text x="550" y="243" class="tc">crecer · lleno</text>
-  <text x="400" y="274" class="tc">no se redimensiona nada</text>
-  <path d="M 350 303 L 344 291 L 356 291 z" class="aguja"/>
-  <text x="350" y="318" class="tcb">el largo queda aquí tras redimensionar</text>
-  <text x="24" y="275" class="t">capacidad</text>
+  <rect x="0.5" y="0.5" width="619" height="351" rx="8" class="panel"/>
+  <text x="24" y="28" class="h">✗ achicar cuando queda medio vacío</text>
+  <rect x="120" y="76" width="220" height="30" class="lleno"/>
+  <rect x="120" y="76" width="440" height="30" class="barra"/>
+  <line x1="230" y1="99" x2="230" y2="106" class="tick"/>
+  <line x1="340" y1="99" x2="340" y2="106" class="tick"/>
+  <line x1="450" y1="99" x2="450" y2="106" class="tick"/>
+  <text x="132" y="96" class="dentro" style="text-anchor:start">largo = C/2</text>
+  <line x1="340" y1="70" x2="340" y2="112" class="mala"/>
+  <text x="340" y="62" class="tc">achicar · C/2</text>
+  <line x1="560" y1="70" x2="560" y2="112" class="mala"/>
+  <text x="560" y="62" class="tr">crecer · lleno</text>
+  <text x="24" y="96" class="t">capacidad C</text>
+  <path d="M 340 146 L 560 146" class="medida"/>
+  <path d="M 340 142 L 340 150" class="tope"/>
+  <path d="M 560 142 L 560 150" class="tope"/>
+  <text x="450" y="164" class="tc">C/2 inserciones hasta crecer</text>
+  <text x="340" y="136" class="mal">margen 0 para borrar</text>
+  <text x="310" y="180" class="mal">el largo cae justo encima de la frontera: una eliminación ya copia N, y la inserción siguiente otra vez</text>
+  <line x1="24" y1="200" x2="596" y2="200" class="sep"/>
+  <text x="24" y="226" class="h">✓ achicar cuando el largo baja al cuarto</text>
+  <rect x="120" y="258" width="220" height="30" class="lleno"/>
+  <rect x="120" y="258" width="440" height="30" class="barra"/>
+  <line x1="230" y1="281" x2="230" y2="288" class="tick"/>
+  <line x1="340" y1="281" x2="340" y2="288" class="tick"/>
+  <line x1="450" y1="281" x2="450" y2="288" class="tick"/>
+  <text x="132" y="278" class="dentro" style="text-anchor:start">largo = C/2</text>
+  <line x1="230" y1="252" x2="230" y2="294" class="buena"/>
+  <text x="230" y="244" class="tc">achicar · C/4</text>
+  <line x1="560" y1="252" x2="560" y2="294" class="buena"/>
+  <text x="560" y="244" class="tr">crecer · lleno</text>
+  <text x="24" y="278" class="t">capacidad C</text>
+  <path d="M 230 316 L 340 316" class="medida"/>
+  <path d="M 230 312 L 230 320" class="tope"/>
+  <path d="M 340 312 L 340 320" class="tope"/>
+  <text x="285" y="334" class="tc">C/4 borrados</text>
+  <path d="M 340 316 L 560 316" class="medida"/>
+  <path d="M 340 312 L 340 320" class="tope"/>
+  <path d="M 560 312 L 560 320" class="tope"/>
+  <text x="450" y="334" class="tc">C/2 inserciones</text>
 </svg>

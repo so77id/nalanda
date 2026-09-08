@@ -30,18 +30,21 @@ arc and its worked cases are chapters 15 and 16.
 ## Worked example
 
 `content/courses/sample-course/17-edd-introduccion.mdx` — *Estructuras de
-Datos · Introducción*. It establishes the vocabulary, formalises the array,
-evolves it into the dynamic array, and closes on the Sequence contract. Four
-acts, 27 authored slides plus four act dividers, seven static SVG figures,
-zero new widgets. (Counts re-derived with
-`grep -c '^<Slide title=' 17-edd-introduccion.mdx` and
-`grep -c '<PresentationWide' …` — an earlier draft of this guide carried
-hand-written numbers that went stale the moment slides were split.)
+Datos · Introducción*. It establishes the vocabulary, introduces the Sequence
+TDA, formalises the array as its first implementation, and evolves that into
+the dynamic array. Three acts, 38 authored slides plus two act dividers and
+the cover, seven static SVG figures, ten `<StepShow>` steppers, zero new
+widgets and — deliberately — no runnable `<CodeEditor>`: every snippet in the
+class is short enough to read, and a run button on one of them would have
+implied the others were worth running too. (Counts re-derived with `grep -c '^<Slide title=' …`,
+`grep -c '<StepShow' …` and the slide counter on the built deck — an earlier
+draft of this guide carried hand-written numbers that went stale the moment
+slides were split.)
 
 Its seven figures sit beside it in the same directory
-(`tda-eda-invariante.svg`, `arreglo-memoria.svg`, `arreglo-invariantes.svg`,
-`arreglo-corrimiento.svg`, `arreglo-duplicacion.svg`, `regla-del-cuarto.svg`,
-`un-tda-dos-edas.svg`), per the asset rule in
+(`tda-eda-invariante.svg`, `arreglo-memoria.svg`, `arreglo-alocacion.svg`,
+`arreglo-invariante-valido.svg`, `arreglo-invariantes.svg`,
+`regla-del-cuarto.svg`, `costo-acumulado.svg`), per the asset rule in
 [`add-a-course-document.md`](add-a-course-document.md) §6.
 
 ## Step-by-step
@@ -67,8 +70,21 @@ does not.
 | 4 | Las limitaciones y la bisagra — qué NO resuelve, y qué estructura lo resuelve |
 
 The chapter that opens the unit deviates and says so: #277 spends act 1 on the
-vocabulary itself, and runs its idea/invariantes/costos/limitaciones cycle
-twice — once for the fixed array, once for the dynamic one.
+vocabulary itself, act 2 on the Sequence TDA and the array that implements it,
+act 3 on the dynamic array — running the idea/invariantes/costos/limitaciones
+cycle twice, once per array.
+
+**It also cut its own act 4.** An earlier draft closed with a recap act ("un
+contrato para los dos arreglos") that restated the TDA, put the two cost
+tables side by side and named the trade. Every one of those was already on the
+page: the contract in act 2, each table at the end of its own act. Only the
+trade survived, as the last slide of act 3. Prefer that: a recap act is the
+default place for a class to repeat itself.
+
+**The first act's `h2` carries no `<SectionBreak />`, on purpose.** A divider
+slide between the cover and the opening slide is a beat with nothing in it —
+the reader has not been given anything to be divided from yet. Breaks start at
+the second act.
 
 **The `<SectionBreak />` before an act heading is deliberate and it is a
 decision, not decoration.** In `explicit` mode a break opens a group and the
@@ -84,24 +100,48 @@ stays book-only.
 
 ### 2. Define a TDA in one shape
 
-A TDA is introduced as a **contract**, always in this order:
+**Vocabulary note — "colección".** The course uses it as the general umbrella
+word ("a group of elements stored together"), which is the theory's sense and
+the one five earlier chapters already use — chapter 8 writes "las colecciones —
+`List`, `Map`, `Set`". Java also has `java.util.Collection`, a narrower thing:
+`List`, `Set` and `Queue` extend it and **`Map` does not**. The two senses do
+not clash for Sequence, so #277 deliberately adds no caveat. **They do clash
+for a map**, so the class that introduces the Map/diccionario TDA owes the
+distinction one sentence — otherwise a student who bound the word to Java's
+interface will trip on "un mapa es una colección". Same family as the
+`interface` overload that #277 had to untangle in its own Act 1.
 
-1. One sentence saying what the collection IS, and what orders its elements.
-2. A ` ```java ` fence with an `interface`, one operation per line. Each
-   operation whose meaning is not obvious from its name carries a comment
-   giving that meaning — trailing where it fits, above the line where it does
-   not — and **never its cost**. Shortcuts the prose defines immediately below
-   may stay bare: #277 leaves the four `*First`/`*Last` uncommented for exactly
-   that reason.
-3. One paragraph on what the contract deliberately does **not** say (memory
-   layout, capacity, growth), because that is what makes many implementations
-   possible.
+A TDA is introduced as a **contract**, on one slide, in a card the unit reuses
+for every TDA it defines. The card is language-independent on purpose — Java's
+names for the same contract get their own slide afterwards.
+
+1. Above the card, one sentence saying what the collection IS, and what orders
+   its elements.
+2. The card itself: a header naming the TDA, then one group per **mould** —
+   `CREAR`, `CONSULTAR`, `MODIFICAR` — each group a two-column grid of
+   signature and meaning. The moulds come from MIT 6.005/6.031
+   (creators/observers/mutators); the signature-plus-meaning layout from the
+   API tables in Sedgewick & Wayne. Shortcuts the prose defines immediately
+   below may share a row: #277 pairs `insertFirst`/`deleteFirst`.
+3. A closing `LO QUE NO DICE` block, on the sunk background, naming what the
+   contract deliberately leaves open (memory layout, capacity, cost). That is
+   what makes many implementations possible, and it belongs inside the card
+   rather than in prose after it — it is part of the contract.
+
+**Build the card with inline `style` and palette tokens, never Tailwind
+classes**: Tailwind does not scan `content/`, so a class used only in an
+`.mdx` is never generated (`add-a-course-document.md` §6). Colour the group
+labels — `--color-ink-faint` for CREAR, `--color-keep` for CONSULTAR,
+`--color-accent` for MODIFICAR — so the reader recognises the same three
+moulds in the next class. Avoid `--color-accent-soft`: the `accent-` prefix
+trips the colour guard in `apps/web/src/architecture.test.ts`.
 
 Costs never appear in the contract. They belong to an implementation, and
 putting them here is the single mistake that collapses the TDA/EDA distinction
 the unit is built on.
 
-Worked case: #277, slide *El TDA Sequence · el contrato*.
+Worked case: #277, slide *El TDA Sequence*, with *El contrato en Java · List*
+right after it mapping every operation to its `java.util.List` name.
 
 ### 3. Declare invariants as a numbered list
 
@@ -126,8 +166,17 @@ Two rules:
   expensive invariant is also the one its figure illustrates. Naming it is what
   makes the cost table of the next act readable instead of memorised.
 
-Worked case: #277, slide *Los invariantes del arreglo* — three invariants, and
+Worked case: #277, slide *Las invariantes del arreglo* — three invariants, and
 a closing paragraph naming contiguity as both the cheap and the expensive one.
+
+**A structure derived from another declares only what it adds.** #277's
+dynamic array re-uses all three array invariants verbatim and adds exactly one
+(`data.length ≤ 4 × size`). Say that the old ones are untouched, then give the
+new one alone. Listing the inherited ones again reads as if they had changed —
+and worse, invites restating an old invariant as if it were new, which is the
+error the #277 draft made with `size ≤ data.length`. When a *rule* changes but
+its invariant does not, say exactly that: the static array kept
+`size ≤ data.length` by refusing, the dynamic one keeps it by growing.
 
 ### 4. Give every operation a cost AND an invariant
 
@@ -160,27 +209,46 @@ full review pipeline, because it measured slide scale and not legibility
 
 If a table makes its slide shrink too far, cut columns or split the slide.
 
-**There is no colour coding in these tables, and that is a constraint rather
-than a choice.** An MDX markdown table has no per-cell styling hook, and a raw
-colour class fails `apps/web/src/architecture.test.ts` (ADR-0026, #109). The
-second signal is the invariant column, which carries more than a colour could.
+**A row CAN be colour-coded, and one row usually should be.** An earlier
+version of this guide claimed the opposite; it was wrong. A markdown table
+cell accepts inline JSX, so wrapping its content in a `<span style={{ color:
+'var(--color-keep)', fontWeight: 700 }}>` highlights the row that the reader
+should leave with — in #277's dynamic-array table, the one where the amortised
+cost differs from the worst case. This passes the colour guard in
+`apps/web/src/architecture.test.ts`, which matches Tailwind-shaped class names
+and not CSS custom properties.
+
+One gotcha: inline code sets its own colour, so a `<span>` wrapped around
+`` `insertLast(x)` `` does nothing. Write those cells as
+`<code style={{ color: 'var(--color-keep)' }}>insertLast(x)</code>` — the
+element still picks up the prose monospace styling.
+
+Colour is a second signal, never the only one. The invariant column carries
+more than a colour could, and it stays.
 
 ### 5. Close on a loose end, not a summary
 
-The last slide of the last act is a **cabo suelto**: a concrete question the
-class has just made askable and deliberately does not answer. Its shape:
+The last slide of the last act poses a concrete question the class has just
+made askable and deliberately does not answer. Its shape:
 
 1. Name the weakness the structure actually has, in cost terms.
 2. Name the invariant that causes it.
 3. Ask what happens if that invariant is given up.
 4. State the trade the answer makes — what gets cheaper AND what gets more
    expensive.
-5. Name the structure that makes it, and say it is the next class.
+5. Name the structure that makes that trade.
 
-A promise ("veremos listas") is not a cabo suelto; the reader has to be able
-to guess the answer's shape before reading it. Worked case: #277, slide *El
-cabo suelto* — contiguity costs $$\Theta(N)$$ at the front, giving it up makes
-`insertFirst` $$\Theta(1)$$ and `getAt` no longer $$\Theta(1)$$.
+A promise ("veremos listas") does not qualify; the reader has to be able to
+guess the answer's shape before reading it. Worked case: #277, slide *El
+precio de la memoria consecutiva* — contiguity costs $$\Theta(N)$$ at the
+front, giving it up makes `insertFirst` $$\Theta(1)$$ and `getAt` no longer
+$$\Theta(1)$$.
+
+**Title the slide after the trade, not after the device.** #277's draft called
+it *El cabo suelto*, which names the authoring technique and tells the reader
+nothing; the shipped title names the cause. And do not end it with "es la
+clase que viene" — announcing the next class is `## Lo que sigue`'s job, and
+the slide is stronger closing on the trade itself.
 
 **No forward wiki-link when the target does not exist yet.** A `[[id]]` with no
 document renders visibly broken (`add-a-course-document.md` §7). Name the next
@@ -245,7 +313,7 @@ reusing `<CodeEditor>` and `<Benchmark>`.
 - [ ] Wide tables left as bare markdown inside the `<Slide>`, never wrapped in
       `<PresentationWide>` (it strips their styling), and **looked at** on the
       slide rather than measured.
-- [ ] The class closes on a cabo suelto with a named trade, not a promise, and
+- [ ] The class closes on a named trade, not a promise, and
       no forward wiki-link to a document that does not exist.
 - [ ] Every figure has an opaque panel, all text on it, a second signal beside
       colour, and was rendered over `#f8f2ef` and `#0d1117` and looked at.

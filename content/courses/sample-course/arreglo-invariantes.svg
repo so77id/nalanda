@@ -48,15 +48,15 @@
   <text x="516" y="124" class="idx">9</text>
 
   <path d="M 60 40 L 60 30 L 540 30 L 540 40" class="llave"/>
-  <text x="300" y="22" class="lbl">capacidad = datos.length = 10</text>
+  <text x="300" y="22" class="lbl">capacidad = data.length = 10</text>
 
   <path d="M 60 142 L 60 152 L 348 152 L 348 142" class="llave"/>
   <text x="204" y="170" class="lbl">size = 6 · elementos válidos</text>
-  <text x="204" y="188" class="t">datos[0..size-1], juntos y desde la posición 0</text>
+  <text x="204" y="188" class="t">data[0..size-1], juntos y desde la posición 0</text>
 
   <path d="M 348 142 L 348 152 L 540 152 L 540 142" class="llave"/>
   <text x="444" y="170" class="lbl">basura</text>
   <text x="444" y="188" class="t">reservada, nunca se lee</text>
 
-  <text x="300" y="216" class="t">0 ≤ size ≤ datos.length · las casillas con borde punteado no pertenecen al contenedor</text>
+  <text x="300" y="216" class="t">0 ≤ size ≤ data.length · las casillas con borde punteado no pertenecen al contenedor</text>
 </svg>

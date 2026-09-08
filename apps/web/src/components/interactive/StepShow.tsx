@@ -88,9 +88,11 @@ export function StepShow({
   useEffect(() => setLiveSpeed(speed), [speed]);
 
   // In presentation the widget breaks out of the Slide's prose max-width
-  // and takes 75 % of the viewport — same rationale as `<SortStepper>` with
-  // no tree: enough for code + panel side-by-side, but not the visual bloat
-  // of an empty third of screen. Book mode leaves it alone. The measurement
+  // and takes 50 % of the viewport. It stacks code over panel rather than
+  // sitting them side-by-side (unlike `<SortStepper>`, which needs the extra
+  // width for its tree), so half a 1440px screen already gives the code pane
+  // more columns than the snippets use, and the leftover width only pushed
+  // the surrounding prose apart. Book mode leaves it alone. The measurement
   // dance is shared with `<SortStepper>` (`useViewportBreakout`).
   const mode = useMode();
   const isPresentation = mode === 'presentation';
@@ -102,7 +104,7 @@ export function StepShow({
   const outerRef = useRef<HTMLDivElement | null>(null);
   useViewportBreakout(outerRef, {
     enabled: isPresentation,
-    fraction: 0.75,
+    fraction: 0.5,
   });
   const [isVisible, setIsVisible] = useState(true);
   useEffect(() => {
