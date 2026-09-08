@@ -750,13 +750,417 @@ vez, en lugar de pedirle posiciones.
 
 ## Los ejercicios canónicos
 
-{/* S8 — invertir, Floyd, el medio en una pasada, fusionar ordenadas, y el */}
-{/* cabo suelto hacia Stack, Queue y Deque. */}
+<Slide title="Invertir la lista · dar vuelta cada enlace">
+Invertir una lista no mueve datos: da vuelta el sentido de cada enlace. El
+recorrido necesita tres referencias al mismo tiempo.
+
+```java
+Nodo invertir(Nodo head) {
+    Nodo previo = null;
+    Nodo actual = head;
+    while (actual != null) {
+        Nodo siguiente = actual.next;
+        actual.next = previo;
+        previo = actual;
+        actual = siguiente;
+    }
+    return previo;
+}
+```
+
+`siguiente` es la que hace posible el resto: en cuanto `actual.next` cambia,
+el acceso al resto de la cadena se pierde, así que hay que guardarlo antes.
+
+Una pasada, $$\Theta(N)$$ tiempo y $$\Theta(1)$$ espacio adicional. Al
+terminar, `actual` es `null` y `previo` es la nueva cabeza.
+
+</Slide>
+
+<Slide title="Invertir con recursión">
+La misma operación admite una escritura recursiva, sobre la idea de que
+invertir una lista es invertir su cola y después enganchar la cabeza al
+final.
+
+```java
+Nodo invertir(Nodo head) {
+    if (head == null || head.next == null) {
+        return head;
+    }
+    Nodo nuevaCabeza = invertir(head.next);
+    head.next.next = head;
+    head.next = null;
+    return nuevaCabeza;
+}
+```
+
+El caso base son las listas de cero y de un nodo, que ya están invertidas.
+La línea `head.next.next = head` es el paso: el que era el siguiente pasa a
+apuntar de vuelta.
+
+El tiempo sigue siendo $$\Theta(N)$$, pero el espacio ya no es constante: hay
+$$N$$ llamadas anidadas en la pila antes de que la primera termine, así que
+el espacio adicional es $$\Theta(N)$$. El análisis de ese costo está en
+[[complejidad-recursion|Complejidad y recursión]].
+
+</Slide>
+
+<Slide title="Detectar un ciclo · dos velocidades">
+Una cadena que en vez de terminar en `null` vuelve sobre sí misma hace que
+cualquier recorrido no termine. Detectarlo con dos punteros que avanzan a
+distinta velocidad se conoce como algoritmo de la liebre y la tortuga, y se
+atribuye a Robert W. Floyd.
+
+```java
+boolean tieneCiclo(Nodo head) {
+    Nodo lento = head;
+    Nodo rapido = head;
+    while (rapido != null && rapido.next != null) {
+        lento = lento.next;
+        rapido = rapido.next.next;
+        if (lento == rapido) {
+            return true;
+        }
+    }
+    return false;
+}
+```
+
+Si la lista termina, el rápido llega al final y el ciclo del `while` corta.
+Si no termina, los dos quedan girando dentro del ciclo, y como el rápido se
+acerca al lento un nodo por vuelta, alcanzarlo es cuestión de tiempo.
+
+Comparamos `lento == rapido`, que pregunta si son **el mismo nodo**, y no
+`lento.valor == rapido.valor`, que preguntaría si guardan el mismo número.
+
+</Slide>
+
+<Slide title="El nodo del medio en una pasada">
+La misma idea de dos velocidades resuelve un problema distinto: encontrar el
+nodo del medio sin saber cuántos hay.
+
+```java
+Nodo medio(Nodo head) {
+    Nodo lento = head;
+    Nodo rapido = head;
+    while (rapido != null && rapido.next != null) {
+        lento = lento.next;
+        rapido = rapido.next.next;
+    }
+    return lento;
+}
+```
+
+Cuando el rápido llega al final, ha avanzado el doble que el lento, así que
+el lento está a mitad de camino.
+
+La alternativa obvia —recorrer una vez para contar y otra hasta `size / 2`—
+también es $$\Theta(N)$$ y también es correcta. Esta versión hace una sola
+pasada, que es lo que importa cuando los datos llegan de a uno y no se pueden
+volver a leer.
+
+</Slide>
+
+<Slide title="Fusionar dos listas ordenadas">
+Dadas dos listas ordenadas, producir una sola ordenada con todos los
+elementos es el mismo procedimiento que combina las mitades en el
+ordenamiento por mezcla.
+
+```java
+Nodo fusionar(Nodo a, Nodo b) {
+    Nodo cabeza = new Nodo(0);
+    Nodo cola = cabeza;
+    while (a != null && b != null) {
+        if (a.valor <= b.valor) {
+            cola.next = a;
+            a = a.next;
+        } else {
+            cola.next = b;
+            b = b.next;
+        }
+        cola = cola.next;
+    }
+    cola.next = (a != null) ? a : b;
+    return cabeza.next;
+}
+```
+
+En cada paso se compara la cabeza de cada lista y se engancha la menor. El
+`nodo cabeza` es un nodo de mentira que evita escribir aparte el caso del
+primer elemento; al final se devuelve el que le sigue.
+
+Sobre listas la fusión no necesita memoria adicional para los datos: reordena
+enlaces. Sobre arreglos, la misma operación necesita un arreglo auxiliar.
+
+</Slide>
+
+<Slide title="El precio de pedir cualquier posición">
+Las dos estructuras de esta unidad comparten una debilidad, y es la misma
+fila de la tabla: `insertAt`, `deleteAt` y —en la lista— `getAt` cuestan
+$$\Theta(N)$$ en todas las variantes. La causa es distinta en cada una
+—correr elementos en el arreglo, caminar enlaces en la lista— y ninguna
+variante la arregla, porque el contrato exige poder operar en cualquier
+posición.
+
+**¿Y si un programa no necesita el medio?**
+
+Muchos no lo necesitan: una pila de platos solo toca el de arriba, una fila
+de espera solo toca los extremos. Un contrato que prometa menos —solo los
+bordes— se puede cumplir en $$\Theta(1)$$ **sobre las dos estructuras a la
+vez**, cada una usando justamente la punta donde es rápida.
+
+El precio es perder el acceso por posición: lo que se gana en costo se paga
+en lo que ya no se puede pedir. Esos contratos más chicos son los TDA Stack,
+Queue y Deque.
+
+</Slide>
 
 ## Ejercicios
 
-{/* S8 — los <Exercise> ejecutables, solo en modo libro. */}
+Los cuatro ejercicios canónicos de listas enlazadas. Cada uno se resuelve
+recorriendo la cadena una sola vez.
+
+<Exercise title="Invertir una lista">
+
+Escribe `invertir`, que recibe la cabeza de una lista y devuelve la cabeza de
+la lista con todos sus enlaces dados vuelta. La lista vacía se devuelve tal
+cual.
+
+```java starter
+class Nodo {
+    int valor;
+    Nodo next;
+    Nodo(int valor) { this.valor = valor; }
+}
+
+class Solution {
+    static Nodo invertir(Nodo head) {
+        return head;
+    }
+}
+```
+
+```java test
+Nodo c = new Nodo(1);
+c.next = new Nodo(2);
+c.next.next = new Nodo(3);
+Nodo r = Solution.invertir(c);
+check(r.valor, 3);
+check(r.next.valor, 2);
+check(r.next.next.valor, 1);
+check(r.next.next.next == null, true);
+check(Solution.invertir(null) == null, true);
+Nodo uno = new Nodo(7);
+check(Solution.invertir(uno).valor, 7);
+```
+
+```java solution
+class Nodo {
+    int valor;
+    Nodo next;
+    Nodo(int valor) { this.valor = valor; }
+}
+
+class Solution {
+    static Nodo invertir(Nodo head) {
+        Nodo previo = null;
+        Nodo actual = head;
+        while (actual != null) {
+            Nodo siguiente = actual.next;
+            actual.next = previo;
+            previo = actual;
+            actual = siguiente;
+        }
+        return previo;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Detectar un ciclo">
+
+Escribe `tieneCiclo`, que devuelve `true` si la cadena vuelve sobre sí misma
+y `false` si termina en `null`. Usa espacio adicional constante: no vale
+guardar los nodos visitados.
+
+```java starter
+class Nodo {
+    int valor;
+    Nodo next;
+    Nodo(int valor) { this.valor = valor; }
+}
+
+class Solution {
+    static boolean tieneCiclo(Nodo head) {
+        return false;
+    }
+}
+```
+
+```java test
+Nodo a = new Nodo(1);
+a.next = new Nodo(2);
+a.next.next = new Nodo(3);
+check(Solution.tieneCiclo(a), false);
+check(Solution.tieneCiclo(null), false);
+a.next.next.next = a.next;
+check(Solution.tieneCiclo(a), true);
+Nodo solo = new Nodo(5);
+solo.next = solo;
+check(Solution.tieneCiclo(solo), true);
+```
+
+```java solution
+class Nodo {
+    int valor;
+    Nodo next;
+    Nodo(int valor) { this.valor = valor; }
+}
+
+class Solution {
+    static boolean tieneCiclo(Nodo head) {
+        Nodo lento = head;
+        Nodo rapido = head;
+        while (rapido != null && rapido.next != null) {
+            lento = lento.next;
+            rapido = rapido.next.next;
+            if (lento == rapido) {
+                return true;
+            }
+        }
+        return false;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="El nodo del medio">
+
+Escribe `medio`, que devuelve el valor del nodo central de la lista en una
+sola pasada. Con una cantidad par de nodos, devuelve el segundo de los dos
+centrales.
+
+```java starter
+class Nodo {
+    int valor;
+    Nodo next;
+    Nodo(int valor) { this.valor = valor; }
+}
+
+class Solution {
+    static int medio(Nodo head) {
+        return 0;
+    }
+}
+```
+
+```java test
+Nodo a = new Nodo(1);
+a.next = new Nodo(2);
+a.next.next = new Nodo(3);
+check(Solution.medio(a), 2);
+a.next.next.next = new Nodo(4);
+check(Solution.medio(a), 3);
+Nodo solo = new Nodo(9);
+check(Solution.medio(solo), 9);
+```
+
+```java solution
+class Nodo {
+    int valor;
+    Nodo next;
+    Nodo(int valor) { this.valor = valor; }
+}
+
+class Solution {
+    static int medio(Nodo head) {
+        Nodo lento = head;
+        Nodo rapido = head;
+        while (rapido != null && rapido.next != null) {
+            lento = lento.next;
+            rapido = rapido.next.next;
+        }
+        return lento.valor;
+    }
+}
+```
+
+</Exercise>
+
+<Exercise title="Fusionar dos listas ordenadas">
+
+Escribe `fusionar`, que recibe las cabezas de dos listas ordenadas de menor a
+mayor y devuelve la cabeza de una sola lista ordenada con todos los
+elementos. Reutiliza los nodos que recibe: no crees uno por cada valor.
+
+```java starter
+class Nodo {
+    int valor;
+    Nodo next;
+    Nodo(int valor) { this.valor = valor; }
+}
+
+class Solution {
+    static Nodo fusionar(Nodo a, Nodo b) {
+        return a;
+    }
+}
+```
+
+```java test
+Nodo a = new Nodo(1);
+a.next = new Nodo(4);
+a.next.next = new Nodo(6);
+Nodo b = new Nodo(2);
+b.next = new Nodo(3);
+Nodo r = Solution.fusionar(a, b);
+check(r.valor, 1);
+check(r.next.valor, 2);
+check(r.next.next.valor, 3);
+check(r.next.next.next.valor, 4);
+check(r.next.next.next.next.valor, 6);
+check(r.next.next.next.next.next == null, true);
+Nodo c = new Nodo(5);
+check(Solution.fusionar(null, c).valor, 5);
+check(Solution.fusionar(c, null).valor, 5);
+```
+
+```java solution
+class Nodo {
+    int valor;
+    Nodo next;
+    Nodo(int valor) { this.valor = valor; }
+}
+
+class Solution {
+    static Nodo fusionar(Nodo a, Nodo b) {
+        Nodo cabeza = new Nodo(0);
+        Nodo cola = cabeza;
+        while (a != null && b != null) {
+            if (a.valor <= b.valor) {
+                cola.next = a;
+                a = a.next;
+            } else {
+                cola.next = b;
+                b = b.next;
+            }
+            cola = cola.next;
+        }
+        cola.next = (a != null) ? a : b;
+        return cabeza.next;
+    }
+}
+```
+
+</Exercise>
 
 ## Lo que sigue
 
-{/* S8 — la bisagra a la clase siguiente. */}
+La próxima clase estudia tres contratos más chicos que Sequence —los TDA
+**Stack**, **Queue** y **Deque**—, que renuncian al acceso por posición y a
+cambio se cumplen en tiempo constante. Cada uno se construye sobre un arreglo
+y sobre una lista, y la comparación entre ambas implementaciones es la otra
+mitad del principio que abre la unidad: si aquí un mismo contrato admitió dos
+estructuras, allá una misma estructura cumplirá varios contratos.
+

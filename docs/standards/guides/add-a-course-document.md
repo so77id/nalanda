@@ -54,6 +54,7 @@ content/courses/sample-course/
 ├── divide-y-conquista-patron.svg, max-subarray-*.svg   # assets for chapter 15
 ├── 16-diseno-algoritmos-ordenamiento.mdx           # presentation: explicit, questions: pool — <SortStepper> (bubble/selection/insertion/merge/quick) + <MergeStepper> + <PartitionStepper> + <DivideCombineTree> + <DecisionTreeSort> + <PresentationWide> + <Exercise> with the new `solution` fence
 ├── 17-edd-introduccion.mdx    # presentation: explicit, questions: pool — <StepShow> (ten steppers, hand-written inline SVG frames) + <Figure>
+├── 18-edd-listas-enlazadas.mdx  # presentation: explicit, questions: none — <SequenceStepper> ×14 (the worked case) + <Exercise> ×4 with the `solution` fence
 ├── tda-eda-invariante.svg, arreglo-memoria.svg, arreglo-alocacion.svg, arreglo-invariante-valido.svg, arreglo-invariantes.svg, regla-del-cuarto.svg, costo-acumulado.svg   # assets for chapter 17
 └── index.yaml                 # the ordered teaching path
 ```

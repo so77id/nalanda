@@ -47,6 +47,16 @@ Its seven figures sit beside it in the same directory
 `regla-del-cuarto.svg`, `costo-acumulado.svg`), per the asset rule in
 [`add-a-course-document.md`](add-a-course-document.md) §6.
 
+**Second worked example:** `content/courses/sample-course/18-edd-listas-enlazadas.mdx`
+— *Estructuras de Datos · Listas Enlazadas*. One structure and four variants
+of it, 42 authored slides plus five act dividers and the cover, no figures,
+fourteen `<SequenceStepper>` widgets and four `<Exercise>`s. It is the class
+that settled the act mapping above and the unit's widget decision (§7,
+ADR-0074). Where #277 draws its step-by-steps as static SVG, this one derives
+them, and §6 records why both remain right. (Counts re-derived with
+`grep -c '^<Slide title=' …` and `grep -c '<SequenceStepper' …`; the deck's own
+counter reads 48, and no slide scales below 0.70 at 1440x900.)
+
 ## Step-by-step
 
 ### 1. Lay out the acts
@@ -54,13 +64,22 @@ Its seven figures sit beside it in the same directory
 Each act is a markdown `h2` preceded by a `<SectionBreak />`, with the act's
 slides inside it.
 
-**The act table below is a hypothesis, not yet a prescription.** It is
-generalised from a single class — and one that deviates from it — so it
-records the four questions the unit means to answer in the same order every
-time, not a mapping to `h2`s that has been observed twice. Settle the mapping
-in the WP that writes the linked-list class, where a second data point makes
-the shared shape visible; for now, follow it where it fits and say so where it
-does not.
+**The four acts are four QUESTIONS, not four `h2`s.** That was open when this
+guide was written from a single class; #288 supplied the second data point and
+settles it. The questions below are answered in this order every time, but the
+number of headings a class carries is decided by **how many structures it
+presents**, because each structure runs the cycle once:
+
+- #277 presents two (the array, then the dynamic array) and runs the cycle
+  twice, in an opening stretch with no heading plus two `h2`s.
+- #288 presents one structure and four variants of it: an opening stretch with
+  no heading, then one `h2` running the full cycle over the base list, then one
+  `h2` per group of the remaining questions — the operations in detail, the
+  variants, the comparison, the exercises.
+
+So do not count headings against the table. Check instead that the four
+questions are answered, in order, for every structure the class introduces —
+and that a variant answers only the ones it changes (§3).
 
 | Acto | Contenido |
 |---|---|
@@ -73,6 +92,11 @@ The chapter that opens the unit deviates and says so: #277 spends act 1 on the
 vocabulary itself, act 2 on the Sequence TDA and the array that implements it,
 act 3 on the dynamic array — running the idea/invariantes/costos/limitaciones
 cycle twice, once per array.
+
+**Both classes put the hinge in the last slide of the last act, and neither
+gives it a heading of its own.** That is now a rule rather than a coincidence:
+question 4 is a slide, not a section. A `## Lo que sigue` follows it, book-only,
+and says which document comes next — which is a different job (§5).
 
 **It also cut its own act 4.** An earlier draft closed with a recap act ("un
 contrato para los dos arreglos") that restated the TDA, put the two cost
