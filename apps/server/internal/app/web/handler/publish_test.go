@@ -13,8 +13,33 @@ import (
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
+	"github.com/so77id/nalanda/apps/server/internal/domain/roster"
 	"github.com/so77id/nalanda/apps/server/internal/infra/email"
 )
+
+// matchedGradedControl is gradedControl with a roster behind it, so copy 1
+// is actually matched to somebody and its publication state is about the
+// send rather than about a missing person.
+func matchedGradedControl(t *testing.T, f *controlsFixture) string {
+	t.Helper()
+
+	if _, err := f.roster.Store.SaveRoster(context.Background(), f.courseID, []roster.SourceStudent{
+		{FirstName: "Ana", LastName: "Pérez", RUT: "20100001", RUTDV: "5",
+			CanvasUserID: "canvas-ana", Email: "ana@udp.cl"},
+	}); err != nil {
+		t.Fatalf("SaveRoster: %v", err)
+	}
+	controlID := gradedControl(t, f)
+	// The corrected PDF, which the publication state asks about and which
+	// the fake annotator does not put on the volume.
+	if _, err := f.db.ExecContext(context.Background(), `
+        INSERT INTO annotated_copy (control_id, copy_number, generated_at, path)
+        VALUES (?, 1, 0, 'anotado-1.pdf')
+        ON CONFLICT (control_id, copy_number) DO NOTHING`, controlID); err != nil {
+		t.Fatalf("recording the annotated copy: %v", err)
+	}
+	return controlID
+}
 
 // The route runs the same gates the domain runs, and the duplication is the
 // point: a gate in the job answers minutes later through a banner, while one
@@ -684,5 +709,125 @@ func TestTheReviewPageSaysWhenThisCopyWentOut(t *testing.T) {
 	body := reviewBody(t, f, controlID, 1)
 	if !strings.Contains(body, "Enviada el") || !strings.Contains(body, "5.7") {
 		t.Errorf("the review page does not say what this copy was sent with:\n%s", body)
+	}
+}
+
+// The copies table's "Envío" column (issue #287 §7).
+//
+// PublishResult.Skipped was computed on every run and surfaced nowhere, so
+// the professor's only signal that two people got nothing was comparing
+// "salieron N correos" against their own class list, after the fact.
+
+func TestTheCopiesTableNamesWhyACopyWasSkipped(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	// This fixture's copy is matched to nobody, which is the first of the
+	// three reasons and the one a professor acts on from the review page.
+	body := f.detailBody(t, controlID)
+	if !strings.Contains(body, "<th>Envío</th>") {
+		t.Fatalf("the copies table has no publication column:\n%s", body)
+	}
+	if !strings.Contains(body, "omitida") {
+		t.Errorf("the table does not say the copy was skipped:\n%s", body)
+	}
+	if !strings.Contains(body, "no está asociada a nadie del curso") {
+		t.Errorf("the table does not say WHY the copy was skipped:\n%s", body)
+	}
+}
+
+// A copy that went out says so, with when and with what — and a copy whose
+// grade has since moved says both numbers, because the whole sentence is
+// the comparison.
+func TestTheCopiesTableShowsSentAndStaleCopies(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := matchedGradedControl(t, f)
+
+	if _, err := f.db.ExecContext(context.Background(),
+		"UPDATE reading SET published_at = 1757264400, published_grade = '7.0' "+
+			"WHERE control_id = ? AND copy_number = 1", controlID); err != nil {
+		t.Fatalf("stamping the copy: %v", err)
+	}
+	// 1757264400 is 2025-09-07T17:00:00Z, and scanReading reads the column
+	// back in UTC, so the cell is that instant and not the test machine's.
+	body := f.detailBody(t, controlID)
+	if !strings.Contains(body, "07-09-2025 17:00, con un 7.0") {
+		t.Errorf("the table does not say when the copy went out and with what:\n%s", body)
+	}
+
+	// And now the grade it went out with is not the grade it has.
+	if _, err := f.db.ExecContext(context.Background(),
+		"UPDATE reading SET published_grade = '4.0' WHERE control_id = ? AND copy_number = 1",
+		controlID); err != nil {
+		t.Fatalf("moving the sent grade: %v", err)
+	}
+	body = f.detailBody(t, controlID)
+	if !strings.Contains(body, "desactualizada") {
+		t.Errorf("the table does not flag a copy whose grade moved after its send:\n%s", body)
+	}
+	if !strings.Contains(body, "salió con un 4.0, ahora tiene un 7.0") {
+		t.Errorf("the table does not show both grades of a stale copy:\n%s", body)
+	}
+}
+
+// AC10: no name and no address reaches the publication column.
+//
+// The "Alumno" column names a person — that is #272's decision and it
+// stands — but nothing in the send cell does, the same rule publishDetail
+// follows one layer down (docs/security-notes.md §"Logs and personal
+// data").
+func TestThePublicationColumnCarriesNoAddress(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := matchedGradedControl(t, f)
+
+	body := f.detailBody(t, controlID)
+	if strings.Contains(body, "@") && strings.Contains(body, "envio-") {
+		// Narrow the claim to the cells themselves rather than to the whole
+		// page, which legitimately carries the professor's own address in
+		// the shell.
+		for _, cell := range publicationCells(body) {
+			if strings.Contains(cell, "@") {
+				t.Errorf("a publication cell carries an address: %q", cell)
+			}
+		}
+	}
+}
+
+// publicationCells pulls the rendered send cells out of the page, so a case
+// can assert about them without asserting about the whole document.
+func publicationCells(body string) []string {
+	var out []string
+	rest := body
+	for {
+		i := strings.Index(rest, `<td class="envio-`)
+		if i < 0 {
+			return out
+		}
+		rest = rest[i:]
+		j := strings.Index(rest, "</td>")
+		if j < 0 {
+			return out
+		}
+		out = append(out, rest[:j])
+		rest = rest[j:]
+	}
+}
+
+// An open correction shows no column at all: every copy would read
+// "omitida: no tiene su PDF corregido", which is thirty cells saying the
+// same thing about a step nobody has reached.
+func TestAnOpenCorrectionShowsNoPublicationColumn(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := f.createControl(t, "Control 2", 2)
+	if err := f.service.AssignCourse(context.Background(), controlID, f.courseID); err != nil {
+		t.Fatalf("AssignCourse: %v", err)
+	}
+	f.fake.AnalyzeReports = []controls.Report{
+		{Copies: map[string]controls.ReportCopy{"1": okCopy("20100001")}},
+	}
+	uploadOnce(t, f, controlID)
+
+	if body := f.detailBody(t, controlID); strings.Contains(body, "<th>Envío</th>") {
+		t.Errorf("the publication column renders on an open correction:\n%s", body)
 	}
 }

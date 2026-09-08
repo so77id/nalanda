@@ -363,9 +363,28 @@ func (h *Controls) Detail(w http.ResponseWriter, r *http.Request) {
 			// unreachable because a lookup blinked.
 			h.Log.Warn("controls: reading the roster for names", "control", c.ID, "error", err)
 		}
+		// Issue #287: every copy's publication state, in two queries for
+		// the whole table rather than two per row.
+		//
+		// A failure here is a WARNING, not a 500, and for the same reason
+		// the roster names above are: the column is an enrichment over a
+		// table that renders perfectly well without it — it is what the
+		// page showed before this WP — and failing the whole correction
+		// screen because a roster read blinked would make a working
+		// control unreachable over a cell.
+		var publications map[int]controls.CopyPublication
+		if c.State == controls.Graded {
+			publications, err = h.Service.CopyPublications(r.Context(), c, readings)
+			if err != nil {
+				h.Log.Warn("controls: deriving the publication states",
+					"control", c.ID, "error", err)
+			} else {
+				page.ShowPublication = true
+			}
+		}
 		page.QuestionColumns = perQuestionColumns(c.QuestionsPerCopy)
 		page.ShowAssociation = c.CourseID != nil
-		page.Readings = toReadingRows(c, readings, names)
+		page.Readings = toReadingRows(c, readings, names, publications)
 		page.Summary = summarise(readings)
 		page.CanClose, page.CloseBlockedReason = closeGate(c, readings)
 	}
@@ -1116,15 +1135,17 @@ func perQuestionColumns(n int) []string {
 // toReadingRows turns each Reading into the pre-formatted table row.
 // Grade math and the estado collapse live here so the template does no
 // arithmetic.
-func toReadingRows(c controls.Control, readings []controls.Reading, names map[int64]string) []view.ReadingRow {
+func toReadingRows(c controls.Control, readings []controls.Reading, names map[int64]string,
+	publications map[int]controls.CopyPublication) []view.ReadingRow {
 	out := make([]view.ReadingRow, 0, len(readings))
 	for _, r := range readings {
-		out = append(out, toReadingRow(c, r, names))
+		out = append(out, toReadingRow(c, r, names, publications[r.CopyNumber]))
 	}
 	return out
 }
 
-func toReadingRow(c controls.Control, r controls.Reading, names map[int64]string) view.ReadingRow {
+func toReadingRow(c controls.Control, r controls.Reading, names map[int64]string,
+	publication controls.CopyPublication) view.ReadingRow {
 	row := view.ReadingRow{
 		CopyNumber:  r.CopyNumber,
 		PerQuestion: renderPerQuestion(c.QuestionsPerCopy, r),
@@ -1137,7 +1158,73 @@ func toReadingRow(c controls.Control, r controls.Reading, names map[int64]string
 		row.Student = names[*r.StudentID]
 	}
 	row.Association, row.AssociationClass = associationFor(c, r)
+	row.Publication, row.PublicationClass, row.PublicationDetail = publicationCell(publication)
 	return row
+}
+
+// publicationCell words one copy's publication state (issue #287 §7).
+//
+// The four states of CopyPublicationFor, and for a skipped copy the REASON
+// — which is the information PublishResult.Skipped computed and threw away
+// before this WP, leaving the professor to compare "salieron N correos"
+// against their own class list after the fact.
+//
+// Copy numbers, grades and reasons only. No name and no address reaches
+// this cell (docs/security-notes.md §"Logs and personal data"), the same
+// rule publishDetail follows one layer down — the "Alumno" column is where
+// a person is named, and it is #272's decision rather than this one's.
+//
+// The empty case is a control whose correction is not closed: the template
+// hides the whole column there, and the zero value keeps a row that reached
+// this function anyway from rendering a state it cannot have.
+func publicationCell(p controls.CopyPublication) (string, string, string) {
+	switch p.State {
+	case controls.CopyNotSent:
+		return "no enviada", "envio-pendiente", "iría con un " + p.Grade
+	case controls.CopySent:
+		return "enviada", "envio-ok", sentDetail(p)
+	case controls.CopyStale:
+		// BOTH grades, because the whole sentence is the comparison: the
+		// student is holding one number and the professor is now looking
+		// at another.
+		return "desactualizada", "envio-pendiente",
+			"salió con un " + p.SentGrade + ", ahora tiene un " + p.Grade
+	case controls.CopySkipped:
+		return "omitida", "envio-na", skipReasonWord(p.SkipReason)
+	default:
+		return "", "", ""
+	}
+}
+
+// sentDetail says when a sent copy went out and with what.
+func sentDetail(p controls.CopyPublication) string {
+	if p.PublishedAt == nil {
+		return ""
+	}
+	detail := p.PublishedAt.Format("02-01-2006 15:04")
+	if p.SentGrade != "" {
+		detail += ", con un " + p.SentGrade
+	}
+	return detail
+}
+
+// skipReasonWord names why nothing can be sent for a copy.
+//
+// Three different sentences because each has a different repair, and one
+// "no se puede enviar" for all of them would send the professor looking in
+// the wrong place — the same reasoning publishFailureReason and
+// copyNotDeliverableMessage carry.
+func skipReasonWord(reason controls.CopySkipReason) string {
+	switch reason {
+	case controls.SkipNoStudent:
+		return "no está asociada a nadie del curso"
+	case controls.SkipNoGrade:
+		return "no tiene nota definida"
+	case controls.SkipNoAnnotated:
+		return "no tiene su PDF corregido"
+	default:
+		return ""
+	}
 }
 
 // associationFor is the "Asociación" badge (issue #272 S7).

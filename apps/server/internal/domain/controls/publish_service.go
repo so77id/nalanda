@@ -475,6 +475,44 @@ func (s *Service) PublishOne(ctx context.Context, controlID string, copyNumber i
 	return nil
 }
 
+// CopyPublications derives every copy's publication state in one pass
+// (issue #287 §7).
+//
+// The SERVICE method behind the copies table, so the surface never reaches
+// past it into the stores (backend-code-style.md §The dependency rule,
+// edge 4): a handler that needed a shape the service does not expose gets a
+// method, not a store field.
+//
+// TWO queries for the whole page, whatever the copy count. The states need
+// the roster and the corrected-PDF records, and asking per row is the N+1
+// #271's review already removed once from the course list —
+// apps/server/CLAUDE.md names it as a standing rule and a table of thirty
+// copies is exactly where it would come back.
+//
+// A control with NO COURSE gets no roster read and every copy comes back
+// skipped for want of somebody to write to, which is the truth: nobody has
+// said which class sat it. That is also why the failure is not fatal —
+// see the caller.
+func (s *Service) CopyPublications(ctx context.Context, c Control, readings []Reading) (map[int]CopyPublication, error) {
+	recipients := map[int64]Recipient{}
+	if c.CourseID != nil {
+		var err error
+		if _, recipients, err = s.Roster.CourseForPublication(ctx, *c.CourseID); err != nil {
+			return nil, fmt.Errorf("controls.CopyPublications: read the course: %w", err)
+		}
+	}
+	annotated, err := s.Store.AnnotatedCopiesForControl(ctx, c.ID)
+	if err != nil {
+		return nil, fmt.Errorf("controls.CopyPublications: read the corrected PDFs: %w", err)
+	}
+
+	out := make(map[int]CopyPublication, len(readings))
+	for _, reading := range readings {
+		out[reading.CopyNumber] = CopyPublicationFor(c, reading, recipients, annotated)
+	}
+	return out, nil
+}
+
 // messageFor assembles one copy's message, or reports that there is
 // nothing to send.
 //

@@ -550,6 +550,13 @@ type ControlDetailPage struct {
 	// Summary is the "N impresas · M corregidas · K requieren revisión · L no rendidas"
 	// line under the table. Empty when Readings is empty.
 	Summary string
+	// ShowPublication gates the "Envío" column (issue #287).
+	//
+	// False while the correction is open, where every copy would read
+	// "omitida: todavía no tiene su PDF corregido" — thirty cells saying
+	// the same thing about a step the professor has not reached yet. The
+	// column appears with the publication section, on the same condition.
+	ShowPublication bool
 	// QuestionColumns is the header row for the per-question columns
 	// (P1, P2, …), sized to control.QuestionsPerCopy.
 	QuestionColumns []string
@@ -711,6 +718,20 @@ type ReadingRow struct {
 	Estado string
 	// EstadoClass is the CSS class the row applies for coloring.
 	EstadoClass string
+	// Publication is this copy's publication state, already as the words a
+	// professor reads: "no enviada", "enviada", "desactualizada", or
+	// "omitida" (issue #287). Empty on a control whose correction is not
+	// closed, where the column does not render at all.
+	Publication string
+	// PublicationClass is the CSS class the cell applies, the shape
+	// EstadoClass and AssociationClass already have.
+	PublicationClass string
+	// PublicationDetail is the second line of the cell: WHY a copy was
+	// skipped, or WHAT a sent copy went out with. Copy numbers, grades and
+	// reasons only — never a name and never an address
+	// (docs/security-notes.md §"Logs and personal data"), the same rule
+	// publishDetail follows one layer down.
+	PublicationDetail string
 	// ReviewURL is the "[revisar]" link — always present, WP-F allows
 	// review of any row.
 	ReviewURL string

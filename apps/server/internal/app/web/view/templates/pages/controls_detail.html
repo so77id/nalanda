@@ -254,6 +254,13 @@
             <th>Total</th>
             <th>Nota</th>
             <th>Estado</th>
+            {{/*
+              Issue #287. Only on a closed correction: before that every
+              copy would read "omitida: no tiene su PDF corregido", which
+              is thirty cells saying the same thing about a step the
+              professor has not reached yet.
+            */}}
+            {{ if .ShowPublication }}<th>Envío</th>{{ end }}
             <th></th>
           </tr>
         </thead>
@@ -277,6 +284,14 @@
               <td>{{ .TotalRaw }}</td>
               <td>{{ .Grade }}</td>
               <td>{{ .Estado }}</td>
+              {{ if $.ShowPublication }}
+                <td class="{{ .PublicationClass }}">
+                  {{ .Publication }}
+                  {{ if .PublicationDetail }}
+                    <br><small>{{ .PublicationDetail }}</small>
+                  {{ end }}
+                </td>
+              {{ end }}
               <td><a href="{{ .ReviewURL }}">[revisar]</a></td>
             </tr>
           {{ end }}
