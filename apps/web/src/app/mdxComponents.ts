@@ -20,6 +20,7 @@ import {
   LazyMermaid,
   LazyPredictOutput,
   LazySortStepper,
+  LazySequenceStepper,
   LazyMergeStepper,
   LazyPartitionStepper,
   LazyStepShow,
@@ -143,6 +144,11 @@ export const mdxComponents = {
   // would put CodeMirror in the entry chunk of every reader. Guarded by
   // architecture.test.ts. ADR-0065.
   SortStepper: LazySortStepper,
+  // Lazy: composes <CodeStepper> (CodeMirror + java grammar). The axis widget
+  // of the linked-list class — one widget whose `eda` prop picks the structure
+  // and whose `operation` prop picks the animation. Guarded by
+  // architecture.test.ts. ADR-0074.
+  SequenceStepper: LazySequenceStepper,
   // Lazy: composes <StepShow> (which composes <CodeStepper> → CodeMirror).
   // Same reason as SortStepper for lazyness. Teaches the `merge` operation
   // in isolation before mergesort's recursion.

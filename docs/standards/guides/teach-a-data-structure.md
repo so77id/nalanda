@@ -387,6 +387,28 @@ listing, their `lines` arrays must agree.** The fixed-capacity `insertAt` said
 `[8, 9]` where its dynamic twin said `[7, 8]`. Print each step's lines against
 its fence text and read the result next to the step's own caption.
 
+**What that widget is, concretely** (ADR-0074): `eda` picks the structure —
+array, dynamic array, or a singly / doubly / circular list — and `operation`
+picks which of eight operations to animate over it. The surface never changes
+between combinations, which is the point: the reader learns one visual
+vocabulary and reads every structure of the unit through it, comparing COST
+rather than re-reading a new widget.
+
+So the rule for the classes that follow is no longer "decide" but **reuse
+first**: a class of this unit that needs to show an operation running reaches
+for `<SequenceStepper>` and adds a recipe to it (a code change, with its own
+ADR — see ADR-0074 §Consequences) rather than inventing a widget of its own.
+Building a new one is still legitimate, and still needs the same argument this
+section asks for: what the whole unit wants, and why the existing widget
+cannot carry it.
+
+**It does not replace `<StepShow>` + `<MemoryVisual>`**, which stay the pair
+for author-written pictures, whose truth is the author's (ADR-0049).
+`<SequenceStepper>` DERIVES its frames from the operation, which is why it
+scales to hundreds of them and why it cannot draw something the operation does
+not actually do — and equally why it can only draw the structures it has
+recipes for. A picture outside that set is still hand-written, under §6bis.
+
 ## Checklist
 
 - [ ] Every act after the first is an `h2` behind a `<SectionBreak />`,
@@ -424,7 +446,14 @@ its fence text and read the result next to the step's own caption.
       wrong-but-in-range one survives the build, the suite, the preview and
       the `sr-only` live region alike. When two steppers share a listing,
       their `lines` arrays must agree.
-- [ ] No new widget invented for a single class of the unit.
+- [ ] No new widget invented for a single class of the unit — `<SequenceStepper>`
+      (ADR-0074) is the unit's widget for showing an operation run, and a class
+      that needs a structure it does not draw adds a RECIPE to it, with an ADR.
+- [ ] Every `<SequenceStepper>` opened in `npm run preview` and walked: the
+      frames advance, the highlighted line follows the operation, the pointers
+      land on the right nodes, and it reads in both themes in the book and on
+      its slide. The frames and the geometry are pinned by the suite; nothing
+      in the build or the suite can see the SVG.
 - [ ] Every arithmetic claim about a sequence (copies, doublings, totals,
       free cells) reproduced by simulation **including one non-power-of-two
       N** — including the claims that appear only in a stepper caption or an

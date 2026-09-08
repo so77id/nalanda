@@ -66,6 +66,12 @@ export { DecisionTreeSort } from './interactive/DecisionTreeSort';
 // of every reader of every page (guarded in `src/architecture.test.ts`).
 // ADR-0065.
 export { LazySortStepper } from './interactive/lazySortStepper';
+// The lazy wrapper, not the widget itself: <SequenceStepper> composes
+// <CodeStepper> (CodeMirror + java grammar). Registering the real component
+// here would put CodeMirror in the entry chunk of every reader of every page
+// (guarded in `src/architecture.test.ts`). ADR-0074.
+export { LazySequenceStepper } from './interactive/lazySequenceStepper';
+export type { SequenceStepperProps } from './interactive/lazySequenceStepper';
 // The lazy wrapper, not the widget itself: <MergeStepper> composes <StepShow>
 // (which composes <CodeStepper> → CodeMirror). Registering the real component
 // here would put CodeMirror in the entry chunk of every reader of every page

@@ -764,6 +764,57 @@ Decisions behind all this: ADR-0040. Worked example:
 `content/courses/sample-course/10-objetos.mdx` (§7); live:
 `/catalog/c/Mermaid`.
 
+5h. **Run an operation over a data structure (optional)**: `<SequenceStepper>`
+animates one operation over one structure, frame by frame — the Java listing on
+top with the running line lit, the structure drawn below, a narration line and
+the controls at the foot. Two props choose what it shows:
+
+```mdx
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-at"
+  values={[7, 3, 1, 5]}
+  value={9}
+  index={2}
+/>
+```
+
+`eda` is the structure — `array`, `dynamic-array`, `linked-list-singly`,
+`linked-list-doubly` or `linked-list-circular` — and `operation` is what to
+animate: `insert-first`, `insert-last`, `insert-at`, `insert-ordered`,
+`remove-first`, `remove-last`, `remove-at` or `search`. `values` is the
+starting contents; `value` feeds the inserts, `index` the positional
+operations, and `target` both `search` and `insert-ordered`. `tail` draws a
+tail pointer on a list, `showCode={false}` hides the listing when the slide
+already carries it, and `autoplay` / `speed` behave as in every other stepper.
+
+Six things worth knowing before you write one:
+
+- **Showing the same operation over two structures is two nearly identical
+  tags.** That is what the widget is for; the surface does not change between
+  combinations, so the reader compares the COST rather than re-reading a new
+  widget.
+- **`insert-ordered` exists only on the list recipes.** This course presents
+  order as a variant of the list and never defines an ordered array, so the
+  pair is refused at boot with an authoring error rather than drawing a
+  structure no slide defines.
+- **The widget refuses the author, not the reader.** An index outside the
+  structure, an unsorted list handed to `insert-ordered`, an unknown recipe, or
+  more than eight values — each renders an `<AuthoringError>` naming the
+  problem. `npm run test` fails while one survives, so it cannot be published.
+- **Up to eight values.** Beyond that the nodes stop being legible projected,
+  and the widget says so instead of drawing them.
+- **It already breaks out of the prose column in presentation**, like
+  `<SortStepper>` and `<StepShow>`. Do **not** wrap it in
+  `<PresentationWide>` — that doubles the breakout and lands it off centre
+  (§6b).
+- **The picture only exists in a real browser.** The frames and the geometry
+  are pinned by the suite, but nothing in the build or the suite can see the
+  SVG — open it in `npm run preview`, in the book and on its slide, in both
+  themes, and walk it.
+
+Decisions behind all this: ADR-0074. Live: `/catalog/c/SequenceStepper`.
+
 6. **Show a picture, or embed a live document (optional)** — pictures in 6a–6f,
    a spreadsheet in **6g**: the asset lives **beside the `.mdx` that uses
    it**, addressed relatively, and a subfolder is fine when there are several
