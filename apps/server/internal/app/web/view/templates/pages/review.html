@@ -192,8 +192,15 @@
             <p class="aviso">{{ .CopyPublishedLine }}</p>
           {{ end }}
           <p>
-            <button type="submit">Enviar la corrección a esta persona</button>
+            {{ if .CanPublishCopy }}
+              <button type="submit">Enviar la corrección a esta persona</button>
+            {{ else }}
+              <button type="submit" disabled>Enviar la corrección a esta persona</button>
+            {{ end }}
           </p>
+          {{ if .PublishCopyBlockedReason }}
+            <p><small>{{ .PublishCopyBlockedReason }}</small></p>
+          {{ end }}
           <p>
             <small>
               Manda el PDF corregido y la nota actual sólo a quien rindió esta

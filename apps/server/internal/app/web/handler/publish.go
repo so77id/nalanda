@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/mail"
 	"strings"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/app/web/flash"
 	"github.com/so77id/nalanda/apps/server/internal/app/web/middleware"
@@ -52,6 +53,25 @@ const (
 // the template and the redirects name each pattern once.
 func controlPublishURL(id string) string  { return ControlsPath + "/" + id + "/publish" }
 func controlTestSendURL(id string) string { return ControlsPath + "/" + id + "/test-send" }
+
+// copyPublishDeadline bounds ONE per-student send end to end (issue #287
+// review, ARQ-1 / F4).
+//
+// Twenty-five seconds, below httpserver's 30-second WriteTimeout, for the
+// reason importDeadline is twenty: `http.Server`'s WriteTimeout neither
+// aborts a handler nor cancels `r.Context()`, so without this the handler
+// outlives the professor's connection. The transports underneath are
+// bounded — 60 s on the Gmail client, 10 s on the token refresh — which
+// means the worst case was ~70 s of work writing into a socket the server
+// abandoned at 30, with the copy stamped and the professor told nothing.
+// They press again, and the student gets two identical messages.
+//
+// The cost of choosing a number below the transport's: on a slow uplink a
+// per-student send can give up where the batch job would have succeeded.
+// That is the right trade — the copy is left unstamped, so pressing again
+// or the next Publicar picks it up, while the other way round loses the
+// professor's answer entirely.
+const copyPublishDeadline = 25 * time.Second
 
 func controlResendAllURL(id string) string { return ControlsPath + "/" + id + "/resend-all" }
 
@@ -338,40 +358,100 @@ func (h *Controls) PublishCopy(w http.ResponseWriter, r *http.Request) {
 	if !h.canSend(w, r, professor.ID) {
 		return
 	}
+	// And the one gate the domain CANNOT apply (#287 review, SEC-3). This
+	// route runs on the request goroutine, outside the runner's
+	// single-goroutine serialisation (ADR-0050), so it is the only
+	// publication path with no mutual exclusion against a batch in flight:
+	// both would read the same unstamped row and mail the same student
+	// twice. Refusing while a `publish` job is queued or running closes the
+	// one crack in "pressing Publicar twice sends nobody a second copy".
+	if h.publishJobInFlight(r.Context(), id) {
+		flash.Set(w, h.secureCookie,
+			"Hay un envío en curso para este control. Espera a que termine y vuelve a intentarlo.")
+		http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
+		return
+	}
 
-	err := h.Service.PublishOne(r.Context(), id, copyNumber, professor.ID)
+	// Its OWN deadline, never the request's (see copyPublishDeadline).
+	ctx, cancel := context.WithTimeout(r.Context(), copyPublishDeadline)
+	defer cancel()
+
+	err := h.Service.PublishOne(ctx, id, copyNumber, professor.ID)
 	switch {
 	case err == nil:
 		flash.Set(w, h.secureCookie, "Se envió la corrección de esta copia.")
-		http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
-		return
+	case errors.Is(err, controls.ErrSentButNotRecorded):
+		// NOT a failure message. The student is holding their correction
+		// and only the record of it is missing; "no se pudo enviar" would
+		// invite a second press and a second copy (#287 review, COR-5).
+		flash.Set(w, h.secureCookie,
+			"La corrección salió, pero no se pudo registrar el envío. Si vuelves a "+
+				"publicar, esta persona la recibirá por segunda vez.")
+	case errors.Is(err, controls.ErrCopyNotDeliverable):
+		// A guard refusal reaches the professor as flash + 303, not as a
+		// 4xx (backend-code-style.md §Flash, issue #151 AC-8) — and here
+		// that is not only convention: the sentence says "corrige el RUT
+		// aquí arriba", which is an instruction only on the page that has
+		// the form. An error page replaced it (#287 review, F5).
+		flash.Set(w, h.secureCookie, copyNotDeliverableMessage(err))
 	case errors.Is(err, controls.ErrControlNotFound):
 		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+		return
 	case errors.Is(err, controls.ErrReadingNotFound):
 		middleware.WriteError(w, r, http.StatusNotFound,
 			"Aún no hay una lectura para esta copia. Sube el escaneo primero.")
+		return
 	case errors.Is(err, controls.ErrNotGraded):
+		// The remaining refusals stay 4xx: the page never offers the button
+		// in these states, so reaching them means a hand-typed POST, and a
+		// flash on a screen that shows no form explains nothing.
 		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
 			"Todavía no se puede enviar: cierra la corrección primero.")
+		return
 	case errors.Is(err, controls.ErrNoCourse):
 		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
 			"Este control no está asignado a un curso, así que no hay a quién enviarle nada.")
+		return
 	case errors.Is(err, controls.ErrCannotDeliver):
 		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
 			"Este servidor no está configurado para enviar correo de verdad "+
 				"(NALANDA_EMAIL_MODE), así que no se envió nada.")
+		return
 	case errors.Is(err, gmail.ErrNotConnected):
 		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
 			"No tienes una cuenta de Gmail conectada, así que no se puede enviar nada. "+
 				"Conéctala en tu perfil y vuelve a intentarlo.")
-	case errors.Is(err, controls.ErrCopyNotDeliverable):
-		middleware.WriteError(w, r, http.StatusUnprocessableEntity,
-			copyNotDeliverableMessage(err))
+		return
 	default:
 		h.Log.Error("publish copy", "control", id, "copy", copyNumber, "error", err)
 		middleware.WriteError(w, r, http.StatusInternalServerError,
 			"No se pudo enviar la corrección. Vuelve a intentarlo en unos segundos.")
+		return
 	}
+	http.Redirect(w, r, controlReviewURL(id, copyNumber), http.StatusSeeOther)
+}
+
+// publishJobInFlight reports whether a batch publication is queued or
+// running for this control (#287 review, SEC-3).
+//
+// A read failure answers FALSE — "no lo sé" must not block a send the
+// professor is standing in front of, and the cost of letting one through
+// is one duplicate message rather than a screen that refuses forever
+// because a lookup blinked. Same policy, and the same reason, as
+// canSend's and jobBannerFor's.
+func (h *Controls) publishJobInFlight(ctx context.Context, controlID string) bool {
+	job, err := h.Jobs.LatestForControlByKind(ctx, controlID, jobs.KindPublish)
+	if err != nil {
+		if !errors.Is(err, jobs.ErrJobNotFound) {
+			h.Log.Warn("publish copy: reading the latest publish job",
+				"control", controlID, "error", err)
+		}
+		return false
+	}
+	// jobs.Status.IsTerminal rather than `== StatusDone || == StatusFailed`
+	// spelled inline — the rule #257's review set for every future
+	// banner-consumer.
+	return !job.Status.IsTerminal()
 }
 
 // ResendAll forgets every copy's stamp, so the next Publicar mails the
@@ -434,7 +514,11 @@ func resendAllFlash(cleared int) string {
 func resendAllWarning(sent int) string {
 	switch sent {
 	case 0:
-		return "Nadie ha recibido su corrección todavía, así que esto no cambia nada: " +
+		// It does NOT say "nadie ha recibido su corrección". A control whose
+		// stamps were already cleared reaches this branch too, and the
+		// professor would then be told the class received nothing when they
+		// may be holding it (#287 review, COR-2).
+		return "Ninguna copia figura como enviada, así que esto no cambia nada: " +
 			"Publicar ya le escribiría a todo el curso."
 	case 1:
 		return "1 persona ya recibió su corrección y la recibirá por segunda vez."
@@ -454,7 +538,20 @@ func copyNotDeliverableMessage(err error) string {
 	if !errors.As(err, &refusal) {
 		return "No hay nada que enviar para esta copia."
 	}
-	switch refusal.Reason {
+	return copySkipMessage(refusal.Reason)
+}
+
+// copySkipMessage is the ONE home for those three sentences (#287 review,
+// F5). The review page's disabled button and the domain's refusal both
+// render them, and the professor must not read a different instruction
+// depending on which of the two told them.
+//
+// "Aquí arriba" is literal: both readers put the sentence on the review
+// page, above which the RUT field and the answer forms actually are. That
+// is what makes the refusal a flash + 303 rather than a 4xx — an error
+// page has no "arriba" (backend-code-style.md §Flash).
+func copySkipMessage(reason controls.CopySkipReason) string {
+	switch reason {
 	case controls.SkipNoStudent:
 		return "Esta copia no está asociada a nadie del curso, así que no hay a quién enviarle " +
 			"la corrección. Corrige el RUT aquí arriba, o revisa la lista del curso."
@@ -560,24 +657,35 @@ func countSent(readings []controls.Reading) int {
 // estudiantes" permanently, with the zero sitting on the same row (#273
 // review, NEW-3).
 //
-// Since #287 the count is derived rather than stored, which removes the
-// "unknown" case this function used to carry: NULL published_sent meant
-// "the run died before the bookkeeping write", and there is no bookkeeping
-// write any more. Zero now means zero.
+// THE COUNT IS ASKED FIRST, and that ordering carries a fact the column
+// cannot (#287 review, COR-1). Since a copy is stamped ONLY by a run that
+// reached its student, a non-zero count proves the class was written to
+// whatever `publication_mode` says — which matters because that column is
+// written once, on the first publication: a professor who rehearses in
+// `staging` and then publishes for real would otherwise read "los correos
+// fueron a tu propia dirección" over twenty-five delivered messages.
+//
+// AND ZERO DOES NOT CLAIM ANYTHING (#287 review, COR-2). Two different
+// situations reach it — a publication where every copy was skipped or
+// failed, and one whose stamps "Reenviar a todo el curso" has just cleared
+// — and nothing on the row distinguishes them. The earlier version asserted
+// the first, so the page told a professor that nobody had received a
+// correction the whole class was holding, one click after the flash said
+// the opposite. That is the same mistake `published_sent`'s own migration
+// names ("NULL is not zero"), re-entered through the derived count.
 func publishedLine(c controls.Control, sent int) string {
 	when := "Publicado el " + c.PublishedAt.Format("02-01-2006 15:04")
 
-	if c.PublicationMode == controls.PublishModeStaging {
+	switch {
+	case sent > 1:
+		return fmt.Sprintf("%s: %d copias figuran como enviadas a los estudiantes.", when, sent)
+	case sent == 1:
+		return when + ": 1 copia figura como enviada al estudiante."
+	case c.PublicationMode == controls.PublishModeStaging:
 		return when + " en modo prueba: los correos fueron a tu propia dirección, " +
 			"no a los estudiantes."
-	}
-
-	switch sent {
-	case 0:
-		return when + ", pero no salió ningún correo: nadie del curso recibió su corrección."
-	case 1:
-		return when + ": salió 1 correo."
 	default:
-		return fmt.Sprintf("%s: salieron %d correos a los estudiantes.", when, sent)
+		return when + ". Ninguna copia figura como enviada: o no salió ningún correo, " +
+			"o las marcaste todas como no enviadas para reenviarlas."
 	}
 }

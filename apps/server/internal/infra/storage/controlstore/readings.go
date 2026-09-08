@@ -483,10 +483,11 @@ func (s *Store) MarkCopyPublished(ctx context.Context, readingID int64, at time.
 
 // PublicationCountsSQL is the statement PublicationCounts runs.
 //
-// Exported so a test can assert the shape production actually executes
-// rather than restating it — the one-text reasoning CopiesForStudentSQL
-// carries, and the reason #272's review found a guard EXPLAINing a query
-// nothing ran any more.
+// Exported so TestPublicationCountsRunsAsOneStatementOverTheIndexes can
+// EXPLAIN the statement production actually executes rather than restating
+// it — the one-text reasoning CopiesForStudentSQL carries, and the reason
+// #272's review found a guard EXPLAINing a query nothing ran any more
+// (COR-9).
 //
 // ONE statement for the whole page, in the shape of
 // coursestore.EnrollmentCounts. A count per row is the N+1 #271's review

@@ -41,8 +41,9 @@ const (
 // CopySkipReason names why a copy cannot be published.
 //
 // A typed value rather than a Spanish sentence, so the wording lives on the
-// surface that renders it (handler.copyPublicationWord) and the domain
-// keeps one fact per value. The three are exhaustive against
+// surface that renders it (handler.copySkipMessage for the two screens that
+// instruct, handler.skipReasonWord for the copies table's short form) and
+// the domain keeps one fact per value. The three are exhaustive against
 // deliverableCopy, which is the only function that produces them.
 type CopySkipReason string
 
@@ -92,10 +93,12 @@ type CopyPublication struct {
 // NeedsSending reports whether a publication should write to this copy.
 //
 // The resume rule, in one place: send what has not gone out and what has
-// gone out with a grade that has since moved; skip the rest. Service.Publish
-// is its only caller today, and it lives beside the states rather than
-// inside the loop so the page and the loop cannot disagree about which
-// copies a second Publicar would write to.
+// gone out with a grade that has since moved; skip the rest.
+// Service.Publish is its ONLY caller — the screens switch on State
+// directly, since they show four situations and this collapses them to
+// two. It lives here rather than inside the loop so the rule reads beside
+// the states it is written in terms of, and so a future second caller
+// inherits it rather than restating it.
 func (p CopyPublication) NeedsSending() bool {
 	return p.State == CopyNotSent || p.State == CopyStale
 }
@@ -147,13 +150,14 @@ func CopyPublicationFor(c Control, r Reading, recipients map[int64]Recipient, an
 
 // deliverableCopy answers "can this copy be mailed, and with what grade".
 //
-// THE single decision. Both readers of it — CopyPublicationFor, which
-// renders the state, and Service.messageFor, which builds the message —
-// go through here, so a screen can never offer a button for a copy the
-// publication would skip, nor skip one the screen says is ready. The two
-// were one function's worth of `if`s duplicated across two layers in the
-// first draft of this WP, which is exactly the shape #251's
-// cannot-disagree rule exists to refuse.
+// THE single decision. Every reader of it goes through here —
+// CopyPublicationFor, which renders the state on both screens and answers
+// PublishOne's refusal, and Service.messageFor, which builds the message —
+// so a screen can never offer a button for a copy the publication would
+// skip, nor skip one the screen says is ready. It was one function's worth
+// of `if`s duplicated across two layers in the first draft of this WP,
+// which is exactly the shape #251's cannot-disagree rule exists to
+// refuse.
 //
 // The four checks are ordered by what the professor would fix first: no
 // recipient (a roster or a RUT problem, fixed on the review page), then no

@@ -305,3 +305,30 @@ func TestARealRunIsRecordedAsReal(t *testing.T) {
 		t.Errorf("publication_mode = %q, want %q", control.PublicationMode, controls.PublishModeReal)
 	}
 }
+
+// The banner names every outcome, not only the sends (#287 review, COR-4).
+//
+// AlreadySent and Skipped were both computed and surfaced nowhere — the
+// same defect issue #287 opens by naming about Skipped. A resume that
+// retries one failed copy and finds the other two finished reported "se
+// enviaron 0 correcciones y 1 fallaron", which reads as a run that did
+// nothing rather than as one that had nothing left to do.
+func TestThePublishBannerNamesTheCopiesAlreadySent(t *testing.T) {
+	rig := newPublishRig(t)
+	payload := controls.PublishPayload{ProfessorID: 7, Mode: string(controls.PublishModeReal)}
+	rig.dispatcher.failOn["bruno@udp.cl"] = controls.ErrSendUnavailable
+
+	// The first run leaves two copies sent and one refused.
+	if err := runPublishJob(t, rig.svc, rig.controlID, payload); err == nil {
+		t.Fatal("the first run reported success over a refused send")
+	}
+
+	// The second retries the refused copy and skips the two that are done.
+	failure := failureFrom(t, runPublishJob(t, rig.svc, rig.controlID, payload))
+	if !strings.Contains(failure.Message, "2 ya estaban al día") {
+		t.Errorf("the banner does not say the other copies were already sent: %q", failure.Message)
+	}
+	if !strings.Contains(failure.Message, "1 fallaron") {
+		t.Errorf("the banner lost the failure it exists to report: %q", failure.Message)
+	}
+}

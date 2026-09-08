@@ -832,8 +832,17 @@ type ReviewPage struct {
 	// control is noise that teaches a professor to ignore disabled
 	// buttons.
 	ShowPublishCopy bool
+	// CanPublishCopy gates the button itself. False renders it disabled
+	// with PublishCopyBlockedReason beside it — the shape CanPublish /
+	// PublishBlockedReason has on the control page, and the shape a live
+	// button whose press answers a refusal deliberately does not: "a
+	// disabled one that says why is an instruction" (#287 review, F5).
+	CanPublishCopy bool
+	// PublishCopyBlockedReason is the Spanish sentence explaining what
+	// stops this copy from being sent, empty when CanPublishCopy is true.
+	PublishCopyBlockedReason string
 	// CopyPublishedLine is what this copy's own publication reads as:
-	// "Enviada el 08-09-2026 15:20, con un 5,7", or empty for a copy
+	// "Enviada el 08-09-2026 15:20, con un 5.7", or empty for a copy
 	// nobody has written to. Derived from the reading's own two columns —
 	// no roster lookup — because "what did this person receive" is a
 	// question the copy answers by itself.

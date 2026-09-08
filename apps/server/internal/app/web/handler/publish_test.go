@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/so77id/nalanda/apps/server/internal/domain/controls"
 	"github.com/so77id/nalanda/apps/server/internal/domain/jobs"
@@ -443,11 +444,14 @@ func TestAPublishedControlShowsWhatHappenedAndKeepsTheButton(t *testing.T) {
 	// first version of this page told the professor "las correcciones se
 	// enviaron a los estudiantes" permanently, with the zero sitting on the
 	// same row (#273 review, NEW-3).
-	if !strings.Contains(body, "no salió ningún correo") {
+	// It does NOT assert that nobody received anything: "Reenviar a todo el
+	// curso" reaches the same zero, and the row cannot tell the two apart
+	// (#287 review, COR-2).
+	if !strings.Contains(body, "Ninguna copia figura como enviada") {
 		t.Errorf("the published line claims delivery over a publication that delivered "+
 			"nothing:\n%s", body)
 	}
-	if strings.Contains(body, "se enviaron a los estudiantes") {
+	if strings.Contains(body, "figuran como enviadas a los estudiantes") {
 		t.Error("the page says the students were written to over zero deliveries")
 	}
 
@@ -460,7 +464,7 @@ func TestAPublishedControlShowsWhatHappenedAndKeepsTheButton(t *testing.T) {
 		controlID); err != nil {
 		t.Fatalf("stamping the copy: %v", err)
 	}
-	if body = f.detailBody(t, controlID); !strings.Contains(body, "salió 1 correo") {
+	if body = f.detailBody(t, controlID); !strings.Contains(body, "1 copia figura como enviada") {
 		t.Errorf("the published line does not count the stamped copies:\n%s", body)
 	}
 }
@@ -528,36 +532,40 @@ func TestATestSendStillWorksWhenThisServerCannotDeliver(t *testing.T) {
 // The escape hatch. Publication was one-way with no exceptions, so any run
 // that stamped without delivering left the class permanently unreachable
 // through the app.
-// A staging run reached only the professor, and the published line must
-// not credit it with reaching the class (#273 review, NEW-2).
+// A staging run reached only the professor, and neither the published line
+// nor the copies may credit it with reaching the class (#273 review, NEW-2;
+// #287 review, COR-1).
 //
-// The count cannot tell the two apart — under `staging` every send genuinely
-// succeeds, so the copies are stamped exactly as a real run stamps them —
-// which is why the mode is read FIRST and the number never reaches this
-// sentence.
-func TestThePublishedLineDoesNotCreditAStagingRunWithReachingTheClass(t *testing.T) {
+// Since #287 the guarantee is structural rather than a wording rule: a copy
+// is stamped ONLY by a run that addressed its student, so a staging
+// publication leaves every copy unstamped and the page falls through to the
+// mode's own sentence. That is also what stops the rehearsal from consuming
+// the real publication that follows it.
+func TestAStagingRunLeavesEveryCopyUnstampedAndSaysSo(t *testing.T) {
 	f := newControlsFixture(t)
-	controlID := gradedControl(t, f)
+	controlID := matchedGradedControl(t, f)
 
 	if rec := f.publish(t, controlID, url.Values{"mode": {"staging"}}); rec.Code != http.StatusSeeOther {
 		t.Fatalf("publish: %d", rec.Code)
 	}
 	f.waitLatestJobTerminal(t, controlID)
 
-	// A stamped copy, so the case cannot pass merely because nothing was
-	// sent: the wording must come from the MODE and not from the count.
-	if _, err := f.db.ExecContext(context.Background(),
-		"UPDATE reading SET published_at = 1757264400, published_grade = '5.7' "+
-			"WHERE control_id = ? AND copy_number = 1",
-		controlID); err != nil {
-		t.Fatalf("stamping the copy: %v", err)
+	var stamped int
+	if err := f.db.QueryRowContext(context.Background(),
+		"SELECT COUNT(*) FROM reading WHERE control_id = ? AND published_at IS NOT NULL",
+		controlID).Scan(&stamped); err != nil {
+		t.Fatalf("counting the stamps: %v", err)
+	}
+	if stamped != 0 {
+		t.Errorf("%d copies were stamped by a run that wrote to the professor, so the next "+
+			"real Publicar would skip them", stamped)
 	}
 
 	body := f.detailBody(t, controlID)
 	if !strings.Contains(body, "no a los estudiantes") {
 		t.Errorf("the published line does not say a staging run reached no student:\n%s", body)
 	}
-	if strings.Contains(body, "correos a los estudiantes") {
+	if strings.Contains(body, "figuran como enviadas a los estudiantes") {
 		t.Error("the published line credits a staging run with reaching the class")
 	}
 }
@@ -582,16 +590,60 @@ func (f *controlsFixture) publishCopy(t *testing.T, controlID string, copyNumber
 
 // The fixture's single copy is matched to nobody, so the send is refused —
 // with the reason, which is the whole point of distinguishing the three.
+//
+// FLASH + 303 back to the review page, not a 4xx: a guard refusal reaches
+// the professor as a flash (backend-code-style.md §Flash, issue #151 AC-8),
+// and here it is not only convention. The sentence says "corrige el RUT
+// aquí arriba", which is an instruction only on the page that HAS the form
+// — an error page replaced it (#287 review, F5).
 func TestPublishingOneCopyNamesWhyWhenThereIsNobodyToWriteTo(t *testing.T) {
 	f := newControlsFixture(t)
 	controlID := gradedControl(t, f)
 
 	rec := f.publishCopy(t, controlID, 1)
-	if rec.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("status = %d, want 422\n%s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303\n%s", rec.Code, rec.Body.String())
 	}
-	if !strings.Contains(rec.Body.String(), "no está asociada") {
-		t.Errorf("the refusal does not say the copy is matched to nobody:\n%s", rec.Body.String())
+	if got := rec.Header().Get("Location"); got != "/controls/"+controlID+"/copies/1/review" {
+		t.Errorf("Location = %q, want the review page the professor pressed it from", got)
+	}
+	message := flashFromResponse(t, rec)
+	if !strings.Contains(message, "no está asociada") {
+		t.Errorf("the refusal does not say the copy is matched to nobody: %q", message)
+	}
+	if !strings.Contains(message, "aquí arriba") {
+		t.Errorf("the refusal does not point at the form it lands beside: %q", message)
+	}
+}
+
+// And the button is DISABLED before it is pressed, with the same sentence.
+//
+// "A disabled one that says why is an instruction"; a live button whose
+// press answers a refusal teaches nothing. The three ordinary reasons cost
+// no extra query on this page — the reading carries the student, the
+// answers are already loaded, and the annotated lookup already ran.
+func TestTheReviewPageDisablesTheSendAndSaysWhy(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := gradedControl(t, f)
+
+	body := reviewBody(t, f, controlID, 1)
+	if !strings.Contains(body, "disabled>Enviar la corrección a esta persona") {
+		t.Errorf("the button is live on a copy the domain refuses:\n%s", body)
+	}
+	if !strings.Contains(body, "no está asociada a nadie del curso") {
+		t.Errorf("the disabled button gives no reason:\n%s", body)
+	}
+}
+
+// A copy that CAN be sent gets a live button — so the case above cannot
+// have passed by disabling it always.
+func TestTheReviewPageEnablesTheSendOnADeliverableCopy(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := matchedGradedControl(t, f)
+
+	body := reviewBody(t, f, controlID, 1)
+	if strings.Contains(body, "disabled>Enviar la corrección a esta persona") {
+		t.Errorf("the button is disabled on a copy that is ready to send:\n%s", body)
 	}
 }
 
@@ -844,7 +896,7 @@ func TestResendAllNamesHowManyWouldReceiveASecondCopy(t *testing.T) {
 	if !strings.Contains(body, "Reenviar a todo el curso") {
 		t.Fatalf("the page offers no bulk resend:\n%s", body)
 	}
-	if !strings.Contains(body, "Nadie ha recibido su corrección todavía") {
+	if !strings.Contains(body, "Ninguna copia figura como enviada") {
 		t.Errorf("the warning implies a consequence there is none of:\n%s", body)
 	}
 
@@ -1001,4 +1053,107 @@ type failingCounts struct {
 
 func (failingCounts) PublicationCounts(context.Context) (map[string]controls.PublicationProgress, error) {
 	return nil, errors.New("the database blinked")
+}
+
+// F2 (#287 review): after "Reenviar a todo el curso" the page must not tell
+// the professor that nobody received their correction.
+//
+// The control keeps its published_at and every copy loses its stamp, so the
+// derived count is zero — and the earlier wording read that as "nadie del
+// curso recibió su corrección" one click after the flash said two people
+// would receive it again. Zero here means "no hay ninguna marcada", which
+// is all the row can honestly say.
+func TestAfterResendingTheWholeCourseThePageDoesNotClaimNobodyReceivedIt(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := matchedGradedControl(t, f)
+
+	if rec := f.publish(t, controlID, url.Values{"mode": {"real"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("publish: %d", rec.Code)
+	}
+	f.waitLatestJobTerminal(t, controlID)
+	if _, err := f.db.ExecContext(context.Background(),
+		"UPDATE reading SET published_at = 1757264400, published_grade = '7.0' "+
+			"WHERE control_id = ? AND copy_number = 1", controlID); err != nil {
+		t.Fatalf("stamping the copy: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/resend-all", url.Values{})
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.ResendAll(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("resend-all status = %d, want 303", rec.Code)
+	}
+
+	body := f.detailBody(t, controlID)
+	if strings.Contains(body, "nadie del curso recibió su corrección") {
+		t.Errorf("the page tells the professor nobody received a correction the class is "+
+			"holding:\n%s", body)
+	}
+	if strings.Contains(body, "Nadie ha recibido su corrección todavía") {
+		t.Errorf("the resend warning claims nobody received anything:\n%s", body)
+	}
+	if !strings.Contains(body, "Ninguna copia figura como enviada") {
+		t.Errorf("the page does not say what it can honestly say:\n%s", body)
+	}
+}
+
+// A real publication after a staging one says the class was written to,
+// even though publication_mode is frozen at `staging` (#287 review, COR-1).
+//
+// MarkPublished only fires on the FIRST run, so the column keeps saying
+// "prueba" forever. The count is asked first precisely so the page does not
+// tell a professor their students got nothing when twenty-five messages
+// went out.
+func TestThePublishedLineTrustsTheStampsOverAFrozenStagingMode(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := matchedGradedControl(t, f)
+
+	if rec := f.publish(t, controlID, url.Values{"mode": {"staging"}}); rec.Code != http.StatusSeeOther {
+		t.Fatalf("the staging publish: %d", rec.Code)
+	}
+	f.waitLatestJobTerminal(t, controlID)
+	if body := f.detailBody(t, controlID); !strings.Contains(body, "en modo prueba") {
+		t.Fatalf("the staging run does not say so, so the case below is vacuous:\n%s", body)
+	}
+
+	// The real run that follows stamps the copy; the column does not move.
+	if _, err := f.db.ExecContext(context.Background(),
+		"UPDATE reading SET published_at = 1757264400, published_grade = '7.0' "+
+			"WHERE control_id = ? AND copy_number = 1", controlID); err != nil {
+		t.Fatalf("stamping the copy: %v", err)
+	}
+	body := f.detailBody(t, controlID)
+	if strings.Contains(body, "en modo prueba") {
+		t.Errorf("the page still calls it a rehearsal after a copy went to a student:\n%s", body)
+	}
+	if !strings.Contains(body, "1 copia figura como enviada") {
+		t.Errorf("the page does not report the copy that went out:\n%s", body)
+	}
+}
+
+// F10 (#287 review, SEC-3): the per-student send refuses while a batch is
+// in flight.
+//
+// It runs on the request goroutine, outside the runner's single-goroutine
+// serialisation, so it is the one path that could mail a student twice —
+// both readers seeing the same unstamped row.
+func TestThePerStudentSendRefusesWhileABatchIsRunning(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := matchedGradedControl(t, f)
+
+	if _, err := f.jstore.Insert(context.Background(), jobs.NewJob{
+		ControlID: controlID, Kind: jobs.KindPublish,
+		Payload: []byte(`{"professor_id":1,"mode":"real"}`),
+	}, time.Now()); err != nil {
+		t.Fatalf("queueing a publish job: %v", err)
+	}
+
+	rec := f.publishCopy(t, controlID, 1)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303\n%s", rec.Code, rec.Body.String())
+	}
+	if message := flashFromResponse(t, rec); !strings.Contains(message, "envío en curso") {
+		t.Errorf("the refusal does not say a batch is running: %q", message)
+	}
 }

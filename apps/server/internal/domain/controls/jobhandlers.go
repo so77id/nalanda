@@ -240,14 +240,30 @@ func NewPublishHandler(svc *Service) jobs.Handler {
 
 // publishSummary is the one line the banner renders.
 //
-// It names what this RUN did, which since issue #287 is not the same as
-// what the class holds: a resume that writes to one copy of forty says so,
-// and the control page's "N/M enviadas" is where the whole picture lives.
-// Saying "se enviaron 1 correcciones" after a resume without that context
-// would read as a failure rather than as the finished job it is.
+// It names EVERY outcome the run produced, not only the sends. A resume
+// that writes to nobody is a finished job, and "se enviaron 0 correcciones
+// y 0 fallaron" reads as a broken one — which is what made the staging bug
+// (#287 review, COR-1) silent rather than loud. AlreadySent and Skipped
+// were both computed and surfaced nowhere, which is the same defect issue
+// #287 opens by naming about Skipped.
+//
+// Zero terms are omitted rather than printed: "y 0 fallaron" on a clean run
+// invites the professor to look for a failure there is none of.
 func publishSummary(r PublishResult) string {
-	return fmt.Sprintf("se enviaron %d correcciones y %d fallaron",
-		r.Sent, len(r.Failures))
+	parts := []string{fmt.Sprintf("se enviaron %d correcciones", r.Sent)}
+	if r.AlreadySent > 0 {
+		parts = append(parts, fmt.Sprintf("%d ya estaban al día", r.AlreadySent))
+	}
+	if r.Skipped > 0 {
+		parts = append(parts, fmt.Sprintf("%d se omitieron", r.Skipped))
+	}
+	if len(r.Failures) > 0 {
+		parts = append(parts, fmt.Sprintf("%d fallaron", len(r.Failures)))
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return strings.Join(parts[:len(parts)-1], ", ") + " y " + parts[len(parts)-1]
 }
 
 // publishDetail lists the copies that did not go out, so the professor

@@ -105,6 +105,10 @@ func (d *capturingDispatcher) Send(_ context.Context, _ int64, msg controls.Mess
 // is exactly the method a publication is a loop over.
 type publishReadings struct {
 	readings []controls.Reading
+	// markFails, when set, makes MarkCopyPublished fail — the one state
+	// that separates "the send failed" from "the send landed and we could
+	// not write it down" (#287 review, COR-5).
+	markFails error
 }
 
 func (r *publishReadings) ReadingsByControl(context.Context, string) ([]controls.Reading, error) {
@@ -185,6 +189,9 @@ func (r *publishReadings) ClearCopyPublications(context.Context, string) (int, e
 // that dropped the write would let a resume case pass over a Publish that
 // never stamped anything.
 func (r *publishReadings) MarkCopyPublished(_ context.Context, readingID int64, at time.Time, grade string) error {
+	if r.markFails != nil {
+		return r.markFails
+	}
 	for i := range r.readings {
 		if r.readings[i].ID == readingID {
 			stamped := at
@@ -1087,5 +1094,146 @@ func TestResendToWholeCourseOnAnUnpublishedControlClearsNothing(t *testing.T) {
 	}
 	if cleared != 0 {
 		t.Errorf("cleared = %d, want 0", cleared)
+	}
+}
+
+// THE DEFECT THIS WP'S OWN REVIEW FOUND (issue #287 review, COR-1 / SEC-1).
+//
+// A publication in "mi propia dirección (prueba)" redirects every message
+// to the professor — and the first draft stamped every copy anyway, so the
+// next REAL Publicar skipped the entire class while the copies table said
+// "enviada" and the list said "3/3". A staging rehearsal consumed the real
+// publication.
+//
+// The assertion is the one that matters to a student: after the rehearsal,
+// the real run must reach all three of them.
+func TestAStagingPublicationDoesNotConsumeTheRealOne(t *testing.T) {
+	rig := newPublishRig(t)
+
+	staging, err := rig.svc.Publish(context.Background(), rig.controlID,
+		controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeStaging})
+	if err != nil {
+		t.Fatalf("the staging run: %v", err)
+	}
+	if staging.Sent != 3 {
+		t.Fatalf("the staging run sent %d, want the whole batch to the professor", staging.Sent)
+	}
+	for _, reading := range rig.readings.readings {
+		if reading.PublishedAt != nil {
+			t.Fatalf("copy %d was stamped by a run that wrote to the professor, not to them",
+				reading.CopyNumber)
+		}
+	}
+	rig.dispatcher.sent = nil
+
+	real, err := rig.svc.Publish(context.Background(), rig.controlID,
+		controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal})
+	if err != nil {
+		t.Fatalf("the real run: %v", err)
+	}
+	if real.Sent != 3 || real.AlreadySent != 0 {
+		t.Fatalf("the real run after a rehearsal reports %+v, want all three sent", real)
+	}
+	to := map[string]bool{}
+	for _, msg := range rig.dispatcher.sent {
+		to[msg.To] = true
+	}
+	for _, want := range []string{"ana@udp.cl", "bruno@udp.cl", "carla@udp.cl"} {
+		if !to[want] {
+			t.Errorf("%s received nothing from the real publication", want)
+		}
+	}
+}
+
+// The same, for a deployment-wide redirecting transport — the case the
+// professor never chose, because it is NALANDA_EMAIL_MODE and not the
+// dropdown (#273 review, DAC-8; #287 review, COR-1).
+func TestADeploymentWideRedirectDoesNotStampAnyCopy(t *testing.T) {
+	rig := newPublishRig(t)
+	rig.dispatcher.redirects = true
+
+	if _, err := rig.svc.Publish(context.Background(), rig.controlID,
+		controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal}); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	for _, reading := range rig.readings.readings {
+		if reading.PublishedAt != nil {
+			t.Errorf("copy %d was stamped although every message went to the professor",
+				reading.CopyNumber)
+		}
+	}
+	// And the control still records what HAPPENED, which is the signal the
+	// redirecting deployment has to leave behind.
+	control, err := rig.store.ControlByID(context.Background(), rig.controlID)
+	if err != nil {
+		t.Fatalf("ControlByID: %v", err)
+	}
+	if control.PublicationMode != controls.PublishModeStaging {
+		t.Errorf("publication_mode = %q, want it to record the EFFECTIVE mode",
+			control.PublicationMode)
+	}
+}
+
+// A rehearsal, a staging run and a redirecting transport all send the WHOLE
+// batch, whatever state each copy is in.
+//
+// They exist to put the real batch in front of the professor. Filtering
+// would rehearse something other than the thing being rehearsed — and it is
+// the half of the fix that is easy to forget, since gating only the stamp
+// leaves a fully-sent control rehearsing to an empty inbox.
+func TestARehearsalOfAFullySentControlStillSendsEverything(t *testing.T) {
+	rig := newPublishRig(t)
+	req := controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal}
+
+	if _, err := rig.svc.Publish(context.Background(), rig.controlID, req); err != nil {
+		t.Fatalf("the real publication: %v", err)
+	}
+	rig.dispatcher.sent = nil
+
+	for _, rehearsal := range []controls.PublishRequest{
+		{ProfessorID: 7, Mode: controls.PublishModeReal, TestTo: "miguel@gmail.com"},
+		{ProfessorID: 7, Mode: controls.PublishModeStaging},
+	} {
+		rig.dispatcher.sent = nil
+		result, err := rig.svc.Publish(context.Background(), rig.controlID, rehearsal)
+		if err != nil {
+			t.Fatalf("the rehearsal %+v: %v", rehearsal, err)
+		}
+		if result.Sent != 3 {
+			t.Errorf("the rehearsal %+v sent %d, want the whole batch", rehearsal, result.Sent)
+		}
+	}
+}
+
+// PublishOne records nothing under a redirecting transport either: the
+// message went to the professor, so nothing is true about the student.
+func TestPublishOneDoesNotStampUnderARedirectingTransport(t *testing.T) {
+	rig := newPublishRig(t)
+	rig.dispatcher.redirects = true
+
+	if err := rig.svc.PublishOne(context.Background(), rig.controlID, 1, 7); err != nil {
+		t.Fatalf("PublishOne: %v", err)
+	}
+	if len(rig.dispatcher.sent) != 1 {
+		t.Fatalf("%d messages went out, want 1", len(rig.dispatcher.sent))
+	}
+	if rig.readings.readings[0].PublishedAt != nil {
+		t.Error("the copy was stamped although the message went to the professor")
+	}
+}
+
+// A send the provider ACCEPTED and this server could not write down is its
+// own answer, not a failure (#287 review, COR-5). "No se pudo enviar"
+// invites a second press, and the student gets two identical messages.
+func TestPublishOneSaysTheSendLandedWhenOnlyTheRecordFailed(t *testing.T) {
+	rig := newPublishRig(t)
+	rig.readings.markFails = errors.New("the database blinked")
+
+	err := rig.svc.PublishOne(context.Background(), rig.controlID, 1, 7)
+	if !errors.Is(err, controls.ErrSentButNotRecorded) {
+		t.Fatalf("PublishOne returned %v, want ErrSentButNotRecorded", err)
+	}
+	if len(rig.dispatcher.sent) != 1 {
+		t.Error("the case did not actually send anything, so it says nothing about the ordering")
 	}
 }

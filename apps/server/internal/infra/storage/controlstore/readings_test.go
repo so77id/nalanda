@@ -1034,6 +1034,25 @@ func TestPublicationCountsTalliesEveryControlInOnePass(t *testing.T) {
 	if a.Sent != 1 || a.Deliverable != 2 {
 		t.Errorf("control A = %+v, want Sent 1 of Deliverable 2", a)
 	}
+	// A THIRD copy, matched to somebody and with NO annotated record: it is
+	// what makes the annotated half of the filter load-bearing. Without it
+	// the `student_id IS NOT NULL` conjunct alone produces every expected
+	// number in this file, and deleting `AND annotated_copy.control_id IS
+	// NOT NULL` leaves the entire suite green (#287 review, COR-3/F3).
+	if _, err := db.ExecContext(ctx, `
+        INSERT INTO reading (control_id, copy_number, rut_read, rut_status, copy_status, read_at, student_id)
+        VALUES (?, 3, '20777777', 'ok', 'ok', 0, ?)`,
+		"CTRL0287COUNTA000000AAAAA", studentID); err != nil {
+		t.Fatalf("inserting the un-annotated copy: %v", err)
+	}
+	counts, err = store.PublicationCounts(ctx)
+	if err != nil {
+		t.Fatalf("PublicationCounts after the third copy: %v", err)
+	}
+	if a = counts["CTRL0287COUNTA000000AAAAA"]; a.Deliverable != 2 {
+		t.Errorf("control A = %+v with three matched copies of which two are annotated, "+
+			"want Deliverable 2 — a copy with no corrected PDF cannot be sent", a)
+	}
 	// Control B has readings but nothing matched and nothing annotated, so
 	// nothing has gone out and nothing could.
 	b := counts["CTRL0287COUNTB000000AAAAA"]
@@ -1091,4 +1110,60 @@ func insertStudentForCounts(t *testing.T, ctx context.Context, db *sql.DB) int64
 		t.Fatalf("reading the student id: %v", err)
 	}
 	return id
+}
+
+// The plan PublicationCounts actually runs (#287 review, COR-3/F3).
+//
+// It EXPLAINs the exported const rather than a restated copy, which is the
+// whole reason the const is exported — and the reason #272's review found a
+// guard EXPLAINing a query nothing ran any more (COR-9). Asserting the plan
+// rather than the timing keeps it a statement about the schema.
+//
+// What it pins: ONE statement for the whole page, driving from `reading`
+// and reaching `control` and `annotated_copy` by their own keys. What it
+// does NOT fix: the temp B-tree for the GROUP BY, which survives either
+// way — a control_id index on `reading` would remove it, and
+// `idx_reading_by_control` already leads with that column, so the plan is
+// as good as this shape gets.
+func TestPublicationCountsRunsAsOneStatementOverTheIndexes(t *testing.T) {
+	ctx, db := migrated(t)
+
+	rows, err := db.QueryContext(ctx, "EXPLAIN QUERY PLAN "+controlstore.PublicationCountsSQL)
+	if err != nil {
+		t.Fatalf("EXPLAIN QUERY PLAN: %v", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	var plan []string
+	for rows.Next() {
+		var id, parent, notUsed int
+		var detail string
+		if err := rows.Scan(&id, &parent, &notUsed, &detail); err != nil {
+			t.Fatalf("scanning the plan: %v", err)
+		}
+		plan = append(plan, detail)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("reading the plan: %v", err)
+	}
+	if len(plan) == 0 {
+		t.Fatal("the planner returned nothing, so nothing below is about the query")
+	}
+
+	joined := strings.Join(plan, " | ")
+	// No correlated subquery per row: a plan naming a scan of `reading`
+	// under a parent per control is the N+1 in disguise.
+	if strings.Contains(joined, "CORRELATED") {
+		t.Errorf("the tally runs a correlated subquery, which is the per-row count "+
+			"this statement exists to avoid:\n%s", joined)
+	}
+	// Both joined tables are reached by a key rather than scanned per row.
+	for _, want := range []string{"control", "annotated_copy"} {
+		if !strings.Contains(joined, want) {
+			t.Errorf("the plan does not mention %s:\n%s", want, joined)
+		}
+	}
+	if !strings.Contains(joined, "USING INDEX") && !strings.Contains(joined, "USING PRIMARY KEY") {
+		t.Errorf("the plan uses no index at all:\n%s", joined)
+	}
 }

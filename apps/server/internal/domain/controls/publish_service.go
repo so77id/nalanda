@@ -178,6 +178,17 @@ var (
 	// nothing" #273's review spent itself removing.
 	ErrCopyNotDeliverable = errors.New("controls: there is nothing to send for this copy")
 
+	// ErrSentButNotRecorded is a per-student send the provider ACCEPTED and
+	// this server then failed to write down (issue #287 review, COR-5).
+	//
+	// Its own sentinel because the honest sentence is the opposite of a
+	// failure's: the student is holding their correction, and it is the
+	// record that is missing. "No se pudo enviar" would invite the
+	// professor to press again and mail them twice — and the next Publicar
+	// will pick the copy up anyway, since an unstamped copy is exactly what
+	// a resume looks for.
+	ErrSentButNotRecorded = errors.New("controls: the copy was sent but the send could not be recorded")
+
 	// ErrCannotDeliver is a process whose transport sends nothing —
 	// NALANDA_EMAIL_MODE is `stub` or `dryrun`.
 	//
@@ -204,7 +215,7 @@ var (
 // right to: with no per-copy record the choice was between losing the
 // un-sent half of a crashed run and mailing half a class twice, and it took
 // the first. The per-copy stamp removes the choice, so the rule it bought
-// goes with it (ADR-0074 supersedes ADR-0072 §5).
+// goes with it (ADR-0073 supersedes ADR-0072 §5).
 //
 // WHICH COPIES: the ones that have not gone out, and the ones that went out
 // with a grade that has since moved. Everything else is left alone, which is
@@ -219,10 +230,17 @@ var (
 // resume would move "Publicado el 8 de septiembre" forward each time a
 // professor re-sent one copy.
 //
-// A REHEARSAL (TestTo set) stamps nothing and sends EVERYTHING, whatever
-// state each copy is in: it exists to put the real batch in front of the
-// professor, and filtering it would rehearse something other than the
-// thing being rehearsed.
+// A COPY IS STAMPED ONLY BY A RUN THAT REACHED ITS STUDENT. A rehearsal
+// (TestTo set), a `staging` publication and a deployment-wide redirecting
+// transport all put the message in the professor's own mailbox, so none of
+// them records anything about the student — and all three send EVERYTHING,
+// whatever state each copy is in, because they exist to put the real batch
+// in front of the professor and filtering would rehearse something other
+// than the thing being rehearsed.
+//
+// Getting that wrong is how the first draft let a run of "mi propia
+// dirección (prueba)" consume the real publication that followed it
+// (#287 review, COR-1 / SEC-1).
 //
 // One student's bounce does not stop the other thirty-nine: every send is
 // attempted, failures are collected, and the run reports what happened.
@@ -232,6 +250,32 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 		return PublishResult{}, err
 	}
 	rehearsal := req.TestTo != ""
+	// WHOSE MAILBOX THIS RUN ACTUALLY REACHES (issue #287 review, COR-1 /
+	// SEC-1). Three ways a run's messages do NOT reach the student the
+	// record would claim: a rehearsal addresses one typed address, a
+	// `staging` publication redirects to the professor, and a
+	// deployment-wide redirecting transport does the same to a run that
+	// asked for `real`.
+	//
+	// The first draft of this WP tested only the first, so a publication in
+	// "mi propia dirección (prueba)" stamped every copy — and the next REAL
+	// Publicar then skipped the entire class while the copies table said
+	// "enviada" and the list said "25/25". That is the same lie #273's own
+	// review spent itself removing (PUB-2, DAC-8), re-entered through the
+	// door the per-copy stamp opened. The worst shape of it: a staging
+	// rehearsal on an ALREADY published control consumed the one
+	// re-corrected copy, so the student kept the old PDF, and nothing on
+	// any screen said "prueba" because MarkPublished never ran a second
+	// time.
+	//
+	// A SEPARATE predicate from `rehearsal`, deliberately: it must gate the
+	// per-copy stamp and the resume filter, and NOT the control-level
+	// MarkPublished below — that call is what records the EFFECTIVE mode,
+	// which is exactly the signal a redirecting deployment needs to leave
+	// behind (#273 review, DAC-8).
+	addressesStudents := !rehearsal &&
+		req.Mode != PublishModeStaging &&
+		!s.Dispatcher.RedirectsToSender()
 
 	switch {
 	case control.State != Graded:
@@ -305,9 +349,14 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 			// WHICH copies and why, on the control page.
 			result.Skipped++
 			continue
-		case !rehearsal && !publication.NeedsSending():
+		case addressesStudents && !publication.NeedsSending():
 			// This student already holds the current correction. The whole
 			// resume rule, in one branch.
+			//
+			// Gated on addressesStudents rather than on `!rehearsal`: a run
+			// that redirects everything to the professor is a rehearsal in
+			// all but name, and filtering it would show them a batch
+			// missing exactly the copies they most want to look at.
 			result.AlreadySent++
 			continue
 		}
@@ -335,10 +384,12 @@ func (s *Service) Publish(ctx context.Context, controlID string, req PublishRequ
 		}
 		result.Sent++
 
-		if rehearsal {
-			// A rehearsal records nothing: it can be run as often as the
-			// professor likes, and stamping would make the second one skip
-			// the class it exists to show them.
+		if !addressesStudents {
+			// A run that did not reach the student records nothing about
+			// them. A rehearsal can then be repeated as often as the
+			// professor likes, and — the part the first draft got wrong — a
+			// `staging` run cannot consume the real publication that
+			// follows it.
 			continue
 		}
 		// IMMEDIATELY after this copy's own send, with the grade that
@@ -442,8 +493,13 @@ func (s *Service) PublishOne(ctx context.Context, controlID string, copyNumber i
 		annotated[copyNumber] = record
 	}
 
-	if _, _, reason, ok := deliverableCopy(control, reading, recipients, annotated); !ok {
-		return &CopyNotDeliverableError{CopyNumber: copyNumber, Reason: reason}
+	// ONCE, and reused for both the refusal and the stamp below. The first
+	// draft evaluated the decision three times for one copy — here, again
+	// inside messageFor, and a third time after the send purely to recover
+	// the grade this call already produced.
+	publication := CopyPublicationFor(control, reading, recipients, annotated)
+	if publication.State == CopySkipped {
+		return &CopyNotDeliverableError{CopyNumber: copyNumber, Reason: publication.SkipReason}
 	}
 
 	message, ok := s.messageFor(control, code, sender, PublishRequest{
@@ -464,13 +520,28 @@ func (s *Service) PublishOne(ctx context.Context, controlID string, copyNumber i
 		return err
 	}
 
+	if s.Dispatcher.RedirectsToSender() {
+		// The message went to the professor, not to the student, so nothing
+		// is recorded about the student — the same rule Publish applies,
+		// and for the same reason (#287 review, COR-1 / SEC-1). PublishOne
+		// hardcodes PublishModeReal, so a redirecting deployment is the
+		// only way it can happen here.
+		return nil
+	}
+
 	// After the send, like the loop's — and here the professor is waiting,
 	// so a stamp that fails is worth returning rather than logging: they
 	// would otherwise be told it went, and the next Publicar would send it
 	// again.
-	publication := CopyPublicationFor(control, reading, recipients, annotated)
 	if err := s.Readings.MarkCopyPublished(ctx, reading.ID, s.Now(), publication.Grade); err != nil {
-		return fmt.Errorf("controls.PublishOne: record that the copy was sent: %w", err)
+		// A DISTINCT sentinel, because the honest sentence is not "no se
+		// pudo enviar": the message is already in the student's mailbox and
+		// only the record of it is missing. Telling the professor the send
+		// failed invites them to press again, which mails the student twice
+		// (#287 review, COR-5).
+		s.Log.Error("controls.PublishOne: could not record that the copy was sent",
+			"control", controlID, "copy", copyNumber, "error", err)
+		return fmt.Errorf("%w", ErrSentButNotRecorded)
 	}
 	return nil
 }

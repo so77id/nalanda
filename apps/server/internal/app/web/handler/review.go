@@ -76,6 +76,7 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 		ShowPublishCopy:   control.State == controls.Graded,
 		CopyPublishedLine: copyPublishedLine(reading),
 	}
+	page.CanPublishCopy = true
 	// Issue #190: the corrected PDF replaces the raw scan once it exists.
 	// The lookup failure is a 500 — same convention as the reading list on
 	// the detail page: if the store is broken for this query, the page it
@@ -89,10 +90,44 @@ func (h *Controls) Review(w http.ResponseWriter, r *http.Request) {
 		page.HasAnnotated = true
 		page.AnnotatedURL = controlAnnotatedURL(id, copyNumber)
 	}
+	// Issue #287 review (F5): why this copy cannot be sent, computed from
+	// what the page already holds. Three of the four skip reasons cost
+	// NOTHING here — the reading carries StudentID, GradeFor reads the
+	// answers already loaded, and HasAnnotated was just resolved — so the
+	// button is disabled with an instruction rather than live over a
+	// refusal.
+	//
+	// The fourth (matched to somebody the roster no longer carries, or who
+	// has no address) needs the course, which this page does not read; it
+	// stays a server-side refusal, and PublishOne answers it with a flash
+	// on this same screen.
+	page.CanPublishCopy, page.PublishCopyBlockedReason = copySendGate(control, reading, page.HasAnnotated)
 	page.Flash = flash.Consume(w, r, h.secureCookie)
 	if err := view.RenderReview(w, page); err != nil {
 		h.Log.Error("rendering review", "error", err)
 	}
+}
+
+// copySendGate answers "can this copy be sent, and if not, what does the
+// professor do about it" — for the reasons visible without a roster read.
+//
+// It deliberately does NOT re-implement controls.deliverableCopy: it asks
+// the same questions the same way (StudentID, GradeFor, an annotated
+// record) and leaves the one it cannot see to the domain, which refuses
+// with the same three sentences. A fourth spelling of the rule is what
+// #251's cannot-disagree rule refuses, and the sentences themselves live in
+// one place (copyNotDeliverableMessage).
+func copySendGate(c controls.Control, r controls.Reading, hasAnnotated bool) (bool, string) {
+	switch {
+	case r.StudentID == nil:
+		return false, copySkipMessage(controls.SkipNoStudent)
+	case !hasAnnotated:
+		return false, copySkipMessage(controls.SkipNoAnnotated)
+	}
+	if _, ok := controls.GradeFor(c.QuestionsPerCopy, r); !ok {
+		return false, copySkipMessage(controls.SkipNoGrade)
+	}
+	return true, ""
 }
 
 // copyPublishedLine words what this one copy's student is holding.
