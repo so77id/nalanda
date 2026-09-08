@@ -34,10 +34,19 @@ describe('questionProblems', () => {
     expect(problems({ anchor: 'no-existe' }).join(' ')).toMatch(/no-existe/);
   });
 
-  it('accepts a question with no anchor at all', () => {
-    // Deliberate: it belongs to the whole chapter and enters a control only
-    // when the range covers the document entirely.
-    expect(problems({ anchor: undefined })).toEqual([]);
+  it('demands an anchor — a question without one is invisible to the server bank', () => {
+    // Political change (2026-09-07). The rule used to ACCEPT `anchor: undefined`
+    // with the intent "belongs to the whole chapter and enters a control only
+    // when the range covers the document entirely". The apps/server bank never
+    // respected that intent: `bank.Pool` (bank.go) skips silently on empty
+    // anchor. The mismatch surfaced when Miguel picked "first to last section
+    // of ordenamiento" in the create-control UI and got zero questions,
+    // although the doc had 12 (all but one without anchor). Rather than fixing
+    // both sides to match the old intent (harder, changes shipped Go code),
+    // the frontend policy now aligns with what the server actually does:
+    // anchor is mandatory. If a whole-chapter question ever makes sense again,
+    // both sides move together in a later change.
+    expect(problems({ anchor: undefined }).join(' ')).toMatch(/anchor/i);
   });
 
   it('demands exactly four alternatives', () => {

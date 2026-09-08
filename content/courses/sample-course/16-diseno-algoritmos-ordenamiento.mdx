@@ -1500,7 +1500,7 @@ class Solution {
 
 <Questions>
 
-<Question id="estabilidad">
+<Question id="estabilidad" anchor="propiedades-de-un-algoritmo-de-ordenamiento">
 
 Un algoritmo de ordenamiento es **estable** si…
 
@@ -1511,7 +1511,7 @@ Un algoritmo de ordenamiento es **estable** si…
 
 </Question>
 
-<Question id="in-place">
+<Question id="in-place" anchor="propiedades-de-un-algoritmo-de-ordenamiento">
 
 Un algoritmo de ordenamiento es **in-place** cuando…
 
@@ -1522,7 +1522,7 @@ Un algoritmo de ordenamiento es **in-place** cuando…
 
 </Question>
 
-<Question id="bubble-invariante">
+<Question id="bubble-invariante" anchor="bubble-sort-codigo-y-analisis">
 
 Después de la k-ésima pasada completa de bubble sort sobre un arreglo, ¿qué se sabe con certeza?
 
@@ -1533,7 +1533,7 @@ Después de la k-ésima pasada completa de bubble sort sobre un arreglo, ¿qué 
 
 </Question>
 
-<Question id="insertion-cuando">
+<Question id="insertion-cuando" anchor="insertion-sort-codigo-y-analisis">
 
 ¿En cuál de estas situaciones **insertion sort** es preferible a mergesort o quicksort?
 
@@ -1544,7 +1544,7 @@ Después de la k-ésima pasada completa de bubble sort sobre un arreglo, ¿qué 
 
 </Question>
 
-<Question id="merge-hace-que">
+<Question id="merge-hace-que" anchor="merge">
 
 La operación `merge(a, lo, mid, hi)` que usa mergesort por dentro:
 
@@ -1555,7 +1555,7 @@ La operación `merge(a, lo, mid, hi)` que usa mergesort por dentro:
 
 </Question>
 
-<Question id="mergesort-peor-caso">
+<Question id="mergesort-peor-caso" anchor="mergesort-propiedades">
 
 ¿Cuál es la complejidad temporal de **mergesort en el peor caso**?
 
@@ -1566,7 +1566,7 @@ La operación `merge(a, lo, mid, hi)` que usa mergesort por dentro:
 
 </Question>
 
-<Question id="partition-hace-que">
+<Question id="partition-hace-que" anchor="partition">
 
 La operación `partition(a, lo, hi)` (esquema Lomuto, pivote = `a[lo]`) que usa quicksort por dentro:
 
@@ -1577,7 +1577,7 @@ La operación `partition(a, lo, hi)` (esquema Lomuto, pivote = `a[lo]`) que usa 
 
 </Question>
 
-<Question id="quicksort-peor-caso">
+<Question id="quicksort-peor-caso" anchor="el-drama-del-pivote-peor-caso-theta-n-2">
 
 Con la implementación básica de quicksort (pivote = `a[lo]`, sin random shuffle ni mediana de tres), ¿en cuál situación alcanza su peor caso Θ(N²)?
 
@@ -1588,7 +1588,7 @@ Con la implementación básica de quicksort (pivote = `a[lo]`, sin random shuffl
 
 </Question>
 
-<Question id="quicksort-defensa">
+<Question id="quicksort-defensa" anchor="eligiendo-un-buen-pivote">
 
 ¿Cuál de estas técnicas **desactiva** el peor caso Θ(N²) de quicksort, transformándolo en Θ(N log N) esperado?
 
@@ -1599,7 +1599,7 @@ Con la implementación básica de quicksort (pivote = `a[lo]`, sin random shuffl
 
 </Question>
 
-<Question id="dualidad-merge-quick">
+<Question id="dualidad-merge-quick" anchor="mergesort-vs-quicksort">
 
 ¿Cuál es la diferencia fundamental entre mergesort y quicksort en términos de dónde vive el trabajo?
 
@@ -1621,7 +1621,7 @@ Java usa **dual-pivot quicksort** para tipos primitivos (`int[]`, `double[]`, `l
 
 </Question>
 
-<Question id="cota-inferior">
+<Question id="cota-inferior" anchor="se-puede-hacer-mejor-que-n-log-n">
 
 Cualquier algoritmo de ordenamiento que decide qué hacer con el arreglo **solamente a partir de comparaciones `<` entre pares de elementos** tiene una cota inferior de Ω(N log N) comparaciones en el peor caso. ¿De dónde sale esta cota?
 

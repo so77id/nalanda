@@ -91,11 +91,18 @@ export function questionProblems(
     );
   }
 
-  if (anchor !== undefined && !sections.has(anchor)) {
+  if (anchor === undefined) {
     problems.push(
       say(
         question,
-        `apunta a "${anchor}", que no es ninguna sección de este documento. Corrige el anchor o quítalo si la pregunta es del capítulo entero.`,
+        `no tiene anchor: cada pregunta pertenece a una sección concreta, y sin anchor la generación de controles la ignora (el bank del server la salta cuando el rango se resuelve). Añade \`anchor="<slug-de-la-sección>"\`. Antes se permitía omitirlo con la intención de "toda la clase entra si el rango cubre el documento entero", pero el server nunca respetó esa intención — arrastraba 12 preguntas de \`diseno-algoritmos-ordenamiento\` invisibles hasta que apareció como bug al armar un control real.`,
+      ),
+    );
+  } else if (!sections.has(anchor)) {
+    problems.push(
+      say(
+        question,
+        `apunta a "${anchor}", que no es ninguna sección de este documento. Corrige el anchor.`,
       ),
     );
   }
