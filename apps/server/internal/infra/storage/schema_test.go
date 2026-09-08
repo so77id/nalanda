@@ -1467,3 +1467,50 @@ func TestPublishedSentIsNullableAndDistinguishesZeroFromUnknown(t *testing.T) {
 		t.Errorf("published_sent = %v, want a stored 0 distinguishable from NULL", sent)
 	}
 }
+
+// Issue #287: publication is recorded per COPY, so the reading carries when
+// its own message went out and which grade it carried.
+//
+// Both NULL is the state of every reading that exists today and of every
+// copy nobody has written to yet, which is what makes "no enviado" a state
+// the schema can express rather than one a caller has to infer.
+func TestReadingPublicationColumnsAreNullableAndRoundTrip(t *testing.T) {
+	ctx, db := migrated(t)
+	userID := insertProfessor(t, ctx, db, "profesora@example.com")
+	controlID := insertControlRow(t, ctx, db, "CTRLPERCOPY0000000000001", userID, nil)
+	readingID := insertReadingRow(t, ctx, db, controlID, 1, nil)
+
+	var (
+		publishedAt    sql.NullInt64
+		publishedGrade sql.NullString
+	)
+	if err := db.QueryRowContext(ctx,
+		"SELECT published_at, published_grade FROM reading WHERE id = ?", readingID,
+	).Scan(&publishedAt, &publishedGrade); err != nil {
+		t.Fatalf("reading the per-copy publication columns back: %v", err)
+	}
+	if publishedAt.Valid || publishedGrade.Valid {
+		t.Errorf("a copy nobody wrote to reads published_at=%v grade=%v, want both NULL",
+			publishedAt, publishedGrade)
+	}
+
+	// The grade is stored as the STRING FormatGrade produced, not as a
+	// float: that function is the single source of the arithmetic the
+	// message quotes (ADR-0031), and re-deriving it here would be a second
+	// place for the number to live.
+	if _, err := db.ExecContext(ctx,
+		"UPDATE reading SET published_at = ?, published_grade = ? WHERE id = ?",
+		1757260800, "5.7", readingID,
+	); err != nil {
+		t.Fatalf("stamping the copy published: %v", err)
+	}
+	if err := db.QueryRowContext(ctx,
+		"SELECT published_at, published_grade FROM reading WHERE id = ?", readingID,
+	).Scan(&publishedAt, &publishedGrade); err != nil {
+		t.Fatalf("re-reading the per-copy publication columns: %v", err)
+	}
+	if publishedAt.Int64 != 1757260800 || publishedGrade.String != "5.7" {
+		t.Errorf("round-tripped published_at=%v grade=%v, want 1757260800 and \"5.7\"",
+			publishedAt, publishedGrade)
+	}
+}
