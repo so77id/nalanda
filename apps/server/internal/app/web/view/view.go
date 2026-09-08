@@ -608,6 +608,14 @@ type ControlDetailPage struct {
 	// every student already holding the current correction is skipped.
 	PublishURL  string
 	TestSendURL string
+	// ResendAllURL is the POST target of "Reenviar a todo el curso" (issue
+	// #287), which forgets every copy's stamp so the next Publicar writes
+	// to the class again. It occupies the slot "Deshacer la publicación"
+	// had and is named for what it does, which that button was not.
+	ResendAllURL string
+	// ResendAllWarning is what the professor weighs first: how many people
+	// already have their correction and would receive a second copy.
+	ResendAllWarning string
 	// PublishedLine is the Spanish sentence a published control shows —
 	// when it happened and in which mode. Pre-formatted, like every other
 	// string this struct hands the template.

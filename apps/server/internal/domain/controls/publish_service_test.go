@@ -145,6 +145,23 @@ func (*publishReadings) SetControlState(context.Context, string, controls.State)
 	return nil
 }
 
+// ClearCopyPublications forgets every stamp on the held readings and
+// reports how many it removed, exactly as the store's statement does — the
+// count is what the flash quotes back, so a double returning len(readings)
+// would let a wrong number pass.
+func (r *publishReadings) ClearCopyPublications(context.Context, string) (int, error) {
+	cleared := 0
+	for i := range r.readings {
+		if r.readings[i].PublishedAt == nil {
+			continue
+		}
+		r.readings[i].PublishedAt = nil
+		r.readings[i].PublishedGrade = ""
+		cleared++
+	}
+	return cleared, nil
+}
+
 // MarkCopyPublished writes the stamp back onto the held reading, so a case
 // can ask what the world looks like part-way through a loop rather than
 // only at the end (issue #287). The real store does exactly this; a double
@@ -974,5 +991,84 @@ func TestPublishOneRefusesAProfessorWithNoConnectedAccount(t *testing.T) {
 
 	if err := rig.svc.PublishOne(context.Background(), rig.controlID, 1, 7); !errors.Is(err, gmail.ErrNotConnected) {
 		t.Errorf("PublishOne returned %v, want gmail.ErrNotConnected", err)
+	}
+}
+
+// "Reenviar a todo el curso" (issue #287 §5), which replaced the undo.
+//
+// It exists for the case the staleness rule cannot see: the annotated PDFs
+// were wrong and the grades were not. Stale watches the GRADE, so nothing
+// about that situation is visible to it, and the alternative is one click
+// per student.
+func TestResendToWholeCourseForgetsEveryStampAndTheNextPublishMailsTheClass(t *testing.T) {
+	rig := newPublishRig(t)
+	req := controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal}
+
+	if _, err := rig.svc.Publish(context.Background(), rig.controlID, req); err != nil {
+		t.Fatalf("the first Publish: %v", err)
+	}
+	rig.dispatcher.sent = nil
+
+	cleared, err := rig.svc.ResendToWholeCourse(context.Background(), rig.controlID)
+	if err != nil {
+		t.Fatalf("ResendToWholeCourse: %v", err)
+	}
+	if cleared != 3 {
+		t.Errorf("cleared = %d, want the 3 copies that had gone out", cleared)
+	}
+	// It SENDS nothing itself: clearing and sending are two decisions, and
+	// the professor has just been told how many people this affects.
+	if len(rig.dispatcher.sent) != 0 {
+		t.Errorf("%d messages went out on the clear itself", len(rig.dispatcher.sent))
+	}
+
+	result, err := rig.svc.Publish(context.Background(), rig.controlID, req)
+	if err != nil {
+		t.Fatalf("the Publish after the clear: %v", err)
+	}
+	if result.Sent != 3 || len(rig.dispatcher.sent) != 3 {
+		t.Errorf("the next Publish sent %d of 3; the clear did not reach the loop", result.Sent)
+	}
+}
+
+// The control's own publication date survives. The class WAS published on
+// the day it was, and forgetting that would lose the one fact no per-copy
+// row carries.
+func TestResendToWholeCourseKeepsTheControlsPublicationDate(t *testing.T) {
+	rig := newPublishRig(t)
+
+	if _, err := rig.svc.Publish(context.Background(), rig.controlID,
+		controls.PublishRequest{ProfessorID: 7, Mode: controls.PublishModeReal}); err != nil {
+		t.Fatalf("Publish: %v", err)
+	}
+	before, err := rig.store.ControlByID(context.Background(), rig.controlID)
+	if err != nil {
+		t.Fatalf("ControlByID: %v", err)
+	}
+
+	if _, err := rig.svc.ResendToWholeCourse(context.Background(), rig.controlID); err != nil {
+		t.Fatalf("ResendToWholeCourse: %v", err)
+	}
+
+	after, err := rig.store.ControlByID(context.Background(), rig.controlID)
+	if err != nil {
+		t.Fatalf("ControlByID after: %v", err)
+	}
+	if after.PublishedAt == nil || !after.PublishedAt.Equal(*before.PublishedAt) {
+		t.Errorf("published_at moved from %v to %v", before.PublishedAt, after.PublishedAt)
+	}
+}
+
+// Zero cleared is a coherent answer, not an error: a control nobody has
+// published is a thing a professor can press this on by mistake.
+func TestResendToWholeCourseOnAnUnpublishedControlClearsNothing(t *testing.T) {
+	rig := newPublishRig(t)
+
+	cleared, err := rig.svc.ResendToWholeCourse(context.Background(), rig.controlID)
+	if err != nil {
+		t.Fatalf("ResendToWholeCourse: %v", err)
+	}
+	if cleared != 0 {
+		t.Errorf("cleared = %d, want 0", cleared)
 	}
 }

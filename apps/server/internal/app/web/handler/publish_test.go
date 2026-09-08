@@ -831,3 +831,84 @@ func TestAnOpenCorrectionShowsNoPublicationColumn(t *testing.T) {
 		t.Errorf("the publication column renders on an open correction:\n%s", body)
 	}
 }
+
+// "Reenviar a todo el curso" on the page (issue #287 §5).
+
+func TestResendAllNamesHowManyWouldReceiveASecondCopy(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := matchedGradedControl(t, f)
+
+	// Nobody has received anything yet, and the page says so rather than
+	// implying a consequence there is none of.
+	body := f.detailBody(t, controlID)
+	if !strings.Contains(body, "Reenviar a todo el curso") {
+		t.Fatalf("the page offers no bulk resend:\n%s", body)
+	}
+	if !strings.Contains(body, "Nadie ha recibido su corrección todavía") {
+		t.Errorf("the warning implies a consequence there is none of:\n%s", body)
+	}
+
+	if _, err := f.db.ExecContext(context.Background(),
+		"UPDATE reading SET published_at = 1757264400, published_grade = '7.0' "+
+			"WHERE control_id = ? AND copy_number = 1", controlID); err != nil {
+		t.Fatalf("stamping the copy: %v", err)
+	}
+	body = f.detailBody(t, controlID)
+	if !strings.Contains(body, "1 persona ya recibió su corrección") {
+		t.Errorf("the warning does not name how many would receive it twice:\n%s", body)
+	}
+	if !strings.Contains(body, "por segunda vez") {
+		t.Errorf("the warning does not say they would receive it again:\n%s", body)
+	}
+}
+
+// It clears and does not send, and the flash says what to press next.
+func TestResendAllClearsTheStampsAndSaysWhatToPressNext(t *testing.T) {
+	f := newControlsFixture(t)
+	controlID := matchedGradedControl(t, f)
+
+	if _, err := f.db.ExecContext(context.Background(),
+		"UPDATE reading SET published_at = 1757264400, published_grade = '7.0' "+
+			"WHERE control_id = ? AND copy_number = 1", controlID); err != nil {
+		t.Fatalf("stamping the copy: %v", err)
+	}
+
+	req := f.authedRequest(t, http.MethodPost, "/controls/"+controlID+"/resend-all", url.Values{})
+	req.SetPathValue("id", controlID)
+	rec := httptest.NewRecorder()
+	f.handler.ResendAll(rec, req)
+	if rec.Code != http.StatusSeeOther {
+		t.Fatalf("status = %d, want 303\n%s", rec.Code, rec.Body.String())
+	}
+
+	var stamped int
+	if err := f.db.QueryRowContext(context.Background(),
+		"SELECT COUNT(*) FROM reading WHERE control_id = ? AND published_at IS NOT NULL",
+		controlID).Scan(&stamped); err != nil {
+		t.Fatalf("counting the stamps: %v", err)
+	}
+	if stamped != 0 {
+		t.Errorf("%d stamps survived the resend-all", stamped)
+	}
+
+	message := flashFromResponse(t, rec)
+	if !strings.Contains(message, "1 persona volverá a recibir su corrección") {
+		t.Errorf("the flash does not say what just happened: %q", message)
+	}
+	if !strings.Contains(message, "aprietes Publicar") {
+		t.Errorf("the flash does not say what to press next: %q", message)
+	}
+}
+
+func TestResendAllOnAControlThatDoesNotExistIs404(t *testing.T) {
+	f := newControlsFixture(t)
+
+	req := f.authedRequest(t, http.MethodPost,
+		"/controls/AAAAAAAAAAAAAAAAAAAAAAAAAA/resend-all", url.Values{})
+	req.SetPathValue("id", "AAAAAAAAAAAAAAAAAAAAAAAAAA")
+	rec := httptest.NewRecorder()
+	f.handler.ResendAll(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Errorf("status = %d, want 404", rec.Code)
+	}
+}

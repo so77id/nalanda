@@ -38,12 +38,22 @@ const (
 	// replace, for a re-annotation that moved the marks without moving the
 	// total.
 	CopyPublishPath = "/controls/{id}/copies/{copy}/publish"
+	// ControlResendAllPath forgets every copy's stamp so the next Publicar
+	// writes to the whole class again (issue #287).
+	//
+	// It occupies the slot "Deshacer la publicación" had and is named for
+	// what it actually does, which that button was not: it never undid
+	// anything. The case it exists for is the one the staleness rule cannot
+	// see — the annotated PDFs were wrong and the grades were not.
+	ControlResendAllPath = "/controls/{id}/resend-all"
 )
 
 // controlPublishURL and controlTestSendURL build the two POST targets, so
 // the template and the redirects name each pattern once.
 func controlPublishURL(id string) string  { return ControlsPath + "/" + id + "/publish" }
 func controlTestSendURL(id string) string { return ControlsPath + "/" + id + "/test-send" }
+
+func controlResendAllURL(id string) string { return ControlsPath + "/" + id + "/resend-all" }
 
 func copyPublishURL(id string, copyNumber int) string {
 	return fmt.Sprintf("%s/%s/copies/%d/publish", ControlsPath, id, copyNumber)
@@ -364,6 +374,76 @@ func (h *Controls) PublishCopy(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// ResendAll forgets every copy's stamp, so the next Publicar mails the
+// class again.
+//
+// It sends nothing itself. The professor has just read how many people
+// would receive a second copy; pressing the second button is how they say
+// yes to that, and doing it for them would take the decision away in the
+// one place it actually has to be made.
+func (h *Controls) ResendAll(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if !isValidControlID(id) {
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+		return
+	}
+
+	cleared, err := h.Service.ResendToWholeCourse(r.Context(), id)
+	switch {
+	case err == nil:
+	case errors.Is(err, controls.ErrControlNotFound):
+		middleware.WriteError(w, r, http.StatusNotFound, "Ese control no existe.")
+		return
+	default:
+		h.Log.Error("resend all", "control", id, "error", err)
+		middleware.WriteError(w, r, http.StatusInternalServerError,
+			"Algo se rompió al preparar el reenvío. Vuelve a intentarlo.")
+		return
+	}
+
+	flash.Set(w, h.secureCookie, resendAllFlash(cleared))
+	http.Redirect(w, r, controlDetailURL(id), http.StatusSeeOther)
+}
+
+// resendAllFlash says what just happened and what to press next.
+//
+// It names the number rather than saying "listo", because the number is the
+// consequence the professor is about to cause and this is the last moment
+// they can change their mind about it.
+func resendAllFlash(cleared int) string {
+	switch cleared {
+	case 0:
+		return "Ninguna copia estaba marcada como enviada, así que no cambió nada. " +
+			"Publicar le enviará su corrección a todo el curso."
+	case 1:
+		return "Listo: 1 persona volverá a recibir su corrección cuando aprietes Publicar."
+	default:
+		return fmt.Sprintf("Listo: %d personas volverán a recibir su corrección cuando "+
+			"aprietes Publicar.", cleared)
+	}
+}
+
+// resendAllWarning is what the professor weighs BEFORE pressing it: how
+// many people already have their correction, and therefore how many would
+// get a second copy.
+//
+// The number is derived from the stamped readings, so it cannot be the
+// stale count #273's column could become. A staging publication is the one
+// case it would overstate — those copies are stamped and reached only the
+// professor — which is why the published line above it says so.
+func resendAllWarning(sent int) string {
+	switch sent {
+	case 0:
+		return "Nadie ha recibido su corrección todavía, así que esto no cambia nada: " +
+			"Publicar ya le escribiría a todo el curso."
+	case 1:
+		return "1 persona ya recibió su corrección y la recibirá por segunda vez."
+	default:
+		return fmt.Sprintf("%d personas ya recibieron su corrección y la recibirán por "+
+			"segunda vez.", sent)
+	}
+}
+
 // copyNotDeliverableMessage names WHICH of the three reasons stopped the
 // send, because each has a different repair and all three are reached from
 // the same button. "No se pudo enviar" for all of them would send the
@@ -421,9 +501,15 @@ func (h *Controls) fillPublication(r *http.Request, page *view.ControlDetailPage
 		}
 	}
 
+	sent := countSent(readings)
 	if c.PublishedAt != nil {
-		page.PublishedLine = publishedLine(c, countSent(readings))
+		page.PublishedLine = publishedLine(c, sent)
 	}
+	// Offered on any graded control, not only a published one: the case it
+	// covers is "the annotated PDFs were wrong", which a professor can be
+	// in after sending copies one at a time from the review page.
+	page.ResendAllURL = controlResendAllURL(c.ID)
+	page.ResendAllWarning = resendAllWarning(sent)
 
 	// A rehearsal survives the real publication; only the account and the
 	// course gate it.

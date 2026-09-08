@@ -460,6 +460,19 @@ type ReadingStore interface {
 	// no row records.
 	MarkCopyPublished(ctx context.Context, readingID int64, at time.Time, grade string) error
 
+	// ClearCopyPublications forgets that any copy of this control was ever
+	// sent, and reports how many stamps it removed (issue #287).
+	//
+	// It sends nothing and unsends nothing. What it does is make every
+	// copy "no enviada" again, so the next Publicar writes to the whole
+	// class — the deliberate bulk resend that replaced #273's "Deshacer la
+	// publicación".
+	//
+	// Zero cleared is not an error: a control nobody has published is a
+	// coherent thing to ask this about, and the caller says so rather than
+	// failing.
+	ClearCopyPublications(ctx context.Context, controlID string) (int, error)
+
 	// SetControlState updates control.state. Named on this interface
 	// because the reading half is where the state moves — WP-F flips
 	// to InReview on the first upload and to Graded on close.

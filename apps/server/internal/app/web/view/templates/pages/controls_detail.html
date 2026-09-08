@@ -199,6 +199,34 @@
           </form>
 
           {{/*
+            Issue #287. This slot held "Deshacer la publicación", which
+            never undid anything: it cleared three columns and left the
+            mail out there. The replacement is named for what it does.
+
+            It exists for the case the staleness rule CANNOT see — the
+            annotated PDFs were wrong and the grades were not — which
+            would otherwise cost one click per student.
+
+            It clears and does not send. The professor has just read how
+            many people would get a second copy; pressing Publicar
+            afterwards is how they say yes to that.
+          */}}
+          <details style="margin-top:0.5em">
+            <summary>Reenviar a todo el curso</summary>
+            <form method="post" action="{{ .ResendAllURL }}">
+              <input type="hidden" name="csrf_token" value="{{ .CSRFToken }}">
+              <p>{{ .ResendAllWarning }}</p>
+              <p>
+                Esto no envía nada todavía: marca todas las copias como no
+                enviadas, para que Publicar le escriba de nuevo a todo el
+                curso. Úsalo cuando los PDF corregidos estaban mal y las
+                notas no cambiaron.
+              </p>
+              <p><button type="submit">Marcar todas como no enviadas</button></p>
+            </form>
+          </details>
+
+          {{/*
             The rehearsal stays available AFTER the real publication: that
             is exactly when a professor needs it, because a student has
             just told them nothing arrived.

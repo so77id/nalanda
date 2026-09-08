@@ -475,6 +475,32 @@ func (s *Service) PublishOne(ctx context.Context, controlID string, copyNumber i
 	return nil
 }
 
+// ResendToWholeCourse forgets that any copy went out, so the next Publicar
+// writes to the whole class (issue #287 §5).
+//
+// It replaces #273's "Deshacer la publicación", and the rename is the
+// point: that button never undid anything — it cleared three columns and
+// told the professor the mail it could not recall was still out there. This
+// one is named for what it does.
+//
+// It is NOT redundant with the staleness rule. Stale covers "the grades
+// changed"; this covers "the annotated PDFs were wrong and the grades were
+// not" — a real case the grade comparison cannot see (§3), and one that
+// would otherwise cost twenty-five individual clicks.
+//
+// It does not send. Clearing and sending are two decisions, and a professor
+// who has just been told twenty-five people will receive a second copy
+// should get to press the second button themselves.
+//
+// control.published_at is left alone: the class WAS published on the day it
+// was, and forgetting that would lose the one fact no per-copy row carries.
+func (s *Service) ResendToWholeCourse(ctx context.Context, controlID string) (int, error) {
+	if _, err := s.Store.ControlByID(ctx, controlID); err != nil {
+		return 0, err
+	}
+	return s.Readings.ClearCopyPublications(ctx, controlID)
+}
+
 // CopyPublications derives every copy's publication state in one pass
 // (issue #287 §7).
 //

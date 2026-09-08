@@ -384,6 +384,13 @@ func routes(deps Deps) []Route {
 			Handler: deps.Controls.Publish,
 		},
 		{
+			// Issue #287: the deliberate bulk resend that replaced the
+			// undo. It clears stamps and sends nothing; the professor
+			// presses Publicar afterwards.
+			Method: http.MethodPost, Path: handler.ControlResendAllPath,
+			Handler: deps.Controls.ResendAll,
+		},
+		{
 			// Issue #287: one copy, synchronously, from the review page.
 			// Same surface and same gate as the batch — internal/app/api is
 			// anonymous by construction, so a send endpoint there would let

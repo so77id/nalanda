@@ -277,6 +277,11 @@ func (fakeReadingStore) SetControlState(context.Context, string, controls.State)
 	return nil
 }
 
+// ClearCopyPublications is inert here like the rest of this double.
+func (fakeReadingStore) ClearCopyPublications(context.Context, string) (int, error) {
+	return 0, nil
+}
+
 // MarkCopyPublished is inert here like the rest of this double; the
 // publication cases use publishReadings (publish_service_test.go), which
 // remembers what was stamped.

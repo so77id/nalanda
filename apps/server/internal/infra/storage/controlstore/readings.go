@@ -481,6 +481,33 @@ func (s *Store) MarkCopyPublished(ctx context.Context, readingID int64, at time.
 	return nil
 }
 
+// ClearCopyPublications removes every per-copy publication stamp of one
+// control and returns how many it removed (issue #287).
+//
+// The `WHERE published_at IS NOT NULL` is not an optimisation: RowsAffected
+// is what the flash quotes back to the professor, and without the guard it
+// would count every copy of the control including the ones nobody ever
+// wrote to — telling somebody that thirty people will receive a second copy
+// when three did.
+//
+// Deliberately does NOT stamp last_edited_at, the same reason
+// MarkCopyPublished and SetReadingStudent do not: that column means a human
+// decided something ABOUT THE CORRECTION, and re-sending mail is not a
+// correction.
+func (s *Store) ClearCopyPublications(ctx context.Context, controlID string) (int, error) {
+	result, err := s.db.ExecContext(ctx,
+		`UPDATE reading SET published_at = NULL, published_grade = NULL
+         WHERE control_id = ? AND published_at IS NOT NULL`, controlID)
+	if err != nil {
+		return 0, fmt.Errorf("controlstore.ClearCopyPublications %s: %w", controlID, err)
+	}
+	cleared, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("controlstore.ClearCopyPublications %s: rows affected: %w", controlID, err)
+	}
+	return int(cleared), nil
+}
+
 // SetRUTOverride upserts the RUT override.
 func (s *Store) SetRUTOverride(ctx context.Context, readingID int64, rut string, editedAt time.Time) error {
 	tx, err := s.db.BeginTx(ctx, nil)

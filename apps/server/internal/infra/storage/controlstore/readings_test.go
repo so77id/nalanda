@@ -890,3 +890,94 @@ func TestUpsertingAReportPreservesThePerCopyPublication(t *testing.T) {
 			after.PublishedAt, after.PublishedGrade, sentAt)
 	}
 }
+
+// ClearCopyPublications counts what it CLEARED, not what it touched (issue
+// #287).
+//
+// The number is what the flash quotes back to the professor, and a
+// statement without its `published_at IS NOT NULL` guard would count every
+// copy of the control — telling somebody that thirty people will receive a
+// second copy when three did.
+func TestClearCopyPublicationsCountsOnlyTheCopiesThatHadGoneOut(t *testing.T) {
+	ctx, db := migrated(t)
+	seedControl(t, ctx, db, "CTRL0287RESEND000000AAAAA", 3)
+	store := controlstore.New(db)
+
+	now := time.Unix(1_757_260_800, 0).UTC()
+	report := controls.Report{
+		Copies: map[string]controls.ReportCopy{
+			"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+			"2": sampleCopy("20999999", controls.CopyStatusOK, controls.RUTStatusOK),
+			"3": sampleCopy("20888888", controls.CopyStatusOK, controls.RUTStatusOK),
+		},
+	}
+	if err := store.UpsertReadingsFromReport(ctx, "CTRL0287RESEND000000AAAAA", report, now); err != nil {
+		t.Fatalf("Upsert: %v", err)
+	}
+	readings, err := store.ReadingsByControl(ctx, "CTRL0287RESEND000000AAAAA")
+	if err != nil {
+		t.Fatalf("ReadingsByControl: %v", err)
+	}
+	for _, reading := range readings[:2] {
+		if err := store.MarkCopyPublished(ctx, reading.ID, now, "5.7"); err != nil {
+			t.Fatalf("MarkCopyPublished: %v", err)
+		}
+	}
+
+	cleared, err := store.ClearCopyPublications(ctx, "CTRL0287RESEND000000AAAAA")
+	if err != nil {
+		t.Fatalf("ClearCopyPublications: %v", err)
+	}
+	if cleared != 2 {
+		t.Errorf("cleared = %d, want the 2 copies that had gone out", cleared)
+	}
+
+	after, err := store.ReadingsByControl(ctx, "CTRL0287RESEND000000AAAAA")
+	if err != nil {
+		t.Fatalf("ReadingsByControl after: %v", err)
+	}
+	for _, reading := range after {
+		if reading.PublishedAt != nil || reading.PublishedGrade != "" {
+			t.Errorf("copy %d kept its stamp (%v/%q)",
+				reading.CopyNumber, reading.PublishedAt, reading.PublishedGrade)
+		}
+	}
+}
+
+// And it reaches only the control it was asked about. A statement missing
+// its control_id would pass every assertion above.
+func TestClearCopyPublicationsLeavesOtherControlsAlone(t *testing.T) {
+	ctx, db := migrated(t)
+	store := controlstore.New(db)
+	for _, id := range []string{"CTRL0287RESENDA00000AAAAA", "CTRL0287RESENDB00000AAAAA"} {
+		seedControl(t, ctx, db, id, 1)
+		report := controls.Report{
+			Copies: map[string]controls.ReportCopy{
+				"1": sampleCopy("20123456", controls.CopyStatusOK, controls.RUTStatusOK),
+			},
+		}
+		now := time.Unix(1_757_260_800, 0).UTC()
+		if err := store.UpsertReadingsFromReport(ctx, id, report, now); err != nil {
+			t.Fatalf("Upsert %s: %v", id, err)
+		}
+		reading, err := store.ReadingByCopy(ctx, id, 1)
+		if err != nil {
+			t.Fatalf("ReadingByCopy %s: %v", id, err)
+		}
+		if err := store.MarkCopyPublished(ctx, reading.ID, now, "5.7"); err != nil {
+			t.Fatalf("MarkCopyPublished %s: %v", id, err)
+		}
+	}
+
+	if _, err := store.ClearCopyPublications(ctx, "CTRL0287RESENDA00000AAAAA"); err != nil {
+		t.Fatalf("ClearCopyPublications: %v", err)
+	}
+
+	other, err := store.ReadingByCopy(ctx, "CTRL0287RESENDB00000AAAAA", 1)
+	if err != nil {
+		t.Fatalf("ReadingByCopy: %v", err)
+	}
+	if other.PublishedAt == nil {
+		t.Error("clearing one control's stamps cleared another control's too")
+	}
+}

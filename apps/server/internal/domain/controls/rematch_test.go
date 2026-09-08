@@ -167,6 +167,11 @@ func (*matchingReadingStore) SetRUTOverride(context.Context, int64, string, time
 }
 func (*matchingReadingStore) ClearRUTOverride(context.Context, int64) error { return nil }
 
+// ClearCopyPublications is inert here: nothing in a rematch publishes.
+func (*matchingReadingStore) ClearCopyPublications(context.Context, string) (int, error) {
+	return 0, nil
+}
+
 // MarkCopyPublished is inert here: these cases are about the RUT→student
 // join, and nothing in a rematch publishes.
 func (*matchingReadingStore) MarkCopyPublished(context.Context, int64, time.Time, string) error {
