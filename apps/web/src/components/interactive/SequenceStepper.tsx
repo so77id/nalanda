@@ -274,7 +274,7 @@ function Body({
       />
       <div
         className={`min-h-0 flex-1 overflow-hidden bg-surface [&>div]:!h-full [&_.cm-content]:!min-h-full [&_.cm-editor]:!h-full [&_.cm-scroller]:!h-full ${
-          isPresentation ? 'text-sm [&_.cm-editor]:!text-sm' : ''
+          isPresentation ? 'text-base [&_.cm-editor]:!text-base' : ''
         }`}
       >
         <CodeStepper code={trace.code} highlightLines={step.highlightLines} language="java" />
@@ -321,7 +321,13 @@ function Body({
         <div
           className="grid gap-2 px-3 py-3"
           style={{
-            height: 'min(62vh, 620px)',
+            // No fixed height: these listings are 6-11 lines and the chain is
+            // one short SVG, so pinning the row to a fraction of the viewport
+            // left the code panel half empty on every operation slide while
+            // the listing itself stayed small. The cap is a ceiling, not a
+            // target — a slide is scaled to fit, so the widget asking for
+            // less height means the whole slide is scaled down less.
+            maxHeight: 'min(52vh, 500px)',
             gridTemplateColumns: showCode ? 'minmax(0, 9fr) minmax(0, 11fr)' : 'minmax(0, 1fr)',
           }}
         >
