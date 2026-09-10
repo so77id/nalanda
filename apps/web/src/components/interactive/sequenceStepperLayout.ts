@@ -21,8 +21,16 @@ export const BOX_H = 40;
 export const LINK_W = 16;
 /** Horizontal room between two nodes, where the arrow is drawn. */
 export const LIST_GAP = 34;
-/** Vertical room above the structure for the head / tail / cursor arrows. */
+/** Vertical room above the structure for the walking-pointer arrows. */
 export const POINTER_BAND = 46;
+/**
+ * Horizontal room to the LEFT of a chain, where `head` sits with an arrow
+ * pointing across into the first node. Drawn sideways rather than from above
+ * so it never shares the band with the floating node, which arrives directly
+ * over the slot it is about to occupy — at the front, which is exactly where
+ * `head` used to point down.
+ */
+export const HEAD_LANE = 74;
 /** Vertical room below for the index rail (arrays) and the ring (circular). */
 export const FOOT_BAND = 36;
 /** Extra room under a circular list, where the closing arc is drawn. */
@@ -49,6 +57,8 @@ export interface LayoutBox {
 }
 
 export interface SequenceLayout {
+  /** Left edge of the first node — `head` is drawn in the room before it. */
+  lane: number;
   width: number;
   height: number;
   /** Top of the free-floating node's row, or `null` when there is none. */
@@ -82,9 +92,10 @@ export function layoutSequence(
   const gap = list ? LIST_GAP : 0;
   const top = POINTER_BAND + (hasCarry ? CARRY_BAND : 0);
 
+  const lane = list ? HEAD_LANE : 0;
   const boxes: LayoutBox[] = [];
   for (let i = 0; i < drawn; i += 1) {
-    const x = i * (nodeW + gap);
+    const x = lane + i * (nodeW + gap);
     boxes.push({
       x,
       y: top,
@@ -95,7 +106,7 @@ export function layoutSequence(
     });
   }
 
-  const contentW = drawn === 0 ? nodeW : drawn * nodeW + (drawn - 1) * gap;
+  const contentW = lane + (drawn === 0 ? nodeW : drawn * nodeW + (drawn - 1) * gap);
   const ring = recipe === 'linked-list-circular' && drawn > 0;
   const footY = top + BOX_H + FOOT_BAND;
   return {
@@ -104,6 +115,7 @@ export function layoutSequence(
     width: contentW + (list ? LIST_GAP + BOX_W / 2 : 0),
     height: footY + (ring ? RING_BAND : 0),
     boxes,
+    lane,
     top,
     carryY: hasCarry ? 6 : null,
     footY,

@@ -457,6 +457,16 @@ function StructureView({
       data-testid="sequence-structure"
     >
       <defs>
+        <marker
+          id="seq-arrow-head"
+          markerWidth="6"
+          markerHeight="6"
+          refX="5"
+          refY="3"
+          orient="auto"
+        >
+          <path d="M0,0 L6,3 L0,6 z" fill="var(--color-accent)" />
+        </marker>
         <marker id="seq-arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
           <path d="M0,0 L6,3 L0,6 z" fill="var(--color-ink-soft)" />
         </marker>
@@ -704,38 +714,71 @@ function Pointers({
   layout: SequenceLayout;
   offset: number;
 }) {
-  // `head` and `tail` ride the top row; the walking pointers ride the row
-  // below, so a walk that passes over `head` never hides it.
-  const ROW = { head: 10, tail: 10, otros: 28 };
   return (
     <g>
       {step.pointers.map((pointer) => {
-        const y = pointer.name === 'head' || pointer.name === 'tail' ? ROW.head : ROW.otros;
         const box = pointer.index === null ? null : layout.boxes[pointer.index + offset];
+        const isHead = pointer.name === 'head';
         const walking = pointer.name !== 'head' && pointer.name !== 'tail';
         const colour = walking ? 'var(--color-focus)' : 'var(--color-accent)';
-        // A pointer aimed past the end is drawn at the null marker.
-        // A walking pointer standing on the same node as `head` or `tail` is
-        // nudged sideways: the two labels ride different rows, but the fixed
-        // pointer's ARROW runs straight through the walking one's label, and
-        // the first frame of every walk starts exactly there.
+
+        // `head` points ACROSS from the lane on the left, never down from
+        // above: the floating node arrives directly over the front slot —
+        // where head points — so from above the two shared one column.
+        if (isHead) {
+          const y = layout.top + BOX_H / 2;
+          const toX = box ? box.x - 4 : layout.lane + 8;
+          return (
+            <g key={pointer.name}>
+              <text
+                x={0}
+                y={y + 4}
+                fontSize="11"
+                fontWeight="700"
+                fill={colour}
+                fontFamily="monospace"
+              >
+                head
+              </text>
+              <line
+                x1={38}
+                y1={y}
+                x2={toX}
+                y2={y}
+                stroke={colour}
+                strokeWidth={1.6}
+                markerEnd="url(#seq-arrow-head)"
+              />
+              {box === null ? (
+                <text
+                  x={toX + 8}
+                  y={y + 4}
+                  fontSize="11"
+                  fontFamily="monospace"
+                  fill="var(--color-ink-faint)"
+                >
+                  null
+                </text>
+              ) : null}
+            </g>
+          );
+        }
+
+        // A walking pointer standing on the same node as `tail` is nudged
+        // sideways and anchored away, or the fixed pointer's arrow runs
+        // through the walking one's label.
         const collides =
           walking &&
           pointer.index !== null &&
-          step.pointers.some(
-            (other) =>
-              (other.name === 'head' || other.name === 'tail') && other.index === pointer.index,
-          );
+          step.pointers.some((other) => other.name === 'tail' && other.index === pointer.index);
         const nudge = collides ? 26 : 0;
+        const y = pointer.name === 'tail' ? 10 : 28;
         const x = (box ? box.centerX : layout.width - 12) + nudge;
         return (
           <g key={pointer.name}>
             <text
               x={x}
               y={y}
-              // Anchored away from the collision rather than centred: a
-              // centred label still grows back over the arrow it was nudged
-              // clear of.
               textAnchor={collides ? 'start' : 'middle'}
               fontSize="10"
               fontWeight="700"
