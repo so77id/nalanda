@@ -80,20 +80,30 @@ distinta.
   no hay ninguna cuenta que lleve a la posición `i`: hay que caminar hasta
   ella. Esa EDA es la **lista enlazada**.
 
-El par de siglas ordena el resto de la clase. El **TDA** es el contrato: qué
-se puede pedir. La **EDA** es la implementación: cómo se guarda y cuánto
-cuesta cada pedido. Un TDA admite muchas EDA, y elegir entre ellas es elegir
-qué operaciones queremos baratas.
-
-Con el arreglo ya estudiado, ahora estudiamos la **lista enlazada**: sus
-invariantes, sus operaciones, sus variantes y sus costos, que son casi la
-imagen espejo.
-
 </Slide>
 
 <Slide title="El nodo · un valor y un enlace">
 La pieza de la que está hecha una lista es el **nodo**: una cajita con dos
 cosas adentro, el dato que guardamos y la dirección del nodo que sigue.
+
+<svg viewBox="0 0 420 150" style={{ width: '100%', maxWidth: '420px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Un nodo dibujado como una caja de dos campos: a la izquierda el campo valor, que guarda el número 42; a la derecha el campo next, del que sale una flecha hacia el nodo siguiente.">
+  <defs>
+    <marker id="nodo-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+  </defs>
+  <rect x="40" y="45" width="110" height="60" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <rect x="150" y="45" width="52" height="60" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+  <text x="95" y="85" textAnchor="middle" fontSize="26" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>42</text>
+  <circle cx="176" cy="75" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+  <text x="95" y="126" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>valor</text>
+  <text x="176" y="126" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>next</text>
+  <text x="95" y="30" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>el dato</text>
+  <text x="270" y="30" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-soft)' }}>dónde sigue</text>
+  <line x1="176" y1="75" x2="300" y2="75" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#nodo-punta)" />
+  <rect x="310" y="45" width="70" height="60" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule)' }} strokeWidth="1.4" strokeDasharray="4 3" />
+  <text x="345" y="82" textAnchor="middle" fontSize="14" style={{ fill: 'var(--color-ink-faint)' }}>otro nodo</text>
+</svg>
 
 ```java
 class Nodo {
