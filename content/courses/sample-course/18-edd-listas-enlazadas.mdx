@@ -210,32 +210,46 @@ entre sí. Lo único que los mantiene en orden es el enlace.
 
 </Slide>
 
-<Slide title="De head a null">
-Una lista es un nodo que conoce al siguiente, que conoce al siguiente, hasta
-que alguno apunta a `null`. Para tener la cadena entera basta con guardar
-dónde empieza: esa referencia se llama `head`.
+<Slide title="La lista enlazada">
+Un nodo que conoce al siguiente, que conoce al siguiente, hasta que alguno ya
+no apunta a nadie. Eso es una **lista enlazada**.
 
-<SequenceStepper
-  eda="linked-list-singly"
-  operation="search"
-  values={[7, 3, 1, 5]}
-  target={5}
-  showCode={false}
-/>
+<svg viewBox="0 0 700 150" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1.25rem auto' }} role="img" aria-label="Una lista enlazada de cuatro nodos con los valores 7, 3, 1 y 5. Una referencia llamada head apunta al primero; cada nodo tiene un campo con su valor y otro con una flecha hacia el siguiente; el último apunta a null.">
+  <defs>
+    <marker id="lista-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-ink-soft)' }} />
+    </marker>
+    <marker id="lista-punta-head" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="34" y="34" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>head</text>
+  <line x1="34" y1="42" x2="34" y2="72" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#lista-punta-head)" />
+  {[7, 3, 1, 5].map((v, i) => (
+    <g key={i}>
+      <rect x={20 + i * 158} y="76" width="72" height="54" rx="4" style={{ fill: 'var(--color-surface)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <rect x={92 + i * 158} y="76" width="34" height="54" rx="4" style={{ fill: 'var(--color-sunk)', stroke: 'var(--color-rule-strong)' }} strokeWidth="1.6" />
+      <text x={56 + i * 158} y="111" textAnchor="middle" fontSize="24" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      <circle cx={109 + i * 158} cy="103" r="4" style={{ fill: 'var(--color-ink-soft)' }} />
+      <line x1={109 + i * 158} y1="103" x2={i < 3 ? 170 + i * 158 : 648} y2="103" style={{ stroke: 'var(--color-ink-soft)' }} strokeWidth="1.6" markerEnd="url(#lista-punta)" />
+    </g>
+  ))}
+  <text x="668" y="108" fontSize="15" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+</svg>
 
-Dos consecuencias salen de este dibujo, y las dos ordenan el resto de la
-clase. La primera: llegar al elemento de la posición `i` cuesta `i` saltos,
-porque no hay otra forma de llegar que siguiendo enlaces. La segunda:
-cambiar dónde apunta un enlace reordena la cadena sin mover ningún dato.
+Una sola referencia, `head`, alcanza para tener la cadena entera: desde ella
+se llega al primero, y de cada uno al que sigue. El último no apunta a
+ninguno, y ese `null` es lo que dice dónde termina.
+
+Dos propiedades ordenan el resto de la clase. Llegar al elemento de la
+posición `i` cuesta `i` saltos, porque no hay otra forma de avanzar que
+siguiendo enlaces. Y cambiar dónde apunta un enlace reordena la cadena sin
+mover ningún dato.
 
 </Slide>
 
-<SectionBreak />
-
-## La EDA lista simplemente enlazada
-
-<Slide title="La clase Lista · head y size">
-La estructura completa se sostiene con dos atributos:
+<Slide title="La estructura en código">
+Con el nodo definido, la lista completa se sostiene con dos atributos:
 
 ```java
 public class LinkedList {
@@ -1337,7 +1351,7 @@ Un nodo recién creado tiene su campo `next` en `null`. ¿Qué significa eso?
 
 </Question>
 
-<Question id="lista-para-que-sirve-head" anchor="de-head-a-null">
+<Question id="lista-para-que-sirve-head" anchor="la-lista-enlazada">
 
 ¿Para qué alcanza guardar solamente `head`?
 
@@ -1348,7 +1362,7 @@ Un nodo recién creado tiene su campo `next` en `null`. ¿Qué significa eso?
 
 </Question>
 
-<Question id="lista-por-que-se-guarda-size" anchor="la-clase-lista-head-y-size">
+<Question id="lista-por-que-se-guarda-size" anchor="la-estructura-en-codigo">
 
 ¿Por qué la clase guarda `size` en vez de contar los nodos cuando se lo piden?
 
