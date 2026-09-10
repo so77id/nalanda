@@ -7,6 +7,7 @@ import {
   traceFor,
   type SequenceOperation,
   type SequenceRecipe,
+  type SequenceTrace,
 } from './sequenceStepperTrace';
 
 /**
@@ -496,5 +497,113 @@ describe('sequenceStepperTrace · a chain built one insertion at a time', () => 
       // names lines by text and would silently pick the first of two.
       expect(code.split('\n').filter((l) => l.includes('size++'))).toHaveLength(1);
     }
+  });
+});
+
+describe('sequenceStepperTrace · one operation, several runs', () => {
+  // Every slide of the operations act runs its operation more than once, so
+  // the reader sees the cost CHANGE instead of being told it does. The runs
+  // share one chain and one counter; these pin what each of them leaves.
+  const chain = [7, 3, 1, 5, 9, 2, 8];
+
+  it('getAt walks once per position asked for', () => {
+    const trace = traceFor('linked-list-singly', 'get-at', { values: chain, index: [0, 3, 6] });
+    expect(trace.steps.filter((s) => s.kind === 'walk')).toHaveLength(0 + 3 + 6);
+    expect(trace.steps.at(-1)!.description).toMatch(/posición 6 tras 6 saltos/);
+    // The chain is untouched: getAt reads.
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual(chain);
+  });
+
+  it('search stops at the hit and only the absent value costs the whole chain', () => {
+    const trace = traceFor('linked-list-singly', 'search', { values: chain, target: [7, 8, 4] });
+    const answers = trace.steps.filter((s) => /Encontramos|no está/.test(s.description));
+    expect(answers.map((s) => s.description)).toEqual([
+      'Encontramos 7 tras recorrer 1 nodo.',
+      'Encontramos 8 tras recorrer 7 nodos.',
+      'Recorrimos los 7 nodos: 4 no está en la lista.',
+    ]);
+  });
+
+  it('insertAt validates each index against the chain as it is by then', () => {
+    const trace = traceFor('linked-list-singly', 'insert-at', {
+      values: [7, 3, 1, 5],
+      value: [9, 4, 6],
+      index: [2, 0, 5],
+    });
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([4, 7, 3, 9, 1, 6, 5]);
+    // Position 5 is only legal because the two insertions before it grew the
+    // chain — validating against the STARTING length would refuse the slide.
+    expect(() =>
+      traceFor('linked-list-singly', 'insert-at', { values: [7, 3, 1, 5], value: 9, index: 5 }),
+    ).toThrow(/índice/i);
+  });
+
+  it('insertAt and deleteAt hand position 0 to the operation defined there', () => {
+    const insert = traceFor('linked-list-singly', 'insert-at', {
+      values: [7, 3],
+      value: 9,
+      index: 0,
+    });
+    expect(insert.code).toContain('insertFirst(x);');
+    expect(insert.steps.some((s) => s.headToCarry === true)).toBe(true);
+    expect(insert.steps.at(-1)!.cells.map((c) => c.value)).toEqual([9, 7, 3]);
+
+    const remove = traceFor('linked-list-singly', 'remove-at', { values: [7, 3], index: 0 });
+    expect(remove.code).toContain('return deleteFirst();');
+    expect(remove.steps.at(-1)!.cells.map((c) => c.value)).toEqual([3]);
+    // No walk: there is no previous node to walk to.
+    expect(remove.steps.filter((s) => s.kind === 'walk')).toHaveLength(0);
+  });
+
+  it('deleteFirst costs the same every run and deleteLast costs less', () => {
+    const first = traceFor('linked-list-singly', 'remove-first', {
+      values: [7, 3, 1, 5],
+      times: 3,
+    });
+    const last = traceFor('linked-list-singly', 'remove-last', {
+      values: [7, 3, 1, 5, 9],
+      times: 3,
+    });
+    const perRun = (t: SequenceTrace) => {
+      const ends = t.steps.filter((s) => s.kind === 'done').map((s) => s.cost);
+      return ends.map((c, i) => (i === 0 ? c : c - ends[i - 1]!));
+    };
+    expect(perRun(first)).toEqual([2, 2, 2]);
+    // One hop fewer each time, and never zero: the walk restarts at head.
+    expect(perRun(last)).toEqual([5, 4, 3]);
+    expect(first.steps.at(-1)!.cells.map((c) => c.value)).toEqual([5]);
+    expect(last.steps.at(-1)!.cells.map((c) => c.value)).toEqual([7, 3]);
+  });
+
+  it('refuses a slide that would remove more nodes than the chain has', () => {
+    expect(() =>
+      traceFor('linked-list-singly', 'remove-first', { values: [7, 3], times: 3 }),
+    ).toThrow(/lista vacía/i);
+  });
+
+  it('drives every multi-run operation with a program that names each call', () => {
+    const { code } = traceFor('linked-list-singly', 'remove-at', {
+      values: [7, 3, 1, 5, 9],
+      index: [3, 0, 1],
+    });
+    expect(code).toContain('list.deleteAt(3);');
+    expect(code).toContain('list.deleteAt(0);');
+    // The chain was given, not built here: no constructor line.
+    expect(code).not.toContain('new LinkedList()');
+  });
+
+  it('lights the call being run, not the first call that reads the same', () => {
+    // Two runs of a method that takes no argument write the SAME line twice.
+    const trace = traceFor('linked-list-singly', 'remove-first', {
+      values: [7, 3, 1, 5],
+      times: 3,
+    });
+    const calls = trace.code
+      .split('\n')
+      .map((line, i) => (line.includes('list.deleteFirst();') ? i + 1 : 0))
+      .filter(Boolean);
+    expect(calls).toHaveLength(3);
+    const lit = new Set(trace.steps.flatMap((s) => s.highlightLines.filter((l) => calls.includes(l))));
+    expect([...lit].sort((a, b) => a - b)).toEqual(calls);
   });
 });

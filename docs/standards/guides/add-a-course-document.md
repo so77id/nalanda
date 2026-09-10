@@ -786,12 +786,23 @@ animate: `get-at`, `insert-first`, `insert-last`, `insert-at`,
 `insert-ordered`, `remove-first`, `remove-last`, `remove-at` or `search`.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
-`insert-ordered`. **`value` also takes an ARRAY** — `value={[9, 4, 6]}` runs
-three insertions end to end over the same chain, which is how a slide shows
-the list growing rather than one insertion in isolation. Today `insert-first`
-and `insert-last` read it, and both accept `values={[]}`: a chain built from
-nothing is the clearest way to show a cost that grows, because the reader
-watches the walk get one hop longer on every insertion. `tail` draws a
+`insert-ordered`.
+
+**Every argument also takes an ARRAY, and that is the default shape for a
+slide about cost.** `value={[9, 4, 6]}`, `index={[0, 3, 6]}`,
+`target={[7, 8, 4]}` run the operation once per element over the same
+structure, and `times={3}` does the same for the two that take no argument
+(`remove-first`, `remove-last`). One run shows what the operation DOES;
+several runs show what it COSTS, because the reader watches the walk change
+length instead of being told it does. `insert-at` needs one `index` per
+`value`. `insert-first` and `insert-last` also accept `values={[]}`, so a
+slide can build a chain from nothing.
+
+The multi-run form appends the calling program under the method, and each
+frame lights both the line inside the method and the call being run. Indices
+are checked against the structure as it is BY THEN, not as it started, and a
+removal asked for more times than the chain has nodes is refused at boot —
+the listing throws there. `tail` draws a
 tail pointer on a list, `showCode={false}` hides the listing when the slide
 already carries it, and `autoplay` / `speed` behave as in every other stepper.
 

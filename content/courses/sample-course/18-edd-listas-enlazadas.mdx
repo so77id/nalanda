@@ -355,12 +355,18 @@ recorrerla.
 <Slide title="getAt · el dato de la posición $$i$$">
 Pedir el elemento de una posición no es una cuenta: es un recorrido.
 
-<SequenceStepper
-  eda="linked-list-singly"
-  operation="get-at"
-  values={[7, 3, 1, 5, 9, 2, 8]}
-  index={5}
-/>
+```java
+int getAt(int i) {
+    if (i < 0 || i >= size) {
+        throw new IndexOutOfBoundsException();
+    }
+    Node current = head;
+    for (int j = 0; j < i; j++) {
+        current = current.next;
+    }
+    return current.value;
+}
+```
 
 Cada paso del recorrido es un salto, y hay que darlos todos: no existe forma
 de adelantarse. Llegar a la posición `i` cuesta `i` saltos, y en el peor caso
@@ -372,15 +378,34 @@ nodos no guardan relación entre sí.
 
 </Slide>
 
+<Slide title="getAt">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="get-at"
+  values={[7, 3, 1, 5, 9, 2, 8]}
+  index={[0, 3, 6]}
+/>
+
+La misma llamada, tres posiciones: ninguna, tres y seis saltos. El costo de
+`getAt` no es un número, es la posición que se pide.
+
+</Slide>
+
 <Slide title="buscar · el recorrido hasta el valor">
 Buscar un valor recorre la cadena preguntando nodo por nodo.
 
-<SequenceStepper
-  eda="linked-list-singly"
-  operation="search"
-  values={[7, 3, 1, 5, 9, 2, 8]}
-  target={8}
-/>
+```java
+int search(int x) {
+    Node current = head;
+    for (int i = 0; current != null; i++) {
+        if (current.value == x) {
+            return i;
+        }
+        current = current.next;
+    }
+    return -1;
+}
+```
 
 El peor caso visita los $$N$$ nodos, y llega por dos caminos: que el valor
 esté al final, o que no esté. En los dos hay que preguntarle a todos antes de
@@ -392,6 +417,21 @@ ordenado la búsqueda binaria baja a $$\Theta(\log N)$$ porque puede saltar
 al elemento del medio con una cuenta. Sobre una lista ordenada no puede: para
 llegar al nodo del medio hay que caminar hasta él, y entonces ya se recorrió
 media cadena. La lista se queda en $$\Theta(N)$$ aunque esté ordenada.
+
+</Slide>
+
+<Slide title="buscar">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="search"
+  values={[7, 3, 1, 5, 9, 2, 8]}
+  target={[7, 8, 4]}
+/>
+
+Los tres casos que importan, en orden: el valor que está adelante y corta al
+primer nodo, el que está al final y obliga a recorrerlo todo, y el que no
+está —que también obliga a recorrerlo todo, porque solo al llegar a `null` se
+puede afirmar que no está.
 
 </Slide>
 
@@ -485,17 +525,31 @@ $$\Theta(N)$$ por llegar al final justamente porque nadie guarda dónde está.
 Insertar en una posición cualquiera se hace en dos tiempos: primero llegar,
 después enlazar.
 
-<SequenceStepper
-  eda="linked-list-singly"
-  operation="insert-at"
-  values={[7, 3, 1, 5]}
-  value={9}
-  index={2}
-/>
+```java
+void insertAt(int i, int x) {
+    if (i < 0 || i > size) {
+        throw new IndexOutOfBoundsException();
+    }
+    if (i == 0) {
+        insertFirst(x);
+        return;
+    }
+    Node fresh = new Node(x);
+    Node prev = head;
+    for (int j = 0; j < i - 1; j++) {
+        prev = prev.next;
+    }
+    fresh.next = prev.next;
+    prev.next = fresh;
+    size++;
+}
+```
 
 El nodo que hay que modificar no es el de la posición `i`, sino el de la
 posición `i - 1`: es el que tiene que dejar de apuntar a su siguiente para
-apuntar al nodo nuevo. Por eso el recorrido se detiene un paso antes.
+apuntar al nodo nuevo. Por eso el recorrido se detiene un paso antes. Y en la
+posición 0 no existe ese previo, así que ahí el trabajo es el de
+`insertFirst`.
 
 El orden de las dos asignaciones no es libre. Primero el nodo nuevo toma el
 enlace del previo, y solo después el previo apunta al nuevo. Al revés se
@@ -504,10 +558,31 @@ inalcanzable.
 
 </Slide>
 
+<Slide title="insertAt">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-at"
+  values={[7, 3, 1, 5]}
+  value={[9, 4, 6]}
+  index={[2, 0, 5]}
+/>
+
+</Slide>
+
 <Slide title="deleteFirst · soltar la puerta de entrada">
 Eliminar el primer nodo es el reflejo de insertarlo.
 
-<SequenceStepper eda="linked-list-singly" operation="remove-first" values={[7, 3, 1, 5]} />
+```java
+int deleteFirst() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    Node old = head;
+    head = head.next;
+    size--;
+    return old.value;
+}
+```
 
 `head` pasa a apuntar al segundo nodo y la cadena queda completa desde ahí.
 El nodo que salió ya no es alcanzable desde ninguna parte, y el recolector de
@@ -519,11 +594,38 @@ que copiar todo lo demás una casilla a la izquierda.
 
 </Slide>
 
+<Slide title="deleteFirst">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="remove-first"
+  values={[7, 3, 1, 5]}
+  times={3}
+/>
+
+Tres veces la misma operación sobre una cadena cada vez más corta, y el
+contador sube siempre lo mismo: el largo no entra en la cuenta.
+
+</Slide>
+
 <Slide title="deleteLast · el costo de no mirar atrás">
 Eliminar el último nodo es la operación que mejor muestra qué le falta a esta
 estructura.
 
-<SequenceStepper eda="linked-list-singly" operation="remove-last" values={[7, 3, 1, 5]} />
+```java
+int deleteLast() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
+    Node prev = head;
+    while (prev.next.next != null) {
+        prev = prev.next;
+    }
+    Node old = prev.next;
+    prev.next = null;
+    size--;
+    return old.value;
+}
+```
 
 El nodo que hay que modificar es el **anteúltimo**: es quien debe pasar a
 apuntar a `null` para que la cadena vuelva a terminar bien. Y un nodo no
@@ -535,16 +637,41 @@ Sobre un arreglo esta operación es $$\Theta(1)$$ —basta con restar uno a
 
 </Slide>
 
+<Slide title="deleteLast">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="remove-last"
+  values={[7, 3, 1, 5, 9]}
+  times={3}
+/>
+
+El recorrido se acorta con la cadena, pero nunca desaparece: cada borrado
+vuelve a partir de `head` porque el último nodo no sabe quién lo apunta.
+
+</Slide>
+
 <Slide title="deleteAt · saltar por encima">
 Eliminar una posición cualquiera repite el patrón: llegar al previo, y
 después una sola asignación.
 
-<SequenceStepper
-  eda="linked-list-singly"
-  operation="remove-at"
-  values={[7, 3, 1, 5]}
-  index={2}
-/>
+```java
+int deleteAt(int i) {
+    if (i < 0 || i >= size) {
+        throw new IndexOutOfBoundsException();
+    }
+    if (i == 0) {
+        return deleteFirst();
+    }
+    Node prev = head;
+    for (int j = 0; j < i - 1; j++) {
+        prev = prev.next;
+    }
+    Node old = prev.next;
+    prev.next = old.next;
+    size--;
+    return old.value;
+}
+```
 
 El previo pasa a apuntar al siguiente del nodo que sale, que queda fuera de
 la cadena sin haber movido ningún otro dato. La invariante que se restaura es
@@ -555,6 +682,16 @@ Notemos la asimetría con el arreglo. Ahí eliminar del medio cuesta
 $$\Theta(N)$$ **copias de datos**; aquí cuesta $$\Theta(N)$$ **saltos** y una
 sola asignación. El orden asintótico coincide, pero lo que se hace $$N$$
 veces no es lo mismo.
+
+</Slide>
+
+<Slide title="deleteAt">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="remove-at"
+  values={[7, 3, 1, 5, 9]}
+  index={[3, 0, 1]}
+/>
 
 </Slide>
 

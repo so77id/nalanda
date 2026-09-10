@@ -47,10 +47,24 @@ export interface SequenceStepperProps {
    * show the list growing instead of one insertion in isolation.
    */
   value?: number | number[];
-  /** The position to act on. Required by `insert-at` and `remove-at`. */
-  index?: number;
-  /** The value looked for. Required by `search` and `insert-ordered`. */
-  target?: number;
+  /**
+   * The position to act on. Required by `get-at`, `insert-at` and
+   * `remove-at`. An ARRAY runs the operation once per index, in order over
+   * the same structure — which is how a slide shows a cost that depends on
+   * WHERE instead of asserting it.
+   */
+  index?: number | number[];
+  /**
+   * The value looked for. Required by `search` and `insert-ordered`. An
+   * ARRAY searches each in turn, so one widget can show the hit at the
+   * front, the hit at the back and the value that is not there.
+   */
+  target?: number | number[];
+  /**
+   * How many times to run an operation that takes no argument
+   * (`remove-first`, `remove-last`). Default one.
+   */
+  times?: number;
   /** Lists only: draw a `tail` pointer, and let the operations use it. */
   tail?: boolean;
   /** Playback default. Off unless the author asks (rule Peli 1/2). */
@@ -106,6 +120,7 @@ export function SequenceStepper({
   value,
   index,
   target,
+  times,
   tail = false,
   autoplay = false,
   speed = 'normal',
@@ -178,6 +193,7 @@ export function SequenceStepper({
       value={value}
       index={index}
       target={target}
+      times={times}
       tail={tail}
       autoplay={autoplay}
       speed={speed}
@@ -192,8 +208,9 @@ interface BodyProps {
   operation: SequenceOperation;
   values: number[];
   value?: number | number[];
-  index?: number;
-  target?: number;
+  index?: number | number[];
+  target?: number | number[];
+  times?: number;
   tail: boolean;
   autoplay: boolean;
   speed: StepSpeed;
@@ -208,6 +225,7 @@ function Body({
   value,
   index,
   target,
+  times,
   tail,
   autoplay,
   speed,
@@ -222,7 +240,16 @@ function Body({
   // reset key hang off a primitive-derived string rather than the array's
   // identity (`add-a-content-component.md` §2, learned in #266).
   const valuesKey = values.join(',');
-  const resetKey = [recipe, operation, valuesKey, String(value), index, target, tail].join('|');
+  const resetKey = [
+    recipe,
+    operation,
+    valuesKey,
+    String(value),
+    String(index),
+    String(target),
+    times,
+    tail,
+  ].join('|');
 
   const built = useMemo((): { trace: SequenceTrace } | { error: string } => {
     try {
@@ -232,13 +259,14 @@ function Body({
           value,
           index,
           target,
+          times,
           tail,
         }),
       };
     } catch (cause) {
       return { error: cause instanceof Error ? cause.message : String(cause) };
     }
-  }, [recipe, operation, valuesKey, value, index, target, tail]);
+  }, [recipe, operation, valuesKey, value, index, target, times, tail]);
 
   const trace = 'trace' in built ? built.trace : null;
   const totalSteps = trace?.steps.length ?? 0;

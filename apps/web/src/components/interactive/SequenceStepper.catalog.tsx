@@ -33,19 +33,25 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'value',
       type: 'number | number[]',
       description:
-        'The value inserted. Required by `insert-first`, `insert-last` and `insert-at`. An ARRAY inserts each value in turn over the same chain, so a slide can show the list growing — `value={[9, 4, 6]}` runs three insertions end to end. `insert-first` and `insert-last` read the array, and both accept `values={[]}`: a chain built from nothing shows the empty-chain branch taken once and, at the back, the walk getting one hop longer every time.',
+        'The value inserted. Required by `insert-first`, `insert-last` and `insert-at`. An ARRAY inserts each value in turn over the same chain, so a slide can show the list growing — `value={[9, 4, 6]}` runs three insertions end to end. `insert-first` and `insert-last` also accept `values={[]}`: a chain built from nothing shows the empty-chain branch taken once and, at the back, the walk getting one hop longer every time. `insert-at` needs one `index` per value.',
     },
     {
       name: 'index',
-      type: 'number',
+      type: 'number | number[]',
       description:
-        'The position acted on. Required by `get-at`, `insert-at` (range `[0, values.length]`) and `remove-at` (range `[0, values.length - 1]`). An index outside the structure is an authoring error.',
+        'The position acted on. Required by `get-at`, `insert-at` (range `[0, size]`) and `remove-at` (range `[0, size - 1]`). An index outside the structure is an authoring error, checked against the chain as it is BY THEN — three insertions in a row move every position after the first. An ARRAY runs the operation once per index, which is how a slide shows a cost that depends on WHERE.',
     },
     {
       name: 'target',
+      type: 'number | number[]',
+      description:
+        'The value looked for. Required by `search` and by `insert-ordered`, which also refuses a starting list that is not already sorted. An ARRAY searches each in turn — the hit at the front, the hit at the back and the value that is not there, in one widget.',
+    },
+    {
+      name: 'times',
       type: 'number',
       description:
-        'The value looked for. Required by `search` and by `insert-ordered`, which also refuses a starting list that is not already sorted.',
+        'How many times to run an operation that takes no argument (`remove-first`, `remove-last`). Default one. Running more times than the chain has nodes is an authoring error: the listing throws there, and a trace that ran anyway would be animating an exception.',
     },
     {
       name: 'tail',
@@ -111,6 +117,30 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
           operation="insert-last"
           values={[]}
           value={[5, 1, 3, 7]}
+        />
+      ),
+    },
+    {
+      title: 'One operation, three positions — the cost is the position',
+      code: '<SequenceStepper eda="linked-list-singly" operation="get-at" values={[7, 3, 1, 5, 9, 2, 8]} index={[0, 3, 6]} />',
+      render: () => (
+        <SequenceStepper
+          eda="linked-list-singly"
+          operation="get-at"
+          values={[7, 3, 1, 5, 9, 2, 8]}
+          index={[0, 3, 6]}
+        />
+      ),
+    },
+    {
+      title: 'deleteFirst three times — the chain shrinks, the cost does not',
+      code: '<SequenceStepper eda="linked-list-singly" operation="remove-first" values={[7, 3, 1, 5]} times={3} />',
+      render: () => (
+        <SequenceStepper
+          eda="linked-list-singly"
+          operation="remove-first"
+          values={[7, 3, 1, 5]}
+          times={3}
         />
       ),
     },

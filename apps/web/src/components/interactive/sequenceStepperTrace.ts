@@ -153,10 +153,19 @@ export interface SequenceInput {
    * growing rather than one insertion in isolation.
    */
   value?: number | number[];
-  /** Required by `insert-at` and `remove-at`. */
-  index?: number;
-  /** Required by `search` and `insert-ordered`. */
-  target?: number;
+  /**
+   * Required by `get-at`, `insert-at` and `remove-at`. An ARRAY runs the
+   * operation once per index, over the same chain and in order — which is
+   * how a slide shows a cost that depends on WHERE, rather than asserting it.
+   */
+  index?: number | number[];
+  /** Required by `search` and `insert-ordered`. An ARRAY searches each. */
+  target?: number | number[];
+  /**
+   * How many times to run an operation that takes no argument
+   * (`remove-first`, `remove-last`). Default one.
+   */
+  times?: number;
   /** Lists only: draw a `tail` pointer and let the operations use it. */
   tail?: boolean;
 }
@@ -224,13 +233,40 @@ const settle = (cells: SequenceCell[]): SequenceCell[] =>
     c.state === 'new' || c.state === 'found' ? { ...c } : { ...c, state: 'idle' as const },
   );
 
-function requireIndex(input: SequenceInput, length: number, inclusive: boolean): number {
-  const i = input.index;
+/**
+ * An author-written argument, read as the list of RUNS it asks for: one value
+ * runs the operation once, an array runs it once per element over the same
+ * structure. Everything the widget animates several times reads its arguments
+ * through here, so the multi-run shape is one rule rather than one per
+ * operation.
+ */
+const asRuns = (v: number | number[] | undefined): number[] =>
+  v === undefined ? [] : Array.isArray(v) ? v : [v];
+
+function checkIndex(i: number | undefined, length: number, inclusive: boolean): number {
   const max = inclusive ? length : length - 1;
   if (i === undefined || !Number.isInteger(i) || i < 0 || i > max) {
     throw new Error(`El índice ${i ?? '(ausente)'} está fuera del rango válido [0, ${max}].`);
   }
   return i;
+}
+
+function requireIndex(input: SequenceInput, length: number, inclusive: boolean): number {
+  return checkIndex(asRuns(input.index)[0], length, inclusive);
+}
+
+/**
+ * Refuses a slide that would run a removal more times than the chain has
+ * nodes — the listing throws `NoSuchElementException` there, and a trace that
+ * ran anyway would be animating an exception. Addressed to the AUTHOR, at
+ * boot, like every other authoring guard.
+ */
+function requireRoom(runs: number, length: number, method: string): void {
+  if (runs > length) {
+    throw new Error(
+      `La cadena tiene ${length} nodo${length === 1 ? '' : 's'} y ${method} se ejecuta ${runs} veces: la última correría sobre una lista vacía.`,
+    );
+  }
 }
 
 function requireNonEmpty(values: number[]): void {
@@ -247,9 +283,23 @@ function requireValues(input: SequenceInput): number[] {
 }
 
 function requireTarget(input: SequenceInput): number {
-  if (input.target === undefined) throw new Error('Falta el valor buscado.');
-  return input.target;
+  const [t] = asRuns(input.target);
+  if (t === undefined) throw new Error('Falta el valor buscado.');
+  return t;
 }
+
+/** The Java name of each operation, for the program that drives it. */
+const METHOD_NAME: Record<SequenceOperation, string> = {
+  'get-at': 'getAt',
+  'insert-first': 'insertFirst',
+  'insert-last': 'insertLast',
+  'insert-at': 'insertAt',
+  'insert-ordered': 'insertOrdered',
+  'remove-first': 'deleteFirst',
+  'remove-last': 'deleteLast',
+  'remove-at': 'deleteAt',
+  search: 'search',
+};
 
 // ── the array family ──────────────────────────────────────────────────────
 
@@ -624,12 +674,49 @@ function traceArray(
  * frame lights the call AND the line inside the method, so both halves of
  * "where are we" are on screen.
  */
-function callingProgram(values: number[], method: string): string {
+function callingProgram(args: string[], method: string, fresh: boolean): string {
   return [
     '',
-    'LinkedList list = new LinkedList();',
-    ...values.map((v) => `list.${method}(${v});`),
+    // Only a chain that STARTS empty was built by this program. Printing the
+    // constructor over a populated `values` would be a listing that
+    // contradicts the picture beside it.
+    ...(fresh ? ['LinkedList list = new LinkedList();'] : []),
+    ...args.map((a) => `list.${method}(${a});`),
   ].join('\n');
+}
+
+/**
+ * The arguments each run of `operation` is called with, as they are written
+ * in Java. One entry per run: `['5', '1']` is two calls, `['', '']` two calls
+ * that take none. Empty when the author asked for a single run, which is what
+ * suppresses the driving program.
+ */
+function runArgs(operation: SequenceOperation, input: SequenceInput): string[] {
+  switch (operation) {
+    case 'insert-first':
+    case 'insert-last':
+      return asRuns(input.value).map(String);
+    case 'insert-at': {
+      const values = asRuns(input.value);
+      const indices = asRuns(input.index);
+      if (values.length !== indices.length) {
+        throw new Error(
+          `insertAt necesita un índice por cada valor: ${values.length} valores y ${indices.length} índices.`,
+        );
+      }
+      return values.map((v, i) => `${indices[i]}, ${v}`);
+    }
+    case 'get-at':
+    case 'remove-at':
+      return asRuns(input.index).map(String);
+    case 'search':
+      return asRuns(input.target).map(String);
+    case 'remove-first':
+    case 'remove-last':
+      return Array.from({ length: input.times ?? 1 }, () => '');
+    case 'insert-ordered':
+      return asRuns(input.target).map(String);
+  }
 }
 
 function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: boolean): string {
@@ -683,9 +770,17 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     size++;
 }`;
     case 'insert-at':
+      // Position 0 has no previous node to modify, and the walk below cannot
+      // produce one: `prev` would still be `head` and the insertion would
+      // land in the wrong place. The branch delegates to the operation that
+      // is defined there, which is also how the reader should think of it.
       return `void insertAt(int i, int x) {
     if (i < 0 || i > size) {
         throw new IndexOutOfBoundsException();
+    }
+    if (i == 0) {
+        insertFirst(x);
+        return;
     }
     Node fresh = new Node(x);
     Node prev = head;
@@ -754,9 +849,14 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     return old.value;
 }`;
     case 'remove-at':
+      // Same hole as insertAt's, and the same branch: at position 0 there is
+      // no previous node, so `deleteFirst` is what the operation means there.
       return `int deleteAt(int i) {
     if (i < 0 || i >= size) {
         throw new IndexOutOfBoundsException();
+    }
+    if (i == 0) {
+        return deleteFirst();
     }
     Node prev = head;
     for (int j = 0; j < i - 1; j++) {
@@ -800,15 +900,20 @@ function traceList(
   const tail = input.tail === true;
   const doubly = recipe === 'linked-list-doubly';
   const circular = recipe === 'linked-list-circular';
-  const method = operation === 'insert-first' ? 'insertFirst' : 'insertLast';
-  const inserts =
-    (operation === 'insert-first' || operation === 'insert-last') && Array.isArray(input.value)
-      ? (input.value as number[])
-      : [];
-  const code =
-    inserts.length > 1
-      ? listCode(recipe, operation, tail) + callingProgram(inserts, method)
-      : listCode(recipe, operation, tail);
+  // How many times the author asked for the operation, and the program that
+  // drives it. A single run keeps the listing alone — the widget shows one
+  // operation and the slide's prose does the talking. Several runs append the
+  // calls, so every frame lights BOTH the line inside the method and the call
+  // that is running, and the reader can see which run they are watching.
+  const base = listCode(recipe, operation, tail);
+  const args = runArgs(operation, input);
+  const many = args.length > 1;
+  const fresh = input.values.length === 0;
+  const code = many ? base + callingProgram(args, METHOD_NAME[operation], fresh) : base;
+  // Computed, not searched: two runs of a method that takes no argument write
+  // the SAME call line twice, and `lineOf` would hand both the first one.
+  const runLine = (run: number): number[] =>
+    many ? [base.split('\n').length + (fresh ? 1 : 0) + run + 1] : [];
   const cells = cellsFrom(input.values);
   const steps: SequenceStep[] = [];
   let cost = 0;
@@ -838,12 +943,23 @@ function traceList(
     });
   };
 
-  /** Walks `prev` from head to `stop`, one frame per hop. */
-  const walkTo = (stop: number, lines: number[], label: string) => {
+  /**
+   * Walks `prev` from head to `stop`, one frame per hop. `extra` carries what
+   * has to survive the walk: the floating node an insertion is holding, and
+   * the call line of the run being watched.
+   */
+  const walkTo = (
+    stop: number,
+    lines: number[],
+    label: string,
+    extra: Partial<SequenceStep> & { lead?: number[] } = {},
+  ) => {
+    const { lead = [], ...rest } = extra;
     for (let j = 0; j < stop; j += 1) {
       cost += 1;
       cells[j] = { ...cells[j]!, state: 'active' };
-      push('walk', lines, `${label} avanza al nodo ${cells[j]!.value} (paso ${j + 1}).`, {
+      push('walk', [...lead, ...lines], `${label} avanza al nodo ${cells[j]!.value} (paso ${j + 1}).`, {
+        ...rest,
         pointers: basePointers([{ name: label, index: j }]),
       });
       cells[j] = { ...cells[j]!, state: 'idle' };
@@ -857,9 +973,9 @@ function traceList(
       // is aimed at the old first node; `head` is aimed at IT, still floating;
       // and only then does it take its place in the chain. Collapsing the last
       // two would show the pointer move and the node move as one jump.
-      for (const x of requireValues(input)) {
+      requireValues(input).forEach((x, run) => {
         const wasFirst = cells.length > 0 ? cells[0]!.value : null;
-        const callLine = inserts.length > 1 ? [lineOf(code, `list.insertFirst(${x});`)] : [];
+        const callLine = runLine(run);
         cost += 1;
         push(
           'build',
@@ -894,8 +1010,7 @@ function traceList(
           `El nodo ${x} queda como primero de la cadena. El largo pasa a ${cells.length}.`,
         );
         cells[0] = { ...cells[0]!, state: 'idle' };
-      }
-      cells[0] = { ...cells[0]!, state: 'new' };
+      });
       break;
     }
     case 'insert-last': {
@@ -904,8 +1019,8 @@ function traceList(
       // assigns is `head` itself. Starting from zero shows that branch taken
       // once and never again — and the walk getting one hop longer on every
       // insertion, which is the $$\Theta(N)$$ this slide is about.
-      for (const x of requireValues(input)) {
-        const callLine = inserts.length > 1 ? [lineOf(code, `list.insertLast(${x});`)] : [];
+      requireValues(input).forEach((x, run) => {
+        const callLine = runLine(run);
         // Parked above the slot the node will land in, so it lands where it
         // has been hovering rather than jumping across the chain.
         const held = { value: x, label: 'fresh', next: null, slot: cells.length };
@@ -996,38 +1111,85 @@ function traceList(
           `El nodo ${x} queda al final de la cadena. El largo pasa a ${cells.length}.`,
         );
         cells[cells.length - 1] = { ...cells[cells.length - 1]!, state: 'idle' };
-      }
+      });
       break;
     }
     case 'insert-at': {
-      const [x] = requireValues(input) as [number];
-      const at = requireIndex(input, cells.length, true);
-      cost += 1;
-      push('build', [lineOf(code, 'new Node(x)')], `Creamos el nodo ${x} para la posición ${at}.`, {
-        carry: { value: x, label: 'fresh' },
+      const values = requireValues(input);
+      const indices = asRuns(input.index);
+      values.forEach((x, run) => {
+        const callLine = runLine(run);
+        // Validated against the chain as it is NOW: three insertions in a row
+        // move every position after the first one.
+        const at = checkIndex(indices[run] ?? indices[0], cells.length, true);
+        if (at === 0) {
+          // No previous node exists at the front, so the method hands the
+          // work to insertFirst. Two frames, drawn in insertFirst's own
+          // vocabulary — the node floats, head reaches it, then it lands.
+          // Parked over slot 0 — the slot it will occupy. Left at the
+          // default the floating node sits mid-chain, and `head` reaching up
+          // to it crosses both the first node and the link coming down from
+          // the node itself.
+          const held = {
+            value: x,
+            label: 'fresh',
+            next: cells.length > 0 ? 0 : null,
+            slot: 0,
+          };
+          cost += 1;
+          push(
+            'compare',
+            [...callLine, lineOf(code, 'if (i == 0)')],
+            `La posición es 0: no hay nodo previo que modificar, así que el trabajo es el de insertFirst.`,
+            { carry: held },
+          );
+          cost += 1;
+          push(
+            'link',
+            [...callLine, lineOf(code, 'insertFirst(x)')],
+            `head pasa a apuntar al nodo ${x}, que ya está enlazado a la cadena.`,
+            { carry: held, headToCarry: true },
+          );
+          cells.unshift({ id: (nextId += 1), value: x, state: 'new' });
+          push(
+            'done',
+            [...callLine, lineOf(code, 'insertFirst(x)')],
+            `El nodo ${x} queda en la posición 0. El largo pasa a ${cells.length}.`,
+          );
+          cells[0] = { ...cells[0]!, state: 'idle' };
+          return;
+        }
+        const held = { value: x, label: 'fresh', slot: at };
+        cost += 1;
+        push(
+          'build',
+          [...callLine, lineOf(code, 'new Node(x)')],
+          `Creamos el nodo ${x} para la posición ${at}.`,
+          { carry: held },
+        );
+        walkTo(at - 1, [lineOf(code, 'for (int j'), lineOf(code, 'prev = prev.next')], 'prev', {
+          carry: held,
+          lead: callLine,
+        });
+        cost += 1;
+        push(
+          'link',
+          [...callLine, lineOf(code, 'fresh.next = prev.next')],
+          `${x} apunta al nodo que ocupaba la posición ${at}.`,
+          {
+            carry: { ...held, next: at },
+            pointers: basePointers([{ name: 'prev', index: at - 1 }]),
+          },
+        );
+        cells.splice(at, 0, { id: (nextId += 1), value: x, state: 'new' });
+        cost += 1;
+        push(
+          'done',
+          [...callLine, lineOf(code, 'prev.next = fresh')],
+          `El nodo anterior apunta a ${x}. El largo pasa a ${cells.length}.`,
+        );
+        cells[at] = { ...cells[at]!, state: 'idle' };
       });
-      walkTo(
-        Math.max(at - 1, 0),
-        [lineOf(code, 'for (int j'), lineOf(code, 'prev = prev.next')],
-        'prev',
-      );
-      cost += 1;
-      push(
-        'link',
-        [lineOf(code, 'fresh.next = prev.next')],
-        `${x} apunta al nodo que ocupaba la posición ${at}.`,
-        {
-          carry: { value: x, label: 'fresh' },
-          pointers: basePointers([{ name: 'prev', index: Math.max(at - 1, 0) }]),
-        },
-      );
-      cells.splice(at, 0, { id: (nextId += 1), value: x, state: 'new' });
-      cost += 1;
-      push(
-        'link',
-        [lineOf(code, 'prev.next = fresh')],
-        `El nodo anterior apunta a ${x}. El largo pasa a ${cells.length}.`,
-      );
       break;
     }
     case 'insert-ordered': {
@@ -1084,168 +1246,215 @@ function traceList(
     }
     case 'remove-first': {
       requireNonEmpty(input.values);
-      const removed = cells[0]!;
-      cells[0] = { ...removed, state: 'leaving' };
-      cost += 1;
-      push(
-        'start',
-        [lineOf(code, 'Node old = head')],
-        `Guardamos el primer nodo (${removed.value}).`,
-      );
-      cells.shift();
-      cost += 1;
-      push(
-        'unlink',
-        [lineOf(code, 'head = head.next')],
-        `head pasa a apuntar al segundo nodo${cells.length > 0 ? ` (${cells[0]!.value})` : ' (null: la lista queda vacía)'}.`,
-      );
-      push(
-        'done',
-        [lineOf(code, 'return old.value')],
-        `El largo pasa a ${cells.length}. Devolvemos ${removed.value}.`,
-      );
+      requireRoom(args.length, cells.length, 'deleteFirst');
+      args.forEach((_, run) => {
+        const callLine = runLine(run);
+        const removed = cells[0]!;
+        cells[0] = { ...removed, state: 'leaving' };
+        cost += 1;
+        push(
+          'start',
+          [...callLine, lineOf(code, 'Node old = head')],
+          `Guardamos el primer nodo (${removed.value}).`,
+        );
+        cells.shift();
+        cost += 1;
+        push(
+          'unlink',
+          [...callLine, lineOf(code, 'head = head.next')],
+          `head pasa a apuntar al segundo nodo${cells.length > 0 ? ` (${cells[0]!.value})` : ' (null: la lista queda vacía)'}.`,
+        );
+        push(
+          'done',
+          [...callLine, lineOf(code, 'return old.value')],
+          `El largo pasa a ${cells.length}. Devolvemos ${removed.value}.`,
+        );
+      });
       break;
     }
     case 'remove-last': {
       requireNonEmpty(input.values);
-      const removed = cells[cells.length - 1]!;
-      if (doubly && tail) {
-        // The only O(1) delete-last in the family: `prev` is already there.
-        cost += 1;
-        push(
-          'start',
-          [lineOf(code, 'Node old = tail')],
-          `tail apunta al último nodo (${removed.value}).`,
-        );
+      requireRoom(args.length, cells.length, 'deleteLast');
+      args.forEach((_, run) => {
+        const callLine = runLine(run);
+        const removed = cells[cells.length - 1]!;
+        if (doubly && tail) {
+          // The only O(1) delete-last in the family: `prev` is already there.
+          cost += 1;
+          push(
+            'start',
+            [...callLine, lineOf(code, 'Node old = tail')],
+            `tail apunta al último nodo (${removed.value}).`,
+          );
+          cost += 1;
+          push(
+            'unlink',
+            [...callLine, lineOf(code, 'tail = tail.prev')],
+            `tail retrocede por prev — sin recorrer la cadena.`,
+          );
+        } else {
+          // Every other recipe needs the node BEFORE the last one, and only a
+          // walk can produce it: `tail` alone is not enough.
+          walkTo(
+            Math.max(cells.length - 2, 0),
+            [lineOf(code, 'while (prev.next.next'), lineOf(code, 'prev = prev.next')],
+            'prev',
+            { lead: callLine },
+          );
+          cost += 1;
+          push(
+            'start',
+            [...callLine, lineOf(code, 'Node old = prev.next')],
+            `El nodo anterior al último es quien debe soltarlo.`,
+            {
+              pointers: basePointers([{ name: 'prev', index: Math.max(cells.length - 2, 0) }]),
+            },
+          );
+        }
+        cells.pop();
         cost += 1;
         push(
           'unlink',
-          [lineOf(code, 'tail = tail.prev')],
-          `tail retrocede por prev — sin recorrer la cadena.`,
+          [...callLine, lineOf(code, doubly && tail ? 'tail.next = null' : 'prev.next = null')],
+          `El nuevo último apunta a ${circular ? 'head' : 'null'}. El largo pasa a ${cells.length}.`,
         );
-      } else {
-        // Every other recipe needs the node BEFORE the last one, and only a
-        // walk can produce it: `tail` alone is not enough.
-        walkTo(
-          Math.max(cells.length - 2, 0),
-          [lineOf(code, 'while (prev.next.next'), lineOf(code, 'prev = prev.next')],
-          'prev',
-        );
-        cost += 1;
         push(
-          'start',
-          [lineOf(code, 'Node old = prev.next')],
-          `El nodo anterior al último es quien debe soltarlo.`,
-          {
-            pointers: basePointers([{ name: 'prev', index: Math.max(cells.length - 2, 0) }]),
-          },
+          'done',
+          [...callLine, lineOf(code, 'return old.value')],
+          `Devolvemos ${removed.value}.`,
         );
-      }
-      cells.pop();
-      cost += 1;
-      push(
-        'unlink',
-        [lineOf(code, doubly && tail ? 'tail.next = null' : 'prev.next = null')],
-        `El nuevo último apunta a ${circular ? 'head' : 'null'}. El largo pasa a ${cells.length}.`,
-      );
-      push('done', [lineOf(code, 'return old.value')], `Devolvemos ${removed.value}.`);
+      });
       break;
     }
     case 'remove-at': {
       requireNonEmpty(input.values);
-      const at = requireIndex(input, cells.length, false);
-      walkTo(
-        Math.max(at - 1, 0),
-        [lineOf(code, 'for (int j'), lineOf(code, 'prev = prev.next')],
-        'prev',
-      );
-      const removed = cells[at]!;
-      cells[at] = { ...removed, state: 'leaving' };
-      cost += 1;
-      push(
-        'start',
-        [lineOf(code, 'Node old = prev.next')],
-        `El nodo a eliminar es ${removed.value}, en la posición ${at}.`,
-        {
-          pointers: basePointers([{ name: 'prev', index: Math.max(at - 1, 0) }]),
-        },
-      );
-      cells.splice(at, 1);
-      cost += 1;
-      push(
-        'unlink',
-        [lineOf(code, 'prev.next = old.next')],
-        `El nodo anterior salta por encima y apunta al siguiente. El largo pasa a ${cells.length}.`,
-      );
-      push('done', [lineOf(code, 'return old.value')], `Devolvemos ${removed.value}.`);
+      const removals = asRuns(input.index);
+      requireRoom(removals.length, cells.length, 'deleteAt');
+      removals.forEach((raw, run) => {
+        const callLine = runLine(run);
+        const at = checkIndex(raw, cells.length, false);
+        if (at === 0) {
+          // No previous node at the front, so the method hands the work to
+          // deleteFirst — which is what the reader should conclude too.
+          const removed = cells[0]!;
+          cells[0] = { ...removed, state: 'leaving' };
+          cost += 1;
+          push(
+            'compare',
+            [...callLine, lineOf(code, 'if (i == 0)')],
+            `La posición es 0: no hay nodo previo, así que el trabajo es el de deleteFirst.`,
+          );
+          cells.shift();
+          cost += 1;
+          push(
+            'unlink',
+            [...callLine, lineOf(code, 'return deleteFirst()')],
+            `head pasa a apuntar al segundo nodo. El largo pasa a ${cells.length}. Devolvemos ${removed.value}.`,
+          );
+          return;
+        }
+        walkTo(at - 1, [lineOf(code, 'for (int j'), lineOf(code, 'prev = prev.next')], 'prev', {
+          lead: callLine,
+        });
+        const removed = cells[at]!;
+        cells[at] = { ...removed, state: 'leaving' };
+        cost += 1;
+        push(
+          'start',
+          [...callLine, lineOf(code, 'Node old = prev.next')],
+          `El nodo a eliminar es ${removed.value}, en la posición ${at}.`,
+          { pointers: basePointers([{ name: 'prev', index: at - 1 }]) },
+        );
+        cells.splice(at, 1);
+        cost += 1;
+        push(
+          'unlink',
+          [...callLine, lineOf(code, 'prev.next = old.next')],
+          `El nodo anterior salta por encima y apunta al siguiente. El largo pasa a ${cells.length}.`,
+        );
+        push(
+          'done',
+          [...callLine, lineOf(code, 'return old.value')],
+          `Devolvemos ${removed.value}.`,
+        );
+      });
       break;
     }
     case 'get-at': {
       requireNonEmpty(input.values);
-      const at = requireIndex(input, cells.length, false);
-      push(
-        'start',
-        [lineOf(code, 'Node current = head')],
-        `current parte de head, en la posición 0.`,
-        {
-          pointers: basePointers([{ name: 'current', index: 0 }]),
-        },
-      );
-      // One frame per hop: the whole point of the operation is that there are
-      // `i` of them, so skipping any would hide the cost it teaches.
-      for (let j = 0; j < at; j += 1) {
-        cost += 1;
-        cells[j + 1] = { ...cells[j + 1]!, state: 'active' };
+      asRuns(input.index).forEach((raw, run) => {
+        const callLine = runLine(run);
+        const at = checkIndex(raw, cells.length, false);
         push(
-          'walk',
-          [lineOf(code, 'for (int j'), lineOf(code, 'current = current.next')],
-          `Salto ${j + 1}: current avanza al nodo ${cells[j + 1]!.value}, en la posición ${j + 1}.`,
-          { pointers: basePointers([{ name: 'current', index: j + 1 }]) },
+          'start',
+          [...callLine, lineOf(code, 'Node current = head')],
+          `current parte de head, en la posición 0.`,
+          { pointers: basePointers([{ name: 'current', index: 0 }]) },
         );
-        cells[j + 1] = { ...cells[j + 1]!, state: 'idle' };
-      }
-      cells[at] = { ...cells[at]!, state: 'found' };
-      push(
-        'found',
-        [lineOf(code, 'return current.value')],
-        `Llegamos a la posición ${at} tras ${at} salto${at === 1 ? '' : 's'}. Devolvemos ${cells[at]!.value}.`,
-        { pointers: basePointers([{ name: 'current', index: at }]) },
-      );
+        // One frame per hop: the whole point of the operation is that there
+        // are `i` of them, so skipping any would hide the cost it teaches.
+        for (let j = 0; j < at; j += 1) {
+          cost += 1;
+          cells[j + 1] = { ...cells[j + 1]!, state: 'active' };
+          push(
+            'walk',
+            [...callLine, lineOf(code, 'for (int j'), lineOf(code, 'current = current.next')],
+            `Salto ${j + 1}: current avanza al nodo ${cells[j + 1]!.value}, en la posición ${j + 1}.`,
+            { pointers: basePointers([{ name: 'current', index: j + 1 }]) },
+          );
+          cells[j + 1] = { ...cells[j + 1]!, state: 'idle' };
+        }
+        cells[at] = { ...cells[at]!, state: 'found' };
+        push(
+          'found',
+          [...callLine, lineOf(code, 'return current.value')],
+          `Llegamos a la posición ${at} tras ${at} salto${at === 1 ? '' : 's'}. Devolvemos ${cells[at]!.value}.`,
+          { pointers: basePointers([{ name: 'current', index: at }]) },
+        );
+        // The hit is cleared before the next run starts looking.
+        cells[at] = { ...cells[at]!, state: 'idle' };
+      });
       break;
     }
     case 'search': {
-      const target = requireTarget(input);
-      push(
-        'start',
-        [lineOf(code, 'Node current = head')],
-        `Buscamos ${target} desde head: la lista no tiene aritmética de posiciones.`,
-      );
-      let found = -1;
-      for (let j = 0; j < cells.length; j += 1) {
-        cost += 1;
-        const hit = cells[j]!.value === target;
-        cells[j] = { ...cells[j]!, state: hit ? 'found' : 'active' };
+      requireNonEmpty(input.values);
+      asRuns(input.target).forEach((target, run) => {
+        const callLine = runLine(run);
         push(
-          hit ? 'found' : 'compare',
-          hit ? [lineOf(code, 'if (current.value == x')] : [lineOf(code, 'current = current.next')],
-          `¿El nodo ${cells[j]!.value} es ${target}? ${hit ? 'Sí.' : 'No: avanzamos.'}`,
-          {
-            pointers: basePointers([{ name: 'current', index: j }]),
-          },
+          'start',
+          [...callLine, lineOf(code, 'Node current = head')],
+          `Buscamos ${target} desde head: la lista no tiene aritmética de posiciones.`,
         );
-        if (hit) {
-          found = j;
-          break;
+        let found = -1;
+        for (let j = 0; j < cells.length; j += 1) {
+          cost += 1;
+          const hit = cells[j]!.value === target;
+          cells[j] = { ...cells[j]!, state: hit ? 'found' : 'active' };
+          push(
+            hit ? 'found' : 'compare',
+            hit
+              ? [...callLine, lineOf(code, 'if (current.value == x')]
+              : [...callLine, lineOf(code, 'current = current.next')],
+            `¿El nodo ${cells[j]!.value} es ${target}? ${hit ? 'Sí.' : 'No: avanzamos.'}`,
+            { pointers: basePointers([{ name: 'current', index: j }]) },
+          );
+          if (hit) {
+            found = j;
+            break;
+          }
+          cells[j] = { ...cells[j]!, state: 'idle' };
         }
-        cells[j] = { ...cells[j]!, state: 'idle' };
-      }
-      push(
-        found >= 0 ? 'found' : 'done',
-        found >= 0 ? [lineOf(code, 'return i;')] : [lineOf(code, 'return -1;')],
-        found >= 0
-          ? `Encontramos ${target} tras recorrer ${found + 1} nodo${found === 0 ? '' : 's'}.`
-          : `Recorrimos los ${cells.length} nodos: ${target} no está en la lista.`,
-      );
+        push(
+          found >= 0 ? 'found' : 'done',
+          found >= 0
+            ? [...callLine, lineOf(code, 'return i;')]
+            : [...callLine, lineOf(code, 'return -1;')],
+          found >= 0
+            ? `Encontramos ${target} tras recorrer ${found + 1} nodo${found === 0 ? '' : 's'}.`
+            : `Recorrimos los ${cells.length} nodos: ${target} no está en la lista.`,
+        );
+        if (found >= 0) cells[found] = { ...cells[found]!, state: 'idle' };
+      });
       break;
     }
   }

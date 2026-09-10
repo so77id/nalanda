@@ -40,6 +40,27 @@ layout reserved for the widest frame, and the two indices differ by every
 slot not filled yet. Painted from two copies of that arithmetic, `head` drew
 an arrow across the whole canvas THROUGH the `null` it was supposed to reach.
 
+**Amended by:** #288, slide-by-slide review (2026-09-10) — EVERY operation
+runs several times, not just the two insertions. `index` and `target` take
+arrays; `times` repeats the two operations that take no argument. The class's
+operations act is now nine slides of listing-plus-prose each followed by a
+widget slide that runs the operation three times, because one run shows what
+an operation DOES and only several runs show what it COSTS: the reader
+watches `getAt` walk none, three and six nodes rather than reading that the
+cost is the position. Two consequences: indices are validated against the
+structure as it is BY THEN (three insertions move every position after the
+first, so validating against the starting length would refuse a legal
+slide), and the call line is COMPUTED rather than searched — two runs of a
+method that takes no argument write the same call twice, and `lineOf` hands
+both the first.
+
+The same pass closed a hole in two listings. `insertAt` and `deleteAt` walked
+to a PREVIOUS node without asking whether one exists: at position 0 `prev`
+was still `head`, so both operated on the wrong node — silently, because no
+slide had used position 0. They now branch to `insertFirst` / `deleteFirst`,
+which is also how the reader should think of that case, and the widget shows
+the branch taken.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly
