@@ -764,7 +764,7 @@ function Pointers({
               </text>
               {headToCarry ? (
                 <path
-                  d={`M 38 ${y} L ${carryX + BOX_W / 2 - 30} ${y} L ${carryX + BOX_W / 2 - 30} ${carryTop + BOX_H / 2} L ${carryX - 4} ${carryTop + BOX_H / 2}`}
+                  d={`M 38 ${y} L ${carryX - 34} ${y} L ${carryX - 34} ${carryTop + BOX_H / 2} L ${carryX - 4} ${carryTop + BOX_H / 2}`}
                   fill="none"
                   stroke={colour}
                   strokeWidth={1.6}
