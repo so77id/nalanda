@@ -334,6 +334,36 @@ describe('sequenceStepperTrace · get-at, the operation that shows the price', (
   });
 });
 
+describe('sequenceStepperTrace · the narration is Spanish prose', () => {
+  // Renaming the identifiers to English twice hit the same trap: `previo` and
+  // `nuevo` were each doing two jobs — the VARIABLE and the Spanish
+  // adjective — so a blanket sweep produced "el nodo prev al último" and
+  // "el fresh último". Neither is Spanish and neither is code. The English
+  // words that ARE identifiers (head, tail, prev, current, next, null, size)
+  // are fine; these are the ones that only ever meant an adjective.
+  const NOT_SPANISH = /\b(fresh|old)\b/i;
+
+  it('never lets an English adjective stand in for a Spanish one', () => {
+    for (const recipe of RECIPES) {
+      for (const operation of OPERATIONS) {
+        if (!isValidCombination(recipe, operation)) continue;
+        for (const tail of [false, true]) {
+          const trace = traceFor(recipe, operation, {
+            values: operation === 'insert-ordered' ? [1, 3, 7, 9] : values,
+            value: 9,
+            index: 2,
+            target: operation === 'insert-ordered' ? 5 : 1,
+            tail,
+          });
+          for (const step of trace.steps) {
+            expect(step.description, `${recipe} × ${operation}`).not.toMatch(NOT_SPANISH);
+          }
+        }
+      }
+    }
+  });
+});
+
 describe('sequenceStepperTrace · the pointers the reader follows', () => {
   it('every list frame carries a head pointer', () => {
     const trace = traceFor('linked-list-singly', 'insert-at', { values, value: 9, index: 2 });

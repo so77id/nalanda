@@ -107,6 +107,24 @@ export interface SequenceInput {
   tail?: boolean;
 }
 
+/**
+ * The 1-based line of the first line containing `fragment`.
+ *
+ * Every frame names the line it is executing by a piece of that line's TEXT,
+ * never by a number. `lines` is unvalidated data — `CodeStepper` silently
+ * drops an out-of-range number, so a wrong-but-in-range one survives the
+ * build, the suite and the preview alike, and #277 shipped two of them,
+ * both from renumbering by hand after re-wrapping a listing
+ * (`teach-a-data-structure.md` §6bis). Looking the number up removes the
+ * class: edit a listing and the frames follow, and a fragment that stops
+ * existing throws here instead of lighting the wrong line.
+ */
+function lineOf(code: string, fragment: string): number {
+  const at = code.split('\n').findIndex((line) => line.includes(fragment));
+  if (at < 0) throw new Error(`El listado no contiene «${fragment}».`);
+  return at + 1;
+}
+
 const isList = (recipe: SequenceRecipe) => recipe.startsWith('linked-list');
 
 /**
@@ -181,9 +199,15 @@ function requireTarget(input: SequenceInput): number {
 
 const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> = {
   'get-at': `int getAt(int i) {
+    if (i < 0 || i >= size) {
+        throw new IndexOutOfBoundsException();
+    }
     return data[i];
 }`,
   'insert-first': `void insertFirst(int x) {
+    if (size == data.length) {
+        throw new IllegalStateException("lleno");
+    }
     for (int j = size; j > 0; j--) {
         data[j] = data[j - 1];
     }
@@ -191,10 +215,19 @@ const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> =
     size++;
 }`,
   'insert-last': `void insertLast(int x) {
+    if (size == data.length) {
+        throw new IllegalStateException("lleno");
+    }
     data[size] = x;
     size++;
 }`,
   'insert-at': `void insertAt(int i, int x) {
+    if (i < 0 || i > size) {
+        throw new IndexOutOfBoundsException();
+    }
+    if (size == data.length) {
+        throw new IllegalStateException("lleno");
+    }
     for (int j = size; j > i; j--) {
         data[j] = data[j - 1];
     }
@@ -202,6 +235,9 @@ const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> =
     size++;
 }`,
   'remove-first': `int deleteFirst() {
+    if (size == 0) {
+        throw new NoSuchElementException();
+    }
     int x = data[0];
     for (int j = 0; j < size - 1; j++) {
         data[j] = data[j + 1];
@@ -210,11 +246,17 @@ const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> =
     return x;
 }`,
   'remove-last': `int deleteLast() {
+    if (size == 0) {
+        throw new NoSuchElementException();
+    }
     int x = data[size - 1];
     size--;
     return x;
 }`,
   'remove-at': `int deleteAt(int i) {
+    if (i < 0 || i >= size) {
+        throw new IndexOutOfBoundsException();
+    }
     int x = data[i];
     for (int j = i; j < size - 1; j++) {
         data[j] = data[j + 1];
@@ -251,6 +293,9 @@ const DYNAMIC_INSERT_CODE: Record<'insert-first' | 'insert-last' | 'insert-at', 
     size++;
 }`,
   'insert-at': `void insertAt(int i, int x) {
+    if (i < 0 || i > size) {
+        throw new IndexOutOfBoundsException();
+    }
     if (size == data.length) {
         resize(2 * data.length);
     }
@@ -334,7 +379,7 @@ function traceArray(
     cost += copied;
     push(
       'grow',
-      [2, 3],
+      [lineOf(code, 'size == data.length'), lineOf(code, 'resize(')],
       `El bloque está lleno: se reserva uno del doble (${capacity}) y se copian los ${copied} elementos.`,
     );
     return 3;
@@ -351,14 +396,17 @@ function traceArray(
           : operation === 'insert-last'
             ? size()
             : requireIndex(input, size(), true);
-      const offset = growIfNeeded();
+      growIfNeeded();
       const n = size();
       push('start', [1], `Insertamos ${x} en la posición ${at} de un arreglo de ${n} elementos.`, {
         carry: { value: x, label: 'x' },
       });
       // Copy right, from the last element down to the insertion point. Each
       // copy vacates its source, so a hole opens at `at`.
-      const shiftLines = operation === 'insert-last' ? [] : [2 + offset, 3 + offset];
+      const shiftLines =
+        operation === 'insert-last'
+          ? []
+          : [lineOf(code, 'for (int j = size'), lineOf(code, 'data[j] = data[j - 1]')];
       for (let j = n; j > at; j -= 1) {
         cost += 1;
         const moved = slots[j - 1]!;
@@ -372,7 +420,14 @@ function traceArray(
       }
       cost += 1;
       slots[at] = { id: (nextId += 1), value: x, state: 'new' };
-      const writeLine = operation === 'insert-last' ? 2 + offset : 5 + offset;
+      const writeLine = lineOf(
+        code,
+        operation === 'insert-last'
+          ? 'data[size] = x'
+          : operation === 'insert-first'
+            ? 'data[0] = x'
+            : 'data[i] = x',
+      );
       push(
         'link',
         [writeLine],
@@ -397,12 +452,20 @@ function traceArray(
       const removed = slots[at]!;
       slots[at] = { ...removed, state: 'leaving' };
       cost += 1;
-      push('start', [1, 2], `Guardamos ${removed.value}, el elemento de la posición ${at}.`, {
-        pointers: [{ name: 'i', index: at }],
-      });
+      push(
+        'start',
+        [lineOf(code, 'int x = data[')],
+        `Guardamos ${removed.value}, el elemento de la posición ${at}.`,
+        {
+          pointers: [{ name: 'i', index: at }],
+        },
+      );
       slots[at] = null;
       // Copy left, closing the hole the removal opened.
-      const shiftLines = operation === 'remove-last' ? [] : [3, 4];
+      const shiftLines =
+        operation === 'remove-last'
+          ? []
+          : [lineOf(code, 'for (int j = '), lineOf(code, 'data[j] = data[j + 1]')];
       for (let j = at; j < n - 1; j += 1) {
         cost += 1;
         const moved = slots[j + 1]!;
@@ -415,19 +478,19 @@ function traceArray(
       }
       push(
         'done',
-        [operation === 'remove-last' ? 3 : 5],
+        [lineOf(code, 'size--')],
         `El largo pasa a ${size()}. Devolvemos ${removed.value}.`,
       );
       break;
     }
     case 'get-at': {
       const at = requireIndex(input, size(), false);
-      push('start', [1], `Pedimos el elemento de la posición ${at}.`);
+      push('start', [lineOf(code, 'i >= size')], `Pedimos el elemento de la posición ${at}.`);
       cost += 1;
       slots[at] = { ...slots[at]!, state: 'found' };
       push(
         'found',
-        [2],
+        [lineOf(code, 'return data[i]')],
         `La posición ${at} vive en base + ${at} × tamaño: una cuenta, y ya estamos ahí.`,
         { pointers: [{ name: 'i', index: at }] },
       );
@@ -436,7 +499,11 @@ function traceArray(
     case 'search': {
       const target = requireTarget(input);
       const n = size();
-      push('start', [1], `Buscamos ${target} recorriendo el arreglo desde la posición 0.`);
+      push(
+        'start',
+        [lineOf(code, 'for (int j = 0')],
+        `Buscamos ${target} recorriendo el arreglo desde la posición 0.`,
+      );
       let found = -1;
       for (let j = 0; j < n; j += 1) {
         cost += 1;
@@ -459,7 +526,7 @@ function traceArray(
       }
       push(
         found >= 0 ? 'found' : 'done',
-        found >= 0 ? [4] : [7],
+        found >= 0 ? [lineOf(code, 'return j;')] : [lineOf(code, 'return -1;')],
         found >= 0
           ? `Encontramos ${target} en la posición ${found}.`
           : `Recorrimos las ${n} posiciones: ${target} no está en el arreglo.`,
@@ -528,6 +595,9 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
 }`;
     case 'insert-at':
       return `void insertAt(int i, int x) {
+    if (i < 0 || i > size) {
+        throw new IndexOutOfBoundsException();
+    }
     Node fresh = new Node(x);
     Node prev = head;
     for (int j = 0; j < i - 1; j++) {
@@ -551,6 +621,9 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'remove-first':
       return doubly
         ? `int deleteFirst() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
     Node old = head;
     head = head.next;
     if (head != null) head.prev = null;
@@ -558,6 +631,9 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     return old.value;
 }`
         : `int deleteFirst() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
     Node old = head;
     head = head.next;
     size--;
@@ -566,6 +642,9 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'remove-last':
       return doubly && tail
         ? `int deleteLast() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
     Node old = tail;
     tail = tail.prev;
     tail.next = null;
@@ -573,6 +652,9 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     return old.value;
 }`
         : `int deleteLast() {
+    if (head == null) {
+        throw new NoSuchElementException();
+    }
     Node prev = head;
     while (prev.next.next != null) {
         prev = prev.next;
@@ -584,6 +666,9 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
 }`;
     case 'remove-at':
       return `int deleteAt(int i) {
+    if (i < 0 || i >= size) {
+        throw new IndexOutOfBoundsException();
+    }
     Node prev = head;
     for (int j = 0; j < i - 1; j++) {
         prev = prev.next;
@@ -595,6 +680,9 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
 }`;
     case 'get-at':
       return `int getAt(int i) {
+    if (i < 0 || i >= size) {
+        throw new IndexOutOfBoundsException();
+    }
     Node current = head;
     for (int j = 0; j < i; j++) {
         current = current.next;
@@ -671,13 +759,18 @@ function traceList(
     case 'insert-first': {
       const x = requireValue(input);
       cost += 1;
-      push('build', [2], `Creamos el nodo ${x}. Todavía no está en la cadena.`, {
-        carry: { value: x, label: 'fresh' },
-      });
+      push(
+        'build',
+        [lineOf(code, 'new Node(x)')],
+        `Creamos el nodo ${x}. Todavía no está en la cadena.`,
+        {
+          carry: { value: x, label: 'fresh' },
+        },
+      );
       cost += 1;
       push(
         'link',
-        [3],
+        [lineOf(code, 'fresh.next = head')],
         `El nodo ${x} apunta al que hoy es el primero${cells.length > 0 ? ` (${cells[0]!.value})` : ' (null: la lista estaba vacía)'}.`,
         {
           carry: { value: x, label: 'fresh' },
@@ -687,7 +780,7 @@ function traceList(
       cost += 1;
       push(
         'link',
-        doubly ? [5] : [4],
+        [lineOf(code, 'head = fresh')],
         `head pasa a apuntar a ${x}. El largo pasa a ${cells.length}.`,
       );
       break;
@@ -695,41 +788,65 @@ function traceList(
     case 'insert-last': {
       const x = requireValue(input);
       cost += 1;
-      push('build', [2], `Creamos el nodo ${x}.`, { carry: { value: x, label: 'fresh' } });
+      push('build', [lineOf(code, 'new Node(x)')], `Creamos el nodo ${x}.`, {
+        carry: { value: x, label: 'fresh' },
+      });
       if (tail) {
         cost += 1;
-        push('link', [3], `tail ya apunta al último: enlazamos ${x} sin recorrer nada.`, {
-          carry: { value: x, label: 'fresh' },
-        });
+        push(
+          'link',
+          [lineOf(code, 'tail.next = fresh')],
+          `tail ya apunta al último: enlazamos ${x} sin recorrer nada.`,
+          {
+            carry: { value: x, label: 'fresh' },
+          },
+        );
       } else {
         // No tail: the only way to the last node is to walk the whole chain.
-        walkTo(Math.max(cells.length - 1, 0), [4, 5], 'current');
+        walkTo(
+          Math.max(cells.length - 1, 0),
+          [lineOf(code, 'while ('), lineOf(code, 'current = current.next')],
+          'current',
+        );
         cost += 1;
-        push('link', [7], `El último nodo apunta a ${x}.`, {
+        push('link', [lineOf(code, 'current.next = fresh')], `El último nodo apunta a ${x}.`, {
           carry: { value: x, label: 'fresh' },
         });
       }
       cells.push({ id: (nextId += 1), value: x, state: 'new' });
       cost += 1;
-      push('done', tail ? [4] : [8], `El largo pasa a ${cells.length}.`);
+      push('done', [lineOf(code, 'size++')], `El largo pasa a ${cells.length}.`);
       break;
     }
     case 'insert-at': {
       const x = requireValue(input);
       const at = requireIndex(input, cells.length, true);
       cost += 1;
-      push('build', [2], `Creamos el nodo ${x} para la posición ${at}.`, {
+      push('build', [lineOf(code, 'new Node(x)')], `Creamos el nodo ${x} para la posición ${at}.`, {
         carry: { value: x, label: 'fresh' },
       });
-      walkTo(Math.max(at - 1, 0), [4, 5], 'prev');
+      walkTo(
+        Math.max(at - 1, 0),
+        [lineOf(code, 'for (int j'), lineOf(code, 'prev = prev.next')],
+        'prev',
+      );
       cost += 1;
-      push('link', [7], `${x} apunta al nodo que ocupaba la posición ${at}.`, {
-        carry: { value: x, label: 'fresh' },
-        pointers: basePointers([{ name: 'prev', index: Math.max(at - 1, 0) }]),
-      });
+      push(
+        'link',
+        [lineOf(code, 'fresh.next = prev.next')],
+        `${x} apunta al nodo que ocupaba la posición ${at}.`,
+        {
+          carry: { value: x, label: 'fresh' },
+          pointers: basePointers([{ name: 'prev', index: Math.max(at - 1, 0) }]),
+        },
+      );
       cells.splice(at, 0, { id: (nextId += 1), value: x, state: 'new' });
       cost += 1;
-      push('link', [8], `El nodo anterior apunta a ${x}. El largo pasa a ${cells.length}.`);
+      push(
+        'link',
+        [lineOf(code, 'prev.next = fresh')],
+        `El nodo anterior apunta a ${x}. El largo pasa a ${cells.length}.`,
+      );
       break;
     }
     case 'insert-ordered': {
@@ -739,30 +856,49 @@ function traceList(
         throw new Error('La lista de partida debe venir ordenada para insertar en orden.');
       }
       cost += 1;
-      push('build', [2], `Creamos el nodo ${x} y buscamos dónde va sin romper el orden.`, {
-        carry: { value: x, label: 'fresh' },
-      });
+      push(
+        'build',
+        [lineOf(code, 'new Node(x)')],
+        `Creamos el nodo ${x} y buscamos dónde va sin romper el orden.`,
+        {
+          carry: { value: x, label: 'fresh' },
+        },
+      );
       let at = 0;
       while (at < cells.length && cells[at]!.value < x) {
         cost += 1;
         cells[at] = { ...cells[at]!, state: 'active' };
-        push('compare', [4, 5], `¿${cells[at]!.value} < ${x}? Sí: ${x} va más adelante.`, {
-          carry: { value: x, label: 'fresh' },
-          pointers: basePointers([{ name: 'prev', index: at }]),
-        });
+        push(
+          'compare',
+          [lineOf(code, 'while (prev.next'), lineOf(code, 'prev = prev.next')],
+          `¿${cells[at]!.value} < ${x}? Sí: ${x} va más adelante.`,
+          {
+            carry: { value: x, label: 'fresh' },
+            pointers: basePointers([{ name: 'prev', index: at }]),
+          },
+        );
         cells[at] = { ...cells[at]!, state: 'idle' };
         at += 1;
       }
       if (at < cells.length) {
         cost += 1;
-        push('compare', [4], `¿${cells[at]!.value} < ${x}? No: ${x} va justo aquí.`, {
-          carry: { value: x, label: 'fresh' },
-          pointers: basePointers([{ name: 'prev', index: at }]),
-        });
+        push(
+          'compare',
+          [lineOf(code, 'while (prev.next')],
+          `¿${cells[at]!.value} < ${x}? No: ${x} va justo aquí.`,
+          {
+            carry: { value: x, label: 'fresh' },
+            pointers: basePointers([{ name: 'prev', index: at }]),
+          },
+        );
       }
       cells.splice(at, 0, { id: (nextId += 1), value: x, state: 'new' });
       cost += 1;
-      push('link', [7, 8], `Enlazamos ${x} en la posición ${at}. El orden se mantiene.`);
+      push(
+        'link',
+        [lineOf(code, 'fresh.next = prev.next'), lineOf(code, 'prev.next = fresh')],
+        `Enlazamos ${x} en la posición ${at}. El orden se mantiene.`,
+      );
       break;
     }
     case 'remove-first': {
@@ -770,17 +906,21 @@ function traceList(
       const removed = cells[0]!;
       cells[0] = { ...removed, state: 'leaving' };
       cost += 1;
-      push('start', [2], `Guardamos el primer nodo (${removed.value}).`);
+      push(
+        'start',
+        [lineOf(code, 'Node old = head')],
+        `Guardamos el primer nodo (${removed.value}).`,
+      );
       cells.shift();
       cost += 1;
       push(
         'unlink',
-        [3],
+        [lineOf(code, 'head = head.next')],
         `head pasa a apuntar al segundo nodo${cells.length > 0 ? ` (${cells[0]!.value})` : ' (null: la lista queda vacía)'}.`,
       );
       push(
         'done',
-        doubly ? [5] : [4],
+        [lineOf(code, 'return old.value')],
         `El largo pasa a ${cells.length}. Devolvemos ${removed.value}.`,
       );
       break;
@@ -791,54 +931,85 @@ function traceList(
       if (doubly && tail) {
         // The only O(1) delete-last in the family: `prev` is already there.
         cost += 1;
-        push('start', [2], `tail apunta al último nodo (${removed.value}).`);
+        push(
+          'start',
+          [lineOf(code, 'Node old = tail')],
+          `tail apunta al último nodo (${removed.value}).`,
+        );
         cost += 1;
-        push('unlink', [3], `tail retrocede por prev — sin recorrer la cadena.`);
+        push(
+          'unlink',
+          [lineOf(code, 'tail = tail.prev')],
+          `tail retrocede por prev — sin recorrer la cadena.`,
+        );
       } else {
         // Every other recipe needs the node BEFORE the last one, and only a
         // walk can produce it: `tail` alone is not enough.
-        walkTo(Math.max(cells.length - 2, 0), [2, 3], 'prev');
+        walkTo(
+          Math.max(cells.length - 2, 0),
+          [lineOf(code, 'while (prev.next.next'), lineOf(code, 'prev = prev.next')],
+          'prev',
+        );
         cost += 1;
-        push('start', [5], `El nodo anterior al último es quien debe soltarlo.`, {
-          pointers: basePointers([{ name: 'prev', index: Math.max(cells.length - 2, 0) }]),
-        });
+        push(
+          'start',
+          [lineOf(code, 'Node old = prev.next')],
+          `El nodo anterior al último es quien debe soltarlo.`,
+          {
+            pointers: basePointers([{ name: 'prev', index: Math.max(cells.length - 2, 0) }]),
+          },
+        );
       }
       cells.pop();
       cost += 1;
       push(
         'unlink',
-        doubly && tail ? [4] : [6],
-        `El fresh último apunta a ${circular ? 'head' : 'null'}. El largo pasa a ${cells.length}.`,
+        [lineOf(code, doubly && tail ? 'tail.next = null' : 'prev.next = null')],
+        `El nuevo último apunta a ${circular ? 'head' : 'null'}. El largo pasa a ${cells.length}.`,
       );
-      push('done', doubly && tail ? [6] : [8], `Devolvemos ${removed.value}.`);
+      push('done', [lineOf(code, 'return old.value')], `Devolvemos ${removed.value}.`);
       break;
     }
     case 'remove-at': {
       requireNonEmpty(input.values);
       const at = requireIndex(input, cells.length, false);
-      walkTo(Math.max(at - 1, 0), [3, 4], 'prev');
+      walkTo(
+        Math.max(at - 1, 0),
+        [lineOf(code, 'for (int j'), lineOf(code, 'prev = prev.next')],
+        'prev',
+      );
       const removed = cells[at]!;
       cells[at] = { ...removed, state: 'leaving' };
       cost += 1;
-      push('start', [6], `El nodo a eliminar es ${removed.value}, en la posición ${at}.`, {
-        pointers: basePointers([{ name: 'prev', index: Math.max(at - 1, 0) }]),
-      });
+      push(
+        'start',
+        [lineOf(code, 'Node old = prev.next')],
+        `El nodo a eliminar es ${removed.value}, en la posición ${at}.`,
+        {
+          pointers: basePointers([{ name: 'prev', index: Math.max(at - 1, 0) }]),
+        },
+      );
       cells.splice(at, 1);
       cost += 1;
       push(
         'unlink',
-        [7],
+        [lineOf(code, 'prev.next = old.next')],
         `El nodo anterior salta por encima y apunta al siguiente. El largo pasa a ${cells.length}.`,
       );
-      push('done', [9], `Devolvemos ${removed.value}.`);
+      push('done', [lineOf(code, 'return old.value')], `Devolvemos ${removed.value}.`);
       break;
     }
     case 'get-at': {
       requireNonEmpty(input.values);
       const at = requireIndex(input, cells.length, false);
-      push('start', [2], `current parte de head, en la posición 0.`, {
-        pointers: basePointers([{ name: 'current', index: 0 }]),
-      });
+      push(
+        'start',
+        [lineOf(code, 'Node current = head')],
+        `current parte de head, en la posición 0.`,
+        {
+          pointers: basePointers([{ name: 'current', index: 0 }]),
+        },
+      );
       // One frame per hop: the whole point of the operation is that there are
       // `i` of them, so skipping any would hide the cost it teaches.
       for (let j = 0; j < at; j += 1) {
@@ -846,7 +1017,7 @@ function traceList(
         cells[j + 1] = { ...cells[j + 1]!, state: 'active' };
         push(
           'walk',
-          [3, 4],
+          [lineOf(code, 'for (int j'), lineOf(code, 'current = current.next')],
           `Salto ${j + 1}: current avanza al nodo ${cells[j + 1]!.value}, en la posición ${j + 1}.`,
           { pointers: basePointers([{ name: 'current', index: j + 1 }]) },
         );
@@ -855,7 +1026,7 @@ function traceList(
       cells[at] = { ...cells[at]!, state: 'found' };
       push(
         'found',
-        [6],
+        [lineOf(code, 'return current.value')],
         `Llegamos a la posición ${at} tras ${at} salto${at === 1 ? '' : 's'}. Devolvemos ${cells[at]!.value}.`,
         { pointers: basePointers([{ name: 'current', index: at }]) },
       );
@@ -865,7 +1036,7 @@ function traceList(
       const target = requireTarget(input);
       push(
         'start',
-        [2, 3],
+        [lineOf(code, 'Node current = head')],
         `Buscamos ${target} desde head: la lista no tiene aritmética de posiciones.`,
       );
       let found = -1;
@@ -875,7 +1046,7 @@ function traceList(
         cells[j] = { ...cells[j]!, state: hit ? 'found' : 'active' };
         push(
           hit ? 'found' : 'compare',
-          hit ? [5, 6] : [5, 8],
+          hit ? [lineOf(code, 'if (current.value == x')] : [lineOf(code, 'current = current.next')],
           `¿El nodo ${cells[j]!.value} es ${target}? ${hit ? 'Sí.' : 'No: avanzamos.'}`,
           {
             pointers: basePointers([{ name: 'current', index: j }]),
@@ -889,7 +1060,7 @@ function traceList(
       }
       push(
         found >= 0 ? 'found' : 'done',
-        found >= 0 ? [6] : [11],
+        found >= 0 ? [lineOf(code, 'return j;')] : [lineOf(code, 'return -1;')],
         found >= 0
           ? `Encontramos ${target} tras recorrer ${found + 1} nodo${found === 0 ? '' : 's'}.`
           : `Recorrimos los ${cells.length} nodos: ${target} no está en la lista.`,
