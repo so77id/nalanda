@@ -297,9 +297,15 @@ cadena es preguntarle a cada nodo por el siguiente.
 
 ## Las operaciones de la lista enlazada
 
-<Slide title="build · crear la lista desde cero">
-Una lista recién creada no tiene ningún nodo: `head` es `null` y `size` es
-cero. Esa es la lista vacía, y es desde donde se construye cualquier otra.
+<Slide title="build · crear la lista">
+Crear una lista es dejarla en su estado inicial: sin ningún nodo.
+
+```java
+public LinkedList() {
+    this.head = null;
+    this.size = 0;
+}
+```
 
 <svg viewBox="0 0 360 96" style={{ width: '100%', maxWidth: '360px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="Una lista vacía: la referencia head apunta directamente a null, y no hay ningún nodo.">
   <defs>
@@ -313,25 +319,13 @@ cero. Esa es la lista vacía, y es desde donde se construye cualquier otra.
   <text x="180" y="72" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ningún nodo · size = 0</text>
 </svg>
 
-A partir de ahí, cada inserción agrega un nodo. Construir la lista `7 → 3 → 1
-→ 5` es crear la vacía y meter los valores en orden inverso, cada uno por el
-frente:
+Los dos valores no son arbitrarios: son lo que las invariantes exigen cuando
+no hay nodos. `head` en `null` dice que no hay primer nodo, y `size` en cero
+dice que la cadena que arranca ahí tiene largo cero. Ambas cosas son ciertas,
+y la lista queda en un estado válido antes de que nadie la use.
 
-```java
-LinkedList list = new LinkedList();
-list.insertFirst(5);
-list.insertFirst(1);
-list.insertFirst(3);
-list.insertFirst(7);
-```
-
-Cada `insertFirst` cuesta lo mismo sin importar cuántos nodos haya, así que
-construir una lista de $$N$$ elementos de esta manera cuesta $$\Theta(N)$$.
-
-Hacerlo por el otro extremo —insertando cada valor al final, en el orden en
-que se leen— da exactamente la misma lista y cuesta mucho más: cada
-`insertLast` tiene que recorrer la cadena hasta el último nodo, y esos
-recorridos suman $$\Theta(N^2)$$.
+Ese es el trabajo del constructor y todo su trabajo: dos asignaciones que no
+dependen de nada, así que crear una lista cuesta $$\Theta(1)$$.
 
 </Slide>
 
@@ -601,7 +595,7 @@ Lo que cambia por completo es cuánto tarda cada llamada.
 <Slide title="Operaciones y sus costos">
 | Molde | Operación | Peor caso | Invariante que restaura |
 |---|---|---|---|
-| crear | `build(elementos)` | $$\Theta(N)$$ | Deja la cadena completa desde `head`, en el orden recibido |
+| crear | `build()` | $$\Theta(1)$$ | Deja las invariantes en su caso base: `head` en `null`, `size` en cero |
 | consultar | `len()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
 | consultar | `getAt(i)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
 | consultar | `search(x)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
