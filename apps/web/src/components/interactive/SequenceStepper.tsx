@@ -703,9 +703,13 @@ function ListPicture({
               // slot it is about to occupy. Painted `mark`, like the node it
               // reaches, so the two read as one change.
               <path
-                d={`M ${arrow.x1} ${arrow.y} L ${carryX - 14} ${arrow.y} L ${carryX - 14} ${
-                  carryTop + BOX_H / 2
-                } L ${carryX - 4} ${carryTop + BOX_H / 2}`}
+                // Right along the row, then straight UP into the floating
+                // node's underside. Turning in beside it instead put the
+                // corner within a few pixels of the arrowhead, and the riser
+                // read as part of the head rather than as the link.
+                d={`M ${arrow.x1} ${arrow.y} L ${carryX + BOX_W / 2} ${arrow.y} L ${
+                  carryX + BOX_W / 2
+                } ${carryTop + BOX_H + 5}`}
                 fill="none"
                 style={{ stroke: 'var(--color-mark)' }}
                 strokeWidth={2}
