@@ -396,20 +396,36 @@ media cadena. La lista se queda en $$\Theta(N)$$ aunque esté ordenada.
 </Slide>
 
 <Slide title="insertFirst · insertar al comienzo">
-Insertar al principio se resuelve con tres asignaciones y ninguna depende de
-cuántos elementos haya en la lista.
+Insertar al principio se resuelve con tres asignaciones, y ninguna de las tres
+depende de cuántos elementos haya en la lista.
 
+```java
+void insertFirst(int x) {
+    Node fresh = new Node(x);
+    fresh.next = head;
+    head = fresh;
+    size++;
+}
+```
+
+El nodo nuevo toma el enlace que tenía `head`, y recién entonces `head` pasa a
+apuntar al nodo nuevo. El orden importa: al revés se pierde la referencia al
+resto de la cadena.
+
+Los demás nodos no se enteran. Ninguno cambia de lugar ni de contenido, y por
+eso el costo no crece con el largo: la operación es $$\Theta(1)$$. La
+invariante que restaura es la primera —`head` apunta al primer nodo— y
+restaurarla cuesta esas tres asignaciones, haya cero elementos o un millón.
+
+</Slide>
+
+<Slide title="insertFirst · cuatro inserciones seguidas">
 <SequenceStepper
   eda="linked-list-singly"
   operation="insert-first"
   values={[]}
   value={[5, 1, 3, 7]}
 />
-
-El nodo nuevo apunta a quien era el primero, y `head` pasa a apuntar al nodo
-nuevo. Los demás nodos no se enteran: ninguno cambió de lugar ni de
-contenido. La invariante que se restaura es la primera —`head` apunta al
-primer nodo— y restaurarla cuesta $$\Theta(1)$$.
 
 </Slide>
 
