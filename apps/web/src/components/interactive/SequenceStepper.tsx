@@ -316,7 +316,13 @@ function Body({
           className="flex items-center justify-center overflow-x-auto bg-surface p-3"
           style={{ maxHeight: isPresentation ? 'min(42vh, 400px)' : '24rem' }}
         >
-          <StructureView step={step} recipe={recipe} />
+          <StructureView
+            step={step}
+            recipe={recipe}
+            maxCells={trace.maxCells}
+            align={trace.align}
+            hasCarry={trace.hasCarry}
+          />
         </div>
       </div>
 
@@ -408,10 +414,28 @@ function CellNote({ cell, x, y }: { cell: SequenceCell; x: number; y: number }) 
   );
 }
 
-function StructureView({ step, recipe }: { step: SequenceStep; recipe: SequenceRecipe }) {
+function StructureView({
+  step,
+  recipe,
+  maxCells,
+  align,
+  hasCarry,
+}: {
+  step: SequenceStep;
+  recipe: SequenceRecipe;
+  maxCells: number;
+  align: 'left' | 'right';
+  hasCarry: boolean;
+}) {
   const isList = recipe.startsWith('linked-list');
   const slots = step.capacity ?? step.cells.length;
-  const layout = layoutSequence(step.cells.length, recipe, slots, step.carry !== undefined);
+  // Laid out for the WIDEST frame, so the drawing keeps one size from the
+  // first frame to the last. `offset` is how far in the current cells start:
+  // when the chain grows at the front, they sit flush right and the reserved
+  // slot is exactly where the next node will land — so it lands without
+  // moving anything already on screen.
+  const layout = layoutSequence(maxCells, recipe, slots, hasCarry);
+  const offset = align === 'right' ? maxCells - step.cells.length : 0;
   const summary = describe(step, recipe);
 
   // A short structure can be narrower than the carry chip parked above it, so
@@ -458,10 +482,17 @@ function StructureView({ step, recipe }: { step: SequenceStep; recipe: SequenceR
         </marker>
       </defs>
 
-      {isList ? <ListPicture step={step} layout={layout} recipe={recipe} /> : null}
+      {isList ? <ListPicture step={step} layout={layout} recipe={recipe} offset={offset} /> : null}
       {!isList ? <ArrayPicture step={step} layout={layout} slots={slots} /> : null}
-      <Pointers step={step} layout={layout} />
-      {step.carry ? <Carry carry={step.carry} layout={layout} isList={isList} /> : null}
+      <Pointers step={step} layout={layout} offset={offset} />
+      {step.carry ? (
+        <Carry
+          carry={step.carry}
+          layout={layout}
+          isList={isList}
+          carrySlot={Math.max(offset - 1, 0)}
+        />
+      ) : null}
     </svg>
   );
 }
@@ -536,10 +567,12 @@ function ListPicture({
   step,
   layout,
   recipe,
+  offset,
 }: {
   step: SequenceStep;
   layout: SequenceLayout;
   recipe: SequenceRecipe;
+  offset: number;
 }) {
   const doubly = recipe === 'linked-list-doubly';
   const circular = recipe === 'linked-list-circular';
@@ -548,7 +581,8 @@ function ListPicture({
   return (
     <g>
       {layout.boxes.map((box, i) => {
-        const cell = step.cells[i]!;
+        const cell = step.cells[i - offset];
+        if (cell === undefined) return null;
         const arrow = linkArrow(layout, i);
         const isLast = i === last;
         const active = cell.state === 'active' || cell.state === 'found';
@@ -661,7 +695,15 @@ function ListPicture({
   );
 }
 
-function Pointers({ step, layout }: { step: SequenceStep; layout: SequenceLayout }) {
+function Pointers({
+  step,
+  layout,
+  offset,
+}: {
+  step: SequenceStep;
+  layout: SequenceLayout;
+  offset: number;
+}) {
   // `head` and `tail` ride the top row; the walking pointers ride the row
   // below, so a walk that passes over `head` never hides it.
   const ROW = { head: 10, tail: 10, otros: 28 };
@@ -669,7 +711,7 @@ function Pointers({ step, layout }: { step: SequenceStep; layout: SequenceLayout
     <g>
       {step.pointers.map((pointer) => {
         const y = pointer.name === 'head' || pointer.name === 'tail' ? ROW.head : ROW.otros;
-        const box = pointer.index === null ? null : layout.boxes[pointer.index];
+        const box = pointer.index === null ? null : layout.boxes[pointer.index + offset];
         const walking = pointer.name !== 'head' && pointer.name !== 'tail';
         const colour = walking ? 'var(--color-focus)' : 'var(--color-accent)';
         // A pointer aimed past the end is drawn at the null marker.
@@ -722,10 +764,13 @@ function Carry({
   carry,
   layout,
   isList,
+  carrySlot,
 }: {
   carry: NonNullable<SequenceStep['carry']>;
   layout: SequenceLayout;
   isList: boolean;
+  /** The slot the node is about to land in — it is drawn directly above it. */
+  carrySlot: number;
 }) {
   // The node that exists and is not in the chain yet, drawn as a NODE rather
   // than as a chip: it has a `next` field, that field is what the operation
@@ -736,7 +781,7 @@ function Carry({
   // `head` labels and arrows that same node from the band in between, and
   // stacked they collided — two labels touching and two vertical lines
   // running side by side into the same box.
-  const x = (layout.boxes[0]?.x ?? 20) + 78;
+  const x = (layout.boxes[carrySlot]?.x ?? 20) + (carrySlot === 0 ? 78 : 0);
   const target = carry.next === undefined ? undefined : carry.next;
   const linkX = x + BOX_W;
   return (
@@ -803,8 +848,8 @@ function Carry({
         ) : (
           <path
             d={`M ${linkX + LINK_W / 2} ${y + 18 + BOX_H} L ${linkX + LINK_W / 2} ${layout.top - 16} L ${
-              layout.boxes[target]?.centerX ?? x
-            } ${layout.top - 16} L ${layout.boxes[target]?.centerX ?? x} ${layout.top - 3}`}
+              layout.boxes[target + carrySlot + 1]?.centerX ?? x
+            } ${layout.top - 16} L ${layout.boxes[target + carrySlot + 1]?.centerX ?? x} ${layout.top - 3}`}
             fill="none"
             style={{ stroke: 'var(--color-mark)' }}
             strokeWidth={2}

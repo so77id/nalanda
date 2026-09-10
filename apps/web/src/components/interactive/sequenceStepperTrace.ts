@@ -99,6 +99,26 @@ export interface SequenceStep {
 export interface SequenceTrace {
   steps: SequenceStep[];
   code: string;
+  /**
+   * The most cells any frame holds. The view lays out for THIS, not for the
+   * current frame, so the drawing keeps one size from the first frame to the
+   * last — a chain that resizes under the reader on every insertion is a
+   * chain nobody can follow.
+   */
+  maxCells: number;
+  /**
+   * Which end the structure grows from. `right` means new cells arrive at the
+   * FRONT, so the existing ones are drawn flush right and a new node lands in
+   * the slot already reserved above it, moving nothing.
+   */
+  align: 'left' | 'right';
+  /**
+   * Whether ANY frame floats a node above the structure. The row is reserved
+   * for the whole trace when so: reserving it per frame made the drawing
+   * change height — and therefore width — every time a node appeared or
+   * landed, which is the resizing that makes an animation unreadable.
+   */
+  hasCarry: boolean;
 }
 
 export interface SequenceInput {
@@ -555,7 +575,13 @@ function traceArray(
     cells: settle(last.cells),
     slots: (last.slots ?? []).map((s) => (s === null ? null : settle([s])[0]!)),
   };
-  return { steps, code };
+  return {
+    steps,
+    code,
+    maxCells: Math.max(...steps.map((f) => f.cells.length)),
+    align: 'left',
+    hasCarry: steps.some((f) => f.carry !== undefined),
+  };
 }
 
 // ── the list family ───────────────────────────────────────────────────────
@@ -567,6 +593,21 @@ function traceArray(
  * is the point the class makes — the operations are the same, what changes is
  * where the cost lives.
  */
+/**
+ * The program that drives the operation, appended under the method when a
+ * slide inserts several values. Without it the reader watches three identical
+ * runs of one method with no way to tell which call is running; with it, the
+ * frame lights the call AND the line inside the method, so both halves of
+ * "where are we" are on screen.
+ */
+function callingProgram(values: number[], method: string): string {
+  return [
+    '',
+    'LinkedList list = new LinkedList();',
+    ...values.map((v) => `list.${method}(${v});`),
+  ].join('\n');
+}
+
 function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: boolean): string {
   const doubly = recipe === 'linked-list-doubly';
   const circular = recipe === 'linked-list-circular';
@@ -723,7 +764,12 @@ function traceList(
   const tail = input.tail === true;
   const doubly = recipe === 'linked-list-doubly';
   const circular = recipe === 'linked-list-circular';
-  const code = listCode(recipe, operation, tail);
+  const inserts =
+    operation === 'insert-first' && Array.isArray(input.value) ? (input.value as number[]) : [];
+  const code =
+    inserts.length > 1
+      ? listCode(recipe, operation, tail) + callingProgram(inserts, 'insertFirst')
+      : listCode(recipe, operation, tail);
   const cells = cellsFrom(input.values);
   const steps: SequenceStep[] = [];
   let cost = 0;
@@ -772,11 +818,13 @@ function traceList(
       // `head` has not moved yet. Drawing the node as a NODE — with its own
       // link — is what makes that middle state visible at all.
       for (const x of requireValues(input)) {
+        // The call being executed, lit alongside the line inside the method.
+        const callLine = inserts.length > 1 ? [lineOf(code, `list.insertFirst(${x});`)] : [];
         const wasFirst = cells.length > 0 ? cells[0]!.value : null;
         cost += 1;
         push(
           'build',
-          [lineOf(code, 'new Node(x)')],
+          [...callLine, lineOf(code, 'new Node(x)')],
           `Creamos el nodo ${x}. Existe, pero todavía no está en la cadena.`,
           {
             carry: { value: x, label: 'fresh' },
@@ -785,7 +833,7 @@ function traceList(
         cost += 1;
         push(
           'link',
-          [lineOf(code, 'fresh.next = head')],
+          [...callLine, lineOf(code, 'fresh.next = head')],
           wasFirst === null
             ? `fresh.next apunta a null: la cadena estaba vacía.`
             : `fresh.next apunta al que hoy es el primero (${wasFirst}). head todavía no se movió.`,
@@ -795,7 +843,7 @@ function traceList(
         cost += 1;
         push(
           'link',
-          [lineOf(code, 'head = fresh')],
+          [...callLine, lineOf(code, 'head = fresh')],
           `head pasa a apuntar a ${x}. El largo pasa a ${cells.length}.`,
         );
         cells[0] = { ...cells[0]!, state: 'idle' };
@@ -1091,5 +1139,14 @@ function traceList(
 
   const last = steps.at(-1)!;
   steps[steps.length - 1] = { ...last, cells: settle(last.cells) };
-  return { steps, code };
+  return {
+    steps,
+    code,
+    maxCells: Math.max(...steps.map((f) => f.cells.length)),
+    // insert-first and remove-first change the FRONT of the chain, so the
+    // cells are drawn flush right and the reserved slot sits where the new
+    // node is about to land.
+    align: operation === 'insert-first' || operation === 'remove-first' ? 'right' : 'left',
+    hasCarry: steps.some((f) => f.carry !== undefined),
+  };
 }
