@@ -15,41 +15,79 @@ questions: pool
 
 # Estructuras de Datos · Listas Enlazadas
 
-El arreglo guarda sus elementos juntos, y esa decisión le fija los costos:
-llegar a una posición es una cuenta, abrir un hueco obliga a correr todo lo
-que sigue. Esta clase estudia la estructura que toma la decisión contraria
-—cada elemento por su lado, guardando dónde está el siguiente— y cumple el
-mismo contrato con los costos casi invertidos.
+El TDA Sequence no dice dónde viven los elementos de la colección, y esa
+libertad admite dos decisiones opuestas. El arreglo los guarda juntos, y eso
+le fija los costos: llegar a una posición es una cuenta, abrir un hueco
+obliga a correr todo lo que sigue. Esta clase estudia la estructura que toma
+la decisión contraria —cada elemento por su lado, guardando dónde está el
+siguiente— y cumple el mismo contrato con los costos casi invertidos.
 
 Presentamos la lista simplemente enlazada con todas sus operaciones, sus
 cuatro variantes, la comparación completa contra el arreglo y los cuatro
 ejercicios que la vuelven una herramienta de trabajo.
 
-<Slide title="Dos maneras de guardar una secuencia">
-El TDA Sequence de [[edd-introduccion|Estructuras de Datos · Introducción]]
-fija qué se le puede pedir a una colección ordenada por posición: cuántos
-elementos tiene, cuál está en la posición `i`, insertar, eliminar. No dice
-nada sobre dónde viven esos elementos.
+<Slide title="El TDA Sequence">
+Una **secuencia** es una colección de elementos donde el orden lo determina
+**dónde se insertó cada uno**, y no su valor. El contrato que estudiamos en
+[[edd-introduccion|Estructuras de Datos · Introducción]] es este:
 
-Esa libertad admite dos decisiones opuestas:
+<div style={{ border: '1px solid var(--color-rule)', borderRadius: '8px', overflow: 'hidden', margin: '1.25rem 0' }}>
+  <div style={{ background: 'var(--color-sunk)', padding: '0.55rem 0.9rem', borderBottom: '1px solid var(--color-rule)', fontWeight: 700 }}>Sequence <span style={{ fontWeight: 400, color: 'var(--color-ink-faint)' }}>· el contrato</span></div>
+  <div style={{ display: 'grid', gridTemplateColumns: 'max-content 1fr', columnGap: '2rem' }}>
+  <div style={{ gridColumn: '1 / -1', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>CREAR</div>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>build(elementos)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>construye la secuencia con esos elementos</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-keep)' }}>CONSULTAR · no cambian nada</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>len() → entero</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>cuántos elementos hay</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>getAt(i) → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>el que está en la posición i</span>
+  <div style={{ gridColumn: '1 / -1', borderTop: '1px solid var(--color-rule)', padding: '0.7rem 0.9rem 0.15rem', fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-accent)' }}>MODIFICAR · cambian el estado</div>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>setAt(i, x)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>reemplaza el de la posición i · el largo no cambia</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>insertAt(i, x)</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>pone x en i y corre el resto · largo + 1</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>deleteAt(i) → elemento</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>saca el de i y lo devuelve · largo − 1</span>
+  <code style={{ padding: `0.15rem 0 0.3rem 0.9rem`, whiteSpace: 'nowrap' }}>insertFirst(x) · deleteFirst()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.3rem 0` }}>atajos en la posición 0</span>
+  <code style={{ padding: `0.15rem 0 0.7rem 0.9rem`, whiteSpace: 'nowrap' }}>insertLast(x) · deleteLast()</code>
+  <span style={{ padding: `0.15rem 0.9rem 0.7rem 0` }}>atajos en el final</span>
+  </div>
+  <div style={{ padding: '0.65rem 0.9rem', borderTop: '1px solid var(--color-rule)', background: 'var(--color-sunk)' }}>
+    <div style={{ fontSize: '0.7rem', fontWeight: 700, letterSpacing: '0.08em', color: 'var(--color-ink-faint)' }}>LO QUE NO DICE</div>
+    <div style={{ marginTop: '0.35rem' }}>Dónde viven los elementos, si están juntos o dispersos, ni cuánto cuesta cada operación. Toda esa libertad es de la implementación.</div>
+  </div>
+</div>
 
-- **Todos juntos.** Un bloque de casillas consecutivas en memoria. La
-  posición `i` está en `base + i × tamaño`, así que llegar a ella es una
+El contrato fija qué se le puede pedir a la colección y qué significa cada
+pedido. No dice **cómo** se cumple, y esa libertad es la que permite que dos
+estructuras muy distintas lo cumplan igual de bien.
+
+</Slide>
+
+<Slide title="Memoria consecutiva o nodos enlazados">
+Lo que el contrato deja abierto —dónde viven los elementos— admite dos
+decisiones opuestas, y cada una define una estructura de datos, una **EDA**,
+distinta.
+
+- **En memoria consecutiva.** Un bloque de casillas, una al lado de la otra.
+  La posición `i` está en `base + i × tamaño`, así que llegar a ella es una
   cuenta. A cambio, abrir un hueco en el medio obliga a correr todo lo que
-  viene después.
-- **Cada uno por su lado.** Elementos dispersos, donde cada uno guarda dónde
-  está el siguiente. Insertar donde ya estamos parados es cambiar un enlace.
-  A cambio, no hay ninguna cuenta que lleve a la posición `i`: hay que
-  caminar hasta ella.
+  viene después. Esa EDA es el **arreglo**.
+- **En nodos enlazados.** Cada elemento por su lado, guardando dónde está el
+  siguiente. Insertar donde ya estamos parados es cambiar un enlace. A cambio,
+  no hay ninguna cuenta que lleve a la posición `i`: hay que caminar hasta
+  ella. Esa EDA es la **lista enlazada**.
 
-La segunda decisión define la **lista enlazada**: la estructura de datos
-—**EDA**— de esta clase. Cumple el mismo contrato que el arreglo, y su tabla
-de costos es casi la imagen espejo.
+El par de siglas ordena el resto de la clase. El **TDA** es el contrato: qué
+se puede pedir. La **EDA** es la implementación: cómo se guarda y cuánto
+cuesta cada pedido. Un TDA admite muchas EDA, y elegir entre ellas es elegir
+qué operaciones queremos baratas.
 
-El par de siglas ordena todo lo que sigue. El **TDA** es el contrato: qué se
-puede pedir. La **EDA** es la implementación: cómo se guarda y cuánto cuesta
-cada pedido. Un TDA admite muchas EDA, y elegir entre ellas es elegir qué
-operaciones queremos baratas.
+Con el arreglo ya estudiado, ahora estudiamos la **lista enlazada**: sus
+invariantes, sus operaciones, sus variantes y sus costos, que son casi la
+imagen espejo.
 
 </Slide>
 
@@ -1167,7 +1205,7 @@ class Solution {
 
 <Questions>
 
-<Question id="lista-que-deja-libre-sequence" anchor="dos-maneras-de-guardar-una-secuencia">
+<Question id="lista-que-deja-libre-sequence" anchor="el-tda-sequence">
 
 ¿Qué deja libre el TDA Sequence?
 
