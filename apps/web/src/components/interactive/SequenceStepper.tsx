@@ -27,7 +27,6 @@ import {
   ControlButton,
   LegendSwatch,
   NarrationStrip,
-  PanelLabel,
   StepperHeader,
   useStepPlayback,
   type StepSpeed,
@@ -264,37 +263,6 @@ function Body({
   // line at 1440px.
   const heading = title ?? OPERATION_LABEL[operation];
   const atEnd = playback.stepIndex >= totalSteps - 1;
-  const panelCard = 'flex min-w-0 min-h-0 flex-col rounded border border-rule bg-surface';
-
-  const codePanel = showCode ? (
-    <div className={panelCard}>
-      <PanelLabel
-        index={1}
-        label="código"
-        hint={step.highlightLines.length > 0 ? `Java · línea ${step.highlightLines[0]}` : 'Java'}
-      />
-      <div
-        className={`min-h-0 flex-1 overflow-hidden bg-surface [&>div]:!h-full [&_.cm-content]:!min-h-full [&_.cm-editor]:!h-full [&_.cm-scroller]:!h-full ${
-          isPresentation ? 'text-base [&_.cm-editor]:!text-base' : ''
-        }`}
-      >
-        <CodeStepper code={trace.code} highlightLines={step.highlightLines} language="java" />
-      </div>
-    </div>
-  ) : null;
-
-  const structurePanel = (
-    <div className={panelCard}>
-      <PanelLabel
-        index={showCode ? 2 : 1}
-        label={recipe.startsWith('linked-list') ? 'la cadena' : 'el bloque'}
-        hint={`${step.cells.length} elemento${step.cells.length === 1 ? '' : 's'} · ${step.cost} OE`}
-      />
-      <div className="flex min-h-0 flex-1 items-center justify-center overflow-x-auto p-3">
-        <StructureView step={step} recipe={recipe} />
-      </div>
-    </div>
-  );
 
   return (
     <figure
@@ -318,32 +286,33 @@ function Body({
         totalSteps={totalSteps}
       />
 
-      {isPresentation ? (
+      {/*
+        Stacked in BOTH modes, and the panels share a 1px rule rather than
+        each carrying a border of its own — the shape `<StepShow>` uses, which
+        is the widget the sibling class of this unit is built on. Two columns
+        were wrong for the same reason recorded there: the structure is a
+        horizontal chain, so halving its width halves the drawing, and the
+        node labels land near the size where a projector loses them. Stacking
+        gives the listing and the chain the full width each.
+      */}
+      <div className="flex flex-col gap-px bg-rule">
+        {showCode ? (
+          <div
+            className={
+              isPresentation ? 'bg-surface text-base [&_.cm-editor]:!text-base' : 'bg-surface'
+            }
+          >
+            <CodeStepper code={trace.code} highlightLines={step.highlightLines} language="java" />
+          </div>
+        ) : null}
         <div
-          className="grid gap-2 px-3 py-3"
-          style={{
-            // No fixed height: these listings are 6-11 lines and the chain is
-            // one short SVG, so pinning the row to a fraction of the viewport
-            // left the code panel half empty on every operation slide while
-            // the listing itself stayed small. The cap is a ceiling, not a
-            // target — a slide is scaled to fit, so the widget asking for
-            // less height means the whole slide is scaled down less.
-            maxHeight: 'min(52vh, 500px)',
-            gridTemplateColumns: showCode ? 'minmax(0, 9fr) minmax(0, 11fr)' : 'minmax(0, 1fr)',
-          }}
+          className="flex items-center justify-center overflow-x-auto bg-surface p-3"
+          style={{ maxHeight: isPresentation ? 'min(42vh, 400px)' : '24rem' }}
         >
-          {codePanel}
-          {structurePanel}
+          <StructureView step={step} recipe={recipe} />
         </div>
-      ) : (
-        <div className="flex flex-col gap-2 px-3 py-3">
-          {codePanel}
-          {structurePanel}
-        </div>
-      )}
+      </div>
 
-      {/* The narration is the verbal frame for the picture — announced so a
-       * reader who cannot see the SVG still follows the operation. */}
       <div aria-live="polite" data-testid="sequence-narration">
         <NarrationStrip text={step.description} />
       </div>
@@ -447,7 +416,11 @@ function StructureView({ step, recipe }: { step: SequenceStep; recipe: SequenceR
     <svg
       viewBox={`0 0 ${canvasW} ${layout.height}`}
       className="h-auto w-full"
-      style={{ maxHeight: '100%' }}
+      // Capped rather than free: stacked full-width, the drawing scaled to
+      // ~2.7x and the pointer band clipped its own labels against the panel
+      // edge. The cap keeps the nodes at a size a projector reads without
+      // letting a four-node chain fill a whole slide.
+      style={{ maxWidth: `${canvasW * 1.7}px`, maxHeight: '100%' }}
       role="img"
       aria-label={summary}
       data-testid="sequence-structure"
