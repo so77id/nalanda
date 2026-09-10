@@ -126,7 +126,7 @@ ya no existen.
 <Slide title="El enlace">
 La solución es guardar, junto a cada dato, **la dirección del que sigue**.
 
-<svg viewBox="0 0 700 168" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="La misma memoria dispersa, ahora con flechas que van de cada valor al siguiente: 7 apunta a la dirección de 3, 3 a la de 1, 1 a la de 5, y 5 no apunta a ninguna.">
+<svg viewBox="0 0 700 186" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="La misma memoria dispersa, ahora con flechas que van de cada valor al siguiente: 7 apunta a la dirección de 3, 3 a la de 1, 1 a la de 5, y 5 no apunta a ninguna.">
   <defs>
     <marker id="mem-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
       <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
@@ -140,25 +140,28 @@ La solución es guardar, junto a cada dato, **la dirección del que sigue**.
     { v: '5', a: '0x2B18', own: true },
   ].map((c, i) => (
     <g key={i}>
-      <rect x={20 + i * 96} y="34" width="88" height="52" rx="3" style={{ fill: c.own ? 'var(--color-surface)' : 'var(--color-sunk)', stroke: c.own ? 'var(--color-rule-strong)' : 'var(--color-rule)' }} strokeWidth={c.own ? 1.6 : 1.2} strokeDasharray={c.own ? undefined : '4 3'} />
-      <text x={64 + i * 96} y="68" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{c.v}</text>
-      <text x={64 + i * 96} y="68" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{c.own ? '' : 'otro dato'}</text>
-      <text x={64 + i * 96} y="106" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{c.a}</text>
+      <rect x={20 + i * 96} y="52" width="88" height="52" rx="3" style={{ fill: c.own ? 'var(--color-surface)' : 'var(--color-sunk)', stroke: c.own ? 'var(--color-rule-strong)' : 'var(--color-rule)' }} strokeWidth={c.own ? 1.6 : 1.2} strokeDasharray={c.own ? undefined : '4 3'} />
+      <text x={64 + i * 96} y="86" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{c.v}</text>
+      <text x={64 + i * 96} y="86" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>{c.own ? '' : 'otro dato'}</text>
+      <text x={64 + i * 96} y="124" textAnchor="middle" fontSize="11" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>{c.a}</text>
     </g>
   ))}
-  <path d="M 64 34 C 64 4, 256 4, 256 30" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#mem-punta)" />
-  <path d="M 292 86 C 292 150, 412 150, 412 90" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#mem-punta)" />
-  <path d="M 448 34 C 448 4, 640 4, 640 30" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#mem-punta)" />
-  <text x="640" y="126" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>no apunta a nadie</text>
+  <path d="M 64 52 C 92 2, 228 2, 254 46" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#mem-punta)" />
+  <path d="M 292 104 C 318 164, 386 164, 410 110" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#mem-punta)" />
+  <path d="M 448 52 C 476 2, 612 2, 638 46" fill="none" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#mem-punta)" />
+  <text x="640" y="146" textAnchor="middle" fontSize="11" style={{ fill: 'var(--color-ink-faint)' }}>no apunta a nadie</text>
 </svg>
 
-El dibujo es el mismo de antes; lo único que se agregó son las flechas. Con
-ellas, esas cuatro casillas sueltas vuelven a ser una secuencia: desde el
-primero se llega a todos, en orden, sin que ninguno se haya movido.
+Con esa referencia guardada, los cuatro valores vuelven a formar una
+secuencia aunque estén desperdigados: desde el primero se llega al segundo,
+del segundo al tercero, y así hasta el último. El orden ya no lo da la
+posición en memoria, lo da el enlace.
 
-Esa referencia al siguiente se llama **`next`**, y es la pieza que define la
-estructura. El arreglo y esta forma de guardar son dos **EDA** —dos
-estructuras de datos— que cumplen el mismo TDA con costos opuestos.
+Y ahí está lo que ganamos. Cambiar el orden, o meter un elemento entre dos,
+pasa a ser cambiar a quién apunta un enlace: nada se mueve de lugar, porque
+el lugar dejó de importar.
+
+Esa referencia al siguiente se llama **`next`**.
 
 </Slide>
 
