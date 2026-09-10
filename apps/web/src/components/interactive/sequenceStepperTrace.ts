@@ -82,8 +82,14 @@ export interface SequenceStep {
    * elements in order, so everything reading it is unaffected.
    */
   slots?: (SequenceCell | null)[];
-  /** A value held outside the structure — the node being built. */
-  carry?: { value: number; label: string };
+  /**
+   * A node that EXISTS but is not in the chain yet — drawn as a real node
+   * with its own `next` field, because that field is what the operation
+   * assigns and the reader has to watch it happen. `next` is the index of
+   * the cell it points at, `null` for a link that points at null, and
+   * `undefined` while the field has not been assigned at all.
+   */
+  carry?: { value: number; label: string; next?: number | null };
   /** Circular recipe: the chain closes back on its first node. */
   closesRing?: boolean;
   /** Running elementary-operation count. */
@@ -97,8 +103,12 @@ export interface SequenceTrace {
 
 export interface SequenceInput {
   values: number[];
-  /** Required by every `insert-*` except `insert-ordered`. */
-  value?: number;
+  /**
+   * Required by every `insert-*` except `insert-ordered`. An ARRAY inserts
+   * each value in turn over the same chain, so a slide can show the list
+   * growing rather than one insertion in isolation.
+   */
+  value?: number | number[];
   /** Required by `insert-at` and `remove-at`. */
   index?: number;
   /** Required by `search` and `insert-ordered`. */
@@ -185,9 +195,11 @@ function requireNonEmpty(values: number[]): void {
   }
 }
 
-function requireValue(input: SequenceInput): number {
+function requireValues(input: SequenceInput): number[] {
   if (input.value === undefined) throw new Error('Falta el valor a insertar.');
-  return input.value;
+  const list = Array.isArray(input.value) ? input.value : [input.value];
+  if (list.length === 0) throw new Error('La lista de valores a insertar está vacía.');
+  return list;
 }
 
 function requireTarget(input: SequenceInput): number {
@@ -389,7 +401,7 @@ function traceArray(
     case 'insert-first':
     case 'insert-last':
     case 'insert-at': {
-      const x = requireValue(input);
+      const [x] = requireValues(input) as [number];
       const at =
         operation === 'insert-first'
           ? 0
@@ -755,36 +767,46 @@ function traceList(
 
   switch (operation) {
     case 'insert-first': {
-      const x = requireValue(input);
-      cost += 1;
-      push(
-        'build',
-        [lineOf(code, 'new Node(x)')],
-        `Creamos el nodo ${x}. Todavía no está en la cadena.`,
-        {
-          carry: { value: x, label: 'fresh' },
-        },
-      );
-      cost += 1;
-      push(
-        'link',
-        [lineOf(code, 'fresh.next = head')],
-        `El nodo ${x} apunta al que hoy es el primero${cells.length > 0 ? ` (${cells[0]!.value})` : ' (null: la lista estaba vacía)'}.`,
-        {
-          carry: { value: x, label: 'fresh' },
-        },
-      );
-      cells.unshift({ id: (nextId += 1), value: x, state: 'new' });
-      cost += 1;
-      push(
-        'link',
-        [lineOf(code, 'head = fresh')],
-        `head pasa a apuntar a ${x}. El largo pasa a ${cells.length}.`,
-      );
+      // Three moments per value, and the middle one is the point: the node
+      // exists, its `next` has just been aimed at the old first node, and
+      // `head` has not moved yet. Drawing the node as a NODE — with its own
+      // link — is what makes that middle state visible at all.
+      for (const x of requireValues(input)) {
+        const wasFirst = cells.length > 0 ? cells[0]!.value : null;
+        cost += 1;
+        push(
+          'build',
+          [lineOf(code, 'new Node(x)')],
+          `Creamos el nodo ${x}. Existe, pero todavía no está en la cadena.`,
+          {
+            carry: { value: x, label: 'fresh' },
+          },
+        );
+        cost += 1;
+        push(
+          'link',
+          [lineOf(code, 'fresh.next = head')],
+          wasFirst === null
+            ? `fresh.next apunta a null: la cadena estaba vacía.`
+            : `fresh.next apunta al que hoy es el primero (${wasFirst}). head todavía no se movió.`,
+          { carry: { value: x, label: 'fresh', next: cells.length > 0 ? 0 : null } },
+        );
+        cells.unshift({ id: (nextId += 1), value: x, state: 'new' });
+        cost += 1;
+        push(
+          'link',
+          [lineOf(code, 'head = fresh')],
+          `head pasa a apuntar a ${x}. El largo pasa a ${cells.length}.`,
+        );
+        cells[0] = { ...cells[0]!, state: 'idle' };
+      }
+      // The last value inserted stays marked, so the frame the reader is left
+      // on says which node arrived.
+      cells[0] = { ...cells[0]!, state: 'new' };
       break;
     }
     case 'insert-last': {
-      const x = requireValue(input);
+      const [x] = requireValues(input) as [number];
       cost += 1;
       push('build', [lineOf(code, 'new Node(x)')], `Creamos el nodo ${x}.`, {
         carry: { value: x, label: 'fresh' },
@@ -817,7 +839,7 @@ function traceList(
       break;
     }
     case 'insert-at': {
-      const x = requireValue(input);
+      const [x] = requireValues(input) as [number];
       const at = requireIndex(input, cells.length, true);
       cost += 1;
       push('build', [lineOf(code, 'new Node(x)')], `Creamos el nodo ${x} para la posición ${at}.`, {

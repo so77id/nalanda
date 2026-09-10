@@ -40,8 +40,12 @@ export interface SequenceStepperProps {
   operation?: SequenceOperation | string;
   /** The starting contents, in reading order. Six or fewer read best. */
   values?: number[];
-  /** The value to insert. Required by every `insert-*` but `insert-ordered`. */
-  value?: number;
+  /**
+   * The value to insert. Required by every `insert-*` but `insert-ordered`.
+   * An ARRAY inserts each value in turn over the same chain, so a slide can
+   * show the list growing instead of one insertion in isolation.
+   */
+  value?: number | number[];
   /** The position to act on. Required by `insert-at` and `remove-at`. */
   index?: number;
   /** The value looked for. Required by `search` and `insert-ordered`. */
@@ -154,11 +158,14 @@ export function SequenceStepper({
       </AuthoringError>
     );
   }
-  if (values.length > MAX_VALUES) {
+  // The guard has to count what the chain will GROW to, not what it starts
+  // at: `value={[9, 4, 6]}` over four nodes ends at seven.
+  const inserted = op.startsWith('insert') && Array.isArray(value) ? value.length : 0;
+  if (values.length + inserted > MAX_VALUES) {
     return (
       <AuthoringError component="SequenceStepper">
-        <code>values</code> trae {values.length} elementos. El dibujo se lee bien hasta {MAX_VALUES}{' '}
-        elementos; con más, los nodos quedan ilegibles en la proyección.
+        la cadena llega a {values.length + inserted} elementos. El dibujo se lee bien hasta{' '}
+        {MAX_VALUES}; con más, los nodos quedan ilegibles en la proyección.
       </AuthoringError>
     );
   }
@@ -183,7 +190,7 @@ interface BodyProps {
   recipe: SequenceRecipe;
   operation: SequenceOperation;
   values: number[];
-  value?: number;
+  value?: number | number[];
   index?: number;
   target?: number;
   tail: boolean;
@@ -214,7 +221,7 @@ function Body({
   // reset key hang off a primitive-derived string rather than the array's
   // identity (`add-a-content-component.md` §2, learned in #266).
   const valuesKey = values.join(',');
-  const resetKey = [recipe, operation, valuesKey, value, index, target, tail].join('|');
+  const resetKey = [recipe, operation, valuesKey, String(value), index, target, tail].join('|');
 
   const built = useMemo((): { trace: SequenceTrace } | { error: string } => {
     try {
@@ -404,7 +411,7 @@ function CellNote({ cell, x, y }: { cell: SequenceCell; x: number; y: number }) 
 function StructureView({ step, recipe }: { step: SequenceStep; recipe: SequenceRecipe }) {
   const isList = recipe.startsWith('linked-list');
   const slots = step.capacity ?? step.cells.length;
-  const layout = layoutSequence(step.cells.length, recipe, slots);
+  const layout = layoutSequence(step.cells.length, recipe, slots, step.carry !== undefined);
   const summary = describe(step, recipe);
 
   // A short structure can be narrower than the carry chip parked above it, so
@@ -430,6 +437,16 @@ function StructureView({ step, recipe }: { step: SequenceStep; recipe: SequenceR
           <path d="M0,0 L6,3 L0,6 z" fill="var(--color-ink-soft)" />
         </marker>
         <marker
+          id="seq-arrow-carry"
+          markerWidth="6"
+          markerHeight="6"
+          refX="5"
+          refY="3"
+          orient="auto"
+        >
+          <path d="M0,0 L6,3 L0,6 z" fill="var(--color-mark)" />
+        </marker>
+        <marker
           id="seq-arrow-active"
           markerWidth="6"
           markerHeight="6"
@@ -444,7 +461,7 @@ function StructureView({ step, recipe }: { step: SequenceStep; recipe: SequenceR
       {isList ? <ListPicture step={step} layout={layout} recipe={recipe} /> : null}
       {!isList ? <ArrayPicture step={step} layout={layout} slots={slots} /> : null}
       <Pointers step={step} layout={layout} />
-      {step.carry ? <Carry carry={step.carry} canvasW={canvasW} /> : null}
+      {step.carry ? <Carry carry={step.carry} layout={layout} isList={isList} /> : null}
     </svg>
   );
 }
@@ -701,37 +718,100 @@ function Pointers({ step, layout }: { step: SequenceStep; layout: SequenceLayout
   );
 }
 
-function Carry({ carry, canvasW }: { carry: NonNullable<SequenceStep['carry']>; canvasW: number }) {
-  // The node that exists but is not linked yet — parked above the structure.
-  // The box is sized to its LABEL, not to a node: "nuevo = 9" is wider than a
-  // cell, and a box of one cell's width clipped the value against the panel
-  // edge (found in the browser check, on the circular slide).
-  const label = `${carry.label} = ${carry.value}`;
-  const width = Math.max(BOX_W, label.length * 7.1 + 12);
-  const x = Math.max(canvasW - width, 0);
+function Carry({
+  carry,
+  layout,
+  isList,
+}: {
+  carry: NonNullable<SequenceStep['carry']>;
+  layout: SequenceLayout;
+  isList: boolean;
+}) {
+  // The node that exists and is not in the chain yet, drawn as a NODE rather
+  // than as a chip: it has a `next` field, that field is what the operation
+  // assigns, and a chip cannot show an assignment. Painted `mark` — "look
+  // here now" — because it is the only thing on screen that just changed.
+  const y = layout.carryY ?? 0;
+  // Offset to the right of the first node rather than directly above it:
+  // `head` labels and arrows that same node from the band in between, and
+  // stacked they collided — two labels touching and two vertical lines
+  // running side by side into the same box.
+  const x = (layout.boxes[0]?.x ?? 20) + 78;
+  const target = carry.next === undefined ? undefined : carry.next;
+  const linkX = x + BOX_W;
   return (
     <g>
+      <text
+        x={x}
+        y={y + 12}
+        fontSize="10"
+        fontWeight="700"
+        fontFamily="monospace"
+        style={{ fill: 'var(--color-mark)' }}
+      >
+        {carry.label}
+      </text>
       <rect
         x={x}
-        y={0}
-        width={width}
-        height={22}
+        y={y + 18}
+        width={BOX_W}
+        height={BOX_H}
         rx={3}
         fill="var(--color-mark-soft)"
         stroke="var(--color-mark)"
-        strokeWidth={1.2}
-        strokeDasharray="3 2"
+        strokeWidth={2.2}
       />
+      {isList ? (
+        <rect
+          x={linkX}
+          y={y + 18}
+          width={LINK_W}
+          height={BOX_H}
+          rx={3}
+          fill="var(--color-mark-soft)"
+          stroke="var(--color-mark)"
+          strokeWidth={2.2}
+        />
+      ) : null}
       <text
-        x={x + width / 2}
-        y={15}
+        x={x + BOX_W / 2}
+        y={y + 18 + BOX_H / 2 + 5}
         textAnchor="middle"
-        fontSize="12"
+        fontSize="15"
         fontWeight="600"
         fill="var(--color-ink)"
       >
-        {label}
+        {carry.value}
       </text>
+      {isList ? (
+        <circle cx={linkX + LINK_W / 2} cy={y + 18 + BOX_H / 2} r={2.5} fill="var(--color-mark)" />
+      ) : null}
+      {/* The link, once assigned: down to the node it points at, or to a
+          `null` written beside it. Absent entirely while unassigned, which is
+          the state the first frame is about. */}
+      {isList && target !== undefined ? (
+        target === null ? (
+          <text
+            x={linkX + LINK_W + 8}
+            y={y + 18 + BOX_H / 2 + 4}
+            fontSize="11"
+            fontFamily="monospace"
+            style={{ fill: 'var(--color-mark)' }}
+          >
+            null
+          </text>
+        ) : (
+          <path
+            d={`M ${linkX + LINK_W / 2} ${y + 18 + BOX_H} L ${linkX + LINK_W / 2} ${layout.top - 16} L ${
+              layout.boxes[target]?.centerX ?? x
+            } ${layout.top - 16} L ${layout.boxes[target]?.centerX ?? x} ${layout.top - 3}`}
+            fill="none"
+            style={{ stroke: 'var(--color-mark)' }}
+            strokeWidth={2}
+            markerEnd="url(#seq-arrow-carry)"
+          />
+        )
+      ) : null}
     </g>
   );
 }

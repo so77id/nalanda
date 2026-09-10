@@ -395,7 +395,7 @@ media cadena. La lista se queda en $$\Theta(N)$$ aunque esté ordenada.
 
 </Slide>
 
-<Slide title="insertFirst · el enlace que no mueve nada">
+<Slide title="insertFirst · insertar al comienzo">
 Insertar al principio se resuelve con tres asignaciones y ninguna depende de
 cuántos elementos haya en la lista.
 
@@ -403,7 +403,7 @@ cuántos elementos haya en la lista.
   eda="linked-list-singly"
   operation="insert-first"
   values={[7, 3, 1, 5]}
-  value={9}
+  value={[9, 4, 6]}
 />
 
 El nodo nuevo apunta a quien era el primero, y `head` pasa a apuntar al nodo
@@ -1464,7 +1464,7 @@ En una lista, ¿qué es lo que hace que una operación cueste lineal?
 
 </Question>
 
-<Question id="lista-insertfirst-no-mueve" anchor="insertfirst-el-enlace-que-no-mueve-nada">
+<Question id="lista-insertfirst-no-mueve" anchor="insertfirst-insertar-al-comienzo">
 
 Al insertar al principio de una lista, ¿qué pasa con los nodos que ya estaban?
 

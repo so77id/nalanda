@@ -786,7 +786,9 @@ animate: `get-at`, `insert-first`, `insert-last`, `insert-at`,
 `insert-ordered`, `remove-first`, `remove-last`, `remove-at` or `search`.
 `values` is the starting contents; `value` feeds the inserts, `index` the
 positional operations (`get-at` included), and `target` both `search` and
-`insert-ordered`. `tail` draws a
+`insert-ordered`. **`value` also takes an ARRAY** — `value={[9, 4, 6]}` runs
+three insertions end to end over the same chain, which is how a slide shows
+the list growing rather than one insertion in isolation. `tail` draws a
 tail pointer on a list, `showCode={false}` hides the listing when the slide
 already carries it, and `autoplay` / `speed` behave as in every other stepper.
 

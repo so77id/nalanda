@@ -27,6 +27,12 @@ export const POINTER_BAND = 46;
 export const FOOT_BAND = 36;
 /** Extra room under a circular list, where the closing arc is drawn. */
 export const RING_BAND = 34;
+/**
+ * Room ABOVE everything for a node that exists but is not linked in yet —
+ * drawn as a real node with its own `next` field, so it needs a node's height
+ * plus room for the arrow that leaves it.
+ */
+export const CARRY_BAND = 78;
 
 export interface LayoutBox {
   /** Left edge of the whole node (value half for a list). */
@@ -45,6 +51,8 @@ export interface LayoutBox {
 export interface SequenceLayout {
   width: number;
   height: number;
+  /** Top of the free-floating node's row, or `null` when there is none. */
+  carryY: number | null;
   /** One box per cell, in reading order. */
   boxes: LayoutBox[];
   /** Baseline the boxes sit on. */
@@ -66,12 +74,13 @@ export function layoutSequence(
   count: number,
   recipe: SequenceRecipe,
   slots: number = count,
+  hasCarry = false,
 ): SequenceLayout {
   const list = isList(recipe);
   const drawn = Math.max(list ? count : Math.max(count, slots), 0);
   const nodeW = list ? BOX_W + LINK_W : BOX_W;
   const gap = list ? LIST_GAP : 0;
-  const top = POINTER_BAND;
+  const top = POINTER_BAND + (hasCarry ? CARRY_BAND : 0);
 
   const boxes: LayoutBox[] = [];
   for (let i = 0; i < drawn; i += 1) {
@@ -96,6 +105,7 @@ export function layoutSequence(
     height: footY + (ring ? RING_BAND : 0),
     boxes,
     top,
+    carryY: hasCarry ? 6 : null,
     footY,
     ringY: ring ? footY + RING_BAND - 10 : null,
   };

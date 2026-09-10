@@ -341,7 +341,11 @@ describe('sequenceStepperTrace · the narration is Spanish prose', () => {
   // "el fresh último". Neither is Spanish and neither is code. The English
   // words that ARE identifiers (head, tail, prev, current, next, null, size)
   // are fine; these are the ones that only ever meant an adjective.
-  const NOT_SPANISH = /\b(fresh|old)\b/i;
+  // `fresh` and `old` ARE identifiers in the listings, so naming them is
+  // correct — "fresh.next apunta a…" reads as code, which it is. What the
+  // sweep must catch is the two words standing where a Spanish ADJECTIVE
+  // belongs, which is what a blanket rename produced: "el fresh último".
+  const NOT_SPANISH = /\b(el|un|los|las)\s+(fresh|old)\b|\b(fresh|old)\s+(último|nodo|primero)\b/i;
 
   it('never lets an English adjective stand in for a Spanish one', () => {
     for (const recipe of RECIPES) {

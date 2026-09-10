@@ -31,8 +31,9 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     },
     {
       name: 'value',
-      type: 'number',
-      description: 'The value inserted. Required by `insert-first`, `insert-last` and `insert-at`.',
+      type: 'number | number[]',
+      description:
+        'The value inserted. Required by `insert-first`, `insert-last` and `insert-at`. An ARRAY inserts each value in turn over the same chain, so a slide can show the list growing — `value={[9, 4, 6]}` runs three insertions end to end.',
     },
     {
       name: 'index',
@@ -86,6 +87,18 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
           operation="insert-first"
           values={[7, 3, 1, 5]}
           value={9}
+        />
+      ),
+    },
+    {
+      title: 'Three insertions in a row — the chain growing',
+      code: '<SequenceStepper eda="linked-list-singly" operation="insert-first" values={[7, 3]} value={[9, 4, 6]} />',
+      render: () => (
+        <SequenceStepper
+          eda="linked-list-singly"
+          operation="insert-first"
+          values={[7, 3]}
+          value={[9, 4, 6]}
         />
       ),
     },
