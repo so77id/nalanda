@@ -107,9 +107,16 @@ rebrand of the unit remains the separate WP the issue files; this registers
 one token with one meaning, not a palette.
 
 **Colour is never the only signal** (`design-system.md` §Rules that are not
-about contrast): every painted state also prints a word — `nuevo`, `✓ es
-este`, `sale` — and every pointer prints its own name (`head`, `tail`,
-`actual`, `previo`) beside its arrow.
+about contrast): every painted state also prints a word — `nuevo`, `✓ este`,
+`sale` — and every pointer prints its own name (`head`, `tail`, `current`,
+`prev`) beside its arrow.
+
+**The identifiers the widget draws are English**, like every listing in the
+course: #277 writes `size`, `data`, `StaticArray`, `capacity`. The words the
+widget draws come straight out of the listing beside them, so a Spanish
+pointer label would have named a variable the code does not have. Only the
+narration is Spanish, and where it needs the adjective rather than the
+variable it says «el nodo anterior», not `prev`.
 
 ## Alternatives considered
 

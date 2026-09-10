@@ -106,12 +106,12 @@ cosas adentro, el dato que guardamos y la dirección del nodo que sigue.
 </svg>
 
 ```java
-class Nodo {
-    int valor;
-    Nodo next;
+class Node {
+    int value;
+    Node next;
 
-    Nodo(int valor) {
-        this.valor = valor;
+    Node(int value) {
+        this.value = value;
         this.next = null;
     }
 }
@@ -155,11 +155,11 @@ cambiar dónde apunta un enlace reordena la cadena sin mover ningún dato.
 La estructura completa se sostiene con dos atributos:
 
 ```java
-public class Lista {
-    private Nodo head;
+public class LinkedList {
+    private Node head;
     private int size;
 
-    public Lista() {
+    public LinkedList() {
         this.head = null;
         this.size = 0;
     }
@@ -206,7 +206,7 @@ Las operaciones del TDA Sequence se escriben sobre esta EDA sin cambiar sus
 nombres ni su significado:
 
 ```java
-public class Lista implements Sequence {
+public class LinkedList implements Sequence {
     public int len()                     { ... }
     public int getAt(int i)              { ... }
     public void setAt(int i, int x)      { ... }
@@ -230,7 +230,7 @@ Lo que cambia por completo es cuánto tarda cada llamada.
 |---|---|---|---|
 | consultar | `len()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
 | consultar | `getAt(i)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
-| consultar | `buscar(x)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
+| consultar | `search(x)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
 | modificar | `setAt(i, x)` | $$\Theta(N)$$ | Ninguna: cambia un valor, no la forma |
 | modificar | <code style={{ color: 'var(--color-keep)' }}>insertFirst(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: el nodo nuevo enlaza al que lo era |
 | modificar | `insertLast(x)` | $$\Theta(N)$$ | La cadena termina en `null`: hay que encontrar quién lo hace |
@@ -316,7 +316,7 @@ forma de saber cuál es consiste en recorrer la cadena hasta encontrar al que
 tiene `next == null`. Son $$N - 1$$ saltos, y el total queda en
 $$\Theta(N)$$.
 
-En un arreglo, en cambio, insertar al final es escribir en `datos[size]`: una
+En un arreglo, en cambio, insertar al final es escribir en `data[size]`: una
 sola asignación, sin recorrer nada.
 
 </Slide>
@@ -468,9 +468,9 @@ error aparece más tarde, en una operación que sí confiaba en ella.
 La primera variante agrega un solo atributo:
 
 ```java
-public class Lista {
-    private Nodo head;
-    private Nodo tail;
+public class LinkedList {
+    private Node head;
+    private Node tail;
     private int size;
 }
 ```
@@ -527,10 +527,10 @@ La segunda variante ataca exactamente esa carencia. Cada nodo gana un
 segundo enlace:
 
 ```java
-class Nodo {
-    int valor;
-    Nodo next;
-    Nodo prev;
+class Node {
+    int value;
+    Node next;
+    Node prev;
 }
 ```
 
@@ -641,9 +641,9 @@ La invariante de terminación se reemplaza:
    `null`. Desde cualquier nodo se llega a todos los demás.
 
 Es un cambio pequeño con una consecuencia grande: **ningún recorrido termina
-solo**. Un `while (actual != null)` sobre una lista circular no se detiene
+solo**. Un `while (current != null)` sobre una lista circular no se detiene
 nunca. La condición de corte pasa a ser haber vuelto al punto de partida,
-`actual.next != head`, y hay que escribirla a propósito en cada recorrido.
+`current.next != head`, y hay que escribirla a propósito en cada recorrido.
 
 </Slide>
 
@@ -689,7 +689,7 @@ cuesta escribir cada recorrido con su corte explícito.
 | `insertFirst(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ | $$\Theta(1)$$ | no aplica |
 | `insertLast(x)` | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | no aplica |
 | `insertAt(i, x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | no aplica |
-| `insertOrdenado(x)` | — | — | — | $$\Theta(N)$$ |
+| `insertOrdered(x)` | — | — | — | $$\Theta(N)$$ |
 
 La única fila que se mueve al agregar `tail` es `insertLast`, y se mueve
 porque `tail` es exactamente el nodo que esa operación necesitaba encontrar.
@@ -704,7 +704,7 @@ arbitraria no lo guarda nadie.
 | `deleteFirst()` | $$\Theta(1)$$ | $$\Theta(1)$$ | $$\Theta(1)$$ | $$\Theta(1)$$ |
 | `deleteLast()` | $$\Theta(N)$$ | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | $$\Theta(N)$$ |
 | `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
-| `buscar(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| `search(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
 
 `deleteLast` es la fila que distingue las variantes entre sí. Con `tail` no
 baja, porque lo que falta es el nodo anterior; con `prev` sí baja, porque es
@@ -726,7 +726,7 @@ no de dónde ocurre.
 | `insertLast(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ amortizado | $$\Theta(N)$$ | $$\Theta(1)$$ |
 | `deleteLast()` | $$\Theta(1)$$ | $$\Theta(1)$$ amortizado | $$\Theta(N)$$ | $$\Theta(1)$$ |
 | `insertAt(i, x)` · `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
-| `buscar(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| `search(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
 | Capacidad | fija | crece | crece | crece |
 
 La primera fila y la segunda son la imagen espejo, y resumen toda la
@@ -742,8 +742,8 @@ que el programa va a pedir.
 
 **Conviene un arreglo** cuando se lee mucho por posición y se modifica poco
 la forma: una tabla que se llena una vez y después se consulta, cualquier
-recorrido por índice, cualquier algoritmo que compare `datos[i]` con
-`datos[j]`. La búsqueda binaria y los algoritmos de ordenamiento sobre
+recorrido por índice, cualquier algoritmo que compare `data[i]` con
+`data[j]`. La búsqueda binaria y los algoritmos de ordenamiento sobre
 arreglos viven de esta propiedad.
 
 **Conviene una lista** cuando se inserta y se elimina seguido en los
@@ -813,24 +813,24 @@ Invertir una lista no mueve datos: da vuelta el sentido de cada enlace. El
 recorrido necesita tres referencias al mismo tiempo.
 
 ```java
-Nodo invertir(Nodo head) {
-    Nodo previo = null;
-    Nodo actual = head;
-    while (actual != null) {
-        Nodo siguiente = actual.next;
-        actual.next = previo;
-        previo = actual;
-        actual = siguiente;
+Node reverse(Node head) {
+    Node prev = null;
+    Node current = head;
+    while (current != null) {
+        Node nextNode = current.next;
+        current.next = prev;
+        prev = current;
+        current = nextNode;
     }
-    return previo;
+    return prev;
 }
 ```
 
-`siguiente` es la que hace posible el resto: en cuanto `actual.next` cambia,
+`nextNode` es la que hace posible el resto: en cuanto `current.next` cambia,
 el acceso al resto de la cadena se pierde, así que hay que guardarlo antes.
 
 Una pasada, $$\Theta(N)$$ tiempo y $$\Theta(1)$$ espacio adicional. Al
-terminar, `actual` es `null` y `previo` es la nueva cabeza.
+terminar, `current` es `null` y `prev` es la nueva cabeza.
 
 </Slide>
 
@@ -840,14 +840,14 @@ invertir una lista es invertir su cola y después enganchar la cabeza al
 final.
 
 ```java
-Nodo invertir(Nodo head) {
+Node reverse(Node head) {
     if (head == null || head.next == null) {
         return head;
     }
-    Nodo nuevaCabeza = invertir(head.next);
+    Node newHead = reverse(head.next);
     head.next.next = head;
     head.next = null;
-    return nuevaCabeza;
+    return newHead;
 }
 ```
 
@@ -869,13 +869,13 @@ distinta velocidad se conoce como algoritmo de la liebre y la tortuga, y se
 atribuye a Robert W. Floyd.
 
 ```java
-boolean tieneCiclo(Nodo head) {
-    Nodo lento = head;
-    Nodo rapido = head;
-    while (rapido != null && rapido.next != null) {
-        lento = lento.next;
-        rapido = rapido.next.next;
-        if (lento == rapido) {
+boolean hasCycle(Node head) {
+    Node slow = head;
+    Node fast = head;
+    while (fast != null && fast.next != null) {
+        slow = slow.next;
+        fast = fast.next.next;
+        if (slow == fast) {
             return true;
         }
     }
@@ -887,8 +887,8 @@ Si la lista termina, el rápido llega al final y el ciclo del `while` corta.
 Si no termina, los dos quedan girando dentro del ciclo, y como el rápido se
 acerca al lento un nodo por vuelta, alcanzarlo es cuestión de tiempo.
 
-Comparamos `lento == rapido`, que pregunta si son **el mismo nodo**, y no
-`lento.valor == rapido.valor`, que preguntaría si guardan el mismo número.
+Comparamos `slow == fast`, que pregunta si son **el mismo nodo**, y no
+`slow.value == fast.value`, que preguntaría si guardan el mismo número.
 
 </Slide>
 
@@ -897,14 +897,14 @@ La misma idea de dos velocidades resuelve un problema distinto: encontrar el
 nodo del medio sin saber cuántos hay.
 
 ```java
-Nodo medio(Nodo head) {
-    Nodo lento = head;
-    Nodo rapido = head;
-    while (rapido != null && rapido.next != null) {
-        lento = lento.next;
-        rapido = rapido.next.next;
+Node middle(Node head) {
+    Node slow = head;
+    Node fast = head;
+    while (fast != null && fast.next != null) {
+        slow = slow.next;
+        fast = fast.next.next;
     }
-    return lento;
+    return slow;
 }
 ```
 
@@ -924,26 +924,26 @@ elementos es el mismo procedimiento que combina las mitades en el
 ordenamiento por mezcla.
 
 ```java
-Nodo fusionar(Nodo a, Nodo b) {
-    Nodo cabeza = new Nodo(0);
-    Nodo cola = cabeza;
+Node merge(Node a, Node b) {
+    Node dummy = new Node(0);
+    Node tail = dummy;
     while (a != null && b != null) {
-        if (a.valor <= b.valor) {
-            cola.next = a;
+        if (a.value <= b.value) {
+            tail.next = a;
             a = a.next;
         } else {
-            cola.next = b;
+            tail.next = b;
             b = b.next;
         }
-        cola = cola.next;
+        tail = tail.next;
     }
-    cola.next = (a != null) ? a : b;
-    return cabeza.next;
+    tail.next = (a != null) ? a : b;
+    return dummy.next;
 }
 ```
 
 En cada paso se compara la cabeza de cada lista y se engancha la menor. El
-`nodo cabeza` es un nodo de mentira que evita escribir aparte el caso del
+`nodo dummy` es un nodo de mentira que evita escribir aparte el caso del
 primer elemento; al final se devuelve el que le sigue.
 
 Sobre listas la fusión no necesita memoria adicional para los datos: reordena
@@ -979,56 +979,56 @@ recorriendo la cadena una sola vez.
 
 <Exercise title="Invertir una lista">
 
-Escribe `invertir`, que recibe la cabeza de una lista y devuelve la cabeza de
+Escribe `reverse`, que recibe la cabeza de una lista y devuelve la cabeza de
 la lista con todos sus enlaces dados vuelta. La lista vacía se devuelve tal
 cual.
 
 ```java starter
-class Nodo {
-    int valor;
-    Nodo next;
-    Nodo(int valor) { this.valor = valor; }
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
 }
 
 class Solution {
-    static Nodo invertir(Nodo head) {
+    static Node reverse(Node head) {
         return head;
     }
 }
 ```
 
 ```java test
-Nodo c = new Nodo(1);
-c.next = new Nodo(2);
-c.next.next = new Nodo(3);
-Nodo r = Solution.invertir(c);
-check(r.valor, 3);
-check(r.next.valor, 2);
-check(r.next.next.valor, 1);
+Node c = new Node(1);
+c.next = new Node(2);
+c.next.next = new Node(3);
+Node r = Solution.reverse(c);
+check(r.value, 3);
+check(r.next.value, 2);
+check(r.next.next.value, 1);
 check(r.next.next.next == null, true);
-check(Solution.invertir(null) == null, true);
-Nodo uno = new Nodo(7);
-check(Solution.invertir(uno).valor, 7);
+check(Solution.reverse(null) == null, true);
+Node uno = new Node(7);
+check(Solution.reverse(uno).value, 7);
 ```
 
 ```java solution
-class Nodo {
-    int valor;
-    Nodo next;
-    Nodo(int valor) { this.valor = valor; }
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
 }
 
 class Solution {
-    static Nodo invertir(Nodo head) {
-        Nodo previo = null;
-        Nodo actual = head;
-        while (actual != null) {
-            Nodo siguiente = actual.next;
-            actual.next = previo;
-            previo = actual;
-            actual = siguiente;
+    static Node reverse(Node head) {
+        Node prev = null;
+        Node current = head;
+        while (current != null) {
+            Node nextNode = current.next;
+            current.next = prev;
+            prev = current;
+            current = nextNode;
         }
-        return previo;
+        return prev;
     }
 }
 ```
@@ -1037,52 +1037,52 @@ class Solution {
 
 <Exercise title="Detectar un ciclo">
 
-Escribe `tieneCiclo`, que devuelve `true` si la cadena vuelve sobre sí misma
+Escribe `hasCycle`, que devuelve `true` si la cadena vuelve sobre sí misma
 y `false` si termina en `null`. Usa espacio adicional constante: no vale
 guardar los nodos visitados.
 
 ```java starter
-class Nodo {
-    int valor;
-    Nodo next;
-    Nodo(int valor) { this.valor = valor; }
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
 }
 
 class Solution {
-    static boolean tieneCiclo(Nodo head) {
+    static boolean hasCycle(Node head) {
         return false;
     }
 }
 ```
 
 ```java test
-Nodo a = new Nodo(1);
-a.next = new Nodo(2);
-a.next.next = new Nodo(3);
-check(Solution.tieneCiclo(a), false);
-check(Solution.tieneCiclo(null), false);
+Node a = new Node(1);
+a.next = new Node(2);
+a.next.next = new Node(3);
+check(Solution.hasCycle(a), false);
+check(Solution.hasCycle(null), false);
 a.next.next.next = a.next;
-check(Solution.tieneCiclo(a), true);
-Nodo solo = new Nodo(5);
+check(Solution.hasCycle(a), true);
+Node solo = new Node(5);
 solo.next = solo;
-check(Solution.tieneCiclo(solo), true);
+check(Solution.hasCycle(solo), true);
 ```
 
 ```java solution
-class Nodo {
-    int valor;
-    Nodo next;
-    Nodo(int valor) { this.valor = valor; }
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
 }
 
 class Solution {
-    static boolean tieneCiclo(Nodo head) {
-        Nodo lento = head;
-        Nodo rapido = head;
-        while (rapido != null && rapido.next != null) {
-            lento = lento.next;
-            rapido = rapido.next.next;
-            if (lento == rapido) {
+    static boolean hasCycle(Node head) {
+        Node slow = head;
+        Node fast = head;
+        while (fast != null && fast.next != null) {
+            slow = slow.next;
+            fast = fast.next.next;
+            if (slow == fast) {
                 return true;
             }
         }
@@ -1095,51 +1095,51 @@ class Solution {
 
 <Exercise title="El nodo del medio">
 
-Escribe `medio`, que devuelve el valor del nodo central de la lista en una
+Escribe `middle`, que devuelve el valor del nodo central de la lista en una
 sola pasada. Con una cantidad par de nodos, devuelve el segundo de los dos
 centrales.
 
 ```java starter
-class Nodo {
-    int valor;
-    Nodo next;
-    Nodo(int valor) { this.valor = valor; }
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
 }
 
 class Solution {
-    static int medio(Nodo head) {
+    static int middle(Node head) {
         return 0;
     }
 }
 ```
 
 ```java test
-Nodo a = new Nodo(1);
-a.next = new Nodo(2);
-a.next.next = new Nodo(3);
-check(Solution.medio(a), 2);
-a.next.next.next = new Nodo(4);
-check(Solution.medio(a), 3);
-Nodo solo = new Nodo(9);
-check(Solution.medio(solo), 9);
+Node a = new Node(1);
+a.next = new Node(2);
+a.next.next = new Node(3);
+check(Solution.middle(a), 2);
+a.next.next.next = new Node(4);
+check(Solution.middle(a), 3);
+Node solo = new Node(9);
+check(Solution.middle(solo), 9);
 ```
 
 ```java solution
-class Nodo {
-    int valor;
-    Nodo next;
-    Nodo(int valor) { this.valor = valor; }
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
 }
 
 class Solution {
-    static int medio(Nodo head) {
-        Nodo lento = head;
-        Nodo rapido = head;
-        while (rapido != null && rapido.next != null) {
-            lento = lento.next;
-            rapido = rapido.next.next;
+    static int middle(Node head) {
+        Node slow = head;
+        Node fast = head;
+        while (fast != null && fast.next != null) {
+            slow = slow.next;
+            fast = fast.next.next;
         }
-        return lento.valor;
+        return slow.value;
     }
 }
 ```
@@ -1148,65 +1148,65 @@ class Solution {
 
 <Exercise title="Fusionar dos listas ordenadas">
 
-Escribe `fusionar`, que recibe las cabezas de dos listas ordenadas de menor a
+Escribe `merge`, que recibe las cabezas de dos listas ordenadas de menor a
 mayor y devuelve la cabeza de una sola lista ordenada con todos los
 elementos. Reutiliza los nodos que recibe: no crees uno por cada valor.
 
 ```java starter
-class Nodo {
-    int valor;
-    Nodo next;
-    Nodo(int valor) { this.valor = valor; }
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
 }
 
 class Solution {
-    static Nodo fusionar(Nodo a, Nodo b) {
+    static Node merge(Node a, Node b) {
         return a;
     }
 }
 ```
 
 ```java test
-Nodo a = new Nodo(1);
-a.next = new Nodo(4);
-a.next.next = new Nodo(6);
-Nodo b = new Nodo(2);
-b.next = new Nodo(3);
-Nodo r = Solution.fusionar(a, b);
-check(r.valor, 1);
-check(r.next.valor, 2);
-check(r.next.next.valor, 3);
-check(r.next.next.next.valor, 4);
-check(r.next.next.next.next.valor, 6);
+Node a = new Node(1);
+a.next = new Node(4);
+a.next.next = new Node(6);
+Node b = new Node(2);
+b.next = new Node(3);
+Node r = Solution.merge(a, b);
+check(r.value, 1);
+check(r.next.value, 2);
+check(r.next.next.value, 3);
+check(r.next.next.next.value, 4);
+check(r.next.next.next.next.value, 6);
 check(r.next.next.next.next.next == null, true);
-Nodo c = new Nodo(5);
-check(Solution.fusionar(null, c).valor, 5);
-check(Solution.fusionar(c, null).valor, 5);
+Node c = new Node(5);
+check(Solution.merge(null, c).value, 5);
+check(Solution.merge(c, null).value, 5);
 ```
 
 ```java solution
-class Nodo {
-    int valor;
-    Nodo next;
-    Nodo(int valor) { this.valor = valor; }
+class Node {
+    int value;
+    Node next;
+    Node(int value) { this.value = value; }
 }
 
 class Solution {
-    static Nodo fusionar(Nodo a, Nodo b) {
-        Nodo cabeza = new Nodo(0);
-        Nodo cola = cabeza;
+    static Node merge(Node a, Node b) {
+        Node dummy = new Node(0);
+        Node tail = dummy;
         while (a != null && b != null) {
-            if (a.valor <= b.valor) {
-                cola.next = a;
+            if (a.value <= b.value) {
+                tail.next = a;
                 a = a.next;
             } else {
-                cola.next = b;
+                tail.next = b;
                 b = b.next;
             }
-            cola = cola.next;
+            tail = tail.next;
         }
-        cola.next = (a != null) ? a : b;
-        return cabeza.next;
+        tail.next = (a != null) ? a : b;
+        return dummy.next;
     }
 }
 ```
@@ -1425,7 +1425,7 @@ posición. Por eso la inserción pasa a ser una sola y no recibe posición.
 
 <Question id="lista-circular-recorrido" anchor="la-lista-circular-el-ultimo-vuelve-al-primero">
 
-En una lista circular, ¿qué hace un recorrido escrito como `while (actual != null)`?
+En una lista circular, ¿qué hace un recorrido escrito como `while (current != null)`?
 
 - [x] No se detiene nunca
 - [ ] Se detiene al llegar al último nodo
@@ -1441,7 +1441,7 @@ Según la tabla comparativa, ¿qué operación tiene costo constante en el arreg
 - [x] `getAt(i)`
 - [ ] `insertFirst(x)`
 - [ ] `deleteFirst()`
-- [ ] `buscar(x)`
+- [ ] `search(x)`
 
 </Question>
 
@@ -1451,7 +1451,7 @@ Según la tabla comparativa, ¿qué operación tiene costo constante en el arreg
 
 - [x] Insertar y eliminar seguido en los extremos, sin pedir posiciones arbitrarias
 - [ ] Leer muchas veces por posición y modificar poco la forma
-- [ ] Comparar `datos[i]` con `datos[j]` dentro de un algoritmo
+- [ ] Comparar `data[i]` con `data[j]` dentro de un algoritmo
 - [ ] Recorrer la colección de principio a fin una sola vez
 
 </Question>
@@ -1491,7 +1491,7 @@ Al invertir una lista con tres referencias, ¿para qué sirve la que guarda el s
 
 <Question id="lista-floyd-que-compara" anchor="detectar-un-ciclo-dos-velocidades">
 
-En la detección de ciclos con dos velocidades, ¿qué compara `lento == rapido`?
+En la detección de ciclos con dos velocidades, ¿qué compara `slow == fast`?
 
 - [x] Si las dos referencias apuntan al mismo nodo
 - [ ] Si los dos nodos guardan el mismo valor

@@ -359,9 +359,9 @@ describe('sequenceStepperTrace · the listings', () => {
       // The array and the dynamic array legitimately share insert-first's
       // shift loop; the three list recipes must each differ from the arrays.
       if (recipe.startsWith('linked-list')) {
-        expect(code).toContain('Nodo');
+        expect(code).toContain('Node');
       } else {
-        expect(code).not.toContain('Nodo');
+        expect(code).not.toContain('Node');
       }
       seen.set(code, recipe);
     }

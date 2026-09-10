@@ -58,7 +58,7 @@ export interface SequenceCell {
 }
 
 export interface SequencePointer {
-  /** `head`, `tail`, `actual`, `previo` for lists; `i`, `j` for arrays. */
+  /** `head`, `tail`, `current`, `prev` for lists; `i`, `j` for arrays. */
   name: string;
   /** Index into `cells`, or `null` for a pointer aimed past the end. */
   index: number | null;
@@ -181,46 +181,46 @@ function requireTarget(input: SequenceInput): number {
 const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> = {
   'insert-first': `void insertFirst(int x) {
     for (int j = size; j > 0; j--) {
-        datos[j] = datos[j - 1];
+        data[j] = data[j - 1];
     }
-    datos[0] = x;
+    data[0] = x;
     size++;
 }`,
   'insert-last': `void insertLast(int x) {
-    datos[size] = x;
+    data[size] = x;
     size++;
 }`,
   'insert-at': `void insertAt(int i, int x) {
     for (int j = size; j > i; j--) {
-        datos[j] = datos[j - 1];
+        data[j] = data[j - 1];
     }
-    datos[i] = x;
+    data[i] = x;
     size++;
 }`,
   'remove-first': `int deleteFirst() {
-    int x = datos[0];
+    int x = data[0];
     for (int j = 0; j < size - 1; j++) {
-        datos[j] = datos[j + 1];
+        data[j] = data[j + 1];
     }
     size--;
     return x;
 }`,
   'remove-last': `int deleteLast() {
-    int x = datos[size - 1];
+    int x = data[size - 1];
     size--;
     return x;
 }`,
   'remove-at': `int deleteAt(int i) {
-    int x = datos[i];
+    int x = data[i];
     for (int j = i; j < size - 1; j++) {
-        datos[j] = datos[j + 1];
+        data[j] = data[j + 1];
     }
     size--;
     return x;
 }`,
-  search: `int buscar(int x) {
+  search: `int search(int x) {
     for (int j = 0; j < size; j++) {
-        if (datos[j] == x) {
+        if (data[j] == x) {
             return j;
         }
     }
@@ -230,30 +230,30 @@ const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> =
 
 const DYNAMIC_INSERT_CODE: Record<'insert-first' | 'insert-last' | 'insert-at', string> = {
   'insert-first': `void insertFirst(int x) {
-    if (size == datos.length) {
-        resize(2 * datos.length);
+    if (size == data.length) {
+        resize(2 * data.length);
     }
     for (int j = size; j > 0; j--) {
-        datos[j] = datos[j - 1];
+        data[j] = data[j - 1];
     }
-    datos[0] = x;
+    data[0] = x;
     size++;
 }`,
   'insert-last': `void insertLast(int x) {
-    if (size == datos.length) {
-        resize(2 * datos.length);
+    if (size == data.length) {
+        resize(2 * data.length);
     }
-    datos[size] = x;
+    data[size] = x;
     size++;
 }`,
   'insert-at': `void insertAt(int i, int x) {
-    if (size == datos.length) {
-        resize(2 * datos.length);
+    if (size == data.length) {
+        resize(2 * data.length);
     }
     for (int j = size; j > i; j--) {
-        datos[j] = datos[j - 1];
+        data[j] = data[j - 1];
     }
-    datos[i] = x;
+    data[i] = x;
     size++;
 }`,
 };
@@ -429,7 +429,7 @@ function traceArray(
         push(
           'compare',
           [2, 3],
-          `¿datos[${j}] = ${cell.value} es ${target}? ${hit ? 'Sí.' : 'No.'}`,
+          `¿data[${j}] = ${cell.value} es ${target}? ${hit ? 'Sí.' : 'No.'}`,
           {
             pointers: [{ name: 'j', index: j }],
           },
@@ -474,117 +474,117 @@ function traceArray(
 function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: boolean): string {
   const doubly = recipe === 'linked-list-doubly';
   const circular = recipe === 'linked-list-circular';
-  const end = circular ? 'actual.next != head' : 'actual.next != null';
+  const end = circular ? 'current.next != head' : 'current.next != null';
 
   switch (operation) {
     case 'insert-first':
       return doubly
         ? `void insertFirst(int x) {
-    Nodo nuevo = new Nodo(x);
-    nuevo.next = head;
-    if (head != null) head.prev = nuevo;
-    head = nuevo;
+    Node fresh = new Node(x);
+    fresh.next = head;
+    if (head != null) head.prev = fresh;
+    head = fresh;
     size++;
 }`
         : `void insertFirst(int x) {
-    Nodo nuevo = new Nodo(x);
-    nuevo.next = head;
-    head = nuevo;
+    Node fresh = new Node(x);
+    fresh.next = head;
+    head = fresh;
     size++;
 }`;
     case 'insert-last':
       return tail
         ? `void insertLast(int x) {
-    Nodo nuevo = new Nodo(x);
-    tail.next = nuevo;
-    tail = nuevo;
+    Node fresh = new Node(x);
+    tail.next = fresh;
+    tail = fresh;
     size++;
 }`
         : `void insertLast(int x) {
-    Nodo nuevo = new Nodo(x);
-    Nodo actual = head;
+    Node fresh = new Node(x);
+    Node current = head;
     while (${end}) {
-        actual = actual.next;
+        current = current.next;
     }
-    actual.next = nuevo;
+    current.next = fresh;
     size++;
 }`;
     case 'insert-at':
       return `void insertAt(int i, int x) {
-    Nodo nuevo = new Nodo(x);
-    Nodo previo = head;
+    Node fresh = new Node(x);
+    Node prev = head;
     for (int j = 0; j < i - 1; j++) {
-        previo = previo.next;
+        prev = prev.next;
     }
-    nuevo.next = previo.next;
-    previo.next = nuevo;
+    fresh.next = prev.next;
+    prev.next = fresh;
     size++;
 }`;
     case 'insert-ordered':
-      return `void insertOrdenado(int x) {
-    Nodo nuevo = new Nodo(x);
-    Nodo previo = head;
-    while (previo.next != null && previo.next.valor < x) {
-        previo = previo.next;
+      return `void insertOrdered(int x) {
+    Node fresh = new Node(x);
+    Node prev = head;
+    while (prev.next != null && prev.next.value < x) {
+        prev = prev.next;
     }
-    nuevo.next = previo.next;
-    previo.next = nuevo;
+    fresh.next = prev.next;
+    prev.next = fresh;
     size++;
 }`;
     case 'remove-first':
       return doubly
         ? `int deleteFirst() {
-    Nodo viejo = head;
+    Node old = head;
     head = head.next;
     if (head != null) head.prev = null;
     size--;
-    return viejo.valor;
+    return old.value;
 }`
         : `int deleteFirst() {
-    Nodo viejo = head;
+    Node old = head;
     head = head.next;
     size--;
-    return viejo.valor;
+    return old.value;
 }`;
     case 'remove-last':
       return doubly && tail
         ? `int deleteLast() {
-    Nodo viejo = tail;
+    Node old = tail;
     tail = tail.prev;
     tail.next = null;
     size--;
-    return viejo.valor;
+    return old.value;
 }`
         : `int deleteLast() {
-    Nodo previo = head;
-    while (previo.next.next != null) {
-        previo = previo.next;
+    Node prev = head;
+    while (prev.next.next != null) {
+        prev = prev.next;
     }
-    Nodo viejo = previo.next;
-    previo.next = null;
+    Node old = prev.next;
+    prev.next = null;
     size--;
-    return viejo.valor;
+    return old.value;
 }`;
     case 'remove-at':
       return `int deleteAt(int i) {
-    Nodo previo = head;
+    Node prev = head;
     for (int j = 0; j < i - 1; j++) {
-        previo = previo.next;
+        prev = prev.next;
     }
-    Nodo viejo = previo.next;
-    previo.next = viejo.next;
+    Node old = prev.next;
+    prev.next = old.next;
     size--;
-    return viejo.valor;
+    return old.value;
 }`;
     case 'search':
-      return `int buscar(int x) {
-    Nodo actual = head;
+      return `int search(int x) {
+    Node current = head;
     int j = 0;
-    while (actual != null) {
-        if (actual.valor == x) {
+    while (current != null) {
+        if (current.value == x) {
             return j;
         }
-        actual = actual.next;
+        current = current.next;
         j++;
     }
     return -1;
@@ -630,7 +630,7 @@ function traceList(
     });
   };
 
-  /** Walks `previo` from head to `stop`, one frame per hop. */
+  /** Walks `prev` from head to `stop`, one frame per hop. */
   const walkTo = (stop: number, lines: number[], label: string) => {
     for (let j = 0; j < stop; j += 1) {
       cost += 1;
@@ -647,7 +647,7 @@ function traceList(
       const x = requireValue(input);
       cost += 1;
       push('build', [2], `Creamos el nodo ${x}. Todavía no está en la cadena.`, {
-        carry: { value: x, label: 'nuevo' },
+        carry: { value: x, label: 'fresh' },
       });
       cost += 1;
       push(
@@ -655,7 +655,7 @@ function traceList(
         [3],
         `El nodo ${x} apunta al que hoy es el primero${cells.length > 0 ? ` (${cells[0]!.value})` : ' (null: la lista estaba vacía)'}.`,
         {
-          carry: { value: x, label: 'nuevo' },
+          carry: { value: x, label: 'fresh' },
         },
       );
       cells.unshift({ id: (nextId += 1), value: x, state: 'new' });
@@ -670,18 +670,18 @@ function traceList(
     case 'insert-last': {
       const x = requireValue(input);
       cost += 1;
-      push('build', [2], `Creamos el nodo ${x}.`, { carry: { value: x, label: 'nuevo' } });
+      push('build', [2], `Creamos el nodo ${x}.`, { carry: { value: x, label: 'fresh' } });
       if (tail) {
         cost += 1;
         push('link', [3], `tail ya apunta al último: enlazamos ${x} sin recorrer nada.`, {
-          carry: { value: x, label: 'nuevo' },
+          carry: { value: x, label: 'fresh' },
         });
       } else {
         // No tail: the only way to the last node is to walk the whole chain.
-        walkTo(Math.max(cells.length - 1, 0), [4, 5], 'actual');
+        walkTo(Math.max(cells.length - 1, 0), [4, 5], 'current');
         cost += 1;
         push('link', [7], `El último nodo apunta a ${x}.`, {
-          carry: { value: x, label: 'nuevo' },
+          carry: { value: x, label: 'fresh' },
         });
       }
       cells.push({ id: (nextId += 1), value: x, state: 'new' });
@@ -694,17 +694,17 @@ function traceList(
       const at = requireIndex(input, cells.length, true);
       cost += 1;
       push('build', [2], `Creamos el nodo ${x} para la posición ${at}.`, {
-        carry: { value: x, label: 'nuevo' },
+        carry: { value: x, label: 'fresh' },
       });
-      walkTo(Math.max(at - 1, 0), [4, 5], 'previo');
+      walkTo(Math.max(at - 1, 0), [4, 5], 'prev');
       cost += 1;
       push('link', [7], `${x} apunta al nodo que ocupaba la posición ${at}.`, {
-        carry: { value: x, label: 'nuevo' },
-        pointers: basePointers([{ name: 'previo', index: Math.max(at - 1, 0) }]),
+        carry: { value: x, label: 'fresh' },
+        pointers: basePointers([{ name: 'prev', index: Math.max(at - 1, 0) }]),
       });
       cells.splice(at, 0, { id: (nextId += 1), value: x, state: 'new' });
       cost += 1;
-      push('link', [8], `El nodo previo apunta a ${x}. El largo pasa a ${cells.length}.`);
+      push('link', [8], `El nodo anterior apunta a ${x}. El largo pasa a ${cells.length}.`);
       break;
     }
     case 'insert-ordered': {
@@ -715,15 +715,15 @@ function traceList(
       }
       cost += 1;
       push('build', [2], `Creamos el nodo ${x} y buscamos dónde va sin romper el orden.`, {
-        carry: { value: x, label: 'nuevo' },
+        carry: { value: x, label: 'fresh' },
       });
       let at = 0;
       while (at < cells.length && cells[at]!.value < x) {
         cost += 1;
         cells[at] = { ...cells[at]!, state: 'active' };
         push('compare', [4, 5], `¿${cells[at]!.value} < ${x}? Sí: ${x} va más adelante.`, {
-          carry: { value: x, label: 'nuevo' },
-          pointers: basePointers([{ name: 'previo', index: at }]),
+          carry: { value: x, label: 'fresh' },
+          pointers: basePointers([{ name: 'prev', index: at }]),
         });
         cells[at] = { ...cells[at]!, state: 'idle' };
         at += 1;
@@ -731,8 +731,8 @@ function traceList(
       if (at < cells.length) {
         cost += 1;
         push('compare', [4], `¿${cells[at]!.value} < ${x}? No: ${x} va justo aquí.`, {
-          carry: { value: x, label: 'nuevo' },
-          pointers: basePointers([{ name: 'previo', index: at }]),
+          carry: { value: x, label: 'fresh' },
+          pointers: basePointers([{ name: 'prev', index: at }]),
         });
       }
       cells.splice(at, 0, { id: (nextId += 1), value: x, state: 'new' });
@@ -772,10 +772,10 @@ function traceList(
       } else {
         // Every other recipe needs the node BEFORE the last one, and only a
         // walk can produce it: `tail` alone is not enough.
-        walkTo(Math.max(cells.length - 2, 0), [2, 3], 'previo');
+        walkTo(Math.max(cells.length - 2, 0), [2, 3], 'prev');
         cost += 1;
-        push('start', [5], `El nodo previo al último es quien debe soltarlo.`, {
-          pointers: basePointers([{ name: 'previo', index: Math.max(cells.length - 2, 0) }]),
+        push('start', [5], `El nodo anterior al último es quien debe soltarlo.`, {
+          pointers: basePointers([{ name: 'prev', index: Math.max(cells.length - 2, 0) }]),
         });
       }
       cells.pop();
@@ -783,7 +783,7 @@ function traceList(
       push(
         'unlink',
         doubly && tail ? [4] : [6],
-        `El nuevo último apunta a ${circular ? 'head' : 'null'}. El largo pasa a ${cells.length}.`,
+        `El fresh último apunta a ${circular ? 'head' : 'null'}. El largo pasa a ${cells.length}.`,
       );
       push('done', doubly && tail ? [6] : [8], `Devolvemos ${removed.value}.`);
       break;
@@ -791,19 +791,19 @@ function traceList(
     case 'remove-at': {
       requireNonEmpty(input.values);
       const at = requireIndex(input, cells.length, false);
-      walkTo(Math.max(at - 1, 0), [3, 4], 'previo');
+      walkTo(Math.max(at - 1, 0), [3, 4], 'prev');
       const removed = cells[at]!;
       cells[at] = { ...removed, state: 'leaving' };
       cost += 1;
       push('start', [6], `El nodo a eliminar es ${removed.value}, en la posición ${at}.`, {
-        pointers: basePointers([{ name: 'previo', index: Math.max(at - 1, 0) }]),
+        pointers: basePointers([{ name: 'prev', index: Math.max(at - 1, 0) }]),
       });
       cells.splice(at, 1);
       cost += 1;
       push(
         'unlink',
         [7],
-        `El nodo previo salta por encima y apunta al siguiente. El largo pasa a ${cells.length}.`,
+        `El nodo anterior salta por encima y apunta al siguiente. El largo pasa a ${cells.length}.`,
       );
       push('done', [9], `Devolvemos ${removed.value}.`);
       break;
@@ -825,7 +825,7 @@ function traceList(
           hit ? [5, 6] : [5, 8],
           `¿El nodo ${cells[j]!.value} es ${target}? ${hit ? 'Sí.' : 'No: avanzamos.'}`,
           {
-            pointers: basePointers([{ name: 'actual', index: j }]),
+            pointers: basePointers([{ name: 'current', index: j }]),
           },
         );
         if (hit) {
