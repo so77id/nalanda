@@ -111,11 +111,14 @@ export interface SequenceStep {
    */
   headToCarry?: boolean;
   /**
-   * The LAST node of the chain points at the floating node rather than at
-   * `null`. The mirror of `headToCarry` at the other end: the one frame
-   * between `current.next = fresh` running and the node taking its place.
+   * The index of the node whose `next` points at the FLOATING node rather
+   * than where it used to. The mirror of `headToCarry` for a node instead of
+   * a variable: the one frame between the assignment running and the node
+   * taking its place in the chain. `insertLast` names the last node,
+   * `insertAt` the previous one — the assignment is the same, and so is the
+   * frame that shows it before the move.
    */
-  tailToCarry?: boolean;
+  linkToCarry?: number;
   /** Running elementary-operation count. */
   cost: number;
 }
@@ -1055,7 +1058,7 @@ function traceList(
             'link',
             [...callLine, lineOf(code, 'tail.next = fresh')],
             `tail ya apunta al último: enlazamos ${x} sin recorrer nada.`,
-            { carry: held, tailToCarry: true },
+            { carry: held, linkToCarry: cells.length - 1 },
           );
         } else {
           // `current` starts at head and stops on the node whose next is null.
@@ -1089,7 +1092,7 @@ function traceList(
             `current.next deja de ser null y pasa a apuntar al nodo ${x}.`,
             {
               carry: held,
-              tailToCarry: true,
+              linkToCarry: cells.length - 1,
               pointers: basePointers([{ name: 'current', index: cells.length - 1 }]),
             },
           );
@@ -1181,12 +1184,26 @@ function traceList(
             pointers: basePointers([{ name: 'prev', index: at - 1 }]),
           },
         );
+        // The second assignment, before the node moves — the same frame
+        // insertLast gets at the end of the chain. Without it the pointer
+        // change and the node taking its place read as one jump.
+        cost += 1;
+        push(
+          'link',
+          [...callLine, lineOf(code, 'prev.next = fresh')],
+          `El nodo anterior deja de apuntar a ${cells[at]!.value} y pasa a apuntar a ${x}.`,
+          {
+            carry: { ...held, next: at },
+            linkToCarry: at - 1,
+            pointers: basePointers([{ name: 'prev', index: at - 1 }]),
+          },
+        );
         cells.splice(at, 0, { id: (nextId += 1), value: x, state: 'new' });
         cost += 1;
         push(
           'done',
-          [...callLine, lineOf(code, 'prev.next = fresh')],
-          `El nodo anterior apunta a ${x}. El largo pasa a ${cells.length}.`,
+          [...callLine, lineOf(code, 'size++')],
+          `El nodo ${x} queda en la posición ${at}. El largo pasa a ${cells.length}.`,
         );
         cells[at] = { ...cells[at]!, state: 'idle' };
       });

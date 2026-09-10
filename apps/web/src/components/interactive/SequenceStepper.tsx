@@ -672,7 +672,15 @@ function ListPicture({
   const doubly = recipe === 'linked-list-doubly';
   const circular = recipe === 'linked-list-circular';
   const last = lastLive;
-  const tailToCarry = step.tailToCarry === true;
+  // Which node's `next` is climbing to the floating node this frame, in slot
+  // coordinates. `-1` when none is.
+  const linking = step.linkToCarry === undefined ? -1 : step.linkToCarry + offset;
+  // Whether the slot the floating node is parked over still holds a node. It
+  // does for an insertion in the middle and does not for one at the end, and
+  // the two need different routes: one has to rise before it travels, the
+  // other can run along the row it is leaving.
+  const carrySlot = step.carry?.slot ?? -1;
+  const carryOccupied = carrySlot >= 0 && step.cells[carrySlot - offset] !== undefined;
 
   return (
     <g>
@@ -725,19 +733,27 @@ function ListPicture({
             <CellNote cell={cell} x={box.x} y={box.y + box.h + 14} />
 
             {/* next arrow — to the following node, or to the null marker */}
-            {isLast && tailToCarry ? (
-              // The assignment the frame is about: the last node's `next`
-              // leaves the chain and climbs to the node waiting above the
-              // slot it is about to occupy. Painted `mark`, like the node it
-              // reaches, so the two read as one change.
+            {i === linking ? (
+              // The assignment the frame is about: this node's `next` leaves
+              // the chain and climbs to the node waiting above the slot it is
+              // about to occupy. Painted `mark`, like the node it reaches, so
+              // the two read as one change.
               <path
-                // Right along the row, then straight UP into the floating
-                // node's underside. Turning in beside it instead put the
+                // Along the row and up into the floating node's underside
+                // when the slot ahead is free — turning in beside it put the
                 // corner within a few pixels of the arrowhead, and the riser
-                // read as part of the head rather than as the link.
-                d={`M ${arrow.x1} ${arrow.y} L ${carryX + BOX_W / 2} ${arrow.y} L ${
-                  carryX + BOX_W / 2
-                } ${carryTop + BOX_H + 5}`}
+                // read as part of the head. When a node still stands in that
+                // slot the row is not free, so the link rises in the gap
+                // first and comes in from the side instead.
+                d={
+                  carryOccupied
+                    ? `M ${arrow.x1} ${arrow.y} L ${arrow.x1 + LIST_GAP / 2} ${arrow.y} L ${
+                        arrow.x1 + LIST_GAP / 2
+                      } ${carryTop + BOX_H / 2} L ${carryX - 4} ${carryTop + BOX_H / 2}`
+                    : `M ${arrow.x1} ${arrow.y} L ${carryX + BOX_W / 2} ${arrow.y} L ${
+                        carryX + BOX_W / 2
+                      } ${carryTop + BOX_H + 5}`
+                }
                 fill="none"
                 style={{ stroke: 'var(--color-mark)' }}
                 strokeWidth={2}
@@ -772,12 +788,14 @@ function ListPicture({
       })}
 
       {/* the terminator: `null` for an open chain, a closing arc for a ring */}
-      {/* The terminator is the CHAIN's `null`, so it is absent exactly when
-          the chain has no `next` field showing one: while the last node's
-          link is climbing to the floating node, and while an empty chain's
-          `head` is doing the same. Left drawn, it is a `null` nothing points
-          at. */}
-      {!circular && !tailToCarry && !(step.cells.length === 0 && step.headToCarry === true) ? (
+      {/* The terminator is the CHAIN's `null`. It is absent exactly when the
+          chain has no `next` field showing one: while the LAST node's link is
+          climbing to the floating node, and while an empty chain's `head` is
+          doing the same. A link climbing from the MIDDLE takes nothing away
+          from the end of the chain, so the `null` stays. */}
+      {!circular &&
+      linking !== last &&
+      !(step.cells.length === 0 && step.headToCarry === true) ? (
         <text
           x={nullX}
           y={layout.top + BOX_H / 2 + 4}

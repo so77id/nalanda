@@ -31,8 +31,12 @@ student may copy. One `size++` at the end rather than one per branch, because
 `lineOf` names lines by TEXT and would silently pick the first of two. (b)
 The frame model gains `carry.slot` — which slot the floating node hovers
 over, so an operation that grows at the back parks it where the node will
-land — and `tailToCarry`, the mirror of `headToCarry`: the one frame in which
-the last node's `next` has been assigned and the node has not moved yet.
+land — and `linkToCarry`, the mirror of `headToCarry` for a node instead of a
+variable: the one frame in which a node's `next` has been assigned and the
+node it now names has not moved yet. It carries the INDEX of that node, not a
+flag, because the node doing the pointing is the last one for `insertLast`
+and the previous one for `insertAt` — the same assignment, and the same frame
+owed to it.
 (c) The `null` terminator and `head`'s empty-chain target are now derived
 from the last LIVE cell rather than the last slot DRAWN, and both from one
 shared expression: a chain that grows at the back sits flush left inside a

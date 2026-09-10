@@ -476,7 +476,10 @@ describe('sequenceStepperTrace · a chain built one insertion at a time', () => 
 
   it('shows the link leaving the last node, once per insertion but the first', () => {
     const trace = traceFor('linked-list-singly', 'insert-last', { values: [], value: four });
-    expect(trace.steps.filter((s) => s.tailToCarry === true)).toHaveLength(3);
+    const linking = trace.steps.filter((s) => s.linkToCarry !== undefined);
+    expect(linking).toHaveLength(3);
+    // Always the node at the end of the chain as it is by then.
+    expect(linking.map((s) => s.linkToCarry)).toEqual([0, 1, 2]);
     expect(trace.steps.filter((s) => s.headToCarry === true)).toHaveLength(1);
   });
 
