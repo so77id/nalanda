@@ -297,6 +297,121 @@ cadena es preguntarle a cada nodo por el siguiente.
 
 ## Las operaciones de la lista enlazada
 
+<Slide title="build · construir la lista">
+Crear una lista a partir de una secuencia de elementos es insertarlos uno por
+uno. Qué inserción se use decide el costo de construirla entera.
+
+```java
+static LinkedList build(int[] elements) {
+    LinkedList list = new LinkedList();
+    for (int i = elements.length - 1; i >= 0; i--) {
+        list.insertFirst(elements[i]);
+    }
+    return list;
+}
+```
+
+El recorrido va **de atrás hacia adelante** y cada elemento entra al
+principio, así que el último en insertarse queda primero y el orden original
+se conserva. Cada `insertFirst` cuesta lo mismo sin importar cuántos nodos
+haya, de modo que construir la lista completa cuesta $$\Theta(N)$$.
+
+Recorrer de adelante hacia atrás e ir insertando al final daría la misma
+lista y costaría mucho más: cada `insertLast` tiene que caminar hasta el
+último nodo, y esos recorridos suman $$\Theta(N^2)$$.
+
+</Slide>
+
+<Slide title="La lista vacía y el largo">
+Dos operaciones que no recorren nada:
+
+```java
+public boolean isEmpty() {
+    return head == null;
+}
+
+public int len() {
+    return size;
+}
+```
+
+`isEmpty()` lee la primera invariante directamente: una lista está vacía
+exactamente cuando `head` es `null`. No hace falta contar.
+
+`len()` es $$\Theta(1)$$ porque `size` se mantiene al día en cada inserción y
+cada eliminación. Ese es el trato: pagamos una suma o una resta en cada
+operación que cambia la cadena, y a cambio preguntar el largo nunca cuesta
+recorrerla.
+
+</Slide>
+
+<Slide title="getAt · caminar hasta la posición">
+Pedir el elemento de una posición no es una cuenta: es un recorrido.
+
+```java
+int getAt(int i) {
+    Node current = head;
+    for (int j = 0; j < i; j++) {
+        current = current.next;
+    }
+    return current.value;
+}
+```
+
+<svg viewBox="0 0 700 128" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="Una lista de cuatro nodos. Para llegar al de la posición 2 hay que partir de head y dar dos saltos: del primero al segundo, y del segundo al tercero.">
+  <defs>
+    <marker id="get-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-focus)' }} />
+    </marker>
+  </defs>
+  {[7, 3, 1, 5].map((v, i) => (
+    <g key={i}>
+      <rect x={20 + i * 158} y="40" width="72" height="50" rx="4" style={{ fill: 'var(--color-surface)', stroke: i === 2 ? 'var(--color-focus)' : 'var(--color-rule-strong)' }} strokeWidth={i === 2 ? 2.6 : 1.6} />
+      <rect x={92 + i * 158} y="40" width="34" height="50" rx="4" style={{ fill: 'var(--color-sunk)', stroke: i === 2 ? 'var(--color-focus)' : 'var(--color-rule-strong)' }} strokeWidth={i === 2 ? 2.6 : 1.6} />
+      <text x={56 + i * 158} y="73" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
+      <text x={72 + i * 158} y="110" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{`i = ${i}`}</text>
+      {i < 3 ? (
+        <line x1={109 + i * 158} y1="65" x2={170 + i * 158} y2="65" style={{ stroke: i < 2 ? 'var(--color-focus)' : 'var(--color-ink-soft)' }} strokeWidth={i < 2 ? 2.2 : 1.6} markerEnd={i < 2 ? 'url(#get-punta)' : undefined} />
+      ) : null}
+      {i < 2 ? (
+        <text x={140 + i * 158} y="30" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-focus)' }}>{`salto ${i + 1}`}</text>
+      ) : null}
+    </g>
+  ))}
+</svg>
+
+Llegar a la posición `i` cuesta `i` saltos, y en el peor caso —el último
+nodo— son $$N - 1$$: la operación es $$\Theta(N)$$.
+
+Es exactamente la operación que el arreglo resuelve con una multiplicación y
+una suma. Aquí no hay ninguna cuenta posible, porque las direcciones de los
+nodos no guardan relación entre sí; la única forma de avanzar es preguntarle
+a cada nodo por el siguiente.
+
+</Slide>
+
+<Slide title="buscar · sin atajos">
+Buscar un valor recorre la cadena preguntando nodo por nodo.
+
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="search"
+  values={[7, 3, 1, 5]}
+  target={1}
+/>
+
+En el peor caso —el valor no está— se visitan los $$N$$ nodos:
+$$\Theta(N)$$. Un arreglo desordenado cuesta lo mismo, y por una vez las dos
+estructuras empatan.
+
+El empate se rompe cuando los datos están ordenados. Sobre un arreglo
+ordenado la búsqueda binaria baja a $$\Theta(\log N)$$ porque puede saltar
+al elemento del medio con una cuenta. Sobre una lista ordenada no puede: para
+llegar al nodo del medio hay que caminar hasta él, y entonces ya se recorrió
+media cadena. La lista se queda en $$\Theta(N)$$ aunque esté ordenada.
+
+</Slide>
+
 <Slide title="insertFirst · el enlace que no mueve nada">
 Insertar al principio se resuelve con tres asignaciones y ninguna depende de
 cuántos elementos haya en la lista.
@@ -429,51 +544,6 @@ veces no es lo mismo.
 
 </Slide>
 
-<Slide title="buscar · sin atajos">
-Buscar un valor recorre la cadena preguntando nodo por nodo.
-
-<SequenceStepper
-  eda="linked-list-singly"
-  operation="search"
-  values={[7, 3, 1, 5]}
-  target={1}
-/>
-
-En el peor caso —el valor no está— se visitan los $$N$$ nodos:
-$$\Theta(N)$$. Un arreglo desordenado cuesta lo mismo, y por una vez las dos
-estructuras empatan.
-
-El empate se rompe cuando los datos están ordenados. Sobre un arreglo
-ordenado la búsqueda binaria baja a $$\Theta(\log N)$$ porque puede saltar
-al elemento del medio con una cuenta. Sobre una lista ordenada no puede: para
-llegar al nodo del medio hay que caminar hasta él, y entonces ya se recorrió
-media cadena. La lista se queda en $$\Theta(N)$$ aunque esté ordenada.
-
-</Slide>
-
-<Slide title="La lista vacía y el largo">
-Dos operaciones que no recorren nada:
-
-```java
-public boolean isEmpty() {
-    return head == null;
-}
-
-public int len() {
-    return size;
-}
-```
-
-`isEmpty()` lee la primera invariante directamente: una lista está vacía
-exactamente cuando `head` es `null`. No hace falta contar.
-
-`len()` es $$\Theta(1)$$ porque `size` se mantiene al día en cada inserción y
-cada eliminación. Ese es el trato: pagamos una suma o una resta en cada
-operación que cambia la cadena, y a cambio preguntar el largo nunca cuesta
-recorrerla.
-
-</Slide>
-
 <Slide title="Los casos de borde">
 Tres situaciones rompen el código de estas operaciones si no se escriben con
 cuidado, y las tres aparecen en los extremos de la cadena.
@@ -518,6 +588,7 @@ Lo que cambia por completo es cuánto tarda cada llamada.
 <Slide title="Operaciones y sus costos">
 | Molde | Operación | Peor caso | Invariante que restaura |
 |---|---|---|---|
+| crear | `build(elementos)` | $$\Theta(N)$$ | Deja la cadena completa desde `head`, en el orden recibido |
 | consultar | `len()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
 | consultar | `getAt(i)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
 | consultar | `search(x)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
@@ -529,7 +600,6 @@ Lo que cambia por completo es cuánto tarda cada llamada.
 | modificar | `deleteLast()` | $$\Theta(N)$$ | La cadena termina en `null`: el nuevo último debe apuntar ahí |
 | modificar | `deleteAt(i)` | $$\Theta(N)$$ | La cadena no se corta: el previo salta al siguiente |
 
-No hay fila de `crear`: construir la lista es insertar, y esas filas ya están.
 Las dos destacadas son las únicas de costo constante, y las dos operan sobre
 el mismo lugar: el principio de la cadena. Es el único punto al que se llega
 sin caminar, porque `head` ya está ahí.
