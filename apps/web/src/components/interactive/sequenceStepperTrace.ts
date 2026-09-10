@@ -92,6 +92,13 @@ export interface SequenceStep {
   carry?: { value: number; label: string; next?: number | null };
   /** Circular recipe: the chain closes back on its first node. */
   closesRing?: boolean;
+  /**
+   * `head` points at the FLOATING node rather than at the chain. True for the
+   * one frame between `head = fresh` running and the node taking its place in
+   * the chain — the frame that shows the reassignment before the move, so the
+   * two are not conflated into a single jump.
+   */
+  headToCarry?: boolean;
   /** Running elementary-operation count. */
   cost: number;
 }
@@ -813,43 +820,49 @@ function traceList(
 
   switch (operation) {
     case 'insert-first': {
-      // Three moments per value, and the middle one is the point: the node
-      // exists, its `next` has just been aimed at the old first node, and
-      // `head` has not moved yet. Drawing the node as a NODE — with its own
-      // link — is what makes that middle state visible at all.
+      // Four frames per value, one per line of the method, and each one is a
+      // state the reader can name: the node exists pointing at null; its link
+      // is aimed at the old first node; `head` is aimed at IT, still floating;
+      // and only then does it take its place in the chain. Collapsing the last
+      // two would show the pointer move and the node move as one jump.
       for (const x of requireValues(input)) {
-        // The call being executed, lit alongside the line inside the method.
-        const callLine = inserts.length > 1 ? [lineOf(code, `list.insertFirst(${x});`)] : [];
         const wasFirst = cells.length > 0 ? cells[0]!.value : null;
+        const callLine = inserts.length > 1 ? [lineOf(code, `list.insertFirst(${x});`)] : [];
         cost += 1;
         push(
           'build',
           [...callLine, lineOf(code, 'new Node(x)')],
-          `Creamos el nodo ${x}. Existe, pero todavía no está en la cadena.`,
-          {
-            carry: { value: x, label: 'fresh' },
-          },
+          `Creamos el nodo ${x}. Su next todavía no apunta a nadie.`,
+          { carry: { value: x, label: 'fresh', next: null } },
         );
         cost += 1;
         push(
           'link',
           [...callLine, lineOf(code, 'fresh.next = head')],
           wasFirst === null
-            ? `fresh.next apunta a null: la cadena estaba vacía.`
-            : `fresh.next apunta al que hoy es el primero (${wasFirst}). head todavía no se movió.`,
+            ? `fresh.next toma el valor de head, que es null: la cadena estaba vacía.`
+            : `fresh.next toma el valor de head, así que apunta a ${wasFirst}.`,
           { carry: { value: x, label: 'fresh', next: cells.length > 0 ? 0 : null } },
         );
-        cells.unshift({ id: (nextId += 1), value: x, state: 'new' });
         cost += 1;
         push(
           'link',
           [...callLine, lineOf(code, 'head = fresh')],
-          `head pasa a apuntar a ${x}. El largo pasa a ${cells.length}.`,
+          `head pasa a apuntar al nodo ${x}, que ya está enlazado a la cadena.`,
+          {
+            carry: { value: x, label: 'fresh', next: cells.length > 0 ? 0 : null },
+            headToCarry: true,
+          },
+        );
+        cells.unshift({ id: (nextId += 1), value: x, state: 'new' });
+        cost += 1;
+        push(
+          'done',
+          [...callLine, lineOf(code, 'size++')],
+          `El nodo ${x} queda como primero de la cadena. El largo pasa a ${cells.length}.`,
         );
         cells[0] = { ...cells[0]!, state: 'idle' };
       }
-      // The last value inserted stays marked, so the frame the reader is left
-      // on says which node arrived.
       cells[0] = { ...cells[0]!, state: 'new' };
       break;
     }

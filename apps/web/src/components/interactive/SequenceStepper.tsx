@@ -436,6 +436,12 @@ function StructureView({
   // moving anything already on screen.
   const layout = layoutSequence(maxCells, recipe, slots, hasCarry);
   const offset = align === 'right' ? maxCells - step.cells.length : 0;
+  // Where the floating node sits — computed once and shared, because `head`
+  // has to be able to point AT it and a second copy of this arithmetic is a
+  // second chance to disagree with the drawing.
+  const carrySlot = Math.max(offset - 1, 0);
+  const carryX = (layout.boxes[carrySlot]?.x ?? layout.lane) + (offset === 0 ? 78 : 0);
+  const carryTop = (layout.carryY ?? 0) + 18;
   const summary = describe(step, recipe);
 
   // A short structure can be narrower than the carry chip parked above it, so
@@ -494,13 +500,15 @@ function StructureView({
 
       {isList ? <ListPicture step={step} layout={layout} recipe={recipe} offset={offset} /> : null}
       {!isList ? <ArrayPicture step={step} layout={layout} slots={slots} /> : null}
-      <Pointers step={step} layout={layout} offset={offset} />
+      <Pointers step={step} layout={layout} offset={offset} carryX={carryX} carryTop={carryTop} />
       {step.carry ? (
         <Carry
           carry={step.carry}
           layout={layout}
           isList={isList}
-          carrySlot={Math.max(offset - 1, 0)}
+          x={carryX}
+          top={carryTop}
+          offset={offset}
         />
       ) : null}
     </svg>
@@ -668,9 +676,9 @@ function ListPicture({
       })}
 
       {/* the terminator: `null` for an open chain, a closing arc for a ring */}
-      {layout.boxes.length > 0 && !circular ? (
+      {!circular ? (
         <text
-          x={linkArrow(layout, last).x2 + 2}
+          x={linkArrow(layout, layout.boxes.length - 1).x2 + 2}
           y={layout.top + BOX_H / 2 + 4}
           fontSize="11"
           fill="var(--color-ink-faint)"
@@ -709,11 +717,16 @@ function Pointers({
   step,
   layout,
   offset,
+  carryX,
+  carryTop,
 }: {
   step: SequenceStep;
   layout: SequenceLayout;
   offset: number;
+  carryX: number;
+  carryTop: number;
 }) {
+  const headToCarry = step.headToCarry === true;
   return (
     <g>
       {step.pointers.map((pointer) => {
@@ -727,7 +740,16 @@ function Pointers({
         // where head points — so from above the two shared one column.
         if (isHead) {
           const y = layout.top + BOX_H / 2;
-          const toX = box ? box.x - 4 : layout.lane + 8;
+          // Three destinations, in the order the operation visits them: the
+          // floating node while `head = fresh` has run and the node has not
+          // moved yet; the first node of the chain; and — when the chain is
+          // empty — the one `null` the structure already draws at its end,
+          // rather than a second null of head's own.
+          const toX = headToCarry
+            ? carryX + BOX_W / 2
+            : box
+              ? box.x - 4
+              : (layout.boxes.at(-1)?.linkX ?? layout.lane) + LINK_W + 2;
           return (
             <g key={pointer.name}>
               <text
@@ -740,26 +762,28 @@ function Pointers({
               >
                 head
               </text>
-              <line
-                x1={38}
-                y1={y}
-                x2={toX}
-                y2={y}
-                stroke={colour}
-                strokeWidth={1.6}
-                markerEnd="url(#seq-arrow-head)"
-              />
-              {box === null ? (
-                <text
-                  x={toX + 8}
-                  y={y + 4}
-                  fontSize="11"
-                  fontFamily="monospace"
-                  fill="var(--color-ink-faint)"
-                >
-                  null
-                </text>
-              ) : null}
+              {headToCarry ? (
+                <path
+                  d={`M 38 ${y} L ${carryX + BOX_W / 2 - 30} ${y} L ${carryX + BOX_W / 2 - 30} ${carryTop + BOX_H / 2} L ${carryX - 4} ${carryTop + BOX_H / 2}`}
+                  fill="none"
+                  stroke={colour}
+                  strokeWidth={1.6}
+                  markerEnd="url(#seq-arrow-head)"
+                />
+              ) : (
+                <line
+                  x1={38}
+                  y1={y}
+                  x2={toX}
+                  y2={y}
+                  stroke={colour}
+                  strokeWidth={1.6}
+                  markerEnd="url(#seq-arrow-head)"
+                />
+              )}
+              {/* No null of head's own: an empty chain still draws the one
+                  terminator at its end, and head points AT that. Two nulls in
+                  the same place is what it looked like before. */}
             </g>
           );
         }
@@ -807,24 +831,24 @@ function Carry({
   carry,
   layout,
   isList,
-  carrySlot,
+  x,
+  top,
+  offset,
 }: {
   carry: NonNullable<SequenceStep['carry']>;
   layout: SequenceLayout;
   isList: boolean;
-  /** The slot the node is about to land in — it is drawn directly above it. */
-  carrySlot: number;
+  /** Left edge and top of the floating node, computed by the caller. */
+  x: number;
+  top: number;
+  /** How far into the reserved slots the live cells start. */
+  offset: number;
 }) {
   // The node that exists and is not in the chain yet, drawn as a NODE rather
   // than as a chip: it has a `next` field, that field is what the operation
   // assigns, and a chip cannot show an assignment. Painted `mark` — "look
   // here now" — because it is the only thing on screen that just changed.
-  const y = layout.carryY ?? 0;
-  // Offset to the right of the first node rather than directly above it:
-  // `head` labels and arrows that same node from the band in between, and
-  // stacked they collided — two labels touching and two vertical lines
-  // running side by side into the same box.
-  const x = (layout.boxes[carrySlot]?.x ?? 20) + (carrySlot === 0 ? 78 : 0);
+  const y = top - 18;
   const target = carry.next === undefined ? undefined : carry.next;
   const linkX = x + BOX_W;
   return (
@@ -891,8 +915,8 @@ function Carry({
         ) : (
           <path
             d={`M ${linkX + LINK_W / 2} ${y + 18 + BOX_H} L ${linkX + LINK_W / 2} ${layout.top - 16} L ${
-              layout.boxes[target + carrySlot + 1]?.centerX ?? x
-            } ${layout.top - 16} L ${layout.boxes[target + carrySlot + 1]?.centerX ?? x} ${layout.top - 3}`}
+              layout.boxes[target + offset]?.centerX ?? x
+            } ${layout.top - 16} L ${layout.boxes[target + offset]?.centerX ?? x} ${layout.top - 3}`}
             fill="none"
             style={{ stroke: 'var(--color-mark)' }}
             strokeWidth={2}
