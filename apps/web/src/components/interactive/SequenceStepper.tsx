@@ -8,6 +8,7 @@ import {
   BOX_H,
   BOX_W,
   LINK_W,
+  LIST_GAP,
   layoutSequence,
   linkArrow,
   type SequenceLayout,
@@ -439,9 +440,24 @@ function StructureView({
   // Where the floating node sits — computed once and shared, because `head`
   // has to be able to point AT it and a second copy of this arithmetic is a
   // second chance to disagree with the drawing.
-  const carrySlot = Math.max(offset - 1, 0);
-  const carryX = (layout.boxes[carrySlot]?.x ?? layout.lane) + (offset === 0 ? 78 : 0);
+  // An operation that grows at the BACK names the slot itself, so the node
+  // hovers over the place it is about to land; the rest keep the front slot
+  // they have always used.
+  const carrySlot = step.carry?.slot ?? Math.max(offset - 1, 0);
+  const carryX =
+    (layout.boxes[carrySlot]?.x ?? layout.lane) +
+    (offset === 0 && step.carry?.slot === undefined ? 78 : 0);
   const carryTop = (layout.carryY ?? 0) + 18;
+  // Where the chain's `null` terminator is drawn — and therefore where `head`
+  // points when the chain is empty. Computed ONCE and shared with both, for
+  // the same reason `carryX` is: two copies of this arithmetic are two
+  // chances to disagree, and the disagreement paints as `head` striking
+  // through a `null` it was supposed to reach.
+  const lastLive = offset + step.cells.length - 1;
+  const nullX =
+    step.cells.length === 0
+      ? (layout.boxes[offset]?.x ?? layout.width - BOX_W / 2) + 2
+      : linkArrow(layout, lastLive).x1 + LIST_GAP + 2;
   const summary = describe(step, recipe);
 
   // A short structure can be narrower than the carry chip parked above it, so
@@ -498,9 +514,27 @@ function StructureView({
         </marker>
       </defs>
 
-      {isList ? <ListPicture step={step} layout={layout} recipe={recipe} offset={offset} /> : null}
+      {isList ? (
+        <ListPicture
+          step={step}
+          layout={layout}
+          recipe={recipe}
+          offset={offset}
+          carryX={carryX}
+          carryTop={carryTop}
+          lastLive={lastLive}
+          nullX={nullX}
+        />
+      ) : null}
       {!isList ? <ArrayPicture step={step} layout={layout} slots={slots} /> : null}
-      <Pointers step={step} layout={layout} offset={offset} carryX={carryX} carryTop={carryTop} />
+      <Pointers
+        step={step}
+        layout={layout}
+        offset={offset}
+        carryX={carryX}
+        carryTop={carryTop}
+        nullX={nullX}
+      />
       {step.carry ? (
         <Carry
           carry={step.carry}
@@ -586,15 +620,31 @@ function ListPicture({
   layout,
   recipe,
   offset,
+  carryX,
+  carryTop,
+  lastLive,
+  nullX,
 }: {
   step: SequenceStep;
   layout: SequenceLayout;
   recipe: SequenceRecipe;
   offset: number;
+  carryX: number;
+  carryTop: number;
+  /**
+   * The last slot HOLDING a node, not the last slot drawn. A chain that grows
+   * at the back sits flush left inside a layout reserved for the widest
+   * frame, so the two differ by every slot not filled yet — and the chain
+   * ends at the end of the CHAIN, not at the end of the canvas.
+   */
+  lastLive: number;
+  /** Where the `null` terminator is drawn. */
+  nullX: number;
 }) {
   const doubly = recipe === 'linked-list-doubly';
   const circular = recipe === 'linked-list-circular';
-  const last = layout.boxes.length - 1;
+  const last = lastLive;
+  const tailToCarry = step.tailToCarry === true;
 
   return (
     <g>
@@ -647,11 +697,25 @@ function ListPicture({
             <CellNote cell={cell} x={box.x} y={box.y + box.h + 14} />
 
             {/* next arrow — to the following node, or to the null marker */}
-            {!isLast || !circular ? (
+            {isLast && tailToCarry ? (
+              // The assignment the frame is about: the last node's `next`
+              // leaves the chain and climbs to the node waiting above the
+              // slot it is about to occupy. Painted `mark`, like the node it
+              // reaches, so the two read as one change.
+              <path
+                d={`M ${arrow.x1} ${arrow.y} L ${carryX - 14} ${arrow.y} L ${carryX - 14} ${
+                  carryTop + BOX_H / 2
+                } L ${carryX - 4} ${carryTop + BOX_H / 2}`}
+                fill="none"
+                style={{ stroke: 'var(--color-mark)' }}
+                strokeWidth={2}
+                markerEnd="url(#seq-arrow-carry)"
+              />
+            ) : !isLast || !circular ? (
               <line
                 x1={arrow.x1}
                 y1={doubly ? box.y + box.h * 0.35 : arrow.y}
-                x2={arrow.x2 - 3}
+                x2={(isLast ? arrow.x1 + LIST_GAP : arrow.x2) - 3}
                 y2={doubly ? box.y + box.h * 0.35 : arrow.y}
                 stroke={active ? 'var(--color-focus)' : 'var(--color-ink-soft)'}
                 strokeWidth={active ? 2 : 1.2}
@@ -676,9 +740,14 @@ function ListPicture({
       })}
 
       {/* the terminator: `null` for an open chain, a closing arc for a ring */}
-      {!circular ? (
+      {/* The terminator is the CHAIN's `null`, so it is absent exactly when
+          the chain has no `next` field showing one: while the last node's
+          link is climbing to the floating node, and while an empty chain's
+          `head` is doing the same. Left drawn, it is a `null` nothing points
+          at. */}
+      {!circular && !tailToCarry && !(step.cells.length === 0 && step.headToCarry === true) ? (
         <text
-          x={linkArrow(layout, layout.boxes.length - 1).x2 + 2}
+          x={nullX}
           y={layout.top + BOX_H / 2 + 4}
           fontSize="11"
           fill="var(--color-ink-faint)"
@@ -686,7 +755,7 @@ function ListPicture({
           null
         </text>
       ) : null}
-      {circular && layout.ringY !== null && layout.boxes.length > 0 ? (
+      {circular && layout.ringY !== null && step.cells.length > 0 ? (
         <>
           <path
             d={`M ${layout.boxes[last]!.linkX! + LINK_W / 2} ${layout.top + BOX_H}
@@ -719,12 +788,14 @@ function Pointers({
   offset,
   carryX,
   carryTop,
+  nullX,
 }: {
   step: SequenceStep;
   layout: SequenceLayout;
   offset: number;
   carryX: number;
   carryTop: number;
+  nullX: number;
 }) {
   const headToCarry = step.headToCarry === true;
   return (
@@ -745,11 +816,7 @@ function Pointers({
           // moved yet; the first node of the chain; and — when the chain is
           // empty — the one `null` the structure already draws at its end,
           // rather than a second null of head's own.
-          const toX = headToCarry
-            ? carryX + BOX_W / 2
-            : box
-              ? box.x - 4
-              : (layout.boxes.at(-1)?.linkX ?? layout.lane) + LINK_W + 2;
+          const toX = headToCarry ? carryX + BOX_W / 2 : box ? box.x - 4 : nullX - 6;
           return (
             <g key={pointer.name}>
               <text

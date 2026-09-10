@@ -89,7 +89,18 @@ export interface SequenceStep {
    * the cell it points at, `null` for a link that points at null, and
    * `undefined` while the field has not been assigned at all.
    */
-  carry?: { value: number; label: string; next?: number | null };
+  carry?: {
+    value: number;
+    label: string;
+    next?: number | null;
+    /**
+     * The slot the floating node is parked ABOVE. Set by an operation that
+     * grows at the BACK, so the node hovers over the place it is about to
+     * land instead of over the front of the chain. Absent for the rest,
+     * which keeps their node where it has always been.
+     */
+    slot?: number;
+  };
   /** Circular recipe: the chain closes back on its first node. */
   closesRing?: boolean;
   /**
@@ -99,6 +110,12 @@ export interface SequenceStep {
    * two are not conflated into a single jump.
    */
   headToCarry?: boolean;
+  /**
+   * The LAST node of the chain points at the floating node rather than at
+   * `null`. The mirror of `headToCarry` at the other end: the one frame
+   * between `current.next = fresh` running and the node taking its place.
+   */
+  tailToCarry?: boolean;
   /** Running elementary-operation count. */
   cost: number;
 }
@@ -637,20 +654,32 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     size++;
 }`;
     case 'insert-last':
+      // Both variants branch on the empty chain first: with no nodes there is
+      // no last node to link to, and the previous listing dereferenced `head`
+      // without asking. One `size++` at the end, not one per branch, so no
+      // fragment of this listing appears twice — `lineOf` names lines by text.
       return tail
         ? `void insertLast(int x) {
     Node fresh = new Node(x);
-    tail.next = fresh;
+    if (head == null) {
+        head = fresh;
+    } else {
+        tail.next = fresh;
+    }
     tail = fresh;
     size++;
 }`
         : `void insertLast(int x) {
     Node fresh = new Node(x);
-    Node current = head;
-    while (${end}) {
-        current = current.next;
+    if (head == null) {
+        head = fresh;
+    } else {
+        Node current = head;
+        while (${end}) {
+            current = current.next;
+        }
+        current.next = fresh;
     }
-    current.next = fresh;
     size++;
 }`;
     case 'insert-at':
@@ -771,11 +800,14 @@ function traceList(
   const tail = input.tail === true;
   const doubly = recipe === 'linked-list-doubly';
   const circular = recipe === 'linked-list-circular';
+  const method = operation === 'insert-first' ? 'insertFirst' : 'insertLast';
   const inserts =
-    operation === 'insert-first' && Array.isArray(input.value) ? (input.value as number[]) : [];
+    (operation === 'insert-first' || operation === 'insert-last') && Array.isArray(input.value)
+      ? (input.value as number[])
+      : [];
   const code =
     inserts.length > 1
-      ? listCode(recipe, operation, tail) + callingProgram(inserts, 'insertFirst')
+      ? listCode(recipe, operation, tail) + callingProgram(inserts, method)
       : listCode(recipe, operation, tail);
   const cells = cellsFrom(input.values);
   const steps: SequenceStep[] = [];
@@ -867,36 +899,104 @@ function traceList(
       break;
     }
     case 'insert-last': {
-      const [x] = requireValues(input) as [number];
-      cost += 1;
-      push('build', [lineOf(code, 'new Node(x)')], `Creamos el nodo ${x}.`, {
-        carry: { value: x, label: 'fresh' },
-      });
-      if (tail) {
+      // The same four-frame discipline as insert-first, with one branch more:
+      // an empty chain has no last node to link to, so what the insertion
+      // assigns is `head` itself. Starting from zero shows that branch taken
+      // once and never again — and the walk getting one hop longer on every
+      // insertion, which is the $$\Theta(N)$$ this slide is about.
+      for (const x of requireValues(input)) {
+        const callLine = inserts.length > 1 ? [lineOf(code, `list.insertLast(${x});`)] : [];
+        // Parked above the slot the node will land in, so it lands where it
+        // has been hovering rather than jumping across the chain.
+        const held = { value: x, label: 'fresh', next: null, slot: cells.length };
+        const empty = cells.length === 0;
         cost += 1;
         push(
-          'link',
-          [lineOf(code, 'tail.next = fresh')],
-          `tail ya apunta al último: enlazamos ${x} sin recorrer nada.`,
-          {
-            carry: { value: x, label: 'fresh' },
-          },
-        );
-      } else {
-        // No tail: the only way to the last node is to walk the whole chain.
-        walkTo(
-          Math.max(cells.length - 1, 0),
-          [lineOf(code, 'while ('), lineOf(code, 'current = current.next')],
-          'current',
+          'build',
+          [...callLine, lineOf(code, 'new Node(x)')],
+          `Creamos el nodo ${x}. Es el que quedará último, así que su next es null.`,
+          { carry: held },
         );
         cost += 1;
-        push('link', [lineOf(code, 'current.next = fresh')], `El último nodo apunta a ${x}.`, {
-          carry: { value: x, label: 'fresh' },
-        });
+        push(
+          'compare',
+          [...callLine, lineOf(code, 'if (head == null)')],
+          empty
+            ? 'head es null: la cadena está vacía, así que el nodo nuevo es también el primero.'
+            : 'head no es null: hay un último nodo, y hay que caminar hasta él.',
+          { carry: held },
+        );
+        if (empty) {
+          cost += 1;
+          push(
+            'link',
+            [...callLine, lineOf(code, 'head = fresh')],
+            `head pasa a apuntar al nodo ${x}: la cadena deja de estar vacía.`,
+            { carry: held, headToCarry: true },
+          );
+        } else if (tail) {
+          cost += 1;
+          push(
+            'link',
+            [...callLine, lineOf(code, 'tail.next = fresh')],
+            `tail ya apunta al último: enlazamos ${x} sin recorrer nada.`,
+            { carry: held, tailToCarry: true },
+          );
+        } else {
+          // `current` starts at head and stops on the node whose next is null.
+          // The last hop leaves it THERE, so the linking frame still shows
+          // which node is being modified.
+          for (let j = 0; j < cells.length; j += 1) {
+            cost += 1;
+            cells[j] = { ...cells[j]!, state: 'active' };
+            push(
+              // `current = head` is not a hop: the walk frames are exactly the
+              // hops, so counting them reproduces the $$N - 1$$ the prose claims.
+              j === 0 ? 'start' : 'walk',
+              j === 0
+                ? [...callLine, lineOf(code, 'Node current = head')]
+                : [
+                    ...callLine,
+                    lineOf(code, `while (${circular ? 'current.next != head' : 'current.next != null'}`),
+                    lineOf(code, 'current = current.next'),
+                  ],
+              j === 0
+                ? `current parte en head, sobre el nodo ${cells[0]!.value}.`
+                : `current.next no era null: avanzamos al nodo ${cells[j]!.value} (salto ${j}).`,
+              { carry: held, pointers: basePointers([{ name: 'current', index: j }]) },
+            );
+            if (j < cells.length - 1) cells[j] = { ...cells[j]!, state: 'idle' };
+          }
+          cost += 1;
+          push(
+            'link',
+            [...callLine, lineOf(code, 'current.next = fresh')],
+            `current.next deja de ser null y pasa a apuntar al nodo ${x}.`,
+            {
+              carry: held,
+              tailToCarry: true,
+              pointers: basePointers([{ name: 'current', index: cells.length - 1 }]),
+            },
+          );
+          cells[cells.length - 1] = { ...cells[cells.length - 1]!, state: 'idle' };
+        }
+        cells.push({ id: (nextId += 1), value: x, state: 'new' });
+        if (tail) {
+          cost += 1;
+          push(
+            'link',
+            [...callLine, lineOf(code, 'tail = fresh')],
+            `tail pasa a apuntar al nodo ${x}, que ya es el último de la cadena.`,
+          );
+        }
+        cost += 1;
+        push(
+          'done',
+          [...callLine, lineOf(code, 'size++')],
+          `El nodo ${x} queda al final de la cadena. El largo pasa a ${cells.length}.`,
+        );
+        cells[cells.length - 1] = { ...cells[cells.length - 1]!, state: 'idle' };
       }
-      cells.push({ id: (nextId += 1), value: x, state: 'new' });
-      cost += 1;
-      push('done', [lineOf(code, 'size++')], `El largo pasa a ${cells.length}.`);
       break;
     }
     case 'insert-at': {

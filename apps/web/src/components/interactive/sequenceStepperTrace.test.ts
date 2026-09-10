@@ -436,3 +436,65 @@ describe('sequenceStepperTrace · the listings', () => {
     expect(seen.size).toBeGreaterThan(1);
   });
 });
+
+describe('sequenceStepperTrace · a chain built one insertion at a time', () => {
+  // Two slides of 18-edd-listas-enlazadas.mdx grow a chain from empty — one at
+  // the front, one at the back — and the whole comparison the class makes
+  // rests on what those two traces count. Pinned here rather than watched in
+  // the browser: the paint is derived from these frames.
+  const four = [5, 1, 3, 7];
+
+  it('insertFirst from empty ends with the values in reverse, and never walks', () => {
+    const trace = traceFor('linked-list-singly', 'insert-first', { values: [], value: four });
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([...four].reverse());
+    expect(trace.steps.filter((s) => s.kind === 'walk')).toHaveLength(0);
+    // Θ(1) each: the counter grows by the same amount on every insertion.
+    const done = trace.steps.filter((s) => s.kind === 'done').map((s) => s.cost);
+    expect(done.map((c, i) => (i === 0 ? c : c - done[i - 1]!))).toEqual([4, 4, 4, 4]);
+  });
+
+  it('insertLast from empty ends in order, walking one node more each time', () => {
+    const trace = traceFor('linked-list-singly', 'insert-last', { values: [], value: four });
+    expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual(four);
+    // The first insertion takes the empty branch and walks nothing; after it,
+    // the walk is as long as the chain — 0, 1, 2 hops. That IS the Θ(N).
+    expect(trace.steps.filter((s) => s.kind === 'walk')).toHaveLength(0 + 0 + 1 + 2);
+    const done = trace.steps.filter((s) => s.kind === 'done').map((s) => s.cost);
+    expect(done.map((c, i) => (i === 0 ? c : c - done[i - 1]!))).toEqual([4, 5, 6, 7]);
+  });
+
+  it('parks the floating node over the slot it is about to land in', () => {
+    const trace = traceFor('linked-list-singly', 'insert-last', { values: [], value: four });
+    const carried = trace.steps.filter((s) => s.carry !== undefined);
+    expect(carried.every((s) => s.carry!.slot === s.cells.length)).toBe(true);
+    // insert-first grows at the front, so it keeps the front slot it has
+    // always used and names none.
+    const front = traceFor('linked-list-singly', 'insert-first', { values: [], value: four });
+    expect(front.steps.every((s) => s.carry?.slot === undefined)).toBe(true);
+  });
+
+  it('shows the link leaving the last node, once per insertion but the first', () => {
+    const trace = traceFor('linked-list-singly', 'insert-last', { values: [], value: four });
+    expect(trace.steps.filter((s) => s.tailToCarry === true)).toHaveLength(3);
+    expect(trace.steps.filter((s) => s.headToCarry === true)).toHaveLength(1);
+  });
+
+  it('drives the listing with a calling program that names every insertion', () => {
+    const { code } = traceFor('linked-list-singly', 'insert-last', { values: [], value: four });
+    for (const x of four) expect(code).toContain(`list.insertLast(${x});`);
+  });
+
+  it('asks about the empty chain before dereferencing head', () => {
+    for (const tail of [false, true]) {
+      const { code } = traceFor('linked-list-singly', 'insert-last', {
+        values: [7, 3],
+        value: 9,
+        tail,
+      });
+      expect(code).toContain('if (head == null)');
+      // One `size++`, so no fragment of the listing appears twice — `lineOf`
+      // names lines by text and would silently pick the first of two.
+      expect(code.split('\n').filter((l) => l.includes('size++'))).toHaveLength(1);
+    }
+  });
+});

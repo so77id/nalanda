@@ -788,7 +788,10 @@ animate: `get-at`, `insert-first`, `insert-last`, `insert-at`,
 positional operations (`get-at` included), and `target` both `search` and
 `insert-ordered`. **`value` also takes an ARRAY** — `value={[9, 4, 6]}` runs
 three insertions end to end over the same chain, which is how a slide shows
-the list growing rather than one insertion in isolation. `tail` draws a
+the list growing rather than one insertion in isolation. Today `insert-first`
+and `insert-last` read it, and both accept `values={[]}`: a chain built from
+nothing is the clearest way to show a cost that grows, because the reader
+watches the walk get one hop longer on every insertion. `tail` draws a
 tail pointer on a list, `showCode={false}` hides the listing when the slide
 already carries it, and `autoplay` / `speed` behave as in every other stepper.
 

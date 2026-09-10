@@ -21,6 +21,25 @@ operation is a code change, not a flag in an `.mdx` (§Consequences), and this
 is that change: engine, listings for both families, tests pinning that no hop
 is skipped, catalog examples, and the course-author guide's prop list.
 
+**Amended by:** #288, slide-by-slide review (2026-09-10) — `insert-last`
+accepts an ARRAY of values, so a slide can grow a chain from empty at the
+BACK the way `insert-first` grows it at the front. Three consequences worth
+recording. (a) The listing gains the branch it was missing: with no nodes
+there is no last node to link to, so `if (head == null) head = fresh;`, and
+the empty case stops being a silent `NullPointerException` in a listing a
+student may copy. One `size++` at the end rather than one per branch, because
+`lineOf` names lines by TEXT and would silently pick the first of two. (b)
+The frame model gains `carry.slot` — which slot the floating node hovers
+over, so an operation that grows at the back parks it where the node will
+land — and `tailToCarry`, the mirror of `headToCarry`: the one frame in which
+the last node's `next` has been assigned and the node has not moved yet.
+(c) The `null` terminator and `head`'s empty-chain target are now derived
+from the last LIVE cell rather than the last slot DRAWN, and both from one
+shared expression: a chain that grows at the back sits flush left inside a
+layout reserved for the widest frame, and the two indices differ by every
+slot not filled yet. Painted from two copies of that arithmetic, `head` drew
+an arrow across the whole canvas THROUGH the `null` it was supposed to reach.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly

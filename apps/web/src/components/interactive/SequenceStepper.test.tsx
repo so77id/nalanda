@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
@@ -164,5 +164,51 @@ describe('<SequenceStepper> · the runtime identity trap', () => {
       </ModeProvider>,
     );
     expect(screen.getByRole('figure')).toHaveAttribute('data-step', '0');
+  });
+});
+
+describe('<SequenceStepper> · a chain that starts empty', () => {
+  // The two slides that build a chain from nothing reach frames no other
+  // slide does: no live cell at all, and — for the circular recipe — a ring
+  // with nothing to close. Both draw from indices derived from the number of
+  // LIVE cells, which is -1 when there are none.
+  it('renders every frame of insertLast from empty without throwing', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-singly"
+        operation="insert-last"
+        values={[]}
+        value={[5, 1, 3, 7]}
+      />,
+    );
+    // fireEvent, not userEvent: 21 frames of pointer simulation take seconds,
+    // and what is under test is the paint of each frame, not the click. The
+    // button is re-queried every iteration — React replaces the node.
+    // `aria-disabled`, not the native property: ControlButton stays focusable
+    // at the end of a trace so a keyboard reader is not dropped out of the
+    // control row.
+    const forward = () => screen.getByRole('button', { name: 'Adelante' });
+    let guard = 0;
+    while (forward().getAttribute('aria-disabled') !== 'true' && guard < 60) {
+      fireEvent.click(forward());
+      guard += 1;
+    }
+    // 4 + 5 + 6 + 7 frames: one insertion more expensive than the last.
+    expect(guard).toBe(21);
+    expect(screen.getByTestId('sequence-structure')).toHaveAccessibleName(/5, 1, 3, 7/);
+  });
+
+  it('draws no closing ring while a circular chain has no nodes', () => {
+    renderIn(
+      'book',
+      <SequenceStepper
+        eda="linked-list-circular"
+        operation="insert-first"
+        values={[]}
+        value={[4, 2]}
+      />,
+    );
+    expect(screen.queryByText('el último vuelve al primero')).not.toBeInTheDocument();
   });
 });

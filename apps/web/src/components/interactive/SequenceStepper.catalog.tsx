@@ -33,7 +33,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'value',
       type: 'number | number[]',
       description:
-        'The value inserted. Required by `insert-first`, `insert-last` and `insert-at`. An ARRAY inserts each value in turn over the same chain, so a slide can show the list growing — `value={[9, 4, 6]}` runs three insertions end to end.',
+        'The value inserted. Required by `insert-first`, `insert-last` and `insert-at`. An ARRAY inserts each value in turn over the same chain, so a slide can show the list growing — `value={[9, 4, 6]}` runs three insertions end to end. `insert-first` and `insert-last` read the array, and both accept `values={[]}`: a chain built from nothing shows the empty-chain branch taken once and, at the back, the walk getting one hop longer every time.',
     },
     {
       name: 'index',
@@ -99,6 +99,18 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
           operation="insert-first"
           values={[7, 3]}
           value={[9, 4, 6]}
+        />
+      ),
+    },
+    {
+      title: 'A chain built from nothing, at the back — the walk gets longer',
+      code: '<SequenceStepper eda="linked-list-singly" operation="insert-last" values={[]} value={[5, 1, 3, 7]} />',
+      render: () => (
+        <SequenceStepper
+          eda="linked-list-singly"
+          operation="insert-last"
+          values={[]}
+          value={[5, 1, 3, 7]}
         />
       ),
     },

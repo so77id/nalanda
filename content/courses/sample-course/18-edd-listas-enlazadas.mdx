@@ -427,33 +427,33 @@ restaurarla cuesta esas tres asignaciones, haya cero elementos o un millón.
   value={[5, 1, 3, 7]}
 />
 
-</Slide>
-
-<Slide title="insertFirst en un arreglo · el mismo pedido, otro precio">
-El arreglo cumple el mismo contrato y tiene que hacer algo completamente
-distinto para cumplirlo.
-
-<SequenceStepper eda="array" operation="insert-first" values={[7, 3, 1, 5]} value={9} />
-
-Para que la posición `i` siga estando en `base + i × tamaño` no puede haber
-huecos, así que abrir espacio en la posición 0 obliga a copiar cada elemento
-una casilla a la derecha. Con $$N$$ elementos son $$N$$ copias: la operación
-es $$\Theta(N)$$, y lo es por la invariante de memoria consecutiva.
-
-Una llamada idéntica, `insertFirst(9)`, cuesta tres asignaciones en la lista y
-$$N$$ copias en el arreglo.
+La cadena creció cuatro veces y ningún nodo se movió de su sitio. En un
+arreglo, cada una de esas cuatro inserciones habría corrido todos los
+elementos una casilla a la derecha para abrir el hueco: $$\Theta(N)$$ cada
+vez. Aquí no hay hueco que abrir, porque los nodos no están obligados a ser
+vecinos, y por eso la lista gana en $$\Theta(1)$$ — el mismo pedido, y el
+costo dejó de depender del largo.
 
 </Slide>
 
-<Slide title="insertLast · caminar hasta el final">
+<Slide title="insertLast · insertar al final">
 Insertar al final invierte la comparación anterior.
 
-<SequenceStepper
-  eda="linked-list-singly"
-  operation="insert-last"
-  values={[7, 3, 1, 5]}
-  value={9}
-/>
+```java
+void insertLast(int x) {
+    Node fresh = new Node(x);
+    if (head == null) {
+        head = fresh;
+    } else {
+        Node current = head;
+        while (current.next != null) {
+            current = current.next;
+        }
+        current.next = fresh;
+    }
+    size++;
+}
+```
 
 Enlazar el nodo nuevo cuesta una asignación, igual que antes. Lo caro es
 llegar: el único nodo autorizado a apuntar al nuevo es el último, y la única
@@ -461,8 +461,25 @@ forma de saber cuál es consiste en recorrer la cadena hasta encontrar al que
 tiene `next == null`. Son $$N - 1$$ saltos, y el total queda en
 $$\Theta(N)$$.
 
-En un arreglo, en cambio, insertar al final es escribir en `data[size]`: una
-sola asignación, sin recorrer nada.
+La cadena vacía es un caso aparte, y por eso el método pregunta primero: sin
+nodos no hay un último al que enlazarse, así que lo que la inserción asigna
+es `head`. Olvidar esa pregunta es intentar leer `current.next` sobre `null`.
+
+</Slide>
+
+<Slide title="insertLast · cuatro inserciones seguidas">
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="insert-last"
+  values={[]}
+  value={[5, 1, 3, 7]}
+/>
+
+Cada inserción camina un nodo más que la anterior: cero saltos, uno, dos,
+tres. El contador de operaciones lo dice sin que haya que creerlo. En el
+arreglo esta misma operación era la barata —escribir en `data[size]`, sin
+recorrer nada— así que aquí la comparación se da vuelta: la lista paga
+$$\Theta(N)$$ por llegar al final justamente porque nadie guarda dónde está.
 
 </Slide>
 
@@ -1491,7 +1508,7 @@ Al insertar al principio de una lista, ¿qué pasa con los nodos que ya estaban?
 
 </Question>
 
-<Question id="lista-arreglo-corre-elementos" anchor="insertfirst-en-un-arreglo-el-mismo-pedido-otro-precio">
+<Question id="lista-arreglo-corre-elementos" anchor="insertfirst-cuatro-inserciones-seguidas">
 
 ¿Por qué insertar al principio de un arreglo obliga a copiar todos los elementos?
 
@@ -1502,7 +1519,7 @@ Al insertar al principio de una lista, ¿qué pasa con los nodos que ya estaban?
 
 </Question>
 
-<Question id="lista-insertlast-que-es-caro" anchor="insertlast-caminar-hasta-el-final">
+<Question id="lista-insertlast-que-es-caro" anchor="insertlast-insertar-al-final">
 
 Al insertar al final de una lista sin `tail`, ¿qué es lo caro?
 
