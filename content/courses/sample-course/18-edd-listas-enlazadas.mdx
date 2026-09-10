@@ -9,9 +9,9 @@ questions: pool
 {/* `per-section`, porque cada <Slide> es un h2 y exigir una pregunta por */}
 {/* slide serían más de cuarenta. Lo que el pool garantiza es densidad por */}
 {/* RANGO: un control se pide sobre un rango de secciones, así que cada */}
-{/* bloque tiene que poder llenar una copia de cuatro. Hoy: 4 en la apertura, */}
-{/* 4 en la EDA lista, 5 en las operaciones, 5 en las variantes, 4 en la */}
-{/* comparación y 4 en los ejercicios. */}
+{/* bloque tiene que poder llenar una copia de cuatro. Hoy: 6 en la apertura */}
+{/* (que llega hasta las invariantes), 7 en las operaciones, 5 en las */}
+{/* variantes, 4 en la comparación y 4 en los ejercicios. */}
 
 # Estructuras de Datos · Listas Enlazadas
 
@@ -241,11 +241,6 @@ Una sola referencia, `head`, alcanza para tener la cadena entera: desde ella
 se llega al primero, y de cada uno al que sigue. El último no apunta a
 ninguno, y ese `null` es lo que dice dónde termina.
 
-Dos propiedades ordenan el resto de la clase. Llegar al elemento de la
-posición `i` cuesta `i` saltos, porque no hay otra forma de avanzar que
-siguiendo enlaces. Y cambiar dónde apunta un enlace reordena la cadena sin
-mover ningún dato.
-
 </Slide>
 
 <Slide title="La estructura en código">
@@ -290,72 +285,11 @@ sea correcto.
    agrega o saca un nodo lo actualiza. Un `size` desfasado convierte en
    válidos índices que no existen.
 
-La segunda es la que cuesta dinero. Es la que permite que insertar al
-principio sea cambiar un enlace, sin tocar ningún otro nodo; y es también la
-razón de que llegar a la posición `i` obligue a dar `i` saltos, porque la
-única forma de avanzar en la cadena es preguntarle a cada nodo por el
-siguiente.
-
-</Slide>
-
-<Slide title="El contrato, implementado">
-Las operaciones del TDA Sequence se escriben sobre esta EDA sin cambiar sus
-nombres ni su significado:
-
-```java
-public class LinkedList implements Sequence {
-    public int len()                     { ... }
-    public int getAt(int i)              { ... }
-    public void setAt(int i, int x)      { ... }
-    public void insertAt(int i, int x)   { ... }
-    public int deleteAt(int i)           { ... }
-    public void insertFirst(int x)       { ... }
-    public void insertLast(int x)        { ... }
-    public int deleteFirst()             { ... }
-    public int deleteLast()              { ... }
-}
-```
-
-El contrato es idéntico al que cumple el arreglo. Un método que reciba un
-`Sequence` funciona con cualquiera de las dos sin enterarse de cuál recibió.
-Lo que cambia por completo es cuánto tarda cada llamada.
-
-</Slide>
-
-<Slide title="Operaciones y sus costos">
-| Molde | Operación | Peor caso | Invariante que restaura |
-|---|---|---|---|
-| consultar | `len()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
-| consultar | `getAt(i)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
-| consultar | `search(x)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
-| modificar | `setAt(i, x)` | $$\Theta(N)$$ | Ninguna: cambia un valor, no la forma |
-| modificar | <code style={{ color: 'var(--color-keep)' }}>insertFirst(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: el nodo nuevo enlaza al que lo era |
-| modificar | `insertLast(x)` | $$\Theta(N)$$ | La cadena termina en `null`: hay que encontrar quién lo hace |
-| modificar | `insertAt(i, x)` | $$\Theta(N)$$ | La cadena queda completa: el previo enlaza al nuevo, el nuevo al que seguía |
-| modificar | <code style={{ color: 'var(--color-keep)' }}>deleteFirst()</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: pasa a ser el segundo |
-| modificar | `deleteLast()` | $$\Theta(N)$$ | La cadena termina en `null`: el nuevo último debe apuntar ahí |
-| modificar | `deleteAt(i)` | $$\Theta(N)$$ | La cadena no se corta: el previo salta al siguiente |
-
-No hay fila de `crear`: construir la lista es insertar, y esas filas ya están.
-Las dos destacadas son las únicas de costo constante, y las dos operan sobre
-el mismo lugar: el principio de la cadena. Es el único punto al que se llega
-sin caminar, porque `head` ya está ahí.
-
-</Slide>
-
-<Slide title="Dónde vive el costo">
-Todo lo que cuesta $$\Theta(N)$$ en esta tabla lo cuesta por la misma razón, y
-no es la operación en sí: es **llegar** al lugar donde hay que operar.
-
-Enlazar un nodo cuesta lo mismo en cualquier parte de la cadena —una
-asignación—, pero para enlazarlo en la posición `i` primero hay que tener en
-la mano el nodo `i - 1`, y para tenerlo hay que dar `i - 1` saltos desde
-`head`.
-
-El vocabulario asintótico que ordena estas cifras está en
-[[complejidad-de-hilbert-al-big-o|De Hilbert al Big O]]. Aquí interesa una
-sola lectura: en una lista, el costo de una operación se mide en **cuántos
-enlaces hay que seguir antes de poder trabajar**.
+La segunda es la que fija los dos costos de la estructura, el barato y el
+caro, y por eso conviene tenerla a mano. Gracias a ella insertar al principio
+es cambiar un enlace, sin tocar ningún otro nodo. Y por ella misma, llegar a
+la posición `i` obliga a dar `i` saltos: la única forma de avanzar en la
+cadena es preguntarle a cada nodo por el siguiente.
 
 </Slide>
 
@@ -554,6 +488,67 @@ cuidado, y las tres aparecen en los extremos de la cadena.
 
 En los tres, quien se rompe primero es una invariante, no el programa: el
 error aparece más tarde, en una operación que sí confiaba en ella.
+
+</Slide>
+
+<Slide title="El contrato, implementado">
+Las operaciones del TDA Sequence se escriben sobre esta EDA sin cambiar sus
+nombres ni su significado:
+
+```java
+public class LinkedList implements Sequence {
+    public int len()                     { ... }
+    public int getAt(int i)              { ... }
+    public void setAt(int i, int x)      { ... }
+    public void insertAt(int i, int x)   { ... }
+    public int deleteAt(int i)           { ... }
+    public void insertFirst(int x)       { ... }
+    public void insertLast(int x)        { ... }
+    public int deleteFirst()             { ... }
+    public int deleteLast()              { ... }
+}
+```
+
+El contrato es idéntico al que cumple el arreglo. Un método que reciba un
+`Sequence` funciona con cualquiera de las dos sin enterarse de cuál recibió.
+Lo que cambia por completo es cuánto tarda cada llamada.
+
+</Slide>
+
+<Slide title="Operaciones y sus costos">
+| Molde | Operación | Peor caso | Invariante que restaura |
+|---|---|---|---|
+| consultar | `len()` | $$\Theta(1)$$ | Ninguna: `size` ya guarda el dato |
+| consultar | `getAt(i)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
+| consultar | `search(x)` | $$\Theta(N)$$ | Ninguna: no cambia la cadena |
+| modificar | `setAt(i, x)` | $$\Theta(N)$$ | Ninguna: cambia un valor, no la forma |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>insertFirst(x)</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: el nodo nuevo enlaza al que lo era |
+| modificar | `insertLast(x)` | $$\Theta(N)$$ | La cadena termina en `null`: hay que encontrar quién lo hace |
+| modificar | `insertAt(i, x)` | $$\Theta(N)$$ | La cadena queda completa: el previo enlaza al nuevo, el nuevo al que seguía |
+| modificar | <code style={{ color: 'var(--color-keep)' }}>deleteFirst()</code> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | `head` apunta al primero: pasa a ser el segundo |
+| modificar | `deleteLast()` | $$\Theta(N)$$ | La cadena termina en `null`: el nuevo último debe apuntar ahí |
+| modificar | `deleteAt(i)` | $$\Theta(N)$$ | La cadena no se corta: el previo salta al siguiente |
+
+No hay fila de `crear`: construir la lista es insertar, y esas filas ya están.
+Las dos destacadas son las únicas de costo constante, y las dos operan sobre
+el mismo lugar: el principio de la cadena. Es el único punto al que se llega
+sin caminar, porque `head` ya está ahí.
+
+</Slide>
+
+<Slide title="Dónde vive el costo">
+Todo lo que cuesta $$\Theta(N)$$ en esta tabla lo cuesta por la misma razón, y
+no es la operación en sí: es **llegar** al lugar donde hay que operar.
+
+Enlazar un nodo cuesta lo mismo en cualquier parte de la cadena —una
+asignación—, pero para enlazarlo en la posición `i` primero hay que tener en
+la mano el nodo `i - 1`, y para tenerlo hay que dar `i - 1` saltos desde
+`head`.
+
+El vocabulario asintótico que ordena estas cifras está en
+[[complejidad-de-hilbert-al-big-o|De Hilbert al Big O]]. Aquí interesa una
+sola lectura: en una lista, el costo de una operación se mide en **cuántos
+enlaces hay que seguir antes de poder trabajar**.
 
 </Slide>
 
