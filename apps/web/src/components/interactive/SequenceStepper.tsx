@@ -68,6 +68,7 @@ const RECIPE_LABEL: Record<SequenceRecipe, string> = {
 };
 
 const OPERATION_LABEL: Record<SequenceOperation, string> = {
+  'get-at': 'obtener una posición',
   'insert-first': 'insertar al principio',
   'insert-last': 'insertar al final',
   'insert-at': 'insertar en una posición',

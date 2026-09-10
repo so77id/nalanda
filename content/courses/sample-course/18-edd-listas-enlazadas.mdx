@@ -355,45 +355,20 @@ recorrerla.
 <Slide title="getAt · caminar hasta la posición">
 Pedir el elemento de una posición no es una cuenta: es un recorrido.
 
-```java
-int getAt(int i) {
-    Node current = head;
-    for (int j = 0; j < i; j++) {
-        current = current.next;
-    }
-    return current.value;
-}
-```
+<SequenceStepper
+  eda="linked-list-singly"
+  operation="get-at"
+  values={[7, 3, 1, 5]}
+  index={2}
+/>
 
-<svg viewBox="0 0 700 128" style={{ width: '100%', maxWidth: '700px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="Una lista de cuatro nodos. Para llegar al de la posición 2 hay que partir de head y dar dos saltos: del primero al segundo, y del segundo al tercero.">
-  <defs>
-    <marker id="get-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
-      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-focus)' }} />
-    </marker>
-  </defs>
-  {[7, 3, 1, 5].map((v, i) => (
-    <g key={i}>
-      <rect x={20 + i * 158} y="40" width="72" height="50" rx="4" style={{ fill: 'var(--color-surface)', stroke: i === 2 ? 'var(--color-focus)' : 'var(--color-rule-strong)' }} strokeWidth={i === 2 ? 2.6 : 1.6} />
-      <rect x={92 + i * 158} y="40" width="34" height="50" rx="4" style={{ fill: 'var(--color-sunk)', stroke: i === 2 ? 'var(--color-focus)' : 'var(--color-rule-strong)' }} strokeWidth={i === 2 ? 2.6 : 1.6} />
-      <text x={56 + i * 158} y="73" textAnchor="middle" fontSize="22" fontWeight="600" style={{ fill: 'var(--color-ink)' }}>{v}</text>
-      <text x={72 + i * 158} y="110" textAnchor="middle" fontSize="12" style={{ fill: 'var(--color-ink-faint)' }}>{`i = ${i}`}</text>
-      {i < 3 ? (
-        <line x1={109 + i * 158} y1="65" x2={170 + i * 158} y2="65" style={{ stroke: i < 2 ? 'var(--color-focus)' : 'var(--color-ink-soft)' }} strokeWidth={i < 2 ? 2.2 : 1.6} markerEnd={i < 2 ? 'url(#get-punta)' : undefined} />
-      ) : null}
-      {i < 2 ? (
-        <text x={140 + i * 158} y="30" textAnchor="middle" fontSize="12" fontWeight="700" style={{ fill: 'var(--color-focus)' }}>{`salto ${i + 1}`}</text>
-      ) : null}
-    </g>
-  ))}
-</svg>
-
-Llegar a la posición `i` cuesta `i` saltos, y en el peor caso —el último
-nodo— son $$N - 1$$: la operación es $$\Theta(N)$$.
+Cada paso del recorrido es un salto, y hay que darlos todos: no existe forma
+de adelantarse. Llegar a la posición `i` cuesta `i` saltos, y en el peor caso
+—el último nodo— son $$N - 1$$, así que la operación es $$\Theta(N)$$.
 
 Es exactamente la operación que el arreglo resuelve con una multiplicación y
 una suma. Aquí no hay ninguna cuenta posible, porque las direcciones de los
-nodos no guardan relación entre sí; la única forma de avanzar es preguntarle
-a cada nodo por el siguiente.
+nodos no guardan relación entre sí.
 
 </Slide>
 

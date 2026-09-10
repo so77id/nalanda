@@ -34,6 +34,7 @@ export const RECIPES = [
 export type SequenceRecipe = (typeof RECIPES)[number];
 
 export const OPERATIONS = [
+  'get-at',
   'insert-first',
   'insert-last',
   'insert-at',
@@ -179,6 +180,9 @@ function requireTarget(input: SequenceInput): number {
 // ── the array family ──────────────────────────────────────────────────────
 
 const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> = {
+  'get-at': `int getAt(int i) {
+    return data[i];
+}`,
   'insert-first': `void insertFirst(int x) {
     for (int j = size; j > 0; j--) {
         data[j] = data[j - 1];
@@ -416,6 +420,19 @@ function traceArray(
       );
       break;
     }
+    case 'get-at': {
+      const at = requireIndex(input, size(), false);
+      push('start', [1], `Pedimos el elemento de la posición ${at}.`);
+      cost += 1;
+      slots[at] = { ...slots[at]!, state: 'found' };
+      push(
+        'found',
+        [2],
+        `La posición ${at} vive en base + ${at} × tamaño: una cuenta, y ya estamos ahí.`,
+        { pointers: [{ name: 'i', index: at }] },
+      );
+      break;
+    }
     case 'search': {
       const target = requireTarget(input);
       const n = size();
@@ -575,6 +592,14 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     prev.next = old.next;
     size--;
     return old.value;
+}`;
+    case 'get-at':
+      return `int getAt(int i) {
+    Node current = head;
+    for (int j = 0; j < i; j++) {
+        current = current.next;
+    }
+    return current.value;
 }`;
     case 'search':
       return `int search(int x) {
@@ -806,6 +831,34 @@ function traceList(
         `El nodo anterior salta por encima y apunta al siguiente. El largo pasa a ${cells.length}.`,
       );
       push('done', [9], `Devolvemos ${removed.value}.`);
+      break;
+    }
+    case 'get-at': {
+      requireNonEmpty(input.values);
+      const at = requireIndex(input, cells.length, false);
+      push('start', [2], `current parte de head, en la posición 0.`, {
+        pointers: basePointers([{ name: 'current', index: 0 }]),
+      });
+      // One frame per hop: the whole point of the operation is that there are
+      // `i` of them, so skipping any would hide the cost it teaches.
+      for (let j = 0; j < at; j += 1) {
+        cost += 1;
+        cells[j + 1] = { ...cells[j + 1]!, state: 'active' };
+        push(
+          'walk',
+          [3, 4],
+          `Salto ${j + 1}: current avanza al nodo ${cells[j + 1]!.value}, en la posición ${j + 1}.`,
+          { pointers: basePointers([{ name: 'current', index: j + 1 }]) },
+        );
+        cells[j + 1] = { ...cells[j + 1]!, state: 'idle' };
+      }
+      cells[at] = { ...cells[at]!, state: 'found' };
+      push(
+        'found',
+        [6],
+        `Llegamos a la posición ${at} tras ${at} salto${at === 1 ? '' : 's'}. Devolvemos ${cells[at]!.value}.`,
+        { pointers: basePointers([{ name: 'current', index: at }]) },
+      );
       break;
     }
     case 'search': {

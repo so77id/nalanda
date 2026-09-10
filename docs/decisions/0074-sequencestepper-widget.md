@@ -12,6 +12,15 @@ split of the widget into two pure modules (a frame trace and a layout) plus a
 thin painter · the refusal of invalid combinations at boot, addressed to the
 author · the palette the states are painted in, and why it is not the one the
 design reference proposed
+**Amended by:** #288, slide-by-slide review (2026-09-10) — a ninth operation,
+`get-at`. The class needs the operation the array answers with one
+multiplication and the list answers by walking, and it is the clearest
+contrast the widget can draw: the same tag over `array` produces a single
+frame at any position, over a chain it produces one frame per hop. Adding an
+operation is a code change, not a flag in an `.mdx` (§Consequences), and this
+is that change: engine, listings for both families, tests pinning that no hop
+is skipped, catalog examples, and the course-author guide's prop list.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly

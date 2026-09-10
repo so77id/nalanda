@@ -782,10 +782,11 @@ the controls at the foot. Two props choose what it shows:
 
 `eda` is the structure — `array`, `dynamic-array`, `linked-list-singly`,
 `linked-list-doubly` or `linked-list-circular` — and `operation` is what to
-animate: `insert-first`, `insert-last`, `insert-at`, `insert-ordered`,
-`remove-first`, `remove-last`, `remove-at` or `search`. `values` is the
-starting contents; `value` feeds the inserts, `index` the positional
-operations, and `target` both `search` and `insert-ordered`. `tail` draws a
+animate: `get-at`, `insert-first`, `insert-last`, `insert-at`,
+`insert-ordered`, `remove-first`, `remove-last`, `remove-at` or `search`.
+`values` is the starting contents; `value` feeds the inserts, `index` the
+positional operations (`get-at` included), and `target` both `search` and
+`insert-ordered`. `tail` draws a
 tail pointer on a list, `showCode={false}` hides the listing when the slide
 already carries it, and `autoplay` / `speed` behave as in every other stepper.
 

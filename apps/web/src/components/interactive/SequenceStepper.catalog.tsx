@@ -19,7 +19,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
     },
     {
       name: 'operation',
-      type: '"insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search"',
+      type: '"get-at" | "insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search"',
       description:
         'Required. Which operation to animate. `insert-ordered` is defined on the list recipes only — the ordered array is not a structure this unit presents — and any other pair is valid.',
     },
@@ -38,7 +38,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'index',
       type: 'number',
       description:
-        'The position acted on. Required by `insert-at` (range `[0, values.length]`) and `remove-at` (range `[0, values.length - 1]`). An index outside the structure is an authoring error.',
+        'The position acted on. Required by `get-at`, `insert-at` (range `[0, values.length]`) and `remove-at` (range `[0, values.length - 1]`). An index outside the structure is an authoring error.',
     },
     {
       name: 'target',
@@ -131,6 +131,25 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
           values={[7, 3, 1]}
           value={9}
         />
+      ),
+    },
+    {
+      title: 'getAt on a chain — one frame per hop, none skipped',
+      code: '<SequenceStepper eda="linked-list-singly" operation="get-at" values={[7, 3, 1, 5]} index={2} />',
+      render: () => (
+        <SequenceStepper
+          eda="linked-list-singly"
+          operation="get-at"
+          values={[7, 3, 1, 5]}
+          index={2}
+        />
+      ),
+    },
+    {
+      title: 'The same getAt on an array — one calculation, whatever the position',
+      code: '<SequenceStepper eda="array" operation="get-at" values={[7, 3, 1, 5]} index={2} />',
+      render: () => (
+        <SequenceStepper eda="array" operation="get-at" values={[7, 3, 1, 5]} index={2} />
       ),
     },
     {

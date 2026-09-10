@@ -300,6 +300,40 @@ describe('sequenceStepperTrace · the counts the prose claims', () => {
   });
 });
 
+describe('sequenceStepperTrace · get-at, the operation that shows the price', () => {
+  it.each([0, 1, 2, 3])('walks exactly i hops to reach position %i, skipping none', (i) => {
+    const trace = traceFor('linked-list-singly', 'get-at', { values, index: i });
+    expect(trace.steps.filter((s) => s.kind === 'walk')).toHaveLength(i);
+    // Every hop names the position it landed on, in order.
+    const landed = trace.steps
+      .filter((s) => s.kind === 'walk')
+      .map((s) => s.pointers.find((p) => p.name === 'current')!.index);
+    expect(landed).toEqual(Array.from({ length: i }, (_, k) => k + 1));
+  });
+
+  it('ends on the node it was asked for', () => {
+    const trace = traceFor('linked-list-singly', 'get-at', { values, index: 2 });
+    const last = trace.steps.at(-1)!;
+    expect(last.cells.filter((c) => c.state === 'found').map((c) => c.value)).toEqual([1]);
+    expect(last.pointers.find((p) => p.name === 'current')!.index).toBe(2);
+  });
+
+  it('costs one step on an array, whatever the position — that is the contrast', () => {
+    for (const i of [0, 1, 2, 3]) {
+      const trace = traceFor('array', 'get-at', { values, index: i });
+      expect(
+        trace.steps.filter((s) => s.kind === 'walk'),
+        `i=${i}`,
+      ).toHaveLength(0);
+      expect(trace.steps.at(-1)!.cost, `i=${i}`).toBe(1);
+    }
+  });
+
+  it('refuses a position outside the structure', () => {
+    expect(() => traceFor('linked-list-singly', 'get-at', { values, index: 9 })).toThrow(/rango/i);
+  });
+});
+
 describe('sequenceStepperTrace · the pointers the reader follows', () => {
   it('every list frame carries a head pointer', () => {
     const trace = traceFor('linked-list-singly', 'insert-at', { values, value: 9, index: 2 });
