@@ -297,28 +297,41 @@ cadena es preguntarle a cada nodo por el siguiente.
 
 ## Las operaciones de la lista enlazada
 
-<Slide title="build · construir la lista">
-Crear una lista a partir de una secuencia de elementos es insertarlos uno por
-uno. Qué inserción se use decide el costo de construirla entera.
+<Slide title="build · crear la lista desde cero">
+Una lista recién creada no tiene ningún nodo: `head` es `null` y `size` es
+cero. Esa es la lista vacía, y es desde donde se construye cualquier otra.
+
+<svg viewBox="0 0 360 96" style={{ width: '100%', maxWidth: '360px', height: 'auto', display: 'block', margin: '1rem auto' }} role="img" aria-label="Una lista vacía: la referencia head apunta directamente a null, y no hay ningún nodo.">
+  <defs>
+    <marker id="vacia-punta" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7 z" style={{ fill: 'var(--color-accent)' }} />
+    </marker>
+  </defs>
+  <text x="60" y="30" textAnchor="middle" fontSize="15" fontWeight="700" fontFamily="monospace" style={{ fill: 'var(--color-accent)' }}>head</text>
+  <line x1="88" y1="25" x2="168" y2="25" style={{ stroke: 'var(--color-accent)' }} strokeWidth="1.8" markerEnd="url(#vacia-punta)" />
+  <text x="196" y="30" fontSize="15" fontFamily="monospace" style={{ fill: 'var(--color-ink-faint)' }}>null</text>
+  <text x="180" y="72" textAnchor="middle" fontSize="13" style={{ fill: 'var(--color-ink-faint)' }}>ningún nodo · size = 0</text>
+</svg>
+
+A partir de ahí, cada inserción agrega un nodo. Construir la lista `7 → 3 → 1
+→ 5` es crear la vacía y meter los valores en orden inverso, cada uno por el
+frente:
 
 ```java
-static LinkedList build(int[] elements) {
-    LinkedList list = new LinkedList();
-    for (int i = elements.length - 1; i >= 0; i--) {
-        list.insertFirst(elements[i]);
-    }
-    return list;
-}
+LinkedList list = new LinkedList();
+list.insertFirst(5);
+list.insertFirst(1);
+list.insertFirst(3);
+list.insertFirst(7);
 ```
 
-El recorrido va **de atrás hacia adelante** y cada elemento entra al
-principio, así que el último en insertarse queda primero y el orden original
-se conserva. Cada `insertFirst` cuesta lo mismo sin importar cuántos nodos
-haya, de modo que construir la lista completa cuesta $$\Theta(N)$$.
+Cada `insertFirst` cuesta lo mismo sin importar cuántos nodos haya, así que
+construir una lista de $$N$$ elementos de esta manera cuesta $$\Theta(N)$$.
 
-Recorrer de adelante hacia atrás e ir insertando al final daría la misma
-lista y costaría mucho más: cada `insertLast` tiene que caminar hasta el
-último nodo, y esos recorridos suman $$\Theta(N^2)$$.
+Hacerlo por el otro extremo —insertando cada valor al final, en el orden en
+que se leen— da exactamente la misma lista y cuesta mucho más: cada
+`insertLast` tiene que recorrer la cadena hasta el último nodo, y esos
+recorridos suman $$\Theta(N^2)$$.
 
 </Slide>
 
