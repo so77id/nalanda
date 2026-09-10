@@ -165,7 +165,7 @@ Esa referencia al siguiente se llama **`next`**.
 
 </Slide>
 
-<Slide title="El nodo · un valor y un enlace">
+<Slide title="El nodo">
 La pieza de la que está hecha una lista es el **nodo**: una cajita con dos
 cosas adentro, el dato que guardamos y la dirección del nodo que sigue.
 
@@ -267,7 +267,7 @@ cada inserción y cada eliminación convierte `len()` en una lectura.
 
 </Slide>
 
-<Slide title="Las invariantes de la lista">
+<Slide title="Las invariantes de la lista enlazada">
 Tres propiedades tienen que valer antes y después de cada operación. Si
 alguna se rompe, las demás operaciones dejan de funcionar aunque su código
 sea correcto.
@@ -295,7 +295,7 @@ cadena es preguntarle a cada nodo por el siguiente.
 
 <SectionBreak />
 
-## Las operaciones de la lista
+## Las operaciones de la lista enlazada
 
 <Slide title="insertFirst · el enlace que no mueve nada">
 Insertar al principio se resuelve con tres asignaciones y ninguna depende de
@@ -554,7 +554,7 @@ enlaces hay que seguir antes de poder trabajar**.
 
 <SectionBreak />
 
-## Las variantes de la lista
+## Las variantes de la lista enlazada
 
 <Slide title="La lista con tail · un puntero más">
 La primera variante agrega un solo atributo:
@@ -808,9 +808,9 @@ no de dónde ocurre.
 
 <SectionBreak />
 
-## El arreglo y la lista
+## El arreglo y la lista enlazada
 
-<Slide title="Arreglo y lista · la tabla completa">
+<Slide title="Arreglo y lista enlazada · la tabla completa">
 | Operación | Arreglo | Arreglo dinámico | Lista simple | Lista doble con tail |
 |---|---|---|---|---|
 | `getAt(i)` · `setAt(i, x)` | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | $$\Theta(N)$$ | $$\Theta(N)$$ |
@@ -1324,7 +1324,7 @@ arreglo y la lista.
 
 </Question>
 
-<Question id="lista-que-guarda-un-nodo" anchor="el-nodo-un-valor-y-un-enlace">
+<Question id="lista-que-guarda-un-nodo" anchor="el-nodo">
 
 ¿Qué guarda un nodo de una lista enlazada?
 
@@ -1335,7 +1335,7 @@ arreglo y la lista.
 
 </Question>
 
-<Question id="lista-next-de-un-nodo-nuevo" anchor="el-nodo-un-valor-y-un-enlace">
+<Question id="lista-next-de-un-nodo-nuevo" anchor="el-nodo">
 
 Un nodo recién creado tiene su campo `next` en `null`. ¿Qué significa eso?
 
@@ -1373,7 +1373,7 @@ Mantener `size` al día cuesta una suma o una resta por operación, y a cambio
 
 </Question>
 
-<Question id="lista-head-al-medio" anchor="las-invariantes-de-la-lista">
+<Question id="lista-head-al-medio" anchor="las-invariantes-de-la-lista-enlazada">
 
 Si `head` queda apuntando a un nodo del medio de la cadena, ¿qué ocurre?
 
@@ -1526,7 +1526,7 @@ En una lista circular, ¿qué hace un recorrido escrito como `while (current != 
 
 </Question>
 
-<Question id="lista-comparacion-espejo" anchor="arreglo-y-lista-la-tabla-completa">
+<Question id="lista-comparacion-espejo" anchor="arreglo-y-lista-enlazada-la-tabla-completa">
 
 Según la tabla comparativa, ¿qué operación tiene costo constante en el arreglo y lineal en la lista simple?
 
