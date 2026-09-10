@@ -656,13 +656,28 @@ function Pointers({ step, layout }: { step: SequenceStep; layout: SequenceLayout
         const walking = pointer.name !== 'head' && pointer.name !== 'tail';
         const colour = walking ? 'var(--color-focus)' : 'var(--color-accent)';
         // A pointer aimed past the end is drawn at the null marker.
-        const x = box ? box.centerX : layout.width - 12;
+        // A walking pointer standing on the same node as `head` or `tail` is
+        // nudged sideways: the two labels ride different rows, but the fixed
+        // pointer's ARROW runs straight through the walking one's label, and
+        // the first frame of every walk starts exactly there.
+        const collides =
+          walking &&
+          pointer.index !== null &&
+          step.pointers.some(
+            (other) =>
+              (other.name === 'head' || other.name === 'tail') && other.index === pointer.index,
+          );
+        const nudge = collides ? 26 : 0;
+        const x = (box ? box.centerX : layout.width - 12) + nudge;
         return (
           <g key={pointer.name}>
             <text
               x={x}
               y={y}
-              textAnchor="middle"
+              // Anchored away from the collision rather than centred: a
+              // centred label still grows back over the arrow it was nudged
+              // clear of.
+              textAnchor={collides ? 'start' : 'middle'}
               fontSize="10"
               fontWeight="700"
               fill={colour}
@@ -673,7 +688,7 @@ function Pointers({ step, layout }: { step: SequenceStep; layout: SequenceLayout
             <line
               x1={x}
               y1={y + 3}
-              x2={x}
+              x2={x - nudge}
               y2={layout.top - 3}
               stroke={colour}
               strokeWidth={walking ? 1.8 : 1.2}

@@ -265,9 +265,9 @@ const ARRAY_CODE: Record<Exclude<SequenceOperation, 'insert-ordered'>, string> =
     return x;
 }`,
   search: `int search(int x) {
-    for (int j = 0; j < size; j++) {
-        if (data[j] == x) {
-            return j;
+    for (int i = 0; i < size; i++) {
+        if (data[i] == x) {
+            return i;
         }
     }
     return -1;
@@ -501,7 +501,7 @@ function traceArray(
       const n = size();
       push(
         'start',
-        [lineOf(code, 'for (int j = 0')],
+        [lineOf(code, 'for (int i = 0')],
         `Buscamos ${target} recorriendo el arreglo desde la posición 0.`,
       );
       let found = -1;
@@ -526,7 +526,7 @@ function traceArray(
       }
       push(
         found >= 0 ? 'found' : 'done',
-        found >= 0 ? [lineOf(code, 'return j;')] : [lineOf(code, 'return -1;')],
+        found >= 0 ? [lineOf(code, 'return i;')] : [lineOf(code, 'return -1;')],
         found >= 0
           ? `Encontramos ${target} en la posición ${found}.`
           : `Recorrimos las ${n} posiciones: ${target} no está en el arreglo.`,
@@ -692,13 +692,11 @@ function listCode(recipe: SequenceRecipe, operation: SequenceOperation, tail: bo
     case 'search':
       return `int search(int x) {
     Node current = head;
-    int j = 0;
-    while (current != null) {
+    for (int i = 0; current != null; i++) {
         if (current.value == x) {
-            return j;
+            return i;
         }
         current = current.next;
-        j++;
     }
     return -1;
 }`;
@@ -1060,7 +1058,7 @@ function traceList(
       }
       push(
         found >= 0 ? 'found' : 'done',
-        found >= 0 ? [lineOf(code, 'return j;')] : [lineOf(code, 'return -1;')],
+        found >= 0 ? [lineOf(code, 'return i;')] : [lineOf(code, 'return -1;')],
         found >= 0
           ? `Encontramos ${target} tras recorrer ${found + 1} nodo${found === 0 ? '' : 's'}.`
           : `Recorrimos los ${cells.length} nodos: ${target} no está en la lista.`,

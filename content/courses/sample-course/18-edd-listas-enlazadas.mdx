@@ -352,7 +352,7 @@ recorrerla.
 
 </Slide>
 
-<Slide title="getAt · caminar hasta la posición">
+<Slide title="getAt · el dato de la posición $$i$$">
 Pedir el elemento de una posición no es una cuenta: es un recorrido.
 
 <SequenceStepper
@@ -372,19 +372,20 @@ nodos no guardan relación entre sí.
 
 </Slide>
 
-<Slide title="buscar · sin atajos">
+<Slide title="buscar · el recorrido hasta el valor">
 Buscar un valor recorre la cadena preguntando nodo por nodo.
 
 <SequenceStepper
   eda="linked-list-singly"
   operation="search"
-  values={[7, 3, 1, 5]}
-  target={1}
+  values={[7, 3, 1, 5, 9, 2, 8]}
+  target={8}
 />
 
-En el peor caso —el valor no está— se visitan los $$N$$ nodos:
-$$\Theta(N)$$. Un arreglo desordenado cuesta lo mismo, y por una vez las dos
-estructuras empatan.
+El peor caso visita los $$N$$ nodos, y llega por dos caminos: que el valor
+esté al final, o que no esté. En los dos hay que preguntarle a todos antes de
+poder responder, así que la operación es $$\Theta(N)$$. Un arreglo
+desordenado cuesta lo mismo, y por una vez las dos estructuras empatan.
 
 El empate se rompe cuando los datos están ordenados. Sobre un arreglo
 ordenado la búsqueda binaria baja a $$\Theta(\log N)$$ porque puede saltar
