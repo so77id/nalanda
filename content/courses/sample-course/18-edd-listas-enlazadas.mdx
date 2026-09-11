@@ -811,17 +811,20 @@ que sigue se explica por ella.
 <SequenceStepper
   eda="linked-list-singly"
   operation="insert-last"
-  values={[7, 3, 1, 5]}
-  value={9}
+  values={[]}
+  value={[5, 1, 3, 7, 2]}
   tail
 />
 
-El recorrido desapareció. `tail` ya tiene en la mano el nodo que hay que
-modificar, así que enlazar el nodo nuevo y actualizar `tail` son dos
-asignaciones: la operación baja de $$\Theta(N)$$ a $$\Theta(1)$$.
+Cinco inserciones desde la cadena vacía, y ninguna recorre nada. `tail` ya
+tiene en la mano el nodo que hay que modificar, así que enlazar el nodo nuevo
+y actualizar `tail` son dos asignaciones: la operación baja de $$\Theta(N)$$
+a $$\Theta(1)$$, y el contador lo confirma subiendo lo mismo las cinco veces.
 
-Es el patrón que se repite en toda la unidad: guardar un dato de más
-—un puntero— convierte un recorrido en una lectura.
+El precio fue guardar un dato de más. Con ese puntero la estructura ya no
+tiene que buscar el final: lo sabe. Cambiamos memoria —una referencia— por
+tiempo, y el cambio conviene porque el puntero se actualiza en una asignación
+mientras el recorrido crecía con la cadena.
 
 </Slide>
 
