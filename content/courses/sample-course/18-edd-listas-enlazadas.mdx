@@ -1538,310 +1538,190 @@ class Solution {
 
 <Questions>
 
-<Question id="lista-que-deja-libre-sequence" anchor="el-tda-sequence">
+<Question id="lista-enlace-falta-el-comienzo" anchor="el-enlace">
 
-¿Qué deja libre el TDA Sequence?
+Cada nodo guarda su dato y la dirección del nodo siguiente. ¿Por qué eso todavía no alcanza para tener una lista?
 
-- [x] Dónde viven los elementos en memoria
-- [ ] Qué significa insertar en una posición
-- [ ] Cuántos elementos puede guardar la colección
-- [ ] En qué orden se devuelven los elementos
-
-<Explanation>
-El contrato fija qué se puede pedir y qué significa cada pedido. La
-representación en memoria queda abierta, y por eso el mismo contrato admite el
-arreglo y la lista.
-</Explanation>
+- [x] Porque nada dice por dónde empieza la cadena
+- [ ] Porque falta que cada nodo guarde también al anterior
+- [ ] Porque los nodos tendrían que estar en direcciones consecutivas
+- [ ] Porque falta guardar la cantidad de nodos
 
 </Question>
 
-<Question id="lista-que-guarda-un-nodo" anchor="el-nodo">
+<Question id="lista-nodo-que-guarda-next" anchor="el-nodo">
 
-¿Qué guarda un nodo de una lista enlazada?
+¿Qué guarda el campo `next` de un nodo?
 
-- [x] El dato y una referencia al nodo siguiente
-- [ ] El dato y su posición dentro de la lista
-- [ ] El dato y una copia del nodo siguiente
-- [ ] El dato y la dirección donde empieza la lista
-
-</Question>
-
-<Question id="lista-next-de-un-nodo-nuevo" anchor="el-nodo">
-
-Un nodo recién creado tiene su campo `next` en `null`. ¿Qué significa eso?
-
-- [x] Que después de ese nodo no hay ningún otro
-- [ ] Que el nodo todavía no guarda ningún dato
-- [ ] Que el nodo es el primero de la cadena
-- [ ] Que el nodo ocupa la última casilla de memoria
+- [x] Una referencia al nodo siguiente
+- [ ] Una copia del nodo siguiente
+- [ ] El valor del nodo siguiente
+- [ ] La posición que el nodo ocupa en la lista
 
 </Question>
 
-<Question id="lista-para-que-sirve-head" anchor="la-lista-enlazada">
+<Question id="lista-invariante-size" anchor="las-invariantes-de-la-lista-enlazada">
 
-¿Para qué alcanza guardar solamente `head`?
+¿Qué significa que `size` sea una invariante de la estructura?
 
-- [x] Para llegar a todos los nodos siguiendo enlaces
-- [ ] Para saber cuántos nodos tiene la lista
-- [ ] Para llegar a cualquier posición con una cuenta
-- [ ] Para recorrer la cadena en los dos sentidos
-
-</Question>
-
-<Question id="lista-por-que-se-guarda-size" anchor="la-estructura-en-codigo">
-
-¿Por qué la clase guarda `size` en vez de contar los nodos cuando se lo piden?
-
-- [x] Porque contarlos obliga a recorrer la cadena entera
-- [ ] Porque sin `size` no se puede insertar al final
-- [ ] Porque `head` no alcanza para llegar al último nodo
-- [ ] Porque el contrato exige guardar el largo
-
-<Explanation>
-Mantener `size` al día cuesta una suma o una resta por operación, y a cambio
-`len()` pasa a ser una lectura en vez de un recorrido.
-</Explanation>
+- [x] Que toda operación que agregue o saque un nodo tiene que dejarlo al día
+- [ ] Que `size` no cambia mientras la lista existe
+- [ ] Que `size` se recalcula recorriendo la cadena cada vez que alguien lo pide
+- [ ] Que `size` solo es correcto cuando la lista está vacía
 
 </Question>
 
-<Question id="lista-head-al-medio" anchor="las-invariantes-de-la-lista-enlazada">
+<Question id="lista-por-que-guardar-size" anchor="la-estructura-en-codigo">
 
-Si `head` queda apuntando a un nodo del medio de la cadena, ¿qué ocurre?
+La clase `LinkedList` guarda `head` y `size`. ¿Por qué guarda `size` en vez de contar los nodos cuando alguien pregunta el largo?
 
-- [x] Los nodos anteriores quedan inalcanzables
-- [ ] La cadena se recorre igual, empezando por el medio
-- [ ] El programa falla en la siguiente operación
-- [ ] Los nodos anteriores pasan al final de la cadena
-
-</Question>
-
-<Question id="lista-operaciones-constantes" anchor="operaciones-y-sus-costos">
-
-¿Cuáles operaciones de la lista simplemente enlazada tienen costo constante?
-
-- [x] `insertFirst(x)`
-- [x] `deleteFirst()`
-- [ ] `insertLast(x)`
-- [ ] `deleteAt(i)`
-
-<Explanation>
-Las dos operan sobre el principio de la cadena, que es el único punto al que se
-llega sin caminar porque `head` ya está ahí.
-</Explanation>
+- [x] Porque contarlos obliga a recorrer la cadena entera, y guardarlo lo hace inmediato
+- [ ] Porque sin `size` la lista no sabría dónde termina
+- [ ] Porque `size` es lo que permite llegar a una posición cualquiera
+- [ ] Porque el contrato Sequence obliga a tener ese campo
 
 </Question>
 
-<Question id="lista-de-donde-sale-el-costo" anchor="donde-vive-el-costo">
+<Question id="lista-build-estado-inicial" anchor="build-crear-la-lista">
 
-En una lista, ¿qué es lo que hace que una operación cueste lineal?
+¿En qué estado deja el constructor a una lista recién creada?
 
-- [x] Llegar al nodo donde hay que operar
-- [ ] Cambiar los enlaces del nodo
-- [ ] Reservar la memoria del nodo nuevo
-- [ ] Actualizar el valor de `size`
-
-</Question>
-
-<Question id="lista-insertfirst-no-mueve" anchor="insertfirst-insertar-al-comienzo">
-
-Al insertar al principio de una lista, ¿qué pasa con los nodos que ya estaban?
-
-- [x] Ninguno cambia de lugar ni de contenido
-- [ ] Cada uno avanza una posición en la cadena
-- [ ] Solo el primero cambia, para apuntar al nuevo
-- [ ] Todos actualizan su índice dentro de la lista
+- [x] `head` en `null` y `size` en cero, que es el caso base de las invariantes
+- [ ] `head` apuntando a un nodo vacío que después se reemplaza
+- [ ] `head` en `null` y `size` sin definir hasta la primera inserción
+- [ ] Con un bloque reservado para los primeros elementos
 
 </Question>
 
-<Question id="lista-arreglo-corre-elementos" anchor="insertfirst">
+<Question id="lista-getat-de-que-depende" anchor="getat-el-dato-de-la-posicion-i">
 
-¿Por qué insertar al principio de un arreglo obliga a copiar todos los elementos?
+¿De qué depende lo que cuesta `getAt(i)` en una lista enlazada?
 
-- [x] Porque la posición `i` vive en `base + i × tamaño` y no puede haber huecos
-- [ ] Porque el arreglo guarda los elementos en desorden
-- [ ] Porque hay que reservar un bloque más grande
-- [ ] Porque cada casilla guarda dónde está la siguiente
+- [x] De la posición pedida: hay que dar tantos saltos como indique `i`
+- [ ] Del largo de la lista, y cuesta lo mismo para cualquier posición
+- [ ] Del valor guardado en esa posición
+- [ ] De nada: se llega en un paso
+
+</Question>
+
+<Question id="lista-ordenada-sin-binaria" anchor="buscar-el-recorrido-hasta-el-valor">
+
+Una lista enlazada está ordenada de menor a mayor. ¿Por qué buscar en ella igual no puede usar búsqueda binaria?
+
+- [x] Porque llegar al nodo del medio ya cuesta recorrer media cadena
+- [ ] Porque la búsqueda binaria solo funciona sobre números
+- [ ] Porque los nodos de una lista no se pueden comparar entre sí
+- [ ] Porque el orden se pierde al recorrer la lista
+
+</Question>
+
+<Question id="lista-insertfirst-no-mueve-nada" anchor="insertfirst-insertar-al-comienzo">
+
+¿Por qué insertar al comienzo cuesta lo mismo en una lista de tres nodos que en una de un millón?
+
+- [x] Porque ningún nodo se mueve: solo cambian el enlace del nodo nuevo y `head`
+- [ ] Porque la lista reserva espacio libre al principio para insertar
+- [ ] Porque `size` ya guarda cuántos nodos hay
+- [ ] Porque los nodos están ordenados por dirección de memoria
 
 </Question>
 
 <Question id="lista-insertlast-que-es-caro" anchor="insertlast-insertar-al-final">
 
-Al insertar al final de una lista sin `tail`, ¿qué es lo caro?
+En una lista sin `tail`, ¿qué es lo caro de `insertLast`?
 
-- [x] Recorrer la cadena para encontrar el último nodo
-- [ ] Enlazar el nodo nuevo al final
+- [x] Encontrar el último nodo, que obliga a recorrer la cadena
+- [ ] Enlazar el nodo nuevo una vez encontrado el último
 - [ ] Crear el nodo nuevo en memoria
-- [ ] Comparar el valor nuevo con los que ya están
+- [ ] Actualizar `size` después de insertar
 
 </Question>
 
-<Question id="lista-deletelast-que-nodo" anchor="deletelast-eliminar-el-ultimo">
+<Question id="lista-borde-un-solo-nodo" anchor="los-casos-de-borde">
 
-Para eliminar el último nodo, ¿qué nodo hay que modificar?
+¿Por qué `deleteLast` pregunta si queda un solo nodo antes de ponerse a recorrer?
 
-- [x] El anteúltimo, que pasa a apuntar a `null`
-- [ ] El último, que pasa a apuntar a `null`
-- [ ] El primero, para que la cadena se acorte
-- [ ] Ninguno: alcanza con restar uno a `size`
-
-</Question>
-
-<Question id="lista-orden-de-los-enlaces" anchor="insertat-encontrar-al-previo">
-
-Al insertar en una posición, ¿por qué el nodo nuevo toma el enlace del previo antes de que el previo apunte al nuevo?
-
-- [x] Porque al revés se pierde el acceso al resto de la cadena
-- [ ] Porque el nodo nuevo debe existir antes que el previo
-- [ ] Porque el orden inverso deja `size` desactualizado
-- [ ] Porque el previo no puede apuntar a dos nodos a la vez
+- [x] Porque con un solo nodo no hay anteúltimo, y el recorrido lo buscaría igual
+- [ ] Porque con un solo nodo la lista no tiene `head`
+- [ ] Porque borrar el único nodo no cambia `size`
+- [ ] Porque el recorrido no sabría dónde detenerse
 
 </Question>
 
-<Question id="lista-invariante-de-tail" anchor="la-lista-con-tail-un-puntero-mas">
+<Question id="lista-deletelast-por-que-camina" anchor="deletelast-eliminar-el-ultimo">
 
-¿Qué invariante agrega la variante con `tail`?
+¿Por qué `deleteLast` obliga a recorrer la cadena y `deleteFirst` no?
 
-- [x] Que `tail` apunta al último nodo, o a `null` si la lista está vacía
-- [ ] Que la cadena termina en `null` en vez de en `head`
-- [ ] Que todos los nodos guardan también el nodo anterior
-- [ ] Que el largo de la cadena coincide con `size`
-
-</Question>
-
-<Question id="lista-por-que-tail-no-baja-deletelast" anchor="deletelast-con-tail-el-que-no-baja">
-
-¿Por qué `tail` no hace que eliminar el último nodo tenga costo constante?
-
-- [x] Porque el nodo que hay que modificar es el anterior, y no se puede retroceder
-- [ ] Porque `tail` deja de ser válido apenas se elimina un nodo
-- [ ] Porque hay que actualizar `size` recorriendo la cadena
-- [ ] Porque `tail` solo se puede usar para insertar
+- [x] Porque el nodo que hay que cambiar es el anteúltimo, y no hay cómo retroceder
+- [ ] Porque el último nodo es el único que no guarda un enlace válido
+- [ ] Porque `head` permite insertar al final pero no eliminar desde ahí
+- [ ] Porque al eliminar el último hay que correr los demás una posición
 
 </Question>
 
-<Question id="lista-invariante-doble-enlace" anchor="la-lista-doblemente-enlazada-el-enlace-de-vuelta">
+<Question id="lista-que-decide-el-costo" anchor="donde-vive-el-costo">
 
-En una lista doblemente enlazada, si `a.next` es `b`, ¿qué debe valer?
+En una lista simplemente enlazada, ¿qué decide que una operación sea barata o cara?
 
-- [x] Que `b.prev` es `a`
-- [ ] Que `b.next` es `a`
-- [ ] Que `a.prev` es `b`
-- [ ] Que `a` y `b` están juntos en memoria
-
-</Question>
-
-<Question id="lista-ordenada-y-el-contrato" anchor="la-lista-ordenada-una-invariante-en-vez-de-un-puntero">
-
-¿Por qué una lista ordenada deja de cumplir el TDA Sequence?
-
-- [x] Porque `insertAt` pondría cualquier valor en cualquier posición
-- [ ] Porque no puede implementar `getAt` sobre sus nodos
-- [ ] Porque necesita guardar un puntero más por nodo
-- [ ] Porque sus operaciones cambian de costo asintótico
-
-<Explanation>
-La invariante de orden prohíbe justamente lo que `insertAt` permite: elegir la
-posición. Por eso la inserción pasa a ser una sola y no recibe posición.
-</Explanation>
+- [x] El lugar donde ocurre: solo el frente se alcanza sin caminar
+- [ ] La cantidad de asignaciones que hace sobre los enlaces
+- [ ] Si la operación consulta la cadena o si la modifica
+- [ ] El tamaño del dato que cada nodo guarda en su campo valor
 
 </Question>
 
-<Question id="lista-circular-recorrido" anchor="la-lista-circular-el-ultimo-vuelve-al-primero">
+<Question id="lista-que-gana-tail" anchor="la-lista-con-tail-un-puntero-mas">
 
-En una lista circular, ¿qué hace un recorrido escrito como `while (current != null)`?
+¿Qué gana una lista simplemente enlazada al guardar además un puntero `tail`?
 
-- [x] No se detiene nunca
-- [ ] Se detiene al llegar al último nodo
-- [ ] Se detiene al volver al primer nodo
-- [ ] Recorre la cadena una sola vez
-
-</Question>
-
-<Question id="lista-comparacion-espejo" anchor="arreglo-y-lista-enlazada-la-tabla-completa">
-
-Según la tabla comparativa, ¿qué operación tiene costo constante en el arreglo y lineal en la lista simple?
-
-- [x] `getAt(i)`
-- [ ] `insertFirst(x)`
-- [ ] `deleteFirst()`
-- [ ] `search(x)`
+- [x] Llegar al último nodo sin recorrer la cadena
+- [ ] Eliminar el último nodo sin recorrer la cadena
+- [ ] Recorrer la lista hacia atrás
+- [ ] Saber cuántos nodos tiene sin contarlos
 
 </Question>
 
-<Question id="lista-cuando-conviene-lista" anchor="cuando-conviene-cada-una">
+<Question id="lista-doble-invariante-nueva" anchor="la-lista-doblemente-enlazada-el-enlace-de-vuelta">
 
-¿Para qué mezcla de operaciones conviene una lista?
+¿Qué invariante nueva aparece al darle a cada nodo un enlace `prev`?
 
-- [x] Insertar y eliminar seguido en los extremos, sin pedir posiciones arbitrarias
-- [ ] Leer muchas veces por posición y modificar poco la forma
-- [ ] Comparar `data[i]` con `data[j]` dentro de un algoritmo
-- [ ] Recorrer la colección de principio a fin una sola vez
-
-</Question>
-
-<Question id="lista-cuando-conviene-la-lista" anchor="cuando-conviene-cada-una">
-
-¿Qué mezcla de operaciones hace conveniente una lista enlazada antes que un arreglo?
-
-- [x] Insertar y eliminar seguido en los extremos, y casi nunca pedir una posición
-- [ ] Leer muchas veces por posición y modificar poco la forma
-- [ ] Comparar pares de elementos por sus índices
-- [ ] Recorrer la colección de principio a fin una sola vez
+- [x] Si `a.next` es `b`, entonces `b.prev` tiene que ser `a`
+- [ ] Los nodos quedan ordenados por su valor de menor a mayor
+- [ ] El campo `prev` del primer nodo apunta al último nodo
+- [ ] La cantidad de nodos de la lista tiene que ser par
 
 </Question>
 
-<Question id="lista-getat-en-un-bucle" anchor="cuando-conviene-cada-una">
+<Question id="lista-circular-para-que-sirve" anchor="donde-sirve-que-no-haya-final">
 
-Un bucle que llama a `getAt(i)` para cada posición resulta cuadrático sobre una lista. ¿Por qué?
+¿Qué problema resuelve una lista circular mejor que una lista simple?
 
-- [x] Porque cada `getAt` vuelve a caminar desde `head`
-- [ ] Porque el contrato obliga a copiar la lista en cada paso
-- [ ] Porque `len()` recorre la cadena en cada vuelta
-- [ ] Porque la lista reordena sus nodos al ser recorrida
-
-</Question>
-
-<Question id="lista-invertir-tercera-referencia" anchor="ejercicios">
-
-Al invertir una lista con tres referencias, ¿para qué sirve la que guarda el siguiente?
-
-- [x] Para no perder el resto de la cadena al cambiar un enlace
-- [ ] Para recordar cuál era la cabeza original
-- [ ] Para contar cuántos nodos se invirtieron
-- [ ] Para comparar el orden viejo con el nuevo
+- [x] Recorrer una colección sin tratar el final como un caso especial
+- [ ] Llegar a una posición cualquiera sin recorrer la cadena entera
+- [ ] Eliminar el último nodo sin tener que recorrer la cadena
+- [ ] Mantener los elementos ordenados de menor a mayor valor
 
 </Question>
 
-<Question id="lista-floyd-que-compara" anchor="ejercicios">
+<Question id="lista-ordenada-que-pierde" anchor="insertordenado-la-posicion-la-decide-el-valor">
 
-En la detección de ciclos con dos velocidades, ¿qué compara `slow == fast`?
+¿Qué pierde una lista ordenada respecto de una lista simple?
 
-- [x] Si las dos referencias apuntan al mismo nodo
-- [ ] Si los dos nodos guardan el mismo valor
-- [ ] Si las dos referencias avanzaron la misma cantidad
-- [ ] Si los dos nodos están juntos en memoria
-
-</Question>
-
-<Question id="lista-medio-en-una-pasada" anchor="ejercicios">
-
-¿Por qué el puntero lento queda en el medio cuando el rápido llega al final?
-
-- [x] Porque el rápido avanzó el doble que el lento
-- [ ] Porque el lento se detiene al llegar a `size / 2`
-- [ ] Porque el rápido cuenta los nodos mientras avanza
-- [ ] Porque el lento retrocede cuando el rápido termina
+- [x] Poder elegir la posición: `insertAt` deja de tener sentido
+- [ ] Poder insertar al comienzo en tiempo constante
+- [ ] Poder recorrerse de principio a fin una sola vez
+- [ ] Poder guardar valores repetidos dentro de la cadena
 
 </Question>
 
-<Question id="lista-fusionar-nodo-de-mentira" anchor="ejercicios">
+<Question id="lista-deletelast-baja-con-prev" anchor="eliminar-y-buscar-por-variante">
 
-Al fusionar dos listas ordenadas, ¿para qué sirve el nodo de mentira del principio?
+`deleteLast` baja a tiempo constante con `prev` pero no con `tail`. ¿Por qué?
 
-- [x] Para no escribir aparte el caso del primer elemento
-- [ ] Para guardar el largo de la lista resultante
-- [ ] Para separar los elementos de una lista y de la otra
-- [ ] Para recordar dónde empezaba cada lista original
+- [x] Porque lo que le falta es el nodo anterior, y eso es lo que guarda `prev`
+- [ ] Porque `tail` queda desactualizado apenas se elimina un nodo
+- [ ] Porque recorrer la cadena con `prev` resulta bastante más rápido
+- [ ] Porque con `tail` hay que actualizar dos enlaces en vez de uno solo
 
 </Question>
 
