@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  CIRCULAR_OPERATIONS,
+  DOUBLY_OPERATIONS,
   OPERATIONS,
   RECIPES,
   isValidCombination,
@@ -475,9 +477,9 @@ describe('sequenceStepperTrace · a chain built one insertion at a time', () => 
     const trace = traceFor('linked-list-singly', 'insert-first', { values: [], value: four });
     expect(trace.steps.at(-1)!.cells.map((c) => c.value)).toEqual([...four].reverse());
     expect(trace.steps.filter((s) => s.kind === 'walk')).toHaveLength(0);
-    // Θ(1) each: the counter grows by the same amount on every insertion.
+    // Θ(1) each: `cost` restarts per call, so every insertion ends on 4.
     const done = trace.steps.filter((s) => s.kind === 'done').map((s) => s.cost);
-    expect(done.map((c, i) => (i === 0 ? c : c - done[i - 1]!))).toEqual([4, 4, 4, 4]);
+    expect(done).toEqual([4, 4, 4, 4]);
   });
 
   it('insertLast from empty ends in order, walking one node more each time', () => {
@@ -487,7 +489,7 @@ describe('sequenceStepperTrace · a chain built one insertion at a time', () => 
     // the walk is as long as the chain — 0, 1, 2 hops. That IS the Θ(N).
     expect(trace.steps.filter((s) => s.kind === 'walk')).toHaveLength(0 + 0 + 1 + 2);
     const done = trace.steps.filter((s) => s.kind === 'done').map((s) => s.cost);
-    expect(done.map((c, i) => (i === 0 ? c : c - done[i - 1]!))).toEqual([4, 5, 6, 7]);
+    expect(done).toEqual([4, 5, 6, 7]);
   });
 
   it('parks the floating node over the slot it is about to land in', () => {
@@ -593,10 +595,8 @@ describe('sequenceStepperTrace · one operation, several runs', () => {
       values: [7, 3, 1, 5, 9],
       times: 3,
     });
-    const perRun = (t: SequenceTrace) => {
-      const ends = t.steps.filter((s) => s.kind === 'done').map((s) => s.cost);
-      return ends.map((c, i) => (i === 0 ? c : c - ends[i - 1]!));
-    };
+    const perRun = (t: SequenceTrace) =>
+      t.steps.filter((s) => s.kind === 'done').map((s) => s.cost);
     expect(perRun(first)).toEqual([2, 2, 2]);
     // One hop fewer each time, and never zero: the walk restarts at head.
     expect(perRun(last)).toEqual([5, 4, 3]);
@@ -766,17 +766,39 @@ describe('sequenceStepperTrace · the listing belongs to the recipe', () => {
   const walkLines = (code: string) =>
     code.split('\n').filter((line) => /\bwhile \(|\bfor \(/.test(line));
 
-  const RING_SAFE: SequenceOperation[] = ['insert-first'];
+  // Driven off the allowlist itself, not a copy of it: an operation added to
+  // CIRCULAR_OPERATIONS must arrive here already guarded, or the guard grows
+  // a hole exactly where the contract grew.
+  it.each([...CIRCULAR_OPERATIONS])(
+    'a circular listing never ends a walk on null (%s)',
+    (operation) => {
+      const { code } = traceFor('linked-list-circular', operation, {
+        values: [7, 3, 1],
+        value: 9,
+        index: 1,
+        target: 3,
+      });
+      for (const line of walkLines(code)) expect(line).not.toMatch(/!= null\)/);
+    },
+  );
 
-  it.each(RING_SAFE)('a circular listing never ends a walk on null (%s)', (operation) => {
-    const { code } = traceFor('linked-list-circular', operation, {
-      values: [7, 3, 1],
-      value: 9,
-      index: 1,
-      target: 3,
-    });
-    for (const line of walkLines(code)) expect(line).not.toMatch(/!= null\)/);
-  });
+  // The other half of the promise this block's docstring makes: on a doubly
+  // linked chain, an operation that changes the shape has to fix BOTH links.
+  const MUTATES = (operation: SequenceOperation) =>
+    operation.startsWith('insert') || operation.startsWith('remove');
+
+  it.each([...DOUBLY_OPERATIONS].filter(MUTATES))(
+    'a doubly listing that changes the chain also writes prev (%s)',
+    (operation) => {
+      const { code } = traceFor('linked-list-doubly', operation, {
+        values: [7, 3, 1, 5],
+        value: 9,
+        index: 1,
+        tail: operation === 'remove-last',
+      });
+      expect(code).toMatch(/\.prev/);
+    },
+  );
 
   it('a circular insertFirst closes the ring again, and pays the walk for it', () => {
     const { code, steps } = traceFor('linked-list-circular', 'insert-first', {

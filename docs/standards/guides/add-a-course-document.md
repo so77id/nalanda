@@ -353,8 +353,10 @@ inside a JSX children expression that MDX has already interpreted, the
 <ComplexityExercise
   reveal={
     <div>
-      <p>El costo del paso es <Math>{'T(N-1) + c'}</Math>.</p>
-      <Math block>{'T(N) = Nc \\Rightarrow T(N) \\in \\Theta(N)'}</Math>
+      <p>
+        El costo del paso es <Math>{"T(N-1) + c"}</Math>.
+      </p>
+      <Math block>{"T(N) = Nc \\Rightarrow T(N) \\in \\Theta(N)"}</Math>
     </div>
   }
 />
@@ -404,7 +406,7 @@ runtime code. `<Math>` earns its cost only where prose math can't reach.
    **The same mechanism is a deliberate pattern when the swallowed `h2` IS the
    slide you want.** A break followed by an act heading and nothing else
    produces a title-only divider slide, which is what a lecture wants between
-   acts — chapters 16 and 17 both ship it. The defect is an *unchosen* slide,
+   acts — chapters 16 and 17 both ship it. The defect is an _unchosen_ slide,
    not the mechanism; the test is whether you walked `/present` and wanted what
    you saw. See [`teach-a-data-structure.md`](teach-a-data-structure.md) §1,
    which also records the other half of the rule: never put a break before
@@ -553,13 +555,15 @@ but other visuals plug in the same way):
 }
 
 public class Demo {
-    public static void main(String[] args) {
-        Punto a = new Punto(1, 2);
-        Punto b = a;
-        b.x = 99;
-    }
+public static void main(String[] args) {
+Punto a = new Punto(1, 2);
+Punto b = a;
+b.x = 99;
+}
 }`}
+
 >
+
   <Step lines={[8]}>
     <MemoryVisual state={{
       frames: [{ name: 'main', variables: [{ name: 'a', value: { kind: 'ref', id: 1 } }] }],
@@ -792,23 +796,28 @@ positional operations (`get-at` included), and `target` both `search` and
 slide about cost.** `value={[9, 4, 6]}`, `index={[0, 3, 6]}`,
 `target={[7, 8, 4]}` run the operation once per element over the same
 structure, and `times={3}` does the same for the two that take no argument
-(`remove-first`, `remove-last`). One run shows what the operation DOES;
+(`remove-first`, `remove-last`). **At most twelve runs** — beyond that nobody
+follows the steps on a slide, and the widget says so. One run shows what the operation DOES;
 several runs show what it COSTS, because the reader watches the walk change
 length instead of being told it does. `insert-at` needs one `index` per
 `value`. `insert-first` and `insert-last` also accept `values={[]}`, so a
 slide can build a chain from nothing.
 
 The widget's own chrome carries a speed selector and, in the corner of the
-structure panel, the live value of `size` — neither is an authoring choice,
-and no slide has to ask for them.
+structure panel, three readouts: the live `size`, the `capacidad` on the two
+array recipes, and a running `ops` count — the elementary operations the
+frame has paid for, which is what a cost slide should point at rather than
+restate. None of them is an authoring choice, and no slide has to ask for
+them.
 
 The multi-run form appends the calling program under the method, and each
 frame lights both the line inside the method and the call being run. Indices
 are checked against the structure as it is BY THEN, not as it started, and a
 removal asked for more times than the chain has nodes is refused at boot —
-the listing throws there. `tail` draws a
-tail pointer on a list, `showCode={false}` hides the listing when the slide
-already carries it, and `autoplay` / `speed` behave as in every other stepper.
+the listing throws there. `tail` draws a tail pointer on a list, and on
+`linked-list-doubly` it is what makes `remove-last` legal at all;
+`showCode={false}` hides the listing when the slide already carries it, and
+`autoplay` / `speed` behave as in every other stepper.
 
 Six things worth knowing before you write one:
 
@@ -816,14 +825,39 @@ Six things worth knowing before you write one:
   tags.** That is what the widget is for; the surface does not change between
   combinations, so the reader compares the COST rather than re-reading a new
   widget.
-- **`insert-ordered` exists only on the list recipes.** This course presents
-  order as a variant of the list and never defines an ordered array, so the
-  pair is refused at boot with an authoring error rather than drawing a
-  structure no slide defines.
+- **Not every recipe takes every operation.** The widget prints Java a student
+  may copy, so a pair is valid only when the listing belongs to the structure
+  the picture draws. `array`, `dynamic-array` and `linked-list-singly` take all
+  nine (bar `insert-ordered` on the two arrays — this course presents order as
+  a variant of the list and never defines an ordered array). The two VARIANT
+  recipes take less:
+
+  | Receta                 | Operaciones                                                                             |
+  | ---------------------- | --------------------------------------------------------------------------------------- |
+  | `linked-list-doubly`   | `get-at`, `search`, `insert-first`, `remove-first`, y `remove-last` **solo con `tail`** |
+  | `linked-list-circular` | `insert-first`                                                                          |
+
+  Anything else is an `<AuthoringError>` naming the operations that recipe does
+  have. Ask for one it does not and the answer tells you which to use instead.
+
+- **The array recipes animate ONE run.** Their trace predates the multi-run
+  arguments; a slide that asks an array for three runs is refused at boot
+  rather than shown one. The list recipes take arrays on `value`, `index` and
+  `target`, and `times` on the two operations that take no argument — up to
+  twelve runs, which is more steps than anyone follows on a slide.
 - **The widget refuses the author, not the reader.** An index outside the
-  structure, an unsorted list handed to `insert-ordered`, an unknown recipe, or
-  more than eight values — each renders an `<AuthoringError>` naming the
-  problem. `npm run test` fails while one survives, so it cannot be published.
+  structure, an unsorted list handed to `insert-ordered`, an unknown recipe, a
+  pair the recipe does not offer, or more than eight values — each renders an
+  `<AuthoringError>` naming the problem.
+
+  **`npm run test` does NOT see these.** The widget is registered lazily, so
+  `app/contentRenders.test.tsx` paints the `<Suspense>` fallback and never
+  mounts it: an authoring error on a published slide stays green in the full
+  suite and appears only under `npm run preview` (`apps/web/CLAUDE.md` §2,
+  class 4). Walk every slide that carries the widget, and add each combination
+  the document mounts to `SequenceStepper.test.tsx`, which renders the real
+  component.
+
 - **Up to eight values.** Beyond that the nodes stop being legible projected,
   and the widget says so instead of drawing them.
 - **It already breaks out of the prose column in presentation**, like
@@ -950,7 +984,7 @@ is the ground the container supplies) and **never let colour be the only signal*
 dashed for exactly that reason (ADR-0026).
 
 6e-bis. **A figure with text in it paints its own opaque panel, and draws the
-text on that panel.** The 3:1 above is the *graphical* floor; text is held to
+text on that panel.** The 3:1 above is the _graphical_ floor; text is held to
 4.5:1, and against the light ground `#f8f2ef` that needs a relative luminance
 **≤ 0.160** while against the dark ground `#0d1117` it needs **≥ 0.200**. No
 single value satisfies both, so text drawn straight on the page ground is wrong
@@ -1068,58 +1102,59 @@ is not scaled at all.
    and logs a console warning — forward links to drafts are allowed on purpose.
 
 7b. **Write the control questions** — the pool an entrance control draws from.
-   One `<Questions>` block, **after the last section that TEACHES something and
-   before the document's closing section** — `## Lo que sigue` in both Java
-   documents: questions after a goodbye read as an appendix nobody scrolls to.
-   The closing section is then one of the gaps you declare in `NO_QUESTION`.
-   ("After the last section" alone is wrong whenever the goodbye is itself a
-   section, which is every document on the path today.)
+One `<Questions>` block, **after the last section that TEACHES something and
+before the document's closing section** — `## Lo que sigue` in both Java
+documents: questions after a goodbye read as an appendix nobody scrolls to.
+The closing section is then one of the gaps you declare in `NO_QUESTION`.
+("After the last section" alone is wrong whenever the goodbye is itself a
+section, which is every document on the path today.)
 
-   ````mdx
-   <Questions>
+```mdx
+<Questions>
 
-   <Question id="que-hace-import" anchor="import-y-paquetes">
+<Question id="que-hace-import" anchor="import-y-paquetes">
 
-   ¿Qué hace `import java.util.Scanner`?
+¿Qué hace `import java.util.Scanner`?
 
-   - [x] Abrevia: al escribir `Scanner` te refieres a `java.util.Scanner`
-   - [ ] Pega el contenido de esa clase dentro de tu archivo
-   - [ ] Descarga la clase desde el paquete `java.util`
-   - [ ] Compila esa clase junto con tu programa
+- [x] Abrevia: al escribir `Scanner` te refieres a `java.util.Scanner`
+- [ ] Pega el contenido de esa clase dentro de tu archivo
+- [ ] Descarga la clase desde el paquete `java.util`
+- [ ] Compila esa clase junto con tu programa
 
-   </Question>
+</Question>
 
-   </Questions>
-   ````
+</Questions>
+```
 
-   Four things to get right, all enforced:
+Four things to get right, all enforced:
 
-   - **`id` is written by hand**, kebab-case, and **unique across the whole
-     `content/` tree**. It is the join key all the way to a grade (ADR-0031), so
-     a duplicate merges two students' answers into one column — and that one
-     fails `npm run build`, the gate that must stop it publishing (the suite
-     catches it too, in `content/questionBank.test.ts`, which drives the plugin
-     over the real `content/`; the build is the one that matters and ADR-0032
-     §Consequences says not to harmonise it down). Deriving it fails both ways:
-     anchor-plus-ordinal renumbers when questions are reordered, and a hash of
-     the statement changes when a typo is fixed.
+- **`id` is written by hand**, kebab-case, and **unique across the whole
+  `content/` tree**. It is the join key all the way to a grade (ADR-0031), so
+  a duplicate merges two students' answers into one column — and that one
+  fails `npm run build`, the gate that must stop it publishing (the suite
+  catches it too, in `content/questionBank.test.ts`, which drives the plugin
+  over the real `content/`; the build is the one that matters and ADR-0032
+  §Consequences says not to harmonise it down). Deriving it fails both ways:
+  anchor-plus-ordinal renumbers when questions are reordered, and a hash of
+  the statement changes when a typo is fixed.
 
-     An id may still change while the question is **unmerged** — review can
-     replace a question outright, as #144 did. Once the PR lands the bank is
-     published and the id is frozen: from that point it is the join key from a
-     printed sheet into a grade, and moving it orphans an answer column.
-   - **`anchor` is the slug of an `h2`** — and a `<Slide title>` renders an `h2`,
-     so slide titles are anchorable and are where most anchors point. Omit it
-     when the question belongs to the whole chapter. An anchor naming no section
-     paints an authoring error on the page and reddens the suite; the build
-     stays green, because drafting before the section exists is a real order of
-     work.
+  An id may still change while the question is **unmerged** — review can
+  replace a question outright, as #144 did. Once the PR lands the bank is
+  published and the id is frozen: from that point it is the join key from a
+  printed sheet into a grade, and moving it orphans an answer column.
 
-     The slug is the title lowercased, accents stripped, every run of
-     non-alphanumerics turned into `-`, and leading/trailing dashes removed
-     (`apps/web/src/lib/slug.ts`). So `Cuatro diferencias con C++` anchors as
-     `cuatro-diferencias-con-c` — the `++` disappears entirely — and
-     `¿Qué imprime esto?` as `que-imprime-esto`. **Do not guess it**: read it off
+- **`anchor` is the slug of an `h2`** — and a `<Slide title>` renders an `h2`,
+  so slide titles are anchorable and are where most anchors point. Omit it
+  when the question belongs to the whole chapter. An anchor naming no section
+  paints an authoring error on the page and reddens the suite; the build
+  stays green, because drafting before the section exists is a real order of
+  work.
+
+  The slug is the title lowercased, accents stripped, every run of
+  non-alphanumerics turned into `-`, and leading/trailing dashes removed
+  (`apps/web/src/lib/slug.ts`). So `Cuatro diferencias con C++` anchors as
+  `cuatro-diferencias-con-c` — the `++` disappears entirely — and
+  `¿Qué imprime esto?` as `que-imprime-esto`. **Do not guess it**: read it off
 
 **Two `<Slide title>`s with the same title in one document is a bug.**
 `slugFor` does not de-duplicate, so both `h2`s render the same `id`: invalid
@@ -1142,73 +1177,74 @@ operation for two structures is where it happens — disambiguate in the title
      book and on a slide. This is the convention `course-content-style.md` §5
      prescribes; the concrete failure that motivates it lives here. Hit while
      writing `11-genericos-y-orden.mdx` (#80).
-   - **The answer is marked in place** with `- [x]`, never named from outside.
-     Naming one by position means reordering the alternatives silently changes
-     the answer.
-   - **Mark more than one and it becomes a multiple** — the type is derived, not
-     declared. Between one and three of the four.
 
-   A fenced block inside a question renders read-only: in a document body a
-   fence is a runnable editor, and a Run button would answer *"¿qué imprime este
-   programa?"* before the student did. **One listing per question** — only the
-   first becomes the `code` field.
+- **The answer is marked in place** with `- [x]`, never named from outside.
+  Naming one by position means reordering the alternatives silently changes
+  the answer.
+- **Mark more than one and it becomes a multiple** — the type is derived, not
+  declared. Between one and three of the four.
 
-   **Tag the fence with its language** (` ```java `). Without a tag it is not a
-   listing at all: both readers require a non-empty language
-   (`questionSource.ts`, `lib/questions.ts`), so the question ships with **no
-   listing** — missing from the page and missing from `questions.json` — past a
-   green build, and the printed sheet asks *"¿qué imprime este programa?"* with
-   no program. In the two Java documents an untagged fence also reddens
-   `app/documentFences.test.tsx`, which pins THEIR untagged count at 2 (the two
-   ASCII diagrams) and whose failure message mentions neither questions nor your
-   listing. Everywhere else there is no guard: it ships silently. (#144)
+A fenced block inside a question renders read-only: in a document body a
+fence is a runnable editor, and a Run button would answer _"¿qué imprime este
+programa?"_ before the student did. **One listing per question** — only the
+first becomes the `code` field.
 
-   **Type the opening tag on ONE line, with double-quoted attributes**, and put
-   the question's prose immediately after it. The gates read the `.mdx` source,
-   and a tag wrapped over two lines or written with single quotes is not
-   recognised — the page still renders the question, which is what makes it
-   worth stating here. `content/` is not formatted by Prettier (it sits outside
-   `apps/web`), so nothing will normalise it for you. `app/questionReaders.test.tsx`
-   catches the divergence, but reading this first is cheaper than reading that.
+**Tag the fence with its language** (` ```java `). Without a tag it is not a
+listing at all: both readers require a non-empty language
+(`questionSource.ts`, `lib/questions.ts`), so the question ships with **no
+listing** — missing from the page and missing from `questions.json` — past a
+green build, and the printed sheet asks _"¿qué imprime este programa?"_ with
+no program. In the two Java documents an untagged fence also reddens
+`app/documentFences.test.tsx`, which pins THEIR untagged count at 2 (the two
+ASCII diagrams) and whose failure message mentions neither questions nor your
+listing. Everywhere else there is no guard: it ships silently. (#144)
 
-   **Only a document listed in `index.yaml` reaches the published bank.** A
-   control covers a range of the reading order, so questions in an unlisted
-   document enter no control — every gate stays green and the work is
-   unreachable.
+**Type the opening tag on ONE line, with double-quoted attributes**, and put
+the question's prose immediately after it. The gates read the `.mdx` source,
+and a tag wrapped over two lines or written with single quotes is not
+recognised — the page still renders the question, which is what makes it
+worth stating here. `content/` is not formatted by Prettier (it sits outside
+`apps/web`), so nothing will normalise it for you. `app/questionReaders.test.tsx`
+catches the divergence, but reading this first is cheaper than reading that.
 
-   **Optionally attach a post-answer explanation with `<Explanation>`.** Nested
-   inside the `<Question>`, after the alternatives:
+**Only a document listed in `index.yaml` reaches the published bank.** A
+control covers a range of the reading order, so questions in an unlisted
+document enter no control — every gate stays green and the work is
+unreachable.
 
-   ```mdx
-   <Question id="por-que-oe-no-segundos">
+**Optionally attach a post-answer explanation with `<Explanation>`.** Nested
+inside the `<Question>`, after the alternatives:
 
-   ¿Por qué medimos la complejidad en operaciones elementales (OE) y no en
-   segundos?
+```mdx
+<Question id="por-que-oe-no-segundos">
 
-   - [ ] Porque el cronómetro es impreciso.
-   - [x] Porque los segundos dependen de la máquina y el compilador; las OE
-     dependen solo del algoritmo.
-   - [ ] Porque los procesadores optimizan las constantes.
-   - [ ] Porque las OE se convierten a segundos por la frecuencia del CPU.
+¿Por qué medimos la complejidad en operaciones elementales (OE) y no en
+segundos?
 
-   <Explanation>
-   El cronómetro mide el entorno, no el algoritmo. Contar OE aísla la propiedad
-   que queremos comparar entre algoritmos.
-   </Explanation>
+- [ ] Porque el cronómetro es impreciso.
+- [x] Porque los segundos dependen de la máquina y el compilador; las OE
+      dependen solo del algoritmo.
+- [ ] Porque los procesadores optimizan las constantes.
+- [ ] Porque las OE se convierten a segundos por la frecuencia del CPU.
 
-   </Question>
-   ```
+<Explanation>
+  El cronómetro mide el entorno, no el algoritmo. Contar OE aísla la propiedad
+  que queremos comparar entre algoritmos.
+</Explanation>
 
-   The reader sees the explanation only AFTER answering (same pacing as the
-   verdict). The source parser drops the block, so the note **never** travels
-   to `questions.json` — the printed control and the entrance-controls sheet
-   stay unaware. Use it when the WHY of the answer is worth teaching (a
-   distractor worth naming, a subtle rule); skip it when "the correct
-   alternative is obvious once you read it".
+</Question>
+```
 
-   **Read [`write-control-questions.md`](write-control-questions.md) before
-   drafting any.** This step is how to type them; that is whether they are worth
-   asking, and the difference is most of the value.
+The reader sees the explanation only AFTER answering (same pacing as the
+verdict). The source parser drops the block, so the note **never** travels
+to `questions.json` — the printed control and the entrance-controls sheet
+stay unaware. Use it when the WHY of the answer is worth teaching (a
+distractor worth naming, a subtle rule); skip it when "the correct
+alternative is obvious once you read it".
+
+**Read [`write-control-questions.md`](write-control-questions.md) before
+drafting any.** This step is how to type them; that is whether they are worth
+asking, and the difference is most of the value.
 
 8. **Register it in the teaching path** (`index.yaml`) — every document is
    listed, and the suite asserts it. Schema (strictly validated; unknown keys

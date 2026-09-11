@@ -45,7 +45,7 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
      `content/` tagged with a runtime id.
 
      Stated as a class and not a list on purpose, and **the class itself has
-     gone stale three times**: once when `Exercise` arrived, again when a
+     gone stale four times**: once when `Exercise` arrived, again when a
      markdown fence became a component, a third time when it was worded as
      "mounts `CodeEditor`" — which the memory-diagram widget retired in #209
      deliberately did NOT do while driving a real JVM end to end — and a fourth
@@ -117,11 +117,31 @@ SPA fallback and the `vite preview` gotcha). One home per fact, per
      weight from a cold profile, and a sideways drag on a touch context. Worked
      case: `<SheetEmbed>` (ADR-0035).
 
+  4. _A guard behind a lazy boundary_: the heavy widgets register through a
+     `lazy<Name>.tsx` wrapper, and `app/contentRenders.test.tsx` preloads the
+     DOCUMENT modules only — jsdom paints the `<Suspense>` fallback and never
+     mounts the widget. So anything a lazily registered component REFUSES —
+     an `<AuthoringError>`, any boot-time authoring guard — is invisible to
+     the very test that claims no published document paints one. A document
+     mounting a combination the widget rejects stays green in the full suite
+     and shows the red box only in `npm run preview`.
+
+     Pin every combination the content mounts in the component's OWN test,
+     which renders the real component. Worked case: `<SequenceStepper> · the
+combinations the document mounts` (`SequenceStepper.test.tsx`), written
+     after #288's review narrowed `isValidCombination` and broke a published
+     slide past a green suite — caught by walking the deck in a browser, which
+     is the only thing that saw it.
+
+     State this class by what the TEST fails to reach, never by the widget
+     that happened to expose it.
+
   Written as classes rather than lists of names because the list was already
   stale once: `Exercise` arrived with the same shape and the same hazard, and
   the rule still said `CodeEditor`. The class was _also_ stale as a set — it
   named execution alone until #84 shipped two layout/focus bugs past a green
-  suite, and named only those two until #146 embedded a third party. State a new
+  suite, and named only those two until #146 embedded a third party, and only those three
+  until #288 found a guard the document-render test never reaches. State a new
   class by what the code DOES — loads another origin — never by the tag it
   happens to use.
 

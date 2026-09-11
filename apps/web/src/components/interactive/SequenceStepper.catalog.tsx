@@ -21,7 +21,7 @@ export const sequenceStepperCatalogEntry: CatalogEntry = {
       name: 'operation',
       type: '"get-at" | "insert-first" | "insert-last" | "insert-at" | "insert-ordered" | "remove-first" | "remove-last" | "remove-at" | "search"',
       description:
-        'Required. Which operation to animate. `insert-ordered` is defined on the list recipes only — the ordered array is not a structure this unit presents — and any other pair is valid.',
+        'Required. Which operation to animate. `array`, `dynamic-array` and `linked-list-singly` accept all nine (bar `insert-ordered` on the two arrays — the ordered array is not a structure this unit presents). The two VARIANT recipes accept only the operations they have a Java listing FOR, because the widget shows code a student may copy: `linked-list-circular` accepts `insert-first` alone — its listing closes the ring again, and walks to do it — and `linked-list-doubly` accepts `get-at`, `search`, `insert-first`, `remove-first`, and `remove-last` only with `tail`. Anything else renders an `<AuthoringError>` naming the operations that recipe does have.',
     },
     {
       name: 'values',

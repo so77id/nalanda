@@ -14,6 +14,8 @@ import {
   type SequenceLayout,
 } from './sequenceStepperLayout';
 import {
+  CIRCULAR_OPERATIONS,
+  DOUBLY_OPERATIONS,
   OPERATIONS,
   RECIPES,
   isValidCombination,
@@ -75,6 +77,31 @@ export interface SequenceStepperProps {
   showCode?: boolean;
   /** Widget header override. */
   title?: string;
+}
+
+/**
+ * WHY a combination is refused, in the author's own terms. One message for
+ * every refusal was a non-sequitur the moment the variant recipes stopped
+ * accepting everything: an author asking for `search` over a ring was told
+ * something about order and arrays. The reason a combination is refused is
+ * always that this widget has no listing written for it — what changes is
+ * which listings it does have.
+ */
+function refusalReason(
+  recipe: SequenceRecipe,
+  operation: SequenceOperation,
+  tail: boolean,
+): string {
+  if (operation === 'insert-ordered' && !recipe.startsWith('linked-list')) {
+    return 'esta clase presenta el orden como una variante de la lista, no del arreglo.';
+  }
+  if (recipe === 'linked-list-doubly' && operation === 'remove-last' && !tail) {
+    return 'sin `tail` el recorrido hasta el anteúltimo es el de la lista simple, que nunca toca `prev`. Agregá la prop `tail`.';
+  }
+  const allowed = recipe === 'linked-list-circular' ? CIRCULAR_OPERATIONS : DOUBLY_OPERATIONS;
+  return `el listado que el widget muestra sería el de otra estructura. Sobre «${RECIPE_LABEL[recipe]}» hay listado para: ${allowed
+    .map((o) => OPERATION_LABEL[o])
+    .join(', ')}.`;
 }
 
 const RECIPE_LABEL: Record<SequenceRecipe, string> = {
@@ -162,8 +189,8 @@ export function SequenceStepper({
   if (!isValidCombination(recipe, op, tail)) {
     return (
       <AuthoringError component="SequenceStepper">
-        «{OPERATION_LABEL[op]}» no está definida sobre «{RECIPE_LABEL[recipe]}»: esta clase presenta
-        el orden como una variante de la lista, no del arreglo.
+        «{OPERATION_LABEL[op]}» no está definida sobre «{RECIPE_LABEL[recipe]}»:{' '}
+        {refusalReason(recipe, op, tail)}
       </AuthoringError>
     );
   }
@@ -317,12 +344,15 @@ function Body({
       className="not-prose my-6 overflow-hidden rounded-lg border border-rule bg-surface text-ink"
     >
       <StepperHeader
-        // "eda" is the course's own acronym, introduced and defined in the
-        // opening act of 18-edd-listas-enlazadas.mdx (TDA = the contract, EDA
-        // = the implementation). A class that mounts this widget without
-        // having introduced it would be showing the reader an undefined
-        // shorthand — the guide's §2 vocabulary note is where that gets said.
-        kind={`eda · ${RECIPE_LABEL[recipe]}`}
+        // The chip names the structure in the reader's own words. It said
+        // `eda` until the #288 review measured the document and found the
+        // acronym on screen thirteen times and defined on no slide — the
+        // opening's definition of the TDA/EDA pair was cut during the
+        // slide-by-slide review, and a shorthand the reader has not met is
+        // exactly what `teach-a-data-structure.md` §2 forbids. The prop is
+        // still `eda`, because that is the author's vocabulary, not the
+        // student's.
+        kind={`estructura · ${RECIPE_LABEL[recipe]}`}
         title={heading}
         stepIndex={playback.stepIndex}
         totalSteps={totalSteps}
@@ -380,7 +410,10 @@ function Body({
             <div className="mt-1.5 font-mono text-3xs uppercase tracking-wide text-ink-faint">
               ops
             </div>
-            <div className="min-w-11 rounded border border-rule bg-sunk px-2 py-1 text-lg font-semibold leading-none text-ink">
+            <div
+              data-testid="sequence-cost"
+              className="min-w-11 rounded border border-rule bg-sunk px-2 py-1 text-lg font-semibold leading-none text-ink"
+            >
               {step.cost}
             </div>
           </div>

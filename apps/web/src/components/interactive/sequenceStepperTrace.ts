@@ -119,7 +119,12 @@ export interface SequenceStep {
    * frame that shows it before the move.
    */
   linkToCarry?: number;
-  /** Running elementary-operation count. */
+  /**
+   * Elementary operations THIS run has spent. Reset on every call, because
+   * every narration and every line of prose beside the widget is per-call: a
+   * slide that says "ninguna, tres y seis saltos" is falsified by a counter
+   * reading 0, 3 and 9 (#288 review, COR-6b).
+   */
   cost: number;
 }
 
@@ -216,8 +221,8 @@ const isList = (recipe: SequenceRecipe) => recipe.startsWith('linked-list');
  * between a widget that says "not defined here" to its AUTHOR and one that
  * prints wrong Java to a student. The review of #288 found the second.
  */
-const CIRCULAR_OPERATIONS: readonly SequenceOperation[] = ['insert-first'];
-const DOUBLY_OPERATIONS: readonly SequenceOperation[] = [
+export const CIRCULAR_OPERATIONS: readonly SequenceOperation[] = ['insert-first'];
+export const DOUBLY_OPERATIONS: readonly SequenceOperation[] = [
   'get-at',
   'search',
   'insert-first',
@@ -1045,6 +1050,10 @@ function traceList(
   const code = many ? base + callingProgram(args, METHOD_NAME[operation], fresh) : base;
   // Computed, not searched: two runs of a method that takes no argument write
   // the SAME call line twice, and `lineOf` would hand both the first one.
+  // Each call starts its own count; see `SequenceStep.cost`.
+  const startRun = (): void => {
+    cost = 0;
+  };
   const runLine = (run: number): number[] =>
     many ? [base.split('\n').length + (fresh ? 1 : 0) + run + 1] : [];
   // How wide the drawing will get, so an operation that grows at the FRONT
@@ -1115,6 +1124,7 @@ function traceList(
       // and only then does it take its place in the chain. Collapsing the last
       // two would show the pointer move and the node move as one jump.
       requireValues(input).forEach((x, run) => {
+        startRun();
         const wasFirst = cells.length > 0 ? cells[0]!.value : null;
         const callLine = runLine(run);
         if (circular) {
@@ -1240,6 +1250,7 @@ function traceList(
       // once and never again — and the walk getting one hop longer on every
       // insertion, which is the $$\Theta(N)$$ this slide is about.
       requireValues(input).forEach((x, run) => {
+        startRun();
         const callLine = runLine(run);
         // Parked above the slot the node will land in, so it lands where it
         // has been hovering rather than jumping across the chain.
@@ -1341,6 +1352,7 @@ function traceList(
       const values = requireValues(input);
       const indices = asRuns(input.index);
       values.forEach((x, run) => {
+        startRun();
         const callLine = runLine(run);
         // Validated against the chain as it is NOW: three insertions in a row
         // move every position after the first one.
@@ -1442,6 +1454,7 @@ function traceList(
         throw new Error('La lista de partida debe venir ordenada para insertar en orden.');
       }
       asRuns(input.target).forEach((x, run) => {
+        startRun();
         const callLine = runLine(run);
         const first = cells.length === 0 ? null : cells[0]!.value;
         cost += 1;
@@ -1560,6 +1573,7 @@ function traceList(
       requireNonEmpty(input.values);
       requireRoom(args.length, cells.length, 'deleteFirst');
       args.forEach((_, run) => {
+        startRun();
         const callLine = runLine(run);
         const removed = cells[0]!;
         cells[0] = { ...removed, state: 'leaving' };
@@ -1588,6 +1602,7 @@ function traceList(
       requireNonEmpty(input.values);
       requireRoom(args.length, cells.length, 'deleteLast');
       args.forEach((_, run) => {
+        startRun();
         const callLine = runLine(run);
         const removed = cells[cells.length - 1]!;
         const alone = cells.length === 1;
@@ -1664,6 +1679,7 @@ function traceList(
       const removals = asRuns(input.index);
       requireRoom(removals.length, cells.length, 'deleteAt');
       removals.forEach((raw, run) => {
+        startRun();
         const callLine = runLine(run);
         const at = checkIndex(raw, cells.length, false);
         if (at === 0) {
@@ -1716,6 +1732,7 @@ function traceList(
     case 'get-at': {
       requireNonEmpty(input.values);
       asRuns(input.index).forEach((raw, run) => {
+        startRun();
         const callLine = runLine(run);
         const at = checkIndex(raw, cells.length, false);
         push(
@@ -1752,6 +1769,7 @@ function traceList(
     case 'search': {
       requireNonEmpty(input.values);
       asRuns(input.target).forEach((target, run) => {
+        startRun();
         const callLine = runLine(run);
         push(
           'start',

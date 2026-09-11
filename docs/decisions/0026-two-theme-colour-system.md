@@ -108,8 +108,8 @@ without paying the 4.5:1 body-text obligation.
 
 ### Seed provenance
 
-- **Light seed `#E86800`** (reference) — the title colour of the *Complejidad
-  de Algoritmos* deck the course ships. A student who has sat through a
+- **Light seed `#E86800`** (reference) — the title colour of the _Complejidad
+  de Algoritmos_ deck the course ships. A student who has sat through a
   lecture recognises it. The `--nl-accent-pop` token ships the nudged
   `#E66600`, one luminance step darker so `accent-pop` clears the 3:1 floor on
   `--nl-ground` and `--nl-surface`; the reference lives on to name the visual
@@ -293,7 +293,7 @@ the impossibility is arithmetic rather than aesthetic: against the light ground
 against the dark ground `#0d1117` it requires **≥ 0.200**. No value satisfies
 both, so figure text drawn on the page ground is wrong in one theme by
 construction. (`add-a-course-document.md` §6e's existing rule asks only for 3:1,
-which is the *graphical* floor and is satisfiable — it does not cover text.)
+which is the _graphical_ floor and is satisfiable — it does not cover text.)
 
 **Decision.** Every standalone figure under `content/` **paints its own opaque
 panel and draws all of its text on that panel**. The `var(--token, #fallback)`
@@ -349,7 +349,7 @@ should look at right now, because the operation just inserted or changed it.**
 reason `flag` would be: both are STATUS. A node that an insertion just linked
 did not succeed and did not fail — it is simply the one the frame is about.
 Painting it green quietly told the reader "this worked", and in a class whose
-whole subject is *what an operation costs*, the states worth distinguishing
+whole subject is _what an operation costs_, the states worth distinguishing
 are "new", "under the algorithm's attention" and "leaving", none of which is
 a status.
 
@@ -362,9 +362,9 @@ registering something new. Registering it is the honest option.
 **The values**, chosen by measurement rather than by eye, per §Adding a token
 step 5 (change the colour, never the floor):
 
-| Token | Light | Dark |
-|---|---|---|
-| `mark` | `#8a5300` | `#f0b429` |
+| Token       | Light     | Dark      |
+| ----------- | --------- | --------- |
+| `mark`      | `#8a5300` | `#f0b429` |
 | `mark-soft` | `#fdf0d9` | `#2a1f08` |
 
 Measured against the four surfaces at the 4.5:1 text floor: light ranges
@@ -379,5 +379,6 @@ rebrand of the unit's widgets — is still a separate WP; this addendum
 registers one token with one meaning, not a palette.
 
 **Colour is still never the only signal** (§Rules that are not about
-contrast): every `mark`ed cell also prints the word `nuevo` under it, and the
-widget's legend names all three states in text.
+contrast): every painted state prints a word of its own under the cell (`nuevo`,
+`✓ este`, `sale`), and the
+widget's legend names the three the reader meets most often.

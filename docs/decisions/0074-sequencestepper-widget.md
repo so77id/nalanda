@@ -110,6 +110,43 @@ while the chain grew past it. Both ends are read off the live cells now, and
 the path is drawn with rounded corners, at the weight of a real link, landing
 clear of the index rail rather than through it.
 
+**Amended by:** #288, review pipeline Round A (2026-09-11) — **the validity
+matrix.** A combination is valid only when the listing the widget prints
+belongs to the structure it is drawing, and most of them did not: every
+circular walk still terminated on `null` (an infinite loop on a ring), and
+four doubly-linked mutations never assigned `.prev`. One of them was
+shipping — the circular recipe showed the open-chain `insertFirst`, which
+leaves the last node pointing at the old head and breaks the invariant the
+slide beside it had just stated, while the picture drew the ring
+re-anchoring with no statement responsible for it.
+
+The alternative was to write the ~20 missing listings. Refused: they are
+course material no slide of this class or the next one mounts, and writing
+material speculatively is the failure mode this repo has recorded before.
+So the widget gives up advertised range instead:
+
+| Receta                   | Operaciones válidas                                                                     |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| `array`, `dynamic-array` | las nueve, menos `insert-ordered`                                                       |
+| `linked-list-singly`     | las nueve                                                                               |
+| `linked-list-doubly`     | `get-at`, `search`, `insert-first`, `remove-first`, y `remove-last` **solo con `tail`** |
+| `linked-list-circular`   | `insert-first` (con listado propio: cierra el anillo, y camina para hacerlo)            |
+
+`isValidCombination` takes `tail` for that last row, and the refusal names
+the operations the recipe does have rather than repeating one reason for
+every case. The principle worth keeping is the one the narrowing serves: **a
+widget that shows Java a student may copy refuses a combination rather than
+printing plausible code for the wrong structure.** The same stance is why
+every listing carries its guards (`IndexOutOfBoundsException`,
+`NoSuchElementException`, `IllegalStateException`) — the rule itself is
+course-wide and lives in `teach-a-data-structure.md`.
+
+A second consequence of the same review, on the listings themselves: a
+recipe's listing is addressed by TEXT and never by line number, so every
+fragment a frame highlights must be unique inside its listing — hence one
+`size++` at the end of a branching method rather than one per branch — and
+the call line of a repeated multi-run call is COMPUTED, not searched.
+
 **Source:** Issue #288 — Course document "Estructuras de Datos · Listas
 Enlazadas". The class shows nine operations over five structures, and
 `teach-a-data-structure.md` §7 defers the unit's widget decision to exactly
@@ -125,8 +162,8 @@ four variants, and compares each against the array. The next class mounts
 Stack, Queue and Deque on top of both the list and the array.
 
 `teach-a-data-structure.md` §7 says not to build a widget for one class of the
-unit — *"sketch the animations the whole unit wants, look for the shared
-pattern, and only then decide whether to build, extend or reuse"* — and names
+unit — _"sketch the animations the whole unit wants, look for the shared
+pattern, and only then decide whether to build, extend or reuse"_ — and names
 the linked-list WP as where that decision gets made. So this is not a widget
 invented for #288; it is the unit's widget decision falling due.
 
@@ -146,18 +183,19 @@ Three shapes were on the table.
 
 `eda` picks the structure and `operation` picks the animation. The surface —
 code panel, structure panel, narration strip, controls — is identical across
-every combination, which is itself the pedagogical message: *the operations
-are the same; what changes is where the cost lives.*
+every combination, which is itself the pedagogical message: _the operations
+are the same; what changes is where the cost lives._
 
 Five recipes (`array`, `dynamic-array`, `linked-list-singly`,
-`linked-list-doubly`, `linked-list-circular`) and eight operations
-(`insert-first`, `insert-last`, `insert-at`, `insert-ordered`,
-`remove-first`, `remove-last`, `remove-at`, `search`). Thirty-eight of the
+`linked-list-doubly`, `linked-list-circular`) and nine operations (`get-at`,
+`insert-first`, `insert-last`, `insert-at`, `insert-ordered`, `remove-first`,
+`remove-last`, `remove-at`, `search`). Thirty-one of the forty-five pairs are
+valid. ~~Thirty-eight of the
 forty pairs are valid; the two that are not are `insert-ordered` over the two
-array recipes, refused because this course presents order as a variant of the
-LIST and never defines an ordered array. That refusal is a boot-time
-`<AuthoringError>` addressed to the author, visible in the suite and in
-`/catalog`, never a runtime surprise for a student.
+array recipes~~ — **falsified by this branch's own review; see §Amended by
+2026-09-11 (the validity matrix) for the count that ships.** The refusal is a
+boot-time `<AuthoringError>` addressed to the author, visible in the suite and
+in `/catalog`, never a runtime surprise for a student.
 
 **The widget is three pieces, and two of them are pure.**
 
@@ -169,13 +207,13 @@ LIST and never defines an ordered array. That refusal is a boot-time
   layout, and composes `stepperShell` for playback and chrome.
 
 This is the recipe `apps/web/CLAUDE.md` §2 prescribes for anything jsdom cannot
-see: *"the way out is to not measure"*. Geometry the component COMPUTES lives
+see: _"the way out is to not measure"_. Geometry the component COMPUTES lives
 in a module the suite checks exactly, so no test fakes a measurement — the
 failure mode that shipped a false positive as the contract in #103. What is
 left for the browser is only whether the drawing reads well.
 
 **Every valid combination is a fixture.** `sequenceStepperTrace.test.ts` sweeps
-all thirty-eight, asserting each produces a walkable trace whose highlighted
+every pair `isValidCombination` admits, asserting each produces a walkable trace whose highlighted
 lines exist in its own listing and whose final frame has settled. A change to
 one animation cannot silently break another.
 
@@ -188,8 +226,8 @@ follow-up points.
 
 **The palette registers the meaning it needed.** The refinement conversation
 proposed amber for "new or changed", and amber's nearest EXISTING token was
-`flag`, which `design-system.md` reserves for *errors, warnings, diagnostics —
-semantic, never decorative*. The first draft therefore used `keep`, and that
+`flag`, which `design-system.md` reserves for _errors, warnings, diagnostics —
+semantic, never decorative_. The first draft therefore used `keep`, and that
 was wrong in the other direction: `keep` is success, and a node an insertion
 just linked did not succeed, it is simply the one the frame is about.
 
@@ -232,8 +270,8 @@ nothing checking it. Rejected.
 
 **One widget per operation** (a universal `<InsertFirst>` over any structure).
 Rejected because the operation changes little on the surface and almost
-everything in the render: animating *insert-first over an array* and
-*insert-first over a chain* share nearly no logic. Grouping by operation hides
+everything in the render: animating _insert-first over an array_ and
+_insert-first over a chain_ share nearly no logic. Grouping by operation hides
 that difference inside an internal conditional that does exactly what `eda`
 does explicitly.
 
@@ -249,18 +287,28 @@ drift from the operation it claims to show.
 - **The author writes less, and the two-structure comparison becomes trivial.**
   A slide showing the same operation over an array and a list is two nearly
   identical tags. That is the shape the comparison act of the class needs.
-- **One visual vocabulary.** "Green is new or found", "focus outline is under
+- **One visual vocabulary.** "Amber (`mark`) is new or just changed, green (`keep`) is the search hit", "focus outline is under
   the algorithm's attention", "the pointer prints its name" hold for arrays and
   for lists alike. The reader learns the code once and reads five structures.
-- **The complexity is concentrated.** Thirty-eight combinations live in one
+- **The complexity is concentrated.** Thirty-one combinations live in one
   module rather than spread over five. That is a real cost, and it is paid in
   one place with an exhaustive sweep over it.
 - **The cost counter is on screen.** Each frame carries a running elementary-
   operation count, so the reader reads $$\Theta(1)$$ against $$\Theta(N)$$ off
   the widget instead of memorising the table — the "show the construction, not
   only the result" rule the widgets of #266 and #268 established.
+- **The array recipes ship ahead of their first document.** The comparison act
+  of #288 was expected to be two nearly identical tags; it shipped as a static
+  cost table and prose, so `array` and `dynamic-array` have a catalog entry, an
+  exhaustive trace sweep and no course-document consumer. They are carried for
+  the Stack/Queue/Deque class, which mounts the same TDA over both families —
+  that class is their first reader, and if it does not use them they should be
+  removed rather than re-justified. One asymmetry to close first: the array
+  family animates a single run, while the list family takes arrays for every
+  argument, so "the same operation over both, side by side" is today two tags
+  of different shapes.
 - **The next class reuses it.** Stack over a list and Stack over an array are
-  two tags of the same widget, so *"same TDA, different implementations"* reads
+  two tags of the same widget, so _"same TDA, different implementations"_ reads
   without translating between widgets.
 - **It stays out of the entry chunk.** The widget composes `<CodeStepper>`
   (CodeMirror + the Java grammar), so it registers through
