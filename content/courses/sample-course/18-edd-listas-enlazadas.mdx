@@ -1874,10 +1874,11 @@ La próxima clase estudia tres contratos más chicos que Sequence —los TDA
 **Stack**, **Queue** y **Deque**—, que renuncian al acceso por posición y a
 cambio se cumplen en tiempo constante.
 
-Cada uno se construye sobre un arreglo y sobre una lista, y la comparación
-entre ambas implementaciones es la otra mitad del principio que abre esta
-clase: si aquí un mismo contrato admitió dos estructuras, allá una misma
-estructura cumplirá varios contratos.
+Los tres se construyen sobre un arreglo o sobre una lista enlazada, y la
+elección vuelve a decidir qué sale barato. Un `Stack` sobre lista enlazada
+apila y desapila por el frente, donde está `head`, en $$\Theta(1)$$. Una
+`Queue` mete por un extremo y saca por el otro, así que sobre una lista
+necesita `tail` para que encolar no recorra la cadena entera.
 
 </Slide>
 
