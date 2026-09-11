@@ -1111,25 +1111,28 @@ no de dónde ocurre.
 
 </Slide>
 
-<SectionBreak />
-
 ## El arreglo y la lista enlazada
 
 <Slide title="Arreglo y lista enlazada · la tabla completa">
-| Operación | Arreglo | Arreglo dinámico | Lista simple | Lista doble con tail |
-|---|---|---|---|---|
-| `getAt(i)` · `setAt(i, x)` | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | $$\Theta(N)$$ | $$\Theta(N)$$ |
-| `insertFirst(x)` · `deleteFirst()` | $$\Theta(N)$$ | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> |
-| `insertLast(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ amortizado | $$\Theta(N)$$ | $$\Theta(1)$$ |
-| `deleteLast()` | $$\Theta(1)$$ | $$\Theta(1)$$ amortizado | $$\Theta(N)$$ | $$\Theta(1)$$ |
-| `insertAt(i, x)` · `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
-| `search(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
-| Capacidad | fija | crece | crece | crece |
+| Operación | Arreglo | Arreglo dinámico | Lista simple | Simple con tail | Doble con tail |
+|---|---|---|---|---|---|
+| `getAt(i)` · `setAt(i, x)` | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| `insertFirst(x)` · `deleteFirst()` | $$\Theta(N)$$ | $$\Theta(N)$$ | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> | <span style={{ color: 'var(--color-keep)', fontWeight: 700 }}>$$\Theta(1)$$</span> |
+| `insertLast(x)` | $$\Theta(1)$$ | $$\Theta(1)$$ amortizado | $$\Theta(N)$$ | $$\Theta(1)$$ | $$\Theta(1)$$ |
+| `deleteLast()` | $$\Theta(1)$$ | $$\Theta(1)$$ amortizado | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(1)$$ |
+| `insertAt(i, x)` · `deleteAt(i)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| `search(x)` | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ | $$\Theta(N)$$ |
+| Capacidad | fija | crece | crece | crece | crece |
 
 La primera fila y la segunda son la imagen espejo, y resumen toda la
 comparación: el arreglo llega a cualquier posición con una cuenta y paga por
 abrir hueco al principio; la lista abre hueco al principio con una asignación
 y paga por llegar a cualquier posición.
+
+Las dos columnas de lista con `tail` se separan en una sola fila,
+`deleteLast`, y es la fila que dice para qué sirve cada pieza: `tail` da el
+último nodo, que es lo que `insertLast` necesitaba, y no da el anteúltimo,
+que es lo que `deleteLast` necesita. Eso solo lo da `prev`.
 
 </Slide>
 
@@ -1154,58 +1157,10 @@ se lee por posición.
 
 </Slide>
 
-<Slide title="Lo que la tabla no dice">
-Dos cosas quedan fuera de una tabla de complejidades y a veces deciden la
-elección.
-
-**La memoria que se gasta de más.** Un arreglo guarda los datos y nada más,
-aunque reserve casillas de sobra. Una lista guarda, por cada dato, una
-referencia al siguiente —y dos en la doblemente enlazada—, más el costo de
-cada objeto en sí. Para elementos chicos, como enteros, la estructura puede
-ocupar varias veces lo que ocupan los datos.
-
-**Dónde caen los datos en memoria.** Los elementos de un arreglo están
-juntos, y los procesadores están construidos para eso: leer una posición
-trae también a sus vecinas. Los nodos de una lista pueden estar dispersos, y
-cada salto puede caer lejos del anterior. Dos recorridos que la tabla llama
-igual, ambos $$\Theta(N)$$, pueden medir tiempos muy distintos.
-
-Ninguna de las dos contradice la tabla: las constantes que el orden
-asintótico deja fuera son reales, y se notan cuando $$N$$ es chico o cuando
-las dos opciones tienen el mismo orden.
-
-</Slide>
-
-<Slide title="Un método, dos estructuras">
-El contrato compartido es lo que permite escribir código que no elige.
-
-```java
-public static int sumar(Sequence s) {
-    int total = 0;
-    for (int i = 0; i < s.len(); i++) {
-        total += s.getAt(i);
-    }
-    return total;
-}
-```
-
-Este método funciona con un arreglo y con una lista, sin cambiar una línea y
-sin saber cuál recibió. Eso es el TDA cumpliendo su promesa.
-
-También muestra el otro lado. Sobre un arreglo el recorrido cuesta
-$$\Theta(N)$$; sobre una lista, cada `getAt(i)` vuelve a caminar desde
-`head`, así que el mismo código cuesta $$\Theta(N^2)$$. El contrato garantiza
-que compila y que da el resultado correcto, y no garantiza nada sobre el
-tiempo: por eso conviene recorrer una lista siguiendo sus enlaces una sola
-vez, en lugar de pedirle posiciones.
-
-</Slide>
-
-<SectionBreak />
-
 ## Los ejercicios canónicos
 
-<Slide title="Invertir la lista · dar vuelta cada enlace">
+### Invertir la lista · dar vuelta cada enlace
+
 Invertir una lista no mueve datos: da vuelta el sentido de cada enlace. El
 recorrido necesita tres referencias al mismo tiempo.
 
@@ -1229,9 +1184,8 @@ el acceso al resto de la cadena se pierde, así que hay que guardarlo antes.
 Una pasada, $$\Theta(N)$$ tiempo y $$\Theta(1)$$ espacio adicional. Al
 terminar, `current` es `null` y `prev` es la nueva cabeza.
 
-</Slide>
+### Invertir con recursión
 
-<Slide title="Invertir con recursión">
 La misma operación admite una escritura recursiva, sobre la idea de que
 invertir una lista es invertir su cola y después enganchar la cabeza al
 final.
@@ -1257,9 +1211,8 @@ $$N$$ llamadas anidadas en la pila antes de que la primera termine, así que
 el espacio adicional es $$\Theta(N)$$. El análisis de ese costo está en
 [[complejidad-recursion|Complejidad y recursión]].
 
-</Slide>
+### Detectar un ciclo · dos velocidades
 
-<Slide title="Detectar un ciclo · dos velocidades">
 Una cadena que en vez de terminar en `null` vuelve sobre sí misma hace que
 cualquier recorrido no termine. Detectarlo con dos punteros que avanzan a
 distinta velocidad se conoce como algoritmo de la liebre y la tortuga, y se
@@ -1287,9 +1240,8 @@ acerca al lento un nodo por vuelta, alcanzarlo es cuestión de tiempo.
 Comparamos `slow == fast`, que pregunta si son **el mismo nodo**, y no
 `slow.value == fast.value`, que preguntaría si guardan el mismo número.
 
-</Slide>
+### El nodo del medio en una pasada
 
-<Slide title="El nodo del medio en una pasada">
 La misma idea de dos velocidades resuelve un problema distinto: encontrar el
 nodo del medio sin saber cuántos hay.
 
@@ -1313,9 +1265,8 @@ también es $$\Theta(N)$$ y también es correcta. Esta versión hace una sola
 pasada, que es lo que importa cuando los datos llegan de a uno y no se pueden
 volver a leer.
 
-</Slide>
+### Fusionar dos listas ordenadas
 
-<Slide title="Fusionar dos listas ordenadas">
 Dadas dos listas ordenadas, producir una sola ordenada con todos los
 elementos es el mismo procedimiento que combina las mitades en el
 ordenamiento por mezcla.
@@ -1346,9 +1297,8 @@ primer elemento; al final se devuelve el que le sigue.
 Sobre listas la fusión no necesita memoria adicional para los datos: reordena
 enlaces. Sobre arreglos, la misma operación necesita un arreglo auxiliar.
 
-</Slide>
+### El precio de pedir cualquier posición
 
-<Slide title="El precio de pedir cualquier posición">
 Las dos estructuras de esta unidad comparten una debilidad, y es la misma
 fila de la tabla: `insertAt`, `deleteAt` y —en la lista— `getAt` cuestan
 $$\Theta(N)$$ en todas las variantes. La causa es distinta en cada una
@@ -1366,8 +1316,6 @@ vez**, cada una usando justamente la punta donde es rápida.
 El precio es perder el acceso por posición: lo que se gana en costo se paga
 en lo que ya no se puede pedir. Esos contratos más chicos son los TDA Stack,
 Queue y Deque.
-
-</Slide>
 
 ## Ejercicios
 
@@ -1853,18 +1801,18 @@ Según la tabla comparativa, ¿qué operación tiene costo constante en el arreg
 
 </Question>
 
-<Question id="lista-lo-que-la-tabla-no-dice" anchor="lo-que-la-tabla-no-dice">
+<Question id="lista-cuando-conviene-la-lista" anchor="cuando-conviene-cada-una">
 
-¿Qué costos reales quedan fuera de una tabla de complejidades?
+¿Qué mezcla de operaciones hace conveniente una lista enlazada antes que un arreglo?
 
-- [x] La memoria extra que gasta cada nodo en sus referencias
-- [x] Que los elementos juntos en memoria se leen más rápido que los dispersos
-- [ ] El peor caso de cada operación
-- [ ] La cantidad de operaciones elementales de un recorrido
+- [x] Insertar y eliminar seguido en los extremos, y casi nunca pedir una posición
+- [ ] Leer muchas veces por posición y modificar poco la forma
+- [ ] Comparar pares de elementos por sus índices
+- [ ] Recorrer la colección de principio a fin una sola vez
 
 </Question>
 
-<Question id="lista-getat-en-un-bucle" anchor="un-metodo-dos-estructuras">
+<Question id="lista-getat-en-un-bucle" anchor="cuando-conviene-cada-una">
 
 Un bucle que llama a `getAt(i)` para cada posición resulta cuadrático sobre una lista. ¿Por qué?
 
@@ -1875,7 +1823,7 @@ Un bucle que llama a `getAt(i)` para cada posición resulta cuadrático sobre un
 
 </Question>
 
-<Question id="lista-invertir-tercera-referencia" anchor="invertir-la-lista-dar-vuelta-cada-enlace">
+<Question id="lista-invertir-tercera-referencia" anchor="los-ejercicios-canonicos">
 
 Al invertir una lista con tres referencias, ¿para qué sirve la que guarda el siguiente?
 
@@ -1886,7 +1834,7 @@ Al invertir una lista con tres referencias, ¿para qué sirve la que guarda el s
 
 </Question>
 
-<Question id="lista-floyd-que-compara" anchor="detectar-un-ciclo-dos-velocidades">
+<Question id="lista-floyd-que-compara" anchor="los-ejercicios-canonicos">
 
 En la detección de ciclos con dos velocidades, ¿qué compara `slow == fast`?
 
@@ -1897,7 +1845,7 @@ En la detección de ciclos con dos velocidades, ¿qué compara `slow == fast`?
 
 </Question>
 
-<Question id="lista-medio-en-una-pasada" anchor="el-nodo-del-medio-en-una-pasada">
+<Question id="lista-medio-en-una-pasada" anchor="los-ejercicios-canonicos">
 
 ¿Por qué el puntero lento queda en el medio cuando el rápido llega al final?
 
@@ -1908,7 +1856,7 @@ En la detección de ciclos con dos velocidades, ¿qué compara `slow == fast`?
 
 </Question>
 
-<Question id="lista-fusionar-nodo-de-mentira" anchor="fusionar-dos-listas-ordenadas">
+<Question id="lista-fusionar-nodo-de-mentira" anchor="los-ejercicios-canonicos">
 
 Al fusionar dos listas ordenadas, ¿para qué sirve el nodo de mentira del principio?
 
